@@ -105,8 +105,12 @@ class DecayParticle(base_objects.Particle):
             pass
             
         for item in init_dict.keys():
-            self.set(item, init_dict[item], force)
-
+            try:
+                self.set(item, init_dict[item], force)
+            except:
+                pass
+            
+            
     def default_setup(self):
         """Default values for all properties"""
         
@@ -768,7 +772,7 @@ class DecayParticle(base_objects.Particle):
                c. If the new channel does not exist in 'decay_channels',
                   then if the new channel has no identical particle, append it.
                   If the new channel has identical particle, check if it is not
-                  equvialent with the existing channels. Then append it.
+                  equivalent with the existing channels. Then append it.
          """
 
         # Check validity of argument
@@ -1189,8 +1193,10 @@ class DecayModel(base_objects.Model):
         # to Particle rather than DecayParticle.
         for item in init_dict.keys():
             if item != 'particles' and item != 'particle_dict':
-                self.set(item, init_dict[item], force)
-
+                try:
+                    self.set(item, init_dict[item], force)
+                except:
+                    pass
 
         
     def default_setup(self):
@@ -2741,8 +2747,7 @@ class DecayModel(base_objects.Model):
         allow_formats = ['normal','full','cmp']
 
         # Raise error if format is wrong
-        if not format in allow_formats:
-            raise self.PhysicsObjectError,\
+        assert format in allow_formats, \
                 "The format must be \'normal\' or \'full\' or \'cmp\'." \
                 % str(name)
 

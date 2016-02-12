@@ -704,6 +704,8 @@ class ColorMatrix(dict):
             incoming_index_Q2, emitting_repr, first_outgoing_index_Q2, second_outgoing_index, qqbar=qqbar) )
 
 
+        #gl
+        connection['emitting_indices'] = emitting_index
         # We must add the newly generated index to the list of available ones. 
         if not qqbar:
             # It is always a gluon then
@@ -897,7 +899,9 @@ class ColorMatrix(dict):
                  # structurally convenient and adds only insignificant memory overhead since this dictionary
                  # will be copied as a reference in each color connection.
                  # Keys are leg number while values are quantum numbers.
-                 'reduced_indices'      : {}
+                 'reduced_indices'      : {},
+                 #gl
+                 'emitting_indices'     : 0
                  }
             ]
         }
@@ -945,7 +949,9 @@ class ColorMatrix(dict):
                        'last_dummy_index_Q2'    : correlator['last_dummy_index_Q2'],
                        'tuple_representation'   : list(correlator['tuple_representation']),
                        'n_representatives'      : correlator['n_representatives'],
-                       'reduced_indices'        : correlator['reduced_indices']
+                       'reduced_indices'        : correlator['reduced_indices'],
+                       #gl
+                       'emitting_indices'       : correlator['emitting_indices']
                      }
             if 'emitted_numbers_pool' in correlator:
                 copy['emitted_numbers_pool'] = list(correlator['emitted_numbers_pool'])
@@ -1284,7 +1290,8 @@ class ColorMatrix(dict):
                     # And we can now add our finalized color_matrix to the dictionary that will be returned
                     all_color_correlated_matrices[color_correlator_identifier] = ( 
                         ( str(connection_Q1['color_string_Q1']), 
-                          str(connection_Q2['color_string_Q2']) ), color_matrix )
+                          str(connection_Q2['color_string_Q2']) ), color_matrix,
+                        ( connection_Q1['emitting_indices'], connection_Q2['emitting_indices']) ) #gl
                     
                     n_correlator_processed += 1
                     if progress_bar:

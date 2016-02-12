@@ -2385,13 +2385,6 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             process.get('legs'), process.get('model'), order=self.opt['color_correlators'], set_user_qqbar = set_user_qqbar)            
         # color_correlated_matrices, color_connections = color_matrix.build_color_correlated_matrices(
         #     process.get('legs'), process.get('model'), order=self.opt['color_correlators'])
-
-        #gl
-        #print(process.nice_string())
-        #print('color_correlated_matrices')
-        #print(color_correlated_matrices)
-        #print('color_connections')
-        #print(color_connections)
         
         sorted_color_correlators = sorted(color_correlated_matrices.keys())
         all_color_connections = sum([color_connections['N'*order+'LO'] for order in 
@@ -2641,12 +2634,11 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
                 color_matrix.col_matrix_fixed_Nc is None else ''))
             #gl
             color_dipoles = []
-            # TODO: fix leg number extraction
-            for icc2, repr in enumerate(color_correlated_matrices[color_correlator_key][0]):
+            for icc2, dipole_leg in enumerate(color_correlated_matrices[color_correlator_key][2]):
                 if icc2 == 0:
-                    color_dipoles.append(int(repr[-2]))
+                    color_dipoles.append(int(dipole_leg))
                 elif icc2 == 1:
-                    color_dipoles.append(int(repr[-2]))
+                    color_dipoles.append(int(dipole_leg))
             color_dipole_list.append(color_dipoles)
                 
             for index, denominator in enumerate(color_matrix.get_line_denominators()):

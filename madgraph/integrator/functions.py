@@ -72,13 +72,12 @@ class FunctionFromPythonExpression(VirtualFunction):
     """A simple function from python expression using the variables ci[k] and di[k] for the continuous and
     discrete inputs respectively"""
 
-    def __init__(self, expr, **opts):
+    def __init__(self, expr, dimensions=None, **opts):
         self.expr = expr
-        try:
-            dimensions = opts.pop('dimensions')
+        if dimensions:
             self.ci_labels = [d.name for d in dimensions.get_continuous_dimensions()]
             self.di_labels = [d.name for d in dimensions.get_discrete_dimensions()]
-        except:
+        else:
             self.ci_labels = None
             self.di_labels = None            
         super(FunctionFromPythonExpression,self).__init__(**opts)
@@ -87,6 +86,7 @@ class FunctionFromPythonExpression(VirtualFunction):
         """ Evaluate Python expression from its expression provided when instantiated
         and the discrete and continous dimensions provided."""
         locals = {'ci':ci,'di':di, 'math': math, 'cmath': cmath, 'random': random,'numpy':np}
+
         if self.ci_labels:
             for i, input in enumerate(ci):
                 locals[self.ci_labels[i]] = input

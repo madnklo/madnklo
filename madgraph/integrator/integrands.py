@@ -129,19 +129,29 @@ class VirtualIntegrand(object):
     """A mother base class that specifies the feature that any integrand should implement."""
     
     def __init__(self, dimensions=DimensionList()):
-        self.dimensions                 = dimensions
+        self.continuous_dimensions      = dimensions.get_continuous_dimensions()
+        self.discrete_dimensions        = dimensions.get_discrete_dimensions()
         self.apply_observables          = True
         self.observable_list            = observables.ObservableList()
         self.function_list              = functions.FunctionList()
         pass
     
+    def get_dimensions(self):
+        """ Return all dimensions characterizing this integrand."""
+        return DimensionList(self.continuous_dimensions + self.discrete_dimensions)
+
+    def set_dimensions(self, dimensions):
+        """ Set the dimensions characterizing this integrand."""
+        self.continuous_dimensions      = dimensions.get_continuous_dimensions()
+        self.discrete_dimensions        = dimensions.get_discrete_dimensions()
+
     def __call__(self, continuous_inputs, discrete_inputs, **opts):
         """ Integrand function call, with list of continuous and discrete input values for all dimensions."""
         assert(self.check_input_types(continuous_inputs, discrete_inputs))
         assert(len(discrete_inputs)==
-               len([1 for d in self.dimensions.get_discrete_dimensions() if not d.folded]))
+               len([1 for d in self.discrete_dimensions if not d.folded]))
         assert(len(continuous_inputs)==
-               len([1 for d in self.dimensions.get_continuous_dimensions() if not d.folded]))
+               len([1 for d in self.continuous_dimensions if not d.folded]))
         
         # A unique float must be returned
         wgt = 0.0

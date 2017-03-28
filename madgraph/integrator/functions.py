@@ -17,6 +17,8 @@ from __future__ import division
 import os
 import logging
 import math
+import cmath
+import random
 import shutil
 import numpy as np
 
@@ -29,14 +31,14 @@ except ImportError:
     import internal.files as files
     import internal.cluster as cluster
     import internal.lhe_parser as lhe_parser
-    import internal.integrands as integrands
+    import internal.misc_integrator as misc_integrator
 else:
     MADEVENT= False
     import madgraph.various.misc as misc
     import madgraph.iolibs.files as files
     import madgraph.various.cluster as cluster
     import madgraph.various.lhe_parser as lhe_parser
-    import madgraph.integrator.integrands as integrands
+    import madgraph.integrator.misc_integrator as misc_integrator
 
 logger = logging.getLogger('madgraph.integrator')
 pjoin = os.path.join
@@ -46,22 +48,25 @@ class VirtualFunction(object):
         
     def __call__(self, continuous_inputs, discrete_inputs, **opts):
         """ Integrand function call, with list of continuous and discrete input values for all dimensions."""
-        integrands.VirtualIntegrand.check_input_types(continuous_inputs, discrete_inputs)
+        self.check_input_types(continuous_inputs, discrete_inputs)
         
         # A unique float must be returned, but additional return values can 
         # be specified in the body of the function or via options.
         return 0.0
 
+    def check_input_types(self, *args, **opts):
+        return misc_integrator.check_input_types(*args, **opts)
+
 class FunctionList(list):
     """A mother base class that specified mandatory feature that any observable list should implement."""
 
     def __init__(self, *args, **opts):
-        super(list, self).__init__(self, *args, **opts)
+        super(FunctionList, self).__init__(*args, **opts)
 
     def append(self, arg, **opts):
         """ Type-checking. """
         assert(isinstance(arg, VirtualFunction))
-        super(list, self).append(self, arg, **opts)
+        super(FunctionList, self).append(self, arg, **opts)
 
 class FunctionFromPythonExpression(VirtualFunction):
     """A simple function from python expression using the variables ci[k] and di[k] for the continuous and
@@ -76,12 +81,12 @@ class FunctionFromPythonExpression(VirtualFunction):
         except:
             self.ci_labels = None
             self.di_labels = None            
-        super(VirtualFunction,self).__init__(**opts)
+        super(FunctionFromPythonExpression,self).__init__(**opts)
 
     def __call__(self, ci, di, **opts):
         """ Evaluate Python expression from its expression provided when instantiated
         and the discrete and continous dimensions provided."""
-        locals = {'ci':ci,'di':di}
+        locals = {'ci':ci,'di':di, 'math': math, 'cmath': cmath, 'random': random,'numpy':np}
         if self.ci_labels:
             for i, input in enumerate(ci):
                 locals[self.ci_labels[i]] = input
@@ -89,5 +94,5 @@ class FunctionFromPythonExpression(VirtualFunction):
             for i, input in enumerate(di):
                 locals[self.di_labels[i]] = input
 
-        return eval(expr, locals)
+        return {'weight': eval(self.expr, locals)}
     

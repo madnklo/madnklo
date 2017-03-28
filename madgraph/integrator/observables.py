@@ -29,15 +29,14 @@ except ImportError:
     import internal.files as files
     import internal.cluster as cluster
     import internal.lhe_parser as lhe_parser
-    import internal.integrands as integrands
+    import internal.misc_integrator as misc_integrator
 else:
     MADEVENT= False
     import madgraph.various.misc as misc
     import madgraph.iolibs.files as files
     import madgraph.various.cluster as cluster
     import madgraph.various.lhe_parser as lhe_parser
-    import madgraph.integrator.integrands as integrands
-
+    import madgraph.integrator.misc_integrator as misc_integrator
 
 logger = logging.getLogger('madgraph.integrator')
 pjoin = os.path.join
@@ -51,29 +50,34 @@ class VirtualObservable(object):
 
     def __call__(self, continuous_inputs, discrete_inputs, wgt, **opts):
         """ Integrand function call, with list of continuous and discrete input values for all dimensions."""
-        integrands.VirtualIntegrand.check_input_types(continuous_inputs, discrete_inputs)
+        self.check_input_types(continuous_inputs, discrete_inputs)
         assert(isinstance(wgt, float))
         
         # A unique float must be returned, but additional return values can 
         # be specified in the body of the function or via options.
         return True
 
+    def check_input_types(self, *args, **opts):
+        return misc_integrator.check_input_types(*args, **opts)
+
+
 class ObservableList(list):
     """A mother base class that specified mandatory feature that any observable list should implement."""
 
     def __init__(self, *args, **opts):
-        super(list, self).__init__(self, *args, **opts)
+        super(ObservableList, self).__init__(self, *args, **opts)
 
     def apply_observables(self, continuous_inputs, discrete_inputs, wgt, **opts):
         """ Apply observables."""
-        integrands.VirtualIntegrand.check_input_types(continuous_inputs, discrete_inputs)
+        self.check_input_types(continuous_inputs, discrete_inputs)
         for obs in self:
             obs(continuous_inputs, discrete_inputs, wgt)
 
     def append(self, arg, **opts):
         """ Type-checking. """
         assert(isinstance(arg, VirtualObservable))
-        super(list, self).append(self, arg, **opts)
+        super(ObservableList, self).append(self, arg, **opts)
     
-    
+    def check_input_types(self, *args, **opts):
+        return misc_integrator.check_input_types(*args, **opts)
     

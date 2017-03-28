@@ -32,6 +32,7 @@ except ImportError:
     import internal.lhe_parser as lhe_parser
     import internal.functions as functions
     import internal.observables as observables
+    import internal.misc_integrator as misc_integrator
 else:
     MADEVENT= False
     import madgraph.various.misc as misc
@@ -40,48 +41,10 @@ else:
     import madgraph.various.lhe_parser as lhe_parser
     import madgraph.integrator.functions as functions
     import madgraph.integrator.observables as observables
+    import madgraph.integrator.misc_integrator as misc_integrator
 
 logger = logging.getLogger('madgraph.integrator')
 pjoin = os.path.join
-
-class VirtualIntegrand(object):
-    """A mother base class that specifies the feature that any integrand should implement."""
-    
-    @classmethod
-    def check_input_types(continuous_inputs, discrete_inputs):
-        """ Wrapper to easily check input types."""
-        assert(isinstance(discrete_inputs, np.ndarray))
-        assert(isinstance(i, np.int64) for i in discrete_inputs)
-        assert(isinstance(continous_inputs, np.ndarray))
-        assert(isinstance(f, numpy.float64) for f in continuous_inputs)        
-        return True
-
-    def __init__(self, dimensions=DimensionList()):
-        self.dimensions                 = dimensions
-        self.apply_observables          = True
-        self.observable_list            = VirtualObservableList()
-        self.function_list              = VirtualFunctionList()
-        pass
-    
-    def __call__(self, continuous_inputs, discrete_inputs, **opts):
-        """ Integrand function call, with list of continuous and discrete input values for all dimensions."""
-        assert(check_input_types(continuous_inputs, discrete_inputs))
-        assert(len(discrete_inputs)==
-               len([_ for d in self.dimensions.get_discrete_dimensions() if not d.folded]))
-        assert(len(continuous_inputs)==
-               len([_ for d in self.dimensions.get_continuous_dimensions() if not d.folded]))
-        
-        # A unique float must be returned
-        wgt = 0.0
-        
-        # This is the hearth of where the complication for building the integrand lie.
-        # This virtual integrator implements the simplest possible case-use
-        wgt = sum(f(continuous_inputs, discrete_inputs) for f in self.function_list)
-        
-        if self.apply_observables:
-            self.observable_list.apply_observables(continuous_inputs, discrete_inputs, wgt)
-
-        return wgt
 
 class Dimension(object):
     """ A dimension object specifying a specific integration dimension."""
@@ -104,7 +67,7 @@ class DiscreteDimension(Dimension):
             self.normalized = opts.pop('normalized')
         except:
             self.normalized = False
-        super(Dimension, self).__init__(name, **opts)
+        super(DiscreteDimension, self).__init__(name, **opts)
         assert(isinstance(values, list))
         self.values = values
     
@@ -120,8 +83,8 @@ class DiscreteDimension(Dimension):
 class ContinuousDimension(Dimension):
     """ A dimension object specifying a specific discrete integration dimension."""
     
-    def __init__(self, name, lower_bound=0.0, upper_bound=1.0):
-        super(Dimension, self).__init__(name, **opts)
+    def __init__(self, name, lower_bound=0.0, upper_bound=1.0, **opts):
+        super(ContinuousDimension, self).__init__(name, **opts)
         assert(upper_bound>lower_bound)
         self.lower_bound  = lower_bound
         self.upper_bound  = upper_bound 
@@ -130,13 +93,13 @@ class ContinuousDimension(Dimension):
         return (self.upper_bound-self.lower_bound)
 
     def random_sample(self):
-        return np.float64(lower_bound+random.random()*(upper_bound-lower_bound))
+        return np.float64(self.lower_bound+random.random()*(self.upper_bound-self.lower_bound))
 
 class DimensionList(list):
     """A DimensionList."""
 
     def __init__(self, *args, **opts):
-        super(list, self).__init__(self, *args, **opts)
+        super(DimensionList, self).__init__(*args, **opts)
 
     def volume(self):
         """ Returns the volue of the complete list of dimensions."""
@@ -148,7 +111,7 @@ class DimensionList(list):
     def append(self, arg, **opts):
         """ Type-checking. """
         assert(isinstance(arg, Dimension))
-        super(list, self).append(self, arg, **opts)
+        super(DimensionList, self).append(self, arg, **opts)
         
     def get_discrete_dimensions(self):
         """ Access all discrete dimensions. """
@@ -159,4 +122,41 @@ class DimensionList(list):
         return DimensionList(d for d in self if isinstance(d, ContinuousDimension))
     
     def random_sample(self):
-        return np.array(d.random_sample() for d in self)
+        return np.array([d.random_sample() for d in self])
+
+
+class VirtualIntegrand(object):
+    """A mother base class that specifies the feature that any integrand should implement."""
+    
+    def __init__(self, dimensions=DimensionList()):
+        self.dimensions                 = dimensions
+        self.apply_observables          = True
+        self.observable_list            = observables.ObservableList()
+        self.function_list              = functions.FunctionList()
+        pass
+    
+    def __call__(self, continuous_inputs, discrete_inputs, **opts):
+        """ Integrand function call, with list of continuous and discrete input values for all dimensions."""
+        assert(self.check_input_types(continuous_inputs, discrete_inputs))
+        assert(len(discrete_inputs)==
+               len([1 for d in self.dimensions.get_discrete_dimensions() if not d.folded]))
+        assert(len(continuous_inputs)==
+               len([1 for d in self.dimensions.get_continuous_dimensions() if not d.folded]))
+        
+        # A unique float must be returned
+        wgt = 0.0
+        
+        # This is the hearth of where the complication for building the integrand lie.
+        # This virtual integrator implements the simplest possible case-use
+        data = [f(continuous_inputs, discrete_inputs) for f in self.function_list]
+        wgt = sum(d['weight'] for d in data)
+        
+        if self.apply_observables:
+            self.observable_list.apply_observables(continuous_inputs, discrete_inputs, data)
+
+        return wgt
+
+    def check_input_types(self, *args, **opts):
+        return misc_integrator.check_input_types(*args, **opts)
+
+

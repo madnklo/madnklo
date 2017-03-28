@@ -18,6 +18,11 @@ import logging
 import math
 import shutil
 import numpy as np
+import sys
+
+if __name__ == '__main__':
+    print __file__
+    sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.pardir, os.path.pardir))
 
 try:
     import madgraph
@@ -48,6 +53,7 @@ class VirtualIntegrator(object):
     
     def __init__(self, integrand, **opts):
         self.integrand = integrand
+        assert self.integrand.function_list
         
     def integrate(self):
         """ Return the final integral and error estimators. """
@@ -66,7 +72,7 @@ class SimpleMonteCarloIntegrator(VirtualIntegrator):
         self.n_iterations = n_iterations
         self.n_points_per_iterations = n_points_per_iterations
         
-        super(VirtualIntegratorm,self).__init__(integrand, **opts)
+        super(SimpleMonteCarloIntegrator, self).__init__(integrand, **opts)
         
     def integrate(self):
         """ Return the final integral and error estimates."""
@@ -75,26 +81,27 @@ class SimpleMonteCarloIntegrator(VirtualIntegrator):
         sum_int            = 0.0
         sum_squared        = 0.0
         n_points           = 0
-        error_estimate     = 0.0
+        error_estimate     = sys.maxint
         integral_estimate  = 0.0
-    
+        
+
         while (self.n_iterations is None or iteration_number <= self.n_iterations ) and \
-              (self.accuracy_target is None or error_estimate < self.accuracy_target):   
+              (self.accuracy_target is None or error_estimate/(1e-99+integral_estimate) > self.accuracy_target):   
+
             iteration_number += 1
-            
             n_curr_points = 0
             while n_curr_points <= self.n_points_per_iterations:
                 n_points += 1
                 n_curr_points += 1
                 discrete_dimensions = self.integrand.dimensions.get_discrete_dimensions().random_sample()
                 continuous_dimensions = self.integrand.dimensions.get_continuous_dimensions().random_sample()
-                new_wgt = self.integrand(discrete_dimensions,continuous_dimensions)
+                new_wgt = self.integrand(continuous_dimensions,discrete_dimensions)
                 sum_int += new_wgt
                 sum_squared += new_wgt**2
             
             integral_estimate = sum_int / n_points
-            error_estimate =  math.sqrt( (sum_squared / n_points) - integral_estimate**2 )
-    
+            error_estimate =  math.sqrt( ((sum_squared / n_points) - integral_estimate**2)/n_points)
+            print iteration_number, integral_estimate, error_estimate
         phase_space_volume = self.integrand.dimensions.volume()
         return phase_space_volume*integral_estimate, phase_space_volume*error_estimate
             
@@ -114,11 +121,11 @@ if __name__ == "__main__":
     # Define its constituting functions
     my_integrand.function_list = functions.FunctionList([
                 functions.FunctionFromPythonExpression('math.sin(x/y)', dimensions=my_integrand.dimensions),
-                functions.FunctionFromPythonExpression('math.tan(x*y)', dimensions=my_integrand.dimensions)
+                functions.FunctionFromPythonExpression('math.cos(x*y)', dimensions=my_integrand.dimensions)
             ])
-    
+
     # Then the integrator
-    my_integrator = SimpleMonteCarloIntegrator(my_integrand)
+    my_integrator = SimpleMonteCarloIntegrator(my_integrand, n_iterations=50, n_points_per_iterations=100, accuracy_target=None)
     
     # Finally integrate
     print my_integrator.integrate()

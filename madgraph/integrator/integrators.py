@@ -56,44 +56,45 @@ class VirtualIntegrator(object):
 class SimpleMonteCarloIntegrator(VirtualIntegrator):
     """ Implements the simplest Monte-Carlo integrator. """
     
-    def __init__(self, integrand, **opts):
+    def __init__(self, integrand, 
+                 accuracy_target=0.01,
+                 n_iterations=None,
+                 n_points_per_iterations=100, **opts):
         """ Initialize the simplest MC integrator."""
-        try:
-            self.accuracy_target = opts.pop('accuracy_target')
-        except KeyError:
-            self.accuracy_target = 0.01
-        try:
-            self.n_iterations = opts.pop('n_iterations')
-        except KeyError:
-            self.n_iterations = None
-        try:
-            self.n_points_per_iterations = opts.pop('n_points_per_iterations')
-        except KeyError:
-            self.n_points_per_iterations = 100
+        
+        self.accuracy_target = accuracy_target
+        self.n_iterations = n_iterations
+        self.n_points_per_iterations = n_points_per_iterations
+        
         super(VirtualIntegratorm,self).__init__(integrand, **opts)
         
     def integrate(self):
         """ Return the final integral and error estimates."""
         
         iteration_number   = 0
-        integral_estimate  = 0.0
+        sum_int            = 0.0
+        sum_squared        = 0.0
+        n_points           = 0
         error_estimate     = 0.0
-           
+        integral_estimate  = 0.0
+    
         while (self.n_iterations is None or iteration_number <= self.n_iterations ) and \
-              (self.accuracy_target is None or self.error_estimate < self.accuracy_target):   
-            n_points = 0
+              (self.accuracy_target is None or error_estimate < self.accuracy_target):   
+            iteration_number += 1
             
-            while n_points <= self.n_points_per_iterations:
+            n_curr_points = 0
+            while n_curr_points <= self.n_points_per_iterations:
                 n_points += 1
-                discrete_dimensions = self.integrand.dimensions.get_discrete_dimensions().randome_sample()
-                continuous_dimensions = self.integrand.dimensions.get_continuous_dimensions().randome_sample()
+                n_curr_points += 1
+                discrete_dimensions = self.integrand.dimensions.get_discrete_dimensions().random_sample()
+                continuous_dimensions = self.integrand.dimensions.get_continuous_dimensions().random_sample()
                 new_wgt = self.integrand(discrete_dimensions,continuous_dimensions)
-                self.integral_estimate += new_wgt
-                self.error_estimate += new_wgt**2
+                sum_int += new_wgt
+                sum_squared += new_wgt**2
             
-            integral_estimate /= n_points
-            error_estimate = (math.sqrt(self.error_estimate) / n_points) 
-        
+            integral_estimate = sum_int / n_points
+            error_estimate =  math.sqrt( (sum_squared / n_points) - integral_estimate**2 )
+    
         phase_space_volume = self.integrand.dimensions.volume()
         return phase_space_volume*integral_estimate, phase_space_volume*error_estimate
             

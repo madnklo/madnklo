@@ -47,6 +47,9 @@ else:
 logger = logging.getLogger('madgraph.integrator')
 pjoin = os.path.join
 
+class IntegratorError(Exception):
+    """Exception raised if an exception is triggered in integrators.""" 
+
 class VirtualIntegrator(object):
     """A mother base class that specifies the feature that any integrator should implement."""
     
@@ -66,12 +69,14 @@ class SimpleMonteCarloIntegrator(VirtualIntegrator):
     def __init__(self, integrands, 
                  accuracy_target=0.01,
                  n_iterations=None,
-                 n_points_per_iterations=100, **opts):
+                 n_points_per_iterations=100,
+                 verbosity = 2, **opts):
         """ Initialize the simplest MC integrator."""
         
         self.accuracy_target = accuracy_target
         self.n_iterations = n_iterations
         self.n_points_per_iterations = n_points_per_iterations
+        self.verbosity = verbosity
         
         super(SimpleMonteCarloIntegrator, self).__init__(integrands, **opts)
         
@@ -110,7 +115,8 @@ class SimpleMonteCarloIntegrator(VirtualIntegrator):
                 self.__class__.__name__, iteration_number, 
                 '%d'%self.n_iterations if self.n_iterations else 'inf' ,n_points, 
                 integral_estimate, error_estimate)
-            print msg
+            if self.verbosity > 0:
+                print msg
 
         return integral_estimate, error_estimate
             
@@ -123,8 +129,8 @@ if __name__ == "__main__":
     my_integrand = integrands.VirtualIntegrand()
     # Define its dimensions
     my_integrand.set_dimensions( integrands.DimensionList([
-            integrands.ContinuousDimension('x'),
-            integrands.ContinuousDimension('y' ,lower_bound=0.0, upper_bound=3.0)
+            integrands.ContinuousDimension('x',lower_bound=2.0, upper_bound=5.0),
+            integrands.ContinuousDimension('y' ,lower_bound=1.0, upper_bound=3.0)
              ]) )
                     
     # Define its constituting functions
@@ -138,4 +144,4 @@ if __name__ == "__main__":
         n_iterations=50, n_points_per_iterations=10000, accuracy_target=None)
     
     # Finally integrate
-    print 'Final result: %.4e +/- %.2e'%my_integrator.integrate()
+    print '\nFinal result: %.4e +/- %.2e'%my_integrator.integrate()

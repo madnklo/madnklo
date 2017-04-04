@@ -156,8 +156,8 @@ class VirtualIntegrand(object):
         # A unique float must be returned
         wgt = 0.0
         
-        # This is the hearth of where the complication for building the integrand lie.
-        # This virtual integrator implements the simplest possible case-use
+        # This is the heart of where the complication for building the integrand lies.
+        # This virtual integrator implements the simplest possible use-case
         data = [f(continuous_inputs, discrete_inputs) for f in self.function_list]
         wgt = sum(d['weight'] for d in data)
         

@@ -63,6 +63,10 @@ class VirtualIntegrator(object):
         """ Return the final integral and error estimators. """
         raise NotImplementedError
     
+    def get_name(self):
+        """ Returns the integrator name."""
+        return self.__class__.__name__
+
 class SimpleMonteCarloIntegrator(VirtualIntegrator):
     """ Implements the simplest Monte-Carlo integrator. """
     

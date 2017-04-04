@@ -258,6 +258,10 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
         return pyCubaIntegrator.wrapped_integrand(ndim, xx, ncomp, ff, None)
 
 
+    def get_name(self):
+        """ Returns the integrator name."""
+        return self.__class__.__name__+'@%s'%self.algorithm
+
     def aggregate_results(self):
         """ Aggregate results from a MC run into a global summed contribution and error."""
         

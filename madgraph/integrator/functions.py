@@ -66,7 +66,7 @@ class FunctionList(list):
     def append(self, arg, **opts):
         """ Type-checking. """
         assert(isinstance(arg, VirtualFunction))
-        super(FunctionList, self).append(self, arg, **opts)
+        super(FunctionList, self).append(arg, **opts)
 
 class FunctionFromPythonExpression(VirtualFunction):
     """A simple function from python expression using the variables ci[k] and di[k] for the continuous and

@@ -80,7 +80,27 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
         default_opts= {
            'algorithm':'Vegas',
            'verbosity':2}
+
+        # Parameter relevant for Suave integration method
+        # ------------------------------------------------
         
+        # the number of integrand evaluations per iteration to start with. 
+        default_opts['n_start'] = 1000
+        # the increase in the number of integrand evaluations per iteration. 
+        default_opts['n_increase'] = 500
+        # the batch size for sampling.
+        # Vegas samples points not all at once, but in batches of size nbatch, to avoid exces-
+        # sive memory consumption. 1000 is a reasonable value, though it should not affect
+        # performance too much. 
+        default_opts['n_batch'] = 1000
+        # Random seed
+        default_opts['seed'] = None
+        # Maximum number of evaluation before returning an answer
+        default_opts['max_eval'] = 50000
+        # Minimum number of evaluation before returning an answer
+        default_opts['min_eval'] = 0
+
+
         # Parameter relevant for Suave integration method
         # ------------------------------------------------
         
@@ -291,8 +311,15 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
                     n_dimensions,
                     ncomp       = len(self.integrands),
                     verbose     = self.verbosity,
-                    userdata    = 0
+                    userdata    = 0,
+                    nstart      = self.n_start,
+                    nincrease   = self.n_increase,
+                    nbatch      = self.n_batch,
+                    seed        = self.seed,
+                    mineval     = self.min_eval,
+                    maxeval     = self.max_eval
                 )
+
             return self.aggregate_results()
 
         elif self.algorithm == 'Suave':

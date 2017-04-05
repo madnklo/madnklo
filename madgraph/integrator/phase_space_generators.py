@@ -35,11 +35,17 @@ else:
 logger = logging.getLogger('madgraph.PhaseSpaceGenerator')
 pjoin = os.path.join
 
+class PhaseSpaceGeneratorError(Exception):
+    """Exception raised if an exception is triggered in integrators.""" 
+
 class Lorentz5Vector(list):
     """ A convenient class to manipulate Lorentz 4-vectors while keeping
     track of their mass component.
     Format used: (E, p_x, p_y, p_z, mass)
     """
+
+    _TINY = 1.0e-5
+    _MAX_OUTPUT = 1.0e8
 
     def __init__(self, *args, **opts):
         super(Lorentz5Vector,self).__init__(*args, **opts)
@@ -59,6 +65,41 @@ class Lorentz5Vector(list):
     def rho(self):
         """ Radius """
         return math.sqrt(self[1]**2+self[2]**2+self[3]**2)
+
+    def pt(self):
+        """ Compute transverse momentum."""
+        return math.sqrt(self[1]**2 + self[2]**2)
+
+    def deltaR(self, p2):
+        """ Compute the deltaR separation with momentum p2"""
+
+        delta_eta = self.pseudoRap() - p2.pseudoRap()
+        delta_phi = self.getdelphi(p2)
+
+        return math.sqrt(delta_eta**2 + delta_phi**2)
+
+    def pseudoRap(self):
+        """ Return pseudo-rapidity."""
+
+        pt = self.pt()
+        if pt < self._TINY and abs(self[3]) < self._TINY:
+            return self._MAX_OUTPUT*(self[3]/abs(self[3]))
+        th = math.atan2(pt, self[3])
+        return -math.log(math.tan(th/2.))
+
+    def getdelphi(self,p2):
+        """ Return the phi-angle separation with p2."""
+        pt1 = self.pt()
+        pt2 = p2.pt()
+        if pt1 == 0. or pt2 == 0.:
+            return self._MAX_OUTPUT
+        tmp = self[1]*p2[1] + self[2]*p2[2]
+        tmp /= (pt1*pt2)
+        if abs(tmp) > (1.0+self._TINY):
+            raise PhaseSpaceGeneratorError("Cosine larger than 1. in phase-space cuts.")
+        if abs(tmp) >= 1.0:
+            return tmp/abs(tmp)
+        return math.acos(tmp)
 
     def boostVector(self):
         if self[0] == 0.:
@@ -118,9 +159,6 @@ class Lorentz5Vector(list):
         newvector[2] = self[2] - y[2]
         newvector[3] = self[3] - y[3]
         return newvector 
-
-class PhaseSpaceGeneratorError(Exception):
-    """Exception raised if an exception is triggered in integrators.""" 
     
 class VirtualPhaseSpaceGenerator(object):
 

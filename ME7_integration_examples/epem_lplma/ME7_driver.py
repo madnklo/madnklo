@@ -306,32 +306,32 @@ ME7 = MadEvent7_driver( **parameters )
 # Try several integrators
 integrators = {
 
-   'Naive' : (integrators.SimpleMonteCarloIntegrator, {  'n_iterations'            : 2,
-                                                         'n_points_per_iterations' : 1000,
+   'Naive' : (integrators.SimpleMonteCarloIntegrator, {  'n_iterations'            : 10,
+                                                         'n_points_per_iterations' : 2000,
                                                          'accuracy_target'         : None,
                                                          'verbosity'               : verbosity } ),
 
    'VEGAS' : (pyCubaIntegrator.pyCubaIntegrator, { 'algorithm' : 'Vegas', 
                                                    'verbosity' : verbosity,
-                                                   'seed'      : None,
-                                                   'n_start'   : 1000,
-                                                   'n_increase': 500,
-                                                   'n_batch'   : 10000,
-                                                   'max_eval'  : int(1e4),
+                                                   'seed'      : 3,
+                                                   'n_start'   : 1000000,
+                                                   'n_increase': 500000,
+                                                   'n_batch'   : 100000,
+                                                   'max_eval'  : int(1e10),
                                                    'min_eval'  : 0}),
    
-    'SUAVE'   : (pyCubaIntegrator.pyCubaIntegrator, { 'algorithm' :'Suave', 
+   'SUAVE'   : (pyCubaIntegrator.pyCubaIntegrator, { 'algorithm' :'Suave', 
                                                       'verbosity' : verbosity } ),
   
-    'DIVONNE' : (pyCubaIntegrator.pyCubaIntegrator, { 'algorithm' : 'Divonne', 
+   'DIVONNE' : (pyCubaIntegrator.pyCubaIntegrator, { 'algorithm' : 'Divonne', 
                                                        'verbosity': verbosity } ),
-    'CUHRE'   : (pyCubaIntegrator.pyCubaIntegrator, { 'algorithm' : 'Cuhre',
+   'CUHRE'   : (pyCubaIntegrator.pyCubaIntegrator, { 'algorithm' : 'Cuhre',
                                                       'verbosity' : verbosity } ),
 }
 
 # Now choose which integrator to try. 
 # Notice that only Naive and Vegas don't return NaN for now.
-for name in ['VEGAS']:
+for name in ['Naive']:
     # Set the integrator
     ME7.set_integrator(*integrators[name])
     # Run one last time 

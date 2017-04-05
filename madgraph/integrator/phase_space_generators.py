@@ -309,6 +309,11 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
         # Make sure the right number of random variables are passed
         assert (len(random_variables)==self.nDimPhaseSpace())
 
+        # Make sure that none of the random_variables is NaN.
+        if any(math.isnan(rv) for rv in random_variables):
+            raise PhaseSpaceGeneratorError("Some of the random variables passed "+
+              "to the phase-space generator are NaN: %s"%str(random_variables))
+
         # The distribution weight of the generate PS point
         weight = 1.
         

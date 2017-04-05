@@ -9,7 +9,7 @@
 #*                                                          *
 #*                                                          *
 #*         VERSION 2.5.3                 2017-03-09         *
-#*         BZR MadEvent7                        292         *
+#*         BZR clean_2.5.4                      287         *
 #*                                                          *
 #*    The MadGraph5_aMC@NLO Development Team - Find us at   *
 #*    https://server06.fynu.ucl.ac.be/projects/madgraph     *
@@ -38,4 +38,5 @@ define vl = ve vm vt
 define vl~ = ve~ vm~ vt~
 generate e+ e- > mu+ mu- a @1
 add process e+ e- > e+ e- a @2
+add process e+ e- > mu+ mu- / z @3
 output standalone MEs_for_epem_lplma --prefix=int

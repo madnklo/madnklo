@@ -79,7 +79,13 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
         # General steering parameters
         default_opts= {
            'algorithm':'Vegas',
-           'verbosity':2}
+           'verbosity':2,
+           'target_accuracy':1.0e-3}
+
+        # Maximum number of evaluation before returning an answer
+        default_opts['max_eval'] = 50000
+        # Minimum number of evaluation before returning an answer
+        default_opts['min_eval'] = 0
 
         # Parameter relevant for Suave integration method
         # ------------------------------------------------
@@ -95,11 +101,6 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
         default_opts['n_batch'] = 1000
         # Random seed
         default_opts['seed'] = None
-        # Maximum number of evaluation before returning an answer
-        default_opts['max_eval'] = 50000
-        # Minimum number of evaluation before returning an answer
-        default_opts['min_eval'] = 0
-
 
         # Parameter relevant for Suave integration method
         # ------------------------------------------------
@@ -312,6 +313,7 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
                     ncomp       = len(self.integrands),
                     verbose     = self.verbosity,
                     userdata    = 0,
+                    epsrel      = self.target_accuracy,                    
                     nstart      = self.n_start,
                     nincrease   = self.n_increase,
                     nbatch      = self.n_batch,
@@ -330,9 +332,12 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
                     ncomp       = len(self.integrands),
                     verbose     = self.verbosity,
                     userdata    = 0,
+                    epsrel      = self.target_accuracy,                    
                     nnew        = self.n_new,
                     nmin        = self.n_min,
-                    flatness    = self.flatness
+                    flatness    = self.flatness,
+                    mineval     = self.min_eval,
+                    maxeval     = self.max_eval
                 )
             return self.aggregate_results()
 
@@ -348,13 +353,16 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
                     self.border,
                     self.maxchisq,
                     self.min_deviation,
+                    epsrel          = self.target_accuracy,
                     ldxgiven        = self.ldxgiven,
                     xgiven          = self.x_given,
                     nextra          = self.n_extra,
                     peakfinder      = self.peak_finder,
                     ncomp           = len(self.integrands),
                     verbose         = self.verbosity,
-                    userdata        = 0)
+                    userdata        = 0,
+                    mineval     = self.min_eval,
+                    maxeval     = self.max_eval)
             return self.aggregate_results()
 
         elif self.algorithm == 'Cuhre':
@@ -365,6 +373,7 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
                     key         = self.key, 
                     mineval     = self.min_eval,
                     maxeval     = self.max_eval,
+                    epsrel      = self.target_accuracy,                
                     ncomp       = len(self.integrands),
                     verbose     = self.verbosity,
                     userdata    = 0)

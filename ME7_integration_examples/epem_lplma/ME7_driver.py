@@ -18,7 +18,7 @@ import subprocess
 root_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(root_path, os.path.pardir, os.path.pardir))
 
-logger = logging.getLogger(' MadEvent7 @ e+ e- > l+ l- a ')
+logger = logging.getLogger(' MadEvent7 ')
 logger.setLevel(logging.INFO)
 logging.basicConfig()
 
@@ -45,11 +45,11 @@ else:
 pjoin = os.path.join
 
 # Import the matrix elements
-param_card_path = pjoin(root_path,'MEs_for_epem_lplma','Cards','param_card.dat')
 sys.path.append(pjoin(root_path,'MEs_for_epem_lplma','SubProcesses'))
 try:
     import P1_epem_mupmuma.matrix2py as epem_mupmuma
     import P2_epem_epema.matrix2py as epem_epema
+    import P3_epem_mupmum_no_z.matrix2py as epem_mupmum_no_z
 except ImportError:
     logger.info("Attempting to recompile the matrix element python modules with f2py...")
     devnull = open(os.devnull,'w')
@@ -68,19 +68,20 @@ except ImportError:
 class ME_function(functions.VirtualFunction):
 
     def __init__(self, process, *args, **opts):
-        assert(process in ['e+ e- > e+ e- a', 'e+ e- > mu+ mu- a'])
+        assert(process in ['e+ e- > e+ e- a', 'e+ e- > mu+ mu- a', 'e+ e- > mu+ mu- / z'])
 
         ## Setup access to f2py'ed MEs
         if process == 'e+ e- > e+ e- a':
             self.ME_accessor = epem_epema
         elif process == 'e+ e- > mu+ mu- a':
             self.ME_accessor = epem_mupmuma
+        elif process == 'e+ e- > mu+ mu- / z':
+            self.ME_accessor = epem_mupmum_no_z
         else:
             logger.critical('Should not happend.')
             sys.exit(0)
 
         self.ME_accessor.initialise('./Cards/param_card.dat')        
-#        self.ME_accessor.initialise(param_card_path)
 
         super(ME_function, self).__init__(*args, **opts)
 
@@ -119,7 +120,7 @@ class epem_lplma_integrand(integrands.VirtualIntegrand):
     def __init__(self, process, phase_space_generator, *args, **opts):
         """ Instantiate the integrand for a specific process."""
 
-        assert(process in ['e+ e- > e+ e- a', 'e+ e- > mu+ mu- a'])
+        assert(process in ['e+ e- > e+ e- a', 'e+ e- > mu+ mu- a', 'e+ e- > mu+ mu- / z'])
         self.process = process
 
         default_opts = {'E_cm': 1000.0}
@@ -139,6 +140,7 @@ class epem_lplma_integrand(integrands.VirtualIntegrand):
     @staticmethod
     def Lambda(s,sqrMA,sqrMB):
         """ Kahlen function."""
+
         return s**2 + sqrMA**2 + sqrMB**2 - \
              2.*s*sqrMA - 2.*sqrMB*sqrMA - 2.*s*sqrMB
 
@@ -160,8 +162,8 @@ class epem_lplma_integrand(integrands.VirtualIntegrand):
                 return False
 
         for i, p1 in enumerate(PS_point[2:]):
-            for p2 in PS_point[2+i+1:]:
-                # misc.sprint(p1.deltaR(p2))
+            for j, p2 in enumerate(PS_point[2+i+1:]):
+                # misc.sprint(2+i,2+i+1+j,p1.deltaR(p2))
                 if p1.deltaR(p2) < dr_cut:
                     return False
 
@@ -189,7 +191,7 @@ class epem_lplma_integrand(integrands.VirtualIntegrand):
         PS_point, PS_weight = self.phase_space_generator.generateKinematics(self.E_cm, random_variables)
        
         # Apply cuts
-        if self.pass_cuts(PS_point):
+        if not self.pass_cuts(PS_point):
             return 0.0
 
         # Account for PS weight
@@ -200,6 +202,7 @@ class epem_lplma_integrand(integrands.VirtualIntegrand):
         wgt *= sum(o['weight'] for o in ME_outputs)
        
 #       Uncomment below to debug MEs
+##        misc.sprint(random_variables)
 ##        misc.sprint( "\nEvaluation for process '%s' and following PS point:\n\n%s"%( self.process,
 ##                phase_space_generators.FlatInvertiblePhasespace.nice_momenta_string(
 ##                            PS_point, recompute_mass=True, n_initial=self.phase_space_generator.n_initial) ))
@@ -227,15 +230,25 @@ class epem_lplma_integrand(integrands.VirtualIntegrand):
         if self.apply_observables:
             data_for_observables = {'PS_point': PS_point, 'ME_outputs' : ME_outputs}
             self.observable_list.apply_observables(continuous_inputs, discrete_inputs, data_for_observables)
-
+        
         return wgt
 
 class MadEvent7_driver(object):
 
-    def __init__(self, E_cm = 1000.0, integrator_class=integrators.SimpleMonteCarloIntegrator, integrator_options={}):
-
+    def __init__(self, E_cm = 1000.0,
+                 process = 'e+ e- > l+ l- a',
+                 integrator_class=integrators.SimpleMonteCarloIntegrator, 
+                 integrator_options={}):
+        
+        assert(process in ['e+ e- > l+ l- a','e+ e- > mu+ mu- / z'])
+        self.process = process
+        self.n_final = None
+        if self.process == 'e+ e- > l+ l- a':
+            self.n_final = 3
+        elif self.process == 'e+ e- > mu+ mu- / z':
+            self.n_final = 2
         self.E_cm = E_cm
-        self.phase_space_generator = phase_space_generators.FlatInvertiblePhasespace([0.]*2, [0.]*3)
+        self.phase_space_generator = phase_space_generators.FlatInvertiblePhasespace([0.]*2, [0.]*self.n_final)
         self.build_integrand()
         self.set_integrator(integrator_class, integrator_options)
 
@@ -250,10 +263,14 @@ class MadEvent7_driver(object):
             [ integrands.ContinuousDimension('x_%d'%i,lower_bound=0.0, upper_bound=1.0) 
                             for i in range(1,self.phase_space_generator.nDimPhaseSpace()+1) ] )
 
-        epem_mupmuma_integrand = epem_lplma_integrand('e+ e- > mu+ mu- a', self.phase_space_generator, PS_dimensions, E_cm = self.E_cm)
-        epem_epema_integrand = epem_lplma_integrand('e+ e- > e+ e- a', self.phase_space_generator, PS_dimensions, E_cm = self.E_cm)
+        if self.process == 'e+ e- > l+ l- a':
+            epem_mupmuma_integrand = epem_lplma_integrand('e+ e- > mu+ mu- a', self.phase_space_generator, PS_dimensions, E_cm = self.E_cm)
+            epem_epema_integrand = epem_lplma_integrand('e+ e- > e+ e- a', self.phase_space_generator, PS_dimensions, E_cm = self.E_cm)
+            self.integrands = [epem_mupmuma_integrand, epem_epema_integrand]
         
-        self.integrands = [epem_mupmuma_integrand, epem_epema_integrand]
+        else:
+            integrand_for_process = epem_lplma_integrand(self.process, self.phase_space_generator, PS_dimensions, E_cm = self.E_cm)
+            self.integrands = [integrand_for_process, ]
 
     def build_dummy_integrand(self):
         """ Build the dummy integrand for testing purposes. """
@@ -262,7 +279,7 @@ class MadEvent7_driver(object):
 
         # Define its dimensions
         dummy_integrand.set_dimensions( integrands.DimensionList([
-            integrands.ContinuousDimension('x',lower_bound=2.0, upper_bound=5.0),
+            integrands.ContinuousDimension('x' ,lower_bound=2.0, upper_bound=5.0),
             integrands.ContinuousDimension('y' ,lower_bound=1.0, upper_bound=3.0)
              ]) )
                     
@@ -275,11 +292,15 @@ class MadEvent7_driver(object):
         self.integrands = [dummy_integrand, dummy_integrand]
 
     def run(self):
-        logger.info("Starting integration of 'e+ e- > l+ l- a' with %s"%self.integrator.get_name())
+        logger.info("Now Integrating '%s' with %s"%(self.process, self.integrator.get_name()))
 
         xsec, error = self.integrator.integrate()
-        logger.info("Inclusive cross-section: %f +/- %f [pb]"%(xsec, error))
-
+        print ''
+        logger.info("="*100)
+        logger.info('{:^100}'.format("\033[92mCross-section for process '%s' and integrator '%s':\033[0m"
+                                                             %(self.process, self.integrator.get_name())))
+        logger.info('{:^100}'.format("\033[94m%.5e +/- %.2e [pb]\033[0m"%(xsec, error)))
+        logger.info("="*100+"\n")
 
 
 # ----------------------------------------------------------------------------------------------
@@ -290,50 +311,73 @@ class MadEvent7_driver(object):
 
 
 # Use 0 for minimal verbosity and 2 for talkative integrators
-verbosity  = 2
+verbosity  = 0
+
+if verbosity == 0:
+    logger.info("Set verbosity to a value larger than 0 to watch more closely the integration progress.")
 
 # Try with a naive MonteCarloFirst
 parameters = {
+#    'process'            : 'e+ e- > l+ l- a',
+    'process'            : 'e+ e- > mu+ mu- / z',
     'E_cm'               : 1000.0
 }
+
+ME_references_values = { 'e+ e- > l+ l- a' : (0.07329, 9.583e-05),
+                         'e+ e- > mu+ mu- / z': (0.09005, 4.84e-05)}
+
+if parameters['process'] in ME_references_values:
+    xsec, err = ME_references_values[parameters['process']]
+    logger.info("MadEvent6 reference result for process '%s' = \033[92m%.5e +/- %.2e [pb]\033[0m "%(parameters['process'], xsec, err) )
 
 # Initialize a MadEvent driver
 ME7 = MadEvent7_driver( **parameters )
 
-# Now launch the integration (or skipe it by commenting below if not interested in the stupid integrator.)
+# Now launch the integration (or skip it by commenting below if not interested in the stupid integrator.)
 ## ME7.run()
 
 # Try several integrators
 integrators = {
 
    'Naive' : (integrators.SimpleMonteCarloIntegrator, {  'n_iterations'            : 10,
-                                                         'n_points_per_iterations' : 2000,
+                                                         'n_points_per_iterations' : 1000,
                                                          'accuracy_target'         : None,
                                                          'verbosity'               : verbosity } ),
 
    'VEGAS' : (pyCubaIntegrator.pyCubaIntegrator, { 'algorithm' : 'Vegas', 
                                                    'verbosity' : verbosity,
                                                    'seed'      : 3,
-                                                   'n_start'   : 1000000,
-                                                   'n_increase': 500000,
-                                                   'n_batch'   : 100000,
-                                                   'max_eval'  : int(1e10),
+                                                   'target_accuracy' : 1.0e-3,
+                                                   'n_start'   : 10000,
+                                                   'n_increase': 5000,
+                                                   'n_batch'   : 1000,
+                                                   'max_eval'  : 100000,
                                                    'min_eval'  : 0}),
    
    'SUAVE'   : (pyCubaIntegrator.pyCubaIntegrator, { 'algorithm' :'Suave', 
-                                                      'verbosity' : verbosity } ),
+                                                     'verbosity' : verbosity,
+                                                     'target_accuracy' : 1.0e-3,
+                                                     'max_eval'  : 100000,
+                                                     'min_eval'  : 0 } ),
   
    'DIVONNE' : (pyCubaIntegrator.pyCubaIntegrator, { 'algorithm' : 'Divonne', 
-                                                       'verbosity': verbosity } ),
+                                                     'verbosity': verbosity,
+                                                     'target_accuracy' : 1.0e-3,
+                                                     'max_eval'  : 100000,
+                                                     'min_eval'  : 0 } ),
+
    'CUHRE'   : (pyCubaIntegrator.pyCubaIntegrator, { 'algorithm' : 'Cuhre',
-                                                      'verbosity' : verbosity } ),
+                                                     'verbosity' : verbosity,
+                                                     'target_accuracy' : 1.0e-3,
+                                                     'max_eval'  : 100000,
+                                                     'min_eval'  : 0 } ),
 }
 
-# Now choose which integrator to try. 
-# Notice that only Naive and Vegas don't return NaN for now.
-for name in ['Naive']:
+# Now choose which integrator(s) to try. 
+for name in ['Naive','VEGAS','SUAVE','DIVONNE','CUHRE']:
+#for name in ['DIVONNE']:
     # Set the integrator
     ME7.set_integrator(*integrators[name])
-    # Run one last time 
+    # Run one last time
     ME7.run()
 

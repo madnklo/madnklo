@@ -97,8 +97,8 @@ class Lorentz5Vector(list):
         tmp /= (pt1*pt2)
         if abs(tmp) > (1.0+self._TINY):
             raise PhaseSpaceGeneratorError("Cosine larger than 1. in phase-space cuts.")
-        if abs(tmp) >= 1.0:
-            return tmp/abs(tmp)
+        if abs(tmp) > 1.0:
+            return math.acos(tmp/abs(tmp))
         return math.acos(tmp)
 
     def boostVector(self):

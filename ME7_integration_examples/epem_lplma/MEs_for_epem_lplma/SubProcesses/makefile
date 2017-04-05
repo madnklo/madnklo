@@ -33,5 +33,7 @@ P1_epem_mupmuma/matrix$(MENUM)py.so:
 	cd P1_epem_mupmuma;make matrix$(MENUM)py.so
 P2_epem_epema/matrix$(MENUM)py.so:
 	cd P2_epem_epema;make matrix$(MENUM)py.so
-all:  P1_epem_mupmuma/matrix$(MENUM)py.so  P2_epem_epema/matrix$(MENUM)py.so 
+P3_epem_mupmum_no_z/matrix$(MENUM)py.so:
+	cd P3_epem_mupmum_no_z;make matrix$(MENUM)py.so
+all:  P1_epem_mupmuma/matrix$(MENUM)py.so  P2_epem_epema/matrix$(MENUM)py.so  P3_epem_mupmum_no_z/matrix$(MENUM)py.so 
 	echo 'done'

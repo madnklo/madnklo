@@ -201,7 +201,7 @@ c +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
       param(1)=' '
       value(1)=' '
-      
+
       ! Try to open param-card file
       call LHA_open_file(iunit,param_name,fopened)
       if(.not.fopened) then
@@ -221,6 +221,7 @@ c +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
          read(iunit,'(a132)',end=99,err=99) buff
          
          if(buff .ne. '' .and. buff(1:1) .ne.'#') then ! Skip comments and empty lines
+
              tag=buff(1:5)
              call LHA_case_trap(tag) ! Select decay/block tag
              if(tag .eq. 'block') then ! If we are in a block, get the blockname
@@ -313,9 +314,9 @@ c
          i=i+1
       enddo
       if (.not.found) then
-C         write (*,*) "Warning: parameter ",name," not found"
-C         write (*,*) "         setting it to default value ",
-C     &def_value_num
+c         write (*,*) "Warning: parameter ",name," not found"
+c         write (*,*) "         setting it to default value ",
+c     &def_value_num
          var=def_value_num
       endif
       return

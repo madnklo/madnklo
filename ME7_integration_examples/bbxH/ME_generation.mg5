@@ -1,0 +1,10 @@
+import model loop_sm-no_b_mass_with_yukawa
+generate b b~ > h @1
+add process b b~ > h g @2
+add process g b~ > h b~ @3
+add process b g > h b @4
+output standalone bbxH_tree_MEs
+generate b b~ > h [virt=QCD] @5
+output bbxH_loop_ME
+# Launching b b~ > h loop ME just so as to initialise it (for exemple using loop filters).
+launch -f

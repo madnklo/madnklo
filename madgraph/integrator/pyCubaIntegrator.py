@@ -249,18 +249,21 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
         """ Function to wrap the integrand to the pyCuba standards.
         IntegratorInstance is taken from a global which is set only during the
         time of the integration with the low-level language integrator implementation."""
-
-        n_integrands_to_consider = ncomp.contents.value
+        try:
+            n_integrands_to_consider = ncomp.contents.value
         
-        for integrand_index, integrand in enumerate(IntegratorInstance.integrands[:n_integrands_to_consider]):
-            dimensions = integrand.continuous_dimensions
-            input_point = np.array([dimensions[i].lower_bound + xx[i]*(dimensions[i].upper_bound - dimensions[i].lower_bound) 
+            for integrand_index, integrand in enumerate(IntegratorInstance.integrands[:n_integrands_to_consider]):
+                dimensions = integrand.continuous_dimensions
+                input_point = np.array([dimensions[i].lower_bound + xx[i]*(dimensions[i].upper_bound - dimensions[i].lower_bound) 
                                                                                          for i in range(ndim.contents.value)])
-            ff[integrand_index] = IntegratorInstance.integrands[integrand_index](input_point, np.array([], dtype=int))
-            # All integration methods here assume unit phase-space volume, so we need to rescale our evaluations here.
-            ff[integrand_index] *= IntegratorInstance.integrands[integrand_index].get_dimensions().volume()
+                ff[integrand_index] = IntegratorInstance.integrands[integrand_index](input_point, np.array([], dtype=int))
+                # All integration methods here assume unit phase-space volume, so we need to rescale our evaluations here.
+                ff[integrand_index] *= IntegratorInstance.integrands[integrand_index].get_dimensions().volume()
 
-        return 0
+            return 0
+        except KeyboardInterrupt:
+            print 'Integration with pyCuba aborted by user.'
+            sys.exit(1)
 
     @staticmethod
     def wrapped_integrand_divonne(ndim, xx, ncomp, ff, phase):
@@ -275,9 +278,11 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
         the peak structure of the integrand to find an appropriate tessellation. An approximation
         which reproduces the peak structure while leaving out the fine details might hence be a
         perfectly viable and much faster substitute when phase < 2."""
-        
-        return pyCubaIntegrator.wrapped_integrand(ndim, xx, ncomp, ff, None)
-
+        try:        
+            return pyCubaIntegrator.wrapped_integrand(ndim, xx, ncomp, ff, None)
+        except KeyboardInterrupt:
+            print 'Integration with pyCuba aborted by user.'
+            sys.exit(1)
 
     def get_name(self):
         """ Returns the integrator name."""

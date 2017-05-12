@@ -311,15 +311,15 @@ class MadEvent7_driver(object):
 
 
 # Use 0 for minimal verbosity and 2 for talkative integrators
-verbosity  = 0
+verbosity  = 2
 
 if verbosity == 0:
     logger.info("Set verbosity to a value larger than 0 to watch more closely the integration progress.")
 
 # Try with a naive MonteCarloFirst
 parameters = {
-#    'process'            : 'e+ e- > l+ l- a',
-    'process'            : 'e+ e- > mu+ mu- / z',
+    'process'            : 'e+ e- > l+ l- a',
+#    'process'            : 'e+ e- > mu+ mu- / z',
     'E_cm'               : 1000.0
 }
 
@@ -362,8 +362,8 @@ integrators = {
   
    'DIVONNE' : (pyCubaIntegrator.pyCubaIntegrator, { 'algorithm' : 'Divonne', 
                                                      'verbosity': verbosity,
-                                                     'target_accuracy' : 1.0e-3,
-                                                     'max_eval'  : 100000,
+                                                     'target_accuracy' : 1.0e-5,
+                                                     'max_eval'  : 100000000,
                                                      'min_eval'  : 0 } ),
 
    'CUHRE'   : (pyCubaIntegrator.pyCubaIntegrator, { 'algorithm' : 'Cuhre',
@@ -374,8 +374,8 @@ integrators = {
 }
 
 # Now choose which integrator(s) to try. 
-for name in ['Naive','VEGAS','SUAVE','DIVONNE','CUHRE']:
-#for name in ['DIVONNE']:
+#for name in ['Naive','VEGAS','SUAVE','DIVONNE','CUHRE']:
+for name in ['DIVONNE']:
     # Set the integrator
     ME7.set_integrator(*integrators[name])
     # Run one last time

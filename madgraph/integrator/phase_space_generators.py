@@ -159,7 +159,15 @@ class Lorentz5Vector(list):
         newvector[2] = self[2] - y[2]
         newvector[3] = self[3] - y[3]
         return newvector 
-    
+
+    def __mul__(self, x):
+        newvector = Lorentz5Vector()
+        newvector[0] = self[0]*x
+        newvector[1] = self[1]*x
+        newvector[2] = self[2]*x
+        newvector[3] = self[3]*x
+        return newvector 
+
 class VirtualPhaseSpaceGenerator(object):
 
     def __init__(self, initial_masses, final_masses):
@@ -177,7 +185,7 @@ class VirtualPhaseSpaceGenerator(object):
         multiplicity final state. """
 
         if self.n_final == 1:
-            return 1
+            return 0
         return 3*self.n_final -4
 
     @staticmethod
@@ -228,11 +236,16 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
         super(FlatInvertiblePhasespace, self).__init__(*args, **opts)
 
     @classmethod
-    def get_flatWeights(cls, E_cm, n):
+    def get_flatWeights(cls, E_cm, n, mass=None):
         """ Return the phase-space volume for a n massless final states.
           Vol(E_cm, n) = (pi/2)^(n-2) *  (E_cm^2)^(n-2) / ((n-1)!*(n-2)!)
         """
-        
+        if n==1: 
+            # The jacobian from \delta(s_hat - m_final**2) present in 2->1 convolution
+            # must typically be accounted for in the MC integration framework since we
+            # don't have access to shat here, so we just return 1.
+            return 1.
+
         return math.pow((math.pi/2.0),n-1)*\
             (math.pow((E_cm**2),n-2)/(math.factorial(n-1)*math.factorial(n-2)))
 
@@ -317,13 +330,24 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
         # The distribution weight of the generate PS point
         weight = 1.
         
+        output_momenta = []
+
+        if self.n_final == 1:
+            if self.n_initial == 1:
+                raise PhaseSpaceGeneratorError("1 > 1 phase-space generation not supported.")
+            if self.masses[0]/E_cm < 1.e-7 or ((E_cm-self.masses[0])/self.masses[0]) > 1.e-7:
+                raise PhaseSpaceGeneratorError("1 > 2 phase-space generation needs a final state mass equal to E_c.o.m.")
+            output_momenta.append(Lorentz5Vector([self.masses[0]/2.,0.,0.,self.masses[0]/2.,0.]))
+            output_momenta.append(Lorentz5Vector([self.masses[0]/2.,0.,0.,-self.masses[0]/2.,0.]))
+            output_momenta.append(Lorentz5Vector([self.masses[0]   ,0.,0.,0.,self.masses[0]]))
+            weight = self.get_flatWeights(E_cm,1)
+            return output_momenta, weight
+  
         M    = [ 0. ]*(self.n_final-1)
         M[0] = E_cm
 
         weight *= self.generateIntermediatesMassive(M, E_cm, random_variables)
         M.append(self.masses[-1])
-
-        output_momenta = []
 
         Q     = Lorentz5Vector([M[0],0.,0.,0.,M[0]])
         nextQ = Lorentz5Vector()
@@ -409,6 +433,12 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
 
         # The weight of the corresponding PS point
         weight = 1.
+
+        if self.n_final == 1:
+            if self.n_initial == 1:
+                raise PhaseSpaceGeneratorError("1 > 1 phase-space generation not supported."%str(random_variables))
+            return [], self.get_flatWeights(E_cm,1) 
+
         # The random variables that would yield this PS point.
         random_variables = [-1.0]*self.nDimPhaseSpace()
         
@@ -473,8 +503,10 @@ if __name__ == '__main__':
 
     import random
 
-    # Try to run the above for a 2->2.
-    my_PS_generator = FlatInvertiblePhasespace([0.]*2, [100. + 10.*i for i in range(8)])
+    # Try to run the above for a 2->8.
+    # my_PS_generator = FlatInvertiblePhasespace([0.]*2, [100. + 10.*i for i in range(8)])
+    # Try to run the above for a 2->1.    
+    my_PS_generator = FlatInvertiblePhasespace([0.]*2, [5000.0])
     
     E_cm  = 5000.0
     random_variables = [random.random() for _ in range(my_PS_generator.nDimPhaseSpace())]
@@ -500,6 +532,7 @@ if __name__ == '__main__':
     differences = [abs(variables_reconstructed[i]-random_variables[i]) 
                                     for i in range(len(variables_reconstructed))]
     print "Reconstructed weight = %.16e"%wgt_reconstructed
-    print "\nMax. relative diff. in reconstructed variables = %.3e"%\
+    if differences:
+        print "\nMax. relative diff. in reconstructed variables = %.3e"%\
             max(differences[i]/random_variables[i] for i in range(len(differences)))
     print "Rel. diff. in PS weight = %.3e\n"%((wgt_reconstructed-wgt)/wgt)

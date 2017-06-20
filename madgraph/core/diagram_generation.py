@@ -23,6 +23,8 @@ import array
 import copy
 import itertools
 import logging
+import os
+pjoin = os.path.join
 
 import madgraph.core.base_objects as base_objects
 import madgraph.various.misc as misc
@@ -2133,4 +2135,3 @@ def expand_list_list(mylist):
 
 
     return res
-

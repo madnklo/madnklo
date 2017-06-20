@@ -395,7 +395,6 @@ class ProcessExporterFortran(VirtualExporter):
 
     def pass_information_from_cmd(self, cmd):
         """Pass information for MA5"""
-        
         self.proc_defs = cmd._curr_proc_defs
 
     #===========================================================================
@@ -6445,14 +6444,35 @@ class UFO_model_to_mg4(object):
                                       rule_card_path=rule_card, 
                                       mssm_convert=True)
         
-def ExportV4Factory(cmd, noclean, output_type='default', group_subprocesses=True):
+def ExportV4Factory(cmd, noclean, output_type='default', group_subprocesses=True,
+                    curr_amps = None, export_dir = None, format = None):
     """ Determine which Export_v4 class is required. cmd is the command 
         interface containing all potential usefull information.
         The output_type argument specifies from which context the output
         is called. It is 'madloop' for MadLoop5, 'amcatnlo' for FKS5 output
         and 'default' for tree-level outputs."""
 
-    opt = cmd.options
+    opt = dict(cmd.options)
+
+    # The following variables are either taken from the interface directly, or from
+    # the argument of this Factory if specified, which is the case when it is called
+    # from a Contribution.
+    if curr_amps is None:
+        curr_amps = export_dir
+    if export_dir is None:
+        export_dir = cmd._export_dir
+    if format is None:
+        format = cmd._export_format
+
+    # Consistency check on inputs. If either curr_amps_input or export_dir_input is
+    # specified, it should be a stanalone type of output and _fks_multi_proc should
+    # not be present.
+    if not curr_amps is None:
+        # Force to compute the color flows
+        opt['compute_color_flows'] = True
+        if not format.startswith('standalone') or output_type not in ['madloop','default']:
+            raise MadGraph5Error("A contribution is not supposed to call ExportV4Factory for"+
+                                 " non-standalone type of outputs.")
 
     # ==========================================================================
     # First check whether Ninja must be installed.
@@ -6460,9 +6480,9 @@ def ExportV4Factory(cmd, noclean, output_type='default', group_subprocesses=True
     #  a) Loop optimized output is selected
     #  b) the process gathered from the amplitude generated use loops
 
-    if len(cmd._curr_amps)>0:
+    if len(curr_amps)>0:
         try:
-            curr_proc = cmd._curr_amps[0].get('process')
+            curr_proc = curr_amps[0].get('process')
         except base_objects.PhysicsObject.PhysicsObjectError:
             curr_proc = None
     elif hasattr(cmd,'_fks_multi_proc') and \
@@ -6484,24 +6504,24 @@ def ExportV4Factory(cmd, noclean, output_type='default', group_subprocesses=True
     # ==========================================================================
     # First treat the MadLoop5 standalone case       
     MadLoop_SA_options = {'clean': not noclean, 
-      'complex_mass':cmd.options['complex_mass_scheme'],
+      'complex_mass':opt['complex_mass_scheme'],
       'export_format':'madloop', 
       'mp':True,
       'loop_dir': os.path.join(cmd._mgme_dir,'Template','loop_material'),
       'cuttools_dir': cmd._cuttools_dir,
       'iregi_dir':cmd._iregi_dir,
-      'pjfry_dir':cmd.options['pjfry'],
-      'golem_dir':cmd.options['golem'],
-      'samurai_dir':cmd.options['samurai'],
-      'ninja_dir':cmd.options['ninja'],
-      'collier_dir':cmd.options['collier'],
-      'fortran_compiler':cmd.options['fortran_compiler'],
-      'f2py_compiler':cmd.options['f2py_compiler'],
-      'output_dependencies':cmd.options['output_dependencies'],
+      'pjfry_dir':opt['pjfry'],
+      'golem_dir':opt['golem'],
+      'samurai_dir':opt['samurai'],
+      'ninja_dir':opt['ninja'],
+      'collier_dir':opt['collier'],
+      'fortran_compiler':opt['fortran_compiler'],
+      'f2py_compiler':opt['f2py_compiler'],
+      'output_dependencies':opt['output_dependencies'],
       'SubProc_prefix':'P',
-      'compute_color_flows':cmd.options['loop_color_flows'],
-      'mode': 'reweight' if cmd._export_format == "standalone_rw" else '',
-      'cluster_local_path': cmd.options['cluster_local_path']
+      'compute_color_flows':opt['loop_color_flows'],
+      'mode': 'reweight' if format == "standalone_rw" else '',
+      'cluster_local_path': opt['cluster_local_path']
       }
 
 
@@ -6509,7 +6529,7 @@ def ExportV4Factory(cmd, noclean, output_type='default', group_subprocesses=True
         import madgraph.loop.loop_exporters as loop_exporters
         if os.path.isdir(os.path.join(cmd._mgme_dir, 'Template/loop_material')):
             ExporterClass=None
-            if not cmd.options['loop_optimized_output']:
+            if not opt['loop_optimized_output']:
                 ExporterClass=loop_exporters.LoopProcessExporterFortranSA
             else:
                 if output_type == "madloop":
@@ -6520,7 +6540,7 @@ def ExportV4Factory(cmd, noclean, output_type='default', group_subprocesses=True
                     MadLoop_SA_options['export_format'] = 'madloop_matchbox'
                 else:
                     raise Exception, "output_type not recognize %s" % output_type
-            return ExporterClass(cmd._export_dir, MadLoop_SA_options)
+            return ExporterClass(export_dir, MadLoop_SA_options)
         else:
             raise MadGraph5Error('MG5_aMC cannot find the \'loop_material\' directory'+\
                                  ' in %s'%str(cmd._mgme_dir))
@@ -6532,7 +6552,7 @@ def ExportV4Factory(cmd, noclean, output_type='default', group_subprocesses=True
         amcatnlo_options = dict(opt)
         amcatnlo_options.update(MadLoop_SA_options)
         amcatnlo_options['mp'] = len(cmd._fks_multi_proc.get_virt_amplitudes()) > 0
-        if not cmd.options['loop_optimized_output']:
+        if not opt['loop_optimized_output']:
             logger.info("Writing out the aMC@NLO code")
             ExporterClass = export_fks.ProcessExporterFortranFKS
             amcatnlo_options['export_format']='FKS5_default'
@@ -6540,23 +6560,20 @@ def ExportV4Factory(cmd, noclean, output_type='default', group_subprocesses=True
             logger.info("Writing out the aMC@NLO code, using optimized Loops")
             ExporterClass = export_fks.ProcessOptimizedExporterFortranFKS
             amcatnlo_options['export_format']='FKS5_optimized'
-        return ExporterClass(cmd._export_dir, amcatnlo_options)
+        return ExporterClass(export_dir, amcatnlo_options)
 
 
     # Then the default tree-level output
     elif output_type=='default':
         assert group_subprocesses in [True, False]
         
-        opt = dict(opt)
         opt.update({'clean': not noclean,
-               'complex_mass': cmd.options['complex_mass_scheme'],
-               'export_format':cmd._export_format,
+               'complex_mass': opt['complex_mass_scheme'],
+               'export_format':format,
                'mp': False,  
                'sa_symmetry':False, 
                'model': cmd._curr_model.get('name'),
                'v5_model': False if cmd._model_v4_path else True })
-
-        format = cmd._export_format #shortcut
 
         if format in ['standalone_msP', 'standalone_msF', 'standalone_rw']:
             opt['sa_symmetry'] = True      
@@ -6576,36 +6593,36 @@ def ExportV4Factory(cmd, noclean, output_type='default', group_subprocesses=True
     
         # Madevent output supports MadAnalysis5
         if format in ['madevent']:
-            opt['madanalysis5'] = cmd.options['madanalysis5_path']
+            opt['madanalysis5'] = opt['madanalysis5_path']
             
         if format == 'matrix' or format.startswith('standalone'):
-            return ProcessExporterFortranSA(cmd._export_dir, opt, format=format)
+            return ProcessExporterFortranSA(export_dir, opt, format=format)
         
         elif format in ['madevent'] and group_subprocesses:
-            if isinstance(cmd._curr_amps[0], 
+            if isinstance(curr_amps[0], 
                                          loop_diagram_generation.LoopAmplitude):
                 import madgraph.loop.loop_exporters as loop_exporters
                 return  loop_exporters.LoopInducedExporterMEGroup( 
-                                               cmd._export_dir,loop_induced_opt)
+                                               export_dir,loop_induced_opt)
             else:
-                return  ProcessExporterFortranMEGroup(cmd._export_dir,opt)                
+                return  ProcessExporterFortranMEGroup(export_dir,opt)                
         elif format in ['madevent']:
-            if isinstance(cmd._curr_amps[0], 
+            if isinstance(curr_amps[0], 
                                          loop_diagram_generation.LoopAmplitude):
                 import madgraph.loop.loop_exporters as loop_exporters
                 return  loop_exporters.LoopInducedExporterMENoGroup( 
-                                               cmd._export_dir,loop_induced_opt)
+                                               export_dir,loop_induced_opt)
             else:
-                return  ProcessExporterFortranME(cmd._export_dir,opt)
+                return  ProcessExporterFortranME(export_dir,opt)
         elif format in ['matchbox']:
-            return ProcessExporterFortranMatchBox(cmd._export_dir,opt)
-        elif cmd._export_format in ['madweight'] and group_subprocesses:
+            return ProcessExporterFortranMatchBox(export_dir,opt)
+        elif format in ['madweight'] and group_subprocesses:
 
-            return ProcessExporterFortranMWGroup(cmd._export_dir, opt)
-        elif cmd._export_format in ['madweight']:
-            return ProcessExporterFortranMW(cmd._export_dir, opt)
+            return ProcessExporterFortranMWGroup(export_dir, opt)
+        elif format in ['madweight']:
+            return ProcessExporterFortranMW(export_dir, opt)
         elif format == 'plugin':
-            return cmd._export_plugin(cmd._export_dir, opt)
+            return cmd._export_plugin(export_dir, opt)
         else:
             raise Exception, 'Wrong export_v4 format'
     else:

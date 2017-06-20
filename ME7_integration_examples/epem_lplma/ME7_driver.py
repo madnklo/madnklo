@@ -375,7 +375,7 @@ integrators = {
 
 # Now choose which integrator(s) to try. 
 #for name in ['Naive','VEGAS','SUAVE','DIVONNE','CUHRE']:
-for name in ['DIVONNE']:
+for name in ['VEGAS']:
     # Set the integrator
     ME7.set_integrator(*integrators[name])
     # Run one last time

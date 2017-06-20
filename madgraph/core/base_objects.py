@@ -3550,6 +3550,17 @@ class ProcessDefinition(Process):
                           process id
     """
 
+    def get_copy(self):
+        """ Returns a copy of self."""
+        copy = ProcessDefinition(self)
+        copy.set('legs', MultiLegList(self['legs']))
+        copy.set('decay_chains', ProcessDefinitionList())
+        for proc_def in self['decay_chains']:
+            copy['decay_chains'].append(proc_def.get_copy())
+
+        # Potentially add here manually any attribute that really needs to be deep-copied.
+        return copy
+
     def default_setup(self):
         """Default values for all properties"""
 
@@ -3571,7 +3582,6 @@ class ProcessDefinition(Process):
             if not isinstance(value, ProcessDefinitionList):
                 raise self.PhysicsObjectError, \
                         "%s is not a valid ProcessDefinitionList" % str(value)
-
         else:
             return super(ProcessDefinition, self).filter(name, value)
 
@@ -3874,3 +3884,120 @@ def make_unique(doubletlist):
             uniquelist.append(elem)
 
     doubletlist[:] = uniquelist[:]
+
+
+#===============================================================================
+# ProcessDefinition
+#===============================================================================
+class ContributionDefinition(object):
+    """ All the information necessary to setup the diagram generation and output
+    of a particular contribution to a computation. The core attribute being a 
+    ProcessDefinition.
+    We do not inherit from PhysicsObject as we want to depart from the dictionary
+    structure
+    """
+    
+    def __init__(self,
+                 process_definition, 
+                 correction_order           = 'LO',
+                 correction_couplings       = [], 
+                 n_unresolved_particles     = 0,
+                 n_loops                    = 0,
+                 squared_orders_constraints = {}
+                ):
+        """ Instantiate a contribution definition with all necessary information
+        to generate the actual contribution. """
+        self.process_definition        = process_definition
+        self.correction_order          = correction_order
+        self.correction_couplings      = correction_couplings
+        self.n_unresolved_particles    = n_unresolved_particles
+        self.n_loops                   = n_loops
+        # Squared orders to consider. Note that this is not the same as the attribute
+        # of the process definition, since it can be {'QED':[2,4]} to indicates that all
+        # squared order for QED between 2 and 4 must be considered. A constraint of 
+        # {'QED':[2,2]} means that QED^2 must be exactly equal to 2.
+        self.squared_orders_constraints = squared_orders_constraints
+    
+    def nice_string(self):
+        """ Nice representation of a contribution definition."""
+        res = []
+        res.append('%-30s:   %s'%('correction_order',self.correction_order))
+        res.append('%-30s:   %s'%('correction_couplings',self.correction_couplings))
+        res.append('%-30s:   %s'%('n_unresolved_particles',self.n_unresolved_particles))
+        res.append('%-30s:   %s'%('n_loops',self.n_loops))
+        res.append('%-30s:   %s'%('squared_orders_constraints',self.squared_orders_constraints))
+        res.append('%-30s:   %s'%('process_definition',self.process_definition.nice_string().replace('Process: ','')))
+        return '\n'.join(res)
+    
+    def get_shell_name(self):
+        """ Returns a short descriptive name that can be used as a directory or file name."""
+        shell_name = '%s'%self.correction_order
+        if self.correction_order!='LO':
+            # Below is to form strings like RV_R, RR_RR, VV_B, V_V at NNLO for example
+            shell_name += '_'
+            shell_name += 'R'*self.n_unresolved_particles
+            shell_name += 'V'*self.n_loops
+            shell_name += '_x_'
+            shell_name += 'R'*self.n_unresolved_particles
+            nV_in_conjugated_amplitude = self.correction_order.count('N')-(self.n_unresolved_particles+self.n_loops)
+            if nV_in_conjugated_amplitude==0 and self.n_unresolved_particles==0:
+                shell_name += 'B'
+            else:
+                shell_name += 'V'*nV_in_conjugated_amplitude
+        return shell_name
+    
+class ContributionDefinitionList(PhysicsObjectList):
+    """ A container for ContributionDefinition."""
+    
+    def is_valid_element(self, obj):
+        """Test if object obj is a valid ProcessDefinition for the list."""
+        return isinstance(obj, ContributionDefinition)
+    
+    def get_contributions_of_order(self, correction_order):
+        """ Returns a list of all contributions of a certain correction_order in argument."""
+        
+        return ContributionDefinitionList([contrib for contrib in self if
+                                           contrib.correction_order==correction_order])
+    
+    
+    def nice_string(self):
+        """ Prints out the list of contributions in an organized way."""
+        return self.contrib_list_string(self)
+    
+    @staticmethod
+    def contrib_list_string(contrib_list):
+        """ Nicely format details about this list."""
+        BLUE = '\033[94m'
+        GREEN = '\033[92m'
+        ENDC = '\033[0m'
+        if not contrib_list:
+            return "No contributions."
+        res = []
+        LO_contribs = contrib_list.get_contributions_of_order('LO')
+        if LO_contribs:
+            res.append("\n"+GREEN+"LO contributions:"+ENDC)
+            line_length = len(res[-1])-10
+            res.append("="*line_length)
+            for LO_contrib in LO_contribs:
+                res.extend(['   %s'%line for line in LO_contrib.nice_string().split('\n')])
+                res.append('   %s'%('-'*line_length))
+            res.pop()
+        NLO_contribs = contrib_list.get_contributions_of_order('NLO')
+        if NLO_contribs:
+            res.append("\n"+GREEN+"NLO contributions:"+ENDC)
+            line_length = len(res[-1])-10
+            res.append("="*line_length)
+            for NLO_contrib in NLO_contribs:
+                res.extend(['   %s'%line for line in NLO_contrib.nice_string().split('\n')])
+                res.append('   %s'%('-'*line_length))
+            res.pop()
+        NNLO_contribs = contrib_list.get_contributions_of_order('NNLO')
+        if NNLO_contribs:
+            res.append("\n"+GREEN+"NNLO contributions:"+ENDC)
+            line_length = len(res[-1])-10
+            res.append("="*line_length)
+            for NNLO_contrib in NNLO_contribs:
+                res.extend(['   %s'%line for line in NNLO_contrib.nice_string().split('\n')])    
+                res.append('   %s'%('-'*line_length))
+            res.pop()
+        return '\n'.join(res)

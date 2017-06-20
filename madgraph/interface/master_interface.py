@@ -168,6 +168,26 @@ class Switcher(object):
         space_before = re.compile(r"(?P<carac>\S)(?P<tag>[\\[\\]/\,\\$\\>|])(?P<carac2>\S)")
         line2 = space_before.sub(r'\g<carac> \g<tag> \g<carac2>', line)       
         
+        # Check if one has ME7 options in the process definition
+        ME7_mode = False
+        orders   = []
+        opts = line.split('--')
+        for opt in opts:
+            try:
+                key, value = opt.split('=')
+            except:
+                key   = opt
+                value = None
+            if key.strip() in ['LO','NLO','NNLO']:
+                ME7_mode = True
+            if key.strip() in ['NLO','NNLO']:
+                if value is None:
+                    orders.append('QCD')
+                else:
+                    orders.extend(value.split())
+        if ME7_mode:
+            return ('ME7','all',orders)
+
         # Use regular expressions to extract the loop mode (if present) and its
         # option, specified in the line with format [ option = loop_orders ] or
         # [ loop_orders ] which implicitly select the 'all' option.
@@ -185,14 +205,13 @@ class Switcher(object):
                 # If not option is set the convention is that the mode is 'all'
                 # unless no perturbation orders is defined.
                 if len(orders)>0:
-                    return ('NLO','all',orders)
+                    return ('NLO','virt',orders)
                 else:
                     return ('tree',None,[])               
         else:
             return ('tree',None,[])    
     
     # Wrapping functions possibly switching to new interfaces
-
     def do_add(self, line, *args, **opts):
         
         argss = cmd.Cmd.split_arg(line)
@@ -213,6 +232,11 @@ class Switcher(object):
                                                             coupling_type=orders)
                     self.change_principal_cmd('MadGraph')
                     return self.cmd.create_loop_induced(self, line, *args, **opts)
+            if type == 'ME7':
+                    self.change_principal_cmd('MadLoop')
+                    self.cmd.validate_model(self, loop_type=nlo_mode,
+                                                            coupling_type=orders)
+                    self.change_principal_cmd('MadGraph')
         try:
             return  self.cmd.do_add(self, line, *args, **opts)
         except fks_base.NoBornException:

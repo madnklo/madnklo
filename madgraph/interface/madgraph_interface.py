@@ -56,16 +56,16 @@ from madgraph import MG4DIR, MG5DIR, MadGraph5Error
 
 import madgraph.core.base_objects as base_objects
 import madgraph.core.diagram_generation as diagram_generation
+import madgraph.core.contributions as contributions
 import madgraph.loop.loop_diagram_generation as loop_diagram_generation
 import madgraph.loop.loop_base_objects as loop_base_objects
 import madgraph.core.drawing as draw_lib
 import madgraph.core.helas_objects as helas_objects
 
-
-
 import madgraph.iolibs.drawing_eps as draw
 import madgraph.iolibs.export_cpp as export_cpp
 import madgraph.iolibs.export_v4 as export_v4
+import madgraph.iolibs.export_ME7 as export_ME7
 import madgraph.iolibs.helas_call_writers as helas_call_writers
 import madgraph.iolibs.file_writers as writers
 import madgraph.iolibs.files as files
@@ -88,6 +88,8 @@ import madgraph.various.process_checks as process_checks
 import madgraph.various.banner as banner_module
 import madgraph.various.misc as misc
 import madgraph.various.cluster as cluster
+
+import madgraph.fks.fks_common as fks_common
 
 import models as ufomodels
 import models.import_ufo as import_ufo
@@ -1531,6 +1533,13 @@ This will take effect only in a NEW terminal
         else:
             self._export_format = default
 
+        # For now only one export format is supported for ME7 contributions
+        if self._curr_contribs and self._export_format != default:
+            raise self.InvalidCmd(
+                'Export format %s is not compatible with MadEvent7 type of process generation.'%self._export_format)
+        else:
+            self._export_format = 'ME7'
+
         if not self._curr_model:
             text = 'No model found. Please import a model first and then retry.'
             raise self.InvalidCmd(text)
@@ -1548,7 +1557,7 @@ This will take effect only in a NEW terminal
             return
 
 
-        if not self._curr_amps:
+        if not self._curr_amps and not self._curr_contribs:
             text = 'No processes generated. Please generate a process first.'
             raise self.InvalidCmd(text)
 
@@ -1562,7 +1571,7 @@ This will take effect only in a NEW terminal
             # Check for special directory treatment
             if path == 'auto' and self._export_format in \
                      ['madevent', 'standalone', 'standalone_cpp', 'matchbox_cpp', 'madweight',
-                      'matchbox', 'plugin']:
+                      'matchbox', 'plugin', 'ME7']:
                 self.get_default_path()
                 if '-noclean' not in args and os.path.exists(self._export_dir):
                     args.append('-noclean')
@@ -2731,7 +2740,8 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
     # Options and formats available
     _display_opts = ['particles', 'interactions', 'processes', 'diagrams',
                      'diagrams_text', 'multiparticles', 'couplings', 'lorentz',
-                     'checks', 'parameters', 'options', 'coupling_order','variable']
+                     'checks', 'parameters', 'options', 'coupling_order','variable',
+                     'contributions']
     _add_opts = ['process', 'model']
     _save_opts = ['model', 'processes', 'options']
     _tutorial_opts = ['aMCatNLO', 'stop', 'MadLoop', 'MadGraph5']
@@ -2832,6 +2842,7 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
     # Variables to store object information
     _curr_model = None  #base_objects.Model()
     _curr_amps = diagram_generation.AmplitudeList()
+    _curr_contribs = contributions.ContributionList()
     _curr_proc_defs = base_objects.ProcessDefinitionList()
     _curr_matrix_elements = helas_objects.HelasMultiProcess()
     _curr_helas_model = None
@@ -2933,7 +2944,114 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
         
         
         return value
+    
+    def parse_add_options(self, args):
+        """ Parses the option provided via the arguments given to the command add."""
+        
+        add_options = {'NLO'            : [],
+                       'NNLO'           : [],
+                       'LO'             : False,
+                       'loop_induced'   : [],
+                       # ME7_definition is a tag informing whether the user asks for the new ME7 output.
+                       'ME7_definition' : False }
+        
+        # First combine all value of the options (starting with '--') separated by a space
+        # For example, it will group '--NNLO=QCD','QED' into '--NNLO=QCD QED'.
+        opt_args = []
+        new_args = []
+        for arg in args:
+            if arg.startswith('--'):
+                opt_args.append(arg)
+            elif len(opt_args)>0:
+                opt_args[-1] += ' %s'%arg
+            else:
+                new_args.append(arg)
 
+        if 'perturbation_couplings' in self._curr_model:
+            valid_NLO_correction_orders = self._curr_model.get('perturbation_couplings')
+        else:
+            valid_NLO_correction_orders = []
+        
+        if self._curr_model.get('name').startswith('sm'):
+            # Add here QCD and QED by default since we can automatically upgrade to the
+            # loop SM model for EW and QCD corrections
+            if 'QCD' not in valid_NLO_correction_orders:
+                valid_NLO_correction_orders.append('QCD')
+            if 'QED' not in valid_NLO_correction_orders:
+                valid_NLO_correction_orders.append('QED')
+        
+        # For now simply assume that NNLO is available for any model which supports NLO QCD.
+        # This can be refine later when it will be clear how we obtain the double virtual.
+        valid_NNLO_correction_orders = [order for order in valid_NLO_correction_orders if order in ['QCD']]
+        
+        for arg in opt_args:
+            try:
+                key, value = arg.split('=')
+            except:
+                key, value = arg, None
+            key = key[2:]
+   
+            if key == 'NLO':
+                if value is None:
+                    orders = ['QCD']
+                else:
+                    orders = value.split()     
+                if any(order not in valid_NLO_correction_orders for order in orders):
+                    raise InvalidCmd("Current model only supports orders %s for NLO corrections, not: %s"
+                                                                %(valid_NLO_correction_orders, orders) )
+                add_options['NLO'] = orders
+            
+            elif key == 'NNLO':
+                if value is None:
+                    orders = ['QCD']
+                else:
+                    orders = value.split()     
+                if any(order not in valid_NNLO_correction_orders for order in orders):
+                    raise InvalidCmd("Current model only supports orders %s for NNLO corrections, not: %s"
+                                                                    %(valid_NNLO_correction_orders, orders) )
+                
+                add_options['NNLO'] = orders
+            
+            elif key=='LO':
+                if value != None:
+                    raise InvalidCmd("The --LO option does not take arguments.")
+                add_options['LO'] = True
+
+            elif key=='loop_induced':
+                if value is None:
+                    orders = ['QCD']
+                else:
+                    orders = value.split()     
+                if any(order not in valid_NLO_correction_orders for order in orders):
+                    raise InvalidCmd("Current model only supports orders %s for loop computations, not: %s"
+                                                                %(valid_NLO_correction_orders, orders) )
+
+            else:
+                raise InvalidCmd("Unrecognized option for command add/generate: %s"%key)
+
+        # Make sure to select --LO if no mode was selected when picking loop_induced
+        if add_options['loop_induced'] and not any(add_options[mode] for mode in ['NNLO', 'NLO', 'LO']):
+            add_options['LO'] = True
+        
+        if add_options['loop_induced'] and add_options['NNLO']:
+            raise InvalidCmd('Loop-induced processes cannot be simulated at NNLO accuracy.')
+        
+        # Now make sure that the hierarchy of contributions is respected, except if explicitly set to None
+        if add_options['NNLO']:
+            if not add_options['NLO'] and (not add_options['NLO'] is None):
+                # Add here the NLO contribution with the same orders as NLO
+                add_options['NLO'] = add_options['NNLO']
+                
+        if add_options['NLO']:
+            if not add_options['LO'] and (not add_options['LO'] is None):
+                # Activate leading contributions too.
+                add_options['LO'] = True
+
+        # Finally set the ME7_definition tag
+        add_options['ME7_definition'] = any(add_options[info] for info in ['NLO', 'NNLO', 'LO', 'loop_induced'])
+
+        return new_args, add_options
+        
     # Add a process to the existing multiprocess definition
     # Generate a new amplitude
     def do_add(self, line):
@@ -2962,7 +3080,9 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
 
         # Check the validity of the arguments
         self.check_add(args)
-
+        # Parse the options and remove them from args
+        args, add_options = self.parse_add_options(args)
+        
         if args[0] == 'model':
             return self.add_model(args[1:])
         
@@ -2975,6 +3095,11 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
             optimize = False
 
         if args[0] == 'process':
+            
+            # Check if we use here the new ME7 mode
+            # Eventually, this will become unecessary if/when everything will be supported by this new mode.
+            ME7Mode = add_options['ME7_definition']
+            
             # Rejoin line
             line = ' '.join(args[1:])
 
@@ -2987,6 +3112,10 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
 
             # Extract process from process definition
             if ',' in line:
+                
+                if ME7Mode and (add_options['NLO'] or add_options['NNLO']):
+                    raise InvalidCmd("Decay chain syntax not supported for higher order corrections.")
+                
                 if ']' in line or '[' in line:
                     error_msg=\
 """The '[' and ']' syntax cannot be used in cunjunction with decay chains.
@@ -3016,11 +3145,11 @@ This implies that with decay chains:
                 nb_proc = len([l for l in self.history if l.startswith(('generate','add process'))])
                 myprocdef = self.extract_process(line, proc_number=nb_proc)
 
-            
-
             # Check that we have something
             if not myprocdef:
                 raise self.InvalidCmd("Empty or wrong format process, please try again.")
+            
+            # Not a relevant check when doing ME7 mode, but harmless since self._curr_amps will be empty.
             # Check that we have the same number of initial states as
             # existing processes
             if self._curr_amps and self._curr_amps[0].get_ninitial() != \
@@ -3037,7 +3166,19 @@ This implies that with decay chains:
                   " can only be given on one type of coupling and either on"+\
                                " squared orders or amplitude orders, not both.")
 
-            cpu_time1 = time.time()
+            # Now we start the new technique for generating contributions that will later
+            # be used for the ME7 output
+            if ME7Mode:
+                # Bring access to additional options provided to the add process command
+                # These are relevant only for LO
+                add_options['diagram_filter'] = diagram_filter 
+                add_options['optimize'] = optimize
+                self.add_contributions(myprocdef, add_options)
+                # Generate amplitudes for the added contributions
+                self._curr_contribs.generate_amplitudes()
+                # Reset _done_export, since we have new process
+                self._done_export = False
+                return
 
             # Generate processes
             if self.options['group_subprocesses'] == 'Auto':
@@ -3048,6 +3189,8 @@ This implies that with decay chains:
                            self.options['ignore_six_quark_processes'] if \
                            "ignore_six_quark_processes" in self.options \
                            else []
+
+            cpu_time1 = time.time()
 
             myproc = diagram_generation.MultiProcess(myprocdef,
                                      collect_mirror_procs = collect_mirror_procs,
@@ -3077,6 +3220,255 @@ This implies that with decay chains:
                               amp in self._curr_amps])
             logger.info("Total: %i processes with %i diagrams" % \
                   (len(self._curr_amps), ndiags))        
+
+    def add_LO_contributions(self, procdef, generation_options):
+        """ Add all regular LO contributions, starting from this specific instance
+        of process definition."""
+
+        # Update process id
+        procdef.set('id', generation_options['proc_id'])
+        generation_options['proc_id'] += 1
+        self._curr_contribs.append(
+            contributions.Contribution(
+                base_objects.ContributionDefinition(procdef), 
+                self.options, diagram_filter=generation_options['diagram_filter'],
+                optimize=generation_options['optimize']))
+
+    def add_LO_loop_induced_contributions(self, procdef, generation_options):
+        """ Add all LO loop-induced contributions, starting from this specific instance
+        of process definition."""
+
+        # Update process id
+        procdef.set('id', generation_options['proc_id'])
+        generation_options['proc_id'] += 1
+        # Add here the loop-induced syntax to this process
+        procdef.set('perturbation_couplings', generation_options['loop_induced'])
+        procdef.set('NLO_mode', 'sqrvirt')
+        for order in generation_options['loop_induced']:
+            if order in procdef['split_orders']:
+                continue
+            procdef['split_orders'].append(order)
+        self._curr_contribs.append(
+            contributions.Contribution(base_objects.ContributionDefinition(
+                    procdef,
+                    n_loops = 1)), self.options)
+                
+    def add_NLO_contributions(self, NLO_template_procdef, generation_options, target_squared_orders):
+        """ Add all regular NLO contributions, using the process defintion in argument as template
+        and the target_squared_orders as constraints applying to the NLO contributions.
+        So, if the user specified QCD^2==2 at LO, these NLO target_squared_orders would become QCD^2 in [2-4]"""
+                
+        # Shortcut accessor to quantities stores in generation_options
+        all_perturbed_orders = generation_options['all_perturbed_orders']
+        orders_to_perturbed_quantities = generation_options['orders_to_perturbed_quantities']
+        
+        # Add the virtual contribution
+        # ----------------------------
+        procdef = NLO_template_procdef.get_copy()
+        # Update process id
+        procdef.set('id', generation_options['proc_id'])
+        generation_options['proc_id'] += 1
+        # Here setting the perturbation_couplings is enough to guarantee that 
+        # the relevant diagrams for these coupling orders will be generated
+        procdef.set('perturbation_couplings', generation_options['NLO'])
+        procdef.set('NLO_mode', 'virt')
+        self._curr_contribs.append(
+            contributions.Contribution(
+                base_objects.ContributionDefinition(
+                    procdef,
+                    n_loops                    = 1,
+                    n_unresolved_particles     = 0,
+                    correction_order           = 'NLO',
+                    correction_couplings       = generation_options['NLO'],
+                    squared_orders_constraints = target_squared_orders),
+                self.options))
+        
+        # Add the real-emission contribution
+        # ----------------------------------
+        procdef = NLO_template_procdef.get_copy()
+        # Update process id
+        procdef.set('id', generation_options['proc_id'])
+        generation_options['proc_id'] += 1
+        # Specify a negative squared order coupling if no squared order coupling is
+        # defined, otherwise necessary subleading real-emission diagrams might not be generated.
+        for order in generation_options['NLO']:
+            if order not in target_squared_orders:
+                procdef['sqorders_types'][order] = '<='
+                # -2 means that the first sub-leading correction will be included
+                procdef['squared_orders'][order] = -2
+
+        # Now add the corresponding MultiLeg to the final state
+        procdef['legs'].append(base_objects.MultiLeg({'ids':
+            sum([orders_to_perturbed_quantities[order]['real_emission_ids'] 
+                 for order in generation_options['NLO']],[]),
+                                                      'state': True}))
+        real_emission_contribution = contributions.Contribution(
+                base_objects.ContributionDefinition(
+                    procdef,
+                    n_loops                = 0,
+                    n_unresolved_particles = 1,
+                    correction_order       = 'NLO',
+                    correction_couplings   = generation_options['NLO'],
+                    squared_orders_constraints = target_squared_orders ),
+                    self.options)
+        
+        self._curr_contribs.append(real_emission_contribution)
+        
+        # Add the NLO subtraction counterterms contributions
+        # --------------------------------------------------
+        # TO DO
+                
+    def add_NLO_loop_induced_contributions(self, NLO_template_procdef, generation_options, target_squared_orders):
+        """ Add all NLO loop_induced contributions, using the process defintion in argument as template
+        and the target_squared_orders as constraints applying to the NLO contributions.
+        So, if the user specified QCD^2==2 at LO, these NLO target_squared_orders would become QCD^2 in [2-4]"""     
+        
+        raise InvalidCmd("NLO loop-induced contributions not yet supported.")
+                
+    def add_contributions(self, input_procdef, generation_options):
+        """ Given a Born process definition. Add all necessary 'contributions', according the generation
+        options specified."""
+        
+        # Make sure that the user did not mix up syntax
+        if input_procdef.get('perturbation_couplings'):
+            raise InvalidCmd("Do not specify perturbed coupling order with the [...] syntax together with"+
+                             " higher order corrections specified via --NLO=..., --NNLO=... and --LO.")
+        
+        
+        # Progressively increment process ID, which we store in the generation_options
+        generation_options['proc_id'] = 1
+        
+        # Add LO contributions first
+        if generation_options['LO']:
+            procdef = input_procdef.get_copy()
+            if not generation_options['loop_induced']:
+                self.add_LO_contributions(procdef, generation_options)
+            else:                
+                self.add_LO_loop_induced_contributions(procdef, generation_options)
+
+        # If there was only a LO contribution we are now done
+        if not generation_options['NLO'] and not generation_options['NNLO']:
+            return
+
+        # General pre-processing of the process definition for higher order corrections.
+        
+        # This LO_global_orders caches the squared order of the process definition which is removed here.
+        # This will be used to generate the (N)NLO_global_orders. For example, if NLOQCD is asked 
+        # with a process defined with QCD^2==4, we will generate the reals with the global squared order 
+        # constraints {'QCD':[4,6]}, meaning that QCD^2 can be anywhere between 4 and 6.
+        # I refer to them as global in the sense that they apply at the integrator level, and do not
+        # directly dictate diagram generation.
+        LO_global_orders = {}
+            
+        all_perturbed_orders = list(set(
+                (generation_options['NLO'] if not generation_options['NLO'] is None else [])+\
+                (generation_options['NNLO'] if not generation_options['NNLO'] is None else [])))
+        
+        # Make sure that we upgrade the SM to the appropriate loop model if necessary.
+        from madgraph.interface.loop_interface import CommonLoopInterface
+        if 'QED' in all_perturbed_orders:
+            CommonLoopInterface.validate_model(self,coupling_type='QED',loop_type='virtual',stop=True)
+        else:
+            CommonLoopInterface.validate_model(self,loop_type='virtual',stop=True)
+            
+        template_procdef = input_procdef.get_copy()
+        
+        # Check that only squared order are specified.
+        warning = ('Process definitions in MadEvent7 can only have squared order constraints.'+
+                               ' The amplitude order constraint specified here will be ignored.')
+        for order in input_procdef['orders']:
+            if order in all_perturbed_orders:
+                if warning:
+                    logger.warning(warning)
+                    warning = None
+                del template_procdef['orders'][order]
+                            
+        for order in input_procdef['constrained_orders']:
+            if order in all_perturbed_orders:
+                if warning:
+                    logger.warning(warning)
+                    warning = None
+                del template_procdef['constrained_orders'][order]
+            
+        # Now add to the spit_orders the perturbed couplings
+        for order in all_perturbed_orders:
+            if order in template_procdef['split_orders']:
+                continue
+            template_procdef['split_orders'].append(order)
+            
+        for value in input_procdef['squared_orders'].values():
+            if order < 0:
+                raise InvalidCmd('MadEvent7 does not support negative squared order constraints.')
+
+        # Promote the squared order constraints to global properties
+        # which will then be applied by the integrator. This is because if the users asks for QCD^2==4
+        # this means the same constraint at LO but at NLO it would mean to keep QCD^2 orders between [4,6]
+        for order, value in input_procdef['squared_orders'].items():
+            LO_global_orders[order] = \
+                     [value,value] if input_procdef['sqorders_types'][order]=='==' else [0,value]
+        for order in all_perturbed_orders:            
+            if order in template_procdef['squared_orders']:
+                del template_procdef['squared_orders'][order]
+            if order in template_procdef['sqorders_types']:
+                del template_procdef['sqorders_types'][order]
+
+        # Map perturbed coupling orders to the corresponding relevant interactions and particles.
+        # The keys of the dictionary in values are 'interactions', 'pert_particles' and 'soft_particles'.
+        orders_to_perturbed_quantities = dict(
+            (order, fks_common.find_pert_particles_interactions(self._curr_model, pert_order = order))
+             for order in all_perturbed_orders)
+        # List the ids to consider for the extra real-emission MultiLeg for each perturbed order
+        for order, infos in orders_to_perturbed_quantities.items():
+            # We typically ignore HBR (Heavy-Boson-Radiation) which are anyway separately finite and therefore
+            # limit ourselves to including massless particles in the real-emission contributions
+            orders_to_perturbed_quantities[order]['real_emission_ids'] = infos['soft_particles']
+                
+        # Check that the initial state of the process either contains none of the soft perturbed particles
+        # or all of them.
+        all_perturbed_ids = set(sum([infos['soft_particles'] for infos in orders_to_perturbed_quantities.values()],[]))
+        for initial_states in [leg for leg in template_procdef['legs'] if not leg['state']]:
+            if not all_perturbed_ids.difference(set(initial_states['ids']))==set([]) and \
+               not all_perturbed_ids.difference(set(initial_states['ids']))==all_perturbed_ids:
+                logger.warning('It is typically not theoretically sound to compute higher order corrections of'+
+                    ' a process for which the initial states are only a subset of the following set:\n%s'%(
+                        str([self._curr_model.get_particle(pdg).get_name() for pdg in all_perturbed_ids])))
+        
+        
+        # Add the certain quantities to the generation options so as to make then accessible to the various
+        # add_contributions_<xxx> functions called here.
+        generation_options['all_perturbed_orders'] = all_perturbed_orders
+        generation_options['orders_to_perturbed_quantities'] = orders_to_perturbed_quantities
+        
+        # Add NLO contributions now
+        # =========================
+        if generation_options['NLO']:
+            
+            # First assign the target squared coupling orders.
+            NLO_template_procdef = template_procdef.get_copy()
+            # Set the target squared order couplings, incremented since this is the NLO contribution
+            NLO_global_orders = dict(LO_global_orders)
+            for order in generation_options['NLO']:
+                if order in NLO_global_orders:
+                    NLO_global_orders[order][-1] += 2
+            NLO_template_procdef.set('squared_orders', 
+                dict((order, value[-1]) for order, value in NLO_global_orders.items() if 
+                                                        order in generation_options['NLO']) )                
+            NLO_template_procdef.set('sqorders_types',
+                dict((order, '<=') for order in NLO_global_orders.keys() if 
+                                                        order in generation_options['NLO']) )
+ 
+            # Adding here regular NLO contributions
+            if not generation_options['loop_induced']:
+                self.add_NLO_contributions(NLO_template_procdef, generation_options, NLO_global_orders)
+            # Add NLO loop-induced contributions
+            else:
+                self.add_NLO_loop_induced_contributions(
+                                            NLO_template_procdef, generation_options, NLO_global_orders)
+        
+        # Finally add NNLO contributions
+        # ==============================
+        if generation_options['NNLO']:
+            raise InvalidCmd("NNLO contributions not yet supported.")  
                 
     def add_model(self, args):
         """merge two model"""
@@ -3323,6 +3715,9 @@ This implies that with decay chains:
         elif args[0] == 'processes':
             for amp in self._curr_amps:
                 print amp.nice_string_processes()
+
+        elif args[0] == 'contributions':
+            print self._curr_contribs.nice_string()
 
         elif args[0] == 'diagrams_text':
             text = "\n".join([amp.nice_string() for amp in self._curr_amps])
@@ -4324,6 +4719,8 @@ This implies that with decay chains:
         aloha_lib.KERNEL.clean()
         # Reset amplitudes
         self._curr_amps = diagram_generation.AmplitudeList()
+        # Reset contributions
+        self._curr_contribs = contributions.ContributionList()
         # Reset Process definition
         self._curr_proc_defs = base_objects.ProcessDefinitionList()
         # Reset Helas matrix elements
@@ -7352,6 +7749,7 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
         config['matchbox_cpp'] =   {'check': True, 'exporter': 'cpp', 'output': 'Template'}
         config['matchbox'] =       {'check': True, 'exporter': 'v4',  'output': 'Template'}
         config['madweight'] =      {'check': True, 'exporter': 'v4',  'output':'Template'}
+        config['ME7'] =            {'check': True, 'exporter': 'ME7',  'output':'Template'}
 
         if self._export_format == 'plugin':
             options = {'check': self._export_plugin.check, 'exporter':self._export_plugin.exporter, 'output':self._export_plugin.output}
@@ -7396,9 +7794,12 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
             # have been defined with multiparticle labels, because then
             # branching ratios necessitates to keep subprocesses independent.
             # That applies only if there is more than one subprocess of course.
-            if self._curr_amps[0].get_ninitial() == 1 and \
-                                                     len(self._curr_amps)>1:
-                processes = [amp.get('process') for amp in self._curr_amps]            
+            if self._curr_contribs:
+                amps = self._curr_contribs[0].amplitudes
+            else:
+                amps = self.__curr_amps
+            if len(amps)>1 and amps[0].get_ninitial() == 1:
+                processes = [amp.get('process') for amp in amps]            
                 if len(set(proc.get('id') for proc in processes))!=len(processes):
                     # Special warning for loop-induced
                     if any(proc['perturbation_couplings'] != [] for proc in
@@ -7420,13 +7821,17 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
         if options['exporter'] == 'v4':
             self._curr_exporter = export_v4.ExportV4Factory(self, noclean, 
                                              group_subprocesses=group_processes)
+        elif options['exporter'] == 'ME7':
+            self._curr_exporter = export_ME7.ME7Exporter(self, noclean, group_subprocesses=group_processes)
+
         elif options['exporter'] == 'cpp':
             self._curr_exporter = export_cpp.ExportCPPFactory(self, group_subprocesses=group_processes)
         
         self._curr_exporter.pass_information_from_cmd(self)
-        
+
         if options['output'] == 'Template':
             self._curr_exporter.copy_template(self._curr_model)
+
         elif options['output'] == 'dir' and not os.path.isdir(self._export_dir):
             os.makedirs(self._export_dir)
 
@@ -7457,6 +7862,11 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
     def export(self, nojpeg = False, main_file_name = "", group_processes=True, 
                                                                        args=[]):
         """Export a generated amplitude to file."""
+
+        # For MadEvent7 output we delegate this task to the ME7 exporter itself
+        if self._export_format == 'ME7':
+            self._curr_exporter.export(nojpeg, args=args)
+            return
 
         # Define the helas call  writer
         if self._curr_exporter.exporter == 'cpp':       
@@ -7703,6 +8113,17 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
         """Make the html output, write proc_card_mg5.dat and create
         madevent.tar.gz for a MadEvent directory"""
 
+        # move the old options to the flaglist system.
+        if nojpeg:
+            flaglist.append('nojpeg')
+        if online:
+            flaglist.append('online')
+
+        # For MadEvent7 output we delegate this task to the ME7 exporter itself
+        if self._export_format == 'ME7':
+            self._curr_exporter.finalize(flaglist, self.history)
+            return
+
         compiler_dict = {'fortran': self.options['fortran_compiler'],
                              'cpp': self.options['cpp_compiler'],
                              'f2py': self.options['f2py_compiler']}
@@ -7732,15 +8153,7 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
             else:
                 self._curr_exporter.convert_model(self._curr_model, 
                                                wanted_lorentz,
-                                               wanted_couplings)
-        
-        # move the old options to the flaglist system.
-        if nojpeg:
-            flaglist.append('nojpeg')
-        if online:
-            flaglist.append('online')
-
-            
+                                               wanted_couplings)            
 
         if self._export_format in ['NLO']:
             ## write fj_lhapdf_opts file            

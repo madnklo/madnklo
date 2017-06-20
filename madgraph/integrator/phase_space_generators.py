@@ -132,6 +132,11 @@ class Lorentz5Vector(list):
         return math.atan2(self[2],self[1])
     
     def boost(self, boost_vector, gamma=-1.):
+        """ Transport self into the restframe of the boostvector in argument.
+        This means that the following command, for any vector p=(E, px, py, pz, M)
+            p.boost(p.boostVector())
+        transforms p to (M,0,0,0,M).
+        """
         bx, by, bz = boost_vector[0], boost_vector[1], boost_vector[2]
         b2 = bx**2 + by**2 + bz**2
         if(gamma < 0.):
@@ -504,9 +509,9 @@ if __name__ == '__main__':
     import random
 
     # Try to run the above for a 2->8.
-    # my_PS_generator = FlatInvertiblePhasespace([0.]*2, [100. + 10.*i for i in range(8)])
+    my_PS_generator = FlatInvertiblePhasespace([0.]*2, [100. + 10.*i for i in range(8)])
     # Try to run the above for a 2->1.    
-    my_PS_generator = FlatInvertiblePhasespace([0.]*2, [5000.0])
+    #    my_PS_generator = FlatInvertiblePhasespace([0.]*2, [5000.0])
     
     E_cm  = 5000.0
     random_variables = [random.random() for _ in range(my_PS_generator.nDimPhaseSpace())]

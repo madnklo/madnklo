@@ -3231,7 +3231,7 @@ This implies that with decay chains:
         self._curr_contribs.append(
             contributions.Contribution(
                 base_objects.ContributionDefinition(procdef), 
-                self.options, diagram_filter=generation_options['diagram_filter'],
+                self, diagram_filter=generation_options['diagram_filter'],
                 optimize=generation_options['optimize']))
 
     def add_LO_loop_induced_contributions(self, procdef, generation_options):
@@ -3251,13 +3251,13 @@ This implies that with decay chains:
         self._curr_contribs.append(
             contributions.Contribution(base_objects.ContributionDefinition(
                     procdef,
-                    n_loops = 1)), self.options)
+                    n_loops = 1)), self)
                 
     def add_NLO_contributions(self, NLO_template_procdef, generation_options, target_squared_orders):
         """ Add all regular NLO contributions, using the process defintion in argument as template
         and the target_squared_orders as constraints applying to the NLO contributions.
         So, if the user specified QCD^2==2 at LO, these NLO target_squared_orders would become QCD^2 in [2-4]"""
-                
+
         # Shortcut accessor to quantities stores in generation_options
         all_perturbed_orders = generation_options['all_perturbed_orders']
         orders_to_perturbed_quantities = generation_options['orders_to_perturbed_quantities']
@@ -3280,9 +3280,9 @@ This implies that with decay chains:
                     n_unresolved_particles     = 0,
                     correction_order           = 'NLO',
                     correction_couplings       = generation_options['NLO'],
-                    squared_orders_constraints = target_squared_orders),
-                self.options))
-        
+                    squared_orders_constraints = dict(target_squared_orders)),
+                self))
+
         # Add the real-emission contribution
         # ----------------------------------
         procdef = NLO_template_procdef.get_copy()
@@ -3309,11 +3309,11 @@ This implies that with decay chains:
                     n_unresolved_particles = 1,
                     correction_order       = 'NLO',
                     correction_couplings   = generation_options['NLO'],
-                    squared_orders_constraints = target_squared_orders ),
-                    self.options)
+                    squared_orders_constraints = dict(target_squared_orders) ),
+                    self)
         
         self._curr_contribs.append(real_emission_contribution)
-        
+
         # Add the NLO subtraction counterterms contributions
         # --------------------------------------------------
         # TO DO
@@ -3464,7 +3464,7 @@ This implies that with decay chains:
             else:
                 self.add_NLO_loop_induced_contributions(
                                             NLO_template_procdef, generation_options, NLO_global_orders)
-        
+
         # Finally add NNLO contributions
         # ==============================
         if generation_options['NNLO']:

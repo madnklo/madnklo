@@ -507,7 +507,7 @@ class LoopAmplitude(diagram_generation.Amplitude):
                            ('+'.join(self['process']['perturbation_couplings']))
         for i,diag in enumerate(self['loop_diagrams']):
             # Now collect what are the coupling orders building the loop which
-            # are also perturbed order.        
+            # are also perturbed order.
             loop_orders=diag.get_loop_orders(self['process']['model'])
             pert_loop_order=set(loop_orders.keys()).intersection(\
                                  set(self['process']['perturbation_couplings']))

@@ -24,6 +24,8 @@ import shutil
 import madgraph.core.base_objects as base_objects
 import madgraph.core.color_algebra as color
 import madgraph.core.helas_objects as helas_objects
+import madgraph.core.contributions as contributions
+import aloha as aloha
 import madgraph.iolibs.files as files
 import madgraph.iolibs.file_writers as writers
 import madgraph.iolibs.template_files as template_files
@@ -88,7 +90,12 @@ class ME7Exporter(object):
 
     def finalize(self, flaglist, interface_history):
         """ Distribute and organize the finalization of all contributions. """
-
+        
         # Forward the finalize request to each contribution
         for contrib in self.contributions:
-            contrib.finalize(flaglist = flaglist, interface_history = interface_history) 
+            # Must clean the aloha Kernel before each aloha export for each contribution
+            aloha.aloha_lib.KERNEL.clean()
+#            misc.sprint(contrib.nice_string())
+#            if isinstance(contrib, contributions.Contribution_V):
+#                misc.sprint( [[ p.nice_string() for p in me.get('processes')] for me in contrib.all_matrix_elements.get_matrix_elements()] )
+            contrib.finalize(flaglist = flaglist, interface_history = interface_history)

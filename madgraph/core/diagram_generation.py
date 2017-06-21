@@ -1849,7 +1849,6 @@ class MultiProcess(base_objects.PhysicsObject):
         """ Return the correct amplitude type according to the characteristics of
             the process proc. The only option that could be specified here is
             loop_filter and it is of course not relevant for a tree amplitude."""
-            
         return Amplitude({"process": proc})
         
 

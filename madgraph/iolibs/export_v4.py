@@ -865,18 +865,19 @@ param_card.inc: ../Cards/param_card.dat\n\t../bin/madevent treatcards param\n'''
             aloha_model = self.aloha_model
         else:
             aloha_model = create_aloha.AbstractALOHAModel(os.path.basename(model.get('modelpath')))
-        aloha_model.add_Lorentz_object(model.get('lorentz'))
 
+        aloha_model.add_Lorentz_object(model.get('lorentz'))
         # Compute the subroutines
         if wanted_lorentz:
             aloha_model.compute_subset(wanted_lorentz)
         else:
             aloha_model.compute_all(save=False)
-
+        
         # Write them out
         write_dir=pjoin(self.dir_path, 'Source', 'DHELAS')
+        
         aloha_model.write(write_dir, 'Fortran')
-
+        
         # Revert the original aloha loop mode
         aloha.loop_mode = old_loop_mode
 

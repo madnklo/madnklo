@@ -3551,10 +3551,26 @@ class ProcessDefinition(Process):
     """
 
     def get_copy(self):
-        """ Returns a copy of self."""
+        """ Returns a copy of self. Warning: model not copied"""
+        
         copy = ProcessDefinition(self)
+        
         copy.set('legs', MultiLegList(self['legs']))
-        copy.set('decay_chains', ProcessDefinitionList())
+        copy.set('orders',dict(self['orders']))
+        copy.set('required_s_channels',list(self['required_s_channels']))
+        copy.set('forbidden_onsh_s_channels',list(self['forbidden_onsh_s_channels']))
+        copy.set('forbidden_s_channels',list(self['forbidden_s_channels']))
+        copy.set('forbidden_particles',list(self['forbidden_particles']))
+        copy.set('overall_orders',dict(self['overall_orders']))
+        copy.set('orders',dict(self['orders']))
+        copy.set('split_orders',list(self['split_orders']))
+        copy.set('perturbation_couplings',list(self['perturbation_couplings']))
+        copy.set('squared_orders',dict(self['squared_orders']))
+        copy.set('sqorders_types',dict(self['sqorders_types']))
+        copy.set('constrained_orders',dict(self['constrained_orders']))
+        copy.set('split_orders',list(self['split_orders']))
+
+        copy.set('decay_chains', ProcessDefinitionList())        
         for proc_def in self['decay_chains']:
             copy['decay_chains'].append(proc_def.get_copy())
 

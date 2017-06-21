@@ -194,6 +194,7 @@ class LoopExporterFortran(object):
         computations across different LoopHelasMatrixElements steered by the
         same loop exporter.
         """
+
         if not hasattr(self, 'aloha_model'):
             self.aloha_model = create_aloha.AbstractALOHAModel(os.path.basename(model.get('modelpath')))
         return self.aloha_model
@@ -351,8 +352,7 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         else:
             return file
         
-    def convert_model(self, model, wanted_lorentz = [], 
-                                                         wanted_couplings = []):
+    def convert_model(self, model, wanted_lorentz = [], wanted_couplings = []):
         """ Caches the aloha model created here when writing out the aloha 
         fortran subroutine.
         """

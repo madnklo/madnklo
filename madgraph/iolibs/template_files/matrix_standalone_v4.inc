@@ -244,9 +244,10 @@ C     the include file with the values of the parameters and masses
       SUBROUTINE %(proc_prefix)sINITIALISE(PATH)
 C     ROUTINE FOR F2PY to read the benchmark point.    
       IMPLICIT NONE   
-      CHARACTER*180 PATH
+      CHARACTER*512 PATH
 CF2PY INTENT(IN) :: PATH 
-      call setpara(PATH)  !first call to setup the paramaters    
+C     USE SETPARA2 and not SETPARA so that ident_card.dat can be automatically found.
+      CALL SETPARA2(path)
       return 
       end      
 

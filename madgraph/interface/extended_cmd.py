@@ -1825,7 +1825,7 @@ class Cmd(CheckCmd, HelpCmd, CompleteCmd, BasicCmd):
                 basedir = os.getcwd()
         elif MADEVENT:
             # launch via ./bin/madevent
-            for config_file in ['me5_configuration.txt', 'amcatnlo_configuration.txt']:
+            for config_file in ['me7_configuration.txt', 'me5_configuration.txt', 'amcatnlo_configuration.txt']:
                 if os.path.exists(pjoin(self.me_dir, 'Cards', config_file)): 
                     base = pjoin(self.me_dir, 'Cards', config_file)
             basedir = self.me_dir

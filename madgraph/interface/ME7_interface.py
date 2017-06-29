@@ -51,9 +51,6 @@ pjoin = os.path.join
 logger = logging.getLogger('madevent7.stdout') # -> stdout
 logger_stderr = logging.getLogger('madevent7.stderr') # ->stderr
 
-# Uncomment the line below to mute this very verbose logger during integration (and only this one)
-#logger.setLevel(50)
-
 try:
     import madgraph
 except ImportError: 
@@ -74,8 +71,8 @@ except ImportError:
     import internal.integrands as integrands
     import internal.integrators as integrators
     import internal.phase_space_generators as phase_space_generators
-    
-    
+    import internal.pyCubaIntegrator as pyCubaIntegrator
+
 #    import internal.histograms as histograms # imported later to not slow down the loading of the code
     from internal.files import ln
 else:
@@ -92,6 +89,7 @@ else:
     import madgraph.integrator.integrands as integrands
     import madgraph.integrator.integrators as integrators
     import madgraph.integrator.phase_space_generators as phase_space_generators
+    import madgraph.integrator.pyCubaIntegrator as pyCubaIntegrator
 #    import madgraph.various.histograms as histograms  # imported later to not slow down the loading of the code
     import models.check_param_card as check_param_card
     import models.model_reader as model_reader
@@ -248,11 +246,66 @@ class CompleteForCmd(CheckValidForCmd):
 class MadEvent7Cmd(CompleteForCmd, CmdExtended, HelpToCmd, common_run.CommonRunCmd):
     """The command line processor for MadEvent7"""    
 
+    _set_options = []
+    
+    # For now a very trivial setup, but we will want of course to have all these meta
+    # parameter controllable by user commands, eventually.
+    integrator_verbosity = 0 if logger.level > logging.DEBUG else 1
+    _integrators = {
+       'Naive' : (integrators.SimpleMonteCarloIntegrator, 
+                  { 'n_iterations'            : 10,
+                    'n_points_per_iterations' : 100,
+                    'accuracy_target'         : None,
+                    'verbosity'               : integrator_verbosity  } ),
+    
+       'VEGAS' : (pyCubaIntegrator.pyCubaIntegrator, 
+                  { 'algorithm' : 'Vegas', 
+                    'verbosity' : integrator_verbosity,
+                    'seed'      : 3,
+                    'target_accuracy' : 1.0e-3,
+                    'n_start'   : 1000,
+                    'n_increase': 500,
+                    'n_batch'   : 1000,
+                    'max_eval'  : 100000,
+                    'min_eval'  : 0}),
+       
+       'SUAVE'   : (pyCubaIntegrator.pyCubaIntegrator, 
+                    { 'algorithm' :'Suave', 
+                      'verbosity' : integrator_verbosity,
+                      'target_accuracy' : 1.0e-3,
+                      'max_eval'  : 100000,
+                      'min_eval'  : 0 } ),
+      
+       'DIVONNE' : (pyCubaIntegrator.pyCubaIntegrator, 
+                    { 'algorithm' : 'Divonne', 
+                      'verbosity': integrator_verbosity,
+                      'target_accuracy' : 1.0e-5,
+                      'max_eval'  : 100000000,
+                      'min_eval'  : 0 } ),
+    
+       'CUHRE'   : (pyCubaIntegrator.pyCubaIntegrator, 
+                    { 'algorithm' : 'Cuhre',
+                      'verbosity' : integrator_verbosity,
+                      'target_accuracy' : 1.0e-3,
+                      'max_eval'  : 100000,
+                      'min_eval'  : 0 } ),
+    }
+    
     def __init__(self, me_dir = None, options={}, *completekey, **stdin):
         """ Initialize the interface """
 
+        # Temporary n_initial value which will be updated during the bootstrap
+        self.n_initial = 2
         CmdExtended.__init__(self, me_dir, options, *completekey, **stdin)
         self.prompt = "ME7 @ %s > "%os.path.basename(pjoin(self.me_dir))
+        
+        # Initialize default properties that will be overwritten during the bootstrap.
+        self.all_MEAccessors = None
+        self.all_integrands = []
+        self.model = None
+        self.run_card = None
+        # Overwrite the above properties from the bootstrap using the database written at the output stage
+        self.bootstrap_ME7()
         
     def check_output_type(self, path):
         """ Check that the output path is a valid Madevent 7directory """        
@@ -263,30 +316,83 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, HelpToCmd, common_run.CommonRunC
 
     def set_configuration(self, amcatnlo=False, final=True, **opt):
         """ Assign all configuration variable from various files."""
-        misc.sprint("Setting configuration")
+        
+        # This will basically only load the options
+        super(MadEvent7Cmd,self).set_configuration(amcatnlo=False, final=final, **opt)
+
+    def bootstrap_ME7(self):
+        """ Setup internal state of MadEvent7, mostly the integrand, from the content of
+        what was dumped in the database MadEvent7.db at the output stage."""
+        
+        # Load the current run_card
+        self.run_card = banner_mod.RunCardME7(pjoin(self.me_dir,'Cards','run_card.dat'))
+        
+        # Now reconstruct all the relevant information from ME7_dump
+        logger.info("Loading MadEvent7 setup from file '%s'."%pjoin(self.me_dir,'MadEvent7.db'))
+        ME7_dump = save_load_object.load_from_file(pjoin(self.me_dir,'MadEvent7.db'))
+                
+        # We might want to recover whether prefix was used when importing the model and whether
+        # the MG5 name conventions was used. But this is a detail that can easily be fixed later.
+        self.model = import_ufo.import_model(
+            pjoin(self.me_dir,'Sources',ME7_dump['model_name']), prefix=True,
+            complex_mass_scheme = ME7_dump['model_with_CMS'] )
+        self.model.pass_particles_name_in_mg_default()
+        self.model.set_parameters_and_couplings(
+                param_card = pjoin(self.me_dir,'Cards','param_card.dat'), 
+                scale=self.run_card['scale'], 
+                complex_mass_scheme=ME7_dump['model_with_CMS'])
+
+        self.all_MEAccessors = ME7_dump['all_MEAccessors']['class'].initialize_from_dump(
+                                                ME7_dump['all_MEAccessors'], root_path = self.me_dir)
+        self.all_integrands = [integrand_dump['class'].initialize_from_dump(
+            integrand_dump, self.model, self.run_card, self.all_MEAccessors, self.options
+                                                    ) for integrand_dump in ME7_dump['all_integrands']]
+
+        self.n_initial = ME7_dump['n_initial']
+        
+    def compile(self):
+        """ Re-compile all necessary resources, so as to make sure it is up to date."""
+        # TODO
         pass
-#        super(MadEvent7Cmd,self).set_configuration(amcatnlo=amcatnlo, final=final, **opt)
 
     def do_launch(self, line, *args, **opt):
-        """Main command, starts the cross-section computation."""
-        misc.sprint("Launching")
-        pass
-
+        """Main command, starts the cross-section computation. Very basic setup for now.
+        We will eventually want to have all of these meta-data controllable via user commands
+        in the interface.
+        This is super naive and only for illustrative purposes for now."""
+        
+        # In principle we want to start by recompiling the process output so as to make sure
+        # that everything is up to date.
+        self.compile()
+        
+        #for name in ['Naive','VEGAS','SUAVE','DIVONNE','CUHRE']:
+        for name in ['Naive','VEGAS']:
+            
+            if len(set([len(itgd.get_dimensions()) for itgd in self.all_integrands]))>1 and name not in ['Naive']:
+                # Skip integrators that do not support integrand with different dimensions.
+                continue
+            
+            integrator = self._integrators[name][0](self.all_integrands, **self._integrators[name][1])
+            # The integration can be quite verbose, so temporarily setting their level to 50 by default is best here
+            with misc.MuteLogger(['madevent7.stdout','madevent7.stderr'],[50,50]):
+                xsec, error = integrator.integrate()
+            logger.info("="*100)
+            logger.info('{:^100}'.format("\033[92mCross-section with integrator '%s':\033[0m"%integrator.get_name()))
+            logger.info('{:^100}'.format("\033[94m%.5e +/- %.2e [pb]\033[0m"%(xsec, error)))
+            logger.info("="*100+"\n")
+        
     def get_characteristics(self, path=None):
         """reads process characteristics and initializes the corresponding dictionary"""
-        misc.sprint("Getting process characteristics")
-#        if not path:
-#            path = os.path.join(self.me_dir, 'SubProcesses', 'proc_characteristics')
-        
-#        self.proc_characteristics = banner_mod.ProcCharacteristic(path)
-#        return self.proc_characteristics
-        self.proc_characteristics = {'ninitial': 2}
+
+        # ME7 interface doesn't use this structure much, but some minimal information is
+        # still necessary for some of the parent's class features to work OK.
+        self.proc_characteristics = {'ninitial': self.n_initial}
         return self.proc_characteristics
   
   
     def configure_directory(self):
         """ All action require before any type of run """   
-        misc.sprint("Configuring directory")
+        misc.sprint("Configure directory -- Nothing to be done here yet.")        
         pass
 
 #===============================================================================
@@ -357,6 +463,16 @@ class ME7Integrand(integrands.VirtualIntegrand):
         given in arguments, whose explanations are provided in the comments of this initializer's body. """
         
         super(ME7Integrand, self).__init__()
+        
+        # Keep the initialization inputs to generate the dump
+        # Only keep the relevant information, in and set to None the ones that will need to be updated by
+        # ME7 interface directly.
+        self.initialization_inputs = { 'model'                      : None,
+                                       'run_card'                   : None,
+                                       'contribution_definition'    : contribution_definition,
+                                       'processes_map'              : processes_map,
+                                       'all_MEAccessors'            : None,
+                                       'ME7_configuration'          : None }
         
         # A ModelReader instantance, initialized with the values of the param_card.dat of this run
         self.model                      = model
@@ -456,7 +572,28 @@ class ME7Integrand(integrands.VirtualIntegrand):
             self.pdfsets = lhapdf.getPDFSet(pdf_info[lhaid]['filename'])
             # Pick the central PDF for now
             self.pdf = self.pdfsets.mkPDF(0)
-       
+
+    def generate_dump(self):
+        """ Generate a serializable dump of self, which can later be used, along with some more 
+        information, in initialize_from_dump in order to regenerate the object."""
+        
+        dump = {'class': self.__class__}
+        dump.update(self.initialization_inputs)
+        # For now do nothing
+        return dump
+    
+    @classmethod
+    def initialize_from_dump(cls, dump, model, run_card, all_MEAccessors, ME7_configuration):
+        """ Initialize self from a dump and possibly other information necessary for reconstructing this
+        integrand."""
+        
+        return dump['class'](model, 
+                             run_card,                             
+                             dump['contribution_definition'],
+                             dump['processes_map'],
+                             all_MEAccessors,
+                             ME7_configuration)
+      
     def get_external_masses_for_process(self, process, model=None):
         """ Returns the tuple:
                ( (initial_mass_value1, ...) , (final_mass_value1, final_mass_value2, final_mass_value3,...)

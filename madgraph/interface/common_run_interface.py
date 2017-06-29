@@ -3237,7 +3237,11 @@ class CommonRunCmd(HelpToCmd, CheckValidForCmd, cmd.Cmd):
             if amcatnlo:
                 me5_config = pjoin(self.me_dir, 'Cards', 'amcatnlo_configuration.txt')
             else:
-                me5_config = pjoin(self.me_dir, 'Cards', 'me5_configuration.txt')
+                if os.path.isfile(pjoin(self.me_dir, 'Cards', 'me5_configuration.txt')):
+                    me5_config = pjoin(self.me_dir, 'Cards', 'me5_configuration.txt')
+                else:
+                    me5_config = pjoin(self.me_dir, 'Cards', 'me7_configuration.txt')
+
             self.set_configuration(config_path=me5_config, final=False, initdir=self.me_dir)
 
             if self.options.has_key('mg5_path') and self.options['mg5_path']:

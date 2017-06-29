@@ -33,6 +33,7 @@ import madgraph.iolibs.files as files
 import madgraph.iolibs.file_writers as writers
 import madgraph.iolibs.template_files as template_files
 import madgraph.iolibs.export_v4 as export_v4
+import madgraph.iolibs.save_load_object as save_load_object
 import madgraph.various.banner as banner_mod
 from madgraph import MadGraph5Error, InvalidCmd, MG5DIR
 from madgraph.iolibs.files import cp, ln, mv
@@ -133,12 +134,23 @@ class ME7Exporter(object):
         """ Dumps all necessary information in order to bootstrap the ME7 interface.
         It is mostly all contained in all_MEAccessors and all_integrands."""
         
-        open(pjoin(self.export_dir,"MadEvent7.db"),'w').write("TO BE FILLED")
+        # Simply retrieve this information from one process of the first contribution.
+        n_initial = self.contributions[0].get_processes_map().values()[0][0].get_ninitial()
+        
+        # For now the db is a rude pickle file, but we might improve this to an actual DB eventually
+        ME7_dump = {
+            'all_MEAccessors' : all_MEAccessors.generate_dump(),
+            'all_integrands'  : [integrand.generate_dump() for integrand in all_integrands],
+            'model_name'      : 'ME7_UFO_model_%s'%self.model.get('name'),
+            'model_with_CMS'  : self.options['complex_mass_scheme'],
+            'n_initial'       : n_initial
+        }
+        
+        save_load_object.save_to_file(pjoin(self.export_dir,'MadEvent7.db'), ME7_dump)
 
     def create_run_card(self):
         """ Create the run card."""
         
-        # For now use the default LO card
         run_card = banner_mod.RunCardME7()
 
         history = ''
@@ -259,9 +271,24 @@ class ME7Exporter(object):
         #  'all_MEAccessors' and 'all_integrands'.
         self.dump_ME7(all_MEAccessors, all_integrands)
         
-        #
-        # WARNING THE COE BELOW IS JUST FOR TESTING PURPOSES
-        #
+        return
+        ###################################################################################################
+        ###
+        ###  WARNING THE COE BELOW IS JUST FOR TESTING PURPOSES AND CORRESPONDS TO RUNNING THE INTEGRATION
+        ###  RIGHT AWAY AND NOT WITHIN THE ME7 INTERFACE>
+        ###
+        ###################################################################################################
+        
+        import madgraph.interface.ME7_interface as ME7_interface
+        # Test the reconstruction of the ME7 output instances
+        ME7_dump = save_load_object.load_from_file(pjoin(self.export_dir,'MadEvent7.db'))
+        all_MEAccessors = ME7_dump['all_MEAccessors']['class'].initialize_from_dump(
+                                                ME7_dump['all_MEAccessors'], root_path = self.export_dir)
+        all_integrands = [integrand_dump['class'].initialize_from_dump(integrand_dump,
+                       modelReader_instance, run_card, all_MEAccessors, self.options
+                                                    ) for integrand_dump in ME7_dump['all_integrands']]
+        model_name     = ME7_dump['model_name']
+        model_with_CMS = ME7_dump['model_with_CMS']
         
         # This is now just for gigs. Integrate that beast!
         # Of course, what should really happen is that the users starts a ME7_interface, that 

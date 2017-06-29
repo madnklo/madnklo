@@ -6462,16 +6462,6 @@ def ExportV4Factory(cmd, noclean, output_type='default', group_subprocesses=True
 
     opt = dict(cmd.options)
 
-    # The following variables are either taken from the interface directly, or from
-    # the argument of this Factory if specified, which is the case when it is called
-    # from a Contribution.
-    if curr_amps is None:
-        curr_amps = export_dir
-    if export_dir is None:
-        export_dir = cmd._export_dir
-    if format is None:
-        format = cmd._export_format
-
     # Consistency check on inputs. If either curr_amps_input or export_dir_input is
     # specified, it should be a stanalone type of output and _fks_multi_proc should
     # not be present.
@@ -6481,6 +6471,16 @@ def ExportV4Factory(cmd, noclean, output_type='default', group_subprocesses=True
         if not format.startswith('standalone') or output_type not in ['madloop','default']:
             raise MadGraph5Error("A contribution is not supposed to call ExportV4Factory for"+
                                  " non-standalone type of outputs.")
+
+    # The following variables are either taken from the interface directly, or from
+    # the argument of this Factory if specified, which is the case when it is called
+    # from a Contribution.
+    if curr_amps is None:
+        curr_amps = cmd._curr_amps
+    if export_dir is None:
+        export_dir = cmd._export_dir
+    if format is None:
+        format = cmd._export_format
 
     # ==========================================================================
     # First check whether Ninja must be installed.

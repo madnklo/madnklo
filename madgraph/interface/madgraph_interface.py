@@ -1537,11 +1537,12 @@ This will take effect only in a NEW terminal
             self._export_format = default
 
         # For now only one export format is supported for ME7 contributions
-        if self._curr_contribs and self._export_format != default:
-            raise self.InvalidCmd(
-                'Export format %s is not compatible with MadEvent7 type of process generation.'%self._export_format)
-        else:
-            self._export_format = 'ME7'
+        if self._curr_contribs:
+            if self._export_format != default:
+                raise self.InvalidCmd(
+                  'Export format %s is not compatible with MadEvent7 type of process generation.'%self._export_format)
+            else:
+                self._export_format = 'ME7'
 
         if not self._curr_model:
             text = 'No model found. Please import a model first and then retry.'
@@ -8129,6 +8130,10 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
         # For MadEvent7 output we delegate this task to the ME7 exporter itself
         if self._export_format == 'ME7':
             self._curr_exporter.finalize(flaglist, self.history)
+            # Create configuration file [path to executable] for MadEvent7
+            filename = os.path.join(self._export_dir, 'Cards', 'me7_configuration.txt')
+            self.do_save('options %s' % filename.replace(' ', '\ '), check=False,
+                                                        to_keep={'mg5_path':MG5DIR})
             return
 
         compiler_dict = {'fortran': self.options['fortran_compiler'],

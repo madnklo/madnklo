@@ -57,6 +57,17 @@ class VirtualMEAccessor(object):
         obtained by this same one.
         root_path is the process output root path from which all other paths are relative."""
         
+        # Save the initialization arguments and options to facilitate the generation and use of
+        # a the dump. root_path should not be saved since this will be updated whenever the
+        # instance is reconstructed from a dump.
+        self.initialization_inputs = {'args':[], 'opts':{}}
+        self.initialization_inputs['args'].append(process)
+        self.initialization_inputs['opts'].update(
+            {'n_loops': n_loops,
+             'mapped_pdgs': mapped_pdgs,
+             'root_path': root_path})
+        self.initialization_inputs['opts'].update(opts)
+                
         # Define the attributes for this particular ME.
         self.pdgs_combs  = [ ( tuple(process.get_initial_ids()), tuple(process.get_final_ids()) ) ] + mapped_pdgs
         if n_loops:
@@ -82,7 +93,31 @@ class VirtualMEAccessor(object):
         self.spin_correlation = tuple([])
         self.color_connection = tuple([])
         self.hel_config       = tuple([])
+
+    def generate_dump(self, **opts):
+        """ Generate a serializable dump of self, which can later be used, along with some more 
+        information, in initialize_from_dump in order to regenerate the object. 
+        This can be overloaded by the daughter classes."""
         
+        dump = {}
+        # We opt here for a dictionary of relevant attribute to be used in __init__ during
+        # as well as the class of the accessor
+        dump['class'] = self.__class__
+        dump['args'] = self.initialization_inputs['args']
+        dump['opts'] = self.initialization_inputs['opts']
+        
+        return dump
+
+    @classmethod
+    def initialize_from_dump(cls, dump, root_path):
+        """ Regenerate this instance from its dump and possibly other information."""
+        
+        MEAccessorClass = dump['class']
+        MEAccessor_instance = MEAccessorClass(*dump['args'], **dump['opts'])
+        # Make sure to override the root_path with the newly provided one
+        MEAccessor_instance.root_path = root_path        
+        return MEAccessor_instance
+
     def get_canonical_key_value_pairs(self):
         """ Return all the canonical keys that should point to this ME. 
         This is intended to be used for the MEAccessorDict."""
@@ -185,7 +220,10 @@ class F2PYMEAccessor(VirtualMEAccessor):
         """
         
         super(F2PYMEAccessor, self).__init__(process, **opts)
-
+        
+        # Add the additional inputs to back up to be used later for the dump
+        self.initialization_inputs['args'].extend([f2py_module_path, slha_card_path])
+        
         # Keep track whether initialization is necessary or not
         self.module_initialized = False
 
@@ -258,6 +296,11 @@ class F2PYMEAccessorMadLoop(F2PYMEAccessor):
   
         super(F2PYMEAccessorMadLoop, self).__init__(process, f2py_module_path, slha_card_path, **opts)
 
+        # Add the additional inputs to the back-up to be used later for the dump 
+        #  (if not already added by the mother)
+        if not 'madloop_resources_path' in self.initialization_inputs['opts']:
+            self.initialization_inputs['opts']['madloop_resources_path'] = madloop_resources_path
+
         if madloop_resources_path:
             # Save the location of MadLoop resources directory path
             if not os.path.isabs(madloop_resources_path):
@@ -313,7 +356,39 @@ class MEAccessorDict(dict):
         # Define the general characteristic of the current query
         self.curr_n_loops           = 0
         self.curr_perturbations     = []
+
+    def generate_dump(self):
+        """ Generate a serializable dump of self, which can later be used, along with some more 
+        information, in initialize_from_dump in order to regenerate the object."""
         
+        all_MEAccessor_dumps = []
+        
+        # Remove the module attribute of the MEAccessor as this can't be pickled.
+        for (ME_accessor, defining_pdgs_order) in self.values():
+            dump = ME_accessor.generate_dump()
+            if dump not in all_MEAccessor_dumps:
+                all_MEAccessor_dumps.append(dump)
+        
+        final_dump = {}
+        final_dump['class'] = self.__class__
+        final_dump['all_MEAccessor_dumps']  = all_MEAccessor_dumps
+        
+        return final_dump
+    
+    @classmethod
+    def initialize_from_dump(cls, dump, root_path):
+        """ Initialize self from a dump and possibly other information necessary for reconstructing this
+        contribution."""
+        
+        new_MEAccessorDict_instance = dump['class']()
+        
+        all_MEAccessors = [accessor_dump['class'].initialize_from_dump(accessor_dump, root_path) for 
+                           accessor_dump in  dump['all_MEAccessor_dumps']]
+        
+        new_MEAccessorDict_instance.add_MEAccessors(all_MEAccessors)
+        # For now everything is dumped, so nothing needs to be done.
+        return new_MEAccessorDict_instance
+
     def set_queries_details(self, n_loops=None, perturbations=None):
         """ Specifies global details about the queries for ME performed in this MEAccessorDict."""
         if not n_loops is None:
@@ -371,7 +446,7 @@ class MEAccessorDict(dict):
         ME_accessor.permutation = permutation
         ME_accessor.process_pdgs = defining_pdgs_order
         return ME_accessor
-
+    
     def add_MEAccessor(self, ME_accessor):
         """ Add a particular ME accessor to the collection of available ME's."""
         if not isinstance(ME_accessor, VirtualMEAccessor):
@@ -386,15 +461,6 @@ class MEAccessorDict(dict):
         """ Add a list of ME_accessors."""
         for ME_accessor in ME_accessor_list:
             self.add_MEAccessor(ME_accessor)
-
-    def modify_root_path_in_accessors(self, new_root_path):
-        """ Modifies the root_path of all accessors stored."""
-        
-        if not os.path.isabs(new_root_path):
-            raise MadGraph5Error("Accessor root paths must be absolute.")
-
-        for accessor in self.values():
-            accessor.root_path = new_root_path
 
 #===============================================================================
 # Contribution mother class

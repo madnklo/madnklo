@@ -3452,6 +3452,16 @@ class Process(PhysicsObject):
 
         return sorted_list
 
+    def get_hashable_representation(self):
+        """ Generates a hashable representation of the process for the purpose of deducing
+        the processes mapping in contributions.
+        For now we only use the following tuple representations:
+                ( (initial_state_PDGs), (final_state_PDGs), process_generation_ID )"""
+        
+        return ( tuple( l.get('id') for l in self.get('legs') if not l.get('state') ), 
+                 tuple( l.get('id') for l in self.get('legs') if l.get('state') ),
+                 self.get('id'), tuple(self.get('perturbation_couplings')) )
+
     def compare_for_sort(self, other):
         """Sorting routine which allows to sort processes for
         comparison. Compare only process id and legs."""

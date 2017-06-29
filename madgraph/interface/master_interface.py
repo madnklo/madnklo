@@ -170,6 +170,8 @@ class Switcher(object):
         
         # Check if one has ME7 options in the process definition
         ME7_mode = False
+        # Correction order is 0 for LO, 1 for NLO, 2 for NNLO etc..
+        ME7_correction_order = 0
         orders   = []
         opts = line.split('--')
         for opt in opts:
@@ -180,13 +182,14 @@ class Switcher(object):
                 value = None
             if key.strip() in ['LO','NLO','NNLO']:
                 ME7_mode = True
+                ME7_correction_order = max(ME7_correction_order, key.strip().count('N'))
             if key.strip() in ['NLO','NNLO']:
                 if value is None:
                     orders.append('QCD')
                 else:
                     orders.extend(value.split())
         if ME7_mode:
-            return ('ME7','all',orders)
+            return ('ME7', ME7_correction_order, orders)
 
         # Use regular expressions to extract the loop mode (if present) and its
         # option, specified in the line with format [ option = loop_orders ] or
@@ -228,15 +231,14 @@ class Switcher(object):
                     self.change_principal_cmd('MadLoop')
                 elif nlo_mode == 'noborn': 
                     self.change_principal_cmd('MadLoop')
-                    self.cmd.validate_model(self, loop_type=nlo_mode,
-                                                            coupling_type=orders)
+                    self.cmd.validate_model(self, loop_type=nlo_mode, coupling_type=orders)
                     self.change_principal_cmd('MadGraph')
                     return self.cmd.create_loop_induced(self, line, *args, **opts)
             if type == 'ME7':
+                if nlo_mode > 0:
                     self.change_principal_cmd('MadLoop')
-                    self.cmd.validate_model(self, loop_type=nlo_mode,
-                                                            coupling_type=orders)
-                    self.change_principal_cmd('MadGraph')
+                    self.cmd.validate_model(self, loop_type='all', coupling_type=orders)    
+                self.change_principal_cmd('MadGraph')
         try:
             return  self.cmd.do_add(self, line, *args, **opts)
         except fks_base.NoBornException:
@@ -499,7 +501,7 @@ class Switcher(object):
         # if there is a path, find what output has been done
             if path:
                 type = self.cmd.find_output_type(self, path) 
-                if type in ['standalone', 'standalone_cpp', 'pythia8', 'madevent']:
+                if type in ['standalone', 'standalone_cpp', 'pythia8', 'madevent', 'madevent7']:
                     self.change_principal_cmd('MadGraph')
                 elif type == 'aMC@NLO':
                     self.change_principal_cmd('aMC@NLO')

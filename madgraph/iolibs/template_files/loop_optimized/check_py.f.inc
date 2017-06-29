@@ -1,6 +1,6 @@
       Subroutine Initialise(path)
 
-      CHARACTER(128) path
+      CHARACTER(512) path
 CF2PY intent(in)::path
  
 C     INCLUDE FILES
@@ -8,9 +8,18 @@ C
 C     the include file with the values of the parameters and masses   
 C        
       INCLUDE 'coupl.inc'
-      CALL SETPARA(path)
+C     USE SETPARA2 and not SETPARA so that ident_card.dat can be automatically found.
+      CALL SETPARA2(path)
       return 
       end
+
+      SUBROUTINE INITIALISE_MADLOOP_PATH(PATH)
+
+      CHARACTER(512) PATH
+CF2PY intent(in)::path
+      CALL SETMADLOOPPATH(PATH)
+      RETURN
+      END
 
       SUBROUTINE GET_ME(P, ALPHAS, SCALE2, NHEL , ANS,RETURNCODE)
       IMPLICIT NONE

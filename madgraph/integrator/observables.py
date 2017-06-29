@@ -44,22 +44,17 @@ pjoin = os.path.join
 class VirtualObservable(object):
     """A mother base class that specified mandatory feature that any observable should implement."""
 
-    def __init__(self):
-        self.name = 'default'
+    def __init__(self, name = 'default'):
+        self.name = name
         pass    
 
-    def __call__(self, continuous_inputs, discrete_inputs, wgt, **opts):
+    def __call__(self, wgt, *args, **opts):
         """ Integrand function call, with list of continuous and discrete input values for all dimensions."""
-        self.check_input_types(continuous_inputs, discrete_inputs)
         assert(isinstance(wgt, float))
         
         # A unique float must be returned, but additional return values can 
         # be specified in the body of the function or via options.
         return True
-
-    def check_input_types(self, *args, **opts):
-        return misc_integrator.check_input_types(*args, **opts)
-
 
 class ObservableList(list):
     """A mother base class that specified mandatory feature that any observable list should implement."""
@@ -67,17 +62,14 @@ class ObservableList(list):
     def __init__(self, *args, **opts):
         super(ObservableList, self).__init__(self, *args, **opts)
 
-    def apply_observables(self, continuous_inputs, discrete_inputs, wgt, **opts):
+    def apply_observables(self, wgt, *args, **opts):
         """ Apply observables."""
-        self.check_input_types(continuous_inputs, discrete_inputs)
+        
         for obs in self:
-            obs(continuous_inputs, discrete_inputs, wgt)
+            obs(wgt,*args, **opts)
 
     def append(self, arg, **opts):
         """ Type-checking. """
         assert(isinstance(arg, VirtualObservable))
         super(ObservableList, self).append(self, arg, **opts)
-    
-    def check_input_types(self, *args, **opts):
-        return misc_integrator.check_input_types(*args, **opts)
     

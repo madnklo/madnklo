@@ -33,6 +33,7 @@ except ImportError:
     import internal.functions as functions
     import internal.observables as observables
     import internal.misc_integrator as misc_integrator
+    from internal import InvalidCmd, MadGraph5Error, ReadWrite   
 else:
     MADEVENT= False
     import madgraph.various.misc as misc
@@ -42,6 +43,7 @@ else:
     import madgraph.integrator.functions as functions
     import madgraph.integrator.observables as observables
     import madgraph.integrator.misc_integrator as misc_integrator
+    from madgraph import InvalidCmd, MadGraph5Error, MG5DIR, ReadWrite
 
 logger = logging.getLogger('madgraph.integrator')
 pjoin = os.path.join
@@ -111,7 +113,7 @@ class DimensionList(list):
     def append(self, arg, **opts):
         """ Type-checking. """
         assert(isinstance(arg, Dimension))
-        super(DimensionList, self).append(self, arg, **opts)
+        super(DimensionList, self).append(arg, **opts)
         
     def get_discrete_dimensions(self):
         """ Access all discrete dimensions. """
@@ -162,11 +164,9 @@ class VirtualIntegrand(object):
         wgt = sum(d['weight'] for d in data)
         
         if self.apply_observables:
-            self.observable_list.apply_observables(continuous_inputs, discrete_inputs, data)
+            self.observable_list.apply_observables(wgt, data)
 
         return wgt
 
     def check_input_types(self, *args, **opts):
         return misc_integrator.check_input_types(*args, **opts)
-
-

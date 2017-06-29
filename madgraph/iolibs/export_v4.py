@@ -546,15 +546,17 @@ class ProcessExporterFortran(VirtualExporter):
     def make_model_symbolic_link(self):
         """Make the copy/symbolic links"""
         model_path = self.dir_path + '/Source/MODEL/'
-        if os.path.exists(pjoin(model_path, 'ident_card.dat')):
-            mv(model_path + '/ident_card.dat', self.dir_path + '/Cards')
-        if os.path.exists(pjoin(model_path, 'particles.dat')):
-            ln(model_path + '/particles.dat', self.dir_path + '/SubProcesses')
-            ln(model_path + '/interactions.dat', self.dir_path + '/SubProcesses')
-        cp(model_path + '/param_card.dat', self.dir_path + '/Cards')
-        mv(model_path + '/param_card.dat', self.dir_path + '/Cards/param_card_default.dat')
-        ln(model_path + '/coupl.inc', self.dir_path + '/Source')
-        ln(model_path + '/coupl.inc', self.dir_path + '/SubProcesses')
+        if os.path.isdir(model_path) or os.path.islink(model_path):
+            if os.path.exists(pjoin(model_path, 'ident_card.dat')):
+                mv(model_path + '/ident_card.dat', self.dir_path + '/Cards')
+            if os.path.exists(pjoin(model_path, 'particles.dat')):
+                ln(model_path + '/particles.dat', self.dir_path + '/SubProcesses')
+                ln(model_path + '/interactions.dat', self.dir_path + '/SubProcesses')
+            if os.path.isfile(model_path + '/param_card.dat'):
+                cp(model_path + '/param_card.dat', self.dir_path + '/Cards')
+                mv(model_path + '/param_card.dat', self.dir_path + '/Cards/param_card_default.dat')
+            ln(model_path + '/coupl.inc', self.dir_path + '/Source')
+            ln(model_path + '/coupl.inc', self.dir_path + '/SubProcesses')
         self.make_source_links()
         
     def make_source_links(self):
@@ -564,7 +566,6 @@ class ProcessExporterFortran(VirtualExporter):
         ln(self.dir_path + '/Source/maxparticles.inc', self.dir_path + '/SubProcesses', log=False)
         ln(self.dir_path + '/Source/run_config.inc', self.dir_path + '/SubProcesses', log=False)
         ln(self.dir_path + '/Source/lhe_event_infos.inc', self.dir_path + '/SubProcesses', log=False)
-        
 
     #===========================================================================
     # export the helas routine
@@ -839,18 +840,23 @@ param_card.inc: ../Cards/param_card.dat\n\t../bin/madevent treatcards param\n'''
     # Routines to output UFO models in MG4 format
     #===========================================================================
 
-    def convert_model(self, model, wanted_lorentz = [],
-                             wanted_couplings = []):
+    def convert_model(self, model, wanted_lorentz = [], wanted_couplings = []):
         """ Create a full valid MG4 model from a MG5 model (coming from UFO)"""
 
         # Make sure aloha is in quadruple precision if needed
         old_aloha_mp=aloha.mp_precision
         aloha.mp_precision=self.opt['mp']
 
-        # create the MODEL
-        write_dir=pjoin(self.dir_path, 'Source', 'MODEL')
-        model_builder = UFO_model_to_mg4(model, write_dir, self.opt + self.proc_characteristic)
-        model_builder.build(wanted_couplings)
+        # create the MODEL, but only if wanted_couplings is not empty
+        if wanted_couplings:
+            write_dir=pjoin(self.dir_path, 'Source', 'MODEL')
+            model_builder = UFO_model_to_mg4(model, write_dir, self.opt + self.proc_characteristic)
+            model_builder.build(wanted_couplings)
+        else:
+            # The MODEL will be linked from elsewhere and the corresponding directory should therefore
+            # be removed if it exists
+            if os.path.isdir(pjoin(self.dir_path,'Source','MODEL')):
+                shutil.rmtree(pjoin(self.dir_path,'Source','MODEL'))
 
         # Backup the loop mode, because it can be changed in what follows.
         old_loop_mode = aloha.loop_mode
@@ -1941,12 +1947,12 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         """Run make in the DHELAS and MODEL directories, to set up
         everything for running standalone
         """
-
         source_dir = pjoin(self.dir_path, "Source")
         logger.info("Running make for Helas")
         misc.compile(arg=['../lib/libdhelas.a'], cwd=source_dir, mode='fortran')
-        logger.info("Running make for Model")
-        misc.compile(arg=['../lib/libmodel.a'], cwd=source_dir, mode='fortran')
+        if os.path.exists(pjoin(source_dir, 'MODEL')):
+            logger.info("Running make for Model")
+            misc.compile(arg=['../lib/libmodel.a'], cwd=source_dir, mode='fortran')
 
     #===========================================================================
     # Create proc_card_mg5.dat for Standalone directory
@@ -5316,7 +5322,7 @@ class UFO_model_to_mg4(object):
                                       wanted_couplings)]
                 
         # MG4 use G and not aS as it basic object for alphas related computation
-        #Pass G in the  independant list
+        # Pass G in the  independent list
         if 'G' in self.params_dep:
             index = self.params_dep.index('G')
             G = self.params_dep.pop(index)
@@ -5329,6 +5335,7 @@ class UFO_model_to_mg4(object):
             #self.model['parameters']['aS'] = base_objects.ParamCardVariable('aS', 0.138,'DUMMY',(1,))
             self.params_indep.append( base_objects. ModelVariable('aS', '0.138','real'))
             self.params_indep.append( base_objects. ModelVariable('G', '4.1643','real'))
+
     def build(self, wanted_couplings = [], full=True):
         """modify the couplings to fit with MG4 convention and creates all the 
         different files"""

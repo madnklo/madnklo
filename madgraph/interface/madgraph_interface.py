@@ -79,6 +79,7 @@ import madgraph.interface.tutorial_text_nlo as tutorial_text_nlo
 import madgraph.interface.tutorial_text_madloop as tutorial_text_madloop
 import madgraph.interface.launch_ext_program as launch_ext
 import madgraph.interface.madevent_interface as madevent_interface
+import madgraph.interface.ME7_interface as ME7_interface
 import madgraph.interface.amcatnlo_run_interface as amcatnlo_run
 
 import madgraph.loop.loop_exporters as loop_exporters
@@ -1283,6 +1284,8 @@ This will take effect only in a NEW terminal
         if os.path.isfile(pjoin(include_path, 'Pythia.h')) or \
             os.path.isfile(pjoin(include_path, 'Pythia8', 'Pythia.h')):
             return 'pythia8'
+        elif os.path.isfile(pjoin(path,'MadEvent7.db')):
+            return 'madevent7'
         elif not os.path.isdir(os.path.join(path, 'SubProcesses')):
             raise self.InvalidCmd, '%s : Not a valid directory' % path
 
@@ -3175,7 +3178,8 @@ This implies that with decay chains:
                 add_options['optimize'] = optimize
                 self.add_contributions(myprocdef, add_options)
                 # Generate amplitudes for the added contributions
-                self._curr_contribs.generate_amplitudes()
+                self._curr_contribs.apply_method_to_all_contribs(
+                    'generate_amplitudes', log='Generate diagrams for')
                 # Reset _done_export, since we have new process
                 self._done_export = False
                 return
@@ -6992,7 +6996,7 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
 
             elif key.endswith('path'):
                 pass
-            elif key in ['run_mode', 'auto_update']:
+            elif key in ['nb_core', 'run_mode', 'auto_update']:
                 self.options[key] = int(self.options[key])
             elif key in ['cluster_type','automatic_html_opening']:
                 pass
@@ -7052,7 +7056,6 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
         self.check_launch(args, options)
         options = options.__dict__
         # args is now MODE PATH
-
         if args[0].startswith('standalone'):
             if os.path.isfile(os.path.join(os.getcwd(),args[1],'Cards',\
               'MadLoopParams.dat')) and not os.path.isfile(os.path.join(\
@@ -7062,9 +7065,13 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
             else:
                 ext_program = launch_ext.SALauncher(self, args[1], \
                                                 options=self.options, **options)
+        elif args[0] == 'madevent7':
+            ME7 = ME7_interface.MadEvent7CmdShell(me_dir=args[1], options=self.options)
+            stop = self.define_child_cmd_interface(ME7)
+            return stop
+
         elif args[0] == 'madevent':
             if options['interactive']:
-                
                 if isinstance(self, cmd.CmdShell):
                     ME = madevent_interface.MadEventCmdShell(me_dir=args[1], options=self.options)
                 else:
@@ -7797,7 +7804,7 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
             if self._curr_contribs:
                 amps = self._curr_contribs[0].amplitudes
             else:
-                amps = self.__curr_amps
+                amps = self._curr_amps
             if len(amps)>1 and amps[0].get_ninitial() == 1:
                 processes = [amp.get('process') for amp in amps]            
                 if len(set(proc.get('id') for proc in processes))!=len(processes):

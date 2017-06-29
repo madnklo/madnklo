@@ -633,23 +633,8 @@ class CommonRunCmd(HelpToCmd, CheckValidForCmd, cmd.Cmd):
         self.status = pjoin(self.me_dir, 'status')
         self.error =  pjoin(self.me_dir, 'error')
         self.dirbin = pjoin(self.me_dir, 'bin', 'internal')
-
-        # Check that the directory is not currently running_in_idle
-        if not self.force_run:
-            if os.path.exists(pjoin(me_dir,'RunWeb')): 
-                message = '''Another instance of the program is currently running.
-                (for this exact same directory) Please wait that this is instance is 
-                closed. If no instance is running, you can delete the file
-                %s and try again.''' % pjoin(me_dir,'RunWeb')
-                raise AlreadyRunning, message
-            else:
-                pid = os.getpid()
-                fsock = open(pjoin(me_dir,'RunWeb'),'w')
-                fsock.write(`pid`)
-                fsock.close()
-    
-                misc.Popen([os.path.relpath(pjoin(self.dirbin, 'gen_cardhtml-pl'), me_dir)],
-                            cwd=me_dir)
+        
+        self.check_already_running()
 
         self.to_store = []
         self.run_name = None
@@ -670,6 +655,24 @@ class CommonRunCmd(HelpToCmd, CheckValidForCmd, cmd.Cmd):
         else:
             self.ninitial = self.proc_characteristics['ninitial']
 
+    ############################################################################
+    def check_already_running(self):
+        """ Check that the directory is not currently running_in_idle """
+        if not self.force_run:
+            if os.path.exists(pjoin(me_dir,'RunWeb')): 
+                message = '''Another instance of the program is currently running.
+                (for this exact same directory) Please wait that this is instance is 
+                closed. If no instance is running, you can delete the file
+                %s and try again.''' % pjoin(me_dir,'RunWeb')
+                raise AlreadyRunning, message
+            else:
+                pid = os.getpid()
+                fsock = open(pjoin(me_dir,'RunWeb'),'w')
+                fsock.write(`pid`)
+                fsock.close()
+    
+                misc.Popen([os.path.relpath(pjoin(self.dirbin, 'gen_cardhtml-pl'), me_dir)],
+                            cwd=me_dir)
 
     ############################################################################
     def split_arg(self, line, error=False):
@@ -2999,7 +3002,6 @@ class CommonRunCmd(HelpToCmd, CheckValidForCmd, cmd.Cmd):
             nb_core = 1
 
 
-
         if run_mode in [0, 2]:
             self.cluster = cluster.MultiCore(
                              **self.options)
@@ -3279,7 +3281,7 @@ class CommonRunCmd(HelpToCmd, CheckValidForCmd, cmd.Cmd):
                         self.options[name] = None
 
         if not final:
-            return self.options # the return is usefull for unittest
+            return self.options # the return is useful for unittest
 
         # Treat each expected input
         # delphes/pythia/... path

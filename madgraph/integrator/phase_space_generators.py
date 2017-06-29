@@ -193,8 +193,8 @@ class VirtualPhaseSpaceGenerator(object):
             return 0
         return 3*self.n_final -4
 
-    @staticmethod
-    def nice_momenta_string(momenta,recompute_mass=False, n_initial=2):
+    @classmethod
+    def nice_momenta_string(cls, momenta,recompute_mass=False, n_initial=2):
         """ Nice printout of the momenta."""
 
         # Use padding for minus signs

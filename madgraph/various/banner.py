@@ -23,6 +23,7 @@ import sys
 import re
 import math
 import StringIO
+from __builtin__ import True
 
 pjoin = os.path.join
 
@@ -2828,6 +2829,29 @@ class RunCardLO(RunCard):
         super(RunCardLO, self).write(output_file, template=template,
                                     python_template=python_template)            
 
+
+class RunCardME7(RunCardLO):
+    """ Assign a dedicated class for ME7 runs. Many things will be overwritten in it eventually."""
+
+    def create_default_for_process(self, proc_characteristic, history, proc_def):
+        """ Create a default ME7 Run Card tailored to the process given in argument.
+        Overwritten here so as to accomodate current ME7 limitations."""
+        
+        super(RunCardME7, self).create_default_for_process(proc_characteristic, history, proc_def)
+        
+        # Overwrite all the parameters for which there is no ME7 support yet
+        
+        # No support for built-in PDF
+        self['pdlabel'] = 'lhapdf'
+        # PDF4LHC is a good default
+        self['lhaid'] = 90900
+        
+        # Only supporting fixed scales for now
+        self['fixed_ren_scale'] = True
+        self['fixed_fac_scale'] = True
+        self['scale'] = 91.188
+        self['dsqrt_q2fact1'] = 91.188
+        self['dsqrt_q2fact2'] = 91.188
 
 class InvalidMadAnalysis5Card(InvalidCmd):
     pass

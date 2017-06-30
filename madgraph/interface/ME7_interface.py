@@ -978,11 +978,7 @@ class ME7Integrand_V(ME7Integrand):
 
 class ME7Integrand_R(ME7Integrand):
     """ ME7Integrand for the computation of a single real-emission type of contribution."""
-    def __init__(self, *args, **opts):
-        super(ME7Integrand_R, self).__init__(*args, **opts)
-
     def sigma(self, PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
-
         return super(ME7Integrand_R, self).sigma(PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts)
 
 class ME7Integrand_RR(ME7Integrand):

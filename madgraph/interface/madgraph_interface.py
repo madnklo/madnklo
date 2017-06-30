@@ -3295,18 +3295,18 @@ This implies that with decay chains:
         procdef.set('id', generation_options['proc_id'])
         generation_options['proc_id'] += 1
         # Specify a negative squared order coupling if no squared order coupling is
-        # defined, otherwise necessary subleading real-emission diagrams might not be generated.
+        # defined, otherwise necessary real-emission diagrams might not be generated.
         for order in generation_options['NLO']:
             if order not in target_squared_orders:
                 procdef['sqorders_types'][order] = '<='
-                # -2 means that the first sub-leading correction will be included
+                # -2 means that the first sub-leading contribution in that order will be included
                 procdef['squared_orders'][order] = -2
 
         # Now add the corresponding MultiLeg to the final state
         procdef['legs'].append(base_objects.MultiLeg({'ids':
             sum([orders_to_perturbed_quantities[order]['real_emission_ids'] 
-                 for order in generation_options['NLO']],[]),
-                                                      'state': True}))
+                 for order in generation_options['NLO']],[]), 'state': True}))
+
         real_emission_contribution = contributions.Contribution(
                 base_objects.ContributionDefinition(
                     procdef,

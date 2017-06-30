@@ -2829,7 +2829,6 @@ class RunCardLO(RunCard):
         super(RunCardLO, self).write(output_file, template=template,
                                     python_template=python_template)            
 
-
 class RunCardME7(RunCardLO):
     """ Assign a dedicated class for ME7 runs. Many things will be overwritten in it eventually."""
 

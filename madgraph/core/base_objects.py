@@ -3456,7 +3456,9 @@ class Process(PhysicsObject):
         """ Generates a hashable representation of the process for the purpose of deducing
         the processes mapping in contributions.
         For now we only use the following tuple representations:
-                ( (initial_state_PDGs), (final_state_PDGs), process_generation_ID )"""
+                ( (initial_state_PDGs), (final_state_PDGs), process_generation_ID )
+        Do not sort as this is not meant to be canonical.        
+        """
         
         return ( tuple( l.get('id') for l in self.get('legs') if not l.get('state') ), 
                  tuple( l.get('id') for l in self.get('legs') if l.get('state') ),

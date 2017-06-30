@@ -227,7 +227,7 @@ class ME7Exporter(object):
             contrib.make_model_symbolic_link()
         
         # Copy the UFO model to the global ME7 resources Source directory
-        ME7_ufo_path = pjoin(self.export_dir,'Sources','ME7_UFO_model_%s'%os.path.basename(self.model.get('modelpath')))
+        ME7_ufo_path = pjoin(self.export_dir,'Source','ME7_UFO_model_%s'%os.path.basename(self.model.get('modelpath')))
         shutil.copytree(self.model.get('modelpath'), ME7_ufo_path)
         # And clear compiled files in it
         for path in misc.glob(pjoin(ME7_ufo_path,'*.pkl'))+misc.glob(pjoin(ME7_ufo_path,'*.pyc')):
@@ -253,7 +253,7 @@ class ME7Exporter(object):
         # We might want to recover whether prefix was used when importing the model and whether
         # the MG5 name conventions was used. But this is a detail that can easily be fixed later.
         modelReader_instance = import_ufo.import_model(
-            pjoin(self.export_dir,'Sources','ME7_UFO_model_')+self.model.get('name'), prefix=True,
+            pjoin(self.export_dir,'Source','ME7_UFO_model_')+self.model.get('name'), prefix=True,
             complex_mass_scheme=self.options['complex_mass_scheme'] )
         modelReader_instance.pass_particles_name_in_mg_default()
         modelReader_instance.set_parameters_and_couplings(

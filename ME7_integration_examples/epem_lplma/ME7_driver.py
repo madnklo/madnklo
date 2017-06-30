@@ -186,10 +186,10 @@ class epem_lplma_integrand(integrands.VirtualIntegrand):
         # Avoid extremum since the phase-space generation algorithm doesn't like it
         epsilon = 1e-10
         random_variables = [min(max(rv,epsilon),1.-epsilon) for rv in random_variables]
-
-        # Generate a PS point
-        PS_point, PS_weight = self.phase_space_generator.generateKinematics(self.E_cm, random_variables)
        
+       # Generate a PS point
+        PS_point, PS_weight = self.phase_space_generator.generateKinematics(self.E_cm, random_variables)
+      
         # Apply cuts
         if not self.pass_cuts(PS_point):
             return 0.0
@@ -223,7 +223,6 @@ class epem_lplma_integrand(integrands.VirtualIntegrand):
             flux = 1. / (2.*self.E_cm)
         flux /= math.pow(2.*math.pi, 3*self.phase_space_generator.n_final - 4)
         wgt *= flux
-
         # Convert GeV^-2 to picobarns
         wgt *= 0.389379304e9
 
@@ -318,8 +317,8 @@ if verbosity == 0:
 
 # Try with a naive MonteCarloFirst
 parameters = {
-    'process'            : 'e+ e- > l+ l- a',
-#    'process'            : 'e+ e- > mu+ mu- / z',
+#    'process'            : 'e+ e- > l+ l- a',
+    'process'            : 'e+ e- > mu+ mu- / z',
     'E_cm'               : 1000.0
 }
 

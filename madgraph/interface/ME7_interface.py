@@ -334,7 +334,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, HelpToCmd, common_run.CommonRunC
         # We might want to recover whether prefix was used when importing the model and whether
         # the MG5 name conventions was used. But this is a detail that can easily be fixed later.
         self.model = import_ufo.import_model(
-            pjoin(self.me_dir,'Sources',ME7_dump['model_name']), prefix=True,
+            pjoin(self.me_dir,'Source',ME7_dump['model_name']), prefix=True,
             complex_mass_scheme = ME7_dump['model_with_CMS'] )
         self.model.pass_particles_name_in_mg_default()
         self.model.set_parameters_and_couplings(
@@ -430,7 +430,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
                 if contribution_definition.n_loops == 0 and \
                   contribution_definition.n_unresolved_particles == 0:
                    target_class = ME7Integrand_B
-                elif contribution_definition.n_loops == 0 and \
+                elif contribution_definition.n_loops == 1 and \
                   contribution_definition.n_unresolved_particles == 0:
                    target_class = ME7Integrand_LIB
             elif contribution_definition.correction_order == 'NLO':
@@ -510,7 +510,6 @@ class ME7Integrand(integrands.VirtualIntegrand):
             raise InvalidCmd("MadEvent7 does not yet support decay processes.")
         
         # Add the PDF dimensions if necessary
-        self.collider = 'll'
         if self.run_card['lpp1']==self.run_card['lpp2']==1:
             self.collider = 'pp'
             integrand_dimensions.append(integrands.ContinuousDimension('ycms',lower_bound=0.0, upper_bound=1.0))
@@ -519,9 +518,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
                 self.collider = 'pp_2to1'
             else:
                 integrand_dimensions.append(integrands.ContinuousDimension('tau',lower_bound=0.0, upper_bound=1.0)) 
-               
-        elif self.run_card['lpp1']!=self.run_card['lpp2'] or self.run_card['lpp1']!=0:
-            raise InvalidCmd("MadEvent7 only supports pure lepton or pure proton collisions.")
+        elif self.run_card['lpp1']==self.run_card['lpp2']==0:
+            self.collider = 'll'
         else:
             raise InvalidCmd("MadEvent7 does not support this collider configuration: (lpp1=%d, lpp2=%d)"%
                              (self.run_card['lpp1'], self.run_card['lpp2']))
@@ -573,6 +571,29 @@ class ME7Integrand(integrands.VirtualIntegrand):
             # Pick the central PDF for now
             self.pdf = self.pdfsets.mkPDF(0)
 
+        # Initialize access to a mean of running alpha_s
+        if self.pdf:
+            self.alpha_s_runner = self.pdf.alphasQ
+        else:
+            # We assume here that the model passed to this integrand for initialization started off
+            # with its couplings (i.e. alpha_s) defined for Q**2= MZ**2.
+            model_param_dict = model.get('parameter_dict')
+            as_running_params = {'aS':0.118, 'mdl_MZ':91.188, 'mdl_MC':1.55, 'mdl_MB':4.7}
+            for param in as_running_params:
+                if param not in model_param_dict:
+                    if param in ['mdl_MC', 'mdl_MB']:
+                        # Leave these parameters to their default if not specified in the model
+                        continue
+                    else:
+                        raise InvalidCmd("When not using PDFsets, MadEvent7 requires a model with the"+
+                                    " parameter %s to be defined so as to be able to run alpha_S."%param)
+                if model_param_dict[param] != 0.:
+                    as_running_params[param] = model_param_dict[param]
+            # For now always chose to run alpha_S at two loops.
+            n_loop_for_as_running = 3
+            self.alpha_s_runner = model_reader.Alphas_Runner(as_running_params['aS'], n_loop_for_as_running, 
+                      as_running_params['mdl_MZ'], as_running_params['mdl_MC'], as_running_params['mdl_MB'])
+
     def generate_dump(self):
         """ Generate a serializable dump of self, which can later be used, along with some more 
         information, in initialize_from_dump in order to regenerate the object."""
@@ -594,7 +615,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
                              all_MEAccessors,
                              ME7_configuration)
       
-    def get_external_masses_for_process(self, process, model=None):
+    def get_external_masses_for_process(self, process, model):
         """ Returns the tuple:
                ( (initial_mass_value1, ...) , (final_mass_value1, final_mass_value2, final_mass_value3,...)
             for the process in argument
@@ -636,21 +657,21 @@ class ME7Integrand(integrands.VirtualIntegrand):
             return True
         
         # Apply the Ptj cut first
-        for i, p in enumerate(PS_point[2:]):
-            if not is_a_jet(process_pdgs[i]):
+        for i, p in enumerate(PS_point[self.n_initial:]):
+            if not is_a_jet(process_pdgs[self.n_initial+i]):
                 continue
             logger.debug('p_%i.pt()=%.5e'%((self.n_initial+i),p.pt()))
             if p.pt() < pt_cut:
                 return False
 
         # And then the drjj cut
-        for i, p1 in enumerate(PS_point[2:]):
-            for j, p2 in enumerate(PS_point[2+i+1:]):
-                if not is_a_jet(process_pdgs[i]) and\
-                   not is_a_jet(process_pdgs[j]):
+        for i, p1 in enumerate(PS_point[self.n_initial:]):
+            for j, p2 in enumerate(PS_point[self.n_initial+i+1:]):
+                if not is_a_jet(process_pdgs[self.n_initial+i]) and\
+                   not is_a_jet(process_pdgs[self.n_initial+i+1+j]):
                     continue
                 logger.debug('deltaR(p_%i,p_%i)=%.5e'%(
-                     self.n_initial+i, self.n_final+j, p1.deltaR(p2)))
+                     self.n_initial+i, self.n_initial+i+1+j, p1.deltaR(p2)))
                 if p1.deltaR(p2) < dr_cut:
                     return False
 
@@ -722,7 +743,10 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # but assuming their position is is fine.
         dimension_names = [dim.name for dim in self.get_dimensions()]
         dimension_name_to_position = dict((name,i) for i, name in enumerate(dimension_names))
-        PDF_ycms = random_variables[dimension_name_to_position['ycms']]
+        if 'ycms' in dimension_names:
+            PDF_ycms = random_variables[dimension_name_to_position['ycms']]
+        else:
+            PDF_ycms = None
         if 'tau' in dimension_names:
             PDF_tau = random_variables[dimension_name_to_position['tau']]
         else:
@@ -762,9 +786,10 @@ class ME7Integrand(integrands.VirtualIntegrand):
                 PDF_ycms = (-0.5 + PDF_ycms) * math.log(1./tau_min)
                 # We need to correct the phase-space volume accordingly
                 wgt *= math.log(1./tau_min)
-        
+                
             xb_1 = math.sqrt(PDF_tau) * math.exp(PDF_ycms)
             xb_2 = math.sqrt(PDF_tau) * math.exp(-PDF_ycms)
+            E_cm = math.sqrt(xb_1*xb_2)*self.collider_energy
 
         elif self.collider == 'll':
             xb_1 = 1.
@@ -791,16 +816,18 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
         # Now generate a PS point
         PS_point, PS_weight = self.phase_space_generator.generateKinematics(E_cm, PS_random_variables)
-        
+
         # Account for PS weight
         wgt *= PS_weight
         logger.debug("PS_weight: %.5e"%PS_weight)
 
         # We must now boost the PS point in the lab frame
-        ref_lab = PS_point[0]*xb_1 + PS_point[2]*xb_2
-        ref_lab.setMass(ref_lab.calculateMass())
-        for p in PS_point:
-            p.boost(ref_lab.boostVector())
+        if self.n_initial == 2:
+            ref_lab = PS_point[0]*xb_1 + PS_point[1]*xb_2
+            if ref_lab.rho2() != 0.:
+                ref_lab.setMass(ref_lab.calculateMass())
+                for p in PS_point:
+                    p.boost(ref_lab.boostVector())
 
         logger.debug("Considering the following PS point:\n%s"%(self.phase_space_generator.nice_momenta_string(
                             PS_point, recompute_mass=True, n_initial=self.phase_space_generator.n_initial) ))
@@ -808,9 +835,19 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # Recover scales to be used
         mu_r, mu_f1, mu_f2 = self.get_scales(PS_point)
 
-        # Apply the recomputed alpha_s from the PDFs
-        # TODO
-
+        # Apply the recomputed alpha_s from the PDFs or a dedicated model_reader.Alphas_Runner
+        alpha_s = self.alpha_s_runner(mu_r**2)
+        # Notice here that we do *not* update all the couplings/parameters dependent on this new value of mu_r / alpha_s
+        # We reset only mu_r and alpha_s since this is the only thing our integrands directly depend on so far (along with
+        # the masses and widths which are of course alpha_s independent.)
+        # Indeed the matrix element take their couplings and others directly from the fortran exported version (i.e via f2py).
+        # Also it can be quite time consuming to update the whole set of dependent parameters that are python expression, so
+        # it is best to avoid it if possible.
+        model_param_dict = self.model.get('parameter_dict')
+        model_param_dict['aS'] = alpha_s
+        if 'MU_R' in model_param_dict:
+            model_param_dict['MU_R'] = mu_r
+            
         # Now loop over processes
         total_wgt = 0.
         for process_hash, (process, mapped_processes) in self.processes_map.items():
@@ -827,7 +864,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
             
             all_process_pdgs = [process_pdgs,] + \
                                [tuple(proc.get_initial_ids()+proc.get_final_ids()) for proc in mapped_processes]
-            
+
             if self.collider.startswith('pp'):
                 logger.debug("Bjorken x's x1, x2, sqrt(x1*x2*s): %.5e, %.5e. %.5e"%(
                                                             xb_1, xb_2, math.sqrt(self.collider_energy**2*xb_1*xb_2)))
@@ -867,7 +904,9 @@ class ME7Integrand(integrands.VirtualIntegrand):
             selected_flavors = ( tuple(selected_flavors[i] for i in range(self.n_initial)),
                                  tuple(selected_flavors[self.n_initial+i] for i in range(self.n_final)))
 
-            this_process_wgt *= self.sigma(PS_point, process, selected_flavors, this_flavor_wgt, mu_r, mu_f1, mu_f2)
+            sigma_wgt = self.sigma(PS_point, process, selected_flavors, this_flavor_wgt, mu_r, mu_f1, mu_f2)
+            logger.debug('Short-distance sigma weight for this subprocess: %.5e'%sigma_wgt)        
+            this_process_wgt *= sigma_wgt
             
             # Accumulate this process weight
             total_wgt += this_process_wgt
@@ -890,6 +929,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
         Finally, this function is also responsible for calling the observable, using flavor_wgt*sigma_wgt.
         It can potentially call it several times, for the various counterterms.
         """
+        
+        process_flavors = ( tuple(process.get_initial_ids()), tuple(process.get_final_ids()))
         
         sigma_wgt = 1.
         
@@ -937,7 +978,11 @@ class ME7Integrand_V(ME7Integrand):
 
 class ME7Integrand_R(ME7Integrand):
     """ ME7Integrand for the computation of a single real-emission type of contribution."""
+    def __init__(self, *args, **opts):
+        super(ME7Integrand_R, self).__init__(*args, **opts)
+
     def sigma(self, PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
+
         return super(ME7Integrand_R, self).sigma(PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts)
 
 class ME7Integrand_RR(ME7Integrand):

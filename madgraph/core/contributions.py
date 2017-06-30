@@ -144,16 +144,26 @@ class VirtualMEAccessor(object):
         """ Return the matrix element evaluation, provided its arguments, whost format is:
         
         -> Spin correlation defined as a 2-tuple of lists of (4-vectors, index), for instance
-             ( [(k1, 2), (k3, 3)], [(k1, 2), (k4, 1)] )
-          Indicates that the vector k1 must be used on both side of the amplitude to saturate 
+             ( [(k1, 2), (k3, 3)], [(k1, 2), (k4, 1)] 
+          Indicates that the vector k must be used on both side of the amplitude to saturate 
           the lorentz indices of leg #2 whereas k3 should be used to saturated leg #3 on the left
           and k4 leg#1 on the right.
           Notes that k_i here are simply 4-tuples of floats.
 
+            or use instead
+            
+           [ (leg_IDA, (vec_A1, vec_A2, vec_A3,...)), 
+             (leg_IDB, (vec_B1, vec_B2, vec_B3,..)), 
+             (leg_IDC, (vec_C1, vec_C2, vec_C3,...)), ... ]
+            
+            So basically this means replace the list of possible helcity polarization vectors for each leg_IDA, IDB, IDC with
+            the corresponding list of 4-vectors.
+
         -> Color connections are specified by providing what SU(3) generator chain to apply in 
           between the amplitude product. The format is a 2-tuple of lists providing first the outermost
           fundamental indices and then the summed adoint onces. For instance
-             ( [3, 6], [-1, -2, -1, -2] )
+             ( [3,-1,-1,-2,-2,6], [-1, -2, -1, -2] )
+             [ (a,i,j), (a,i,j), (a,i,j) (a,i,j), (a,i,j), ....]
           Indicates:
             T^a_(3 i) T^b_(i j) T^a_(j k) T^b_(k 6)  
         
@@ -480,7 +490,7 @@ class Contribution(object):
                 if contribution_definition.n_loops == 0 and \
                   contribution_definition.n_unresolved_particles == 0:
                    target_class = Contribution_B
-                elif contribution_definition.n_loops == 0 and \
+                elif contribution_definition.n_loops == 1 and \
                   contribution_definition.n_unresolved_particles == 0:
                    target_class = Contribution_LIB                    
             elif contribution_definition.correction_order == 'NLO':

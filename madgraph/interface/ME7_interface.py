@@ -72,6 +72,7 @@ except ImportError:
     import internal.integrators as integrators
     import internal.phase_space_generators as phase_space_generators
     import internal.pyCubaIntegrator as pyCubaIntegrator
+    import internal.vegas3_integrator as vegas3_integrator
 
 #    import internal.histograms as histograms # imported later to not slow down the loading of the code
     from internal.files import ln
@@ -90,6 +91,7 @@ else:
     import madgraph.integrator.integrators as integrators
     import madgraph.integrator.phase_space_generators as phase_space_generators
     import madgraph.integrator.pyCubaIntegrator as pyCubaIntegrator
+    import madgraph.integrator.vegas3_integrator as vegas3_integrator
 #    import madgraph.various.histograms as histograms  # imported later to not slow down the loading of the code
     import models.check_param_card as check_param_card
     import models.model_reader as model_reader
@@ -258,6 +260,13 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, HelpToCmd, common_run.CommonRunC
                     'accuracy_target'         : None,
                     'verbosity'               : integrator_verbosity  } ),
     
+       'VEGAS3' : (vegas3_integrator.Vegas3Integrator,
+                   { 'survey_n_iterations'     : 10,
+                     'survey_n_points'         : 1000,
+                     'refine_n_iterations'     : 10,
+                     'refine_n_points'         : 2000,
+                     'verbosity'               : integrator_verbosity  } ),
+    
        'VEGAS' : (pyCubaIntegrator.pyCubaIntegrator, 
                   { 'algorithm' : 'Vegas', 
                     'verbosity' : integrator_verbosity,
@@ -366,7 +375,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, HelpToCmd, common_run.CommonRunC
         self.compile()
         
         #for name in ['Naive','VEGAS','SUAVE','DIVONNE','CUHRE']:
-        for name in ['Naive','VEGAS']:
+        for name in ['Naive','VEGAS3','VEGAS']:
             
             if len(set([len(itgd.get_dimensions()) for itgd in self.all_integrands]))>1 and name not in ['Naive']:
                 # Skip integrators that do not support integrand with different dimensions.

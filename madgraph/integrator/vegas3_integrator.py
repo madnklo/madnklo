@@ -191,10 +191,11 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
 
         if not self.vegas3_integrator:
             raise InvalidCmd("Vegas3 can only show grids after one integration has been performed.") 
-        if self.axes:
-            self.vegas3_integrator.show_grid(n_grid=n_grid, shrink=shrink)
+        if not axes and not shrink:
+            self.vegas3_integrator.map.show_grid(n_grid)
         else:
-            self.vegas3_integrator.show_grid(n_grid=n_grid, shrink=shrink, axes=axes)
+            raise IntegratorError("Options for show_grid not correctly handled yet.")
+            self.vegas3_integrator.map.show_grid(n_grid, shrink, axes=axes)
 
 if __name__ == '__main__':
 

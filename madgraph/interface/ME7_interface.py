@@ -224,28 +224,53 @@ class HelpToCmd(object):
 #===============================================================================
 # CheckValidForCmd
 #===============================================================================
-class CheckValidForCmd(object):
+class ParseCmdArguments(object):
     """ The Series of check routine for MadEvent7Cmd"""
     
-    pass
+    def parse_launch(self, args):
+        """ Parses the argument of the launch command."""
+
+        launch_options = {'integrator': 'VEGAS3',
+                          'n_points': None,
+                          'n_iterations':None,
+                          'verbosity':0}        
+        #for name in ['Naive','VEGAS','VEGAS3','SUAVE','DIVONNE','CUHRE']:
+        
+        for arg in args:
+            try:
+                key, value = arg.split('=',1)
+            except ValueError:
+                key = arg
+                value = None
+            
+            if key == '--integrator':
+                if value not in self._integrators:
+                    raise InvalidCmd("Selected integrator '%s' not reckognized."%value)
+                launch_options['integrator'] = value
+            elif key in ['--n_points', '--n_iterations']:
+                launch_options[key[2:]] = int(value)
+            elif key=='--verbosity':
+                modes = {'none':0, 'integrator':1, 'all':2}
+                launch_options[key[2:]] = modes[value.lower()]
+            else:
+                raise InvalidCmd("Option '%s' for the launch command not reckognized."%key)
+
+        return launch_options
 
 #===============================================================================
 # CompleteForCmd
 #===============================================================================
-class CompleteForCmd(CheckValidForCmd):
+class CompleteForCmd(cmd.CompleteCmd):
     """ The Series of help routine for MadEvent7Cmd"""
 
     def complete_launch(self, *args, **opts):
-
-        if self.ninitial == 1:
-            return self.complete_calculate_decay_widths(*args, **opts)
-        else:
-            return self.complete_generate_events(*args, **opts)
+        # TODO
+        return []
 
 #===============================================================================
 # MadEvent7Cmd
 #===============================================================================
-class MadEvent7Cmd(CompleteForCmd, CmdExtended, HelpToCmd, common_run.CommonRunCmd):
+class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, common_run.CommonRunCmd):
     """The command line processor for MadEvent7"""    
 
     _set_options = []
@@ -254,7 +279,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, HelpToCmd, common_run.CommonRunC
     # parameter controllable by user commands, eventually.
     integrator_verbosity = 0 if logger.level > logging.DEBUG else 1
     _integrators = {
-       'Naive' : (integrators.SimpleMonteCarloIntegrator, 
+       'NAIVE' : (integrators.SimpleMonteCarloIntegrator, 
                   { 'n_iterations'            : 10,
                     'n_points_per_iterations' : 100,
                     'accuracy_target'         : None,
@@ -316,6 +341,9 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, HelpToCmd, common_run.CommonRunC
         # Overwrite the above properties from the bootstrap using the database written at the output stage
         self.bootstrap_ME7()
         
+        # Instance of the current integrator
+        self.integrator = None
+        
     def check_output_type(self, path):
         """ Check that the output path is a valid Madevent 7directory """        
         return os.path.isfile(os.path.join(path,'MadEvent7.db'))
@@ -370,25 +398,74 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, HelpToCmd, common_run.CommonRunC
         in the interface.
         This is super naive and only for illustrative purposes for now."""
         
+        args = self.split_arg(line)
+        
+        launch_options = self.parse_launch(args)
+
         # In principle we want to start by recompiling the process output so as to make sure
         # that everything is up to date.
         self.compile()
+
+        # Re-initialize the integrator
+        integrator_name = launch_options['integrator']
+        integrator_options = self._integrators[integrator_name][1]
         
-        #for name in ['Naive','VEGAS','SUAVE','DIVONNE','CUHRE']:
-        for name in ['Naive','VEGAS3','VEGAS']:
+        integrator_options['verbosity'] = launch_options['verbosity']
+        
+        if launch_options['n_points']:
+            if integrator_name=='VEGAS3':
+                integrator_options['survey_n_points'] = launch_options['n_points']
+                integrator_options['refine_n_points'] = 5*launch_options['n_points']
+            elif integrator_name=='NAIVE':
+                integrator_options['n_points_per_iterations'] = launch_options['n_points']
+                
+            else:
+                # For now support this option only for some integrators
+                raise InvalidCmd("The options 'n_points' is not supported for the integrator %s."%integrator_name)
+
+        if launch_options['n_iterations']:
+            if integrator_name=='VEGAS3':
+                integrator_options['survey_n_iterations'] = launch_options['n_iterations']
+                integrator_options['refine_n_iterations'] = launch_options['n_iterations']
+            elif integrator_name=='NAIVE':
+                integrator_options['n_iterations'] = launch_options['n_iterations']
+            else:
+                # For now support this option only for some integrators
+                raise InvalidCmd("The options 'n_iterations' is not supported for the integrator %s."%integrator_name)
+
+        self.integrator = self._integrators[integrator_name][0](self.all_integrands, **integrator_options)
+        
+        if len(set([len(itgd.get_dimensions()) for itgd in self.all_integrands]))>1 and integrator_name not in ['NAIVE']:
+            # Skip integrators that do not support integrands with different dimensions.
+            # Of course, in the end we wil not naively automatically put all integrands alltogether in the same integrator
+            raise InvalidCmd("For now, whenever you have several integrands of different dimensions, only "+
+                             "the NAIVE integrator is available.")
+        
+        # The integration can be quite verbose, so temporarily setting their level to 50 by default is best here
+        if launch_options['verbosity'] > 2:
+            logger_level = logging.DEBUG
+        else:
+            logger_level = logging.INFO
+        
+        with misc.MuteLogger(['madevent7.stdout','madevent7.stderr'],[logger_level,logger_level]):
+            xsec, error = self.integrator.integrate()
             
-            if len(set([len(itgd.get_dimensions()) for itgd in self.all_integrands]))>1 and name not in ['Naive']:
-                # Skip integrators that do not support integrand with different dimensions.
-                continue
-            
-            integrator = self._integrators[name][0](self.all_integrands, **self._integrators[name][1])
-            # The integration can be quite verbose, so temporarily setting their level to 50 by default is best here
-            with misc.MuteLogger(['madevent7.stdout','madevent7.stderr'],[50,50]):
-                xsec, error = integrator.integrate()
-            logger.info("="*100)
-            logger.info('{:^100}'.format("\033[92mCross-section with integrator '%s':\033[0m"%integrator.get_name()))
-            logger.info('{:^100}'.format("\033[94m%.5e +/- %.2e [pb]\033[0m"%(xsec, error)))
-            logger.info("="*100+"\n")
+        logger.info("="*100)
+        logger.info('{:^100}'.format("\033[92mCross-section with integrator '%s':\033[0m"%self.integrator.get_name()))
+        logger.info('{:^100}'.format("\033[94m%.5e +/- %.2e [pb]\033[0m"%(xsec, error)))
+        logger.info("="*100+"\n")
+        
+    def do_show_grid(self, line):
+        """ Minimal implementation for now with no possibility of passing options."""
+        
+        show_grid_options = {'n_grid':40,
+                             'shrink':False,
+                             'axes':None}
+        
+        if hasattr(self.integrator, 'show_grid'):
+            self.integrator.show_grid(**show_grid_options)
+        else:
+            raise InvalidCmd('The current integrator used (%s) cannot display grids.'%self.integrator.get_name())
         
     def get_characteristics(self, path=None):
         """reads process characteristics and initializes the corresponding dictionary"""

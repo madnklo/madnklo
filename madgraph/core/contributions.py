@@ -45,19 +45,22 @@ from madgraph.iolibs.files import cp, ln, mv
 
 logger = logging.getLogger('madgraph.contributions')
 
-################################################################################
-# MEAccessorKey, to be used as keys in the MEAccessorDict
-################################################################################
-class MEAccessorKey(object):
+##################################################################################################
+# ProcessKey, to be used as keys in the MEAccessorDict and the processes_map of contributions
+###################################################################################################
+class ProcessKey(object):
     """ We store here the relevant information for accessing a particular ME."""
     
     def __init__(self, 
-                # The user can initialize an MEAccessorKey directly from a process, or leave it empty
+                # The user can initialize an ProcessKey directly from a process, or leave it empty
                 # in which case the default argument of a base_objects.Process() instance will be considered.      
                 process=None,
                 # Instead, or on top of the above, one can decide to overwrite what set of PDGs this key 
                 # will it correspond to
                 PDGs = [],
+                # Decide whether to store sorted PDGs or the original order provided by the process or other
+                # intputs from this __init__
+                sort_PDGs = True,
                 # Exclude certain process attributes when creating the key for a certain process.
                 vetoed_attributes = ['model','legs','uid'],
                 # Finally the user can overwrite the relevant attributes of the process passed in argument
@@ -70,35 +73,35 @@ class MEAccessorKey(object):
                 
         # PDGs
         if PDGs:
-            self.key_dict['PDGs'] = ( tuple(sorted(PDGs[0])), tuple(sorted(PDGs[1])) )
+            self.key_dict['PDGs'] = PDGs
         elif 'legs' in opts:
-            self.key_dict['PDGs'] = ( tuple(sorted([l.get('id') for l in opts['legs'] if not l['state']])), 
-                                     tuple(sorted([l.get('id') for l in opts['legs'] if l['state']])) )
+            self.key_dict['PDGs'] = ( tuple([l.get('id') for l in opts['legs'] if not l['state']]), 
+                                      tuple([l.get('id') for l in opts['legs'] if l['state']]) )
         elif process:
-            self.key_dict['PDGs'] = ( tuple(sorted(process.get_initial_ids())), 
-                                      tuple(sorted(process.get_final_ids())) )
+            self.key_dict['PDGs'] = ( tuple(process.get_initial_ids()), 
+                                      tuple(process.get_final_ids()) )
         else:
-            raise MadGraph5Error("When creating an MEAccessorKey, it is mandatory to specify the PDGs, either"+
+            raise MadGraph5Error("When creating an ProcessKey, it is mandatory to specify the PDGs, either"+
                                  " via the options 'PDGs', 'legs' or 'process' (with precedence in this order).")
+        
+        if sort_PDGs:
+            self.key_dict['PDGs'] = ( tuple(sorted(self.key_dict['PDGs'][0])), tuple(sorted(self.key_dict['PDGs'][1])) )
         
         # Now make sure to instantiate a default process if the user didn't select one
         if not process:
             process = base_objects.Process()
 
-        
-        # Record other relevant attributes in the key_dict
-        
         # And dynamically check if one can indeed create a naive hash for the dict and list in attribute of Process.
         def hash_dict(a_dict, name):
             if not all(isinstance(el, collections.Hashable) for el in a_dict.keys()) or \
                not all(isinstance(el, collections.Hashable) for el in a_dict.values()):
-                raise MadGraph5Error("Found unhashable dictionary '%s' as attribute of Process in MEAccessorKey."%name+
+                raise MadGraph5Error("Found unhashable dictionary '%s' as attribute of Process in ProcessKey."%name+
                   "Either define its hash in an ad-hoc way or veto it from taking part in the key of MEAccessorDict.")
             return tuple(sorted(a_dict.items()))
 
         def hash_list(a_list, name):
             if not all(isinstance(el, collections.Hashable) for el in a_list):
-                raise MadGraph5Error("Found unhashable list '%s' as attribute of Process in MEAccessorKey."%name+
+                raise MadGraph5Error("Found unhashable list '%s' as attribute of Process in ProcessKey."%name+
                   " Either define its hash in an ad-hoc way or veto it from taking part in the key of MEAccessorDict.")
             return tuple(a_list)
             
@@ -123,7 +126,7 @@ class MEAccessorKey(object):
             if proc_attr == 'decay_chains':
                 # Group all the hashes of the processes in decay_chains and store them here.
                 # BUT BEWARE THAT THE PDGs in self.key_dict only refer to the core production process then.
-                self.key_dict['decay_chains'] = tuple( MEAccessorKey(proc).get_canonical_key() for proc in value)
+                self.key_dict['decay_chains'] = tuple( ProcessKey(proc).get_canonical_key() for proc in value)
                 continue
                 
             # Now generically treat other attributes
@@ -136,15 +139,15 @@ class MEAccessorKey(object):
             else:
                 raise MadGraph5Error("The attribute '%s' to be considered as part of a key for the MEAccessorDict"%proc_attr
                  +" is not of a basic type or list / dictionary, but '%s'. Therefore consider vetoing this"%type(value)+
-                 " attribute or adding a dedicated ad-hoc rule for it in MEAccessorKey.")
+                 " attribute or adding a dedicated ad-hoc rule for it in ProcessKey.")
 
     def set(self, key, value):
         """ Modify an entry in the key_dict created."""
         
         if key not in self.key_dict:
-            raise MadGraph5Error("Key '%s' was not found in the key_dict created in MEAccessorKey.")
+            raise MadGraph5Error("Key '%s' was not found in the key_dict created in ProcessKey.")
         if not isinstance(value, (int, str, bool, tuple)):
-            raise MadGraph5Error("Values for the key_dict created in MEAccessorKey should be of type (int, str, bool, tuple).")
+            raise MadGraph5Error("Values for the key_dict created in ProcessKey should be of type (int, str, bool, tuple).")
         
         self.key_dict[key] = value
         # Force the canonical key to be recomputed
@@ -185,7 +188,7 @@ class VirtualMEAccessor(object):
         # Define the attributes for this particular ME.
         self.pdgs_combs  = [ ( tuple(process.get_initial_ids()), tuple(process.get_final_ids()) ) ] + mapped_pdgs
 
-        self.ME_dict_key = MEAccessorKey(process)
+        self.ME_dict_key = ProcessKey(process)
         
         if not os.path.isabs(root_path):
             raise MadGraph5Error("The initialization of VirtualMEAccessor necessitates an "+
@@ -494,7 +497,7 @@ class MEAccessorDict(dict):
         return self.get_MEAccessor(key)
 
     def get_MEAccessor(self, key, pdgs=None):
-        """ Provides access to a given ME, provided its MEAccessorKey. See implementation of this MEAccessorKey to
+        """ Provides access to a given ME, provided its ProcessKey. See implementation of this ProcessKey to
         understand how the properties of the process being accessed are stored.
         The user can specify here a particular order in which the particles/flavors are provided. When doing so
         the corresponding permutation will be computed and provided in the call_key returned 
@@ -511,12 +514,12 @@ class MEAccessorDict(dict):
         """
 
         if isinstance(key, base_objects.Process):
-            # Automatically convert the process to a MEAccessorKey
-            accessor_key = MEAccessorKey(process=key, PDGs=pdgs if pdgs else [])
-        elif isinstance(key, MEAccessorKey):
+            # Automatically convert the process to a ProcessKey
+            accessor_key = ProcessKey(process=key, PDGs=pdgs if pdgs else [])
+        elif isinstance(key, ProcessKey):
             accessor_key = key
         else:
-            raise MadGraph5Error("Key passed to get_MEAccessor should always be of type MEAccessorKey or base_objects.Process")
+            raise MadGraph5Error("Key passed to get_MEAccessor should always be of type ProcessKey or base_objects.Process")
             
         try:
             (ME_accessor, defining_pdgs_order) = super(MEAccessorDict, self).__getitem__(accessor_key.get_canonical_key())
@@ -563,8 +566,8 @@ class MEAccessorDict(dict):
         out which permutation to apply and which flavours to specify.
         """
         
-        assert (len(args)>0 and isinstance(args[0], (MEAccessorKey, base_objects.Process))), "When using the shortcut "+\
-            "__call__ method of MEAccessorDict, the first argument should be an instance of a MEAccessorKey or base_objects.Process."
+        assert (len(args)>0 and isinstance(args[0], (ProcessKey, base_objects.Process))), "When using the shortcut "+\
+            "__call__ method of MEAccessorDict, the first argument should be an instance of a ProcessKey or base_objects.Process."
 
         # Now store the me_accessor_key and remove ir from the arguments to be passed to the MEAccessor call.
         me_accessor_key = args[0]
@@ -956,12 +959,10 @@ class Contribution(object):
         self.exporter.make_model_symbolic_link()
         
     def get_processes_map(self, force=False):
-        """ Returns a dictionary with a tuple of PDGS and other information, using the format provided by
-                 base_objects.Process.get_hashable_representation(self)
-            as keys and values being a tuple with format
+        """ Returns a dictionary with keys obtained from ProcessKey and values being a tuple with format
                  (defining_process, [mapped processes])
-            where defining_process is an actual instance of Process and [mapped processes] is a list of elements
-            of the same format as the keys.
+            where defining_process is an actual instance of Process and [mapped processes] is a list 
+            of processes instances mapped to that defining process.
         """
         if not self.amplitudes:
             return {}
@@ -973,7 +974,8 @@ class Contribution(object):
                 return self.processes_map[1]
         
         all_defining_procs = [amp.get('process') for amp in self.amplitudes]
-        all_defining_procs = dict( ( proc.get_hashable_representation()
+        
+        all_defining_procs = dict( ( ProcessKey(proc,sort_PDGs=False).get_canonical_key()
                                             , (proc, []) ) for proc in all_defining_procs)
         
         if not self.all_matrix_elements.get_matrix_elements():
@@ -986,7 +988,8 @@ class Contribution(object):
         
         for me in self.all_matrix_elements.get_matrix_elements():
             # List all the processes in this Matrix eElement
-            all_procs_pdgs = dict((proc.get_hashable_representation(), proc) for proc in me.get('processes'))
+            all_procs_pdgs = dict((ProcessKey(proc,sort_PDGs=False).get_canonical_key(), proc) 
+                                                                for proc in me.get('processes'))
             # Look through all the processes identified in the amplitudes
             for proc in all_defining_procs:
                 # Make sure it is found in the processes mapped in this Matrix element

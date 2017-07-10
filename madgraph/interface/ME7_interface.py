@@ -1051,7 +1051,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # the documentation of the function contributions.VirtualMEAccessor.apply_permutations
         
         # Also, here is the more pedantic way of obtaining an ME evaluation:
-        ## process_key = contributions.MEAccessorKey(process=process, pdgs=flavors)
+        ## process_key = contributions.ProcessKey(process=process, pdgs=flavors)
         ## ME_accessor, call_key = self.all_MEAccessors.get_MEAccessor(process_key, pdgs=flavors)
         ## call_key['squared_orders'] = {...}
         ## call_key['spin_correlation'] = [...]

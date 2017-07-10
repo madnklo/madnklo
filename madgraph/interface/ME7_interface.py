@@ -442,7 +442,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
                              "the NAIVE integrator is available.")
         
         # The integration can be quite verbose, so temporarily setting their level to 50 by default is best here
-        if launch_options['verbosity'] > 2:
+        if launch_options['verbosity'] > 1:
             logger_level = logging.DEBUG
         else:
             logger_level = logging.INFO
@@ -501,6 +501,11 @@ class ME7Integrand(integrands.VirtualIntegrand):
     
     # Maximum size of the cache for PDF calls
     PDF_cache_max_size = 1000
+    
+    # The lowest value that the center of mass energy can take.
+    # We take here 1 GeV, as anyway below this non-perturbative effects dominate and factorization does not
+    # make sense anymore
+    absolute_Ecm_min = 1.
     
     def __new__(cls, model, 
                      run_card,
@@ -676,7 +681,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
                 if model_param_dict[param] != 0.:
                     as_running_params[param] = model_param_dict[param]
             # For now always chose to run alpha_S at two loops.
-            n_loop_for_as_running = 3
+            n_loop_for_as_running = 2
             self.alpha_s_runner = model_reader.Alphas_Runner(as_running_params['aS'], n_loop_for_as_running, 
                       as_running_params['mdl_MZ'], as_running_params['mdl_MC'], as_running_params['mdl_MB'])
 
@@ -686,7 +691,6 @@ class ME7Integrand(integrands.VirtualIntegrand):
         
         dump = {'class': self.__class__}
         dump.update(self.initialization_inputs)
-        # For now do nothing
         return dump
     
     @classmethod
@@ -815,12 +819,12 @@ class ME7Integrand(integrands.VirtualIntegrand):
         wgt = 1.0
         
         logger.debug("="*80)       
-        logger.debug('Starting a new evaluation of the integrand from contribution:\n%s'%
+        logger.debug('Starting a new evaluation of the integrand from contribution:\n%s',
                                                     self.contribution_definition.nice_string())
         
         # Random variables sent
         random_variables    = list(continuous_inputs)
-        logger.debug('Random variables received: %s'%str(random_variables))        
+        logger.debug('Random variables received: %s',str(random_variables))        
     
         # Avoid extrema since the phase-space generation algorithm doesn't like it
         random_variables = [min(max(rv,self.epsilon_border),1.-self.epsilon_border) for rv in random_variables]
@@ -830,9 +834,9 @@ class ME7Integrand(integrands.VirtualIntegrand):
         dimension_names = [dim.name for dim in self.get_dimensions()]
         dimension_name_to_position = dict((name,i) for i, name in enumerate(dimension_names))
         if 'ycms' in dimension_names:
-            PDF_ycms = random_variables[dimension_name_to_position['ycms']]
+            PDF_ycm = random_variables[dimension_name_to_position['ycms']]
         else:
-            PDF_ycms = None
+            PDF_ycm = None
         if 'tau' in dimension_names:
             PDF_tau = random_variables[dimension_name_to_position['tau']]
         else:
@@ -859,22 +863,31 @@ class ME7Integrand(integrands.VirtualIntegrand):
             tot_final_state_masses = sum(self.masses[1])
             if tot_final_state_masses > self.collider_energy:
                 raise InvalidCmd("Collider energy is not large enough, there is no phase-space left.")
-            tau_min = (tot_final_state_masses/self.collider_energy)**2
             
+            # Keep a hard cut at 1 GeV, which is the default for absolute_Ecm_min
+            tau_min = (max(tot_final_state_masses, self.absolute_Ecm_min)/self.collider_energy)**2
+            tau_max = 1.0
+
             if self.collider == 'pp_2to1':
                 # Here tau is fixed by the \delta(xb_1*xb_2*s - m_h**2) which sets tau to 
                 PDF_tau = tau_min
                 # Account for the \delta(xb_1*xb_2*s - m_h**2) and corresponding y_cm matching to unit volume
                 wgt *= (1./self.collider_energy**2)
-            
-            if tau_min > 0.:
-                # And we can now rescale ycm appropriately
-                PDF_ycms = (-0.5 + PDF_ycms) * math.log(1./tau_min)
-                # We need to correct the phase-space volume accordingly
-                wgt *= math.log(1./tau_min)
-                
-            xb_1 = math.sqrt(PDF_tau) * math.exp(PDF_ycms)
-            xb_2 = math.sqrt(PDF_tau) * math.exp(-PDF_ycms)
+            else:
+                # Rescale tau appropriately
+                PDF_tau = tau_min+(tau_max-tau_min)*PDF_tau
+                # Including the corresponding Jacobian
+                wgt *= (tau_max-tau_min)
+
+            # And we can now rescale ycm appropriately
+            ycm_min = 0.5 * math.log(PDF_tau)
+            ycm_max = -ycm_min
+            PDF_ycm = ycm_min + (ycm_max - ycm_min)*PDF_ycm            
+            # and account for the corresponding Jacobina
+            wgt *= (ycm_max - ycm_min)
+
+            xb_1 = math.sqrt(PDF_tau) * math.exp(PDF_ycm)
+            xb_2 = math.sqrt(PDF_tau) * math.exp(-PDF_ycm)
             E_cm = math.sqrt(xb_1*xb_2)*self.collider_energy
 
         elif self.collider == 'll':
@@ -890,7 +903,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
             logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)
             return 0.0
 
-        # Start by including the flux factor
+        # Include the flux factor
         flux = 1.
         if self.n_initial == 2:
             flux = 1. / (2.*math.sqrt(self.Lambda(E_cm**2, self.masses[0][0], self.masses[0][1])))
@@ -906,6 +919,10 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # Account for PS weight
         wgt *= PS_weight
         logger.debug("PS_weight: %.5e"%PS_weight)
+
+        ###
+        # /!\ WARNING ONLY BOOST TO C.O.M frame at the very end. #
+        ###
 
         # We must now boost the PS point in the lab frame
         if self.n_initial == 2:
@@ -1015,28 +1032,34 @@ class ME7Integrand(integrands.VirtualIntegrand):
         Finally, this function is also responsible for calling the observable, using flavor_wgt*sigma_wgt.
         It can potentially call it several times, for the various counterterms.
         """
-        
-        process_flavors = ( tuple(process.get_initial_ids()), tuple(process.get_final_ids()))
-        
+
         sigma_wgt = 1.
-        
-        self.all_MEAccessors.set_queries_details(
-            n_loops= 1 if process.get('perturbation_couplings') else 0,
-            perturbations = process.get('perturbation_couplings') )
-        
+
         alpha_s = self.model.get('parameter_dict')['aS']
-        
-        ME_evaluation = self.all_MEAccessors[flavors](PS_point, alpha_s, mu_r)
+
+        ME_evaluation = self.all_MEAccessors(process, PS_point, alpha_s, mu_r, pdgs=flavors)
+
         # Notice here that the most general call to the Matrix Element would be:
         #
-        # ME_evaluation = self.all_MEAccessors[flavors](PS_point, alpha_s, mu_r,
-        #       squared_orders = {}, 
-        #       spin_correlation = tuple([]), 
-        #       color_connection = tuple([]), 
-        #       hel_config = tuple([]) )
+        # ME_evaluation = self.all_MEAccessors(process, PS_point, alpha_s, mu_r, pdgs=flavors,
+        #       squared_orders = {...}, 
+        #       spin_correlation = [...],
+        #       color_connection = [...], 
+        #       hel_config = [...] )
         #
-        # Where one can read the details of the format of each of these options in
+        # One can read the details of the format for each of these options in
         # the documentation of the function contributions.VirtualMEAccessor.apply_permutations
+        
+        # Also, here is the more pedantic way of obtaining an ME evaluation:
+        ## process_key = contributions.MEAccessorKey(process=process, pdgs=flavors)
+        ## ME_accessor, call_key = self.all_MEAccessors.get_MEAccessor(process_key, pdgs=flavors)
+        ## call_key['squared_orders'] = {...}
+        ## call_key['spin_correlation'] = [...]
+        ## call_key['color_connection'] = [...]
+        ## call_key['color_connection'] = [...]
+        ## ...
+        ## ME_evaluation = ME_accessor(PS_point, alpha_s, mu_r, **call_key)
+
         sigma_wgt *= ME_evaluation['finite']
         
         if self.apply_observables:

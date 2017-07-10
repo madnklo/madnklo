@@ -27,6 +27,7 @@ import sys
 import importlib
 import os
 import shutil
+import collections
 pjoin = os.path.join
 
 import madgraph.core.base_objects as base_objects
@@ -45,12 +46,126 @@ from madgraph.iolibs.files import cp, ln, mv
 logger = logging.getLogger('madgraph.contributions')
 
 ################################################################################
+# MEAccessorKey, to be used as keys in the MEAccessorDict
+################################################################################
+class MEAccessorKey(object):
+    """ We store here the relevant information for accessing a particular ME."""
+    
+    def __init__(self, 
+                # The user can initialize an MEAccessorKey directly from a process, or leave it empty
+                # in which case the default argument of a base_objects.Process() instance will be considered.      
+                process=None,
+                # Instead, or on top of the above, one can decide to overwrite what set of PDGs this key 
+                # will it correspond to
+                PDGs = [],
+                # Exclude certain process attributes when creating the key for a certain process.
+                vetoed_attributes = ['model','legs','uid'],
+                # Finally the user can overwrite the relevant attributes of the process passed in argument
+                # if he so wants.
+                **opts):
+              
+        # Initialize a dictionary which will be used to form the final tuple encoding all the information for 
+        # this particular entry
+        self.key_dict = {}
+                
+        # PDGs
+        if PDGs:
+            self.key_dict['PDGs'] = ( tuple(sorted(PDGs[0])), tuple(sorted(PDGs[1])) )
+        elif 'legs' in opts:
+            self.key_dict['PDGs'] = ( tuple(sorted([l.get('id') for l in opts['legs'] if not l['state']])), 
+                                     tuple(sorted([l.get('id') for l in opts['legs'] if l['state']])) )
+        elif process:
+            self.key_dict['PDGs'] = ( tuple(sorted(process.get_initial_ids())), 
+                                      tuple(sorted(process.get_final_ids())) )
+        else:
+            raise MadGraph5Error("When creating an MEAccessorKey, it is mandatory to specify the PDGs, either"+
+                                 " via the options 'PDGs', 'legs' or 'process' (with precedence in this order).")
+        
+        # Now make sure to instantiate a default process if the user didn't select one
+        if not process:
+            process = base_objects.Process()
+
+        
+        # Record other relevant attributes in the key_dict
+        
+        # And dynamically check if one can indeed create a naive hash for the dict and list in attribute of Process.
+        def hash_dict(a_dict, name):
+            if not all(isinstance(el, collections.Hashable) for el in a_dict.keys()) or \
+               not all(isinstance(el, collections.Hashable) for el in a_dict.values()):
+                raise MadGraph5Error("Found unhashable dictionary '%s' as attribute of Process in MEAccessorKey."%name+
+                  "Either define its hash in an ad-hoc way or veto it from taking part in the key of MEAccessorDict.")
+            return tuple(sorted(a_dict.items()))
+
+        def hash_list(a_list, name):
+            if not all(isinstance(el, collections.Hashable) for el in a_list):
+                raise MadGraph5Error("Found unhashable list '%s' as attribute of Process in MEAccessorKey."%name+
+                  " Either define its hash in an ad-hoc way or veto it from taking part in the key of MEAccessorDict.")
+            return tuple(a_list)
+            
+        # Now loop over all attributes of the Process and also additional options that the user might have specified
+        # and do not correspond to Process attribute values to be overwritten
+        for proc_attr in set(process.keys()+opts.keys()):
+            if proc_attr in vetoed_attributes:
+                continue
+            # Take the value from the user_provided options if given
+            # This is because we want the option specifically specified by the user to have precedence over the process
+            # attributes and also because the user might specify options which are *not* process attributes.
+            if proc_attr in opts:
+                value = opts[proc_attr]
+            else:
+                value = process.get(proc_attr)
+
+            # Special treatment for some attributes:
+            if proc_attr == 'legs_with_decays':
+                self.key_dict['legs_with_decays'] = tuple((l.get('id'), l.get('number'), l.get('state')) for l in value)
+                continue
+                
+            if proc_attr == 'decay_chains':
+                # Group all the hashes of the processes in decay_chains and store them here.
+                # BUT BEWARE THAT THE PDGs in self.key_dict only refer to the core production process then.
+                self.key_dict['decay_chains'] = tuple( MEAccessorKey(proc).get_canonical_key() for proc in value)
+                continue
+                
+            # Now generically treat other attributes
+            if isinstance(value, (int, str, tuple, bool)):
+                self.key_dict[proc_attr] = value
+            elif isinstance(value, list):
+                self.key_dict[proc_attr] = hash_list(value, proc_attr)
+            elif isinstance(value, dict):
+                self.key_dict[proc_attr] = hash_dict(value, proc_attr)
+            else:
+                raise MadGraph5Error("The attribute '%s' to be considered as part of a key for the MEAccessorDict"%proc_attr
+                 +" is not of a basic type or list / dictionary, but '%s'. Therefore consider vetoing this"%type(value)+
+                 " attribute or adding a dedicated ad-hoc rule for it in MEAccessorKey.")
+
+    def set(self, key, value):
+        """ Modify an entry in the key_dict created."""
+        
+        if key not in self.key_dict:
+            raise MadGraph5Error("Key '%s' was not found in the key_dict created in MEAccessorKey.")
+        if not isinstance(value, (int, str, bool, tuple)):
+            raise MadGraph5Error("Values for the key_dict created in MEAccessorKey should be of type (int, str, bool, tuple).")
+        
+        self.key_dict[key] = value
+        # Force the canonical key to be recomputed
+        if hasattr(self, 'canonical_key'):
+            delattr(self, 'canonical_key')
+
+    def get_canonical_key(self, force=False):
+        """ Simply uses self.key_dict to return a hashable canonical representation of this object."""
+        if not force and hasattr(self,'canonical_key'):
+            return self.canonical_key
+        
+        self.canonical_key = tuple(sorted(self.key_dict.items()))        
+        return self.canonical_key
+
+################################################################################
 # MEAccessor mother class
 ################################################################################
 class VirtualMEAccessor(object):
     """ A class wrapping the access to one particular MatrixEleemnt."""
     
-    def __init__(self, process, n_loops=None, mapped_pdgs = [], root_path='', **opts):
+    def __init__(self, process, mapped_pdgs = [], root_path='', **opts):
         
         """ Initialize an MEAccessor from a process, allowing to possibly overwrites n_loops.
         and mapped_pdgs to indicate other list of pdgs corresponding to processes that can be 
@@ -63,36 +178,19 @@ class VirtualMEAccessor(object):
         self.initialization_inputs = {'args':[], 'opts':{}}
         self.initialization_inputs['args'].append(process)
         self.initialization_inputs['opts'].update(
-            {'n_loops': n_loops,
-             'mapped_pdgs': mapped_pdgs,
+            {'mapped_pdgs': mapped_pdgs,
              'root_path': root_path})
         self.initialization_inputs['opts'].update(opts)
                 
         # Define the attributes for this particular ME.
         self.pdgs_combs  = [ ( tuple(process.get_initial_ids()), tuple(process.get_final_ids()) ) ] + mapped_pdgs
-        if n_loops:
-            self.n_loops = n_loops
-        else:
-            self.n_loops = 1 if process.get('perturbation_couplings') else 0
-        self.perturbations = process.get('perturbation_couplings')
+
+        self.ME_dict_key = MEAccessorKey(process)
         
         if not os.path.isabs(root_path):
             raise MadGraph5Error("The initialization of VirtualMEAccessor necessitates an "+
                                                         "absolute path for root_path.")
         self.root_path = root_path
-        
-        # This permutation will determine how to interpret user-inputs during the call
-        self.permutation = []
-        # And in case the matrix-element evaluation depends on the process employed, 
-        # (this can be the case when grouping several process under the same f2py module)
-        # The MEAccessorDict will also specify this one.
-        self.process_pdgs = tuple([])
-        # User inputs to be used during the evaluation:
-        self.PS_point         = []
-        self.squared_orders   = {}
-        self.spin_correlation = tuple([])
-        self.color_connection = tuple([])
-        self.hel_config       = tuple([])
 
     def generate_dump(self, **opts):
         """ Generate a serializable dump of self, which can later be used, along with some more 
@@ -113,6 +211,7 @@ class VirtualMEAccessor(object):
         """ Regenerate this instance from its dump and possibly other information."""
         
         MEAccessorClass = dump['class']
+        assert (cls==MEAccessorClass)
         MEAccessor_instance = MEAccessorClass(*dump['args'], **dump['opts'])
         # Make sure to override the root_path with the newly provided one
         MEAccessor_instance.root_path = root_path        
@@ -125,75 +224,82 @@ class VirtualMEAccessor(object):
         key_value_pairs = []
         for pdgs_comb in self.pdgs_combs:
             sorted_pdgs = (tuple(sorted(pdgs_comb[0])), tuple(sorted(pdgs_comb[1])))
-            key = ( sorted_pdgs, self.n_loops, tuple(sorted(self.perturbations)) )
+            self.ME_dict_key.set('PDGs',sorted_pdgs)
+            # Store both this accessor and the original ordering of the pdgs_comb
+            # which is lost in the key since it has been sorted there.
             value = (self, pdgs_comb)
-            key_value_pairs.append( (key, value) )
+            key_value_pairs.append( (self.ME_dict_key.get_canonical_key(), value) )
 
         return key_value_pairs
     
-    def __call__(self, *args, **opts):
-        """ Make it explicitely virtual since this must be implemented by the daughter classes."""
-        raise NotImplementedError("The __call__ function must be implemented in the daughter "+
-                                  " classes of VirtualMEAccessor.")
-
-    def apply_permutations(self, PS_point,
-                                 squared_orders = {}, 
-                                 spin_correlation = tuple([]), 
-                                 color_connection = tuple([]), 
-                                 hel_config = tuple([])):
-        """ Return the matrix element evaluation, provided its arguments, whost format is:
+    def __call__(self, PS_point, permutation=None, defining_pdgs_order=None, squared_orders = {}, **opts):
+        """ The evaluation will be implemented by the daughter classes, but we can already here apply 
+        the specified permutation and record the defining_pdgs_order (i.e. which of the mapped process
+        was the user really interested in, it is one of those present in self.pdgs_combs) 
+        in a dictionary that we can return to the daughter class."""
         
-        -> Spin correlation defined as a 2-tuple of lists of (4-vectors, index), for instance
-             ( [(k1, 2), (k3, 3)], [(k1, 2), (k4, 1)] 
-          Indicates that the vector k must be used on both side of the amplitude to saturate 
-          the lorentz indices of leg #2 whereas k3 should be used to saturated leg #3 on the left
-          and k4 leg#1 on the right.
-          Notes that k_i here are simply 4-tuples of floats.
+        permuted_PS_point, permuted_opts = self.apply_permutations(PS_point, permutation, **opts)
+        permuted_opts['squared_orders'] = squared_orders
+        permuted_opts['defining_pdgs_order'] = defining_pdgs_order
+        
+        # Return the inputs properly treated
+        return permuted_PS_point, permuted_opts
 
-            or use instead
-            
+    def apply_permutations(self, PS_point, permutation,
+                                 spin_correlation = [], 
+                                 color_connection = [], 
+                                 hel_config = tuple([]),
+                                 **opts):
+        
+        """ Processes the options when calling the evaluation of the matrix_element and apply the permutation
+        to all options that need to be permuted. Additional options provided via opts will simply be propagated,
+        but not permuted. The format for the three options above is:
+        
+        spin_correlation :
+        -> Spin correlation defined as a list of 2-tuple of the following form
+                    
            [ (leg_IDA, (vec_A1, vec_A2, vec_A3,...)), 
              (leg_IDB, (vec_B1, vec_B2, vec_B3,..)), 
              (leg_IDC, (vec_C1, vec_C2, vec_C3,...)), ... ]
             
-            So basically this means replace the list of possible helcity polarization vectors for each leg_IDA, IDB, IDC with
-            the corresponding list of 4-vectors.
+            So basically this means replace the list of possible helcity polarization vectors for each 
+            leg_IDA, leg_IDB, leg_IDC, etc.. ... (these are integer) with the corresponding list of 4-vectors,
+            (vec_A1, vec_A2, vec_A3,...), (vec_B1, vec_B2, vec_B3,..), etc... where vec_i are simply 4-tuples of floats.
 
         -> Color connections are specified by providing what SU(3) generator chain to apply in 
-          between the amplitude product. The format is a 2-tuple of lists providing first the outermost
-          fundamental indices and then the summed adoint onces. For instance
-             ( [3,-1,-1,-2,-2,6], [-1, -2, -1, -2] )
-             [ (a,i,j), (a,i,j), (a,i,j) (a,i,j), (a,i,j), ....]
+          between the amplitude product. The format is a list of 3-tuple, whose first element is the adjoint index of 
+          the generator and the second (third) is the (anti-)fundamental indices of these generators.
+          For instance
+             [ (-100,3,-1), (-200,-1,-2), (-100,-2,-3) (-200,-3,4), ....]
           Indicates:
-            T^a_(3 i) T^b_(i j) T^a_(j k) T^b_(k 6)  
+            T^a_(3 i) T^b_(i j) T^a_(j k) T^b_(k 4)  
         
         -> Helicity configuration to be considered, this can be a tuple like
             (-1, -1, +1 ,-1, +1)
           For the helicity configuration --+-+
-        
-        Empty arguments imply an explicit summation.
+          If a spin-connection is specified for a specific particle, the helicity specification will be dropped.
         """
-
-        # Only take care of permuting the inputs if necessary. The daughter class will take care of 
-        # actually evaluating the ME.
-        self.PS_point = [PS_point[self.permutation[i]] for i in range(len(PS_point))]
-        self.squared_orders = dict(squared_orders)
         
-        if not spin_correlation:
-            self.spin_correlation = tuple([])
-        else:
-            self.spin_correlation = ( [ (k, self.permutation[i])  for k, i in spin_correlation[0] ],
-                                      [ (k, self.permutation[i])  for k, i in spin_correlation[1] ] )
-        if not color_connection:
-            self.color_connection = tuple([])
-        else:
-            self.color_connection = ( [self.permutation[i] for i in color_connection[0] if i > 0],
-                                      [self.permutation[i] for i in color_connection[1] if i > 0]   )
-            
-        if not hel_config:
-            hel_config = tuple([])
-        else:
-            self.hel_config = tuple( hel_config[self.permutation[i]] for i in range(len(hel_config)) )
+        # No permutation, just return local copies of the arguments
+        if permutation is None:
+            all_opts = {'spin_correlation':list(spin_correlation),
+                        'color_connection':list(color_connection),
+                        'hel_config':tuple(hel_config)}
+            all_opts.update(opts)
+            return list(PS_point), all_opts
+
+        permuted_PS_point = [PS_point[permutation[i]] for i in range(len(PS_point))]
+        permuted_spin_correlation = [ (permutation[leg_ID], vectors) for leg_ID, vectors in spin_correlation]
+        permuted_color_connection = [ ( permutation[a] if a > 0 else a,
+                                        permutation[i] if i > 0 else i,
+                                        permutation[j] if j > 0 else j) for (a,i,j) in color_connection ]
+        permuted_hel_config = tuple( hel_config[permutation[i]] for i in range(len(hel_config)) )
+
+        all_opts = {'spin_correlation' : permuted_spin_correlation,
+                    'color_connection' : permuted_color_connection,
+                    'hel_config' : permuted_hel_config}
+        all_opts.update(opts)
+        return permuted_PS_point, all_opts
 
 class F2PYMEAccessor(VirtualMEAccessor):
     """ A class wrapping the access to one particular MatrixEleemnt wrapped with F2PY"""
@@ -203,10 +309,7 @@ class F2PYMEAccessor(VirtualMEAccessor):
         will be selected."""
         if cls is F2PYMEAccessor:
             target_class = None
-            if 'n_loops' in opts:
-                n_loops = opts['n_loops']
-            else:
-                n_loops = 1 if process.get('perturbation_couplings') else 0
+            n_loops = process.get('n_loops')
             if process.get('perturbation_couplings') and n_loops==1:
                 target_class = F2PYMEAccessorMadLoop
             elif n_loops==0:
@@ -271,18 +374,14 @@ class F2PYMEAccessor(VirtualMEAccessor):
     def __call__(self, PS_point, alpha_s, mu_r=91.188, **opts):
         """ Actually performs the f2py call. """
         
-        # The mother class takes care of applying the permuation
-        self.apply_permutations(PS_point, **opts)
+        # The mother class takes care of applying the permutations for the generic options
+        PS_point, opts = VirtualMEAccessor.__call__(self, PS_point, **opts)
         
         # For now, only support basic information
-        if self.squared_orders:
-            raise MadGraph5Error("F2PYMEAccessor does not yet support the specification of squared orders.")
-        if self.spin_correlation:
-            raise MadGraph5Error("F2PYMEAccessor does not yet support the specification of spin_correlations.")
-        if self.color_connection:
-            raise MadGraph5Error("F2PYMEAccessor does not yet support the specification of color_connections.")
-        if self.hel_config:
-            raise MadGraph5Error("F2PYMEAccessor does not yet support the specification of helicity configurations.")
+        assert (not opts['squared_orders']), "F2PYMEAccessor does not yet support the specification of squared orders."
+        assert (not opts['spin_correlation']), "F2PYMEAccessor does not yet support the specification of spin_correlations."
+        assert (not opts['color_connection']), "F2PYMEAccessor does not yet support the specification of color_connections."
+        assert (not opts['hel_config']), "F2PYMEAccessor does not yet support the specification of helicity configurations."
 
         # If/When grouping several processes in the same f2py module (so as to reuse the model for example),
         # we will be able to use the information of self.process_pdgs to determine which one to call.
@@ -294,7 +393,7 @@ class F2PYMEAccessor(VirtualMEAccessor):
         
         # Most basic access for now
         output_data ={}
-        output_data['finite'] = self.f2py_module.get_me( self.format_momenta_for_f2py(self.PS_point), alpha_s, 0)
+        output_data['finite'] = self.f2py_module.get_me( self.format_momenta_for_f2py(PS_point), alpha_s, nhel=0)
         
         return output_data
     
@@ -324,18 +423,14 @@ class F2PYMEAccessorMadLoop(F2PYMEAccessor):
         """ Actually performs the f2py call.
         """
         
-        # The mother class takes care of applying the permuation
-        self.apply_permutations(PS_point, **opts)
+        # The mother class takes care of applying the permutations for the generic options
+        PS_point, opts = VirtualMEAccessor.__call__(self, PS_point, **opts)
         
         # For now, only support basic information
-        if self.squared_orders:
-            raise MadGraph5Error("F2PYMEAccessorMadLoop does not yet support the specification of squared orders.")
-        if self.spin_correlation:
-            raise MadGraph5Error("F2PYMEAccessorMadLoop does not yet support the specification of spin_correlations.")
-        if self.color_connection:
-            raise MadGraph5Error("F2PYMEAccessorMadLoop does not yet support the specification of color_connections.")
-        if self.hel_config:
-            raise MadGraph5Error("F2PYMEAccessorMadLoop does not yet support the specification of helicity configurations.")
+        assert (not opts['squared_orders']), "F2PYMEAccessorMadLoop does not yet support the specification of squared orders."
+        assert (not opts['spin_correlation']), "F2PYMEAccessorMadLoop does not yet support the specification of spin_correlations."
+        assert (not opts['color_connection']), "F2PYMEAccessorMadLoop does not yet support the specification of color_connections."
+        assert (not opts['hel_config']), "F2PYMEAccessorMadLoop does not yet support the specification of helicity configurations."
 
         # If/When grouping several processes in the same f2py module (so as to reuse the model for example),
         # we will be able to use the information of self.process_pdgs to determine which one to call.
@@ -349,23 +444,19 @@ class F2PYMEAccessorMadLoop(F2PYMEAccessor):
         
         # Most basic access for now
         output_data ={}
-        finite_loop_me, return_code = self.f2py_module.get_me( 
-                                                    self.format_momenta_for_f2py(self.PS_point), alpha_s, mu_r, 0)
+        finite_loop_me, return_code = self.f2py_module.get_me(self.format_momenta_for_f2py(PS_point), alpha_s, mu_r, 0)
         output_data['finite'] = finite_loop_me
         output_data['ML_return_code'] = return_code        
         
         return output_data
-            
+
 class MEAccessorDict(dict):
     """ A class for nicely wrapping the access to the (possibly spin- and color- correlated) matrix elements of 
     various processes (mostly via f2py)."""
     
-    def __init__(self):
+    def __init__(self, *args, **opts):
         """ Initialize an allMEAccessor. """
-        
-        # Define the general characteristic of the current query
-        self.curr_n_loops           = 0
-        self.curr_perturbations     = []
+        super(MEAccessorDict, self).__init__(*args, **opts)
 
     def generate_dump(self):
         """ Generate a serializable dump of self, which can later be used, along with some more 
@@ -399,33 +490,42 @@ class MEAccessorDict(dict):
         # For now everything is dumped, so nothing needs to be done.
         return new_MEAccessorDict_instance
 
-    def set_queries_details(self, n_loops=None, perturbations=None):
-        """ Specifies global details about the queries for ME performed in this MEAccessorDict."""
-        if not n_loops is None:
-            self.curr_n_loops = n_loops
-        if not perturbations is None:
-            self.curr_perturbations = tuple(sorted(perturbations))
-
     def __getitem__(self, key):
         return self.get_MEAccessor(key)
 
-    def get_MEAccessor(self, pdgs, **opts):
-        """ Provides access to a given ME, provided its PDGs and possibly other specifications such as
-        n_loops and perturbations, given in options. The PDGs should be provided in the following form:
-           (initial_states_pdgs_in_a_tuple, final_states_pdgs_in_a_tuple)
+    def get_MEAccessor(self, key, pdgs=None):
+        """ Provides access to a given ME, provided its MEAccessorKey. See implementation of this MEAccessorKey to
+        understand how the properties of the process being accessed are stored.
+        The user can specify here a particular order in which the particles/flavors are provided. When doing so
+        the corresponding permutation will be computed and provided in the call_key returned 
+        (which corresponds to the options to provide when calling the returned MEaccessor).
+        
+        Notice that pdgs specifies not only the desired order of pdgs, but also the flavors, i.e if
+        
+        {'u u~ > g g' : (MEAccessorInstanceA, 'u u~ > g g'), 'c c~ > g g' : (MEAccessorInstanceA, 'c c~ > g g')}
+        
+        and you ask for pdgs = 'c~ c > g g', then this function will return 
+           MEAccessorInstanceA
+        with the "call_key":
+           {'permutation': [1,0,2,3], 'process_pdgs': 'c c~ > g g'}
         """
 
-        # Propagate additional characteristics that the user might pass
-        self.set_queries_details(**opts)
-        
-        # Build the canonical key corresponding to the request for the look-up
-        canonical_key = ( ( tuple(sorted(pdgs[0])), tuple(sorted(pdgs[1])) ), 
-                                                            self.curr_n_loops, self.curr_perturbations )
-        
+        if isinstance(key, base_objects.Process):
+            # Automatically convert the process to a MEAccessorKey
+            accessor_key = MEAccessorKey(process=key, PDGs=pdgs if pdgs else [])
+        elif isinstance(key, MEAccessorKey):
+            accessor_key = key
+        else:
+            raise MadGraph5Error("Key passed to get_MEAccessor should always be of type MEAccessorKey or base_objects.Process")
+            
         try:
-            (ME_accessor, defining_pdgs_order) = super(MEAccessorDict, self).__getitem__(canonical_key)
+            (ME_accessor, defining_pdgs_order) = super(MEAccessorDict, self).__getitem__(accessor_key.get_canonical_key())
         except KeyError:
-            raise MadGraph5Error("This collection of matrix elements does not contain process %s."%str(canonical_key))
+            raise MadGraph5Error("This collection of matrix elements does not contain process %s."%str(accessor_key.key_dict))
+        
+        if pdgs is None:
+            # None indicates that no permutation will be necessary to apply
+            return ME_accessor, {'permutation': None, 'process_pdgs': defining_pdgs_order}
         
         # Figure out the permutations to apply *TO the user inputs* in order to get to the *order assumed in the ME*
         permutation = {}
@@ -452,10 +552,32 @@ class MEAccessorDict(dict):
             except ValueError:
                 raise MadGraph5Error("Cannot map two PDGs list: %s and %s"%(str(defining_pdgs_order[1]), str(pdgs[1])))        
 
-        # Now assign this permutation to the ME_accessor found and return it
-        ME_accessor.permutation = permutation
-        ME_accessor.process_pdgs = defining_pdgs_order
-        return ME_accessor
+        # Now return the corresponding ME_accessor, along with the options to provide when calling it, aka call_key
+        # Remember that defining_pdgs_order is the list of PDGs of the original ordering of the ME_accessor, with the correct flavor
+        # information , as specified  by the user via the option 'pdgs'.
+        return ME_accessor, {'permutation': permutation, 'process_pdgs': defining_pdgs_order}
+    
+    def __call__(self, *args, **opts):
+        """ Quick access to directly calling a Matrix Element. The first argument should always be the MEdictionary key
+        and in the options the user can specify the desired_pdgs_order which will be used by the MEDictionary to figure
+        out which permutation to apply and which flavours to specify.
+        """
+        
+        assert (len(args)>0 and isinstance(args[0], (MEAccessorKey, base_objects.Process))), "When using the shortcut "+\
+            "__call__ method of MEAccessorDict, the first argument should be an instance of a MEAccessorKey or base_objects.Process."
+
+        # Now store the me_accessor_key and remove ir from the arguments to be passed to the MEAccessor call.
+        me_accessor_key = args[0]
+        args = args[1:]
+
+        desired_pdgs_order = None
+        call_options = dict(opts)
+        if 'pdgs' in call_options:
+            desired_pdgs_order = call_options.pop('pdgs')
+            
+        ME_accessor, call_key = self.get_MEAccessor(me_accessor_key, pdgs=desired_pdgs_order)
+        call_options.update(call_key)
+        return ME_accessor(*args, **call_options)
     
     def add_MEAccessor(self, ME_accessor):
         """ Add a particular ME accessor to the collection of available ME's."""
@@ -743,7 +865,6 @@ class Contribution(object):
                 f2py_load_path, 
                 slha_card_path,
                 madloop_resources_path=madloop_resources_path,
-                n_loops=self.contribution_definition.n_loops,
                 mapped_pdgs = mapped_process_pdgs, 
                 root_path=root_path
                 ) )

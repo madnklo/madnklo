@@ -2764,6 +2764,8 @@ class Process(PhysicsObject):
         self['legs_with_decays'] = LegList()
         # Loop particles if the process is to be computed at NLO
         self['perturbation_couplings']=[]        
+        # Specified the number of loops in that process ME.
+        self['n_loops']=0
         # These orders restrict the order of the squared amplitude.
         # This dictionary possibly contains a key "WEIGHTED" which
         # gives the upper bound for the total weighted order of the
@@ -2829,7 +2831,7 @@ class Process(PhysicsObject):
             if not isinstance(value, Model):
                 raise self.PhysicsObjectError, \
                         "%s is not a valid Model object" % str(value)
-        if name in ['id', 'uid']:
+        if name in ['id', 'uid','n_loops']:
             if not isinstance(value, int):
                 raise self.PhysicsObjectError, \
                     "Process %s %s is not an integer" % (name, repr(value))
@@ -2925,6 +2927,10 @@ class Process(PhysicsObject):
             if value and isinstance(value, list) and \
                not isinstance(value[0], list):
                 value = [value]
+        
+        if name == 'perturbation_couplings':
+            if value and self['n_loops']==0:
+                self['n_loops']=1
 
         return super(Process, self).set(name, value) # call the mother routine
 
@@ -2962,7 +2968,7 @@ class Process(PhysicsObject):
                 'forbidden_onsh_s_channels', 'forbidden_s_channels',
                 'forbidden_particles', 'is_decay_chain', 'decay_chains',
                 'legs_with_decays', 'perturbation_couplings', 'has_born', 
-                'NLO_mode','split_orders']
+                'NLO_mode','split_orders','n_loops']
 
     def nice_string(self, indent=0, print_weighted = True, prefix=True):
         """Returns a nicely formated string about current process
@@ -3076,6 +3082,9 @@ class Process(PhysicsObject):
 
         # Remove last space
         mystr = mystr[:-1]
+        
+        if self['n_loops']>1:
+            mystr += " @%d-loops"%self['n_loops']
 
         if self.get('id') or self.get('overall_orders'):
             mystr += " @%d" % self.get('id')
@@ -3581,6 +3590,7 @@ class ProcessDefinition(Process):
         copy.set('sqorders_types',dict(self['sqorders_types']))
         copy.set('constrained_orders',dict(self['constrained_orders']))
         copy.set('split_orders',list(self['split_orders']))
+        copy.set('n_loops',self['n_loops'])
 
         copy.set('decay_chains', ProcessDefinitionList())        
         for proc_def in self['decay_chains']:
@@ -3853,7 +3863,8 @@ class ProcessDefinition(Process):
             'is_decay_chain': self.get('is_decay_chain'),
             'overall_orders': self.get('overall_orders'),
             'split_orders': self.get('split_orders'),
-            'NLO_mode': self.get('NLO_mode')
+            'NLO_mode': self.get('NLO_mode'),
+            'n_loops': self.get('n_loops')
             })
             
     def get_process(self, initial_state_ids, final_state_ids):
@@ -3930,7 +3941,7 @@ class ContributionDefinition(object):
                  correction_order           = 'LO',
                  correction_couplings       = [], 
                  n_unresolved_particles     = 0,
-                 n_loops                    = 0,
+                 n_loops                    = -1,
                  squared_orders_constraints = {}
                 ):
         """ Instantiate a contribution definition with all necessary information
@@ -3939,7 +3950,16 @@ class ContributionDefinition(object):
         self.correction_order          = correction_order
         self.correction_couplings      = correction_couplings
         self.n_unresolved_particles    = n_unresolved_particles
-        self.n_loops                   = n_loops
+        # Make sure that n_loops matches the one in the process definition. We however keep
+        # this attribute in ContributionDefinition as well for convenience.
+        if n_loops == -1:
+            self.n_loops               = process_definition.get('n_loops')
+        else:
+            if n_loops != process_definition.get('n_loops'):
+                raise MadGraph5Error("A contributionDefinition with n_loops=%d "%n_loops+\
+                  "should be instantiated with a ProcessDefinition with the same n_loops.")
+            else:
+                self.n_loops = n_loops 
         # Squared orders to consider. Note that this is not the same as the attribute
         # of the process definition, since it can be {'QED':[2,4]} to indicates that all
         # squared order for QED between 2 and 4 must be considered. A constraint of 

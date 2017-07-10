@@ -3270,6 +3270,8 @@ This implies that with decay chains:
         # Add the virtual contribution
         # ----------------------------
         procdef = NLO_template_procdef.get_copy()
+        # Make sure to set the corresponding number of loops to 1.
+        procdef.set('n_loops',1)
         # Update process id
         procdef.set('id', generation_options['proc_id'])
         generation_options['proc_id'] += 1

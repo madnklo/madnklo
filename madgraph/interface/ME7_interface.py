@@ -486,11 +486,12 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
 #===============================================================================
 class MadEvent7CmdShell(MadEvent7Cmd, cmd.CmdShell):
     """The shell command line processor of MadEvent7"""  
-    
+    pass
     
 #===============================================================================
 # ME7Integrand
-#===============================================================================    
+#===============================================================================
+
 class ME7Integrand(integrands.VirtualIntegrand):
     """ Specialization for multi-purpose integration with ME7."""
     
@@ -516,30 +517,34 @@ class ME7Integrand(integrands.VirtualIntegrand):
         all_args = [model, run_card, contribution_definition, processes_map,
                     all_MEAccessors, ME7_configuration ]
         if cls is ME7Integrand:
-            target_class = None
+            target_type = 'Unknown'
             if contribution_definition.correction_order == 'LO':
                 if contribution_definition.n_loops == 0 and \
                   contribution_definition.n_unresolved_particles == 0:
-                   target_class = ME7Integrand_B
+                   target_type = 'Born'
                 elif contribution_definition.n_loops == 1 and \
                   contribution_definition.n_unresolved_particles == 0:
-                   target_class = ME7Integrand_LIB
+                   target_type = 'LoopInduced_Born'
             elif contribution_definition.correction_order == 'NLO':
                 if contribution_definition.n_loops == 1 and \
                    contribution_definition.n_unresolved_particles == 0:
-                    target_class = ME7Integrand_V
+                    target_type = 'Virtual'
                 elif contribution_definition.n_loops == 0 and \
                      contribution_definition.n_unresolved_particles == 1:
-                    target_class = ME7Integrand_R
+                    target_type = 'SingleReals'
             elif contribution_definition.correction_order == 'NNLO':
                 if contribution_definition.n_loops == 0 and \
                    contribution_definition.n_unresolved_particles == 2:
-                    target_class = ME7Integrand_RR                    
+                    target_type = 'DoubleReals'            
                 else:
-                    raise MadGraph5Error("Some NNLO type of integrands are not implemented yet.")                
+                    raise MadGraph5Error("Some NNLO type of integrands are not implemented yet.")    
+            else:
+                target_type = 'Unknown'
+            target_class = ME7Integrand_classes_map[target_type]
             if not target_class:
-                raise MadGraph5Error("Could not determine the type of integrand to be added for"+
+                raise MadGraph5Error("Could not determine the class of integrand of type '%s' to be added for"%target_type+
                                      " the contribution definiton:\n%s"%str(contribution_definition.nice_string()))
+
             return super(ME7Integrand, cls).__new__(target_class, *all_args, **opt)
         else:
             return super(ME7Integrand, cls).__new__(cls, *all_args, **opt)
@@ -1080,10 +1085,10 @@ class ME7Integrand_B(ME7Integrand):
     def sigma(self, PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
         return super(ME7Integrand_B, self).sigma(PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts)
 
-class ME7Integrand_LI(ME7Integrand):
+class ME7Integrand_LIB(ME7Integrand):
     """ ME7Integrand for the computation of a Loop-Induced Born type of contribution."""
     def sigma(self, PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
-        return super(ME7Integrand_LI, self).sigma(PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts)
+        return super(ME7Integrand_LIB, self).sigma(PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts)
         
 class ME7Integrand_V(ME7Integrand):
     """ ME7Integrand for the computation of a one-loop virtual type of contribution."""
@@ -1099,3 +1104,13 @@ class ME7Integrand_RR(ME7Integrand):
     """ ME7Integrand for the computation of a double real-emission type of contribution."""
     def sigma(self, PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
         return super(ME7Integrand_RR, self).sigma(PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts)
+
+# Integrand classes map is defined here as module variables. This map can be overwritten
+# by the interface when using a PLUGIN system where the user can define his own Integrand.
+# Notice that this must be placed after all the Integrand daughter classes in this module have been declared.
+ME7Integrand_classes_map = {'Born': ME7Integrand_B,
+                            'LoopInduced_Born': ME7Integrand_LIB,
+                            'Virtual': ME7Integrand_V,
+                            'SingleReals': ME7Integrand_R,
+                            'DoubleReals': ME7Integrand_RR,
+                            'Unknown': None}

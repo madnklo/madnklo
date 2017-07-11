@@ -12,7 +12,6 @@
 # For more information, visit madgraph.phys.ucl.ac.be and amcatnlo.web.cern.ch
 #
 ################################################################################
-
 """Classes for implementions Contributions.
 Contributions are abstract layer, between the madgraph_interface and amplitudes.
 They typically correspond to the Born, R, V, RV, RR, VV, etc.. pieces of higher
@@ -168,6 +167,33 @@ class ProcessKey(object):
 class VirtualMEAccessor(object):
     """ A class wrapping the access to one particular MatrixEleemnt."""
     
+    def __new__(cls, *args, **opts):
+        """ Factory for the various Accessors, depending on the process a different 
+        class will be selected.
+        The typical arguments passed are:
+           process, f2py_module_path, slha_card_path
+        """
+        if cls is VirtualMEAccessor:
+            # Check if the input match what is needed for a PythonAccessor namely that the first
+            # two are ProcessInstance, (f2py_module_path, f2py_module_name)
+            if len(args)<2 or not isinstance(args[0],base_objects.Process) or \
+               not isinstance(args[1],tuple) or not len(args[1])==2 or not \
+               all(isinstance(path, str) for path in args[1]):
+                target_type = 'Unknown'
+            else:
+                process = args[0]
+                f2py_module_path = args[1]
+                target_type = 'PythonAccessor'
+            
+            target_class = MEAccessor_classes_map[target_type]
+            if not target_class:
+                raise MadGraph5Error(
+                    "Cannot find a class implementation for target MEAccessor type '%s'."%target_type)
+            else:
+                return super(VirtualMEAccessor, cls).__new__(target_class, *args, **opts)
+        else:
+            return super(VirtualMEAccessor, cls).__new__(cls, *args, **opts)
+
     def __init__(self, process, mapped_pdgs = [], root_path='', **opts):
         
         """ Initialize an MEAccessor from a process, allowing to possibly overwrites n_loops.
@@ -610,29 +636,33 @@ class Contribution(object):
     def __new__(cls, contribution_definition, cmd_interface, **opt):
 
         if cls is Contribution:
-            target_class = None
+            target_type = 'Unknown'
             if contribution_definition.correction_order == 'LO':
                 if contribution_definition.n_loops == 0 and \
                   contribution_definition.n_unresolved_particles == 0:
-                   target_class = Contribution_B
+                    target_type = 'Born'
                 elif contribution_definition.n_loops == 1 and \
                   contribution_definition.n_unresolved_particles == 0:
-                   target_class = Contribution_LIB                    
+                    target_type = 'LoopInduced_Born'                    
             elif contribution_definition.correction_order == 'NLO':
                 if contribution_definition.n_loops == 1 and \
                    contribution_definition.n_unresolved_particles == 0:
-                    target_class = Contribution_V
+                    target_type = 'Virtual'
                 elif contribution_definition.n_loops == 0 and \
                      contribution_definition.n_unresolved_particles == 1:
-                    target_class = Contribution_R
+                    target_type = 'SingleReals'
             elif contribution_definition.correction_order == 'NNLO':
                 if contribution_definition.n_loops == 0 and \
                    contribution_definition.n_unresolved_particles == 2:
-                    target_class = Contribution_RR
+                    target_type = 'DoubleReals'
                 else:
-                    raise MadGraph5Error("Some NNLO type of contributions are not implemented yet.")                
+                    raise MadGraph5Error("Some NNLO type of contributions are not implemented yet.")
+            else:
+                target_type = 'Unknown'
+
+            target_class = Contribution_classes_map[target_type]
             if not target_class:
-                raise MadGraph5Error("Could not determine the type of contribution to be added for"+
+                raise MadGraph5Error("Could not determine the class for contribution of type '%s' to be added for"%target_type+
                                      " the contribution definiton:\n%s"%str(contribution_definition.nice_string()))
             return super(Contribution, cls).__new__(target_class, contribution_definition, cmd_interface, **opt)
         else:
@@ -863,7 +893,7 @@ class Contribution(object):
             else:
                 madloop_resources_path = ''
                 
-            MEAccessors.append(F2PYMEAccessor(
+            MEAccessors.append(VirtualMEAccessor(
                 defining_process, 
                 f2py_load_path, 
                 slha_card_path,
@@ -1242,3 +1272,21 @@ class ContributionList(base_objects.PhysicsObjectList):
                 raise MadGraph5Error("The contribution\n%s\n does not have function '%s' defined."%(
                                                                             contrib.nice_string(), method))
             contrib_function(*method_args, **method_opts)
+
+
+# MEAccessor classes map is defined here as module variables. This map can be overwritten
+# by the interface when using a PLUGIN system where the user can define his own Accessor class.
+# For instance 'Unknown' can be mapped to a user-defined class.
+# Notice that this map must be placed after the MEAccessor daughter classes have been declared.
+MEAccessor_classes_map = {'PythonAccessor': F2PYMEAccessor,
+                          'Unknown': None}
+
+# Contribution classes map is defined here as module variables. This map can be overwritten
+# by the interface when using a PLUGIN system where the user can define his own class of Contribution.
+# Notice that this Contribution must be placed after all the Contribution daughter classes have been declared.
+Contribution_classes_map = {'Born': Contribution_B,
+                            'LoopInduced_Born': Contribution_LIB,
+                            'Virtual': Contribution_V,
+                            'SingleReals': Contribution_R,
+                            'DoubleReals': Contribution_RR,
+                            'Unknown': None}

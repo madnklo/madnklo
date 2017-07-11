@@ -2792,6 +2792,9 @@ class Process(PhysicsObject):
         # contribution 'QCD=4 QED=0', the pure interference 'QCD=2 QED=2' and
         # the pure QED contribution of order 'QCD=0 QED=4'.
         self['split_orders'] = []
+        # Store whether this process has a mirror contribution where the two initial
+        # states are interchanged. This is only used for post-processing by ME7
+        self['has_mirror_process'] = False
 
     def filter(self, name, value):
         """Filter for valid process property values."""
@@ -2890,7 +2893,7 @@ class Process(PhysicsObject):
                 raise self.PhysicsObjectError, \
                         "%s is not a valid bool" % str(value)
 
-        if name == 'has_born':
+        if name in ['has_born', 'has_mirror_process']:
             if not isinstance(value, bool):
                 raise self.PhysicsObjectError, \
                         "%s is not a valid bool" % str(value)
@@ -2968,7 +2971,7 @@ class Process(PhysicsObject):
                 'forbidden_onsh_s_channels', 'forbidden_s_channels',
                 'forbidden_particles', 'is_decay_chain', 'decay_chains',
                 'legs_with_decays', 'perturbation_couplings', 'has_born', 
-                'NLO_mode','split_orders','n_loops']
+                'NLO_mode','split_orders','n_loops', 'has_mirror_process']
 
     def nice_string(self, indent=0, print_weighted = True, prefix=True):
         """Returns a nicely formated string about current process
@@ -3865,7 +3868,8 @@ class ProcessDefinition(Process):
             'overall_orders': self.get('overall_orders'),
             'split_orders': self.get('split_orders'),
             'NLO_mode': self.get('NLO_mode'),
-            'n_loops': self.get('n_loops')
+            'n_loops': self.get('n_loops'),
+            'has_mirror_process': self.get('has_mirror_process')
             })
             
     def get_process(self, initial_state_ids, final_state_ids):

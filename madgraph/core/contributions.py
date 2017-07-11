@@ -62,7 +62,7 @@ class ProcessKey(object):
                 # intputs from this __init__
                 sort_PDGs = True,
                 # Exclude certain process attributes when creating the key for a certain process.
-                vetoed_attributes = ['model','legs','uid'],
+                vetoed_attributes = ['model','legs','uid','has_mirror_process'],
                 # Finally the user can overwrite the relevant attributes of the process passed in argument
                 # if he so wants.
                 **opts):
@@ -848,7 +848,7 @@ class Contribution(object):
         """ Returns all MEAccessors for the matrix elemements generated as part of this contribution."""
         
         MEAccessors = []
-        for proc_hash, (defining_process, mapped_processes) in self.get_processes_map().items():
+        for process_key, (defining_process, mapped_processes) in self.get_processes_map().items():
             # The PDGs of the hashed representations correspond to entry [0][0]
             mapped_process_pdgs = [ (proc.get_initial_ids(), proc.get_final_ids()) for proc in mapped_processes ]
             f2py_module_path = pjoin(self.export_dir,'matrix_%s_py.so'%defining_process.shell_string())
@@ -990,15 +990,20 @@ class Contribution(object):
             # List all the processes in this Matrix eElement
             all_procs_pdgs = dict((ProcessKey(proc,sort_PDGs=False).get_canonical_key(), proc) 
                                                                 for proc in me.get('processes'))
+            # Add the attribute 'has_mirror_process' to these processes instance
+            for proc in all_procs_pdgs.values():
+                proc.set('has_mirror_process', me.get('has_mirror_process'))
             # Look through all the processes identified in the amplitudes
             for proc in all_defining_procs:
                 # Make sure it is found in the processes mapped in this Matrix element
                 if not proc in all_procs_pdgs:
                     continue
+                # Also add 'has_mirror_process' to the defining process instance
+                all_defining_procs[proc][0].set('has_mirror_process', me.get('has_mirror_process'))
                 # Now add them to list of mapped processes for this Matrix element
                 all_defining_procs[proc][1].extend([all_procs_pdgs[p] for p in all_procs_pdgs
                                             if p!=proc and p not in all_defining_procs[proc][1]])
-        
+
         # Cache the process map
         self.processes_map = ({
                 'had_amplitudes':bool(self.amplitudes),
@@ -1010,7 +1015,7 @@ class Contribution(object):
     def compile(self):
         """ Compiles the f2py shared library to provide easy access to this contribution."""
         
-        for proc_hash, (defining_process, mapped_processes) in self.get_processes_map().items():
+        for process_key, (defining_process, mapped_processes) in self.get_processes_map().items():
             name = defining_process.shell_string()
             Pdir = pjoin(self.export_dir, 'SubProcesses', 'P%s'%name)
             if not os.path.isdir(Pdir):
@@ -1034,7 +1039,7 @@ class Contribution(object):
                 res.append(GREEN+'  %s'%amp.get('process').nice_string().replace('Process: ','')+ENDC)
         elif self.amplitudes and self.all_matrix_elements.get_matrix_elements():
             res.append('Generated and mapped processes for this contribution:')
-            for process_pdgs, (defining_process, mapped_processes) in self.get_processes_map().items():
+            for process_key, (defining_process, mapped_processes) in self.get_processes_map().items():
                 res.append(GREEN+'  %s'%defining_process.nice_string().replace('Process: ','')+ENDC)
                 for mapped_process in mapped_processes:
                     res.append(BLUE+u'   \u21b3  '+mapped_process.nice_string().replace('Process: ','')+ENDC)

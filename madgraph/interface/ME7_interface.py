@@ -736,7 +736,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         def is_a_jet(pdg):
             return pdg in range(1,7)+range(-1,-7,-1)+[21]
 
-        logger.debug( "Processing flavor-blind cuts for process %s and PS point:\n%s"%(
+        if __debug__: logger.debug( "Processing flavor-blind cuts for process %s and PS point:\n%s"%(
                         str(process_pdgs), self.phase_space_generator.nice_momenta_string(
                             PS_point, recompute_mass=True, n_initial=self.phase_space_generator.n_initial) ))
 
@@ -750,7 +750,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         for i, p in enumerate(PS_point[self.n_initial:]):
             if not is_a_jet(process_pdgs[self.n_initial+i]):
                 continue
-            logger.debug('p_%i.pt()=%.5e'%((self.n_initial+i),p.pt()))
+            if __debug__: logger.debug('p_%i.pt()=%.5e'%((self.n_initial+i),p.pt()))
             if p.pt() < pt_cut:
                 return False
 
@@ -760,7 +760,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
                 if not is_a_jet(process_pdgs[self.n_initial+i]) and\
                    not is_a_jet(process_pdgs[self.n_initial+i+1+j]):
                     continue
-                logger.debug('deltaR(p_%i,p_%i)=%.5e'%(
+                if __debug__: logger.debug('deltaR(p_%i,p_%i)=%.5e'%(
                      self.n_initial+i, self.n_initial+i+1+j, p1.deltaR(p2)))
                 if p1.deltaR(p2) < dr_cut:
                     return False
@@ -772,7 +772,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         will probably be taken outside of this class so as to ease user-specific cuts, fastjet, etc...
         We consider here a two-level cuts system, this second one of which is flavour sensitive."""
 
-        logger.debug( "Processing flavor-sensitive cuts for flavors %s and PS point:\n%s"%(
+        if __debug__: logger.debug( "Processing flavor-sensitive cuts for flavors %s and PS point:\n%s"%(
                         str(flavors), self.phase_space_generator.nice_momenta_string(
                             PS_point, recompute_mass=True, n_initial=self.phase_space_generator.n_initial) ))
 
@@ -818,13 +818,13 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # A unique float must be returned
         wgt = 1.0
         
-        logger.debug("="*80)       
-        logger.debug('Starting a new evaluation of the integrand from contribution:\n%s',
+        if __debug__: logger.debug("="*80)       
+        if __debug__: logger.debug('Starting a new evaluation of the integrand from contribution:\n%s',
                                                     self.contribution_definition.nice_string())
         
         # Random variables sent
         random_variables    = list(continuous_inputs)
-        logger.debug('Random variables received: %s',str(random_variables))        
+        if __debug__: logger.debug('Random variables received: %s',str(random_variables))        
     
         # Avoid extrema since the phase-space generation algorithm doesn't like it
         random_variables = [min(max(rv,self.epsilon_border),1.-self.epsilon_border) for rv in random_variables]
@@ -899,8 +899,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
         # Make sure the Bjorken x's are physical:
         if xb_1>1. or xb_2>1.:
-            logger.debug('Unphysical configuration: x1, x2 = %.5e, %.5e'%(xb_1, xb_2))
-            logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)
+            if __debug__: logger.debug('Unphysical configuration: x1, x2 = %.5e, %.5e'%(xb_1, xb_2))
+            if __debug__: logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)
             return 0.0
 
         # Include the flux factor
@@ -911,14 +911,14 @@ class ME7Integrand(integrands.VirtualIntegrand):
             flux = 1. / (2.*E_cm)
         flux /= math.pow(2.*math.pi, 3*self.n_final - 4)
         wgt *= flux
-        logger.debug("Flux factor: %.5e"%flux)
+        if __debug__: logger.debug("Flux factor: %.5e"%flux)
 
         # Now generate a PS point
         PS_point, PS_weight = self.phase_space_generator.generateKinematics(E_cm, PS_random_variables)
 
         # Account for PS weight
         wgt *= PS_weight
-        logger.debug("PS_weight: %.5e"%PS_weight)
+        if __debug__: logger.debug("PS_weight: %.5e"%PS_weight)
 
         ###
         # /!\ WARNING ONLY BOOST TO C.O.M frame at the very end. #
@@ -932,7 +932,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
                 for p in PS_point:
                     p.boost(ref_lab.boostVector())
 
-        logger.debug("Considering the following PS point:\n%s"%(self.phase_space_generator.nice_momenta_string(
+        if __debug__: logger.debug("Considering the following PS point:\n%s"%(self.phase_space_generator.nice_momenta_string(
                             PS_point, recompute_mass=True, n_initial=self.phase_space_generator.n_initial) ))
 
         # Recover scales to be used
@@ -954,22 +954,25 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # Now loop over processes
         total_wgt = 0.
         for process_hash, (process, mapped_processes) in self.processes_map.items():
-            logger.debug('Now considering the process group from %s.'%process.nice_string())
+            if __debug__: logger.debug('Now considering the process group from %s.'%process.nice_string())
             
             this_process_wgt = wgt
             process_pdgs = tuple(process.get_initial_ids()+process.get_final_ids())
 
             # Apply flavor blind cuts
             if not self.pass_flavor_blind_cuts(PS_point, process_pdgs):
-                logger.debug('Event failed the flavour_blind generation-level cuts.')
-                logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)            
+                if __debug__: logger.debug('Event failed the flavour_blind generation-level cuts.')
+                if __debug__: logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)            
                 return 0.0
             
-            all_process_pdgs = [process_pdgs,] + \
-                               [tuple(proc.get_initial_ids()+proc.get_final_ids()) for proc in mapped_processes]
+            all_processes = [process,]+mapped_processes
+            all_process_pdgs = [ tuple(proc.get_initial_ids()+proc.get_final_ids()) for proc in all_processes]
+            # Add mirror processes if present
+            all_process_pdgs.extend([ tuple(proc.get_initial_ids()[::-1]+proc.get_final_ids()) for proc in all_processes 
+                                                                                        if proc.get('has_mirror_process')])
 
             if self.collider.startswith('pp'):
-                logger.debug("Bjorken x's x1, x2, sqrt(x1*x2*s): %.5e, %.5e. %.5e"%(
+                if __debug__: logger.debug("Bjorken x's x1, x2, sqrt(x1*x2*s): %.5e, %.5e. %.5e"%(
                                                             xb_1, xb_2, math.sqrt(self.collider_energy**2*xb_1*xb_2)))
             proc_PDFs_weights = []
             for proc_pdgs in all_process_pdgs:            
@@ -977,7 +980,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
                     PDF1 = self.get_pdfQ2(self.pdf, proc_pdgs[0], xb_1, mu_f1**2)
                     PDF2 = self.get_pdfQ2(self.pdf, proc_pdgs[1], xb_2, mu_f2**2)
                     proc_PDFs_weights.append(PDF1*PDF2)
-                    logger.debug("PDF(x1, %d), PDF(x2, %d) = %.5e, %.5e"%(proc_pdgs[0], proc_pdgs[1], PDF1, PDF2))
+                    if __debug__: logger.debug("PDF(x1, %d), PDF(x2, %d) = %.5e, %.5e"%(proc_pdgs[0], proc_pdgs[1], PDF1, PDF2))
                 else:
                     proc_PDFs_weights.append(1.)
 
@@ -991,7 +994,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
                 running_sum += abs(proc_PDFs_weights[index_selected])
 
             selected_flavors = all_process_pdgs[index_selected]
-            logger.debug('Selected flavor combination : %s'%str(selected_flavors))
+
+            if __debug__: logger.debug('Selected flavor combination : %s'%str(selected_flavors))
 
             # Apply flavor sensitive cuts
             if not self.pass_flavor_sensitive_cuts(PS_point, selected_flavors):
@@ -1008,15 +1012,15 @@ class ME7Integrand(integrands.VirtualIntegrand):
                                  tuple(selected_flavors[self.n_initial+i] for i in range(self.n_final)))
 
             sigma_wgt = self.sigma(PS_point, process, selected_flavors, this_flavor_wgt, mu_r, mu_f1, mu_f2)
-            logger.debug('Short-distance sigma weight for this subprocess: %.5e'%sigma_wgt)        
+            if __debug__: logger.debug('Short-distance sigma weight for this subprocess: %.5e'%sigma_wgt)        
             this_process_wgt *= sigma_wgt
             
             # Accumulate this process weight
             total_wgt += this_process_wgt
 
         # Now finally return the total weight for this contribution
-        logger.debug(misc.bcolors.GREEN + "Final weight returned: %.5e"%total_wgt + misc.bcolors.ENDC)
-        logger.debug("="*80)
+        if __debug__: logger.debug(misc.bcolors.GREEN + "Final weight returned: %.5e"%total_wgt + misc.bcolors.ENDC)
+        if __debug__: logger.debug("="*80)
         return total_wgt
     
     def sigma(self, PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2):

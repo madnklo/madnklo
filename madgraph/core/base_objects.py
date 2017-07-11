@@ -3095,12 +3095,16 @@ class Process(PhysicsObject):
                 mystr += " " + " ".join([key + '=' + repr(self['orders'][key]) \
                        for key in sorted(self['orders'])]) + ' '
         
+        # Finally add the mirror_process flag information if set to True.
+        if self['has_mirror_process']:
+            mystr = mystr + ' (mirrored)'
+        
         if not self.get('decay_chains'):
             return mystr
 
         for decay in self['decay_chains']:
             mystr = mystr + '\n' + \
-                    decay.nice_string(indent + 2).replace('Process', 'Decay')
+                    decay.nice_string(indent + 2).replace('Process', 'Decay')         
 
         return mystr
 

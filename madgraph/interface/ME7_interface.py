@@ -939,7 +939,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
         mu_r, mu_f1, mu_f2 = self.get_scales(PS_point)
 
         # Apply the recomputed alpha_s from the PDFs or a dedicated model_reader.Alphas_Runner
-        alpha_s = self.alpha_s_runner(mu_r**2)
+        alpha_s = self.alpha_s_runner(mu_r)
+        
         # Notice here that we do *not* update all the couplings/parameters dependent on this new value of mu_r / alpha_s
         # We reset only mu_r and alpha_s since this is the only thing our integrands directly depend on so far (along with
         # the masses and widths which are of course alpha_s independent.)
@@ -950,7 +951,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         model_param_dict['aS'] = alpha_s
         if 'MU_R' in model_param_dict:
             model_param_dict['MU_R'] = mu_r
-            
+        
         # Now loop over processes
         total_wgt = 0.
         for process_hash, (process, mapped_processes) in self.processes_map.items():
@@ -1046,7 +1047,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # Notice here that the most general call to the Matrix Element would be:
         #
         # ME_evaluation = self.all_MEAccessors(process, PS_point, alpha_s, mu_r, pdgs=flavors,
-        #       squared_orders = {...}, 
+        #       squared_orders = {...},
         #       spin_correlation = [...],
         #       color_connection = [...], 
         #       hel_config = [...] )

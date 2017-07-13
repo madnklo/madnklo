@@ -26,6 +26,8 @@ import array
 import madgraph.core.color_algebra as color_algebra
 import madgraph.core.diagram_generation as diagram_generation
 import madgraph.core.base_objects as base_objects
+from madgraph import MadGraph5Error
+import madgraph.various.misc as misc
 
 #===============================================================================
 # ColorBasis
@@ -536,13 +538,8 @@ class ColorMatrix(dict):
     representation of the matrix, and the other one with the "inverted" matrix,
     i.e. a dictionary where keys are values of the color matrix."""
 
-    _col_basis1 = None
-    _col_basis2 = None
-    col_matrix_fixed_Nc = {}
-    inverted_col_matrix = {}
-
     def __init__(self, col_basis, col_basis2=None,
-                 Nc=3, Nc_power_min=None, Nc_power_max=None):
+                 Nc=3, Nc_power_min=None, Nc_power_max=None, automatic_build=True):
         """Initialize a color matrix with one or two color basis objects. If
         only one color basis is given, the other one is assumed to be equal.
         As options, any value of Nc and minimal/maximal power of Nc can also be 
@@ -555,12 +552,241 @@ class ColorMatrix(dict):
         self._col_basis1 = col_basis
         if col_basis2:
             self._col_basis2 = col_basis2
-            self.build_matrix(Nc, Nc_power_min, Nc_power_max)
+            self.is_symmetric = False
+            if automatic_build:
+                self.build_matrix(Nc, Nc_power_min, Nc_power_max)
         else:
             self._col_basis2 = col_basis
-            # If the two color basis are equal, assumes the color matrix is 
-            # symmetric
-            self.build_matrix(Nc, Nc_power_min, Nc_power_max, is_symmetric=True)
+            self.is_symmetric = True
+            if automatic_build:
+                # If the two color basis are equal, assumes the color matrix is symmetric
+                self.build_matrix(Nc, Nc_power_min, Nc_power_max, is_symmetric=True)
+
+    def get_color_generator_for_leg(self, leg, model, this_leg_index_offset, other_leg_index_offset):
+        """ Builds the color generator appropriate for a given leg, given its color charge.
+        index offsets specify what index offset to use to differentiate the indices that
+        are part of the color connections and also part of <M| and |M>.
+        The leg_index_offsets argument specifies which offset to apply to select exactly 
+        how they will be contracted (i.e. with the indices of the <M|, or |M> or even of the color 
+        connector itself. """
+
+        # Make sure indices summation in this color connection doesn't conflict with 
+        # the ones of other ColorStrings that will be part of the same chain.
+        negative_offset = -10000
+
+        color_charge = model.get_particle(leg.get('id')).get_color()
+        leg_number = leg.get('number')
+        this_leg_index = this_leg_index_offset + leg_number
+        other_leg_index = other_leg_index_offset + leg_number
+        
+        if color_charge==1:
+            return None
+        if color_charge not in [3,-3,8]:
+            raise MadGraph5Error("Color connected matrix elements between particles color-charged"+
+                                 " in the %d representation are not implemented."%abs(color_charge))
+
+        # Initial state anti-quark and final state quarks both carry anti-fundamental color indices
+        # The anti-charge generator takes a minus sign.
+        if color_charge == -3 and not leg.get('state') or color_charge == 3 and leg.get('state'):
+            return color_algebra.ColorString([color_algebra.T(negative_offset, other_leg_index, this_leg_index)],
+                                                                                    coeff=fractions.Fraction(-1, 1))
+        # Initial state quark and final state anti-quarks both carry fundamental color indices
+        if color_charge == 3 and not leg.get('state') or color_charge == -3 and leg.get('state'):
+            return color_algebra.ColorString([color_algebra.T(negative_offset, this_leg_index, other_leg_index)])
+        # For gluon self-interactions, we chose the second index 'b' of f^{abc} to be the one carrying 
+        # "emitted" gluon's color.
+        # The dual representation of the color charge takes an imaginary factor 'i', this is also what insures that
+        # the color matrix remains real for the correlator of the type f * T
+        if color_charge == 8:
+#ORIG            return color_algebra.ColorString([color_algebra.f(other_leg_index, negative_offset,this_leg_index)],
+#ORIG                                                                                                 is_imaginary=True)
+            return color_algebra.ColorString([color_algebra.f(this_leg_index, negative_offset, other_leg_index)],
+                                                                                                 is_imaginary=True)
+
+    def generate_all_color_connections(self, index_offset, process_legs, model, order='NLO'):
+        """Returns a dictionary whose keys is the "identifier" of the color connection. At NLO, this identifier is
+        a tuple showing pairs of ID's from which the particle is emitted / re-absorbed and values are the ColorString 
+        corresponding to this connection.
+        """
+
+        color_connections = {}
+        
+        if order != 'NLO':
+            raise MadGraph5Error("Color connections for expansion order '%s' not implemented yet."%order)
+
+        for leg1 in process_legs:
+            color_string_1 = self.get_color_generator_for_leg(leg1, model, 0, index_offset)
+            if color_string_1 is None:
+                continue
+            for leg2 in process_legs:
+                # Only build half of the symmetric color connection CC_ij = <M| T_i T_j |M> matrix
+                # We will build the diagonal terms later
+                if leg2.get('number')<=leg1.get('number'):
+                    continue
+#ORIG                color_string_2 = self.get_color_generator_for_leg(leg2, model, index_offset, 0)
+                color_string_2 = self.get_color_generator_for_leg(leg2, model, 0, index_offset)
+                if color_string_2 is None:
+                    continue
+                color_connection = color_string_1.create_copy()
+#ORIG                color_connection.product(color_string_2.complex_conjugate())
+                color_connection.product(color_string_2)
+                
+                color_connections[(leg1.get('number'), leg2.get('number'))] = \
+                                                    (color_connection, color_connection.to_immutable())
+        
+        # Now build the diagonal elements which will always be simpliable in terms of delta's and the resulting color matrix
+        # will be proportional to the original one, but since we want to retain the possibility of truncating Nc_orders
+        # we will not take advantage of this fact here
+        for leg in process_legs:
+            # The indices of the color generators inserted will saturate with themselves, so we must take
+            # them distinct from the ones that will appear in the matrix-element <M| and |M>, hence we use
+            # 100*index_offset
+            color_connection = self.get_color_generator_for_leg(leg, model, 0, 10*index_offset)
+            if color_connection is None:
+                continue
+            
+#ORIG            color_string_2 = self.get_color_generator_for_leg(leg, model, index_offset, 10*index_offset) 
+#ORIG            color_connection.product(color_string_2.complex_conjugate())
+
+            color_string_2 = self.get_color_generator_for_leg(leg, model, 10*index_offset, index_offset) 
+            color_connection.product(color_string_2)            
+            
+#            misc.sprint(repr(color_connection), color_algebra.ColorFactor([color_connection]).full_simplify())
+            color_connections[(leg.get('number'), leg.get('number'))] = \
+                                                (color_connection, color_connection.to_immutable())        
+        
+        return color_connections
+
+    def build_color_correlated_matrices(self, process_legs, model, order='NLO', 
+                                                                    Nc=3, Nc_power_min=None, Nc_power_max=None):
+        """ Computes the color matrices for all relevant color connections at a given order.
+        This function needs to know the process legs and a model instance so as to retrieve
+        their color charges.
+        For 'NLO', the returned value is a dictionary with, as keys, the tuple
+           (connected_leg_number_one, connected_leg_number_one)
+        and as values the tuple:
+           (canonical_color_connection_representation, color_matrix)
+        where the color matrix is an instance of ColorMatrix.
+        """
+
+        # Replacement color index offset. This is because when evaluating:
+        #  ColorString1(indices1) * ColorConnection(CCindices) * ColorString2(indices2)
+        # The indices of indices 2 and indices1 overlap with those of CC indices and we have to 
+        # differentiate them by offsetting by index_offset those in indices2 also present in 
+        # CCindices and indices1.
+        index_offset = 1000
+        
+        assert (len(process_legs)<1000), "Sillyness, will mess up with color indices threshold."
+
+        # Useful shorthand to instantiate a ColorString from an immutable representation.
+        def from_immutable(CB):
+            a_cs = color_algebra.ColorString()
+            a_cs.from_immutable(CB)
+            return a_cs
+       
+        # Now list and identify all relevant color connections
+        # Keys are tuple showing pairs of ID's from which the particle is emitted / re-absorbed
+        # Values are the ColorString corresponding to this connection
+        color_connections = self.generate_all_color_connections(
+                                                index_offset, process_legs, model, order=order)
+        
+        # All color-correlated color matrices
+        all_color_correlated_matrices = {}
+        # Cache results
+        canonical_dict = {}
+#        misc.sprint('Total of %d color connections.'%len(color_connections))
+        for color_connection_identifier in sorted(color_connections.keys()):
+            # Note that this uses the "identifier" format of the color connection suited for NLO.
+            # This will need to be revisited for NNLO.
+            leg1_number, leg2_number = color_connection_identifier
+            color_connection = color_connections[color_connection_identifier]
+#            misc.sprint('Considering color connection (%d, %d) -> %s ...'%(leg1_number, leg2_number, str(color_connection[1])))
+            # Instantiate the ColorMatrix that will correspond to that color connection
+            color_matrix = ColorMatrix(self._col_basis1,  
+                col_basis2 = self._col_basis2 if not self.is_symmetric else None, 
+                Nc = Nc, Nc_power_min = Nc_power_min, Nc_power_max = Nc_power_max,
+                automatic_build = False)
+
+            # This follows very closely what "build_matrix" does but it is unfortunately sufficiently
+            # different that it is to cumbersome to modifiy the color matrix above so as to reuse the build_matrix() function.
+            # The idea would be to modify the basis elements of these color matrix so as to include there directly
+            # the color connection, but it has many pitfalls, one of which being that it could alter the 'sorted' order
+            # of the color basis keys, on which we rely for the definition of the color matrix ported in the ME code.
+            for i, CB_left in enumerate(sorted(color_matrix._col_basis1.keys())):
+                for j, CB_right in enumerate(sorted(color_matrix._col_basis2.keys())):
+                    if color_matrix.is_symmetric and j < i:
+                        continue
+
+                    # Fix negative indices that could be repeated on both sides
+                    CB_right = ColorMatrix.fix_summed_indices(CB_left, CB_right)
+                    # Convert the immutable representations to color strings
+                    CB_right_CS = from_immutable(CB_right).complex_conjugate()
+                    CB_right_CS.replace_indices({leg1_number : index_offset + leg1_number,
+                                                 leg2_number : index_offset + leg2_number})
+                    # Build a canonical representation of the computation to be carried in the hope of recycling its result
+                    canonical_entry, _ = color_algebra.ColorString().to_canonical(
+                                                                CB_left+color_connection[1]+CB_right_CS.to_immutable())
+                    try:
+                        # If this has already been calculated, use the result
+                        result, result_fixed_Nc = canonical_dict[canonical_entry]
+                        # misc.sprint('<%d| T_%d T_%d |%d> = %s = %s'%(
+                        #                  i, leg1_number, leg2_number, j, 'recycled!', res_fixed_Nc))
+                    except KeyError:
+                        # Convert the immutable representations to color strings
+                        CB_left_CS = from_immutable(CB_left)
+                        final_color_string = color_algebra.ColorString()
+                        final_color_string.product(CB_left_CS)
+                        final_color_string.product(color_connection[0])
+                        final_color_string.product(CB_right_CS)
+                        
+                        
+                        # Now simplify and evaluate the corresponding color chain
+                        col_fact = color_algebra.ColorFactor([final_color_string])
+                        result = col_fact.full_simplify()
+                        # Keep only terms with Nc_max >= Nc power >= Nc_min
+                        if Nc_power_min is not None:
+                            result[:] = [col_str for col_str in result if col_str.Nc_power >= Nc_power_min]
+                        if Nc_power_max is not None:
+                            result[:] = [col_str for col_str in result if col_str.Nc_power <= Nc_power_max]
+                        
+                        # Set Nc to a numerical value
+                        result_fixed_Nc = result.set_Nc(Nc)
+                        
+                        if result_fixed_Nc[1] != 0:
+                            raise MadGraph5Error("The elements of the color correlated matrices should always be real."+
+                                            " It turned out not to be the case when considering the correlator %s : %s"%
+                                                                             (str(color_connection[1]),str(result_fixed_Nc)))
+                       
+                        # Store result
+                        canonical_dict[canonical_entry] = (result, result_fixed_Nc)
+                        # misc.sprint('<%d| T_%d T_%d |%d> = %s = %s'%(
+                        #    i, leg1_number, leg2_number, j, repr(final_color_string), res_fixed_Nc))
+                    
+                    # Now that we have recovered our result_fixed_Nc, we can store it in the matrix
+                    # Store the full result.
+                    color_matrix[(i, j)] = result
+                    if color_matrix.is_symmetric:
+                        color_matrix[(j, i)] = result
+                        
+                    # the fixed Nc one.
+                    color_matrix.col_matrix_fixed_Nc[(i, j)] = result_fixed_Nc
+                    if color_matrix.is_symmetric:
+                        color_matrix.col_matrix_fixed_Nc[(j, i)] = result_fixed_Nc
+
+                    # and update the inverted dict
+                    if result_fixed_Nc in color_matrix.inverted_col_matrix:
+                        color_matrix.inverted_col_matrix[result_fixed_Nc].append((i,j))
+                        if color_matrix.is_symmetric:
+                            color_matrix.inverted_col_matrix[result_fixed_Nc].append((j,i))
+                    else:
+                        color_matrix.inverted_col_matrix[result_fixed_Nc] = [(i, j)]
+                        if color_matrix.is_symmetric:
+                            color_matrix.inverted_col_matrix[result_fixed_Nc] = [(j, i)]
+
+            # And we can now add our finalized color_matrix to the dictionary that will be returned
+            all_color_correlated_matrices[color_connection_identifier] = (color_connection[1], color_matrix)
+
+        return all_color_correlated_matrices
 
     def build_matrix(self, Nc=3,
                      Nc_power_min=None,

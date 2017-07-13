@@ -296,12 +296,11 @@ class VirtualMEAccessor(object):
             (vec_A1, vec_A2, vec_A3,...), (vec_B1, vec_B2, vec_B3,..), etc... where vec_i are simply 4-tuples of floats.
 
         -> Color connections are specified by providing what SU(3) generator chain to apply in 
-          between the amplitude product. The format is a list of 3-tuple, whose first element is the adjoint index of 
-          the generator and the second (third) is the (anti-)fundamental indices of these generators.
+          between the amplitude product. The format is a list of 2-tuple of the form ('generator_name', (indices)).
           For instance
-             [ (-100,3,-1), (-200,-1,-2), (-100,-2,-3) (-200,-3,4), ....]
+             [ ('T',(-100,3,-1)), ('T',(-200,-1,-2)), ('T',(-100,-2,-3)), ('T',(-200,-3,4)), ('f',(7,-300,-400)), ('f',(-400,-300,8)), ...]
           Indicates:
-            T^a_(3 i) T^b_(i j) T^a_(j k) T^b_(k 4)  
+            T^a_(3 i) T^b_(i j) T^a_(j k) T^b_(k 4) f^(7, c, d) f^(d, c, 8) 
         
         -> Helicity configuration to be considered, this can be a tuple like
             (-1, -1, +1 ,-1, +1)
@@ -319,9 +318,8 @@ class VirtualMEAccessor(object):
 
         permuted_PS_point = [PS_point[permutation[i]] for i in range(len(PS_point))]
         permuted_spin_correlation = [ (permutation[leg_ID], vectors) for leg_ID, vectors in spin_correlation]
-        permuted_color_connection = [ ( permutation[a] if a > 0 else a,
-                                        permutation[i] if i > 0 else i,
-                                        permutation[j] if j > 0 else j) for (a,i,j) in color_connection ]
+        permuted_color_connection = [ (name, tuple( (permutation[ind] if ind > 0 else ind) for ind in indices) )
+                                                                     for (name, indices) in color_connection ]
         permuted_hel_config = tuple( hel_config[permutation[i]] for i in range(len(hel_config)) )
 
         all_opts = {'spin_correlation' : permuted_spin_correlation,

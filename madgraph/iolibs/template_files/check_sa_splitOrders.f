@@ -39,6 +39,19 @@ C
       integer NChosen
       character*20 chosen_so_indices(NSPLITORDERS)
 
+## if(color_correlation) {
+      INTEGER NCOLORCORRELATORS
+      PARAMETER (NCOLORCORRELATORS=%(n_color_correlators)d)
+      REAL*8 COLOR_CORRELATED_EVALS(NCOLORCORRELATORS, 0:NSPLITORDERS)
+      INTEGER COLOR_CORRELATOR_TO_INDEX(NEXTERNAL,NEXTERNAL)  
+      INTEGER INDEX_TO_COLOR_CORRELATOR(NCOLORCORRELATORS, 2)
+      COMMON/%(proc_prefix)sCOLOR_CORRELATION_MAPS/COLOR_CORRELATOR_TO_INDEX, INDEX_TO_COLOR_CORRELATOR
+      REAL*8 RUNNING_SUMA, RUNNING_SUMB, RUNNING_SUMC
+      REAL*8 RUNNING_ABSSUMA, RUNNING_ABSSUMB, RUNNING_ABSSUMC      
+      INTEGER CCINDEX, SOINDEX
+      LOGICAL FOUNDONE
+## }
+
 C     
 C     EXTERNAL
 C     
@@ -110,16 +123,70 @@ c
 c     
 c     Now we can call the matrix element!
 c
+## if(color_correlation) {
+C     Specify here that we want to compute all color correlators
+      CALL %(proc_prefix)sSET_COLOR_CORRELATORS_TO_CONSIDER(-1,-1)
+## }
       CALL %(proc_prefix)sSMATRIX_SPLITORDERS(P,MATELEMS)
       MATELEM=MATELEMS(0)
       %(printout_sqorders)s
 c
+
       IF (NCHOSEN.ne.NSPLITORDERS) THEN
         write (*,*) "Selected squared coupling orders combination for the sum below:"
         write (*,*) (chosen_so_indices(I),I=1,NCHOSEN)
       endif
       write (*,*) "Total Matrix element = ", MATELEM, " GeV^",-(2*nexternal-8)	
       write (*,*) "-----------------------------"
+
+## if(color_correlation) {
+      WRITE(*,*) ""
+      WRITE(*,*) "-----------------------------"
+      WRITE(*,*) "Color-correlated evaluations "
+      WRITE(*,*) "-----------------------------"
+      WRITE(*,*) ""
+      RUNNING_SUMC = 0.0d0
+      RUNNING_ABSSUMC = 0.0d0
+      DO K=1,NSPLITORDERS+1
+C       Just so as to place the sum last
+        SOINDEX = MOD(K, NSPLITORDERS+1)
+        RUNNING_SUMB = 0.0d0
+        RUNNING_ABSSUMB = 0.0d0
+        IF (SOINDEX.eq.0) THEN
+          WRITE(*,*) '=> Sum of all contributions:'
+        ELSE
+          WRITE(*,*) '=> Squared order index',SOINDEX,':'
+        ENDIF
+        CALL %(proc_prefix)sGET_COLOR_CORRELATED_ME(COLOR_CORRELATED_EVALS)
+        DO I=1, NEXTERNAL
+          RUNNING_SUMA = 0.0d0
+          RUNNING_ABSSUMA = 0.0d0
+          FOUNDONE = .False.
+          DO J=1, NEXTERNAL
+            CCINDEX = COLOR_CORRELATOR_TO_INDEX(J, I)
+            IF (CCINDEX.le.0) THEN
+              CYCLE 
+            ELSE
+              FOUNDONE = .TRUE.
+              RUNNING_SUMA = RUNNING_SUMA + COLOR_CORRELATED_EVALS(CCINDEX,SOINDEX)
+              RUNNING_ABSSUMA = RUNNING_ABSSUMA + DABS(COLOR_CORRELATED_EVALS(CCINDEX,SOINDEX))
+              WRITE(*,*) '   <M| T(',J,') T(',I,') |M> =',COLOR_CORRELATED_EVALS(CCINDEX,SOINDEX)
+            ENDIF
+          ENDDO
+          IF (FOUNDONE) THEN
+            WRITE(*,*) '   Check rel. sum for particle ',I,' =',ABS(RUNNING_SUMA/MAX(RUNNING_ABSSUMA,1.0d-99))
+          ENDIF
+          RUNNING_SUMB = RUNNING_SUMB + RUNNING_SUMA
+          RUNNING_ABSSUMB = RUNNING_ABSSUMB + RUNNING_ABSSUMA
+        ENDDO
+        WRITE(*,*) '   => Check rel. sum for order ',I,' =',ABS(RUNNING_SUMB/MAX(RUNNING_ABSSUMB,1.0d-99))
+        RUNNING_SUMC = RUNNING_SUMC + RUNNING_SUMB
+        RUNNING_ABSSUMC = RUNNING_ABSSUMC + RUNNING_ABSSUMB        
+        WRITE(*,*) ""        
+      ENDDO
+      WRITE(*,*) '   Global check rel. sum for all contribs    =',ABS(RUNNING_SUMC/MAX(RUNNING_ABSSUMC, 1.0d-99))
+      WRITE(*,*) ""
+## }
 
 c c
 c c      Copy down here (or read in) the four momenta as a string. 

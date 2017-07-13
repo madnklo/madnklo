@@ -33,6 +33,7 @@ import aloha
 
 import madgraph.core.base_objects as base_objects
 import madgraph.core.color_algebra as color
+import madgraph.core.color_amp as color_amp
 import madgraph.core.helas_objects as helas_objects
 import madgraph.iolibs.drawing_eps as draw
 import madgraph.iolibs.files as files
@@ -2142,6 +2143,86 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             calls = 0
         return calls
 
+    #===========================================================================
+    # write color-correlated matrix elements
+    #===========================================================================
+    def add_color_correlated_code(self, replace_dict, matrix_element, order='NLO'):
+        """Writes the code for the computing the spin- and color- correlated matrix elements."""
+        
+        if not matrix_element.get('color_matrix'):
+            # No color correlation when there are no colored external lines
+            replace_dict['n_color_correlators'] = 0
+            replace_dict['color_correlators_data_lines'] = ''
+            replace_dict['color_correlator_to_index_data'] = ''
+            replace_dict['index_to_color_correlator_data'] = ''
+            replace_dict['color_correlators_to_consider_initialization'] = ''
+            return
+
+        color_matrix = matrix_element.get('color_matrix')
+        process = matrix_element.get('processes')[0]
+        n_external = replace_dict['nexternal']
+        logger.debug("Computing color correlations for %s ..."%
+                                        process.nice_string().replace('Process','process'))
+        color_correlated_matrices = color_matrix.build_color_correlated_matrices(
+                                        process.get('legs'), process.get('model'), order=order)
+        
+        sorted_color_correlators = sorted(color_correlated_matrices.keys())
+        
+        # Set n_color_correlators
+        replace_dict['n_color_correlators'] = len(color_correlated_matrices)
+        
+        # Set the intialization of the array color_correlators_to_consider
+        array_set_lines = []
+        for i in range(1,len(color_correlated_matrices)+1):
+            array_set_lines.append('DATA COLOR_CORRELATORS_TO_CONSIDER(%d) / %d /'%(i, i))
+        replace_dict['color_correlators_to_consider_initialization'] = '\n'.join(array_set_lines)
+
+        # Set index_to_color_correlator_data
+        array_set_lines = []
+        for i, color_correlator_key in enumerate(sorted_color_correlators):
+            array_set_lines.append('C Correlator: %s'%(' '.join('%s'%str(repr) for repr in 
+                                                    color_correlated_matrices[color_correlator_key][0])))
+            array_set_lines.append('DATA (INDEX_TO_COLOR_CORRELATOR(%d, I), I=1,2) / %d, %d/'%\
+                                                  (i+1, color_correlator_key[0], color_correlator_key[1]))
+        replace_dict['index_to_color_correlator_data'] = '\n'.join(array_set_lines)
+            
+        # Set color_correlator_to_index_data
+        array_set_lines = []
+        for i in range(1, n_external+1):
+            index_line = []
+            for j in range(1, n_external+1):
+                try:                    
+                    index = sorted_color_correlators.index(tuple(sorted([i, j])))
+                except ValueError:
+                    index = -1
+                index_line.append(index+1)
+            array_set_lines.append('DATA (COLOR_CORRELATOR_TO_INDEX(%d, I), I=1,NEXTERNAL) / %s /'%(
+                                                            i, ', '.join('%d'%index for index in index_line) ))
+        replace_dict['color_correlator_to_index_data'] = '\n'.join(array_set_lines)
+        
+        # Set the color matrices for each color correlator
+        # line_break is the number of color_matrix entry before which one introduces a line_break
+        line_break = 15
+        array_set_lines = []
+        for icc, color_correlator_key in enumerate(sorted_color_correlators):
+            array_set_lines.append('C Correlator: %s'%(' '.join('%s'%str(repr) for repr in 
+                                                    color_correlated_matrices[color_correlator_key][0])))
+            color_matrix = color_correlated_matrices[color_correlator_key][1]
+            for index, denominator in enumerate(color_matrix.get_line_denominators()):
+                # First write the common denominator for this color matrix line
+                array_set_lines.append("DATA CC_DENOM(%i,%i)/%i/" % (icc+1, index + 1, denominator))
+                # Then write the numerators for the matrix elements
+                num_list = color_matrix.get_line_numerators(index, denominator)
+                for k in xrange(0, len(num_list), line_break):
+                    array_set_lines.append("DATA (CC_CF(%2r,i,%2r),i=%2r,%3r) /%s/" % \
+                                    (icc+1, index + 1, k + 1, min(k + line_break, len(num_list)),
+                                     ','.join(["%5r" % i for i in num_list[k:k + line_break]])))
+
+        replace_dict['color_correlators_data_lines'] = '\n'.join(array_set_lines)
+    
+#        misc.sprint(sorted(color_correlated_matrices.keys()), len(color_correlated_matrices.keys()))
+#        misc.sprint(color_correlated_matrices[(1,2)][0])
+#        misc.sprint(str(color_correlated_matrices[(1,2)][1]))
 
     #===========================================================================
     # write_source_makefile
@@ -2236,7 +2317,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
 
         # Extract color data lines
         color_data_lines = self.get_color_data_lines(matrix_element)
-        replace_dict['color_data_lines'] = "\n".join(color_data_lines)
+        replace_dict['color_data_lines'] = "\n".join(color_data_lines)        
 
         if self.opt['export_format']=='standalone_msP':
         # For MadSpin need to return the AMP2
@@ -2277,21 +2358,20 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             # Now setup the array specifying what squared split order is chosen
             replace_dict['chosen_so_configs']=self.set_chosen_SO_index(
                               matrix_element.get('processes')[0],squared_orders)
-            
-            # For convenience we also write the driver check_sa_splitOrders.f
-            # that explicitely writes out the contribution from each squared order.
-            # The original driver still works and is compiled with 'make' while
-            # the splitOrders one is compiled with 'make check_sa_born_splitOrders'
-            check_sa_writer=writers.FortranWriter('check_sa_born_splitOrders.f')
-            self.write_check_sa_splitOrders(squared_orders,split_orders,
-              nexternal,ninitial,proc_prefix,check_sa_writer)
 
-        if write:
-            writers.FortranWriter('nsqso_born.inc').writelines(
+        if write and writer:
+            writers.FortranWriter(pjoin(os.path.dirname(writer.name),'nsqso_born.inc')
+             ).writelines(
                 """INTEGER NSQSO_BORN
                    PARAMETER (NSQSO_BORN=%d)"""%replace_dict['nSqAmpSplitOrders'])
 
         replace_dict['jamp_lines'] = '\n'.join(jamp_lines)    
+
+
+        # Now obtain the values for all the place-holders related to the handling of color correlations
+        color_correlation_order = 'NLO'
+        if not color_correlation_order is None:
+            self.add_color_correlated_code(replace_dict, matrix_element, order=color_correlation_order)
 
         matrix_template = self.matrix_template
         if self.opt['export_format']=='standalone_msP' :
@@ -2317,26 +2397,40 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         replace_dict['template_file2'] = pjoin(_file_path, \
                                    'iolibs/template_files/split_orders_helping_functions.inc')
         if write and writer:
+            
+            # For convenience we also write the driver check_sa_splitOrders.f
+            # that explicitely writes out the contribution from each squared order.
+            # The original driver still works and is compiled with 'make' while
+            # the splitOrders one is compiled with 'make check_sa_born_splitOrders'
+            # If no writer was defined, we of course foregoe this step.
+            check_sa_writer=writers.FortranWriter(
+                pjoin(os.path.dirname(writer.name),'check_sa_born_splitOrders.f'))
+            self.write_check_sa_splitOrders(squared_orders,split_orders,
+              nexternal,ninitial,proc_prefix,check_sa_writer,
+              color_correlators_info=replace_dict if not color_correlation_order is None else {})
+            
             path = replace_dict['template_file']
             content = open(path).read()
             content = content % replace_dict
             # Write the file
-            writer.writelines(content)
+            writer.writelines(content, context={'color_correlation':(not color_correlation_order is None)})
             # Add the helper functions.
             if len(split_orders)>0:
                 content = '\n' + open(replace_dict['template_file2'])\
                                    .read()%replace_dict
-                writer.writelines(content)
+                writer.writelines(content, context={'color_correlation':(not color_correlation_order is None)})
             return len(filter(lambda call: call.find('#') != 0, helas_calls))
         else:
             replace_dict['return_value'] = len(filter(lambda call: call.find('#') != 0, helas_calls))
             return replace_dict # for subclass update
 
     def write_check_sa_splitOrders(self,squared_orders, split_orders, nexternal,
-                                                nincoming, proc_prefix, writer):
+                                                    nincoming, proc_prefix, writer, color_correlators_info={}):
         """ Write out a more advanced version of the check_sa drivers that
         individually returns the matrix element for each contributing squared
-        order."""
+        order. Also print in information about color correlators if specified"""
+        
+        replace_dict = color_correlators_info
         
         check_sa_content = open(pjoin(self.mgme_dir, 'madgraph', 'iolibs', \
                              'template_files', 'check_sa_splitOrders.f')).read()
@@ -2349,14 +2443,14 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
                     "write(*,*) '%d) Matrix element for (%s) = ',MATELEMS(%d)"\
                                                  %(i+1,' '.join(sq_orders),i+1))
         printout_sq_orders='\n'.join(printout_sq_orders)
-        replace_dict = {'printout_sqorders':printout_sq_orders, 
+        replace_dict.update({'printout_sqorders':printout_sq_orders, 
                         'nSplitOrders':len(squared_orders),
                         'nexternal':nexternal,
                         'nincoming':nincoming,
-                        'proc_prefix':proc_prefix}
-        
+                        'proc_prefix':proc_prefix})
         if writer:
-            writer.writelines(check_sa_content % replace_dict)
+            writer.writelines(check_sa_content % replace_dict, 
+                                                context={'color_correlation':color_correlators_info!={}})
         else:
             return replace_dict
 

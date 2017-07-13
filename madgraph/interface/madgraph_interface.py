@@ -51,7 +51,7 @@ except:
 
 import aloha
 import madgraph
-from madgraph import MG4DIR, MG5DIR, MadGraph5Error
+from madgraph import MG4DIR, MG5DIR, MadGraph5Error, InvalidCmd
 
 
 import madgraph.core.base_objects as base_objects
@@ -3055,6 +3055,48 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
         add_options['ME7_definition'] = any(add_options[info] for info in ['NLO', 'NNLO', 'LO', 'loop_induced'])
 
         return new_args, add_options
+    
+    def parse_output_options(self, args):
+        """ Parses the option provided via the arguments given to the command output."""
+        
+        output_options = { 'color_correlators' : None,
+                           'postpone_model' : False
+                         }
+        
+        # First combine all value of the options (starting with '--') separated by a space
+        opt_args = []
+        new_args = []
+        for arg in args:
+            if arg.startswith('--'):
+                opt_args.append(arg)
+            elif len(opt_args)>0:
+                opt_args[-1] += ' %s'%arg
+            else:
+                new_args.append(arg)
+
+        for arg in opt_args:
+            try:
+                key, value = arg.split('=')
+            except:
+                key, value = arg, None
+            key = key[2:]
+   
+            if key == 'postpone_model':
+                if value not in ['False','off']:
+                     output_options['postpone_model'] = True
+        
+            elif key=='color_correlators':
+                if value not in ['None','NLO','NNLO']:
+                    raise InvalidCmd("The value for the option '--%s' can only be in ['None', 'NLO', 'NNLO']."%key)
+                if value == 'None':
+                    output_options['color_correlators'] = None
+                else:
+                    output_options['color_correlators'] = value
+   
+            else:
+                raise InvalidCmd("Unrecognized option for command output: %s"%key)
+
+        return new_args, output_options
         
     # Add a process to the existing multiprocess definition
     # Generate a new amplitude
@@ -7748,13 +7790,14 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
         # Check Argument validity
         self.check_output(args)
 
+        args, output_options = self.parse_output_options(args)
 
         noclean = '-noclean' in args
         force = '-f' in args
         nojpeg = '-nojpeg' in args
         flaglist = []
-                    
-        if '--postpone_model' in args:
+
+        if output_options['postpone_model']:
             flaglist.append('store_model')
         
         main_file_name = ""
@@ -7888,8 +7931,9 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
 
         #Exporter + Template
         if options['exporter'] == 'v4':
+            
             self._curr_exporter = export_v4.ExportV4Factory(self, noclean, 
-                                             group_subprocesses=group_processes)
+                                   group_subprocesses=group_processes, additional_options = output_options)
         elif options['exporter'] == 'ME7':
             self._curr_exporter = export_ME7.ME7Exporter(self, noclean, group_subprocesses=group_processes)
 

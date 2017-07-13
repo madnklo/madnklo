@@ -2146,10 +2146,10 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
     #===========================================================================
     # write color-correlated matrix elements
     #===========================================================================
-    def add_color_correlated_code(self, replace_dict, matrix_element, order='NLO'):
+    def add_color_correlated_code(self, replace_dict, matrix_element):
         """Writes the code for the computing the spin- and color- correlated matrix elements."""
         
-        if not matrix_element.get('color_matrix'):
+        if not matrix_element.get('color_matrix') or self.opt['color_correlators'] is None:
             # No color correlation when there are no colored external lines
             replace_dict['n_color_correlators'] = 0
             replace_dict['color_correlators_data_lines'] = ''
@@ -2164,7 +2164,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         logger.debug("Computing color correlations for %s ..."%
                                         process.nice_string().replace('Process','process'))
         color_correlated_matrices = color_matrix.build_color_correlated_matrices(
-                                        process.get('legs'), process.get('model'), order=order)
+                            process.get('legs'), process.get('model'), order=self.opt['color_correlators'])
         
         sorted_color_correlators = sorted(color_correlated_matrices.keys())
         
@@ -2369,9 +2369,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
 
 
         # Now obtain the values for all the place-holders related to the handling of color correlations
-        color_correlation_order = 'NLO'
-        if not color_correlation_order is None:
-            self.add_color_correlated_code(replace_dict, matrix_element, order=color_correlation_order)
+        self.add_color_correlated_code(replace_dict, matrix_element)
 
         matrix_template = self.matrix_template
         if self.opt['export_format']=='standalone_msP' :
@@ -2406,31 +2404,30 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             check_sa_writer=writers.FortranWriter(
                 pjoin(os.path.dirname(writer.name),'check_sa_born_splitOrders.f'))
             self.write_check_sa_splitOrders(squared_orders,split_orders,
-              nexternal,ninitial,proc_prefix,check_sa_writer,
-              color_correlators_info=replace_dict if not color_correlation_order is None else {})
+              nexternal,ninitial,proc_prefix,check_sa_writer, replace_dict)
             
             path = replace_dict['template_file']
             content = open(path).read()
             content = content % replace_dict
             # Write the file
-            writer.writelines(content, context={'color_correlation':(not color_correlation_order is None)})
+            writer.writelines(content, context={'color_correlation':(not self.opt['color_correlators'] is None)})
             # Add the helper functions.
             if len(split_orders)>0:
                 content = '\n' + open(replace_dict['template_file2'])\
                                    .read()%replace_dict
-                writer.writelines(content, context={'color_correlation':(not color_correlation_order is None)})
+                writer.writelines(content, context={'color_correlation':(not self.opt['color_correlators'] is None)})
             return len(filter(lambda call: call.find('#') != 0, helas_calls))
         else:
             replace_dict['return_value'] = len(filter(lambda call: call.find('#') != 0, helas_calls))
             return replace_dict # for subclass update
 
     def write_check_sa_splitOrders(self,squared_orders, split_orders, nexternal,
-                                                    nincoming, proc_prefix, writer, color_correlators_info={}):
+                                                             nincoming, proc_prefix, writer, global_replace_dict):
         """ Write out a more advanced version of the check_sa drivers that
         individually returns the matrix element for each contributing squared
         order. Also print in information about color correlators if specified"""
-        
-        replace_dict = color_correlators_info
+
+        replace_dict = dict(global_replace_dict)
         
         check_sa_content = open(pjoin(self.mgme_dir, 'madgraph', 'iolibs', \
                              'template_files', 'check_sa_splitOrders.f')).read()
@@ -2448,9 +2445,10 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
                         'nexternal':nexternal,
                         'nincoming':nincoming,
                         'proc_prefix':proc_prefix})
+
         if writer:
             writer.writelines(check_sa_content % replace_dict, 
-                                                context={'color_correlation':color_correlators_info!={}})
+                                         context={'color_correlation': (not self.opt['color_correlators'] is None)})
         else:
             return replace_dict
 
@@ -6547,7 +6545,7 @@ class UFO_model_to_mg4(object):
                                       mssm_convert=True)
         
 def ExportV4Factory(cmd, noclean, output_type='default', group_subprocesses=True,
-                    curr_amps = None, export_dir = None, format = None):
+                    curr_amps = None, export_dir = None, format = None, additional_options={}):
     """ Determine which Export_v4 class is required. cmd is the command 
         interface containing all potential usefull information.
         The output_type argument specifies from which context the output
@@ -6555,6 +6553,7 @@ def ExportV4Factory(cmd, noclean, output_type='default', group_subprocesses=True
         and 'default' for tree-level outputs."""
 
     opt = dict(cmd.options)
+    opt.update(additional_options)
 
     # Consistency check on inputs. If either curr_amps_input or export_dir_input is
     # specified, it should be a stanalone type of output and _fks_multi_proc should
@@ -6623,7 +6622,8 @@ def ExportV4Factory(cmd, noclean, output_type='default', group_subprocesses=True
       'SubProc_prefix':'P',
       'compute_color_flows':opt['loop_color_flows'],
       'mode': 'reweight' if format == "standalone_rw" else '',
-      'cluster_local_path': opt['cluster_local_path']
+      'cluster_local_path': opt['cluster_local_path'],
+      'color_correlators' : opt['color_correlators']
       }
 
 
@@ -6675,7 +6675,8 @@ def ExportV4Factory(cmd, noclean, output_type='default', group_subprocesses=True
                'mp': False,  
                'sa_symmetry':False, 
                'model': cmd._curr_model.get('name'),
-               'v5_model': False if cmd._model_v4_path else True })
+               'v5_model': False if cmd._model_v4_path else True,
+               'color_correlators': opt['color_correlators'] })
 
         if format in ['standalone_msP', 'standalone_msF', 'standalone_rw']:
             opt['sa_symmetry'] = True      

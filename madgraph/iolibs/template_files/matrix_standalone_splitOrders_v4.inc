@@ -93,6 +93,7 @@ C
 C  
 C LOCAL VARIABLES 
 C
+      LOGICAL DO_INCLUDE_HEL_CONTRIB
       INTEGER NTRY
       REAL*8 T(NSQAMPSO), BUFF
       INTEGER IHEL,IDEN, I, J
@@ -187,10 +188,15 @@ C     For this reason, we simply remove the filterin when there is only three ex
               IF(NTRY.GE.2.AND.POLARIZATIONS(0,0).ne.-1.and.(.not.%(proc_prefix)sIS_BORN_HEL_SELECTED(IHEL))) THEN
                 CYCLE
               ENDIF
+              DO_INCLUDE_HEL_CONTRIB = (POLARIZATIONS(0,0).eq.-1.or.%(proc_prefix)sIS_BORN_HEL_SELECTED(IHEL))
+## if (not color_correlation) {
               CALL %(proc_prefix)sMATRIX(P ,NHEL(1,IHEL),JC(1), T)
+## } else {
+              CALL %(proc_prefix)sMATRIX(P ,NHEL(1,IHEL),JC(1), T, DO_INCLUDE_HEL_CONTRIB)
+## }
 	 	      BUFF=0D0
 			  DO I=1,NSQAMPSO
-                IF(POLARIZATIONS(0,0).eq.-1.or.%(proc_prefix)sIS_BORN_HEL_SELECTED(IHEL)) THEN
+                IF(DO_INCLUDE_HEL_CONTRIB) THEN
                   ANS(I)=ANS(I)+T(I)
 				ENDIF
 			    BUFF=BUFF+T(I)
@@ -286,7 +292,12 @@ C ----------
 
 	  END
  
+## if (not color_correlation) {
       SUBROUTINE %(proc_prefix)sMATRIX(P,NHEL,IC,RES)
+## } else {
+      SUBROUTINE %(proc_prefix)sMATRIX(P,NHEL,IC,RES, DO_INCLUDE_HEL_CONTRIB)
+## }
+
 C  
 %(info_lines)s
 C
@@ -317,6 +328,9 @@ C
       REAL*8 P(0:3,NEXTERNAL)
       INTEGER NHEL(NEXTERNAL), IC(NEXTERNAL)
 	  REAL*8 RES(NSQAMPSO)
+## if (color_correlation) {
+      LOGICAL DO_INCLUDE_HEL_CONTRIB
+## }
 C  
 C LOCAL VARIABLES 
 C  
@@ -381,20 +395,24 @@ C ----------
           DO J = 1, NCOLOR
               ZTEMP = ZTEMP + CF(J,I)*JAMP(J,M)
 ## if (color_correlation) {
-     DO CCIA=1,COLOR_CORRELATORS_TO_CONSIDER(0)
-       CCI = COLOR_CORRELATORS_TO_CONSIDER(CCIA)
-       CCZTEMP(CCI) = CCZTEMP(CCI) + CC_CF(CCI,J,I)*JAMP(J,M)
-     ENDDO 
+     IF (DO_INCLUDE_HEL_CONTRIB) THEN
+       DO CCIA=1,COLOR_CORRELATORS_TO_CONSIDER(0)
+         CCI = COLOR_CORRELATORS_TO_CONSIDER(CCIA)
+         CCZTEMP(CCI) = CCZTEMP(CCI) + CC_CF(CCI,J,I)*JAMP(J,M)
+       ENDDO 
+     ENDIF
 ## }
           ENDDO
 		  DO N = 1, NAMPSO
 		    SQSOIND = %(proc_prefix)sSQSOINDEX(M,N)
             RES(SQSOIND) = RES(SQSOIND) + ZTEMP*DCONJG(JAMP(I,N))/DENOM(I)
 ## if (color_correlation) {
-     DO CCIA=1,COLOR_CORRELATORS_TO_CONSIDER(0)
-       CCI = COLOR_CORRELATORS_TO_CONSIDER(CCIA)
-       COLOR_CORRELATED_EVALS(CCI,SQSOIND) = COLOR_CORRELATED_EVALS(CCI,SQSOIND) + CCZTEMP(CCI)*DCONJG(JAMP(I,N))/CC_DENOM(CCI,I)
-     ENDDO 
+     IF (DO_INCLUDE_HEL_CONTRIB) THEN
+       DO CCIA=1,COLOR_CORRELATORS_TO_CONSIDER(0)
+         CCI = COLOR_CORRELATORS_TO_CONSIDER(CCIA)
+         COLOR_CORRELATED_EVALS(CCI,SQSOIND) = COLOR_CORRELATED_EVALS(CCI,SQSOIND) + CCZTEMP(CCI)*DCONJG(JAMP(I,N))/CC_DENOM(CCI,I)
+       ENDDO
+     ENDIF 
 ## }
 		  ENDDO
         ENDDO

@@ -21,9 +21,11 @@ C GLOBAL VARIABLES
 C
       INTEGER USERHEL
 	  COMMON/%(proc_prefix)sHELUSERCHOICE/USERHEL
+	  
 C ----------
 C BEGIN CODE
 C ----------
+
       USERHEL=HEL
 	  CALL %(proc_prefix)sSMATRIX(P,ANS)
 	  USERHEL=-1
@@ -65,6 +67,7 @@ CF2PY INTENT(IN) :: P(0:3,NEXTERNAL)
 C  
 C LOCAL VARIABLES 
 C  
+      LOGICAL DO_INCLUDE_HEL_CONTRIB
       INTEGER NHEL(NEXTERNAL,NCOMB),NTRY
       REAL*8 T
       REAL*8 %(proc_prefix)sMATRIX
@@ -90,6 +93,28 @@ C
 	  INTEGER POLARIZATIONS(0:NEXTERNAL,0:5)
       DATA ((POLARIZATIONS(I,J),I=0,NEXTERNAL),J=0,5)/NPOLENTRIES*-1/
       COMMON/%(proc_prefix)sBORN_BEAM_POL/POLARIZATIONS
+
+## if (color_correlation) {
+C
+C COLOR CORRELATORS DATA
+C
+C     CCI will be the general color correlated index in loops
+C     and CCIA is the index of the loop over COLOR_CORRELATORS_TO_CONSIDER
+      INTEGER CCI, CCIA
+      
+      INTEGER NCOLORCORRELATORS
+      PARAMETER (NCOLORCORRELATORS=%(n_color_correlators)d)
+      
+C     Index 0 is the number of correlators to consider and the next indices are which one to consider
+	  INTEGER COLOR_CORRELATORS_TO_CONSIDER(0:NCOLORCORRELATORS)   
+      DATA COLOR_CORRELATORS_TO_CONSIDER(0)/NCOLORCORRELATORS/
+%(color_correlators_to_consider_initialization)s
+
+      REAL*8 COLOR_CORRELATED_EVALS(NCOLORCORRELATORS)
+      DATA (COLOR_CORRELATED_EVALS(I), I=1,NCOLORCORRELATORS) / NCOLORCORRELATORS*0.0d0 /       
+      COMMON/%(proc_prefix)sCOLOR_CORRELATIONS/COLOR_CORRELATORS_TO_CONSIDER, COLOR_CORRELATED_EVALS
+## }
+
 C
 C     FUNCTIONS
 C
@@ -98,6 +123,17 @@ C
 C ----------
 C BEGIN CODE
 C ----------
+
+## if (color_correlation) {
+C
+C Reinitialize color correlated values
+C
+     DO CCIA=1,COLOR_CORRELATORS_TO_CONSIDER(0)
+       CCI = COLOR_CORRELATORS_TO_CONSIDER(CCIA)
+       COLOR_CORRELATED_EVALS(CCI) = 0.0d0
+     ENDDO
+## }
+
       IF(USERHEL.EQ.-1) NTRY=NTRY+1
       DO IHEL=1,NEXTERNAL
          JC(IHEL) = +1
@@ -120,8 +156,13 @@ C     For this reason, we simply remove the filterin when there is only three ex
 				    IF(NTRY.GE.2.AND.POLARIZATIONS(0,0).ne.-1.and.(.not.%(proc_prefix)sIS_BORN_HEL_SELECTED(IHEL))) THEN
                         CYCLE
                     ENDIF
+                    DO_INCLUDE_HEL_CONTRIB = (POLARIZATIONS(0,0).eq.-1.or.%(proc_prefix)sIS_BORN_HEL_SELECTED(IHEL))
+## if (not color_correlation) {             
                     T=%(proc_prefix)sMATRIX(P ,NHEL(1,IHEL),JC(1))
-                    IF(POLARIZATIONS(0,0).eq.-1.or.%(proc_prefix)sIS_BORN_HEL_SELECTED(IHEL)) THEN
+## } else {
+                    T=%(proc_prefix)sMATRIX(P ,NHEL(1,IHEL),JC(1), DO_INCLUDE_HEL_CONTRIB)
+## }
+                    IF(DO_INCLUDE_HEL_CONTRIB) THEN
                         ANS=ANS+T
                     ENDIF
 				    IF (T .NE. 0D0 .AND. .NOT.    GOODHEL(IHEL)) THEN
@@ -131,20 +172,42 @@ C     For this reason, we simply remove the filterin when there is only three ex
 		     ENDIF
           ENDDO
       ANS=ANS/DBLE(IDEN)
+## if (color_correlation) {
+      DO CCIA=1,COLOR_CORRELATORS_TO_CONSIDER(0)
+         CCI = COLOR_CORRELATORS_TO_CONSIDER(CCIA)
+         COLOR_CORRELATED_EVALS(CCI) = COLOR_CORRELATED_EVALS(CCI)/DBLE(IDEN)
+      ENDDO
+## }
 	  IF(USERHEL.NE.-1) THEN
-          ANS=ANS*HELAVGFACTOR	  
+          ANS=ANS*HELAVGFACTOR
+## if (color_correlation) {
+          DO CCIA=1,COLOR_CORRELATORS_TO_CONSIDER(0)
+            CCI = COLOR_CORRELATORS_TO_CONSIDER(CCIA)
+            COLOR_CORRELATED_EVALS(CCI) = COLOR_CORRELATED_EVALS(CCI)*HELAVGFACTOR
+          ENDDO
+## }
 	  ELSE
 		DO J=1,NINITIAL
 		  IF (POLARIZATIONS(J,0).ne.-1) THEN
             ANS=ANS*BEAMS_HELAVGFACTOR(J)
             ANS=ANS/POLARIZATIONS(J,0)
+## if (color_correlation) {
+          DO CCIA=1,COLOR_CORRELATORS_TO_CONSIDER(0)
+            CCI = COLOR_CORRELATORS_TO_CONSIDER(CCIA)
+            COLOR_CORRELATED_EVALS(CCI) = COLOR_CORRELATED_EVALS(CCI)*BEAMS_HELAVGFACTOR(J)
+            COLOR_CORRELATED_EVALS(CCI) = COLOR_CORRELATED_EVALS(CCI)/POLARIZATIONS(J,0)
+          ENDDO
+## }
 		  ENDIF
 		ENDDO
 	  ENDIF
 	  END
        
-       
+## if (not color_correlation) {                 
       REAL*8 FUNCTION %(proc_prefix)sMATRIX(P,NHEL,IC)
+## } else {
+      REAL*8 FUNCTION %(proc_prefix)sMATRIX(P,NHEL,IC, DO_INCLUDE_HEL_CONTRIB)
+## }
 C  
 %(info_lines)s
 C
@@ -172,6 +235,9 @@ C ARGUMENTS
 C  
       REAL*8 P(0:3,NEXTERNAL)
       INTEGER NHEL(NEXTERNAL), IC(NEXTERNAL)
+## if (color_correlation) {
+      LOGICAL DO_INCLUDE_HEL_CONTRIB
+## }
 C  
 C LOCAL VARIABLES 
 C  
@@ -191,6 +257,29 @@ C
 C COLOR DATA
 C  
 %(color_data_lines)s
+## if (color_correlation) {
+
+C
+C COLOR CORRELATORS DATA
+C
+C     CCI will be the general color correlated index in loops
+C     and CCIA is the index of the loop over COLOR_CORRELATORS_TO_CONSIDER
+INTEGER CCI, CCIA
+ 
+INTEGER NCOLORCORRELATORS
+PARAMETER (NCOLORCORRELATORS=%(n_color_correlators)d)
+
+COMPLEX*16 CCZTEMP(NCOLORCORRELATORS)
+
+C Index 0 is the number of correlators to consider and the next indices are which one to consider
+INTEGER COLOR_CORRELATORS_TO_CONSIDER(0:NCOLORCORRELATORS)
+REAL*8 COLOR_CORRELATED_EVALS(NCOLORCORRELATORS)
+COMMON/%(proc_prefix)sCOLOR_CORRELATIONS/COLOR_CORRELATORS_TO_CONSIDER, COLOR_CORRELATED_EVALS
+
+INTEGER CC_DENOM(NCOLORCORRELATORS,NCOLOR), CC_CF(NCOLORCORRELATORS,NCOLOR,NCOLOR)
+%(color_correlators_data_lines)s
+
+## }
 C ----------
 C BEGIN CODE
 C ----------
@@ -200,10 +289,31 @@ C ----------
       %(proc_prefix)sMATRIX = 0.D0 
       DO I = 1, NCOLOR
           ZTEMP = (0.D0,0.D0)
+## if (color_correlation) {
+     DO CCI=1,NCOLORCORRELATORS
+       CCZTEMP(CCI) = (0.D0,0.D0)
+     ENDDO
+## }
           DO J = 1, NCOLOR
               ZTEMP = ZTEMP + CF(J,I)*JAMP(J)
+## if (color_correlation) {
+     IF (DO_INCLUDE_HEL_CONTRIB) THEN
+       DO CCIA=1,COLOR_CORRELATORS_TO_CONSIDER(0)
+         CCI = COLOR_CORRELATORS_TO_CONSIDER(CCIA)
+         CCZTEMP(CCI) = CCZTEMP(CCI) + CC_CF(CCI,J,I)*JAMP(J)
+       ENDDO
+     ENDIF 
+## }
           ENDDO
-          %(proc_prefix)sMATRIX = %(proc_prefix)sMATRIX+ZTEMP*DCONJG(JAMP(I))/DENOM(I)   
+          %(proc_prefix)sMATRIX = %(proc_prefix)sMATRIX+ZTEMP*DCONJG(JAMP(I))/DENOM(I)
+## if (color_correlation) {
+     IF (DO_INCLUDE_HEL_CONTRIB) THEN
+       DO CCIA=1,COLOR_CORRELATORS_TO_CONSIDER(0)
+         CCI = COLOR_CORRELATORS_TO_CONSIDER(CCIA)
+         COLOR_CORRELATED_EVALS(CCI) = COLOR_CORRELATED_EVALS(CCI) + CCZTEMP(CCI)*DCONJG(JAMP(I))/CC_DENOM(CCI,I)
+       ENDDO
+     ENDIF 
+## }      
       ENDDO
 %(amp2_lines)s
       END
@@ -305,3 +415,112 @@ C     ----------
 
       RETURN
       END
+
+## if (color_correlation) {
+      SUBROUTINE %(proc_prefix)sGET_COLOR_CORRELATED_ME(CORRELATED_MES)
+        IMPLICIT NONE
+C       Provide access to the color correlated evaluations
+		INTEGER CCI, I, J
+        INTEGER    NEXTERNAL
+        PARAMETER (NEXTERNAL=%(nexternal)d)
+        INTEGER NCOLORCORRELATORS
+        PARAMETER (NCOLORCORRELATORS=%(n_color_correlators)d)
+
+		REAL*8 CORRELATED_MES(NCOLORCORRELATORS, 0:1)
+CF2PY INTENT(OUT) :: CORRELATED_MES
+  
+C Index 0 is the number of correlators to consider and the next indices are which one to consider
+        INTEGER COLOR_CORRELATORS_TO_CONSIDER(0:NCOLORCORRELATORS)        
+        REAL*8 COLOR_CORRELATED_EVALS(NCOLORCORRELATORS)                
+        COMMON/%(proc_prefix)sCOLOR_CORRELATIONS/COLOR_CORRELATORS_TO_CONSIDER, COLOR_CORRELATED_EVALS
+        
+        DO CCI=1,NCOLORCORRELATORS
+            CORRELATED_MES(CCI, 0) = COLOR_CORRELATED_EVALS(CCI)
+            CORRELATED_MES(CCI, 1) = COLOR_CORRELATED_EVALS(CCI)            
+        ENDDO
+
+      END
+      
+      SUBROUTINE %(proc_prefix)sGET_N_COLOR_CORRELATORS(N_COLOR_CORRELATORS)
+C       Provide access to the number of color correlators
+
+		INTEGER N_COLOR_CORRELATORS
+CF2PY INTENT(OUT) :: N_COLOR_CORRELATORS  
+		
+        INTEGER NCOLORCORRELATORS
+        PARAMETER (NCOLORCORRELATORS=%(n_color_correlators)d)
+        
+        N_COLOR_CORRELATORS = NCOLORCORRELATORS
+
+      END
+      
+      SUBROUTINE %(proc_prefix)sSET_COLOR_CORRELATORS_TO_CONSIDER(FIRST_LEG_INDEX, SECOND_LEG_INDEX)
+        IMPLICIT NONE
+C       Sets which color correlators to compute. If both leg_index are specified, this will select only one.
+C       For each leg index set to -1, we will span the entire set of correlators for that leg index.
+		
+		INTEGER FIRST_LEG_INDEX, SECOND_LEG_INDEX
+CF2PY INTENT(IN) :: FIRST_LEG_INDEX
+CF2PY INTENT(IN) :: SECOND_LEG_INDEX
+
+        INTEGER    NEXTERNAL
+        PARAMETER (NEXTERNAL=%(nexternal)d)
+        INTEGER NCOLORCORRELATORS
+        PARAMETER (NCOLORCORRELATORS=%(n_color_correlators)d)
+        
+		INTEGER I, J, K, NCC_TO_CONSIDER, CC_TO_ADD
+        LOGICAL FOUNDIT
+
+        INTEGER COLOR_CORRELATOR_TO_INDEX(NEXTERNAL,NEXTERNAL)
+%(color_correlator_to_index_data)s
+        
+        INTEGER INDEX_TO_COLOR_CORRELATOR(NCOLORCORRELATORS, 2)
+%(index_to_color_correlator_data)s
+        
+        COMMON/%(proc_prefix)sCOLOR_CORRELATION_MAPS/COLOR_CORRELATOR_TO_INDEX, INDEX_TO_COLOR_CORRELATOR
+        
+C       Index 0 is the number of correlators to consider and the next indices are which one to consider
+		INTEGER COLOR_CORRELATORS_TO_CONSIDER(0:NCOLORCORRELATORS)   
+        REAL*8 COLOR_CORRELATED_EVALS(NCOLORCORRELATORS)                
+        COMMON/%(proc_prefix)sCOLOR_CORRELATIONS/COLOR_CORRELATORS_TO_CONSIDER, COLOR_CORRELATED_EVALS
+        
+        NCC_TO_CONSIDER = 0
+        
+C       First reset the array
+	 	COLOR_CORRELATORS_TO_CONSIDER(0) = 0
+        DO I=1,NCOLORCORRELATORS
+          COLOR_CORRELATORS_TO_CONSIDER(I) = -1
+        ENDDO
+        
+        DO I=1, NEXTERNAL
+          IF (FIRST_LEG_INDEX.ne.-1.and.FIRST_LEG_INDEX.ne.I) THEN
+            CYCLE
+          ENDIF
+          DO J=1, NEXTERNAL
+            IF (SECOND_LEG_INDEX.ne.-1.and.SECOND_LEG_INDEX.ne.J) THEN
+              CYCLE
+            ENDIF
+C           If one of those legs is colorless and does not have a correlator, skip it.
+            CC_TO_ADD = COLOR_CORRELATOR_TO_INDEX(I,J)
+            IF (CC_TO_ADD.le.0) THEN
+              CYCLE
+            ENDIF
+C           Now make sure we have not considered it yet, since (i, j) maps to (j, i) in these correlators
+            FOUNDIT = .FALSE.
+            DO K=1,COLOR_CORRELATORS_TO_CONSIDER(0)
+              IF (COLOR_CORRELATORS_TO_CONSIDER(K).EQ.CC_TO_ADD) THEN
+                FOUNDIT = .TRUE.
+                EXIT
+              ENDIF
+            ENDDO
+            IF (FOUNDIT) THEN
+              CYCLE
+            ENDIF
+            NCC_TO_CONSIDER = NCC_TO_CONSIDER+1
+            COLOR_CORRELATORS_TO_CONSIDER(0) = NCC_TO_CONSIDER
+            COLOR_CORRELATORS_TO_CONSIDER(NCC_TO_CONSIDER) = CC_TO_ADD
+          ENDDO
+        ENDDO
+
+      END
+## }

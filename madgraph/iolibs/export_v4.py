@@ -2149,6 +2149,9 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
     def add_color_correlated_code(self, replace_dict, matrix_element):
         """Writes the code for the computing the spin- and color- correlated matrix elements."""
         
+        if self.opt['color_correlators'] == 'NNLO':
+            raise InvalidCmd("Color correlators for NNLO computations are not implemented yet.")
+        
         if not matrix_element.get('color_matrix') or self.opt['color_correlators'] is None:
             # No color correlation when there are no colored external lines
             replace_dict['n_color_correlators'] = 0
@@ -2396,15 +2399,16 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
                                    'iolibs/template_files/split_orders_helping_functions.inc')
         if write and writer:
             
-            # For convenience we also write the driver check_sa_splitOrders.f
-            # that explicitely writes out the contribution from each squared order.
-            # The original driver still works and is compiled with 'make' while
-            # the splitOrders one is compiled with 'make check_sa_born_splitOrders'
-            # If no writer was defined, we of course foregoe this step.
-            check_sa_writer=writers.FortranWriter(
-                pjoin(os.path.dirname(writer.name),'check_sa_born_splitOrders.f'))
-            self.write_check_sa_splitOrders(squared_orders,split_orders,
-              nexternal,ninitial,proc_prefix,check_sa_writer, replace_dict)
+            if len(split_orders)>0:
+                # For convenience we also write the driver check_sa_splitOrders.f
+                # that explicitely writes out the contribution from each squared order.
+                # The original driver still works and is compiled with 'make' while
+                # the splitOrders one is compiled with 'make check_sa_born_splitOrders'
+                # If no writer was defined, we of course foregoe this step.
+                check_sa_writer=writers.FortranWriter(
+                    pjoin(os.path.dirname(writer.name),'check_sa_born_splitOrders.f'))
+                self.write_check_sa_splitOrders(squared_orders,split_orders,
+                  nexternal,ninitial,proc_prefix,check_sa_writer, replace_dict)
             
             path = replace_dict['template_file']
             content = open(path).read()

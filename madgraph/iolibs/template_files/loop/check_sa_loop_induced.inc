@@ -331,7 +331,7 @@ C       Just show one set of results if there is only one squared coupling_order
           CYCLE
         ENDIF   
 C       Just so as to place the sum last
-        SOINDEX = MOD(K, MATELEM_ARRAY_DIM+1)
+        SOINDEX = MOD(S, MATELEM_ARRAY_DIM+1)
         DO K=0,3
           RUNNING_SUMB(K) = 0.0D0
           RUNNING_ABSSUMB(K) = 0.0D0

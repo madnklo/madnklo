@@ -7931,9 +7931,8 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
 
         #Exporter + Template
         if options['exporter'] == 'v4':
-            
             self._curr_exporter = export_v4.ExportV4Factory(self, noclean, 
-                                   group_subprocesses=group_processes, additional_options = output_options)
+                                   group_subprocesses=group_processes, additional_options=output_options)
         elif options['exporter'] == 'ME7':
             self._curr_exporter = export_ME7.ME7Exporter(self, noclean, group_subprocesses=group_processes)
 

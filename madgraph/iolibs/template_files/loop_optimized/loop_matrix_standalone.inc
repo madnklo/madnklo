@@ -29,7 +29,7 @@ C     Modify the logicals below to chose how the ME must be computed
 C        DIRECT_ME_COMPUTATION    = Each loop amplitude is squared individually against all amplitudes with its own color factor.
 C        ME_COMPUTATION_FROM_JAMP = Amplitudes are first projected onto color flows (many less of them) which are then squared to form the ME.
 C     When setting both computation method to .TRUE., their systematic comparisons will be printed out.
-## if(LoopInduced) {
+## if(LoopInduced or color_correlation) {
       DATA DIRECT_ME_COMPUTATION/.FALSE./
 c     When using this MadLoop output for integration with MadEvent, ME_COMPUTATION_FROM_JAMP *must* be set to .True. because it is necessary to compute the AMP2 setting up the multichanneling. 
       DATA ME_COMPUTATION_FROM_JAMP/.TRUE./
@@ -82,6 +82,7 @@ C
       PARAMETER (NWAVEFUNCS=%(nwavefuncs)d,NLOOPWAVEFUNCS=%(nloopwavefuncs)d)
 	  INTEGER    NCOMB
       PARAMETER (NCOMB=%(ncomb)d)
+
       %(real_dp_format)s     ZERO
       PARAMETER (ZERO=0D0)
 	  %(real_mp_format)s     MP__ZERO
@@ -171,6 +172,8 @@ C When changing this parameter, make sure to correspondingly update the paramete
       INTEGER NPSPOINTS
       DATA NPSPOINTS/0/      
 ## }
+
+      %(real_dp_format)s NORMALIZATIONFACTOR
 
 	  %(real_dp_format)s ACC(0:NSQUAREDSO)
 	  %(real_dp_format)s DP_RES(3,0:NSQUAREDSO,MAXSTABILITYLENGTH)
@@ -1504,6 +1507,19 @@ C Is is possible to simply remove the if statement below to have a running refer
 ## }
 ENDIF
 
+
+NORMALIZATIONFACTOR = 1.0d0/DBLE(IDEN)
+IF (USERHEL.NE.-1) THEN
+  NORMALIZATIONFACTOR = NORMALIZATIONFACTOR*HELAVGFACTOR
+ELSE
+  DO J=1,NINITIAL
+    IF (POLARIZATIONS(J,0).ne.-1) THEN
+      NORMALIZATIONFACTOR=NORMALIZATIONFACTOR*BEAMS_HELAVGFACTOR(J)
+      NORMALIZATIONFACTOR=NORMALIZATIONFACTOR/POLARIZATIONS(J,0)
+    ENDIF
+  ENDDO
+ENDIF
+
 ## if (ComputeColorFlows) {
 C When computing the ME from the color flows, we also compute the born ME from them, so we must apply the normalization factors to the born ME as well.
 IF(((.NOT.DIRECT_ME_COMPUTATION).AND.ME_COMPUTATION_FROM_JAMP)) THEN
@@ -1516,19 +1532,12 @@ DO K=ITEMP,3
 DO K=1,3
 ## }
   DO I=0,NSQUAREDSO
-    ANS(K,I)=ANS(K,I)/DBLE(IDEN)
-    IF (USERHEL.NE.-1) THEN
-      ANS(K,I)=ANS(K,I)*HELAVGFACTOR
-	ELSE
-	  DO J=1,NINITIAL
-	    IF (POLARIZATIONS(J,0).ne.-1) THEN
-          ANS(K,I)=ANS(K,I)*BEAMS_HELAVGFACTOR(J)
-          ANS(K,I)=ANS(K,I)/POLARIZATIONS(J,0)
-		ENDIF
-      ENDDO
-	ENDIF
+    ANS(K,I)=ANS(K,I)*NORMALIZATIONFACTOR
   ENDDO
 ENDDO
+
+C Apply the normalization factor to all color-derived quantities if necessary
+CALL %(proc_prefix)sNORMALIZE_COLOR_FLOWS_DERIVED_QUANTITIES(NORMALIZATIONFACTOR)
 
 ## if (ComputeColorFlows) {
 IF (DIRECT_ME_COMPUTATION.AND.ME_COMPUTATION_FROM_JAMP) THEN

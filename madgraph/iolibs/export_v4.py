@@ -2146,24 +2146,25 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
     #===========================================================================
     # write color-correlated matrix elements
     #===========================================================================
-    def add_color_correlated_code(self, replace_dict, matrix_element):
+    def add_color_correlated_code(self, matrix_element, **opts):
         """Writes the code for the computing the spin- and color- correlated matrix elements."""
         
+        return_dict = {}
         if self.opt['color_correlators'] == 'NNLO':
             raise InvalidCmd("Color correlators for NNLO computations are not implemented yet.")
         
         if not matrix_element.get('color_matrix') or self.opt['color_correlators'] is None:
             # No color correlation when there are no colored external lines
-            replace_dict['n_color_correlators'] = 0
-            replace_dict['color_correlators_data_lines'] = ''
-            replace_dict['color_correlator_to_index_data'] = ''
-            replace_dict['index_to_color_correlator_data'] = ''
-            replace_dict['color_correlators_to_consider_initialization'] = ''
-            return
+            return_dict['n_color_correlators'] = 0
+            return_dict['color_correlators_data_lines'] = ''
+            return_dict['color_correlator_to_index_data'] = ''
+            return_dict['index_to_color_correlator_data'] = ''
+            return_dict['color_correlators_to_consider_initialization'] = ''
+            return return_dict
 
         color_matrix = matrix_element.get('color_matrix')
         process = matrix_element.get('processes')[0]
-        n_external = replace_dict['nexternal']
+        n_external = len(process.get_initial_ids())+len(process.get_final_ids())
         logger.debug("Computing color correlations for %s ..."%
                                         process.nice_string().replace('Process','process'))
         color_correlated_matrices = color_matrix.build_color_correlated_matrices(
@@ -2172,13 +2173,13 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         sorted_color_correlators = sorted(color_correlated_matrices.keys())
         
         # Set n_color_correlators
-        replace_dict['n_color_correlators'] = len(color_correlated_matrices)
+        return_dict['n_color_correlators'] = len(color_correlated_matrices)
         
         # Set the intialization of the array color_correlators_to_consider
         array_set_lines = []
         for i in range(1,len(color_correlated_matrices)+1):
             array_set_lines.append('DATA COLOR_CORRELATORS_TO_CONSIDER(%d) / %d /'%(i, i))
-        replace_dict['color_correlators_to_consider_initialization'] = '\n'.join(array_set_lines)
+        return_dict['color_correlators_to_consider_initialization'] = '\n'.join(array_set_lines)
 
         # Set index_to_color_correlator_data
         array_set_lines = []
@@ -2187,7 +2188,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
                                                     color_correlated_matrices[color_correlator_key][0])))
             array_set_lines.append('DATA (INDEX_TO_COLOR_CORRELATOR(%d, I), I=1,2) / %d, %d/'%\
                                                   (i+1, color_correlator_key[0], color_correlator_key[1]))
-        replace_dict['index_to_color_correlator_data'] = '\n'.join(array_set_lines)
+        return_dict['index_to_color_correlator_data'] = '\n'.join(array_set_lines)
             
         # Set color_correlator_to_index_data
         array_set_lines = []
@@ -2201,13 +2202,27 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
                 index_line.append(index+1)
             array_set_lines.append('DATA (COLOR_CORRELATOR_TO_INDEX(%d, I), I=1,NEXTERNAL) / %s /'%(
                                                             i, ', '.join('%d'%index for index in index_line) ))
-        replace_dict['color_correlator_to_index_data'] = '\n'.join(array_set_lines)
+        return_dict['color_correlator_to_index_data'] = '\n'.join(array_set_lines)
         
+        return_dict.update(self.add_color_correlated_matrices_code(matrix_element, color_correlated_matrices, **opts))
+    
+#        misc.sprint(sorted(color_correlated_matrices.keys()), len(color_correlated_matrices.keys()))
+#        misc.sprint(color_correlated_matrices[(1,2)][0])
+#        misc.sprint(str(color_correlated_matrices[(1,2)][1]))
+        return return_dict
+
+    def add_color_correlated_matrices_code(self, matrix_element, color_correlated_matrices, **opts):
+        """ Writes out the color correlated matrices in a suitable format for this output.
+        In the tree-level output they are encoded directly in the source code via data block statements.
+        In the MadLoop output (hence the need for subclassing) they are written as external files in MadLoop5_resources.
+        The matrix_element is necessary here only for the subclassing."""
+        
+        return_dict = {}
         # Set the color matrices for each color correlator
         # line_break is the number of color_matrix entry before which one introduces a line_break
         line_break = 15
         array_set_lines = []
-        for icc, color_correlator_key in enumerate(sorted_color_correlators):
+        for icc, color_correlator_key in enumerate(sorted(color_correlated_matrices.keys())):
             array_set_lines.append('C Correlator: %s'%(' '.join('%s'%str(repr) for repr in 
                                                     color_correlated_matrices[color_correlator_key][0])))
             color_matrix = color_correlated_matrices[color_correlator_key][1]
@@ -2221,11 +2236,8 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
                                     (icc+1, index + 1, k + 1, min(k + line_break, len(num_list)),
                                      ','.join(["%5r" % i for i in num_list[k:k + line_break]])))
 
-        replace_dict['color_correlators_data_lines'] = '\n'.join(array_set_lines)
-    
-#        misc.sprint(sorted(color_correlated_matrices.keys()), len(color_correlated_matrices.keys()))
-#        misc.sprint(color_correlated_matrices[(1,2)][0])
-#        misc.sprint(str(color_correlated_matrices[(1,2)][1]))
+        return_dict['color_correlators_data_lines'] = '\n'.join(array_set_lines)
+        return return_dict
 
     #===========================================================================
     # write_source_makefile
@@ -2372,7 +2384,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
 
 
         # Now obtain the values for all the place-holders related to the handling of color correlations
-        self.add_color_correlated_code(replace_dict, matrix_element)
+        replace_dict.update(self.add_color_correlated_code(matrix_element))
 
         matrix_template = self.matrix_template
         if self.opt['export_format']=='standalone_msP' :

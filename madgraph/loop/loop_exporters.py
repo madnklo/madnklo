@@ -677,6 +677,9 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
 
         LoopInduced = not matrix_element.get('processes')[0].get('has_born')
         
+        # Specify whether color-correlators are active
+        ColorCorrelation = (not self.opt['color_correlators'] is None)
+        
         # Force the computation of loop color flows for loop_induced processes
         ComputeColorFlows = self.compute_color_flows or LoopInduced
         # The variable AmplitudeReduction is just to make the contextual
@@ -687,7 +690,8 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         TIRCaching = AmplitudeReduction or n_squared_split_orders>1
         MadEventOutput = False
 
-        return {'LoopInduced': LoopInduced,
+        return {'color_correlation' : ColorCorrelation,
+                'LoopInduced': LoopInduced,
                 'ComputeColorFlows': ComputeColorFlows,
                 'AmplitudeReduction': AmplitudeReduction,
                 'TIRCaching': TIRCaching,
@@ -1053,7 +1057,8 @@ PARAMETER(MAX_SPIN_EXTERNAL_PARTICLE=%(max_spin_external_particle)d)
         """Writes out the steering code check_sa. In the optimized output mode,
         All the necessary entries in the replace_dictionary have already been 
         set in write_loopmatrix because it is only there that one has access to
-        the information about split orders."""        
+        the information about split orders."""
+
         replace_dict = copy.copy(matrix_element.rep_dict)     
         for key in ['print_so_born_results','print_so_loop_results',
             'write_so_born_results','write_so_loop_results','set_coupling_target']:
@@ -1066,7 +1071,7 @@ PARAMETER(MAX_SPIN_EXTERNAL_PARTICLE=%(max_spin_external_particle)d)
             file = open(os.path.join(self.template_dir,\
                                           'check_sa_loop_induced.inc')).read()
         file=file%replace_dict
-        writer.writelines(file)
+        writer.writelines(file, context=self.get_context(matrix_element))
          
         # We can always write the f2py wrapper if present (in loop optimized mode, it is)
         if not os.path.isfile(pjoin(self.template_dir,'check_py.f.inc')):
@@ -1534,10 +1539,18 @@ C               ENDIF""")%replace_dict
         # This is to decide wether once to reuse old wavefunction to store new
         # ones (provided they are not used further in the code.)
         bornME.optimization = True
-        return super(LoopProcessExporterFortranSA,self).write_matrix_element_v4(
+        
+        # Turn off the color-correlation code which will anyway be computed 
+        # independently in the comput_color_flows.f routines
+        back_Up_color_correlators = self.opt['color_correlators']
+        self.opt['color_correlators'] = None
+        ret_value = super(LoopProcessExporterFortranSA,self).write_matrix_element_v4(
                                                   writer, bornME, fortran_model, 
                            proc_prefix=matrix_element.rep_dict['proc_prefix'])
-
+        self.opt['color_correlators'] = back_Up_color_correlators
+        
+        return ret_value
+    
     def write_born_amps_and_wfs(self, writer, matrix_element, fortran_model,
                                                                  noSplit=False): 
         """ Writes out the code for the subroutine MP_BORN_AMPS_AND_WFS which 
@@ -2376,9 +2389,7 @@ class LoopProcessOptimizedExporterFortranSA(LoopProcessExporterFortranSA):
                 denominators.append('%6r'%(
                                   coeff[0].denominator*(-1 if coeff[1] else 1)))
             res.append(' '.join(numerators))
-            res.append(' '.join(denominators))            
-        
-        res.append('EOF')
+            res.append(' '.join(denominators))
         
         writer.writelines('\n'.join(res))
     
@@ -2436,9 +2447,25 @@ class LoopProcessOptimizedExporterFortranSA(LoopProcessExporterFortranSA):
                                                 %matrix_element.rep_dict),'w')
         self.write_color_matrix_data_file(dat_writer,
                                              matrix_element.get('color_matrix'))
+        dat_writer.write('\nEOF')
         dat_writer.close() 
 
+        # Now add entries related to the color-correlation data
+        matrix_element.rep_dict.update(self.add_color_correlated_code(matrix_element, 
+                                        file_base_name='LoopColorCorrelatedMatrices'))
+
         if matrix_element.get('processes')[0].get('has_born'):
+
+            if not self.opt['color_correlators'] is None:
+                # Also add data for the Born color-correlated matrices.
+                born_color_matrix = color_amp.ColorMatrix(matrix_element.get('born_color_basis'))
+                process = matrix_element.get('processes')[0]
+                born_color_correlated_matrices = born_color_matrix.build_color_correlated_matrices(
+                        process.get('legs'), process.get('model'), order=self.opt['color_correlators'])
+                # Now write out the corresponding correlators
+                self.add_color_correlated_matrices_code(matrix_element, born_color_correlated_matrices, 
+                                                          file_base_name='BornColorCorrelatedMatrices')
+
             born_col_amps = matrix_element.get_born_color_amplitudes()
             matrix_element.rep_dict['nBornFlows'] = len(born_col_amps)
             dat_writer = open(pjoin('..','MadLoop5_resources',
@@ -2451,8 +2478,8 @@ class LoopProcessOptimizedExporterFortranSA(LoopProcessExporterFortranSA):
             dat_writer = open(pjoin('..','MadLoop5_resources',
                                      '%(proc_prefix)sBornColorFlowMatrix.dat'
                                                 %matrix_element.rep_dict),'w')
-            self.write_color_matrix_data_file(dat_writer,
-                  color_amp.ColorMatrix(matrix_element.get('born_color_basis')))
+            self.write_color_matrix_data_file(dat_writer,born_color_matrix)
+            dat_writer.write('\nEOF')
             dat_writer.close()
         else:
             matrix_element.rep_dict['nBornFlows'] = 0
@@ -2468,7 +2495,7 @@ class LoopProcessOptimizedExporterFortranSA(LoopProcessExporterFortranSA):
             replace_dict['config_index_map_definition'] = ''            
             replace_dict['nmultichannels'] = 0
             replace_dict['nmultichannel_configs'] = 0
-            
+    
         # The nmultichannels entry will be used in the matrix<i> wrappers as 
         # well, so we add it to the general_replace_dict too.
         matrix_element.rep_dict['nmultichannels'] = \
@@ -2823,6 +2850,34 @@ PARAMETER (NSQUAREDSO=%d)"""%matrix_element.rep_dict['nSquaredSO'])
         else:
             # Return it to be written along with the others
             return number_of_calls, file
+
+
+    def add_color_correlated_matrices_code(self, matrix_element, color_correlated_matrices,
+                                                                    file_base_name='LoopColorCorrelatedMatrices'):
+        """ Writes out the color correlated matrices in a suitable format for this output.
+        In the tree-level output they are encoded directly in the source code via data block statements.
+        In the MadLoop output (hence the need for subclassing) they are written as external files in MadLoop5_resources."""
+        
+        # Return a dummy entry since this is not needed here given that the matrices are written as data files.
+        return_dict = {}
+        
+        
+        dat_writer = open(pjoin('..','MadLoop5_resources','%s%s.dat'
+                                                        %(matrix_element.rep_dict['proc_prefix'],file_base_name)),'w')
+        # Set the color matrices for each color correlator
+        for icc, color_correlator_key in enumerate(sorted(color_correlated_matrices.keys())):
+            description = 'Color correlator <M| T%d T%d |M> : %s'%(color_correlator_key[0],color_correlator_key[1],
+                ' '.join('%s'%str(repr) for repr in color_correlated_matrices[color_correlator_key][0]))
+            color_matrix = color_correlated_matrices[color_correlator_key][1]
+            if icc != 0:
+                dat_writer.write('\n')
+            dat_writer.write('%d #%s\n'%(icc+1, description))
+            self.write_color_matrix_data_file(dat_writer, color_matrix)
+        
+        dat_writer.write('\nEOF')
+        dat_writer.close() 
+
+        return return_dict
 
 #===============================================================================
 # LoopProcessExporterFortranSA

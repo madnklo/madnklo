@@ -145,9 +145,14 @@ c
       WRITE(*,*) "Color-correlated evaluations "
       WRITE(*,*) "-----------------------------"
       WRITE(*,*) ""
+      CALL %(proc_prefix)sGET_COLOR_CORRELATED_ME(COLOR_CORRELATED_EVALS)
       RUNNING_SUMC = 0.0d0
       RUNNING_ABSSUMC = 0.0d0
       DO K=1,NSPLITORDERS+1
+C       Just show one set of results if there is only one squared coupling_order
+        IF (K.eq.1.and.NSPLITORDERS.eq.1) THEN
+          CYCLE
+        ENDIF 
 C       Just so as to place the sum last
         SOINDEX = MOD(K, NSPLITORDERS+1)
         RUNNING_SUMB = 0.0d0
@@ -157,7 +162,6 @@ C       Just so as to place the sum last
         ELSE
           WRITE(*,*) '=> Squared order index',SOINDEX,':'
         ENDIF
-        CALL %(proc_prefix)sGET_COLOR_CORRELATED_ME(COLOR_CORRELATED_EVALS)
         DO I=1, NEXTERNAL
           RUNNING_SUMA = 0.0d0
           RUNNING_ABSSUMA = 0.0d0

@@ -36,7 +36,7 @@ C integer    n_max_cg
 C     
 C     LOCAL
 C     
-      INTEGER I,J,K
+      INTEGER I,J,K,S
 C four momenta. Energy is the zeroth component.
       REAL*8 P(0:3,NEXTERNAL)
 	  INTEGER MATELEM_ARRAY_DIM
@@ -48,6 +48,25 @@ C sqrt(s)= center of mass energy
 	  INTEGER RETURNCODE, UNITS, TENS, HUNDREDS
 	  INTEGER NSQUAREDSO_LOOP
 	  REAL*8 , allocatable :: PREC_FOUND(:)
+
+## if (color_correlation) {
+C     Color-correlated MEs
+	  REAL*8 , allocatable :: CCMES(:,:,:)
+	  INTEGER N_COLOR_CORRELATORS
+	  REAL*8 TMP(0:3)
+	  REAL*8 RUNNING_SUMA(0:3),RUNNING_SUMB(0:3),RUNNING_SUMC(0:3)
+	  REAL*8 RUNNING_ABSSUMA(0:3),RUNNING_ABSSUMB(0:3),RUNNING_ABSSUMC(0:3)
+	  INTEGER SOINDEX, CCINDEX
+	  LOGICAL FOUNDONE
+C Control how many terms in the 1/eps expansion to show in
+C color correlation output. 0 is the Born, 1 is loop finite
+C and 2 and 3 are single and double pole residues.
+C Default for loop-induced processes is to show only finite
+	  INTEGER MINRESIDUESTOSHOW
+      PARAMETER (MINRESIDUESTOSHOW = 1)
+	  INTEGER MAXRESIDUESTOSHOW
+      PARAMETER (MAXRESIDUESTOSHOW = 1)
+## }
 
 	  LOGICAL INIT
       DATA INIT/.TRUE./
@@ -79,6 +98,10 @@ C
 	  	ALLOCATE(MATELEM(0:3,0:MATELEM_ARRAY_DIM))
 		CALL %(proc_prefix)sGET_NSQSO_LOOP(NSQUAREDSO_LOOP)
 	  	ALLOCATE(PREC_FOUND(0:NSQUAREDSO_LOOP))
+## if (color_correlation) {
+	  	CALL %(proc_prefix)sGET_N_COLOR_CORRELATORS(N_COLOR_CORRELATORS)    
+	  	ALLOCATE(CCMES(N_COLOR_CORRELATORS,0:3,0:MATELEM_ARRAY_DIM))    
+## }
 C     
 C     INITIALIZATION CALLS
 C     
@@ -191,6 +214,11 @@ c     To chose a particular tartget split order, SOTARGET is an integer labeling
 c     the possible squared order couplings contributions (only in optimized mode)
 c     CALL %(proc_prefix)sSET_COUPLINGORDERS_TARGET(SOTARGET)
 
+## if (color_correlation) {
+C     We can specify which color correlation to also compute
+C     The value -1 indicates that one considers all the leg number
+      CALL %(proc_prefix)sSET_COLOR_CORRELATORS_TO_CONSIDER(-1, -1)
+## }
 C
 C     Now we can call the matrix element
 C
@@ -280,37 +308,92 @@ C
       endif
       enddo
 
-C C
-C C      Copy down here (or read in) the four momenta as a string. 
-C C      
-C C
-C      buff(1)=" 1   0.5630480E+04  0.0000000E+00  0.0000000E+00  0.5630480E+04"
-C      buff(2)=" 2   0.5630480E+04  0.0000000E+00  0.0000000E+00 -0.5630480E+04"
-C      buff(3)=" 3   0.5466073E+04  0.4443190E+03  0.2446331E+04 -0.4864732E+04"
-C      buff(4)=" 4   0.8785819E+03 -0.2533886E+03  0.2741971E+03  0.7759741E+03"
-C      buff(5)=" 5   0.4916306E+04 -0.1909305E+03 -0.2720528E+04  0.4088757E+04"
-C C
-C C      Here the k,E,px,py,pz are read from the string into the momenta array.
-C C      k=1,2          : incoming
-C C      k=3,nexternal  : outgoing
-C C
-C      do i=1,nexternal
-C         read (buff(i),*) k, P(0,i),P(1,i),P(2,i),P(3,i)
-C      enddo
-C
-C C print the momenta out
-C
-C      do i=1,nexternal
-C         write (*,'(i2,1x,5e15.7)') i, P(0,i),P(1,i),P(2,i),P(3,i), 
-C     .dsqrt(dabs(DOT(p(0,i),p(0,i))))
-C      enddo
-C
-C      CALL SLOOPMATRIX(P,MATELEM)
-C
-C      write (*,*) "-------------------------------------------------"
-C      write (*,*) "Matrix element = ", MATELEM(1), " GeV^",
-C      &-(2*nexternal-8)      
-C      write (*,*) "-------------------------------------------------"
+## if (color_correlation) {
+      WRITE(*,*) ''
+      WRITE(*,*) '-----------------------------'
+      WRITE(*,*) 'Color-correlated evaluations '
+      WRITE(*,*) '-----------------------------'
+      IF (MINRESIDUESTOSHOW.EQ.1.AND.MAXRESIDUESTOSHOW.EQ.1) THEN
+        WRITE(*,*) ' The value indicated corresponds to the finite part of the evaluation of this loop-induced process.'
+      ELSE
+        WRITE(*,*) ' Values shown are [Born, Finite, 1/eps, 1/eps**2][',MINRESIDUESTOSHOW,':',(MAXRESIDUESTOSHOW+1),']'
+      ENDIF
+      WRITE(*,*) ''
+C     Access the value of the color correlated MEs computed
+      CALL %(proc_prefix)sGET_COLOR_CORRELATED_ME(CCMES)
+      DO K=0,3
+        RUNNING_SUMC(K) = 0.0D0
+        RUNNING_ABSSUMC(K) = 0.0D0
+      ENDDO
+      DO S=1,MATELEM_ARRAY_DIM+1
+C       Just show one set of results if there is only one squared coupling_order
+        IF (S.eq.1.and.MATELEM_ARRAY_DIM.eq.1) THEN
+          CYCLE
+        ENDIF   
+C       Just so as to place the sum last
+        SOINDEX = MOD(K, MATELEM_ARRAY_DIM+1)
+        DO K=0,3
+          RUNNING_SUMB(K) = 0.0D0
+          RUNNING_ABSSUMB(K) = 0.0D0
+        ENDDO
+        IF (SOINDEX.EQ.0) THEN
+          WRITE(*,*) '=> Sum of all contributions:'
+        ELSE
+          WRITE(*,*) '=> Squared order index',SOINDEX,':'
+        ENDIF
+        DO I=1, NEXTERNAL
+          DO K=0,3
+            RUNNING_SUMA(K) = 0.0D0
+            RUNNING_ABSSUMA(K) = 0.0D0
+          ENDDO
+          FOUNDONE = .FALSE.
+          DO J=1, NEXTERNAL
+            CALL %(proc_prefix)sGET_COLOR_CORRELATOR_ID(J, I, CCINDEX)
+            IF (CCINDEX.LE.0) THEN
+              CYCLE
+            ELSE
+              FOUNDONE = .TRUE.
+              DO K=0,3
+                RUNNING_SUMA(K) = RUNNING_SUMA(K) + CCMES(CCINDEX,K,SOINDEX)
+                RUNNING_ABSSUMA(K) = RUNNING_ABSSUMA(K) + DABS(CCMES(CCINDEX,K,SOINDEX))
+              ENDDO
+              WRITE(*,*) '   <M| T(',J,') T(',I,') |M> =', (CCMES(CCINDEX,K,SOINDEX), K=MINRESIDUESTOSHOW,MAXRESIDUESTOSHOW)
+            ENDIF
+          ENDDO
+          IF (FOUNDONE) THEN
+            DO K=0,3
+              TMP(K) = ABS(RUNNING_SUMA(K)/MAX(RUNNING_ABSSUMA(K),1.0D-99))
+            ENDDO
+            WRITE(*,*) '   Check rel. sum for particle ',I,' =',(TMP(K),K=MINRESIDUESTOSHOW,MAXRESIDUESTOSHOW)
+          ENDIF
+          DO K=0,3
+            RUNNING_SUMB(K) = RUNNING_SUMB(K) + RUNNING_SUMA(K)
+            RUNNING_ABSSUMB(K) = RUNNING_ABSSUMB(K) + RUNNING_ABSSUMA(K)
+          ENDDO
+        ENDDO
+        DO K=0,3
+          TMP(K) = ABS(RUNNING_SUMB(K)/MAX(RUNNING_ABSSUMB(K),1.0D-99))
+        ENDDO
+        WRITE(*,*) '   => Check rel. sum for order ',I,' =',(TMP(K),K=MINRESIDUESTOSHOW,MAXRESIDUESTOSHOW)
+        DO K=0,3
+          RUNNING_SUMC(K) = RUNNING_SUMC(K) + RUNNING_SUMB(K)
+          RUNNING_ABSSUMC(K) = RUNNING_ABSSUMC(K) + RUNNING_ABSSUMB(K)
+        ENDDO
+        WRITE(*,*) ''
+      ENDDO
+      DO K=0,3
+        TMP(K) = ABS(RUNNING_SUMC(K)/MAX(RUNNING_ABSSUMC(K),1.0D-99))
+      ENDDO
+      WRITE(*,*) '   Global check rel. sum for all contribs    =',(TMP(K),K=MINRESIDUESTOSHOW,MAXRESIDUESTOSHOW)
+      WRITE(*,*) ''
+## }
+
+## if (color_correlation) {
+      DEALLOCATE(CCMES)
+## }
+
+      DEALLOCATE(MATELEM)
+	  DEALLOCATE(PREC_FOUND)
 
       end
       

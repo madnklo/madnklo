@@ -420,6 +420,18 @@ class LoopInterface(CheckLoop, CompleteLoop, HelpLoop, CommonLoopInterface):
         # Check Argument validity
         self.check_output(args)
         
+        args, output_options = self.parse_output_options(args)
+        
+        if (not output_options['color_correlators'] is None) and not self.options['loop_optimized_output']:
+            logger.warning('Color correlators are only available with the loop optimized output.')
+            logger.warning('MG5aMC will therefore automatically activate the loop_optimized_output.')
+            self.do_set('loop_optimized_output True')
+
+        if (not output_options['color_correlators'] is None) and not self.options['loop_color_flows']:
+            logger.info('MadLoop computation of loop color flows is activated automatically because it is'+\
+                                                ' necessary for the computation of the color correlations.')
+            self.do_set('loop_color_flows True')
+
         noclean = '-noclean' in args
         force = '-f' in args 
         nojpeg = '-nojpeg' in args
@@ -463,7 +475,8 @@ class LoopInterface(CheckLoop, CompleteLoop, HelpLoop, CommonLoopInterface):
             output_type = 'madloop_matchbox'
 
         self._curr_exporter = export_v4.ExportV4Factory(self, \
-                     noclean, output_type=output_type, group_subprocesses=False)
+                     noclean, output_type=output_type, group_subprocesses=False,
+                     additional_options=output_options)
 
         if self._export_format in ['standalone', 'matchbox']:
             self._curr_exporter.copy_template(self._curr_model)

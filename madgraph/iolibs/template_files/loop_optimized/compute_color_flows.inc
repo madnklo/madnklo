@@ -15,6 +15,18 @@ C Set of subroutines to project the Feynman diagrama amplitudes AMPL onto the co
  	    CALL %(proc_prefix)sCOMPUTE_AMPL2(HEL_MULT)
         CALL %(proc_prefix)sCOMPUTE_JAMP2(HEL_MULT)  
 ## }
+## if(color_correlation){
+ 	    CALL %(proc_prefix)sCOMPUTE_COLOR_CORRELATED_MES(HEL_MULT)
+## }
+        CONTINUE
+      END SUBROUTINE
+
+      SUBROUTINE %(proc_prefix)sNORMALIZE_COLOR_FLOWS_DERIVED_QUANTITIES(NORMALIZATION_FACTOR)
+      IMPLICIT NONE
+      %(real_dp_format)s NORMALIZATION_FACTOR
+## if(color_correlation){
+ 	    CALL %(proc_prefix)sNORMALIZE_COLOR_CORRELATED_MES(NORMALIZATION_FACTOR)
+## }
         CONTINUE
       END SUBROUTINE
       
@@ -237,9 +249,17 @@ C
       PARAMETER ( Proc_Prefix='%(proc_prefix)s')
       CHARACTER*512 LoopColorFlowMatrixName
       PARAMETER ( LoopColorFlowMatrixName='LoopColorFlowMatrix.dat')
+## if(color_correlation){
+      CHARACTER*512 LoopColorCorrelatedMatricesName
+      PARAMETER ( LoopColorCorrelatedMatricesName='LoopColorCorrelatedMatrices.dat')
+## }
 ## if(not LoopInduced){
       CHARACTER*512 BornColorFlowMatrixName
       PARAMETER ( BornColorFlowMatrixName='BornColorFlowMatrix.dat')
+## if(color_correlation){
+      CHARACTER*512 BornColorCorrelatedMatricesName
+      PARAMETER ( BornColorCorrelatedMatricesName='BornColorCorrelatedMatrices.dat')
+## }
 ## }
 
 	  INTEGER NLOOPFLOWS
@@ -248,16 +268,29 @@ C
 	  INTEGER NBORNFLOWS
 	  PARAMETER (NBORNFLOWS=%(nBornFlows)d)
 ## }
+## if(color_correlation){
+      INTEGER NCOLORCORRELATORS
+      PARAMETER (NCOLORCORRELATORS=%(n_color_correlators)d)
+## }
 C  
 C LOCAL VARIABLES 
 C
 C Storing concatenated filenames
       CHARACTER*512 TMP
       CHARACTER*512 LoopColorFlowMatrixN
+## if(color_correlation){
+      CHARACTER*512 LoopColorCorrelatedMatricesN
+## }
 ## if(not LoopInduced){
       CHARACTER*512 BornColorFlowMatrixN
+## if(color_correlation){
+      CHARACTER*512 BornColorCorrelatedMatricesN
 ## }
-	  INTEGER I, J
+## }
+	  INTEGER I, J, DUMMY
+## if(color_correlation){
+      INTEGER ICC
+## }	  
 C
 C GLOBAL VARIABLES
 C
@@ -274,8 +307,15 @@ C This is of course not F77 standard but widely supported by now.
 ## if(not LoopInduced){
 	  TYPE(ColorCoeff), dimension(NLOOPFLOWS,NBORNFLOWS) :: LoopColorFlowMatrix
 	  TYPE(ColorCoeff), dimension(NBORNFLOWS,NBORNFLOWS) :: BornColorFlowMatrix
+## if(color_correlation){
+	  TYPE(ColorCoeff), dimension(NCOLORCORRELATORS,NLOOPFLOWS,NBORNFLOWS) :: LoopColorCorrelatedMatrices
+	  TYPE(ColorCoeff), dimension(NCOLORCORRELATORS,NBORNFLOWS,NBORNFLOWS) :: BornColorCorrelatedMatrices
+## }  
 ## } else {
 	  TYPE(ColorCoeff), dimension(NLOOPFLOWS,NLOOPFLOWS) :: LoopColorFlowMatrix
+## if(color_correlation){
+	  TYPE(ColorCoeff), dimension(NCOLORCORRELATORS,NLOOPFLOWS,NLOOPFLOWS) :: LoopColorCorrelatedMatrices
+## }
 ## }
 	  LOGICAL CMInitialized
 	  DATA CMInitialized/.FALSE./
@@ -283,6 +323,14 @@ C This is of course not F77 standard but widely supported by now.
 	  COMMON/%(proc_prefix)sFLOW_COLOR_MATRIX/LoopColorFlowMatrix, BornColorFlowMatrix, CMInitialized
 ## } else {
 	  COMMON/%(proc_prefix)sFLOW_COLOR_MATRIX/LoopColorFlowMatrix, CMInitialized
+## }
+
+## if(color_correlation){
+## if(not LoopInduced){
+	  COMMON/%(proc_prefix)sCOLOR_CORRELATED_MATRICES/LoopColorCorrelatedMatrices, BornColorCorrelatedMatrices
+## } else {
+	  COMMON/%(proc_prefix)sCOLOR_CORRELATED_MATRICES/LoopColorCorrelatedMatrices
+## }
 ## }
 
 C ----------
@@ -307,6 +355,26 @@ C Initialize the BornColorFlowMatrix
   STOP 'Color factors could not be initialized from file %(proc_prefix)sBornColorFlowMatrix.dat.' 
 603  CONTINUE
   CLOSE(1)
+## if(color_correlation){
+C Initialize the BornColorCorrelatedMatrices
+  CALL JOINPATH(TMP,BornColorCorrelatedMatricesName,BornColorCorrelatedMatricesN)
+  OPEN(1, FILE=BornColorCorrelatedMatricesN, err=1601, status='OLD',   action='READ')
+  DO ICC=1,NCOLORCORRELATORS
+    READ(1,*,END=898) DUMMY
+    IF (DUMMY.ne.ICC) THEN
+      GOTO 1601
+    ENDIF
+    DO I=1,NBORNFLOWS
+      READ(1,*,END=898) (BornColorCorrelatedMatrices(ICC,I,J)%%Num,J=1,NBORNFLOWS)
+      READ(1,*,END=898) (BornColorCorrelatedMatrices(ICC,I,J)%%Denom,J=1,NBORNFLOWS)
+    ENDDO
+  ENDDO
+  GOTO 1603
+1601  CONTINUE
+  STOP 'Color factors could not be initialized from file %(proc_prefix)sBornColorCorrelatedMatrices.dat.' 
+1603  CONTINUE
+  CLOSE(1)
+## }
 ## }
 C Initialize the LoopColorFlowMatrix
   OPEN(1, FILE=LoopColorFlowMatrixN, err=701, status='OLD',           action='READ')
@@ -321,10 +389,36 @@ C Initialize the LoopColorFlowMatrix
   ENDDO
   GOTO 703
 701  CONTINUE
-  STOP 'Color factors could not be initialized from file %(proc_prefix)sBornColorFlowMatrix.dat.' 
+  STOP 'Color factors could not be initialized from file %(proc_prefix)sLoopColorFlowMatrix.dat.' 
 703  CONTINUE
   CLOSE(1)
+## if(color_correlation){
 
+C Initialize the LoopColorCorrelatedMatrices
+  CALL JOINPATH(TMP,LoopColorCorrelatedMatricesName,LoopColorCorrelatedMatricesN)
+  OPEN(1, FILE=LoopColorCorrelatedMatricesN, err=1701, status='OLD',   action='READ')
+  DO ICC=1,NCOLORCORRELATORS
+    READ(1,*,END=898) DUMMY
+    IF (DUMMY.ne.ICC) THEN
+      GOTO 1701
+    ENDIF
+    DO I=1,NLOOPFLOWS
+## if(not LoopInduced){
+      READ(1,*,END=898) (LoopColorCorrelatedMatrices(ICC,I,J)%%Num,J=1,NBORNFLOWS)
+      READ(1,*,END=898) (LoopColorCorrelatedMatrices(ICC,I,J)%%Denom,J=1,NBORNFLOWS)
+## } else {
+      READ(1,*,END=898) (LoopColorCorrelatedMatrices(ICC,I,J)%%Num,J=1,NLOOPFLOWS)
+      READ(1,*,END=898) (LoopColorCorrelatedMatrices(ICC,I,J)%%Denom,J=1,NLOOPFLOWS)
+## }
+    ENDDO
+  ENDDO
+  GOTO 1703
+1701  CONTINUE
+  STOP 'Color factors could not be initialized from file %(proc_prefix)sLoopColorCorrelatedMatrices.dat.' 
+1703  CONTINUE
+  CLOSE(1)
+
+## }
   GOTO 899
 898 CONTINUE
   STOP 'End of file reached. Should not have happened.' 
@@ -837,9 +931,18 @@ C
       INTEGER NCONFIGS
       PARAMETER (NCONFIGS=%(nmultichannel_configs)i)
 ## }
+## if(color_correlation){
+      INTEGER    NSQUAREDSO
+      PARAMETER (NSQUAREDSO=%(nSquaredSO)d)  
+      INTEGER NCOLORCORRELATORS
+      PARAMETER (NCOLORCORRELATORS=%(n_color_correlators)d)
+## }
 C
 C LOCAL VARIABLES
 C
+## if(color_correlation){
+      INTEGER CCI, CCIA
+## }
       INTEGER I,J,K
 C
 C GLOBAL VARIABLES
@@ -851,6 +954,12 @@ C
 	  common/%(proc_prefix)sJAMP2/JAMP2
 ## }
 
+## if(color_correlation){
+C     Index 0 is the number of correlators to consider and the next indices are which one to consider
+      INTEGER COLOR_CORRELATORS_TO_CONSIDER(0:NCOLORCORRELATORS)   
+      %(real_dp_format)s COLOR_CORRELATED_EVALS(NCOLORCORRELATORS, 0:3, 0:NSQUAREDSO)                
+      COMMON/%(proc_prefix)sCOLOR_CORRELATIONS/COLOR_CORRELATORS_TO_CONSIDER, COLOR_CORRELATED_EVALS
+## }
 C ----------
 C BEGIN CODE
 C ----------
@@ -864,6 +973,437 @@ C ----------
   ENDDO
 ## }
 
+## if(color_correlation){
+DO CCIA=1,COLOR_CORRELATORS_TO_CONSIDER(0)
+  CCI = COLOR_CORRELATORS_TO_CONSIDER(CCIA)
+  DO J=0,3
+    DO K=0,NSQUAREDSO
+      COLOR_CORRELATED_EVALS(CCI,J,K) = ZERO
+    ENDDO
+  ENDDO
+ENDDO
+## }
+
 CONTINUE
 
 END SUBROUTINE
+
+## if(color_correlation){
+C --------------------------------------------------------------
+C Beginning of a series of subroutine related to the evaluation
+C and steering of the computation of color-correlated MEs.
+C --------------------------------------------------------------
+
+SUBROUTINE %(proc_prefix)sNORMALIZE_COLOR_CORRELATED_MES(NORMALIZATION_FACTOR)
+IMPLICIT NONE
+
+INTEGER    NEXTERNAL
+PARAMETER (NEXTERNAL=%(nexternal)d)
+INTEGER    NSQUAREDSO
+PARAMETER (NSQUAREDSO=%(nSquaredSO)d)
+INTEGER NCOLORCORRELATORS
+PARAMETER (NCOLORCORRELATORS=%(n_color_correlators)d)
+
+%(real_dp_format)s NORMALIZATION_FACTOR
+
+INTEGER I, J, K
+
+INTEGER COLOR_CORRELATORS_TO_CONSIDER(0:NCOLORCORRELATORS)   
+%(real_dp_format)s COLOR_CORRELATED_EVALS(NCOLORCORRELATORS, 0:3, 0:NSQUAREDSO)                
+COMMON/%(proc_prefix)sCOLOR_CORRELATIONS/COLOR_CORRELATORS_TO_CONSIDER, COLOR_CORRELATED_EVALS
+
+DO I=1,NCOLORCORRELATORS
+  DO K=0,3
+    DO J=0,NSQUAREDSO
+      COLOR_CORRELATED_EVALS(I,K,J) = COLOR_CORRELATED_EVALS(I,K,J)*NORMALIZATION_FACTOR
+    ENDDO
+  ENDDO
+ENDDO
+
+END SUBROUTINE
+
+
+SUBROUTINE %(proc_prefix)sCOMPUTE_COLOR_CORRELATED_MES(HEL_MULT)
+IMPLICIT NONE
+C Subroutine called from COMPUTE_COLOR_FLOWS_DERIVED_QUANTITIES. At this stage, all
+C JAMPS have been properly computed, and the only thing left to do is to actually
+C compute the color correlated MEs using the corresponding color matrices.
+C This is done in a very similar way as in COMPUTE_RES_FROM_JAMP.
+C
+C ARGUMENTS
+C
+
+INTEGER HEL_MULT
+
+C
+C CONSTANTS
+C
+
+INTEGER    NEXTERNAL
+PARAMETER (NEXTERNAL=%(nexternal)d)
+INTEGER    NSQUAREDSO, NLOOPAMPSO, NSO
+PARAMETER (NSQUAREDSO=%(nSquaredSO)d, NLOOPAMPSO=%(nAmpSO)d, NSO=%(nSO)d)
+INTEGER NCOLORCORRELATORS
+PARAMETER (NCOLORCORRELATORS=%(n_color_correlators)d)
+
+INTEGER NLOOPFLOWS
+PARAMETER (NLOOPFLOWS=%(nLoopFlows)d)
+## if(not LoopInduced){
+INTEGER NBORNFLOWS
+PARAMETER (NBORNFLOWS=%(nBornFlows)d)
+C We use the same list of amplitude split order for Born and Loop, so that NBORNAMPSO is always equal to NLOOPAMPSO  
+INTEGER    NBORNAMPSO
+PARAMETER (NBORNAMPSO=NLOOPAMPSO)
+## }
+
+%(complex_dp_format)s IMAG1
+PARAMETER (IMAG1=(0.0d0,1.0d0))
+
+C
+C LOCAL QUANTITIES
+C
+
+INTEGER CCI, CCIA, I, J, M, N, K, ISQSO, DOUBLEFACT
+## if(LoopInduced) {
+INTEGER LOWERBOUND
+## }
+
+INTEGER ORDERS_A(NSO), ORDERS_B(NSO)
+%(complex_dp_format)s COLOR_COEF
+%(real_dp_format)s TEMP(3)
+
+C  
+C FUNCTIONS
+C
+
+C This function belongs to the loop ME computation (loop_matrix.f) and is prefixed with ML5 
+INTEGER %(proc_prefix)sML5SQSOINDEX
+C This function belongs to the Born ME computation (born_matrix.f) and is not prefixed
+INTEGER %(proc_prefix)sSQSOINDEX, %(proc_prefix)sSOINDEX_FOR_AMPORDERS
+
+C
+C GLOBAL QUANTITIES
+C
+
+C Advanced data structure for storing the projection coefficient
+TYPE ColorCoeff
+  sequence
+  integer :: Num
+  integer :: Denom  	      
+ENDTYPE ColorCoeff
+## if(not LoopInduced){
+TYPE(ColorCoeff), dimension(NCOLORCORRELATORS,NLOOPFLOWS,NBORNFLOWS) :: LoopColorCorrelatedMatrices
+TYPE(ColorCoeff), dimension(NCOLORCORRELATORS,NBORNFLOWS,NBORNFLOWS) :: BornColorCorrelatedMatrices
+## } else {
+TYPE(ColorCoeff), dimension(NCOLORCORRELATORS,NLOOPFLOWS,NLOOPFLOWS) :: LoopColorCorrelatedMatrices
+## }
+## if(not LoopInduced){
+COMMON/%(proc_prefix)sCOLOR_CORRELATED_MATRICES/LoopColorCorrelatedMatrices, BornColorCorrelatedMatrices
+## } else {
+COMMON/%(proc_prefix)sCOLOR_CORRELATED_MATRICES/LoopColorCorrelatedMatrices
+## }
+
+C Below is just so as to have access to CMInitialized
+## if(not LoopInduced){
+TYPE(ColorCoeff), dimension(NLOOPFLOWS,NBORNFLOWS) :: LoopColorFlowMatrix
+TYPE(ColorCoeff), dimension(NBORNFLOWS,NBORNFLOWS) :: BornColorFlowMatrix
+## } else {
+TYPE(ColorCoeff), dimension(NLOOPFLOWS,NLOOPFLOWS) :: LoopColorFlowMatrix
+## }
+LOGICAL CMInitialized
+## if(not LoopInduced){
+COMMON/%(proc_prefix)sFLOW_COLOR_MATRIX/LoopColorFlowMatrix, BornColorFlowMatrix, CMInitialized
+## } else {
+COMMON/%(proc_prefix)sFLOW_COLOR_MATRIX/LoopColorFlowMatrix, CMInitialized
+## }
+
+C Index 0 is the number of correlators to consider and the next indices are which one to consider
+INTEGER COLOR_CORRELATORS_TO_CONSIDER(0:NCOLORCORRELATORS)   
+%(real_dp_format)s COLOR_CORRELATED_EVALS(NCOLORCORRELATORS, 0:3, 0:NSQUAREDSO)                
+COMMON/%(proc_prefix)sCOLOR_CORRELATIONS/COLOR_CORRELATORS_TO_CONSIDER, COLOR_CORRELATED_EVALS
+
+INTEGER SQSO_TARGET
+common/%(proc_prefix)sSOCHOICE/SQSO_TARGET
+
+%(complex_dp_format)s JAMPL(3,NLOOPFLOWS,NLOOPAMPSO)
+common/%(proc_prefix)sJAMPL/JAMPL
+## if(not LoopInduced){
+%(complex_dp_format)s JAMPB(NBORNFLOWS,NBORNAMPSO)
+common/%(proc_prefix)sJAMPB/JAMPB
+## }
+
+LOGICAL UVCT_REQ_SO_DONE,MP_UVCT_REQ_SO_DONE,CT_REQ_SO_DONE,MP_CT_REQ_SO_DONE,LOOP_REQ_SO_DONE,MP_LOOP_REQ_SO_DONE,CTCALL_REQ_SO_DONE,FILTER_SO
+common/%(proc_prefix)sSO_REQS/UVCT_REQ_SO_DONE,MP_UVCT_REQ_SO_DONE,CT_REQ_SO_DONE,MP_CT_REQ_SO_DONE,LOOP_REQ_SO_DONE,MP_LOOP_REQ_SO_DONE,CTCALL_REQ_SO_DONE,FILTER_SO
+
+
+C ----------
+C BEGIN CODE
+C ----------
+
+C Initialization
+if(.NOT.CMInitialized) then
+  CALL %(proc_prefix)sINITIALIZE_FLOW_COLORMATRIX()
+ENDIF
+
+## if(not LoopInduced){
+c Compute the Born color correlated ME from the Born color flow amplitudes (JAMP)
+DO CCIA=1,COLOR_CORRELATORS_TO_CONSIDER(0)
+  CCI = COLOR_CORRELATORS_TO_CONSIDER(CCIA)
+  DO I=1, NBORNFLOWS
+    DO J=I, NBORNFLOWS
+	  COLOR_COEF=DCMPLX(BornColorCorrelatedMatrices(CCI,I,J)%%Num/DBLE(ABS(BornColorCorrelatedMatrices(CCI,I,J)%%Denom)),0.0d0)
+	  IF (BornColorCorrelatedMatrices(CCI,I,J)%%Denom.LT.0) COLOR_COEF=COLOR_COEF*IMAG1
+      DO M=1,NBORNAMPSO
+C It may be that this AmpSO index does not receive contribution by the Born amps (because we put the loop and Born amplitude split orders in a common list)
+        IF (ABS(JAMPB(I,M)).eq.0.0d0) CYCLE
+        DO N=1,NBORNAMPSO
+      	  IF (ABS(JAMPB(J,N)).eq.0.0d0) CYCLE
+C First fetch what orders the split order indices M, N correspond to
+      	  CALL %(proc_prefix)sML5GET_ORDERS_FOR_AMPSOINDEX(M,ORDERS_A)
+      	  CALL %(proc_prefix)sML5GET_ORDERS_FOR_AMPSOINDEX(N,ORDERS_B)
+C Now figure out to which SQSOINDEX these orders together correspond to *in the Born subroutine* (Notice the absence of the ML5 prefix in the functions used then)
+          ISQSO = %(proc_prefix)sSQSOINDEX(%(proc_prefix)sSOINDEX_FOR_AMPORDERS(ORDERS_A),%(proc_prefix)sSOINDEX_FOR_AMPORDERS(ORDERS_B))
+          IF(J.ne.I) THEN
+            DOUBLEFACT=2 
+          ELSE 
+            DOUBLEFACT=1
+          ENDIF
+          TEMP(1) = DOUBLEFACT*HEL_MULT*DBLE(COLOR_COEF*JAMPB(I,M)*DCONJG(JAMPB(J,N)))
+          COLOR_CORRELATED_EVALS(CCI,0,ISQSO) = COLOR_CORRELATED_EVALS(CCI,0,ISQSO) + TEMP(1)
+          IF((.not.FILTER_SO).or.SQSO_TARGET.eq.-1.or.SQSO_TARGET.eq.ISQSO) THEN
+            COLOR_CORRELATED_EVALS(CCI,0,0) = COLOR_CORRELATED_EVALS(CCI,0,0) + TEMP(1)
+          ENDIF
+        ENDDO
+      ENDDO
+    ENDDO
+  ENDDO
+ENDDO
+## }
+
+C Compute the Loop color correlated MEs from the loop color flow amplitudes (JAMPL)
+DO CCIA=1,COLOR_CORRELATORS_TO_CONSIDER(0)
+  CCI = COLOR_CORRELATORS_TO_CONSIDER(CCIA)
+  DO I=1,NLOOPFLOWS
+## if(not LoopInduced){
+    DO J=1,NBORNFLOWS
+## } else {
+    DO J=I,NLOOPFLOWS
+## }
+	  COLOR_COEF=DCMPLX(LoopColorCorrelatedMatrices(CCI,I,J)%%Num/DBLE(ABS(LoopColorCorrelatedMatrices(CCI,I,J)%%Denom)),0.0d0)
+	  IF (LoopColorCorrelatedMatrices(CCI,I,J)%%Denom.LT.0) COLOR_COEF=COLOR_COEF*IMAG1
+      DO M=1,NLOOPAMPSO
+## if(not LoopInduced){
+C It may be that this AmpSO index does not receive contribution by the Loop amps (because we put the loop and Born amplitude split orders in a common list)
+        IF((ABS(JAMPL(1,I,M))+ABS(JAMPL(2,I,M))+ABS(JAMPL(3,I,M))).eq.0.0d0) CYCLE
+        DO N=1,NBORNAMPSO
+C Same for contributions of split order index N by the Born amps
+          IF(ABS(JAMPB(J,N)).eq.0.0d0) CYCLE
+## } else {
+          IF (I.eq.J) THEN
+	        LOWERBOUND = M
+	      ELSE
+	        LOWERBOUND = 1
+	      ENDIF
+          DO N=LOWERBOUND,NLOOPAMPSO
+## }
+            ISQSO = %(proc_prefix)sML5SQSOINDEX(M,N)
+## if(LoopInduced){
+            IF(J.ne.I) THEN
+              DOUBLEFACT=2 
+            ELSEIF (M.ne.N) THEN
+              DOUBLEFACT=2
+		    ELSE
+              DOUBLEFACT=1
+            ENDIF
+           TEMP(1) = DOUBLEFACT*HEL_MULT*DBLE(COLOR_COEF*(JAMPL(1,I,M)*DCONJG(JAMPL(1,J,N))))
+C Computing the quantities below is not strictly necessary since the result should be finite
+C It is however a good cross-check.
+           TEMP(2) = DOUBLEFACT*HEL_MULT*DBLE(COLOR_COEF*(JAMPL(2,I,M)*DCONJG(JAMPL(1,J,N)) + JAMPL(1,I,M)*DCONJG(JAMPL(2,J,N))))
+           TEMP(3) = DOUBLEFACT*HEL_MULT*DBLE(COLOR_COEF*(JAMPL(3,I,M)*DCONJG(JAMPL(1,J,N)) + JAMPL(1,I,M)*DCONJG(JAMPL(3,J,N))+JAMPL(2,I,M)*DCONJG(JAMPL(2,J,N))))
+## }
+           DO K=1,3
+## if(not LoopInduced){      
+             TEMP(K) = 2.0d0*HEL_MULT*DBLE(COLOR_COEF*JAMPL(K,I,M)*DCONJG(JAMPB(J,N)))
+## }
+             COLOR_CORRELATED_EVALS(CCI,K,ISQSO) = COLOR_CORRELATED_EVALS(CCI,K,ISQSO) + TEMP(K)
+          ENDDO
+          IF((.NOT.FILTER_SO).OR.SQSO_TARGET.eq.-1.or.SQSO_TARGET.eq.ISQSO) THEN
+            DO K=1,3
+              COLOR_CORRELATED_EVALS(CCI,K,0) = COLOR_CORRELATED_EVALS(CCI,K,0) + TEMP(K)
+            ENDDO
+          ENDIF
+        ENDDO
+      ENDDO
+    ENDDO
+  ENDDO
+ENDDO
+
+END SUBROUTINE %(proc_prefix)sCOMPUTE_COLOR_CORRELATED_MES
+
+      SUBROUTINE %(proc_prefix)sGET_COLOR_CORRELATED_ME(CORRELATED_MES)
+        IMPLICIT NONE
+C       Provide access to the color correlated evaluations
+		INTEGER CCI, I, J, K
+        INTEGER    NEXTERNAL
+        PARAMETER (NEXTERNAL=%(nexternal)d)
+        INTEGER    NSQAMPSO
+        PARAMETER (NSQAMPSO=%(nSquaredSO)d)
+        
+        INTEGER NCOLORCORRELATORS
+        PARAMETER (NCOLORCORRELATORS=%(n_color_correlators)d)
+        INTEGER    NCOLOR_CORRELATED_EVALS_ENTRIES
+        PARAMETER (NCOLOR_CORRELATED_EVALS_ENTRIES=4*(NSQAMPSO+1)*NCOLORCORRELATORS)
+
+		%(real_dp_format)s CORRELATED_MES(NCOLORCORRELATORS, 0:3, 0:NSQAMPSO)
+CF2PY INTENT(OUT) :: CORRELATED_MES
+  
+C Index 0 is the number of correlators to consider and the next indices are which one to consider
+        INTEGER COLOR_CORRELATORS_TO_CONSIDER(0:NCOLORCORRELATORS)        
+        %(real_dp_format)s COLOR_CORRELATED_EVALS(NCOLORCORRELATORS, 0:3, 0:NSQAMPSO)   
+        DATA (((COLOR_CORRELATED_EVALS(I,J,K),I=1,NCOLORCORRELATORS),J=0,3),K=0,NSQAMPSO) /NCOLOR_CORRELATED_EVALS_ENTRIES*0.0d0/
+        COMMON/%(proc_prefix)sCOLOR_CORRELATIONS/COLOR_CORRELATORS_TO_CONSIDER, COLOR_CORRELATED_EVALS
+        
+        DO CCI=1,NCOLORCORRELATORS
+          DO K=0,3
+            DO J=0,NSQAMPSO
+              CORRELATED_MES(CCI, K, J) = COLOR_CORRELATED_EVALS(CCI, K, J)
+            ENDDO
+          ENDDO
+        ENDDO
+
+      END
+      
+      SUBROUTINE %(proc_prefix)sGET_N_COLOR_CORRELATORS(N_COLOR_CORRELATORS)
+C       Provide access to the number of color correlators
+
+		INTEGER N_COLOR_CORRELATORS
+CF2PY INTENT(OUT) :: N_COLOR_CORRELATORS  
+		
+        INTEGER NCOLORCORRELATORS
+        PARAMETER (NCOLORCORRELATORS=%(n_color_correlators)d)
+        
+        N_COLOR_CORRELATORS = NCOLORCORRELATORS
+
+      END
+
+      SUBROUTINE %(proc_prefix)sGET_COLOR_CORRELATOR_ID(CORRELATED_LEG_A, CORRELATED_LEG_B, ID)
+        IMPLICIT NONE
+        
+        INTEGER    NEXTERNAL
+        PARAMETER (NEXTERNAL=%(nexternal)d)
+        INTEGER NCOLORCORRELATORS
+        PARAMETER (NCOLORCORRELATORS=%(n_color_correlators)d)
+        
+        INTEGER CORRELATED_LEG_A, CORRELATED_LEG_B, ID, INDEX
+CF2PY INTENT(IN) :: CORRELATED_LEG_A
+CF2PY INTENT(IN) :: CORRELATED_LEG_B
+CF2PY INTENT(OUT) :: ID
+
+        INTEGER COLOR_CORRELATOR_TO_INDEX(NEXTERNAL,NEXTERNAL)
+        INTEGER INDEX_TO_COLOR_CORRELATOR(NCOLORCORRELATORS, 2)
+        COMMON/%(proc_prefix)sCOLOR_CORRELATION_MAPS/COLOR_CORRELATOR_TO_INDEX, INDEX_TO_COLOR_CORRELATOR
+
+		INDEX = COLOR_CORRELATOR_TO_INDEX(CORRELATED_LEG_A, CORRELATED_LEG_B)
+		
+		IF (INDEX.LE.0) THEN
+		  ID = -1
+		ELSE
+		  ID = INDEX
+		ENDIF
+
+      END
+      
+      SUBROUTINE %(proc_prefix)sGET_COLOR_CORRELATOR_FOR_ID(INDEX, CORRELATED_LEG_A, CORRELATED_LEG_B)
+        IMPLICIT NONE
+        
+        INTEGER    NEXTERNAL
+        PARAMETER (NEXTERNAL=%(nexternal)d)
+        INTEGER NCOLORCORRELATORS
+        PARAMETER (NCOLORCORRELATORS=%(n_color_correlators)d)
+
+        INTEGER CORRELATED_LEG_A, CORRELATED_LEG_B, INDEX
+CF2PY INTENT(IN) :: INDEX
+CF2PY INTENT(OUT) :: CORRELATED_LEG_A
+CF2PY INTENT(OUT) :: CORRELATED_LEG_B
+
+        INTEGER COLOR_CORRELATOR_TO_INDEX(NEXTERNAL,NEXTERNAL)
+        INTEGER INDEX_TO_COLOR_CORRELATOR(NCOLORCORRELATORS, 2)
+        COMMON/%(proc_prefix)sCOLOR_CORRELATION_MAPS/COLOR_CORRELATOR_TO_INDEX, INDEX_TO_COLOR_CORRELATOR
+
+		CORRELATED_LEG_A = INDEX_TO_COLOR_CORRELATOR(INDEX, 1)
+		CORRELATED_LEG_B = INDEX_TO_COLOR_CORRELATOR(INDEX, 2)
+
+      END
+      
+      SUBROUTINE %(proc_prefix)sSET_COLOR_CORRELATORS_TO_CONSIDER(FIRST_LEG_INDEX, SECOND_LEG_INDEX)
+        IMPLICIT NONE
+C       Sets which color correlators to compute. If both leg_index are specified, this will select only one.
+C       For each leg index set to -1, we will span the entire set of correlators for that leg index.
+		
+		INTEGER FIRST_LEG_INDEX, SECOND_LEG_INDEX
+CF2PY INTENT(IN) :: FIRST_LEG_INDEX
+CF2PY INTENT(IN) :: SECOND_LEG_INDEX
+
+        INTEGER    NEXTERNAL
+        PARAMETER (NEXTERNAL=%(nexternal)d)
+        INTEGER    NSQAMPSO
+        PARAMETER (NSQAMPSO=%(nSquaredSO)d)
+        INTEGER NCOLORCORRELATORS
+        PARAMETER (NCOLORCORRELATORS=%(n_color_correlators)d)
+        
+		INTEGER I, J, K, NCC_TO_CONSIDER, CC_TO_ADD
+        LOGICAL FOUNDIT
+
+        INTEGER COLOR_CORRELATOR_TO_INDEX(NEXTERNAL,NEXTERNAL)
+%(color_correlator_to_index_data)s
+        
+        INTEGER INDEX_TO_COLOR_CORRELATOR(NCOLORCORRELATORS, 2)
+%(index_to_color_correlator_data)s
+        
+        COMMON/%(proc_prefix)sCOLOR_CORRELATION_MAPS/COLOR_CORRELATOR_TO_INDEX, INDEX_TO_COLOR_CORRELATOR
+        
+C       Index 0 is the number of correlators to consider and the next indices are which one to consider
+		INTEGER COLOR_CORRELATORS_TO_CONSIDER(0:NCOLORCORRELATORS)   
+        %(real_dp_format)s COLOR_CORRELATED_EVALS(NCOLORCORRELATORS, 0:3, 0:NSQAMPSO)                
+        COMMON/%(proc_prefix)sCOLOR_CORRELATIONS/COLOR_CORRELATORS_TO_CONSIDER, COLOR_CORRELATED_EVALS
+        
+        NCC_TO_CONSIDER = 0
+        
+C       First reset the array
+	 	COLOR_CORRELATORS_TO_CONSIDER(0) = 0
+        DO I=1,NCOLORCORRELATORS
+          COLOR_CORRELATORS_TO_CONSIDER(I) = -1
+        ENDDO
+        
+        DO I=1, NEXTERNAL
+          IF (FIRST_LEG_INDEX.ne.-1.and.FIRST_LEG_INDEX.ne.I) THEN
+            CYCLE
+          ENDIF
+          DO J=1, NEXTERNAL
+            IF (SECOND_LEG_INDEX.ne.-1.and.SECOND_LEG_INDEX.ne.J) THEN
+              CYCLE
+            ENDIF
+C           If one of those legs is colorless and does not have a correlator, skip it.
+            CC_TO_ADD = COLOR_CORRELATOR_TO_INDEX(I,J)
+            IF (CC_TO_ADD.le.0) THEN
+              CYCLE
+            ENDIF
+C           Now make sure we have not considered it yet, since (i, j) maps to (j, i) in these correlators
+            FOUNDIT = .FALSE.
+            DO K=1,COLOR_CORRELATORS_TO_CONSIDER(0)
+              IF (COLOR_CORRELATORS_TO_CONSIDER(K).EQ.CC_TO_ADD) THEN
+                FOUNDIT = .TRUE.
+                EXIT
+              ENDIF
+            ENDDO
+            IF (FOUNDIT) THEN
+              CYCLE
+            ENDIF
+            NCC_TO_CONSIDER = NCC_TO_CONSIDER+1
+            COLOR_CORRELATORS_TO_CONSIDER(0) = NCC_TO_CONSIDER
+            COLOR_CORRELATORS_TO_CONSIDER(NCC_TO_CONSIDER) = CC_TO_ADD
+          ENDDO
+        ENDDO
+
+      END
+## }

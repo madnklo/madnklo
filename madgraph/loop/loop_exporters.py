@@ -677,8 +677,9 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
 
         LoopInduced = not matrix_element.get('processes')[0].get('has_born')
         
-        # Specify whether color-correlators are active
+        # Specify whether color/spin-correlators are active
         ColorCorrelation = (not self.opt['color_correlators'] is None)
+        SpinCorrelation = (not self.opt['spin_correlators'] is None)
         
         # Force the computation of loop color flows for loop_induced processes
         ComputeColorFlows = self.compute_color_flows or LoopInduced
@@ -691,6 +692,7 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         MadEventOutput = False
 
         return {'color_correlation' : ColorCorrelation,
+                'spin_correlation' : SpinCorrelation,
                 'LoopInduced': LoopInduced,
                 'ComputeColorFlows': ComputeColorFlows,
                 'AmplitudeReduction': AmplitudeReduction,

@@ -28,7 +28,7 @@ c
       double complex fi(6),chi(2)
       double precision p(0:3),sf(2),sfomeg(2),omega(2),fmass,
      &     pp,pp3,sqp0p3,sqm(0:1)
-      integer nhel,nsf,ip,im,nh
+      integer nhel,nsf,ip,im,nh,i
 
       double precision rZero, rHalf, rTwo
       parameter( rZero = 0.0d0, rHalf = 0.5d0, rTwo = 2.0d0 )
@@ -70,8 +70,18 @@ c         write(stdo,*) '             : nsf = ',nsf
 c      endif
 c#endif
 
+      IF (abs(nhel).eq.1000) THEN
+C       The polarization vectors is imposed for spin-correlations.
+C       Therefore simply substitute the momenta and return.
+        fi(3:6) = fi(1:4) 
+      ENDIF
+
       fi(1) = dcmplx(p(0),p(3))*nsf*-1
       fi(2) = dcmplx(p(1),p(2))*nsf*-1
+
+      IF (abs(nhel).eq.1000) THEN
+        RETURN
+      ENDIF
 
       nh = nhel*nsf
 
@@ -152,7 +162,7 @@ c Identical to ixxxxx, except that fi returns only the spinor (without the momen
       double complex fi(4),chi(2)
       double precision p(0:3),sf(2),sfomeg(2),omega(2),fmass,
      &     pp,pp3,sqp0p3,sqm(0:1)
-      integer nhel,nsf,ip,im,nh
+      integer nhel,nsf,ip,im,nh,i
 
       double precision rZero, rHalf, rTwo
       parameter( rZero = 0.0d0, rHalf = 0.5d0, rTwo = 2.0d0 )
@@ -196,6 +206,12 @@ c#endif
 
 c$$$      fi(1) = dcmplx(p(0),p(3))*nsf*-1
 c$$$      fi(2) = dcmplx(p(1),p(2))*nsf*-1
+
+      IF (abs(nhel).eq.1000) THEN
+C       The polarization vectors is imposed for spin-correlations.
+        fi(1:4) = fi(1:4)
+        RETURN
+      ENDIF
 
       nh = nhel*nsf
 
@@ -288,7 +304,7 @@ c
       double complex fo(6),chi(2)
       double precision p(0:3),sf(2),sfomeg(2),omega(2),fmass,
      &     pp,pp3,sqp0p3,sqm(0:1)
-      integer nhel,nsf,nh,ip,im
+      integer nhel,nsf,nh,ip,im,i
 
       double precision rZero, rHalf, rTwo
       parameter( rZero = 0.0d0, rHalf = 0.5d0, rTwo = 2.0d0 )
@@ -330,8 +346,18 @@ c         write(stdo,*) '             : nsf = ',nsf
 c      endif
 c#endif
 
+      IF (abs(nhel).eq.1000) THEN
+C       The polarization vectors is imposed for spin-correlations.
+C       Therefore simply substitute the momenta and return.
+        fo(3:6) = fo(1:4)
+      ENDIF
+
       fo(1) = dcmplx(p(0),p(3))*nsf
       fo(2) = dcmplx(p(1),p(2))*nsf
+
+      IF (abs(nhel).eq.1000) THEN
+        RETURN
+      ENDIF
 
       nh = nhel*nsf
 
@@ -411,7 +437,7 @@ c Identical to oxxxxx, except that fo returns only the spinor (without the momen
       double complex fo(4),chi(2)
       double precision p(0:3),sf(2),sfomeg(2),omega(2),fmass,
      &     pp,pp3,sqp0p3,sqm(0:1)
-      integer nhel,nsf,nh,ip,im
+      integer nhel,nsf,nh,ip,im,i
 
       double precision rZero, rHalf, rTwo
       parameter( rZero = 0.0d0, rHalf = 0.5d0, rTwo = 2.0d0 )
@@ -455,6 +481,12 @@ c#endif
 
 c$$$      fo(1) = dcmplx(p(0),p(3))*nsf
 c$$$      fo(2) = dcmplx(p(1),p(2))*nsf
+
+      IF (abs(nhel).eq.1000) THEN
+C       The polarization vectors is imposed for spin-correlations.
+        fo(1:4) = fo(1:4)
+        RETURN
+      ENDIF
 
       nh = nhel*nsf
 
@@ -559,6 +591,10 @@ c
       parameter( rZero = 0.0d0, rHalf = 0.5d0 )
       parameter( rOne = 1.0d0, rTwo = 2.0d0 )
 
+      IF (abs(nhel).eq.1000) THEN
+          WRITE(*,*) 'Spin-correlations not supported for pxxxxx'
+          STOP
+      ENDIF
 
       tc(3)=NHEL
       tc(1) = dcmplx(p(0),p(3))*nst
@@ -654,6 +690,11 @@ c
 
       integer stdo
       parameter( stdo = 6 )
+
+      IF (abs(nhel).eq.1000) THEN
+          WRITE(*,*) 'Spin-correlations meaningless for txxxxx'
+          STOP
+      ENDIF
 
       sqh = sqrt(rHalf)
       sqs = sqrt(rHalf/3.d0)
@@ -812,7 +853,7 @@ c
       implicit none
       double complex vc(6)
       double precision p(0:3),vmass,hel,hel0,pt,pt2,pp,pzpt,emp,sqh
-      integer nhel,nsv,nsvahl
+      integer nhel,nsv,nsvahl,i
 
       double precision rZero, rHalf, rOne, rTwo
       parameter( rZero = 0.0d0, rHalf = 0.5d0 )
@@ -862,15 +903,25 @@ c         write(stdo,*) '             : nsv = ',nsv
 c      endif
 c#endif
 
+      IF (abs(nhel).eq.1000) THEN
+C       The polarization vectors is imposed for spin-correlations.
+C       Therefore simply substitute the momenta and return.
+        vc(3:6) = vc(1:4)
+      ENDIF
+
+      vc(1) = dcmplx(p(0),p(3))*nsv
+      vc(2) = dcmplx(p(1),p(2))*nsv
+
+      IF (abs(nhel).eq.1000) THEN
+        RETURN
+      ENDIF
+
       sqh = dsqrt(rHalf)
       hel = dble(nhel)
       nsvahl = nsv*dabs(hel)
       pt2 = p(1)**2+p(2)**2
       pp = min(p(0),dsqrt(pt2+p(3)**2))
       pt = min(pp,dsqrt(pt2))
-
-      vc(1) = dcmplx(p(0),p(3))*nsv
-      vc(2) = dcmplx(p(1),p(2))*nsv
 
 c#ifdef HELAS_CHECK
 c nhel=4 option for scalar polarization
@@ -1400,6 +1451,11 @@ c         write(stdo,*) '             : nsr = ',nsr
 c      endif
 c#endif
 
+      IF (abs(nhel).eq.1000) THEN
+          WRITE(*,*) 'Spin-correlations not supported for irxxxx'
+          STOP
+      ENDIF
+
       sqh = sqrt(rHalf)
       sq2 = sqrt(rTwo)
       sq3 = sqrt(rThree)
@@ -1686,6 +1742,11 @@ c
       double precision rZero, rHalf, rOne, rTwo, rThree, sqh,sq2,sq3
       parameter( rZero = 0.0d0, rHalf = 0.5d0 )
       parameter( rOne = 1.0d0, rTwo = 2.0d0, rThree = 3.0d0 )
+
+      IF (abs(nhel).eq.1000) THEN
+          WRITE(*,*) 'Spin-correlations not supported for orxxxx'
+          STOP
+      ENDIF
 
 c#ifdef HELAS_CHECK
 c      double precision p2

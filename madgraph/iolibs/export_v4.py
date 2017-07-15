@@ -2380,6 +2380,30 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
                 """INTEGER NSQSO_BORN
                    PARAMETER (NSQSO_BORN=%d)"""%replace_dict['nSqAmpSplitOrders'])
 
+        # Now handle the spin_correlations replacements and code
+        if not self.opt['spin_correlators'] is None:
+            if write and writer:
+                # At NLO at most one vector can have spin correlations, at NNLO 2, at N^3LO 3 etc...
+                # We of course restrict ourselves to handling fermions and vectors.
+                writers.FortranWriter(pjoin(os.path.dirname(writer.name),'spin_correlations.inc')
+                 ).writelines(
+"""INTEGER MAX_N_SPIN_CORR_VECTORS, MAX_LEGS_WITH_SPIN_CORR
+PARAMETER (MAX_N_SPIN_CORR_VECTORS=20, MAX_LEGS_WITH_SPIN_CORR=%d)
+C Lists the spin correlation vectors defined for each external leg
+COMPLEX*16 SPIN_CORR_VECTORS(NEXTERNAL,MAX_N_SPIN_CORR_VECTORS,4)
+C Indicates the number of spin correlations vectors defined for each external leg
+INTEGER N_SPIN_CORR_VECTORS(NEXTERNAL)
+
+C Store the list of combination of spin_corr_vectors with which to enhance the loop over helicity combinations
+INTEGER MAX_SPIN_CORR_RUNS
+PARAMETER(MAX_SPIN_CORR_RUNS=MAX_N_SPIN_CORR_VECTORS**MAX_LEGS_WITH_SPIN_CORR)
+C Store the number of spin-correlation runs defined by the user.
+C A run is just a pass through the helas calls for computing the integrand for a specific helicity configuration
+INTEGER N_SPIN_CORR_RUNS
+INTEGER SPIN_CORR_RUNS(0:MAX_SPIN_CORR_RUNS,NEXTERNAL)
+COMMON/%sSPIN_CORRELATION_DATA/SPIN_CORR_VECTORS, N_SPIN_CORR_VECTORS, SPIN_CORR_RUNS, N_SPIN_CORR_RUNS"""
+                %(self.opt['spin_correlators'].count('N'),replace_dict['proc_prefix']))
+
         replace_dict['jamp_lines'] = '\n'.join(jamp_lines)    
 
 
@@ -2426,12 +2450,12 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             content = open(path).read()
             content = content % replace_dict
             # Write the file
-            writer.writelines(content, context={'color_correlation':(not self.opt['color_correlators'] is None)})
+            writer.writelines(content, context=self.get_output_context())
             # Add the helper functions.
             if len(split_orders)>0:
                 content = '\n' + open(replace_dict['template_file2'])\
                                    .read()%replace_dict
-                writer.writelines(content, context={'color_correlation':(not self.opt['color_correlators'] is None)})
+                writer.writelines(content, context=self.get_output_context())
             return len(filter(lambda call: call.find('#') != 0, helas_calls))
         else:
             replace_dict['return_value'] = len(filter(lambda call: call.find('#') != 0, helas_calls))
@@ -2463,11 +2487,18 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
                         'proc_prefix':proc_prefix})
 
         if writer:
-            writer.writelines(check_sa_content % replace_dict, 
-                                         context={'color_correlation': (not self.opt['color_correlators'] is None)})
+            writer.writelines(check_sa_content % replace_dict, context=self.get_output_context())
         else:
             return replace_dict
 
+
+    def get_output_context(self):
+        """ Return a dictionary with the contextual information to apply to the general formatting of files
+        generated in this exporter."""
+        
+        return {'color_correlation': (not self.opt['color_correlators'] is None),
+                'spin_correlation': (not self.opt['spin_correlators'] is None) }
+        
 class ProcessExporterFortranMatchBox(ProcessExporterFortranSA):
     """class to take care of exporting a set of matrix element for the Matchbox
     code in the case of Born only routine"""
@@ -6639,7 +6670,8 @@ def ExportV4Factory(cmd, noclean, output_type='default', group_subprocesses=True
       'compute_color_flows':opt['loop_color_flows'],
       'mode': 'reweight' if format == "standalone_rw" else '',
       'cluster_local_path': opt['cluster_local_path'],
-      'color_correlators' : opt['color_correlators']
+      'color_correlators' : opt['color_correlators'],
+      'spin_correlators' : opt['spin_correlators'],
       }
 
 
@@ -6692,7 +6724,8 @@ def ExportV4Factory(cmd, noclean, output_type='default', group_subprocesses=True
                'sa_symmetry':False, 
                'model': cmd._curr_model.get('name'),
                'v5_model': False if cmd._model_v4_path else True,
-               'color_correlators': opt['color_correlators'] })
+               'color_correlators': opt['color_correlators'],
+               'spin_correlators': opt['spin_correlators'] })
 
         if format in ['standalone_msP', 'standalone_msF', 'standalone_rw']:
             opt['sa_symmetry'] = True      

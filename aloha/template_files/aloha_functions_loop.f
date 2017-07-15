@@ -28,7 +28,7 @@ c
       double complex fi(8),chi(2)
       double precision p(0:3),sf(2),sfomeg(2),omega(2),fmass,
      &     pp,pp3,sqp0p3,sqm(0:1)
-      integer nhel,nsf,ip,im,nh
+      integer nhel,nsf,ip,im,nh,i
 
       double precision rZero, rHalf, rTwo
       parameter( rZero = 0.0d0, rHalf = 0.5d0, rTwo = 2.0d0 )
@@ -74,11 +74,21 @@ c     Convention for trees
 c      fi(5) = dcmplx(p(0),p(3))*nsf
 c      fi(6) = dcmplx(p(1),p(2))*nsf
 
+      IF (abs(nhel).eq.1000) THEN
+C       The polarization vectors is imposed for spin-correlations.
+C       Therefore simply substitute the momenta and return.
+        fi(5:8) = fi(1:4)
+      ENDIF
+
 c     Convention for loop computations
       fi(1) = dcmplx(p(0),0.D0)*(-nsf)
       fi(2) = dcmplx(p(1),0.D0)*(-nsf)
       fi(3) = dcmplx(p(2),0.D0)*(-nsf)
       fi(4) = dcmplx(p(3),0.D0)*(-nsf)
+
+      IF (abs(nhel).eq.1000) THEN
+        RETURN
+      ENDIF
 
       nh = nhel*nsf
 
@@ -172,7 +182,7 @@ c
       double complex fi(4),chi(2)
       double precision p(0:3),sf(2),sfomeg(2),omega(2),fmass,
      &     pp,pp3,sqp0p3,sqm(0:1)
-      integer nhel,nsf,ip,im,nh
+      integer nhel,nsf,ip,im,nh,i
 
       double precision rZero, rHalf, rTwo
       parameter( rZero = 0.0d0, rHalf = 0.5d0, rTwo = 2.0d0 )
@@ -223,6 +233,12 @@ c$$$      fi(1) = dcmplx(p(0),0.D0)*(-nsf)
 c$$$      fi(2) = dcmplx(p(1),0.D0)*(-nsf)
 c$$$      fi(3) = dcmplx(p(2),0.D0)*(-nsf)
 c$$$      fi(4) = dcmplx(p(3),0.D0)*(-nsf)
+
+      IF (abs(nhel).eq.1000) THEN
+C       The polarization vectors is imposed for spin-correlations.
+        fi(1:4) = fi(1:4)
+        RETURN
+      ENDIF
 
       nh = nhel*nsf
 
@@ -315,15 +331,26 @@ c
       complex*32 fi(8),chi(2)
       real*16 p(0:3),sf(2),sfomeg(2),omega(2),fmass,
      &     pp,pp3,sqp0p3,sqm(0:1)
-      integer nhel,nsf,ip,im,nh
+      integer nhel,nsf,ip,im,nh,i
 
       real*16 rZero, rHalf, rTwo
       parameter( rZero = 0.0e0_16, rHalf = 0.5e0_16, rTwo = 2.0e0_16 )
+
+      IF (abs(nhel).eq.1000) THEN
+C       The polarization vectors is imposed for spin-correlations.
+C       Therefore simply substitute the momenta and return.
+        fi(5:8) = fi(1:4)
+      ENDIF
+
 c     Convention for loop computations
       fi(1) = cmplx(p(0),rZero,KIND=16)*(-nsf)
       fi(2) = cmplx(p(1),rZero,KIND=16)*(-nsf)
       fi(3) = cmplx(p(2),rZero,KIND=16)*(-nsf)
       fi(4) = cmplx(p(3),rZero,KIND=16)*(-nsf)
+
+      IF (abs(nhel).eq.1000) THEN
+        RETURN
+      ENDIF
 
       nh = nhel*nsf
 
@@ -415,7 +442,7 @@ c
       double complex fo(8),chi(2)
       double precision p(0:3),sf(2),sfomeg(2),omega(2),fmass,
      &     pp,pp3,sqp0p3,sqm(0:1)
-      integer nhel,nsf,nh,ip,im
+      integer nhel,nsf,nh,ip,im,i
 
       double precision rZero, rHalf, rTwo
       parameter( rZero = 0.0d0, rHalf = 0.5d0, rTwo = 2.0d0 )
@@ -461,12 +488,21 @@ c     Convention for trees
 c      fo(5) = dcmplx(p(0),p(3))*nsf
 c      fo(6) = dcmplx(p(1),p(2))*nsf
 
+      IF (abs(nhel).eq.1000) THEN
+C       The polarization vectors is imposed for spin-correlations.
+C       Therefore simply substitute the momenta and return.
+        fo(5:8) = fo(1:4)
+      ENDIF
+
 c     Convention for loop computations
       fo(1) = dcmplx(p(0),0.D0)*(nsf)
       fo(2) = dcmplx(p(1),0.D0)*(nsf)
       fo(3) = dcmplx(p(2),0.D0)*(nsf)
       fo(4) = dcmplx(p(3),0.D0)*(nsf)
 
+      IF (abs(nhel).eq.1000) THEN
+        RETURN
+      ENDIF
 
       nh = nhel*nsf
 
@@ -560,7 +596,7 @@ c
       double complex fo(4),chi(2)
       double precision p(0:3),sf(2),sfomeg(2),omega(2),fmass,
      &     pp,pp3,sqp0p3,sqm(0:1)
-      integer nhel,nsf,nh,ip,im
+      integer nhel,nsf,nh,ip,im,i
 
       double precision rZero, rHalf, rTwo
       parameter( rZero = 0.0d0, rHalf = 0.5d0, rTwo = 2.0d0 )
@@ -612,6 +648,13 @@ c$$$      fo(2) = dcmplx(p(1),0.D0)*(nsf)
 c$$$      fo(3) = dcmplx(p(2),0.D0)*(nsf)
 c$$$      fo(4) = dcmplx(p(3),0.D0)*(nsf)
 
+
+      IF (abs(nhel).eq.1000) THEN
+C       The polarization vectors is imposed for spin-correlations.
+C       Therefore simply substitute the momenta and return.
+        fo(1:4) = fo(1:4)
+        RETURN
+      ENDIF
 
       nh = nhel*nsf
 
@@ -705,10 +748,16 @@ c
       complex*32 fo(8),chi(2)
       real*16 p(0:3),sf(2),sfomeg(2),omega(2),fmass,
      &     pp,pp3,sqp0p3,sqm(0:1)
-      integer nhel,nsf,nh,ip,im
+      integer nhel,nsf,nh,ip,im,i
 
       real*16 rZero, rHalf, rTwo
       parameter( rZero = 0.0e0_16, rHalf = 0.5e0_16, rTwo = 2.0e0_16 )
+
+      IF (abs(nhel).eq.1000) THEN
+C       The polarization vectors is imposed for spin-correlations.
+C       Therefore simply substitute the momenta and return.
+        fo(5:8) = fo(1:4)
+      ENDIF
 
 c     Convention for loop computations
       fo(1) = cmplx(p(0),rZero,KIND=16)*nsf
@@ -716,6 +765,9 @@ c     Convention for loop computations
       fo(3) = cmplx(p(2),rZero,KIND=16)*nsf
       fo(4) = cmplx(p(3),rZero,KIND=16)*nsf
 
+      IF (abs(nhel).eq.1000) THEN
+        RETURN  
+      ENDIF
 
       nh = nhel*nsf
 
@@ -821,6 +873,10 @@ c
       parameter( rZero = 0.0d0, rHalf = 0.5d0 )
       parameter( rOne = 1.0d0, rTwo = 2.0d0 )
 
+      IF (abs(nhel).eq.1000) THEN
+          WRITE(*,*) 'Spin-correlations not supported for pxxxxx'
+          STOP
+      ENDIF
 
       tc(5)=NHEL
 
@@ -866,6 +922,10 @@ c
       parameter( rZero = 0.0e0_16, rHalf = 0.5e0_16 )
       parameter( rOne = 1.0e0_16, rTwo = 2.0e0_16 )
 
+      IF (abs(nhel).eq.1000) THEN
+          WRITE(*,*) 'Spin-correlations not supported for mp_pxxxxx'
+          STOP
+      ENDIF
 
       tc(5)=NHEL
 
@@ -968,6 +1028,7 @@ c
       real*16 rOne
       parameter( rOne = 1.0e0_16 )
 
+
       sc(5) = cmplx( rOne , KIND=16)
 
 c     Convention for trees
@@ -1012,6 +1073,11 @@ c
 
       integer stdo
       parameter( stdo = 6 )
+
+      IF (abs(nhel).eq.1000) THEN
+          WRITE(*,*) 'Spin-correlations not supported for txxxxx'
+          STOP
+      ENDIF
 
       sqh = sqrt(rHalf)
       sqs = sqrt(rHalf/3.d0)
@@ -1193,6 +1259,11 @@ c
       integer stdo
       parameter( stdo = 6 )
 
+      IF (abs(nhel).eq.1000) THEN
+          WRITE(*,*) 'Spin-correlations not supported for mp_txxxxx'
+          STOP
+      ENDIF
+
       sqh = sqrt(rHalf)
       sqs = sqrt(rHalf/3.0e0_16)
 
@@ -1359,7 +1430,7 @@ c
       implicit none
       double complex vc(8)
       double precision p(0:3),vmass,hel,hel0,pt,pt2,pp,pzpt,emp,sqh
-      integer nhel,nsv,nsvahl
+      integer nhel,nsv,nsvahl,i
 
       double precision rZero, rHalf, rOne, rTwo
       parameter( rZero = 0.0d0, rHalf = 0.5d0 )
@@ -1409,6 +1480,22 @@ c         write(stdo,*) '             : nsv = ',nsv
 c      endif
 c#endif
 
+      IF (abs(nhel).eq.1000) THEN
+C       The polarization vectors is imposed for spin-correlations.
+C       Therefore simply substitute the momenta and return.
+        vc(5:8) = vc(1:4)
+      ENDIF
+
+c     Convention for loop computations
+      vc(1) = dcmplx(p(0),0.D0)*nsv
+      vc(2) = dcmplx(p(1),0.D0)*nsv
+      vc(3) = dcmplx(p(2),0.D0)*nsv
+      vc(4) = dcmplx(p(3),0.D0)*nsv
+
+      IF (abs(nhel).eq.1000) THEN
+        RETURN
+      ENDIF
+
       sqh = dsqrt(rHalf)
       hel = dble(nhel)
       nsvahl = nsv*dabs(hel)
@@ -1419,12 +1506,6 @@ c#endif
 c     Convention for trees
 c      vc(5) = dcmplx(p(0),p(3))*nsv
 c      vc(6) = dcmplx(p(1),p(2))*nsv
-
-c     Convention for loop computations
-      vc(1) = dcmplx(p(0),0.D0)*nsv
-      vc(2) = dcmplx(p(1),0.D0)*nsv
-      vc(3) = dcmplx(p(2),0.D0)*nsv
-      vc(4) = dcmplx(p(3),0.D0)*nsv
 
 c#ifdef HELAS_CHECK
 c nhel=4 option for scalar polarization
@@ -1510,11 +1591,27 @@ c
       implicit none
       complex*32 vc(8)
       real*16 p(0:3),vmass,hel,hel0,pt,pt2,pp,pzpt,emp,sqh
-      integer nhel,nsv,nsvahl
+      integer nhel,nsv,nsvahl,I
 
       real*16 rZero, rHalf, rOne, rTwo
       parameter( rZero = 0.0e0_16, rHalf = 0.5e0_16 )
       parameter( rOne = 1.0e0_16, rTwo = 2.0e0_16 )
+
+      IF (abs(nhel).eq.1000) THEN
+C       The polarization vectors is imposed for spin-correlations.
+C       Therefore simply substitute the momenta and return.
+        vc(5:8) = vc(1:4)
+      ENDIF
+
+c     Convention for loop computations
+      vc(1) = cmplx(p(0),0.e0_16, KIND=16)*nsv
+      vc(2) = cmplx(p(1),0.e0_16, KIND=16)*nsv
+      vc(3) = cmplx(p(2),0.e0_16, KIND=16)*nsv
+      vc(4) = cmplx(p(3),0.e0_16, KIND=16)*nsv
+
+      IF (abs(nhel).eq.1000) THEN
+         RETURN
+      ENDIF
 
       sqh = sqrt(rHalf)
       hel = real(nhel,KIND=16)
@@ -1522,12 +1619,6 @@ c
       pt2 = p(1)**2+p(2)**2
       pp = min(p(0),sqrt(pt2+p(3)**2))
       pt = min(pp,sqrt(pt2))
-
-c     Convention for loop computations
-      vc(1) = cmplx(p(0),0.e0_16, KIND=16)*nsv
-      vc(2) = cmplx(p(1),0.e0_16, KIND=16)*nsv
-      vc(3) = cmplx(p(2),0.e0_16, KIND=16)*nsv
-      vc(4) = cmplx(p(3),0.e0_16, KIND=16)*nsv
 
       if ( vmass.ne.rZero ) then
 
@@ -2792,11 +2883,17 @@ c     &     pp,pp3,sqp0p3,sqm(0:1)
       double precision sf(2),ffmass
       double complex p(0:3), sfomeg(2),omega(2),
      &     pp,pp3,sqp0p3 
-      integer nhel,nsf,ip,im,nh
+      integer nhel,nsf,ip,im,nh,i
 
       double precision rZero, rHalf, rTwo
       parameter( rZero = 0.0d0, rHalf = 0.5d0, rTwo = 2.0d0 )
       
+
+      IF (abs(nhel).eq.1000) THEN
+C       The polarization vectors is imposed for spin-correlations.
+C       Therefore simply substitute the momenta and return.
+        fi(1:4) = fi(1:4)
+      ENDIF
 
       
 c      fi(5) = dcmplx(p(0),p(3))*nsf
@@ -2805,6 +2902,11 @@ c      fi(6) = dcmplx(p(1),p(2))*nsf
       fi(6) = p(1)*nsf
       fi(7) = p(2)*nsf
       fi(8) = p(3)*nsf
+
+      IF (abs(nhel).eq.1000) THEN
+        RETURN
+      ENDIF
+
 
       nh = nhel*nsf
 
@@ -2922,10 +3024,17 @@ c
 
       double complex p(0:3),sfomeg(2),omega(2),
      &     pp,pp3,sqp0p3
-      integer nhel,nsf,nh,ip,im
+      integer nhel,nsf,nh,ip,im,i
 
       double precision rZero, rHalf, rTwo
       parameter( rZero = 0.0d0, rHalf = 0.5d0, rTwo = 2.0d0 )
+
+
+      IF (abs(nhel).eq.1000) THEN
+C       The polarization vectors is imposed for spin-correlations.
+C       Therefore simply substitute the momenta and return.
+        fo(1:4) = fo(1:4)
+      ENDIF
 
 
 c      fo(5) = dcmplx(p(0),p(3))*nsf
@@ -2934,6 +3043,11 @@ c      fo(6) = dcmplx(p(1),p(2))*nsf
       fo(6) = p(1)*(nsf)
       fo(7) = p(2)*(nsf)
       fo(8) = p(3)*(nsf)      
+
+      IF (abs(nhel).eq.1000) THEN
+        RETURN
+      ENDIF
+
 
       nh = nhel*nsf
 

@@ -422,8 +422,9 @@ class LoopInterface(CheckLoop, CompleteLoop, HelpLoop, CommonLoopInterface):
         
         args, output_options = self.parse_output_options(args)
         
-        if (not output_options['color_correlators'] is None) and not self.options['loop_optimized_output']:
-            logger.warning('Color correlators are only available with the loop optimized output.')
+        if (not output_options['color_correlators'] is None or not output_options['spin_correlators'] is None) and \
+            not self.options['loop_optimized_output']:
+            logger.warning('Color/spin correlators are only available with the loop optimized output.')
             logger.warning('MG5aMC will therefore automatically activate the loop_optimized_output.')
             self.do_set('loop_optimized_output True')
 
@@ -433,7 +434,7 @@ class LoopInterface(CheckLoop, CompleteLoop, HelpLoop, CommonLoopInterface):
             self.do_set('loop_color_flows True')
 
         noclean = '-noclean' in args
-        force = '-f' in args 
+        force = '-f' in args
         nojpeg = '-nojpeg' in args
         main_file_name = ""
         try:

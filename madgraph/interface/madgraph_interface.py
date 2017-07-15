@@ -3060,7 +3060,8 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
         """ Parses the option provided via the arguments given to the command output."""
         
         output_options = { 'color_correlators' : None,
-                           'postpone_model' : False
+                           'postpone_model' : False,
+                           'spin_correlators' : None
                          }
         
         # First combine all value of the options (starting with '--') separated by a space
@@ -3085,14 +3086,14 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
                 if value not in ['False','off']:
                      output_options['postpone_model'] = True
         
-            elif key=='color_correlators':
+            elif key in ['color_correlators','spin_correlators']:
                 if value not in ['None','NLO','NNLO']:
                     raise InvalidCmd("The value for the option '--%s' can only be in ['None', 'NLO', 'NNLO']."%key)
                 if value == 'None':
-                    output_options['color_correlators'] = None
+                    output_options[key] = None
                 else:
-                    output_options['color_correlators'] = value
-   
+                    output_options[key] = value
+
             else:
                 raise InvalidCmd("Unrecognized option for command output: %s"%key)
 

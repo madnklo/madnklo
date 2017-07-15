@@ -295,12 +295,21 @@ class VirtualMEAccessor(object):
             leg_IDA, leg_IDB, leg_IDC, etc.. ... (these are integer) with the corresponding list of 4-vectors,
             (vec_A1, vec_A2, vec_A3,...), (vec_B1, vec_B2, vec_B3,..), etc... where vec_i are simply 4-tuples of floats.
 
-        -> Color connections are specified by providing what SU(3) generator chain to apply in 
-          between the amplitude product. The format is a list of 2-tuple of the form ('generator_name', (indices)).
-          For instance
-             [ ('T',(-100,3,-1)), ('T',(-200,-1,-2)), ('T',(-100,-2,-3)), ('T',(-200,-3,4)), ('f',(7,-300,-400)), ('f',(-400,-300,8)), ...]
-          Indicates:
-            T^a_(3 i) T^b_(i j) T^a_(j k) T^b_(k 4) f^(7, c, d) f^(d, c, 8) 
+#        -> Color connections are specified by providing what SU(3) generator chain to apply in 
+#          between the amplitude product. The format is a list of 2-tuple of the form ('generator_name', (indices)).
+#          For instance
+#             [ ('T',(-100,3,-1)), ('T',(-200,-1,-2)), ('T',(-100,-2,-3)), ('T',(-200,-3,4)), ('f',(7,-300,-400)), ('f',(-400,-300,8)), ...]
+#          Indicates:
+#            T^a_(3 i) T^b_(i j) T^a_(j k) T^b_(k 4) f^(7, c, d) f^(d, c, 8) 
+
+        -> Color connections are specified at NLO by a simple list of 2-tuple, containing the leg number of each of the
+           two legs color-connected.
+           For instance
+             [ (2, 4), (5, 1), etc...]
+           Indicates the user wants
+             <M| T2 T4 |M>, <M| T5 T1 |M>, etc...
+           With T == t^a_{ij} for quarks and T = i f^{abc} for gluons.
+           /!\ : This notation will require an extension for NNLO and beyond.
         
         -> Helicity configuration to be considered, this can be a tuple like
             (-1, -1, +1 ,-1, +1)

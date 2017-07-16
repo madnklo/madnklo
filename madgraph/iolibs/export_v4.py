@@ -2261,6 +2261,8 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         """Export a matrix element to a matrix.f file in MG4 standalone format
         if write is on False, just return the replace_dict and not write anything."""
 
+        # Obtain the general contextual variables for steering the output
+        tree_context = self.get_tree_context()
 
         if not matrix_element.get('processes') or \
                not matrix_element.get('diagrams'):
@@ -2381,7 +2383,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
                    PARAMETER (NSQSO_BORN=%d)"""%replace_dict['nSqAmpSplitOrders'])
 
         # Now handle the spin_correlations replacements and code
-        if not self.opt['spin_correlators'] is None:
+        if tree_context['spin_correlation_general_resources']:
             if write and writer:
                 # At NLO at most one vector can have spin correlations, at NNLO 2, at N^3LO 3 etc...
                 # We of course restrict ourselves to handling fermions and vectors.
@@ -2450,12 +2452,11 @@ COMMON/%sSPIN_CORRELATION_DATA/SPIN_CORR_VECTORS, N_SPIN_CORR_VECTORS, SPIN_CORR
             content = open(path).read()
             content = content % replace_dict
             # Write the file
-            writer.writelines(content, context=self.get_output_context())
+            writer.writelines(content, context=tree_context)
             # Add the helper functions.
             if len(split_orders)>0:
-                content = '\n' + open(replace_dict['template_file2'])\
-                                   .read()%replace_dict
-                writer.writelines(content, context=self.get_output_context())
+                content = '\n' + open(replace_dict['template_file2']).read()%replace_dict
+                writer.writelines(content, context=tree_context)
             return len(filter(lambda call: call.find('#') != 0, helas_calls))
         else:
             replace_dict['return_value'] = len(filter(lambda call: call.find('#') != 0, helas_calls))
@@ -2487,17 +2488,24 @@ COMMON/%sSPIN_CORRELATION_DATA/SPIN_CORR_VECTORS, N_SPIN_CORR_VECTORS, SPIN_CORR
                         'proc_prefix':proc_prefix})
 
         if writer:
-            writer.writelines(check_sa_content % replace_dict, context=self.get_output_context())
+            writer.writelines(check_sa_content % replace_dict, context=self.get_tree_context())
         else:
             return replace_dict
 
 
-    def get_output_context(self):
+    def get_tree_context(self):
         """ Return a dictionary with the contextual information to apply to the general formatting of files
         generated in this exporter."""
         
+        # The option 'spin_correlation_general_resources' controls whether the global resources related
+        # to the spin-correlation should be output. Indeed, one does not want to output them when these
+        # tree-level MEs are part of a MadLoop output where these global resources are already present.
+        # This is why, in this case, this function is overloaded in the MadLoop exporter so as to always
+        # set 'spin_correlation_general_resources' to False.
         return {'color_correlation': (not self.opt['color_correlators'] is None),
-                'spin_correlation': (not self.opt['spin_correlators'] is None) }
+                'spin_correlation': (not self.opt['spin_correlators'] is None),
+                'spin_correlation_general_resources': (not self.opt['spin_correlators'] is None)
+                 }
         
 class ProcessExporterFortranMatchBox(ProcessExporterFortranSA):
     """class to take care of exporting a set of matrix element for the Matchbox

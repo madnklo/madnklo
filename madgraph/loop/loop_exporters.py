@@ -1125,7 +1125,7 @@ p= [[None,]*4]*%d"""%len(curr_proc.get('legs'))
         file_mp = open(os.path.join(self.template_dir,'improve_ps.inc')).read()
         file_mp=file_mp%replace_dict
         #
-        writer.writelines(file_mp)
+        writer.writelines(file_mp, context=self.get_context(matrix_element))
 
     def write_loop_num(self, writer, matrix_element,fortran_model):
         """ Create the file containing the core subroutine called by CutTools
@@ -1547,11 +1547,19 @@ C               ENDIF""")%replace_dict
         back_Up_color_correlators = self.opt['color_correlators']
         self.opt['color_correlators'] = None
         ret_value = super(LoopProcessExporterFortranSA,self).write_matrix_element_v4(
-                                                  writer, bornME, fortran_model, 
-                           proc_prefix=matrix_element.rep_dict['proc_prefix'])
+            writer, bornME, fortran_model, proc_prefix=matrix_element.rep_dict['proc_prefix'])
         self.opt['color_correlators'] = back_Up_color_correlators
         
         return ret_value
+    
+    def get_tree_context(self):
+        """ Overloads the contextual accessor of the mother tree-level exporter so as to 
+        tweak the option 'spin_correlation_general_resources' to False, so that they are not
+        output there since they are already included in the loop output."""
+        
+        context_dict = super(LoopProcessExporterFortranSA, self).get_tree_context()
+        context_dict['spin_correlation_general_resources'] = False
+        return context_dict
     
     def write_born_amps_and_wfs(self, writer, matrix_element, fortran_model,
                                                                  noSplit=False): 
@@ -1918,6 +1926,31 @@ class LoopProcessOptimizedExporterFortranSA(LoopProcessExporterFortranSA):
         self.write_global_specs(matrix_element)
     
     
+    def write_spin_correlations_include(self, writer, proc_prefix):
+        """ Write the include file for all general parameters of the spin-correlations."""
+
+        # At NLO at most one vector can have spin correlations, at NNLO 2, at N^3LO 3 etc...
+        # We of course restrict ourselves to handling fermions and vectors.
+        writer.writelines(
+"""INTEGER MAX_N_SPIN_CORR_VECTORS, MAX_LEGS_WITH_SPIN_CORR
+PARAMETER (MAX_N_SPIN_CORR_VECTORS=20, MAX_LEGS_WITH_SPIN_CORR=%d)
+C Lists the spin correlation vectors defined for each external leg
+COMPLEX*16 SPIN_CORR_VECTORS(NEXTERNAL,MAX_N_SPIN_CORR_VECTORS,4)
+C Saves the spin_correlation_vectors possibly rotated during stability tests
+COMPLEX*16 SYSTEM_SPIN_CORR_VECTORS(NEXTERNAL,MAX_N_SPIN_CORR_VECTORS,4)
+C Indicates the number of spin correlations vectors defined for each external leg
+INTEGER N_SPIN_CORR_VECTORS(NEXTERNAL)
+
+C Store the list of combination of spin_corr_vectors with which to enhance the loop over helicity combinations
+INTEGER MAX_SPIN_CORR_RUNS
+PARAMETER(MAX_SPIN_CORR_RUNS=MAX_N_SPIN_CORR_VECTORS**MAX_LEGS_WITH_SPIN_CORR)
+C Store the number of spin-correlation runs defined by the user.
+C A run is just a pass through the helas calls for computing the integrand for a specific helicity configuration
+INTEGER N_SPIN_CORR_RUNS
+INTEGER SPIN_CORR_RUNS(0:MAX_SPIN_CORR_RUNS,NEXTERNAL)
+COMMON/%sSPIN_CORRELATION_DATA/SPIN_CORR_VECTORS, SYSTEM_SPIN_CORR_VECTORS, N_SPIN_CORR_VECTORS, SPIN_CORR_RUNS, N_SPIN_CORR_RUNS"""
+        %(self.opt['spin_correlators'].count('N'),proc_prefix))
+        
     def write_loop_matrix_element_v4(self, writer, matrix_element, fortran_model,
                         group_number = None, proc_id = None, config_map = None):
         """ Writes loop_matrix.f, CT_interface.f,TIR_interface.f,GOLEM_inteface.f 
@@ -1972,6 +2005,11 @@ class LoopProcessOptimizedExporterFortranSA(LoopProcessExporterFortranSA):
         calls = self.write_loopmatrix(writers.FortranWriter(filename),
                                       matrix_element,
                                       OptimizedFortranModel)    
+        
+        if not self.opt['spin_correlators'] is None:
+            filename = 'spin_correlations.inc'
+            self.write_spin_correlations_include(writers.FortranWriter(filename), 
+                            proc_prefix = matrix_element.rep_dict['proc_prefix'])
         
         filename = 'check_sa.f'
         self.write_check_sa(writers.FortranWriter(filename),matrix_element)
@@ -2458,9 +2496,10 @@ class LoopProcessOptimizedExporterFortranSA(LoopProcessExporterFortranSA):
 
         if matrix_element.get('processes')[0].get('has_born'):
 
+            born_color_matrix = color_amp.ColorMatrix(matrix_element.get('born_color_basis'))
+                
             if not self.opt['color_correlators'] is None:
                 # Also add data for the Born color-correlated matrices.
-                born_color_matrix = color_amp.ColorMatrix(matrix_element.get('born_color_basis'))
                 process = matrix_element.get('processes')[0]
                 born_color_correlated_matrices = born_color_matrix.build_color_correlated_matrices(
                         process.get('legs'), process.get('model'), order=self.opt['color_correlators'])

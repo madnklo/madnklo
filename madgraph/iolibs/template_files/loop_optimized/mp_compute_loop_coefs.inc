@@ -199,6 +199,13 @@ C     consider. POLARIZATIONS(0,0) is -1 if there is not such requirement.
       INTEGER POLARIZATIONS(0:NEXTERNAL,0:5)
       COMMON/%(proc_prefix)sBEAM_POL/POLARIZATIONS
 
+## if (spin_correlation) {
+      include 'spin_correlations.inc'
+      INTEGER SPINCORR_HEL_INDICES(NEXTERNAL)
+      LOGICAL SKIP_THIS_HELICITY
+      INTEGER ISC
+
+## }
 C ----------
 C BEGIN CODE
 C ----------
@@ -294,6 +301,13 @@ DO K=1,3
   ENDDO
 ENDDO
 
+## if (spin_correlation) {
+C Save helicity indices of the spin-correlated legs that we will use to insert the extra spin-correlations runs.
+DO I=1,NEXTERNAL
+  SPINCORR_HEL_INDICES(I) = -1
+ENDDO
+
+## }
 DPW_COPIED = .False.
 DO H=1,NCOMB
   IF ((HELPICKED.EQ.H).OR.((HELPICKED.EQ.-1).AND.(CHECKPHASE.OR.(.NOT.HELDOUBLECHECKED).OR.(GOODHEL(H).GT.-HELOFFSET.AND.GOODHEL(H).NE.0)))) THEN
@@ -306,6 +320,54 @@ C  Handle the possible requirement of specific polarizations
   DO I=1,NEXTERNAL
     NHEL(I)=HELC(I,H)
   ENDDO
+## if (spin_correlation) {
+
+  IF (N_SPIN_CORR_RUNS.GT.0) THEN
+C Now we know that we are in an helicity configuration that was selected by the user
+C Record the helicity index of legs that are spin-correlated
+    DO I=1,NEXTERNAL
+      IF (N_SPIN_CORR_VECTORS(I).gt.0.and.SPINCORR_HEL_INDICES(I).eq.-1) THEN
+        SPINCORR_HEL_INDICES(I) = NHEL(I)
+      ENDIF
+    ENDDO
+
+C   Now make sure to skip all helicity configurations with helicity indices for the spin-correlated legs that
+C   does not match the first one encountered
+    SKIP_THIS_HELICITY = .FALSE.
+    DO I=1,NEXTERNAL
+      IF (SPINCORR_HEL_INDICES(I).ne.-1.and.SPINCORR_HEL_INDICES(I).ne.NHEL(I)) THEN
+        SKIP_THIS_HELICITY = .TRUE.
+        EXIT
+      ENDIF
+    ENDDO
+    IF (SKIP_THIS_HELICITY) THEN
+      CYCLE
+    ENDIF
+  ENDIF
+              
+C Now insert the extra runs for the spin-correlations
+C The MIN statement allows to make sure that we proceed with a normal run if not spin-correlations are active
+  DO ISC=MIN(N_SPIN_CORR_RUNS,1),N_SPIN_CORR_RUNS
+  
+    DO I=1,NEXTERNAL
+      IF (SPIN_CORR_RUNS(ISC, I).eq.-1000) THEN
+C       No spin correlation, leave it as it is
+        DO J=1,20
+          W(J,I) = CMPLX(ZERO,ZERO,KIND=16)
+        ENDDO
+      ELSE
+C     	Spin correlation, enforce the polarization vector to be the specified one.
+C       Notice that we cast here a double precision variable into a quad prec one.
+        NHEL(I) = -1000
+        DO J=1,4
+          W(J,I) = SYSTEM_SPIN_CORR_VECTORS(I,SPIN_CORR_RUNS(ISC, I),J)
+        ENDDO
+        DO J=5,20
+          W(J,I) = CMPLX(ZERO,ZERO,KIND=16)
+        ENDDO
+      ENDIF
+    ENDDO
+## }
 
   IF (COMPUTE_INTEGRAND_IN_QP) THEN  
     MP_UVCT_REQ_SO_DONE=.FALSE.
@@ -647,7 +709,10 @@ C     Make sure that that no polarization constraint filters out this helicity
   ENDIF
 ENDIF
 ## }
-
+## if (spin_correlation) {
+C   End of the do-loop for the insertion of the extra spin-correlation runs
+    ENDDO
+## }
   ENDIF
 ENDDO
 

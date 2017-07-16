@@ -50,15 +50,8 @@ C sqrt(s)= center of mass energy
 	  INTEGER NSQUAREDSO_LOOP
 	  REAL*8 , allocatable :: PREC_FOUND(:)
 
-## if (color_correlation) {
-C     Color-correlated MEs
-	  REAL*8 , allocatable :: CCMES(:,:,:)
-	  INTEGER N_COLOR_CORRELATORS
-	  REAL*8 TMP(0:3)
-	  REAL*8 RUNNING_SUMA(0:3),RUNNING_SUMB(0:3),RUNNING_SUMC(0:3)
-	  REAL*8 RUNNING_ABSSUMA(0:3),RUNNING_ABSSUMB(0:3),RUNNING_ABSSUMC(0:3)
-	  INTEGER SOINDEX, CCINDEX
-	  LOGICAL FOUNDONE
+## if (color_correlation or spin_correlation) {
+	  INTEGER SOINDEX
 C Control how many terms in the 1/eps expansion to show in
 C color correlation output. 0 is the Born, 1 is loop finite
 C and 2 and 3 are single and double pole residues.
@@ -67,6 +60,26 @@ C Default is to show all contribs
       PARAMETER (MINRESIDUESTOSHOW = 0)
 	  INTEGER MAXRESIDUESTOSHOW
       PARAMETER (MAXRESIDUESTOSHOW = 3)
+## }
+
+## if (color_correlation) {
+C     Color-correlated MEs
+	  REAL*8 , allocatable :: CCMES(:,:,:)
+	  INTEGER N_COLOR_CORRELATORS
+	  REAL*8 TMP(0:3)
+	  REAL*8 RUNNING_SUMA(0:3),RUNNING_SUMB(0:3),RUNNING_SUMC(0:3)
+	  REAL*8 RUNNING_ABSSUMA(0:3),RUNNING_ABSSUMB(0:3),RUNNING_ABSSUMC(0:3)
+      INTEGER CCINDEX
+	  LOGICAL FOUNDONE
+## }
+
+## if (spin_correlation) {
+C     Spin-correlated MEs
+      INTEGER MAX_N_SPIN_CORR_VECTORS
+      INTEGER MAX_LEGS_WITH_SPIN_CORR
+      REAL*8 , allocatable :: SCVECTORS(:,:)
+      INTEGER NVECTOR_TO_TRY_PER_LEG
+      DATA NVECTOR_TO_TRY_PER_LEG/3/
 ## }
 
 C
@@ -111,7 +124,12 @@ C
 	  	CALL %(proc_prefix)sGET_N_COLOR_CORRELATORS(N_COLOR_CORRELATORS)    
 	  	ALLOCATE(CCMES(N_COLOR_CORRELATORS,0:3,0:MATELEM_ARRAY_DIM))    
 ## }
-
+## if (spin_correlation) {
+        CALL %(proc_prefix)sGET_MAX_N_SPIN_CORR_VECTORS(MAX_N_SPIN_CORR_VECTORS)
+        CALL %(proc_prefix)sGET_MAX_N_SPIN_CORR_LEGS(MAX_LEGS_WITH_SPIN_CORR)        
+	  	ALLOCATE(SCVECTORS(MAX_N_SPIN_CORR_VECTORS,4))
+	  	NVECTOR_TO_TRY_PER_LEG=MIN(NVECTOR_TO_TRY_PER_LEG,MAX_N_SPIN_CORR_VECTORS)
+## }
 C     INITIALIZATION CALLS
 C     
 C     Call to initialize the values of the couplings, masses and widths 
@@ -238,6 +256,10 @@ C     We can specify which color correlation to also compute
 C     The value -1 indicates that one considers all the leg number
       CALL %(proc_prefix)sSET_COLOR_CORRELATORS_TO_CONSIDER(-1, -1)
 ## }
+## if (spin_correlation) {        
+C     We make sure to deactivate spin-correlations for now
+      CALL %(proc_prefix)sRESET_SPIN_CORRELATION_VECTORS()
+## }
 C
 C     Now we can call the matrix element
 C
@@ -353,6 +375,10 @@ C
       WRITE(*,*) 'Color-correlated evaluations '
       WRITE(*,*) '-----------------------------'
       WRITE(*,*) ''
+## if (spin_correlation) {        
+C     We make sure to deactivate spin-correlations for now
+      CALL %(proc_prefix)sRESET_SPIN_CORRELATION_VECTORS()
+## }
 C     Access the value of the color correlated MEs computed
       CALL %(proc_prefix)sGET_COLOR_CORRELATED_ME(CCMES)
       DO K=0,3
@@ -427,8 +453,68 @@ C       Just so as to place the sum last
       WRITE(*,*) ''
 ## }
 
+## if(spin_correlation) {
+      WRITE(*,*) ""
+      WRITE(*,*) "-----------------------------"
+      WRITE(*,*) "Spin-correlated evaluations "
+      WRITE(*,*) "-----------------------------"
+      WRITE(*,*) ""
+      WRITE(*,*) " WARNING: If the first ",MIN(MAX_LEGS_WITH_SPIN_CORR,NEXTERNAL)," legs of this process are not fermions or vectors,"
+      WRITE(*,*) " the example code below to illustrate the computaiton of spin-correlated MEs *WILL* fail."
+      WRITE(*,*) " This is because the user is only allowed to assign spin-correlation vectors to fermion or vector particles."
+      WRITE(*,*) ""
+## if(color_correlation) {
+C     Turn off color correlations
+      CALL %(proc_prefix)sSET_COLOR_CORRELATORS_TO_CONSIDER(0,0)
+## } 
+      CALL %(proc_prefix)sRESET_SPIN_CORRELATION_VECTORS()
+      DO I=1,MIN(MAX_LEGS_WITH_SPIN_CORR,NEXTERNAL)
+C       We assume here that leg #I of the process is a fermion or a vector! 
+        DO K=1,NVECTOR_TO_TRY_PER_LEG
+          DO J=1,4
+            SCVECTORS(K,J) = DBLE(K)*P(J-1,I)
+          ENDDO
+        ENDDO
+        CALL %(proc_prefix)sSET_SPIN_CORRELATION_VECTORS(I,NVECTOR_TO_TRY_PER_LEG,SCVECTORS)
+      ENDDO
+C     The idea is that the purely longitudinal one is often analytically zero because of ward identities.
+C     We therefore disable the stability check effictively here by asking for a rel. accuracy of at least 1d10.
+      CALL %(proc_prefix)sSLOOPMATRIX_THRES(P,MATELEM,1.0d10,PREC_FOUND,RETURNCODE)
+      IF (MINRESIDUESTOSHOW.EQ.0.AND.MAXRESIDUESTOSHOW.EQ.3) THEN
+        WRITE(*,*) ' The order of of the entries provided is:                                      |           Born         |          Finite         |         1/eps           |        1/eps**2         |'
+      ELSE
+        WRITE(*,*) ' Values shown are [Born, Finite, 1/eps, 1/eps**2][',MINRESIDUESTOSHOW,':',(MAXRESIDUESTOSHOW+1),']'
+      ENDIF
+      DO S=1,MATELEM_ARRAY_DIM+1
+C       Just show one set of results if there is only one squared coupling_order
+        IF (S.eq.1.and.MATELEM_ARRAY_DIM.eq.1) THEN
+          CYCLE
+        ENDIF
+C       Just so as to place the sum last
+        SOINDEX = MOD(S, MATELEM_ARRAY_DIM+1)
+        WRITE(*,*) "   Purely longitudinal spin correlators; squared order index ",SOINDEX," = ",(MATELEM(K,SOINDEX),K=MINRESIDUESTOSHOW,MAXRESIDUESTOSHOW)
+      ENDDO
+      
+      CALL %(proc_prefix)sRESET_SPIN_CORRELATION_VECTORS()
+      DO I=1,MIN(MAX_LEGS_WITH_SPIN_CORR,NEXTERNAL)
+C       We assume here that leg #I of the process is a fermion or a vector!
+        DO K=1,NVECTOR_TO_TRY_PER_LEG
+          DO J=1,4
+            SCVECTORS(K,J) = DBLE((K+1)*(I+2)*(J+3))*P(J-1,I)
+          ENDDO
+        ENDDO
+        CALL %(proc_prefix)sSET_SPIN_CORRELATION_VECTORS(I,NVECTOR_TO_TRY_PER_LEG,SCVECTORS)
+      ENDDO
+      CALL %(proc_prefix)sSLOOPMATRIX_THRES(P,MATELEM,-1.0d0,PREC_FOUND,RETURNCODE)
+      WRITE(*,*) "   Arbitrary spin correlators; squared order index           ",SOINDEX," = ",(MATELEM(K,SOINDEX),K=MINRESIDUESTOSHOW,MAXRESIDUESTOSHOW)
+      WRITE(*,*) ""
+## }
+
 ## if (color_correlation) {
       DEALLOCATE(CCMES)
+## }
+## if (spin_correlation) {        
+	  DEALLOCATE(SCVECTORS)
 ## }
       DEALLOCATE(MATELEM)
 	  DEALLOCATE(PREC_FOUND)

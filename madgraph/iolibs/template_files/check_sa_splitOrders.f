@@ -39,6 +39,10 @@ C
       integer NChosen
       character*20 chosen_so_indices(NSPLITORDERS)
 
+## if(spin_correlation or color_correlation) {
+      integer SOINDEX
+## }
+
 ## if(color_correlation) {
       INTEGER NCOLORCORRELATORS
       PARAMETER (NCOLORCORRELATORS=%(n_color_correlators)d)
@@ -48,7 +52,7 @@ C
       COMMON/%(proc_prefix)sCOLOR_CORRELATION_MAPS/COLOR_CORRELATOR_TO_INDEX, INDEX_TO_COLOR_CORRELATOR
       REAL*8 RUNNING_SUMA, RUNNING_SUMB, RUNNING_SUMC
       REAL*8 RUNNING_ABSSUMA, RUNNING_ABSSUMB, RUNNING_ABSSUMC      
-      INTEGER CCINDEX, SOINDEX
+      INTEGER CCINDEX
       LOGICAL FOUNDONE
 ## }
 
@@ -212,35 +216,54 @@ C       Just so as to place the sum last
       WRITE(*,*) "Spin-correlated evaluations "
       WRITE(*,*) "-----------------------------"
       WRITE(*,*) ""
+      WRITE(*,*) " WARNING: If the first ",MIN(MAX_LEGS_WITH_SPIN_CORR,NEXTERNAL)," legs of this process are not fermions or vectors,"
+      WRITE(*,*) " the example code below to illustrate the computaiton of spin-correlated MEs *WILL* fail."
+      WRITE(*,*) " This is because the user is only allowed to assign spin-correlation vectors to fermion or vector particles."
+      WRITE(*,*) ""
 ## if(color_correlation) {
 C    Turn off color correlations
      CALL %(proc_prefix)sSET_COLOR_CORRELATORS_TO_CONSIDER(0,0)
 ## }      
       CALL %(proc_prefix)sRESET_SPIN_CORRELATION_VECTORS()
       DO I=1,MIN(MAX_LEGS_WITH_SPIN_CORR,NEXTERNAL)
+C       We assume here that leg #I of the process is a fermion or a vector!       
         DO K=1,NVECTOR_TO_TRY_PER_LEG
           DO J=1,4
             SCVECTORS(K,J) = DBLE(K)*P(J-1,I)
           ENDDO
         ENDDO
-        CALL SET_SPIN_CORRELATION_VECTORS(I,NVECTOR_TO_TRY_PER_LEG,SCVECTORS)
+        CALL %(proc_prefix)sSET_SPIN_CORRELATION_VECTORS(I,NVECTOR_TO_TRY_PER_LEG,SCVECTORS)
       ENDDO
       CALL %(proc_prefix)sSMATRIX_SPLITORDERS(P,MATELEMS)
       MATELEM=MATELEMS(0)
-      WRITE(*,*) "   Purely longitudinal spin correlators = ",MATELEM
+      DO K=1,NSPLITORDERS+1
+C       Just show one set of results if there is only one squared coupling_order
+        IF (K.eq.1.and.NSPLITORDERS.eq.1) THEN
+          CYCLE
+        ENDIF 
+        SOINDEX = MOD(K, NSPLITORDERS+1)
+        WRITE(*,*) "   Purely longitudinal spin correlators; squared order index ",SOINDEX," = ",MATELEMS(SOINDEX)
+      ENDDO
       
       CALL %(proc_prefix)sRESET_SPIN_CORRELATION_VECTORS()
       DO I=1,MIN(MAX_LEGS_WITH_SPIN_CORR,NEXTERNAL)
+C       We assume here that leg #I of the process is a fermion or a vector!       
         DO K=1,NVECTOR_TO_TRY_PER_LEG
           DO J=1,4
             SCVECTORS(K,J) = DBLE((K+1)*(I+2)*(J+3))*P(J-1,I)
           ENDDO
         ENDDO
-        CALL SET_SPIN_CORRELATION_VECTORS(I,NVECTOR_TO_TRY_PER_LEG,SCVECTORS)
+        CALL %(proc_prefix)sSET_SPIN_CORRELATION_VECTORS(I,NVECTOR_TO_TRY_PER_LEG,SCVECTORS)
       ENDDO
       CALL %(proc_prefix)sSMATRIX_SPLITORDERS(P,MATELEMS)
-      MATELEM=MATELEMS(0)
-      WRITE(*,*) "   Arbitrary spin correlators           = ",MATELEM
+      DO K=1,NSPLITORDERS+1
+C       Just show one set of results if there is only one squared coupling_order
+        IF (K.eq.1.and.NSPLITORDERS.eq.1) THEN
+          CYCLE
+        ENDIF 
+        SOINDEX = MOD(K, NSPLITORDERS+1)
+        WRITE(*,*) "   Arbitrary spin correlators; squared order index           ",SOINDEX," = ",MATELEMS(SOINDEX)
+      ENDDO
       WRITE(*,*) ""
 ## }
 

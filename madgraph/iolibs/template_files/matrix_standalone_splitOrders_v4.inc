@@ -199,7 +199,8 @@ C     If spin correlations are active, then remove the helicity filtering.
       IF (N_SPIN_CORR_RUNS.GT.0) THEN
         DO IHEL=1,NCOMB
 		  GOODHEL(IHEL)=.TRUE.
-		ENDDO   
+		ENDDO
+		NTRY = 0
       ENDIF
 ## }
 
@@ -248,11 +249,11 @@ C             The MIN statement allows to make sure that we proceed with a norma
               DO_INCLUDE_HEL_CONTRIB = (POLARIZATIONS(0,0).eq.-1.or.%(proc_prefix)sIS_BORN_HEL_SELECTED(IHEL))
               DO I=1,NEXTERNAL
 ## if (not spin_correlation) {
-                HELICITIES(I) = NHEL(1,IHEL)
+                HELICITIES(I) = NHEL(I,IHEL)
 ## } else {
                 IF (SPIN_CORR_RUNS(ISC, I).eq.-1000) THEN
 C                  No spin correlation, leave it as it is
-                   HELICITIES(I) = NHEL(1,IHEL)
+                   HELICITIES(I) = NHEL(I,IHEL)
                    DO J=1,20
                      WEXT(J,I) = DCMPLX(0.0d0,0.0d0)
                    ENDDO
@@ -809,8 +810,7 @@ C           Now make sure we have not considered it yet, since (i, j) maps to (j
       END
 ## }
 
-## if (spin_correlation) {
-
+## if (spin_correlation_general_resources) {
 C --------------------------------------------------------------
 C Beginning of a series of subroutine related to the evaluation
 C and steering of the computation of spin-correlated MEs.
@@ -889,7 +889,7 @@ C       First add the vectors to the list of spin-correlation vectors defined
         DO I=1,N_VECTORS
           DO J=1,4
 C           Leave the flexibility of having these vectors complex, although we take them real here.
-            SPIN_CORR_VECTORS(LEG_INDEX,I,J) = DBLE(VECTORS(I,J))
+            SPIN_CORR_VECTORS(LEG_INDEX,I,J) = DCMPLX(VECTORS(I,J),0.0d0)
           ENDDO
         ENDDO
 		
@@ -962,7 +962,17 @@ C       ----------
         PARAMETER (NEXTERNAL=%(nexternal)d)
         include 'spin_correlations.inc'
         INTEGER MAX_N_SC_VECTORS
-CF2PY INTENT(IN) :: MAX_N_SC_VECTORS
+CF2PY INTENT(OUT) :: MAX_N_SC_VECTORS
 		MAX_N_SC_VECTORS = MAX_N_SPIN_CORR_VECTORS
       END SUBROUTINE %(proc_prefix)sGET_MAX_N_SPIN_CORR_VECTORS
+      
+      SUBROUTINE %(proc_prefix)sGET_MAX_N_SPIN_CORR_LEGS(MAX_N_SC_LEGS)
+        IMPLICIT NONE
+        INTEGER    NEXTERNAL
+        PARAMETER (NEXTERNAL=%(nexternal)d)
+        include 'spin_correlations.inc'
+        INTEGER MAX_N_SC_LEGS
+CF2PY INTENT(OUT) :: MAX_N_SC_LEGS
+		MAX_N_SC_LEGS = MAX_LEGS_WITH_SPIN_CORR
+      END SUBROUTINE %(proc_prefix)sGET_MAX_N_SPIN_CORR_LEGS
 ## }

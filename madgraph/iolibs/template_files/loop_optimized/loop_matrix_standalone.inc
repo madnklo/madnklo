@@ -462,6 +462,13 @@ C     consider. POLARIZATIONS(0,0) is -1 if there is not such requirement.
       INTEGER POLARIZATIONS(0:NEXTERNAL,0:5)
       COMMON/%(proc_prefix)sBEAM_POL/POLARIZATIONS
 
+## if (spin_correlation) {
+      include 'spin_correlations.inc'
+      INTEGER SPINCORR_HEL_INDICES(NEXTERNAL)
+      LOGICAL SKIP_THIS_HELICITY
+      INTEGER ISC
+## }
+
 C ----------
 C BEGIN CODE
 C ----------
@@ -854,6 +861,17 @@ DO I=1,NEXTERNAL
   ENDDO
 ENDDO
 
+## if (spin_correlation) {
+C We always work with the working copy SYSTEM_SPIN_CORR_VECTORS of SPIN_CORR_VECTORS, since the former are the ones that can get rotated during the stability tests
+DO I=1,NEXTERNAL
+  DO J=1,N_SPIN_CORR_VECTORS(I)
+    DO K=1,4
+      SYSTEM_SPIN_CORR_VECTORS(I,J,K) = SPIN_CORR_VECTORS(I,J,K)
+    ENDDO
+  ENDDO
+ENDDO
+## }
+
 DO K=1, 3
   DO I=0,NSQUAREDSO
     BUFFR(K,I)=0.0d0
@@ -930,6 +948,13 @@ ENDIF
 
 ## }
 
+## if (spin_correlation) {
+C Save helicity indices of the spin-correlated legs that we will use to insert the extra spin-correlations runs.
+DO I=1,NEXTERNAL
+  SPINCORR_HEL_INDICES(I) = -1
+ENDDO
+
+## }
 C MadLoop jumps to this label during initialization when it goes to the computation of the next helicity.
 205 CONTINUE
 
@@ -1008,7 +1033,54 @@ C  Handle the possible requirement of specific polarizations
   DO I=1,NEXTERNAL
     NHEL(I)=HELC(I,H)
   ENDDO
+## if (spin_correlation) {
+
+  IF (N_SPIN_CORR_RUNS.GT.0) THEN
+C Now we know that we are in an helicity configuration that was selected by the user
+C Record the helicity index of legs that are spin-correlated
+    DO I=1,NEXTERNAL
+      IF (N_SPIN_CORR_VECTORS(I).gt.0.and.SPINCORR_HEL_INDICES(I).eq.-1) THEN
+        SPINCORR_HEL_INDICES(I) = NHEL(I)
+      ENDIF
+    ENDDO
+
+C   Now make sure to skip all helicity configurations with helicity indices for the spin-correlated legs that
+C   does not match the first one encountered
+    SKIP_THIS_HELICITY = .FALSE.
+    DO I=1,NEXTERNAL
+      IF (SPINCORR_HEL_INDICES(I).ne.-1.and.SPINCORR_HEL_INDICES(I).ne.NHEL(I)) THEN
+        SKIP_THIS_HELICITY = .TRUE.
+        EXIT
+      ENDIF
+    ENDDO
+    IF (SKIP_THIS_HELICITY) THEN
+      CYCLE
+    ENDIF
+  ENDIF
+              
+C Now insert the extra runs for the spin-correlations
+C The MIN statement allows to make sure that we proceed with a normal run if not spin-correlations are active
+  DO ISC=MIN(N_SPIN_CORR_RUNS,1),N_SPIN_CORR_RUNS
   
+    DO I=1,NEXTERNAL
+      IF (SPIN_CORR_RUNS(ISC, I).eq.-1000) THEN
+C       No spin correlation, leave it as it is
+        DO J=1,20
+          W(J,I) = DCMPLX(0.0d0,0.0d0)
+        ENDDO
+      ELSE
+C     	Spin correlation, enforce the polarization vector
+        NHEL(I) = -1000
+        DO J=1,4
+          W(J,I) = SYSTEM_SPIN_CORR_VECTORS(I,SPIN_CORR_RUNS(ISC, I),J)
+        ENDDO
+        DO J=5,20
+          W(J,I) = DCMPLX(0.0d0,0.0d0)
+        ENDDO
+      ENDIF
+    ENDDO
+## }
+
   UVCT_REQ_SO_DONE=.FALSE.
   CT_REQ_SO_DONE=.FALSE.
   LOOP_REQ_SO_DONE=.FALSE.
@@ -1184,6 +1256,10 @@ C     Make sure that that no polarization constraint filters out this helicity
 	ENDIF
   ENDIF
 ENDIF
+## }
+## if (spin_correlation) {
+C   End of the do-loop for the insertion of the extra spin-correlation runs
+    ENDDO
 ## }
 
   ENDIF
@@ -2916,3 +2992,192 @@ c arrays
 ## }
         CONTINUE
 	  END
+
+## if (spin_correlation) {
+
+C --------------------------------------------------------------
+C Beginning of a series of subroutine related to the evaluation
+C and steering of the computation of spin-correlated MEs.
+C --------------------------------------------------------------
+      
+      SUBROUTINE %(proc_prefix)sSET_SPIN_CORRELATION_VECTORS(LEG_INDEX, N_VECTORS, VECTORS)
+        IMPLICIT NONE
+C       Sets a list of up to MAX_N_VECTORS to use instead of the polarization vectors for leg number LEG_INDEX
+C       Notice that of course only fermions and vectors can be assigned correlations here.
+
+C       
+C       CONSTANTS AND GLOBALS
+C       
+
+        INTEGER    NEXTERNAL
+        PARAMETER (NEXTERNAL=%(nexternal)d)
+        include 'spin_correlations.inc'     
+
+C       
+C       ARGUMENTS
+C       
+		INTEGER LEG_INDEX
+		INTEGER N_VECTORS
+		REAL*8 VECTORS(MAX_N_SPIN_CORR_VECTORS,4)
+CF2PY INTENT(IN) :: LEG_INDEX
+CF2PY INTENT(IN) :: N_VECTORS
+CF2PY INTENT(IN) :: VECTORS
+
+C       
+C       LOCAL VARIABLES
+C  
+        
+        INTEGER I,J,N
+        INTEGER OLD_N_SPIN_CORR_RUNS
+        INTEGER N_LEGS_WITH_SPIN_CORRELATORS
+
+C
+C       GLOBAL ARRAYS INITIALIZATION
+C
+
+        INTEGER SPIN_CORR_VECTORS_N_ENTRIES
+        PARAMETER (SPIN_CORR_VECTORS_N_ENTRIES=(4*NEXTERNAL*MAX_N_SPIN_CORR_VECTORS))
+        DATA SPIN_CORR_VECTORS/SPIN_CORR_VECTORS_N_ENTRIES*0.0d0/
+        DATA SYSTEM_SPIN_CORR_VECTORS/SPIN_CORR_VECTORS_N_ENTRIES*0.0d0/
+        DATA N_SPIN_CORR_VECTORS/NEXTERNAL*0/
+        INTEGER SPIN_CORR_RUNS_N_ENTRIES
+        PARAMETER (SPIN_CORR_RUNS_N_ENTRIES=(MAX_SPIN_CORR_RUNS+1)*NEXTERNAL)  
+C       The integer -1000 will indicate to simply keep the original helicity polarization vector assigned to that leg      
+        DATA SPIN_CORR_RUNS/SPIN_CORR_RUNS_N_ENTRIES*-1000/
+        DATA N_SPIN_CORR_RUNS/0/
+
+		INTEGER BYPASS_CHECK_VALUE_BACKUP
+		COMMON/%(proc_prefix)sSPIN_CORR_PARAMS_BACKUP/BYPASS_CHECK_VALUE_BACKUP
+	    LOGICAL BYPASS_CHECK, ALWAYS_TEST_STABILITY
+	    COMMON/%(proc_prefix)sBYPASS_CHECK/BYPASS_CHECK, ALWAYS_TEST_STABILITY
+C       ----------
+C       BEGIN CODE
+C       ----------
+
+C       Turn off the helicity filter and loop checks as one should not use it in conjunction with spin-correlations.
+C       Back-up its value however so as to be able to recover it when disabling again spin-correlations
+	    BYPASS_CHECK_VALUE_BACKUP = BYPASS_CHECK
+	    BYPASS_CHECK = .True.
+
+C       Make sure the user does not try to set the spin-correlation vectors of a leg again
+        IF (N_SPIN_CORR_VECTORS(LEG_INDEX).ne.0) THEN
+          WRITE(*,*) 'Cannot define for a second time the spin-correlation vectors of a lef. Call the subroutine %(proc_prefix)sRESET_SPIN_CORRELATION_VECTORS() first.'
+          STOP
+        ENDIF
+
+C       Make sure it does not exceed the maximum number of legs that can get spin correlators assigned.
+		N_LEGS_WITH_SPIN_CORRELATORS = 0
+		DO I=1,NEXTERNAL
+		  IF (N_SPIN_CORR_VECTORS(I).gt.0) THEN
+		    N_LEGS_WITH_SPIN_CORRELATORS = N_LEGS_WITH_SPIN_CORRELATORS + 1
+		  ENDIF
+		ENDDO
+		IF (N_LEGS_WITH_SPIN_CORRELATORS.ge.MAX_LEGS_WITH_SPIN_CORR) THEN
+		  WRITE(*,*) 'In the current output, only a maximum of ',MAX_LEGS_WITH_SPIN_CORR,' can be assigned spin-correlations.'
+		  WRITE(*,*) 'Change the parameter MAX_LEGS_WITH_SPIN_CORR in spin_correlations.inc or re-generate the process with a higher power of N for the option --spin_correlators=N^iLO'
+		  STOP
+		ENDIF
+		
+C       First add the vectors to the list of spin-correlation vectors defined
+        N_SPIN_CORR_VECTORS(LEG_INDEX) = N_VECTORS
+        DO I=1,N_VECTORS
+          DO J=1,4
+C           Leave the flexibility of having these vectors complex, although we take them real here.
+            SPIN_CORR_VECTORS(LEG_INDEX,I,J) = DCMPLX(VECTORS(I,J),0.0d0)
+          ENDDO
+        ENDDO
+		
+C       Now assign the additional runs to be performed within the loop over helicity configuration so as to capture these spin-correlations.
+        OLD_N_SPIN_CORR_RUNS = N_SPIN_CORR_RUNS
+        DO I=1,N_VECTORS
+C         Add a run for each of the existing ones. This means that if user specifies vector VEC1A and VEC1B for leg 1, and VEC2A and VEC2B for leg 2, we will include all 4 combinations. (VEC1A, VEC2A), (VEC1A, VEC2B), etc...
+C         The MIN(1,OLD_N_SPIN_CORR_RUNS) is just here because the first time we add spin correlation we must start from the blank entries in SPIN_CORR_RUNS(0,*)
+          DO J=MIN(1,OLD_N_SPIN_CORR_RUNS),OLD_N_SPIN_CORR_RUNS
+            N_SPIN_CORR_RUNS = N_SPIN_CORR_RUNS + 1
+            DO N=1,NEXTERNAL
+              IF (N.eq.LEG_INDEX) THEN
+C               If the leg is the one selected, enforce the vectors specified by the user
+                SPIN_CORR_RUNS(N_SPIN_CORR_RUNS,N) = I 
+              ELSE
+C               Otherwise, just copy the ones of the previous runs.
+                SPIN_CORR_RUNS(N_SPIN_CORR_RUNS,N) = SPIN_CORR_RUNS(J,N)
+              ENDIF
+            ENDDO
+          ENDDO
+        ENDDO
+        
+C       That's it, the corresponding additional runs for the new spin correlations asked for have been added to the list SPIN_CORR_RUNS
+
+      END SUBROUTINE %(proc_prefix)sSET_SPIN_CORRELATION_VECTORS
+      
+      SUBROUTINE %(proc_prefix)sRESET_SPIN_CORRELATION_VECTORS()
+        IMPLICIT NONE
+C       Resets the spin correlation vectors definition
+
+C       
+C       CONSTANTS AND GLOBALS
+C       
+
+        INTEGER    NEXTERNAL
+        PARAMETER (NEXTERNAL=%(nexternal)d)
+        include 'spin_correlations.inc'     
+
+C       
+C       LOCAL VARIABLES
+C  
+        
+        INTEGER I,J,N
+
+C       
+C       GLOBAL VARIABLES
+C
+		INTEGER BYPASS_CHECK_VALUE_BACKUP
+		COMMON/%(proc_prefix)sSPIN_CORR_PARAMS_BACKUP/BYPASS_CHECK_VALUE_BACKUP
+	    LOGICAL BYPASS_CHECK, ALWAYS_TEST_STABILITY
+	    COMMON/%(proc_prefix)sBYPASS_CHECK/BYPASS_CHECK, ALWAYS_TEST_STABILITY
+
+C       ----------
+C       BEGIN CODE
+C       ----------
+		
+C       Restore the old value for bypass_check
+		BYPASS_CHECK = BYPASS_CHECK_VALUE_BACKUP
+		
+		DO N=1,NEXTERNAL
+		  N_SPIN_CORR_VECTORS(N) = 0
+		  DO I=1,MAX_N_SPIN_CORR_VECTORS
+		    DO J=1,4
+		      SPIN_CORR_VECTORS(N,I,J) = 0.0d0
+		    ENDDO
+		  ENDDO
+		ENDDO
+		
+		N_SPIN_CORR_RUNS = 0
+		DO I=1,MAX_SPIN_CORR_RUNS
+		  DO J=1,NEXTERNAL
+		    SPIN_CORR_RUNS(I,J) = -1000
+		  ENDDO
+		ENDDO
+		
+		END SUBROUTINE %(proc_prefix)sRESET_SPIN_CORRELATION_VECTORS
+
+      SUBROUTINE %(proc_prefix)sGET_MAX_N_SPIN_CORR_VECTORS(MAX_N_SC_VECTORS)
+        IMPLICIT NONE
+        INTEGER    NEXTERNAL
+        PARAMETER (NEXTERNAL=%(nexternal)d)
+        include 'spin_correlations.inc'
+        INTEGER MAX_N_SC_VECTORS
+CF2PY INTENT(OUT) :: MAX_N_SC_VECTORS
+		MAX_N_SC_VECTORS = MAX_N_SPIN_CORR_VECTORS
+      END SUBROUTINE %(proc_prefix)sGET_MAX_N_SPIN_CORR_VECTORS
+      
+      SUBROUTINE %(proc_prefix)sGET_MAX_N_SPIN_CORR_LEGS(MAX_N_SC_LEGS)
+        IMPLICIT NONE
+        INTEGER    NEXTERNAL
+        PARAMETER (NEXTERNAL=%(nexternal)d)
+        include 'spin_correlations.inc'
+        INTEGER MAX_N_SC_LEGS
+CF2PY INTENT(OUT) :: MAX_N_SC_LEGS
+		MAX_N_SC_LEGS = MAX_LEGS_WITH_SPIN_CORR
+      END SUBROUTINE %(proc_prefix)sGET_MAX_N_SPIN_CORR_LEGS
+## }

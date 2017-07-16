@@ -395,6 +395,10 @@ C LOCAL VARIABLES
 C
       INTEGER I,J
 
+## if (spin_correlation) {
+      include 'spin_correlations.inc'      
+## }
+
 C ----------
 C BEGIN CODE
 C ----------
@@ -406,17 +410,41 @@ C rotation=1 => (xp=z,yp=-x,zp=-y)
 		  P(1,I)=P_IN(3,I)
 		  P(2,I)=-P_IN(1,I)
 		  P(3,I)=-P_IN(2,I)
+## if (spin_correlation) {
+          DO J=1,N_SPIN_CORR_VECTORS(I)
+            SYSTEM_SPIN_CORR_VECTORS(I,J,1) = SPIN_CORR_VECTORS(I,J,1)
+            SYSTEM_SPIN_CORR_VECTORS(I,J,2) = SPIN_CORR_VECTORS(I,J,4)
+            SYSTEM_SPIN_CORR_VECTORS(I,J,3) = -SPIN_CORR_VECTORS(I,J,2)
+            SYSTEM_SPIN_CORR_VECTORS(I,J,4) = -SPIN_CORR_VECTORS(I,J,3)
+          ENDDO
+## }
 C rotation=2 => (xp=-z,yp=y,zp=x)
 		ELSEIF(ROTATION.EQ.2) THEN
 		  P(0,I)=P_IN(0,I)
 		  P(1,I)=-P_IN(3,I)
 		  P(2,I)=P_IN(2,I)
 		  P(3,I)=P_IN(1,I)
+## if (spin_correlation) {
+          DO J=1,N_SPIN_CORR_VECTORS(I)
+            SYSTEM_SPIN_CORR_VECTORS(I,J,1) = SPIN_CORR_VECTORS(I,J,1)
+            SYSTEM_SPIN_CORR_VECTORS(I,J,2) = -SPIN_CORR_VECTORS(I,J,4)
+            SYSTEM_SPIN_CORR_VECTORS(I,J,3) = SPIN_CORR_VECTORS(I,J,3)
+            SYSTEM_SPIN_CORR_VECTORS(I,J,4) = SPIN_CORR_VECTORS(I,J,2)         
+          ENDDO
+## }
 		ELSE
 		  P(0,I)=P_IN(0,I)
 		  P(1,I)=P_IN(1,I)
 		  P(2,I)=P_IN(2,I)
 		  P(3,I)=P_IN(3,I)
+## if (spin_correlation) {
+          DO J=1,N_SPIN_CORR_VECTORS(I)
+            SYSTEM_SPIN_CORR_VECTORS(I,J,1) = SPIN_CORR_VECTORS(I,J,1)
+            SYSTEM_SPIN_CORR_VECTORS(I,J,2) = SPIN_CORR_VECTORS(I,J,2)
+            SYSTEM_SPIN_CORR_VECTORS(I,J,3) = SPIN_CORR_VECTORS(I,J,3)
+            SYSTEM_SPIN_CORR_VECTORS(I,J,4) = SPIN_CORR_VECTORS(I,J,4)         
+          ENDDO
+## }
 		ENDIF
 	  ENDDO
 
@@ -445,6 +473,10 @@ C
 	  LOGICAL MP_DONE
 	  common/%(proc_prefix)sMP_DONE/MP_DONE
 
+## if (spin_correlation) {
+      include 'spin_correlations.inc'      
+## }
+
 C ----------
 C BEGIN CODE
 C ----------
@@ -456,17 +488,41 @@ C rotation=1 => (xp=z,yp=-x,zp=-y)
 		  P(1,I)=P_IN(3,I)
 		  P(2,I)=-P_IN(1,I)
 		  P(3,I)=-P_IN(2,I)
+## if (spin_correlation) {
+          DO J=1,N_SPIN_CORR_VECTORS(I)
+            SYSTEM_SPIN_CORR_VECTORS(I,J,1) = SPIN_CORR_VECTORS(I,J,1)
+            SYSTEM_SPIN_CORR_VECTORS(I,J,2) = SPIN_CORR_VECTORS(I,J,4)
+            SYSTEM_SPIN_CORR_VECTORS(I,J,3) = -SPIN_CORR_VECTORS(I,J,2)
+            SYSTEM_SPIN_CORR_VECTORS(I,J,4) = -SPIN_CORR_VECTORS(I,J,3)
+          ENDDO
+## }
 C rotation=2 => (xp=-z,yp=y,zp=x)
 		ELSEIF(ROTATION.EQ.2) THEN
 		  P(0,I)=P_IN(0,I)
 		  P(1,I)=-P_IN(3,I)
 		  P(2,I)=P_IN(2,I)
 		  P(3,I)=P_IN(1,I)
+## if (spin_correlation) {
+          DO J=1,N_SPIN_CORR_VECTORS(I)
+            SYSTEM_SPIN_CORR_VECTORS(I,J,1) = SPIN_CORR_VECTORS(I,J,1)
+            SYSTEM_SPIN_CORR_VECTORS(I,J,2) = -SPIN_CORR_VECTORS(I,J,4)
+            SYSTEM_SPIN_CORR_VECTORS(I,J,3) = SPIN_CORR_VECTORS(I,J,3)
+            SYSTEM_SPIN_CORR_VECTORS(I,J,4) = SPIN_CORR_VECTORS(I,J,2)         
+          ENDDO
+## }
 		ELSE
 		  P(0,I)=P_IN(0,I)
 		  P(1,I)=P_IN(1,I)
 		  P(2,I)=P_IN(2,I)
-		  P(3,I)=P_IN(3,I)
+		  P(3,I)=P_IN(3,I) 
+## if (spin_correlation) {
+          DO J=1,N_SPIN_CORR_VECTORS(I)
+            SYSTEM_SPIN_CORR_VECTORS(I,J,1) = SPIN_CORR_VECTORS(I,J,1)
+            SYSTEM_SPIN_CORR_VECTORS(I,J,2) = SPIN_CORR_VECTORS(I,J,2)
+            SYSTEM_SPIN_CORR_VECTORS(I,J,3) = SPIN_CORR_VECTORS(I,J,3)
+            SYSTEM_SPIN_CORR_VECTORS(I,J,4) = SPIN_CORR_VECTORS(I,J,4)         
+          ENDDO
+## }
 		ENDIF
 	  ENDDO
 

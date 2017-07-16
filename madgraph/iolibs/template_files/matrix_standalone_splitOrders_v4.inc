@@ -677,7 +677,7 @@ C Index 0 is the number of correlators to consider and the next indices are whic
         INTEGER NCOLORCORRELATORS
         PARAMETER (NCOLORCORRELATORS=%(n_color_correlators)d)
        
-        INTEGER CORRELATED_LEG_A, CORRELATED_LEG_B, ID, INDEX
+        INTEGER CORRELATED_LEG_A, CORRELATED_LEG_B, ID, IDX
 CF2PY INTENT(IN) :: CORRELATED_LEG_A
 CF2PY INTENT(IN) :: CORRELATED_LEG_B
 CF2PY INTENT(OUT) :: ID
@@ -686,17 +686,17 @@ CF2PY INTENT(OUT) :: ID
         INTEGER INDEX_TO_COLOR_CORRELATOR(NCOLORCORRELATORS, 2)
         COMMON/%(proc_prefix)sCOLOR_CORRELATION_MAPS/COLOR_CORRELATOR_TO_INDEX, INDEX_TO_COLOR_CORRELATOR
 
-		INDEX = COLOR_CORRELATOR_TO_INDEX(CORRELATED_LEG_A, CORRELATED_LEG_B)
+		IDX = COLOR_CORRELATOR_TO_INDEX(CORRELATED_LEG_A, CORRELATED_LEG_B)
 		
-		IF (INDEX.LE.0) THEN
+		IF (IDX.LE.0) THEN
 		  ID = -1
 		ELSE
-		  ID = INDEX
+		  ID = IDX
 		ENDIF
 
       END
       
-      SUBROUTINE %(proc_prefix)sGET_COLOR_CORRELATOR_FOR_ID(INDEX, CORRELATED_LEG_A, CORRELATED_LEG_B)
+      SUBROUTINE %(proc_prefix)sGET_COLOR_CORRELATOR_FOR_ID(IDX, CORRELATED_LEG_A, CORRELATED_LEG_B)
         IMPLICIT NONE
         
         INTEGER    NEXTERNAL
@@ -704,8 +704,8 @@ CF2PY INTENT(OUT) :: ID
         INTEGER NCOLORCORRELATORS
         PARAMETER (NCOLORCORRELATORS=%(n_color_correlators)d)
 
-        INTEGER CORRELATED_LEG_A, CORRELATED_LEG_B, INDEX
-CF2PY INTENT(IN) :: INDEX
+        INTEGER CORRELATED_LEG_A, CORRELATED_LEG_B, IDX
+CF2PY INTENT(IN) :: IDX
 CF2PY INTENT(OUT) :: CORRELATED_LEG_A
 CF2PY INTENT(OUT) :: CORRELATED_LEG_B
 
@@ -713,8 +713,8 @@ CF2PY INTENT(OUT) :: CORRELATED_LEG_B
         INTEGER INDEX_TO_COLOR_CORRELATOR(NCOLORCORRELATORS, 2)
         COMMON/%(proc_prefix)sCOLOR_CORRELATION_MAPS/COLOR_CORRELATOR_TO_INDEX, INDEX_TO_COLOR_CORRELATOR
 
-		CORRELATED_LEG_A = INDEX_TO_COLOR_CORRELATOR(INDEX, 1)
-		CORRELATED_LEG_B = INDEX_TO_COLOR_CORRELATOR(INDEX, 2)
+		CORRELATED_LEG_A = INDEX_TO_COLOR_CORRELATOR(IDX, 1)
+		CORRELATED_LEG_B = INDEX_TO_COLOR_CORRELATOR(IDX, 2)
 
       END
       
@@ -770,6 +770,11 @@ C       First reset the array
         DO I=1,NCOLORCORRELATORS
           COLOR_CORRELATORS_TO_CONSIDER(I) = -1
         ENDDO
+        
+C       Index 0 on the first leg simply indicate the desire to reset the selection
+        IF (FIRST_LEG_INDEX.eq.0) THEN
+          RETURN
+        ENDIF
         
         DO I=1, NEXTERNAL
           IF (FIRST_LEG_INDEX.ne.-1.and.FIRST_LEG_INDEX.ne.I) THEN
@@ -840,6 +845,7 @@ C
         
         INTEGER I,J,N
         INTEGER OLD_N_SPIN_CORR_RUNS
+        INTEGER N_LEGS_WITH_SPIN_CORRELATORS
 
 C
 C       GLOBAL ARRAYS INITIALIZATION
@@ -865,6 +871,19 @@ C       Make sure the user does not try to set the spin-correlation vectors of a
           STOP
         ENDIF
 
+C       Make sure it does not exceed the maximum number of legs that can get spin correlators assigned.
+		N_LEGS_WITH_SPIN_CORRELATORS = 0
+		DO I=1,NEXTERNAL
+		  IF (N_SPIN_CORR_VECTORS(I).gt.0) THEN
+		    N_LEGS_WITH_SPIN_CORRELATORS = N_LEGS_WITH_SPIN_CORRELATORS + 1
+		  ENDIF
+		ENDDO
+		IF (N_LEGS_WITH_SPIN_CORRELATORS.ge.MAX_LEGS_WITH_SPIN_CORR) THEN
+		  WRITE(*,*) 'In the current output, only a maximum of ',MAX_LEGS_WITH_SPIN_CORR,' can be assigned spin-correlations.'
+		  WRITE(*,*) 'Change the parameter MAX_LEGS_WITH_SPIN_CORR in spin_correlations.inc or re-generate the process with a higher power of N for the option --spin_correlators=N^iLO'
+		  STOP
+		ENDIF
+		
 C       First add the vectors to the list of spin-correlation vectors defined
         N_SPIN_CORR_VECTORS(LEG_INDEX) = N_VECTORS
         DO I=1,N_VECTORS

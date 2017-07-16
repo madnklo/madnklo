@@ -52,6 +52,16 @@ C
       LOGICAL FOUNDONE
 ## }
 
+## if(spin_correlation) {
+      include 'spin_correlations.inc'
+      INTEGER NENTRIES
+      PARAMETER(NENTRIES=MAX_N_SPIN_CORR_VECTORS*4)
+      REAL*8 SCVECTORS(MAX_N_SPIN_CORR_VECTORS,4)
+      DATA SCVECTORS/NENTRIES*.0d0/
+      INTEGER NVECTOR_TO_TRY_PER_LEG
+      PARAMETER(NVECTOR_TO_TRY_PER_LEG=MIN(3,MAX_N_SPIN_CORR_VECTORS))
+## }
+
 C     
 C     EXTERNAL
 C     
@@ -127,6 +137,10 @@ c
 C     Specify here that we want to compute all color correlators
       CALL %(proc_prefix)sSET_COLOR_CORRELATORS_TO_CONSIDER(-1,-1)
 ## }
+## if(spin_correlation) {
+C    Turn off spin correlations for now
+     CALL %(proc_prefix)sRESET_SPIN_CORRELATION_VECTORS()
+## }
       CALL %(proc_prefix)sSMATRIX_SPLITORDERS(P,MATELEMS)
       MATELEM=MATELEMS(0)
       %(printout_sqorders)s
@@ -189,6 +203,44 @@ C       Just so as to place the sum last
         WRITE(*,*) ""        
       ENDDO
       WRITE(*,*) '   Global check rel. sum for all contribs    =',ABS(RUNNING_SUMC/MAX(RUNNING_ABSSUMC, 1.0d-99))
+      WRITE(*,*) ""
+## }
+
+## if(spin_correlation) {
+      WRITE(*,*) ""
+      WRITE(*,*) "-----------------------------"
+      WRITE(*,*) "Spin-correlated evaluations "
+      WRITE(*,*) "-----------------------------"
+      WRITE(*,*) ""
+## if(color_correlation) {
+C    Turn off color correlations
+     CALL %(proc_prefix)sSET_COLOR_CORRELATORS_TO_CONSIDER(0,0)
+## }      
+      CALL %(proc_prefix)sRESET_SPIN_CORRELATION_VECTORS()
+      DO I=1,MIN(MAX_LEGS_WITH_SPIN_CORR,NEXTERNAL)
+        DO K=1,NVECTOR_TO_TRY_PER_LEG
+          DO J=1,4
+            SCVECTORS(K,J) = DBLE(K)*P(J-1,I)
+          ENDDO
+        ENDDO
+        CALL SET_SPIN_CORRELATION_VECTORS(I,NVECTOR_TO_TRY_PER_LEG,SCVECTORS)
+      ENDDO
+      CALL %(proc_prefix)sSMATRIX_SPLITORDERS(P,MATELEMS)
+      MATELEM=MATELEMS(0)
+      WRITE(*,*) "   Purely longitudinal spin correlators = ",MATELEM
+      
+      CALL %(proc_prefix)sRESET_SPIN_CORRELATION_VECTORS()
+      DO I=1,MIN(MAX_LEGS_WITH_SPIN_CORR,NEXTERNAL)
+        DO K=1,NVECTOR_TO_TRY_PER_LEG
+          DO J=1,4
+            SCVECTORS(K,J) = DBLE((K+1)*(I+2)*(J+3))*P(J-1,I)
+          ENDDO
+        ENDDO
+        CALL SET_SPIN_CORRELATION_VECTORS(I,NVECTOR_TO_TRY_PER_LEG,SCVECTORS)
+      ENDDO
+      CALL %(proc_prefix)sSMATRIX_SPLITORDERS(P,MATELEMS)
+      MATELEM=MATELEMS(0)
+      WRITE(*,*) "   Arbitrary spin correlators           = ",MATELEM
       WRITE(*,*) ""
 ## }
 

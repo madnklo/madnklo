@@ -3947,6 +3947,7 @@ class ContributionDefinition(object):
     
     def __init__(self,
                  process_definition, 
+                 overall_correction_order   = 'LO',
                  correction_order           = 'LO',
                  correction_couplings       = [], 
                  n_unresolved_particles     = 0,
@@ -3956,6 +3957,10 @@ class ContributionDefinition(object):
         """ Instantiate a contribution definition with all necessary information
         to generate the actual contribution. """
         self.process_definition        = process_definition
+        # The overall_correction order is the general correction order of the computation
+        # this contribution takes part in. It is useful to know so as to decide what kind
+        # of spin- and color- correlators must be included.
+        self.overall_correction_order  = overall_correction_order
         self.correction_order          = correction_order
         self.correction_couplings      = correction_couplings
         self.n_unresolved_particles    = n_unresolved_particles
@@ -3979,6 +3984,7 @@ class ContributionDefinition(object):
         """ Nice representation of a contribution definition."""
         res = []
         res.append('%-30s:   %s'%('correction_order',self.correction_order))
+        res.append('%-30s:   %s'%('overall_correction_order',self.overall_correction_order))
         res.append('%-30s:   %s'%('correction_couplings',self.correction_couplings))
         res.append('%-30s:   %s'%('n_unresolved_particles',self.n_unresolved_particles))
         res.append('%-30s:   %s'%('n_loops',self.n_loops))

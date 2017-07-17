@@ -1612,10 +1612,10 @@ DO K=1,3
   ENDDO
 ENDDO
 
+## if (ComputeColorFlows) {
 C Apply the normalization factor to all color-derived quantities if necessary
 CALL %(proc_prefix)sNORMALIZE_COLOR_FLOWS_DERIVED_QUANTITIES(NORMALIZATIONFACTOR)
 
-## if (ComputeColorFlows) {
 IF (DIRECT_ME_COMPUTATION.AND.ME_COMPUTATION_FROM_JAMP) THEN
   WRITE(*,*) ' ================================= '
   WRITE(*,*) ' === JAMP double-checking test === '

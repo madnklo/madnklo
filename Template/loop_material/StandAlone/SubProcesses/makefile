@@ -46,7 +46,8 @@ PROCESS= MadLoopParamReader.o MadLoopCommons.o \
  $(patsubst $(DOTF),$(DOTO),$(wildcard TIR_interface.f)) \
  $(patsubst $(DOTF),$(DOTO),$(wildcard GOLEM_interface.f)) \
  $(patsubst $(DOTF),$(DOTO),$(wildcard COLLIER_interface.f)) \
- $(patsubst $(DOTF),$(DOTO),$(wildcard compute_color_flows.f))
+ $(patsubst $(DOTF),$(DOTO),$(wildcard compute_color_flows.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard user_access_subroutines.f))
 
 OLP_PROCESS= MadLoopParamReader.o MadLoopCommons.o \
  $(patsubst $(DOTF),$(DOTO),$(wildcard $(LOOP_PREFIX)*/polynomial.f)) \
@@ -66,7 +67,14 @@ OLP_PROCESS= MadLoopParamReader.o MadLoopCommons.o \
  $(patsubst $(DOTF),$(DOTO),$(wildcard $(LOOP_PREFIX)*/TIR_interface.f)) \
  $(patsubst $(DOTF),$(DOTO),$(wildcard $(LOOP_PREFIX)*/GOLEM_interface.f)) \
  $(patsubst $(DOTF),$(DOTO),$(wildcard $(LOOP_PREFIX)*/COLLIER_interface.f)) \
- $(patsubst $(DOTF),$(DOTO),$(wildcard $(LOOP_PREFIX)*/compute_color_flows.f))
+ $(patsubst $(DOTF),$(DOTO),$(wildcard $(LOOP_PREFIX)*/compute_color_flows.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard $(LOOP_PREFIX)*/user_access_subroutines.f))
+
+F2PY_RESOURCES = $(patsubst $(DOTF),$(DOTO),$(wildcard f2py_wrapper.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard born_matrix.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard $(LOOP_PREFIX)*/born_matrix.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard user_access_subroutines.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard $(LOOP_PREFIX)*/user_access_subroutines.f)) \
 
 $(PROG): check_sa.o $(PROCESS) makefile $(LIBS)
 	$(FC) $(FFLAGS) -o $(PROG) check_sa.o $(PROCESS) $(LINKLIBS)
@@ -109,9 +117,9 @@ libMadLoop.$(dylibext): ../$(OLP)
 ifeq ($(origin MENUM),undefined)
   MENUM=2
 endif
-matrix$(MENUM)py.so: ../$(OLP)_static f2py_wrapper.f 
+matrix$(MENUM)py.so: ../$(OLP)_static $(F2PY_RESOURCES) 
 	touch __init__.py
-	$(F2PY) $(MADLOOP_LIB) -m matrix$(MENUM)py -c f2py_wrapper.f --fcompiler=$(FC)   -L../../lib/ -ldhelas -lmodel $(LINK_LOOP_LIBS) $(STDLIB)
+	$(F2PY) $(MADLOOP_LIB) -m matrix$(MENUM)py -c $(F2PY_RESOURCES) --fcompiler=$(FC)   -L../../lib/ -ldhelas -lmodel $(LINK_LOOP_LIBS) $(STDLIB)
 
 clean:
 	@rm -f *.o *.so *.$(libext) *.$(dylibext)

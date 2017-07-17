@@ -3278,7 +3278,9 @@ This implies that with decay chains:
         generation_options['proc_id'] += 1
         self._curr_contribs.append(
             contributions.Contribution(
-                base_objects.ContributionDefinition(procdef), 
+                base_objects.ContributionDefinition(
+                    procdef,
+                    overall_correction_order=generation_options['overall_correction_order']), 
                 self, diagram_filter=generation_options['diagram_filter'],
                 optimize=generation_options['optimize']))
 
@@ -3299,7 +3301,9 @@ This implies that with decay chains:
         self._curr_contribs.append(
             contributions.Contribution(base_objects.ContributionDefinition(
                     procdef,
-                    n_loops = 1)), self)
+                    n_loops = 1,
+                    overall_correction_order=generation_options['overall_correction_order']), 
+            self) )
                 
     def add_NLO_contributions(self, NLO_template_procdef, generation_options, target_squared_orders):
         """ Add all regular NLO contributions, using the process defintion in argument as template
@@ -3330,7 +3334,8 @@ This implies that with decay chains:
                     n_unresolved_particles     = 0,
                     correction_order           = 'NLO',
                     correction_couplings       = generation_options['NLO'],
-                    squared_orders_constraints = dict(target_squared_orders)),
+                    squared_orders_constraints = dict(target_squared_orders),
+                    overall_correction_order=generation_options['overall_correction_order'] ),
                 self))
 
         # Add the real-emission contribution
@@ -3359,7 +3364,8 @@ This implies that with decay chains:
                     n_unresolved_particles = 1,
                     correction_order       = 'NLO',
                     correction_couplings   = generation_options['NLO'],
-                    squared_orders_constraints = dict(target_squared_orders) ),
+                    squared_orders_constraints = dict(target_squared_orders),
+                    overall_correction_order=generation_options['overall_correction_order'] ),
                     self)
         
         self._curr_contribs.append(real_emission_contribution)
@@ -3409,7 +3415,8 @@ This implies that with decay chains:
                     n_unresolved_particles = 2,
                     correction_order       = 'NNLO',
                     correction_couplings   = generation_options['NNLO'],
-                    squared_orders_constraints = dict(target_squared_orders) ),
+                    squared_orders_constraints = dict(target_squared_orders),
+                    overall_correction_order=generation_options['overall_correction_order'] ),
                     self)
         
         self._curr_contribs.append(double_real_emission_contribution)
@@ -3426,6 +3433,14 @@ This implies that with decay chains:
         
         # Progressively increment process ID, which we store in the generation_options
         generation_options['proc_id'] = 1
+        
+        # Obtain what is the highest correction order required for:
+        if generation_options['NNLO']:
+            generation_options['overall_correction_order'] = 'NNLO'
+        elif generation_options['NLO']:
+            generation_options['overall_correction_order'] = 'NLO'
+        else:
+            generation_options['overall_correction_order'] = 'LO'
         
         # Add LO contributions first
         if generation_options['LO']:

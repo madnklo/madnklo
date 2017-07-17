@@ -56,7 +56,7 @@ C
       INTEGER I,J
 	  INTEGER SQSPLITORDERS(NSQSO,NSO)
 	  %(sqsplitorders)s
-	  COMMON/%(proc_prefix)sSQPLITORDERS%(proc_id)s/SQPLITORDERS
+	  COMMON/%(proc_prefix)sALL_SQSPLITORDERS%(proc_id)s/SQSPLITORDERS
 C
 C BEGIN CODE
 C
@@ -86,6 +86,7 @@ C
 	  PARAMETER  (NSQUAREDSO=%(nSqAmpSplitOrders)d)
 
 	  INTEGER NSQSO
+CF2PY INTENT(OUT) :: NSQSO
 
       NSQSO=NSQUAREDSO
 
@@ -105,18 +106,20 @@ C
 C ARGUMENTS
 C
       INTEGER SOINDEX, ORDERS(NSO)
+CF2PY INTENT(IN) :: SOINDEX
+CF2PY INTENT(OUT) :: ORDERS
 C
 C LOCAL VARIABLES
 C
       INTEGER I
-	  INTEGER SQPLITORDERS(NSQSO,NSO)
-	  COMMON/%(proc_prefix)sSQPLITORDERS%(proc_id)s/SQPLITORDERS	  
+	  INTEGER SQSPLITORDERS(NSQSO,NSO)
+	  COMMON/%(proc_prefix)sALL_SQSPLITORDERS%(proc_id)s/SQSPLITORDERS	  
 C
 C BEGIN CODE
 C
       IF (SOINDEX.gt.0.and.SOINDEX.le.NSQSO) THEN
         DO I=1,NSO
-          ORDERS(I) =  SQPLITORDERS(SOINDEX,I)
+          ORDERS(I) =  SQSPLITORDERS(SOINDEX,I)
         ENDDO
         RETURN
       ENDIF
@@ -200,3 +203,27 @@ C
 	  STOP
 
       END
+      
+C --------
+C Now defining F2PY hooks.
+C --------
+
+      SUBROUTINE %(proc_prefix)sGET_SPLIT_ORDER_NAMES%(proc_id)s(SONAMES)
+      IMPLICIT NONE
+C
+C CONSTANTS
+C
+      INTEGER    NSO
+	  PARAMETER (NSO=%(nSplitOrders)d)
+C ARGUMENTS
+C
+      CHARACTER*100 SONAMES(NSO)
+      INTEGER IDX
+CF2PY INTENT(OUT) :: SONAMES
+C
+C BEGIN CODE
+C
+      %(split_order_name_definitions)s
+
+      END
+

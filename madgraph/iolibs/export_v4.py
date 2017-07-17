@@ -2364,6 +2364,8 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             replace_dict['nSqAmpSplitOrders']=len(squared_orders)
             replace_dict['nSplitOrders']=len(split_orders)
             replace_dict['split_order_str_list']=str(split_orders)
+            replace_dict['split_order_name_definitions'] = '\n'.join("SONAMES(%d)='%s'"%
+                               (i+1,so_name) for i, so_name in enumerate(split_orders) )
             amp_so = self.get_split_orders_lines(
                     [amp_order[0] for amp_order in amp_orders],'AMPSPLITORDERS')
             sqamp_so = self.get_split_orders_lines(squared_orders,'SQSPLITORDERS')
@@ -2397,8 +2399,12 @@ C Indicates the number of spin correlations vectors defined for each external le
 INTEGER N_SPIN_CORR_VECTORS(NEXTERNAL)
 
 C Store the list of combination of spin_corr_vectors with which to enhance the loop over helicity combinations
+C Also we use a temporary parameter const buffer to store the value of max_spin_corr_runs because f2py
+C can't realize it is constant otherwise
+INTEGER TMPCONST
+PARAMETER(TMPCONST=MAX_N_SPIN_CORR_VECTORS**(MAX_LEGS_WITH_SPIN_CORR))
 INTEGER MAX_SPIN_CORR_RUNS
-PARAMETER(MAX_SPIN_CORR_RUNS=MAX_N_SPIN_CORR_VECTORS**MAX_LEGS_WITH_SPIN_CORR)
+PARAMETER(MAX_SPIN_CORR_RUNS=TMPCONST)
 C Store the number of spin-correlation runs defined by the user.
 C A run is just a pass through the helas calls for computing the integrand for a specific helicity configuration
 INTEGER N_SPIN_CORR_RUNS
@@ -6608,7 +6614,12 @@ def ExportV4Factory(cmd, noclean, output_type='default', group_subprocesses=True
         and 'default' for tree-level outputs."""
 
     opt = dict(cmd.options)
+    
     opt.update(additional_options)
+    # Make sure the additional options 'color_correlators' and 'spin_correlators' are defined.
+    for mandatory_option in ['color_correlators','spin_correlators']:
+        if mandatory_option not in opt:
+            opt['mandatory_option'] = None
 
     # Consistency check on inputs. If either curr_amps_input or export_dir_input is
     # specified, it should be a stanalone type of output and _fks_multi_proc should

@@ -469,7 +469,15 @@ C       We assume here that leg #I of the process is a fermion or a vector!
         CALL %(proc_prefix)sSET_SPIN_CORRELATION_VECTORS(I,NVECTOR_TO_TRY_PER_LEG,SCVECTORS)
       ENDDO
       CALL %(proc_prefix)sSLOOPMATRIX_THRES(P,MATELEM,-1.0d0,PREC_FOUND,RETURNCODE)
-      WRITE(*,*) "   Arbitrary spin correlators; squared order index           ",SOINDEX," = ",(MATELEM(K,SOINDEX),K=MINRESIDUESTOSHOW,MAXRESIDUESTOSHOW)
+      DO S=1,MATELEM_ARRAY_DIM+1
+C       Just show one set of results if there is only one squared coupling_order
+        IF (S.eq.1.and.MATELEM_ARRAY_DIM.eq.1) THEN
+          CYCLE
+        ENDIF
+C       Just so as to place the sum last
+        SOINDEX = MOD(S, MATELEM_ARRAY_DIM+1)
+        WRITE(*,*) "   Arbitrary spin correlators; squared order index           ",SOINDEX," = ",(MATELEM(K,SOINDEX),K=MINRESIDUESTOSHOW,MAXRESIDUESTOSHOW)
+      ENDDO
       WRITE(*,*) ""
 ## }
 

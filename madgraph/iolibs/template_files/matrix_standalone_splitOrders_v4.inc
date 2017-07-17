@@ -55,6 +55,30 @@ C ----------
 
 	  END
 
+C Give access to the helicity definition to the f2py API.
+      SUBROUTINE %(proc_prefix)sGET_HELICITY_DEFINITIONS(NHEL_OUT)
+        IMPLICIT NONE
+        
+        INTEGER    NEXTERNAL
+        PARAMETER (NEXTERNAL=%(nexternal)d)
+        INTEGER    NCOMB
+        PARAMETER (NCOMB=%(ncomb)d)
+        INTEGER NHEL(NEXTERNAL,NCOMB)
+        COMMON/%(proc_prefix)sBORN_HEL_CONFIGS/NHEL
+              
+        INTEGER NHEL_OUT(NCOMB,NEXTERNAL)
+CF2PY INTENT(OUT) :: NHEL_OUT
+
+        INTEGER I,J
+
+        DO I=1,NEXTERNAL
+          DO J=1,NCOMB
+            NHEL_OUT(J,I) = NHEL(I,J)
+          ENDDO
+        ENDDO
+
+      END
+
       SUBROUTINE %(proc_prefix)sSMATRIX_SPLITORDERS(P,ANS)
 C  
 %(info_lines)s

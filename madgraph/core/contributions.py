@@ -327,8 +327,9 @@ class VirtualMEAccessor(object):
 
         permuted_PS_point = [PS_point[permutation[i]] for i in range(len(PS_point))]
         permuted_spin_correlation = [ (permutation[leg_ID], vectors) for leg_ID, vectors in spin_correlation]
-        permuted_color_connection = [ (name, tuple( (permutation[ind] if ind > 0 else ind) for ind in indices) )
-                                                                     for (name, indices) in color_connection ]
+#        permuted_color_connection = [ (name, tuple( (permutation[ind] if ind > 0 else ind) for ind in indices) )
+#                                                                     for (name, indices) in color_connection ]
+        permuted_color_connection = [ (permutation[ind1], permutation[ind2]) for (ind1, ind2) in color_connection ]
         permuted_hel_config = tuple( hel_config[permutation[i]] for i in range(len(hel_config)) )
 
         all_opts = {'spin_correlation' : permuted_spin_correlation,
@@ -385,6 +386,87 @@ class F2PYMEAccessor(VirtualMEAccessor):
         self.f2py_module_path = f2py_module_path
         self.f2py_module = self.load_f2py_module(f2py_module_path)
 
+        # Try to guess the process prefix if not defined
+        if 'proc_prefix' in opts:
+            self.proc_prefix = opts['proc_prefix']
+        elif os.path.isfile(pjoin(self.f2py_module_path[0],'proc_prefix.txt')):
+            self.proc_prefix = open(pjoin(self.f2py_module_path[0],'proc_prefix.txt')).read()
+        elif hasattr(self.f2py_module, 'smatrix'):
+            self.proc_prefix = ''
+        else:
+            candidates = [attribute[:-7] for attribute in dir(self.f2py_module) if attribute.endswith('smatrix')]
+            if len(candidates)>1:
+                raise MadGraph5Error("Cannot automatically detect process prefix in f2py module %s @ '%s'."%
+                                     (self.f2py_module_path[1], self.f2py_module_path[0])+
+                                     "\n. Possible options are: '%s'."%str(candidates))
+            self.proc_prefix = candidates[0]
+            
+        # Sanity check
+        if not self.has_function('smatrix'):
+            raise MadGraph5Error("The specified f2pymodule %s @ '%s' , with proc_prefix = '%s'"%
+                (self.f2py_module_path[1], self.f2py_module_path[0], self.proc_prefix)+
+                " does not seem to define the subroutine 'smatrix'. Check the sanity of the proc_prefix value.")
+
+        # Get all helicities orderin
+        self.helicity_configurations = dict((tuple(hels),i+1) for i, hels in enumerate(
+                                              self.get_function('get_helicity_definitions')() ))
+        
+        # Available spin correlations
+        if not self.has_function('get_max_n_spin_corr_legs'):
+            self.spin_correlations = None
+        else:
+            self.spin_correlations = 'N'*self.get_function('get_max_n_spin_corr_legs')()+'LO'
+        
+        # Available color correlations
+        if not self.has_function('get_n_color_correlators'):
+            self.color_correlations = None
+        else:
+            # Initialize a map of the color connectors
+            self.color_correlations = dict( 
+                (tuple(sorted(self.get_function('get_color_correlator_for_id')(i_correlator))),i_correlator)
+                              for i_correlator in range(1,self.get_function('get_n_color_correlators')()+1))
+
+        # Available squared orders
+        self.squared_orders = {'ALL': 0}
+        self.split_order_names = []
+        if self.has_function('get_nsqso_born'):
+            n_squared_orders = self.get_function('get_nsqso_born')()
+            self.split_order_names = [''.join(name).strip() for name in self.get_function('get_split_order_names')()]
+            for i_sq_order in range(1,n_squared_orders+1):
+                key = tuple(sorted([(self.split_order_names[i], value) for i, value in enumerate(
+                                            self.get_function('get_squared_orders_for_soindex')(i_sq_order) )]))
+                self.squared_orders[key] = i_sq_order
+        
+        misc.sprint(self.nice_string())
+        stop
+
+    def nice_string(self):
+        """ Summary of the details of this ME accessor."""
+        res = []
+        res.append("%s: %s @ '%s'"%(self.__class__.__name__,self.f2py_module_path[1], self.f2py_module_path[0]))
+        res.append('%-40s:   %s'%('Number of hel. configs',len(self.helicity_configurations)))
+        res.append('%-40s:   %s'%('Spin correlators available','None' if self.spin_correlations is None \
+                                                                                        else self.spin_correlations))
+        res.append('%-40s:   %s'%('Number of color correlators available','None' if self.color_correlations is None \
+                                                                                        else len(self.color_correlations)))
+        res.append('%-40s:   %s'%('Squared orders available', 'Only summed' if self.squared_orders.keys()=='ALL' else \
+                                                                str([k for k in self.squared_orders.keys() if k!='ALL'])))
+        return '\n'.join(res)
+
+    def has_function(self, function_name):
+        """ Simply tests if the current f2py module has the desired function."""
+        
+        return hasattr(self.f2py_module,'%s%s'%(self.proc_prefix, function_name))
+
+    def get_function(self, function_name):
+        """ Returns the specified f2py function."""
+        
+        if not self.has_function(function_name):
+            raise MadGraph5Error("The loaded f2py module '%s' @ '%S' does not have function %s."%(
+                                        self.f2py_module_path[1], self.f2py_module_path[0], function_name))
+            
+        return getattr(self.f2py_module, '%s%s'%(self.proc_prefix, function_name))
+
     def load_f2py_module(self, module_path):
         """ Loads a f2py module given its path and returns it."""
         
@@ -424,12 +506,12 @@ class F2PYMEAccessor(VirtualMEAccessor):
         # misc.sprint(" I was called from :",self.process_pdgs)
         
         if not self.module_initialized:
-            self.f2py_module.initialise(pjoin(self.root_path, self.slha_card_path))
+            self.get_function('initialise')(pjoin(self.root_path, self.slha_card_path))
             self.module_initialized = True
         
         # Most basic access for now
         output_data ={}
-        output_data['finite'] = self.f2py_module.get_me( self.format_momenta_for_f2py(PS_point), alpha_s, nhel=0)
+        output_data['finite'] = self.get_function('get_me')( self.format_momenta_for_f2py(PS_point), alpha_s, nhel=0)
         
         return output_data
     
@@ -679,6 +761,30 @@ class Contribution(object):
         """ Instantiates a particular contribution."""
         
         self.contribution_definition = contribution_definition
+        
+        # Now set what additional export options need to be set
+        self.additional_exporter_options = {'color_correlators' : 'NLO',
+                                            'spin_correlators'  : 'NLO'}
+        # Below correlators_needed will be 1 if we are in an NLO-type of contribution (i.e. correction_order='NLO')
+        # within an NNLO general computation (i.e. overall_correction_order='NNLO').
+        # In this case we indeed expect to need NLO-type of correlators.
+        correlators_needed = self.contribution_definition.overall_correction_order.count('N') - \
+                             self.contribution_definition.correction_order.count('N')
+
+        if correlators_needed > 0:
+            self.additional_exporter_options['color_correlators'] ='N'*correlators_needed+'LO'
+            ##############################################################################################################
+            ##############################################################################################################
+            ###                                                 TEMPORARY HACK
+            ### Since NNLO color correlators are not available yet and we want to be able to tinker with NNLO outputs
+            ### we force the color correlators to be at most NLO type here. Should be removed eventually of course.
+            ###
+            self.additional_exporter_options['color_correlators'] ='N'*min(correlators_needed,1)+'LO'
+            ####
+            ##############################################################################################################
+            ##############################################################################################################
+            self.additional_exporter_options['spin_correlators']  ='N'*correlators_needed+'LO'
+                    
         self.amplitudes              = diagram_generation.AmplitudeList()
         self.all_matrix_elements     = helas_objects.HelasMultiProcess()
         self.exporter                = None
@@ -736,7 +842,8 @@ class Contribution(object):
                 cmd_interface, noclean, output_type=self.output_type, group_subprocesses=group_subprocesses,
                 curr_amps = self.amplitudes,
                 export_dir = self.export_dir,
-                format = self.format)
+                format = self.format,
+                additional_options = self.additional_exporter_options)
 
     def copy_template(self, model):
         """ Copy the template structure for that contribution. Quite often, this limits itself to aksing its

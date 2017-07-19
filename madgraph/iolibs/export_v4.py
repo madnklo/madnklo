@@ -6616,6 +6616,7 @@ def ExportV4Factory(cmd, noclean, output_type='default', group_subprocesses=True
     opt = dict(cmd.options)
     
     opt.update(additional_options)
+
     # Make sure the additional options 'color_correlators' and 'spin_correlators' are defined.
     for mandatory_option in ['color_correlators','spin_correlators']:
         if mandatory_option not in opt:
@@ -6692,8 +6693,7 @@ def ExportV4Factory(cmd, noclean, output_type='default', group_subprocesses=True
       'color_correlators' : opt['color_correlators'],
       'spin_correlators' : opt['spin_correlators'],
       }
-
-
+    
     if output_type.startswith('madloop'):        
         import madgraph.loop.loop_exporters as loop_exporters
         if os.path.isdir(os.path.join(cmd._mgme_dir, 'Template/loop_material')):

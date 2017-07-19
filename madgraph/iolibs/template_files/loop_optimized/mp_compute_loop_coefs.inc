@@ -348,25 +348,7 @@ C   does not match the first one encountered
 C Now insert the extra runs for the spin-correlations
 C The MIN statement allows to make sure that we proceed with a normal run if not spin-correlations are active
   DO ISC=MIN(N_SPIN_CORR_RUNS,1),N_SPIN_CORR_RUNS
-  
-    DO I=1,NEXTERNAL
-      IF (SPIN_CORR_RUNS(ISC, I).eq.-1000) THEN
-C       No spin correlation, leave it as it is
-        DO J=1,20
-          W(J,I) = CMPLX(ZERO,ZERO,KIND=16)
-        ENDDO
-      ELSE
-C     	Spin correlation, enforce the polarization vector to be the specified one.
-C       Notice that we cast here a double precision variable into a quad prec one.
-        NHEL(I) = -1000
-        DO J=1,4
-          W(J,I) = SYSTEM_SPIN_CORR_VECTORS(I,SPIN_CORR_RUNS(ISC, I),J)
-        ENDDO
-        DO J=5,20
-          W(J,I) = CMPLX(ZERO,ZERO,KIND=16)
-        ENDDO
-      ENDIF
-    ENDDO
+ 
 ## }
 
   IF (COMPUTE_INTEGRAND_IN_QP) THEN  
@@ -411,6 +393,40 @@ C The coefficient were already computed previously with another CTMode, so we ca
   ENDDO
 ENDDO
 ## }
+## if (spin_correlation) {
+
+    DO I=1,NEXTERNAL
+      IF (SPIN_CORR_RUNS(ISC, I).eq.-1000) THEN
+C       No spin correlation, leave it as it is
+        DO J=1,20
+          IF (COMPUTE_INTEGRAND_IN_QP) THEN
+            W(J,I) = CMPLX(ZERO,ZERO,KIND=16)
+          ELSE
+            DPW(J,I) = (0.0d0, 0.0d0)
+          ENDIF
+        ENDDO
+      ELSE
+C     	Spin correlation, enforce the polarization vector to be the specified one.
+C       Notice that we cast here a double precision variable into a quad prec one.
+        NHEL(I) = -1000
+        DO J=1,4
+          IF (COMPUTE_INTEGRAND_IN_QP) THEN
+            W(J,I) = CMPLX(SYSTEM_SPIN_CORR_VECTORS(I,SPIN_CORR_RUNS(ISC, I),J),KIND=16)
+          ELSE
+            DPW(J,I) = SYSTEM_SPIN_CORR_VECTORS(I,SPIN_CORR_RUNS(ISC, I),J)
+          ENDIF
+        ENDDO
+        DO J=5,20
+          IF (COMPUTE_INTEGRAND_IN_QP) THEN
+            W(J,I) = CMPLX(ZERO,ZERO,KIND=16)
+          ELSE
+            DPW(J,I) = (0.0d0, 0.0d0)
+          ENDIF
+        ENDDO
+      ENDIF
+    ENDDO
+## }
+
 
   IF (COMPUTE_INTEGRAND_IN_QP) THEN
     %(mp_born_ct_helas_calls)s

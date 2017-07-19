@@ -10,7 +10,11 @@
      &MLReductionLib(8),IREGIMODE,HelicityFilterLevel,COLLIERMode,
      &COLLIERGlobalCache
 
-      real*8 MLStabThres,CTStabThres,ZeroThres,OSThres,COLLIERRequiredAccuracy
+      real*8 MLStabThres
+	  real*8 CTStabThres
+	  real*8 ZeroThres
+	  real*8 OSThres
+	  real*8 COLLIERRequiredAccuracy
 
       logical UseLoopFilter,LoopInitStartOver,DoubleCheckHelicityFilter,
      &COLLIERComputeIRpoles,COLLIERComputeUVpoles,COLLIERCanOutput

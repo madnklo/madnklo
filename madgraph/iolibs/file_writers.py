@@ -80,11 +80,15 @@ class FileWriter(file):
 
         pass
 
-    def writelines(self, lines, context={}):
+    def writelines(self, lines, context={}, replace_dictionary={}):
         """Extends the regular file.writeline() function to write out
         nicely formatted code. When defining a context, then the lines
         will be preprocessed to apply possible conditional statements on the
-        content of the template depending on the contextual variables specified."""
+        content of the template depending on the contextual variables specified.
+        A replace_dictionary can be specified to replace placeholders in lines.
+        This can be useful if it is important that the preprocessing of the template
+        happens before the replacement occurs (i.e. otherwise some entries would b
+        missing)."""
 
         splitlines = []
         if isinstance(lines, list):
@@ -99,6 +103,10 @@ class FileWriter(file):
 
         if len(context)>0:
             splitlines = self.preprocess_template(splitlines,context=context)
+
+        if replace_dictionary:
+            # Apply replacement now
+            splitlines = (('\n'.join(splitlines))%replace_dictionary).split('\n')
 
         for line in splitlines:
             res_lines = self.write_line(line)

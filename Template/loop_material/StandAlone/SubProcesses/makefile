@@ -70,11 +70,11 @@ OLP_PROCESS= MadLoopParamReader.o MadLoopCommons.o \
  $(patsubst $(DOTF),$(DOTO),$(wildcard $(LOOP_PREFIX)*/compute_color_flows.f)) \
  $(patsubst $(DOTF),$(DOTO),$(wildcard $(LOOP_PREFIX)*/user_access_subroutines.f))
 
-F2PY_RESOURCES = $(patsubst $(DOTF),$(DOTO),$(wildcard f2py_wrapper.f)) \
- $(patsubst $(DOTF),$(DOTO),$(wildcard born_matrix.f)) \
- $(patsubst $(DOTF),$(DOTO),$(wildcard $(LOOP_PREFIX)*/born_matrix.f)) \
- $(patsubst $(DOTF),$(DOTO),$(wildcard user_access_subroutines.f)) \
- $(patsubst $(DOTF),$(DOTO),$(wildcard $(LOOP_PREFIX)*/user_access_subroutines.f)) \
+F2PY_RESOURCES = $(wildcard f2py_wrapper.f) \
+ $(wildcard born_matrix.f) \
+ $(wildcard $(LOOP_PREFIX)*/born_matrix.f) \
+ $(wildcard user_access_subroutines.f) \
+ $(wildcard $(LOOP_PREFIX)*/user_access_subroutines.f) \
 
 $(PROG): check_sa.o $(PROCESS) makefile $(LIBS)
 	$(FC) $(FFLAGS) -o $(PROG) check_sa.o $(PROCESS) $(LINKLIBS)
@@ -83,8 +83,8 @@ $(STABCHECKDRIVER):  StabilityCheckDriver.o $(PROCESS) makefile $(LIBS)
 	$(FC) $(FFLAGS) -o $(STABCHECKDRIVER) StabilityCheckDriver.o $(PROCESS) $(LINKLIBS)
 
 # The program below is not essential but just an helpful one to run the born only
-$(CHECK_SA_BORN_SPLITORDERS):  check_sa_born_splitOrders.o $(patsubst $(DOTF),$(DOTO),$(wildcard *born_matrix.f)) makefile $(LIBDIR)libdhelas.$(libext) $(LIBDIR)libmodel.$(libext)
-	$(FC) $(FFLAGS) -o $(CHECK_SA_BORN_SPLITORDERS) check_sa_born_splitOrders.o $(patsubst $(DOTF),$(DOTO),$(wildcard *born_matrix.f)) -L$(LIBDIR) -ldhelas -lmodel
+$(CHECK_SA_BORN_SPLITORDERS): ../$(OLP)_static check_sa_born_splitOrders.o $(patsubst $(DOTF),$(DOTO),$(wildcard *born_matrix.f)) makefile $(LIBDIR)libdhelas.$(libext) $(LIBDIR)libmodel.$(libext)
+	$(FC) $(FFLAGS) -o $(CHECK_SA_BORN_SPLITORDERS) check_sa_born_splitOrders.o $(patsubst $(DOTF),$(DOTO),$(wildcard *born_matrix.f)) -L$(LIBDIR) -ldhelas -lmodel -lMadLoop $(LINK_LOOP_LIBS) $(STDLIB)
 
 # This is the core of madloop computationally wise, so make sure to turn optimizations on and bound checks off.
 # We use %olynomial.o and not directly polynomial.o because we want it to match when both doing make check here

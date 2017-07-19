@@ -2068,11 +2068,26 @@ COMMON/%sSPIN_CORRELATION_DATA/SPIN_CORR_VECTORS, SYSTEM_SPIN_CORR_VECTORS, N_SP
         self.write_process_info_file(writers.FortranWriter(filename),
                                                                  matrix_element)
 
+        # Write the user access subroutines, i.e. all the
+        filename = 'user_access_subroutines.f'
+        self.write_user_access_subroutines(writers.FortranWriter(filename),
+                                                                 matrix_element)
+
         if self.get_context(matrix_element)['TIRCaching']:
             filename = 'tir_cache_size.inc'
             self.write_tir_cache_size_include(writers.FortranWriter(filename))
 
         return calls
+
+    def write_user_access_subroutines(self, writer, matrix_element):
+        """ Write all the subroutines that can be called by the user so as to steer 
+        MadLoop's computation."""
+
+        file = open(os.path.join(self.template_dir,'user_access_subroutines.inc')).read()  
+        replace_dict =copy.copy(matrix_element.rep_dict)
+        writer.writelines(file,
+            context=self.get_context(matrix_element),
+            replace_dictionary = replace_dict)
 
     def set_optimized_output_specific_replace_dict_entries(self, matrix_element):
         """ Specify the entries of the replacement dictionary which are specific
@@ -2747,20 +2762,19 @@ COMMON/%sSPIN_CORRELATION_DATA/SPIN_CORR_VECTORS, SYSTEM_SPIN_CORR_VECTORS, N_SP
         matrix_element.rep_dict['nSquaredSO'] = len(sqso_contribs)
         matrix_element.rep_dict['nAmpSO'] = len(overall_so_basis)
 
+        # Build the general array mapping the split orders indices to their
+        # definition
+        matrix_element.rep_dict['ampsplitorders'] = '\n'.join(self.get_split_orders_lines(\
+                                             overall_so_basis,'AMPSPLITORDERS'))
+        matrix_element.rep_dict['SquaredSO'] = '\n'.join(self.get_split_orders_lines(\
+                                                  sqso_contribs,'SQPLITORDERS'))
+
         writers.FortranWriter('nsquaredSO.inc').writelines(
 """INTEGER NSQUAREDSO
 PARAMETER (NSQUAREDSO=%d)"""%matrix_element.rep_dict['nSquaredSO'])
         
-        replace_dict = copy.copy(matrix_element.rep_dict)
-        # Build the general array mapping the split orders indices to their
-        # definition
-        replace_dict['ampsplitorders'] = '\n'.join(self.get_split_orders_lines(\
-                                             overall_so_basis,'AMPSPLITORDERS'))
-        replace_dict['SquaredSO'] = '\n'.join(self.get_split_orders_lines(\
-                                                  sqso_contribs,'SQPLITORDERS'))
-        
         # Specify what are the squared split orders selected by the proc def.
-        replace_dict['chosen_so_configs'] = self.set_chosen_SO_index(
+        matrix_element.rep_dict['chosen_so_configs'] = self.set_chosen_SO_index(
                                matrix_element.get('processes')[0],sqso_contribs)
         
         # Now we build the different arrays storing the split_orders ID of each
@@ -2770,14 +2784,16 @@ PARAMETER (NSQUAREDSO=%d)"""%matrix_element.rep_dict['nSquaredSO'])
             for amp_number in SO[1]:
                 ampSO_list[amp_number-1]=overall_so_basis.index(SO[0])+1
 
-        replace_dict['loopAmpSO'] = '\n'.join(self.format_integer_list(
+        matrix_element.rep_dict['loopAmpSO'] = '\n'.join(self.format_integer_list(
                                                     ampSO_list,'LOOPAMPORDERS'))
         ampSO_list=[-1]*sum(len(el[1]) for el in amps_orders['born_amp_orders'])
         for SO in amps_orders['born_amp_orders']:
             for amp_number in SO[1]:
                 ampSO_list[amp_number-1]=overall_so_basis.index(SO[0])+1
-        replace_dict['BornAmpSO'] = '\n'.join(self.format_integer_list(
+        matrix_element.rep_dict['BornAmpSO'] = '\n'.join(self.format_integer_list(
                                                     ampSO_list,'BORNAMPORDERS'))
+        
+        replace_dict = copy.copy(matrix_element.rep_dict)
 
         # We then go to the TIR setup
         # The first entry is the CutTools, we make sure it is available

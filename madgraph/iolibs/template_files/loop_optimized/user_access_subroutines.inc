@@ -3,6 +3,63 @@ C   Access subroutines that can be used by the
 C   user to steer the computation.
 C --=========================================--
 
+      SUBROUTINE %(proc_prefix)sLOOPME_ACCESSOR_HOOK(P,HEL,USER_ALPHAS,USER_MU_R,ANS,PREC_ASKED,PREC_FOUND,RET_CODE)
+	  IMPLICIT NONE
+C  
+C CONSTANTS
+C
+      INTEGER    NEXTERNAL
+      PARAMETER (NEXTERNAL=%(nexternal)d)
+      INTEGER    NSQUAREDSO
+      PARAMETER (NSQUAREDSO=%(nSquaredSO)d)
+      %(real_dp_format)s PI
+      PARAMETER  (PI=3.141592653589793D0)
+      
+C  
+C ARGUMENTS 
+C  
+      %(real_dp_format)s P(0:3,NEXTERNAL)
+      %(real_dp_format)s ANS(0:3,0:NSQUAREDSO)
+      %(real_dp_format)s  USER_ALPHAS, USER_MU_R
+	  INTEGER HEL, RET_CODE
+	  %(real_dp_format)s PREC_ASKED,PREC_FOUND(0:NSQUAREDSO)
+	  
+CF2PY INTENT(IN)  :: P  
+CF2PY INTENT(IN)  :: USER_ALPHAS
+CF2PY INTENT(IN)  :: USER_MU_R
+CF2PY INTENT(IN)  :: PREC_ASKED
+CF2PY INTENT(IN)  :: HEL  
+CF2PY INTENT(OUT) :: ANS
+CF2PY INTENT(OUT) :: PREC_FOUND
+CF2PY INTENT(OUT) :: RET_CODE
+	  
+C
+C LOCAL VARIABLES
+C
+      INTEGER I
+      %(real_dp_format)s THIS_G
+C
+C GLOBAL VARIABLES
+C
+
+      include 'coupl.inc'
+
+C ----------
+C BEGIN CODE
+C ----------
+
+	  IF (USER_ALPHAS.gt.0.0d0.and.MU_R.gt.0.0d0) THEN
+	  	THIS_G = SQRT(4.0D0*PI*USER_ALPHAS)
+	  	IF (THIS_G.ne.G.or.USER_MU_R.ne.MU_R) THEN
+	      CALL UPDATE_AS_PARAM2(USER_MU_R, USER_ALPHAS)
+	      CALL MP_UPDATE_AS_PARAM()
+	    ENDIF
+	  ENDIF
+
+      CALL %(proc_prefix)sSLOOPMATRIXHEL_THRES(P,HEL,ANS,PREC_ASKED,PREC_FOUND,RET_CODE)
+
+	  END
+
 C --=========================================--
 C   Functions for dealing with the ordering
 C   and indexing of split order contributions
@@ -17,6 +74,7 @@ C
 	  PARAMETER (NSQUAREDSO=%(nSquaredSO)d)
 
 	  INTEGER NSQSO
+CF2PY INTENT(OUT) :: NSQSO
 
 	  NSQSO=NSQUAREDSO
 
@@ -31,6 +89,7 @@ C
       INTEGER    NSQUAREDSO
 	  PARAMETER (NSQUAREDSO=%(nSquaredSO)d)
 	  INTEGER ANS_DIM 
+CF2PY INTENT(OUT) :: ANS_DIM
 
 	  %(get_nsqso_born)s 
 
@@ -51,6 +110,8 @@ C
 C ARGUMENTS
 C
       INTEGER ORDERS(NSO)
+CF2PY INTENT(IN) :: ORDERS
+
 C
 C LOCAL VARIABLES
 C
@@ -88,6 +149,7 @@ C
 C ARGUMENTS
 C
       INTEGER AMPID
+CF2PY INTENT(IN) :: AMPID
 C
 C LOCAL VARIABLES
 C
@@ -115,6 +177,7 @@ C
 C ARGUMENTS
 C
       INTEGER AMPID
+CF2PY INTENT(IN) :: AMPID
 C
 C LOCAL VARIABLES
 C
@@ -146,6 +209,9 @@ C
 C ARGUMENTS
 C
 	  INTEGER ORDERINDEXA, ORDERINDEXB
+CF2PY INTENT(IN) :: ORDERINDEXA
+CF2PY INTENT(IN) :: ORDERINDEXB
+
 C
 C LOCAL VARIABLES
 C
@@ -180,6 +246,9 @@ C
 C ARGUMENTS
 C
       INTEGER SOINDEX, ORDERS(NSO)
+CF2PY INTENT(IN)  :: SOINDEX
+CF2PY INTENT(OUT) :: ORDERS
+
 C
 C LOCAL VARIABLES
 C
@@ -216,6 +285,8 @@ C
 C ARGUMENTS
 C
       INTEGER SOINDEX, ORDERS(NSO)
+CF2PY INTENT(IN)  :: SOINDEX
+CF2PY INTENT(OUT) :: ORDERS
 C
 C LOCAL VARIABLES
 C
@@ -253,6 +324,7 @@ C
 C ARGUMENTS
 C
       INTEGER ORDERS(NSO)
+CF2PY INTENT(IN)  :: ORDERS
 C
 C LOCAL VARIABLES
 C
@@ -287,6 +359,7 @@ C This function can be called by the MadLoop user so as to chose to have COLLIER
 C compute the UV pole or not (it costs more time).
 C
       LOGICAL ONOFF
+CF2PY INTENT(IN)  :: ONOFF
 
 	  include 'MadLoopParams.inc'
 
@@ -382,6 +455,8 @@ C
 C     ARGUMENTS
 C
       INTEGER SOTARGET
+CF2PY INTENT(IN)  :: SOTARGET
+
 C
 C     GLOBAL
 C
@@ -441,6 +516,8 @@ C     ARGUMENTS
 C
       INTEGER LEG_ID
       INTEGER LEG_POLARIZATIONS(0:5)
+CF2PY INTENT(IN)  :: LEG_ID
+CF2PY INTENT(IN)  :: LEG_POLARIZATIONS
 C
 C     LOCALS
 C
@@ -519,13 +596,18 @@ C ARGUMENTS
 C  
       %(real_dp_format)s P(0:3,NEXTERNAL)
       %(real_dp_format)s ANS(0:3,0:NSQUAREDSO)
-	  INTEGER HEL, USERHEL
+	  INTEGER HEL, USERHEL, BACKUPHEL
 	  common/%(proc_prefix)sUSERCHOICE/USERHEL
+CF2PY INTENT(IN)  :: P
+CF2PY INTENT(IN)  :: HEL
+CF2PY INTENT(OUT) :: ANS
 C ----------
 C BEGIN CODE
 C ----------
+      BACKUPHEL=USERHEL
 	  USERHEL=HEL
       CALL %(proc_prefix)sSLOOPMATRIX(P,ANS)
+      USERHEL=BACKUPHEL
 	  END
 
       SUBROUTINE %(proc_prefix)sSLOOPMATRIXHEL_THRES(P,HEL,ANS,PREC_ASKED,PREC_FOUND,RET_CODE)
@@ -587,6 +669,7 @@ C Reset it to default value not to affect next runs
 	  END
 
       SUBROUTINE %(proc_prefix)sSLOOPMATRIX_THRES(P,ANS,PREC_ASKED,PREC_FOUND,RET_CODE)
+
 C
 C     Inputs are:
 C     P(0:3, Nexternal)  double  :: Kinematic configuration (E,px,py,pz)
@@ -654,7 +737,12 @@ C
       %(real_dp_format)s P(0:3,NEXTERNAL)
       %(real_dp_format)s ANS(0:3,0:NSQUAREDSO)
 	  %(real_dp_format)s PREC_ASKED,PREC_FOUND(0:NSQUAREDSO)
-	  INTEGER RET_CODE	  
+	  INTEGER RET_CODE	 
+CF2PY INTENT(IN)  :: P
+CF2PY INTENT(IN)  :: PREC_ASKED
+CF2PY INTENT(OUT) :: ANS
+CF2PY INTENT(OUT) :: PREC_FOUND
+CF2PY INTENT(OUT) :: RET_CODE 
 C
 C LOCAL VARIABLES
 C
@@ -891,4 +979,220 @@ CF2PY INTENT(OUT) :: MAX_N_SC_VECTORS
 CF2PY INTENT(OUT) :: MAX_N_SC_LEGS
 		MAX_N_SC_LEGS = MAX_LEGS_WITH_SPIN_CORR
       END SUBROUTINE %(proc_prefix)sGET_MAX_N_SPIN_CORR_LEGS
+## }
+
+## if(color_correlation){
+C --------------------------------------------------------------
+C Beginning of a series of subroutine related to the evaluation
+C and steering of the computation of color-correlated MEs.
+C --------------------------------------------------------------
+
+
+      SUBROUTINE %(proc_prefix)sGET_COLOR_CORRELATED_ME(CORRELATED_MES)
+        IMPLICIT NONE
+C       Provide access to the color correlated evaluations
+		INTEGER CCI, I, J, K
+        INTEGER    NEXTERNAL
+        PARAMETER (NEXTERNAL=%(nexternal)d)
+        INTEGER    NSQAMPSO
+        PARAMETER (NSQAMPSO=%(nSquaredSO)d)
+        
+        INTEGER NCOLORCORRELATORS
+        PARAMETER (NCOLORCORRELATORS=%(n_color_correlators)d)
+        INTEGER    NCOLOR_CORRELATED_EVALS_ENTRIES
+        PARAMETER (NCOLOR_CORRELATED_EVALS_ENTRIES=4*(NSQAMPSO+1)*NCOLORCORRELATORS)
+
+		%(real_dp_format)s CORRELATED_MES(NCOLORCORRELATORS, 0:3, 0:NSQAMPSO)
+CF2PY INTENT(OUT) :: CORRELATED_MES
+  
+C Index 0 is the number of correlators to consider and the next indices are which one to consider
+        INTEGER COLOR_CORRELATORS_TO_CONSIDER(0:NCOLORCORRELATORS)        
+        %(real_dp_format)s COLOR_CORRELATED_EVALS(NCOLORCORRELATORS, 0:3, 0:NSQAMPSO)   
+        DATA (((COLOR_CORRELATED_EVALS(I,J,K),I=1,NCOLORCORRELATORS),J=0,3),K=0,NSQAMPSO) /NCOLOR_CORRELATED_EVALS_ENTRIES*0.0d0/
+        COMMON/%(proc_prefix)sCOLOR_CORRELATIONS/COLOR_CORRELATORS_TO_CONSIDER, COLOR_CORRELATED_EVALS
+        
+        DO CCI=1,NCOLORCORRELATORS
+          DO K=0,3
+            DO J=0,NSQAMPSO
+              CORRELATED_MES(CCI, K, J) = COLOR_CORRELATED_EVALS(CCI, K, J)
+            ENDDO
+          ENDDO
+        ENDDO
+
+      END
+      
+      SUBROUTINE %(proc_prefix)sGET_N_COLOR_CORRELATORS(N_COLOR_CORRELATORS)
+C       Provide access to the number of color correlators
+
+		INTEGER N_COLOR_CORRELATORS
+CF2PY INTENT(OUT) :: N_COLOR_CORRELATORS  
+		
+        INTEGER NCOLORCORRELATORS
+        PARAMETER (NCOLORCORRELATORS=%(n_color_correlators)d)
+        
+        N_COLOR_CORRELATORS = NCOLORCORRELATORS
+
+      END
+
+      SUBROUTINE %(proc_prefix)sGET_COLOR_CORRELATOR_ID(CORRELATED_LEG_A, CORRELATED_LEG_B, ID)
+        IMPLICIT NONE
+        
+        INTEGER    NEXTERNAL
+        PARAMETER (NEXTERNAL=%(nexternal)d)
+        INTEGER NCOLORCORRELATORS
+        PARAMETER (NCOLORCORRELATORS=%(n_color_correlators)d)
+        
+        INTEGER CORRELATED_LEG_A, CORRELATED_LEG_B, ID, IDX
+CF2PY INTENT(IN) :: CORRELATED_LEG_A
+CF2PY INTENT(IN) :: CORRELATED_LEG_B
+CF2PY INTENT(OUT) :: ID
+
+        INTEGER COLOR_CORRELATOR_TO_INDEX(NEXTERNAL,NEXTERNAL)
+        INTEGER INDEX_TO_COLOR_CORRELATOR(NCOLORCORRELATORS, 2)
+        COMMON/%(proc_prefix)sCOLOR_CORRELATION_MAPS/COLOR_CORRELATOR_TO_INDEX, INDEX_TO_COLOR_CORRELATOR
+
+		IDX = COLOR_CORRELATOR_TO_INDEX(CORRELATED_LEG_A, CORRELATED_LEG_B)
+		
+		IF (IDX.LE.0) THEN
+		  ID = -1
+		ELSE
+		  ID = IDX
+		ENDIF
+
+      END
+      
+      SUBROUTINE %(proc_prefix)sGET_COLOR_CORRELATOR_FOR_ID(IDX, CORRELATED_LEG_A, CORRELATED_LEG_B)
+        IMPLICIT NONE
+        
+        INTEGER    NEXTERNAL
+        PARAMETER (NEXTERNAL=%(nexternal)d)
+        INTEGER NCOLORCORRELATORS
+        PARAMETER (NCOLORCORRELATORS=%(n_color_correlators)d)
+
+        INTEGER CORRELATED_LEG_A, CORRELATED_LEG_B, IDX
+CF2PY INTENT(IN) :: IDX
+CF2PY INTENT(OUT) :: CORRELATED_LEG_A
+CF2PY INTENT(OUT) :: CORRELATED_LEG_B
+
+        INTEGER COLOR_CORRELATOR_TO_INDEX(NEXTERNAL,NEXTERNAL)
+        INTEGER INDEX_TO_COLOR_CORRELATOR(NCOLORCORRELATORS, 2)
+        COMMON/%(proc_prefix)sCOLOR_CORRELATION_MAPS/COLOR_CORRELATOR_TO_INDEX, INDEX_TO_COLOR_CORRELATOR
+
+		CORRELATED_LEG_A = INDEX_TO_COLOR_CORRELATOR(IDX, 1)
+		CORRELATED_LEG_B = INDEX_TO_COLOR_CORRELATOR(IDX, 2)
+
+      END
+
+      SUBROUTINE %(proc_prefix)sADD_COLOR_CORRELATORS_TO_CONSIDER(FIRST_LEG_INDEX, SECOND_LEG_INDEX)
+        IMPLICIT NONE
+C       Adds a color correlator to compute. All leg indices must be positive in this case.
+
+        INTEGER    NEXTERNAL
+        PARAMETER (NEXTERNAL=%(nexternal)d)
+        INTEGER NCOLORCORRELATORS
+        PARAMETER (NCOLORCORRELATORS=%(n_color_correlators)d)
+
+		INTEGER FIRST_LEG_INDEX, SECOND_LEG_INDEX
+CF2PY INTENT(IN) :: FIRST_LEG_INDEX
+CF2PY INTENT(IN) :: SECOND_LEG_INDEX
+
+        INTEGER COLOR_CORRELATOR_TO_INDEX(NEXTERNAL,NEXTERNAL)        
+        INTEGER INDEX_TO_COLOR_CORRELATOR(NCOLORCORRELATORS, 2)        
+        COMMON/%(proc_prefix)sCOLOR_CORRELATION_MAPS/COLOR_CORRELATOR_TO_INDEX, INDEX_TO_COLOR_CORRELATOR
+        
+C       Index 0 is the number of correlators to consider and the next indices are which one to consider
+		INTEGER COLOR_CORRELATORS_TO_CONSIDER(0:NCOLORCORRELATORS)   
+        REAL*8 COLOR_CORRELATED_EVALS(NCOLORCORRELATORS)                
+        COMMON/%(proc_prefix)sCOLOR_CORRELATIONS/COLOR_CORRELATORS_TO_CONSIDER, COLOR_CORRELATED_EVALS
+        
+C ----------
+C BEGIN CODE
+C ----------
+
+	   IF (COLOR_CORRELATORS_TO_CONSIDER(0).ge.NCOLORCORRELATORS) THEN
+	     WRITE(*,*) 'Cannot add more color correlators to consider than there are color correlators.'
+	     STOP
+	   ENDIF
+		
+	   COLOR_CORRELATORS_TO_CONSIDER(0) = COLOR_CORRELATORS_TO_CONSIDER(0) +1
+	   COLOR_CORRELATORS_TO_CONSIDER(COLOR_CORRELATORS_TO_CONSIDER(0)) = COLOR_CORRELATOR_TO_INDEX(FIRST_LEG_INDEX, SECOND_LEG_INDEX)
+
+      END SUBROUTINE
+      
+      SUBROUTINE %(proc_prefix)sSET_COLOR_CORRELATORS_TO_CONSIDER(FIRST_LEG_INDEX, SECOND_LEG_INDEX)
+        IMPLICIT NONE
+C       Sets which color correlators to compute. If both leg_index are specified, this will select only one.
+C       For each leg index set to -1, we will span the entire set of correlators for that leg index.
+		
+		INTEGER FIRST_LEG_INDEX, SECOND_LEG_INDEX
+CF2PY INTENT(IN) :: FIRST_LEG_INDEX
+CF2PY INTENT(IN) :: SECOND_LEG_INDEX
+
+        INTEGER    NEXTERNAL
+        PARAMETER (NEXTERNAL=%(nexternal)d)
+        INTEGER    NSQAMPSO
+        PARAMETER (NSQAMPSO=%(nSquaredSO)d)
+        INTEGER NCOLORCORRELATORS
+        PARAMETER (NCOLORCORRELATORS=%(n_color_correlators)d)
+        
+		INTEGER I, J, K, NCC_TO_CONSIDER, CC_TO_ADD
+        LOGICAL FOUNDIT
+
+        INTEGER COLOR_CORRELATOR_TO_INDEX(NEXTERNAL,NEXTERNAL)
+%(color_correlator_to_index_data)s
+        
+        INTEGER INDEX_TO_COLOR_CORRELATOR(NCOLORCORRELATORS, 2)
+%(index_to_color_correlator_data)s
+        
+        COMMON/%(proc_prefix)sCOLOR_CORRELATION_MAPS/COLOR_CORRELATOR_TO_INDEX, INDEX_TO_COLOR_CORRELATOR
+        
+C       Index 0 is the number of correlators to consider and the next indices are which one to consider
+		INTEGER COLOR_CORRELATORS_TO_CONSIDER(0:NCOLORCORRELATORS)   
+        %(real_dp_format)s COLOR_CORRELATED_EVALS(NCOLORCORRELATORS, 0:3, 0:NSQAMPSO)                
+        COMMON/%(proc_prefix)sCOLOR_CORRELATIONS/COLOR_CORRELATORS_TO_CONSIDER, COLOR_CORRELATED_EVALS
+        
+        NCC_TO_CONSIDER = 0
+        
+C       First reset the array
+	 	COLOR_CORRELATORS_TO_CONSIDER(0) = 0
+        DO I=1,NCOLORCORRELATORS
+          COLOR_CORRELATORS_TO_CONSIDER(I) = -1
+        ENDDO
+        
+C       Index 0 on the first leg simply indicate the desire to reset the selection
+        IF (FIRST_LEG_INDEX.eq.0) THEN
+          RETURN
+        ENDIF
+        
+        DO I=1, NEXTERNAL
+          IF (FIRST_LEG_INDEX.ne.-1.and.FIRST_LEG_INDEX.ne.I) THEN
+            CYCLE
+          ENDIF
+          DO J=1, NEXTERNAL
+            IF (SECOND_LEG_INDEX.ne.-1.and.SECOND_LEG_INDEX.ne.J) THEN
+              CYCLE
+            ENDIF
+C           If one of those legs is colorless and does not have a correlator, skip it.
+            CC_TO_ADD = COLOR_CORRELATOR_TO_INDEX(I,J)
+            IF (CC_TO_ADD.le.0) THEN
+              CYCLE
+            ENDIF
+C           Now make sure we have not considered it yet, since (i, j) maps to (j, i) in these correlators
+            FOUNDIT = .FALSE.
+            DO K=1,COLOR_CORRELATORS_TO_CONSIDER(0)
+              IF (COLOR_CORRELATORS_TO_CONSIDER(K).EQ.CC_TO_ADD) THEN
+                FOUNDIT = .TRUE.
+                EXIT
+              ENDIF
+            ENDDO
+            IF (FOUNDIT) THEN
+              CYCLE
+            ENDIF
+            NCC_TO_CONSIDER = NCC_TO_CONSIDER+1
+            COLOR_CORRELATORS_TO_CONSIDER(0) = NCC_TO_CONSIDER
+            COLOR_CORRELATORS_TO_CONSIDER(NCC_TO_CONSIDER) = CC_TO_ADD
+          ENDDO
+        ENDDO
+
+      END
 ## }

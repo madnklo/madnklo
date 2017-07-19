@@ -179,7 +179,14 @@ class VirtualMEAccessor(object):
             if len(args)<2 or not isinstance(args[0],base_objects.Process) or \
                not isinstance(args[1],tuple) or not len(args[1])==2 or not \
                all(isinstance(path, str) for path in args[1]):
-                target_type = 'Unknown'
+                # Check if the first second argument is key declared in MEAccessor_classes_map.
+                # This way, custom contributions can declare the type of MEAccessor they want to
+                # instantiate.
+                if len(args)>=2 and isinstance(args[1],base_objects.Process) and \
+                   args[2] in MEAccessor_classes_map:
+                    target_type = args[2]
+                else:
+                    target_type = 'Unknown'
             else:
                 process = args[0]
                 f2py_module_path = args[1]
@@ -220,6 +227,9 @@ class VirtualMEAccessor(object):
             raise MadGraph5Error("The initialization of VirtualMEAccessor necessitates an "+
                                                         "absolute path for root_path.")
         self.root_path = root_path
+        
+        # Finally instantiate a cache for this MEaccessor.
+        self.cache = MEAccessorCache()
 
     def generate_dump(self, **opts):
         """ Generate a serializable dump of self, which can later be used, along with some more 
@@ -261,22 +271,26 @@ class VirtualMEAccessor(object):
 
         return key_value_pairs
     
-    def __call__(self, PS_point, permutation=None, defining_pdgs_order=None, squared_orders = {}, **opts):
+    def __call__(self, PS_point, permutation=None, defining_pdgs_order=None, squared_orders = None, **opts):
         """ The evaluation will be implemented by the daughter classes, but we can already here apply 
         the specified permutation and record the defining_pdgs_order (i.e. which of the mapped process
         was the user really interested in, it is one of those present in self.pdgs_combs) 
         in a dictionary that we can return to the daughter class."""
         
-        permuted_PS_point, permuted_opts = self.apply_permutations(PS_point, permutation, **opts)
-        permuted_opts['squared_orders'] = squared_orders
+        permuted_PS_point, permuted_opts = self.apply_permutations(permutation, PS_point=PS_point, **opts)
+        if isinstance(squared_orders, dict):
+            permuted_opts['squared_orders'] = tuple(sorted(squared_orders.items()))
+        else:
+            permuted_opts['squared_orders'] = squared_orders
         permuted_opts['defining_pdgs_order'] = defining_pdgs_order
         
         # Return the inputs properly treated
         return permuted_PS_point, permuted_opts
 
-    def apply_permutations(self, PS_point, permutation,
-                                 spin_correlation = [], 
-                                 color_connection = [], 
+    @classmethod
+    def apply_permutations(cls, permutation, PS_point = [],
+                                 spin_correlation  = [], 
+                                 color_correlation = [], 
                                  hel_config = tuple([]),
                                  **opts):
         
@@ -319,25 +333,241 @@ class VirtualMEAccessor(object):
         
         # No permutation, just return local copies of the arguments
         if permutation is None:
-            all_opts = {'spin_correlation':list(spin_correlation),
-                        'color_connection':list(color_connection),
-                        'hel_config':tuple(hel_config)}
+            all_opts = {'spin_correlation': tuple(spin_correlation) ,
+                        'color_correlation': tuple(color_correlation),
+                        'hel_config': tuple(hel_config)}
             all_opts.update(opts)
             return list(PS_point), all_opts
 
-        permuted_PS_point = [PS_point[permutation[i]] for i in range(len(PS_point))]
-        permuted_spin_correlation = [ (permutation[leg_ID], vectors) for leg_ID, vectors in spin_correlation]
-#        permuted_color_connection = [ (name, tuple( (permutation[ind] if ind > 0 else ind) for ind in indices) )
-#                                                                     for (name, indices) in color_connection ]
-        permuted_color_connection = [ (permutation[ind1], permutation[ind2]) for (ind1, ind2) in color_connection ]
-        permuted_hel_config = tuple( hel_config[permutation[i]] for i in range(len(hel_config)) )
+        # Apply the permutations while retaining a canonical representation for each attribute
+        
+        permuted_PS_point = [PS_point[permutation[i]] for i in range(len(PS_point))] if PS_point else None
+        
+        permuted_spin_correlation = tuple(sorted([ (permutation[leg_ID-1]+1, vectors) for leg_ID, vectors 
+                                in spin_correlation ], key=lambda el:el[0] )) if spin_correlation else None
+        
+        permuted_color_correlation = tuple([ tuple(sorted([permutation[ind1-1]+1, permutation[ind2-1]+1])) 
+                                    for (ind1, ind2) in color_correlation ]) if color_correlation else None
+        
+        permuted_hel_config = tuple( hel_config[permutation[i]] for i in range(len(hel_config)) ) \
+                                                                          if hel_config else None
 
         all_opts = {'spin_correlation' : permuted_spin_correlation,
-                    'color_connection' : permuted_color_connection,
+                    'color_correlation' : permuted_color_correlation,
                     'hel_config' : permuted_hel_config}
         all_opts.update(opts)
+
         return permuted_PS_point, all_opts
 
+class MEEvaluation(dict):
+    """ A very basic class to store the various output of an ME evaluation output."""
+    
+    result_order  = ['tree','finite','1/eps','1/eps**2','return_code','accuracy']    
+    result_format = {'tree':'%.15e','finite':'%.15e','1/eps':'%.15e','1/eps**2':'%.15e',
+                     'return_code':'%d','accuracy': '%.2g'}
+    
+    def __init(self, *args, **opts):
+        super(MEEvaluation, self).__init__(*args, **opts)      
+
+    @classmethod
+    def get_max_length_attribute(cls):
+        return max(len(k) for k in cls.result_order)
+
+    def nice_string(self, max_len_attribute=-1):
+        """ Formats nicely the output of a particular ME evalaution."""
+        
+        res = []
+        template = '%%-%ds = %%s'%(max_len_attribute if max_len_attribute>0 else
+                                                    max(len(k) for k in self.keys()))
+        sorted_result_keys = sorted(self.keys(), key=lambda el: self.result_order.index(el) 
+                                                        if el in self.result_order else 100)
+
+        def format_result(key, res):
+            if res is None or key=='accuracy' and res < 0.:
+                return 'N/A'
+            formatted_res = self.result_format[key]%res if result_key in self.result_format else str(res)
+            if isinstance(res,float) and res > 0.:
+                formatted_res = ' %s'%formatted_res
+            return formatted_res
+
+        res.append(misc.bcolors.BLUE+'Result:'+misc.bcolors.ENDC)
+        for result_key in sorted_result_keys:
+            res.append(('  -> %s'%template)%(result_key, format_result(result_key, self[result_key])))
+        
+        return '\n'.join(res)
+    
+    def __str__(self):
+        return self.nice_string()
+
+class MEResult(dict):
+    """ A class to store the different results of MatrixElement call for one specific PS point / scale."""
+
+    def __init(self, *args, **opts):
+        super(MEResult, self).__init__(*args, **opts)        
+        
+    def nice_string(self):
+        """ Print out all the results available in a nice form."""
+        # First lists the result with the least amount of attributes specified
+        sorted_keys = sorted(self.keys(), key=lambda k:[el[1] for el in k].count(None))
+
+        res = []
+        max_len_attribute = max(max(len(el[0]) for el in k) for k in sorted_keys)
+        max_len_attribute = max(max_len_attribute, MEEvaluation.get_max_length_attribute())
+        template = '%%-%ds : %%s'%max_len_attribute
+        for i,k in enumerate(sorted_keys):
+            res.append(misc.bcolors.GREEN+'Entry #%d:'%(i+1)+misc.bcolors.ENDC)
+            for name, value in k:
+                if value is None:
+                    continue
+                res.append(('  -> %s'%template)%(name, str(value)))
+            if any(el[1] is None for el in k):
+                res.append('  Unspecified or summed over properties:')
+                res.append('  -> %s'%(', '.join(el[0] for el in k if el[1] is None)))
+            res.extend('  %s'%line for line in self[k].nice_string(
+                                            max_len_attribute=max_len_attribute).split('\n'))
+        
+        return '\n'.join(res)
+
+    def __str__(self):
+        return self.nice_string()
+
+    def get_result(self, **opts):
+        """ Attempts to recycle the result from previous computations.
+        Returns None otherwise. Opts are typically:
+           helicities: A tuple of integer, None means summed over.
+           squared_orders: a tuple repr. of the usual dict., None means all contributions.
+           color_correlation: same convention as described in function apply_permutation.
+           spin_correlation: same convention as described in function apply_permutation.
+        """
+        key_opts = {'hel_config'           : None,
+                    'squared_orders'       : None,
+                    'color_correlation'    : None,
+                    'spin_correlation'     : None}
+        key_opts.update(opts)
+        
+        try:
+            result = self[tuple(sorted(opts.items()))]
+#            misc.sprint('Recycled a result.')
+            return result
+        except KeyError:
+            return None
+    
+    def add_result(self, value, **opts):
+        """ Add a result to the current record.
+        value is typically a dictionary with at leas the
+        key 'finite'."""
+        assert(isinstance(value, dict) and 'finite' in value), "Dictionaries with at least the key 'finite' "+\
+                                                 "should be added as MatrixElement results, not %s."%str(value)
+        key_opts = {'hel_config'           : None,
+                    'squared_orders'       : None,
+                    'color_correlation'    : None,
+                    'spin_correlation'     : None}
+        key_opts.update(opts)
+        
+        self[tuple(sorted(opts.items()))] = value
+
+    def get_inverse_permuted_copy(self, permutation=None):
+        """ Apply the inverse permutation of the one specifed to a copy of self and return."""
+        
+        # Nothing to do in this case, then just add a copy of self
+        if permutation is None:
+            return MEResult(self)
+        
+        inverse_perm = dict((v,k) for k,v in permutation.items())
+        returned_copy = MEResult()
+        for attributes, value in self.items():
+            attr = dict(attributes)
+            # Make sure to temporarily redefine the color_correlators as list of color_correlator
+            # since this is what apply_permutations expects
+            if attr['color_correlation']:
+                attr['color_correlation'] = [attr['color_correlation'],]
+            _, inverse_permuted_attributes = VirtualMEAccessor.apply_permutations(inverse_perm, **attr)
+            # Now recast the color_correlation as a single element:
+            if inverse_permuted_attributes['color_correlation']:
+                inverse_permuted_attributes['color_correlation']=inverse_permuted_attributes['color_correlation'][0]
+            returned_copy[tuple(sorted(inverse_permuted_attributes.items()))] = value
+        
+        return returned_copy
+            
+class MEAccessorCache(dict):
+    """ A simple class that implements a caching mechanism for Matrix Element call and results."""
+
+    def __init__(self, min_n_entries=1, max_n_entries=1, max_cache_size=10000):
+        """ One can limit the cache size with a combination of number of elements it contains
+        and its size in bytes. The min_n_entries option allows to set a minimum numebr of elements
+        to keep, irrespectively of the max_cache_size value."""
+        self.NO_RESULT = MEResult()
+        # List of entries added, keeping their order.
+        self.added_entries = []
+        if min_n_entries < 0:
+            raise MadGraph5Error('The option min_n_entries of a MEAccessorCache should be positive.')
+        self.min_n_entries = min_n_entries
+        self.max_n_entries = max_n_entries
+        self.max_cache_size = max_cache_size        
+        if max_n_entries < 0 and max_cache_size < 0:
+            raise MadGraph5Error('At least max_n_entries or max_cache_size should be definite positive'+
+                                              ' so as to keep the MEAccessorCache cache size in check.')
+
+    def get_result(self, **opts):
+        """ Attempts to recycle a computation performed with opts as input. Returns an empty MEResult if
+        not found. Opts are typically:
+           PS_point : A list of Lorentz5DVectors
+           alpha_s  : alpha_s value (float)
+           mu_r     : renormalization_scale (float)
+        """
+        key_opts = {'PS_point' : None,
+                    'alpha_s'  : None,
+                    'mu_r'     : None}
+        key_opts.update(opts)
+
+        try:
+            ME_result = self[tuple(sorted(key_opts.items()))]
+ #           misc.sprint('Recycled a call.')
+            return ME_result
+        except KeyError:
+            return self.NO_RESULT
+
+    def is_cache_too_large(self):
+        """ Checks whether the current cache size is too large."""
+        
+        n_items = len(self)
+        if n_items<=self.min_n_entries:
+            return False
+        
+        if self.max_n_entries > 0 and n_items > self.max_n_entries:
+            return True
+        
+        if self.max_cache_size > 0 and sys.getsizeof(self) > self.max_cache_size:
+            return True
+        
+        return False
+        
+    def check_cache_size(self):
+        """ Controls the size of the cache and possibly remove entries if too large."""
+        
+        while self.is_cache_too_large():
+            del self[self.added_entries.pop(0)]
+        
+    def add_result(self, **opts):
+        """ Add a result to the cache, making sure it does not extend its target maximum size.
+        """
+        key_opts = {'PS_point' : None,
+                    'alpha_s'  : None,
+                    'mu_r'     : None}
+        key_opts.update(opts)
+        key = tuple(sorted(key_opts.items()))
+        
+        if key in self:
+            return self[key]
+        
+        self[key] = MEResult()
+        self.added_entries.append(key)
+        
+        # Now check Cache size:
+        self.check_cache_size()
+        
+        return self[key]
+        
 class F2PYMEAccessor(VirtualMEAccessor):
     """ A class wrapping the access to one particular MatrixEleemnt wrapped with F2PY"""
     
@@ -410,24 +640,32 @@ class F2PYMEAccessor(VirtualMEAccessor):
         # Get all helicities orderin
         self.helicity_configurations = dict((tuple(hels),i+1) for i, hels in enumerate(
                                               self.get_function('get_helicity_definitions')() ))
+        # Reversed map
+        self.id_to_helicity = dict((value,key) for (key,value) in self.helicity_configurations.items())
         
         # Available spin correlations
         if not self.has_function('get_max_n_spin_corr_legs'):
             self.spin_correlations = None
+            self.max_spin_corr_vectors = None
         else:
             self.spin_correlations = 'N'*self.get_function('get_max_n_spin_corr_legs')()+'LO'
+            self.max_spin_corr_vectors = self.get_function('get_max_n_spin_corr_vectors')()
         
         # Available color correlations
         if not self.has_function('get_n_color_correlators'):
             self.color_correlations = None
+            self.id_to_color_correlation = None
         else:
             # Initialize a map of the color connectors
             self.color_correlations = dict( 
                 (tuple(sorted(self.get_function('get_color_correlator_for_id')(i_correlator))),i_correlator)
                               for i_correlator in range(1,self.get_function('get_n_color_correlators')()+1))
+            # Reversed map
+            self.id_to_color_correlation = dict((value,key) for (key,value) in self.color_correlations.items())
 
         # Available squared orders
-        self.squared_orders = {'ALL': 0}
+        # 'None' means summed over.
+        self.squared_orders = {None: 0}
         self.split_order_names = []
         if self.has_function('get_nsqso_born'):
             n_squared_orders = self.get_function('get_nsqso_born')()
@@ -437,8 +675,8 @@ class F2PYMEAccessor(VirtualMEAccessor):
                                             self.get_function('get_squared_orders_for_soindex')(i_sq_order) )]))
                 self.squared_orders[key] = i_sq_order
         
-        misc.sprint(self.nice_string())
-        stop
+        # Reversed map
+        self.id_to_squared_order = dict((value,key) for (key,value) in self.squared_orders.items())
 
     def nice_string(self):
         """ Summary of the details of this ME accessor."""
@@ -449,8 +687,8 @@ class F2PYMEAccessor(VirtualMEAccessor):
                                                                                         else self.spin_correlations))
         res.append('%-40s:   %s'%('Number of color correlators available','None' if self.color_correlations is None \
                                                                                         else len(self.color_correlations)))
-        res.append('%-40s:   %s'%('Squared orders available', 'Only summed' if self.squared_orders.keys()=='ALL' else \
-                                                                str([k for k in self.squared_orders.keys() if k!='ALL'])))
+        res.append('%-40s:   %s'%('Squared orders available', 'Only summed' if self.squared_orders.keys()==[None] else \
+                                                                str([k for k in self.squared_orders.keys() if not k is None])))
         return '\n'.join(res)
 
     def has_function(self, function_name):
@@ -488,32 +726,199 @@ class F2PYMEAccessor(VirtualMEAccessor):
                 if j==4: continue
                 new_p[j][i] = x
         return new_p
+
+    def get_squared_order_entry(self, squared_order):
+        """ Returns the squared order index corresponding to the squared order in argument.
+        Returns None if not available."""
+        try:
+            return self.squared_orders[squared_order]
+        except KeyError:
+            return None
+
+    def check_inputs_validity(self, opts):
+        """ Check the validity of the inputs."""
+        
+        new_opts = { 'squared_orders'   : tuple(sorted(opts['squared_orders'])) if opts['squared_orders'] else None,
+                     'spin_correlation' : tuple( (sc[0], tuple(sc[1]) ) for sc in opts['spin_correlation']) if \
+                                                                                      opts['spin_correlation'] else None,
+                     'color_correlation': tuple(tuple(tuple(cc) for cc in opts['color_correlation'])) if \
+                                                                                     opts['color_correlation'] else None,
+                     'hel_config'       : tuple(opts['hel_config']) if opts['hel_config'] else None
+                   }
     
+        if new_opts['squared_orders']:
+            if self.get_squared_order_entry(new_opts['squared_orders']) is None:
+                raise MadGraph5Error("The following accessor:\n%s\ncannot provide squared orders %s."%(
+                        self.nice_string(), str(new_opts['squared_orders'])))
+        
+        if new_opts['spin_correlation']:
+            if not self.spin_correlations or len(new_opts['spin_correlation']) > self.spin_correlations.count('N'):
+                raise MadGraph5Error("%sLO spin-correlations not supported in accessor:\n%s."%(
+                                                    'N'*len(new_opts['spin_correlation']) , self.nice_string() ) )
+                
+        if new_opts['color_correlation']:
+            if not self.color_correlations or any(cc not in self.color_correlations for cc in new_opts['color_correlation']):
+                raise MadGraph5Error("Color correlation %s not supported in accessor:\n%s."%(
+                                                       str(new_opts['color_correlation']) , self.nice_string() ) )
+        if new_opts['hel_config']:
+            if new_opts['hel_config'] not in self.helicity_configurations:
+                raise MadGraph5Error("Helicity configuration %s not present in accessor:\n%s."%(
+                                                         str(new_opts['hel_config']) , self.nice_string() ) )
+        
+        return new_opts
+        
+    def clean_ME_settings(self):
+        """ Clean up possible Matrix Elements setting for a particular call."""
+        
+        if self.spin_correlations:
+            # By default, do no compute any spin correlators
+            self.get_function('reset_spin_correlation_vectors')()
+        
+        if self.color_correlations:
+            # By default, do no compute any color correlators
+            self.get_function('set_color_correlators_to_consider')(0,0)
+        
+    def setup_ME(self, opts):
+        """ Setup some MatrixElement steering variables according to user-defined options."""
+         
+        if opts['spin_correlation']:
+            for (legID, spin_correlation_vectors) in opts['spin_correlation']:
+                sc_vectors = [[0.0,0.0,0.0,0.0]]*self.max_spin_corr_vectors
+                for i, sc_vector in enumerate(spin_correlation_vectors):
+                    sc_vectors[i] = list(sc_vector)
+                self.get_function('set_spin_correlation_vectors')(legID, len(spin_correlation_vectors), sc_vectors)
+
+        if opts['color_correlation']:
+            # If one is using shortcuts with -1 entries to indicate all sums over a particular leg,
+            # then use 'set_color_correlators_to_consider' otherwise use 'add_color_correlators_to_consider'
+            if len(opts['color_correlation'])==1:
+                self.get_function('set_color_correlators_to_consider')\
+                                    (opts['color_correlation'][0][0],opts['color_correlation'][0][1])
+            for color_correlator in opts['color_correlation']:
+                self.get_function('add_color_correlators_to_consider')(color_correlator[0],color_correlator[1])
+        
+        
     def __call__(self, PS_point, alpha_s, mu_r=91.188, **opts):
         """ Actually performs the f2py call. """
+        
+        permutation = opts['permutation']
         
         # The mother class takes care of applying the permutations for the generic options
         PS_point, opts = VirtualMEAccessor.__call__(self, PS_point, **opts)
         
-        # For now, only support basic information
-        assert (not opts['squared_orders']), "F2PYMEAccessor does not yet support the specification of squared orders."
-        assert (not opts['spin_correlation']), "F2PYMEAccessor does not yet support the specification of spin_correlations."
-        assert (not opts['color_connection']), "F2PYMEAccessor does not yet support the specification of color_connections."
-        assert (not opts['hel_config']), "F2PYMEAccessor does not yet support the specification of helicity configurations."
+        new_opts = self.check_inputs_validity(opts)
+        
+        this_call_key = { 'PS_point' : tuple(tuple(p) for p in PS_point), 
+                          'alpha_s'  : alpha_s }
+        
+        # We can only recycle results where color correlations are either not specified or only one is specified.
+        if new_opts['color_correlation'] is None or \
+                len(new_opts['color_correlation'])==1 and all(cc>0 for cc in new_opts['color_correlation'][0]):
+            result_key = dict(new_opts)
+            result_key['color_correlation'] = None if not new_opts['color_correlation'] else new_opts['color_correlation'][0]
+            
+            recycled_call = self.cache.get_result(**this_call_key)
+            recycled_result = recycled_call.get_result(**result_key)
+            if recycled_result:
+                return MEEvaluation(recycled_result), recycled_call.get_inverse_permuted_copy(permutation)
 
         # If/When grouping several processes in the same f2py module (so as to reuse the model for example),
         # we will be able to use the information of self.process_pdgs to determine which one to call.
         # misc.sprint(" I was called from :",self.process_pdgs)
-        
         if not self.module_initialized:
             self.get_function('initialise')(pjoin(self.root_path, self.slha_card_path))
             self.module_initialized = True
         
-        # Most basic access for now
-        output_data ={}
-        output_data['finite'] = self.get_function('get_me')( self.format_momenta_for_f2py(PS_point), alpha_s, nhel=0)
+        # Setup Matrix Element code variables for the user-defined options
+        self.setup_ME(new_opts)
+
+        # Actual call to the matrix element
+#        start = time.time()
+        main_output  = self.get_function('me_accessor_hook')(
+            self.format_momenta_for_f2py(PS_point), 
+            (-1 if not new_opts['hel_config'] else self.helicity_configurations[new_opts['hel_config']]),
+            alpha_s)
+#        misc.sprint("The tree call took %10g"%(time.time()-start))
+
+        # Gather additional newly generated output_data to be returned and placed in the cache.
+        output_datas = self.gather_output_datas(main_output, new_opts)
         
-        return output_data
+        ME_result = self.cache.add_result(**this_call_key)
+        for output_data in output_datas:
+            ME_result.add_result(output_data[1], **output_data[0])
+        
+        # Now recover the main result the user expects. If he did not specify a specific single color_correlators, we will
+        # chose to return the result without color_correlation.
+        main_result_key = dict(new_opts)
+        if new_opts['color_correlation'] and len(new_opts['color_correlation'])==1 and not \
+                                                                    any(sc<=0 for sc in new_opts['color_correlation'][0]):
+            main_result_key['color_correlation'] = new_opts['color_correlation'][0]
+        else:
+            main_result_key['color_correlation'] = None
+        main_result = MEEvaluation(ME_result.get_result(**main_result_key))
+        
+        # Make sure to clean up specification of various properties for that particular call
+        self.clean_ME_settings()
+        
+        # Now return a dictionary containing the expected result anticipated by the user given the specified options,
+        # along with a copy of the ME_result dictionary storing all information available at this point for this call_key
+        return main_result, ME_result.get_inverse_permuted_copy(permutation)
+
+    def is_color_correlation_selected(self, color_correlator, color_correlation_specified):
+        """ Check if a particular spin_correlator is among those specified by the user."""
+
+        if (color_correlation_specified[0][0]< 0 or color_correlation_specified[0][0]==color_correlator[0]) and \
+           (color_correlation_specified[0][1]< 0 or color_correlation_specified[0][1]==color_correlator[1]):
+            return True
+        
+        return False
+
+    def gather_output_datas(self, main_output, user_opts):
+        """ Gather additional newly generated output_data to be returned and placed in the cache.
+            This functions returns output_datas  which is a list of 2-tuples of the form:
+                  ( dictionary_describing_data, dictionary_of_data ) 
+            where 'dictionary_describing_data' typically contains a particular spin_correlation describer, 
+            color_correlation, etc.. and 'dictionary_of_data' typically contains the keys ['finite', '1/eps', 'ML_return_code', etc...]  
+            or just 'finite' for tree-level.
+        """
+
+        output_datas = []
+        
+        # Basic output template dictionary. We can already assign hel_config and spin_correlation since nothing
+        # can be computed on top.
+        output_key_template = {'hel_config'           : user_opts['hel_config'],
+                               'squared_orders'        : None,
+                               'color_correlation'    : None,
+                               'spin_correlation'     : user_opts['spin_correlation']}
+        
+        output_result_template = MEEvaluation({'finite' : 0.})
+        
+        # First add the general squared order results
+        for i_sqso, squared_order in self.id_to_squared_order.items():
+            output_result = MEEvaluation(output_result_template)
+            output_result['finite'] = main_output[i_sqso]
+            # Now add this piece of data to the list to be added to the MEResult
+            output_key = dict(output_key_template)
+            output_key['squared_orders'] = squared_order
+            output_datas.append( (output_key, output_result) )
+        
+        # Now add the color-correlated results.
+        # This is a rank-2 array, with first index labeling the squared orders and the second labelling
+        # the color correlators
+        if user_opts['color_correlation']:
+            color_correlated_mes = self.get_function('get_color_correlated_me')()
+            for i_cc, color_correlator in self.id_to_color_correlation.items():
+                if not self.is_color_correlation_selected(color_correlator, user_opts['color_correlation']):
+                    continue
+                output_key_template['color_correlation'] = color_correlator
+                for i_sqso, squared_order in self.id_to_squared_order.items():
+                    output_key = dict(output_key_template)
+                    output_key['squared_orders'] = squared_order
+                    output_result = MEEvaluation(output_result_template)
+                    output_result['finite'] = color_correlated_mes[i_cc-1][i_sqso]   
+                    output_datas.append( (output_key, output_result) )
+        
+        return output_datas
     
 class F2PYMEAccessorMadLoop(F2PYMEAccessor):
     """ Specialization of F2PYMEAccessor for MadLoop."""
@@ -536,37 +941,227 @@ class F2PYMEAccessorMadLoop(F2PYMEAccessor):
             self.madloop_resources_path = os.path.relpath(madloop_resources_path, self.root_path)
         else:
             self.madloop_resources_path = None
+            
+        # Obtain loop_squared_orders. Split names are the same as those already determined at tree-level
+        # 'None' means summed over. 
+        self.loop_squared_orders = {None: 0}
+        if self.has_function('get_nsqso_loop'):
+            n_squared_orders = self.get_function('get_nsqso_loop')()
+            for i_sq_order in range(1,n_squared_orders+1):
+                key = tuple(sorted([(self.split_order_names[i], value) for i, value in enumerate(
+                                            self.get_function('ml5get_squared_orders_for_soindex')(i_sq_order) )]))
+                self.loop_squared_orders[key] = i_sq_order
+        
+        # Reversed map
+        self.id_to_loop_squared_order = dict((value,key) for (key,value) in self.loop_squared_orders.items())
+        
+        # List all available squared order combinations to consider and which entries to consider for each
+        all_entries = {'tree':True, 'finite':True, '1/eps':True, '1/eps**2':True, 'accuracy':True}
+        tree_entries = {'tree':True, 'finite':False, '1/eps':False, '1/eps**2':False, 'accuracy':False}
+        loop_entries = {'tree':False, 'finite':True, '1/eps':True, '1/eps**2':True, 'accuracy':True}
+        self.all_squared_orders = [  (all_entries,0,None) ] + \
+            [ (tree_entries, sqso[0], sqso[1]) for sqso in self.id_to_squared_order.items() if not sqso[1] is None] + \
+            [ (loop_entries, sqso[0], sqso[1]) for sqso in self.id_to_loop_squared_order.items() if not sqso[1] is None]
+        
+        # Returned array dimension
+        self.res_dim = self.get_function('get_answer_dimension')()
 
+    def nice_string(self):
+        """ Additional details for this loop MEaccessor."""
+        
+        res = [super(F2PYMEAccessorMadLoop, self).nice_string()]
+        res.append('%-40s:   %s'%('Loop squared orders available', 'Only summed' if self.loop_squared_orders.keys() is None else \
+                                                                str([k for k in self.loop_squared_orders.keys() if not k is None])))
+        return '\n'.join(res)
+
+    def get_squared_order_entry(self, squared_order):
+        """ Returns (i,j) where j is the squared order index corresponding to the squared order in argument.
+        'i' is zero if this is a Born (tree) squared-order specification and one if it is a loop one.
+        Returns None if not available."""
+        try:
+            return (1,self.loop_squared_orders[squared_order])
+        except KeyError:
+            try:
+                return (0,self.squared_orders[squared_order])
+            except KeyError:
+                return None
+
+    def setup_ME(self, opts):
+        """ Setup some extra MatrixElement steering variables according to user-defined options."""
+        
+        super(F2PYMEAccessorMadLoop, self).setup_ME(opts)
+
+        if opts['squared_orders']:
+            sq_orders = self.get_squared_order_entry(opts['squared_orders'])
+            if sq_orders and sq_orders[0]==1:
+                self.get_function('set_couplingorders_target')(sq_orders[1])
+
+    def clean_ME_settings(self):
+        """ Additional clean-up of steering variables for Matrix Elements after it was called."""
+        
+        super(F2PYMEAccessorMadLoop, self).clean_ME_settings()
+
+        # Make sure to compute all squared orders available by default
+        self.get_function('set_couplingorders_target')(-1)      
+        
     def __call__(self, PS_point, alpha_s, mu_r, **opts):
         """ Actually performs the f2py call.
         """
-        
+
+        permutation = opts['permutation']
+                
         # The mother class takes care of applying the permutations for the generic options
         PS_point, opts = VirtualMEAccessor.__call__(self, PS_point, **opts)
+        new_opts = self.check_inputs_validity(opts)
+
+        required_accuracy = -1.0
+        if 'required_accuracy' in opts:
+            required_accuracy = opts['required_accuracy']  
         
-        # For now, only support basic information
-        assert (not opts['squared_orders']), "F2PYMEAccessorMadLoop does not yet support the specification of squared orders."
-        assert (not opts['spin_correlation']), "F2PYMEAccessorMadLoop does not yet support the specification of spin_correlations."
-        assert (not opts['color_connection']), "F2PYMEAccessorMadLoop does not yet support the specification of color_connections."
-        assert (not opts['hel_config']), "F2PYMEAccessorMadLoop does not yet support the specification of helicity configurations."
+        this_call_key = { 'PS_point' : tuple(tuple(p) for p in PS_point), 
+                          'alpha_s'  : alpha_s,
+                          'mu_r'     : mu_r,
+                          'required_accuracy' : required_accuracy}
+
+        # We can only recycle results where color correlations are either not specified or only one is specified.
+        if new_opts['color_correlation'] is None or \
+                len(new_opts['color_correlation'])==1 and all(cc>0 for cc in new_opts['color_correlation'][0]):
+            result_key = dict(new_opts)
+            result_key['color_correlation'] = None if not new_opts['color_correlation'] else new_opts['color_correlation'][0]
+            
+            recycled_call = self.cache.get_result(**this_call_key)
+            recycled_result = recycled_call.get_result(**result_key)
+            if recycled_result:
+                return MEEvaluation(recycled_result), recycled_call.get_inverse_permuted_copy(permutation)
 
         # If/When grouping several processes in the same f2py module (so as to reuse the model for example),
         # we will be able to use the information of self.process_pdgs to determine which one to call.
         # misc.sprint(" I was called from :",self.process_pdgs)
-        
         if not self.module_initialized:
             self.f2py_module.initialise(pjoin(self.root_path, self.slha_card_path))
             if self.madloop_resources_path:
                 self.f2py_module.initialise_madloop_path(pjoin(self.root_path, self.madloop_resources_path))
             self.module_initialized = True
         
-        # Most basic access for now
-        output_data ={}
-        finite_loop_me, return_code = self.f2py_module.get_me(self.format_momenta_for_f2py(PS_point), alpha_s, mu_r, 0)
-        output_data['finite'] = finite_loop_me
-        output_data['ML_return_code'] = return_code        
+        # Setup Matrix Element code variables for the user-defined options
+        self.setup_ME(new_opts)
+
+        # Actual call to the matrix element
+#        start = time.time()
+        evals, estimated_accuracies, return_code = self.get_function('loopme_accessor_hook')(
+            self.format_momenta_for_f2py(PS_point), 
+            (-1 if not new_opts['hel_config'] else self.helicity_configurations[new_opts['hel_config']]),                              
+            alpha_s, mu_r, required_accuracy)
+#        misc.sprint("The loop call took %10g"%(time.time()-start))
+        main_output = {'evals': evals,
+                       'estimated_accuracies': estimated_accuracies,
+                       'return_code': return_code}   
+
+        # Gather additional newly generated output_data to be returned and placed in the cache.
+        output_datas = self.gather_output_datas(main_output, new_opts)
         
-        return output_data
+        ME_result = self.cache.add_result(**this_call_key)
+        for output_data in output_datas:
+            ME_result.add_result(output_data[1], **output_data[0])
+        
+        # Now recover the main result the user expects. If he did not specify a specific single color_correlators, we will
+        # chose to return the result without color_correlation.
+        main_result_key = dict(new_opts)
+        if new_opts['color_correlation'] and len(new_opts['color_correlation'])==1 and not \
+                                                                    any(sc<=0 for sc in new_opts['color_correlation'][0]):
+            main_result_key['color_correlation'] = new_opts['color_correlation'][0]
+        else:
+            main_result_key['color_correlation'] = None
+        main_result = MEEvaluation(ME_result.get_result(**main_result_key))
+        
+        # Make sure to clean up specification of various properties for that particular call
+        self.clean_ME_settings()
+        
+        # Now return a dictionary containing the expected result anticipated by the user given the specified options,
+        # along with a copy of the ME_result dictionary storing all information available at this point for this call_key
+        return main_result, ME_result.get_inverse_permuted_copy(permutation)
+
+    def gather_output_datas(self, main_output, user_opts):
+        """ Gather additional newly generated output_data to be returned and placed in the cache.
+            This functions returns a 'output_datas' which is a list of 2-tuples of the form:
+                  ( dictionary_describing_data, dictionary_of_data ) 
+            where 'dictionary_describing_data' typically contains a particular spin_correlation describer, 
+            color_correlation, etc.. and 'dictionary_of_data' typically contains the keys ['finite', '1/eps', 'ML_return_code', etc...]  
+            or just 'finite' for tree-level.
+        """
+
+        output_datas = []
+
+        # Basic output template dictionary. We can already assign hel_config and spin_correlation since nothing
+        # can be computed on top.
+        output_key_template = {'hel_config'           : user_opts['hel_config'],
+                               'squared_orders'        : None,
+                               'color_correlation'    : None,
+                               'spin_correlation'     : user_opts['spin_correlation']}
+        
+        output_result_template = MEEvaluation(
+                                 {'tree'        : None,
+                                  'finite'      : None,
+                                  '1/eps'       : None,
+                                  '1/eps**2'    : None,
+                                  'accuracy'    : None,
+                                  'return_code' : main_output['return_code']})
+    
+        i_sqso_user = self.get_squared_order_entry(user_opts['squared_orders'])
+        if not i_sqso_user is None:
+            i_sqso_user = i_sqso_user[1]
+  
+        # First add the general tree squared order results
+        for entries_to_consider, i_sqso, squared_order in self.all_squared_orders:
+            # Do not include results for squared order that were selected out by having invoked
+            # set_couplingorders_target. Also do not include the sum if a squared order selection was performed.
+            if i_sqso_user and (squared_order is None or i_sqso > i_sqso_user):
+                continue
+            output_result = MEEvaluation(output_result_template)
+            if entries_to_consider['tree']:
+                output_result['tree']     = main_output['evals'][0][i_sqso]
+            if entries_to_consider['finite']:
+                output_result['finite']   = main_output['evals'][1][i_sqso]
+            if entries_to_consider['1/eps']:    
+                output_result['1/eps']    = main_output['evals'][2][i_sqso]
+            if entries_to_consider['1/eps**2']:
+                output_result['1/eps**2'] = main_output['evals'][3][i_sqso]
+            if entries_to_consider['accuracy']:
+                output_result['accuracy'] = main_output['estimated_accuracies'][i_sqso]
+            # Now add this piece of data to the list to be added to the MEResult
+            output_key = dict(output_key_template)
+            output_key['squared_orders'] = squared_order
+            output_datas.append( (output_key, output_result) )
+        
+        # Now add the color-correlated results.
+        if user_opts['color_correlation']:
+            color_correlated_mes = self.get_function('get_color_correlated_me')()            
+            for i_cc, color_correlator in self.id_to_color_correlation.items():
+                if not self.is_color_correlation_selected(color_correlator, user_opts['color_correlation']):
+                    continue
+                output_key_template['color_correlation'] = color_correlator
+                for entries_to_consider, i_sqso, squared_order in self.all_squared_orders:
+                    # Do not include results for squared order that were selected out by having invoked
+                    # set_couplingorders_target. Also do not include the sum if a squared order selection was performed.
+                    if i_sqso_user and (squared_order is None or i_sqso > i_sqso_user):
+                        continue
+                    output_result = MEEvaluation(output_result_template)
+                    if entries_to_consider['tree']:
+                        output_result['tree']     = color_correlated_mes[i_cc-1][0][i_sqso]
+                    if entries_to_consider['finite']:
+                        output_result['finite']   = color_correlated_mes[i_cc-1][1][i_sqso]
+                    if entries_to_consider['1/eps']:    
+                        output_result['1/eps']    = color_correlated_mes[i_cc-1][2][i_sqso]
+                    if entries_to_consider['1/eps**2']:
+                        output_result['1/eps**2'] = color_correlated_mes[i_cc-1][3][i_sqso]
+                    if entries_to_consider['accuracy']:
+                        output_result['accuracy'] = main_output['estimated_accuracies'][i_sqso]    
+                    # Now add this piece of data to the list to be added to the MEResult
+                    output_key = dict(output_key_template)
+                    output_key['squared_orders'] = squared_order
+                    output_datas.append( (output_key, output_result) )            
+
+        return output_datas
 
 class MEAccessorDict(dict):
     """ A class for nicely wrapping the access to the (possibly spin- and color- correlated) matrix elements of 
@@ -763,21 +1358,35 @@ class Contribution(object):
         self.contribution_definition = contribution_definition
         
         # Now set what additional export options need to be set
-        self.additional_exporter_options = {'color_correlators' : 'NLO',
-                                            'spin_correlators'  : 'NLO'}
+        self.additional_exporter_options = {'color_correlators' : None,
+                                            'spin_correlators'  : None}
         # Below correlators_needed will be 1 if we are in an NLO-type of contribution (i.e. correction_order='NLO')
         # within an NNLO general computation (i.e. overall_correction_order='NNLO').
         # In this case we indeed expect to need NLO-type of correlators.
         correlators_needed = self.contribution_definition.overall_correction_order.count('N') - \
                              self.contribution_definition.correction_order.count('N')
 
+        ##############################################################################################################
+        ##############################################################################################################
+        ###                                                 TEMPORARY HACK                             
+        ### For testing purposes, one can force to always include NLO types of correlators in all matrix elements
+        ### outputs simply with the line below
+        correlators_needed = max(correlators_needed,1)
+        ###
+        ##############################################################################################################
+        ##############################################################################################################
+        
         if correlators_needed > 0:
             self.additional_exporter_options['color_correlators'] ='N'*correlators_needed+'LO'
+            # Also force MG5_aMC option 'loop_color_flows' to be true as it is necessary to compute color_correlators.
+            # We can do so in a neat way here by simply adding this option to self.additional_exporter_options since they
+            # will overwrite the interface option when the exporter will be instantiated.
+            self.additional_exporter_options['loop_color_flows'] = True
             ##############################################################################################################
             ##############################################################################################################
             ###                                                 TEMPORARY HACK
-            ### Since NNLO color correlators are not available yet and we want to be able to tinker with NNLO outputs
-            ### we force the color correlators to be at most NLO type here. Should be removed eventually of course.
+            ### Since NNLO color correlators are not available yet and we already want to be able to tinker with NNLO  outputs
+            ### we force here the color correlators to be at most NLO type here. This should be removed eventually of course.
             ###
             self.additional_exporter_options['color_correlators'] ='N'*min(correlators_needed,1)+'LO'
             ####
@@ -789,7 +1398,7 @@ class Contribution(object):
         self.all_matrix_elements     = helas_objects.HelasMultiProcess()
         self.exporter                = None
         
-        # Things burrowed from the cmd_interface
+        # Things borrowed from the cmd_interface
         self.options                 = dict(cmd_interface.options)
         self.options['_model_v4_path'] = cmd_interface._model_v4_path
         self.options['_mgme_dir']    = cmd_interface._mgme_dir

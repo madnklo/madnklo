@@ -3346,11 +3346,15 @@ This implies that with decay chains:
         generation_options['proc_id'] += 1
         # Specify a negative squared order coupling if no squared order coupling is
         # defined, and keep only the leading contributions in these orders then.
-        for order in generation_options['NLO']:
-            if order not in target_squared_orders:
-                procdef['sqorders_types'][order] = '<='
-                # -1 means that only the leading contribution in that coupling order will be kept.
-                procdef['squared_orders'][order] = -1
+#####################################################################################################
+# WE WILL NEED TO INFER EXACTLY WHAT ARE THE SQUARED ORDER TO INCLUDE STARTING FROM THE BORN HERE
+#               SO LEAVE DEFAULT FOR NOW, WHICH IS OK FOR PURE QCD CORRECTIONS
+#####################################################################################################
+#        for order in generation_options['NLO']:
+#            if order not in target_squared_orders:
+#                procdef['sqorders_types'][order] = '<='
+#                # -2 means that only the first subleading contribution in that coupling order will be kept.
+#                procdef['squared_orders'][order] = -2
 
         # Now add the corresponding MultiLeg to the final state
         procdef['legs'].append(base_objects.MultiLeg({'ids':
@@ -3367,7 +3371,7 @@ This implies that with decay chains:
                     squared_orders_constraints = dict(target_squared_orders),
                     overall_correction_order=generation_options['overall_correction_order'] ),
                     self)
-        
+
         self._curr_contribs.append(real_emission_contribution)
                 
     def add_NLO_loop_induced_contributions(self, NLO_template_procdef, generation_options, target_squared_orders):
@@ -3395,12 +3399,16 @@ This implies that with decay chains:
         procdef.set('id', generation_options['proc_id'])
         generation_options['proc_id'] += 1
         # Specify a negative squared order coupling if no squared order coupling is
-        # defined, so as to enforce keeping only the leading contribution in those orders.
-        for order in generation_options['NNLO']:
-            if order not in target_squared_orders:
-                procdef['sqorders_types'][order] = '=='
-                # -1 means that only the leading contribution in that coupling order will be kept.
-                procdef['squared_orders'][order] = -1
+        # defined, so as to enforce keeping only the first two subleading contribution in those orders.
+#####################################################################################################
+# WE WILL NEED TO INFER EXACTLY WHAT ARE THE SQUARED ORDER TO INCLUDE STARTING FROM THE BORN HERE
+#               SO LEAVE DEFAULT FOR NOW, WHICH IS OK FOR PURE QCD CORRECTIONS
+#####################################################################################################
+#        for order in generation_options['NNLO']:
+#            if order not in target_squared_orders:
+#                procdef['sqorders_types'][order] = '=='
+#                # -3 means that only the first two subleading contribution in that coupling order will be kept.
+#                procdef['squared_orders'][order] = -3
 
         # Now add the two corresponding MultiLeg to the final state
         unresolved_emission = base_objects.MultiLeg({'ids':
@@ -3478,11 +3486,12 @@ This implies that with decay chains:
         template_procdef = input_procdef.get_copy()
         
         # Check that only squared order are specified.
-        warning = ('Process definitions in MadEvent7 can only have squared order constraints.'+
-                               ' The amplitude order constraint specified here will be ignored.')
+        warning = ('Process definitions in MadEvent7 can only have squared order constraints or amplitude'+
+            ' order constraints that are not perturbed.\n'+'Part of the amplitude order constraint specified here will be ignored.')
+
         for order in input_procdef['orders']:
             if order in all_perturbed_orders:
-                if warning:
+                if warning and order not in input_procdef['squared_orders']:
                     logger.warning(warning)
                     warning = None
                 del template_procdef['orders'][order]
@@ -3536,6 +3545,7 @@ This implies that with decay chains:
                 logger.warning('It is typically not theoretically sound to compute higher order corrections of'+
                     ' a process for which the initial states are only a subset of the following set:\n%s'%(
                         str([self._curr_model.get_particle(pdg).get_name() for pdg in all_perturbed_ids])))
+                break
         
         
         # Add the certain quantities to the generation options so as to make then accessible to the various

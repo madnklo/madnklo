@@ -79,30 +79,42 @@ F2PY_RESOURCES = $(wildcard f2py_wrapper.f) \
 $(PROG): check_sa.o $(PROCESS) makefile $(LIBS)
 	$(FC) $(FFLAGS) -o $(PROG) check_sa.o $(PROCESS) $(LINKLIBS)
 
-$(STABCHECKDRIVER):  StabilityCheckDriver.o $(PROCESS) makefile $(LIBS)
+$(STABCHECKDRIVER): StabilityCheckDriver.o $(PROCESS) makefile $(LIBS)
 	$(FC) $(FFLAGS) -o $(STABCHECKDRIVER) StabilityCheckDriver.o $(PROCESS) $(LINKLIBS)
+
+$(LIBDIR)libdhelas.a: $(wildcard $(ROOT)/Source/DHELAS/*.f)
+	cd $(ROOT)/Source/DHELAS; make;
+
+$(LIBDIR)libmodel.a: $(wildcard $(ROOT)/Source/MODEL/*.f)
+	cd $(ROOT)/Source/MODEL; make;
 
 # The program below is not essential but just an helpful one to run the born only
 $(CHECK_SA_BORN_SPLITORDERS): ../$(OLP)_static check_sa_born_splitOrders.o $(patsubst $(DOTF),$(DOTO),$(wildcard *born_matrix.f)) makefile $(LIBDIR)libdhelas.$(libext) $(LIBDIR)libmodel.$(libext)
 	$(FC) $(FFLAGS) -o $(CHECK_SA_BORN_SPLITORDERS) check_sa_born_splitOrders.o $(patsubst $(DOTF),$(DOTO),$(wildcard *born_matrix.f)) -L$(LIBDIR) -ldhelas -lmodel -lMadLoop $(LINK_LOOP_LIBS) $(STDLIB)
 
+%loop_matrix.o : %polynomial.o %loop_matrix.f
+
 # This is the core of madloop computationally wise, so make sure to turn optimizations on and bound checks off.
 # We use %olynomial.o and not directly polynomial.o because we want it to match when both doing make check here
 # or make OLP one directory above
-%oloop_matrix.o : %olynomial.o %oloop_matrix.f
 %olynomial.o : %olynomial.f
 	$(FC) $(patsubst -O%,, $(subst -fbounds-check,,$(FFLAGS))) $(POLYNOMIAL_OPTIMIZATION) $(POLYNOMIAL_BOUNDS_CHECK) -c $< -o $@ $(LOOP_INCLUDE)
-
 
 $(DOTO) : $(DOTF)
 	$(FC) $(FFLAGS) -c $< -o $@ $(LOOP_INCLUDE)
 
+# Always remove mod files as they are never placed in the right directory
+# Also remove polynomial.o since the module it contains must be rebuilt in the right directory
 $(OLP): $(OLP_PROCESS) $(LIBS)
 	$(FC) -shared $(OLP_PROCESS) -o libMadLoop.$(dylibext) $(LINKLIBS)
+	rm -f *.mod $(LOOP_PREFIX)*/polynomial.o $(LOOP_PREFIX)*/*.mod 
 
+# Always remove mod files as they are never placed in the right directory
+# Also remove polynomial.o since the module it contains must be rebuilt in the right directory 
 $(OLP)_static: $(OLP_PROCESS)
 	ar rcs libMadLoop.$(libext) $(OLP_PROCESS)
 	mv libMadLoop.$(libext) $(MADLOOP_LIB)
+	rm -f *.mod $(LOOP_PREFIX)*/polynomial.o $(LOOP_PREFIX)*/*.mod
 
 ../$(OLP):
 	rm -f libMadLoop.$(dylibext)
@@ -123,3 +135,6 @@ matrix$(MENUM)py.so: ../$(OLP)_static $(F2PY_RESOURCES)
 
 clean:
 	@rm -f *.o *.so *.$(libext) *.$(dylibext)
+
+# Useful command to have make print-VARNAME printout the value of VARNAME in this makefile
+print-%  : ; @echo $* = $($*)

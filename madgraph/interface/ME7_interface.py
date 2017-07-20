@@ -48,7 +48,7 @@ sys.path.insert(0, os.path.join(root_path,'bin'))
 # useful shortcut
 pjoin = os.path.join
 # Special logger for the Cmd Interface
-logger = logging.getLogger('madevent7.stdout') # -> stdout
+logger = logging.getLogger('madevent7') # -> stdout
 logger_stderr = logging.getLogger('madevent7.stderr') # ->stderr
 
 try:
@@ -58,6 +58,7 @@ except ImportError:
     MADEVENT7 = True
     import internal.extended_cmd as cmd
     import internal.common_run_interface as common_run
+    import internal.madevent_interface as madevent_interface
     import internal.banner as banner_mod
     import internal.misc as misc
     from internal import InvalidCmd, MadGraph5Error, ReadWrite
@@ -81,6 +82,7 @@ else:
     MADEVENT7 = False
     import madgraph.interface.extended_cmd as cmd
     import madgraph.interface.common_run_interface as common_run
+    import madgraph.interface.madevent_interface as madevent_interface
     import madgraph.iolibs.files as files
     import madgraph.iolibs.save_load_object as save_load_object
     import madgraph.various.banner as banner_mod
@@ -233,7 +235,9 @@ class ParseCmdArguments(object):
         launch_options = {'integrator': 'VEGAS3',
                           'n_points': None,
                           'n_iterations':None,
-                          'verbosity':0}        
+                          'verbosity':1,
+                          'refresh_filters':'auto',
+                          'compile':'auto'}        
         #for name in ['Naive','VEGAS','VEGAS3','SUAVE','DIVONNE','CUHRE']:
         
         for arg in args:
@@ -252,6 +256,15 @@ class ParseCmdArguments(object):
             elif key=='--verbosity':
                 modes = {'none':0, 'integrator':1, 'all':2}
                 launch_options[key[2:]] = modes[value.lower()]
+            elif key in ['--refresh_filters','--compile']:
+                available_modes = ['auto','never','always']
+                if value is None:
+                    mode = 'always'
+                else:
+                    mode = str(value).lower()
+                if mode not in available_modes:
+                    raise InvalidCmd("Value '%s' not valid for option '%s'."%(value,key))
+                launch_options[key[2:]] = mode
             else:
                 raise InvalidCmd("Option '%s' for the launch command not reckognized."%key)
 
@@ -367,6 +380,8 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         # Now reconstruct all the relevant information from ME7_dump
         logger.info("Loading MadEvent7 setup from file '%s'."%pjoin(self.me_dir,'MadEvent7.db'))
         ME7_dump = save_load_object.load_from_file(pjoin(self.me_dir,'MadEvent7.db'))
+
+        self.complex_mass_scheme = ME7_dump['model_with_CMS']
                 
         # We might want to recover whether prefix was used when importing the model and whether
         # the MG5 name conventions was used. But this is a detail that can easily be fixed later.
@@ -374,10 +389,11 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
             pjoin(self.me_dir,'Source',ME7_dump['model_name']), prefix=True,
             complex_mass_scheme = ME7_dump['model_with_CMS'] )
         self.model.pass_particles_name_in_mg_default()
+        
         self.model.set_parameters_and_couplings(
                 param_card = pjoin(self.me_dir,'Cards','param_card.dat'), 
                 scale=self.run_card['scale'], 
-                complex_mass_scheme=ME7_dump['model_with_CMS'])
+                complex_mass_scheme=self.complex_mass_scheme)
 
         self.all_MEAccessors = ME7_dump['all_MEAccessors']['class'].initialize_from_dump(
                                                 ME7_dump['all_MEAccessors'], root_path = self.me_dir)
@@ -387,11 +403,29 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
 
         self.n_initial = ME7_dump['n_initial']
         
-    def compile(self):
-        """ Re-compile all necessary resources, so as to make sure it is up to date."""
-        # TODO
-        pass
-
+    def synchronize(self, **opts):
+        """ Re-compile all necessary resources and sync integrands with the cards and model"""
+        
+        logger.info("Synchronizing MadEvent7 internal status with cards and matrix elements source codes...")
+    
+        self.run_card = banner_mod.RunCardME7(pjoin(self.me_dir,'Cards','run_card.dat'))
+        self.model.set_parameters_and_couplings(
+            param_card = pjoin(self.me_dir,'Cards','param_card.dat'), 
+            scale=self.run_card['scale'], 
+            complex_mass_scheme=self.complex_mass_scheme)
+        
+        for integrand in self.all_integrands:
+            integrand.synchronize(self.model, self.run_card, self.options)
+        
+        # Try and import some options from those provided to this function
+        sync_options = {'refresh_filters':'auto', 'compile':'auto'}
+        for key in sync_options:
+            try:
+                sync_options[key] = opts[key]
+            except KeyError:
+                pass
+        self.all_MEAccessors.synchronize(ME7_options=self.options, **sync_options)
+        
     def do_launch(self, line, *args, **opt):
         """Main command, starts the cross-section computation. Very basic setup for now.
         We will eventually want to have all of these meta-data controllable via user commands
@@ -404,7 +438,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
 
         # In principle we want to start by recompiling the process output so as to make sure
         # that everything is up to date.
-        self.compile()
+        self.synchronize(**launch_options)
 
         # Re-initialize the integrator
         integrator_name = launch_options['integrator']
@@ -446,13 +480,17 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
             logger_level = logging.DEBUG
         else:
             logger_level = logging.INFO
-        
-        with misc.MuteLogger(['madevent7.stdout','madevent7.stderr'],[logger_level,logger_level]):
+            
+        logger.info("="*100)        
+        logger.info('{:^100}'.format("Starting integration, lay down and enjoy..."),'$MG:color:GREEN')
+        logger.info("="*100)
+
+        with misc.MuteLogger(['contributions','madevent7','madevent7.stderr'],[logger_level,logger_level,logger_level]):
             xsec, error = self.integrator.integrate()
             
         logger.info("="*100)
-        logger.info('{:^100}'.format("\033[92mCross-section with integrator '%s':\033[0m"%self.integrator.get_name()))
-        logger.info('{:^100}'.format("\033[94m%.5e +/- %.2e [pb]\033[0m"%(xsec, error)))
+        logger.info('{:^100}'.format("Cross-section with integrator '%s':"%self.integrator.get_name()),'$MG:color:GREEN')
+        logger.info('{:^100}'.format("%.5e +/- %.2e [pb]"%(xsec, error)),'$MG:color:BLUE')
         logger.info("="*100+"\n")
         
     def do_show_grid(self, line):
@@ -495,18 +533,8 @@ class MadEvent7CmdShell(MadEvent7Cmd, cmd.CmdShell):
 class ME7Integrand(integrands.VirtualIntegrand):
     """ Specialization for multi-purpose integration with ME7."""
     
-    # This parameter defines a thin layer around the boundary of the unit hypercube of the 
-    # random variables generating the phase-space, so as to avoid extrema which are an issue in most
-    # PS generators.
-    epsilon_border = 1e-10
-    
     # Maximum size of the cache for PDF calls
     PDF_cache_max_size = 1000
-    
-    # The lowest value that the center of mass energy can take.
-    # We take here 1 GeV, as anyway below this non-perturbative effects dominate and factorization does not
-    # make sense anymore
-    absolute_Ecm_min = 1.
     
     def __new__(cls, model, 
                      run_card,
@@ -570,12 +598,6 @@ class ME7Integrand(integrands.VirtualIntegrand):
                                        'all_MEAccessors'            : None,
                                        'ME7_configuration'          : None }
         
-        # A ModelReader instantance, initialized with the values of the param_card.dat of this run
-        self.model                      = model
-        if not isinstance(self.model, model_reader.ModelReader):
-            raise MadGraph5Error("The ME7Integrand must be initialized with a ModelReader instance.")
-        # A RunCardME7 instance, properly initialized with the values of the run_card.dat of this run
-        self.run_card                   = run_card
         # The original ContributionDefinition instance at the origin this integrand 
         self.contribution_definition    = contribution_definition
         # The process map of the Contribution instance at the origin of this integrand.
@@ -584,49 +606,58 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # An instance of contributions.MEAccessorDict providing access to all ME available as part of this
         # ME7 session.
         self.all_MEAccessors            = all_MEAccessors
+        
+        # Update and define many properties of self based on the provided run-card and model.
+        self.synchronize(model, run_card, ME7_configuration)
+
+    def synchronize(self, model, run_card, ME7_configuration):
+        """ Synchronize this integrand with the most recent run_card and model."""
+
         # The option dictionary of ME7
         self.ME7_configuration          = ME7_configuration
         
+        # A ModelReader instance, initialized with the values of the param_card.dat of this run
+        self.model                      = model
+        if not isinstance(self.model, model_reader.ModelReader):
+            raise MadGraph5Error("The ME7Integrand must be initialized with a ModelReader instance.")
+
+        # A RunCardME7 instance, properly initialized with the values of the run_card.dat of this run
+        self.run_card                   = run_card
+        
+        # Set external masses
         all_processes = [p[0] for p in self.processes_map.values()]
-        self.masses = self.get_external_masses_for_process(all_processes[0], model=self.model)
+        self.masses = all_processes[0].get_external_masses(self.model)
         for proc in all_processes[1:]:
-            this_proc_masses = self.get_external_masses_for_process(proc, model=self.model)
+            this_proc_masses = proc.get_external_masses(self.model)
             if this_proc_masses != self.masses:
                 raise MadGraph5Error("A contribution must entail processes with all the same external masses.\n"
                  "This is not the case; process\n%s\nhas masses '%s' while process\n%s\n has masses '%s'."%
-                 (all_processes[0].nice_string(), masses, proc.nice_string(), this_proc_masses) )
+                 (all_processes[0].nice_string(), self.masses, proc.nice_string(), this_proc_masses) )
         self.n_initial = len(self.masses[0])
         self.n_final = len(self.masses[1])
-        
-        # Always initialize the basic flat PS generator. It can be overwritten later if necessary.
-        self.phase_space_generator = phase_space_generators.FlatInvertiblePhasespace(self.masses[0], self.masses[1])
-        integrand_dimensions = integrands.DimensionList()
         
         if self.n_initial==1:
             raise InvalidCmd("MadEvent7 does not yet support decay processes.")
         
-        # Add the PDF dimensions if necessary
-        if self.run_card['lpp1']==self.run_card['lpp2']==1:
-            self.collider = 'pp'
-            integrand_dimensions.append(integrands.ContinuousDimension('ycms',lower_bound=0.0, upper_bound=1.0))
-            # The 2>1 topology requires a special treatment
-            if self.n_initial==2 and self.n_final==1:
-                self.collider = 'pp_2to1'
-            else:
-                integrand_dimensions.append(integrands.ContinuousDimension('tau',lower_bound=0.0, upper_bound=1.0)) 
-        elif self.run_card['lpp1']==self.run_card['lpp2']==0:
-            self.collider = 'll'
-        else:
-            raise InvalidCmd("MadEvent7 does not support this collider configuration: (lpp1=%d, lpp2=%d)"%
-                             (self.run_card['lpp1'], self.run_card['lpp2']))
+        if not (self.run_card['lpp1']==self.run_card['lpp2']==1) and \
+           not (self.run_card['lpp1']==self.run_card['lpp2']==0):
+            raise InvalidCmd("MadEvent7 does not support the following collider mode yet (%d,%d)."%\
+                                                            (self.run_card['lpp1'], self.run_card['lpp2']))
         
-        if self.run_card['ebeam1']!=self.run_card['ebeam2']:
-            raise InvalidCmd("For now, MadEvent7 only supports colliders with incoming beams equally energetic.")
+        # Always initialize the basic flat PS generator. It can be overwritten later if necessary.
+        self.phase_space_generator = phase_space_generators.FlatInvertiblePhasespace(
+            self.masses[0], self.masses[1], 
+            beam_Es    = (self.run_card['ebeam1'], self.run_card['ebeam2']),
+            beam_types = (self.run_card['lpp1'], self.run_card['lpp2']),
+        )
 
-        # Add the phase-space dimensions
-        integrand_dimensions.extend([ integrands.ContinuousDimension('x_%d'%i,lower_bound=0.0, upper_bound=1.0) 
-                                     for i in range(1, self.phase_space_generator.nDimPhaseSpace()+1) ])
-        self.set_dimensions(integrand_dimensions)
+        # Add a copy of the PS generator dimensions here.
+        # Notice however that we could add more dimensions pertaining to this integrand only, and PS generation.
+        # This is in particular true for discrete integration dimension like sectors, helicities, etc... 
+        self.set_dimensions(integrands.DimensionList(self.phase_space_generator.dimensions))
+        self.dim_ordered_names = [d.name for d in self.get_dimensions()]
+        self.dim_name_to_position = dict((name,i) for i, name in enumerate(self.dim_ordered_names))
+        self.position_to_dim_name = dict((v,k) for (k,v) in self.dim_name_to_position.items())
 
         self.collider_energy = self.run_card['ebeam1'] + self.run_card['ebeam2']
         
@@ -654,9 +685,9 @@ class ME7Integrand(integrands.VirtualIntegrand):
                 raise MadGraph5Error("The python lhapdf API could not be loaded.")
             # Adjust LHAPDF verbosity to current logger's verbosity
             lhapdf.setVerbosity(1 if logger.level<=logging.DEBUG else 0)
-            
             pdfsets_dir = subprocess.Popen([lhapdf_config,'--datadir'],\
                                            stdout=subprocess.PIPE).stdout.read().strip()
+            lhapdf.pathsPrepend(pdfsets_dir)
             lhapdf_version = subprocess.Popen([lhapdf_config,'--version'],\
                                            stdout=subprocess.PIPE).stdout.read().strip()
             pdf_info = common_run.CommonRunCmd.get_lhapdf_pdfsets_list_static(pdfsets_dir, lhapdf_version)
@@ -689,6 +720,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
             n_loop_for_as_running = 2
             self.alpha_s_runner = model_reader.Alphas_Runner(as_running_params['aS'], n_loop_for_as_running, 
                       as_running_params['mdl_MZ'], as_running_params['mdl_MC'], as_running_params['mdl_MB'])
+            
 
     def generate_dump(self):
         """ Generate a serializable dump of self, which can later be used, along with some more 
@@ -709,16 +741,6 @@ class ME7Integrand(integrands.VirtualIntegrand):
                              dump['processes_map'],
                              all_MEAccessors,
                              ME7_configuration)
-      
-    def get_external_masses_for_process(self, process, model):
-        """ Returns the tuple:
-               ( (initial_mass_value1, ...) , (final_mass_value1, final_mass_value2, final_mass_value3,...)
-            for the process in argument
-        """
-
-        return ( tuple(model.get_mass(pdg) for pdg in process.get_initial_ids()),
-                 tuple(model.get_mass(pdg) for pdg in process.get_final_ids()),
-               )
     
     def set_phase_space_generator(self, PS_generator):
         """ Overwrites current phase-space generator."""
@@ -822,6 +844,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
         
         # A unique float must be returned
         wgt = 1.0
+        # And the conversion from GeV^-2 to picobarns
+        wgt *= 0.389379304e9
         
         if __debug__: logger.debug("="*80)       
         if __debug__: logger.debug('Starting a new evaluation of the integrand from contribution:\n%s',
@@ -831,83 +855,35 @@ class ME7Integrand(integrands.VirtualIntegrand):
         random_variables    = list(continuous_inputs)
         if __debug__: logger.debug('Random variables received: %s',str(random_variables))        
     
-        # Avoid extrema since the phase-space generation algorithm doesn't like it
-        random_variables = [min(max(rv,self.epsilon_border),1.-self.epsilon_border) for rv in random_variables]
+        # Now assign the variables pertaining to PS generations
+        PS_random_variables = [random_variables[self.dim_name_to_position[name]] for name in 
+                                                self.phase_space_generator.dim_ordered_names]
         
-        # Assign variables to their meaning. We could use their name to be more definite,
-        # but assuming their position is is fine.
-        dimension_names = [dim.name for dim in self.get_dimensions()]
-        dimension_name_to_position = dict((name,i) for i, name in enumerate(dimension_names))
-        if 'ycms' in dimension_names:
-            PDF_ycm = random_variables[dimension_name_to_position['ycms']]
-        else:
-            PDF_ycm = None
-        if 'tau' in dimension_names:
-            PDF_tau = random_variables[dimension_name_to_position['tau']]
-        else:
-            PDF_tau = None
-        PS_random_variables  = [rv for i, rv in enumerate(random_variables) if dimension_names[i].startswith('x') ]
-
-        # And the conversion from GeV^-2 to picobarns
-        wgt *= 0.389379304e9
-
-        # Now take care of the Phase-space generation:
+        PS_point, PS_weight, xb_1, xb_2 = self.phase_space_generator.get_PS_point(PS_random_variables)
+        E_cm = math.sqrt(xb_1*xb_2)*self.collider_energy
         
-        # Set some defaults for the variables to be set further
-        xb_1 = 1.
-        xb_2 = 1.
-        E_cm = self.collider_energy
-        
-        # We generate the PDF from two variables \tau = x1*x2 and ycm = 1/2 * log(x1/x2), so that:
-        #  x_1 = sqrt(tau) * exp(ycm)
-        #  x_2 = sqrt(tau) * exp(-ycm)
-        # The jacobian of this transformation is 1.
-        
-        if self.collider.startswith('pp'):
-            
-            tot_final_state_masses = sum(self.masses[1])
-            if tot_final_state_masses > self.collider_energy:
-                raise InvalidCmd("Collider energy is not large enough, there is no phase-space left.")
-            
-            # Keep a hard cut at 1 GeV, which is the default for absolute_Ecm_min
-            tau_min = (max(tot_final_state_masses, self.absolute_Ecm_min)/self.collider_energy)**2
-            tau_max = 1.0
-
-            if self.collider == 'pp_2to1':
-                # Here tau is fixed by the \delta(xb_1*xb_2*s - m_h**2) which sets tau to 
-                PDF_tau = tau_min
-                # Account for the \delta(xb_1*xb_2*s - m_h**2) and corresponding y_cm matching to unit volume
-                wgt *= (1./self.collider_energy**2)
-            else:
-                # Rescale tau appropriately
-                PDF_tau = tau_min+(tau_max-tau_min)*PDF_tau
-                # Including the corresponding Jacobian
-                wgt *= (tau_max-tau_min)
-
-            # And we can now rescale ycm appropriately
-            ycm_min = 0.5 * math.log(PDF_tau)
-            ycm_max = -ycm_min
-            PDF_ycm = ycm_min + (ycm_max - ycm_min)*PDF_ycm            
-            # and account for the corresponding Jacobina
-            wgt *= (ycm_max - ycm_min)
-
-            xb_1 = math.sqrt(PDF_tau) * math.exp(PDF_ycm)
-            xb_2 = math.sqrt(PDF_tau) * math.exp(-PDF_ycm)
-            E_cm = math.sqrt(xb_1*xb_2)*self.collider_energy
-
-        elif self.collider == 'll':
-            xb_1 = 1.
-            xb_2 = 1.
-            E_cm = self.collider_energy
-        else:
-            raise MadGraph5Error("MadEvent7 integrand does not yet support collider mode '%s'."%self.collider)
-
-        # Make sure the Bjorken x's are physical:
-        if xb_1>1. or xb_2>1.:
-            if __debug__: logger.debug('Unphysical configuration: x1, x2 = %.5e, %.5e'%(xb_1, xb_2))
-            if __debug__: logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)
+        if PS_point is None:
+            if __debug__:
+                if xb_1 > 1. or xb_2 > 1.:
+                    logger.debug('Unphysical configuration: x1, x2 = %.5e, %.5e'%(xb_1, xb_2))
+                    logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)
+                else:
+                    logger.debug('Phase-space generation failed.')
+                    logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)
             return 0.0
-
+    
+        ###
+        # /!\ WARNING One typically only boosts to the C.O.M frame at the very end. But we do it here nonetheless. Can easily be changed.
+        ###
+        self.phase_space_generator.boost_to_COM_frame(PS_point, xb_1, xb_2)
+                
+        if __debug__: logger.debug("Considering the following PS point:\n%s"%(self.phase_space_generator.nice_momenta_string(
+                            PS_point, recompute_mass=True, n_initial=self.phase_space_generator.n_initial) ))
+        
+        # Account for PS weight
+        wgt *= PS_weight
+        if __debug__: logger.debug("PS_weight: %.5e"%PS_weight)
+        
         # Include the flux factor
         flux = 1.
         if self.n_initial == 2:
@@ -917,28 +893,6 @@ class ME7Integrand(integrands.VirtualIntegrand):
         flux /= math.pow(2.*math.pi, 3*self.n_final - 4)
         wgt *= flux
         if __debug__: logger.debug("Flux factor: %.5e"%flux)
-
-        # Now generate a PS point
-        PS_point, PS_weight = self.phase_space_generator.generateKinematics(E_cm, PS_random_variables)
-
-        # Account for PS weight
-        wgt *= PS_weight
-        if __debug__: logger.debug("PS_weight: %.5e"%PS_weight)
-
-        ###
-        # /!\ WARNING ONLY BOOST TO C.O.M frame at the very end. #
-        ###
-
-        # We must now boost the PS point in the lab frame
-        if self.n_initial == 2:
-            ref_lab = PS_point[0]*xb_1 + PS_point[1]*xb_2
-            if ref_lab.rho2() != 0.:
-                ref_lab.setMass(ref_lab.calculateMass())
-                for p in PS_point:
-                    p.boost(ref_lab.boostVector())
-
-        if __debug__: logger.debug("Considering the following PS point:\n%s"%(self.phase_space_generator.nice_momenta_string(
-                            PS_point, recompute_mass=True, n_initial=self.phase_space_generator.n_initial) ))
 
         # Recover scales to be used
         mu_r, mu_f1, mu_f2 = self.get_scales(PS_point)
@@ -977,12 +931,12 @@ class ME7Integrand(integrands.VirtualIntegrand):
             all_process_pdgs.extend([ tuple(proc.get_initial_ids()[::-1]+proc.get_final_ids()) for proc in all_processes 
                                                                                         if proc.get('has_mirror_process')])
 
-            if self.collider.startswith('pp'):
+            if abs(self.run_card['lpp1'])==abs(self.run_card['lpp2'])==1:
                 if __debug__: logger.debug("Bjorken x's x1, x2, sqrt(x1*x2*s): %.5e, %.5e. %.5e"%(
                                                             xb_1, xb_2, math.sqrt(self.collider_energy**2*xb_1*xb_2)))
             proc_PDFs_weights = []
             for proc_pdgs in all_process_pdgs:            
-                if self.collider.startswith('pp'):            
+                if self.run_card['lpp1']==self.run_card['lpp2']==1:            
                     PDF1 = self.get_pdfQ2(self.pdf, proc_pdgs[0], xb_1, mu_f1**2)
                     PDF2 = self.get_pdfQ2(self.pdf, proc_pdgs[1], xb_2, mu_f2**2)
                     proc_PDFs_weights.append(PDF1*PDF2)
@@ -1049,11 +1003,11 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
         # Access to the matrix element. ME_result is an instance of a subclassed dictionary which includes
         # all independent results available as of now for the particular arguments specified.
-        
-#        start = time.time()
+
+#        start = time.time() #TOBECOMMENTED        
         ME_evaluation, all_results = self.all_MEAccessors(process, PS_point, alpha_s, mu_r, pdgs=flavors)
-#        misc.sprint('In %s, the ME call above took %.10g'%(self.__class__.__name__,time.time()-start))
-       
+#        misc.sprint("The complete ME call took %10g"%(time.time()-start)) #TOBECOMMENTED
+        
         ##
         ## Notice here that the most general call to the Matrix Element would be:
         ##

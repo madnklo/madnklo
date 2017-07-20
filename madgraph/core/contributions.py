@@ -32,6 +32,7 @@ pjoin = os.path.join
 import madgraph.core.base_objects as base_objects
 import madgraph.core.diagram_generation as diagram_generation
 import madgraph.loop.loop_diagram_generation as loop_diagram_generation
+import madgraph.interface.madevent_interface as madevent_interface
 import madgraph.core.helas_objects as helas_objects
 import madgraph.loop.loop_helas_objects as loop_helas_objects
 import madgraph.iolibs.group_subprocs as group_subprocs
@@ -42,7 +43,7 @@ import madgraph.interface.ME7_interface as ME7_interface
 from madgraph import InvalidCmd, MadGraph5Error
 from madgraph.iolibs.files import cp, ln, mv
 
-logger = logging.getLogger('madgraph.contributions')
+logger = logging.getLogger('contributions')
 
 ##################################################################################################
 # ProcessKey, to be used as keys in the MEAccessorDict and the processes_map of contributions
@@ -286,6 +287,12 @@ class VirtualMEAccessor(object):
         
         # Return the inputs properly treated
         return permuted_PS_point, permuted_opts
+
+    def synchronize(self, **opts):
+        """ Synchronizes this accessor with the possibly updated value of parameter cards and ME source code.
+        Must be defined by daughter classes."""
+        
+        raise NotImplemented
 
     @classmethod
     def apply_permutations(cls, permutation, PS_point = [],
@@ -598,29 +605,33 @@ class F2PYMEAccessor(VirtualMEAccessor):
         for instance:
            ('/usr/john/Documents/MyProcOutput', 'LO_udx_epve_1.matrix_1_udx_epve_py') 
         """
-        
+
         super(F2PYMEAccessor, self).__init__(process, **opts)
         
         # Add the additional inputs to back up to be used later for the dump
         self.initialization_inputs['args'].extend([f2py_module_path, slha_card_path])
         
-        # Keep track whether initialization is necessary or not
-        self.module_initialized = False
-
         # Save the location of the SLHA card path
         if not os.path.isabs(slha_card_path):
             raise MadGraph5Error("The initialization of F2PYMEAccessor necessitates an "+
                                                         "absolute path for slha_card_path.")
         self.slha_card_path = os.path.relpath(slha_card_path, self.root_path)
 
-        self.f2py_module_path = f2py_module_path
+        self.f2py_module_path = (os.path.relpath(f2py_module_path[0],self.root_path),f2py_module_path[1])
+        
+        # Process directory and name
+        self.proc_dir = pjoin(*(self.f2py_module_path[1].split('.')[:-1]))
+        name = self.f2py_module_path[1].split('.')[-1]
+        assert(name.startswith('matrix_') and name.endswith('_py')), "Non-standard f2py'ed so library name: %s"%name
+        self.proc_name = name[7:-3]
+        
         self.f2py_module = self.load_f2py_module(f2py_module_path)
 
         # Try to guess the process prefix if not defined
         if 'proc_prefix' in opts:
             self.proc_prefix = opts['proc_prefix']
-        elif os.path.isfile(pjoin(self.f2py_module_path[0],'proc_prefix.txt')):
-            self.proc_prefix = open(pjoin(self.f2py_module_path[0],'proc_prefix.txt')).read()
+        elif os.path.isfile(pjoin(self.root_path,self.f2py_module_path[0],'proc_prefix.txt')):
+            self.proc_prefix = open(pjoin(self.root_path,self.f2py_module_path[0],'proc_prefix.txt')).read()
         elif hasattr(self.f2py_module, 'smatrix'):
             self.proc_prefix = ''
         else:
@@ -630,13 +641,49 @@ class F2PYMEAccessor(VirtualMEAccessor):
                                      (self.f2py_module_path[1], self.f2py_module_path[0])+
                                      "\n. Possible options are: '%s'."%str(candidates))
             self.proc_prefix = candidates[0]
-            
+        
         # Sanity check
         if not self.has_function('smatrix'):
             raise MadGraph5Error("The specified f2pymodule %s @ '%s' , with proc_prefix = '%s'"%
                 (self.f2py_module_path[1], self.f2py_module_path[0], self.proc_prefix)+
                 " does not seem to define the subroutine 'smatrix'. Check the sanity of the proc_prefix value.")
+            
+        self.synchronize(from_init=True)
 
+    
+    def compile(self,mode='auto'):
+        """ Compiles the source code associated with this MatrixElement accessor."""
+        Pdir = pjoin(self.root_path,self.proc_dir, 'SubProcesses','P%s'%self.proc_name)
+        if not os.path.isdir(Pdir):
+            raise InvalidCmd("The expected subprocess directory %s could not be found."%Pdir)
+        
+        if os.path.isfile(pjoin(Pdir, 'matrix_%s_py.so'%self.proc_name)) and mode=='never':
+            return
+        
+        if mode=='always':
+             misc.compile(arg=['clean'], cwd=Pdir)
+        if not os.path.isfile(pjoin(Pdir, 'matrix_%s_py.so'%self.proc_name)):
+            logger.debug("Compiling directory %s ..."%(pjoin(self.proc_dir, 'SubProcesses','P%s'%self.proc_name)))
+
+        misc.compile(arg=['matrix_%s_py.so'%self.proc_name, 'MENUM=_%s_'%self.proc_name], cwd=Pdir)
+        if not os.path.isfile(pjoin(Pdir, 'matrix_%s_py.so'%self.proc_name)):
+            raise InvalidCmd("The f2py compilation of SubProcess '%s' failed.\n"%Pdir+
+                "Try running 'MENUM=_%s_ make matrix_%s_py.so' by hand in this directory."%(self.proc_name,self.proc_name))
+
+    def synchronize(self, ME7_options = None, from_init=False, compile='auto', **opts):
+        """ Synchronizes this accessor with the possibly updated value of parameter cards and ME source code.
+        Must be defined by daughter classes."""
+        
+        # Reset the initialization to False
+        self.module_initialized = False
+
+        # Recompile and reload the module if synchronize was not call from the __init__ function
+        if not from_init:
+            self.compile(mode=compile)
+            with misc.Silence(active=(logger.level>logging.DEBUG)):
+                self.f2py_module = reload(self.f2py_module)
+
+        # Now gather various properties about the Matrix Elements
         # Get all helicities orderin
         self.helicity_configurations = dict((tuple(hels),i+1) for i, hels in enumerate(
                                               self.get_function('get_helicity_definitions')() ))
@@ -677,7 +724,7 @@ class F2PYMEAccessor(VirtualMEAccessor):
         
         # Reversed map
         self.id_to_squared_order = dict((value,key) for (key,value) in self.squared_orders.items())
-
+        
     def nice_string(self):
         """ Summary of the details of this ME accessor."""
         res = []
@@ -700,7 +747,7 @@ class F2PYMEAccessor(VirtualMEAccessor):
         """ Returns the specified f2py function."""
         
         if not self.has_function(function_name):
-            raise MadGraph5Error("The loaded f2py module '%s' @ '%S' does not have function %s."%(
+            raise MadGraph5Error("The loaded f2py module '%s' @ '%s' does not have function %s."%(
                                         self.f2py_module_path[1], self.f2py_module_path[0], function_name))
             
         return getattr(self.f2py_module, '%s%s'%(self.proc_prefix, function_name))
@@ -710,9 +757,15 @@ class F2PYMEAccessor(VirtualMEAccessor):
         
         # Make sure to temporarily adjust the environment
         if module_path[0] not in sys.path:
-            sys.path.insert(0, module_path[0])
-        f2py_module = importlib.import_module(module_path[1])
-        sys.path.pop(sys.path.index(module_path[0]))
+            sys.path.insert(0, pjoin(self.root_path,module_path[0]))
+        with misc.Silence(active=(logger.level>logging.DEBUG)):
+            try:
+                f2py_module = importlib.import_module(module_path[1])
+            except:
+                # Try again after having recompiled this module
+                self.compile(mode='always')
+                f2py_module = importlib.import_module(module_path[1])
+        sys.path.pop(sys.path.index(pjoin(self.root_path,module_path[0])))
         return f2py_module
     
     def format_momenta_for_f2py(self, p):
@@ -800,7 +853,7 @@ class F2PYMEAccessor(VirtualMEAccessor):
         
     def __call__(self, PS_point, alpha_s, mu_r=91.188, **opts):
         """ Actually performs the f2py call. """
-        
+
         permutation = opts['permutation']
         
         # The mother class takes care of applying the permutations for the generic options
@@ -826,19 +879,21 @@ class F2PYMEAccessor(VirtualMEAccessor):
         # we will be able to use the information of self.process_pdgs to determine which one to call.
         # misc.sprint(" I was called from :",self.process_pdgs)
         if not self.module_initialized:
-            self.get_function('initialise')(pjoin(self.root_path, self.slha_card_path))
+            with misc.Silence(active=(logger.level>logging.DEBUG)):
+                self.get_function('initialise')(pjoin(self.root_path, self.slha_card_path))
             self.module_initialized = True
         
         # Setup Matrix Element code variables for the user-defined options
         self.setup_ME(new_opts)
 
         # Actual call to the matrix element
-#        start = time.time()
-        main_output  = self.get_function('me_accessor_hook')(
-            self.format_momenta_for_f2py(PS_point), 
-            (-1 if not new_opts['hel_config'] else self.helicity_configurations[new_opts['hel_config']]),
-            alpha_s)
-#        misc.sprint("The tree call took %10g"%(time.time()-start))
+#        start = time.time() #TOBECOMMENTED
+        with misc.Silence(active=(logger.level>logging.DEBUG)):
+            main_output  = self.get_function('me_accessor_hook')(
+                    self.format_momenta_for_f2py(PS_point), 
+                    (-1 if not new_opts['hel_config'] else self.helicity_configurations[new_opts['hel_config']]),
+                    alpha_s)
+#        misc.sprint("The tree call took %10g"%(time.time()-start)) #TOBECOMMENTED
 
         # Gather additional newly generated output_data to be returned and placed in the cache.
         output_datas = self.gather_output_datas(main_output, new_opts)
@@ -966,6 +1021,42 @@ class F2PYMEAccessorMadLoop(F2PYMEAccessor):
         # Returned array dimension
         self.res_dim = self.get_function('get_answer_dimension')()
 
+
+    def synchronize(self, ME7_options = None, from_init=False, refresh_filters='auto', compile='auto',
+                                                                                        proc_dirs_initialized=[], **opts):
+        """ Synchronizes this accessor with the possibly updated value of parameter cards and ME source code.
+        Must be defined by daughter classes."""
+        
+        ret_value = super(F2PYMEAccessorMadLoop, self).synchronize(ME7_options, from_init=from_init,**opts)
+        
+        # Never do anything when called from the __init__ function
+        if from_init or not ME7_options or refresh_filters=='never':
+            return ret_value
+
+        # (Re-)generate the Helicity (and loop) filters if needed.        
+        # Check if the specified madloop_resources_path is standard
+        Pdir  = pjoin(self.root_path, self.proc_dir)
+        # Let us not re-reinitialize process dirs that have already been re-initialized from other ME accesors.
+        if Pdir in proc_dirs_initialized:
+            return ret_value
+
+        default_ML5_resources_dir = os.path.normpath(pjoin(Pdir,'SubProcesses','MadLoop5_resources'))
+        if os.path.normpath(pjoin(self.root_path,self.madloop_resources_path)) != default_ML5_resources_dir:
+            logger.info("Non-standard MadLoop resources directory provided. The automatic"+
+                        " setup of the loop and helicity filter is therefore skipped.")
+            return ret_value
+        
+        # Check if it needs initialization
+        ML_initializer = madevent_interface.MadLoopInitializer
+        if ML_initializer.need_MadLoopInit(Pdir, subproc_prefix='P', force_initialization=(refresh_filters=='always')):
+            # This will run in parallel the initialization of *all* the processes in this 'SubProcesses' directory.
+            # Not only the filters relevant to *this* accessor will be affected then.
+            ML_initializer.init_MadLoop(Pdir, subproc_prefix='P', MG_options=ME7_options)
+            # Flag this directory as initialized so that other ME accessor do not immediately re-initialize it,
+            # as it could be the case if refresh_filters is set to 'always'.
+            proc_dirs_initialized.append(Pdir)
+        return ret_value
+
     def nice_string(self):
         """ Additional details for this loop MEaccessor."""
         
@@ -1038,21 +1129,25 @@ class F2PYMEAccessorMadLoop(F2PYMEAccessor):
         # we will be able to use the information of self.process_pdgs to determine which one to call.
         # misc.sprint(" I was called from :",self.process_pdgs)
         if not self.module_initialized:
-            self.f2py_module.initialise(pjoin(self.root_path, self.slha_card_path))
-            if self.madloop_resources_path:
-                self.f2py_module.initialise_madloop_path(pjoin(self.root_path, self.madloop_resources_path))
+            # These functions are not prefixed, so we should not ask to get them via the accessor self.get_function
+            with misc.Silence(active=(logger.level>logging.DEBUG)):
+                self.f2py_module.initialise(pjoin(self.root_path, self.slha_card_path))
+                if self.madloop_resources_path:
+                        self.f2py_module.initialise_madloop_path(pjoin(self.root_path, self.madloop_resources_path))
             self.module_initialized = True
+        
         
         # Setup Matrix Element code variables for the user-defined options
         self.setup_ME(new_opts)
 
         # Actual call to the matrix element
-#        start = time.time()
-        evals, estimated_accuracies, return_code = self.get_function('loopme_accessor_hook')(
+#        start = time.time() #TOBECOMMENTED
+        with misc.Silence(active=(logger.level>logging.DEBUG)):
+            evals, estimated_accuracies, return_code = self.get_function('loopme_accessor_hook')(
             self.format_momenta_for_f2py(PS_point), 
             (-1 if not new_opts['hel_config'] else self.helicity_configurations[new_opts['hel_config']]),                              
             alpha_s, mu_r, required_accuracy)
-#        misc.sprint("The loop call took %10g"%(time.time()-start))
+#        misc.sprint("The loop call took %10g"%(time.time()-start)) #TOBECOMMENTED
         main_output = {'evals': evals,
                        'estimated_accuracies': estimated_accuracies,
                        'return_code': return_code}   
@@ -1306,6 +1401,16 @@ class MEAccessorDict(dict):
         """ Add a list of ME_accessors."""
         for ME_accessor in ME_accessor_list:
             self.add_MEAccessor(ME_accessor)
+
+    def synchronize(self, *args, **opts):
+        """ Synchronizes all the accessors with the possibly updated value of parameter cards and ME source code."""
+        
+        # We want to make sure that we don't refresh the filter of all processes in a given directory output
+        # more than one time. So we always pass here the addional option proc_dir_initialized which gets filled
+        # in as the different accessor initialize the MadLoop filters.
+        opts['proc_dirs_initialized'] = []
+        for (ME_accessor, defining_pdgs_order) in self.values():
+            ME_accessor.synchronize(*args, **opts)
 
 #===============================================================================
 # Contribution mother class
@@ -1627,16 +1732,47 @@ class Contribution(object):
             
         return MEAccessors
 
+    def can_processes_be_integrated_together(self, processA, processB):
+        """ Investigates whether processA and processB can be integrated together for this contribution."""
+
+        # For now only make sure external masses are identical
+        if processA.get_external_masses(self.model) != processB.get_external_masses(self.model):
+            return False
+        
+        return True
+        
     def get_integrands(self, model, run_card, all_MEAccessors, ME7_configuration):
-        """ Returns all (though typically only one) integrand implementing this contribution.
+        """ Returns all the integrands implementing this contribution.
         The instance of MEAccessorDict is necessary so as to be passed to the integrand instances.
         """
+        
+        # A list of processes maps we will distribute to each integrand
+        integrand_process_maps = []
 
-        return [ ME7_interface.ME7Integrand(model, run_card,
+        # Regroup the general process map into smaller sub-process maps where one is guaranteed
+        # that all processes in these submaps can be integrated together. 
+        for process_key, (defining_process, mapped_processes) in self.get_processes_map().items():
+            found_partner = False
+            for integrand_process_map in integrand_process_maps:
+                if all(self.can_processes_be_integrated_together(defining_process,
+                                         proc[0]) for proc in integrand_process_map.values()):
+                    integrand_process_map[process_key] = (defining_process, mapped_processes)
+                    found_partner = True
+                    break
+            if not found_partner:
+                integrand_process_maps.append({process_key:(defining_process, mapped_processes)})
+            
+        all_integrands = []
+        for integrand_process_map in integrand_process_maps:
+            all_integrands.append(
+                ME7_interface.ME7Integrand(model, run_card,
                                            self.contribution_definition,
-                                           self.get_processes_map(),
+                                           integrand_process_map,
                                            all_MEAccessors,
-                                           ME7_configuration) ]
+                                           ME7_configuration)
+            )
+        
+        return all_integrands
         
     def add_content_to_global_ME7_resources(self, global_ME7_dir, **opts):
         """ Possibly add content to the global ME7 resources pool."""

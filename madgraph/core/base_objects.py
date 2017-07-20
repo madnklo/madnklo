@@ -3404,6 +3404,15 @@ class Process(PhysicsObject):
         return output
     
 
+    def get_external_masses(self, model):
+        """ Returns the tuple:
+               ( (initial_mass_value1, ...) , (final_mass_value1, final_mass_value2, final_mass_value3,...)
+        """
+
+        return ( tuple(model.get_mass(pdg) for pdg in self.get_initial_ids()),
+                 tuple(model.get_mass(pdg) for pdg in self.get_final_ids()),
+               )
+
     def get_final_legs(self):
         """Gives the final state legs"""
 

@@ -56,9 +56,14 @@ if len(args) == 0:
 
 import subprocess
 
+force_release_mode = False
+if options.logging == 'RELEASE':
+    force_release_mode = True
+    options.logging = 'INFO'
+
 # Check if optimize mode is (and should be) activated
-if __debug__ and not options.debug and \
-    (not os.path.exists(os.path.join(root_path, 'bin','create_release.py')) or options.web):
+if __debug__ and not options.debug and (((not os.path.exists(os.path.join(
+                 root_path, 'bin','create_release.py'))) or force_release_mode) or options.web):
         os.system('%s -O -W ignore::DeprecationWarning %s' % (sys.executable, ' '.join(sys.argv)))
         sys.exit()
 
@@ -119,6 +124,8 @@ try:
     logging.root.setLevel(level)
     logging.getLogger('madgraph').setLevel(level)
     logging.getLogger('madevent').setLevel(level)
+    logging.getLogger('madevent7').setLevel(level)
+    logging.getLogger('contributions').setLevel(level)
 except:
     pass
 

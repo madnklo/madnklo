@@ -6511,12 +6511,21 @@ class MadLoopInitializer(object):
             return use_quad_prec*(curr_attempt-1)
 
     @staticmethod
-    def need_MadLoopInit(proc_dir, subproc_prefix='PV'):
-        """Checks whether the necessary filters are present or not."""
+    def need_MadLoopInit(proc_dir, subproc_prefix='PV', force_initialization=False):
+        """Checks whether the necessary filters are present or not.
+        If force_initialization is set to True, then the relevant filter files will be 
+        and the need for initialization will be forced to True."""
 
         def need_init(ML_resources_path, proc_prefix, r_files):
             """ Returns true if not all required files are present. """
-            return any([not os.path.exists(pjoin(ML_resources_path,
+            if force_initialization:
+                for fname in r_files:
+                    path_to_remove = pjoin(ML_resources_path,proc_prefix+fname)
+                    if os.path.exists(path_to_remove):
+                        os.remove(path_to_remove)
+                return False
+            else:
+                return any([not os.path.exists(pjoin(ML_resources_path,
                             proc_prefix+fname)) for fname in r_files])
 
         MLCardPath = pjoin(proc_dir,'SubProcesses','MadLoopParams.dat')
@@ -6550,8 +6559,11 @@ class MadLoopInitializer(object):
             if need_init(pjoin(proc_dir,'SubProcesses','MadLoop5_resources'),
                                                         proc_prefix, req_files):
                 return True
-        
-        return False
+
+        if force_initialization:
+            return True
+        else:
+            return False
 
     @staticmethod
     def init_MadLoop(proc_dir, n_PS=None, subproc_prefix='PV', MG_options=None,
@@ -6579,8 +6591,8 @@ class MadLoopInitializer(object):
         misc.compile(arg=['libdhelas'],cwd=pjoin(proc_dir,'Source'))        
         
         # Now initialize the MadLoop outputs
-        logger.info('Initializing MadLoop loop-induced matrix elements '+\
-                                                 '(this can take some time)...')
+        logger.info('Initializing MadLoop matrix elements in '+
+                    "'%s' (this can take some time)..."%proc_dir)
 
         # Setup parallelization
         if MG_options:

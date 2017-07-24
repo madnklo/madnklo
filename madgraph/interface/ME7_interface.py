@@ -1030,7 +1030,6 @@ class ME7Integrand(integrands.VirtualIntegrand):
         #            PS_point, recompute_mass=True, n_initial=self.phase_space_generator.n_initial))
         #misc.sprint('Results pertaining to the specified options:\n'+str(ME_evaluation))
         #misc.sprint('All results generated along with this ME call:\n'+str(all_results))
-
         ## One can read the details of the format for each of these options in
         ## the documentation of the function contributions.VirtualMEAccessor.apply_permutations
         ## Also, here is the more pedantic way of obtaining an ME evaluation:
@@ -1076,26 +1075,26 @@ class ME7Integrand_V(ME7Integrand):
         ##     generate u u~ > d d~ QCD^2<=99 QED^2<=99 --NLO=QCD
         ## with NLO correlators forced-in event for the loop.
         
-        #alpha_s = self.model.get('parameter_dict')['aS']
-        #hel_config = tuple((-1 if fl<0 else 1) for fl in list(flavors[0])+list(flavors[1]))
-        #ME_evaluation, all_results = self.all_MEAccessors(
-        #       process, PS_point, alpha_s, mu_r, pdgs=flavors,
-        #       squared_orders    = {'QCD':4,'QED':2},
-        #       color_correlation = [( 1, 2 ), (1,4)],
-        #       spin_correlation  = [( 1, ((1.0,2.0,3.0,4.0), (5.0,6.0,7.0,8.0), (9.0,10.0,11.0,12.0)) )], 
-        #       hel_config        = hel_config 
-        #)
-        
+        alpha_s = self.model.get('parameter_dict')['aS']
+        hel_config = tuple((-1 if fl<0 else 1) for fl in list(flavors[0])+list(flavors[1]))
+        ME_evaluation, all_results = self.all_MEAccessors(
+               process, PS_point, alpha_s, mu_r, pdgs=flavors,
+               squared_orders    = {'QCD':4,'QED':2},
+               color_correlation = [(1, 2), (1,4)],
+               spin_correlation  = [( 1, ((1.0,2.0,3.0,4.0), (5.0,6.0,7.0,8.0), (9.0,10.0,11.0,12.0)) )], 
+               hel_config        = hel_config 
+        )
+
         ## Nicely print out the results generated.
-        #misc.sprint(process.nice_string())
-        #misc.sprint(' Flavors: ',flavors)
-        #misc.sprint('PS point:\n', self.phase_space_generator.nice_momenta_string(
-        #            PS_point, recompute_mass=True, n_initial=self.phase_space_generator.n_initial))
-        #misc.sprint('Results pertaining to the specified options:\n'+str(ME_evaluation))
-        #misc.sprint('All results generated along with this ME call:\n'+str(all_results))
+        misc.sprint(process.nice_string())
+        misc.sprint(' Flavors: ',flavors)
+        misc.sprint('PS point:\n', self.phase_space_generator.nice_momenta_string(
+                    PS_point, recompute_mass=True, n_initial=self.phase_space_generator.n_initial))
+        misc.sprint('Results pertaining to the specified options:\n'+str(ME_evaluation))
+        misc.sprint('All results generated along with this ME call:\n'+str(all_results))
         
         ## To debug it is useful to hard-stop the code in a unique noticeable way with a syntax error.
-        #stop
+        stop
         
         return super(ME7Integrand_V, self).sigma(PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts)
 
@@ -1104,7 +1103,7 @@ class ME7Integrand_R(ME7Integrand):
     def sigma(self, PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
         return super(ME7Integrand_R, self).sigma(PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts)
 
-class ME7Integrand_RR(ME7Integrand):
+class ME7Integrand_RR(ME7Integrand_R):
     """ ME7Integrand for the computation of a double real-emission type of contribution."""
     def sigma(self, PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
         return super(ME7Integrand_RR, self).sigma(PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts)

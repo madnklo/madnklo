@@ -1932,7 +1932,10 @@ class ParamCardVariable(ModelVariable):
 class Leg(PhysicsObject):
     """Leg object: id (Particle), number, I/F state, flag from_group
     """
-
+    # Short hand accessor to the meaning of booleans for the attribute 'state' of Legs.
+    INITIAL = False
+    FINAL   = True
+    
     def default_setup(self):
         """Default values for all properties"""
 

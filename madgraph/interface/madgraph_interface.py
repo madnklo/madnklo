@@ -3526,7 +3526,7 @@ This implies that with decay chains:
                 del template_procdef['sqorders_types'][order]
 
         # Map perturbed coupling orders to the corresponding relevant interactions and particles.
-        # The keys of the dictionary in values are 'interactions', 'pert_particles' and 'soft_particles'.
+        # The values of the dictionary in  are 'interactions', 'pert_particles' and 'soft_particles'.
         orders_to_perturbed_quantities = dict(
             (order, fks_common.find_pert_particles_interactions(self._curr_model, pert_order = order))
              for order in all_perturbed_orders)

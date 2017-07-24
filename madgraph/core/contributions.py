@@ -499,7 +499,7 @@ class MEResult(dict):
 class MEAccessorCache(dict):
     """ A simple class that implements a caching mechanism for Matrix Element call and results."""
 
-    def __init__(self, min_n_entries=1, max_n_entries=1, max_cache_size=10000):
+    def __init__(self, min_n_entries=1, max_n_entries=1, max_cache_size=100000):
         """ One can limit the cache size with a combination of number of elements it contains
         and its size in bytes. The min_n_entries option allows to set a minimum numebr of elements
         to keep, irrespectively of the max_cache_size value."""

@@ -2173,7 +2173,7 @@ class MultiLeg(PhysicsObject):
         return ['ids', 'state']
 
 #===============================================================================
-# LegList
+# MultiLegList
 #===============================================================================
 class MultiLegList(PhysicsObjectList):
     """List of MultiLeg objects

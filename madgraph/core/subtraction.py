@@ -42,8 +42,19 @@ pjoin = os.path.join
 class SubtractionLeg(base_objects.Leg):
     """ Leg object specialized for subtraction. """
 
-    def __init__(self, *args, **opts):
-        super(SubtractionLeg, self).__init__(*args, **opts)
+    def __init__(self, leg_specifier):
+        if not leg_specifier or isinstance(leg_specifier, dict):
+            super(SubtractionLeg, self).__init__(leg_specifier)
+        elif isinstance(leg_specifier, base_objects.Leg):
+            super(SubtractionLeg, self).__init__(dict(leg_specifier))
+        else:
+            raise MadGraph5Error(
+                    "SubtractionLeg must be initialized with a Leg \
+                    or a dictionary, not %s"%str(type(leg_specifier))
+            )
+
+    def get_canonical(self):
+        return (self.get('number'), self.get('id'))
 
 #===============================================================================
 # SubtractionLegSet
@@ -51,8 +62,14 @@ class SubtractionLeg(base_objects.Leg):
 class SubtractionLegSet(set):
     """ Set of SubtractionLeg objects. """
 
-    def __init__(self, *args, **opts):
-        super(SubtractionLegSet, self).__init__(*args, **opts)
+    def add(self, other):
+        assert isinstance(other, SubtractionLeg)
+        super(SubtractionLegSet, self).add(other.get_canonical())
+
+    def __init__(self, legs):
+        super(SubtractionLegSet, self).__init__()
+        for leg in legs:
+            self.add(SubtractionLeg(leg))
 
 #===============================================================================
 # SubtractionOperator 
@@ -63,16 +80,33 @@ class SubtractionOperator(object):
 
     def __init__(self, *args, **opts):
         """ Initialize a subtraction operator with legs and operator sets. """
-        
-        # Set of simple legs this SubtractionOperators acts on
-        self.legs = SubtractionLegSet(
-            [a for a in args if isinstance(a, SubtractionLeg)]
-        )
+
         # List of substructures that this SubtractionOperators acts on
         self.substructures = SubtractionOperatorList(
             [a for a in args if isinstance(a, SubtractionOperator)]
         )
-    
+        # Set of simple legs this SubtractionOperators acts on
+        self.legs = SubtractionLegSet(
+            [SubtractionLeg(a) for a in args if isinstance(a, base_objects.Leg)]
+        )
+
+        for arg in args:
+            if not isinstance(arg, (base_objects.Leg, SubtractionOperator)):
+                raise MadGraph5Error(
+                        "SubtractionOperator initialized with invalid argument \
+                        %s of type %s"%(arg,str(type(arg)))
+                )
+
+    def __str__(self):
+        """ Return a nice string representation of the subtraction operator. """
+        tmp_str = self.get_name() + "("
+        tmp_str += ",".join(sorted(str(s) for s in self.substructures))
+        if self.substructures:
+            tmp_str += ","
+        tmp_str += ",".join(str(s[0]) for s in sorted(list(self.legs)))
+        tmp_str += ")"
+        return tmp_str
+
     def is_elementary(self):
         """ Return whether this SubtractionOperator is elementary,
          in the sense that it is not an empty structure
@@ -84,8 +118,10 @@ class SubtractionOperator(object):
 
         # Sanity check
         if (not self.is_elementary()) or structure.is_elementary():
-            raise Exception("You can only apply elementary operators \
-            to non-elementary structures.")
+            raise MadGraph5Error(
+                    "You can only apply elementary operators \
+                    to non-elementary structures."
+            )
 
         # Count the common legs between the current operator
         # and the structure at the highest level
@@ -116,15 +152,26 @@ class SubtractionOperator(object):
 
         return structure
 
+    def get_name(self):
+        return ""
+
 class SoftOperator(SubtractionOperator):
+
     def __init__(self, *args, **opts):
         """ Initialize a soft operator with all relevant arguments. """
-        super(SoftOperator, self).__init__(self, *args, **opts)
-        
+        super(SoftOperator, self).__init__(*args, **opts)
+
+    def get_name(self):
+        return "S"
+
 class CollOperator(SubtractionOperator):
+
     def __init__(self, *args, **opts):
         """ Initialize a collinear operator with all relevant arguments. """
-        super(CollOperator, self).__init__(self, *args, **opts) 
+        super(CollOperator, self).__init__(*args, **opts)
+
+    def get_name(self):
+        return "C"
 
 #===============================================================================
 # SubtractionOperatorList
@@ -132,14 +179,10 @@ class CollOperator(SubtractionOperator):
 class SubtractionOperatorList(list):
     """ List of subtraction operators. """
     
-    def __init__(self, *args, **opts):
-        super(SubtractionOperatorList, self).__init__(*args, **opts)
-
-#===============================================================================
-# Standalone main for debugging / standalone trials 
-#===============================================================================
-if __name__ == '__main__':
-    misc.sprint("Put your standalone subtraction code here.")
+    def __init__(self, ops):
+        super(SubtractionOperatorList, self).__init__()
+        for op in ops:
+            self.append(op)
 
 #===============================================================================
 # IRSubtraction
@@ -158,15 +201,12 @@ class IRSubtraction(object):
         self.IR_quantities_for_corrections_types = dict(
             (order, fks_common.find_pert_particles_interactions(self.model, pert_order = order))
             for order in correction_types)
-        
-        pass
 
     def can_be_IR_unresolved(self, PDG):
         """ Checks whether a particle given by its PDG can become unresolved 
         and lead to singular behavior. """
-        
         return any(
-            (PDG in self.IR_quantities_for_corrections_types[order])
+            (PDG in self.IR_quantities_for_corrections_types[order]['pert_particles'])
             for order in self.correction_types
         )
 
@@ -259,27 +299,31 @@ class IRSubtraction(object):
         is_legs = [l for l in active_legs if l.get('state') == SubtractionLeg.INITIAL]
 
         # Loop over number of unresolved particles
-        for unresolved in range(1, self.correction_order.count('N')):
-             # Get iterators at the start of the final-state list
-             it = iter(fs_legs)
-             soft_it, coll_final_it, coll_initial_it = itertools.tee(it, 3)
-             # Final state particle sets going soft
-             for soft_set in itertools.combinations(soft_it, unresolved):
-                 if any(self.can_become_soft(p) for p in self.parent_PDGs(soft_set)):
-                     elementary_operator_list.append(SoftOperator(soft_set))
-             # Final state particle sets going collinear
-             for coll_final_set in itertools.combinations(coll_final_it, unresolved + 1):
-                 if any(self.can_become_collinear(p) for p in self.parent_PDGs(coll_final_set)):
-                     elementary_operator_list.append(CollOperator(coll_final_set))
-             # Initial-final collinear
-             # For any final-state set with one less particle
-             for coll_initial_set in itertools.combinations(coll_initial_it, unresolved):
-                 # Combine with all initial legs
-                 for coll_initial_leg in is_legs:
-                     coll_set = coll_initial_set
-                     coll_set.append(coll_initial_leg)
-                     if any(self.can_become_collinear(p) for p in self.parent_PDGs(coll_set)):
-                        elementary_operator_list.append(CollOperator(coll_set))
+        for unresolved in range(1, self.correction_order.count('N')+1):
+            # Get iterators at the start of the final-state list
+            it = iter(fs_legs)
+            soft_it, coll_final_it, coll_initial_it = itertools.tee(it, 3)
+            # Final state particle sets going soft
+            for soft_set in itertools.combinations(soft_it, unresolved):
+                if self.can_become_soft(soft_set):
+                    elementary_operator_list.append(SoftOperator(*soft_set))
+            # Final state particle sets going collinear
+            for coll_final_set in itertools.combinations(coll_final_it, unresolved + 1):
+                if self.can_become_collinear(coll_final_set):
+                    elementary_operator_list.append(CollOperator(*coll_final_set))
+            # Initial-final collinear
+            # For any final-state set with one less particle
+            for coll_initial_set in itertools.combinations(coll_initial_it, unresolved):
+                # Combine with all initial legs
+                for coll_initial_leg in is_legs:
+                    coll_set = coll_initial_set + (coll_initial_leg, )
+                    if self.can_become_collinear(coll_set):
+                        elementary_operator_list.append(CollOperator(*coll_set))
 
         return elementary_operator_list
-        
+
+# ===============================================================================
+# Standalone main for debugging / standalone trials
+# ===============================================================================
+if __name__ == '__main__':
+    misc.sprint("Put your standalone subtraction code here.")

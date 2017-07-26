@@ -120,8 +120,9 @@ class NLOSubtractionTest(unittest.TestCase):
         # 3 gluon vertiex
         self.myinterlist.append(base_objects.Interaction({
                       'id': 1,
-                      'particles': base_objects.ParticleList(\
-                                            [self.mypartlist[0]] * 3),
+                      'particles': base_objects.ParticleList(
+                              [self.mypartlist[0]] * 3
+                      ),
                       'color': [color.ColorString([color.f(0, 1, 2)])],
                       'lorentz':['L1'],
                       'couplings':{(0, 0):'G'},
@@ -130,8 +131,9 @@ class NLOSubtractionTest(unittest.TestCase):
         # 4 gluon vertex
         self.myinterlist.append(base_objects.Interaction({
                       'id': 2,
-                      'particles': base_objects.ParticleList(\
-                                            [self.mypartlist[0]] * 4),
+                      'particles': base_objects.ParticleList(
+                              [self.mypartlist[0]] * 4
+                      ),
                       'color': [color.ColorString([color.f(-1, 0, 2),
                                                    color.f(-1, 1, 3)]),
                                 color.ColorString([color.f(-1, 0, 3),
@@ -147,9 +149,9 @@ class NLOSubtractionTest(unittest.TestCase):
         # Gluon couplings to up and down quarks
         self.myinterlist.append(base_objects.Interaction({
                       'id': 3,
-                      'particles': base_objects.ParticleList(\
-                                            [self.mypartlist[1], \
-                                             antiu, \
+                      'particles': base_objects.ParticleList(
+                                            [self.mypartlist[1],
+                                             antiu,
                                              self.mypartlist[0]]),
                       'color': [color.ColorString([color.T(2, 0, 1)])],
                       'lorentz':['L1'],
@@ -158,9 +160,9 @@ class NLOSubtractionTest(unittest.TestCase):
 
         self.myinterlist.append(base_objects.Interaction({
                       'id': 4,
-                      'particles': base_objects.ParticleList(\
-                                            [self.mypartlist[2], \
-                                             antid, \
+                      'particles': base_objects.ParticleList(
+                                            [self.mypartlist[2],
+                                             antid,
                                              self.mypartlist[0]]),
                       'color': [color.ColorString([color.T(2, 0, 1)])],
                       'lorentz':['L1'],
@@ -170,9 +172,9 @@ class NLOSubtractionTest(unittest.TestCase):
         # Photon coupling to up
         self.myinterlist.append(base_objects.Interaction({
                       'id': 5,
-                      'particles': base_objects.ParticleList(\
-                                            [self.mypartlist[1], \
-                                             antiu, \
+                      'particles': base_objects.ParticleList(
+                                            [self.mypartlist[1],
+                                             antiu,
                                              self.mypartlist[3]]),
                       'color': [color.ColorString([color.T(0, 1)])],
                       'lorentz':['L1'],
@@ -181,27 +183,39 @@ class NLOSubtractionTest(unittest.TestCase):
 
         self.mymodel.set('particles', self.mypartlist)
         self.mymodel.set('interactions', self.myinterlist)
+        self.mymodel.set('name', "sm4test")
 
     def test_generation_of_elementary_operators(self):
         """Test generation of all elementary operators for selected processes."""
 
-        tested_process = base_objects.Process(
-            {'legs': base_objects.LegList(
-                            [base_objects.Leg({'number':1, 'id':1,'state':base_objects.Leg.INITIAL}),
-                             base_objects.Leg({'number':2, 'id':-1,'state':base_objects.Leg.INITIAL}),
-                             base_objects.Leg({'number':3, 'id':25,'state':base_objects.Leg.FINAL}),
-                             base_objects.Leg({'number':4, 'id':21,'state':base_objects.Leg.FINAL}),
-                             base_objects.Leg({'number':5, 'id':21,'state':base_objects.Leg.FINAL})]),
-             'model': self.mymodel
-            }
-        )
+        mylegs = base_objects.LegList([
+            base_objects.Leg({'number':1, 'id':1,  'state':base_objects.Leg.INITIAL}),
+            base_objects.Leg({'number':2, 'id':-1, 'state':base_objects.Leg.INITIAL}),
+            base_objects.Leg({'number':3, 'id':25, 'state':base_objects.Leg.FINAL}),
+            base_objects.Leg({'number':4, 'id':21, 'state':base_objects.Leg.FINAL}),
+            base_objects.Leg({'number':5, 'id':21, 'state':base_objects.Leg.FINAL})
+        ])
+
+        myprocess = base_objects.Process({
+            'legs': mylegs,
+            'model': self.mymodel
+        })
         
+        elem_operators_target = [
+            subtraction.SoftOperator(mylegs[3]),
+            subtraction.SoftOperator(mylegs[4]),
+            subtraction.CollOperator(mylegs[3], mylegs[4]),
+            subtraction.CollOperator(mylegs[0], mylegs[3]),
+            subtraction.CollOperator(mylegs[0], mylegs[4]),
+            subtraction.CollOperator(mylegs[1], mylegs[3]),
+            subtraction.CollOperator(mylegs[1], mylegs[4]),
+        ]
+
         # Generate all elementary operators for that process
         subtracter = subtraction.IRSubtraction(self.mymodel, correction_order='NLO', correction_types=['QCD'])
-        misc.sprint(subtracter.IR_quantities_for_corrections_types.values()[0].keys())
-        misc.sprint(subtracter.IR_quantities_for_corrections_types.values()[0]['soft_particles'])
-        elem_operators = subtracter.get_all_elementary_operators(tested_process)
-        
-        elem_operators_target = None
-        
-        self.assertEqual(elem_operators,elem_operators_target)
+        elem_operators = subtracter.get_all_elementary_operators(myprocess)
+
+        self.assertEqual(
+                set(str(op) for op in elem_operators),
+                set(str(op) for op in elem_operators_target)
+        )

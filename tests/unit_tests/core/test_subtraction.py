@@ -14,25 +14,32 @@
 ################################################################################
 
 """Unit test library for the routines of the core library related to writing
-color information for diagrams."""
+color information for diagrams.
+"""
 
 import copy
 import fractions
 
 import madgraph.core.base_objects as base_objects
-import madgraph.core.subtraction as subtraction
+import madgraph.core.subtraction as sub
 import madgraph.core.color_algebra as color
 import madgraph.various.misc as misc
 import tests.unit_tests as unittest
 
 class NLOSubtractionTest(unittest.TestCase):
-    """Test class for the subtraction module"""
+    """Test class for the subtraction module."""
 
     mypartlist = base_objects.ParticleList()
     myinterlist = base_objects.InteractionList()
     mymodel = base_objects.Model()
+    mylegs = base_objects.LegList()
+    myprocess = base_objects.Process()
+    mysubtraction = None
 
     def setUp(self):
+
+        # Setting up a dumb model
+
         # A gluon
         self.mypartlist.append(base_objects.Particle({'name':'g',
                       'antiname':'g',
@@ -185,37 +192,115 @@ class NLOSubtractionTest(unittest.TestCase):
         self.mymodel.set('interactions', self.myinterlist)
         self.mymodel.set('name', "sm4test")
 
-    def test_generation_of_elementary_operators(self):
-        """Test generation of all elementary operators for selected processes."""
+        # Setting up a process and its subtraction
 
-        mylegs = base_objects.LegList([
-            base_objects.Leg({'number':1, 'id':1,  'state':base_objects.Leg.INITIAL}),
-            base_objects.Leg({'number':2, 'id':-1, 'state':base_objects.Leg.INITIAL}),
-            base_objects.Leg({'number':3, 'id':25, 'state':base_objects.Leg.FINAL}),
-            base_objects.Leg({'number':4, 'id':21, 'state':base_objects.Leg.FINAL}),
-            base_objects.Leg({'number':5, 'id':21, 'state':base_objects.Leg.FINAL})
+        self.mylegs = base_objects.LegList([
+            base_objects.Leg(
+                    {'number': 1, 'id': 1, 'state': base_objects.Leg.INITIAL}),
+            base_objects.Leg(
+                    {'number': 2, 'id': -1, 'state': base_objects.Leg.INITIAL}),
+            base_objects.Leg(
+                    {'number': 3, 'id': 25, 'state': base_objects.Leg.FINAL}),
+            base_objects.Leg(
+                    {'number': 4, 'id': 21, 'state': base_objects.Leg.FINAL}),
+            base_objects.Leg(
+                    {'number': 5, 'id': 21, 'state': base_objects.Leg.FINAL})
         ])
 
-        myprocess = base_objects.Process({
-            'legs': mylegs,
+        self.myprocess = base_objects.Process({
+            'legs': self.mylegs,
             'model': self.mymodel
         })
-        
+
+        self.mysubtraction = sub.IRSubtraction(
+                self.mymodel,
+                correction_order='NLO',
+                correction_types=['QCD']
+        )
+
+    def test_generation_of_elementary_operators(self):
+        """Test generation of all elementary operators for selected process."""
+
         elem_operators_target = [
-            subtraction.SoftOperator(mylegs[3]),
-            subtraction.SoftOperator(mylegs[4]),
-            subtraction.CollOperator(mylegs[3], mylegs[4]),
-            subtraction.CollOperator(mylegs[0], mylegs[3]),
-            subtraction.CollOperator(mylegs[0], mylegs[4]),
-            subtraction.CollOperator(mylegs[1], mylegs[3]),
-            subtraction.CollOperator(mylegs[1], mylegs[4]),
+            sub.SoftOperator(self.mylegs[3]),
+            sub.SoftOperator(self.mylegs[4]),
+            sub.CollOperator(self.mylegs[3], self.mylegs[4]),
+            sub.CollOperator(self.mylegs[0], self.mylegs[3]),
+            sub.CollOperator(self.mylegs[0], self.mylegs[4]),
+            sub.CollOperator(self.mylegs[1], self.mylegs[3]),
+            sub.CollOperator(self.mylegs[1], self.mylegs[4]),
         ]
 
-        # Generate all elementary operators for that process
-        subtracter = subtraction.IRSubtraction(self.mymodel, correction_order='NLO', correction_types=['QCD'])
-        elem_operators = subtracter.get_all_elementary_operators(myprocess)
+        elem_operators = self.mysubtraction.get_all_elementary_operators(self.myprocess)
 
         self.assertEqual(
                 set(str(op) for op in elem_operators),
                 set(str(op) for op in elem_operators_target)
         )
+
+    def test_act_on(self):
+        """Test action of operators."""
+
+        elem_operators = self.mysubtraction.get_all_elementary_operators(self.myprocess)
+
+        C14  = sub.CollOperator(self.mylegs[0], self.mylegs[3])
+        C145 = sub.CollOperator(self.mylegs[0], self.mylegs[3], self.mylegs[4])
+        S4   = sub.SoftOperator(self.mylegs[3])
+        S45  = sub.SoftOperator(self.mylegs[3], self.mylegs[4])
+
+        CC_list   = sub.SingularOperatorList([C14, C145])
+        CC_simple = CC_list.simplify()
+        CC_benchmark = sub.SingularStructure(sub.CollStructure(
+                sub.CollStructure(
+                        sub.SubtractionLeg(1,  1, sub.SubtractionLeg.INITIAL),
+                        sub.SubtractionLeg(4, 21, sub.SubtractionLeg.FINAL)
+                ),
+                sub.SubtractionLeg(5, 21, sub.SubtractionLeg.FINAL)
+        ))
+        self.assertEqual(str(CC_simple), '(C(C(1,4),5),)')
+        # TODO implement SingularStructure.__eq__ to make this work
+        # self.assertEqual(CC_simple,CC_benchmark)
+
+        SC_list   = sub.SingularOperatorList([S4, C145])
+        SC_simple = SC_list.simplify()
+        self.assertEqual(str(SC_simple), '(C(S(4),1,5),)')
+
+        SS_list   = sub.SingularOperatorList([S4, S45])
+        SS_simple = SS_list.simplify()
+        self.assertEqual(SS_simple, None)
+
+    def test_operator_combinations(self):
+        """Test the generation of all elementary operators
+        for one selected process.
+        """
+
+        target_combos = [
+            # 0
+            '()',
+            # 1
+            '(S(4),)', '(S(5),)',
+            '(C(4,5),)', '(C(1,4),)', '(C(1,5),)', '(C(2,4),)', '(C(2,5),)',
+            # 2
+            '(S(4),S(5),)',
+            '(C(S(4),5),)', '(C(S(4),1),)', '(C(S(4),2),)',
+            '(C(1,5),S(4),)', '(C(2,5),S(4),)',
+            '(C(S(5),4),)', '(C(S(5),1),)', '(C(S(5),2),)',
+            '(C(1,4),S(5),)', '(C(2,4),S(5),)',
+            '(C(1,4),C(2,5),)', '(C(1,5),C(2,4),)',
+            # 3
+            '(C(S(5),1),S(4),)', '(C(S(5),2),S(4),)',
+            '(C(S(4),1),S(5),)', '(C(S(4),2),S(5),)',
+            '(C(2,5),C(S(4),1),)', '(C(1,5),C(S(4),2),)',
+            '(C(2,4),C(S(5),1),)', '(C(1,4),C(S(5),2),)',
+            # 4
+            '(C(S(4),1),C(S(5),2),)', '(C(S(4),2),C(S(5),1),)',
+        ]
+
+        elem_operators = self.mysubtraction.get_all_elementary_operators(self.myprocess)
+
+        combos = self.mysubtraction.get_all_combos(elem_operators)
+        simplified = [combo.simplify() for combo in combos]
+        simplified = [combo for combo in simplified if combo is not None]
+        simplified_str = [str(combo) for combo in simplified]
+
+        self.assertEqual(set(simplified_str), set(target_combos))

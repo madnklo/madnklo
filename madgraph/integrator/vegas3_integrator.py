@@ -23,8 +23,7 @@ if __name__ == '__main__':
 try:
     import vegas 
 except ImportError:
-    print "ERROR :: Vegas 3 could not be found."
-    sys.exit(1);
+    print "WARNING :: Vegas 3 could not be found, install it if needed."
 
 try:
     import numpy as np
@@ -35,8 +34,7 @@ except ImportError:
 try:
     import gvar as gv
 except ImportError:
-    print "ERROR :: Vegas 3 requires gvar (gaussian variable handling package), install it first."
-    sys.exit(1);
+    print "WARNING :: Vegas 3 requires gvar (gaussian variable handling package), install it if needed."
 
 
 try:

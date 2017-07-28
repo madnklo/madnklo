@@ -33,7 +33,6 @@ from madgraph import MadGraph5Error, MG5DIR, InvalidCmd
 import madgraph.various.misc as misc 
 import madgraph.core.base_objects as base_objects
 import madgraph.fks.fks_common as fks_common
-from enum import Enum
 
 logger = logging.getLogger('madgraph')
 pjoin = os.path.join

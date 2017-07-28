@@ -23,8 +23,7 @@ if __name__ == '__main__':
 try:
     import pycuba
 except ImportError:
-    print "ERROR :: The pyCubaIntegrator requires the pyCuba python module. Install it first."
-    sys.exit(1);
+    print "WARNING :: The pyCubaIntegrator requires the pyCuba python module. Install it first if needed."
 
 try:
     import numpy as np

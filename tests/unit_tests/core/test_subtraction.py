@@ -264,10 +264,10 @@ class NLOSubtractionTest(unittest.TestCase):
         SC_list   = sub.SingularOperatorList([S4, C145])
         SC_simple = SC_list.simplify()
         self.assertEqual(str(SC_simple), '(C(S(4),1,5),)')
-
+        
         SS_list   = sub.SingularOperatorList([S4, S45])
         SS_simple = SS_list.simplify()
-        self.assertEqual(SS_simple, None)
+        self.assertEqual(SS_simple.is_void(), True)
 
     def test_operator_combinations(self):
         """Test the generation of all elementary operators
@@ -298,7 +298,7 @@ class NLOSubtractionTest(unittest.TestCase):
 
         elem_operators = self.mysubtraction.get_all_elementary_operators(self.myprocess)
 
-        combos = self.mysubtraction.get_all_combos(elem_operators)
+        combos = self.mysubtraction.get_all_combinations(elem_operators)
         simplified = [combo.simplify() for combo in combos]
         simplified = [combo for combo in simplified if combo is not None]
         simplified_str = [str(combo) for combo in simplified]

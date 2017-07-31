@@ -229,6 +229,69 @@ class HelpToCmd(object):
 class ParseCmdArguments(object):
     """ The Series of check routine for MadEvent7Cmd"""
     
+    def parse_test_IR_limits(self, args):
+        """ Parses the options specified to the test_limit command."""
+        
+        # None means unspecified, therefore considering all types.
+        testlimits_options = {'correction_order'    : None,
+                              'limit_type'          : None,
+                              'process'             : None,
+                              'seed'                : None
+                             }
+        
+        # Group arguments in between the '--' specifiers.
+        # For example, it will group '--process=p' 'p' '>' 'd' 'd~' 'z' into '--process=p p > d d~ z'.
+        opt_args = []
+        new_args = []
+        for arg in args:
+            if arg.startswith('--'):
+                opt_args.append(arg)
+            elif len(opt_args)>0:
+                opt_args[-1] += ' %s'%arg
+            else:
+                new_args.append(arg)
+        
+        for arg in opt_args:
+            try:
+                key, value = arg.split('=',1)
+                value = value.strip()
+            except ValueError:
+                key = arg
+                value = None
+            
+            if key == '--correction_order':
+                if value not in ['NLO','NNLO','NNNLO']:
+                    raise InvalidCmd("'%s' is not a valid option for '%s'"%(value, key))
+                testlimits_options['correction_order'] = value
+            elif key in '--limit_type':
+                if value not in ['soft','collinear']:
+                    raise InvalidCmd("'%s' is not a valid option for '%s'"%(value, key))
+                testlimits_options['limit_type'] = value
+            elif key == 'seed':
+                try:
+                    testlimits_options['seed'] = int(value)
+                except ValueError:
+                    raise InvalidCmd("Cannot set '%s' option to '%s'."%(key, value))
+            elif key=='--process':
+                pdgs = []
+                try:
+                    initial, final = value.split('>',1)
+                    initial_pdgs = []
+                    for part in initial.split(' '):
+                        initial_pdgs.append(self.model.get_particle(part).get_pdg_code())
+                    final_pdgs = []
+                    for part in final.split(' '):
+                        final_pdgs.append(self.model.get_particle(part).get_pdg_code())
+                    pdgs.append(tuple(initial_pdgs))
+                    pdgs.append(tuple(final_pdgs))
+                except:
+                    raise InvalidCmd("Could not parse the process syntax '%s' for the option '%s'."%(value, key))  
+                testlimits_options['process']=tuple(pdgs)
+            else:
+                raise InvalidCmd("Option '%s' for the test_limits command not reckognized."%key)        
+        
+        return new_args, testlimits_options
+    
     def parse_launch(self, args):
         """ Parses the argument of the launch command."""
 
@@ -238,7 +301,6 @@ class ParseCmdArguments(object):
                           'verbosity':1,
                           'refresh_filters':'auto',
                           'compile':'auto'}        
-        #for name in ['Naive','VEGAS','VEGAS3','SUAVE','DIVONNE','CUHRE']:
         
         for arg in args:
             try:
@@ -492,7 +554,19 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         logger.info('{:^100}'.format("Cross-section with integrator '%s':"%self.integrator.get_name()),'$MG:color:GREEN')
         logger.info('{:^100}'.format("%.5e +/- %.2e [pb]"%(xsec, error)),'$MG:color:BLUE')
         logger.info("="*100+"\n")
-        
+    
+    def do_test_IR_limits(self, line, *args, **opt):
+        """This function test that local subtraction counterterms match with the actual matrix element in the IR limit."""
+    
+        args = self.split_arg(line)
+        args, testlimits_options = self.parse_test_IR_limits(args)
+    
+        for integrand in self.all_integrands:
+            if not hasattr(integrand, 'test_IR_limits'):
+                continue
+            logger.debug('Now testing IR limits of the following integrand:\n%s'%(integrand.nice_string()))
+            integrand.test_IR_limits(**testlimits_options)
+
     def do_show_grid(self, line):
         """ Minimal implementation for now with no possibility of passing options."""
         
@@ -1100,8 +1174,44 @@ class ME7Integrand_V(ME7Integrand):
 
 class ME7Integrand_R(ME7Integrand):
     """ ME7Integrand for the computation of a single real-emission type of contribution."""
+    
+    def __init__(self, *args, **opts):
+        """ Initialize a real-emission type of integrand, adding additional relevant attributes."""
+        
+        if 'mapping' in opts:
+            mapping_type = opts.pop('mapping')
+        else:
+            mapping_type = ('single-real',1)
+        
+        # For now define a single mapping, although we might need different ones for different limit in the future.
+        self.mapping = phase_space_generators.VirtualMapping(mapping_type, n_initial = self.n_initial)
+    
     def sigma(self, PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
         return super(ME7Integrand_R, self).sigma(PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts)
+
+    def get_all_limits(self):
+        """ Returns a list of tuple of leg numbers, representing all combination of legs that can exhibit IR singular behavior
+        in the real-emission integrand."""
+        # TODO
+        return []
+
+    def test_IR_limits(self, test_options = {'correction_order': None,
+                                             'limit_type'      : None,
+                                             'process'         : None,
+                                             'seed'            : None }):
+        """ Tests that 4D local subtraction terms tend to the corresponding real-emission matrix elements."""
+        
+        if test_options['seed']:
+            random.seed(test_options['seed'])
+        
+        # First generate an underlying Born
+        # Specifying None
+        a_real_emission_PS_point, _, _ = self.phase_space_generator.get_PS_point(None)
+        
+        # Loop over all possible limits
+        for IR_legs in self.get_all_limits():
+            pass
+        
 
 class ME7Integrand_RR(ME7Integrand_R):
     """ ME7Integrand for the computation of a double real-emission type of contribution."""

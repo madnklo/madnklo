@@ -47,24 +47,23 @@ class SubtractionLeg(tuple):
     FINAL = base_objects.Leg.FINAL
     INITIAL = base_objects.Leg.INITIAL
 
-    def __new__(self, *args, **opts):
+    def __new__(cls, *args, **opts):
         """Initialize a SubtractionLeg object from various representations."""
 
-        target = (0, 0, SubtractionLeg.FINAL)
+        target = (0, SubtractionLeg.FINAL)
         # One argument passed
         if len(args) == 1:
             leg = args[0]
             # Initialization from Leg object
             if isinstance(leg, base_objects.Leg):
-                target = (leg.get('number'), leg.get('id'), leg.get('state'))
+                target = (leg.get('number'), leg.get('state'))
             # Initialization from dictionary
             elif isinstance(leg, dict):
-                target = (leg['number'], leg['id'], leg['state'])
+                target = (leg['number'], leg['state'])
             # Initialization from iterable
             elif (
                 hasattr(leg, '__len__') and
-                len(leg) == 3 and isinstance(leg[0], int) and
-                isinstance(leg[1], int) and isinstance(leg[2], bool)
+                len(leg) == 2 and isinstance(leg[0], int) and isinstance(leg[1], bool)
             ):
                 target = leg
             # Invalid argument
@@ -73,29 +72,24 @@ class SubtractionLeg(tuple):
                         "SubtractionLeg cannot be initialized with "
                         "%s of type %s." % (leg, str(type(leg)))
                 )
-        # Initialize with 3 arguments
+        # Initialize with 2 arguments
         elif (
-                (len(args) == 3) and isinstance(args[0], int) and
-                isinstance(args[1], int) and isinstance(args[2], bool)
+                (len(args) == 2) and isinstance(args[0], int) and isinstance(args[1], bool)
         ):
             target = (args)
         # Invalid number of arguments
         else:
             raise MadGraph5Error(
-                    "SubtractionLeg cannot be initialized with argument %s."
-                    % args
+                    "SubtractionLeg cannot be initialized with argument %s."% str(args)
             )
 
-        return super(SubtractionLeg, self).__new__(self, target)
+        return super(SubtractionLeg, cls).__new__(cls, target)
 
     def n(self):
         return self[0]
 
-    def pdg(self):
-        return self[1]
-
     def state(self):
-        return self[2]
+        return self[1]
 
 #===============================================================================
 # SubtractionLegSet
@@ -617,6 +611,21 @@ class IRSubtraction(object):
     # def currents(unresolved_structures, process):
     #     dbllist = [current(cur, process) for cur in unresolved_structures]
     #     return list(itertools.chain.from_iterable(dbllist))
+
+#===============================================================================
+# Current
+#===============================================================================
+class Current(base_objects.Process):
+
+    def default_setup(self):
+        """Default values for all properties specific to current, 
+        additional to Process"""
+        
+        super(Current, default_setup).default_setup(self)
+        self['singular_structure'] = SingularStructure()
+        self['parent_PDG'] = None
+        
+        pass
 
 # ===============================================================================
 # Standalone main for debugging / standalone trials

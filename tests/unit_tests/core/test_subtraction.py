@@ -252,10 +252,10 @@ class NLOSubtractionTest(unittest.TestCase):
         CC_simple = CC_list.simplify()
         CC_benchmark = sub.SingularStructure(sub.CollStructure(
                 sub.CollStructure(
-                        sub.SubtractionLeg(1,  1, sub.SubtractionLeg.INITIAL),
-                        sub.SubtractionLeg(4, 21, sub.SubtractionLeg.FINAL)
+                        sub.SubtractionLeg(1, sub.SubtractionLeg.INITIAL),
+                        sub.SubtractionLeg(4, sub.SubtractionLeg.FINAL)
                 ),
-                sub.SubtractionLeg(5, 21, sub.SubtractionLeg.FINAL)
+                sub.SubtractionLeg(5, sub.SubtractionLeg.FINAL)
         ))
         self.assertEqual(str(CC_simple), '(C(C(1,4),5),)')
         # TODO implement SingularStructure.__eq__ to make this work
@@ -300,7 +300,51 @@ class NLOSubtractionTest(unittest.TestCase):
 
         combos = self.mysubtraction.get_all_combinations(elem_operators)
         simplified = [combo.simplify() for combo in combos]
-        simplified = [combo for combo in simplified if combo is not None]
+        simplified = [combo for combo in simplified if not combo.is_void()]
         simplified_str = [str(combo) for combo in simplified]
 
-        self.assertEqual(set(simplified_str), set(target_combos))
+        target_filtered_NLO_combinations = [
+            # 0
+            '()',
+            # 1
+            '(S(4),)', '(S(5),)',
+            '(C(4,5),)', '(C(1,4),)', '(C(1,5),)', '(C(2,4),)', '(C(2,5),)',
+            # 2
+            '(C(S(4),5),)', '(C(S(4),1),)', '(C(S(4),2),)',
+            '(C(S(5),4),)', '(C(S(5),1),)', '(C(S(5),2),)'
+        ]
+        
+        filtered_NLO_combinations = self.mysubtraction.filter_combinations(combos)
+        
+        target_elementary_NLO_currents = [
+            # S(4)
+            subtraction.Current({'legs':base_objects.LegList([
+                                         base_objects.Leg({'id':21,'number':4,'state':base_objects.Leg.FINAL}),
+                                         ]),
+                                  'parent_PDG': None,
+                                  'singular_structure':subtraction.SoftStructure(
+                                        subtraction.SubtractionLeg(4,subtraction.SubtractionLeg.FINAL))
+                                 }),
+            # S(5)
+            subtraction.Current({'legs':base_objects.LegList([
+                                         base_objects.Leg({'id':21,'number':5,'state':base_objects.Leg.FINAL}),
+                                         ]),
+                                  'parent_PDG': None,
+                                  'singular_structure':subtraction.SoftStructure(
+                                        subtraction.SubtractionLeg(5,subtraction.SubtractionLeg.FINAL))
+                                 }),
+            # TODO Keep going....
+        ]
+        
+        elementary_NLO_currents = self.mysubtraction.get_elementary_currents(filtered_NLO_combinations)
+        self.assertEqual(set(elementary_NLO_currents), set(target_elementary_NLO_currents))
+        
+        
+        target_mapped_elementary_NLO_currents = {
+            # TODO
+            # ProcessKey(DefiningCurrent) : (DefiningCurrent, [list of mapped currents])
+                                                 }
+        
+        mapped_elementary_NLO_currents = self.mysubtraction.group_currents(elementary_NLO_currents)
+        
+        self.assertEqual(target_mapped_elementary_NLO_currents, mapped_elementary_NLO_currents)

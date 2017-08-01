@@ -673,33 +673,36 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
 
 def SplittingStructure(object):
     """ A class that specifies all the properties of the splitting of a set of N legs into N+M legs."""
-    
-    def __init__(self, legs_before_splitting, legs_after_splitting, interaction_ID = None, model=None):
-        """ Initialize all the attributes that fully characterize a splitting.
-        The interaction_ID and model are optional specifications.
-        The argument 'before' and 'after' refer to a forward type of configuration, i.e. from Born to reals."""
-        
-        # Consistency check
-        assert(isinstance(legs_before_splitting, list) and all(isinstance(l, base_objects.Leg) for l in legs_before_splitting))
-        assert(isinstance(legs_after_splitting, list) and all(isinstance(l, base_objects.Leg) for l in legs_after_splitting))
-        
-        n_incoming_legs_before_splitting = len([l for l in legs_before_splitting if l.get('state')==base_objects.Leg.INITIAL])
-        n_incoming_legs_after_splitting = len([l for l in legs_after_splitting if l.get('state')==base_objects.Leg.INITIAL])
 
-        if n_incoming_legs_before_splitting != n_incoming_legs_after_splitting:
-            raise MadGraph5Error("A kinematic splitting must have the same number of initial state before and after the splitting.")
-
-        self.splitting_type = 'IF' if n_incoming_legs_before_splitting > 0 else 'FF'
+    def __init__(self, leg_mappings, singular_structure=None):
+        """ Initialize all the attributes that fully characterize a splitting. leg_mappings follows this syntax:
+           [(leg_before_splitting: [legS_after_splitting]), (another_leg_before_splitting: [other_legS_after_splitting]), etc...]
+        The argument 'before' and 'after' refer to a from low - to high multiplicity type of configuration, 
+        i.e. from Born to reals. """
         
-        self.legs_before_splitting = legs_before_splitting
-        self.legs_after_splitting = legs_after_splitting
-        self.interaction_ID = interaction_ID
+        for leg_before_splitting, legs_after_splitting in leg_mappings:
+            # Consistency check
+            assert( isinstance(leg_before_splitting, base_objects.Leg) )
+            assert( len(legs_after_splitting)>=1 and isinstance(legs_after_splitting, list) and 
+                                                        all(isinstance(l, base_objects.Leg) for l in legs_after_splitting))
+
+            n_incoming_legs_before_splitting = 1 if leg_before_splitting.get('state')==base_objects.Leg.INITIAL else 0
+            n_incoming_legs_after_splitting = len([l for l in legs_after_splitting if l.get('state')==base_objects.Leg.INITIAL])
+
+            if n_incoming_legs_before_splitting != n_incoming_legs_after_splitting:
+                raise MadGraph5Error("A kinematic splitting must have the same number of initial state before and after the splitting.")
+        
+        self.leg_mappings = leg_mappings
+        self.singular_structure = singular_structure
         self.model = model
+
+    def get_splitting_type(self, leg_before_splitting, legs_after_splitting):
+        return 'IF' if leg_before_splitting.get('state')==base_objects.Leg.INITIAL else 'FF'
     
     def get_n_mapped_legs(self):
         """ Returns the number of mapped legs."""
         
-        return len(self.legs_after_splitting())-len(self.legs_before_splitting())
+        return sum(len(legs_after_splitting)-1 for _,legs_after_splitting in leg_mappings)
 
     def get_splitting_kinematics(self, PSpoint, direction='backward'):
         """ Returns two lists with the following syntax:
@@ -726,13 +729,16 @@ def VirtualMapping(object):
         else:
             return super(VirtualMapping, cls).__new__(cls, *args, **opts)
     
-    def __init__(self):
+    def __init__(self, model=None, **opts):
         """ General initialization of any mapping. n_legs_mapped is the number of legs 
-        'generated' or 'removed' by the mapping. At NLO n_legs_mapped would be one for instance."""
+        'generated' or 'removed' by the mapping. At NLO n_legs_mapped would be one for instance.
+        The model is an optional specification that can be useful to know properties of the leg mapped. """
+        
         # This attribute lists the name of the kinematic variables defining this mapping.
         self.kinematic_variables = []
+        self.model = model
         
-    def backward_map(self, PSpoint, leg_numbers, **opts):
+    def map_to_lower_multiplicity(self, PSpoint, splitting_structure, **opts):
         """ Map a given PS point, by combining all the legs whose numbers are specified in the tuple
         leg_numbers  into one. This function then returns:
            mapped_PSpoint, jacobian, kinematic_variables
@@ -742,7 +748,7 @@ def VirtualMapping(object):
         
         raise NotImplemented
 
-    def forward_map(self, PSpoint, leg_number, kinematic_variables, **opts):
+    def map_to_higher_multiplicity(self, PSpoint, splitting_structure, kinematic_variables, **opts):
         """ Map the specified PS point onto another one where the *single* leg_number is replaced by self.n_legs_mapped number
         of legs, using the kinematic variables specified in the option 'kinematic_variables'.
         This function returns:
@@ -762,7 +768,7 @@ def Mapping_CataniSeymour(VirtualMapping):
         # CS variables. For example z and pt at NLO
         self.kinematic_variables = ['z','pt']
     
-    def backward_map(self, PSpoint, splitting_structure, **opts):
+    def map_to_lower_multiplicity(self, PSpoint, splitting_structure, **opts):
         """ Catani-Seymour implementation of the 'direct mapping'."""
         
         # Consistency checks
@@ -770,8 +776,8 @@ def Mapping_CataniSeymour(VirtualMapping):
         if len(splitting_structure.get_n_mapped_legs()) != 1:
             raise MadGraph5Error("The mapping class '%s' can only map kin. configs. from m -> m+1"%self.__class__.__name__)
         
-        
         splitting_kinematics = splitting_structure.get_splitting_kinematics()
+        mapped_PSpoint = list(PSpoint)
         unmapped_momenta = [(i+1, momentum) for i, momentum in enumerate(PSpoint) if i+1 not in leg_numbers]
         mapped_momenta = [(i+1, momentum) for i, momentum in enumerate(PSpoint) if i+1 in leg_numbers]
 
@@ -780,20 +786,20 @@ def Mapping_CataniSeymour(VirtualMapping):
         
         # TODO, below is just a place-holder
         jacobian = 1.0
-        
-        # Warning! We'll need to pay attention where to place the new down-place momentum...
-        if self.splitting_type == 'IF':
-            # Initial-Final mapping
-            # TODO, below is just a place-holder
-            mapped_PSpoint = [Lorentz5Vector([0.0]*4)]*(len(PSpoint)-self.n_legs_mapped)
-        else:
-            # Final-Final mapping
-            # TODO, below is just a place-holder
-            mapped_PSpoint = [Lorentz5Vector([0.0]*4)]*(len(PSpoint)-self.n_legs_mapped)
+        for leg_before_splitting, legs_after_splitting in splitting_structure.leg_mappings:
+            # Warning! We'll need to pay attention where to place the new down-place momentum...
+            if splitting_structure.get_splitting_type(leg_before_splitting, legs_after_splitting) == 'IF':
+                # Initial-Final mapping
+                # TODO, below is just a place-holder
+                mapped_PSpoint = [Lorentz5Vector([0.0]*4)]*(len(mapped_PSpoint)-self.n_legs_mapped)
+            else:
+                # Final-Final mapping
+                # TODO, below is just a place-holder
+                mapped_PSpoint = [Lorentz5Vector([0.0]*4)]*(len(mapped_PSpoint)-self.n_legs_mapped)
             
         return mapped_PSpoint, jacobian, kinematic_variables
 
-    def forward_map(self, PSpoint, splitting_structure, kinematic_variables,**opts):
+    def map_to_higher_multiplicity(self, PSpoint, splitting_structure, kinematic_variables, **opts):
         """ Catani-Seymour implementation of the 'reverse mapping'."""
 
         # Consistency checks
@@ -801,22 +807,21 @@ def Mapping_CataniSeymour(VirtualMapping):
         if len(splitting_structure.get_n_mapped_legs()) != 1:
             raise MadGraph5Error("The mapping class '%s' can only map kin. configs. from m -> m+1"%self.__class__.__name__)
 
-        momentum_to_map = PSpoint[leg_number]
-        
+        mapped_PSpoint = list(PSpoint)
         z = kinematic_variables['z']
         pt = kinematic_variables['pt']
         
         # TODO, below is just a place-holder
         jacobian = 1.0
-        
-        if self.splitting_type == 'IF':
-            # Initial-Final mapping
-            # TODO, below is just a place-holder
-            mapped_PSpoint = [Lorentz5Vector([0.0]*4)]*(len(PSpoint)+self.n_legs_mapped)
-        else:
-            # Final-Final mapping
-            # TODO, below is just a place-holder
-            mapped_PSpoint = [Lorentz5Vector([0.0]*4)]*(len(PSpoint)+self.n_legs_mapped)
+        for leg_before_splitting, legs_after_splitting in splitting_structure.leg_mappings:
+            if splitting_structure.get_splitting_type(leg_before_splitting, legs_after_splitting) == 'IF':
+                # Initial-Final mapping
+                # TODO, below is just a place-holder
+                mapped_PSpoint = [Lorentz5Vector([0.0]*4)]*(len(mapped_PSpoint)+self.n_legs_mapped)
+            else:
+                # Final-Final mapping
+                # TODO, below is just a place-holder
+                mapped_PSpoint = [Lorentz5Vector([0.0]*4)]*(len(mapped_PSpoint)+self.n_legs_mapped)
             
         return mapped_PSpoint, jacobian
 

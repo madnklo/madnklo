@@ -565,7 +565,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
             if not hasattr(integrand, 'test_IR_limits'):
                 continue
             logger.debug('Now testing IR limits of the following integrand:\n%s'%(integrand.nice_string()))
-            integrand.test_IR_limits(**testlimits_options)
+            integrand.test_IR_limits(test_options = testlimits_options)
 
     def do_show_grid(self, line):
         """ Minimal implementation for now with no possibility of passing options."""
@@ -1184,7 +1184,7 @@ class ME7Integrand_R(ME7Integrand):
             mapping_type = ('single-real',1)
         
         # For now define a single mapping, although we might need different ones for different limit in the future.
-        self.mapping = phase_space_generators.VirtualMapping(mapping_type, n_initial = self.n_initial)
+        self.mapping = phase_space_generators.VirtualMapping(mapping_type, model=self.model)
     
     def sigma(self, PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
         return super(ME7Integrand_R, self).sigma(PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts)
@@ -1204,14 +1204,49 @@ class ME7Integrand_R(ME7Integrand):
         if test_options['seed']:
             random.seed(test_options['seed'])
         
+        alpha_s = self.model.get('parameter_dict')['aS']
+        mu_r = 91.188
+        
         # First generate an underlying Born
         # Specifying None
         a_real_emission_PS_point, _, _ = self.phase_space_generator.get_PS_point(None)
         
-        # Loop over all possible limits
-        for IR_legs in self.get_all_limits():
-            pass
         
+        for process_key, (defining_process, mapped_processes) in self.processes_map:
+            # Make sure that the selected process satisfies the selected process
+            if not defining_process.is_part_of_selection(process = test_options['process']):
+                continue
+            # Loop over all possible limits
+            for singular_structure in self.get_all_singular_structures(defining_process):
+                # Make sure the selected limit is of the right type
+                if not singular_structure.is_of_type(limit_type = test_options['limit_type'], correction_order = test_options['correction_order']):
+                    continue
+                
+                leg_mappings = self.get_leg_mappings_from_singular_structure_and_process(singular_structures, defining_process)
+                splitting_structure = phase_space_generators.SplittingStructure(leg_mappings, singular_structure=singular_structure)
+                a_born_PS_point, _, _ = self.mapping.map_to_lower_multiplicity(a_real_emission_PS_point, splitting_structure)
+                
+                # Now progressively approach the limit
+                evaluations = []
+                for l in xrange(1,101,1):
+                    variables = self.mapping.approach_limit(l)
+                    real_PS_point, _ = self.mapping.map_to_higher_multiplicity(a_born_PS_point, splitting_structure, variables)
+                    
+                    # Evaluate  real ME
+                    real_PS_point = self.get()
+                    ME_evaluation, all_results = self.all_MEAccessors(defining_process, real_PS_point, alpha_s, mu_r)
+                    real_ME_evaluation = ME_evaluation['finite']
+                    
+                    # Approximated real ME (aka. local 4d subtraction counterterm)
+                    counterterm_evaluation = 1.0
+                    # counterterm = self.evaluate_counterterm(defining_process, real_PS_point, singular_structure)
+                    
+                    # Add evaluations to the list so as to study how the approximated reals converge towards the real
+                    evaluations.append((real_ME_evaluation, counterterm_evaluation, l))
+                    
+                # Now produce a nice matplotlib of the evalautions
+                # TODO
+                # self.process_IR_limits_test_result(evaluations,defining_process,singular_structure)
 
 class ME7Integrand_RR(ME7Integrand_R):
     """ ME7Integrand for the computation of a double real-emission type of contribution."""

@@ -63,6 +63,9 @@ class ProcessKey(object):
                 sort_PDGs = True,
                 # Exclude certain process attributes when creating the key for a certain process.
                 vetoed_attributes = ['model','legs','uid','has_mirror_process'],
+                # Specify only selected attributes to end up in the ProcessKey.
+                # If None, this filter is deactivated.
+                allowed_attributes = None,
                 # Finally the user can overwrite the relevant attributes of the process passed in argument
                 # if he so wants.
                 **opts):
@@ -108,7 +111,11 @@ class ProcessKey(object):
         # Now loop over all attributes of the Process and also additional options that the user might have specified
         # and do not correspond to Process attribute values to be overwritten
         for proc_attr in set(process.keys()+opts.keys()):
+            # Check the veto rules
             if proc_attr in vetoed_attributes:
+                continue
+            # Check the allowance rule
+            if not allowed_attributes is None and proc_attr in allowed_attributes:
                 continue
             # Take the value from the user_provided options if given
             # This is because we want the option specifically specified by the user to have precedence over the process
@@ -574,9 +581,14 @@ class MEAccessorCache(dict):
         self.check_cache_size()
         
         return self[key]
-        
+   
+class PythonCurrentAccessor(VirtualMEAccessor):
+    """ A class wrapping the access to one particular current implemented as a python module."""
+    # TODO
+    pass
+
 class F2PYMEAccessor(VirtualMEAccessor):
-    """ A class wrapping the access to one particular MatrixEleemnt wrapped with F2PY"""
+    """ A class wrapping the access to one particular MatrixEleemnt wrapped with F2PY """
     
     def __new__(cls, process, f2py_module_path, slha_card_path, **opts):
         """ Factory for the various F2PY accessors, depending on the process a different class
@@ -1970,8 +1982,39 @@ class Contribution_LIB(Contribution_B):
 
 class Contribution_R(Contribution):
     """ Implements the handling of a single real-emission type of contribution."""
-    pass
+    
+    def generate_all_currents(self, group_processes=True):
+        """ Generate all subtraction currents needed in this contribution."""
+    
+        # TODO using the subtraction module and the self.processes_map list of processes.
 
+    def export(self, *args, **opts):
+        """ Overloads export so as to export subtraction currents as well."""
+        super(Contribution_R, self).export(*args, **opts)
+        # Fish out the group_processes option as it could be used when attempting to
+        # generate all currents.
+        
+        if 'group_processes' in opts:
+            group_processes = opts['group_processes']
+        else:
+            group_processes = True
+            
+        self.generate_all_currents(group_processes=group_processes)
+
+    def get_MEAccessors(self, root_path):
+        """ Returns all MEAccessors for the matrix elemements generated as part of this contribution."""
+        
+        # Get the basic accessors for the matrix elements
+        accessors_to_add = super(Contribution_R, self).get_MEAccessors(root_path)
+        # Now add the accessors to the currents generated during the export of this contribution
+        accessors_to_add.extend(self.get_all_current_accessors(root_path))
+    
+    def get_all_current_accessors(self, root_path):
+        """  Returns all current accessors to be added to the MEAccessorDict."""
+        
+        # TODO Build and add the current accessors corresponding to all those generated during get_MEAccessors.
+        return []
+        
 class Contribution_RR(Contribution):
     """ Implements the handling of a double real-emission type of contribution."""
     pass
@@ -2138,6 +2181,7 @@ class ContributionList(base_objects.PhysicsObjectList):
 # For instance 'Unknown' can be mapped to a user-defined class.
 # Notice that this map must be placed after the MEAccessor daughter classes have been declared.
 MEAccessor_classes_map = {'PythonAccessor': F2PYMEAccessor,
+                          'CurrentAccessor': PythonCurrentAccessor,
                           'Unknown': None}
 
 # Contribution classes map is defined here as module variables. This map can be overwritten

@@ -1208,42 +1208,50 @@ class ME7Integrand_R(ME7Integrand):
         mu_r = 91.188
         
         # First generate an underlying Born
-        # Specifying None
-        a_real_emission_PS_point, _, _ = self.phase_space_generator.get_PS_point(None)
-        
-        
-        for process_key, (defining_process, mapped_processes) in self.processes_map:
+        # Specifying None forces to use unformly random generating variables.
+        a_real_emission_PS_point, _, _, _ = self.phase_space_generator.get_PS_point(None)
+
+        for process_key, (defining_process, mapped_processes) in self.processes_map.items():
             # Make sure that the selected process satisfies the selected process
             if not defining_process.is_part_of_selection(process = test_options['process']):
                 continue
-            # Loop over all possible limits
-            for singular_structure in self.get_all_singular_structures(defining_process):
+            # Loop over all possible limits, represented by lists of currents, with subtraction leg numbers set!
+            for current_list in self.get_all_limits(defining_process):
                 # Make sure the selected limit is of the right type
-                if not singular_structure.is_of_type(limit_type = test_options['limit_type'], correction_order = test_options['correction_order']):
+                if not all(current.is_of_type(limit_type = test_options['limit_type'], 
+                                            correction_order = test_options['correction_order'] ) for current in  current_list):
                     continue
                 
-                leg_mappings = self.get_leg_mappings_from_singular_structure_and_process(singular_structures, defining_process)
-                splitting_structure = phase_space_generators.SplittingStructure(leg_mappings, singular_structure=singular_structure)
-                a_born_PS_point, _, _ = self.mapping.map_to_lower_multiplicity(a_real_emission_PS_point, splitting_structure)
+                splitting_structure = phase_space_generators.SplittingStructure(current_list)
+                a_born_PS_point, starting_jacobian, starting_variables = \
+                                            self.mapping.map_to_lower_multiplicity(a_real_emission_PS_point, splitting_structure)
                 
                 # Now progressively approach the limit
                 evaluations = []
-                for l in xrange(1,101,1):
-                    variables = self.mapping.approach_limit(l)
-                    real_PS_point, _ = self.mapping.map_to_higher_multiplicity(a_born_PS_point, splitting_structure, variables)
+                # l is the scaling variable
+                n_steps = 100
+                for ordering_parameter in range(1,n_steps+1):
+                    # Use equally spaced steps on a log scale
+                    ordering_parameter = 10.0**(-float(ordering_parameter)/n_steps)
+                    scaled_variables = self.mapping.approach_limit(self, splitting_structure, ordering_parameter, starting_point=starting_variables)
+                    real_PS_point, jacobian = self.mapping.map_to_higher_multiplicity(a_born_PS_point, splitting_structure, scaled_variables)
                     
                     # Evaluate  real ME
-                    real_PS_point = self.get()
                     ME_evaluation, all_results = self.all_MEAccessors(defining_process, real_PS_point, alpha_s, mu_r)
                     real_ME_evaluation = ME_evaluation['finite']
                     
                     # Approximated real ME (aka. local 4d subtraction counterterm)
                     counterterm_evaluation = 1.0
-                    # counterterm = self.evaluate_counterterm(defining_process, real_PS_point, singular_structure)
+                    # counterterm = self.evaluate_counterterm(defining_process, real_PS_point, current_list)
                     
                     # Add evaluations to the list so as to study how the approximated reals converge towards the real
-                    evaluations.append((real_ME_evaluation, counterterm_evaluation, l))
-                    
+                    evaluations.append(
+                        {'real_matrix_element'      : real_ME_evaluation, 
+                         'counterterm_evaluation'   : counterterm_evaluation,
+                         'jacobian'                 : jacobian,
+                         'ordering_parameter'       : ordering_parameter   }
+                    )
+
                 # Now produce a nice matplotlib of the evalautions
                 # TODO
                 # self.process_IR_limits_test_result(evaluations,defining_process,singular_structure)

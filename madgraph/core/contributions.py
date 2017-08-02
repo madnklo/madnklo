@@ -376,8 +376,11 @@ class VirtualMEAccessor(object):
 class MEEvaluation(dict):
     """ A very basic class to store the various output of an ME evaluation output."""
     
-    result_order  = ['tree','finite','1/eps','1/eps**2','return_code','accuracy']    
-    result_format = {'tree':'%.15e','finite':'%.15e','1/eps':'%.15e','1/eps**2':'%.15e',
+    # All residues of the poles for the epsilon expansion can be specified with a
+    # key names 'eps^n'.
+    
+    result_order  = ['tree','finite','return_code','accuracy','eps']    
+    result_format = {'tree':'%.15e','finite':'%.15e','eps':'%.15e',
                      'return_code':'%d','accuracy': '%.2g'}
     
     def __init(self, *args, **opts):
@@ -387,18 +390,30 @@ class MEEvaluation(dict):
     def get_max_length_attribute(cls):
         return max(len(k) for k in cls.result_order)
 
+    def get_result_order(self, result_name):
+        """ Returns an index that specifies the ordering of the results to be displayed, for the 
+        purpose of sorting."""
+        
+        index = 0
+        if result_name.startswith('eps'):
+            index += int(result_name.split('^')[1])
+            result_name = 'eps'
+        
+        return index + ((100*self.result_order.index(result_name)) if result_name in self.result_order else 100000)
+
     def nice_string(self, max_len_attribute=-1):
         """ Formats nicely the output of a particular ME evalaution."""
         
         res = []
         template = '%%-%ds = %%s'%(max_len_attribute if max_len_attribute>0 else
                                                     max(len(k) for k in self.keys()))
-        sorted_result_keys = sorted(self.keys(), key=lambda el: self.result_order.index(el) 
-                                                        if el in self.result_order else 100)
+        sorted_result_keys = sorted(self.keys(), key=lambda el: self.get_result_order(el))
 
         def format_result(key, res):
             if res is None or key=='accuracy' and res < 0.:
                 return 'N/A'
+            if key.startswith('eps'):
+                key = 'eps'
             formatted_res = self.result_format[key]%res if result_key in self.result_format else str(res)
             if isinstance(res,float) and res > 0.:
                 formatted_res = ' %s'%formatted_res
@@ -945,7 +960,7 @@ class F2PYMEAccessor(VirtualMEAccessor):
             This functions returns output_datas  which is a list of 2-tuples of the form:
                   ( dictionary_describing_data, dictionary_of_data ) 
             where 'dictionary_describing_data' typically contains a particular spin_correlation describer, 
-            color_correlation, etc.. and 'dictionary_of_data' typically contains the keys ['finite', '1/eps', 'ML_return_code', etc...]  
+            color_correlation, etc.. and 'dictionary_of_data' typically contains the keys ['finite', 'eps**x', 'ML_return_code', etc...]  
             or just 'finite' for tree-level.
         """
 
@@ -1023,9 +1038,9 @@ class F2PYMEAccessorMadLoop(F2PYMEAccessor):
         self.id_to_loop_squared_order = dict((value,key) for (key,value) in self.loop_squared_orders.items())
         
         # List all available squared order combinations to consider and which entries to consider for each
-        all_entries = {'tree':True, 'finite':True, '1/eps':True, '1/eps**2':True, 'accuracy':True}
-        tree_entries = {'tree':True, 'finite':False, '1/eps':False, '1/eps**2':False, 'accuracy':False}
-        loop_entries = {'tree':False, 'finite':True, '1/eps':True, '1/eps**2':True, 'accuracy':True}
+        all_entries = {'tree':True, 'finite':True, 'eps^-1':True, 'eps^-2':True, 'accuracy':True}
+        tree_entries = {'tree':True, 'finite':False, 'eps^-1':False, 'eps^-2':False, 'accuracy':False}
+        loop_entries = {'tree':False, 'finite':True, 'eps^-1':True, 'eps^-2':True, 'accuracy':True}
         self.all_squared_orders = [  (all_entries,0,None) ] + \
             [ (tree_entries, sqso[0], sqso[1]) for sqso in self.id_to_squared_order.items() if not sqso[1] is None] + \
             [ (loop_entries, sqso[0], sqso[1]) for sqso in self.id_to_loop_squared_order.items() if not sqso[1] is None]
@@ -1193,7 +1208,7 @@ class F2PYMEAccessorMadLoop(F2PYMEAccessor):
             This functions returns a 'output_datas' which is a list of 2-tuples of the form:
                   ( dictionary_describing_data, dictionary_of_data ) 
             where 'dictionary_describing_data' typically contains a particular spin_correlation describer, 
-            color_correlation, etc.. and 'dictionary_of_data' typically contains the keys ['finite', '1/eps', 'ML_return_code', etc...]  
+            color_correlation, etc.. and 'dictionary_of_data' typically contains the keys ['finite', 'eps^-1', 'ML_return_code', etc...]  
             or just 'finite' for tree-level.
         """
 
@@ -1209,8 +1224,8 @@ class F2PYMEAccessorMadLoop(F2PYMEAccessor):
         output_result_template = MEEvaluation(
                                  {'tree'        : None,
                                   'finite'      : None,
-                                  '1/eps'       : None,
-                                  '1/eps**2'    : None,
+                                  'eps^-1'      : None,
+                                  'eps^-2'      : None,
                                   'accuracy'    : None,
                                   'return_code' : main_output['return_code']})
     
@@ -1229,10 +1244,10 @@ class F2PYMEAccessorMadLoop(F2PYMEAccessor):
                 output_result['tree']     = main_output['evals'][0][i_sqso]
             if entries_to_consider['finite']:
                 output_result['finite']   = main_output['evals'][1][i_sqso]
-            if entries_to_consider['1/eps']:    
-                output_result['1/eps']    = main_output['evals'][2][i_sqso]
-            if entries_to_consider['1/eps**2']:
-                output_result['1/eps**2'] = main_output['evals'][3][i_sqso]
+            if entries_to_consider['eps^-1']:    
+                output_result['eps^-1']    = main_output['evals'][2][i_sqso]
+            if entries_to_consider['eps^-2']:
+                output_result['eps^-2'] = main_output['evals'][3][i_sqso]
             if entries_to_consider['accuracy']:
                 output_result['accuracy'] = main_output['estimated_accuracies'][i_sqso]
             # Now add this piece of data to the list to be added to the MEResult
@@ -1257,10 +1272,10 @@ class F2PYMEAccessorMadLoop(F2PYMEAccessor):
                         output_result['tree']     = color_correlated_mes[i_cc-1][0][i_sqso]
                     if entries_to_consider['finite']:
                         output_result['finite']   = color_correlated_mes[i_cc-1][1][i_sqso]
-                    if entries_to_consider['1/eps']:    
-                        output_result['1/eps']    = color_correlated_mes[i_cc-1][2][i_sqso]
-                    if entries_to_consider['1/eps**2']:
-                        output_result['1/eps**2'] = color_correlated_mes[i_cc-1][3][i_sqso]
+                    if entries_to_consider['eps^-1']:    
+                        output_result['eps^-1']    = color_correlated_mes[i_cc-1][2][i_sqso]
+                    if entries_to_consider['eps^-2']:
+                        output_result['eps^-2'] = color_correlated_mes[i_cc-1][3][i_sqso]
                     if entries_to_consider['accuracy']:
                         output_result['accuracy'] = main_output['estimated_accuracies'][i_sqso]    
                     # Now add this piece of data to the list to be added to the MEResult
@@ -1987,10 +2002,11 @@ class Contribution_R(Contribution):
         """ Generate all subtraction currents needed in this contribution."""
     
         # TODO using the subtraction module and the self.processes_map list of processes.
+        pass
 
     def export(self, *args, **opts):
         """ Overloads export so as to export subtraction currents as well."""
-        super(Contribution_R, self).export(*args, **opts)
+        ret_value = super(Contribution_R, self).export(*args, **opts)
         # Fish out the group_processes option as it could be used when attempting to
         # generate all currents.
         
@@ -2000,6 +2016,8 @@ class Contribution_R(Contribution):
             group_processes = True
             
         self.generate_all_currents(group_processes=group_processes)
+        
+        return ret_value
 
     def get_MEAccessors(self, root_path):
         """ Returns all MEAccessors for the matrix elemements generated as part of this contribution."""
@@ -2008,6 +2026,8 @@ class Contribution_R(Contribution):
         accessors_to_add = super(Contribution_R, self).get_MEAccessors(root_path)
         # Now add the accessors to the currents generated during the export of this contribution
         accessors_to_add.extend(self.get_all_current_accessors(root_path))
+        
+        return accessors_to_add
     
     def get_all_current_accessors(self, root_path):
         """  Returns all current accessors to be added to the MEAccessorDict."""

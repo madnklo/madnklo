@@ -1141,7 +1141,11 @@ class ME7Integrand_LIB(ME7Integrand):
 class ME7Integrand_V(ME7Integrand):
     """ ME7Integrand for the computation of a one-loop virtual type of contribution."""
     def sigma(self, PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
+        """ Overloading of the sigma function from ME7Integrand to include necessary additional contributions. """
         
+        ret_value = super(ME7Integrand_V, self).sigma(PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts)
+        
+        return ret_value
         ##
         ## This is just an example to test access to the virtuals
         ##
@@ -1170,21 +1174,23 @@ class ME7Integrand_V(ME7Integrand):
         ## To debug it is useful to hard-stop the code in a unique noticeable way with a syntax error.
         stop
         
-        return super(ME7Integrand_V, self).sigma(PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts)
+        return ret_value
 
 class ME7Integrand_R(ME7Integrand):
     """ ME7Integrand for the computation of a single real-emission type of contribution."""
     
     def __init__(self, *args, **opts):
         """ Initialize a real-emission type of integrand, adding additional relevant attributes."""
-        
+                
         if 'mapping' in opts:
             mapping_type = opts.pop('mapping')
         else:
-            mapping_type = ('single-real',1)
+            mapping_type = ('single-real','NLO')
+        
+        super(ME7Integrand_R, self).__init__(*args, **opts)
         
         # For now define a single mapping, although we might need different ones for different limit in the future.
-        self.mapping = phase_space_generators.VirtualMapping(mapping_type, model=self.model)
+        self.mapping = phase_space_generators.VirtualMapping(map_type=mapping_type, model=self.model)
     
     def sigma(self, PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
         return super(ME7Integrand_R, self).sigma(PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts)

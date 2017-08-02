@@ -706,19 +706,19 @@ def SplittingStructure(object):
         
         return sum(len(legs_after_splitting)-len(legs_before_splitting) for \
                                                             legs_before_splitting,legs_after_splitting in self.subtraction_legs)
-        
 
-def VirtualMapping(object):
+class VirtualMapping(object):
     """ A virtual class from which all Mapping implementations must inherit."""
     
-    def __new__(cls, map_type, *args, **opts):
+    def __new__(cls, **opts):
         if cls is VirtualMapping:
-            if map_type not in Mapping_classes_map or not Mapping_classes_map[target_type]:
+            map_type = opts.pop('map_type') if 'map_type' in opts else 'Unknown'
+            if map_type not in Mapping_classes_map or not Mapping_classes_map[map_type]:
                 raise MadGraph5Error("Could not determine the class for the mapping of type '%s'."%str(map_type))
-            target_class = Mapping_classes_map[target_type]
-            return super(VirtualMapping, cls).__new__(target_class, *args, **opts)
+            target_class = Mapping_classes_map[map_type]
+            return super(VirtualMapping, cls).__new__(target_class, **opts)
         else:
-            return super(VirtualMapping, cls).__new__(cls, *args, **opts)
+            return super(VirtualMapping, cls).__new__(cls, **opts)
     
     def __init__(self, model=None, **opts):
         """ General initialization of any mapping. n_legs_mapped is the number of legs 
@@ -760,12 +760,12 @@ def VirtualMapping(object):
         raise NotImplemented
         
 
-def Mapping_CataniSeymour(VirtualMapping):
+class Mapping_CataniSeymour(VirtualMapping):
     """ Implementation of the Catani-Seymour mapping. See ref. [--INSER_REF_HERE--] """
     
     def __init__(self, *args, **opts):
         """ Additional options for the Catani-Seymour mapping."""
-        super(Mapping_NLO_CataniSeymour,self).__init__(*args, **opts)
+        super(Mapping_CataniSeymour,self).__init__(*args, **opts)
     
     def map_to_lower_multiplicity(self, PSpoint, splitting_structure, **opts):
         """ Catani-Seymour implementation of the 'direct mapping'."""
@@ -825,7 +825,7 @@ def Mapping_CataniSeymour(VirtualMapping):
         # Example, of course it could depends on the actual splitting structure
         return ['pt', 'z']
 
-def Mapping_NagiSopper(VirtualMapping):
+class Mapping_NagiSopper(VirtualMapping):
     """ Implementation of the Nagi-Sopper mapping. See ref. [--INSER_REF_HERE--] """  
     # TODO, see example above
     pass

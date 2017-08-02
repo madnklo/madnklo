@@ -56,14 +56,15 @@ class SubtractionLeg(tuple):
             leg = args[0]
             # Initialization from Leg object
             if isinstance(leg, base_objects.Leg):
-                target = (leg.get('number'), leg.get('state'))
+                target = (leg.get('number'), leg.get('id'), leg.get('state'))
             # Initialization from dictionary
             elif isinstance(leg, dict):
-                target = (leg['number'], leg['state'])
+                target = (leg['number'], leg['id'], leg['state'])
             # Initialization from iterable
             elif (
-                hasattr(leg, '__len__') and
-                len(leg) == 2 and isinstance(leg[0], int) and isinstance(leg[1], bool)
+                hasattr(leg, '__len__') and len(leg) == 3 and
+                isinstance(leg[0], int) and isinstance(leg[1], int) and
+                isinstance(leg[2], bool)
             ):
                 target = leg
             # Invalid argument
@@ -72,24 +73,35 @@ class SubtractionLeg(tuple):
                         "SubtractionLeg cannot be initialized with "
                         "%s of type %s." % (leg, str(type(leg)))
                 )
-        # Initialize with 2 arguments
+        # Initialize with 3 arguments
         elif (
-                (len(args) == 2) and isinstance(args[0], int) and isinstance(args[1], bool)
+            (len(args) == 3) and
+            isinstance(args[0], int) and isinstance(args[1], int) and
+            isinstance(args[2], bool)
         ):
             target = (args)
         # Invalid number of arguments
         else:
             raise MadGraph5Error(
-                    "SubtractionLeg cannot be initialized with argument %s."% str(args)
+                    "SubtractionLeg cannot be initialized with argument %s." % str(args)
             )
 
         return super(SubtractionLeg, cls).__new__(cls, target)
 
+    @property
     def n(self):
+
         return self[0]
 
-    def state(self):
+    @property
+    def pdg(self):
+
         return self[1]
+
+    @property
+    def state(self):
+
+        return self[2]
 
 #===============================================================================
 # SubtractionLegSet
@@ -115,14 +127,26 @@ class SubtractionLegSet(frozenset):
         """Initialize set, trying to convert arguments into SubtractionLeg's."""
 
         if not args:
-            return super(SubtractionLegSet, self).__init__()
+            super(SubtractionLegSet, self).__init__()
+            return
 
         if isinstance(args[0], collections.Iterable) and not isinstance(args[0],(dict, SubtractionLeg)):
             legs = args[0]
         else:
             legs = args
 
-        return super(SubtractionLegSet, self).__init__([SubtractionLeg(leg) for leg in legs])
+        super(SubtractionLegSet, self).__init__([SubtractionLeg(leg) for leg in legs])
+        return
+
+    def has_initial_state_leg(self):
+        """Returns True if this leg set has at least one initial state leg,
+        False otherwise.
+        """
+
+        for leg in self:
+            if leg.state == SubtractionLeg.INITIAL:
+                return True
+        return False
 
 #===============================================================================
 # SingularStructure
@@ -133,7 +157,11 @@ class SingularStructure(object):
     def __init__(self, *args, **opts):
         """Initialize a hierarchical singular structure."""
 
-        if args and isinstance(args[0], collections.Iterable) and not isinstance(args[0], (dict, SubtractionLeg) ):
+        if (
+            args and
+            isinstance(args[0], collections.Iterable) and
+            not isinstance(args[0], (dict, SubtractionLeg) )
+        ):
             components = args[0]
         else:
             components = args
@@ -160,42 +188,67 @@ class SingularStructure(object):
             *(a for a in components if isinstance(a, SubtractionLeg))
         )
 
-    def is_void(self):
-        return self.is_annihilated
-
-    def annihilate(self):
-        """ When an operator cannot act on this structure, remove alltogether this structure 
-        by flagging it as unapplicable to any other operator."""
-        # Avoid border effect by really clearing the structures and legs
-        del self.substructures[:]
-        self.legs = SubtractionLegSet()
-        self.is_annihilated = True
-
     def __str__(self):
         """Return a string representation of the singular structure."""
-        
+
         if self.is_annihilated:
             return 'NULL'
-        
+
         tmp_str = self.name() + "("
         tmp_str += ",".join(sorted(str(sub) for sub in self.substructures))
         if self.substructures:
             tmp_str += ","
-        tmp_str += ",".join(sorted(str(leg.n()) for leg in self.legs))
+        tmp_str += ",".join(sorted(str(leg.n) for leg in self.legs))
         tmp_str += ")"
         return tmp_str
 
+    def is_void(self):
+
+        return self.is_annihilated
+
+    def annihilate(self):
+        """When an operator cannot act on this structure,
+        remove this structure altogether
+        by flagging it as unapplicable to any other operator.
+        """
+
+        # Really clear structures and legs
+        del self.substructures[:]
+        self.legs = SubtractionLegSet()
+        self.is_annihilated = True
+
+    def get_all_legs(self):
+        """Return all legs involved in this singular structure."""
+
+        all_legs = set(sub.get_all_legs() for sub in self.substructures)
+        all_legs.add(self.legs)
+        return SubtractionLegSet().union(*all_legs)
+
+    def discard_leg_numbers(self):
+        """Set all leg numbers to zero, discarding this information forever."""
+
+        self.legs = SubtractionLegSet(
+                SubtractionLeg(0, leg.pdg, leg.state)
+                for leg in self.legs
+        )
+        for substructure in self.substructures:
+            substructure.discard_leg_numbers()
+        return
+
     def name(self):
+
         return ""
 
 class SoftStructure(SingularStructure):
 
     def name(self):
+
         return "S"
 
 class CollStructure(SingularStructure):
 
     def name(self):
+
         return "C"
 
 #===============================================================================
@@ -205,11 +258,13 @@ class SingularOperator(SubtractionLegSet):
     """Virtual base class for elementary singular operators."""
 
     def __init__(self, *args, **opts):
-        return super(SingularOperator, self).__init__(*args, **opts)
+
+        super(SingularOperator, self).__init__(*args, **opts)
 
     def __str__(self):
         """Return a simple string representation of the singular operator."""
-        return self.name() + str(sorted((leg.n() for leg in self)))
+
+        return self.name() + str(sorted((leg.n for leg in self)))
 
     def name(self):
         """Symbol used to represent this operator within output."""
@@ -221,6 +276,7 @@ class SingularOperator(SubtractionLegSet):
         """Singular structure corresponding to this operator
         acting on hard particles.
         """
+
         raise MadGraph5Error(
             "structure called in SingularOperator of unspecified type."
         )
@@ -229,6 +285,7 @@ class SingularOperator(SubtractionLegSet):
         """Return True if the counterterm obtained acting with this operator
         on the given structure at the first level is needed for subtraction.
         """
+
         # WARNING Rules may not extend to non-QCD cases
         raise MadGraph5Error(
             "act_here_needed called in SingularOperator of unspecified type."
@@ -252,6 +309,7 @@ class SingularOperator(SubtractionLegSet):
 
     def act_on(self, structure):
         """Act with an elementary operator on a non-elementary structure."""
+
         assert isinstance(structure, SingularStructure)
 
         # If the limit does not overlap with the existing structure at all,
@@ -293,14 +351,17 @@ class SingularOperator(SubtractionLegSet):
 class SoftOperator(SingularOperator):
     """Object that represents a soft elementary singular operator."""
 
-
     def __init__(self, *args, **opts):
-        return super(SoftOperator, self).__init__(*args, **opts)
+
+        super(SoftOperator, self).__init__(*args, **opts)
+        return
 
     def name(self):
+
         return "S"
 
     def get_structure(self):
+
         return SoftStructure(self)
 
     def act_here_needed(self, structure):
@@ -332,21 +393,27 @@ class CollOperator(SingularOperator):
     """Object that represents a collinear elementary singular operator."""
 
     def name(self):
+
         return "C"
 
     def get_structure(self):
+
         return CollStructure(self)
 
     def __init__(self, *args, **opts):
-        return super(CollOperator, self).__init__(*args, **opts)        
+
+        super(CollOperator, self).__init__(*args, **opts)
+        return
 
     def act_here_needed(self, structure):
 
         assert isinstance(structure, SingularStructure)
 
-        # Collinear limits are not needed within soft structures
+        # Collinear limits are needed within soft structures
+        # WARNING: this statement has to be checked
+        # at NNLO only S(C(i,j)), at N3LO we first get S(i,C(j,k))
         if isinstance(structure, SoftStructure):
-            return False
+            return True
 
         # Collinear limits are always needed within collinear structures
         if isinstance(structure, CollStructure):
@@ -384,9 +451,41 @@ class SingularOperatorList(list):
         """Simplify a list of operators,
         returning the real structure of the corresponding singularities.
         """
+
         structure = SingularStructure()
         self.act_on(structure)
         return structure
+
+#===============================================================================
+# Current
+#===============================================================================
+class Current(base_objects.Process):
+
+    def default_setup(self):
+        """Default values for all properties specific to current,
+        additional to Process.
+        """
+
+        super(Current, self).default_setup()
+        self['singular_structure'] = SingularStructure()
+        self['parent_subtraction_leg'] = None
+
+        return
+
+    def discard_leg_numbers(self):
+        """Discard all leg numbers in the singular_structure
+        and in the parent_subtraction_leg,
+        effectively getting the type of current
+        without information about momenta for which it should be evaluated.
+        """
+
+        self['singular_structure'].discard_leg_numbers()
+        self['parent_subtraction_leg'] = SubtractionLeg(
+                0,
+                self['parent_subtraction_leg'].pdg,
+                self['parent_subtraction_leg'].state
+        )
+        return
 
 #===============================================================================
 # IRSubtraction
@@ -411,6 +510,7 @@ class IRSubtraction(object):
         """Check whether a particle given by its PDG can become unresolved
         and lead to singular behavior.
         """
+
         return any(
             (PDG in self.IR_quantities_for_corrections_types[order]['pert_particles'])
             for order in self.correction_types
@@ -438,7 +538,7 @@ class IRSubtraction(object):
             )
 
         # Get parton flavors, eliminating gluons
-        flavored_legs = [leg for leg in legs if leg.get('id') != 21]
+        flavored_legs = [leg for leg in legs if leg.pdg != 21]
 
         # If all daughters were gluons, the only parent is a gluon
         if not flavored_legs:
@@ -446,12 +546,12 @@ class IRSubtraction(object):
 
         # Consider last particle
         last_leg = flavored_legs.pop()
-        ll_state = last_leg.get('state')
-        ll_id    = last_leg.get('id')
+        ll_state = last_leg.state
+        ll_id    = last_leg.pdg
         # Look for a corresponding anti-particle
         for leg in range(len(flavored_legs)):
-            cur_state = flavored_legs[leg].get('state')
-            cur_id    = flavored_legs[leg].get('id')
+            cur_state = flavored_legs[leg].state
+            cur_id    = flavored_legs[leg].pdg
             if (
                         (cur_state == ll_state and cur_id == -ll_id)
                         or
@@ -501,13 +601,15 @@ class IRSubtraction(object):
         
         elementary_operator_list = SingularOperatorList([])
         
-        # Eliminate particles that do not take place in the subtraction
-        legs = [
-            l for l in process.get('legs')
-            if self.can_be_IR_unresolved(l.get('id'))
-        ]
-        fs_legs = [l for l in legs if l.get('state') == SubtractionLeg.FINAL]
-        is_legs = [l for l in legs if l.get('state') == SubtractionLeg.INITIAL]
+        # Eliminate particles that do not have a role in the subtraction
+        legs = SubtractionLegSet(
+            SubtractionLeg(leg) for leg in process.get('legs')
+            if self.can_be_IR_unresolved(leg.get('id'))
+        )
+        fs_legs = SubtractionLegSet(
+                leg for leg in legs if leg.state == SubtractionLeg.FINAL
+        )
+        is_legs = SubtractionLegSet(legs.difference(fs_legs))
 
         # Loop over number of unresolved particles
         for unresolved in range(1, self.correction_order.count('N')+1):
@@ -533,8 +635,10 @@ class IRSubtraction(object):
 
         return SingularOperatorList(elementary_operator_list)
 
-    def get_all_combinations(self, elementary_operators):
-        """Determine all combinations of elementary operators."""
+    def get_all_raw_combinations(self, elementary_operators):
+        """Determine all combinations of elementary operators,
+        without applying any simplification.
+        """
 
         combos = []
         for nop in range(len(elementary_operators) + 1):
@@ -547,8 +651,166 @@ class IRSubtraction(object):
             ]
         return combos
 
+    def get_all_combinations(self, elementary_operators):
+        """Determine all combinations of elementary operators,
+        applying simplification and discarding the ones that vanish.
+        """
+
+        return [
+            simple_combo
+            for simple_combo in [
+                combo.simplify()
+                for combo in self.get_all_raw_combinations(elementary_operators)
+                ]
+            if not simple_combo.is_void()
+        ]
+
+    def count_unresolved(self, structure):
+        """Count the number of unresolved particles in some structure."""
+
+        assert(type(structure) is SingularStructure)
+        number_of_unresolved_particles = 0
+        for sub in structure.substructures:
+            if isinstance(sub, SoftStructure):
+                number_of_unresolved_particles += len(sub.get_all_legs())
+            elif isinstance(sub, CollStructure):
+                number_of_unresolved_particles += len(sub.get_all_legs()) - 1
+            else:
+                raise MadGraph5Error(
+                        "Unrecognised structure of type %s"
+                        "in IRSubtraction.count_unresolved" %
+                        str(type(structure))
+                )
+        return number_of_unresolved_particles
+
+    def filter_combinations(self, combinations):
+        """Filter out combinations with too many unresolved particles
+        for the order that has been set.
+        """
+
+        max_unresolved = self.correction_order.count('N')
+        return [
+            combo
+            for combo in combinations
+            if self.count_unresolved(combo) <= max_unresolved
+        ]
+
+    def get_elementary_currents(self, structure):
+        """Convert this structure to a list of elementary currents
+        at the present level, without the corresponding momenta.
+        """
+
+        print "get_elementary_currents called with argument", structure
+
+        currents = []
+
+        # Handle lists of structures as a special case
+        if not isinstance(structure, SingularStructure):
+            for real_structure in structure:
+                for current in self.get_elementary_currents(real_structure):
+                    if current not in currents:
+                        currents.append(current)
+            return currents
+        # Treat non-overlapping structures separately, avoiding recursion
+        if type(structure) is SingularStructure:
+            for real_structure in structure.substructures:
+                for current in self.get_elementary_currents(real_structure):
+                    if current not in currents:
+                        currents.append(current)
+            return currents
+
+        # 1. Build a list of possible entries for any position in the current
+
+        # All legs have to be entries, add them discarding particle numbers
+        possible_entries_with_parent = [
+            [(SubtractionLeg(0, leg.pdg, leg.state), )*2, ]
+            for leg in structure.legs
+        ]
+        # Loop over substructures
+        for substructure in structure.substructures:
+            sub_currents = self.get_elementary_currents(substructure)
+            print "sub_currents are", sub_currents
+            # Recursively add sub_currents as needed currents
+            for sub_current in sub_currents:
+                if sub_current not in currents:
+                    currents.append(sub_current)
+            if isinstance(substructure, SoftStructure):
+                # If it is a soft within something else (should be collinear),
+                # preserve the structure because C(i,...,S(j,...))
+                # is an elementary current with an expression of its own
+                # Note: take the singular_structure from the current,
+                # so that internal simplifications like
+                #   S(C(i,j,...)) -> S(parent of i,j,...)
+                # have already happened (and leg numbers were discarded)
+                possible_entries_with_parent.append([
+                    (
+                        current['parent_subtraction_leg'],
+                        current['singular_structure']
+                    ) for current in sub_currents
+                ])
+            else:
+                # else just add the parent of the substructure
+                possible_entries_with_parent += [[
+                    (
+                        current['parent_subtraction_leg'],
+                        current['parent_subtraction_leg']
+                    ) for current in sub_currents
+                ],]
+
+        print "Possible entries with parent:", possible_entries_with_parent
+
+        # 2. Expand it, creating all tuples where the i-th element
+        #    comes from the possible_entries for position i
+
+        entry_sets_with_parent = [[],]
+        while possible_entries_with_parent:
+            print "entry_sets_with_parent is", entry_sets_with_parent
+            print "possible_entries_with_parent is", possible_entries_with_parent
+            last_entries_with_parent = possible_entries_with_parent.pop()
+            new_entry_sets_with_parent = []
+            for entry_set_with_parent in entry_sets_with_parent:
+                for last_entry_with_parent in last_entries_with_parent:
+                    new_entry_set_with_parent = entry_set_with_parent + [last_entry_with_parent, ]
+                    print "adding", new_entry_set_with_parent, "to entry sets"
+                    new_entry_sets_with_parent.append(
+                            new_entry_set_with_parent
+                    )
+            entry_sets_with_parent = new_entry_sets_with_parent
+
+        print "Entry sets with parent:", entry_sets_with_parent
+
+        # 3. Now create the current by adding the parent_subtraction_leg
+        #    and converting the list of entries in the appropriate object
+
+        for entry_set_with_parent in entry_sets_with_parent:
+            daughters = SubtractionLegSet(
+                entry_with_parent[0]
+                for entry_with_parent in entry_set_with_parent
+            )
+            singular_structure = type(structure)(
+                entry_with_parent[1]
+                for entry_with_parent in entry_set_with_parent
+            )
+            parent_pdgs  = self.parent_PDGs(daughters)
+            parent_state = SubtractionLeg.FINAL
+            if daughters.has_initial_state_leg():
+                parent_state = SubtractionLeg.INITIAL
+            for parent_pdg in parent_pdgs:
+                parent_subtraction_leg = SubtractionLeg(0, parent_pdg, parent_state)
+                current = Current({
+                    'parent_subtraction_leg': parent_subtraction_leg,
+                    'singular_structure': singular_structure
+                })
+                if current not in currents:
+                    currents.append(current)
+                else:
+                    print "current", current, "was already found"
+
+        print "returning from get_elementary_currents with argument", structure
+        return currents
+
     # # TODO Fix this
-    # def reduced_me(unresolved_structure, process):
+    # def reduced_me(self, structure, process):
     #     """
     #     Get the reduced matrix element after the action of operators
     #     :param unresolved_structure: Simplified structure of unresolved particles
@@ -557,78 +819,22 @@ class IRSubtraction(object):
     #     """
     #     # TODO add spin and color correlations
     #     all_unres = [unresolved_particles(group) for group in
-    #                  unresolved_structure]
+    #                  structure]
     #     new_enum = set(enumerate(process))
     #     # For every group of unresolved particles
-    #     for iur in range(len(all_unres)):
+    #     for iur in range(structure.substructures):
     #         # Erase all unresolved particles from the reduced process
     #         for erase in all_unres[iur]:
     #             new_enum = set(
     #                     [prtcl for prtcl in new_enum if prtcl[0] != erase])
     #         # Add back the parent if the group was a collinear one
-    #         if unresolved_structure[iur][0] == coll:
+    #         if structure.substructures[iur] == coll:
     #             tmpparent = unresolved_flavor(all_unres[iur], process)
     #             new_enum.add((frozenset(all_unres[iur]), tmpparent))
     #     return new_enum
 
-    # # TODO Fix this
-    # def current(unresolved_group, process):
-    #     """
-    #     Get the current for unresolved particles
-    #     :param unresolved_group: Simplified structure of unresolved particles
-    #     :param process: Flavors for the considered matrix element
-    #     :return: To be decided
-    #     """
-    #     # TODO implement currents
-    #     buffer = []
-    #     subgroups = set()
-    #     for subgroup in unresolved_group[1]:
-    #         # Particle is not part of a nested limit
-    #         if isinstance(subgroup, int):
-    #             subgroups.add((subgroup, process[subgroup]))
-    #         # Soft subgroup in a collinear limit
-    #         elif unresolved_group[0] == coll and subgroup[0] == soft:
-    #             # Soft groups can contain no further subgroups
-    #             subgroups.add(current(subgroup, process)[0])
-    #         # Iterated limit decomposition
-    #         else:
-    #             buffer += current(subgroup, process)
-    #             ups = unresolved_particles(subgroup)
-    #             if len(ups) == 1:
-    #                 subgroups.add((
-    #                     tuple(ups)[0],
-    #                     unresolved_flavor(ups, process)
-    #                 ))
-    #             else:
-    #                 subgroups.add((
-    #                     frozenset(ups),
-    #                     unresolved_flavor(ups, process)
-    #                 ))
-    #     buffer = [(unresolved_group[0], frozenset(subgroups)), ] + buffer
-    #     return buffer
-    #
-    # # TODO Fix this
-    # def currents(unresolved_structures, process):
-    #     dbllist = [current(cur, process) for cur in unresolved_structures]
-    #     return list(itertools.chain.from_iterable(dbllist))
-
 #===============================================================================
-# Current
-#===============================================================================
-class Current(base_objects.Process):
-
-    def default_setup(self):
-        """Default values for all properties specific to current, 
-        additional to Process"""
-        
-        super(Current, default_setup).default_setup(self)
-        self['singular_structure'] = SingularStructure()
-        self['parent_PDG'] = None
-        
-        pass
-
-# ===============================================================================
 # Standalone main for debugging / standalone trials
-# ===============================================================================
+#===============================================================================
 if __name__ == '__main__':
     misc.sprint("Put your standalone subtraction code here.")

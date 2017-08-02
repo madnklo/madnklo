@@ -24,6 +24,8 @@ import madgraph.core.base_objects as base_objects
 import madgraph.core.subtraction as sub
 import madgraph.core.color_algebra as color
 import madgraph.various.misc as misc
+import madgraph.core.contributions as contributions
+
 import tests.unit_tests as unittest
 
 class NLOSubtractionTest(unittest.TestCase):
@@ -328,6 +330,7 @@ class NLOSubtractionTest(unittest.TestCase):
         ))
 
         currents1 = self.mysubtraction.get_elementary_currents(structure1)
+        misc.sprint(len(currents1[0]['singular_structure'].legs))
         target_currents1 = [
             sub.Current({
                 'parent_subtraction_leg': sub.SubtractionLeg(
@@ -339,8 +342,15 @@ class NLOSubtractionTest(unittest.TestCase):
                 )
             })
         ]
-        misc.sprint(currents1)
-        misc.sprint(target_currents1)
+        current1_keys = [contributions.ProcessKey(current,
+                allowed_attributes=['singular_structure', 'parent_subtraction_leg']).key_dict for current in currents1]
+
+        target_currents1_keys = [contributions.ProcessKey(current,
+                allowed_attributes=['singular_structure', 'parent_subtraction_leg']).key_dict for current in target_currents1]
+        
+        misc.sprint(current1_keys)
+        misc.sprint(target_currents1_keys)
+        self.assertEqual(current1_keys, target_currents1_keys)
 
     # def test_operator_combinations(self):
     #     """Test the generation of all elementary operators

@@ -235,6 +235,22 @@ class SingularStructure(object):
             substructure.discard_leg_numbers()
         return
 
+    def get_canonical_representation(self, track_leg_numbers=True):
+        """Creates a canonical hashable representation of self."""
+        
+        canonical = {}
+
+        canonical['is_annihilated'] = self.is_annihilated
+        if track_leg_numbers:
+            canonical['legs'] = self.legs
+        else:
+            canonical['legs'] = SubtractionLegSet(SubtractionLeg(0,l.pdg,l.state) for l in self.legs)      
+        canonical['name'] = self.name()
+        canonical['substructures'] = tuple(structure.get_canonical_representation()
+                                                for stucture in self.substructures)
+
+        return tuple(sorted(canonical.items()))
+        
     def name(self):
 
         return ""

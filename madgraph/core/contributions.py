@@ -73,22 +73,23 @@ class ProcessKey(object):
         # Initialize a dictionary which will be used to form the final tuple encoding all the information for 
         # this particular entry
         self.key_dict = {}
-                
+
         # PDGs
-        if PDGs:
-            self.key_dict['PDGs'] = PDGs
-        elif 'legs' in opts:
-            self.key_dict['PDGs'] = ( tuple([l.get('id') for l in opts['legs'] if not l['state']]), 
-                                      tuple([l.get('id') for l in opts['legs'] if l['state']]) )
-        elif process:
-            self.key_dict['PDGs'] = ( tuple(process.get_initial_ids()), 
-                                      tuple(process.get_final_ids()) )
-        else:
-            raise MadGraph5Error("When creating an ProcessKey, it is mandatory to specify the PDGs, either"+
-                                 " via the options 'PDGs', 'legs' or 'process' (with precedence in this order).")
-        
-        if sort_PDGs:
-            self.key_dict['PDGs'] = ( tuple(sorted(self.key_dict['PDGs'][0])), tuple(sorted(self.key_dict['PDGs'][1])) )
+        if ((not allowed_attributes is None) and 'PDGs' in allowed_attributes) and (not 'PDGs' in vetoed_attributes):
+            if PDGs:
+                self.key_dict['PDGs'] = PDGs
+            elif 'legs' in opts:
+                self.key_dict['PDGs'] = ( tuple([l.get('id') for l in opts['legs'] if not l['state']]), 
+                                          tuple([l.get('id') for l in opts['legs'] if l['state']]) )
+            elif process:
+                self.key_dict['PDGs'] = ( tuple(process.get_initial_ids()), 
+                                          tuple(process.get_final_ids()) )
+            else:
+                raise MadGraph5Error("When creating an ProcessKey, it is mandatory to specify the PDGs, either"+
+                                     " via the options 'PDGs', 'legs' or 'process' (with precedence in this order).")
+            
+            if sort_PDGs:
+                self.key_dict['PDGs'] = ( tuple(sorted(self.key_dict['PDGs'][0])), tuple(sorted(self.key_dict['PDGs'][1])) )
         
         # Now make sure to instantiate a default process if the user didn't select one
         if not process:
@@ -115,7 +116,7 @@ class ProcessKey(object):
             if proc_attr in vetoed_attributes:
                 continue
             # Check the allowance rule
-            if not allowed_attributes is None and proc_attr in allowed_attributes:
+            if not allowed_attributes is None and not proc_attr in allowed_attributes:
                 continue
             # Take the value from the user_provided options if given
             # This is because we want the option specifically specified by the user to have precedence over the process
@@ -135,7 +136,15 @@ class ProcessKey(object):
                 # BUT BEWARE THAT THE PDGs in self.key_dict only refer to the core production process then.
                 self.key_dict['decay_chains'] = tuple( ProcessKey(proc).get_canonical_key() for proc in value)
                 continue
-                
+            
+            if proc_attr == 'singular_structure':
+                self.key_dict['singular_structure'] = process[proc_attr].get_canonical_representation(track_leg_numbers=False)
+                continue
+
+            if proc_attr == 'parent_subtraction_leg':
+                parent_subtraction_leg = process[proc_attr]
+                self.key_dict['singular_structure'] = (parent_subtraction_leg.pdg, parent_subtraction_leg.state)
+
             # Now generically treat other attributes
             if isinstance(value, (int, str, tuple, bool)):
                 self.key_dict[proc_attr] = value

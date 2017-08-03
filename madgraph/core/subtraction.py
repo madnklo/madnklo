@@ -21,6 +21,7 @@ import copy
 import itertools
 import collections
 import logging
+import types
 import math
 import sys
 import os
@@ -31,9 +32,10 @@ if __name__ == '__main__':
         os.path.pardir
     ))
 from madgraph import MadGraph5Error, MG5DIR, InvalidCmd
-import madgraph.various.misc as misc 
 import madgraph.core.base_objects as base_objects
+import madgraph.core.contributions as contributions
 import madgraph.fks.fks_common as fks_common
+import madgraph.various.misc as misc
 
 logger = logging.getLogger('madgraph')
 pjoin = os.path.join
@@ -103,6 +105,13 @@ class SubtractionLeg(tuple):
 
         return self[2]
 
+    @staticmethod
+    def state_str(state):
+
+        if state == SubtractionLeg.FINAL:
+            return 'f'
+        return 'i'
+
 #===============================================================================
 # SubtractionLegSet
 #===============================================================================
@@ -115,12 +124,18 @@ class SubtractionLegSet(frozenset):
         if not args:
             return super(SubtractionLegSet, cls).__new__(cls)
 
-        if isinstance(args[0], collections.Iterable) and not isinstance(args[0],(dict, SubtractionLeg)):
+        if (
+            isinstance(args[0], collections.Iterable) and
+            not isinstance(args[0],(dict, SubtractionLeg))
+        ):
             legs = args[0]
         else:
             legs = args
 
-        return super(SubtractionLegSet, cls).__new__(cls, [SubtractionLeg(leg) for leg in legs])
+        return super(SubtractionLegSet, cls).__new__(
+                cls,
+                [SubtractionLeg(leg) for leg in legs]
+        )
 
 
     def __init__(self, *args, **opts):
@@ -130,12 +145,17 @@ class SubtractionLegSet(frozenset):
             super(SubtractionLegSet, self).__init__()
             return
 
-        if isinstance(args[0], collections.Iterable) and not isinstance(args[0],(dict, SubtractionLeg)):
+        if (
+            isinstance(args[0], collections.Iterable) and
+            not isinstance(args[0],(dict, SubtractionLeg))
+        ):
             legs = args[0]
         else:
             legs = args
 
-        super(SubtractionLegSet, self).__init__([SubtractionLeg(leg) for leg in legs])
+        super(SubtractionLegSet, self).__init__(
+                [SubtractionLeg(leg) for leg in legs]
+        )
         return
 
     def has_initial_state_leg(self):
@@ -157,13 +177,16 @@ class SingularStructure(object):
     def __init__(self, *args, **opts):
         """Initialize a hierarchical singular structure."""
 
-        if (
-            args and
-            isinstance(args[0], collections.Iterable) and
-            not isinstance(args[0], (dict, SubtractionLeg) )
-        ):
-            components = args[0]
-        else:
+        components = None
+        if args:
+            if isinstance(args[0], types.GeneratorType):
+                components = tuple(a for a in args[0])
+            elif (
+                isinstance(args[0], collections.Iterable) and
+                not isinstance(args[0], (dict, SubtractionLeg) )
+            ):
+                components = args[0]
+        if not components:
             components = args
 
         # If this Structure is annihilated, any operator acting on it would
@@ -188,17 +211,30 @@ class SingularStructure(object):
             *(a for a in components if isinstance(a, SubtractionLeg))
         )
 
-    def __str__(self):
+    def __str__(self, attribute = 'n', print_initial_final = False):
         """Return a string representation of the singular structure."""
 
         if self.is_annihilated:
             return 'NULL'
 
         tmp_str = self.name() + "("
-        tmp_str += ",".join(sorted(str(sub) for sub in self.substructures))
+        tmp_str += ",".join(sorted(
+            sub.__str__(attribute, print_initial_final)
+            for sub in self.substructures)
+        )
         if self.substructures:
             tmp_str += ","
-        tmp_str += ",".join(sorted(str(leg.n) for leg in self.legs))
+        if print_initial_final:
+            tmp_str += ",".join(sorted(
+                str(leg.__getattribute__(attribute)) +
+                SubtractionLeg.state_str(leg.state)
+                for leg in self.legs
+            ))
+        else:
+            tmp_str += ",".join(sorted(
+                str(leg.__getattribute__(attribute))
+                for leg in self.legs
+            ))
         tmp_str += ")"
         return tmp_str
 
@@ -235,7 +271,7 @@ class SingularStructure(object):
             substructure.discard_leg_numbers()
         return
 
-    def get_canonical_representation(self, track_leg_numbers=True):
+    def get_canonical_representation(self, track_leg_numbers = True):
         """Creates a canonical hashable representation of self."""
         
         canonical = {}
@@ -244,13 +280,26 @@ class SingularStructure(object):
         if track_leg_numbers:
             canonical['legs'] = self.legs
         else:
-            canonical['legs'] = SubtractionLegSet(SubtractionLeg(0,l.pdg,l.state) for l in self.legs)      
+            canonical['legs'] = SubtractionLegSet(
+                    SubtractionLeg(0,l.pdg,l.state)
+                    for l in self.legs
+            )
         canonical['name'] = self.name()
-        canonical['substructures'] = tuple(structure.get_canonical_representation()
-                                                for stucture in self.substructures)
+        canonical['substructures'] = tuple(
+                structure.get_canonical_representation()
+                for structure in self.substructures
+        )
 
         return tuple(sorted(canonical.items()))
         
+    def __eq__(self, other):
+        """Check if two singular structures are the same."""
+
+        assert isinstance(other, SingularStructure)
+        self_can = self.get_canonical_representation()
+        other_can = other.get_canonical_representation()
+        return self_can == other_can
+
     def name(self):
 
         return ""
@@ -358,8 +407,8 @@ class SingularOperator(SubtractionLegSet):
             if not self.non_overlapping_with(substructure):
 
                 self.act_on(substructure)
-                # If the action on the substructure annihilated it, then annihilate this 
-                # structure as well
+                # If the action on the substructure annihilated it,
+                # then annihilate this structure as well
                 if substructure.is_void():
                     structure.annihilate()
                 return
@@ -502,6 +551,35 @@ class Current(base_objects.Process):
                 self['parent_subtraction_leg'].state
         )
         return
+
+    def __str__(self):
+        """Convert this current to a nice readable string."""
+
+        readable_string  = "[ "
+        readable_string += str(self['parent_subtraction_leg'].pdg)
+        readable_string += SubtractionLeg.state_str(
+            self['parent_subtraction_leg'].state
+        )
+        readable_string += " -> "
+        readable_string += self['singular_structure'].__str__('pdg', True)
+        readable_string += " ]"
+        return readable_string
+
+    def get_key(self):
+        """Return the ProcessKey associated to this current."""
+
+        return contributions.ProcessKey(
+                self,
+                allowed_attributes = [
+                    'singular_structure',
+                    'parent_subtraction_leg'
+                ]
+            )
+
+    def __eq__(self, other):
+        """Compare two currents using their ProcessKey's."""
+
+        return self.get_key().key_dict == other.get_key().key_dict
 
 #===============================================================================
 # IRSubtraction
@@ -715,8 +793,9 @@ class IRSubtraction(object):
         """Convert this structure to a list of elementary currents
         at the present level, without the corresponding momenta.
         """
-
-        print "get_elementary_currents called with argument", structure
+        # Note: When considering C(S(...), ...) the soft current is technically
+        #       not needed. However it has to appear in some other counterterm,
+        #       so we won't bother removing it.
 
         currents = []
 
@@ -745,7 +824,6 @@ class IRSubtraction(object):
         # Loop over substructures
         for substructure in structure.substructures:
             sub_currents = self.get_elementary_currents(substructure)
-            print "sub_currents are", sub_currents
             # Recursively add sub_currents as needed currents
             for sub_current in sub_currents:
                 if sub_current not in currents:
@@ -773,27 +851,23 @@ class IRSubtraction(object):
                     ) for current in sub_currents
                 ],]
 
-        print "Possible entries with parent:", possible_entries_with_parent
-
         # 2. Expand it, creating all tuples where the i-th element
         #    comes from the possible_entries for position i
 
         entry_sets_with_parent = [[],]
         while possible_entries_with_parent:
-            print "entry_sets_with_parent is", entry_sets_with_parent
-            print "possible_entries_with_parent is", possible_entries_with_parent
+            # print "entry_sets_with_parent is", entry_sets_with_parent
+            # print "possible_entries_with_parent is", possible_entries_with_parent
             last_entries_with_parent = possible_entries_with_parent.pop()
             new_entry_sets_with_parent = []
             for entry_set_with_parent in entry_sets_with_parent:
                 for last_entry_with_parent in last_entries_with_parent:
                     new_entry_set_with_parent = entry_set_with_parent + [last_entry_with_parent, ]
-                    print "adding", new_entry_set_with_parent, "to entry sets"
+                    # print "adding", new_entry_set_with_parent, "to entry sets"
                     new_entry_sets_with_parent.append(
                             new_entry_set_with_parent
                     )
             entry_sets_with_parent = new_entry_sets_with_parent
-
-        print "Entry sets with parent:", entry_sets_with_parent
 
         # 3. Now create the current by adding the parent_subtraction_leg
         #    and converting the list of entries in the appropriate object
@@ -804,8 +878,8 @@ class IRSubtraction(object):
                 for entry_with_parent in entry_set_with_parent
             )
             singular_structure = type(structure)(
-                entry_with_parent[1]
-                for entry_with_parent in entry_set_with_parent
+                    entry_with_parent[1]
+                    for entry_with_parent in entry_set_with_parent
             )
             parent_pdgs  = self.parent_PDGs(daughters)
             parent_state = SubtractionLeg.FINAL
@@ -819,10 +893,7 @@ class IRSubtraction(object):
                 })
                 if current not in currents:
                     currents.append(current)
-                else:
-                    print "current", current, "was already found"
 
-        print "returning from get_elementary_currents with argument", structure
         return currents
 
     # # TODO Fix this

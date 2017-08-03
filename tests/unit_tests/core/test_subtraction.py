@@ -220,6 +220,17 @@ class NLOSubtractionTest(unittest.TestCase):
                 correction_types=['QCD']
         )
 
+    def test_singular_structure_init(self):
+        """Test initialization of SingularStructure."""
+
+        subtraction_leg_set = sub.SubtractionLegSet(
+                self.mylegs[0], self.mylegs[2]
+        )
+        self.assertEqual(
+                sub.SingularStructure(subtraction_leg_set),
+                sub.SingularStructure(leg for leg in subtraction_leg_set)
+        )
+
     def test_generation_of_elementary_operators(self):
         """Test generation of all elementary operators for selected process."""
 
@@ -321,91 +332,153 @@ class NLOSubtractionTest(unittest.TestCase):
     def test_elementary_currents(self):
         """Test the recognition of elementary currents as functions."""
 
-        structure1 = sub.SingularStructure(sub.CollStructure(
-                sub.CollStructure(
-                        sub.SubtractionLeg(1,  1, sub.SubtractionLeg.INITIAL),
-                        sub.SubtractionLeg(4, 21, sub.SubtractionLeg.FINAL)
-                ),
-                sub.SubtractionLeg(5, 21, sub.SubtractionLeg.FINAL)
-        ))
+        gi  = sub.SubtractionLeg(0, 21, sub.SubtractionLeg.INITIAL)
+        qi  = sub.SubtractionLeg(0,  1, sub.SubtractionLeg.INITIAL)
+        gf  = sub.SubtractionLeg(0, 21, sub.SubtractionLeg.FINAL)
+        qf  = sub.SubtractionLeg(0,  1, sub.SubtractionLeg.FINAL)
+        qbf = sub.SubtractionLeg(0, -1, sub.SubtractionLeg.FINAL)
+        Qf  = sub.SubtractionLeg(0,  2, sub.SubtractionLeg.FINAL)
+        Qbf = sub.SubtractionLeg(0, -2, sub.SubtractionLeg.FINAL)
 
-        currents1 = self.mysubtraction.get_elementary_currents(structure1)
-        misc.sprint(len(currents1[0]['singular_structure'].legs))
-        target_currents1 = [
-            sub.Current({
-                'parent_subtraction_leg': sub.SubtractionLeg(
-                        0, 1, sub.SubtractionLeg.INITIAL
-                ),
-                'singular_structure': sub.CollStructure(
-                        sub.SubtractionLeg(0,  1, sub.SubtractionLeg.INITIAL),
-                        sub.SubtractionLeg(0, 21, sub.SubtractionLeg.FINAL)
-                )
+        C_qi_gf = sub.CollStructure(qi, gf)
+        S_gf = sub.SoftStructure(gf)
+        C_qi_S_gf = sub.CollStructure(qi, S_gf)
+        C_Qf_Qbf = sub.CollStructure(Qf, Qbf)
+        C_qf_qbf_gf_gf = sub.CollStructure(qf, qbf, gf, gf)
+
+        qi1  = sub.SubtractionLeg(1,  1, sub.SubtractionLeg.INITIAL)
+        gf4  = sub.SubtractionLeg(4, 21, sub.SubtractionLeg.FINAL)
+        gf5  = sub.SubtractionLeg(5, 21, sub.SubtractionLeg.FINAL)
+        qf6  = sub.SubtractionLeg(0,  1, sub.SubtractionLeg.FINAL)
+        Qf7  = sub.SubtractionLeg(0,  2, sub.SubtractionLeg.FINAL)
+        qbf8 = sub.SubtractionLeg(0, -1, sub.SubtractionLeg.FINAL)
+        Qbf9 = sub.SubtractionLeg(0, -2, sub.SubtractionLeg.FINAL)
+
+        qi_2_C_qi_gf = sub.Current({
+                'parent_subtraction_leg': qi,
+                'singular_structure': C_qi_gf
             })
+        gf_2_S_gf = sub.Current({
+                'parent_subtraction_leg': gf,
+                'singular_structure': S_gf
+            })
+        qi_2_C_qi_S_gf = sub.Current({
+                'parent_subtraction_leg': qi,
+                'singular_structure': C_qi_S_gf
+            })
+        gf_2_C_Qf_Qbf = sub.Current({
+            'parent_subtraction_leg': gf,
+            'singular_structure': C_Qf_Qbf
+        })
+        gf_2_C_qf_qbf_gf_gf = sub.Current({
+            'parent_subtraction_leg': gf,
+            'singular_structure': C_qf_qbf_gf_gf
+        })
+
+        structure_1 = sub.SingularStructure(sub.CollStructure(
+                sub.CollStructure(qi1, gf4),
+                gf5
+        ))
+        currents_1 = self.mysubtraction.get_elementary_currents(structure_1)
+        target_currents_1 = [qi_2_C_qi_gf]
+        current_keys_1 = [
+            current.get_key().key_dict
+            for current in currents_1
         ]
-        current1_keys = [contributions.ProcessKey(current,
-                allowed_attributes=['singular_structure', 'parent_subtraction_leg']).key_dict for current in currents1]
+        target_currents_keys_1 = [
+            current.get_key().key_dict
+            for current in target_currents_1
+        ]
+        self.assertEqual(current_keys_1, target_currents_keys_1)
 
-        target_currents1_keys = [contributions.ProcessKey(current,
-                allowed_attributes=['singular_structure', 'parent_subtraction_leg']).key_dict for current in target_currents1]
-        
-        misc.sprint(current1_keys)
-        misc.sprint(target_currents1_keys)
-        self.assertEqual(current1_keys, target_currents1_keys)
+        structure_2 = sub.SingularStructure(sub.CollStructure(
+                sub.CollStructure(qi1, gf4),
+                sub.SoftStructure(gf5)
+        ))
+        currents_2 = self.mysubtraction.get_elementary_currents(structure_2)
+        target_currents_2 = [qi_2_C_qi_gf, gf_2_S_gf, qi_2_C_qi_S_gf]
+        current_keys_2 = [
+            current.get_key().key_dict
+            for current in currents_2
+        ]
+        target_current_keys_2 = [
+            current.get_key().key_dict
+            for current in target_currents_2
+        ]
 
-    # def test_operator_combinations(self):
-    #     """Test the generation of all elementary operators
-    #     for one selected process.
-    #     """
-    #
-    #     target_combos = [
-    #         # 0
-    #         '()',
-    #         # 1
-    #         '(S(4),)', '(S(5),)',
-    #         '(C(4,5),)', '(C(1,4),)', '(C(1,5),)', '(C(2,4),)', '(C(2,5),)',
-    #         # 2
-    #         '(S(4),S(5),)',
-    #         '(C(S(4),5),)', '(C(S(4),1),)', '(C(S(4),2),)',
-    #         '(C(1,5),S(4),)', '(C(2,5),S(4),)',
-    #         '(C(S(5),4),)', '(C(S(5),1),)', '(C(S(5),2),)',
-    #         '(C(1,4),S(5),)', '(C(2,4),S(5),)',
-    #         '(C(1,4),C(2,5),)', '(C(1,5),C(2,4),)',
-    #         # 3
-    #         '(C(S(5),1),S(4),)', '(C(S(5),2),S(4),)',
-    #         '(C(S(4),1),S(5),)', '(C(S(4),2),S(5),)',
-    #         '(C(2,5),C(S(4),1),)', '(C(1,5),C(S(4),2),)',
-    #         '(C(2,4),C(S(5),1),)', '(C(1,4),C(S(5),2),)',
-    #         # 4
-    #         '(C(S(4),1),C(S(5),2),)', '(C(S(4),2),C(S(5),1),)',
-    #     ]
-    #
-    #     elem_operators = self.mysubtraction.get_all_elementary_operators(self.myprocess)
-    #
-    #     combos = self.mysubtraction.get_all_combinations(elem_operators)
-    #     self.assertEqual(
-    #             set(target_combos),
-    #             set(str(combo) for combo in combos)
-    #     )
-    #
-    #     target_filtered_NLO_combos = [
-    #         # 0
-    #         '()',
-    #         # 1
-    #         '(S(4),)', '(S(5),)',
-    #         '(C(4,5),)', '(C(1,4),)', '(C(1,5),)', '(C(2,4),)', '(C(2,5),)',
-    #         # 2
-    #         '(C(S(4),5),)', '(C(S(4),1),)', '(C(S(4),2),)',
-    #         '(C(S(5),4),)', '(C(S(5),1),)', '(C(S(5),2),)'
-    #     ]
-    #
-    #     misc.sprint("target_filtered_NLO_combos: ", target_filtered_NLO_combos)
-    #     filtered_NLO_combos = self.mysubtraction.filter_combinations(combos)
-    #     misc.sprint("filtered_NLO_combinations: ", [str(combo) for combo in filtered_NLO_combos])
-    #     self.assertEqual(
-    #             set(target_filtered_NLO_combos),
-    #             set(str(combo) for combo in filtered_NLO_combos)
-    #     )
-    #
+        self.assertEqual(current_keys_2, target_current_keys_2)
+
+        structure_3 = sub.SingularStructure(sub.CollStructure(
+            qf6,
+            sub.CollStructure(Qbf9, Qf7),
+            qbf8,
+            gf4
+        ))
+        currents_3 = self.mysubtraction.get_elementary_currents(structure_3)
+        target_currents_3 = [gf_2_C_Qf_Qbf, gf_2_C_qf_qbf_gf_gf]
+        current_keys_3 = [
+            current.get_key().key_dict
+            for current in currents_3
+        ]
+        target_current_keys_3 = [
+            current.get_key().key_dict
+            for current in target_currents_3
+        ]
+
+        self.assertEqual(current_keys_3, target_current_keys_3)
+
+    def test_operator_combinations(self):
+        """Test the generation of all elementary operators
+        for one selected process.
+        """
+
+        target_combos = [
+            # 0
+            '()',
+            # 1
+            '(S(4),)', '(S(5),)',
+            '(C(4,5),)', '(C(1,4),)', '(C(1,5),)', '(C(2,4),)', '(C(2,5),)',
+            # 2
+            '(S(4),S(5),)',
+            '(C(S(4),5),)', '(C(S(4),1),)', '(C(S(4),2),)',
+            '(C(1,5),S(4),)', '(C(2,5),S(4),)',
+            '(C(S(5),4),)', '(C(S(5),1),)', '(C(S(5),2),)',
+            '(C(1,4),S(5),)', '(C(2,4),S(5),)',
+            '(C(1,4),C(2,5),)', '(C(1,5),C(2,4),)',
+            # 3
+            '(C(S(5),1),S(4),)', '(C(S(5),2),S(4),)',
+            '(C(S(4),1),S(5),)', '(C(S(4),2),S(5),)',
+            '(C(2,5),C(S(4),1),)', '(C(1,5),C(S(4),2),)',
+            '(C(2,4),C(S(5),1),)', '(C(1,4),C(S(5),2),)',
+            # 4
+            '(C(S(4),1),C(S(5),2),)', '(C(S(4),2),C(S(5),1),)',
+        ]
+
+        elem_operators = self.mysubtraction.get_all_elementary_operators(self.myprocess)
+
+        combos = self.mysubtraction.get_all_combinations(elem_operators)
+        self.assertEqual(
+                set(target_combos),
+                set(str(combo) for combo in combos)
+        )
+
+        target_filtered_NLO_combos = [
+            # 0
+            '()',
+            # 1
+            '(S(4),)', '(S(5),)',
+            '(C(4,5),)', '(C(1,4),)', '(C(1,5),)', '(C(2,4),)', '(C(2,5),)',
+            # 2
+            '(C(S(4),5),)', '(C(S(4),1),)', '(C(S(4),2),)',
+            '(C(S(5),4),)', '(C(S(5),1),)', '(C(S(5),2),)'
+        ]
+
+        filtered_NLO_combos = self.mysubtraction.filter_combinations(combos)
+        self.assertEqual(
+                set(target_filtered_NLO_combos),
+                set(str(combo) for combo in filtered_NLO_combos)
+        )
+
     #     sub_legs = [sub.SubtractionLeg(leg) for leg in self.mylegs]
     #
     #     target_elementary_NLO_currents = [

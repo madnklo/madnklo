@@ -75,7 +75,7 @@ class ProcessKey(object):
         self.key_dict = {}
 
         # PDGs
-        if ((not allowed_attributes is None) and 'PDGs' in allowed_attributes) and (not 'PDGs' in vetoed_attributes):
+        if (allowed_attributes is None or 'PDGs' in allowed_attributes) and (not 'PDGs' in vetoed_attributes):
             if PDGs:
                 self.key_dict['PDGs'] = PDGs
             elif 'legs' in opts:
@@ -161,7 +161,7 @@ class ProcessKey(object):
         """ Modify an entry in the key_dict created."""
         
         if key not in self.key_dict:
-            raise MadGraph5Error("Key '%s' was not found in the key_dict created in ProcessKey.")
+            raise MadGraph5Error("Key '%s' was not found in the key_dict created in ProcessKey."%key)
         if not isinstance(value, (int, str, bool, tuple)):
             raise MadGraph5Error("Values for the key_dict created in ProcessKey should be of type (int, str, bool, tuple).")
         
@@ -1728,7 +1728,7 @@ class Contribution(object):
         self.set_helas_model()
         
         ncalls, delta_time2 = self.generate_code()
-        
+
         matrix_elements = self.all_matrix_elements.get_matrix_elements()
 
         # Replace the amplitudes with the actual amplitudes from the

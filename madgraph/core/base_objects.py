@@ -2976,21 +2976,21 @@ class Process(PhysicsObject):
                 'legs_with_decays', 'perturbation_couplings', 'has_born', 
                 'NLO_mode','split_orders','n_loops', 'has_mirror_process']
 
-    def nice_string(self, indent=0, print_weighted = True, prefix=True):
-        """Returns a nicely formated string about current process
+    def nice_string(self, indent = 0, print_weighted = True, prefix = True):
+        """Returns a nicely formatted string about current process
         content. Since the WEIGHTED order is automatically set and added to 
-        the user-defined list of orders, it can be ommitted for some info
+        the user-defined list of orders, it can be omitted for some info
         displays."""
+        # TODO: indent only makes sense if prefix is True, move it afterwards
 
+        mystr = ""
         if prefix:
             mystr = " " * indent + "Process: "
-        else:
-            mystr = ""
         prevleg = None
         for leg in self['legs']:
             mypart = self['model'].get('particle_dict')[leg['id']]
-            if prevleg and prevleg['state'] == False \
-                   and leg['state'] == True:
+            if prevleg and prevleg['state'] == Leg.INITIAL \
+                   and leg['state'] == Leg.FINAL:
                 # Separate initial and final legs by >
                 mystr = mystr + '> '
                 # Add required s-channels

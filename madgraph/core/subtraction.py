@@ -36,6 +36,7 @@ import madgraph.core.base_objects as base_objects
 import madgraph.core.contributions as contributions
 import madgraph.fks.fks_common as fks_common
 import madgraph.various.misc as misc
+from bidict import bidict
 
 logger = logging.getLogger('madgraph')
 pjoin = os.path.join
@@ -111,6 +112,23 @@ class SubtractionLeg(tuple):
         if state == SubtractionLeg.FINAL:
             return 'f'
         return 'i'
+
+    def __str__(self, print_n = True, print_pdg = False, print_state = False):
+        """Return a string representation of this subtraction leg."""
+
+        tmp = [str(self.n), str(self.pdg), SubtractionLeg.state_str(self.state)]
+        if not print_state:
+            del tmp[2]
+        if not print_pdg:
+            del tmp[1]
+        if not print_n:
+            del tmp[0]
+        if tmp:
+            if len(tmp) == 1:
+                return tmp[0]
+            else:
+                return "(" + ", ".join(tmp) + ")"
+        return ""
 
 #===============================================================================
 # SubtractionLegSet
@@ -197,7 +215,7 @@ class SingularStructure(object):
         for a in components:
             if not isinstance(a, (SingularStructure, SubtractionLeg)):
                 raise MadGraph5Error(
-                        "SubtractionOperator initialized with invalid argument "
+                        "SingularStructure initialized with invalid argument "
                         "%s of type %s." % (a, str(type(a)))
                 )
 
@@ -211,30 +229,23 @@ class SingularStructure(object):
             *(a for a in components if isinstance(a, SubtractionLeg))
         )
 
-    def __str__(self, attribute = 'n', print_initial_final = False):
+    def __str__(self, print_n = True, print_pdg = False, print_state = False):
         """Return a string representation of the singular structure."""
 
         if self.is_annihilated:
-            return 'NULL'
+            return 'Non-existing structure'
 
         tmp_str = self.name() + "("
         tmp_str += ",".join(sorted(
-            sub.__str__(attribute, print_initial_final)
-            for sub in self.substructures)
-        )
+            sub.__str__(print_n, print_pdg, print_state)
+            for sub in self.substructures
+        ))
         if self.substructures:
             tmp_str += ","
-        if print_initial_final:
-            tmp_str += ",".join(sorted(
-                str(leg.__getattribute__(attribute)) +
-                SubtractionLeg.state_str(leg.state)
-                for leg in self.legs
-            ))
-        else:
-            tmp_str += ",".join(sorted(
-                str(leg.__getattribute__(attribute))
-                for leg in self.legs
-            ))
+        tmp_str += ",".join(sorted(
+            leg.__str__(print_n, print_pdg, print_state)
+            for leg in self.legs
+        ))
         tmp_str += ")"
         return tmp_str
 
@@ -532,9 +543,7 @@ class Current(base_objects.Process):
         """
 
         super(Current, self).default_setup()
-        self['singular_structure'] = SingularStructure()
-        self['parent_subtraction_leg'] = None
-
+        self['singular_structure'] = SingularStructure().annihilate()
         return
 
     def discard_leg_numbers(self):
@@ -545,24 +554,14 @@ class Current(base_objects.Process):
         """
 
         self['singular_structure'].discard_leg_numbers()
-        self['parent_subtraction_leg'] = SubtractionLeg(
-                0,
-                self['parent_subtraction_leg'].pdg,
-                self['parent_subtraction_leg'].state
-        )
         return
 
-    def __str__(self):
+    def __str__(self, print_n = True, print_pdg = True, print_state = True):
         """Convert this current to a nice readable string."""
 
-        readable_string  = "[ "
-        readable_string += str(self['parent_subtraction_leg'].pdg)
-        readable_string += SubtractionLeg.state_str(
-            self['parent_subtraction_leg'].state
+        readable_string = self['singular_structure'].__str__(
+            print_n, print_pdg, print_state
         )
-        readable_string += " -> "
-        readable_string += self['singular_structure'].__str__('pdg', True)
-        readable_string += " ]"
         return readable_string
 
     def get_key(self):
@@ -572,7 +571,8 @@ class Current(base_objects.Process):
                 self,
                 allowed_attributes = [
                     'singular_structure',
-                    'parent_subtraction_leg'
+                    'n_loops',
+                    'squared_orders'
                 ]
             )
 
@@ -580,6 +580,68 @@ class Current(base_objects.Process):
         """Compare two currents using their ProcessKey's."""
 
         return self.get_key().key_dict == other.get_key().key_dict
+
+#===============================================================================
+# Counterterm
+#===============================================================================
+class Counterterm(object):
+    """Class representing a product of currents multiplying a matrix element."""
+    # Differentiating between:
+    # outer_currents, for which one needs color and spin correlations
+    # inner_currents, which are always summed over color and spin
+    # Ordering in *_currents does not matter,
+    # but they are lists to avoid hashing currents at this stage
+
+    def __init__(
+        self,
+        outer_currents = [],
+        inner_currents = [],
+        process = base_objects.Process(),
+        momenta_dict = bidict()
+    ):
+
+        assert isinstance(process, base_objects.Process)
+        assert isinstance(outer_currents, list)
+        assert isinstance(inner_currents, list)
+        assert isinstance(momenta_dict, bidict)
+
+        self.outer_currents = copy.copy(outer_currents)
+        self.inner_currents = copy.copy(inner_currents)
+        self.process = copy.copy(process)
+        self.momenta_dict = copy.copy(momenta_dict)
+
+        return
+
+    def __str__(self):
+
+        tmp_str  = "----- Begin counterterm -----\n"
+        tmp_str += "Outer currents:  "
+        tmp_str += ", ".join(str(ocur) for ocur in self.outer_currents)
+        tmp_str += "\nInner currents:  "
+        tmp_str += ", ".join(str(ocur) for ocur in self.inner_currents)
+        tmp_str += "\nProcess:         "
+        tmp_str += self.process.nice_string(0, True, False)
+        tmp_str += " ("
+        tmp_str += " ".join(
+            str(leg['number'])
+            for leg in self.process['legs']
+            if leg['state'] == SubtractionLeg.INITIAL
+        )
+        tmp_str += " > "
+        tmp_str += " ".join(
+            str(leg['number'])
+            for leg in self.process['legs']
+            if leg['state'] == SubtractionLeg.FINAL
+        )
+        tmp_str += ")"
+        tmp_str += "\nPseudoparticles: {"
+        tmp_str += "; ".join(
+            str(key) + ": (" +
+            ",".join(str(n) for n in self.momenta_dict[key]) + ")"
+            for key in self.momenta_dict
+        )
+        tmp_str += "}\n-----  End counterterm  -----"
+        return tmp_str
 
 #===============================================================================
 # IRSubtraction
@@ -789,112 +851,217 @@ class IRSubtraction(object):
             if self.count_unresolved(combo) <= max_unresolved
         ]
 
-    def get_elementary_currents(self, structure):
-        """Convert this structure to a list of elementary currents
-        at the present level, without the corresponding momenta.
+    def get_counterterm(
+        self,
+        structure,
+        process,
+        momenta_dict_so_far = None
+    ):
+        """Build the product of a set of currents and a matrix element
+        that approximates the matrix element for process
+        in the singular limit specified by structure.
         """
-        # Note: When considering C(S(...), ...) the soft current is technically
-        #       not needed. However it has to appear in some other counterterm,
-        #       so we won't bother removing it.
 
-        currents = []
+        # 1. Initialize variables
 
-        # Handle lists of structures as a special case
-        if not isinstance(structure, SingularStructure):
-            for real_structure in structure:
-                for current in self.get_elementary_currents(real_structure):
-                    if current not in currents:
-                        currents.append(current)
-            return currents
-        # Treat non-overlapping structures separately, avoiding recursion
-        if type(structure) is SingularStructure:
-            for real_structure in structure.substructures:
-                for current in self.get_elementary_currents(real_structure):
-                    if current not in currents:
-                        currents.append(current)
-            return currents
+        assert isinstance(structure, SingularStructure)
+        assert isinstance(process, base_objects.Process)
 
-        # 1. Build a list of possible entries for any position in the current
+        # print "Applying ", structure, "on", process.nice_string(0, True, False)
 
-        # All legs have to be entries, add them discarding particle numbers
-        possible_entries_with_parent = [
-            [(SubtractionLeg(0, leg.pdg, leg.state), )*2, ]
-            for leg in structure.legs
-        ]
-        # Loop over substructures
+        # If no momenta dictionary was passed
+        if not momenta_dict_so_far:
+            # Initialize it with process legs
+            momenta_dict_so_far = bidict()
+            for leg in process['legs']:
+                # Check that legs are numbered progressively
+                # from 1 to len(process['legs']),
+                # else a more elaborate treatment of indices is needed
+                assert leg['number'] == len(momenta_dict_so_far)+1
+                momenta_dict_so_far[leg['number']] = frozenset((leg['number'],))
+
+        outer_currents = []
+        inner_currents = []
+        reduced_process = copy.deepcopy(process)
+
+        # 2. Recursively look into substructures
+
         for substructure in structure.substructures:
-            sub_currents = self.get_elementary_currents(substructure)
-            # Recursively add sub_currents as needed currents
-            for sub_current in sub_currents:
-                if sub_current not in currents:
-                    currents.append(sub_current)
-            if isinstance(substructure, SoftStructure):
-                # If it is a soft within something else (should be collinear),
-                # preserve the structure because C(i,...,S(j,...))
-                # is an elementary current with an expression of its own
-                # Note: take the singular_structure from the current,
-                # so that internal simplifications like
-                #   S(C(i,j,...)) -> S(parent of i,j,...)
-                # have already happened (and leg numbers were discarded)
-                possible_entries_with_parent.append([
-                    (
-                        current['parent_subtraction_leg'],
-                        current['singular_structure']
-                    ) for current in sub_currents
-                ])
+            # Construct the sub counterterm
+            sub_counterterm = self.get_counterterm(
+                substructure,
+                reduced_process,
+                momenta_dict_so_far
+            )
+            # print "Applying ", substructure, "on", process.nice_string(0, True, False), "returned:"
+            # print sub_counterterm
+            # Recursive currents deeper within the substructure are needed
+            inner_currents += sub_counterterm.inner_currents
+            outer_currents += sub_counterterm.outer_currents
+            reduced_process = sub_counterterm.process
+            # OLD VERSION
+            # # If the substructure was collinear
+            # if isinstance(substructure, CollStructure):
+            #     # Really simplify the process and
+            #     # add the corresponding current to the ones needed
+            #     outer_currents += sub_counterterm.outer_currents
+            #     reduced_process = sub_counterterm.process
+            # # If the substructure was soft
+            # elif isinstance(substructure, SoftStructure):
+            #     # If the soft sector is at the outermost level
+            #     if type(structure) is SingularStructure:
+            #         outer_currents += sub_counterterm.outer_currents
+            #         reduced_process = sub_counterterm.process
+            #     # else this was a soft within a collinear
+            #     # (softs in softs are never generated)
+            #     # so the outermost soft current is not needed
+            #     # (we will need the soft-collinear instead)
+            #     # and the process will only be simplified by 'structure'
+            #     pass
+            # # If the substructure was of a type not above, raise error
+            # else:
+            #     raise MadGraph5Error(
+            #         "Building counterterm with unrecognized type of "
+            #         "singular structure %s" % str(type(substructure))
+            #     )
+
+        # 3. Look at the current structure
+        # BALDY This assumes collinear structures have exactly one parent
+
+        # If this is the outermost level,
+        # the recursion was all that needed to be done
+        if type(structure) is SingularStructure:
+            return Counterterm(
+                outer_currents,
+                inner_currents,
+                reduced_process,
+                momenta_dict_so_far
+            )
+
+        # 3.1 Build the current_type from structure
+        current_args = set(structure.legs)
+        for current in outer_currents:
+            current_structure = current['singular_structure']
+            current_legs = current_structure.get_all_legs()
+            current_leg_ns = frozenset(
+                leg.n for leg in current_legs
+            )
+            # Replace collinear substructures with their parent
+            if isinstance(current_structure, CollStructure):
+                # The parent has already been generated by recursion,
+                # retrieve its number
+                parent_index = momenta_dict_so_far.inv[current_leg_ns]
+                parent_PDGs = self.parent_PDGs(current_legs)
+                assert len(parent_PDGs) == 1
+                parent_PDG = parent_PDGs[0]
+                parent_state = SubtractionLeg.FINAL
+                if current_legs.has_initial_state_leg():
+                    parent_state = SubtractionLeg.INITIAL
+                current_args.add(
+                    SubtractionLeg(parent_index, parent_PDG, parent_state)
+                )
+            # Replace soft structures with their flattened versions
+            elif isinstance(current_structure, SoftStructure):
+                current_args.add(current['singular_structure'])
+                outer_currents.remove(current)
+            # Other structures need to be implemented
             else:
-                # else just add the parent of the substructure
-                possible_entries_with_parent += [[
-                    (
-                        current['parent_subtraction_leg'],
-                        current['parent_subtraction_leg']
-                    ) for current in sub_currents
-                ],]
+                raise MadGraph5Error(
+                    "Unrecognized current of type %s" %
+                    str(type(current_structure))
+                )
+        # OLD VERSION
+        # for substructure in structure.substructures:
+        #     substructure_legs = substructure.get_all_legs()
+        #     substructure_leg_ns = frozenset(
+        #         leg.n for leg in substructure_legs
+        #     )
+        #     # Replace collinear substructures with their parent
+        #     if isinstance(substructure, CollStructure):
+        #         # The parent has already been generated by recursion,
+        #         # retrieve its number
+        #         parent_index = momenta_dict_so_far.inv[substructure_leg_ns]
+        #         parent_PDGs = self.parent_PDGs(substructure_legs)
+        #         assert len(parent_PDGs) == 1
+        #         parent_PDG = parent_PDGs[0]
+        #         parent_state = SubtractionLeg.FINAL
+        #         if substructure_legs.has_initial_state_leg():
+        #             parent_state = SubtractionLeg.INITIAL
+        #         current_args.add(
+        #             SubtractionLeg(parent_index, parent_PDG, parent_state)
+        #         )
+        #     # Replace soft structures with their flattened versions
+        #     elif isinstance(substructure, SoftStructure):
+        #         current_args.add(SoftStructure(substructure_legs))
+        #     # Other structures need to be implemented
+        #     else:
+        #         raise MadGraph5Error(
+        #             "Building current with unrecognized singular structure "
+        #             "of type %s" % str(type(substructure))
+        #         )
+        # This is not the outermost level,
+        # outer_currents are actually inner_currents and will be overwritten
+        inner_currents += outer_currents
+        current_type = type(structure)(current_args)
+        outer_currents = [
+            Current({
+                'singular_structure': current_type
+            })
+        ]
 
-        # 2. Expand it, creating all tuples where the i-th element
-        #    comes from the possible_entries for position i
-
-        entry_sets_with_parent = [[],]
-        while possible_entries_with_parent:
-            # print "entry_sets_with_parent is", entry_sets_with_parent
-            # print "possible_entries_with_parent is", possible_entries_with_parent
-            last_entries_with_parent = possible_entries_with_parent.pop()
-            new_entry_sets_with_parent = []
-            for entry_set_with_parent in entry_sets_with_parent:
-                for last_entry_with_parent in last_entries_with_parent:
-                    new_entry_set_with_parent = entry_set_with_parent + [last_entry_with_parent, ]
-                    # print "adding", new_entry_set_with_parent, "to entry sets"
-                    new_entry_sets_with_parent.append(
-                            new_entry_set_with_parent
-                    )
-            entry_sets_with_parent = new_entry_sets_with_parent
-
-        # 3. Now create the current by adding the parent_subtraction_leg
-        #    and converting the list of entries in the appropriate object
-
-        for entry_set_with_parent in entry_sets_with_parent:
-            daughters = SubtractionLegSet(
-                entry_with_parent[0]
-                for entry_with_parent in entry_set_with_parent
-            )
-            singular_structure = type(structure)(
-                    entry_with_parent[1]
-                    for entry_with_parent in entry_set_with_parent
-            )
-            parent_pdgs  = self.parent_PDGs(daughters)
+        # 3.2 Build the reduced process
+        structure_legs = current_type.get_all_legs()
+        structure_leg_ns = frozenset(leg.n for leg in structure_legs)
+        parent = None
+        if isinstance(structure, CollStructure):
+            # Add entry to dictionary
+            parent_index = len(momenta_dict_so_far)+1
+            momenta_dict_so_far[parent_index] = structure_leg_ns
+            # Work out the complete SubtractionLeg for the parent
+            parent_PDGs = self.parent_PDGs(structure_legs)
+            assert len(parent_PDGs) == 1
+            parent_PDG = parent_PDGs[0]
             parent_state = SubtractionLeg.FINAL
-            if daughters.has_initial_state_leg():
+            if structure_legs.has_initial_state_leg():
                 parent_state = SubtractionLeg.INITIAL
-            for parent_pdg in parent_pdgs:
-                parent_subtraction_leg = SubtractionLeg(0, parent_pdg, parent_state)
-                current = Current({
-                    'parent_subtraction_leg': parent_subtraction_leg,
-                    'singular_structure': singular_structure
+            parent = SubtractionLeg(parent_index, parent_PDG, parent_state)
+        elif isinstance(structure, SoftStructure):
+            # No parent
+            pass
+        else:
+            raise MadGraph5Error(
+                "Building unrecognized current of type %s" %
+                str(type(structure))
+            )
+        # Remove legs of this structure
+        legs_to_remove = []
+        for leg in reduced_process['legs']:
+            if leg['number'] in structure_leg_ns:
+                legs_to_remove.append(leg)
+        for leg in legs_to_remove:
+            reduced_process['legs'].remove(leg)
+        # Add parent of this structure
+        if parent:
+            reduced_process['legs'].append(
+                base_objects.Leg({
+                    'number': parent.n,
+                    'id': parent.pdg,
+                    'state': parent.state
                 })
-                if current not in currents:
-                    currents.append(current)
+            )
+        # Sort preserving the initial state order
+        rp_legs = reduced_process['legs']
+        rp_legs.sort(key = lambda x: (x['state'], x['number']))
+        if rp_legs[0]['number'] == 2:
+            rp_legs[0], rp_legs[1] = rp_legs[1], rp_legs[0]
 
-        return currents
+        # Finally return the counterterm
+        return Counterterm(
+            outer_currents,
+            inner_currents,
+            reduced_process,
+            momenta_dict_so_far
+        )
 
     # # TODO Fix this
     # def reduced_me(self, structure, process):

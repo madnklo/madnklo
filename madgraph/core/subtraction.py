@@ -543,7 +543,7 @@ class Current(base_objects.Process):
         """
 
         super(Current, self).default_setup()
-        self['singular_structure'] = SingularStructure().annihilate()
+        self['singular_structure'] = SingularStructure()
         return
 
     def discard_leg_numbers(self):
@@ -582,45 +582,63 @@ class Current(base_objects.Process):
         return self.get_key().key_dict == other.get_key().key_dict
 
 #===============================================================================
-# Counterterm
+# CountertermNode
 #===============================================================================
-class Counterterm(object):
-    """Class representing a product of currents multiplying a matrix element."""
-    # Differentiating between:
-    # outer_currents, for which one needs color and spin correlations
-    # inner_currents, which are always summed over color and spin
-    # Ordering in *_currents does not matter,
-    # but they are lists to avoid hashing currents at this stage
+class CountertermNode(object):
+    """Class representing a current attaching to legs and other currents."""
 
     def __init__(
         self,
-        outer_currents = [],
-        inner_currents = [],
-        process = base_objects.Process(),
-        momenta_dict = bidict()
+        current = None,
+        subcurrents = None
     ):
 
-        assert isinstance(process, base_objects.Process)
-        assert isinstance(outer_currents, list)
-        assert isinstance(inner_currents, list)
-        assert isinstance(momenta_dict, bidict)
+        if current:
+            assert isinstance(current, base_objects.Process)
+            self.current = copy.copy(current)
+        else:
+            self.current = Current()
+        if subcurrents:
+            assert isinstance(subcurrents, dict)
+            self.subcurrents = copy.copy(subcurrents)
+        else:
+            self.subcurrents = dict()
 
-        self.outer_currents = copy.copy(outer_currents)
-        self.inner_currents = copy.copy(inner_currents)
-        self.process = copy.copy(process)
-        self.momenta_dict = copy.copy(momenta_dict)
+    def __str__(self, level = 0):
 
-        return
+        tmp_str = "    " * level + str(self.current) + "\n"
+        for subcurrent_list in self.subcurrents.values():
+            for subcurrent in subcurrent_list:
+                tmp_str += subcurrent.__str__(level+1)
+        return tmp_str
 
-    def __str__(self):
+#===============================================================================
+# Counterterm
+#===============================================================================
+class Counterterm(CountertermNode):
+    """Class representing a tree of currents multiplying a matrix element."""
 
-        tmp_str  = "----- Begin counterterm -----\n"
-        tmp_str += "Outer currents:  "
-        tmp_str += ", ".join(str(ocur) for ocur in self.outer_currents)
-        tmp_str += "\nInner currents:  "
-        tmp_str += ", ".join(str(ocur) for ocur in self.inner_currents)
-        tmp_str += "\nProcess:         "
-        tmp_str += self.process.nice_string(0, True, False)
+    def __init__(
+        self,
+        process = None,
+        subcurrents = None,
+        momenta_dict = None
+    ):
+
+        super(Counterterm, self).__init__(process, subcurrents)
+        if momenta_dict:
+            assert isinstance(momenta_dict, bidict)
+            self.momenta_dict = copy.copy(momenta_dict)
+        else:
+            self.momenta_dict = bidict()
+
+    @property
+    def process(self):
+        return self.current
+
+    def __str__(self, level = 0):
+
+        tmp_str  = "    " * level + self.process.nice_string(0, True, False)
         tmp_str += " ("
         tmp_str += " ".join(
             str(leg['number'])
@@ -633,14 +651,17 @@ class Counterterm(object):
             for leg in self.process['legs']
             if leg['state'] == SubtractionLeg.FINAL
         )
-        tmp_str += ")"
-        tmp_str += "\nPseudoparticles: {"
+        tmp_str += ")\n"
+        for subcurrent_list in self.subcurrents.values():
+            for subcurrent in subcurrent_list:
+                tmp_str += subcurrent.__str__(level + 1)
+        tmp_str += "    " * level + "Pseudoparticles: {"
         tmp_str += "; ".join(
             str(key) + ": (" +
             ",".join(str(n) for n in self.momenta_dict[key]) + ")"
             for key in self.momenta_dict
         )
-        tmp_str += "}\n-----  End counterterm  -----"
+        tmp_str += "}"
         return tmp_str
 
 #===============================================================================
@@ -869,6 +890,8 @@ class IRSubtraction(object):
 
         # print "Applying ", structure, "on", process.nice_string(0, True, False)
 
+        reduced_process = process
+
         # If no momenta dictionary was passed
         if not momenta_dict_so_far:
             # Initialize it with process legs
@@ -879,42 +902,20 @@ class IRSubtraction(object):
                 # else a more elaborate treatment of indices is needed
                 assert leg['number'] == len(momenta_dict_so_far)+1
                 momenta_dict_so_far[leg['number']] = frozenset((leg['number'],))
+            reduced_process = copy.deepcopy(process)
 
-        outer_currents = []
-        inner_currents = []
-        reduced_process = copy.deepcopy(process)
+        subcurrents = dict()
 
         # 2. Recursively look into substructures
 
+        current_args = set(structure.legs)
         for substructure in structure.substructures:
-            # Construct the sub counterterm
-            sub_counterterm = self.get_counterterm(
+            node = self.get_counterterm(
                 substructure,
                 reduced_process,
                 momenta_dict_so_far
             )
-            # Recursive currents deeper within the substructure are needed
-            inner_currents += sub_counterterm.inner_currents
-            outer_currents += sub_counterterm.outer_currents
-            reduced_process = sub_counterterm.process
-
-        # 3. Look at the current structure
-        # BALDY This assumes collinear structures have exactly one parent
-
-        # If this is the outermost level,
-        # the recursion was all that needed to be done
-        if type(structure) is SingularStructure:
-            return Counterterm(
-                outer_currents,
-                inner_currents,
-                reduced_process,
-                momenta_dict_so_far
-            )
-
-        # 3.1 Build the current_type from structure
-        current_args = set(structure.legs)
-        for current in outer_currents:
-            current_structure = current['singular_structure']
+            current_structure = node.current['singular_structure']
             current_legs = current_structure.get_all_legs()
             current_leg_ns = frozenset(
                 leg.n for leg in current_legs
@@ -924,6 +925,7 @@ class IRSubtraction(object):
                 # The parent has already been generated by recursion,
                 # retrieve its number
                 parent_index = momenta_dict_so_far.inv[current_leg_ns]
+                # Build the SubtractionLeg that appears in the current arguments
                 parent_PDGs = self.parent_PDGs(current_legs)
                 assert len(parent_PDGs) == 1
                 parent_PDG = parent_PDGs[0]
@@ -933,25 +935,43 @@ class IRSubtraction(object):
                 current_args.add(
                     SubtractionLeg(parent_index, parent_PDG, parent_state)
                 )
+                # Eliminate soft sub-nodes without losing their children
+                if None in node.subcurrents:
+                    for soft_current in node.subcurrents[None]:
+                        node.subcurrents.update(soft_current.subcurrents)
+                    node.subcurrents.pop(None)
+                # Add this node
+                if parent_index not in subcurrents:
+                    subcurrents[parent_index] = []
+                subcurrents[parent_index].append(node)
             # Replace soft structures with their flattened versions
             elif isinstance(current_structure, SoftStructure):
-                current_args.add(current['singular_structure'])
-                outer_currents.remove(current)
+                current_args.add(current_structure)
+                if None not in subcurrents:
+                    subcurrents[None] = []
+                subcurrents[None].append(node)
             # Other structures need to be implemented
             else:
                 raise MadGraph5Error(
                     "Unrecognized current of type %s" %
                     str(type(current_structure))
                 )
-        inner_currents += outer_currents
-        current_type = type(structure)(current_args)
-        outer_currents = [
-            Current({
-                'singular_structure': current_type
-            })
-        ]
 
-        # 3.2 Build the reduced process
+        # If this is the outermost level,
+        # the recursion was all that needed to be done
+        if type(structure) is SingularStructure:
+            return Counterterm(
+                reduced_process,
+                subcurrents,
+                momenta_dict_so_far
+            )
+
+        # 3. Else build the current and update
+        #    the reduced process as well as the dictionary
+        current_type = type(structure)(current_args)
+        current = Current({
+            'singular_structure': current_type
+        })
         structure_legs = current_type.get_all_legs()
         structure_leg_ns = frozenset(leg.n for leg in structure_legs)
         parent = None
@@ -997,12 +1017,10 @@ class IRSubtraction(object):
         if rp_legs[0]['number'] == 2:
             rp_legs[0], rp_legs[1] = rp_legs[1], rp_legs[0]
 
-        # Finally return the counterterm
-        return Counterterm(
-            outer_currents,
-            inner_currents,
-            reduced_process,
-            momenta_dict_so_far
+        # Finally return the counterterm node
+        return CountertermNode(
+            current,
+            subcurrents
         )
 
 #===============================================================================

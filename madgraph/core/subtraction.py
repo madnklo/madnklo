@@ -42,6 +42,20 @@ logger = logging.getLogger('madgraph')
 pjoin = os.path.join
 
 #===============================================================================
+# Multinomial function
+#===============================================================================
+
+def multinomial(i_s):
+    """Compute the multinomial (i_1 + ... + i_n)!/(i_1! ... i_n!)."""
+
+    itot = 0
+    denom = 1
+    for i in i_s:
+        itot += i
+        denom *= math.factorial(i)
+    return math.factorial(itot)/denom
+
+#===============================================================================
 # SubtractionLeg
 #===============================================================================
 class SubtractionLeg(tuple):
@@ -302,6 +316,23 @@ class SingularStructure(object):
         )
 
         return tuple(sorted(canonical.items()))
+
+    def prefactor(self):
+        """Determine the prefactor of the counterterm
+        associated with this singular structure.
+        """
+
+        pref = -1
+        if type(self) == SingularStructure:
+            pref = 1
+        # Account for simplification of soft operators
+        # TODO Check this works for collinears inside softs
+        softs = []
+        for sub in self.substructures:
+            pref *= sub.prefactor()
+            if sub.name() == "S":
+                softs += [len(sub.substructures) + len(sub.legs), ]
+        return pref * multinomial(softs)
         
     def __eq__(self, other):
         """Check if two singular structures are the same."""
@@ -543,6 +574,7 @@ class Current(base_objects.Process):
         """
 
         super(Current, self).default_setup()
+        self['n_loops'] = None
         self['singular_structure'] = SingularStructure()
         return
 
@@ -562,6 +594,11 @@ class Current(base_objects.Process):
         readable_string = self['singular_structure'].__str__(
             print_n, print_pdg, print_state
         )
+        n_loops = self.get('n_loops')
+        if not n_loops is None:
+            readable_string += " @ " + str(n_loops) + " loop"
+            if n_loops != 1:
+                readable_string += "s"
         return readable_string
 
     def get_key(self):
@@ -599,18 +636,32 @@ class CountertermNode(object):
         else:
             self.current = Current()
         if subcurrents:
-            assert isinstance(subcurrents, dict)
+            assert isinstance(subcurrents, list)
             self.subcurrents = copy.copy(subcurrents)
         else:
-            self.subcurrents = dict()
+            self.subcurrents = []
 
     def __str__(self, level = 0):
 
         tmp_str = "    " * level + str(self.current) + "\n"
-        for subcurrent_list in self.subcurrents.values():
-            for subcurrent in subcurrent_list:
-                tmp_str += subcurrent.__str__(level+1)
+        for subcurrent in self.subcurrents:
+            tmp_str += subcurrent.__str__(level + 1)
         return tmp_str
+
+    def n_loops(self):
+        """If number of loops are assigned,
+        return the total number of loops in this node and its children.
+        """
+
+        result = self.current.get('n_loops')
+        if result is not None:
+            for subcurrent in self.subcurrents:
+                sub_n_loops = subcurrent.n_loops()
+                if sub_n_loops is None:
+                    result = None
+                else:
+                    result += sub_n_loops
+        return result
 
 #===============================================================================
 # Counterterm
@@ -651,10 +702,17 @@ class Counterterm(CountertermNode):
             for leg in self.process['legs']
             if leg['state'] == SubtractionLeg.FINAL
         )
-        tmp_str += ")\n"
-        for subcurrent_list in self.subcurrents.values():
-            for subcurrent in subcurrent_list:
-                tmp_str += subcurrent.__str__(level + 1)
+        tmp_str += ")"
+        process_n_loops = self.current.get('n_loops')
+        if process_n_loops is None:
+            pass
+        else:
+            tmp_str += " @ " + str(process_n_loops) + " loop"
+            if process_n_loops != 1:
+                tmp_str += "s"
+        tmp_str += "\n"
+        for subcurrent in self.subcurrents:
+            tmp_str += subcurrent.__str__(level + 1)
         tmp_str += "    " * level + "Pseudoparticles: {"
         tmp_str += "; ".join(
             str(key) + ": (" +
@@ -665,23 +723,45 @@ class Counterterm(CountertermNode):
         return tmp_str
 
 #===============================================================================
+# order_2_string
+#===============================================================================
+
+def order_2_string(order):
+    """Convert powers of the squared coupling to (N...)LO string."""
+
+    assert isinstance(order, int)
+    return order * 'N' + 'LO'
+
+#===============================================================================
 # IRSubtraction
 #===============================================================================
 class IRSubtraction(object):
-    
-    def __init__(self, model, correction_order='NLO', correction_types=['QCD']):
+
+    def __init__(self, model, orders = {'QCD': 1, 'QED': 0}):
         """Initialize a IR subtractions for a given model,
         correction order and type.
         """
         
         self.model = model
-        self.correction_order = correction_order
-        self.correction_types = correction_types
+        self.orders = orders
         # Map perturbed coupling orders to the corresponding relevant interactions and particles.
         # The values of the dictionary are 'interactions', 'pert_particles' and 'soft_particles'
         self.IR_quantities_for_corrections_types = dict(
-            (order, fks_common.find_pert_particles_interactions(self.model, pert_order = order))
-            for order in correction_types)
+            (
+                coupling,
+                fks_common.find_pert_particles_interactions(
+                    self.model,
+                    pert_order = coupling
+                )
+            )
+            for coupling in orders.keys()
+        )
+
+
+    def global_order(self):
+        """Return the total perturbative order in all couplings."""
+
+        return sum(pow for pow in self.orders.values())
 
     def can_be_IR_unresolved(self, PDG):
         """Check whether a particle given by its PDG can become unresolved
@@ -689,8 +769,8 @@ class IRSubtraction(object):
         """
 
         return any(
-            (PDG in self.IR_quantities_for_corrections_types[order]['pert_particles'])
-            for order in self.correction_types
+            (PDG in self.IR_quantities_for_corrections_types[coupling]['pert_particles'])
+            for coupling in self.orders.keys()
         )
 
     def parent_PDGs(self, legs):
@@ -709,7 +789,7 @@ class IRSubtraction(object):
             raise InvalidCmd(
                 "The function parent_PDGs is implemented for the SM only."
             )
-        if any(order!='QCD' for order in self.correction_types):
+        if any(order != 'QCD' for order in self.orders.keys()):
             raise InvalidCmd(
                 "The function parent_PDGs is implemented for QCD only."
             )
@@ -757,7 +837,7 @@ class IRSubtraction(object):
 
         for pdg in self.parent_PDGs(legs):
             particle = self.model.get_particle(pdg)
-            if (particle.get('spin')==3 and particle.get('mass')=='zero'):
+            if (particle.get('spin') == 3 and particle.get('mass') == 'zero'):
                 return True
         return False
     
@@ -789,7 +869,7 @@ class IRSubtraction(object):
         is_legs = SubtractionLegSet(legs.difference(fs_legs))
 
         # Loop over number of unresolved particles
-        for unresolved in range(1, self.correction_order.count('N')+1):
+        for unresolved in range(1, self.global_order()+1):
             # Get iterators at the start of the final-state list
             it = iter(fs_legs)
             soft_it, coll_final_it, coll_initial_it = itertools.tee(it, 3)
@@ -865,7 +945,7 @@ class IRSubtraction(object):
         for the order that has been set.
         """
 
-        max_unresolved = self.correction_order.count('N')
+        max_unresolved = self.global_order()
         return [
             combo
             for combo in combinations
@@ -904,7 +984,7 @@ class IRSubtraction(object):
                 momenta_dict_so_far[leg['number']] = frozenset((leg['number'],))
             reduced_process = copy.deepcopy(process)
 
-        subcurrents = dict()
+        subcurrents = []
 
         # 2. Recursively look into substructures
 
@@ -936,26 +1016,24 @@ class IRSubtraction(object):
                     SubtractionLeg(parent_index, parent_PDG, parent_state)
                 )
                 # Eliminate soft sub-nodes without losing their children
-                if None in node.subcurrents:
-                    for soft_current in node.subcurrents[None]:
-                        node.subcurrents.update(soft_current.subcurrents)
-                    node.subcurrents.pop(None)
-                # Add this node
-                if parent_index not in subcurrents:
-                    subcurrents[parent_index] = []
-                subcurrents[parent_index].append(node)
+                for subcurrent in node.subcurrents:
+                    if isinstance(
+                        subcurrent.current['singular_structure'],
+                        SoftStructure
+                    ):
+                        node.subcurrents += subcurrent.subcurrents
+                        node.subcurrents.remove(subcurrent)
             # Replace soft structures with their flattened versions
             elif isinstance(current_structure, SoftStructure):
                 current_args.add(current_structure)
-                if None not in subcurrents:
-                    subcurrents[None] = []
-                subcurrents[None].append(node)
             # Other structures need to be implemented
             else:
                 raise MadGraph5Error(
                     "Unrecognized current of type %s" %
                     str(type(current_structure))
                 )
+            # Add this node
+            subcurrents.append(node)
 
         # If this is the outermost level,
         # the recursion was all that needed to be done
@@ -1022,6 +1100,69 @@ class IRSubtraction(object):
             current,
             subcurrents
         )
+
+    def split_loops(self, counterterm, n_loops):
+        """Split a counterterm in several ones according to the individual
+        loop orders of its currents.
+        """
+
+        assert isinstance(counterterm, CountertermNode)
+        assert isinstance(n_loops, int)
+
+        subcurrent_combinations = []
+        subcurrents = counterterm.subcurrents
+        if not subcurrents:
+            subcurrent_combinations = [[], ]
+        else:
+            first_without_loops = subcurrents[0]
+            for loop_n in range(0, n_loops + 1):
+                for first_with_loops in self.split_loops(
+                    first_without_loops, loop_n
+                ):
+                    subcurrent_combinations += [[first_with_loops, ], ]
+            n_subcurrents = len(subcurrents)
+            i_current = 1
+            while i_current < n_subcurrents:
+                new_subcurrent_combinations = []
+                for combination in subcurrent_combinations:
+                    combination_loops = sum(
+                        cur.n_loops()
+                        for cur in combination
+                    )
+                    for new_loop_n in range(0, n_loops + 1 - combination_loops):
+                        for ith_subcurrent in self.split_loops(
+                            subcurrents[i_current], new_loop_n
+                        ):
+                            new_subcurrent_combinations.append(
+                                combination + [ith_subcurrent, ]
+                            )
+                subcurrent_combinations = new_subcurrent_combinations
+                i_current += 1
+
+        result = []
+        for combination in subcurrent_combinations:
+            combination_loops = sum(
+                cur.n_loops()
+                for cur in combination
+            )
+            if type(counterterm) == Counterterm:
+                result.append(
+                    Counterterm(
+                        copy.deepcopy(counterterm.current),
+                        combination,
+                        counterterm.momenta_dict
+                    )
+                )
+            else:
+                result.append(
+                    CountertermNode(
+                        copy.deepcopy(counterterm.current),
+                        combination
+                    )
+                )
+            result[-1].current['n_loops'] = n_loops - combination_loops
+
+        return result
 
 #===============================================================================
 # Standalone main for debugging / standalone trials

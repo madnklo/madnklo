@@ -216,8 +216,7 @@ class NLOSubtractionTest(unittest.TestCase):
 
         self.mysubtraction = sub.IRSubtraction(
                 self.mymodel,
-                correction_order='NLO',
-                correction_types=['QCD']
+                orders = {'QCD': 2}
         )
 
     def test_singular_structure_init(self):
@@ -246,7 +245,7 @@ class NLOSubtractionTest(unittest.TestCase):
 
         elem_operators = self.mysubtraction.get_all_elementary_operators(self.myprocess)
 
-        if self.mysubtraction.correction_order == 'NLO':
+        if self.mysubtraction.orders == {'QCD': 1}:
             self.assertEqual(
                     set(str(op) for op in elem_operators),
                     set(str(op) for op in elem_operators_target)
@@ -360,7 +359,7 @@ class NLOSubtractionTest(unittest.TestCase):
         elem_operators = self.mysubtraction.get_all_elementary_operators(self.myprocess)
 
         combos = self.mysubtraction.get_all_combinations(elem_operators)
-        if self.mysubtraction.correction_order == 'NLO':
+        if self.mysubtraction.orders == {'QCD': 1}:
             self.assertEqual(
                     set(target_combos),
                     set(str(combo) for combo in combos)
@@ -378,7 +377,7 @@ class NLOSubtractionTest(unittest.TestCase):
         ]
 
         filtered_NLO_combos = self.mysubtraction.filter_combinations(combos)
-        if self.mysubtraction.correction_order == 'NLO':
+        if self.mysubtraction.orders == {'QCD': 1}:
             self.assertEqual(
                     set(target_filtered_NLO_combos),
                     set(str(combo) for combo in filtered_NLO_combos)
@@ -400,10 +399,19 @@ class NLOSubtractionTest(unittest.TestCase):
         #     # TODO Keep going....
         # ]
 
+        self.myprocess['n_loops'] = None
         for combo in filtered_NLO_combos:
+            print '-'*80
             print combo
-            print self.mysubtraction.get_counterterm(combo, self.myprocess)
+            print "Prefactor:", combo.prefactor()
+            ct = self.mysubtraction.get_counterterm(combo, self.myprocess)
+            print ct
+            print ""
+            for ct_n_loops in  self.mysubtraction.split_loops(ct, 1):
+                print ct_n_loops
         print len(filtered_NLO_combos)
+
+
         # self.assertEqual(set(elementary_NLO_currents), set(target_elementary_NLO_currents))
         #
         #

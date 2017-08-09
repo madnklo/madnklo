@@ -110,8 +110,8 @@ class PhysicsObject(dict):
                 return False
 
     def filter(self, name, value):
-        """Checks if the proposed value is valid for a given property
-        name. Returns True if OK. Raises an error otherwise."""
+        """Checks if the proposed value is valid for a given property name.
+        Returns True if OK, raises an error otherwise."""
 
         return True
 
@@ -120,6 +120,19 @@ class PhysicsObject(dict):
         alphabetical."""
 
         return self.keys().sort()
+
+    def get_copy(self, copied_attributes = ()):
+        """Perform a copy of all attributes specified by copied_attributes."""
+
+        return type(self)(
+            dict(
+                (
+                    key,
+                    value if key not in copied_attributes else copy.copy(value)
+                )
+                for key, value in self.items()
+            )
+        )
 
     def __str__(self):
         """String representation of the object. Outputs valid Python 
@@ -3562,21 +3575,6 @@ for that coupling to be this maximal one. '''%(k,self.get('sqorders_types')[k],
 
     def __ne__(self, other):
         return not self.__eq__(other)
-
-    def get_copy(self, *args):
-        """Perform a copy of all attributes specified by args."""
-
-        copy = type(self)(self)
-        for arg in args:
-            assert self.has_key(arg)
-            # Avoid creating NoneType instances
-            # Brute-force copying preferred to filtering:
-            # if the user overrid the filters probably there was some reason
-            if self[arg] is None:
-                copy[arg] = None
-            else:
-                copy[arg] = type(self[arg])(self[arg])
-        return copy
 
 #===============================================================================
 # ProcessList

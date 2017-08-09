@@ -33,7 +33,6 @@ if __name__ == '__main__':
     ))
 from madgraph import MadGraph5Error, MG5DIR, InvalidCmd
 import madgraph.core.base_objects as base_objects
-import madgraph.core.contributions as contributions
 import madgraph.fks.fks_common as fks_common
 import madgraph.various.misc as misc
 from bidict import bidict
@@ -604,7 +603,8 @@ class Current(base_objects.Process):
     def get_key(self):
         """Return the ProcessKey associated to this current."""
 
-        return contributions.ProcessKey(
+        from contributions import ProcessKey
+        return ProcessKey(
                 self,
                 allowed_attributes = [
                     'singular_structure',
@@ -663,15 +663,19 @@ class CountertermNode(object):
                     result += sub_n_loops
         return result
 
-    def get_copy(self, *args):
+    def get_copy(self, copied_attributes = ()):
         """Make sure that attributes args of the object returned
         and all its children can be modified without changing the original.
         """
 
         subcurrents_copy = [
-            subcurrent.get_copy(args) for subcurrent in self.subcurrents
+            subcurrent.get_copy(copied_attributes)
+            for subcurrent in self.subcurrents
         ]
-        return CountertermNode(self.current.get_copy(args), subcurrents_copy)
+        return CountertermNode(
+            self.current.get_copy(copied_attributes),
+            subcurrents_copy
+        )
 
 #===============================================================================
 # Counterterm
@@ -732,14 +736,14 @@ class Counterterm(CountertermNode):
         tmp_str += "}"
         return tmp_str
 
-    def get_copy(self, *args):
+    def get_copy(self, copied_attributes = (), copy_momenta_dict = False):
         """Make sure that attributes args of the object returned
         and all its children can be modified without changing the original.
         """
 
-        node = super(Counterterm, self).get_copy(args)
+        node = super(Counterterm, self).get_copy(copied_attributes)
         momenta_dict = self.momenta_dict
-        if 'momenta_dictionary' in args:
+        if copy_momenta_dict:
             momenta_dict = bidict(momenta_dict)
         return Counterterm(node.current, node.subcurrents, momenta_dict)
 
@@ -1002,7 +1006,7 @@ class IRSubtraction(object):
                 # else a more elaborate treatment of indices is needed
                 assert leg['number'] == len(momenta_dict_so_far) + 1
                 momenta_dict_so_far[leg['number']] = frozenset((leg['number'],))
-            reduced_process = reduced_process.get_copy('legs', 'n_loops')
+            reduced_process = reduced_process.get_copy(['legs', 'n_loops'])
 
         subcurrents = []
 
@@ -1181,7 +1185,7 @@ class IRSubtraction(object):
             if type(counterterm) == Counterterm:
                 result.append(
                     Counterterm(
-                        counterterm.current.get_copy('n_loops'),
+                        counterterm.current.get_copy(('n_loops')),
                         combination,
                         counterterm.momenta_dict
                     )
@@ -1189,7 +1193,7 @@ class IRSubtraction(object):
             else:
                 result.append(
                     CountertermNode(
-                        counterterm.current.get_copy('n_loops'),
+                        counterterm.current.get_copy(('n_loops')),
                         combination
                     )
                 )

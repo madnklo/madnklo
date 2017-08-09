@@ -632,12 +632,12 @@ class CountertermNode(object):
 
         if current:
             assert isinstance(current, base_objects.Process)
-            self.current = copy.copy(current)
+            self.current = current
         else:
             self.current = Current()
         if subcurrents:
             assert isinstance(subcurrents, list)
-            self.subcurrents = copy.copy(subcurrents)
+            self.subcurrents = subcurrents
         else:
             self.subcurrents = []
 
@@ -663,6 +663,16 @@ class CountertermNode(object):
                     result += sub_n_loops
         return result
 
+    def get_copy(self, *args):
+        """Make sure that attributes args of the object returned
+        and all its children can be modified without changing the original.
+        """
+
+        subcurrents_copy = [
+            subcurrent.get_copy(args) for subcurrent in self.subcurrents
+        ]
+        return CountertermNode(self.current.get_copy(args), subcurrents_copy)
+
 #===============================================================================
 # Counterterm
 #===============================================================================
@@ -679,7 +689,7 @@ class Counterterm(CountertermNode):
         super(Counterterm, self).__init__(process, subcurrents)
         if momenta_dict:
             assert isinstance(momenta_dict, bidict)
-            self.momenta_dict = copy.copy(momenta_dict)
+            self.momenta_dict = momenta_dict
         else:
             self.momenta_dict = bidict()
 
@@ -721,6 +731,17 @@ class Counterterm(CountertermNode):
         )
         tmp_str += "}"
         return tmp_str
+
+    def get_copy(self, *args):
+        """Make sure that attributes args of the object returned
+        and all its children can be modified without changing the original.
+        """
+
+        node = super(Counterterm, self).get_copy(args)
+        momenta_dict = self.momenta_dict
+        if 'momenta_dictionary' in args:
+            momenta_dict = bidict(momenta_dict)
+        return Counterterm(node.current, node.subcurrents, momenta_dict)
 
 #===============================================================================
 # order_2_string
@@ -968,9 +989,8 @@ class IRSubtraction(object):
         assert isinstance(structure, SingularStructure)
         assert isinstance(process, base_objects.Process)
 
-        # print "Applying ", structure, "on", process.nice_string(0, True, False)
-
         reduced_process = process
+        reduced_process['n_loops'] = None
 
         # If no momenta dictionary was passed
         if not momenta_dict_so_far:
@@ -980,9 +1000,9 @@ class IRSubtraction(object):
                 # Check that legs are numbered progressively
                 # from 1 to len(process['legs']),
                 # else a more elaborate treatment of indices is needed
-                assert leg['number'] == len(momenta_dict_so_far)+1
+                assert leg['number'] == len(momenta_dict_so_far) + 1
                 momenta_dict_so_far[leg['number']] = frozenset((leg['number'],))
-            reduced_process = copy.deepcopy(process)
+            reduced_process = reduced_process.get_copy('legs', 'n_loops')
 
         subcurrents = []
 
@@ -1109,17 +1129,25 @@ class IRSubtraction(object):
         assert isinstance(counterterm, CountertermNode)
         assert isinstance(n_loops, int)
 
+        # Generate all combinations of subcurrents with total number of loops
+        # less or equal to n_loops
         subcurrent_combinations = []
         subcurrents = counterterm.subcurrents
+        # If this Counterterm(Node) has no subcurrents, nothing to do
         if not subcurrents:
             subcurrent_combinations = [[], ]
+        # Else construct all combinations recursively
         else:
+            # Initialize subcurrent_combinations with the first subcurrent
+            # at any loop number between 0 and n_loops
             first_without_loops = subcurrents[0]
             for loop_n in range(0, n_loops + 1):
                 for first_with_loops in self.split_loops(
                     first_without_loops, loop_n
                 ):
                     subcurrent_combinations += [[first_with_loops, ], ]
+            # Add the other subcurrents one by one recursively,
+            # taking care of never exceeding n_loops
             n_subcurrents = len(subcurrents)
             i_current = 1
             while i_current < n_subcurrents:
@@ -1130,6 +1158,9 @@ class IRSubtraction(object):
                         for cur in combination
                     )
                     for new_loop_n in range(0, n_loops + 1 - combination_loops):
+                        # Distribute the order of this subcurrent
+                        # in all possible ways within the current itself
+                        # (recursion step)
                         for ith_subcurrent in self.split_loops(
                             subcurrents[i_current], new_loop_n
                         ):
@@ -1139,6 +1170,8 @@ class IRSubtraction(object):
                 subcurrent_combinations = new_subcurrent_combinations
                 i_current += 1
 
+        # This current should be evaluated with the number of loops
+        # that is missing to reach exactly n_loops
         result = []
         for combination in subcurrent_combinations:
             combination_loops = sum(
@@ -1148,7 +1181,7 @@ class IRSubtraction(object):
             if type(counterterm) == Counterterm:
                 result.append(
                     Counterterm(
-                        copy.deepcopy(counterterm.current),
+                        counterterm.current.get_copy('n_loops'),
                         combination,
                         counterterm.momenta_dict
                     )
@@ -1156,7 +1189,7 @@ class IRSubtraction(object):
             else:
                 result.append(
                     CountertermNode(
-                        copy.deepcopy(counterterm.current),
+                        counterterm.current.get_copy('n_loops'),
                         combination
                     )
                 )

@@ -216,7 +216,7 @@ class NLOSubtractionTest(unittest.TestCase):
 
         self.mysubtraction = sub.IRSubtraction(
                 self.mymodel,
-                orders = {'QCD': 2}
+                orders = {'QCD': 1}
         )
 
     def test_singular_structure_init(self):
@@ -399,7 +399,6 @@ class NLOSubtractionTest(unittest.TestCase):
         #     # TODO Keep going....
         # ]
 
-        self.myprocess['n_loops'] = None
         for combo in filtered_NLO_combos:
             print '-'*80
             print combo
@@ -407,7 +406,7 @@ class NLOSubtractionTest(unittest.TestCase):
             ct = self.mysubtraction.get_counterterm(combo, self.myprocess)
             print ct
             print ""
-            for ct_n_loops in  self.mysubtraction.split_loops(ct, 1):
+            for ct_n_loops in self.mysubtraction.split_loops(ct, 1):
                 print ct_n_loops
         print len(filtered_NLO_combos)
 

@@ -2766,9 +2766,9 @@ class Process(PhysicsObject):
         # Legs with decay chains substituted in
         self['legs_with_decays'] = LegList()
         # Loop particles if the process is to be computed at NLO
-        self['perturbation_couplings']=[]        
+        self['perturbation_couplings'] = []
         # Specified the number of loops in that process ME.
-        self['n_loops']=0
+        self['n_loops'] = 0
         # These orders restrict the order of the squared amplitude.
         # This dictionary possibly contains a key "WEIGHTED" which
         # gives the upper bound for the total weighted order of the
@@ -2807,7 +2807,7 @@ class Process(PhysicsObject):
                 raise self.PhysicsObjectError, \
                         "%s is not a valid LegList object" % str(value)
 
-        if name in ['orders', 'overall_orders','squared_orders']:
+        if name in ['orders', 'overall_orders', 'squared_orders']:
             Interaction.filter(Interaction(), 'orders', value)
 
         if name == 'constrained_orders':
@@ -2837,7 +2837,8 @@ class Process(PhysicsObject):
             if not isinstance(value, Model):
                 raise self.PhysicsObjectError, \
                         "%s is not a valid Model object" % str(value)
-        if name in ['id', 'uid','n_loops']:
+
+        if name in ['id', 'uid', 'n_loops']:
             if not isinstance(value, int):
                 raise self.PhysicsObjectError, \
                     "Process %s %s is not an integer" % (name, repr(value))
@@ -3561,6 +3562,21 @@ for that coupling to be this maximal one. '''%(k,self.get('sqorders_types')[k],
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+    def get_copy(self, *args):
+        """Perform a copy of all attributes specified by args."""
+
+        copy = type(self)(self)
+        for arg in args:
+            assert self.has_key(arg)
+            # Avoid creating NoneType instances
+            # Brute-force copying preferred to filtering:
+            # if the user overrid the filters probably there was some reason
+            if self[arg] is None:
+                copy[arg] = None
+            else:
+                copy[arg] = type(self[arg])(self[arg])
+        return copy
 
 #===============================================================================
 # ProcessList

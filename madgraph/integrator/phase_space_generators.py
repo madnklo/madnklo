@@ -21,6 +21,7 @@ if __name__ == '__main__':
 
 import logging
 import math
+import array
 
 try:
     import madgraph
@@ -29,6 +30,7 @@ except ImportError:
     import internal.misc as misc
     import internal.integrands as integrands
     import internal.base_objects as base_objects
+    import internal.subtraction as subtraction
     from internal import InvalidCmd, MadGraph5Error
     
 
@@ -37,6 +39,7 @@ else:
     import madgraph.various.misc as misc
     import madgraph.integrator.integrands as integrands
     import madgraph.core.base_objects as base_objects
+    import madgraph.core.subtraction as subtraction
     from madgraph import InvalidCmd, MadGraph5Error
 
 logger = logging.getLogger('madgraph.PhaseSpaceGenerator')
@@ -45,6 +48,52 @@ pjoin = os.path.join
 class PhaseSpaceGeneratorError(Exception):
     """Exception raised if an exception is triggered in integrators.""" 
 
+#===============================================================================
+# Vector
+#===============================================================================
+
+class Vector(array.array):
+
+    def __init__(self, *args, **opts):
+
+        super(Vector, self).__init__(args, opts)
+
+    def square(self):
+
+        return sum(x**2 for x in self)
+
+    def __abs__(self):
+
+        return math.sqrt(self.square())
+
+    def normalize(self):
+
+        return self / abs(self)
+
+    def dot(self, v):
+
+        return sum(self[i] * v[i] for i in range(len(self)))
+
+    def project_onto(self, v):
+
+        return (self.dot(v) / v.square()) * v
+
+    def component_orthogonal_to(self, v):
+
+        return self - self.project_onto(v)
+
+    # Specific to 3D vectors
+    def cross(self, v):
+
+        return Vector([
+            self[1] * v[2] - self[2] * v[1],
+            self[2] * v[3] - self[3] * v[2],
+            self[3] * v[1] - self[1] * v[3]
+        ])
+
+#===============================================================================
+# Lorentz5Vector
+#===============================================================================
 class Lorentz5Vector(list):
     """ A convenient class to manipulate Lorentz 4-vectors while keeping
     track of their mass component.
@@ -157,14 +206,17 @@ class Lorentz5Vector(list):
         self[0] = gamma*(self[0] + bp)
 
     def __add__(self, y):
+        """Sum with a 4(or 5)-dimentional vector."""
+
         newvector = Lorentz5Vector()
         newvector[0] = self[0] + y[0]
         newvector[1] = self[1] + y[1]
         newvector[2] = self[2] + y[2]
         newvector[3] = self[3] + y[3]
-        return newvector 
+        return newvector
 
     def __sub__(self, y):
+        """Difference with a 4(or 5)-dimentional vector."""
         newvector = Lorentz5Vector()
         newvector[0] = self[0] - y[0]
         newvector[1] = self[1] - y[1]
@@ -172,13 +224,33 @@ class Lorentz5Vector(list):
         newvector[3] = self[3] - y[3]
         return newvector 
 
+    def __imul__(self, x):
+        """Multiplication by components, in place."""
+
+        for component in self:
+            component *= x
+        return self
+
     def __mul__(self, x):
-        newvector = Lorentz5Vector()
-        newvector[0] = self[0]*x
-        newvector[1] = self[1]*x
-        newvector[2] = self[2]*x
-        newvector[3] = self[3]*x
-        return newvector 
+        """Multiplication by a components."""
+
+        tmp = Lorentz5Vector(self)
+        tmp *= x
+        return tmp
+
+    def dot(self, y):
+        """Scalar product between two vectors."""
+
+        return self[0] * y[0] - self[1] * y[1] - self[2] * y[2] - self[3] * y[3]
+
+    def square(self):
+        """Square of a Lorentz vector."""
+
+        return self[0]**2 - self.rho2()
+
+#===============================================================================
+# Phase space generation
+#===============================================================================
 
 class VirtualPhaseSpaceGenerator(object):
 
@@ -671,46 +743,26 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
         
         return self.get_flatWeights(E_cm, self.n_final)
 
-def SplittingStructure(object):
-    """ A class that specifies all the properties of the splitting of a set of N legs into N+M legs."""
+#===============================================================================
+# Mappings
+#===============================================================================
 
-    def __init__(self, currents):
-        """ Initialize all the attributes that fully characterize a splitting, using a list of currents.
-        The argument 'before' and 'after' refer to a from low - to high multiplicity type of configuration, 
-        i.e. from Born to reals. 
-        Notice that the leg number of the subtraction Legs is semantic and used here to decide how to apply
-        the mapping."""
-       
-        self.currents = currents
-        self.model = model 
-        self.subtraction_legs = [ current.get_subtraction_legs_before_and_after() for current in currents]
-        
-        for legs_before_splitting, legs_after_splitting in self.subtraction_legs:
-             # Consistency check
-             assert( isinstance(legs_before_splitting, list) and all(isinstance(l, subtraction.SubtractionLeg) for l in legs_after_splitting))
-             assert( len(legs_after_splitting)>=1 and isinstance(legs_after_splitting, list) and 
-                                                         all(isinstance(l, subtraction.SubtractionLeg) for l in legs_after_splitting))
- 
-             n_incoming_legs_before_splitting = len([l for l in legs_before_splitting if l.state()==subtraction.SubtractionLeg.INITIAL])
-             n_incoming_legs_after_splitting = len([l for l in legs_after_splitting if l.state()==subtraction.SubtractionLeg.INITIAL])
- 
-             if n_incoming_legs_before_splitting != n_incoming_legs_after_splitting:
-                 raise MadGraph5Error("A kinematic splitting must have the same number of initial state before and after the splitting.")
+def get_parent_number(structure, momenta_dict):
+    """Return the number of the parent of a given structure
+    according to some momenta dictionary.
+    """
 
-    def get_splitting_type(self, legs_before_splitting, legs_after_splitting):
-        n_incoming_legs_before_splitting = len([l for l in legs_before_splitting if l.state()==subtraction.SubtractionLeg.INITIAL])
-        return 'IF' if n_incoming_legs_before_splitting > 0 else 'FF'
-    
-    def get_n_mapped_legs(self):
-        """ Returns the number of mapped legs."""
-        
-        return sum(len(legs_after_splitting)-len(legs_before_splitting) for \
-                                                            legs_before_splitting,legs_after_splitting in self.subtraction_legs)
+    if structure.name() == "S":
+        return None
+    return momenta_dict.inv[
+        frozenset((leg.n for leg in structure.get_all_legs()))
+    ]
 
 class VirtualMapping(object):
     """ A virtual class from which all Mapping implementations must inherit."""
     
     def __new__(cls, **opts):
+
         if cls is VirtualMapping:
             map_type = opts.pop('map_type') if 'map_type' in opts else 'Unknown'
             if map_type not in Mapping_classes_map or not Mapping_classes_map[map_type]:
@@ -719,26 +771,61 @@ class VirtualMapping(object):
             return super(VirtualMapping, cls).__new__(target_class, **opts)
         else:
             return super(VirtualMapping, cls).__new__(cls, **opts)
-    
-    def __init__(self, model=None, **opts):
-        """ General initialization of any mapping. n_legs_mapped is the number of legs 
-        'generated' or 'removed' by the mapping. At NLO n_legs_mapped would be one for instance.
-        The model is an optional specification that can be useful to know properties of the leg mapped. """
+
+    # TODO Review this
+    def __init__(self, model = None, **opts):
+        """General initialization of any mapping.
+        n_legs_mapped is the number of legs 'generated' or 'removed' by the mapping.
+        At NLO n_legs_mapped would be one for instance.
+        The model is an optional specification that can be useful to know properties of the leg mapped.
+        """
         
         # This attribute lists the name of the kinematic variables defining this mapping.
         self.model = model
         
-    def map_to_lower_multiplicity(self, PSpoint, splitting_structure, **opts):
-        """ Map a given PS point, by combining the legs specified by the splitting structure.
-        This function then returns:
-           mapped_PSpoint, jacobian, kinematic_variables
-        where 'mapped_PSpoint' is the mapped_PSpoint. 'jacobian' is the mapped phase-space weight. 
-        'kinematic_variables' is a dictionary whose keys are the kinematic variables defined in 
-        self.kinematic_variables and the values are what corresponds to the specific backward_map performed here."""
+    def is_valid_structure(self, singular_structure):
+        """Return true if it makes sense to apply this mapping
+        to the given singular structure.
+        """
+
+        raise NotImplemented
+
+    def get_kinematic_variables(self, singular_structure, momenta_dict):
+        """For a valid singular structure,
+        returns a list of variable names necessary to apply this mapping.
+        """
+
+        raise NotImplemented
+
+    def map_to_lower_multiplicity(
+        self, PS_point, singular_structure, momenta_dict,
+        kinematic_variables = None
+    ):
+        """Map a given phase-space point by clustering the substructures
+        and recoiling against the legs specified in singular_structure.
+
+        :param PS_point: higher-multiplicity phase-space point,
+        as a dictionary that associates integers to Lorentz5Vector's,
+        which will be modified to the lower-multiplicity one
+
+        :param singular_structure: SingularStructure object that specifies
+        clusters of particle and recoilers recursively
+
+        :param momenta_dict: two-way dictionary that associates a unique label
+        to each cluster of one or more particles identified by their number
+
+        :param kinematic_variables: if a non-empty dictionary is passed,
+        the kinematic variables that are necessary to reproduce the higher-multiplicity
+        phase-space point from the lower-multiplicity one will be set
+
+        :return: the jacobian weight due to the mapping
+        """
         
         raise NotImplemented
 
-    def map_to_higher_multiplicity(self, PSpoint, splitting_structure, kinematic_variables, **opts):
+    def map_to_higher_multiplicity(
+        self, PSpoint, singular_structure, momenta_dict, kinematic_variables
+    ):
         """ Map the specified PS point onto another one using the kinematic variables 
         specified in the option 'kinematic_variables' and the specific splitting structure indicated.
         This function returns:
@@ -746,87 +833,196 @@ class VirtualMapping(object):
         where "mapped_PS_point" is the mapped PS point and jacobian is the phase-space weight associated.
         """
         
-        assert(set(kinematic_variables.keys())==set(self.kinematic_variables))
-
-    def get_kinematic_variables(self, splitting_structure):
-        """ For a given splitting structure, returns a list of variable names necessary for applying this mapping."""
-        
         raise NotImplemented
-    
-    def approach_limit(self, splitting_structure, ordering_parameter, starting_point=None):
+
+    def approach_limit(
+        self, singular_structure, ordering_parameter, starting_point = None
+    ):
         """ Scale down starting variables given in starting_point (if specified) using the ordering_parameter
         to get closer to the limit specified by the splitting structure."""
         
         raise NotImplemented
         
 
-class Mapping_CataniSeymour(VirtualMapping):
-    """ Implementation of the Catani-Seymour mapping. See ref. [--INSER_REF_HERE--] """
+class Mapping_CataniSeymour_Massless(VirtualMapping):
+    """Implementation of the Catani--Seymour all-final collinear mapping,
+    generalized to an arbitrary number of spectators
+    but restricted to massless particles.
+    See arXiv:hep-ph/0609042 and references therein.
+    """
     
     def __init__(self, *args, **opts):
-        """ Additional options for the Catani-Seymour mapping."""
-        super(Mapping_CataniSeymour,self).__init__(*args, **opts)
-    
-    def map_to_lower_multiplicity(self, PSpoint, splitting_structure, **opts):
-        """ Catani-Seymour implementation of the 'direct mapping'."""
-        
-        # Consistency checks
-        assert (isinstance(splitting_structure, SplittingStructure))
-        if len(splitting_structure.get_n_mapped_legs()) != 1:
-            raise MadGraph5Error("The mapping class '%s' can only map kin. configs. from m -> m+1"%self.__class__.__name__)
+        """Additional options for the Catani--Seymour mapping."""
 
-        # TODO, below is just a place-holder        
-        kinematic_variables = dict( (var_name,0.0) for var_name in self.get_kinematic_variables(splitting_structure))
-        
-        # TODO, below is just a place-holder
-        jacobian = 1.0
-#         for legs_before_splitting, legs_after_splitting in splitting_structure.leg_mappings:
-#             # Warning! We'll need to pay attention where to place the new down-place momentum...
-#             if splitting_structure.get_splitting_type(legs_before_splitting, legs_after_splitting) == 'IF':
-#                 # Initial-Final mapping
-#                 # TODO, below is just a place-holder
-#                 mapped_PSpoint = [Lorentz5Vector([0.0]*4)]*(len(mapped_PSpoint)-self.n_legs_mapped)
-#             else:
-#                 # Final-Final mapping
-#                 # TODO, below is just a place-holder
-#                 mapped_PSpoint = [Lorentz5Vector([0.0]*4)]*(len(mapped_PSpoint)-self.n_legs_mapped)
-#             
-        return mapped_PSpoint, jacobian, kinematic_variables
+        super(Mapping_CataniSeymour_Massless, self).__init__(*args, **opts)
 
-    def map_to_higher_multiplicity(self, PSpoint, splitting_structure, legs_to_be_replaced, kinematic_variables, **opts):
-        """ Catani-Seymour implementation of the 'reverse mapping'."""
+    def is_valid_structure(self, singular_structure):
+
+        assert isinstance(singular_structure, subtraction.SingularStructure)
+        # Valid only for bunches of final-state particles going collinear,
+        # with no recursive substructure
+        for substructure in singular_structure.substructures:
+            if not substructure.name() == "C":
+                return False
+            if substructure.substructures:
+                return False
+            if substructure.get_all_legs().has_initial_state_leg():
+                return False
+        return True
+
+    def get_kinematic_variables(self, singular_structure, momenta_dict):
 
         # Consistency checks
-        assert (isinstance(splitting_structure, SplittingStructure))
-        if len(splitting_structure.get_n_mapped_legs()) != 1:
-            raise MadGraph5Error("The mapping class '%s' can only map kin. configs. from m -> m+1"%self.__class__.__name__)
+        assert isinstance(momenta_dict, subtraction.bidict)
+        assert self.is_valid_structure(singular_structure)
 
-        assert(set(kinematic_variables.keys())==self.get_kinematic_variables(splitting_structure))
-        
-        mapped_PSpoint = list(PSpoint)
-        
-        # TODO, below is just a place-holder
+        kinematic_variables = []
+        # For every collinear subset of N particles,
+        # a set of (N-1) z's and 2-component kt's is needed
+        for substructure in singular_structure.substructures:
+            # Add direct legs, last one not needed because of sum rules
+            for leg in substructure.legs[:-1]:
+                kinematic_variables += [
+                    'z_' + str(leg.n), 'kt_' + str(leg.n), 'phi_' + str(leg.n)
+                ]
+
+        return kinematic_variables
+
+    def azimuth_reference_vector(self, n):
+        """Given a unit vector n,
+        return a reference vector in the plane orthogonal to n.
+        """
+
+        n_ref = Vector([1.,0.,0.])
+        return Vector(n_ref - n.dot(n_ref) * n).normalize()
+
+    def map_to_lower_multiplicity(
+        self, PS_point, singular_structure, momenta_dict,
+        kinematic_variables = None
+    ):
+
+        # Consistency checks
+        assert isinstance(momenta_dict, subtraction.bidict)
+        assert self.is_valid_structure(singular_structure)
+
+        # Build the total momentum of collinear sets and recoilers
+        Q = sum(
+            PS_point[leg.n]
+            for leg in singular_structure.get_all_legs()
+        )
+        Q2 = Q.square()
+        # Prepare containers
+        n_clusters = len(singular_structure.substructures)
+        p_C = [Lorentz5Vector(), ] * n_clusters
+        alpha_C = [0., ] * n_clusters
+        # For every cluster of collinear particles
+        for i in range(n_clusters):
+            cluster = singular_structure.substructures[i]
+            # Build the collective momentum
+            legs = cluster.legs
+            leg_ns = frozenset((leg.n for leg in legs))
+            p_C[i] = sum(
+                PS_point[momenta_dict.inv[(collinear_particle, )]]
+                for collinear_particle in leg_ns
+            )
+            # Compute the parameter alpha for this collinear subset
+            y_CQ = p_C[i].dot(Q) / Q2
+            y_C = p_C[i].square() / Q2
+            alpha_C[i] = (y_CQ - math.sqrt(y_CQ**2 - 4*y_C)) / 2
+        # Compute the common scale factor
+        scale_factor = 1. / (1. - sum(alpha_C))
+        # Map all recoilers' momenta
+        for recoiler in singular_structure.legs:
+            PS_point[recoiler] *= scale_factor
+        # For every cluster of collinear particles
+        for i in range(n_clusters):
+            cluster = singular_structure.substructures[i]
+            legs = cluster.legs
+            leg_ns = frozenset((leg.n for leg in legs))
+            parent_number = momenta_dict.inv[leg_ns]
+            # Map the cluster's momentum
+            p_tilde_C = scale_factor * (p_C[i] - alpha_C[i] * Q)
+            PS_point[parent_number] = p_tilde_C
+            # If needed, update the kinematic_variables dictionary
+            if kinematic_variables:
+                # Compute reference light-cone vectors for this collinear subset
+                # Note: because of the massless restriction p_tilde_C
+                # is on the light-cone
+                nvec = Vector([p_tilde_C[j + 1] for j in range(3)]).normalize()
+                na = Lorentz5Vector([1,  nvec[0],  nvec[1],  nvec[2]])
+                nb = Lorentz5Vector([1, -nvec[0], -nvec[1], -nvec[2]])
+                # Get a reference phi=0 direction
+                n_phi = self.azimuth_reference_vector(nvec)
+                n_triple = nvec.cross(n_phi)
+                # Light-cone components of p_C
+                p_C_plus = p_C[i].dot(nb)
+                # Compute all kinematic variables
+                for j in sorted(leg_ns)[:-1]:
+                    p_j = PS_point[momenta_dict.inv[(j, )]]
+                    # Light-cone components of pj
+                    p_j_plus = p_j.dot(nb)
+                    p_j_minus = p_j.dot(na)
+                    p_j_perp = p_j - (p_j_plus/2) * na - (p_j_minus/2) * nb
+                    # Actual kinematic variables
+                    z_j = p_j_plus / p_C_plus
+                    kt_j = math.sqrt(-p_j_perp.square())
+                    n_j_perp = Vector([p_j_perp[1:3]]).normalize()
+                    phi_j = math.acos(n_j_perp.dot(n_phi))
+                    if n_j_perp.dot(n_triple) < 0:
+                        phi_j *= -1
+                    kinematic_variables['z_' + str(j)] = z_j
+                    kinematic_variables['kt_' + str(j)] = kt_j
+                    kinematic_variables['phi_' + str(j)] = phi_j
+
+        # TODO Compute the jacobian for this mapping
         jacobian = 1.0
-#         for legs_before_splitting, legs_after_splitting in splitting_structure.leg_mappings:
-#             if splitting_structure.get_splitting_type(legs_before_splitting, legs_after_splitting) == 'IF':
-#                 # Initial-Final mapping
-#                 # TODO, below is just a place-holder
-#                 mapped_PSpoint = [Lorentz5Vector([0.0]*4)]*(len(mapped_PSpoint)+self.n_legs_mapped)
-#             else:
-#                 # Final-Final mapping
-#                 # TODO, below is just a place-holder
-#                 mapped_PSpoint = [Lorentz5Vector([0.0]*4)]*(len(mapped_PSpoint)+self.n_legs_mapped)
-            
-        return mapped_PSpoint, jacobian
+#
+        return jacobian
 
-    def get_kinematic_variables(self, splitting_structure):
-        """ For a given splitting structure, returns a list of variable names necessary for applying this mapping."""
-        
-        # Example, of course it could depends on the actual splitting structure
-        return ['pt', 'z']
+    def map_to_higher_multiplicity(
+        self, PS_point, singular_structure, momenta_dict, kinematic_variables
+    ):
 
-class Mapping_NagiSopper(VirtualMapping):
-    """ Implementation of the Nagi-Sopper mapping. See ref. [--INSER_REF_HERE--] """  
+        # Consistency checks
+        assert isinstance(momenta_dict, subtraction.bidict)
+        assert self.is_valid_structure(singular_structure)
+        assert (
+            set(kinematic_variables.keys()) ==
+            set(self.get_kinematic_variables(singular_structure, momenta_dict))
+        )
+
+        n_clusters = len(singular_structure.substructures)
+        # For every cluster of collinear particles
+        for i in range(n_clusters):
+            cluster = singular_structure.substructures[i]
+            legs = cluster.legs
+            leg_ns = frozenset((leg.n for leg in legs))
+            parent_number = momenta_dict.inv[leg_ns]
+            # Map the cluster's momentum
+            p_tilde_C = PS_point[parent_number]
+            # Compute reference light-cone vectors for this collinear subset
+            # Note: because of the massless restriction p_tilde_C
+            # is on the light-cone
+            nvec = Vector([p_tilde_C[j + 1] for j in range(3)]).normalize()
+            na = Lorentz5Vector([1,  nvec[0],  nvec[1],  nvec[2]])
+            nb = Lorentz5Vector([1, -nvec[0], -nvec[1], -nvec[2]])
+            # Get a reference phi=0 direction
+            n_phi = self.azimuth_reference_vector(nvec)
+            n_triple = nvec.cross(n_phi)
+            # Compute all kinematic variables
+            for j in leg_ns:
+                # TODO Compute the inverse-mapped momentum
+                PS_point[momenta_dict.inv[(j, )]] = Lorentz5Vector()
+
+        # TODO Compute the jacobian for this mapping
+        jacobian = 1.0
+
+        return jacobian
+
+class Mapping_NagySoper(VirtualMapping):
+    """Implementation of the Nagy--Soper mapping.
+    See arXiv:hep-ph/0706.0017.
+    """
     # TODO, see example above
     pass
 
@@ -874,5 +1070,5 @@ if __name__ == '__main__':
 # Mapping classes map is defined here as module variables. This map can be overwritten
 # by the interface when using a PLUGIN system where the user can define his own Mapping.
 # Notice that this must be placed after all the Mapping daughter classes in this module have been declared.
-Mapping_classes_map = {('single-real', 'NLO'): Mapping_CataniSeymour,
+Mapping_classes_map = {('single-real', 'NLO'): Mapping_CataniSeymour_Massless,
                        'Unknown': None}

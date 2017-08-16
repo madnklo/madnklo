@@ -669,6 +669,17 @@ class CountertermNode(object):
             subcurrents_copy
         )
 
+    def get_all_currents(self):
+        """Return a list of all currents involved in this elementary node
+        and its children.
+        """
+
+        currents = []
+        for subcurrent in self.subcurrents:
+            currents += subcurrent.get_all_currents()
+        currents += [self.current, ]
+        return currents
+
 #===============================================================================
 # Counterterm
 #===============================================================================
@@ -738,6 +749,14 @@ class Counterterm(CountertermNode):
         if copy_momenta_dict:
             momenta_dict = bidict(momenta_dict)
         return Counterterm(node.current, node.subcurrents, momenta_dict)
+
+    def get_all_currents(self):
+        """Return a list of all currents involved in this counterterm."""
+
+        currents = []
+        for subcurrent in self.subcurrents:
+            currents += subcurrent.get_all_currents()
+        return currents
 
 #===============================================================================
 # order_2_string

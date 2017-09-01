@@ -234,7 +234,10 @@ class Switcher(object):
                     self.cmd.validate_model(self, loop_type=nlo_mode, coupling_type=orders)
                     self.change_principal_cmd('MadGraph')
                     return self.cmd.create_loop_induced(self, line, *args, **opts)
-            if type == 'ME7':
+            elif type=='tree':
+                self.change_principal_cmd('MadGraph')
+
+            elif type == 'ME7':
                 if nlo_mode > 0:
                     self.change_principal_cmd('MadLoop')
                     self.cmd.validate_model(self, loop_type='all', coupling_type=orders)    

@@ -558,7 +558,7 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
         # Apply the phase-space weight
         wgt *= PS_weight
         
-        return PS_point, PS_weight, xb_1, xb_2
+        return PS_point, wgt, xb_1, xb_2
 
     def generateKinematics(self, E_cm, random_variables):
         """ Generate a self.n_initial -> self.n_final phase-space point using 

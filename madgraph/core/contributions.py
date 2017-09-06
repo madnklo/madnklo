@@ -2236,7 +2236,7 @@ class ContributionList(base_objects.PhysicsObjectList):
 # For instance 'Unknown' can be mapped to a user-defined class.
 # Notice that this map must be placed after the MEAccessor daughter classes have been declared.
 MEAccessor_classes_map = {'PythonAccessor': F2PYMEAccessor,
-                          'CurrentAccessor': PythonCurrentAccessor,
+                          'CurrentAccessor': CurrentAccessor,
                           'Unknown': None}
 
 # Contribution classes map is defined here as module variables. This map can be overwritten

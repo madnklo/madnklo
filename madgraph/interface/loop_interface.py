@@ -283,6 +283,11 @@ class CommonLoopInterface(mg_interface.MadGraphCmd):
     def validate_model(self, loop_type='virtual',coupling_type=['QCD'], stop=True):
         """ Upgrade the model sm to loop_sm if needed """
 
+        # If there is no version tag, the model is a hardcoded generated one from
+        # tests, so we skip validation here.
+        if not self._curr_model.get('version_tag'):
+            return
+
         # Allow to call this function with a string instead of a list of 
         # perturbation orders.
         if isinstance(coupling_type,str):

@@ -2952,12 +2952,13 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
     def parse_add_options(self, args):
         """ Parses the option provided via the arguments given to the command add."""
         
-        add_options = {'NLO'            : [],
-                       'NNLO'           : [],
-                       'LO'             : False,
-                       'loop_induced'   : [],
+        add_options = {'NLO'                  : [],
+                       'NNLO'                 : [],
+                       'LO'                   : False,
+                       'loop_induced'         : [],
                        # ME7_definition is a tag informing whether the user asks for the new ME7 output.
-                       'ME7_definition' : False }
+                       'ME7_definition'       : False,
+                       'ignore_contributions' : []}
         
         # First combine all value of the options (starting with '--') separated by a space
         # For example, it will group '--NNLO=QCD','QED' into '--NNLO=QCD QED'.
@@ -3030,6 +3031,17 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
                     raise InvalidCmd("Current model only supports orders %s for loop computations, not: %s"
                                                                 %(valid_NLO_correction_orders, orders) )
 
+            elif key=='ignore_contributions':
+                try:
+                    ignored_contribs = eval(value)
+                    if not isinstance(ignored_contribs, list):
+                        raise
+                    add_options[key] = ignored_contribs
+                except:
+                    add_options[key].append(value)
+                for contrib in add_options[key]:
+                    if not re.match(r'^(B|R*V*)$',contrib):
+                        raise InvalidCmd("Ignored contribs must be specified with syntax 'B' or 'RRR(...)VVV(...)'.")
             else:
                 raise InvalidCmd("Unrecognized option for command add/generate: %s"%key)
 
@@ -3272,7 +3284,10 @@ This implies that with decay chains:
     def add_LO_contributions(self, procdef, generation_options):
         """ Add all regular LO contributions, starting from this specific instance
         of process definition."""
-
+        
+        if 'B' in generation_options['ignore_contributions']:
+            return
+        
         # Update process id
         procdef.set('id', generation_options['proc_id'])
         generation_options['proc_id'] += 1
@@ -3287,6 +3302,9 @@ This implies that with decay chains:
     def add_LO_loop_induced_contributions(self, procdef, generation_options):
         """ Add all LO loop-induced contributions, starting from this specific instance
         of process definition."""
+
+        if 'B' in generation_options['ignore_contributions']:
+            return
 
         # Update process id
         procdef.set('id', generation_options['proc_id'])
@@ -3316,63 +3334,65 @@ This implies that with decay chains:
         
         # Add the virtual contribution
         # ----------------------------
-        procdef = NLO_template_procdef.get_copy()
-        # Make sure to set the corresponding number of loops to 1.
-        procdef.set('n_loops',1)
-        # Update process id
-        procdef.set('id', generation_options['proc_id'])
-        generation_options['proc_id'] += 1
-        # Here setting the perturbation_couplings is enough to guarantee that 
-        # the relevant diagrams for these coupling orders will be generated
-        procdef.set('perturbation_couplings', generation_options['NLO'])
-        procdef.set('NLO_mode', 'virt')
-        self._curr_contribs.append(
-            contributions.Contribution(
-                base_objects.ContributionDefinition(
-                    procdef,
-                    n_loops                    = 1,
-                    n_unresolved_particles     = 0,
-                    correction_order           = 'NLO',
-                    correction_couplings       = generation_options['NLO'],
-                    squared_orders_constraints = dict(target_squared_orders),
-                    overall_correction_order=generation_options['overall_correction_order'] ),
-                self))
+        if 'V' not in generation_options['ignore_contributions']:
+            procdef = NLO_template_procdef.get_copy()
+            # Make sure to set the corresponding number of loops to 1.
+            procdef.set('n_loops',1)
+            # Update process id
+            procdef.set('id', generation_options['proc_id'])
+            generation_options['proc_id'] += 1
+            # Here setting the perturbation_couplings is enough to guarantee that 
+            # the relevant diagrams for these coupling orders will be generated
+            procdef.set('perturbation_couplings', generation_options['NLO'])
+            procdef.set('NLO_mode', 'virt')
+            self._curr_contribs.append(
+                contributions.Contribution(
+                    base_objects.ContributionDefinition(
+                        procdef,
+                        n_loops                    = 1,
+                        n_unresolved_particles     = 0,
+                        correction_order           = 'NLO',
+                        correction_couplings       = generation_options['NLO'],
+                        squared_orders_constraints = dict(target_squared_orders),
+                        overall_correction_order=generation_options['overall_correction_order'] ),
+                    self))
 
         # Add the real-emission contribution
         # ----------------------------------
-        procdef = NLO_template_procdef.get_copy()
-        # Update process id
-        procdef.set('id', generation_options['proc_id'])
-        generation_options['proc_id'] += 1
-        # Specify a negative squared order coupling if no squared order coupling is
-        # defined, and keep only the leading contributions in these orders then.
-#####################################################################################################
-# WE WILL NEED TO INFER EXACTLY WHAT ARE THE SQUARED ORDER TO INCLUDE STARTING FROM THE BORN HERE
-#               SO LEAVE DEFAULT FOR NOW, WHICH IS OK FOR PURE QCD CORRECTIONS
-#####################################################################################################
-#        for order in generation_options['NLO']:
-#            if order not in target_squared_orders:
-#                procdef['sqorders_types'][order] = '<='
-#                # -2 means that only the first subleading contribution in that coupling order will be kept.
-#                procdef['squared_orders'][order] = -2
-
-        # Now add the corresponding MultiLeg to the final state
-        procdef['legs'].append(base_objects.MultiLeg({'ids':
-            sum([orders_to_perturbed_quantities[order]['real_emission_ids'] 
-                 for order in generation_options['NLO']],[]), 'state': True}))
-
-        real_emission_contribution = contributions.Contribution(
-                base_objects.ContributionDefinition(
-                    procdef,
-                    n_loops                = 0,
-                    n_unresolved_particles = 1,
-                    correction_order       = 'NLO',
-                    correction_couplings   = generation_options['NLO'],
-                    squared_orders_constraints = dict(target_squared_orders),
-                    overall_correction_order=generation_options['overall_correction_order'] ),
-                    self)
-
-        self._curr_contribs.append(real_emission_contribution)
+        if 'R' not in generation_options['ignore_contributions']:
+            procdef = NLO_template_procdef.get_copy()
+            # Update process id
+            procdef.set('id', generation_options['proc_id'])
+            generation_options['proc_id'] += 1
+            # Specify a negative squared order coupling if no squared order coupling is
+            # defined, and keep only the leading contributions in these orders then.
+    #####################################################################################################
+    # WE WILL NEED TO INFER EXACTLY WHAT ARE THE SQUARED ORDER TO INCLUDE STARTING FROM THE BORN HERE
+    #               SO LEAVE DEFAULT FOR NOW, WHICH IS OK FOR PURE QCD CORRECTIONS
+    #####################################################################################################
+    #        for order in generation_options['NLO']:
+    #            if order not in target_squared_orders:
+    #                procdef['sqorders_types'][order] = '<='
+    #                # -2 means that only the first subleading contribution in that coupling order will be kept.
+    #                procdef['squared_orders'][order] = -2
+    
+            # Now add the corresponding MultiLeg to the final state
+            procdef['legs'].append(base_objects.MultiLeg({'ids':
+                sum([orders_to_perturbed_quantities[order]['real_emission_ids'] 
+                     for order in generation_options['NLO']],[]), 'state': True}))
+    
+            real_emission_contribution = contributions.Contribution(
+                    base_objects.ContributionDefinition(
+                        procdef,
+                        n_loops                = 0,
+                        n_unresolved_particles = 1,
+                        correction_order       = 'NLO',
+                        correction_couplings   = generation_options['NLO'],
+                        squared_orders_constraints = dict(target_squared_orders),
+                        overall_correction_order=generation_options['overall_correction_order'] ),
+                        self)
+    
+            self._curr_contribs.append(real_emission_contribution)
                 
     def add_NLO_loop_induced_contributions(self, NLO_template_procdef, generation_options, target_squared_orders):
         """ Add all NLO loop_induced contributions, using the process defintion in argument as template
@@ -3394,40 +3414,41 @@ This implies that with decay chains:
         
         # Add the double real-emission contribution
         # -----------------------------------------
-        procdef = NNLO_template_procdef.get_copy()
-        # Update process id
-        procdef.set('id', generation_options['proc_id'])
-        generation_options['proc_id'] += 1
-        # Specify a negative squared order coupling if no squared order coupling is
-        # defined, so as to enforce keeping only the first two subleading contribution in those orders.
-#####################################################################################################
-# WE WILL NEED TO INFER EXACTLY WHAT ARE THE SQUARED ORDER TO INCLUDE STARTING FROM THE BORN HERE
-#               SO LEAVE DEFAULT FOR NOW, WHICH IS OK FOR PURE QCD CORRECTIONS
-#####################################################################################################
-#        for order in generation_options['NNLO']:
-#            if order not in target_squared_orders:
-#                procdef['sqorders_types'][order] = '=='
-#                # -3 means that only the first two subleading contribution in that coupling order will be kept.
-#                procdef['squared_orders'][order] = -3
-
-        # Now add the two corresponding MultiLeg to the final state
-        unresolved_emission = base_objects.MultiLeg({'ids':
-            sum([orders_to_perturbed_quantities[order]['real_emission_ids'] 
-                 for order in generation_options['NNLO']],[]), 'state': True})
-        procdef['legs'].extend([unresolved_emission,unresolved_emission])
-
-        double_real_emission_contribution = contributions.Contribution(
-                base_objects.ContributionDefinition(
-                    procdef,
-                    n_loops                = 0,
-                    n_unresolved_particles = 2,
-                    correction_order       = 'NNLO',
-                    correction_couplings   = generation_options['NNLO'],
-                    squared_orders_constraints = dict(target_squared_orders),
-                    overall_correction_order=generation_options['overall_correction_order'] ),
-                    self)
-        
-        self._curr_contribs.append(double_real_emission_contribution)
+        if 'RR' not in generation_options['ignore_contributions']:
+            procdef = NNLO_template_procdef.get_copy()
+            # Update process id
+            procdef.set('id', generation_options['proc_id'])
+            generation_options['proc_id'] += 1
+            # Specify a negative squared order coupling if no squared order coupling is
+            # defined, so as to enforce keeping only the first two subleading contribution in those orders.
+    #####################################################################################################
+    # WE WILL NEED TO INFER EXACTLY WHAT ARE THE SQUARED ORDER TO INCLUDE STARTING FROM THE BORN HERE
+    #               SO LEAVE DEFAULT FOR NOW, WHICH IS OK FOR PURE QCD CORRECTIONS
+    #####################################################################################################
+    #        for order in generation_options['NNLO']:
+    #            if order not in target_squared_orders:
+    #                procdef['sqorders_types'][order] = '=='
+    #                # -3 means that only the first two subleading contribution in that coupling order will be kept.
+    #                procdef['squared_orders'][order] = -3
+    
+            # Now add the two corresponding MultiLeg to the final state
+            unresolved_emission = base_objects.MultiLeg({'ids':
+                sum([orders_to_perturbed_quantities[order]['real_emission_ids'] 
+                     for order in generation_options['NNLO']],[]), 'state': True})
+            procdef['legs'].extend([unresolved_emission,unresolved_emission])
+    
+            double_real_emission_contribution = contributions.Contribution(
+                    base_objects.ContributionDefinition(
+                        procdef,
+                        n_loops                = 0,
+                        n_unresolved_particles = 2,
+                        correction_order       = 'NNLO',
+                        correction_couplings   = generation_options['NNLO'],
+                        squared_orders_constraints = dict(target_squared_orders),
+                        overall_correction_order=generation_options['overall_correction_order'] ),
+                        self)
+            
+            self._curr_contribs.append(double_real_emission_contribution)
         
     def add_contributions(self, input_procdef, generation_options):
         """ Given a Born process definition. Add all necessary 'contributions', according the generation

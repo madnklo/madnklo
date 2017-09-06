@@ -1133,6 +1133,43 @@ class IRSubtraction(object):
             subcurrents
         )
 
+    def get_all_counterterms(self, process):
+        """ Generate all counterterms for the corrections specified in this module 
+        and the process given in argument."""
+        
+        elementary_operators  = self.get_all_elementary_operators(process)
+        combinations          = self.get_all_combinations(elementary_operators)
+        # Can this be made more efficient by filtering during the step above already?
+        filtered_combinations = self.filter_combinations(combinations)
+        all_counterterms = []
+        for combination in filtered_combinations:
+            template_counterterm = self.get_counterterm(combination, process)
+            # Here I hardcode nloops to 0 because I believe it should be dynamically set/deduced
+            # from the counterterm structure and self.orders
+            all_counterterms.extend(self.split_loops(template_counterterm, 0))
+        
+        return all_counterterms
+
+    def get_all_currents(self, counterterms):
+        """ Deduce the list of currents to consider for computing all the counterterms given
+        in argument."""
+        
+        all_currents = []
+        for counterterm in counterterms:
+            all_currents.extend(counterterm.get_all_currents())
+        # Now filter them so as to return only a single copy of each needed current.
+        # We must remove the leg information since this is a parameter of the currents output
+        # and not hardcoded in it.
+        for current in all_currents:
+            current.discard_leg_numbers()
+        
+        all_unique_currents = []
+        for current in all_currents:
+            if current not in all_unique_currents:
+                all_unique_currents.append(current)
+        
+        return all_unique_currents
+
     def split_loops(self, counterterm, n_loops):
         """Split a counterterm in several ones according to the individual
         loop orders of its currents.
@@ -1209,6 +1246,34 @@ class IRSubtraction(object):
 
         return result
 
+#===============================================================================
+# Subtraction current exporter
+#===============================================================================
+class SubtractionCurrentExporter(object):
+    """ Class for mapping and exporting the subtraction currents to a given location
+    and generate the corresponding accessors as well."""
+    
+    template_dir = pjoin(MG5DIR,'madgraph','iolibs','template_files','subtraction')
+    
+    def __init__(self, model, export_dir):
+        """ Initializes the exporter with a model and target export directory."""
+        self.model      = model
+        self.export_dir = export_dir
+
+    def export(self, currents):
+        """ Exports the specified list of currents and returns a list of accessors,
+        which contain the mapping information."""
+        
+        # First group all currents according to mapping rules.
+        # The mapped currents is a dictionary of the form
+        #         { current_class, 
+        #                {'defining_current': <...>,
+        #                 'mapped_process_keys': [<...>],
+        #         }
+        mapped_currents = {}
+        
+        
+        
 #===============================================================================
 # Standalone main for debugging / standalone trials
 #===============================================================================

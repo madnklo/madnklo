@@ -39,6 +39,7 @@ import madgraph.iolibs.group_subprocs as group_subprocs
 import madgraph.iolibs.helas_call_writers as helas_call_writers
 import madgraph.iolibs.export_v4 as export_v4
 import madgraph.various.misc as misc
+import madgraph.core.subtraction as subtraction
 import madgraph.interface.ME7_interface as ME7_interface
 from madgraph import InvalidCmd, MadGraph5Error
 from madgraph.iolibs.files import cp, ln, mv
@@ -505,7 +506,7 @@ class MEResult(dict):
         self[tuple(sorted(opts.items()))] = value
 
     def get_inverse_permuted_copy(self, permutation=None):
-        """ Apply the inverse permutation of the one specifed to a copy of self and return."""
+        """ Apply the inverse permutation of the one specified to a copy of self and return."""
         
         # Nothing to do in this case, then just add a copy of self
         if permutation is None:
@@ -606,8 +607,8 @@ class MEAccessorCache(dict):
         
         return self[key]
    
-class PythonCurrentAccessor(VirtualMEAccessor):
-    """ A class wrapping the access to one particular current implemented as a python module."""
+class CurrentAccessor(VirtualMEAccessor):
+    """ A class wrapping the access to a particular set of mapped subtraction currents."""
     # TODO
     pass
 
@@ -1354,7 +1355,10 @@ class MEAccessorDict(dict):
            {'permutation': [1,0,2,3], 'process_pdgs': 'c c~ > g g'}
         """
 
-        if isinstance(key, base_objects.Process):
+        if isinstance(key, subtraction.Current):
+            # Automatically convert the process to a ProcessKey
+            accessor_key = key.get_key()
+        elif isinstance(key, base_objects.Process):
             # Automatically convert the process to a ProcessKey
             accessor_key = ProcessKey(process=key, PDGs=pdgs if pdgs else [])
         elif isinstance(key, ProcessKey):
@@ -1534,7 +1538,7 @@ class Contribution(object):
             ##############################################################################################################
             ##############################################################################################################
             self.additional_exporter_options['spin_correlators']  ='N'*correlators_needed+'LO'
-                    
+                                        
         self.amplitudes              = diagram_generation.AmplitudeList()
         self.all_matrix_elements     = helas_objects.HelasMultiProcess()
         self.exporter                = None
@@ -1544,6 +1548,13 @@ class Contribution(object):
         self.options['_model_v4_path'] = cmd_interface._model_v4_path
         self.options['_mgme_dir']    = cmd_interface._mgme_dir
         self.model                   = cmd_interface._curr_model
+        
+        # Initialize an IR subtraction module if necessary
+        self.IR_subtraction = None
+        if self.contribution_definition.n_unresolved_particles > 0:
+            IR_subtracted_orders = dict( (order, self.contribution_definition.n_unresolved_particles) for order in
+                                                                        self.contribution_definition.correction_couplings)
+            self.IR_subtraction = subtraction.IRSubtraction(self.model, orders = IR_subtracted_orders)
         
         # The following two attributes dicate the type of Exporter which will be assigned to this contribution
         self.output_type             = 'default'
@@ -1738,8 +1749,8 @@ class Contribution(object):
         if ncalls:
             logger.info("Generated output code with %d helas calls in %0.3f s" % (ncalls, delta_time1+delta_time2))
 
-    def get_MEAccessors(self, root_path):
-        """ Returns all MEAccessors for the matrix elemements generated as part of this contribution."""
+    def add_ME_accessors(self, root_path, all_MEAccessors):
+        """ Adds all MEAccessors for the matrix elements generated as part of this contribution."""
         
         MEAccessors = []
         for process_key, (defining_process, mapped_processes) in self.get_processes_map().items():
@@ -1765,8 +1776,8 @@ class Contribution(object):
                 mapped_pdgs = mapped_process_pdgs, 
                 root_path=root_path
                 ) )
-            
-        return MEAccessors
+
+        all_MEAccessors.add_MEAccessors(MEAccessors)
 
     def can_processes_be_integrated_together(self, processA, processB):
         """ Investigates whether processA and processB can be integrated together for this contribution."""
@@ -2006,13 +2017,19 @@ class Contribution_LIB(Contribution_B):
 
 class Contribution_R(Contribution):
     """ Implements the handling of a single real-emission type of contribution."""
-    
-    def generate_all_currents(self, group_processes=True):
-        """ Generate all subtraction currents needed in this contribution."""
-    
-        # TODO using the subtraction module and the self.processes_map list of processes.
-        pass
 
+    def __init__(self, contribution_definition, cmd_interface, **opts):
+        """ Instantiates a real-emission contribution with additional attributes."""
+        
+        super(Contribution_R, self).__init__(contribution_definition, cmd_interface, **opts)
+
+    def generate_all_counterterms(self, group_processes=True):
+        """ Generate all counterterms associated to the processes in this contribution."""
+        
+        self.counterterms = {}
+        for process_key, (defining_process, mapped_processes) in self.get_processes_map().items():
+            self.counterterms[process_key] = self.IR_subtraction.get_all_counterterms(defining_process)
+        
     def export(self, *args, **opts):
         """ Overloads export so as to export subtraction currents as well."""
         ret_value = super(Contribution_R, self).export(*args, **opts)
@@ -2023,26 +2040,35 @@ class Contribution_R(Contribution):
             group_processes = opts['group_processes']
         else:
             group_processes = True
-            
-        self.generate_all_currents(group_processes=group_processes)
+
+        self.generate_all_counterterms(group_processes=group_processes)            
         
         return ret_value
 
-    def get_MEAccessors(self, root_path):
-        """ Returns all MEAccessors for the matrix elemements generated as part of this contribution."""
+    def add_current_accessors(self, root_path, all_MEAccessors):
+        """  Generates and add all subtraction current accessors to the MEAccessorDict."""
+
+        all_currents = []
+        for process_key, counterterms in self.counterterms.items():
+            for current in self.IR_subtraction.get_all_currents(counterterms):
+                if current not in self.all_currents:
+                    self.all_currents.append(current)
+
+        # Now further remove currents that are already in all_MEAccessors
+        all_currents = [current for current in all_currents if current.get_key() not in all_MEAccessors]
+        
+        # Now generate the computer code and exports it on disk for the remaining new currents
+        current_exporter = subtraction.SubtractionCurrentExporter(self.model, self.export_dir)
+        all_current_accessors = current_exporter.export(all_currents)
+        all_MEAccessors.add_MEAccessors(all_current_accessors)
+
+    def add_ME_accessors(self, root_path, all_MEAccessors):
+        """ Adds all MEAccessors for the matrix elements and currents generated as part of this contribution."""
         
         # Get the basic accessors for the matrix elements
-        accessors_to_add = super(Contribution_R, self).get_MEAccessors(root_path)
-        # Now add the accessors to the currents generated during the export of this contribution
-        accessors_to_add.extend(self.get_all_current_accessors(root_path))
-        
-        return accessors_to_add
-    
-    def get_all_current_accessors(self, root_path):
-        """  Returns all current accessors to be added to the MEAccessorDict."""
-        
-        # TODO Build and add the current accessors corresponding to all those generated during get_MEAccessors.
-        return []
+        super(Contribution_R, self).add_ME_accessors(root_path, all_MEAccessors)
+
+        self.add_current_accessors(root_path, all_MEAccessors)
         
 class Contribution_RR(Contribution):
     """ Implements the handling of a double real-emission type of contribution."""

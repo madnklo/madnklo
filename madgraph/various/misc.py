@@ -1092,15 +1092,16 @@ class TMP_directory(object):
     """create a temporary directory and ensure this one to be cleaned.
     """
 
-    def __init__(self, suffix='', prefix='tmp', dir=None):
+    def __init__(self, suffix='', prefix='tmp', dir=None, debug=False):
         self.nb_try_remove = 0
+        self.debug = debug
         import tempfile   
         self.path = tempfile.mkdtemp(suffix, prefix, dir)
 
     
     def __exit__(self, ctype, value, traceback ):
         #True only for debugging:
-        if False and isinstance(value, Exception):
+        if (False and isinstance(value, Exception)) or self.debug:
             sprint("Directory %s not cleaned. This directory can be removed manually" % self.path)
             return False
         try:

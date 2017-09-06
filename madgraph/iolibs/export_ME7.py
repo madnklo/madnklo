@@ -98,12 +98,9 @@ class ME7Exporter(object):
     def copy_template(self, model):
         """ Copy the template directories."""
 
-        # Create the root directory if necessary
+        # The root directory should have already been cleaned if necessary
         if os.path.exists(self.export_dir):
-            if noclean:
-                raise InvalidCmd("The output path '%s' already exists. Clean it first.")
-            else:
-                shutil.rmtree(self.export_dir)
+            raise InvalidCmd("The output path '%s' already exists. Clean it first."%self.export_dir)
         
         shutil.copytree(pjoin(template_path,'ME7'),self.export_dir)
 
@@ -241,10 +238,10 @@ class ME7Exporter(object):
         # can and will be overwritten by the actualized values when the ME7Interface will be launched.
         # We provide it here just so as to be complete.
         
-        # Obtain all the accessors to the Matrix Element made available in this process output
+        # Obtain all the Accessors to the Matrix Element and currents made available in this process output
         all_MEAccessors = contributions.MEAccessorDict()
         for contrib in self.contributions:
-            all_MEAccessors.add_MEAccessors(contrib.get_MEAccessors(self.export_dir))
+            contrib.add_MEAccessors(all_MEAccessors, self.export_dir)
         
         # Now generate all the integrands from the contributions exported
         all_integrands = []

@@ -157,6 +157,8 @@ class Vector(array.array):
 
 class LorentzVector(Vector):
 
+    TINY = 100*sys.float_info.epsilon
+
     def __new__(cls, *args):
 
         return super(LorentzVector, cls).__new__(cls, *args)
@@ -164,7 +166,25 @@ class LorentzVector(Vector):
     def dot(self, v):
 
         assert len(self) == len(v)
-        return self[0]*v[0] - sum(self[i]*v[i] for i in range(1, len(self)))
+        pos = self[0]*v[0]
+        neg = sum(self[i]*v[i] for i in range(1, len(self)))
+        if pos+neg != 0 and abs(2*(pos-neg)/(pos+neg)) < self.TINY:
+            return 0
+        return pos - neg
+
+#===============================================================================
+# Kinematic functions
+#===============================================================================
+
+def Kaellen(*args):
+
+    l = len(args)
+    foo = 0.
+    for i in range(l):
+        foo += args[i]**2
+        for j in range(i+1, l):
+            foo -= 2*args[i]*args[j]
+    return foo
 
 #===============================================================================
 # Lorentz5Vector
@@ -783,16 +803,16 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
 # Mappings
 #===============================================================================
 
-def get_parent_number(structure, momenta_dict):
-    """Return the number of the parent of a given structure
+def get_structure_numbers(structure, momenta_dict):
+    """Return the number of the parent and children of a given structure
     according to some momenta dictionary.
     """
 
+    children = frozenset((leg.n for leg in structure.get_all_legs()))
     if structure.name() == "S":
-        return None
-    return momenta_dict.inv[
-        frozenset((leg.n for leg in structure.get_all_legs()))
-    ]
+        return None, children
+    else:
+        return momenta_dict.inv[children], children
 
 class VirtualMapping(object):
     """ A virtual class from which all Mapping implementations must inherit."""
@@ -908,22 +928,19 @@ class ElementaryMappingCollinearFinal(VirtualMapping):
         assert isinstance(momenta_dict, subtraction.bidict)
         assert self.is_valid_structure(singular_structure)
 
-        kinematic_variables = []
+        names = []
         # For every collinear subset of N particles,
         # a set of (N-1) z's and 2-component kt's is needed
         # plus the set's virtuality
         for substructure in singular_structure.substructures:
             # Add direct legs, last one not needed because of sum rules
-            for leg in substructure.legs[:-1]:
-                kinematic_variables += [
-                    'z' + str(leg.n), 'kt' + str(leg.n)
-                ]
+            parent, children = get_structure_numbers(substructure, momenta_dict)
+            for legn in sorted(children)[:-1]:
+                names += ['z'+str(legn), 'kt'+str(legn), ]
             # Add virtuality of this subset
-            kinematic_variables += [
-                's' + str(get_parent_number(substructure, momenta_dict))
-            ]
+            names += ['s'+str(parent), ]
 
-        return kinematic_variables
+        return names
 
     def get_collinear_variables(self, PS_point, parent, children, variables):
         """Given unmapped and mapped momenta, compute the kinematic variables
@@ -973,21 +990,16 @@ class ElementaryMappingCollinearFinal(VirtualMapping):
         q2 = q.square()
         pq = p.dot(q)
         # Variables for sums
-        z_sum = 0
-        kt_sum = LorentzVector(4)
+        p_sum = LorentzVector(4)
         # Set momenta for all children but the last
         for i in children[:-1]:
             zi = variables['z' + str(i)]
             kti = variables['kt' + str(i)]
-            z_sum += zi
-            kt_sum += kti
             kti2 = kti.square()
             PS_point[i] = kti + (zi*zi*q2+kti2)/(2*zi*pq) * p - kti2/(zi*q2) * q
+            p_sum += PS_point[i]
         # Set momentum of the last child
-        zj = 1 - z_sum
-        ktj = -kt_sum
-        ktj2 = ktj.square()
-        PS_point[children[-1]] = ktj + (zj*zj*q2+ktj2)/(2*zj*pq) * p - ktj2/(zj*q2) * q
+        PS_point[children[-1]] = q - p_sum
         return
 
     def azimuth_reference_vector(self, n):
@@ -1066,41 +1078,40 @@ class MappingCataniSeymourFFOne(ElementaryMappingCollinearFinal):
 
     def map_to_lower_multiplicity(
         self, PS_point, singular_structure, momenta_dict,
-        kinematic_variables=None
+        kinematic_variables = None
     ):
 
         # Consistency checks
         assert isinstance(momenta_dict, subtraction.bidict)
         assert self.is_valid_structure(singular_structure)
 
-        # Build the total momentum of collinear sets and recoilers
-        Q = sum(
-            PS_point[leg.n]
-            for leg in singular_structure.get_all_legs()
-        )
-        Q2 = Q.square()
         # Precompute sets and numbers...
         cluster = singular_structure.substructures[0]
-        children_numbers = frozenset((leg.n for leg in cluster.legs))
-        parent_number = momenta_dict.inv[children_numbers]
-        # Build the collective momentum
-        pC = sum(PS_point[j] for j in children_numbers)
+        parent, children = get_structure_numbers(cluster, momenta_dict)
+        # Build the collinear momentum
+        pC = LorentzVector(4)
+        for j in children:
+            pC += PS_point[j]
+        # Build the total momentum of recoilers
+        pR = LorentzVector(4)
+        for leg in singular_structure.legs:
+            pR += PS_point[leg.n]
+        Q = pC + pR
+        Q2 = Q.square()
         # Compute the parameter alpha for this collinear subset
         QpC = pC.dot(Q)
         sC = pC.square()
-        alpha = (QpC - math.sqrt(QpC**2 - sC)) / Q2
-        # Compute the common scale factor
-        scale_factor = 1. / (1.-alpha)
+        alpha = (QpC - math.sqrt(QpC**2 - Q2*sC)) / Q2
         # Map all recoilers' momenta
         for recoiler in singular_structure.legs:
-            PS_point[recoiler] *= scale_factor
+            PS_point[recoiler.n] /= (1-alpha)
         # Map the cluster's momentum
-        PS_point[parent_number] = scale_factor * (pC - alpha * Q)
+        PS_point[parent] = (pC - alpha * Q) / (1-alpha)
         # If needed, update the kinematic_variables dictionary
-        if kinematic_variables:
-            kinematic_variables['s' + str(parent_number)] = sC
+        if kinematic_variables is not None:
+            kinematic_variables['s'+str(parent)] = sC
             self.get_collinear_variables(
-                PS_point, parent_number, children_numbers, kinematic_variables
+                PS_point, parent, sorted(children), kinematic_variables
             )
 
         # TODO Compute the jacobian for this mapping
@@ -1115,18 +1126,22 @@ class MappingCataniSeymourFFOne(ElementaryMappingCollinearFinal):
         # Consistency checks
         assert isinstance(momenta_dict, subtraction.bidict)
         assert self.is_valid_structure(singular_structure)
-        assert (
-            set(variables.keys()) ==
-            set(self.get_kinematic_variables_names(singular_structure,
-                                                   momenta_dict))
+        needed_variables = set(
+            self.get_kinematic_variables_names(
+                singular_structure, momenta_dict
+            )
         )
+        assert needed_variables.issubset(variables.keys())
 
+        # Precompute sets and numbers...
+        cluster = singular_structure.substructures[0]
+        parent, children = get_structure_numbers(cluster, momenta_dict)
         # Find the parent's momentum
-        parent = get_parent_number(singular_structure.substructures[0])
-        children = singular_structure.substructures[0].get_all_legs()
         qC = PS_point[parent]
         # Compute the momentum of recoilers and the total
-        qR = sum(PS_point[i] for i in singular_structure.legs)
+        qR = LorentzVector(4)
+        for leg in singular_structure.legs:
+            qR += PS_point[leg.n]
         Q = qR + qC
         # Compute scalar products
         QqC = Q.dot(qC)
@@ -1141,13 +1156,15 @@ class MappingCataniSeymourFFOne(ElementaryMappingCollinearFinal):
         else:
             alpha = (math.sqrt(QqC**2 - Q2*qC2 + sC*qR2) - (QqC - qC2)) / qR2
         # Compute reverse-mapped momentum
-        pC = (1-alpha) * qC - alpha*Q
+        pC = (1-alpha) * qC + alpha * Q
         # Set children momenta
-        self.set_collinear_variables(PS_point, parent, children, pC, variables)
+        self.set_collinear_variables(
+            PS_point, parent, sorted(children), pC, variables
+        )
         # TODO What to do with the parent's momentum? Leave as is?
         # Map recoil momenta
         for recoiler in singular_structure.legs:
-            PS_point[recoiler] *= 1-alpha
+            PS_point[recoiler.n] *= 1-alpha
 
         # TODO Compute the jacobian for this mapping
         jacobian = 1.0

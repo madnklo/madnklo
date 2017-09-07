@@ -15,6 +15,9 @@
 """Unit test library for the various phase-space generation/handling features."""
 
 import madgraph.integrator.phase_space_generators as PS
+import madgraph.core.subtraction as subtraction
+
+import copy
 import math
 import random
 
@@ -181,3 +184,63 @@ class CollinearVariablesTest(unittest.TestCase):
         for i in range(self.n_children):
             for j in range(4):
                 self.assertAlmostEqual(my_PS_point[i][j], new_PS_point[i][j])
+
+class CataniSeymourFFOneTest(unittest.TestCase):
+    """Test class for MappingCataniSeymourFFOne."""
+
+    mapping = PS.MappingCataniSeymourFFOne()
+    n_collinear = 1
+    n_recoilers = 3
+    massive = False
+    structure = subtraction.SingularStructure()
+    momenta_dict = subtraction.bidict()
+
+    def setUp(self):
+
+        self.structure = subtraction.SingularStructure(
+            [
+                subtraction.CollStructure(
+                    subtraction.SubtractionLeg(
+                        i, 21,subtraction.SubtractionLeg.FINAL
+                    )
+                )
+                for i in range(self.n_collinear)
+            ] + [
+                subtraction.SubtractionLeg(
+                    i, 21, subtraction.SubtractionLeg.FINAL
+                )
+                for i in range(self.n_collinear, self.n_collinear + self.n_recoilers)
+            ]
+        )
+        for i in range(self.n_collinear + self.n_recoilers):
+            self.momenta_dict[i] = frozenset((i,))
+
+    def test_invertible(self):
+        """Test mapping and inverse."""
+
+        # Generate n_collinear random massive vectors plus
+        # n_recoilers (massive = True, False) random vectors
+        my_PS_point = dict()
+        for i in range(self.n_recoilers + self.n_collinear):
+            my_PS_point[i] = PS.LorentzVector(
+                [0., ] + [random.random() for _ in range(3)]
+            )
+            if i < self.n_collinear or self.massive:
+                my_PS_point[i][0] = math.sqrt(
+                    random.random() - my_PS_point[i].square()
+                )
+            else:
+                my_PS_point[i][0] = math.sqrt(-my_PS_point[i].square())
+        # I know what I'm doing
+        old_PS_point = copy.deepcopy(my_PS_point)
+        # Compute collinear variables
+        variables = dict()
+        self.mapping.map_to_lower_multiplicity(
+            my_PS_point, self.structure, self.momenta_dict, variables
+        )
+        self.mapping.map_to_higher_multiplicity(
+            my_PS_point, self.structure, self.momenta_dict, variables
+        )
+        for i in my_PS_point.keys():
+            for j in range(4):
+                self.assertAlmostEqual(my_PS_point[i][j], old_PS_point[i][j])

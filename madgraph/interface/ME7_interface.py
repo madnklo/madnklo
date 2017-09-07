@@ -458,7 +458,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
                 complex_mass_scheme=self.complex_mass_scheme)
 
         self.all_MEAccessors = ME7_dump['all_MEAccessors']['class'].initialize_from_dump(
-                                                ME7_dump['all_MEAccessors'], root_path = self.me_dir)
+                                ME7_dump['all_MEAccessors'], root_path = self.me_dir, model=self.model)
         self.all_integrands = [integrand_dump['class'].initialize_from_dump(
             integrand_dump, self.model, self.run_card, self.all_MEAccessors, self.options
                                                     ) for integrand_dump in ME7_dump['all_integrands']]
@@ -480,7 +480,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
             integrand.synchronize(self.model, self.run_card, self.options)
         
         # Try and import some options from those provided to this function
-        sync_options = {'refresh_filters':'auto', 'compile':'auto'}
+        sync_options = {'refresh_filters':'auto', 'compile':'auto', 'model':self.model}
         for key in sync_options:
             try:
                 sync_options[key] = opts[key]

@@ -13,11 +13,14 @@
 # For more information, visit madgraph.phys.ucl.ac.be and amcatnlo.web.cern.ch
 #
 ################################################################################
+from __builtin__ import True
+from Carbon.Aliases import true
 """Definition of all the classes and features relevant to the handling of 
 higher order IR subtraction.
 """
 
 import copy
+import inspect
 import itertools
 import collections
 import logging
@@ -25,6 +28,9 @@ import types
 import math
 import sys
 import os
+import importlib
+import shutil
+
 if __name__ == '__main__':
     sys.path.append(os.path.join(os.path.dirname(
         os.path.realpath(__file__)),
@@ -35,6 +41,7 @@ from madgraph import MadGraph5Error, MG5DIR, InvalidCmd
 import madgraph.core.base_objects as base_objects
 import madgraph.fks.fks_common as fks_common
 import madgraph.various.misc as misc
+from madgraph.iolibs.files import cp, ln, mv
 from bidict import bidict
 
 logger = logging.getLogger('madgraph')
@@ -238,7 +245,7 @@ class SingularStructure(object):
         ]
         # Set of simple legs this SubtractionOperators acts on
         self.legs = SubtractionLegSet(
-            # HACK without tuple and expansion fails for empty components
+            # Without tuple and expansion, it fails for empty components
             *(a for a in components if isinstance(a, SubtractionLeg))
         )
 
@@ -286,7 +293,6 @@ class SingularStructure(object):
 
     def discard_leg_numbers(self):
         """Set all leg numbers to zero, discarding this information forever."""
-
         self.legs = SubtractionLegSet(
                 SubtractionLeg(0, leg.pdg, leg.state)
                 for leg in self.legs
@@ -566,6 +572,10 @@ class Current(base_objects.Process):
 
         super(Current, self).default_setup()
         self['n_loops'] = None
+        # If this current is directly connected to the underlying ME, it will 
+        # need to resolve spin and color of the mother leg (i.e. specify the
+        # corresponding correlators). If not, then it will be summed over.
+        self['resolve_mother_spin_and_color'] = True
         self['singular_structure'] = SingularStructure()
         return
 
@@ -601,7 +611,8 @@ class Current(base_objects.Process):
                 allowed_attributes = [
                     'singular_structure',
                     'n_loops',
-                    'squared_orders'
+                    'squared_orders',
+                    'resolve_mother_spin_and_color'
                 ]
             )
 
@@ -1254,25 +1265,112 @@ class SubtractionCurrentExporter(object):
     and generate the corresponding accessors as well."""
     
     template_dir = pjoin(MG5DIR,'madgraph','iolibs','template_files','subtraction')
-    
+    template_modules_path = 'madgraph.iolibs.template_files.subtraction'
+
     def __init__(self, model, export_dir):
         """ Initializes the exporter with a model and target export directory."""
         self.model      = model
         self.export_dir = export_dir
 
+    def collect_modules(self, modules_path=[]):
+        """ Returns a list of modules to load, from a given starting location."""
+        
+        base_path = pjoin(self.template_dir,pjoin(*modules_path))
+        collected_modules = []
+
+        for python_file in misc.glob(pjoin(base_path,'*.py')):
+            python_file_name = os.path.basename(python_file)
+            if python_file_name == '__init__.py':
+                continue
+            relative_module_path = '%s.%s'%('.'.join(modules_path), python_file_name[:-3])
+            absolute_module_path = '%s.%s'%(self.template_modules_path, relative_module_path)
+            collected_modules.append((relative_module_path, importlib.import_module(absolute_module_path)))
+
+        for dir_name in os.listdir(base_path):
+            if not os.path.isdir(dir_name) or not os.path.isfile(pjoin(dir_name, '__init__.py')):
+                continue
+            collected_modules.extend(self.collect_modules(modules_path+[dir_name,]))
+        
+        return collected_modules
+
     def export(self, currents):
         """ Exports the specified list of currents and returns a list of accessors,
         which contain the mapping information."""
         
-        # First group all currents according to mapping rules.
+        subtraction_utils_module_path = '%s.%s'%(self.template_modules_path,'subtraction_current_implementations_utils')
+        subtraction_utils = importlib.import_module(subtraction_utils_module_path)
+        
+        # First copy the base files to export_dir
+        if not os.path.isdir(pjoin(self.export_dir,'SubtractionCurrents')):
+            os.mkdir(pjoin(self.export_dir,'SubtractionCurrents'))
+
+        for file in ['__init__.py','subtraction_current_implementations_utils.py']:
+            if not os.path.isfile(pjoin(self.export_dir,'SubtractionCurrents', file)):
+                cp(pjoin(self.template_dir,file), pjoin(self.export_dir,'SubtractionCurrents', file))
+        
+        # Now load all modules specified in the templates and identify the current implementation classes
+        all_classes = []
+        for dir_name in os.listdir(self.template_dir):
+            if not os.path.isfile(pjoin(self.template_dir, dir_name, '__init__.py')):
+                continue
+            all_modules = self.collect_modules([dir_name])
+            for (module_path, module) in all_modules:
+                for class_name in dir(module):
+                    current_implementation_class = getattr(module, class_name)
+                    if not inspect.isclass(current_implementation_class) or \
+                        not hasattr(current_implementation_class, 'does_implement_this_current'):
+                        continue
+                    all_classes.append((dir_name, module_path, class_name, current_implementation_class))
+        
+        # Save directories that will need to be exported
+        directories_to_export = set([])
+        
+        # Group all currents according to mapping rules.
         # The mapped currents is a dictionary of the form
-        #         { current_class, 
+        #         { (module_path, class_name, instantiation_options_index), 
         #                {'defining_current': <...>,
         #                 'mapped_process_keys': [<...>],
+        #                 'instantiation_options': instantiation_options
         #         }
         mapped_currents = {}
         
+        # Look in all current implementation classes found and find which one implements each current
+        all_instantiation_options = []
+        for current in currents:
+            found_current_class = False
+            for (dir_name, module_path, class_name, current_implementation_class) in all_classes:
+                instantiation_options = current_implementation_class.does_implement_this_current(current, self.model)
+                if instantiation_options is None:
+                    continue
+                try:
+                    instantiation_options_index = all_instantiation_options.index(instantiation_options)
+                except ValueError:
+                    all_instantiation_options.append(instantiation_options)
+                    instantiation_options_index = len(all_instantiation_options)-1
+                key = ('SubtractionCurrents.%s'%module_path, class_name, instantiation_options_index)
+                if key in mapped_currents:
+                    mapped_currents[key]['mapped_process_keys'].append(current.get_key())
+                else:
+                    directories_to_export.add(dir_name)
+                    mapped_currents[key]={'defining_current': current,
+                                          'mapped_process_keys': [current.get_key()],
+                                          'instantiation_options': instantiation_options}
+
+                found_current_class = true
+                break
+            if not found_current_class:
+                raise MadGraph5Error("No implementation was found for current %s."%str(current))
         
+        # Now copy all the relevant directories
+        for directory_to_export in directories_to_export:
+            dir_path = pjoin(self.export_dir,'SubtractionCurrents',directory_to_export)
+            def ignore_function(d, files):
+                return  [f for f in files if os.path.isfile(pjoin(d, f)) and f.split('.')[-1] in ['pyc','pyo','swp'] ]
+            if not os.path.isdir(dir_path):
+                shutil.copytree(pjoin(self.template_dir,directory_to_export),dir_path,
+                    ignore=ignore_function)
+        
+        return mapped_currents
         
 #===============================================================================
 # Standalone main for debugging / standalone trials

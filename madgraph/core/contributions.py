@@ -192,9 +192,12 @@ class VirtualMEAccessor(object):
            process, f2py_module_path, slha_card_path
         """
         if cls is VirtualMEAccessor:
+            # Use possibly customized CurrentAccessors for the access to subtraction currents
+            if isinstance(args[0], subtraction.Current):
+                target_type = 'CurrentAccessor'
             # Check if the input match what is needed for a PythonAccessor namely that the first
             # two are ProcessInstance, (f2py_module_path, f2py_module_name)
-            if len(args)<2 or not isinstance(args[0],base_objects.Process) or \
+            elif len(args)<2 or not isinstance(args[0],base_objects.Process) or \
                not isinstance(args[1],tuple) or not len(args[1])==2 or not \
                all(isinstance(path, str) for path in args[1]):
                 # Check if the first second argument is key declared in MEAccessor_classes_map.
@@ -393,7 +396,7 @@ class MEEvaluation(dict):
     result_format = {'tree':'%.15e','finite':'%.15e','eps':'%.15e',
                      'return_code':'%d','accuracy': '%.2g'}
     
-    def __init(self, *args, **opts):
+    def __init__(self, *args, **opts):
         super(MEEvaluation, self).__init__(*args, **opts)      
 
     @classmethod
@@ -412,7 +415,7 @@ class MEEvaluation(dict):
         return index + ((100*self.result_order.index(result_name)) if result_name in self.result_order else 100000)
 
     def nice_string(self, max_len_attribute=-1):
-        """ Formats nicely the output of a particular ME evalaution."""
+        """ Formats nicely the output of a particular ME evaluation."""
         
         res = []
         template = '%%-%ds = %%s'%(max_len_attribute if max_len_attribute>0 else
@@ -587,7 +590,7 @@ class MEAccessorCache(dict):
         while self.is_cache_too_large():
             del self[self.added_entries.pop(0)]
         
-    def add_result(self, **opts):
+    def add_result(self, result=None, **opts):
         """ Add a result to the cache, making sure it does not extend its target maximum size.
         """
         key_opts = {'PS_point' : None,
@@ -597,20 +600,235 @@ class MEAccessorCache(dict):
         key = tuple(sorted(key_opts.items()))
         
         if key in self:
+            if result:
+                self[key].update(result)
             return self[key]
-        
-        self[key] = MEResult()
+
+        if result is None:
+            new_result = MEResult()
+        else:
+            new_result = result
+            
+        self[key] = new_result
         self.added_entries.append(key)
         
         # Now check Cache size:
         self.check_cache_size()
         
         return self[key]
-   
-class CurrentAccessor(VirtualMEAccessor):
-    """ A class wrapping the access to a particular set of mapped subtraction currents."""
-    # TODO
+
+class SubtractionCurrentAccessorCache(MEAccessorCache):
+    # We can reuse completely the MEAccessorCache for the purpose of the SubtractionCurrentAccessorCache.
     pass
+
+class SubtractionCurrentAccessor(VirtualMEAccessor):
+    """ A class wrapping the access to a particular set of mapped subtraction currents."""
+
+    def __init__(self, defining_current,
+                       relative_module_path,
+                       current_implementation_class_name,
+                       relative_generic_module_path, 
+                       instantiation_options, 
+                       mapped_process_keys=[], 
+                       root_path='', 
+                       model=None,
+                       **opts):
+        """ Initialize a SubtractionCurrentAccessor from a current and mapped process keys to indicate 
+        other currents that can be obtained by this same accessor.
+        root_path is the parent directory of the SubtractionCurrent directory, from which all
+        module paths are relative."""
+        
+        # Save the initialization arguments and options to facilitate the generation and use of
+        # a the dump. root_path should not be saved since this will be updated whenever the
+        # instance is reconstructed from a dump.
+        self.initialization_inputs = {'args':[], 'opts':{}}
+        self.initialization_inputs['args'].append(defining_current)
+        self.initialization_inputs['args'].append(relative_module_path)
+        self.initialization_inputs['args'].append(current_implementation_class_name)
+        self.initialization_inputs['args'].append(instantiation_options)
+        self.initialization_inputs['opts'].update(
+            {'mapped_process_keys': mapped_process_keys,
+             'root_path': root_path})
+        self.initialization_inputs['opts'].update(opts)
+                
+        # Now define the attributes for this particular subtraction current accessor.
+        self.defining_current = defining_current
+        self.mapped_current_keys  = mapped_process_keys
+        self.relative_module_path = relative_module_path
+        self.relative_generic_module_path = relative_generic_module_path
+        self.current_implementation_class_name = current_implementation_class_name
+        self.instantiation_options = instantiation_options
+        
+        if not os.path.isabs(root_path):
+            raise MadGraph5Error("The initialization of SubtractionCurrentAccessor necessitates an "+
+                                                        "absolute path for root_path.")
+        self.root_path = root_path
+        
+        # Finally instantiate a cache for this SubtractionCurrentAccessor. 
+        # (Here this class basically reuses the MEAccessorCache one)
+        self.cache = SubtractionCurrentAccessorCache()
+
+        # Now load the modules and specify the result classes        
+        self.module = self.load_module(self.relative_module_path)
+        self.generic_module = self.load_module(self.relative_generic_module_path)
+        self.evaluation_class = self.generic_module.SubtractionCurrentEvaluation
+        self.result_class = self.generic_module.SubtractionCurrentResult
+        
+        # Instantiate the subtraction_current_instance with the specified model
+        self.model = model
+        self.subtraction_current_instance = None
+        self.synchronize(model=model) 
+
+    def synchronize(self, model=None, **opts):
+        """ Synchronizes this accessor with the possibly updated model and value."""
+        if not model is None:
+            self.model = model
+            self.subtraction_current_instance = getattr(self.module, 
+                self.current_implementation_class_name)(model, **self.instantiation_options)
+
+    def generate_dump(self, **opts):
+        """ Generate a serializable dump of self, which can later be used, along with some more 
+        information, in initialize_from_dump in order to regenerate the object. 
+        This can be overloaded by the daughter classes."""
+        
+        dump = {}
+        # We opt here for a dictionary of relevant attribute to be used in __init__ during
+        # as well as the class of the accessor
+        dump['class'] = self.__class__
+        dump['args'] = self.initialization_inputs['args']
+        dump['opts'] = self.initialization_inputs['opts']
+        
+        return dump
+
+    @classmethod
+    def initialize_from_dump(cls, dump, root_path):
+        """ Regenerate this instance from its dump and possibly other information."""
+        
+        SubtractionCurrentAccessorClass = dump['class']
+        assert (cls==SubtractionCurrentAccessorClass)
+        # Make sure to override the root_path with the newly provided one
+        if 'root_path' in dump['opts']:
+            dump['opts']['root_path'] = root_path
+        SubtractionCurrentAccessor_instance = SubtractionCurrentAccessorClass(*dump['args'], **dump['opts'])
+        return SubtractionCurrentAccessor_instance
+
+    def nice_string(self):
+        """ Summary of the details of this Subtraction current accessor."""
+        res = []
+        res.append("%s: %s @ '%s'"%(self.__class__.__name__,self.relative_module_path, self.current_implementation_class_name))
+        res.append('Defining subtraction current: %s'%str(self.defining_current))
+        return '\n'.join(res)
+
+    def get_canonical_key_value_pairs(self):
+        """ Return all the canonical keys that should point to this ME. 
+        This is intended to be used for the MEAccessorDict."""
+        
+        key_value_pairs = []
+        for mapped_current_key in self.mapped_current_keys:
+            # There is no remapping of the inputs to be done for currents, so we just store
+            # None as a second entry to the value in the accessor dictionary.
+            value = (self, None)
+            key_value_pairs.append( (mapped_current_key.get_canonical_key(), value) )
+
+        return key_value_pairs
+    
+    def check_inputs_validity(self, opts, current):
+        """ Check the validity of the inputs of the call to this current accessor."""
+        
+        new_opts = dict(opts)
+        new_opts['hel_config'] = tuple(opts['hel_config']) if ('hel_config' in opts and opts['hel_config']) else None
+        
+        # Make sure to drop useless specifier only relevant to MEAccessors
+        for irrelevant_opt in ['permutation','process_pdgs']:
+            new_opts.pop(irrelevant_opt)
+
+        squared_orders = None
+        if 'squared_orders' in opts:
+            new_opts.pop('squared_orders')
+            if isinstance(opts['squared_orders'], dict):
+                squared_orders = tuple(sorted(opts['squared_orders'].items()))
+            elif isinstance(opts['squared_orders'], list):
+                squared_orders = tuple(sorted(opts['squared_orders']))
+            if squared_orders:
+                # This information must be passed via the 'squared_orders' attribute of the current, so we
+                # simply make sure that it is identical if specified and then remove it
+                if squared_orders != tuple(sorted(current.get('squared_orders').items())):
+                    raise MadGraph5Error("The following subtraction current accessor:"+\
+                        "\n%s\ncannot provide squared orders %s."%(
+                            self.nice_string(), str(squared_orders)))
+
+        if new_opts['hel_config']:
+            # In this case it is not optimal to check the validity of the helicity configuration, so 
+            # we limit ourselves to checking if it supports helicity assignment
+            if not self.subtraction_current_instance.supports_helicity_assignment:
+                raise MadGraph5Error("The following subtraction current accessor:\n%s"%(
+                                    self.nice_string() ) + "\ndoes not support helicity assignment.")
+        
+
+        return new_opts
+
+    def __call__(self, current, PS_point, **opts):
+        """ Evaluation of the subtraction current. """
+        
+        if self.subtraction_current_instance is None:
+            raise MadGraph5Error("This subtraction current accessor\n'%s'\nhas not been properly initialized."%(
+                                                                                            self.nice_string()))
+        
+        # Parse options and check their validity
+        call_opts = self.check_inputs_validity(opts, current)
+        
+        # Set the arguments of the call
+        call_args = [current, PS_point]
+        
+        # Now obtain the cache key directly from the current implementation
+        cache_key, result_key = self.subtraction_current_instance.get_cache_and_result_key(*call_args, **call_opts)
+        
+        # Attempt to recycle the result
+        if not cache_key is None:
+            recycled_call = self.cache.get_result(**cache_key)
+            recycled_result = recycled_call.get_result(**result_key)
+            if recycled_result:
+                return self.evaluation_class(recycled_result), self.result_class(recycled_call)
+
+        all_evaluations = self.subtraction_current_instance.evaluate_subtraction_current(*call_args, **call_opts)
+        evaluation_asked_for = all_evaluations.get_result(**result_key)
+        if not evaluation_asked_for:
+            raise MadGraph5Error("Could not obtain result '%s' from evaluation:\n%s"%(str(result_key), str(all_evaluations)))
+        
+        # Update the cache with the new results produced
+        if not cache_key is None:
+            all_evaluations = self.cache.add_result(all_evaluations, **cache_key)
+        
+        # Return both the specific evaluation asked for and all results available for this cache_key
+        return self.evaluation_class(evaluation_asked_for), self.result_class(all_evaluations)
+
+    def load_module(self, module_path):
+        """ Loads a particular subtraction module given its path"""
+        
+        # Make sure to temporarily adjust the environment
+        added_path = False
+        if self.root_path not in sys.path:
+            added_path = True
+            sys.path.insert(0, pjoin(self.root_path))
+        try:
+            subtraction_current_module = importlib.import_module(module_path)
+        except ImportError as e:
+            raise MadGraph5Error("Could not load subtraction current module '%s' in '%s'."%(self.root_path,module_path)+
+                                 "\nThe import error is: %s"%e.message)
+
+        if added_path:
+            sys.path.pop(sys.path.index(self.root_path))
+
+        return subtraction_current_module
+
+    @classmethod
+    def apply_permutations(cls, *args, **opts):
+        """ apply_permutations should never be called in the context of currents because there is not remapping
+        of the inputs to be done. This is performed upstream."""
+        raise MadGraph5Error("Function 'apply_permutations' should never have been called in the context of "+
+                             "subtraction currents.")
+    
+    
 
 class F2PYMEAccessor(VirtualMEAccessor):
     """ A class wrapping the access to one particular MatrixEleemnt wrapped with F2PY """
@@ -793,7 +1011,9 @@ class F2PYMEAccessor(VirtualMEAccessor):
         """ Loads a f2py module given its path and returns it."""
         
         # Make sure to temporarily adjust the environment
+        added_path = False
         if module_path[0] not in sys.path:
+            added_path = True
             sys.path.insert(0, pjoin(self.root_path,module_path[0]))
         with misc.Silence(active=(logger.level>logging.DEBUG)):
             try:
@@ -802,7 +1022,8 @@ class F2PYMEAccessor(VirtualMEAccessor):
                 # Try again after having recompiled this module
                 self.compile(mode='always')
                 f2py_module = importlib.import_module(module_path[1])
-        sys.path.pop(sys.path.index(pjoin(self.root_path,module_path[0])))
+        if added_path:
+            sys.path.pop(sys.path.index(pjoin(self.root_path,module_path[0])))
         return f2py_module
     
     def format_momenta_for_f2py(self, p):
@@ -1411,12 +1632,12 @@ class MEAccessorDict(dict):
         out which permutation to apply and which flavours to specify.
         """
         
-        assert (len(args)>0 and isinstance(args[0], (ProcessKey, base_objects.Process))), "When using the shortcut "+\
-            "__call__ method of MEAccessorDict, the first argument should be an instance of a ProcessKey or base_objects.Process."
+        assert (len(args)>0 and isinstance(args[0], (ProcessKey, base_objects.Process, subtraction.Current))), "When using the shortcut "+\
+            "__call__ method of MEAccessorDict, the first argument should be an instance of a ProcessKey or base_objects.Process or"+\
+            "subtraction.Current."
 
-        # Now store the me_accessor_key and remove ir from the arguments to be passed to the MEAccessor call.
+        # Now store the me_accessor_key and remove it from the arguments to be passed to the MEAccessor call.
         me_accessor_key = args[0]
-        args = args[1:]
 
         desired_pdgs_order = None
         call_options = dict(opts)
@@ -1425,6 +1646,15 @@ class MEAccessorDict(dict):
             
         ME_accessor, call_key = self.get_MEAccessor(me_accessor_key, pdgs=desired_pdgs_order)
         call_options.update(call_key)
+        # Now for subtraction current accessors, we must pass the current as first argument
+        if isinstance(ME_accessor, SubtractionCurrentAccessor):
+            if not isinstance(me_accessor_key, subtraction.Current):
+                raise MadGraph5Error("SubtractionCurrentAccessors must be called from the accessor dictionary with "+
+                                     "an instance of a current as first argument.")
+        else:
+            # For Matrix element, we don't need to provide the specific process since this is done via the PDG list
+            args = args[1:]
+            
         return ME_accessor(*args, **call_options)
     
     def add_MEAccessor(self, ME_accessor):
@@ -2045,21 +2275,43 @@ class Contribution_R(Contribution):
         
         return ret_value
 
-    def add_current_accessors(self, root_path, all_MEAccessors):
-        """  Generates and add all subtraction current accessors to the MEAccessorDict."""
-
+    def get_all_necessary_subtraction_currents(self, all_MEAccessors):
+        """ Given the counterterms in place and the currents already accessible in the 
+        all_MEAccessors, return what subtraction currents are needed."""
+        
         all_currents = []
         for process_key, counterterms in self.counterterms.items():
             for current in self.IR_subtraction.get_all_currents(counterterms):
-                if current not in self.all_currents:
-                    self.all_currents.append(current)
+                if current not in all_currents:
+                    all_currents.append(current)
 
         # Now further remove currents that are already in all_MEAccessors
-        all_currents = [current for current in all_currents if current.get_key() not in all_MEAccessors]
+        all_currents = [current for current in all_currents if 
+                        current.get_key().get_canonical_key() not in all_MEAccessors]
         
+        return all_currents
+
+    def add_current_accessors(self, root_path, currents_to_consider, all_MEAccessors):
+        """  Generates and add all subtraction current accessors to the MEAccessorDict."""
+
         # Now generate the computer code and exports it on disk for the remaining new currents
-        current_exporter = subtraction.SubtractionCurrentExporter(self.model, self.export_dir)
-        all_current_accessors = current_exporter.export(all_currents)
+        current_exporter = subtraction.SubtractionCurrentExporter(self.model, root_path)
+        mapped_currents = current_exporter.export(currents_to_consider)
+        
+        all_current_accessors = []      
+        # Finally instantiate the CurrentAccessors corresponding to all current implementations identified and needed
+        for (module_path, class_name, _), current_properties in mapped_currents.items():
+            all_current_accessors.append(VirtualMEAccessor(
+                current_properties['defining_current'],
+                module_path,
+                class_name,
+                'SubtractionCurrents.subtraction_current_implementations_utils', 
+                current_properties['instantiation_options'], 
+                mapped_process_keys=current_properties['mapped_process_keys'], 
+                root_path=root_path,
+                model=self.model
+            ))
+        
         all_MEAccessors.add_MEAccessors(all_current_accessors)
 
     def add_ME_accessors(self, root_path, all_MEAccessors):
@@ -2068,7 +2320,10 @@ class Contribution_R(Contribution):
         # Get the basic accessors for the matrix elements
         super(Contribution_R, self).add_ME_accessors(root_path, all_MEAccessors)
 
-        self.add_current_accessors(root_path, all_MEAccessors)
+        # Obtain all necessary currents
+        currents_to_consider = self.get_all_necessary_subtraction_currents(all_MEAccessors)
+
+        self.add_current_accessors(root_path, currents_to_consider, all_MEAccessors)
         
 class Contribution_RR(Contribution):
     """ Implements the handling of a double real-emission type of contribution."""
@@ -2236,7 +2491,7 @@ class ContributionList(base_objects.PhysicsObjectList):
 # For instance 'Unknown' can be mapped to a user-defined class.
 # Notice that this map must be placed after the MEAccessor daughter classes have been declared.
 MEAccessor_classes_map = {'PythonAccessor': F2PYMEAccessor,
-                          'CurrentAccessor': CurrentAccessor,
+                          'CurrentAccessor': SubtractionCurrentAccessor,
                           'Unknown': None}
 
 # Contribution classes map is defined here as module variables. This map can be overwritten

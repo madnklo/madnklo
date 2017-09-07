@@ -31,6 +31,9 @@ import madgraph.interface.master_interface as cmd
 import madgraph.various.misc as misc
 import madgraph.iolibs.export_ME7 as export_ME7
 import madgraph.iolibs.save_load_object as save_load_object
+import madgraph.integrator.phase_space_generators as phase_space_generators
+import models.import_ufo as import_ufo
+from madgraph import MG4DIR, MG5DIR
 
 import tests.unit_tests as unittest
 
@@ -300,10 +303,51 @@ class ME7ContributionTest(unittest.TestCase):
 #            self.exporter.finalize(['nojpeg'], self.madgraph_cmd.history)
             self.NLO_contributions = self.madgraph_cmd._curr_contribs 
 
-    def test_counterterms_generation(self):
+    def test_subtraction_current_generation_and_access(self):
         """Test the generation of counterterms in single real-emission type of contributions."""
         
         real_emission_contrib = self.NLO_contributions.get_contributions_of_type(contributions.Contribution_R)[0]
-        misc.sprint(str(real_emission_contrib)) 
-        misc.sprint('\n'.join([str(current) for current in real_emission_contrib.all_currents]))
-
+        
+        accessors_dict = contributions.MEAccessorDict()
+        
+        all_currents = real_emission_contrib.get_all_necessary_subtraction_currents(accessors_dict)
+        # Print all currents
+        misc.sprint('\n'.join([str(current) for current in all_currents]))
+        
+        with misc.TMP_directory(debug=False) as tmp_path:
+            
+            # For now test the handling of the first current only.
+            all_currents = all_currents[:1]
+            
+            # Squared orders are not correctly set yet, so we hardcode it here.
+            all_currents[0].set('squared_orders',{'QCD':2})
+            
+            real_emission_contrib.add_current_accessors(tmp_path, all_currents, accessors_dict)
+            # Print all accessor keys
+            #misc.sprint('\n'.join([str(key) for key in accessors_dict]))
+            misc.sprint("A total of %d accessor keys have been generated."%len(accessors_dict))
+            
+            # Try and call one current
+            
+            # We must initialize the model parameters for this first
+            model_with_params_set = import_ufo.import_model(
+                pjoin(MG5DIR,'models','loop_sm'), prefix=True,
+                complex_mass_scheme = False )
+            model_with_params_set.pass_particles_name_in_mg_default()
+            model_with_params_set.set_parameters_and_couplings(
+                param_card = pjoin(MG5DIR,'models','loop_sm','restrict_default.dat'), 
+                scale=0.118, 
+                complex_mass_scheme=False)
+            accessors_dict.synchronize(model = model_with_params_set)
+    
+            one_current = all_currents[0]
+            # Use a random PS point
+            a_PS_point = dict((id, phase_space_generators.Lorentz5Vector([10.0,2.0,3.0,4.0])) for id in range(10))
+            misc.sprint('Call of the current %s:'%str(one_current))
+            specific_eval, all_evals = accessors_dict(
+                one_current,
+                a_PS_point,
+                hel_config=None
+            )
+            misc.sprint('specific_eval is:\n',specific_eval)
+            misc.sprint('all_evals are:\n',all_evals)

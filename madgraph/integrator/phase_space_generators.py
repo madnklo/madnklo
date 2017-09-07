@@ -54,13 +54,74 @@ class PhaseSpaceGeneratorError(Exception):
 
 class Vector(array.array):
 
-    def __init__(self, *args, **opts):
+    def __new__(cls, arg1, arg2 = 0):
 
-        super(Vector, self).__init__(args, opts)
+        if isinstance(arg1, int):
+            return super(Vector, cls).__new__(cls, 'd', (arg2, ) * arg1)
+        assert len(arg1) > 0
+        return super(Vector, cls).__new__(cls, 'd', arg1)
+
+    def __iadd__(self, y):
+
+        for i in range(min(len(self), len(y))):
+            self[i] += y[i]
+        return self
+
+    def __add__(self, y):
+
+        new_vector = type(self)(self)
+        new_vector += y
+        return new_vector
+
+    def __isub__(self, y):
+
+        for i in range(min(len(self), len(y))):
+            self[i] -= y[i]
+        return self
+
+    def __sub__(self, y):
+
+        new_vector = type(self)(self)
+        new_vector -= y
+        return new_vector
+
+    def __imul__(self, x):
+
+        for i in range(len(self)):
+            self[i] *= x
+        return self
+
+    def __mul__(self, x):
+
+        tmp = type(self)(self)
+        tmp *= x
+        return tmp
+
+    __rmul__ = __mul__
+
+    def __idiv__(self, x):
+
+        self *= 1. / x
+        return self
+
+    def __div__(self, x):
+
+        return self * (1./x)
+
+    def __neg__(self):
+
+        tmp = type(self)(self)
+        tmp *= -1
+        return tmp
+
+    def dot(self, v):
+
+        assert len(self) == len(v)
+        return sum(self[i] * v[i] for i in range(len(self)))
 
     def square(self):
 
-        return sum(x**2 for x in self)
+        return self.dot(self)
 
     def __abs__(self):
 
@@ -68,11 +129,8 @@ class Vector(array.array):
 
     def normalize(self):
 
-        return self / abs(self)
-
-    def dot(self, v):
-
-        return sum(self[i] * v[i] for i in range(len(self)))
+        self /= abs(self)
+        return
 
     def project_onto(self, v):
 
@@ -85,11 +143,28 @@ class Vector(array.array):
     # Specific to 3D vectors
     def cross(self, v):
 
+        assert len(self) == 3
+        assert len(v) == 3
         return Vector([
             self[1] * v[2] - self[2] * v[1],
-            self[2] * v[3] - self[3] * v[2],
-            self[3] * v[1] - self[1] * v[3]
+            self[2] * v[0] - self[0] * v[2],
+            self[0] * v[1] - self[1] * v[0]
         ])
+
+#===============================================================================
+# LorentzVector
+#===============================================================================
+
+class LorentzVector(Vector):
+
+    def __new__(cls, *args):
+
+        return super(LorentzVector, cls).__new__(cls, *args)
+
+    def dot(self, v):
+
+        assert len(self) == len(v)
+        return self[0]*v[0] - sum(self[i]*v[i] for i in range(1, len(self)))
 
 #===============================================================================
 # Lorentz5Vector
@@ -109,7 +184,11 @@ class Lorentz5Vector(list):
         if len(self)==0:
             self.extend([0., 0., 0., 0., 0.])
         if len(self)==4:
-            self.append(abs(math.sqrt(self[0]**2-self.rho2())))
+            M2 = self[0] ** 2 - self.rho2()
+            if M2 >= 0:
+                self.append(math.sqrt(M2))
+            else:
+                self.append(0)
     
     def rescaleEnergy(self):
         self[0]=math.sqrt(self[1]**2+self[2]**2+self[3]**2+self[4]**2)
@@ -204,49 +283,6 @@ class Lorentz5Vector(list):
         self[2] = self[2] + gamma2*bp*by + gamma*by*self[0]
         self[3] = self[3] + gamma2*bp*bz + gamma*bz*self[0]
         self[0] = gamma*(self[0] + bp)
-
-    def __add__(self, y):
-        """Sum with a 4(or 5)-dimentional vector."""
-
-        newvector = Lorentz5Vector()
-        newvector[0] = self[0] + y[0]
-        newvector[1] = self[1] + y[1]
-        newvector[2] = self[2] + y[2]
-        newvector[3] = self[3] + y[3]
-        return newvector
-
-    def __sub__(self, y):
-        """Difference with a 4(or 5)-dimentional vector."""
-        newvector = Lorentz5Vector()
-        newvector[0] = self[0] - y[0]
-        newvector[1] = self[1] - y[1]
-        newvector[2] = self[2] - y[2]
-        newvector[3] = self[3] - y[3]
-        return newvector 
-
-    def __imul__(self, x):
-        """Multiplication by components, in place."""
-
-        for component in self:
-            component *= x
-        return self
-
-    def __mul__(self, x):
-        """Multiplication by a components."""
-
-        tmp = Lorentz5Vector(self)
-        tmp *= x
-        return tmp
-
-    def dot(self, y):
-        """Scalar product between two vectors."""
-
-        return self[0] * y[0] - self[1] * y[1] - self[2] * y[2] - self[3] * y[3]
-
-    def square(self):
-        """Square of a Lorentz vector."""
-
-        return self[0]**2 - self.rho2()
 
 #===============================================================================
 # Phase space generation
@@ -901,7 +937,7 @@ class ElementaryMappingCollinearFinal(VirtualMapping):
         # Retrieve the parent's momentum
         p = PS_point[parent]
         # Compute the sum of momenta
-        q = Lorentz5Vector()
+        q = LorentzVector(4)
         for i in children:
             q += PS_point[i]
         # Pre-compute scalar products
@@ -913,7 +949,7 @@ class ElementaryMappingCollinearFinal(VirtualMapping):
             ppi = p.dot(pi)
             qpi = q.dot(pi)
             zi = 2*qpi/q2 - ppi/pq
-            kti = pi + (q2*ppi - pq*qpi)/(pq*pq) * p - ppi/pq * q
+            kti = pi + (q2*ppi - pq*qpi)/(pq**2) * p - ppi/pq * q
             variables['z' + str(i)] = zi
             variables['kt' + str(i)] = kti
         return
@@ -938,7 +974,7 @@ class ElementaryMappingCollinearFinal(VirtualMapping):
         pq = p.dot(q)
         # Variables for sums
         z_sum = 0
-        kt_sum = Lorentz5Vector()
+        kt_sum = LorentzVector(4)
         # Set momenta for all children but the last
         for i in children[:-1]:
             zi = variables['z' + str(i)]
@@ -946,12 +982,12 @@ class ElementaryMappingCollinearFinal(VirtualMapping):
             z_sum += zi
             kt_sum += kti
             kti2 = kti.square()
-            PS_point[i] = kti + zi*q2/pq * p - kti2/(zi*q2) * q
+            PS_point[i] = kti + (zi*zi*q2+kti2)/(2*zi*pq) * p - kti2/(zi*q2) * q
         # Set momentum of the last child
         zj = 1 - z_sum
         ktj = -kt_sum
         ktj2 = ktj.square()
-        PS_point[children[-1]] = ktj + zj*q2/pq * p - ktj2/(zj*q2) * q
+        PS_point[children[-1]] = ktj + (zj*zj*q2+ktj2)/(2*zj*pq) * p - ktj2/(zj*q2) * q
         return
 
     def azimuth_reference_vector(self, n):

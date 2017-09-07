@@ -14,16 +14,77 @@
 ################################################################################
 """Unit test library for the various phase-space generation/handling features."""
 
-import copy
-import os
+import madgraph.integrator.phase_space_generators as PS
+import math
+import random
 
-import madgraph
-import madgraph.core.base_objects as base_objects
-import madgraph.core.color_algebra as color
-import madgraph.integrator.phase_space_generators as phase_space_generators
 import tests.unit_tests as unittest
 
-import random
+#===============================================================================
+# Test Vectors
+#===============================================================================
+
+class VectorsTest(unittest.TestCase):
+    """Test class for BaseVector, Vector and LorentzVector."""
+
+    def setUp(self):
+        pass
+
+    def test_Vector_basic(self):
+        """Test the basic operations for vectors."""
+
+        # Component-wise addition and subtraction
+        v1 = PS.Vector([1., 0., 2., 3.])
+        v2 = PS.Vector(4, 0.5)
+        self.assertEqual(v1 + v2, PS.Vector([1.5, 0.5, 2.5, 3.5]))
+        v3 = PS.Vector([1., 2., 0.5])
+        self.assertEqual(v1 - v3, PS.Vector([0., -2., 1.5, 3.]))
+        v3 += PS.Vector([1., 0.])
+        self.assertEqual(v3, PS.Vector([2., 2., 0.5]))
+        v3 -= PS.Vector([0.5, 1.5])
+        self.assertEqual(v3, PS.Vector([1.5, 0.5, 0.5]))
+
+        # Multiplication and division by scalars
+        self.assertEqual(v2 * 2., PS.Vector(4, 1.))
+        self.assertEqual(v1 / 4., PS.Vector([0.25, 0., 0.5, 0.75]))
+        v3 *= 3
+        self.assertEqual(v3, PS.Vector([4.5, 1.5, 1.5]))
+        v3 /= 1.5
+        self.assertEqual(v3, PS.Vector([3., 1., 1.]))
+        self.assertEqual(3 * v1, v1 * 3)
+
+        # Negative
+        self.assertEqual(-v3, PS.Vector([-3., -1., -1.]))
+
+    def test_Vector_Euclid(self):
+        """Test scalar products and related functions for the class Vector."""
+
+        # Square and norm
+        v1 = PS.Vector([0., 1., -2.])
+        self.assertEqual(v1.square(), 5.)
+        v2 = PS.Vector([3., 4., 0.])
+        self.assertEqual(abs(v2), 5.)
+        v2n = 0.2 * v2
+        v2.normalize()
+        self.assertEqual(v2, v2n)
+        self.assertEqual(PS.Vector.dot(v1, v2), 0.8)
+        v3 = PS.Vector([random.random() for _ in range(3)])
+        w = PS.Vector([random.random() for _ in range(3)])
+        v3p = v3.project_onto(w)
+        v3t = v3.component_orthogonal_to(w)
+        self.assertAlmostEqual(v3, v3p + v3t)
+        self.assertAlmostEqual(PS.Vector.dot(v3t, w), 0.)
+        self.assertAlmostEqual(abs(v3p+w), abs(v3p)+abs(w))
+
+    def test_Vector_Minkowski(self):
+        """Test the relativistic norm."""
+
+        # Square and norm
+        v1 = PS.LorentzVector([1, 0, 0, +1])
+        v2 = PS.LorentzVector([1, 0, 0, -1])
+        self.assertEqual(v1.square(), 0)
+        self.assertEqual(v2.square(), 0)
+        self.assertEqual(v1.dot(v2), 2)
 
 #===============================================================================
 # Test the phase-space generators
@@ -40,7 +101,7 @@ class PhaseSpaceGeneratorsTest(unittest.TestCase):
         E_cm  = 5000.0
     
         # Try to run the above for a 2->8.
-        my_PS_generator = phase_space_generators.FlatInvertiblePhasespace(
+        my_PS_generator = PS.FlatInvertiblePhasespace(
             [0.]*2, [100. + 10.*i for i in range(8)],beam_Es =(E_cm/2.,E_cm/2.), beam_types=(0,0))
         # Try to run the above for a 2->1.    
         #    my_PS_generator = FlatInvertiblePhasespace([0.]*2, [5000.0])
@@ -79,8 +140,44 @@ class PhaseSpaceGeneratorsTest(unittest.TestCase):
 #===============================================================================
 # Test the phase-space mappers
 #===============================================================================
-class MappersTest(unittest.TestCase):
-    """ Test various phase-space mappers."""
+
+class CollinearVariablesTest(unittest.TestCase):
+    """Test class for variables describing internal collinear structure."""
+
+    my_mapping = PS.ElementaryMappingCollinearFinal()
+    n_children = 3
 
     def setUp(self):
         pass
+
+    def test_variables(self):
+        """Test determination of collinear variables and reverse mapping."""
+
+        # Generate n_children+1 random massless vectors
+        # (the light-cone direction is also random)
+        my_PS_point = dict()
+        for i in range(self.n_children+1):
+            my_PS_point[i] = PS.LorentzVector(
+                [0., ] + [random.random() for _ in range(3)]
+            )
+            my_PS_point[i][0] = math.sqrt(-my_PS_point[i].square())
+        # Compute collinear variables
+        variables = dict()
+        self.my_mapping.get_collinear_variables(
+            my_PS_point, self.n_children, range(self.n_children),
+            variables
+        )
+        # Compute total momentum
+        total_momentum = PS.LorentzVector(4, 0.)
+        for i in range(self.n_children):
+            total_momentum += my_PS_point[i]
+        # Compute new phase space point
+        new_PS_point = dict()
+        new_PS_point[self.n_children] = my_PS_point[self.n_children]
+        self.my_mapping.set_collinear_variables(
+            new_PS_point, self.n_children, range(self.n_children),
+            total_momentum, variables
+        )
+        for i in range(self.n_children):
+            for j in range(4):
+                self.assertAlmostEqual(my_PS_point[i][j], new_PS_point[i][j])

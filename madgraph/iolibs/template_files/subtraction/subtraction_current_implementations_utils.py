@@ -244,16 +244,16 @@ class VirtualCurrentImplementation(object):
         # subtraction_current_result = SubtractionCurrentResult()
         #
         # one_eval_for_QCD_splitting = SubtractionCurrentEvaluation({
-        #   'spin_correlations'   = [ 
+        #   'spin_correlations'   : [ 
         #                             [ (3,[(1.1,1.2,1.3,1.4),(2.1,2.2,2.3,2.4)]),
         #                               (4,[(1.1,1.2,1.3,1.4),(2.1,2.2,2.3,2.4)]) ],
         #                             [ (3,[(5.1,5.2,5.3,5.4),(6.1,6.2,6.3,6.4)]),
         #                               (4,[(8.1,8.2,8.3,8.4),(7.1,7.2,7.3,7.4)]) ],
         #                           ]
-        #   'color_correlations'  = [ (2,4),
+        #   'color_correlations'  : [ (2,4),
         #                             (2,5)
         #                           ],
-        #   'values'              = { (0,0): { 'finite' : 32.33,
+        #   'values'              : { (0,0): { 'finite' : 32.33,
         #                                      'eps^-1' : 21.2,
         #                                      'eps^-2' : 42.6,
         #                                    },
@@ -283,3 +283,50 @@ class VirtualCurrentImplementation(object):
         # return subtraction_current_result
 
         raise NotImplemented
+
+class DefaultCurrentImplementation(VirtualCurrentImplementation):
+    """ This default implementation class will be used with a warning and *only* if none of the other implementation matches and 
+    the function 'does_implement_this_current' of this class evalauted to true.
+    This is typically useful for debugging and one has not completed the implementation of all currents but already wants to test
+    a subset of them."""
+    
+    def __init__(self, *args, **opts):
+        super(DefaultCurrentImplementation, self).__init__(*args, **opts)
+        self.supports_helicity_assignment = True
+
+    @classmethod
+    def does_implement_this_current(cls, current, model):
+        """ For production, it is preferable to turn off this default implementation by simply returnin None below instead of {}."""
+        
+        # Simply uncomment the line below to de-activate this default implementation.
+        # return None
+        return {}
+    
+    def get_cache_and_result_key(self, *args, **opts):
+        return super(DefaultCurrentImplementation, self).__init__(*args, **opts)
+
+    def evaluate_subtraction_current(self, current, PS_point,
+                                            reduced_process = None,
+                                            leg_numbers_map = None,
+                                            hel_config = None,
+                                            mapping_variables = {}
+                                     ):
+        """ Simply return 1.0 for this current default implementation."""
+        
+        subtraction_current_result = SubtractionCurrentResult()
+        
+        subtraction_current_eval = SubtractionCurrentEvaluation({
+                'spin_correlations'   : [1],
+                'color_correlations'  : [1],
+                'values'              : {(0,0): {'finite' : '1.0',
+                                                 'eps^-1' : '0.0',
+                                                 'eps^-2' : '0.0'}}
+            })
+        
+        subtraction_current_result.add_result(subtraction_current_eval, 
+                                              hel_config=hel_config, 
+                                              squared_orders=current.get('squared_orders'))
+        
+        return subtraction_current_result  
+    
+        

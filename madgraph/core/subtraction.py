@@ -399,6 +399,19 @@ class SingularStructure(object):
             *(a for a in components if isinstance(a, SubtractionLeg))
         )
 
+    def get_copy(self):
+        """ Returns a copy of this singular structure (recursively copying the substructures)."""
+        
+        copied_structure = SingularStructure(*([
+                ss.get_copy() for ss in self.substructures
+            ]+[
+               SubtractionLegSet( *(l for l in self.legs) )
+            ]
+        ))
+        copied_structure.is_annihilated = self.is_annihilated
+        
+        return copied_structure
+
     def __str__(self, print_n = True, print_pdg = False, print_state = False):
         """Return a string representation of the singular structure."""
 
@@ -718,7 +731,11 @@ class Current(base_objects.Process):
         """
 
         super(Current, self).default_setup()
-        self['n_loops'] = None
+        # Assign a default value of n_loops to 0 which will be updated later
+        # during current generation.
+        self['n_loops'] = 0
+        # And also by default assign the QCD squared orders
+        self['squared_orders'] = {'QCD':2}
         # If this current is directly connected to the underlying ME, it will 
         # need to resolve spin and color of the mother leg (i.e. specify the
         # corresponding correlators). If not, then it will be summed over.
@@ -762,6 +779,16 @@ class Current(base_objects.Process):
                     'resolve_mother_spin_and_color'
                 ]
             )
+
+
+    def get_copy(self, copied_attributes = ()):
+        """ Returns a copy of this current with a deep-copy of its singular structure."""
+        
+        copied_current = super(Current, self).get_copy(tuple(attr for attr in copied_attributes if attr!='singular_structure'))
+        if 'singular_structure' in copied_attributes:
+            copied_current['singular_structure'] = self['singular_structure'].get_copy()
+        
+        return copied_current
 
     def __eq__(self, other):
         """Compare two currents using their ProcessKey's."""
@@ -979,9 +1006,10 @@ class IRSubtraction(object):
         #             self.model.get_particle(-2).get('mass')=='zero'
         #             )
 
-        if not self.model.get('name').startswith('sm'):
+        if not any(self.model.get('name').startswith(name) for name in ['sm','loop_sm']):
             raise InvalidCmd(
-                "The function parent_PDGs is implemented for the SM only."
+                "The function parent_PDGs is implemented for the SM only, not in "+
+                "model %s."%self.model.get('name')
             )
         if any(order != 'QCD' for order in self.orders.keys()):
             raise InvalidCmd(
@@ -1163,7 +1191,7 @@ class IRSubtraction(object):
         assert isinstance(process, base_objects.Process)
 
         reduced_process = process
-        reduced_process['n_loops'] = None
+        reduced_process.set('n_loops', 0)
 
         # If no momenta dictionary was passed
         if not momenta_dict_so_far:
@@ -1175,6 +1203,7 @@ class IRSubtraction(object):
                 # else a more elaborate treatment of indices is needed
                 assert leg['number'] == len(momenta_dict_so_far) + 1
                 momenta_dict_so_far[leg['number']] = frozenset((leg['number'],))
+            # The squared orders of the reduced process will be set correctly later (DOUBLECHECK this)
             reduced_process = reduced_process.get_copy(['legs', 'n_loops'])
 
         subcurrents = []
@@ -1295,12 +1324,16 @@ class IRSubtraction(object):
         """Deduce the list of currents needed to compute all counterterms
         given in argument.
         """
-        
+
         all_currents = []
         for counterterm in counterterms:
-            all_currents.extend(counterterm.get_all_currents())
-        # Eliminate all duplicates automatically
-        return set(all_currents)
+            for current in counterterm.get_all_currents():
+                # Remove duplicates already at this level
+                if current in all_currents:
+                    continue
+                all_currents.append(current)
+
+        return all_currents
 
     def split_loops(self, counterterm, n_loops):
         """Split a counterterm in several ones according to the individual
@@ -1385,8 +1418,18 @@ class IRSubtraction(object):
 
         # TODO Rethink split_loops and split_orders
         # Possibly eliminate split_loops
-
-        counterterm['squared_orders'] = {'QCD': 2, 'QED': 0}
+        
+        # For now, assign QCD squared orders only and solely based off the n_loops.
+        for current in [counterterm.current,]+counterterm.subcurrents:
+            # Do not act on the reduced process yet.
+            if not isinstance(current, Current):
+                continue
+            current.set('squared_orders', 
+                {'QCD':
+                    ( current.get('n_loops')*2 + 
+                      (len(current.get_final_legs())-len(current.get_initial_legs()))*2 )
+                }  
+            )
 
         return [counterterm, ]
 
@@ -1478,6 +1521,15 @@ class SubtractionCurrentExporter(object):
                         continue
                     all_classes.append((dir_name, module_path, class_name, current_implementation_class))
         
+        # If there is a "default current" in the subtraction_current_implementations_utils class,
+        # presumably used for debugging only, then add this one at the very end of all_classes so that
+        # it will be selected only if no other class matches.
+        if hasattr(subtraction_utils,'DefaultCurrentImplementation'):
+            default_implementation_class = getattr(subtraction_utils, 'DefaultCurrentImplementation')
+            if inspect.isclass(default_implementation_class) and \
+                hasattr(default_implementation_class, 'does_implement_this_current'):
+                all_classes.append(('', 'subtraction_current_implementations_utils', 'DefaultCurrentImplementation', default_implementation_class))
+        
         # Save directories that will need to be exported
         directories_to_export = set([])
         
@@ -1492,6 +1544,7 @@ class SubtractionCurrentExporter(object):
         
         # Look in all current implementation classes found and find which one implements each current
         all_instantiation_options = []
+        currents_with_default_implementation = []
         for current in currents:
             found_current_class = False
             for (dir_name, module_path, class_name, current_implementation_class) in all_classes:
@@ -1507,15 +1560,24 @@ class SubtractionCurrentExporter(object):
                 if key in mapped_currents:
                     mapped_currents[key]['mapped_process_keys'].append(current.get_key())
                 else:
-                    directories_to_export.add(dir_name)
+                    if dir_name != '':
+                        directories_to_export.add(dir_name)
                     mapped_currents[key]={'defining_current': current,
                                           'mapped_process_keys': [current.get_key()],
                                           'instantiation_options': instantiation_options}
-
+                if class_name == 'DefaultCurrentImplementation':
+                    currents_with_default_implementation.append(current)
                 found_current_class = true
                 break
             if not found_current_class:
                 raise MadGraph5Error("No implementation was found for current %s."%str(current))
+        
+        # Issue some basic warning whenever DefaultCurrentImplementation is used (it should never be used in production).
+        if currents_with_default_implementation:
+            logger.critical("No implementation was found for the following subtraction currents:\n"+
+                '\n'.join(' > %s'%str(crt) for crt in currents_with_default_implementation)+
+                "\nThe class 'DefaultCurrentImplementation' will therefore be used for it but "+
+                "results obtained in this way are very likely wrong and should be used for debugging only.")
         
         # Now copy all the relevant directories
         for directory_to_export in directories_to_export:

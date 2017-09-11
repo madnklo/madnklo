@@ -1724,6 +1724,11 @@ This will take effect only in a NEW terminal
                                     (self._curr_model['name'], i)
             auto_path = lambda i: pjoin(self.writing_dir,
                                                name_dir(i))
+        if self._export_format == 'ME7':
+            name_dir = lambda i: 'PROCME7_%s_%s' % \
+                                    (self._curr_model['name'], i)
+            auto_path = lambda i: pjoin(self.writing_dir,
+                                               name_dir(i))
         elif self._export_format.startswith('madevent'):
             name_dir = lambda i: 'PROC_%s_%s' % \
                                     (self._curr_model['name'], i)

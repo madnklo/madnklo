@@ -260,35 +260,40 @@ class ParseCmdArguments(object):
                 value = None
             
             if key == '--correction_order':
-                if value not in ['NLO','NNLO','NNNLO']:
+                if value.upper() not in ['NLO','NNLO','NNNLO']:
                     raise InvalidCmd("'%s' is not a valid option for '%s'"%(value, key))
-                testlimits_options['correction_order'] = value
+                testlimits_options['correction_order'] = value.upper()
             elif key in '--limit_type':
-                if value not in ['soft','collinear']:
+                if value.lower() not in ['soft','collinear','all']:
                     raise InvalidCmd("'%s' is not a valid option for '%s'"%(value, key))
-                testlimits_options['limit_type'] = value
-            elif key == 'seed':
+                testlimits_options['limit_type'] = value.lower()
+            elif key == '--seed':
                 try:
                     testlimits_options['seed'] = int(value)
                 except ValueError:
                     raise InvalidCmd("Cannot set '%s' option to '%s'."%(key, value))
             elif key=='--process':
                 pdgs = []
-                try:
-                    initial, final = value.split('>',1)
-                    initial_pdgs = []
-                    for part in initial.split(' '):
+                initial, final = value.split('>',1)
+                initial = initial.strip()
+                final = final.strip()
+                initial_pdgs = []
+                for part in initial.split(' '):
+                    try:
                         initial_pdgs.append(self.model.get_particle(part).get_pdg_code())
-                    final_pdgs = []
-                    for part in final.split(' '):
+                    except:
+                        raise InvalidCmd("Particle '%s' not recognized in current model."%part)
+                final_pdgs = []
+                for part in final.split(' '):
+                    try:
                         final_pdgs.append(self.model.get_particle(part).get_pdg_code())
-                    pdgs.append(tuple(initial_pdgs))
-                    pdgs.append(tuple(final_pdgs))
-                except:
-                    raise InvalidCmd("Could not parse the process syntax '%s' for the option '%s'."%(value, key))  
+                    except:
+                        raise IvalidCmd("Particle '%s' not recognized in current model."%part)
+                pdgs.append(tuple(initial_pdgs))
+                pdgs.append(tuple(final_pdgs))
                 testlimits_options['process']=tuple(pdgs)
             else:
-                raise InvalidCmd("Option '%s' for the test_limits command not reckognized."%key)        
+                raise InvalidCmd("Option '%s' for the test_limits command not recognized."%key)        
         
         return new_args, testlimits_options
     
@@ -683,6 +688,14 @@ class ME7Integrand(integrands.VirtualIntegrand):
         
         # Update and define many properties of self based on the provided run-card and model.
         self.synchronize(model, run_card, ME7_configuration)
+
+    def nice_string(self):
+        """ For now simply use the contribution_definition and class name for a nice readable representation."""
+        
+        res = []
+        res.append("Instance of class '%s', with the following contribution definition:"%(self.__class__.__name__))
+        res.append('\n'.join(' > %s'%line for line in self.contribution_definition.nice_string().split('\n')))
+        return '\n'.join(res)
 
     def synchronize(self, model, run_card, ME7_configuration):
         """ Synchronize this integrand with the most recent run_card and model."""

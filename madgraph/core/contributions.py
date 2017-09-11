@@ -267,7 +267,7 @@ class VirtualMEAccessor(object):
         return dump
 
     @classmethod
-    def initialize_from_dump(cls, dump, root_path):
+    def initialize_from_dump(cls, dump, root_path, *args, **opts):
         """ Regenerate this instance from its dump and possibly other information."""
         
         MEAccessorClass = dump['class']
@@ -645,6 +645,7 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
         self.initialization_inputs['args'].append(defining_current)
         self.initialization_inputs['args'].append(relative_module_path)
         self.initialization_inputs['args'].append(current_implementation_class_name)
+        self.initialization_inputs['args'].append(relative_generic_module_path)
         self.initialization_inputs['args'].append(instantiation_options)
         self.initialization_inputs['opts'].update(
             {'mapped_process_keys': mapped_process_keys,
@@ -701,7 +702,7 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
         return dump
 
     @classmethod
-    def initialize_from_dump(cls, dump, root_path):
+    def initialize_from_dump(cls, dump, root_path, model, *args, **opts):
         """ Regenerate this instance from its dump and possibly other information."""
         
         SubtractionCurrentAccessorClass = dump['class']
@@ -709,7 +710,8 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
         # Make sure to override the root_path with the newly provided one
         if 'root_path' in dump['opts']:
             dump['opts']['root_path'] = root_path
-        SubtractionCurrentAccessor_instance = SubtractionCurrentAccessorClass(*dump['args'], **dump['opts'])
+        # And also add the current active model to the constructor options
+        SubtractionCurrentAccessor_instance = SubtractionCurrentAccessorClass(*dump['args'], model=model, **dump['opts'])
         return SubtractionCurrentAccessor_instance
 
     def nice_string(self):
@@ -1543,13 +1545,13 @@ class MEAccessorDict(dict):
         return final_dump
     
     @classmethod
-    def initialize_from_dump(cls, dump, root_path):
+    def initialize_from_dump(cls, dump, root_path, model):
         """ Initialize self from a dump and possibly other information necessary for reconstructing this
         contribution."""
         
         new_MEAccessorDict_instance = dump['class']()
         
-        all_MEAccessors = [accessor_dump['class'].initialize_from_dump(accessor_dump, root_path) for 
+        all_MEAccessors = [accessor_dump['class'].initialize_from_dump(accessor_dump, root_path, model) for 
                            accessor_dump in  dump['all_MEAccessor_dumps']]
         
         new_MEAccessorDict_instance.add_MEAccessors(all_MEAccessors)
@@ -1979,7 +1981,7 @@ class Contribution(object):
         if ncalls:
             logger.info("Generated output code with %d helas calls in %0.3f s" % (ncalls, delta_time1+delta_time2))
 
-    def add_ME_accessors(self, root_path, all_MEAccessors):
+    def add_ME_accessors(self, all_MEAccessors, root_path):
         """ Adds all MEAccessors for the matrix elements generated as part of this contribution."""
         
         MEAccessors = []
@@ -2283,11 +2285,9 @@ class Contribution_R(Contribution):
         for process_key, counterterms in self.counterterms.items():
             for current in self.IR_subtraction.get_all_currents(counterterms):
                 # Retain only a single copy of each needed current.
-                # We must remove the leg information
-                # since this is a parameter of the currents output
-                # and not hardcoded in it.
-                # WARNING Get copy not deep enough!!
-                copied_current = current.get_copy()
+                # We must remove the leg information since this is information is irrelevant
+                # for the selection of the hard-coded current implementation to consider.
+                copied_current = current.get_copy(('squared_orders','singular_structures'))
                 copied_current.discard_leg_numbers()
                 if copied_current not in all_currents:
                     all_currents.append(copied_current)
@@ -2298,14 +2298,21 @@ class Contribution_R(Contribution):
         
         return all_currents
 
-    def add_current_accessors(self, root_path, currents_to_consider, all_MEAccessors):
+    def add_current_accessors(self, all_MEAccessors, root_path, currents_to_consider):
         """  Generates and add all subtraction current accessors to the MEAccessorDict."""
 
         # Now generate the computer code and exports it on disk for the remaining new currents
         current_exporter = subtraction.SubtractionCurrentExporter(self.model, root_path)
         mapped_currents = current_exporter.export(currents_to_consider)
         
-        all_current_accessors = []      
+
+        logger.debug("The following subtraction current implementation are exported:\n%s"%\
+                    ( '\n'.join((" > %-35s for representative current '%s'"%("'%s'"%class_name, str(current_properties['defining_current']))
+                                if class_name!='DefaultCurrentImplementation' else " > %-35s for a total of %d currents."%
+                                ("'DefaultCurrentImplementation'",len(current_properties['mapped_process_keys'])))
+                            for  (module_path, class_name, _), current_properties in mapped_currents.items() ) ))
+
+        all_current_accessors = []  
         # Finally instantiate the CurrentAccessors corresponding to all current implementations identified and needed
         for (module_path, class_name, _), current_properties in mapped_currents.items():
             all_current_accessors.append(VirtualMEAccessor(
@@ -2321,16 +2328,16 @@ class Contribution_R(Contribution):
         
         all_MEAccessors.add_MEAccessors(all_current_accessors)
 
-    def add_ME_accessors(self, root_path, all_MEAccessors):
+    def add_ME_accessors(self, all_MEAccessors, root_path):
         """ Adds all MEAccessors for the matrix elements and currents generated as part of this contribution."""
         
         # Get the basic accessors for the matrix elements
-        super(Contribution_R, self).add_ME_accessors(root_path, all_MEAccessors)
+        super(Contribution_R, self).add_ME_accessors(all_MEAccessors, root_path)
 
         # Obtain all necessary currents
         currents_to_consider = self.get_all_necessary_subtraction_currents(all_MEAccessors)
 
-        self.add_current_accessors(root_path, currents_to_consider, all_MEAccessors)
+        self.add_current_accessors(all_MEAccessors, root_path, currents_to_consider)
         
 class Contribution_RR(Contribution):
     """ Implements the handling of a double real-emission type of contribution."""

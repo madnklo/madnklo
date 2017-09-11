@@ -319,10 +319,7 @@ class ME7ContributionTest(unittest.TestCase):
             # For now test the handling of the first current only.
             all_currents = all_currents[:1]
             
-            # Squared orders are not correctly set yet, so we hardcode it here.
-            all_currents[0].set('squared_orders',{'QCD':2})
-            
-            real_emission_contrib.add_current_accessors(tmp_path, all_currents, accessors_dict)
+            real_emission_contrib.add_current_accessors(accessors_dict, tmp_path, all_currents)
             # Print all accessor keys
             #misc.sprint('\n'.join([str(key) for key in accessors_dict]))
             misc.sprint("A total of %d accessor keys have been generated."%len(accessors_dict))

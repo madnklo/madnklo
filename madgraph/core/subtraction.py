@@ -62,6 +62,157 @@ def multinomial(i_s):
     return math.factorial(itot)/denom
 
 #===============================================================================
+# Ordered tuples
+#===============================================================================
+
+def is_subset(A, B):
+    """Check if the ordered tuple A is contained in the ordered tuple B,
+    taking into account multiplicities.
+    """
+
+    A_iter = iter(A)
+    B_iter = iter(B)
+    try:
+        A_last = next(A_iter)
+    except StopIteration:
+        return True
+    try:
+        B_last = next(B_iter)
+    except StopIteration:
+        return False
+    while True:
+        while (A_last > B_last):
+            try:
+                B_last = next(B_iter)
+            except StopIteration:
+                return False
+        if A_last != B_last:
+            return False
+        try:
+            A_last = next(A_iter)
+        except StopIteration:
+            return True
+        try:
+            B_last = next(B_iter)
+        except StopIteration:
+            return False
+
+def is_disjoint(A, B):
+    """Check if the ordered tuple A is disjoint from the ordered tuple B."""
+
+    try:
+        for Ai in A:
+            # print "Considering", Ai
+            B, B_iter = itertools.tee(B, 2)
+            for Bi in B_iter:
+                if Ai > Bi:
+                    # print "greater than", str(Bi)+", advancing B"
+                    B.next()
+                elif Bi == Ai:
+                    # print "equal to", str(Bi)+", returning False"
+                    return False
+                else:
+                    # print "less than ", str(Bi)+", no chance"
+                    break
+        return True
+    except StopIteration: # B exhausted, no chance of intersection
+        return True
+
+class SortedUnion(object):
+    """Iterator returning the sorted union of sorted iterators."""
+
+    __end = object()
+
+    def __init__(self, *A):
+
+        self.A_iter = iter(())
+        self.A_last = self.__end
+        self.B_iter = iter(())
+        self.B_last = self.__end
+        if A:
+            self.A_iter = iter(A[0])
+            self.A_last = next(self.A_iter, self.__end)
+            if len(A) > 1:
+                if (len(A) == 2):
+                    self.B_iter = iter(A[1])
+                else:
+                    self.B_iter = iter(SortedUnion(*A[1:]))
+                self.B_last = next(self.B_iter, self.__end)
+
+    def __iter__(self):
+
+        return self
+
+    def next(self):
+
+        tmp = self.__end
+        if self.A_last is not self.__end and self.B_last is not self.__end:
+            # No set exhausted, return the first of the two
+            if (self.A_last < self.B_last):
+                tmp = self.A_last
+                self.A_last = next(self.A_iter, self.__end)
+            else:
+                tmp = self.B_last
+                self.B_last = next(self.B_iter, self.__end)
+        elif self.A_last is self.__end and self.B_last is self.__end:
+            # Both exhausted
+            raise StopIteration
+        elif self.A_last is self.__end:
+            # A exhausted
+            tmp = self.B_last
+            self.B_last = next(self.B_iter, self.__end)
+        else:
+            # B exhausted
+            tmp = self.A_last
+            self.A_last = next(self.A_iter, self.__end)
+        return tmp
+
+def union(*A):
+    """Merge ordered tuples."""
+
+    return tuple(SortedUnion(*A))
+
+class SortedDifference(object):
+    """Iterator returning the difference of sorted iterators."""
+
+    __end = object()
+
+    def __init__(self, A, B):
+
+        self.A_iter = iter(A)
+        self.A_last = next(self.A_iter, self.__end)
+        self.B_iter = iter(B)
+        self.B_last = next(self.B_iter, self.__end)
+
+    def __iter__(self):
+
+        return self
+
+    def next(self):
+
+        while True:
+            if self.A_last is self.__end:
+                raise StopIteration
+            if self.B_last is self.__end:
+                tmp = self.A_last
+                self.A_last = next(self.A_iter, self.__end)
+                return tmp
+            if self.A_last < self.B_last:
+                tmp = self.A_last
+                self.A_last = next(self.A_iter, self.__end)
+                return tmp
+            elif self.A_last == self.B_last:
+                self.A_last = next(self.A_iter, self.__end)
+                self.B_last = next(self.B_iter, self.__end)
+            else:
+                self.B_last = next(self.B_iter, self.__end)
+
+def difference(A, B):
+    """Difference of ordered tuples."""
+
+    return tuple(SortedDifference(A, B))
+
+#===============================================================================
 # SubtractionLeg
 #===============================================================================
 class SubtractionLeg(tuple):
@@ -153,7 +304,7 @@ class SubtractionLeg(tuple):
 #===============================================================================
 # SubtractionLegSet
 #===============================================================================
-class SubtractionLegSet(frozenset):
+class SubtractionLegSet(tuple):
     """Set of SubtractionLeg objects."""
 
     def __new__(cls, *args, **opts):
@@ -171,10 +322,9 @@ class SubtractionLegSet(frozenset):
             legs = args
 
         return super(SubtractionLegSet, cls).__new__(
-                cls,
-                [SubtractionLeg(leg) for leg in legs]
+            cls,
+            sorted(SubtractionLeg(leg) for leg in legs)
         )
-
 
     def __init__(self, *args, **opts):
         """Initialize set, trying to convert arguments into SubtractionLeg's."""
@@ -192,7 +342,7 @@ class SubtractionLegSet(frozenset):
             legs = args
 
         super(SubtractionLegSet, self).__init__(
-                [SubtractionLeg(leg) for leg in legs]
+            sorted(SubtractionLeg(leg) for leg in legs)
         )
         return
 
@@ -262,10 +412,10 @@ class SingularStructure(object):
         ))
         if self.substructures:
             tmp_str += ","
-        tmp_str += ",".join(sorted(
+        tmp_str += ",".join(
             leg.__str__(print_n, print_pdg, print_state)
             for leg in self.legs
-        ))
+        )
         tmp_str += ")"
         return tmp_str
 
@@ -287,12 +437,14 @@ class SingularStructure(object):
     def get_all_legs(self):
         """Return all legs involved in this singular structure."""
 
-        all_legs = set(sub.get_all_legs() for sub in self.substructures)
-        all_legs.add(self.legs)
-        return SubtractionLegSet().union(*all_legs)
+        all_legs = [ self.legs, ]
+        for sub in self.substructures:
+            all_legs.append(sub.get_all_legs())
+        return SubtractionLegSet(union(*all_legs))
 
     def discard_leg_numbers(self):
         """Set all leg numbers to zero, discarding this information forever."""
+
         self.legs = SubtractionLegSet(
                 SubtractionLeg(0, leg.pdg, leg.state)
                 for leg in self.legs
@@ -304,14 +456,14 @@ class SingularStructure(object):
     def get_canonical_representation(self, track_leg_numbers = True):
         """Creates a canonical hashable representation of self."""
         
-        canonical = {}
+        canonical = dict()
 
         canonical['is_annihilated'] = self.is_annihilated
         if track_leg_numbers:
             canonical['legs'] = self.legs
         else:
             canonical['legs'] = SubtractionLegSet(
-                    SubtractionLeg(0,l.pdg,l.state)
+                    SubtractionLeg(0, l.pdg, l.state)
                     for l in self.legs
             )
         canonical['name'] = self.name()
@@ -376,7 +528,7 @@ class SingularOperator(SubtractionLegSet):
     def __str__(self):
         """Return a simple string representation of the singular operator."""
 
-        return self.name() + str(sorted((leg.n for leg in self)))
+        return self.name() + super(SingularOperator, self).__str__()
 
     def name(self):
         """Symbol used to represent this operator within output."""
@@ -390,7 +542,7 @@ class SingularOperator(SubtractionLegSet):
         """
 
         raise MadGraph5Error(
-            "structure called in SingularOperator of unspecified type."
+            "get_structure called in SingularOperator of unspecified type."
         )
 
     def act_here_needed(self, structure):
@@ -410,7 +562,7 @@ class SingularOperator(SubtractionLegSet):
 
         assert isinstance(structure, SingularStructure)
 
-        if not self.isdisjoint(structure.legs):
+        if not is_disjoint(self, structure.legs):
             return False
 
         for substructure in structure.substructures:
@@ -431,10 +583,10 @@ class SingularOperator(SubtractionLegSet):
             return
 
         # If the limit acts at least partly at the current level
-        if not self.isdisjoint(structure.legs):
+        if not is_disjoint(self, structure.legs):
             # If the limit acts at different levels,
             # it is not needed for subtraction
-            if not self.issubset(structure.legs):
+            if not is_subset(self, structure.legs):
                 structure.annihilate()
                 return
             # If the limit acts completely within this level,
@@ -442,7 +594,7 @@ class SingularOperator(SubtractionLegSet):
             else:
                 if self.act_here_needed(structure):
                     structure.substructures.append(self.get_structure())
-                    structure.legs = structure.legs.difference(self)
+                    structure.legs = difference(structure.legs, self)
                     return
                 else:
                     structure.annihilate()
@@ -532,11 +684,6 @@ class CollOperator(SingularOperator):
 class SingularOperatorList(list):
     """List of subtraction operators."""
 
-    def __str__(self):
-        """Print this singular operator list."""
-
-        return "[" + ", ".join([str(leg) for leg in self]) + "]"
-    
     def act_on(self, structure):
         """Act with a list of operators on a substructure."""
 
@@ -913,7 +1060,7 @@ class IRSubtraction(object):
         fs_legs = SubtractionLegSet(
                 leg for leg in legs if leg.state == SubtractionLeg.FINAL
         )
-        is_legs = SubtractionLegSet(legs.difference(fs_legs))
+        is_legs = SubtractionLegSet(difference(legs, fs_legs))
 
         # Loop over number of unresolved particles
         for unresolved in range(1, self.global_order()+1):
@@ -1144,42 +1291,16 @@ class IRSubtraction(object):
             subcurrents
         )
 
-    def get_all_counterterms(self, process):
-        """ Generate all counterterms for the corrections specified in this module 
-        and the process given in argument."""
-        
-        elementary_operators  = self.get_all_elementary_operators(process)
-        combinations          = self.get_all_combinations(elementary_operators)
-        # Can this be made more efficient by filtering during the step above already?
-        filtered_combinations = self.filter_combinations(combinations)
-        all_counterterms = []
-        for combination in filtered_combinations:
-            template_counterterm = self.get_counterterm(combination, process)
-            # Here I hardcode nloops to 0 because I believe it should be dynamically set/deduced
-            # from the counterterm structure and self.orders
-            all_counterterms.extend(self.split_loops(template_counterterm, 0))
-        
-        return all_counterterms
-
     def get_all_currents(self, counterterms):
-        """ Deduce the list of currents to consider for computing all the counterterms given
-        in argument."""
+        """Deduce the list of currents needed to compute all counterterms
+        given in argument.
+        """
         
         all_currents = []
         for counterterm in counterterms:
             all_currents.extend(counterterm.get_all_currents())
-        # Now filter them so as to return only a single copy of each needed current.
-        # We must remove the leg information since this is a parameter of the currents output
-        # and not hardcoded in it.
-        for current in all_currents:
-            current.discard_leg_numbers()
-        
-        all_unique_currents = []
-        for current in all_currents:
-            if current not in all_unique_currents:
-                all_unique_currents.append(current)
-        
-        return all_unique_currents
+        # Eliminate all duplicates automatically
+        return set(all_currents)
 
     def split_loops(self, counterterm, n_loops):
         """Split a counterterm in several ones according to the individual
@@ -1256,6 +1377,41 @@ class IRSubtraction(object):
             result[-1].current['n_loops'] = n_loops - combination_loops
 
         return result
+
+    def split_orders(self, counterterm):
+        """Split a counterterm in several ones according to the individual
+        coupling orders of its currents.
+        """
+
+        # TODO Rethink split_loops and split_orders
+        # Possibly eliminate split_loops
+
+        counterterm['squared_orders'] = {'QCD': 2, 'QED': 0}
+
+        return [counterterm, ]
+
+    def get_all_counterterms(self, process):
+        """Generate all counterterms for the corrections specified in this module
+        and the process given in argument."""
+
+        elementary_operators = self.get_all_elementary_operators(process)
+        combinations = self.get_all_combinations(elementary_operators)
+        # Filtering could be applied during the step above
+        # If speed becomes relevant in these steps, consider doing that
+        filtered_combinations = self.filter_combinations(combinations)
+        all_counterterms = []
+        for combination in filtered_combinations:
+            template_counterterm = self.get_counterterm(combination, process)
+            counterterms_with_loops = self.split_loops(
+                template_counterterm,
+                process['n_loops']
+            )
+            for counterterm_with_loops in counterterms_with_loops:
+                all_counterterms.extend(
+                    self.split_orders(counterterm_with_loops)
+                )
+
+        return all_counterterms
 
 #===============================================================================
 # Subtraction current exporter

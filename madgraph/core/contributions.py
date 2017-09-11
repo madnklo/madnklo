@@ -2282,8 +2282,15 @@ class Contribution_R(Contribution):
         all_currents = []
         for process_key, counterterms in self.counterterms.items():
             for current in self.IR_subtraction.get_all_currents(counterterms):
-                if current not in all_currents:
-                    all_currents.append(current)
+                # Retain only a single copy of each needed current.
+                # We must remove the leg information
+                # since this is a parameter of the currents output
+                # and not hardcoded in it.
+                # WARNING Get copy not deep enough!!
+                copied_current = current.get_copy()
+                copied_current.discard_leg_numbers()
+                if copied_current not in all_currents:
+                    all_currents.append(copied_current)
 
         # Now further remove currents that are already in all_MEAccessors
         all_currents = [current for current in all_currents if 

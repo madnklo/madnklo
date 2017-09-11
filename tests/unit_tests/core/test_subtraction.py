@@ -19,6 +19,7 @@ color information for diagrams.
 
 import copy
 import fractions
+import random
 
 import madgraph.core.base_objects as base_objects
 import madgraph.core.subtraction as sub
@@ -27,6 +28,109 @@ import madgraph.various.misc as misc
 import madgraph.core.contributions as contributions
 
 import tests.unit_tests as unittest
+
+#===============================================================================
+# Test ordered tuples
+#===============================================================================
+
+class SubsetTest(unittest.TestCase):
+    """Test class for the function is_subset."""
+
+    def setUp(self):
+        pass
+
+    def test_subset(self):
+        """Test the function is_subset."""
+
+        self.assertTrue(sub.is_subset(
+            (3,),
+            (3,)
+        ))
+        self.assertTrue(sub.is_subset(
+            (3, 5, 91),
+            (3, 3, 5, 7, 91, 123)
+        ))
+        self.assertFalse(sub.is_subset(
+            (3, 3),
+            (3, 5, 91)
+        ))
+        self.assertFalse(sub.is_subset(
+            (3, 7),
+            (1, 5, 42)
+        ))
+        self.assertTrue(sub.is_subset(
+            "aabccddfkk",
+            "aabbbbccddeeffffhhhhkkkk"
+        ))
+        self.assertFalse(sub.is_subset(
+            "aabccddfkk",
+            "aabbbbcddeeffffhhhhkkkk"
+        ))
+
+    def test_disjoint(self):
+        """Test the function is_disjoint."""
+
+        # Batch test
+        for _ in range(100):
+            na = random.randint(0, 20)
+            nb = random.randint(0, 20)
+            a = sorted([random.randint(1, 100) for _ in range(na)])
+            b = sorted([random.randint(1, 100) for _ in range(nb)])
+            self.assertEqual(sub.is_disjoint(a, b), set(a).isdisjoint(set(b)))
+
+        # Pathological cases
+        a = ()
+        b = (1, 2)
+        self.assertTrue(sub.is_disjoint(a, b))
+        self.assertTrue(sub.is_disjoint(a, a))
+
+    def test_union(self):
+        """Test the function union."""
+
+        a = "abel"
+        b = "bio"
+        c = "klmmmnnnn"
+        self.assertEqual(
+            sub.union(a),
+            tuple(iter(a))
+        )
+        self.assertEqual(
+            sub.union(a, b),
+            tuple(iter("abbeilo"))
+        )
+        self.assertEqual(
+            sub.union(a, b, b, c),
+            tuple(iter("abbbeiikllmmmnnnnoo"))
+        )
+
+    def test_difference(self):
+        """Test the function difference."""
+
+        # Test without multiplicities
+        for _ in range(100):
+            na = random.randint(0, 50)
+            nb = random.randint(0, 30)
+            aset = set([random.randint(1, 100) for _ in range(na)])
+            bset = set([random.randint(1, 100) for _ in range(nb)])
+            a = sorted(aset)
+            b = sorted(bset)
+            self.assertEqual(
+                set(sub.difference(a, b)),
+                aset.difference(bset)
+            )
+
+        # Test with multiplicities
+        a = "abbello"
+        b = "bello"
+        self.assertEqual(
+            sub.difference(a, b),
+            tuple(iter("ab"))
+        )
+
+
+#===============================================================================
+# Test counterterm generation
+#===============================================================================
 
 class NLOSubtractionTest(unittest.TestCase):
     """Test class for the subtraction module."""

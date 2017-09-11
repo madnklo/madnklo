@@ -2305,7 +2305,6 @@ class Contribution_R(Contribution):
         current_exporter = subtraction.SubtractionCurrentExporter(self.model, root_path)
         mapped_currents = current_exporter.export(currents_to_consider)
         
-
         logger.debug("The following subtraction current implementation are exported:\n%s"%\
                     ( '\n'.join((" > %-35s for representative current '%s'"%("'%s'"%class_name, str(current_properties['defining_current']))
                                 if class_name!='DefaultCurrentImplementation' else " > %-35s for a total of %d currents."%

@@ -264,9 +264,16 @@ class ParseCmdArguments(object):
                     raise InvalidCmd("'%s' is not a valid option for '%s'"%(value, key))
                 testlimits_options['correction_order'] = value.upper()
             elif key in '--limit_type':
-                if value.lower() not in ['soft','collinear','all']:
+                if not isinstance(value, str):
                     raise InvalidCmd("'%s' is not a valid option for '%s'"%(value, key))
-                testlimits_options['limit_type'] = value.lower()
+                if value.lower() == 'soft':
+                    testlimits_options['limit_type'] = re.compile(r'.*S.*')                    
+                elif value.lower() == 'collinear':
+                    testlimits_options['limit_type'] = re.compile(r'.*C.*')
+                elif value.lower() == 'all':
+                    testlimits_options['limit_type'] = re.compile(r'.*')
+                else:
+                    testlimits_options['limit_type'] = re.compile(value)
             elif key == '--seed':
                 try:
                     testlimits_options['seed'] = int(value)
@@ -278,17 +285,25 @@ class ParseCmdArguments(object):
                 initial = initial.strip()
                 final = final.strip()
                 initial_pdgs = []
-                for part in initial.split(' '):
-                    try:
-                        initial_pdgs.append(self.model.get_particle(part).get_pdg_code())
-                    except:
-                        raise InvalidCmd("Particle '%s' not recognized in current model."%part)
+                for parts in initial.split(' '):
+                    multi_part = []
+                    for part in parts.split('|'):
+                        try:
+                            multi_part.append(self.model.get_particle(part).get_pdg_code())
+                        except:
+                            raise InvalidCmd("Particle '%s' not recognized in current model."%part)
+                    initial_pdgs.append(tuple(multi_part))
+                    
                 final_pdgs = []
-                for part in final.split(' '):
-                    try:
-                        final_pdgs.append(self.model.get_particle(part).get_pdg_code())
-                    except:
-                        raise IvalidCmd("Particle '%s' not recognized in current model."%part)
+                for parts in final.split(' '):
+                    multi_part = []
+                    for part in parts.split('|'):
+                        try:
+                            multi_part.append(self.model.get_particle(part).get_pdg_code())
+                        except:
+                            raise IvalidCmd("Particle '%s' not recognized in current model."%part)
+                    final_pdgs.append(tuple(multi_part))
+                    
                 pdgs.append(tuple(initial_pdgs))
                 pdgs.append(tuple(final_pdgs))
                 testlimits_options['process']=tuple(pdgs)
@@ -1224,7 +1239,7 @@ class ME7Integrand_R(ME7Integrand):
             random.seed(test_options['seed'])
         
         alpha_s = self.model.get('parameter_dict')['aS']
-        mu_r = 91.188
+        mu_r = self.model.get('parameter_dict')['MU_R']
         
         # First generate an underlying Born
         # Specifying None forces to use unformly random generating variables.
@@ -1234,24 +1249,30 @@ class ME7Integrand_R(ME7Integrand):
             # Make sure that the selected process satisfies the selected process
             if not defining_process.is_part_of_selection(process = test_options['process']):
                 continue
-            # Loop over all possible limits, represented by lists of currents, with subtraction leg numbers set!
-            for current_list in self.get_all_limits(defining_process):
-                # Make sure the selected limit is of the right type
-                if not all(current.is_of_type(limit_type = test_options['limit_type'], 
-                                            correction_order = test_options['correction_order'] ) for current in  current_list):
-                    continue
+            
+            # Here we use correction_order to select CT subset
+            counterterms_to_consider = [ ct for ct in self.counterterms if 
+                        ct.count_unresolved() <= test_options['correction_order'].count('N') ]
+            
+            # Here we use limit_type to select the mapper to use for approaching the limit (
+            # it is clear that all CT will still use their own mapper to retrieve the PS point
+            # and variables to call the currents and reduced processes).
+            mappers = counterterms_to_consider.find_mappings_matching_limit_type_regexp(test_options['limit_type'])
+            
+            for mapper in mappers:
                 
-                splitting_structure = phase_space_generators.SplittingStructure(current_list)
+                
                 a_born_PS_point, starting_jacobian, starting_variables = \
-                                            self.mapping.map_to_lower_multiplicity(a_real_emission_PS_point, splitting_structure)
+                                            mapper.map_to_lower_multiplicity(a_real_emission_PS_point, splitting_structure)
                 
                 # Now progressively approach the limit
                 evaluations = []
                 # l is the scaling variable
                 n_steps = 100
+                min_value = 10.0**-6
                 for ordering_parameter in range(1,n_steps+1):
                     # Use equally spaced steps on a log scale
-                    ordering_parameter = 10.0**(-float(ordering_parameter)/n_steps)
+                    ordering_parameter = 10.0**(-((float(ordering_parameter)/n_steps)*abs(math.log10(min_value))))
                     scaled_variables = self.mapping.approach_limit(self, splitting_structure, ordering_parameter, starting_point=starting_variables)
                     real_PS_point, jacobian = self.mapping.map_to_higher_multiplicity(a_born_PS_point, splitting_structure, scaled_variables)
                     

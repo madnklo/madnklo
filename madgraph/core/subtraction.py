@@ -402,12 +402,12 @@ class SingularStructure(object):
     def get_copy(self):
         """ Returns a copy of this singular structure (recursively copying the substructures)."""
         
-        copied_structure = SingularStructure(*([
+        copied_structure = SingularStructure([
                 ss.get_copy() for ss in self.substructures
             ]+[
-               SubtractionLegSet( *(l for l in self.legs) )
+               SubtractionLeg(l) for l in self.legs
             ]
-        ))
+        )
         copied_structure.is_annihilated = self.is_annihilated
         
         return copied_structure
@@ -465,6 +465,19 @@ class SingularStructure(object):
         for substructure in self.substructures:
             substructure.discard_leg_numbers()
         return
+
+    def count_unresolved(self):
+        """ Counts the number of unresolved legs. For example, this would be one for
+        a 1>2 splitting, two for a 1>3 etc..."""
+        
+        
+        #####
+        # SIMONE : Check that the code below is OK
+        #####
+        total_unresolved = len(self.legs)-1
+        for singular_structure in self.substructures:
+            total_unresolved += singular_structure.count_unresolved()
+        return total_unresolved
 
     def get_canonical_representation(self, track_leg_numbers = True):
         """Creates a canonical hashable representation of self."""
@@ -743,6 +756,11 @@ class Current(base_objects.Process):
         self['singular_structure'] = SingularStructure()
         return
 
+    def count_unresolved(self):
+        """ Count the number of unresolved particles covered by this current."""
+
+        return self['singular_structure'].count_unresolved()
+
     def discard_leg_numbers(self):
         """Discard all leg numbers in the singular_structure
         and in the parent_subtraction_leg,
@@ -784,7 +802,8 @@ class Current(base_objects.Process):
     def get_copy(self, copied_attributes = ()):
         """ Returns a copy of this current with a deep-copy of its singular structure."""
         
-        copied_current = super(Current, self).get_copy(tuple(attr for attr in copied_attributes if attr!='singular_structure'))
+        copied_current = super(Current, self).get_copy(tuple(
+                        attr for attr in copied_attributes if attr!='singular_structure'))
         if 'singular_structure' in copied_attributes:
             copied_current['singular_structure'] = self['singular_structure'].get_copy()
         
@@ -839,6 +858,15 @@ class CountertermNode(object):
                 else:
                     result += sub_n_loops
         return result
+
+    def count_unresolved(self):
+        """ Count the number of unresolved particles covered by this counterterm node. """
+        
+        total_unresolved = self.current.count_unresolved()
+        for counterterm_node in self.subcurrents:
+            total_unresolved += counterterm_node.count_unresolved()
+        
+        return total_unresolved
 
     def get_copy(self, copied_attributes = ()):
         """Make sure that attributes args of the object returned
@@ -923,6 +951,15 @@ class Counterterm(CountertermNode):
         )
         tmp_str += "}"
         return tmp_str
+
+    def count_unresolved(self):
+        """ Count the number of unresolved particles covered by this counterterm. """
+        
+        total_unresolved = 0
+        for counterterm_node in self.subcurrents:
+            total_unresolved += counterterm_node.count_unresolved()
+        
+        return total_unresolved
 
     def get_copy(self, copied_attributes = (), copy_momenta_dict = False):
         """Make sure that attributes args of the object returned
@@ -1418,19 +1455,21 @@ class IRSubtraction(object):
 
         # TODO Rethink split_loops and split_orders
         # Possibly eliminate split_loops
-        
-        # For now, assign QCD squared orders only and solely based off the n_loops.
-        for current in [counterterm.current,]+counterterm.subcurrents:
-            # Do not act on the reduced process yet.
-            if not isinstance(current, Current):
-                continue
-            current.set('squared_orders', 
-                {'QCD':
-                    ( current.get('n_loops')*2 + 
-                      (len(current.get_final_legs())-len(current.get_initial_legs()))*2 )
-                }  
+        if isinstance(counterterm.current, Current):
+            counterterm.current.set('squared_orders', 
+                    {'QCD':
+                        ( counterterm.current.get('n_loops')*2 + 
+                          counterterm.current['singular_structure'].count_unresolved()*2 )
+                    }
             )
-
+        else:
+            # Here the squared order reduced process should be changed accordingly and decreased for
+            # each squared order "sucked up" by the currents applying to it.
+            pass
+        
+        for countertermNode in counterterm.subcurrents:
+            self.split_orders(countertermNode)
+        
         return [counterterm, ]
 
     def get_all_counterterms(self, process):
@@ -1567,7 +1606,7 @@ class SubtractionCurrentExporter(object):
                                           'instantiation_options': instantiation_options}
                 if class_name == 'DefaultCurrentImplementation':
                     currents_with_default_implementation.append(current)
-                found_current_class = true
+                found_current_class = True
                 break
             if not found_current_class:
                 raise MadGraph5Error("No implementation was found for current %s."%str(current))

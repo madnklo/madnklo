@@ -29,11 +29,14 @@ root_path = os.path.dirname(os.path.realpath( __file__ ))
 sys.path.insert(0, pjoin(root_path, os.path.pardir))
 import subtraction_current_implementations_utils as subtraction_utils
 
+CurrentImplementationError = subtraction_utils.CurrentImplementationError
+
 class NLO_FF_QCD_collinear_qqx(subtraction_utils.VirtualCurrentImplementation):
     """ Implemen ts the GluonToQQbar NLO collinear current."""
 
     def __init__(self, *args, **opts):
         super(NLO_FF_QCD_collinear_qqx, self).__init__(*args, **opts)
+        self.supports_helicity_assignment = False
 
     @classmethod
     def does_implement_this_current(cls, current, model):

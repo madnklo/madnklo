@@ -42,7 +42,7 @@ class TestME7_IR_Limits(unittest.TestCase):
     
     # If the debug mode is set to True, then the process output is not refreshed
     # but reused instead
-    debugging = False 
+    debugging = True 
 
     def setUp(self):
         """ basic building of the class to test """

@@ -318,7 +318,7 @@ class DefaultCurrentImplementation(VirtualCurrentImplementation):
         subtraction_current_eval = SubtractionCurrentEvaluation({
                 'spin_correlations'   : [1],
                 'color_correlations'  : [1],
-                'values'              : {(0,0): {'finite' : '1.0',
+                'values'              : {(0,0): {'finite' : '0.0',
                                                  'eps^-1' : '0.0',
                                                  'eps^-2' : '0.0'}}
             })

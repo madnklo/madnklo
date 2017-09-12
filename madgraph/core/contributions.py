@@ -2348,9 +2348,9 @@ class Contribution_R(Contribution):
         The instance of MEAccessorDict is necessary so as to be passed to the integrand instances.
         """
         
-        relevant_counterterms = []
+        relevant_counterterms = {}
         for process_key in process_map:
-            relevant_counterterms.extend(self.counterterms[process_key])
+            relevant_counterterms[process_key] = self.counterterms[process_key]
 
         return [ ME7_interface.ME7Integrand(model, run_card,
                                        self.contribution_definition,

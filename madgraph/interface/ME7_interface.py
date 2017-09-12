@@ -234,7 +234,9 @@ class ParseCmdArguments(object):
         # None means unspecified, therefore considering all types.
         testlimits_options = {'correction_order'        : None,
                               'limit_type'              : None,
-                              'process'                 : None,
+                              'process'                 : {'in_pdgs'  : None,
+                                                           'out_pdgs' : None,
+                                                           'n_loops'  : None},
                               'seed'                    : None,
                               'n_steps'                 : 10,
                               'min_scaling_variable'    : 1.0e-6,
@@ -265,16 +267,25 @@ class ParseCmdArguments(object):
                 if value.upper() not in ['NLO','NNLO','NNNLO']:
                     raise InvalidCmd("'%s' is not a valid option for '%s'"%(value, key))
                 testlimits_options['correction_order'] = value.upper()
-            elif key == '--n_steps':
+            elif key in ['--n_steps']:
                 try:
-                    testlimits_options['n_steps'] = int(value)                  
+                    testlimits_options[key[2:]] = int(value)
+                    if int(value)<2:
+                        raise ValueError  
                 except ValueError:
-                    raise InvalidCmd("'%s' is not a valid integer for option '%s'"%(value, key))    
+                    raise InvalidCmd("'%s' is not a valid integer for option '%s'"%(value, key))
+            elif key == '--n_loops':
+                try:
+                    testlimits_options['process'][key[2:]] = int(value)
+                    if int(value)<0:
+                        raise ValueError
+                except ValueError:
+                    raise InvalidCmd("'%s' is not a valid integer for option '%s'"%(value, key))
             elif key in ['--min_scaling_variable', '--acceptance_threshold']:
                 try:
                     testlimits_options[key[2:]] = float(value)                  
                 except ValueError:
-                    raise InvalidCmd("'%s' is not a valid float for option '%s'"%(value, key))                    
+                    raise InvalidCmd("'%s' is not a valid float for option '%s'"%(value, key))                  
             elif key in '--limit_type':
                 if not isinstance(value, str):
                     raise InvalidCmd("'%s' is not a valid option for '%s'"%(value, key))
@@ -285,14 +296,20 @@ class ParseCmdArguments(object):
                 elif value.lower() == 'all':
                     testlimits_options['limit_type'] = re.compile(r'.*')
                 else:
-                    testlimits_options['limit_type'] = re.compile(value)
+                    if any(value.startswith(start) for start in ['r"',"r'"]):
+                        testlimits_options['limit_type'] = re.compile(value)
+                    else:
+                        # If the specified re was not explicitly made a raw string, then we take the 
+                        # liberty here of escaping the parenthesis since this is presumably what the
+                        # user expects.
+                        testlimits_options['limit_type'] = re.compile(value.replace('(','\(').replace(')','\)'))
+                        
             elif key == '--seed':
                 try:
                     testlimits_options['seed'] = int(value)
                 except ValueError:
                     raise InvalidCmd("Cannot set '%s' option to '%s'."%(key, value))
             elif key=='--process':
-                pdgs = []
                 def get_particle_pdg(name):
                     part = self.model.get_particle(name)
                     part.set('is_part', name!=part.get('antiname'))
@@ -309,7 +326,7 @@ class ParseCmdArguments(object):
                         except:
                             raise InvalidCmd("Particle '%s' not recognized in current model."%part)
                     initial_pdgs.append(tuple(multi_part))
-                    
+
                 final_pdgs = []
                 for parts in final.split(' '):
                     multi_part = []
@@ -320,9 +337,8 @@ class ParseCmdArguments(object):
                             raise IvalidCmd("Particle '%s' not recognized in current model."%part)
                     final_pdgs.append(tuple(multi_part))
                     
-                pdgs.append(tuple(initial_pdgs))
-                pdgs.append(tuple(final_pdgs))
-                testlimits_options['process']=tuple(pdgs)
+                testlimits_options['process']['in_pdgs'] = tuple(initial_pdgs)
+                testlimits_options['process']['out_pdgs'] = tuple(final_pdgs)
             else:
                 raise InvalidCmd("Option '%s' for the test_limits command not recognized."%key)        
         
@@ -442,7 +458,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         # Temporary n_initial value which will be updated during the bootstrap
         self.n_initial = 2
         CmdExtended.__init__(self, me_dir, options, *completekey, **stdin)
-        self.prompt = "ME7 @ %s > "%os.path.basename(pjoin(self.me_dir))
+        self.prompt = "ME7::%s > "%os.path.basename(pjoin(self.me_dir))
         
         # Initialize default properties that will be overwritten during the bootstrap.
         self.all_MEAccessors = None
@@ -498,8 +514,21 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         self.all_integrands = [integrand_dump['class'].initialize_from_dump(
             integrand_dump, self.model, self.run_card, self.all_MEAccessors, self.options
                                                     ) for integrand_dump in ME7_dump['all_integrands']]
+        
+        self.mode = self.get_maximum_overall_correction_order()
+        self.prompt = "ME7@%s::%s > "%(self.mode, os.path.basename(pjoin(self.me_dir)))
 
         self.n_initial = ME7_dump['n_initial']
+        
+    def get_maximum_overall_correction_order(self):
+        """ From investigating the integrands, this function derives what is the maximum correction
+        order included in this ME7 session."""
+        max_order = 'LO'
+        for integrand in self.all_integrands:
+            max_integrand_order = integrand.contribution_definition.overall_correction_order 
+            if max_integrand_order.count('N') > max_order.count('N'):
+                max_order = max_integrand_order
+        return max_integrand_order
         
     def synchronize(self, **opts):
         """ Re-compile all necessary resources and sync integrands with the cards and model"""
@@ -596,7 +625,11 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
     
         args = self.split_arg(line)
         args, testlimits_options = self.parse_test_IR_limits(args)
-    
+        
+        if testlimits_options['correction_order'] is None:
+            # If not defined, automatically assign correction_order to the highest correction considered.
+            testlimits_options['correction_order'] = self.mode
+
         for integrand in self.all_integrands:
             if not hasattr(integrand, 'test_IR_limits'):
                 continue
@@ -1252,43 +1285,50 @@ class ME7Integrand_R(ME7Integrand):
             returned_counterterms.append(random.choice(selected_counterterms))
         else:
             for counterterm in selected_counterterms:
-                misc.sprint(counterterm.get_singular_structure_string())
-        
+                if re.match(limit_type,counterterm.get_singular_structure_string(
+                                                                print_n=True, print_pdg=False, print_state=False)):
+                    returned_counterterms.append(counterterm)
+
         # For now define a single mapping, although we might need different ones for different limit in the future.
         #mapping = phase_space_generators.VirtualMapping(map_type=mapping_type, model=self.model)
         # TODO
-        stop
-        return []
+        return returned_counterterms
 
     def is_part_of_process_selection(self, process_list, selection=None):
         """ Checks wether any of the specified processes in the process_list provided matches the user's process
-        selection. If not provided, returns True by default. 'selection' has the format:
-           ( ( (in_pgs1), (in_pdgs2), ...), ( (out_pgs1), (out_pdgs2), ...) ) """
-        
-        if not selection:
-            return True
+        selection. If not provided, returns True by default. 'selection' is a dictionary with the format:
+           {'in_pdgs'  : ( (in_pgs1), (in_pdgs2), ...)
+            'out_pdgs' : ( (out_pgs1), (out_pdgs2), ...) 
+            'n_loops'  : n_loops }"""
 
         for process in process_list:
             is_a_match = True
             for i, in_pdg in enumerate(process.get_initial_ids()):
-                if i >= len(selection[0]):
+                if selection['in_pdgs'] is None:
+                    break
+                if i >= len(selection['in_pdgs']):
                     is_a_match = False
                     break
-                if in_pdg not in selection[0][i]:
+                if in_pdg not in selection['in_pdgs'][i]:
                     is_a_match = False
                     break
             if not is_a_match:
                 continue
             for i, out_pdg in enumerate(process.get_final_ids_after_decay()):
-                if i >= len(selection[1]):
+                if selection['out_pdgs'] is None:
+                    break
+                if i >= len(selection['out_pdgs']):
                     is_a_match = False
                     break
-                if out_pdg not in selection[1][i]:
+                if out_pdg not in selection['out_pdgs'][i]:
                     is_a_match = False
                     break            
-            if is_a_match:
-                return True
-        
+            if not is_a_match:
+                continue
+            if (not selection['n_loops'] is None) and process.get('n_loops') != selection['n_loops']:
+                continue
+            return True
+
         return False
 
     def test_IR_limits(self, test_options):
@@ -1311,13 +1351,17 @@ class ME7Integrand_R(ME7Integrand):
                 continue
             
             # Here we use correction_order to select CT subset
-            counterterms_to_consider = [ ct for ct in self.counterterms if 
+            counterterms_to_consider = [ ct for ct in self.counterterms[process_key] if 
                         ct.count_unresolved() <= test_options['correction_order'].count('N') ]
             
             # Here we use limit_type to select the mapper to use for approaching the limit (
             # it is clear that all CT will still use their own mapper to retrieve the PS point
             # and variables to call the currents and reduced processes).
             mappers = self.find_mappings_matching_limit_type_with_regexp(counterterms_to_consider, test_options['limit_type'])
+            
+            misc.sprint(defining_process.nice_string())
+            misc.sprint('\n'+'\n'.join( ct.get_singular_structure_string() for ct in mappers ))
+            continue
             
             # Now loop over all mappings to consider
             for mapper in mappers:

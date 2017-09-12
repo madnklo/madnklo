@@ -402,7 +402,7 @@ class SingularStructure(object):
     def get_copy(self):
         """ Returns a copy of this singular structure (recursively copying the substructures)."""
         
-        copied_structure = SingularStructure([
+        copied_structure = type(self)([
                 ss.get_copy() for ss in self.substructures
             ]+[
                SubtractionLeg(l) for l in self.legs
@@ -1127,7 +1127,7 @@ class IRSubtraction(object):
 
         for pdg in self.parent_PDGs(legs):
             particle = self.model.get_particle(pdg)
-            if (particle.get('spin') == 3 and particle.get('mass') == 'zero'):
+            if (particle.get('spin') == 3 and particle.get('mass').lower() == 'zero'):
                 return True
         return False
     
@@ -1179,7 +1179,6 @@ class IRSubtraction(object):
                     coll_set = coll_initial_set + (coll_initial_leg, )
                     if self.can_become_collinear(coll_set):
                         elementary_operator_list.append(CollOperator(coll_set))
-
         return SingularOperatorList(elementary_operator_list)
 
     def get_all_raw_combinations(self, elementary_operators):
@@ -1508,6 +1507,7 @@ class IRSubtraction(object):
         and the process given in argument."""
 
         elementary_operators = self.get_all_elementary_operators(process)
+
         combinations = self.get_all_combinations(elementary_operators)
         # Filtering could be applied during the step above
         # If speed becomes relevant in these steps, consider doing that

@@ -1344,7 +1344,7 @@ class ME7Integrand_R(ME7Integrand):
         # Specifying None forces to use unformly random generating variables.
 #        a_real_emission_PS_point, _, _, _ = self.phase_space_generator.get_PS_point(None)
         a_real_emission_PS_point = None
-
+#        misc.sprint([(key,[str(v) for v in value]) for key, value in self.counterterms])
         for process_key, (defining_process, mapped_processes) in self.processes_map.items():
             # Make sure that the selected process satisfies the selected process
             if not self.is_part_of_process_selection([defining_process,]+mapped_processes, selection = test_options['process']):

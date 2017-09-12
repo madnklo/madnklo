@@ -1290,7 +1290,7 @@ class ME7Integrand_R(ME7Integrand):
         #  nesting level 2.                         -->   [(PS2.1, current2.1, jac2.1, kin_var2.1), (PS2.2, current2.2, jac2.2, kin_var2.2), ...],
         #  ...
         #  last nesting level (closest to ME)       -->   [(PSlast.1, currentlast.1, jaclast.1, kin_varlast.1), (PSlast.2, currentlast.2, jaclast.2, kin_varlast.2), ...],
-        #  ME level                                 -->   [(BornPS, ReducedProcessInstance, None)]
+        #  ME level                                 -->   [(BornPS, ReducedProcessInstance, jacFinal, None)]
         #        ]
 
         # Then the above "hike" can be used to evaluate the currents first and the ME last.
@@ -1358,7 +1358,7 @@ class ME7Integrand_R(ME7Integrand):
 
         # Finally the next layer contains the ME so it should of course be special
         assert(len(hike[-1])==1)
-        ME_PS, ME_process = hike[-1]
+        ME_PS, ME_process, final_jacobian, _ = hike[-1]
 
         final_weight = 0.0        
         for (spin_correlators, color_correlators, current_weight) in all_necessary_ME_calls:
@@ -1375,7 +1375,7 @@ class ME7Integrand_R(ME7Integrand):
             )
             # Again, for the integrated subtraction counterterms, some care will be needed here
             # for the real-virtual, depending on how we want to combine the two Laurent series.
-            final_weight += current_weight*ME_evaluation['finite']
+            final_weight += current_weight*final_jacobian*ME_evaluation['finite']
         
         # Returns the corresponding weight and the mapped PS_point.
         # Also returns the mapped_process (for calling the observables), which

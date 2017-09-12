@@ -2019,10 +2019,21 @@ class Contribution(object):
             return False
         
         return True
-        
-    def get_integrands(self, model, run_card, all_MEAccessors, ME7_configuration):
-        """ Returns all the integrands implementing this contribution.
+    
+    def get_integrands_for_process_map(self, process_map, model, run_card, all_MEAccessors, ME7_configuration):
+        """ Returns all the integrands implementing this contribution for the specified process_map.
         The instance of MEAccessorDict is necessary so as to be passed to the integrand instances.
+        """
+        return [ ME7_interface.ME7Integrand(model, run_card,
+                                       self.contribution_definition,
+                                       process_map,
+                                       all_MEAccessors,
+                                       ME7_configuration)
+               ]
+        
+    def get_integrands(self, *args):
+        """ Returns all the integrands implementing this contribution.
+        The *args are passed to the integrand instances.
         """
         
         # A list of processes maps we will distribute to each integrand
@@ -2043,13 +2054,7 @@ class Contribution(object):
             
         all_integrands = []
         for integrand_process_map in integrand_process_maps:
-            all_integrands.append(
-                ME7_interface.ME7Integrand(model, run_card,
-                                           self.contribution_definition,
-                                           integrand_process_map,
-                                           all_MEAccessors,
-                                           ME7_configuration)
-            )
+            all_integrands.extend(self.get_integrands_for_process_map(integrand_process_map, *args))
         
         return all_integrands
         
@@ -2287,7 +2292,7 @@ class Contribution_R(Contribution):
                 # Retain only a single copy of each needed current.
                 # We must remove the leg information since this is information is irrelevant
                 # for the selection of the hard-coded current implementation to consider.
-                copied_current = current.get_copy(('squared_orders','singular_structures'))
+                copied_current = current.get_copy(('squared_orders','singular_structure'))
                 copied_current.discard_leg_numbers()
                 if copied_current not in all_currents:
                     all_currents.append(copied_current)
@@ -2337,6 +2342,23 @@ class Contribution_R(Contribution):
         currents_to_consider = self.get_all_necessary_subtraction_currents(all_MEAccessors)
 
         self.add_current_accessors(all_MEAccessors, root_path, currents_to_consider)
+     
+    def get_integrands_for_process_map(self, process_map, model, run_card, all_MEAccessors, ME7_configuration):
+        """ Returns all the integrands implementing this contribution for the specified process_map.
+        The instance of MEAccessorDict is necessary so as to be passed to the integrand instances.
+        """
+        
+        relevant_counterterms = []
+        for process_key in process_map:
+            relevant_counterterms.extend(self.counterterms[process_key])
+
+        return [ ME7_interface.ME7Integrand(model, run_card,
+                                       self.contribution_definition,
+                                       process_map,
+                                       all_MEAccessors,
+                                       ME7_configuration,
+                                       counterterms=relevant_counterterms)
+               ]
         
 class Contribution_RR(Contribution):
     """ Implements the handling of a double real-emission type of contribution."""

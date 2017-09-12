@@ -57,7 +57,7 @@ class TestME7_IR_Limits(unittest.TestCase):
 
             # Now generate and output a process, so as to run ME7 commands on it
             self.do('import model loop_sm')
-            self.do('generate e+ e- > d d~ g --NLO=QCD --ignore_contributions=V')
+            self.do('generate e+ e- > d d~ j --NLO=QCD --ignore_contributions=V')
             self.do('output %s'%self.tmp_process_dir)
 
         # Now initialize an ME7 interface on the above process output
@@ -76,10 +76,13 @@ class TestME7_IR_Limits(unittest.TestCase):
         """Check the test of collinear limits on a particular process."""
         
         main_cmd = 'test_IR_limits'
-        options = {'correction_order'   : 'NLO',
-                   'limit_type'         : 'collinear',
-                   'process'            : 'e+ e- > d d~ s s~ ',
-                   'seed'               : '666'}
-
+        options = {'correction_order'       : 'NLO',
+                   'limit_type'             : 'collinear',
+                   'process'                : 'e+ e- > d d~ u|s u~|s~ ',
+                   'seed'                   : '666',
+                   'n_steps'                : 10,
+                   'min_scaling_variable'   : 1.0e-6,
+                   'acceptance_threshold'   : 1.0e-6
+                   }
 
         self.do('%s %s'%(main_cmd, ' '.join('--%s=%s'%(key,value) for key,value in options.items())))

@@ -409,7 +409,6 @@ class SingularStructure(object):
             ]
         )
         copied_structure.is_annihilated = self.is_annihilated
-        
         return copied_structure
 
     def __str__(self, print_n = True, print_pdg = False, print_state = False):
@@ -746,7 +745,7 @@ class Current(base_objects.Process):
         super(Current, self).default_setup()
         # Assign a default value of n_loops to 0 which will be updated later
         # during current generation.
-        self['n_loops'] = 0
+        self['n_loops'] = -1
         # And also by default assign the QCD squared orders
         self['squared_orders'] = {'QCD':2}
         # If this current is directly connected to the underlying ME, it will 
@@ -771,14 +770,15 @@ class Current(base_objects.Process):
         self['singular_structure'].discard_leg_numbers()
         return
 
-    def __str__(self, print_n = True, print_pdg = True, print_state = True):
+    def __str__(self, print_n = True, print_pdg = True, 
+                      print_state = True, print_loops=True):
         """Convert this current to a nice readable string."""
 
         readable_string = self['singular_structure'].__str__(
             print_n, print_pdg, print_state
         )
         n_loops = self.get('n_loops')
-        if not n_loops is None:
+        if n_loops >= 0 and print_loops:
             readable_string += " @ " + str(n_loops) + " loop"
             if n_loops != 1:
                 readable_string += "s"
@@ -844,16 +844,32 @@ class CountertermNode(object):
             tmp_str += subcurrent.__str__(level + 1)
         return tmp_str
 
+    def get_singular_structure_string(self, print_n=True, print_pdg=False, print_state=False):
+        """ Returns a one-line string specifying only the complete nested singular 
+        structure of this counterterm node."""
+
+        res = self.current['singular_structure'].__str__(
+                print_n=print_n, print_pdg=print_pdg, print_state=print_state )
+        subcurrent_string = ''
+        for counterterm_node in self.subcurrents:
+            subcurrent_string += counterterm_node.get_singular_structure_string(
+                print_n=print_n, print_pdg=print_pdg, print_state=print_state )
+        if subcurrent_string == '':
+            return res
+        else:
+            return '%s(%s)'%(res, subcurrent_string)
+        return res
+
     def n_loops(self):
         """If number of loops are assigned,
         return the total number of loops in this node and its children.
         """
 
         result = self.current.get('n_loops')
-        if result is not None:
+        if result >= 0:
             for subcurrent in self.subcurrents:
                 sub_n_loops = subcurrent.n_loops()
-                if sub_n_loops is None:
+                if sub_n_loops >= 0:
                     result = None
                 else:
                     result += sub_n_loops
@@ -916,7 +932,14 @@ class Counterterm(CountertermNode):
     @property
     def process(self):
         return self.current
-
+    
+    def is_singular(self):
+        """ Returns whether this counterterm is just the implementation of the pure
+        matrix element or if it has singular region (and the corresponding currents)
+        attached to it."""
+        
+        return len(self.subcurrents)>0
+        
     def __str__(self, level = 0):
 
         tmp_str  = "    " * level + self.process.nice_string(0, True, False)
@@ -934,7 +957,7 @@ class Counterterm(CountertermNode):
         )
         tmp_str += ")"
         process_n_loops = self.current.get('n_loops')
-        if process_n_loops is None:
+        if process_n_loops >= 0:
             pass
         else:
             tmp_str += " @ " + str(process_n_loops) + " loop"
@@ -971,6 +994,14 @@ class Counterterm(CountertermNode):
         if copy_momenta_dict:
             momenta_dict = bidict(momenta_dict)
         return Counterterm(node.current, node.subcurrents, momenta_dict)
+
+    def get_singular_structure_string(self, **opts):
+        """ Returns a one-line string specifying only the complete nested singular 
+        structure of this counterterm node."""
+        res = ''
+        for counterterm_node in self.subcurrents:
+            res += counterterm_node.get_singular_structure_string(**opts)
+        return res
 
     def get_all_currents(self):
         """Return a list of all currents involved in this counterterm."""

@@ -12,11 +12,10 @@
 # For more information, visit madgraph.phys.ucl.ac.be and amcatnlo.web.cern.ch
 #
 ################################################################################
+from __builtin__ import True
 """A user friendly command line interface to steer ME7 integration.
    Uses the cmd package for command interpretation and tab completion.
 """
-from __future__ import division
-
 import collections
 import glob
 import logging
@@ -233,12 +232,15 @@ class ParseCmdArguments(object):
         """ Parses the options specified to the test_limit command."""
         
         # None means unspecified, therefore considering all types.
-        testlimits_options = {'correction_order'    : None,
-                              'limit_type'          : None,
-                              'process'             : None,
-                              'seed'                : None
+        testlimits_options = {'correction_order'        : None,
+                              'limit_type'              : None,
+                              'process'                 : None,
+                              'seed'                    : None,
+                              'n_steps'                 : 10,
+                              'min_scaling_variable'    : 1.0e-6,
+                              'acceptance_threshold'    : 1.0e-6
                              }
-        
+ 
         # Group arguments in between the '--' specifiers.
         # For example, it will group '--process=p' 'p' '>' 'd' 'd~' 'z' into '--process=p p > d d~ z'.
         opt_args = []
@@ -263,6 +265,16 @@ class ParseCmdArguments(object):
                 if value.upper() not in ['NLO','NNLO','NNNLO']:
                     raise InvalidCmd("'%s' is not a valid option for '%s'"%(value, key))
                 testlimits_options['correction_order'] = value.upper()
+            elif key == '--n_steps':
+                try:
+                    testlimits_options['n_steps'] = int(value)                  
+                except ValueError:
+                    raise InvalidCmd("'%s' is not a valid integer for option '%s'"%(value, key))    
+            elif key in ['--min_scaling_variable', '--acceptance_threshold']:
+                try:
+                    testlimits_options[key[2:]] = float(value)                  
+                except ValueError:
+                    raise InvalidCmd("'%s' is not a valid float for option '%s'"%(value, key))                    
             elif key in '--limit_type':
                 if not isinstance(value, str):
                     raise InvalidCmd("'%s' is not a valid option for '%s'"%(value, key))
@@ -281,6 +293,10 @@ class ParseCmdArguments(object):
                     raise InvalidCmd("Cannot set '%s' option to '%s'."%(key, value))
             elif key=='--process':
                 pdgs = []
+                def get_particle_pdg(name):
+                    part = self.model.get_particle(name)
+                    part.set('is_part', name!=part.get('antiname'))
+                    return part.get_pdg_code()
                 initial, final = value.split('>',1)
                 initial = initial.strip()
                 final = final.strip()
@@ -289,7 +305,7 @@ class ParseCmdArguments(object):
                     multi_part = []
                     for part in parts.split('|'):
                         try:
-                            multi_part.append(self.model.get_particle(part).get_pdg_code())
+                            multi_part.append(get_particle_pdg(part))
                         except:
                             raise InvalidCmd("Particle '%s' not recognized in current model."%part)
                     initial_pdgs.append(tuple(multi_part))
@@ -299,7 +315,7 @@ class ParseCmdArguments(object):
                     multi_part = []
                     for part in parts.split('|'):
                         try:
-                            multi_part.append(self.model.get_particle(part).get_pdg_code())
+                            multi_part.append(get_particle_pdg(part))
                         except:
                             raise IvalidCmd("Particle '%s' not recognized in current model."%part)
                     final_pdgs.append(tuple(multi_part))
@@ -690,7 +706,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
                                        'contribution_definition'    : contribution_definition,
                                        'processes_map'              : processes_map,
                                        'all_MEAccessors'            : None,
-                                       'ME7_configuration'          : None }
+                                       'ME7_configuration'          : None,
+                                       'options'                    : {} }
         
         # The original ContributionDefinition instance at the origin this integrand 
         self.contribution_definition    = contribution_definition
@@ -842,7 +859,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
                              dump['contribution_definition'],
                              dump['processes_map'],
                              all_MEAccessors,
-                             ME7_configuration)
+                             ME7_configuration,
+                             **dump['options'])
     
     def set_phase_space_generator(self, PS_generator):
         """ Overwrites current phase-space generator."""
@@ -1209,30 +1227,71 @@ class ME7Integrand_R(ME7Integrand):
     
     def __init__(self, *args, **opts):
         """ Initialize a real-emission type of integrand, adding additional relevant attributes."""
-                
-        if 'mapping' in opts:
-            mapping_type = opts.pop('mapping')
-        else:
-            mapping_type = ('single-real','NLO')
         
+        try:  
+            self.counterterms = opts.pop('counterterms')
+        except KeyError:
+            raise MadEvent7Error("Constructor of class ME7Integrand_R requires the option "+
+                                                            "'counterterms' to be specified.")
+
         super(ME7Integrand_R, self).__init__(*args, **opts)
-        
-        # For now define a single mapping, although we might need different ones for different limit in the future.
-        self.mapping = phase_space_generators.VirtualMapping(map_type=mapping_type, model=self.model)
+        self.initialization_inputs['options']['counterterms'] = self.counterterms
     
     def sigma(self, PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
         return super(ME7Integrand_R, self).sigma(PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts)
 
-    def get_all_limits(self):
-        """ Returns a list of tuple of leg numbers, representing all combination of legs that can exhibit IR singular behavior
-        in the real-emission integrand."""
+    def find_mappings_matching_limit_type_with_regexp(self, counterterms, limit_type=None):
+        """ Find all mappings that match a particular limit_type given in argument (takes a random one if left to None)."""
+
+        # First select only the counterterms which are not pure matrix elements (i.e. they have singular structures).
+
+        selected_counterterms = [ct for ct in counterterms if ct.is_singular()]
+
+        returned_counterterms = []
+        if not limit_type:
+            returned_counterterms.append(random.choice(selected_counterterms))
+        else:
+            for counterterm in selected_counterterms:
+                misc.sprint(counterterm.get_singular_structure_string())
+        
+        # For now define a single mapping, although we might need different ones for different limit in the future.
+        #mapping = phase_space_generators.VirtualMapping(map_type=mapping_type, model=self.model)
         # TODO
+        stop
         return []
 
-    def test_IR_limits(self, test_options = {'correction_order': None,
-                                             'limit_type'      : None,
-                                             'process'         : None,
-                                             'seed'            : None }):
+    def is_part_of_process_selection(self, process_list, selection=None):
+        """ Checks wether any of the specified processes in the process_list provided matches the user's process
+        selection. If not provided, returns True by default. 'selection' has the format:
+           ( ( (in_pgs1), (in_pdgs2), ...), ( (out_pgs1), (out_pdgs2), ...) ) """
+        
+        if not selection:
+            return True
+
+        for process in process_list:
+            is_a_match = True
+            for i, in_pdg in enumerate(process.get_initial_ids()):
+                if i >= len(selection[0]):
+                    is_a_match = False
+                    break
+                if in_pdg not in selection[0][i]:
+                    is_a_match = False
+                    break
+            if not is_a_match:
+                continue
+            for i, out_pdg in enumerate(process.get_final_ids_after_decay()):
+                if i >= len(selection[1]):
+                    is_a_match = False
+                    break
+                if out_pdg not in selection[1][i]:
+                    is_a_match = False
+                    break            
+            if is_a_match:
+                return True
+        
+        return False
+
+    def test_IR_limits(self, test_options):
         """ Tests that 4D local subtraction terms tend to the corresponding real-emission matrix elements."""
         
         if test_options['seed']:
@@ -1243,11 +1302,12 @@ class ME7Integrand_R(ME7Integrand):
         
         # First generate an underlying Born
         # Specifying None forces to use unformly random generating variables.
-        a_real_emission_PS_point, _, _, _ = self.phase_space_generator.get_PS_point(None)
+#        a_real_emission_PS_point, _, _, _ = self.phase_space_generator.get_PS_point(None)
+        a_real_emission_PS_point = None
 
         for process_key, (defining_process, mapped_processes) in self.processes_map.items():
             # Make sure that the selected process satisfies the selected process
-            if not defining_process.is_part_of_selection(process = test_options['process']):
+            if not self.is_part_of_process_selection([defining_process,]+mapped_processes, selection = test_options['process']):
                 continue
             
             # Here we use correction_order to select CT subset
@@ -1257,23 +1317,26 @@ class ME7Integrand_R(ME7Integrand):
             # Here we use limit_type to select the mapper to use for approaching the limit (
             # it is clear that all CT will still use their own mapper to retrieve the PS point
             # and variables to call the currents and reduced processes).
-            mappers = counterterms_to_consider.find_mappings_matching_limit_type_regexp(test_options['limit_type'])
+            mappers = self.find_mappings_matching_limit_type_with_regexp(counterterms_to_consider, test_options['limit_type'])
             
+            # Now loop over all mappings to consider
             for mapper in mappers:
-                
-                
+                # First identified the reduced PS point from which we can evolve to larger multiplicity
+                # while becoming progressively closer to the IR limit.
                 a_born_PS_point, starting_jacobian, starting_variables = \
                                             mapper.map_to_lower_multiplicity(a_real_emission_PS_point, splitting_structure)
                 
                 # Now progressively approach the limit
                 evaluations = []
                 # l is the scaling variable
-                n_steps = 100
-                min_value = 10.0**-6
-                for ordering_parameter in range(1,n_steps+1):
+                n_steps = test_options['n_steps']
+                min_value = test_options['min_scaling_variable']
+                acceptance_threshold = test_options['acceptance_threshold']
+    
+                for scaling_parameter in range(1,n_steps+1):
                     # Use equally spaced steps on a log scale
-                    ordering_parameter = 10.0**(-((float(ordering_parameter)/n_steps)*abs(math.log10(min_value))))
-                    scaled_variables = self.mapping.approach_limit(self, splitting_structure, ordering_parameter, starting_point=starting_variables)
+                    scaling_parameter = 10.0**(-((float(scaling_parameter)/n_steps)*abs(math.log10(min_value))))
+                    scaled_variables = self.mapping.approach_limit(self, splitting_structure, scaling_parameter, starting_point=starting_variables)
                     real_PS_point, jacobian = self.mapping.map_to_higher_multiplicity(a_born_PS_point, splitting_structure, scaled_variables)
                     
                     # Evaluate  real ME
@@ -1289,7 +1352,7 @@ class ME7Integrand_R(ME7Integrand):
                         {'real_matrix_element'      : real_ME_evaluation, 
                          'counterterm_evaluation'   : counterterm_evaluation,
                          'jacobian'                 : jacobian,
-                         'ordering_parameter'       : ordering_parameter   }
+                         'scaling_parameter'       : scaling_parameter   }
                     )
 
                 # Now produce a nice matplotlib of the evalautions

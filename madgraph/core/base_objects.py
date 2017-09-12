@@ -3435,6 +3435,12 @@ class Process(PhysicsObject):
 
         return filter(lambda leg: leg.get('state') == True,
                        self.get('legs'))
+
+    def get_initial_legs(self):
+        """Gives the final state legs"""
+
+        return filter(lambda leg: leg.get('state') == False,
+                       self.get('legs'))
     
     def get_final_ids(self):
         """Gives the pdg codes for final state particles"""

@@ -13,8 +13,6 @@
 # For more information, visit madgraph.phys.ucl.ac.be and amcatnlo.web.cern.ch
 #
 ################################################################################
-from __builtin__ import True
-from Carbon.Aliases import true
 """Definition of all the classes and features relevant to the handling of 
 higher order IR subtraction.
 """
@@ -859,7 +857,7 @@ class CountertermNode(object):
         else:
             return '%s(%s)'%(res, subcurrent_string)
         return res
-
+    
     def n_loops(self):
         """If number of loops are assigned,
         return the total number of loops in this node and its children.
@@ -937,7 +935,7 @@ class Counterterm(CountertermNode):
         """ Returns whether this counterterm is just the implementation of the pure
         matrix element or if it has singular region (and the corresponding currents)
         attached to it."""
-        
+
         return len(self.subcurrents)>0
         
     def __str__(self, level = 0):

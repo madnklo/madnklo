@@ -304,6 +304,49 @@ class Lorentz5Vector(list):
         self[3] = self[3] + gamma2*bp*bz + gamma*bz*self[0]
         self[0] = gamma*(self[0] + bp)
 
+    def __add__(self, y):
+        """Sum with a 4(or 5)-dimentional vector."""
+
+        newvector = Lorentz5Vector()
+        newvector[0] = self[0] + y[0]
+        newvector[1] = self[1] + y[1]
+        newvector[2] = self[2] + y[2]
+        newvector[3] = self[3] + y[3]
+        return newvector
+
+    def __sub__(self, y):
+        """Difference with a 4(or 5)-dimentional vector."""
+        newvector = Lorentz5Vector()
+        newvector[0] = self[0] - y[0]
+        newvector[1] = self[1] - y[1]
+        newvector[2] = self[2] - y[2]
+        newvector[3] = self[3] - y[3]
+        return newvector 
+
+    def __imul__(self, x):
+        """Multiplication by components, in place."""
+
+        for component in self:
+            component *= x
+        return self
+
+    def __mul__(self, x):
+        """Multiplication by a components."""
+
+        tmp = Lorentz5Vector(self)
+        tmp *= x
+        return tmp
+
+    def dot(self, y):
+        """Scalar product between two vectors."""
+
+        return self[0] * y[0] - self[1] * y[1] - self[2] * y[2] - self[3] * y[3]
+
+    def square(self):
+        """Square of a Lorentz vector."""
+
+        return self[0]**2 - self.rho2()
+
 #===============================================================================
 # Phase space generation
 #===============================================================================
@@ -815,28 +858,12 @@ def get_structure_numbers(structure, momenta_dict):
         return momenta_dict.inv[children], children
 
 class VirtualMapping(object):
-    """ A virtual class from which all Mapping implementations must inherit."""
-    
-    def __new__(cls, **opts):
+    """ A virtual class from which all elementary mapping implementations must inherit."""
 
-        if cls is VirtualMapping:
-            map_type = opts.pop('map_type') if 'map_type' in opts else 'Unknown'
-            if map_type not in Mapping_classes_map or not Mapping_classes_map[map_type]:
-                raise MadGraph5Error("Could not determine the class for the mapping of type '%s'."%str(map_type))
-            target_class = Mapping_classes_map[map_type]
-            return super(VirtualMapping, cls).__new__(target_class, **opts)
-        else:
-            return super(VirtualMapping, cls).__new__(cls, **opts)
-
-    # TODO Review this
     def __init__(self, model = None, **opts):
         """General initialization of any mapping.
-        n_legs_mapped is the number of legs 'generated' or 'removed' by the mapping.
-        At NLO n_legs_mapped would be one for instance.
         The model is an optional specification that can be useful to know properties of the leg mapped.
-        """
-        
-        # This attribute lists the name of the kinematic variables defining this mapping.
+        """        
         self.model = model
         
     def is_valid_structure(self, singular_structure):
@@ -879,9 +906,7 @@ class VirtualMapping(object):
         
         raise NotImplemented
 
-    def map_to_higher_multiplicity(
-        self, PSpoint, singular_structure, momenta_dict, kinematic_variables
-    ):
+    def map_to_higher_multiplicity(self, PSpoint, singular_structure, momenta_dict, kinematic_variables):
         """ Map the specified PS point onto another one using the kinematic variables 
         specified in the option 'kinematic_variables' and the specific splitting structure indicated.
         This function returns:
@@ -891,9 +916,7 @@ class VirtualMapping(object):
         
         raise NotImplemented
 
-    def approach_limit(
-        self, singular_structure, ordering_parameter, starting_point = None
-    ):
+    def approach_limit(self, PSpoint, singular_structure, scaling_parameter, kinematic_variables):
         """ Scale down starting variables given in starting_point (if specified) using the ordering_parameter
         to get closer to the limit specified by the splitting structure."""
         
@@ -1249,6 +1272,74 @@ class Mapping_NagySoper(VirtualMapping):
     # TODO, see example above
     pass
 
+# ---------------------------
+# Defining of mapping walkers
+# ---------------------------
+
+class VirtualWalker(object):
+    """ A virtual class from which all walker implementations must inherit."""
+    
+    def __new__(cls, **opts):
+        """Factory class to make plugin easy."""
+        if cls is VirtualWalker:
+            map_type = opts.pop('map_type') if 'map_type' in opts else 'Unknown'
+            if map_type not in mapping_walker_classes_map or not mapping_walker_classes_map[map_type]:
+                raise MadGraph5Error("Could not determine the class for the mapping walker of type '%s'."%str(map_type))
+            target_class = mapping_walker_classes_map[map_type]
+            return super(VirtualWalker, cls).__new__(target_class, **opts)
+        else:
+            return super(VirtualWalker, cls).__new__(cls, **opts)
+
+    def __init__(self, model = None, **opts):
+        """General initialization of any mapping.
+        The model is an optional specification that can be useful to know properties of the leg mapped.
+        """
+
+        self.model = model
+
+    def walk_to_lower_multiplicity(self, PS_point, counterterm, kinematic_variables = False):
+        """Map a given phase-space point by clustering the substructures
+        and recoiling against the legs specified in counterterm.
+
+        :param PS_point: higher-multiplicity phase-space point,
+        as a dictionary that associates integers to Lorentz5Vector's,
+        which will be modified to the lower-multiplicity one
+
+        :param counterterm: Counterterm object that specifies
+        clusters of particle and recoilers recursively. Momenta_dict will
+        obtained directly from it.
+
+        :param kinematic_variables: if a non-empty dictionary is passed,
+        the kinematic variables that are necessary to reproduce the higher-multiplicity
+        phase-space point from the lower-multiplicity one will be set
+
+        :return: the jacobian weight due to the mapping
+        """
+        raise NotImplementedError
+        if kinematic_variables:
+            return mapped_PS_point, jacobian, kinematic_variables
+        else:
+            return mapped_PS_point, jacobian, None
+
+    def walk_to_higher_multiplicity(self, PS_point, counterterm, kinematic_variables):
+        """ SIMONE: DOC TODO """
+         
+        raise NotImplementedError
+        return mapped_PS_point, jacobian
+
+    def approach_limit(self, PS_point, counterterm, kinematic_variables, scaling_parameter):
+        """ Scale down starting variables given in starting_point (if specified) using the ordering_parameter
+        to get closer to the limit specified by the splitting structure."""
+        
+        raise NotImplementedError
+        return mapped_PS_point, jacobian
+
+class CataniSeymourWalker(VirtualWalker):
+    pass
+
+class NagySoperWalker(VirtualWalker):
+    pass
+
 if __name__ == '__main__':
 
     import random
@@ -1289,9 +1380,9 @@ if __name__ == '__main__':
             max(differences[i]/random_variables[i] for i in range(len(differences)))
     print "Rel. diff. in PS weight = %.3e\n"%((wgt_reconstructed-wgt)/wgt)
 
-
 # Mapping classes map is defined here as module variables. This map can be overwritten
 # by the interface when using a PLUGIN system where the user can define his own Mapping.
 # Notice that this must be placed after all the Mapping daughter classes in this module have been declared.
-Mapping_classes_map = {('single-real', 'NLO'): MappingCataniSeymourFFOne,
-                       'Unknown': None}
+mapping_walker_classes_map = {'CataniSeymour'  : CataniSeymourWalker,
+                              'NagySoper'      : NagySoperWalker,
+                              'Unknown'        : None}

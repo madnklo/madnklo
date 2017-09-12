@@ -1628,6 +1628,19 @@ class MEAccessorDict(dict):
         # information , as specified  by the user via the option 'pdgs'.
         return ME_accessor, {'permutation': permutation, 'process_pdgs': defining_pdgs_order}
     
+    def format_PS_point_for_ME_call(self, PS_point, process):
+        """ From a dictionary formatted PS point and a process, returns the PS point as a flat list, ordered as
+        the legs in the process."""
+        
+        formatted_PS_point = []
+        for leg in process.get_initial_legs()+process.get_final_legs():
+            try:
+                formatted_PS_point.append(PS_point[leg.get('number')])
+            except KeyError:
+                raise MadGraph5Error("Cannot find leg #%d in the following PS point specifications:\n%s"%(
+                                                                                leg.get('number'),str(PS_point)))
+        return formatted_PS_point
+
     def __call__(self, *args, **opts):
         """ Quick access to directly calling a Matrix Element. The first argument should always be the MEdictionary key
         and in the options the user can specify the desired_pdgs_order which will be used by the MEDictionary to figure
@@ -1645,19 +1658,35 @@ class MEAccessorDict(dict):
         call_options = dict(opts)
         if 'pdgs' in call_options:
             desired_pdgs_order = call_options.pop('pdgs')
+        
+        specified_process_instance = None
+        if not isinstance(args[0], subtraction.Current) and isinstance(args[0], base_objects.Process):
+            # The user called this MEAccessorDictionary with a specific instance of a Process (not current), therefore
+            # we must enforce the pdgs ordering specified in it (if not overwritten by the user).
+            specified_process_instance = args[0]
+            if desired_pdgs_order is None:
+                desired_pdgs_order = (tuple(specified_process_instance.get_initial_ids()),
+                                      tuple(specified_process_instance.get_final_ids_after_decay()))
             
         ME_accessor, call_key = self.get_MEAccessor(me_accessor_key, pdgs=desired_pdgs_order)
         call_options.update(call_key)
+
         # Now for subtraction current accessors, we must pass the current as first argument
+        call_args = list(args)
         if isinstance(ME_accessor, SubtractionCurrentAccessor):
-            if not isinstance(me_accessor_key, subtraction.Current):
+            if not isinstance(call_args[0], subtraction.Current):
                 raise MadGraph5Error("SubtractionCurrentAccessors must be called from the accessor dictionary with "+
                                      "an instance of a current as first argument.")
         else:
             # For Matrix element, we don't need to provide the specific process since this is done via the PDG list
-            args = args[1:]
+            call_args = call_args[1:]
+            # If the user specified a process instance, he might also have passed the PS point as a dictionary,
+            # so we must transform it here into a flatlist:
+            PS_point = call_args[0]
+            if specified_process_instance and isinstance(PS_point, dict):
+                call_args[0] = self.format_PS_point_for_ME_call(PS_point, specified_process_instance)
             
-        return ME_accessor(*args, **call_options)
+        return ME_accessor(*call_args, **call_options)
     
     def add_MEAccessor(self, ME_accessor):
         """ Add a particular ME accessor to the collection of available ME's."""

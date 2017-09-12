@@ -12,7 +12,6 @@
 # For more information, visit madgraph.phys.ucl.ac.be and amcatnlo.web.cern.ch
 #
 ################################################################################
-from __builtin__ import True
 """A user friendly command line interface to steer ME7 integration.
    Uses the cmd package for command interpretation and tab completion.
 """
@@ -1258,6 +1257,8 @@ class ME7Integrand_V(ME7Integrand):
 class ME7Integrand_R(ME7Integrand):
     """ ME7Integrand for the computation of a single real-emission type of contribution."""
     
+    MappingWalkerType = 'CataniSeymour'
+    
     def __init__(self, *args, **opts):
         """ Initialize a real-emission type of integrand, adding additional relevant attributes."""
         
@@ -1270,14 +1271,128 @@ class ME7Integrand_R(ME7Integrand):
         super(ME7Integrand_R, self).__init__(*args, **opts)
         self.initialization_inputs['options']['counterterms'] = self.counterterms
     
+        # Initialize a general mapping walker capapble of handling all relevant limits for this integrand.
+        self.mapper = phase_space_generators.VirtualWalker(map_type=self.MappingWalkerType, model=self.model)
+        
+    def evaluate_counterterm(self, counterterm, PS_point, hel_config=None):
+        """ Evaluates the specified counterterm for the specified PS point."""
+        
+        # Retrieve some possibly relevant model parameters
+        alpha_s = self.model.get('parameter_dict')['aS']
+        mu_r = self.model.get('parameter_dict')['MU_R']    
+        
+        # Now call the mapper to walk through the counterterm structure and return the list of currents
+        # and PS points to use to evaluate them. 
+        hike = self.mapper.walk(PS_point, counterterm)
+        # The structure of this object output should reflect each nesting level, that is:
+        # hike = [ 
+        #  nesting level 1. (furthest away from ME) -->   [(PS1.1, current1.1, jac1.1, kin_var1.1), (PS1.2, current1.2, jac1.1, kin_var1.2), ...],
+        #  nesting level 2.                         -->   [(PS2.1, current2.1, jac2.1, kin_var2.1), (PS2.2, current2.2, jac2.2, kin_var2.2), ...],
+        #  ...
+        #  last nesting level (closest to ME)       -->   [(PSlast.1, currentlast.1, jaclast.1, kin_varlast.1), (PSlast.2, currentlast.2, jaclast.2, kin_varlast.2), ...],
+        #  ME level                                 -->   [(BornPS, ReducedProcessInstance, None)]
+        #        ]
+
+        # Then the above "hike" can be used to evaluate the currents first and the ME last.
+        # Note that the code below can become more complicated when needing to track helicities, but let's forget this for now.
+        weight = 1.0
+        assert((hel_config is None))
+        for level, stroll in enumerate(hike[:-2]):
+            for (PS_point_for_current, current, jacobian, kinematic_variables) in stroll:
+                current_evaluation, all_current_results = self.all_MEAccessors(
+                    current, PS_point_for_current, hel_config=None, kinematic_variables=kinematic_variables)
+                # Make sure no spin- or color-correlations are demanded by the current at this stage
+                assert(current_evaluation['spin_correlations']==[None,])
+                assert(current_evaluation['color_correlations']==[None,])
+                assert(current_evaluation['values'].keys()==[(0,0),])
+                # WARNING:: this can only work for local 4D subtraction counterterms! 
+                # For the integrated ones it is very likely that we cannot use a nested structure, and
+                # there will be only one level anyway so that there is not need of fancy combination
+                # of Laurent series.
+                weight *= jacobian*current_evaluation['values'][(0,0)]['finite']
+         
+        # all_necesary_ME_calls is a list of tuples of the following form:
+        #  (spin_correlator, color_correlator, weight)
+        all_necessary_ME_calls = [(None, None, weight)]
+        
+        # Specify here how to combine one set of correlators with another.
+        def combine_correlators(correlators_A, correlators_B):
+            combined_correlator = [None, None, correlators_A[2]*correlators_B[2]]
+            # Trivial combination of correlators first
+            for i in range(2):
+                if (correlators_A[i] is None) and (correlators_B[i] is None):
+                    combined_correlator[i] = None
+                elif (correlators_A[i] is None):
+                    combined_correlator[i] = correlators_B[i]
+                elif (correlators_B[i] is None):
+                    combined_correlator[i] = correlators_A[i]
+            # Non-trivial combinations now
+            # Spin-correlators
+            if (not correlators_A[0] is None) and (not correlators_B[0] is None):
+                combined_correlator[0] = tuple(list(correlators_A[0])+list(correlators_B[0]))
+            # Color-correlators
+            if (not correlators_A[1] is None) and (not correlators_B[1] is None):
+                # We don't know what to do yet, because we haven't agreed on how to organize
+                # NNLO color correlations yet.
+                raise NotImplementedError
+            return combined_correlator
+
+        # The next-to-last layer needs to be treated specifically since it must track the color- and spin-correlations        
+        for (PS_point_for_current, current, jacobian, kinematic_variables) in hike[-1]:
+            current_evaluation, all_current_results = self.all_MEAccessors(
+                current, PS_point_for_current, hel_config=None, kinematic_variables=kinematic_variables)
+            new_all_necessary_ME_calls = []
+            # Now loop over all spin- and color- correlators required for this current
+            # and update the necessary calls to the ME
+            new_all_necessary_ME_calls = []
+            for ((spin_index, color_index), current_wgt) in current_evaluation['values'].items():
+                # Now combine the correlators necessary for this current, with those already
+                # specified in 'all_necessary_ME_calls'
+                current_correlator = ( current_evaluation['spin_correlations'][spin_index],
+                                       current_evaluation['color_correlations'][color_index],
+                                       jacobian*current_wgt['finite'] )
+                for ME_call in all_necessary_ME_calls:
+                    new_all_necessary_ME_calls.append( combine_correlators(ME_call,current_correlator) )
+            # Update the list of necessary ME calls
+            all_necessary_ME_calls = new_all_necessary_ME_calls
+
+        # Finally the next layer contains the ME so it should of course be special
+        assert(len(hike[-1])==1)
+        ME_PS, ME_process = hike[-1]
+
+        final_weight = 0.0        
+        for (spin_correlators, color_correlators, current_weight) in all_necessary_ME_calls:
+            ME_evaluation, all_ME_results = all_accessors(my_process, PS_point, alpha_s, mu_r)
+            self.all_MEAccessors(
+               ME_process, ME_PS, alpha_s, mu_r,
+               # Let's worry about the squared order laters, we will probably directly fish
+               # them out from the ME_process, since they should be set to a unique combination in
+               # this case.
+               squared_orders    = None,
+               color_correlation = color_correlators,
+               spin_correlation  = spin_correlators, 
+               hel_config        = hel_config 
+            )
+            # Again, for the integrated subtraction counterterms, some care will be needed here
+            # for the real-virtual, depending on how we want to combine the two Laurent series.
+            final_weight += current_weight*ME_evaluation['finite']
+        
+        # Returns the corresponding weight and the mapped PS_point.
+        # Also returns the mapped_process (for calling the observables), which
+        # is typically simply a reference to counterterm.current which is an instance of Process.
+        return final_weight, ME_PS, ME_process
+
     def sigma(self, PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
+        
+        for ct in self.counterterms[processkey]:
+            wgt += self.evaluate_counterterm(counterterm)
+        
         return super(ME7Integrand_R, self).sigma(PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts)
 
-    def find_mappings_matching_limit_type_with_regexp(self, counterterms, limit_type=None):
+    def find_counterterms_matching_limit_type_with_regexp(self, counterterms, limit_type=None):
         """ Find all mappings that match a particular limit_type given in argument (takes a random one if left to None)."""
 
         # First select only the counterterms which are not pure matrix elements (i.e. they have singular structures).
-
         selected_counterterms = [ct for ct in counterterms if ct.is_singular()]
 
         returned_counterterms = []
@@ -1288,10 +1403,7 @@ class ME7Integrand_R(ME7Integrand):
                 if re.match(limit_type,counterterm.get_singular_structure_string(
                                                                 print_n=True, print_pdg=False, print_state=False)):
                     returned_counterterms.append(counterterm)
-
-        # For now define a single mapping, although we might need different ones for different limit in the future.
-        #mapping = phase_space_generators.VirtualMapping(map_type=mapping_type, model=self.model)
-        # TODO
+        
         return returned_counterterms
 
     def is_part_of_process_selection(self, process_list, selection=None):
@@ -1337,17 +1449,14 @@ class ME7Integrand_R(ME7Integrand):
         if test_options['seed']:
             random.seed(test_options['seed'])
         
-        alpha_s = self.model.get('parameter_dict')['aS']
-        mu_r = self.model.get('parameter_dict')['MU_R']
-        
         # First generate an underlying Born
         # Specifying None forces to use unformly random generating variables.
-#        a_real_emission_PS_point, _, _, _ = self.phase_space_generator.get_PS_point(None)
-        a_real_emission_PS_point = None
-#        misc.sprint([(key,[str(v) for v in value]) for key, value in self.counterterms])
+        a_real_emission_PS_point, _, _, _ = self.phase_space_generator.get_PS_point(None)
+
         for process_key, (defining_process, mapped_processes) in self.processes_map.items():
             # Make sure that the selected process satisfies the selected process
-            if not self.is_part_of_process_selection([defining_process,]+mapped_processes, selection = test_options['process']):
+            if not self.is_part_of_process_selection([defining_process,]+mapped_processes, 
+                                                                            selection = test_options['process']):
                 continue
             
             # Here we use correction_order to select CT subset
@@ -1357,51 +1466,66 @@ class ME7Integrand_R(ME7Integrand):
             # Here we use limit_type to select the mapper to use for approaching the limit (
             # it is clear that all CT will still use their own mapper to retrieve the PS point
             # and variables to call the currents and reduced processes).
-            mappers = self.find_mappings_matching_limit_type_with_regexp(counterterms_to_consider, test_options['limit_type'])
+            selected_counterterms = self.find_counterterms_matching_limit_type_with_regexp(
+                                                                    counterterms_to_consider, test_options['limit_type'])
             
-            misc.sprint(defining_process.nice_string())
-            misc.sprint('\n'+'\n'.join( ct.get_singular_structure_string() for ct in mappers ))
-            continue
+            #misc.sprint(defining_process.nice_string())
+            #misc.sprint('\n'+'\n'.join( ct.get_singular_structure_string() for ct in selected_counterterms ))
             
             # Now loop over all mappings to consider
-            for mapper in mappers:
+            for limit_specifier_counterterm in selected_counterterms:
                 # First identified the reduced PS point from which we can evolve to larger multiplicity
                 # while becoming progressively closer to the IR limit.
-                a_born_PS_point, starting_jacobian, starting_variables = \
-                                            mapper.map_to_lower_multiplicity(a_real_emission_PS_point, splitting_structure)
+                a_born_PS_point, starting_jacobian, starting_variables = self.mapper.walk_to_lower_multiplicity(
+                                        a_real_emission_PS_point, limit_specifier_counterterm, kinematic_variables=True)
                 
                 # Now progressively approach the limit
-                evaluations = []
+                evaluations = {}
                 # l is the scaling variable
                 n_steps = test_options['n_steps']
                 min_value = test_options['min_scaling_variable']
                 acceptance_threshold = test_options['acceptance_threshold']
-    
+
                 for scaling_parameter in range(1,n_steps+1):
                     # Use equally spaced steps on a log scale
                     scaling_parameter = 10.0**(-((float(scaling_parameter)/n_steps)*abs(math.log10(min_value))))
-                    scaled_variables = self.mapping.approach_limit(self, splitting_structure, scaling_parameter, starting_point=starting_variables)
-                    real_PS_point, jacobian = self.mapping.map_to_higher_multiplicity(a_born_PS_point, splitting_structure, scaled_variables)
+                    scaled_real_PS_point, jacobian = self.mapper.approach_limit(
+                                a_born_PS_point, limit_specifier_counterterm, starting_variables, scaling_parameter)
                     
                     # Evaluate  real ME
-                    ME_evaluation, all_results = self.all_MEAccessors(defining_process, real_PS_point, alpha_s, mu_r)
-                    real_ME_evaluation = ME_evaluation['finite']
+                    assert(len([ct for ct in self.counterterms[process_key] if not ct.is_singular()])==0)
+                    non_singular_ME = [ct for ct in self.counterterms[process_key] if not ct.is_singular()][0]
+
+                    # Need smarter way to evaluate the ME
+                    ME_evaluation, _, _ = self.evaluate_counterterm(non_singular_ME, scaled_real_PS_point, hel_config=None)
                     
                     # Approximated real ME (aka. local 4d subtraction counterterm)
-                    counterterm_evaluation = 1.0
-                    # counterterm = self.evaluate_counterterm(defining_process, real_PS_point, current_list)
+                    summed_counterterm_weight = 0.0
+                    for counterterm in counterterms_to_consider:
+                        if counterterm.is_singular():
+                            continue
+                        ct_weight, _, _ = self.evaluate_counterterm(counterterm, scaled_real_PS_point, hel_config=None)
+                        summed_counterterm_weight += ct_weight
                     
                     # Add evaluations to the list so as to study how the approximated reals converge towards the real
-                    evaluations.append(
-                        {'real_matrix_element'      : real_ME_evaluation, 
-                         'counterterm_evaluation'   : counterterm_evaluation,
-                         'jacobian'                 : jacobian,
-                         'scaling_parameter'       : scaling_parameter   }
-                    )
+                    evaluations[scaling_parameter]= {
+                         'non_singular_ME'      : ME_evaluation, 
+                         'approximated_ME'      : summed_counterterm_weight,
+                         'limit_specifier'      : limit_specifier_counterterm,
+                         'defining_process'     : defining_process
+                        }
+                
+                all_evaluations[(process_key, counterterm.get_singular_structure_string(
+                                                        print_n=True, print_pdg=False, print_state=False))] = evaluations
 
-                # Now produce a nice matplotlib of the evalautions
-                # TODO
-                # self.process_IR_limits_test_result(evaluations,defining_process,singular_structure)
+        # Now produce a nice matplotlib of the evaluations and assess whether this test passed or not.
+        return self.analyze_IR_limits_test(all_evaluations, acceptance_threshold)
+
+    def analyze_IR_limits_test(self, all_evaluations, acceptance_threshold):
+        """ Analyze the results of the test_IR_limits command. """
+        #TODO
+        pass
+
 
 class ME7Integrand_RR(ME7Integrand_R):
     """ ME7Integrand for the computation of a double real-emission type of contribution."""

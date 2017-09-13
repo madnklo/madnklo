@@ -858,11 +858,12 @@ def get_structure_numbers(structure, momenta_dict):
         return momenta_dict.inv[children], children
 
 class VirtualMapping(object):
-    """ A virtual class from which all elementary mapping implementations must inherit."""
+    """Base class for elementary mapping implementations."""
 
     def __init__(self, model = None, **opts):
         """General initialization of any mapping.
-        The model is an optional specification that can be useful to know properties of the leg mapped.
+        The model is an optional specification,
+        which can be useful to know properties of the leg mapped.
         """        
         self.model = model
         
@@ -908,7 +909,7 @@ class VirtualMapping(object):
         raise NotImplemented
 
     def map_to_higher_multiplicity(
-        self, PSpoint, singular_structure, momenta_dict, kinematic_variables
+        self, PS_point, singular_structure, momenta_dict, kinematic_variables
     ):
         """Map a given phase-space point to higher multiplicity,
         by splitting the (pseudo)particles and recoiling against the legs
@@ -939,7 +940,9 @@ class VirtualMapping(object):
         """Map to higher multiplicity, with the distance to the limit expressed
         by scaling_parameter.
         """
-        
+
+        # TODO This is a stub
+
         raise NotImplemented
 
 class ElementaryMappingCollinearFinal(VirtualMapping):
@@ -1301,71 +1304,141 @@ class Mapping_NagySoper(VirtualMapping):
 #===============================================================================
 # Mapping walkers
 #===============================================================================
-
 class VirtualWalker(object):
-    """ A virtual class from which all walker implementations must inherit."""
+    """Base class for walker implementations."""
     
     def __new__(cls, **opts):
         """Factory class to make plugin easy."""
+
         if cls is VirtualWalker:
             map_type = opts.pop('map_type') if 'map_type' in opts else 'Unknown'
             if map_type not in mapping_walker_classes_map or not mapping_walker_classes_map[map_type]:
-                raise MadGraph5Error("Could not determine the class for the mapping walker of type '%s'."%str(map_type))
+                raise MadGraph5Error(
+                    "Unknown mapping walker of type '%s'."%str(map_type)
+                )
             target_class = mapping_walker_classes_map[map_type]
             return super(VirtualWalker, cls).__new__(target_class, **opts)
         else:
             return super(VirtualWalker, cls).__new__(cls, **opts)
 
-    def __init__(self, model = None, **opts):
+    def __init__(self, model=None, **opts):
         """General initialization of any mapping.
-        The model is an optional specification that can be useful to know properties of the leg mapped.
+        The model is an optional specification,
+        which can be useful to know properties of the leg mapped.
         """
 
         self.model = model
 
-    def walk_to_lower_multiplicity(self, PS_point, counterterm, kinematic_variables = False):
-        """Map a given phase-space point by clustering the substructures
-        and recoiling against the legs specified in counterterm.
+    def walk_to_lower_multiplicity(
+        self, PS_point, counterterm, kinematic_variables = False
+    ):
+        """Starting from the highest-multiplicity phase-space point,
+        generate all lower-multiplicity phase-space points
+        that are necessary for the evaluation of the given counterterm.
 
-        :param PS_point: higher-multiplicity phase-space point,
-        as a dictionary that associates integers to Lorentz5Vector's,
-        which will be modified to the lower-multiplicity one
+        :param PS_point: highest-multiplicity starting phase-space point,
+        as a dictionary that associates integers to Lorentz vectors.
 
         :param counterterm: Counterterm object that specifies
-        clusters of particle and recoilers recursively. Momenta_dict will
-        obtained directly from it.
+        clusters of particle and recoilers recursively.
+        Momenta_dict will obtained directly from it.
 
-        :param kinematic_variables: if a non-empty dictionary is passed,
-        the kinematic variables that are necessary to reproduce the higher-multiplicity
-        phase-space point from the lower-multiplicity one will be set
+        :param kinematic_variables: flag that specifies whether to compute
+        all kinematic variables needed to recover the starting phase-space point
+        from the lowest multiplicity one.
 
-        :return: the jacobian weight due to the mapping
+        :return: a tuple
+            (current_PS_pairs, ME_PS_pair, jacobian, kinematic_variables)
+            where
+        current_PS_pairs is a list of all currents that need to be evaluated,
+            paired with phase-space points appropriate for their evaluation;
+        ME_PS_pair is the reduced matrix element,
+            paired with its corresponding reduced phase-space point;
+        jacobian is the cumulative jacobian of all mappings that were applied;
+        kinematic_variables is a dictionary of all variables needed to recover
+            the starting phase-space point from the lowest multiplicity one,
+            or None if such variables were not requested.
         """
-        raise NotImplementedError
-        if kinematic_variables:
-            return mapped_PS_point, jacobian, kinematic_variables
-        else:
-            return mapped_PS_point, jacobian, None
 
-    def walk_to_higher_multiplicity(self, PS_point, counterterm, kinematic_variables):
-        """ SIMONE: DOC TODO """
+        raise NotImplementedError
+
+    def walk_to_higher_multiplicity(
+        self, PS_point, counterterm, kinematic_variables
+    ):
+        """Starting from the lowest-multiplicity phase-space point,
+        generate all higher-multiplicity phase-space points
+        that are necessary for the evaluation of the given counterterm.
+
+        :param PS_point: lowest-multiplicity starting phase-space point,
+        as a dictionary that associates integers to Lorentz vectors.
+
+        :param counterterm: Counterterm object that specifies
+        clusters of particle and recoilers recursively.
+        Momenta_dict will obtained directly from it.
+
+        :param kinematic_variables: dictionary of all variables needed to recover
+            the highest-multiplicity phase-space point from the starting one.
+
+        :return: a tuple
+            (current_PS_pairs, ME_PS_pair, jacobian)
+            where
+        current_PS_pairs is a list of all currents that need to be evaluated,
+            paired with phase-space points appropriate for their evaluation;
+        ME_PS_pair is the reduced matrix element,
+            paired with its corresponding reduced phase-space point;
+        jacobian is the cumulative jacobian of all mappings that were applied.
+        """
          
         raise NotImplementedError
-        return mapped_PS_point, jacobian
 
-    def approach_limit(self, PS_point, counterterm, kinematic_variables, scaling_parameter):
-        """ Scale down starting variables given in starting_point (if specified) using the ordering_parameter
+    def approach_limit(
+        self, PS_point, counterterm, kinematic_variables, scaling_parameter
+    ):
+        """Scale down starting variables given in starting_point (if specified)
+        using the scaling_parameter
         to get closer to the limit specified by the splitting structure."""
-        
+
+        # TODO This is a stub
+
         raise NotImplementedError
-        return mapped_PS_point, jacobian
 
 class CataniSeymourWalker(VirtualWalker):
-    pass
+
+    def walk_to_lower_multiplicity(
+        self, PS_point, counterterm, kinematic_variables = False
+    ):
+
+        current_PS_pairs = []
+        ME_PS_pair = []
+        jacobian = 1.
+        kinematic_variables = dict()
+        if kinematic_variables:
+            return current_PS_pairs, ME_PS_pair, jacobian, kinematic_variables
+        else:
+            return current_PS_pairs, ME_PS_pair, jacobian, None
+
+    def walk_to_higher_multiplicity(
+        self, PS_point, counterterm, kinematic_variables
+    ):
+
+        current_PS_pairs = []
+        ME_PS_pair = []
+        jacobian = 1.
+        return current_PS_pairs, ME_PS_pair, jacobian
 
 class NagySoperWalker(VirtualWalker):
     pass
 
+# Mapping classes map is defined here as module variables. This map can be overwritten
+# by the interface when using a PLUGIN system where the user can define his own Mapping.
+# Notice that this must be placed after all the Mapping daughter classes in this module have been declared.
+mapping_walker_classes_map = {'CataniSeymour': CataniSeymourWalker,
+                              'NagySoper': NagySoperWalker,
+                              'Unknown': None}
+
+#===============================================================================
+# Standalone main for debugging / standalone trials
+#===============================================================================
 if __name__ == '__main__':
 
     import random
@@ -1406,9 +1479,3 @@ if __name__ == '__main__':
             max(differences[i]/random_variables[i] for i in range(len(differences)))
     print "Rel. diff. in PS weight = %.3e\n"%((wgt_reconstructed-wgt)/wgt)
 
-# Mapping classes map is defined here as module variables. This map can be overwritten
-# by the interface when using a PLUGIN system where the user can define his own Mapping.
-# Notice that this must be placed after all the Mapping daughter classes in this module have been declared.
-mapping_walker_classes_map = {'CataniSeymour'  : CataniSeymourWalker,
-                              'NagySoper'      : NagySoperWalker,
-                              'Unknown'        : None}

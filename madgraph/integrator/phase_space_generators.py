@@ -884,11 +884,12 @@ class VirtualMapping(object):
         self, PS_point, singular_structure, momenta_dict,
         kinematic_variables = None
     ):
-        """Map a given phase-space point by clustering the substructures
-        and recoiling against the legs specified in singular_structure.
+        """Map a given phase-space point to lower multiplicity,
+        by clustering the substructures and recoiling against the legs
+        specified in singular_structure.
 
         :param PS_point: higher-multiplicity phase-space point,
-        as a dictionary that associates integers to Lorentz5Vector's,
+        as a dictionary that associates integers to Lorentz vectors,
         which will be modified to the lower-multiplicity one
 
         :param singular_structure: SingularStructure object that specifies
@@ -906,19 +907,38 @@ class VirtualMapping(object):
         
         raise NotImplemented
 
-    def map_to_higher_multiplicity(self, PSpoint, singular_structure, momenta_dict, kinematic_variables):
-        """ Map the specified PS point onto another one using the kinematic variables 
-        specified in the option 'kinematic_variables' and the specific splitting structure indicated.
-        This function returns:
-            mapped_PS_point, jacobian
-        where "mapped_PS_point" is the mapped PS point and jacobian is the phase-space weight associated.
+    def map_to_higher_multiplicity(
+        self, PSpoint, singular_structure, momenta_dict, kinematic_variables
+    ):
+        """Map a given phase-space point to higher multiplicity,
+        by splitting the (pseudo)particles and recoiling against the legs
+        specified in singular_structure.
+
+        :param PS_point: lower-multiplicity phase-space point,
+        as a dictionary that associates integers to Lorentz vectors,
+        which will be modified to the higher-multiplicity one
+
+        :param singular_structure: SingularStructure object that specifies
+        clusters of particle and recoilers recursively
+
+        :param momenta_dict: two-way dictionary that associates a unique label
+        to each cluster of one or more particles identified by their number
+
+        :param kinematic_variables: variables describing the splitting,
+        as a dictionary that associates variable names to values
+
+        :return: the jacobian weight due to the mapping
         """
         
         raise NotImplemented
 
-    def approach_limit(self, PSpoint, singular_structure, scaling_parameter, kinematic_variables):
-        """ Scale down starting variables given in starting_point (if specified) using the ordering_parameter
-        to get closer to the limit specified by the splitting structure."""
+    def approach_limit(
+        self, PSpoint, singular_structure, kinematic_variables,
+        scaling_parameter
+    ):
+        """Map to higher multiplicity, with the distance to the limit expressed
+        by scaling_parameter.
+        """
         
         raise NotImplemented
 
@@ -1136,6 +1156,10 @@ class MappingCataniSeymourFFOne(ElementaryMappingCollinearFinal):
             self.get_collinear_variables(
                 PS_point, parent, sorted(children), kinematic_variables
             )
+        # Eliminate children momenta from the mapped phase-space point
+        for j in children:
+            if j != parent: # Bypass degenerate case of 1->1 splitting
+                del PS_point[j]
 
         # TODO Compute the jacobian for this mapping
         jacobian = 1.0
@@ -1184,10 +1208,12 @@ class MappingCataniSeymourFFOne(ElementaryMappingCollinearFinal):
         self.set_collinear_variables(
             PS_point, parent, sorted(children), pC, variables
         )
-        # TODO What to do with the parent's momentum? Leave as is?
         # Map recoil momenta
         for recoiler in singular_structure.legs:
             PS_point[recoiler.n] *= 1-alpha
+        # Remove parent's momentum
+        if parent not in children: # Bypass degenerate case of 1->1 splitting
+            del PS_point[parent]
 
         # TODO Compute the jacobian for this mapping
         jacobian = 1.0
@@ -1272,9 +1298,9 @@ class Mapping_NagySoper(VirtualMapping):
     # TODO, see example above
     pass
 
-# ---------------------------
-# Defining of mapping walkers
-# ---------------------------
+#===============================================================================
+# Mapping walkers
+#===============================================================================
 
 class VirtualWalker(object):
     """ A virtual class from which all walker implementations must inherit."""

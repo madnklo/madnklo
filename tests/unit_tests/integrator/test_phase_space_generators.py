@@ -189,7 +189,7 @@ class CataniSeymourFFOneTest(unittest.TestCase):
     """Test class for MappingCataniSeymourFFOne."""
 
     mapping = PS.MappingCataniSeymourFFOne()
-    n_collinear = 1
+    n_collinear = (2, )
     n_recoilers = 3
     massive = False
     structure = subtraction.SingularStructure()
@@ -197,23 +197,33 @@ class CataniSeymourFFOneTest(unittest.TestCase):
 
     def setUp(self):
 
-        self.structure = subtraction.SingularStructure(
-            [
-                subtraction.CollStructure(
-                    subtraction.SubtractionLeg(
-                        i, 21,subtraction.SubtractionLeg.FINAL
-                    )
-                )
-                for i in range(self.n_collinear)
-            ] + [
+        n_tot = sum(self.n_collinear) + self.n_recoilers
+        for i in range(n_tot):
+            self.momenta_dict[i] = frozenset((i,))
+        self.structure = []
+        n_collinear_so_far = 0
+        n_bunch = 0
+        for n_in_this_bunch in self.n_collinear:
+            this_bunch_numbers = tuple(range(
+                    n_collinear_so_far, n_collinear_so_far + n_in_this_bunch
+                ))
+            this_bunch_legs = (
+                subtraction.SubtractionLeg(
+                    i, 21, subtraction.SubtractionLeg.FINAL
+                ) for i in this_bunch_numbers
+            )
+            self.structure += [subtraction.CollStructure(this_bunch_legs), ]
+            if n_in_this_bunch != 1:
+                self.momenta_dict[n_tot + n_bunch] = frozenset(this_bunch_numbers)
+            n_collinear_so_far += n_in_this_bunch
+            n_bunch += 1
+        self.structure += [
                 subtraction.SubtractionLeg(
                     i, 21, subtraction.SubtractionLeg.FINAL
                 )
-                for i in range(self.n_collinear, self.n_collinear + self.n_recoilers)
+                for i in range(n_collinear_so_far, n_tot)
             ]
-        )
-        for i in range(self.n_collinear + self.n_recoilers):
-            self.momenta_dict[i] = frozenset((i,))
+        self.structure = subtraction.SingularStructure(self.structure)
 
     def test_invertible(self):
         """Test mapping and inverse."""
@@ -221,11 +231,27 @@ class CataniSeymourFFOneTest(unittest.TestCase):
         # Generate n_collinear random massive vectors plus
         # n_recoilers (massive = True, False) random vectors
         my_PS_point = dict()
-        for i in range(self.n_recoilers + self.n_collinear):
+        n_collinear_so_far = 0
+        for n_in_this_bunch in self.n_collinear:
+            for i in range(
+                n_collinear_so_far, n_collinear_so_far + n_in_this_bunch
+            ):
+                my_PS_point[i] = PS.LorentzVector(
+                    [0., ] + [random.random() for _ in range(3)]
+                )
+                my_PS_point[i][0] = math.sqrt(-my_PS_point[i].square())
+            if n_in_this_bunch == 1:
+                my_PS_point[n_collinear_so_far][0] = math.sqrt(
+                    random.random() - my_PS_point[n_collinear_so_far].square()
+                )
+            n_collinear_so_far += n_in_this_bunch
+        for i in range(
+            n_collinear_so_far, n_collinear_so_far + self.n_recoilers
+        ):
             my_PS_point[i] = PS.LorentzVector(
                 [0., ] + [random.random() for _ in range(3)]
             )
-            if i < self.n_collinear or self.massive:
+            if self.massive:
                 my_PS_point[i][0] = math.sqrt(
                     random.random() - my_PS_point[i].square()
                 )

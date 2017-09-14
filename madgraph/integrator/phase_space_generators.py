@@ -19,6 +19,7 @@ import os
 if __name__ == '__main__':
     sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.pardir, os.path.pardir))
 
+import copy
 import logging
 import math
 import array
@@ -1402,16 +1403,48 @@ class VirtualWalker(object):
 
         raise NotImplementedError
 
-class CataniSeymourWalker(VirtualWalker):
+class FlatCollinearWalker(VirtualWalker):
+
+    cannot_handle = """The Flat Collinear walker found a singular structure
+    it is not capable to handle.
+    """
+    collinear_map = MappingCataniSeymourFFOne()
 
     def walk_to_lower_multiplicity(
         self, PS_point, counterterm, kinematic_variables = False
     ):
 
+        # This phase-space point will be destroyed
+        point = copy.deepcopy(PS_point) # deep copy wanted
+        # Initialize return variables
         current_PS_pairs = []
-        ME_PS_pair = []
         jacobian = 1.
         kinematic_variables = dict()
+        # Recoil against all final-state particles that are not going singular
+        recoilers = (
+            leg for leg in counterterm.process['singular_structure'].legs
+            if leg.state == subtraction.SubtractionLeg.FINAL
+        )
+        # Loop over the counterterm's first-level currents
+        for current in counterterm.subcurrents:
+            # Do not accept soft currents or nested ones
+            if current['singular_structure'].name == 'S' or current.subcurrents:
+                raise MadGraph5Error(self.cannot_handle)
+            # Append pair of this current and the previous phase-space point
+            current_PS_pairs.append((current, copy.deepcopy(point))) # deep copy wanted
+            # Compute jacobian and map to lower multiplicity
+            jacobian *= self.collinear_map.map_to_lower_multiplicity(
+                point,
+                subtraction.SingularStructure(
+                    current['singular_structure'], recoilers
+                ),
+                counterterm.momenta_dict,
+                kinematic_variables
+            )
+        # Identify reduced matrix element,
+        # computed in the point which has received all mappings
+        ME_PS_pair = [counterterm.process, point]
+        # Return
         if kinematic_variables:
             return current_PS_pairs, ME_PS_pair, jacobian, kinematic_variables
         else:
@@ -1421,10 +1454,40 @@ class CataniSeymourWalker(VirtualWalker):
         self, PS_point, counterterm, kinematic_variables
     ):
 
+        # Identify reduced matrix element,
+        # computed in the lowest multiplicity point
+        ME_PS_pair = [counterterm.process, PS_point]
+        # This phase-space point will be destroyed
+        point = copy.deepcopy(PS_point) # deep copy wanted
+        # Initialize return variables
         current_PS_pairs = []
-        ME_PS_pair = []
         jacobian = 1.
+        # Recoil against all final-state particles that are not going singular
+        recoilers = (
+            leg for leg in counterterm.process['singular_structure'].legs
+            if leg.state == subtraction.SubtractionLeg.FINAL
+        )
+        # Loop over the counterterm's first-level currents
+        for current in reversed(counterterm.subcurrents):
+            # Do not accept soft currents or nested ones
+            if current['singular_structure'].name == 'S' or current.subcurrents:
+                raise MadGraph5Error(self.cannot_handle)
+            # Compute jacobian and map to higher multiplicity
+            jacobian *= self.collinear_map.map_to_higher_multiplicity(
+                point,
+                subtraction.SingularStructure(
+                    current['singular_structure'], recoilers
+                ),
+                counterterm.momenta_dict,
+                kinematic_variables
+            )
+            # Prepend pair of this current and the just computed phase-space point
+            current_PS_pairs.insert(0, (current, copy.deepcopy(point))) # deep copy wanted
+        # Return
         return current_PS_pairs, ME_PS_pair, jacobian
+
+class CataniSeymourWalker(VirtualWalker):
+    pass
 
 class NagySoperWalker(VirtualWalker):
     pass
@@ -1432,9 +1495,12 @@ class NagySoperWalker(VirtualWalker):
 # Mapping classes map is defined here as module variables. This map can be overwritten
 # by the interface when using a PLUGIN system where the user can define his own Mapping.
 # Notice that this must be placed after all the Mapping daughter classes in this module have been declared.
-mapping_walker_classes_map = {'CataniSeymour': CataniSeymourWalker,
-                              'NagySoper': NagySoperWalker,
-                              'Unknown': None}
+mapping_walker_classes_map = {
+    'FlatCollinear': FlatCollinearWalker,
+    'CataniSeymour': CataniSeymourWalker,
+    'NagySoper': NagySoperWalker,
+    'Unknown': None
+}
 
 #===============================================================================
 # Standalone main for debugging / standalone trials

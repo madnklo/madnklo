@@ -796,7 +796,6 @@ class Current(base_objects.Process):
                 ]
             )
 
-
     def get_copy(self, copied_attributes = ()):
         """ Returns a copy of this current with a deep-copy of its singular structure."""
         
@@ -932,9 +931,10 @@ class Counterterm(CountertermNode):
         return self.current
     
     def is_singular(self):
-        """ Returns whether this counterterm is just the implementation of the pure
+        """Returns whether this counterterm is just the implementation of the pure
         matrix element or if it has singular region (and the corresponding currents)
-        attached to it."""
+        attached to it.
+        """
 
         return len(self.subcurrents)>0
         
@@ -994,8 +994,10 @@ class Counterterm(CountertermNode):
         return Counterterm(node.current, node.subcurrents, momenta_dict)
 
     def get_singular_structure_string(self, **opts):
-        """ Returns a one-line string specifying only the complete nested singular 
-        structure of this counterterm node."""
+        """Returns a one-line string specifying only the complete nested singular
+        structure of this counterterm node.
+        """
+
         res = ''
         for counterterm_node in self.subcurrents:
             res += counterterm_node.get_singular_structure_string(**opts)
@@ -1453,10 +1455,9 @@ class IRSubtraction(object):
         # that is missing to reach exactly n_loops
         result = []
         for combination in subcurrent_combinations:
-            combination_loops = sum(
-                cur.n_loops()
-                for cur in combination
-            )
+            combination_loops = 0
+            for cur in combination:
+                combination_loops += cur.current['n_loops']
             if type(counterterm) == Counterterm:
                 result.append(
                     Counterterm(

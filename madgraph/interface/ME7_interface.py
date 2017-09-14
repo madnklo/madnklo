@@ -1285,32 +1285,38 @@ class ME7Integrand_R(ME7Integrand):
         # and PS points to use to evaluate them. 
         hike = self.mapper.walk(PS_point, counterterm)
         # The structure of this object output should reflect each nesting level, that is:
-        # hike = [ 
-        #  nesting level 1. (furthest away from ME) -->   [(PS1.1, current1.1, jac1.1, kin_var1.1), (PS1.2, current1.2, jac1.1, kin_var1.2), ...],
-        #  nesting level 2.                         -->   [(PS2.1, current2.1, jac2.1, kin_var2.1), (PS2.2, current2.2, jac2.2, kin_var2.2), ...],
-        #  ...
-        #  last nesting level (closest to ME)       -->   [(PSlast.1, currentlast.1, jaclast.1, kin_varlast.1), (PSlast.2, currentlast.2, jaclast.2, kin_varlast.2), ...],
-        #  ME level                                 -->   [(BornPS, ReducedProcessInstance, jacFinal, None)]
-        #        ]
+        # hike = {
+        #         'currents' : [(current1, PS1), (current2, PS2), etc...],
+        #         'matrix_element': (ME, PSME),
+        #         'jacobian' : jacobian (a float)
+        #         'kinematic_variables' : kinematic_variables  (a dictionary)
+        #        }
+
+        # Separate the current in those directly connected to the matrix element and those that are not
+        disconnected_currents = [current_pair for current_pair in hike['currents'] if 
+                                                            not current['resolve_mother_spin_and_color']]
+        connected_currents = [current_pair for current_pair in hike['currents'] if
+                                                            current['resolve_mother_spin_and_color']]
+        
 
         # Then the above "hike" can be used to evaluate the currents first and the ME last.
         # Note that the code below can become more complicated when needing to track helicities, but let's forget this for now.
-        weight = 1.0
+        weight = hike['jacobian']
         assert((hel_config is None))
-        for level, stroll in enumerate(hike[:-2]):
-            for (PS_point_for_current, current, jacobian, kinematic_variables) in stroll:
-                current_evaluation, all_current_results = self.all_MEAccessors(
-                    current, PS_point_for_current, hel_config=None, kinematic_variables=kinematic_variables)
-                # Make sure no spin- or color-correlations are demanded by the current at this stage
-                assert(current_evaluation['spin_correlations']==[None,])
-                assert(current_evaluation['color_correlations']==[None,])
-                assert(current_evaluation['values'].keys()==[(0,0),])
-                # WARNING:: this can only work for local 4D subtraction counterterms! 
-                # For the integrated ones it is very likely that we cannot use a nested structure, and
-                # there will be only one level anyway so that there is not need of fancy combination
-                # of Laurent series.
-                weight *= jacobian*current_evaluation['values'][(0,0)]['finite']
-         
+    
+        for (current, PS_point_for_current) in disconnected_currents:
+            current_evaluation, all_current_results = self.all_MEAccessors(
+                current, PS_point_for_current, hel_config=None, mapping_variables=hike['kinematic_variables'])         
+            # Make sure no spin- or color-correlations are demanded by the current for this kind of currents
+            assert(current_evaluation['spin_correlations']==[None,])
+            assert(current_evaluation['color_correlations']==[None,])
+            assert(current_evaluation['values'].keys()==[(0,0),])
+            # WARNING:: this can only work for local 4D subtraction counterterms! 
+            # For the integrated ones it is very likely that we cannot use a nested structure, and
+            # there will be only one level anyway so that there is not need of fancy combination
+            # of Laurent series.
+            weight *= current_evaluation['values'][(0,0)]['finite']
+     
         # all_necesary_ME_calls is a list of tuples of the following form:
         #  (spin_correlator, color_correlator, weight)
         all_necessary_ME_calls = [(None, None, weight)]
@@ -1338,9 +1344,9 @@ class ME7Integrand_R(ME7Integrand):
             return combined_correlator
 
         # The next-to-last layer needs to be treated specifically since it must track the color- and spin-correlations        
-        for (PS_point_for_current, current, jacobian, kinematic_variables) in hike[-1]:
+        for (current, PS_point_for_current) in connected_currents:
             current_evaluation, all_current_results = self.all_MEAccessors(
-                current, PS_point_for_current, hel_config=None, kinematic_variables=kinematic_variables)
+                current, PS_point_for_current, hel_config=None, mapping_variables=hike['kinematic_variables'])
             new_all_necessary_ME_calls = []
             # Now loop over all spin- and color- correlators required for this current
             # and update the necessary calls to the ME
@@ -1357,13 +1363,11 @@ class ME7Integrand_R(ME7Integrand):
             all_necessary_ME_calls = new_all_necessary_ME_calls
 
         # Finally the next layer contains the ME so it should of course be special
-        assert(len(hike[-1])==1)
-        ME_PS, ME_process, final_jacobian, _ = hike[-1]
+        ME_process, ME_PS = hike['matrix_element']
 
         final_weight = 0.0        
         for (spin_correlators, color_correlators, current_weight) in all_necessary_ME_calls:
-            ME_evaluation, all_ME_results = all_accessors(my_process, PS_point, alpha_s, mu_r)
-            self.all_MEAccessors(
+            ME_evaluation, all_ME_results = self.all_MEAccessors(
                ME_process, ME_PS, alpha_s, mu_r,
                # Let's worry about the squared order laters, we will probably directly fish
                # them out from the ME_process, since they should be set to a unique combination in
@@ -1375,7 +1379,7 @@ class ME7Integrand_R(ME7Integrand):
             )
             # Again, for the integrated subtraction counterterms, some care will be needed here
             # for the real-virtual, depending on how we want to combine the two Laurent series.
-            final_weight += current_weight*final_jacobian*ME_evaluation['finite']
+            final_weight += current_weight*ME_evaluation['finite']
         
         # Returns the corresponding weight and the mapped PS_point.
         # Also returns the mapped_process (for calling the observables), which

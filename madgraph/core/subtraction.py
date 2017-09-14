@@ -1535,7 +1535,7 @@ class SubtractionCurrentExporter(object):
     template_dir = pjoin(MG5DIR,'madgraph','iolibs','template_files','subtraction')
     template_modules_path = 'madgraph.iolibs.template_files.subtraction'
 
-    def __init__(self, model, export_dir):
+    def __init__(self, model, export_dir=None):
         """ Initializes the exporter with a model and target export directory."""
         self.model      = model
         self.export_dir = export_dir
@@ -1568,13 +1568,14 @@ class SubtractionCurrentExporter(object):
         subtraction_utils_module_path = '%s.%s'%(self.template_modules_path,'subtraction_current_implementations_utils')
         subtraction_utils = importlib.import_module(subtraction_utils_module_path)
         
-        # First copy the base files to export_dir
-        if not os.path.isdir(pjoin(self.export_dir,'SubtractionCurrents')):
-            os.mkdir(pjoin(self.export_dir,'SubtractionCurrents'))
-
-        for file in ['__init__.py','subtraction_current_implementations_utils.py']:
-            if not os.path.isfile(pjoin(self.export_dir,'SubtractionCurrents', file)):
-                cp(pjoin(self.template_dir,file), pjoin(self.export_dir,'SubtractionCurrents', file))
+        if not self.export_dir is None:
+            # First copy the base files to export_dir
+            if not os.path.isdir(pjoin(self.export_dir,'SubtractionCurrents')):
+                os.mkdir(pjoin(self.export_dir,'SubtractionCurrents'))
+    
+            for file in ['__init__.py','subtraction_current_implementations_utils.py']:
+                if not os.path.isfile(pjoin(self.export_dir,'SubtractionCurrents', file)):
+                    cp(pjoin(self.template_dir,file), pjoin(self.export_dir,'SubtractionCurrents', file))
         
         # Now load all modules specified in the templates and identify the current implementation classes
         all_classes = []
@@ -1625,7 +1626,12 @@ class SubtractionCurrentExporter(object):
                 except ValueError:
                     all_instantiation_options.append(instantiation_options)
                     instantiation_options_index = len(all_instantiation_options)-1
-                key = ('SubtractionCurrents.%s'%module_path, class_name, instantiation_options_index)
+                # If no export is asked for, then load directly from the subtraction template directory
+                if not self.export_dir is None:
+                    main_module = 'SubtractionCurrents'
+                else:
+                    main_module = 'subtraction'                    
+                key = ('%s.%s'%(main_module,module_path), class_name, instantiation_options_index)
                 if key in mapped_currents:
                     mapped_currents[key]['mapped_process_keys'].append(current.get_key())
                 else:
@@ -1649,13 +1655,13 @@ class SubtractionCurrentExporter(object):
                 "results obtained in this way are very likely wrong and should be used for debugging only.")
         
         # Now copy all the relevant directories
-        for directory_to_export in directories_to_export:
-            dir_path = pjoin(self.export_dir,'SubtractionCurrents',directory_to_export)
-            def ignore_function(d, files):
-                return  [f for f in files if os.path.isfile(pjoin(d, f)) and f.split('.')[-1] in ['pyc','pyo','swp'] ]
-            if not os.path.isdir(dir_path):
-                shutil.copytree(pjoin(self.template_dir,directory_to_export),dir_path,
-                    ignore=ignore_function)
+        if not self.export_dir is None:
+            for directory_to_export in directories_to_export:
+                dir_path = pjoin(self.export_dir,'SubtractionCurrents',directory_to_export)
+                def ignore_function(d, files):
+                    return  [f for f in files if os.path.isfile(pjoin(d, f)) and f.split('.')[-1] in ['pyc','pyo','swp'] ]
+                if not os.path.isdir(dir_path):
+                    shutil.copytree(pjoin(self.template_dir,directory_to_export), dir_path, ignore=ignore_function)
         
         return mapped_currents
         

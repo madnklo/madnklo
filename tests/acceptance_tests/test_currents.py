@@ -16,7 +16,7 @@ from __future__ import division
 
 import madgraph.iolibs.template_files.subtraction.\
                       subtraction_current_implementations_utils as current_utils
-import madgraph.iolibs.template_files.subtraction.NLO.FF_currents as NLO_FF_currents
+
 import os
 import unittest
 import copy
@@ -54,6 +54,9 @@ class SubtractionCurrentTest(unittest.TestCase):
         self.model = model_with_params_set
         self.current_exporter = subtraction.SubtractionCurrentExporter(
                                                     self.model, export_dir=None)
+        
+        self.mapper = phase_space_generators.VirtualWalker(
+                                            map_type='FlatCollinear', model = self.model)
         
     def add_currents_to_accessor(self, currents, ME_accessor_dict):
         """ Add the currents in argument to the specified ME_accessor_dict."""
@@ -111,9 +114,20 @@ class SubtractionCurrentTest(unittest.TestCase):
         ]
         self.add_currents_to_accessor(currents, accessors_dict)
 
+        
+
         a_PS = self.generate_PS_point(2,3)
-        a_PS[7] = a_PS[3]+a_PS[4]
-        momenta_map = bidict( { 7 : (3,4) } )        
+        a_PS[7] = a_PS[3] + a_PS[4]
+        
+        # Put the mapped momentum onshell, this is not a well-defined
+        # mapping, but it is sufficient for now to test this current.
+        a_PS[7].rescaleEnergy()
+        momenta_map = bidict( { 7 : frozenset((3,4)) } )        
+
+#       This would be a more generic way of doing this, but it would involve
+#       instantiating a counterterm, which I would like to avoid for now.
+#        self.mapper.walk_to_lower_multiplicity(
+#            a_PS, counterterm, kinematic_variables = False)
 
         current_evaluation, all_current_results = accessors_dict(
                 currents[0], a_PS, hel_config=None, 

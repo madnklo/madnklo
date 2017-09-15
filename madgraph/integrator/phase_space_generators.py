@@ -1349,17 +1349,24 @@ class VirtualWalker(object):
         all kinematic variables needed to recover the starting phase-space point
         from the lowest multiplicity one.
 
-        :return: a tuple
-            (current_PS_pairs, ME_PS_pair, jacobian, kinematic_variables)
+        :return: a dictionary
+        {
+            'currents' : [(current1, PS1), (current2, PS2), etc...],
+            'matrix_element': (ME, PSME),
+            'jacobian' : jacobian (a float),
+            'kinematic_variables' : a_dict,
+            'resulting_PS_point' : res_PS
+        }        
             where
-        current_PS_pairs is a list of all currents that need to be evaluated,
+        currents is a list of all currents that need to be evaluated,
             paired with phase-space points appropriate for their evaluation;
-        ME_PS_pair is the reduced matrix element,
+        matrix_element is the reduced matrix element,
             paired with its corresponding reduced phase-space point;
         jacobian is the cumulative jacobian of all mappings that were applied;
         kinematic_variables is a dictionary of all variables needed to recover
             the starting phase-space point from the lowest multiplicity one,
             or None if such variables were not requested.
+        res_PS: The final lower multiplicity PS point obtained obtained.
         """
 
         raise NotImplementedError
@@ -1381,18 +1388,31 @@ class VirtualWalker(object):
         :param kinematic_variables: dictionary of all variables needed to recover
             the highest-multiplicity phase-space point from the starting one.
 
-        :return: a tuple
-            (current_PS_pairs, ME_PS_pair, jacobian)
+        :return: a dictionary
+        {
+            'currents' : [(current1, PS1), (current2, PS2), etc...],
+            'matrix_element': (ME, PSME),
+            'jacobian' : jacobian (a float),
+            'resulting_PS_point' : res_PS
+        }
             where
-        current_PS_pairs is a list of all currents that need to be evaluated,
+        currents is a list of all currents that need to be evaluated,
             paired with phase-space points appropriate for their evaluation;
-        ME_PS_pair is the reduced matrix element,
+        matrix_element is the reduced matrix element,
             paired with its corresponding reduced phase-space point;
         jacobian is the cumulative jacobian of all mappings that were applied.
+        res_PS: The final lower multiplicity PS point obtained obtained.
         """
          
         raise NotImplementedError
-
+        
+    def rescale_kinematic_variables(self, kinematic_variables, scaling_parameter):
+        """ Given kinematic variables, rescale them according to the scaling_parameter
+        provided so as to progressively approach the IR limit.
+        For the collinear case, we scale kT and keep z fixed."""
+        
+        raise NotImplementedError
+        
     def approach_limit(
         self, PS_point, counterterm, kinematic_variables, scaling_parameter
     ):
@@ -1400,9 +1420,10 @@ class VirtualWalker(object):
         using the scaling_parameter
         to get closer to the limit specified by the splitting structure."""
 
-        # TODO This is a stub
-
-        raise NotImplementedError
+        new_kin_variables = self.rescale_kinematic_variables(
+                                        kinematic_variables, scaling_parameter)
+        
+        return self.walk_to_higher_multiplicity(PS_point, counterterm, new_kin_variables)
 
 class FlatCollinearWalker(VirtualWalker):
 
@@ -1457,10 +1478,13 @@ class FlatCollinearWalker(VirtualWalker):
         # computed in the point which has received all mappings
         ME_PS_pair = [counterterm.process, point]
         # Return
-        if kinematic_variables:
-            return current_PS_pairs, ME_PS_pair, jacobian, kinematic_variables
-        else:
-            return current_PS_pairs, ME_PS_pair, jacobian, None
+        return {
+            'currents' : current_PS_pairs,
+            'matrix_element': ME_PS_pair,
+            'jacobian' : jacobian,
+            'kinematic_variables' : kinematic_variables if len(kinematic_variables)>0 else None,
+            'resulting_PS_point' : point
+        }
 
     def walk_to_higher_multiplicity(
         self, PS_point, counterterm, kinematic_variables
@@ -1506,8 +1530,28 @@ class FlatCollinearWalker(VirtualWalker):
             # deep copy wanted
             new_point = {i: LorentzVector(p) for (i, p) in point.items()}
             current_PS_pairs.insert(0, (node.current, new_point))
+
         # Return
-        return current_PS_pairs, ME_PS_pair, jacobian
+        return { 'currents' : current_PS_pairs,
+                 'matrix_element': ME_PS_pair,
+                 'jacobian' : jacobian,
+                 'resulting_PS_point' : point }
+
+    def rescale_kinematic_variables(self, kinematic_variables, scaling_parameter):
+        """ Given kinematic variables, rescale them according to the scaling_parameter
+        provided so as to progressively approach the IR limit.
+        For the collinear case, we scale kT and keep z fixed."""
+
+        new_kinematic_variables = {}
+        for var, value in kinematic_variables.items():
+            if var.startswith('kt'):
+                new_kinematic_variables[var] = value*scaling_parameter
+            elif var.startswith('s'):
+                new_kinematic_variables[var] = value*scaling_parameter**2
+            else:
+                new_kinematic_variables[var] = value
+        
+        return new_kinematic_variables
 
 class CataniSeymourWalker(VirtualWalker):
     pass

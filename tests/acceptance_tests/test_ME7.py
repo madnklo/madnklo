@@ -57,7 +57,7 @@ class TestME7_IR_Limits(unittest.TestCase):
 
             # Now generate and output a process, so as to run ME7 commands on it
             self.do('import model loop_sm')
-            self.do('generate e+ e- > d d~ j --NLO=QCD --ignore_contributions=V')
+            self.do('generate e+ e- > j j j --NLO=QCD --ignore_contributions=V')
             self.do('output %s'%self.tmp_process_dir)
 
         # Now initialize an ME7 interface on the above process output

@@ -1481,6 +1481,9 @@ class IRSubtraction(object):
         coupling orders of its currents.
         """
 
+        for countertermNode in counterterm.subcurrents:
+            self.split_orders(countertermNode)
+
         # TODO Rethink split_loops and split_orders
         # Possibly eliminate split_loops
         if isinstance(counterterm.current, Current):
@@ -1493,10 +1496,24 @@ class IRSubtraction(object):
         else:
             # Here the squared order reduced process should be changed accordingly and decreased for
             # each squared order "sucked up" by the currents applying to it.
-            pass
-        
-        for countertermNode in counterterm.subcurrents:
-            self.split_orders(countertermNode)
+            summed_orders = {}
+            for current in counterterm.get_all_currents():
+                if isinstance(counterterm.current, Current):
+                    for key, value in current.get('squared_orders').items():
+                        try:
+                            summed_orders[key] += value
+                        except:
+                            summed_orders[key] = value
+
+            sqo = counterterm.current.get('squared_orders')
+            for key, value in summed_orders.items():
+                try:
+                    sqo[key] -= value
+                except KeyError:
+                    raise MadGraph5Error("Subtraction currents have squared orders absent from real-emission ME.")
+
+            sqo['WEIGHTED'] = sum([self.model.get('order_hierarchy')[c]*n for (c,n) in 
+                                                        sqo.items() if c.upper()!='WEIGHTED'])
         
         return [counterterm, ]
 

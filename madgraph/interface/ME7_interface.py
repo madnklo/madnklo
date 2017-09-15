@@ -12,6 +12,7 @@
 # For more information, visit madgraph.phys.ucl.ac.be and amcatnlo.web.cern.ch
 #
 ################################################################################
+from __builtin__ import False
 """A user friendly command line interface to steer ME7 integration.
    Uses the cmd package for command interpretation and tab completion.
 """
@@ -23,6 +24,7 @@ import os
 import random
 import re
 import math
+import itertools
 
 import stat
 import subprocess
@@ -1257,7 +1259,8 @@ class ME7Integrand_V(ME7Integrand):
 class ME7Integrand_R(ME7Integrand):
     """ ME7Integrand for the computation of a single real-emission type of contribution."""
     
-    MappingWalkerType = 'CataniSeymour'
+#    MappingWalkerType = 'CataniSeymour'
+    MappingWalkerType = 'FlatCollinear'
     
     def __init__(self, *args, **opts):
         """ Initialize a real-emission type of integrand, adding additional relevant attributes."""
@@ -1282,8 +1285,8 @@ class ME7Integrand_R(ME7Integrand):
         mu_r = self.model.get('parameter_dict')['MU_R']    
         
         # Now call the mapper to walk through the counterterm structure and return the list of currents
-        # and PS points to use to evaluate them. 
-        hike = self.mapper.walk(PS_point, counterterm)
+        # and PS points to use to evaluate them.
+        hike = self.mapper.walk_to_lower_multiplicity(PS_point, counterterm, kinematic_variables = True)
         # The structure of this object output should reflect each nesting level, that is:
         # hike = {
         #         'currents' : [(current1, PS1), (current2, PS2), etc...],
@@ -1293,9 +1296,9 @@ class ME7Integrand_R(ME7Integrand):
         #        }
 
         # Separate the current in those directly connected to the matrix element and those that are not
-        disconnected_currents = [current_pair for current_pair in hike['currents'] if 
+        disconnected_currents = [(current, PS) for (current, PS) in hike['currents'] if 
                                                             not current['resolve_mother_spin_and_color']]
-        connected_currents = [current_pair for current_pair in hike['currents'] if
+        connected_currents = [(current, PS) for (current, PS) in hike['currents'] if
                                                             current['resolve_mother_spin_and_color']]
 
         # Access the matrix element
@@ -1348,8 +1351,9 @@ class ME7Integrand_R(ME7Integrand):
                 raise NotImplementedError
             return combined_correlator
 
-        # The next-to-last layer needs to be treated specifically since it must track the color- and spin-correlations        
+        # Now iterate over currents that may require color- and spin-correlations        
         for (current, PS_point_for_current) in connected_currents:
+            misc.sprint(PS_point_for_current)
             current_evaluation, all_current_results = self.all_MEAccessors(
                 current, PS_point_for_current, hel_config=None, 
                 reduced_process = ME_process,
@@ -1364,25 +1368,36 @@ class ME7Integrand_R(ME7Integrand):
                 # specified in 'all_necessary_ME_calls'
                 current_correlator = ( current_evaluation['spin_correlations'][spin_index],
                                        current_evaluation['color_correlations'][color_index],
-                                       jacobian*current_wgt['finite'] )
+                                       current_wgt['finite'] )
                 for ME_call in all_necessary_ME_calls:
                     new_all_necessary_ME_calls.append( combine_correlators(ME_call,current_correlator) )
             # Update the list of necessary ME calls
             all_necessary_ME_calls = new_all_necessary_ME_calls
 
         # Finally the treat the call to the matrix element
-        final_weight = 0.0        
+        final_weight = 0.0
+        for key in self.all_MEAccessors.keys():
+            if 'forbidden_s_channels' not in dict(key):
+                continue
+            misc.sprint(dict(key))
         for (spin_correlators, color_correlators, current_weight) in all_necessary_ME_calls:
-            ME_evaluation, all_ME_results = self.all_MEAccessors(
-               ME_process, ME_PS, alpha_s, mu_r,
-               # Let's worry about the squared order laters, we will probably directly fish
-               # them out from the ME_process, since they should be set to a unique combination in
-               # this case.
-               squared_orders    = None,
-               color_correlation = color_correlators,
-               spin_correlation  = spin_correlators, 
-               hel_config        = hel_config 
-            )
+            try:
+                ME_evaluation, all_ME_results = self.all_MEAccessors(
+                   ME_process, ME_PS, alpha_s, mu_r,
+                   # Let's worry about the squared order laters, we will probably directly fish
+                   # them out from the ME_process, since they should be set to a unique combination in
+                   # this case.
+                   squared_orders    = None,
+                   color_correlation = color_correlators,
+                   spin_correlation  = spin_correlators, 
+                   hel_config        = hel_config 
+                )
+            except MadGraph5Error as e:
+                logger.critical("""
+A reduced matrix element is missing in the library of automatically generated matrix elements.
+This is typically what can happen when your process definition is not inclusive over all IR sensitive particles.
+Make sure that your process definition is specified using the relevant multiparticle labels (typically 'p' and 'j').""")
+                raise e
             # Again, for the integrated subtraction counterterms, some care will be needed here
             # for the real-virtual, depending on how we want to combine the two Laurent series.
             final_weight += current_weight*ME_evaluation['finite']
@@ -1422,31 +1437,30 @@ class ME7Integrand_R(ME7Integrand):
            {'in_pdgs'  : ( (in_pgs1), (in_pdgs2), ...)
             'out_pdgs' : ( (out_pgs1), (out_pdgs2), ...) 
             'n_loops'  : n_loops }"""
-
+        
+        def pdg_list_match(target_list, selection_list):
+            if len(target_list) != len(selection_list):
+                return False
+            targets = dict( (k, target_list.count(k)) for k in set(target_list) )
+            found_it = False
+            for sel in itertools.product(*selection_list):
+                found_it = True
+                for k, v in targets.items():
+                    if sel.count(k) != v:
+                        found_it = False
+                        break
+                if found_it:
+                    break
+            return found_it                
+    
         for process in process_list:
-            is_a_match = True
-            for i, in_pdg in enumerate(process.get_initial_ids()):
-                if selection['in_pdgs'] is None:
-                    break
-                if i >= len(selection['in_pdgs']):
-                    is_a_match = False
-                    break
-                if in_pdg not in selection['in_pdgs'][i]:
-                    is_a_match = False
-                    break
-            if not is_a_match:
+            
+            if not pdg_list_match(process.get_initial_ids(), selection['in_pdgs']):
                 continue
-            for i, out_pdg in enumerate(process.get_final_ids_after_decay()):
-                if selection['out_pdgs'] is None:
-                    break
-                if i >= len(selection['out_pdgs']):
-                    is_a_match = False
-                    break
-                if out_pdg not in selection['out_pdgs'][i]:
-                    is_a_match = False
-                    break            
-            if not is_a_match:
+            
+            if not pdg_list_match(process.get_final_ids_after_decay(), selection['out_pdgs']):
                 continue
+            
             if (not selection['n_loops'] is None) and process.get('n_loops') != selection['n_loops']:
                 continue
             return True
@@ -1462,6 +1476,11 @@ class ME7Integrand_R(ME7Integrand):
         # First generate an underlying Born
         # Specifying None forces to use unformly random generating variables.
         a_real_emission_PS_point, _, _, _ = self.phase_space_generator.get_PS_point(None)
+
+        a_real_emission_PS_point = dict( (i+1, mom) for i, mom in enumerate(a_real_emission_PS_point) )
+
+        # Now keep track of the results fro each process and limit checked
+        all_evaluations = {}
 
         for process_key, (defining_process, mapped_processes) in self.processes_map.items():
             # Make sure that the selected process satisfies the selected process
@@ -1486,24 +1505,26 @@ class ME7Integrand_R(ME7Integrand):
             for limit_specifier_counterterm in selected_counterterms:
                 # First identified the reduced PS point from which we can evolve to larger multiplicity
                 # while becoming progressively closer to the IR limit.
-                a_born_PS_point, starting_jacobian, starting_variables = self.mapper.walk_to_lower_multiplicity(
+                res_dict = self.mapper.walk_to_lower_multiplicity(
                                         a_real_emission_PS_point, limit_specifier_counterterm, kinematic_variables=True)
-                
+                starting_variables  = res_dict['kinematic_variables']
+                a_born_PS_point     = res_dict['resulting_PS_point']
+
                 # Now progressively approach the limit
                 evaluations = {}
                 # l is the scaling variable
                 n_steps = test_options['n_steps']
                 min_value = test_options['min_scaling_variable']
-                acceptance_threshold = test_options['acceptance_threshold']
 
                 for scaling_parameter in range(1,n_steps+1):
                     # Use equally spaced steps on a log scale
                     scaling_parameter = 10.0**(-((float(scaling_parameter)/n_steps)*abs(math.log10(min_value))))
-                    scaled_real_PS_point, jacobian = self.mapper.approach_limit(
+                    res_dict = self.mapper.approach_limit(
                                 a_born_PS_point, limit_specifier_counterterm, starting_variables, scaling_parameter)
-                    
+                    scaled_real_PS_point = res_dict['resulting_PS_point']
+
                     # Evaluate  real ME
-                    assert(len([ct for ct in self.counterterms[process_key] if not ct.is_singular()])==0)
+                    assert(len([ct for ct in self.counterterms[process_key] if not ct.is_singular()])==1)
                     non_singular_ME = [ct for ct in self.counterterms[process_key] if not ct.is_singular()][0]
 
                     # Need smarter way to evaluate the ME
@@ -1512,7 +1533,7 @@ class ME7Integrand_R(ME7Integrand):
                     # Approximated real ME (aka. local 4d subtraction counterterm)
                     summed_counterterm_weight = 0.0
                     for counterterm in counterterms_to_consider:
-                        if counterterm.is_singular():
+                        if not counterterm.is_singular():
                             continue
                         ct_weight, _, _ = self.evaluate_counterterm(counterterm, scaled_real_PS_point, hel_config=None)
                         summed_counterterm_weight += ct_weight
@@ -1524,16 +1545,18 @@ class ME7Integrand_R(ME7Integrand):
                          'limit_specifier'      : limit_specifier_counterterm,
                          'defining_process'     : defining_process
                         }
+                    misc.sprint(scaling_parameter, ME_evaluation, summed_counterterm_weight)
                 
-                all_evaluations[(process_key, counterterm.get_singular_structure_string(
-                                                        print_n=True, print_pdg=False, print_state=False))] = evaluations
-
+                all_evaluations[(process_key, counterterm.get_singular_structure_string(print_n=True, 
+                                                                  print_pdg=False, print_state=False))] = evaluations
+        
         # Now produce a nice matplotlib of the evaluations and assess whether this test passed or not.
-        return self.analyze_IR_limits_test(all_evaluations, acceptance_threshold)
+        return self.analyze_IR_limits_test(all_evaluations, test_options['acceptance_threshold'])
 
     def analyze_IR_limits_test(self, all_evaluations, acceptance_threshold):
         """ Analyze the results of the test_IR_limits command. """
         #TODO
+        misc.sprint(all_evaluations)
         pass
 
 

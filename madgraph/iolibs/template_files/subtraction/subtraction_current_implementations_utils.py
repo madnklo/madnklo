@@ -171,14 +171,32 @@ class CurrentImplementationError(Exception):
 #===============================================================================
 class VirtualCurrentImplementation(object):
     """A virtual class defining what a current implementation must specify"""
-    
+     
     def __init__(self, model, **opts):
         """ Saves some general properities or quantities useful for the current evaluation."""
+        
         # A property variable specifying if helicity assignment is possible with
         # this implementation
-        self.model = model
         self.supports_helicity_assignment = True
-        pass
+
+        self.model = model
+        # Extract some constants from the UFO model if present, otherwise take default values
+        try:
+            model_param_dict = self.model.get('parameter_dict')
+        except:
+            model_param_dict = {}
+        try:
+            self.TR = model_param_dict['TR']
+        except:
+            self.TR = 0.5
+        try:
+            self.CF = model_param_dict['CF']
+        except:
+            self.CF = 4.0/3.0
+        try:
+            self.NC = model_param_dict['NC']
+        except:
+            self.NC = 3.0
 
     @classmethod
     def does_implement_this_current(cls, current, model):
@@ -331,13 +349,6 @@ class DefaultCurrentImplementation(VirtualCurrentImplementation):
         return subtraction_current_result  
 
 #===============================================================================
-# Constants
-#===============================================================================
-TR = 0.5
-CF = 4.0/3.0
-NC = 3.0
- 
-#===============================================================================
 # CS util
 #===============================================================================
 class CS_utils(object):
@@ -353,13 +364,18 @@ class CS_utils(object):
         
         kin_variables = dict( ('z%d'%n,0.0) for n in children_numbers[:-1] )
         kin_variables.update( dict( ('kt%d'%n,0.0) for n in children_numbers[:-1] ) )
+        kin_variables['s%d'%parent_number] = 0.0
         
         # Attempt recycling the variables from the mapping
+        missing_variable = False
         for var in kin_variables:
             try:
                 kin_variables[var] = mapping_variables[var]
             except KeyError:
+                missing_variable = True
                 break
+        if not missing_variable:
+            return kin_variables
 
         # Retrieve the parent's momentum
         p = PS_utils.LorentzVector(PS_point[parent_number])
@@ -369,6 +385,7 @@ class CS_utils(object):
             q += PS_utils.LorentzVector(PS_point[i])
         # Pre-compute scalar products
         q2 = q.square()
+        kin_variables['s%d'%parent_number] = q2
         pq = p.dot(q)
         # Compute all kinematic variables
         for i in children_numbers[:-1]:

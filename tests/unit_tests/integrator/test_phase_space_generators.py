@@ -496,12 +496,20 @@ class FlatCollinearWalkerTest(unittest.TestCase):
                 )
                 my_PS_point[j][0] = math.sqrt(-my_PS_point[j].square())
             # Compute collinear variables
-            (currs1, ME1, jac1, kin) = self.walker.walk_to_lower_multiplicity(
+            res_dict1 = self.walker.walk_to_lower_multiplicity(
                 my_PS_point, self.counterterms[i], True
             )
-            (currs2, ME2, jac2) = self.walker.walk_to_higher_multiplicity(
+            (currs1, ME1, jac1, kin)  = (
+                res_dict1['currents'], res_dict1['matrix_element'],
+                res_dict1['jacobian'], res_dict1['kinematic_variables'] )
+            
+            res_dict2 = self.walker.walk_to_higher_multiplicity(
                 ME1[1], self.counterterms[i], kin
             )
+            (currs2, ME2, jac2)  = (
+                res_dict2['currents'], res_dict2['matrix_element'],
+                res_dict2['jacobian'] )
+            
             # Check currents
             self.assertEqual(len(currs1), len(currs2))
             for i_curr in range(len(currs1)):

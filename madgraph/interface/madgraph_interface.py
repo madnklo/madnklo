@@ -3295,7 +3295,6 @@ This implies that with decay chains:
         
         # Update process id
         procdef.set('id', generation_options['proc_id'])
-        generation_options['proc_id'] += 1
         self._curr_contribs.append(
             contributions.Contribution(
                 base_objects.ContributionDefinition(
@@ -3313,7 +3312,7 @@ This implies that with decay chains:
 
         # Update process id
         procdef.set('id', generation_options['proc_id'])
-        generation_options['proc_id'] += 1
+#        generation_options['proc_id'] += 1
         # Add here the loop-induced syntax to this process
         procdef.set('perturbation_couplings', generation_options['loop_induced'])
         procdef.set('NLO_mode', 'sqrvirt')
@@ -3345,7 +3344,7 @@ This implies that with decay chains:
             procdef.set('n_loops',1)
             # Update process id
             procdef.set('id', generation_options['proc_id'])
-            generation_options['proc_id'] += 1
+#            generation_options['proc_id'] += 1
             # Here setting the perturbation_couplings is enough to guarantee that 
             # the relevant diagrams for these coupling orders will be generated
             procdef.set('perturbation_couplings', generation_options['NLO'])
@@ -3368,7 +3367,7 @@ This implies that with decay chains:
             procdef = NLO_template_procdef.get_copy()
             # Update process id
             procdef.set('id', generation_options['proc_id'])
-            generation_options['proc_id'] += 1
+#            generation_options['proc_id'] += 1
             # Specify a negative squared order coupling if no squared order coupling is
             # defined, and keep only the leading contributions in these orders then.
     #####################################################################################################
@@ -3423,7 +3422,7 @@ This implies that with decay chains:
             procdef = NNLO_template_procdef.get_copy()
             # Update process id
             procdef.set('id', generation_options['proc_id'])
-            generation_options['proc_id'] += 1
+#            generation_options['proc_id'] += 1
             # Specify a negative squared order coupling if no squared order coupling is
             # defined, so as to enforce keeping only the first two subleading contribution in those orders.
     #####################################################################################################

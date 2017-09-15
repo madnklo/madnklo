@@ -63,7 +63,7 @@ class ProcessKey(object):
                 # intputs from this __init__
                 sort_PDGs = True,
                 # Exclude certain process attributes when creating the key for a certain process.
-                vetoed_attributes = ['model','legs','uid','has_mirror_process'],
+                vetoed_attributes = ['model','legs','uid','has_mirror_process','legs_with_decays'],
                 # Specify only selected attributes to end up in the ProcessKey.
                 # If None, this filter is deactivated.
                 allowed_attributes = None,
@@ -84,7 +84,7 @@ class ProcessKey(object):
                                           tuple([l.get('id') for l in opts['legs'] if l['state']]) )
             elif process:
                 self.key_dict['PDGs'] = ( tuple(process.get_initial_ids()), 
-                                          tuple(process.get_final_ids()) )
+                                          tuple(process.get_final_ids_after_decay()) )
             else:
                 raise MadGraph5Error("When creating an ProcessKey, it is mandatory to specify the PDGs, either"+
                                      " via the options 'PDGs', 'legs' or 'process' (with precedence in this order).")
@@ -142,6 +142,11 @@ class ProcessKey(object):
                 self.key_dict['singular_structure'] = process[proc_attr].get_canonical_representation(track_leg_numbers=False)
                 continue
 
+            if proc_attr in ['orders', 'sqorders_types', 'squared_orders']:
+                # Let us not worry about WEIGHTED orders that are added automatically added when doing process matching
+                self.key_dict[proc_attr] = hash_dict(dict((k, v) for k, v in value.items() if k!='WEIGHTED'), proc_attr)
+                continue
+            
             if proc_attr == 'parent_subtraction_leg':
                 parent_subtraction_leg = process[proc_attr]
                 self.key_dict['singular_structure'] = (parent_subtraction_leg.pdg, parent_subtraction_leg.state)
@@ -369,7 +374,7 @@ class VirtualMEAccessor(object):
         # Apply the permutations while retaining a canonical representation for each attribute
         
         permuted_PS_point = [PS_point[permutation[i]] for i in range(len(PS_point))] if PS_point else None
-        
+
         permuted_spin_correlation = tuple(sorted([ (permutation[leg_ID-1]+1, vectors) for leg_ID, vectors 
                                 in spin_correlation ], key=lambda el:el[0] )) if spin_correlation else None
         
@@ -564,7 +569,6 @@ class MEAccessorCache(dict):
 
         try:
             ME_result = self[tuple(sorted(key_opts.items()))]
- #           misc.sprint('Recycled a call.')
             return ME_result
         except KeyError:
             return self.NO_RESULT
@@ -1641,6 +1645,32 @@ class MEAccessorDict(dict):
                                                                                 leg.get('number'),str(PS_point)))
         return formatted_PS_point
 
+    def format_color_correlation(self, process, color_correlations):
+        """ Synchronize the numbers in the color correlation specifier to the leg_number in the process."""
+
+        leg_number_to_pos_dict = {}
+        for leg_pos, leg in enumerate(process.get_initial_legs()+process.get_final_legs()):
+            leg_number_to_pos_dict[leg.get('number')] = leg_pos+1
+        
+        new_color_correlations = []
+        for color_correlation in color_correlations:
+            new_color_correlations.append(tuple(leg_number_to_pos_dict[n] for n in color_correlation))
+        
+        return new_color_correlations
+            
+    def format_spin_correlation(self, process, spin_correlations):
+        """ Synchronize the numbers in the spin correlation specifier to the leg_number in the process."""        
+        
+        leg_number_to_pos_dict = {}
+        for leg_pos, leg in enumerate(process.get_initial_legs()+process.get_final_legs()):
+            leg_number_to_pos_dict[leg.get('number')] = leg_pos+1
+        
+        new_spin_correlations = []
+        for spin_correlation in spin_correlations:
+            new_spin_correlations.append( ( leg_number_to_pos_dict[spin_correlation[0]], spin_correlation[1] ) )
+
+        return new_spin_correlations
+        
     def __call__(self, *args, **opts):
         """ Quick access to directly calling a Matrix Element. The first argument should always be the MEdictionary key
         and in the options the user can specify the desired_pdgs_order which will be used by the MEDictionary to figure
@@ -1685,6 +1715,14 @@ class MEAccessorDict(dict):
             PS_point = call_args[0]
             if specified_process_instance and isinstance(PS_point, dict):
                 call_args[0] = self.format_PS_point_for_ME_call(PS_point, specified_process_instance)
+            # Also, if spin and color correlation are specified, we must change their ordering
+            # according to the leg numbers
+            if specified_process_instance and 'color_correlation' in call_options and call_options['color_correlation']:
+                call_options['color_correlation'] = self.format_color_correlation(specified_process_instance, 
+                                                                                  call_options['color_correlation'])
+            if specified_process_instance and 'spin_correlation' in call_options and call_options['spin_correlation']:    
+                call_options['spin_correlation'] = self.format_spin_correlation(specified_process_instance, 
+                                                                                  call_options['spin_correlation'])
             
         return ME_accessor(*call_args, **call_options)
     

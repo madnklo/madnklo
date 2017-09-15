@@ -241,7 +241,8 @@ class ParseCmdArguments(object):
                               'seed'                    : None,
                               'n_steps'                 : 10,
                               'min_scaling_variable'    : 1.0e-6,
-                              'acceptance_threshold'    : 1.0e-6
+                              'acceptance_threshold'    : 1.0e-6,
+                              'compute_only_limit_defining_counterterm' : False
                              }
  
         # Group arguments in between the '--' specifiers.
@@ -282,6 +283,8 @@ class ParseCmdArguments(object):
                         raise ValueError
                 except ValueError:
                     raise InvalidCmd("'%s' is not a valid integer for option '%s'"%(value, key))
+            elif key == '--compute_only_limit_defining_counterterm':
+                testlimits_options[key[2:]] = True
             elif key in ['--min_scaling_variable', '--acceptance_threshold']:
                 try:
                     testlimits_options[key[2:]] = float(value)                  
@@ -1287,6 +1290,7 @@ class ME7Integrand_R(ME7Integrand):
         # Now call the mapper to walk through the counterterm structure and return the list of currents
         # and PS points to use to evaluate them.
         hike = self.mapper.walk_to_lower_multiplicity(PS_point, counterterm, kinematic_variables = True)
+
         # The structure of this object output should reflect each nesting level, that is:
         # hike = {
         #         'currents' : [(current1, PS1), (current2, PS2), etc...],
@@ -1324,11 +1328,7 @@ class ME7Integrand_R(ME7Integrand):
             # there will be only one level anyway so that there is not need of fancy combination
             # of Laurent series.
             weight *= current_evaluation['values'][(0,0)]['finite']
-     
-        # all_necesary_ME_calls is a list of tuples of the following form:
-        #  (spin_correlator, color_correlator, weight)
-        all_necessary_ME_calls = [(None, None, weight)]
-        
+             
         # Specify here how to combine one set of correlators with another.
         def combine_correlators(correlators_A, correlators_B):
             combined_correlator = [None, None, correlators_A[2]*correlators_B[2]]
@@ -1350,10 +1350,13 @@ class ME7Integrand_R(ME7Integrand):
                 # NNLO color correlations yet.
                 raise NotImplementedError
             return combined_correlator
-
+        
+        # all_necesary_ME_calls is a list of tuples of the following form:
+        #  (spin_correlator, color_correlator, weight)
+        all_necessary_ME_calls = [(None, None, weight)]
+        
         # Now iterate over currents that may require color- and spin-correlations        
         for (current, PS_point_for_current) in connected_currents:
-            misc.sprint(PS_point_for_current)
             current_evaluation, all_current_results = self.all_MEAccessors(
                 current, PS_point_for_current, hel_config=None, 
                 reduced_process = ME_process,
@@ -1363,6 +1366,7 @@ class ME7Integrand_R(ME7Integrand):
             # Now loop over all spin- and color- correlators required for this current
             # and update the necessary calls to the ME
             new_all_necessary_ME_calls = []
+#            misc.sprint('current_weight',current_evaluation['values'][(0,0)]['finite'])
             for ((spin_index, color_index), current_wgt) in current_evaluation['values'].items():
                 # Now combine the correlators necessary for this current, with those already
                 # specified in 'all_necessary_ME_calls'
@@ -1376,10 +1380,6 @@ class ME7Integrand_R(ME7Integrand):
 
         # Finally the treat the call to the matrix element
         final_weight = 0.0
-        for key in self.all_MEAccessors.keys():
-            if 'forbidden_s_channels' not in dict(key):
-                continue
-            misc.sprint(dict(key))
         for (spin_correlators, color_correlators, current_weight) in all_necessary_ME_calls:
             try:
                 ME_evaluation, all_ME_results = self.all_MEAccessors(
@@ -1396,12 +1396,13 @@ class ME7Integrand_R(ME7Integrand):
                 logger.critical("""
 A reduced matrix element is missing in the library of automatically generated matrix elements.
 This is typically what can happen when your process definition is not inclusive over all IR sensitive particles.
-Make sure that your process definition is specified using the relevant multiparticle labels (typically 'p' and 'j').""")
+Make sure that your process definition is specified using the relevant multiparticle labels (typically 'p' and 'j').
+Also make sure that there is no coupling order specification which receives corrections.""")
                 raise e
             # Again, for the integrated subtraction counterterms, some care will be needed here
             # for the real-virtual, depending on how we want to combine the two Laurent series.
             final_weight += current_weight*ME_evaluation['finite']
-        
+
         # Returns the corresponding weight and the mapped PS_point.
         # Also returns the mapped_process (for calling the observables), which
         # is typically simply a reference to counterterm.current which is an instance of Process.
@@ -1428,7 +1429,7 @@ Make sure that your process definition is specified using the relevant multipart
                 if re.match(limit_type,counterterm.get_singular_structure_string(
                                                                 print_n=True, print_pdg=False, print_state=False)):
                     returned_counterterms.append(counterterm)
-        
+
         return returned_counterterms
 
     def is_part_of_process_selection(self, process_list, selection=None):
@@ -1498,11 +1499,14 @@ Make sure that your process definition is specified using the relevant multipart
             selected_counterterms = self.find_counterterms_matching_limit_type_with_regexp(
                                                                     counterterms_to_consider, test_options['limit_type'])
             
-            #misc.sprint(defining_process.nice_string())
-            #misc.sprint('\n'+'\n'.join( ct.get_singular_structure_string() for ct in selected_counterterms ))
-            
+            misc.sprint(defining_process.nice_string())
+            misc.sprint('\n'+'\n'.join( ct.get_singular_structure_string() for ct in selected_counterterms ))
+
             # Now loop over all mappings to consider
             for limit_specifier_counterterm in selected_counterterms:
+                misc.sprint("Result for test: %s | %s"%(defining_process.nice_string(),
+                        limit_specifier_counterterm.get_singular_structure_string(print_n=True, 
+                                                                  print_pdg=False, print_state=False) ))
                 # First identified the reduced PS point from which we can evolve to larger multiplicity
                 # while becoming progressively closer to the IR limit.
                 res_dict = self.mapper.walk_to_lower_multiplicity(
@@ -1516,7 +1520,7 @@ Make sure that your process definition is specified using the relevant multipart
                 n_steps = test_options['n_steps']
                 min_value = test_options['min_scaling_variable']
 
-                for scaling_parameter in range(1,n_steps+1):
+                for scaling_parameter in range(0,n_steps+1):
                     # Use equally spaced steps on a log scale
                     scaling_parameter = 10.0**(-((float(scaling_parameter)/n_steps)*abs(math.log10(min_value))))
                     res_dict = self.mapper.approach_limit(
@@ -1535,6 +1539,9 @@ Make sure that your process definition is specified using the relevant multipart
                     for counterterm in counterterms_to_consider:
                         if not counterterm.is_singular():
                             continue
+                        if test_options['compute_only_limit_defining_counterterm'] and \
+                                                                            counterterm != limit_specifier_counterterm:
+                            continue
                         ct_weight, _, _ = self.evaluate_counterterm(counterterm, scaled_real_PS_point, hel_config=None)
                         summed_counterterm_weight += ct_weight
                     
@@ -1545,9 +1552,10 @@ Make sure that your process definition is specified using the relevant multipart
                          'limit_specifier'      : limit_specifier_counterterm,
                          'defining_process'     : defining_process
                         }
-                    misc.sprint(scaling_parameter, ME_evaluation, summed_counterterm_weight)
+                    
+                    misc.sprint('%-20.14e %-20.14e %-20.14e %-20.14e'%(scaling_parameter, ME_evaluation, summed_counterterm_weight,ME_evaluation/summed_counterterm_weight))
                 
-                all_evaluations[(process_key, counterterm.get_singular_structure_string(print_n=True, 
+                all_evaluations[(process_key, limit_specifier_counterterm.get_singular_structure_string(print_n=True, 
                                                                   print_pdg=False, print_state=False))] = evaluations
         
         # Now produce a nice matplotlib of the evaluations and assess whether this test passed or not.
@@ -1555,11 +1563,16 @@ Make sure that your process definition is specified using the relevant multipart
 
     def analyze_IR_limits_test(self, all_evaluations, acceptance_threshold):
         """ Analyze the results of the test_IR_limits command. """
+        
         #TODO
-        misc.sprint(all_evaluations)
-        pass
-
-
+#        misc.sprint("----- SUMMARY -----")
+#        for key, evaluations in all_evaluations.items():
+#            misc.sprint("Result for test: %s | %s"%(str(dict(key[0])['PDGs']),key[1]))
+#            for lam, eval in sorted(evaluations.items(),key=lambda el: -el[0]):
+#                misc.sprint(lam, eval['non_singular_ME'], eval['approximated_ME'])
+        
+        return True
+    
 class ME7Integrand_RR(ME7Integrand_R):
     """ ME7Integrand for the computation of a double real-emission type of contribution."""
     def sigma(self, PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts):

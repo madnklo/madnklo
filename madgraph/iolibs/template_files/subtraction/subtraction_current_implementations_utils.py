@@ -227,9 +227,11 @@ class VirtualCurrentImplementation(object):
         model_param_dict = self.model.get('parameter_dict')
         alpha_s = model_param_dict['aS']
 
-        cache_key = {'PS_point': tuple(sorted([(k, tuple(value)) for (k, value) in PS_point.items()])),
-                     'alpha_s' : model_param_dict['aS']
-                     }
+        cache_key = {'PS_point' : tuple(sorted([(k, tuple(value)) for (k, value) in PS_point.items()])),
+                     'alpha_s'  : model_param_dict['aS'],
+                     'singular_structure' : current['singular_structure'].__str__( 
+                                                   print_n = True, print_pdg = True, print_state = True)
+                    }
         
         result_key = {'hel_config':hel_config,
                       'squared_orders': tuple(sorted(current.get('squared_orders').items()))}
@@ -322,7 +324,7 @@ class DefaultCurrentImplementation(VirtualCurrentImplementation):
         return {}
     
     def get_cache_and_result_key(self, *args, **opts):
-        return super(DefaultCurrentImplementation, self).__init__(*args, **opts)
+        return super(DefaultCurrentImplementation, self).get_cache_and_result_key(*args, **opts)
 
     def evaluate_subtraction_current(self, current, PS_point,
                                             reduced_process = None,

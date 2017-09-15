@@ -1098,11 +1098,8 @@ class IRSubtraction(object):
         for leg in range(len(flavored_legs)):
             cur_state = flavored_legs[leg].state
             cur_id    = flavored_legs[leg].pdg
-            if (
-                        (cur_state == ll_state and cur_id == -ll_id)
-                        or
-                        (cur_state != ll_state and cur_id == ll_id)
-            ):
+            if ( (cur_state == ll_state and cur_id == -ll_id) or
+                 (cur_state != ll_state and cur_id == ll_id) ):
                 # Eliminate it and start over
                 flavored_legs.pop(leg)
                 return self.parent_PDGs(flavored_legs)
@@ -1111,10 +1108,12 @@ class IRSubtraction(object):
         # check if all other legs have been emitted by the last one
         if self.parent_PDGs(flavored_legs) == [21]:
             # Return the 'initial-state PDG' of the particle
-            if ll_state == SubtractionLeg.INITIAL:
-                return [ll_id]
-            else:
-                return [-ll_id]
+            return [ll_id]
+# I THINK BELOW IS WRONG. CHECK
+#            if ll_state == SubtractionLeg.INITIAL:
+#                return [ll_id]
+#            else:
+#                return [-ll_id]
 
         # At this point, there is no valid parent: return empty list
         return []
@@ -1514,6 +1513,7 @@ class IRSubtraction(object):
                 except KeyError:
                     raise MadGraph5Error("Subtraction currents have squared orders absent from real-emission ME.")
 
+            # We do not track squared orders for now, so the update below is not strictly speaking necessary
             sqo['WEIGHTED'] = sum([self.model.get('order_hierarchy')[c]*n for (c,n) in 
                                                         sqo.items() if c.upper()!='WEIGHTED'])
         

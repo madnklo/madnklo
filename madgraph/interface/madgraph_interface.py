@@ -3295,6 +3295,13 @@ This implies that with decay chains:
         
         # Update process id
         procdef.set('id', generation_options['proc_id'])
+        # Make sure to add split_orders to the tree-level Born contributions if higher order
+        # corrections are considered since this is necessary when used as reduced ME.
+        if generation_options['overall_correction_order'].count('N')>0:
+            for order in generation_options[generation_options['overall_correction_order']]:    
+                if order in procdef['split_orders']:
+                    continue
+                procdef['split_orders'].append(order)
         self._curr_contribs.append(
             contributions.Contribution(
                 base_objects.ContributionDefinition(

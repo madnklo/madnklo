@@ -76,13 +76,28 @@ class TestME7_IR_Limits(unittest.TestCase):
         """Check the test of collinear limits on a particular process."""
         
         main_cmd = 'test_IR_limits'
+       
         options = {'correction_order'       : 'NLO',
                    'limit_type'             : 'collinear',
                    'process'                : 'e+ e- > d d~ u|s u~|s~ ',
                    'seed'                   : '666',
                    'n_steps'                : 10,
-                   'min_scaling_variable'   : 1.0e-6,
-                   'acceptance_threshold'   : 1.0e-6
+                   'min_scaling_variable'   : 1.0e-4,
+                   'acceptance_threshold'   : 1.0e-6,
                    }
 
-        self.do('%s %s'%(main_cmd, ' '.join('--%s=%s'%(key,value) for key,value in options.items())))
+#        self.do('%s %s'%(main_cmd, ' '.join( ('--%s=%s'%(key,value) if value else '--%s'%key) 
+#                                                                   for key,value in options.items())))
+        
+        options = {'correction_order'       : 'NLO',
+                   'limit_type'             : 'C(3,5)',
+                   'process'                : 'e+ e- > d d~ g g ',
+                   'seed'                   : '666',
+                   'n_steps'                : 10,
+                   'min_scaling_variable'   : 1.0e-4,
+                   'acceptance_threshold'   : 1.0e-6,
+                   'compute_only_limit_defining_counterterm' : None
+                   }
+
+        self.do('%s %s'%(main_cmd, ' '.join( ('--%s=%s'%(key,value) if value else '--%s'%key) 
+                                                                   for key,value in options.items())))

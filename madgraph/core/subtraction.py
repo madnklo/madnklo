@@ -749,7 +749,7 @@ class Current(base_objects.Process):
         # If this current is directly connected to the underlying ME, it will 
         # need to resolve spin and color of the mother leg (i.e. specify the
         # corresponding correlators). If not, then it will be summed over.
-        self['resolve_mother_spin_and_color'] = True
+        self['resolve_mother_spin_and_color'] = False
         self['singular_structure'] = SingularStructure()
         return
 
@@ -1323,6 +1323,8 @@ class IRSubtraction(object):
         # If this is the outermost level,
         # the recursion was all that needed to be done
         if type(structure) is SingularStructure:
+            for subnode in subcurrents:
+                subnode.current['resolve_mother_spin_and_color'] = True
             return Counterterm(
                 reduced_process,
                 subcurrents,

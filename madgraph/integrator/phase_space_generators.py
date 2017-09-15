@@ -1349,24 +1349,16 @@ class VirtualWalker(object):
         all kinematic variables needed to recover the starting phase-space point
         from the lowest multiplicity one.
 
-        :return: a dictionary
-        {
-            'currents' : [(current1, PS1), (current2, PS2), etc...],
-            'matrix_element': (ME, PSME),
-            'jacobian' : jacobian (a float),
-            'kinematic_variables' : a_dict,
-            'resulting_PS_point' : res_PS
-        }        
-            where
-        currents is a list of all currents that need to be evaluated,
-            paired with phase-space points appropriate for their evaluation;
-        matrix_element is the reduced matrix element,
+        :return: a dictionary with the following entries:
+        'currents', a list of all currents that need to be evaluated,
+            paired with the splitting momenta needed for their evaluation;
+        'matrix_element', the reduced matrix element,
             paired with its corresponding reduced phase-space point;
-        jacobian is the cumulative jacobian of all mappings that were applied;
-        kinematic_variables is a dictionary of all variables needed to recover
+        'jacobian', the cumulative jacobian of all mappings that were applied;
+        'kinematic_variables', a dictionary of all variables needed to recover
             the starting phase-space point from the lowest multiplicity one,
-            or None if such variables were not requested.
-        res_PS: The final lower multiplicity PS point obtained obtained.
+            or None if such variables were not requested;
+        'resulting_PS_point', the final lowest multiplicity PS point.
         """
 
         raise NotImplementedError
@@ -1388,20 +1380,13 @@ class VirtualWalker(object):
         :param kinematic_variables: dictionary of all variables needed to recover
             the highest-multiplicity phase-space point from the starting one.
 
-        :return: a dictionary
-        {
-            'currents' : [(current1, PS1), (current2, PS2), etc...],
-            'matrix_element': (ME, PSME),
-            'jacobian' : jacobian (a float),
-            'resulting_PS_point' : res_PS
-        }
-            where
-        currents is a list of all currents that need to be evaluated,
-            paired with phase-space points appropriate for their evaluation;
-        matrix_element is the reduced matrix element,
+        :return: a dictionary with the following entries:
+        'currents', a list of all currents that need to be evaluated,
+            paired with the splitting momenta needed for their evaluation;
+        'matrix_element', the reduced matrix element,
             paired with its corresponding reduced phase-space point;
-        jacobian is the cumulative jacobian of all mappings that were applied.
-        res_PS: The final lower multiplicity PS point obtained obtained.
+        'jacobian', the cumulative jacobian of all mappings that were applied;
+        'resulting_PS_point', the final lowest multiplicity PS point.
         """
          
         raise NotImplementedError
@@ -1421,7 +1406,8 @@ class VirtualWalker(object):
         to get closer to the limit specified by the splitting structure."""
 
         new_kin_variables = self.rescale_kinematic_variables(
-                                        kinematic_variables, scaling_parameter)
+            kinematic_variables, scaling_parameter
+        )
         
         return self.walk_to_higher_multiplicity(PS_point, counterterm, new_kin_variables)
 
@@ -1441,8 +1427,9 @@ class FlatCollinearWalker(VirtualWalker):
         # Initialize return variables
         current_PS_pairs = []
         jacobian = 1.
-        kinematic_variables = dict()
+        variables = dict() if kinematic_variables else None
         # Recoil against all final-state particles that are not going singular
+        # TODO Recoilers and numbers for a given counterterm should be cached
         recoilers = [
             subtraction.SubtractionLeg(leg)
             for leg in counterterm.process['legs']
@@ -1458,32 +1445,43 @@ class FlatCollinearWalker(VirtualWalker):
                     recoilers.remove(recoiler)
         # Loop over the counterterm's first-level currents
         for node in counterterm.subcurrents:
+            # Alias singular structure for convenience
+            ss = node.current['singular_structure']
             # Do not accept soft currents or nested ones
-            if node.current['singular_structure'].name == 'S' or node.subcurrents:
+            if ss.name == 'S' or node.subcurrents:
                 raise MadGraph5Error(self.cannot_handle)
-            # Append pair of this current and the previous phase-space point,
-            # deep copy wanted
-            old_point = {i: LorentzVector(p) for (i, p) in point.items()}
-            current_PS_pairs.append((node.current, old_point))
+            # Get parent and children numbers
+            # TODO Read these from cache
+            parent, children = get_structure_numbers(
+                ss, counterterm.momenta_dict
+            )
+            # Deep copy the splitting momenta
+            splitting_momenta = {
+                i: LorentzVector(p)
+                for (i, p) in point.items()
+                if i in children
+            }
             # Compute jacobian and map to lower multiplicity
             jacobian *= self.collinear_map.map_to_lower_multiplicity(
                 point,
-                subtraction.SingularStructure(
-                    node.current['singular_structure'], *recoilers
-                ),
+                subtraction.SingularStructure(ss, *recoilers),
                 counterterm.momenta_dict,
-                kinematic_variables
+                variables
             )
+            # Append the current and the splitting momenta,
+            # deep copy wanted
+            splitting_momenta[parent] = LorentzVector(point[parent])
+            current_PS_pairs.append((node.current, splitting_momenta))
         # Identify reduced matrix element,
         # computed in the point which has received all mappings
         ME_PS_pair = [counterterm.process, point]
         # Return
         return {
-            'currents' : current_PS_pairs,
+            'currents': current_PS_pairs,
             'matrix_element': ME_PS_pair,
-            'jacobian' : jacobian,
-            'kinematic_variables' : kinematic_variables if len(kinematic_variables)>0 else None,
-            'resulting_PS_point' : point
+            'jacobian': jacobian,
+            'kinematic_variables': variables,
+            'resulting_PS_point': point
         }
 
     def walk_to_higher_multiplicity(
@@ -1514,28 +1512,38 @@ class FlatCollinearWalker(VirtualWalker):
                     recoilers.remove(recoiler)
         # Loop over the counterterm's first-level currents
         for node in reversed(counterterm.subcurrents):
+            # Alias singular structure for convenience
+            ss = node.current['singular_structure']
             # Do not accept soft currents or nested ones
-            if node.current['singular_structure'].name == 'S' or node.subcurrents:
+            if ss.name == 'S' or node.subcurrents:
                 raise MadGraph5Error(self.cannot_handle)
+            # Get parent and children numbers
+            # TODO Read these from cache
+            parent, children = get_structure_numbers(
+                ss, counterterm.momenta_dict
+            )
+            # Deep copy the parent momentum
+            splitting_momenta = {parent: LorentzVector(point[parent])}
             # Compute jacobian and map to higher multiplicity
             jacobian *= self.collinear_map.map_to_higher_multiplicity(
                 point,
-                subtraction.SingularStructure(
-                    node.current['singular_structure'], *recoilers
-                ),
+                subtraction.SingularStructure(ss, *recoilers),
                 counterterm.momenta_dict,
                 kinematic_variables
             )
-            # Prepend pair of this current and the new phase-space point,
+            # Prepend pair of this current and the splitting momenta,
             # deep copy wanted
-            new_point = {i: LorentzVector(p) for (i, p) in point.items()}
-            current_PS_pairs.insert(0, (node.current, new_point))
+            for i in children:
+                splitting_momenta[i] = LorentzVector(point[i])
+            current_PS_pairs.insert(0, (node.current, splitting_momenta))
 
         # Return
-        return { 'currents' : current_PS_pairs,
-                 'matrix_element': ME_PS_pair,
-                 'jacobian' : jacobian,
-                 'resulting_PS_point' : point }
+        return {
+            'currents': current_PS_pairs,
+            'matrix_element': ME_PS_pair,
+            'jacobian': jacobian,
+            'resulting_PS_point': point
+        }
 
     def rescale_kinematic_variables(self, kinematic_variables, scaling_parameter):
         """ Given kinematic variables, rescale them according to the scaling_parameter

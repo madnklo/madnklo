@@ -19,7 +19,6 @@ import os
 if __name__ == '__main__':
     sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.pardir, os.path.pardir))
 
-import copy
 import logging
 import math
 import array
@@ -104,7 +103,7 @@ class Vector(array.array):
 
     def __idiv__(self, x):
 
-        self *= 1. / x
+        self.__imul__(1./x)
         return self
 
     def __div__(self, x):
@@ -1416,29 +1415,40 @@ class FlatCollinearWalker(VirtualWalker):
         self, PS_point, counterterm, kinematic_variables = False
     ):
 
-        # This phase-space point will be destroyed
-        point = copy.deepcopy(PS_point) # deep copy wanted
+        # This phase-space point will be destroyed, deep copy wanted
+        point = {i: LorentzVector(p) for (i, p) in PS_point.items()}
         # Initialize return variables
         current_PS_pairs = []
         jacobian = 1.
         kinematic_variables = dict()
         # Recoil against all final-state particles that are not going singular
-        recoilers = (
-            leg for leg in counterterm.process['singular_structure'].legs
-            if leg.state == subtraction.SubtractionLeg.FINAL
-        )
+        recoilers = [
+            subtraction.SubtractionLeg(leg)
+            for leg in counterterm.process['legs']
+            if leg['state'] == base_objects.Leg.FINAL
+        ]
+        for node in counterterm.subcurrents:
+            parent, _ = get_structure_numbers(
+                node.current['singular_structure'],
+                counterterm.momenta_dict
+            )
+            for recoiler in recoilers:
+                if recoiler.n == parent:
+                    recoilers.remove(recoiler)
         # Loop over the counterterm's first-level currents
-        for current in counterterm.subcurrents:
+        for node in counterterm.subcurrents:
             # Do not accept soft currents or nested ones
-            if current['singular_structure'].name == 'S' or current.subcurrents:
+            if node.current['singular_structure'].name == 'S' or node.subcurrents:
                 raise MadGraph5Error(self.cannot_handle)
-            # Append pair of this current and the previous phase-space point
-            current_PS_pairs.append((current, copy.deepcopy(point))) # deep copy wanted
+            # Append pair of this current and the previous phase-space point,
+            # deep copy wanted
+            old_point = {i: LorentzVector(p) for (i, p) in point.items()}
+            current_PS_pairs.append((node.current, old_point))
             # Compute jacobian and map to lower multiplicity
             jacobian *= self.collinear_map.map_to_lower_multiplicity(
                 point,
                 subtraction.SingularStructure(
-                    current['singular_structure'], recoilers
+                    node.current['singular_structure'], *recoilers
                 ),
                 counterterm.momenta_dict,
                 kinematic_variables
@@ -1459,32 +1469,43 @@ class FlatCollinearWalker(VirtualWalker):
         # Identify reduced matrix element,
         # computed in the lowest multiplicity point
         ME_PS_pair = [counterterm.process, PS_point]
-        # This phase-space point will be destroyed
-        point = copy.deepcopy(PS_point) # deep copy wanted
+        # This phase-space point will be destroyed, deep copy wanted
+        point = {i: LorentzVector(p) for (i, p) in PS_point.items()}
         # Initialize return variables
         current_PS_pairs = []
         jacobian = 1.
         # Recoil against all final-state particles that are not going singular
-        recoilers = (
-            leg for leg in counterterm.process['singular_structure'].legs
-            if leg.state == subtraction.SubtractionLeg.FINAL
-        )
+        recoilers = [
+            subtraction.SubtractionLeg(leg)
+            for leg in counterterm.process['legs']
+            if leg['state'] == base_objects.Leg.FINAL
+        ]
+        for node in counterterm.subcurrents:
+            parent, _ = get_structure_numbers(
+                node.current['singular_structure'],
+                counterterm.momenta_dict
+            )
+            for recoiler in recoilers:
+                if recoiler.n == parent:
+                    recoilers.remove(recoiler)
         # Loop over the counterterm's first-level currents
-        for current in reversed(counterterm.subcurrents):
+        for node in reversed(counterterm.subcurrents):
             # Do not accept soft currents or nested ones
-            if current['singular_structure'].name == 'S' or current.subcurrents:
+            if node.current['singular_structure'].name == 'S' or node.subcurrents:
                 raise MadGraph5Error(self.cannot_handle)
             # Compute jacobian and map to higher multiplicity
             jacobian *= self.collinear_map.map_to_higher_multiplicity(
                 point,
                 subtraction.SingularStructure(
-                    current['singular_structure'], recoilers
+                    node.current['singular_structure'], *recoilers
                 ),
                 counterterm.momenta_dict,
                 kinematic_variables
             )
-            # Prepend pair of this current and the just computed phase-space point
-            current_PS_pairs.insert(0, (current, copy.deepcopy(point))) # deep copy wanted
+            # Prepend pair of this current and the new phase-space point,
+            # deep copy wanted
+            new_point = {i: LorentzVector(p) for (i, p) in point.items()}
+            current_PS_pairs.insert(0, (node.current, new_point))
         # Return
         return current_PS_pairs, ME_PS_pair, jacobian
 

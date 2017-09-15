@@ -227,7 +227,7 @@ class CataniSeymourFFOneTest(unittest.TestCase):
             ]
         self.structure = subtraction.SingularStructure(self.structure)
 
-    def test_invertible(self):
+    def test_map_invertible(self):
         """Test mapping and inverse."""
 
         # Generate n_collinear random massive vectors plus
@@ -282,8 +282,8 @@ class FlatCollinearWalkerTest(unittest.TestCase):
     myinterlist = base_objects.InteractionList()
     mymodel = base_objects.Model()
     mylegs = base_objects.LegList()
-    myprocess = base_objects.Process()
-    mysubtraction = None
+    process = base_objects.Process()
+    subtraction = None
 
     def setUp(self):
         # Setting up a dumb model
@@ -444,79 +444,92 @@ class FlatCollinearWalkerTest(unittest.TestCase):
 
         self.mylegs = base_objects.LegList([
             base_objects.Leg(
-                {'number': 1, 'id': 1, 'state': base_objects.Leg.INITIAL}),
+                {'number': 1, 'id': 25, 'state': base_objects.Leg.INITIAL}),
             base_objects.Leg(
-                {'number': 2, 'id': -1, 'state': base_objects.Leg.INITIAL}),
+                {'number': 2, 'id':  1, 'state': base_objects.Leg.FINAL}),
             base_objects.Leg(
-                {'number': 3, 'id': 25, 'state': base_objects.Leg.FINAL}),
+                {'number': 3, 'id': -1, 'state': base_objects.Leg.FINAL}),
             base_objects.Leg(
-                {'number': 4, 'id': 2, 'state': base_objects.Leg.FINAL}),
+                {'number': 4, 'id':  2, 'state': base_objects.Leg.FINAL}),
             base_objects.Leg(
-                {'number': 5, 'id': -2, 'state': base_objects.Leg.FINAL})
+                {'number': 5, 'id': -2, 'state': base_objects.Leg.FINAL}),
+            base_objects.Leg(
+                {'number': 6, 'id': 25, 'state': base_objects.Leg.FINAL}),
         ])
 
-        self.myprocess = base_objects.Process({
+        self.process = base_objects.Process({
             'legs': self.mylegs,
             'model': self.mymodel,
             'n_loops': 0
         })
 
-        print self.myprocess['legs']
-        print self.myprocess['n_loops']
-
-        self.mysubtraction = subtraction.IRSubtraction(
+        self.subtraction = subtraction.IRSubtraction(
             self.mymodel,
-            orders={'QCD': 2}
+            orders={'QCD': 1}
         )
 
-        # WARNING TODO quarks can go soft in this model?!?!?
-        self.ct = self.mysubtraction.get_all_counterterms(self.myprocess)[1]
+        operators = self.subtraction.get_all_elementary_operators(self.process)
+        self.combinations = self.subtraction.get_all_combinations(operators)
+        self.counterterms = [
+            self.subtraction.get_counterterm(combination, self.process)
+            for combination in self.combinations
+        ]
+        for i in self.counterterms:
+            print str(i)
 
-        print self.ct
-        stop
+    def test_walk_invertible(self):
+        """Test walk and inverse."""
 
-    def test_invertible(self):
-        """Test mapping and inverse."""
-
-        # Generate n_collinear random massive vectors plus
-        # n_recoilers (massive = True, False) random vectors
-        # my_PS_point = dict()
-        # n_collinear_so_far = 0
-        # for n_in_this_bunch in self.n_collinear:
-        #     for i in range(
-        #         n_collinear_so_far, n_collinear_so_far + n_in_this_bunch
-        #     ):
-        #         my_PS_point[i] = PS.LorentzVector(
-        #             [0., ] + [random.random() for _ in range(3)]
-        #         )
-        #         my_PS_point[i][0] = math.sqrt(-my_PS_point[i].square())
-        #     if n_in_this_bunch == 1:
-        #         my_PS_point[n_collinear_so_far][0] = math.sqrt(
-        #             random.random() - my_PS_point[n_collinear_so_far].square()
-        #         )
-        #     n_collinear_so_far += n_in_this_bunch
-        # for i in range(
-        #     n_collinear_so_far, n_collinear_so_far + self.n_recoilers
-        # ):
-        #     my_PS_point[i] = PS.LorentzVector(
-        #         [0., ] + [random.random() for _ in range(3)]
-        #     )
-        #     if self.massive:
-        #         my_PS_point[i][0] = math.sqrt(
-        #             random.random() - my_PS_point[i].square()
-        #         )
-        #     else:
-        #         my_PS_point[i][0] = math.sqrt(-my_PS_point[i].square())
-        # # I know what I'm doing
-        # old_PS_point = copy.deepcopy(my_PS_point)
-        # # Compute collinear variables
-        # variables = dict()
-        # self.walker.walk_to_lower_multiplicity(
-        #     my_PS_point, self.structure, self.momenta_dict, variables
-        # )
-        # self.mapping.map_to_higher_multiplicity(
-        #     my_PS_point, self.structure, self.momenta_dict, variables
-        # )
-        # for i in my_PS_point.keys():
-        #     for j in range(4):
-        #         self.assertAlmostEqual(my_PS_point[i][j], old_PS_point[i][j])
+        # For each counterterm
+        for i in range(len(self.counterterms)):
+            # Generate random vectors
+            my_PS_point = dict()
+            legs_FS = (
+                subtraction.SubtractionLeg(leg)
+                for leg in self.process['legs']
+                if leg['state'] == base_objects.Leg.FINAL
+            )
+            leg_numbers = (leg.n for leg in legs_FS)
+            for j in leg_numbers:
+                my_PS_point[j] = PS.LorentzVector(
+                    [0., ] + [random.random() for _ in range(3)]
+                )
+                my_PS_point[j][0] = math.sqrt(-my_PS_point[j].square())
+            # Compute collinear variables
+            (currs1, ME1, jac1, kin) = self.walker.walk_to_lower_multiplicity(
+                my_PS_point, self.counterterms[i], True
+            )
+            (currs2, ME2, jac2) = self.walker.walk_to_higher_multiplicity(
+                ME1[1], self.counterterms[i], kin
+            )
+            # Check currents
+            self.assertEqual(len(currs1), len(currs2))
+            for i_curr in range(len(currs1)):
+                self.assertEqual(
+                    currs1[i_curr][0], currs2[i_curr][0]
+                )
+                self.assertEqual(
+                    currs1[i_curr][1].keys(), currs2[i_curr][1].keys()
+                )
+                for i_part in currs1[i_curr][1].keys():
+                    for i_comp in range(4):
+                        self.assertAlmostEqual(
+                            currs1[i_curr][1][i_part][i_comp],
+                            currs2[i_curr][1][i_part][i_comp]
+                        )
+            # Check MEs
+            self.assertEqual(
+                ME1[0], ME2[0]
+            )
+            self.assertEqual(
+                ME1[1].keys(), ME2[1].keys()
+            )
+            for i_part in ME1[1].keys():
+                for i_comp in range(4):
+                    self.assertAlmostEqual(
+                        ME1[1][i_part][i_comp],
+                        ME2[1][i_part][i_comp]
+                    )
+            # Check jacobians
+            self.assertAlmostEqual(jac1*jac2, 1.)
+            print ME1[1]

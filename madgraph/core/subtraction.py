@@ -855,8 +855,7 @@ class CountertermNode(object):
             return res
         else:
             return '%s(%s)'%(res, subcurrent_string)
-        return res
-    
+
     def n_loops(self):
         """If number of loops are assigned,
         return the total number of loops in this node and its children.

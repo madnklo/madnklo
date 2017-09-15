@@ -29,11 +29,13 @@ import madgraph.core.contributions as contributions
 import madgraph.integrator.phase_space_generators as phase_space_generators
 
 from madgraph import MG5DIR
+from bidict import bidict
 
 FINAL   = subtraction.SubtractionLeg.FINAL
 INITIAL = subtraction.SubtractionLeg.INITIAL
 
 pjoin = os.path.join
+nice_momenta_string = phase_space_generators.VirtualPhaseSpaceGenerator.nice_momenta_string
 
 class SubtractionCurrentTest(unittest.TestCase):
     """Test and run currents, comparing against target results."""
@@ -46,12 +48,10 @@ class SubtractionCurrentTest(unittest.TestCase):
                 complex_mass_scheme = False )
         model_with_params_set.pass_particles_name_in_mg_default()
         model_with_params_set.set_parameters_and_couplings(
-                param_card = pjoin(MG5DIR,'models','loop_sm','restrict_default.dat'), 
-                scale=0.118, 
+                param_card = pjoin(MG5DIR,'models','loop_sm','restrict_default.dat'),
                 complex_mass_scheme=False)
 
         self.model = model_with_params_set
-
         self.current_exporter = subtraction.SubtractionCurrentExporter(
                                                     self.model, export_dir=None)
         
@@ -89,6 +89,8 @@ class SubtractionCurrentTest(unittest.TestCase):
 
         PS_point, wgt, xb_1, xb_2 = PS_generator.get_PS_point(None)
         
+        misc.sprint('PS point:\n\n%s\n\n'%nice_momenta_string(PS_point))
+
         return dict( (i, momentum) for i, momentum in enumerate(PS_point) )
 
     def test_NLO_FF_currents(self):
@@ -110,9 +112,14 @@ class SubtractionCurrentTest(unittest.TestCase):
         self.add_currents_to_accessor(currents, accessors_dict)
 
         a_PS = self.generate_PS_point(2,3)
+        a_PS[7] = a_PS[3]+a_PS[4]
+        momenta_map = bidict( { 7 : (3,4) } )        
 
         current_evaluation, all_current_results = accessors_dict(
-                currents[0], a_PS, hel_config=None, mapping_variables={})
+                currents[0], a_PS, hel_config=None, 
+                reduced_process = None,
+                leg_numbers_map = momenta_map,
+                mapping_variables={})
 
         misc.sprint(current_evaluation)
         misc.sprint(all_current_results)

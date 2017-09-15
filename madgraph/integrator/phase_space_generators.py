@@ -59,6 +59,8 @@ class Vector(array.array):
 
         if isinstance(arg1, int):
             return super(Vector, cls).__new__(cls, 'd', (arg2, ) * arg1)
+        elif isinstance(arg1, Lorentz5Vector):
+            return super(Vector, cls).__new__(cls, 'd', tuple(arg1[:4]))            
         assert len(arg1) > 0
         return super(Vector, cls).__new__(cls, 'd', arg1)
 

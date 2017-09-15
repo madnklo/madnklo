@@ -16,6 +16,7 @@
 implementations"""
 
 import madgraph.various.misc as misc
+import madgraph.integrator.phase_space_generators as PS_utils
 
 #===============================================================================
 # Subtraction current evaluation and result
@@ -328,5 +329,54 @@ class DefaultCurrentImplementation(VirtualCurrentImplementation):
                                               squared_orders=current.get('squared_orders'))
         
         return subtraction_current_result  
-    
+
+#===============================================================================
+# Constants
+#===============================================================================
+TR = 0.5
+CF = 4.0/3.0
+NC = 3.0
+ 
+#===============================================================================
+# CS util
+#===============================================================================
+class CS_utils(object):
+    """ A container function for useful class methods for NLO currents ala CS."""
+
+    @classmethod
+    def get_massless_collinear_CS_variables(cls, 
+                    PS_point, parent_number, children_numbers, mapping_variables={}):
+        """ Returns the collinear splitting variables following Catani-Grazzini
+        conventions (Eq.6 of https://arxiv.org/pdf/hep-ph/9810389.pdf).
+        This is very similar to the function get_collinear_variables() of
+        phase_space_generators.ElementaryMappingCollinearFinal.get_collinear_variables"""
         
+        kin_variables = dict( ('z%d'%n,0.0) for n in children_numbers[:-1] )
+        kin_variables.update( dict( ('kt%d'%n,0.0) for n in children_numbers[:-1] ) )
+        
+        # Attempt recycling the variables from the mapping
+        for var in kin_variables:
+            try:
+                kin_variables[var] = mapping_variables[var]
+            except KeyError:
+                break
+
+        # Retrieve the parent's momentum
+        p = PS_utils.LorentzVector(PS_point[parent_number])
+        # Compute the sum of momenta
+        q = PS_utils.LorentzVector(4)
+        for i in children_numbers:
+            q += PS_utils.LorentzVector(PS_point[i])
+        # Pre-compute scalar products
+        q2 = q.square()
+        pq = p.dot(q)
+        # Compute all kinematic variables
+        for i in children_numbers[:-1]:
+            pi = PS_utils.LorentzVector(PS_point[i])
+            ppi = p.dot(pi)
+            qpi = q.dot(pi)
+            zi = 2*qpi/q2 - ppi/pq
+            kti = pi + (q2*ppi - pq*qpi)/(pq**2) * p - ppi/pq * q
+            kin_variables['z%d'%i] = zi
+            kin_variables['kt%d'%i] = kti
+        return kin_variables

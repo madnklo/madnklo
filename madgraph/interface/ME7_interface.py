@@ -1297,7 +1297,9 @@ class ME7Integrand_R(ME7Integrand):
                                                             not current['resolve_mother_spin_and_color']]
         connected_currents = [current_pair for current_pair in hike['currents'] if
                                                             current['resolve_mother_spin_and_color']]
-        
+
+        # Access the matrix element
+        ME_process, ME_PS = hike['matrix_element']
 
         # Then the above "hike" can be used to evaluate the currents first and the ME last.
         # Note that the code below can become more complicated when needing to track helicities, but let's forget this for now.
@@ -1306,7 +1308,10 @@ class ME7Integrand_R(ME7Integrand):
     
         for (current, PS_point_for_current) in disconnected_currents:
             current_evaluation, all_current_results = self.all_MEAccessors(
-                current, PS_point_for_current, hel_config=None, mapping_variables=hike['kinematic_variables'])         
+                current, PS_point_for_current, hel_config=None, 
+                reduced_process = ME_process,
+                leg_numbers_map = counterterm.momenta_dict,
+                mapping_variables=hike['kinematic_variables'])         
             # Make sure no spin- or color-correlations are demanded by the current for this kind of currents
             assert(current_evaluation['spin_correlations']==[None,])
             assert(current_evaluation['color_correlations']==[None,])
@@ -1346,7 +1351,10 @@ class ME7Integrand_R(ME7Integrand):
         # The next-to-last layer needs to be treated specifically since it must track the color- and spin-correlations        
         for (current, PS_point_for_current) in connected_currents:
             current_evaluation, all_current_results = self.all_MEAccessors(
-                current, PS_point_for_current, hel_config=None, mapping_variables=hike['kinematic_variables'])
+                current, PS_point_for_current, hel_config=None, 
+                reduced_process = ME_process,
+                leg_numbers_map = counterterm.momenta_dict,
+                mapping_variables=hike['kinematic_variables'])
             new_all_necessary_ME_calls = []
             # Now loop over all spin- and color- correlators required for this current
             # and update the necessary calls to the ME
@@ -1362,9 +1370,7 @@ class ME7Integrand_R(ME7Integrand):
             # Update the list of necessary ME calls
             all_necessary_ME_calls = new_all_necessary_ME_calls
 
-        # Finally the next layer contains the ME so it should of course be special
-        ME_process, ME_PS = hike['matrix_element']
-
+        # Finally the treat the call to the matrix element
         final_weight = 0.0        
         for (spin_correlators, color_correlators, current_weight) in all_necessary_ME_calls:
             ME_evaluation, all_ME_results = self.all_MEAccessors(

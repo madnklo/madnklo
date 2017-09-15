@@ -16,8 +16,10 @@
 
 import os
 import sys
+import math
 
 import madgraph.core.subtraction as subtraction
+import madgraph.integrator.phase_space_generators as PS_utils
 import madgraph.various.misc as misc
 
 pjoin = os.path.join
@@ -27,11 +29,17 @@ pjoin = os.path.join
 # add it here
 root_path = os.path.dirname(os.path.realpath( __file__ ))
 sys.path.insert(0, pjoin(root_path, os.path.pardir))
-import subtraction_current_implementations_utils as subtraction_utils
+import subtraction_current_implementations_utils as utils
 
-CurrentImplementationError = subtraction_utils.CurrentImplementationError
+CurrentImplementationError = utils.CurrentImplementationError
+CS_utils = utils.CS_utils
 
-class NLO_FF_QCD_collinear_qqx(subtraction_utils.VirtualCurrentImplementation):
+# Shorthands
+TR = utils.TR
+CF = utils.CF
+NC = utils.NC
+
+class NLO_FF_QCD_collinear_qqx(utils.VirtualCurrentImplementation):
     """ Implemen ts the GluonToQQbar NLO collinear current."""
 
     def __init__(self, *args, **opts):
@@ -108,7 +116,7 @@ class NLO_FF_QCD_collinear_qqx(subtraction_utils.VirtualCurrentImplementation):
             reduced_process=reduced_process, leg_numbers_map=leg_numbers_map, 
             hel_config=hel_config, mapping_variables=mapping_variables)
         
-        cache_key['another_call_specifier'] = 'set_it_here'
+        # cache_key['another_call_specifier'] = 'set_it_here'
 
         return cache_key, result_key
 
@@ -120,42 +128,61 @@ class NLO_FF_QCD_collinear_qqx(subtraction_utils.VirtualCurrentImplementation):
                                             mapping_variables = {}
                                      ):
         """ Now evalaute the current and return the corresponding instance of
-        SubtractionCurrentResult. See documentation of the mother function for more details."""
+        SubtractionCurrentResult. See documentation of the mother function for more details.
+        Implementation according to Eq.12 of https://arxiv.org/pdf/hep-ph/9810389.pdf."""
 
         if not hel_config is None:
             raise CurrentImplementationError("Subtraction current implementation "+
                             "%s does not support helicity assignment."%self.__class__.__name__) 
 
-        result = subtraction_utils.SubtractionCurrentResult()
-        
-        evaluation = subtraction_utils.SubtractionCurrentEvaluation({
-            'spin_correlations'   : [ None ],
-            'color_correlations'  : [ None ],
-            'values'              : { (0,0): { 'finite' : None,
-                                           }
-                                  }
-          }
-        )
+        if leg_numbers_map is None:
+            raise CurrentImplementationError("Subtraction current implementation "+
+                                      "%s requires the leg_number_map."%self.__class__.__name__)
 
+        result = utils.SubtractionCurrentResult()
+
+        ss = current.get('singular_structure')
+        
         # Retrieve alpha_s and mu_r
         model_param_dict = self.model.get('parameter_dict')
         alpha_s = model_param_dict['aS']
         mu_r    = model_param_dict['MU_R']
-        
+
         # Retrieve kinematic variables from the specified PS point
-        try:
-            z  = mapping_variables['z']
-            pT = mapping_variables['pT']
-        except KeyError:
-            # Otherwise recompute them
-            legs = list(current.get('singular_structure').legs)
-            pA = PS_point[legs[0].n]
-            pB = PS_point[legs[1].n]
-            # z  = func_of_pA_pB
-            # pT = another_func_of_pA_pB
+        children_numbers = tuple(leg.n for leg in ss.legs)
+        parent_number    = leg_numbers_map.inv[children_numbers]
+        
+        kin_variables = CS_utils.get_massless_collinear_CS_variables(
+                PS_point, parent_number, children_numbers, mapping_variables=mapping_variables)
+        z  = kin_variables['z%d'%ss.legs[0].n]
+        kT_vec = kin_variables['kt%d'%ss.legs[0].n]
+#        misc.sprint(z,kT_vec,kT_vec.square())
+        kT_vec = kT_vec/math.sqrt(abs(kT_vec.square()))
 
-        evaluation['values'][(0,0)]['finite'] = 1.234 # In reality, some other function of z, pT, mu_r, alpha_s
+        # Now instantiate what the result will be
+        evaluation = utils.SubtractionCurrentEvaluation({
+            'spin_correlations'   : [ None, (parent_number,(tuple(kT_vec),))],
+            'color_correlations'  : [ None ],
+            'values'              : { (0,0): { 'finite' : None },
+                                      (1,0): { 'finite' : None },
+                                  }
+          }
+        )
 
+        evaluation['values'][(0,0)]['finite'] = -TR
+        evaluation['values'][(1,0)]['finite'] = 4.0*z*(1-z)
+        
+        # Inefficient, we should add this to the kinematic variables also generated in the mapping!
+        q_sum = PS_utils.LorentzVector(4)
+        for leg in ss.legs:
+            q_sum += PS_utils.LorentzVector(PS_point[leg.n])
+        s12 = q_sum.square()
+        
+        # Now add the normalization factors
+        norm = 4.0*math.pi*alpha_s*(2.0/s12)
+        for k in evaluation['values']:
+            evaluation['values'][k]['finite'] *= norm
+        
         result.add_result(evaluation, 
                           hel_config=hel_config, 
                           squared_orders=tuple(sorted(current.get('squared_orders').items()))

@@ -1351,7 +1351,7 @@ class VirtualWalker(object):
 
         :return: a dictionary with the following entries:
         'currents', a list of all currents that need to be evaluated,
-            paired with the splitting momenta needed for their evaluation;
+            paired with the momenta needed for their evaluation;
         'matrix_element', the reduced matrix element,
             paired with its corresponding reduced phase-space point;
         'jacobian', the cumulative jacobian of all mappings that were applied;
@@ -1382,7 +1382,7 @@ class VirtualWalker(object):
 
         :return: a dictionary with the following entries:
         'currents', a list of all currents that need to be evaluated,
-            paired with the splitting momenta needed for their evaluation;
+            paired with the momenta needed for their evaluation;
         'matrix_element', the reduced matrix element,
             paired with its corresponding reduced phase-space point;
         'jacobian', the cumulative jacobian of all mappings that were applied;
@@ -1455,12 +1455,8 @@ class FlatCollinearWalker(VirtualWalker):
             parent, children = get_structure_numbers(
                 ss, counterterm.momenta_dict
             )
-            # Deep copy the splitting momenta
-            splitting_momenta = {
-                i: LorentzVector(p)
-                for (i, p) in point.items()
-                if i in children
-            }
+            # Deep copy the momenta
+            momenta = {i: LorentzVector(p) for (i, p) in point.items()}
             # Compute jacobian and map to lower multiplicity
             jacobian *= self.collinear_map.map_to_lower_multiplicity(
                 point,
@@ -1468,10 +1464,10 @@ class FlatCollinearWalker(VirtualWalker):
                 counterterm.momenta_dict,
                 variables
             )
-            # Append the current and the splitting momenta,
+            # Append the current and the momenta,
             # deep copy wanted
-            splitting_momenta[parent] = LorentzVector(point[parent])
-            current_PS_pairs.append((node.current, splitting_momenta))
+            momenta[parent] = LorentzVector(point[parent])
+            current_PS_pairs.append((node.current, momenta))
         # Identify reduced matrix element,
         # computed in the point which has received all mappings
         ME_PS_pair = [counterterm.process, point]
@@ -1523,7 +1519,7 @@ class FlatCollinearWalker(VirtualWalker):
                 ss, counterterm.momenta_dict
             )
             # Deep copy the parent momentum
-            splitting_momenta = {parent: LorentzVector(point[parent])}
+            momenta = {parent: LorentzVector(point[parent])}
             # Compute jacobian and map to higher multiplicity
             jacobian *= self.collinear_map.map_to_higher_multiplicity(
                 point,
@@ -1531,11 +1527,11 @@ class FlatCollinearWalker(VirtualWalker):
                 counterterm.momenta_dict,
                 kinematic_variables
             )
-            # Prepend pair of this current and the splitting momenta,
+            # Prepend pair of this current and the momenta,
             # deep copy wanted
-            for i in children:
-                splitting_momenta[i] = LorentzVector(point[i])
-            current_PS_pairs.insert(0, (node.current, splitting_momenta))
+            for (i, p) in point.items():
+                momenta[i] = LorentzVector(p)
+            current_PS_pairs.insert(0, (node.current, momenta))
 
         # Return
         return {

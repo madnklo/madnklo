@@ -302,7 +302,7 @@ class VirtualMEAccessor(object):
         the specified permutation and record the defining_pdgs_order (i.e. which of the mapped process
         was the user really interested in, it is one of those present in self.pdgs_combs) 
         in a dictionary that we can return to the daughter class."""
-        
+
         permuted_PS_point, permuted_opts = self.apply_permutations(permutation, PS_point=PS_point, **opts)
         if isinstance(squared_orders, dict):
             permuted_opts['squared_orders'] = tuple(sorted(squared_orders.items()))
@@ -370,10 +370,14 @@ class VirtualMEAccessor(object):
                         'hel_config': tuple(hel_config)}
             all_opts.update(opts)
             return list(PS_point), all_opts
-
-        # Apply the permutations while retaining a canonical representation for each attribute
         
-        permuted_PS_point = [PS_point[permutation[i]] for i in range(len(PS_point))] if PS_point else None
+        
+        # Apply the permutations while retaining a canonical representation for each attribute
+
+        # The permutation is how to go *from* the user-provided order to the order assumed by the underlying ME.
+        # So When performing the permutation like below, we must use the reversed_permutation.
+        reversed_permutation = dict((v,k) for (k,v) in permutation.items())
+        permuted_PS_point = [PS_point[reversed_permutation[i]] for i in range(len(PS_point))] if PS_point else None
 
         permuted_spin_correlation = tuple(sorted([ (permutation[leg_ID-1]+1, vectors) for leg_ID, vectors 
                                 in spin_correlation ], key=lambda el:el[0] )) if spin_correlation else None
@@ -1097,7 +1101,7 @@ class F2PYMEAccessor(VirtualMEAccessor):
         
     def setup_ME(self, opts):
         """ Setup some MatrixElement steering variables according to user-defined options."""
-         
+        
         if opts['spin_correlation']:
             for (legID, spin_correlation_vectors) in opts['spin_correlation']:
                 sc_vectors = [[0.0,0.0,0.0,0.0]]*self.max_spin_corr_vectors
@@ -1119,10 +1123,10 @@ class F2PYMEAccessor(VirtualMEAccessor):
         """ Actually performs the f2py call. """
 
         permutation = opts['permutation']
-        
+
         # The mother class takes care of applying the permutations for the generic options
         PS_point, opts = VirtualMEAccessor.__call__(self, PS_point, **opts)
-        
+    
         new_opts = self.check_inputs_validity(opts)
         
         this_call_key = { 'PS_point' : tuple(tuple(p) for p in PS_point), 
@@ -1602,7 +1606,7 @@ class MEAccessorDict(dict):
             # None indicates that no permutation will be necessary to apply
             return ME_accessor, {'permutation': None, 'process_pdgs': defining_pdgs_order}
         
-        # Figure out the permutations to apply *TO the user inputs* in order to get to the *order assumed in the ME*
+        # First deduce the inverse mapping, that is the mapping to apply *TO the order assumed in the ME* to the user inputs.
         permutation = {}
         # Create a look_up list from the user-provided list of PDGs, whose elements will progressively be set to zero
         # as they are being mapped
@@ -1626,6 +1630,10 @@ class MEAccessorDict(dict):
                 look_up_list[1][permutation[i+n_initial]-n_initial] = 0
             except ValueError:
                 raise MadGraph5Error("Cannot map two PDGs list: %s and %s"%(str(defining_pdgs_order[1]), str(pdgs[1])))        
+
+        # Now inverse the mapping so as to obtain the permutations to apply *TO the user inputs* in order to get 
+        # to the *order assumed in the ME*
+        permutation = dict((v,k) for (k,v) in permutation.items())
 
         # Now return the corresponding ME_accessor, along with the options to provide when calling it, aka call_key
         # Remember that defining_pdgs_order is the list of PDGs of the original ordering of the ME_accessor, with the correct flavor
@@ -1723,7 +1731,7 @@ class MEAccessorDict(dict):
             if specified_process_instance and 'spin_correlation' in call_options and call_options['spin_correlation']:    
                 call_options['spin_correlation'] = self.format_spin_correlation(specified_process_instance, 
                                                                                   call_options['spin_correlation'])
-            
+        
         return ME_accessor(*call_args, **call_options)
     
     def add_MEAccessor(self, ME_accessor):

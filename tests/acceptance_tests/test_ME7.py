@@ -79,7 +79,7 @@ class TestME7_IR_Limits(unittest.TestCase):
        
         options = {'correction_order'       : 'NLO',
                    'limit_type'             : 'collinear',
-                   'process'                : 'e+ e- > d d~ u|s u~|s~ ',
+                   'process'                : 'e+ e- > u u~ s s~ ',
                    'seed'                   : '666',
                    'n_steps'                : 10,
                    'min_scaling_variable'   : 1.0e-4,

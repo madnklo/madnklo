@@ -7158,7 +7158,7 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
 
             elif key.endswith('path'):
                 pass
-            elif key in ['nb_core', 'run_mode', 'auto_update']:
+            elif key in ['run_mode', 'auto_update']:
                 self.options[key] = int(self.options[key])
             elif key in ['cluster_type','automatic_html_opening']:
                 pass

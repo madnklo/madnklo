@@ -84,11 +84,11 @@ class TestME7_IR_Limits(unittest.TestCase):
                    'n_steps'                : 10,
                    'min_scaling_variable'   : 1.0e-4,
                    'acceptance_threshold'   : 1.0e-6,
-                   'compute_only_limit_defining_counterterm' : False,
+                   'compute_only_limit_defining_counterterm' : True,
                    }
 
-#        self.do('%s %s'%(main_cmd, ' '.join( ('--%s=%s'%(key,value) if value is not None else '--%s'%key) 
-#                                                                   for key,value in options.items())))
+        self.do('%s %s'%(main_cmd, ' '.join( ('--%s=%s'%(key,value) if value is not None else '--%s'%key) 
+                                                                   for key,value in options.items())))
         
         options = {'correction_order'       : 'NLO',
                    'limit_type'             : 'C(3,5)',
@@ -100,5 +100,5 @@ class TestME7_IR_Limits(unittest.TestCase):
                    'compute_only_limit_defining_counterterm' : True,
                    }
 
-        self.do('%s %s'%(main_cmd, ' '.join( ('--%s=%s'%(key,value) if value is not None else '--%s'%key) 
-                                                                   for key,value in options.items())))
+#        self.do('%s %s'%(main_cmd, ' '.join( ('--%s=%s'%(key,value) if value is not None else '--%s'%key) 
+#                                                                   for key,value in options.items())))

@@ -1386,10 +1386,10 @@ class ME7Integrand_R(ME7Integrand):
         # Finally the treat the call to the matrix element
         final_weight = 0.0
         for (spin_correlators, color_correlators, current_weight) in all_necessary_ME_calls:
-#            misc.sprint(ME_process.nice_string())
-#            misc.sprint(phase_space_generators.VirtualPhaseSpaceGenerator.nice_momenta_string(
-#                [ phase_space_generators.Lorentz5Vector(v) for v in
-#                   self.all_MEAccessors.format_PS_point_for_ME_call(ME_PS,ME_process)] ))
+            misc.sprint(ME_process.nice_string())
+            misc.sprint(phase_space_generators.VirtualPhaseSpaceGenerator.nice_momenta_string(
+                [ phase_space_generators.Lorentz5Vector(v) for v in
+                   self.all_MEAccessors.format_PS_point_for_ME_call(ME_PS,ME_process)] ))
             try:
                 ME_evaluation, all_ME_results = self.all_MEAccessors(
                    ME_process, ME_PS, alpha_s, mu_r,

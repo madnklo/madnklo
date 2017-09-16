@@ -107,14 +107,14 @@ $(DOTO) : $(DOTF)
 # Also remove polynomial.o since the module it contains must be rebuilt in the right directory
 $(OLP): $(OLP_PROCESS) $(LIBS)
 	$(FC) -shared $(OLP_PROCESS) -o libMadLoop.$(dylibext) $(LINKLIBS)
-	rm -f *.mod $(LOOP_PREFIX)*/polynomial.o $(LOOP_PREFIX)*/*.mod 
+	rm -f *polynomial_constants.mod $(LOOP_PREFIX)*/polynomial.o $(LOOP_PREFIX)*/*polynomial_constants.mod 
 
 # Always remove mod files as they are never placed in the right directory
 # Also remove polynomial.o since the module it contains must be rebuilt in the right directory 
 $(OLP)_static: $(OLP_PROCESS)
 	ar rcs libMadLoop.$(libext) $(OLP_PROCESS)
 	mv libMadLoop.$(libext) $(MADLOOP_LIB)
-	rm -f *.mod $(LOOP_PREFIX)*/polynomial.o $(LOOP_PREFIX)*/*.mod
+	rm -f *polynomial_constants.mod $(LOOP_PREFIX)*/polynomial.o $(LOOP_PREFIX)*/*polynomial_constants.mod
 
 ../$(OLP):
 	rm -f libMadLoop.$(dylibext)

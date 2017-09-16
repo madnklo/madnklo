@@ -978,13 +978,13 @@ class ElementaryMappingCollinearFinal(VirtualMapping):
 
         names = []
         # For every collinear subset of N particles,
-        # a set of (N-1) z's and 2-component kt's is needed
+        # a set of (N-1) za's and zb's and 2-component normalised nt's is needed
         # plus the set's virtuality
         for substructure in singular_structure.substructures:
             # Add direct legs, last one not needed because of sum rules
             parent, children = get_structure_numbers(substructure, momenta_dict)
             for legn in sorted(children)[:-1]:
-                names += ['z'+str(legn), 'kt'+str(legn), ]
+                names += ['za'+str(legn), 'zb'+str(legn), 'nt'+str(legn), ]
             # Add virtuality of this subset
             names += ['s'+str(parent), ]
 
@@ -1008,15 +1008,19 @@ class ElementaryMappingCollinearFinal(VirtualMapping):
         # Pre-compute scalar products
         q2 = q.square()
         pq = p.dot(q)
+        sqrtq2 = math.sqrt(q2)
+        na = (sqrtq2/pq) * p
+        nb = (2./sqrtq2) * q - na
         # Compute all kinematic variables
         for i in children[:-1]:
             pi = PS_point[i]
-            ppi = p.dot(pi)
-            qpi = q.dot(pi)
-            zi = 2*qpi/q2 - ppi/pq
-            kti = pi + (q2*ppi - pq*qpi)/(pq**2) * p - ppi/pq * q
-            variables['z' + str(i)] = zi
-            variables['kt' + str(i)] = kti
+            napi = na.dot(pi)
+            nbpi = nb.dot(pi)
+            variables['za' + str(i)] = nbpi/nb.dot(q)
+            variables['zb' + str(i)] = napi/na.dot(q)
+            kti = pi - 0.5*(nbpi*na+napi*nb)
+            nti = kti / math.sqrt(napi*nbpi)
+            variables['nt' + str(i)] = nti
         return
 
     def set_collinear_variables(self, PS_point, parent, children,
@@ -1037,14 +1041,19 @@ class ElementaryMappingCollinearFinal(VirtualMapping):
         # Pre-compute scalar products
         q2 = q.square()
         pq = p.dot(q)
+        sqrtq2 = math.sqrt(q2)
+        na = (sqrtq2/pq) * p
+        nb = (2./sqrtq2) * q - na
         # Variables for sums
         p_sum = LorentzVector(4)
         # Set momenta for all children but the last
         for i in children[:-1]:
-            zi = variables['z' + str(i)]
-            kti = variables['kt' + str(i)]
-            kti2 = kti.square()
-            PS_point[i] = kti + (zi*zi*q2+kti2)/(2*zi*pq) * p - kti2/(zi*q2) * q
+            zai = variables['za' + str(i)]
+            zbi = variables['zb' + str(i)]
+            nti = variables['nt' + str(i)]
+            nbpi = zai*nb.dot(q)
+            napi = zbi*na.dot(q)
+            PS_point[i] = nti*math.sqrt(napi*nbpi) + 0.5*(napi*nb+nbpi*na)
             p_sum += PS_point[i]
         # Set momentum of the last child
         PS_point[children[-1]] = q - p_sum
@@ -1548,9 +1557,7 @@ class FlatCollinearWalker(VirtualWalker):
 
         new_kinematic_variables = {}
         for var, value in kinematic_variables.items():
-            if var.startswith('kt'):
-                new_kinematic_variables[var] = value*scaling_parameter
-            elif var.startswith('s'):
+            if var.startswith('s'):
                 new_kinematic_variables[var] = value*scaling_parameter**2
             else:
                 new_kinematic_variables[var] = value

@@ -155,8 +155,10 @@ class CollinearVariablesTest(unittest.TestCase):
     def setUp(self):
         pass
 
-    def test_variables(self):
-        """Test determination of collinear variables and reverse mapping."""
+    def test_variables_away_from_limit(self):
+        """Test determination of collinear variables and reverse mapping,
+        for completely generic input values.
+        """
 
         # Generate n_children+1 random massless vectors
         # (the light-cone direction is also random)
@@ -186,6 +188,57 @@ class CollinearVariablesTest(unittest.TestCase):
         for i in range(self.n_children):
             for j in range(4):
                 self.assertAlmostEqual(my_PS_point[i][j], new_PS_point[i][j])
+
+
+    def test_variables_close_to_limit(self):
+        """Test determination of collinear variables and reverse mapping
+        in a typical collinear situation.
+        """
+
+        # Generate n_children random starting directions
+        directions = {
+            i: PS.Vector([random.random() for _ in range(3)])
+            for i in range(self.n_children)
+        }
+        coll_direction = PS.Vector(3, 0.)
+        for n in directions.values():
+            coll_direction += n
+        # Generate values for the parameter that describes approach to limit
+        pars = (math.pow(0.25, i) for i in range(10))
+        # This is one way like any other to approach the limit
+        for par in pars:
+            new_directions = {
+                i: (par*n + (1-par)*coll_direction)
+                for (i, n) in directions.items()
+            }
+            my_PS_point = {
+                i: PS.LorentzVector([math.sqrt(n.square()),] + list(n))
+                for (i, n) in new_directions.items()
+            }
+            my_PS_point[self.n_children] = PS.LorentzVector(
+                [math.sqrt(n.square()), ] + list(n)
+            )
+            # print "Phase space point", my_PS_point
+            # Compute collinear variables
+            variables = dict()
+            self.my_mapping.get_collinear_variables(
+                my_PS_point, self.n_children, range(self.n_children),
+                variables
+            )
+            # Compute total momentum
+            total_momentum = PS.LorentzVector(4, 0.)
+            for i in range(self.n_children):
+                total_momentum += my_PS_point[i]
+            # Compute new phase space point
+            new_PS_point = dict()
+            new_PS_point[self.n_children] = my_PS_point[self.n_children]
+            self.my_mapping.set_collinear_variables(
+                new_PS_point, self.n_children, range(self.n_children),
+                total_momentum, variables
+            )
+            for i in range(self.n_children):
+                for j in range(4):
+                    self.assertAlmostEqual(my_PS_point[i][j], new_PS_point[i][j])
 
 class CataniSeymourFFOneTest(unittest.TestCase):
     """Test class for MappingCataniSeymourFFOne."""

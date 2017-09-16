@@ -175,11 +175,10 @@ class NLO_FF_QCD_collinear_qqx(utils.VirtualCurrentImplementation):
         
         kin_variables = CS_utils.get_massless_collinear_CS_variables(
                 PS_point, parent_number, children_numbers, mapping_variables=mapping_variables)
-        z       = kin_variables['z%d'%ss.legs[0].n]
-        kT_vec  = kin_variables['kt%d'%ss.legs[0].n]
+        z       = kin_variables['za%d'%ss.legs[0].n]
+        kT_vec  = kin_variables['nt%d'%ss.legs[0].n]
         s12     = kin_variables['s%d'%parent_number]
 #        misc.sprint(z,kT_vec,kT_vec.square())
-        kT_vec = kT_vec/math.sqrt(abs(kT_vec.square()))
 
         # Now instantiate what the result will be
         evaluation = utils.SubtractionCurrentEvaluation({
@@ -308,7 +307,7 @@ class NLO_FF_QCD_collinear_gq(utils.VirtualCurrentImplementation):
         
         kin_variables = CS_utils.get_massless_collinear_CS_variables(
                 PS_point, parent_number, children_numbers, mapping_variables=mapping_variables)
-        z       = kin_variables['z%d'%ss.legs[0].n]
+        z       = kin_variables['za%d'%ss.legs[0].n]
         s12     = kin_variables['s%d'%parent_number]
 
         # Now instantiate what the result will be

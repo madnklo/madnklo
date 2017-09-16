@@ -364,8 +364,9 @@ class CS_utils(object):
         This is very similar to the function get_collinear_variables() of
         phase_space_generators.ElementaryMappingCollinearFinal.get_collinear_variables"""
         
-        kin_variables = dict( ('z%d'%n,0.0) for n in children_numbers[:-1] )
-        kin_variables.update( dict( ('kt%d'%n,0.0) for n in children_numbers[:-1] ) )
+        kin_variables = dict( ('za%d'%n,0.0) for n in children_numbers[:-1] )
+        kin_variables.update( dict( ('zb%d'%n,0.0) for n in children_numbers[:-1] ) )
+        kin_variables.update( dict( ('nt%d'%n,0.0) for n in children_numbers[:-1] ) )
         kin_variables['s%d'%parent_number] = 0.0
         
         # Attempt recycling the variables from the mapping

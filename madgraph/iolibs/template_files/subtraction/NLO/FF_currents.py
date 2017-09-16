@@ -321,13 +321,18 @@ class NLO_FF_QCD_collinear_gq(utils.VirtualCurrentImplementation):
         
         if ss.legs[0].pdg == 21:
             # z is the energy fraction of the gluon, therefore use P_{gq}
-            evaluation['values'][(0,0)]['finite'] = self.CF * ( (1+(1-z**2))/z )
+            kernel = (1+(1-z)**2)/z
         else:
             # z is the energy fraction of the quark, therefore use P_{qg}
-            evaluation['values'][(0,0)]['finite'] = self.CF * ( (1+z**2)/(1-z) )
-                
+            kernel = (1+z**2)/(1-z)
+        
+        # We need to divide by a factor 2 here, so far of unknown origin.
+        kernel /= 2
+
+        evaluation['values'][(0,0)]['finite'] = kernel
+            
         # Now add the normalization factors
-        norm = 4.0*math.pi*alpha_s*(2.0/s12)
+        norm = 4.0*math.pi*alpha_s*(2.0/s12) * self.CF
         for k in evaluation['values']:
             evaluation['values'][k]['finite'] *= norm
         
@@ -407,4 +412,31 @@ class NLO_FF_QCD_soft_gluon(utils.VirtualCurrentImplementation):
         """ Evaluates this current and return the corresponding instance of
         SubtractionCurrentResult. See documentation of the mother function for more details."""
         
+        if not hel_config is None:
+            raise CurrentImplementationError("Subtraction current implementation "+
+                            "%s does not support helicity assignment."%self.__class__.__name__) 
+
+        if leg_numbers_map is None:
+            raise CurrentImplementationError("Subtraction current implementation "+
+                                      "%s requires the leg_number_map."%self.__class__.__name__)
         
+        if reduced_process is None:
+            raise CurrentImplementationError("Subtraction current implementation "+
+                                      "%s requires a reduced_process."%self.__class__.__name__)
+        
+        result = utils.SubtractionCurrentResult()
+
+        # Now instantiate what the result will be
+        evaluation = utils.SubtractionCurrentEvaluation({
+            'spin_correlations'   : [ None ],
+            'color_correlations'  : [ None ],
+            'values'              : { (0,0): { 'finite' : None } }
+          }
+        )
+        
+        result.add_result(evaluation, 
+                          hel_config=hel_config, 
+                          squared_orders=tuple(sorted(current.get('squared_orders').items()))
+                         )
+ 
+        return result

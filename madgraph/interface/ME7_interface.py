@@ -284,7 +284,13 @@ class ParseCmdArguments(object):
                 except ValueError:
                     raise InvalidCmd("'%s' is not a valid integer for option '%s'"%(value, key))
             elif key == '--compute_only_limit_defining_counterterm':
-                testlimits_options[key[2:]] = True
+                if value is None:
+                    testlimits_options[key[2:]] = True
+                else:
+                    try:
+                        testlimits_options[key[2:]] = bool(eval(value))
+                    except:
+                        raise InvalidCmd("'%s' is not a valid float for option '%s'"%(value, key))                        
             elif key in ['--min_scaling_variable', '--acceptance_threshold']:
                 try:
                     testlimits_options[key[2:]] = float(value)                  
@@ -1366,7 +1372,6 @@ class ME7Integrand_R(ME7Integrand):
             # Now loop over all spin- and color- correlators required for this current
             # and update the necessary calls to the ME
             new_all_necessary_ME_calls = []
-#            misc.sprint('current_weight',current_evaluation['values'][(0,0)]['finite'])
             for ((spin_index, color_index), current_wgt) in current_evaluation['values'].items():
                 # Now combine the correlators necessary for this current, with those already
                 # specified in 'all_necessary_ME_calls'
@@ -1381,6 +1386,10 @@ class ME7Integrand_R(ME7Integrand):
         # Finally the treat the call to the matrix element
         final_weight = 0.0
         for (spin_correlators, color_correlators, current_weight) in all_necessary_ME_calls:
+#            misc.sprint(ME_process.nice_string())
+#            misc.sprint(phase_space_generators.VirtualPhaseSpaceGenerator.nice_momenta_string(
+#                [ phase_space_generators.Lorentz5Vector(v) for v in
+#                   self.all_MEAccessors.format_PS_point_for_ME_call(ME_PS,ME_process)] ))
             try:
                 ME_evaluation, all_ME_results = self.all_MEAccessors(
                    ME_process, ME_PS, alpha_s, mu_r,
@@ -1401,6 +1410,7 @@ Also make sure that there is no coupling order specification which receives corr
                 raise e
             # Again, for the integrated subtraction counterterms, some care will be needed here
             # for the real-virtual, depending on how we want to combine the two Laurent series.
+#            misc.sprint(current_weight,ME_evaluation['finite'])
             final_weight += current_weight*ME_evaluation['finite']
 
         # Returns the corresponding weight and the mapped PS_point.
@@ -1455,10 +1465,10 @@ Also make sure that there is no coupling order specification which receives corr
             return found_it                
     
         for process in process_list:
-            
+
             if not pdg_list_match(process.get_initial_ids(), selection['in_pdgs']):
                 continue
-            
+
             if not pdg_list_match(process.get_final_ids_after_decay(), selection['out_pdgs']):
                 continue
             

@@ -928,7 +928,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
         if __debug__: logger.debug( "Processing flavor-blind cuts for process %s and PS point:\n%s"%(
                         str(process_pdgs), self.phase_space_generator.nice_momenta_string(
-                            PS_point, recompute_mass=True, n_initial=self.phase_space_generator.n_initial) ))
+                            PS_point, n_initial=self.phase_space_generator.n_initial) ))
 
         pt_cut = self.run_card['ptj']
         dr_cut = self.run_card['drjj']
@@ -964,7 +964,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
         if __debug__: logger.debug( "Processing flavor-sensitive cuts for flavors %s and PS point:\n%s"%(
                         str(flavors), self.phase_space_generator.nice_momenta_string(
-                            PS_point, recompute_mass=True, n_initial=self.phase_space_generator.n_initial) ))
+                            PS_point, n_initial=self.phase_space_generator.n_initial) ))
 
         # None implemented yet
         return True
@@ -1041,7 +1041,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         self.phase_space_generator.boost_to_COM_frame(PS_point, xb_1, xb_2)
                 
         if __debug__: logger.debug("Considering the following PS point:\n%s"%(self.phase_space_generator.nice_momenta_string(
-                            PS_point, recompute_mass=True, n_initial=self.phase_space_generator.n_initial) ))
+                            PS_point, n_initial=self.phase_space_generator.n_initial) ))
         
         # Account for PS weight
         wgt *= PS_weight
@@ -1190,7 +1190,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         #misc.sprint(process.nice_string())
         #misc.sprint(' Flavors: ',flavors)
         #misc.sprint('PS point:\n', self.phase_space_generator.nice_momenta_string(
-        #            PS_point, recompute_mass=True, n_initial=self.phase_space_generator.n_initial))
+        #            PS_point, n_initial=self.phase_space_generator.n_initial))
         #misc.sprint('Results pertaining to the specified options:\n'+str(ME_evaluation))
         #misc.sprint('All results generated along with this ME call:\n'+str(all_results))
         ## One can read the details of the format for each of these options in
@@ -1256,7 +1256,7 @@ class ME7Integrand_V(ME7Integrand):
         misc.sprint(process.nice_string())
         misc.sprint(' Flavors: ',flavors)
         misc.sprint('PS point:\n', self.phase_space_generator.nice_momenta_string(
-                    PS_point, recompute_mass=True, n_initial=self.phase_space_generator.n_initial))
+                    PS_point, n_initial=self.phase_space_generator.n_initial))
         misc.sprint('Results pertaining to the specified options:\n'+str(ME_evaluation))
         misc.sprint('All results generated along with this ME call:\n'+str(all_results))
         

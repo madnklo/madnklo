@@ -54,14 +54,12 @@ class PhaseSpaceGeneratorError(Exception):
 
 class Vector(array.array):
 
-    def __new__(cls, arg1, arg2 = 0):
+    def __new__(cls, arg1, arg2 = 0, **opts):
 
         if isinstance(arg1, int):
-            return super(Vector, cls).__new__(cls, 'd', (arg2, ) * arg1)
-        elif isinstance(arg1, Lorentz5Vector):
-            return super(Vector, cls).__new__(cls, 'd', tuple(arg1[:4]))            
+            return super(Vector, cls).__new__(cls, 'd', (arg2, ) * arg1, **opts)           
         assert len(arg1) > 0
-        return super(Vector, cls).__new__(cls, 'd', arg1)
+        return super(Vector, cls).__new__(cls, 'd', arg1, **opts)
 
     def __iadd__(self, y):
 
@@ -160,10 +158,17 @@ class Vector(array.array):
 class LorentzVector(Vector):
 
     TINY = 100*sys.float_info.epsilon
-
-    def __new__(cls, *args):
-
-        return super(LorentzVector, cls).__new__(cls, *args)
+    _MAX_OUTPUT = 1.0e8
+    
+    def __init__(self, *args, **opts):
+        if len(args)==0:
+            args = [ [0., 0., 0., 0.] ]
+        super(LorentzVector,self).__init__(*args, **opts)
+    
+    def __new__(cls, *args, **opts):
+        if len(args)==0:
+            return super(LorentzVector, cls).__new__(cls, [0.,0.,0.,0.], **opts)
+        return super(LorentzVector, cls).__new__(cls, *args, **opts)
 
     def dot(self, v):
 
@@ -174,46 +179,8 @@ class LorentzVector(Vector):
             return 0
         return pos - neg
 
-#===============================================================================
-# Kinematic functions
-#===============================================================================
-
-def Kaellen(*args):
-
-    l = len(args)
-    foo = 0.
-    for i in range(l):
-        foo += args[i]**2
-        for j in range(i+1, l):
-            foo -= 2*args[i]*args[j]
-    return foo
-
-#===============================================================================
-# Lorentz5Vector
-#===============================================================================
-class Lorentz5Vector(list):
-    """ A convenient class to manipulate Lorentz 4-vectors while keeping
-    track of their mass component.
-    Format used: (E, p_x, p_y, p_z, mass)
-    """
-
-    _TINY = 1.0e-5
-    _MAX_OUTPUT = 1.0e8
-
-    def __init__(self, *args, **opts):
-        super(Lorentz5Vector,self).__init__(*args, **opts)
-        
-        if len(self)==0:
-            self.extend([0., 0., 0., 0., 0.])
-        if len(self)==4:
-            M2 = self[0] ** 2 - self.rho2()
-            if M2 >= 0:
-                self.append(math.sqrt(M2))
-            else:
-                self.append(0)
-    
-    def rescaleEnergy(self):
-        self[0]=math.sqrt(self[1]**2+self[2]**2+self[3]**2+self[4]**2)
+    def rescaleEnergy(self, mass):
+        self[0]=math.sqrt(self[1]**2+self[2]**2+self[3]**2+mass**2)
 
     def rho2(self):
         """ Radius squared."""
@@ -265,7 +232,7 @@ class Lorentz5Vector(list):
             else:
                 raise PhaseSpaceGeneratorError(
                     "Attempting to compute a boost from a reference vector with zero energy.") 
-        if self[4] < 0.:
+        if self.getMass() < 0.:
             raise PhaseSpaceGeneratorError(
                     "Attempting to compute a boost from a reference vector with negative mass.") 
 
@@ -274,11 +241,8 @@ class Lorentz5Vector(list):
     def calculateMass(self):
         return math.sqrt(self[0]**2-self.rho2())
 
-    def setMass(self, mass):
-        self[4] = mass
-
     def getMass(self):
-        return self[4]
+        return self.calculateMass()
 
     def cosTheta(self):
         ptot = self.rho()
@@ -306,48 +270,19 @@ class Lorentz5Vector(list):
         self[3] = self[3] + gamma2*bp*bz + gamma*bz*self[0]
         self[0] = gamma*(self[0] + bp)
 
-    def __add__(self, y):
-        """Sum with a 4(or 5)-dimentional vector."""
+#===============================================================================
+# Kinematic functions
+#===============================================================================
 
-        newvector = Lorentz5Vector()
-        newvector[0] = self[0] + y[0]
-        newvector[1] = self[1] + y[1]
-        newvector[2] = self[2] + y[2]
-        newvector[3] = self[3] + y[3]
-        return newvector
+def Kaellen(*args):
 
-    def __sub__(self, y):
-        """Difference with a 4(or 5)-dimentional vector."""
-        newvector = Lorentz5Vector()
-        newvector[0] = self[0] - y[0]
-        newvector[1] = self[1] - y[1]
-        newvector[2] = self[2] - y[2]
-        newvector[3] = self[3] - y[3]
-        return newvector 
-
-    def __imul__(self, x):
-        """Multiplication by components, in place."""
-
-        for component in self:
-            component *= x
-        return self
-
-    def __mul__(self, x):
-        """Multiplication by a components."""
-
-        tmp = Lorentz5Vector(self)
-        tmp *= x
-        return tmp
-
-    def dot(self, y):
-        """Scalar product between two vectors."""
-
-        return self[0] * y[0] - self[1] * y[1] - self[2] * y[2] - self[3] * y[3]
-
-    def square(self):
-        """Square of a Lorentz vector."""
-
-        return self[0]**2 - self.rho2()
+    l = len(args)
+    foo = 0.
+    for i in range(l):
+        foo += args[i]**2
+        for j in range(i+1, l):
+            foo -= 2*args[i]*args[j]
+    return foo
 
 #===============================================================================
 # Phase space generation
@@ -387,7 +322,6 @@ class VirtualPhaseSpaceGenerator(object):
         if self.n_initial != 2 and (xb_1!=1. or xb_2!=1.):
             ref_lab = PS_point[0]*xb_1 + PS_point[1]*xb_2
             if ref_lab.rho2() != 0.:
-                ref_lab.setMass(ref_lab.calculateMass())
                 for p in PS_point:
                     p.boost(ref_lab.boostVector())
 
@@ -418,8 +352,12 @@ class VirtualPhaseSpaceGenerator(object):
         return dims
 
     @classmethod
-    def nice_momenta_string(cls, momenta,recompute_mass=False, n_initial=2):
+    def nice_momenta_string(cls, momenta, n_initial=2):
         """ Nice printout of the momenta."""
+        
+        # Make sure to cast the argument into a dictionary
+        if isinstance(momenta,list):
+            momenta = dict((i+1,mom) for i,mom in enumerate(momenta))
 
         # Use padding for minus signs
         def special_float_format(float):
@@ -431,19 +369,18 @@ class VirtualPhaseSpaceGenerator(object):
 
         out_lines = [template%('#', ' E', ' p_x',' p_y', ' p_z', ' M',)]
         out_lines.append(line)
-        running_sum = Lorentz5Vector()
-        for i, m in enumerate(momenta):
-            mom = Lorentz5Vector(m)
+        running_sum = LorentzVector()
+        for i in sorted(momenta.keys()):
+            mom = LorentzVector(momenta[i])
             if i < n_initial:
                 running_sum = running_sum + mom
             else:
                 running_sum = running_sum - mom
-            out_lines.append(template%tuple(['%d'%(i+1)]+
-               [special_float_format(el) for el in mom[:4]+
-               ([math.sqrt(abs(mom[0]**2-mom.rho2()))] if recompute_mass else [mom[4]]) ]))
+            out_lines.append(template%tuple(['%d'%i]+
+               [special_float_format(el) for el in (list(mom)+[mom.getMass()]) ]))
         out_lines.append(line)
         out_lines.append(template%tuple(['Sum']+
-               [special_float_format(el) for el in running_sum[:4]]+['']))
+               [special_float_format(el) for el in running_sum]+['']))
 
         return '\n'.join(out_lines)
 
@@ -567,11 +504,11 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
                     "Phase-space of massive 2-particle collision not implemented yet (trivial though).")
 
         if self.n_initial == 1:
-            output_momenta[0] = Lorentz5Vector([self.initial_masses[0] , 0., 0., 0., self.initial_masses[0]])
+            output_momenta[0] = LorentzVector([self.initial_masses[0] , 0., 0., 0.])
             return
 
-        output_momenta[0] = Lorentz5Vector([E_cm/2.0 , 0., 0., E_cm/2.0, 0.])
-        output_momenta[1] = Lorentz5Vector([E_cm/2.0 , 0., 0., -E_cm/2.0, 0.])
+        output_momenta[0] = LorentzVector([E_cm/2.0 , 0., 0., E_cm/2.0])
+        output_momenta[1] = LorentzVector([E_cm/2.0 , 0., 0., -E_cm/2.0])
         return
 
     def get_PS_point(self, random_variables):
@@ -683,9 +620,9 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
                 raise InvalidCmd("1 > 1 phase-space generation not supported.")
             if self.masses[0]/E_cm < 1.e-7 or ((E_cm-self.masses[0])/self.masses[0]) > 1.e-7:
                 raise PhaseSpaceGeneratorError("1 > 2 phase-space generation needs a final state mass equal to E_c.o.m.")
-            output_momenta.append(Lorentz5Vector([self.masses[0]/2.,0.,0.,self.masses[0]/2.,0.]))
-            output_momenta.append(Lorentz5Vector([self.masses[0]/2.,0.,0.,-self.masses[0]/2.,0.]))
-            output_momenta.append(Lorentz5Vector([self.masses[0]   ,0.,0.,0.,self.masses[0]]))
+            output_momenta.append(LorentzVector([self.masses[0]/2.,0.,0.,self.masses[0]/2.]))
+            output_momenta.append(LorentzVector([self.masses[0]/2.,0.,0.,-self.masses[0]/2.]))
+            output_momenta.append(LorentzVector([self.masses[0]   ,0.,0.,0.]))
             weight = self.get_flatWeights(E_cm,1)
             return output_momenta, weight
   
@@ -695,13 +632,13 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
         weight *= self.generateIntermediatesMassive(M, E_cm, random_variables)
         M.append(self.masses[-1])
 
-        Q     = Lorentz5Vector([M[0],0.,0.,0.,M[0]])
-        nextQ = Lorentz5Vector()
+        Q     = LorentzVector([M[0],0.,0.,0.])
+        nextQ = LorentzVector()
 
         for i in range(self.n_initial+self.n_final-1):
             
             if i < self.n_initial:
-                output_momenta.append(Lorentz5Vector())
+                output_momenta.append(LorentzVector())
                 continue
 
             q = 4.*M[i-self.n_initial]*\
@@ -715,19 +652,16 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
             if (phi > math.pi):
                 sin_phi = -sin_phi; 
             
-            p = Lorentz5Vector([0.,
-                                q*cos_phi*sin_theta, 
-                                q*sin_phi*sin_theta,
-                                q*cos_theta,
-                                self.masses[i-self.n_initial]])
-            p.rescaleEnergy()
+            p = LorentzVector([0.,q*cos_phi*sin_theta, 
+                                 q*sin_phi*sin_theta,
+                                 q*cos_theta])
+            p.rescaleEnergy(self.masses[i-self.n_initial])
             p.boost(Q.boostVector())
-            p.rescaleEnergy()
+            p.rescaleEnergy(self.masses[i-self.n_initial])
             output_momenta.append(p)
 
             nextQ = Q - p
-            nextQ.setMass(M[i-self.n_initial+1])
-            nextQ.rescaleEnergy()
+            nextQ.rescaleEnergy(M[i-self.n_initial+1])
 
             Q = nextQ
        
@@ -775,7 +709,7 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
 
         # Make sure the right number of momenta are passed
         assert (len(momenta) == (self.n_initial + self.n_final) )
-        moms = [Lorentz5Vector(mom) for mom in momenta]
+        moms = [LorentzVector(mom) for mom in momenta]
 
         # The weight of the corresponding PS point
         weight = 1.
@@ -791,8 +725,8 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
         M    = [ 0. ]*(self.n_final-1)
         M[0] = E_cm
 
-        Q     = [Lorentz5Vector()]*(self.n_final-1)
-        Q[0]  = Lorentz5Vector([M[0],0.,0.,0.,M[0]])
+        Q     = [LorentzVector()]*(self.n_final-1)
+        Q[0]  = LorentzVector([M[0],0.,0.,0.])
 
         for i in range(2,self.n_final):
             for k in range(i, self.n_final+1):
@@ -802,7 +736,7 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
         weight = self.invertIntermediatesMassive(M, E_cm, random_variables)
 
         for i in range(self.n_initial,self.n_final+1):
-            p = Lorentz5Vector(moms[i])
+            p = LorentzVector(moms[i])
             # Take the opposite boost vector
             boost_vec = tuple([-_ for _ in Q[i-self.n_initial].boostVector()])
             p.boost(boost_vec)
@@ -1265,7 +1199,7 @@ class MappingCataniSeymourFFMany(ElementaryMappingCollinearFinal):
         Q2 = Q.square()
         # Prepare containers
         n_clusters = len(singular_structure.substructures)
-        p_C = [Lorentz5Vector(), ] * n_clusters
+        p_C = [LorentzVector(), ] * n_clusters
         alpha_C = [0., ] * n_clusters
         # For every cluster of collinear particles
         for i in range(n_clusters):
@@ -1605,7 +1539,7 @@ if __name__ == '__main__':
 
     print "\nRandom variables :\n",random_variables
     print "\n%s\n"%my_PS_generator.nice_momenta_string(
-                        momenta, recompute_mass=True, n_initial=my_PS_generator.n_initial)
+                        momenta, n_initial=my_PS_generator.n_initial)
     print "Phase-space weight : %.16e\n"%wgt,
 
     variables_reconstructed, wgt_reconstructed = \

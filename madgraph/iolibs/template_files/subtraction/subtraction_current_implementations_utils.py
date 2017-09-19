@@ -341,16 +341,15 @@ class DefaultCurrentImplementation(VirtualCurrentImplementation):
         subtraction_current_result = SubtractionCurrentResult()
         
         subtraction_current_eval = SubtractionCurrentEvaluation({
-                'spin_correlations'   : [1],
-                'color_correlations'  : [1],
-                'values'              : {(0,0): {'finite' : '0.0',
-                                                 'eps^-1' : '0.0',
-                                                 'eps^-2' : '0.0'}}
+                'spin_correlations'   : [ None ],
+                'color_correlations'  : [ None ],
+                'values'              : {(0,0): {'finite' : 0.0 }}
             })
         
-        subtraction_current_result.add_result(subtraction_current_eval, 
-                                              hel_config=hel_config, 
-                                              squared_orders=current.get('squared_orders'))
+        subtraction_current_result.add_result(
+                subtraction_current_eval, 
+                hel_config=hel_config, 
+                squared_orders=tuple(sorted(current.get('squared_orders').items())) )
         
         return subtraction_current_result  
 

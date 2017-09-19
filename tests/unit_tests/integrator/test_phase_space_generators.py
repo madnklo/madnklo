@@ -40,26 +40,26 @@ class VectorsTest(unittest.TestCase):
 
         # Component-wise addition and subtraction
         v1 = PS.Vector([1., 0., 2., 3.])
-        v2 = PS.Vector(4, 0.5)
+        v2 = PS.Vector(4*[0.5, ])
         self.assertEqual(v1 + v2, PS.Vector([1.5, 0.5, 2.5, 3.5]))
-        v3 = PS.Vector([1., 2., 0.5])
-        self.assertEqual(v1 - v3, PS.Vector([0., -2., 1.5, 3.]))
-        v3 += PS.Vector([1., 0.])
-        self.assertEqual(v3, PS.Vector([2., 2., 0.5]))
-        v3 -= PS.Vector([0.5, 1.5])
-        self.assertEqual(v3, PS.Vector([1.5, 0.5, 0.5]))
+        v3 = PS.Vector([1., 2., 0.5, -1.])
+        self.assertEqual(v1 - v3, PS.Vector([0., -2., 1.5, 4.]))
+        v3 += PS.Vector([1., 0., 0., 0.])
+        self.assertEqual(v3, PS.Vector([2., 2., 0.5, -1.]))
+        v3 -= PS.Vector([0.5, 1.5, 0., 0.])
+        self.assertEqual(v3, PS.Vector([1.5, 0.5, 0.5, -1.]))
 
         # Multiplication and division by scalars
-        self.assertEqual(v2 * 2., PS.Vector(4, 1.))
+        self.assertEqual(v2 * 2., PS.Vector(4*[1., ]))
         self.assertEqual(v1 / 4., PS.Vector([0.25, 0., 0.5, 0.75]))
         v3 *= 3
-        self.assertEqual(v3, PS.Vector([4.5, 1.5, 1.5]))
+        self.assertEqual(v3, PS.Vector([4.5, 1.5, 1.5, -3.]))
         v3 /= 1.5
-        self.assertEqual(v3, PS.Vector([3., 1., 1.]))
+        self.assertEqual(v3, PS.Vector([3., 1., 1., -2.]))
         self.assertEqual(3 * v1, v1 * 3)
 
         # Negative
-        self.assertEqual(-v3, PS.Vector([-3., -1., -1.]))
+        self.assertEqual(-v3, PS.Vector([-3., -1., -1., 2.]))
 
     def test_Vector_Euclid(self):
         """Test scalar products and related functions for the class Vector."""
@@ -77,7 +77,7 @@ class VectorsTest(unittest.TestCase):
         w = PS.Vector([random.random() for _ in range(3)])
         v3p = v3.project_onto(w)
         v3t = v3.component_orthogonal_to(w)
-        self.assertAlmostEqual(v3, v3p + v3t)
+        self.assertEqual(v3, v3p + v3t)
         self.assertAlmostEqual(PS.Vector.dot(v3t, w), 0.)
         self.assertAlmostEqual(abs(v3p+w), abs(v3p)+abs(w))
 
@@ -175,7 +175,7 @@ class CollinearVariablesTest(unittest.TestCase):
             variables
         )
         # Compute total momentum
-        total_momentum = PS.LorentzVector(4, 0.)
+        total_momentum = PS.LorentzVector(4*[0., ])
         for i in range(self.n_children):
             total_momentum += my_PS_point[i]
         # Compute new phase space point
@@ -200,7 +200,7 @@ class CollinearVariablesTest(unittest.TestCase):
             i: PS.Vector([random.random() for _ in range(3)])
             for i in range(self.n_children)
         }
-        coll_direction = PS.Vector(3, 0.)
+        coll_direction = PS.Vector(3*[0., ])
         for n in directions.values():
             coll_direction += n
         # Generate values for the parameter that describes approach to limit
@@ -226,7 +226,7 @@ class CollinearVariablesTest(unittest.TestCase):
                 variables
             )
             # Compute total momentum
-            total_momentum = PS.LorentzVector(4, 0.)
+            total_momentum = PS.LorentzVector(4*[0., ])
             for i in range(self.n_children):
                 total_momentum += my_PS_point[i]
             # Compute new phase space point

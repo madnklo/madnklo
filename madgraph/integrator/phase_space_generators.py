@@ -21,7 +21,7 @@ if __name__ == '__main__':
 
 import logging
 import math
-import array
+import numpy
 
 try:
     import madgraph
@@ -52,67 +52,37 @@ class PhaseSpaceGeneratorError(Exception):
 # Vector
 #===============================================================================
 
-class Vector(array.array):
+class Vector(numpy.ndarray):
 
-    def __new__(cls, arg1, arg2 = 0, **opts):
+    def __new__(cls, *args, **opts):
 
-        if isinstance(arg1, int):
-            return super(Vector, cls).__new__(cls, 'd', (arg2, ) * arg1, **opts)           
-        assert len(arg1) > 0
-        return super(Vector, cls).__new__(cls, 'd', arg1, **opts)
+        foo = numpy.asanyarray(*args, **opts).view(cls)
+        return foo
 
-    def __iadd__(self, y):
+    def eps(self):
 
-        for i in range(min(len(self), len(y))):
-            self[i] += y[i]
-        return self
+        if numpy.issubdtype(self.dtype, numpy.inexact):
+            return 100.*numpy.finfo(self.dtype).eps
+        else:
+            return 0
 
-    def __add__(self, y):
+    def huge(self):
 
-        new_vector = type(self)(self)
-        new_vector += y
-        return new_vector
+        if numpy.issubdtype(self.dtype, numpy.inexact):
+            return numpy.finfo(self.dtype).max
+        elif numpy.issubdtype(self.dtype, numpy.integer):
+            return numpy.iinfo(self.dtype).max
+        else:
+            raise ValueError
 
-    def __isub__(self, y):
+    def __eq__(self, other):
 
-        for i in range(min(len(self), len(y))):
-            self[i] -= y[i]
-        return self
+        eps = max(self.eps(), other.eps())
+        return numpy.allclose(self, other, eps, 0.)
 
-    def __sub__(self, y):
+    def __ne__(self, other):
 
-        new_vector = type(self)(self)
-        new_vector -= y
-        return new_vector
-
-    def __imul__(self, x):
-
-        for i in range(len(self)):
-            self[i] *= x
-        return self
-
-    def __mul__(self, x):
-
-        tmp = type(self)(self)
-        tmp *= x
-        return tmp
-
-    __rmul__ = __mul__
-
-    def __idiv__(self, x):
-
-        self.__imul__(1./x)
-        return self
-
-    def __div__(self, x):
-
-        return self * (1./x)
-
-    def __neg__(self):
-
-        tmp = type(self)(self)
-        tmp *= -1
-        return tmp
+        return not self.__eq__(other)
 
     def dot(self, v):
 
@@ -157,114 +127,118 @@ class Vector(array.array):
 
 class LorentzVector(Vector):
 
-    TINY = 100*sys.float_info.epsilon
-    _MAX_OUTPUT = 1.0e8
-    
-    def __init__(self, *args, **opts):
-        if len(args)==0:
-            args = [ [0., 0., 0., 0.] ]
-        super(LorentzVector,self).__init__(*args, **opts)
-    
     def __new__(cls, *args, **opts):
-        if len(args)==0:
-            return super(LorentzVector, cls).__new__(cls, [0.,0.,0.,0.], **opts)
+
         return super(LorentzVector, cls).__new__(cls, *args, **opts)
 
     def dot(self, v):
+        """Compute the Lorentz scalar product."""
 
         assert len(self) == len(v)
         pos = self[0]*v[0]
         neg = sum(self[i]*v[i] for i in range(1, len(self)))
-        if pos+neg != 0 and abs(2*(pos-neg)/(pos+neg)) < self.TINY:
+        if pos+neg != 0 and abs(2*(pos-neg)/(pos+neg)) < self.eps():
             return 0
         return pos - neg
 
-    def rescaleEnergy(self, mass):
-        self[0]=math.sqrt(self[1]**2+self[2]**2+self[3]**2+mass**2)
-
     def rho2(self):
-        """ Radius squared."""
-        return self[1]**2+self[2]**2+self[3]**2
+        """Compute the radius squared."""
+
+        return sum(self[i]**2 for i in range(1, len(self)))
 
     def rho(self):
-        """ Radius """
-        return math.sqrt(self[1]**2+self[2]**2+self[3]**2)
+        """Compute the radius."""
 
-    def pt(self):
-        """ Compute transverse momentum."""
-        return math.sqrt(self[1]**2 + self[2]**2)
+        return math.sqrt(self.rho2())
+
+    def rescaleEnergy(self, mass):
+
+        self[0] = math.sqrt(self.rho2() + mass**2)
+        return
+
+    def pt(self, axis=3):
+        """Compute transverse momentum."""
+
+        return math.sqrt(
+            sum(self[i]**2 for i in range(1, len(self)) if i != axis)
+        )
+
+    def pseudoRap(self):
+        """Compute pseudorapidity."""
+
+        pt = self.pt()
+        if pt < self.eps() and abs(self[3]) < self.eps():
+            return self.huge()*(self[3]/abs(self[3]))
+        th = math.atan2(pt, self[3])
+        return -math.log(math.tan(th/2.))
+
+    def getdelphi(self,p2):
+        """Compute the phi-angle separation with p2."""
+
+        pt1 = self.pt()
+        pt2 = p2.pt()
+        if pt1 == 0. or pt2 == 0.:
+            return self.huge()
+        tmp = self[1]*p2[1] + self[2]*p2[2]
+        tmp /= (pt1*pt2)
+        if abs(tmp) > (1.0+self.eps()):
+            raise PhaseSpaceGeneratorError(
+                "Cosine larger than 1. in phase-space cuts."
+            )
+        if abs(tmp) > 1.0:
+            return math.acos(tmp/abs(tmp))
+        return math.acos(tmp)
 
     def deltaR(self, p2):
-        """ Compute the deltaR separation with momentum p2"""
+        """Compute the deltaR separation with momentum p2"""
 
         delta_eta = self.pseudoRap() - p2.pseudoRap()
         delta_phi = self.getdelphi(p2)
 
         return math.sqrt(delta_eta**2 + delta_phi**2)
 
-    def pseudoRap(self):
-        """ Return pseudo-rapidity."""
-
-        pt = self.pt()
-        if pt < self._TINY and abs(self[3]) < self._TINY:
-            return self._MAX_OUTPUT*(self[3]/abs(self[3]))
-        th = math.atan2(pt, self[3])
-        return -math.log(math.tan(th/2.))
-
-    def getdelphi(self,p2):
-        """ Return the phi-angle separation with p2."""
-        pt1 = self.pt()
-        pt2 = p2.pt()
-        if pt1 == 0. or pt2 == 0.:
-            return self._MAX_OUTPUT
-        tmp = self[1]*p2[1] + self[2]*p2[2]
-        tmp /= (pt1*pt2)
-        if abs(tmp) > (1.0+self._TINY):
-            raise PhaseSpaceGeneratorError("Cosine larger than 1. in phase-space cuts.")
-        if abs(tmp) > 1.0:
-            return math.acos(tmp/abs(tmp))
-        return math.acos(tmp)
-
     def boostVector(self):
+
         if self[0] == 0.:
             if self.rho2() == 0.:
                 return (0.,0.,0.)
             else:
                 raise PhaseSpaceGeneratorError(
-                    "Attempting to compute a boost from a reference vector with zero energy.") 
-        if self.getMass() < 0.:
+                    "Attempting to compute a boost"
+                    "from a reference vector with zero energy."
+                )
+        if abs(self) < 0.:
             raise PhaseSpaceGeneratorError(
-                    "Attempting to compute a boost from a reference vector with negative mass.") 
+                    "Attempting to compute a boost"
+                    "from a reference vector with negative mass."
+            )
 
-        return tuple(_*(1./self[0]) for _ in self[1:4]) 
-
-    def calculateMass(self):
-        return math.sqrt(self[0]**2-self.rho2())
-
-    def getMass(self):
-        return self.calculateMass()
+        return tuple(_*(1./self[0]) for _ in self[1:4])
 
     def cosTheta(self):
+
         ptot = self.rho()
-        assert( ptot > 0. )
+        assert (ptot > 0.)
         return self[3] / ptot
 
     def phi(self):
-        return math.atan2(self[2],self[1])
+
+        return math.atan2(self[2], self[1])
     
     def boost(self, boost_vector, gamma=-1.):
         """ Transport self into the restframe of the boostvector in argument.
-        This means that the following command, for any vector p=(E, px, py, pz, M)
+        This means that the following command, for any vector p=(E, px, py, pz)
             p.boost(p.boostVector())
-        transforms p to (M,0,0,0,M).
+        transforms p to (M,0,0,0).
         """
+
         bx, by, bz = boost_vector[0], boost_vector[1], boost_vector[2]
         b2 = bx**2 + by**2 + bz**2
-        if(gamma < 0.):
+        if gamma < 0.:
             gamma = 1.0 / math.sqrt(1.0 - b2)
 
         bp = bx*self[1] + by*self[2] + bz*self[3]
-        gamma2 = (gamma -1.0) / b2 if b2 > 0 else 0.
+        gamma2 = (gamma-1.0) / b2 if b2 > 0 else 0.
         self[1] = self[1] + gamma2*bp*bx + gamma*bx*self[0]
         self[2] = self[2] + gamma2*bp*by + gamma*by*self[0]
         self[3] = self[3] + gamma2*bp*bz + gamma*bz*self[0]
@@ -377,7 +351,7 @@ class VirtualPhaseSpaceGenerator(object):
             else:
                 running_sum = running_sum - mom
             out_lines.append(template%tuple(['%d'%i]+
-               [special_float_format(el) for el in (list(mom)+[mom.getMass()]) ]))
+               [special_float_format(el) for el in (list(mom)+[abs(mom)]) ]))
         out_lines.append(line)
         out_lines.append(template%tuple(['Sum']+
                [special_float_format(el) for el in running_sum]+['']))
@@ -633,12 +607,12 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
         M.append(self.masses[-1])
 
         Q     = LorentzVector([M[0],0.,0.,0.])
-        nextQ = LorentzVector()
+        nextQ = LorentzVector(4*[0., ])
 
         for i in range(self.n_initial+self.n_final-1):
             
             if i < self.n_initial:
-                output_momenta.append(LorentzVector())
+                output_momenta.append(LorentzVector(4*[0., ]))
                 continue
 
             q = 4.*M[i-self.n_initial]*\
@@ -725,13 +699,13 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
         M    = [ 0. ]*(self.n_final-1)
         M[0] = E_cm
 
-        Q     = [LorentzVector()]*(self.n_final-1)
+        Q     = [LorentzVector(4*[0., ])]*(self.n_final-1)
         Q[0]  = LorentzVector([M[0],0.,0.,0.])
 
         for i in range(2,self.n_final):
             for k in range(i, self.n_final+1):
                 Q[i-1] = Q[i-1] + moms[k+self.n_initial-1]
-            M[i-1] = Q[i-1].calculateMass()
+            M[i-1] = abs(Q[i-1])
 
         weight = self.invertIntermediatesMassive(M, E_cm, random_variables)
 
@@ -936,7 +910,7 @@ class ElementaryMappingCollinearFinal(VirtualMapping):
         # Retrieve the parent's momentum
         p = PS_point[parent]
         # Compute the sum of momenta
-        q = LorentzVector(4)
+        q = LorentzVector(4*[0., ])
         for i in children:
             q += PS_point[i]
         # Pre-compute scalar products
@@ -979,7 +953,7 @@ class ElementaryMappingCollinearFinal(VirtualMapping):
         na = (sqrtq2/pq) * p
         nb = (2./sqrtq2) * q - na
         # Variables for sums
-        p_sum = LorentzVector(4)
+        p_sum = LorentzVector(4*[0., ])
         # Set momenta for all children but the last
         for i in children[:-1]:
             zai = variables['za' + str(i)]
@@ -1080,11 +1054,11 @@ class MappingCataniSeymourFFOne(ElementaryMappingCollinearFinal):
         cluster = singular_structure.substructures[0]
         parent, children = get_structure_numbers(cluster, momenta_dict)
         # Build the collinear momentum
-        pC = LorentzVector(4)
+        pC = LorentzVector(4*[0., ])
         for j in children:
             pC += PS_point[j]
         # Build the total momentum of recoilers
-        pR = LorentzVector(4)
+        pR = LorentzVector(4*[0., ])
         for leg in singular_structure.legs:
             pR += PS_point[leg.n]
         Q = pC + pR
@@ -1134,7 +1108,7 @@ class MappingCataniSeymourFFOne(ElementaryMappingCollinearFinal):
         # Find the parent's momentum
         qC = PS_point[parent]
         # Compute the momentum of recoilers and the total
-        qR = LorentzVector(4)
+        qR = LorentzVector(4*[0., ])
         for leg in singular_structure.legs:
             qR += PS_point[leg.n]
         Q = qR + qC

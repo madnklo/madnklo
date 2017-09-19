@@ -955,7 +955,7 @@ ENDIF
 ## if (spin_correlation) {
 C Save helicity indices of the spin-correlated legs that we will use to insert the extra spin-correlations runs.
 DO I=1,NEXTERNAL
-  SPINCORR_HEL_INDICES(I) = -1
+  SPINCORR_HEL_INDICES(I) = -1000
 ENDDO
 
 ## }
@@ -1043,7 +1043,7 @@ C  Handle the possible requirement of specific polarizations
 C Now we know that we are in an helicity configuration that was selected by the user
 C Record the helicity index of legs that are spin-correlated
     DO I=1,NEXTERNAL
-      IF (N_SPIN_CORR_VECTORS(I).gt.0.and.SPINCORR_HEL_INDICES(I).eq.-1) THEN
+      IF (N_SPIN_CORR_VECTORS(I).gt.0.and.SPINCORR_HEL_INDICES(I).eq.-1000) THEN
         SPINCORR_HEL_INDICES(I) = NHEL(I)
       ENDIF
     ENDDO
@@ -1052,7 +1052,7 @@ C   Now make sure to skip all helicity configurations with helicity indices for 
 C   does not match the first one encountered
     SKIP_THIS_HELICITY = .FALSE.
     DO I=1,NEXTERNAL
-      IF (SPINCORR_HEL_INDICES(I).ne.-1.and.SPINCORR_HEL_INDICES(I).ne.NHEL(I)) THEN
+      IF (SPINCORR_HEL_INDICES(I).ne.-1000.and.SPINCORR_HEL_INDICES(I).ne.NHEL(I)) THEN
         SKIP_THIS_HELICITY = .TRUE.
         EXIT
       ENDIF

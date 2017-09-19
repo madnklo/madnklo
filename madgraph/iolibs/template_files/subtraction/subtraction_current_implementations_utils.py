@@ -381,22 +381,23 @@ class CS_utils(object):
             return kin_variables
 
         # Retrieve the parent's momentum
-        p = PS_utils.LorentzVector(PS_point[parent_number])
+        p = PS_point[parent_number]
         # Compute the sum of momenta
         q = PS_utils.LorentzVector(4)
         for i in children_numbers:
-            q += PS_utils.LorentzVector(PS_point[i])
+            q += PS_point[i]
         # Pre-compute scalar products
         q2 = q.square()
         kin_variables['s%d'%parent_number] = q2
         pq = p.dot(q)
         # Compute all kinematic variables
         for i in children_numbers[:-1]:
-            pi = PS_utils.LorentzVector(PS_point[i])
-            ppi = p.dot(pi)
-            qpi = q.dot(pi)
-            zi = 2*qpi/q2 - ppi/pq
-            kti = pi + (q2*ppi - pq*qpi)/(pq**2) * p - ppi/pq * q
-            kin_variables['z%d'%i] = zi
-            kin_variables['kt%d'%i] = kti
+            pi = PS_point[i]
+            napi = na.dot(pi)
+            nbpi = nb.dot(pi)
+            variables['za' + str(i)] = nbpi/nb.dot(q)
+            variables['zb' + str(i)] = napi/na.dot(q)
+            kti = pi - 0.5*(nbpi*na+napi*nb)
+            nti = kti / math.sqrt(napi*nbpi)
+            variables['nt' + str(i)] = nti
         return kin_variables

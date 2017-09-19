@@ -69,7 +69,7 @@ class TestME7_IR_Limits(unittest.TestCase):
             shutil.rmtree(self.tmp_process_dir)
 
     def do(self, line):
-        """ exec a line in the cmd under test """        
+        """ exec a line in the cmd under test """
         self.cmd.exec_cmd(line)
         
     def test_ME7_qqxQQx_collinear_limits(self):
@@ -79,14 +79,14 @@ class TestME7_IR_Limits(unittest.TestCase):
        
         options = {'correction_order'       : 'NLO',
                    'limit_type'             : 'C(3,5)',
-                   'process'                : 'e+ e- > d d~ s s~ ',
+                   'process'                : 'e+ e- > u u~ s s~ ',
                    'seed'                   : '666',
-                   'n_steps'                : 100,
-                   'min_scaling_variable'   : 1.0e-5,
+                   'n_steps'                : 10,
+                   'min_scaling_variable'   : 1.0e-6,
                    'acceptance_threshold'   : 1.0e-6,
                    'compute_only_limit_defining_counterterm' : True,
                    }
-
+        
         self.do('%s %s'%(main_cmd, ' '.join( ('--%s=%s'%(key,value) if value is not None else '--%s'%key) 
                                                                    for key,value in options.items())))
         
@@ -94,11 +94,11 @@ class TestME7_IR_Limits(unittest.TestCase):
                    'limit_type'             : 'C(3,5)',
                    'process'                : 'e+ e- > d d~ g g ',
                    'seed'                   : '666',
-                   'n_steps'                : 60,
+                   'n_steps'                : 10,
                    'min_scaling_variable'   : 1.0e-6,
                    'acceptance_threshold'   : 1.0e-6,
                    'compute_only_limit_defining_counterterm' : True,
                    }
 
-#        self.do('%s %s'%(main_cmd, ' '.join( ('--%s=%s'%(key,value) if value is not None else '--%s'%key)
-#                                                                  for key,value in options.items())))
+        self.do('%s %s'%(main_cmd, ' '.join( ('--%s=%s'%(key,value) if value is not None else '--%s'%key)
+                                                                  for key,value in options.items())))

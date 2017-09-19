@@ -178,31 +178,31 @@ class NLO_FF_QCD_collinear_qqx(utils.VirtualCurrentImplementation):
         z       = kin_variables['za%d'%ss.legs[0].n]
         kT_vec  = kin_variables['nt%d'%ss.legs[0].n]
         s12     = kin_variables['s%d'%parent_number]
-#        misc.sprint(z,kT_vec,kT_vec.square())
 
         # Now instantiate what the result will be
         evaluation = utils.SubtractionCurrentEvaluation({
-            'spin_correlations'   : [ [(parent_number,((1.0,0.0,0.0,0.0),)),],
-                                      [(parent_number,( (0.0,1.0,0.0,0.0),
-                                                        (0.0,0.0,1.0,0.0),
-                                                        (0.0,0.0,0.0,1.0),
-                                                      ) ),],
-                                      [(parent_number,(tuple(kT_vec),)),],
+            'spin_correlations'   : [ None ,
+                                      [(parent_number,( tuple(kT_vec), )),],
                                     ],
             'color_correlations'  : [ None ],
             'values'              : { (0,0): { 'finite' : None },
                                       (1,0): { 'finite' : None },
-                                      (2,0): { 'finite' : None },
                                   }
           }
         )
 
-        evaluation['values'][(0,0)]['finite'] = -self.TR
-        evaluation['values'][(1,0)]['finite'] = self.TR
-        evaluation['values'][(2,0)]['finite'] = 4.0*z*(1-z)
+        # The two lines below implement the g_\mu\nu part of the splitting kernel.
+        # Notice that the extra longitudinal terms included in the spin-correlation 'None'
+        # from the relation:
+        #    \sum_i={1,2} \epsilon_i^\mu \epsilon_i^{\star\nu} = g^{\mu\nu} + longitudinal terms
+        # are irrelevant because ward identities evaluates them to zero anyway.
+        evaluation['values'][(0,0)]['finite'] = 1.0
+        # The extra overall minus sign comes from the fact that kT_vec has been normalized
+        # with kT_vec.square() which is negative.
+        evaluation['values'][(1,0)]['finite'] = -4.0*z*(1-z)
                 
         # Now add the normalization factors
-        norm = 4.0*math.pi*alpha_s*(2.0/s12)
+        norm = 4.0*math.pi*alpha_s*(2.0/s12)*self.TR
         for k in evaluation['values']:
             evaluation['values'][k]['finite'] *= norm
         
@@ -320,14 +320,20 @@ class NLO_FF_QCD_collinear_gq(utils.VirtualCurrentImplementation):
         
         if ss.legs[0].pdg == 21:
             # z is the energy fraction of the gluon, therefore use P_{gq}
-            kernel = (1+(1-z)**2)/z
+            kernel = (1.+(1.-z)**2)/z
         else:
             # z is the energy fraction of the quark, therefore use P_{qg}
-            kernel = (1+z**2)/(1-z)
+            kernel = (1.+z**2)/(1.-z)
         
+        ##############################
+        # START: TO FIX / UNDERSTAND #
+        ##############################
         # We need to divide by a factor 2 here, so far of unknown origin.
-        kernel /= 2
-
+        kernel /= 2.
+        ##############################
+        # END: TO FIX / UNDERSTAND   #
+        ##############################
+        
         evaluation['values'][(0,0)]['finite'] = kernel
             
         # Now add the normalization factors

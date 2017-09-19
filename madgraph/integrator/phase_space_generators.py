@@ -22,6 +22,7 @@ if __name__ == '__main__':
 import logging
 import math
 import numpy
+import copy
 
 try:
     import madgraph
@@ -56,7 +57,10 @@ class Vector(numpy.ndarray):
 
     def __new__(cls, *args, **opts):
 
-        foo = numpy.asanyarray(*args, **opts).view(cls)
+        if args and isinstance(args[0], Vector):
+            foo = args[0].get_copy()
+        else:
+            foo = numpy.asanyarray(*args, **opts).view(cls)
         return foo
 
     def eps(self):
@@ -83,6 +87,13 @@ class Vector(numpy.ndarray):
     def __ne__(self, other):
 
         return not self.__eq__(other)
+
+    def get_copy(self):
+
+        # The vector instantiated by get_copy() should be modified
+        # without changing the previous instance, irrespectively of the
+        # (presumably few) layers that compose entries of the vector
+        return copy.deepcopy(self)
 
     def dot(self, v):
 

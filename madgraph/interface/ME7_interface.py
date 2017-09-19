@@ -1364,7 +1364,7 @@ class ME7Integrand_R(ME7Integrand):
                 raise NotImplementedError
             return combined_correlator
         
-        # all_necesary_ME_calls is a list of tuples of the following form:
+        # all_necessary_ME_calls is a list of tuples of the following form:
         #  (spin_correlator, color_correlator, weight)
         all_necessary_ME_calls = [(None, None, weight)]
         
@@ -1450,7 +1450,7 @@ Also make sure that there is no coupling order specification which receives corr
         return returned_counterterms
 
     def is_part_of_process_selection(self, process_list, selection=None):
-        """ Checks wether any of the specified processes in the process_list provided matches the user's process
+        """ Checks whether any of the specified processes in the process_list provided matches the user's process
         selection. If not provided, returns True by default. 'selection' is a dictionary with the format:
            {'in_pdgs'  : ( (in_pgs1), (in_pdgs2), ...)
             'out_pdgs' : ( (out_pgs1), (out_pdgs2), ...) 
@@ -1494,18 +1494,10 @@ Also make sure that there is no coupling order specification which receives corr
             random.seed(test_options['seed'])
         
         # First generate an underlying Born
-        # Specifying None forces to use unformly random generating variables.
+        # Specifying None forces to use uniformly random generating variables.
         a_real_emission_PS_point, _, _, _ = self.phase_space_generator.get_PS_point(None)
 
         a_real_emission_PS_point = dict( (i+1, mom) for i, mom in enumerate(a_real_emission_PS_point) )
-        
-        ###########################
-        # START: TEMPORARY FIX    #
-        ###########################
-        a_real_emission_PS_point_BU = copy.deepcopy(a_real_emission_PS_point)
-        ###########################
-        # END: TEMPORARY FIX      #
-        ###########################
         
         # Now keep track of the results fro each process and limit checked
         all_evaluations = {}
@@ -1534,18 +1526,11 @@ Also make sure that there is no coupling order specification which receives corr
                         limit_specifier_counterterm.get_singular_structure_string(print_n=True, 
                                                                   print_pdg=False, print_state=False) ))
 
-                ###########################
-                # START: TEMPORARY FIX    #
-                ###########################
-                a_real_emission_PS_point = copy.deepcopy(a_real_emission_PS_point_BU)
-                ###########################
-                # END: TEMPORARY FIX      #
-                ###########################
-                # First identified the reduced PS point from which we can evolve to larger multiplicity
+                # First identify the reduced PS point from which we can evolve to larger multiplicity
                 # while becoming progressively closer to the IR limit.
                 res_dict = self.mapper.walk_to_lower_multiplicity(
                                         a_real_emission_PS_point, limit_specifier_counterterm, kinematic_variables=True)
-                
+
                 starting_variables  = res_dict['kinematic_variables']
                 a_born_PS_point     = res_dict['resulting_PS_point']
 

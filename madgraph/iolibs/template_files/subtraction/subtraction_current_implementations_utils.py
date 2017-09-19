@@ -197,6 +197,10 @@ class VirtualCurrentImplementation(object):
             self.NC = model_param_dict['NC']
         except:
             self.NC = 3.0
+        try:
+            self.CA = model_param_dict['CA']
+        except:
+            self.CA = self.NC
 
     @classmethod
     def does_implement_this_current(cls, current, model):

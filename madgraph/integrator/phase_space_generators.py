@@ -128,15 +128,13 @@ class Vector(numpy.ndarray):
 class LorentzVector(Vector):
 
     def __new__(cls, *args, **opts):
-
+        if len(args)==0:
+            return super(LorentzVector, cls).__new__(cls, [0.,0.,0.,0.], **opts)
         return super(LorentzVector, cls).__new__(cls, *args, **opts)
 
     def __str__(self):
         """ Nice representation of a Lorentz vector."""
         return "(E = %s, p_x = %s, p_y = %s, py_z = %s, M^2 = %s)"%(self[0],self[1],self[2],self[3],self.square())
-        if len(args)==0:
-            return super(LorentzVector, cls).__new__(cls, [0.,0.,0.,0.], **opts)
-        return super(LorentzVector, cls).__new__(cls, *args, **opts)
 
     def dot(self, v):
         """Compute the Lorentz scalar product."""

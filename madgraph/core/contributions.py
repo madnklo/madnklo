@@ -2342,6 +2342,20 @@ class Contribution_R(Contribution):
         for process_key, (defining_process, mapped_processes) in self.get_processes_map().items():
             self.counterterms[process_key] = self.IR_subtraction.get_all_counterterms(defining_process)
         
+    def remove_counterterms_with_no_reduced_process(self, all_MEAccessors):
+        """ Given the list of available reduced processes encoded in the MEAccessorDict 'all_MEAccessors'
+        given in argument, remove all the counterterms whose underlying reduced process does not exist."""
+        
+        for process_key, counterterms in self.counterterms.items():
+            for counterterm in list(counterterms):
+                try:
+                    all_MEAccessors.get_MEAccessor(counterterm.process)
+                except MadGraph5Error:
+                    # This means that the reduced process could not be found and
+                    # consequently, the corresponding counterterm must be removed.
+                    # Example: C(5,6) in e+ e- > g g d d~
+                    counterterms.remove(counterterm)
+
     def export(self, *args, **opts):
         """ Overloads export so as to export subtraction currents as well."""
         ret_value = super(Contribution_R, self).export(*args, **opts)
@@ -2360,6 +2374,9 @@ class Contribution_R(Contribution):
     def get_all_necessary_subtraction_currents(self, all_MEAccessors):
         """ Given the counterterms in place and the currents already accessible in the 
         all_MEAccessors, return what subtraction currents are needed."""
+        
+        # Remove counterterms with non-existing underlying Born processes
+        self.remove_counterterms_with_no_reduced_process(all_MEAccessors)
         
         all_currents = []
         for process_key, counterterms in self.counterterms.items():

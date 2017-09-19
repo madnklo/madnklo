@@ -12,7 +12,6 @@
 # For more information, visit madgraph.phys.ucl.ac.be and amcatnlo.web.cern.ch
 #
 ################################################################################
-from __builtin__ import False
 """A user friendly command line interface to steer ME7 integration.
    Uses the cmd package for command interpretation and tab completion.
 """
@@ -277,12 +276,15 @@ class ParseCmdArguments(object):
                 except ValueError:
                     raise InvalidCmd("'%s' is not a valid integer for option '%s'"%(value, key))
             elif key == '--n_loops':
-                try:
-                    testlimits_options['process'][key[2:]] = int(value)
-                    if int(value)<0:
-                        raise ValueError
-                except ValueError:
-                    raise InvalidCmd("'%s' is not a valid integer for option '%s'"%(value, key))
+                if value.lower()=='all':
+                    testlimits_options['process'][key[2:]] = None
+                else:
+                    try:
+                        testlimits_options['process'][key[2:]] = int(value)
+                        if int(value)<0:
+                            raise ValueError
+                    except ValueError:
+                        raise InvalidCmd("'%s' is not a valid integer for option '%s'"%(value, key))
             elif key == '--compute_only_limit_defining_counterterm':
                 if value is None:
                     testlimits_options[key[2:]] = True
@@ -320,35 +322,40 @@ class ParseCmdArguments(object):
                 except ValueError:
                     raise InvalidCmd("Cannot set '%s' option to '%s'."%(key, value))
             elif key=='--process':
-                def get_particle_pdg(name):
-                    part = self.model.get_particle(name)
-                    part.set('is_part', name!=part.get('antiname'))
-                    return part.get_pdg_code()
-                initial, final = value.split('>',1)
-                initial = initial.strip()
-                final = final.strip()
-                initial_pdgs = []
-                for parts in initial.split(' '):
-                    multi_part = []
-                    for part in parts.split('|'):
-                        try:
-                            multi_part.append(get_particle_pdg(part))
-                        except:
-                            raise InvalidCmd("Particle '%s' not recognized in current model."%part)
-                    initial_pdgs.append(tuple(multi_part))
+                if value.lower()=='all':
+                    testlimits_options['process']['in_pdgs'] = None
+                    testlimits_options['process']['out_pdgs'] = None
+                else:
+                    def get_particle_pdg(name):
+                        part = self.model.get_particle(name)
+                        part.set('is_part', name!=part.get('antiname'))
+                        return part.get_pdg_code()
+                    initial, final = value.split('>',1)
+                    initial = initial.strip()
+                    final = final.strip()
+                    initial_pdgs = []
+                    for parts in initial.split(' '):
+                        multi_part = []
+                        for part in parts.split('|'):
+                            try:
+                                multi_part.append(get_particle_pdg(part))
+                            except:
+                                raise InvalidCmd("Particle '%s' not recognized in current model."%part)
+                        initial_pdgs.append(tuple(multi_part))
+    
+                    final_pdgs = []
+                    for parts in final.split(' '):
+                        multi_part = []
+                        for part in parts.split('|'):
+                            try:
+                                multi_part.append(get_particle_pdg(part))
+                            except:
+                                raise IvalidCmd("Particle '%s' not recognized in current model."%part)
+                        final_pdgs.append(tuple(multi_part))
+                        
+                    testlimits_options['process']['in_pdgs'] = tuple(initial_pdgs)
+                    testlimits_options['process']['out_pdgs'] = tuple(final_pdgs)
 
-                final_pdgs = []
-                for parts in final.split(' '):
-                    multi_part = []
-                    for part in parts.split('|'):
-                        try:
-                            multi_part.append(get_particle_pdg(part))
-                        except:
-                            raise IvalidCmd("Particle '%s' not recognized in current model."%part)
-                    final_pdgs.append(tuple(multi_part))
-                    
-                testlimits_options['process']['in_pdgs'] = tuple(initial_pdgs)
-                testlimits_options['process']['out_pdgs'] = tuple(final_pdgs)
             else:
                 raise InvalidCmd("Option '%s' for the test_limits command not recognized."%key)        
         
@@ -1388,7 +1395,7 @@ class ME7Integrand_R(ME7Integrand):
         for (spin_correlators, color_correlators, current_weight) in all_necessary_ME_calls:
 #            misc.sprint(ME_process.nice_string(), counterterm.get_singular_structure_string())
 #            misc.sprint(phase_space_generators.VirtualPhaseSpaceGenerator.nice_momenta_string(
-#                [ phase_space_generators.Lorentz5Vector(v) for v in
+#                [ phase_space_generators.LorentzVector(list(v)) for v in
 #                   self.all_MEAccessors.format_PS_point_for_ME_call(ME_PS,ME_process)] ))
             try:
                 ME_evaluation, all_ME_results = self.all_MEAccessors(
@@ -1466,10 +1473,12 @@ Also make sure that there is no coupling order specification which receives corr
     
         for process in process_list:
 
-            if not pdg_list_match(process.get_initial_ids(), selection['in_pdgs']):
+            if (not selection['in_pdgs'] is None) and \
+               (not pdg_list_match(process.get_initial_ids(), selection['in_pdgs'])):
                 continue
 
-            if not pdg_list_match(process.get_final_ids_after_decay(), selection['out_pdgs']):
+            if (not selection['out_pdgs'] is None) and \
+               (not pdg_list_match(process.get_final_ids_after_decay(), selection['out_pdgs'])):
                 continue
             
             if (not selection['n_loops'] is None) and process.get('n_loops') != selection['n_loops']:
@@ -1489,10 +1498,17 @@ Also make sure that there is no coupling order specification which receives corr
         a_real_emission_PS_point, _, _, _ = self.phase_space_generator.get_PS_point(None)
 
         a_real_emission_PS_point = dict( (i+1, mom) for i, mom in enumerate(a_real_emission_PS_point) )
-
+        
+        ###########################
+        # START: TEMPORARY FIX    #
+        ###########################
+        a_real_emission_PS_point_BU = copy.deepcopy(a_real_emission_PS_point)
+        ###########################
+        # END: TEMPORARY FIX      #
+        ###########################
+        
         # Now keep track of the results fro each process and limit checked
         all_evaluations = {}
-
         for process_key, (defining_process, mapped_processes) in self.processes_map.items():
             # Make sure that the selected process satisfies the selected process
             if not self.is_part_of_process_selection([defining_process,]+mapped_processes, 
@@ -1517,10 +1533,19 @@ Also make sure that there is no coupling order specification which receives corr
                 misc.sprint("Result for test: %s | %s"%(defining_process.nice_string(),
                         limit_specifier_counterterm.get_singular_structure_string(print_n=True, 
                                                                   print_pdg=False, print_state=False) ))
+
+                ###########################
+                # START: TEMPORARY FIX    #
+                ###########################
+                a_real_emission_PS_point = copy.deepcopy(a_real_emission_PS_point_BU)
+                ###########################
+                # END: TEMPORARY FIX      #
+                ###########################
                 # First identified the reduced PS point from which we can evolve to larger multiplicity
                 # while becoming progressively closer to the IR limit.
                 res_dict = self.mapper.walk_to_lower_multiplicity(
                                         a_real_emission_PS_point, limit_specifier_counterterm, kinematic_variables=True)
+                
                 starting_variables  = res_dict['kinematic_variables']
                 a_born_PS_point     = res_dict['resulting_PS_point']
 
@@ -1566,10 +1591,9 @@ Also make sure that there is no coupling order specification which receives corr
                     # To be commented out when we will have a full-fledged analysis coded up in analyze_IR_limits_test()
                     misc.sprint('%-20.14e %-20.14e %-20.14e %-20.14e'%
                             (scaling_parameter, ME_evaluation, summed_counterterm_weight,summed_counterterm_weight/ME_evaluation))
-                
                 all_evaluations[(process_key, limit_specifier_counterterm.get_singular_structure_string(print_n=True, 
                                                                   print_pdg=False, print_state=False))] = evaluations
-        
+
         # Now produce a nice matplotlib of the evaluations and assess whether this test passed or not.
         return self.analyze_IR_limits_test(all_evaluations, test_options['acceptance_threshold'])
 

@@ -15,6 +15,7 @@
 """All virtual mother classes to IR-subtraction related hard-coded 
 implementations"""
 
+import math
 import madgraph.various.misc as misc
 import madgraph.integrator.phase_space_generators as PS_utils
 
@@ -384,23 +385,26 @@ class CS_utils(object):
             return kin_variables
 
         # Retrieve the parent's momentum
-        p = PS_point[parent_number]
+        p = PS_utils.LorentzVector(PS_point[parent_number])
         # Compute the sum of momenta
-        q = PS_utils.LorentzVector(4)
+        q = PS_utils.LorentzVector()
         for i in children_numbers:
-            q += PS_point[i]
+            q += PS_utils.LorentzVector(PS_point[i])
         # Pre-compute scalar products
         q2 = q.square()
         kin_variables['s%d'%parent_number] = q2
         pq = p.dot(q)
+        sqrtq2 = math.sqrt(q2)
+        na = (sqrtq2/pq) * p
+        nb = (2./sqrtq2) * q - na
         # Compute all kinematic variables
         for i in children_numbers[:-1]:
-            pi = PS_point[i]
+            pi = PS_utils.LorentzVector(PS_point[i])
             napi = na.dot(pi)
             nbpi = nb.dot(pi)
-            variables['za' + str(i)] = nbpi/nb.dot(q)
-            variables['zb' + str(i)] = napi/na.dot(q)
+            kin_variables['za' + str(i)] = nbpi/nb.dot(q)
+            kin_variables['zb' + str(i)] = napi/na.dot(q)
             kti = pi - 0.5*(nbpi*na+napi*nb)
             nti = kti / math.sqrt(napi*nbpi)
-            variables['nt' + str(i)] = nti
+            kin_variables['nt' + str(i)] = nti
         return kin_variables

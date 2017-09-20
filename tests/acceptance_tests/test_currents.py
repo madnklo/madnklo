@@ -120,7 +120,7 @@ class SubtractionCurrentTest(unittest.TestCase):
         
         # Put the mapped momentum onshell, this is not a well-defined
         # mapping, but it is sufficient for now to test this current.
-        a_PS[7].rescaleEnergy()
+        a_PS[7].rescaleEnergy(mass=0.)
         momenta_map = bidict( { 7 : frozenset((3,4)) } )        
 
 #       This would be a more generic way of doing this, but it would involve

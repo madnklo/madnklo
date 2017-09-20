@@ -176,7 +176,7 @@ class LorentzVectorList(list):
     def __str__(self, n_initial=2):
         """ Nice printout of the momenta."""
         
-        return LorentzVectorDict( (i+1, v) for i,v in self.enumerate() ).\
+        return LorentzVectorDict( (i+1, v) for i,v in enumerate(self) ).\
                                                     __str__(n_initial=n_initial)
 
 #===============================================================================

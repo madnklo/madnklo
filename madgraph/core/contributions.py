@@ -2376,9 +2376,6 @@ class Contribution_R(Contribution):
         """ Given the counterterms in place and the currents already accessible in the 
         all_MEAccessors, return what subtraction currents are needed."""
         
-        # Remove counterterms with non-existing underlying Born processes
-        self.remove_counterterms_with_no_reduced_process(all_MEAccessors)
-        
         all_currents = []
         for process_key, counterterms in self.counterterms.items():
             for current in self.IR_subtraction.get_all_currents(counterterms):
@@ -2430,6 +2427,9 @@ class Contribution_R(Contribution):
         
         # Get the basic accessors for the matrix elements
         super(Contribution_R, self).add_ME_accessors(all_MEAccessors, root_path)
+
+        # Remove counterterms with non-existing underlying Born processes
+        self.remove_counterterms_with_no_reduced_process(all_MEAccessors)
 
         # Obtain all necessary currents
         currents_to_consider = self.get_all_necessary_subtraction_currents(all_MEAccessors)

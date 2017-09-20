@@ -325,7 +325,7 @@ class ME7ContributionTest(unittest.TestCase):
             misc.sprint("A total of %d accessor keys have been generated."%len(accessors_dict))
             
             # Try and call one current
-            
+
             # We must initialize the model parameters for this first
             model_with_params_set = import_ufo.import_model(
                 pjoin(MG5DIR,'models','loop_sm'), prefix=True,
@@ -339,7 +339,7 @@ class ME7ContributionTest(unittest.TestCase):
     
             one_current = all_currents[0]
             # Use a random PS point
-            a_PS_point = dict((id, phase_space_generators.Lorentz5Vector([10.0,2.0,3.0,4.0])) for id in range(10))
+            a_PS_point = dict((id, phase_space_generators.LorentzVector([10.0,2.0,3.0,4.0])) for id in range(10))
             misc.sprint('Call of the current %s:'%str(one_current))
             specific_eval, all_evals = accessors_dict(
                 one_current,

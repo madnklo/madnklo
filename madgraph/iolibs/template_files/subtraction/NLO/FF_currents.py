@@ -471,14 +471,14 @@ class NLO_FF_QCD_collinear_gg(utils.VirtualCurrentImplementation):
  
         return result
 
-class NLO_FF_QCD_soft_gluon(utils.VirtualCurrentImplementation):
+class NLO_QCD_soft_gluon(utils.VirtualCurrentImplementation):
     """ Implements the soft gluon Eikonel current.
     See Eq.4.12-4.13 of ref. https://arxiv.org/pdf/0903.1218.pdf"""
 
     def __init__(self, *args, **opts):
-        super(Template_current, self).__init__(*args, **opts)
+        super(NLO_QCD_soft_gluon, self).__init__(*args, **opts)
         self.supports_helicity_assignment = False
-
+        
     @classmethod
     def does_implement_this_current(cls, current, model):
         """ Returns None/a_dictionary depending on whether this particular current is
@@ -528,6 +528,15 @@ class NLO_FF_QCD_soft_gluon(utils.VirtualCurrentImplementation):
         # an empty dictionary which could potentially have contained specific
         # options to specify upon instantiating this class.
         return {}
+   
+    @classmethod
+    def eikonal(cls, PS_point, i, j, r):
+        """ Eikonal factor for soft particle with number 'r' emitted from 'i' and reconnecting
+        to 'j'."""
+        
+        return ( PS_point[i].dot(PS_point[j]) ) / ( 
+                 PS_point[i].dot(PS_point[r])*PS_point[j].dot(PS_point[r])
+                )
     
     def evaluate_subtraction_current(self,  current, 
                                             PS_point, 
@@ -553,13 +562,48 @@ class NLO_FF_QCD_soft_gluon(utils.VirtualCurrentImplementation):
         
         result = utils.SubtractionCurrentResult()
 
+        ss = current.get('singular_structure')
+        
+        # Retrieve alpha_s and mu_r
+        model_param_dict = self.model.get('parameter_dict')
+        alpha_s = model_param_dict['aS']
+        mu_r    = model_param_dict['MU_R']
+
+        # Retrieve kinematic variables from the specified PS point
+        soft_leg_number = ss.legs[0].n
+        # Use the momenta map, in case it has been remapped.
+        # Although for the soft current it's typically not the case
+        soft_leg_number   = leg_numbers_map.inv[frozenset([soft_leg_number,])]
+        
+        # Now find all colored leg numbers in the reduced process
+        all_colored_parton_numbers = []
+        for leg in reduced_process.get('legs'):
+            if self.model.get_particle(leg.get('id')).get('color')==1:
+                continue
+            all_colored_parton_numbers.append(leg.get('number'))
+
         # Now instantiate what the result will be
         evaluation = utils.SubtractionCurrentEvaluation({
             'spin_correlations'   : [ None ],
-            'color_correlations'  : [ None ],
-            'values'              : { (0,0): { 'finite' : None } }
-          }
-        )
+            'color_correlations'  : [ ],
+            'values'              : { }
+          })
+        
+        # Normalization factors
+        norm = -8.*math.pi*alpha_s
+
+        color_correlation_index = 0
+        # Now loop over the colored parton number pairs (a,b) and add the corrsponding 
+        # contributions to this current
+        for i, a in enumerate(all_colored_parton_numbers):
+            # Use the symmetricity of the color-correlation and soft current (a,b) <-> (b,a)
+            for b in all_colored_parton_numbers[i+1:]:
+                evaluation['color_correlations'].append( (a, b) )
+                # Write the eikonal for that pair
+                evaluation['values'][(0,color_correlation_index)] = {
+                    'finite': norm * self.eikonal(PS_point, a, b, soft_leg_number)
+                }
+                color_correlation_index += 1
         
         result.add_result(evaluation, 
                           hel_config=hel_config, 

@@ -12,6 +12,7 @@
 # For more information, visit madgraph.phys.ucl.ac.be and amcatnlo.web.cern.ch
 #
 ################################################################################
+from __builtin__ import classmethod
 """All virtual mother classes to IR-subtraction related hard-coded 
 implementations"""
 

@@ -467,11 +467,8 @@ class SingularStructure(object):
         """ Counts the number of unresolved legs. For example, this would be one for
         a 1>2 splitting, two for a 1>3 etc..."""
         
+        total_unresolved = self.non_nested_number_of_unresolved_legs()
         
-        #####
-        # SIMONE : Check that the code below is OK
-        #####
-        total_unresolved = len(self.legs)-1
         for singular_structure in self.substructures:
             total_unresolved += singular_structure.count_unresolved()
         return total_unresolved
@@ -511,14 +508,22 @@ class SingularStructure(object):
 
 class SoftStructure(SingularStructure):
 
-    def name(self):
+    def non_nested_number_of_unresolved_legs(self):
+        """ Counts the number of unresolved particles, without considering those
+        in singular substructures."""
+        return len(self.legs)
 
+    def name(self):
         return "S"
 
 class CollStructure(SingularStructure):
 
-    def name(self):
+    def non_nested_number_of_unresolved_legs(self):
+        """ Counts the number of unresolved particles, without considering those
+        in singular substructures."""
+        return len(self.legs)-1
 
+    def name(self):
         return "C"
 
 #===============================================================================

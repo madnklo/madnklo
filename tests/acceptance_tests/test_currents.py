@@ -23,6 +23,7 @@ import copy
 import sys
 import tests.IOTests as IOTests
 import madgraph.core.subtraction as subtraction
+import madgraph.core.base_objects as base_objects
 import madgraph.various.misc as misc
 import models.import_ufo as import_ufo
 import madgraph.core.contributions as contributions
@@ -56,6 +57,28 @@ class SubtractionCurrentTest(unittest.TestCase):
         
         self.mapper = phase_space_generators.VirtualWalker(
                                             map_type='FlatCollinear', model = self.model)
+        
+        legs = base_objects.LegList([
+            base_objects.Leg(
+                    {'id': 1, 'state': base_objects.Leg.INITIAL, 'number': 1}),
+            base_objects.Leg(
+                    {'id': -1, 'state': base_objects.Leg.INITIAL, 'number': 2}),
+            base_objects.Leg(
+                    {'id': 22, 'state': base_objects.Leg.FINAL, 'number': 3}),
+            base_objects.Leg(
+                    {'id': 1,  'state': base_objects.Leg.FINAL, 'number': 4}),
+            base_objects.Leg(
+                    {'id': -1, 'state': base_objects.Leg.FINAL, 'number': 5}),
+            base_objects.Leg(
+                    {'id': 21, 'state': base_objects.Leg.FINAL, 'number': 6}),
+            base_objects.Leg(
+                    {'id': 21, 'state': base_objects.Leg.FINAL, 'number': 7}),
+        ])
+        
+        self.reduced_process = base_objects.Process({
+            'legs': legs,
+            'model': self.model
+        })
         
     def add_currents_to_accessor(self, currents, ME_accessor_dict):
         """ Add the currents in argument to the specified ME_accessor_dict."""
@@ -97,7 +120,9 @@ class SubtractionCurrentTest(unittest.TestCase):
 
     def test_NLO_FF_currents(self):
         """Test various NLO FF currents."""
-       
+        
+        base_PS = self.generate_PS_point(2,6)
+        
         accessors_dict = contributions.MEAccessorDict()
  
         currents = [
@@ -106,31 +131,58 @@ class SubtractionCurrentTest(unittest.TestCase):
                 'squared_orders'                : {'QCD':2, 'QED':0},
                 'resolve_mother_spin_and_color' : True,
                 'singular_structure'            : subtraction.CollStructure(
-                    subtraction.SubtractionLeg(3, 1,FINAL),
-                    subtraction.SubtractionLeg(4,-1,FINAL)
+                    subtraction.SubtractionLeg(4, 1,FINAL),
+                    subtraction.SubtractionLeg(5,-1,FINAL)
+                )
+            }),
+            subtraction.Current({
+                'n_loops'                       : 0,
+                'squared_orders'                : {'QCD':2, 'QED':0},
+                'resolve_mother_spin_and_color' : True,
+                'singular_structure'            : subtraction.SoftStructure(
+                    subtraction.SubtractionLeg(7, 21,FINAL)
                 )
             }),
         ]
         self.add_currents_to_accessor(currents, accessors_dict)
 
-        
-
-        a_PS = self.generate_PS_point(2,3)
-        a_PS[7] = a_PS[3] + a_PS[4]
+#       ------------------------------------------
+#       ---- Testing g > q q~ hard collinear
+#       ------------------------------------------
+        a_PS = copy.copy(base_PS)
+        a_PS[1000] = a_PS[4] + a_PS[5]
         
         # Put the mapped momentum onshell, this is not a well-defined
         # mapping, but it is sufficient for now to test this current.
-        a_PS[7].rescaleEnergy(mass=0.)
-        momenta_map = bidict( { 7 : frozenset((3,4)) } )        
+        a_PS[1000].rescaleEnergy(mass=0.)
+        momenta_map = bidict( { 1000 : frozenset((4,5)) } )        
 
 #       This would be a more generic way of doing this, but it would involve
 #       instantiating a counterterm, which I would like to avoid for now.
 #        self.mapper.walk_to_lower_multiplicity(
 #            a_PS, counterterm, kinematic_variables = False)
-
         current_evaluation, all_current_results = accessors_dict(
                 currents[0], a_PS, hel_config=None, 
                 reduced_process = None,
+                leg_numbers_map = momenta_map,
+                mapping_variables={})
+
+        misc.sprint(current_evaluation)
+        misc.sprint(all_current_results)
+        
+#       ------------------------------------------
+#       ---- Testing soft gluon current
+#       ------------------------------------------
+        reduced_process = self.reduced_process.get_copy()
+        # Remove the last leg that is going soft
+        reduced_process.get('legs').pop(-1)
+        a_PS = copy.copy(base_PS)
+        # Specify the trivial mapping
+        momenta_map = bidict( { 7 : frozenset((7,)) } )
+
+        current_evaluation, all_current_results = accessors_dict(
+                currents[1], a_PS, hel_config=None, 
+                reduced_process = reduced_process,
                 leg_numbers_map = momenta_map,
                 mapping_variables={})
 

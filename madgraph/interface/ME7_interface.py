@@ -934,8 +934,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
             return pdg in range(1,7)+range(-1,-7,-1)+[21]
 
         if __debug__: logger.debug( "Processing flavor-blind cuts for process %s and PS point:\n%s"%(
-                        str(process_pdgs), self.phase_space_generator.nice_momenta_string(
-                            PS_point, n_initial=self.phase_space_generator.n_initial) ))
+                        str(process_pdgs), PS_point.__str__(n_initial=self.phase_space_generator.n_initial) ))
 
         pt_cut = self.run_card['ptj']
         dr_cut = self.run_card['drjj']
@@ -970,8 +969,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         We consider here a two-level cuts system, this second one of which is flavour sensitive."""
 
         if __debug__: logger.debug( "Processing flavor-sensitive cuts for flavors %s and PS point:\n%s"%(
-                        str(flavors), self.phase_space_generator.nice_momenta_string(
-                            PS_point, n_initial=self.phase_space_generator.n_initial) ))
+                        str(flavors), PS_point.__str__(n_initial=self.phase_space_generator.n_initial) ))
 
         # None implemented yet
         return True
@@ -1047,8 +1045,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
         ###
         self.phase_space_generator.boost_to_COM_frame(PS_point, xb_1, xb_2)
                 
-        if __debug__: logger.debug("Considering the following PS point:\n%s"%(self.phase_space_generator.nice_momenta_string(
-                            PS_point, n_initial=self.phase_space_generator.n_initial) ))
+        if __debug__: logger.debug("Considering the following PS point:\n%s"%(PS_point.__str__(
+                                                                                n_initial=self.phase_space_generator.n_initial) ))
         
         # Account for PS weight
         wgt *= PS_weight
@@ -1196,8 +1194,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         ## Nicely printout the results generated
         #misc.sprint(process.nice_string())
         #misc.sprint(' Flavors: ',flavors)
-        #misc.sprint('PS point:\n', self.phase_space_generator.nice_momenta_string(
-        #            PS_point, n_initial=self.phase_space_generator.n_initial))
+        #misc.sprint('PS point:\n', PS_point.__str__(n_initial=self.phase_space_generator.n_initial))
         #misc.sprint('Results pertaining to the specified options:\n'+str(ME_evaluation))
         #misc.sprint('All results generated along with this ME call:\n'+str(all_results))
         ## One can read the details of the format for each of these options in
@@ -1262,8 +1259,7 @@ class ME7Integrand_V(ME7Integrand):
         ## Nicely print out the results generated.
         misc.sprint(process.nice_string())
         misc.sprint(' Flavors: ',flavors)
-        misc.sprint('PS point:\n', self.phase_space_generator.nice_momenta_string(
-                    PS_point, n_initial=self.phase_space_generator.n_initial))
+        misc.sprint('PS point:\n', PS_point.__str__(n_initial=self.phase_space_generator.n_initial))
         misc.sprint('Results pertaining to the specified options:\n'+str(ME_evaluation))
         misc.sprint('All results generated along with this ME call:\n'+str(all_results))
         
@@ -1394,9 +1390,7 @@ class ME7Integrand_R(ME7Integrand):
         final_weight = 0.0
         for (spin_correlators, color_correlators, current_weight) in all_necessary_ME_calls:
 #            misc.sprint(ME_process.nice_string(), counterterm.get_singular_structure_string())
-#            misc.sprint(phase_space_generators.VirtualPhaseSpaceGenerator.nice_momenta_string(
-#                [ phase_space_generators.LorentzVector(list(v)) for v in
-#                   self.all_MEAccessors.format_PS_point_for_ME_call(ME_PS,ME_process)] ))
+#            misc.sprint( self.all_MEAccessors.format_PS_point_for_ME_call(ME_PS,ME_process) )
             try:
                 ME_evaluation, all_ME_results = self.all_MEAccessors(
                    ME_process, ME_PS, alpha_s, mu_r,
@@ -1420,6 +1414,9 @@ Also make sure that there is no coupling order specification which receives corr
 #            misc.sprint(current_weight,ME_evaluation['finite'])
             final_weight += current_weight*ME_evaluation['finite']
 
+        # Now finally handle the overall prefactor of the counterterm
+        final_weight *= counterterm.prefactor
+        
         # Returns the corresponding weight and the mapped PS_point.
         # Also returns the mapped_process (for calling the observables), which
         # is typically simply a reference to counterterm.current which is an instance of Process.

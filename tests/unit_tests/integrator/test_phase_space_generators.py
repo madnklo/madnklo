@@ -119,8 +119,7 @@ class PhaseSpaceGeneratorsTest(unittest.TestCase):
         #print " ||    PS generation    ||"
         #print " ========================="    
         #print "\nRandom variables :\n",random_variables
-        #print "\n%s\n"%my_PS_generator.nice_momenta_string(
-        #                    momenta, recompute_mass=True, n_initial=my_PS_generator.n_initial)
+        #print "\n%s\n"%momenta.__str__(n_initial=my_PS_generator.n_initial)
         #print "Phase-space weight : %.16e\n"%wgt,
     
         variables_reconstructed, wgt_reconstructed = \

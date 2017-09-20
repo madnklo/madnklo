@@ -32,6 +32,7 @@ pjoin = os.path.join
 import madgraph.core.base_objects as base_objects
 import madgraph.core.diagram_generation as diagram_generation
 import madgraph.loop.loop_diagram_generation as loop_diagram_generation
+import madgraph.integrator.phase_space_generators as PS_utils
 import madgraph.interface.madevent_interface as madevent_interface
 import madgraph.core.helas_objects as helas_objects
 import madgraph.loop.loop_helas_objects as loop_helas_objects
@@ -1644,7 +1645,7 @@ class MEAccessorDict(dict):
         """ From a dictionary formatted PS point and a process, returns the PS point as a flat list, ordered as
         the legs in the process."""
         
-        formatted_PS_point = []
+        formatted_PS_point = PS_utils.LorentzVectorList()
         for leg in process.get_initial_legs()+process.get_final_legs():
             try:
                 formatted_PS_point.append(PS_point[leg.get('number')])

@@ -324,16 +324,7 @@ class NLO_FF_QCD_collinear_gq(utils.VirtualCurrentImplementation):
         else:
             # z is the energy fraction of the quark, therefore use P_{qg}
             kernel = (1.+z**2)/(1.-z)
-        
-        ##############################
-        # START: TO FIX / UNDERSTAND #
-        ##############################
-        # We need to divide by a factor 2 here, so far of unknown origin.
-        kernel /= 2.
-        ##############################
-        # END: TO FIX / UNDERSTAND   #
-        ##############################
-        
+
         evaluation['values'][(0,0)]['finite'] = kernel
             
         # Now add the normalization factors
@@ -469,15 +460,6 @@ class NLO_FF_QCD_collinear_gg(utils.VirtualCurrentImplementation):
                 
         # Now add the normalization factors
         norm = 4.*math.pi*alpha_s*(2./s12)*2.*self.CA
-        
-        ##############################
-        # START: TO FIX / UNDERSTAND #
-        ##############################
-        # We need to divide by a factor 2 here, so far of unknown origin.
-        norm /= 2.
-        ##############################
-        # END: TO FIX / UNDERSTAND   #
-        ##############################
         
         for k in evaluation['values']:
             evaluation['values'][k]['finite'] *= norm

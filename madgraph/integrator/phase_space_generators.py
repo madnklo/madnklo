@@ -132,10 +132,56 @@ class Vector(numpy.ndarray):
             self[0] * v[1] - self[1] * v[0]
         ])
 
+
+#===============================================================================
+# LorentzVectorDict
+#===============================================================================
+class LorentzVectorDict(dict):
+    """ A simple class wrapping the use of a dictionary to store Lorentz vectors."""
+
+    def __str__(self, n_initial=2):
+        """ Nice printout of the momenta."""
+
+        # Use padding for minus signs
+        def special_float_format(float):
+            return '%s%.16e'%('' if float<0.0 else ' ',float)
+        
+        cols_widths = [4,25,25,25,25,25]
+        template = ' '.join('%%-%ds'%col_width for col_width in cols_widths)
+        line     = '-'*(sum(cols_widths)+len(cols_widths)-1)
+
+        out_lines = [template%('#', ' E', ' p_x',' p_y', ' p_z', ' M',)]
+        out_lines.append(line)
+        running_sum = LorentzVector()
+        for i in sorted(self.keys()):
+            mom = LorentzVector(self[i])
+            if i < n_initial:
+                running_sum = running_sum + mom
+            else:
+                running_sum = running_sum - mom
+            out_lines.append(template%tuple(['%d'%i]+
+               [special_float_format(el) for el in (list(mom)+[abs(mom)]) ]))
+        out_lines.append(line)
+        out_lines.append(template%tuple(['Sum']+
+               [special_float_format(el) for el in running_sum]+['']))
+
+        return '\n'.join(out_lines)
+
+#===============================================================================
+# LorentzVectorList
+#===============================================================================
+class LorentzVectorList(list):
+    """ A simple class wrapping the use of a list to store Lorentz vectors."""
+
+    def __str__(self, n_initial=2):
+        """ Nice printout of the momenta."""
+        
+        return LorentzVectorDict( (i+1, v) for i,v in self.enumerate() ).\
+                                                    __str__(n_initial=n_initial)
+
 #===============================================================================
 # LorentzVector
 #===============================================================================
-
 class LorentzVector(Vector):
 
     def __new__(cls, *args, **opts):
@@ -340,40 +386,6 @@ class VirtualPhaseSpaceGenerator(object):
                                      for i in range(1, self.nDimPhaseSpace()+1) ])
         
         return dims
-
-    @classmethod
-    def nice_momenta_string(cls, momenta, n_initial=2):
-        """ Nice printout of the momenta."""
-        
-        # Make sure to cast the argument into a dictionary
-        if isinstance(momenta,list):
-            momenta = dict((i+1,mom) for i,mom in enumerate(momenta))
-
-        # Use padding for minus signs
-        def special_float_format(float):
-            return '%s%.16e'%('' if float<0.0 else ' ',float)
-        
-        cols_widths = [4,25,25,25,25,25]
-        template = ' '.join('%%-%ds'%col_width for col_width in cols_widths)
-        line     = '-'*(sum(cols_widths)+len(cols_widths)-1)
-
-        out_lines = [template%('#', ' E', ' p_x',' p_y', ' p_z', ' M',)]
-        out_lines.append(line)
-        running_sum = LorentzVector()
-        for i in sorted(momenta.keys()):
-            mom = LorentzVector(momenta[i])
-            if i < n_initial:
-                running_sum = running_sum + mom
-            else:
-                running_sum = running_sum - mom
-            out_lines.append(template%tuple(['%d'%i]+
-               [special_float_format(el) for el in (list(mom)+[abs(mom)]) ]))
-        out_lines.append(line)
-        out_lines.append(template%tuple(['Sum']+
-               [special_float_format(el) for el in running_sum]+['']))
-
-        return '\n'.join(out_lines)
-
 
 class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
     """ Implementation following S. Platzer: arxiv:1308.2922 """
@@ -586,7 +598,7 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
         # Apply the phase-space weight
         wgt *= PS_weight
         
-        return PS_point, wgt, xb_1, xb_2
+        return LorentzVectorList(PS_point), wgt, xb_1, xb_2
 
     def generateKinematics(self, E_cm, random_variables):
         """ Generate a self.n_initial -> self.n_final phase-space point using 
@@ -659,7 +671,7 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
 
         self.setInitialStateMomenta(output_momenta, E_cm)
 
-        return output_momenta, weight
+        return LorentzVectorList(output_momenta), weight
 
     def generateIntermediatesMassless(self, M, E_cm, random_variables):
         """ Generate intermediate masses for a massless final state."""
@@ -1527,8 +1539,7 @@ if __name__ == '__main__':
     print " ========================="
 
     print "\nRandom variables :\n",random_variables
-    print "\n%s\n"%my_PS_generator.nice_momenta_string(
-                        momenta, n_initial=my_PS_generator.n_initial)
+    print "\n%s\n"%momenta.__str__(n_initial=my_PS_generator.n_initial)
     print "Phase-space weight : %.16e\n"%wgt,
 
     variables_reconstructed, wgt_reconstructed = \

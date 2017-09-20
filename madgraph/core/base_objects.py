@@ -3526,7 +3526,7 @@ class Process(PhysicsObject):
     def identical_particle_factor(self):
         """Calculate the denominator factor for identical final state particles
         """
-
+        
         final_legs = filter(lambda leg: leg.get('state') == True, \
                               self.get_legs_with_decays())
 
@@ -3537,6 +3537,7 @@ class Process(PhysicsObject):
                                     identical_indices[leg.get('id')] + 1
             else:
                 identical_indices[leg.get('id')] = 1
+
         return reduce(lambda x, y: x * y, [ math.factorial(val) for val in \
                         identical_indices.values() ], 1)
 

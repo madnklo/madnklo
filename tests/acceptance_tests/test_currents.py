@@ -35,7 +35,6 @@ FINAL   = subtraction.SubtractionLeg.FINAL
 INITIAL = subtraction.SubtractionLeg.INITIAL
 
 pjoin = os.path.join
-nice_momenta_string = phase_space_generators.VirtualPhaseSpaceGenerator.nice_momenta_string
 
 class SubtractionCurrentTest(unittest.TestCase):
     """Test and run currents, comparing against target results."""
@@ -92,7 +91,7 @@ class SubtractionCurrentTest(unittest.TestCase):
 
         PS_point, wgt, xb_1, xb_2 = PS_generator.get_PS_point(None)
         
-        misc.sprint('PS point:\n\n%s\n\n'%nice_momenta_string(PS_point))
+        misc.sprint('PS point:\n\n%s\n\n'%PS_point.__str__(n_initial=len(initial_masses)))
 
         return dict( (i, momentum) for i, momentum in enumerate(PS_point) )
 

@@ -497,23 +497,6 @@ class SingularStructure(object):
 
         return tuple(sorted(canonical.items()))
 
-    def prefactor(self):
-        """Determine the prefactor of the counterterm
-        associated with this singular structure.
-        """
-
-        pref = -1
-        if type(self) == SingularStructure:
-            pref = 1
-        # Account for simplification of soft operators
-        # TODO Check this works for collinears inside softs
-        softs = []
-        for sub in self.substructures:
-            pref *= sub.prefactor()
-            if sub.name() == "S":
-                softs += [len(sub.substructures) + len(sub.legs), ]
-        return pref * multinomial(softs)
-
     def __eq__(self, other):
         """Check if two singular structures are the same."""
 
@@ -880,6 +863,44 @@ class CountertermNode(object):
         
         return total_unresolved
 
+    def get_subtraction_prefactor(self):
+        """ Determine the prefactor related to the nested subtraction
+        technique."""
+        
+        pref = -1.
+        
+###########################################################################################
+# START: TO FIX: this implementation is no longer functional within the current structure #
+###########################################################################################
+        # Account for simplification of soft operators
+        # TODO Check this works for collinears inside softs
+#        softs = []
+#        for sub in self.substructures:
+#            pref *= sub.get_subtraction_prefactor()
+#            if sub.name() == "S":
+#                softs += [len(sub.substructures) + len(sub.legs), ]
+#        pref *= multinomial(softs)
+
+###########################################################################################
+# END: TO FIX:                                                                            #
+###########################################################################################
+        
+        return pref
+    
+    def find_leg(self, number):
+        """Find the SubtractionLeg with number specified."""
+        
+        for subtraction_leg in self.current['singular_structure'].get_all_legs():
+            if subtraction_leg.n == number:
+                return subtraction_leg
+        
+        for subcurrent in self.subcurrents:
+            subtraction_leg = subcurrent.find_leg(number)
+            if not subtraction_leg is None:
+                return subtraction_leg
+        
+        return None
+
     def get_copy(self, copied_attributes = ()):
         """Make sure that attributes args of the object returned
         and all its children can be modified without changing the original.
@@ -915,7 +936,9 @@ class Counterterm(CountertermNode):
         self,
         process = None,
         subcurrents = None,
-        momenta_dict = None
+        momenta_dict = None,
+        resolved_process = None,
+        prefactor=None,
     ):
 
         super(Counterterm, self).__init__(process, subcurrents)
@@ -925,10 +948,106 @@ class Counterterm(CountertermNode):
         else:
             self.momenta_dict = bidict()
 
+        if prefactor is None:
+            # Re-construct the prefactor multiplying this counterterm
+            self.prefactor = self.get_prefactor(resolved_process=resolved_process)
+        else:
+            self.prefactor = prefactor
+            
     @property
     def process(self):
         return self.current
+
+    def find_leg(self, number):
+        """Find the Leg or SubtractionLeg with number specified."""
+        
+        for leg in self.process.get('legs'):
+            if leg.get('number') == number:
+                return leg
+        
+        for subcurrent in self.subcurrents:
+            subtraction_leg = subcurrent.find_leg(number)
+            if not subtraction_leg is None:
+                return subtraction_leg
+        
+        return None
+
+    def get_daughter_pdgs(self, leg_number, state):
+        """ Walks down the tree of currents to find the pdgs 'attached' to a given leg number
+        of the reduced process."""
+        
+        external_leg_numbers = []
+        intermediate_leg_number = [leg_number, ]
+        while len(intermediate_leg_number) > 0:
+            next_leg = intermediate_leg_number.pop(0)
+            # Check if this leg is final
+            daughters = self.momenta_dict[next_leg]
+            if  daughters == frozenset([next_leg,]):
+                external_leg_numbers.append(next_leg)
+            else:
+                intermediate_leg_number = list(daughters) + intermediate_leg_number
+        
+        # Now that we have the external leg numbers, find the corresponding pdg
+        pdgs = []
+        for n in external_leg_numbers:
+            leg = self.find_leg(n)
+            if leg is None:
+                raise MadGraph5Error("Could not find leg number %d in counterterm:\n%s"%(n,str(self)))
+            if isinstance(leg, SubtractionLeg):
+                if leg.state == state:
+                    pdgs.append(leg.pdg)
+            else:
+                if leg['state'] == state:
+                    pdgs.append(leg['id'])
+        return pdgs
+
+    def get_resolved_process_pdgs(self):
+        """ Walks through the currents and obtain the pdgs list of resolved process."""
+
+        reduced_initial_leg_numbers = [ l.get('number') for l in self.process.get_initial_legs() ]
+        all_initial_leg_pdgs = []
+        for leg_number in reduced_initial_leg_numbers:
+            all_initial_leg_pdgs.extend(self.get_daughter_pdgs(leg_number, SubtractionLeg.INITIAL))
+
+        reduced_final_leg_numbers = [ l.get('number') for l in self.process.get_final_legs() ]
+        all_final_leg_pdgs= []
+        for leg_number in reduced_final_leg_numbers:
+            all_final_leg_pdgs.extend(self.get_daughter_pdgs(leg_number, SubtractionLeg.FINAL))
+        
+        return ( tuple(all_initial_leg_pdgs), tuple(all_final_leg_pdgs) )
+
+    def get_prefactor(self, resolved_process=None):
+        """Determine the overall prefactor of the counterterm
+        associated with this singular structure.
+        """
+        pref = 1.
+        
+        # First get the subtraction prefactor.
+        pref *= self.get_subtraction_prefactor()
+
+        # Remove the final state symmetry factor from the reduced process,
+        pref *= self.process.identical_particle_factor()
     
+        # And enforce the final state symmetry factor of the resolve process.
+        # For instance, for the limit C(5,6) of e+ e- > d d~ d d~
+        # the net result is that we divide the counterterm by 4 because the reduced process e+ e- > d d~ g does
+        # not have any identical particles in the final state.
+        if resolved_process:
+            resolved_sym_factor = resolved_process.identical_particle_factor()
+        else:
+            # If the resolved process is not provided, we can reconstruct the information
+            # by walking recursively through the subcurrents.
+            final_pdgs = self.get_resolved_process_pdgs()[1]
+            # If the resolved_process is provided, then construct the prefactor from it, otherwise
+            # reconstruct it.
+            resolved_sym_factor = 1.
+            for final_pdg in set(final_pdgs):
+                resolved_sym_factor *= final_pdgs.count(final_pdg)
+
+        pref /= resolved_sym_factor
+        
+        return pref
+
     def is_singular(self):
         """Returns whether this counterterm is just the implementation of the pure
         matrix element or if it has singular region (and the corresponding currents)
@@ -990,7 +1109,8 @@ class Counterterm(CountertermNode):
         momenta_dict = self.momenta_dict
         if copy_momenta_dict:
             momenta_dict = bidict(momenta_dict)
-        return Counterterm(node.current, node.subcurrents, momenta_dict)
+        return Counterterm(node.current, node.subcurrents, momenta_dict,
+                                            prefactor = node.prefactor)
 
     def get_singular_structure_string(self, **opts):
         """Returns a one-line string specifying only the complete nested singular
@@ -1256,7 +1376,6 @@ class IRSubtraction(object):
         assert isinstance(process, base_objects.Process)
 
         reduced_process = process
-        reduced_process.set('n_loops', 0)
 
         # If no momenta dictionary was passed
         if not momenta_dict_so_far:
@@ -1268,8 +1387,13 @@ class IRSubtraction(object):
                 # else a more elaborate treatment of indices is needed
                 assert leg['number'] == len(momenta_dict_so_far) + 1
                 momenta_dict_so_far[leg['number']] = frozenset((leg['number'],))
+
             # The squared orders of the reduced process will be set correctly later (DOUBLECHECK this)
-            reduced_process = reduced_process.get_copy(['legs', 'n_loops'])
+            reduced_process = reduced_process.get_copy(['legs', 'n_loops', 'legs_with_decays'])
+            # Empty legs_with_decays as it will be regenerated automatically when asked for.
+            reduced_process['legs_with_decays'][:] = []
+            # The n_loops will be distributed later
+            reduced_process.set('n_loops', 0)
 
         subcurrents = []
 
@@ -1327,7 +1451,8 @@ class IRSubtraction(object):
             return Counterterm(
                 reduced_process,
                 subcurrents,
-                momenta_dict_so_far
+                momenta_dict_so_far,
+                resolved_process = process
             )
 
         # 3. Else build the current and update
@@ -1463,7 +1588,8 @@ class IRSubtraction(object):
                     Counterterm(
                         counterterm.current.get_copy(('n_loops')),
                         combination,
-                        counterterm.momenta_dict
+                        counterterm.momenta_dict,
+                        prefactor = counterterm.prefactor
                     )
                 )
             else:
@@ -1540,7 +1666,7 @@ class IRSubtraction(object):
                 all_counterterms.extend(
                     self.split_orders(counterterm_with_loops)
                 )
-
+        
         return all_counterterms
 
 #===============================================================================

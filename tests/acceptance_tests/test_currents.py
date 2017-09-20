@@ -139,6 +139,17 @@ class SubtractionCurrentTest(unittest.TestCase):
                 'n_loops'                       : 0,
                 'squared_orders'                : {'QCD':2, 'QED':0},
                 'resolve_mother_spin_and_color' : True,
+                'singular_structure'            : subtraction.CollStructure(
+                    subtraction.SubtractionLeg(5, -1,FINAL),
+                    subtraction.SoftStructure(
+                        subtraction.SubtractionLeg(7, 21,FINAL)
+                    )
+                )
+            }),
+            subtraction.Current({
+                'n_loops'                       : 0,
+                'squared_orders'                : {'QCD':2, 'QED':0},
+                'resolve_mother_spin_and_color' : True,
                 'singular_structure'            : subtraction.SoftStructure(
                     subtraction.SubtractionLeg(7, 21,FINAL)
                 )
@@ -149,6 +160,7 @@ class SubtractionCurrentTest(unittest.TestCase):
 #       ------------------------------------------
 #       ---- Testing g > q q~ hard collinear
 #       ------------------------------------------
+        misc.sprint('Testing hard collinear g > q q~:')
         a_PS = copy.copy(base_PS)
         a_PS[1000] = a_PS[4] + a_PS[5]
         
@@ -169,10 +181,32 @@ class SubtractionCurrentTest(unittest.TestCase):
 
         misc.sprint(current_evaluation)
         misc.sprint(all_current_results)
+
+#       ------------------------------------------
+#       ---- Testing q~ > q~ g  soft collinear
+#       ------------------------------------------
+        misc.sprint('Testing soft collinear q~ > q~ g:')
+        a_PS = copy.copy(base_PS)
+        a_PS[1000] = a_PS[5] + a_PS[7]
+        
+        # Put the mapped momentum onshell, this is not a well-defined
+        # mapping, but it is sufficient for now to test this current.
+        a_PS[1000].rescaleEnergy(mass=0.)
+        momenta_map = bidict( { 1000 : frozenset((5,7)) } )        
+
+        current_evaluation, all_current_results = accessors_dict(
+                currents[1], a_PS, hel_config=None, 
+                reduced_process = None,
+                leg_numbers_map = momenta_map,
+                mapping_variables={})
+
+        misc.sprint(current_evaluation)
+        misc.sprint(all_current_results)
         
 #       ------------------------------------------
 #       ---- Testing soft gluon current
 #       ------------------------------------------
+        misc.sprint('Testing soft gluon current:')
         reduced_process = self.reduced_process.get_copy()
         # Remove the last leg that is going soft
         reduced_process.get('legs').pop(-1)
@@ -181,7 +215,7 @@ class SubtractionCurrentTest(unittest.TestCase):
         momenta_map = bidict( { 7 : frozenset((7,)) } )
 
         current_evaluation, all_current_results = accessors_dict(
-                currents[1], a_PS, hel_config=None, 
+                currents[2], a_PS, hel_config=None, 
                 reduced_process = reduced_process,
                 leg_numbers_map = momenta_map,
                 mapping_variables={})

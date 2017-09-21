@@ -433,6 +433,28 @@ class SingularStructure(object):
 
         return self.is_annihilated
 
+    def get_subtraction_prefactor(self):
+        """ Determine the prefactor related to the nested subtraction
+        technique."""
+        
+        # If we are at the top level, we shall not include the factor
+        # Indeed, we are integrating +R-C.
+        if type(self) == SingularStructure:
+            pref = 1
+        else:
+            pref = -1
+
+        # Account for simplification of soft operators
+        # TODO Check this works for collinears inside softs
+        softs = []
+        for sub in self.substructures:
+            pref *= sub.get_subtraction_prefactor()
+            if sub.name() == "S":
+               softs += [len(sub.substructures) + len(sub.legs), ]
+        pref *= multinomial(softs)
+        
+        return pref
+
     def annihilate(self):
         """When an operator cannot act on this structure,
         remove this structure altogether
@@ -829,6 +851,15 @@ class CountertermNode(object):
             tmp_str += subcurrent.__str__(level + 1)
         return tmp_str
 
+    def reconstruct_complete_singular_structure(self):
+        """ Reconstruct the complete singular structure for this counterterm Node."""
+        
+        structure       = self.current['singular_structure']
+        legs            = structure.legs
+        substructures   = [ct_node.reconstruct_complete_singular_structure() for 
+                                                            ct_node in self.subcurrents]
+        return type(structure)(list(legs)+substructures)
+
     def get_singular_structure_string(self, print_n=True, print_pdg=False, print_state=False):
         """ Returns a one-line string specifying only the complete nested singular 
         structure of this counterterm node."""
@@ -868,30 +899,6 @@ class CountertermNode(object):
         
         return total_unresolved
 
-    def get_subtraction_prefactor(self):
-        """ Determine the prefactor related to the nested subtraction
-        technique."""
-        
-        pref = -1.
-        
-###########################################################################################
-# START: TO FIX: this implementation is no longer functional within the current structure #
-###########################################################################################
-        # Account for simplification of soft operators
-        # TODO Check this works for collinears inside softs
-#        softs = []
-#        for sub in self.substructures:
-#            pref *= sub.get_subtraction_prefactor()
-#            if sub.name() == "S":
-#                softs += [len(sub.substructures) + len(sub.legs), ]
-#        pref *= multinomial(softs)
-
-###########################################################################################
-# END: TO FIX:                                                                            #
-###########################################################################################
-        
-        return pref
-    
     def find_leg(self, number):
         """Find the SubtractionLeg with number specified."""
         
@@ -935,7 +942,9 @@ class CountertermNode(object):
 # Counterterm
 #===============================================================================
 class Counterterm(CountertermNode):
-    """Class representing a tree of currents multiplying a matrix element."""
+    """Class representing a tree of currents multiplying a matrix element.
+    The options 'resolved_process' and 'complete_singular_structure' are just
+    to render the computation of the prefactor faster if it is not provided"""
 
     def __init__(
         self,
@@ -943,6 +952,7 @@ class Counterterm(CountertermNode):
         subcurrents = None,
         momenta_dict = None,
         resolved_process = None,
+        complete_singular_structure=None,
         prefactor=None,
     ):
 
@@ -955,7 +965,8 @@ class Counterterm(CountertermNode):
 
         if prefactor is None:
             # Re-construct the prefactor multiplying this counterterm
-            self.prefactor = self.get_prefactor(resolved_process=resolved_process)
+            self.prefactor = self.get_prefactor(resolved_process=resolved_process,
+                            complete_singular_structure=complete_singular_structure)
         else:
             self.prefactor = prefactor
             
@@ -1021,15 +1032,28 @@ class Counterterm(CountertermNode):
         
         return ( tuple(all_initial_leg_pdgs), tuple(all_final_leg_pdgs) )
 
-    def get_prefactor(self, resolved_process=None):
+    def reconstruct_complete_singular_structure(self):
+        """ Reconstruct the complete singular structure for this counterterm."""
+        
+        if len(self.subcurrents)>0:
+            return SingularStructure(ct_node.reconstruct_complete_singular_structure() for 
+                                                                        ct_node in self.subcurrents)
+        else:
+            return SingularStructure()
+
+    def get_prefactor(self, resolved_process=None, complete_singular_structure=None):
         """Determine the overall prefactor of the counterterm
         associated with this singular structure.
         """
         pref = 1.
-        
-        # First get the subtraction prefactor.
-        pref *= self.get_subtraction_prefactor()
 
+        # First get the subtraction prefactor.        
+        if complete_singular_structure is None:
+            complete_singular_structure = self.reconstruct_complete_singular_structure()
+        
+        pref *= complete_singular_structure.get_subtraction_prefactor()
+            
+            
         # Remove the final state symmetry factor from the reduced process,
         pref *= self.process.identical_particle_factor()
     
@@ -1138,7 +1162,6 @@ class Counterterm(CountertermNode):
 #===============================================================================
 # order_2_string
 #===============================================================================
-
 def order_2_string(order):
     """Convert powers of the squared coupling to (N...)LO string."""
 
@@ -1457,7 +1480,8 @@ class IRSubtraction(object):
                 reduced_process,
                 subcurrents,
                 momenta_dict_so_far,
-                resolved_process = process
+                resolved_process = process,
+                complete_singular_structure=structure
             )
 
         # 3. Else build the current and update

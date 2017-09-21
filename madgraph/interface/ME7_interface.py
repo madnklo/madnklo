@@ -1571,8 +1571,9 @@ Also make sure that there is no coupling order specification which receives corr
                         }
                     
                     # To be commented out when we will have a full-fledged analysis coded up in analyze_IR_limits_test()
-                    misc.sprint('%-20.14e %-20.14e %-20.14e %-20.14e'%
-                            (scaling_parameter, ME_evaluation, summed_counterterm_weight,summed_counterterm_weight/ME_evaluation))
+                    misc.sprint('%-20.14e %-20.14e %-20.14e %-20.14e %-20.14e'%
+                            (scaling_parameter, ME_evaluation, summed_counterterm_weight,
+                             summed_counterterm_weight/ME_evaluation, ME_evaluation+summed_counterterm_weight))
                 all_evaluations[(process_key, limit_specifier_counterterm.get_singular_structure_string(print_n=True, 
                                                                   print_pdg=False, print_state=False))] = evaluations
 

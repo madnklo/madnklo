@@ -989,7 +989,7 @@ class Counterterm(CountertermNode):
         return None
 
     def get_daughter_pdgs(self, leg_number, state):
-        """ Walks down the tree of currents to find the pdgs 'attached' to a given leg number
+        """Walk down the tree of currents to find the pdgs 'attached' to a given leg number
         of the reduced process."""
         
         external_leg_numbers = []
@@ -1193,7 +1193,6 @@ class IRSubtraction(object):
             for coupling in orders.keys()
         )
 
-
     def global_order(self):
         """Return the total perturbative order in all couplings."""
 
@@ -1209,69 +1208,86 @@ class IRSubtraction(object):
             for coupling in self.orders.keys()
         )
 
-    def parent_PDGs(self, legs):
-        """List all possible parent PDGs to a given set of legs."""
+    def parent_PDGs_from_PDGs(self, PDGs):
+        """List all possible parent PDGs for a given set of children PDGs."""
 
-        # BALDY: parent_PDGs hardcoded to SM QCD (with some sanity checks)
-        # A generic way to build histories of possible combination of external legs is using the 
-        # model ref_dict_to1
+        # WARNING: parent_PDGs_from_PDGs hardcoded to SM QCD (with sanity checks)
+        # A generic way to build tree histories of PDGs
+        # is using the model ref_dict_to1
         # misc.sprint(self.model.get('ref_dict_to1')[(-2,2)])
         # misc.sprint(self.model.get_particle(-2).get('spin'),
         #             self.model.get_particle(-2).get_color(),
         #             self.model.get_particle(-2).get('mass')=='zero'
         #             )
 
-        if not any(self.model.get('name').startswith(name) for name in ['sm','loop_sm']):
+        if not any(
+            self.model.get('name').startswith(name) for name in
+            ['sm', 'loop_sm']
+        ):
             raise InvalidCmd(
-                "The function parent_PDGs is implemented for the SM only, not in "+
-                "model %s."%self.model.get('name')
+                "parent_PDGs_from_PDGs is implemented for SM only,"
+                "not in model %s." % self.model.get('name')
             )
         if any(order != 'QCD' for order in self.orders.keys()):
             raise InvalidCmd(
-                "The function parent_PDGs is implemented for QCD only."
+                "The function parent_PDGs_from_PDGs is implemented for QCD only."
             )
 
         # Get parton flavors, eliminating gluons
-        flavored_legs = [leg for leg in legs if leg.pdg != 21]
+        flavors = [pdg for pdg in PDGs if pdg != 21]
 
-        # If all daughters were gluons, the only parent is a gluon
-        if not flavored_legs:
+        # If all children were gluons, the only parent is a gluon
+        if not flavors:
             return [21]
 
         # Consider last particle
-        last_leg = flavored_legs.pop()
-        ll_state = last_leg.state
-        ll_id    = last_leg.pdg
+        last = flavors.pop()
         # Look for a corresponding anti-particle
-        for leg in range(len(flavored_legs)):
-            cur_state = flavored_legs[leg].state
-            cur_id    = flavored_legs[leg].pdg
-            if ( (cur_state == ll_state and cur_id == -ll_id) or
-                 (cur_state != ll_state and cur_id == ll_id) ):
+        for i in range(len(flavors)):
+            anti = self.model.get_particle(last).get_anti_pdg_code()
+            if flavors[i] == anti:
                 # Eliminate it and start over
-                flavored_legs.pop(leg)
-                return self.parent_PDGs(flavored_legs)
+                flavors.pop(i)
+                return self.parent_PDGs_from_PDGs(flavors)
 
         # If there was no anti-particle,
-        # check if all other legs have been emitted by the last one
-        if self.parent_PDGs(flavored_legs) == [21]:
-            # Return the 'initial-state PDG' of the particle
-            return [ll_id]
-# I THINK BELOW IS WRONG. CHECK
-#            if ll_state == SubtractionLeg.INITIAL:
-#                return [ll_id]
-#            else:
-#                return [-ll_id]
+        # check if all other legs particles been emitted by the last one
+        if self.parent_PDGs_from_PDGs(flavors) == [21]:
+            return [last]
 
         # At this point, there is no valid parent: return empty list
         return []
+
+    def parent_PDGs_from_legs(self, legs):
+        """List all possible parent PDGs for a given set of legs."""
+
+        # Determine if the legs contain an initial-state one
+        initial_state = any(leg.state == leg.INITIAL for leg in legs)
+        # Cross initial-state legs to final-state and get all PDGs
+        pdgs = []
+        for leg in legs:
+            cur = leg.pdg
+            if leg.state == leg.FINAL:
+                pdgs.append(cur)
+            else:
+                pdgs.append(self.model.get_particle(cur).get_anti_pdg_code())
+        # Get the parent PDG of this leg set
+        parent_PDGs = self.parent_PDGs_from_PDGs(pdgs)
+        # Cross back if the leg set referred to initial-state
+        final_PDGs = []
+        for parent_PDG in parent_PDGs:
+            if initial_state:
+                final_PDGs.append(-parent_PDG)
+            else:
+                final_PDGs.append(parent_PDG)
+        return final_PDGs
         
     def can_become_soft(self, legs):
         """Check whether a bunch of legs going simultaneously soft 
         lead to singular behavior.
         """
 
-        for pdg in self.parent_PDGs(legs):
+        for pdg in self.parent_PDGs_from_legs(legs):
             particle = self.model.get_particle(pdg)
             if (particle.get('spin') == 3 and particle.get('mass').lower() == 'zero'):
                 return True
@@ -1282,7 +1298,7 @@ class IRSubtraction(object):
         lead to singular behavior.
         """
         
-        for pdg in self.parent_PDGs(legs):
+        for pdg in self.parent_PDGs_from_legs(legs):
             if self.can_be_IR_unresolved(pdg):
                 return True
         return False        
@@ -1445,7 +1461,7 @@ class IRSubtraction(object):
                 # retrieve its number
                 parent_index = momenta_dict_so_far.inv[current_leg_ns]
                 # Build the SubtractionLeg that appears in the current arguments
-                parent_PDGs = self.parent_PDGs(current_legs)
+                parent_PDGs = self.parent_PDGs_from_legs(current_legs)
                 assert len(parent_PDGs) == 1
                 parent_PDG = parent_PDGs[0]
                 parent_state = SubtractionLeg.FINAL
@@ -1498,7 +1514,7 @@ class IRSubtraction(object):
             parent_index = len(momenta_dict_so_far)+1
             momenta_dict_so_far[parent_index] = structure_leg_ns
             # Work out the complete SubtractionLeg for the parent
-            parent_PDGs = self.parent_PDGs(structure_legs)
+            parent_PDGs = self.parent_PDGs_from_legs(structure_legs)
             assert len(parent_PDGs) == 1
             parent_PDG = parent_PDGs[0]
             parent_state = SubtractionLeg.FINAL

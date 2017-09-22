@@ -334,6 +334,35 @@ class NLOSubtractionTest(unittest.TestCase):
                 sub.SingularStructure(leg for leg in subtraction_leg_set)
         )
 
+    def test_parent_PDGs(self):
+        """Test determination of parent PDGs."""
+
+        children1 = sub.SubtractionLegSet(
+            sub.SubtractionLeg(1,  1, sub.SubtractionLeg.FINAL),
+            sub.SubtractionLeg(2, 21, sub.SubtractionLeg.FINAL),
+            sub.SubtractionLeg(3, -1, sub.SubtractionLeg.FINAL),
+            sub.SubtractionLeg(4, -2, sub.SubtractionLeg.FINAL),
+            sub.SubtractionLeg(5,  1, sub.SubtractionLeg.FINAL),
+            sub.SubtractionLeg(8, -1, sub.SubtractionLeg.FINAL),
+            sub.SubtractionLeg(9,  2, sub.SubtractionLeg.FINAL),
+        )
+        self.assertEqual(self.mysubtraction.parent_PDGs_from_legs(children1), [21])
+
+        children2 = sub.SubtractionLegSet(
+            sub.SubtractionLeg(1,  1, sub.SubtractionLeg.INITIAL),
+            sub.SubtractionLeg(2, 21, sub.SubtractionLeg.FINAL),
+            sub.SubtractionLeg(3,  1, sub.SubtractionLeg.FINAL),
+            sub.SubtractionLeg(4, -2, sub.SubtractionLeg.FINAL),
+        )
+        self.assertEqual(self.mysubtraction.parent_PDGs_from_legs(children2), [2])
+
+        children3 = sub.SubtractionLegSet(
+            sub.SubtractionLeg(1, 1, sub.SubtractionLeg.INITIAL),
+            sub.SubtractionLeg(2, 21, sub.SubtractionLeg.FINAL),
+            sub.SubtractionLeg(3, -1, sub.SubtractionLeg.FINAL),
+        )
+        self.assertEqual(self.mysubtraction.parent_PDGs_from_legs(children3), [])
+
     def test_generation_of_elementary_operators(self):
         """Test generation of all elementary operators for selected process."""
 

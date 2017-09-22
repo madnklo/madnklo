@@ -180,10 +180,10 @@ class Switcher(object):
             except:
                 key   = opt
                 value = None
-            if key.strip() in ['LO','NLO','NNLO']:
+            if key.strip() in ['LO','NLO','NNLO','NNNLO']:
                 ME7_mode = True
                 ME7_correction_order = max(ME7_correction_order, key.strip().count('N'))
-            if key.strip() in ['NLO','NNLO']:
+            if key.strip() in ['NLO','NNLO','NNNLO']:
                 if value is None:
                     orders.append('QCD')
                 else:

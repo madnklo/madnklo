@@ -2959,6 +2959,7 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
         
         add_options = {'NLO'                  : [],
                        'NNLO'                 : [],
+                       'NNNLO'                 : [],
                        'LO'                   : False,
                        'loop_induced'         : [],
                        # ME7_definition is a tag informing whether the user asks for the new ME7 output.
@@ -2990,9 +2991,10 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
             if 'QED' not in valid_NLO_correction_orders:
                 valid_NLO_correction_orders.append('QED')
         
-        # For now simply assume that NNLO is available for any model which supports NLO QCD.
-        # This can be refine later when it will be clear how we obtain the double virtual.
+        # For now simply assume that NNLO and NNNLO is available for any model which supports NLO QCD.
+        # This can be refine later when it will be clear how we obtain the virtuals beyond one-loop.
         valid_NNLO_correction_orders = [order for order in valid_NLO_correction_orders if order in ['QCD']]
+        valid_NNNLO_correction_orders = [order for order in valid_NNLO_correction_orders if order in ['QCD']]
         
         for arg in opt_args:
             try:
@@ -3021,6 +3023,17 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
                                                                     %(valid_NNLO_correction_orders, orders) )
                 
                 add_options['NNLO'] = orders
+
+            elif key == 'NNNLO':
+                if value is None:
+                    orders = ['QCD']
+                else:
+                    orders = value.split()     
+                if any(order not in valid_NNNLO_correction_orders for order in orders):
+                    raise InvalidCmd("Current model only supports orders %s for NNNLO corrections, not: %s"
+                                                                    %(valid_NNNLO_correction_orders, orders) )
+                
+                add_options['NNNLO'] = orders
             
             elif key=='LO':
                 if value != None:
@@ -3051,16 +3064,21 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
                 raise InvalidCmd("Unrecognized option for command add/generate: %s"%key)
 
         # Make sure to select --LO if no mode was selected when picking loop_induced
-        if add_options['loop_induced'] and not any(add_options[mode] for mode in ['NNLO', 'NLO', 'LO']):
+        if add_options['loop_induced'] and not any(add_options[mode] for mode in ['NNNLO', 'NNLO', 'NLO', 'LO']):
             add_options['LO'] = True
         
         if add_options['loop_induced'] and add_options['NNLO']:
             raise InvalidCmd('Loop-induced processes cannot be simulated at NNLO accuracy.')
         
         # Now make sure that the hierarchy of contributions is respected, except if explicitly set to None
+        if add_options['NNNLO']:
+            if not add_options['NNLO'] and (not add_options['NNLO'] is None):
+                # Add here the NNLO contribution with the same orders as NNNLO
+                add_options['NNLO'] = add_options['NNNLO']
+    
         if add_options['NNLO']:
             if not add_options['NLO'] and (not add_options['NLO'] is None):
-                # Add here the NLO contribution with the same orders as NLO
+                # Add here the NLO contribution with the same orders as NNLO
                 add_options['NLO'] = add_options['NNLO']
                 
         if add_options['NLO']:
@@ -3069,7 +3087,7 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
                 add_options['LO'] = True
 
         # Finally set the ME7_definition tag
-        add_options['ME7_definition'] = any(add_options[info] for info in ['NLO', 'NNLO', 'LO', 'loop_induced'])
+        add_options['ME7_definition'] = any(add_options[info] for info in ['NLO', 'NNLO', 'NNNLO', 'LO', 'loop_induced'])
 
         return new_args, add_options
     
@@ -3377,18 +3395,7 @@ This implies that with decay chains:
             # Update process id
             procdef.set('id', generation_options['proc_id'])
 #            generation_options['proc_id'] += 1
-            # Specify a negative squared order coupling if no squared order coupling is
-            # defined, and keep only the leading contributions in these orders then.
-    #####################################################################################################
-    # WE WILL NEED TO INFER EXACTLY WHAT ARE THE SQUARED ORDER TO INCLUDE STARTING FROM THE BORN HERE
-    #               SO LEAVE DEFAULT FOR NOW, WHICH IS OK FOR PURE QCD CORRECTIONS
-    #####################################################################################################
-    #        for order in generation_options['NLO']:
-    #            if order not in target_squared_orders:
-    #                procdef['sqorders_types'][order] = '<='
-    #                # -2 means that only the first subleading contribution in that coupling order will be kept.
-    #                procdef['squared_orders'][order] = -2
-    
+
             # Now add the corresponding MultiLeg to the final state
             procdef['legs'].append(base_objects.MultiLeg({'ids':
                 sum([orders_to_perturbed_quantities[order]['real_emission_ids'] 
@@ -3418,7 +3425,7 @@ This implies that with decay chains:
         """ Add all regular NNLO contributions, using the process defintion in argument as template
         and the target_squared_orders as constraints applying to the NNLO contributions.
         So, if the user specified QCD^2==2 at LO, these NNLO target_squared_orders would become QCD^2 in [2-6]"""
-        
+
         logger.warning('At NNLO, MadEvent7 currently now only generate the RR contributions.')
         
         # Shortcut accessor to quantities stores in generation_options
@@ -3432,23 +3439,12 @@ This implies that with decay chains:
             # Update process id
             procdef.set('id', generation_options['proc_id'])
 #            generation_options['proc_id'] += 1
-            # Specify a negative squared order coupling if no squared order coupling is
-            # defined, so as to enforce keeping only the first two subleading contribution in those orders.
-    #####################################################################################################
-    # WE WILL NEED TO INFER EXACTLY WHAT ARE THE SQUARED ORDER TO INCLUDE STARTING FROM THE BORN HERE
-    #               SO LEAVE DEFAULT FOR NOW, WHICH IS OK FOR PURE QCD CORRECTIONS
-    #####################################################################################################
-    #        for order in generation_options['NNLO']:
-    #            if order not in target_squared_orders:
-    #                procdef['sqorders_types'][order] = '=='
-    #                # -3 means that only the first two subleading contribution in that coupling order will be kept.
-    #                procdef['squared_orders'][order] = -3
-    
+
             # Now add the two corresponding MultiLeg to the final state
             unresolved_emission = base_objects.MultiLeg({'ids':
                 sum([orders_to_perturbed_quantities[order]['real_emission_ids'] 
                      for order in generation_options['NNLO']],[]), 'state': True})
-            procdef['legs'].extend([unresolved_emission,unresolved_emission])
+            procdef['legs'].extend([unresolved_emission,]*2)
     
             double_real_emission_contribution = contributions.Contribution(
                     base_objects.ContributionDefinition(
@@ -3462,6 +3458,46 @@ This implies that with decay chains:
                         self)
             
             self._curr_contribs.append(double_real_emission_contribution)
+
+    def add_NNNLO_contributions(self, NNNLO_template_procdef, generation_options, target_squared_orders):
+        """ Add all regular NNNLO contributions, using the process defintion in argument as template
+        and the target_squared_orders as constraints applying to the NNNLO contributions.
+        So, if the user specified QCD^2==2 at LO, these NNNLO target_squared_orders would become QCD^2 in [2-8]"""
+        
+        logger.warning('At NNNLO, MadEvent7 currently now only generate the RRR contributions.')
+        
+        # Shortcut accessor to quantities stores in generation_options
+        all_perturbed_orders = generation_options['all_perturbed_orders']
+        orders_to_perturbed_quantities = generation_options['orders_to_perturbed_quantities']
+        
+        # Add the triple real-emission contribution
+        # -----------------------------------------
+        misc.sprint('BEFORE',self._curr_model.get('interaction_dict')[63])
+        if 'RRR' not in generation_options['ignore_contributions']:
+            procdef = NNNLO_template_procdef.get_copy()
+            # Update process id
+            procdef.set('id', generation_options['proc_id'])
+#            generation_options['proc_id'] += 1
+
+            # Now add the two corresponding MultiLeg to the final state
+            unresolved_emission = base_objects.MultiLeg({'ids':
+                sum([orders_to_perturbed_quantities[order]['real_emission_ids'] 
+                     for order in generation_options['NNNLO']],[]), 'state': True})
+            procdef['legs'].extend([unresolved_emission,]*3)
+    
+            triple_real_emission_contribution = contributions.Contribution(
+                    base_objects.ContributionDefinition(
+                        procdef,
+                        n_loops                = 0,
+                        n_unresolved_particles = 3,
+                        correction_order       = 'NNNLO',
+                        correction_couplings   = generation_options['NNNLO'],
+                        squared_orders_constraints = dict(target_squared_orders),
+                        overall_correction_order=generation_options['overall_correction_order'] ),
+                        self)
+            
+            self._curr_contribs.append(triple_real_emission_contribution)
+        misc.sprint('AFTER',self._curr_model.get('interaction_dict')[63])
         
     def add_contributions(self, input_procdef, generation_options):
         """ Given a Born process definition. Add all necessary 'contributions', according the generation
@@ -3477,7 +3513,9 @@ This implies that with decay chains:
         generation_options['proc_id'] = 1
         
         # Obtain what is the highest correction order required for:
-        if generation_options['NNLO']:
+        if generation_options['NNNLO']:
+            generation_options['overall_correction_order'] = 'NNNLO'
+        elif generation_options['NNLO']:
             generation_options['overall_correction_order'] = 'NNLO'
         elif generation_options['NLO']:
             generation_options['overall_correction_order'] = 'NLO'
@@ -3486,7 +3524,8 @@ This implies that with decay chains:
         
         all_perturbed_orders = list(set(
                 (generation_options['NLO'] if not generation_options['NLO'] is None else [])+\
-                (generation_options['NNLO'] if not generation_options['NNLO'] is None else [])))
+                (generation_options['NNLO'] if not generation_options['NNLO'] is None else [])+\
+                (generation_options['NNNLO'] if not generation_options['NNNLO'] is None else [])))
 
         # Make sure that we upgrade the SM to the appropriate loop model if necessary.
         if generation_options['overall_correction_order'].count('N')>0:
@@ -3515,7 +3554,7 @@ This implies that with decay chains:
                 LO_contrib_added = self.add_LO_loop_induced_contributions(procdef, generation_options)
 
         # If there was only a LO contribution we are now done
-        if not generation_options['NLO'] and not generation_options['NNLO']:
+        if not generation_options['NLO'] and not generation_options['NNLO'] and not generation_options['NNNLO']:
             return
 
         # General pre-processing of the process definition for higher order corrections.
@@ -3532,7 +3571,7 @@ This implies that with decay chains:
         # I refer to them as global in the sense that they apply at the integrator level, and do not
         # directly dictate diagram generation.
         LO_global_orders = {}
-            
+         
         template_procdef = input_procdef.get_copy()
         
         # Check that only squared order are specified.
@@ -3610,7 +3649,7 @@ This implies that with decay chains:
         # add_contributions_<xxx> functions called here.
         generation_options['all_perturbed_orders'] = all_perturbed_orders
         generation_options['orders_to_perturbed_quantities'] = orders_to_perturbed_quantities
-        
+
         # Add NLO contributions now
         # =========================
         if generation_options['NLO']:
@@ -3626,7 +3665,7 @@ This implies that with decay chains:
                 dict((order, value[-1]) for order, value in NLO_global_orders.items() ) )
             NLO_template_procdef.set('sqorders_types',
                 dict((order, '<=') for order in NLO_global_orders.keys() ) )
- 
+  
             # Adding here regular NLO contributions
             if not generation_options['loop_induced']:
                 self.add_NLO_contributions(NLO_template_procdef, generation_options, NLO_global_orders)
@@ -3635,7 +3674,8 @@ This implies that with decay chains:
                 self.add_NLO_loop_induced_contributions(
                                             NLO_template_procdef, generation_options, NLO_global_orders)
 
-        # Finally add NNLO contributions
+
+        # Add NNLO contributions
         # ==============================
         if generation_options['NNLO']:
             
@@ -3650,12 +3690,34 @@ This implies that with decay chains:
                 dict((order, value[-1]) for order, value in NNLO_global_orders.items() ) )                
             NNLO_template_procdef.set('sqorders_types',
                 dict((order, '<=') for order in NNLO_global_orders.keys() ) )
- 
+  
             # Adding here regular NLO contributions
             if not generation_options['loop_induced']:
                 self.add_NNLO_contributions(NNLO_template_procdef, generation_options, NNLO_global_orders)
             else:
                 raise InvalidCmd("Loop-induced predictions at NNLO are not supported by MadEvent7.")
+
+        # Finally add NNNLO contributions
+        # =============================
+        if generation_options['NNNLO']:
+            
+            # First assign the target squared coupling orders.
+            NNNLO_template_procdef = template_procdef.get_copy()
+            # Set the target squared order couplings, incremented since this is the NNLO contribution
+            NNNLO_global_orders = dict(LO_global_orders)
+            for order in generation_options['NNNLO']:
+                if order in NNNLO_global_orders:
+                    NNNLO_global_orders[order][-1] += 6
+            NNNLO_template_procdef.set('squared_orders', 
+                dict((order, value[-1]) for order, value in NNNLO_global_orders.items() ) )                
+            NNNLO_template_procdef.set('sqorders_types',
+                dict((order, '<=') for order in NNNLO_global_orders.keys() ) )
+  
+            # Adding here regular NLO contributions
+            if not generation_options['loop_induced']:
+                self.add_NNNLO_contributions(NNNLO_template_procdef, generation_options, NNNLO_global_orders)
+            else:
+                raise InvalidCmd("Loop-induced predictions at NNNLO are not supported by MadEvent7.")
                             
     def add_model(self, args):
         """merge two model"""

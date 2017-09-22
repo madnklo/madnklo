@@ -726,7 +726,13 @@ class ME7Integrand(integrands.VirtualIntegrand):
                    contribution_definition.n_unresolved_particles == 2:
                     target_type = 'DoubleReals'            
                 else:
-                    raise MadGraph5Error("Some NNLO type of integrands are not implemented yet.")    
+                    raise MadGraph5Error("Some NNLO type of integrands are not implemented yet.")   
+            elif contribution_definition.correction_order == 'NNNLO':
+                if contribution_definition.n_loops == 0 and \
+                   contribution_definition.n_unresolved_particles == 3:
+                    target_type = 'TripleReals'            
+                else:
+                    raise MadGraph5Error("Some NNNLO type of integrands are not implemented yet.") 
             else:
                 target_type = 'Unknown'
             target_class = ME7Integrand_classes_map[target_type]
@@ -1603,6 +1609,12 @@ class ME7Integrand_RR(ME7Integrand_R):
         return super(ME7Integrand_RR, self).sigma(PS_point, process_key, process, flavors, flavor_wgt, 
                                                                         mu_r, mu_f1, mu_f2, *args, **opts)
 
+class ME7Integrand_RRR(ME7Integrand_R):
+    """ ME7Integrand for the computation of a double real-emission type of contribution."""
+    def sigma(self, PS_point, process_key, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
+        return super(ME7Integrand_RRR, self).sigma(PS_point, process_key, process, flavors, flavor_wgt, 
+                                                                        mu_r, mu_f1, mu_f2, *args, **opts)
+
 # Integrand classes map is defined here as module variables. This map can be overwritten
 # by the interface when using a PLUGIN system where the user can define his own Integrand.
 # Notice that this must be placed after all the Integrand daughter classes in this module have been declared.
@@ -1611,4 +1623,5 @@ ME7Integrand_classes_map = {'Born': ME7Integrand_B,
                             'Virtual': ME7Integrand_V,
                             'SingleReals': ME7Integrand_R,
                             'DoubleReals': ME7Integrand_RR,
+                            'TripleReals': ME7Integrand_RRR,
                             'Unknown': None}

@@ -1806,9 +1806,15 @@ class Contribution(object):
                     target_type = 'DoubleReals'
                 else:
                     raise MadGraph5Error("Some NNLO type of contributions are not implemented yet.")
+            elif contribution_definition.correction_order == 'NNNLO':
+                if contribution_definition.n_loops == 0 and \
+                   contribution_definition.n_unresolved_particles == 3:
+                    target_type = 'TripleReals'
+                else:
+                    raise MadGraph5Error("Some NNNLO type of contributions are not implemented yet.")
+
             else:
                 target_type = 'Unknown'
-
             target_class = Contribution_classes_map[target_type]
             if not target_class:
                 raise MadGraph5Error("Could not determine the class for contribution of type '%s' to be added for"%target_type+
@@ -2109,7 +2115,7 @@ class Contribution(object):
     def set_phase_space_topologies(self):
         """ Investigate phase-space topologies and identify the list of kinematic configurations present
         and, for each process key in the process map, what configuration it includes and with which defining diagrams."""
-
+        
         processes_map = self.get_processes_map()
         
         # Store the kinematic configurations identified in a dictionary, with format
@@ -2641,8 +2647,12 @@ class Contribution_R(Contribution):
                                        counterterms=relevant_counterterms)
                ]
         
-class Contribution_RR(Contribution):
+class Contribution_RR(Contribution_R):
     """ Implements the handling of a double real-emission type of contribution."""
+    pass
+
+class Contribution_RRR(Contribution_R):
+    """ Implements the handling of a triple real-emission type of contribution."""
     pass
 
 class Contribution_V(Contribution):
@@ -2722,9 +2732,10 @@ class ContributionList(base_objects.PhysicsObjectList):
     """ A container for storing a list of contributions."""
     
     contributions_natural_order = [
-        ('LO',   (Contribution_B, Contribution_LIB) ),
-        ('NLO',  (Contribution_R, Contribution_V) ),
-        ('NNLO', (Contribution_RR, ) )
+        ('LO',    (Contribution_B, Contribution_LIB) ),
+        ('NLO',   (Contribution_R, Contribution_V) ),
+        ('NNLO',  (Contribution_RR, ) ),
+        ('NNNLO', (Contribution_RRR, ) )
     ]
     
     def is_valid_element(self, obj):
@@ -2818,4 +2829,5 @@ Contribution_classes_map = {'Born': Contribution_B,
                             'Virtual': Contribution_V,
                             'SingleReals': Contribution_R,
                             'DoubleReals': Contribution_RR,
+                            'TripleReals': Contribution_RRR,
                             'Unknown': None}

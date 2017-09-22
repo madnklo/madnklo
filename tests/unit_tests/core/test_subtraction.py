@@ -508,7 +508,7 @@ class NLOSubtractionTest(unittest.TestCase):
         for combo in filtered_NLO_combos:
             print '-'*80
             print combo
-            print "Prefactor:", combo.prefactor()
+            print "Prefactor:", combo.get_subtraction_prefactor()
             ct = self.mysubtraction.get_counterterm(combo, self.myprocess)
             print ct
             print ""

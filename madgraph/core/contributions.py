@@ -143,11 +143,18 @@ class ProcessKey(object):
                 self.key_dict['singular_structure'] = process[proc_attr].get_canonical_representation(track_leg_numbers=False)
                 continue
 
-            if proc_attr in ['orders', 'sqorders_types', 'squared_orders']:
-                # Let us not worry about WEIGHTED orders that are added automatically added when doing process matching
+            # Let us not worry about WEIGHTED orders that are added automatically added when doing process matching
+            # Also ignore squared order constraints that are not == as those are added automatically to improve
+            # diagram efficiency and should not be used anyway to discriminate different processes since they may
+            # overlap and cannot be constructed unambiguously in reduced processes for counterterms
+            if proc_attr in ['orders']:
                 self.key_dict[proc_attr] = hash_dict(dict((k, v) for k, v in value.items() if k!='WEIGHTED'), proc_attr)
                 continue
-            
+            if proc_attr in ['sqorders_types', 'squared_orders']:
+                self.key_dict[proc_attr] = hash_dict(dict((k, v) for k, v in value.items() if \
+                                                          k!='WEIGHTED' and process['sqorders_types']=='=='), proc_attr)
+                continue
+    
             if proc_attr == 'parent_subtraction_leg':
                 parent_subtraction_leg = process[proc_attr]
                 self.key_dict['singular_structure'] = (parent_subtraction_leg.pdg, parent_subtraction_leg.state)
@@ -224,7 +231,7 @@ class VirtualMEAccessor(object):
                 raise MadGraph5Error(
                     "Cannot find a class implementation for target MEAccessor type '%s'."%target_type)
             else:
-                return super(VirtualMEAccessor, cls).__new__(target_class, *args, **opts)
+                return target_class.__new__(target_class, *args, **opts)
         else:
             return super(VirtualMEAccessor, cls).__new__(cls, *args, **opts)
 
@@ -847,6 +854,7 @@ class F2PYMEAccessor(VirtualMEAccessor):
     def __new__(cls, process, f2py_module_path, slha_card_path, **opts):
         """ Factory for the various F2PY accessors, depending on the process a different class
         will be selected."""
+
         if cls is F2PYMEAccessor:
             target_class = None
             n_loops = process.get('n_loops')
@@ -894,14 +902,17 @@ class F2PYMEAccessor(VirtualMEAccessor):
         self.f2py_module = self.load_f2py_module(f2py_module_path)
 
         # Try to guess the process prefix if not defined
+        possible_proc_prefix_path = pjoin(self.root_path,self.f2py_module_path[0],'proc_prefix.txt')
         if 'proc_prefix' in opts:
             self.proc_prefix = opts['proc_prefix']
-        elif os.path.isfile(pjoin(self.root_path,self.f2py_module_path[0],'proc_prefix.txt')):
-            self.proc_prefix = open(pjoin(self.root_path,self.f2py_module_path[0],'proc_prefix.txt')).read()
+        elif os.path.isfile(possible_proc_prefix_path):
+            self.proc_prefix = open(possible_proc_prefix_path).read()
         elif hasattr(self.f2py_module, 'smatrix'):
             self.proc_prefix = ''
         else:
-            candidates = [attribute[:-7] for attribute in dir(self.f2py_module) if attribute.endswith('smatrix')]
+            candidates = list(set(
+                [attribute[:-7] for attribute in dir(self.f2py_module) if attribute.endswith('smatrix')]+\
+                [attribute[:-14] for attribute in dir(self.f2py_module) if attribute.endswith('sloopmatrixhel')]))
             if len(candidates)>1:
                 raise MadGraph5Error("Cannot automatically detect process prefix in f2py module %s @ '%s'."%
                                      (self.f2py_module_path[1], self.f2py_module_path[0])+
@@ -909,10 +920,11 @@ class F2PYMEAccessor(VirtualMEAccessor):
             self.proc_prefix = candidates[0]
         
         # Sanity check
-        if not self.has_function('smatrix'):
+        if not self.has_function('loopme_accessor_hook') and not self.has_function('me_accessor_hook'):
             raise MadGraph5Error("The specified f2pymodule %s @ '%s' , with proc_prefix = '%s'"%
                 (self.f2py_module_path[1], self.f2py_module_path[0], self.proc_prefix)+
-                " does not seem to define the subroutine 'smatrix'. Check the sanity of the proc_prefix value.")
+                " does not seem to define the subroutine 'me_accessor_hook' or 'loopme_accessor_hook'.\n"+
+                "Check the sanity of the proc_prefix value.")
             
         self.synchronize(from_init=True)
 
@@ -930,8 +942,8 @@ class F2PYMEAccessor(VirtualMEAccessor):
              misc.compile(arg=['clean'], cwd=Pdir)
         if not os.path.isfile(pjoin(Pdir, 'matrix_%s_py.so'%self.proc_name)):
             logger.debug("Compiling directory %s ..."%(pjoin(self.proc_dir, 'SubProcesses','P%s'%self.proc_name)))
-
-        misc.compile(arg=['matrix_%s_py.so'%self.proc_name, 'MENUM=_%s_'%self.proc_name], cwd=Pdir)
+            misc.compile(arg=['matrix_%s_py.so'%self.proc_name, 'MENUM=_%s_'%self.proc_name], cwd=Pdir)
+        
         if not os.path.isfile(pjoin(Pdir, 'matrix_%s_py.so'%self.proc_name)):
             raise InvalidCmd("The f2py compilation of SubProcess '%s' failed.\n"%Pdir+
                 "Try running 'MENUM=_%s_ make matrix_%s_py.so' by hand in this directory."%(self.proc_name,self.proc_name))
@@ -939,7 +951,7 @@ class F2PYMEAccessor(VirtualMEAccessor):
     def synchronize(self, ME7_options = None, from_init=False, compile='auto', **opts):
         """ Synchronizes this accessor with the possibly updated value of parameter cards and ME source code.
         Must be defined by daughter classes."""
-        
+
         # Reset the initialization to False
         self.module_initialized = False
 
@@ -990,7 +1002,7 @@ class F2PYMEAccessor(VirtualMEAccessor):
         
         # Reversed map
         self.id_to_squared_order = dict((value,key) for (key,value) in self.squared_orders.items())
-        
+
     def nice_string(self):
         """ Summary of the details of this ME accessor."""
         res = []
@@ -2024,6 +2036,15 @@ class Contribution(object):
         
         return calls, time.time() - cpu_time_start
 
+    def get_maximum_order(self, order):
+        """ Returns the maximum value of the coupling order specified among all the diagrams in this
+        contribution."""
+        
+        max_order = 0
+        for amplitude in self.amplitudes:
+            max_order = max(max_order, amplitude.get('diagrams').get_max_order(order))
+        return max_order
+
     def export(self, nojpeg=False, group_processes=True, args=[]):
         """ Perform the export duties, that include generation of the HelasMatrixElements and 
         the actual output of the matrix element code by the exporter."""
@@ -2056,6 +2077,168 @@ class Contribution(object):
         self.amplitudes = diagram_generation.AmplitudeList([me.get('base_amplitude') for me in matrix_elements])
         if ncalls:
             logger.info("Generated output code with %d helas calls in %0.3f s" % (ncalls, delta_time1+delta_time2))
+            
+        # Now investigate phase-space topologies and identify the list of kinematic configurations present
+        # and, for each process key in the process map, what configuration it includes and with which defining diagrams.
+        self.set_phase_space_topologies()
+        
+        # The printout below summarizes the topologies identified and the information gathered about the
+        # matrix elements and their diagrams
+#        misc.sprint('='*50)
+#        processes_map = self.get_processes_map()
+#        for process_key, value in self.processes_to_topologies.items():
+#            misc.sprint(processes_map[process_key][0].nice_string())
+#            misc.sprint('This process has the following topologies:',value['topologies'])
+#            misc.sprint('And its diagrams correspond to the following topologies:',value['diagrams_topology'])
+#        misc.sprint('='*50)
+#        for topology, value in self.topologies_to_processes.items():
+#            misc.sprint('The topology with key:',topology)
+#            misc.sprint('Applies to the following processes:',
+#                '\n'.join(processes_map[proc_key][0].nice_string() for proc_key in value['process_keys']))
+#            misc.sprint('And is characterized by the following s-channels:\n%s\nand t-channels:\n%s'%
+#                    ( ', '.join('%s > %d'%(
+#                        ' '.join('%d'%leg['number'] for leg in vertex['legs'][:-1]),
+#                        vertex['legs'][-1]['number']) for vertex in value['s_and_t_channels'][0]), 
+#                      ', '.join('%s > %d'%(
+#                        ' '.join('%d'%leg['number'] for leg in vertex['legs'][:-1]),
+#                        vertex['legs'][-1]['number']) for vertex in value['s_and_t_channels'][1])
+#                    ) )
+#        misc.sprint('='*50)
+#        stop
+        
+    def set_phase_space_topologies(self):
+        """ Investigate phase-space topologies and identify the list of kinematic configurations present
+        and, for each process key in the process map, what configuration it includes and with which defining diagrams."""
+
+        processes_map = self.get_processes_map()
+        
+        # Store the kinematic configurations identified in a dictionary, with format
+        # key: (subprocess_group_number, configuration_number)
+        # values: {'s_and_t_channels':s_and_t_channels, 'process_keys': ProcessKeysIncludingIt)
+        topologies_to_processes = {}
+        
+        # This is the inverse dictionary, with keys being processes keys and values listing the 
+        # topologies keys (subprocess_group, config_number) relevant for it.
+        # key: ProcessKey
+        # values: {'topologies' : [(topology_key1, representative_diagram_number_for_it), ...], 
+        #          'diagrams_topology': [list of the topology_key for each diagram],
+        processes_to_topologies = {}
+
+        if isinstance(self.all_matrix_elements, group_subprocs.SubProcessGroupList):
+            for subprocess_group_number, subproc_group in enumerate(self.all_matrix_elements):
+                subproc_diagrams_for_config = subproc_group.get('diagrams_for_configs')
+                # This 'subproc_diagrams_for_config' a list of length equal to the number of configurations:
+                #
+                # subproc_diagrams_for_config = [diags_for_config1, diags_for_config2, etc...]
+                #
+                # And for each configuration, the diags_for_configI is a simple list returned by
+                # the function 'get_subproc_diagrams_for_config' which is of length equal to the 
+                # number of matrix elements in that Subprocess group and contains, for each matrix element, 
+                # the diagram number that is representative of configI.
+                #
+                # Example from the first SubProcessGroup of 'p p > e+ e- j'
+                # [[1, 1, 3, 3], [2, 2, 4, 4], [3, 3, 1, 1], [4, 4, 2, 2]]
+                # Means that there is 4 configurations, and the subrocess group as 4 matrix elements.
+                # The representative diagrams for the first configuration are, for each of the 4 matrix elements: 
+                # 1, 1, 3 and 3.
+                # On the other hand, in the 3rd matrix elements, the diagrams that are representative of the 
+                # configurations are:
+                # diag #3 is representative of Config 1
+                # diag #4 is representative of Config 2
+                # diag #1 is representative of Config 3
+                # diag #2 is representative of Config 4
+                # Notice that if no diagrams in a ME corresponds to a particular config, then the number 
+                # 0 will be given.
+                matrix_elements = subproc_group.get('matrix_elements')
+                # Get initial and final number of legs
+                (nexternal, ninitial) = subproc_group.get_nexternal_ninitial()
+                for config_number, representative_diag_numbers in enumerate(subproc_diagrams_for_config):
+                    # Skip a topology that has no representative diagram at all.
+                    if set(representative_diag_numbers)==set([0]):
+                        continue
+                    topology_key = (subprocess_group_number, config_number)
+                    topologies_to_processes[topology_key] = {
+                            's_and_t_channels' : None,
+                            'process_keys'     : [] }
+                    representative_diagrams = []
+                    for me_number, diag_number in enumerate(representative_diag_numbers):
+                        matrix_element = matrix_elements[me_number]
+                        process_key = ProcessKey(matrix_element.get('processes')[0],sort_PDGs=False).get_canonical_key()
+                        # Check if that matrix element has a diagram matching this
+                        if diag_number!=0:
+                            topologies_to_processes[topology_key]['process_keys'].append(process_key)
+                            representative_diagrams.append(matrix_element.get('diagrams')[diag_number-1])
+                            # Add the identified process <-> topology relation to the processes_to_topologies
+                            # dictionary
+                            if not process_key in processes_to_topologies:
+                                processes_to_topologies[process_key] = {
+                                    'topologies' : [],
+                                    'diagrams_topology': []}
+                            proc_to_topo = processes_to_topologies[process_key]
+                            proc_to_topo['topologies'].append( (topology_key, diag_number) )
+                    # Set the s and t channels pertaining to this topology
+                    topologies_to_processes[topology_key]['s_and_t_channels'] = \
+                            self.extract_s_and_t_channels(nexternal, ninitial, representative_diagrams)
+                            
+                # Now fill in the entry 'diagrams_topology' of each process_key in processes_to_topologies.
+                diagrams_maps = subproc_group.get('diagram_maps')
+                # The 'diagrams_maps' is a dictionary with a number of values equal to the number of matrix elements
+                # in that particular subprocess group. So:
+                # diagram_map = {me_number: diagram_map_for_that_ME, etc...]
+                # Each diagram_map_for_that_ME is then a list of length of the number of diagrams in the 
+                # I^th matrix element, which contains, for each diagram, the configuration ID; that is 
+                # the position that this diagram corresponds to in 'mapping diagrams' (with index starting at 1)
+                for me_number, diagram_numbers in diagrams_maps.items():
+                    matrix_element = matrix_elements[me_number]
+                    process_key = ProcessKey(matrix_element.get('processes')[0],sort_PDGs=False).get_canonical_key()
+                    processes_to_topologies[process_key]['diagrams_topology'] = [ 
+                        (subprocess_group_number, topo_ID-1) for topo_ID in diagram_numbers ]
+                
+        else: # Non-grouped mode, here each diagram of each process is a topology
+            for me_number, matrix_element in enumerate(self.all_matrix_elements.get_matrix_elements()):
+                (nexternal, ninitial) = matrix_element.get_nexternal_ninitial()
+                process_key = ProcessKey(matrix_element.get('processes')[0],sort_PDGs=False).get_canonical_key()
+                processes_to_topologies[process_key] = {
+                                    'topologies' : [],
+                                    'diagrams_topology': []}
+                for diag_number, diagram in enumerate(matrix_element.get('diagrams')): 
+                    # Notice that here the convention is to assign a key to the topology that is not
+                    # (subproc_group_number, proc_number) but (me_number, diag_number) instead
+                    topology_key = (me_number, diag_number)
+                    topologies_to_processes[topology_key] = {
+                            's_and_t_channels' : self.extract_s_and_t_channels(nexternal, ninitial, [diagram]),
+                            'process_keys'     : [process_key,] }
+                    processes_to_topologies[process_key]['topologies'].append(topology_key)
+                    processes_to_topologies[process_key]['diagrams_topology'].append( (topology_key, (diag_number+1)) )
+                
+                                  
+        # Now finally save the generate topology dictionaries as attributes of this class
+        self.topologies_to_processes = topologies_to_processes
+        self.processes_to_topologies = processes_to_topologies
+
+    def extract_s_and_t_channels(self, nexternal, ninitial, helas_diagrams):
+        """ Given the list of helas diagrams representative of a given topology, return the list of s- and t-
+        channels they contain."""
+        
+        # Obtain an unused PDG code
+        new_pdg = self.model.get_first_non_pdg()
+        
+        stchannels = []
+        empty_verts = []
+        for h in helas_diagrams:
+            if h:
+                # get_s_and_t_channels gives vertices starting from
+                # final state external particles and working inwards
+                stchannels.append(h.get('amplitudes')[0].\
+                                  get_s_and_t_channels(ninitial, self.model, new_pdg))
+            else:
+                stchannels.append((empty_verts, None))
+
+        # For t-channels, just need the first non-empty one
+        tchannels = [t for s,t in stchannels if t != None][0]
+        
+        # For s_and_t_channels (to be used later) use only first config
+        return ([ s for s,t in stchannels if t != None ][0], tchannels)
 
     def add_ME_accessors(self, all_MEAccessors, root_path):
         """ Adds all MEAccessors for the matrix elements generated as part of this contribution."""
@@ -2224,6 +2407,7 @@ class Contribution(object):
         
         all_defining_procs = [amp.get('process') for amp in self.amplitudes]
         
+        # The values are (defining_process_instance, list_of_mapped_process_instances)
         all_defining_procs = dict( ( ProcessKey(proc,sort_PDGs=False).get_canonical_key()
                                             , (proc, []) ) for proc in all_defining_procs)
         
@@ -2296,8 +2480,12 @@ class Contribution(object):
             res.append(BLUE+'No amplitudes generated yet.'+ENDC)                
         return '\n'.join(res)
         
-    def generate_amplitudes(self):
+    def generate_amplitudes(self, force=False):
         """ Generates the relevant amplitudes for this contribution."""
+        
+        # First check if the amplitude was not already generated
+        if self.amplitudes and not force:
+            return
 
         myproc = self.MultiProcessClass(self.contribution_definition.process_definition,
                     collect_mirror_procs = self.collect_mirror_procs,
@@ -2342,11 +2530,11 @@ class Contribution_R(Contribution):
         self.counterterms = {}
         for process_key, (defining_process, mapped_processes) in self.get_processes_map().items():
             self.counterterms[process_key] = self.IR_subtraction.get_all_counterterms(defining_process)
-        
+
     def remove_counterterms_with_no_reduced_process(self, all_MEAccessors):
         """ Given the list of available reduced processes encoded in the MEAccessorDict 'all_MEAccessors'
         given in argument, remove all the counterterms whose underlying reduced process does not exist."""
-        
+
         for process_key, counterterms in self.counterterms.items():
             for counterterm in list(counterterms):
                 try:

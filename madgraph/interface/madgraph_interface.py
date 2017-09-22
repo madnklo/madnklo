@@ -3291,7 +3291,7 @@ This implies that with decay chains:
         of process definition."""
         
         if 'B' in generation_options['ignore_contributions']:
-            return
+            return None
         
         # Update process id
         procdef.set('id', generation_options['proc_id'])
@@ -3302,20 +3302,21 @@ This implies that with decay chains:
                 if order in procdef['split_orders']:
                     continue
                 procdef['split_orders'].append(order)
-        self._curr_contribs.append(
-            contributions.Contribution(
-                base_objects.ContributionDefinition(
-                    procdef,
-                    overall_correction_order=generation_options['overall_correction_order']), 
-                self, diagram_filter=generation_options['diagram_filter'],
-                optimize=generation_options['optimize']))
+        LO_contrib = contributions.Contribution(
+                        base_objects.ContributionDefinition(
+                            procdef,
+                            overall_correction_order=generation_options['overall_correction_order']), 
+                        self, diagram_filter=generation_options['diagram_filter'],
+                        optimize=generation_options['optimize'])
+        self._curr_contribs.append(LO_contrib)
+        return LO_contrib
 
     def add_LO_loop_induced_contributions(self, procdef, generation_options):
         """ Add all LO loop-induced contributions, starting from this specific instance
         of process definition."""
 
         if 'B' in generation_options['ignore_contributions']:
-            return
+            return None
 
         # Update process id
         procdef.set('id', generation_options['proc_id'])
@@ -3327,12 +3328,13 @@ This implies that with decay chains:
             if order in procdef['split_orders']:
                 continue
             procdef['split_orders'].append(order)
-        self._curr_contribs.append(
-            contributions.Contribution(base_objects.ContributionDefinition(
-                    procdef,
-                    n_loops = 1,
-                    overall_correction_order=generation_options['overall_correction_order']), 
-            self) )
+        LO_contrib = contributions.Contribution(base_objects.ContributionDefinition(
+                        procdef,
+                        n_loops = 1,
+                        overall_correction_order=generation_options['overall_correction_order']), 
+                    self)
+        self._curr_contribs.append(LO_contrib)
+        return LO_contrib
                 
     def add_NLO_contributions(self, NLO_template_procdef, generation_options, target_squared_orders):
         """ Add all regular NLO contributions, using the process defintion in argument as template
@@ -3482,19 +3484,46 @@ This implies that with decay chains:
         else:
             generation_options['overall_correction_order'] = 'LO'
         
+        all_perturbed_orders = list(set(
+                (generation_options['NLO'] if not generation_options['NLO'] is None else [])+\
+                (generation_options['NNLO'] if not generation_options['NNLO'] is None else [])))
+
+        # Make sure that we upgrade the SM to the appropriate loop model if necessary.
+        if generation_options['overall_correction_order'].count('N')>0:
+            from madgraph.interface.loop_interface import CommonLoopInterface
+            if 'QED' in all_perturbed_orders:
+                CommonLoopInterface.validate_model(self,coupling_type='QED',loop_type='virtual',stop=True)
+            else:
+                CommonLoopInterface.validate_model(self,loop_type='virtual',stop=True)
+
+            # Add to the input_procdef (and therefore the proc_def of all contributions possibly added)
+            # the spit_orders of the perturbed couplings and in any case of 'QCD' and 'QED'. This is because
+            # we will always have squared order constraints on 'QED' and 'QCD' so as to maximize diagram
+            # generation efficiency.
+            for order in set(all_perturbed_orders+['QCD','QED']):
+                if order in input_procdef['split_orders']:
+                    continue
+                input_procdef['split_orders'].append(order)
+
         # Add LO contributions first
+        LO_contrib_added = None
         if generation_options['LO']:
             procdef = input_procdef.get_copy()
             if not generation_options['loop_induced']:
-                self.add_LO_contributions(procdef, generation_options)
+                LO_contrib_added = self.add_LO_contributions(procdef, generation_options)
             else:                
-                self.add_LO_loop_induced_contributions(procdef, generation_options)
+                LO_contrib_added = self.add_LO_loop_induced_contributions(procdef, generation_options)
 
         # If there was only a LO contribution we are now done
         if not generation_options['NLO'] and not generation_options['NNLO']:
             return
 
         # General pre-processing of the process definition for higher order corrections.
+        
+        # Already generate the LO amplitudes as they are useful to set the target squared orders for the
+        # amplitudes beyond LO
+        if LO_contrib_added:
+            LO_contrib_added.generate_amplitudes()
         
         # This LO_global_orders caches the squared order of the process definition which is removed here.
         # This will be used to generate the (N)NLO_global_orders. For example, if NLOQCD is asked 
@@ -3504,21 +3533,10 @@ This implies that with decay chains:
         # directly dictate diagram generation.
         LO_global_orders = {}
             
-        all_perturbed_orders = list(set(
-                (generation_options['NLO'] if not generation_options['NLO'] is None else [])+\
-                (generation_options['NNLO'] if not generation_options['NNLO'] is None else [])))
-        
-        # Make sure that we upgrade the SM to the appropriate loop model if necessary.
-        from madgraph.interface.loop_interface import CommonLoopInterface
-        if 'QED' in all_perturbed_orders:
-            CommonLoopInterface.validate_model(self,coupling_type='QED',loop_type='virtual',stop=True)
-        else:
-            CommonLoopInterface.validate_model(self,loop_type='virtual',stop=True)
-            
         template_procdef = input_procdef.get_copy()
         
         # Check that only squared order are specified.
-        warning = ('Process definitions in MadEvent7 can only have squared order constraints or amplitude'+
+        warning = ('Process definitions in MadEvent7 can only have amplitude'+
             ' order constraints that are not perturbed.\n'+'Part of the amplitude order constraint specified here will be ignored.')
 
         for order in input_procdef['orders']:
@@ -3544,6 +3562,14 @@ This implies that with decay chains:
         for value in input_procdef['squared_orders'].values():
             if order < 0:
                 raise InvalidCmd('MadEvent7 does not support negative squared order constraints.')
+
+        # Initialize the LO global perturbed squared orders with default values extracted from the
+        # LO contributions if generated. Always set QCD and QED default targer squared order so as 
+        # to have efficient diagram generation.
+        if LO_contrib_added:
+            for order in set(all_perturbed_orders+['QCD','QED']):
+                LO_global_orders[order] = [0,
+                    2*LO_contrib_added.get_maximum_order(order)]
 
         # Promote the squared order constraints to global properties
         # which will then be applied by the integrator. This is because if the users asks for QCD^2==4
@@ -3597,11 +3623,9 @@ This implies that with decay chains:
                 if order in NLO_global_orders:
                     NLO_global_orders[order][-1] += 2
             NLO_template_procdef.set('squared_orders', 
-                dict((order, value[-1]) for order, value in NLO_global_orders.items() if 
-                                                        order in generation_options['NLO']) )                
+                dict((order, value[-1]) for order, value in NLO_global_orders.items() ) )
             NLO_template_procdef.set('sqorders_types',
-                dict((order, '<=') for order in NLO_global_orders.keys() if 
-                                                        order in generation_options['NLO']) )
+                dict((order, '<=') for order in NLO_global_orders.keys() ) )
  
             # Adding here regular NLO contributions
             if not generation_options['loop_induced']:
@@ -3617,17 +3641,15 @@ This implies that with decay chains:
             
             # First assign the target squared coupling orders.
             NNLO_template_procdef = template_procdef.get_copy()
-            # Set the target squared order couplings, incremented since this is the NLO contribution
+            # Set the target squared order couplings, incremented since this is the NNLO contribution
             NNLO_global_orders = dict(LO_global_orders)
             for order in generation_options['NNLO']:
                 if order in NNLO_global_orders:
-                    NNLO_global_orders[order][-1] += 2
+                    NNLO_global_orders[order][-1] += 4
             NNLO_template_procdef.set('squared_orders', 
-                dict((order, value[-1]) for order, value in NNLO_global_orders.items() if 
-                                                        order in generation_options['NNLO']) )                
+                dict((order, value[-1]) for order, value in NNLO_global_orders.items() ) )                
             NNLO_template_procdef.set('sqorders_types',
-                dict((order, '<=') for order in NNLO_global_orders.keys() if 
-                                                        order in generation_options['NNLO']) )
+                dict((order, '<=') for order in NNLO_global_orders.keys() ) )
  
             # Adding here regular NLO contributions
             if not generation_options['loop_induced']:

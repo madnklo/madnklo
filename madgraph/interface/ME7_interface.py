@@ -285,12 +285,12 @@ class ParseCmdArguments(object):
                             raise ValueError
                     except ValueError:
                         raise InvalidCmd("'%s' is not a valid integer for option '%s'"%(value, key))
-            elif key == '--compute_only_limit_defining_counterterm':
+            elif key in ['--compute_only_limit_defining_counterterm','--o']:
                 if value is None:
-                    testlimits_options[key[2:]] = True
+                    testlimits_options['compute_only_limit_defining_counterterm'] = True
                 else:
                     try:
-                        testlimits_options[key[2:]] = bool(eval(value))
+                        testlimits_options['compute_only_limit_defining_counterterm'] = bool(eval(value))
                     except:
                         raise InvalidCmd("'%s' is not a valid float for option '%s'"%(value, key))                        
             elif key in ['--min_scaling_variable', '--acceptance_threshold']:
@@ -298,7 +298,7 @@ class ParseCmdArguments(object):
                     testlimits_options[key[2:]] = float(value)                  
                 except ValueError:
                     raise InvalidCmd("'%s' is not a valid float for option '%s'"%(value, key))                  
-            elif key in '--limit_type':
+            elif key in ['--limit_type','--lt']:
                 if not isinstance(value, str):
                     raise InvalidCmd("'%s' is not a valid option for '%s'"%(value, key))
                 if value.lower() == 'soft':
@@ -551,13 +551,13 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         """ Re-compile all necessary resources and sync integrands with the cards and model"""
         
         logger.info("Synchronizing MadEvent7 internal status with cards and matrix elements source codes...")
-    
+        
         self.run_card = banner_mod.RunCardME7(pjoin(self.me_dir,'Cards','run_card.dat'))
         self.model.set_parameters_and_couplings(
             param_card = pjoin(self.me_dir,'Cards','param_card.dat'), 
             scale=self.run_card['scale'], 
             complex_mass_scheme=self.complex_mass_scheme)
-        
+
         for integrand in self.all_integrands:
             integrand.synchronize(self.model, self.run_card, self.options)
         
@@ -568,8 +568,9 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
                 sync_options[key] = opts[key]
             except KeyError:
                 pass
-        self.all_MEAccessors.synchronize(ME7_options=self.options, **sync_options)
         
+        self.all_MEAccessors.synchronize(ME7_options=self.options, **sync_options)
+
     def do_launch(self, line, *args, **opt):
         """Main command, starts the cross-section computation. Very basic setup for now.
         We will eventually want to have all of these meta-data controllable via user commands
@@ -853,7 +854,9 @@ class ME7Integrand(integrands.VirtualIntegrand):
             if not lhapdf:
                 raise MadGraph5Error("The python lhapdf API could not be loaded.")
             # Adjust LHAPDF verbosity to current logger's verbosity
-            lhapdf.setVerbosity(1 if logger.level<=logging.DEBUG else 0)
+            # Ask for logging.DEBUG-1 so as to only have lhapdf verbose if really desired.
+            lhapdf.setVerbosity(1 if logger.level<=(logging.DEBUG-1) else 0)
+
             pdfsets_dir = subprocess.Popen([lhapdf_config,'--datadir'],\
                                            stdout=subprocess.PIPE).stdout.read().strip()
             lhapdf.pathsPrepend(pdfsets_dir)
@@ -1009,7 +1012,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
     def __call__(self, continuous_inputs, discrete_inputs, **opts):
         """ Main function of the integrand, returning the weight to be passed to the integrator."""
-        
+
         # A unique float must be returned
         wgt = 1.0
         # And the conversion from GeV^-2 to picobarns
@@ -1081,7 +1084,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         
         # Now loop over processes
         total_wgt = 0.
-        for process_hash, (process, mapped_processes) in self.processes_map.items():
+        for process_key, (process, mapped_processes) in self.processes_map.items():
             if __debug__: logger.debug('Now considering the process group from %s.'%process.nice_string())
             
             this_process_wgt = wgt
@@ -1139,7 +1142,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
             selected_flavors = ( tuple(selected_flavors[i] for i in range(self.n_initial)),
                                  tuple(selected_flavors[self.n_initial+i] for i in range(self.n_final)))
 
-            sigma_wgt = self.sigma(PS_point, process, selected_flavors, this_flavor_wgt, mu_r, mu_f1, mu_f2)
+            sigma_wgt = self.sigma(PS_point, process_key, process, selected_flavors, this_flavor_wgt, mu_r, mu_f1, mu_f2)
             if __debug__: logger.debug('Short-distance sigma weight for this subprocess: %.5e'%sigma_wgt)        
             this_process_wgt *= sigma_wgt
             
@@ -1151,7 +1154,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         if __debug__: logger.debug("="*80)
         return total_wgt
     
-    def sigma(self, PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2):
+    def sigma(self, PS_point, process_key, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2):
         """ 
         This is the core function of the integrand where the short-distance objects like the matrix elements,
         the counterterms, the mappings, etc.. will be evaluated.
@@ -1199,14 +1202,6 @@ class ME7Integrand(integrands.VirtualIntegrand):
         #misc.sprint('All results generated along with this ME call:\n'+str(all_results))
         ## One can read the details of the format for each of these options in
         ## the documentation of the function contributions.VirtualMEAccessor.apply_permutations
-        ## Also, here is the more pedantic way of obtaining an ME evaluation:
-        # process_key = contributions.ProcessKey(process=process, pdgs=flavors)
-        # ME_accessor, call_key = self.all_MEAccessors.get_MEAccessor(process_key, pdgs=flavors)
-        # call_key['squared_orders'] = {...}
-        # call_key['spin_correlation'] = [...]
-        # call_key['color_correlation'] = [...]
-        # ...
-        # ME_evaluation = ME_accessor(PS_point, alpha_s, mu_r, **call_key)
         
         ## To debug it is useful to hard-stop the code in a unique noticeable way with a syntax error.
         #stop
@@ -1223,20 +1218,23 @@ class ME7Integrand(integrands.VirtualIntegrand):
 # and possibly other functions.
 class ME7Integrand_B(ME7Integrand):
     """ ME7Integrand for the computation of a Born type of contribution."""
-    def sigma(self, PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
-        return super(ME7Integrand_B, self).sigma(PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts)
+    def sigma(self, PS_point, process_key, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
+        return super(ME7Integrand_B, self).sigma(PS_point, process_key, process, flavors, flavor_wgt, 
+                                                                        mu_r, mu_f1, mu_f2, *args, **opts)
 
 class ME7Integrand_LIB(ME7Integrand):
     """ ME7Integrand for the computation of a Loop-Induced Born type of contribution."""
-    def sigma(self, PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
-        return super(ME7Integrand_LIB, self).sigma(PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts)
+    def sigma(self, PS_point, process_key, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
+        return super(ME7Integrand_LIB, self).sigma(PS_point, process_key, process, flavors, flavor_wgt, 
+                                                                        mu_r, mu_f1, mu_f2, *args, **opts)
         
 class ME7Integrand_V(ME7Integrand):
     """ ME7Integrand for the computation of a one-loop virtual type of contribution."""
-    def sigma(self, PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
+    def sigma(self, PS_point, process_key, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
         """ Overloading of the sigma function from ME7Integrand to include necessary additional contributions. """
         
-        ret_value = super(ME7Integrand_V, self).sigma(PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts)
+        ret_value = super(ME7Integrand_V, self).sigma(PS_point, process_key, process, flavors, flavor_wgt, 
+                                                                        mu_r, mu_f1, mu_f2, *args, **opts)
         
         return ret_value
         ##
@@ -1422,26 +1420,32 @@ Also make sure that there is no coupling order specification which receives corr
         # is typically simply a reference to counterterm.current which is an instance of Process.
         return final_weight, ME_PS, ME_process
 
-    def sigma(self, PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
+    def sigma(self, PS_point, process_key, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
         
-        for ct in self.counterterms[processkey]:
-            wgt += self.evaluate_counterterm(counterterm)
+#        wgt=0.
+#        for ct in self.counterterms[process_key]:
+#            wgt += self.evaluate_counterterm(counterterm)
         
-        return super(ME7Integrand_R, self).sigma(PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts)
+        return super(ME7Integrand_R, self).sigma(PS_point, process_key, process, flavors, flavor_wgt, 
+                                                                        mu_r, mu_f1, mu_f2, *args, **opts)
 
     def find_counterterms_matching_limit_type_with_regexp(self, counterterms, limit_type=None):
         """ Find all mappings that match a particular limit_type given in argument (takes a random one if left to None)."""
 
         # First select only the counterterms which are not pure matrix elements (i.e. they have singular structures).
         selected_counterterms = [ct for ct in counterterms if ct.is_singular()]
+        
+        if len(selected_counterterms)==0:
+            return []
 
         returned_counterterms = []
         if not limit_type:
             returned_counterterms.append(random.choice(selected_counterterms))
         else:
             for counterterm in selected_counterterms:
-                if re.match(limit_type,counterterm.get_singular_structure_string(
-                                                                print_n=True, print_pdg=False, print_state=False)):
+                singular_structure_string = counterterm.get_singular_structure_string(
+                                                            print_n=True, print_pdg=False, print_state=False)
+                if re.match(limit_type,singular_structure_string):
                     returned_counterterms.append(counterterm)
 
         return returned_counterterms
@@ -1486,7 +1490,7 @@ Also make sure that there is no coupling order specification which receives corr
 
     def test_IR_limits(self, test_options):
         """ Tests that 4D local subtraction terms tend to the corresponding real-emission matrix elements."""
-        
+
         if test_options['seed']:
             random.seed(test_options['seed'])
         
@@ -1494,8 +1498,9 @@ Also make sure that there is no coupling order specification which receives corr
         # Specifying None forces to use uniformly random generating variables.
         a_real_emission_PS_point, _, _, _ = self.phase_space_generator.get_PS_point(None)
 
-        a_real_emission_PS_point = dict( (i+1, mom) for i, mom in enumerate(a_real_emission_PS_point) )
-        
+        a_real_emission_PS_point = phase_space_generators.LorentzVectorDict( 
+                                                (i+1, mom) for i, mom in enumerate(a_real_emission_PS_point) )
+
         # Now keep track of the results fro each process and limit checked
         all_evaluations = {}
         for process_key, (defining_process, mapped_processes) in self.processes_map.items():
@@ -1512,7 +1517,7 @@ Also make sure that there is no coupling order specification which receives corr
             # it is clear that all CT will still use their own mapper to retrieve the PS point
             # and variables to call the currents and reduced processes).
             selected_counterterms = self.find_counterterms_matching_limit_type_with_regexp(
-                                                                    counterterms_to_consider, test_options['limit_type'])
+                                                            counterterms_to_consider, test_options['limit_type'])
             
             misc.sprint(defining_process.nice_string())
             misc.sprint('\n'+'\n'.join( ct.get_singular_structure_string() for ct in selected_counterterms ))
@@ -1526,7 +1531,7 @@ Also make sure that there is no coupling order specification which receives corr
                 # First identify the reduced PS point from which we can evolve to larger multiplicity
                 # while becoming progressively closer to the IR limit.
                 res_dict = self.mapper.walk_to_lower_multiplicity(
-                                        a_real_emission_PS_point, limit_specifier_counterterm, kinematic_variables=True)
+                                    a_real_emission_PS_point, limit_specifier_counterterm, kinematic_variables=True)
 
                 starting_variables  = res_dict['kinematic_variables']
                 a_born_PS_point     = res_dict['resulting_PS_point']
@@ -1594,8 +1599,9 @@ Also make sure that there is no coupling order specification which receives corr
     
 class ME7Integrand_RR(ME7Integrand_R):
     """ ME7Integrand for the computation of a double real-emission type of contribution."""
-    def sigma(self, PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
-        return super(ME7Integrand_RR, self).sigma(PS_point, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts)
+    def sigma(self, PS_point, process_key, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
+        return super(ME7Integrand_RR, self).sigma(PS_point, process_key, process, flavors, flavor_wgt, 
+                                                                        mu_r, mu_f1, mu_f2, *args, **opts)
 
 # Integrand classes map is defined here as module variables. This map can be overwritten
 # by the interface when using a PLUGIN system where the user can define his own Integrand.

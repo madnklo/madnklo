@@ -252,6 +252,7 @@ class ME7ContributionTest(unittest.TestCase):
                                   'diagram_filter': False, 
                                   'LO': True, 
                                   'NNLO': [], 
+                                  'NNNLO': [],
                                   'optimize': False, 
                                   'NLO': [], 
                                   'loop_induced': [],
@@ -285,6 +286,7 @@ class ME7ContributionTest(unittest.TestCase):
                                   'diagram_filter': False, 
                                   'LO': True, 
                                   'NNLO': [], 
+                                  'NNNLO': [],
                                   'optimize': False, 
                                   'NLO': ['QCD'], 
                                   'loop_induced': [],
@@ -340,11 +342,16 @@ class ME7ContributionTest(unittest.TestCase):
             one_current = all_currents[0]
             # Use a random PS point
             a_PS_point = dict((id, phase_space_generators.LorentzVector([10.0,2.0,3.0,4.0])) for id in range(10))
-            misc.sprint('Call of the current %s:'%str(one_current))
-            specific_eval, all_evals = accessors_dict(
-                one_current,
-                a_PS_point,
-                hel_config=None
-            )
-            misc.sprint('specific_eval is:\n',specific_eval)
-            misc.sprint('all_evals are:\n',all_evals)
+ 
+            ####
+            # Needs fixing because a leg momentum map and reduced process must be provided.
+            ####
+            
+#            misc.sprint('Call of the current %s:'%str(one_current))
+#            specific_eval, all_evals = accessors_dict(
+#                one_current,
+#                a_PS_point,
+#                hel_config=None
+#            )
+#            misc.sprint('specific_eval is:\n',specific_eval)
+#            misc.sprint('all_evals are:\n',all_evals)

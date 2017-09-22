@@ -141,6 +141,17 @@ class PhaseSpaceGeneratorsTest(unittest.TestCase):
         #        max(differences[i]/random_variables[i] for i in range(len(differences)))
         #print "Rel. diff. in PS weight = %.3e\n"%((wgt_reconstructed-wgt)/wgt)
 
+    def test_multi_channel_phase_space(self):
+        """ Test the multichannel phase-space that is aligned along specific s- and t-channels."""
+   
+        E_cm  = 5000.0
+                
+        my_PS_generator = PS.MultiChannelPhasespace(
+            [0.]*2, [100. + 10.*i for i in range(2)],beam_Es =(E_cm/2.,E_cm/2.), beam_types=(0,0))
+        
+        # The rest is to be done.
+        pass
+
 #===============================================================================
 # Test the phase-space mappers
 #===============================================================================

@@ -387,6 +387,19 @@ class VirtualPhaseSpaceGenerator(object):
         
         return dims
 
+class MultiChannelPhasespace(VirtualPhaseSpaceGenerator):
+    """ Implementation of a phase-space generator that lines up integration variables with
+    s- and t-channels specifying a paticular provided topology."""
+
+    def __init__(self, *args, **opts):
+        super(MultiChannelPhasespace, self).__init__(*args, **opts)
+
+
+    def get_PS_point(self, random_variables):
+        """ Generates a complete PS point, including Bjorken x's, dictating a specific choice
+        of incoming particle's momenta,"""
+        raise NotImplementedError
+
 class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
     """ Implementation following S. Platzer: arxiv:1308.2922 """
 

@@ -701,6 +701,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
                      run_card,
                      contribution_definition,
                      processes_map,
+                     topologies_to_processes,
+                     processes_to_topologies,
                      all_MEAccessors,
                      ME7_configuration, **opt):
         all_args = [model, run_card, contribution_definition, processes_map,
@@ -748,6 +750,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
                        run_card,
                        contribution_definition,
                        processes_map,
+                       topologies_to_processes,
+                       processes_to_topologies,
                        all_MEAccessors,
                        ME7_configuration):
         """ Initializes a generic ME7 integrand defined by the high-level abstract information
@@ -762,6 +766,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
                                        'run_card'                   : None,
                                        'contribution_definition'    : contribution_definition,
                                        'processes_map'              : processes_map,
+                                       'topologies_to_processes'    : topologies_to_processes,
+                                       'processes_to_topologies'    : processes_to_topologies,
                                        'all_MEAccessors'            : None,
                                        'ME7_configuration'          : None,
                                        'options'                    : {} }
@@ -771,6 +777,13 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # The process map of the Contribution instance at the origin of this integrand.
         # The format is identical to the one generated from the function 'get_process_map' of a contribution.
         self.processes_map              = processes_map
+        
+        # Add information about the topology of the diagrams constituting the processes,
+        # so as to be able to build efficient phase-space parametrizations. The format of these dictionaries
+        # is specified in the function 'set_phase_space_topologies' of the class contributions.Contribution
+        self.topologies_to_processes    = topologies_to_processes
+        self.processes_to_topologies    = processes_to_topologies
+        
         # An instance of contributions.MEAccessorDict providing access to all ME available as part of this
         # ME7 session.
         self.all_MEAccessors            = all_MEAccessors
@@ -917,6 +930,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
                              run_card,                             
                              dump['contribution_definition'],
                              dump['processes_map'],
+                             dump['topologies_to_processes'],
+                             dump['processes_to_topologies'],
                              all_MEAccessors,
                              ME7_configuration,
                              **dump['options'])

@@ -3313,6 +3313,7 @@ This implies that with decay chains:
         
         # Update process id
         procdef.set('id', generation_options['proc_id'])
+#        generation_options['proc_id'] += 1
         # Make sure to add split_orders to the tree-level Born contributions if higher order
         # corrections are considered since this is necessary when used as reduced ME.
         if generation_options['overall_correction_order'].count('N')>0:

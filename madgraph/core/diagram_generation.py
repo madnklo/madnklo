@@ -1698,6 +1698,16 @@ class MultiProcess(base_objects.PhysicsObject):
                  if leg['state'] == True]
         # Generate all combinations for the initial state
         
+        # For loop processes we keep track of the starting process_ID mutliplied by 10000
+        # and it we will be incremented by 1 for every new loop process generated.
+        # This guarantees that every subprocess in that MadLoop output has a different
+        # prefix so as to avoid clash, and the multiplication by a thousand also guarantees
+        # that 'add process' won't add clashes (as long as it leads to less that 10000
+        # subprocesses which is ok)
+        # A smarter solution can come in later.
+        if len(process_definition.get('perturbation_couplings'))>0:
+            proc_id = 10000*process_definition.get('id')
+        
         for prod in itertools.product(*isids):
             islegs = [\
                     base_objects.Leg({'id':id, 'state': False}) \
@@ -1756,8 +1766,11 @@ class MultiProcess(base_objects.PhysicsObject):
                         continue
 
                 # Setup process
-                process = process_definition.get_process_with_legs(legs) 
-                
+                process = process_definition.get_process_with_legs(legs)
+                # If it is a loop process make sure to use incremented process_ID
+                # so that there is no clash in the name of the files and symbols within one output.
+                if len(process.get('perturbation_couplings'))>0:
+                    process.set('id',proc_id)
                 fast_proc = \
                           array.array('i',[leg.get('id') for leg in legs])
                 if collect_mirror_procs and \
@@ -1811,7 +1824,7 @@ class MultiProcess(base_objects.PhysicsObject):
                         logger.info("Crossed process found for %s, reuse diagrams." % \
                                     process.base_string())
                         continue
-                    
+                
                 # Create new amplitude
                 amplitude = cls.get_amplitude_from_proc(process,
                                                         loop_filter=loop_filter)
@@ -1823,6 +1836,10 @@ class MultiProcess(base_objects.PhysicsObject):
                 else:
                     # Succeeded in generating diagrams
                     if amplitude.get('diagrams'):
+                        if len(process.get('perturbation_couplings'))>0:
+                            # We create an amplitude for a loop process, so make sure to increment the
+                            # process ID to avoid clashes.
+                            proc_id += 1
                         amplitudes.append(amplitude)
                         success_procs.append(sorted_legs)
                         permutations.append(permutation)

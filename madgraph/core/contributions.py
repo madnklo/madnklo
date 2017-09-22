@@ -64,7 +64,7 @@ class ProcessKey(object):
                 # intputs from this __init__
                 sort_PDGs = True,
                 # Exclude certain process attributes when creating the key for a certain process.
-                vetoed_attributes = ['model','legs','uid','has_mirror_process','legs_with_decays'],
+                vetoed_attributes = ['model','legs','id','uid','has_mirror_process','legs_with_decays'],
                 # Specify only selected attributes to end up in the ProcessKey.
                 # If None, this filter is deactivated.
                 allowed_attributes = None,
@@ -1038,7 +1038,9 @@ class F2PYMEAccessor(VirtualMEAccessor):
         if module_path[0] not in sys.path:
             added_path = True
             sys.path.insert(0, pjoin(self.root_path,module_path[0]))
-        with misc.Silence(active=(logger.level>logging.DEBUG)):
+        # Use logger.level >= loggign.DEBUG and not > so as to forward
+        # the loading text only if the user *really* wants it by setting logger.level = 0 :)
+        with misc.Silence(active=(logger.level>=logging.DEBUG)):
             try:
                 f2py_module = importlib.import_module(module_path[1])
             except:
@@ -1905,6 +1907,10 @@ class Contribution(object):
         # Specify the MultiProcessClass to use to generate amplitudes
         self.MultiProcessClass          = diagram_generation.MultiProcess
         
+        # Add default phase-space topology specifiers
+        self.processes_to_topologies = None
+        self.topologies_to_processes = None
+        
     def set_export_dir(self, prefix):
         """ Assigns an export directory name."""
         dir_name = self.contribution_definition.get_shell_name()
@@ -2292,6 +2298,8 @@ class Contribution(object):
         return [ ME7_interface.ME7Integrand(model, run_card,
                                        self.contribution_definition,
                                        process_map,
+                                       self.topologies_to_processes,
+                                       self.processes_to_topologies,
                                        all_MEAccessors,
                                        ME7_configuration)
                ]
@@ -2472,16 +2480,22 @@ class Contribution(object):
         ENDC = '\033[0m'
         res = ['%-30s:   %s'%('contribution_type',type(self))]
         res.extend([self.contribution_definition.nice_string()])
+        if not self.topologies_to_processes is None:
+            res.append('%-30s:   %d'%('Number of topologies', 
+                                                    len(self.topologies_to_processes.keys())))
         if self.amplitudes and not self.all_matrix_elements.get_matrix_elements():
             res.append('Amplitudes generated for the following processes:')
             for amp in self.amplitudes:
-                res.append(GREEN+'  %s'%amp.get('process').nice_string().replace('Process: ','')+ENDC)
+                res.append(GREEN+'  %s'%amp.get('process').nice_string(print_weighted=False).\
+                                                                        replace('Process: ','')+ENDC)
         elif self.amplitudes and self.all_matrix_elements.get_matrix_elements():
             res.append('Generated and mapped processes for this contribution:')
             for process_key, (defining_process, mapped_processes) in self.get_processes_map().items():
-                res.append(GREEN+'  %s'%defining_process.nice_string().replace('Process: ','')+ENDC)
+                res.append(GREEN+'  %s'%defining_process.nice_string(print_weighted=False).\
+                                                                        replace('Process: ','')+ENDC)
                 for mapped_process in mapped_processes:
-                    res.append(BLUE+u'   \u21b3  '+mapped_process.nice_string().replace('Process: ','')+ENDC)
+                    res.append(BLUE+u'   \u21b3  '+mapped_process.nice_string(print_weighted=False)\
+                                                                        .replace('Process: ','')+ENDC)
         else:
             res.append(BLUE+'No amplitudes generated yet.'+ENDC)                
         return '\n'.join(res)
@@ -2529,6 +2543,23 @@ class Contribution_R(Contribution):
         """ Instantiates a real-emission contribution with additional attributes."""
         
         super(Contribution_R, self).__init__(contribution_definition, cmd_interface, **opts)
+        # Add a default empty list of counterterms
+        self.counterterms = None
+    
+    def nice_string(self):
+        """ Nice string representation of self."""
+        res = [super(Contribution_R, self).nice_string()]
+
+        if not self.counterterms is None:
+            max_n_counterterms = (None, 0)
+            for process_key, (defining_process, mapped_processes) in self.get_processes_map().items():
+                if len(self.counterterms[process_key]) > max_n_counterterms[1]:
+                    max_n_counterterms = (defining_process, len(self.counterterms[process_key]))
+            res.append('%-30s:   %d for process %s'%('Max number of counteterms',
+                max_n_counterterms[1], max_n_counterterms[0].nice_string(print_weighted=False).\
+                                                                         replace('Process: ','') ) )
+        
+        return '\n'.join(res)
 
     def generate_all_counterterms(self, group_processes=True):
         """ Generate all counterterms associated to the processes in this contribution."""
@@ -2642,6 +2673,8 @@ class Contribution_R(Contribution):
         return [ ME7_interface.ME7Integrand(model, run_card,
                                        self.contribution_definition,
                                        process_map,
+                                       self.topologies_to_processes,
+                                       self.processes_to_topologies,
                                        all_MEAccessors,
                                        ME7_configuration,
                                        counterterms=relevant_counterterms)

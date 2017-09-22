@@ -751,7 +751,7 @@ class Current(base_objects.Process):
         """
 
         super(Current, self).default_setup()
-        # Assign a default value of n_loops to 0 which will be updated later
+        # Assign a default value of n_loops to -1 which will be updated later
         # during current generation.
         self['n_loops'] = -1
         # And also by default assign the QCD squared orders
@@ -852,7 +852,7 @@ class CountertermNode(object):
         return tmp_str
 
     def reconstruct_complete_singular_structure(self):
-        """ Reconstruct the complete singular structure for this counterterm Node."""
+        """Reconstruct the complete singular structure for this counterterm Node."""
         
         structure       = self.current['singular_structure']
         legs            = structure.legs
@@ -860,16 +860,21 @@ class CountertermNode(object):
                                                             ct_node in self.subcurrents]
         return type(structure)(list(legs)+substructures)
 
-    def get_singular_structure_string(self, print_n=True, print_pdg=False, print_state=False):
-        """ Returns a one-line string specifying only the complete nested singular 
-        structure of this counterterm node."""
+    def get_singular_structure_string(
+        self, print_n=True, print_pdg=False, print_state=False
+    ):
+        """Return a one-line string specifying only the complete nested singular
+        structure of this counterterm node.
+        """
 
         res = self.current['singular_structure'].__str__(
-                print_n=print_n, print_pdg=print_pdg, print_state=print_state )
+            print_n=print_n, print_pdg=print_pdg, print_state=print_state
+        )
         subcurrent_string = ''
         for counterterm_node in self.subcurrents:
             subcurrent_string += counterterm_node.get_singular_structure_string(
-                print_n=print_n, print_pdg=print_pdg, print_state=print_state )
+                print_n=print_n, print_pdg=print_pdg, print_state=print_state
+            )
         if subcurrent_string == '':
             return res
         else:
@@ -885,13 +890,16 @@ class CountertermNode(object):
             for subcurrent in self.subcurrents:
                 sub_n_loops = subcurrent.n_loops()
                 if sub_n_loops >= 0:
-                    result = None
-                else:
                     result += sub_n_loops
+                else:
+                    raise MadGraph5Error(
+                        "Counterterms.n_loops: "
+                        "requested unassigned number of loops"
+                    )
         return result
 
     def count_unresolved(self):
-        """ Count the number of unresolved particles covered by this counterterm node. """
+        """Count the number of unresolved particles covered by this counterterm node."""
         
         total_unresolved = self.current.count_unresolved()
         for counterterm_node in self.subcurrents:
@@ -1103,8 +1111,6 @@ class Counterterm(CountertermNode):
         tmp_str += ")"
         process_n_loops = self.current.get('n_loops')
         if process_n_loops >= 0:
-            pass
-        else:
             tmp_str += " @ " + str(process_n_loops) + " loop"
             if process_n_loops != 1:
                 tmp_str += "s"
@@ -1432,12 +1438,14 @@ class IRSubtraction(object):
                 assert leg['number'] == len(momenta_dict_so_far) + 1
                 momenta_dict_so_far[leg['number']] = frozenset((leg['number'],))
 
-            # The squared orders of the reduced process will be set correctly later (DOUBLECHECK this)
+            # The squared orders of the reduced process will be set correctly later
+            # TODO DOUBLECHECK this
             reduced_process = reduced_process.get_copy(['legs', 'n_loops', 'legs_with_decays'])
             # Empty legs_with_decays as it will be regenerated automatically when asked for.
             reduced_process['legs_with_decays'][:] = []
             # The n_loops will be distributed later
-            reduced_process.set('n_loops', 0)
+            # TODO DOUBLECHECK this
+            reduced_process.set('n_loops', -1)
 
         subcurrents = []
 

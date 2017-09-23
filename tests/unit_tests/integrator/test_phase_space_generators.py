@@ -91,9 +91,27 @@ class VectorsTest(unittest.TestCase):
         self.assertEqual(v2.square(), 0)
         self.assertEqual(v1.dot(v2), 2)
 
+        # Test the rotoboost
+        #   Definition
+        v1 = PS.LorentzVector([0, ] + [random.random() for _ in range(3)])
+        v2 = PS.LorentzVector([0, ] + [random.random() for _ in range(3)])
+        m = random.random()
+        v1.rescaleEnergy(m)
+        v2.rescaleEnergy(m)
+        self.assertEqual(v2.rotoboost(v2, v1), v1)
+        #   Inverse
+        v3 = PS.LorentzVector([0, ] + [random.random() for _ in range(3)])
+        v3.rescaleEnergy(m)
+        v4 = PS.LorentzVector([random.random() for _ in range(4)])
+        v4_old = v4.get_copy()
+        v4.rotoboost(v1, v3)
+        v4.rotoboost(v3, v1)
+        self.assertEqual(v4, v4_old)
+
 #===============================================================================
 # Test the phase-space generators
 #===============================================================================
+
 class PhaseSpaceGeneratorsTest(unittest.TestCase):
     """ Test various phase-space generators."""
 
@@ -153,7 +171,7 @@ class PhaseSpaceGeneratorsTest(unittest.TestCase):
         pass
 
 #===============================================================================
-# Test the phase-space mappers
+# Final-final collinear mappings
 #===============================================================================
 
 class CollinearVariablesTest(unittest.TestCase):
@@ -162,10 +180,7 @@ class CollinearVariablesTest(unittest.TestCase):
     my_mapping = PS.ElementaryMappingCollinearFinal()
     n_children = 3
 
-    def setUp(self):
-        pass
-
-    def test_variables_away_from_limit(self):
+    def test_collinear_variables_away_from_limit(self):
         """Test determination of collinear variables and reverse mapping,
         for completely generic input values.
         """
@@ -195,12 +210,11 @@ class CollinearVariablesTest(unittest.TestCase):
             new_PS_point, self.n_children, range(self.n_children),
             total_momentum, variables
         )
+        # Check the two phase-space points are equal
         for i in range(self.n_children):
-            for j in range(4):
-                self.assertAlmostEqual(my_PS_point[i][j], new_PS_point[i][j])
+            self.assertEqual(my_PS_point[i], new_PS_point[i])
 
-
-    def test_variables_close_to_limit(self):
+    def test_collinear_variables_close_to_limit(self):
         """Test determination of collinear variables and reverse mapping
         in a typical collinear situation.
         """
@@ -245,9 +259,9 @@ class CollinearVariablesTest(unittest.TestCase):
                 new_PS_point, self.n_children, range(self.n_children),
                 total_momentum, variables
             )
+            # Check the two phase-space points are equal
             for i in range(self.n_children):
-                for j in range(4):
-                    self.assertAlmostEqual(my_PS_point[i][j], new_PS_point[i][j])
+                self.assertEqual(my_PS_point[i], new_PS_point[i])
 
 class CataniSeymourFFOneTest(unittest.TestCase):
     """Test class for MappingCataniSeymourFFOne."""
@@ -289,7 +303,7 @@ class CataniSeymourFFOneTest(unittest.TestCase):
             ]
         self.structure = subtraction.SingularStructure(self.structure)
 
-    def test_map_invertible(self):
+    def test_collinear_map_invertible(self):
         """Test mapping and inverse."""
 
         # Generate n_collinear random massive vectors plus
@@ -332,8 +346,84 @@ class CataniSeymourFFOneTest(unittest.TestCase):
             my_PS_point, self.structure, self.momenta_dict, variables
         )
         for i in my_PS_point.keys():
-            for j in range(4):
-                self.assertAlmostEqual(my_PS_point[i][j], old_PS_point[i][j])
+            self.assertEqual(my_PS_point[i], old_PS_point[i])
+
+#===============================================================================
+# Soft mappings
+#===============================================================================
+
+class SoftVariablesTest(unittest.TestCase):
+    """Test class for variables describing internal collinear structure."""
+
+    # This is trivial if one stores the full momentum
+    # Nevertheless checking and supporting more complicated scenarios
+
+    my_mapping = PS.ElementaryMappingSoft()
+    n_soft = 3
+
+    def test_soft_variables_away_from_limit(self):
+        """Test determination of soft variables and reverse mapping,
+        for completely generic input values.
+        """
+
+        # Generate n_soft random massless vectors
+        my_PS_point = dict()
+        for i in range(self.n_soft):
+            my_PS_point[i] = PS.LorentzVector(
+                [0., ] + [random.random() for _ in range(3)]
+            )
+            my_PS_point[i][0] = math.sqrt(-my_PS_point[i].square())
+        # Compute soft variables
+        variables = dict()
+        self.my_mapping.get_soft_variables(
+            my_PS_point, range(self.n_soft), variables
+        )
+        # Compute new phase space point
+        new_PS_point = dict()
+        self.my_mapping.set_soft_variables(
+            new_PS_point, range(self.n_soft), variables
+        )
+        # Check the two phase-space points are equal
+        for i in range(self.n_soft):
+            self.assertEqual(my_PS_point[i], new_PS_point[i])
+
+
+    def test_soft_variables_close_to_limit(self):
+        """Test determination of soft variables and reverse mapping
+        in a typical soft situation.
+        """
+
+        # Generate n_soft random massless vectors
+        my_PS_point = dict()
+        for i in range(self.n_soft):
+            my_PS_point[i] = PS.LorentzVector(
+                [0., ] + [random.random() for _ in range(3)]
+            )
+            my_PS_point[i][0] = math.sqrt(-my_PS_point[i].square())
+        # Generate values for the parameter that describes approach to limit
+        pars = (math.pow(0.25, i) for i in range(8))
+        # This is one way like any other to approach the limit
+        for par in pars:
+            old_PS_point = {
+                i: par*my_PS_point[i]
+                for i in my_PS_point.keys()
+            }
+            # Compute collinear variables
+            variables = dict()
+            self.my_mapping.get_soft_variables(
+                old_PS_point, range(self.n_soft), variables
+            )
+            # Compute new phase space point
+            new_PS_point = dict()
+            self.my_mapping.set_soft_variables(
+                new_PS_point, range(self.n_soft), variables
+            )
+            for i in range(self.n_soft):
+                self.assertEqual(old_PS_point[i], new_PS_point[i])
+
+#===============================================================================
+# Test the phase-space walkers
+#===============================================================================
 
 class FlatCollinearWalkerTest(unittest.TestCase):
     """Test class for FlatCollinearWalker."""

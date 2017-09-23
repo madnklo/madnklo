@@ -50,7 +50,7 @@ class PhaseSpaceGeneratorError(Exception):
     """Exception raised if an exception is triggered in integrators.""" 
 
 #===============================================================================
-# Vector
+# Vectors
 #===============================================================================
 
 class Vector(numpy.ndarray):
@@ -66,7 +66,7 @@ class Vector(numpy.ndarray):
     def eps(self):
 
         if numpy.issubdtype(self.dtype, numpy.inexact):
-            return 100.*numpy.finfo(self.dtype).eps
+            return math.sqrt(numpy.finfo(self.dtype).eps)
         else:
             return 0
 
@@ -82,7 +82,12 @@ class Vector(numpy.ndarray):
     def __eq__(self, other):
 
         eps = max(self.eps(), other.eps())
-        return numpy.allclose(self, other, eps, 0.)
+        # numpy.allclose uses abs(self-other) which would compute the norm
+        # for LorentzVector, thus view self and other as numpy.ndarray's
+        return numpy.allclose(
+            self.view(type=numpy.ndarray), other.view(type=numpy.ndarray),
+            eps, 0.
+        )
 
     def __ne__(self, other):
 
@@ -132,73 +137,33 @@ class Vector(numpy.ndarray):
             self[0] * v[1] - self[1] * v[0]
         ])
 
-
-#===============================================================================
-# LorentzVectorDict
-#===============================================================================
-class LorentzVectorDict(dict):
-    """ A simple class wrapping the use of a dictionary to store Lorentz vectors."""
-
-    def __str__(self, n_initial=2):
-        """ Nice printout of the momenta."""
-
-        # Use padding for minus signs
-        def special_float_format(float):
-            return '%s%.16e'%('' if float<0.0 else ' ',float)
-        
-        cols_widths = [4,25,25,25,25,25]
-        template = ' '.join('%%-%ds'%col_width for col_width in cols_widths)
-        line     = '-'*(sum(cols_widths)+len(cols_widths)-1)
-
-        out_lines = [template%('#', ' E', ' p_x',' p_y', ' p_z', ' M',)]
-        out_lines.append(line)
-        running_sum = LorentzVector()
-        for i in sorted(self.keys()):
-            mom = LorentzVector(self[i])
-            if i < n_initial:
-                running_sum = running_sum + mom
-            else:
-                running_sum = running_sum - mom
-            out_lines.append(template%tuple(['%d'%i]+
-               [special_float_format(el) for el in (list(mom)+[abs(mom)]) ]))
-        out_lines.append(line)
-        out_lines.append(template%tuple(['Sum']+
-               [special_float_format(el) for el in running_sum]+['']))
-
-        return '\n'.join(out_lines)
-
-#===============================================================================
-# LorentzVectorList
-#===============================================================================
-class LorentzVectorList(list):
-    """ A simple class wrapping the use of a list to store Lorentz vectors."""
-
-    def __str__(self, n_initial=2):
-        """ Nice printout of the momenta."""
-        
-        return LorentzVectorDict( (i+1, v) for i,v in enumerate(self) ).\
-                                                    __str__(n_initial=n_initial)
-
-#===============================================================================
-# LorentzVector
-#===============================================================================
 class LorentzVector(Vector):
 
     def __new__(cls, *args, **opts):
+
         if len(args)==0:
             return super(LorentzVector, cls).__new__(cls, [0.,0.,0.,0.], **opts)
         return super(LorentzVector, cls).__new__(cls, *args, **opts)
 
     def __str__(self):
-        """ Nice representation of a Lorentz vector."""
-        return "(E = %s, p_x = %s, p_y = %s, py_z = %s, M^2 = %s)"%(self[0],self[1],self[2],self[3],self.square())
+        """Nice representation of a Lorentz vector."""
+
+        return "(E = %s, p_x = %s, p_y = %s, p_z = %s, M^2 = %s)"%(
+            self[0],self[1],self[2],self[3],self.square()
+        )
+
+    def space(self):
+        """Return the spatial part of this LorentzVector."""
+
+        return self[1:].view(type=Vector)
 
     def dot(self, v):
         """Compute the Lorentz scalar product."""
 
         assert len(self) == len(v)
         pos = self[0]*v[0]
-        neg = sum(self[i]*v[i] for i in range(1, len(self)))
+        # neg = sum(self[i]*v[i] for i in range(1, len(self)))
+        neg = self.space().dot(v.space())
         if pos+neg != 0 and abs(2*(pos-neg)/(pos+neg)) < self.eps():
             return 0
         return pos - neg
@@ -206,17 +171,34 @@ class LorentzVector(Vector):
     def rho2(self):
         """Compute the radius squared."""
 
-        return sum(self[i]**2 for i in range(1, len(self)))
+        return self.space().square()
 
     def rho(self):
         """Compute the radius."""
 
-        return math.sqrt(self.rho2())
+        return abs(self.space())
 
     def rescaleEnergy(self, mass):
 
         self[0] = math.sqrt(self.rho2() + mass**2)
         return
+
+    def rotoboost(self, p, q):
+        """Apply the Lorentz transformation that sends p in q to this vector."""
+
+        # Check that the two invariants are close,
+        # else the transformation is invalid
+        p2 = p.square()
+        q2 = q.square()
+        assert abs(p2-q2) < 1e-9*(abs(p2)+abs(q2))
+        # Compute scalar products
+        pq = p + q
+        pq2 = pq.square()
+        p_s = self.dot(p)
+        pq_s = self.dot(pq)
+        # Assemble vector
+        self += 2 * ((p_s/q2) * q - (pq_s/pq2) * pq)
+        return self
 
     def pt(self, axis=3):
         """Compute transverse momentum."""
@@ -266,12 +248,12 @@ class LorentzVector(Vector):
                 return (0.,0.,0.)
             else:
                 raise PhaseSpaceGeneratorError(
-                    "Attempting to compute a boost"+\
+                    "Attempting to compute a boost"
                     "from a reference vector with zero energy."
                 )
         if abs(self) < 0.:
             raise PhaseSpaceGeneratorError(
-                    "Attempting to compute a boost"+\
+                    "Attempting to compute a boost"
                     "from a reference vector with negative mass."
             )
 
@@ -288,11 +270,13 @@ class LorentzVector(Vector):
         return math.atan2(self[2], self[1])
     
     def boost(self, boost_vector, gamma=-1.):
-        """ Transport self into the restframe of the boostvector in argument.
+        """Transport self into the rest frame of the boost_vector in argument.
         This means that the following command, for any vector p=(E, px, py, pz)
             p.boost(p.boostVector())
         transforms p to (M,0,0,0).
         """
+
+        # TODO Rewrite this using the nice functions of Vector
 
         bx, by, bz = boost_vector[0], boost_vector[1], boost_vector[2]
         b2 = bx**2 + by**2 + bz**2
@@ -305,6 +289,52 @@ class LorentzVector(Vector):
         self[2] = self[2] + gamma2*bp*by + gamma*by*self[0]
         self[3] = self[3] + gamma2*bp*bz + gamma*bz*self[0]
         self[0] = gamma*(self[0] + bp)
+
+class LorentzVectorDict(dict):
+    """A simple class wrapping dictionaries that store Lorentz vectors."""
+
+    def __str__(self, n_initial=2):
+        """Nice printout of the momenta."""
+
+        # Use padding for minus signs
+        def special_float_format(float):
+            return '%s%.16e' % ('' if float < 0.0 else ' ', float)
+
+        cols_widths = [4, 25, 25, 25, 25, 25]
+        template = ' '.join(
+            '%%-%ds' % col_width for col_width in cols_widths)
+        line = '-' * (sum(cols_widths) + len(cols_widths) - 1)
+
+        out_lines = [template % ('#', ' E', ' p_x', ' p_y', ' p_z', ' M',)]
+        out_lines.append(line)
+        running_sum = LorentzVector()
+        for i in sorted(self.keys()):
+            mom = LorentzVector(self[i])
+            if i < n_initial:
+                running_sum = running_sum + mom
+            else:
+                running_sum = running_sum - mom
+            out_lines.append(template % tuple(
+                ['%d' % i] + [
+                    special_float_format(el) for el in (list(mom) + [abs(mom)])
+                ]
+            ))
+        out_lines.append(line)
+        out_lines.append(template % tuple(
+            ['Sum'] + [special_float_format(el) for el in running_sum] + ['']
+        ))
+
+        return '\n'.join(out_lines)
+
+class LorentzVectorList(list):
+    """A simple class wrapping lists that store Lorentz vectors."""
+
+    def __str__(self, n_initial=2):
+        """Nice printout of the momenta."""
+
+        return LorentzVectorDict(
+            (i + 1, v) for i, v in enumerate(self)
+        ).__str__(n_initial=n_initial)
 
 #===============================================================================
 # Kinematic functions
@@ -896,6 +926,10 @@ class VirtualMapping(object):
 
         raise NotImplemented
 
+#===============================================================================
+# Final-final collinear mappings
+#===============================================================================
+
 class ElementaryMappingCollinearFinal(VirtualMapping):
     """Common functions for final-final collinear elementary mappings."""
 
@@ -1262,8 +1296,195 @@ class Mapping_NagySoper(VirtualMapping):
     pass
 
 #===============================================================================
+# Soft mappings
+#===============================================================================
+
+class ElementaryMappingSoft(VirtualMapping):
+    """Common functions for soft elementary mappings."""
+
+    def __init__(self, *args, **opts):
+        """Additional options for a soft elementary mapping."""
+
+        super(ElementaryMappingSoft, self).__init__(*args, **opts)
+
+    def is_valid_structure(self, singular_structure):
+
+        assert isinstance(singular_structure, subtraction.SingularStructure)
+        # Valid only for bunches of final-state particles going soft,
+        # with no recursive substructure
+        for substructure in singular_structure.substructures:
+            if not substructure.name() == "S":
+                return False
+            if substructure.substructures:
+                return False
+        return True
+
+    def get_kinematic_variables_names(self, singular_structure, momenta_dict):
+        """Get the names of variables describing particles going unresolved."""
+
+        # Consistency checks
+        assert isinstance(momenta_dict, subtraction.bidict)
+        assert self.is_valid_structure(singular_structure)
+
+        # For every soft particle, just return its momentum
+        names = []
+        for substructure in singular_structure.substructures:
+            parent, children = get_structure_numbers(substructure, momenta_dict)
+            for legn in sorted(children):
+                names += ['p'+str(legn), ]
+        return names
+
+    def get_soft_variables(self, PS_point, children, variables):
+        """Given unmapped and mapped momenta, compute the kinematic variables
+        that describe the internal structure of particles going unresolved.
+        Children indices should already refer to the position
+        of momenta within the PS_point (no momentum dictionary used).
+        """
+
+        # For soft particles, just pass the whole momentum
+        for i in children:
+            variables['p' + str(i)] = PS_point[i]
+        return
+
+
+    def set_soft_variables(self, PS_point, children, variables):
+        """Given a dictionary of variables that describe the unresolved partons,
+        compute and set the children momenta.
+        Children indices should already refer to the position
+        of momenta within the PS_point (no momentum dictionary used).
+        """
+
+        # Set momenta for all children
+        for i in children:
+            PS_point[i] = variables['p' + str(i)]
+        return
+
+
+    def get_random_variables(self, mapped_momentum, children, variables):
+        """Get random variables in the range [0,1]
+        that correspond to the internal kinematic variables.
+        """
+
+        raise NotImplemented
+
+
+    def set_random_variables(self, mapped_momentum, children, randoms):
+        """Compute internal kinematic variables
+        from random numbers in the range [0,1].
+        """
+
+        raise NotImplemented
+
+class MappingSomogyietalSoft(ElementaryMappingSoft):
+    """Implementation of the mapping used by Somogyi et al.
+    in arXiv:hep-ph/0609042 for soft particles.
+    It applies when there is at least one recoiler in the final state
+    and all recoilers are massless.
+    """
+
+    def __init__(self, *args, **opts):
+        """Additional options for the Somogyi et al. soft mapping."""
+
+        super(MappingSomogyietalSoft, self).__init__(*args, **opts)
+
+    def map_to_lower_multiplicity(
+            self, PS_point, singular_structure, momenta_dict,
+            kinematic_variables=None
+    ):
+
+        # Consistency checks
+        assert isinstance(momenta_dict, subtraction.bidict)
+        assert self.is_valid_structure(singular_structure)
+
+        # Build the total soft momentum,
+        # save the soft momenta in variables and eliminate them from PS_point
+        pS = LorentzVector(4 * [0., ])
+        for substructure in singular_structure.substructures:
+            children = [leg.n for leg in substructure.legs]
+            if kinematic_variables is not None:
+                self.get_soft_variables(PS_point, children, kinematic_variables)
+            for child in children:
+                pS += PS_point.pop(child)
+        # Build the total momentum of recoilers
+        pR = LorentzVector(4 * [0., ])
+        for leg in singular_structure.legs:
+            pR += PS_point[leg.n]
+        # Build the total momentum Q
+        Q = pS + pR
+        # Compute the parameter la
+        Q2 = Q.square()
+        yQS = 2*pS.dot(Q)/Q2
+        la = math.sqrt(1.-yQS)
+        P = (Q-pS)/la
+        # Map all recoilers' momenta
+        for recoiler in singular_structure.legs:
+            PS_point[recoiler.n] /= la
+            PS_point[recoiler.n].rotoboost(Q, P)
+
+        # TODO Compute the jacobian for this mapping
+        jacobian = 1.0
+
+        return jacobian
+
+    def map_to_higher_multiplicity(
+            self, PS_point, singular_structure, momenta_dict, variables
+    ):
+
+        # Consistency checks
+        assert isinstance(momenta_dict, subtraction.bidict)
+        assert self.is_valid_structure(singular_structure)
+        needed_variables = set(
+            self.get_kinematic_variables_names(
+                singular_structure, momenta_dict
+            )
+        )
+        assert needed_variables.issubset(variables.keys())
+
+        # Precompute sets and numbers...
+        cluster = singular_structure.substructures[0]
+        parent, children = get_structure_numbers(cluster, momenta_dict)
+        # Find the parent's momentum
+        qC = PS_point[parent]
+        # Compute the momentum of recoilers and the total
+        qR = LorentzVector(4 * [0., ])
+        for leg in singular_structure.legs:
+            qR += PS_point[leg.n]
+        Q = qR + qC
+        # Compute scalar products
+        QqC = Q.dot(qC)
+        qC2 = qC.square()
+        Q2 = Q.square()
+        qR2 = qR.square()
+        sC = variables['s' + str(parent)]
+        # Obtain parameter alpha
+        alpha = 0
+        if qR2 == 0:
+            alpha = 0.5 * (sC - qC2) / (QqC - qC2)
+        else:
+            alpha = (math.sqrt(QqC ** 2 - Q2 * qC2 + sC * qR2) - (
+            QqC - qC2)) / qR2
+        # Compute reverse-mapped momentum
+        pC = (1 - alpha) * qC + alpha * Q
+        # Set children momenta
+        self.set_collinear_variables(
+            PS_point, parent, sorted(children), pC, variables
+        )
+        # Map recoil momenta
+        for recoiler in singular_structure.legs:
+            PS_point[recoiler.n] *= 1 - alpha
+        # Remove parent's momentum
+        if parent not in children:  # Bypass degenerate case of 1->1 splitting
+            del PS_point[parent]
+
+        # TODO Compute the jacobian for this mapping
+        jacobian = 1.0
+
+        return jacobian
+
+#===============================================================================
 # Mapping walkers
 #===============================================================================
+
 class VirtualWalker(object):
     """Base class for walker implementations."""
     

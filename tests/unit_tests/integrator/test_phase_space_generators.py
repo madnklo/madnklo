@@ -102,12 +102,12 @@ class VectorsTest(unittest.TestCase):
         v1 = PS.LorentzVector([0, ] + [random.random() for _ in range(3)])
         v2 = PS.LorentzVector([0, ] + [random.random() for _ in range(3)])
         m = random.random()
-        v1.rescaleEnergy(m)
-        v2.rescaleEnergy(m)
+        v1.set_square(m**2)
+        v2.set_square(m**2)
         self.assertEqual(v2.rotoboost(v2, v1), v1)
         #   Inverse
         v3 = PS.LorentzVector([0, ] + [random.random() for _ in range(3)])
-        v3.rescaleEnergy(m)
+        v3.set_square(m**2)
         v4 = PS.LorentzVector([random.random() for _ in range(4)])
         v4_old = v4.get_copy()
         v4.rotoboost(v1, v3)
@@ -122,8 +122,9 @@ class PhaseSpaceGeneratorsTest(unittest.TestCase):
     """ Test various phase-space generators."""
 
     def setUp(self):
-        """ Instantiate a model sinc it will be useful for the non Flat Phase-space
-        generator test."""
+        """Instantiate a model,
+        which will be useful for the non-flat phase-space generator test.
+        """
         
         model_with_params_set = import_ufo.import_model(
                 pjoin(MG5DIR,'models','sm'), prefix=True,
@@ -607,7 +608,7 @@ class CollinearVariablesTest(unittest.TestCase):
             my_PS_point[i] = PS.LorentzVector(
                 [0., ] + [random.random() for _ in range(3)]
             )
-            my_PS_point[i][0] = math.sqrt(-my_PS_point[i].square())
+            my_PS_point[i].set_square(0)
         # Compute collinear variables
         variables = dict()
         self.my_mapping.get_collinear_variables(
@@ -732,11 +733,9 @@ class CataniSeymourFFOneTest(unittest.TestCase):
                 my_PS_point[i] = PS.LorentzVector(
                     [0., ] + [random.random() for _ in range(3)]
                 )
-                my_PS_point[i][0] = math.sqrt(-my_PS_point[i].square())
+                my_PS_point[i].set_square(0)
             if n_in_this_bunch == 1:
-                my_PS_point[n_collinear_so_far][0] = math.sqrt(
-                    random.random() - my_PS_point[n_collinear_so_far].square()
-                )
+                my_PS_point[n_collinear_so_far].set_square(random.random())
             n_collinear_so_far += n_in_this_bunch
         for i in range(
             n_collinear_so_far, n_collinear_so_far + self.n_recoilers
@@ -745,11 +744,9 @@ class CataniSeymourFFOneTest(unittest.TestCase):
                 [0., ] + [random.random() for _ in range(3)]
             )
             if self.massive:
-                my_PS_point[i][0] = math.sqrt(
-                    random.random() - my_PS_point[i].square()
-                )
+                my_PS_point[i].set_square(random.random())
             else:
-                my_PS_point[i][0] = math.sqrt(-my_PS_point[i].square())
+                my_PS_point[i].set_square(0)
         # I know what I'm doing
         old_PS_point = copy.deepcopy(my_PS_point)
         # Compute collinear variables
@@ -787,7 +784,7 @@ class SoftVariablesTest(unittest.TestCase):
             my_PS_point[i] = PS.LorentzVector(
                 [0., ] + [random.random() for _ in range(3)]
             )
-            my_PS_point[i][0] = math.sqrt(-my_PS_point[i].square())
+            my_PS_point[i].set_square(0)
         # Compute soft variables
         variables = dict()
         self.my_mapping.get_soft_variables(
@@ -814,7 +811,7 @@ class SoftVariablesTest(unittest.TestCase):
             my_PS_point[i] = PS.LorentzVector(
                 [0., ] + [random.random() for _ in range(3)]
             )
-            my_PS_point[i][0] = math.sqrt(-my_PS_point[i].square())
+            my_PS_point[i].set_square(0)
         # Generate values for the parameter that describes approach to limit
         pars = (math.pow(0.25, i) for i in range(8))
         # This is one way like any other to approach the limit
@@ -835,6 +832,85 @@ class SoftVariablesTest(unittest.TestCase):
             )
             for i in range(self.n_soft):
                 self.assertEqual(old_PS_point[i], new_PS_point[i])
+
+class SomogyietalSoftTest(unittest.TestCase):
+    """Test class for MappingSomogyietalSoft."""
+
+    # This specific mapping only for massless,
+    # but 'massive' will be useful in the future so might as well keep it
+    mapping = PS.MappingSomogyietalSoft()
+    n_soft = (2, 3, )
+    n_recoilers = 3
+    massive = False
+    structure = subtraction.SingularStructure()
+    momenta_dict = subtraction.bidict()
+
+    def setUp(self):
+
+        n_tot = sum(self.n_soft) + self.n_recoilers
+        for i in range(n_tot):
+            self.momenta_dict[i] = frozenset((i,))
+        self.structure = []
+        n_soft_so_far = 0
+        n_bunch = 0
+        for n_in_this_bunch in self.n_soft:
+            this_bunch_numbers = tuple(range(
+                    n_soft_so_far, n_soft_so_far + n_in_this_bunch
+                ))
+            this_bunch_legs = (
+                subtraction.SubtractionLeg(
+                    i, 21, subtraction.SubtractionLeg.FINAL
+                ) for i in this_bunch_numbers
+            )
+            self.structure += [subtraction.SoftStructure(this_bunch_legs), ]
+            n_soft_so_far += n_in_this_bunch
+            n_bunch += 1
+        self.structure += [
+                subtraction.SubtractionLeg(
+                    i, 21, subtraction.SubtractionLeg.FINAL
+                )
+                for i in range(n_soft_so_far, n_tot)
+            ]
+        self.structure = subtraction.SingularStructure(self.structure)
+
+    def test_soft_map_invertible(self):
+        """Test mapping and inverse."""
+
+        # Generate n_soft random massless vectors plus
+        # n_recoilers (massive = True, False) random vectors
+        my_PS_point = dict()
+        n_soft_so_far = 0
+        for n_in_this_bunch in self.n_soft:
+            for i in range(
+                n_soft_so_far, n_soft_so_far + n_in_this_bunch
+            ):
+                my_PS_point[i] = PS.LorentzVector(
+                    [0., ] + [random.random() for _ in range(3)]
+                )
+                my_PS_point[i].set_square(0)
+            n_soft_so_far += n_in_this_bunch
+        for i in range(
+            n_soft_so_far, n_soft_so_far + self.n_recoilers
+        ):
+            my_PS_point[i] = PS.LorentzVector(
+                [0., ] + [random.random() for _ in range(3)]
+            )
+            if self.massive:
+                my_PS_point[i].set_square(random.random())
+            else:
+                my_PS_point[i].set_square(0)
+        # I know what I'm doing
+        old_PS_point = copy.deepcopy(my_PS_point)
+        # Compute collinear variables
+        variables = dict()
+        self.mapping.map_to_lower_multiplicity(
+            my_PS_point, self.structure, self.momenta_dict, variables
+        )
+        self.mapping.map_to_higher_multiplicity(
+            my_PS_point, self.structure, self.momenta_dict, variables
+        )
+        for i in my_PS_point.keys():
+            self.assertEqual(my_PS_point[i], old_PS_point[i])
 
 #===============================================================================
 # Test the phase-space walkers

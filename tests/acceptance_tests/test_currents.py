@@ -166,7 +166,7 @@ class SubtractionCurrentTest(unittest.TestCase):
         
         # Put the mapped momentum onshell, this is not a well-defined
         # mapping, but it is sufficient for now to test this current.
-        a_PS[1000].rescaleEnergy(mass=0.)
+        a_PS[1000].set_square(0)
         momenta_map = bidict( { 1000 : frozenset((4,5)) } )        
 
 #       This would be a more generic way of doing this, but it would involve
@@ -189,9 +189,9 @@ class SubtractionCurrentTest(unittest.TestCase):
         a_PS = copy.copy(base_PS)
         a_PS[1000] = a_PS[5] + a_PS[7]
         
-        # Put the mapped momentum onshell, this is not a well-defined
-        # mapping, but it is sufficient for now to test this current.
-        a_PS[1000].rescaleEnergy(mass=0.)
+        # Put the mapped momentum on shell; this is not a well-defined mapping,
+        # but it is sufficient for now to test this current.
+        a_PS[1000].set_square(0)
         momenta_map = bidict( { 1000 : frozenset((5,7)) } )        
 
         current_evaluation, all_current_results = accessors_dict(

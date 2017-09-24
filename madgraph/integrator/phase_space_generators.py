@@ -178,9 +178,19 @@ class LorentzVector(Vector):
 
         return abs(self.space())
 
-    def rescaleEnergy(self, mass):
+    def set_square(self, square, negative=False):
+        """Change the time component of this LorentzVector
+        in such a way that self.square() = square.
+        If negative is True, set the time component to be negative,
+        else assume it is positive.
+        """
 
-        self[0] = math.sqrt(self.rho2() + mass**2)
+        # Note: square = self[0]**2 - self.rho2(),
+        # so if (self.rho2() + square) is negative, self[0] is imaginary.
+        # Letting math.sqrt fail if data is not complex on purpose in this case.
+        self[0] = math.sqrt(self.rho2() + square)
+        if negative:
+            self[0] *= -1
         return
 
     def rotoboost(self, p, q):
@@ -302,7 +312,8 @@ class LorentzVectorDict(dict):
 
         cols_widths = [4, 25, 25, 25, 25, 25]
         template = ' '.join(
-            '%%-%ds' % col_width for col_width in cols_widths)
+            '%%-%ds' % col_width for col_width in cols_widths
+        )
         line = '-' * (sum(cols_widths) + len(cols_widths) - 1)
 
         out_lines = [template % ('#', ' E', ' p_x', ' p_y', ' p_z', ' M',)]
@@ -721,13 +732,13 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
             p = LorentzVector([0.,q*cos_phi*sin_theta, 
                                  q*sin_phi*sin_theta,
                                  q*cos_theta])
-            p.rescaleEnergy(self.masses[i-self.n_initial])
+            p.set_square(self.masses[i-self.n_initial]**2)
             p.boost(Q.boostVector())
-            p.rescaleEnergy(self.masses[i-self.n_initial])
+            p.set_square(self.masses[i-self.n_initial]**2)
             output_momenta.append(p)
 
             nextQ = Q - p
-            nextQ.rescaleEnergy(M[i-self.n_initial+1])
+            nextQ.set_square(M[i-self.n_initial+1]**2)
 
             Q = nextQ
        
@@ -1139,7 +1150,7 @@ class MappingCataniSeymourFFOne(ElementaryMappingCollinearFinal):
 
     def map_to_lower_multiplicity(
         self, PS_point, singular_structure, momenta_dict,
-        kinematic_variables = None
+        variables=None
     ):
 
         # Consistency checks
@@ -1169,10 +1180,10 @@ class MappingCataniSeymourFFOne(ElementaryMappingCollinearFinal):
         # Map the cluster's momentum
         PS_point[parent] = (pC - alpha * Q) / (1-alpha)
         # If needed, update the kinematic_variables dictionary
-        if kinematic_variables is not None:
-            kinematic_variables['s'+str(parent)] = sC
+        if variables is not None:
+            variables['s'+str(parent)] = sC
             self.get_collinear_variables(
-                PS_point, parent, sorted(children), kinematic_variables
+                PS_point, parent, sorted(children), variables
             )
         # Eliminate children momenta from the mapped phase-space point
         for j in children:
@@ -1252,7 +1263,7 @@ class MappingCataniSeymourFFMany(ElementaryMappingCollinearFinal):
 
     def map_to_lower_multiplicity(
         self, PS_point, singular_structure, momenta_dict,
-        kinematic_variables = None
+        variables=None
     ):
 
         # WARNING Needs checking
@@ -1298,11 +1309,11 @@ class MappingCataniSeymourFFMany(ElementaryMappingCollinearFinal):
             p_tilde_C = scale_factor * (p_C[i] - alpha_C[i] * Q)
             PS_point[parent_number] = p_tilde_C
             # If needed, update the kinematic_variables dictionary
-            if kinematic_variables:
-                kinematic_variables['s' + str(parent_number)] = p_C[i].square()
+            if variables:
+                variables['s' + str(parent_number)] = p_C[i].square()
                 children_numbers = [ momenta_dict.inv[(j,)] for j in leg_ns ]
                 self.get_collinear_variables(
-                    PS_point, parent_number, children_numbers, kinematic_variables
+                    PS_point, parent_number, children_numbers, variables
                 )
         # TODO Compute the jacobian for this mapping
         jacobian = 1.0
@@ -1409,8 +1420,8 @@ class MappingSomogyietalSoft(ElementaryMappingSoft):
         super(MappingSomogyietalSoft, self).__init__(*args, **opts)
 
     def map_to_lower_multiplicity(
-            self, PS_point, singular_structure, momenta_dict,
-            kinematic_variables=None
+        self, PS_point, singular_structure, momenta_dict,
+        variables=None
     ):
 
         # Consistency checks
@@ -1422,8 +1433,8 @@ class MappingSomogyietalSoft(ElementaryMappingSoft):
         pS = LorentzVector(4 * [0., ])
         for substructure in singular_structure.substructures:
             children = [leg.n for leg in substructure.legs]
-            if kinematic_variables is not None:
-                self.get_soft_variables(PS_point, children, kinematic_variables)
+            if variables is not None:
+                self.get_soft_variables(PS_point, children, variables)
             for child in children:
                 pS += PS_point.pop(child)
         # Build the total momentum of recoilers
@@ -1433,14 +1444,12 @@ class MappingSomogyietalSoft(ElementaryMappingSoft):
         # Build the total momentum Q
         Q = pS + pR
         # Compute the parameter la
-        Q2 = Q.square()
-        yQS = 2*pS.dot(Q)/Q2
-        la = math.sqrt(1.-yQS)
-        P = (Q-pS)/la
+        la = math.sqrt(pR.square() / Q.square())
+        P = pR / la
         # Map all recoilers' momenta
         for recoiler in singular_structure.legs:
             PS_point[recoiler.n] /= la
-            PS_point[recoiler.n].rotoboost(Q, P)
+            PS_point[recoiler.n].rotoboost(P, Q)
 
         # TODO Compute the jacobian for this mapping
         jacobian = 1.0
@@ -1448,7 +1457,7 @@ class MappingSomogyietalSoft(ElementaryMappingSoft):
         return jacobian
 
     def map_to_higher_multiplicity(
-            self, PS_point, singular_structure, momenta_dict, variables
+        self, PS_point, singular_structure, momenta_dict, variables
     ):
 
         # Consistency checks
@@ -1461,41 +1470,27 @@ class MappingSomogyietalSoft(ElementaryMappingSoft):
         )
         assert needed_variables.issubset(variables.keys())
 
-        # Precompute sets and numbers...
-        cluster = singular_structure.substructures[0]
-        parent, children = get_structure_numbers(cluster, momenta_dict)
-        # Find the parent's momentum
-        qC = PS_point[parent]
-        # Compute the momentum of recoilers and the total
-        qR = LorentzVector(4 * [0., ])
+        # Build the total soft momentum,
+        # get the soft momenta from variables and save them in PS_point
+        pS = LorentzVector(4 * [0., ])
+        for substructure in singular_structure.substructures:
+            children = [leg.n for leg in substructure.legs]
+            self.set_soft_variables(PS_point, children, variables)
+            for child in children:
+                pS += PS_point[child]
+        # Build the total momentum, which is equal to the mapped recoilers'
+        Q = LorentzVector(4 * [0., ])
         for leg in singular_structure.legs:
-            qR += PS_point[leg.n]
-        Q = qR + qC
-        # Compute scalar products
-        QqC = Q.dot(qC)
-        qC2 = qC.square()
-        Q2 = Q.square()
-        qR2 = qR.square()
-        sC = variables['s' + str(parent)]
-        # Obtain parameter alpha
-        alpha = 0
-        if qR2 == 0:
-            alpha = 0.5 * (sC - qC2) / (QqC - qC2)
-        else:
-            alpha = (math.sqrt(QqC ** 2 - Q2 * qC2 + sC * qR2) - (
-            QqC - qC2)) / qR2
-        # Compute reverse-mapped momentum
-        pC = (1 - alpha) * qC + alpha * Q
-        # Set children momenta
-        self.set_collinear_variables(
-            PS_point, parent, sorted(children), pC, variables
-        )
-        # Map recoil momenta
+            Q += PS_point[leg.n]
+        # Build the total momentum Q
+        pR = Q - pS
+        # Compute the parameter la
+        la = math.sqrt(pR.square() / Q.square())
+        P = pR / la
+        # Map all recoilers' momenta
         for recoiler in singular_structure.legs:
-            PS_point[recoiler.n] *= 1 - alpha
-        # Remove parent's momentum
-        if parent not in children:  # Bypass degenerate case of 1->1 splitting
-            del PS_point[parent]
+            PS_point[recoiler.n] *= la
+            PS_point[recoiler.n].rotoboost(Q, P)
 
         # TODO Compute the jacobian for this mapping
         jacobian = 1.0

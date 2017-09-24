@@ -139,6 +139,13 @@ class ProcessKey(object):
                 self.key_dict['decay_chains'] = tuple( ProcessKey(proc).get_canonical_key() for proc in value)
                 continue
             
+            if proc_attr == 'required_s_channels':
+                # Group all the hashes of the processes in decay_chains and store them here.
+                # BUT BEWARE THAT THE PDGs in self.key_dict only refer to the core production process then.
+                misc.sprint([ part for part in value])
+                self.key_dict['required_s_channels'] = tuple( tuple(pdg for pdg in pdg_list) for pdg_list in value)
+                continue
+            
             if proc_attr == 'singular_structure':
                 self.key_dict['singular_structure'] = process[proc_attr].get_canonical_representation(track_leg_numbers=False)
                 continue
@@ -2117,7 +2124,7 @@ class Contribution(object):
 #                    ) )
 #        misc.sprint('='*50)
 #        stop
-        
+
     def set_phase_space_topologies(self):
         """ Investigate phase-space topologies and identify the list of kinematic configurations present
         and, for each process key in the process map, what configuration it includes and with which defining diagrams."""

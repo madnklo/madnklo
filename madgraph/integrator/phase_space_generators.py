@@ -421,13 +421,34 @@ class MultiChannelPhasespace(VirtualPhaseSpaceGenerator):
     """ Implementation of a phase-space generator that lines up integration variables with
     s- and t-channels specifying a paticular provided topology."""
 
+    
     def __init__(self, *args, **opts):
+        
+        if 'model' not in opts:
+            raise PhaseSpaceGeneratorError("A model must be specified with the option 'model' when"+
+                " instantiating the class %s."%self.__class__.__name__)
+        self.model = opts.pop('model')
+        
+        if 'topology' not in opts:
+            raise PhaseSpaceGeneratorError("A list of s- and t-channels must be specified with the "+
+                "option 'topology' when instantiating the class %s."%self.__class__.__name__)
+        self.topology = opts.pop('topology')
+        
         super(MultiChannelPhasespace, self).__init__(*args, **opts)
+        
+        # One can do additional business here upon instantiating this PS generator, like renaming
+        # the random variables to names describing the "propagators generated" with them. 
 
-
-    def get_PS_point(self, random_variables):
+    def get_PS_point(self, random_variables, **opts):
         """ Generates a complete PS point, including Bjorken x's, dictating a specific choice
         of incoming particle's momenta,"""
+
+        #
+        # IMPLEMENTATION TO DO
+        # 
+        # For now just return a random PS point from flat generation
+        return FlatInvertiblePhasespace(self.initial_masses,self.masses,self.beam_Es,
+                                        beam_types  = self.beam_types).get_PS_point(random_variables)
         raise NotImplementedError
 
 class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):

@@ -66,7 +66,7 @@ class Vector(numpy.ndarray):
     def eps(self):
 
         if numpy.issubdtype(self.dtype, numpy.inexact):
-            return math.sqrt(numpy.finfo(self.dtype).eps)
+            return numpy.finfo(self.dtype).eps
         else:
             return 0
 
@@ -86,7 +86,7 @@ class Vector(numpy.ndarray):
         # for LorentzVector, thus view self and other as numpy.ndarray's
         return numpy.allclose(
             self.view(type=numpy.ndarray), other.view(type=numpy.ndarray),
-            eps, 0.
+            math.sqrt(eps), 0.
         )
 
     def __ne__(self, other):
@@ -160,11 +160,9 @@ class LorentzVector(Vector):
     def dot(self, v):
         """Compute the Lorentz scalar product."""
 
-        assert len(self) == len(v)
         pos = self[0]*v[0]
-        # neg = sum(self[i]*v[i] for i in range(1, len(self)))
         neg = self.space().dot(v.space())
-        if pos+neg != 0 and abs(2*(pos-neg)/(pos+neg)) < self.eps():
+        if pos+neg != 0 and abs(2*(pos-neg)/(pos+neg)) < 100.*self.eps():
             return 0
         return pos - neg
 
@@ -191,7 +189,7 @@ class LorentzVector(Vector):
         self[0] = math.sqrt(self.rho2() + square)
         if negative:
             self[0] *= -1
-        return
+        return self
 
     def rotoboost(self, p, q):
         """Apply the Lorentz transformation that sends p in q to this vector."""
@@ -320,11 +318,12 @@ class LorentzVectorDict(dict):
         out_lines.append(line)
         running_sum = LorentzVector()
         for i in sorted(self.keys()):
+            # BALDY why are you copying mom here? (pun came out for free)
             mom = LorentzVector(self[i])
             if i < n_initial:
-                running_sum = running_sum + mom
+                running_sum += mom
             else:
-                running_sum = running_sum - mom
+                running_sum -= mom
             out_lines.append(template % tuple(
                 ['%d' % i] + [
                     special_float_format(el) for el in (list(mom) + [abs(mom)])
@@ -337,6 +336,13 @@ class LorentzVectorDict(dict):
 
         return '\n'.join(out_lines)
 
+    def get_copy(self):
+        """Return a copy that can be freely modified
+        without changing the current instance.
+        """
+
+        return type(self)({i: LorentzVector(self[i]) for i in self.keys()})
+
 class LorentzVectorList(list):
     """A simple class wrapping lists that store Lorentz vectors."""
 
@@ -346,6 +352,13 @@ class LorentzVectorList(list):
         return LorentzVectorDict(
             (i + 1, v) for i, v in enumerate(self)
         ).__str__(n_initial=n_initial)
+
+    def get_copy(self):
+        """Return a copy that can be freely modified
+        without changing the current instance.
+        """
+
+        return type(self)([LorentzVector(p) for p in self])
 
 #===============================================================================
 # Kinematic functions
@@ -381,6 +394,7 @@ class VirtualPhaseSpaceGenerator(object):
         self.beam_types      = beam_types
         self.dimensions      = self.get_dimensions()
         self.dim_ordered_names = [d.name for d in self.dimensions]
+        # BALDY shouldn't you use bidict here, given we need it anyway?
         self.dim_name_to_position = dict((d.name,i) for i, d in enumerate(self.dimensions))
         self.position_to_dim_name = dict((v,k) for (k,v) in self.dim_name_to_position.items())
         
@@ -786,7 +800,7 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
 
         # Make sure the right number of momenta are passed
         assert (len(momenta) == (self.n_initial + self.n_final) )
-        moms = [LorentzVector(mom) for mom in momenta]
+        moms = momenta.get_copy()
 
         # The weight of the corresponding PS point
         weight = 1.
@@ -813,6 +827,7 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
         weight = self.invertIntermediatesMassive(M, E_cm, random_variables)
 
         for i in range(self.n_initial,self.n_final+1):
+            # BALDY another copy? moms not used afterwards
             p = LorentzVector(moms[i])
             # Take the opposite boost vector
             boost_vec = tuple([-_ for _ in Q[i-self.n_initial].boostVector()])
@@ -1527,7 +1542,7 @@ class VirtualWalker(object):
         self.model = model
 
     def walk_to_lower_multiplicity(
-        self, PS_point, counterterm, kinematic_variables = False
+        self, PS_point, counterterm, kinematic_variables=False
     ):
         """Starting from the highest-multiplicity phase-space point,
         generate all lower-multiplicity phase-space points
@@ -1586,25 +1601,30 @@ class VirtualWalker(object):
          
         raise NotImplementedError
         
-    def rescale_kinematic_variables(self, kinematic_variables, scaling_parameter):
-        """ Given kinematic variables, rescale them according to the scaling_parameter
-        provided so as to progressively approach the IR limit.
-        For the collinear case, we scale kT and keep z fixed."""
-        
+    def rescale_kinematic_variables(
+        self, counterterm, kinematic_variables, scaling_parameter
+    ):
+        """Rescale kinematic_variables with the scaling_parameter provided,
+        so as to progressively approach the IR limit specified by counterterm.
+        """
+
         raise NotImplementedError
         
     def approach_limit(
         self, PS_point, counterterm, kinematic_variables, scaling_parameter
     ):
-        """Scale down starting variables given in starting_point (if specified)
-        using the scaling_parameter
-        to get closer to the limit specified by the splitting structure."""
+        """Produce a higher multiplicity phase-space point from PS_point,
+        according to kinematic_variables that approach the limit of counterterm
+        parametrically with scaling_parameter.
+        """
 
         new_kin_variables = self.rescale_kinematic_variables(
-            kinematic_variables, scaling_parameter
+            counterterm, kinematic_variables, scaling_parameter
         )
         
-        return self.walk_to_higher_multiplicity(PS_point, counterterm, new_kin_variables)
+        return self.walk_to_higher_multiplicity(
+            PS_point, counterterm, new_kin_variables
+        )
 
 class FlatCollinearWalker(VirtualWalker):
 
@@ -1614,11 +1634,10 @@ class FlatCollinearWalker(VirtualWalker):
     collinear_map = MappingCataniSeymourFFOne()
 
     def walk_to_lower_multiplicity(
-        self, PS_point, counterterm, kinematic_variables = False
+        self, PS_point, counterterm, kinematic_variables=False
     ):
 
-        # This phase-space point will be destroyed, deep copy wanted
-        point = {i: LorentzVector(p) for (i, p) in PS_point.items()}
+        point = PS_point.get_copy()
         # Initialize return variables
         current_PS_pairs = []
         jacobian = 1.
@@ -1651,7 +1670,7 @@ class FlatCollinearWalker(VirtualWalker):
                 ss, counterterm.momenta_dict
             )
             # Deep copy the momenta
-            momenta = {i: LorentzVector(p) for (i, p) in point.items()}
+            momenta = point.get_copy()
             # Compute jacobian and map to lower multiplicity
             jacobian *= self.collinear_map.map_to_lower_multiplicity(
                 point,
@@ -1683,7 +1702,7 @@ class FlatCollinearWalker(VirtualWalker):
         # computed in the lowest multiplicity point
         ME_PS_pair = [counterterm.process, PS_point]
         # This phase-space point will be destroyed, deep copy wanted
-        point = {i: LorentzVector(p) for (i, p) in PS_point.items()}
+        point = PS_point.get_copy()
         # Initialize return variables
         current_PS_pairs = []
         jacobian = 1.
@@ -1724,8 +1743,7 @@ class FlatCollinearWalker(VirtualWalker):
             )
             # Prepend pair of this current and the momenta,
             # deep copy wanted
-            for (i, p) in point.items():
-                momenta[i] = LorentzVector(p)
+            momenta.update(point.get_copy())
             current_PS_pairs.insert(0, (node.current, momenta))
 
         # Return
@@ -1736,11 +1754,154 @@ class FlatCollinearWalker(VirtualWalker):
             'resulting_PS_point': point
         }
 
-    def rescale_kinematic_variables(self, kinematic_variables, scaling_parameter):
-        """ Given kinematic variables, rescale them according to the scaling_parameter
-        provided so as to progressively approach the IR limit.
-        For the collinear case, we scale kT and keep z fixed."""
+    def rescale_kinematic_variables(
+        self, counterterm, kinematic_variables, scaling_parameter
+    ):
 
+        # For collinear clusters, just rescale the virtuality
+        new_kinematic_variables = {}
+        for var, value in kinematic_variables.items():
+            if var.startswith('s'):
+                new_kinematic_variables[var] = value*scaling_parameter**2
+            else:
+                new_kinematic_variables[var] = value
+        return new_kinematic_variables
+
+class SimpleNLOWalker(VirtualWalker):
+
+    cannot_handle = """The Simple NLO Walker found a singular structure
+    it is not capable to handle.
+    """
+    collinear_map = MappingCataniSeymourFFOne()
+    soft_map = MappingSomogyietalSoft()
+
+    def walk_to_lower_multiplicity(
+        self, PS_point, counterterm, kinematic_variables=False
+    ):
+
+        # This phase-space point will be destroyed, deep copy wanted
+        point = PS_point.get_copy()
+        # Initialize return variables
+        current_PS_pairs = []
+        jacobian = 1.
+        variables = dict() if kinematic_variables else None
+        # Recoil against all final-state particles that are not going singular
+        # TODO Recoilers and numbers for a given counterterm should be cached
+        recoilers = [
+            subtraction.SubtractionLeg(leg)
+            for leg in counterterm.process['legs']
+            if leg['state'] == base_objects.Leg.FINAL
+        ]
+        for node in counterterm.subcurrents:
+            parent, _ = get_structure_numbers(
+                node.current['singular_structure'],
+                counterterm.momenta_dict
+            )
+            for recoiler in recoilers:
+                if recoiler.n == parent:
+                    recoilers.remove(recoiler)
+        # Loop over the counterterm's first-level currents
+        for node in counterterm.subcurrents:
+            # Alias singular structure for convenience
+            ss = node.current['singular_structure']
+            # Do not accept soft currents or nested ones
+            if ss.name == 'S' or node.subcurrents:
+                raise MadGraph5Error(self.cannot_handle)
+            # Get parent and children numbers
+            # TODO Read these from cache
+            parent, children = get_structure_numbers(
+                ss, counterterm.momenta_dict
+            )
+            # Deep copy the momenta
+            momenta = point.get_copy()
+            # Compute jacobian and map to lower multiplicity
+            jacobian *= self.collinear_map.map_to_lower_multiplicity(
+                point,
+                subtraction.SingularStructure(ss, *recoilers),
+                counterterm.momenta_dict,
+                variables
+            )
+            # Append the current and the momenta,
+            # deep copy wanted
+            momenta[parent] = LorentzVector(point[parent])
+            current_PS_pairs.append((node.current, momenta))
+        # Identify reduced matrix element,
+        # computed in the point which has received all mappings
+        ME_PS_pair = [counterterm.process, point]
+        # Return
+        return {
+            'currents': current_PS_pairs,
+            'matrix_element': ME_PS_pair,
+            'jacobian': jacobian,
+            'kinematic_variables': variables,
+            'resulting_PS_point': point
+        }
+
+    def walk_to_higher_multiplicity(
+        self, PS_point, counterterm, kinematic_variables
+    ):
+
+        # Identify reduced matrix element,
+        # computed in the lowest multiplicity point
+        ME_PS_pair = [counterterm.process, PS_point]
+        # This phase-space point will be destroyed, deep copy wanted
+        point = PS_point.get_copy()
+        # Initialize return variables
+        current_PS_pairs = []
+        jacobian = 1.
+        # Recoil against all final-state particles that are not going singular
+        recoilers = [
+            subtraction.SubtractionLeg(leg)
+            for leg in counterterm.process['legs']
+            if leg['state'] == base_objects.Leg.FINAL
+        ]
+        for node in counterterm.subcurrents:
+            parent, _ = get_structure_numbers(
+                node.current['singular_structure'],
+                counterterm.momenta_dict
+            )
+            for recoiler in recoilers:
+                if recoiler.n == parent:
+                    recoilers.remove(recoiler)
+        # Loop over the counterterm's first-level currents
+        for node in reversed(counterterm.subcurrents):
+            # Alias singular structure for convenience
+            ss = node.current['singular_structure']
+            # Do not accept soft currents or nested ones
+            if ss.name == 'S' or node.subcurrents:
+                raise MadGraph5Error(self.cannot_handle)
+            # Get parent and children numbers
+            # TODO Read these from cache
+            parent, children = get_structure_numbers(
+                ss, counterterm.momenta_dict
+            )
+            # Deep copy the parent momentum
+            momenta = {parent: LorentzVector(point[parent])}
+            # Compute jacobian and map to higher multiplicity
+            jacobian *= self.collinear_map.map_to_higher_multiplicity(
+                point,
+                subtraction.SingularStructure(ss, *recoilers),
+                counterterm.momenta_dict,
+                kinematic_variables
+            )
+            # Prepend pair of this current and the momenta,
+            # deep copy wanted
+            momenta.update(point.get_copy())
+            current_PS_pairs.insert(0, (node.current, momenta))
+
+        # Return
+        return {
+            'currents': current_PS_pairs,
+            'matrix_element': ME_PS_pair,
+            'jacobian': jacobian,
+            'resulting_PS_point': point
+        }
+
+    def rescale_kinematic_variables(
+        self, counterterm, kinematic_variables, scaling_parameter
+    ):
+
+        # For collinear clusters, just rescale the virtuality
         new_kinematic_variables = {}
         for var, value in kinematic_variables.items():
             if var.startswith('s'):

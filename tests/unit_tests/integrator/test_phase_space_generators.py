@@ -603,7 +603,7 @@ class CollinearVariablesTest(unittest.TestCase):
 
         # Generate n_children+1 random massless vectors
         # (the light-cone direction is also random)
-        my_PS_point = dict()
+        my_PS_point = PS.LorentzVectorDict()
         for i in range(self.n_children+1):
             my_PS_point[i] = PS.LorentzVector(
                 [0., ] + [random.random() for _ in range(3)]
@@ -620,7 +620,7 @@ class CollinearVariablesTest(unittest.TestCase):
         for i in range(self.n_children):
             total_momentum += my_PS_point[i]
         # Compute new phase space point
-        new_PS_point = dict()
+        new_PS_point = PS.LorentzVectorDict()
         new_PS_point[self.n_children] = my_PS_point[self.n_children]
         self.my_mapping.set_collinear_variables(
             new_PS_point, self.n_children, range(self.n_children),
@@ -652,12 +652,12 @@ class CollinearVariablesTest(unittest.TestCase):
                 for (i, n) in directions.items()
             }
             my_PS_point = {
-                i: PS.LorentzVector([math.sqrt(n.square()),] + list(n))
+                i: PS.LorentzVector([0., ] + list(n)).set_square(0)
                 for (i, n) in new_directions.items()
             }
             my_PS_point[self.n_children] = PS.LorentzVector(
-                [math.sqrt(coll_direction.square()), ] + list(coll_direction)
-            )
+                [0., ] + list(coll_direction)
+            ).set_square(0)
             # Compute collinear variables
             variables = dict()
             self.my_mapping.get_collinear_variables(
@@ -669,7 +669,7 @@ class CollinearVariablesTest(unittest.TestCase):
             for i in range(self.n_children):
                 total_momentum += my_PS_point[i]
             # Compute new phase space point
-            new_PS_point = dict()
+            new_PS_point = PS.LorentzVectorDict()
             new_PS_point[self.n_children] = my_PS_point[self.n_children]
             self.my_mapping.set_collinear_variables(
                 new_PS_point, self.n_children, range(self.n_children),
@@ -724,7 +724,7 @@ class CataniSeymourFFOneTest(unittest.TestCase):
 
         # Generate n_collinear random massive vectors plus
         # n_recoilers (massive = True, False) random vectors
-        my_PS_point = dict()
+        my_PS_point = PS.LorentzVectorDict()
         n_collinear_so_far = 0
         for n_in_this_bunch in self.n_collinear:
             for i in range(
@@ -779,7 +779,7 @@ class SoftVariablesTest(unittest.TestCase):
         """
 
         # Generate n_soft random massless vectors
-        my_PS_point = dict()
+        my_PS_point = PS.LorentzVectorDict()
         for i in range(self.n_soft):
             my_PS_point[i] = PS.LorentzVector(
                 [0., ] + [random.random() for _ in range(3)]
@@ -791,7 +791,7 @@ class SoftVariablesTest(unittest.TestCase):
             my_PS_point, range(self.n_soft), variables
         )
         # Compute new phase space point
-        new_PS_point = dict()
+        new_PS_point = PS.LorentzVectorDict()
         self.my_mapping.set_soft_variables(
             new_PS_point, range(self.n_soft), variables
         )
@@ -806,7 +806,7 @@ class SoftVariablesTest(unittest.TestCase):
         """
 
         # Generate n_soft random massless vectors
-        my_PS_point = dict()
+        my_PS_point = PS.LorentzVectorDict()
         for i in range(self.n_soft):
             my_PS_point[i] = PS.LorentzVector(
                 [0., ] + [random.random() for _ in range(3)]
@@ -826,7 +826,7 @@ class SoftVariablesTest(unittest.TestCase):
                 old_PS_point, range(self.n_soft), variables
             )
             # Compute new phase space point
-            new_PS_point = dict()
+            new_PS_point = PS.LorentzVectorDict()
             self.my_mapping.set_soft_variables(
                 new_PS_point, range(self.n_soft), variables
             )
@@ -878,7 +878,7 @@ class SomogyietalSoftTest(unittest.TestCase):
 
         # Generate n_soft random massless vectors plus
         # n_recoilers (massive = True, False) random vectors
-        my_PS_point = dict()
+        my_PS_point = PS.LorentzVectorDict()
         n_soft_so_far = 0
         for n_in_this_bunch in self.n_soft:
             for i in range(
@@ -1126,7 +1126,7 @@ class FlatCollinearWalkerTest(unittest.TestCase):
         # For each counterterm
         for i in range(len(self.counterterms)):
             # Generate random vectors
-            my_PS_point = dict()
+            my_PS_point = PS.LorentzVectorDict()
             legs_FS = (
                 subtraction.SubtractionLeg(leg)
                 for leg in self.process['legs']
@@ -1136,8 +1136,7 @@ class FlatCollinearWalkerTest(unittest.TestCase):
             for j in leg_numbers:
                 my_PS_point[j] = PS.LorentzVector(
                     [0., ] + [random.random() for _ in range(3)]
-                )
-                my_PS_point[j][0] = math.sqrt(-my_PS_point[j].square())
+                ).set_square(0)
             # Compute collinear variables
             res_dict1 = self.walker.walk_to_lower_multiplicity(
                 my_PS_point, self.counterterms[i], True
@@ -1163,11 +1162,10 @@ class FlatCollinearWalkerTest(unittest.TestCase):
                     currs1[i_curr][1].keys(), currs2[i_curr][1].keys()
                 )
                 for i_part in currs1[i_curr][1].keys():
-                    for i_comp in range(4):
-                        self.assertAlmostEqual(
-                            currs1[i_curr][1][i_part][i_comp],
-                            currs2[i_curr][1][i_part][i_comp]
-                        )
+                    self.assertEqual(
+                        currs1[i_curr][1][i_part],
+                        currs2[i_curr][1][i_part]
+                    )
             # Check MEs
             self.assertEqual(
                 ME1[0], ME2[0]
@@ -1176,11 +1174,10 @@ class FlatCollinearWalkerTest(unittest.TestCase):
                 ME1[1].keys(), ME2[1].keys()
             )
             for i_part in ME1[1].keys():
-                for i_comp in range(4):
-                    self.assertAlmostEqual(
-                        ME1[1][i_part][i_comp],
-                        ME2[1][i_part][i_comp]
-                    )
+                self.assertEqual(
+                    ME1[1][i_part],
+                    ME2[1][i_part]
+                )
             # Check jacobians
             self.assertAlmostEqual(jac1*jac2, 1.)
             print ME1[1]

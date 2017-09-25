@@ -1,1 +1,10 @@
-PhaseSpaceGeneratorsTest ME7ContributionTest NLOSubtractionTest SubsetTest
+PhaseSpaceGeneratorsTest
+ME7ContributionTest
+NLOSubtractionTest
+SubsetTest
+VectorsTest
+CollinearVariablesTest
+CataniSeymourFFOneTest
+SoftVariablesTest
+SomogyietalSoftTest
+FlatCollinearWalkerTest

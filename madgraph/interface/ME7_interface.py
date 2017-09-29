@@ -1238,10 +1238,13 @@ class ME7Integrand(integrands.VirtualIntegrand):
 # Daughter classes for the various type of Integrand/contributions which will surely require a redefinition of sigma()
 # and possibly other functions.
 class ME7Integrand_B(ME7Integrand):
-    """ ME7Integrand for the computation of a Born type of contribution."""
+    """ME7Integrand for the computation of a Born type of contribution."""
     def sigma(self, PS_point, process_key, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
-        return super(ME7Integrand_B, self).sigma(PS_point, process_key, process, flavors, flavor_wgt, 
-                                                                        mu_r, mu_f1, mu_f2, *args, **opts)
+
+        return super(ME7Integrand_B, self).sigma(
+            PS_point, process_key, process, flavors, flavor_wgt,
+            mu_r, mu_f1, mu_f2, *args, **opts
+        )
 
 class ME7Integrand_LIB(ME7Integrand):
     """ ME7Integrand for the computation of a Loop-Induced Born type of contribution."""
@@ -1291,22 +1294,26 @@ class ME7Integrand_R(ME7Integrand):
     """ ME7Integrand for the computation of a single real-emission type of contribution."""
     
 #    MappingWalkerType = 'CataniSeymour'
-    MappingWalkerType = 'FlatCollinear'
+    MappingWalkerType = 'SimpleNLO'
     
     def __init__(self, *args, **opts):
-        """ Initialize a real-emission type of integrand, adding additional relevant attributes."""
+        """Initialize a real-emission type of integrand, adding additional relevant attributes."""
         
         try:  
             self.counterterms = opts.pop('counterterms')
         except KeyError:
-            raise MadEvent7Error("Constructor of class ME7Integrand_R requires the option "+
-                                                            "'counterterms' to be specified.")
+            raise MadEvent7Error(
+                "Constructor of class ME7Integrand_R requires the option "
+                "'counterterms' to be specified."
+            )
 
         super(ME7Integrand_R, self).__init__(*args, **opts)
         self.initialization_inputs['options']['counterterms'] = self.counterterms
     
-        # Initialize a general mapping walker capapble of handling all relevant limits for this integrand.
-        self.mapper = phase_space_generators.VirtualWalker(map_type=self.MappingWalkerType, model=self.model)
+        # Initialize a general mapping walker capable of handling all relevant limits for this integrand.
+        self.mapper = phase_space_generators.VirtualWalker(
+            map_type=self.MappingWalkerType, model=self.model
+        )
         
     def evaluate_counterterm(self, counterterm, PS_point, hel_config=None):
         """ Evaluates the specified counterterm for the specified PS point."""
@@ -1317,7 +1324,9 @@ class ME7Integrand_R(ME7Integrand):
         
         # Now call the mapper to walk through the counterterm structure and return the list of currents
         # and PS points to use to evaluate them.
-        hike = self.mapper.walk_to_lower_multiplicity(PS_point, counterterm, kinematic_variables = True)
+        hike = self.mapper.walk_to_lower_multiplicity(
+            PS_point, counterterm, compute_kinematic_variables=True
+        )
 
         # The structure of this object output should reflect each nesting level, that is:
         # hike = {
@@ -1328,10 +1337,14 @@ class ME7Integrand_R(ME7Integrand):
         #        }
 
         # Separate the current in those directly connected to the matrix element and those that are not
-        disconnected_currents = [(current, PS) for (current, PS) in hike['currents'] if 
-                                                            not current['resolve_mother_spin_and_color']]
-        connected_currents = [(current, PS) for (current, PS) in hike['currents'] if
-                                                            current['resolve_mother_spin_and_color']]
+        disconnected_currents = [
+            (current, PS) for (current, PS) in hike['currents']
+            if not current['resolve_mother_spin_and_color']
+        ]
+        connected_currents = [
+            (current, PS) for (current, PS) in hike['currents']
+            if current['resolve_mother_spin_and_color']
+        ]
 
         # Access the matrix element
         ME_process, ME_PS = hike['matrix_element']
@@ -1447,8 +1460,10 @@ Also make sure that there is no coupling order specification which receives corr
 #        for ct in self.counterterms[process_key]:
 #            wgt += self.evaluate_counterterm(counterterm)
         
-        return super(ME7Integrand_R, self).sigma(PS_point, process_key, process, flavors, flavor_wgt, 
-                                                                        mu_r, mu_f1, mu_f2, *args, **opts)
+        return super(ME7Integrand_R, self).sigma(
+            PS_point, process_key, process, flavors, flavor_wgt,
+            mu_r, mu_f1, mu_f2, *args, **opts
+        )
 
     def find_counterterms_matching_limit_type_with_regexp(self, counterterms, limit_type=None):
         """ Find all mappings that match a particular limit_type given in argument (takes a random one if left to None)."""
@@ -1510,7 +1525,7 @@ Also make sure that there is no coupling order specification which receives corr
         return False
 
     def test_IR_limits(self, test_options):
-        """ Tests that 4D local subtraction terms tend to the corresponding real-emission matrix elements."""
+        """Test that 4D local subtraction terms tend to the corresponding real-emission matrix elements."""
 
         if test_options['seed']:
             random.seed(test_options['seed'])
@@ -1519,26 +1534,31 @@ Also make sure that there is no coupling order specification which receives corr
         # Specifying None forces to use uniformly random generating variables.
         a_real_emission_PS_point, _, _, _ = self.phase_space_generator.get_PS_point(None)
 
-        a_real_emission_PS_point = phase_space_generators.LorentzVectorDict( 
-                                                (i+1, mom) for i, mom in enumerate(a_real_emission_PS_point) )
+        a_real_emission_PS_point = phase_space_generators.LorentzVectorDict(
+            (i+1, mom) for i, mom in enumerate(a_real_emission_PS_point)
+        )
 
-        # Now keep track of the results fro each process and limit checked
+        # Now keep track of the results from each process and limit checked
         all_evaluations = {}
         for process_key, (defining_process, mapped_processes) in self.processes_map.items():
             # Make sure that the selected process satisfies the selected process
-            if not self.is_part_of_process_selection([defining_process,]+mapped_processes, 
-                                                                            selection = test_options['process']):
+            if not self.is_part_of_process_selection(
+                    [defining_process,]+mapped_processes, selection = test_options['process']
+            ):
                 continue
             
             # Here we use correction_order to select CT subset
-            counterterms_to_consider = [ ct for ct in self.counterterms[process_key] if 
-                        ct.count_unresolved() <= test_options['correction_order'].count('N') ]
+            counterterms_to_consider = [
+                ct for ct in self.counterterms[process_key]
+                if ct.count_unresolved() <= test_options['correction_order'].count('N')
+            ]
             
             # Here we use limit_type to select the mapper to use for approaching the limit (
             # it is clear that all CT will still use their own mapper to retrieve the PS point
             # and variables to call the currents and reduced processes).
             selected_counterterms = self.find_counterterms_matching_limit_type_with_regexp(
-                                                            counterterms_to_consider, test_options['limit_type'])
+                counterterms_to_consider, test_options['limit_type']
+            )
             
             misc.sprint(defining_process.nice_string())
             misc.sprint('\n'+'\n'.join( ct.get_singular_structure_string() for ct in selected_counterterms ))
@@ -1552,7 +1572,9 @@ Also make sure that there is no coupling order specification which receives corr
                 # First identify the reduced PS point from which we can evolve to larger multiplicity
                 # while becoming progressively closer to the IR limit.
                 res_dict = self.mapper.walk_to_lower_multiplicity(
-                                    a_real_emission_PS_point, limit_specifier_counterterm, kinematic_variables=True)
+                    a_real_emission_PS_point, limit_specifier_counterterm,
+                    compute_kinematic_variables=True
+                )
 
                 starting_variables  = res_dict['kinematic_variables']
                 a_born_PS_point     = res_dict['resulting_PS_point']
@@ -1563,11 +1585,12 @@ Also make sure that there is no coupling order specification which receives corr
                 n_steps = test_options['n_steps']
                 min_value = test_options['min_scaling_variable']
 
-                for scaling_parameter in range(0,n_steps+1):
+                for scaling_parameter in range(0, n_steps+1):
                     # Use equally spaced steps on a log scale
                     scaling_parameter = 10.0**(-((float(scaling_parameter)/n_steps)*abs(math.log10(min_value))))
                     res_dict = self.mapper.approach_limit(
-                                a_born_PS_point, limit_specifier_counterterm, starting_variables, scaling_parameter)
+                        a_born_PS_point, limit_specifier_counterterm, starting_variables, scaling_parameter
+                    )
                     scaled_real_PS_point = res_dict['resulting_PS_point']
 
                     # Evaluate  real ME

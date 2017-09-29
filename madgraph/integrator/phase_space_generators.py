@@ -442,9 +442,9 @@ class VirtualPhaseSpaceGenerator(object):
         return dims
 
 class MultiChannelPhasespace(VirtualPhaseSpaceGenerator):
-    """ Implementation of a phase-space generator that lines up integration variables with
-    s- and t-channels specifying a paticular provided topology."""
-
+    """Implementation of a phase-space generator that lines up integration variables
+    with s- and t-channels specifying a paticular provided topology.
+    """
     
     def __init__(self, *args, **opts):
         
@@ -1019,7 +1019,9 @@ class ElementaryMappingCollinearFinal(VirtualMapping):
 
         return names
 
-    def get_collinear_variables(self, PS_point, parent, children, variables):
+    def get_collinear_variables(
+        self, PS_point, parent, children, kinematic_variables
+    ):
         """Given unmapped and mapped momenta, compute the kinematic variables
         that describe the internal structure of particles going unresolved.
         Parent and children are indices that already refer to the position
@@ -1045,15 +1047,16 @@ class ElementaryMappingCollinearFinal(VirtualMapping):
             pi = PS_point[i]
             napi = na.dot(pi)
             nbpi = nb.dot(pi)
-            variables['za' + str(i)] = nbpi/nb.dot(q)
-            variables['zb' + str(i)] = napi/na.dot(q)
+            kinematic_variables['za' + str(i)] = nbpi/nb.dot(q)
+            kinematic_variables['zb' + str(i)] = napi/na.dot(q)
             kti = pi - 0.5*(nbpi*na+napi*nb)
             nti = kti / math.sqrt(napi*nbpi)
-            variables['nt' + str(i)] = nti
+            kinematic_variables['nt' + str(i)] = nti
         return
 
-    def set_collinear_variables(self, PS_point, parent, children,
-                                total_momentum, variables):
+    def set_collinear_variables(
+        self, PS_point, parent, children, total_momentum, kinematic_variables
+    ):
         """Given the lower multiplicity parent momentum,
         the total momentum of children and collinear variables,
         compute and set the children momenta.
@@ -1077,9 +1080,9 @@ class ElementaryMappingCollinearFinal(VirtualMapping):
         p_sum = LorentzVector(4*[0., ])
         # Set momenta for all children but the last
         for i in children[:-1]:
-            zai = variables['za' + str(i)]
-            zbi = variables['zb' + str(i)]
-            nti = variables['nt' + str(i)]
+            zai = kinematic_variables['za' + str(i)]
+            zbi = kinematic_variables['zb' + str(i)]
+            nti = kinematic_variables['nt' + str(i)]
             nbpi = zai*nb.dot(q)
             napi = zbi*na.dot(q)
             PS_point[i] = nti*math.sqrt(napi*nbpi) + 0.5*(napi*nb+nbpi*na)
@@ -1164,11 +1167,12 @@ class MappingCataniSeymourFFOne(ElementaryMappingCollinearFinal):
 
     def map_to_lower_multiplicity(
         self, PS_point, singular_structure, momenta_dict,
-        variables=None
+        kinematic_variables=None
     ):
 
         # Consistency checks
         assert isinstance(momenta_dict, subtraction.bidict)
+        print singular_structure
         assert self.is_valid_structure(singular_structure)
 
         # Precompute sets and numbers...
@@ -1194,10 +1198,10 @@ class MappingCataniSeymourFFOne(ElementaryMappingCollinearFinal):
         # Map the cluster's momentum
         PS_point[parent] = (pC - alpha * Q) / (1-alpha)
         # If needed, update the kinematic_variables dictionary
-        if variables is not None:
-            variables['s'+str(parent)] = sC
+        if kinematic_variables is not None:
+            kinematic_variables['s'+str(parent)] = sC
             self.get_collinear_variables(
-                PS_point, parent, sorted(children), variables
+                PS_point, parent, sorted(children), kinematic_variables
             )
         # Eliminate children momenta from the mapped phase-space point
         for j in children:
@@ -1210,7 +1214,7 @@ class MappingCataniSeymourFFOne(ElementaryMappingCollinearFinal):
         return jacobian
 
     def map_to_higher_multiplicity(
-        self, PS_point, singular_structure, momenta_dict, variables
+        self, PS_point, singular_structure, momenta_dict, kinematic_variables
     ):
 
         # Consistency checks
@@ -1221,7 +1225,7 @@ class MappingCataniSeymourFFOne(ElementaryMappingCollinearFinal):
                 singular_structure, momenta_dict
             )
         )
-        assert needed_variables.issubset(variables.keys())
+        assert needed_variables.issubset(kinematic_variables.keys())
 
         # Precompute sets and numbers...
         cluster = singular_structure.substructures[0]
@@ -1238,7 +1242,7 @@ class MappingCataniSeymourFFOne(ElementaryMappingCollinearFinal):
         qC2 = qC.square()
         Q2 = Q.square()
         qR2 = qR.square()
-        sC = variables['s'+str(parent)]
+        sC = kinematic_variables['s'+str(parent)]
         # Obtain parameter alpha
         alpha = 0
         if qR2 == 0:
@@ -1249,7 +1253,7 @@ class MappingCataniSeymourFFOne(ElementaryMappingCollinearFinal):
         pC = (1-alpha) * qC + alpha * Q
         # Set children momenta
         self.set_collinear_variables(
-            PS_point, parent, sorted(children), pC, variables
+            PS_point, parent, sorted(children), pC, kinematic_variables
         )
         # Map recoil momenta
         for recoiler in singular_structure.legs:
@@ -1277,7 +1281,7 @@ class MappingCataniSeymourFFMany(ElementaryMappingCollinearFinal):
 
     def map_to_lower_multiplicity(
         self, PS_point, singular_structure, momenta_dict,
-        variables=None
+        kinematic_variables=None
     ):
 
         # WARNING Needs checking
@@ -1323,11 +1327,11 @@ class MappingCataniSeymourFFMany(ElementaryMappingCollinearFinal):
             p_tilde_C = scale_factor * (p_C[i] - alpha_C[i] * Q)
             PS_point[parent_number] = p_tilde_C
             # If needed, update the kinematic_variables dictionary
-            if variables:
-                variables['s' + str(parent_number)] = p_C[i].square()
+            if kinematic_variables:
+                kinematic_variables['s' + str(parent_number)] = p_C[i].square()
                 children_numbers = [ momenta_dict.inv[(j,)] for j in leg_ns ]
                 self.get_collinear_variables(
-                    PS_point, parent_number, children_numbers, variables
+                    PS_point, parent_number, children_numbers, kinematic_variables
                 )
         # TODO Compute the jacobian for this mapping
         jacobian = 1.0
@@ -1380,7 +1384,7 @@ class ElementaryMappingSoft(VirtualMapping):
                 names += ['p'+str(legn), ]
         return names
 
-    def get_soft_variables(self, PS_point, children, variables):
+    def get_soft_variables(self, PS_point, children, kinematic_variables):
         """Given unmapped and mapped momenta, compute the kinematic variables
         that describe the internal structure of particles going unresolved.
         Children indices should already refer to the position
@@ -1389,11 +1393,11 @@ class ElementaryMappingSoft(VirtualMapping):
 
         # For soft particles, just pass the whole momentum
         for i in children:
-            variables['p' + str(i)] = PS_point[i]
+            kinematic_variables['p' + str(i)] = PS_point[i]
         return
 
 
-    def set_soft_variables(self, PS_point, children, variables):
+    def set_soft_variables(self, PS_point, children, kinematic_variables):
         """Given a dictionary of variables that describe the unresolved partons,
         compute and set the children momenta.
         Children indices should already refer to the position
@@ -1402,7 +1406,7 @@ class ElementaryMappingSoft(VirtualMapping):
 
         # Set momenta for all children
         for i in children:
-            PS_point[i] = variables['p' + str(i)]
+            PS_point[i] = kinematic_variables['p' + str(i)]
         return
 
 
@@ -1435,7 +1439,7 @@ class MappingSomogyietalSoft(ElementaryMappingSoft):
 
     def map_to_lower_multiplicity(
         self, PS_point, singular_structure, momenta_dict,
-        variables=None
+        kinematic_variables=None
     ):
 
         # Consistency checks
@@ -1447,8 +1451,8 @@ class MappingSomogyietalSoft(ElementaryMappingSoft):
         pS = LorentzVector(4 * [0., ])
         for substructure in singular_structure.substructures:
             children = [leg.n for leg in substructure.legs]
-            if variables is not None:
-                self.get_soft_variables(PS_point, children, variables)
+            if kinematic_variables is not None:
+                self.get_soft_variables(PS_point, children, kinematic_variables)
             for child in children:
                 pS += PS_point.pop(child)
         # Build the total momentum of recoilers
@@ -1471,7 +1475,7 @@ class MappingSomogyietalSoft(ElementaryMappingSoft):
         return jacobian
 
     def map_to_higher_multiplicity(
-        self, PS_point, singular_structure, momenta_dict, variables
+        self, PS_point, singular_structure, momenta_dict, kinematic_variables
     ):
 
         # Consistency checks
@@ -1482,14 +1486,14 @@ class MappingSomogyietalSoft(ElementaryMappingSoft):
                 singular_structure, momenta_dict
             )
         )
-        assert needed_variables.issubset(variables.keys())
+        assert needed_variables.issubset(kinematic_variables.keys())
 
         # Build the total soft momentum,
         # get the soft momenta from variables and save them in PS_point
         pS = LorentzVector(4 * [0., ])
         for substructure in singular_structure.substructures:
             children = [leg.n for leg in substructure.legs]
-            self.set_soft_variables(PS_point, children, variables)
+            self.set_soft_variables(PS_point, children, kinematic_variables)
             for child in children:
                 pS += PS_point[child]
         # Build the total momentum, which is equal to the mapped recoilers'
@@ -1633,14 +1637,14 @@ class FlatCollinearWalker(VirtualWalker):
     collinear_map = MappingCataniSeymourFFOne()
 
     def walk_to_lower_multiplicity(
-        self, PS_point, counterterm, kinematic_variables=False
+        self, PS_point, counterterm, compute_kinematic_variables=False
     ):
 
         point = PS_point.get_copy()
         # Initialize return variables
         current_PS_pairs = []
         jacobian = 1.
-        variables = dict() if kinematic_variables else None
+        kinematic_variables = dict() if compute_kinematic_variables else None
         # Recoil against all final-state particles that are not going singular
         # TODO Recoilers and numbers for a given counterterm should be cached
         recoilers = [
@@ -1675,7 +1679,7 @@ class FlatCollinearWalker(VirtualWalker):
                 point,
                 subtraction.SingularStructure(ss, *recoilers),
                 counterterm.momenta_dict,
-                variables
+                kinematic_variables
             )
             # Append the current and the momenta,
             # deep copy wanted
@@ -1689,7 +1693,7 @@ class FlatCollinearWalker(VirtualWalker):
             'currents': current_PS_pairs,
             'matrix_element': ME_PS_pair,
             'jacobian': jacobian,
-            'kinematic_variables': variables,
+            'kinematic_variables': kinematic_variables,
             'resulting_PS_point': point
         }
 
@@ -1775,7 +1779,7 @@ class SimpleNLOWalker(VirtualWalker):
     soft_map = MappingSomogyietalSoft()
 
     def walk_to_lower_multiplicity(
-        self, PS_point, counterterm, variables=False
+        self, PS_point, counterterm, compute_kinematic_variables=False
     ):
 
         # This phase-space point will be destroyed, deep copy wanted
@@ -1783,7 +1787,7 @@ class SimpleNLOWalker(VirtualWalker):
         # Initialize return variables
         current_PS_pairs = []
         jacobian = 1.
-        variables = dict() if variables else None
+        kinematic_variables = dict() if compute_kinematic_variables else None
         # Recoil against all final-state particles that are not going unresolved
         # TODO Recoilers and numbers for a given counterterm should be cached
         recoilers = [
@@ -1831,7 +1835,7 @@ class SimpleNLOWalker(VirtualWalker):
                     point,
                     subtraction.SingularStructure(new_ss, *recoilers),
                     counterterm.momenta_dict,
-                    variables
+                    kinematic_variables
                 )
                 momenta[parent] = LorentzVector(point[parent])
             elif ss.name() == 'S':
@@ -1839,7 +1843,7 @@ class SimpleNLOWalker(VirtualWalker):
                     point,
                     subtraction.SingularStructure(ss, *recoilers),
                     counterterm.momenta_dict,
-                    variables
+                    kinematic_variables
                 )
             else:
                 raise MadGraph5Error(self.cannot_handle)
@@ -1853,12 +1857,12 @@ class SimpleNLOWalker(VirtualWalker):
             'currents': current_PS_pairs,
             'matrix_element': ME_PS_pair,
             'jacobian': jacobian,
-            'kinematic_variables': variables,
+            'kinematic_variables': kinematic_variables,
             'resulting_PS_point': point
         }
 
     def walk_to_higher_multiplicity(
-        self, PS_point, counterterm, variables
+        self, PS_point, counterterm, kinematic_variables
     ):
 
         # Identify reduced matrix element,
@@ -1916,14 +1920,14 @@ class SimpleNLOWalker(VirtualWalker):
                     point,
                     subtraction.SingularStructure(new_ss, *recoilers),
                     counterterm.momenta_dict,
-                    variables
+                    kinematic_variables
                 )
             elif ss.name() == 'S':
                 jacobian *= self.soft_map.map_to_higher_multiplicity(
                     point,
                     subtraction.SingularStructure(ss, *recoilers),
                     counterterm.momenta_dict,
-                    variables
+                    kinematic_variables
                 )
             else:
                 raise MadGraph5Error(self.cannot_handle)
@@ -1941,11 +1945,11 @@ class SimpleNLOWalker(VirtualWalker):
         }
 
     def rescale_kinematic_variables(
-        self, counterterm, variables, scaling_parameter
+        self, counterterm, kinematic_variables, scaling_parameter
     ):
 
         new_variables = {
-            key: type(val)(val) for (key, val) in variables.items()
+            key: type(val)(val) for (key, val) in kinematic_variables.items()
         }
         # Determine 'equivalent power' of rescaling
         # This structure has at most two levels - checked later
@@ -1992,6 +1996,7 @@ class NagySoperWalker(VirtualWalker):
 # Notice that this must be placed after all the Mapping daughter classes in this module have been declared.
 mapping_walker_classes_map = {
     'FlatCollinear': FlatCollinearWalker,
+    'SimpleNLO': SimpleNLOWalker,
     'CataniSeymour': CataniSeymourWalker,
     'NagySoper': NagySoperWalker,
     'Unknown': None
@@ -2031,8 +2036,10 @@ if __name__ == '__main__':
     print " || Kinematic inversion ||"
     print " ========================="
     print "\nReconstructed random variables :\n",variables_reconstructed
-    differences = [abs(variables_reconstructed[i]-random_variables[i]) 
-                                    for i in range(len(variables_reconstructed))]
+    differences = [
+        abs(variables_reconstructed[i]-random_variables[i])
+        for i in range(len(variables_reconstructed))
+    ]
     print "Reconstructed weight = %.16e"%wgt_reconstructed
     if differences:
         print "\nMax. relative diff. in reconstructed variables = %.3e"%\

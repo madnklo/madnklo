@@ -87,5 +87,7 @@ class TestME7_IR_Limits(unittest.TestCase):
                    'compute_only_limit_defining_counterterm' : True,
                    }
 
-        self.do('%s %s'%(main_cmd, ' '.join( ('--%s=%s'%(key,value) if value is not None else '--%s'%key)
-                                                                  for key,value in options.items())))
+        self.do('%s %s'%(main_cmd, ' '.join(
+            ('--%s=%s'%(key,value) if value is not None else '--%s'%key)
+            for key,value in options.items()
+        )))

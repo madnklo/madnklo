@@ -1670,7 +1670,7 @@ class FlatCollinearWalker(VirtualWalker):
             )
             # Deep copy the momenta
             momenta = point.get_copy()
-            # Compute jacobian and map to lower multiplicity
+            # Compute the jacobian and map to lower multiplicity
             jacobian *= self.collinear_map.map_to_lower_multiplicity(
                 point,
                 subtraction.SingularStructure(ss, *recoilers),
@@ -1733,7 +1733,7 @@ class FlatCollinearWalker(VirtualWalker):
             )
             # Deep copy the parent momentum
             momenta = LorentzVectorDict({parent: LorentzVector(point[parent])})
-            # Compute jacobian and map to higher multiplicity
+            # Compute the jacobian and map to higher multiplicity
             jacobian *= self.collinear_map.map_to_higher_multiplicity(
                 point,
                 subtraction.SingularStructure(ss, *recoilers),
@@ -1810,10 +1810,9 @@ class SimpleNLOWalker(VirtualWalker):
         for node in counterterm.subcurrents:
             # Alias singular structure for convenience
             ss = node.current['singular_structure']
-            # Do not accept nested subcurrents unless they're soft
-            for subcurrent in node.subcurrents:
-                if subcurrent['singular_structure'].name != 'S':
-                    raise MadGraph5Error(self.cannot_handle)
+            # Do not accept nested currents
+            if node.subcurrents:
+                raise MadGraph5Error(self.cannot_handle)
             # Get parent and children numbers
             # TODO Read these from cache
             parent, children = get_structure_numbers(
@@ -1822,15 +1821,20 @@ class SimpleNLOWalker(VirtualWalker):
             # Deep copy the momenta
             momenta = point.get_copy()
             # Compute jacobian and map to lower multiplicity
-            if ss.name == 'C':
+            if ss.name() == 'C':
+                # Make a fake collinear structure for soft-collinears
+                # in order to use the same mapping
+                new_ss = ss
+                if new_ss.substructures:
+                    new_ss = subtraction.CollStructure(ss.get_all_legs())
                 jacobian *= self.collinear_map.map_to_lower_multiplicity(
                     point,
-                    subtraction.SingularStructure(ss, *recoilers),
+                    subtraction.SingularStructure(new_ss, *recoilers),
                     counterterm.momenta_dict,
                     variables
                 )
                 momenta[parent] = LorentzVector(point[parent])
-            elif ss.name == 'S':
+            elif ss.name() == 'S':
                 jacobian *= self.soft_map.map_to_lower_multiplicity(
                     point,
                     subtraction.SingularStructure(ss, *recoilers),
@@ -1890,27 +1894,31 @@ class SimpleNLOWalker(VirtualWalker):
         for node in reversed(counterterm.subcurrents):
             # Alias singular structure for convenience
             ss = node.current['singular_structure']
-            # Do not accept soft currents or nested ones
-            if ss.name == 'S' or node.subcurrents:
+            # Do not accept nested currents
+            if node.subcurrents:
                 raise MadGraph5Error(self.cannot_handle)
             # Get parent and children numbers
             # TODO Read these from cache
             parent, children = get_structure_numbers(
                 ss, counterterm.momenta_dict
             )
-            # Deep copy the parent momentum
+            # Initialize the phase-space point
             momenta = LorentzVectorDict()
-            # Compute jacobian and map to lower multiplicity
-            if ss.name == 'C':
-                # For soft-collinears, just use the collinear mapping!
+            # Compute the jacobian and map to higher multiplicity
+            if ss.name() == 'C':
+                # Make a fake collinear structure for soft-collinears
+                # in order to use the same mapping
+                new_ss = ss
+                if new_ss.substructures:
+                    new_ss = subtraction.CollStructure(ss.get_all_legs())
                 momenta[parent] = LorentzVector(point[parent])
                 jacobian *= self.collinear_map.map_to_higher_multiplicity(
                     point,
-                    subtraction.SingularStructure(ss, *recoilers),
+                    subtraction.SingularStructure(new_ss, *recoilers),
                     counterterm.momenta_dict,
                     variables
                 )
-            elif ss.name == 'S':
+            elif ss.name() == 'S':
                 jacobian *= self.soft_map.map_to_higher_multiplicity(
                     point,
                     subtraction.SingularStructure(ss, *recoilers),
@@ -1947,7 +1955,7 @@ class SimpleNLOWalker(VirtualWalker):
         scaling_parameter **= 1./total_limits
         for node in counterterm.subcurrents:
             ss = node.current['singular_structure']
-            if ss.name == 'C':
+            if ss.name() == 'C':
                 # For collinear clusters, rescale the virtuality
                 parent, children = get_structure_numbers(
                     ss, counterterm.momenta_dict
@@ -1956,14 +1964,14 @@ class SimpleNLOWalker(VirtualWalker):
                 # For soft-collinears, rescale z's on top
                 for subnode in node.subcurrents:
                     subss = subnode.current['singular_structure']
-                    if subss.name == 'S':
+                    if subss.name() == 'S':
                         # Check depth
                         assert len(subss.subcurrents) == 0
                         for leg in subss.legs:
                             new_variables['z' + str(leg.n)] *= scaling_parameter
                     else:
                         raise MadGraph5Error(self.cannot_handle)
-            elif ss.name == 'S':
+            elif ss.name() == 'S':
                 # For soft clusters, rescale the whole momenta
                 # Check depth
                 assert len(ss.subcurrents) == 0

@@ -917,112 +917,134 @@ class SomogyietalSoftTest(unittest.TestCase):
 # Test the phase-space walkers
 #===============================================================================
 
+# Define processes for phase-space walker tests
+#===============================================================================
+
+# Subtraction instance
+
+my_subtraction = subtraction.IRSubtraction(
+    simple_qcd.model,
+    orders={'QCD': 1}
+)
+
+# H > u u~ d d~ H
+
+H_to_uuxddxH_legs = base_objects.LegList([
+    base_objects.Leg({'number': 1, 'id': 25, 'state': base_objects.Leg.INITIAL}),
+    base_objects.Leg({'number': 2, 'id':  1, 'state': base_objects.Leg.FINAL}),
+    base_objects.Leg({'number': 3, 'id': -1, 'state': base_objects.Leg.FINAL}),
+    base_objects.Leg({'number': 4, 'id':  2, 'state': base_objects.Leg.FINAL}),
+    base_objects.Leg({'number': 5, 'id': -2, 'state': base_objects.Leg.FINAL}),
+    base_objects.Leg({'number': 6, 'id': 25, 'state': base_objects.Leg.FINAL}),
+])
+
+H_to_uuxddxH = base_objects.Process({
+    'legs': H_to_uuxddxH_legs,
+    'model': simple_qcd.model,
+    'n_loops': 0
+})
+
+# H > q q~ g g H
+
+H_to_qqxggH_legs = base_objects.LegList([
+    base_objects.Leg({'number': 1, 'id': 25, 'state': base_objects.Leg.INITIAL}),
+    base_objects.Leg({'number': 2, 'id':  1, 'state': base_objects.Leg.FINAL}),
+    base_objects.Leg({'number': 3, 'id': -1, 'state': base_objects.Leg.FINAL}),
+    base_objects.Leg({'number': 4, 'id': 21, 'state': base_objects.Leg.FINAL}),
+    base_objects.Leg({'number': 5, 'id': 21, 'state': base_objects.Leg.FINAL}),
+    base_objects.Leg({'number': 6, 'id': 25, 'state': base_objects.Leg.FINAL}),
+])
+
+H_to_qqxggH = base_objects.Process({
+    'legs': H_to_qqxggH_legs,
+    'model': simple_qcd.model,
+    'n_loops': 0
+})
+
+def walk_invertible(test, walker, process, orders_for_filtering=None):
+    """Test walk and inverse."""
+
+    original_orders = my_subtraction.orders
+    my_operators = my_subtraction.get_all_elementary_operators(process)
+    my_combinations = my_subtraction.get_all_combinations(my_operators)
+    if orders_for_filtering is not None:
+        my_subtraction.orders = orders_for_filtering
+    my_combinations = my_subtraction.filter_combinations(my_combinations)
+    my_subtraction.orders = original_orders
+    my_counterterms = [
+        my_subtraction.get_counterterm(combination, process)
+        for combination in my_combinations
+    ]
+
+    # For each counterterm
+    for i in range(len(my_counterterms)):
+        print "Testing counterterm", my_counterterms[i]
+        # Generate random vectors
+        my_PS_point = PS.LorentzVectorDict()
+        legs_FS = (
+            subtraction.SubtractionLeg(leg)
+            for leg in process['legs']
+            if leg['state'] == base_objects.Leg.FINAL
+        )
+        leg_numbers = (leg.n for leg in legs_FS)
+        for j in leg_numbers:
+            my_PS_point[j] = PS.LorentzVector(
+                [0., ] + [random.random() for _ in range(3)]
+            ).set_square(0)
+        # Compute collinear variables
+        res_dict1 = walker.walk_to_lower_multiplicity(
+            my_PS_point, my_counterterms[i], True
+        )
+        (currs1, ME1, jac1, kin)  = (
+            res_dict1['currents'], res_dict1['matrix_element'],
+            res_dict1['jacobian'], res_dict1['kinematic_variables'] )
+
+        res_dict2 = walker.walk_to_higher_multiplicity(
+            ME1[1], my_counterterms[i], kin
+        )
+        (currs2, ME2, jac2)  = (
+            res_dict2['currents'], res_dict2['matrix_element'],
+            res_dict2['jacobian']
+        )
+
+        # Check currents
+        test.assertEqual(len(currs1), len(currs2))
+        for i_curr in range(len(currs1)):
+            test.assertEqual(currs1[i_curr][0], currs2[i_curr][0])
+            test.assertEqual(
+                currs1[i_curr][1].keys(), currs2[i_curr][1].keys()
+            )
+            for i_part in currs1[i_curr][1].keys():
+                test.assertEqual(
+                    currs1[i_curr][1][i_part],
+                    currs2[i_curr][1][i_part]
+                )
+        # Check MEs
+        test.assertEqual(ME1[0], ME2[0])
+        test.assertEqual(ME1[1].keys(), ME2[1].keys())
+        for i_part in ME1[1].keys():
+            test.assertEqual(ME1[1][i_part], ME2[1][i_part])
+        # Check jacobians
+        test.assertAlmostEqual(jac1*jac2, 1.)
+
 class FlatCollinearWalkerTest(unittest.TestCase):
     """Test class for FlatCollinearWalker."""
 
     walker = PS.FlatCollinearWalker()
 
-    legs = base_objects.LegList()
-    process = base_objects.Process()
-    subtraction = None
+    def test_FlatCollinearWalker_invertible(self):
 
-    def setUp(self):
+        walk_invertible(self, self.walker, H_to_uuxddxH, {'QCD': 2})
 
-        # Setting up a process and its subtraction
+class SimpleNLOWalkerTest(unittest.TestCase):
+    """Test class for FlatCollinearWalker."""
 
-        self.mylegs = base_objects.LegList([
-            base_objects.Leg(
-                {'number': 1, 'id': 25, 'state': base_objects.Leg.INITIAL}),
-            base_objects.Leg(
-                {'number': 2, 'id':  1, 'state': base_objects.Leg.FINAL}),
-            base_objects.Leg(
-                {'number': 3, 'id': -1, 'state': base_objects.Leg.FINAL}),
-            base_objects.Leg(
-                {'number': 4, 'id':  2, 'state': base_objects.Leg.FINAL}),
-            base_objects.Leg(
-                {'number': 5, 'id': -2, 'state': base_objects.Leg.FINAL}),
-            base_objects.Leg(
-                {'number': 6, 'id': 25, 'state': base_objects.Leg.FINAL}),
-        ])
+    walker = PS.SimpleNLOWalker()
 
-        self.process = base_objects.Process({
-            'legs': self.legs,
-            'model': simple_qcd.model,
-            'n_loops': 0
-        })
+    def test_SimpleNLOWalker_invertible(self):
 
-        self.subtraction = subtraction.IRSubtraction(
-            simple_qcd.model,
-            orders={'QCD': 1}
-        )
+        # Want to make the test a bit more serious,
+        # so use combinations of NLO elementary operators up to 2 unresolved particles
 
-        operators = self.subtraction.get_all_elementary_operators(self.process)
-        self.combinations = self.subtraction.get_all_combinations(operators)
-        self.counterterms = [
-            self.subtraction.get_counterterm(combination, self.process)
-            for combination in self.combinations
-        ]
-        for i in self.counterterms:
-            print str(i)
-
-    def test_walk_invertible(self):
-        """Test walk and inverse."""
-
-        # For each counterterm
-        for i in range(len(self.counterterms)):
-            # Generate random vectors
-            my_PS_point = PS.LorentzVectorDict()
-            legs_FS = (
-                subtraction.SubtractionLeg(leg)
-                for leg in self.process['legs']
-                if leg['state'] == base_objects.Leg.FINAL
-            )
-            leg_numbers = (leg.n for leg in legs_FS)
-            for j in leg_numbers:
-                my_PS_point[j] = PS.LorentzVector(
-                    [0., ] + [random.random() for _ in range(3)]
-                ).set_square(0)
-            # Compute collinear variables
-            res_dict1 = self.walker.walk_to_lower_multiplicity(
-                my_PS_point, self.counterterms[i], True
-            )
-            (currs1, ME1, jac1, kin)  = (
-                res_dict1['currents'], res_dict1['matrix_element'],
-                res_dict1['jacobian'], res_dict1['kinematic_variables'] )
-            
-            res_dict2 = self.walker.walk_to_higher_multiplicity(
-                ME1[1], self.counterterms[i], kin
-            )
-            (currs2, ME2, jac2)  = (
-                res_dict2['currents'], res_dict2['matrix_element'],
-                res_dict2['jacobian'] )
-            
-            # Check currents
-            self.assertEqual(len(currs1), len(currs2))
-            for i_curr in range(len(currs1)):
-                self.assertEqual(
-                    currs1[i_curr][0], currs2[i_curr][0]
-                )
-                self.assertEqual(
-                    currs1[i_curr][1].keys(), currs2[i_curr][1].keys()
-                )
-                for i_part in currs1[i_curr][1].keys():
-                    self.assertEqual(
-                        currs1[i_curr][1][i_part],
-                        currs2[i_curr][1][i_part]
-                    )
-            # Check MEs
-            self.assertEqual(
-                ME1[0], ME2[0]
-            )
-            self.assertEqual(
-                ME1[1].keys(), ME2[1].keys()
-            )
-            for i_part in ME1[1].keys():
-                self.assertEqual(
-                    ME1[1][i_part],
-                    ME2[1][i_part]
-                )
-            # Check jacobians
-            self.assertAlmostEqual(jac1*jac2, 1.)
-            print ME1[1]
+        walk_invertible(self, self.walker, H_to_uuxddxH, {'QCD': 2})
+        walk_invertible(self, self.walker, H_to_qqxggH, {'QCD': 2})

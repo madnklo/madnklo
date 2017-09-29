@@ -213,6 +213,7 @@ def difference(A, B):
 #===============================================================================
 # SubtractionLeg
 #===============================================================================
+
 class SubtractionLeg(tuple):
     """Leg object specialized for subtraction."""
 
@@ -302,6 +303,7 @@ class SubtractionLeg(tuple):
 #===============================================================================
 # SubtractionLegSet
 #===============================================================================
+
 class SubtractionLegSet(tuple):
     """Set of SubtractionLeg objects."""
 
@@ -357,6 +359,7 @@ class SubtractionLegSet(tuple):
 #===============================================================================
 # SingularStructure
 #===============================================================================
+
 class SingularStructure(object):
     """Object that represents a hierarchical structure of IR singularities."""
 
@@ -434,8 +437,7 @@ class SingularStructure(object):
         return self.is_annihilated
 
     def get_subtraction_prefactor(self):
-        """ Determine the prefactor related to the nested subtraction
-        technique."""
+        """Determine the prefactor due to the nested subtraction technique."""
         
         # If we are at the top level, we shall not include the factor
         # Indeed, we are integrating +R-C.
@@ -485,9 +487,17 @@ class SingularStructure(object):
             substructure.discard_leg_numbers()
         return
 
+    def non_nested_number_of_unresolved_legs(self):
+        """Count the number of unresolved particles,
+        without considering those in singular substructures.
+        """
+
+        raise NotImplemented
+
     def count_unresolved(self):
-        """ Counts the number of unresolved legs. For example, this would be one for
-        a 1>2 splitting, two for a 1>3 etc..."""
+        """Count the number of unresolved legs.
+        For example, this would be one for a 1>2 splitting, two for a 1>3 etc...
+        """
         
         total_unresolved = self.non_nested_number_of_unresolved_legs()
         
@@ -531,18 +541,17 @@ class SingularStructure(object):
 class SoftStructure(SingularStructure):
 
     def non_nested_number_of_unresolved_legs(self):
-        """ Counts the number of unresolved particles, without considering those
-        in singular substructures."""
+
         return len(self.legs)
 
     def name(self):
+
         return "S"
 
 class CollStructure(SingularStructure):
 
     def non_nested_number_of_unresolved_legs(self):
-        """ Counts the number of unresolved particles, without considering those
-        in singular substructures."""
+
         return len(self.legs)-1
 
     def name(self):
@@ -551,6 +560,7 @@ class CollStructure(SingularStructure):
 #===============================================================================
 # SingularOperator
 #===============================================================================
+
 class SingularOperator(SubtractionLegSet):
     """Virtual base class for elementary singular operators."""
 
@@ -743,6 +753,7 @@ class SingularOperatorList(list):
 #===============================================================================
 # Current
 #===============================================================================
+
 class Current(base_objects.Process):
 
     def default_setup(self):
@@ -949,6 +960,7 @@ class CountertermNode(object):
 #===============================================================================
 # Counterterm
 #===============================================================================
+
 class Counterterm(CountertermNode):
     """Class representing a tree of currents multiplying a matrix element.
     The options 'resolved_process' and 'complete_singular_structure' are just
@@ -1168,6 +1180,7 @@ class Counterterm(CountertermNode):
 #===============================================================================
 # order_2_string
 #===============================================================================
+
 def order_2_string(order):
     """Convert powers of the squared coupling to (N...)LO string."""
 
@@ -1177,6 +1190,7 @@ def order_2_string(order):
 #===============================================================================
 # IRSubtraction
 #===============================================================================
+
 class IRSubtraction(object):
 
     def __init__(self, model, orders = {'QCD': 1, 'QED': 0}):
@@ -1725,20 +1739,23 @@ class IRSubtraction(object):
 #===============================================================================
 # Subtraction current exporter
 #===============================================================================
+
 class SubtractionCurrentExporter(object):
-    """ Class for mapping and exporting the subtraction currents to a given location
-    and generate the corresponding accessors as well."""
+    """Class for mapping and exporting the subtraction currents to a given location
+    and generate the corresponding accessors as well.
+    """
     
     template_dir = pjoin(MG5DIR,'madgraph','iolibs','template_files','subtraction')
     template_modules_path = 'madgraph.iolibs.template_files.subtraction'
 
     def __init__(self, model, export_dir=None):
-        """ Initializes the exporter with a model and target export directory."""
+        """Initialize the exporter with a model and target export directory."""
+
         self.model      = model
         self.export_dir = export_dir
 
     def collect_modules(self, modules_path=[]):
-        """ Returns a list of modules to load, from a given starting location."""
+        """Return a list of modules to load, from a given starting location."""
         
         base_path = pjoin(self.template_dir,pjoin(*modules_path))
         collected_modules = []
@@ -1759,10 +1776,13 @@ class SubtractionCurrentExporter(object):
         return collected_modules
 
     def export(self, currents):
-        """ Exports the specified list of currents and returns a list of accessors,
-        which contain the mapping information."""
+        """Export the specified list of currents and return a list of accessors
+        which contain the mapping information.
+        """
         
-        subtraction_utils_module_path = '%s.%s'%(self.template_modules_path,'subtraction_current_implementations_utils')
+        subtraction_utils_module_path = '%s.%s'%(
+            self.template_modules_path,'subtraction_current_implementations_utils'
+        )
         subtraction_utils = importlib.import_module(subtraction_utils_module_path)
         
         if not self.export_dir is None:
@@ -1865,5 +1885,6 @@ class SubtractionCurrentExporter(object):
 #===============================================================================
 # Standalone main for debugging / standalone trials
 #===============================================================================
+
 if __name__ == '__main__':
     misc.sprint("Put your standalone subtraction code here.")

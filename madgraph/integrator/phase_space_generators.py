@@ -44,7 +44,6 @@ else:
     from madgraph import InvalidCmd, MadGraph5Error
 
 logger = logging.getLogger('madgraph.PhaseSpaceGenerator')
-pjoin = os.path.join
 
 class PhaseSpaceGeneratorError(Exception):
     """Exception raised if an exception is triggered in integrators.""" 
@@ -2031,4 +2030,3 @@ if __name__ == '__main__':
         print "\nMax. relative diff. in reconstructed variables = %.3e"%\
             max(differences[i]/random_variables[i] for i in range(len(differences)))
     print "Rel. diff. in PS weight = %.3e\n"%((wgt_reconstructed-wgt)/wgt)
-

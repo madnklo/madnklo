@@ -191,6 +191,6 @@ interactions.append(base_objects.Interaction({
 
 model = base_objects.Model({
     'particles': particles,
-    'name': "simpleQCD",
+    'name': "simple_QCD",
     'interactions': interactions
 })

@@ -1228,10 +1228,10 @@ class IRSubtraction(object):
 
         if not any(
             self.model.get('name').startswith(name) for name in
-            ['sm', 'loop_sm']
+            ['sm', 'loop_sm', 'simple_QCD']
         ):
             raise InvalidCmd(
-                "parent_PDGs_from_PDGs is implemented for SM only,"
+                "parent_PDGs_from_PDGs is implemented for SM only, "
                 "not in model %s." % self.model.get('name')
             )
         if any(order != 'QCD' for order in self.orders.keys()):

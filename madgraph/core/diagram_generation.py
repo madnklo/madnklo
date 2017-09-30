@@ -1539,7 +1539,6 @@ class DecayChainAmplitudeList(base_objects.PhysicsObjectList):
 
         return isinstance(obj, DecayChainAmplitude)
 
-    
 #===============================================================================
 # MultiProcess
 #===============================================================================
@@ -1548,6 +1547,14 @@ class MultiProcess(base_objects.PhysicsObject):
                      list of processes (after cleaning)
                      list of amplitudes (after generation)
     """
+    
+    # For loop processes we keep track of the starting process definition process_ID 
+    # and increment it by 10'000 (cls._MadLoop_offset) for each new loop_process generated.
+    # This guarantees that every subprocess in that MadLoop output has a different
+    # prefix so as to avoid clash, and the multiplication by ten thousand also guarantees
+    # that 'add process' won't add clashes (as long as there are less than 10'000
+    # 'add_process' commands, which is ok). A smarter solution can come in later.   
+    _MadLoop_offset = 10000
 
     def default_setup(self):
         """Default values for all properties"""
@@ -1698,15 +1705,18 @@ class MultiProcess(base_objects.PhysicsObject):
                  if leg['state'] == True]
         # Generate all combinations for the initial state
         
-        # For loop processes we keep track of the starting process_ID mutliplied by 10000
-        # and it we will be incremented by 1 for every new loop process generated.
+        # For loop processes we keep track of the starting process definition process_ID 
+        # and increment it by 10'000 (cls._MadLoop_offset) for each new loop_process generated.
         # This guarantees that every subprocess in that MadLoop output has a different
-        # prefix so as to avoid clash, and the multiplication by a thousand also guarantees
-        # that 'add process' won't add clashes (as long as it leads to less that 10000
-        # subprocesses which is ok)
-        # A smarter solution can come in later.
+        # prefix so as to avoid clash, and the multiplication by ten thousand also guarantees
+        # that 'add process' won't add clashes (as long as there are less than 10'000
+        # 'add_process' commands, which is ok). A smarter solution can come in later.        
         if len(process_definition.get('perturbation_couplings'))>0:
-            proc_id = 10000*process_definition.get('id')
+            if process_definition.get('id') >= cls._MadLoop_offset:
+                raise MadGraph5Error("When using a standalone loop MultiProcess, make sure"+
+                " not to assign a process ID to your process that exceeds %d. You specified: %d."\
+                %(cls._MadLoop_offset,process_definition.get('id')))
+            proc_id = cls._MadLoop_offset + process_definition.get('id')
         
         for prod in itertools.product(*isids):
             islegs = [\
@@ -1838,8 +1848,11 @@ class MultiProcess(base_objects.PhysicsObject):
                     if amplitude.get('diagrams'):
                         if len(process.get('perturbation_couplings'))>0:
                             # We create an amplitude for a loop process, so make sure to increment the
-                            # process ID to avoid clashes.
-                            proc_id += 1
+                            # process ID by cls._MadLoop_offset to avoid clashes.
+                            # The original process definition process ID can still be obtained
+                            # by taking the modulo with cls._MadLoop_offset
+                            proc_id += cls._MadLoop_offset
+                            
                         amplitudes.append(amplitude)
                         success_procs.append(sorted_legs)
                         permutations.append(permutation)

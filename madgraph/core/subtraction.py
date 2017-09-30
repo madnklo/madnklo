@@ -488,11 +488,9 @@ class SingularStructure(object):
         return
 
     def non_nested_number_of_unresolved_legs(self):
-        """Count the number of unresolved particles,
-        without considering those in singular substructures.
-        """
-
-        raise NotImplemented
+        """ For the main SingularStructure mother class that is encapsulating the
+        substructure, no unresolved legs should be counted."""
+        return 0
 
     def count_unresolved(self):
         """Count the number of unresolved legs.
@@ -833,6 +831,21 @@ class Current(base_objects.Process):
         return self.get_key().key_dict == other.get_key().key_dict
 
 #===============================================================================
+# Integrated current
+#===============================================================================
+class IntegratedCurrent(Current):
+    """ A class for the integrated current. For now, it behaves exactly as
+        a local 4D current, but it is conceptually different."""
+
+    def __str__(self, print_n = True, print_pdg = True, 
+                                        print_state = True, print_loops=True):
+        """ Nice string representation of this integrated current. """
+        res = super(IntegratedCurrent, self).__str__(print_n=print_n, 
+                     print_pdg=print_pdg, print_state=print_state, print_loops=print_loops)
+        
+        return '[integrated] %s'%res
+
+#===============================================================================
 # CountertermNode
 #===============================================================================
 class CountertermNode(object):
@@ -867,8 +880,9 @@ class CountertermNode(object):
         
         structure       = self.current['singular_structure']
         legs            = structure.legs
-        substructures   = [ct_node.reconstruct_complete_singular_structure() for 
-                                                            ct_node in self.subcurrents]
+        substructures   = structure.substructures
+        substructures.extend([ct_node.reconstruct_complete_singular_structure() for 
+                                                            ct_node in self.subcurrents])
         return type(structure)(list(legs)+substructures)
 
     def get_singular_structure_string(
@@ -907,6 +921,22 @@ class CountertermNode(object):
                         "Counterterms.n_loops: "
                         "requested unassigned number of loops"
                     )
+        return result
+
+    def squared_orders(self):
+        """Returns the total squared orders in the current of this node and the children in 
+        subcurrents.
+        """
+
+        result = self.current.get('squared_orders')
+        for subcurrent in self.subcurrents:
+                sub_squared_orders = subcurrent.squared_orders()
+                for order, value in sub_squared_orders.items():
+                    try:
+                        result[order] += value
+                    except KeyError:
+                        result[order] = value
+
         return result
 
     def count_unresolved(self):
@@ -1054,10 +1084,9 @@ class Counterterm(CountertermNode):
 
     def reconstruct_complete_singular_structure(self):
         """ Reconstruct the complete singular structure for this counterterm."""
-        
         if len(self.subcurrents)>0:
             return SingularStructure(ct_node.reconstruct_complete_singular_structure() for 
-                                                                        ct_node in self.subcurrents)
+                                                                ct_node in self.subcurrents)
         else:
             return SingularStructure()
 
@@ -1178,6 +1207,37 @@ class Counterterm(CountertermNode):
         return currents
 
 #===============================================================================
+# IntegratedCounterterm
+#===============================================================================
+class IntegratedCounterterm(Counterterm):
+    """ A class for the integrated counterterm. For now, it behaves exactly as
+    a local 4D subtraction counterterm, but it is conceptually different."""
+
+    def __str__(self, level = 0):
+        """ Nice string representation of this integrated counterterm. """
+        res = super(IntegratedCounterterm, self).__str__(level = level)
+        
+        if level == 0:
+            return '[integrated] %s'%res
+        else:
+            return res
+
+    def get_prefactor(self, resolved_process=None, complete_singular_structure=None):
+        """ It is not allowed to reconstruct the prefactor of an integrated
+        counterterm because it depends on the multiplicity of the mapped subprocesses.
+        For instance, u u~ > (g > b b~) a is mapped to 
+           u u~ > (g > c c~) a
+           u u~ > (g > s s~) a
+           etc...
+        which means that it will take a prefactor of 3 or so assigned at generation
+        time (function get_all_countertemrs of the real-emission contributions)
+        that cannot be reconstructed afterwards.
+        """
+    
+        raise MadGraph5Error("Integrated counter-terms cannot reconstruct their"+
+                             " prefactor post-generation.")
+
+#===============================================================================
 # order_2_string
 #===============================================================================
 
@@ -1239,19 +1299,14 @@ class IRSubtraction(object):
         #             self.model.get_particle(-2).get_color(),
         #             self.model.get_particle(-2).get('mass')=='zero'
         #             )
-
-        if not any(
-            self.model.get('name').startswith(name) for name in
-            ['sm', 'loop_sm', 'simple_QCD']
-        ):
+        if not any( self.model.get('name').lower().startswith(name) for name in
+                                               ['sm', 'loop_sm', 'loopsm', 'simple_qcd'] ):
             raise InvalidCmd(
                 "parent_PDGs_from_PDGs is implemented for SM only, "
-                "not in model %s." % self.model.get('name')
-            )
+                "not in model %s." % self.model.get('name') )
         if any(order != 'QCD' for order in self.orders.keys()):
             raise InvalidCmd(
-                "The function parent_PDGs_from_PDGs is implemented for QCD only."
-            )
+                "The function parent_PDGs_from_PDGs is implemented for QCD only." )
 
         # Get parton flavors, eliminating gluons
         flavors = [pdg for pdg in PDGs if pdg != 21]
@@ -1423,6 +1478,51 @@ class IRSubtraction(object):
             if self.count_unresolved(combo) <= max_unresolved
         ]
 
+    def get_integrated_counterterm(self, local_counterterm):
+        """ Given a local subtraction counterterm, returns the corresponding integrated
+        one. It has the same attributes, except that it contains only a single 
+        IntegratedCurrent, with the complete singularstructure in it."""
+
+        # First check that the local counterterm is singular, because if not then we 
+        # should of course not return any integrated counterterm.
+        if not local_counterterm.is_singular():
+            return None
+
+        complete_singular_structure = local_counterterm.\
+                                                 reconstruct_complete_singular_structure()
+                
+        reduced_process = local_counterterm.process.get_copy(
+                                                  ['legs', 'n_loops', 'legs_with_decays'])
+
+        # The following sums all the loop numbers in all subcurrents and reduced process,
+        # the latter of which must then be removed
+        n_loops = local_counterterm.n_loops() - reduced_process.get('n_loops')
+
+        # Retrieve the sum of squared orders in all the subcurrents of the local counterterm
+        # as well as thise in the reduced process which should then be removed.
+        squared_orders = local_counterterm.squared_orders()
+        for order, value in reduced_process.get('squared_orders').items():
+            try:
+                squared_orders[order] -= value
+            except KeyError:
+                raise MadGraph5Error("Function squared_orders() of CountertermNode not"+
+                    " functioning properly. It should have at least the reduced process"+
+                    " squared orders in it.")
+
+        integrated_current = IntegratedCurrent({
+            'n_loops'                       :   n_loops,
+            'squared_orders'                :   squared_orders,
+            'resolve_mother_spin_and_color' :   True,
+            'singular_structure'            :   complete_singular_structure
+            })        
+        
+        return IntegratedCounterterm(
+                process         = reduced_process,
+                subcurrents     = [CountertermNode(current=integrated_current),],
+                momenta_dict    = bidict(local_counterterm.momenta_dict),
+                prefactor       = -1.*local_counterterm.prefactor
+            )
+
     def get_counterterm(
         self,
         structure,
@@ -1432,6 +1532,8 @@ class IRSubtraction(object):
         """Build the product of a set of currents and a matrix element
         that approximates the matrix element for process
         in the singular limit specified by structure.
+        Also build the integrated counterterm that cancels the contribution of the local
+        subtraction counterterm inclusively over the splitting phase-space in d-dimension.
         """
 
         # 1. Initialize variables
@@ -1453,12 +1555,10 @@ class IRSubtraction(object):
                 momenta_dict_so_far[leg['number']] = frozenset((leg['number'],))
 
             # The squared orders of the reduced process will be set correctly later
-            # TODO DOUBLECHECK this
             reduced_process = reduced_process.get_copy(['legs', 'n_loops', 'legs_with_decays'])
             # Empty legs_with_decays as it will be regenerated automatically when asked for.
             reduced_process['legs_with_decays'][:] = []
             # The n_loops will be distributed later
-            # TODO DOUBLECHECK this
             reduced_process.set('n_loops', -1)
 
         subcurrents = []
@@ -1650,9 +1750,10 @@ class IRSubtraction(object):
             combination_loops = 0
             for cur in combination:
                 combination_loops += cur.current['n_loops']
-            if type(counterterm) == Counterterm:
+            if isinstance(counterterm, Counterterm):
+                # Here we instantiate either a Counterterm or IntegratedCounterterm
                 result.append(
-                    Counterterm(
+                    type(counterterm)(
                         counterterm.current.get_copy(('n_loops')),
                         combination,
                         counterterm.momenta_dict,
@@ -1723,18 +1824,23 @@ class IRSubtraction(object):
         # If speed becomes relevant in these steps, consider doing that
         filtered_combinations = self.filter_combinations(combinations)
         all_counterterms = []
+        all_integrated_counterterms = []
         for combination in filtered_combinations:
             template_counterterm = self.get_counterterm(combination, process)
-            counterterms_with_loops = self.split_loops(
-                template_counterterm,
-                process['n_loops']
-            )
+            template_integrated_counterterm = \
+                                   self.get_integrated_counterterm(template_counterterm)
+            counterterms_with_loops = self.split_loops( template_counterterm, process['n_loops'] )
             for counterterm_with_loops in counterterms_with_loops:
-                all_counterterms.extend(
-                    self.split_orders(counterterm_with_loops)
-                )
-        
-        return all_counterterms
+                all_counterterms.extend( self.split_orders(counterterm_with_loops) )
+            # Now also distribute the template integrated counterterm if it is not None
+            if not template_integrated_counterterm is None:
+                integrated_counterterms_with_loops = self.split_loops(
+                                    template_integrated_counterterm, process['n_loops'] )
+                for integrated_counterterm_with_loops in integrated_counterterms_with_loops:
+                    all_integrated_counterterms.extend(
+                                    self.split_orders(integrated_counterterm_with_loops) )
+
+        return all_counterterms, all_integrated_counterterms
 
 #===============================================================================
 # Subtraction current exporter
@@ -1866,10 +1972,15 @@ class SubtractionCurrentExporter(object):
         
         # Issue some basic warning whenever DefaultCurrentImplementation is used (it should never be used in production).
         if currents_with_default_implementation:
-            logger.critical("No implementation was found for the following subtraction currents:\n"+
+            msg = ("No implementation was found for the following subtraction currents:\n"+
                 '\n'.join(' > %s'%str(crt) for crt in currents_with_default_implementation)+
                 "\nThe class 'DefaultCurrentImplementation' will therefore be used for it but "+
                 "results obtained in this way are very likely wrong and should be used for debugging only.")
+            if __debug__:
+                logger.critical(msg)
+            else:
+                raise MadGraph5Error(msg)
+                
         
         # Now copy all the relevant directories
         if not self.export_dir is None:

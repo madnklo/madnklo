@@ -64,7 +64,7 @@ class ProcessKey(object):
                 # intputs from this __init__
                 sort_PDGs = True,
                 # Exclude certain process attributes when creating the key for a certain process.
-                vetoed_attributes = ['model','legs','id','uid','has_mirror_process','legs_with_decays'],
+                vetoed_attributes = ['model','legs','uid','has_mirror_process','legs_with_decays'],
                 # Specify only selected attributes to end up in the ProcessKey.
                 # If None, this filter is deactivated.
                 allowed_attributes = None,
@@ -142,13 +142,18 @@ class ProcessKey(object):
             if proc_attr == 'required_s_channels':
                 # Group all the hashes of the processes in decay_chains and store them here.
                 # BUT BEWARE THAT THE PDGs in self.key_dict only refer to the core production process then.
-                misc.sprint([ part for part in value])
                 self.key_dict['required_s_channels'] = tuple( tuple(pdg for pdg in pdg_list) for pdg_list in value)
                 continue
             
             if proc_attr == 'singular_structure':
-                self.key_dict['singular_structure'] = process[proc_attr].get_canonical_representation(track_leg_numbers=False)
+                self.key_dict['singular_structure'] = value.get_canonical_representation(track_leg_numbers=False)
                 continue
+            
+            if proc_attr == 'id':
+                # We must take the modulo with diagram_generation.MultiProcess._MadLoop_offset because we
+                # don't want to be sensitive to the "prefix" added when exporting loop outputs, placed so 
+                # to avoid clash in MadLoop symbols in libraries and dependent resources.
+                self.key_dict['id'] = value%diagram_generation.MultiProcess._MadLoop_offset
 
             # Let us not worry about WEIGHTED orders that are added automatically added when doing process matching
             # Also ignore squared order constraints that are not == as those are added automatically to improve
@@ -1918,6 +1923,12 @@ class Contribution(object):
         self.processes_to_topologies = None
         self.topologies_to_processes = None
         
+    def add_integrated_counterterm(self, integrated_counterterm):
+        """ By default, do not support adding integrated counterterms."""
+        
+        raise MadGraph5Error("The contribution of type %s cannot receive"%type(self)+
+                                            " contributions from integrated counterterms.")
+
     def set_export_dir(self, prefix):
         """ Assigns an export directory name."""
         dir_name = self.contribution_definition.get_shell_name()
@@ -2124,6 +2135,9 @@ class Contribution(object):
 #                    ) )
 #        misc.sprint('='*50)
 #        stop
+        
+        # In principle information can be passed back to ME7_exporter with the return value
+        return {}
 
     def set_phase_space_topologies(self):
         """ Investigate phase-space topologies and identify the list of kinematic configurations present
@@ -2458,6 +2472,8 @@ class Contribution(object):
                 all_defining_procs[proc][1].extend([all_procs_pdgs[p] for p in all_procs_pdgs
                                             if p!=proc and p not in all_defining_procs[proc][1]])
 
+
+
         # Cache the process map
         self.processes_map = ({
                 'had_amplitudes':bool(self.amplitudes),
@@ -2572,26 +2588,37 @@ class Contribution_R(Contribution):
         """ Generate all counterterms associated to the processes in this contribution."""
         
         self.counterterms = {}
+        all_integrated_counterterms = []
         for process_key, (defining_process, mapped_processes) in self.get_processes_map().items():
-            self.counterterms[process_key] = self.IR_subtraction.get_all_counterterms(defining_process)
-
-    def remove_counterterms_with_no_reduced_process(self, all_MEAccessors):
+            local_counterterms, integrated_counterterms = \
+                                 self.IR_subtraction.get_all_counterterms(defining_process)
+            self.counterterms[process_key] = local_counterterms
+            # Add a mulitplication factor to the counterterm prefactor that corresponds
+            # to the number of mapped processes that this integrated counterterm
+            for integrated_counterterm in integrated_counterterms:
+                integrated_counterterm.prefactor *= (1+len(mapped_processes))
+            all_integrated_counterterms.extend(integrated_counterterms)
+        
+        return all_integrated_counterterms
+    
+    @classmethod
+    def remove_counterterms_with_no_reduced_process(cls, all_MEAccessors, counterterms):
         """ Given the list of available reduced processes encoded in the MEAccessorDict 'all_MEAccessors'
         given in argument, remove all the counterterms whose underlying reduced process does not exist."""
 
-        for process_key, counterterms in self.counterterms.items():
-            for counterterm in list(counterterms):
-                try:
-                    all_MEAccessors.get_MEAccessor(counterterm.process)
-                except MadGraph5Error:
-                    # This means that the reduced process could not be found and
-                    # consequently, the corresponding counterterm must be removed.
-                    # Example: C(5,6) in e+ e- > g g d d~
-                    counterterms.remove(counterterm)
+        for counterterm in list(counterterms):
+            try:
+                all_MEAccessors.get_MEAccessor(counterterm.process)
+            except MadGraph5Error:
+                # This means that the reduced process could not be found and
+                # consequently, the corresponding counterterm must be removed.
+                # Example: C(5,6) in e+ e- > g g d d~
+                counterterms.remove(counterterm)
 
     def export(self, *args, **opts):
         """ Overloads export so as to export subtraction currents as well."""
         ret_value = super(Contribution_R, self).export(*args, **opts)
+
         # Fish out the group_processes option as it could be used when attempting to
         # generate all currents.
         
@@ -2600,7 +2627,11 @@ class Contribution_R(Contribution):
         else:
             group_processes = True
 
-        self.generate_all_counterterms(group_processes=group_processes)            
+        integrated_counterterms = self.generate_all_counterterms(
+                                                          group_processes=group_processes)
+      
+        # Add the integrated counterterms to be passed to the exporter
+        ret_value.update({'integrated_counterterms': integrated_counterterms})
         
         return ret_value
 
@@ -2625,11 +2656,12 @@ class Contribution_R(Contribution):
         
         return all_currents
 
-    def add_current_accessors(self, all_MEAccessors, root_path, currents_to_consider):
+    @classmethod
+    def add_current_accessors(cls, model, all_MEAccessors, root_path, currents_to_consider):
         """  Generates and add all subtraction current accessors to the MEAccessorDict."""
 
         # Now generate the computer code and exports it on disk for the remaining new currents
-        current_exporter = subtraction.SubtractionCurrentExporter(self.model, root_path)
+        current_exporter = subtraction.SubtractionCurrentExporter(model, root_path)
         mapped_currents = current_exporter.export(currents_to_consider)
         
         logger.debug("The following subtraction current implementation are exported:\n%s"%\
@@ -2649,7 +2681,7 @@ class Contribution_R(Contribution):
                 current_properties['instantiation_options'], 
                 mapped_process_keys=current_properties['mapped_process_keys'], 
                 root_path=root_path,
-                model=self.model
+                model=model
             ))
         
         all_MEAccessors.add_MEAccessors(all_current_accessors)
@@ -2660,13 +2692,14 @@ class Contribution_R(Contribution):
         # Get the basic accessors for the matrix elements
         super(Contribution_R, self).add_ME_accessors(all_MEAccessors, root_path)
 
-        # Remove counterterms with non-existing underlying Born processes
-        self.remove_counterterms_with_no_reduced_process(all_MEAccessors)
+        for process_key, counterterms in self.counterterms.items():
+            # Remove counterterms with non-existing underlying Born processes
+            self.remove_counterterms_with_no_reduced_process(all_MEAccessors, counterterms)
 
         # Obtain all necessary currents
         currents_to_consider = self.get_all_necessary_subtraction_currents(all_MEAccessors)
 
-        self.add_current_accessors(all_MEAccessors, root_path, currents_to_consider)
+        self.add_current_accessors(model, all_MEAccessors, root_path, currents_to_consider)
      
     def get_integrands_for_process_map(self, process_map, model, run_card, all_MEAccessors, ME7_configuration):
         """ Returns all the integrands implementing this contribution for the specified process_map.
@@ -2702,9 +2735,12 @@ class Contribution_V(Contribution):
         """ Bring in the couple of modifications necessary for this type of contributions."""
         super(Contribution_V,self).__init__(contribution_definition, cmd_interface, **opts)
         # Make sure to adjust the MultiProcessClass to be used
-        self.MultiProcessClass   = loop_diagram_generation.LoopMultiProcess
-        self.output_type         = 'madloop'
-
+        self.MultiProcessClass          = loop_diagram_generation.LoopMultiProcess
+        self.output_type                = 'madloop'
+        
+        # Store integration counterterms.
+        self.integrated_counterterms    = []
+    
     def generate_matrix_elements(self, group_processes=True):
         """Generate the Helas matrix elements before exporting. Uses the main function argument 
         'group_processes' to decide whether to use group_subprocess or not."""
@@ -2739,6 +2775,69 @@ class Contribution_V(Contribution):
         assert self.exporter.exporter == 'v4'
         assert (not self.options['_model_v4_path'])
         self.helas_model = helas_call_writers.FortranUFOHelasCallWriter(self.model)
+
+    def get_all_necessary_integrated_currents(self, all_MEAccessors):
+        """ Given the list of currents already available encoded in the all_MEAccessors,
+        generate all the integrated currents that must be exported."""
+        
+        all_currents = []
+        for counterterm in self.integrated_counterterms:
+            # For now we only support a basic integrated counterterm which is not broken
+            # down in subcurrents but contains a single CountertermNode with a single
+            # current in it that contains the whole singular subtructure describing this
+            # integrated counterterm.
+            if len(counterterm.subcurrents)!=1 or \
+                                            len(counterterm.subcurrents[0].subcurrents)!=0:
+                raise MadGraph5Error("For now, MadEvent7 only support simple integrated "+
+                    "counterterms that consists of single current encompassing the full"+
+                    "singular structure that must be analytically integrated over.")
+            integrated_current = counterterm.subcurrents[0].current
+            assert(isinstance(integrated_current, subtraction.IntegratedCurrent))
+            
+            # Retain only a single copy of each needed current.
+            # We must remove the leg information since this is information is irrelevant
+            # for the selection of the hard-coded current implementation to consider.
+            copied_current = integrated_current.get_copy(('squared_orders','singular_structure'))
+            copied_current.discard_leg_numbers()
+            if copied_current not in all_currents:
+                all_currents.append(copied_current)
+
+        # Now further remove currents that are already in all_MEAccessors
+        all_currents = [current for current in all_currents if 
+                        current.get_key().get_canonical_key() not in all_MEAccessors]
+        
+        return all_currents
+
+    @classmethod
+    def add_current_accessors(cls, model, all_MEAccessors, 
+                                           root_path, currents_to_consider, *args, **opts):
+        """  Generates and add all integrated current accessors to the MEAccessorDict.
+        For now we can recylce the implementation of the Contribution_R class. """
+    
+        return Contribution_R.add_current_accessors(model, 
+                          all_MEAccessors, root_path, currents_to_consider, *args, **opts)
+    
+    def add_ME_accessors(self, all_MEAccessors, root_path):
+        """ Adds all MEAccessors for the matrix elements and currents generated as part 
+        of this contribution."""
+        
+        # Get the basic accessors for the matrix elements
+        super(Contribution_V, self).add_ME_accessors(all_MEAccessors, root_path)
+
+        # Remove integrated counterterms with non-existing underlying Born processes
+        Contribution_R.remove_counterterms_with_no_reduced_process(all_MEAccessors, 
+                                                              self.integrated_counterterms)
+
+        # Obtain all necessary currents
+        currents_to_consider = self.get_all_necessary_integrated_currents(all_MEAccessors)
+
+        self.add_current_accessors(model, all_MEAccessors, root_path, currents_to_consider)
+
+    def add_integrated_counterterm(self, integrated_counterterm):
+        """ Virtual contributions can receive integrated counterterms and they will
+        be stored in the attribute list self.integrated_counterterms."""
+        
+        self.integrated_counterterms.append(integrated_counterterm)
 
     def generate_code(self):
         """ Assuming the Helas Matrix Elements are now generated, we can write out the corresponding code."""
@@ -2819,7 +2918,10 @@ class ContributionList(base_objects.PhysicsObjectList):
 
     def apply_method_to_all_contribs(self, method, log=None, method_args = [], method_opts = {}):
         """ Apply a given method to all contributions nicely sorted."""
-
+        
+        # Keep track of the return values
+        return_values = []
+        
         remaining_contribs = list(self)
         for correction_order, contribution_types in self.contributions_natural_order:
             for contrib_type in contribution_types:
@@ -2837,7 +2939,7 @@ class ContributionList(base_objects.PhysicsObjectList):
                     except AttributeError:
                         raise MadGraph5Error("The contribution\n%s\n does not have function '%s' defined."%(
                                                                                     contrib.nice_string(), method))
-                    contrib_function(*method_args, **method_opts)
+                    return_values.append((contrib, contrib_function(*method_args, **method_opts)))
                     remaining_contribs.pop(remaining_contribs.index(contrib))
 
         if remaining_contribs:
@@ -2850,7 +2952,9 @@ class ContributionList(base_objects.PhysicsObjectList):
             except AttributeError:
                 raise MadGraph5Error("The contribution\n%s\n does not have function '%s' defined."%(
                                                                             contrib.nice_string(), method))
-            contrib_function(*method_args, **method_opts)
+            return_values.append((contrib, contrib_function(*method_args, **method_opts)))
+        
+        return return_values
 
 
 # MEAccessor classes map is defined here as module variables. This map can be overwritten

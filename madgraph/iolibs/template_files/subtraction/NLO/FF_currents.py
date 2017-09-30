@@ -77,6 +77,9 @@ class NLO_FF_QCD_collinear_qqx(utils.VirtualCurrentImplementation):
         a dictionary, it specifies potential options that must passed upon instantiating
         this implementation for the current given in argument. """
 
+        if isinstance(current, subtraction.IntegratedCurrent):
+            return None
+
         squared_orders = current.get('squared_orders')
 
         # First check that we indeed have a pure NLO QCD current
@@ -227,6 +230,9 @@ class NLO_FF_QCD_collinear_gq(utils.VirtualCurrentImplementation):
         a dictionary, it specifies potential options that must passed upon instantiating
         this implementation for the current given in argument. """
         
+        if isinstance(current, subtraction.IntegratedCurrent):
+            return None
+        
         squared_orders = current.get('squared_orders')
 
         # First check that we indeed have a pure NLO QCD current
@@ -365,6 +371,9 @@ class NLO_FF_QCD_softcollinear_gq(utils.VirtualCurrentImplementation):
         part of what this particular current class implements. When returning 
         a dictionary, it specifies potential options that must passed upon instantiating
         this implementation for the current given in argument. """
+        
+        if isinstance(current, subtraction.IntegratedCurrent):
+            return None
         
         squared_orders = current.get('squared_orders')
 
@@ -518,6 +527,9 @@ class NLO_FF_QCD_collinear_gg(utils.VirtualCurrentImplementation):
         a dictionary, it specifies potential options that must passed upon instantiating
         this implementation for the current given in argument. """
         
+        if isinstance(current, subtraction.IntegratedCurrent):
+            return None
+        
         squared_orders = current.get('squared_orders')
 
         # First check that we indeed have a pure NLO QCD current
@@ -651,6 +663,9 @@ class NLO_QCD_soft_gluon(utils.VirtualCurrentImplementation):
         a dictionary, it specifies potential options that must passed upon instantiating
         this implementation for the current given in argument. """
 
+        if isinstance(current, subtraction.IntegratedCurrent):
+            return None
+        
         squared_orders = current.get('squared_orders')
 
         # First check that we indeed have a pure NLO QCD current

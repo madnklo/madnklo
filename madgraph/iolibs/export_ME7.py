@@ -25,6 +25,7 @@ import madgraph.core.base_objects as base_objects
 import madgraph.core.color_algebra as color
 import madgraph.core.helas_objects as helas_objects
 import madgraph.core.contributions as contributions
+import madgraph.core.diagram_generation as diagram_generation
 import madgraph.interface.common_run_interface as common_run_interface
 import aloha as aloha
 import models.import_ufo as import_ufo
@@ -114,9 +115,86 @@ class ME7Exporter(object):
         """ Distribute and organize the export of all contributions. """
         
         # Forward the export request to each contribution
-        self.contributions.apply_method_to_all_contribs('export', 
+        return_values = self.contributions.apply_method_to_all_contribs('export', 
             method_args = [],
-            method_opts = {'nojpeg':nojpeg, 'group_processes':self.group_subprocesses, 'args':args})
+            method_opts = {'nojpeg':nojpeg, 
+                           'group_processes':self.group_subprocesses, 
+                           'args':args})
+
+        # Now gather all integrated counterterms generated during the export and dispatch
+        # them to the right contributions (i.e. the integrated counterterms from the 
+        # real-emission contribution belong to the virtual contribution.)
+        for contribution, return_dict in return_values:
+            if 'integrated_counterterms' in return_dict:
+                self.distribute_integrated_counterterms(contribution, 
+                                                    return_dict['integrated_counterterms'])
+        
+    def distribute_integrated_counterterms(self, contribution_origin, integrated_counterterms):
+        """Analyses the integrated counterterms from the list provided in argument and 
+        coming from the specified contribution (presumably some real-emission type of
+        contributions) and assign them to the correct contribution
+        (typically of virtual origin)."""
+        
+        # Gather which contribution will receive the integrated counterterm for a given
+        # number of loops and unresolved legs, and of course a given process_defining_ID
+        # so that contributions from different 'add process' commands don't get mangled.
+        # Note that in principle one could do a look-up of the processes in the process_map
+        # of each contributions, but this is unnecessarily slow and complicated; simply
+        # assigning the routing map of the distribution of the integrated counterterms
+        # based on the (proc_ID, n_loops, n_unresolved) is enough.
+        routing_map = {}
+        for contribution in self.contributions:
+            # Key is the 3-tuple (proc_ID, n_loops, n_unresolved)
+            key = (
+                contribution.contribution_definition.process_definition.get('id'),
+                contribution.contribution_definition.n_loops,
+                contribution.contribution_definition.n_unresolved_particles)
+            if key in routing_map:
+                logger.warning("The two contributions:\n    %s\nand\n    %s\n"%(
+                    routing_map[key].nice_string(),contribution.nice_string())+
+                    "share the same  key (proc_ID=%d, n_loops=%d, n_unresolved=%d)."%key+
+                    "All integrated counterterms will be placed in the first of the two"+
+                    " contributions above.")
+                continue
+            routing_map[key] = contribution
+
+        for counterterm in integrated_counterterms:
+            # Note that we must undo the madloop offset introduce to lift degeneracies
+            # between the same subprocesses generated as part of the same process defintion.
+            proc_def_ID = counterterm.process.get('id')%\
+                                           diagram_generation.MultiProcess._MadLoop_offset
+            
+            # The integrated counterterm belongs to contribution whose defining number of
+            # loops is the sum of the number of loops in the reduced process and the 
+            # integrated current *plus* the total number of unresolved legs of that structure.
+            # For instance, 
+            #   > the integrated counterterms of RV belong in VV
+            #   > the integrated *single-unresolved* counterterms of RR belong in RV, etc...
+            n_loops = counterterm.n_loops()+counterterm.count_unresolved()
+            
+            # Then the number of unresolved particle of the contribution that receives
+            # this counterterm should be the number of unresolved emission of the
+            # originating contributions minus the number of unresolved legs in the integrated
+            # current.
+            n_unresolved = contribution.contribution_definition.n_unresolved_particles - \
+                                                             counterterm.count_unresolved()
+            key = ( proc_def_ID, n_loops, n_unresolved)
+            # This missing contribution can happen if for example the user explicitly 
+            # disabled some contributions, typically the virtual.
+            # For now we simply skip the incorporation of this integrated counterterms and
+            # issue a critical warning, but eventually one can think of creating an 
+            # ad-hoc "dummy" contribution to contain those integr
+            if key not in routing_map:
+                msg = ("Could not find a contribution with key '"+
+                    "(proc_ID=%d, n_loops=%d, n_unresolved=%d)'"%key+" to host the"+
+                    " integrated counterterm %s."%str(counterterm)+" It will therefore be"+
+                    " skipped making the ensuing results unphysical and wrong.")
+                if __debug__:
+                    logger.critical(msg)
+                else:
+                    raise MadGraph5Error(msg)
+            
+            routing_map[key].add_integrated_counterterm(counterterm)
 
     def copy_model_resources(self):
         """Make the copy/symbolic links"""

@@ -773,10 +773,10 @@ class NLO_QCD_soft_gluon(utils.VirtualCurrentImplementation):
         norm = -8.*math.pi*alpha_s
 
         color_correlation_index = 0
-        # Now loop over the colored parton number pairs (a,b) and add the corrsponding 
-        # contributions to this current
+        # Now loop over the colored parton number pairs (a,b)
+        # and add the corresponding contributions to this current
         for i, a in enumerate(all_colored_parton_numbers):
-            # Use the symmetricity of the color-correlation and soft current (a,b) <-> (b,a)
+            # Use the symmetry of the color correlation and soft current (a,b) <-> (b,a)
             for b in all_colored_parton_numbers[i+1:]:
                 evaluation['color_correlations'].append( [(a, b), ] )
                 # Write the eikonal for that pair
@@ -785,9 +785,10 @@ class NLO_QCD_soft_gluon(utils.VirtualCurrentImplementation):
                 }
                 color_correlation_index += 1
         
-        result.add_result(evaluation, 
-                          hel_config=hel_config, 
-                          squared_orders=tuple(sorted(current.get('squared_orders').items()))
-                         )
+        result.add_result(
+            evaluation,
+            hel_config=hel_config,
+            squared_orders=tuple(sorted(current.get('squared_orders').items()))
+        )
  
         return result

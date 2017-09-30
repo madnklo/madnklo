@@ -992,19 +992,22 @@ class CountertermNode(object):
 #===============================================================================
 
 class Counterterm(CountertermNode):
-    """Class representing a tree of currents multiplying a matrix element.
-    The options 'resolved_process' and 'complete_singular_structure' are just
-    to render the computation of the prefactor faster if it is not provided"""
+    """Class representing a tree of currents multiplying a matrix element."""
 
     def __init__(
         self,
-        process = None,
-        subcurrents = None,
-        momenta_dict = None,
-        resolved_process = None,
-        complete_singular_structure=None,
+        process=None,
+        subcurrents=None,
+        momenta_dict=None,
         prefactor=None,
+        resolved_process=None,
+        complete_singular_structure=None,
     ):
+        """Initialize a counterterm.
+        Just use the provided prefactor if it's there, else recompute it,
+        eventually using 'resolved_process' and 'complete_singular_structure'
+        to speed up the computation.
+        """
 
         super(Counterterm, self).__init__(process, subcurrents)
         if momenta_dict:
@@ -1015,8 +1018,10 @@ class Counterterm(CountertermNode):
 
         if prefactor is None:
             # Re-construct the prefactor multiplying this counterterm
-            self.prefactor = self.get_prefactor(resolved_process=resolved_process,
-                            complete_singular_structure=complete_singular_structure)
+            self.prefactor = self.get_prefactor(
+                resolved_process=resolved_process,
+                complete_singular_structure=complete_singular_structure
+            )
         else:
             self.prefactor = prefactor
             
@@ -1168,7 +1173,7 @@ class Counterterm(CountertermNode):
         return tmp_str
 
     def count_unresolved(self):
-        """ Count the number of unresolved particles covered by this counterterm. """
+        """Count the number of unresolved particles covered by this counterterm."""
         
         total_unresolved = 0
         for counterterm_node in self.subcurrents:
@@ -1209,21 +1214,24 @@ class Counterterm(CountertermNode):
 #===============================================================================
 # IntegratedCounterterm
 #===============================================================================
+
 class IntegratedCounterterm(Counterterm):
-    """ A class for the integrated counterterm. For now, it behaves exactly as
-    a local 4D subtraction counterterm, but it is conceptually different."""
+    """A class for the integrated counterterm.
+    For now, it behaves exactly as a local 4D subtraction counterterm,
+    but it is conceptually different.
+    """
 
     def __str__(self, level = 0):
-        """ Nice string representation of this integrated counterterm. """
+        """Nice string representation of this integrated counterterm."""
+
         res = super(IntegratedCounterterm, self).__str__(level = level)
-        
         if level == 0:
             return '[integrated] %s'%res
         else:
             return res
 
     def get_prefactor(self, resolved_process=None, complete_singular_structure=None):
-        """ It is not allowed to reconstruct the prefactor of an integrated
+        """It is not allowed to reconstruct the prefactor of an integrated
         counterterm because it depends on the multiplicity of the mapped subprocesses.
         For instance, u u~ > (g > b b~) a is mapped to 
            u u~ > (g > c c~) a

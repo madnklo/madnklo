@@ -1019,13 +1019,17 @@ class ElementaryMappingCollinearFinal(VirtualMapping):
 
         return names
 
+    precision_loss_message = "Precision loss detected when computing collinear variables."
+
     def get_collinear_variables(
-        self, PS_point, parent, children, kinematic_variables
+        self, PS_point, parent, children, kinematic_variables,
+        precision=1e-6
     ):
         """Given unmapped and mapped momenta, compute the kinematic variables
         that describe the internal structure of particles going unresolved.
         Parent and children are indices that already refer to the position
         of momenta within the PS_point (no momentum dictionary used).
+        Sum rules are checked to assess numerical accuracy.
         """
 
         # WARNING This function assumes massless particles
@@ -1042,26 +1046,48 @@ class ElementaryMappingCollinearFinal(VirtualMapping):
         sqrtq2 = math.sqrt(q2)
         na = (sqrtq2/pq) * p
         nb = (2./sqrtq2) * q - na
+        # Initialize variables for sum rules check
+        zasum = 0
+        ktsum = LorentzVector()
+        ktabssum = LorentzVector()
         # Compute all kinematic variables
-        for i in children[:-1]:
+        for i in children:
             pi = PS_point[i]
             napi = na.dot(pi)
             nbpi = nb.dot(pi)
-            kinematic_variables['za' + str(i)] = nbpi/nb.dot(q)
-            kinematic_variables['zb' + str(i)] = napi/na.dot(q)
+            zai = nbpi/nb.dot(q)
+            zbi = napi/na.dot(q)
             kti = pi - 0.5*(nbpi*na+napi*nb)
             nti = kti / math.sqrt(napi*nbpi)
+            kinematic_variables['za' + str(i)] = zai
+            kinematic_variables['zb' + str(i)] = zbi
             kinematic_variables['nt' + str(i)] = nti
+            zasum += zai
+            ktsum += kti
+            for j in range(len(kti)):
+                ktabssum[j] += abs(kti[j])
+        # Check numerical accuracy
+        # TODO Ideally switch to quadruple precision if the check fails
+        if abs(zasum - 1) > precision:
+            misc.sprint(self.precision_loss_message)
+            misc.sprint("Sum of z's is %.16e" % zasum)
+        ktsum_abs = abs(ktsum.view(Vector))
+        ktabssum_abs = abs(ktabssum.view(Vector))
+        if ktsum_abs / ktabssum_abs > precision:
+            misc.sprint(self.precision_loss_message)
+            misc.sprint("Sum of kt's is "+str(ktsum))
         return
 
     def set_collinear_variables(
-        self, PS_point, parent, children, total_momentum, kinematic_variables
+        self, PS_point, parent, children, total_momentum, kinematic_variables,
+        precision=1e-6
     ):
         """Given the lower multiplicity parent momentum,
         the total momentum of children and collinear variables,
         compute and set the children momenta.
         Parent and children are indices that already refer to the position
         of momenta within the PS_point (no momentum dictionary used).
+        Sum rules are checked to assess numerical accuracy.
         """
 
         # WARNING This function assumes massless particles
@@ -1077,9 +1103,9 @@ class ElementaryMappingCollinearFinal(VirtualMapping):
         na = (sqrtq2/pq) * p
         nb = (2./sqrtq2) * q - na
         # Variables for sums
-        p_sum = LorentzVector(4*[0., ])
-        # Set momenta for all children but the last
-        for i in children[:-1]:
+        p_sum = LorentzVector()
+        # Set momenta for all children
+        for i in children:
             zai = kinematic_variables['za' + str(i)]
             zbi = kinematic_variables['zb' + str(i)]
             nti = kinematic_variables['nt' + str(i)]
@@ -1087,8 +1113,15 @@ class ElementaryMappingCollinearFinal(VirtualMapping):
             napi = zbi*na.dot(q)
             PS_point[i] = nti*math.sqrt(napi*nbpi) + 0.5*(napi*nb+nbpi*na)
             p_sum += PS_point[i]
-        # Set momentum of the last child
-        PS_point[children[-1]] = q - p_sum
+        # Check how well the parent's momentum is reproduced
+        # TODO Ideally switch to quadruple precision if the check fails
+        deviation = abs((q - p_sum).view(Vector))
+        benchmark = abs(q.view(Vector))
+        if deviation / benchmark > precision:
+            misc.sprint(self.precision_loss_message)
+            misc.sprint(
+                "Sum of children differs from parent momentum by "+str(q-p_sum)
+            )
         return
 
     def azimuth_reference_vector(self, n):
@@ -1175,7 +1208,7 @@ class MappingCataniSeymourFFOne(ElementaryMappingCollinearFinal):
         print singular_structure
         assert self.is_valid_structure(singular_structure)
 
-        # Precompute sets and numbers...
+        # Precompute sets and numbers
         cluster = singular_structure.substructures[0]
         parent, children = get_structure_numbers(cluster, momenta_dict)
         # Build the collinear momentum

@@ -961,16 +961,11 @@ H_to_qqxggH = base_objects.Process({
     'n_loops': 0
 })
 
-def walk_invertible(test, walker, process, orders_for_filtering=None):
+def walk_invertible(test, walker, process, max_unresolved=None):
     """Test walk and inverse."""
 
-    original_orders = my_subtraction.orders
     my_operators = my_subtraction.get_all_elementary_operators(process)
-    my_combinations = my_subtraction.get_all_combinations(my_operators)
-    if orders_for_filtering is not None:
-        my_subtraction.orders = orders_for_filtering
-    my_combinations = my_subtraction.filter_combinations(my_combinations)
-    my_subtraction.orders = original_orders
+    my_combinations = my_subtraction.get_all_combinations(my_operators, max_unresolved)
     my_counterterms = [
         my_subtraction.get_counterterm(combination, process)
         for combination in my_combinations
@@ -1034,7 +1029,7 @@ class FlatCollinearWalkerTest(unittest.TestCase):
 
     def test_FlatCollinearWalker_invertible(self):
 
-        walk_invertible(self, self.walker, H_to_uuxddxH, {'QCD': 2})
+        walk_invertible(self, self.walker, H_to_uuxddxH, 2)
 
 class SimpleNLOWalkerTest(unittest.TestCase):
     """Test class for FlatCollinearWalker."""
@@ -1046,5 +1041,5 @@ class SimpleNLOWalkerTest(unittest.TestCase):
         # Want to make the test a bit more serious,
         # so use combinations of NLO elementary operators up to 2 unresolved particles
 
-        walk_invertible(self, self.walker, H_to_uuxddxH, {'QCD': 2})
-        walk_invertible(self, self.walker, H_to_qqxggH, {'QCD': 2})
+        walk_invertible(self, self.walker, H_to_uuxddxH, 2)
+        walk_invertible(self, self.walker, H_to_qqxggH, 2)

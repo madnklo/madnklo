@@ -155,8 +155,8 @@ class NLOSubtractionTest(unittest.TestCase):
         })
 
         self.mysubtraction = sub.IRSubtraction(
-                simple_qcd.model,
-                orders = {'QCD': 2}
+            simple_qcd.model,
+            orders = {'QCD': 2}
         )
 
     def test_singular_structure_init(self):
@@ -299,42 +299,11 @@ class NLOSubtractionTest(unittest.TestCase):
         )
 
     def test_operator_combinations(self):
-        """Test the generation of all elementary operators
+        """Test the generation of all operator combinations
         for one selected process.
         """
 
-        target_combos = [
-            # 0
-            '()',
-            # 1
-            '(S(4),)', '(S(5),)',
-            '(C(4,5),)', '(C(1,4),)', '(C(1,5),)', '(C(2,4),)', '(C(2,5),)',
-            # 2
-            '(S(4),S(5),)',
-            '(C(S(4),5),)', '(C(S(4),1),)', '(C(S(4),2),)',
-            '(C(1,5),S(4),)', '(C(2,5),S(4),)',
-            '(C(S(5),4),)', '(C(S(5),1),)', '(C(S(5),2),)',
-            '(C(1,4),S(5),)', '(C(2,4),S(5),)',
-            '(C(1,4),C(2,5),)', '(C(1,5),C(2,4),)',
-            # 3
-            '(C(S(5),1),S(4),)', '(C(S(5),2),S(4),)',
-            '(C(S(4),1),S(5),)', '(C(S(4),2),S(5),)',
-            '(C(2,5),C(S(4),1),)', '(C(1,5),C(S(4),2),)',
-            '(C(2,4),C(S(5),1),)', '(C(1,4),C(S(5),2),)',
-            # 4
-            '(C(S(4),1),C(S(5),2),)', '(C(S(4),2),C(S(5),1),)',
-        ]
-
-        elem_operators = self.mysubtraction.get_all_elementary_operators(self.myprocess)
-
-        combos = self.mysubtraction.get_all_combinations(elem_operators)
-        if self.mysubtraction.orders == {'QCD': 1}:
-            self.assertEqual(
-                    set(target_combos),
-                    set(str(combo) for combo in combos)
-            )
-
-        target_filtered_NLO_combos = [
+        target_NLO_combos = [
             # 0
             '()',
             # 1
@@ -345,11 +314,13 @@ class NLOSubtractionTest(unittest.TestCase):
             '(C(S(5),4),)', '(C(S(5),1),)', '(C(S(5),2),)'
         ]
 
-        filtered_NLO_combos = self.mysubtraction.filter_combinations(combos)
+        elem_operators = self.mysubtraction.get_all_elementary_operators(self.myprocess)
+        combos = self.mysubtraction.get_all_combinations(elem_operators)
+
         if self.mysubtraction.orders == {'QCD': 1}:
             self.assertEqual(
-                    set(target_filtered_NLO_combos),
-                    set(str(combo) for combo in filtered_NLO_combos)
+                    set(target_NLO_combos),
+                    set(str(combo) for combo in combos)
             )
 
         # sub_legs = [sub.SubtractionLeg(leg) for leg in self.mylegs]
@@ -370,7 +341,7 @@ class NLOSubtractionTest(unittest.TestCase):
 
         all_currents = []
 
-        for combo in filtered_NLO_combos:
+        for combo in combos:
             print '-'*80
             print combo
             print "Prefactor:", combo.get_subtraction_prefactor()
@@ -380,7 +351,7 @@ class NLOSubtractionTest(unittest.TestCase):
             for ct_n_loops in self.mysubtraction.split_loops(ct, 1):
                 print ct_n_loops
                 all_currents += ct_n_loops.get_all_currents()
-        print len(filtered_NLO_combos)
+        print len(combos)
 
         currents_to_store = []
         for current in all_currents:
@@ -402,3 +373,89 @@ class NLOSubtractionTest(unittest.TestCase):
         # mapped_elementary_NLO_currents = self.mysubtraction.group_currents(elementary_NLO_currents)
         #
         # self.assertEqual(target_mapped_elementary_NLO_currents, mapped_elementary_NLO_currents)
+
+class HiggsN3LOSubtractionTest(unittest.TestCase):
+    """Test the generation of counterterms for Higgs production at N3LO."""
+
+    ggglegs = base_objects.LegList()
+    ggg = base_objects.Process()
+    mysubtraction = None
+
+    def setUp(self):
+
+        # g g > g g g H
+
+        self.ggglegs = base_objects.LegList([
+            base_objects.Leg(
+                    {'number': 1, 'id': 21, 'state': base_objects.Leg.INITIAL}),
+            base_objects.Leg(
+                    {'number': 2, 'id': 21, 'state': base_objects.Leg.INITIAL}),
+            base_objects.Leg(
+                    {'number': 3, 'id': 21, 'state': base_objects.Leg.FINAL}),
+            base_objects.Leg(
+                    {'number': 4, 'id': 21, 'state': base_objects.Leg.FINAL}),
+            base_objects.Leg(
+                    {'number': 5, 'id': 21, 'state': base_objects.Leg.FINAL}),
+            base_objects.Leg(
+                    {'number': 6, 'id': 25, 'state': base_objects.Leg.FINAL}),
+        ])
+
+        self.ggg = base_objects.Process({
+            'legs': self.ggglegs,
+            'model': simple_qcd.model
+        })
+
+        self.mysubtraction = sub.IRSubtraction(
+            simple_qcd.model,
+            orders = {'QCD': 3}
+        )
+
+    def test_generation_of_elementary_operators(self):
+        """Test generation of all elementary operators for Higgs RRR."""
+
+        elem_operators_target = [
+            # single-unresolved
+            sub.SoftOperator(self.ggglegs[2]),
+            sub.SoftOperator(self.ggglegs[3]),
+            sub.SoftOperator(self.ggglegs[4]),
+            sub.CollOperator(self.ggglegs[2], self.ggglegs[3]),
+            sub.CollOperator(self.ggglegs[2], self.ggglegs[4]),
+            sub.CollOperator(self.ggglegs[3], self.ggglegs[4]),
+            sub.CollOperator(self.ggglegs[0], self.ggglegs[2]),
+            sub.CollOperator(self.ggglegs[0], self.ggglegs[3]),
+            sub.CollOperator(self.ggglegs[0], self.ggglegs[4]),
+            sub.CollOperator(self.ggglegs[1], self.ggglegs[2]),
+            sub.CollOperator(self.ggglegs[1], self.ggglegs[3]),
+            sub.CollOperator(self.ggglegs[1], self.ggglegs[4]),
+            # double-unresolved
+            sub.SoftOperator(self.ggglegs[2], self.ggglegs[3]),
+            sub.SoftOperator(self.ggglegs[2], self.ggglegs[4]),
+            sub.SoftOperator(self.ggglegs[3], self.ggglegs[4]),
+            sub.CollOperator(self.ggglegs[2], self.ggglegs[3], self.ggglegs[4]),
+            sub.CollOperator(self.ggglegs[0], self.ggglegs[2], self.ggglegs[3]),
+            sub.CollOperator(self.ggglegs[0], self.ggglegs[2], self.ggglegs[4]),
+            sub.CollOperator(self.ggglegs[0], self.ggglegs[3], self.ggglegs[4]),
+            sub.CollOperator(self.ggglegs[1], self.ggglegs[2], self.ggglegs[3]),
+            sub.CollOperator(self.ggglegs[1], self.ggglegs[2], self.ggglegs[4]),
+            sub.CollOperator(self.ggglegs[1], self.ggglegs[3], self.ggglegs[4]),
+            # triple-unresolved
+            sub.SoftOperator(self.ggglegs[2], self.ggglegs[3], self.ggglegs[4]),
+            sub.CollOperator(self.ggglegs[0], self.ggglegs[2], self.ggglegs[3], self.ggglegs[4]),
+            sub.CollOperator(self.ggglegs[1], self.ggglegs[2], self.ggglegs[3], self.ggglegs[4]),
+        ]
+
+        elem_operators = self.mysubtraction.get_all_elementary_operators(self.ggg)
+
+        self.assertEqual(
+            set(str(op) for op in elem_operators),
+            set(str(op) for op in elem_operators_target)
+        )
+
+    def test_operator_combinations(self):
+        """Test the generation of all operator combinations
+        for g g > g g g H.
+        """
+
+        elem_operators = self.mysubtraction.get_all_elementary_operators(self.ggg)
+        combos = self.mysubtraction.get_all_combinations(elem_operators)
+        print len(combos)

@@ -1360,7 +1360,9 @@ class IRSubtraction(object):
         final_PDGs = []
         for parent_PDG in parent_PDGs:
             if initial_state:
-                final_PDGs.append(-parent_PDG)
+                final_PDGs.append(
+                    self.model.get_particle(parent_PDG).get_anti_pdg_code()
+                )
             else:
                 final_PDGs.append(parent_PDG)
         return final_PDGs
@@ -1421,40 +1423,10 @@ class IRSubtraction(object):
             for coll_initial_set in itertools.combinations(coll_initial_it, unresolved):
                 # Combine with all initial legs
                 for coll_initial_leg in is_legs:
-                    coll_set = coll_initial_set + (coll_initial_leg, )
+                    coll_set = (coll_initial_leg, ) + coll_initial_set
                     if self.can_become_collinear(coll_set):
                         elementary_operator_list.append(CollOperator(coll_set))
         return SingularOperatorList(elementary_operator_list)
-
-    def get_all_raw_combinations(self, elementary_operators):
-        """Determine all combinations of elementary operators,
-        without applying any simplification.
-        """
-
-        combos = []
-        for nop in range(len(elementary_operators) + 1):
-            combos += [
-                SingularOperatorList(combo)
-                for combo in itertools.combinations(
-                        iter(elementary_operators),
-                        nop
-                )
-            ]
-        return combos
-
-    def get_all_combinations(self, elementary_operators):
-        """Determine all combinations of elementary operators,
-        applying simplification and discarding the ones that vanish.
-        """
-
-        return [
-            simple_combo
-            for simple_combo in [
-                combo.simplify()
-                for combo in self.get_all_raw_combinations(elementary_operators)
-                ]
-            if not simple_combo.is_void()
-        ]
 
     def count_unresolved(self, structure):
         """Count the number of unresolved particles in some structure."""
@@ -1474,62 +1446,49 @@ class IRSubtraction(object):
                 )
         return number_of_unresolved_particles
 
-    def filter_combinations(self, combinations):
-        """Filter out combinations with too many unresolved particles
-        for the order that has been set.
+    def get_all_combinations(
+        self, elementary_operators,
+        max_unresolved=None, verbose=False
+    ):
+        """Determine all combinations of elementary operators,
+        applying simplification and discarding the ones that vanish.
         """
 
-        max_unresolved = self.global_order()
-        return [
-            combo
-            for combo in combinations
-            if self.count_unresolved(combo) <= max_unresolved
-        ]
+        if max_unresolved is None:
+            unresolved = self.global_order()
+        else:
+            unresolved = max_unresolved
 
-    def get_integrated_counterterm(self, local_counterterm):
-        """ Given a local subtraction counterterm, returns the corresponding integrated
-        one. It has the same attributes, except that it contains only a single 
-        IntegratedCurrent, with the complete singularstructure in it."""
-
-        # First check that the local counterterm is singular, because if not then we 
-        # should of course not return any integrated counterterm.
-        if not local_counterterm.is_singular():
-            return None
-
-        complete_singular_structure = local_counterterm.\
-                                                 reconstruct_complete_singular_structure()
-                
-        reduced_process = local_counterterm.process.get_copy(
-                                                  ['legs', 'n_loops', 'legs_with_decays'])
-
-        # The following sums all the loop numbers in all subcurrents and reduced process,
-        # the latter of which must then be removed
-        n_loops = local_counterterm.n_loops() - reduced_process.get('n_loops')
-
-        # Retrieve the sum of squared orders in all the subcurrents of the local counterterm
-        # as well as thise in the reduced process which should then be removed.
-        squared_orders = local_counterterm.squared_orders()
-        for order, value in reduced_process.get('squared_orders').items():
-            try:
-                squared_orders[order] -= value
-            except KeyError:
-                raise MadGraph5Error("Function squared_orders() of CountertermNode not"+
-                    " functioning properly. It should have at least the reduced process"+
-                    " squared orders in it.")
-
-        integrated_current = IntegratedCurrent({
-            'n_loops'                       :   n_loops,
-            'squared_orders'                :   squared_orders,
-            'resolve_mother_spin_and_color' :   True,
-            'singular_structure'            :   complete_singular_structure
-            })        
-        
-        return IntegratedCounterterm(
-                process         = reduced_process,
-                subcurrents     = [CountertermNode(current=integrated_current),],
-                momenta_dict    = bidict(local_counterterm.momenta_dict),
-                prefactor       = -1.*local_counterterm.prefactor
-            )
+        combos = [[SingularOperatorList()]]
+        strucs = [[SingularStructure()]]
+        for n in range(len(elementary_operators)):
+            if verbose:
+                misc.sprint("Considering combinations of %d operators" % n+1)
+            combos_n = []
+            strucs_n = []
+            n_filtered = 0
+            n_void = 0
+            for op in elementary_operators:
+                for combo in combos[-1]:
+                    if op not in combo:
+                        this_combo = SingularOperatorList(combo + [op, ])
+                        this_struc = this_combo.simplify()
+                        if not this_struc.is_void():
+                            if this_struc.count_unresolved() <= unresolved:
+                                combos_n.append(this_combo)
+                                strucs_n.append(this_struc)
+                            else:
+                                n_filtered += 1
+                        else:
+                            n_void += 1
+            if verbose:
+                misc.sprint(
+                    "   valid: %d, void: %d, filtered: %d." %
+                    (len(combos_n), n_void, n_filtered)
+                )
+            combos.append(combos_n)
+            strucs.append(strucs_n)
+        return list(itertools.chain.from_iterable(strucs))
 
     def get_counterterm(
         self,
@@ -1687,6 +1646,52 @@ class IRSubtraction(object):
             subcurrents
         )
 
+    def get_integrated_counterterm(self, local_counterterm):
+        """ Given a local subtraction counterterm, returns the corresponding integrated
+        one. It has the same attributes, except that it contains only a single
+        IntegratedCurrent, with the complete singularstructure in it."""
+
+        # First check that the local counterterm is singular, because if not then we
+        # should of course not return any integrated counterterm.
+        if not local_counterterm.is_singular():
+            return None
+
+        complete_singular_structure = local_counterterm. \
+            reconstruct_complete_singular_structure()
+
+        reduced_process = local_counterterm.process.get_copy(
+            ['legs', 'n_loops', 'legs_with_decays'])
+
+        # The following sums all the loop numbers in all subcurrents and reduced process,
+        # the latter of which must then be removed
+        n_loops = local_counterterm.n_loops() - reduced_process.get('n_loops')
+
+        # Retrieve the sum of squared orders in all the subcurrents of the local counterterm
+        # as well as thise in the reduced process which should then be removed.
+        squared_orders = local_counterterm.squared_orders()
+        for order, value in reduced_process.get('squared_orders').items():
+            try:
+                squared_orders[order] -= value
+            except KeyError:
+                raise MadGraph5Error(
+                    "Function squared_orders() of CountertermNode not" +
+                    " functioning properly. It should have at least the reduced process" +
+                    " squared orders in it.")
+
+        integrated_current = IntegratedCurrent({
+            'n_loops': n_loops,
+            'squared_orders': squared_orders,
+            'resolve_mother_spin_and_color': True,
+            'singular_structure': complete_singular_structure
+        })
+
+        return IntegratedCounterterm(
+            process=reduced_process,
+            subcurrents=[CountertermNode(current=integrated_current), ],
+            momenta_dict=bidict(local_counterterm.momenta_dict),
+            prefactor=-1. * local_counterterm.prefactor
+        )
+
     def get_all_currents(self, counterterms):
         """Deduce the list of currents needed to compute all counterterms
         given in argument.
@@ -1828,12 +1833,9 @@ class IRSubtraction(object):
         elementary_operators = self.get_all_elementary_operators(process)
 
         combinations = self.get_all_combinations(elementary_operators)
-        # Filtering could be applied during the step above
-        # If speed becomes relevant in these steps, consider doing that
-        filtered_combinations = self.filter_combinations(combinations)
         all_counterterms = []
         all_integrated_counterterms = []
-        for combination in filtered_combinations:
+        for combination in combinations:
             template_counterterm = self.get_counterterm(combination, process)
             template_integrated_counterterm = \
                                    self.get_integrated_counterterm(template_counterterm)

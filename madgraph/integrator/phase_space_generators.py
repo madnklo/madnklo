@@ -1069,13 +1069,13 @@ class ElementaryMappingCollinearFinal(VirtualMapping):
         # Check numerical accuracy
         # TODO Ideally switch to quadruple precision if the check fails
         if abs(zasum - 1) > precision:
-            misc.sprint(self.precision_loss_message)
-            misc.sprint("Sum of z's is %.16e" % zasum)
+            logger.critical(self.precision_loss_message)
+            logger.critical("Sum of z's is %.16e" % zasum)
         ktsum_abs = abs(ktsum.view(Vector))
         ktabssum_abs = abs(ktabssum.view(Vector))
         if ktsum_abs / ktabssum_abs > precision:
-            misc.sprint(self.precision_loss_message)
-            misc.sprint("Sum of kt's is "+str(ktsum))
+            logger.critical(self.precision_loss_message)
+            logger.critical("Threshold: %f , Sum of kt's is %s"%((ktsum_abs / ktabssum_abs),str(ktsum)))
         return
 
     def set_collinear_variables(
@@ -1118,8 +1118,8 @@ class ElementaryMappingCollinearFinal(VirtualMapping):
         deviation = abs((q - p_sum).view(Vector))
         benchmark = abs(q.view(Vector))
         if deviation / benchmark > precision:
-            misc.sprint(self.precision_loss_message)
-            misc.sprint(
+            logger.critical(self.precision_loss_message)
+            logger.critical(
                 "Sum of children differs from parent momentum by "+str(q-p_sum)
             )
         return
@@ -1205,7 +1205,6 @@ class MappingCataniSeymourFFOne(ElementaryMappingCollinearFinal):
 
         # Consistency checks
         assert isinstance(momenta_dict, subtraction.bidict)
-        print singular_structure
         assert self.is_valid_structure(singular_structure)
 
         # Precompute sets and numbers
@@ -2011,7 +2010,7 @@ class SimpleNLOWalker(VirtualWalker):
             elif ss.name() == 'S':
                 # For soft clusters, rescale the whole momenta
                 # Check depth
-                assert len(ss.subcurrents) == 0
+                assert len(ss.substructures) == 0
                 for leg in ss.legs:
                     new_variables['p' + str(leg.n)] *= scaling_parameter
             else:

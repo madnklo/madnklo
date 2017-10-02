@@ -191,6 +191,7 @@ class ME7Exporter(object):
                     " skipped making the ensuing results unphysical and wrong.")
                 if __debug__:
                     logger.critical(msg)
+                    continue
                 else:
                     raise MadGraph5Error(msg)
             

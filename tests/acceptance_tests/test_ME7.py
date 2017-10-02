@@ -78,13 +78,14 @@ class TestME7_IR_Limits(unittest.TestCase):
         main_cmd = 'test_IR_limits'
         
         options = {'correction_order'       : 'NLO',
-                   'limit_type'             : 'C(\d,\d)',
-                   'process'                : 'all',
+#                   'limit_type'             : 'C(3,4)',
+                   'limit_type'             : 'S(3)',
+                   'process'                : 'e+ e- > g g d d~',
                    'seed'                   : '666',
                    'n_steps'                : 10,
                    'min_scaling_variable'   : 1.0e-6,
                    'acceptance_threshold'   : 1.0e-6,
-                   'compute_only_limit_defining_counterterm' : True,
+                   'compute_only_limit_defining_counterterm' : False,
                    }
 
         self.do('%s %s'%(main_cmd, ' '.join(

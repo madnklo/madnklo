@@ -160,11 +160,15 @@ class ProcessKey(object):
             # diagram efficiency and should not be used anyway to discriminate different processes since they may
             # overlap and cannot be constructed unambiguously in reduced processes for counterterms
             if proc_attr in ['orders']:
-                self.key_dict[proc_attr] = hash_dict(dict((k, v) for k, v in value.items() if k!='WEIGHTED'), proc_attr)
+                self.key_dict[proc_attr] = hash_dict(dict((k, v) for k, v in value.items() 
+                                                             if k!='WEIGHTED'), proc_attr)
                 continue
             if proc_attr in ['sqorders_types', 'squared_orders']:
                 self.key_dict[proc_attr] = hash_dict(dict((k, v) for k, v in value.items() if \
-                                                          k!='WEIGHTED' and process['sqorders_types']=='=='), proc_attr)
+                        ( k!='WEIGHTED' and ( isinstance(process, subtraction.Current) or
+                                              (k not in process['sqorders_types']) or 
+                                              process['sqorders_types'][k]=='==') )
+                    ), proc_attr)
                 continue
     
             if proc_attr == 'parent_subtraction_leg':
@@ -1142,8 +1146,9 @@ class F2PYMEAccessor(VirtualMEAccessor):
             if len(opts['color_correlation'])==1:
                 self.get_function('set_color_correlators_to_consider')\
                                     (opts['color_correlation'][0][0],opts['color_correlation'][0][1])
-            for color_correlator in opts['color_correlation']:
-                self.get_function('add_color_correlators_to_consider')(color_correlator[0],color_correlator[1])
+            else:
+                for color_correlator in opts['color_correlation']:
+                    self.get_function('add_color_correlators_to_consider')(color_correlator[0],color_correlator[1])
         
         
     def __call__(self, PS_point, alpha_s, mu_r=91.188, **opts):
@@ -1174,7 +1179,7 @@ class F2PYMEAccessor(VirtualMEAccessor):
         # we will be able to use the information of self.process_pdgs to determine which one to call.
         # misc.sprint(" I was called from :",self.process_pdgs)
         if not self.module_initialized:
-            with misc.Silence(active=(logger.level>logging.DEBUG)):
+            with misc.Silence(active=False and (logger.level>logging.DEBUG)):
                 self.get_function('initialise')(pjoin(self.root_path, self.slha_card_path))
             self.module_initialized = True
         
@@ -1196,7 +1201,7 @@ class F2PYMEAccessor(VirtualMEAccessor):
         ME_result = self.cache.add_result(**this_call_key)
         for output_data in output_datas:
             ME_result.add_result(output_data[1], **output_data[0])
-        
+
         # Now recover the main result the user expects. If he did not specify a specific single color_correlators, we will
         # chose to return the result without color_correlation.
         main_result_key = dict(new_opts)
@@ -1237,7 +1242,7 @@ class F2PYMEAccessor(VirtualMEAccessor):
         # Basic output template dictionary. We can already assign hel_config and spin_correlation since nothing
         # can be computed on top.
         output_key_template = {'hel_config'           : user_opts['hel_config'],
-                               'squared_orders'        : None,
+                               'squared_orders'       : None,
                                'color_correlation'    : None,
                                'spin_correlation'     : user_opts['spin_correlation']}
         
@@ -1265,9 +1270,9 @@ class F2PYMEAccessor(VirtualMEAccessor):
                     output_key = dict(output_key_template)
                     output_key['squared_orders'] = squared_order
                     output_result = MEEvaluation(output_result_template)
-                    output_result['finite'] = color_correlated_mes[i_cc-1][i_sqso]   
+                    output_result['finite'] = color_correlated_mes[i_cc-1][i_sqso]
                     output_datas.append( (output_key, output_result) )
-        
+
         return output_datas
     
 class F2PYMEAccessorMadLoop(F2PYMEAccessor):
@@ -2520,8 +2525,9 @@ class Contribution(object):
                     res.append(BLUE+u'   \u21b3  '+mapped_process.nice_string(print_weighted=False)\
                                                                         .replace('Process: ','')+ENDC)
         else:
-            res.append(BLUE+'No amplitudes generated yet.'+ENDC)                
-        return '\n'.join(res)
+            res.append(BLUE+'No amplitudes generated yet.'+ENDC)
+            
+        return '\n'.join(res).encode('utf-8')
         
     def generate_amplitudes(self, force=False):
         """ Generates the relevant amplitudes for this contribution."""
@@ -2593,7 +2599,7 @@ class Contribution_R(Contribution):
             local_counterterms, integrated_counterterms = \
                                  self.IR_subtraction.get_all_counterterms(defining_process)
             self.counterterms[process_key] = local_counterterms
-            # Add a mulitplication factor to the counterterm prefactor that corresponds
+            # Add a multiplication factor to the counterterm prefactor that corresponds
             # to the number of mapped processes that this integrated counterterm
             for integrated_counterterm in integrated_counterterms:
                 integrated_counterterm.prefactor *= (1+len(mapped_processes))
@@ -2699,7 +2705,7 @@ class Contribution_R(Contribution):
         # Obtain all necessary currents
         currents_to_consider = self.get_all_necessary_subtraction_currents(all_MEAccessors)
 
-        self.add_current_accessors(model, all_MEAccessors, root_path, currents_to_consider)
+        self.add_current_accessors(self.model, all_MEAccessors, root_path, currents_to_consider)
      
     def get_integrands_for_process_map(self, process_map, model, run_card, all_MEAccessors, ME7_configuration):
         """ Returns all the integrands implementing this contribution for the specified process_map.
@@ -2831,7 +2837,7 @@ class Contribution_V(Contribution):
         # Obtain all necessary currents
         currents_to_consider = self.get_all_necessary_integrated_currents(all_MEAccessors)
 
-        self.add_current_accessors(model, all_MEAccessors, root_path, currents_to_consider)
+        self.add_current_accessors(self.model, all_MEAccessors, root_path, currents_to_consider)
 
     def add_integrated_counterterm(self, integrated_counterterm):
         """ Virtual contributions can receive integrated counterterms and they will

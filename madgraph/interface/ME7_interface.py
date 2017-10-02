@@ -1317,7 +1317,7 @@ class ME7Integrand_R(ME7Integrand):
         
     def evaluate_counterterm(self, counterterm, PS_point, hel_config=None):
         """ Evaluates the specified counterterm for the specified PS point."""
-        
+
         # Retrieve some possibly relevant model parameters
         alpha_s = self.model.get('parameter_dict')['aS']
         mu_r = self.model.get('parameter_dict')['MU_R']    

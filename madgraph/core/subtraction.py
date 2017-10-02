@@ -100,17 +100,13 @@ def is_disjoint(A, B):
 
     try:
         for Ai in A:
-            # print "Considering", Ai
             B, B_iter = itertools.tee(B, 2)
             for Bi in B_iter:
                 if Ai > Bi:
-                    # print "greater than", str(Bi)+", advancing B"
                     B.next()
                 elif Bi == Ai:
-                    # print "equal to", str(Bi)+", returning False"
                     return False
                 else:
-                    # print "less than ", str(Bi)+", no chance"
                     break
         return True
     except StopIteration: # B exhausted, no chance of intersection
@@ -518,8 +514,8 @@ class SingularStructure(object):
             )
         canonical['name'] = self.name()
         canonical['substructures'] = tuple(
-                structure.get_canonical_representation()
-                for structure in self.substructures
+            structure.get_canonical_representation(track_leg_numbers = track_leg_numbers)
+            for structure in self.substructures
         )
 
         return tuple(sorted(canonical.items()))

@@ -35,48 +35,17 @@ pjoin = os.path.join
 CurrentImplementationError = utils.CurrentImplementationError
 CS_utils = utils.CS_utils
 
-# The class below isjust a template useful for copy-pasting when starting
-# a new implementation
-class Template_current(utils.VirtualCurrentImplementation):
-    """ Implements the XXXX current."""
-
-    def __init__(self, *args, **opts):
-        super(Template_current, self).__init__(*args, **opts)
-        self.supports_helicity_assignment = False
-
-    @classmethod
-    def does_implement_this_current(cls, current, model):
-        """ Returns None/a_dictionary depending on whether this particular current is
-        part of what this particular current class implements. When returning 
-        a dictionary, it specifies potential options that must passed upon instantiating
-        this implementation for the current given in argument. """
-        return None
+# Mother function grouping functionalities common to all FF NLO QCD currents
+class NLO_FF_QCD_local_subtraction_current(utils.VirtualCurrentImplementation):
+    """ Just a template class for all Final-Final NLO QCD local subtraction current."""
     
-    def evaluate_subtraction_current(self,  current, 
-                                            PS_point, 
-                                            reduced_process = None,
-                                            leg_numbers_map = None,
-                                            hel_config = None,
-                                            mapping_variables = {}
-                                     ):
-        """ Evaluates this current and return the corresponding instance of
-        SubtractionCurrentResult. See documentation of the mother function for more details."""
-        raise NotImplementedError
-        
-class NLO_FF_QCD_collinear_qqx(utils.VirtualCurrentImplementation):
-    """ Implements the GluonToQQbar collinear NLO current."""
-
-    def __init__(self, *args, **opts):
-        super(NLO_FF_QCD_collinear_qqx, self).__init__(*args, **opts)
-        self.supports_helicity_assignment = False
-
+    # Prefix this base function with 'common' to screen it from the lookup peformed
+    # by the MG5aMC current exporter.
     @classmethod
-    def does_implement_this_current(cls, current, model):
-        """ Returns None/a_dictionary depending on whether this particular current is
-        part of what this particular current class implements. When returning 
-        a dictionary, it specifies potential options that must passed upon instantiating
-        this implementation for the current given in argument. """
-
+    def common_does_implement_this_current(cls, current, model):
+        """ General class of checks common to all currents inheriting from this class."""
+        
+        # Make sure it is a local subtraction counterterm and not an integrated one.
         if isinstance(current, subtraction.IntegratedCurrent):
             return None
 
@@ -97,7 +66,42 @@ class NLO_FF_QCD_collinear_qqx(utils.VirtualCurrentImplementation):
         
         # Finally check that the singular structure and PDG matches
         singular_structure = current.get('singular_structure')
+        
+        # Check that all legs are final states
+        for leg in singular_structure.legs:
+            if leg.state != subtraction.SubtractionLeg.FINAL:
+                return None
+        
+        for substructure in singular_structure.substructures:
+            if len(substructure.substructures)>0:
+                return None
+            for leg in substructure.legs:
+                if leg.state != subtraction.SubtractionLeg.FINAL:
+                    return None
 
+        return {}
+    
+class NLO_FF_QCD_collinear_qqx(NLO_FF_QCD_local_subtraction_current):
+    """ Implements the GluonToQQbar collinear NLO current."""
+
+    def __init__(self, *args, **opts):
+        super(NLO_FF_QCD_collinear_qqx, self).__init__(*args, **opts)
+        self.supports_helicity_assignment = False
+
+    @classmethod
+    def does_implement_this_current(cls, current, model):
+        """ Returns None/a_dictionary depending on whether this particular current is
+        part of what this particular current class implements. When returning 
+        a dictionary, it specifies potential options that must passed upon instantiating
+        this implementation for the current given in argument. """
+
+        singular_structure = current.get('singular_structure')
+        
+        # Check the general properties common to FF NLO QCD
+        if super(NLO_FF_QCD_collinear_qqx, cls).common_does_implement_this_current(
+                                                                current, model) is None:
+            return None
+        
         # It should be a collinear type of structure
         if singular_structure.name()!='C':
             return None
@@ -111,8 +115,6 @@ class NLO_FF_QCD_collinear_qqx(utils.VirtualCurrentImplementation):
             return None
 
         for leg in singular_structure.legs:
-            if leg.state != subtraction.SubtractionLeg.FINAL:
-                return None
             if abs(leg.pdg) not in range(1,7):
                 return None
             if model.get_particle(leg.pdg).get('mass').upper()!='ZERO':
@@ -216,7 +218,7 @@ class NLO_FF_QCD_collinear_qqx(utils.VirtualCurrentImplementation):
  
         return result
 
-class NLO_FF_QCD_collinear_gq(utils.VirtualCurrentImplementation):
+class NLO_FF_QCD_collinear_gq(NLO_FF_QCD_local_subtraction_current):
     """ Implements the NLO_FF_QCD_collinear_gq current."""
 
     def __init__(self, *args, **opts):
@@ -229,32 +231,14 @@ class NLO_FF_QCD_collinear_gq(utils.VirtualCurrentImplementation):
         part of what this particular current class implements. When returning 
         a dictionary, it specifies potential options that must passed upon instantiating
         this implementation for the current given in argument. """
-        
-        if isinstance(current, subtraction.IntegratedCurrent):
-            return None
-        
-        squared_orders = current.get('squared_orders')
-
-        # First check that we indeed have a pure NLO QCD current
-        if squared_orders['QCD'] != 2 or \
-           any(squared_orders[order] != 0 for order in squared_orders if order!='QCD'):
+                
+        # Check the general properties common to FF NLO QCD
+        if super(NLO_FF_QCD_collinear_gq, cls).common_does_implement_this_current(
+                                                                current, model) is None:
             return None
 
-        # Now check that it is tree-level
-        if current.get('n_loops')!=0:
-            return None
-
-        # For this current, it doesn't matter if one needs to sum over the 
-        # quantum numbers of the mother leg
-        # if not current.get('resolve_mother_spin_and_color'):
-        #    return None
-        
-        # Finally check that the singular structure and PDG matches
         singular_structure = current.get('singular_structure')
 
-        # It should be a collinear type of structure
-        if singular_structure.name()!='C':
-            return None
 
         # It should not have nested structures
         if singular_structure.substructures:
@@ -265,8 +249,6 @@ class NLO_FF_QCD_collinear_gq(utils.VirtualCurrentImplementation):
             return None
 
         for leg in singular_structure.legs:
-            if leg.state != subtraction.SubtractionLeg.FINAL:
-                return None
             if model.get_particle(leg.pdg).get('mass').upper()!='ZERO':
                 return None
         
@@ -345,7 +327,7 @@ class NLO_FF_QCD_collinear_gq(utils.VirtualCurrentImplementation):
  
         return result
 
-class NLO_FF_QCD_softcollinear_gq(utils.VirtualCurrentImplementation):
+class NLO_FF_QCD_softcollinear_gq(NLO_FF_QCD_local_subtraction_current):
     """ Implements the NLO_FF_QCD_collinear_gq current."""
 
     def __init__(self, *args, **opts):
@@ -372,25 +354,11 @@ class NLO_FF_QCD_softcollinear_gq(utils.VirtualCurrentImplementation):
         a dictionary, it specifies potential options that must passed upon instantiating
         this implementation for the current given in argument. """
         
-        if isinstance(current, subtraction.IntegratedCurrent):
-            return None
-        
-        squared_orders = current.get('squared_orders')
-
-        # First check that we indeed have a pure NLO QCD current
-        if squared_orders['QCD'] != 2 or \
-           any(squared_orders[order] != 0 for order in squared_orders if order!='QCD'):
+        # Check the general properties common to FF NLO QCD
+        if super(NLO_FF_QCD_softcollinear_gq, cls).common_does_implement_this_current(
+                                                                current, model) is None:
             return None
 
-        # Now check that it is tree-level
-        if current.get('n_loops')!=0:
-            return None
-
-        # For this current, it doesn't matter if one needs to sum over the 
-        # quantum numbers of the mother leg
-        # if not current.get('resolve_mother_spin_and_color'):
-        #    return None
-        
         # Finally check that the singular structure and PDG matches
         singular_structure = current.get('singular_structure')
 
@@ -404,8 +372,6 @@ class NLO_FF_QCD_softcollinear_gq(utils.VirtualCurrentImplementation):
 
         # Make sure legs are final and massless
         for leg in singular_structure.legs:
-            if leg.state != subtraction.SubtractionLeg.FINAL:
-                return None
             if model.get_particle(leg.pdg).get('mass').upper()!='ZERO':
                 return None
 
@@ -430,8 +396,6 @@ class NLO_FF_QCD_softcollinear_gq(utils.VirtualCurrentImplementation):
         soft_leg = sub_singular_structure.legs[0]
         
         # Make sure the soft leg is massless final and a gluon
-        if soft_leg.state != subtraction.SubtractionLeg.FINAL:
-            return None
         if model.get_particle(soft_leg.pdg).get('mass').upper()!='ZERO':
             return None
         if soft_leg.pdg != 21:
@@ -513,7 +477,7 @@ class NLO_FF_QCD_softcollinear_gq(utils.VirtualCurrentImplementation):
  
         return result
 
-class NLO_FF_QCD_collinear_gg(utils.VirtualCurrentImplementation):
+class NLO_FF_QCD_collinear_gg(NLO_FF_QCD_local_subtraction_current):
     """ Implements the NLO_FF_QCD_collinear_gg current."""
 
     def __init__(self, *args, **opts):
@@ -527,22 +491,9 @@ class NLO_FF_QCD_collinear_gg(utils.VirtualCurrentImplementation):
         a dictionary, it specifies potential options that must passed upon instantiating
         this implementation for the current given in argument. """
         
-        if isinstance(current, subtraction.IntegratedCurrent):
-            return None
-        
-        squared_orders = current.get('squared_orders')
-
-        # First check that we indeed have a pure NLO QCD current
-        if squared_orders['QCD'] != 2 or \
-           any(squared_orders[order] != 0 for order in squared_orders if order!='QCD'):
-            return None
-
-        # Now check that it is tree-level
-        if current.get('n_loops')!=0:
-            return None
-
-        # Make sure we don't need to sum over the quantum number of the mother leg
-        if not current.get('resolve_mother_spin_and_color'):
+        # Check the general properties common to FF NLO QCD
+        if super(NLO_FF_QCD_collinear_gg, cls).common_does_implement_this_current(
+                                                                current, model) is None:
             return None
         
         # Finally check that the singular structure and PDG matches
@@ -562,8 +513,6 @@ class NLO_FF_QCD_collinear_gg(utils.VirtualCurrentImplementation):
 
         # They should be massless final states
         for leg in singular_structure.legs:
-            if leg.state != subtraction.SubtractionLeg.FINAL:
-                return None
             if model.get_particle(leg.pdg).get('mass').upper()!='ZERO':
                 return None
         
@@ -648,7 +597,7 @@ class NLO_FF_QCD_collinear_gg(utils.VirtualCurrentImplementation):
  
         return result
 
-class NLO_QCD_soft_gluon(utils.VirtualCurrentImplementation):
+class NLO_QCD_soft_gluon(NLO_FF_QCD_local_subtraction_current):
     """ Implements the soft gluon Eikonel current.
     See Eq.4.12-4.13 of ref. https://arxiv.org/pdf/0903.1218.pdf"""
 
@@ -663,22 +612,9 @@ class NLO_QCD_soft_gluon(utils.VirtualCurrentImplementation):
         a dictionary, it specifies potential options that must passed upon instantiating
         this implementation for the current given in argument. """
 
-        if isinstance(current, subtraction.IntegratedCurrent):
-            return None
-        
-        squared_orders = current.get('squared_orders')
-
-        # First check that we indeed have a pure NLO QCD current
-        if squared_orders['QCD'] != 2 or \
-           any(squared_orders[order] != 0 for order in squared_orders if order!='QCD'):
-            return None
-
-        # Now check that it is tree-level
-        if current.get('n_loops')!=0:
-            return None
-
-        # Make sure we don't need to sum over the quantum number of the mother leg
-        if not current.get('resolve_mother_spin_and_color'):
+        # Check the general properties common to FF NLO QCD
+        if super(NLO_QCD_soft_gluon, cls).common_does_implement_this_current(
+                                                                current, model) is None:
             return None
         
         # Finally check that the singular structure and PDG matches
@@ -697,8 +633,6 @@ class NLO_QCD_soft_gluon(utils.VirtualCurrentImplementation):
             return None
 
         for leg in singular_structure.legs:
-            if leg.state != subtraction.SubtractionLeg.FINAL:
-                return None
             if abs(leg.pdg) not in [21]:
                 return None
             if model.get_particle(leg.pdg).get('mass').upper()!='ZERO':

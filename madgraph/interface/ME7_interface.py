@@ -787,7 +787,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # An instance of contributions.MEAccessorDict providing access to all ME available as part of this
         # ME7 session.
         self.all_MEAccessors            = all_MEAccessors
-        
+
         # Update and define many properties of self based on the provided run-card and model.
         self.synchronize(model, run_card, ME7_configuration)
 
@@ -884,7 +884,13 @@ class ME7Integrand(integrands.VirtualIntegrand):
             pdf_info = common_run.CommonRunCmd.get_lhapdf_pdfsets_list_static(pdfsets_dir, lhapdf_version)
             lhaid = self.run_card.get_lhapdf_id()
             if lhaid not in pdf_info:
-                raise InvalidCmd("Could not find PDF set with lhaid #%d in %s."%(lhaid, pdfsets_dir))  
+                raise InvalidCmd("Could not find PDF set with lhaid #%d in %s."%(lhaid, pdfsets_dir))
+            pdf_set_name = pdf_info[lhaid]['filename']
+            if not os.path.isdir(pjoin(pdfsets_dir, pdf_set_name)):
+                raise InvalidCmd("Could not find PDF set directory named "+
+                    "'%s' in '%s'.\n"%(pdf_set_name, pdfsets_dir)+
+                    "It can be downloaded from LHAPDF official online resources.")
+
             self.pdfsets = lhapdf.getPDFSet(pdf_info[lhaid]['filename'])
             # Pick the central PDF for now
             self.pdf = self.pdfsets.mkPDF(0)
@@ -1254,6 +1260,21 @@ class ME7Integrand_LIB(ME7Integrand):
         
 class ME7Integrand_V(ME7Integrand):
     """ ME7Integrand for the computation of a one-loop virtual type of contribution."""
+    
+    def __init__(self, *args, **opts):
+        """Initialize a virtual type of integrand, adding additional relevant attributes."""
+        
+        try:  
+            self.integrated_counterterms = opts.pop('integrated_counterterms')
+        except KeyError:
+            raise MadEvent7Error(
+                "Constructor of class ME7Integrand_V requires the option "
+                "'integrated_counterterms' to be specified."
+            )
+
+        super(ME7Integrand_V, self).__init__(*args, **opts)
+        self.initialization_inputs['options']['integrated_counterterms'] = self.integrated_counterterms
+    
     def sigma(self, PS_point, process_key, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
         """ Overloading of the sigma function from ME7Integrand to include necessary additional contributions. """
         
@@ -1348,6 +1369,14 @@ class ME7Integrand_R(ME7Integrand):
 
         # Access the matrix element
         ME_process, ME_PS = hike['matrix_element']
+        
+        if counterterm.get_singular_structure_string()=='C(4,6)':
+            misc.sprint('='*20)
+            misc.sprint(PS_point)            
+            misc.sprint(str(counterterm))
+            misc.sprint(ME_process.nice_string())
+            misc.sprint(ME_PS)
+            misc.sprint('='*20)
 
         # Then the above "hike" can be used to evaluate the currents first and the ME last.
         # Note that the code below can become more complicated when needing to track helicities, but let's forget this for now.
@@ -1426,9 +1455,9 @@ class ME7Integrand_R(ME7Integrand):
             try:
                 ME_evaluation, all_ME_results = self.all_MEAccessors(
                    ME_process, ME_PS, alpha_s, mu_r,
-                   # Let's worry about the squared order laters, we will probably directly fish
-                   # them out from the ME_process, since they should be set to a unique combination in
-                   # this case.
+                   # Let's worry about the squared orders later, we will probably directly fish
+                   # them out from the ME_process, since they should be set to a unique combination
+                   # at this stage.
                    squared_orders    = None,
                    color_correlation = color_correlators,
                    spin_correlation  = spin_correlators, 
@@ -1608,7 +1637,11 @@ Also make sure that there is no coupling order specification which receives corr
                         if test_options['compute_only_limit_defining_counterterm'] and \
                                                                             counterterm != limit_specifier_counterterm:
                             continue
+    #                    if counterterm.get_singular_structure_string() not in [
+    #                        'S(3)','S(4)','C(S(3),4)','C(S(4),3)','C(3,4)' ]:
+    #                        continue
                         ct_weight, _, _ = self.evaluate_counterterm(counterterm, scaled_real_PS_point, hel_config=None)
+                        misc.sprint('Relative weight from CT %s = %.16f, %.16f'%(counterterm.get_singular_structure_string(), ct_weight, ct_weight/ME_evaluation))
                         summed_counterterm_weight += ct_weight
                     
                     # Add evaluations to the list so as to study how the approximated reals converge towards the real

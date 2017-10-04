@@ -1547,14 +1547,6 @@ class MultiProcess(base_objects.PhysicsObject):
                      list of processes (after cleaning)
                      list of amplitudes (after generation)
     """
-    
-    # For loop processes we keep track of the starting process definition process_ID 
-    # and increment it by 10'000 (cls._MadLoop_offset) for each new loop_process generated.
-    # This guarantees that every subprocess in that MadLoop output has a different
-    # prefix so as to avoid clash, and the multiplication by ten thousand also guarantees
-    # that 'add process' won't add clashes (as long as there are less than 10'000
-    # 'add_process' commands, which is ok). A smarter solution can come in later.   
-    _MadLoop_offset = 10000
 
     def default_setup(self):
         """Default values for all properties"""
@@ -1704,20 +1696,7 @@ class MultiProcess(base_objects.PhysicsObject):
         fsids = [leg['ids'] for leg in process_definition['legs'] \
                  if leg['state'] == True]
         # Generate all combinations for the initial state
-        
-        # For loop processes we keep track of the starting process definition process_ID 
-        # and increment it by 10'000 (cls._MadLoop_offset) for each new loop_process generated.
-        # This guarantees that every subprocess in that MadLoop output has a different
-        # prefix so as to avoid clash, and the multiplication by ten thousand also guarantees
-        # that 'add process' won't add clashes (as long as there are less than 10'000
-        # 'add_process' commands, which is ok). A smarter solution can come in later.        
-        if len(process_definition.get('perturbation_couplings'))>0:
-            if process_definition.get('id') >= cls._MadLoop_offset:
-                raise MadGraph5Error("When using a standalone loop MultiProcess, make sure"+
-                " not to assign a process ID to your process that exceeds %d. You specified: %d."\
-                %(cls._MadLoop_offset,process_definition.get('id')))
-            proc_id = cls._MadLoop_offset + process_definition.get('id')
-        
+
         for prod in itertools.product(*isids):
             islegs = [\
                     base_objects.Leg({'id':id, 'state': False}) \
@@ -1779,8 +1758,9 @@ class MultiProcess(base_objects.PhysicsObject):
                 process = process_definition.get_process_with_legs(legs)
                 # If it is a loop process make sure to use incremented process_ID
                 # so that there is no clash in the name of the files and symbols within one output.
-                if len(process.get('perturbation_couplings'))>0:
-                    process.set('id',proc_id)
+#                if len(process.get('perturbation_couplings'))>0:
+#                    process.set('id',proc_id)
+
                 fast_proc = \
                           array.array('i',[leg.get('id') for leg in legs])
                 if collect_mirror_procs and \
@@ -1845,14 +1825,7 @@ class MultiProcess(base_objects.PhysicsObject):
                     failed_procs.append(sorted_legs)
                 else:
                     # Succeeded in generating diagrams
-                    if amplitude.get('diagrams'):
-                        if len(process.get('perturbation_couplings'))>0:
-                            # We create an amplitude for a loop process, so make sure to increment the
-                            # process ID by cls._MadLoop_offset to avoid clashes.
-                            # The original process definition process ID can still be obtained
-                            # by taking the modulo with cls._MadLoop_offset
-                            proc_id += cls._MadLoop_offset
-                            
+                    if amplitude.get('diagrams'):                            
                         amplitudes.append(amplitude)
                         success_procs.append(sorted_legs)
                         permutations.append(permutation)

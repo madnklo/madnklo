@@ -317,7 +317,6 @@ class LorentzVectorDict(dict):
         out_lines.append(line)
         running_sum = LorentzVector()
         for i in sorted(self.keys()):
-            # BALDY why are you copying mom here? (pun came out for free)
             mom = LorentzVector(self[i])
             if i <= n_initial:
                 running_sum += mom

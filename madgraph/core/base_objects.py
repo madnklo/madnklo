@@ -4061,7 +4061,7 @@ class ContributionDefinitionList(PhysicsObjectList):
         return self.contrib_list_string(self)
     
     @staticmethod
-    def contrib_list_string(contrib_list):
+    def contrib_list_string(contrib_list, format=0):
         """ Nicely format details about this list."""
         BLUE = '\033[94m'
         GREEN = '\033[92m'
@@ -4075,7 +4075,7 @@ class ContributionDefinitionList(PhysicsObjectList):
             line_length = len(res[-1])-10
             res.append("="*line_length)
             for LO_contrib in LO_contribs:
-                res.extend(['   %s'%line for line in LO_contrib.nice_string().split('\n')])
+                res.extend(['   %s'%line for line in LO_contrib.nice_string(format=format).split('\n')])
                 res.append('   %s'%('-'*line_length))
             res.pop()
         NLO_contribs = contrib_list.get_contributions_of_order('NLO')
@@ -4084,7 +4084,7 @@ class ContributionDefinitionList(PhysicsObjectList):
             line_length = len(res[-1])-10
             res.append("="*line_length)
             for NLO_contrib in NLO_contribs:
-                res.extend(['   %s'%line for line in NLO_contrib.nice_string().split('\n')])
+                res.extend(['   %s'%line for line in NLO_contrib.nice_string(format=format).split('\n')])
                 res.append('   %s'%('-'*line_length))
             res.pop()
         NNLO_contribs = contrib_list.get_contributions_of_order('NNLO')
@@ -4093,7 +4093,7 @@ class ContributionDefinitionList(PhysicsObjectList):
             line_length = len(res[-1])-10
             res.append("="*line_length)
             for NNLO_contrib in NNLO_contribs:
-                res.extend(['   %s'%line for line in NNLO_contrib.nice_string().split('\n')])    
+                res.extend(['   %s'%line for line in NNLO_contrib.nice_string(format=format).split('\n')])    
                 res.append('   %s'%('-'*line_length))
             res.pop()
         NNNLO_contribs = contrib_list.get_contributions_of_order('NNNLO')
@@ -4102,7 +4102,10 @@ class ContributionDefinitionList(PhysicsObjectList):
             line_length = len(res[-1])-10
             res.append("="*line_length)
             for NNNLO_contrib in NNNLO_contribs:
-                res.extend(['   %s'%line for line in NNNLO_contrib.nice_string().split('\n')])    
+                res.extend(['   %s'%line for line in NNNLO_contrib.nice_string(format=format).split('\n')])    
                 res.append('   %s'%('-'*line_length))
             res.pop()
+
+        # Conclude with a trailing space
+        res.append('')
         return '\n'.join(res)

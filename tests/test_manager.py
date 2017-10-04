@@ -1042,6 +1042,7 @@ https://cp3.irmp.ucl.ac.be/projects/madgraph/wiki/DevelopmentPage/CodeTesting
         logging.config.fileConfig(os.path.join(root_path,'tests','.mg5_logging.conf'))
         logging.root.setLevel(eval('logging.' + options.logging))
         logging.getLogger('madgraph').setLevel(eval('logging.' + options.logging))
+        logging.getLogger('madevent7').setLevel(eval('logging.' + options.logging))        
         logging.getLogger('cmdprint').setLevel(eval('logging.' + options.logging))
         logging.getLogger('tutorial').setLevel('ERROR')
     except:

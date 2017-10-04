@@ -390,6 +390,7 @@ class SingularStructure(object):
         self.substructures = [
             a for a in components if isinstance(a, SingularStructure)
         ]
+
         # Set of simple legs this SubtractionOperators acts on
         self.legs = SubtractionLegSet(
             # Without tuple and expansion, it fails for empty components
@@ -413,7 +414,7 @@ class SingularStructure(object):
 
         if self.is_annihilated:
             return 'Non-existing structure'
-
+        
         tmp_str = self.name() + "("
         tmp_str += ",".join(sorted(
             sub.__str__(print_n, print_pdg, print_state)
@@ -882,8 +883,7 @@ class CountertermNode(object):
         return type(structure)(list(legs)+substructures)
 
     def get_singular_structure_string(
-        self, print_n=True, print_pdg=False, print_state=False
-    ):
+            self, print_n=True, print_pdg=False, print_state=False ):
         """Return a one-line string specifying only the complete nested singular
         structure of this counterterm node.
         """
@@ -1156,10 +1156,11 @@ class Counterterm(CountertermNode):
             tmp_str += " @ " + str(process_n_loops) + " loop"
             if process_n_loops != 1:
                 tmp_str += "s"
+        
         tmp_str += "\n"
         for subcurrent in self.subcurrents:
             tmp_str += subcurrent.__str__(level + 1)
-        tmp_str += "    " * level + "Pseudoparticles: {"
+        tmp_str += "    " * level + " | Pseudoparticles: {"
         tmp_str += "; ".join(
             str(key) + ": (" +
             ",".join(str(n) for n in self.momenta_dict[key]) + ")"
@@ -1225,21 +1226,6 @@ class IntegratedCounterterm(Counterterm):
             return '[integrated] %s'%res
         else:
             return res
-
-    def get_prefactor(self, resolved_process=None, complete_singular_structure=None):
-        """It is not allowed to reconstruct the prefactor of an integrated
-        counterterm because it depends on the multiplicity of the mapped subprocesses.
-        For instance, u u~ > (g > b b~) a is mapped to 
-           u u~ > (g > c c~) a
-           u u~ > (g > s s~) a
-           etc...
-        which means that it will take a prefactor of 3 or so assigned at generation
-        time (function get_all_countertemrs of the real-emission contributions)
-        that cannot be reconstructed afterwards.
-        """
-    
-        raise MadGraph5Error("Integrated counter-terms cannot reconstruct their"+
-                             " prefactor post-generation.")
 
 #===============================================================================
 # order_2_string
@@ -1674,6 +1660,19 @@ class IRSubtraction(object):
                     " functioning properly. It should have at least the reduced process" +
                     " squared orders in it.")
 
+        ########
+        # TODO
+        #
+        # Modify the reduced process leg numbers so as to follow the order of appearance in the list of legs
+        # (because this is how the PS point will be provided in the virtual contribution).
+        #
+        # Modify the bi-dictionary so as to match the modification of the leg numbers above in the reduced process.
+        # What leg numbers are chosen for the unresolved legs is irrelevant, as long as I can deduce the parent leg
+        # number from the singular structure and the bidictionary momentum map
+        #
+        ########
+        
+        
         integrated_current = IntegratedCurrent({
             'n_loops': n_loops,
             'squared_orders': squared_orders,
@@ -1859,6 +1858,11 @@ class SubtractionCurrentExporter(object):
     
     template_dir = pjoin(MG5DIR,'madgraph','iolibs','template_files','subtraction')
     template_modules_path = 'madgraph.iolibs.template_files.subtraction'
+    
+    # The main module name is not meant to be changed. If changed, then beware that the
+    # import statements of the implementation of the subtraction currents must be 
+    # updated accordingly
+    main_module_name = 'SubtractionCurrents'
 
     def __init__(self, model, export_dir=None):
         """Initialize the exporter with a model and target export directory."""
@@ -1898,13 +1902,13 @@ class SubtractionCurrentExporter(object):
         subtraction_utils = importlib.import_module(subtraction_utils_module_path)
         
         if not self.export_dir is None:
-            # First copy the base files to export_dir
-            if not os.path.isdir(pjoin(self.export_dir,'SubtractionCurrents')):
-                os.mkdir(pjoin(self.export_dir,'SubtractionCurrents'))
+            # First copy the base files to export_dir 
+            if not os.path.isdir(pjoin(self.export_dir, self.main_module_name)):
+                os.mkdir(pjoin(self.export_dir, self.main_module_name))
     
             for file in ['__init__.py','subtraction_current_implementations_utils.py']:
-                if not os.path.isfile(pjoin(self.export_dir,'SubtractionCurrents', file)):
-                    cp(pjoin(self.template_dir,file), pjoin(self.export_dir,'SubtractionCurrents', file))
+                if not os.path.isfile(pjoin(self.export_dir, self.main_module_name, file)):
+                    cp(pjoin(self.template_dir,file), pjoin(self.export_dir,self.main_module_name, file))
         
         # Now load all modules specified in the templates and identify the current implementation classes
         all_classes = []
@@ -1957,7 +1961,7 @@ class SubtractionCurrentExporter(object):
                     instantiation_options_index = len(all_instantiation_options)-1
                 # If no export is asked for, then load directly from the subtraction template directory
                 if not self.export_dir is None:
-                    main_module = 'SubtractionCurrents'
+                    main_module = self.main_module_name
                 else:
                     main_module = 'subtraction'                    
                 key = ('%s.%s'%(main_module,module_path), class_name, instantiation_options_index)
@@ -1991,7 +1995,7 @@ class SubtractionCurrentExporter(object):
         # Now copy all the relevant directories
         if not self.export_dir is None:
             for directory_to_export in directories_to_export:
-                dir_path = pjoin(self.export_dir,'SubtractionCurrents',directory_to_export)
+                dir_path = pjoin(self.export_dir, self.main_module_name, directory_to_export)
                 def ignore_function(d, files):
                     return  [f for f in files if os.path.isfile(pjoin(d, f)) and f.split('.')[-1] in ['pyc','pyo','swp'] ]
                 if not os.path.isdir(dir_path):

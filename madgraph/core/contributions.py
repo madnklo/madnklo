@@ -131,52 +131,44 @@ class ProcessKey(object):
             # Special treatment for some attributes:
             if proc_attr == 'legs_with_decays':
                 self.key_dict['legs_with_decays'] = tuple((l.get('id'), l.get('number'), l.get('state')) for l in value)
-                continue
                 
-            if proc_attr == 'decay_chains':
+            elif proc_attr == 'decay_chains':
                 # Group all the hashes of the processes in decay_chains and store them here.
                 # BUT BEWARE THAT THE PDGs in self.key_dict only refer to the core production process then.
                 self.key_dict['decay_chains'] = tuple( ProcessKey(proc).get_canonical_key() for proc in value)
-                continue
             
-            if proc_attr == 'required_s_channels':
+            elif proc_attr == 'required_s_channels':
                 # Group all the hashes of the processes in decay_chains and store them here.
                 # BUT BEWARE THAT THE PDGs in self.key_dict only refer to the core production process then.
                 self.key_dict['required_s_channels'] = tuple( tuple(pdg for pdg in pdg_list) for pdg_list in value)
-                continue
             
-            if proc_attr == 'singular_structure':
+            elif proc_attr == 'singular_structure':
                 self.key_dict['singular_structure'] = value.get_canonical_representation(track_leg_numbers=False)
-                continue
-            
-            if proc_attr == 'id':
-                # We must take the modulo with diagram_generation.MultiProcess._MadLoop_offset because we
-                # don't want to be sensitive to the "prefix" added when exporting loop outputs, placed so 
-                # to avoid clash in MadLoop symbols in libraries and dependent resources.
-                self.key_dict['id'] = value%diagram_generation.MultiProcess._MadLoop_offset
 
             # Let us not worry about WEIGHTED orders that are added automatically added when doing process matching
             # Also ignore squared order constraints that are not == as those are added automatically to improve
             # diagram efficiency and should not be used anyway to discriminate different processes since they may
             # overlap and cannot be constructed unambiguously in reduced processes for counterterms
-            if proc_attr in ['orders']:
+            elif proc_attr in ['orders']:
                 self.key_dict[proc_attr] = hash_dict(dict((k, v) for k, v in value.items() 
                                                              if k!='WEIGHTED'), proc_attr)
-                continue
-            if proc_attr in ['sqorders_types', 'squared_orders']:
+            elif proc_attr in ['sqorders_types', 'squared_orders']:
                 self.key_dict[proc_attr] = hash_dict(dict((k, v) for k, v in value.items() if \
                         ( k!='WEIGHTED' and ( isinstance(process, subtraction.Current) or
                                               (k not in process['sqorders_types']) or 
                                               process['sqorders_types'][k]=='==') )
                     ), proc_attr)
-                continue
     
-            if proc_attr == 'parent_subtraction_leg':
+            elif proc_attr == 'parent_subtraction_leg':
                 parent_subtraction_leg = process[proc_attr]
                 self.key_dict['singular_structure'] = (parent_subtraction_leg.pdg, parent_subtraction_leg.state)
 
+            elif proc_attr == 'split_orders':
+                # The ordering does not matter for split orders
+                self.key_dict[proc_attr] = hash_list(sorted(value), proc_attr)
+    
             # Now generically treat other attributes
-            if isinstance(value, (int, str, tuple, bool)):
+            elif isinstance(value, (int, str, tuple, bool)):
                 self.key_dict[proc_attr] = value
             elif isinstance(value, list):
                 self.key_dict[proc_attr] = hash_list(value, proc_attr)
@@ -843,11 +835,11 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
         added_path = False
         if self.root_path not in sys.path:
             added_path = True
-            sys.path.insert(0, pjoin(self.root_path))
+            sys.path.insert(0, self.root_path)
         try:
             subtraction_current_module = importlib.import_module(module_path)
         except ImportError as e:
-            raise MadGraph5Error("Could not load subtraction current module '%s' in '%s'."%(self.root_path,module_path)+
+            raise MadGraph5Error("Could not load subtraction current module '%s' in '%s'."%(module_path,self.root_path)+
                                  "\nThe import error is: %s"%e.message)
 
         if added_path:
@@ -974,7 +966,7 @@ class F2PYMEAccessor(VirtualMEAccessor):
         # Recompile and reload the module if synchronize was not call from the __init__ function
         if not from_init:
             self.compile(mode=compile)
-            with misc.Silence(active=(logger.level>logging.DEBUG)):
+            with misc.Silence(active=False and (logger.level>logging.DEBUG)):
                 self.f2py_module = reload(self.f2py_module)
 
         # Now gather various properties about the Matrix Elements
@@ -1048,7 +1040,7 @@ class F2PYMEAccessor(VirtualMEAccessor):
 
     def load_f2py_module(self, module_path):
         """ Loads a f2py module given its path and returns it."""
-        
+
         # Make sure to temporarily adjust the environment
         added_path = False
         if module_path[0] not in sys.path:
@@ -1056,7 +1048,7 @@ class F2PYMEAccessor(VirtualMEAccessor):
             sys.path.insert(0, pjoin(self.root_path,module_path[0]))
         # Use logger.level >= loggign.DEBUG and not > so as to forward
         # the loading text only if the user *really* wants it by setting logger.level = 0 :)
-        with misc.Silence(active=(logger.level>=logging.DEBUG)):
+        with misc.Silence(active=False and (logger.level>=logging.DEBUG)):
             try:
                 f2py_module = importlib.import_module(module_path[1])
             except:
@@ -1179,7 +1171,7 @@ class F2PYMEAccessor(VirtualMEAccessor):
         # we will be able to use the information of self.process_pdgs to determine which one to call.
         # misc.sprint(" I was called from :",self.process_pdgs)
         if not self.module_initialized:
-            with misc.Silence(active=False and (logger.level>logging.DEBUG)):
+            with misc.Silence(active=(logger.level>logging.DEBUG)):
                 self.get_function('initialise')(pjoin(self.root_path, self.slha_card_path))
             self.module_initialized = True
         
@@ -1766,20 +1758,20 @@ class MEAccessorDict(dict):
         
         return ME_accessor(*call_args, **call_options)
     
-    def add_MEAccessor(self, ME_accessor):
+    def add_MEAccessor(self, ME_accessor, allow_overwrite=False):
         """ Add a particular ME accessor to the collection of available ME's."""
         if not isinstance(ME_accessor, VirtualMEAccessor):
             raise MadGraph5Error("MEAccessorDict can only be assigned values inheriting from VirtualMEAccessor.")
         
         for key, value in ME_accessor.get_canonical_key_value_pairs():
-            if key in self:
+            if key in self and not allow_overwrite:
                 raise MadGraph5Error("Attempting to assign two MEAccessors to the same key in MEAccessorDict.")
             self[key] = value
 
-    def add_MEAccessors(self, ME_accessor_list):
+    def add_MEAccessors(self, ME_accessor_list, allow_overwrite=False):
         """ Add a list of ME_accessors."""
         for ME_accessor in ME_accessor_list:
-            self.add_MEAccessor(ME_accessor)
+            self.add_MEAccessor(ME_accessor, allow_overwrite=allow_overwrite)
 
     def synchronize(self, *args, **opts):
         """ Synchronizes all the accessors with the possibly updated value of parameter cards and ME source code."""
@@ -1907,8 +1899,10 @@ class Contribution(object):
         self.export_dir              = 'None'
         if self.options['group_subprocesses'] == 'Auto':
             self.collect_mirror_procs = True
+            self.group_subprocesses   = True
         else:
             self.collect_mirror_procs   = self.options['group_subprocesses']
+            self.group_subprocesses     = self.options['group_subprocesses']
 
         # Options relevant only for LO diagram generation
         self.ignore_six_quark_processes = False
@@ -1928,7 +1922,7 @@ class Contribution(object):
         self.processes_to_topologies = None
         self.topologies_to_processes = None
         
-    def add_integrated_counterterm(self, integrated_counterterm):
+    def add_integrated_counterterm(self, integrated_CT_properties):
         """ By default, do not support adding integrated counterterms."""
         
         raise MadGraph5Error("The contribution of type %s cannot receive"%type(self)+
@@ -2010,7 +2004,7 @@ class Contribution(object):
 
         else: # Not grouped subprocesses
             generation_mode = {}
-
+            
             # The conditional statement tests whether we are dealing with a loop induced process.
             if isinstance(self.amplitudes[0], loop_diagram_generation.LoopAmplitude):
                 generation_mode['optimized_output']=self.options['loop_optimized_output']
@@ -2020,8 +2014,12 @@ class Contribution(object):
                 HelasMultiProcessClass = helas_objects.HelasMultiProcess
                 compute_loop_nc = False
             
+            # Explicitly set combine_matrix_elements to False, since the grouping of
+            # subprocesses has been turned off
             self.all_matrix_elements = HelasMultiProcessClass(
-                self.amplitudes, compute_loop_nc=compute_loop_nc, matrix_element_opts=generation_mode)
+                self.amplitudes, compute_loop_nc=compute_loop_nc, 
+                matrix_element_opts=generation_mode,
+                combine_matrix_elements=False)
             
             ndiags = sum([len(me.get('diagrams')) for me in 
                                             self.all_matrix_elements.get_matrix_elements()])
@@ -2083,6 +2081,9 @@ class Contribution(object):
     def export(self, nojpeg=False, group_processes=True, args=[]):
         """ Perform the export duties, that include generation of the HelasMatrixElements and 
         the actual output of the matrix element code by the exporter."""
+
+        # Update self.group_subprocesses with the specified value
+        self.group_subprocesses = group_processes
         
         # Check if the current contribution supports Decay chain
         if not self.supports_decay_chain and any(isinstance(amp, 
@@ -2284,13 +2285,16 @@ class Contribution(object):
         MEAccessors = []
         for process_key, (defining_process, mapped_processes) in self.get_processes_map().items():
             # The PDGs of the hashed representations correspond to entry [0][0]
-            mapped_process_pdgs = [ (proc.get_initial_ids(), proc.get_final_ids()) for proc in mapped_processes ]
-            f2py_module_path = pjoin(self.export_dir,'matrix_%s_py.so'%defining_process.shell_string())
+            mapped_process_pdgs = [ (proc.get_initial_ids(), proc.get_final_ids()) 
+                                                            for proc in mapped_processes ]
+            f2py_module_path = pjoin(self.export_dir,'matrix_%s_py.so'%
+                                                   self.process_dir_name(defining_process))
             if not os.path.exists(f2py_module_path):
                 raise MadGraph5Error("Cannot find the compiled f2py module for %s at %s"%
                                                             (defining_process.nice_string(),f2py_module_path))
             f2py_load_path = (os.path.dirname(self.export_dir), 
-                    '%s.matrix_%s_py'%( os.path.basename(self.export_dir), defining_process.shell_string() ) )
+                        '%s.matrix_%s_py'%( os.path.basename(self.export_dir), 
+                                                self.process_dir_name(defining_process) ) )
             slha_card_path = pjoin(self.export_dir,'Cards','param_card.dat')
             if os.path.isdir(pjoin(self.export_dir,'SubProcesses','MadLoop5_resources')):
                 madloop_resources_path = pjoin(self.export_dir,'SubProcesses','MadLoop5_resources')
@@ -2306,7 +2310,9 @@ class Contribution(object):
                 root_path=root_path
                 ) )
 
-        all_MEAccessors.add_MEAccessors(MEAccessors)
+        # Only allow overwriting accessors if processes were not grouped
+        all_MEAccessors.add_MEAccessors(MEAccessors, 
+                                          allow_overwrite = (not self.group_subprocesses) )
 
     def can_processes_be_integrated_together(self, processA, processB):
         """ Investigates whether processA and processB can be integrated together for this contribution."""
@@ -2429,7 +2435,42 @@ class Contribution(object):
     def make_model_symbolic_link(self):
         """ Links some of the MODEL resources to the other folders exported within this contribution."""
         self.exporter.make_model_symbolic_link()
+    
+    def get_inverse_processes_map(self, force=False):
+        """ Returns a dictionary with the keys (with ordered PDGs) of all processes present
+        in this contribution and the single value being their corresponding "defining" process key.
+        If force is True, then the map will be reconstructed entirely and the cache updated."""
         
+        # Sort PDGs only when processes have been grouped
+        sort_PDGs = self.group_subprocesses
+        
+        if not self.all_matrix_elements.get_matrix_elements():
+            raise MadGraph5Error("The processes reverse map can only be built *after*"+
+                                                 " the matrix element have been exported.")
+        
+        if hasattr(self, 'inverse_processes_map') and not force:
+            return self.inverse_processes_map
+            
+        process_map = self.get_processes_map(force=force)
+        inverse_map = {}
+        for process_key, (defining_process, mapped_processes) in process_map.items():
+            defining_process_key = ProcessKey(defining_process,sort_PDGs=sort_PDGs).get_canonical_key()
+            if defining_process_key in inverse_map:
+                raise MadGraph5Error("The following process key appears twice in "+
+                                                  "the processes map: %s"%str(process_key))
+            inverse_map[defining_process_key] = process_key
+            for mapped_process in mapped_processes:
+                mapped_process_key = ProcessKey(mapped_process,sort_PDGs=sort_PDGs).get_canonical_key()
+                if mapped_process_key in inverse_map:
+                    raise MadGraph5Error("The following mapped process key appears twice "+
+                                             "in the processes map: %s"%mapped_process_key)                    
+                inverse_map[mapped_process_key] = process_key
+        
+        self.inverse_processes_map = inverse_map
+        
+        return self.inverse_processes_map
+                    
+
     def get_processes_map(self, force=False):
         """ Returns a dictionary with keys obtained from ProcessKey and values being a tuple with format
                  (defining_process, [mapped processes])
@@ -2442,7 +2483,8 @@ class Contribution(object):
         # Attempt reusing a cached version
         if hasattr(self, 'processes_map') and not force:
             if (self.processes_map[0]['had_amplitudes'] == bool(self.amplitudes)) and \
-               (self.processes_map[0]['had_matrix_elements'] == bool(self.all_matrix_elements.get_matrix_elements())):
+               (self.processes_map[0]['had_matrix_elements'] == bool(
+                                          self.all_matrix_elements.get_matrix_elements())):
                 return self.processes_map[1]
         
         all_defining_procs = [amp.get('process') for amp in self.amplitudes]
@@ -2486,13 +2528,25 @@ class Contribution(object):
                 all_defining_procs)
         
         return all_defining_procs        
+
+    def process_dir_name(self, process):
+        """ Given a specified process, return the directory name in which it is output."""
+        # This function is essentially useful in order to be shadowed by daughter classes     
+        return process.shell_string()       
     
     def compile(self):
         """ Compiles the f2py shared library to provide easy access to this contribution."""
         
-        for process_key, (defining_process, mapped_processes) in self.get_processes_map().items():
-            name = defining_process.shell_string()
+        processes_map = self.get_processes_map()
+        i_process=0
+        for process_key, (defining_process, mapped_processes) in processes_map.items():
+            i_process += 1
+            name = self.process_dir_name(defining_process)
             Pdir = pjoin(self.export_dir, 'SubProcesses', 'P%s'%name)
+            logger.debug("[%d/%d] Compiling %s in '%s'..."%(
+                        i_process, len(processes_map.keys()),
+                        defining_process.nice_string().replace('Process','process'),
+                        os.path.basename(Pdir) ))
             if not os.path.isdir(Pdir):
                 raise MadGraph5Error("The expected subprocess directory %s could not be found."%Pdir)
             misc.compile(arg=['matrix_%s_py.so'%name, 'MENUM=_%s_'%name], cwd=Pdir)
@@ -2501,7 +2555,19 @@ class Contribution(object):
                                  "Try running 'make matrix2py.so' by hand in this directory.")
             ln(pjoin(Pdir, 'matrix_%s_py.so'%name), starting_dir=self.export_dir)
     
-    def nice_string(self):
+    def get_nice_string_process_line(self, process_key, defining_process, format=0):
+        """ Return a nicely formated process line for the function nice_string of this 
+        contribution."""
+        GREEN = '\033[92m'
+        ENDC = '\033[0m'        
+        return GREEN+'  %s'%defining_process.nice_string(print_weighted=False).\
+                                                               replace('Process: ','')+ENDC
+    
+    def get_additional_nice_string_printout_lines(self, format=0):
+        """ Return additional information lines for the function nice_string of this contribution."""
+        return []
+    
+    def nice_string(self, format=0):
         """ Nice string representation of self."""
         BLUE = '\033[94m'
         GREEN = '\033[92m'
@@ -2511,19 +2577,29 @@ class Contribution(object):
         if not self.topologies_to_processes is None:
             res.append('%-30s:   %d'%('Number of topologies', 
                                                     len(self.topologies_to_processes.keys())))
+        res.extend(self.get_additional_nice_string_printout_lines())
         if self.amplitudes and not self.all_matrix_elements.get_matrix_elements():
-            res.append('Amplitudes generated for the following processes:')
-            for amp in self.amplitudes:
-                res.append(GREEN+'  %s'%amp.get('process').nice_string(print_weighted=False).\
-                                                                        replace('Process: ','')+ENDC)
+            if format < 1:
+                res.append('Amplitudes generated for the following processes: %d'%
+                                                                    len(self.amplitudes) )
+            else:
+                res.append('Amplitudes generated for the following processes:')
+                for amp in self.amplitudes:
+                    res.append(GREEN+'  %s'%amp.get('process').nice_string(print_weighted=False).\
+                                                                            replace('Process: ','')+ENDC)
         elif self.amplitudes and self.all_matrix_elements.get_matrix_elements():
-            res.append('Generated and mapped processes for this contribution:')
-            for process_key, (defining_process, mapped_processes) in self.get_processes_map().items():
-                res.append(GREEN+'  %s'%defining_process.nice_string(print_weighted=False).\
-                                                                        replace('Process: ','')+ENDC)
-                for mapped_process in mapped_processes:
-                    res.append(BLUE+u'   \u21b3  '+mapped_process.nice_string(print_weighted=False)\
-                                                                        .replace('Process: ','')+ENDC)
+            processes_map = self.get_processes_map()
+            if format < 1:
+                res.append('Generated and mapped processes for this contribution: %d (+%d mapped)'%
+                           ( len(processes_map.keys()),
+                             len(sum([v[1] for v in processes_map.values()],[])) ) )
+            else:
+                res.append('Generated and mapped processes for this contribution:')
+                for process_key, (defining_process, mapped_processes) in processes_map.items():
+                    res.append(self.get_nice_string_process_line(process_key, defining_process, format=format))                
+                    for mapped_process in mapped_processes:
+                        res.append(BLUE+u'   \u21b3  '+mapped_process.nice_string(print_weighted=False)\
+                                                                            .replace('Process: ','')+ENDC)
         else:
             res.append(BLUE+'No amplitudes generated yet.'+ENDC)
             
@@ -2574,21 +2650,49 @@ class Contribution_R(Contribution):
         super(Contribution_R, self).__init__(contribution_definition, cmd_interface, **opts)
         # Add a default empty list of counterterms
         self.counterterms = None
-    
-    def nice_string(self):
-        """ Nice string representation of self."""
-        res = [super(Contribution_R, self).nice_string()]
 
-        if not self.counterterms is None:
-            max_n_counterterms = (None, 0)
-            for process_key, (defining_process, mapped_processes) in self.get_processes_map().items():
-                if len(self.counterterms[process_key]) > max_n_counterterms[1]:
-                    max_n_counterterms = (defining_process, len(self.counterterms[process_key]))
-            res.append('%-30s:   %d for process %s'%('Max number of counteterms',
-                max_n_counterterms[1], max_n_counterterms[0].nice_string(print_weighted=False).\
-                                                                         replace('Process: ','') ) )
+    def get_additional_nice_string_printout_lines(self, format=0):
+        """ Return additional information lines for the function nice_string of this contribution."""
+        res = []
+        if self.counterterms:
+            res.append('%-30s:   %d'%('Number of local counterterms', 
+               len([1 for CT in sum(self.counterterms.values(),[]) if CT.is_singular()]) ))
+        return res
         
-        return '\n'.join(res)
+    def get_nice_string_process_line(self, process_key, defining_process, format=0):
+        """ Return a nicely formated process line for the function nice_string of this 
+        contribution."""
+        
+        GREEN = '\033[92m'
+        ENDC = '\033[0m'        
+        res =  GREEN+'  %s'%defining_process.nice_string(print_weighted=False).\
+                                                               replace('Process: ','')+ENDC
+
+        if not self.counterterms:
+            return res                                                               
+
+        if format < 2:
+            if process_key in self.counterterms:
+                res += ' | %d local counterterms'%len([ 1 for CT in 
+                                      self.counterterms[process_key] if CT.is_singular() ])
+            else:
+                res += ' | 0 local counterterm'
+                
+        else:
+            long_res = [' | with the following local counterterms:']
+            for CT in self.counterterms[process_key]:
+                if CT.is_singular():
+                    if format==2:
+                        long_res.append( '   | %s'%CT.get_singular_structure_string(
+                                            print_n=True, print_pdg=False, print_state=False )  )
+                    elif format==3:
+                        long_res.append( '   | %s'%CT.get_singular_structure_string(
+                                            print_n=True, print_pdg=True, print_state=True )  )
+                    elif format>3:
+                        long_res.append( '   | %s'%str(CT))
+            res += '\n'.join(long_res)
+
+        return res
 
     def generate_all_counterterms(self, group_processes=True):
         """ Generate all counterterms associated to the processes in this contribution."""
@@ -2599,12 +2703,27 @@ class Contribution_R(Contribution):
             local_counterterms, integrated_counterterms = \
                                  self.IR_subtraction.get_all_counterterms(defining_process)
             self.counterterms[process_key] = local_counterterms
-            # Add a multiplication factor to the counterterm prefactor that corresponds
-            # to the number of mapped processes that this integrated counterterm
+            # Add a additional information about the integrated_counterterms that will
+            # be necessary for their evaluations in the corresponding lower-multiplicity
+            # contribution
+            
+            # First, a dictionary with keys being a one- or two- tuple of the initial
+            # states part of this mapping and the values being the number of mapped
+            # processes that possess these initial states
+            flavors_combinations = []
+            # Notice that the defining flavor combination will always be placed first
+            for process in [defining_process,]+mapped_processes:
+                flavors_combinations.append( (
+                    tuple(process.get_initial_ids()),
+                    tuple(process.get_final_ids_after_decay())
+                ) )
+
             for integrated_counterterm in integrated_counterterms:
-                integrated_counterterm.prefactor *= (1+len(mapped_processes))
-            all_integrated_counterterms.extend(integrated_counterterms)
-        
+                all_integrated_counterterms.append({
+                    'integrated_counterterm'    :   integrated_counterterm,
+                    'flavors_combinations'      :   flavors_combinations
+                })
+
         return all_integrated_counterterms
     
     @classmethod
@@ -2612,7 +2731,11 @@ class Contribution_R(Contribution):
         """ Given the list of available reduced processes encoded in the MEAccessorDict 'all_MEAccessors'
         given in argument, remove all the counterterms whose underlying reduced process does not exist."""
 
+
         for counterterm in list(counterterms):
+            # Of course don't remove any counterterm that would be the real-emission itself.
+            if not counterterm.is_singular():
+                continue
             try:
                 all_MEAccessors.get_MEAccessor(counterterm.process)
             except MadGraph5Error:
@@ -2683,7 +2806,7 @@ class Contribution_R(Contribution):
                 current_properties['defining_current'],
                 module_path,
                 class_name,
-                'SubtractionCurrents.subtraction_current_implementations_utils', 
+                '%s.subtraction_current_implementations_utils'%current_exporter.main_module_name, 
                 current_properties['instantiation_options'], 
                 mapped_process_keys=current_properties['mapped_process_keys'], 
                 root_path=root_path,
@@ -2744,18 +2867,91 @@ class Contribution_V(Contribution):
         self.MultiProcessClass          = loop_diagram_generation.LoopMultiProcess
         self.output_type                = 'madloop'
         
-        # Store integration counterterms.
-        self.integrated_counterterms    = []
+        # Store values being integration counterterms and their properties (as a dictionary), 
+        # with the ProcessKey they are attached to as keys of this attribute's dictionary.
+        self.integrated_counterterms    = {}
     
+    def get_additional_nice_string_printout_lines(self, format=0):
+        """ Return additional information lines for the function nice_string of this contribution."""
+        res = []
+        if self.integrated_counterterms:
+            res.append('%-30s:   %d'%('Nb. of integrated counterterms', 
+                                      len(sum(self.integrated_counterterms.values(),[]))))
+        return res
+    
+    @classmethod
+    def remove_counterterms_with_no_reduced_process(cls, all_MEAccessors, CT_properties_list):
+        """ Given the list of available reduced processes encoded in the MEAccessorDict 'all_MEAccessors'
+        given in argument, remove all the counterterms whose underlying reduced process does not exist."""
+
+        for CT_properties in list(CT_properties_list):
+            counterterm = CT_properties['integrated_counterterm']
+            # Of course don't remove any counterterm that would be the real-emission itself.
+            if not counterterm.is_singular():
+                continue
+            try:
+                all_MEAccessors.get_MEAccessor(counterterm.process)
+            except MadGraph5Error:
+                # This means that the reduced process could not be found and
+                # consequently, the corresponding counterterm must be removed.
+                # Example: C(5,6) in e+ e- > g g d d~
+                CT_properties_list.remove(CT_properties)
+    
+    def get_nice_string_process_line(self, process_key, defining_process, format=0):
+        """ Return a nicely formated process line for the function nice_string of this 
+        contribution."""
+        GREEN = '\033[92m'
+        ENDC = '\033[0m'        
+        res = GREEN+'  %s'%defining_process.nice_string(print_weighted=False).\
+                                                               replace('Process: ','')+ENDC
+
+        if not self.integrated_counterterms:
+            return res
+
+        if format<2:
+            if process_key in self.integrated_counterterms:
+                res += ' | %d integrated counterterms'%len(self.integrated_counterterms[process_key])
+            else:
+                res += ' | 0 integrated counterterm'
+                
+        else:
+            long_res = [' | with the following integrated counterterms:']
+            for CT_properties in self.integrated_counterterms[process_key]:
+                CT = CT_properties['integrated_counterterm']
+                if format==2:
+                    long_res.append( '   | %s'%CT.get_singular_structure_string(
+                                        print_n=True, print_pdg=False, print_state=False )  )
+                elif format==3:
+                    long_res.append( '   | %s'%CT.get_singular_structure_string(
+                                        print_n=True, print_pdg=True, print_state=True )  )
+                elif format==4:
+                    long_res.append( '   | %s'%str(CT))
+                elif format>4:
+                    long_res.append( '   | %s'%str(CT))
+                    for key, value in CT_properties.items():
+                        if not key in ['integrated_counterterm', 'matching_process_key']:
+                            long_res.append( '     + %s : %s'%(key, str(value)))
+
+            res += '\n'.join(long_res)
+
+        return res
+
     def generate_matrix_elements(self, group_processes=True):
         """Generate the Helas matrix elements before exporting. Uses the main function argument 
         'group_processes' to decide whether to use group_subprocess or not."""
 
         cpu_time1 = time.time()
         ndiags = 0
-        
-        self.all_matrix_elements = loop_helas_objects.LoopHelasProcess(self.amplitudes,
-                                        optimized_output = self.options['loop_optimized_output'])
+
+        generation_mode = {'optimized_output': self.options['loop_optimized_output']}
+
+        self.all_matrix_elements = loop_helas_objects.LoopHelasProcess(
+            self.amplitudes,
+            compute_loop_nc = True,
+            matrix_element_opts = generation_mode,
+            optimized_output = self.options['loop_optimized_output'],
+            combine_matrix_elements=group_processes
+        )
         ndiags = sum([len(me.get('diagrams')) for me in self.all_matrix_elements.get_matrix_elements()])
         
         # assign a unique id number to all process
@@ -2787,7 +2983,8 @@ class Contribution_V(Contribution):
         generate all the integrated currents that must be exported."""
         
         all_currents = []
-        for counterterm in self.integrated_counterterms:
+        for CT_properties in sum(self.integrated_counterterms.values(),[]):
+            counterterm = CT_properties['integrated_counterterm']
             # For now we only support a basic integrated counterterm which is not broken
             # down in subcurrents but contains a single CountertermNode with a single
             # current in it that contains the whole singular subtructure describing this
@@ -2818,11 +3015,30 @@ class Contribution_V(Contribution):
     def add_current_accessors(cls, model, all_MEAccessors, 
                                            root_path, currents_to_consider, *args, **opts):
         """  Generates and add all integrated current accessors to the MEAccessorDict.
-        For now we can recylce the implementation of the Contribution_R class. """
+        For now we can recycle the implementation of the Contribution_R class. """
     
         return Contribution_R.add_current_accessors(model, 
                           all_MEAccessors, root_path, currents_to_consider, *args, **opts)
-    
+
+    def get_integrands_for_process_map(self, process_map, model, run_card, all_MEAccessors, ME7_configuration):
+        """ Returns all the integrands implementing this contribution for the specified process_map.
+        The instance of MEAccessorDict is necessary so as to be passed to the integrand instances.
+        """
+        
+        relevant_counterterms = {}
+        for process_key in process_map:
+            relevant_counterterms[process_key] = self.integrated_counterterms[process_key]
+
+        return [ ME7_interface.ME7Integrand(model, run_card,
+                                       self.contribution_definition,
+                                       process_map,
+                                       self.topologies_to_processes,
+                                       self.processes_to_topologies,
+                                       all_MEAccessors,
+                                       ME7_configuration,
+                                       integrated_counterterms=relevant_counterterms)
+               ]
+
     def add_ME_accessors(self, all_MEAccessors, root_path):
         """ Adds all MEAccessors for the matrix elements and currents generated as part 
         of this contribution."""
@@ -2830,20 +3046,77 @@ class Contribution_V(Contribution):
         # Get the basic accessors for the matrix elements
         super(Contribution_V, self).add_ME_accessors(all_MEAccessors, root_path)
 
-        # Remove integrated counterterms with non-existing underlying Born processes
-        Contribution_R.remove_counterterms_with_no_reduced_process(all_MEAccessors, 
-                                                              self.integrated_counterterms)
+        for process_key, CT_properties in self.integrated_counterterms.items():
+            # Remove integrated counterterms with non-existing underlying Born processes
+            self.remove_counterterms_with_no_reduced_process(all_MEAccessors, CT_properties)
 
         # Obtain all necessary currents
         currents_to_consider = self.get_all_necessary_integrated_currents(all_MEAccessors)
 
         self.add_current_accessors(self.model, all_MEAccessors, root_path, currents_to_consider)
 
-    def add_integrated_counterterm(self, integrated_counterterm):
+    def add_integrated_counterterm(self, integrated_CT_properties):
         """ Virtual contributions can receive integrated counterterms and they will
         be stored in the attribute list self.integrated_counterterms."""
         
-        self.integrated_counterterms.append(integrated_counterterm)
+        # Extract quantities from integrated_counterterm_properties
+        integrated_counterterm = integrated_CT_properties['integrated_counterterm']
+        # flavors_combinations = integrated_CT_properties['flavors_combinations']
+        
+        # Sort PDGs only when processes have been grouped
+        sort_PDGs = self.group_subprocesses
+        
+        # First access the inverse list of processes key, i.e. a dictionary with process keys
+        # for all processes in this contribution with the value being the corresponding
+        # defining process key
+        inverse_processes_map = self.get_inverse_processes_map()
+        
+        # Make sure the dictionary self.integrated_counterterms is initialized
+        # with one key for each mapped process
+        if len(self.integrated_counterterms)==0:
+            processes_map = self.get_processes_map()
+            for key in processes_map.keys():
+                self.integrated_counterterms[key] = []
+        
+        # Obtain the ProcessKey of the reduced process of the integrated counterterm
+        # Use ordered PDGs since this is what is used in the inverse_processes_map
+        # Also verwrite some of the process properties to make it match the 
+        # loop process definitions in this contribution
+        counterter_reduced_process_key = ProcessKey(integrated_counterterm.process,
+            sort_PDGs=sort_PDGs, n_loops=1, NLO_mode='virt', 
+            perturbation_couplings=self.contribution_definition.correction_couplings)\
+                                                                       .get_canonical_key()
+        
+        # misc.sprint(inverse_processes_map.keys(), len(inverse_processes_map.keys()))
+        # misc.sprint(counterter_reduced_process_key)
+        if counterter_reduced_process_key not in inverse_processes_map:
+            # The reduced process of the integrated counterterm is not included in this
+            # contribution so we return here False, letting the ME7 exporter know that
+            # we cannot host this integrated counterterm.
+            return False
+        
+        # Now we can simply add this integrated counterterm in the group of the
+        # defining process to which the reduced process is mapped
+        defining_key = inverse_processes_map[counterter_reduced_process_key]
+        
+        integrated_counterterm_properties = dict(integrated_CT_properties)
+        
+        # also store what was the matching virtual process key, not the defining one
+        # Fow not, it is not useful, but it can be added later if necessary.
+        # integrated_counterterm_properties['matching_process_key'] = counterter_reduced_process_key
+        
+        self.integrated_counterterms[defining_key].append(integrated_counterterm_properties)
+        
+        # Let the ME7 exporter that we could successfully host this integrated counterterm
+        return True
+
+    def process_dir_name(self, process):
+        """ Given a specified process, return the directory name in which it is output."""
+        
+        # For MadLoop ME's there is extra prefixes to avoid symbol and resource file clashes.
+        return "%d_%s_%s"%(process.get('id'), process.get('uid'),
+                                                      process.shell_string(print_id=False))
+
 
     def generate_code(self):
         """ Assuming the Helas Matrix Elements are now generated, we can write out the corresponding code."""
@@ -2857,7 +3130,15 @@ class Contribution_V(Contribution):
         # MadLoop standalone fortran output
         calls = 0
         for me in matrix_elements:
-            calls = calls + self.exporter.generate_subprocess_directory(me, self.helas_model)
+            # Choose the group number to be the unique id so that the output prefix
+            # is nicely P<proc_id>_<unique_id>_
+            calls = calls + self.exporter.generate_loop_subprocess(me, 
+                self.helas_model,
+                group_number = me.get('processes')[0].get('uid'),
+                proc_id = None,
+                config_map=None,
+                unique_id=me.get('processes')[0].get('uid'))
+
         # If all ME's do not share the same maximum loop vertex rank and the
         # same loop maximum wavefunction size, we need to set the maximum
         # in coef_specs.inc of the HELAS Source. The SubProcesses/P* directory
@@ -2872,6 +3153,11 @@ class Contribution_V(Contribution):
                                                    max(max_loop_vert_ranks))
         
         return calls, time.time() - cpu_time_start
+
+
+class Contribution_RV(Contribution_R, Contribution_V):
+    """ Implements the handling of a real-virtual type of contribution."""
+    pass
 
 class ContributionList(base_objects.PhysicsObjectList):
     """ A container for storing a list of contributions."""
@@ -2901,10 +3187,10 @@ class ContributionList(base_objects.PhysicsObjectList):
                 correction_classes = (correction_classes,)                
         return ContributionList([contrib for contrib in self if isinstance(contrib, correction_classes)])
 
-    def nice_string(self):
+    def nice_string(self, format=0):
         """ A nice representation of a list of contributions. 
         We can reuse the function from ContributionDefinitions."""
-        return base_objects.ContributionDefinitionList.contrib_list_string(self)
+        return base_objects.ContributionDefinitionList.contrib_list_string(self, format=format)
 
     def sort_contributions(self):
         """ Sort contributions according to the order dictated by the class_attribute contributions_natural_order"""

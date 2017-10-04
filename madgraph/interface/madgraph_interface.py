@@ -2751,6 +2751,9 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
                      'diagrams_text', 'multiparticles', 'couplings', 'lorentz',
                      'checks', 'parameters', 'options', 'coupling_order','variable',
                      'contributions']
+    
+    _contribution_display_opts = ['default', 'long', 'very_long']
+
     _add_opts = ['process', 'model']
     _save_opts = ['model', 'processes', 'options']
     _tutorial_opts = ['aMCatNLO', 'stop', 'MadLoop', 'MadGraph5']
@@ -3473,7 +3476,6 @@ This implies that with decay chains:
         
         # Add the triple real-emission contribution
         # -----------------------------------------
-        misc.sprint('BEFORE',self._curr_model.get('interaction_dict')[63])
         if 'RRR' not in generation_options['ignore_contributions']:
             procdef = NNNLO_template_procdef.get_copy()
             # Update process id
@@ -3498,7 +3500,6 @@ This implies that with decay chains:
                         self)
             
             self._curr_contribs.append(triple_real_emission_contribution)
-        misc.sprint('AFTER',self._curr_model.get('interaction_dict')[63])
         
     def add_contributions(self, input_procdef, generation_options):
         """ Given a Born process definition. Add all necessary 'contributions', according the generation
@@ -3968,7 +3969,18 @@ This implies that with decay chains:
 
         elif args[0] == 'contributions':
             self._curr_contribs.sort_contributions()
-            print self._curr_contribs.nice_string()
+            if len(args)>1 and args[1].startswith('--format='):
+                format = args[1][9:]
+                try:
+                    format_value = int(format)
+                except ValueError:
+                    if format not in self._contribution_display_opts:
+                        raise InvalidCmd("The format for displaying contributions can only be in %s."%
+                                                          str(self._contribution_display_opts))
+                    format_value = {'default':0, 'long':1, 'very_long':2}[format]
+            else:
+                format_value = 0
+            print self._curr_contribs.nice_string(format=format_value)
 
         elif args[0] == 'diagrams_text':
             text = "\n".join([amp.nice_string() for amp in self._curr_amps])

@@ -184,7 +184,8 @@ class Silence:
             if self.outfiles[0] != os.devnull:
                 # disable buffering so output is merged immediately
                 sys.stdout, sys.stderr = map(os.fdopen, fds, ['w']*2, [0]*2)
-        else: null_streams = [open(f, self.mode, 0) for f in self.outfiles]
+        else:
+            null_streams = [open(f, self.mode, 0) for f in self.outfiles]
         self.null_fds = null_fds = [s.fileno() for s in null_streams]
         self.null_streams = null_streams
         

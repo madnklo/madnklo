@@ -543,7 +543,9 @@ class PhaseSpaceGeneratorsTest(unittest.TestCase):
         # themselves. Otherwise, it should be an instance of madgraph.integrator.integrands.DimensionList
         random_variables = None
         
+        
         PS_point, wgt, xb_1, xb_2 =  my_epem_PS_generator_massless.get_PS_point(random_variables)
+
         misc.sprint('Generated the following PS point:')
         misc.sprint(str(PS_point))
         misc.sprint('jacobian = %.16e'%wgt)

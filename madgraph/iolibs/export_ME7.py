@@ -68,6 +68,13 @@ class ME7Exporter(object):
         for contrib in self.contributions:
             contrib.initialize_exporter(cmd_interface, noclean, group_subprocesses=group_subprocesses)
 
+        # During the export of a bunch of contributions, store the integrated
+        # counterterms that did not find a host contribution, so as to check, *after*
+        # all the contributions have been finalized, that the reduced processes of
+        # those integrated counterterm is indeed inexistent (i.e. by looking it up in
+        # all_ME_accessor dict.)
+        self.integrated_counterterms_refused_from_all_contribs = []
+
     def pass_information_from_cmd(self, cmd_interface):
         """ Pass information from the cmd_interface to this exporter and all contributions."""
         
@@ -134,7 +141,7 @@ class ME7Exporter(object):
         coming from the specified contribution (presumably some real-emission type of
         contributions) and assign them to the correct contribution
         (typically of virtual origin)."""
-        
+                
         # Gather which contribution will receive the integrated counterterm for a given
         # number of loops and unresolved legs, and of course a given process_defining_ID
         # so that contributions from different 'add process' commands don't get mangled.
@@ -151,18 +158,21 @@ class ME7Exporter(object):
                 contribution.contribution_definition.n_unresolved_particles)
             if key in routing_map:
                 logger.warning("The two contributions:\n    %s\nand\n    %s\n"%(
-                    routing_map[key].nice_string(),contribution.nice_string())+
+                    routing_map[key][0].nice_string(),contribution.nice_string())+
                     "share the same  key (proc_ID=%d, n_loops=%d, n_unresolved=%d)."%key+
-                    "All integrated counterterms will be placed in the first of the two"+
-                    " contributions above.")
-                continue
-            routing_map[key] = contribution
+                    "All integrated counterterms will be placed in the first of the matching"+
+                    " contributions that accepts the integrated counterterm.")
+                routing_map[key].append(contribution)
+            else:
+                routing_map[key] = [contribution,]
 
-        for counterterm in integrated_counterterms:
-            # Note that we must undo the madloop offset introduce to lift degeneracies
-            # between the same subprocesses generated as part of the same process defintion.
-            proc_def_ID = counterterm.process.get('id')%\
-                                           diagram_generation.MultiProcess._MadLoop_offset
+        # Only warn once about issues occurring during the dispatching of integrated
+        # counterterms
+        warned = False
+        for integrated_CT_properties in integrated_counterterms:
+            # Extract quantities from integrated_counterterm_properties
+            counterterm = integrated_CT_properties['integrated_counterterm']
+            proc_def_ID = counterterm.process.get('id')
             
             # The integrated counterterm belongs to contribution whose defining number of
             # loops is the sum of the number of loops in the reduced process and the 
@@ -176,27 +186,45 @@ class ME7Exporter(object):
             # this counterterm should be the number of unresolved emission of the
             # originating contributions minus the number of unresolved legs in the integrated
             # current.
-            n_unresolved = contribution.contribution_definition.n_unresolved_particles - \
+            n_unresolved = contribution_origin.contribution_definition.n_unresolved_particles - \
                                                              counterterm.count_unresolved()
+
             key = ( proc_def_ID, n_loops, n_unresolved)
             # This missing contribution can happen if for example the user explicitly 
             # disabled some contributions, typically the virtual.
             # For now we simply skip the incorporation of this integrated counterterms and
             # issue a critical warning, but eventually one can think of creating an 
-            # ad-hoc "dummy" contribution to contain those integr
+            # ad-hoc "dummy" contribution to contain those integrated counterterms.
             if key not in routing_map:
                 msg = ("Could not find a contribution with key '"+
                     "(proc_ID=%d, n_loops=%d, n_unresolved=%d)'"%key+" to host the"+
                     " integrated counterterm %s."%str(counterterm)+" It will therefore be"+
                     " skipped making the ensuing results unphysical and wrong.")
                 if __debug__:
-                    logger.critical(msg)
+                    if not warned:
+                        logger.critical(msg)
+                        warned = True
+                        logger.critical("Further occurrences of this warning will now be suppressed.")
                     continue
                 else:
                     raise MadGraph5Error(msg)
-            
-            routing_map[key].add_integrated_counterterm(counterterm)
 
+            found_contribution_host = False
+            for contribution_candidate in routing_map[key]:
+                # Try to add this integrated counterterm to all candidate contributions
+                # and stop at the first one that accepts it based on the processes it
+                # contains. Complain if no contribution accepted the counterterm.
+                if contribution_candidate.add_integrated_counterterm(integrated_CT_properties):
+                    found_contribution_host = True
+                    break
+            
+            if not found_contribution_host:
+                # add this contribution with no host to the list and after all contributions
+                # will be finalized, this exporter will check that their reduced processes
+                # were indeed inexistent.
+                self.integrated_counterterms_refused_from_all_contribs.append(counterterm)
+                continue
+            
     def copy_model_resources(self):
         """Make the copy/symbolic links"""
         model_path = pjoin(self.export_dir, 'Source','MODEL')
@@ -257,6 +285,9 @@ class ME7Exporter(object):
         """ Distribute and organize the finalization of all contributions. """
         
         # Make sure contributions are sorted at this stage
+        # It is important to act on LO contributions first, then NLO, then etc...
+        # because ME and currents must be added to the ME_accessor in order since there
+        # are look-up operations on it in-between
         self.contributions.sort_contributions()
 
         # Save all the global couplings to write out afterwards
@@ -265,12 +296,6 @@ class ME7Exporter(object):
         for contrib in self.contributions:
             # Must clean the aloha Kernel before each aloha export for each contribution
             aloha.aloha_lib.KERNEL.clean()
-#
-#            misc.sprint(contrib.nice_string())
-#            if isinstance(contrib, contributions.Contribution_V):
-#                misc.sprint( [[ p.nice_string() for p in me.get('processes')] for me in 
-#                                       contrib.all_matrix_elements.get_matrix_elements()] )
-#
             wanted_couplings_to_add_to_global = contrib.finalize(flaglist = flaglist, 
                                                                  interface_history = interface_history)
             global_wanted_couplings.extend(wanted_couplings_to_add_to_global)
@@ -321,7 +346,23 @@ class ME7Exporter(object):
         all_MEAccessors = contributions.MEAccessorDict()
         for contrib in self.contributions:
             contrib.add_ME_accessors(all_MEAccessors, self.export_dir)
-        
+
+        # Now make sure that the integrated counterterms without any contribution host
+        # indeed have a non-existent reduced process.
+        contributions.Contribution_R.remove_counterterms_with_no_reduced_process(
+                   all_MEAccessors, self.integrated_counterterms_refused_from_all_contribs)
+        # Check there is none left over after this filtering
+        if len(self.integrated_counterterms_refused_from_all_contribs)>0:
+                # These integrated counterterms should in principle been added
+                msg = "The following list of integrated counterterm are in principle non-zero"
+                msg += " but could not be included in any contributions generated:\n"
+                msg += '\n'.join(str(CT) in self.integrated_counterterms_refused_from_all_contribs)
+                msg += "\nResults generated from that point on are likely to be physically wrong."
+                if __debug__:
+                    logger.critical(msg)
+                else:
+                    raise MadGraph5Error(msg)
+
         # Now generate all the integrands from the contributions exported
         all_integrands = []
         run_card = banner_mod.RunCardME7(pjoin(self.export_dir,'Cards','run_card.dat'))
@@ -336,7 +377,7 @@ class ME7Exporter(object):
                 param_card = pjoin(self.export_dir,'Cards','param_card.dat'), 
                 scale=run_card['scale'], 
                 complex_mass_scheme=self.options['complex_mass_scheme'])
-        
+
         for contrib in self.contributions:
             all_integrands.extend(contrib.get_integrands( 
                                         modelReader_instance, run_card, all_MEAccessors, self.options))
@@ -346,7 +387,6 @@ class ME7Exporter(object):
         # Normally all the relevant information should simply be encoded in only:
         #  'all_MEAccessors' and 'all_integrands'.
         self.dump_ME7(all_MEAccessors, all_integrands)
-        
         return
         ###################################################################################################
         ###

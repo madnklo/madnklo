@@ -222,7 +222,7 @@ class ME7Exporter(object):
                 # add this contribution with no host to the list and after all contributions
                 # will be finalized, this exporter will check that their reduced processes
                 # were indeed inexistent.
-                self.integrated_counterterms_refused_from_all_contribs.append(counterterm)
+                self.integrated_counterterms_refused_from_all_contribs.append(integrated_CT_properties)
                 continue
             
     def copy_model_resources(self):
@@ -353,15 +353,18 @@ class ME7Exporter(object):
                    all_MEAccessors, self.integrated_counterterms_refused_from_all_contribs)
         # Check there is none left over after this filtering
         if len(self.integrated_counterterms_refused_from_all_contribs)>0:
-                # These integrated counterterms should in principle been added
-                msg = "The following list of integrated counterterm are in principle non-zero"
-                msg += " but could not be included in any contributions generated:\n"
-                msg += '\n'.join(str(CT) for CT in self.integrated_counterterms_refused_from_all_contribs)
-                msg += "\nResults generated from that point on are likely to be physically wrong."
-                if __debug__:
-                    logger.critical(msg)
-                else:
-                    raise MadGraph5Error(msg)
+            counterterm_list = (
+                str(ct['integrated_counterterm'])
+                for ct in self.integrated_counterterms_refused_from_all_contribs )
+            # These integrated counterterms should in principle been added
+            msg = "The following list of integrated counterterm are in principle non-zero"
+            msg += " but could not be included in any contributions generated:\n"
+            msg += '\n'.join(counterterm_list)
+            msg += "\nResults generated from that point on are likely to be physically wrong."
+            if __debug__:
+                logger.critical(msg)
+            else:
+                raise MadGraph5Error(msg)
 
         # Now generate all the integrands from the contributions exported
         all_integrands = []

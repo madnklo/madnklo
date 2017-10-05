@@ -121,7 +121,7 @@ class PhysicsObject(dict):
 
         return self.keys().sort()
 
-    def get_copy(self, copied_attributes = ()):
+    def get_copy(self, copied_attributes=()):
         """Perform a copy of all attributes specified by copied_attributes."""
 
         return type(self)(

@@ -1,7 +1,11 @@
 PhaseSpaceGeneratorsTest
 ME7ContributionTest
-NLOSubtractionTest
 SubsetTest
+SingularStructureOperatorTest
+CountertermTest
+IRSubstractionTest
+NLOSubtractionTest
+HiggsN3LOSubtractionTest
 VectorsTest
 CollinearVariablesTest
 CataniSeymourFFOneTest

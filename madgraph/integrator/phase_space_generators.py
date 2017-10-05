@@ -1701,7 +1701,7 @@ class FlatCollinearWalker(VirtualWalker):
             for leg in counterterm.process['legs']
             if leg['state'] == base_objects.Leg.FINAL
         ]
-        for node in counterterm.subcurrents:
+        for node in counterterm.nodes:
             parent, _ = get_structure_numbers(
                 node.current['singular_structure'],
                 counterterm.momenta_dict
@@ -1710,11 +1710,11 @@ class FlatCollinearWalker(VirtualWalker):
                 if recoiler.n == parent:
                     recoilers.remove(recoiler)
         # Loop over the counterterm's first-level currents
-        for node in counterterm.subcurrents:
+        for node in counterterm.nodes:
             # Alias singular structure for convenience
             ss = node.current['singular_structure']
             # Do not accept soft currents or nested ones
-            if ss.name == 'S' or node.subcurrents:
+            if ss.name == 'S' or node.nodes:
                 raise MadGraph5Error(self.cannot_handle)
             # Get parent and children numbers
             # TODO Read these from cache
@@ -1726,7 +1726,7 @@ class FlatCollinearWalker(VirtualWalker):
             # Compute the jacobian and map to lower multiplicity
             jacobian *= self.collinear_map.map_to_lower_multiplicity(
                 point,
-                subtraction.SingularStructure(ss, *recoilers),
+                subtraction.SingularStructure(legs=recoilers, substructures=(ss, )),
                 counterterm.momenta_dict,
                 kinematic_variables
             )
@@ -1764,7 +1764,7 @@ class FlatCollinearWalker(VirtualWalker):
             for leg in counterterm.process['legs']
             if leg['state'] == base_objects.Leg.FINAL
         ]
-        for node in counterterm.subcurrents:
+        for node in counterterm.nodes:
             parent, _ = get_structure_numbers(
                 node.current['singular_structure'],
                 counterterm.momenta_dict
@@ -1773,11 +1773,11 @@ class FlatCollinearWalker(VirtualWalker):
                 if recoiler.n == parent:
                     recoilers.remove(recoiler)
         # Loop over the counterterm's first-level currents
-        for node in reversed(counterterm.subcurrents):
+        for node in reversed(counterterm.nodes):
             # Alias singular structure for convenience
             ss = node.current['singular_structure']
             # Do not accept soft currents or nested ones
-            if ss.name == 'S' or node.subcurrents:
+            if ss.name == 'S' or node.nodes:
                 raise MadGraph5Error(self.cannot_handle)
             # Get parent and children numbers
             # TODO Read these from cache
@@ -1789,7 +1789,7 @@ class FlatCollinearWalker(VirtualWalker):
             # Compute the jacobian and map to higher multiplicity
             jacobian *= self.collinear_map.map_to_higher_multiplicity(
                 point,
-                subtraction.SingularStructure(ss, *recoilers),
+                subtraction.SingularStructure(legs=recoilers, substructures=(ss, )),
                 counterterm.momenta_dict,
                 kinematic_variables
             )
@@ -1844,7 +1844,7 @@ class SimpleNLOWalker(VirtualWalker):
             for leg in counterterm.process['legs']
             if leg['state'] == base_objects.Leg.FINAL
         ]
-        for node in counterterm.subcurrents:
+        for node in counterterm.nodes:
             parent, children = get_structure_numbers(
                 node.current['singular_structure'],
                 counterterm.momenta_dict
@@ -1860,11 +1860,11 @@ class SimpleNLOWalker(VirtualWalker):
                         break
         # Loop over the counterterm's first-level currents
         # Remember soft-collinear is a separate elementary current
-        for node in counterterm.subcurrents:
+        for node in counterterm.nodes:
             # Alias singular structure for convenience
             ss = node.current['singular_structure']
             # Do not accept nested currents
-            if node.subcurrents:
+            if node.nodes:
                 raise MadGraph5Error(self.cannot_handle)
             # Get parent and children numbers
             # TODO Read these from cache
@@ -1882,7 +1882,7 @@ class SimpleNLOWalker(VirtualWalker):
                     new_ss = subtraction.CollStructure(ss.get_all_legs())
                 jacobian *= self.collinear_map.map_to_lower_multiplicity(
                     point,
-                    subtraction.SingularStructure(new_ss, *recoilers),
+                    subtraction.SingularStructure(legs=recoilers, substructures=(new_ss,)),
                     counterterm.momenta_dict,
                     kinematic_variables
                 )
@@ -1890,7 +1890,7 @@ class SimpleNLOWalker(VirtualWalker):
             elif ss.name() == 'S':
                 jacobian *= self.soft_map.map_to_lower_multiplicity(
                     point,
-                    subtraction.SingularStructure(ss, *recoilers),
+                    subtraction.SingularStructure(legs=recoilers, substructures=(ss,)),
                     counterterm.momenta_dict,
                     kinematic_variables
                 )
@@ -1929,7 +1929,7 @@ class SimpleNLOWalker(VirtualWalker):
             for leg in counterterm.process['legs']
             if leg['state'] == base_objects.Leg.FINAL
         ]
-        for node in counterterm.subcurrents:
+        for node in counterterm.nodes:
             parent, children = get_structure_numbers(
                 node.current['singular_structure'],
                 counterterm.momenta_dict
@@ -1944,11 +1944,11 @@ class SimpleNLOWalker(VirtualWalker):
                         recoilers.remove(recoiler)
                         break
         # Loop over the counterterm's first-level currents
-        for node in reversed(counterterm.subcurrents):
+        for node in reversed(counterterm.nodes):
             # Alias singular structure for convenience
             ss = node.current['singular_structure']
             # Do not accept nested currents
-            if node.subcurrents:
+            if node.nodes:
                 raise MadGraph5Error(self.cannot_handle)
             # Get parent and children numbers
             # TODO Read these from cache
@@ -1967,14 +1967,14 @@ class SimpleNLOWalker(VirtualWalker):
                 momenta[parent] = LorentzVector(point[parent])
                 jacobian *= self.collinear_map.map_to_higher_multiplicity(
                     point,
-                    subtraction.SingularStructure(new_ss, *recoilers),
+                    subtraction.SingularStructure(legs=recoilers, substructures=(new_ss,)),
                     counterterm.momenta_dict,
                     kinematic_variables
                 )
             elif ss.name() == 'S':
                 jacobian *= self.soft_map.map_to_higher_multiplicity(
                     point,
-                    subtraction.SingularStructure(ss, *recoilers),
+                    subtraction.SingularStructure(legs=recoilers, substructures=(ss,)),
                     counterterm.momenta_dict,
                     kinematic_variables
                 )
@@ -2003,10 +2003,10 @@ class SimpleNLOWalker(VirtualWalker):
         # Determine 'equivalent power' of rescaling
         # This structure has at most two levels - checked later
         total_limits = 0
-        for node in counterterm.subcurrents:
-            total_limits += 1 + len(node.subcurrents)
+        for node in counterterm.nodes:
+            total_limits += 1 + len(node.nodes)
         scaling_parameter **= 1./total_limits
-        for node in counterterm.subcurrents:
+        for node in counterterm.nodes:
             ss = node.current['singular_structure']
             if ss.name() == 'C':
                 # For collinear clusters, rescale the virtuality
@@ -2015,11 +2015,11 @@ class SimpleNLOWalker(VirtualWalker):
                 )
                 new_variables['s' + str(parent)] *= scaling_parameter**2
                 # For soft-collinears, rescale z's on top
-                for subnode in node.subcurrents:
+                for subnode in node.nodes:
                     subss = subnode.current['singular_structure']
                     if subss.name() == 'S':
                         # Check depth
-                        assert len(subss.subcurrents) == 0
+                        assert len(subss.substructures) == 0
                         for leg in subss.legs:
                             new_variables['z' + str(leg.n)] *= scaling_parameter
                     else:

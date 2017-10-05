@@ -704,12 +704,12 @@ class CataniSeymourFFOneTest(unittest.TestCase):
             this_bunch_numbers = tuple(range(
                     n_collinear_so_far, n_collinear_so_far + n_in_this_bunch
                 ))
-            this_bunch_legs = (
+            this_bunch_legs = subtraction.SubtractionLegSet(
                 subtraction.SubtractionLeg(
                     i, 21, subtraction.SubtractionLeg.FINAL
                 ) for i in this_bunch_numbers
             )
-            self.structure += [subtraction.CollStructure(this_bunch_legs), ]
+            self.structure += [subtraction.CollStructure(legs=this_bunch_legs), ]
             if n_in_this_bunch != 1:
                 self.momenta_dict[n_tot + n_bunch] = frozenset(this_bunch_numbers)
             n_collinear_so_far += n_in_this_bunch
@@ -720,7 +720,7 @@ class CataniSeymourFFOneTest(unittest.TestCase):
                 )
                 for i in range(n_collinear_so_far, n_tot)
             ]
-        self.structure = subtraction.SingularStructure(self.structure)
+        self.structure = subtraction.SingularStructure(*self.structure)
 
     def test_collinear_map_invertible(self):
         """Test mapping and inverse."""
@@ -860,12 +860,12 @@ class SomogyietalSoftTest(unittest.TestCase):
             this_bunch_numbers = tuple(range(
                     n_soft_so_far, n_soft_so_far + n_in_this_bunch
                 ))
-            this_bunch_legs = (
+            this_bunch_legs = subtraction.SubtractionLegSet(
                 subtraction.SubtractionLeg(
                     i, 21, subtraction.SubtractionLeg.FINAL
                 ) for i in this_bunch_numbers
             )
-            self.structure += [subtraction.SoftStructure(this_bunch_legs), ]
+            self.structure += [subtraction.SoftStructure(legs=this_bunch_legs), ]
             n_soft_so_far += n_in_this_bunch
             n_bunch += 1
         self.structure += [
@@ -874,7 +874,7 @@ class SomogyietalSoftTest(unittest.TestCase):
                 )
                 for i in range(n_soft_so_far, n_tot)
             ]
-        self.structure = subtraction.SingularStructure(self.structure)
+        self.structure = subtraction.SingularStructure(*self.structure)
 
     def test_soft_map_invertible(self):
         """Test mapping and inverse."""
@@ -925,9 +925,7 @@ class SomogyietalSoftTest(unittest.TestCase):
 # Subtraction instance
 
 my_subtraction = subtraction.IRSubtraction(
-    simple_qcd.model,
-    orders={'QCD': 1}
-)
+    simple_qcd.model, coupling_types=('QCD'), n_unresolved=1 )
 
 # H > u u~ d d~ H
 

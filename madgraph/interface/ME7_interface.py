@@ -1602,7 +1602,6 @@ class ME7Integrand_R(ME7Integrand):
         # Finally the treat the call to the matrix element
         final_weight = 0.0
         for (spin_correlators, color_correlators, current_weight) in all_necessary_ME_calls:
-#            misc.sprint(ME_process.nice_string(), counterterm.get_singular_structure_string())
 #            misc.sprint( self.all_MEAccessors.format_PS_point_for_ME_call(ME_PS,ME_process) )
             try:
                 ME_evaluation, all_ME_results = self.all_MEAccessors(
@@ -1744,13 +1743,21 @@ Also make sure that there is no coupling order specification which receives corr
             )
             
             misc.sprint(defining_process.nice_string())
-            misc.sprint('\n'+'\n'.join( ct.get_singular_structure_string() for ct in selected_counterterms ))
+            misc.sprint('\n'+'\n'.join(
+                str(ct.reconstruct_complete_singular_structure())
+                for ct in selected_counterterms
+            ))
 
             # Now loop over all mappings to consider
             for limit_specifier_counterterm in selected_counterterms:
-                misc.sprint("Result for test: %s | %s"%(defining_process.nice_string(),
-                        limit_specifier_counterterm.get_singular_structure_string(print_n=True, 
-                                                                  print_pdg=False, print_state=False) ))
+                misc.sprint(
+                    "Result for test: %s | %s" % (
+                        defining_process.nice_string(),
+                        limit_specifier_counterterm.reconstruct_complete_singular_structure().__str__(
+                            print_n=True, print_pdg=False, print_state=False
+                        )
+                    )
+                )
 
                 # First identify the reduced PS point from which we can evolve to larger multiplicity
                 # while becoming progressively closer to the IR limit.
@@ -1810,8 +1817,12 @@ Also make sure that there is no coupling order specification which receives corr
                     misc.sprint('%-20.14e %-20.14e %-20.14e %-20.14e %-20.14e'%
                             (scaling_parameter, ME_evaluation, summed_counterterm_weight,
                              summed_counterterm_weight/ME_evaluation, ME_evaluation+summed_counterterm_weight))
-                all_evaluations[(process_key, limit_specifier_counterterm.get_singular_structure_string(print_n=True, 
-                                                                  print_pdg=False, print_state=False))] = evaluations
+                all_evaluations[(
+                    process_key,
+                    limit_specifier_counterterm.reconstruct_complete_singular_structure().__str__(
+                        print_n=True, print_pdg=False, print_state=False
+                    )
+                )] = evaluations
 
         # Now produce a nice matplotlib of the evaluations and assess whether this test passed or not.
         return self.analyze_IR_limits_test(all_evaluations, test_options['acceptance_threshold'])

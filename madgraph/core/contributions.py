@@ -1,4 +1,4 @@
-################################################################################
+##########################################################################################
 #
 # Copyright (c) 2009 The MadGraph5_aMC@NLO Development team and Contributors
 #
@@ -11,7 +11,7 @@
 #
 # For more information, visit madgraph.phys.ucl.ac.be and amcatnlo.web.cern.ch
 #
-################################################################################
+##########################################################################################
 """Classes for implementions Contributions.
 Contributions are abstract layer, between the madgraph_interface and amplitudes.
 They typically correspond to the Born, R, V, RV, RR, VV, etc.. pieces of higher
@@ -47,9 +47,9 @@ from madgraph.iolibs.files import cp, ln, mv
 
 logger = logging.getLogger('contributions')
 
-##################################################################################################
+##########################################################################################
 # ProcessKey, to be used as keys in the MEAccessorDict and the processes_map of contributions
-###################################################################################################
+##########################################################################################
 class ProcessKey(object):
     """ We store here the relevant information for accessing a particular ME."""
     
@@ -1889,9 +1889,10 @@ class Contribution(object):
         # Initialize an IR subtraction module if necessary
         self.IR_subtraction = None
         if self.contribution_definition.n_unresolved_particles > 0:
-            IR_subtracted_orders = dict( (order, self.contribution_definition.n_unresolved_particles) for order in
-                                                                        self.contribution_definition.correction_couplings)
-            self.IR_subtraction = subtraction.IRSubtraction(self.model, orders = IR_subtracted_orders)
+            self.IR_subtraction = subtraction.IRSubtraction(
+                self.model,
+                coupling_types=self.contribution_definition.correction_couplings,
+                n_unresolved=self.contribution_definition.n_unresolved_particles )
         
         # The following two attributes dicate the type of Exporter which will be assigned to this contribution
         self.output_type             = 'default'
@@ -2777,7 +2778,7 @@ class Contribution_R(Contribution):
         
         all_currents = []
         for process_key, counterterms in self.counterterms.items():
-            for current in self.IR_subtraction.get_all_currents(counterterms):
+            for current in subtraction.IRSubtraction.get_all_currents(counterterms):
                 # Retain only a single copy of each needed current.
                 # We must remove the leg information since this is information is irrelevant
                 # for the selection of the hard-coded current implementation to consider.
@@ -2787,8 +2788,9 @@ class Contribution_R(Contribution):
                     all_currents.append(copied_current)
 
         # Now further remove currents that are already in all_MEAccessors
-        all_currents = [current for current in all_currents if 
-                        current.get_key().get_canonical_key() not in all_MEAccessors]
+        all_currents = [current
+                        for current in all_currents
+                        if current.get_key().get_canonical_key() not in all_MEAccessors]
         
         return all_currents
 
@@ -2994,14 +2996,14 @@ class Contribution_V(Contribution):
             counterterm = CT_properties['integrated_counterterm']
             # For now we only support a basic integrated counterterm which is not broken
             # down in subcurrents but contains a single CountertermNode with a single
-            # current in it that contains the whole singular subtructure describing this
+            # current in it that contains the whole singular structure describing this
             # integrated counterterm.
-            if len(counterterm.subcurrents)!=1 or \
-                                            len(counterterm.subcurrents[0].subcurrents)!=0:
-                raise MadGraph5Error("For now, MadEvent7 only support simple integrated "+
-                    "counterterms that consists of single current encompassing the full"+
-                    "singular structure that must be analytically integrated over.")
-            integrated_current = counterterm.subcurrents[0].current
+            if len(counterterm.nodes) != 1 or len(counterterm.nodes[0].nodes) != 0:
+                raise MadGraph5Error(
+                    """For now, MadEvent7 only support simple integrated
+                    counterterms that consists of single current encompassing the full
+                    singular structure that must be analytically integrated over.""")
+            integrated_current = counterterm.nodes[0].current
             assert(isinstance(integrated_current, subtraction.IntegratedCurrent))
             
             # Retain only a single copy of each needed current.
@@ -3021,9 +3023,9 @@ class Contribution_V(Contribution):
     @classmethod
     def add_current_accessors(cls, model, all_MEAccessors, 
                                            root_path, currents_to_consider, *args, **opts):
-        """  Generates and add all integrated current accessors to the MEAccessorDict.
+        """Generate and add all integrated current accessors to the MEAccessorDict.
         For now we can recycle the implementation of the Contribution_R class. """
-    
+
         return Contribution_R.add_current_accessors(model, 
                           all_MEAccessors, root_path, currents_to_consider, *args, **opts)
 
@@ -3085,7 +3087,7 @@ class Contribution_V(Contribution):
             processes_map = self.get_processes_map()
             for key in processes_map.keys():
                 self.integrated_counterterms[key] = []
-        
+
         # Obtain the ProcessKey of the reduced process of the integrated counterterm
         # Use ordered PDGs since this is what is used in the inverse_processes_map
         # Also verwrite some of the process properties to make it match the 
@@ -3096,7 +3098,7 @@ class Contribution_V(Contribution):
                                                                        .get_canonical_key()
         
         # misc.sprint(inverse_processes_map.keys(), len(inverse_processes_map.keys()))
-        # misc.sprint(counterter_reduced_process_key)
+        # misc.sprint(counterterm_reduced_process_key)
         if counterterm_reduced_process_key not in inverse_processes_map:
             # The reduced process of the integrated counterterm is not included in this
             # contribution so we return here False, letting the ME7 exporter know that

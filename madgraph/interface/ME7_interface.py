@@ -12,6 +12,7 @@
 # For more information, visit madgraph.phys.ucl.ac.be and amcatnlo.web.cern.ch
 #
 ################################################################################
+from Carbon.AppleEvents import kAEPassSubDescs
 """A user friendly command line interface to steer ME7 integration.
    Uses the cmd package for command interpretation and tab completion.
 """
@@ -952,12 +953,76 @@ class ME7Integrand(integrands.VirtualIntegrand):
                                  " wrong number of integration dimensions: %d instead of %d"%
                 (PS_generator.nDimPhaseSpace(),self.phase_space_generator.nDimPhaseSpace()))
         self.phase_space_generator = PS_generator
+
+    def is_part_of_process_selection(self, process_list, selection=None):
+        """ Checks whether any of the specified processes in the process_list provided matches the user's process
+        selection. If not provided, returns True by default. 'selection' is a dictionary with the format:
+           {'in_pdgs'  : ( (in_pgs1), (in_pdgs2), ...)
+            'out_pdgs' : ( (out_pgs1), (out_pdgs2), ...) 
+            'n_loops'  : n_loops }"""
         
-    def pass_flavor_blind_cuts(self, PS_point, process_pdgs):
+        def pdg_list_match(target_list, selection_list):
+            if len(target_list) != len(selection_list):
+                return False
+            targets = dict( (k, target_list.count(k)) for k in set(target_list) )
+            found_it = False
+            for sel in itertools.product(*selection_list):
+                found_it = True
+                for k, v in targets.items():
+                    if sel.count(k) != v:
+                        found_it = False
+                        break
+                if found_it:
+                    break
+            return found_it                
+    
+        for process in process_list:
+
+            if (not selection['in_pdgs'] is None) and \
+               (not pdg_list_match(process.get_initial_ids(), selection['in_pdgs'])):
+                continue
+
+            if (not selection['out_pdgs'] is None) and \
+               (not pdg_list_match(process.get_final_ids_after_decay(), selection['out_pdgs'])):
+                continue
+            
+            if (not selection['n_loops'] is None) and process.get('n_loops') != selection['n_loops']:
+                continue
+            return True
+
+        return False
+
+    def find_counterterms_matching_limit_type_with_regexp(self, counterterms, limit_type=None):
+        """ Find all mappings that match a particular limit_type given in argument
+        (takes a random one if left to None). This function is placed here given that
+        it can be useful for both the ME7Integrnd_V and ME7_integrand_R."""
+
+        # First select only the counterterms which are not pure matrix elements 
+        # (i.e. they have singular structures).
+        selected_counterterms = [ct for ct in counterterms if ct.is_singular()]
+        
+        if len(selected_counterterms)==0:
+            return []
+
+        returned_counterterms = []
+        if not limit_type:
+            returned_counterterms.append(random.choice(selected_counterterms))
+        else:
+            for counterterm in selected_counterterms:
+                singular_structure_string = counterterm.get_singular_structure_string(
+                                                            print_n=True, print_pdg=False, print_state=False)
+                if re.match(limit_type,singular_structure_string):
+                    returned_counterterms.append(counterterm)
+
+        return returned_counterterms
+
+    def pass_flavor_blind_cuts(self, input_PS_point, process_pdgs):
         """ Implementation of a minimal set of isolation cuts. This can be made much nicer in the future and 
         will probably be taken outside of this class so as to ease user-specific cuts, fastjet, etc...
         We consider here a two-level cuts system, this first one of which is flavour blind.
         This is of course not IR safe at this stage!"""
+        
+        PS_point = input_PS_point.to_list()
 
         # These cuts are not allowed to resolve flavour, but only whether a particle is a jet or not
         def is_a_jet(pdg):
@@ -993,10 +1058,13 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
         return True
 
-    def pass_flavor_sensitive_cuts(self, PS_point, flavors):
+    def pass_flavor_sensitive_cuts(self, input_PS_point, flavors):
         """ Implementation of a minimal set of isolation cuts. This can be made much nicer in the future and 
         will probably be taken outside of this class so as to ease user-specific cuts, fastjet, etc...
         We consider here a two-level cuts system, this second one of which is flavour sensitive."""
+
+        PS_point = input_PS_point.to_list()
+
 
         if __debug__: logger.debug( "Processing flavor-sensitive cuts for flavors %s and PS point:\n%s"%(
                         str(flavors), PS_point.__str__(n_initial=self.phase_space_generator.n_initial) ))
@@ -1162,14 +1230,14 @@ class ME7Integrand(integrands.VirtualIntegrand):
                 return 0.0      
             
             # Apply PDF weight
-            this_flavor_wgt = this_process_wgt*proc_PDFs_weights[index_selected]
             this_process_wgt *= sum(proc_PDFs_weights)
     
             # Finally include the short-distance weight
             selected_flavors = ( tuple(selected_flavors[i] for i in range(self.n_initial)),
                                  tuple(selected_flavors[self.n_initial+i] for i in range(self.n_final)))
 
-            sigma_wgt = self.sigma(PS_point, process_key, process, selected_flavors, this_flavor_wgt, mu_r, mu_f1, mu_f2)
+            sigma_wgt = self.sigma(PS_point, process_key, process, selected_flavors, 
+                                                      this_process_wgt, mu_r, mu_f1, mu_f2)
             if __debug__: logger.debug('Short-distance sigma weight for this subprocess: %.5e'%sigma_wgt)        
             this_process_wgt *= sigma_wgt
             
@@ -1181,7 +1249,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         if __debug__: logger.debug("="*80)
         return total_wgt
     
-    def sigma(self, PS_point, process_key, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2):
+    def sigma(self, PS_point, process_key, process, flavors, process_wgt, mu_r, mu_f1, mu_f2):
         """ 
         This is the core function of the integrand where the short-distance objects like the matrix elements,
         the counterterms, the mappings, etc.. will be evaluated.
@@ -1191,7 +1259,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         processes / flavour, so some caching may be in order. 
         The output of sigma, sigma_wgt, should be the weight summed over the various contributions building sigma
         (ME's and counterterms).
-        Finally, this function is also responsible for calling the observable, using flavor_wgt*sigma_wgt.
+        Finally, this function is also responsible for calling the observable, using process_wgt*sigma_wgt.
         It can potentially call it several times, for the various counterterms.
         """
 
@@ -1237,7 +1305,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         
         if self.apply_observables:
             data_for_observables = {'PS_point': PS_point, 'flavors' : flavors}
-            self.observable_list.apply_observables(sigma_wgt*flavor_wgt, data_for_observables)
+            self.observable_list.apply_observables(sigma_wgt*process_wgt, data_for_observables)
 
         return sigma_wgt
 
@@ -1245,17 +1313,17 @@ class ME7Integrand(integrands.VirtualIntegrand):
 # and possibly other functions.
 class ME7Integrand_B(ME7Integrand):
     """ME7Integrand for the computation of a Born type of contribution."""
-    def sigma(self, PS_point, process_key, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
+    def sigma(self, PS_point, process_key, process, flavors, process_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
 
         return super(ME7Integrand_B, self).sigma(
-            PS_point, process_key, process, flavors, flavor_wgt,
+            PS_point, process_key, process, flavors, process_wgt,
             mu_r, mu_f1, mu_f2, *args, **opts
         )
 
 class ME7Integrand_LIB(ME7Integrand):
     """ ME7Integrand for the computation of a Loop-Induced Born type of contribution."""
-    def sigma(self, PS_point, process_key, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
-        return super(ME7Integrand_LIB, self).sigma(PS_point, process_key, process, flavors, flavor_wgt, 
+    def sigma(self, PS_point, process_key, process, flavors, process_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
+        return super(ME7Integrand_LIB, self).sigma(PS_point, process_key, process, flavors, process_wgt, 
                                                                         mu_r, mu_f1, mu_f2, *args, **opts)
         
 class ME7Integrand_V(ME7Integrand):
@@ -1275,10 +1343,94 @@ class ME7Integrand_V(ME7Integrand):
         super(ME7Integrand_V, self).__init__(*args, **opts)
         self.initialization_inputs['options']['integrated_counterterms'] = self.integrated_counterterms
     
-    def sigma(self, PS_point, process_key, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
+    def check_IR_pole_residues(self, test_options):
+        """ Compare the IR poles residues in dimensional regularization from the virtual
+        contribution and from the integrated counterterm. """
+        
+        if test_options['seed']:
+            random.seed(test_options['seed'])
+        
+        # Retrieve some possibly relevant model parameters
+        alpha_s = self.model.get('parameter_dict')['aS']
+        mu_r = self.model.get('parameter_dict')['MU_R']    
+        
+        # First generate a kinematic point
+        # Specifying None forces to use uniformly random generating variables.
+        a_virtual_PS_point, _, _, _ = self.phase_space_generator.get_PS_point(None)
+        a_virtual_PS_point = phase_space_generators.LorentzVectorDict(
+            (i+1, mom) for i, mom in enumerate(a_real_emission_PS_point) )
+
+        # Now keep track of the results from each process and limit checked
+        all_evaluations = {}
+        for process_key, (defining_process, mapped_processes) in self.processes_map.items():
+            # Make sure that the selected process satisfies the selected process
+            if not self.is_part_of_process_selection(
+                [defining_process,]+mapped_processes, selection = test_options['process'] ):
+                continue
+            
+            # Here we use correction_order to select CT subset
+            counterterms_to_consider = [
+                ct for ct in self.integrated_counterterms[process_key]
+                if ct.count_unresolved() <= test_options['correction_order'].count('N')
+            ]
+            
+            misc.sprint(defining_process.nice_string())
+            misc.sprint('\n'+'\n'.join( ct.get_singular_structure_string() for ct in
+                                                                  selected_counterterms ))
+
+            virtual_ME_evaluation, all_results = self.all_MEAccessors(
+               defining_process, a_virtual_PS_point, alpha_s, mu_r,
+               squared_orders    = None,
+               color_correlation = None,
+               spin_correlation  = None, 
+               hel_config        = None
+            )
+            
+            virtual_ME = (virtual_ME_evaluation['finite'],
+                          virtual_ME_evaluation['eps^-1'],
+                          virtual_ME_evaluation['eps^-2'])
+            
+            # Now loop over all counterterms
+            summed_counterterm_weight = [0., 0., 0.]
+            for counterterm in counterterms_to_consider:
+
+                # Evaluate the counterterm
+                ct_weight, reduced_flavors = self.evaluate_integrated_counterterm(
+                                      counterterm, a_virtual_PS_point, hel_config=None)
+                
+
+                for counterterm in counterterms_to_consider:
+                    if not counterterm.is_singular():
+                        continue
+                    if test_options['compute_only_limit_defining_counterterm'] and \
+                                                                        counterterm != limit_specifier_counterterm:
+                        continue
+#                    if counterterm.get_singular_structure_string() not in [
+#                        'S(3)','S(4)','C(S(3),4)','C(S(4),3)','C(3,4)' ]:
+#                        continue
+                    ct_weight, _, _ = self.evaluate_counterterm(counterterm, scaled_real_PS_point, hel_config=None)
+                    misc.sprint('Relative weight from CT %s = %.16f, %.16f'%(counterterm.get_singular_structure_string(), ct_weight, ct_weight/ME_evaluation))
+                    summed_counterterm_weight += ct_weight
+                
+                # Add evaluations to the list so as to study how the approximated reals converge towards the real
+                evaluations[scaling_parameter]= {
+                     'non_singular_ME'      : ME_evaluation, 
+                     'approximated_ME'      : summed_counterterm_weight,
+                     'limit_specifier'      : limit_specifier_counterterm,
+                     'defining_process'     : defining_process
+                    }
+                
+                # To be commented out when we will have a full-fledged analysis coded up in analyze_IR_limits_test()
+                misc.sprint('%-20.14e %-20.14e %-20.14e %-20.14e %-20.14e'%
+                        (scaling_parameter, ME_evaluation, summed_counterterm_weight,
+                         summed_counterterm_weight/ME_evaluation, ME_evaluation+summed_counterterm_weight))
+                all_evaluations[(process_key, limit_specifier_counterterm.get_singular_structure_string(print_n=True, 
+                                                              print_pdg=False, print_state=False))] = evaluations
+
+    def sigma(self, PS_point, process_key, process, flavors, process_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
         """ Overloading of the sigma function from ME7Integrand to include necessary additional contributions. """
         
-        ret_value = super(ME7Integrand_V, self).sigma(PS_point, process_key, process, flavors, flavor_wgt, 
+        ret_value = super(ME7Integrand_V, self).sigma(PS_point, process_key, process, flavors, process_wgt, 
                                                                         mu_r, mu_f1, mu_f2, *args, **opts)
         
         return ret_value
@@ -1336,7 +1488,7 @@ class ME7Integrand_R(ME7Integrand):
             map_type=self.MappingWalkerType, model=self.model
         )
         
-    def evaluate_counterterm(self, counterterm, PS_point, hel_config=None):
+    def evaluate_counterterm(self, counterterm, PS_point, hel_config=None, defining_flavors=None):
         """ Evaluates the specified counterterm for the specified PS point."""
 
         # Retrieve some possibly relevant model parameters
@@ -1478,80 +1630,82 @@ Also make sure that there is no coupling order specification which receives corr
         # Now finally handle the overall prefactor of the counterterm
         final_weight *= counterterm.prefactor
         
+        # Now evaluated what is the kinematics (reduced_PS), written as simple list, and the
+        # flavors (reduced_flavors) for this counterterm, by using the defining selected 
+        # flavors of the real-emission and the reduced kinematics written as dictionary
+        # with a bidctionary momenta map.
+        reduced_PS, reduced_flavors = counterterm.get_reduced_quantities(
+                                                ME_PS, defining_flavors = defining_flavors)
+        
         # Returns the corresponding weight and the mapped PS_point.
         # Also returns the mapped_process (for calling the observables), which
         # is typically simply a reference to counterterm.current which is an instance of Process.
-        return final_weight, ME_PS, ME_process
+        # Notice that the flavors in the ME_process might not be accurate for now.
+        return final_weight, reduced_PS, reduced_flavors
 
-    def sigma(self, PS_point, process_key, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
+    def sigma(self, PS_point, process_key, process, flavors, process_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
+        """ Implementation of the short-distance cross-section for the real-emission integrand.
+        Counterterms will be computed on top of the actual real-emission integrand."""
         
-#        wgt=0.
-#        for ct in self.counterterms[process_key]:
-#            wgt += self.evaluate_counterterm(counterterm)
+        # Compute the real-emission matrix element weight in the base ME7Integrand class
+        # Notice that the observable will be called already there for the resolved kinematics
+        sigma_wgt = super(ME7Integrand_R, self).sigma(PS_point, process_key, process, 
+                                  flavors, process_wgt, mu_r, mu_f1, mu_f2, *args, **opts )
         
-        return super(ME7Integrand_R, self).sigma(
-            PS_point, process_key, process, flavors, flavor_wgt,
-            mu_r, mu_f1, mu_f2, *args, **opts
-        )
-
-    def find_counterterms_matching_limit_type_with_regexp(self, counterterms, limit_type=None):
-        """ Find all mappings that match a particular limit_type given in argument (takes a random one if left to None)."""
-
-        # First select only the counterterms which are not pure matrix elements (i.e. they have singular structures).
-        selected_counterterms = [ct for ct in counterterms if ct.is_singular()]
-        
-        if len(selected_counterterms)==0:
-            return []
-
-        returned_counterterms = []
-        if not limit_type:
-            returned_counterterms.append(random.choice(selected_counterterms))
-        else:
-            for counterterm in selected_counterterms:
-                singular_structure_string = counterterm.get_singular_structure_string(
-                                                            print_n=True, print_pdg=False, print_state=False)
-                if re.match(limit_type,singular_structure_string):
-                    returned_counterterms.append(counterterm)
-
-        return returned_counterterms
-
-    def is_part_of_process_selection(self, process_list, selection=None):
-        """ Checks whether any of the specified processes in the process_list provided matches the user's process
-        selection. If not provided, returns True by default. 'selection' is a dictionary with the format:
-           {'in_pdgs'  : ( (in_pgs1), (in_pdgs2), ...)
-            'out_pdgs' : ( (out_pgs1), (out_pdgs2), ...) 
-            'n_loops'  : n_loops }"""
-        
-        def pdg_list_match(target_list, selection_list):
-            if len(target_list) != len(selection_list):
-                return False
-            targets = dict( (k, target_list.count(k)) for k in set(target_list) )
-            found_it = False
-            for sel in itertools.product(*selection_list):
-                found_it = True
-                for k, v in targets.items():
-                    if sel.count(k) != v:
-                        found_it = False
-                        break
-                if found_it:
-                    break
-            return found_it                
-    
-        for process in process_list:
-
-            if (not selection['in_pdgs'] is None) and \
-               (not pdg_list_match(process.get_initial_ids(), selection['in_pdgs'])):
-                continue
-
-            if (not selection['out_pdgs'] is None) and \
-               (not pdg_list_match(process.get_final_ids_after_decay(), selection['out_pdgs'])):
+        # This will group all CT results with the same reduced kinematics and flavors, so
+        # as to call the generation-level cuts and observables only once for each
+        # configuration.
+        # The format is:
+        #     { <tupled_version_of_reduced_PS> :
+        #       { 'reduced_PS' : <LorentzVectorList equivalent of the tupled version>,
+        #         'flavor_contribs': 
+        #           { <reduced_flavors_tuple> : [(counterterm, CT_wgt), ] }
+        #       }
+        #     }
+        CT_results = {}
+        for counterterm in self.counterterms[process_key]:
+            CT_wgt, reduced_PS, reduced_flavors = self.evaluate_counterterm(
+                          counterterm, PS_point, hel_config=None, defining_flavors=flavors)
+            
+            if CT_wgt == 0.:
                 continue
             
-            if (not selection['n_loops'] is None) and process.get('n_loops') != selection['n_loops']:
-                continue
-            return True
+            # Register this CT in the dictionary CT_results gathering all evaluations
+            key = reduced_PS.to_tuple()
+            if key not in CT_results:
+                new_entry = {'flavor_contribs': {}, 'reduced_PS' : reduced_PS}
+                CT_results[key] = new_entry
+            flavor_results = CT_results[key]['flavor_contribs']
+                        
+            try:
+                flavor_results[reduced_flavors].append( (counterterm, CT_wgt), )
+            except KeyError:
+                flavor_results[reduced_flavors] = [ (counterterm, CT_wgt), ]
 
-        return False
+        # Now investigate all the different counterterm contributions to add:
+        for reduced_PS_tuple, value in CT_results.items():
+            reduced_PS      = value['reduced_PS']
+            flavor_contribs = value['flavor_contribs'] 
+            # For the flavor blind cuts, we must just specify some representative
+            # flavors, so we choose flavor_contribs.keys()[0]
+            if not self.pass_flavor_blind_cuts(reduced_PS, flavor_contribs.keys()[0]):
+                continue
+            for flavor_contrib, counterterm_contribs in flavor_contribs.items():
+                if not self.pass_flavor_sensitive_cuts(reduced_PS, flavor_contrib):
+                    continue
+                this_CT_group_wgt = sum(contrib[1] for contrib in counterterm_contribs)
+                if self.apply_observables:
+                    data_for_observables = {
+                        'PS_point'     : reduced_PS,
+                        'flavors'      : flavor_contrib,
+                        'counterterms' : counterterm_contribs }
+                    self.observable_list.apply_observables(
+                                       this_CT_group_wgt*process_wgt, data_for_observables)
+                    
+                    # Register this CT_wgt in the global weight.
+                    sigma_wgt += this_CT_group_wgt
+
+        return sigma_wgt
 
     def test_IR_limits(self, test_options):
         """Test that 4D local subtraction terms tend to the corresponding real-emission matrix elements."""
@@ -1676,14 +1830,14 @@ Also make sure that there is no coupling order specification which receives corr
     
 class ME7Integrand_RR(ME7Integrand_R):
     """ ME7Integrand for the computation of a double real-emission type of contribution."""
-    def sigma(self, PS_point, process_key, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
-        return super(ME7Integrand_RR, self).sigma(PS_point, process_key, process, flavors, flavor_wgt, 
+    def sigma(self, PS_point, process_key, process, flavors, process_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
+        return super(ME7Integrand_RR, self).sigma(PS_point, process_key, process, flavors, process_wgt, 
                                                                         mu_r, mu_f1, mu_f2, *args, **opts)
 
 class ME7Integrand_RRR(ME7Integrand_R):
     """ ME7Integrand for the computation of a double real-emission type of contribution."""
-    def sigma(self, PS_point, process_key, process, flavors, flavor_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
-        return super(ME7Integrand_RRR, self).sigma(PS_point, process_key, process, flavors, flavor_wgt, 
+    def sigma(self, PS_point, process_key, process, flavors, process_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
+        return super(ME7Integrand_RRR, self).sigma(PS_point, process_key, process, flavors, process_wgt, 
                                                                         mu_r, mu_f1, mu_f2, *args, **opts)
 
 # Integrand classes map is defined here as module variables. This map can be overwritten

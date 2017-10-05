@@ -4041,7 +4041,161 @@ class ContributionDefinition(object):
             else:
                 shell_name += 'V'*nV_in_conjugated_amplitude
         return shell_name
+
+class EpsilonExpansion(dict):
+    """ A simple class for manipulating epsilon expansion. """
+
+    def __init__(self, *args, **opts):
+        """ Initialize the expansion with possibly a dictionary."""
+        
+        if len(args)>=1 and isinstance(args[0],dict):
+            dict_specifier = args[0]
+            args = args[1:]
+        else:
+            dict_specifier = None
+
+        super(EpsilonExpansion,self).__init__(*args, **opts)
+        
+        if dict_specifier:
+            for key, value in dict_specifier.items():
+                try:
+                    self[int(key)] = value
+                except ValueError:
+                    if key == 'finite':
+                        self[0] = value
+                    elif key.startswith('eps^'):
+                        self[int(key[4:])] = value
     
+    def __add__(self, other):
+        res = EpsilonExpansion(other)
+        for k, v in self.items():
+            try:
+                res[k] += v
+            except KeyError:
+                res[k] = v
+        return res
+    
+    def __sub__(self, other):
+        res = EpsilonExpansion(other)
+        for k, v in self.items():
+            try:
+                res[k] -= v
+            except KeyError:
+                res[k] = v        
+        return res
+    
+    def __mul__(self, other):
+        if not isinstance(other, EpsilonExpansion):
+            res = EpsilonExpansion(self)
+            for k in res.keys():
+                res[k] *= other
+        else:
+            res = EpsilonExpansion()
+            for k1, v1 in self.items():
+                for k2, v2 in other.items():
+                    k, v = k1+k2, v1*v2
+                    try:
+                        res[k] += v
+                    except KeyError:
+                        res[k] = v
+        return res
+
+    def __div__(self, other):
+        if not isinstance(other, EpsilonExpansion):
+            res = EpsilonExpansion(self)
+            for k in res.keys():
+                res[k] /= other
+        else:
+            # Will implement it if ever needed
+            raise NotImplementedError
+        return res
+        
+    __truediv__ = __div__
+    
+    def __radd__(self, other):
+        for k, v in other.items():
+            try:
+                self[k] += v
+            except KeyError:
+                self[k] = v
+    
+    def __rsub__(self, other):
+        for k, v in other.items():
+            try:
+                self[k] -= v
+            except KeyError:
+                self[k] = v        
+    
+    def __rmul__(self, other):
+        if not isinstance(other, EpsilonExpansion):
+            for k in self.keys():
+                self[k] *= other
+        else:
+            res = EpsilonExpansion()
+            for k1, v1 in self.items():
+                for k2, v2 in other.items():
+                    k, v = k1+k2, v1*v2
+                    try:
+                        res[k] += v
+                    except KeyError:
+                        res[k] = v
+            self.clear()
+            for k, v in res.items():
+                self[k] = v
+
+    def __rdiv__(self, other):
+        if not isinstance(other, EpsilonExpansion):
+            for k in self.keys():
+                self[k] /= other
+        else:
+            # Will implement it if ever needed
+            raise NotImplementedError
+        
+    __rtruediv__ = __rdiv__
+    
+    def __str__(self):
+        
+        utf8_exp_chars = {
+            '1' : u'\u00b9',
+            '2' : u'\u00b2',
+            '3' : u'\u00b3',
+            '4' : u'\u2074',
+            '5' : u'\u2075',
+            '6' : u'\u2076',
+            '7' : u'\u2077',
+            '8' : u'\u2078',
+            '9' : u'\u2079',
+            '0' : u'\u2070',
+            '-' : u'\u207B',
+            }
+        
+        res = u''
+        for k in sorted(self.keys()):
+            if k==0:
+                identifier=u''
+            else:
+                identifier=u'\u03B5'
+            if k not in [0,1]:
+                for char in str(k):
+                    identifier+=utf8_exp_chars[char]
+             
+            res += u'%s %.16g %s '%(
+                '+' if self[k]>=0. else '-',
+                abs(self[k]),
+                identifier
+            )
+        
+        res = res.encode('utf-8')
+        if res.startswith('-'):
+            res = '-%s'%res[2:]
+        else:
+            res = res[2:]
+        
+        # remove trailing space
+        res = res[:-1]
+        
+        return res
+
 class ContributionDefinitionList(PhysicsObjectList):
     """ A container for ContributionDefinition."""
     

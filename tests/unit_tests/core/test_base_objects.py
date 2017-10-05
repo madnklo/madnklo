@@ -20,6 +20,7 @@ import os
 import madgraph
 import madgraph.core.base_objects as base_objects
 import madgraph.core.color_algebra as color
+import madgraph.various.misc as misc
 import tests.unit_tests as unittest
 
 #===============================================================================
@@ -1832,7 +1833,102 @@ class ProcessTest(unittest.TestCase):
         # checking
         output = myprocess.get_final_ids_after_decay()
         self.assertEqual(output, [3, 11, 11, -3,-11,-11,3])
+
+#===============================================================================
+# EpsilonExpansionTest
+#===============================================================================
+class EpsilonExpansionTest(unittest.TestCase):
+    """Test class for the EpsilonExpansion object"""
+    
+    def test_epsilon_expansion(self):
+        """ test basic_functionalities of epsilon expansions. """
         
+        my_expansion_A = base_objects.EpsilonExpansion(
+            {'finite'   : 1.2,
+             'eps^-4'   : 1.3,
+             'eps^1'    : 2.2,
+             'eps^3'    : 3.3
+             })
+        
+        my_expansion_B = base_objects.EpsilonExpansion(
+            { 0   : 1.2,
+             -2   : 1.3,
+              4   : 2.2,
+              2   : 3.3
+             })        
+             
+        target =   base_objects.EpsilonExpansion(
+            { -6   : 1.69,
+              -4   : 1.56,
+              -2   : 5.85,
+              -1   : 2.86,
+               0   : 4.3,
+               1   : 6.93,
+               2   : 3.96,
+               3   : 11.22,
+               4   : 2.64,
+               5   : 15.73,
+               7   : 7.26
+             }) 
+        
+        product = my_expansion_A*my_expansion_B
+        for k, v in product.items():
+            self.assertAlmostEqual(target[k],v)
+
+        my_expansion_A *= my_expansion_B
+        for k, v in my_expansion_A.items():
+            self.assertAlmostEqual(target[k],v)
+            
+        my_expansion_A = base_objects.EpsilonExpansion(
+            {'finite'   : 1,
+             'eps^-4'   : 2,
+             'eps^1'    : 3,
+             'eps^3'    : 4
+             })
+
+        my_expansion_B = base_objects.EpsilonExpansion(
+            { 0   : -5,
+             -2   : -6,
+              4   : 7,
+              2   : 8
+             })     
+
+        target =   base_objects.EpsilonExpansion(
+            { -4   : 2,
+              -2   : -6,
+               0   : -4,
+               1   : 3,
+               2   : 8,
+               3   : 4,
+               4   : 7,
+             }) 
+        self.assertDictEqual(my_expansion_A+my_expansion_B, target)
+        
+        my_expansion_A += my_expansion_B
+        self.assertDictEqual(my_expansion_A, target)
+        
+        target = base_objects.EpsilonExpansion(
+            { 0   : -10,
+             -2   : -12,
+              4   : 14,
+              2   : 16
+             })            
+        self.assertDictEqual(my_expansion_B*2, target)
+
+        my_expansion_B *= 2
+        target = base_objects.EpsilonExpansion(
+            { 0   : -10,
+             -2   : -12,
+              4   : 14,
+              2   : 16
+             })            
+        self.assertDictEqual(my_expansion_B, target)
+
+        # Nice UTF-8 printout
+        # misc.sprint("'%s'"%str(my_expansion_A+my_expansion_B))
+        self.assertEqual(len(str(my_expansion_A+my_expansion_B)),66)
+
+
 #===============================================================================
 # ProcessDefinitionTest
 #===============================================================================

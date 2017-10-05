@@ -2713,10 +2713,17 @@ class Contribution_R(Contribution):
             flavors_combinations = []
             # Notice that the defining flavor combination will always be placed first
             for process in [defining_process,]+mapped_processes:
+                initial_pdgs = process.get_initial_ids()
+                final_pdgs = tuple(process.get_final_ids_after_decay())
                 flavors_combinations.append( (
-                    tuple(process.get_initial_ids()),
-                    tuple(process.get_final_ids_after_decay())
+                    tuple(initial_pdgs),
+                    final_pdgs
                 ) )
+                if process.get('has_mirror_process'):
+                    flavors_combinations.append( (
+                        tuple(reversed(initial_pdgs)),
+                        final_pdgs
+                    ) )
 
             for integrated_counterterm in integrated_counterterms:
                 all_integrated_counterterms.append({
@@ -3026,8 +3033,9 @@ class Contribution_V(Contribution):
         """
         
         relevant_counterterms = {}
-        for process_key in process_map:
-            relevant_counterterms[process_key] = self.integrated_counterterms[process_key]
+        if self.integrated_counterterms:
+            for process_key in process_map:
+                relevant_counterterms[process_key] = self.integrated_counterterms[process_key]
 
         return [ ME7_interface.ME7Integrand(model, run_card,
                                        self.contribution_definition,
@@ -3082,14 +3090,14 @@ class Contribution_V(Contribution):
         # Use ordered PDGs since this is what is used in the inverse_processes_map
         # Also verwrite some of the process properties to make it match the 
         # loop process definitions in this contribution
-        counterter_reduced_process_key = ProcessKey(integrated_counterterm.process,
+        counterterm_reduced_process_key = ProcessKey(integrated_counterterm.process,
             sort_PDGs=sort_PDGs, n_loops=1, NLO_mode='virt', 
             perturbation_couplings=self.contribution_definition.correction_couplings)\
                                                                        .get_canonical_key()
         
         # misc.sprint(inverse_processes_map.keys(), len(inverse_processes_map.keys()))
         # misc.sprint(counterter_reduced_process_key)
-        if counterter_reduced_process_key not in inverse_processes_map:
+        if counterterm_reduced_process_key not in inverse_processes_map:
             # The reduced process of the integrated counterterm is not included in this
             # contribution so we return here False, letting the ME7 exporter know that
             # we cannot host this integrated counterterm.
@@ -3097,7 +3105,7 @@ class Contribution_V(Contribution):
         
         # Now we can simply add this integrated counterterm in the group of the
         # defining process to which the reduced process is mapped
-        defining_key = inverse_processes_map[counterter_reduced_process_key]
+        defining_key = inverse_processes_map[counterterm_reduced_process_key]
         
         integrated_counterterm_properties = dict(integrated_CT_properties)
         

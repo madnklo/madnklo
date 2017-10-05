@@ -57,7 +57,7 @@ class TestME7_IR_Limits(unittest.TestCase):
 
             # Now generate and output a process, so as to run ME7 commands on it
             self.do('import model loop_sm')
-            self.do('generate e+ e- > j j j --NLO=QCD --ignore_contributions=V')
+            self.do('generate e+ e- > j j j --NLO=QCD')
             self.do('output %s'%self.tmp_process_dir)
 
         # Now initialize an ME7 interface on the above process output
@@ -85,7 +85,7 @@ class TestME7_IR_Limits(unittest.TestCase):
                    'n_steps'                : 10,
                    'min_scaling_variable'   : 1.0e-5,
                    'acceptance_threshold'   : 1.0e-6,
-                   'compute_only_limit_defining_counterterm' : False,
+                   'compute_only_limit_defining_counterterm' : True,
                    }
 
         self.do('%s %s'%(main_cmd, ' '.join(

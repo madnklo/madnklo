@@ -300,6 +300,16 @@ class LorentzVector(Vector):
 class LorentzVectorDict(dict):
     """A simple class wrapping dictionaries that store Lorentz vectors."""
 
+    def to_list(self):
+        """ Returns list copy of self. Notice that the actual values of the keys
+        are lost in this process."""
+        return LorentzVectorList(self[k] for k in sorted(self.keys()))
+
+    def to_tuple(self):
+        """ Returns a copy of this LorentzVectorDict as an immutable tuple. Notice that the 
+        actual values of the keys are lost in this process."""
+        return tuple( tuple(self[k]) for k in sorted(self.keys()) )
+
     def __str__(self, n_initial=2):
         """Nice printout of the momenta."""
 
@@ -350,6 +360,14 @@ class LorentzVectorList(list):
         return LorentzVectorDict(
             (i + 1, v) for i, v in enumerate(self)
         ).__str__(n_initial=n_initial)
+
+    def to_list(self):
+        """ Returns list copy of self."""
+        return LorentzVectorList(self)
+
+    def to_tuple(self):
+        """ Returns a copy of this LorentzVectorList as an immutable tuple. """
+        return tuple( tuple(v) for v in self )
 
     def get_copy(self):
         """Return a copy that can be freely modified

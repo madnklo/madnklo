@@ -1208,6 +1208,37 @@ class Counterterm(CountertermNode):
             currents += subcurrent.get_all_currents()
         return currents
 
+    def get_reduced_quantities(self, reduced_PS_dict, defining_flavors=None):
+        """Given the PS *dictionary* providing the reduced kinematics returned
+        by the mapping and the selected defining flavors of the resolved process,
+        return a *list* of momenta corresponding to the reduced kinematics and
+        a *list* of flavors corresponding to the flavor assignment to the reduced
+        process."""
+        
+        from madgraph.integrator.phase_space_generators import LorentzVectorList
+        reduced_PS = LorentzVectorList()
+        
+        # First construct the reduced kinematic list
+        for leg in self.process.get_initial_legs():
+            reduced_PS.append(reduced_PS_dict[leg.get('number')])
+        for leg in self.process.get_final_legs():
+            reduced_PS.append(reduced_PS_dict[leg.get('number')])
+
+        # Now construct the reduced flavors list
+        if (defining_flavors is None) or True:
+            # If no defining flavors are specified then simply use the flavors already
+            # filled in the reduced process.
+            reduced_flavors = self.process.get_initial_final_ids()
+        else:
+            ##############################################################################
+            # --> TODO AND NECESSARY FOR NON-FLAVO-BLIND OBSERVABLES
+            #     For now always use the flavors of the defining process, which is
+            #     fine for flavor blind observables
+            ###############################################################################
+            pass
+        
+        return reduced_PS, reduced_flavors
+
 #===============================================================================
 # IntegratedCounterterm
 #===============================================================================
@@ -1217,6 +1248,45 @@ class IntegratedCounterterm(Counterterm):
     For now, it behaves exactly as a local 4D subtraction counterterm,
     but it is conceptually different.
     """
+
+    def get_reduced_quantities(self, input_reduced_PS, defining_flavors=None):
+        """Given the PS *dictionary* providing the reduced kinematics corresponding to
+        the current PS point thrown at the virtual contribution, as well as the selected 
+        defining flavors corresponding to the resolved process, return a *list* of momenta 
+        corresponding to the reduced kinematics and a *list* of flavors corresponding 
+        to the flavor assignment of the reduced process given the defining flavors"""
+        
+        from madgraph.integrator.phase_space_generators import LorentzVectorList
+        reduced_PS = LorentzVectorList()
+        
+        # First construct the reduced kinematic list, the leg numbers will not match the
+        # keys of the reduced_PS_dict because in this case they will be consecutive since
+        # they come from the probing of the virtual and not from any kind of mapping.
+        if isinstance(input_reduced_PS, dict):
+            for i in range( 1, 
+               (self.process.get_ninitial()+len(self.process.get_final_ids_after_decay())+1) ):            
+                reduced_PS.append(reduced_PS_dict[leg.get('number')])
+            for leg in self.process.get_final_legs():
+                reduced_PS.append(reduced_PS_dict[leg.get('number')])
+        else:
+            assert(len(input_reduced_PS)==
+             (self.process.get_ninitial()+len(self.process.get_final_ids_after_decay())+1))
+            reduced_PS.extend(input_reduced_PS)
+
+        # Now construct the reduced flavors list
+        if (defining_flavors is None) or True:
+            # If no defining flavors are specified then simply use the flavors already
+            # filled in the reduced process.
+            reduced_flavors = self.process.get_initial_final_ids()
+        else:
+            ##############################################################################
+            # --> TODO AND NECESSARY FOR NON-FLAVO-BLIND OBSERVABLES
+            #     For now always use the flavors of the defining process, which is
+            #     fine for flavor blind observables
+            ###############################################################################
+            pass
+        
+        return reduced_PS, reduced_flavors
 
     def __str__(self, level = 0):
         """Nice string representation of this integrated counterterm."""

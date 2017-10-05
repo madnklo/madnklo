@@ -349,14 +349,14 @@ class ME7Exporter(object):
 
         # Now make sure that the integrated counterterms without any contribution host
         # indeed have a non-existent reduced process.
-        contributions.Contribution_R.remove_counterterms_with_no_reduced_process(
+        contributions.Contribution_V.remove_counterterms_with_no_reduced_process(
                    all_MEAccessors, self.integrated_counterterms_refused_from_all_contribs)
         # Check there is none left over after this filtering
         if len(self.integrated_counterterms_refused_from_all_contribs)>0:
                 # These integrated counterterms should in principle been added
                 msg = "The following list of integrated counterterm are in principle non-zero"
                 msg += " but could not be included in any contributions generated:\n"
-                msg += '\n'.join(str(CT) in self.integrated_counterterms_refused_from_all_contribs)
+                msg += '\n'.join(str(CT) for CT in self.integrated_counterterms_refused_from_all_contribs)
                 msg += "\nResults generated from that point on are likely to be physically wrong."
                 if __debug__:
                     logger.critical(msg)

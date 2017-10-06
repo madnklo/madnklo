@@ -204,9 +204,10 @@ def ln(file_pos, starting_dir='.', name='', log=True, cwd=None, abspath=False):
     # Remove existing link if necessary
     if os.path.exists(os.path.join(starting_dir, name)):
         os.remove(os.path.join(starting_dir, name))
-
+    
     if not abspath:
-        target = os.path.relpath(file_pos, starting_dir)
+        target = os.path.join('.',os.path.relpath(file_pos, starting_dir))
+        import madgraph.various.misc as misc
     else:
         target = file_pos
 

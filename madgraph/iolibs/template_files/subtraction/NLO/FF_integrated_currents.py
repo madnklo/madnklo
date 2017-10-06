@@ -20,6 +20,7 @@ import math
 
 import madgraph.core.subtraction as subtraction
 import madgraph.integrator.phase_space_generators as PS_utils
+from madgraph.core.base_objects import EpsilonExpansion
 import madgraph.various.misc as misc
 
 try:
@@ -40,7 +41,7 @@ class integrated_NLO_FF_QCD_current(utils.VirtualCurrentImplementation):
     """ Just a template class for all Final-Final NLO QCD local subtraction current."""
 
     @classmethod
-    def does_implement_this_current(cls, current, model):
+    def common_does_implement_this_current(cls, current, model):
         """ General class of checks common to all currents inheriting from this class."""
     
         # Make sure it is an integrated subtraction counterterm and not a local one.
@@ -61,15 +62,22 @@ class integrated_NLO_FF_QCD_current(utils.VirtualCurrentImplementation):
         # Make sure we don't need to sum over the quantum number of the mother leg
         if not current.get('resolve_mother_spin_and_color'):
             return None
+
+        # Integrated counterterm have an inert singular structure that contains
+        # exactly one actual singular structure
+        if current.get('singular_structure').name()!='':
+            return None
+        if len(current.get('singular_structure').substructures)!=1:
+            return None
+        singular_structure = current.get('singular_structure').substructures[0]
         
-        # Finally check that the singular structure and PDG matches
-        singular_structure = current.get('singular_structure')
+        # Finally check that the singular structure and PDG matches 
         
         # Check that all legs are final states
         for leg in singular_structure.legs:
             if leg.state != subtraction.SubtractionLeg.FINAL:
                 return None
-        
+
         for substructure in singular_structure.substructures:
             if len(substructure.substructures)>0:
                 return None
@@ -92,13 +100,13 @@ class integrated_NLO_FF_QCD_collinear_qqx(integrated_NLO_FF_QCD_current):
         part of what this particular current class implements. When returning 
         a dictionary, it specifies potential options that must passed upon instantiating
         this implementation for the current given in argument. """
-
-        singular_structure = current.get('singular_structure')
         
         # Check the general properties common to FF NLO QCD
-        if super(integrated_NLO_FF_QCD_collinear_qqx, cls).does_implement_this_current(
+        if super(integrated_NLO_FF_QCD_collinear_qqx, cls).common_does_implement_this_current(
                                                                 current, model) is None:
             return None
+
+        singular_structure = current.get('singular_structure').substructures[0]
         
         # It should be a collinear type of structure
         if singular_structure.name()!='C':
@@ -149,6 +157,7 @@ class integrated_NLO_FF_QCD_collinear_qqx(integrated_NLO_FF_QCD_current):
                                             reduced_process = None,
                                             leg_numbers_map = None,
                                             hel_config = None,
+                                            compute_poles = False,
                                             **opts
                                      ):
         """ Now evalaute the current and return the corresponding instance of
@@ -166,7 +175,7 @@ class integrated_NLO_FF_QCD_collinear_qqx(integrated_NLO_FF_QCD_current):
 
         result = utils.SubtractionCurrentResult()
 
-        ss = current.get('singular_structure')
+        ss = current.get('singular_structure').substructures[0]
         
         # Retrieve alpha_s and mu_r
         model_param_dict = self.model.get('parameter_dict')
@@ -185,23 +194,21 @@ class integrated_NLO_FF_QCD_collinear_qqx(integrated_NLO_FF_QCD_current):
         evaluation = utils.SubtractionCurrentEvaluation({
             'spin_correlations'   : [ None ],
             'color_correlations'  : [ None ],
-            'values'              : { (0,0): { 'finite' : 0.,
-                                               'eps^-1' : 0.,
-                                               'eps^-2' : 0.
-                                             }
+            'values'              : { (0,0): { }
                                     }
           }
         )
 
-        evaluation['values'][(0,0)]['finite'] = 0
-        evaluation['values'][(0,0)]['eps^-1'] = 1.
-        evaluation['values'][(0,0)]['eps^-2'] = 0.
-
-        # Now add the normalization factors
-        norm = 4.*math.pi*alpha_s*(2./s12)*self.TR
-        for coef in evaluation['values'][(0,0)]:
-            evaluation['values'][(0,0)][coef] *= norm
+        value = EpsilonExpansion({ 0 : 0., -1 : 0., -2 : 0.})
         
+        # Now add the normalization factors
+        norm = 4.*math.pi
+        value *= norm
+
+        # Now register the value in the evaluation
+        evaluation['values'][(0,0)] = value.to_human_readable_dict()        
+
+        # And add it to the results
         result.add_result(
             evaluation, 
             hel_config=hel_config, 
@@ -223,19 +230,18 @@ class integrated_NLO_FF_QCD_collinear_gq(integrated_NLO_FF_QCD_current):
         part of what this particular current class implements. When returning 
         a dictionary, it specifies potential options that must passed upon instantiating
         this implementation for the current given in argument. """
-                
+
         # Check the general properties common to FF NLO QCD
-        if super(integrated_NLO_FF_QCD_collinear_gq, cls).does_implement_this_current(
+        if super(integrated_NLO_FF_QCD_collinear_gq, cls).common_does_implement_this_current(
                                                                 current, model) is None:
             return None
 
-        singular_structure = current.get('singular_structure')
-
+        singular_structure = current.get('singular_structure').substructures[0]
 
         # It should not have nested structures
         if singular_structure.substructures:
             return None
-
+        
         # It should consist in exactly two legs going collinear
         if len(singular_structure.legs)!=2:
             return None
@@ -243,12 +249,12 @@ class integrated_NLO_FF_QCD_collinear_gq(integrated_NLO_FF_QCD_current):
         for leg in singular_structure.legs:
             if model.get_particle(leg.pdg).get('mass').upper()!='ZERO':
                 return None
-        
+
         # Check that it is indeed a quark and a gluon going collinear
         if set([abs(leg.pdg) for leg in singular_structure.legs]) not in \
                                 [set([21,q_pdg]) for q_pdg in range(1,7)]:
             return None            
-        
+
         # We now know that this current is implemented here, so we return
         # an empty dictionary which could potentially have contained specific
         # options to specify upon instantiating this class.
@@ -259,6 +265,7 @@ class integrated_NLO_FF_QCD_collinear_gq(integrated_NLO_FF_QCD_current):
                                             reduced_process = None,
                                             leg_numbers_map = None,
                                             hel_config = None,
+                                            compute_poles = False,
                                             **opts
                                      ):
         """ Now evalaute the current and return the corresponding instance of
@@ -276,7 +283,7 @@ class integrated_NLO_FF_QCD_collinear_gq(integrated_NLO_FF_QCD_current):
 
         result = utils.SubtractionCurrentResult()
 
-        ss = current.get('singular_structure')
+        ss = current.get('singular_structure').substructures[0]
         
         # Retrieve alpha_s and mu_r
         model_param_dict = self.model.get('parameter_dict')
@@ -295,23 +302,21 @@ class integrated_NLO_FF_QCD_collinear_gq(integrated_NLO_FF_QCD_current):
         evaluation = utils.SubtractionCurrentEvaluation({
             'spin_correlations'   : [ None ],
             'color_correlations'  : [ None ],
-            'values'              : { (0,0): { 'finite' : 0.,
-                                               'eps^-1' : 0.,
-                                               'eps^-2' : 0.
-                                             }
+            'values'              : { (0,0): { }
                                     }
           }
         )
 
-        evaluation['values'][(0,0)]['finite'] = 0
-        evaluation['values'][(0,0)]['eps^-1'] = 1.
-        evaluation['values'][(0,0)]['eps^-2'] = 0.
-
-        # Now add the normalization factors
-        norm = 4.*math.pi*alpha_s*(2./s12)*self.TR
-        for coef in evaluation['values'][(0,0)]:
-            evaluation['values'][(0,0)][coef] *= norm
+        value = EpsilonExpansion({ 0 : 0., -1 : 0., -2 : 0.})
         
+        # Now add the normalization factors
+        norm = 4.*math.pi
+        value *= norm
+
+        # Now register the value in the evaluation
+        evaluation['values'][(0,0)] = value.to_human_readable_dict()        
+
+        # And add it to the results
         result.add_result(
             evaluation, 
             hel_config=hel_config, 
@@ -348,12 +353,12 @@ class integrated_NLO_FF_QCD_softcollinear_gq(integrated_NLO_FF_QCD_current):
         this implementation for the current given in argument. """
         
         # Check the general properties common to FF NLO QCD
-        if super(integrated_NLO_FF_QCD_softcollinear_gq, cls).does_implement_this_current(
+        if super(integrated_NLO_FF_QCD_softcollinear_gq, cls).common_does_implement_this_current(
                                                                 current, model) is None:
             return None
 
         # Finally check that the singular structure and PDG matches
-        singular_structure = current.get('singular_structure')
+        singular_structure = current.get('singular_structure').substructures[0]
 
         # It main structure should be of collinear type
         if singular_structure.name()!='C':
@@ -412,6 +417,7 @@ class integrated_NLO_FF_QCD_softcollinear_gq(integrated_NLO_FF_QCD_current):
                                             reduced_process = None,
                                             leg_numbers_map = None,
                                             hel_config = None,
+                                            compute_poles = False,
                                             **opts
                                      ):
         """ Now evalaute the current and return the corresponding instance of
@@ -429,7 +435,7 @@ class integrated_NLO_FF_QCD_softcollinear_gq(integrated_NLO_FF_QCD_current):
 
         result = utils.SubtractionCurrentResult()
 
-        ss = current.get('singular_structure')
+        ss = current.get('singular_structure').substructures[0]
         
         # Retrieve alpha_s and mu_r
         model_param_dict = self.model.get('parameter_dict')
@@ -448,23 +454,21 @@ class integrated_NLO_FF_QCD_softcollinear_gq(integrated_NLO_FF_QCD_current):
         evaluation = utils.SubtractionCurrentEvaluation({
             'spin_correlations'   : [ None ],
             'color_correlations'  : [ None ],
-            'values'              : { (0,0): { 'finite' : 0.,
-                                               'eps^-1' : 0.,
-                                               'eps^-2' : 0.
-                                             }
+            'values'              : { (0,0): { }
                                     }
           }
         )
 
-        evaluation['values'][(0,0)]['finite'] = 0
-        evaluation['values'][(0,0)]['eps^-1'] = 1.
-        evaluation['values'][(0,0)]['eps^-2'] = 0.
-
-        # Now add the normalization factors
-        norm = 4.*math.pi*alpha_s*(2./s12)*self.TR
-        for coef in evaluation['values'][(0,0)]:
-            evaluation['values'][(0,0)][coef] *= norm
+        value = EpsilonExpansion({ 0 : 0., -1 : 0., -2 : 0.})
         
+        # Now add the normalization factors
+        norm = 4.*math.pi
+        value *= norm
+
+        # Now register the value in the evaluation
+        evaluation['values'][(0,0)] = value.to_human_readable_dict()        
+
+        # And add it to the results
         result.add_result(
             evaluation, 
             hel_config=hel_config, 
@@ -488,12 +492,12 @@ class integrated_NLO_FF_QCD_collinear_gg(integrated_NLO_FF_QCD_current):
         this implementation for the current given in argument. """
         
         # Check the general properties common to FF NLO QCD
-        if super(integrated_NLO_FF_QCD_collinear_gg, cls).does_implement_this_current(
+        if super(integrated_NLO_FF_QCD_collinear_gg, cls).common_does_implement_this_current(
                                                                 current, model) is None:
             return None
         
         # Finally check that the singular structure and PDG matches
-        singular_structure = current.get('singular_structure')
+        singular_structure = current.get('singular_structure').substructures[0]
 
         # It should be a collinear type of structure
         if singular_structure.name()!='C':
@@ -526,6 +530,7 @@ class integrated_NLO_FF_QCD_collinear_gg(integrated_NLO_FF_QCD_current):
                                             reduced_process = None,
                                             leg_numbers_map = None,
                                             hel_config = None,
+                                            compute_poles = False,
                                             **opts
                                      ):
         """ Now evalaute the current and return the corresponding instance of
@@ -543,7 +548,7 @@ class integrated_NLO_FF_QCD_collinear_gg(integrated_NLO_FF_QCD_current):
 
         result = utils.SubtractionCurrentResult()
 
-        ss = current.get('singular_structure')
+        ss = current.get('singular_structure').substructures[0]
         
         # Retrieve alpha_s and mu_r
         model_param_dict = self.model.get('parameter_dict')
@@ -562,23 +567,21 @@ class integrated_NLO_FF_QCD_collinear_gg(integrated_NLO_FF_QCD_current):
         evaluation = utils.SubtractionCurrentEvaluation({
             'spin_correlations'   : [ None ],
             'color_correlations'  : [ None ],
-            'values'              : { (0,0): { 'finite' : 0.,
-                                               'eps^-1' : 0.,
-                                               'eps^-2' : 0.
-                                             }
+            'values'              : { (0,0): { }
                                     }
           }
         )
 
-        evaluation['values'][(0,0)]['finite'] = 0
-        evaluation['values'][(0,0)]['eps^-1'] = 1.
-        evaluation['values'][(0,0)]['eps^-2'] = 0.
-
-        # Now add the normalization factors
-        norm = 4.*math.pi*alpha_s*(2./s12)*self.TR
-        for coef in evaluation['values'][(0,0)]:
-            evaluation['values'][(0,0)][coef] *= norm
+        value = EpsilonExpansion({ 0 : 0., -1 : 0., -2 : 0.})
         
+        # Now add the normalization factors
+        norm = 4.*math.pi
+        value *= norm
+
+        # Now register the value in the evaluation
+        evaluation['values'][(0,0)] = value.to_human_readable_dict()        
+
+        # And add it to the results
         result.add_result(
             evaluation, 
             hel_config=hel_config, 
@@ -603,12 +606,12 @@ class integrated_NLO_QCD_soft_gluon(integrated_NLO_FF_QCD_current):
         this implementation for the current given in argument. """
 
         # Check the general properties common to FF NLO QCD
-        if super(integrated_NLO_QCD_soft_gluon, cls).does_implement_this_current(
+        if super(integrated_NLO_QCD_soft_gluon, cls).common_does_implement_this_current(
                                                                 current, model) is None:
             return None
         
         # Finally check that the singular structure and PDG matches
-        singular_structure = current.get('singular_structure')
+        singular_structure = current.get('singular_structure').substructures[0]
 
         # It should be a soft type of structure
         if singular_structure.name()!='S':
@@ -647,6 +650,7 @@ class integrated_NLO_QCD_soft_gluon(integrated_NLO_FF_QCD_current):
                                             reduced_process = None,
                                             leg_numbers_map = None,
                                             hel_config = None,
+                                            compute_poles = False,
                                             **opts
                                      ):
         """ Evaluates this current and return the corresponding instance of
@@ -666,7 +670,7 @@ class integrated_NLO_QCD_soft_gluon(integrated_NLO_FF_QCD_current):
         
         result = utils.SubtractionCurrentResult()
 
-        ss = current.get('singular_structure')
+        ss = current.get('singular_structure').substructures[0]
         
         # Retrieve alpha_s and mu_r
         model_param_dict = self.model.get('parameter_dict')
@@ -689,28 +693,22 @@ class integrated_NLO_QCD_soft_gluon(integrated_NLO_FF_QCD_current):
         # Now instantiate what the result will be
         evaluation = utils.SubtractionCurrentEvaluation({
             'spin_correlations'   : [ None ],
-            'color_correlations'  : [ ],
-            'values'              : { }
-          })
-        
-        # Normalization factors
-        norm = -8.*math.pi*alpha_s
+            'color_correlations'  : [ None ],
+            'values'              : { (0,0): { }
+                                    }
+          }
+        )
 
-        color_correlation_index = 0
-        # Now loop over the colored parton number pairs (a,b) and add the corrsponding 
-        # contributions to this current
-        for i, a in enumerate(all_colored_parton_numbers):
-            # Use the symmetricity of the color-correlation and soft current (a,b) <-> (b,a)
-            for b in all_colored_parton_numbers[i+1:]:
-                evaluation['color_correlations'].append( [(a, b), ] )
-                # Write the eikonal for that pair
-                evaluation['values'][(0,color_correlation_index)] = {
-                    'finite' : norm * 0.,
-                    'eps^-1' : norm * 1.,
-                    'eps^-2' : norm * 0.
-                }
-                color_correlation_index += 1
+        value = EpsilonExpansion({ 0 : 0., -1 : 0., -2 : 0.})
         
+        # Now add the normalization factors
+        norm = 4.*math.pi
+        value *= norm
+
+        # Now register the value in the evaluation
+        evaluation['values'][(0,0)] = value.to_human_readable_dict()        
+
+        # And add it to the results
         result.add_result(
             evaluation, 
             hel_config=hel_config, 

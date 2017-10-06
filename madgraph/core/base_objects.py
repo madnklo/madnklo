@@ -4153,7 +4153,43 @@ class EpsilonExpansion(dict):
         
     __rtruediv__ = __rdiv__
     
-    def __str__(self):
+    def to_human_readable_dict(self):
+        """ Transforms this expansion into a dictionary with human readable keys.
+        Typically to be used in MEEvaluation results dictionaries. """
+        
+        # The 'finite' key is mandatory
+        res = {'finite' : 0. }
+
+        for k, v in self.items():
+            if k==0:
+                res['finite'] += v
+            res['eps^%d'%k] = v
+        
+        return res
+        
+    def relative_diff(self, other):
+        """ Computes the relative difference with the other series, term by term,"""
+        
+        res = EpsilonExpansion()
+        for k in set(self.keys()+other.keys()):
+            v = self.get(k, 0.)
+            other_v = other.get(k, 0.)
+            sum = abs(v) + abs(other_v)
+            if sum == 0.:
+                res[k] = 0.
+            else:
+                res[k] = abs(v - other_v) / sum
+        return res
+        
+    def norm(self):
+        """ Simply returns the sum of the absolute value of each term."""
+        
+        res = 0.
+        for v in self.values():
+            res += abs(v)
+        return res
+    
+    def __str__(self, format=None):
         
         utf8_exp_chars = {
             '1' : u'\u00b9',
@@ -4169,6 +4205,9 @@ class EpsilonExpansion(dict):
             '-' : u'\u207B',
             }
         
+        if format is None:
+            format = '.16g'
+
         res = u''
         for k in sorted(self.keys()):
             if k==0:
@@ -4179,7 +4218,7 @@ class EpsilonExpansion(dict):
                 for char in str(k):
                     identifier+=utf8_exp_chars[char]
              
-            res += u'%s %.16g %s '%(
+            res += (u'%%s %%%s %%s '%format)%(
                 '+' if self[k]>=0. else '-',
                 abs(self[k]),
                 identifier

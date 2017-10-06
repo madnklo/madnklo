@@ -12,6 +12,7 @@
 # For more information, visit madgraph.phys.ucl.ac.be and amcatnlo.web.cern.ch
 #
 ##########################################################################################
+from pickle import STOP
 """Classes for implementions Contributions.
 Contributions are abstract layer, between the madgraph_interface and amplitudes.
 They typically correspond to the Born, R, V, RV, RR, VV, etc.. pieces of higher
@@ -725,6 +726,10 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
         
         return dump
 
+    def compile(self, *args, **opts):
+        """ For basic python subtraction current there is not compilation necessary for now."""
+        pass
+    
     @classmethod
     def initialize_from_dump(cls, dump, root_path, model, *args, **opts):
         """ Regenerate this instance from its dump and possibly other information."""
@@ -859,6 +864,11 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
 class F2PYMEAccessor(VirtualMEAccessor):
     """ A class wrapping the access to one particular MatrixEleemnt wrapped with F2PY """
     
+    # Control the verbosity of the underlying fortran code.
+    # A verbosity of logging.DEBUG-1 would imply that even logger.level = logging.DEBUG (which is 10)
+    # would not let fortran stdout through.
+    fortran_verbosity = logging.DEBUG-1
+    
     def __new__(cls, process, f2py_module_path, slha_card_path, **opts):
         """ Factory for the various F2PY accessors, depending on the process a different class
         will be selected."""
@@ -887,6 +897,10 @@ class F2PYMEAccessor(VirtualMEAccessor):
         for instance:
            ('/usr/john/Documents/MyProcOutput', 'LO_udx_epve_1.matrix_1_udx_epve_py') 
         """
+        
+        compile_if_necessary = True
+        if 'compile_if_necessary' in opts:
+            compile_if_necessary = opts.pop('compile_if_necessary')
 
         super(F2PYMEAccessor, self).__init__(process, **opts)
         
@@ -907,6 +921,16 @@ class F2PYMEAccessor(VirtualMEAccessor):
         assert(name.startswith('matrix_') and name.endswith('_py')), "Non-standard f2py'ed so library name: %s"%name
         self.proc_name = name[7:-3]
         
+        shared_library_path = pjoin(f2py_module_path[0],*(f2py_module_path[1].split('.')))+'.so'
+        if not os.path.isfile(shared_library_path):
+            if compile_if_necessary:
+                self.compile()
+            else:
+                # We are at the generation stage and the f2py module has never been compiled yet.
+                # This accessor is therefore only a placeholder for now.
+                self.f2py_module = None
+                return
+
         self.f2py_module = self.load_f2py_module(f2py_module_path)
 
         # Try to guess the process prefix if not defined
@@ -935,26 +959,38 @@ class F2PYMEAccessor(VirtualMEAccessor):
                 "Check the sanity of the proc_prefix value.")
             
         self.synchronize(from_init=True)
-
     
     def compile(self,mode='auto'):
         """ Compiles the source code associated with this MatrixElement accessor."""
-        Pdir = pjoin(self.root_path,self.proc_dir, 'SubProcesses','P%s'%self.proc_name)
+        
+        root_dir = pjoin(self.root_path, self.proc_dir)
+        source_dir = pjoin(root_dir, 'Source')
+        Pdir = pjoin(root_dir, 'SubProcesses','P%s'%self.proc_name)
         if not os.path.isdir(Pdir):
             raise InvalidCmd("The expected subprocess directory %s could not be found."%Pdir)
         
         if os.path.isfile(pjoin(Pdir, 'matrix_%s_py.so'%self.proc_name)) and mode=='never':
             return
-        
+
         if mode=='always':
              misc.compile(arg=['clean'], cwd=Pdir)
+             misc.compile(arg=['clean'], cwd=pjoin(source_dir,'DHELAS'))
+             
         if not os.path.isfile(pjoin(Pdir, 'matrix_%s_py.so'%self.proc_name)):
-            logger.debug("Compiling directory %s ..."%(pjoin(self.proc_dir, 'SubProcesses','P%s'%self.proc_name)))
+            logger.info("Compiling directory %s ..."%(pjoin(self.proc_dir, 
+                                                     'SubProcesses','P%s'%self.proc_name)))                    
+            misc.compile(arg=['../lib/libdhelas.a',], cwd=source_dir)
+            misc.compile(arg=['../lib/libmodel.a',], cwd=source_dir)
             misc.compile(arg=['matrix_%s_py.so'%self.proc_name, 'MENUM=_%s_'%self.proc_name], cwd=Pdir)
         
         if not os.path.isfile(pjoin(Pdir, 'matrix_%s_py.so'%self.proc_name)):
             raise InvalidCmd("The f2py compilation of SubProcess '%s' failed.\n"%Pdir+
-                "Try running 'MENUM=_%s_ make matrix_%s_py.so' by hand in this directory."%(self.proc_name,self.proc_name))
+                "Try running 'MENUM=_%s_ make matrix_%s_py.so' by hand in this directory."\
+                                                          %(self.proc_name,self.proc_name))
+
+        if not os.path.isfile(pjoin(root_dir, 'matrix_%s_py.so'%self.proc_name)):
+            # Refresh the soft link
+            ln( pjoin(Pdir, 'matrix_%s_py.so'%self.proc_name), starting_dir = root_dir )
 
     def synchronize(self, ME7_options = None, from_init=False, compile='auto', **opts):
         """ Synchronizes this accessor with the possibly updated value of parameter cards and ME source code.
@@ -966,7 +1002,7 @@ class F2PYMEAccessor(VirtualMEAccessor):
         # Recompile and reload the module if synchronize was not call from the __init__ function
         if not from_init:
             self.compile(mode=compile)
-            with misc.Silence(active=False and (logger.level>logging.DEBUG)):
+            with misc.Silence(active=(logger.level>self.fortran_verbosity)):
                 self.f2py_module = reload(self.f2py_module)
 
         # Now gather various properties about the Matrix Elements
@@ -1048,7 +1084,7 @@ class F2PYMEAccessor(VirtualMEAccessor):
             sys.path.insert(0, pjoin(self.root_path,module_path[0]))
         # Use logger.level >= loggign.DEBUG and not > so as to forward
         # the loading text only if the user *really* wants it by setting logger.level = 0 :)
-        with misc.Silence(active=False and (logger.level>=logging.DEBUG)):
+        with misc.Silence(active=(logger.level>=self.fortran_verbosity)):
             try:
                 f2py_module = importlib.import_module(module_path[1])
             except:
@@ -1171,7 +1207,7 @@ class F2PYMEAccessor(VirtualMEAccessor):
         # we will be able to use the information of self.process_pdgs to determine which one to call.
         # misc.sprint(" I was called from :",self.process_pdgs)
         if not self.module_initialized:
-            with misc.Silence(active=(logger.level>logging.DEBUG)):
+            with misc.Silence(active=(logger.level>self.fortran_verbosity)):
                 self.get_function('initialise')(pjoin(self.root_path, self.slha_card_path))
             self.module_initialized = True
         
@@ -1180,7 +1216,7 @@ class F2PYMEAccessor(VirtualMEAccessor):
 
         # Actual call to the matrix element
 #        start = time.time() #TOBECOMMENTED
-        with misc.Silence(active=(logger.level>logging.DEBUG)):
+        with misc.Silence(active=(logger.level>self.fortran_verbosity)):
             main_output  = self.get_function('me_accessor_hook')(
                     self.format_momenta_for_f2py(PS_point), 
                     (-1 if not new_opts['hel_config'] else self.helicity_configurations[new_opts['hel_config']]),
@@ -1273,8 +1309,9 @@ class F2PYMEAccessorMadLoop(F2PYMEAccessor):
     def __init__(self, process, f2py_module_path, slha_card_path, madloop_resources_path=None, **opts):
         """ Use the MadLoop resources path for MadLoop outputs """
   
-        super(F2PYMEAccessorMadLoop, self).__init__(process, f2py_module_path, slha_card_path, **opts)
-
+        super(F2PYMEAccessorMadLoop, self).__init__(process, 
+                                                 f2py_module_path, slha_card_path, **opts)
+        
         # Add the additional inputs to the back-up to be used later for the dump 
         #  (if not already added by the mother)
         if not 'madloop_resources_path' in self.initialization_inputs['opts']:
@@ -1288,7 +1325,12 @@ class F2PYMEAccessorMadLoop(F2PYMEAccessor):
             self.madloop_resources_path = os.path.relpath(madloop_resources_path, self.root_path)
         else:
             self.madloop_resources_path = None
-            
+
+        if self.f2py_module is None:
+            # We are at the generation stage and the f2py module has never been compiled yet.
+            # This accessor is therefore only a placeholder for now.
+            return
+    
         # Obtain loop_squared_orders. Split names are the same as those already determined at tree-level
         # 'None' means summed over. 
         self.loop_squared_orders = {None: 0}
@@ -1422,7 +1464,7 @@ class F2PYMEAccessorMadLoop(F2PYMEAccessor):
         # misc.sprint(" I was called from :",self.process_pdgs)
         if not self.module_initialized:
             # These functions are not prefixed, so we should not ask to get them via the accessor self.get_function
-            with misc.Silence(active=(logger.level>logging.DEBUG)):
+            with misc.Silence(active=(logger.level>self.fortran_verbosity)):
                 self.f2py_module.initialise(pjoin(self.root_path, self.slha_card_path))
                 if self.madloop_resources_path:
                         self.f2py_module.initialise_madloop_path(pjoin(self.root_path, self.madloop_resources_path))
@@ -1434,7 +1476,7 @@ class F2PYMEAccessorMadLoop(F2PYMEAccessor):
 
         # Actual call to the matrix element
 #        start = time.time() #TOBECOMMENTED
-        with misc.Silence(active=(logger.level>logging.DEBUG)):
+        with misc.Silence(active=(logger.level>self.fortran_verbosity)):
             evals, estimated_accuracies, return_code = self.get_function('loopme_accessor_hook')(
             self.format_momenta_for_f2py(PS_point), 
             (-1 if not new_opts['hel_config'] else self.helicity_configurations[new_opts['hel_config']]),                              
@@ -1708,14 +1750,14 @@ class MEAccessorDict(dict):
         and in the options the user can specify the desired_pdgs_order which will be used by the MEDictionary to figure
         out which permutation to apply and which flavours to specify.
         """
-        
+
         assert (len(args)>0 and isinstance(args[0], (ProcessKey, base_objects.Process, subtraction.Current))), "When using the shortcut "+\
             "__call__ method of MEAccessorDict, the first argument should be an instance of a ProcessKey or base_objects.Process or"+\
-            "subtraction.Current."
+            " subtraction.Current."
 
         # Now store the me_accessor_key and remove it from the arguments to be passed to the MEAccessor call.
         me_accessor_key = args[0]
-
+        
         desired_pdgs_order = None
         call_options = dict(opts)
         if 'pdgs' in call_options:
@@ -2288,11 +2330,13 @@ class Contribution(object):
             # The PDGs of the hashed representations correspond to entry [0][0]
             mapped_process_pdgs = [ (proc.get_initial_ids(), proc.get_final_ids()) 
                                                             for proc in mapped_processes ]
-            f2py_module_path = pjoin(self.export_dir,'matrix_%s_py.so'%
+            proc_dir = pjoin(self.export_dir,'SubProcesses','P%s'%
                                                    self.process_dir_name(defining_process))
-            if not os.path.exists(f2py_module_path):
-                raise MadGraph5Error("Cannot find the compiled f2py module for %s at %s"%
-                                                            (defining_process.nice_string(),f2py_module_path))
+
+            if not os.path.isdir(proc_dir):
+                raise MadGraph5Error("Cannot find the process directory '%s' for process %s."%
+                                             ( proc_dir, defining_process.nice_string() ) )
+
             f2py_load_path = (os.path.dirname(self.export_dir), 
                         '%s.matrix_%s_py'%( os.path.basename(self.export_dir), 
                                                 self.process_dir_name(defining_process) ) )
@@ -2308,8 +2352,9 @@ class Contribution(object):
                 slha_card_path,
                 madloop_resources_path=madloop_resources_path,
                 mapped_pdgs = mapped_process_pdgs, 
-                root_path=root_path
-                ) )
+                root_path = root_path,
+                compile_if_necessary = False,
+            ) )
 
         # Only allow overwriting accessors if processes were not grouped
         all_MEAccessors.add_MEAccessors(MEAccessors, 
@@ -2415,7 +2460,10 @@ class Contribution(object):
             self.exporter.convert_model(self.model, wanted_lorentz, wanted_couplings)
 
         # Dedicated finalize function.
-        self.exporter.finalize(self.all_matrix_elements, interface_history, self.options, flaglist)
+        finalize_options = dict(self.options)
+        finalize_options['no_compilation'] = True
+        self.exporter.finalize(self.all_matrix_elements, interface_history,
+                                                                finalize_options, flaglist)
         
         return global_wanted_couplings
 
@@ -2703,8 +2751,14 @@ class Contribution_R(Contribution):
         for process_key, (defining_process, mapped_processes) in self.get_processes_map().items():
             local_counterterms, integrated_counterterms = \
                                  self.IR_subtraction.get_all_counterterms(defining_process)
+
+            # Make sure that the non-singular counterterm which correspond to the real-emission
+            # matrix elements themselves are not added here
+            local_counterterms = [ct for ct in local_counterterms if ct.is_singular()]
+
             self.counterterms[process_key] = local_counterterms
-            # Add a additional information about the integrated_counterterms that will
+            
+            # Now Add a additional information about the integrated_counterterms that will
             # be necessary for their evaluations in the corresponding lower-multiplicity
             # contribution
             
@@ -2712,6 +2766,7 @@ class Contribution_R(Contribution):
             # states part of this mapping and the values being the number of mapped
             # processes that possess these initial states
             flavors_combinations = []
+            
             # Notice that the defining flavor combination will always be placed first
             for process in [defining_process,]+mapped_processes:
                 initial_pdgs = process.get_initial_ids()
@@ -2725,11 +2780,27 @@ class Contribution_R(Contribution):
                         tuple(reversed(initial_pdgs)),
                         final_pdgs
                     ) )
-
+            
             for integrated_counterterm in integrated_counterterms:
+                # List the reduced flavors combinations. The keys are the tuple of the reduced
+                # flavors combination and the value is the multiplication factor.
+                reduced_flavors_combinations = {}
+                resolved_flavors_combinations = {}
+                for flavor_combination in flavors_combinations:
+                    reduced_flavors = integrated_counterterm.get_reduced_flavors(
+                                                       defining_flavors=flavor_combination)
+                    try:
+                        reduced_flavors_combinations[reduced_flavors] += 1
+                    except KeyError:
+                        reduced_flavors_combinations[reduced_flavors] = 1
+                    resolved_flavors_combinations[flavor_combination] = reduced_flavors
+                
+                # The list of reduced_flavors_combination is of course redundant
+                # but it's nice not to have to compute it at run_time.
                 all_integrated_counterterms.append({
-                    'integrated_counterterm'    :   integrated_counterterm,
-                    'flavors_combinations'      :   flavors_combinations
+                    'integrated_counterterm'             :   integrated_counterterm,
+                    'resolved_flavors_combinations'      :   resolved_flavors_combinations,
+                    'reduced_flavors_combinations'       :   reduced_flavors_combinations
                 })
 
         return all_integrated_counterterms

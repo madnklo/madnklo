@@ -60,6 +60,7 @@ except ImportError:
     import internal.common_run_interface as common_run
     import internal.madevent_interface as madevent_interface
     import internal.banner as banner_mod
+    import internal.base_objects as base_objects
     import internal.misc as misc
     from internal import InvalidCmd, MadGraph5Error, ReadWrite
     import internal.files as files
@@ -80,6 +81,7 @@ except ImportError:
 else:
     # import from madgraph directory
     MADEVENT7 = False
+    import madgraph.core.base_objects as base_objects
     import madgraph.interface.extended_cmd as cmd
     import madgraph.interface.common_run_interface as common_run
     import madgraph.interface.madevent_interface as madevent_interface
@@ -229,9 +231,11 @@ class HelpToCmd(object):
 class ParseCmdArguments(object):
     """ The Series of check routine for MadEvent7Cmd"""
     
-    def parse_test_IR_limits(self, args):
+    def parse_test_IR_options(self, args, mode='limits'):
         """ Parses the options specified to the test_limit command."""
         
+        assert(mode in ['limits', 'poles'])
+
         # None means unspecified, therefore considering all types.
         testlimits_options = {'correction_order'        : None,
                               'limit_type'              : None,
@@ -244,6 +248,13 @@ class ParseCmdArguments(object):
                               'acceptance_threshold'    : 1.0e-6,
                               'compute_only_limit_defining_counterterm' : False
                              }
+        
+        if mode=='pole':
+            # Remove some options for the pole
+            del testlimits_options['limit_type']
+            del testlimits_options['n_steps']
+            del testlimits_options['min_scaling_variable']
+            del testlimits_options['compute_only_limit_defining_counterterm']
  
         # Group arguments in between the '--' specifiers.
         # For example, it will group '--process=p' 'p' '>' 'd' 'd~' 'z' into '--process=p p > d d~ z'.
@@ -269,7 +280,7 @@ class ParseCmdArguments(object):
                 if value.upper() not in ['NLO','NNLO','NNNLO']:
                     raise InvalidCmd("'%s' is not a valid option for '%s'"%(value, key))
                 testlimits_options['correction_order'] = value.upper()
-            elif key in ['--n_steps']:
+            elif key in ['--n_steps'] and mode=='limits':
                 try:
                     testlimits_options[key[2:]] = int(value)
                     if int(value)<2:
@@ -286,7 +297,7 @@ class ParseCmdArguments(object):
                             raise ValueError
                     except ValueError:
                         raise InvalidCmd("'%s' is not a valid integer for option '%s'"%(value, key))
-            elif key in ['--compute_only_limit_defining_counterterm','--o']:
+            elif key in ['--compute_only_limit_defining_counterterm','--o'] and mode=='limits':
                 if value is None:
                     testlimits_options['compute_only_limit_defining_counterterm'] = True
                 else:
@@ -294,12 +305,17 @@ class ParseCmdArguments(object):
                         testlimits_options['compute_only_limit_defining_counterterm'] = bool(eval(value))
                     except:
                         raise InvalidCmd("'%s' is not a valid float for option '%s'"%(value, key))                        
-            elif key in ['--min_scaling_variable', '--acceptance_threshold']:
+            elif key in ['--acceptance_threshold']:
                 try:
                     testlimits_options[key[2:]] = float(value)                  
                 except ValueError:
-                    raise InvalidCmd("'%s' is not a valid float for option '%s'"%(value, key))                  
-            elif key in ['--limit_type','--lt']:
+                    raise InvalidCmd("'%s' is not a valid float for option '%s'"%(value, key))
+            elif key in ['--min_scaling_variable'] and mode=='limits':
+                try:
+                    testlimits_options[key[2:]] = float(value)                  
+                except ValueError:
+                    raise InvalidCmd("'%s' is not a valid float for option '%s'"%(value, key))
+            elif key in ['--limit_type','--lt'] and mode=='limits':
                 if not isinstance(value, str):
                     raise InvalidCmd("'%s' is not a valid option for '%s'"%(value, key))
                 if value.lower() == 'soft':
@@ -358,7 +374,7 @@ class ParseCmdArguments(object):
                     testlimits_options['process']['out_pdgs'] = tuple(final_pdgs)
 
             else:
-                raise InvalidCmd("Option '%s' for the test_limits command not recognized."%key)        
+                raise InvalidCmd("Option '%s' for the test_IR_%s command not recognized."%(mode,key))        
         
         return new_args, testlimits_options
     
@@ -643,7 +659,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         """This function test that local subtraction counterterms match with the actual matrix element in the IR limit."""
     
         args = self.split_arg(line)
-        args, testlimits_options = self.parse_test_IR_limits(args)
+        args, testlimits_options = self.parse_test_IR_options(args, mode='limits')
         
         if testlimits_options['correction_order'] is None:
             # If not defined, automatically assign correction_order to the highest correction considered.
@@ -654,6 +670,23 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
                 continue
             logger.debug('Now testing IR limits of the following integrand:\n%s'%(integrand.nice_string()))
             integrand.test_IR_limits(test_options = testlimits_options)
+
+    def do_test_IR_poles(self, line, *args, **opt):
+        """This function tests that the integrated counterterms match with the IR poles
+        from the virtual contributions and PDF counterterms."""
+    
+        args = self.split_arg(line)
+        args, testlimits_options = self.parse_test_IR_options(args, mode='poles')
+        
+        if testlimits_options['correction_order'] is None:
+            # If not defined, automatically assign correction_order to the highest correction considered.
+            testlimits_options['correction_order'] = self.mode
+
+        for integrand in self.all_integrands:
+            if not hasattr(integrand, 'test_IR_poles'):
+                continue
+            logger.debug('Now testing IR poles of the following integrand:\n%s'%(integrand.nice_string()))
+            integrand.test_IR_poles(test_options = testlimits_options)
 
     def do_show_grid(self, line):
         """ Minimal implementation for now with no possibility of passing options."""
@@ -1341,9 +1374,93 @@ class ME7Integrand_V(ME7Integrand):
             )
 
         super(ME7Integrand_V, self).__init__(*args, **opts)
-        self.initialization_inputs['options']['integrated_counterterms'] = self.integrated_counterterms
-    
-    def check_IR_pole_residues(self, test_options):
+        self.initialization_inputs['options']['integrated_counterterms'] = \
+                                                              self.integrated_counterterms
+
+    def evaluate_integrated_counterterm(self, integrated_CT_characteristics, 
+                                            PS_point, hel_config=None, compute_poles=True):
+        """ Evaluates the specified integrated counterterm specified along with its other
+        characteristics, like for example the list of flavors assignments that the resolved
+        process it corresponds to can take. This function returns
+            integrated_CT_res, reduced_flavors
+        where integrated_CT_res is the result of the evaluation (and EpsilonExpansion instance
+        if compute_poles is True, otherwise just a float, and reduced_flavors is the list
+        of flavors for the reduced process to be used when calling the pass_cuts and 
+        observable functions.
+        """
+        
+        # Access the various characteristics of the integrated counterterm passed to this
+        # function.
+        counterterm = integrated_CT_characteristics['integrated_counterterm'] 
+        resolved_flavors = integrated_CT_characteristics['resolved_flavors_combinations']
+        reduced_flavors = integrated_CT_characteristics['reduced_flavors_combinations']
+        
+        #####
+        # TODO: The selection of the flavor combination to consider should be done
+        # according to the PDF distribution, and the PDF weight should be accounted for
+        # as well. For now we will simply ignore that part, which is OK for e+ e- 
+        # collisions
+        # START TEMPORARY CODE to be replaced
+        ####
+        # We only support e+ e- initial states for now
+        assert(self.run_card['lpp1']==self.run_card['lpp2']==0)
+        # In this case, since there are not PDF, the PDF weight is simply the multiplicity
+        # factor from the number of reduced flavor multiplicities (which is equal to the
+        # multiplicity factor of the resolved flavors
+        assert(sum(reduced_flavors.values())==len(resolved_flavors))
+        pdf_weight = 1.*sum(reduced_flavors.values())
+        # And we select a reduced flavor combination randomly (although it should eventually
+        # be proportional to the PDFs).
+        total = sum(float(v) for k, v in reduced_flavors.items())
+        r = random.uniform(0, total)
+        upto = 0.
+        selected_reduced_flavor_combination = None
+        for k, v in reduced_flavors.items():
+            if upto + float(v) >= r:
+                selected_reduced_flavor_combination = k
+                break
+            upto += float(v)
+        ####
+        # END TEMPORARY CODE to be replaced
+        ###
+        
+        # Now compute the reduced quantities which will be necessary for evalauting the
+        # integrated current
+        reduced_PS = counterterm.get_reduced_kinematics(PS_point)
+        
+        # For now the integrated counterterm are always composed of a *single* integrated
+        # current, which we can call directly.
+        assert(len(counterterm.nodes)==1)
+        assert(len(counterterm.nodes[0].nodes)==0)
+        integrated_current  = counterterm.nodes[0].current
+        reduced_process     = counterterm.process
+        momenta_map         = counterterm.momenta_dict
+        
+        # /!\ Warnings the flavor of the reduced process and well as the current
+        # do not match the particular selection. This should be irrelevant for the
+        # evaluation of the counterterm.
+        CT_evaluation, all_results = self.all_MEAccessors(
+            integrated_current, reduced_PS, reduced_process = reduced_process,
+            leg_numbers_map = momenta_map,
+            hel_config = None,
+            compute_poles = compute_poles )
+
+        # For now, act like there was no correlations and no reduced ME :)
+        
+        #########
+        # TOFIX
+        # TODO
+        # TOFIX
+        #########        
+        
+        if compute_poles:
+            result = base_objects.EpsilonExpansion(CT_evaluation['values'][0,0])
+        else:
+            result =  CT_evaluation['values'][0,0]['finite']
+            
+        return result, selected_reduced_flavor_combination
+        
+    def test_IR_poles(self, test_options):
         """ Compare the IR poles residues in dimensional regularization from the virtual
         contribution and from the integrated counterterm. """
         
@@ -1358,7 +1475,7 @@ class ME7Integrand_V(ME7Integrand):
         # Specifying None forces to use uniformly random generating variables.
         a_virtual_PS_point, _, _, _ = self.phase_space_generator.get_PS_point(None)
         a_virtual_PS_point = phase_space_generators.LorentzVectorDict(
-            (i+1, mom) for i, mom in enumerate(a_real_emission_PS_point) )
+                                   (i+1, mom) for i, mom in enumerate(a_virtual_PS_point) )
 
         # Now keep track of the results from each process and limit checked
         all_evaluations = {}
@@ -1371,61 +1488,82 @@ class ME7Integrand_V(ME7Integrand):
             # Here we use correction_order to select CT subset
             counterterms_to_consider = [
                 ct for ct in self.integrated_counterterms[process_key]
-                if ct.count_unresolved() <= test_options['correction_order'].count('N')
-            ]
+                if ct['integrated_counterterm'].count_unresolved() <= 
+                                            test_options['correction_order'].count('N') ]
             
             misc.sprint(defining_process.nice_string())
-            misc.sprint('\n'+'\n'.join( ct.get_singular_structure_string() for ct in
-                                                                  selected_counterterms ))
-
+            misc.sprint('\n'+'\n'.join( 
+                ct['integrated_counterterm'].get_singular_structure_string() for ct in
+                                                                  counterterms_to_consider ))
+            
             virtual_ME_evaluation, all_results = self.all_MEAccessors(
                defining_process, a_virtual_PS_point, alpha_s, mu_r,
                squared_orders    = None,
                color_correlation = None,
                spin_correlation  = None, 
-               hel_config        = None
-            )
-            
-            virtual_ME = (virtual_ME_evaluation['finite'],
-                          virtual_ME_evaluation['eps^-1'],
-                          virtual_ME_evaluation['eps^-2'])
+               hel_config        = None )
+
+            # Turn the evaluation into an epsilon expansion
+            virtual_ME_expansion = base_objects.EpsilonExpansion(virtual_ME_evaluation)
             
             # Now loop over all counterterms
-            summed_counterterm_weight = [0., 0., 0.]
+            all_integrated_CT_summed_res = base_objects.EpsilonExpansion()
+            misc.sprint('Now starting the computation of each integrated counterterm...')
             for counterterm in counterterms_to_consider:
-
                 # Evaluate the counterterm
-                ct_weight, reduced_flavors = self.evaluate_integrated_counterterm(
-                                      counterterm, a_virtual_PS_point, hel_config=None)
+                integrated_CT_res, reduced_flavors = self.evaluate_integrated_counterterm(
+                      counterterm, a_virtual_PS_point, hel_config=None, compute_poles=True)
+                misc.sprint('%-20s => %s'%(
+                    counterterm['integrated_counterterm'].get_singular_structure_string(),
+                                                                   str(integrated_CT_res)))
+                all_integrated_CT_summed_res += integrated_CT_res
                 
+            # Add evaluations to the list so as to study how the approximated reals converge towards the real
+            evaluation = {
+                 'virtual_ME'           : virtual_ME_expansion, 
+                 'integrated_CTs'       : all_integrated_CT_summed_res,
+                 'defining_process'     : defining_process,
+                 'PS_point'             : a_virtual_PS_point }
+            
+            relative_diff = virtual_ME_expansion.relative_diff(all_integrated_CT_summed_res)
+            # To be commented out when we will have a full-fledged analysis coded up 
+            # in analyze_IR_poles_check()
+            misc.sprint('Summary for that PS point:')
+            misc.sprint('\n%-20s : %s\n%-20s : %s\n%-20s : %s'%(
+                 'virtual contrib.',
+                 virtual_ME_expansion.__str__(format='.16e'),
+                 'integrated CTs.',
+                 all_integrated_CT_summed_res.__str__(format='.16e'),
+                 'relative diff.',
+                 relative_diff.__str__(format='.16e')
+            ))
+            all_evaluations[process_key] = evaluation
+    
+        # Now produce a nice output of the evaluations and assess whether this test passed or not.
+        return self.analyze_IR_poles_check(all_evaluations, test_options['acceptance_threshold'])    
 
-                for counterterm in counterterms_to_consider:
-                    if not counterterm.is_singular():
-                        continue
-                    if test_options['compute_only_limit_defining_counterterm'] and \
-                                                                        counterterm != limit_specifier_counterterm:
-                        continue
-#                    if counterterm.get_singular_structure_string() not in [
-#                        'S(3)','S(4)','C(S(3),4)','C(S(4),3)','C(3,4)' ]:
-#                        continue
-                    ct_weight, _, _ = self.evaluate_counterterm(counterterm, scaled_real_PS_point, hel_config=None)
-                    misc.sprint('Relative weight from CT %s = %.16f, %.16f'%(counterterm.get_singular_structure_string(), ct_weight, ct_weight/ME_evaluation))
-                    summed_counterterm_weight += ct_weight
-                
-                # Add evaluations to the list so as to study how the approximated reals converge towards the real
-                evaluations[scaling_parameter]= {
-                     'non_singular_ME'      : ME_evaluation, 
-                     'approximated_ME'      : summed_counterterm_weight,
-                     'limit_specifier'      : limit_specifier_counterterm,
-                     'defining_process'     : defining_process
-                    }
-                
-                # To be commented out when we will have a full-fledged analysis coded up in analyze_IR_limits_test()
-                misc.sprint('%-20.14e %-20.14e %-20.14e %-20.14e %-20.14e'%
-                        (scaling_parameter, ME_evaluation, summed_counterterm_weight,
-                         summed_counterterm_weight/ME_evaluation, ME_evaluation+summed_counterterm_weight))
-                all_evaluations[(process_key, limit_specifier_counterterm.get_singular_structure_string(print_n=True, 
-                                                              print_pdg=False, print_state=False))] = evaluations
+    def analyze_IR_poles_check(self, all_evaluations, acceptance_threshold):
+        """ Analyze the results of the check_IR_pole_residues command. """
+        
+        #TODO
+#        misc.sprint("----- SUMMARY -----")
+#        for key, evaluation in all_evaluations.items():
+#            misc.sprint("Result for test: %s | %s"%(str(dict(key[0])['PDGs']),key[1]))
+#            virtual_ME_expansion = evaluation['virtual_ME']
+#            all_integrated_CT_summed_res = evaluation['integrated_CTs']
+#            relative_diff = virtual_ME_expansion.relative_diff(all_integrated_CT_summed_res)
+#            misc.sprint('\n%-30s : %s\n%-30s : %s\n%-30s : %s'%(
+#                 'virtual contrib.',
+#                 virtual_ME_expansion.__str__(format='.16e'),
+#                 'integrated CTs.',
+#                 all_integrated_CT_summed_res.__str__(format='.16e'),
+#                 'relative diff.',
+#                 relative_diff.__str__(format='.16e')
+#            ))
+#            This is to be compared with the acceptance_threshold
+#            difference_norm = relative_diff.norm()
+        
+        return True
 
     def sigma(self, PS_point, process_key, process, flavors, process_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
         """ Overloading of the sigma function from ME7Integrand to include necessary additional contributions. """
@@ -1497,17 +1635,28 @@ class ME7Integrand_R(ME7Integrand):
         
         # Now call the mapper to walk through the counterterm structure and return the list of currents
         # and PS points to use to evaluate them.
-        hike = self.mapper.walk_to_lower_multiplicity(
-            PS_point, counterterm, compute_kinematic_variables=True
-        )
-
-        # The structure of this object output should reflect each nesting level, that is:
         # hike = {
         #         'currents' : [(current1, PS1), (current2, PS2), etc...],
         #         'matrix_element': (ME, PSME),
         #         'jacobian' : jacobian (a float)
         #         'kinematic_variables' : kinematic_variables  (a dictionary)
         #        }
+        hike = self.mapper.walk_to_lower_multiplicity(
+            PS_point, counterterm, compute_kinematic_variables=True
+        )
+       
+        # Access the matrix element characteristics
+        ME_process, ME_PS = hike['matrix_element']
+        
+        # Generate what is the kinematics (reduced_PS) returned as a list,  and the
+        # reduced_flavors for this counterterm, by using the defining selected 
+        # flavors of the real-emission and the real-emission kinematics dictionary
+        reduced_PS, reduced_flavors = counterterm.get_reduced_quantities(
+                                               ME_PS, defining_flavors = defining_flavors)
+        
+        # /!\ Warnings the flavor of the reduced process and well as the current
+        # do not match the particular selection. This should be irrelevant for the
+        # evaluation of the counterterm.
 
         # Separate the current in those directly connected to the matrix element and those that are not
         disconnected_currents = [
@@ -1518,17 +1667,6 @@ class ME7Integrand_R(ME7Integrand):
             (current, PS) for (current, PS) in hike['currents']
             if current['resolve_mother_spin_and_color']
         ]
-
-        # Access the matrix element
-        ME_process, ME_PS = hike['matrix_element']
-        
-        if counterterm.get_singular_structure_string()=='C(4,6)':
-            misc.sprint('='*20)
-            misc.sprint(PS_point)            
-            misc.sprint(str(counterterm))
-            misc.sprint(ME_process.nice_string())
-            misc.sprint(ME_PS)
-            misc.sprint('='*20)
 
         # Then the above "hike" can be used to evaluate the currents first and the ME last.
         # Note that the code below can become more complicated when needing to track helicities, but let's forget this for now.
@@ -1628,14 +1766,7 @@ Also make sure that there is no coupling order specification which receives corr
 
         # Now finally handle the overall prefactor of the counterterm
         final_weight *= counterterm.prefactor
-        
-        # Now evaluated what is the kinematics (reduced_PS), written as simple list, and the
-        # flavors (reduced_flavors) for this counterterm, by using the defining selected 
-        # flavors of the real-emission and the reduced kinematics written as dictionary
-        # with a bidctionary momenta map.
-        reduced_PS, reduced_flavors = counterterm.get_reduced_quantities(
-                                                ME_PS, defining_flavors = defining_flavors)
-        
+
         # Returns the corresponding weight and the mapped PS_point.
         # Also returns the mapped_process (for calling the observables), which
         # is typically simply a reference to counterterm.current which is an instance of Process.
@@ -1663,9 +1794,11 @@ Also make sure that there is no coupling order specification which receives corr
         #     }
         CT_results = {}
         for counterterm in self.counterterms[process_key]:
+            if not counterterm.is_singular():
+                continue
+
             CT_wgt, reduced_PS, reduced_flavors = self.evaluate_counterterm(
                           counterterm, PS_point, hel_config=None, defining_flavors=flavors)
-            
             if CT_wgt == 0.:
                 continue
             
@@ -1709,9 +1842,13 @@ Also make sure that there is no coupling order specification which receives corr
     def test_IR_limits(self, test_options):
         """Test that 4D local subtraction terms tend to the corresponding real-emission matrix elements."""
 
+        # Retrieve some possibly relevant model parameters
+        alpha_s = self.model.get('parameter_dict')['aS']
+        mu_r = self.model.get('parameter_dict')['MU_R']
+
         if test_options['seed']:
             random.seed(test_options['seed'])
-        
+
         # First generate an underlying Born
         # Specifying None forces to use uniformly random generating variables.
         a_real_emission_PS_point, _, _, _ = self.phase_space_generator.get_PS_point(None)
@@ -1783,12 +1920,13 @@ Also make sure that there is no coupling order specification which receives corr
                     )
                     scaled_real_PS_point = res_dict['resulting_PS_point']
 
-                    # Evaluate  real ME
-                    assert(len([ct for ct in self.counterterms[process_key] if not ct.is_singular()])==1)
-                    non_singular_ME = [ct for ct in self.counterterms[process_key] if not ct.is_singular()][0]
-
-                    # Need smarter way to evaluate the ME
-                    ME_evaluation, _, _ = self.evaluate_counterterm(non_singular_ME, scaled_real_PS_point, hel_config=None)
+                    ME_evaluation, all_results = self.all_MEAccessors(
+                       defining_process, scaled_real_PS_point, alpha_s, mu_r,
+                       squared_orders    = None,
+                       color_correlation = None,
+                       spin_correlation  = None, 
+                       hel_config        = None )
+                    ME_evaluation = ME_evaluation['finite']
                     
                     # Approximated real ME (aka. local 4d subtraction counterterm)
                     summed_counterterm_weight = 0.0
@@ -1802,7 +1940,8 @@ Also make sure that there is no coupling order specification which receives corr
     #                        'S(3)','S(4)','C(S(3),4)','C(S(4),3)','C(3,4)' ]:
     #                        continue
                         ct_weight, _, _ = self.evaluate_counterterm(counterterm, scaled_real_PS_point, hel_config=None)
-                        misc.sprint('Relative weight from CT %s = %.16f, %.16f'%(counterterm.get_singular_structure_string(), ct_weight, ct_weight/ME_evaluation))
+                        misc.sprint('Relative weight from CT %s = %.16f, %.16f'%(
+                                    counterterm.get_singular_structure_string(), ct_weight, ct_weight/ME_evaluation))
                         summed_counterterm_weight += ct_weight
                     
                     # Add evaluations to the list so as to study how the approximated reals converge towards the real

@@ -1247,23 +1247,16 @@ class Counterterm(CountertermNode):
             currents += node.get_all_currents()
         return currents
 
-    def get_reduced_quantities(self, reduced_PS_dict, defining_flavors=None):
-        """Given the PS *dictionary* providing the reduced kinematics returned
-        by the mapping and the selected defining flavors of the resolved process,
-        return a *list* of momenta corresponding to the reduced kinematics and
-        a *list* of flavors corresponding to the flavor assignment to the reduced
-        process."""
-        
-        from madgraph.integrator.phase_space_generators import LorentzVectorList
-        reduced_PS = LorentzVectorList()
-        
-        # First construct the reduced kinematic list
-        for leg in self.process.get_initial_legs():
-            reduced_PS.append(reduced_PS_dict[leg.get('number')])
-        for leg in self.process.get_final_legs():
-            reduced_PS.append(reduced_PS_dict[leg.get('number')])
+    def get_reduced_flavors(self, defining_flavors=None):
+        """Given the defining flavors corresponding to the resolved process, return a
+         *list* of flavors corresponding to the flavor assignment of the reduced process 
+         given the defining flavors"""
 
         # Now construct the reduced flavors list
+        # /!\ In the case of integrated counterterm, this is not only relevant for the
+        # flavour sensitive cuts in pass_cuts and for the observable but also for the
+        # actual evalution of the *initial-final integrated* counterterm so as to 
+        # decide which PDF to convolute against.
         if (defining_flavors is None) or True:
             # If no defining flavors are specified then simply use the flavors already
             # filled in the reduced process.
@@ -1273,8 +1266,33 @@ class Counterterm(CountertermNode):
             # --> TODO AND NECESSARY FOR NON-FLAVOR-BLIND OBSERVABLES
             #     For now always use the flavors of the defining process, which is
             #     fine for flavor blind observables
-            ###############################################################################
+            ##############################################################################
             reduced_flavors = None
+
+        return reduced_flavors
+
+    def get_reduced_quantities(self, reduced_PS_dict, defining_flavors=None):
+        """Given the PS *dictionary* providing the reduced kinematics returned
+        by the mapping and the selected defining flavors of the resolved process,
+        return a *list* of momenta corresponding to the reduced kinematics and
+        a *list* of flavors corresponding to the flavor assignment to the reduced
+        process."""
+        
+        from madgraph.integrator.phase_space_generators import LorentzVectorList
+        # Here we want a reduced *List* of LorentzVectors, so as to be used directly
+        # in the pass_cuts and observable functions. This is at variance with the 
+        # integrated counterterm reduced kinematics which should be a *dictionary* with
+        # keys aligned with the leg number of the reduced process and subtraction legs,
+        # so that the integrated current evaluations can be performed.
+        reduced_PS = LorentzVectorList()
+        
+        # First construct the reduced kinematic list
+        for leg in self.process.get_initial_legs():
+            reduced_PS.append(reduced_PS_dict[leg.get('number')])
+        for leg in self.process.get_final_legs():
+            reduced_PS.append(reduced_PS_dict[leg.get('number')])
+
+        reduced_flavors = self.get_reduced_flavors(defining_flavors)
         
         return reduced_PS, reduced_flavors
 
@@ -1284,11 +1302,7 @@ class Counterterm(CountertermNode):
 
 class IntegratedCounterterm(Counterterm):
     """A class for the integrated counterterm."""
-
-    # TODO
-    # For now, it behaves exactly as a local 4D counterterm,
-    # but it is conceptually different.
-
+    
     def __str__(self, level=0):
         """Nice string representation of this integrated counterterm."""
 
@@ -1298,60 +1312,36 @@ class IntegratedCounterterm(Counterterm):
         else:
             return res
 
-    def get_reduced_quantities(self, input_reduced_PS, defining_flavors=None):
+    def get_reduced_kinematics(self, input_reduced_PS):
         """Given the PS *dictionary* providing the reduced kinematics corresponding to
-        the current PS point thrown at the virtual contribution, as well as the selected
-        defining flavors corresponding to the resolved process, return a *list* of momenta
-        corresponding to the reduced kinematics and a *list* of flavors corresponding
-        to the flavor assignment of the reduced process given the defining flavors"""
+        the current PS point thrown at the virtual contribution, return a *dictionary* of 
+        momenta corresponding to the reduced kinematics."""
 
-        from madgraph.integrator.phase_space_generators import LorentzVectorList
-        reduced_PS = LorentzVectorList()
+        from madgraph.integrator.phase_space_generators import LorentzVectorDict
+        # Here we want a reduced *dictionary* of LorentzVectors with keys aligned with
+        # the leg number of the reduced process and subtraction legs, so that the 
+        # integrated current evaluations can be performed.
+        # This is at variance with the local counterterms where a *list* of momenta
+        # should be passed for the reduced kinematics so as to be used
+        # in pass_cuts and the observable functions.
+        reduced_PS = LorentzVectorDict()
 
         # First construct the reduced kinematic list, the leg numbers will not match the
         # keys of the reduced_PS_dict because in this case they will be consecutive since
         # they come from the probing of the virtual and not from any kind of mapping.
+        all_legs = self.process.get_initial_legs()+self.process.get_final_legs()
         if isinstance(input_reduced_PS, dict):
-            for leg in self.process.get_initial_legs():
-                reduced_PS.append(input_reduced_PS[leg.get['number']])
-            for leg in self.process.get_final_legs():
-                reduced_PS.append(input_reduced_PS[leg.get('number')])
+            for i, leg in enumerate(all_legs):
+                assert( i+1 in input_reduced_PS )
+                reduced_PS[leg.get('number')] = input_reduced_PS[i+1]
         else:
             n_legs = self.process.get_ninitial()
             n_legs += len(self.process.get_final_ids_after_decay())
             assert (len(input_reduced_PS) == n_legs)
-            reduced_PS.extend(input_reduced_PS)
+            for i, leg in enumerate(all_legs):
+                reduced_PS[leg.get('number')] = input_reduced_PS[i]
 
-        # Now construct the reduced flavors list
-        if (defining_flavors is None) or True:
-            # If no defining flavors are specified then simply use the flavors already
-            # filled in the reduced process.
-            reduced_flavors = self.process.get_initial_final_ids()
-        else:
-            ##############################################################################
-            # --> TODO AND NECESSARY FOR NON-FLAVO-BLIND OBSERVABLES
-            #     For now always use the flavors of the defining process, which is
-            #     fine for flavor blind observables
-            ##############################################################################
-            reduced_flavors = None
-
-        return reduced_PS, reduced_flavors
-
-    def get_prefactor(self, **opts):
-        """It is not allowed to reconstruct the prefactor of an integrated
-        counterterm because it depends on the multiplicity of the mapped subprocesses.
-        For instance, u u~ > (g > b b~) a is mapped to 
-           u u~ > (g > c c~) a
-           u u~ > (g > s s~) a
-           etc...
-        which means that it will take a prefactor of 3 or so assigned at generation
-        time (function get_all_counterterms of the real-emission contributions)
-        that cannot be reconstructed afterwards.
-        """
-    
-        raise MadGraph5Error(
-            "Integrated counter-terms cannot reconstruct their prefactor post-generation."
-        )
+        return reduced_PS
 
 #=========================================================================================
 # IRSubtraction

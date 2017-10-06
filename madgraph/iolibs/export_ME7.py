@@ -333,9 +333,6 @@ class ME7Exporter(object):
         # And clear compiled files in it
         for path in misc.glob(pjoin(ME7_ufo_path,'*.pkl'))+misc.glob(pjoin(ME7_ufo_path,'*.pyc')):
             os.remove(path)
-
-        # Compile all contributions and global ME7 resources (e.g. MODEL)
-        self.compile()
         
         # Now generate all the ME accessors and integrand.
         # Notice that some of the information provided here (RunCard, ModelReader, root_path, etc...)
@@ -390,6 +387,15 @@ class ME7Exporter(object):
         # Normally all the relevant information should simply be encoded in only:
         #  'all_MEAccessors' and 'all_integrands'.
         self.dump_ME7(all_MEAccessors, all_integrands)
+        
+        # Finally, for future convenience it may sometimes be desirable to already compile 
+        # all contributions and global ME7 resources (e.g. MODEL) as followed.
+        # By default however, we don't do that and this will instead be done at the launch time.
+        #logger.info('Compilation of the process output.')
+        #logger.info('It can be interrupted at any time,'+
+        #                 ' in which case it would be automatically resumed when launched.')
+        #self.compile()
+        
         return
         ###################################################################################################
         ###

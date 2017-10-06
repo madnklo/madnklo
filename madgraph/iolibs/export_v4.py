@@ -1969,7 +1969,9 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
                      'f2py': mg5options['f2py_compiler']}
 
         self.compiler_choice(compiler)
-        self.make()
+        
+        if 'no_compilation' not in mg5options or not mg5options['no_compilation']:
+            self.make()
 
         # Write command history as proc_card_mg5
         if history and os.path.isdir(pjoin(self.dir_path, 'Cards')):

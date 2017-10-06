@@ -1,4 +1,4 @@
-################################################################################
+##########################################################################################
 #
 # Copyright (c) 2009 The MadGraph5_aMC@NLO Development team and Contributors
 #
@@ -11,13 +11,12 @@
 #
 # For more information, visit madgraph.phys.ucl.ac.be and amcatnlo.web.cern.ch
 #
-################################################################################
+##########################################################################################
 """Unit test library for the various phase-space generation/handling features."""
 
 import madgraph.integrator.phase_space_generators as PS
 import madgraph.core.subtraction as subtraction
 import madgraph.core.base_objects as base_objects
-import madgraph.core.color_algebra as color
 import madgraph.various.misc as misc
 import models.import_ufo as import_ufo
 from madgraph import MG5DIR
@@ -32,9 +31,19 @@ import tests.input_files.simple_qcd as simple_qcd
 
 pjoin = os.path.join
 
-#===============================================================================
+#=========================================================================================
+# Shorthands for initial and final state
+#=========================================================================================
+
+INITIAL = base_objects.Leg.INITIAL
+FINAL   = base_objects.Leg.FINAL
+
+assert subtraction.SubtractionLeg.INITIAL == INITIAL
+assert subtraction.SubtractionLeg.FINAL   == FINAL
+
+#=========================================================================================
 # Test Vectors
-#===============================================================================
+#=========================================================================================
 
 class VectorsTest(unittest.TestCase):
     """Test class for BaseVector, Vector and LorentzVector."""
@@ -706,7 +715,7 @@ class CataniSeymourFFOneTest(unittest.TestCase):
                 ))
             this_bunch_legs = subtraction.SubtractionLegSet(
                 subtraction.SubtractionLeg(
-                    i, 21, subtraction.SubtractionLeg.FINAL
+                    i, 21, FINAL
                 ) for i in this_bunch_numbers
             )
             self.structure += [subtraction.CollStructure(legs=this_bunch_legs), ]
@@ -716,7 +725,7 @@ class CataniSeymourFFOneTest(unittest.TestCase):
             n_bunch += 1
         self.structure += [
                 subtraction.SubtractionLeg(
-                    i, 21, subtraction.SubtractionLeg.FINAL
+                    i, 21, FINAL
                 )
                 for i in range(n_collinear_so_far, n_tot)
             ]
@@ -862,7 +871,7 @@ class SomogyietalSoftTest(unittest.TestCase):
                 ))
             this_bunch_legs = subtraction.SubtractionLegSet(
                 subtraction.SubtractionLeg(
-                    i, 21, subtraction.SubtractionLeg.FINAL
+                    i, 21, FINAL
                 ) for i in this_bunch_numbers
             )
             self.structure += [subtraction.SoftStructure(legs=this_bunch_legs), ]
@@ -870,7 +879,7 @@ class SomogyietalSoftTest(unittest.TestCase):
             n_bunch += 1
         self.structure += [
                 subtraction.SubtractionLeg(
-                    i, 21, subtraction.SubtractionLeg.FINAL
+                    i, 21, FINAL
                 )
                 for i in range(n_soft_so_far, n_tot)
             ]
@@ -930,12 +939,12 @@ my_subtraction = subtraction.IRSubtraction(
 # H > u u~ d d~ H
 
 H_to_uuxddxH_legs = base_objects.LegList([
-    base_objects.Leg({'number': 1, 'id': 25, 'state': base_objects.Leg.INITIAL}),
-    base_objects.Leg({'number': 2, 'id':  1, 'state': base_objects.Leg.FINAL}),
-    base_objects.Leg({'number': 3, 'id': -1, 'state': base_objects.Leg.FINAL}),
-    base_objects.Leg({'number': 4, 'id':  2, 'state': base_objects.Leg.FINAL}),
-    base_objects.Leg({'number': 5, 'id': -2, 'state': base_objects.Leg.FINAL}),
-    base_objects.Leg({'number': 6, 'id': 25, 'state': base_objects.Leg.FINAL}),
+    base_objects.Leg({'number': 1, 'id': 25, 'state': INITIAL}),
+    base_objects.Leg({'number': 2, 'id':  1, 'state': FINAL}),
+    base_objects.Leg({'number': 3, 'id': -1, 'state': FINAL}),
+    base_objects.Leg({'number': 4, 'id':  2, 'state': FINAL}),
+    base_objects.Leg({'number': 5, 'id': -2, 'state': FINAL}),
+    base_objects.Leg({'number': 6, 'id': 25, 'state': FINAL}),
 ])
 
 H_to_uuxddxH = base_objects.Process({
@@ -947,12 +956,12 @@ H_to_uuxddxH = base_objects.Process({
 # H > q q~ g g H
 
 H_to_qqxggH_legs = base_objects.LegList([
-    base_objects.Leg({'number': 1, 'id': 25, 'state': base_objects.Leg.INITIAL}),
-    base_objects.Leg({'number': 2, 'id':  1, 'state': base_objects.Leg.FINAL}),
-    base_objects.Leg({'number': 3, 'id': -1, 'state': base_objects.Leg.FINAL}),
-    base_objects.Leg({'number': 4, 'id': 21, 'state': base_objects.Leg.FINAL}),
-    base_objects.Leg({'number': 5, 'id': 21, 'state': base_objects.Leg.FINAL}),
-    base_objects.Leg({'number': 6, 'id': 25, 'state': base_objects.Leg.FINAL}),
+    base_objects.Leg({'number': 1, 'id': 25, 'state': INITIAL}),
+    base_objects.Leg({'number': 2, 'id':  1, 'state': FINAL}),
+    base_objects.Leg({'number': 3, 'id': -1, 'state': FINAL}),
+    base_objects.Leg({'number': 4, 'id': 21, 'state': FINAL}),
+    base_objects.Leg({'number': 5, 'id': 21, 'state': FINAL}),
+    base_objects.Leg({'number': 6, 'id': 25, 'state': FINAL}),
 ])
 
 H_to_qqxggH = base_objects.Process({
@@ -979,7 +988,7 @@ def walk_invertible(test, walker, process, max_unresolved=None):
         legs_FS = (
             subtraction.SubtractionLeg(leg)
             for leg in process['legs']
-            if leg['state'] == base_objects.Leg.FINAL
+            if leg['state'] == FINAL
         )
         leg_numbers = (leg.n for leg in legs_FS)
         for j in leg_numbers:
@@ -1043,3 +1052,66 @@ class SimpleNLOWalkerTest(unittest.TestCase):
 
         walk_invertible(self, self.walker, H_to_uuxddxH, 2)
         walk_invertible(self, self.walker, H_to_qqxggH, 2)
+
+    def test_sc_approach_limit(self):
+
+        # Set up a soft-collinear counterterm
+        sc_ll = base_objects.LegList([
+            base_objects.Leg({'number': 1, 'id': 25, 'state': INITIAL}),
+            base_objects.Leg({'number': 2, 'id':  1, 'state': FINAL}),
+            base_objects.Leg({'number': 5, 'id': -1, 'state': FINAL}), ])
+        sc_rp = base_objects.Process({
+            'legs': sc_ll, 'model': simple_qcd.model, 'n_loops': 0 })
+        sc_ss = subtraction.CollStructure(
+            legs=subtraction.SubtractionLegSet((
+                subtraction.SubtractionLeg(3, -1, FINAL), )),
+            substructures=[
+                subtraction.SoftStructure(
+                    subtraction.SubtractionLeg(4, 21, FINAL)) ] )
+        sc_md = subtraction.bidict({i: frozenset((i, )) for i in range(1, 5)})
+        sc_md[5] = frozenset((3, 4, ))
+        sc_ct = subtraction.Counterterm(
+            process=sc_rp,
+            nodes=[
+                subtraction.CountertermNode(
+                    current=subtraction.Current({
+                        'singular_structure': sc_ss }) ) ],
+            prefactor=1,
+            momenta_dict=sc_md )
+        print (sc_ct)
+
+        # Start from a random phase space point
+        # The Higgs is going to have a random mass, but it doesn't matter
+        PS_point = PS.LorentzVectorDict()
+        PS_point[1] = PS.LorentzVector()
+        for i in range(2, 5):
+            PS_point[i] = PS.LorentzVector([0., ] + [random.random() for _ in range(3)])
+            PS_point[i].set_square(0)
+            PS_point[1] += PS_point[i]
+
+        hike_down = self.walker.walk_to_lower_multiplicity(PS_point, sc_ct, True)
+        lower_PS_point = hike_down['resulting_PS_point']
+        starting_variables = hike_down['kinematic_variables']
+
+        ratios = []
+        flucts = []
+        for par in range(10):
+            x = math.pow(0.1, par)
+            hike_up = self.walker.approach_limit(
+                lower_PS_point, sc_ct, starting_variables, x )
+            ratios_vec = PS.LorentzVector([
+                hike_up['resulting_PS_point'][3][i] / hike_up['resulting_PS_point'][4][i]
+                for i in range(4) ])
+            ratios.append(ratios_vec.view(type=PS.Vector).square())
+            norm_ratios = ratios_vec.view(type=PS.Vector)
+            norm_ratios.normalize()
+            flucts.append(abs(norm_ratios - PS.Vector(4 * [0.5, ])))
+
+        # Skipping the first few values, not close enough to the limit
+        # Numerical effects can make the test fail for the deep IR region
+        for i in range(2, len(ratios)-2):
+            self.assertLess(
+                abs(ratios[i + 2] / ratios[i + 1] - 10.),
+                abs(ratios[i + 1] / ratios[i] - 10.) )
+        for i in range(2, len(flucts)-1):
+            self.assertLess(flucts[i+1], flucts[i])

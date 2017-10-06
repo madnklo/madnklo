@@ -714,7 +714,6 @@ class Current(base_objects.Process):
         # default to None?
         self['resolve_mother_spin_and_color'] = False
         self['singular_structure'] = SingularStructure()
-        return
 
     def count_unresolved(self):
         """Count the number of unresolved particles covered by this current."""
@@ -729,7 +728,6 @@ class Current(base_objects.Process):
         """
 
         self['singular_structure'].discard_leg_numbers()
-        return
 
     def __str__(
         self,
@@ -1272,7 +1270,7 @@ class Counterterm(CountertermNode):
             reduced_flavors = self.process.get_initial_final_ids()
         else:
             ##############################################################################
-            # --> TODO AND NECESSARY FOR NON-FLAVO-BLIND OBSERVABLES
+            # --> TODO AND NECESSARY FOR NON-FLAVOR-BLIND OBSERVABLES
             #     For now always use the flavors of the defining process, which is
             #     fine for flavor blind observables
             ###############################################################################
@@ -1390,8 +1388,7 @@ class IRSubtraction(object):
 
         return any(
             (PDG in self.IR_quantities_for_corrections_types[coupling]['pert_particles'])
-            for coupling in self.coupling_types
-        )
+            for coupling in self.coupling_types )
 
     def parent_PDGs_from_PDGs(self, PDGs):
         """List all possible parent PDGs for a given set of children PDGs."""
@@ -1407,16 +1404,13 @@ class IRSubtraction(object):
 
         if not any(
             self.model.get('name').lower().startswith(name)
-            for name in ['sm', 'loop_sm', 'loopsm', 'simple_qcd']
-        ):
+            for name in ['sm', 'loop_sm', 'loopsm', 'simple_qcd'] ):
             raise InvalidCmd(
                 "parent_PDGs_from_PDGs is implemented for SM only, "
-                "not in model %s." % self.model.get('name')
-            )
+                "not in model %s." % self.model.get('name') )
         if any(order != 'QCD' for order in self.coupling_types):
             raise InvalidCmd(
-                "The function parent_PDGs_from_PDGs is implemented for QCD only."
-            )
+                "The function parent_PDGs_from_PDGs is implemented for QCD only." )
 
         # Get parton flavors, eliminating gluons
         flavors = [pdg for pdg in PDGs if pdg != 21]
@@ -1569,8 +1563,7 @@ class IRSubtraction(object):
             if verbose:
                 misc.sprint(
                     "   valid: %d, void: %d, filtered: %d." %
-                    (len(combos_n), n_void, n_filtered)
-                )
+                    (len(combos_n), n_void, n_filtered) )
             combos.append(combos_n)
             strucs.append(strucs_n)
         return list(itertools.chain.from_iterable(strucs))
@@ -1681,8 +1674,7 @@ class IRSubtraction(object):
         #    the reduced process as well as the dictionary
         current_type = type(structure)(*current_args)
         current = Current({
-            'singular_structure': current_type
-        })
+            'singular_structure': current_type })
         structure_legs = current_type.get_all_legs()
         structure_leg_ns = frozenset(leg.n for leg in structure_legs)
         parent = None
@@ -1704,8 +1696,7 @@ class IRSubtraction(object):
         else:
             raise MadGraph5Error(
                 "Building unrecognized current of type %s" %
-                str(type(structure))
-            )
+                str(type(structure)) )
         # Remove legs of this structure
         legs_to_remove = []
         for leg in reduced_process['legs']:
@@ -1719,9 +1710,7 @@ class IRSubtraction(object):
                 base_objects.Leg({
                     'number': parent.n,
                     'id': parent.pdg,
-                    'state': parent.state
-                })
-            )
+                    'state': parent.state }) )
         # Sort preserving the initial state order
         rp_legs = reduced_process['legs']
         rp_legs.sort(key=lambda x: (x['state'], x['number']))
@@ -1745,8 +1734,7 @@ class IRSubtraction(object):
             reconstruct_complete_singular_structure()
 
         reduced_process = local_counterterm.process.get_copy(
-            ['legs', 'n_loops', 'legs_with_decays']
-        )
+            ['legs', 'n_loops', 'legs_with_decays'] )
 
         # The following sums all the loop numbers in all nodes and reduced process,
         # the latter of which must then be removed
@@ -1761,8 +1749,7 @@ class IRSubtraction(object):
             except KeyError:
                 raise MadGraph5Error(
                     "Function squared_orders() of CountertermNode not working properly. "
-                    "It should have at least the reduced process squared orders in it."
-                )
+                    "It should have at least the reduced process squared orders in it." )
 
         ########
         # TODO
@@ -1781,15 +1768,13 @@ class IRSubtraction(object):
             'n_loops': n_loops,
             'squared_orders': squared_orders,
             'resolve_mother_spin_and_color': True,
-            'singular_structure': complete_singular_structure
-        })
+            'singular_structure': complete_singular_structure })
 
         return IntegratedCounterterm(
             process=reduced_process,
             nodes=[CountertermNode(current=integrated_current), ],
             momenta_dict=bidict(local_counterterm.momenta_dict),
-            prefactor=-1. * local_counterterm.prefactor
-        )
+            prefactor=-1. * local_counterterm.prefactor )
 
     @staticmethod
     def get_all_currents(counterterms):
@@ -1828,12 +1813,10 @@ class IRSubtraction(object):
             # Now also distribute the template integrated counterterm if it is not None
             if not template_integrated_counterterm is None:
                 integrated_counterterms_with_loops = template_integrated_counterterm.split_loops(
-                    process['n_loops']
-                )
+                    process['n_loops'] )
                 for integrated_counterterm_with_loops in integrated_counterterms_with_loops:
                     all_integrated_counterterms.extend(
-                        integrated_counterterm_with_loops.split_orders(None)
-                    )
+                        integrated_counterterm_with_loops.split_orders(None) )
 
         return all_counterterms, all_integrated_counterterms
 
@@ -1873,8 +1856,7 @@ class SubtractionCurrentExporter(object):
             relative_module_path = '%s.%s'%('.'.join(modules_path), python_file_name[:-3])
             absolute_module_path = '%s.%s'%(self.template_modules_path, relative_module_path)
             collected_modules.append(
-                (relative_module_path, importlib.import_module(absolute_module_path))
-            )
+                (relative_module_path, importlib.import_module(absolute_module_path)) )
 
         for dir_name in os.listdir(base_path):
             if os.path.isdir(dir_name) and os.path.isfile(pjoin(dir_name, '__init__.py')):
@@ -1888,8 +1870,7 @@ class SubtractionCurrentExporter(object):
         """
         
         subtraction_utils_module_path = '%s.%s'%(
-            self.template_modules_path,'subtraction_current_implementations_utils'
-        )
+            self.template_modules_path,'subtraction_current_implementations_utils' )
         subtraction_utils = importlib.import_module(subtraction_utils_module_path)
         
         if not self.export_dir is None:
@@ -1951,14 +1932,12 @@ class SubtractionCurrentExporter(object):
             found_current_class = False
             for (dir_name, module_path, class_name, implementation_class) in all_classes:
                 instantiation_options = implementation_class.does_implement_this_current(
-                    current, self.model
-                )
+                    current, self.model )
                 if instantiation_options is None:
                     continue
                 try:
                     instantiation_options_index = all_instantiation_options.index(
-                        instantiation_options
-                    )
+                        instantiation_options )
                 except ValueError:
                     all_instantiation_options.append(instantiation_options)
                     instantiation_options_index = len(all_instantiation_options)-1
@@ -1970,8 +1949,7 @@ class SubtractionCurrentExporter(object):
                     main_module = 'subtraction'                    
                 key = (
                     '%s.%s'%(main_module, module_path),
-                    class_name, instantiation_options_index
-                )
+                    class_name, instantiation_options_index )
                 if key in mapped_currents:
                     mapped_currents[key]['mapped_process_keys'].append(current.get_key())
                 else:
@@ -1992,8 +1970,7 @@ class SubtractionCurrentExporter(object):
         if currents_with_default_implementation:
             currents_str = '\n'.join(
                 ' > %s' % str(crt)
-                for crt in currents_with_default_implementation
-            )
+                for crt in currents_with_default_implementation )
             msg = """No implementation was found for the following subtraction currents:
                 %s
                 The class 'DefaultCurrentImplementation' will therefore be used for it
@@ -2013,14 +1990,11 @@ class SubtractionCurrentExporter(object):
                         f for f in files
                         if (
                             os.path.isfile(pjoin(d, f)) and
-                            f.split('.')[-1] in ['pyc','pyo','swp']
-                        )
-                    ]
+                            f.split('.')[-1] in ['pyc','pyo','swp'] ) ]
                 if not os.path.isdir(dir_path):
                     shutil.copytree(
                         pjoin(self.template_dir, directory_to_export), dir_path,
-                        ignore=ignore_function
-                    )
+                        ignore=ignore_function )
         
         return mapped_currents
         

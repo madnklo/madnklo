@@ -144,13 +144,6 @@ class LorentzVector(Vector):
             return super(LorentzVector, cls).__new__(cls, [0.,0.,0.,0.], **opts)
         return super(LorentzVector, cls).__new__(cls, *args, **opts)
 
-    def __str__(self):
-        """Nice representation of a Lorentz vector."""
-
-        return "(E = %s, p_x = %s, p_y = %s, p_z = %s, M^2 = %s)"%(
-            self[0],self[1],self[2],self[3],self.square()
-        )
-
     def space(self):
         """Return the spatial part of this LorentzVector."""
 
@@ -376,9 +369,9 @@ class LorentzVectorList(list):
 
         return type(self)([LorentzVector(p) for p in self])
 
-#===============================================================================
+#=========================================================================================
 # Kinematic functions
-#===============================================================================
+#=========================================================================================
 
 def Kaellen(*args):
 
@@ -390,9 +383,9 @@ def Kaellen(*args):
             foo -= 2*args[i]*args[j]
     return foo
 
-#===============================================================================
+#=========================================================================================
 # Phase space generation
-#===============================================================================
+#=========================================================================================
 
 class VirtualPhaseSpaceGenerator(object):
 
@@ -802,10 +795,13 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
             for k in range(i,self.n_final+1):
                 M[i-1] += self.masses[k-1]
         
-        weight *= 8.*self.rho(M[self.n_final-2],self.masses[self.n_final-1],self.masses[self.n_final-2])
+        weight *= 8.*self.rho(
+            M[self.n_final-2],
+            self.masses[self.n_final-1],
+            self.masses[self.n_final-2] )
 
         for i in range(2,self.n_final):
-            weight *= (self.rho(M[i-2],M[i-1],self.masses[i-2])/self.rho(K[i-2],K[i-1],0.)) * (M[i-1]/K[i-1])
+            weight *= (self.rho(M[i-2],M[i-1],self.masses[i-2]) / self.rho(K[i-2],K[i-1],0.)) * (M[i-1]/K[i-1])
 
         weight *= math.pow(K[0]/M[0],2*self.n_final-4)
 
@@ -1564,9 +1560,9 @@ class MappingSomogyietalSoft(ElementaryMappingSoft):
 
         return jacobian
 
-#===============================================================================
+#=========================================================================================
 # Mapping walkers
-#===============================================================================
+#=========================================================================================
 
 class VirtualWalker(object):
     """Base class for walker implementations."""
@@ -1879,7 +1875,7 @@ class SimpleNLOWalker(VirtualWalker):
                 # in order to use the same mapping
                 new_ss = ss
                 if new_ss.substructures:
-                    new_ss = subtraction.CollStructure(ss.get_all_legs())
+                    new_ss = subtraction.CollStructure(legs=ss.get_all_legs())
                 jacobian *= self.collinear_map.map_to_lower_multiplicity(
                     point,
                     subtraction.SingularStructure(legs=recoilers, substructures=(new_ss,)),
@@ -1963,7 +1959,7 @@ class SimpleNLOWalker(VirtualWalker):
                 # in order to use the same mapping
                 new_ss = ss
                 if new_ss.substructures:
-                    new_ss = subtraction.CollStructure(ss.get_all_legs())
+                    new_ss = subtraction.CollStructure(legs=ss.get_all_legs())
                 momenta[parent] = LorentzVector(point[parent])
                 jacobian *= self.collinear_map.map_to_higher_multiplicity(
                     point,
@@ -1994,34 +1990,31 @@ class SimpleNLOWalker(VirtualWalker):
         }
 
     def rescale_kinematic_variables(
-        self, counterterm, kinematic_variables, scaling_parameter
-    ):
+        self, counterterm, kinematic_variables, scaling_parameter ):
 
         new_variables = {
-            key: type(val)(val) for (key, val) in kinematic_variables.items()
-        }
+            key: type(val)(val) for (key, val) in kinematic_variables.items() }
         # Determine 'equivalent power' of rescaling
         # This structure has at most two levels - checked later
         total_limits = 0
         for node in counterterm.nodes:
-            total_limits += 1 + len(node.nodes)
-        scaling_parameter **= 1./total_limits
+            total_limits += 1 + len(node.current['singular_structure'].substructures)
+        scaling_parameter **= 1. / total_limits
         for node in counterterm.nodes:
             ss = node.current['singular_structure']
             if ss.name() == 'C':
                 # For collinear clusters, rescale the virtuality
                 parent, children = get_structure_numbers(
-                    ss, counterterm.momenta_dict
-                )
+                    ss, counterterm.momenta_dict )
                 new_variables['s' + str(parent)] *= scaling_parameter**2
                 # For soft-collinears, rescale z's on top
-                for subnode in node.nodes:
-                    subss = subnode.current['singular_structure']
-                    if subss.name() == 'S':
+                for sub_ss in ss.substructures:
+                    if sub_ss.name() == 'S':
                         # Check depth
-                        assert len(subss.substructures) == 0
-                        for leg in subss.legs:
-                            new_variables['z' + str(leg.n)] *= scaling_parameter
+                        assert len(sub_ss.substructures) == 0
+                        for leg in sub_ss.legs:
+                            new_variables['za' + str(leg.n)] *= scaling_parameter
+                            new_variables['zb' + str(leg.n)] *= scaling_parameter
                     else:
                         raise MadGraph5Error(self.cannot_handle)
             elif ss.name() == 'S':
@@ -2042,7 +2035,7 @@ class NagySoperWalker(VirtualWalker):
 
 # Mapping classes map is defined here as module variables. This map can be overwritten
 # by the interface when using a PLUGIN system where the user can define his own Mapping.
-# Notice that this must be placed after all the Mapping daughter classes in this module have been declared.
+# Note that this must be placed after all the Mapping daughter classes in this module have been declared.
 mapping_walker_classes_map = {
     'FlatCollinear': FlatCollinearWalker,
     'SimpleNLO': SimpleNLOWalker,

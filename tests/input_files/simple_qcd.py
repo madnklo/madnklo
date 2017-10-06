@@ -1,4 +1,4 @@
-################################################################################
+##########################################################################################
 #
 # Copyright (c) 2009 The MadGraph5_aMC@NLO Development team and Contributors
 #
@@ -11,19 +11,16 @@
 #
 # For more information, visit madgraph.phys.ucl.ac.be and amcatnlo.web.cern.ch
 #
-################################################################################
+##########################################################################################
 """A simple QCD model for unit tests."""
 
 import madgraph.core.base_objects as base_objects
 import madgraph.core.color_algebra as color
 
 import copy
-# import os
-
-# pjoin = os.path.join
 
 # Particles
-#===============================================================================
+#=========================================================================================
 
 # A gluon
 gluon = base_objects.Particle({
@@ -122,7 +119,7 @@ higgs = base_objects.Particle({
 particles = base_objects.ParticleList([gluon, up, down, photon, higgs])
 
 # Interactions
-#===============================================================================
+#=========================================================================================
 
 interactions = base_objects.InteractionList()
 
@@ -187,7 +184,7 @@ interactions.append(base_objects.Interaction({
 }))
 
 # Model
-#===============================================================================
+#=========================================================================================
 
 model = base_objects.Model({
     'particles': particles,

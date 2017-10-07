@@ -420,6 +420,7 @@ class integrated_NLO_FF_QCD_softcollinear_gq(integrated_NLO_FF_QCD_current):
                                             compute_poles = False,
                                             **opts
                                      ):
+
         """ Now evalaute the current and return the corresponding instance of
         SubtractionCurrentResult. See documentation of the mother function for more details."""
 
@@ -443,7 +444,7 @@ class integrated_NLO_FF_QCD_softcollinear_gq(integrated_NLO_FF_QCD_current):
         mu_r    = model_param_dict['MU_R']
 
         # Retrieve kinematic variables from the specified PS point
-        children_numbers = tuple(leg.n for leg in ss.legs)
+        children_numbers = (ss.legs[0].n, ss.substructures[0].legs[0].n) 
         parent_number    = leg_numbers_map.inv[frozenset(children_numbers)]
 
         p12 = PS_point[parent_number]
@@ -454,15 +455,18 @@ class integrated_NLO_FF_QCD_softcollinear_gq(integrated_NLO_FF_QCD_current):
         evaluation = utils.SubtractionCurrentEvaluation({
             'spin_correlations'   : [ None ],
             'color_correlations'  : [ None ],
-            'values'              : { (0,0): { }
-                                    }
+            'values'              : { (0,0): { } }
           }
         )
 
-        value = EpsilonExpansion({ 0 : 0., -1 : 0., -2 : 0.})
+        value = EpsilonExpansion({
+            0   : 0., 
+            -1  : 0.,
+            -2  : self.color_charge
+        })
         
         # Now add the normalization factors
-        norm = 4.*math.pi
+        norm = (alpha_s / (2.*math.pi))
         value *= norm
 
         # Now register the value in the evaluation

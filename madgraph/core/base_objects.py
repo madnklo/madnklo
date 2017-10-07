@@ -4189,6 +4189,38 @@ class EpsilonExpansion(dict):
             res += abs(v)
         return res
     
+    def min_eps_power(self):
+        """ Returns the maximum power of epsilon whose coefficient is not zero."""
+        
+        min = None
+        for k, v in self.items():
+            if v==0.:
+                continue
+            if min is None or k<min:
+                min = k
+        
+        if min is None:
+            return 0
+        return k
+
+    def max_eps_power(self):
+        """ Returns the maximum power of epsilon whose coefficient is not zero."""
+        
+        min = None
+        for k, v in self.items():
+            if v==0.:
+                continue
+            if max is None or k>max:
+                max = k
+        
+        if max is None:
+            return 0
+        return k
+        
+    def max_eps_power(self):
+        """ Returns the maximum power of epsilon whose coefficient is not zero."""
+
+        
     def __str__(self, format=None):
         
         utf8_exp_chars = {

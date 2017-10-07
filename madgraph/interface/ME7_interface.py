@@ -1395,12 +1395,16 @@ class ME7Integrand_V(ME7Integrand):
         resolved_flavors = integrated_CT_characteristics['resolved_flavors_combinations']
         reduced_flavors = integrated_CT_characteristics['reduced_flavors_combinations']
         
+        # Retrieve some possibly relevant model parameters
+        alpha_s = self.model.get('parameter_dict')['aS']
+        mu_r = self.model.get('parameter_dict')['MU_R']   
+        
         #####
         # TODO: The selection of the flavor combination to consider should be done
         # according to the PDF distribution, and the PDF weight should be accounted for
         # as well. For now we will simply ignore that part, which is OK for e+ e- 
         # collisions
-        # START TEMPORARY CODE to be replaced
+        # START TEMPORARY CODE to be replaced when doing initial-final
         ####
         # We only support e+ e- initial states for now
         assert(self.run_card['lpp1']==self.run_card['lpp2']==0)
@@ -1437,16 +1441,61 @@ class ME7Integrand_V(ME7Integrand):
         momenta_map         = counterterm.momenta_dict
         
         # /!\ Warnings the flavor of the reduced process and well as the current
-        # do not match the particular selection. This should be irrelevant for the
+        # do not match the particular selection. This should however be irrelevant for the
         # evaluation of the counterterm.
         CT_evaluation, all_results = self.all_MEAccessors(
             integrated_current, reduced_PS, reduced_process = reduced_process,
             leg_numbers_map = momenta_map,
-            hel_config = None,
+            hel_config = hel_config,
             compute_poles = compute_poles )
 
+        all_necessary_ME_calls = []
+        for ((spin_index, color_index), current_wgt) in CT_evaluation['values'].items():
+            # Now combine the correlators necessary for this current, with those already
+            # specified in 'all_necessary_ME_calls'
+            all_necessary_ME_calls.append( ( CT_evaluation['spin_correlations'][spin_index],
+                                   CT_evaluation['color_correlations'][color_index],
+                                   base_objects.EpsilonExpansion(current_wgt) ) )
+
+        # Finally treat the call to the reduced matrix element
+        final_weight = base_objects.EpsilonExpansion()
+        for (spin_correlators, color_correlators, current_weight) in all_necessary_ME_calls:
+#            misc.sprint( self.all_MEAccessors.format_PS_point_for_ME_call(ME_PS,ME_process) )
+            try:
+                ME_evaluation, all_ME_results = self.all_MEAccessors(
+                   reduced_process, reduced_PS, alpha_s, mu_r,
+                   # Let's worry about the squared orders later, we will probably directly fish
+                   # them out from the ME_process, since they should be set to a unique combination
+                   # at this stage.
+                   squared_orders    = None,
+                   color_correlation = color_correlators,
+                   spin_correlation  = spin_correlators, 
+                   hel_config        = hel_config 
+                )             
+            except MadGraph5Error as e:
+                logger.critical("""
+A reduced matrix element is missing in the library of automatically generated matrix elements.
+This is typically what can happen when your process definition is not inclusive over all IR sensitive particles.
+Make sure that your process definition is specified using the relevant multiparticle labels (typically 'p' and 'j').
+Also make sure that there is no coupling order specification which receives corrections.
+The missing process is: %s"""%reduced_process.nice_string())
+                raise e
+            # Again, for the integrated subtraction counterterms, some care will be needed here
+            # for the real-virtual, depending on how we want to combine the two Laurent series.
+            final_weight += current_weight*base_objects.EpsilonExpansion(ME_evaluation)
+
+        # Now finally handle the overall prefactor of the counterterm
+        final_weight *= counterterm.prefactor
+            
+        # Make sure we have an Laurent series with a double pole at most.
+        if not final_weight.max_eps_power()<=0 or \
+           not final_weight.min_eps_power()>=-2:
+            raise MadGraph5Error("The integrated counterterm:\n%s\n"%str(counterterm)+
+                "with reduced matrix element:\n%s\n"%str(reduced_process)+
+                "yielded the following laurent series:\n%s\n"%str(final_weight)+
+                "which has powers of epsilon not in [-2,-1,0]. This is incorrect for the virtual contribution")
+
         # For now, act like there was no correlations and no reduced ME :)
-        
         #########
         # TOFIX
         # TODO
@@ -1454,9 +1503,9 @@ class ME7Integrand_V(ME7Integrand):
         #########        
         
         if compute_poles:
-            result = base_objects.EpsilonExpansion(CT_evaluation['values'][0,0])
+            result = final_weight
         else:
-            result =  CT_evaluation['values'][0,0]['finite']
+            result = final_weight[0]
             
         return result, selected_reduced_flavor_combination
         
@@ -1579,25 +1628,25 @@ class ME7Integrand_V(ME7Integrand):
         ##     generate u u~ > d d~ QCD^2<=99 QED^2<=99 --NLO=QCD
         ## with NLO correlators forced-in event for the loop.
         
-        alpha_s = self.model.get('parameter_dict')['aS']
-        hel_config = tuple((-1 if fl<0 else 1) for fl in list(flavors[0])+list(flavors[1]))
-        ME_evaluation, all_results = self.all_MEAccessors(
-               process, PS_point, alpha_s, mu_r, pdgs=flavors,
-               squared_orders    = {'QCD':4,'QED':2},
-               color_correlation = [(1, 2), (1,4)],
-               spin_correlation  = [( 1, ((1.0,2.0,3.0,4.0), (5.0,6.0,7.0,8.0), (9.0,10.0,11.0,12.0)) )], 
-               hel_config        = hel_config 
-        )
+#        alpha_s = self.model.get('parameter_dict')['aS']
+#        hel_config = tuple((-1 if fl<0 else 1) for fl in list(flavors[0])+list(flavors[1]))
+#        ME_evaluation, all_results = self.all_MEAccessors(
+#               process, PS_point, alpha_s, mu_r, pdgs=flavors,
+#               squared_orders    = {'QCD':4,'QED':2},
+#               color_correlation = [(1, 2), (1,4)],
+#               spin_correlation  = [( 1, ((1.0,2.0,3.0,4.0), (5.0,6.0,7.0,8.0), (9.0,10.0,11.0,12.0)) )], 
+#               hel_config        = hel_config 
+#        )
 
         ## Nicely print out the results generated.
-        misc.sprint(process.nice_string())
-        misc.sprint(' Flavors: ',flavors)
-        misc.sprint('PS point:\n', PS_point.__str__(n_initial=self.phase_space_generator.n_initial))
-        misc.sprint('Results pertaining to the specified options:\n'+str(ME_evaluation))
-        misc.sprint('All results generated along with this ME call:\n'+str(all_results))
+#        misc.sprint(process.nice_string())
+#        misc.sprint(' Flavors: ',flavors)
+#        misc.sprint('PS point:\n', PS_point.__str__(n_initial=self.phase_space_generator.n_initial))
+#        misc.sprint('Results pertaining to the specified options:\n'+str(ME_evaluation))
+#        misc.sprint('All results generated along with this ME call:\n'+str(all_results))
         
         ## To debug it is useful to hard-stop the code in a unique noticeable way with a syntax error.
-        stop
+#        stop
         
         return ret_value
 
@@ -1757,7 +1806,8 @@ class ME7Integrand_R(ME7Integrand):
 A reduced matrix element is missing in the library of automatically generated matrix elements.
 This is typically what can happen when your process definition is not inclusive over all IR sensitive particles.
 Make sure that your process definition is specified using the relevant multiparticle labels (typically 'p' and 'j').
-Also make sure that there is no coupling order specification which receives corrections.""")
+Also make sure that there is no coupling order specification which receives corrections.
+The missing process is: %s"""%ME_process.nice_string())
                 raise e
             # Again, for the integrated subtraction counterterms, some care will be needed here
             # for the real-virtual, depending on how we want to combine the two Laurent series.

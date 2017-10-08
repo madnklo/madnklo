@@ -758,16 +758,13 @@ class Current(base_objects.Process):
                     'singular_structure',
                     'n_loops',
                     'squared_orders',
-                    'resolve_mother_spin_and_color'
-                ]
-            )
+                    'resolve_mother_spin_and_color' ] )
 
     def get_copy(self, copied_attributes=()):
         """Return a copy of this current with a deep-copy of its singular structure."""
 
         copied_current = super(Current, self).get_copy(
-            tuple(attr for attr in copied_attributes if attr != 'singular_structure')
-        )
+            tuple(attr for attr in copied_attributes if attr != 'singular_structure') )
         if 'singular_structure' in copied_attributes:
             copied_current['singular_structure'] = self['singular_structure'].get_copy()
         
@@ -800,7 +797,7 @@ class IntegratedCurrent(Current):
             print_n=print_n, print_pdg=print_pdg, print_state=print_state,
             print_loops=print_loops, print_orders=print_orders
         )
-        return '[integrated] %s'%res
+        return '[integrated] %s' % res
 
 #=========================================================================================
 # CountertermNode
@@ -815,11 +812,11 @@ class CountertermNode(object):
         self.nodes = opts.get('nodes', [])
         return
 
-    def __str__(self, level=0):
+    def __str__(self, lead="    ", tab="    "):
 
-        tmp_str = "    " * level + str(self.current) + "\n"
+        tmp_str = lead + str(self.current) + "\n"
         for node in self.nodes:
-            tmp_str += node.__str__(level + 1)
+            tmp_str += node.__str__(lead + tab, tab)
         return tmp_str
 
     def get_copy(self, copied_attributes=()):
@@ -1013,7 +1010,18 @@ class Counterterm(CountertermNode):
     """Class representing a tree of currents multiplying a matrix element."""
 
     def __init__(self, **opts):
-        # TODO Document options
+        """Initialize a Counterterm using a dictionary. Valid entries are:
+
+        process: The process associated to the reduced matrix element in the counterterm.
+        current: An alternative name for process. If both are present, process is used.
+        nodes: The nodes that represent the tree of currents of this counterterm.
+        momenta_dict: A dictionary that specifies numbers for intermediate legs.
+        prefactor: The global combinatorial prefactor carried by the counterterm.
+
+        If no combinatorial prefactor is passed, Counterterm will attempt to compute it,
+        forwarding options to the function get_counterterm() to speed up this calculation.
+        See the documentation of that function for further information.
+        """
 
         new_opts = {key: opts[key] for key in opts.keys() if key in ('current', 'nodes')}
         if opts.has_key('process'):
@@ -1027,13 +1035,14 @@ class Counterterm(CountertermNode):
         except KeyError:
             self.prefactor = self.get_prefactor(**opts)
 
-    def __str__(self):
+    def __str__(self, print_n=True, print_pdg=False, print_state=False):
 
-        return str(self.reconstruct_complete_singular_structure())
+        return self.reconstruct_complete_singular_structure().__str__(
+            print_n=print_n, print_pdg=print_pdg, print_state=print_state )
 
-    def nice_str(self, level=0):
+    def nice_string(self, lead="    ", tab="    "):
 
-        tmp_str  = "    " * level + self.process.nice_string(0, True, False)
+        tmp_str  = lead + self.process.nice_string(0, True, False)
         tmp_str += " ("
         tmp_str += " ".join(
             str(leg['number'])
@@ -1054,8 +1063,8 @@ class Counterterm(CountertermNode):
                 tmp_str += "s"
         tmp_str += "\n"
         for node in self.nodes:
-            tmp_str += node.__str__(level + 1)
-        tmp_str += "    " * level + "Pseudoparticles: {"
+            tmp_str += node.__str__(lead + tab, tab)
+        tmp_str += lead + "Pseudoparticles: {"
         tmp_str += "; ".join(
             str(key) + ": (" +
             ",".join(str(n) for n in self.momenta_dict[key]) + ")"
@@ -1154,19 +1163,14 @@ class Counterterm(CountertermNode):
 
         intermediate_leg_ns = frozenset(
             self.momenta_dict.inv[key] for key in self.momenta_dict.inv.keys()
-            if len(key) > 1)
+            if len(key) > 1 )
         if len(self.nodes) > 0:
-            return SingularStructure(substructures=[
+            return SingularStructure(
+                substructures=[
                 node.recursive_singular_structure(intermediate_leg_ns)
-                for node in self.nodes
-            ])
+                for node in self.nodes ] )
         else:
             return SingularStructure()
-
-    def get_singular_structure_string(self, **opts):
-        # TODO Change the __str__
-
-        return self.reconstruct_complete_singular_structure().__str__(**opts)
 
     def get_prefactor(self, **opts):
         """Determine the overall prefactor of the counterterm
@@ -1286,15 +1290,6 @@ class Counterterm(CountertermNode):
 class IntegratedCounterterm(Counterterm):
     """A class for the integrated counterterm."""
     
-    def __str__(self, level=0):
-        """Nice string representation of this integrated counterterm."""
-
-        res = super(IntegratedCounterterm, self).__str__(level=level)
-        if level == 0:
-            return '[integrated] %s'%res
-        else:
-            return res
-
     def get_reduced_kinematics(self, input_reduced_PS):
         """Given the PS *dictionary* providing the reduced kinematics corresponding to
         the current PS point thrown at the virtual contribution, return a *dictionary* of 

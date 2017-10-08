@@ -1042,9 +1042,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
             returned_counterterms.append(random.choice(selected_counterterms))
         else:
             for counterterm in selected_counterterms:
-                singular_structure_string = counterterm.get_singular_structure_string(
-                                                            print_n=True, print_pdg=False, print_state=False)
-                if re.match(limit_type,singular_structure_string):
+                if re.match(limit_type, str(counterterm)):
                     returned_counterterms.append(counterterm)
 
         return returned_counterterms
@@ -1541,9 +1539,8 @@ The missing process is: %s"""%reduced_process.nice_string())
                                             test_options['correction_order'].count('N') ]
             
             misc.sprint(defining_process.nice_string())
-            misc.sprint('\n'+'\n'.join( 
-                ct['integrated_counterterm'].get_singular_structure_string() for ct in
-                                                                  counterterms_to_consider ))
+            misc.sprint('\n' + '\n'.join(
+                str(ct['integrated_counterterm']) for ct in counterterms_to_consider ))
             
             virtual_ME_evaluation, all_results = self.all_MEAccessors(
                defining_process, a_virtual_PS_point, alpha_s, mu_r,
@@ -1562,9 +1559,8 @@ The missing process is: %s"""%reduced_process.nice_string())
                 # Evaluate the counterterm
                 integrated_CT_res, reduced_flavors = self.evaluate_integrated_counterterm(
                       counterterm, a_virtual_PS_point, hel_config=None, compute_poles=True)
-                misc.sprint('%-20s => %s'%(
-                    counterterm['integrated_counterterm'].get_singular_structure_string(),
-                                                                   str(integrated_CT_res)))
+                misc.sprint('%-20s => %s' % (
+                    str(counterterm['integrated_counterterm']), str(integrated_CT_res) ))
                 all_integrated_CT_summed_res += integrated_CT_res
                 
             # Add evaluations to the list so as to study how the approximated reals converge towards the real
@@ -1986,12 +1982,9 @@ The missing process is: %s"""%ME_process.nice_string())
                         if test_options['compute_only_limit_defining_counterterm'] and \
                                                                             counterterm != limit_specifier_counterterm:
                             continue
-    #                    if counterterm.get_singular_structure_string() not in [
-    #                        'S(3)','S(4)','C(S(3),4)','C(S(4),3)','C(3,4)' ]:
-    #                        continue
                         ct_weight, _, _ = self.evaluate_counterterm(counterterm, scaled_real_PS_point, hel_config=None)
                         misc.sprint('Relative weight from CT %s = %.16f, %.16f'%(
-                                    counterterm.get_singular_structure_string(), ct_weight, ct_weight/ME_evaluation))
+                                    str(counterterm), ct_weight, ct_weight/ME_evaluation))
                         summed_counterterm_weight += ct_weight
                     
                     # Add evaluations to the list so as to study how the approximated reals converge towards the real

@@ -2722,8 +2722,8 @@ class Contribution_R(Contribution):
 
         if format < 2:
             if process_key in self.counterterms:
-                res += ' | %d local counterterms'%len([ 1 for CT in 
-                                      self.counterterms[process_key] if CT.is_singular() ])
+                res += ' | %d local counterterms'%len([ 1
+                    for CT in self.counterterms[process_key] if CT.is_singular() ])
             else:
                 res += ' | 0 local counterterm'
                 
@@ -2732,13 +2732,12 @@ class Contribution_R(Contribution):
             for CT in self.counterterms[process_key]:
                 if CT.is_singular():
                     if format==2:
-                        long_res.append( '   | %s'%CT.get_singular_structure_string(
-                                            print_n=True, print_pdg=False, print_state=False )  )
+                        long_res.append( '   | %s' % str(CT))
                     elif format==3:
-                        long_res.append( '   | %s'%CT.get_singular_structure_string(
-                                            print_n=True, print_pdg=True, print_state=True )  )
+                        long_res.append( '   | %s' % CT.__str__(
+                            print_n=True, print_pdg=True, print_state=True ) )
                     elif format>3:
-                        long_res.append( '   | %s'%str(CT))
+                        long_res.append(CT.nice_string("   | "))
             res += '\n'.join(long_res)
 
         return res
@@ -2999,15 +2998,14 @@ class Contribution_V(Contribution):
             for CT_properties in self.integrated_counterterms[process_key]:
                 CT = CT_properties['integrated_counterterm']
                 if format==2:
-                    long_res.append( '   | %s'%CT.get_singular_structure_string(
-                                        print_n=True, print_pdg=False, print_state=False )  )
+                    long_res.append( '   | %s' % str(CT))
                 elif format==3:
-                    long_res.append( '   | %s'%CT.get_singular_structure_string(
-                                        print_n=True, print_pdg=True, print_state=True )  )
+                    long_res.append( '   | %s' % CT.__str__(
+                        print_n=True, print_pdg=True, print_state=True ))
                 elif format==4:
-                    long_res.append( '   | %s'%str(CT))
+                    long_res.append(CT.nice_string("   | "))
                 elif format>4:
-                    long_res.append( '   | %s'%str(CT))
+                    long_res.append(CT.nice_string("   | "))
                     for key, value in CT_properties.items():
                         if not key in ['integrated_counterterm', 'matching_process_key']:
                             long_res.append( '     + %s : %s'%(key, str(value)))

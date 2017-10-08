@@ -1,4 +1,4 @@
-################################################################################
+##########################################################################################
 #
 # Copyright (c) 2009 The MadGraph5_aMC@NLO Development team and Contributors
 #
@@ -11,37 +11,30 @@
 #
 # For more information, visit madgraph.phys.ucl.ac.be and amcatnlo.web.cern.ch
 #
-################################################################################
+##########################################################################################
 
 """Unit test library for the routines of the core library related to writing
 color information for diagrams.
 """
 
-import copy
-import fractions
 import os
 
 import madgraph.core.base_objects as base_objects
 import madgraph.loop.loop_base_objects as loop_base_objects
-import madgraph.core.subtraction as sub
-import madgraph.core.color_algebra as color
-import madgraph.various.misc as misc
 import madgraph.core.contributions as contributions
 import madgraph.interface.master_interface as cmd
 import madgraph.various.misc as misc
 import madgraph.iolibs.export_ME7 as export_ME7
-import madgraph.iolibs.save_load_object as save_load_object
-import madgraph.integrator.phase_space_generators as phase_space_generators
 import models.import_ufo as import_ufo
 from madgraph import MG4DIR, MG5DIR
 
-import tests.unit_tests as unittest
+import tests.IOTests as IOTests
 
 pjoin = os.path.join
 
 root_path = os.path.dirname(os.path.realpath( __file__ ))
 
-class ME7ContributionTest(unittest.TestCase):
+class ME7ContributionTest(IOTests.IOTestManager):
     """Test class for functionalities related to contributions."""
     
     mymodel = loop_base_objects.LoopModel()
@@ -55,8 +48,8 @@ class ME7ContributionTest(unittest.TestCase):
     def setUp(self):
 
         self.mymodel = import_ufo.import_model(
-            pjoin(MG5DIR,'tests','input_files','LoopSMTest'), prefix=True,
-                                            complex_mass_scheme = False )
+            pjoin(MG5DIR,'tests','input_files','LoopSMTest'),
+            prefix=True, complex_mass_scheme = False )
         self.mymodel.pass_particles_name_in_mg_default()
 
         # Setting up the process p p > h j j and its subtraction
@@ -103,7 +96,8 @@ class ME7ContributionTest(unittest.TestCase):
             LO_contributions.apply_method_to_all_contribs(
                     'generate_amplitudes', log='Generate diagrams for')
 
-            self.exporter = export_ME7.ME7Exporter(self.madgraph_cmd, False, group_subprocesses=True)
+            self.exporter = export_ME7.ME7Exporter(
+                self.madgraph_cmd, False, group_subprocesses=True )
             self.exporter.pass_information_from_cmd(self.madgraph_cmd)
             self.exporter.copy_template(self.madgraph_cmd._curr_model)
             self.exporter.export(True, args=[])
@@ -112,8 +106,8 @@ class ME7ContributionTest(unittest.TestCase):
             self.exporter.finalize(['nojpeg'], self.madgraph_cmd.history)
             self.LO_contributions = self.madgraph_cmd._curr_contribs         
             # Add the Born ME accessors to the dictionary
-            self.LO_contributions[0].add_ME_accessors(self.all_born_MEs_accessor, 
-                                                  pjoin(tmp_path,'ME7ContributionTest_LO'))
+            self.LO_contributions[0].add_ME_accessors(
+                self.all_born_MEs_accessor, pjoin(tmp_path,'ME7ContributionTest_LO') )
 
         # Generate all NLO contributions 
         with misc.TMP_directory(debug=False) as tmp_path:
@@ -139,7 +133,8 @@ class ME7ContributionTest(unittest.TestCase):
             self.madgraph_cmd._curr_contribs.apply_method_to_all_contribs(
                     'generate_amplitudes', log='Generate diagrams for')
 
-            self.exporter = export_ME7.ME7Exporter(self.madgraph_cmd, False, group_subprocesses=True)
+            self.exporter = export_ME7.ME7Exporter(
+                self.madgraph_cmd, False, group_subprocesses=True )
             self.exporter.pass_information_from_cmd(self.madgraph_cmd)
             self.exporter.copy_template(self.madgraph_cmd._curr_model)
             self.exporter.export(True, args=[])
@@ -147,363 +142,127 @@ class ME7ContributionTest(unittest.TestCase):
 #            self.exporter.finalize(['nojpeg'], self.madgraph_cmd.history)
             self.NLO_contributions = self.madgraph_cmd._curr_contribs 
 
-    def test_current_generation_and_access(self):
-        """Test the generation of counterterms in single real-emission and virtual 
-        type of contributions. Also make sure that they can be exported."""
-        
+    @IOTests.createIOTest()
+    def testIO_current_generation_and_access(self):
+        """ target: Counterterms_R.txt
+            target: Counterterms_V.txt
+            target: Currents_Local.txt
+            target: Currents_Integ.txt
+        """
+
+        # Test the generation of counterterms in single real-emission and virtual
+        # type of contributions. Also make sure that they can be exported.
+
         verbose = False
         
-        # Now fetch the real virtual contribution
+        # Real counterterms
+
+        # Fetch the real contribution
         real_emission_contrib = self.NLO_contributions.get_contributions_of_type(
-                                                          contributions.Contribution_R)[0]
-        # Use the ME accessor dictionary with all Born MEs to filter what are the 
-        # unphysical counterterms, for example those with the reduced process g g > a g
-        n_CTs_before_filtering = len(sum(real_emission_contrib.counterterms.values(),[]))
+            contributions.Contribution_R )[0]
+        # Use the ME accessor dictionary with all Born MEs to filter
+        # the unphysical counterterms,
+        # for example those with the reduced process g g > a g
+        n_CTs_before_filtering = len(
+            sum(real_emission_contrib.counterterms.values(), []) )
         for CT_list in real_emission_contrib.counterterms.values():
             contributions.Contribution_R.remove_counterterms_with_no_reduced_process(
-                                                       self.all_born_MEs_accessor, CT_list)
-        n_CTs_after_filtering = len(sum(real_emission_contrib.counterterms.values(),[]))
-        if verbose: misc.sprint('A total of %d local subtraction counterterms filtered according to'%\
-                     (n_CTs_before_filtering-n_CTs_after_filtering)+' reduced process inexistence.')
-        self.assertEqual(n_CTs_before_filtering-n_CTs_after_filtering,6)
-        target=sorted("""
-S((4, 21, f))
-C((4, 21, f),(5, -1, f))
-C((1, -1, i),(4, 21, f))
-C((2, 21, i),(4, 21, f))
-C((2, 21, i),(5, -1, f))
-C(S((4, 21, f)),(5, -1, f))
-C(S((4, 21, f)),(1, -1, i))
-C(S((4, 21, f)),(2, 21, i))
+                self.all_born_MEs_accessor, CT_list )
+        n_CTs_after_filtering = len(
+            sum(real_emission_contrib.counterterms.values(), []) )
+        n_CTs_difference = n_CTs_before_filtering - n_CTs_after_filtering
+        if verbose:
+            print_string = 'A total of %d local counterterms were filtered'
+            print_string += 'because a reduced process did not exist.'
+            misc.sprint(print_string % (n_CTs_difference))
+        # Check the number of filtered local counterterms
+        self.assertEqual(n_CTs_difference, 6)
+        # Output all local counterterms
+        counterterm_strings = [
+            CT.__str__(print_n=True, print_pdg=True, print_state=True)
+            for CT in sum(real_emission_contrib.counterterms.values(), []) ]
+        open(pjoin(self.IOpath,'Counterterms_R.txt'),'w').write(
+            "\n".join(counterterm_strings) )
 
-C((1, 2, i),(4, 2, f))
-C((2, 2, i),(4, 2, f))
-C((1, 2, i),(5, 2, f))
-C((2, 2, i),(5, 2, f))
+        # Virtual counterterms
 
-C((4, 2, f),(5, -2, f))
-
-C((1, -1, i),(4, -1, f))
-C((2, -1, i),(4, -1, f))
-C((1, -1, i),(5, -1, f))
-C((2, -1, i),(5, -1, f))
-
-S((4, 21, f))
-S((5, 21, f))
-C((4, 21, f),(5, 21, f))
-C((1, 2, i),(4, 21, f))
-C((2, -2, i),(4, 21, f))
-C((1, 2, i),(5, 21, f))
-C((2, -2, i),(5, 21, f))
-C(S((4, 21, f)),(5, 21, f))
-C(S((5, 21, f)),(4, 21, f))
-C(S((4, 21, f)),(1, 2, i))
-C(S((4, 21, f)),(2, -2, i))
-C(S((5, 21, f)),(1, 2, i))
-C(S((5, 21, f)),(2, -2, i))
-
-C((1, 21, i),(4, 1, f))
-C((2, 21, i),(4, 1, f))
-C((1, 21, i),(5, -1, f))
-C((2, 21, i),(5, -1, f))
-
-C((1, 1, i),(4, 1, f))
-C((2, 1, i),(4, 1, f))
-C((1, 1, i),(5, 1, f))
-C((2, 1, i),(5, 1, f))
-
-C((1, 1, i),(4, 1, f))
-C((2, 2, i),(5, 2, f))
-
-C((1, -1, i),(4, -1, f))
-C((2, -2, i),(5, -2, f))
-
-S((4, 21, f))
-C((4, 21, f),(5, 1, f))
-C((1, 1, i),(4, 21, f))
-C((2, 21, i),(4, 21, f))
-C((2, 21, i),(5, 1, f))
-C(S((4, 21, f)),(5, 1, f))
-C(S((4, 21, f)),(1, 1, i))
-C(S((4, 21, f)),(2, 21, i))
-
-C((4, 2, f),(5, -2, f))
-C((1, 2, i),(4, 2, f))
-C((2, -2, i),(5, -2, f))
-
-C((4, 1, f),(5, -1, f))
-C((1, 1, i),(4, 1, f))
-C((2, -1, i),(5, -1, f))
-
-S((4, 21, f))
-C((4, 21, f),(5, -2, f))
-C((1, -2, i),(4, 21, f))
-C((2, 21, i),(4, 21, f))
-C((2, 21, i),(5, -2, f))
-C(S((4, 21, f)),(5, -2, f))
-C(S((4, 21, f)),(1, -2, i))
-C(S((4, 21, f)),(2, 21, i))
-
-C((4, 1, f),(5, -1, f))
-
-C((1, 21, i),(4, 2, f))
-C((2, 21, i),(4, 2, f))
-C((1, 21, i),(5, -2, f))
-C((2, 21, i),(5, -2, f))
-
-C((2, -1, i),(4, -1, f))
-C((1, 2, i),(5, 2, f))
-
-S((4, 21, f))
-C((4, 21, f),(5, 2, f))
-C((1, 2, i),(4, 21, f))
-C((2, 21, i),(4, 21, f))
-C((2, 21, i),(5, 2, f))
-C(S((4, 21, f)),(5, 2, f))
-C(S((4, 21, f)),(1, 2, i))
-C(S((4, 21, f)),(2, 21, i))
-
-S((4, 21, f))
-S((5, 21, f))
-C((4, 21, f),(5, 21, f))
-C((1, 1, i),(4, 21, f))
-C((2, -1, i),(4, 21, f))
-C((1, 1, i),(5, 21, f))
-C((2, -1, i),(5, 21, f))
-C(S((4, 21, f)),(5, 21, f))
-C(S((5, 21, f)),(4, 21, f))
-C(S((4, 21, f)),(1, 1, i))
-C(S((4, 21, f)),(2, -1, i))
-C(S((5, 21, f)),(1, 1, i))
-C(S((5, 21, f)),(2, -1, i))
-
-C((1, 1, i),(4, 1, f))
-C((2, -2, i),(5, -2, f))
-
-C((1, -2, i),(4, -2, f))
-C((2, -2, i),(4, -2, f))
-C((1, -2, i),(5, -2, f))
-C((2, -2, i),(5, -2, f))""".split('\n'))
-        self.assertListEqual( sorted([CT.get_singular_structure_string(print_n=True, print_pdg=True, 
-                print_state=True) for CT in sum(real_emission_contrib.counterterms.values(),[])]),
-            target )
-#        if verbose: misc.sprint('\n'+'\n'.join(CT.get_singular_structure_string(print_n=True, print_pdg=True, 
-#                   print_state=True) for CT in sum(real_emission_contrib.counterterms.values(),[])))
-
-        # Now fetch the virtual contribution
+        # Fetch the virtual contribution
         virtual_contrib = self.NLO_contributions.get_contributions_of_type(
-                                                          contributions.Contribution_V)[0]
-        # Also apply the filter to integrated counterterms
-        n_CTs_before_filtering = len(sum(virtual_contrib.integrated_counterterms.values(),[]))
+            contributions.Contribution_V)[0]
+        # Apply the filter to integrated counterterms
+        n_CTs_before_filtering = len(
+            sum(virtual_contrib.integrated_counterterms.values(),[]) )
         for CT_list in virtual_contrib.integrated_counterterms.values():
             contributions.Contribution_V.remove_counterterms_with_no_reduced_process(
-                                                       self.all_born_MEs_accessor, CT_list)
-        n_CTs_after_filtering = len(sum(virtual_contrib.integrated_counterterms.values(),[]))
-        if verbose: misc.sprint('A total of %d integrated subtraction counterterms filtered according to'%\
-              (n_CTs_before_filtering-n_CTs_after_filtering)+' reduced process inexistence.')        
-        self.assertEqual(n_CTs_before_filtering-n_CTs_after_filtering,0)
-        target=sorted("""(C((2, 21, i),(5, 2, f)),)
-(S((4, 21, f)),)
-(S((5, 21, f)),)
-(C((4, 21, f),(5, 21, f)),)
-(C((1, 2, i),(4, 21, f)),)
-(C((2, -2, i),(4, 21, f)),)
-(C((1, 2, i),(5, 21, f)),)
-(C((2, -2, i),(5, 21, f)),)
-(C(S((4, 21, f)),(5, 21, f)),)
-(C(S((5, 21, f)),(4, 21, f)),)
-(C(S((4, 21, f)),(1, 2, i)),)
-(C(S((4, 21, f)),(2, -2, i)),)
-(C(S((5, 21, f)),(1, 2, i)),)
-(C(S((5, 21, f)),(2, -2, i)),)
-(C((4, 2, f),(5, -2, f)),)
-(C((4, 1, f),(5, -1, f)),)
-(C((2, 21, i),(5, -2, f)),)
-(C((1, 2, i),(4, 2, f)),)
-(C((1, 1, i),(4, 1, f)),)
-(S((4, 21, f)),)
-(C((4, 21, f),(5, -2, f)),)
-(C((1, -2, i),(4, 21, f)),)
-(C((2, 21, i),(4, 21, f)),)
-(C(S((4, 21, f)),(5, -2, f)),)
-(C(S((4, 21, f)),(1, -2, i)),)
-(C(S((4, 21, f)),(2, 21, i)),)
-(C((1, 21, i),(4, 2, f)),)
-(C((2, 21, i),(4, 2, f)),)
-(C((1, -2, i),(4, -2, f)),)
-(C((2, -2, i),(4, -2, f)),)
-(C((1, -2, i),(5, -2, f)),)
-(C((2, -2, i),(5, -2, f)),)
-(C((1, -1, i),(4, -1, f)),)
-(S((4, 21, f)),)
-(C((4, 21, f),(5, -1, f)),)
-(C((1, -1, i),(4, 21, f)),)
-(C((2, 21, i),(4, 21, f)),)
-(C(S((4, 21, f)),(5, -1, f)),)
-(C(S((4, 21, f)),(1, -1, i)),)
-(C(S((4, 21, f)),(2, 21, i)),)
-(C((1, -1, i),(4, -1, f)),)
-(C((2, -1, i),(4, -1, f)),)
-(C((1, -1, i),(5, -1, f)),)
-(C((2, -1, i),(5, -1, f)),)
-(C((1, 21, i),(4, 1, f)),)
-(C((2, 21, i),(4, 1, f)),)
-(C((1, 2, i),(5, 2, f)),)
-(C((1, 1, i),(4, 1, f)),)
-(C((2, -2, i),(5, -2, f)),)
-(S((4, 21, f)),)
-(C((4, 21, f),(5, 2, f)),)
-(C((1, 2, i),(4, 21, f)),)
-(C((2, 21, i),(4, 21, f)),)
-(C(S((4, 21, f)),(5, 2, f)),)
-(C(S((4, 21, f)),(1, 2, i)),)
-(C(S((4, 21, f)),(2, 21, i)),)
-(C((1, 1, i),(4, 1, f)),)
-(C((2, -2, i),(5, -2, f)),)
-(C((1, 2, i),(4, 2, f)),)
-(C((2, 2, i),(4, 2, f)),)
-(C((1, 2, i),(5, 2, f)),)
-(C((2, 2, i),(5, 2, f)),)
-(C((1, 21, i),(5, -2, f)),)
-(C((2, 21, i),(5, -2, f)),)
-(C((2, -1, i),(4, -1, f)),)
-(C((1, 21, i),(5, -1, f)),)
-(C((2, 21, i),(5, -1, f)),)
-(C((1, 1, i),(4, 1, f)),)
-(C((2, 1, i),(4, 1, f)),)
-(C((1, 1, i),(5, 1, f)),)
-(C((2, 1, i),(5, 1, f)),)
-(C((2, 2, i),(5, 2, f)),)
-(S((4, 21, f)),)
-(C((4, 21, f),(5, 1, f)),)
-(C((1, 1, i),(4, 21, f)),)
-(C((2, 21, i),(4, 21, f)),)
-(C(S((4, 21, f)),(5, 1, f)),)
-(C(S((4, 21, f)),(1, 1, i)),)
-(C(S((4, 21, f)),(2, 21, i)),)
-(C((2, -2, i),(5, -2, f)),)
-(C((2, -1, i),(5, -1, f)),)
-(C((2, 21, i),(5, -1, f)),)
-(C((4, 2, f),(5, -2, f)),)
-(C((2, 21, i),(5, 1, f)),)
-(S((4, 21, f)),)
-(S((5, 21, f)),)
-(C((4, 21, f),(5, 21, f)),)
-(C((1, 1, i),(4, 21, f)),)
-(C((2, -1, i),(4, 21, f)),)
-(C((1, 1, i),(5, 21, f)),)
-(C((2, -1, i),(5, 21, f)),)
-(C(S((4, 21, f)),(5, 21, f)),)
-(C(S((5, 21, f)),(4, 21, f)),)
-(C(S((4, 21, f)),(1, 1, i)),)
-(C(S((4, 21, f)),(2, -1, i)),)
-(C(S((5, 21, f)),(1, 1, i)),)
-(C(S((5, 21, f)),(2, -1, i)),)
-(C((4, 1, f),(5, -1, f)),)""".split('\n'))
-        self.assertListEqual( sorted([CT['integrated_counterterm'].get_singular_structure_string(print_n=True, print_pdg=True, 
-                print_state=True) for CT in sum(virtual_contrib.integrated_counterterms.values(),[])]),
-            target )
-#        if verbose: misc.sprint('\n'+'\n'.join(CT['integrated_counterterm'].get_singular_structure_string(print_n=True, print_pdg=True, 
-#              print_state=True) for CT in sum(virtual_contrib.integrated_counterterms.values(),[])))
-        if verbose: misc.sprint('...but a total of %d integrated subtraction counterterms did not find a host contribution.'%
-                      len(self.exporter.integrated_counterterms_refused_from_all_contribs))
-        self.assertEqual(len(self.exporter.integrated_counterterms_refused_from_all_contribs),6)
+                self.all_born_MEs_accessor, CT_list )
+        n_CTs_after_filtering = len(
+            sum(virtual_contrib.integrated_counterterms.values(),[]) )
+        n_CTs_difference = n_CTs_before_filtering - n_CTs_after_filtering
+        if verbose:
+            print_string = 'A total of %d integrated counterterms were filtered'
+            print_string += 'because a reduced process did not exist.'
+            misc.sprint(print_string % (n_CTs_difference))
+        # Check the number of filtered integrated counterterms
+        self.assertEqual(n_CTs_difference, 0)
+        # Output all integrated counterterms
+        counterterm_strings = [
+            CT['integrated_counterterm'].__str__(
+                print_n=True, print_pdg=True, print_state=True )
+            for CT in sum(virtual_contrib.integrated_counterterms.values(), []) ]
+        open(pjoin(self.IOpath,'Counterterms_V.txt'),'w').write(
+            "\n".join(counterterm_strings) )
+        # Check the number of counterterms that did not find a host contribution
+        refused_cts = len(self.exporter.integrated_counterterms_refused_from_all_contribs)
+        if verbose:
+            print_string = 'A total of %d integrated subtraction counterterms'
+            print_string += 'did not find a host contribution.'
+            misc.sprint(print_string % refused_cts)
+        self.assertEqual(refused_cts, 6)
 
-        # Initialize an empty accessor dictionary for the currents. No currents
-        # is ignored because of potential pre-existing ones.
+        # Local currents
+
+        # Initialize an empty accessor dictionary for the currents.
+        # No currents are ignored because of potential pre-existing ones.
         accessors_dict = contributions.MEAccessorDict()
-        all_subtraction_currents = real_emission_contrib.\
-                                    get_all_necessary_subtraction_currents(accessors_dict)
-        # Print all subtraction currents
-        if verbose: misc.sprint('Local subtraction currents')
-        if verbose: misc.sprint('\n'+'\n'.join([str(current) for current in all_subtraction_currents]))
-        target = sorted("""S((0, 21, f)) @ 0 loops
-C((0, -1, f),(0, 21, f)) @ 0 loops
-C((0, -1, i),(0, 21, f)) @ 0 loops
-C((0, 21, i),(0, 21, f)) @ 0 loops
-C((0, -1, f),(0, 21, i)) @ 0 loops
-C(S((0, 21, f)),(0, -1, f)) @ 0 loops
-C(S((0, 21, f)),(0, -1, i)) @ 0 loops
-C(S((0, 21, f)),(0, 21, i)) @ 0 loops
-C((0, 2, i),(0, 2, f)) @ 0 loops
-C((0, -2, f),(0, 2, f)) @ 0 loops
-C((0, -1, i),(0, -1, f)) @ 0 loops
-C((0, 21, f),(0, 21, f)) @ 0 loops
-C((0, 2, i),(0, 21, f)) @ 0 loops
-C((0, -2, i),(0, 21, f)) @ 0 loops
-C(S((0, 21, f)),(0, 21, f)) @ 0 loops
-C(S((0, 21, f)),(0, 2, i)) @ 0 loops
-C(S((0, 21, f)),(0, -2, i)) @ 0 loops
-C((0, 1, f),(0, 21, i)) @ 0 loops
-C((0, 1, i),(0, 1, f)) @ 0 loops
-C((0, -2, i),(0, -2, f)) @ 0 loops
-C((0, 1, f),(0, 21, f)) @ 0 loops
-C((0, 1, i),(0, 21, f)) @ 0 loops
-C(S((0, 21, f)),(0, 1, f)) @ 0 loops
-C(S((0, 21, f)),(0, 1, i)) @ 0 loops
-C((0, -1, f),(0, 1, f)) @ 0 loops
-C((0, -2, f),(0, 21, f)) @ 0 loops
-C((0, -2, f),(0, 21, i)) @ 0 loops
-C(S((0, 21, f)),(0, -2, f)) @ 0 loops
-C((0, 2, f),(0, 21, i)) @ 0 loops
-C((0, 2, f),(0, 21, f)) @ 0 loops
-C(S((0, 21, f)),(0, 2, f)) @ 0 loops""".split('\n'))
-        self.assertListEqual(sorted([str(current) for current in all_subtraction_currents]),target)
-        # Use the ME accessor dictionary with all Born MEs to filter what are the 
+        all_subtraction_currents = \
+            real_emission_contrib.get_all_necessary_subtraction_currents(accessors_dict)
+        current_strings = [str(current) for current in all_subtraction_currents]
+        # Print all local currents
+        if verbose: misc.sprint('Local currents:\n' + '\n'.join(current_strings))
+        # Output all local currents
+        open(pjoin(self.IOpath, 'Currents_Local.txt'), 'w').write(
+            "\n".join(sorted(current_strings)) )
+
+        # Integrated currents
+
+        # Use the ME accessor dictionary with all Born MEs to filter what are the
         # unphysical counterterms, for example those with the reduced process g g > a g
         all_integrated_currents = virtual_contrib.get_all_necessary_integrated_currents(
-                                                                self.all_born_MEs_accessor)
+            self.all_born_MEs_accessor )
+        current_strings = [str(current) for current in all_integrated_currents]
         # Print all currents
-        if verbose: misc.sprint('Integrated currents')
-        if verbose: misc.sprint('\n'+'\n'.join([str(current) for current in all_integrated_currents]))
-        target=sorted("""[integrated] (C((0, 2, f),(0, 21, i)),) @ 0 loops
-[integrated] (S((0, 21, f)),) @ 0 loops
-[integrated] (C((0, 21, f),(0, 21, f)),) @ 0 loops
-[integrated] (C((0, 2, i),(0, 21, f)),) @ 0 loops
-[integrated] (C((0, -2, i),(0, 21, f)),) @ 0 loops
-[integrated] (C(S((0, 21, f)),(0, 21, f)),) @ 0 loops
-[integrated] (C(S((0, 21, f)),(0, 2, i)),) @ 0 loops
-[integrated] (C(S((0, 21, f)),(0, -2, i)),) @ 0 loops
-[integrated] (C((0, -2, f),(0, 2, f)),) @ 0 loops
-[integrated] (C((0, -1, f),(0, 1, f)),) @ 0 loops
-[integrated] (C((0, -2, f),(0, 21, i)),) @ 0 loops
-[integrated] (C((0, 2, i),(0, 2, f)),) @ 0 loops
-[integrated] (C((0, 1, i),(0, 1, f)),) @ 0 loops
-[integrated] (C((0, -2, f),(0, 21, f)),) @ 0 loops
-[integrated] (C((0, 21, i),(0, 21, f)),) @ 0 loops
-[integrated] (C(S((0, 21, f)),(0, -2, f)),) @ 0 loops
-[integrated] (C(S((0, 21, f)),(0, 21, i)),) @ 0 loops
-[integrated] (C((0, -2, i),(0, -2, f)),) @ 0 loops
-[integrated] (C((0, -1, i),(0, -1, f)),) @ 0 loops
-[integrated] (C((0, -1, f),(0, 21, f)),) @ 0 loops
-[integrated] (C((0, -1, i),(0, 21, f)),) @ 0 loops
-[integrated] (C(S((0, 21, f)),(0, -1, f)),) @ 0 loops
-[integrated] (C(S((0, 21, f)),(0, -1, i)),) @ 0 loops
-[integrated] (C((0, 1, f),(0, 21, i)),) @ 0 loops
-[integrated] (C((0, 2, f),(0, 21, f)),) @ 0 loops
-[integrated] (C(S((0, 21, f)),(0, 2, f)),) @ 0 loops
-[integrated] (C((0, -1, f),(0, 21, i)),) @ 0 loops
-[integrated] (C((0, 1, f),(0, 21, f)),) @ 0 loops
-[integrated] (C((0, 1, i),(0, 21, f)),) @ 0 loops
-[integrated] (C(S((0, 21, f)),(0, 1, f)),) @ 0 loops
-[integrated] (C(S((0, 21, f)),(0, 1, i)),) @ 0 loops""".split('\n'))
-        self.assertListEqual(sorted([str(current) for current in all_integrated_currents]), target)
+        if verbose: misc.sprint('Integrated currents:\n' + '\n'.join(current_strings))
+        # Output all local currents
+        open(pjoin(self.IOpath, 'Currents_Integ.txt'), 'w').write(
+            "\n".join(sorted(current_strings)) )
+
         with misc.TMP_directory(debug=False) as tmp_path:
+
+            print_string = "A total of %d accessor keys have been generated"
+            print_string += "for %s subtraction currents."
+
             # Reset the accessor dictionary so as to monitor only the newly added keys
             accessors_dict = contributions.MEAccessorDict()
             real_emission_contrib.add_current_accessors(
-                          self.mymodel, accessors_dict, tmp_path, all_subtraction_currents)
+                self.mymodel, accessors_dict, tmp_path, all_subtraction_currents )
             # Print all accessor keys
-            #misc.sprint('\n'.join([str(key) for key in accessors_dict]))
-            if verbose: misc.sprint("A total of %d accessor keys have been generated for local subtraction currents."%len(accessors_dict))
-            self.assertEqual(len(accessors_dict),31)
+            if verbose: misc.sprint(print_string % (len(accessors_dict), "local"))
+            self.assertEqual(len(accessors_dict), 31)
+
             # Reset the accessor dictionary so as to monitor only the newly added keys
             accessors_dict = contributions.MEAccessorDict()
             virtual_contrib.add_current_accessors(
-                           self.mymodel, accessors_dict, tmp_path, all_integrated_currents)
+                self.mymodel, accessors_dict, tmp_path, all_integrated_currents )
             # Print all accessor keys
-            #misc.sprint('\n'.join([str(key) for key in accessors_dict]))
-            if verbose: misc.sprint("A total of %d accessor keys have been generated for integrated subtraction currents."%len(accessors_dict))
-            self.assertEqual(len(accessors_dict),31)
-     
-        
+            if verbose: misc.sprint(print_string % (len(accessors_dict), "integrated"))
+            self.assertEqual(len(accessors_dict), 31)

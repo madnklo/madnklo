@@ -901,9 +901,9 @@ class CountertermNode(object):
         legs = type(structure.legs)(
             leg for leg in structure.legs if leg.n not in intermediate_leg_ns
         )
-        substructures = structure.substructures
+        substructures = list(structure.substructures)
         substructures.extend([
-            node.reconstruct_complete_singular_structure()
+            node.recursive_singular_structure(intermediate_leg_ns)
             for node in self.nodes
         ])
         return type(structure)(legs=legs, substructures=substructures)
@@ -918,7 +918,7 @@ class CountertermNode(object):
         # Generate all combinations of nodes with total number of loops
         # less or equal to n_loops
         node_combinations = []
-        # If this Counterterm(Node) has no nodes, nothing to do
+        # If this CountertermNode has no nodes, nothing to do
         if not self.nodes:
             node_combinations = [[], ]
         # Else construct all combinations recursively
@@ -936,18 +936,14 @@ class CountertermNode(object):
             while i_current < n_nodes:
                 new_node_combinations = []
                 for combination in node_combinations:
-                    combination_loops = sum(
-                        cur.n_loops()
-                        for cur in combination
-                    )
+                    combination_loops = sum(cur.n_loops() for cur in combination)
                     for new_loop_n in range(n_loops + 1 - combination_loops):
                         # Distribute the order of this node
                         # in all possible ways within the current itself
                         # (recursion step)
                         for ith_node in self.nodes[i_current].split_loops(new_loop_n):
                             new_node_combinations.append(
-                                combination + [ith_node, ]
-                            )
+                                combination + [ith_node, ] )
                 node_combinations = new_node_combinations
                 i_current += 1
 
@@ -958,24 +954,8 @@ class CountertermNode(object):
             combination_loops = 0
             for cur in combination:
                 combination_loops += cur.current['n_loops']
-            # TODO Eliminate this if statement
-            if isinstance(self, Counterterm):
-                # Here we instantiate either a Counterterm or IntegratedCounterterm
-                result.append(
-                    type(self)(
-                        current=self.current.get_copy(('n_loops')),
-                        nodes=combination,
-                        momenta_dict=self.momenta_dict,
-                        prefactor=self.prefactor
-                    )
-                )
-            else:
-                result.append(
-                    CountertermNode(
-                        current=self.current.get_copy(('n_loops')),
-                        nodes=combination
-                    )
-                )
+            result.append(self.get_copy('n_loops'))
+            result[-1].nodes = combination
             result[-1].current['n_loops'] = n_loops - combination_loops
 
         return result
@@ -1047,7 +1027,11 @@ class Counterterm(CountertermNode):
         except KeyError:
             self.prefactor = self.get_prefactor(**opts)
 
-    def __str__(self, level=0):
+    def __str__(self):
+
+        return str(self.reconstruct_complete_singular_structure())
+
+    def nice_str(self, level=0):
 
         tmp_str  = "    " * level + self.process.nice_string(0, True, False)
         tmp_str += " ("
@@ -1089,7 +1073,7 @@ class Counterterm(CountertermNode):
         momenta_dict = self.momenta_dict
         if 'momenta_dict' in copied_attributes:
             momenta_dict = bidict(momenta_dict)
-        return Counterterm(
+        return type(self)(
             process=node.current, nodes=node.nodes,
             momenta_dict=momenta_dict, prefactor=self.prefactor
         )
@@ -1168,10 +1152,9 @@ class Counterterm(CountertermNode):
     def reconstruct_complete_singular_structure(self):
         """Reconstruct the complete singular structure for this counterterm."""
 
-        intermediate_leg_ns = (
+        intermediate_leg_ns = frozenset(
             self.momenta_dict.inv[key] for key in self.momenta_dict.inv.keys()
-            if len(key) > 1
-        )
+            if len(key) > 1)
         if len(self.nodes) > 0:
             return SingularStructure(substructures=[
                 node.recursive_singular_structure(intermediate_leg_ns)

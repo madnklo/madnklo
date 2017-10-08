@@ -220,8 +220,277 @@ class SingularStructureOperatorTest(unittest.TestCase):
 
 class CountertermTest(unittest.TestCase):
 
-    # TODO Move test_split_loops and test_split_orders here
-    pass
+    def test_split_loops_flat(self):
+        """Test the assignment of loop numbers within a flat counterterm."""
+
+        # Set up a flat counterterm
+        # Momentum dictionary: particles from 1 to 3
+        md = sub.bidict({i: frozenset((i, )) for i in range(1, 5)})
+        # SingularStructures:  S(4), S(5)
+        s4 = sub.SoftStructure(sub.SubtractionLeg(4, 21, FINAL))
+        s5 = sub.SoftStructure(sub.SubtractionLeg(5, 21, FINAL))
+        # Reduced process: 1 > 2 3 (H > d d~)
+        ll = base_objects.LegList([
+            base_objects.Leg({'number': 1, 'id': 25, 'state': INITIAL}),
+            base_objects.Leg({'number': 2, 'id':  1, 'state': FINAL}),
+            base_objects.Leg({'number': 3, 'id': -1, 'state': FINAL}), ])
+        rp = sub.Current({'legs': ll, 'model': simple_qcd.model})
+        node4 = sub.CountertermNode(current=sub.Current({'singular_structure': s4}) )
+        node5 = sub.CountertermNode(current=sub.Current({'singular_structure': s5}) )
+        ct = sub.Counterterm(
+            process=rp, nodes=[node4, node5],
+            prefactor=1, momenta_dict=md )
+
+        # Sprinkle 2 loops over this counterterm
+        ct_all = ct.split_loops(2)
+
+        # Build the benchmark by hand
+        # Node #1
+        ct_0 = ct.get_copy('n_loops')
+        ct_0.current.set('n_loops', 0)
+        ct_1 = ct.get_copy('n_loops')
+        ct_1.current.set('n_loops', 1)
+        ct_2 = ct.get_copy('n_loops')
+        ct_2.current.set('n_loops', 2)
+        # Eliminate determined after #1
+        ct_2.nodes[0].current.set('n_loops', 0)
+        ct_2.nodes[1].current.set('n_loops', 0)
+        # Node #2
+        ct_00 = ct_0.get_copy('n_loops')
+        ct_00.nodes[0].current.set('n_loops', 0)
+        ct_01 = ct_0.get_copy('n_loops')
+        ct_01.nodes[0].current.set('n_loops', 1)
+        ct_02 = ct_0.get_copy('n_loops')
+        ct_02.nodes[0].current.set('n_loops', 2)
+        ct_10 = ct_1.get_copy('n_loops')
+        ct_10.nodes[0].current.set('n_loops', 0)
+        ct_11 = ct_1.get_copy('n_loops')
+        ct_11.nodes[0].current.set('n_loops', 1)
+        # All are determined after #2
+        ct_00.nodes[1].current.set('n_loops', 2)
+        ct_01.nodes[1].current.set('n_loops', 1)
+        ct_02.nodes[1].current.set('n_loops', 0)
+        ct_10.nodes[1].current.set('n_loops', 1)
+        ct_11.nodes[1].current.set('n_loops', 0)
+        # Build list of all loop combinations
+        ct_bench = (ct_2, ct_00, ct_01, ct_02, ct_10, ct_11)
+
+        # Convert to strings, discard order
+        ct_bench_str = frozenset(str(cti) for cti in ct_bench)
+        ct_all_str = frozenset(str(cti) for cti in ct_all)
+
+        # Check
+        self.assertEqual(ct_all_str, ct_bench_str)
+
+    def test_split_loops_nested(self):
+        """Test the assignment of loop numbers within a nested counterterm."""
+
+        # Set up a nested counterterm
+        # Momentum dictionary: particles from 1 to 5
+        md = sub.bidict({i: frozenset((i, )) for i in range(1, 6)})
+        # Momentum dictionary: 6 is parent of (3, 4) and 7 of (5, 6)
+        md[6]  = frozenset((3, 4, ))
+        md[7]  = frozenset((5, 6, ))
+        # SingularStructures:  C(3, 4), C(5, 6)
+        c34 = sub.CollStructure(
+            sub.SubtractionLeg(3, -1, FINAL),
+            sub.SubtractionLeg(4, 21, FINAL) )
+        c56 = sub.CollStructure(
+            sub.SubtractionLeg(5, 21, FINAL),
+            sub.SubtractionLeg(6, -1, FINAL) )
+        # Reduced process: 1 > 2 10 (H > d d~)
+        ll = base_objects.LegList([
+            base_objects.Leg({'number': 1, 'id': 25, 'state': INITIAL}),
+            base_objects.Leg({'number': 2, 'id':  1, 'state': FINAL}),
+            base_objects.Leg({'number': 7, 'id': -1, 'state': FINAL}), ])
+        rp = sub.Current({'legs': ll, 'model': simple_qcd.model})
+        node56 = sub.CountertermNode(
+            current=sub.Current({'singular_structure': c56}),
+            nodes=[
+                sub.CountertermNode(
+                    current=sub.Current({'singular_structure': c34}) ), ] )
+        ct = sub.Counterterm(
+            process=rp, nodes=[node56, ],
+            prefactor=1, momenta_dict=md )
+
+        # Sprinkle 2 loops over this counterterm
+        ct_all = ct.split_loops(2)
+
+        # Build the benchmark by hand
+        # Node #1
+        ct_0 = ct.get_copy('n_loops')
+        ct_0.current.set('n_loops', 0)
+        ct_1 = ct.get_copy('n_loops')
+        ct_1.current.set('n_loops', 1)
+        ct_2 = ct.get_copy('n_loops')
+        ct_2.current.set('n_loops', 2)
+        # Eliminate determined after #1
+        ct_2.nodes[0].current.set('n_loops', 0)
+        ct_2.nodes[0].nodes[0].current.set('n_loops', 0)
+        # Node #2
+        ct_00 = ct_0.get_copy('n_loops')
+        ct_00.nodes[0].current.set('n_loops', 0)
+        ct_01 = ct_0.get_copy('n_loops')
+        ct_01.nodes[0].current.set('n_loops', 1)
+        ct_02 = ct_0.get_copy('n_loops')
+        ct_02.nodes[0].current.set('n_loops', 2)
+        ct_10 = ct_1.get_copy('n_loops')
+        ct_10.nodes[0].current.set('n_loops', 0)
+        ct_11 = ct_1.get_copy('n_loops')
+        ct_11.nodes[0].current.set('n_loops', 1)
+        # All are determined after #2
+        ct_00.nodes[0].nodes[0].current.set('n_loops', 2)
+        ct_01.nodes[0].nodes[0].current.set('n_loops', 1)
+        ct_02.nodes[0].nodes[0].current.set('n_loops', 0)
+        ct_10.nodes[0].nodes[0].current.set('n_loops', 1)
+        ct_11.nodes[0].nodes[0].current.set('n_loops', 0)
+        # Build list of all loop combinations
+        ct_bench = (ct_2, ct_00, ct_01, ct_02, ct_10, ct_11)
+
+        # Convert to strings, discard order
+        ct_bench_str = frozenset(str(cti) for cti in ct_bench)
+        ct_all_str = frozenset(str(cti) for cti in ct_all)
+
+        # Check
+        self.assertEqual(ct_all_str, ct_bench_str)
+
+    def test_split_loops(self):
+        """Test the assignment of loop numbers within a current."""
+
+        # Set up a counterterm that is complicated enough
+        # Momentum dictionary: particles from 1 to 7
+        md = sub.bidict({i: frozenset((i, )) for i in range(1, 8)})
+        # Momentum dictionary: 8 is parent of (4, 5), 9 of (6, 8), 10 of (7, 9)
+        md[8]  = frozenset((4, 5, ))
+        md[9]  = frozenset((6, 8, ))
+        md[10] = frozenset((7, 9, ))
+        # SingularStructures:  S(3), C(4, 5), C(6, 8), C(7, 9),
+        s3  = sub.SoftStructure(sub.SubtractionLeg(3, 21, FINAL))
+        c45 = sub.CollStructure(
+            sub.SubtractionLeg(5, 21, FINAL),
+            sub.SubtractionLeg(4, -1, FINAL) )
+        c68 = sub.CollStructure(
+            sub.SubtractionLeg(6, 21, FINAL),
+            sub.SubtractionLeg(8, -1, FINAL) )
+        c79 = sub.CollStructure(
+            sub.SubtractionLeg(7, 21, FINAL),
+            sub.SubtractionLeg(9, -1, FINAL) )
+        # Reduced process: 1 > 2 10 (H > d d~)
+        ll = base_objects.LegList([
+            base_objects.Leg({'number': 1, 'id': 25, 'state': INITIAL}),
+            base_objects.Leg({'number': 2, 'id':  1, 'state': FINAL}),
+            base_objects.Leg({'number': 10, 'id': -1, 'state': FINAL}), ])
+        rp = sub.Current({
+            'legs': ll, 'model': simple_qcd.model})
+        node79 = sub.CountertermNode(
+            current=sub.Current({'singular_structure': c79}),
+            nodes=[
+                sub.CountertermNode(
+                    current=sub.Current({'singular_structure': c68}),
+                    nodes=[
+                        sub.CountertermNode(
+                            current=sub.Current({'singular_structure': c45}) ) ] ) ] )
+        node3 = sub.CountertermNode(current=sub.Current({'singular_structure': s3}) )
+        ct = sub.Counterterm(
+            process=rp, nodes=[node3, node79],
+            prefactor=1, momenta_dict=md )
+
+        # Sprinkle 2 loops over this counterterm
+        ct_all = ct.split_loops(2)
+
+        # Painfully build the benchmark by hand
+        # Node #1
+        ct_0 = ct.get_copy('n_loops')
+        ct_0.current.set('n_loops', 0)
+        ct_1 = ct.get_copy('n_loops')
+        ct_1.current.set('n_loops', 1)
+        ct_2 = ct.get_copy('n_loops')
+        ct_2.current.set('n_loops', 2)
+        # Eliminate determined after #1
+        ct_2.nodes[0].current.set('n_loops', 0)
+        ct_2.nodes[1].current.set('n_loops', 0)
+        ct_2.nodes[1].nodes[0].current.set('n_loops', 0)
+        ct_2.nodes[1].nodes[0].nodes[0].current.set('n_loops', 0)
+        # Node #2
+        ct_00 = ct_0.get_copy('n_loops')
+        ct_00.nodes[0].current.set('n_loops', 0)
+        ct_01 = ct_0.get_copy('n_loops')
+        ct_01.nodes[0].current.set('n_loops', 1)
+        ct_02 = ct_0.get_copy('n_loops')
+        ct_02.nodes[0].current.set('n_loops', 2)
+        ct_10 = ct_1.get_copy('n_loops')
+        ct_10.nodes[0].current.set('n_loops', 0)
+        ct_11 = ct_1.get_copy('n_loops')
+        ct_11.nodes[0].current.set('n_loops', 1)
+        # Eliminate determined after #2
+        ct_02.nodes[1].current.set('n_loops', 0)
+        ct_02.nodes[1].nodes[0].current.set('n_loops', 0)
+        ct_02.nodes[1].nodes[0].nodes[0].current.set('n_loops', 0)
+        ct_11.nodes[1].current.set('n_loops', 0)
+        ct_11.nodes[1].nodes[0].current.set('n_loops', 0)
+        ct_11.nodes[1].nodes[0].nodes[0].current.set('n_loops', 0)
+        # Node #3
+        ct_000 = ct_00.get_copy('n_loops')
+        ct_000.nodes[1].current.set('n_loops', 0)
+        ct_001 = ct_00.get_copy('n_loops')
+        ct_001.nodes[1].current.set('n_loops', 1)
+        ct_002 = ct_00.get_copy('n_loops')
+        ct_002.nodes[1].current.set('n_loops', 2)
+        ct_010 = ct_01.get_copy('n_loops')
+        ct_010.nodes[1].current.set('n_loops', 0)
+        ct_011 = ct_01.get_copy('n_loops')
+        ct_011.nodes[1].current.set('n_loops', 1)
+        ct_100 = ct_10.get_copy('n_loops')
+        ct_100.nodes[1].current.set('n_loops', 0)
+        ct_101 = ct_10.get_copy('n_loops')
+        ct_101.nodes[1].current.set('n_loops', 1)
+        # Eliminate determined after #3
+        ct_002.nodes[1].nodes[0].current.set('n_loops', 0)
+        ct_002.nodes[1].nodes[0].nodes[0].current.set('n_loops', 0)
+        ct_011.nodes[1].nodes[0].current.set('n_loops', 0)
+        ct_011.nodes[1].nodes[0].nodes[0].current.set('n_loops', 0)
+        ct_101.nodes[1].nodes[0].current.set('n_loops', 0)
+        ct_101.nodes[1].nodes[0].nodes[0].current.set('n_loops', 0)
+        # Node #4
+        ct_0000 = ct_000.get_copy('n_loops')
+        ct_0000.nodes[1].nodes[0].current.set('n_loops', 0)
+        ct_0001 = ct_000.get_copy('n_loops')
+        ct_0001.nodes[1].nodes[0].current.set('n_loops', 1)
+        ct_0002 = ct_000.get_copy('n_loops')
+        ct_0002.nodes[1].nodes[0].current.set('n_loops', 2)
+        ct_0010 = ct_001.get_copy('n_loops')
+        ct_0010.nodes[1].nodes[0].current.set('n_loops', 0)
+        ct_0011 = ct_001.get_copy('n_loops')
+        ct_0011.nodes[1].nodes[0].current.set('n_loops', 1)
+        ct_0100 = ct_010.get_copy('n_loops')
+        ct_0100.nodes[1].nodes[0].current.set('n_loops', 0)
+        ct_0101 = ct_010.get_copy('n_loops')
+        ct_0101.nodes[1].nodes[0].current.set('n_loops', 1)
+        ct_1000 = ct_100.get_copy('n_loops')
+        ct_1000.nodes[1].nodes[0].current.set('n_loops', 0)
+        ct_1001 = ct_100.get_copy('n_loops')
+        ct_1001.nodes[1].nodes[0].current.set('n_loops', 1)
+        # All are determined after #4
+        ct_0000.nodes[1].nodes[0].nodes[0].current.set('n_loops', 2)
+        ct_0001.nodes[1].nodes[0].nodes[0].current.set('n_loops', 1)
+        ct_0002.nodes[1].nodes[0].nodes[0].current.set('n_loops', 0)
+        ct_0010.nodes[1].nodes[0].nodes[0].current.set('n_loops', 1)
+        ct_0011.nodes[1].nodes[0].nodes[0].current.set('n_loops', 0)
+        ct_0100.nodes[1].nodes[0].nodes[0].current.set('n_loops', 1)
+        ct_0101.nodes[1].nodes[0].nodes[0].current.set('n_loops', 0)
+        ct_1000.nodes[1].nodes[0].nodes[0].current.set('n_loops', 1)
+        ct_1001.nodes[1].nodes[0].nodes[0].current.set('n_loops', 0)
+        # Build list of all loop combinations
+        ct_bench = (
+            ct_2, ct_02, ct_11, ct_002, ct_011, ct_101, ct_0000, ct_0001, ct_0002,
+            ct_0010, ct_0011, ct_0100, ct_0101, ct_1000, ct_1001 )
+
+        # Convert to strings, discard order
+        ct_bench_str = frozenset(str(cti) for cti in ct_bench)
+        ct_all_str = frozenset(str(cti) for cti in ct_all)
+
+        # Finally check
+        self.assertEqual(ct_all_str, ct_bench_str)
 
 #=========================================================================================
 # Test IRSubtraction
@@ -260,77 +529,6 @@ class IRSubstractionTest(unittest.TestCase):
             sub.SubtractionLeg(3, -1, FINAL),
         ))
         self.assertEqual(self.subtraction.parent_PDGs_from_legs(children3), [])
-
-    def test_split_loops(self):
-        """Test the assignment of loop numbers within a current."""
-
-        leg1 = base_objects.Leg({'number': 1, 'id':  1, 'state': INITIAL})
-        leg2 = base_objects.Leg({'number': 2, 'id': -1, 'state': INITIAL})
-        leg3 = base_objects.Leg({'number': 3, 'id': 21, 'state': FINAL})
-        leg4 = base_objects.Leg({'number': 4, 'id': 21, 'state': FINAL})
-        leg5 = base_objects.Leg({'number': 5, 'id': 21, 'state': FINAL})
-        leg6 = base_objects.Leg({'number': 6, 'id': 22, 'state': FINAL})
-
-        leg_list = base_objects.LegList([leg1, leg2, leg3, leg4, leg5, leg6])
-
-        myprocess = base_objects.Process({
-            'legs': leg_list,
-            'model': simple_qcd.model
-        })
-
-        C14  = sub.CollOperator(leg1, leg4)
-        C145 = sub.CollOperator(leg1, leg4, leg5)
-        S3   = sub.SoftOperator(leg3)
-        S5   = sub.SoftOperator(leg5)
-        S45  = sub.SoftOperator(leg4, leg5)
-
-        ct1 = self.subtraction.get_counterterm(
-            sub.SingularOperatorList([C145, S3]).simplify(),
-            myprocess
-        )
-
-        ct1_0 = ct1.get_copy()
-        ct1_0.current.set('n_loops', 0)
-        ct1_1 = ct1.get_copy()
-        ct1_1.current.set('n_loops', 1)
-        ct1_2 = ct1.get_copy()
-        ct1_2.current.set('n_loops', 2)
-
-        ct1_00 = ct1_0.get_copy()
-        ct1_00.nodes[0].current.set('n_loops', 0)
-        ct1_01 = ct1_0.get_copy()
-        ct1_01.nodes[0].current.set('n_loops', 1)
-        ct1_02 = ct1_0.get_copy()
-        ct1_02.nodes[0].current.set('n_loops', 2)
-        ct1_10 = ct1_1.get_copy()
-        ct1_10.nodes[0].current.set('n_loops', 0)
-        ct1_11 = ct1_1.get_copy()
-        ct1_11.nodes[0].current.set('n_loops', 1)
-        ct1_20 = ct1_2.get_copy()
-        ct1_20.nodes[0].current.set('n_loops', 0)
-
-        ct1_002 = ct1_00.get_copy()
-        ct1_002.nodes[1].current.set('n_loops', 2)
-        ct1_011 = ct1_01.get_copy()
-        ct1_011.nodes[1].current.set('n_loops', 1)
-        ct1_020 = ct1_02.get_copy()
-        ct1_020.nodes[1].current.set('n_loops', 0)
-        ct1_101 = ct1_10.get_copy()
-        ct1_101.nodes[1].current.set('n_loops', 1)
-        ct1_110 = ct1_11.get_copy()
-        ct1_110.nodes[1].current.set('n_loops', 0)
-        ct1_200 = ct1_20.get_copy()
-        ct1_200.nodes[1].current.set('n_loops', 0)
-        ct1_bench = (ct1_200, ct1_101, ct1_110, ct1_002, ct1_011, ct1_020)
-        ct1_bench_str = frozenset(str(ct) for ct in ct1_bench)
-        ct1_all = ct1.split_loops(2)
-        ct1_all_str = frozenset(str(ct) for ct in ct1_all)
-        self.assertEqual(ct1_all_str, ct1_bench_str)
-
-    def test_split_orders(self):
-        """Test the assignment of coupling orders within a current."""
-
-        pass
 
 #=========================================================================================
 # Test counterterm generation

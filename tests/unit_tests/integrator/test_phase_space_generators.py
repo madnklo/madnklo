@@ -1078,7 +1078,6 @@ class SimpleNLOWalkerTest(unittest.TestCase):
                         'singular_structure': sc_ss }) ) ],
             prefactor=1,
             momenta_dict=sc_md )
-        print (sc_ct)
 
         # Start from a random phase space point
         # The Higgs is going to have a random mass, but it doesn't matter

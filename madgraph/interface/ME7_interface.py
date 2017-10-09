@@ -386,7 +386,10 @@ class ParseCmdArguments(object):
                           'n_iterations':None,
                           'verbosity':1,
                           'refresh_filters':'auto',
-                          'compile':'auto'}        
+                          'compile':'auto',
+                          # Here we store a list of lambda function to apply as filters
+                          # to the ingegrand we must consider
+                          'integrands': [lambda integrand: True]}        
         
         for arg in args:
             try:
@@ -404,6 +407,7 @@ class ParseCmdArguments(object):
             elif key=='--verbosity':
                 modes = {'none':0, 'integrator':1, 'all':2}
                 launch_options[key[2:]] = modes[value.lower()]
+                
             elif key in ['--refresh_filters','--compile']:
                 available_modes = ['auto','never','always']
                 if value is None:
@@ -413,10 +417,105 @@ class ParseCmdArguments(object):
                 if mode not in available_modes:
                     raise InvalidCmd("Value '%s' not valid for option '%s'."%(value,key))
                 launch_options[key[2:]] = mode
+                
+            elif key in ['--integrands', '--itg']:
+                launch_options['integrands'].extend(self.get_integrand_filters(value, 'select'))
+            
+            elif key in ['--veto_integrands', '--veto_itg']:
+                launch_options['integrands'].extend(self.get_integrand_filters(value, 'reject'))
+            
             else:
                 raise InvalidCmd("Option '%s' for the launch command not reckognized."%key)
 
         return launch_options
+
+    def parse_display_integrands(self, args):
+        """ Parses the argument of the "display contributions" command."""
+
+        display_options = {'format':0,
+                          # Here we store a list of lambda function to apply as filters
+                          # to the ingegrand we must consider
+                          'integrands': [lambda integrand: True]}        
+        
+        for arg in args:
+            try:
+                key, value = arg.split('=',1)
+            except ValueError:
+                key = arg
+                value = None
+            
+            if key in ['--format']:
+                try:
+                    display_options['format'] = int(value)
+                    if display_options['format']<0:
+                        raise
+                except ValueError:
+                    raise InvalidCmd("Value '%s' invalid for option 'format'."%value)
+            elif key in ['--integrands', '--itg']:
+                display_options['integrands'].extend(self.get_integrand_filters(value, 'select'))
+            
+            elif key in ['--veto_integrands', '--veto_itg']:
+                display_options['integrands'].extend(self.get_integrand_filters(value, 'reject'))
+            
+            else:
+                raise InvalidCmd("Option '%s' for the display integrands command not reckognized."%key)
+
+        return display_options
+
+    def get_integrand_filters(self, filters, mode):
+        """ Given user defined filters (a string), returns a lambda function on
+        a ME7 integrand that applies it. mode can either be 'accept' or 'reject',
+        depending on wheter one wants to keep or reject those integrands."""
+        
+        assert(mode in ['select','reject'])
+        
+        if filters is None:
+            InvalidCmd("Option '--integrands' must specify values with '='.")
+        
+        expansion_orders = []
+        integrand_types  = []
+        
+        integrand_type_short_cuts = dict( (k, eval('ME7Integrand_%s'%k) ) for k in 
+                                                        ['R','RR','RRR','V','LIB','B'] )
+        
+        for filter in filters.split(','):
+            f = filter.strip()
+            if f in integrand_type_short_cuts:
+                integrand_types.append(integrand_type_short_cuts[f])
+            elif f in ['LO','NLO','NNLO','NNNLO']:
+                expansion_orders.append(f)
+            else:
+                try:
+                    integrand_type = eval(f)
+                    if isinstance(integrand_type, type):
+                        integrand_types.append(integrand_type)
+                    else:
+                        raise
+                except:
+                    raise InvalidCmd("Option '%s' cannot be "%filter+
+                                              "understood as an integrand type specifier.")
+        
+        filter_functions = []
+        if mode == 'select':
+            # First the ordering filter if specified
+            if expansion_orders:
+                filter_functions.append(lambda integrand: 
+                    integrand.contribution_definition.correction_order in expansion_orders)
+            # The the expansion orders
+            if integrand_types:
+                filter_functions.append(lambda integrand: 
+                                            isinstance(integrand, tuple(integrand_types) ))
+        else:
+            # First the ordering filter if specified
+            if expansion_orders:
+                filter_functions.append(lambda integrand: 
+                    not (integrand.contribution_definition.correction_order in expansion_orders) )
+            # The the expansion orders
+            if integrand_types:
+                filter_functions.append(lambda integrand: 
+                                        not isinstance(integrand, tuple(integrand_types) ))
+        
+        return filter_functions
 
 #===============================================================================
 # CompleteForCmd
@@ -496,7 +595,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         
         # Initialize default properties that will be overwritten during the bootstrap.
         self.all_MEAccessors = None
-        self.all_integrands = []
+        self.all_integrands = ME7IntegrandList()
         self.model = None
         self.run_card = None
         # Overwrite the above properties from the bootstrap using the database written at the output stage
@@ -545,9 +644,9 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
 
         self.all_MEAccessors = ME7_dump['all_MEAccessors']['class'].initialize_from_dump(
                                 ME7_dump['all_MEAccessors'], root_path = self.me_dir, model=self.model)
-        self.all_integrands = [integrand_dump['class'].initialize_from_dump(
+        self.all_integrands = ME7IntegrandList([integrand_dump['class'].initialize_from_dump(
             integrand_dump, self.model, self.run_card, self.all_MEAccessors, self.options
-                                                    ) for integrand_dump in ME7_dump['all_integrands']]
+                                       ) for integrand_dump in ME7_dump['all_integrands']])
         
         self.mode = self.get_maximum_overall_correction_order()
         self.prompt = "ME7@%s::%s > "%(self.mode, os.path.basename(pjoin(self.me_dir)))
@@ -587,6 +686,29 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
                 pass
         
         self.all_MEAccessors.synchronize(ME7_options=self.options, **sync_options)
+
+    def do_display(self, line, *args, **opts):
+        """ General display command, the first argument of the line should be what must
+        be displayed."""
+
+        try:
+            object_to_display = self.split_arg(line)[0]
+            display_function = getattr(self,'display_%s'%object_to_display)
+        except IndexError, AttributeError:        
+            return super(MadEvent7Cmd, self).do_display(line, *args, **opts)
+        
+        display_function(line, *args, **opts)
+
+    def display_integrands(self, line, *args, **opts):
+        """ Displays integrands."""
+        
+        args = self.split_arg(line)
+        display_options = self.parse_display_integrands(args[1:])
+        
+        integrands_to_consider = ME7IntegrandList([ itg for itg in self.all_integrands if
+                           all(filter(itg) for filter in display_options['integrands']) ])
+
+        logger.info('\n'+integrands_to_consider.nice_string(format=display_options['format']))
 
     def do_launch(self, line, *args, **opt):
         """Main command, starts the cross-section computation. Very basic setup for now.
@@ -629,9 +751,12 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
                 # For now support this option only for some integrators
                 raise InvalidCmd("The options 'n_iterations' is not supported for the integrator %s."%integrator_name)
 
-        self.integrator = self._integrators[integrator_name][0](self.all_integrands, **integrator_options)
+        integrands_to_consider = ME7IntegrandList([ itg for itg in self.all_integrands if
+                           all(filter(itg) for filter in launch_options['integrands']) ])
+
+        self.integrator = self._integrators[integrator_name][0](integrands_to_consider, **integrator_options)
         
-        if len(set([len(itgd.get_dimensions()) for itgd in self.all_integrands]))>1 and integrator_name not in ['NAIVE']:
+        if len(set([len(itgd.get_dimensions()) for itgd in integrands_to_consider]))>1 and integrator_name not in ['NAIVE']:
             # Skip integrators that do not support integrands with different dimensions.
             # Of course, in the end we wil not naively automatically put all integrands alltogether in the same integrator
             raise InvalidCmd("For now, whenever you have several integrands of different dimensions, only "+
@@ -647,9 +772,14 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         logger.info('{:^100}'.format("Starting integration, lay down and enjoy..."),'$MG:color:GREEN')
         logger.info("="*100)
 
+        # Temporarily activate the ProcessKey cache
+        from madgraph.core.contributions import ProcessKey
+        ProcessKey.activate_cache()
         with misc.MuteLogger(['contributions','madevent7','madevent7.stderr'],[logger_level,logger_level,logger_level]):
             xsec, error = self.integrator.integrate()
-            
+        # And then deactivate it one the integration is complete
+        ProcessKey.deactivate_cache()
+                    
         logger.info("="*100)
         logger.info('{:^100}'.format("Cross-section with integrator '%s':"%self.integrator.get_name()),'$MG:color:GREEN')
         logger.info('{:^100}'.format("%.5e +/- %.2e [pb]"%(xsec, error)),'$MG:color:BLUE')
@@ -720,11 +850,10 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
 class MadEvent7CmdShell(MadEvent7Cmd, cmd.CmdShell):
     """The shell command line processor of MadEvent7"""  
     pass
-    
+
 #===============================================================================
 # ME7Integrand
 #===============================================================================
-
 class ME7Integrand(integrands.VirtualIntegrand):
     """ Specialization for multi-purpose integration with ME7."""
     
@@ -832,6 +961,45 @@ class ME7Integrand(integrands.VirtualIntegrand):
         res.append("Instance of class '%s', with the following contribution definition:"%(self.__class__.__name__))
         res.append('\n'.join(' > %s'%line for line in self.contribution_definition.nice_string().split('\n')))
         return '\n'.join(res)
+
+    def get_additional_nice_string_printout_lines(self):
+        """ Additional printout information for nice_string. 
+        Meant to possibly be overloaded by daughter classes."""
+        return []
+
+    def get_nice_string_process_line(self, process_key, defining_process, format=0):
+        """ Return a nicely formated process line for the function nice_string of this 
+        contribution. Can be overloaded by daughter classes."""
+        GREEN = '\033[92m'
+        ENDC = '\033[0m'        
+        return GREEN+'  %s'%defining_process.nice_string(print_weighted=False).\
+                                                               replace('Process: ','')+ENDC
+
+    def nice_string(self, format=0):
+        """ Nice string representation of self."""
+        BLUE = '\033[94m'
+        GREEN = '\033[92m'
+        ENDC = '\033[0m'
+        res = ['%-30s:   %s'%('ME7Integrand_type',type(self))]
+        res.extend([self.contribution_definition.nice_string()])
+        if not self.topologies_to_processes is None:
+            res.append('%-30s:   %d'%('Number of topologies', 
+                                                    len(self.topologies_to_processes.keys())))
+        res.extend(self.get_additional_nice_string_printout_lines())
+
+        if format < 1:
+            res.append('Generated and mapped processes for this contribution: %d (+%d mapped)'%
+                       ( len(self.processes_map.keys()),
+                         len(sum([v[1] for v in self.processes_map.values()],[])) ) )
+        else:
+            res.append('Generated and mapped processes for this contribution:')
+            for process_key, (defining_process, mapped_processes) in self.processes_map.items():
+                res.append(self.get_nice_string_process_line(process_key, defining_process, format=format))                
+                for mapped_process in mapped_processes:
+                    res.append(BLUE+u'   \u21b3  '+mapped_process.nice_string(print_weighted=False)\
+                                                                        .replace('Process: ','')+ENDC)
+            
+        return '\n'.join(res).encode('utf-8')
 
     def synchronize(self, model, run_card, ME7_configuration):
         """ Synchronize this integrand with the most recent run_card and model."""
@@ -1053,24 +1221,28 @@ class ME7Integrand(integrands.VirtualIntegrand):
         We consider here a two-level cuts system, this first one of which is flavour blind.
         This is of course not IR safe at this stage!"""
         
+        # This is a temporary function anyway which should eventually be replaced by a full
+        # fledged module for handling generation level cuts, which would make use of fj-core.
+        # The PS point in input is sometimes provided as a dictionary or a flat list, but
+        # we need it as a flat list here, so we force the conversion
         PS_point = input_PS_point.to_list()
 
         # These cuts are not allowed to resolve flavour, but only whether a particle is a jet or not
         def is_a_jet(pdg):
             return pdg in range(1,7)+range(-1,-7,-1)+[21]
-
+        
         if __debug__: logger.debug( "Processing flavor-blind cuts for process %s and PS point:\n%s"%(
                         str(process_pdgs), PS_point.__str__(n_initial=self.phase_space_generator.n_initial) ))
 
         pt_cut = self.run_card['ptj']
         dr_cut = self.run_card['drjj']
-        
-        if pt_cut < 0. and dr_cut < 0.:
+                
+        if pt_cut <= 0. and dr_cut <= 0.:
             return True
-        
+
         # Apply the Ptj cut first
         for i, p in enumerate(PS_point[self.n_initial:]):
-            if not is_a_jet(process_pdgs[self.n_initial+i]):
+            if not is_a_jet(process_pdgs[1][i]):
                 continue
             if __debug__: logger.debug('p_%i.pt()=%.5e'%((self.n_initial+i),p.pt()))
             if p.pt() < pt_cut:
@@ -1079,8 +1251,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # And then the drjj cut
         for i, p1 in enumerate(PS_point[self.n_initial:]):
             for j, p2 in enumerate(PS_point[self.n_initial+i+1:]):
-                if not is_a_jet(process_pdgs[self.n_initial+i]) and\
-                   not is_a_jet(process_pdgs[self.n_initial+i+1+j]):
+                if not is_a_jet(process_pdgs[1][i]) and\
+                   not is_a_jet(process_pdgs[1][i+1+j]):
                     continue
                 if __debug__: logger.debug('deltaR(p_%i,p_%i)=%.5e'%(
                      self.n_initial+i, self.n_initial+i+1+j, p1.deltaR(p2)))
@@ -1095,7 +1267,6 @@ class ME7Integrand(integrands.VirtualIntegrand):
         We consider here a two-level cuts system, this second one of which is flavour sensitive."""
 
         PS_point = input_PS_point.to_list()
-
 
         if __debug__: logger.debug( "Processing flavor-sensitive cuts for flavors %s and PS point:\n%s"%(
                         str(flavors), PS_point.__str__(n_initial=self.phase_space_generator.n_initial) ))
@@ -1214,7 +1385,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
             if __debug__: logger.debug('Now considering the process group from %s.'%process.nice_string())
             
             this_process_wgt = wgt
-            process_pdgs = tuple(process.get_initial_ids()+process.get_final_ids())
+            process_pdgs = process.get_initial_final_ids()
 
             # Apply flavor blind cuts
             if not self.pass_flavor_blind_cuts(PS_point, process_pdgs):
@@ -1223,10 +1394,10 @@ class ME7Integrand(integrands.VirtualIntegrand):
                 return 0.0
             
             all_processes = [process,]+mapped_processes
-            all_process_pdgs = [ tuple(proc.get_initial_ids()+proc.get_final_ids()) for proc in all_processes]
+            all_process_pdgs = [ process.get_initial_final_ids() for proc in all_processes]
             # Add mirror processes if present
-            all_process_pdgs.extend([ tuple(proc.get_initial_ids()[::-1]+proc.get_final_ids()) for proc in all_processes 
-                                                                                        if proc.get('has_mirror_process')])
+            all_process_pdgs.extend([ ( tuple(proc.get_initial_ids()[::-1]),
+                tuple(proc.get_final_ids()) )  for proc in all_processes if proc.get('has_mirror_process')])
 
             if abs(self.run_card['lpp1'])==abs(self.run_card['lpp2'])==1:
                 if __debug__: logger.debug("Bjorken x's x1, x2, sqrt(x1*x2*s): %.5e, %.5e. %.5e"%(
@@ -1234,10 +1405,11 @@ class ME7Integrand(integrands.VirtualIntegrand):
             proc_PDFs_weights = []
             for proc_pdgs in all_process_pdgs:            
                 if self.run_card['lpp1']==self.run_card['lpp2']==1:            
-                    PDF1 = self.get_pdfQ2(self.pdf, proc_pdgs[0], xb_1, mu_f1**2)
-                    PDF2 = self.get_pdfQ2(self.pdf, proc_pdgs[1], xb_2, mu_f2**2)
+                    PDF1 = self.get_pdfQ2(self.pdf, proc_pdgs[0][0], xb_1, mu_f1**2)
+                    PDF2 = self.get_pdfQ2(self.pdf, proc_pdgs[0][1], xb_2, mu_f2**2)
                     proc_PDFs_weights.append(PDF1*PDF2)
-                    if __debug__: logger.debug("PDF(x1, %d), PDF(x2, %d) = %.5e, %.5e"%(proc_pdgs[0], proc_pdgs[1], PDF1, PDF2))
+                    if __debug__: logger.debug("PDF(x1, %d), PDF(x2, %d) = %.5e, %.5e"%(
+                                             proc_pdgs[0][0], proc_pdgs[0][1], PDF1, PDF2))
                 else:
                     proc_PDFs_weights.append(1.)
 
@@ -1263,12 +1435,10 @@ class ME7Integrand(integrands.VirtualIntegrand):
             # Apply PDF weight
             this_process_wgt *= sum(proc_PDFs_weights)
     
-            # Finally include the short-distance weight
-            selected_flavors = ( tuple(selected_flavors[i] for i in range(self.n_initial)),
-                                 tuple(selected_flavors[self.n_initial+i] for i in range(self.n_final)))
-
-            sigma_wgt = self.sigma(PS_point, process_key, process, selected_flavors, 
-                                                      this_process_wgt, mu_r, mu_f1, mu_f2)
+            # Finally include the short-distance weight, with the PS point in a dictionary format.
+            sigma_wgt = self.sigma(
+                PS_point.to_dict(), process_key, process, selected_flavors, this_process_wgt, 
+                                                                        mu_r, mu_f1, mu_f2)
             if __debug__: logger.debug('Short-distance sigma weight for this subprocess: %.5e'%sigma_wgt)        
             this_process_wgt *= sigma_wgt
             
@@ -1278,6 +1448,17 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # Now finally return the total weight for this contribution
         if __debug__: logger.debug(misc.bcolors.GREEN + "Final weight returned: %.5e"%total_wgt + misc.bcolors.ENDC)
         if __debug__: logger.debug("="*80)
+        
+###########################################################################################
+        ## TMP FOR DEBUG ##
+        if not hasattr(self, 'counter'):
+            self.counter = 1
+        else:
+            self.counter += 1
+        ## misc.sprint('at:',self.counter, total_wgt)
+        ## TMP FOR DEBUG ##
+###########################################################################################
+        
         return total_wgt
     
     def sigma(self, PS_point, process_key, process, flavors, process_wgt, mu_r, mu_f1, mu_f2):
@@ -1374,6 +1555,53 @@ class ME7Integrand_V(ME7Integrand):
         super(ME7Integrand_V, self).__init__(*args, **opts)
         self.initialization_inputs['options']['integrated_counterterms'] = \
                                                               self.integrated_counterterms
+
+    def get_additional_nice_string_printout_lines(self, format=0):
+        """ Return additional information lines for the function nice_string of this contribution."""
+        res = []
+        if self.integrated_counterterms:
+            res.append('%-30s:   %d'%('Nb. of integrated counterterms', 
+                                      len(sum(self.integrated_counterterms.values(),[]))))
+        return res
+    
+    def get_nice_string_process_line(self, process_key, defining_process, format=0):
+        """ Return a nicely formated process line for the function nice_string of this 
+        contribution."""
+        GREEN = '\033[92m'
+        ENDC = '\033[0m'        
+        res = GREEN+'  %s'%defining_process.nice_string(print_weighted=False).\
+                                                               replace('Process: ','')+ENDC
+
+        if not self.integrated_counterterms:
+            return res
+
+        if format<2:
+            if process_key in self.integrated_counterterms:
+                res += ' | %d integrated counterterms'%len(self.integrated_counterterms[process_key])
+            else:
+                res += ' | 0 integrated counterterm'
+                
+        else:
+            long_res = [' | with the following integrated counterterms:']
+            for CT_properties in self.integrated_counterterms[process_key]:
+                CT = CT_properties['integrated_counterterm']
+                if format==2:
+                    long_res.append( '   | %s'%CT.get_singular_structure_string(
+                                        print_n=True, print_pdg=False, print_state=False )  )
+                elif format==3:
+                    long_res.append( '   | %s'%CT.get_singular_structure_string(
+                                        print_n=True, print_pdg=True, print_state=True )  )
+                elif format==4:
+                    long_res.append( '   | %s'%str(CT))
+                elif format>4:
+                    long_res.append( '   | %s'%str(CT))
+                    for key, value in CT_properties.items():
+                        if not key in ['integrated_counterterm', 'matching_process_key']:
+                            long_res.append( '     + %s : %s'%(key, str(value)))
+
+            res += '\n'.join(long_res)
+
+        return res
 
     def evaluate_integrated_counterterm(self, integrated_CT_characteristics, 
                                             PS_point, hel_config=None, compute_poles=True):
@@ -1670,7 +1898,50 @@ class ME7Integrand_R(ME7Integrand):
         self.mapper = phase_space_generators.VirtualWalker(
             map_type=self.MappingWalkerType, model=self.model
         )
+
+    def get_additional_nice_string_printout_lines(self, format=0):
+        """ Return additional information lines for the function nice_string of this integrand."""
+        res = []
+        if self.counterterms:
+            res.append('%-30s:   %d'%('Number of local counterterms', 
+               len([1 for CT in sum(self.counterterms.values(),[]) if CT.is_singular()]) ))
+        return res
         
+    def get_nice_string_process_line(self, process_key, defining_process, format=0):
+        """ Return a nicely formated process line for the function nice_string of this 
+        integrand."""
+        
+        GREEN = '\033[92m'
+        ENDC = '\033[0m'        
+        res =  GREEN+'  %s'%defining_process.nice_string(print_weighted=False).\
+                                                               replace('Process: ','')+ENDC
+
+        if not self.counterterms:
+            return res                                                               
+
+        if format < 2:
+            if process_key in self.counterterms:
+                res += ' | %d local counterterms'%len([ 1 for CT in 
+                                      self.counterterms[process_key] if CT.is_singular() ])
+            else:
+                res += ' | 0 local counterterm'
+                
+        else:
+            long_res = [' | with the following local counterterms:']
+            for CT in self.counterterms[process_key]:
+                if CT.is_singular():
+                    if format==2:
+                        long_res.append( '   | %s'%CT.get_singular_structure_string(
+                                            print_n=True, print_pdg=False, print_state=False )  )
+                    elif format==3:
+                        long_res.append( '   | %s'%CT.get_singular_structure_string(
+                                            print_n=True, print_pdg=True, print_state=True )  )
+                    elif format>3:
+                        long_res.append( '   | %s'%str(CT))
+            res += '\n'.join(long_res)
+
+        return res
+
     def evaluate_counterterm(self, counterterm, PS_point, hel_config=None, defining_flavors=None):
         """ Evaluates the specified counterterm for the specified PS point."""
 
@@ -1687,8 +1958,7 @@ class ME7Integrand_R(ME7Integrand):
         #         'kinematic_variables' : kinematic_variables  (a dictionary)
         #        }
         hike = self.mapper.walk_to_lower_multiplicity(
-            PS_point, counterterm, compute_kinematic_variables=True
-        )
+                                PS_point, counterterm, compute_kinematic_variables=True )
        
         # Access the matrix element characteristics
         ME_process, ME_PS = hike['matrix_element']
@@ -1902,7 +2172,7 @@ The missing process is: %s"""%ME_process.nice_string())
         a_real_emission_PS_point = phase_space_generators.LorentzVectorDict(
             (i+1, mom) for i, mom in enumerate(a_real_emission_PS_point)
         )
-
+        
         # Now keep track of the results from each process and limit checked
         all_evaluations = {}
         for process_key, (defining_process, mapped_processes) in self.processes_map.items():
@@ -2032,6 +2302,62 @@ class ME7Integrand_RRR(ME7Integrand_R):
     def sigma(self, PS_point, process_key, process, flavors, process_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
         return super(ME7Integrand_RRR, self).sigma(PS_point, process_key, process, flavors, process_wgt, 
                                                                         mu_r, mu_f1, mu_f2, *args, **opts)
+
+#===============================================================================
+# ME7IntegrandList
+#===============================================================================
+class ME7IntegrandList(base_objects.PhysicsObjectList):
+    """ Container for ME7Integrnds."""
+    
+        
+    integrands_natural_order = [
+        ('LO',    (ME7Integrand_B, ME7Integrand_LIB) ),
+        ('NLO',   (ME7Integrand_R, ME7Integrand_V) ),
+        ('NNLO',  (ME7Integrand_RR, ) ),
+        ('NNNLO', (ME7Integrand_RRR, ) )
+    ]
+    
+    def is_valid_element(self, obj):
+        """Test if object obj is a valid instance of ME7Integrand."""
+        return isinstance(obj, ME7Integrand)
+    
+    def get_integrands_of_order(self, correction_order):
+        """ Returns a list of all contributions of a certain correction_order in argument."""
+        return ME7IntegrandList([integrand for integrand in self if
+                integrand.contribution_definition.correction_order==correction_order])
+
+    def get_integrands_of_type(self, correction_classes):
+        """ Returns a list of all contributions that are direct instances of certain classes."""
+        if not isinstance(correction_classes, tuple):
+            if isinstance(correction_classes, list):
+                correction_classes = tuple(correction_classes)
+            else:
+                correction_classes = (correction_classes,)                
+        return ME7IntegrandList([integrand for integrand in self if 
+                                                isinstance(integrand, correction_classes)])
+
+    def nice_string(self, format=0):
+        """ A nice representation of a list of contributions. 
+        We can reuse the function from ContributionDefinitions."""
+        return base_objects.ContributionDefinitionList.contrib_list_string(self, 
+                                                                            format=format)
+
+    def sort_integrands(self):
+        """ Sort integrands according to the order dictated by the class attribute
+        'integrands_natural_order'"""
+        
+        new_order = []
+        for correction_order, integrand_types in self.integrands_natural_order:
+            for integrand_type in integrand_types:
+                selected_integrands = self.get_integrands_of_order(correction_order).\
+                                        get_integrands_of_type(integrand_type)
+                new_order.extend(selected_integrands)
+                for integrand in selected_integrands:
+                    self.pop(self.index(integrand))
+    
+        # Finally all remaining contributions of unknown types
+        new_order.extend(self)
+        self[:] = new_order
 
 # Integrand classes map is defined here as module variables. This map can be overwritten
 # by the interface when using a PLUGIN system where the user can define his own Integrand.

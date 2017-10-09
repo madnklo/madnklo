@@ -12,7 +12,6 @@
 # For more information, visit madgraph.phys.ucl.ac.be and amcatnlo.web.cern.ch
 #
 ##########################################################################################
-from pickle import STOP
 """Classes for implementions Contributions.
 Contributions are abstract layer, between the madgraph_interface and amplitudes.
 They typically correspond to the Born, R, V, RV, RR, VV, etc.. pieces of higher
@@ -54,6 +53,31 @@ logger = logging.getLogger('contributions')
 class ProcessKey(object):
     """ We store here the relevant information for accessing a particular ME."""
     
+    cache_active = False
+    
+    @classmethod
+    def activate_cache(cls):
+        """ Accessor to activate the ProcessKey cache. This is safe to do during an actual MC run."""
+        cls.cache_active = True
+
+    @classmethod
+    def deactivate_cache(cls):
+        """ Accessor to deactivate the ProcessKey cache. This should be deactivated during process generation."""
+        cls.cache_active = False
+    
+    def get_key_for_cache(self,
+                 process,  PDGs, sort_PDGs, vetoed_attributes, allowed_attributes, opts):
+        """ Generates the look-up key for the dynamically created dictionary 'process_key_cache'
+        of the objects for which a ProcessKey is generated."""
+        
+        key = [ tuple(PDGs), 
+                sort_PDGs, 
+                tuple(vetoed_attributes),
+                tuple(allowed_attributes) if allowed_attributes else None ]
+        if opts:
+            key.extend((k,opts[k]) for k in sorted(opts.keys()))
+        return tuple(key)
+
     def __init__(self, 
                 # The user can initialize an ProcessKey directly from a process, or leave it empty
                 # in which case the default argument of a base_objects.Process() instance will be considered.      
@@ -70,13 +94,32 @@ class ProcessKey(object):
                 # If None, this filter is deactivated.
                 allowed_attributes = None,
                 # Finally the user can overwrite the relevant attributes of the process passed in argument
-                # if he so wants.
+                # if he so wants. Remember however that only attributes with *hashable* values are allowed
+                # to be specified here.
                 **opts):
-              
+        
+
+        # Try to use the dynamically created caching system for the ProcessKey
+        # which is a bit time consuming to generated
+        if self.cache_active and (not process is None) and hasattr(process, 'process_key_cache'):
+
+            key = self.get_key_for_cache(process,  PDGs, sort_PDGs, 
+                                               vetoed_attributes, allowed_attributes, opts)
+
+            if key in process.process_key_cache:
+                cached_process_key = process.process_key_cache[key]  
+                self.key_dict = cached_process_key.key_dict
+                self.canonical_key = cached_process_key.canonical_key
+                return
+
         # Initialize a dictionary which will be used to form the final tuple encoding all the information for 
         # this particular entry
         self.key_dict = {}
-
+        
+        # Cache of the key_dict converted into a canonical key. It will be set upon
+        # calling 'get_canonical_key' for the first time.
+        self.canonical_key = None
+        
         # PDGs
         if (allowed_attributes is None or 'PDGs' in allowed_attributes) and (not 'PDGs' in vetoed_attributes):
             if PDGs:
@@ -180,9 +223,20 @@ class ProcessKey(object):
                  +" is not of a basic type or list / dictionary, but '%s'. Therefore consider vetoing this"%type(value)+
                  " attribute or adding a dedicated ad-hoc rule for it in ProcessKey.")
 
+        # Assign a caching system automatically
+        if self.cache_active and (not process is None):
+            key = self.get_key_for_cache(process,  PDGs, sort_PDGs, 
+                                               vetoed_attributes, allowed_attributes, opts)
+            if hasattr(process, 'process_key_cache'):
+                process.process_key_cache[key] = self
+            else:
+                process.process_key_cache = {key : self}
+
     def set(self, key, value):
         """ Modify an entry in the key_dict created."""
-        
+        if self.cache_active:
+            raise MadGraph5Error("ProcessKeys instances cannot be modified while their dynamic caching is active.")
+
         if key not in self.key_dict:
             raise MadGraph5Error("Key '%s' was not found in the key_dict created in ProcessKey."%key)
         if not isinstance(value, (int, str, bool, tuple)):
@@ -191,11 +245,11 @@ class ProcessKey(object):
         self.key_dict[key] = value
         # Force the canonical key to be recomputed
         if hasattr(self, 'canonical_key'):
-            delattr(self, 'canonical_key')
+            self.canonical_key = None
 
     def get_canonical_key(self, force=False):
         """ Simply uses self.key_dict to return a hashable canonical representation of this object."""
-        if not force and hasattr(self,'canonical_key'):
+        if not force and self.canonical_key:
             return self.canonical_key
         
         self.canonical_key = tuple(sorted(self.key_dict.items()))        
@@ -798,6 +852,12 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
 
         return new_opts
 
+    def call_subtraction_current(self, *args, **opts):
+        """ Wrapper around the actual call of the subtraction currents, so as to be
+        able to easily time it with a profiler."""
+        
+        return self.subtraction_current_instance.evaluate_subtraction_current(*args, **opts)
+
     def __call__(self, current, PS_point, **opts):
         """ Evaluation of the subtraction current. """
         
@@ -821,7 +881,7 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
             if recycled_result:
                 return self.evaluation_class(recycled_result), self.result_class(recycled_call)
 
-        all_evaluations = self.subtraction_current_instance.evaluate_subtraction_current(*call_args, **call_opts)
+        all_evaluations = self.call_subtraction_current(*call_args, **call_opts)
         evaluation_asked_for = all_evaluations.get_result(**result_key)
         if not evaluation_asked_for:
             raise MadGraph5Error("Could not obtain result '%s' from evaluation:\n%s"%(str(result_key), str(all_evaluations)))
@@ -1178,7 +1238,14 @@ class F2PYMEAccessor(VirtualMEAccessor):
                 for color_correlator in opts['color_correlation']:
                     self.get_function('add_color_correlators_to_consider')(color_correlator[0],color_correlator[1])
         
+    
+    def call_tree_ME(self, *args, **opts):
+        """ Wrapper around the actual call of the tree-level matrix element, so as to be
+        able to easily time it with a profiler."""
         
+        with misc.Silence(active=(logger.level>self.fortran_verbosity)):
+            return self.get_function('me_accessor_hook')(*args, **opts)
+
     def __call__(self, PS_point, alpha_s, mu_r=91.188, **opts):
         """ Actually performs the f2py call. """
 
@@ -1216,11 +1283,9 @@ class F2PYMEAccessor(VirtualMEAccessor):
 
         # Actual call to the matrix element
 #        start = time.time() #TOBECOMMENTED
-        with misc.Silence(active=(logger.level>self.fortran_verbosity)):
-            main_output  = self.get_function('me_accessor_hook')(
-                    self.format_momenta_for_f2py(PS_point), 
-                    (-1 if not new_opts['hel_config'] else self.helicity_configurations[new_opts['hel_config']]),
-                    alpha_s)
+        main_output = self.call_tree_ME(self.format_momenta_for_f2py(PS_point), 
+            (-1 if not new_opts['hel_config'] else self.helicity_configurations[new_opts['hel_config']]),
+            alpha_s)
 #        misc.sprint("The tree call took %10g"%(time.time()-start)) #TOBECOMMENTED
 
         # Gather additional newly generated output_data to be returned and placed in the cache.
@@ -1429,6 +1494,13 @@ class F2PYMEAccessorMadLoop(F2PYMEAccessor):
         # Make sure to compute all squared orders available by default
         self.get_function('set_couplingorders_target')(-1)      
         
+    def call_loop_ME(self, *args, **opts):
+        """ Wrapper around the actual call of the loop-level matrix element, so as to be
+        able to easily time it with a profiler."""
+        
+        with misc.Silence(active=(logger.level>self.fortran_verbosity)):
+            return self.get_function('loopme_accessor_hook')(*args, **opts)
+        
     def __call__(self, PS_point, alpha_s, mu_r, **opts):
         """ Actually performs the f2py call.
         """
@@ -1476,11 +1548,11 @@ class F2PYMEAccessorMadLoop(F2PYMEAccessor):
 
         # Actual call to the matrix element
 #        start = time.time() #TOBECOMMENTED
-        with misc.Silence(active=(logger.level>self.fortran_verbosity)):
-            evals, estimated_accuracies, return_code = self.get_function('loopme_accessor_hook')(
+        evals, estimated_accuracies, return_code = self.call_loop_ME(
             self.format_momenta_for_f2py(PS_point), 
             (-1 if not new_opts['hel_config'] else self.helicity_configurations[new_opts['hel_config']]),                              
             alpha_s, mu_r, required_accuracy)
+
 #        misc.sprint("The loop call took %10g"%(time.time()-start)) #TOBECOMMENTED
         main_output = {'evals': evals,
                        'estimated_accuracies': estimated_accuracies,
@@ -2958,24 +3030,6 @@ class Contribution_V(Contribution):
                                       len(sum(self.integrated_counterterms.values(),[]))))
         return res
     
-    @classmethod
-    def remove_counterterms_with_no_reduced_process(cls, all_MEAccessors, CT_properties_list):
-        """ Given the list of available reduced processes encoded in the MEAccessorDict 'all_MEAccessors'
-        given in argument, remove all the counterterms whose underlying reduced process does not exist."""
-
-        for CT_properties in list(CT_properties_list):
-            counterterm = CT_properties['integrated_counterterm']
-            # Of course don't remove any counterterm that would be the real-emission itself.
-            if not counterterm.is_singular():
-                continue
-            try:
-                all_MEAccessors.get_MEAccessor(counterterm.process)
-            except MadGraph5Error:
-                # This means that the reduced process could not be found and
-                # consequently, the corresponding counterterm must be removed.
-                # Example: C(5,6) in e+ e- > g g d d~
-                CT_properties_list.remove(CT_properties)
-    
     def get_nice_string_process_line(self, process_key, defining_process, format=0):
         """ Return a nicely formated process line for the function nice_string of this 
         contribution."""
@@ -3013,6 +3067,24 @@ class Contribution_V(Contribution):
             res += '\n'.join(long_res)
 
         return res
+    
+    @classmethod
+    def remove_counterterms_with_no_reduced_process(cls, all_MEAccessors, CT_properties_list):
+        """ Given the list of available reduced processes encoded in the MEAccessorDict 'all_MEAccessors'
+        given in argument, remove all the counterterms whose underlying reduced process does not exist."""
+
+        for CT_properties in list(CT_properties_list):
+            counterterm = CT_properties['integrated_counterterm']
+            # Of course don't remove any counterterm that would be the real-emission itself.
+            if not counterterm.is_singular():
+                continue
+            try:
+                all_MEAccessors.get_MEAccessor(counterterm.process)
+            except MadGraph5Error:
+                # This means that the reduced process could not be found and
+                # consequently, the corresponding counterterm must be removed.
+                # Example: C(5,6) in e+ e- > g g d d~
+                CT_properties_list.remove(CT_properties)
 
     def generate_matrix_elements(self, group_processes=True):
         """Generate the Helas matrix elements before exporting. Uses the main function argument 

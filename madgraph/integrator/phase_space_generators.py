@@ -225,7 +225,7 @@ class LorentzVector(Vector):
             return self.huge()
         tmp = self[1]*p2[1] + self[2]*p2[2]
         tmp /= (pt1*pt2)
-        if abs(tmp) > (1.0+self.eps()):
+        if abs(tmp) > (1.0+10.*self.eps()):
             raise PhaseSpaceGeneratorError(
                 "Cosine larger than 1. in phase-space cuts."
             )
@@ -298,6 +298,10 @@ class LorentzVectorDict(dict):
         are lost in this process."""
         return LorentzVectorList(self[k] for k in sorted(self.keys()))
 
+    def to_dict(self):
+        """ Returns a copy of this LorentzVectorDict """
+        return LorentzVectorDict( self )
+
     def to_tuple(self):
         """ Returns a copy of this LorentzVectorDict as an immutable tuple. Notice that the 
         actual values of the keys are lost in this process."""
@@ -327,7 +331,7 @@ class LorentzVectorDict(dict):
                 running_sum -= mom
             out_lines.append(template % tuple(
                 ['%d' % i] + [
-                    special_float_format(el) for el in (list(mom) + [abs(mom)])
+           special_float_format(el) for el in (list(mom) + [math.sqrt(abs(mom.square()))])
                 ]
             ))
         out_lines.append(line)
@@ -361,6 +365,10 @@ class LorentzVectorList(list):
     def to_tuple(self):
         """ Returns a copy of this LorentzVectorList as an immutable tuple. """
         return tuple( tuple(v) for v in self )
+
+    def to_dict(self):
+        """ Returns a copy of this LorentzVectorList as a LorentzVectorDict """
+        return LorentzVectorDict( (i+1, v) for i, v in enumerate(self) )
 
     def get_copy(self):
         """Return a copy that can be freely modified

@@ -4288,42 +4288,53 @@ class ContributionDefinitionList(PhysicsObjectList):
     @staticmethod
     def contrib_list_string(contrib_list, format=0):
         """ Nicely format details about this list."""
+        
+        if hasattr(contrib_list,'get_contributions_of_order'):
+            get_elems_of_order = contrib_list.get_contributions_of_order
+            elem_type = 'contributions'
+        elif hasattr(contrib_list,'get_integrands_of_order'):
+            get_elems_of_order = contrib_list.get_integrands_of_order
+            elem_type = 'integrands'
+        else:
+            raise MadGraph5Error("Static method 'contrib_list_string' can only"+
+                                  " be called with a list of contributions or integrands.")            
+        
         BLUE = '\033[94m'
         GREEN = '\033[92m'
         ENDC = '\033[0m'
         if not contrib_list:
-            return "No contributions."
+            return "No %s to display."%elem_type[:-1]
         res = []
-        LO_contribs = contrib_list.get_contributions_of_order('LO')
+        LO_contribs = get_elems_of_order('LO')
         if LO_contribs:
-            res.append("\n"+GREEN+"LO contributions:"+ENDC)
+            res.append("\n"+GREEN+"LO %s:"%elem_type+ENDC)
             line_length = len(res[-1])-10
             res.append("="*line_length)
             for LO_contrib in LO_contribs:
                 res.extend(['   %s'%line for line in LO_contrib.nice_string(format=format).split('\n')])
                 res.append('   %s'%('-'*line_length))
             res.pop()
-        NLO_contribs = contrib_list.get_contributions_of_order('NLO')
+        NLO_contribs = get_elems_of_order('NLO')
         if NLO_contribs:
-            res.append("\n"+GREEN+"NLO contributions:"+ENDC)
+            res.append("\n"+GREEN+"NLO %s:"%elem_type+ENDC)
             line_length = len(res[-1])-10
             res.append("="*line_length)
             for NLO_contrib in NLO_contribs:
                 res.extend(['   %s'%line for line in NLO_contrib.nice_string(format=format).split('\n')])
                 res.append('   %s'%('-'*line_length))
             res.pop()
-        NNLO_contribs = contrib_list.get_contributions_of_order('NNLO')
+        NNLO_contribs = get_elems_of_order('NNLO')
         if NNLO_contribs:
-            res.append("\n"+GREEN+"NNLO contributions:"+ENDC)
+            res.append("\n"+GREEN+"NNLO %s:"%elem_type+ENDC)
             line_length = len(res[-1])-10
             res.append("="*line_length)
             for NNLO_contrib in NNLO_contribs:
                 res.extend(['   %s'%line for line in NNLO_contrib.nice_string(format=format).split('\n')])    
                 res.append('   %s'%('-'*line_length))
             res.pop()
-        NNNLO_contribs = contrib_list.get_contributions_of_order('NNNLO')
+        NNNLO_contribs = get_elems_of_order('NNNLO')
         if NNNLO_contribs:
-            res.append("\n"+GREEN+"NNNLO contributions:"+ENDC)
+            res.append("\n"+GREEN+"NNNLO %s:"%elem_type+ENDC)
             line_length = len(res[-1])-10
             res.append("="*line_length)
             for NNNLO_contrib in NNNLO_contribs:

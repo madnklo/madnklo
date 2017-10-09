@@ -139,7 +139,7 @@ class ME7ContributionTest(IOTests.IOTestManager):
             self.exporter.copy_template(self.madgraph_cmd._curr_model)
             self.exporter.export(True, args=[])
             # The export above was enough to have fully functional contributions to test            
-#            self.exporter.finalize(['nojpeg'], self.madgraph_cmd.history)
+            # self.exporter.finalize(['nojpeg'], self.madgraph_cmd.history)
             self.NLO_contributions = self.madgraph_cmd._curr_contribs 
 
     @IOTests.createIOTest()
@@ -224,9 +224,9 @@ class ME7ContributionTest(IOTests.IOTestManager):
         # Initialize an empty accessor dictionary for the currents.
         # No currents are ignored because of potential pre-existing ones.
         accessors_dict = contributions.MEAccessorDict()
-        all_subtraction_currents = \
-            real_emission_contrib.get_all_necessary_subtraction_currents(accessors_dict)
-        current_strings = [str(current) for current in all_subtraction_currents]
+        all_local_currents = \
+            real_emission_contrib.get_all_necessary_local_currents(accessors_dict)
+        current_strings = [str(current) for current in all_local_currents]
         # Print all local currents
         if verbose: misc.sprint('Local currents:\n' + '\n'.join(current_strings))
         # Output all local currents
@@ -254,7 +254,7 @@ class ME7ContributionTest(IOTests.IOTestManager):
             # Reset the accessor dictionary so as to monitor only the newly added keys
             accessors_dict = contributions.MEAccessorDict()
             real_emission_contrib.add_current_accessors(
-                self.mymodel, accessors_dict, tmp_path, all_subtraction_currents )
+                self.mymodel, accessors_dict, tmp_path, all_local_currents )
             # Print all accessor keys
             if verbose: misc.sprint(print_string % (len(accessors_dict), "local"))
             self.assertEqual(len(accessors_dict), 31)

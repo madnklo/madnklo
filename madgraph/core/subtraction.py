@@ -1731,7 +1731,6 @@ class IRSubtraction(object):
         #
         ########
         
-        
         integrated_current = IntegratedCurrent({
             'n_loops': n_loops,
             'squared_orders': squared_orders,

@@ -2842,9 +2842,9 @@ class Contribution_R(Contribution):
         
         return ret_value
 
-    def get_all_necessary_subtraction_currents(self, all_MEAccessors):
+    def get_all_necessary_local_currents(self, all_MEAccessors):
         """ Given the counterterms in place and the currents already accessible in the 
-        all_MEAccessors, return what subtraction currents are needed."""
+        all_MEAccessors, return what local currents are needed."""
         
         all_currents = []
         for process_key, counterterms in self.counterterms.items():
@@ -2905,7 +2905,7 @@ class Contribution_R(Contribution):
             self.remove_counterterms_with_no_reduced_process(all_MEAccessors, counterterms)
 
         # Obtain all necessary currents
-        currents_to_consider = self.get_all_necessary_subtraction_currents(all_MEAccessors)
+        currents_to_consider = self.get_all_necessary_local_currents(all_MEAccessors)
 
         self.add_current_accessors(self.model, all_MEAccessors, root_path, currents_to_consider)
      

@@ -11,11 +11,12 @@ root_path = os.path.dirname(os.path.realpath( __file__ ))
 
 cython_sources = [
     pjoin(root_path,'madgraph','integrator','phase_space_generators.pyx'),
-    pjoin(root_path,'madgraph','integrator','ME7_integrands.pyx')
+    pjoin(root_path,'madgraph','integrator','ME7_integrands.pyx'),
+    pjoin(root_path,'madgraph','core','accessors.pyx'),
 ]
 
 def cythonize_sources():
-    return sum([cythonize(src_path) for src_path in cython_sources],[])
+    return sum([cythonize(src_path, compiler_directives={'profile': True}) for src_path in cython_sources],[])
 
 class MG5aMCClean(clean):
     description = "Cleans the build directory and C-sources and shared object libraries coming from Cythonization."

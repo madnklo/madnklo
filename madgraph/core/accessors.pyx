@@ -13,6 +13,7 @@
 #
 ##########################################################################################
 """Classes for the implemention of accessors of Matrix elements and currents."""
+
 import copy
 import time
 import logging
@@ -25,6 +26,7 @@ pjoin = os.path.join
 
 import madgraph.core.base_objects as base_objects
 import madgraph.integrator.phase_space_generators as PS_utils
+from madgraph.interface.madevent_interface import MadLoopInitializer
 import madgraph.various.misc as misc
 import madgraph.core.subtraction as subtraction
 import madgraph.interface.ME7_interface as ME7_interface
@@ -1224,12 +1226,11 @@ class F2PYMEAccessor(VirtualMEAccessor):
                     self.get_function('add_color_correlators_to_consider')(color_correlator[0],color_correlator[1])
         
     
-    def call_tree_ME(self, *args, **opts):
+    def call_tree_ME(self, func, *args, **opts):
         """ Wrapper around the actual call of the tree-level matrix element, so as to be
         able to easily time it with a profiler."""
 
-        with misc.Silence(active=(logger.level>self.fortran_verbosity)):
-            return self.get_function('me_accessor_hook')(*args, **opts)
+        return func(*args, **opts)
 
     def __call__(self, PS_point, alpha_s, mu_r=91.188, **opts):
         """ Actually performs the f2py call. """
@@ -1267,11 +1268,12 @@ class F2PYMEAccessor(VirtualMEAccessor):
         self.setup_ME(new_opts)
 
         # Actual call to the matrix element
-#        start = time.time() #TOBECOMMENTED
-        main_output = self.call_tree_ME(self.format_momenta_for_f2py(PS_point), 
-            (-1 if not new_opts['hel_config'] else self.helicity_configurations[new_opts['hel_config']]),
-            alpha_s)
-#        misc.sprint("The tree call took %10g"%(time.time()-start)) #TOBECOMMENTED
+        with misc.Silence(active=(logger.level>self.fortran_verbosity)):
+            main_output = self.call_tree_ME(
+                self.get_function('me_accessor_hook'),
+                self.format_momenta_for_f2py(PS_point), 
+                (-1 if not new_opts['hel_config'] else self.helicity_configurations[new_opts['hel_config']]),
+                alpha_s)
 
         # Gather additional newly generated output_data to be returned and placed in the cache.
         output_datas = self.gather_output_datas(main_output, new_opts)
@@ -1431,11 +1433,10 @@ class F2PYMEAccessorMadLoop(F2PYMEAccessor):
             return ret_value
         
         # Check if it needs initialization
-        ML_initializer = madevent_interface.MadLoopInitializer
-        if ML_initializer.need_MadLoopInit(Pdir, subproc_prefix='P', force_initialization=(refresh_filters=='always')):
+        if MadLoopInitializer.need_MadLoopInit(Pdir, subproc_prefix='P', force_initialization=(refresh_filters=='always')):
             # This will run in parallel the initialization of *all* the processes in this 'SubProcesses' directory.
             # Not only the filters relevant to *this* accessor will be affected then.
-            ML_initializer.init_MadLoop(Pdir, subproc_prefix='P', MG_options=ME7_options)
+            MadLoopInitializer.init_MadLoop(Pdir, subproc_prefix='P', MG_options=ME7_options)
             # Flag this directory as initialized so that other ME accessor do not immediately re-initialize it,
             # as it could be the case if refresh_filters is set to 'always'.
             proc_dirs_initialized.append(Pdir)

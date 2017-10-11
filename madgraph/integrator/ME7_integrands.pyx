@@ -15,10 +15,6 @@
 """Collection of ME7 Integrand classes to be compiled with Cython
 """
 
-# The cython compiling directive below includes a small overhead but allows to profile cython
-# code like if it was python code with cProfile. 
-# ---> Must be removed from production <---
-# cython: profile=True
 
 import collections
 import glob

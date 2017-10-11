@@ -19,6 +19,8 @@ import re
 import shutil
 import sys
 import logging
+import random
+import timeit
 
 pjoin = os.path.join
 
@@ -28,6 +30,8 @@ import tests.unit_tests.iolibs.test_file_writers as test_file_writers
 
 import madgraph.interface.master_interface as Cmd
 import madgraph.interface.ME7_interface as ME7interface
+import madgraph.integrator.ME7_integrands as ME7_integrands
+from madgraph.core.accessors import ProcessKey
 import madgraph.various.misc as misc
 _file_path = os.path.dirname(os.path.realpath(__file__))
 _pickle_path =os.path.join(_file_path, 'input_files')
@@ -37,7 +41,7 @@ from madgraph import MG4DIR, MG5DIR, MadGraph5Error, InvalidCmd
 #===============================================================================
 # TestME7_IR_Limits
 #===============================================================================
-class TestME7_IR_Limits(unittest.TestCase):
+class TestME7(unittest.TestCase):
     """This test validates the command 'test_IR_limits' of ME7"""
     
     # If the debug mode is set to True, then the process output is not refreshed
@@ -92,3 +96,23 @@ class TestME7_IR_Limits(unittest.TestCase):
             ('--%s=%s'%(key,value) if value is not None else '--%s'%key)
             for key,value in options.items()
         )))
+
+    def test_ME7_born_integrand_call(self):
+        """ Check the result of a single call to the born integrand_call."""
+    
+        born_integrand = self.cmd.all_integrands.get_integrands_of_type(
+                                                   ME7_integrands.ME7CythonIntegrand_B)[0]
+        
+        dimensions = born_integrand.get_dimensions()
+  
+        def call():
+            born_integrand(
+                dimensions.get_continuous_dimensions().random_sample(),
+                dimensions.get_discrete_dimensions().random_sample()
+            )
+
+        n_calls = 25000
+        ProcessKey.activate_cache()
+        misc.sprint('\n'+'\n'.join('%d : %g ms'%(i+1, 1.e3*(res/float(n_calls))) for i,res in 
+                                enumerate(timeit.repeat(call, number=n_calls, repeat=4))))
+        ProcessKey.deactivate_cache()

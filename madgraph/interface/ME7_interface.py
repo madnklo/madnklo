@@ -446,8 +446,9 @@ class ParseCmdArguments(object):
         expansion_orders = []
         integrand_types  = []
         
-        integrand_type_short_cuts = dict( (k, eval('ME7Integrand_%s'%k) ) for k in 
-                                                        ['R','RR','RRR','V','LIB','B'] )
+        integrand_type_short_cuts = dict( (k, 
+                    ( eval('ME7Integrand_%s'%k), eval('ME7CythonIntegrand_%s'%k) )
+                                            ) for k in ['R','RR','RRR','V','LIB','B'] )
         
         for filter in filters.split(','):
             f = filter.strip()
@@ -757,7 +758,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         logger.info("="*100)
 
         # Temporarily activate the ProcessKey cache
-        from madgraph.core.contributions import ProcessKey
+        from madgraph.core.accessors import ProcessKey
         ProcessKey.activate_cache()
         with misc.MuteLogger(['contributions','madevent7','madevent7.stderr'],[logger_level,logger_level,logger_level]):
             xsec, error = self.integrator.integrate()
@@ -931,7 +932,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         self.topologies_to_processes    = topologies_to_processes
         self.processes_to_topologies    = processes_to_topologies
         
-        # An instance of contributions.MEAccessorDict providing access to all ME available as part of this
+        # An instance of accessors.MEAccessorDict providing access to all ME available as part of this
         # ME7 session.
         self.all_MEAccessors            = all_MEAccessors
 

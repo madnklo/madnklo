@@ -25,6 +25,7 @@ import madgraph.core.base_objects as base_objects
 import madgraph.core.color_algebra as color
 import madgraph.core.helas_objects as helas_objects
 import madgraph.core.contributions as contributions
+import madgraph.core.accessors as accessors
 import madgraph.core.diagram_generation as diagram_generation
 import madgraph.interface.common_run_interface as common_run_interface
 import aloha as aloha
@@ -345,7 +346,7 @@ class ME7Exporter(object):
         # We provide it here just so as to be complete.
         
         # Obtain all the Accessors to the Matrix Element and currents made available in this process output
-        all_MEAccessors = contributions.MEAccessorDict()
+        all_MEAccessors = accessors.MEAccessorDict()
         for contrib in self.contributions:
             contrib.add_ME_accessors(all_MEAccessors, self.export_dir)
 

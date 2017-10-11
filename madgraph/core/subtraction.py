@@ -32,6 +32,7 @@ if __name__ == '__main__':
         os.path.pardir,
         os.path.pardir
     ))
+
 from madgraph import MadGraph5Error, MG5DIR, InvalidCmd
 import madgraph.core.base_objects as base_objects
 import madgraph.fks.fks_common as fks_common
@@ -751,7 +752,7 @@ class Current(base_objects.Process):
     def get_key(self):
         """Return the ProcessKey associated to this current."""
 
-        from contributions import ProcessKey
+        from madgraph.core.accessors import ProcessKey
         return ProcessKey(
                 self,
                 allowed_attributes = [

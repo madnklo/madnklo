@@ -14,6 +14,12 @@
 ################################################################################
 """Collection of ME7 Integrand classes to be compiled with Cython
 """
+
+# The cython compiling directive below includes a small overhead but allows to profile cython
+# code like if it was python code with cProfile. 
+# ---> Must be removed from production <---
+# cython: profile=True
+
 import collections
 import glob
 import logging
@@ -177,7 +183,7 @@ class ME7CythonIntegrand(integrands.VirtualIntegrand):
         self.topologies_to_processes    = topologies_to_processes
         self.processes_to_topologies    = processes_to_topologies
         
-        # An instance of contributions.MEAccessorDict providing access to all ME available as part of this
+        # An instance of accessors.MEAccessorDict providing access to all ME available as part of this
         # ME7 session.
         self.all_MEAccessors            = all_MEAccessors
 

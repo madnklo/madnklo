@@ -158,8 +158,13 @@ class PhaseSpaceGeneratorsTest(unittest.TestCase):
         
         random_variables = [random.random() for _ in range(my_PS_generator.nDimPhaseSpace())]
     
-        momenta, wgt = my_PS_generator.generateKinematics(E_cm, random_variables)
-       
+#        import time
+#        start = time.time()
+        n_loops = 1
+        for _ in range(n_loops):
+            momenta, wgt = my_PS_generator.generateKinematics(E_cm, random_variables)
+#        end = time.time()
+#        misc.sprint('Time per call',(end-start)/float(n_loops))
         #print "\n ========================="
         #print " ||    PS generation    ||"
         #print " ========================="    
@@ -185,7 +190,7 @@ class PhaseSpaceGeneratorsTest(unittest.TestCase):
         #    print "\nMax. relative diff. in reconstructed variables = %.3e"%\
         #        max(differences[i]/random_variables[i] for i in range(len(differences)))
         #print "Rel. diff. in PS weight = %.3e\n"%((wgt_reconstructed-wgt)/wgt)
-
+        
     def test_multi_channel_phase_space(self):
         """ Test the multichannel phase-space that is aligned along specific s- and t-channels."""
         

@@ -12,7 +12,6 @@
 # For more information, visit madgraph.phys.ucl.ac.be and amcatnlo.web.cern.ch
 #
 ################################################################################
-from Carbon.AppleEvents import kAEPassSubDescs
 """A user friendly command line interface to steer ME7 integration.
    Uses the cmd package for command interpretation and tab completion.
 """
@@ -51,58 +50,30 @@ pjoin = os.path.join
 logger = logging.getLogger('madevent7') # -> stdout
 logger_stderr = logging.getLogger('madevent7.stderr') # ->stderr
 
-try:
-    import madgraph
-except ImportError: 
-    # import from madevent directory
-    MADEVENT7 = True
-    import internal.extended_cmd as cmd
-    import internal.common_run_interface as common_run
-    import internal.madevent_interface as madevent_interface
-    import internal.banner as banner_mod
-    import internal.base_objects as base_objects
-    import internal.misc as misc
-    from internal import InvalidCmd, MadGraph5Error, ReadWrite
-    import internal.files as files
-    import internal.save_load_object as save_load_object
-    import internal.cluster as cluster
-    import internal.check_param_card as check_param_card
-    import internal.model_reader as model_reader
-    import internal.import_ufo as import_ufo
-    import internal.lhe_parser as lhe_parser
-    import internal.integrands as integrands
-    import internal.integrators as integrators
-    import internal.phase_space_generators as phase_space_generators
-    import internal.pyCubaIntegrator as pyCubaIntegrator
-    import internal.vegas3_integrator as vegas3_integrator
 
-#    import internal.histograms as histograms # imported later to not slow down the loading of the code
-    from internal.files import ln
-else:
-    # import from madgraph directory
-    MADEVENT7 = False
-    import madgraph.core.base_objects as base_objects
-    import madgraph.interface.extended_cmd as cmd
-    import madgraph.interface.common_run_interface as common_run
-    import madgraph.interface.madevent_interface as madevent_interface
-    import madgraph.iolibs.files as files
-    import madgraph.iolibs.save_load_object as save_load_object
-    import madgraph.various.banner as banner_mod
-    import madgraph.various.cluster as cluster
-    import madgraph.various.misc as misc
-    import madgraph.various.lhe_parser as lhe_parser
-    import madgraph.integrator.integrands as integrands
-    import madgraph.integrator.integrators as integrators
-    import madgraph.integrator.phase_space_generators as phase_space_generators
-    import madgraph.integrator.pyCubaIntegrator as pyCubaIntegrator
-    import madgraph.integrator.vegas3_integrator as vegas3_integrator
+import madgraph.core.base_objects as base_objects
+import madgraph.interface.extended_cmd as cmd
+import madgraph.interface.common_run_interface as common_run
+import madgraph.interface.madevent_interface as madevent_interface
+import madgraph.iolibs.files as files
+import madgraph.iolibs.save_load_object as save_load_object
+import madgraph.various.banner as banner_mod
+import madgraph.various.cluster as cluster
+import madgraph.various.misc as misc
+import madgraph.various.lhe_parser as lhe_parser
+import madgraph.integrator.integrands as integrands
+import madgraph.integrator.integrators as integrators
+import madgraph.integrator.phase_space_generators as phase_space_generators
+import madgraph.integrator.pyCubaIntegrator as pyCubaIntegrator
+import madgraph.integrator.vegas3_integrator as vegas3_integrator
+import madgraph.integrator.ME7_integrands as ME7_integrands
 #    import madgraph.various.histograms as histograms  # imported later to not slow down the loading of the code
-    import models.check_param_card as check_param_card
-    import models.model_reader as model_reader
-    import models.import_ufo as import_ufo
+import models.check_param_card as check_param_card
+import models.model_reader as model_reader
+import models.import_ufo as import_ufo
 
-    from madgraph.iolibs.files import ln    
-    from madgraph import InvalidCmd, MadGraph5Error, MG5DIR, ReadWrite
+from madgraph.iolibs.files import ln    
+from madgraph import InvalidCmd, MadGraph5Error, MG5DIR, ReadWrite
 
 
 
@@ -644,6 +615,19 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
 
         self.all_MEAccessors = ME7_dump['all_MEAccessors']['class'].initialize_from_dump(
                                 ME7_dump['all_MEAccessors'], root_path = self.me_dir, model=self.model)
+#        import madgraph
+#        import madgraph.integrator
+#        misc.sprint(dir(madgraph.integrator))
+#        import madgraph.integrator.ME7Integrands
+#        misc.sprint(dir(madgraph.integrator.ME7Integrands))
+
+ #       misc.sprint(eval(ME7_dump['all_integrands'][0]['class']))
+ #       stop ME7_integrands
+##        born_integrand_implementation = ME7_integrands.ME7CythonIntegrand_B
+##        born_integrand_implementation = ME7Integrand_B
+##        self.all_integrands = ME7IntegrandList([born_integrand_implementation.initialize_from_dump(
+##            integrand_dump, self.model, self.run_card, self.all_MEAccessors, self.options
+##                                       ) for integrand_dump in ME7_dump['all_integrands']])
         self.all_integrands = ME7IntegrandList([integrand_dump['class'].initialize_from_dump(
             integrand_dump, self.model, self.run_card, self.all_MEAccessors, self.options
                                        ) for integrand_dump in ME7_dump['all_integrands']])
@@ -1134,7 +1118,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         """ Initialize self from a dump and possibly other information necessary for reconstructing this
         integrand."""
         
-        return dump['class'](model, 
+        return cls(model, 
                              run_card,                             
                              dump['contribution_definition'],
                              dump['processes_map'],
@@ -1346,7 +1330,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         self.phase_space_generator.boost_to_COM_frame(PS_point, xb_1, xb_2)
                 
         if __debug__: logger.debug("Considering the following PS point:\n%s"%(PS_point.__str__(
-                                                                                n_initial=self.phase_space_generator.n_initial) ))
+                                            n_initial=self.phase_space_generator.n_initial) ))
         
         # Account for PS weight
         wgt *= PS_weight
@@ -1385,7 +1369,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
             if __debug__: logger.debug('Now considering the process group from %s.'%process.nice_string())
             
             this_process_wgt = wgt
-            process_pdgs = process.get_initial_final_ids()
+            process_pdgs = ( tuple(process.get_initial_ids()),
+                             tuple(process.get_final_ids_after_decay()) )
 
             # Apply flavor blind cuts
             if not self.pass_flavor_blind_cuts(PS_point, process_pdgs):
@@ -1394,7 +1379,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
                 return 0.0
             
             all_processes = [process,]+mapped_processes
-            all_process_pdgs = [ process.get_initial_final_ids() for proc in all_processes]
+            all_process_pdgs = [ ( tuple(process.get_initial_ids()),
+                   tuple(process.get_final_ids_after_decay()) ) for proc in all_processes ]
             # Add mirror processes if present
             all_process_pdgs.extend([ ( tuple(proc.get_initial_ids()[::-1]),
                 tuple(proc.get_final_ids()) )  for proc in all_processes if proc.get('has_mirror_process')])
@@ -1448,16 +1434,6 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # Now finally return the total weight for this contribution
         if __debug__: logger.debug(misc.bcolors.GREEN + "Final weight returned: %.5e"%total_wgt + misc.bcolors.ENDC)
         if __debug__: logger.debug("="*80)
-        
-###########################################################################################
-        ## TMP FOR DEBUG ##
-        if not hasattr(self, 'counter'):
-            self.counter = 1
-        else:
-            self.counter += 1
-        ## misc.sprint('at:',self.counter, total_wgt)
-        ## TMP FOR DEBUG ##
-###########################################################################################
         
         return total_wgt
     
@@ -1525,7 +1501,9 @@ class ME7Integrand(integrands.VirtualIntegrand):
 # and possibly other functions.
 class ME7Integrand_B(ME7Integrand):
     """ME7Integrand for the computation of a Born type of contribution."""
-    def sigma(self, PS_point, process_key, process, flavors, process_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
+    
+    def sigma(self, PS_point, process_key, process, flavors, process_wgt,
+                                                        mu_r, mu_f1, mu_f2, *args, **opts):
 
         return super(ME7Integrand_B, self).sigma(
             PS_point, process_key, process, flavors, process_wgt,
@@ -2319,7 +2297,8 @@ class ME7IntegrandList(base_objects.PhysicsObjectList):
     
     def is_valid_element(self, obj):
         """Test if object obj is a valid instance of ME7Integrand."""
-        return isinstance(obj, ME7Integrand)
+        from madgraph.integrator.ME7_integrands import ME7CythonIntegrand
+        return isinstance(obj, (ME7Integrand, ME7CythonIntegrand))
     
     def get_integrands_of_order(self, correction_order):
         """ Returns a list of all contributions of a certain correction_order in argument."""

@@ -242,9 +242,14 @@ class ME7Exporter(object):
         n_initial = self.contributions[0].get_processes_map().values()[0][0].get_ninitial()
         
         # For now the db is a rude pickle file, but we might improve this to an actual DB eventually
+        integrand_dumps = [integrand.generate_dump() for integrand in all_integrands]
+        import madgraph
+        for itg_dump in integrand_dumps:
+            itg_dump['class'] = 'madgraph.integrator.ME7Integrands.ME7_integrands.ME7CythonIntegrand_B'
         ME7_dump = {
             'all_MEAccessors' : all_MEAccessors.generate_dump(),
             'all_integrands'  : [integrand.generate_dump() for integrand in all_integrands],
+#            'all_integrands'  : integrand_dumps,
             'model_name'      : 'ME7_UFO_model_%s'%self.model.get('name'),
             'model_with_CMS'  : self.options['complex_mass_scheme'],
             'n_initial'       : n_initial

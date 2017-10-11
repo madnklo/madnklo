@@ -1247,7 +1247,8 @@ class Counterterm(CountertermNode):
         if (defining_flavors is None) or True:
             # If no defining flavors are specified then simply use the flavors already
             # filled in the reduced process.
-            reduced_flavors = self.process.get_initial_final_ids()
+            reduced_flavors = ( tuple(self.process.get_initial_ids()),
+                                tuple(self.process.get_final_ids_after_decay()) )
         else:
             ##############################################################################
             # --> TODO AND NECESSARY FOR NON-FLAVOR-BLIND OBSERVABLES

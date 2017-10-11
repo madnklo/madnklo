@@ -42,6 +42,7 @@ import madgraph.iolibs.export_v4 as export_v4
 import madgraph.various.misc as misc
 import madgraph.core.subtraction as subtraction
 import madgraph.interface.ME7_interface as ME7_interface
+import madgraph.integrator.ME7_integrands as ME7_integrands
 from madgraph import InvalidCmd, MadGraph5Error
 from madgraph.iolibs.files import cp, ln, mv
 
@@ -1242,7 +1243,7 @@ class F2PYMEAccessor(VirtualMEAccessor):
     def call_tree_ME(self, *args, **opts):
         """ Wrapper around the actual call of the tree-level matrix element, so as to be
         able to easily time it with a profiler."""
-        
+
         with misc.Silence(active=(logger.level>self.fortran_verbosity)):
             return self.get_function('me_accessor_hook')(*args, **opts)
 
@@ -2445,7 +2446,7 @@ class Contribution(object):
         """ Returns all the integrands implementing this contribution for the specified process_map.
         The instance of MEAccessorDict is necessary so as to be passed to the integrand instances.
         """
-        return [ ME7_interface.ME7Integrand(model, run_card,
+        return [ ME7_integrands.ME7CythonIntegrand(model, run_card,
                                        self.contribution_definition,
                                        process_map,
                                        self.topologies_to_processes,

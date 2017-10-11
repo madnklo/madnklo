@@ -311,8 +311,8 @@ class LorentzVectorDict(dict):
         """Nice printout of the momenta."""
 
         # Use padding for minus signs
-        def special_float_format(float):
-            return '%s%.16e' % ('' if float < 0.0 else ' ', float)
+        def special_float_format(fl):
+            return '%s%.16e' % ('' if fl < 0.0 else ' ', fl)
 
         cols_widths = [4, 25, 25, 25, 25, 25]
         template = ' '.join(
@@ -398,7 +398,7 @@ def Kaellen(*args):
 class VirtualPhaseSpaceGenerator(object):
 
     def __init__(self, initial_masses, final_masses,
-                 beam_Es,
+                 beam_Es, 
                  beam_types=(1,1)
                 ):
         
@@ -491,7 +491,7 @@ class MultiChannelPhasespace(VirtualPhaseSpaceGenerator):
         # For now just return a random PS point from flat generation
         return FlatInvertiblePhasespace(self.initial_masses,self.masses,self.beam_Es,
                                         beam_types  = self.beam_types).get_PS_point(random_variables)
-        raise NotImplementedError
+        # raise NotImplementedError
 
 class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
     """ Implementation following S. Platzer: arxiv:1308.2922 """
@@ -519,7 +519,6 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
 
     def __init__(self, *args, **opts):
         super(FlatInvertiblePhasespace, self).__init__(*args, **opts)
-        
         if self.n_initial == 1:
             raise InvalidCmd("This basic generator does not support decay topologies.")
 
@@ -529,7 +528,6 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
         # Add the PDF dimensions if necessary
         if (not abs(self.beam_types[0])==abs(self.beam_types[1])==1) and \
            (not self.beam_types[0]==self.beam_types[1]==0):
-            dims.append(integrands.ContinuousDimension('ycms',lower_bound=0.0, upper_bound=1.0))
             raise InvalidCmd(
                 "This basic generator does not support the collider configuration: (lpp1=%d, lpp2=%d)"%
                              (self.run_card['lpp1'], self.run_card['lpp2']))
@@ -827,7 +825,7 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
 
         if self.n_final == 1:
             if self.n_initial == 1:
-                raise PhaseSpaceGeneratorError("1 > 1 phase-space generation not supported."%str(random_variables))
+                raise PhaseSpaceGeneratorError("1 > 1 phase-space generation not supported.")
             return [], self.get_flatWeights(E_cm,1) 
 
         # The random variables that would yield this PS point.

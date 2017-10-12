@@ -34,6 +34,23 @@ import madgraph.integrator.ME7_integrands as ME7_integrands
 from madgraph import InvalidCmd, MadGraph5Error
 from madgraph.iolibs.files import cp, ln, mv
 
+#################
+# numpy imports
+#################
+import numpy as np
+# "cimport" is used to import special compile-time information
+# about the numpy module (this is stored in a file numpy.pxd which is
+# currently part of the Cython distribution).
+##cimport numpy as np
+# We now need to fix a datatype for our arrays. I've used the variable
+# DTYPE for this, which is assigned to the usual NumPy runtime
+# type info object.
+DTYPE = np.float64
+# "ctypedef" assigns a corresponding compile-time type to DTYPE_t. For
+# every type in the numpy module there's a corresponding compile-time
+# type with a _t-suffix.
+##ctypedef np.float64_t DTYPE_t
+
 logger = logging.getLogger('madevent7')
 
 ##########################################################################################
@@ -250,6 +267,9 @@ class ProcessKey(object):
 class VirtualMEAccessor(object):
     """ A class wrapping the access to one particular MatrixEleemnt."""
     
+    # A class variables that decides whether caching is active or not
+    cache_active = True
+    
     def __new__(cls, *args, **opts):
         """ Factory for the various Accessors, depending on the process a different 
         class will be selected.
@@ -316,6 +336,16 @@ class VirtualMEAccessor(object):
         
         # Finally instantiate a cache for this MEaccessor.
         self.cache = MEAccessorCache()
+
+    @classmethod
+    def activate_cache(cls):
+        """ Activates the caching of results during __call___ """
+        cls.cache_active = True
+        
+    @classmethod
+    def deactivate_cache(cls):
+        """ Activates the caching of results during __call___ """
+        cls.cache_active = False
 
     def generate_dump(self, **opts):
         """ Generate a serializable dump of self, which can later be used, along with some more 
@@ -437,7 +467,7 @@ class VirtualMEAccessor(object):
         # The permutation is how to go *from* the user-provided order to the order assumed by the underlying ME.
         # So When performing the permutation like below, we must use the reversed_permutation.
         reversed_permutation = dict((v,k) for (k,v) in permutation.items())
-        permuted_PS_point = [PS_point[reversed_permutation[i]] for i in range(len(PS_point))] if PS_point else None
+        permuted_PS_point = [PS_point[reversed_permutation[i]] for i in range(len(PS_point))] if len(PS_point)>0 else None
 
         permuted_spin_correlation = tuple(sorted([ (permutation[leg_ID-1]+1, vectors) for leg_ID, vectors 
                                 in spin_correlation ], key=lambda el:el[0] )) if spin_correlation else None
@@ -911,10 +941,7 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
 class F2PYMEAccessor(VirtualMEAccessor):
     """ A class wrapping the access to one particular MatrixEleemnt wrapped with F2PY """
     
-    # Control the verbosity of the underlying fortran code.
-    # A verbosity of logging.DEBUG-1 would imply that even logger.level = logging.DEBUG (which is 10)
-    # would not let fortran stdout through.
-    fortran_verbosity = logging.DEBUG-1
+    cache_active = False
     
     def __new__(cls, process, f2py_module_path, slha_card_path, **opts):
         """ Factory for the various F2PY accessors, depending on the process a different class
@@ -1049,8 +1076,7 @@ class F2PYMEAccessor(VirtualMEAccessor):
         # Recompile and reload the module if synchronize was not call from the __init__ function
         if not from_init:
             self.compile(mode=compile)
-            with misc.Silence(active=(logger.level>self.fortran_verbosity)):
-                self.f2py_module = reload(self.f2py_module)
+            self.f2py_module = reload(self.f2py_module)
 
         # Now gather various properties about the Matrix Elements
         # Get all helicities orderin
@@ -1129,15 +1155,12 @@ class F2PYMEAccessor(VirtualMEAccessor):
         if module_path[0] not in sys.path:
             added_path = True
             sys.path.insert(0, pjoin(self.root_path,module_path[0]))
-        # Use logger.level >= loggign.DEBUG and not > so as to forward
-        # the loading text only if the user *really* wants it by setting logger.level = 0 :)
-        with misc.Silence(active=(logger.level>=self.fortran_verbosity)):
-            try:
-                f2py_module = importlib.import_module(module_path[1])
-            except:
-                # Try again after having recompiled this module
-                self.compile(mode='always')
-                f2py_module = importlib.import_module(module_path[1])
+        try:
+            f2py_module = importlib.import_module(module_path[1])
+        except:
+            # Try again after having recompiled this module
+            self.compile(mode='always')
+            f2py_module = importlib.import_module(module_path[1])
         if added_path:
             sys.path.pop(sys.path.index(pjoin(self.root_path,module_path[0])))
         return f2py_module
@@ -1145,14 +1168,17 @@ class F2PYMEAccessor(VirtualMEAccessor):
     def format_momenta_for_f2py(self, p):
         """ fortran/C-python do not order table in the same order.
         Also, remove the mass component of the momenta. """
-        new_p = []
-        for i in range(4):
-            new_p.append([0]*len(p))
-        for i, onep in enumerate(p):
-            for j, x in enumerate(onep):
-                if j==4: continue
-                new_p[j][i] = x
-        return new_p
+        
+        return np.array(p, dtype=DTYPE).transpose()
+        
+#        new_p = []        
+#        for i in range(4):
+#            new_p.append([0]*len(p))
+#        for i, onep in enumerate(p):
+#            for j, x in enumerate(onep):
+#                if j==4: continue
+#                new_p[j][i] = x
+#        return new_p
 
     def get_squared_order_entry(self, squared_order):
         """ Returns the squared order index corresponding to the squared order in argument.
@@ -1232,64 +1258,73 @@ class F2PYMEAccessor(VirtualMEAccessor):
 
         return func(*args, **opts)
 
-    def __call__(self, PS_point, alpha_s, mu_r=91.188, **opts):
+    def __call__(self, PS_point, alpha_s, mu_r=91.188, return_all_res=False, **opts):
         """ Actually performs the f2py call. """
 
         permutation = opts['permutation']
 
         # The mother class takes care of applying the permutations for the generic options
         PS_point, opts = VirtualMEAccessor.__call__(self, PS_point, **opts)
+
+        PS_point = self.format_momenta_for_f2py(PS_point)
     
         new_opts = self.check_inputs_validity(opts)
         
-        this_call_key = { 'PS_point' : tuple(tuple(p) for p in PS_point), 
+        # tuple(tuple(p) for p in PS_point
+        this_call_key = { 'PS_point' : PS_point,
                           'alpha_s'  : alpha_s }
         
         # We can only recycle results where color correlations are either not specified or only one is specified.
-        if new_opts['color_correlation'] is None or \
-                len(new_opts['color_correlation'])==1 and all(cc>0 for cc in new_opts['color_correlation'][0]):
+        if self.cache_active and (new_opts['color_correlation'] is None or \
+                len(new_opts['color_correlation'])==1 and all(cc>0 for cc in new_opts['color_correlation'][0])):
             result_key = dict(new_opts)
             result_key['color_correlation'] = None if not new_opts['color_correlation'] else new_opts['color_correlation'][0]
             
             recycled_call = self.cache.get_result(**this_call_key)
             recycled_result = recycled_call.get_result(**result_key)
             if recycled_result:
-                return MEEvaluation(recycled_result), recycled_call.get_inverse_permuted_copy(permutation)
+                if return_all_res:
+                    return MEEvaluation(recycled_result), recycled_call.get_inverse_permuted_copy(permutation)
+                else:
+                    return MEEvaluation(recycled_result), None
 
         # If/When grouping several processes in the same f2py module (so as to reuse the model for example),
         # we will be able to use the information of self.process_pdgs to determine which one to call.
         # misc.sprint(" I was called from :",self.process_pdgs)
         if not self.module_initialized:
-            with misc.Silence(active=(logger.level>self.fortran_verbosity)):
-                self.get_function('initialise')(pjoin(self.root_path, self.slha_card_path))
+            self.get_function('initialise')(pjoin(self.root_path, self.slha_card_path))
             self.module_initialized = True
         
         # Setup Matrix Element code variables for the user-defined options
         self.setup_ME(new_opts)
 
         # Actual call to the matrix element
-        with misc.Silence(active=(logger.level>self.fortran_verbosity)):
-            main_output = self.call_tree_ME(
-                self.get_function('me_accessor_hook'),
-                self.format_momenta_for_f2py(PS_point), 
-                (-1 if not new_opts['hel_config'] else self.helicity_configurations[new_opts['hel_config']]),
-                alpha_s)
+        main_output = self.call_tree_ME(
+            self.get_function('me_accessor_hook'),
+            PS_point,
+            (-1 if not new_opts['hel_config'] else self.helicity_configurations[new_opts['hel_config']]),
+            alpha_s)
 
         # Gather additional newly generated output_data to be returned and placed in the cache.
         output_datas = self.gather_output_datas(main_output, new_opts)
         
-        ME_result = self.cache.add_result(**this_call_key)
+        if self.cache_active:
+            ME_result = self.cache.add_result(**this_call_key)
+        else:
+            ME_result = MEResult()
+
         for output_data in output_datas:
             ME_result.add_result(output_data[1], **output_data[0])
 
-        # Now recover the main result the user expects. If he did not specify a specific single color_correlators, we will
-        # chose to return the result without color_correlation.
+        # Now recover the main result the user expects. If he did not specify a specific
+        # single color_correlators, we will chose to return the result without color_correlation.
         main_result_key = dict(new_opts)
         if new_opts['color_correlation'] and len(new_opts['color_correlation'])==1 and not \
-                                                                    any(sc<=0 for sc in new_opts['color_correlation'][0]):
+                                        any(sc<=0 for sc in new_opts['color_correlation'][0]):
             main_result_key['color_correlation'] = new_opts['color_correlation'][0]
         else:
             main_result_key['color_correlation'] = None
+
         main_result = MEEvaluation(ME_result.get_result(**main_result_key))
         
         # Make sure to clean up specification of various properties for that particular call
@@ -1297,7 +1332,10 @@ class F2PYMEAccessor(VirtualMEAccessor):
         
         # Now return a dictionary containing the expected result anticipated by the user given the specified options,
         # along with a copy of the ME_result dictionary storing all information available at this point for this call_key
-        return main_result, ME_result.get_inverse_permuted_copy(permutation)
+        if return_all_res:
+            return main_result, ME_result.get_inverse_permuted_copy(permutation)
+        else:
+            return main_result, None            
 
     def is_color_correlation_selected(self, color_correlator, color_correlation_specified):
         """ Check if a particular spin_correlator is among those specified by the user."""
@@ -1480,12 +1518,11 @@ class F2PYMEAccessorMadLoop(F2PYMEAccessor):
         # Make sure to compute all squared orders available by default
         self.get_function('set_couplingorders_target')(-1)      
         
-    def call_loop_ME(self, *args, **opts):
+    def call_loop_ME(self, func, *args, **opts):
         """ Wrapper around the actual call of the loop-level matrix element, so as to be
         able to easily time it with a profiler."""
         
-        with misc.Silence(active=(logger.level>self.fortran_verbosity)):
-            return self.get_function('loopme_accessor_hook')(*args, **opts)
+        return func(*args, **opts)
         
     def __call__(self, PS_point, alpha_s, mu_r, **opts):
         """ Actually performs the f2py call.
@@ -1522,10 +1559,9 @@ class F2PYMEAccessorMadLoop(F2PYMEAccessor):
         # misc.sprint(" I was called from :",self.process_pdgs)
         if not self.module_initialized:
             # These functions are not prefixed, so we should not ask to get them via the accessor self.get_function
-            with misc.Silence(active=(logger.level>self.fortran_verbosity)):
-                self.f2py_module.initialise(pjoin(self.root_path, self.slha_card_path))
-                if self.madloop_resources_path:
-                        self.f2py_module.initialise_madloop_path(pjoin(self.root_path, self.madloop_resources_path))
+            self.f2py_module.initialise(pjoin(self.root_path, self.slha_card_path))
+            if self.madloop_resources_path:
+                    self.f2py_module.initialise_madloop_path(pjoin(self.root_path, self.madloop_resources_path))
             self.module_initialized = True
         
         
@@ -1533,13 +1569,12 @@ class F2PYMEAccessorMadLoop(F2PYMEAccessor):
         self.setup_ME(new_opts)
 
         # Actual call to the matrix element
-#        start = time.time() #TOBECOMMENTED
         evals, estimated_accuracies, return_code = self.call_loop_ME(
+            self.get_function('loopme_accessor_hook'),
             self.format_momenta_for_f2py(PS_point), 
             (-1 if not new_opts['hel_config'] else self.helicity_configurations[new_opts['hel_config']]),                              
             alpha_s, mu_r, required_accuracy)
 
-#        misc.sprint("The loop call took %10g"%(time.time()-start)) #TOBECOMMENTED
         main_output = {'evals': evals,
                        'estimated_accuracies': estimated_accuracies,
                        'return_code': return_code}   
@@ -1768,15 +1803,21 @@ class MEAccessorDict(dict):
         """ From a dictionary formatted PS point and a process, returns the PS point as a flat list, ordered as
         the legs in the process."""
         
-        formatted_PS_point = PS_utils.LorentzVectorList()
-        for leg in process.get_initial_legs()+process.get_final_legs():
-            try:
-                formatted_PS_point.append(PS_point[leg.get('number')])
-            except KeyError:
-                raise MadGraph5Error("Cannot find leg #%d in the following PS point specifications:\n%s"%(
-                                                                                leg.get('number'),str(PS_point)))
-        return formatted_PS_point
-
+#        formatted_PS_point = PS_utils.LorentzVectorList()
+#        for leg in process.get_initial_legs()+process.get_final_legs():
+#            try:
+#               formatted_PS_point.append(PS_point[leg.get('number')])
+#            except KeyError:
+#                raise MadGraph5Error("Cannot find leg #%d in the following PS point specifications:\n%s"%(
+#                                                                                leg.get('number'),str(PS_point)))
+#        return formatted_PS_point
+   
+        formatted_PS_point = []
+        for leg_numbers in process.get_cached_initial_final_numbers():
+            for leg_number in leg_numbers:
+                formatted_PS_point.append(PS_point[leg_number])
+        return np.array(formatted_PS_point, dtype=DTYPE)
+                
     def format_color_correlation(self, process, color_correlations):
         """ Synchronize the numbers in the color correlation specifier to the leg_number in the process."""
 
@@ -1818,7 +1859,9 @@ class MEAccessorDict(dict):
         
         desired_pdgs_order = None
         call_options = dict(opts)
+        pdgs_specified = False
         if 'pdgs' in call_options:
+            pdgs_specified = True
             desired_pdgs_order = call_options.pop('pdgs')
         
         specified_process_instance = None
@@ -1826,9 +1869,8 @@ class MEAccessorDict(dict):
             # The user called this MEAccessorDictionary with a specific instance of a Process (not current), therefore
             # we must enforce the pdgs ordering specified in it (if not overwritten by the user).
             specified_process_instance = args[0]
-            if desired_pdgs_order is None:
-                desired_pdgs_order = (tuple(specified_process_instance.get_initial_ids()),
-                                      tuple(specified_process_instance.get_final_ids_after_decay()))
+            if not pdgs_specified:
+                desired_pdgs_order = specified_process_instance.get_cached_initial_final_pdgs()
             
         ME_accessor, call_key = self.get_MEAccessor(me_accessor_key, pdgs=desired_pdgs_order)
         call_options.update(call_key)

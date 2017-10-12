@@ -598,7 +598,7 @@ class Contribution(object):
         """ Returns all the integrands implementing this contribution for the specified process_map.
         The instance of MEAccessorDict is necessary so as to be passed to the integrand instances.
         """
-        return [ ME7_integrands.ME7CythonIntegrand(model, run_card,
+        return [ ME7_integrands.ME7Integrand(model, run_card,
                                        self.contribution_definition,
                                        process_map,
                                        self.topologies_to_processes,
@@ -1143,7 +1143,7 @@ class Contribution_R(Contribution):
         for process_key in process_map:
             relevant_counterterms[process_key] = self.counterterms[process_key]
 
-        return [ ME7_interface.ME7Integrand(model, run_card,
+        return [ ME7_integrands.ME7Integrand(model, run_card,
                                        self.contribution_definition,
                                        process_map,
                                        self.topologies_to_processes,
@@ -1333,7 +1333,7 @@ class Contribution_V(Contribution):
             for process_key in process_map:
                 relevant_counterterms[process_key] = self.integrated_counterterms[process_key]
 
-        return [ ME7_interface.ME7Integrand(model, run_card,
+        return [ ME7_integrands.ME7Integrand(model, run_card,
                                        self.contribution_definition,
                                        process_map,
                                        self.topologies_to_processes,

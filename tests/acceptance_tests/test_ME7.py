@@ -29,7 +29,7 @@ logger = logging.getLogger('test_ME7')
 import tests.unit_tests.iolibs.test_file_writers as test_file_writers
 
 import madgraph.interface.master_interface as Cmd
-import madgraph.interface.ME7_interface as ME7interface
+import madgraph.interface.ME7_interface as ME7_interface
 import madgraph.integrator.ME7_integrands as ME7_integrands
 from madgraph.core.accessors import ProcessKey
 import madgraph.various.misc as misc
@@ -65,7 +65,7 @@ class TestME7(unittest.TestCase):
             self.do('output %s'%self.tmp_process_dir)
 
         # Now initialize an ME7 interface on the above process output
-        self.cmd = ME7interface.MadEvent7Cmd(me_dir=self.tmp_process_dir)
+        self.cmd = ME7_interface.MadEvent7Cmd(me_dir=self.tmp_process_dir)
         self.cmd.no_notification()
  
     def tearDown(self):
@@ -99,7 +99,7 @@ class TestME7(unittest.TestCase):
 
     def test_ME7_born_integrand_call(self):
         """ Check the result of a single call to the born integrand_call."""
-    
+        
         born_integrand = self.cmd.all_integrands.get_integrands_of_type(
                                                    ME7_integrands.ME7CythonIntegrand_B)[0]
         
@@ -111,8 +111,7 @@ class TestME7(unittest.TestCase):
                 dimensions.get_discrete_dimensions().random_sample()
             )
 
-        n_calls = 25000
-        ProcessKey.activate_cache()
-        misc.sprint('\n'+'\n'.join('%d : %g ms'%(i+1, 1.e3*(res/float(n_calls))) for i,res in 
-                                enumerate(timeit.repeat(call, number=n_calls, repeat=4))))
-        ProcessKey.deactivate_cache()
+        n_calls = 5000
+        with ME7_interface.ME7RunEnvironment( silence = True, loggers = logging.CRITICAL ):
+            misc.sprint('\n'+'\n'.join('%d : %g ms'%(i+1, 1.e3*(res/float(n_calls)))
+                    for i,res in enumerate(timeit.repeat(call, number=n_calls, repeat=1))))

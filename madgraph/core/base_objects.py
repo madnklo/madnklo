@@ -3388,6 +3388,28 @@ class Process(PhysicsObject):
                        leg.get('number') == number,
                        self.get('legs'))[0].get('id')
 
+    def get_cached_initial_final_numbers(self):
+        """ Return the initial and final numbers using a cache."""
+
+        try:
+            return self.initial_final_numbers
+        except AttributeError:
+            initial_numbers = tuple(l.get('number') for l in self.get_initial_legs())
+            final_numbers = tuple(l.get('number') for l in self.get_final_legs())
+            self.initial_final_numbers = (initial_numbers, final_numbers)
+            return self.initial_final_numbers
+
+    def get_cached_initial_final_pdgs(self):
+        """ Return the initial and final numbers using a cache."""
+        
+        try:
+            return self.initial_final_pdgs
+        except AttributeError:
+            initial_pdgs = tuple(self.get_initial_ids())
+            final_pdgs = tuple(self.get_final_ids_after_decay())
+            self.initial_final_pdgs = (initial_pdgs, final_pdgs)
+            return self.initial_final_pdgs
+
     def get_initial_final_ids(self):
         """return a tuple of two tuple containing the id of the initial/final
            state particles. Each list is ordered"""

@@ -182,6 +182,9 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # An instance of accessors.MEAccessorDict providing access to all ME available as part of this
         # ME7 session.
         self.all_MEAccessors            = all_MEAccessors
+        # Assign a cached accessor to all defining processes
+        for process_key, (process, mapped_processes) in self.processes_map.items():
+            process.accessor = self.all_MEAccessors.get_MEAccessor(process)
 
         # Update and define many properties of self based on the provided run-card and model.
         self.synchronize(model, run_card, ME7_configuration)
@@ -447,24 +450,27 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
         return returned_counterterms
 
-    def pass_flavor_blind_cuts(self, input_PS_point, process_pdgs):
+    def pass_flavor_blind_cuts(self, PS_point, process_pdgs):
         """ Implementation of a minimal set of isolation cuts. This can be made much nicer in the future and 
         will probably be taken outside of this class so as to ease user-specific cuts, fastjet, etc...
         We consider here a two-level cuts system, this first one of which is flavour blind.
         This is of course not IR safe at this stage!"""
+        return True
         
+        from madgraph.integrator.phase_space_generators import LorentzVectorList
         # This is a temporary function anyway which should eventually be replaced by a full
         # fledged module for handling generation level cuts, which would make use of fj-core.
         # The PS point in input is sometimes provided as a dictionary or a flat list, but
         # we need it as a flat list here, so we force the conversion
-        PS_point = input_PS_point.to_list()
+        if isinstance(PS_point, dict):
+            PS_point = PS_point.to_list()
 
         # These cuts are not allowed to resolve flavour, but only whether a particle is a jet or not
         def is_a_jet(pdg):
             return pdg in range(1,7)+range(-1,-7,-1)+[21]
         
         if __debug__: logger.debug( "Processing flavor-blind cuts for process %s and PS point:\n%s"%(
-                        str(process_pdgs), PS_point.__str__(n_initial=self.phase_space_generator.n_initial) ))
+            str(process_pdgs), LorentzVectorList(PS_point).__str__(n_initial=self.phase_space_generator.n_initial) ))
 
         pt_cut = self.run_card['ptj']
         dr_cut = self.run_card['drjj']
@@ -493,15 +499,17 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
         return True
 
-    def pass_flavor_sensitive_cuts(self, input_PS_point, flavors):
+    def pass_flavor_sensitive_cuts(self, PS_point, flavors):
         """ Implementation of a minimal set of isolation cuts. This can be made much nicer in the future and 
         will probably be taken outside of this class so as to ease user-specific cuts, fastjet, etc...
         We consider here a two-level cuts system, this second one of which is flavour sensitive."""
-
-        PS_point = input_PS_point.to_list()
+        
+        from madgraph.integrator.phase_space_generators import LorentzVectorList
+        if isinstance(PS_point, dict):
+            PS_point = PS_point.to_list()
 
         if __debug__: logger.debug( "Processing flavor-sensitive cuts for flavors %s and PS point:\n%s"%(
-                        str(flavors), PS_point.__str__(n_initial=self.phase_space_generator.n_initial) ))
+            str(flavors), LorentzVectorList(PS_point).__str__(n_initial=self.phase_space_generator.n_initial) ))
 
         # None implemented yet
         return True
@@ -709,10 +717,13 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # Access to the matrix element. ME_result is an instance of a subclassed dictionary which includes
         # all independent results available as of now for the particular arguments specified.
         # We specify pdgs to None her to avoid the need of any permutation since we follow the order of
-        # the defininf process here which is the one that was exported.
+        # the defining process here which is the one that was exported.
         # For the reduced matrix elements however, this cannot be done.
-        ME_evaluation, all_results = self.all_MEAccessors(process, PS_point, alpha_s, mu_r, pdgs=None)
-
+        # ME_evaluation, all_results = self.all_MEAccessors(process, PS_point, alpha_s, mu_r, pdgs=None)
+        ME_evaluation, all_results = process.accessor[0](
+            process.format_PS_point_for_ME_call(PS_point), 
+            alpha_s, mu_r,**process.accessor[1])
+        
         sigma_wgt *= ME_evaluation['finite']
         
         if self.apply_observables:
@@ -1261,16 +1272,17 @@ class ME7Integrand_R(ME7Integrand):
         for (spin_correlators, color_correlators, current_weight) in all_necessary_ME_calls:
 #            misc.sprint( self.all_MEAccessors.format_PS_point_for_ME_call(ME_PS,ME_process) )
             try:
-                ME_evaluation, all_ME_results = self.all_MEAccessors(
-                   ME_process, ME_PS, alpha_s, mu_r,
-                   # Let's worry about the squared orders later, we will probably directly fish
-                   # them out from the ME_process, since they should be set to a unique combination
-                   # at this stage.
-                   squared_orders    = None,
-                   color_correlation = color_correlators,
-                   spin_correlation  = spin_correlators, 
-                   hel_config        = hel_config 
-                )
+#                ME_evaluation, all_ME_results = self.all_MEAccessors(
+#                   ME_process, ME_PS, alpha_s, mu_r,
+#                   # Let's worry about the squared orders later, we will probably directly fish
+#                   # them out from the ME_process, since they should be set to a unique combination
+#                   # at this stage.
+#                   squared_orders    = None,
+#                   color_correlation = color_correlators,
+#                   spin_correlation  = spin_correlators, 
+#                   hel_config        = hel_config 
+#                )
+                ME_evaluation={'finite':1.0}
             except MadGraph5Error as e:
                 logger.critical("""
 A reduced matrix element is missing in the library of automatically generated matrix elements.
@@ -1301,7 +1313,7 @@ The missing process is: %s"""%ME_process.nice_string())
         # Notice that the observable will be called already there for the resolved kinematics
         sigma_wgt = super(ME7Integrand_R, self).sigma(PS_point, process_key, process, 
                                   flavors, process_wgt, mu_r, mu_f1, mu_f2, *args, **opts )
-        
+
         # This will group all CT results with the same reduced kinematics and flavors, so
         # as to call the generation-level cuts and observables only once for each
         # configuration.
@@ -1323,7 +1335,8 @@ The missing process is: %s"""%ME_process.nice_string())
                 continue
             
             # Register this CT in the dictionary CT_results gathering all evaluations
-            key = reduced_PS.to_tuple()
+            reduced_PS.flags.writeable = False
+            key = reduced_PS.data
             if key not in CT_results:
                 new_entry = {'flavor_contribs': {}, 'reduced_PS' : reduced_PS}
                 CT_results[key] = new_entry

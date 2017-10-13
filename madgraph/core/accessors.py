@@ -22,6 +22,7 @@ import importlib
 import os
 import shutil
 import collections
+import numpy as np
 pjoin = os.path.join
 
 import madgraph.core.base_objects as base_objects
@@ -31,25 +32,8 @@ import madgraph.various.misc as misc
 import madgraph.core.subtraction as subtraction
 import madgraph.interface.ME7_interface as ME7_interface
 import madgraph.integrator.ME7_integrands as ME7_integrands
-from madgraph import InvalidCmd, MadGraph5Error
+from madgraph import InvalidCmd, MadGraph5Error, DTYPE
 from madgraph.iolibs.files import cp, ln, mv
-
-#################
-# numpy imports
-#################
-import numpy as np
-# "cimport" is used to import special compile-time information
-# about the numpy module (this is stored in a file numpy.pxd which is
-# currently part of the Cython distribution).
-##cimport numpy as np
-# We now need to fix a datatype for our arrays. I've used the variable
-# DTYPE for this, which is assigned to the usual NumPy runtime
-# type info object.
-DTYPE = np.float64
-# "ctypedef" assigns a corresponding compile-time type to DTYPE_t. For
-# every type in the numpy module there's a corresponding compile-time
-# type with a _t-suffix.
-##ctypedef np.float64_t DTYPE_t
 
 logger = logging.getLogger('madevent7')
 
@@ -60,16 +44,6 @@ class ProcessKey(object):
     """ We store here the relevant information for accessing a particular ME."""
     
     cache_active = False
-    
-    @classmethod
-    def activate_cache(cls):
-        """ Accessor to activate the ProcessKey cache. This is safe to do during an actual MC run."""
-        cls.cache_active = True
-
-    @classmethod
-    def deactivate_cache(cls):
-        """ Accessor to deactivate the ProcessKey cache. This should be deactivated during process generation."""
-        cls.cache_active = False
     
     def get_key_for_cache(self,
                  process,  PDGs, sort_PDGs, vetoed_attributes, allowed_attributes, opts):
@@ -111,13 +85,12 @@ class ProcessKey(object):
 
             key = self.get_key_for_cache(process,  PDGs, sort_PDGs, 
                                                vetoed_attributes, allowed_attributes, opts)
-
             if key in process.process_key_cache:
                 cached_process_key = process.process_key_cache[key]  
                 self.key_dict = cached_process_key.key_dict
                 self.canonical_key = cached_process_key.canonical_key
                 return
-
+            
         # Initialize a dictionary which will be used to form the final tuple encoding all the information for 
         # this particular entry
         self.key_dict = {}
@@ -399,7 +372,7 @@ class VirtualMEAccessor(object):
         else:
             permuted_opts['squared_orders'] = squared_orders
         permuted_opts['defining_pdgs_order'] = defining_pdgs_order
-        
+
         # Return the inputs properly treated
         return permuted_PS_point, permuted_opts
 
@@ -459,7 +432,7 @@ class VirtualMEAccessor(object):
                         'color_correlation': tuple(color_correlation),
                         'hel_config': tuple(hel_config)}
             all_opts.update(opts)
-            return list(PS_point), all_opts
+            return PS_point, all_opts
         
         
         # Apply the permutations while retaining a canonical representation for each attribute
@@ -588,7 +561,6 @@ class MEResult(dict):
         
         try:
             result = self[tuple(sorted(opts.items()))]
-#            misc.sprint('Recycled a result.')
             return result
         except KeyError:
             return None
@@ -722,6 +694,8 @@ class SubtractionCurrentAccessorCache(MEAccessorCache):
 class SubtractionCurrentAccessor(VirtualMEAccessor):
     """ A class wrapping the access to a particular set of mapped subtraction currents."""
 
+    cache_active = False
+
     def __init__(self, defining_current,
                        relative_module_path,
                        current_implementation_class_name,
@@ -839,12 +813,17 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
     def check_inputs_validity(self, opts, current):
         """ Check the validity of the inputs of the call to this current accessor."""
         
-        new_opts = dict(opts)
-        new_opts['hel_config'] = tuple(opts['hel_config']) if ('hel_config' in opts and opts['hel_config']) else None
+        # Work on a copy of th eoption dictionary, filtered from irrelevant keys
+        new_opts = dict((k,v) for k,v in opts.items() if k not in 
+                                                            ['permutation','process_pdgs'])
         
-        # Make sure to drop useless specifier only relevant to MEAccessors
-        for irrelevant_opt in ['permutation','process_pdgs']:
-            new_opts.pop(irrelevant_opt)
+        if 'hel_config' in opts and opts['hel_config']:
+            new_opts['hel_config'] = tuple(opts['hel_config'])
+            # In this case it is not optimal to check the validity of the helicity configuration, so 
+            # we limit ourselves to checking if it supports helicity assignment
+            if not self.subtraction_current_instance.supports_helicity_assignment:
+                raise MadGraph5Error("The following subtraction current accessor:\n%s"%(
+                                    self.nice_string() ) + "\ndoes not support helicity assignment.")
 
         squared_orders = None
         if 'squared_orders' in opts:
@@ -860,14 +839,6 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
                     raise MadGraph5Error("The following subtraction current accessor:"+\
                         "\n%s\ncannot provide squared orders %s."%(
                             self.nice_string(), str(squared_orders)))
-
-        if new_opts['hel_config']:
-            # In this case it is not optimal to check the validity of the helicity configuration, so 
-            # we limit ourselves to checking if it supports helicity assignment
-            if not self.subtraction_current_instance.supports_helicity_assignment:
-                raise MadGraph5Error("The following subtraction current accessor:\n%s"%(
-                                    self.nice_string() ) + "\ndoes not support helicity assignment.")
-        
 
         return new_opts
 
@@ -886,13 +857,18 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
         
         # Parse options and check their validity
         call_opts = self.check_inputs_validity(opts, current)
-        
+    
         # Set the arguments of the call
         call_args = [current, PS_point]
         
-        # Now obtain the cache key directly from the current implementation
-        cache_key, result_key = self.subtraction_current_instance.get_cache_and_result_key(*call_args, **call_opts)
-        
+        is_cache_active = opts.get('cache_active', self.cache_active)
+        if is_cache_active:
+            # Now obtain the cache key directly from the current implementation
+            cache_key, result_key = self.subtraction_current_instance.get_cache_and_result_key(
+                                                                   *call_args, **call_opts)
+        else:
+            cache_key, result_key = None, None
+    
         # Attempt to recycle the result
         if not cache_key is None:
             recycled_call = self.cache.get_result(**cache_key)
@@ -901,6 +877,16 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
                 return self.evaluation_class(recycled_result), self.result_class(recycled_call)
 
         all_evaluations = self.call_subtraction_current(*call_args, **call_opts)
+        
+        if len(all_evaluations)==1:
+            return all_evaluations.values()[0], all_evaluations
+        
+        # If there are several evaluations we need the result_key even in the absence
+        # of caching, in which case it must be recomputed here.
+        if result_key is None:
+            cache_key, result_key = self.subtraction_current_instance.get_cache_and_result_key(
+                                                                   *call_args, **call_opts)
+        
         evaluation_asked_for = all_evaluations.get_result(**result_key)
         if not evaluation_asked_for:
             raise MadGraph5Error("Could not obtain result '%s' from evaluation:\n%s"%(str(result_key), str(all_evaluations)))
@@ -1220,14 +1206,14 @@ class F2PYMEAccessor(VirtualMEAccessor):
         
         return new_opts
         
-    def clean_ME_settings(self):
+    def clean_ME_settings(self, opts):
         """ Clean up possible Matrix Elements setting for a particular call."""
         
-        if self.spin_correlations:
+        if opts['spin_correlation'] and self.spin_correlations:
             # By default, do no compute any spin correlators
             self.get_function('reset_spin_correlation_vectors')()
         
-        if self.color_correlations:
+        if opts['color_correlation'] and self.color_correlations:
             # By default, do no compute any color correlators
             self.get_function('set_color_correlators_to_consider')(0,0)
         
@@ -1266,17 +1252,26 @@ class F2PYMEAccessor(VirtualMEAccessor):
         # The mother class takes care of applying the permutations for the generic options
         PS_point, opts = VirtualMEAccessor.__call__(self, PS_point, **opts)
 
+        is_cache_active = opts.get('cache_active', self.cache_active)
+
         PS_point = self.format_momenta_for_f2py(PS_point)
     
         new_opts = self.check_inputs_validity(opts)
         
-        # tuple(tuple(p) for p in PS_point
-        this_call_key = { 'PS_point' : PS_point,
+        # tuple(tuple(p) for p in PS_point)
+        # Make the numpy array hashable
+        PS_point.flags.writeable = False
+        this_call_key = { 'PS_point' : hash(PS_point.data),
                           'alpha_s'  : alpha_s }
+
+        # We can only recycle results where color correlations are either not specified or only one is specified.    
+        no_multiple_color_connections = \
+            new_opts['color_correlation'] is None or len(new_opts['color_correlation'])==1 and \
+                                       all(cc>0 for cc in new_opts['color_correlation'][0]) 
+        # always return all results if more than one color connection asked for
+        return_all_res = return_all_res or not no_multiple_color_connections
         
-        # We can only recycle results where color correlations are either not specified or only one is specified.
-        if self.cache_active and (new_opts['color_correlation'] is None or \
-                len(new_opts['color_correlation'])==1 and all(cc>0 for cc in new_opts['color_correlation'][0])):
+        if is_cache_active and no_multiple_color_connections:
             result_key = dict(new_opts)
             result_key['color_correlation'] = None if not new_opts['color_correlation'] else new_opts['color_correlation'][0]
             
@@ -1306,15 +1301,22 @@ class F2PYMEAccessor(VirtualMEAccessor):
             alpha_s)
 
         # Gather additional newly generated output_data to be returned and placed in the cache.
-        output_datas = self.gather_output_datas(main_output, new_opts)
-        
-        if self.cache_active:
+        output_datas = self.gather_output_datas(main_output, new_opts, return_all_res)
+
+       # Make sure to clean up specification of various properties for that particular call
+        self.clean_ME_settings(new_opts)
+
+        if is_cache_active:
             ME_result = self.cache.add_result(**this_call_key)
         else:
             ME_result = MEResult()
-
-        for output_data in output_datas:
-            ME_result.add_result(output_data[1], **output_data[0])
+        
+        if is_cache_active or return_all_res:
+            for output_data in output_datas:
+                ME_result.add_result(output_data[1], **output_data[0])
+            
+        if not return_all_res:
+            return output_datas[0][1], None
 
         # Now recover the main result the user expects. If he did not specify a specific
         # single color_correlators, we will chose to return the result without color_correlation.
@@ -1327,15 +1329,9 @@ class F2PYMEAccessor(VirtualMEAccessor):
 
         main_result = MEEvaluation(ME_result.get_result(**main_result_key))
         
-        # Make sure to clean up specification of various properties for that particular call
-        self.clean_ME_settings()
-        
         # Now return a dictionary containing the expected result anticipated by the user given the specified options,
         # along with a copy of the ME_result dictionary storing all information available at this point for this call_key
-        if return_all_res:
-            return main_result, ME_result.get_inverse_permuted_copy(permutation)
-        else:
-            return main_result, None            
+        return main_result, ME_result.get_inverse_permuted_copy(permutation)
 
     def is_color_correlation_selected(self, color_correlator, color_correlation_specified):
         """ Check if a particular spin_correlator is among those specified by the user."""
@@ -1346,7 +1342,7 @@ class F2PYMEAccessor(VirtualMEAccessor):
         
         return False
 
-    def gather_output_datas(self, main_output, user_opts):
+    def gather_output_datas(self, main_output, user_opts, return_all_res):
         """ Gather additional newly generated output_data to be returned and placed in the cache.
             This functions returns output_datas  which is a list of 2-tuples of the form:
                   ( dictionary_describing_data, dictionary_of_data ) 
@@ -1366,6 +1362,22 @@ class F2PYMEAccessor(VirtualMEAccessor):
         
         output_result_template = MEEvaluation({'finite' : 0.})
         
+        if not return_all_res:
+            if user_opts['squared_orders'] is None:
+                i_sqso = 0
+            else:
+                output_key_template['squared_orders'] = user_opts['squared_orders']
+                i_sqso = self.squared_orders[user_opts['squared_orders']]
+            if user_opts['color_correlation'] is None:
+                output_result_template['finite'] = main_output[i_sqso]
+            else:
+                output_key_template['color_correlation'] = user_opts['color_correlation'][0]
+                color_correlated_mes = self.get_function('get_color_correlated_me')()
+                output_result_template['finite'] = color_correlated_mes[\
+                    self.color_correlations[user_opts['color_correlation'][0]]-1][i_sqso]
+
+            return [ (output_key_template, output_result_template) ]
+
         # First add the general squared order results
         for i_sqso, squared_order in self.id_to_squared_order.items():
             output_result = MEEvaluation(output_result_template)
@@ -1689,6 +1701,8 @@ class MEAccessorDict(dict):
     """ A class for nicely wrapping the access to the (possibly spin- and color- correlated) matrix elements of 
     various processes (mostly via f2py)."""
     
+    cache_active = False
+    
     def __init__(self, *args, **opts):
         """ Initialize an allMEAccessor. """
         super(MEAccessorDict, self).__init__(*args, **opts)
@@ -1798,25 +1812,6 @@ class MEAccessorDict(dict):
         # Remember that defining_pdgs_order is the list of PDGs of the original ordering of the ME_accessor, with the correct flavor
         # information , as specified  by the user via the option 'pdgs'.
         return ME_accessor, {'permutation': permutation, 'process_pdgs': defining_pdgs_order}
-    
-    def format_PS_point_for_ME_call(self, PS_point, process):
-        """ From a dictionary formatted PS point and a process, returns the PS point as a flat list, ordered as
-        the legs in the process."""
-        
-#        formatted_PS_point = PS_utils.LorentzVectorList()
-#        for leg in process.get_initial_legs()+process.get_final_legs():
-#            try:
-#               formatted_PS_point.append(PS_point[leg.get('number')])
-#            except KeyError:
-#                raise MadGraph5Error("Cannot find leg #%d in the following PS point specifications:\n%s"%(
-#                                                                                leg.get('number'),str(PS_point)))
-#        return formatted_PS_point
-   
-        formatted_PS_point = []
-        for leg_numbers in process.get_cached_initial_final_numbers():
-            for leg_number in leg_numbers:
-                formatted_PS_point.append(PS_point[leg_number])
-        return np.array(formatted_PS_point, dtype=DTYPE)
                 
     def format_color_correlation(self, process, color_correlations):
         """ Synchronize the numbers in the color correlation specifier to the leg_number in the process."""
@@ -1854,6 +1849,10 @@ class MEAccessorDict(dict):
             "__call__ method of MEAccessorDict, the first argument should be an instance of a ProcessKey or base_objects.Process or"+\
             " subtraction.Current."
 
+        if self.cache_active and isinstance(args[0], subtraction.Current):
+            if hasattr(args[0], 'accessor'):
+                return args[0].accessor(*args, **opts)
+
         # Now store the me_accessor_key and remove it from the arguments to be passed to the MEAccessor call.
         me_accessor_key = args[0]
         
@@ -1874,6 +1873,8 @@ class MEAccessorDict(dict):
             
         ME_accessor, call_key = self.get_MEAccessor(me_accessor_key, pdgs=desired_pdgs_order)
         call_options.update(call_key)
+        if self.cache_active and isinstance(args[0], subtraction.Current):
+            args[0].accessor = ME_accessor
 
         # Now for subtraction current accessors, we must pass the current as first argument
         call_args = list(args)
@@ -1888,7 +1889,7 @@ class MEAccessorDict(dict):
             # so we must transform it here into a flatlist:
             PS_point = call_args[0]
             if specified_process_instance and isinstance(PS_point, dict):
-                call_args[0] = self.format_PS_point_for_ME_call(PS_point, specified_process_instance)
+                call_args[0] = specified_process_instance.format_PS_point_for_ME_call(PS_point)
             # Also, if spin and color correlation are specified, we must change their ordering
             # according to the leg numbers
             if specified_process_instance and 'color_correlation' in call_options and call_options['color_correlation']:
@@ -1924,6 +1925,16 @@ class MEAccessorDict(dict):
         opts['proc_dirs_initialized'] = []
         for (ME_accessor, defining_pdgs_order) in self.values():
             ME_accessor.synchronize(*args, **opts)
+
+def activate_cache():
+    """ Activate caches of various accessor classes. This is safe to do during an actual MC run."""
+    ProcessKey.cache_active = True
+    MEAccessorDict.cache_active = True
+
+def deactivate_cache():
+    """ Deactivate caches of various accessor classes. This should be deactivated during process generation."""
+    ProcessKey.cache_active = False
+    MEAccessorDict.cache_active = False
 
 # MEAccessor classes map is defined here as module variables. This map can be overwritten
 # by the interface when using a PLUGIN system where the user can define his own Accessor class.

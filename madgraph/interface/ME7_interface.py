@@ -95,7 +95,7 @@ class ME7RunEnvironment(misc.Silence, misc.MuteLogger):
 
     def __init__(self, 
                  silence=True, 
-                 process_key_optimization=True, 
+                 accessor_optimization=True, 
                  loggers = [('madgraph',logging.INFO),
                             ('contributions',logging.INFO),
                             ('madevent7',logging.INFO),
@@ -104,7 +104,7 @@ class ME7RunEnvironment(misc.Silence, misc.MuteLogger):
         self.silence = silence
         if self.silence:
             misc.Silence.__init__(self)
-        self.process_key_optimization = process_key_optimization
+        self.accessor_optimization = accessor_optimization
         # Allow for initialization with just a logger level value
         if isinstance(loggers, int):
             loggers = [('madgraph',loggers),
@@ -121,18 +121,18 @@ class ME7RunEnvironment(misc.Silence, misc.MuteLogger):
             misc.MuteLogger.__enter__(self)
         if self.silence:
             misc.Silence.__enter__(self)
-        from madgraph.core.accessors import ProcessKey
-        if self.process_key_optimization:
-            ProcessKey.activate_cache()
+        from madgraph.core.accessors import activate_cache
+        if self.accessor_optimization:
+            activate_cache()
 
     def __exit__(self, *args):
         if len(self.logger_names)>0:
             misc.MuteLogger.__exit__(self, *args)
         if self.silence:
             misc.Silence.__exit__(self, *args)
-        from madgraph.core.accessors import ProcessKey
-        if self.process_key_optimization:
-            ProcessKey.deactivate_cache()
+        from madgraph.core.accessors import deactivate_cache
+        if self.accessor_optimization:
+            deactivate_cache()
 
 # To be used as a decorator
 def wrap_with_ME7RunEnvironment(*decorator_args, **decorator_opts):

@@ -97,12 +97,13 @@ class Vector(numpy.ndarray):
         # The vector instantiated by get_copy() should be modified
         # without changing the previous instance, irrespectively of the
         # (presumably few) layers that compose entries of the vector
-        return copy.deepcopy(self)
+        # return copy.deepcopy(self)
+        return copy.copy(self)
 
     def dot(self, v):
 
         assert len(self) == len(v)
-        return sum(self[i] * v[i] for i in range(len(self)))
+        return sum(el * v[i] for i, el in enumerate(self))
 
     def square(self):
 
@@ -151,7 +152,9 @@ class LorentzVector(Vector):
 
     def dot(self, v):
         """Compute the Lorentz scalar product."""
-
+        
+        return self[0]*v[0]-self[1]*v[1]-self[2]*v[2]-self[3]*v[3]
+        
         pos = self[0]*v[0]
         neg = self.space().dot(v.space())
         if pos+neg != 0 and abs(2*(pos-neg)/(pos+neg)) < 100.*self.eps():
@@ -346,7 +349,7 @@ class LorentzVectorDict(dict):
         without changing the current instance.
         """
 
-        return type(self)({i: LorentzVector(self[i]) for i in self.keys()})
+        return type(self)((i,LorentzVector(k)) for i,k in self.items())
 
 class LorentzVectorList(list):
     """A simple class wrapping lists that store Lorentz vectors."""

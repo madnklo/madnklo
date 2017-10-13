@@ -101,17 +101,58 @@ class TestME7(unittest.TestCase):
         """ Check the result of a single call to the born integrand_call."""
         
         born_integrand = self.cmd.all_integrands.get_integrands_of_type(
-                                                   ME7_integrands.ME7CythonIntegrand_B)[0]
+                                                          ME7_integrands.ME7Integrand_B)[0]
         
         dimensions = born_integrand.get_dimensions()
   
         def call():
             born_integrand(
                 dimensions.get_continuous_dimensions().random_sample(),
-                dimensions.get_discrete_dimensions().random_sample()
+                dimensions.get_discrete_dimensions().random_sample(),
+                cache_active = True
             )
 
         n_calls = 5000
         with ME7_interface.ME7RunEnvironment( silence = True, loggers = logging.CRITICAL ):
+            misc.sprint('\n'+'\n'.join('%d : %g ms'%(i+1, 1.e3*(res/float(n_calls)))
+                    for i,res in enumerate(timeit.repeat(call, number=n_calls, repeat=1))))
+
+    def test_ME7_born_integrand_call(self):
+        """ Check the result of a single call to the born integrand_call."""
+        
+        born_integrand = self.cmd.all_integrands.get_integrands_of_type(
+                                                          ME7_integrands.ME7Integrand_B)[0]
+        
+        dimensions = born_integrand.get_dimensions()
+  
+        def call():
+            born_integrand(
+                dimensions.get_continuous_dimensions().random_sample(),
+                dimensions.get_discrete_dimensions().random_sample(),
+                cache_active = True
+            )
+
+        n_calls = 5000
+        with ME7_interface.ME7RunEnvironment( silence = True, loggers = logging.CRITICAL ):
+            misc.sprint('\n'+'\n'.join('%d : %g ms'%(i+1, 1.e3*(res/float(n_calls)))
+                    for i,res in enumerate(timeit.repeat(call, number=n_calls, repeat=1))))
+            
+    def test_ME7_real_integrand_call(self):
+        """ Check the result of a single call to the born integrand_call."""
+        
+        real_integrand = self.cmd.all_integrands.get_integrands_of_type(
+                                                          ME7_integrands.ME7Integrand_R)[0]
+        
+        dimensions = real_integrand.get_dimensions()
+  
+        def call():
+            real_integrand(
+                dimensions.get_continuous_dimensions().random_sample(),
+                dimensions.get_discrete_dimensions().random_sample(),
+                cache_active = False
+            )
+
+        n_calls = 100
+        with ME7_interface.ME7RunEnvironment( silence = False, loggers = logging.CRITICAL ):
             misc.sprint('\n'+'\n'.join('%d : %g ms'%(i+1, 1.e3*(res/float(n_calls)))
                     for i,res in enumerate(timeit.repeat(call, number=n_calls, repeat=1))))

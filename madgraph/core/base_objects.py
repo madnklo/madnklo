@@ -24,8 +24,9 @@ import os
 import re
 import StringIO
 import madgraph.core.color_algebra as color
-from madgraph import MadGraph5Error, MG5DIR, InvalidCmd
+from madgraph import MadGraph5Error, MG5DIR, InvalidCmd, DTYPE
 import madgraph.various.misc as misc 
+import numpy as np
 
 
 logger = logging.getLogger('madgraph.base_objects')
@@ -3409,6 +3410,14 @@ class Process(PhysicsObject):
             final_pdgs = tuple(self.get_final_ids_after_decay())
             self.initial_final_pdgs = (initial_pdgs, final_pdgs)
             return self.initial_final_pdgs
+
+    def format_PS_point_for_ME_call(self, PS_point):
+        """ From a dictionary formatted PS point and a process, returns the PS point as a flat list, ordered as
+        the legs in the process."""
+        
+        return np.array(
+            [ PS_point[leg_number] for sublist in  self.get_cached_initial_final_numbers() 
+                                                  for leg_number in sublist], dtype=DTYPE)
 
     def get_initial_final_ids(self):
         """return a tuple of two tuple containing the id of the initial/final

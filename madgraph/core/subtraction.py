@@ -1248,8 +1248,7 @@ class Counterterm(CountertermNode):
         if (defining_flavors is None) or True:
             # If no defining flavors are specified then simply use the flavors already
             # filled in the reduced process.
-            reduced_flavors = ( tuple(self.process.get_initial_ids()),
-                                tuple(self.process.get_final_ids_after_decay()) )
+            reduced_flavors = self.process.get_cached_initial_final_pdgs()
         else:
             ##############################################################################
             # --> TODO AND NECESSARY FOR NON-FLAVOR-BLIND OBSERVABLES
@@ -1276,10 +1275,7 @@ class Counterterm(CountertermNode):
         reduced_PS = LorentzVectorList()
         
         # First construct the reduced kinematic list
-        for leg in self.process.get_initial_legs():
-            reduced_PS.append(reduced_PS_dict[leg.get('number')])
-        for leg in self.process.get_final_legs():
-            reduced_PS.append(reduced_PS_dict[leg.get('number')])
+        reduced_PS = self.process.format_PS_point_for_ME_call(reduced_PS_dict)
 
         reduced_flavors = self.get_reduced_flavors(defining_flavors)
         

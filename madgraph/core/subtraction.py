@@ -1305,17 +1305,28 @@ class IntegratedCounterterm(Counterterm):
         # First construct the reduced kinematic list, the leg numbers will not match the
         # keys of the reduced_PS_dict because in this case they will be consecutive since
         # they come from the probing of the virtual and not from any kind of mapping.
-        all_legs = self.process.get_initial_legs()+self.process.get_final_legs()
+#        all_legs = self.process.get_initial_legs()+self.process.get_final_legs()
+#        if isinstance(input_reduced_PS, dict):
+#            for i, leg in enumerate(all_legs):
+#                assert( i+1 in input_reduced_PS )
+#                reduced_PS[leg.get('number')] = input_reduced_PS[i+1]
+#        else:
+#            n_legs = self.process.get_ninitial()
+#            n_legs += len(self.process.get_final_ids_after_decay())
+#            assert (len(input_reduced_PS) == n_legs)
+#            for i, leg in enumerate(all_legs):
+#                reduced_PS[leg.get('number')] = input_reduced_PS[i]
+
+        leg_numbers = (n for sublist in self.process.get_cached_initial_final_numbers() 
+                                                                          for n in sublist)                       
         if isinstance(input_reduced_PS, dict):
-            for i, leg in enumerate(all_legs):
+            for i, number in enumerate(leg_numbers):
                 assert( i+1 in input_reduced_PS )
-                reduced_PS[leg.get('number')] = input_reduced_PS[i+1]
+                reduced_PS[number] = input_reduced_PS[i+1]
         else:
-            n_legs = self.process.get_ninitial()
-            n_legs += len(self.process.get_final_ids_after_decay())
-            assert (len(input_reduced_PS) == n_legs)
-            for i, leg in enumerate(all_legs):
-                reduced_PS[leg.get('number')] = input_reduced_PS[i]
+            assert (len(input_reduced_PS) == len(leg_numbers))
+            for i, number in enumerate(leg_numbers):
+                reduced_PS[number] = input_reduced_PS[i]
 
         return reduced_PS
 

@@ -3417,7 +3417,7 @@ class Process(PhysicsObject):
         
         return np.array(
             [ PS_point[leg_number] for sublist in  self.get_cached_initial_final_numbers() 
-                                                  for leg_number in sublist], dtype=DTYPE)
+                                                  for leg_number in sublist ], dtype=DTYPE)
 
     def get_initial_final_ids(self):
         """return a tuple of two tuple containing the id of the initial/final

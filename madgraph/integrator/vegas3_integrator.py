@@ -115,7 +115,8 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
             all_results.append(res)
             
         self.n_function_evals +=1
-        if self.n_function_evals%(self.curr_n_evals_per_iterations/4)==0:
+        if self.n_function_evals%(self.curr_n_evals_per_iterations/4)==0 and \
+                                                      self.vegas3_integrator.mpi_rank == 0:
             logger.debug('Evaluation #%d / %d*%d  (%.3g%%)'%(self.n_function_evals, self.curr_n_iterations, self.curr_n_evals_per_iterations, 
                                             (100.0*self.n_function_evals / (self.curr_n_iterations*self.curr_n_evals_per_iterations))))
         
@@ -140,28 +141,33 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
 
         self.tot_func_evals = 0
         # Train grid
-        logger.debug("=================================")
-        logger.debug("Vegas3 starting the survey stage.")
-        logger.debug("=================================")
+        if self.vegas3_integrator.mpi_rank == 0:
+            logger.debug("=================================")
+            logger.debug("Vegas3 starting the survey stage.")
+            logger.debug("=================================")
         self.n_function_evals = 0
         self.curr_n_iterations = self.survey_n_iterations
         self.curr_n_evals_per_iterations = self.survey_n_points
         training = self.vegas3_integrator(self.wrapped_integrand, 
                                           nitn=self.survey_n_iterations, neval=self.survey_n_points)
-        logger.debug('\n'+training.summary())
+
+        if self.vegas3_integrator.mpi_rank == 0:
+            logger.debug('\n'+training.summary())
 
         self.tot_func_evals += self.n_function_evals         
         # Final integration
-        logger.debug("=============================================")
-        logger.debug("Vegas3 starting the refined integration stage")
-        logger.debug("=============================================")
+        if self.vegas3_integrator.mpi_rank == 0:
+            logger.debug("=============================================")
+            logger.debug("Vegas3 starting the refined integration stage")
+            logger.debug("=============================================")
 
         self.n_function_evals = 0
         self.curr_n_iterations = self.refine_n_iterations
         self.curr_n_evals_per_iterations = self.refine_n_points
         result = self.vegas3_integrator(self.wrapped_integrand, 
                                         nitn=self.refine_n_iterations, neval=self.refine_n_points) 
-        logger.debug('\n'+result.summary())
+        if self.vegas3_integrator.mpi_rank == 0:
+            logger.debug('\n'+result.summary())
         
         self.tot_func_evals += self.n_function_evals
         # Result is a list of instances of vegas.RAvg variablesr, with the following attributes: 
@@ -174,10 +180,11 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
         # RAvg.summary() : summary of the integration    
         summed_result = sum(result.values())
         
-        logger.debug("===============================================================")
-        logger.debug('Vegas3 used a total of %d function evaluations.'%self.tot_func_evals)
-        logger.debug('Vegas3 returned final results : %s'%summed_result)
-        logger.debug("===============================================================")
+        if self.vegas3_integrator.mpi_rank == 0:
+            logger.debug("===============================================================")
+            logger.debug('Vegas3 used a total of %d function evaluations.'%self.tot_func_evals)
+            logger.debug('Vegas3 returned final results : %s'%summed_result)
+            logger.debug("===============================================================")
 
         return summed_result.mean, summed_result.sdev
 

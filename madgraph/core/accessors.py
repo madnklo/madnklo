@@ -1408,6 +1408,8 @@ class F2PYMEAccessor(VirtualMEAccessor):
 class F2PYMEAccessorMadLoop(F2PYMEAccessor):
     """ Specialization of F2PYMEAccessor for MadLoop."""
 
+    cache_active = False
+
     def __init__(self, process, f2py_module_path, slha_card_path, madloop_resources_path=None, **opts):
         """ Use the MadLoop resources path for MadLoop outputs """
   
@@ -1522,10 +1524,10 @@ class F2PYMEAccessorMadLoop(F2PYMEAccessor):
             if sq_orders and sq_orders[0]==1:
                 self.get_function('set_couplingorders_target')(sq_orders[1])
 
-    def clean_ME_settings(self):
+    def clean_ME_settings(self, opts):
         """ Additional clean-up of steering variables for Matrix Elements after it was called."""
         
-        super(F2PYMEAccessorMadLoop, self).clean_ME_settings()
+        super(F2PYMEAccessorMadLoop, self).clean_ME_settings(opts)
 
         # Make sure to compute all squared orders available by default
         self.get_function('set_couplingorders_target')(-1)      
@@ -1609,7 +1611,7 @@ class F2PYMEAccessorMadLoop(F2PYMEAccessor):
         main_result = MEEvaluation(ME_result.get_result(**main_result_key))
         
         # Make sure to clean up specification of various properties for that particular call
-        self.clean_ME_settings()
+        self.clean_ME_settings(new_opts)
         
         # Now return a dictionary containing the expected result anticipated by the user given the specified options,
         # along with a copy of the ME_result dictionary storing all information available at this point for this call_key
@@ -1849,9 +1851,19 @@ class MEAccessorDict(dict):
             "__call__ method of MEAccessorDict, the first argument should be an instance of a ProcessKey or base_objects.Process or"+\
             " subtraction.Current."
 
-        if self.cache_active and isinstance(args[0], subtraction.Current):
-            if hasattr(args[0], 'accessor'):
+        if self.cache_active and hasattr(args[0], 'accessor'):
+            if isinstance(args[0], subtraction.Current):
                 return args[0].accessor(*args, **opts)
+            elif isinstance(args[0], base_objects.Process):
+                try:
+                    accessor, call_options = args[0].accessor[tuple(sorted(opts.items()))]
+                    # Remove the process isntance
+                    call_args = list(args[1:])
+                    # Format PS point
+                    call_args[0] = args[0].format_PS_point_for_ME_call(call_args[0])
+                    return accessor(*call_args, **call_options)
+                except KeyError:
+                    pass
 
         # Now store the me_accessor_key and remove it from the arguments to be passed to the MEAccessor call.
         me_accessor_key = args[0]
@@ -1873,8 +1885,6 @@ class MEAccessorDict(dict):
             
         ME_accessor, call_key = self.get_MEAccessor(me_accessor_key, pdgs=desired_pdgs_order)
         call_options.update(call_key)
-        if self.cache_active and isinstance(args[0], subtraction.Current):
-            args[0].accessor = ME_accessor
 
         # Now for subtraction current accessors, we must pass the current as first argument
         call_args = list(args)
@@ -1899,6 +1909,15 @@ class MEAccessorDict(dict):
                 call_options['spin_correlation'] = self.format_spin_correlation(specified_process_instance, 
                                                                                   call_options['spin_correlation'])
         
+        if self.cache_active:
+            if isinstance(args[0], subtraction.Current):
+                args[0].accessor = ME_accessor
+            elif isinstance(args[0], base_objects.Process):
+                key = tuple(sorted(opts.items()))
+                if hasattr(args[0],'accessor'):
+                    args[0].accessor[key] = (ME_accessor, call_options)
+                else:
+                    args[0].accessor = {key:(ME_accessor, call_options)}
         return ME_accessor(*call_args, **call_options)
     
     def add_MEAccessor(self, ME_accessor, allow_overwrite=False):

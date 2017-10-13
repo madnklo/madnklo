@@ -134,8 +134,9 @@ class TestME7(unittest.TestCase):
 
         n_calls = 5000
         with ME7_interface.ME7RunEnvironment( silence = True, loggers = logging.CRITICAL ):
-            misc.sprint('\n'+'\n'.join('%d : %g ms'%(i+1, 1.e3*(res/float(n_calls)))
-                    for i,res in enumerate(timeit.repeat(call, number=n_calls, repeat=1))))
+            res = '\n'+'\n'.join('%d : %g ms'%(i+1, 1.e3*(res/float(n_calls)))
+                    for i,res in enumerate(timeit.repeat(call, number=n_calls, repeat=1)))
+        print res
             
     def test_ME7_real_integrand_call(self):
         """ Check the result of a single call to the born integrand_call."""
@@ -153,6 +154,28 @@ class TestME7(unittest.TestCase):
             )
 
         n_calls = 100
-        with ME7_interface.ME7RunEnvironment( silence = False, loggers = logging.CRITICAL ):
-            misc.sprint('\n'+'\n'.join('%d : %g ms'%(i+1, 1.e3*(res/float(n_calls)))
-                    for i,res in enumerate(timeit.repeat(call, number=n_calls, repeat=1))))
+        with ME7_interface.ME7RunEnvironment( silence = True, loggers = logging.CRITICAL ):
+            res = '\n'+'\n'.join('%d : %g ms'%(i+1, 1.e3*(res/float(n_calls)))
+                    for i,res in enumerate(timeit.repeat(call, number=n_calls, repeat=1)))
+        print res
+            
+    def test_ME7_virtual_integrand_call(self):
+        """ Check the result of a single call to the born integrand_call."""
+        
+        virtual_integrand = self.cmd.all_integrands.get_integrands_of_type(
+                                                          ME7_integrands.ME7Integrand_V)[0]
+        
+        dimensions = virtual_integrand.get_dimensions()
+  
+        def call():
+            virtual_integrand(
+                dimensions.get_continuous_dimensions().random_sample(),
+                dimensions.get_discrete_dimensions().random_sample(),
+                cache_active = False
+            )
+
+        n_calls = 100
+        with ME7_interface.ME7RunEnvironment( silence = True, loggers = logging.CRITICAL ):
+            res = '\n'+'\n'.join('%d : %g ms'%(i+1, 1.e3*(res/float(n_calls)))
+                    for i,res in enumerate(timeit.repeat(call, number=n_calls, repeat=1)))
+        print res

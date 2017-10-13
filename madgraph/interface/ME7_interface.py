@@ -389,6 +389,10 @@ class ParseCmdArguments(object):
                     if any(value.startswith(start) for start in ['r"',"r'"]):
                         testlimits_options['limit_type'] = re.compile(value)
                     else:
+                        # If not specified as a raw string, we take the liberty of adding the
+                        # enclosing parenthesis.
+                        if not value.startswith('('):
+                            value = '(%s,)'%value
                         # If the specified re was not explicitly made a raw string, then we take the 
                         # liberty here of escaping the parenthesis since this is presumably what the
                         # user expects.
@@ -836,7 +840,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         
         # Wrap the call in a propice environment for the run
         with ME7RunEnvironment( silence = False and (logger_level >= logging.DEBUG), 
-                                          loggers = logger_level ):
+                                loggers = logger_level ):
             xsec, error = self.integrator.integrate()
 
         logger.info("="*100)

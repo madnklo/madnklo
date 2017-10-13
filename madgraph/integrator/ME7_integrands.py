@@ -182,9 +182,6 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # An instance of accessors.MEAccessorDict providing access to all ME available as part of this
         # ME7 session.
         self.all_MEAccessors            = all_MEAccessors
-        # Assign a cached accessor to all defining processes
-        for process_key, (process, mapped_processes) in self.processes_map.items():
-            process.accessor = self.all_MEAccessors.get_MEAccessor(process)
 
         # Update and define many properties of self based on the provided run-card and model.
         self.synchronize(model, run_card, ME7_configuration)
@@ -719,10 +716,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # We specify pdgs to None her to avoid the need of any permutation since we follow the order of
         # the defining process here which is the one that was exported.
         # For the reduced matrix elements however, this cannot be done.
-        # ME_evaluation, all_results = self.all_MEAccessors(process, PS_point, alpha_s, mu_r, pdgs=None)
-        ME_evaluation, all_results = process.accessor[0](
-            process.format_PS_point_for_ME_call(PS_point), 
-            alpha_s, mu_r,**process.accessor[1])
+        ME_evaluation, all_results = self.all_MEAccessors(
+                                            process, PS_point, alpha_s, mu_r, pdgs=flavors)
         
         sigma_wgt *= ME_evaluation['finite']
         
@@ -829,7 +824,7 @@ class ME7Integrand_V(ME7Integrand):
         of flavors for the reduced process to be used when calling the pass_cuts and 
         observable functions.
         """
-        
+
         # Access the various characteristics of the integrated counterterm passed to this
         # function.
         counterterm = integrated_CT_characteristics['integrated_counterterm'] 
@@ -947,7 +942,7 @@ The missing process is: %s"""%reduced_process.nice_string())
             result = final_weight
         else:
             result = final_weight[0]
-            
+        
         return result, selected_reduced_flavor_combination
         
     def test_IR_poles(self, test_options):
@@ -1056,38 +1051,47 @@ The missing process is: %s"""%reduced_process.nice_string())
     def sigma(self, PS_point, process_key, process, flavors, process_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
         """ Overloading of the sigma function from ME7Integrand to include necessary additional contributions. """
         
-        ret_value = super(ME7Integrand_V, self).sigma(PS_point, process_key, process, flavors, process_wgt, 
-                                                                        mu_r, mu_f1, mu_f2, *args, **opts)
+        sigma_wgt = super(ME7Integrand_V, self).sigma(
+                PS_point, process_key, process, flavors, process_wgt, mu_r, mu_f1, mu_f2, *args, **opts)
         
-        return ret_value
-        ##
-        ## This is just an example to test access to the virtuals
-        ##
-        ## The example below will work with the process 
-        ##     generate u u~ > d d~ QCD^2<=99 QED^2<=99 --NLO=QCD
-        ## with NLO correlators forced-in event for the loop.
-        
-#        alpha_s = self.model.get('parameter_dict')['aS']
-#        hel_config = tuple((-1 if fl<0 else 1) for fl in list(flavors[0])+list(flavors[1]))
-#        ME_evaluation, all_results = self.all_MEAccessors(
-#               process, PS_point, alpha_s, mu_r, pdgs=flavors,
-#               squared_orders    = {'QCD':4,'QED':2},
-#               color_correlation = [(1, 2), (1,4)],
-#               spin_correlation  = [( 1, ((1.0,2.0,3.0,4.0), (5.0,6.0,7.0,8.0), (9.0,10.0,11.0,12.0)) )], 
-#               hel_config        = hel_config 
-#        )
+        # This will group all CT results with the same reduced flavors, so
+        # as to call the generation-level cuts and observables only once for each
+        # flavour configuration.
+        # The format is:
+        #     { <reduced_flavors_tuple> : [(counterterm, CT_wgt), ] }
+        CT_results = {}
+        for counterterm_characteristics in self.integrated_counterterms[process_key]:
 
-        ## Nicely print out the results generated.
-#        misc.sprint(process.nice_string())
-#        misc.sprint(' Flavors: ',flavors)
-#        misc.sprint('PS point:\n', PS_point.__str__(n_initial=self.phase_space_generator.n_initial))
-#        misc.sprint('Results pertaining to the specified options:\n'+str(ME_evaluation))
-#        misc.sprint('All results generated along with this ME call:\n'+str(all_results))
-        
-        ## To debug it is useful to hard-stop the code in a unique noticeable way with a syntax error.
-#        stop
-        
-        return ret_value
+            CT_wgt, reduced_flavors = self.evaluate_integrated_counterterm(
+               counterterm_characteristics, PS_point, hel_config=None, compute_poles=False)
+                
+            if CT_wgt == 0.:
+                continue
+            
+            # Register this CT in the dictionary CT_results gathering all evaluations
+            key = reduced_flavors
+            if key not in CT_results:
+                CT_results[key] = [(counterterm_characteristics, CT_wgt)]
+            else:
+                CT_results[key].append((counterterm_characteristics, CT_wgt))        
+
+        # Now investigate all the different counterterm contributions to add:
+        for reduced_flavors, counterterms_characteristics in CT_results.items():
+            if not self.pass_flavor_sensitive_cuts(PS_point, reduced_flavors):
+                continue
+            this_CT_group_wgt = sum(contrib[1] for contrib in counterterms_characteristics)
+            if self.apply_observables:
+                data_for_observables = {
+                    'PS_point'     : PS_point,
+                    'flavors'      : reduced_flavors,
+                    'counterterms' : counterterms_characteristics }
+                self.observable_list.apply_observables(
+                                   this_CT_group_wgt*process_wgt, data_for_observables)
+                
+                # Register this CT_wgt in the global weight.
+                sigma_wgt += this_CT_group_wgt
+
+        return sigma_wgt
 
 class ME7Integrand_R(ME7Integrand):
     """ ME7Integrand for the computation of a single real-emission type of contribution."""
@@ -1272,17 +1276,16 @@ class ME7Integrand_R(ME7Integrand):
         for (spin_correlators, color_correlators, current_weight) in all_necessary_ME_calls:
 #            misc.sprint( self.all_MEAccessors.format_PS_point_for_ME_call(ME_PS,ME_process) )
             try:
-#                ME_evaluation, all_ME_results = self.all_MEAccessors(
-#                   ME_process, ME_PS, alpha_s, mu_r,
-#                   # Let's worry about the squared orders later, we will probably directly fish
-#                   # them out from the ME_process, since they should be set to a unique combination
-#                   # at this stage.
-#                   squared_orders    = None,
-#                   color_correlation = color_correlators,
-#                   spin_correlation  = spin_correlators, 
-#                   hel_config        = hel_config 
-#                )
-                ME_evaluation={'finite':1.0}
+                ME_evaluation, all_ME_results = self.all_MEAccessors(
+                   ME_process, ME_PS, alpha_s, mu_r,
+                   # Let's worry about the squared orders later, we will probably directly fish
+                   # them out from the ME_process, since they should be set to a unique combination
+                   # at this stage.
+                   squared_orders    = None,
+                   color_correlation = tuple(color_correlators) if color_correlators else None,
+                   spin_correlation  = tuple(spin_correlators) if spin_correlators else None, 
+                   hel_config        = None 
+                )
             except MadGraph5Error as e:
                 logger.critical("""
 A reduced matrix element is missing in the library of automatically generated matrix elements.

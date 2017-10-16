@@ -3751,7 +3751,6 @@ already exists and is not a fifo file."""%fifo_path)
     def do_pythia8(self, line):
         """launch pythia8"""
 
-
         try:
             import madgraph
         except ImportError:  

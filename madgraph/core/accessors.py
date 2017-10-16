@@ -1243,7 +1243,7 @@ class F2PYMEAccessor(VirtualMEAccessor):
         able to easily time it with a profiler."""
 
         return func(*args, **opts)
-
+    
     def __call__(self, PS_point, alpha_s, mu_r=91.188, return_all_res=False, **opts):
         """ Actually performs the f2py call. """
 
@@ -1537,7 +1537,9 @@ class F2PYMEAccessorMadLoop(F2PYMEAccessor):
         able to easily time it with a profiler."""
         
         return func(*args, **opts)
-        
+
+    # Disable stdout for this function so as not to be flooded by MadLoop
+    @ME7_interface.wrap_with_ME7RunEnvironment(silence=True, accessor_optimization=False, loggers = [])     
     def __call__(self, PS_point, alpha_s, mu_r, **opts):
         """ Actually performs the f2py call.
         """

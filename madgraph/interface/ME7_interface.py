@@ -452,6 +452,7 @@ class ParseCmdArguments(object):
                           'verbosity':1,
                           'refresh_filters':'auto',
                           'compile':'auto',
+                          'batch_size': 1000,
                           # Here we store a list of lambda function to apply as filters
                           # to the ingegrand we must consider
                           'integrands': [lambda integrand: True]}        
@@ -472,7 +473,11 @@ class ParseCmdArguments(object):
             elif key=='--verbosity':
                 modes = {'none':0, 'integrator':1, 'all':2}
                 launch_options[key[2:]] = modes[value.lower()]
-                
+            elif key in ['--batch_size','--bs']:
+                try:
+                    launch_options['batch_size'] = int(value)
+                except ValueError:
+                    raise InvalidCmd("Value '%s' not valid integer for option '%s'."%(value,key))                
             elif key in ['--refresh_filters','--compile']:
                 available_modes = ['auto','never','always']
                 if value is None:
@@ -790,6 +795,9 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         # that everything is up to date.
         self.synchronize(**launch_options)
 
+        # Setup parallelization
+        self.configure_run_mode(self.options['run_mode'])
+
         # Re-initialize the integrator
         integrator_name = launch_options['integrator']
         integrator_options = self._integrators[integrator_name][1]
@@ -800,6 +808,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
             if integrator_name=='VEGAS3':
                 integrator_options['survey_n_points'] = launch_options['n_points']
                 integrator_options['refine_n_points'] = 5*launch_options['n_points']
+                integrator_options['parallelization'] = self.cluster
             elif integrator_name=='NAIVE':
                 integrator_options['n_points_per_iterations'] = launch_options['n_points']
                 
@@ -817,6 +826,10 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
                 # For now support this option only for some integrators
                 raise InvalidCmd("The options 'n_iterations' is not supported for the integrator %s."%integrator_name)
 
+        if integrator_name=='VEGAS3':        
+            integrator_options['cluster'] = self.cluster
+            integrator_options['batch_size'] = launch_options['batch_size']
+        
         integrands_to_consider = ME7_integrands.ME7IntegrandList([ itg for itg in self.all_integrands if
                            all(filter(itg) for filter in launch_options['integrands']) ])
 
@@ -839,8 +852,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         logger.info("="*100)
         
         # Wrap the call in a propice environment for the run
-        with ME7RunEnvironment( silence = False and (logger_level >= logging.DEBUG), 
-                                loggers = logger_level ):
+        with ME7RunEnvironment( silence = False, accessor_optimization = True, loggers = logger_level ):
             xsec, error = self.integrator.integrate()
 
         logger.info("="*100)

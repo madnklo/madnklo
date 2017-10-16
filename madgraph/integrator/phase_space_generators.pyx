@@ -544,7 +544,7 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
     @classmethod
     def get_flatWeights(cls, E_cm, n, mass=None):
         """ Return the phase-space volume for a n massless final states.
-          Vol(E_cm, n) = (pi/2)^(n-2) *  (E_cm^2)^(n-2) / ((n-1)!*(n-2)!)
+          Vol(E_cm, n) = (pi/2)^(n-1) *  (E_cm^2)^(n-2) / ((n-1)!*(n-2)!)
         """
         if n==1: 
             # The jacobian from \delta(s_hat - m_final**2) present in 2->1 convolution

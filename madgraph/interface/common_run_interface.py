@@ -2992,7 +2992,6 @@ class CommonRunCmd(HelpToCmd, CheckValidForCmd, cmd.Cmd):
 
         self.cluster_mode = run_mode
         self.options['run_mode'] = run_mode
-
         if run_mode == 2:
             if not self.options['nb_core']:
                 import multiprocessing

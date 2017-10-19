@@ -712,7 +712,9 @@ class Contribution(object):
     
     def get_inverse_processes_map(self, force=False):
         """ Returns a dictionary with the keys (with ordered PDGs) of all processes present
-        in this contribution and the single value being their corresponding "defining" process key.
+        in this contribution and the single value being a 2-tuple with their corresponding 
+        "defining" process key as first entry and the corresponding mapped process instance as 
+        a second entry.
         If force is True, then the map will be reconstructed entirely and the cache updated."""
         
         # Sort PDGs only when processes have been grouped
@@ -732,13 +734,13 @@ class Contribution(object):
             if defining_process_key in inverse_map:
                 raise MadGraph5Error("The following process key appears twice in "+
                                                   "the processes map: %s"%str(process_key))
-            inverse_map[defining_process_key] = process_key
+            inverse_map[defining_process_key] = (process_key, defining_process)
             for mapped_process in mapped_processes:
                 mapped_process_key = ProcessKey(mapped_process,sort_PDGs=sort_PDGs).get_canonical_key()
                 if mapped_process_key in inverse_map:
                     raise MadGraph5Error("The following mapped process key appears twice "+
                                              "in the processes map: %s"%mapped_process_key)                    
-                inverse_map[mapped_process_key] = process_key
+                inverse_map[mapped_process_key] = (process_key, mapped_process)
         
         self.inverse_processes_map = inverse_map
         
@@ -993,26 +995,28 @@ class Contribution_R(Contribution):
             
             # Notice that the defining flavor combination will always be placed first
             for process in [defining_process,]+mapped_processes:
+                leg_numbers = ( tuple( leg.get('number') for leg in process.get_initial_legs() ),
+                                tuple( leg.get('number') for leg in process.get_final_legs() )   )
                 initial_pdgs = process.get_initial_ids()
                 final_pdgs = tuple(process.get_final_ids_after_decay())
-                flavors_combinations.append( (
-                    tuple(initial_pdgs),
-                    final_pdgs
-                ) )
+                flavors_combinations.append( ( ( tuple(initial_pdgs),final_pdgs ), leg_numbers ) )
                 if process.get('has_mirror_process'):
-                    flavors_combinations.append( (
-                        tuple(reversed(initial_pdgs)),
-                        final_pdgs
-                    ) )
+                    flavors_combinations.append( 
+                                 (tuple(reversed(initial_pdgs)),final_pdgs ), leg_numbers )
             
             for integrated_counterterm in integrated_counterterms:
                 # List the reduced flavors combinations. The keys are the tuple of the reduced
                 # flavors combination and the value is the multiplication factor.
                 reduced_flavors_combinations = {}
                 resolved_flavors_combinations = {}
-                for flavor_combination in flavors_combinations:
+                for flavor_combination, leg_numbers in flavors_combinations:
+                    # Create a map from leg number to flavor
+                    number_to_flavor_map = dict( 
+                        [ ( number, flavor_combination[0][i] ) for i, number in enumerate(leg_numbers[0]) ] +
+                        [ ( number, flavor_combination[1][i] ) for i, number in enumerate(leg_numbers[1]) ]
+                    )
                     reduced_flavors = integrated_counterterm.get_reduced_flavors(
-                                                       defining_flavors=flavor_combination)
+                      defining_flavors=number_to_flavor_map, IR_subtraction=self.IR_subtraction)
                     try:
                         reduced_flavors_combinations[reduced_flavors] += 1
                     except KeyError:
@@ -1401,13 +1405,47 @@ class Contribution_V(Contribution):
         
         # Now we can simply add this integrated counterterm in the group of the
         # defining process to which the reduced process is mapped
-        defining_key = inverse_processes_map[counterterm_reduced_process_key]
+        defining_key, reduced_process_instance = \
+                                     inverse_processes_map[counterterm_reduced_process_key]
         
         integrated_counterterm_properties = dict(integrated_CT_properties)
         
-        # also store what was the matching virtual process key, not the defining one
-        # Fow not, it is not useful, but it can be added later if necessary.
-        # integrated_counterterm_properties['matching_process_key'] = counterter_reduced_process_key
+        # Compute the mapping to apply from the quantities of the virtual contribution to
+        # those of the integrated counterterm, since they might not have the same ordering
+        permutation = {}
+        # Create a look_up list from the user-provided list of PDGs, whose elements will progressively be set to zero
+        # as they are being mapped
+        look_up_list = [reduced_process_instance.get_initial_ids(), 
+                        reduced_process_instance.get_final_ids_after_decay() ]
+        target_pdgs = copy.copy(look_up_list)
+        
+        defining_pdgs_order = (integrated_counterterm.process.get_initial_ids(),
+                               integrated_counterterm.process.get_final_ids_after_decay())
+        # Map the initial states
+        for i, pdg in enumerate(defining_pdgs_order[0]):
+            try:
+                permutation[i] = look_up_list[0].index(pdg)
+                # Set the element that just got mapped to 0 in the look_up_list so that it will not be reused
+                look_up_list[0][permutation[i]] = 0
+            except ValueError:
+                raise MadGraph5Error("Cannot map two PDGs list: %s and %s"%(str(defining_pdgs_order[0]), str(target_pdgs[0])))
+        
+        # Map final states now
+        n_initial = len(defining_pdgs_order[0])
+        for i, pdg in enumerate(defining_pdgs_order[1]):
+            try:
+                permutation[i+n_initial] = look_up_list[1].index(pdg)+n_initial
+                # Set the element that just got mapped to 0 in the look_up_list so that it will not be reused
+                look_up_list[1][permutation[i+n_initial]-n_initial] = 0
+            except ValueError:
+                raise MadGraph5Error("Cannot map two PDGs list: %s and %s"%(str(defining_pdgs_order[1]), str(target_pdgs[1])))        
+        
+        # Now inverse the mapping so as to obtain the permutations to apply *TO the virtual ME inputs* in order to get 
+        # to the *order assumed in the integrated counterterm*
+        permutation = dict((v,k) for (k,v) in permutation.items())
+        
+        # Store the mapping to apply to the virtual ME inputs
+        integrated_counterterm_properties['input_mapping'] = permutation
         
         self.integrated_counterterms[defining_key].append(integrated_counterterm_properties)
         

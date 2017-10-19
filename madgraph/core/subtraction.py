@@ -749,6 +749,24 @@ class Current(base_objects.Process):
             readable_string += " " + str(self.get('orders'))
         return readable_string
 
+    def get_reduced_flavors(self, defining_flavors, IR_subtraction_module, routing_dict):
+        """Given the defining flavors dictionary specifying the flavors of some leg numbers,
+        add entries corresponding to the subtraction legs in this node and using the function
+        get_parent_PDGs from the subtraction module."""
+        
+        def get_parent(PDGs):
+            res = IR_subtraction_module.parent_PDGs_from_PDGs(PDGs)
+            if len(res)!=1:
+                raise MadGraph5Error("Multiple mother PDGs assignment not supported"+
+                                            " yet by the function get_reduced_flavors")
+            return res[0]
+        
+        leg_numbers = [leg.n for leg in self['singular_structure'].get_all_legs()]
+        if len(leg_numbers)>0:
+            mother_number = routing_dict.inv[frozenset(leg_numbers)]
+            if mother_number not in defining_flavors:
+                defining_flavors[mother_number] = get_parent([defining_flavors[n] for n in leg_numbers])
+
     def get_key(self):
         """Return the ProcessKey associated to this current."""
 
@@ -891,6 +909,18 @@ class CountertermNode(object):
         for node in self.nodes:
             currents += node.get_all_currents()
         return currents
+
+    def get_reduced_flavors(self, defining_flavors, IR_subtraction_module, routing_dict):
+        """Given the defining flavors dictionary specifying the flavors of some leg numbers,
+        add entries corresponding to the subtraction legs in this node and using the function
+        get_parent_PDGs from the subtraction module."""
+
+        self.current.get_reduced_flavors(
+                                    defining_flavors, IR_subtraction_module, routing_dict)
+
+        for node in self.nodes:
+            node.current.get_reduced_flavors(
+                                    defining_flavors, IR_subtraction_module, routing_dict)  
 
     def recursive_singular_structure(self, intermediate_leg_ns):
         """Reconstruct recursively the singular structure of this CountertermNode."""
@@ -1235,28 +1265,27 @@ class Counterterm(CountertermNode):
             currents += node.get_all_currents()
         return currents
 
-    def get_reduced_flavors(self, defining_flavors=None):
-        """Given the defining flavors corresponding to the resolved process, return a
-         *list* of flavors corresponding to the flavor assignment of the reduced process 
+    def get_reduced_flavors(self, defining_flavors=None, IR_subtraction=None):
+        """Given the defining flavors corresponding to the resolved process (as a dictionary),
+         return a *list* of flavors corresponding to the flavor assignment of the reduced process 
          given the defining flavors"""
 
         # Now construct the reduced flavors list
-        # /!\ In the case of integrated counterterm, this is not only relevant for the
-        # flavour sensitive cuts in pass_cuts and for the observable but also for the
-        # actual evalution of the *initial-final integrated* counterterm so as to 
-        # decide which PDF to convolute against.
-        if (defining_flavors is None) or True:
+        if defining_flavors is None or IR_subtraction is None:
             # If no defining flavors are specified then simply use the flavors already
             # filled in the reduced process.
             reduced_flavors = self.process.get_cached_initial_final_pdgs()
-        else:
-            ##############################################################################
-            # --> TODO AND NECESSARY FOR NON-FLAVOR-BLIND OBSERVABLES
-            #     For now always use the flavors of the defining process, which is
-            #     fine for flavor blind observables
-            ##############################################################################
-            reduced_flavors = None
+        else:            
+            number_to_flavors_map = dict(defining_flavors)
+            # Update the number_to_flavors_map dictionary by walking through the nodes
+            for node in self.nodes:
+                node.get_reduced_flavors(number_to_flavors_map, IR_subtraction, self.momenta_dict)
+            reduced_process_leg_numbers = self.process.get_cached_initial_final_numbers()
 
+            reduced_flavors = (
+                tuple( number_to_flavors_map[n] for n in reduced_process_leg_numbers[0] ),
+                tuple( number_to_flavors_map[n] for n in reduced_process_leg_numbers[1] )
+            )
         return reduced_flavors
 
     def get_reduced_quantities(self, reduced_PS_dict, defining_flavors=None):
@@ -1287,7 +1316,7 @@ class Counterterm(CountertermNode):
 
 class IntegratedCounterterm(Counterterm):
     """A class for the integrated counterterm."""
-    
+
     def get_reduced_kinematics(self, input_reduced_PS):
         """Given the PS *dictionary* providing the reduced kinematics corresponding to
         the current PS point thrown at the virtual contribution, return a *dictionary* of 
@@ -1305,17 +1334,6 @@ class IntegratedCounterterm(Counterterm):
         # First construct the reduced kinematic list, the leg numbers will not match the
         # keys of the reduced_PS_dict because in this case they will be consecutive since
         # they come from the probing of the virtual and not from any kind of mapping.
-#        all_legs = self.process.get_initial_legs()+self.process.get_final_legs()
-#        if isinstance(input_reduced_PS, dict):
-#            for i, leg in enumerate(all_legs):
-#                assert( i+1 in input_reduced_PS )
-#                reduced_PS[leg.get('number')] = input_reduced_PS[i+1]
-#        else:
-#            n_legs = self.process.get_ninitial()
-#            n_legs += len(self.process.get_final_ids_after_decay())
-#            assert (len(input_reduced_PS) == n_legs)
-#            for i, leg in enumerate(all_legs):
-#                reduced_PS[leg.get('number')] = input_reduced_PS[i]
 
         leg_numbers = (n for sublist in self.process.get_cached_initial_final_numbers() 
                                                                           for n in sublist)                       

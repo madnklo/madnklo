@@ -1161,6 +1161,7 @@ param_card.inc: ../Cards/param_card.dat\n\t../bin/madevent treatcards param\n'''
                 else:
                     line += "%s*dconjg(%s)" % (amp, amp)
                 ret_lines.append(line)
+                
         else:
             for idiag, diag in enumerate(matrix_element.get('diagrams')):
                 # Ignore any diagrams with 4-particle vertices.

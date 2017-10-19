@@ -866,6 +866,10 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         args = self.split_arg(line)
         args, testlimits_options = self.parse_test_IR_options(args, mode='limits')
         
+        # In principle we want to start by recompiling the process output so as to make sure
+        # that everything is up to date.
+        self.synchronize(**testlimits_options)
+        
         if testlimits_options['correction_order'] is None:
             # If not defined, automatically assign correction_order to the highest correction considered.
             testlimits_options['correction_order'] = self.mode
@@ -881,17 +885,21 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         from the virtual contributions and PDF counterterms."""
     
         args = self.split_arg(line)
-        args, testlimits_options = self.parse_test_IR_options(args, mode='poles')
+        args, testpoles_options = self.parse_test_IR_options(args, mode='poles')
         
-        if testlimits_options['correction_order'] is None:
+        # In principle we want to start by recompiling the process output so as to make sure
+        # that everything is up to date.
+        self.synchronize(**testpoles_options)
+        
+        if testpoles_options['correction_order'] is None:
             # If not defined, automatically assign correction_order to the highest correction considered.
-            testlimits_options['correction_order'] = self.mode
+            testpoles_options['correction_order'] = self.mode
 
         for integrand in self.all_integrands:
             if not hasattr(integrand, 'test_IR_poles'):
                 continue
             logger.debug('Now testing IR poles of the following integrand:\n%s'%(integrand.nice_string()))
-            integrand.test_IR_poles(test_options = testlimits_options)
+            integrand.test_IR_poles(test_options = testpoles_options)
 
     def do_show_grid(self, line):
         """ Minimal implementation for now with no possibility of passing options."""

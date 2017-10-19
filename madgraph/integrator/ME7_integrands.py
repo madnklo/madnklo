@@ -814,7 +814,7 @@ class ME7Integrand_V(ME7Integrand):
         return res
 
     def evaluate_integrated_counterterm(self, integrated_CT_characteristics, 
-                                            PS_point, hel_config=None, compute_poles=True):
+                                   PS_point, flavors, hel_config=None, compute_poles=True):
         """ Evaluates the specified integrated counterterm specified along with its other
         characteristics, like for example the list of flavors assignments that the resolved
         process it corresponds to can take. This function returns
@@ -830,43 +830,31 @@ class ME7Integrand_V(ME7Integrand):
         counterterm = integrated_CT_characteristics['integrated_counterterm'] 
         resolved_flavors = integrated_CT_characteristics['resolved_flavors_combinations']
         reduced_flavors = integrated_CT_characteristics['reduced_flavors_combinations']
+        input_mapping = integrated_CT_characteristics['input_mapping']
+        n_initial = len(flavors[0])
+        n_final   = len(flavors[1])
+        
+        mapped_flavors = ( 
+            tuple( flavors[0][input_mapping[i]] for i in range(n_initial) ),
+            tuple( flavors[1][input_mapping[i]-n_initial] for i in 
+                                                      range(n_initial, n_initial+n_final) )
+        )
+        if isinstance(PS_point,dict):
+            # Dictionary format LorentzVectorDict starts at 1
+            mapped_PS_point = phase_space_generators.LorentzVectorDict(   
+                (i+1, PS_point[input_mapping[i]+1]) for i in range(n_initial+n_final) )
+        else:
+            # List formatLorentzVectorList starts at 0
+            mapped_PS_point = phase_space_generators.LorentzVectorDict(   
+                (i+1, PS_point[input_mapping[i]]) for i in range(n_initial+n_final) )
         
         # Retrieve some possibly relevant model parameters
         alpha_s = self.model.get('parameter_dict')['aS']
         mu_r = self.model.get('parameter_dict')['MU_R']   
         
-        #####
-        # TODO: The selection of the flavor combination to consider should be done
-        # according to the PDF distribution, and the PDF weight should be accounted for
-        # as well. For now we will simply ignore that part, which is OK for e+ e- 
-        # collisions
-        # START TEMPORARY CODE to be replaced when doing initial-final
-        ####
-        # We only support e+ e- initial states for now
-        assert(self.run_card['lpp1']==self.run_card['lpp2']==0)
-        # In this case, since there are not PDF, the PDF weight is simply the multiplicity
-        # factor from the number of reduced flavor multiplicities (which is equal to the
-        # multiplicity factor of the resolved flavors
-        assert(sum(reduced_flavors.values())==len(resolved_flavors))
-        pdf_weight = 1.*sum(reduced_flavors.values())
-        # And we select a reduced flavor combination randomly (although it should eventually
-        # be proportional to the PDFs).
-        total = sum(float(v) for k, v in reduced_flavors.items())
-        r = random.uniform(0, total)
-        upto = 0.
-        selected_reduced_flavor_combination = None
-        for k, v in reduced_flavors.items():
-            if upto + float(v) >= r:
-                selected_reduced_flavor_combination = k
-                break
-            upto += float(v)
-        ####
-        # END TEMPORARY CODE to be replaced
-        ###
-        
         # Now compute the reduced quantities which will be necessary for evalauting the
         # integrated current
-        reduced_PS = counterterm.get_reduced_kinematics(PS_point)
+        reduced_PS = counterterm.get_reduced_kinematics(mapped_PS_point)
         
         # For now the integrated counterterm are always composed of a *single* integrated
         # current, which we can call directly.
@@ -896,7 +884,6 @@ class ME7Integrand_V(ME7Integrand):
         # Finally treat the call to the reduced matrix element
         final_weight = base_objects.EpsilonExpansion()
         for (spin_correlators, color_correlators, current_weight) in all_necessary_ME_calls:
-#            misc.sprint( self.all_MEAccessors.format_PS_point_for_ME_call(ME_PS,ME_process) )
             try:
                 ME_evaluation, all_ME_results = self.all_MEAccessors(
                    reduced_process, reduced_PS, alpha_s, mu_r,
@@ -906,8 +893,9 @@ class ME7Integrand_V(ME7Integrand):
                    squared_orders    = None,
                    color_correlation = color_correlators,
                    spin_correlation  = spin_correlators, 
-                   hel_config        = hel_config 
-                )             
+                   hel_config        = hel_config
+                )
+#               misc.sprint(str(reduced_PS),str(counterterm), reduced_process.nice_string(), spin_correlators, color_correlators, current_weight, ME_evaluation)
             except MadGraph5Error as e:
                 logger.critical("""
 A reduced matrix element is missing in the library of automatically generated matrix elements.
@@ -922,6 +910,13 @@ The missing process is: %s"""%reduced_process.nice_string())
 
         # Now finally handle the overall prefactor of the counterterm
         final_weight *= counterterm.prefactor
+
+        # And the multiplicity prefactor coming from the several *resolved* flavor assignment
+        # that this counterterm can lead to. Typically an integrated counterterm for g > q qbar
+        # splitting will have the same reduced flavors with a gluon mapped to many (i.e. 4 or 5)
+        # quark flavors, so it should be multiplied by that 4 or 5.
+        assert(mapped_flavors in reduced_flavors)
+        final_weight *= reduced_flavors[mapped_flavors]
             
         # Make sure we have an Laurent series with a double pole at most.
         if not final_weight.max_eps_power()<=0 or \
@@ -929,21 +924,16 @@ The missing process is: %s"""%reduced_process.nice_string())
             raise MadGraph5Error("The integrated counterterm:\n%s\n"%str(counterterm)+
                 "with reduced matrix element:\n%s\n"%str(reduced_process)+
                 "yielded the following laurent series:\n%s\n"%str(final_weight)+
-                "which has powers of epsilon not in [-2,-1,0]. This is incorrect for the virtual contribution")
-
-        # For now, act like there was no correlations and no reduced ME :)
-        #########
-        # TOFIX
-        # TODO
-        # TOFIX
-        #########        
+                "which has powers of epsilon not in [-2,-1,0]. This is incorrect for the virtual contribution")   
         
         if compute_poles:
             result = final_weight
         else:
             result = final_weight[0]
         
-        return result, selected_reduced_flavor_combination
+        # For now always return the original flavor selection, but this may become different
+        # when doing initial-final
+        return result, flavors
         
     def test_IR_poles(self, test_options):
         """ Compare the IR poles residues in dimensional regularization from the virtual
@@ -970,6 +960,8 @@ The missing process is: %s"""%reduced_process.nice_string())
                 [defining_process,]+mapped_processes, selection = test_options['process'] ):
                 continue
             
+            flavors = defining_process.get_cached_initial_final_pdgs()
+            
             # Here we use correction_order to select CT subset
             counterterms_to_consider = [
                 ct for ct in self.integrated_counterterms[process_key]
@@ -977,9 +969,8 @@ The missing process is: %s"""%reduced_process.nice_string())
                                             test_options['correction_order'].count('N') ]
             
             misc.sprint(defining_process.nice_string())
-            misc.sprint('\n' + '\n'.join(
-                str(ct['integrated_counterterm']) for ct in counterterms_to_consider ))
-            
+#            misc.sprint('\n' + '\n'.join(
+#                str(ct['integrated_counterterm']) for ct in counterterms_to_consider ))
             virtual_ME_evaluation, all_results = self.all_MEAccessors(
                defining_process, a_virtual_PS_point, alpha_s, mu_r,
                squared_orders    = None,
@@ -996,7 +987,7 @@ The missing process is: %s"""%reduced_process.nice_string())
             for counterterm in counterterms_to_consider:
                 # Evaluate the counterterm
                 integrated_CT_res, reduced_flavors = self.evaluate_integrated_counterterm(
-                      counterterm, a_virtual_PS_point, hel_config=None, compute_poles=True)
+                      counterterm, a_virtual_PS_point, flavors, hel_config=None, compute_poles=True)
                 misc.sprint('%-20s => %s' % (
                     str(counterterm['integrated_counterterm']), str(integrated_CT_res) ))
                 all_integrated_CT_summed_res += integrated_CT_res
@@ -1008,7 +999,9 @@ The missing process is: %s"""%reduced_process.nice_string())
                  'defining_process'     : defining_process,
                  'PS_point'             : a_virtual_PS_point }
             
-            relative_diff = virtual_ME_expansion.relative_diff(all_integrated_CT_summed_res)
+            relative_diff = virtual_ME_expansion.relative_diff(all_integrated_CT_summed_res*-1.)
+            # Finite parts are of course expected to differ, so let's not show them
+            relative_diff.truncate(min_power = -2, max_power = -1)
             # To be commented out when we will have a full-fledged analysis coded up 
             # in analyze_IR_poles_check()
             misc.sprint('Summary for that PS point:')
@@ -1063,7 +1056,8 @@ The missing process is: %s"""%reduced_process.nice_string())
         for counterterm_characteristics in self.integrated_counterterms[process_key]:
 
             CT_wgt, reduced_flavors = self.evaluate_integrated_counterterm(
-               counterterm_characteristics, PS_point, hel_config=None, compute_poles=False)
+               counterterm_characteristics, PS_point, flavors, 
+               hel_config=None, compute_poles=False)
                 
             if CT_wgt == 0.:
                 continue

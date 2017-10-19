@@ -166,6 +166,14 @@ class ModelReader(loop_base_objects.LoopModel):
                                                 ",".join(func.arguments),
                                                 func.expr))
 
+        # Assign mu_r if scale is specified and if the corresponding parameter belongs to the model
+        if scale:
+            for param in external_parameters:
+                if param.name.lower()=='mu_r':
+                    param.value = scale
+                    exec("locals()[\'%s\'] = %s" % (param.name, scale))
+                    break
+    
         # Extract derived parameters
         derived_parameters = []
         keys = [key for key in self['parameters'].keys() if \

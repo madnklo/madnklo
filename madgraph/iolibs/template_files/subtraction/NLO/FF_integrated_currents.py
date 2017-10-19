@@ -39,7 +39,19 @@ CS_utils = utils.CS_utils
 # Mother function grouping functionalities common to all integrated FF NLO QCD currents
 class integrated_NLO_FF_QCD_current(utils.VirtualCurrentImplementation):
     """ Just a template class for all Final-Final NLO QCD local subtraction current."""
-
+    
+    EulerGamma = 0.57721566490153286061
+    # S_\eps = (4 \[Pi])^\[Epsilon] E^(-\[Epsilon] EulerGamma)
+    SEpsilon   = EpsilonExpansion({ 
+         0 : 1., 
+         1 : -EulerGamma + math.log(4.*math.pi),
+         2 : 0.5*(EulerGamma**2-2.*EulerGamma*math.log(4.*math.pi)+math.log(4.*math.pi)**2)
+    })
+    # The SEpsilon volume factor is factorized from all virtual and integrated contributions
+    # and it is applied directly in the Monte-Carlo integration routine. So we set it to one
+    # for now.
+    SEpsilon = EpsilonExpansion({ 0 : 1.})
+    
     @classmethod
     def common_does_implement_this_current(cls, current, model):
         """ General class of checks common to all currents inheriting from this class."""
@@ -186,9 +198,9 @@ class integrated_NLO_FF_QCD_collinear_qqx(integrated_NLO_FF_QCD_current):
         children_numbers = tuple(leg.n for leg in ss.legs)
         parent_number    = leg_numbers_map.inv[frozenset(children_numbers)]
 
-        p12 = PS_point[parent_number]
-        Q   = sum([PS_point[l.get('number')] for l in reduced_process.get_initial_legs()])
-        y12 = Q.dot(p12) / Q.square()
+        p12      = PS_point[parent_number]
+        Q        = sum([PS_point[l.get('number')] for l in reduced_process.get_initial_legs()])
+        Q_square = Q.square()
 
         # Now instantiate what the result will be
         evaluation = utils.SubtractionCurrentEvaluation({
@@ -199,12 +211,17 @@ class integrated_NLO_FF_QCD_collinear_qqx(integrated_NLO_FF_QCD_current):
           }
         )
 
-        value = EpsilonExpansion({ 0 : 0., -1 : 0., -2 : 0.})
+        value = EpsilonExpansion({ 0 : 0., -1 : (-2./3.), -2 : 0.})
+        
+        logMuQ = math.log(mu_r**2/Q_square)
+        prefactor = EpsilonExpansion({ 0 : 1., 1 : logMuQ, 2 : 0.5*logMuQ**2 })
+        prefactor *= self.SEpsilon
         
         # Now add the normalization factors
-        norm = 4.*math.pi
-        value *= norm
-
+        value *= prefactor*(alpha_s / (2.*math.pi))*self.TR
+        # Truncate expansion so as to keep only relevant terms
+        value.truncate(min_power=-2, max_power=0)
+        
         # Now register the value in the evaluation
         evaluation['values'][(0,0)] = value.to_human_readable_dict()        
 
@@ -294,9 +311,10 @@ class integrated_NLO_FF_QCD_collinear_gq(integrated_NLO_FF_QCD_current):
         children_numbers = tuple(leg.n for leg in ss.legs)
         parent_number    = leg_numbers_map.inv[frozenset(children_numbers)]
 
-        p12 = PS_point[parent_number]
-        Q   = sum([PS_point[l.get('number')] for l in reduced_process.get_initial_legs()])
-        y12 = Q.dot(p12) / Q.square()
+        p12      = PS_point[parent_number]
+        Q        = sum([PS_point[l.get('number')] for l in reduced_process.get_initial_legs()])
+        Q_square = Q.square()
+        y12      = 2.*Q.dot(p12) / Q_square
 
         # Now instantiate what the result will be
         evaluation = utils.SubtractionCurrentEvaluation({
@@ -307,14 +325,20 @@ class integrated_NLO_FF_QCD_collinear_gq(integrated_NLO_FF_QCD_current):
           }
         )
 
-        value = EpsilonExpansion({ 0 : 0., -1 : 0., -2 : 0.})
+        value = EpsilonExpansion({ 0 : 0., -1 : (3./2. - 2*math.log(y12)), -2 : 1.})
+        
+        logMuQ = math.log(mu_r**2/Q_square)
+        
+        prefactor = EpsilonExpansion({ 0 : 1., 1 : logMuQ, 2 : 0.5*logMuQ**2 })
+        prefactor *= self.SEpsilon
         
         # Now add the normalization factors
-        norm = 4.*math.pi
-        value *= norm
+        value *= prefactor*(alpha_s / (2.*math.pi))*self.CF
+        # Truncate expansion so as to keep only relevant terms
+        value.truncate(min_power=-2, max_power=0)
 
         # Now register the value in the evaluation
-        evaluation['values'][(0,0)] = value.to_human_readable_dict()        
+        evaluation['values'][(0,0)] = value.to_human_readable_dict()    
 
         # And add it to the results
         result.add_result(
@@ -447,9 +471,10 @@ class integrated_NLO_FF_QCD_softcollinear_gq(integrated_NLO_FF_QCD_current):
         children_numbers = (ss.legs[0].n, ss.substructures[0].legs[0].n) 
         parent_number    = leg_numbers_map.inv[frozenset(children_numbers)]
 
-        p12 = PS_point[parent_number]
-        Q   = sum([PS_point[l.get('number')] for l in reduced_process.get_initial_legs()])
-        y12 = Q.dot(p12) / Q.square()
+        p12      = PS_point[parent_number]
+        Q        = sum([PS_point[l.get('number')] for l in reduced_process.get_initial_legs()])
+        Q_square = Q.square()
+        y12      = 2.*Q.dot(p12) / Q_square
 
         # Now instantiate what the result will be
         evaluation = utils.SubtractionCurrentEvaluation({
@@ -459,18 +484,21 @@ class integrated_NLO_FF_QCD_softcollinear_gq(integrated_NLO_FF_QCD_current):
           }
         )
 
-        value = EpsilonExpansion({
-            0   : 0., 
-            -1  : 0.,
-            -2  : self.color_charge
-        })
+        # The soft-collinear integrated counterterm has been accounted for completely in the 
+        # soft integrated counterterm
+        value = EpsilonExpansion({ 0 : 0., -1 : 0., -2 : 0.})
+        
+        logMuQ = math.log(mu_r**2/Q_square)
+        
+        prefactor = EpsilonExpansion({ 0 : 1., 1 : logMuQ, 2 : 0.5*logMuQ**2 })
+        prefactor *= self.SEpsilon
         
         # Now add the normalization factors
-        norm = (alpha_s / (2.*math.pi))
-        value *= norm
-
+        value *= prefactor*(alpha_s / (2.*math.pi))*self.CF
+        value.truncate(min_power=-2, max_power=0)
+        
         # Now register the value in the evaluation
-        evaluation['values'][(0,0)] = value.to_human_readable_dict()        
+        evaluation['values'][(0,0)] = value.to_human_readable_dict()       
 
         # And add it to the results
         result.add_result(
@@ -564,7 +592,8 @@ class integrated_NLO_FF_QCD_collinear_gg(integrated_NLO_FF_QCD_current):
         parent_number    = leg_numbers_map.inv[frozenset(children_numbers)]
 
         p12 = PS_point[parent_number]
-        Q   = sum([PS_point[l.get('number')] for l in reduced_process.get_initial_legs()])
+        Q        = sum([PS_point[l.get('number')] for l in reduced_process.get_initial_legs()])
+        Q_square = Q.square()
         y12 = Q.dot(p12) / Q.square()
 
         # Now instantiate what the result will be
@@ -576,14 +605,20 @@ class integrated_NLO_FF_QCD_collinear_gg(integrated_NLO_FF_QCD_current):
           }
         )
 
-        value = EpsilonExpansion({ 0 : 0., -1 : 0., -2 : 0.})
+        value = EpsilonExpansion({ 0 : 0., -1 : (11./3. - 4*math.log(y12)), -2 : 2.})
+        
+        logMuQ = math.log(mu_r**2/Q_square)
+        
+        prefactor = EpsilonExpansion({ 0 : 1., 1 : logMuQ, 2 : 0.5*logMuQ**2 })
+        prefactor *= self.SEpsilon
         
         # Now add the normalization factors
-        norm = 4.*math.pi
-        value *= norm
+        value *= prefactor*(alpha_s / (2.*math.pi))*self.CA
+        # Truncate expansion so as to keep only relevant terms
+        value.truncate(min_power=-2, max_power=0)
 
         # Now register the value in the evaluation
-        evaluation['values'][(0,0)] = value.to_human_readable_dict()        
+        evaluation['values'][(0,0)] = value.to_human_readable_dict() 
 
         # And add it to the results
         result.add_result(
@@ -639,15 +674,6 @@ class integrated_NLO_QCD_soft_gluon(integrated_NLO_FF_QCD_current):
         # an empty dictionary which could potentially have contained specific
         # options to specify upon instantiating this class.
         return {}
-   
-    @classmethod
-    def eikonal(cls, PS_point, i, j, r):
-        """ Eikonal factor for soft particle with number 'r' emitted from 'i' and reconnecting
-        to 'j'."""
-        
-        return ( PS_point[i].dot(PS_point[j]) ) / ( 
-                 PS_point[i].dot(PS_point[r])*PS_point[j].dot(PS_point[r])
-                )
     
     def evaluate_subtraction_current(self,  current, 
                                             PS_point, 
@@ -687,6 +713,9 @@ class integrated_NLO_QCD_soft_gluon(integrated_NLO_FF_QCD_current):
         # Although for the soft current it's typically not the case
         soft_leg_number   = leg_numbers_map.inv[frozenset([soft_leg_number,])]
         
+        Q        = sum([PS_point[l.get('number')] for l in reduced_process.get_initial_legs()])
+        Q_square = Q.square()
+        
         # Now find all colored leg numbers in the reduced process
         all_colored_parton_numbers = []
         for leg in reduced_process.get('legs'):
@@ -697,25 +726,43 @@ class integrated_NLO_QCD_soft_gluon(integrated_NLO_FF_QCD_current):
         # Now instantiate what the result will be
         evaluation = utils.SubtractionCurrentEvaluation({
             'spin_correlations'   : [ None ],
-            'color_correlations'  : [ None ],
-            'values'              : { (0,0): { }
-                                    }
-          }
-        )
-
-        value = EpsilonExpansion({ 0 : 0., -1 : 0., -2 : 0.})
+            'color_correlations'  : [ ],
+            'values'              : { }
+          })
+        
+        logMuQ = math.log(mu_r**2/Q_square)
+        
+        prefactor = EpsilonExpansion({ 0 : 1., 1 : logMuQ, 2 : 0.5*logMuQ**2 })
+        prefactor *= self.SEpsilon
         
         # Now add the normalization factors
-        norm = 4.*math.pi
-        value *= norm
-
-        # Now register the value in the evaluation
-        evaluation['values'][(0,0)] = value.to_human_readable_dict()        
-
-        # And add it to the results
+        prefactor *= (alpha_s / (2.*math.pi))
+        prefactor.truncate(min_power=-2, max_power=2)
+        
+        color_correlation_index = 0
+        # Now loop over the colored parton number pairs (a,b)
+        # and add the corresponding contributions to this current
+        for i, a in enumerate(all_colored_parton_numbers):
+            # Use the symmetry of the color correlation and soft current (a,b) <-> (b,a)
+            for b in all_colored_parton_numbers[i+1:]:
+                evaluation['color_correlations'].append( ((a, b), ) )
+                # We multiply by a factor 2. because we symmetrized the sum below
+                value = prefactor*2.
+                pa = PS_point[a]
+                pb = PS_point[b]
+                value *= EpsilonExpansion({
+                    0   : 0., 
+                    -1  : math.log( (pa.dot(pb)*Q_square) / (2.*Q.dot(pa)*Q.dot(pb)) ),
+                    -2  : 0.
+                })
+                # Truncate expansion so as to keep only relevant terms
+                value.truncate(min_power=-2, max_power=0)
+                evaluation['values'][(0,color_correlation_index)] = value.to_human_readable_dict()
+                color_correlation_index += 1
+        
         result.add_result(
-            evaluation, 
-            hel_config=hel_config, 
+            evaluation,
+            hel_config=hel_config,
             squared_orders=tuple(sorted(current.get('squared_orders').items()))
         )
  

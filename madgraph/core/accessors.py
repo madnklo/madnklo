@@ -1808,6 +1808,7 @@ class MEAccessorDict(dict):
             except ValueError:
                 raise MadGraph5Error("Cannot map two PDGs list: %s and %s"%(str(defining_pdgs_order[1]), str(pdgs[1])))        
 
+
         # Now inverse the mapping so as to obtain the permutations to apply *TO the user inputs* in order to get 
         # to the *order assumed in the ME*
         permutation = dict((v,k) for (k,v) in permutation.items())
@@ -1857,15 +1858,16 @@ class MEAccessorDict(dict):
             if isinstance(args[0], subtraction.Current):
                 return args[0].accessor(*args, **opts)
             elif isinstance(args[0], base_objects.Process):
-                try:
-                    accessor, call_options = args[0].accessor[tuple(sorted(opts.items()))]
-                    # Remove the process isntance
-                    call_args = list(args[1:])
-                    # Format PS point
-                    call_args[0] = args[0].format_PS_point_for_ME_call(call_args[0])
-                    return accessor(*call_args, **call_options)
-                except KeyError:
-                    pass
+                if 'spin_correlations' not in opts or opts['spin_correlations'] is None:                
+                    try:
+                        accessor, call_options = args[0].accessor[tuple(sorted(opts.items()))]
+                        # Remove the process isntance
+                        call_args = list(args[1:])
+                        # Format PS point
+                        call_args[0] = args[0].format_PS_point_for_ME_call(call_args[0])
+                        return accessor(*call_args, **call_options)
+                    except KeyError:
+                        pass
 
         # Now store the me_accessor_key and remove it from the arguments to be passed to the MEAccessor call.
         me_accessor_key = args[0]
@@ -1915,11 +1917,12 @@ class MEAccessorDict(dict):
             if isinstance(args[0], subtraction.Current):
                 args[0].accessor = ME_accessor
             elif isinstance(args[0], base_objects.Process):
-                key = tuple(sorted(opts.items()))
-                if hasattr(args[0],'accessor'):
-                    args[0].accessor[key] = (ME_accessor, call_options)
-                else:
-                    args[0].accessor = {key:(ME_accessor, call_options)}
+                if 'spin_correlations' not in opts or opts['spin_correlations'] is None:
+                    key = tuple(sorted(opts.items()))
+                    if hasattr(args[0],'accessor'):
+                        args[0].accessor[key] = (ME_accessor, call_options)
+                    else:
+                        args[0].accessor = {key:(ME_accessor, call_options)}
         return ME_accessor(*call_args, **call_options)
     
     def add_MEAccessor(self, ME_accessor, allow_overwrite=False):

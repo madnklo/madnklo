@@ -4205,7 +4205,7 @@ class EpsilonExpansion(dict):
         for k in set(self.keys()+other.keys()):
             v = self.get(k, 0.)
             other_v = other.get(k, 0.)
-            sum = abs(v) + abs(other_v)
+            sum = abs(v + other_v)
             if sum == 0.:
                 res[k] = 0.
             else:
@@ -4248,9 +4248,19 @@ class EpsilonExpansion(dict):
             return 0
         return k
         
+    def truncate(self, min_power = None, max_power = None):
+        """ Remove poles deeper than min_power, if specified, or higher than max_power, if
+        specified."""
+        
+        for key in self.keys():
+            if ( (not min_power is None) and key < min_power ) or \
+               ( (not max_power is None) and key > max_power ):
+                del self[key]
+        
+        return self
+
     def max_eps_power(self):
         """ Returns the maximum power of epsilon whose coefficient is not zero."""
-
         
     def __str__(self, format=None):
         

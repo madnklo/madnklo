@@ -187,7 +187,7 @@ class NLO_FF_QCD_collinear_qqx(NLO_FF_QCD_local_subtraction_current):
         # Now instantiate what the result will be
         evaluation = utils.SubtractionCurrentEvaluation({
             'spin_correlations'   : [ None ,
-                                      [(parent_number,( tuple(kT_vec), )),],
+                                      ((parent_number,( tuple(kT_vec), )),),
                                     ],
             'color_correlations'  : [ None ],
             'values'              : { (0,0): { 'finite' : None },
@@ -565,7 +565,7 @@ class NLO_FF_QCD_collinear_gg(NLO_FF_QCD_local_subtraction_current):
         # Now instantiate what the result will be
         evaluation = utils.SubtractionCurrentEvaluation({
             'spin_correlations'   : [ None ,
-                                      [(parent_number,( tuple(kT_vec), )),],
+                                      ( (parent_number,( tuple(kT_vec), )), ),
                                     ],
             'color_correlations'  : [ None ],
             'values'              : { (0,0): { 'finite' : None },
@@ -712,7 +712,7 @@ class NLO_QCD_soft_gluon(NLO_FF_QCD_local_subtraction_current):
         for i, a in enumerate(all_colored_parton_numbers):
             # Use the symmetry of the color correlation and soft current (a,b) <-> (b,a)
             for b in all_colored_parton_numbers[i+1:]:
-                evaluation['color_correlations'].append( [(a, b), ] )
+                evaluation['color_correlations'].append( ((a, b), ) )
                 # Write the eikonal for that pair
                 evaluation['values'][(0,color_correlation_index)] = {
                     'finite': norm * self.eikonal(PS_point, a, b, soft_leg_number)

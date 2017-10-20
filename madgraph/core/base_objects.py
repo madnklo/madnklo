@@ -4301,7 +4301,7 @@ class EpsilonExpansion(dict):
         if res.startswith('-'):
             res = '-%s'%res[2:]
         else:
-            res = res[2:]
+            res = ' %s'%res[2:]
         
         # remove trailing space
         res = res[:-1]

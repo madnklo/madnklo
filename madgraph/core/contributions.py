@@ -1004,7 +1004,10 @@ class Contribution_R(Contribution):
                     flavors_combinations.append( 
                                  (tuple(reversed(initial_pdgs)),final_pdgs ), leg_numbers )
             
+#            misc.sprint('doing process:',defining_process.nice_string())
+#            misc.sprint('flavors_combinations',flavors_combinations)
             for integrated_counterterm in integrated_counterterms:
+#                misc.sprint('Doing counterterm:',str(integrated_counterterm))
                 # List the reduced flavors combinations. The keys are the tuple of the reduced
                 # flavors combination and the value is the multiplication factor.
                 reduced_flavors_combinations = {}
@@ -1017,12 +1020,16 @@ class Contribution_R(Contribution):
                     )
                     reduced_flavors = integrated_counterterm.get_reduced_flavors(
                       defining_flavors=number_to_flavor_map, IR_subtraction=self.IR_subtraction)
+#                    misc.sprint('From resolved flavor:',flavor_combination)
+#                    misc.sprint('I get:',reduced_flavors)                    
                     try:
                         reduced_flavors_combinations[reduced_flavors] += 1
                     except KeyError:
                         reduced_flavors_combinations[reduced_flavors] = 1
                     resolved_flavors_combinations[flavor_combination] = reduced_flavors
                 
+#                misc.sprint('Finally having reduced_flavors_combinations=',reduced_flavors_combinations)
+#                misc.sprint('For reduced process = ',integrated_counterterm.process.nice_string())
                 # The list of reduced_flavors_combination is of course redundant
                 # but it's nice not to have to compute it at run_time.
                 all_integrated_counterterms.append({
@@ -1410,17 +1417,25 @@ class Contribution_V(Contribution):
         
         integrated_counterterm_properties = dict(integrated_CT_properties)
         
-        # Compute the mapping to apply from the quantities of the virtual contribution to
-        # those of the integrated counterterm, since they might not have the same ordering
+        misc.sprint('Now adding:',integrated_counterterm)
+        misc.sprint('with reduced process:',integrated_counterterm.process.nice_string())
+        
+        # Compute the mapping to apply to the flavors/PS_point of the virtual contribution
+        # in order to get the ordering of the integrated counterterm.
         permutation = {}
         # Create a look_up list from the user-provided list of PDGs, whose elements will progressively be set to zero
         # as they are being mapped
         look_up_list = [reduced_process_instance.get_initial_ids(), 
                         reduced_process_instance.get_final_ids_after_decay() ]
-        target_pdgs = copy.copy(look_up_list)
+        # copy of the look_op_list for the error message
+        target_pdgs = [list(look_up_list[0]), list(look_up_list[1])]
+        
+        misc.sprint('Flavors of the virtual:',look_up_list)
         
         defining_pdgs_order = (integrated_counterterm.process.get_initial_ids(),
                                integrated_counterterm.process.get_final_ids_after_decay())
+        misc.sprint('Flavors of the CT:',defining_pdgs_order)
+
         # Map the initial states
         for i, pdg in enumerate(defining_pdgs_order[0]):
             try:
@@ -1440,12 +1455,9 @@ class Contribution_V(Contribution):
             except ValueError:
                 raise MadGraph5Error("Cannot map two PDGs list: %s and %s"%(str(defining_pdgs_order[1]), str(target_pdgs[1])))        
         
-        # Now inverse the mapping so as to obtain the permutations to apply *TO the virtual ME inputs* in order to get 
-        # to the *order assumed in the integrated counterterm*
-        permutation = dict((v,k) for (k,v) in permutation.items())
-        
         # Store the mapping to apply to the virtual ME inputs
         integrated_counterterm_properties['input_mapping'] = permutation
+        misc.sprint('Permutation derived:',permutation)
         
         self.integrated_counterterms[defining_key].append(integrated_counterterm_properties)
         

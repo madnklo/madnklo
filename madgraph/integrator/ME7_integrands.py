@@ -461,7 +461,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # we need it as a flat list here, so we force the conversion
         if isinstance(PS_point, dict):
             PS_point = PS_point.to_list()
-
+        
         # These cuts are not allowed to resolve flavour, but only whether a particle is a jet or not
         def is_a_jet(pdg):
             return pdg in range(1,7)+range(-1,-7,-1)+[21]
@@ -471,7 +471,6 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
         pt_cut = self.run_card['ptj']
         dr_cut = self.run_card['drjj']
-                
         if pt_cut <= 0. and dr_cut <= 0.:
             return True
 
@@ -796,10 +795,10 @@ class ME7Integrand_V(ME7Integrand):
             for CT_properties in self.integrated_counterterms[process_key]:
                 CT = CT_properties['integrated_counterterm']
                 if format==2:
-                    long_res.append( '   | %s'%CT.get_singular_structure_string(
+                    long_res.append( '   | %s'%CT.__str__(
                                         print_n=True, print_pdg=False, print_state=False )  )
                 elif format==3:
-                    long_res.append( '   | %s'%CT.get_singular_structure_string(
+                    long_res.append( '   | %s'%CT.__str__(
                                         print_n=True, print_pdg=True, print_state=True )  )
                 elif format==4:
                     long_res.append( '   | %s'%str(CT))
@@ -839,6 +838,21 @@ class ME7Integrand_V(ME7Integrand):
             tuple( flavors[1][input_mapping[i]-n_initial] for i in 
                                                       range(n_initial, n_initial+n_final) )
         )
+        
+        # And the multiplicity prefactor coming from the several *resolved* flavor assignment
+        # that this counterterm can lead to. Typically an integrated counterterm for g > q qbar
+        # splitting will have the same reduced flavorsm, but with the gluon coming from
+        # n_f different massless flavors. So that its multiplcitiy factor is n_f.        
+        # Also, if you think of the resolved flavors e+ e- > c c~ u u~, the two counterterms
+        # C(3,4) and C(5,6) will lead to the reduced flavors g u u~ and c c~ g respectively.
+        # These two are however mapped in the same virtual group, so it's possible that if
+        # the flavors 'g u u~' was selected for example, then the integrated CT C(5,6) would
+        # not have any match in its reduced flavors which contains 'c c~ g' only, and it should
+        # therefore be skipped. 
+        if not mapped_flavors in reduced_flavors:
+            return None, None
+        integrated_CT_multiplicity = reduced_flavors[mapped_flavors]
+        
         if isinstance(PS_point,dict):
             # Dictionary format LorentzVectorDict starts at 1
             mapped_PS_point = phase_space_generators.LorentzVectorDict(   
@@ -895,7 +909,7 @@ class ME7Integrand_V(ME7Integrand):
                    spin_correlation  = spin_correlators, 
                    hel_config        = hel_config
                 )
-#               misc.sprint(str(reduced_PS),str(counterterm), reduced_process.nice_string(), spin_correlators, color_correlators, current_weight, ME_evaluation)
+                #misc.sprint(str(reduced_PS),str(counterterm), reduced_process.nice_string(), spin_correlators, color_correlators, current_weight, ME_evaluation)
             except MadGraph5Error as e:
                 logger.critical("""
 A reduced matrix element is missing in the library of automatically generated matrix elements.
@@ -908,15 +922,9 @@ The missing process is: %s"""%reduced_process.nice_string())
             # for the real-virtual, depending on how we want to combine the two Laurent series.
             final_weight += current_weight*base_objects.EpsilonExpansion(ME_evaluation)
 
-        # Now finally handle the overall prefactor of the counterterm
-        final_weight *= counterterm.prefactor
-
-        # And the multiplicity prefactor coming from the several *resolved* flavor assignment
-        # that this counterterm can lead to. Typically an integrated counterterm for g > q qbar
-        # splitting will have the same reduced flavors with a gluon mapped to many (i.e. 4 or 5)
-        # quark flavors, so it should be multiplied by that 4 or 5.
-        assert(mapped_flavors in reduced_flavors)
-        final_weight *= reduced_flavors[mapped_flavors]
+        # Now finally handle the overall prefactor of the counterterm and the counterterm
+        # multiplicity factor
+        final_weight *= counterterm.prefactor*integrated_CT_multiplicity
             
         # Make sure we have an Laurent series with a double pole at most.
         if not final_weight.max_eps_power()<=0 or \
@@ -960,17 +968,14 @@ The missing process is: %s"""%reduced_process.nice_string())
                 [defining_process,]+mapped_processes, selection = test_options['process'] ):
                 continue
             
-            flavors = defining_process.get_cached_initial_final_pdgs()
-            
+            misc.sprint('Testing %s'%defining_process.nice_string().replace('Process','process'))
+
             # Here we use correction_order to select CT subset
             counterterms_to_consider = [
                 ct for ct in self.integrated_counterterms[process_key]
                 if ct['integrated_counterterm'].count_unresolved() <= 
                                             test_options['correction_order'].count('N') ]
             
-            misc.sprint(defining_process.nice_string())
-#            misc.sprint('\n' + '\n'.join(
-#                str(ct['integrated_counterterm']) for ct in counterterms_to_consider ))
             virtual_ME_evaluation, all_results = self.all_MEAccessors(
                defining_process, a_virtual_PS_point, alpha_s, mu_r,
                squared_orders    = None,
@@ -981,16 +986,26 @@ The missing process is: %s"""%reduced_process.nice_string())
             # Turn the evaluation into an epsilon expansion
             virtual_ME_expansion = base_objects.EpsilonExpansion(virtual_ME_evaluation)
             
+            # Add the corresponding multiplicity factor if all flavors are to be considered
+            if test_options['include_all_flavors']:
+                virtual_ME_expansion *= float(1+len(mapped_processes))
+            
             # Now loop over all counterterms
             all_integrated_CT_summed_res = base_objects.EpsilonExpansion()
-            misc.sprint('Now starting the computation of each integrated counterterm...')
-            for counterterm in counterterms_to_consider:
-                # Evaluate the counterterm
-                integrated_CT_res, reduced_flavors = self.evaluate_integrated_counterterm(
-                      counterterm, a_virtual_PS_point, flavors, hel_config=None, compute_poles=True)
-                misc.sprint('%-20s => %s' % (
-                    str(counterterm['integrated_counterterm']), str(integrated_CT_res) ))
-                all_integrated_CT_summed_res += integrated_CT_res
+            for i_proc, process in enumerate([defining_process,]+mapped_processes):
+                if i_proc > 0 and not test_options['include_all_flavors']:
+                    continue
+                flavors = process.get_cached_initial_final_pdgs()
+                misc.sprint('Integrated counterterms for flavors: %s'%str(flavors))
+                for counterterm in counterterms_to_consider:
+                    # Evaluate the counterterm
+                    integrated_CT_res, reduced_flavors = self.evaluate_integrated_counterterm(
+                          counterterm, a_virtual_PS_point, flavors, hel_config=None, compute_poles=True)
+                    if integrated_CT_res is None:
+                        continue
+                    misc.sprint('%-20s => %s' % (
+                        str(counterterm['integrated_counterterm']), str(integrated_CT_res) ))
+                    all_integrated_CT_summed_res += integrated_CT_res
                 
             # Add evaluations to the list so as to study how the approximated reals converge towards the real
             evaluation = {
@@ -1004,8 +1019,7 @@ The missing process is: %s"""%reduced_process.nice_string())
             relative_diff.truncate(min_power = -2, max_power = -1)
             # To be commented out when we will have a full-fledged analysis coded up 
             # in analyze_IR_poles_check()
-            misc.sprint('Summary for that PS point:')
-            misc.sprint('\n%-20s : %s\n%-20s : %s\n%-20s : %s'%(
+            misc.sprint('Summary for that PS point:\n%-20s : %s\n%-20s : %s\n%-20s : %s'%(
                  'virtual contrib.',
                  virtual_ME_expansion.__str__(format='.16e'),
                  'integrated CTs.',
@@ -1059,9 +1073,9 @@ The missing process is: %s"""%reduced_process.nice_string())
                counterterm_characteristics, PS_point, flavors, 
                hel_config=None, compute_poles=False)
                 
-            if CT_wgt == 0.:
+            if CT_wgt is None or CT_wgt == 0.:
                 continue
-            
+
             # Register this CT in the dictionary CT_results gathering all evaluations
             key = reduced_flavors
             if key not in CT_results:
@@ -1144,10 +1158,10 @@ class ME7Integrand_R(ME7Integrand):
             for CT in self.counterterms[process_key]:
                 if CT.is_singular():
                     if format==2:
-                        long_res.append( '   | %s'%CT.get_singular_structure_string(
+                        long_res.append( '   | %s'%CT.__str__(
                                             print_n=True, print_pdg=False, print_state=False )  )
                     elif format==3:
-                        long_res.append( '   | %s'%CT.get_singular_structure_string(
+                        long_res.append( '   | %s'%CT.__str__(
                                             print_n=True, print_pdg=True, print_state=True )  )
                     elif format>3:
                         long_res.append( '   | %s'%str(CT))

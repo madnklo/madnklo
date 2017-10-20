@@ -307,15 +307,18 @@ class ParseCmdArguments(object):
                               'n_steps'                 : 10,
                               'min_scaling_variable'    : 1.0e-6,
                               'acceptance_threshold'    : 1.0e-6,
-                              'compute_only_limit_defining_counterterm' : False
+                              'compute_only_limit_defining_counterterm' : False,
+                              'include_all_flavors'     : False
                              }
         
-        if mode=='pole':
+        if mode=='poles':
             # Remove some options for the pole
             del testlimits_options['limit_type']
             del testlimits_options['n_steps']
             del testlimits_options['min_scaling_variable']
             del testlimits_options['compute_only_limit_defining_counterterm']
+        elif mode=='limits':
+            del testlimits_options['include_all_flavors']            
  
         # Group arguments in between the '--' specifiers.
         # For example, it will group '--process=p' 'p' '>' 'd' 'd~' 'z' into '--process=p p > d d~ z'.
@@ -376,6 +379,15 @@ class ParseCmdArguments(object):
                     testlimits_options[key[2:]] = float(value)                  
                 except ValueError:
                     raise InvalidCmd("'%s' is not a valid float for option '%s'"%(value, key))
+            elif key in ['--include_all_flavors', '--af'] and mode=='poles':
+                if value is None:
+                    testlimits_options['include_all_flavors'] = True
+                else:
+                    try:
+                        testlimits_options['include_all_flavors'] = \
+                                                 {'true':True,'false':False}[value.lower()]
+                    except:
+                        raise InvalidCmd("'%s' is not a valid float for option '%s'"%(value, key))
             elif key in ['--limit_type','--lt'] and mode=='limits':
                 if not isinstance(value, str):
                     raise InvalidCmd("'%s' is not a valid option for '%s'"%(value, key))
@@ -439,7 +451,7 @@ class ParseCmdArguments(object):
                     testlimits_options['process']['out_pdgs'] = tuple(final_pdgs)
 
             else:
-                raise InvalidCmd("Option '%s' for the test_IR_%s command not recognized."%(mode,key))        
+                raise InvalidCmd("Option '%s' for the test_IR_%s command not recognized."%(key,mode))        
         
         return new_args, testlimits_options
     

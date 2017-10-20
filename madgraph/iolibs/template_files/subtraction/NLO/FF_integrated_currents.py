@@ -325,7 +325,7 @@ class integrated_NLO_FF_QCD_collinear_gq(integrated_NLO_FF_QCD_current):
           }
         )
 
-        value = EpsilonExpansion({ 0 : 0., -1 : (3./2. - 2*math.log(y12)), -2 : 1.})
+        value = EpsilonExpansion({ 0 : 0., -1 : (3./2. - 2.*math.log(y12)), -2 : 1.})
         
         logMuQ = math.log(mu_r**2/Q_square)
         
@@ -594,7 +594,7 @@ class integrated_NLO_FF_QCD_collinear_gg(integrated_NLO_FF_QCD_current):
         p12 = PS_point[parent_number]
         Q        = sum([PS_point[l.get('number')] for l in reduced_process.get_initial_legs()])
         Q_square = Q.square()
-        y12 = Q.dot(p12) / Q.square()
+        y12      = 2.*Q.dot(p12) / Q_square
 
         # Now instantiate what the result will be
         evaluation = utils.SubtractionCurrentEvaluation({
@@ -605,7 +605,7 @@ class integrated_NLO_FF_QCD_collinear_gg(integrated_NLO_FF_QCD_current):
           }
         )
 
-        value = EpsilonExpansion({ 0 : 0., -1 : (11./3. - 4*math.log(y12)), -2 : 2.})
+        value = EpsilonExpansion({ 0 : 0., -1 : (11./3. - 4.*math.log(y12)), -2 : 2.})
         
         logMuQ = math.log(mu_r**2/Q_square)
         

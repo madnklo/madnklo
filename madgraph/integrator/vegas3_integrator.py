@@ -14,6 +14,7 @@
 ################################################################################
 
 import sys
+import time
 import os
 import logging
 from multiprocessing import Process
@@ -52,10 +53,11 @@ logger = logging.getLogger('madgraph.vegas3')
 class ParallelWrappedIntegrand(vegas.BatchIntegrand):
     """ Class to wrap the integrand to the Vegas3 standards with parallelization."""
     
-    def __init__(self, integrands, cluster_instance):
+    def __init__(self, integrands, cluster_instance, start_time=None):
         " Save integrand; registers a cluster instance."
         self.integrands = integrands
         self.cluster = cluster_instance
+        self.start_time = start_time
         if not isinstance(cluster_instance,cluster.MultiCore):
             raise IntegratorError("Vegas3 integrator does not have cluster support "+
                                                                      "yet, only multicore")
@@ -95,8 +97,7 @@ class ParallelWrappedIntegrand(vegas.BatchIntegrand):
     def wait_monitoring(self, Idle, Running, Done):
         if Idle+Running+Done == 0:
             return
-        logger.debug('MadEvent7 integration: %d Idle, %d Running, %d Done'\
-                                                                    %(Idle, Running, Done))
+        logger.debug('MadEvent7 integration: %d Idle, %d Running, %d Done'%(Idle, Running, Done))
 
     def __call__(self, x):
         " Divide x into self.nproc chunks, feeding one to each process. "
@@ -107,8 +108,12 @@ class ParallelWrappedIntegrand(vegas.BatchIntegrand):
         # therefore be defined as shared memory
         results = [Array('d', [0.]*len(input)) for input in inputs]
         # launch evaluation of self.integrands for each chunk, in parallel
-        logger.debug('Dispatching batch of %d points on %d cores:'%(
-                                                          batch_size,self.cluster.nb_core))
+        if not self.start_time is None:
+            logger.debug('Dispatching batch of %d points on %d cores: [%s]'%(
+            batch_size,self.cluster.nb_core, misc.format_time(time.time()-self.start_time)))
+        else:
+            logger.debug('Dispatching batch of %d points on %d cores:'%(
+                                                          batch_size,self.cluster.nb_core))            
         for position, input in enumerate(inputs):
             self.cluster.submit(self.batch_integrand, [input, results[position]])            
 
@@ -179,10 +184,12 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
             all_results.append(res)
             
         self.n_function_evals +=1
-        if self.n_function_evals%(self.curr_n_evals_per_iterations/4)==0 and \
+        if self.n_function_evals%(max(self.curr_n_evals_per_iterations/2,1))==0 and \
                                                       self.vegas3_integrator.mpi_rank == 0:
-            logger.debug('Evaluation #%d / %d*%d  (%.3g%%)'%(self.n_function_evals, self.curr_n_iterations, self.curr_n_evals_per_iterations, 
-                                            (100.0*self.n_function_evals / (self.curr_n_iterations*self.curr_n_evals_per_iterations))))
+            logger.debug('Evaluation #%d / %d*%d  (%.3g%%) [%s]'%(
+                self.n_function_evals, self.curr_n_iterations, self.curr_n_evals_per_iterations, 
+                (100.0*self.n_function_evals / (self.curr_n_iterations*self.curr_n_evals_per_iterations)),
+                                            misc.format_time(time.time()-self.start_time)))
         
         return dict( ('I%d'%i, res) for i, res in enumerate(all_results) )
 
@@ -206,11 +213,13 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
         self.vegas3_integrator = vegas.Integrator(n_dimensions * [[0., 1.]],
                                             nhcube_batch=self.batch_size, sync_ran=True)
         
+        self.start_time = time.time()
         # Access/generate the wrapped integrand
         if self.cluster.nb_core==1:
             wrapped_integrand = self.wrapped_integrand
         else:
-            wrapped_integrand = ParallelWrappedIntegrand(self.integrands, self.cluster)          
+            wrapped_integrand = ParallelWrappedIntegrand(
+                                            self.integrands, self.cluster, self.start_time)          
 
         self.tot_func_evals = 0
         # Train grid

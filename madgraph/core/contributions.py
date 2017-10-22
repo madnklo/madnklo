@@ -738,8 +738,10 @@ class Contribution(object):
             for mapped_process in mapped_processes:
                 mapped_process_key = ProcessKey(mapped_process,sort_PDGs=sort_PDGs).get_canonical_key()
                 if mapped_process_key in inverse_map:
-                    raise MadGraph5Error("The following mapped process key appears twice "+
-                                             "in the processes map: %s"%mapped_process_key)                    
+                    raise MadGraph5Error(
+                        "The following mapped process key:\n%s\n"%str(mapped_process_key)+
+                        "of %s appears twice in the processes map."%
+                               (mapped_process.nice_string().replace('Process','process')))                    
                 inverse_map[mapped_process_key] = (process_key, mapped_process)
         
         self.inverse_processes_map = inverse_map
@@ -1416,10 +1418,7 @@ class Contribution_V(Contribution):
                                      inverse_processes_map[counterterm_reduced_process_key]
         
         integrated_counterterm_properties = dict(integrated_CT_properties)
-        
-        misc.sprint('Now adding:',integrated_counterterm)
-        misc.sprint('with reduced process:',integrated_counterterm.process.nice_string())
-        
+                
         # Compute the mapping to apply to the flavors/PS_point of the virtual contribution
         # in order to get the ordering of the integrated counterterm.
         permutation = {}
@@ -1429,12 +1428,9 @@ class Contribution_V(Contribution):
                         reduced_process_instance.get_final_ids_after_decay() ]
         # copy of the look_op_list for the error message
         target_pdgs = [list(look_up_list[0]), list(look_up_list[1])]
-        
-        misc.sprint('Flavors of the virtual:',look_up_list)
-        
+                
         defining_pdgs_order = (integrated_counterterm.process.get_initial_ids(),
                                integrated_counterterm.process.get_final_ids_after_decay())
-        misc.sprint('Flavors of the CT:',defining_pdgs_order)
 
         # Map the initial states
         for i, pdg in enumerate(defining_pdgs_order[0]):
@@ -1457,7 +1453,6 @@ class Contribution_V(Contribution):
         
         # Store the mapping to apply to the virtual ME inputs
         integrated_counterterm_properties['input_mapping'] = permutation
-        misc.sprint('Permutation derived:',permutation)
         
         self.integrated_counterterms[defining_key].append(integrated_counterterm_properties)
         

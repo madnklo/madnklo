@@ -1003,8 +1003,10 @@ The missing process is: %s"""%reduced_process.nice_string())
                           counterterm, a_virtual_PS_point, flavors, hel_config=None, compute_poles=True)
                     if integrated_CT_res is None:
                         continue
-                    misc.sprint('%-20s => %s' % (
-                        str(counterterm['integrated_counterterm']), str(integrated_CT_res) ))
+                    misc.sprint('%-20s => %s' % (str(counterterm['integrated_counterterm']), 
+                        integrated_CT_res.__str__(format='.16e') ) )
+                    misc.sprint('   :: %s'%(' & '.join('%s => %s'%(str(k),str(v)) for k,v in 
+                                   counterterm['resolved_flavors_combinations'].items() )))
                     all_integrated_CT_summed_res += integrated_CT_res
                 
             # Add evaluations to the list so as to study how the approximated reals converge towards the real

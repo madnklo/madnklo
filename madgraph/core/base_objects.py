@@ -2506,7 +2506,7 @@ class Diagram(PhysicsObject):
         except Exception:
             return 0
 
-    def get_contracted_loop_diagram(self, struct_rep=None):
+    def get_contracted_loop_diagram(self, *args, **opts):
         """ Returns a Diagram which correspond to the loop diagram with the 
         loop shrunk to a point. Of course for a instance of base_objects.Diagram
         one must simply return self."""

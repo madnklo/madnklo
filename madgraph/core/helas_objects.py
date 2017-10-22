@@ -86,8 +86,8 @@ class IdentifyMETag(diagram_generation.DiagramTag):
                 process.get('NLO_mode') not in ['virt', 'loop','noborn']:
             sorted_tags = sorted([IdentifyMETagFKS(d, model, ninitial) for d in \
                                       amplitude.get('diagrams')])
-        elif process.get('NLO_mode')=='noborn':
-            # For loop-induced processes, make sure to create the Tag based on
+        elif process.get('NLO_mode') in ['virt','noborn']:
+            # For loop processes, make sure to create the Tag based on
             # the contracted diagram
             sorted_tags = sorted([cls(d.get_contracted_loop_diagram(model,
              amplitude.get('structure_repository')), model, ninitial) for d in \
@@ -5735,7 +5735,6 @@ class HelasMultiProcess(base_objects.PhysicsObject):
     def reorder_process(process, org_perm, proc_perm):
         """Reorder the legs in the process according to the difference
         between org_perm and proc_perm"""
-
         leglist = base_objects.LegList(\
                   [copy.copy(process.get('legs_with_decays')[i]) for i in \
                    diagram_generation.DiagramTag.reorder_permutation(\

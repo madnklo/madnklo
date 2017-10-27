@@ -405,7 +405,7 @@ class ME7Exporter(object):
         return
         ###################################################################################################
         ###
-        ###  WARNING THE COE BELOW IS JUST FOR TESTING PURPOSES AND CORRESPONDS TO RUNNING THE INTEGRATION
+        ###  WARNING THE CODE BELOW IS JUST FOR TESTING PURPOSES AND CORRESPONDS TO RUNNING THE INTEGRATION
         ###  RIGHT AWAY AND NOT WITHIN THE ME7 INTERFACE>
         ###
         ###################################################################################################

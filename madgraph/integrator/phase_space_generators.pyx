@@ -17,12 +17,16 @@ import sys
 import os
 
 if __name__ == '__main__':
-    sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.pardir, os.path.pardir))
+    sys.path.append(os.path.join(
+        os.path.dirname(os.path.realpath(__file__)), os.path.pardir, os.path.pardir ))
 
 import logging
 import math
-import numpy
 import copy
+import numpy as np
+cimport numpy as np
+DTYPE = np.double
+ctypedef np.double_t DTYPE_t
 
 try:
     import madgraph
@@ -52,29 +56,27 @@ class PhaseSpaceGeneratorError(Exception):
 # Vectors
 #===============================================================================
 
-class Vector(numpy.ndarray):
+class Vector(np.ndarray):
 
     def __new__(cls, *args, **opts):
 
         if args and isinstance(args[0], Vector):
             foo = args[0].get_copy()
         else:
-            foo = numpy.asanyarray(*args, **opts).view(cls)
+            foo = np.asanyarray(*args, **opts).view(cls)
         return foo
 
     def eps(self):
 
-        if numpy.issubdtype(self.dtype, numpy.inexact):
-            return numpy.finfo(self.dtype).eps
-        else:
-            return 0
+        try: return np.finfo(self.dtype).eps
+        except: return 0
 
     def huge(self):
 
-        if numpy.issubdtype(self.dtype, numpy.inexact):
-            return numpy.finfo(self.dtype).max
-        elif numpy.issubdtype(self.dtype, numpy.integer):
-            return numpy.iinfo(self.dtype).max
+        if np.issubdtype(self.dtype, np.inexact):
+            return np.finfo(self.dtype).max
+        elif np.issubdtype(self.dtype, np.integer):
+            return np.iinfo(self.dtype).max
         else:
             raise ValueError
 
@@ -83,8 +85,8 @@ class Vector(numpy.ndarray):
         eps = max(self.eps(), other.eps())
         # numpy.allclose uses abs(self-other) which would compute the norm
         # for LorentzVector, thus view self and other as numpy.ndarray's
-        return numpy.allclose(
-            self.view(type=numpy.ndarray), other.view(type=numpy.ndarray),
+        return np.allclose(
+            self.view(type=np.ndarray), other.view(type=np.ndarray),
             math.sqrt(eps), 0.
         )
 
@@ -153,12 +155,9 @@ class LorentzVector(Vector):
     def dot(self, v):
         """Compute the Lorentz scalar product."""
         
-        return self[0]*v[0]-self[1]*v[1]-self[2]*v[2]-self[3]*v[3]
-        
         pos = self[0]*v[0]
         neg = self.space().dot(v.space())
-        if pos+neg != 0 and abs(2*(pos-neg)/(pos+neg)) < 100.*self.eps():
-            return 0
+        # if pos+neg != 0 and abs(2*(pos-neg)/(pos+neg)) < 100.*self.eps(): return 0
         return pos - neg
 
     def rho2(self):
@@ -182,8 +181,7 @@ class LorentzVector(Vector):
         # so if (self.rho2() + square) is negative, self[0] is imaginary.
         # Letting math.sqrt fail if data is not complex on purpose in this case.
         self[0] = math.sqrt(self.rho2() + square)
-        if negative:
-            self[0] *= -1
+        if negative: self[0] *= -1
         return self
 
     def rotoboost(self, p, q):
@@ -200,7 +198,7 @@ class LorentzVector(Vector):
         p_s = self.dot(p)
         pq_s = self.dot(pq)
         # Assemble vector
-        self += 2 * ((p_s/q2) * q - (pq_s/pq2) * pq)
+        self.__iadd__(2 * ((p_s/q2) * q - (pq_s/pq2) * pq))
         return self
 
     def pt(self, axis=3):
@@ -260,7 +258,7 @@ class LorentzVector(Vector):
                     "from a reference vector with negative mass."
             )
 
-        return tuple(_*(1./self[0]) for _ in self[1:4])
+        return self.space()/self[0]
 
     def cosTheta(self):
 
@@ -279,18 +277,15 @@ class LorentzVector(Vector):
         transforms p to (M,0,0,0).
         """
 
-        # TODO Rewrite this using the nice functions of Vector
-
-        bx, by, bz = boost_vector[0], boost_vector[1], boost_vector[2]
-        b2 = bx**2 + by**2 + bz**2
+        b2 = boost_vector.square()
         if gamma < 0.:
             gamma = 1.0 / math.sqrt(1.0 - b2)
 
-        bp = bx*self[1] + by*self[2] + bz*self[3]
+        bp = self.space().dot(boost_vector)
         gamma2 = (gamma-1.0) / b2 if b2 > 0 else 0.
-        self[1] = self[1] + gamma2*bp*bx + gamma*bx*self[0]
-        self[2] = self[2] + gamma2*bp*by + gamma*by*self[0]
-        self[3] = self[3] + gamma2*bp*bz + gamma*bz*self[0]
+        factor = gamma2*bp + gamma*self[0]
+        self_space = self.space()
+        self_space += factor*boost_vector
         self[0] = gamma*(self[0] + bp)
 
 class LorentzVectorDict(dict):
@@ -419,16 +414,18 @@ class VirtualPhaseSpaceGenerator(object):
         self.position_to_dim_name = dict((v,k) for (k,v) in self.dim_name_to_position.items())
         
     def generateKinematics(self, E_cm, random_variables):
-        """ Generates a phase-space point with fixed center of mass energy."""
+        """Generate a phase-space point with fixed center of mass energy."""
+
         raise NotImplementedError
     
     def get_PS_point(self, random_variables):
-        """ Generates a complete PS point, including Bjorken x's, dictating a specific choice
-        of incoming particle's momenta,"""
+        """Generate a complete PS point, including Bjorken x's,
+        dictating a specific choice of incoming particle's momenta."""
+
         raise NotImplementedError
 
     def boost_to_COM_frame(self, PS_point, xb_1, xb_2):
-        """ Boost a phase-space point to the rest-frame, given Bjorken x's."""
+        """Boost a phase-space point to the rest-frame, given Bjorken x's."""
         
         if self.n_initial != 2 and (xb_1!=1. or xb_2!=1.):
             ref_lab = PS_point[0]*xb_1 + PS_point[1]*xb_2
@@ -437,15 +434,15 @@ class VirtualPhaseSpaceGenerator(object):
                     p.boost(ref_lab.boostVector())
 
     def nDimPhaseSpace(self):
-        """ Return the number of random numbers required to produce a given
-        multiplicity final state. """
+        """Return the number of random numbers required to produce
+        a given multiplicity final state."""
 
         if self.n_final == 1:
             return 0
-        return 3*self.n_final -4
+        return 3*self.n_final - 4
 
     def get_dimensions(self):
-        """ Generates a list of dimensions for this integrand."""
+        """Generate a list of dimensions for this integrand."""
         
         dims = integrands.DimensionList()
 
@@ -497,16 +494,16 @@ class MultiChannelPhasespace(VirtualPhaseSpaceGenerator):
         # raise NotImplementedError
 
 class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
-    """ Implementation following S. Platzer: arxiv:1308.2922 """
+    """Implementation following S. Platzer, arxiv:1308.2922"""
 
-    # This parameter defines a thin layer around the boundary of the unit hypercube of the 
-    # random variables generating the phase-space, so as to avoid extrema which are an issue in most
-    # PS generators.
+    # This parameter defines a thin layer around the boundary of the unit hypercube
+    # of the random variables generating the phase-space,
+    # so as to avoid extrema which are an issue in most PS generators.
     epsilon_border = 1e-10
 
     # The lowest value that the center of mass energy can take.
-    # We take here 1 GeV, as anyway below this non-perturbative effects dominate and factorization does not
-    # make sense anymore
+    # We take here 1 GeV, as anyway below this non-perturbative effects dominate
+    # and factorization does not make sense anymore
     absolute_Ecm_min = 1.
 
     # For reference here we put the flat weights that Simon uses in his
@@ -541,10 +538,10 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
 
         return super(FlatInvertiblePhasespace,self).get_dimensions()
 
-    @classmethod
-    def get_flatWeights(cls, E_cm, n, mass=None):
+    @staticmethod
+    def get_flatWeights(E_cm, n, mass=None):
         """ Return the phase-space volume for a n massless final states.
-          Vol(E_cm, n) = (pi/2)^(n-1) *  (E_cm^2)^(n-2) / ((n-1)!*(n-2)!)
+        Vol(E_cm, n) = (pi/2)^(n-1) *  (E_cm^2)^(n-2) / ((n-1)!*(n-2)!)
         """
         if n==1: 
             # The jacobian from \delta(s_hat - m_final**2) present in 2->1 convolution
@@ -555,45 +552,43 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
         return math.pow((math.pi/2.0),n-1)*\
             (math.pow((E_cm**2),n-2)/(math.factorial(n-1)*math.factorial(n-2)))
 
-    @classmethod
-    def bisect(cls, v, n, target = -16., maxLevel = 80):
-        """ Solve v = (n+2) * u^(n+1) - (n+1) * u^(n+2) for u. """
+    @staticmethod
+    def bisect(double v, int n, const double target=1.e-16, const int maxLevel=80):
+        """Solve v = (n+2) * u^(n+1) - (n+1) * u^(n+2) for u."""
         
-        if (v == 0.0 or v == 1.0):
-            return v
+        if (v == 0. or v == 1.): return v
 
-        level = 0
-        left  = 0.
-        right = 1.
+        cdef int level = 0
+        cdef double left  = 0.
+        cdef double right = 1.
             
-        checkV = -1.
-        u = -1.
-        while ( level < maxLevel ):
-            u = (left + right)*math.pow(0.5,level+1.)
-            checkV = math.pow(u,n+1)*(n+2.-(n+1.)*u)
-            error = abs(1.-checkV/v) 
-            if ( error==0. or math.log10(error) <= target ):
-                break
+        cdef double checkV = -1.
+        cdef double u = -1.
+        cdef double error
 
+        while (level < maxLevel):
+            u = (left + right) * (0.5**(level + 1))
+            checkV = (u**(n+1)) * (n+2.-(n+1.)*u)
+            error = abs(1. - checkV / v)
+            if (error == 0. or error <= target):
+                break
             left *= 2.
             right *= 2.
-            if (v <= checkV ):
-                right -= 1.
-            else:
-                left += 1.
-
+            if (v <= checkV ): right -= 1.
+            else: left += 1.
             level += 1
 
         return u
     
     @staticmethod
-    def rho(M, N, m):
-        """ Returns sqrt((sqr(M)-sqr(N+m))*(sqr(M)-sqr(N-m)))/(8.*sqr(M)) """
-        Msqr = math.pow(M,2)
-        return math.sqrt( (Msqr-math.pow((N+m),2))*(Msqr-math.pow((N-m),2)) ) / (8.*Msqr)
+    def rho(double M, double N, double m):
+        """Returns sqrt((sqr(M)-sqr(N+m))*(sqr(M)-sqr(N-m)))/(8.*sqr(M))"""
+
+        cdef double Msqr = M**2
+        return ((Msqr-(N+m)**2) * (Msqr-(N-m)**2) )**0.5 / (8.*Msqr)
 
     def setInitialStateMomenta(self, output_momenta, E_cm):
-        """ Generates the initial state momenta."""
+        """Generate the initial state momenta."""
 
         if self.n_initial not in [1,2]:
             raise InvalidCmd(
@@ -616,13 +611,14 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
             output_momenta[0] = LorentzVector([self.initial_masses[0] , 0., 0., 0.])
             return
 
-        output_momenta[0] = LorentzVector([E_cm/2.0 , 0., 0., E_cm/2.0])
+        output_momenta[0] = LorentzVector([E_cm/2.0 , 0., 0., +E_cm/2.0])
         output_momenta[1] = LorentzVector([E_cm/2.0 , 0., 0., -E_cm/2.0])
         return
 
     def get_PS_point(self, random_variables):
-        """ Generates a complete PS point, including Bjorken x's, dictating a specific choice
-        of incoming particle's momenta,"""
+        """Generate a complete PS point, including Bjorken x's,
+        dictating a specific choice of incoming particle's momenta.
+        """
 
         # if random_variables are not defined, than just throw a completely random point
         if random_variables is None:
@@ -652,7 +648,7 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
         E_cm = self.collider_energy
         
         # We generate the PDF from two variables \tau = x1*x2 and ycm = 1/2 * log(x1/x2), so that:
-        #  x_1 = sqrt(tau) * exp(ycm)
+        #  x_1 = sqrt(tau) * exp(+ycm)
         #  x_2 = sqrt(tau) * exp(-ycm)
         # The jacobian of this transformation is 1.
         
@@ -681,7 +677,7 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
             ycm_min = 0.5 * math.log(PDF_tau)
             ycm_max = -ycm_min
             PDF_ycm = ycm_min + (ycm_max - ycm_min)*PDF_ycm            
-            # and account for the corresponding Jacobina
+            # and account for the corresponding Jacobian
             wgt *= (ycm_max - ycm_min)
 
             xb_1 = math.sqrt(PDF_tau) * math.exp(PDF_ycm)
@@ -707,9 +703,9 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
         
         return LorentzVectorList(PS_point), wgt, xb_1, xb_2
 
-    def generateKinematics(self, E_cm, random_variables):
-        """ Generate a self.n_initial -> self.n_final phase-space point using 
-        the random variables passed in argument."""
+    def generateKinematics(self, double E_cm, random_variables):
+        """Generate a self.n_initial -> self.n_final phase-space point
+        using the random variables passed in argument."""
 
         # Make sure the right number of random variables are passed
         assert (len(random_variables)==self.nDimPhaseSpace())
@@ -720,19 +716,20 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
               "to the phase-space generator are NaN: %s"%str(random_variables))
 
         # The distribution weight of the generate PS point
-        weight = 1.
+        cdef double weight = 1.
         
         output_momenta = []
 
+        mass = self.masses[0]
         if self.n_final == 1:
             if self.n_initial == 1:
                 raise InvalidCmd("1 > 1 phase-space generation not supported.")
-            if self.masses[0]/E_cm < 1.e-7 or ((E_cm-self.masses[0])/self.masses[0]) > 1.e-7:
+            if mass/E_cm < 1.e-7 or ((E_cm-mass)/mass) > 1.e-7:
                 raise PhaseSpaceGeneratorError("1 > 2 phase-space generation needs a final state mass equal to E_c.o.m.")
-            output_momenta.append(LorentzVector([self.masses[0]/2.,0.,0.,self.masses[0]/2.]))
-            output_momenta.append(LorentzVector([self.masses[0]/2.,0.,0.,-self.masses[0]/2.]))
-            output_momenta.append(LorentzVector([self.masses[0]   ,0.,0.,0.]))
-            weight = self.get_flatWeights(E_cm,1)
+            output_momenta.append(LorentzVector([mass/2., 0., 0., +mass/2.]))
+            output_momenta.append(LorentzVector([mass/2., 0., 0., -mass/2.]))
+            output_momenta.append(LorentzVector([mass   , 0., 0.,       0.]))
+            weight = self.get_flatWeights(E_cm, 1)
             return output_momenta, weight
   
         M    = [ 0. ]*(self.n_final-1)
@@ -741,29 +738,30 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
         weight *= self.generateIntermediatesMassive(M, E_cm, random_variables)
         M.append(self.masses[-1])
 
-        Q     = LorentzVector([M[0],0.,0.,0.])
-        nextQ = LorentzVector(4*[0., ])
+        Q     = LorentzVector([M[0], 0., 0., 0.])
+        nextQ = LorentzVector()
+
+        cdef int i
+        cdef double cos_theta, sin_theta, phi, cos_phi, sin_phi
 
         for i in range(self.n_initial+self.n_final-1):
             
             if i < self.n_initial:
-                output_momenta.append(LorentzVector(4*[0., ]))
+                output_momenta.append(LorentzVector())
                 continue
 
-            q = 4.*M[i-self.n_initial]*\
-                 self.rho(M[i-self.n_initial],M[i-self.n_initial+1],self.masses[i-self.n_initial])
-            cos_theta = 2.*random_variables[self.n_final-2+2*(i-self.n_initial)]-1.;
-            sin_theta = math.sqrt(1.-math.pow(cos_theta,2))
+            q = 4.*M[i-self.n_initial]*self.rho(
+                M[i-self.n_initial],M[i-self.n_initial+1],self.masses[i-self.n_initial] )
+            cos_theta = 2.*random_variables[self.n_final-2+2*(i-self.n_initial)]-1.
+            sin_theta = math.sqrt(1.-cos_theta**2)
             phi = 2.*math.pi*random_variables[self.n_final-1+2*(i-self.n_initial)]
             cos_phi = math.cos(phi)
-            sin_phi = math.sqrt(1.-math.pow(cos_phi,2))
+            sin_phi = math.sqrt(1.-cos_phi**2)
 
             if (phi > math.pi):
-                sin_phi = -sin_phi; 
+                sin_phi = -sin_phi
             
-            p = LorentzVector([0.,q*cos_phi*sin_theta, 
-                                 q*sin_phi*sin_theta,
-                                 q*cos_theta])
+            p = LorentzVector([0., q*sin_theta*cos_phi, q*sin_theta*sin_phi, q*cos_theta])
             p.set_square(self.masses[i-self.n_initial]**2)
             p.boost(Q.boostVector())
             p.set_square(self.masses[i-self.n_initial]**2)
@@ -781,17 +779,17 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
         return LorentzVectorList(output_momenta), weight
 
     def generateIntermediatesMassless(self, M, E_cm, random_variables):
-        """ Generate intermediate masses for a massless final state."""
+        """Generate intermediate masses for a massless final state."""
         
-        for i in range(2,self.n_final):
-            u = self.bisect(random_variables[i-2],self.n_final-1-i)
-            M[i-1] = math.sqrt(u*math.pow(M[i-2],2))
+        for i in range(2, self.n_final):
+            u = self.bisect(random_variables[i-2], self.n_final-1-i)
+            M[i-1] = math.sqrt(u*(M[i-2]**2))
 
         return self.get_flatWeights(E_cm,self.n_final)
    
 
     def generateIntermediatesMassive(self, M, E_cm, random_variables):
-        """ Generate intermediate masses for a massive final state."""
+        """Generate intermediate masses for a massive final state."""
 
         K = list(M)
         K[0] -= sum(self.masses)
@@ -851,7 +849,7 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
             # BALDY another copy? moms not used afterwards
             p = LorentzVector(moms[i])
             # Take the opposite boost vector
-            boost_vec = tuple([-_ for _ in Q[i-self.n_initial].boostVector()])
+            boost_vec = -Q[i-self.n_initial].boostVector()
             p.boost(boost_vec)
             random_variables[self.n_final-2+2*(i-self.n_initial)] = (p.cosTheta()+1.)/2.
             phi = p.phi()

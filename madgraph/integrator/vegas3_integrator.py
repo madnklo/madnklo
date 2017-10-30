@@ -30,8 +30,8 @@ except ImportError:
 try:
     import numpy as np
 except ImportError:
-    print "ERROR :: Vegas 3 requires nunmpy, install it first."
-    sys.exit(1);
+    print "ERROR :: Vegas 3 requires numpy, install it first."
+    sys.exit(1)
 
 try:
     import gvar as gv

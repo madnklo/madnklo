@@ -152,17 +152,18 @@ class PhaseSpaceGeneratorsTest(unittest.TestCase):
     
         # Try to run the above for a 2->8.
         my_PS_generator = PS.FlatInvertiblePhasespace(
-            [0.]*2, [100. + 10.*i for i in range(8)],beam_Es =(E_cm/2.,E_cm/2.), beam_types=(0,0))
+            [0.]*2, [100. + 10.*i for i in range(8)],
+            beam_Es =(E_cm/2., E_cm/2.), beam_types=(0, 0) )
         # Try to run the above for a 2->1.    
         #    my_PS_generator = FlatInvertiblePhasespace([0.]*2, [5000.0])
         
         random_variables = [random.random() for _ in range(my_PS_generator.nDimPhaseSpace())]
-    
+
 #        import time
 #        start = time.time()
-        n_loops = 1
-        for _ in range(n_loops):
-            momenta, wgt = my_PS_generator.generateKinematics(E_cm, random_variables)
+#        n_loops = 1
+#        for _ in range(n_loops):
+        momenta, wgt = my_PS_generator.generateKinematics(E_cm, random_variables)
 #        end = time.time()
 #        misc.sprint('Time per call',(end-start)/float(n_loops))
         #print "\n ========================="
@@ -174,7 +175,7 @@ class PhaseSpaceGeneratorsTest(unittest.TestCase):
     
         variables_reconstructed, wgt_reconstructed = \
                                              my_PS_generator.invertKinematics(E_cm, momenta)
-    
+
         #print "\n ========================="
         #print " || Kinematic inversion ||"
         #print " ========================="

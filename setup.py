@@ -5,18 +5,20 @@ from distutils.command.install import install
 from distutils.command.build_ext import build_ext
 from Cython.Build import cythonize
 
+import numpy
 import os
 pjoin = os.path.join
 root_path = os.path.dirname(os.path.realpath( __file__ ))
 
 cython_sources = [
     pjoin(root_path,'madgraph','integrator','phase_space_generators.pyx'),
-#    pjoin(root_path,'madgraph','integrator','ME7_integrands.pyx'),
-#    pjoin(root_path,'madgraph','core','accessors.pyx'),
 ]
 
 def cythonize_sources():
-    return sum([cythonize(src_path, compiler_directives={'profile': True}) for src_path in cython_sources],[])
+    return sum([
+        cythonize(src_path, compiler_directives={'profile': True},)
+        for src_path in cython_sources ],
+        [] )
 
 class MG5aMCClean(clean):
     description = "Cleans the build directory and C-sources and shared object libraries coming from Cythonization."
@@ -84,6 +86,7 @@ class MG5aMCCompile(Command):
         
         # Assign the cythonized sources (and regenerate the C-sources if not present anymore
         self.distribution.ext_modules = cythonize_sources()
+        self.distribution.include_dirs = [numpy.get_include()]
 
         buildext = build_ext(self.distribution)
         buildext.inplace = 1

@@ -907,11 +907,12 @@ def get_structure_numbers(structure, momenta_dict):
 class VirtualMapping(object):
     """Base class for elementary mapping implementations."""
 
-    def __init__(self, model = None, **opts):
+    def __init__(self, model=None, **opts):
         """General initialization of any mapping.
         The model is an optional specification,
         which can be useful to know properties of the leg mapped.
-        """        
+        """
+
         self.model = model
         
     def is_valid_structure(self, singular_structure):
@@ -930,7 +931,7 @@ class VirtualMapping(object):
 
     def map_to_lower_multiplicity(
         self, PS_point, singular_structure, momenta_dict,
-        kinematic_variables = None
+        kinematic_variables=None
     ):
         """Map a given phase-space point to lower multiplicity,
         by clustering the substructures and recoiling against the legs
@@ -988,21 +989,19 @@ class VirtualMapping(object):
         by scaling_parameter.
         """
 
-        # TODO This is a stub
-
         raise NotImplemented
 
 #===============================================================================
 # Final-final collinear mappings
 #===============================================================================
 
-class ElementaryMappingCollinearFinal(VirtualMapping):
+class FinalFinalCollinearMapping(VirtualMapping):
     """Common functions for final-final collinear elementary mappings."""
 
     def __init__(self, *args, **opts):
         """Additional options for a final-final collinear elementary mapping."""
 
-        super(ElementaryMappingCollinearFinal, self).__init__(*args, **opts)
+        super(FinalFinalCollinearMapping, self).__init__(*args, **opts)
 
     def is_valid_structure(self, singular_structure):
 
@@ -1195,18 +1194,15 @@ class ElementaryMappingCollinearFinal(VirtualMapping):
         variables = dict()
         return variables
 
-class MappingCataniSeymourFFOne(ElementaryMappingCollinearFinal):
-    """Implementation of the Catani--Seymour mapping
-    for one bunch of collinear particles
-    generalized to an arbitrary number of spectators
-    but restricted to massless particles.
-    See arXiv:hep-ph/0609042 and references therein.
+class FFRescalingMappingOne(FinalFinalCollinearMapping):
+    """Implementation of the rescaling mapping
+    for one bunch of collinear particles (with massless parent)
+    and an arbitrary number of massless recoilers.
     """
 
     def __init__(self, *args, **opts):
-        """Additional options for the Catani--Seymour final-final mapping."""
 
-        super(MappingCataniSeymourFFOne, self).__init__(*args, **opts)
+        super(FFRescalingMappingOne, self).__init__(*args, **opts)
 
     def is_valid_structure(self, singular_structure):
 
@@ -1214,14 +1210,13 @@ class MappingCataniSeymourFFOne(ElementaryMappingCollinearFinal):
         # with no recursive substructure
         if len(singular_structure.substructures) == 1:
             return super(
-                MappingCataniSeymourFFOne, self
+                FFRescalingMappingOne, self
             ).is_valid_structure(singular_structure)
         return False
 
     def map_to_lower_multiplicity(
         self, PS_point, singular_structure, momenta_dict,
-        kinematic_variables=None
-    ):
+        kinematic_variables=None ):
 
         # Consistency checks
         assert isinstance(momenta_dict, subtraction.bidict)
@@ -1230,20 +1225,19 @@ class MappingCataniSeymourFFOne(ElementaryMappingCollinearFinal):
         # Precompute sets and numbers
         cluster = singular_structure.substructures[0]
         parent, children = get_structure_numbers(cluster, momenta_dict)
-        # Build the collinear momentum
-        pC = LorentzVector(4*[0., ])
+        # Build collective momenta
+        pC = LorentzVector()
         for j in children:
             pC += PS_point[j]
-        # Build the total momentum of recoilers
-        pR = LorentzVector(4*[0., ])
+        pR = LorentzVector()
         for leg in singular_structure.legs:
             pR += PS_point[leg.n]
         Q = pC + pR
-        Q2 = Q.square()
-        # Compute the parameter alpha for this collinear subset
+        # Compute the parameter alpha
+        Q2  = Q.square()
+        pC2 = pC.square()
         QpC = pC.dot(Q)
-        sC = pC.square()
-        alpha = (QpC - math.sqrt(QpC**2 - Q2*sC)) / Q2
+        alpha = (QpC - math.sqrt(QpC**2 - Q2*pC2)) / Q2
         # Map all recoilers' momenta
         for recoiler in singular_structure.legs:
             PS_point[recoiler.n] /= (1-alpha)
@@ -1251,7 +1245,123 @@ class MappingCataniSeymourFFOne(ElementaryMappingCollinearFinal):
         PS_point[parent] = (pC - alpha * Q) / (1-alpha)
         # If needed, update the kinematic_variables dictionary
         if kinematic_variables is not None:
-            kinematic_variables['s'+str(parent)] = sC
+            kinematic_variables['s'+str(parent)] = pC2
+            self.get_collinear_variables(
+                PS_point, parent, sorted(children), kinematic_variables )
+        # Eliminate children momenta from the mapped phase-space point
+        for j in children:
+            if j != parent: # Bypass degenerate case of 1->1 splitting
+                del PS_point[j]
+
+        # TODO Compute the jacobian for this mapping
+        jacobian = 1.0
+
+        return jacobian
+
+    def map_to_higher_multiplicity(
+        self, PS_point, singular_structure, momenta_dict, kinematic_variables ):
+
+        # Consistency checks
+        assert isinstance(momenta_dict, subtraction.bidict)
+        assert self.is_valid_structure(singular_structure)
+        needed_variables = set(
+            self.get_kinematic_variables_names(
+                singular_structure, momenta_dict
+            )
+        )
+        assert needed_variables.issubset(kinematic_variables.keys())
+
+        # Precompute sets and numbers
+        cluster = singular_structure.substructures[0]
+        parent, children = get_structure_numbers(cluster, momenta_dict)
+        # Build collective momenta
+        qC = PS_point[parent]
+        qR = LorentzVector()
+        for leg in singular_structure.legs:
+            qR += PS_point[leg.n]
+        Q = qR + qC
+        # Compute scalar products
+        assert abs(qC.square()) < 100*qC.eps()
+        qR2 = qR.square()
+        QqC = Q.dot(qC)
+        sC  = kinematic_variables['s'+str(parent)]
+        # Obtain parameter alpha
+        alpha = 0
+        if qR2 == 0:
+            alpha = 0.5 * sC / QqC
+        else:
+            alpha = (math.sqrt(QqC**2 + sC*qR2) - QqC) / qR2
+        # Compute reverse-mapped momentum
+        pC = (1-alpha) * qC + alpha * Q
+        # Map recoil momenta
+        for recoiler in singular_structure.legs:
+            PS_point[recoiler.n] *= 1-alpha
+        # Set children momenta
+        self.set_collinear_variables(
+            PS_point, parent, sorted(children), pC, kinematic_variables )
+        # Remove parent's momentum
+        if parent not in children: # Bypass degenerate case of 1->1 splitting
+            del PS_point[parent]
+
+        # TODO Compute the jacobian for this mapping
+        jacobian = 1.0
+
+        return jacobian
+
+class FFLorentzMappingOne(FinalFinalCollinearMapping):
+    """Implementation of the Lorentz transformation mapping
+    for one bunch of collinear particles (with massless parent)
+    and an arbitrary number of (eventually massive) recoilers.
+    """
+
+    def __init__(self, *args, **opts):
+
+        super(FFLorentzMappingOne, self).__init__(*args, **opts)
+
+    def is_valid_structure(self, singular_structure):
+
+        # Valid only for one bunch of final-state particles going collinear,
+        # with no recursive substructure
+        if len(singular_structure.substructures) == 1:
+            return super(
+                FFLorentzMappingOne, self
+            ).is_valid_structure(singular_structure)
+        return False
+
+    def map_to_lower_multiplicity(
+        self, PS_point, singular_structure, momenta_dict,
+        kinematic_variables=None ):
+
+        # Consistency checks
+        assert isinstance(momenta_dict, subtraction.bidict)
+        assert self.is_valid_structure(singular_structure)
+
+        # Precompute sets and numbers
+        cluster = singular_structure.substructures[0]
+        parent, children = get_structure_numbers(cluster, momenta_dict)
+        # Build collective momenta
+        pC = LorentzVector()
+        for j in children:
+            pC += PS_point[j]
+        pR = LorentzVector()
+        for leg in singular_structure.legs:
+            pR += PS_point[leg.n]
+        Q = pC + pR
+        # Compute parameters
+        Q2  = Q.square()
+        pC2 = pC.square()
+        pR2 = pR.square()
+        pC_perp = pC - ((Q2+pC2-pR2)/(2*Q2)) * Q
+        alpha = (Q2-pR2) / math.sqrt(Kaellen(Q2, pR2, pC2))
+        # Map the cluster's momentum
+        PS_point[parent] = alpha*pC_perp + ((Q2-pR2)/(2*Q2))*Q
+        # Map all recoilers' momenta
+        qR = Q - PS_point[parent]
+        for recoiler in singular_structure.legs:
+            PS_point[recoiler.n].rotoboost(pR, qR)
+        # If needed, update the kinematic_variables dictionary
+        if kinematic_variables is not None:
+            kinematic_variables['s'+str(parent)] = pC2
             self.get_collinear_variables(
                 PS_point, parent, sorted(children), kinematic_variables
             )
@@ -1279,37 +1389,32 @@ class MappingCataniSeymourFFOne(ElementaryMappingCollinearFinal):
         )
         assert needed_variables.issubset(kinematic_variables.keys())
 
-        # Precompute sets and numbers...
+        # Precompute sets and numbers
         cluster = singular_structure.substructures[0]
         parent, children = get_structure_numbers(cluster, momenta_dict)
-        # Find the parent's momentum
+        # Build collective momenta
         qC = PS_point[parent]
-        # Compute the momentum of recoilers and the total
-        qR = LorentzVector(4*[0., ])
+        qR = LorentzVector()
         for leg in singular_structure.legs:
             qR += PS_point[leg.n]
         Q = qR + qC
         # Compute scalar products
-        QqC = Q.dot(qC)
-        qC2 = qC.square()
-        Q2 = Q.square()
+        pC2 = kinematic_variables['s'+str(parent)]
+        # Compute parameters
+        assert abs(qC.square()) < 100*qC.eps()
+        Q2  = Q.square()
         qR2 = qR.square()
-        sC = kinematic_variables['s'+str(parent)]
-        # Obtain parameter alpha
-        alpha = 0
-        if qR2 == 0:
-            alpha = 0.5 * (sC - qC2) / (QqC - qC2)
-        else:
-            alpha = (math.sqrt(QqC**2 - Q2*qC2 + sC*qR2) - (QqC - qC2)) / qR2
+        qC_perp = qC - ((Q2-qR2)/(2*Q2)) * Q
+        alpham1 = math.sqrt(Kaellen(Q2, qR2, pC2)) / (Q2-qR2)
         # Compute reverse-mapped momentum
-        pC = (1-alpha) * qC + alpha * Q
-        # Set children momenta
-        self.set_collinear_variables(
-            PS_point, parent, sorted(children), pC, kinematic_variables
-        )
+        pC = alpham1*qC_perp + ((Q2+pC2-qR2)/(2*Q2))*Q
+        pR = Q - pC
         # Map recoil momenta
         for recoiler in singular_structure.legs:
-            PS_point[recoiler.n] *= 1-alpha
+            PS_point[recoiler.n].rotoboost(qR, pR)
+        # Set children momenta
+        self.set_collinear_variables(
+            PS_point, parent, sorted(children), pC, kinematic_variables )
         # Remove parent's momentum
         if parent not in children: # Bypass degenerate case of 1->1 splitting
             del PS_point[parent]
@@ -1319,7 +1424,8 @@ class MappingCataniSeymourFFOne(ElementaryMappingCollinearFinal):
 
         return jacobian
 
-class MappingCataniSeymourFFMany(ElementaryMappingCollinearFinal):
+
+class MappingCataniSeymourFFMany(FinalFinalCollinearMapping):
     """Implementation of the Catani--Seymour final-final collinear mapping,
     for multiple collinear bunches and any number of spectators
     (but restricted to massless particles).
@@ -1329,7 +1435,7 @@ class MappingCataniSeymourFFMany(ElementaryMappingCollinearFinal):
     def __init__(self, *args, **opts):
         """Additional options for the Catani--Seymour mapping."""
 
-        super(ElementaryMappingCollinearFinal, self).__init__(*args, **opts)
+        super(FinalFinalCollinearMapping, self).__init__(*args, **opts)
 
     def map_to_lower_multiplicity(
         self, PS_point, singular_structure, momenta_dict,
@@ -1389,13 +1495,6 @@ class MappingCataniSeymourFFMany(ElementaryMappingCollinearFinal):
         jacobian = 1.0
 #
         return jacobian
-
-class Mapping_NagySoper(VirtualMapping):
-    """Implementation of the Nagy--Soper mapping.
-    See arXiv:hep-ph/0706.0017.
-    """
-    # TODO, see example above
-    pass
 
 #===============================================================================
 # Soft mappings
@@ -1686,7 +1785,7 @@ class FlatCollinearWalker(VirtualWalker):
     cannot_handle = """The Flat Collinear walker found a singular structure
     it is not capable to handle.
     """
-    collinear_map = MappingCataniSeymourFFOne()
+    collinear_map = FFRescalingMappingOne()
 
     def walk_to_lower_multiplicity(
         self, PS_point, counterterm, compute_kinematic_variables=False
@@ -1827,7 +1926,7 @@ class SimpleNLOWalker(VirtualWalker):
     cannot_handle = """The Simple NLO Walker found a singular structure
     it is not capable to handle.
     """
-    collinear_map = MappingCataniSeymourFFOne()
+    collinear_map = FFRescalingMappingOne()
     soft_map = MappingSomogyietalSoft()
 
     def walk_to_lower_multiplicity(

@@ -611,7 +611,7 @@ class PhaseSpaceGeneratorsTest(unittest.TestCase):
 class CollinearVariablesTest(unittest.TestCase):
     """Test class for variables describing internal collinear structure."""
 
-    my_mapping = PS.ElementaryMappingCollinearFinal()
+    my_mapping = PS.FinalFinalCollinearMapping()
     n_children = 3
 
     def test_collinear_variables_away_from_limit(self):
@@ -697,10 +697,10 @@ class CollinearVariablesTest(unittest.TestCase):
             for i in range(self.n_children):
                 self.assertEqual(my_PS_point[i], new_PS_point[i])
 
-class CataniSeymourFFOneTest(unittest.TestCase):
-    """Test class for MappingCataniSeymourFFOne."""
+class FFRescalingMappingOneTest(unittest.TestCase):
+    """Test class for FFRescalingMappingOneTest."""
 
-    mapping = PS.MappingCataniSeymourFFOne()
+    mapping = PS.FFLorentzMappingOne()
     n_collinear = (2, )
     n_recoilers = 3
     massive = False
@@ -769,12 +769,15 @@ class CataniSeymourFFOneTest(unittest.TestCase):
         old_PS_point = copy.deepcopy(my_PS_point)
         # Compute collinear variables
         variables = dict()
+        print my_PS_point
         self.mapping.map_to_lower_multiplicity(
             my_PS_point, self.structure, self.momenta_dict, variables
         )
+        print my_PS_point
         self.mapping.map_to_higher_multiplicity(
             my_PS_point, self.structure, self.momenta_dict, variables
         )
+        print my_PS_point
         for i in my_PS_point.keys():
             self.assertEqual(my_PS_point[i], old_PS_point[i])
 
@@ -983,8 +986,7 @@ def walk_invertible(test, walker, process, max_unresolved=None):
     my_combinations = my_subtraction.get_all_combinations(my_operators, max_unresolved)
     my_counterterms = [
         my_subtraction.get_counterterm(combination, process)
-        for combination in my_combinations
-    ]
+        for combination in my_combinations ]
 
     # For each counterterm
     for i in range(len(my_counterterms)):

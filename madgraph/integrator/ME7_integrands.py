@@ -1,4 +1,4 @@
-################################################################################
+##########################################################################################
 #
 # Copyright (c) 2011 The MadGraph5_aMC@NLO Development team and Contributors
 #
@@ -11,9 +11,8 @@
 #
 # For more information, visit madgraph.phys.ucl.ac.be and amcatnlo.web.cern.ch
 #
-################################################################################
-"""Collection of ME7 Integrand classes to be compiled with Cython
-"""
+##########################################################################################
+"""Collection of ME7 Integrand classes."""
 
 
 import collections
@@ -63,6 +62,7 @@ import madgraph.various.misc as misc
 import madgraph.various.lhe_parser as lhe_parser
 import madgraph.integrator.integrands as integrands
 import madgraph.integrator.integrators as integrators
+import madgraph.integrator.mappings as mappings
 import madgraph.integrator.phase_space_generators as phase_space_generators
 import madgraph.integrator.pyCubaIntegrator as pyCubaIntegrator
 import madgraph.integrator.vegas3_integrator as vegas3_integrator
@@ -454,7 +454,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         This is of course not IR safe at this stage!"""
         return True
         
-        from madgraph.integrator.phase_space_generators import LorentzVectorList
+        from madgraph.integrator.vectors import LorentzVectorList
         # This is a temporary function anyway which should eventually be replaced by a full
         # fledged module for handling generation level cuts, which would make use of fj-core.
         # The PS point in input is sometimes provided as a dictionary or a flat list, but
@@ -500,7 +500,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         will probably be taken outside of this class so as to ease user-specific cuts, fastjet, etc...
         We consider here a two-level cuts system, this second one of which is flavour sensitive."""
         
-        from madgraph.integrator.phase_space_generators import LorentzVectorList
+        from madgraph.integrator.vectors import LorentzVectorList
         if isinstance(PS_point, dict):
             PS_point = PS_point.to_list()
 
@@ -1131,9 +1131,8 @@ class ME7Integrand_R(ME7Integrand):
         self.initialization_inputs['options']['counterterms'] = self.counterterms
     
         # Initialize a general mapping walker capable of handling all relevant limits for this integrand.
-        self.mapper = phase_space_generators.VirtualWalker(
-            map_type=self.MappingWalkerType, model=self.model
-        )
+        self.mapper = mappings.VirtualWalker(
+            map_type=self.MappingWalkerType, model=self.model )
 
     def get_additional_nice_string_printout_lines(self, format=0):
         """ Return additional information lines for the function nice_string of this integrand."""
@@ -1407,23 +1406,21 @@ The missing process is: %s"""%ME_process.nice_string())
         a_real_emission_PS_point, _, _, _ = self.phase_space_generator.get_PS_point(None)
 
         a_real_emission_PS_point = phase_space_generators.LorentzVectorDict(
-            (i+1, mom) for i, mom in enumerate(a_real_emission_PS_point)
-        )
+            (i+1, mom) for i, mom in enumerate(a_real_emission_PS_point) )
         
         # Now keep track of the results from each process and limit checked
         all_evaluations = {}
         for process_key, (defining_process, mapped_processes) in self.processes_map.items():
             # Make sure that the selected process satisfies the selected process
             if not self.is_part_of_process_selection(
-                    [defining_process,]+mapped_processes, selection = test_options['process']
-            ):
+                [defining_process, ]+mapped_processes,
+                selection = test_options['process'] ):
                 continue
             
             # Here we use correction_order to select CT subset
             counterterms_to_consider = [
                 ct for ct in self.counterterms[process_key]
-                if ct.count_unresolved() <= test_options['correction_order'].count('N')
-            ]
+                if ct.count_unresolved() <= test_options['correction_order'].count('N') ]
             
             # Here we use limit_type to select the mapper to use for approaching the limit (
             # it is clear that all CT will still use their own mapper to retrieve the PS point

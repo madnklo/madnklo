@@ -27,6 +27,7 @@ import madgraph.core.base_objects as base_objects
 import madgraph.various.misc as misc
 import models.import_ufo as import_ufo
 import madgraph.core.contributions as contributions
+import madgraph.integrator.mappings as mappings
 import madgraph.integrator.phase_space_generators as phase_space_generators
 
 from madgraph import MG5DIR
@@ -49,14 +50,13 @@ class SubtractionCurrentTest(unittest.TestCase):
         model_with_params_set.pass_particles_name_in_mg_default()
         model_with_params_set.set_parameters_and_couplings(
                 param_card = pjoin(MG5DIR,'models','loop_sm','restrict_default.dat'),
-                complex_mass_scheme=False)
+                complex_mass_scheme=False )
 
         self.model = model_with_params_set
         self.current_exporter = subtraction.SubtractionCurrentExporter(
-                                                    self.model, export_dir=None)
+            self.model, export_dir=None )
         
-        self.mapper = phase_space_generators.VirtualWalker(
-                                            map_type='FlatCollinear', model = self.model)
+        self.mapper = mappings.VirtualWalker(map_type='FlatCollinear', model=self.model)
         
         legs = base_objects.LegList([
             base_objects.Leg(
@@ -110,7 +110,7 @@ class SubtractionCurrentTest(unittest.TestCase):
             initial_masses,
             final_masses,
             (500.0, 500.0),
-            (0,0))
+            (0, 0) )
 
         PS_point, wgt, xb_1, xb_2 = PS_generator.get_PS_point(None)
         

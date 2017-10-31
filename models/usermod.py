@@ -221,7 +221,7 @@ class UFOModel(object):
         elif param is None:
             return 'None'
         else:
-            raise Exception, '%s unknow type for writting UFO' % param.__class__.__name__
+            raise Exception, '%s unknow type for writing UFO' % param.__class__.__name__
 
 
 

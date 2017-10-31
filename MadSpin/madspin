@@ -163,7 +163,7 @@ try:
             cmd_line = interface.MasterCmd(mgme_dir = options.mgme_dir)
             cmd_line.cmdloop()
 except KeyboardInterrupt:
-    print 'writting history and quit on KeyboardInterrupt' 
+    print 'writing history and quit on KeyboardInterrupt'
     pass
 
 

@@ -188,7 +188,7 @@ try:
             cmd_line.cmdloop()
             
 except KeyboardInterrupt:
-    print 'writting history and directory and quit on KeyboardInterrupt' 
+    print 'writing history and directory and quit on KeyboardInterrupt'
     pass
 except cmd_interface.MadEventAlreadyRunning, error:
     logging.error(str(error))

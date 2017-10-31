@@ -1062,7 +1062,7 @@ class FinalFinalCollinearMapping(VirtualMapping):
         # Pre-compute scalar products
         q2 = q.square()
         pq = p.dot(q)
-        sqrtq2 = math.sqrt(q2)
+        sqrtq2 = math.sqrt(abs(q2))
         na = (sqrtq2/pq) * p
         nb = (2./sqrtq2) * q - na
         # Initialize variables for sum rules check

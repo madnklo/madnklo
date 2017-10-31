@@ -1007,6 +1007,13 @@ The missing process is: %s"""%reduced_process.nice_string())
                         integrated_CT_res.__str__(format='.16e') ) )
                     misc.sprint('   :: %s'%(' & '.join('%s => %s'%(str(k),str(v)) for k,v in 
                                    counterterm['resolved_flavors_combinations'].items() )))
+                    misc.sprint('   :: %s'%(counterterm['input_mapping']))
+                    misc.sprint('   :: %s'%(counterterm['integrated_counterterm'].process.nice_string()))
+                    misc.sprint('   :: leg numbers = %s > %s'%(
+                        ' '.join('%d'%l.get('number') for l in counterterm['integrated_counterterm'].process.get_initial_legs()),
+                        ' '.join('%d'%l.get('number') for l in counterterm['integrated_counterterm'].process.get_final_legs())
+                        ))
+                    
                     all_integrated_CT_summed_res += integrated_CT_res
                 
             # Add evaluations to the list so as to study how the approximated reals converge towards the real
@@ -1457,7 +1464,6 @@ The missing process is: %s"""%ME_process.nice_string())
                 # l is the scaling variable
                 n_steps = test_options['n_steps']
                 min_value = test_options['min_scaling_variable']
-
                 for scaling_parameter in range(0, n_steps+1):
                     # Use equally spaced steps on a log scale
                     scaling_parameter = 10.0**(-((float(scaling_parameter)/n_steps)*abs(math.log10(min_value))))
@@ -1499,6 +1505,7 @@ The missing process is: %s"""%ME_process.nice_string())
                     misc.sprint('%-20.14e %-20.14e %-20.14e %-20.14e %-20.14e'%
                             (scaling_parameter, ME_evaluation, summed_counterterm_weight,
                              summed_counterterm_weight/ME_evaluation, ME_evaluation+summed_counterterm_weight))
+
                 all_evaluations[(
                     process_key,
                     limit_specifier_counterterm.reconstruct_complete_singular_structure().__str__(

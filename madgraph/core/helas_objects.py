@@ -3004,7 +3004,7 @@ class HelasAmplitude(base_objects.PhysicsObject):
             max_final_leg = 1
         # Note that here we do not specify a FDStructure repository, so that
         # each loop diagram will recreate them. This is ok at this point because
-        # we do not need to have a canonical ID for the FD structures.
+        # we do not need to have a canonical ID for the FD structures.            
         tag = CanonicalConfigTag(self.get_base_diagram(wf_dict).
                                       get_contracted_loop_diagram(model), model)
 

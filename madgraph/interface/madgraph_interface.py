@@ -3059,7 +3059,7 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
                         raise
                     add_options[key] = ignored_contribs
                 except:
-                    add_options[key].append(value)
+                    add_options[key].extend([v.strip() for v in value.split(' ')])
                 for contrib in add_options[key]:
                     if not re.match(r'^(B|R*V*)$',contrib):
                         raise InvalidCmd("Ignored contribs must be specified with syntax 'B' or 'RRR(...)VVV(...)'.")

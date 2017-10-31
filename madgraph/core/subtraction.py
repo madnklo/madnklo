@@ -454,10 +454,10 @@ class SingularStructure(object):
         else:
             canonical['legs'] = self.legs.without_leg_numbers()
         canonical['name'] = self.name()
-        canonical['substructures'] = tuple(
+        canonical['substructures'] = tuple(sorted(
             structure.get_canonical_representation(track_leg_numbers)
             for structure in self.substructures
-        )
+        ))
 
         return tuple(sorted(canonical.items()))
 
@@ -1460,7 +1460,7 @@ class IRSubtraction(object):
         
     def can_become_soft(self, legs):
         """Check whether a set of legs going simultaneously soft
-        lead to singular behavior.
+        leads to singular behavior.
         """
 
         for pdg in self.parent_PDGs_from_legs(legs):
@@ -1471,7 +1471,7 @@ class IRSubtraction(object):
     
     def can_become_collinear(self, legs):
         """Check whether a set of legs going collinear to each other
-        lead to singular behavior.
+        leads to singular behavior.
         """
         
         for pdg in self.parent_PDGs_from_legs(legs):
@@ -1533,6 +1533,12 @@ class IRSubtraction(object):
         else:
             unresolved = max_unresolved
 
+        # Duplicate elimination is ugly,
+        # because more combinations than needed are generated.
+        # If one were to construct the list as a product of binomials,
+        # (1 - O1)(1 - O2) ...
+        # adding one monomial at a time, duplicates would never appear from the beginning
+        # and simplification might still occur at each stage.
         combos = [[SingularOperatorList()]]
         strucs = [[SingularStructure()]]
         for n in range(len(elementary_operators)):
@@ -1542,6 +1548,7 @@ class IRSubtraction(object):
             strucs_n = []
             n_filtered = 0
             n_void = 0
+            n_duplicates = 0
             for op in elementary_operators:
                 for combo in combos[-1]:
                     if op not in combo:
@@ -1549,16 +1556,19 @@ class IRSubtraction(object):
                         this_struc = this_combo.simplify()
                         if not this_struc.is_void:
                             if this_struc.count_unresolved() <= unresolved:
-                                combos_n.append(this_combo)
-                                strucs_n.append(this_struc)
+                                if this_struc not in strucs_n:
+                                    combos_n.append(this_combo)
+                                    strucs_n.append(this_struc)
+                                else:
+                                    n_duplicates += 1
                             else:
                                 n_filtered += 1
                         else:
                             n_void += 1
             if verbose:
                 misc.sprint(
-                    "   valid: %d, void: %d, filtered: %d." %
-                    (len(combos_n), n_void, n_filtered) )
+                    "   valid: %d, void: %d, filtered: %d, duplicates: %d." %
+                    (len(combos_n), n_void, n_filtered, n_duplicates) )
             combos.append(combos_n)
             strucs.append(strucs_n)
         return list(itertools.chain.from_iterable(strucs))

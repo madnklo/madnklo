@@ -1268,7 +1268,12 @@ class Counterterm(CountertermNode):
     def get_reduced_flavors(self, defining_flavors=None, IR_subtraction=None):
         """Given the defining flavors corresponding to the resolved process (as a dictionary),
          return a *list* of flavors corresponding to the flavor assignment of the reduced process 
-         given the defining flavors"""
+         given the defining flavors. Also returns the symmetry factor associated with this
+         singular structure and the flavors specified. For instance:
+             g(1) g(2) g(3) d(4) d~(5) g(6)
+         and C( C(4,5), S(3), S(2), 1)
+         The associated symmetry factor will be 2!*2!*1 = 4
+         """
 
         # Now construct the reduced flavors list
         if defining_flavors is None or IR_subtraction is None:
@@ -1279,13 +1284,16 @@ class Counterterm(CountertermNode):
             number_to_flavors_map = dict(defining_flavors)
             # Update the number_to_flavors_map dictionary by walking through the nodes
             for node in self.nodes:
-                node.get_reduced_flavors(number_to_flavors_map, IR_subtraction, self.momenta_dict)
+                node.get_reduced_flavors(
+                                 number_to_flavors_map, IR_subtraction, self.momenta_dict)
             reduced_process_leg_numbers = self.process.get_cached_initial_final_numbers()
 
             reduced_flavors = (
                 tuple( number_to_flavors_map[n] for n in reduced_process_leg_numbers[0] ),
                 tuple( number_to_flavors_map[n] for n in reduced_process_leg_numbers[1] )
             )
+            
+            
         return reduced_flavors
 
     def get_reduced_quantities(self, reduced_PS_dict, defining_flavors=None):
@@ -1316,6 +1324,23 @@ class Counterterm(CountertermNode):
 
 class IntegratedCounterterm(Counterterm):
     """A class for the integrated counterterm."""
+
+    def get_integrated_current(self):
+        """ This function only makes sense in the current context where we don't allow
+        the factorization of the integrated counterterm into several integrated currents."""
+        
+        # For now we only support a basic integrated counterterm which is not broken
+        # down into subcurrents but contains a single CountertermNode with a single
+        # current in it that contains the whole singular structure describing this
+        # integrated counterterm.
+        if len(self.nodes) != 1 or len(self.nodes[0].nodes) != 0:
+            raise MadGraph5Error(
+                """For now, MadEvent7 only support simple integrated
+                counterterms that consists of single current encompassing the full
+                singular structure that must be analytically integrated over.""")
+        assert(isinstance(self.nodes[0].current, IntegratedCurrent))
+
+        return self.nodes[0].current
 
     def get_reduced_kinematics(self, input_reduced_PS):
         """Given the PS *dictionary* providing the reduced kinematics corresponding to

@@ -813,7 +813,7 @@ class ME7Integrand_V(ME7Integrand):
         return res
 
     def evaluate_integrated_counterterm(self, integrated_CT_characteristics, 
-                                   PS_point, flavors, hel_config=None, compute_poles=True):
+                    PS_point, flavors, input_mapping, hel_config=None, compute_poles=True):
         """ Evaluates the specified integrated counterterm specified along with its other
         characteristics, like for example the list of flavors assignments that the resolved
         process it corresponds to can take. This function returns
@@ -829,7 +829,8 @@ class ME7Integrand_V(ME7Integrand):
         counterterm = integrated_CT_characteristics['integrated_counterterm'] 
         resolved_flavors = integrated_CT_characteristics['resolved_flavors_combinations']
         reduced_flavors = integrated_CT_characteristics['reduced_flavors_combinations']
-        input_mapping = integrated_CT_characteristics['input_mapping']
+        symmetry_factor = integrated_CT_characteristics['symmetry_factor']
+
         n_initial = len(flavors[0])
         n_final   = len(flavors[1])
         
@@ -837,11 +838,10 @@ class ME7Integrand_V(ME7Integrand):
             tuple( flavors[0][input_mapping[i]] for i in range(n_initial) ),
             tuple( flavors[1][input_mapping[i]-n_initial] for i in 
                                                       range(n_initial, n_initial+n_final) )
-        )
-        
+        )        
         # And the multiplicity prefactor coming from the several *resolved* flavor assignment
         # that this counterterm can lead to. Typically an integrated counterterm for g > q qbar
-        # splitting will have the same reduced flavorsm, but with the gluon coming from
+        # splitting will have the same reduced flavors, but with the gluon coming from
         # n_f different massless flavors. So that its multiplcitiy factor is n_f.        
         # Also, if you think of the resolved flavors e+ e- > c c~ u u~, the two counterterms
         # C(3,4) and C(5,6) will lead to the reduced flavors g u u~ and c c~ g respectively.
@@ -849,10 +849,12 @@ class ME7Integrand_V(ME7Integrand):
         # the flavors 'g u u~' was selected for example, then the integrated CT C(5,6) would
         # not have any match in its reduced flavors which contains 'c c~ g' only, and it should
         # therefore be skipped. 
-        if not mapped_flavors in reduced_flavors:
+        if not (mapped_flavors in reduced_flavors):
             return None, None
         integrated_CT_multiplicity = reduced_flavors[mapped_flavors]
-        
+        # Also account for the multiplicity from overall symmetry factors S_t
+        integrated_CT_multiplicity *= symmetry_factor
+
         if isinstance(PS_point,dict):
             # Dictionary format LorentzVectorDict starts at 1
             mapped_PS_point = phase_space_generators.LorentzVectorDict(   
@@ -996,25 +998,29 @@ The missing process is: %s"""%reduced_process.nice_string())
                 if i_proc > 0 and not test_options['include_all_flavors']:
                     continue
                 flavors = process.get_cached_initial_final_pdgs()
-                misc.sprint('Integrated counterterms for flavors: %s'%str(flavors))
+#                misc.sprint('Integrated counterterms for flavors: %s'%str(flavors))
                 for counterterm in counterterms_to_consider:
-                    # Evaluate the counterterm
-                    integrated_CT_res, reduced_flavors = self.evaluate_integrated_counterterm(
-                          counterterm, a_virtual_PS_point, flavors, hel_config=None, compute_poles=True)
-                    if integrated_CT_res is None:
-                        continue
-                    misc.sprint('%-20s => %s' % (str(counterterm['integrated_counterterm']), 
-                        integrated_CT_res.__str__(format='.16e') ) )
-                    misc.sprint('   :: %s'%(' & '.join('%s => %s'%(str(k),str(v)) for k,v in 
-                                   counterterm['resolved_flavors_combinations'].items() )))
-                    misc.sprint('   :: %s'%(counterterm['input_mapping']))
-                    misc.sprint('   :: %s'%(counterterm['integrated_counterterm'].process.nice_string()))
-                    misc.sprint('   :: leg numbers = %s > %s'%(
-                        ' '.join('%d'%l.get('number') for l in counterterm['integrated_counterterm'].process.get_initial_legs()),
-                        ' '.join('%d'%l.get('number') for l in counterterm['integrated_counterterm'].process.get_final_legs())
-                        ))
-                    
-                    all_integrated_CT_summed_res += integrated_CT_res
+#                    misc.sprint('>>Investigating counterterm: %s'%str(counterterm['integrated_counterterm']))
+#                    misc.sprint('>>with mappings: %s'%str(counterterm['input_mappings']))
+                    for input_mapping in counterterm['input_mappings']:
+                        # Evaluate the counterterm
+                        integrated_CT_res, reduced_flavors = self.evaluate_integrated_counterterm(
+                            counterterm, a_virtual_PS_point, flavors, input_mapping, 
+                                                          hel_config=None, compute_poles=True)
+                        if integrated_CT_res is None:
+                            continue
+                        misc.sprint('%-20s => %s' % (str(counterterm['integrated_counterterm']), 
+                            integrated_CT_res.__str__(format='.16e') ) )
+#                        misc.sprint('   :: %s'%(' & '.join('%s => %s'%(str(k),str(v)) for k,v in 
+#                                       counterterm['resolved_flavors_combinations'].items() )))
+#                        misc.sprint('   :: %s'%(input_mapping))
+#                        misc.sprint('   :: %s'%(counterterm['integrated_counterterm'].process.nice_string()))
+#                        misc.sprint('   :: leg numbers = %s > %s'%(
+#                            ' '.join('%d'%l.get('number') for l in counterterm['integrated_counterterm'].process.get_initial_legs()),
+#                            ' '.join('%d'%l.get('number') for l in counterterm['integrated_counterterm'].process.get_final_legs())
+#                            ))
+                        
+                        all_integrated_CT_summed_res += integrated_CT_res
                 
             # Add evaluations to the list so as to study how the approximated reals converge towards the real
             evaluation = {
@@ -1077,20 +1083,20 @@ The missing process is: %s"""%reduced_process.nice_string())
         #     { <reduced_flavors_tuple> : [(counterterm, CT_wgt), ] }
         CT_results = {}
         for counterterm_characteristics in self.integrated_counterterms[process_key]:
-
-            CT_wgt, reduced_flavors = self.evaluate_integrated_counterterm(
-               counterterm_characteristics, PS_point, flavors, 
-               hel_config=None, compute_poles=False)
-                
-            if CT_wgt is None or CT_wgt == 0.:
-                continue
-
-            # Register this CT in the dictionary CT_results gathering all evaluations
-            key = reduced_flavors
-            if key not in CT_results:
-                CT_results[key] = [(counterterm_characteristics, CT_wgt)]
-            else:
-                CT_results[key].append((counterterm_characteristics, CT_wgt))        
+            for input_mapping in counterterm_characteristics['input_mappings']:
+                CT_wgt, reduced_flavors = self.evaluate_integrated_counterterm(
+                   counterterm_characteristics, PS_point, flavors, input_mapping,
+                   hel_config=None, compute_poles=False)
+                    
+                if CT_wgt is None or CT_wgt == 0.:
+                    continue
+    
+                # Register this CT in the dictionary CT_results gathering all evaluations
+                key = reduced_flavors
+                if key not in CT_results:
+                    CT_results[key] = [(counterterm_characteristics, CT_wgt)]
+                else:
+                    CT_results[key].append((counterterm_characteristics, CT_wgt))
 
         # Now investigate all the different counterterm contributions to add:
         for reduced_flavors, counterterms_characteristics in CT_results.items():

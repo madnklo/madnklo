@@ -299,6 +299,21 @@ def find_includes_path(start_path, extension):
     return None
 
 #===============================================================================
+# Simple computation of a symmetry factor from a list of flavors
+#===============================================================================
+def symmetry_factor(flavors):
+    """ Computes the symmetry factor for a given list of flavors."""
+    result = 1
+    def fact(n):
+        res = 1
+        for i in range(n,1,-1):
+            res *=i
+        return res
+    for flavor in set(flavors):
+        result *= fact(flavors.count(flavor))
+    return result
+
+#===============================================================================
 # Given the path of a ninja installation, this function determines if it 
 # supports quadruple precision or not. 
 #===============================================================================

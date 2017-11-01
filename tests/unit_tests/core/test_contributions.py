@@ -34,6 +34,161 @@ pjoin = os.path.join
 
 root_path = os.path.dirname(os.path.realpath( __file__ ))
 
+class ME7ContributionStaticTest(IOTests.IOTestManager):
+    """Test class for functionalities related to contributions which do not
+    need any instantiated context (which is slow to generate at the setup stage."""
+
+    def test_basic_permutation_functions(self):
+        """ Test the functions in the virtual contributions implementation related
+        to figuring out the permutation to apply to the kinematics in order to match
+        the flavor orderings of the real-emission contribution reduced process."""
+        
+        res = contributions.Contribution_V.get_basic_permutation(
+            ((11,-11),(21,2,-2)),
+            ((11,-11),(21,-2,2))
+        )
+        self.assertDictEqual(res, {0: 0, 1: 1, 2: 2, 3: 4, 4: 3})
+
+        res = contributions.Contribution_V.get_basic_permutation(
+            ((11,-11),(21,3,-3,11,-11,2,-2)),
+            ((-11,11),(21,3,-3,11,-11,2,-2))
+        )
+        self.assertDictEqual(res, {0:1,1:0,2:2,3:3,4:4,5:5,6:6,7:7,8:8})
+
+        res = contributions.Contribution_V.get_basic_permutation(
+            ((11,-11),(3,21,-3,-2,11,2,-11)),
+            ((-11,11),(21,3,-3,11,-11,2,-2))
+        )
+        self.assertDictEqual(res, {0: 1, 1: 0, 2: 3, 3: 2, 4: 4, 5: 6, 6: 8, 7: 7, 8: 5})
+
+    def test_flavor_distribution_permutation_functions(self):
+        """ Test the function that determines the list of all possible permutations, i.e.
+        assignations of the flavors of parent "singular" flavors to a list of flavors
+        of the reduced process."""
+        
+        # Single flavor tests
+        res = contributions.Contribution_V.distribute_parent_flavors(
+            ({},{21:[2,]}),
+            ((-11,11),(21,21,21))
+        )
+        self.assertListEqual(res,
+            [{2: 2, 3: 3, 4: 4}, {2: 3, 3: 2, 4: 4}, {2: 4, 3: 2, 4: 3}])
+
+        res = contributions.Contribution_V.distribute_parent_flavors(
+            ({},{2:[2,]}),
+            ((-11,11),(2,-2,2,-2))
+        )
+        misc.sprint(res)
+        self.assertListEqual(res,
+            [{2: 2, 3: 3, 4: 4}, {2: 3, 3: 2, 4: 4}, {2: 4, 3: 2, 4: 3}])
+
+        res = contributions.Contribution_V.distribute_parent_flavors(
+            ({},{21:[3,]}),
+            ((-11,11),(21,21,21))
+        )
+        self.assertListEqual(res,
+            [{2: 3, 3: 2, 4: 4}, {2: 2, 3: 3, 4: 4}, {2: 2, 3: 4, 4: 3}])        
+
+        res = contributions.Contribution_V.distribute_parent_flavors(
+            ({},{21:[2,3]}),
+            ((-11,11),(21,21,21))
+        )
+        self.assertListEqual(res,
+            [ {2: 2, 3: 3, 4: 4}, 
+              {2: 2, 3: 4, 4: 3}, 
+              {2: 3, 3: 2, 4: 4},
+              {2: 3, 3: 4, 4: 2},
+              {2: 4, 3: 2, 4: 3},
+              {2: 4, 3: 3, 4: 2}  ]
+        )
+        
+        res = contributions.Contribution_V.distribute_parent_flavors(
+            ({},{21:[2,3,4]}),
+            ((-11,11),(21,21,21))
+        )
+        self.assertListEqual(res,
+            [ {2: 2, 3: 3, 4: 4}, 
+              {2: 2, 3: 4, 4: 3}, 
+              {2: 3, 3: 2, 4: 4},
+              {2: 3, 3: 4, 4: 2},
+              {2: 4, 3: 2, 4: 3},
+              {2: 4, 3: 3, 4: 2}  ]
+        )
+    
+        res = contributions.Contribution_V.distribute_parent_flavors(
+            ({},{21:[2,3,4]}),
+            ((-11,11),(21,21,21,21))
+        )
+        self.assertListEqual(res,
+            [{2: 2, 3: 3, 4: 4, 5: 5}, {2: 2, 3: 3, 4: 5, 5: 4}, {2: 2, 3: 4, 4: 3, 5: 5}, 
+             {2: 2, 3: 4, 4: 5, 5: 3}, {2: 2, 3: 5, 4: 3, 5: 4}, {2: 2, 3: 5, 4: 4, 5: 3}, 
+             {2: 3, 3: 2, 4: 4, 5: 5}, {2: 3, 3: 2, 4: 5, 5: 4}, {2: 3, 3: 4, 4: 2, 5: 5}, 
+             {2: 3, 3: 4, 4: 5, 5: 2}, {2: 3, 3: 5, 4: 2, 5: 4}, {2: 3, 3: 5, 4: 4, 5: 2}, 
+             {2: 4, 3: 2, 4: 3, 5: 5}, {2: 4, 3: 2, 4: 5, 5: 3}, {2: 4, 3: 3, 4: 2, 5: 5}, 
+             {2: 4, 3: 3, 4: 5, 5: 2}, {2: 4, 3: 5, 4: 2, 5: 3}, {2: 4, 3: 5, 4: 3, 5: 2}, 
+             {2: 5, 3: 2, 4: 3, 5: 4}, {2: 5, 3: 2, 4: 4, 5: 3}, {2: 5, 3: 3, 4: 2, 5: 4}, 
+             {2: 5, 3: 3, 4: 4, 5: 2}, {2: 5, 3: 4, 4: 2, 5: 3}, {2: 5, 3: 4, 4: 3, 5: 2}]
+        )
+        
+        res = contributions.Contribution_V.distribute_parent_flavors(
+            ({},{1:[3,]}),
+            ((-11,11),(21,1,-1,1,-1))
+        )
+        self.assertListEqual(res,[{3: 3, 5: 5}, {3: 5, 5: 3}])
+
+        # Multiple flavor tests
+        res = contributions.Contribution_V.distribute_parent_flavors(
+            ({},{1:[3,],2:[9,]}),
+            ((-11,11),(21,1,-1,1,-1,2,-2,2,-2))
+        )
+        self.assertListEqual(res, [{9: 7, 3: 3, 5: 5, 7: 9}, {9: 9, 3: 3, 5: 5, 7: 7}, 
+                          {9: 7, 3: 5, 5: 3, 7: 9}, {9: 9, 3: 5, 5: 3, 7: 7}])
+        
+        res = contributions.Contribution_V.distribute_parent_flavors(
+            ({21:[0,]},{1:[3,],2:[9,]}),
+            ((21,22),(21,1,-1,1,-1,2,-2,2,-2))
+        )
+        self.assertListEqual(res, 
+            [ {0: 0, 9: 7, 3: 3, 5: 5, 7: 9}, {0: 0, 9: 9, 3: 3, 5: 5, 7: 7}, 
+              {0: 0, 9: 7, 3: 5, 5: 3, 7: 9}, {0: 0, 9: 9, 3: 5, 5: 3, 7: 7} ]
+        )
+        
+        res = contributions.Contribution_V.distribute_parent_flavors(
+            ({21:[1,]},{1:[3,],2:[9,]}),
+            ((21,21),(21,1,-1,1,-1,2,-2,2,-2))
+        )
+        self.assertListEqual(res,
+            [{0: 1, 1: 0, 3: 3, 5: 5, 7: 9, 9: 7}, {0: 1, 1: 0, 3: 3, 5: 5, 7: 7, 9: 9}, 
+             {0: 1, 1: 0, 3: 5, 5: 3, 7: 9, 9: 7}, {0: 1, 1: 0, 3: 5, 5: 3, 7: 7, 9: 9}, 
+             {0: 0, 1: 1, 3: 3, 5: 5, 7: 9, 9: 7}, {0: 0, 1: 1, 3: 3, 5: 5, 7: 7, 9: 9}, 
+             {0: 0, 1: 1, 3: 5, 5: 3, 7: 9, 9: 7}, {0: 0, 1: 1, 3: 5, 5: 3, 7: 7, 9: 9}]
+        )
+        
+        res = contributions.Contribution_V.distribute_parent_flavors(
+            ({},{1:[2,10],2:[5,12]}),
+            ((-11,11),(1,-1,1,2,-1,2,-2,-2,1,-1,2,-2))
+        )
+        self.assertListEqual(res,
+            [ {2: 2, 4: 10, 5: 5, 7: 12, 10: 4, 12: 7}, {2: 2, 4: 10, 5: 5, 7: 7, 10: 4, 12: 12}, 
+             {2: 2, 4: 10, 5: 7, 7: 12, 10: 4, 12: 5}, {2: 2, 4: 10, 5: 7, 7: 5, 10: 4, 12: 12}, 
+             {2: 2, 4: 10, 5: 12, 7: 7, 10: 4, 12: 5}, {2: 2, 4: 10, 5: 12, 7: 5, 10: 4, 12: 7}, 
+             {2: 2, 4: 4, 5: 5, 7: 12, 10: 10, 12: 7}, {2: 2, 4: 4, 5: 5, 7: 7, 10: 10, 12: 12}, 
+             {2: 2, 4: 4, 5: 7, 7: 12, 10: 10, 12: 5}, {2: 2, 4: 4, 5: 7, 7: 5, 10: 10, 12: 12}, 
+             {2: 2, 4: 4, 5: 12, 7: 7, 10: 10, 12: 5}, {2: 2, 4: 4, 5: 12, 7: 5, 10: 10, 12: 7}, 
+             {2: 4, 4: 10, 5: 5, 7: 12, 10: 2, 12: 7}, {2: 4, 4: 10, 5: 5, 7: 7, 10: 2, 12: 12}, 
+             {2: 4, 4: 10, 5: 7, 7: 12, 10: 2, 12: 5}, {2: 4, 4: 10, 5: 7, 7: 5, 10: 2, 12: 12}, 
+             {2: 4, 4: 10, 5: 12, 7: 7, 10: 2, 12: 5}, {2: 4, 4: 10, 5: 12, 7: 5, 10: 2, 12: 7}, 
+             {2: 4, 4: 2, 5: 5, 7: 12, 10: 10, 12: 7}, {2: 4, 4: 2, 5: 5, 7: 7, 10: 10, 12: 12}, 
+             {2: 4, 4: 2, 5: 7, 7: 12, 10: 10, 12: 5}, {2: 4, 4: 2, 5: 7, 7: 5, 10: 10, 12: 12}, 
+             {2: 4, 4: 2, 5: 12, 7: 7, 10: 10, 12: 5}, {2: 4, 4: 2, 5: 12, 7: 5, 10: 10, 12: 7},
+            {2: 10, 4: 4, 5: 5, 7: 12, 10: 2, 12: 7}, {2: 10, 4: 4, 5: 5, 7: 7, 10: 2, 12: 12}, 
+            {2: 10, 4: 4, 5: 7, 7: 12, 10: 2, 12: 5}, {2: 10, 4: 4, 5: 7, 7: 5, 10: 2, 12: 12}, 
+            {2: 10, 4: 4, 5: 12, 7: 7, 10: 2, 12: 5}, {2: 10, 4: 4, 5: 12, 7: 5, 10: 2, 12: 7}, 
+            {2: 10, 4: 2, 5: 5, 7: 12, 10: 4, 12: 7}, {2: 10, 4: 2, 5: 5, 7: 7, 10: 4, 12: 12}, 
+            {2: 10, 4: 2, 5: 7, 7: 12, 10: 4, 12: 5}, {2: 10, 4: 2, 5: 7, 7: 5, 10: 4, 12: 12}, 
+            {2: 10, 4: 2, 5: 12, 7: 7, 10: 4, 12: 5}, {2: 10, 4: 2, 5: 12, 7: 5, 10: 4, 12: 7}]
+        )
+
 class ME7ContributionTest(IOTests.IOTestManager):
     """Test class for functionalities related to contributions."""
     

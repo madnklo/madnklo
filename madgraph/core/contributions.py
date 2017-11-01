@@ -1008,12 +1008,107 @@ class Contribution_R(Contribution):
             
 #            misc.sprint('doing process:',defining_process.nice_string())
 #            misc.sprint('flavors_combinations',flavors_combinations)
+            # Keep track of all integrated current topologies considered so as to never
+            # repeat the same one twice, because it will be distributed over all possible
+            # assignment of kinematics in the reduced virtual process.
+            # For instance, if the real emission process is:
+            #   e+(1) e-(2) > d(3) d~(4) d(5) d~(6) g(7)
+            # Then the counterterms C(3,7) and C(5,7) have the same topology and C(5,7) should
+            # be discarded because the counterterm C(3,7) will be distributed on both
+            # d-quark #3 and #5 of the following reduced virtual process:
+            #    e+(1) e-(2) > d(3) d~(4) d(5) d~(6)
+            # We must therefore first distribute all counterterms over identical topologies
+            integrated_current_topologies = {}
             for integrated_counterterm in integrated_counterterms:
+                # The integrated current topology can directly be encoded as its ProcessKey
+                # where the leg numbers are removed
+                copied_current = integrated_counterterm.get_integrated_current().\
+                                          get_copy(('squared_orders','singular_structure'))
+                copied_current.discard_leg_numbers()
+                integrated_current_topology = copied_current.get_key().get_canonical_key()
+                try:
+                    integrated_current_topologies[integrated_current_topology].append(
+                                                                    integrated_counterterm)             
+#                    misc.sprint("Skipping integrated counterterm:\n%s\n"%str(integrated_counterterm)+
+#                                "because it has the same topology has:\n%s"%
+#                                    str(integrated_currents_topologies[integrated_current_topology][0]))
+                except KeyError:
+                    # Register the new integrated current topology
+                    integrated_current_topologies[integrated_current_topology] = [integrated_counterterm,]
+            
+            
+            # For each topology, count the number of counterterms that are associated to
+            # various list of external leg numbers. Within a given topology, one expects
+            # that there is the same number of counterterm repetition for each combination of external legs
+            # Example: resolved process is
+            #   e+(1) e-(2) > g(3) g(4) g(5) d(6) d~(7)
+            # All the following counterterm belong to the same topology, which we group here according
+            # to which list of external leg numbers they include:
+            #   (3,4,6) : C(C(S(3),4),6), C(C(S(4),3),6) 
+            #   (3,5,6) : C(C(S(3),5),6), C(C(S(5),3),6) 
+            #   (4,5,6) : C(C(S(4),5),6), C(C(S(5),4),6)
+            # And we see that the repetition is now 2, and it is the same for each group.
+            # On the other hand the repetition would have been only 1 for the topology
+            # of the form  C(C(3,4),6) (i.e. no soft) since C(C(4,3),6) is not generated.
+            repetitions_for_topology = {}
+            for integrated_current_topology, integrated_counterterms in integrated_current_topologies.items():
+                repetitions={}
+                for integrated_counterterm in integrated_counterterms:
+                    # Gather what are the singular leg numbers for each singular structure involved
+                    singular_external_leg_numbers_list = []
+                    for node in integrated_counterterm.nodes:
+                        singular_legs = node.current['singular_structure'].get_all_legs()
+                        # Sorted tuple of the numbers of all legs that are external
+                        singular_external_leg_numbers_list.append( 
+                            tuple(sorted([l.n for l in singular_legs if 
+                            integrated_counterterm.momenta_dict[l.n] == frozenset([l.n,])])) )
+                    singular_external_leg_numbers_tuple = tuple(sorted(singular_external_leg_numbers_list))
+                    try:
+                        repetitions[singular_external_leg_numbers_tuple] += 1
+                    except KeyError:
+                        repetitions[singular_external_leg_numbers_tuple] = 1
+                n_repetitions = set(repetitions.values())
+                if len(n_repetitions) != 1:
+                    raise MadGraph5Error(
+"All the following integrated counterterms share the same topology:\n"+
+'\n'.join(str(CT) for CT in integrated_counterterms)+'\n'+
+'But the repetition numbers derived from them is not identical in each group of singular legs:\n'+
+'\n'.join('%s -> %d'%(str(k), v) for k,v in repetitions.items())+'\n'+
+'This is not expected to happen.')
+                repetitions_for_topology[integrated_current_topology] = repetitions.values()[0]
+
+            for integrated_current_topology, integrated_counterterms in integrated_current_topologies.items():
+                # We only include the first integrated counterterm matching this topology
+                # The others are included effectively by the fact that this countertm will
+                # be distributed in all possible permutations of the virtual process flavors
+                integrated_counterterm = integrated_counterterms[0]
+    
 #                misc.sprint('Doing counterterm:',str(integrated_counterterm))
                 # List the reduced flavors combinations. The keys are the tuple of the reduced
                 # flavors combination and the value is the multiplication factor.
-                reduced_flavors_combinations = {}
-                resolved_flavors_combinations = {}
+                reduced_flavors_combinations    = {}
+                resolved_flavors_combinations   = {}
+                # Each integrated counterterm contributes proportionally to the ratio
+                # of the symmetry factors of the resolved process and reduced one,
+                # further divided by the symmetry factor of each group external leg
+                # part of a singular structure.
+                # For instance if the resolved process is:
+                #    e+(1) e-(2) > d(3) d~(4) d(5) d~(6) g(7) g(8) g(9)
+                # And the counterterm is C(3,4), C(5,6) and C(7,8), then the reduced process is
+                #    e+(1) e-(2) > g(10) g(11) g(12) g(9)
+                # (ignore the fact that the reduced ME is zero) and it will contribute with
+                # the weight:
+                #   S_t = (S_r / S_s) / S_u
+                # Where S_r is the symmetry factor of the resolved process:
+                #   S_r = 2!*2!*3! = 24
+                # And S_s the product of the symmetry factor each group of singular legs:
+                #   S_s = (1!*1!)*(1!*1!)*(2!) = 2
+                # And S_u the symmetry factor of the unresolved process
+                #   S_u = 4! = 24
+                # So that the final resulting S_t is 1/2. The "symmetry_factors" attribute
+                # below stores the symmetry factor S_t for each reduced flavor.
+                # There should always be a unique value of S_t for each reduced_flavor
+                symmetry_factors                = {}
                 for flavor_combination, leg_numbers in flavors_combinations:
                     # Create a map from leg number to flavor
                     number_to_flavor_map = dict( 
@@ -1023,21 +1118,70 @@ class Contribution_R(Contribution):
                     reduced_flavors = integrated_counterterm.get_reduced_flavors(
                       defining_flavors=number_to_flavor_map, IR_subtraction=self.IR_subtraction)
 #                    misc.sprint('From resolved flavor:',flavor_combination)
-#                    misc.sprint('I get:',reduced_flavors)                    
+#                    misc.sprint('I get:',reduced_flavors)
+
+                    resolved_symmetry_factor = misc.symmetry_factor(list(flavor_combination[1]))
+                    reduced_symmetry_factor = misc.symmetry_factor(list(reduced_flavors[1]))
+                    # Now identify the groups of external legs relevant for each singular structure
+                    # of this integrated counterterm
+                    singular_legs_symmetry_factor = 1
+                    for node in integrated_counterterm.nodes:
+                        singular_legs = node.current['singular_structure'].get_all_legs()
+                        # List the numbers of all legs that are external
+                        singular_external_leg_pdgs = [number_to_flavor_map[l.n] for 
+                            l in singular_legs if l.state==subtraction.SubtractionLeg.FINAL]
+                        singular_legs_symmetry_factor *= misc.symmetry_factor(singular_external_leg_pdgs)
+
+#                    misc.sprint('Counterterm: %s'%str(integrated_counterterm))
+#                    misc.sprint('    -> multiplicity                   = %d'%len(integrated_counterterms))
+#                    misc.sprint('    -> CT with same topologies        = %s'%(' | '.join(str(CT) for CT in integrated_counterterms)) )                    
+#                    misc.sprint('    -> resolved_flavors               = %s'%str(flavor_combination))
+#                    misc.sprint('    -> reduced                        = %s'%str(reduced_flavors))
+#                    misc.sprint('    -> resolved_symmetry_factor       = %d'%resolved_symmetry_factor)
+#                    misc.sprint('    -> reduced_symmetry_factor        = %d'%reduced_symmetry_factor)
+#                    misc.sprint('    -> singular_legs_symmetry_factor  = %f'%singular_legs_symmetry_factor)
+#                    misc.sprint('    -> counterterm_repetition_factor  = %f'%repetitions_for_topology[integrated_current_topology])
+                        
+                    # Now correct for the repetition number in that topology
+                    # Notice it should always be an integer, the float here is just so that
+                    # one can check this explicitly.
+                    singular_legs_symmetry_factor /= float(repetitions_for_topology[integrated_current_topology])
+
+                    overall_symmetry_factor = resolved_symmetry_factor/\
+                               float(reduced_symmetry_factor*singular_legs_symmetry_factor)
                     try:
                         reduced_flavors_combinations[reduced_flavors] += 1
                     except KeyError:
                         reduced_flavors_combinations[reduced_flavors] = 1
                     resolved_flavors_combinations[flavor_combination] = reduced_flavors
+                    
+                    if reduced_flavors in symmetry_factors:
+                        # Sanity check, all reduced flavors should share the same S_t
+                        if overall_symmetry_factor != symmetry_factors[reduced_flavors]:
+                            raise MadGraph5Error(
+"The overall symmetry factors derived for counterterm %s and resolved "%str(integrated_counterterm)+
+"flavors %s is different than one previously derived from a different "%str(flavor_combination)+
+"flavor combination.  %f =!= %f"%(overall_symmetry_factor, symmetry_factors[reduced_flavors]))
+                    else:
+                        symmetry_factors[reduced_flavors] = overall_symmetry_factor
                 
 #                misc.sprint('Finally having reduced_flavors_combinations=',reduced_flavors_combinations)
 #                misc.sprint('For reduced process = ',integrated_counterterm.process.nice_string())
-                # The list of reduced_flavors_combination is of course redundant
-                # but it's nice not to have to compute it at run_time.
+                # Final sanity check, which should hold as far as the developer anticipated
+                if len(set(symmetry_factors.values()))!=1:
+                    raise MadGraph5Error(
+"For the counterterm %s with the following resolved and reduced flavors:\n"%str(integrated_counterterm)+
+'\n'.join('%s => %s'%(str(k),str(v)) for k, v in resolved_flavors_combinations.items())+'\n'+
+"The list of overall symmetry factors computed contains the following different values:\n"+
+'\n'.join('%s => %f'%(str(k),v) for k, v in symmetry_factors.items())+'\n'+
+"This is thought never to happen.")
+
                 all_integrated_counterterms.append({
                     'integrated_counterterm'             :   integrated_counterterm,
                     'resolved_flavors_combinations'      :   resolved_flavors_combinations,
-                    'reduced_flavors_combinations'       :   reduced_flavors_combinations
+                    'reduced_flavors_combinations'       :   reduced_flavors_combinations,
+                    'symmetry_factor'                    :   symmetry_factors.values()[0],
+                    'multiplicity'                       :   len(integrated_counterterms)
                 })
 
         return all_integrated_counterterms
@@ -1301,17 +1445,7 @@ class Contribution_V(Contribution):
         all_currents = []
         for CT_properties in sum(self.integrated_counterterms.values(),[]):
             counterterm = CT_properties['integrated_counterterm']
-            # For now we only support a basic integrated counterterm which is not broken
-            # down in subcurrents but contains a single CountertermNode with a single
-            # current in it that contains the whole singular structure describing this
-            # integrated counterterm.
-            if len(counterterm.nodes) != 1 or len(counterterm.nodes[0].nodes) != 0:
-                raise MadGraph5Error(
-                    """For now, MadEvent7 only support simple integrated
-                    counterterms that consists of single current encompassing the full
-                    singular structure that must be analytically integrated over.""")
-            integrated_current = counterterm.nodes[0].current
-            assert(isinstance(integrated_current, subtraction.IntegratedCurrent))
+            integrated_current = counterterm.get_integrated_current()
             
             # Retain only a single copy of each needed current.
             # We must remove the leg information since this is information is irrelevant
@@ -1372,6 +1506,156 @@ class Contribution_V(Contribution):
 
         self.add_current_accessors(self.model, all_MEAccessors, root_path, currents_to_consider)
 
+    @classmethod
+    def get_basic_permutation(cls, origin_pdg_orders, destination_pdg_orders):
+        """ Figures out the permutation to apply to map the origin pdg orders
+        (a 2-tuple of initial and final state pdgs) to the destination pdg orders (same format)."""
+
+
+        # Create a look_up list from the user-provided list of PDGs, whose elements will progressively be set to zero
+        # as they are being mapped
+        look_up_list = list(list(a_tuple) for a_tuple in origin_pdg_orders)
+        
+        basic_permutation = {}
+        # Map the initial states
+        for i, pdg in enumerate(destination_pdg_orders[0]):
+            try:
+                basic_permutation[i] = look_up_list[0].index(pdg)
+                # Set the element that just got mapped to 0 in the look_up_list so that it will not be reused
+                look_up_list[0][basic_permutation[i]] = 0
+            except ValueError:
+                raise MadGraph5Error("Cannot map two PDGs list: %s and %s"%(
+                                str(destination_pdg_orders[0]), str(origin_pdg_orders[0])))
+        
+        # Map final states now
+        n_initial = len(destination_pdg_orders[0])
+        for i, pdg in enumerate(destination_pdg_orders[1]):
+            try:
+                basic_permutation[i+n_initial] = look_up_list[1].index(pdg)+n_initial
+                # Set the element that just got mapped to 0 in the look_up_list so that it will not be reused
+                look_up_list[1][basic_permutation[i+n_initial]-n_initial] = 0
+            except ValueError:
+                raise MadGraph5Error("Cannot map two PDGs list: %s and %s"%(
+                                str(destination_pdg_orders[1]), str(origin_pdg_orders[1])))   
+        
+        return basic_permutation
+        
+    @classmethod
+    def distribute_parent_flavors(cls, parent_flavors, reduced_process_pdgs):
+        """ Returns a list of mapping (aka. permutations) that assign the parent_flavors,
+        which is a 2-tuple of the following format:
+             ( { initial_state_"singular"_flavor_pdg : [leg_positions] }, 
+               { final_state_"singular"_flavor_pdg   : [leg_positions] } )
+        to all possible places in the reduced_process_pdgs_list which is simply
+             ( (initial_state_pdgs), (final_state_pdgs) )
+        For instance if the parent flavors to distribute are only final and read:
+            ( {}, {1:[2,7], 21:[6,11]} )
+        and the reduced_process_pdgs are:
+           (11, -11), (1,1,-1,-1,21,1,1,-1,-1,21,21)
+        Then the list of permuations returned correspond to all possible ways of 
+        assigning d-quarks at positions 2 and 7 and gluons at position 6 and 11 given the
+        flavor content of the reduced process.
+        """
+
+        n_initial = len(reduced_process_pdgs[0])
+        initial_state_parent_flavors = parent_flavors[0]
+        final_state_parent_flavors = parent_flavors[1]
+
+        # First build the list of positions of each flavor in the reduced process
+        initial_flavor_positions = {}
+        for i, flavor in enumerate(reduced_process_pdgs[0]):
+            try:
+                initial_flavor_positions[flavor].append(i)
+            except KeyError:
+                initial_flavor_positions[flavor] = [i,]
+        final_flavor_positions = {}
+        for i, flavor in enumerate(reduced_process_pdgs[1]):
+            try:
+                final_flavor_positions[flavor].append(i+n_initial)
+            except KeyError:
+                final_flavor_positions[flavor] = [i+n_initial,]
+
+        # Now for each parent flavor, build all ordered N-list of matching flavors in the
+        # counterterm reduced process, where N is the number of parents of that flavor.
+        # Example; if the real-emission process is
+        #    e+(1) e-(2) > d(3) d~(4) d(5) d~(6) g(7)  
+        # And the integrated counterterm is C(3,4)C(5,6), then the reduced process is:
+        #    e+(1) e-(2) > g(8) g(9) g(7) 
+        # And we need to distribute this integragrated counterterm of *all* assignements 
+        # of the two (N=2) gluon momenta of leg 8 and 9 in the virtual process:
+        #    e+(1) e-(2) > g(3) g(4) g(5)
+        # Which leads to the following permutations: (remember that 8,9,7 will be automatically
+        # considered as consecutive leg numbers in 'get_reduced_kinematics')
+        #  (3,4,5), (3,5,4), (4,3,5), (4,5,3), (5,3,4), (5,4,3)
+        # We do this for initial and final states separately
+        initial_mappings = [{}]
+        for flavor, parent_positions in initial_state_parent_flavors.items():
+            picks = list( itertools.permutations(initial_flavor_positions[flavor], len(parent_positions)) )
+            initial_mappings_for_this_flavor = []
+            for pick in picks:
+                mapping = {}
+                # List all flavor position not selected for being parents
+                unused_flavor_positions = [pos for pos in initial_flavor_positions[flavor] if pos not in pick]
+                # loop over all flavor positions to map
+                for flavor_pos in initial_flavor_positions[flavor]:
+                    if flavor_pos in parent_positions:
+                        # if the position of this flavor is one of the 'singular' parent ones,
+                        # then assign it to what is selected in that specific pick.
+                        destination = pick[parent_positions.index(flavor_pos)]
+                        mapping[flavor_pos] = destination
+                    else:
+                        # Otherwise just assign the next available flavor position not selected
+                        mapping[flavor_pos] = unused_flavor_positions.pop(0)
+                initial_mappings_for_this_flavor.append(mapping)
+            # Now combine the mappings found for this flavor with all the ones already
+            # found for other flavors
+            new_initial_mappings = []
+            for initial_mapping in initial_mappings:
+                for mapping in initial_mappings_for_this_flavor:
+                    copied_mapping = dict(initial_mapping)
+                    copied_mapping.update(mapping)
+                    new_initial_mappings.append(copied_mapping)
+            initial_mappings = new_initial_mappings
+        
+        final_mappings = [{}]
+        for flavor, parent_positions in final_state_parent_flavors.items():
+            picks = list( itertools.permutations(final_flavor_positions[flavor], len(parent_positions)) )
+            final_mappings_for_this_flavor = []
+            for pick in picks:
+                mapping = {}
+                # List all flavor position not selected for being parents
+                unused_flavor_positions = [pos for pos in final_flavor_positions[flavor] if pos not in pick]
+                # loop over all flavor positions to map
+                for flavor_pos in final_flavor_positions[flavor]:
+                    if flavor_pos in parent_positions:
+                        # if the position of this flavor is one of the 'singular' parent ones,
+                        # then assign it to what is selected in that specific pick.
+                        destination = pick[parent_positions.index(flavor_pos)]
+                        mapping[flavor_pos] = destination 
+                    else:
+                        # Otherwise just assign the next available flavor position not selected 
+                        mapping[flavor_pos] = unused_flavor_positions.pop(0)
+                final_mappings_for_this_flavor.append(mapping)
+            # Now combine the mappings found for this flavor with all the ones already
+            # found for other flavors
+            new_final_mappings = []
+            for final_mapping in final_mappings:
+                for mapping in final_mappings_for_this_flavor:
+                    copied_mapping = dict(final_mapping)
+                    copied_mapping.update(mapping)
+                    new_final_mappings.append(copied_mapping)
+            final_mappings = new_final_mappings
+            
+        # Now combine initial and final mappings
+        all_mappings = []
+        for initial_mapping in initial_mappings:
+            for final_mapping in final_mappings:
+                copied_mapping = dict(initial_mapping)
+                copied_mapping.update(final_mapping)
+                all_mappings.append(copied_mapping)
+        
+        return all_mappings
+
     def add_integrated_counterterm(self, integrated_CT_properties):
         """ Virtual contributions can receive integrated counterterms and they will
         be stored in the attribute list self.integrated_counterterms."""
@@ -1414,46 +1698,95 @@ class Contribution_V(Contribution):
         
         # Now we can simply add this integrated counterterm in the group of the
         # defining process to which the reduced process is mapped
-        defining_key, reduced_process_instance = \
+        defining_key, virtual_process_instance = \
                                      inverse_processes_map[counterterm_reduced_process_key]
         
         integrated_counterterm_properties = dict(integrated_CT_properties)
-                
-        # Compute the mapping to apply to the flavors/PS_point of the virtual contribution
-        # in order to get the ordering of the integrated counterterm.
-        permutation = {}
-        # Create a look_up list from the user-provided list of PDGs, whose elements will progressively be set to zero
-        # as they are being mapped
-        look_up_list = [reduced_process_instance.get_initial_ids(), 
-                        reduced_process_instance.get_final_ids_after_decay() ]
-        # copy of the look_op_list for the error message
-        target_pdgs = [list(look_up_list[0]), list(look_up_list[1])]
-                
-        defining_pdgs_order = (integrated_counterterm.process.get_initial_ids(),
-                               integrated_counterterm.process.get_final_ids_after_decay())
+       
+        # Given the reduced flavors, find all ways of distributing them over the (mapped) flavors
+        # of the virtual process. Each possible way gives a specific permutations of the input
+        # kinematics that will need to be considered when evaluating the integrated counterterm.
+        # These permutations are listed in the variable "permutations" below.
+        # Example: 
+        #   e+(1) e-(2) > d(3) d~(4) d(5) d~(6) g(7)
+        # Then the counterterms C(3,7) and C(5,7) have the same topology and C(5,7) is
+        # be discarded because the counterterm C(3,7) will be distributed on both
+        # d-quark #3 and #5 of the following virtual process:
+        #  e+(1) e-(2) > d(3) d~(4) d(5) d~(6)
+        permutations = []
+        
+        # First compute the base_permutation which is one particular permutation that correctly
+        # sends legs of a given flavor from the virtual process to those of the integrated
+        # counterterm reduced process. For example, if the virtual process is:
+        #     e+(1) e-(2) > d(3) d(4) d~(5) d~(6)
+        # and the reduced process of the integrated counterterm is:
+        #     e+(1) e-(2) > d(3) d~(4) d(5) d~(6)
+        # Then the base_permuation will be
+        #     {0:0, 1:1, 2:2, 3:4, 4:3, 5:5}
+        origin_pdgs_order = (virtual_process_instance.get_initial_ids(), 
+                             virtual_process_instance.get_final_ids_after_decay())
+        destination_pdgs_order = (integrated_counterterm.process.get_initial_ids(),
+                                  integrated_counterterm.process.get_final_ids_after_decay())
+        # Obtain the corresponding permutation
+        basic_permutation = self.get_basic_permutation(origin_pdgs_order,destination_pdgs_order)
 
-        # Map the initial states
-        for i, pdg in enumerate(defining_pdgs_order[0]):
-            try:
-                permutation[i] = look_up_list[0].index(pdg)
-                # Set the element that just got mapped to 0 in the look_up_list so that it will not be reused
-                look_up_list[0][permutation[i]] = 0
-            except ValueError:
-                raise MadGraph5Error("Cannot map two PDGs list: %s and %s"%(str(defining_pdgs_order[0]), str(target_pdgs[0])))
+        # Now we need to distribute all flavors that are parents of the integrated current
+        # in all possible ways. In the example below, the parent of C(3,7) is a d-quark and
+        # we must assign it as both leg #3 and leg #5 of the following reduced integrated
+        # counterterm process:
+        #          e+(1) e-(2) > d(3) d~(4) d(5) d~(6)
+        #
+        # First, we must get what are the "singular" parent flavors, and their position
+        # in the list of external legs of the reduced process.
+        initial_state_parent_flavors = {}
+        final_state_parent_flavors = {}
+        n_initial = len(destination_pdgs_order[0])
+        momenta_dict = integrated_counterterm.momenta_dict
+        for i, leg in enumerate(integrated_counterterm.process.get_initial_legs()):
+            if momenta_dict[leg.get('number')] != frozenset([leg.get('number'),]):
+                try:
+                    initial_state_parent_flavors[leg.get('id')].append(i)
+                except KeyError:
+                    initial_state_parent_flavors[leg.get('id')] = [i,]
+        for i, leg in enumerate(integrated_counterterm.process.get_final_legs()):
+            if momenta_dict[leg.get('number')] != frozenset([leg.get('number'),]):
+                try:
+                    final_state_parent_flavors[leg.get('id')].append(i+n_initial)
+                except KeyError:
+                    final_state_parent_flavors[leg.get('id')] = [i+n_initial,]
+
+        # Now obtain all possible ways of distributing these parent flavors over the
+        # flavors of the underlying reduced process.
+        flavor_permutations = self.distribute_parent_flavors(
+            (initial_state_parent_flavors, final_state_parent_flavors),
+            destination_pdgs_order)
+#        misc.sprint('For integrated counterterm %s, flavor permutations are: %s'%(str(integrated_counterterm),str(flavor_permutations)))
         
-        # Map final states now
-        n_initial = len(defining_pdgs_order[0])
-        for i, pdg in enumerate(defining_pdgs_order[1]):
-            try:
-                permutation[i+n_initial] = look_up_list[1].index(pdg)+n_initial
-                # Set the element that just got mapped to 0 in the look_up_list so that it will not be reused
-                look_up_list[1][permutation[i+n_initial]-n_initial] = 0
-            except ValueError:
-                raise MadGraph5Error("Cannot map two PDGs list: %s and %s"%(str(defining_pdgs_order[1]), str(target_pdgs[1])))        
-        
+        # Now combine these permutations with the basic permutation to obtain the final
+        # list of permutations to consider
+        for flavor_permutation in flavor_permutations:
+            permutations.append(
+                dict((flavor_permutation.get(destination, destination), origin)
+                                     for destination, origin  in basic_permutation.items() ))
+
         # Store the mapping to apply to the virtual ME inputs
-        integrated_counterterm_properties['input_mapping'] = permutation
+        integrated_counterterm_properties['input_mappings'] = permutations
         
+        # Sanity check that is anticpated to always hold. Powerful non-trivial check
+        symmetry_factor = integrated_counterterm_properties['symmetry_factor']
+        reproduced_symmetry_factor = integrated_counterterm_properties['multiplicity']/float(len(permutations))
+        if symmetry_factor != reproduced_symmetry_factor:
+            raise MadGraph5Error(
+"The overall symmetry factor of integrated counterterm %s"%str(integrated_counterterm)+
+" does not match when computed from symmetry factors (%f) and from CT multiplicity (%f=%d/%d)."
+%(symmetry_factor,reproduced_symmetry_factor,integrated_counterterm_properties['multiplicity'],len(permutations))+
+"\nFlavors assignments are:\n"+'\n'.join('%s => %s'%(str(k),str(v)) for k, v in 
+               integrated_counterterm_properties['resolved_flavors_combinations'].items()))
+
+        # For safety in case the statement above is commented, force the symmetry factor
+        # to be the one recomputed here
+        integrated_counterterm_properties['symmetry_factor'] = reproduced_symmetry_factor
+
         self.integrated_counterterms[defining_key].append(integrated_counterterm_properties)
         
         # Let the ME7 exporter that we could successfully host this integrated counterterm

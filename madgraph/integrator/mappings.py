@@ -1086,7 +1086,6 @@ class SimpleNLOWalker(VirtualWalker):
                 new_ss = ss
                 if new_ss.substructures:
                     new_ss = subtraction.CollStructure(legs=ss.get_all_legs())
-                print "Mapping down ", new_ss, " recoiling against ", recoilers
                 jacobian *= self.collinear_map.map_to_lower_multiplicity(
                     point,
                     subtraction.SingularStructure(legs=recoilers, substructures=(new_ss,)),
@@ -1095,7 +1094,6 @@ class SimpleNLOWalker(VirtualWalker):
                 )
                 momenta[parent] = LorentzVector(point[parent])
             elif ss.name() == 'S':
-                print "Mapping down ", ss, " recoiling against ", recoilers
                 jacobian *= self.soft_map.map_to_lower_multiplicity(
                     point,
                     subtraction.SingularStructure(legs=recoilers, substructures=(ss,)),
@@ -1173,7 +1171,6 @@ class SimpleNLOWalker(VirtualWalker):
                 if new_ss.substructures:
                     new_ss = subtraction.CollStructure(legs=ss.get_all_legs())
                 momenta[parent] = LorentzVector(point[parent])
-                print "Mapping up ", new_ss, " recoiling against ", recoilers
                 jacobian *= self.collinear_map.map_to_higher_multiplicity(
                     point,
                     subtraction.SingularStructure(legs=recoilers, substructures=(new_ss,)),
@@ -1181,7 +1178,6 @@ class SimpleNLOWalker(VirtualWalker):
                     kinematic_variables
                 )
             elif ss.name() == 'S':
-                print "Mapping up ", ss, " recoiling against ", recoilers
                 jacobian *= self.soft_map.map_to_higher_multiplicity(
                     point,
                     subtraction.SingularStructure(legs=recoilers, substructures=(ss,)),

@@ -78,9 +78,31 @@ class ME7ContributionStaticTest(IOTests.IOTestManager):
             ({},{2:[2,]}),
             ((-11,11),(2,-2,2,-2))
         )
-        misc.sprint(res)
-        self.assertListEqual(res,
-            [{2: 2, 3: 3, 4: 4}, {2: 3, 3: 2, 4: 4}, {2: 4, 3: 2, 4: 3}])
+        self.assertListEqual(res,[{2: 2, 4: 4}, {2: 4, 4: 2}])
+
+        ## START ##
+        # A simplistic test that is representative of what happens at the end of the
+        # function add_integrated_counterterm(...) in Contribution_V
+        basic_perm = contributions.Contribution_V.get_basic_permutation(
+            ((11,-11),(21,21,21,1,-1)),
+            ((11,-11),(21,21,1,-1,21))
+        )
+        flavor_permutations = contributions.Contribution_V.distribute_parent_flavors(
+            ({},{21:[6,]}),
+            ((-11,11),(21, 21, 1, -1, 21))
+        )
+        all_permutations = []
+        for i, flav_perm in enumerate(flavor_permutations):
+            combined_permutation = {}
+            for position in basic_perm.keys():
+                combined_permutation[position] = basic_perm[flav_perm.get(position, position)]
+            all_permutations.append(combined_permutation)
+        self.assertListEqual(all_permutations,
+            [{0: 0, 1: 1, 2: 3, 3: 4, 4: 5, 5: 6, 6: 2},
+             {0: 0, 1: 1, 2: 2, 3: 4, 4: 5, 5: 6, 6: 3},
+             {0: 0, 1: 1, 2: 2, 3: 3, 4: 5, 5: 6, 6: 4}
+            ])
+        ## END ##
 
         res = contributions.Contribution_V.distribute_parent_flavors(
             ({},{21:[3,]}),

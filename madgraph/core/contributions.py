@@ -1765,9 +1765,10 @@ class Contribution_V(Contribution):
         # Now combine these permutations with the basic permutation to obtain the final
         # list of permutations to consider
         for flavor_permutation in flavor_permutations:
-            permutations.append(
-                dict((flavor_permutation.get(destination, destination), origin)
-                                     for destination, origin  in basic_permutation.items() ))
+            combined_permuation = {}
+            for index in basic_permutation.keys():
+                combined_permuation[index] = basic_permutation[flavor_permutation.get(index, index)]
+            permutations.append(combined_permuation)
 
         # Store the mapping to apply to the virtual ME inputs
         integrated_counterterm_properties['input_mappings'] = permutations

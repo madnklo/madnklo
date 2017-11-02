@@ -872,6 +872,14 @@ class ME7Integrand_V(ME7Integrand):
         # integrated current
         reduced_PS = counterterm.get_reduced_kinematics(mapped_PS_point)
         
+#        misc.sprint('input_mapping %d=%s'%(i_mapping+1, input_mapping))
+#        misc.sprint('mapped_flavors=%s'%str(mapped_flavors))
+#        misc.sprint('mapped_PS_point=\n%s'%str(mapped_PS_point))
+#        misc.sprint('reduced_PS=\n%s'%str(reduced_PS))
+#        misc.sprint('counterterm.momenta_dict = %s'%str(counterterm.momenta_dict))
+#        misc.sprint('counterterm.process.initial_eg_numbers = %s'%str([l.get('number') for l in counterterm.process.get_initial_legs()]))
+#        misc.sprint('counterterm.process.final_numbers = %s'%str([l.get('number') for l in counterterm.process.get_final_legs()]))
+        
         # For now the integrated counterterm are always composed of a *single* integrated
         # current, which we can call directly.
         assert(len(counterterm.nodes)==1)
@@ -970,7 +978,8 @@ The missing process is: %s"""%reduced_process.nice_string())
                 [defining_process,]+mapped_processes, selection = test_options['process'] ):
                 continue
             
-            misc.sprint('Testing %s'%defining_process.nice_string().replace('Process','process'))
+            misc.sprint('\nTesting virtual %s'%
+                              defining_process.nice_string().replace('Process','process'))
 
             # Here we use correction_order to select CT subset
             counterterms_to_consider = [
@@ -1002,15 +1011,17 @@ The missing process is: %s"""%reduced_process.nice_string())
                 for counterterm in counterterms_to_consider:
 #                    misc.sprint('>>Investigating counterterm: %s'%str(counterterm['integrated_counterterm']))
 #                    misc.sprint('>>with mappings: %s'%str(counterterm['input_mappings']))
-                    for input_mapping in counterterm['input_mappings']:
+                    for i_mapping, input_mapping in enumerate(counterterm['input_mappings']):
                         # Evaluate the counterterm
                         integrated_CT_res, reduced_flavors = self.evaluate_integrated_counterterm(
                             counterterm, a_virtual_PS_point, flavors, input_mapping, 
                                                           hel_config=None, compute_poles=True)
                         if integrated_CT_res is None:
                             continue
-                        misc.sprint('%-20s => %s' % (str(counterterm['integrated_counterterm']), 
-                            integrated_CT_res.__str__(format='.16e') ) )
+                        misc.sprint('%-20s @ %-35s (permutation #%-2d) => %s' % (
+                            str(counterterm['integrated_counterterm']), 
+                            str(counterterm['resolved_flavors_combinations'].keys()[0]),
+                            i_mapping+1, integrated_CT_res.__str__(format='.16e') ) )
 #                        misc.sprint('   :: %s'%(' & '.join('%s => %s'%(str(k),str(v)) for k,v in 
 #                                       counterterm['resolved_flavors_combinations'].items() )))
 #                        misc.sprint('   :: %s'%(input_mapping))

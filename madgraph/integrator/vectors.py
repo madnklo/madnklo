@@ -156,19 +156,31 @@ class LorentzVector(Vector):
     def rotoboost(self, p, q):
         """Apply the Lorentz transformation that sends p in q to this vector."""
 
-        # Check that the two invariants are close,
-        # else the transformation is invalid
+        # Compute squares
         p2 = p.square()
         q2 = q.square()
-        assert abs(p2-q2) < 1e-9*(abs(p2)+abs(q2))
-        # Compute scalar products
-        pq = p + q
-        pq2 = pq.square()
-        p_s = self.dot(p)
-        pq_s = self.dot(pq)
-        # Assemble vector
-        self.__iadd__(2 * ((p_s/q2) * q - (pq_s/pq2) * pq))
-        return self
+        # Check if they are both small,
+        # in which case the alternative formula should be used
+        if abs(p2) < math.sqrt(p.eps()) and abs(q2) < math.sqrt(q.eps()):
+            # Use alternative formula
+            if p == self:
+                for i in range(len(self)):
+                    self[i] = q[i]
+            else:
+                raise Exception("Implement eq. (4.14) of arXiv:0706.0017v2, p. 26")
+            return self
+        else:
+            # Check that the two invariants are close,
+            # else the transformation is invalid
+            assert abs(p2-q2) < 1e-9*(abs(p2)+abs(q2))
+            # Compute scalar products
+            pq = p + q
+            pq2 = pq.square()
+            p_s = self.dot(p)
+            pq_s = self.dot(pq)
+            # Assemble vector
+            self.__iadd__(2 * ((p_s/q2) * q - (pq_s/pq2) * pq))
+            return self
 
     def pt(self, axis=3):
         """Compute transverse momentum."""

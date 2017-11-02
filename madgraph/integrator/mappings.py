@@ -1,4 +1,4 @@
-################################################################################
+##########################################################################################
 #
 # Copyright (c) 2017 The MadGraph5_aMC@NLO Development team and Contributors
 #
@@ -11,7 +11,7 @@
 #
 # For more information, visit madgraph.phys.ucl.ac.be and amcatnlo.web.cern.ch
 #
-################################################################################
+##########################################################################################
 
 import logging
 import math
@@ -53,9 +53,9 @@ def Kaellen(*args):
             foo -= 2*args[i]*args[j]
     return foo
 
-#===============================================================================
-# Mappings
-#===============================================================================
+#=========================================================================================
+# Compute parent & children numbers
+#=========================================================================================
 
 def get_structure_numbers(structure, momenta_dict):
     """Return the number of the parent and children of a given structure
@@ -68,17 +68,18 @@ def get_structure_numbers(structure, momenta_dict):
     else:
         return momenta_dict.inv[children], children
 
+#=========================================================================================
+# VirtualMapping
+#=========================================================================================
+
 class VirtualMapping(object):
     """Base class for elementary mapping implementations."""
 
-    def __init__(self, model=None, **opts):
-        """General initialization of any mapping.
-        The model is an optional specification,
-        which can be useful to know properties of the leg mapped.
-        """
+    def __init__(self, *args, **opts):
+        """"Initialization of a generic mapping."""
 
-        self.model = model
-        
+        super(VirtualMapping, self).__init__()
+
     def is_valid_structure(self, singular_structure):
         """Return true if it makes sense to apply this mapping
         to the given singular structure.
@@ -95,8 +96,7 @@ class VirtualMapping(object):
 
     def map_to_lower_multiplicity(
         self, PS_point, singular_structure, momenta_dict,
-        kinematic_variables=None
-    ):
+        kinematic_variables=None, compute_jacobian=False, masses=None ):
         """Map a given phase-space point to lower multiplicity,
         by clustering the substructures and recoiling against the legs
         specified in singular_structure.
@@ -115,14 +115,19 @@ class VirtualMapping(object):
         the kinematic variables that are necessary to reproduce the higher-multiplicity
         phase-space point from the lower-multiplicity one will be set
 
+        :param compute_jacobian: if False, will not compute the jacobian for the mapping
+
+        :param masses: masses of the parents of the collinear sets,
+        as a dictionary with (number of parent, mass)
+
         :return: the jacobian weight due to the mapping
         """
         
         raise NotImplemented
 
     def map_to_higher_multiplicity(
-        self, PS_point, singular_structure, momenta_dict, kinematic_variables
-    ):
+        self, PS_point, singular_structure, momenta_dict, kinematic_variables,
+        compute_jacobian=False ):
         """Map a given phase-space point to higher multiplicity,
         by splitting the (pseudo)particles and recoiling against the legs
         specified in singular_structure.
@@ -140,6 +145,8 @@ class VirtualMapping(object):
         :param kinematic_variables: variables describing the splitting,
         as a dictionary that associates variable names to values
 
+        :param compute_jacobian: if False, will not compute the jacobian for the mapping
+
         :return: the jacobian weight due to the mapping
         """
         
@@ -147,8 +154,7 @@ class VirtualMapping(object):
 
     def approach_limit(
         self, PSpoint, singular_structure, kinematic_variables,
-        scaling_parameter
-    ):
+        scaling_parameter ):
         """Map to higher multiplicity, with the distance to the limit expressed
         by scaling_parameter.
         """
@@ -380,7 +386,7 @@ class FFRescalingMappingOne(FinalFinalCollinearMapping):
 
     def map_to_lower_multiplicity(
         self, PS_point, singular_structure, momenta_dict,
-        kinematic_variables=None ):
+        kinematic_variables=None, compute_jacobian=False, masses=None ):
 
         # Consistency checks
         assert isinstance(momenta_dict, subtraction.bidict)
@@ -423,7 +429,8 @@ class FFRescalingMappingOne(FinalFinalCollinearMapping):
         return jacobian
 
     def map_to_higher_multiplicity(
-        self, PS_point, singular_structure, momenta_dict, kinematic_variables ):
+        self, PS_point, singular_structure, momenta_dict, kinematic_variables,
+        compute_jacobian=False ):
 
         # Consistency checks
         assert isinstance(momenta_dict, subtraction.bidict)
@@ -451,7 +458,7 @@ class FFRescalingMappingOne(FinalFinalCollinearMapping):
         sC  = kinematic_variables['s'+str(parent)]
         # Obtain parameter alpha
         alpha = 0
-        if qR2 == 0:
+        if (qR2*sC)/(QqC**2) < 1.e-6:
             alpha = 0.5 * sC / QqC
         else:
             alpha = (math.sqrt(QqC**2 + sC*qR2) - QqC) / qR2
@@ -494,7 +501,7 @@ class FFLorentzMappingOne(FinalFinalCollinearMapping):
 
     def map_to_lower_multiplicity(
         self, PS_point, singular_structure, momenta_dict,
-        kinematic_variables=None ):
+        kinematic_variables=None, compute_jacobian=False, masses=None ):
 
         # Consistency checks
         assert isinstance(momenta_dict, subtraction.bidict)
@@ -540,8 +547,8 @@ class FFLorentzMappingOne(FinalFinalCollinearMapping):
         return jacobian
 
     def map_to_higher_multiplicity(
-        self, PS_point, singular_structure, momenta_dict, kinematic_variables
-    ):
+        self, PS_point, singular_structure, momenta_dict, kinematic_variables,
+        compute_jacobian=False ):
 
         # Consistency checks
         assert isinstance(momenta_dict, subtraction.bidict)
@@ -565,7 +572,7 @@ class FFLorentzMappingOne(FinalFinalCollinearMapping):
         # Compute scalar products
         pC2 = kinematic_variables['s'+str(parent)]
         # Compute parameters
-        assert abs(qC.square()) < 100*qC.eps()
+        assert abs(qC.square()) < math.sqrt(qC.eps())
         Q2  = Q.square()
         qR2 = qR.square()
         qC_perp = qC - ((Q2-qR2)/(2*Q2)) * Q
@@ -588,81 +595,9 @@ class FFLorentzMappingOne(FinalFinalCollinearMapping):
 
         return jacobian
 
-
-class MappingCataniSeymourFFMany(FinalFinalCollinearMapping):
-    """Implementation of the Catani--Seymour final-final collinear mapping,
-    for multiple collinear bunches and any number of spectators
-    (but restricted to massless particles).
-    See arXiv:hep-ph/0609042 and references therein.
-    """
-    
-    def __init__(self, *args, **opts):
-        """Additional options for the Catani--Seymour mapping."""
-
-        super(FinalFinalCollinearMapping, self).__init__(*args, **opts)
-
-    def map_to_lower_multiplicity(
-        self, PS_point, singular_structure, momenta_dict,
-        kinematic_variables=None
-    ):
-
-        # WARNING Needs checking
-
-        # Consistency checks
-        assert isinstance(momenta_dict, subtraction.bidict)
-        assert self.is_valid_structure(singular_structure)
-
-        # Build the total momentum of collinear sets and recoilers
-        Q = sum(
-            PS_point[leg.n]
-            for leg in singular_structure.get_all_legs()
-        )
-        Q2 = Q.square()
-        # Prepare containers
-        n_clusters = len(singular_structure.substructures)
-        p_C = [LorentzVector(), ] * n_clusters
-        alpha_C = [0., ] * n_clusters
-        # For every cluster of collinear particles
-        for i in range(n_clusters):
-            cluster = singular_structure.substructures[i]
-            # Build the collective momentum
-            leg_ns = frozenset((leg.n for leg in cluster.legs))
-            p_C[i] = sum(
-                PS_point[momenta_dict.inv[(collinear_particle, )]]
-                for collinear_particle in leg_ns
-            )
-            # Compute the parameter alpha for this collinear subset
-            y_CQ = p_C[i].dot(Q) / Q2
-            y_C = p_C[i].square() / Q2
-            alpha_C[i] = y_CQ - math.sqrt(y_CQ**2 - y_C)
-        # Compute the common scale factor
-        scale_factor = 1. / (1. - sum(alpha_C))
-        # Map all recoilers' momenta
-        for recoiler in singular_structure.legs:
-            PS_point[recoiler] *= scale_factor
-        # For every cluster of collinear particles
-        for i in range(n_clusters):
-            cluster = singular_structure.substructures[i]
-            leg_ns = frozenset((leg.n for leg in cluster.legs))
-            parent_number = momenta_dict.inv[leg_ns]
-            # Map the cluster's momentum
-            p_tilde_C = scale_factor * (p_C[i] - alpha_C[i] * Q)
-            PS_point[parent_number] = p_tilde_C
-            # If needed, update the kinematic_variables dictionary
-            if kinematic_variables:
-                kinematic_variables['s' + str(parent_number)] = p_C[i].square()
-                children_numbers = [ momenta_dict.inv[(j,)] for j in leg_ns ]
-                self.get_collinear_variables(
-                    PS_point, parent_number, children_numbers, kinematic_variables
-                )
-        # TODO Compute the jacobian for this mapping
-        jacobian = 1.0
-#
-        return jacobian
-
-#===============================================================================
+#=========================================================================================
 # Soft mappings
-#===============================================================================
+#=========================================================================================
 
 class ElementaryMappingSoft(VirtualMapping):
     """Common functions for soft elementary mappings."""
@@ -754,8 +689,7 @@ class MappingSomogyietalSoft(ElementaryMappingSoft):
 
     def map_to_lower_multiplicity(
         self, PS_point, singular_structure, momenta_dict,
-        kinematic_variables=None
-    ):
+        kinematic_variables=None, compute_jacobian=False, masses=None ):
 
         # Consistency checks
         assert isinstance(momenta_dict, subtraction.bidict)
@@ -790,8 +724,8 @@ class MappingSomogyietalSoft(ElementaryMappingSoft):
         return jacobian
 
     def map_to_higher_multiplicity(
-        self, PS_point, singular_structure, momenta_dict, kinematic_variables
-    ):
+        self, PS_point, singular_structure, momenta_dict, kinematic_variables,
+        compute_jacobian=False ):
 
         # Consistency checks
         assert isinstance(momenta_dict, subtraction.bidict)
@@ -956,6 +890,7 @@ class FlatCollinearWalker(VirtualWalker):
     ):
 
         point = PS_point.get_copy()
+        print point
         # Initialize return variables
         current_PS_pairs = []
         jacobian = 1.
@@ -996,6 +931,7 @@ class FlatCollinearWalker(VirtualWalker):
                 counterterm.momenta_dict,
                 kinematic_variables
             )
+            print point
             # Append the current and the momenta,
             # deep copy wanted
             momenta[parent] = LorentzVector(point[parent])
@@ -1021,6 +957,7 @@ class FlatCollinearWalker(VirtualWalker):
         ME_PS_pair = [counterterm.process, PS_point]
         # This phase-space point will be destroyed, deep copy wanted
         point = PS_point.get_copy()
+        print point
         # Initialize return variables
         current_PS_pairs = []
         jacobian = 1.
@@ -1059,6 +996,7 @@ class FlatCollinearWalker(VirtualWalker):
                 counterterm.momenta_dict,
                 kinematic_variables
             )
+            print point
             # Prepend pair of this current and the momenta,
             # deep copy wanted
             momenta.update(point.get_copy())
@@ -1090,7 +1028,7 @@ class SimpleNLOWalker(VirtualWalker):
     cannot_handle = """The Simple NLO Walker found a singular structure
     it is not capable to handle.
     """
-    collinear_map = FFRescalingMappingOne()
+    collinear_map = FFLorentzMappingOne()
     soft_map = MappingSomogyietalSoft()
 
     def walk_to_lower_multiplicity(
@@ -1119,6 +1057,8 @@ class SimpleNLOWalker(VirtualWalker):
                 for recoiler in recoilers:
                     if recoiler.n in children:
                         recoilers.remove(recoiler)
+                        print str(counterterm)
+                        stop
             else:
                 for recoiler in recoilers:
                     if recoiler.n == parent:
@@ -1146,6 +1086,7 @@ class SimpleNLOWalker(VirtualWalker):
                 new_ss = ss
                 if new_ss.substructures:
                     new_ss = subtraction.CollStructure(legs=ss.get_all_legs())
+                print "Mapping down ", new_ss, " recoiling against ", recoilers
                 jacobian *= self.collinear_map.map_to_lower_multiplicity(
                     point,
                     subtraction.SingularStructure(legs=recoilers, substructures=(new_ss,)),
@@ -1154,6 +1095,7 @@ class SimpleNLOWalker(VirtualWalker):
                 )
                 momenta[parent] = LorentzVector(point[parent])
             elif ss.name() == 'S':
+                print "Mapping down ", ss, " recoiling against ", recoilers
                 jacobian *= self.soft_map.map_to_lower_multiplicity(
                     point,
                     subtraction.SingularStructure(legs=recoilers, substructures=(ss,)),
@@ -1231,6 +1173,7 @@ class SimpleNLOWalker(VirtualWalker):
                 if new_ss.substructures:
                     new_ss = subtraction.CollStructure(legs=ss.get_all_legs())
                 momenta[parent] = LorentzVector(point[parent])
+                print "Mapping up ", new_ss, " recoiling against ", recoilers
                 jacobian *= self.collinear_map.map_to_higher_multiplicity(
                     point,
                     subtraction.SingularStructure(legs=recoilers, substructures=(new_ss,)),
@@ -1238,6 +1181,7 @@ class SimpleNLOWalker(VirtualWalker):
                     kinematic_variables
                 )
             elif ss.name() == 'S':
+                print "Mapping up ", ss, " recoiling against ", recoilers
                 jacobian *= self.soft_map.map_to_higher_multiplicity(
                     point,
                     subtraction.SingularStructure(legs=recoilers, substructures=(ss,)),
@@ -1297,19 +1241,11 @@ class SimpleNLOWalker(VirtualWalker):
                 raise MadGraph5Error(self.cannot_handle)
         return new_variables
 
-class CataniSeymourWalker(VirtualWalker):
-    pass
-
-class NagySoperWalker(VirtualWalker):
-    pass
-
 # Mapping classes map is defined here as module variables. This map can be overwritten
 # by the interface when using a PLUGIN system where the user can define his own Mapping.
 # Note that this must be placed after all the Mapping daughter classes in this module have been declared.
 mapping_walker_classes_map = {
     'FlatCollinear': FlatCollinearWalker,
     'SimpleNLO': SimpleNLOWalker,
-    'CataniSeymour': CataniSeymourWalker,
-    'NagySoper': NagySoperWalker,
     'Unknown': None
 }

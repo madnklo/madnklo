@@ -14,7 +14,7 @@
 ##########################################################################################
 """Collection of ME7 Integrand classes."""
 
-
+import numpy as np
 import collections
 import glob
 import logging
@@ -39,6 +39,12 @@ try:
     GNU_SPLITTING = ('GNU' in readline.__doc__)
 except:
     GNU_SPLITTING = True
+
+try:
+    import pyjet
+    PYJET_AVAILABLE = True
+except:
+    PYJET_AVAILABLE = False    
 
 # useful shortcut
 pjoin = os.path.join
@@ -452,15 +458,11 @@ class ME7Integrand(integrands.VirtualIntegrand):
         will probably be taken outside of this class so as to ease user-specific cuts, fastjet, etc...
         We consider here a two-level cuts system, this first one of which is flavour blind.
         This is of course not IR safe at this stage!"""
-        return True
-        
-        from madgraph.integrator.vectors import LorentzVectorList
         # This is a temporary function anyway which should eventually be replaced by a full
-        # fledged module for handling generation level cuts, which would make use of fj-core.
-        # The PS point in input is sometimes provided as a dictionary or a flat list, but
-        # we need it as a flat list here, so we force the conversion
-        if isinstance(PS_point, dict):
-            PS_point = PS_point.to_list()
+        # fledged module for handling generation level cuts, which would also make use of fjcore.
+        # return True
+
+        from madgraph.integrator.vectors import LorentzVectorList, LorentzVector
         
         # These cuts are not allowed to resolve flavour, but only whether a particle is a jet or not
         def is_a_jet(pdg):
@@ -474,25 +476,84 @@ class ME7Integrand(integrands.VirtualIntegrand):
         if pt_cut <= 0. and dr_cut <= 0.:
             return True
 
-        # Apply the Ptj cut first
-        for i, p in enumerate(PS_point[self.n_initial:]):
-            if not is_a_jet(process_pdgs[1][i]):
-                continue
-            if __debug__: logger.debug('p_%i.pt()=%.5e'%((self.n_initial+i),p.pt()))
-            if p.pt() < pt_cut:
+        # The PS point in input is sometimes provided as a dictionary or a flat list, but
+        # we need it as a flat list here, so we force the conversion
+        if isinstance(PS_point, dict):
+            PS_point = PS_point.to_list()
+
+        if PYJET_AVAILABLE and dr_cut > 0.:
+            # First identify all partonic jets
+            jets_list = []
+            for i, p in enumerate(PS_point[self.n_initial:]):
+                if is_a_jet(process_pdgs[1][i]):
+                    jets_list.append(tuple(list(p)+[i+self.n_initial+1,]))
+            # Count partonic jets
+            starting_n_jets = len(jets_list)
+            # Cluster them with fastjet
+            this_event = np.array(jets_list,dtype=np.dtype(
+                    [('E', 'f8'), ('px', 'f8'), ('py', 'f8'), ('pz', 'f8'), ('id', 'i8')]) )
+            sequence = pyjet.cluster(this_event, R=dr_cut, p=-1, ep=True)
+            jets = sequence.inclusive_jets()
+
+#            misc.sprint('Process flavors: %s'%str(process_pdgs))
+#            misc.sprint('Starting from configuration:\n%s'%str(PS_point))
+#            misc.sprint('The following %d jets were found:'%len(jets))
+#            misc.sprint("{0: <5} {1: >10} {2: >10} {3: >10} {4: >10} {5: >10} {6: >10} {7: >10}".format(
+#                                      "jet#", "E", "Px", "Py", "P.z", "mass", "pT", "#constit."))
+#            for i, jet in enumerate(jets):
+#                misc.sprint("{0: <5} {1: >10} {2: >10} {3: >10} {4: >10} {5: >10} {6: >10} {7: >10}".format(
+#                    i + 1, jet.e, jet.px, jet.py, jet.pz, jet.mass, jet.pt, 
+#                    str(tuple(constituent.id for constituent in jet))
+#                    ))
+#                misc.sprint('\n'+'\n'.join('  | %s'%constituent for
+#                                           constituent in jet.constituents_array(ep=True)))
+
+            # Remove jets whose pT is below the user defined cut:
+            if pt_cut > 0.:
+                jets = [jet for jet in jets if jet.pt >= pt_cut]
+            
+#            # A useless (in production) consistency check for deltaR:
+#            for i, j1 in enumerate(jets):
+#                for j, j2 in enumerate(jets):
+#                    if i==j: continue
+#                    pj1 = LorentzVector([j1.e, j1.px, j1.py, j1.pz])
+#                    pj2 = LorentzVector([j2.e, j2.px, j2.py, j2.pz])
+#                    if pj1.deltaR(pj2) < dr_cut:
+#                        raise MadGraph5Error("Inconsistency with fastjet in pass_cuts : "+
+#                                                  " %.5f < %.5f"%(pj1.deltaR(pj2), dr_cut))
+#                    misc.sprint(pj1.deltaR(pj2), dr_cut)                
+            
+            # Make sure that the number of clustered jets is at least larger or equal to the
+            # starting list of jets minus the number of particles that are allowed to go
+            # unresolved in this contribution.
+            if len(jets) < \
+                     (starting_n_jets-self.contribution_definition.n_unresolved_particles):
                 return False
-
-        # And then the drjj cut
-        for i, p1 in enumerate(PS_point[self.n_initial:]):
-            for j, p2 in enumerate(PS_point[self.n_initial+i+1:]):
-                if not is_a_jet(process_pdgs[1][i]) and\
-                   not is_a_jet(process_pdgs[1][i+1+j]):
-                    continue
-                if __debug__: logger.debug('deltaR(p_%i,p_%i)=%.5e'%(
-                     self.n_initial+i, self.n_initial+i+1+j, p1.deltaR(p2)))
-                if p1.deltaR(p2) < dr_cut:
-                    return False
-
+            
+        else:
+            if pt_cut > 0.:
+                # Apply the Ptj cut first
+                for i, p in enumerate(PS_point[self.n_initial:]):
+                    if not is_a_jet(process_pdgs[1][i]):
+                        continue
+                    if __debug__: logger.debug('p_%i.pt()=%.5e'%((self.n_initial+i),p.pt()))
+                    if p.pt() < pt_cut:
+                        return False
+    
+            if dr_cut > 0.:
+                # And then the drjj cut
+                for i, p1 in enumerate(PS_point[self.n_initial:]):
+                    for j, p2 in enumerate(PS_point[self.n_initial+i+1:]):
+                        if not is_a_jet(process_pdgs[1][i]) and\
+                           not is_a_jet(process_pdgs[1][i+1+j]):
+                            continue
+                        if __debug__: logger.debug('deltaR(p_%i,p_%i)=%.5e'%(
+                             self.n_initial+i, self.n_initial+i+1+j, p1.deltaR(p2)))
+                        if p1.deltaR(p2) < dr_cut:
+                            return False
+    
+        
+        # All cuts pass, therefore return True
         return True
 
     def pass_flavor_sensitive_cuts(self, PS_point, flavors):
@@ -500,14 +561,17 @@ class ME7Integrand(integrands.VirtualIntegrand):
         will probably be taken outside of this class so as to ease user-specific cuts, fastjet, etc...
         We consider here a two-level cuts system, this second one of which is flavour sensitive."""
         
+        # None implemented yet
+        return True
+
         from madgraph.integrator.vectors import LorentzVectorList
         if isinstance(PS_point, dict):
             PS_point = PS_point.to_list()
 
         if __debug__: logger.debug( "Processing flavor-sensitive cuts for flavors %s and PS point:\n%s"%(
             str(flavors), LorentzVectorList(PS_point).__str__(n_initial=self.phase_space_generator.n_initial) ))
-
-        # None implemented yet
+        
+        # All cuts pass, therefore return True
         return True
 
     @staticmethod
@@ -1330,6 +1394,17 @@ The missing process is: %s"""%ME_process.nice_string())
             # Again, for the integrated subtraction counterterms, some care will be needed here
             # for the real-virtual, depending on how we want to combine the two Laurent series.
 #            misc.sprint(current_weight,ME_evaluation['finite'])
+            misc.sprint('reduced process = %s'%(
+                ' '.join('%d(%d)'%(l.get('number'), l.get('id')) for l in counterterm.process.get_initial_legs())+' > '+
+                ' '.join('%d(%d)'%(l.get('number'), l.get('id')) for l in counterterm.process.get_final_legs())
+                        ))
+            misc.sprint('color corr. = %-20s | current = %-20.16f | ME = %-20.16f | Prefactor = %-3d  |  Final = %-20.16f '%(
+                str(color_correlators),
+                current_weight,
+                ME_evaluation['finite'],
+                counterterm.prefactor,
+                current_weight*ME_evaluation['finite']*counterterm.prefactor
+                ))
             final_weight += current_weight*ME_evaluation['finite']
 
         # Now finally handle the overall prefactor of the counterterm

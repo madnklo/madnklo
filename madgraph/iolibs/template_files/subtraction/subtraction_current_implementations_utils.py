@@ -19,6 +19,7 @@ implementations"""
 import math
 import madgraph.various.misc as misc
 import madgraph.integrator.phase_space_generators as PS_utils
+import madgraph.integrator.mappings as mappings
 
 #===============================================================================
 # Subtraction current evaluation and result
@@ -362,50 +363,27 @@ class CS_utils(object):
     """ A container function for useful class methods for NLO currents ala CS."""
 
     @classmethod
-    def get_massless_collinear_CS_variables(cls, 
-                    PS_point, parent_number, children_numbers, mapping_variables={}):
-        """ Returns the collinear splitting variables following Catani-Grazzini
-        conventions (Eq.6 of https://arxiv.org/pdf/hep-ph/9810389.pdf).
-        This is very similar to the function get_collinear_variables() of
-        phase_space_generators.ElementaryMappingCollinearFinal.get_collinear_variables"""
-        
-        kin_variables = dict( ('za%d'%n,0.0) for n in children_numbers[:-1] )
-        kin_variables.update( dict( ('zb%d'%n,0.0) for n in children_numbers[:-1] ) )
-        kin_variables.update( dict( ('nt%d'%n,0.0) for n in children_numbers[:-1] ) )
-        kin_variables['s%d'%parent_number] = 0.0
-        
-        # Attempt recycling the variables from the mapping
-        missing_variable = False
-        for var in kin_variables:
-            try:
-                kin_variables[var] = mapping_variables[var]
-            except KeyError:
-                missing_variable = True
-                break
-        if not missing_variable:
-            return kin_variables
+    def get_massless_collinear_CS_variables(
+        cls, PS_point, parent_number, children_numbers, mapping_variables=None ):
+        """Return collinear splitting variables as in mappings.CollinearVariables,
+        attempting to recycle the information passed by the mapping.
+        """
 
-        # Retrieve the parent's momentum
-        p = PS_utils.LorentzVector(PS_point[parent_number])
-        # Compute the sum of momenta
-        q = PS_utils.LorentzVector()
+        # Attempt recycling
+        if mapping_variables:
+            wanted = frozenset(
+                mappings.CollinearVariables.names(parent_number, children_numbers) )
+            passed = frozenset(mapping_variables.keys())
+            if wanted.issubset(passed):
+                return mapping_variables
+
+        # Recompute
+        kin_variables = dict()
+        na, nb = mappings.CollinearVariables.light_cone(PS_point[parent_number])
+        # nb = mappings.LorentzVector([1, 0, 0, -1])
+        mappings.CollinearVariables.get(PS_point, children_numbers, na, nb, kin_variables)
+        p = mappings.LorentzVector()
         for i in children_numbers:
-            q += PS_utils.LorentzVector(PS_point[i])
-        # Pre-compute scalar products
-        q2 = q.square()
-        kin_variables['s%d'%parent_number] = q2
-        pq = p.dot(q)
-        sqrtq2 = math.sqrt(q2)
-        na = (sqrtq2/pq) * p
-        nb = (2./sqrtq2) * q - na
-        # Compute all kinematic variables
-        for i in children_numbers[:-1]:
-            pi = PS_utils.LorentzVector(PS_point[i])
-            napi = na.dot(pi)
-            nbpi = nb.dot(pi)
-            kin_variables['za' + str(i)] = nbpi/nb.dot(q)
-            kin_variables['zb' + str(i)] = napi/na.dot(q)
-            kti = pi - 0.5*(nbpi*na+napi*nb)
-            nti = kti / math.sqrt(napi*nbpi)
-            kin_variables['nt' + str(i)] = nti
+            p += PS_point[i]
+        kin_variables['s'+str(parent_number)] = p.square()
         return kin_variables

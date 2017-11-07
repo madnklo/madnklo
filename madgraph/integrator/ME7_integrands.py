@@ -1195,7 +1195,7 @@ class ME7Integrand_R(ME7Integrand):
     """ ME7Integrand for the computation of a single real-emission type of contribution."""
     
 #    MappingWalkerType = 'CataniSeymour'
-    MappingWalkerType = 'SimpleNLO'
+    MappingWalkerType = 'FFNLO'
     
     def __init__(self, *args, **opts):
         """Initialize a real-emission type of integrand, adding additional relevant attributes."""
@@ -1391,6 +1391,20 @@ Make sure that your process definition is specified using the relevant multipart
 Also make sure that there is no coupling order specification which receives corrections.
 The missing process is: %s"""%ME_process.nice_string())
                 raise e
+            misc.sprint('reduced process = %s' % (
+                ' '.join('%d(%d)' % (l.get('number'), l.get('id')) for l in
+                         counterterm.process.get_initial_legs()) + ' > ' +
+                ' '.join('%d(%d)' % (l.get('number'), l.get('id')) for l in
+                         counterterm.process.get_final_legs())
+            ))
+            misc.sprint(
+                'color corr. = %-20s | current = %-20.16f | ME = %-20.16f | Prefactor = %-3d  |  Final = %-20.16f ' % (
+                    str(color_correlators),
+                    current_weight,
+                    ME_evaluation['finite'],
+                    counterterm.prefactor,
+                    current_weight * ME_evaluation['finite'] * counterterm.prefactor
+                ))
             # Again, for the integrated subtraction counterterms, some care will be needed here
             # for the real-virtual, depending on how we want to combine the two Laurent series.
 #            misc.sprint(current_weight,ME_evaluation['finite'])

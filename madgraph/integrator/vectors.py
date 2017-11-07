@@ -13,9 +13,12 @@
 #
 ##########################################################################################
 
+import logging
 import math
 import copy
 import numpy as np
+
+logger = logging.getLogger('madgraph.PhaseSpaceGenerator')
 
 #=========================================================================================
 # Vector
@@ -161,7 +164,8 @@ class LorentzVector(Vector):
         q2 = q.square()
         # Check if they are both small,
         # in which case the alternative formula should be used
-        if abs(p2) < math.sqrt(p.eps()) and abs(q2) < math.sqrt(q.eps()):
+        if (abs(p2)/abs(p.view(Vector)) < math.sqrt(p.eps()) and
+            abs(q2)/abs(q.view(Vector)) < math.sqrt(q.eps()) ):
             # Use alternative formula
             if p == self:
                 for i in range(len(self)):
@@ -172,7 +176,11 @@ class LorentzVector(Vector):
         else:
             # Check that the two invariants are close,
             # else the transformation is invalid
-            assert abs(p2-q2) < 1e-9*(abs(p2)+abs(q2))
+            if abs(p2-q2) > 1e-6*(abs(p2)+abs(q2)):
+                logger.critical(
+                    "Error in rotoboost: p = %s (%s), q = %s (%s)" %
+                    (str(p), str(p2), str(q), str(q2)) )
+                raise Exception("Rotoboost")
             # Compute scalar products
             pq = p + q
             pq2 = pq.square()

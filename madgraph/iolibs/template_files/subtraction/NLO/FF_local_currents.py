@@ -181,20 +181,21 @@ class NLO_FF_QCD_collinear_qqx(NLO_FF_QCD_local_subtraction_current):
         kin_variables = CS_utils.get_massless_collinear_CS_variables(
                 PS_point, parent_number, children_numbers, mapping_variables=mapping_variables)
         z       = kin_variables['za%d'%ss.legs[0].n]
-        kT_vec  = kin_variables['nt%d'%ss.legs[0].n]
+        kT_vec  = kin_variables['kt%d'%ss.legs[0].n]
         s12     = kin_variables['s%d'%parent_number]
+        abskT = abs(kT_vec.space())
+        nT = tuple(ki / abskT for ki in kT_vec)
 
         # Now instantiate what the result will be
         evaluation = utils.SubtractionCurrentEvaluation({
             'spin_correlations'   : [ None ,
-                                      ((parent_number,( tuple(kT_vec), )),),
+                                      ((parent_number,( nT, )),),
                                     ],
             'color_correlations'  : [ None ],
             'values'              : { (0,0): { 'finite' : None },
                                       (1,0): { 'finite' : None },
                                   }
-          }
-        )
+        })
 
         # The two lines below implement the g_\mu\nu part of the splitting kernel.
         # Notice that the extra longitudinal terms included in the spin-correlation 'None'
@@ -559,13 +560,15 @@ class NLO_FF_QCD_collinear_gg(NLO_FF_QCD_local_subtraction_current):
         kin_variables = CS_utils.get_massless_collinear_CS_variables(
                 PS_point, parent_number, children_numbers, mapping_variables=mapping_variables)
         z       = kin_variables['za%d'%ss.legs[0].n]
-        kT_vec  = kin_variables['nt%d'%ss.legs[0].n]
+        kT_vec  = kin_variables['kt%d'%ss.legs[0].n]
         s12     = kin_variables['s%d'%parent_number]
+        abskT = abs(kT_vec.space())
+        nT = tuple(ki / abskT for ki in kT_vec)
 
         # Now instantiate what the result will be
         evaluation = utils.SubtractionCurrentEvaluation({
             'spin_correlations'   : [ None ,
-                                      ( (parent_number,( tuple(kT_vec), )), ),
+                                      ( (parent_number,( nT, )), ),
                                     ],
             'color_correlations'  : [ None ],
             'values'              : { (0,0): { 'finite' : None },

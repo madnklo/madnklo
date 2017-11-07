@@ -488,6 +488,60 @@ def walk_invertible(test, walker, process, max_unresolved=None, verbose=False):
         # Check jacobians
         test.assertAlmostEqual(jac1*jac2, 1.)
 
+def approach_limit(test, walker, process, verbose=False):
+    """Test walk and inverse."""
+
+    elementary_operators = my_subtraction.get_all_elementary_operators(process)
+    elementary_structures = [
+        subtraction.SingularOperatorList([op, ]).simplify()
+        for op in elementary_operators ]
+    elementary_counterterms = [
+        my_subtraction.get_counterterm(combination, process)
+        for combination in elementary_structures ]
+
+    # For each counterterm
+    for ct in elementary_counterterms:
+        if verbose:
+            print "\n", "*"*100
+            print "Considering counterterm", ct
+            print "*" * 100, "\n"
+        # Generate random vectors
+        my_PS_point = LorentzVectorDict()
+        legs_FS = tuple(
+            subtraction.SubtractionLeg(leg)
+            for leg in process['legs']
+            if leg['state'] == FINAL )
+        for leg in legs_FS:
+            my_PS_point[leg.n] = random_momentum(
+                process.get('model').get_particle(leg.pdg)['mass'].lower() != 'zero' )
+        if verbose:
+            print "Starting phase space point:\n", my_PS_point, "\n"
+        squares = {key: my_PS_point[key].square() for key in my_PS_point.keys()}
+        # Compute collinear variables
+        res_dict = walker.walk_to_lower_multiplicity(my_PS_point, ct, True)
+        base_PS_point = res_dict['matrix_element'][1]
+        base_kinematic_variables = res_dict['kinematic_variables']
+        if verbose:
+            print "Baseline PS point:"
+            print base_PS_point, "\n"
+            print "Starting kinematic variables:"
+            print base_kinematic_variables, "\n"
+        for alpha in [math.pow(0.1, i) for i in range(3)]:
+            res_dict = walker.approach_limit(
+                base_PS_point, ct, base_kinematic_variables, alpha)
+            new_PS_point = res_dict['currents'][0][1]
+            if verbose:
+                print "New PS point for", alpha, ":\n", new_PS_point
+            for leg in legs_FS:
+                if process.get('model').get_particle(leg.pdg)['mass'].lower() == 'zero':
+                    test.assertLess(
+                        abs(new_PS_point[leg.n].square()),
+                        math.sqrt(new_PS_point[leg.n].eps()) )
+                    print new_PS_point[leg.n].square(), "<", math.sqrt(new_PS_point[leg.n].eps())
+                else:
+                    test.assertAlmostEqual(new_PS_point[leg.n].square(), squares[leg.n])
+                    print new_PS_point[leg.n].square(), "=", squares[leg.n]
+
 class FlatCollinearWalkerTest(unittest.TestCase):
     """Test class for FlatCollinearWalker."""
 
@@ -504,11 +558,12 @@ class FFNLOWalkerTest(unittest.TestCase):
 
     def test_FFNLOWalker_invertible(self):
 
-        # Want to make the test a bit more serious,
-        # so use combinations of NLO elementary operators up to 2 unresolved particles
-
-        # walk_invertible(self, self.walker, H_to_uuxddxH, 1)
+        walk_invertible(self, self.walker, H_to_uuxddxH, 1)
         walk_invertible(self, self.walker, H_to_qqxggH, 1)
+
+    def test_FFNLOWalker_approach_limit(self):
+
+        approach_limit(self, self.walker, H_to_qqxggH, True)
 
     def test_sc_approach_limit(self):
 

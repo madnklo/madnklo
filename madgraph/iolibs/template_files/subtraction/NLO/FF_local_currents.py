@@ -180,7 +180,7 @@ class NLO_FF_QCD_collinear_qqx(NLO_FF_QCD_local_subtraction_current):
         
         kin_variables = CS_utils.get_massless_collinear_CS_variables(
                 PS_point, parent_number, children_numbers, mapping_variables=mapping_variables)
-        z       = kin_variables['za%d'%ss.legs[0].n]
+        z       = kin_variables['z%d'%ss.legs[0].n]
         kT_vec  = kin_variables['kt%d'%ss.legs[0].n]
         s12     = kin_variables['s%d'%parent_number]
         abskT = abs(kT_vec.space())
@@ -296,7 +296,7 @@ class NLO_FF_QCD_collinear_gq(NLO_FF_QCD_local_subtraction_current):
         
         kin_variables = CS_utils.get_massless_collinear_CS_variables(
                 PS_point, parent_number, children_numbers, mapping_variables=mapping_variables)
-        z       = kin_variables['za%d'%ss.legs[0].n]
+        z       = kin_variables['z%d'%ss.legs[0].n]
         s12     = kin_variables['s%d'%parent_number]
 
         # Now instantiate what the result will be
@@ -450,7 +450,7 @@ class NLO_FF_QCD_softcollinear_gq(NLO_FF_QCD_local_subtraction_current):
                 PS_point, parent_number, children_numbers, mapping_variables=mapping_variables)
         # The non-soft child was placed first in children_numbers, so the 'z' below is the energy fraction of
         # the non-soft particle (a quark or gluon).
-        z       = kin_variables['za%d'%ss.legs[0].n]
+        z       = kin_variables['z%d'%ss.legs[0].n]
         s12     = kin_variables['s%d'%parent_number]
 
         # Now instantiate what the result will be
@@ -559,7 +559,7 @@ class NLO_FF_QCD_collinear_gg(NLO_FF_QCD_local_subtraction_current):
         
         kin_variables = CS_utils.get_massless_collinear_CS_variables(
                 PS_point, parent_number, children_numbers, mapping_variables=mapping_variables)
-        z       = kin_variables['za%d'%ss.legs[0].n]
+        z       = kin_variables['z%d'%ss.legs[0].n]
         kT_vec  = kin_variables['kt%d'%ss.legs[0].n]
         s12     = kin_variables['s%d'%parent_number]
         abskT = abs(kT_vec.space())

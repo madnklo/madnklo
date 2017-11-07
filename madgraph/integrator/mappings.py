@@ -165,7 +165,7 @@ class CollinearVariables(object):
 
         names = ['s' + str(parent), ]
         for child in children:
-            names += ['za' + str(child), 'zb' + str(child), 'kt' + str(child), ]
+            names += ['z' + str(child), 'p' + str(child) + '2', 'kt' + str(child), ]
         return names
 
     @staticmethod
@@ -197,8 +197,7 @@ class CollinearVariables(object):
         nanb = na.dot(nb)
         pt = p - (nbp*na + nap * nb) / nanb
         # Initialize variables for sum rules check
-        zasum = 0
-        zbsum = 0
+        zsum = 0
         ktsum = LorentzVector()
         ktabssum = LorentzVector()
         # Compute all kinematic variables
@@ -206,23 +205,20 @@ class CollinearVariables(object):
             pi = PS_point[i]
             napi = na.dot(pi)
             nbpi = nb.dot(pi)
-            zai = nbpi / nbp
-            zbi = napi / nap
-            kti = pi - (nbpi*na+napi*nb) / nanb - zai*pt
-            kinematic_variables['za' + str(i)] = zai
-            kinematic_variables['zb' + str(i)] = zbi
+            zi = nbpi / nbp
+            kti = pi - (nbpi*na+napi*nb) / nanb - zi*pt
+            kinematic_variables['z' + str(i)] = zi
             kinematic_variables['kt' + str(i)] = kti
-            zasum += zai
-            zbsum += zbi
+            kinematic_variables['p' + str(i) + '2'] = pi.square()
+            zsum += zi
             ktsum += kti
             for j in range(len(kti)):
                 ktabssum[j] += abs(kti[j])
         # Check numerical accuracy
         # TODO Ideally switch to quadruple precision if the check fails
-        if abs(zasum - 1) > precision or abs(zbsum -1) > precision:
+        if abs(zsum - 1) > precision:
             logger.critical(CollinearVariables.precision_loss_message)
-            logger.critical("Sum of za's is %.16e" % zasum)
-            logger.critical("Sum of zb's is %.16e" % zbsum)
+            logger.critical("Sum of z's is %.16e" % zsum)
         ktsum_abs = abs(ktsum.view(Vector))
         ktabssum_abs = abs(ktabssum.view(Vector))
         if ktsum_abs / ktabssum_abs > precision:
@@ -244,9 +240,6 @@ class CollinearVariables(object):
         Sum rules are checked to assess numerical accuracy.
         """
 
-        # Define nb as the anti-collinear direction if None is given
-        if nb is None:
-            nb = LorentzVector([0, ] + list(-na.space())).set_square(0)
         # Rename the sum of momenta
         p = total_momentum
         # Pre-compute scalar products
@@ -258,12 +251,13 @@ class CollinearVariables(object):
         p_sum = LorentzVector()
         # Set momenta for all children
         for i in children:
-            zai = kinematic_variables['za' + str(i)]
-            zbi = kinematic_variables['zb' + str(i)]
+            zi = kinematic_variables['z' + str(i)]
             kti = kinematic_variables['kt' + str(i)]
-            nbpi = zai*nbp
-            napi = zbi*nap
-            PS_point[i] = (nbpi*na+napi*nb) / nanb + kti + zai*pt
+            pi2 = kinematic_variables['p' + str(i) + '2']
+            nbpi = zi*nbp
+            pti = kti + zi*pt
+            napi = (pi2-pti.square())*nanb/(2*nbpi)
+            PS_point[i] = (nbpi*na+napi*nb) / nanb + pti
             p_sum += PS_point[i]
         # Check how well the parent's momentum is reproduced
         # TODO Ideally switch to quadruple precision if the check fails

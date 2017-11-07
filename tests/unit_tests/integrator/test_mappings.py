@@ -106,7 +106,7 @@ class CollinearVariablesTest(unittest.TestCase):
         for n in directions.values():
             coll_direction += n
         # Generate values for the parameter that describes approach to limit
-        pars = (math.pow(0.25, i) for i in range(8))
+        pars = (math.pow(0.25, i) for i in range(12))
         # This is one way like any other to approach the limit
         for par in pars:
             new_directions = {
@@ -526,7 +526,7 @@ def approach_limit(test, walker, process, verbose=False):
             print base_PS_point, "\n"
             print "Starting kinematic variables:"
             print base_kinematic_variables, "\n"
-        for alpha in [math.pow(0.1, i) for i in range(3)]:
+        for alpha in [math.pow(0.1, i) for i in range(5)]:
             res_dict = walker.approach_limit(
                 base_PS_point, ct, base_kinematic_variables, alpha)
             new_PS_point = res_dict['currents'][0][1]
@@ -537,10 +537,8 @@ def approach_limit(test, walker, process, verbose=False):
                     test.assertLess(
                         abs(new_PS_point[leg.n].square()),
                         math.sqrt(new_PS_point[leg.n].eps()) )
-                    print new_PS_point[leg.n].square(), "<", math.sqrt(new_PS_point[leg.n].eps())
                 else:
                     test.assertAlmostEqual(new_PS_point[leg.n].square(), squares[leg.n])
-                    print new_PS_point[leg.n].square(), "=", squares[leg.n]
 
 class FlatCollinearWalkerTest(unittest.TestCase):
     """Test class for FlatCollinearWalker."""

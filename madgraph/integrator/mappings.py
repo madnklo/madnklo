@@ -299,7 +299,7 @@ class CollinearVariables(object):
         # Compute all kinematic variables
         for i in children[:-1]:
             # Actual kinematic variables
-            zi = variables['za'+str(i)]
+            zi = variables['z'+str(i)]
             kti = variables['kt'+str(i)]
             kti_norm = math.sqrt(-kti.square())
             nti = Vector([kti[1:3]]).normalize()
@@ -307,7 +307,7 @@ class CollinearVariables(object):
             if nti.dot(n_triple) < 0:
                 phi *= -1
             # TODO zi and kti_norm need to be mapped to [0,1]
-            randoms['za'+str(j)] = zi
+            randoms['z'+str(j)] = zi
             randoms['kt'+str(i)] = kti_norm
             randoms['phi'+str(i)] = phi
 
@@ -591,105 +591,6 @@ class SoftVariables(object):
         return ['p' + str(child) for child in children]
 
     @staticmethod
-    def get(
-        PS_point, children, na, nb, kinematic_variables,
-        precision=1e-6 ):
-        """Given unmapped momenta and reference vectors, compute the kinematic variables
-        that describe the internal structure of particles going unresolved.
-        Children indices should already refer to the position
-        of momenta within the PS_point (no momentum dictionary used).
-        Sum rules are checked to assess numerical accuracy.
-        """
-
-        # Compute the sum of momenta
-        p = LorentzVector()
-        for i in children:
-            p += PS_point[i]
-        # Pre-compute scalar products
-        nap = na.dot(p)
-        nbp = nb.dot(p)
-        nanb = na.dot(nb)
-        pt = p - (nbp*na + nap * nb) / nanb
-        # Initialize variables for sum rules check
-        zasum = 0
-        zbsum = 0
-        ktsum = LorentzVector()
-        ktabssum = LorentzVector()
-        # Compute all kinematic variables
-        for i in children:
-            pi = PS_point[i]
-            napi = na.dot(pi)
-            nbpi = nb.dot(pi)
-            zai = nbpi / nbp
-            zbi = napi / nap
-            kti = pi - (nbpi*na+napi*nb) / nanb - zai*pt
-            kinematic_variables['za' + str(i)] = zai
-            kinematic_variables['zb' + str(i)] = zbi
-            kinematic_variables['kt' + str(i)] = kti
-            zasum += zai
-            zbsum += zbi
-            ktsum += kti
-            for j in range(len(kti)):
-                ktabssum[j] += abs(kti[j])
-        # Check numerical accuracy
-        # TODO Ideally switch to quadruple precision if the check fails
-        if abs(zasum - 1) > precision or abs(zbsum -1) > precision:
-            logger.critical(CollinearVariables.precision_loss_message)
-            logger.critical("Sum of za's is %.16e" % zasum)
-            logger.critical("Sum of zb's is %.16e" % zbsum)
-        ktsum_abs = abs(ktsum.view(Vector))
-        ktabssum_abs = abs(ktabssum.view(Vector))
-        if ktsum_abs / ktabssum_abs > precision:
-            logger.critical(CollinearVariables.precision_loss_message)
-            logger.critical(
-                "Threshold: %f , Sum of kt's is %s" %
-                ((ktsum_abs / ktabssum_abs),str(ktsum)) )
-        return
-
-    @staticmethod
-    def set(
-        PS_point, children, total_momentum, na, nb, kinematic_variables,
-        precision=1e-6 ):
-        """Given the lower multiplicity parent momentum,
-        the total momentum of children and collinear variables,
-        compute and set the children momenta.
-        Parent and children are indices that already refer to the position
-        of momenta within the PS_point (no momentum dictionary used).
-        Sum rules are checked to assess numerical accuracy.
-        """
-
-        # Define nb as the anti-collinear direction if None is given
-        if nb is None:
-            nb = LorentzVector([0, ] + list(-na.space())).set_square(0)
-        # Rename the sum of momenta
-        p = total_momentum
-        # Pre-compute scalar products
-        nap = na.dot(p)
-        nbp = nb.dot(p)
-        nanb = na.dot(nb)
-        pt = p - (nbp*na + nap * nb) / nanb
-        # Variables for sums
-        p_sum = LorentzVector()
-        # Set momenta for all children
-        for i in children:
-            zai = kinematic_variables['za' + str(i)]
-            zbi = kinematic_variables['zb' + str(i)]
-            kti = kinematic_variables['kt' + str(i)]
-            nbpi = zai*nbp
-            napi = zbi*nap
-            PS_point[i] = (nbpi*na+napi*nb) / nanb + kti + zai*pt
-            p_sum += PS_point[i]
-        # Check how well the parent's momentum is reproduced
-        # TODO Ideally switch to quadruple precision if the check fails
-        deviation = abs((p - p_sum).view(Vector))
-        benchmark = abs(p.view(Vector))
-        if deviation / benchmark > precision:
-            logger.critical(CollinearVariables.precision_loss_message)
-            logger.critical(
-                "Sum of children differs from parent momentum by "+str(p-p_sum) )
-        return
-
-    @staticmethod
     def get(PS_point, children, kinematic_variables):
         """Given unmapped and mapped momenta, compute the kinematic variables
         that describe the internal structure of particles going unresolved.
@@ -872,7 +773,7 @@ class VirtualWalker(object):
             return super(VirtualWalker, cls).__new__(cls, **opts)
 
     def __init__(self, model=None, **opts):
-        """General initialization of any mapping.
+        """General initialization of a walker.
         The model is an optional specification,
         which can be useful to know properties of the leg mapped.
         """
@@ -1317,8 +1218,7 @@ class FFNLOWalker(VirtualWalker):
                         # Check depth
                         assert len(sub_ss.substructures) == 0
                         for leg in sub_ss.legs:
-                            new_variables['za' + str(leg.n)] *= scaling_parameter
-                            new_variables['zb' + str(leg.n)] *= scaling_parameter
+                            new_variables['z' + str(leg.n)] *= scaling_parameter
                     else:
                         raise MadGraph5Error(self.cannot_handle)
             elif ss.name() == 'S':

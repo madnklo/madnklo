@@ -379,8 +379,7 @@ class CS_utils(object):
 
         # Recompute
         kin_variables = dict()
-        na, nb = mappings.CollinearVariables.light_cone(PS_point[parent_number])
-        # nb = mappings.LorentzVector([1, 0, 0, -1])
+        na, nb = mappings.CollinearVariables.collinear_and_reference(PS_point[parent_number])
         mappings.CollinearVariables.get(PS_point, children_numbers, na, nb, kin_variables)
         p = mappings.LorentzVector()
         for i in children_numbers:

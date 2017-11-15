@@ -169,12 +169,12 @@ class CollinearVariables(object):
         return names
 
     @staticmethod
-    def light_cone(p):
+    def collinear_and_reference(p):
         """Given a momentum, return normalized vectors on the light-cone."""
 
         n = Vector(p.space())
         n.normalize()
-        return LorentzVector([1, ] + list(n)), LorentzVector([1, ] + list(-n))
+        return LorentzVector([1, ] + list(n)), LorentzVector([1, 0, 0, 0])
 
     @staticmethod
     def get(
@@ -405,7 +405,7 @@ class FFRescalingMappingOne(FFCollinearMapping):
         PS_point[parent] = (pC - alpha * Q) / (1-alpha)
         # If needed, update the kinematic_variables dictionary
         if kinematic_variables is not None:
-            na, nb = CollinearVariables.light_cone(PS_point[parent])
+            na, nb = CollinearVariables.collinear_and_reference(PS_point[parent])
             kinematic_variables['s'+str(parent)] = pC2
             CollinearVariables.get(PS_point, children, na, nb, kinematic_variables)
         # Eliminate children momenta from the mapped phase-space point
@@ -456,7 +456,7 @@ class FFRescalingMappingOne(FFCollinearMapping):
         for recoiler in singular_structure.legs:
             PS_point[recoiler.n] *= 1-alpha
         # Set children momenta
-        na, nb = CollinearVariables.light_cone(qC)
+        na, nb = CollinearVariables.collinear_and_reference(qC)
         CollinearVariables.set(PS_point, children, pC, na, nb, kinematic_variables)
         # Remove parent's momentum
         if parent not in children: # Bypass degenerate case of 1->1 splitting
@@ -516,8 +516,7 @@ class FFLorentzMappingOne(FFCollinearMapping):
             PS_point[recoiler.n].rotoboost(pR, qR)
         # If needed, update the kinematic_variables dictionary
         if kinematic_variables is not None:
-            na, nb = CollinearVariables.light_cone(PS_point[parent])
-            # nb = LorentzVector([1, 0, 0, 1])
+            na, nb = CollinearVariables.collinear_and_reference(PS_point[parent])
             kinematic_variables['s'+str(parent)] = pC2
             CollinearVariables.get(PS_point, children, na, nb, kinematic_variables)
         # Eliminate children momenta from the mapped phase-space point
@@ -566,8 +565,7 @@ class FFLorentzMappingOne(FFCollinearMapping):
         for recoiler in singular_structure.legs:
             PS_point[recoiler.n].rotoboost(qR, pR)
         # Set children momenta
-        na, nb = CollinearVariables.light_cone(qC)
-        # nb = LorentzVector([1, 0, 0, 1])
+        na, nb = CollinearVariables.collinear_and_reference(qC)
         CollinearVariables.set(PS_point, children, pC, na, nb, kinematic_variables)
         # Remove parent's momentum
         if parent not in children: # Bypass degenerate case of 1->1 splitting

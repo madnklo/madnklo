@@ -206,6 +206,14 @@ class LorentzVector(Vector):
         th = math.atan2(pt, self[3])
         return -math.log(math.tan(th/2.))
 
+    def rap(self):
+        """Compute rapidity in the lab frame. (needs checking)"""
+
+        if pt < self.eps() and abs(self[3]) < self.eps():
+            return self.huge()*(self[3]/abs(self[3]))
+
+        return .5*math.log((self[0]+self[3])/(seld[0]-self[3]))
+
     def getdelphi(self, p2):
         """Compute the phi-angle separation with p2."""
 
@@ -258,7 +266,7 @@ class LorentzVector(Vector):
     def boost(self, boost_vector, gamma=-1.):
         """Transport self into the rest frame of the boost_vector in argument.
         This means that the following command, for any vector p=(E, px, py, pz)
-            p.boost(p.boostVector())
+            p.boost(-p.boostVector())
         transforms p to (M,0,0,0).
         """
 

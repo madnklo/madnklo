@@ -84,14 +84,25 @@ class VirtualPhaseSpaceGenerator(object):
 
         raise NotImplementedError
 
-    def boost_to_COM_frame(self, PS_point, xb_1, xb_2):
-        """Boost a phase-space point to the rest-frame, given Bjorken x's."""
+    def boost_to_lab_frame(self, PS_point, xb_1, xb_2):
+        """Boost a phase-space point from the COM-frame to the lab frame, given Bjorken x's."""
         
-        if self.n_initial != 2 and (xb_1!=1. or xb_2!=1.):
-            ref_lab = PS_point[0]*xb_1 + PS_point[1]*xb_2
+        if self.n_initial == 2 and (xb_1!=1. or xb_2!=1.):
+            ref_lab = (PS_point[0]*xb_1 + PS_point[1]*xb_2)
             if ref_lab.rho2() != 0.:
+                lab_boost = ref_lab.boostVector()
                 for p in PS_point:
-                    p.boost(ref_lab.boostVector())
+                    p.boost(-lab_boost)
+
+    def boost_to_COM_frame(self, PS_point, xb_1, xb_2):
+        """Boost a phase-space point from the lab frame to the COM frame, given Bjorken x's."""
+        
+        if self.n_initial == 2 and (xb_1!=1. or xb_2!=1.):
+            ref_com = (PS_point[0] + PS_point[1])
+            if ref_com.rho2() != 0.:
+                com_boost = ref_com.boostVector()
+                for p in PS_point:
+                    p.boost(-com_boost)
 
     def nDimPhaseSpace(self):
         """Return the number of random numbers required to produce

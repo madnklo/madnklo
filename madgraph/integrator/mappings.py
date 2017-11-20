@@ -422,7 +422,7 @@ class FFRescalingMappingOne(FFCollinearMapping):
     def map_to_higher_multiplicity(
         cls, PS_point, singular_structure, momenta_dict, kinematic_variables,
         compute_jacobian=False ):
-
+                
         # Consistency checks
         assert isinstance(momenta_dict, subtraction.bidict)
         assert cls.is_valid_structure(singular_structure)
@@ -440,7 +440,7 @@ class FFRescalingMappingOne(FFCollinearMapping):
             qR += PS_point[leg.n]
         Q = qR + qC
         # Compute scalar products
-        assert abs(qC.square()) < 100*qC.eps()
+        assert abs(qC.square()) < 1e2*qC.eps()
         qR2 = qR.square()
         QqC = Q.dot(qC)
         sC  = kinematic_variables['s'+str(parent)]
@@ -1013,7 +1013,9 @@ class FFNLOWalker(VirtualWalker):
     cannot_handle = """FFNLOWalker found a singular structure
     it is not capable to handle.
     """
+
     collinear_map = FFLorentzMappingOne()
+#    collinear_map = FFRescalingMappingOne()
     soft_map = MappingSomogyietalSoft()
 
     @staticmethod
@@ -1195,6 +1197,7 @@ class FFNLOWalker(VirtualWalker):
 
         new_variables = {
             key: type(val)(val) for (key, val) in kinematic_variables.items() }
+        
         # Determine 'equivalent power' of rescaling
         # This structure has at most two levels - checked later
         total_limits = 0

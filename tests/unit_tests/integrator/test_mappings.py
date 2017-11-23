@@ -106,7 +106,7 @@ class CollinearVariablesTest(unittest.TestCase):
         for n in directions.values():
             coll_direction += n
         # Generate values for the parameter that describes approach to limit
-        pars = (math.pow(0.25, i) for i in range(12))
+        pars = (math.pow(0.25, i) for i in range(14))
         # This is one way like any other to approach the limit
         for par in pars:
             new_directions = {

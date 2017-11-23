@@ -174,7 +174,7 @@ class CollinearVariables(object):
 
         n = Vector(p.space())
         n.normalize()
-        return LorentzVector([1, ] + list(n)), LorentzVector([1, 0, 0, 0])
+        return LorentzVector([1, ] + list(n)), LorentzVector([1, 0, 0, 1])
 
     @staticmethod
     def get(
@@ -216,16 +216,20 @@ class CollinearVariables(object):
                 ktabssum[j] += abs(kti[j])
         # Check numerical accuracy
         # TODO Ideally switch to quadruple precision if the check fails
-        if abs(zsum - 1) > precision:
-            logger.critical(CollinearVariables.precision_loss_message)
-            logger.critical("Sum of z's is %.16e" % zsum)
         ktsum_abs = abs(ktsum.view(Vector))
         ktabssum_abs = abs(ktabssum.view(Vector))
-        if ktsum_abs / ktabssum_abs > precision:
+        ktsum_ratio = ktsum_abs / ktabssum_abs
+        if (abs(zsum - 1) > precision) or (ktsum_ratio > precision):
             logger.critical(CollinearVariables.precision_loss_message)
-            logger.critical(
-                "Threshold: %f , Sum of kt's is %s" %
-                ((ktsum_abs / ktabssum_abs), str(ktsum)) )
+            logger.critical("The sum of z's is %.16e" % zsum)
+            logger.critical("The sum of kt's is %s" % str(ktsum))
+            logger.critical("abs(sum(kt's)) / sum(abs(kt's)) =  %s" % ktsum_ratio)
+            logger.critical("Inputs for CollinearVariables.get():")
+            logger.critical("na = %s, nb = %s" % (str(na), str(nb)))
+            for i in children:
+                logger.critical("child %d: %s" % (i, str(PS_point[i])))
+            logger.critical("Output of CollinearVariables.get():")
+            logger.critical(str(kinematic_variables))
         return
 
     @staticmethod
@@ -265,8 +269,15 @@ class CollinearVariables(object):
         benchmark = abs(p.view(Vector))
         if deviation / benchmark > precision:
             logger.critical(CollinearVariables.precision_loss_message)
-            logger.critical(
-                "Sum of children differs from parent momentum by "+str(p-p_sum) )
+            logger.critical("The sum of children momenta is %s" % str(p_sum))
+            logger.critical("Inputs for CollinearVariables.set():")
+            logger.critical("total momentum = %s" % str(p))
+            logger.critical("na = %s, nb = %s" % (str(na), str(nb)))
+            logger.critical("kinematic variables:")
+            logger.critical(str(kinematic_variables))
+            logger.critical("Output of CollinearVariables.set():")
+            for i in children:
+                logger.critical("child %d: %s" % (i, str(PS_point[i])))
         return
 
     @staticmethod
@@ -513,7 +524,12 @@ class FFLorentzMappingOne(FFCollinearMapping):
         # Map all recoilers' momenta
         qR = Q - PS_point[parent]
         for recoiler in singular_structure.legs:
-            PS_point[recoiler.n].rotoboost(pR, qR)
+            # TODO Move this try/except to higher level
+            try:
+                PS_point[recoiler.n].rotoboost(pR, qR)
+            except:
+                logger.critical("Problem encountered for %s" % str(singular_structure))
+                logger.critical("The full phase space point was\n%s" % str(PS_point))
         # If needed, update the kinematic_variables dictionary
         if kinematic_variables is not None:
             na, nb = CollinearVariables.collinear_and_reference(PS_point[parent])

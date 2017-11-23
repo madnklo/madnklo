@@ -451,13 +451,13 @@ class FFRescalingMappingOne(FFCollinearMapping):
             qR += PS_point[leg.n]
         Q = qR + qC
         # Compute scalar products
-        assert abs(qC.square()) < 1e2*qC.eps()
+        assert abs(qC.square()) < math.sqrt(qC.eps())
         qR2 = qR.square()
         QqC = Q.dot(qC)
         sC  = kinematic_variables['s'+str(parent)]
         # Obtain parameter alpha
         alpha = 0
-        if (qR2*sC)/(QqC**2) < 1.e-6:
+        if (qR2*sC)/(QqC**2) < 1e-6:
             alpha = 0.5 * sC / QqC
         else:
             alpha = (math.sqrt(QqC**2 + sC*qR2) - QqC) / qR2
@@ -779,8 +779,7 @@ class VirtualWalker(object):
             map_type = opts.pop('map_type') if 'map_type' in opts else 'Unknown'
             if map_type not in mapping_walker_classes_map or not mapping_walker_classes_map[map_type]:
                 raise MadGraph5Error(
-                    "Unknown mapping walker of type '%s'."%str(map_type)
-                )
+                    "Unknown mapping walker of type '%s'." % str(map_type) )
             target_class = mapping_walker_classes_map[map_type]
             return super(VirtualWalker, cls).__new__(target_class, **opts)
         else:
@@ -1222,26 +1221,17 @@ class FFNLOWalker(VirtualWalker):
         scaling_parameter **= 1. / total_limits
         for node in counterterm.nodes:
             ss = node.current['singular_structure']
+            if len(ss.substructures) != 0:
+                raise MadGraph5Error(self.cannot_handle)
             if ss.name() == 'C':
-                # For collinear clusters, rescale the virtuality
+                # For collinear clusters, rescale virtuality and transverse momenta
                 for var in new_variables.keys():
                     if var.startswith('s'):
                         new_variables[var] *= scaling_parameter**2
                     elif var.startswith('k'):
                         new_variables[var] *= scaling_parameter
-                # For soft-collinears, rescale z's on top
-                for sub_ss in ss.substructures:
-                    if sub_ss.name() == 'S':
-                        # Check depth
-                        assert len(sub_ss.substructures) == 0
-                        for leg in sub_ss.legs:
-                            new_variables['z' + str(leg.n)] *= scaling_parameter
-                    else:
-                        raise MadGraph5Error(self.cannot_handle)
             elif ss.name() == 'S':
                 # For soft clusters, rescale the whole momenta
-                # Check depth
-                assert len(ss.substructures) == 0
                 for leg in ss.legs:
                     new_variables['p' + str(leg.n)] *= scaling_parameter
             else:

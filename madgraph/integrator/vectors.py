@@ -20,6 +20,10 @@ import numpy as np
 
 logger = logging.getLogger('madgraph.PhaseSpaceGenerator')
 
+
+class InvalidOperation(Exception):
+    pass
+
 #=========================================================================================
 # Vector
 #=========================================================================================
@@ -159,28 +163,44 @@ class LorentzVector(Vector):
     def rotoboost(self, p, q):
         """Apply the Lorentz transformation that sends p in q to this vector."""
 
+        # NOTE: when applying the same Lorentz transformation to many vectors,
+        #       this function goes many times through the same checks.
+
         # Compute squares
         p2 = p.square()
         q2 = q.square()
-        # Check if they are both small,
+        # Ratios used to decide if the two vectors are massless
+        p2_sq_ratio = abs(p2)/p.view(Vector).square()
+        q2_sq_ratio = abs(q2)/q.view(Vector).square()
+        # Numerical tolerances
+        p_eps = math.sqrt(p.eps())
+        q_eps = math.sqrt(q.eps())
+        # Check if both Lorentz squares are small compared to the euclidean squares,
         # in which case the alternative formula should be used
-        if (abs(p2)/abs(p.view(Vector)) < math.sqrt(p.eps()) and
-            abs(q2)/abs(q.view(Vector)) < math.sqrt(q.eps()) ):
+        if p2_sq_ratio < p_eps and q2_sq_ratio < q_eps:
             # Use alternative formula
             if p == self:
                 for i in range(len(self)):
                     self[i] = q[i]
             else:
-                raise Exception("Implement eq. (4.14) of arXiv:0706.0017v2, p. 26")
+                logger.critical("Error in vectors.rotoboost: missing formula")
+                logger.critical("Boosting %s (%.9e)" % (str(self), self.square()))
+                logger.critical("p = %s (%.9e)" % (str(p), p2))
+                logger.critical("q = %s (%.9e)" % (str(q), q2))
+                logger.critical("Eq. (4.14) of arXiv:0706.0017v2, p. 26 not implemented")
+                raise NotImplemented
             return self
         else:
             # Check that the two invariants are close,
             # else the transformation is invalid
-            if abs(p2-q2) > 1e-6*(abs(p2)+abs(q2)):
-                logger.critical(
-                    "Error in rotoboost: p = %s (%s), q = %s (%s)" %
-                    (str(p), str(p2), str(q), str(q2)) )
-                raise Exception("Rotoboost")
+            if abs(p2-q2)/(abs(p2)+abs(q2)) > (p_eps+q_eps):
+                logger.critical("Error in vectors.rotoboost: nonzero, unequal squares")
+                logger.critical("p = %s (%.9e)" % (str(p), p2))
+                logger.critical("q = %s (%.9e)" % (str(q), q2))
+                logger.critical("square ratios:")
+                logger.critical("p: %.9e (vs %.9e)" % (p2_sq_ratio, p_eps))
+                logger.critical("q: %.9e (vs %.9e)" % (q2_sq_ratio, q_eps))
+                raise InvalidOperation
             # Compute scalar products
             pq = p + q
             pq2 = pq.square()
@@ -194,8 +214,7 @@ class LorentzVector(Vector):
         """Compute transverse momentum."""
 
         return math.sqrt(
-            sum(self[i]**2 for i in range(1, len(self)) if i != axis)
-        )
+            sum(self[i]**2 for i in range(1, len(self)) if i != axis) )
 
     def pseudoRap(self):
         """Compute pseudorapidity."""
@@ -209,10 +228,10 @@ class LorentzVector(Vector):
     def rap(self):
         """Compute rapidity in the lab frame. (needs checking)"""
 
-        if pt < self.eps() and abs(self[3]) < self.eps():
+        if self.pt() < self.eps() and abs(self[3]) < self.eps():
             return self.huge()*(self[3]/abs(self[3]))
 
-        return .5*math.log((self[0]+self[3])/(seld[0]-self[3]))
+        return .5*math.log((self[0]+self[3])/(self[0]-self[3]))
 
     def getdelphi(self, p2):
         """Compute the phi-angle separation with p2."""
@@ -223,8 +242,9 @@ class LorentzVector(Vector):
             return self.huge()
         tmp = self[1]*p2[1] + self[2]*p2[2]
         tmp /= (pt1*pt2)
-        if abs(tmp) > (1.0+10.*self.eps()):
-            raise Exception("Cosine larger than 1. in phase-space cuts.")
+        if abs(tmp) > (1.0+math.sqrt(self.eps())):
+            logger.critical("Cosine larger than 1. in phase-space cuts.")
+            raise ValueError
         if abs(tmp) > 1.0:
             return math.acos(tmp/abs(tmp))
         return math.acos(tmp)
@@ -238,19 +258,12 @@ class LorentzVector(Vector):
 
     def boostVector(self):
 
-        if self[0] == 0.:
-            if self.rho2() == 0.:
-                return (0.,0.,0.)
-            else:
-                raise Exception(
-                    "Attempting to compute a boost"
-                    "from a reference vector with zero energy."
-                )
-        if abs(self) < 0.:
-            raise Exception(
-                    "Attempting to compute a boost"
-                    "from a reference vector with negative mass."
-            )
+        if self == LorentzVector():
+            return Vector([0.] * 3)
+        if self[0] <= 0. or self.square() < 0.:
+            logger.critical("Attempting to compute a boost vector from")
+            logger.critical("%s (%.9e)" % (str(self), self.square()))
+            raise InvalidOperation
         return self.space()/self[0]
 
     def cosTheta(self):

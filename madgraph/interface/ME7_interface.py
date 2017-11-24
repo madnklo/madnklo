@@ -308,7 +308,9 @@ class ParseCmdArguments(object):
                               'min_scaling_variable'    : 1.0e-6,
                               'acceptance_threshold'    : 1.0e-6,
                               'compute_only_limit_defining_counterterm' : False,
-                              'include_all_flavors'     : False
+                              'include_all_flavors'     : False,
+                              'apply_higher_multiplicity_cuts' : True,
+                              'apply_lower_multiplicity_cuts'  : True
                              }
         
         if mode=='poles':
@@ -317,6 +319,7 @@ class ParseCmdArguments(object):
             del testlimits_options['n_steps']
             del testlimits_options['min_scaling_variable']
             del testlimits_options['compute_only_limit_defining_counterterm']
+            del testlimits_options['apply_lower_multiplicity_cuts']
         elif mode=='limits':
             del testlimits_options['include_all_flavors']            
  
@@ -344,6 +347,23 @@ class ParseCmdArguments(object):
                 if value.upper() not in ['NLO','NNLO','NNNLO']:
                     raise InvalidCmd("'%s' is not a valid option for '%s'"%(value, key))
                 testlimits_options['correction_order'] = value.upper()
+            elif key in ['--apply_cuts', '--ac']:
+                if value is None or value.lower() in ['t','true']:
+                    testlimits_options['apply_higher_multiplicity_cuts'] = True
+                    testlimits_options['apply_lower_multiplicity_cuts'] = True
+                elif value.lower() in ['f','false']:
+                    testlimits_options['apply_higher_multiplicity_cuts'] = False
+                    testlimits_options['apply_lower_multiplicity_cuts'] = False 
+                elif value.lower()=='no_lower':
+                    testlimits_options['apply_lower_multiplicity_cuts'] = False
+                elif value.lower()=='no_higher':
+                    testlimits_options['apply_higher_multiplicity_cuts'] = False                             
+                elif value.lower()=='lower':
+                    testlimits_options['apply_lower_multiplicity_cuts'] = True
+                elif value.lower()=='higher':
+                    testlimits_options['apply_higher_multiplicity_cuts'] = True
+                else:
+                    raise InvalidCmd("Value '%s' for option '%s' not recognized."%(value,key))
             elif key in ['--n_steps'] and mode=='limits':
                 try:
                     testlimits_options[key[2:]] = int(value)

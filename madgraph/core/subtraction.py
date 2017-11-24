@@ -469,6 +469,30 @@ class SingularStructure(object):
         other_can = other.get_canonical_representation()
         return self_can == other_can
 
+    def is_soft(self):
+        return False
+    def is_collinear(self):
+        return False
+    
+    def is_soft_collinear(self, is_embedded_in_soft = False, is_embedded_in_collinear = False):
+        """ Test if any structure in self contains within it both a collinear and a 
+        soft structure. The two options are here only for the use of the recursive search."""
+        
+        if self.is_soft():
+            if is_embedded_in_collinear:
+                return True
+            is_embedded_in_soft = True
+        if self.is_collinear():
+            if is_embedded_in_soft:
+                return True
+            is_embedded_in_collinear = True
+
+        for structure in self.substructures:
+            if structure.is_soft_collinear(is_embedded_in_soft, is_embedded_in_collinear):
+                return True
+        
+        return False
+
     def name(self):
 
         return ""
@@ -482,6 +506,9 @@ class SoftStructure(SingularStructure):
     def name(self):
 
         return "S"
+    
+    def is_soft(self):
+        return True
 
 class CollStructure(SingularStructure):
 
@@ -492,6 +519,9 @@ class CollStructure(SingularStructure):
     def name(self):
 
         return "C"
+    
+    def is_collinear(self):
+        return True
 
 #=========================================================================================
 # SingularOperator
@@ -888,6 +918,29 @@ class CountertermNode(object):
             total_unresolved += node.count_unresolved()
         return total_unresolved
 
+    def has_soft_collinear(self, is_embedded_in_soft = False, is_embedded_in_collinear = False):
+        """Return whether this counterterm contains currents satisfying the definition
+        of soft-collinear currents.
+        The two options are here only for the use of the recursive search."""
+
+        current_singular_structure = self.current.get('singular_structure')
+        if current_singular_structure.is_soft_collinear():
+            return True
+        if current_singular_structure.is_soft():
+            if is_embedded_in_collinear:
+                return True
+            is_embedded_in_soft = True
+        if current_singular_structure.is_collinear():
+            if is_embedded_in_soft:
+                return True
+            is_embedded_in_collinear = True
+
+        for CT_node in self.nodes:
+            if CT_node.has_soft_collinear(is_embedded_in_soft, is_embedded_in_collinear):
+                return True
+        
+        return False
+
     def find_leg(self, number):
         """Find the SubtractionLeg with number specified."""
         
@@ -1136,6 +1189,16 @@ class Counterterm(CountertermNode):
         
         return None
 
+    def has_soft_collinear(self):
+        """Return whether this counterterm contains currents satisfying the definition
+        of soft-collinear currents."""
+
+        for CT_node in self.nodes:
+            if CT_node.has_soft_collinear():
+                return True
+
+        return False
+
     def get_daughter_pdgs(self, leg_number, state):
         """Walk down the tree of currents to find the pdgs 'attached'
         to a given leg number of the reduced process.
@@ -1268,11 +1331,7 @@ class Counterterm(CountertermNode):
     def get_reduced_flavors(self, defining_flavors=None, IR_subtraction=None):
         """Given the defining flavors corresponding to the resolved process (as a dictionary),
          return a *list* of flavors corresponding to the flavor assignment of the reduced process 
-         given the defining flavors. Also returns the symmetry factor associated with this
-         singular structure and the flavors specified. For instance:
-             g(1) g(2) g(3) d(4) d~(5) g(6)
-         and C( C(4,5), S(3), S(2), 1)
-         The associated symmetry factor will be 2!*2!*1 = 4
+         given the defining flavors.
          """
 
         # Now construct the reduced flavors list

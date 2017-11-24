@@ -437,9 +437,10 @@ class ME7Integrand(integrands.VirtualIntegrand):
         it can be useful for both the ME7Integrnd_V and ME7_integrand_R."""
 
         # First select only the counterterms which are not pure matrix elements 
-        # (i.e. they have singular structures).
-        selected_counterterms = [ct for ct in counterterms if ct.is_singular()]
-        
+        # (i.e. they have singular structures) and also exclude here soft-collinear 
+        # counterterms since they do not have an approach limit function.
+        selected_counterterms = [ ct for ct in counterterms if ct.is_singular() and not
+                                                                  ct.has_soft_collinear() ]
         if len(selected_counterterms)==0:
             return []
 
@@ -453,23 +454,31 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
         return returned_counterterms
 
-    def pass_flavor_blind_cuts(self, PS_point, process_pdgs):
+    def pass_flavor_blind_cuts(self, PS_point, process_pdgs, n_jets_allowed_to_be_clustered = None):
         """ Implementation of a minimal set of isolation cuts. This can be made much nicer in the future and 
         will probably be taken outside of this class so as to ease user-specific cuts, fastjet, etc...
         We consider here a two-level cuts system, this first one of which is flavour blind.
-        This is of course not IR safe at this stage!"""
+        The 'n_jets_allowed_to_be_clustered' is an option that allows to overwrite the
+        maximum number of jets that can be clustered and which is by default taken to be:
+            self.contribution_definition.n_unresolved_particles 
+        This is useful when using this function to apply cuts to the reduced PS of the CTs."""
+
+        debug_cuts = False
         # This is a temporary function anyway which should eventually be replaced by a full
         # fledged module for handling generation level cuts, which would also make use of fjcore.
         # return True
 
-        from madgraph.integrator.vectors import LorentzVectorList, LorentzVector
+        from madgraph.integrator.vectors import LorentzVectorDict, LorentzVectorList, LorentzVector
         
         # These cuts are not allowed to resolve flavour, but only whether a particle is a jet or not
         def is_a_jet(pdg):
             return pdg in range(1,7)+range(-1,-7,-1)+[21]
         
-        if __debug__: logger.debug( "Processing flavor-blind cuts for process %s and PS point:\n%s"%(
+        if debug_cuts: logger.debug( "Processing flavor-blind cuts for process %s and PS point:\n%s"%(
             str(process_pdgs), LorentzVectorList(PS_point).__str__(n_initial=self.phase_space_generator.n_initial) ))
+
+        if n_jets_allowed_to_be_clustered is None:
+            n_jets_allowed_to_be_clustered = self.contribution_definition.n_unresolved_particles
 
         ptj_cut = self.run_card['ptj']
         drjj_cut = self.run_card['drjj']
@@ -480,14 +489,16 @@ class ME7Integrand(integrands.VirtualIntegrand):
             return True
         else:
             # If fastjet is needed but not found, make sure to stop
-            if (not PYJET_AVAILABLE) and self.contribution_definition.n_unresolved_particles>0:
+            if (not PYJET_AVAILABLE) and n_jets_allowed_to_be_clustered>0:
                 raise MadEvent7Error("Fast-jet python bindings are necessary for integrating"+
                              " real-emission type of contributions. Please install pyjet.")
 
         # The PS point in input is sometimes provided as a dictionary or a flat list, but
         # we need it as a flat list here, so we force the conversion
-        if isinstance(PS_point, dict):
+        if isinstance(PS_point, LorentzVectorDict):
             PS_point = PS_point.to_list()
+        elif not isinstance(PS_point, LorentzVectorList):
+            PS_point = LorentzVectorList(LorentzVector(v) for v in PS_point)    
 
         if PYJET_AVAILABLE and drjj_cut > 0.:
 
@@ -536,8 +547,10 @@ class ME7Integrand(integrands.VirtualIntegrand):
             # Make sure that the number of clustered jets is at least larger or equal to the
             # starting list of jets minus the number of particles that are allowed to go
             # unresolved in this contribution.
-            if len(jets) < \
-                     (starting_n_jets-self.contribution_definition.n_unresolved_particles):
+            if debug_cuts: logger.debug("Number of identified jets: %d (min %d)"%
+                           ( len(jets), (starting_n_jets-n_jets_allowed_to_be_clustered) ))
+            if len(jets) < (starting_n_jets-n_jets_allowed_to_be_clustered):
+
                 return False
             
             all_jets = LorentzVectorList([LorentzVector(
@@ -549,7 +562,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
             if ptj_cut > 0.:
                 # Apply the Ptj cut first
                 for i, p in enumerate(all_jets):
-                    if __debug__: logger.debug('pj_%i.pt()=%.5e'%((i+1),p.pt()))
+                    if debug_cuts: logger.debug('pj_%i.pt()=%.5e'%((i+1),p.pt()))
                     if p.pt() < ptj_cut:
                         return False
     
@@ -559,16 +572,18 @@ class ME7Integrand(integrands.VirtualIntegrand):
                     for j, p2 in enumerate(all_jets):
                         if j <= i:
                             continue
-                        if __debug__: logger.debug('deltaR(pj_%i,pj_%i)=%.5e'%(
+                        if debug_cuts: logger.debug('deltaR(pj_%i,pj_%i)=%.5e'%(
                              i+1, j+1, p1.deltaR(p2)))
                         if p1.deltaR(p2) < drjj_cut:
+                            misc.sprint('FFUFUC')
                             return False
     
         # Now handle all other cuts
         if etaj_cut > 0.:
             for i, p_jet in enumerate(all_jets):
-                if __debug__: logger.debug('eta(pj_%i)=%.5e'%(i+1,p_jet.pseudoRap()))
+                if debug_cuts: logger.debug('eta(pj_%i)=%.5e'%(i+1,p_jet.pseudoRap()))
                 if abs(p_jet.pseudoRap()) > etaj_cut:
+                    misc.sprint('FFUFUD')
                     return False
 
         # All cuts pass, therefore return True
@@ -578,15 +593,21 @@ class ME7Integrand(integrands.VirtualIntegrand):
         """ Implementation of a minimal set of isolation cuts. This can be made much nicer in the future and 
         will probably be taken outside of this class so as to ease user-specific cuts, fastjet, etc...
         We consider here a two-level cuts system, this second one of which is flavour sensitive."""
-        
+
         # None implemented yet
         return True
+    
+        debug_cuts = False
+        from madgraph.integrator.vectors import LorentzVectorDict, LorentzVectorList, LorentzVector
 
-        from madgraph.integrator.vectors import LorentzVectorList
-        if isinstance(PS_point, dict):
+        # The PS point in input is sometimes provided as a dictionary or a flat list, but
+        # we need it as a flat list here, so we force the conversion
+        if isinstance(PS_point, LorentzVectorDict):
             PS_point = PS_point.to_list()
+        elif not isinstance(PS_point, LorentzVectorList):
+            PS_point = LorentzVectorList(LorentzVector(v) for v in PS_point)   
 
-        if __debug__: logger.debug( "Processing flavor-sensitive cuts for flavors %s and PS point:\n%s"%(
+        if debug_cuts: logger.debug( "Processing flavor-sensitive cuts for flavors %s and PS point:\n%s"%(
             str(flavors), LorentzVectorList(PS_point).__str__(n_initial=self.phase_space_generator.n_initial) ))
         
         # All cuts pass, therefore return True
@@ -1276,13 +1297,14 @@ class ME7Integrand_R(ME7Integrand):
 
         return res
 
-    def evaluate_counterterm(self, counterterm, PS_point, hel_config=None, defining_flavors=None):
+    def evaluate_counterterm(self, counterterm, PS_point, hel_config=None, defining_flavors=None,
+                             apply_flavour_blind_cuts = True, apply_flavour_cuts = True  ):
         """ Evaluates the specified counterterm for the specified PS point."""
 
         # Retrieve some possibly relevant model parameters
         alpha_s = self.model.get('parameter_dict')['aS']
-        mu_r = self.model.get('parameter_dict')['MU_R']    
-        
+        mu_r = self.model.get('parameter_dict')['MU_R']
+
         # Now call the mapper to walk through the counterterm structure and return the list of currents
         # and PS points to use to evaluate them.
         # hike = {
@@ -1302,10 +1324,14 @@ class ME7Integrand_R(ME7Integrand):
         # flavors of the real-emission and the real-emission kinematics dictionary
         reduced_PS, reduced_flavors = counterterm.get_reduced_quantities(
                                                ME_PS, defining_flavors = defining_flavors)
-        
-        # /!\ Warnings the flavor of the reduced process and well as the current
-        # do not match the particular selection. This should be irrelevant for the
-        # evaluation of the counterterm.
+
+        # Apply cuts if requested and return immediately if they do not pass
+        if apply_flavour_blind_cuts and not self.pass_flavor_blind_cuts(
+                            reduced_PS, reduced_flavors, n_jets_allowed_to_be_clustered=0):
+            return 0.0, reduced_PS, reduced_flavors
+        if apply_flavour_cuts and not self.pass_flavor_sensitive_cuts(
+                                                              reduced_PS, reduced_flavors):
+            return 0.0, reduced_PS, reduced_flavors
 
         # Separate the current in those directly connected to the matrix element and those that are not
         disconnected_currents = [
@@ -1462,7 +1488,8 @@ The missing process is: %s"""%ME_process.nice_string())
                 continue
 
             CT_wgt, reduced_PS, reduced_flavors = self.evaluate_counterterm(
-                          counterterm, PS_point, hel_config=None, defining_flavors=flavors)
+                          counterterm, PS_point, hel_config=None, defining_flavors=flavors,
+                          apply_flavour_blind_cuts = True, apply_flavour_cuts = True)
             if CT_wgt == 0.:
                 continue
             
@@ -1483,14 +1510,11 @@ The missing process is: %s"""%ME_process.nice_string())
         for reduced_PS_tuple, value in CT_results.items():
             reduced_PS      = value['reduced_PS']
             flavor_contribs = value['flavor_contribs'] 
-            # For the flavor blind cuts, we must just specify some representative
-            # flavors, so we choose flavor_contribs.keys()[0]
-            if not self.pass_flavor_blind_cuts(reduced_PS, flavor_contribs.keys()[0]):
-                continue
             for flavor_contrib, counterterm_contribs in flavor_contribs.items():
-                if not self.pass_flavor_sensitive_cuts(reduced_PS, flavor_contrib):
-                    continue
                 this_CT_group_wgt = sum(contrib[1] for contrib in counterterm_contribs)
+                # Register this CT_wgt in the global weight.
+                sigma_wgt += this_CT_group_wgt
+                # Apply observables if requested
                 if self.apply_observables:
                     data_for_observables = {
                         'PS_point'     : reduced_PS,
@@ -1498,9 +1522,6 @@ The missing process is: %s"""%ME_process.nice_string())
                         'counterterms' : counterterm_contribs }
                     self.observable_list.apply_observables(
                                        this_CT_group_wgt*process_wgt, data_for_observables)
-                    
-                    # Register this CT_wgt in the global weight.
-                    sigma_wgt += this_CT_group_wgt
 
         return sigma_wgt
 
@@ -1516,20 +1537,50 @@ The missing process is: %s"""%ME_process.nice_string())
 
         # First generate an underlying Born
         # Specifying None forces to use uniformly random generating variables.
-        a_real_emission_PS_point, _, _, _ = self.phase_space_generator.get_PS_point(None)
-
-        a_real_emission_PS_point = phase_space_generators.LorentzVectorDict(
-            (i+1, mom) for i, mom in enumerate(a_real_emission_PS_point) )
+        # Make sure to generate a point within the cuts if necessary:
+        max_attempts = 10000
+        n_attempts   = 0
+        while True:
+            n_attempts += 1
+            if n_attempts > max_attempts:
+                break
+            real_emission_PS_point, _, _, _ = self.phase_space_generator.get_PS_point(None)
+            if test_options['apply_higher_multiplicity_cuts']:
+                if not self.pass_flavor_blind_cuts(real_emission_PS_point, 
+                    self.processes_map.values()[0][0].get_cached_initial_final_pdgs()):
+                    continue
+            break
+        if n_attempts > max_attempts:
+            raise MadEvent7Error("Could not generate a random kinematic configuration"+
+                  " passing the flavour blind cuts in less than %d attempts."%max_attempts)
+        n_attempts = 0
         
         # Now keep track of the results from each process and limit checked
         all_evaluations = {}
         for process_key, (defining_process, mapped_processes) in self.processes_map.items():
-            # Make sure that the selected process satisfies the selected process
+            # Make sure that the selected process satisfies the selection requirements
             if not self.is_part_of_process_selection(
                 [defining_process, ]+mapped_processes,
                 selection = test_options['process'] ):
                 continue
             
+            a_real_emission_PS_point = copy.copy(real_emission_PS_point)
+            while (test_options['apply_higher_multiplicity_cuts'] and 
+                   not self.pass_flavor_sensitive_cuts(a_real_emission_PS_point,
+                                        defining_process.get_cached_initial_final_pdgs())):
+                n_attempts += 1
+                if n_attempts > max_attempts:
+                    break
+                a_real_emission_PS_point, _, _, _ = self.phase_space_generator.get_PS_point(None)
+            if n_attempts > max_attempts:
+                raise MadEvent7Error("Could not generate a random kinematic configuration"+
+                      " passing the flavour blind cuts in less than %d attempts."%max_attempts)
+            n_attempts = 0
+
+            # Make sure to have the PS point provided as LorentzVectorDict
+            a_real_emission_PS_point = phase_space_generators.LorentzVectorDict(
+                            (i+1, mom) for i, mom in enumerate(a_real_emission_PS_point) )    
+
             # Here we use correction_order to select CT subset
             counterterms_to_consider = [
                 ct for ct in self.counterterms[process_key]
@@ -1541,7 +1592,7 @@ The missing process is: %s"""%ME_process.nice_string())
             selected_counterterms = self.find_counterterms_matching_limit_type_with_regexp(
                 counterterms_to_consider, test_options['limit_type']
             )
-            
+
             misc.sprint(defining_process.nice_string())
             misc.sprint('\n'+'\n'.join(
                 str(ct.reconstruct_complete_singular_structure())
@@ -1554,10 +1605,7 @@ The missing process is: %s"""%ME_process.nice_string())
                     "Result for test: %s | %s" % (
                         defining_process.nice_string(),
                         limit_specifier_counterterm.reconstruct_complete_singular_structure().__str__(
-                            print_n=True, print_pdg=False, print_state=False
-                        )
-                    )
-                )
+                            print_n=True, print_pdg=False, print_state=False ) ) )
 
                 # First identify the reduced PS point from which we can evolve to larger multiplicity
                 # while becoming progressively closer to the IR limit.
@@ -1596,9 +1644,13 @@ The missing process is: %s"""%ME_process.nice_string())
                         if not counterterm.is_singular():
                             continue
                         if test_options['compute_only_limit_defining_counterterm'] and \
-                                                                            counterterm != limit_specifier_counterterm:
+                                                                counterterm != limit_specifier_counterterm:
                             continue
-                        ct_weight, _, _ = self.evaluate_counterterm(counterterm, scaled_real_PS_point, hel_config=None)
+                        ct_weight, _, _ = self.evaluate_counterterm(counterterm, 
+                            scaled_real_PS_point, 
+                            hel_config=None,
+                            apply_flavour_blind_cuts = test_options['apply_lower_multiplicity_cuts'], 
+                            apply_flavour_cuts = test_options['apply_lower_multiplicity_cuts']  )
                         misc.sprint('Relative weight from CT %s = %.16f, %.16f'%(
                                     str(counterterm), ct_weight, ct_weight/ME_evaluation))
                         summed_counterterm_weight += ct_weight

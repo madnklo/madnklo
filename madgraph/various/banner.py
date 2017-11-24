@@ -2851,6 +2851,11 @@ class RunCardME7(RunCardLO):
         self['scale'] = 91.188
         self['dsqrt_q2fact1'] = 91.188
         self['dsqrt_q2fact2'] = 91.188
+        
+        # Insure drjj not set to zero since it acts as our fast-jet clustering
+        # parameter input for now
+        self['drjj'] = 0.4
+        
 
 class InvalidMadAnalysis5Card(InvalidCmd):
     pass

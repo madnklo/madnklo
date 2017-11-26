@@ -14,6 +14,7 @@
 ##########################################################################################
 import unittest
 import logging
+import random
 
 logger = logging.getLogger('test_PS_volume')
 
@@ -21,14 +22,18 @@ import madgraph.integrator.functions as functions
 import madgraph.integrator.integrands as integrands
 import madgraph.integrator.phase_space_generators as psgen
 import madgraph.integrator.vegas3_integrator as vegas
+import madgraph.integrator.mappings as mappings
 import madgraph.various.misc as misc
+
+random.seed = 1
 
 #=========================================================================================
 # Phase space generator
 #=========================================================================================
 
-E = 1.
-n_final = 2
+n_resolved = 1
+n_singular = 2
+
 massive = False
 
 verbosity = 2
@@ -36,7 +41,12 @@ verbosity = 2
 # This test should really use a decay,
 # but FlatInvertiblePhasespace does not support it yet
 IS_masses = [0.] * 2
-FS_masses = [0.] * n_final
+FS_masses = [random.random() if massive else 0 for _ in range(n_resolved+n_singular)]
+E = 1.
+if massive:
+    E = sum(FS_masses) / random.random()
+logger.critical("Masses: %s" % str(FS_masses))
+logger.critical("Energy: %f" % E)
 generator = psgen.FlatInvertiblePhasespace(
     IS_masses, FS_masses, (E/2., E/2.), beam_types=(0, 0))
 
@@ -50,6 +60,28 @@ class FlatPS(functions.VirtualFunction):
 
         ps, wgt = generator.generateKinematics(E, continuous_inputs)
         return dict({'weight': wgt})
+
+#=========================================================================================
+# Mapping PS integrand
+#=========================================================================================
+
+class MappingPS(functions.VirtualFunction):
+
+    def __init__(self, mapping):
+
+        self.mapping=mapping
+
+    def __call__(self, continuous_inputs, discrete_inputs, **opts):
+
+        n_mapping_randoms = 3*n_singular
+        # TODO !!!! This function needs to be implemented
+        wgt_singular, virtuality = self.mapping.generate_virtuality(
+            continuous_inputs[-n_mapping_randoms] )
+        masses = FS_masses[:-n_mapping_randoms] + [virtuality, ]
+        generator = psgen.FlatInvertiblePhasespace(
+            IS_masses, masses, (E / 2., E / 2.), beam_types=(0, 0))
+        ps, wgt_resolved = generator.generateKinematics(E, continuous_inputs)
+        return dict({'weight': wgt_singular*wgt_resolved})
 
 #=========================================================================================
 # TestPSVolume

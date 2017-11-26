@@ -377,7 +377,8 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
 
     def generateKinematics(self, double E_cm, random_variables):
         """Generate a self.n_initial -> self.n_final phase-space point
-        using the random variables passed in argument."""
+        using the random variables passed in argument.
+        """
 
         # Make sure the right number of random variables are passed
         assert (len(random_variables)==self.nDimPhaseSpace())

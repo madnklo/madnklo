@@ -49,9 +49,17 @@ class MadEventComparator(me_comparator.MEComparator):
     a list of proc as an input and return detailed comparison tables in various
     formats."""
 
+    def __init__(self, *args, **opts):
+        
+        self.allow_no_present = False
+        if 'allow_no_present' in opts:
+            self.allow_no_present = opts.pop('allow_no_present')
+        
+        return super(MadEventComparator, self).__init__(*args, **opts)
+
     def run_comparison(self, proc_list, model='sm', orders={}):
         """Run the codes and store results."""
-
+        
         if isinstance(model, basestring):
             model= [model] * len(self.me_runners)
 
@@ -63,14 +71,13 @@ class MadEventComparator(me_comparator.MEComparator):
             (len(proc_list),
              me_comparator.MERunner.get_coupling_definitions(orders),
              '/'.join([onemodel for onemodel in model])))
-
+        
         pass_proc = False
         for i,runner in enumerate(self.me_runners):
             cpu_time1 = time.time()
             logging.info("Now running %s" % runner.name)
             if pass_proc:
-                runner.pass_proc = pass_proc 
-
+                runner.pass_proc = pass_proc
             self.results.append(runner.run(proc_list, model[i], orders))
             cpu_time2 = time.time()
             logging.info(" Done in %0.3f s" % (cpu_time2 - cpu_time1))
@@ -130,14 +137,17 @@ class MadEventComparator(me_comparator.MEComparator):
                     succeed = False
                 else:
                     loc_results.append(self.results[i][prop])
-            res_str += '\n' + self._fixed_string_length(proc, proc_col_size)+ \
+            res_str += '\n' + self._fixed_string_length(prop, proc_col_size)+ \
                        ''.join([self._fixed_string_length(str(res),
                                                col_size) for res in loc_results])
             if not succeed:
                 res_str += self._fixed_string_length("NAN", col_size)
-                res_str += 'failed'
-                fail_test += 1
-                failed_prop_list.append(prop) 
+                if not self.allow_no_present or self.results[i].has_key(prop):
+                    res_str += 'failed'
+                    fail_test += 1
+                    failed_prop_list.append(prop)
+                else:
+                    res_str += 'passed'                    
             else:
                 # check the type (integer/float/string)
                 type = detect_type(loc_results[0])
@@ -183,9 +193,13 @@ class MadEventComparator(me_comparator.MEComparator):
         logging.info(res_str)
 
         if filename:
-            file = open(filename, 'w')
-            file.write(res_str)
-            file.close()
+            if isinstance(filename, str):
+                mystream = open(filename, 'w')
+            else:
+                mystream = filename
+            mystream.write(res_str)
+            if isinstance(filename, str):
+                mystream.close()
         
         return fail_test, failed_prop_list
 
@@ -416,14 +430,20 @@ class MadEventRunner(object):
         """
         pass 
             
-
 class MG5Runner(MadEventRunner):
     """Runner object for the MG5 Matrix Element generator."""
 
     mg5_path = ""
     name = 'MadGraph v5'
     type = 'v5'
+
+    def __init__(self, *args, **opts):
+
+        self.accuracy = 0.01 
+        if 'accuracy' in opts:
+            self.accuracy = opts.pop('accuracy')
         
+        return super(MG5Runner, self).__init__(*args, **opts)
 
     def setup(self, mg5_path, temp_dir=None):
         """Wrapper for the mg4 setup, also initializing the mg5 path variable"""
@@ -444,6 +464,7 @@ class MG5Runner(MadEventRunner):
         the specified model, the specified maximal coupling orders and a certain
         energy for incoming particles (for decay, incoming particle is at rest).
         """
+        
         self.res_list = [] # ensure that to be void, and avoid pointer problem 
         self.proc_list = proc_list
         self.model = model
@@ -458,7 +479,7 @@ class MG5Runner(MadEventRunner):
         proc_card_file = open(proc_card_location, 'w')
         proc_card_file.write(self.format_mg5_proc_card(proc_list, model, orders))
         proc_card_file.close()
-
+        
         logging.info("proc_card.dat file for %i processes successfully created in %s" % \
                      (len(proc_list), os.path.join(dir_name, 'Cards')))
 
@@ -494,7 +515,15 @@ class MG5Runner(MadEventRunner):
                      os.path.join(self.mg5_path, self.temp_dir_name)
         v5_string += "launch -i --multicore\n"
         v5_string += " set automatic_html_opening False\n"
-        v5_string += "edit_cards\n"
+        v5_string += "edit_cards\n"        
+        v5_string += self.additional_run_card_settings()
+        v5_string += "survey run_01; refine %f; refine %f\n"%(self.accuracy, self.accuracy) 
+        #v5_string += "print_results\n"
+        return v5_string
+    
+    def additional_run_card_settings(self):
+        """ Additional run_card settings specific to this runner. """
+        v5_string = ''
 #        v5_string += "set ickkw 0\n"
         v5_string += "set LHC 13\n"
 #        v5_string += "set xqcut 0\n"
@@ -502,10 +531,8 @@ class MG5Runner(MadEventRunner):
         v5_string += "set cut_decays True\n"
         v5_string += "set ickkw 0\n"
         v5_string += "set xqcut 0\n"
-        v5_string += "survey run_01; refine 0.01; refine 0.01\n" 
-        #v5_string += "print_results\n"
         return v5_string
-    
+
     def get_values(self):
     
         dir_name = os.path.join(self.mg5_path, self.temp_dir_name)
@@ -552,33 +579,100 @@ class MG5Runner(MadEventRunner):
         for name,value in info:
             output['cross_'+name] = value
 
-            
-            
-            
-
-        
         return output
 
-class MG5OldRunner(MG5Runner):
-    """Runner object for the MG5 Matrix Element generator."""
+class ME6Runner(MG5Runner):
+    """ A derived Runner which reports additional info in get_values()."""
+
+    name = 'ME6 ref'
+    type = 'ME6_ref'
+
+    def get_values(self):
+
+        output = super(ME6Runner, self).get_values()
+
+        total_xsec = 0.
+        for key, value in output.items():
+            if (not 'number' in key) and ('cross' in key):
+                total_xsec += float(value)
+
+        output['total_cross_section'] = '%.8e'%total_xsec
+
+        return output
+
+    def additional_run_card_settings(self):
+        """ Specify parameters to match ME7 setup."""
+
+        original_settings = super(ME6Runner, self).additional_run_card_settings()
+        
+        additional_settings = [original_settings,]
+        additional_settings.append('set drjj 0.4')
+        additional_settings.append('set pdlabel lhapdf')
+        additional_settings.append('set lhaid 90900')
+        additional_settings.append('set fixed_ren_scale True')
+        additional_settings.append('set fixed_fac_scale True')
+        additional_settings.append('set scale 91.188')
+        additional_settings.append('set dsqrt_q2fact1 91.188')
+        additional_settings.append('set dsqrt_q2fact2 91.188')
+        additional_settings.append('set dynamical_scale_choice -1')
+        additional_settings.append('set use_syst False')
+        additional_settings.append('set auto_ptj_mjj False')
+        additional_settings.append('set cut_decays True')
+        additional_settings.append('set ickkw 0')
+        additional_settings.append('set xqcut 0.0')
+        additional_settings.append('set ptlund -1.0')
+        additional_settings.append('set ktdurham -1.0')
+
+        return '\n'.join(additional_settings)+'\n'
+
+class ME7Runner(MG5Runner):
+    """Runner object for the ME7 cross-section computation."""
 
     mg5_path = ""
-    name = 'v5 Ref'
-    type = 'v5_ref'
-    
-    def format_mg5_proc_card(self, proc_list, model, orders):
+    name = 'ME7'
+    type = 'ME7'
+  
+    def __init__(self, *args, **opts):
+
+        self.n_points = 1000
+        if 'n_points' in opts:
+            self.n_points = opts.pop('n_points')
+        self.integrator = 'VEGAS3'
+        if 'integrator' in opts:
+            self.integrator = opts.pop('integrator')
+
+        return super(ME7Runner, self).__init__(*args, **opts)
+
+    def setup(self, mg5_path, temp_dir=None):
+        """Wrapper for the mg4 setup, also initializing the mg5 path variable"""
+
+        self.mg5_path = os.path.abspath(mg5_path)
+
+        if not temp_dir:
+            i=0
+            while os.path.exists(os.path.join(mg5_path, 
+                                              "p_xsec_test_%s_%s" % (self.type, i))):
+                i += 1
+            temp_dir = "p_xsec_test_%s_%s" % (self.type, i)         
+        
+        self.temp_dir_name = temp_dir
+
+    def format_ME7_proc_card(self, proc_list, model, orders):
         """Create a proc_card.dat string following v5 conventions."""
 
+        perturbation_orders = '--LO'
         v5_string = "import model %s\n" % os.path.join(self.model_dir, model)
         v5_string += "set automatic_html_opening False\n"
         couplings =  me_comparator.MERunner.get_coupling_definitions(orders)
 
         for i, proc in enumerate(proc_list):
-            v5_string += 'add process ' + proc + ' ' + couplings + \
-                         '@%i' % i + '\n'
+            v5_string += 'add process %s %s @%i %s\n'%(proc, couplings, i, perturbation_orders)
         v5_string += "output %s -f\n" % \
                      os.path.join(self.mg5_path, self.temp_dir_name)
-        v5_string += "launch -f \n"
+        v5_string += "launch %s \n"%(os.path.join(self.mg5_path, self.temp_dir_name))
+        v5_string += "launch --integrator=%s --n_points=%d\n"%(self.integrator, self.n_points)
+        v5_string += "exit\n"
+        v5_string += "exit\n"
         return v5_string
     
     def run(self, proc_list, model, orders={}):
@@ -593,18 +687,18 @@ class MG5OldRunner(MG5Runner):
         self.non_zero = 0 
         dir_name = os.path.join(self.mg5_path, self.temp_dir_name)
 
-        # Create a proc_card.dat in the v5 format
+        # Create a proc_card.dat
         proc_card_location = os.path.join(self.mg5_path, 'proc_card_%s.dat' % \
                                           self.temp_dir_name)
         proc_card_file = open(proc_card_location, 'w')
-        proc_card_file.write(self.format_mg5_proc_card(proc_list, model, orders))
+        proc_card_file.write(self.format_ME7_proc_card(proc_list, model, orders))
         proc_card_file.close()
 
         logging.info("proc_card.dat file for %i processes successfully created in %s" % \
                      (len(proc_list), os.path.join(dir_name, 'Cards')))
 
-        # Run mg5
-        logging.info("Running MG5")
+        # Run ME7
+        logging.info("Running MadEvent7")
         devnull = open(os.devnull,'w') 
 
         if logging.root.level >=20:
@@ -617,7 +711,22 @@ class MG5OldRunner(MG5Runner):
         values = self.get_values()
         self.res_list.append(values)
         return values
+
+    def get_values(self):
     
+        dir_name = os.path.join(self.mg5_path, self.temp_dir_name)
+        output   = {}
+
+        filepath = os.path.join(dir_name,'Results','run_tag_1','cross_sections.dat')
+        for i, line in enumerate(open(filepath).read().split('\n')):
+            entries = line.split()
+            if len(entries)<2:
+                continue
+            if entries[0]=='Total':
+                output['total_cross_section'] = entries[1]
+        
+        return output
+
 class MG5gaugeRunner(MG5Runner):
     """Runner object for the MG5 Matrix Element generator."""
 

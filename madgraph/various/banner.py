@@ -2069,6 +2069,8 @@ class RunCard(ConfigFile):
                     finput = open(finput).read()
                 if 'req_acc_FO' in finput:
                     target_class = RunCardNLO
+                elif 'integrator' in finput:
+                    target_class = RunCardME7               
                 else:
                     target_class = RunCardLO
             else:
@@ -2832,14 +2834,109 @@ class RunCardLO(RunCard):
 class RunCardME7(RunCardLO):
     """ Assign a dedicated class for ME7 runs. Many things will be overwritten in it eventually."""
 
-    def create_default_for_process(self, proc_characteristic, history, proc_def):
-        """ Create a default ME7 Run Card tailored to the process given in argument.
-        Overwritten here so as to accomodate current ME7 limitations."""
-        
-        super(RunCardME7, self).create_default_for_process(proc_characteristic, history, proc_def)
-        
-        # Overwrite all the parameters for which there is no ME7 support yet
-        
+    _ME7_limitations = [('ptb', 0.0),
+                         ('misset', 0.0),
+                         ('ptheavy', 0.0),
+                         ('ej', 0.0),
+                         ('eb', 0.0),
+                         ('ea', 0.0),
+                         ('el', 0.0),
+                         ('etajmin', 0.0),
+                         ('etabmin', 0.0),
+                         ('etaamin', 0.0),
+                         ('etalmin', 0.0),
+                         ('drbb', 0.0),
+                         ('drab', 0.0),
+                         ('drbl', 0.0),
+                         ('mmjj', 0.0),
+                         ('mmbb', 0.0),
+                         ('mmaa', 0.0),
+                         ('mmll', 0.0),
+                         ('mmnl', 0.0),
+                         ('ptllmin', 0.0),
+                         ('xptj', 0.0),
+                         ('xptb', 0.0),
+                         ('xpta', 0.0),
+                         ('xptl', 0.0),
+                         ('ptj1min', 0.0),
+                         ('ptj2min', 0.0),
+                         ('ptj3min', 0.0),
+                         ('ptj4min', 0.0),
+                         ('ptl1min', 0.0),
+                         ('ptl2min', 0.0),
+                         ('ptl3min', 0.0),
+                         ('ptl4min', 0.0),
+                         ('htjmin', 0.0),
+                         ('ihtmin', 0.0),
+                         ('ht2min', 0.0),
+                         ('ht3min', 0.0),
+                         ('ht4min', 0.0),
+                         ('xetamin', 0.0),
+                         ('deltaeta', 0.0),
+                         ('ptgmin',0.0)]
+    
+    _ME7_limitations.extend([('ptjmax', -1.0),
+                              ('ptbmax', -1.0),
+                              ('ptamax', -1.0),
+                              ('ptlmax', -1.0),
+                              ('missetmax', -1.0),
+                              ('ejmax', -1.0),
+                              ('ebmax', -1.0),
+                              ('eamax', -1.0),
+                              ('elmax', -1.0),
+                              ('etab', -1.0),
+                              ('drjjmax', -1.0),
+                              ('drbbmax', -1.0),
+                              ('drllmax', -1.0),
+                              ('draamax', -1.0),
+                              ('drbjmax', -1.0),
+                              ('drajmax', -1.0),
+                              ('drjlmax', -1.0),
+                              ('drabmax', -1.0),
+                              ('drblmax', -1.0),
+                              ('dralmax', -1.0),
+                              ('mmjjmax', -1.0),
+                              ('mmbbmax', -1.0),
+                              ('mmaamax', -1.0),
+                              ('mmllmax', -1.0),
+                              ('mmnlmax', -1.0),
+                              ('ptj1max', -1.0),  
+                              ('ptj2max', -1.0),  
+                              ('ptj3max', -1.0),  
+                              ('ptj4max', -1.0),  
+                              ('ptl1max', -1.0),  
+                              ('ptl2max', -1.0),  
+                              ('ptl3max', -1.0),  
+                              ('ptl4max', -1.0),  
+                              ('htjmax', -1.0),  
+                              ('htjmax', -1.0),  
+                              ('ht2max', -1.0),  
+                              ('ht3max', -1.0),  
+                              ('ht4max', -1.0),  
+                              ('ktdurham', -1.0),  
+                              ('ptlund', -1.0)])
+
+    _ME7_limitations.extend([('cutuse',     0),
+                              ('R0gamma',    0.4),
+                              ('xn',         1.0),
+                              ('epsgamma',   1.0),
+                              ('isoEM',      True),
+                              ('dparameter', 0.4)])
+
+    _ME7_limitations.extend([('scalefact',              1.0),
+                             ('bwcutoff',               -1.0),
+                             ('cut_decays',             False),
+                             ('sys_scalefact',          '0.5 1 2'),
+                             ('sys_alpsfact',           'None'),
+                             ('sys_matchscale',         'auto'),
+                             ('sys_pdf',                'NNPDF23_lo_as_0130_qed')])
+
+    _available_integrators = ['VEGAS3','NAIVE']
+
+    def enforce_ME7_restrictions(self):
+        """ Applies the resctrictions of run_card parameter values related to the fact
+        that ME7 as limited support of ME6 features."""
+
         # No support for built-in PDF
         self['pdlabel'] = 'lhapdf'
         # PDF4LHC is a good default
@@ -2851,11 +2948,79 @@ class RunCardME7(RunCardLO):
         self['scale'] = 91.188
         self['dsqrt_q2fact1'] = 91.188
         self['dsqrt_q2fact2'] = 91.188
+        self['dynamical_scale_choice'] = -1
         
         # Insure drjj not set to zero since it acts as our fast-jet clustering
         # parameter input for now
-        self['drjj'] = 0.4
+        self['drjj'] = 0.4        
         
+        # Settings of inputs not supported by MadEvent7 yet.
+        self['nevents']     = -1        
+        self['use_syst']    = False
+        self['nhel']        = 0
+        
+        # Cuts that must be set to particular values
+        for option, required_value, in self._ME7_limitations:
+            self[option] = required_value
+
+    def default_setup(self, *args, **opts):
+        
+        super(RunCardME7, self).default_setup(*args, **opts)
+
+        # Specify integrator: allowed values are [VEGAS3, NAIVE]
+        self.add_param("integrator", 'VEGAS3')
+        
+        self.enforce_ME7_restrictions()
+        for option, required_value, in self._ME7_limitations:
+            self.hidden_param.append(option.lower())
+
+    def create_default_for_process(self, proc_characteristic, history, proc_def):
+        """ Create a default ME7 Run Card tailored to the process given in argument.
+        Overwritten here so as to accomodate current ME7 limitations."""
+        
+        super(RunCardME7, self).create_default_for_process(proc_characteristic, history, proc_def)
+        self.enforce_ME7_restrictions()
+        
+    def check_validity(self, *args, **opts):
+        """ Usual validity check of the card, plus check of whether all specified options
+        are supported by ME7."""
+                
+        super(RunCardME7, self).check_validity(*args, **opts)
+        
+        if self['integrator'] not in self._available_integrators:
+            raise InvalidRunCard("Integrator can only be in %s, not %s."%(
+                                     str(self._available_integrators), self['integrator']))
+
+        is_run_card_supported = self.is_supported()
+        if not (is_run_card_supported is None):
+            raise InvalidRunCard("The specified run_card is not supported by MadEvent7:\n %s"%
+                                                                     is_run_card_supported)
+    
+    def is_supported(self):
+        """ Checks if all selected parameters are supported.
+        If something is not supported, returns a string explaining why,
+        otherwise returns None"""
+
+        if self['nevents'] != -1:
+            return "MadEvent7 cannot generate events yet. Please specify nevents = -1"
+        if self['pdlabel'] != 'lhapdf':
+            return "MadEvent7 only supports lhapdf for now. Please specify pdlabel='lhapdf'"
+        if not self['fixed_ren_scale'] or not self['fixed_fac_scale']:
+            return "MadEvent7 only supports fixed renormalization and factorization scale."
+        if self['dynamical_scale_choice'] != -1:
+            return "MadEvent7 only supports fixed renormalization and factorization scale."
+        if self['use_syst']:
+            return "MadEvent7 cannot run systematics studies yet." 
+        if self['nhel']!=0:
+            return "MadEvent7 does not support MC over helicity configurations." 
+        
+        # Cuts that must be set to particular values
+        for (option, required_value) in self._ME7_limitations:
+            if self[option] != required_value:
+                return "MadEvent7 only supports option '%s = %s', not '%s'"%(
+                                            option, str(required_value), str(self[option]))
+        
+        return None
 
 class InvalidMadAnalysis5Card(InvalidCmd):
     pass

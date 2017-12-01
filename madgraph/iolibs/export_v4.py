@@ -179,7 +179,7 @@ class ProcessExporterFortran(VirtualExporter):
     #===========================================================================
     #  create the run_card 
     #===========================================================================
-    def create_run_card(self, matrix_elements, history):
+    def create_run_card(self, matrix_elements, history, mg5options={}):
         """ """
 
 
@@ -187,8 +187,11 @@ class ProcessExporterFortran(VirtualExporter):
         import madgraph.loop.loop_helas_objects as loop_helas_objects
         if isinstance(matrix_elements, loop_helas_objects.LoopHelasMatrixElement):
             matrix_elements = None
-
-        run_card = banner_mod.RunCard()
+        
+        if (not 'ME7_output' in mg5options) or not mg5options['ME7_output']:
+            run_card = banner_mod.RunCard()
+        else:
+            run_card = banner_mod.RunCardME7()
         
         
         default=True
@@ -402,9 +405,9 @@ class ProcessExporterFortran(VirtualExporter):
     # Create jpeg diagrams, html pages,proc_card_mg5.dat and madevent.tar.gz
     #===========================================================================
     def finalize(self, matrix_elements, history='', mg5options={}, flaglist=[]):
-        """Function to finalize v4 directory, for inheritance.""" 
-        
-        self.create_run_card(matrix_elements, history)
+        """Function to finalize v4 directory, for inheritance."""
+
+        self.create_run_card(matrix_elements, history, mg5options=mg5options)
         self.create_MA5_cards(matrix_elements, history)
     
     def create_MA5_cards(self,matrix_elements,history):

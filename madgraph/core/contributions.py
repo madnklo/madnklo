@@ -687,6 +687,7 @@ class Contribution(object):
         # Dedicated finalize function.
         finalize_options = dict(self.options)
         finalize_options['no_compilation'] = True
+        finalize_options['ME7_output'] = True        
         self.exporter.finalize(self.all_matrix_elements, interface_history,
                                                                 finalize_options, flaglist)
         

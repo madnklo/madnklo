@@ -659,7 +659,7 @@ class CommonRunCmd(HelpToCmd, CheckValidForCmd, cmd.Cmd):
     def check_already_running(self):
         """ Check that the directory is not currently running_in_idle """
         if not self.force_run:
-            if os.path.exists(pjoin(me_dir,'RunWeb')): 
+            if os.path.exists(pjoin(self.me_dir,'RunWeb')): 
                 message = '''Another instance of the program is currently running.
                 (for this exact same directory) Please wait that this is instance is 
                 closed. If no instance is running, you can delete the file
@@ -667,12 +667,12 @@ class CommonRunCmd(HelpToCmd, CheckValidForCmd, cmd.Cmd):
                 raise AlreadyRunning, message
             else:
                 pid = os.getpid()
-                fsock = open(pjoin(me_dir,'RunWeb'),'w')
+                fsock = open(pjoin(self.me_dir,'RunWeb'),'w')
                 fsock.write(`pid`)
                 fsock.close()
     
-                misc.Popen([os.path.relpath(pjoin(self.dirbin, 'gen_cardhtml-pl'), me_dir)],
-                            cwd=me_dir)
+                misc.Popen([os.path.relpath(pjoin(self.dirbin, 'gen_cardhtml-pl'), self.me_dir)],
+                            cwd=self.me_dir)
 
     ############################################################################
     def split_arg(self, line, error=False):

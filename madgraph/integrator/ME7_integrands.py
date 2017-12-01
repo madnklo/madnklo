@@ -472,7 +472,16 @@ class ME7Integrand(integrands.VirtualIntegrand):
         
         # These cuts are not allowed to resolve flavour, but only whether a particle is a jet or not
         def is_a_jet(pdg):
-            return pdg in range(1,7)+range(-1,-7,-1)+[21]
+            return abs(pdg) in range(1,self.run_card['maxjetflavor']+1)+[21]
+        
+        def is_a_lepton(pdg):
+            return abs(pdg) in [11,13,15]
+        
+        def is_a_neutrino(pdg):
+            return abs(pdg) in [12,14,16]
+        
+        def is_a_photon(pdg):
+            return pdg==22
         
         if debug_cuts: logger.debug( "Processing flavor-blind cuts for process %s and PS point:\n%s"%(
             str(process_pdgs), LorentzVectorList(PS_point).__str__(n_initial=self.phase_space_generator.n_initial) ))
@@ -480,9 +489,14 @@ class ME7Integrand(integrands.VirtualIntegrand):
         if n_jets_allowed_to_be_clustered is None:
             n_jets_allowed_to_be_clustered = self.contribution_definition.n_unresolved_particles
 
+        ###################################################################################
+        # JET CLUSTERING AND CUTS
+        ###################################################################################
+        
         ptj_cut = self.run_card['ptj']
         drjj_cut = self.run_card['drjj']
         etaj_cut = self.run_card['etaj']
+        
         if ptj_cut <= 0. and    \
            drjj_cut <= 0. and   \
            etaj_cut <= 0. :
@@ -575,7 +589,6 @@ class ME7Integrand(integrands.VirtualIntegrand):
                         if debug_cuts: logger.debug('deltaR(pj_%i,pj_%i)=%.5e'%(
                              i+1, j+1, p1.deltaR(p2)))
                         if p1.deltaR(p2) < drjj_cut:
-                            misc.sprint('FFUFUC')
                             return False
     
         # Now handle all other cuts
@@ -583,8 +596,53 @@ class ME7Integrand(integrands.VirtualIntegrand):
             for i, p_jet in enumerate(all_jets):
                 if debug_cuts: logger.debug('eta(pj_%i)=%.5e'%(i+1,p_jet.pseudoRap()))
                 if abs(p_jet.pseudoRap()) > etaj_cut:
-                    misc.sprint('FFUFUD')
                     return False
+
+        ###################################################################################
+        # LEPTON AND PHOTON CUTS
+        ###################################################################################
+        
+        for i, p in enumerate(PS_point[self.n_initial:]):
+            # photons
+            if is_a_photon(process_pdgs[1][i]):
+                if debug_cuts: logger.debug('pta_%i.pt()=%.5e'%((i+1),p.pt()))
+                if self['pta'] > 0.0 and p.pt() < self['pta']:
+                    return False
+                if debug_cuts: logger.debug('eta(pa_%i)=%.5e'%(i+1,p.pseudoRap()))
+                if self['etaa'] > 0.0 and abs(p.pseudoRap()) > self['etaa']:
+                    return False
+                for j, p2 in enumerate(PS_point[self.n_initial:]):
+                    if is_a_photon(process_pdgs[1][j]):
+                        if debug_cuts: logger.debug('deltaR(pa_%i,pa_%i)=%.5e'%(i+1, j+1, p.deltaR(p2)))
+                        if self['draa'] > 0.0 and p.deltaR(p2) < self['draa']:
+                            return False
+                    if is_a_lepton(process_pdgs[1][j]):
+                        if debug_cuts: logger.debug('deltaR(pa_%i,pl_%i)=%.5e'%(i+1, j+1, p.deltaR(p2)))
+                        if self['dral'] > 0.0 and p.deltaR(p2) < self['dral']:
+                            return False
+                for j, p_jet in enumerate(all_jets):
+                    if debug_cuts: logger.debug('deltaR(pa_%i,pj_%i)=%.5e'%(i+1, j+1, p.deltaR(p_jet)))
+                    if self['draj'] > 0.0 and p.deltaR(p_jet) < self['draj']:
+                        return False
+            
+            # leptons
+            if is_a_lepton(process_pdgs[1][i]):
+                if debug_cuts: logger.debug('ptl_%i.pt()=%.5e'%((i+1),p.pt()))
+                if self['ptl'] > 0.0 and p.pt() < self['ptl']:
+                    return False
+                if debug_cuts: logger.debug('eta(pl_%i)=%.5e'%(i+1,p.pseudoRap()))
+                if self['etal'] > 0.0 and abs(p.pseudoRap()) > self['etal']:
+                    return False
+                for j, p2 in enumerate(PS_point[self.n_initial:]):
+                    if is_a_lepton(process_pdgs[1][j]):
+                        if debug_cuts: logger.debug('deltaR(pl_%i,pl_%i)=%.5e'%(i+1, j+1, p.deltaR(p2)))
+                        if self['drll'] > 0.0 and p.deltaR(p2) < self['drll']:
+                            return False
+                for j, p_jet in enumerate(all_jets):
+                    if debug_cuts: logger.debug('deltaR(pl_%i,pj_%i)=%.5e'%(i+1, j+1, p.deltaR(p_jet)))
+                    if self['drjl'] > 0.0 and p.deltaR(p_jet) < self['drjl']:
+                        return False  
+            
 
         # All cuts pass, therefore return True
         return True

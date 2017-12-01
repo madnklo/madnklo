@@ -305,14 +305,14 @@ class ParseCmdArguments(object):
                                                            'n_loops'  : None},
                               'seed'                    : None,
                               'n_steps'                 : 10,
-                              'min_scaling_variable'    : 1.0e-6,
+                              'min_scaling_variable'    : 1.0e-5,
                               'acceptance_threshold'    : 1.0e-6,
                               'compute_only_limit_defining_counterterm' : False,
                               'include_all_flavors'     : False,
                               'apply_higher_multiplicity_cuts' : True,
                               'apply_lower_multiplicity_cuts'  : True
                              }
-        
+
         if mode=='poles':
             # Remove some options for the pole
             del testlimits_options['limit_type']
@@ -772,6 +772,9 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         logger.info("Synchronizing MadEvent7 internal status with cards and matrix elements source codes...")
         
         self.run_card = banner_mod.RunCardME7(pjoin(self.me_dir,'Cards','run_card.dat'))
+        # Check if run_card values are supported.
+        self.run_card.check_validity()
+
         self.model.set_parameters_and_couplings(
             param_card = pjoin(self.me_dir,'Cards','param_card.dat'), 
             scale=self.run_card['scale'], 
@@ -826,6 +829,16 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         # In principle we want to start by recompiling the process output so as to make sure
         # that everything is up to date.
         self.synchronize(**launch_options)
+
+        # Create a run output directory
+        run_output_path = pjoin(self.me_dir,'Results','run_%s'%self.run_card['run_tag'])
+        suffix=''
+        suffix_number = 0
+        while os.path.exists(run_output_path+suffix):
+            suffix_number += 1
+            suffix = '_%d'%suffix_number
+        run_output_path = run_output_path+suffix
+        os.makedirs(run_output_path)
 
         # Setup parallelization
         self.configure_run_mode(self.options['run_mode'])
@@ -891,6 +904,14 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         logger.info('{:^100}'.format("Cross-section with integrator '%s':"%self.integrator.get_name()),'$MG:color:GREEN')
         logger.info('{:^100}'.format("%.5e +/- %.2e [pb]"%(xsec, error)),'$MG:color:BLUE')
         logger.info("="*100+"\n")
+        
+        # Write the result in 'cross_sections.dat' of the result directory
+        xsec_summary = open(pjoin(run_output_path,'cross_sections.dat'),'w')
+        xsec_summary_lines = []        
+        xsec_summary_lines.append('%-30s%-30s%-30s'%('','Cross-section [pb]','MC uncertainty [pb]'))
+        xsec_summary_lines.append('%-30s%-30s%-30s'%('Total','%.8e'%xsec,'%.3e'%error))
+        xsec_summary.write('\n'.join(xsec_summary_lines))
+        xsec_summary.close()
     
     def do_test_IR_limits(self, line, *args, **opt):
         """This function test that local subtraction counterterms match with the actual matrix element in the IR limit."""

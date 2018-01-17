@@ -69,7 +69,7 @@ class FinalCollinearVariablesTest(unittest.TestCase):
         for completely generic input values.
         """
 
-        # Generate n_children random massless vectors
+        # Generate n_children random Lorentz vectors
         my_PS_point = LorentzVectorDict()
         children = tuple(range(self.n_children))
         for i in children:
@@ -98,13 +98,19 @@ class FinalCollinearVariablesTest(unittest.TestCase):
         """
 
         children = tuple(range(self.n_children))
-        # Generate n_children random starting directions
+        # Generate children squares
+        if self.massive:
+            squares = {i: random.random() for i in children}
+        else:
+            squares = {i: 0. for i in children}
+        # Generate children random starting directions
         directions = {
             i: Vector([random.random() for _ in range(3)])
             for i in children }
         coll_direction = Vector(3*[0., ])
         for n in directions.values():
             coll_direction += n
+        coll_lorentz = LorentzVector([0., ] + list(coll_direction)).set_square(0)
         # Generate values for the parameter that describes approach to limit
         pars = (math.pow(0.25, i) for i in range(14))
         # This is one way like any other to approach the limit
@@ -113,12 +119,10 @@ class FinalCollinearVariablesTest(unittest.TestCase):
                 i: (par*n + (1-par)*coll_direction)
                 for (i, n) in directions.items() }
             my_PS_point = {
-                i: LorentzVector([0., ] + list(n)).set_square(0)
+                i: LorentzVector([0., ] + list(n)).set_square(squares[i])
                 for (i, n) in new_directions.items() }
-            # na = LorentzVector([1, 0, 0, +1])
-            # nb = LorentzVector([1, 0, 0, -1])
-            na = LorentzVector([0., ] + list( coll_direction)).set_square(0)
-            nb = LorentzVector([0., ] + list(-coll_direction)).set_square(0)
+            na, nb = mappings.FinalCollinearVariables.collinear_and_reference(
+                coll_lorentz )
             # Compute collinear variables
             variables = dict()
             mappings.FinalCollinearVariables.get(my_PS_point, children, na, nb, variables)
@@ -387,6 +391,86 @@ class SomogyietalSoftTest(unittest.TestCase):
             my_PS_point, self.structure, self.momenta_dict, variables )
         for i in my_PS_point.keys():
             self.assertEqual(my_PS_point[i], old_PS_point[i])
+
+#=========================================================================================
+# Test initial-collinear variables
+#=========================================================================================
+
+class InitialCollinearVariablesTest(unittest.TestCase):
+    """Test class for variables describing internal initial-collinear structure."""
+
+    n_children = 3
+    massive = False
+
+    def test_initial_collinear_variables_away_from_limit(self):
+        """Test initial-collinear variables getting and setting,
+        for completely generic input values.
+        """
+
+        # Generate n_children random Lorentz vectors
+        my_PS_point = LorentzVectorDict()
+        is_child = 0
+        fs_children = tuple(range(1, self.n_children))
+        my_PS_point[is_child] = random_momentum(False)
+        # my_PS_point[is_child] = LorentzVector([1.,0.,0.,1])
+        for i in fs_children:
+            my_PS_point[i] = random_momentum(self.massive)
+        # Generate two random light-cone directions
+        nb = random_momentum(False)
+        # Compute collinear variables
+        variables = dict()
+        mappings.InitialCollinearVariables.get(
+            my_PS_point, fs_children, is_child, nb, variables )
+        print variables
+        # Compute new phase space point
+        new_PS_point = LorentzVectorDict()
+        mappings.InitialCollinearVariables.set(
+            new_PS_point, fs_children, is_child, my_PS_point[is_child], nb, variables )
+        # Check the two phase-space points are equal
+        self.assertDictEqual(my_PS_point, new_PS_point)
+
+    def test_initial_collinear_variables_close_to_limit(self):
+        """Test initial-collinear variables getting and setting,
+        in a typical collinear situation.
+        """
+
+        is_child = 0
+        fs_children = tuple(range(1, self.n_children))
+        # Generate children squares
+        if self.massive:
+            squares = {i: random.random() for i in fs_children}
+        else:
+            squares = {i: 0. for i in fs_children}
+        # Generate children random starting directions
+        directions = {
+            i: Vector([random.random() for _ in range(3)])
+            for i in fs_children }
+        coll_direction = Vector([random.random() for _ in range(3)])
+        # coll_direction = Vector([0.,0.,1.])
+        coll_lorentz = LorentzVector([0., ] + list(coll_direction)).set_square(0)
+        nb = mappings.InitialCollinearVariables.reference(coll_lorentz)
+        # Generate values for the parameter that describes approach to limit
+        pars = (math.pow(0.25, i) for i in range(14))
+        # This is one way like any other to approach the limit
+        for par in pars:
+            new_directions = {
+                i: (par*n + (1-par)*coll_direction)
+                for (i, n) in directions.items() }
+            my_PS_point = {
+                i: LorentzVector([0., ] + list(n)).set_square(squares[i])
+                for (i, n) in new_directions.items() }
+            my_PS_point[is_child] = coll_lorentz
+            # Compute collinear variables
+            variables = dict()
+            mappings.InitialCollinearVariables.get(
+                my_PS_point, fs_children, is_child, nb, variables )
+            # Compute new phase space point
+            new_PS_point = LorentzVectorDict()
+            mappings.InitialCollinearVariables.set(
+                new_PS_point, fs_children, is_child,
+                my_PS_point[is_child], nb, variables )
+            # Check the two phase-space points are equal
+            self.assertDictEqual(my_PS_point, new_PS_point)
 
 #=========================================================================================
 # Test the phase-space walkers

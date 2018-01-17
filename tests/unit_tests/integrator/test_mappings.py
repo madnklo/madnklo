@@ -55,16 +55,16 @@ def random_momentum(massive=False):
     return foo
 
 #=========================================================================================
-# Test collinear variables
+# Test final-collinear variables
 #=========================================================================================
 
-class CollinearVariablesTest(unittest.TestCase):
+class FinalCollinearVariablesTest(unittest.TestCase):
     """Test class for variables describing internal collinear structure."""
 
     n_children = 3
     massive = True
 
-    def test_collinear_variables_away_from_limit(self):
+    def test_final_collinear_variables_away_from_limit(self):
         """Test determination of collinear variables and reverse mapping,
         for completely generic input values.
         """
@@ -79,7 +79,7 @@ class CollinearVariablesTest(unittest.TestCase):
         nb = random_momentum(False)
         # Compute collinear variables
         variables = dict()
-        mappings.CollinearVariables.get(
+        mappings.FinalCollinearVariables.get(
             my_PS_point, children, na, nb, variables )
         # Compute total momentum
         total_momentum = LorentzVector()
@@ -87,12 +87,12 @@ class CollinearVariablesTest(unittest.TestCase):
             total_momentum += my_PS_point[i]
         # Compute new phase space point
         new_PS_point = LorentzVectorDict()
-        mappings.CollinearVariables.set(
+        mappings.FinalCollinearVariables.set(
             new_PS_point, children, total_momentum, na, nb, variables )
         # Check the two phase-space points are equal
         self.assertDictEqual(my_PS_point, new_PS_point)
 
-    def test_collinear_variables_close_to_limit(self):
+    def test_final_collinear_variables_close_to_limit(self):
         """Test determination of collinear variables and reverse mapping
         in a typical collinear situation.
         """
@@ -121,24 +121,24 @@ class CollinearVariablesTest(unittest.TestCase):
             nb = LorentzVector([0., ] + list(-coll_direction)).set_square(0)
             # Compute collinear variables
             variables = dict()
-            mappings.CollinearVariables.get(my_PS_point, children, na, nb, variables)
+            mappings.FinalCollinearVariables.get(my_PS_point, children, na, nb, variables)
             # Compute total momentum
             total_momentum = LorentzVector()
             for i in children:
                 total_momentum += my_PS_point[i]
             # Compute new phase space point
             new_PS_point = LorentzVectorDict()
-            mappings.CollinearVariables.set(
+            mappings.FinalCollinearVariables.set(
                 new_PS_point, children, total_momentum, na, nb, variables )
             # Check the two phase-space points are equal
             self.assertDictEqual(my_PS_point, new_PS_point)
 
 #=========================================================================================
-# Test collinear mappings
+# Test final-collinear mappings
 #=========================================================================================
 
-class FFCollinearMappingTest(object):
-    """Test class for final-final collinear mappings."""
+class FinalCollinearMappingTest(object):
+    """Test class for final-collinear mappings."""
 
     @staticmethod
     def randomize(pars):
@@ -213,12 +213,12 @@ class FFCollinearMappingTest(object):
             my_PS_point, pars['structure'], pars['momenta_dict'], variables )
         test.assertDictEqual(my_PS_point, old_PS_point)
 
-class FFRescalingMappingOneTest(unittest.TestCase):
-    """Test class for FFRescalingMappingOne."""
+class FinalRescalingMappingOneTest(unittest.TestCase):
+    """Test class for FinalRescalingMappingOne."""
 
     # Test settings
     pars = {
-        'mapping': mappings.FFRescalingMappingOne(),
+        'mapping': mappings.FinalRescalingMappingOne(),
         'max_collinear_sets': 1,
         'max_collinears_per_set': 4,
         'min_recoilers': 1,
@@ -229,18 +229,18 @@ class FFRescalingMappingOneTest(unittest.TestCase):
 
     def setUp(self):
 
-        FFCollinearMappingTest.randomize(self.pars)
+        FinalCollinearMappingTest.randomize(self.pars)
 
-    def test_FFRescalingMappingOne_invertible(self):
+    def test_FinalRescalingMappingOne_invertible(self):
 
-        FFCollinearMappingTest.test_invertible(self.pars, self)
+        FinalCollinearMappingTest.test_invertible(self.pars, self)
 
-class FFLorentzMappingOneTest(unittest.TestCase):
-    """Test class for FFRescalingMappingOne."""
+class FinalLorentzMappingOneTest(unittest.TestCase):
+    """Test class for FinalLorentzMappingOne."""
 
     # Test settings
     pars = {
-        'mapping': mappings.FFLorentzMappingOne(),
+        'mapping': mappings.FinalLorentzMappingOne(),
         'max_collinear_sets': 1,
         'max_collinears_per_set': 4,
         'min_recoilers': 1,
@@ -251,11 +251,11 @@ class FFLorentzMappingOneTest(unittest.TestCase):
 
     def setUp(self):
 
-        FFCollinearMappingTest.randomize(self.pars)
+        FinalCollinearMappingTest.randomize(self.pars)
 
-    def test_FFLorentzMappingOne_invertible(self):
+    def test_FinalLorentzMappingOne_invertible(self):
 
-        FFCollinearMappingTest.test_invertible(self.pars, self)
+        FinalCollinearMappingTest.test_invertible(self.pars, self)
 
 #=========================================================================================
 # Test soft variables
@@ -316,7 +316,7 @@ class SoftVariablesTest(unittest.TestCase):
             self.assertDictEqual(old_PS_point, new_PS_point)
 
 #=========================================================================================
-# Soft mappings
+# Test soft mappings
 #=========================================================================================
 
 class SomogyietalSoftTest(unittest.TestCase):

@@ -937,7 +937,7 @@ class InitialLorentzMappingOne(InitialCollinearMapping):
                 logger.critical("The full phase space point was\n%s" % str(PS_point))
         # If needed, update the kinematic_variables dictionary
         if kinematic_variables is not None:
-            nb = InitialCollinearVariables.reference(PS_point[parent])
+            nb = InitialCollinearVariables.reference(pa)
             kinematic_variables['xi' + str(parent)] = xia
             InitialCollinearVariables.get(
                 PS_point, fs_children, is_child, nb, kinematic_variables )

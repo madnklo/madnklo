@@ -7,9 +7,11 @@ IRSubstractionTest
 NLOSubtractionTest
 HiggsN3LOSubtractionTest
 VectorsTest
-CollinearVariablesTest
-FFRescalingMappingOneTest
-FFLorentzMappingOneTest
+FinalCollinearVariablesTest
+FinalRescalingMappingOneTest
+FinalLorentzMappingOneTest
 SoftVariablesTest
 SomogyietalSoftTest
+InitialCollinearVariablesTest
+InitialLorentzMappingOneTest
 FlatCollinearWalkerTest

@@ -228,7 +228,6 @@ class FinalRescalingMappingOneTest(unittest.TestCase):
         'min_recoilers': 1,
         'max_recoilers': 3,
         'max_unchanged': 3,
-        'supports_massive_parents': True,
         'supports_massive_recoilers': False }
 
     def setUp(self):
@@ -250,7 +249,6 @@ class FinalLorentzMappingOneTest(unittest.TestCase):
         'min_recoilers': 1,
         'max_recoilers': 5,
         'max_unchanged': 3,
-        'supports_massive_parents': True,
         'supports_massive_recoilers': True }
 
     def setUp(self):
@@ -471,6 +469,121 @@ class InitialCollinearVariablesTest(unittest.TestCase):
                 my_PS_point[is_child], nb, variables )
             # Check the two phase-space points are equal
             self.assertDictEqual(my_PS_point, new_PS_point)
+
+#=========================================================================================
+# Test initial-collinear mappings
+#=========================================================================================
+
+class InitialCollinearMappingTest(object):
+    """Test class for initial-collinear mappings."""
+
+    @staticmethod
+    def randomize(pars):
+
+        # Randomly generate the structure of the final state
+        two_sided = pars['two_sided']
+        real_min_recoilers = pars['min_recoilers']
+        if pars['min_recoilers'] == 0: real_min_recoilers = 1
+        n_recoilers = random.randint(real_min_recoilers, pars['max_recoilers'])
+        n_unchanged = random.randint(0, pars['max_unchanged'])
+        n_collinears_1 = 1
+        n_collinears_2 = 1
+        if two_sided:
+            n_collinears_1 = random.randint(2, pars['max_collinears_per_set'])
+            n_collinears_2 = random.randint(2, pars['max_collinears_per_set'])
+        else:
+            if bool(random.getrandbits(1)):
+                n_collinears_1 = random.randint(2, pars['max_collinears_per_set'])
+            else:
+                n_collinears_2 = random.randint(2, pars['max_collinears_per_set'])
+        # Compute the total number of particles in the final state
+        n_tot = n_collinears_1 + n_collinears_2 + n_recoilers + n_unchanged
+        # Initialise trivial entries {i: i} of the momenta dictionary
+        pars['momenta_dict'] = subtraction.bidict()
+        for i in range(1, n_tot+1):
+            pars['momenta_dict'][i] = frozenset((i,))
+        # Randomly generate nonconsecutive numbers of the final state
+        shuffled_numbers = range(3, n_tot+1)
+        random.shuffle(shuffled_numbers)
+        pars['structure'] = []
+        n_set = 1
+        # Build the structure of the set collinear to 1 (if any)
+        if n_collinears_1 > 1:
+            numbers_collinears_1 = shuffled_numbers[:n_collinears_1-1]
+            shuffled_numbers = shuffled_numbers[n_collinears_1-1:]
+            legs_in_this_set = [
+                subtraction.SubtractionLeg(1, 21, INITIAL) ] + [
+                subtraction.SubtractionLeg(i, 21, FINAL)
+                for i in numbers_collinears_1 ]
+            legs_in_this_set = subtraction.SubtractionLegSet(legs_in_this_set)
+            pars['structure'] += [ subtraction.CollStructure(legs=legs_in_this_set), ]
+            pars['momenta_dict'][n_tot + n_set] = frozenset([1, ] + numbers_collinears_1)
+            n_set += 1
+        # Build the structure of the set collinear to 2 (if any)
+        if n_collinears_2 > 1:
+            numbers_collinears_2 = shuffled_numbers[:n_collinears_2-1]
+            shuffled_numbers = shuffled_numbers[n_collinears_2-1:]
+            legs_in_this_set = [
+                subtraction.SubtractionLeg(2, 21, INITIAL) ] + [
+                subtraction.SubtractionLeg(i, 21, FINAL)
+                for i in numbers_collinears_2 ]
+            legs_in_this_set = subtraction.SubtractionLegSet(legs_in_this_set)
+            pars['structure'] += [ subtraction.CollStructure(legs=legs_in_this_set), ]
+            pars['momenta_dict'][n_tot + n_set] = frozenset([2, ] + numbers_collinears_2)
+        # Build the structure of recoilers
+        pars['structure'] += [
+            subtraction.SubtractionLeg(i, 21, FINAL)
+            for i in shuffled_numbers[:n_recoilers]]
+        pars['structure'] = subtraction.SingularStructure(*pars['structure'])
+        pars['unchanged'] = shuffled_numbers[n_recoilers:]
+        assert len(pars['unchanged']) == n_unchanged
+        # print "The random structure for this test is", str(pars['structure'])
+        # print "with particles number", pars['unchanged'], "unchanged"
+
+    @staticmethod
+    def test_invertible(pars, test):
+        """Test mapping and inverse."""
+
+        # Generate a random phase space point
+        my_PS_point = LorentzVectorDict()
+        for i in pars['unchanged']:
+            my_PS_point[i] = random_momentum(True)
+        for leg in pars['structure'].legs:
+            my_PS_point[leg.n] = random_momentum(pars['supports_massive_recoilers'])
+        for set in pars['structure'].substructures:
+            leg_ns = [leg.n for leg in set.get_all_legs()]
+            for i in leg_ns:
+                my_PS_point[i] = random_momentum(False)
+        # I know what I'm doing
+        old_PS_point = copy.deepcopy(my_PS_point)
+        # Compute collinear variables
+        variables = dict()
+        pars['mapping'].map_to_lower_multiplicity(
+            my_PS_point, pars['structure'], pars['momenta_dict'], variables)
+        pars['mapping'].map_to_higher_multiplicity(
+            my_PS_point, pars['structure'], pars['momenta_dict'], variables)
+        test.assertDictEqual(my_PS_point, old_PS_point)
+
+class InitialLorentzMappingOneTest(unittest.TestCase):
+    """Test class for InitialLorentzMappingOne."""
+
+    # Test settings
+    pars = {
+        'mapping': mappings.InitialLorentzMappingOne(),
+        'two_sided': False,
+        'max_collinears_per_set': 4,
+        'min_recoilers': 1,
+        'max_recoilers': 5,
+        'max_unchanged': 3,
+        'supports_massive_recoilers': True}
+
+    def setUp(self):
+
+        InitialCollinearMappingTest.randomize(self.pars)
+
+    def test_InitialLorentzMappingOne_invertible(self):
+
+        InitialCollinearMappingTest.test_invertible(self.pars, self)
 
 #=========================================================================================
 # Test the phase-space walkers

@@ -191,3 +191,11 @@ model = base_objects.Model({
     'name': "simple_QCD",
     'interactions': interactions
 })
+
+# Masses
+#=========================================================================================
+
+masses = {
+    'zero': 0.,
+    'mh':   1.
+}

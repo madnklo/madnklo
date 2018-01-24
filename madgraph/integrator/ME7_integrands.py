@@ -1292,7 +1292,7 @@ class ME7Integrand_R(ME7Integrand):
     """ ME7Integrand for the computation of a single real-emission type of contribution."""
     
 #    MappingWalkerType = 'CataniSeymour'
-    MappingWalkerType = 'FFNLO'
+    MappingWalkerType = 'FinalNLO'
     
     def __init__(self, *args, **opts):
         """Initialize a real-emission type of integrand, adding additional relevant attributes."""

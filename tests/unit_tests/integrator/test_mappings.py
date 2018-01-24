@@ -149,274 +149,6 @@ class FinalCollinearVariablesTest(unittest.TestCase):
                 self.assertDictEqual(my_PS_point, new_PS_point)
 
 #=========================================================================================
-# Test final-collinear mappings
-#=========================================================================================
-
-# Functions
-#=========================================================================================
-
-class FinalCollinearMappingTest(object):
-    """Test class for final-collinear mappings."""
-
-    @staticmethod
-    def randomize(pars):
-
-        # Randomly generate the structure of the final state
-        n_collinear_sets = random.randint(1, pars['max_collinear_sets'])
-        real_min_recoilers = pars['min_recoilers']
-        if n_collinear_sets == 1 and pars['min_recoilers'] == 0:
-            real_min_recoilers = 1
-        n_recoilers = random.randint(real_min_recoilers, pars['max_recoilers'])
-        n_unchanged = random.randint(0, pars['max_unchanged'])
-        n_collinears_per_set = [
-            random.randint(2, pars['max_collinears_per_set'])
-            for _ in range(n_collinear_sets) ]
-        # Compute the total number of particles in the final state
-        n_tot = sum(n_collinears_per_set) + n_recoilers + n_unchanged
-        # Initialise trivial entries {i: i} of the momenta dictionary
-        pars['momenta_dict'] = subtraction.bidict()
-        for i in range(1, n_tot+3):
-            pars['momenta_dict'][i] = frozenset((i, ))
-        # Randomly generate nonconsecutive numbers of the final state
-        shuffled_numbers = range(2, n_tot+2)
-        random.shuffle(shuffled_numbers)
-        pars['structure'] = []
-        n_set = 1
-        for n_in_this_set in n_collinears_per_set:
-            numbers_in_this_set = shuffled_numbers[:n_in_this_set]
-            shuffled_numbers = shuffled_numbers[n_in_this_set:]
-            legs_in_this_set = subtraction.SubtractionLegSet(
-                subtraction.SubtractionLeg(i, 21, FINAL)
-                for i in numbers_in_this_set)
-            pars['structure'] += [subtraction.CollStructure(legs=legs_in_this_set), ]
-            if n_in_this_set != 1:
-                pars['momenta_dict'][n_tot + n_set + 1] = frozenset(numbers_in_this_set)
-            n_set += 1
-        pars['structure'] += [
-            subtraction.SubtractionLeg(i, 21, FINAL)
-            for i in shuffled_numbers[:n_recoilers]]
-        pars['structure'] = subtraction.SingularStructure(*pars['structure'])
-        pars['unchanged'] = shuffled_numbers[n_recoilers:]
-        assert len(pars['unchanged']) == n_unchanged
-        # print "The random structure for this test is", str(pars['structure'])
-        # print "with particles number", pars['unchanged'], "unchanged"
-
-    @staticmethod
-    def generate_PS(pars):
-        """Generate a valid random phase-space point for the mapping test."""
-
-        # Generate a random phase space point
-        my_PS_point = LorentzVectorDict()
-        for i in pars['unchanged']:
-            my_PS_point[i] = random_momentum()
-        for leg in pars['structure'].legs:
-            if pars['supports_massive_recoilers']: my_PS_point[leg.n] = random_momentum()
-            else: my_PS_point[leg.n] = random_momentum(0)
-        for set in pars['structure'].substructures:
-            leg_ns = [leg.n for leg in set.get_all_legs()]
-            # If only one particle is going collinear,
-            # interpret its momentum as a collective one and make it massive
-            if len(leg_ns) == 1:
-                my_PS_point[leg_ns[0]] = random_momentum()
-            else:
-                for i in leg_ns:
-                    my_PS_point[i] = random_momentum(0)
-        return my_PS_point
-
-    @staticmethod
-    def test_invertible(pars, test):
-        """Test mapping and inverse."""
-
-        # Make test deterministic by setting seed
-        random.seed(42)
-        # Check many times
-        for _ in range(20):
-            # Generate a random setup
-            FinalCollinearMappingTest.randomize(pars)
-            my_PS_point = FinalCollinearMappingTest.generate_PS(pars)
-            # I know what I'm doing
-            old_PS_point = copy.deepcopy(my_PS_point)
-            # Compute collinear variables
-            variables = dict()
-            pars['mapping'].map_to_lower_multiplicity(
-                my_PS_point, pars['structure'], pars['momenta_dict'], variables )
-            pars['mapping'].map_to_higher_multiplicity(
-                my_PS_point, pars['structure'], pars['momenta_dict'], variables )
-            test.assertDictEqual(my_PS_point, old_PS_point)
-
-# Tests
-#=========================================================================================
-
-class FinalRescalingMappingOneTest(unittest.TestCase):
-    """Test class for FinalRescalingMappingOne."""
-
-    # Test settings
-    pars = {
-        'mapping': mappings.FinalRescalingMappingOne(),
-        'max_collinear_sets': 1,
-        'max_collinears_per_set': 4,
-        'min_recoilers': 1,
-        'max_recoilers': 3,
-        'max_unchanged': 3,
-        'supports_massive_recoilers': False }
-
-    def test_FinalRescalingMappingOne_invertible(self):
-
-        FinalCollinearMappingTest.test_invertible(self.pars, self)
-
-class FinalLorentzMappingOneTest(unittest.TestCase):
-    """Test class for FinalLorentzMappingOne."""
-
-    # Test settings
-    pars = {
-        'mapping': mappings.FinalLorentzMappingOne(),
-        'max_collinear_sets': 1,
-        'max_collinears_per_set': 4,
-        'min_recoilers': 1,
-        'max_recoilers': 5,
-        'max_unchanged': 3,
-        'supports_massive_recoilers': True }
-
-    def test_FinalLorentzMappingOne_invertible(self):
-
-        FinalCollinearMappingTest.test_invertible(self.pars, self)
-
-#=========================================================================================
-# Test soft variables
-#=========================================================================================
-
-class SoftVariablesTest(unittest.TestCase):
-    """Test class for variables describing internal collinear structure."""
-
-    # This is trivial if one stores the full momentum
-    # Nevertheless checking and supporting more complicated scenarios
-
-    my_mapping = mappings.ElementaryMappingSoft()
-    n_soft = 3
-
-    def test_soft_variables_away_from_limit(self):
-        """Test determination of soft variables and reverse mapping,
-        for completely generic input values.
-        """
-
-        # Make test deterministic by setting seed
-        random.seed(42)
-        # Check many times
-        for _ in range(100):
-            softs = tuple(range(self.n_soft))
-            # Generate n_soft random massless vectors
-            my_PS_point = LorentzVectorDict()
-            for i in softs:
-                my_PS_point[i] = random_momentum(0)
-            # Compute soft variables
-            variables = dict()
-            mappings.SoftVariables.get(my_PS_point, softs, variables)
-            # Compute new phase space point
-            new_PS_point = LorentzVectorDict()
-            mappings.SoftVariables.set(new_PS_point, softs, variables)
-            # Check the two phase-space points are equal
-            self.assertDictEqual(my_PS_point, new_PS_point)
-
-    def test_soft_variables_close_to_limit(self):
-        """Test determination of soft variables and reverse mapping
-        in a typical soft situation.
-        """
-
-        # Make test deterministic by setting seed
-        random.seed(42)
-        # Check many times
-        for _ in range(20):
-            softs = tuple(range(self.n_soft))
-            # Generate n_soft random massless vectors
-            my_PS_point = LorentzVectorDict()
-            for i in softs:
-                my_PS_point[i] = random_momentum(0)
-            # Generate values for the parameter that describes approach to limit
-            pars = (math.pow(0.25, i) for i in range(8))
-            # This is one way like any other to approach the limit
-            for par in pars:
-                old_PS_point = {
-                    i: par*my_PS_point[i]
-                    for i in my_PS_point.keys() }
-                # Compute collinear variables
-                variables = dict()
-                mappings.SoftVariables.get(old_PS_point, softs, variables)
-                # Compute new phase space point
-                new_PS_point = LorentzVectorDict()
-                mappings.SoftVariables.set(new_PS_point, softs, variables)
-                self.assertDictEqual(old_PS_point, new_PS_point)
-
-#=========================================================================================
-# Test soft mappings
-#=========================================================================================
-
-class SomogyietalSoftTest(unittest.TestCase):
-    """Test class for MappingSomogyietalSoft."""
-
-    # This specific mapping only for massless,
-    # but 'massive' will be useful in the future so might as well keep it
-    mapping = mappings.MappingSomogyietalSoft()
-    n_soft = (2, 3, )
-    n_recoilers = 3
-    massive = False
-    structure = subtraction.SingularStructure()
-    momenta_dict = subtraction.bidict()
-
-    def setUp(self):
-
-        n_tot = sum(self.n_soft) + self.n_recoilers
-        for i in range(n_tot):
-            self.momenta_dict[i] = frozenset((i,))
-        self.structure = []
-        n_soft_so_far = 0
-        n_bunch = 0
-        for n_in_this_bunch in self.n_soft:
-            this_bunch_numbers = tuple(range(
-                    n_soft_so_far, n_soft_so_far + n_in_this_bunch
-                ))
-            this_bunch_legs = subtraction.SubtractionLegSet(
-                subtraction.SubtractionLeg(i, 21, FINAL)
-                for i in this_bunch_numbers
-            )
-            self.structure += [subtraction.SoftStructure(legs=this_bunch_legs), ]
-            n_soft_so_far += n_in_this_bunch
-            n_bunch += 1
-        self.structure += [
-                subtraction.SubtractionLeg(i, 21, FINAL)
-                for i in range(n_soft_so_far, n_tot)
-            ]
-        self.structure = subtraction.SingularStructure(*self.structure)
-
-    def test_soft_map_invertible(self):
-        """Test mapping and inverse."""
-
-        # Generate n_soft random massless vectors plus
-        # n_recoilers (massive = True, False) random vectors
-        my_PS_point = LorentzVectorDict()
-        n_soft_so_far = 0
-        for n_in_this_bunch in self.n_soft:
-            for i in range(
-                n_soft_so_far, n_soft_so_far + n_in_this_bunch
-            ):
-                my_PS_point[i] = random_momentum(0)
-            n_soft_so_far += n_in_this_bunch
-        for i in range(
-            n_soft_so_far, n_soft_so_far + self.n_recoilers
-        ):
-            if self.massive: my_PS_point[i] = random_momentum()
-            else: my_PS_point[i] = random_momentum(0)
-        # I know what I'm doing
-        old_PS_point = copy.deepcopy(my_PS_point)
-        # Compute collinear variables
-        variables = dict()
-        self.mapping.map_to_lower_multiplicity(
-            my_PS_point, self.structure, self.momenta_dict, variables )
-        self.mapping.map_to_higher_multiplicity(
-            my_PS_point, self.structure, self.momenta_dict, variables )
-        for i in my_PS_point.keys():
-            self.assertEqual(my_PS_point[i], old_PS_point[i])
-
-#=========================================================================================
 # Test initial-collinear variables
 #=========================================================================================
 
@@ -505,36 +237,108 @@ class InitialCollinearVariablesTest(unittest.TestCase):
                 self.assertDictEqual(my_PS_point, new_PS_point)
 
 #=========================================================================================
-# Test initial-collinear mappings
+# Test soft variables
 #=========================================================================================
 
-# Functions
+class SoftVariablesTest(unittest.TestCase):
+    """Test class for variables describing internal collinear structure."""
+
+    # This is trivial if one stores the full momentum
+    # Nevertheless checking and supporting more complicated scenarios
+
+    my_mapping = mappings.ElementaryMappingSoft()
+    n_soft = 3
+
+    def test_soft_variables_away_from_limit(self):
+        """Test determination of soft variables and reverse mapping,
+        for completely generic input values.
+        """
+
+        # Make test deterministic by setting seed
+        random.seed(42)
+        # Check many times
+        for _ in range(100):
+            softs = tuple(range(self.n_soft))
+            # Generate n_soft random massless vectors
+            my_PS_point = LorentzVectorDict()
+            for i in softs:
+                my_PS_point[i] = random_momentum(0)
+            # Compute soft variables
+            variables = dict()
+            mappings.SoftVariables.get(my_PS_point, softs, variables)
+            # Compute new phase space point
+            new_PS_point = LorentzVectorDict()
+            mappings.SoftVariables.set(new_PS_point, softs, variables)
+            # Check the two phase-space points are equal
+            self.assertDictEqual(my_PS_point, new_PS_point)
+
+    def test_soft_variables_close_to_limit(self):
+        """Test determination of soft variables and reverse mapping
+        in a typical soft situation.
+        """
+
+        # Make test deterministic by setting seed
+        random.seed(42)
+        # Check many times
+        for _ in range(20):
+            softs = tuple(range(self.n_soft))
+            # Generate n_soft random massless vectors
+            my_PS_point = LorentzVectorDict()
+            for i in softs:
+                my_PS_point[i] = random_momentum(0)
+            # Generate values for the parameter that describes approach to limit
+            pars = (math.pow(0.25, i) for i in range(8))
+            # This is one way like any other to approach the limit
+            for par in pars:
+                old_PS_point = {
+                    i: par*my_PS_point[i]
+                    for i in my_PS_point.keys() }
+                # Compute collinear variables
+                variables = dict()
+                mappings.SoftVariables.get(old_PS_point, softs, variables)
+                # Compute new phase space point
+                new_PS_point = LorentzVectorDict()
+                mappings.SoftVariables.set(new_PS_point, softs, variables)
+                self.assertDictEqual(old_PS_point, new_PS_point)
+
+#=========================================================================================
+# MappingTest
 #=========================================================================================
 
-class InitialCollinearMappingTest(object):
-    """Test class for initial-collinear mappings."""
+class MappingTest(object):
+    """Collection of functions to test mappings."""
 
     @staticmethod
     def randomize(pars):
 
         # Randomly generate the structure of the final state
-        two_sided = pars['two_sided']
-        real_min_recoilers = pars['min_recoilers']
-        if pars['min_recoilers'] == 0: real_min_recoilers = 1
-        n_recoilers = random.randint(real_min_recoilers, pars['max_recoilers'])
+        n_coll_sets = random.randint(
+            pars.get('min_coll_sets', 0), pars.get('max_coll_sets', 0) )
+        n_soft_sets = random.randint(
+            pars.get('min_soft_sets', 0), pars.get('max_soft_sets', 0) )
+        n_recoilers = random.randint(pars['min_recoilers'], pars['max_recoilers'])
         n_unchanged = random.randint(0, pars['max_unchanged'])
+        n_coll_per_set = [
+            random.randint(2, pars['max_unresolved_per_set']+1)
+            for _ in range(n_coll_sets) ]
+        n_soft_per_set = [
+            random.randint(1, pars['max_unresolved_per_set'])
+            for _ in range(n_soft_sets) ]
+        initial_sets = pars.get('initial_sets', 0)
         n_collinears_1 = 1
         n_collinears_2 = 1
-        if two_sided:
-            n_collinears_1 = random.randint(2, pars['max_collinears_per_set'])
-            n_collinears_2 = random.randint(2, pars['max_collinears_per_set'])
-        else:
+        if initial_sets == 1:
             if bool(random.getrandbits(1)):
-                n_collinears_1 = random.randint(2, pars['max_collinears_per_set'])
+                n_collinears_1 = random.randint(2, pars['max_unresolved_per_set']+1)
             else:
-                n_collinears_2 = random.randint(2, pars['max_collinears_per_set'])
+                n_collinears_2 = random.randint(2, pars['max_unresolved_per_set']+1)
+        elif initial_sets > 1:
+            n_collinears_1 = random.randint(2, pars['max_unresolved_per_set']+1)
+            n_collinears_2 = random.randint(2, pars['max_unresolved_per_set']+1)
         # Compute the total number of particles in the final state
-        n_tot = n_collinears_1 + n_collinears_2 + n_recoilers + n_unchanged
+        n_tot = sum((n_collinears_1 + n_collinears_2,
+                     sum(n_coll_per_set) + sum(n_soft_per_set),
+                     n_recoilers + n_unchanged))
         pars['n_tot'] = n_tot
         # Initialise trivial entries {i: i} of the momenta dictionary
         pars['momenta_dict'] = subtraction.bidict()
@@ -568,15 +372,35 @@ class InitialCollinearMappingTest(object):
             legs_in_this_set = subtraction.SubtractionLegSet(legs_in_this_set)
             pars['structure'] += [ subtraction.CollStructure(legs=legs_in_this_set), ]
             pars['momenta_dict'][n_tot + n_set] = frozenset([2, ] + numbers_collinears_2)
-        # Build the structure of recoilers
+            n_set += 1
+        # Build the structure of final-collinear sets
+        for n_in_this_set in n_coll_per_set:
+            numbers_in_this_set = shuffled_numbers[:n_in_this_set]
+            shuffled_numbers = shuffled_numbers[n_in_this_set:]
+            legs_in_this_set = subtraction.SubtractionLegSet(
+                subtraction.SubtractionLeg(i, 21, FINAL)
+                for i in numbers_in_this_set)
+            pars['structure'] += [subtraction.CollStructure(legs=legs_in_this_set), ]
+            if n_in_this_set != 1:
+                pars['momenta_dict'][n_tot + n_set + 1] = frozenset(numbers_in_this_set)
+            n_set += 1
+        # Build the structure of soft sets
+        for n_in_this_set in n_soft_per_set:
+            numbers_in_this_set = shuffled_numbers[:n_in_this_set]
+            shuffled_numbers = shuffled_numbers[n_in_this_set:]
+            legs_in_this_set = subtraction.SubtractionLegSet(
+                subtraction.SubtractionLeg(i, 21, FINAL)
+                for i in numbers_in_this_set )
+            pars['structure'] += [subtraction.SoftStructure(legs=legs_in_this_set), ]
+        # Include recoilers and unchanged
         pars['structure'] += [
             subtraction.SubtractionLeg(i, 21, FINAL)
             for i in shuffled_numbers[:n_recoilers]]
         pars['structure'] = subtraction.SingularStructure(*pars['structure'])
         pars['unchanged'] = shuffled_numbers[n_recoilers:]
+        # print "The random structure for this test is %s, with %s unchanged" % (
+        #     str(pars['structure']), str(pars['unchanged']) )
         assert len(pars['unchanged']) == n_unchanged
-        # print "The random structure for this test is", str(pars['structure'])
-        # print "with particles number", pars['unchanged'], "unchanged"
 
     @staticmethod
     def generate_PS(pars):
@@ -588,12 +412,12 @@ class InitialCollinearMappingTest(object):
             if i in pars['structure'].legs:
                 if pars['supports_massive_recoilers']: masses.append(random.random())
                 else: masses.append(0.)
-            # Collinear particles or unchanged
+            # Soft particles or unchanged
             else:
                 masses.append(random.random())
         E_cm = sum(masses) / random.random()
         gen = PS.FlatInvertiblePhasespace(
-            (0., 0.), masses, beam_Es=(E_cm / 2., E_cm / 2.), beam_types=(0, 0) )
+            (0., 0.), masses, beam_Es=(E_cm/2., E_cm/2.), beam_types=(0, 0) )
         randoms = [random.random() for _ in range(gen.nDimPhaseSpace())]
         my_PS_point, _ = gen.generateKinematics(E_cm, randoms)
         return my_PS_point.to_dict()
@@ -603,24 +427,60 @@ class InitialCollinearMappingTest(object):
         """Test mapping and inverse."""
 
         # Make test deterministic by setting seed
-        random.seed(42)
+        random.seed(1)
         # Check many times
         for _ in range(20):
             # Generate a random setup
-            InitialCollinearMappingTest.randomize(pars)
-            # Generate a random phase space point
-            my_PS_point = InitialCollinearMappingTest.generate_PS(pars)
+            MappingTest.randomize(pars)
+            my_PS_point = MappingTest.generate_PS(pars)
             # I know what I'm doing
             old_PS_point = copy.deepcopy(my_PS_point)
             # Compute collinear variables
             variables = dict()
             pars['mapping'].map_to_lower_multiplicity(
-                my_PS_point, pars['structure'], pars['momenta_dict'], variables)
+                my_PS_point, pars['structure'], pars['momenta_dict'], variables )
             pars['mapping'].map_to_higher_multiplicity(
-                my_PS_point, pars['structure'], pars['momenta_dict'], variables)
+                my_PS_point, pars['structure'], pars['momenta_dict'], variables )
             test.assertDictEqual(my_PS_point, old_PS_point)
 
-# Tests
+#=========================================================================================
+# Test final-collinear mappings
+#=========================================================================================
+
+class FinalRescalingMappingOneTest(unittest.TestCase):
+    """Test class for FinalRescalingMappingOne."""
+
+    # Test settings
+    pars = {
+        'mapping': mappings.FinalRescalingMappingOne(),
+        'min_coll_sets': 1, 'max_coll_sets': 1,
+        'min_recoilers': 1, 'max_recoilers': 3,
+        'max_unchanged': 3,
+        'max_unresolved_per_set': 4,
+        'supports_massive_recoilers': False }
+
+    def test_FinalRescalingMappingOne_invertible(self):
+
+        MappingTest.test_invertible(self.pars, self)
+
+class FinalLorentzMappingOneTest(unittest.TestCase):
+    """Test class for FinalLorentzMappingOne."""
+
+    # Test settings
+    pars = {
+        'mapping': mappings.FinalLorentzMappingOne(),
+        'min_coll_sets': 1, 'max_coll_sets': 1,
+        'min_recoilers': 1, 'max_recoilers': 5,
+        'max_unchanged': 3,
+        'max_unresolved_per_set': 4,
+        'supports_massive_recoilers': True }
+
+    def test_FinalLorentzMappingOne_invertible(self):
+
+        MappingTest.test_invertible(self.pars, self)
+
+#=========================================================================================
+# Test initial-collinear mappings
 #=========================================================================================
 
 class InitialLorentzMappingOneTest(unittest.TestCase):
@@ -629,16 +489,35 @@ class InitialLorentzMappingOneTest(unittest.TestCase):
     # Test settings
     pars = {
         'mapping': mappings.InitialLorentzMappingOne(),
-        'two_sided': False,
-        'max_collinears_per_set': 4,
-        'min_recoilers': 1,
-        'max_recoilers': 5,
+        'initial_sets': 1,
+        'max_unresolved_per_set': 4,
+        'min_recoilers': 1, 'max_recoilers': 5,
         'max_unchanged': 3,
         'supports_massive_recoilers': True}
 
     def test_InitialLorentzMappingOne_invertible(self):
 
-        InitialCollinearMappingTest.test_invertible(self.pars, self)
+        MappingTest.test_invertible(self.pars, self)
+
+#=========================================================================================
+# Test soft mappings
+#=========================================================================================
+
+class SomogyietalSoftTest(unittest.TestCase):
+    """Test class for MappingSomogyietalSoft."""
+
+    # Test settings
+    pars = {
+        'mapping': mappings.MappingSomogyietalSoft(),
+        'min_soft_sets': 1, 'max_soft_sets': 3,
+        'min_recoilers': 2, 'max_recoilers': 5,
+        'max_unchanged': 3,
+        'max_unresolved_per_set': 4,
+        'supports_massive_recoilers': False }
+
+    def test_SomogyietalSoft_invertible(self):
+
+        MappingTest.test_invertible(self.pars, self)
 
 #=========================================================================================
 # Test the phase-space walkers
@@ -882,18 +761,18 @@ class FlatCollinearWalkerTest(unittest.TestCase):
         WalkerTest.max_unresolved = 2
         WalkerTest.test_invertible(self, self.walker, H_to_uuxddxH)
 
-class FFNLOWalkerTest(unittest.TestCase):
-    """Test class for FFNLOWalker."""
+class FinalNLOWalkerTest(unittest.TestCase):
+    """Test class for FinalNLOWalker."""
 
-    walker = mappings.FFNLOWalker()
+    walker = mappings.FinalNLOWalker()
 
-    def test_FFNLOWalker_invertible(self):
+    def test_FinalNLOWalker_invertible(self):
 
         WalkerTest.max_unresolved = 1
         WalkerTest.test_invertible(self, self.walker, H_to_uuxddxH)
         WalkerTest.test_invertible(self, self.walker, H_to_qqxggH)
 
-    def test_FFNLOWalker_approach_limit(self):
+    def test_FinalNLOWalker_approach_limit(self):
 
         WalkerTest.test_approach_limit(self, self.walker, H_to_qqxggH)
 

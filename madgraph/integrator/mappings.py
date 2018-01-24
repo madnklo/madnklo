@@ -78,89 +78,6 @@ def get_structure_numbers(structure, momenta_dict):
         return parent, fs_children, is_leg
 
 #=========================================================================================
-# VirtualMapping
-#=========================================================================================
-
-class VirtualMapping(object):
-    """Base class for elementary mapping implementations."""
-
-    @classmethod
-    def is_valid_structure(cls, singular_structure):
-        """Return true if it makes sense to apply this mapping
-        to the given singular structure.
-        """
-
-        raise NotImplemented
-
-    @classmethod
-    def get_kinematic_variables_names(cls, singular_structure, momenta_dict):
-        """For a valid singular structure,
-        returns a list of variable names necessary to apply this mapping.
-        """
-
-        raise NotImplemented
-
-    @classmethod
-    def map_to_lower_multiplicity(
-        cls, PS_point, singular_structure, momenta_dict,
-        kinematic_variables=None, compute_jacobian=False, masses=None ):
-        """Map a given phase-space point to lower multiplicity,
-        by clustering the substructures and recoiling against the legs
-        specified in singular_structure.
-
-        :param PS_point: higher-multiplicity phase-space point,
-        as a dictionary that associates integers to Lorentz vectors,
-        which will be modified to the lower-multiplicity one
-
-        :param singular_structure: SingularStructure object that specifies
-        sets of unresolved particles and recoilers recursively
-
-        :param momenta_dict: two-way dictionary that associates a unique label
-        to each set of one or more unresolved particles identified by their number
-
-        :param kinematic_variables: if a non-empty dictionary is passed,
-        the kinematic variables that are necessary to reproduce the higher-multiplicity
-        phase-space point from the lower-multiplicity one will be set
-
-        :param compute_jacobian: if False, will not compute the jacobian for the mapping
-
-        :param masses: masses of the parents of the collinear sets,
-        as a dictionary with (number of parent, mass)
-
-        :return: the jacobian weight due to the mapping
-        """
-        
-        raise NotImplemented
-
-    @classmethod
-    def map_to_higher_multiplicity(
-        cls, PS_point, singular_structure, momenta_dict, kinematic_variables,
-        compute_jacobian=False ):
-        """Map a given phase-space point to higher multiplicity,
-        by splitting the (pseudo)particles and recoiling against the legs
-        specified in singular_structure.
-
-        :param PS_point: lower-multiplicity phase-space point,
-        as a dictionary that associates integers to Lorentz vectors,
-        which will be modified to the higher-multiplicity one
-
-        :param singular_structure: SingularStructure object that specifies
-        sets of unresolved particles and recoilers recursively
-
-        :param momenta_dict: two-way dictionary that associates a unique label
-        to each set of one or more unresolved particles identified by their number
-
-        :param kinematic_variables: variables describing the splitting,
-        as a dictionary that associates variable names to values
-
-        :param compute_jacobian: if False, will not compute the jacobian for the mapping
-
-        :return: the jacobian weight due to the mapping
-        """
-        
-        raise NotImplemented
-
-#=========================================================================================
 # Final-collinear variables
 #=========================================================================================
 
@@ -343,7 +260,320 @@ class FinalCollinearVariables(object):
         return variables
 
 #=========================================================================================
+# Initial-collinear variables
+#=========================================================================================
+
+class InitialCollinearVariables(object):
+
+    @staticmethod
+    def names(parent, fs_children, is_child):
+        """Get the names of variables describing particles going unresolved."""
+
+        names = ['z' + str(parent), ]
+        for child in fs_children:
+            names += ['z' + str(child), 'p' + str(child) + '2', 'kt' + str(child), ]
+        return names
+
+    @staticmethod
+    def collinear_and_reference(p):
+        """Given a momentum, return normalized vectors on the light-cone."""
+
+        # In this case taking the anti-collinear direction as a reference poses no risks,
+        # because the direction of the incoming parton is fixed
+
+        n = Vector(p.space())
+        n.normalize()
+        # For good phase space points, p[0] >= 0, but test PS points might not be valid
+        if p[0] >= 0:
+            return LorentzVector([1, ] + list(+n)), LorentzVector([1, ] + list(-n))
+        else:
+            return LorentzVector([1, ] + list(-n)), LorentzVector([1, ] + list(+n))
+
+    @staticmethod
+    def get(
+        PS_point, fs_children, is_child, na, nb, kinematic_variables,
+        precision=1e-6 ):
+        """Given unmapped momenta and reference vectors, compute the kinematic variables
+        that describe the internal structure of particles going unresolved.
+        Children indices should already refer to the position
+        of momenta within the PS_point (no momentum dictionary used).
+        Sum rules are checked to assess numerical accuracy.
+        """
+
+        pa = PS_point[is_child]
+        # Compute the sum of momenta
+        pA = LorentzVector(pa)
+        for i in fs_children:
+            pA -= PS_point[i]
+        # Pre-compute variables
+        napA = na.dot(pA)
+        nbpA = nb.dot(pA)
+        nanb = na.dot(nb)
+        nbpa = nb.dot(pa)
+        zA = nbpA / nbpa
+        ktA = pA - (nbpA * na + napA * nb) / nanb
+        # ptA = pA - (nbpA * na + napA * nb) / nanb
+        # ktA = ptA / zA
+        # Initialize variables for sum rules check
+        zsum = 0
+        ktsum = LorentzVector()
+        ktabssum = LorentzVector()
+        # Fill in A data, using child number improperly
+        kinematic_variables['z' + str(is_child)] = zA
+        kinematic_variables['kt' + str(is_child)] = ktA
+        kinematic_variables['s' + str(is_child)] = pA.square()
+        zsum += zA
+        ktsum += ktA
+        for j in range(len(ktA)):
+            ktabssum[j] += abs(ktA[j])
+        # Compute all kinematic variables
+        for i in fs_children:
+            pi = PS_point[i]
+            napi = na.dot(pi)
+            nbpi = nb.dot(pi)
+            zi = nbpi / nbpa
+            kti = pi - (nbpi*na+napi*nb) / nanb
+            # pti = pi - (nbpi*na+napi*nb) / nanb
+            # kti = pti - zi * ktA
+            kinematic_variables['z' + str(i)] = zi
+            kinematic_variables['kt' + str(i)] = kti
+            kinematic_variables['p' + str(i) + '2'] = pi.square()
+            zsum += zi
+            ktsum += kti
+            for j in range(len(kti)):
+                ktabssum[j] += abs(kti[j])
+        # Check numerical accuracy
+        # TODO Ideally switch to quadruple precision if the check fails
+        ktsum_abs = abs(ktsum.view(Vector))
+        ktabssum_abs = abs(ktabssum.view(Vector))
+        ktsum_ratio = ktsum_abs / ktabssum_abs
+        if (abs(zsum - 1) > precision) or (ktsum_ratio > precision):
+            logger.critical(FinalCollinearVariables.precision_loss_message)
+            logger.critical("The sum of z's is %.16e" % zsum)
+            logger.critical("The sum of kt's is %s" % str(ktsum))
+            logger.critical("abs(sum(kt's)) / sum(abs(kt's)) =  %s" % ktsum_ratio)
+            logger.critical("Inputs for InitialCollinearVariables.get():")
+            logger.critical("na, nb = %s, %s" % (str(na), str(nb)))
+            for i in fs_children:
+                logger.critical("fs_child %d: %s" % (i, str(PS_point[i])))
+            logger.critical("is_child %d: %s" % (is_child, str(PS_point[is_child])))
+            logger.critical("Output of InitialCollinearVariables.get():")
+            logger.critical(str(kinematic_variables))
+        return
+
+    @staticmethod
+    def set(
+        PS_point, fs_children, is_child, pa, na, nb, kinematic_variables,
+        precision=1e-6 ):
+        """Given the lower multiplicity momentum of the incoming parton
+        and collinear variables compute and set the children momenta.
+        Children indices should already refer to the position
+        of momenta within the PS_point (no momentum dictionary used).
+        Sum rules are checked to assess numerical accuracy.
+        """
+
+        PS_point[is_child] = pa
+        # Get A data
+        zA  = kinematic_variables['z' + str(is_child)]
+        ktA = kinematic_variables['kt' + str(is_child)]
+        pA2 = kinematic_variables['s' + str(is_child)]
+        # Pre-compute variables
+        nanb = na.dot(nb)
+        nbpa = nb.dot(pa)
+        ptA = ktA
+        # ptA = zA * ktA
+        nbpA = zA * nbpa
+        napA = (pA2 - ptA.square()) * nanb / (2*nbpA)
+        pA = (nbpA*na + napA*nb) / nanb + ptA
+        # Variables for sums
+        p_sum = LorentzVector(pa)
+        # Set momenta for all children
+        for i in fs_children:
+            zi  = kinematic_variables['z' + str(i)]
+            kti = kinematic_variables['kt' + str(i)]
+            pi2 = kinematic_variables['p' + str(i) + '2']
+            pti = kti
+            # pti = kti + zi * ktA
+            nbpi = zi * nbpa
+            napi = (pi2 - pti.square()) * nanb / (2 * nbpi)
+            PS_point[i] = (nbpi*na + napi*nb) / nanb + pti
+            p_sum -= PS_point[i]
+        # Check how well the parent's momentum is reproduced
+        # TODO Ideally switch to quadruple precision if the check fails
+        deviation = abs((pA - p_sum).view(Vector))
+        benchmark = abs(pA.view(Vector))
+        if deviation / benchmark > precision:
+            logger.critical(FinalCollinearVariables.precision_loss_message)
+            logger.critical("The sum of children momenta is %s" % str(p_sum))
+            logger.critical("vs the total: %s" % str(pA))
+            logger.critical("Inputs for InitialCollinearVariables.set():")
+            logger.critical("pa = %s" % str(pa))
+            logger.critical("na = %s, nb = %s" % (str(na), str(nb)))
+            logger.critical("kinematic variables:")
+            logger.critical(str(kinematic_variables))
+            logger.critical("Output of InitialCollinearVariables.set():")
+            for i in fs_children:
+                logger.critical("fs_child %d: %s" % (i, str(PS_point[i])))
+        return
+
+    @staticmethod
+    def to_randoms(mapped_momentum, children, variables):
+        """Get random variables in the range [0,1]
+        that correspond to the internal kinematic variables.
+        """
+
+        raise NotImplemented
+
+    @staticmethod
+    def from_randoms(mapped_momentum, children, randoms):
+        """Compute internal kinematic variables
+        from random numbers in the range [0,1].
+        """
+
+        raise NotImplemented
+
+#=========================================================================================
+# Soft variables
+#=========================================================================================
+
+class SoftVariables(object):
+
+    @staticmethod
+    def names(children):
+        """Get the names of variables describing particles going unresolved."""
+
+        return ['p' + str(child) for child in children]
+
+    @staticmethod
+    def get(PS_point, children, kinematic_variables):
+        """Given unmapped and mapped momenta, compute the kinematic variables
+        that describe the internal structure of particles going unresolved.
+        Children indices should already refer to the position
+        of momenta within the PS_point (no momentum dictionary used).
+        """
+
+        # For soft particles, just pass the whole momentum
+        for i in children:
+            kinematic_variables['p' + str(i)] = PS_point[i]
+        return
+
+    @staticmethod
+    def set(PS_point, children, kinematic_variables):
+        """Given a dictionary of variables that describe the unresolved partons,
+        compute and set the children momenta.
+        Children indices should already refer to the position
+        of momenta within the PS_point (no momentum dictionary used).
+        """
+
+        # Set momenta for all children
+        for i in children:
+            PS_point[i] = kinematic_variables['p' + str(i)]
+        return
+
+    @staticmethod
+    def to_randoms(mapped_momentum, children, variables):
+        """Get random variables in the range [0,1]
+        that correspond to the internal kinematic variables.
+        """
+
+        raise NotImplemented
+
+    @staticmethod
+    def from_randoms(mapped_momentum, children, randoms):
+        """Compute internal kinematic variables
+        from random numbers in the range [0,1].
+        """
+
+        raise NotImplemented
+
+#=========================================================================================
+# VirtualMapping
+#=========================================================================================
+
+class VirtualMapping(object):
+    """Base class for elementary mapping implementations."""
+
+    @classmethod
+    def is_valid_structure(cls, singular_structure):
+        """Return true if it makes sense to apply this mapping
+        to the given singular structure.
+        """
+
+        raise NotImplemented
+
+    @classmethod
+    def get_kinematic_variables_names(cls, singular_structure, momenta_dict):
+        """For a valid singular structure,
+        returns a list of variable names necessary to apply this mapping.
+        """
+
+        raise NotImplemented
+
+    @classmethod
+    def map_to_lower_multiplicity(
+        cls, PS_point, singular_structure, momenta_dict,
+        kinematic_variables=None, compute_jacobian=False, masses=None ):
+        """Map a given phase-space point to lower multiplicity,
+        by clustering the substructures and recoiling against the legs
+        specified in singular_structure.
+
+        :param PS_point: higher-multiplicity phase-space point,
+        as a dictionary that associates integers to Lorentz vectors,
+        which will be modified to the lower-multiplicity one
+
+        :param singular_structure: SingularStructure object that specifies
+        sets of unresolved particles and recoilers recursively
+
+        :param momenta_dict: two-way dictionary that associates a unique label
+        to each set of one or more unresolved particles identified by their number
+
+        :param kinematic_variables: if a non-empty dictionary is passed,
+        the kinematic variables that are necessary to reproduce the higher-multiplicity
+        phase-space point from the lower-multiplicity one will be set
+
+        :param compute_jacobian: if False, will not compute the jacobian for the mapping
+
+        :param masses: masses of the parents of the collinear sets,
+        as a dictionary with (number of parent, mass)
+
+        :return: the jacobian weight due to the mapping
+        """
+        
+        raise NotImplemented
+
+    @classmethod
+    def map_to_higher_multiplicity(
+        cls, PS_point, singular_structure, momenta_dict, kinematic_variables,
+        compute_jacobian=False ):
+        """Map a given phase-space point to higher multiplicity,
+        by splitting the (pseudo)particles and recoiling against the legs
+        specified in singular_structure.
+
+        :param PS_point: lower-multiplicity phase-space point,
+        as a dictionary that associates integers to Lorentz vectors,
+        which will be modified to the higher-multiplicity one
+
+        :param singular_structure: SingularStructure object that specifies
+        sets of unresolved particles and recoilers recursively
+
+        :param momenta_dict: two-way dictionary that associates a unique label
+        to each set of one or more unresolved particles identified by their number
+
+        :param kinematic_variables: variables describing the splitting,
+        as a dictionary that associates variable names to values
+
+        :param compute_jacobian: if False, will not compute the jacobian for the mapping
+
+        :return: the jacobian weight due to the mapping
+        """
+        
+        raise NotImplemented
+
+#=========================================================================================
 # Final-collinear mappings
+#=========================================================================================
+
+# Generic final-collinear mapping parent class
 #=========================================================================================
 
 class FinalCollinearMapping(VirtualMapping):
@@ -378,6 +608,9 @@ class FinalCollinearMapping(VirtualMapping):
             FinalCollinearVariables.names(parent, children)
         return names
 
+# Final-collinear rescaling mapping, one set
+#=========================================================================================
+
 class FinalRescalingMappingOne(FinalCollinearMapping):
     """Implementation of the rescaling mapping
     for one bunch of collinear particles (with massless parent)
@@ -390,7 +623,8 @@ class FinalRescalingMappingOne(FinalCollinearMapping):
         # Valid only for one bunch of final-state particles going collinear,
         # with no recursive substructure
         if len(singular_structure.substructures) == 1:
-            return super(FinalRescalingMappingOne, cls).is_valid_structure(singular_structure)
+            return super(FinalRescalingMappingOne, cls).is_valid_structure(
+                singular_structure )
         return False
 
     @classmethod
@@ -487,6 +721,9 @@ class FinalRescalingMappingOne(FinalCollinearMapping):
 
         return jacobian
 
+# Final-collinear Lorentz mapping, one set
+#=========================================================================================
+
 class FinalLorentzMappingOne(FinalCollinearMapping):
     """Implementation of the Lorentz transformation mapping
     for one bunch of collinear particles (with massless parent)
@@ -499,7 +736,8 @@ class FinalLorentzMappingOne(FinalCollinearMapping):
         # Valid only for one bunch of final-state particles going collinear,
         # with no recursive substructure
         if len(singular_structure.substructures) == 1:
-            return super(FinalLorentzMappingOne, cls).is_valid_structure(singular_structure)
+            return super(FinalLorentzMappingOne, cls).is_valid_structure(
+                singular_structure )
         return False
 
     @classmethod
@@ -602,337 +840,10 @@ class FinalLorentzMappingOne(FinalCollinearMapping):
         return jacobian
 
 #=========================================================================================
-# Soft variables
-#=========================================================================================
-
-class SoftVariables(object):
-
-    @staticmethod
-    def names(children):
-        """Get the names of variables describing particles going unresolved."""
-
-        return ['p' + str(child) for child in children]
-
-    @staticmethod
-    def get(PS_point, children, kinematic_variables):
-        """Given unmapped and mapped momenta, compute the kinematic variables
-        that describe the internal structure of particles going unresolved.
-        Children indices should already refer to the position
-        of momenta within the PS_point (no momentum dictionary used).
-        """
-
-        # For soft particles, just pass the whole momentum
-        for i in children:
-            kinematic_variables['p' + str(i)] = PS_point[i]
-        return
-
-    @staticmethod
-    def set(PS_point, children, kinematic_variables):
-        """Given a dictionary of variables that describe the unresolved partons,
-        compute and set the children momenta.
-        Children indices should already refer to the position
-        of momenta within the PS_point (no momentum dictionary used).
-        """
-
-        # Set momenta for all children
-        for i in children:
-            PS_point[i] = kinematic_variables['p' + str(i)]
-        return
-
-    @staticmethod
-    def to_randoms(mapped_momentum, children, variables):
-        """Get random variables in the range [0,1]
-        that correspond to the internal kinematic variables.
-        """
-
-        raise NotImplemented
-
-    @staticmethod
-    def from_randoms(mapped_momentum, children, randoms):
-        """Compute internal kinematic variables
-        from random numbers in the range [0,1].
-        """
-
-        raise NotImplemented
-
-#=========================================================================================
-# Soft mappings
-#=========================================================================================
-
-class ElementaryMappingSoft(VirtualMapping):
-    """Common functions for soft elementary mappings."""
-
-    @classmethod
-    def is_valid_structure(cls, singular_structure):
-
-        assert isinstance(singular_structure, subtraction.SingularStructure)
-        # Valid only for bunches of final-state particles going soft,
-        # with no recursive substructure
-        for substructure in singular_structure.substructures:
-            if not substructure.name() == "S":
-                return False
-            if substructure.substructures:
-                return False
-        return True
-
-    @classmethod
-    def get_kinematic_variables_names(cls, singular_structure, momenta_dict):
-        """Get the names of variables describing particles going unresolved."""
-
-        # Consistency checks
-        assert isinstance(momenta_dict, subtraction.bidict)
-        assert cls.is_valid_structure(singular_structure)
-
-        # For every soft particle, just return its momentum
-        names = []
-        for substructure in singular_structure.substructures:
-            parent, children, _ = get_structure_numbers(substructure, momenta_dict)
-            for legn in sorted(children):
-                names += ['p'+str(legn), ]
-        return names
-
-class MappingSomogyietalSoft(ElementaryMappingSoft):
-    """Implementation of the mapping used by Somogyi et al.
-    in arXiv:hep-ph/0609042 for soft particles.
-    It applies when there is at least one recoiler in the final state
-    and all recoilers are massless.
-    """
-
-    @classmethod
-    def map_to_lower_multiplicity(
-        cls, PS_point, singular_structure, momenta_dict,
-        kinematic_variables=None, compute_jacobian=False, masses=None ):
-
-        # Consistency checks
-        assert isinstance(momenta_dict, subtraction.bidict)
-        assert cls.is_valid_structure(singular_structure)
-
-        misc.sprint("Using soft mapping with structure %s" % str(singular_structure))
-
-        # Build the total soft momentum,
-        # save the soft momenta in variables and eliminate them from PS_point
-        pS = LorentzVector()
-        for substructure in singular_structure.substructures:
-            children = [leg.n for leg in substructure.legs]
-            if kinematic_variables is not None:
-                SoftVariables.get(PS_point, children, kinematic_variables)
-            for child in children:
-                pS += PS_point.pop(child)
-        # Build the total momentum of recoilers
-        pR = LorentzVector()
-        for leg in singular_structure.legs:
-            pR += PS_point[leg.n]
-        # Build the total momentum Q
-        Q = pS + pR
-        # Compute the parameter la
-        la = math.sqrt(pR.square() / Q.square())
-        P = pR / la
-        # Map all recoilers' momenta
-        for recoiler in singular_structure.legs:
-            PS_point[recoiler.n] /= la
-            PS_point[recoiler.n].rotoboost(P, Q)
-
-        # TODO Compute the jacobian for this mapping
-        jacobian = 1.0
-
-        return jacobian
-
-    @classmethod
-    def map_to_higher_multiplicity(
-        cls, PS_point, singular_structure, momenta_dict, kinematic_variables,
-        compute_jacobian=False ):
-
-        # Consistency checks
-        assert isinstance(momenta_dict, subtraction.bidict)
-        assert cls.is_valid_structure(singular_structure)
-        needed_variables = set(
-            cls.get_kinematic_variables_names(singular_structure, momenta_dict ) )
-        assert needed_variables.issubset(kinematic_variables.keys())
-
-        # Build the total soft momentum,
-        # get the soft momenta from variables and save them in PS_point
-        pS = LorentzVector()
-        for substructure in singular_structure.substructures:
-            children = [leg.n for leg in substructure.legs]
-            SoftVariables.set(PS_point, children, kinematic_variables)
-            for child in children:
-                pS += PS_point[child]
-        # Build the total momentum, which is equal to the mapped recoilers'
-        Q = LorentzVector()
-        for leg in singular_structure.legs:
-            Q += PS_point[leg.n]
-        # Build the total momentum Q
-        pR = Q - pS
-        # Compute the parameter la
-        la = math.sqrt(pR.square() / Q.square())
-        P = pR / la
-        # Map all recoilers' momenta
-        for recoiler in singular_structure.legs:
-            PS_point[recoiler.n] *= la
-            PS_point[recoiler.n].rotoboost(Q, P)
-
-        # TODO Compute the jacobian for this mapping
-        jacobian = 1.0
-
-        return jacobian
-
-#=========================================================================================
-# Initial-collinear variables
-#=========================================================================================
-
-class InitialCollinearVariables(object):
-
-    @staticmethod
-    def names(parent, fs_children, is_child):
-        """Get the names of variables describing particles going unresolved."""
-
-        names = ['z' + str(parent), ]
-        for child in fs_children:
-            names += ['z' + str(child), 'p' + str(child) + '2', 'kt' + str(child), ]
-        return names
-
-    @staticmethod
-    def collinear_and_reference(p):
-        """Given a momentum, return normalized vectors on the light-cone."""
-
-        # In this case taking the anti-collinear direction as a reference poses no risks,
-        # because the direction of the incoming parton is fixed
-
-        n = Vector(p.space())
-        n.normalize()
-        # For good phase space points, p[0] >= 0, but test PS points might not be valid
-        if p[0] >= 0:
-            return LorentzVector([1, ] + list(+n)), LorentzVector([1, ] + list(-n))
-        else:
-            return LorentzVector([1, ] + list(-n)), LorentzVector([1, ] + list(+n))
-
-    @staticmethod
-    def get(
-        PS_point, fs_children, is_child, na, nb, kinematic_variables,
-        precision=1e-6 ):
-        """Given unmapped momenta and reference vectors, compute the kinematic variables
-        that describe the internal structure of particles going unresolved.
-        Children indices should already refer to the position
-        of momenta within the PS_point (no momentum dictionary used).
-        """
-
-        pa = PS_point[is_child]
-        # Compute the sum of momenta
-        pA = LorentzVector(pa)
-        for i in fs_children:
-            pA -= PS_point[i]
-        # Pre-compute variables
-        napA = na.dot(pA)
-        nbpA = nb.dot(pA)
-        nanb = na.dot(nb)
-        nbpa = nb.dot(pa)
-        zA = nbpA / nbpa
-        ktA = pA - (nbpA * na + napA * nb) / nanb
-        # ptA = pA - (nbpA * na + napA * nb) / nanb
-        # ktA = ptA / zA
-        # Initialize variables for sum rules check
-        zsum = 0
-        ktsum = LorentzVector()
-        ktabssum = LorentzVector()
-        # Fill in A data, using child number improperly
-        kinematic_variables['z' + str(is_child)] = zA
-        kinematic_variables['kt' + str(is_child)] = ktA
-        kinematic_variables['s' + str(is_child)] = pA.square()
-        zsum += zA
-        ktsum += ktA
-        for j in range(len(ktA)):
-            ktabssum[j] += abs(ktA[j])
-        # Compute all kinematic variables
-        for i in fs_children:
-            pi = PS_point[i]
-            napi = na.dot(pi)
-            nbpi = nb.dot(pi)
-            zi = nbpi / nbpa
-            kti = pi - (nbpi*na+napi*nb) / nanb
-            # pti = pi - (nbpi*na+napi*nb) / nanb
-            # kti = pti - zi * ktA
-            kinematic_variables['z' + str(i)] = zi
-            kinematic_variables['kt' + str(i)] = kti
-            kinematic_variables['p' + str(i) + '2'] = pi.square()
-            zsum += zi
-            ktsum += kti
-            for j in range(len(kti)):
-                ktabssum[j] += abs(kti[j])
-        # Check numerical accuracy
-        # TODO Ideally switch to quadruple precision if the check fails
-        ktsum_abs = abs(ktsum.view(Vector))
-        ktabssum_abs = abs(ktabssum.view(Vector))
-        ktsum_ratio = ktsum_abs / ktabssum_abs
-        if (abs(zsum - 1) > precision) or (ktsum_ratio > precision):
-            logger.critical(FinalCollinearVariables.precision_loss_message)
-            logger.critical("The sum of z's is %.16e" % zsum)
-            logger.critical("The sum of kt's is %s" % str(ktsum))
-            logger.critical("abs(sum(kt's)) / sum(abs(kt's)) =  %s" % ktsum_ratio)
-            logger.critical("Inputs for InitialCollinearVariables.get():")
-            logger.critical("na, nb = %s, %s" % (str(na), str(nb)))
-            for i in fs_children:
-                logger.critical("fs_child %d: %s" % (i, str(PS_point[i])))
-            logger.critical("is_child %d: %s" % (is_child, str(PS_point[is_child])))
-            logger.critical("Output of InitialCollinearVariables.get():")
-            logger.critical(str(kinematic_variables))
-        return
-
-    @staticmethod
-    def set(
-        PS_point, fs_children, is_child, pa, na, nb, kinematic_variables,
-        precision=1e-6 ):
-        """Given the lower multiplicity momentum of the incoming parton
-        and collinear variables compute and set the children momenta.
-        Children indices should already refer to the position
-        of momenta within the PS_point (no momentum dictionary used).
-        """
-
-        PS_point[is_child] = pa
-        # Get A data
-        zA  = kinematic_variables['z' + str(is_child)]
-        ktA = kinematic_variables['kt' + str(is_child)]
-        pA2 = kinematic_variables['s' + str(is_child)]
-        # Pre-compute variables
-        nanb = na.dot(nb)
-        nbpa = nb.dot(pa)
-        ptA = ktA
-        # ptA = zA * ktA
-        nbpA = zA * nbpa
-        napA = (pA2 - ptA.square()) * nanb / (2*nbpA)
-        pA = (nbpA*na + napA*nb) / nanb + ptA
-        # Variables for sums
-        p_sum = LorentzVector(pa)
-        # Set momenta for all children
-        for i in fs_children:
-            zi  = kinematic_variables['z' + str(i)]
-            kti = kinematic_variables['kt' + str(i)]
-            pi2 = kinematic_variables['p' + str(i) + '2']
-            pti = kti
-            # pti = kti + zi * ktA
-            nbpi = zi * nbpa
-            napi = (pi2 - pti.square()) * nanb / (2 * nbpi)
-            PS_point[i] = (nbpi*na + napi*nb) / nanb + pti
-            p_sum -= PS_point[i]
-        # Check how well the parent's momentum is reproduced
-        # TODO Ideally switch to quadruple precision if the check fails
-        deviation = abs((pA - p_sum).view(Vector))
-        benchmark = abs(pA.view(Vector))
-        if deviation / benchmark > precision:
-            logger.critical(FinalCollinearVariables.precision_loss_message)
-            logger.critical("The sum of children momenta is %s" % str(p_sum))
-            logger.critical("vs the total: %s" % str(pA))
-            logger.critical("Inputs for InitialCollinearVariables.set():")
-            logger.critical("pa = %s" % str(pa))
-            logger.critical("na = %s, nb = %s" % (str(na), str(nb)))
-            logger.critical("kinematic variables:")
-            logger.critical(str(kinematic_variables))
-            logger.critical("Output of InitialCollinearVariables.set():")
-            for i in fs_children:
-                logger.critical("fs_child %d: %s" % (i, str(PS_point[i])))
-        return
-
-#=========================================================================================
 # Initial-collinear mappings
+#=========================================================================================
+
+# Generic initial-collinear mapping parent class
 #=========================================================================================
 
 class InitialCollinearMapping(VirtualMapping):
@@ -971,6 +882,9 @@ class InitialCollinearMapping(VirtualMapping):
             InitialCollinearVariables.names(parent, fs_children, is_child)
         return names
 
+# Initial-collinear Lorentz mapping, one set
+#=========================================================================================
+
 class InitialLorentzMappingOne(InitialCollinearMapping):
     """Implementation of the Lorentz transformation mapping
     for one set of collinear particles (with massless parent)
@@ -983,7 +897,8 @@ class InitialLorentzMappingOne(InitialCollinearMapping):
         # Valid only for one set of particles going collinear to an initial-state parton,
         # with no recursive substructure
         if len(singular_structure.substructures) == 1:
-            return super(InitialLorentzMappingOne, cls).is_valid_structure(singular_structure)
+            return super(InitialLorentzMappingOne, cls).is_valid_structure(
+                singular_structure )
         return False
 
     @classmethod
@@ -1103,7 +1018,147 @@ class InitialLorentzMappingOne(InitialCollinearMapping):
         return jacobian
 
 #=========================================================================================
+# Soft mappings
+#=========================================================================================
+
+# Generic soft mapping parent class
+#=========================================================================================
+
+class ElementaryMappingSoft(VirtualMapping):
+    """Common functions for soft elementary mappings."""
+
+    @classmethod
+    def is_valid_structure(cls, singular_structure):
+
+        assert isinstance(singular_structure, subtraction.SingularStructure)
+        # Valid only for bunches of final-state particles going soft,
+        # with no recursive substructure
+        for substructure in singular_structure.substructures:
+            if not substructure.name() == "S":
+                return False
+            if substructure.substructures:
+                return False
+        return True
+
+    @classmethod
+    def get_kinematic_variables_names(cls, singular_structure, momenta_dict):
+        """Get the names of variables describing particles going unresolved."""
+
+        # Consistency checks
+        assert isinstance(momenta_dict, subtraction.bidict)
+        assert cls.is_valid_structure(singular_structure)
+
+        # For every soft particle, just return its momentum
+        names = []
+        for substructure in singular_structure.substructures:
+            parent, children, _ = get_structure_numbers(substructure, momenta_dict)
+            for legn in sorted(children):
+                names += ['p'+str(legn), ]
+        return names
+
+# Soft mapping, massless final-state recoilers
+#=========================================================================================
+
+class MappingSomogyietalSoft(ElementaryMappingSoft):
+    """Implementation of the mapping used by Somogyi et al.
+    in arXiv:hep-ph/0609042 for soft particles.
+    It applies when there are at least two recoilers in the final state
+    and all recoilers are massless.
+    """
+
+    @classmethod
+    def is_valid_structure(cls, singular_structure):
+
+        # Valid only if there are at least two recoilers in the final state
+        fs_recoilers = tuple(
+            leg for leg in singular_structure.legs
+            if leg.state == subtraction.SubtractionLeg.FINAL )
+        if len(fs_recoilers) < 2: return False
+        return super(MappingSomogyietalSoft, cls).is_valid_structure(singular_structure)
+
+    @classmethod
+    def map_to_lower_multiplicity(
+        cls, PS_point, singular_structure, momenta_dict,
+        kinematic_variables=None, compute_jacobian=False, masses=None ):
+
+        # Consistency checks
+        assert isinstance(momenta_dict, subtraction.bidict)
+        assert cls.is_valid_structure(singular_structure)
+
+        # Build the total soft momentum,
+        # save the soft momenta in variables and eliminate them from PS_point
+        pS = LorentzVector()
+        for substructure in singular_structure.substructures:
+            children = [leg.n for leg in substructure.legs]
+            if kinematic_variables is not None:
+                SoftVariables.get(PS_point, children, kinematic_variables)
+            for child in children:
+                pS += PS_point.pop(child)
+        # Build the total momentum of recoilers
+        pR = LorentzVector()
+        for leg in singular_structure.legs:
+            if leg.state == subtraction.SubtractionLeg.FINAL:
+                pR += PS_point[leg.n]
+        # Build the total momentum Q
+        Q = pS + pR
+        # Compute the parameter la
+        la = math.sqrt(pR.square() / Q.square())
+        P = pR / la
+        # Map all recoilers' momenta
+        for recoiler in singular_structure.legs:
+            PS_point[recoiler.n] /= la
+            PS_point[recoiler.n].rotoboost(P, Q)
+
+        # TODO Compute the jacobian for this mapping
+        jacobian = 1.0
+
+        return jacobian
+
+    @classmethod
+    def map_to_higher_multiplicity(
+        cls, PS_point, singular_structure, momenta_dict, kinematic_variables,
+        compute_jacobian=False ):
+
+        # Consistency checks
+        assert isinstance(momenta_dict, subtraction.bidict)
+        assert cls.is_valid_structure(singular_structure)
+        needed_variables = set(
+            cls.get_kinematic_variables_names(singular_structure, momenta_dict ) )
+        assert needed_variables.issubset(kinematic_variables.keys())
+
+        # Build the total soft momentum,
+        # get the soft momenta from variables and save them in PS_point
+        pS = LorentzVector()
+        for substructure in singular_structure.substructures:
+            children = [leg.n for leg in substructure.legs]
+            SoftVariables.set(PS_point, children, kinematic_variables)
+            for child in children:
+                pS += PS_point[child]
+        # Build the total momentum, which is equal to the mapped recoilers'
+        Q = LorentzVector()
+        for leg in singular_structure.legs:
+            if leg.state == subtraction.SubtractionLeg.FINAL:
+                Q += PS_point[leg.n]
+        # Build the total momentum Q
+        pR = Q - pS
+        # Compute the parameter la
+        la = math.sqrt(pR.square() / Q.square())
+        P = pR / la
+        # Map all recoilers' momenta
+        for recoiler in singular_structure.legs:
+            PS_point[recoiler.n] *= la
+            PS_point[recoiler.n].rotoboost(Q, P)
+
+        # TODO Compute the jacobian for this mapping
+        jacobian = 1.0
+
+        return jacobian
+
+#=========================================================================================
 # Mapping walkers
+#=========================================================================================
+
+# Generic walker parent class
 #=========================================================================================
 
 class VirtualWalker(object):
@@ -1114,7 +1169,8 @@ class VirtualWalker(object):
 
         if cls is VirtualWalker:
             map_type = opts.pop('map_type') if 'map_type' in opts else 'Unknown'
-            if map_type not in mapping_walker_classes_map or not mapping_walker_classes_map[map_type]:
+            if (map_type not in mapping_walker_classes_map
+                or not mapping_walker_classes_map[map_type] ):
                 raise MadGraph5Error(
                     "Unknown mapping walker of type '%s'." % str(map_type) )
             target_class = mapping_walker_classes_map[map_type]
@@ -1211,6 +1267,9 @@ class VirtualWalker(object):
             counterterm, kinematic_variables, scaling_parameter )
         return self.walk_to_higher_multiplicity(
             PS_point, counterterm, new_kin_variables )
+
+# Flat collinear walker
+#=========================================================================================
 
 class FlatCollinearWalker(VirtualWalker):
 
@@ -1360,9 +1419,12 @@ class FlatCollinearWalker(VirtualWalker):
                 new_kinematic_variables[var] = value
         return new_kinematic_variables
 
-class FFNLOWalker(VirtualWalker):
+# Final-state only NLO walker
+#=========================================================================================
 
-    cannot_handle = """FFNLOWalker found a singular structure
+class FinalNLOWalker(VirtualWalker):
+
+    cannot_handle = """FinalNLOWalker found a singular structure
     it is not capable to handle.
     """
 
@@ -1574,6 +1636,9 @@ class FFNLOWalker(VirtualWalker):
             else:
                 raise MadGraph5Error(self.cannot_handle)
         return new_variables
+
+# General NLO walker
+#=========================================================================================
 
 class NLOWalker(VirtualWalker):
 
@@ -1814,13 +1879,16 @@ class NLOWalker(VirtualWalker):
                 raise MadGraph5Error(self.cannot_handle)
         return new_variables
 
+# Dictionary of available walkers
+#=========================================================================================
+
 # Mapping classes map is defined here as module variables. This map can be overwritten
 # by the interface when using a PLUGIN system where the user can define his own Mapping.
 # Note that this must be placed after all Mapping daughter classes in this module
 # have been declared.
 mapping_walker_classes_map = {
     'FlatCollinear': FlatCollinearWalker,
-    'FFNLO': FFNLOWalker,
+    'FinalNLO': FinalNLOWalker,
     'NLO': NLOWalker,
     'Unknown': None
 }

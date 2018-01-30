@@ -666,11 +666,8 @@ class FinalRescalingMappingOne(FinalCollinearMapping):
         for j in children:
             if j != parent: # Bypass degenerate case of 1->1 splitting
                 del PS_point[j]
-
-        # TODO Compute the jacobian for this mapping
-        jacobian = 1.0
-
-        return jacobian
+        # Return the jacobian for this mapping
+        return (1-alpha)**(2*(len(children)-1))
 
     @classmethod
     def map_to_higher_multiplicity(
@@ -715,11 +712,8 @@ class FinalRescalingMappingOne(FinalCollinearMapping):
         # Remove parent's momentum
         if parent not in children: # Bypass degenerate case of 1->1 splitting
             del PS_point[parent]
-
-        # TODO Compute the jacobian for this mapping
-        jacobian = 1.0
-
-        return jacobian
+        # Return the jacobian for this mapping
+        return (1-alpha)**(2*(1-len(children)))
 
 # Final-collinear Lorentz mapping, one set
 #=========================================================================================
@@ -1102,7 +1096,9 @@ class MappingSomogyietalSoft(ElementaryMappingSoft):
         # Build the total momentum Q
         Q = pS + pR
         # Compute the parameter la
-        la = math.sqrt(pR.square() / Q.square())
+        pR2_Q2 = pR.square() / Q.square()
+        y = 1. - pR2_Q2
+        la = math.sqrt(pR2_Q2)
         P = pR / la
         # Map all recoilers' momenta
         for recoiler in singular_structure.legs:

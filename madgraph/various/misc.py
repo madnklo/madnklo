@@ -2005,6 +2005,30 @@ def import_python_lhapdf(lhapdfconfig):
         python_lhapdf = None
     return python_lhapdf
 
+# =============================================
+#               MPL CLASS
+# =============================================
+class MPL(object):
+    import subprocess
+    '''MPL is a class to numerically evaluate multiple polylogarithms
+Usage: MPL.G([a_1,...,a_n],x,method)
+Output: float
+The output is equal to G(a_1,...,a_n,x) evaluated with the method "method" '''
+
+    @classmethod
+    def G(cls,l, x, method="dummy" , *args, **opts):
+        if (method == "dummy"):  # The default method is "dummy", which returns 0
+            return 0.
+
+        if (method == "hack_ginsh"):  # a very hacky way to use GINAC using the shell interface
+                bash_command = "evalf(H({{{}}},{}));".format(",".join(map(str, l)), str(x))
+                out=sp.Popen(["echo \"{}\" |ginsh".format(bash_command)],shell=True,stdout=subprocess.PIPE)
+                return float(out.communicate()[0])
+
+        else:  # If all fails, raise an error
+            raise ValueError('This multiple polylogarithm evaluation method is unknown')
+
+
 ############################### TRACQER FOR OPEN FILE
 #openfiles = set()
 #oldfile = __builtin__.file

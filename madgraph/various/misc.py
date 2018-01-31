@@ -2008,25 +2008,25 @@ def import_python_lhapdf(lhapdfconfig):
 # =============================================
 #               MPL CLASS
 # =============================================
+import ctypes
+
 class MPL(object):
-    import subprocess
     '''MPL is a class to numerically evaluate multiple polylogarithms
-Usage: MPL.G([a_1,...,a_n],x,method)
+Usage: MPL.G([a_1,...,a_n],x)
 Output: float
-The output is equal to G(a_1,...,a_n,x) evaluated with the method "method" '''
+The output is equal to G(a_1,...,a_n,x) evaluated withour linked Ginac code '''
+
+    # establish the interface with ginacg
+    _ginacG = ctypes.CDLL("ginacg.so")
+    _ginacG.GinacG.argtypes = (ctypes.POINTER(ctypes.c_float), ctypes.c_float, ctypes.c_int)
+    _ginacG.GinacG.restype = ctypes.c_float
 
     @classmethod
-    def G(cls,l, x, method="dummy" , *args, **opts):
-        if (method == "dummy"):  # The default method is "dummy", which returns 0
-            return 0.
+    def G(cls,l, x, *args, **opts):
+        w = len(l)
+        array_type = ctypes.c_float * w
+        return cls._ginacG.GinacG(array_type(*l), ctypes.c_float(x), ctypes.c_int(w))
 
-        if (method == "hack_ginsh"):  # a very hacky way to use GINAC using the shell interface
-                bash_command = "evalf(H({{{}}},{}));".format(",".join(map(str, l)), str(x))
-                out=sp.Popen(["echo \"{}\" |ginsh".format(bash_command)],shell=True,stdout=subprocess.PIPE)
-                return float(out.communicate()[0])
-
-        else:  # If all fails, raise an error
-            raise ValueError('This multiple polylogarithm evaluation method is unknown')
 
 
 ############################### TRACQER FOR OPEN FILE

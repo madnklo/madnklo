@@ -462,7 +462,6 @@ class ME7Integrand(integrands.VirtualIntegrand):
         maximum number of jets that can be clustered and which is by default taken to be:
             self.contribution_definition.n_unresolved_particles 
         This is useful when using this function to apply cuts to the reduced PS of the CTs."""
-
         debug_cuts = False
         # This is a temporary function anyway which should eventually be replaced by a full
         # fledged module for handling generation level cuts, which would also make use of fjcore.
@@ -606,41 +605,43 @@ class ME7Integrand(integrands.VirtualIntegrand):
             # photons
             if is_a_photon(process_pdgs[1][i]):
                 if debug_cuts: logger.debug('pta_%i.pt()=%.5e'%((i+1),p.pt()))
-                if self['pta'] > 0.0 and p.pt() < self['pta']:
+                if self.run_card['pta'] > 0.0 and p.pt() < self.run_card['pta']:
                     return False
                 if debug_cuts: logger.debug('eta(pa_%i)=%.5e'%(i+1,p.pseudoRap()))
-                if self['etaa'] > 0.0 and abs(p.pseudoRap()) > self['etaa']:
+                if self.run_card['etaa'] > 0.0 and abs(p.pseudoRap()) > self.run_card['etaa']:
                     return False
                 for j, p2 in enumerate(PS_point[self.n_initial:]):
-                    if is_a_photon(process_pdgs[1][j]):
+                    if j > i and is_a_photon(process_pdgs[1][j]):
                         if debug_cuts: logger.debug('deltaR(pa_%i,pa_%i)=%.5e'%(i+1, j+1, p.deltaR(p2)))
-                        if self['draa'] > 0.0 and p.deltaR(p2) < self['draa']:
+                        if self.run_card['draa'] > 0.0 and p.deltaR(p2) < self.run_card['draa']:
                             return False
                     if is_a_lepton(process_pdgs[1][j]):
                         if debug_cuts: logger.debug('deltaR(pa_%i,pl_%i)=%.5e'%(i+1, j+1, p.deltaR(p2)))
-                        if self['dral'] > 0.0 and p.deltaR(p2) < self['dral']:
+                        if self.run_card['dral'] > 0.0 and p.deltaR(p2) < self.run_card['dral']:
                             return False
                 for j, p_jet in enumerate(all_jets):
                     if debug_cuts: logger.debug('deltaR(pa_%i,pj_%i)=%.5e'%(i+1, j+1, p.deltaR(p_jet)))
-                    if self['draj'] > 0.0 and p.deltaR(p_jet) < self['draj']:
+                    if self.run_card['draj'] > 0.0 and p.deltaR(p_jet) < self.run_card['draj']:
                         return False
             
             # leptons
             if is_a_lepton(process_pdgs[1][i]):
                 if debug_cuts: logger.debug('ptl_%i.pt()=%.5e'%((i+1),p.pt()))
-                if self['ptl'] > 0.0 and p.pt() < self['ptl']:
+                if self.run_card['ptl'] > 0.0 and p.pt() < self.run_card['ptl']:
                     return False
                 if debug_cuts: logger.debug('eta(pl_%i)=%.5e'%(i+1,p.pseudoRap()))
-                if self['etal'] > 0.0 and abs(p.pseudoRap()) > self['etal']:
+                if self.run_card['etal'] > 0.0 and abs(p.pseudoRap()) > self.run_card['etal']:
                     return False
                 for j, p2 in enumerate(PS_point[self.n_initial:]):
+                    if j <= i:
+                        continue
                     if is_a_lepton(process_pdgs[1][j]):
                         if debug_cuts: logger.debug('deltaR(pl_%i,pl_%i)=%.5e'%(i+1, j+1, p.deltaR(p2)))
-                        if self['drll'] > 0.0 and p.deltaR(p2) < self['drll']:
+                        if self.run_card['drll'] > 0.0 and p.deltaR(p2) < self.run_card['drll']:
                             return False
                 for j, p_jet in enumerate(all_jets):
                     if debug_cuts: logger.debug('deltaR(pl_%i,pj_%i)=%.5e'%(i+1, j+1, p.deltaR(p_jet)))
-                    if self['drjl'] > 0.0 and p.deltaR(p_jet) < self['drjl']:
+                    if self.run_card['drjl'] > 0.0 and p.deltaR(p_jet) < self.run_card['drjl']:
                         return False  
             
 
@@ -752,7 +753,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # Include the flux factor
         flux = 1.
         if self.n_initial == 2:
-            flux = 1. / (2.*math.sqrt(self.Lambda(E_cm**2, self.masses[0][0], self.masses[0][1])))
+            flux = 1. / (2.*math.sqrt(self.Lambda(E_cm**2, self.masses[0][0]**2, self.masses[0][1]**2)))
         elif self.n_initial == 1:
             flux = 1. / (2.*E_cm)
         flux /= math.pow(2.*math.pi, 3*self.n_final - 4)

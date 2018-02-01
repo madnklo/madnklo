@@ -1368,30 +1368,31 @@ class ME7Integrand_R(ME7Integrand):
         # hike = {
         #         'currents' : [(current1, PS1), (current2, PS2), etc...],
         #         'matrix_element': (ME, PSME),
-        #         'jacobian' : jacobian (a float)
+        #         'mapping_variables' : mapping_variables (a dictionary)
         #         'kinematic_variables' : kinematic_variables  (a dictionary)
         #        }
-        hike = self.mapper.walk_to_lower_multiplicity(
-                                PS_point, counterterm, compute_kinematic_variables=True )
+        hike = self.mapper.walk_to_lower_multiplicity(PS_point, counterterm)
        
         # Access the matrix element characteristics
         ME_process, ME_PS = hike['matrix_element']
         
-        # Generate what is the kinematics (reduced_PS) returned as a list,  and the
-        # reduced_flavors for this counterterm, by using the defining selected 
-        # flavors of the real-emission and the real-emission kinematics dictionary
+        # Generate what is the kinematics (reduced_PS) returned as a list
+        # and the reduced_flavors for this counterterm,
+        # by using the defining selected flavors of the real-emission
+        # and the real-emission kinematics dictionary
         reduced_PS, reduced_flavors = counterterm.get_reduced_quantities(
-                                               ME_PS, defining_flavors = defining_flavors)
+            ME_PS, defining_flavors=defining_flavors)
 
         # Apply cuts if requested and return immediately if they do not pass
         if apply_flavour_blind_cuts and not self.pass_flavor_blind_cuts(
-                            reduced_PS, reduced_flavors, n_jets_allowed_to_be_clustered=0):
+            reduced_PS, reduced_flavors, n_jets_allowed_to_be_clustered=0):
             return 0.0, reduced_PS, reduced_flavors
         if apply_flavour_cuts and not self.pass_flavor_sensitive_cuts(
-                                                              reduced_PS, reduced_flavors):
+            reduced_PS, reduced_flavors):
             return 0.0, reduced_PS, reduced_flavors
 
-        # Separate the current in those directly connected to the matrix element and those that are not
+        # Separate the current in those directly connected to the matrix element
+        # and those that are not
         disconnected_currents = [
             (current, PS) for (current, PS) in hike['currents']
             if not current['resolve_mother_spin_and_color']
@@ -1401,9 +1402,10 @@ class ME7Integrand_R(ME7Integrand):
             if current['resolve_mother_spin_and_color']
         ]
 
-        # Then the above "hike" can be used to evaluate the currents first and the ME last.
-        # Note that the code below can become more complicated when needing to track helicities, but let's forget this for now.
-        weight = hike['jacobian']
+        # The above "hike" can be used to evaluate the currents first and the ME last.
+        # Note that the code below can become more complicated when tracking helicities,
+        # but let's forget this for now.
+        weight = 1.
         assert((hel_config is None))
     
         for (current, PS_point_for_current) in disconnected_currents:
@@ -1411,7 +1413,7 @@ class ME7Integrand_R(ME7Integrand):
                 current, PS_point_for_current, hel_config=None, 
                 reduced_process = ME_process,
                 leg_numbers_map = counterterm.momenta_dict,
-                mapping_variables=hike['kinematic_variables'])         
+                mapping_variables=hike['mapping_variables'])
             # Make sure no spin- or color-correlations are demanded by the current for this kind of currents
             assert(current_evaluation['spin_correlations']==[None,])
             assert(current_evaluation['color_correlations']==[None,])
@@ -1454,7 +1456,7 @@ class ME7Integrand_R(ME7Integrand):
                 current, PS_point_for_current, hel_config=None, 
                 reduced_process = ME_process,
                 leg_numbers_map = counterterm.momenta_dict,
-                mapping_variables=hike['kinematic_variables'])
+                mapping_variables=hike['mapping_variables'])
             new_all_necessary_ME_calls = []
             # Now loop over all spin- and color- correlators required for this current
             # and update the necessary calls to the ME

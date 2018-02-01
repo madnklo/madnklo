@@ -34,7 +34,6 @@ except ImportError:
 pjoin = os.path.join
 
 CurrentImplementationError = utils.CurrentImplementationError
-CS_utils = utils.CS_utils
 
 # Mother function grouping functionalities common to all integrated FF NLO QCD currents
 class integrated_NLO_FF_QCD_current(utils.VirtualCurrentImplementation):

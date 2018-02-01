@@ -97,7 +97,7 @@ def glob(name, path=''):
 class Silence:
     """Context manager which uses low-level file descriptors to suppress
     output to stdout/stderr, optionally redirecting to the named file(s).
-    
+
     >>> import sys, numpy.f2py
     >>> # build a test fortran extension module with F2PY
     ...
@@ -2011,10 +2011,10 @@ def import_python_lhapdf(lhapdfconfig):
 import ctypes
 
 class MPL(object):
-    '''MPL is a class to numerically evaluate multiple polylogarithms
+    """ MPL is a class to numerically evaluate multiple polylogarithms
 Usage: MPL.G([a_1,...,a_n],x)
 Output: float
-The output is equal to G(a_1,...,a_n,x) evaluated withour linked Ginac code '''
+The output is equal to G(a_1,...,a_n,x) evaluated withour linked Ginac code """
 
     # establish the interface with ginacg
     _ginacG = ctypes.CDLL("ginacg.so")
@@ -2028,6 +2028,27 @@ The output is equal to G(a_1,...,a_n,x) evaluated withour linked Ginac code '''
         return cls._ginacG.GinacG(array_type(*l), ctypes.c_float(x), ctypes.c_int(w))
 
 
+# =============================================
+#               MPL CLASS
+# =============================================
+
+class HE(object):
+    """
+    Hardcoded expressions imported from a text file with name "filename".
+    The filename must contain exactly one python expression which will be evaluated
+    by calling the HE instance.
+    After being called, a HE instance he will contain the result of its evaluation in he.result
+
+    WARNING: make sure that all symbols in the expressions are defined before calling a HE instance
+    """
+    def __init__(self, filename, *args, **kwargs):
+        with open(filename,"r") as self.file:
+            self.expression = "self.result=" + self.file.read()
+            self.result = 0
+
+    def __call__(self, *args, **kwargs):
+        exec self.expression
+        return self.result
 
 ############################### TRACQER FOR OPEN FILE
 #openfiles = set()

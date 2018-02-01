@@ -30,6 +30,7 @@ except ImportError:
     # If not working, then it must be within MG5_aMC context:
     import madgraph.iolibs.template_files.\
                    subtraction.subtraction_current_implementations_utils as utils
+            
 
 pjoin = os.path.join
 

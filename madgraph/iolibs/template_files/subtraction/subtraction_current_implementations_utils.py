@@ -1,4 +1,4 @@
-################################################################################
+##########################################################################################
 #
 # Copyright (c) 2009 The MadGraph5_aMC@NLO Development team and Contributors
 #
@@ -11,22 +11,21 @@
 #
 # For more information, visit madgraph.phys.ucl.ac.be and amcatnlo.web.cern.ch
 #
-################################################################################
+##########################################################################################
 from __builtin__ import classmethod
-"""All virtual mother classes to IR-subtraction related hard-coded 
-implementations"""
+"""All virtual mother classes to IR-subtraction related hard-coded implementations"""
 
 import math
 import madgraph.various.misc as misc
 import madgraph.integrator.phase_space_generators as PS_utils
 import madgraph.integrator.mappings as mappings
 
-#===============================================================================
+#=========================================================================================
 # Subtraction current evaluation and result
-#===============================================================================
+#=========================================================================================
+
 class SubtractionCurrentEvaluation(dict):
-    """ A container class to specify the output of the evaluation of a given 
-    current."""
+    """Container class for the output of the evaluation of a current."""
 
     # All residues of the poles for the epsilon expansion can be specified with a
     # key names 'eps^n'.
@@ -59,7 +58,8 @@ class SubtractionCurrentEvaluation(dict):
             index += int(result_name.split('^')[1])
             result_name = 'eps'
         
-        return index + ((100*self.result_order.index(result_name)) if result_name in self.result_order else 100000)
+        return index + ((100*self.result_order.index(result_name))
+                        if result_name in self.result_order else 100000)
 
     def nice_string(self, max_len_attribute=-1):
         """ Formats nicely the output of a particular subtraction current evaluation."""
@@ -67,7 +67,7 @@ class SubtractionCurrentEvaluation(dict):
         res = []
         length = (max_len_attribute if max_len_attribute>0 else max(len(k) for k in self.keys()))
         template = '%%-%ds = %%s'%length
-        subtemplate = '%%-%ds = %%s'%max((length-5),10)
+        subtemplate = '%%-%ds = %%s'%max((length-5), 10)
 
         sorted_result_keys = sorted(self.keys(), key=lambda el: self.get_result_order(el))
 
@@ -103,22 +103,34 @@ class SubtractionCurrentEvaluation(dict):
         return '\n'.join(res)
     
     def __str__(self):
+
         return self.nice_string()
 
+    @staticmethod
+    def zero():
+
+        return SubtractionCurrentEvaluation({
+            'spin_correlations'   : [ None ],
+            'color_correlations'  : [ None ],
+            'values'              : {(0,0): {'finite' : 0.0 }}
+        })
+
 class SubtractionCurrentResult(dict):
-    """ A class to store th e different results of current evaluation call for one specific PS point / scale."""
+    """A class to store the different results of current evaluation call
+    for one specific PS point / scale."""
 
     def __init(self, *args, **opts):
         super(SubtractionCurrentResult, self).__init__(*args, **opts)        
         
     def nice_string(self):
-        """ Print out all the results available in a nice form."""
+        """Print out all the results available in a nice form."""
         # First lists the result with the least amount of attributes specified
         sorted_keys = sorted(self.keys(), key=lambda k:[el[1] for el in k].count(None))
 
         res = []
         max_len_attribute = max(max(len(el[0]) for el in k) for k in sorted_keys)
-        max_len_attribute = max(max_len_attribute, SubtractionCurrentEvaluation.get_max_length_attribute())
+        max_len_attribute = max(
+            max_len_attribute, SubtractionCurrentEvaluation.get_max_length_attribute())
         template = '%%-%ds : %%s'%max_len_attribute
         for i,k in enumerate(sorted_keys):
             res.append(misc.bcolors.GREEN+'Entry #%d:'%(i+1)+misc.bcolors.ENDC)
@@ -130,7 +142,7 @@ class SubtractionCurrentResult(dict):
                 res.append('  Unspecified or summed over properties:')
                 res.append('  -> %s'%(', '.join(el[0] for el in k if el[1] is None)))
             res.extend('  %s'%line for line in self[k].nice_string(
-                                            max_len_attribute=max_len_attribute).split('\n'))
+                max_len_attribute=max_len_attribute).split('\n'))
         
         return '\n'.join(res)
 
@@ -138,11 +150,13 @@ class SubtractionCurrentResult(dict):
         return self.nice_string()
 
     def get_result(self, **opts):
-        """ Attemp ts to recycle the result from previous computations.
-        Returns None otherwise. Opts are typically:
+        """Attempt to recycle the result from previous computations,
+        and return None otherwise.
+        Opts are typically:
            helicities: A tuple of integer, None means summed over.
            squared_orders: a tuple repr. of the usual dict., None means all contributions.
         """
+
         key_opts = {'hel_config'           : None,
                     'squared_orders'       : None}
         key_opts.update(opts)
@@ -155,7 +169,7 @@ class SubtractionCurrentResult(dict):
             return None
     
     def add_result(self, value, **opts):
-        """ Ad d a result to the current record."""
+        """Add a result to the current record."""
         
         key_opts = {'hel_config'           : None,
                     'squared_orders'       : None}
@@ -163,64 +177,82 @@ class SubtractionCurrentResult(dict):
         
         self[tuple(sorted(opts.items()))] = value
 
-#===============================================================================
+    @staticmethod
+    def zero(squared_orders=None, current=None, hel_config=None):
+        """Return a 'zero' result."""
+
+        if squared_orders is None and current is not None:
+            sqo = tuple(sorted(current.get('squared_orders').items()))
+        else:
+            sqo = squared_orders
+        subtraction_current_result = SubtractionCurrentResult()
+        subtraction_current_result.add_result(
+            SubtractionCurrentEvaluation.zero(),
+            hel_config=hel_config, squared_orders=sqo)
+        return subtraction_current_result
+
+#=========================================================================================
 # CurrentImplementationError
-#===============================================================================
+#=========================================================================================
 class CurrentImplementationError(Exception):
     """Exception raised if an exception is triggered in implementation of the currents.""" 
 
-#===============================================================================
+#=========================================================================================
 # VirtualCurrentImplementation
-#===============================================================================
+#=========================================================================================
 class VirtualCurrentImplementation(object):
     """A virtual class defining what a current implementation must specify"""
-     
+
     def __init__(self, model, **opts):
-        """ Saves some general properities or quantities useful for the current evaluation."""
+        """Save properties or quantities useful for the current evaluation."""
         
         # A property variable specifying if helicity assignment is possible with
         # this implementation
         self.supports_helicity_assignment = True
 
         self.model = model
-        # Extract some constants from the UFO model if present, otherwise take default values
+        # Extract constants from the UFO model if present, otherwise take default values
         try:
             model_param_dict = self.model.get('parameter_dict')
         except:
             model_param_dict = {}
-        try:
-            self.TR = model_param_dict['TR']
-        except:
-            self.TR = 0.5
-        try:
-            self.CF = model_param_dict['CF']
-        except:
-            self.CF = 4.0/3.0
-        try:
-            self.NC = model_param_dict['NC']
-        except:
-            self.NC = 3.0
-        try:
-            self.CA = model_param_dict['CA']
-        except:
-            self.CA = self.NC
+        self.TR = model_param_dict.get('TR', 0.5)
+        self.NC = model_param_dict.get('NC', 3.0)
+        self.CF = model_param_dict.get('CF', (self.NC**2-1)/(2*self.NC))
+        self.CA = model_param_dict.get('CA', self.NC)
+
+    @staticmethod
+    def is_quark(leg, model):
+
+        return model.get_particle(leg.pdg).get('color') == 3
+
+    @staticmethod
+    def is_gluon(leg, model):
+
+        return model.get_particle(leg.pdg).get('color') == 8
+
+    @staticmethod
+    def is_massless(leg, model):
+
+        return model.get_particle(leg.pdg).get('mass').upper() == 'ZERO'
 
     @classmethod
     def does_implement_this_current(cls, current, model):
-        """ Returns None/a_dictionary depending on whether this particular current is
-        part of what this particular current class implements. When returning 
-        a dictionary, it specifies potential options that must passed upon instanciating
-        the current implementation for the current given in argument. """
+        """Return None/a_dictionary depending on whether this particular current is
+        part of what this particular current class implements.
+        When returning a dictionary, it specifies potential options that must be passed
+        upon instantiating the current implementation.
+        """
         
         # This virtual class of course does not implement any current.
         return None 
 
-    def get_cache_and_result_key(self,  current, 
+    def get_cache_and_result_key(self,  current,
                                         PS_point,
                                         reduced_process=None,
                                         leg_numbers_map=None,
-                                        hel_config = None,
-                                        mapping_variables = {},
+                                        hel_config=None,
+                                        mapping_variables={},
                                         **opts
                                 ):
         """ Generates a key for the cache dictionary. Make sure that everything that can
@@ -314,7 +346,7 @@ class VirtualCurrentImplementation(object):
 
 class DefaultCurrentImplementation(VirtualCurrentImplementation):
     """ This default implementation class will be used with a warning and *only* if none of the other implementation matches and 
-    the function 'does_implement_this_current' of this class evalauted to true.
+    the function 'does_implement_this_current' of this class evaluated to true.
     This is typically useful for debugging and one has not completed the implementation of all currents but already wants to test
     a subset of them."""
     
@@ -324,7 +356,8 @@ class DefaultCurrentImplementation(VirtualCurrentImplementation):
 
     @classmethod
     def does_implement_this_current(cls, current, model):
-        """ For production, it is preferable to turn off this default implementation by simply returnin None below instead of {}."""
+        """For production, it is preferable to turn off this default implementation
+        by simply returning None below instead of {}."""
         
         # Simply uncomment the line below to de-activate this default implementation.
         # return None
@@ -339,50 +372,6 @@ class DefaultCurrentImplementation(VirtualCurrentImplementation):
                                             hel_config = None,
                                             mapping_variables = {}
                                      ):
-        """ Simply return 1.0 for this current default implementation."""
+        """Simply return 0 for this current default implementation."""
         
-        subtraction_current_result = SubtractionCurrentResult()
-        
-        subtraction_current_eval = SubtractionCurrentEvaluation({
-                'spin_correlations'   : [ None ],
-                'color_correlations'  : [ None ],
-                'values'              : {(0,0): {'finite' : 0.0 }}
-            })
-        
-        subtraction_current_result.add_result(
-                subtraction_current_eval, 
-                hel_config=hel_config, 
-                squared_orders=tuple(sorted(current.get('squared_orders').items())) )
-        
-        return subtraction_current_result  
-
-#===============================================================================
-# CS util
-#===============================================================================
-class CS_utils(object):
-    """ A container function for useful class methods for NLO currents ala CS."""
-
-    @classmethod
-    def get_massless_collinear_CS_variables(
-        cls, PS_point, parent_number, children_numbers, mapping_variables=None ):
-        """Return collinear splitting variables as in mappings.CollinearVariables,
-        attempting to recycle the information passed by the mapping.
-        """
-
-        # Attempt recycling
-        if mapping_variables:
-            wanted = frozenset(
-                mappings.CollinearVariables.names(parent_number, children_numbers) )
-            passed = frozenset(mapping_variables.keys())
-            if wanted.issubset(passed):
-                return mapping_variables
-
-        # Recompute
-        kin_variables = dict()
-        na, nb = mappings.CollinearVariables.collinear_and_reference(PS_point[parent_number])
-        mappings.CollinearVariables.get(PS_point, children_numbers, na, nb, kin_variables)
-        p = mappings.LorentzVector()
-        for i in children_numbers:
-            p += PS_point[i]
-        kin_variables['s'+str(parent_number)] = p.square()
-        return kin_variables
+        return SubtractionCurrentResult.zero(current=current, hel_config=hel_config)

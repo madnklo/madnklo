@@ -118,8 +118,8 @@ class FinalCollinearVariables(object):
         for i in children:
             p += PS_point[i]
         # Pre-compute scalar products
-        nap = na.dot(p)
-        nbp = nb.dot(p)
+        nap  = na.dot(p)
+        nbp  = nb.dot(p)
         nanb = na.dot(nb)
         pt = p - (nbp*na + nap * nb) / nanb
         # Initialize variables for sum rules check
@@ -133,9 +133,9 @@ class FinalCollinearVariables(object):
             nbpi = nb.dot(pi)
             zi = nbpi / nbp
             kti = pi - (nbpi*na+napi*nb) / nanb - zi*pt
-            kinematic_variables['z' + str(i)] = zi
+            kinematic_variables['z'  + str(i)] = zi
             kinematic_variables['kt' + str(i)] = kti
-            kinematic_variables['p' + str(i) + '2'] = pi.square()
+            kinematic_variables['p'  + str(i) + '2'] = pi.square()
             zsum += zi
             ktsum += kti
             for j in range(len(kti)):
@@ -173,17 +173,17 @@ class FinalCollinearVariables(object):
         # Rename the sum of momenta
         p = total_momentum
         # Pre-compute scalar products
-        nap = na.dot(p)
-        nbp = nb.dot(p)
+        nap  = na.dot(p)
+        nbp  = nb.dot(p)
         nanb = na.dot(nb)
         pt = p - (nbp*na + nap*nb) / nanb
         # Variables for sums
         p_sum = LorentzVector()
         # Set momenta for all children
         for i in children:
-            zi = kinematic_variables['z' + str(i)]
+            zi  = kinematic_variables['z'  + str(i)]
             kti = kinematic_variables['kt' + str(i)]
-            pi2 = kinematic_variables['p' + str(i) + '2']
+            pi2 = kinematic_variables['p'  + str(i) + '2']
             nbpi = zi*nbp
             pti = kti + zi*pt
             napi = (pi2-pti.square())*nanb/(2*nbpi)
@@ -205,59 +205,6 @@ class FinalCollinearVariables(object):
             for i in children:
                 logger.critical("child %d: %s" % (i, str(PS_point[i])))
         return
-
-    @staticmethod
-    def azimuth_reference_vector(n):
-        """Given a unit vector n,
-        return a reference vector in the plane orthogonal to n.
-        """
-
-        n_ref = Vector([1., 0., 0.])
-        return Vector(n_ref - n.dot(n_ref) * n).normalize()
-
-    @staticmethod
-    def to_random(mapped_momentum, children, variables):
-        """Get [0,1] random variables
-        that represent the internal kinematic variables.
-        """
-
-        # WARNING This function is a stub
-
-        # Empty dictionary for randoms
-        randoms = dict()
-
-        # Compute reference vectors for this collinear subset
-        nvec = Vector([mapped_momentum[j + 1] for j in range(3)]).normalize()
-        # Get a reference phi=0 direction
-        n_phi = FinalCollinearVariables.azimuth_reference_vector(nvec)
-        n_triple = nvec.cross(n_phi)
-
-        # TODO Include virtuality
-        # Compute all kinematic variables
-        for i in children[:-1]:
-            # Actual kinematic variables
-            zi = variables['z'+str(i)]
-            kti = variables['kt'+str(i)]
-            kti_norm = math.sqrt(-kti.square())
-            nti = Vector([kti[1:3]]).normalize()
-            phi = math.acos(nti.dot(n_phi))
-            if nti.dot(n_triple) < 0:
-                phi *= -1
-            # TODO zi and kti_norm need to be mapped to [0,1]
-            randoms['z'+str(j)] = zi
-            randoms['kt'+str(i)] = kti_norm
-            randoms['phi'+str(i)] = phi
-
-        return randoms
-
-    @staticmethod
-    def from_random(mapped_momentum, children, randoms):
-        """Compute collinear variables from randoms in the range [0,1].
-        """
-
-        # TODO implement this
-        variables = dict()
-        return variables
 
 #=========================================================================================
 # Initial-collinear variables
@@ -319,9 +266,9 @@ class InitialCollinearVariables(object):
         ktsum = LorentzVector()
         ktabssum = LorentzVector()
         # Fill in A data, using child number improperly
-        kinematic_variables['z' + str(is_child)] = zA
+        kinematic_variables['z'  + str(is_child)] = zA
         kinematic_variables['kt' + str(is_child)] = ktA
-        kinematic_variables['s' + str(is_child)] = pA.square()
+        kinematic_variables['s'  + str(is_child)] = pA.square()
         zsum += zA
         ktsum += ktA
         for j in range(len(ktA)):
@@ -335,9 +282,9 @@ class InitialCollinearVariables(object):
             kti = pi - (nbpi*na+napi*nb) / nanb
             # pti = pi - (nbpi*na+napi*nb) / nanb
             # kti = pti - zi * ktA
-            kinematic_variables['z' + str(i)] = zi
+            kinematic_variables['z'  + str(i)] = zi
             kinematic_variables['kt' + str(i)] = kti
-            kinematic_variables['p' + str(i) + '2'] = pi.square()
+            kinematic_variables['p'  + str(i) + '2'] = pi.square()
             zsum += zi
             ktsum += kti
             for j in range(len(kti)):
@@ -374,9 +321,9 @@ class InitialCollinearVariables(object):
 
         PS_point[is_child] = pa
         # Get A data
-        zA  = kinematic_variables['z' + str(is_child)]
+        zA  = kinematic_variables['z'  + str(is_child)]
         ktA = kinematic_variables['kt' + str(is_child)]
-        pA2 = kinematic_variables['s' + str(is_child)]
+        pA2 = kinematic_variables['s'  + str(is_child)]
         # Pre-compute variables
         nanb = na.dot(nb)
         nbpa = nb.dot(pa)
@@ -389,9 +336,9 @@ class InitialCollinearVariables(object):
         p_sum = LorentzVector(pa)
         # Set momenta for all children
         for i in fs_children:
-            zi  = kinematic_variables['z' + str(i)]
+            zi  = kinematic_variables['z'  + str(i)]
             kti = kinematic_variables['kt' + str(i)]
-            pi2 = kinematic_variables['p' + str(i) + '2']
+            pi2 = kinematic_variables['p'  + str(i) + '2']
             pti = kti
             # pti = kti + zi * ktA
             nbpi = zi * nbpa
@@ -415,22 +362,6 @@ class InitialCollinearVariables(object):
             for i in fs_children:
                 logger.critical("fs_child %d: %s" % (i, str(PS_point[i])))
         return
-
-    @staticmethod
-    def to_randoms(mapped_momentum, children, variables):
-        """Get random variables in the range [0,1]
-        that correspond to the internal kinematic variables.
-        """
-
-        raise NotImplemented
-
-    @staticmethod
-    def from_randoms(mapped_momentum, children, randoms):
-        """Compute internal kinematic variables
-        from random numbers in the range [0,1].
-        """
-
-        raise NotImplemented
 
 #=========================================================================================
 # Soft variables
@@ -469,22 +400,6 @@ class SoftVariables(object):
         for i in children:
             PS_point[i] = kinematic_variables['p' + str(i)]
         return
-
-    @staticmethod
-    def to_randoms(mapped_momentum, children, variables):
-        """Get random variables in the range [0,1]
-        that correspond to the internal kinematic variables.
-        """
-
-        raise NotImplemented
-
-    @staticmethod
-    def from_randoms(mapped_momentum, children, randoms):
-        """Compute internal kinematic variables
-        from random numbers in the range [0,1].
-        """
-
-        raise NotImplemented
 
 #=========================================================================================
 # VirtualMapping
@@ -536,7 +451,8 @@ class VirtualMapping(object):
         :param masses: masses of the parents of the collinear sets,
         as a dictionary with (number of parent, mass)
 
-        :return: the jacobian weight due to the mapping
+        :return: dictionary containing the jacobian weight due to the mapping
+                 and eventually other characteristic variables of the mapping
         """
         
         raise NotImplemented
@@ -564,7 +480,8 @@ class VirtualMapping(object):
 
         :param compute_jacobian: if False, will not compute the jacobian for the mapping
 
-        :return: the jacobian weight due to the mapping
+        :return: dictionary containing the jacobian weight due to the mapping
+                 and eventually other characteristic variables of the mapping
         """
         
         raise NotImplemented
@@ -627,6 +544,15 @@ class FinalRescalingMappingOne(FinalCollinearMapping):
                 singular_structure )
         return False
 
+    @staticmethod
+    def alpha(pC, Q):
+        """Return the parameter alpha of the rescaling mapping."""
+
+        Q2  = Q.square()
+        pC2 = pC.square()
+        QpC = pC.dot(Q)
+        return (QpC - math.sqrt(QpC**2 - Q2*pC2)) / Q2
+
     @classmethod
     def map_to_lower_multiplicity(
         cls, PS_point, singular_structure, momenta_dict,
@@ -639,6 +565,7 @@ class FinalRescalingMappingOne(FinalCollinearMapping):
         # Precompute sets and numbers
         substructure = singular_structure.substructures[0]
         parent, children, _ = get_structure_numbers(substructure, momenta_dict)
+        recoilers = tuple(leg.n for leg in singular_structure.legs)
         # Build collective momenta
         pC = LorentzVector()
         for j in children:
@@ -648,29 +575,29 @@ class FinalRescalingMappingOne(FinalCollinearMapping):
             pR += PS_point[leg.n]
         Q = pC + pR
         # Compute the parameter alpha
-        Q2  = Q.square()
-        pC2 = pC.square()
-        QpC = pC.dot(Q)
-        alpha = (QpC - math.sqrt(QpC**2 - Q2*pC2)) / Q2
+        alpha = FinalRescalingMappingOne.alpha(pC, Q)
         # Map all recoilers' momenta
-        for recoiler in singular_structure.legs:
-            PS_point[recoiler.n] /= (1-alpha)
+        for recoiler in recoilers:
+            PS_point[recoiler] /= (1-alpha)
         # Map the set's momentum
         PS_point[parent] = (pC - alpha * Q) / (1-alpha)
         # If needed, update the kinematic_variables dictionary
         if kinematic_variables is not None:
             na, nb = FinalCollinearVariables.collinear_and_reference(PS_point[parent])
-            kinematic_variables['s'+str(parent)] = pC2
             FinalCollinearVariables.get(PS_point, children, na, nb, kinematic_variables)
+            kinematic_variables['s' + str(parent)] = pC.square()
         # Eliminate children momenta from the mapped phase-space point
         for j in children:
             if j != parent: # Bypass degenerate case of 1->1 splitting
                 del PS_point[j]
-
-        # TODO Compute the jacobian for this mapping
-        jacobian = 1.0
-
-        return jacobian
+        # Compute the jacobian for this mapping
+        jacobian = (1-alpha)**(2*(len(recoilers)-1))
+        # Return characteristic variables
+        return {
+            'jacobian':           jacobian,
+            'alpha'+str(parent):  alpha,
+            'pC'+str(parent):     pC,
+            'Q':                  Q, }
 
     @classmethod
     def map_to_higher_multiplicity(
@@ -687,6 +614,7 @@ class FinalRescalingMappingOne(FinalCollinearMapping):
         # Precompute sets and numbers
         substructure = singular_structure.substructures[0]
         parent, children, _ = get_structure_numbers(substructure, momenta_dict)
+        recoilers = tuple(leg.n for leg in singular_structure.legs)
         # Build collective momenta
         qC = PS_point[parent]
         qR = LorentzVector()
@@ -697,7 +625,7 @@ class FinalRescalingMappingOne(FinalCollinearMapping):
         assert abs(qC.square()) < math.sqrt(qC.eps())
         qR2 = qR.square()
         QqC = Q.dot(qC)
-        sC  = kinematic_variables['s'+str(parent)]
+        sC  = kinematic_variables['s' + str(parent)]
         # Obtain parameter alpha
         alpha = 0
         if (qR2*sC)/(QqC**2) < 1e-6:
@@ -707,19 +635,21 @@ class FinalRescalingMappingOne(FinalCollinearMapping):
         # Compute reverse-mapped momentum
         pC = (1-alpha) * qC + alpha * Q
         # Map recoil momenta
-        for recoiler in singular_structure.legs:
-            PS_point[recoiler.n] *= 1-alpha
+        for recoiler in recoilers:
+            PS_point[recoiler] *= 1-alpha
         # Set children momenta
         na, nb = FinalCollinearVariables.collinear_and_reference(qC)
         FinalCollinearVariables.set(PS_point, children, pC, na, nb, kinematic_variables)
         # Remove parent's momentum
         if parent not in children: # Bypass degenerate case of 1->1 splitting
             del PS_point[parent]
-
-        # TODO Compute the jacobian for this mapping
-        jacobian = 1.0
-
-        return jacobian
+        # Return the jacobian for this mapping
+        jacobian = (1-alpha)**(2*(len(recoilers)-1))
+        return {
+            'jacobian':           jacobian,
+            'alpha'+str(parent):  alpha,
+            'pC'+str(parent):     pC,
+            'Q':                  Q, }
 
 # Final-collinear Lorentz mapping, one set
 #=========================================================================================
@@ -752,6 +682,7 @@ class FinalLorentzMappingOne(FinalCollinearMapping):
         # Precompute sets and numbers
         substructure = singular_structure.substructures[0]
         parent, children, _ = get_structure_numbers(substructure, momenta_dict)
+        recoilers = tuple(leg.n for leg in singular_structure.legs)
         # Build collective momenta
         pC = LorentzVector()
         for j in children:
@@ -770,27 +701,29 @@ class FinalLorentzMappingOne(FinalCollinearMapping):
         PS_point[parent] = alpha*pC_perp + ((Q2-pR2)/(2*Q2))*Q
         # Map all recoilers' momenta
         qR = Q - PS_point[parent]
-        for recoiler in singular_structure.legs:
+        for recoiler in recoilers:
             # TODO Move this try/except to higher level
             try:
-                PS_point[recoiler.n].rotoboost(pR, qR)
+                PS_point[recoiler].rotoboost(pR, qR)
             except:
                 logger.critical("Problem encountered for %s" % str(singular_structure))
                 logger.critical("The full phase space point was\n%s" % str(PS_point))
         # If needed, update the kinematic_variables dictionary
         if kinematic_variables is not None:
             na, nb = FinalCollinearVariables.collinear_and_reference(PS_point[parent])
-            kinematic_variables['s'+str(parent)] = pC2
+            kinematic_variables['s' + str(parent)] = pC2
             FinalCollinearVariables.get(PS_point, children, na, nb, kinematic_variables)
         # Eliminate children momenta from the mapped phase-space point
         for j in children:
             if j != parent: # Bypass degenerate case of 1->1 splitting
                 del PS_point[j]
-
         # TODO Compute the jacobian for this mapping
         jacobian = 1.0
+        return {
+            'jacobian':           jacobian,
+            'pC'+str(parent):     pC,
+            'Q':                  Q, }
 
-        return jacobian
 
     @classmethod
     def map_to_higher_multiplicity(
@@ -807,14 +740,15 @@ class FinalLorentzMappingOne(FinalCollinearMapping):
         # Precompute sets and numbers
         substructure = singular_structure.substructures[0]
         parent, children, _ = get_structure_numbers(substructure, momenta_dict)
+        recoilers = tuple(leg.n for leg in singular_structure.legs)
         # Build collective momenta
         qC = PS_point[parent]
         qR = LorentzVector()
-        for leg in singular_structure.legs:
-            qR += PS_point[leg.n]
+        for recoiler in recoilers:
+            qR += PS_point[recoiler]
         Q = qR + qC
         # Compute scalar products
-        pC2 = kinematic_variables['s'+str(parent)]
+        pC2 = kinematic_variables['s' + str(parent)]
         # Compute parameters
         assert abs(qC.square()) < math.sqrt(qC.eps())
         Q2  = Q.square()
@@ -836,8 +770,10 @@ class FinalLorentzMappingOne(FinalCollinearMapping):
 
         # TODO Compute the jacobian for this mapping
         jacobian = 1.0
-
-        return jacobian
+        return {
+            'jacobian':           jacobian,
+            'pC'+str(parent):     pC,
+            'Q':                  Q, }
 
 #=========================================================================================
 # Initial-collinear mappings
@@ -913,13 +849,14 @@ class InitialLorentzMappingOne(InitialCollinearMapping):
         # Precompute sets and numbers
         substructure = singular_structure.substructures[0]
         parent, fs_children, is_child = get_structure_numbers(substructure, momenta_dict)
+        recoilers = tuple(leg.n for leg in singular_structure.legs)
         # Build collective momenta
         pCa = LorentzVector()
         for j in fs_children:
             pCa += PS_point[j]
         pR = LorentzVector()
-        for leg in singular_structure.legs:
-            pR += PS_point[leg.n]
+        for recoiler in recoilers:
+            pR += PS_point[recoiler]
         pa = PS_point[is_child]
         pA = pa - pCa
         pAmpR = pA - pR
@@ -947,11 +884,12 @@ class InitialLorentzMappingOne(InitialCollinearMapping):
             del PS_point[j]
         if is_child != parent:  # Bypass degenerate case of 1->1 splitting
             del is_child
-
         # TODO Compute the jacobian for this mapping
         jacobian = 1.0
-
-        return jacobian
+        return {
+            'jacobian':           jacobian,
+            'pC'+str(parent):     pA,
+            'Q':                  pAmpR, }
 
     @classmethod
     def map_to_higher_multiplicity(
@@ -972,13 +910,14 @@ class InitialLorentzMappingOne(InitialCollinearMapping):
         # Precompute sets and numbers
         substructure = singular_structure.substructures[0]
         parent, fs_children, is_child = get_structure_numbers(substructure, momenta_dict)
+        recoilers = tuple(leg.n for leg in singular_structure.legs)
         # Build collective momenta
         qA = PS_point[parent]
         na, nb = InitialCollinearVariables.collinear_and_reference(qA)
         nanb = na.dot(nb)
         qR = LorentzVector()
-        for leg in singular_structure.legs:
-            qR += PS_point[leg.n]
+        for recoiler in recoilers:
+            qR += PS_point[recoiler]
         qRmqA = qR - qA
         zA = kinematic_variables['z' + str(is_child)]
         ktA = kinematic_variables['kt' + str(is_child)]
@@ -989,8 +928,13 @@ class InitialLorentzMappingOne(InitialCollinearMapping):
         quad_b = 2*ptA.dot(qRmqA) + pA2 + qRmqA.square() - qR.square()
         quad_c = (pA2 - ptA.square()) * 2*nb.dot(qRmqA) / nanb
         sqrt_delta = math.sqrt(quad_b**2 - 4*quad_a*quad_c)
-        # NOTE The plus sign in front of sqrt_delta
-        #      is heuristically the correct one for physical phase-space points
+        # WARNING
+        # The plus sign in front of sqrt_delta is the correct one
+        # for > 90% of physical phase-space points, but not all the times.
+        # It seems like the minus sign has to bo chosen _mostly_
+        # when there is a single recoiler and no unchanged partons.
+        # To reproduce the issue, within test_mappings.py, go to test_invertible,
+        # set random.seed(7) and skip the first 6 PS points.
         pAp = (-quad_b+sqrt_delta)/(2*quad_a)
         xia = 2*zA*nb.dot(qA)/(pAp*nanb)
         # xia = kinematic_variables['xi' + str(parent)]
@@ -1011,11 +955,12 @@ class InitialLorentzMappingOne(InitialCollinearMapping):
         # Remove parent's momentum
         if parent != is_child:  # Bypass degenerate case of 1->1 splitting
             del PS_point[parent]
-
         # TODO Compute the jacobian for this mapping
         jacobian = 1.0
-
-        return jacobian
+        return {
+            'jacobian':           jacobian,
+            'pC'+str(parent):     pA,
+            'Q':                  pA - pR, }
 
 #=========================================================================================
 # Soft mappings
@@ -1069,11 +1014,8 @@ class MappingSomogyietalSoft(ElementaryMappingSoft):
     @classmethod
     def is_valid_structure(cls, singular_structure):
 
-        # Valid only if there are at least two recoilers in the final state
-        fs_recoilers = tuple(
-            leg for leg in singular_structure.legs
-            if leg.state == subtraction.SubtractionLeg.FINAL )
-        if len(fs_recoilers) < 2: return False
+        # Valid only if there are at least two recoilers (assumed in the final state)
+        if len(singular_structure.legs) < 2: return False
         return super(MappingSomogyietalSoft, cls).is_valid_structure(singular_structure)
 
     @classmethod
@@ -1089,30 +1031,33 @@ class MappingSomogyietalSoft(ElementaryMappingSoft):
         # save the soft momenta in variables and eliminate them from PS_point
         pS = LorentzVector()
         for substructure in singular_structure.substructures:
-            children = [leg.n for leg in substructure.legs]
+            children = tuple(leg.n for leg in substructure.legs)
             if kinematic_variables is not None:
                 SoftVariables.get(PS_point, children, kinematic_variables)
             for child in children:
                 pS += PS_point.pop(child)
         # Build the total momentum of recoilers
+        recoilers = tuple(leg.n for leg in singular_structure.legs)
         pR = LorentzVector()
-        for leg in singular_structure.legs:
-            if leg.state == subtraction.SubtractionLeg.FINAL:
-                pR += PS_point[leg.n]
+        for recoiler in recoilers:
+            pR += PS_point[recoiler]
         # Build the total momentum Q
         Q = pS + pR
         # Compute the parameter la
-        la = math.sqrt(pR.square() / Q.square())
+        pR2_Q2 = pR.square() / Q.square()
+        y = 1. - pR2_Q2
+        la = math.sqrt(pR2_Q2)
         P = pR / la
         # Map all recoilers' momenta
         for recoiler in singular_structure.legs:
             PS_point[recoiler.n] /= la
             PS_point[recoiler.n].rotoboost(P, Q)
-
-        # TODO Compute the jacobian for this mapping
-        jacobian = 1.0
-
-        return jacobian
+        jacobian = (pR2_Q2)**(len(recoilers)-2)
+        return {
+            'jacobian': jacobian,
+            'y':        y,
+            'pS':       pS,
+            'Q':        Q, }
 
     @classmethod
     def map_to_higher_multiplicity(
@@ -1130,29 +1075,32 @@ class MappingSomogyietalSoft(ElementaryMappingSoft):
         # get the soft momenta from variables and save them in PS_point
         pS = LorentzVector()
         for substructure in singular_structure.substructures:
-            children = [leg.n for leg in substructure.legs]
+            children = tuple(leg.n for leg in substructure.legs)
             SoftVariables.set(PS_point, children, kinematic_variables)
             for child in children:
                 pS += PS_point[child]
         # Build the total momentum, which is equal to the mapped recoilers'
         Q = LorentzVector()
-        for leg in singular_structure.legs:
-            if leg.state == subtraction.SubtractionLeg.FINAL:
-                Q += PS_point[leg.n]
-        # Build the total momentum Q
+        recoilers = tuple(leg.n for leg in singular_structure.legs)
+        for recoiler in recoilers:
+            Q += PS_point[recoiler]
+        # Build the recoilers' momentum
         pR = Q - pS
         # Compute the parameter la
-        la = math.sqrt(pR.square() / Q.square())
+        pR2_Q2 = pR.square() / Q.square()
+        y = 1. - pR2_Q2
+        la = math.sqrt(pR2_Q2)
         P = pR / la
         # Map all recoilers' momenta
         for recoiler in singular_structure.legs:
             PS_point[recoiler.n] *= la
             PS_point[recoiler.n].rotoboost(Q, P)
-
-        # TODO Compute the jacobian for this mapping
-        jacobian = 1.0
-
-        return jacobian
+        jacobian = (pR2_Q2)**(len(recoilers)-2)
+        return {
+            'jacobian': jacobian,
+            'y':        y,
+            'pS':       pS,
+            'Q':        Q, }
 
 #=========================================================================================
 # Mapping walkers
@@ -1209,7 +1157,7 @@ class VirtualWalker(object):
             paired with the momenta needed for their evaluation;
         'matrix_element', the reduced matrix element,
             paired with its corresponding reduced phase-space point;
-        'jacobian', the cumulative jacobian of all mappings that were applied;
+        'mapping_variables', the cumulative variables of all mappings that were applied;
         'kinematic_variables', a dictionary of all variables needed to recover
             the starting phase-space point from the lowest multiplicity one,
             or None if such variables were not requested;
@@ -1240,7 +1188,7 @@ class VirtualWalker(object):
             paired with the momenta needed for their evaluation;
         'matrix_element', the reduced matrix element,
             paired with its corresponding reduced phase-space point;
-        'jacobian', the cumulative jacobian of all mappings that were applied;
+        'mapping_variables', the cumulative variables of all mappings that were applied;
         'resulting_PS_point', the final lowest multiplicity PS point.
         """
          
@@ -1283,12 +1231,11 @@ class FlatCollinearWalker(VirtualWalker):
     ):
 
         point = PS_point.get_copy()
-        if verbose:
-            print point
+        if verbose: print point
         # Initialize return variables
         current_PS_pairs = []
-        jacobian = 1.
         kinematic_variables = dict() if compute_kinematic_variables else None
+        mapping_variables = {'jacobian': 1.}
         # Recoil against all final-state particles that are not going singular
         # TODO Recoilers and numbers for a given counterterm should be cached
         recoilers = [
@@ -1318,15 +1265,17 @@ class FlatCollinearWalker(VirtualWalker):
             )
             # Deep copy the momenta
             momenta = point.get_copy()
-            # Compute the jacobian and map to lower multiplicity
-            jacobian *= self.collinear_map.map_to_lower_multiplicity(
+            # Map to lower multiplicity
+            result = self.collinear_map.map_to_lower_multiplicity(
                 point,
                 subtraction.SingularStructure(legs=recoilers, substructures=(ss, )),
                 counterterm.momenta_dict,
                 kinematic_variables
             )
-            if verbose:
-                print point
+            if verbose: print point
+            # Update mapping variables
+            mapping_variables['jacobian'] *= result.pop('jacobian')
+            mapping_variables.update(result)
             # Append the current and the momenta,
             # deep copy wanted
             momenta[parent] = LorentzVector(point[parent])
@@ -1338,7 +1287,7 @@ class FlatCollinearWalker(VirtualWalker):
         return {
             'currents': current_PS_pairs,
             'matrix_element': ME_PS_pair,
-            'jacobian': jacobian,
+            'mapping_variables': mapping_variables,
             'kinematic_variables': kinematic_variables,
             'resulting_PS_point': point
         }
@@ -1352,11 +1301,10 @@ class FlatCollinearWalker(VirtualWalker):
         ME_PS_pair = [counterterm.process, PS_point]
         # This phase-space point will be destroyed, deep copy wanted
         point = PS_point.get_copy()
-        if verbose:
-            print point
+        if verbose: print point
         # Initialize return variables
         current_PS_pairs = []
-        jacobian = 1.
+        mapping_variables = {'jacobian': 1.}
         # Recoil against all final-state particles that are not going singular
         recoilers = [
             subtraction.SubtractionLeg(leg)
@@ -1386,23 +1334,24 @@ class FlatCollinearWalker(VirtualWalker):
             # Deep copy the parent momentum
             momenta = LorentzVectorDict({parent: LorentzVector(point[parent])})
             # Compute the jacobian and map to higher multiplicity
-            jacobian *= self.collinear_map.map_to_higher_multiplicity(
+            result = self.collinear_map.map_to_higher_multiplicity(
                 point,
                 subtraction.SingularStructure(legs=recoilers, substructures=(ss, )),
                 counterterm.momenta_dict,
                 kinematic_variables )
-            if verbose:
-                print point
+            if verbose: print point
+            # Update jacobian and mapping variables
+            mapping_variables['jacobian'] *= result.pop('jacobian')
+            mapping_variables.update(result)
             # Prepend pair of this current and the momenta,
             # deep copy wanted
             momenta.update(point.get_copy())
             current_PS_pairs.insert(0, (node.current, momenta))
-
         # Return
         return {
             'currents': current_PS_pairs,
             'matrix_element': ME_PS_pair,
-            'jacobian': jacobian,
+            'mapping_variables': mapping_variables,
             'resulting_PS_point': point }
 
     def rescale_kinematic_variables(
@@ -1428,8 +1377,8 @@ class FinalNLOWalker(VirtualWalker):
     it is not capable to handle.
     """
 
-    collinear_map = FinalLorentzMappingOne()
-#    collinear_map = FinalRescalingMappingOne()
+    # collinear_map = FinalLorentzMappingOne()
+    collinear_map = FinalRescalingMappingOne()
     soft_map = MappingSomogyietalSoft()
 
     @staticmethod
@@ -1456,11 +1405,10 @@ class FinalNLOWalker(VirtualWalker):
 
         # This phase-space point will be destroyed, deep copy wanted
         point = PS_point.get_copy()
-        if verbose:
-            print point
+        if verbose: print point
         # Initialize return variables
         current_PS_pairs = []
-        jacobian = 1.
+        mapping_variables = {'jacobian': 1.}
         kinematic_variables = dict() if compute_kinematic_variables else None
         # If the counterterm is not trivial
         if counterterm.nodes:
@@ -1482,13 +1430,13 @@ class FinalNLOWalker(VirtualWalker):
             recoilers = self.get_recoilers(counterterm, (parent,))
             # Compute jacobian and map to lower multiplicity
             if ss.name() == 'S':
-                jacobian *= self.soft_map.map_to_lower_multiplicity(
+                result = self.soft_map.map_to_lower_multiplicity(
                     point,
                     subtraction.SingularStructure(legs=recoilers, substructures=(ss,)),
                     counterterm.momenta_dict,
                     kinematic_variables )
             elif ss.name() == 'C' and not ss.substructures:
-                jacobian *= self.collinear_map.map_to_lower_multiplicity(
+                result = self.collinear_map.map_to_lower_multiplicity(
                     point,
                     subtraction.SingularStructure(legs=recoilers, substructures=(ss,) ),
                     counterterm.momenta_dict,
@@ -1504,7 +1452,7 @@ class FinalNLOWalker(VirtualWalker):
                 new_re = recoilers + list(ss.legs)
                 new_ss = subtraction.SoftStructure(legs=ss.substructures[0].legs)
                 # kinematic_variables['s'+str(parent)] = point[parent].square()
-                jacobian *= self.soft_map.map_to_lower_multiplicity(
+                result = self.soft_map.map_to_lower_multiplicity(
                     point,
                     subtraction.SingularStructure(legs=new_re, substructures=(new_ss,) ),
                     counterterm.momenta_dict,
@@ -1514,18 +1462,20 @@ class FinalNLOWalker(VirtualWalker):
                 momenta[parent] = LorentzVector(point[parent])
             else:
                 raise MadGraph5Error(self.cannot_handle)
+            # Update jacobian and mapping variables
+            mapping_variables['jacobian'] *= result.pop('jacobian')
+            mapping_variables.update(result)
             # Append the current and the momenta
             current_PS_pairs.append((node.current, momenta))
         # Identify reduced matrix element,
         # computed in the point which has received all mappings
         ME_PS_pair = [counterterm.process, point]
-        if verbose:
-            print point
+        if verbose: print point
         # Return
         return {
             'currents': current_PS_pairs,
             'matrix_element': ME_PS_pair,
-            'jacobian': jacobian,
+            'mapping_variables': mapping_variables,
             'kinematic_variables': kinematic_variables,
             'resulting_PS_point': point }
 
@@ -1537,11 +1487,10 @@ class FinalNLOWalker(VirtualWalker):
         ME_PS_pair = [counterterm.process, PS_point]
         # This phase-space point will be destroyed, deep copy wanted
         point = PS_point.get_copy()
-        if verbose:
-            print point
+        if verbose: print point
         # Initialize return variables
         current_PS_pairs = []
-        jacobian = 1.
+        mapping_variables = {'jacobian': 1.}
         # If the counterterm is not trivial
         if counterterm.nodes:
             # Check it is only one
@@ -1562,14 +1511,14 @@ class FinalNLOWalker(VirtualWalker):
             recoilers = self.get_recoilers(counterterm, (parent,))
             # Compute jacobian and map to lower multiplicity
             if ss.name() == 'S':
-                jacobian *= self.soft_map.map_to_higher_multiplicity(
+                result = self.soft_map.map_to_higher_multiplicity(
                     point,
                     subtraction.SingularStructure(legs=recoilers, substructures=(ss,)),
                     counterterm.momenta_dict,
                     kinematic_variables )
             elif ss.name() == 'C' and not ss.substructures:
                 momenta[parent] = LorentzVector(point[parent])
-                jacobian *= self.collinear_map.map_to_higher_multiplicity(
+                result = self.collinear_map.map_to_higher_multiplicity(
                     point,
                     subtraction.SingularStructure(legs=recoilers, substructures=(ss,) ),
                     counterterm.momenta_dict,
@@ -1586,24 +1535,26 @@ class FinalNLOWalker(VirtualWalker):
                 momenta[parent] = LorentzVector(point[parent])
                 point[ss.legs[0].n] = point[parent]
                 del point[parent]
-                jacobian *= self.soft_map.map_to_higher_multiplicity(
+                result = self.soft_map.map_to_higher_multiplicity(
                     point,
                     subtraction.SingularStructure(legs=new_re, substructures=(new_ss,) ),
                     counterterm.momenta_dict,
                     kinematic_variables )
             else:
                 raise MadGraph5Error(self.cannot_handle)
+            # Update jacobian and mapping variables
+            mapping_variables['jacobian'] *= result.pop('jacobian')
+            mapping_variables.update(result)
             # Prepend pair of this current and the momenta,
             # deep copy wanted
             momenta.update(point.get_copy())
             current_PS_pairs.insert(0, (node.current, momenta))
-            if verbose:
-                print point
+            if verbose: print point
         # Return
         return {
             'currents': current_PS_pairs,
             'matrix_element': ME_PS_pair,
-            'jacobian': jacobian,
+            'mapping_variables': mapping_variables,
             'resulting_PS_point': point }
 
     def rescale_kinematic_variables(
@@ -1681,11 +1632,10 @@ class NLOWalker(VirtualWalker):
 
         # This phase-space point will be destroyed, deep copy wanted
         point = PS_point.get_copy()
-        if verbose:
-            print point
+        if verbose: print point
         # Initialize return variables
         current_PS_pairs = []
-        jacobian = 1.
+        mapping_variables = {'jacobian': 1.}
         kinematic_variables = dict() if compute_kinematic_variables else None
         # If the counterterm is not trivial
         if counterterm.nodes:
@@ -1704,23 +1654,23 @@ class NLOWalker(VirtualWalker):
             momenta = point.get_copy()
             # Pick recoilers
             recoilers = self.get_recoilers(counterterm, (parent, ))
-            # Compute jacobian and map to lower multiplicity
+            # Map to lower multiplicity
             if ss.name() == 'S':
-                jacobian *= self.soft_map.map_to_lower_multiplicity(
+                result = self.soft_map.map_to_lower_multiplicity(
                     point,
                     subtraction.SingularStructure(legs=recoilers, substructures=(ss, )),
                     counterterm.momenta_dict,
                     kinematic_variables )
             elif ss.name() == 'C' and not ss.substructures:
                 if ss.legs.has_initial_state_leg():
-                    jacobian *= self.initial_collinear_map.map_to_lower_multiplicity(
+                    result = self.initial_collinear_map.map_to_lower_multiplicity(
                         point,
                         subtraction.SingularStructure(
                             legs=recoilers, substructures=(ss, ) ),
                         counterterm.momenta_dict,
                         kinematic_variables )
                 else:
-                    jacobian *= self.final_collinear_map.map_to_lower_multiplicity(
+                    result = self.final_collinear_map.map_to_lower_multiplicity(
                         point,
                         subtraction.SingularStructure(
                             legs=recoilers, substructures=(ss, ) ),
@@ -1737,28 +1687,30 @@ class NLOWalker(VirtualWalker):
                 new_re = recoilers + list(ss.legs)
                 new_ss = subtraction.SoftStructure(legs=ss.substructures[0].legs)
                 # kinematic_variables['s'+str(parent)] = point[parent].square()
-                jacobian *= self.soft_map.map_to_lower_multiplicity(
+                result = self.soft_map.map_to_lower_multiplicity(
                     point,
                     subtraction.SingularStructure(legs=new_re, substructures=(new_ss,)),
                     counterterm.momenta_dict,
-                    kinematic_variables)
+                    kinematic_variables )
                 point[parent] = point[ss.legs[0].n]
                 del point[ss.legs[0].n]
                 momenta[parent] = LorentzVector(point[parent])
             else:
                 raise MadGraph5Error(self.cannot_handle)
+            # Update jacobian and mapping variables
+            mapping_variables['jacobian'] *= result.pop('jacobian')
+            mapping_variables.update(result)
             # Append the current and the momenta
             current_PS_pairs.append((node.current, momenta))
         # Identify reduced matrix element,
         # computed in the point which has received all mappings
         ME_PS_pair = [counterterm.process, point]
-        if verbose:
-            print point
+        if verbose: print point
         # Return
         return {
             'currents': current_PS_pairs,
             'matrix_element': ME_PS_pair,
-            'jacobian': jacobian,
+            'mapping_variables': mapping_variables,
             'kinematic_variables': kinematic_variables,
             'resulting_PS_point': point}
 
@@ -1770,11 +1722,10 @@ class NLOWalker(VirtualWalker):
         ME_PS_pair = [counterterm.process, PS_point]
         # This phase-space point will be destroyed, deep copy wanted
         point = PS_point.get_copy()
-        if verbose:
-            print point
+        if verbose: print point
         # Initialize return variables
         current_PS_pairs = []
-        jacobian = 1.
+        mapping_variables = {'jacobian' : 1}
         # If the counterterm is not trivial
         if counterterm.nodes:
             # Check it is only one
@@ -1795,27 +1746,27 @@ class NLOWalker(VirtualWalker):
             recoilers = self.get_recoilers(counterterm, (parent,))
             # Compute jacobian and map to lower multiplicity
             if ss.name() == 'S':
-                jacobian *= self.soft_map.map_to_higher_multiplicity(
+                result = self.soft_map.map_to_higher_multiplicity(
                     point,
                     subtraction.SingularStructure(legs=recoilers, substructures=(ss,)),
                     counterterm.momenta_dict,
-                    kinematic_variables)
+                    kinematic_variables )
             elif ss.name() == 'C' and not ss.substructures:
                 momenta[parent] = LorentzVector(point[parent])
                 if ss.legs.has_initial_state_leg():
-                    jacobian *= self.initial_collinear_map.map_to_higher_multiplicity(
+                    result = self.initial_collinear_map.map_to_higher_multiplicity(
                         point,
                         subtraction.SingularStructure(
                             legs=recoilers, substructures=(ss, ) ),
                         counterterm.momenta_dict,
-                        kinematic_variables)
+                        kinematic_variables )
                 else:
-                    jacobian *= self.final_collinear_map.map_to_higher_multiplicity(
+                    result = self.final_collinear_map.map_to_higher_multiplicity(
                         point,
                         subtraction.SingularStructure(
                             legs=recoilers, substructures=(ss, ) ),
                         counterterm.momenta_dict,
-                        kinematic_variables)
+                        kinematic_variables )
             elif (ss.name() == 'C'
                   and len(ss.substructures) == 1
                   and ss.substructures[0].name() == 'S'
@@ -1828,24 +1779,26 @@ class NLOWalker(VirtualWalker):
                 momenta[parent] = LorentzVector(point[parent])
                 point[ss.legs[0].n] = point[parent]
                 del point[parent]
-                jacobian *= self.soft_map.map_to_higher_multiplicity(
+                result = self.soft_map.map_to_higher_multiplicity(
                     point,
                     subtraction.SingularStructure(legs=new_re, substructures=(new_ss,)),
                     counterterm.momenta_dict,
                     kinematic_variables)
             else:
                 raise MadGraph5Error(self.cannot_handle)
+            if verbose: print point
+            # Update jacobian and mapping variables
+            mapping_variables['jacobian'] *= result.pop('jacobian')
+            mapping_variables.update(result)
             # Prepend pair of this current and the momenta,
             # deep copy wanted
             momenta.update(point.get_copy())
             current_PS_pairs.insert(0, (node.current, momenta))
-            if verbose:
-                print point
         # Return
         return {
             'currents': current_PS_pairs,
             'matrix_element': ME_PS_pair,
-            'jacobian': jacobian,
+            'mapping_variables': mapping_variables,
             'resulting_PS_point': point}
 
     def rescale_kinematic_variables(

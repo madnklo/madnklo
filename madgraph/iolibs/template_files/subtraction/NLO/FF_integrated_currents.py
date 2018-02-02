@@ -30,6 +30,7 @@ except ImportError:
     # If not working, then it must be within MG5_aMC context:
     import madgraph.iolibs.template_files.\
                    subtraction.subtraction_current_implementations_utils as utils
+            
 
 try:
     # First try to import this in the context of the exported currents
@@ -42,7 +43,6 @@ except ImportError:
 pjoin = os.path.join
 
 CurrentImplementationError = utils.CurrentImplementationError
-CS_utils = utils.CS_utils
 
 # Mother function grouping functionalities common to all integrated FF NLO QCD currents
 class integrated_NLO_FF_QCD_current(utils.VirtualCurrentImplementation):

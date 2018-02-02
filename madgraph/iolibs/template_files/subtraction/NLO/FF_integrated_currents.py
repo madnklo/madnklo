@@ -31,6 +31,14 @@ except ImportError:
     import madgraph.iolibs.template_files.\
                    subtraction.subtraction_current_implementations_utils as utils
 
+try:
+    # First try to import this in the context of the exported currents
+    from SubtractionCurrents.NLO.hardcoded_integrated_currents import HE
+except ImportError:
+    # If not working, then it must be within MG5_aMC context:
+    from madgraph.iolibs.template_files.\
+                   subtraction.NLO.hardcoded_integrated_currents import HE
+
 pjoin = os.path.join
 
 CurrentImplementationError = utils.CurrentImplementationError

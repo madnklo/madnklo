@@ -565,6 +565,7 @@ class FinalRescalingMappingOne(FinalCollinearMapping):
         # Precompute sets and numbers
         substructure = singular_structure.substructures[0]
         parent, children, _ = get_structure_numbers(substructure, momenta_dict)
+        recoilers = tuple(leg.n for leg in singular_structure.legs)
         # Build collective momenta
         pC = LorentzVector()
         for j in children:
@@ -576,8 +577,8 @@ class FinalRescalingMappingOne(FinalCollinearMapping):
         # Compute the parameter alpha
         alpha = FinalRescalingMappingOne.alpha(pC, Q)
         # Map all recoilers' momenta
-        for recoiler in singular_structure.legs:
-            PS_point[recoiler.n] /= (1-alpha)
+        for recoiler in recoilers:
+            PS_point[recoiler] /= (1-alpha)
         # Map the set's momentum
         PS_point[parent] = (pC - alpha * Q) / (1-alpha)
         # If needed, update the kinematic_variables dictionary
@@ -590,7 +591,7 @@ class FinalRescalingMappingOne(FinalCollinearMapping):
             if j != parent: # Bypass degenerate case of 1->1 splitting
                 del PS_point[j]
         # Compute the jacobian for this mapping
-        jacobian = (1-alpha)**(2*(len(children)-1))
+        jacobian = (1-alpha)**(2*(len(recoilers)-1))
         # Return characteristic variables
         return {
             'jacobian':           jacobian,
@@ -613,6 +614,7 @@ class FinalRescalingMappingOne(FinalCollinearMapping):
         # Precompute sets and numbers
         substructure = singular_structure.substructures[0]
         parent, children, _ = get_structure_numbers(substructure, momenta_dict)
+        recoilers = tuple(leg.n for leg in singular_structure.legs)
         # Build collective momenta
         qC = PS_point[parent]
         qR = LorentzVector()
@@ -633,8 +635,8 @@ class FinalRescalingMappingOne(FinalCollinearMapping):
         # Compute reverse-mapped momentum
         pC = (1-alpha) * qC + alpha * Q
         # Map recoil momenta
-        for recoiler in singular_structure.legs:
-            PS_point[recoiler.n] *= 1-alpha
+        for recoiler in recoilers:
+            PS_point[recoiler] *= 1-alpha
         # Set children momenta
         na, nb = FinalCollinearVariables.collinear_and_reference(qC)
         FinalCollinearVariables.set(PS_point, children, pC, na, nb, kinematic_variables)
@@ -642,7 +644,7 @@ class FinalRescalingMappingOne(FinalCollinearMapping):
         if parent not in children: # Bypass degenerate case of 1->1 splitting
             del PS_point[parent]
         # Return the jacobian for this mapping
-        jacobian = (1-alpha)**(2*(len(children)-1))
+        jacobian = (1-alpha)**(2*(len(recoilers)-1))
         return {
             'jacobian':           jacobian,
             'alpha'+str(parent):  alpha,
@@ -680,6 +682,7 @@ class FinalLorentzMappingOne(FinalCollinearMapping):
         # Precompute sets and numbers
         substructure = singular_structure.substructures[0]
         parent, children, _ = get_structure_numbers(substructure, momenta_dict)
+        recoilers = tuple(leg.n for leg in singular_structure.legs)
         # Build collective momenta
         pC = LorentzVector()
         for j in children:
@@ -698,10 +701,10 @@ class FinalLorentzMappingOne(FinalCollinearMapping):
         PS_point[parent] = alpha*pC_perp + ((Q2-pR2)/(2*Q2))*Q
         # Map all recoilers' momenta
         qR = Q - PS_point[parent]
-        for recoiler in singular_structure.legs:
+        for recoiler in recoilers:
             # TODO Move this try/except to higher level
             try:
-                PS_point[recoiler.n].rotoboost(pR, qR)
+                PS_point[recoiler].rotoboost(pR, qR)
             except:
                 logger.critical("Problem encountered for %s" % str(singular_structure))
                 logger.critical("The full phase space point was\n%s" % str(PS_point))
@@ -737,11 +740,12 @@ class FinalLorentzMappingOne(FinalCollinearMapping):
         # Precompute sets and numbers
         substructure = singular_structure.substructures[0]
         parent, children, _ = get_structure_numbers(substructure, momenta_dict)
+        recoilers = tuple(leg.n for leg in singular_structure.legs)
         # Build collective momenta
         qC = PS_point[parent]
         qR = LorentzVector()
-        for leg in singular_structure.legs:
-            qR += PS_point[leg.n]
+        for recoiler in recoilers:
+            qR += PS_point[recoiler]
         Q = qR + qC
         # Compute scalar products
         pC2 = kinematic_variables['s' + str(parent)]
@@ -845,13 +849,14 @@ class InitialLorentzMappingOne(InitialCollinearMapping):
         # Precompute sets and numbers
         substructure = singular_structure.substructures[0]
         parent, fs_children, is_child = get_structure_numbers(substructure, momenta_dict)
+        recoilers = tuple(leg.n for leg in singular_structure.legs)
         # Build collective momenta
         pCa = LorentzVector()
         for j in fs_children:
             pCa += PS_point[j]
         pR = LorentzVector()
-        for leg in singular_structure.legs:
-            pR += PS_point[leg.n]
+        for recoiler in recoilers:
+            pR += PS_point[recoiler]
         pa = PS_point[is_child]
         pA = pa - pCa
         pAmpR = pA - pR
@@ -905,13 +910,14 @@ class InitialLorentzMappingOne(InitialCollinearMapping):
         # Precompute sets and numbers
         substructure = singular_structure.substructures[0]
         parent, fs_children, is_child = get_structure_numbers(substructure, momenta_dict)
+        recoilers = tuple(leg.n for leg in singular_structure.legs)
         # Build collective momenta
         qA = PS_point[parent]
         na, nb = InitialCollinearVariables.collinear_and_reference(qA)
         nanb = na.dot(nb)
         qR = LorentzVector()
-        for leg in singular_structure.legs:
-            qR += PS_point[leg.n]
+        for recoiler in recoilers:
+            qR += PS_point[recoiler]
         qRmqA = qR - qA
         zA = kinematic_variables['z' + str(is_child)]
         ktA = kinematic_variables['kt' + str(is_child)]
@@ -1008,11 +1014,8 @@ class MappingSomogyietalSoft(ElementaryMappingSoft):
     @classmethod
     def is_valid_structure(cls, singular_structure):
 
-        # Valid only if there are at least two recoilers in the final state
-        fs_recoilers = tuple(
-            leg for leg in singular_structure.legs
-            if leg.state == subtraction.SubtractionLeg.FINAL )
-        if len(fs_recoilers) < 2: return False
+        # Valid only if there are at least two recoilers (assumed in the final state)
+        if len(singular_structure.legs) < 2: return False
         return super(MappingSomogyietalSoft, cls).is_valid_structure(singular_structure)
 
     @classmethod
@@ -1028,16 +1031,16 @@ class MappingSomogyietalSoft(ElementaryMappingSoft):
         # save the soft momenta in variables and eliminate them from PS_point
         pS = LorentzVector()
         for substructure in singular_structure.substructures:
-            children = [leg.n for leg in substructure.legs]
+            children = tuple(leg.n for leg in substructure.legs)
             if kinematic_variables is not None:
                 SoftVariables.get(PS_point, children, kinematic_variables)
             for child in children:
                 pS += PS_point.pop(child)
         # Build the total momentum of recoilers
+        recoilers = tuple(leg.n for leg in singular_structure.legs)
         pR = LorentzVector()
-        for leg in singular_structure.legs:
-            if leg.state == subtraction.SubtractionLeg.FINAL:
-                pR += PS_point[leg.n]
+        for recoiler in recoilers:
+            pR += PS_point[recoiler]
         # Build the total momentum Q
         Q = pS + pR
         # Compute the parameter la
@@ -1049,8 +1052,7 @@ class MappingSomogyietalSoft(ElementaryMappingSoft):
         for recoiler in singular_structure.legs:
             PS_point[recoiler.n] /= la
             PS_point[recoiler.n].rotoboost(P, Q)
-        # TODO Compute the jacobian for this mapping
-        jacobian = 1.0
+        jacobian = (pR2_Q2)**(len(recoilers)-2)
         return {
             'jacobian': jacobian,
             'y':        y,
@@ -1073,16 +1075,16 @@ class MappingSomogyietalSoft(ElementaryMappingSoft):
         # get the soft momenta from variables and save them in PS_point
         pS = LorentzVector()
         for substructure in singular_structure.substructures:
-            children = [leg.n for leg in substructure.legs]
+            children = tuple(leg.n for leg in substructure.legs)
             SoftVariables.set(PS_point, children, kinematic_variables)
             for child in children:
                 pS += PS_point[child]
         # Build the total momentum, which is equal to the mapped recoilers'
         Q = LorentzVector()
-        for leg in singular_structure.legs:
-            if leg.state == subtraction.SubtractionLeg.FINAL:
-                Q += PS_point[leg.n]
-        # Build the total momentum Q
+        recoilers = tuple(leg.n for leg in singular_structure.legs)
+        for recoiler in recoilers:
+            Q += PS_point[recoiler]
+        # Build the recoilers' momentum
         pR = Q - pS
         # Compute the parameter la
         pR2_Q2 = pR.square() / Q.square()
@@ -1093,8 +1095,7 @@ class MappingSomogyietalSoft(ElementaryMappingSoft):
         for recoiler in singular_structure.legs:
             PS_point[recoiler.n] *= la
             PS_point[recoiler.n].rotoboost(Q, P)
-        # TODO Compute the jacobian for this mapping
-        jacobian = 1.0
+        jacobian = (pR2_Q2)**(len(recoilers)-2)
         return {
             'jacobian': jacobian,
             'y':        y,

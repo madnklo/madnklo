@@ -203,8 +203,6 @@ class CurrentImplementationError(Exception):
 class VirtualCurrentImplementation(object):
     """A virtual class defining what a current implementation must specify"""
 
-    quark_pdgs = tuple(range(1, 7))
-
     def __init__(self, model, **opts):
         """Save properties or quantities useful for the current evaluation."""
         
@@ -223,12 +221,28 @@ class VirtualCurrentImplementation(object):
         self.CF = model_param_dict.get('CF', (self.NC**2-1)/(2*self.NC))
         self.CA = model_param_dict.get('CA', self.NC)
 
+    @staticmethod
+    def is_quark(leg, model):
+
+        return model.get_particle(leg.pdg).get('color') == 3
+
+    @staticmethod
+    def is_gluon(leg, model):
+
+        return model.get_particle(leg.pdg).get('color') == 8
+
+    @staticmethod
+    def is_massless(leg, model):
+
+        return model.get_particle(leg.pdg).get('mass').upper() == 'ZERO'
+
     @classmethod
     def does_implement_this_current(cls, current, model):
-        """ Returns None/a_dictionary depending on whether this particular current is
-        part of what this particular current class implements. When returning 
-        a dictionary, it specifies potential options that must passed upon instantiating
-        the current implementation for the current given in argument. """
+        """Return None/a_dictionary depending on whether this particular current is
+        part of what this particular current class implements.
+        When returning a dictionary, it specifies potential options that must be passed
+        upon instantiating the current implementation.
+        """
         
         # This virtual class of course does not implement any current.
         return None 

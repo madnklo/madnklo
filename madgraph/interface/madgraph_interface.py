@@ -2766,7 +2766,7 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
     
     # The targets below are installed using the HEPToolsInstaller.py script
     _advanced_install_opts = ['pythia8','zlib','boost','lhapdf6','lhapdf5','collier',
-                              'hepmc','mg5amc_py8_interface','ninja','oneloop','MadAnalysis5','MadAnalysis']
+                              'hepmc','mg5amc_py8_interface','ninja','oneloop','MadAnalysis5','MadAnalysis','ginac_mg5_interface','ginac','cln']
 
     _install_opts.extend(_advanced_install_opts)
 
@@ -6010,6 +6010,8 @@ This implies that with decay chains:
         # prevent border effects
         add_options = list(additional_options)
 
+        add_options.append('--mg5_path=%s' % MG5DIR)
+
         # Always refresh the installer if already present
         if not os.path.isdir(pjoin(MG5DIR,'HEPTools','HEPToolsInstallers')):
             if HepToolsInstaller_web_address is None:
@@ -6263,8 +6265,8 @@ unstable points in the loop matrix elements) you can try to reinstall Ninja with
 After having made sure to have selected a C++ compiler in the 'cpp' option of
 MG5aMC that supports quadruple precision (typically g++ based on gcc 4.6+).""")
             self.options['ninja'] = pjoin(prefix,'lib')
-            self.exec_cmd('save options %s ninja' % config_file, printcmd=False, log=False)      
-            
+            self.exec_cmd('save options %s ninja' % config_file, printcmd=False, log=False)
+
         # Now warn the user if he didn't add HEPTools first in his environment
         # variables.
         path_to_be_set = []

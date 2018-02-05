@@ -21,7 +21,7 @@ The output is equal to G(a_1,...,a_n,x) evaluated withour linked Ginac code """
     # except KeyError:
     #     os.environ["LD_LIBRARY_PATH"] = MG5DIR + "/HEPTools/lib"
     # print os.environ["LD_LIBRARY_PATH"]
-    _ginacG = ctypes.CDLL( MG5DIR + "/HEPTools/lib/ginacg.so")
+    _ginacG = ctypes.CDLL( MG5DIR + "/HEPTools/lib/ginac_mg5_interface.so")
     _ginacG.GinacG.argtypes = (ctypes.POINTER(ctypes.c_float), ctypes.c_float, ctypes.c_int)
     _ginacG.GinacG.restype = ctypes.c_float
     text= "Ginac MPL interface established"

@@ -42,21 +42,6 @@ assert subtraction.SubtractionLeg.INITIAL == INITIAL
 assert subtraction.SubtractionLeg.FINAL   == FINAL
 
 #=========================================================================================
-# AssertDictAlmostEqual
-#=========================================================================================
-
-def assertDictAlmostEqual(test, dict1, dict2):
-
-    test.assertEqual(dict1.keys(), dict2.keys())
-    for key in dict1.keys():
-        if isinstance(dict1[key], Vector):
-            test.assertEqual(dict1[key].__class__, dict2[key].__class__)
-            for i in range(max(len(dict1[key]), len(dict2[key]))):
-                test.assertAlmostEqual(dict1[key][i], dict2[key][i])
-        else:
-            test.assertAlmostEqual(dict1[key], dict2[key])
-
-#=========================================================================================
 # Generation of random momenta
 #=========================================================================================
 
@@ -323,10 +308,6 @@ class SoftVariablesTest(unittest.TestCase):
 class MappingTest(object):
     """Collection of functions to test mappings."""
 
-    # Leaving the IS not aligned with z avoids numerical issues
-    v1 = LorentzVector([4., 0., 0., math.sqrt(3.)])
-    v2 = LorentzVector([4., 1., 1., 1.])
-
     @staticmethod
     def randomize(pars):
 
@@ -446,28 +427,21 @@ class MappingTest(object):
         """Test mapping and inverse."""
 
         # Make test deterministic by setting seed
-        random.seed(42)
+        random.seed(1)
         # Check many times
         for _ in range(20):
             # Generate a random setup
             MappingTest.randomize(pars)
             my_PS_point = MappingTest.generate_PS(pars)
-            # Rotate it to avoid zero components
-            for key in my_PS_point.keys():
-                my_PS_point[key].rotoboost(MappingTest.v1, MappingTest.v2)
             # I know what I'm doing
             old_PS_point = copy.deepcopy(my_PS_point)
             # Compute collinear variables
             variables = dict()
-            lres = pars['mapping'].map_to_lower_multiplicity(
+            pars['mapping'].map_to_lower_multiplicity(
                 my_PS_point, pars['structure'], pars['momenta_dict'], variables )
-            hres = pars['mapping'].map_to_higher_multiplicity(
+            pars['mapping'].map_to_higher_multiplicity(
                 my_PS_point, pars['structure'], pars['momenta_dict'], variables )
-            # print pars['structure'], pars['unchanged']
-            # print my_PS_point
-            # print old_PS_point
-            assertDictAlmostEqual(test, my_PS_point, old_PS_point)
-            assertDictAlmostEqual(test, lres, hres)
+            test.assertDictEqual(my_PS_point, old_PS_point)
 
 #=========================================================================================
 # Test final-collinear mappings
@@ -638,9 +612,9 @@ class WalkerTest(object):
             # Compute collinear variables
             res_dict1 = walker.walk_to_lower_multiplicity(
                 my_PS_point, my_counterterms[i], True )
-            (currs1, ME1, mv1, kin)  = (
+            (currs1, ME1, jac1, kin)  = (
                 res_dict1['currents'], res_dict1['matrix_element'],
-                res_dict1['mapping_variables'], res_dict1['kinematic_variables'] )
+                res_dict1['jacobian'], res_dict1['kinematic_variables'] )
             if cls.verbose:
                 print "Walking down"
                 for curr in currs1:
@@ -648,9 +622,9 @@ class WalkerTest(object):
                 print ME1[1]
             res_dict2 = walker.walk_to_higher_multiplicity(
                 ME1[1], my_counterterms[i], kin )
-            (currs2, ME2, mv2)  = (
+            (currs2, ME2, jac2)  = (
                 res_dict2['currents'], res_dict2['matrix_element'],
-                res_dict2['mapping_variables'] )
+                res_dict2['jacobian'] )
             if cls.verbose:
                 print "Walking up"
                 print ME2[1]
@@ -664,8 +638,8 @@ class WalkerTest(object):
             # Check MEs
             test.assertEqual(ME1[0], ME2[0])
             test.assertDictEqual(ME1[1], ME2[1])
-            # Check mapping variables
-            assertDictAlmostEqual(test, mv1, mv2)
+            # Check jacobians
+            test.assertAlmostEqual(jac1*jac2, 1.)
 
     @classmethod
     def test_approach_limit(cls, test, walker, process):
@@ -784,8 +758,7 @@ class FlatCollinearWalkerTest(unittest.TestCase):
 
     def test_FlatCollinearWalker_invertible(self):
 
-        WalkerTest.max_unresolved = 1
-        random.seed(42)
+        WalkerTest.max_unresolved = 2
         WalkerTest.test_invertible(self, self.walker, H_to_uuxddxH)
 
 class FinalNLOWalkerTest(unittest.TestCase):
@@ -803,71 +776,66 @@ class FinalNLOWalkerTest(unittest.TestCase):
 
         WalkerTest.test_approach_limit(self, self.walker, H_to_qqxggH)
 
-    # def test_sc_approach_limit(self):
-    #
-    #     # Set up a soft-collinear counterterm
-    #     sc_ll = base_objects.LegList([
-    #         base_objects.Leg({'number': 1, 'id': 25, 'state': INITIAL}),
-    #         base_objects.Leg({'number': 2, 'id':  1, 'state': FINAL}),
-    #         base_objects.Leg({'number': 5, 'id': -1, 'state': FINAL}), ])
-    #     sc_rp = base_objects.Process({
-    #         'legs': sc_ll, 'model': simple_qcd.model, 'n_loops': 0 })
-    #     sc_ss = subtraction.CollStructure(
-    #         legs=subtraction.SubtractionLegSet((
-    #             subtraction.SubtractionLeg(3, -1, FINAL), )),
-    #         substructures=[
-    #             subtraction.SoftStructure(
-    #                 subtraction.SubtractionLeg(4, 21, FINAL)) ] )
-    #     sc_md = subtraction.bidict({i: frozenset((i, )) for i in range(1, 5)})
-    #     sc_md[5] = frozenset((3, 4, ))
-    #     sc_ct = subtraction.Counterterm(
-    #         process=sc_rp,
-    #         nodes=[
-    #             subtraction.CountertermNode(
-    #                 current=subtraction.Current({
-    #                     'singular_structure': sc_ss }) ) ],
-    #         prefactor=1,
-    #         momenta_dict=sc_md )
-    #
-    #     # Start from a random phase space point
-    #     # The Higgs is going to have a random mass, but it doesn't matter
-    #     PS_point = LorentzVectorDict()
-    #     PS_point[1] = LorentzVector()
-    #     for i in range(2, 5):
-    #         PS_point[i] = random_momentum(0)
-    #         PS_point[1] += PS_point[i]
-    #
-    #     hike_down = self.walker.walk_to_lower_multiplicity(PS_point, sc_ct, True)
-    #     lower_PS_point = hike_down['resulting_PS_point']
-    #     starting_variables = hike_down['kinematic_variables']
-    #
-    #     print sc_ss
-    #     print sc_ct
-    #
-    #     ratios = []
-    #     flucts = []
-    #     for par in range(10):
-    #         x = math.pow(0.1, par)
-    #         hike_up = self.walker.approach_limit(
-    #             lower_PS_point, sc_ct, starting_variables, x )
-    #         ratios_vec = LorentzVector([
-    #             hike_up['resulting_PS_point'][3][i] / hike_up['resulting_PS_point'][4][i]
-    #             for i in range(4) ])
-    #         ratios.append(ratios_vec.view(type=Vector).square())
-    #         norm_ratios = ratios_vec.view(type=Vector)
-    #         norm_ratios.normalize()
-    #         flucts.append(abs(norm_ratios - Vector(4 * [0.5, ])))
-    #
-    #     print ratios
-    #
-    #     # Skipping the first few values, not close enough to the limit
-    #     # Numerical effects can make the test fail for the deep IR region
-    #     for i in range(2, len(ratios)-2):
-    #         self.assertLess(
-    #             abs(ratios[i + 2] / ratios[i + 1] - 10.),
-    #             abs(ratios[i + 1] / ratios[i] - 10.) )
-    #     for i in range(2, len(flucts)-1):
-    #         self.assertLess(flucts[i+1], flucts[i])
+    def test_sc_approach_limit(self):
+
+        # Set up a soft-collinear counterterm
+        sc_ll = base_objects.LegList([
+            base_objects.Leg({'number': 1, 'id': 25, 'state': INITIAL}),
+            base_objects.Leg({'number': 2, 'id':  1, 'state': FINAL}),
+            base_objects.Leg({'number': 5, 'id': -1, 'state': FINAL}), ])
+        sc_rp = base_objects.Process({
+            'legs': sc_ll, 'model': simple_qcd.model, 'n_loops': 0 })
+        sc_ss = subtraction.CollStructure(
+            legs=subtraction.SubtractionLegSet((
+                subtraction.SubtractionLeg(3, -1, FINAL), )),
+            substructures=[
+                subtraction.SoftStructure(
+                    subtraction.SubtractionLeg(4, 21, FINAL)) ] )
+        sc_md = subtraction.bidict({i: frozenset((i, )) for i in range(1, 5)})
+        sc_md[5] = frozenset((3, 4, ))
+        sc_ct = subtraction.Counterterm(
+            process=sc_rp,
+            nodes=[
+                subtraction.CountertermNode(
+                    current=subtraction.Current({
+                        'singular_structure': sc_ss }) ) ],
+            prefactor=1,
+            momenta_dict=sc_md )
+
+        # Start from a random phase space point
+        # The Higgs is going to have a random mass, but it doesn't matter
+        PS_point = LorentzVectorDict()
+        PS_point[1] = LorentzVector()
+        for i in range(2, 5):
+            PS_point[i] = random_momentum(0)
+            PS_point[1] += PS_point[i]
+
+        hike_down = self.walker.walk_to_lower_multiplicity(PS_point, sc_ct, True)
+        lower_PS_point = hike_down['resulting_PS_point']
+        starting_variables = hike_down['kinematic_variables']
+
+        ratios = []
+        flucts = []
+        for par in range(10):
+            x = math.pow(0.1, par)
+            hike_up = self.walker.approach_limit(
+                lower_PS_point, sc_ct, starting_variables, x )
+            ratios_vec = LorentzVector([
+                hike_up['resulting_PS_point'][3][i] / hike_up['resulting_PS_point'][4][i]
+                for i in range(4) ])
+            ratios.append(ratios_vec.view(type=Vector).square())
+            norm_ratios = ratios_vec.view(type=Vector)
+            norm_ratios.normalize()
+            flucts.append(abs(norm_ratios - Vector(4 * [0.5, ])))
+
+        # Skipping the first few values, not close enough to the limit
+        # Numerical effects can make the test fail for the deep IR region
+        for i in range(2, len(ratios)-2):
+            self.assertLess(
+                abs(ratios[i + 2] / ratios[i + 1] - 10.),
+                abs(ratios[i + 1] / ratios[i] - 10.) )
+        for i in range(2, len(flucts)-1):
+            self.assertLess(flucts[i+1], flucts[i])
 
 class NLOWalkerTest(unittest.TestCase):
     """Test class for NLOWalker."""

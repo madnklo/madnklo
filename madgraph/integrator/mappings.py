@@ -717,8 +717,7 @@ class FinalLorentzMappingOne(FinalCollinearMapping):
         for j in children:
             if j != parent: # Bypass degenerate case of 1->1 splitting
                 del PS_point[j]
-        # TODO Compute the jacobian for this mapping
-        jacobian = 1.0
+        jacobian = alpha**(-3) * (Q2-pR2)/(Q2+pC2-pR2)
         return {
             'jacobian':           jacobian,
             'pC'+str(parent):     pC,
@@ -767,9 +766,7 @@ class FinalLorentzMappingOne(FinalCollinearMapping):
         # Remove parent's momentum
         if parent not in children: # Bypass degenerate case of 1->1 splitting
             del PS_point[parent]
-
-        # TODO Compute the jacobian for this mapping
-        jacobian = 1.0
+        jacobian = alpham1**3 * (Q2-qR2)/(Q2+pC2-qR2)
         return {
             'jacobian':           jacobian,
             'pC'+str(parent):     pC,
@@ -1135,8 +1132,7 @@ class VirtualWalker(object):
         self.model = model
 
     def walk_to_lower_multiplicity(
-        self, PS_point, counterterm, kinematic_variables=False
-    ):
+        self, PS_point, counterterm, compute_kinematic_variables=False, verbose=False ):
         """Starting from the highest-multiplicity phase-space point,
         generate all lower-multiplicity phase-space points
         that are necessary for the evaluation of the given counterterm.
@@ -1148,7 +1144,7 @@ class VirtualWalker(object):
         clusters of particle and recoilers recursively.
         Momenta_dict will obtained directly from it.
 
-        :param kinematic_variables: flag that specifies whether to compute
+        :param compute_kinematic_variables: flag that specifies whether to compute
         all kinematic variables needed to recover the starting phase-space point
         from the lowest multiplicity one.
 

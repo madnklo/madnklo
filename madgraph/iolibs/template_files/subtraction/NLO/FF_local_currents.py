@@ -86,7 +86,7 @@ class NLO_FF_QCD_collinear(NLO_FF_QCD_local_subtraction_current):
 
     # The currents will include a Heaviside theta function of argument (alpha_0 - alpha)
     # It _should_ be possible to override the value in daughter currents
-    alpha_0 = 0.1
+    alpha_0 = 0.5
     divide_by_jacobian = False
     d_0 = 0
 
@@ -184,12 +184,15 @@ class NLO_FF_QCD_collinear(NLO_FF_QCD_local_subtraction_current):
         try:
             pC       = mapping_variables['pC' + str(parent)]
             Q        = mapping_variables['Q']
-            alpha    = mapping_variables['alpha' + str(parent)]
             jacobian = mapping_variables['jacobian']
         except:
             raise CurrentImplementationError(
                 "Subtraction current %s" % self.__class__.__name__ +
                 "requires mapping variables pC, Q, alpha and jacobian" )
+        try:
+            alpha    = mapping_variables['alpha' + str(parent)]
+        except:
+            alpha    = mappings.FinalRescalingMappingOne.alpha(pC, Q)
 
         # Include the counterterm only up to alpha_0
         if alpha > self.alpha_0:
@@ -357,7 +360,7 @@ class NLO_FF_QCD_collinear_gg(NLO_FF_QCD_collinear):
 class NLO_QCD_soft_gluon(NLO_FF_QCD_local_subtraction_current):
     """Soft gluon eikonal current, eq.4.12-4.13 of arXiv:0903.1218."""
 
-    y_0 = 1.
+    y_0 = 0.5
     divide_by_jacobian = False
     d_0_prime = 0
 

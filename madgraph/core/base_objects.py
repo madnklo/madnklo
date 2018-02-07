@@ -967,7 +967,7 @@ class InteractionList(PhysicsObjectList):
         buffer = {}
 
         for inter in self:
-            if useR2UV or (not inter.is_UV() and not inter.is_R2() and \
+            if useR2UV or (not inter.is_UV() and not inter.is_R2() and
                            not inter.is_UVCT()):
                 inter.generate_dict_entries(ref_dict_to0, ref_dict_to1)
             if useUVCT and inter.is_UVCT():

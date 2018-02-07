@@ -936,8 +936,9 @@ class ME7Integrand_V(ME7Integrand):
         return res
     
     def get_nice_string_process_line(self, process_key, defining_process, format=0):
-        """ Return a nicely formated process line for the function nice_string of this 
+        """Return a nicely formatted process line for the function nice_string of this
         contribution."""
+
         GREEN = '\033[92m'
         ENDC = '\033[0m'        
         res = GREEN+'  %s'%defining_process.nice_string(print_weighted=False).\
@@ -1326,17 +1327,17 @@ class ME7Integrand_R(ME7Integrand):
         integrand."""
         
         GREEN = '\033[92m'
-        ENDC = '\033[0m'        
-        res =  GREEN+'  %s'%defining_process.nice_string(print_weighted=False).\
-                                                               replace('Process: ','')+ENDC
+        ENDC = '\033[0m'
+        process_string = defining_process.nice_string(print_weighted=False)
+        res = GREEN + '  ' + process_string.replace('Process: ','') + ENDC
 
         if not self.counterterms:
             return res                                                               
 
         if format < 2:
             if process_key in self.counterterms:
-                res += ' | %d local counterterms'%len([ 1 for CT in 
-                                      self.counterterms[process_key] if CT.is_singular() ])
+                res += ' | %d local counterterms'%len([
+                    1 for CT in self.counterterms[process_key] if CT.is_singular() ])
             else:
                 res += ' | 0 local counterterm'
                 
@@ -1346,25 +1347,27 @@ class ME7Integrand_R(ME7Integrand):
                 if CT.is_singular():
                     if format==2:
                         long_res.append( '   | %s'%CT.__str__(
-                                            print_n=True, print_pdg=False, print_state=False )  )
+                            print_n=True, print_pdg=False, print_state=False )  )
                     elif format==3:
                         long_res.append( '   | %s'%CT.__str__(
-                                            print_n=True, print_pdg=True, print_state=True )  )
+                            print_n=True, print_pdg=True, print_state=True )  )
                     elif format>3:
                         long_res.append( '   | %s'%str(CT))
             res += '\n'.join(long_res)
 
         return res
 
-    def evaluate_counterterm(self, counterterm, PS_point, hel_config=None, defining_flavors=None,
-                             apply_flavour_blind_cuts = True, apply_flavour_cuts = True  ):
+    def evaluate_counterterm(self, counterterm, PS_point,
+                             hel_config=None, defining_flavors=None,
+                             apply_flavour_blind_cuts=True, apply_flavour_cuts=True  ):
         """ Evaluates the specified counterterm for the specified PS point."""
 
         # Retrieve some possibly relevant model parameters
         alpha_s = self.model.get('parameter_dict')['aS']
         mu_r = self.model.get('parameter_dict')['MU_R']
 
-        # Now call the mapper to walk through the counterterm structure and return the list of currents
+        # Now call the mapper to walk through the counterterm structure
+        # and return the list of currents
         # and PS points to use to evaluate them.
         # hike = {
         #         'currents' : [(current1, PS1), (current2, PS2), etc...],
@@ -1587,14 +1590,14 @@ The missing process is: %s"""%ME_process.nice_string())
         return sigma_wgt
 
     def test_IR_limits(self, test_options):
-        """Test that 4D local subtraction terms tend to the corresponding real-emission matrix elements."""
+        """Test how well local counterterms approximate a real-emission matrix element."""
 
         # Retrieve some possibly relevant model parameters
         alpha_s = self.model.get('parameter_dict')['aS']
         mu_r = self.model.get('parameter_dict')['MU_R']
 
-        if test_options['seed']:
-            random.seed(test_options['seed'])
+        seed = test_options.get('seed', None)
+        if seed: random.seed(seed)
 
         # First generate an underlying Born
         # Specifying None forces to use uniformly random generating variables.
@@ -1607,148 +1610,195 @@ The missing process is: %s"""%ME_process.nice_string())
                 break
             real_emission_PS_point, _, _, _ = self.phase_space_generator.get_PS_point(None)
             if test_options['apply_higher_multiplicity_cuts']:
-                if not self.pass_flavor_blind_cuts(real_emission_PS_point, 
-                    self.processes_map.values()[0][0].get_cached_initial_final_pdgs()):
+                if not self.pass_flavor_blind_cuts(
+                    real_emission_PS_point,
+                    self.processes_map.values()[0][0].get_cached_initial_final_pdgs() ):
                     continue
             break
         if n_attempts > max_attempts:
-            raise MadEvent7Error("Could not generate a random kinematic configuration"+
-                  " passing the flavour blind cuts in less than %d attempts."%max_attempts)
+            raise MadEvent7Error(
+                "Could not generate a random kinematic configuration that passes " +
+                "the flavour blind cuts in less than %d attempts." % max_attempts )
         n_attempts = 0
-        
-        # Now keep track of the results from each process and limit checked
+
+        # Loop over processes
         all_evaluations = {}
         for process_key, (defining_process, mapped_processes) in self.processes_map.items():
+            misc.sprint("Considering " + defining_process.nice_string())
             # Make sure that the selected process satisfies the selection requirements
             if not self.is_part_of_process_selection(
                 [defining_process, ]+mapped_processes,
-                selection = test_options['process'] ):
+                selection=test_options['process'] ):
                 continue
             
             a_real_emission_PS_point = copy.copy(real_emission_PS_point)
-            while (test_options['apply_higher_multiplicity_cuts'] and 
-                   not self.pass_flavor_sensitive_cuts(a_real_emission_PS_point,
-                                        defining_process.get_cached_initial_final_pdgs())):
+            while (test_options['apply_higher_multiplicity_cuts'] and
+                   not self.pass_flavor_sensitive_cuts(
+                       a_real_emission_PS_point,
+                       defining_process.get_cached_initial_final_pdgs() ) ):
                 n_attempts += 1
                 if n_attempts > max_attempts:
                     break
                 a_real_emission_PS_point, _, _, _ = self.phase_space_generator.get_PS_point(None)
             if n_attempts > max_attempts:
-                raise MadEvent7Error("Could not generate a random kinematic configuration"+
-                      " passing the flavour blind cuts in less than %d attempts."%max_attempts)
+                raise MadEvent7Error(
+                    "Could not generate a random kinematic configuration that passes " +
+                    "the flavour blind cuts in less than %d attempts." % max_attempts )
             n_attempts = 0
 
             # Make sure to have the PS point provided as LorentzVectorDict
             a_real_emission_PS_point = phase_space_generators.LorentzVectorDict(
-                            (i+1, mom) for i, mom in enumerate(a_real_emission_PS_point) )    
+                (i+1, mom) for i, mom in enumerate(a_real_emission_PS_point) )
 
-            # Here we use correction_order to select CT subset
+            # Use correction_order to select CT subset
+            print "These counterterms:", [str(ct) for ct in self.counterterms[process_key]]
             counterterms_to_consider = [
                 ct for ct in self.counterterms[process_key]
                 if ct.count_unresolved() <= test_options['correction_order'].count('N') ]
             
-            # Here we use limit_type to select the mapper to use for approaching the limit (
-            # it is clear that all CT will still use their own mapper to retrieve the PS point
+            # Here we use limit_type to select the mapper to use for approaching the limit
+            # (all CT will still use their own mapper to retrieve the PS point
             # and variables to call the currents and reduced processes).
             selected_counterterms = self.find_counterterms_matching_limit_type_with_regexp(
-                counterterms_to_consider, test_options['limit_type']
-            )
+                counterterms_to_consider, test_options['limit_type'] )
 
-            misc.sprint(defining_process.nice_string())
             misc.sprint('\n'+'\n'.join(
                 str(ct.reconstruct_complete_singular_structure())
                 for ct in selected_counterterms
             ))
 
-            # Now loop over all mappings to consider
+            # Loop over approached limits
+            process_evaluations = {}
             for limit_specifier_counterterm in selected_counterterms:
-                misc.sprint(
-                    "Result for test: %s | %s" % (
-                        defining_process.nice_string(),
-                        limit_specifier_counterterm.reconstruct_complete_singular_structure().__str__(
-                            print_n=True, print_pdg=False, print_state=False ) ) )
+                misc.sprint("Approaching limit " + str(limit_specifier_counterterm) )
 
-                # First identify the reduced PS point from which we can evolve to larger multiplicity
-                # while becoming progressively closer to the IR limit.
+                # First identify the reduced PS point from which to evolve
+                # to larger multiplicity while progressively approaching the IR limit
                 res_dict = self.mapper.walk_to_lower_multiplicity(
                     a_real_emission_PS_point, limit_specifier_counterterm,
-                    compute_kinematic_variables=True
-                )
+                    compute_kinematic_variables=True )
 
-                starting_variables  = res_dict['kinematic_variables']
-                a_born_PS_point     = res_dict['resulting_PS_point']
+                starting_variables = res_dict['kinematic_variables']
+                a_born_PS_point    = res_dict['resulting_PS_point']
 
-                # Now progressively approach the limit
-                evaluations = {}
-                # l is the scaling variable
+                # Progressively approach the limit, using a log scale
+                limit_evaluations = {}
                 n_steps = test_options['n_steps']
                 min_value = test_options['min_scaling_variable']
-                for scaling_parameter in range(0, n_steps+1):
-                    # Use equally spaced steps on a log scale
-                    scaling_parameter = 10.0**(-((float(scaling_parameter)/n_steps)*abs(math.log10(min_value))))
+                base = min_value ** (1./n_steps)
+                for step in range(n_steps+1):
+                    # Determine the new phase-space point
+                    scaling_parameter = base ** step
                     res_dict = self.mapper.approach_limit(
-                        a_born_PS_point, limit_specifier_counterterm, starting_variables, scaling_parameter
-                    )
+                        a_born_PS_point, limit_specifier_counterterm,
+                        starting_variables, scaling_parameter )
                     scaled_real_PS_point = res_dict['resulting_PS_point']
-
+                    # Initialize result
+                    this_eval = {}
+                    # Evaluate ME
                     ME_evaluation, all_results = self.all_MEAccessors(
                        defining_process, scaled_real_PS_point, alpha_s, mu_r,
                        squared_orders    = None,
                        color_correlation = None,
-                       spin_correlation  = None, 
+                       spin_correlation  = None,
                        hel_config        = None )
-                    ME_evaluation = ME_evaluation['finite']
-                    
-                    # Approximated real ME (aka. local 4d subtraction counterterm)
-                    summed_counterterm_weight = 0.0
+                    this_eval['ME'] = ME_evaluation['finite']
+                    misc.sprint('Weight from ME = %.16f' % ME_evaluation['finite'])
+                    # Loop over counterterms
                     for counterterm in counterterms_to_consider:
-                        if not counterterm.is_singular():
+                        # Skip counterterms upon request
+                        if (test_options['compute_only_limit_defining_counterterm'] and
+                            counterterm != limit_specifier_counterterm ):
                             continue
-                        if test_options['compute_only_limit_defining_counterterm'] and \
-                                                                counterterm != limit_specifier_counterterm:
-                            continue
-                        ct_weight, _, _ = self.evaluate_counterterm(counterterm, 
+                        ct_weight, _, _ = self.evaluate_counterterm(
+                            counterterm,
                             scaled_real_PS_point, 
                             hel_config=None,
-                            apply_flavour_blind_cuts = test_options['apply_lower_multiplicity_cuts'], 
-                            apply_flavour_cuts = test_options['apply_lower_multiplicity_cuts']  )
-                        misc.sprint('Relative weight from CT %s = %.16f, %.16f'%(
-                                    str(counterterm), ct_weight, ct_weight/ME_evaluation))
-                        summed_counterterm_weight += ct_weight
-                    
-                    # Add evaluations to the list so as to study how the approximated reals converge towards the real
-                    evaluations[scaling_parameter]= {
-                         'non_singular_ME'      : ME_evaluation, 
-                         'approximated_ME'      : summed_counterterm_weight,
-                         'limit_specifier'      : limit_specifier_counterterm,
-                         'defining_process'     : defining_process
-                        }
-                    
-                    # To be commented out when we will have a full-fledged analysis coded up in analyze_IR_limits_test()
-                    misc.sprint('%-20.14e %-20.14e %-20.14e %-20.14e %-20.14e'%
-                            (scaling_parameter, ME_evaluation, summed_counterterm_weight,
-                             summed_counterterm_weight/ME_evaluation, ME_evaluation+summed_counterterm_weight))
+                            apply_flavour_blind_cuts=test_options['apply_lower_multiplicity_cuts'],
+                            apply_flavour_cuts=test_options['apply_lower_multiplicity_cuts'] )
+                        this_eval[str(counterterm)] = ct_weight
+                        misc.sprint('Weight from CT %s = %.16f' %
+                                    (str(counterterm), ct_weight) )
+                    limit_evaluations[scaling_parameter] = this_eval
 
-                all_evaluations[(
-                    process_key,
-                    limit_specifier_counterterm.reconstruct_complete_singular_structure().__str__(
-                        print_n=True, print_pdg=False, print_state=False
-                    )
-                )] = evaluations
+                process_evaluations[str(limit_specifier_counterterm)] = limit_evaluations
 
-        # Now produce a nice matplotlib of the evaluations and assess whether this test passed or not.
-        return self.analyze_IR_limits_test(all_evaluations, test_options['acceptance_threshold'])
+            process_string = defining_process.base_string()
+            if defining_process.has_key('n_loops'):
+                process_string += " @ " + str(defining_process['n_loops']) + " loops"
+            all_evaluations[process_string] = process_evaluations
 
-    def analyze_IR_limits_test(self, all_evaluations, acceptance_threshold):
-        """ Analyze the results of the test_IR_limits command. """
-        
-        #TODO
-#        misc.sprint("----- SUMMARY -----")
-#        for key, evaluations in all_evaluations.items():
-#            misc.sprint("Result for test: %s | %s"%(str(dict(key[0])['PDGs']),key[1]))
-#            for lam, eval in sorted(evaluations.items(),key=lambda el: -el[0]):
-#                misc.sprint(lam, eval['non_singular_ME'], eval['approximated_ME'])
-        
+        # Now produce a nice matplotlib of the evaluations and assess whether this test passed or not
+        return self.analyze_IR_limits_test(
+            all_evaluations, test_options['acceptance_threshold'], seed=seed)
+
+    @staticmethod
+    def analyze_IR_limit(evaluations, title=None, def_ct=None, plot_all=True):
+
+        import matplotlib.pyplot as plt
+
+        # Produce a plot of all counterterms
+        x_values = sorted(evaluations.keys())
+        lines = evaluations[x_values[0]].keys()
+
+        plt.rc('text', usetex=True)
+        plt.rc('font', family='serif')
+
+        plt.figure(1)
+        if title: plt.title(title)
+        plt.xlabel('$\lambda$')
+        plt.ylabel('Integrands')
+        plt.xscale('log')
+        plt.yscale('log')
+        plt.grid(True)
+        total           = [0., ] * len(x_values)
+        ME_minus_def_ct = [0., ] * len(x_values)
+        for line in lines:
+            y_values = [abs(evaluations[x][line]) for x in x_values]
+            for i in range(len(x_values)):
+                total[i] += evaluations[x_values[i]][line]
+            if def_ct and (line == "ME" or line == def_ct):
+                for i in range(len(x_values)):
+                    ME_minus_def_ct[i] += evaluations[x_values[i]][line]
+            if plot_all:
+                plt.plot(x_values, y_values, label=line)
+        if def_ct:
+            abs_ME_minus_def_ct = [abs(y) for y in ME_minus_def_ct]
+            plt.plot(x_values, abs_ME_minus_def_ct, label='ME-def')
+        abs_total = [abs(y) for y in total]
+        plt.plot(x_values, abs_total, label='TOTAL')
+        plt.legend()
+
+        plt.figure(2)
+        if title: plt.title(title)
+        plt.xlabel('$\lambda$')
+        plt.ylabel('Weighted integrands')
+        plt.xscale('log')
+        plt.grid(True)
+        if def_ct:
+            wgt_ME_minus_def_ct = [x_values[i] * ME_minus_def_ct[i]
+                                   for i in range(len(x_values))]
+            plt.plot(x_values, wgt_ME_minus_def_ct, label='ME-def')
+        wgt_total = [x_values[i] * total[i] for i in range(len(x_values))]
+        plt.plot(x_values, wgt_total, label='TOTAL')
+        plt.legend()
+
+        plt.show()
+
+        return
+
+    def analyze_IR_limits_test(self, all_evaluations, acceptance_threshold, seed=None):
+        """Analyze the results of the test_IR_limits command."""
+
+        for (process, process_evaluations) in all_evaluations.items():
+            for (limit, limit_evaluations) in process_evaluations.items():
+                proc, loops = process.split("@")
+                title = "$" + proc + "$"
+                title = title.replace('~','x').replace('>','\\to').replace(' ','\\;')
+                title = title.replace('+','^+').replace('-','^-')
+                title += "@" + loops + " approaching " + limit
+                if seed: title += " (seed %d)" % seed
+                self.analyze_IR_limit(limit_evaluations, title=title, def_ct=limit)
         return True
     
 class ME7Integrand_RR(ME7Integrand_R):
@@ -1830,4 +1880,3 @@ ME7Integrand_classes_map = {'Born': ME7Integrand_B,
                             'DoubleReals': ME7Integrand_RR,
                             'TripleReals': ME7Integrand_RRR,
                             'Unknown': None}
-

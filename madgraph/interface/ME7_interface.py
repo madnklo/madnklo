@@ -914,13 +914,14 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         xsec_summary.close()
     
     def do_test_IR_limits(self, line, *args, **opt):
-        """This function test that local subtraction counterterms match with the actual matrix element in the IR limit."""
+        """This function test that local subtraction counterterms match
+        with the actual matrix element in the IR limit."""
     
         args = self.split_arg(line)
         args, testlimits_options = self.parse_test_IR_options(args, mode='limits')
         
-        # In principle we want to start by recompiling the process output so as to make sure
-        # that everything is up to date.
+        # In principle we want to start by recompiling the process output
+        # so as to make sure that everything is up to date.
         self.synchronize(**testlimits_options)
         
         if testlimits_options['correction_order'] is None:
@@ -940,8 +941,8 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         args = self.split_arg(line)
         args, testpoles_options = self.parse_test_IR_options(args, mode='poles')
         
-        # In principle we want to start by recompiling the process output so as to make sure
-        # that everything is up to date.
+        # In principle we want to start by recompiling the process output
+        # so as to make sure that everything is up to date.
         self.synchronize(**testpoles_options)
         
         if testpoles_options['correction_order'] is None:

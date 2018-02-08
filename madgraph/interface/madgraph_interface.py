@@ -2716,7 +2716,7 @@ class CompleteForCmd(cmd.CompleteCmd):
             return self.list_completion(text, self._install_opts)
         elif len(args) and args[0] == 'update':
             return self.list_completion(text, ['-f','--timeout='])
-        elif len(args)>=2 and args[1] in self._advanced_install_opts:           
+        elif len(args)>=2 and args[1] in self._advanced_install_opts:
             options = ['--keep_source','--logging=']
             if args[1]=='pythia8':
                 options.append('--pythia8_tarball=')
@@ -2766,7 +2766,7 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
     
     # The targets below are installed using the HEPToolsInstaller.py script
     _advanced_install_opts = ['pythia8','zlib','boost','lhapdf6','lhapdf5','collier',
-                              'hepmc','mg5amc_py8_interface','ninja','oneloop','MadAnalysis5','MadAnalysis','ginac_mg5_interface','ginac','cln']
+                              'hepmc','mg5amc_py8_interface','ninja','oneloop','MadAnalysis5','MadAnalysis','ginac_mg5_interface','ginac','cln','NkLO_tools']
 
     _install_opts.extend(_advanced_install_opts)
 
@@ -6322,7 +6322,6 @@ MG5aMC that supports quadruple precision (typically g++ based on gcc 4.6+).""")
         function will overwrite any existing installation of the tool without 
         warnings.
         """
-        
         # Make sure to avoid any border effect on custom_additional_options
         add_options = list(additional_options)
         

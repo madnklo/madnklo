@@ -1,0 +1,322 @@
+cd ./src/ginac_mg5_interface && make
+g++ -O   -fPIC --std=c++11 -c  ginac_mg5_interface.cpp
+libext=so
+g++ -O   -fPIC --std=c++11 -L -lginac -L -lcln -o  ../../lib/libginac_mg5_interface.a  ginac_mg5_interface.o
+ld: warning: directory not found for option '-L-lginac'
+ld: warning: directory not found for option '-L-lcln'
+Undefined symbols for architecture x86_64:
+  "cln::cl_free_heap_object(cln::cl_heap*)", referenced from:
+      _GinacG in ginac_mg5_interface.o
+  "GiNaC::archive_node::add_ex(std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char> > const&, GiNaC::ex const&)", referenced from:
+      GiNaC::container<std::__1::list>::archive(GiNaC::archive_node&) const in ginac_mg5_interface.o
+  "GiNaC::library_init::library_init()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::library_init::~library_init()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::add_unarchiver::add_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::add_unarchiver::~add_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::idx_unarchiver::idx_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::idx_unarchiver::~idx_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::lst_unarchiver::lst_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::lst_unarchiver::~lst_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::mul_unarchiver::mul_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::mul_unarchiver::~mul_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::fail_unarchiver::fail_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::fail_unarchiver::~fail_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::su3d_unarchiver::su3d_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::su3d_unarchiver::~su3d_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::su3f_unarchiver::su3f_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::su3f_unarchiver::~su3f_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::su3t_unarchiver::su3t_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::su3t_unarchiver::~su3t_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::color_unarchiver::color_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::color_unarchiver::~color_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::ncmul_unarchiver::ncmul_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::ncmul_unarchiver::~ncmul_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::power_unarchiver::power_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::power_unarchiver::~power_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::matrix_unarchiver::matrix_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::matrix_unarchiver::~matrix_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::su3one_unarchiver::su3one_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::su3one_unarchiver::~su3one_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::symbol_unarchiver::symbol_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::symbol_unarchiver::~symbol_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::unarchive_table_t::unarchive_table_t()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::unarchive_table_t::~unarchive_table_t()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::varidx_unarchiver::varidx_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::varidx_unarchiver::~varidx_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::indexed_unarchiver::indexed_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::indexed_unarchiver::~indexed_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::numeric_unarchiver::numeric_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::numeric_unarchiver::~numeric_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::pseries_unarchiver::pseries_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::pseries_unarchiver::~pseries_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::spinidx_unarchiver::spinidx_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::spinidx_unarchiver::~spinidx_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::clifford_unarchiver::clifford_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::clifford_unarchiver::~clifford_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::constant_unarchiver::constant_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::constant_unarchiver::~constant_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::diracone_unarchiver::diracone_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::diracone_unarchiver::~diracone_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::function_unarchiver::function_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::function_unarchiver::~function_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::integral_unarchiver::integral_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::integral_unarchiver::~integral_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::symmetry_unarchiver::symmetry_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::symmetry_unarchiver::~symmetry_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::wildcard_unarchiver::wildcard_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::wildcard_unarchiver::~wildcard_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::possymbol_unarchiver::possymbol_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::possymbol_unarchiver::~possymbol_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::tensdelta_unarchiver::tensdelta_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::tensdelta_unarchiver::~tensdelta_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::diracgamma_unarchiver::diracgamma_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::diracgamma_unarchiver::~diracgamma_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::minkmetric_unarchiver::minkmetric_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::minkmetric_unarchiver::~minkmetric_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::realsymbol_unarchiver::realsymbol_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::realsymbol_unarchiver::~realsymbol_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::relational_unarchiver::relational_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::relational_unarchiver::~relational_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::spinmetric_unarchiver::spinmetric_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::spinmetric_unarchiver::~spinmetric_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::tensmetric_unarchiver::tensmetric_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::tensmetric_unarchiver::~tensmetric_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::diracgamma5_unarchiver::diracgamma5_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::diracgamma5_unarchiver::~diracgamma5_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::diracgammaL_unarchiver::diracgammaL_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::diracgammaL_unarchiver::~diracgammaL_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::diracgammaR_unarchiver::diracgammaR_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::diracgammaR_unarchiver::~diracgammaR_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::fderivative_unarchiver::fderivative_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::fderivative_unarchiver::~fderivative_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::tensepsilon_unarchiver::tensepsilon_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::tensepsilon_unarchiver::~tensepsilon_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::cliffordunit_unarchiver::cliffordunit_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::cliffordunit_unarchiver::~cliffordunit_unarchiver()", referenced from:
+      __GLOBAL__sub_I_ginac_mg5_interface.cpp in ginac_mg5_interface.o
+  "GiNaC::ex::construct_from_basic(GiNaC::basic const&)", referenced from:
+      _GinacG in ginac_mg5_interface.o
+      GiNaC::function GiNaC::G<GiNaC::container<std::__1::list>, GiNaC::ex>(GiNaC::container<std::__1::list> const&, GiNaC::ex const&) in ginac_mg5_interface.o
+      GiNaC::container<std::__1::list>::subs(std::__1::map<GiNaC::ex, GiNaC::ex, GiNaC::ex_is_less, std::__1::allocator<std::__1::pair<GiNaC::ex const, GiNaC::ex> > > const&, unsigned int) const in ginac_mg5_interface.o
+      GiNaC::container<std::__1::list>::conjugate() const in ginac_mg5_interface.o
+      GiNaC::container<std::__1::list>::thiscontainer(std::__1::list<GiNaC::ex, std::__1::allocator<GiNaC::ex> > const&) const in ginac_mg5_interface.o
+      GiNaC::container<std::__1::list>::thiscontainer(std::__1::list<GiNaC::ex, std::__1::allocator<GiNaC::ex> >&&) const in ginac_mg5_interface.o
+  "GiNaC::basic::read_archive(GiNaC::archive_node const&, GiNaC::container<std::__1::list>&)", referenced from:
+      GiNaC::container<std::__1::list>::read_archive(GiNaC::archive_node const&, GiNaC::container<std::__1::list>&) in ginac_mg5_interface.o
+  "GiNaC::basic::basic(GiNaC::basic const&)", referenced from:
+      GiNaC::container<std::__1::list>::duplicate() const in ginac_mg5_interface.o
+  "GiNaC::basic::operator[](GiNaC::ex const&)", referenced from:
+      vtable for GiNaC::container<std::__1::list> in ginac_mg5_interface.o
+  "GiNaC::basic::operator[](unsigned long)", referenced from:
+      vtable for GiNaC::container<std::__1::list> in ginac_mg5_interface.o
+  "GiNaC::numeric::numeric(double)", referenced from:
+      _GinacG in ginac_mg5_interface.o
+  "GiNaC::_num0_bp", referenced from:
+      GiNaC::container<std::__1::list>::read_archive(GiNaC::archive_node const&, GiNaC::container<std::__1::list>&) in ginac_mg5_interface.o
+  "GiNaC::function::function(unsigned int, GiNaC::ex const&, GiNaC::ex const&)", referenced from:
+      GiNaC::function GiNaC::G<GiNaC::container<std::__1::list>, GiNaC::ex>(GiNaC::container<std::__1::list> const&, GiNaC::ex const&) in ginac_mg5_interface.o
+  "GiNaC::G2_SERIAL::serial", referenced from:
+      GiNaC::function GiNaC::G<GiNaC::container<std::__1::list>, GiNaC::ex>(GiNaC::container<std::__1::list> const&, GiNaC::ex const&) in ginac_mg5_interface.o
+  "GiNaC::container<std::__1::list>::reg_info", referenced from:
+      GiNaC::container<std::__1::list>::get_class_info() const in ginac_mg5_interface.o
+      GiNaC::container<std::__1::list>::get_class_info() in ginac_mg5_interface.o
+      GiNaC::container<std::__1::list>::class_name() const in ginac_mg5_interface.o
+  "GiNaC::operator<<(std::__1::basic_ostream<char, std::__1::char_traits<char> >&, GiNaC::ex const&)", referenced from:
+      _GinacG in ginac_mg5_interface.o
+  "GiNaC::archive_node::find_first(std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char> > const&) const", referenced from:
+      GiNaC::container<std::__1::list>::read_archive(GiNaC::archive_node const&, GiNaC::container<std::__1::list>&) in ginac_mg5_interface.o
+  "GiNaC::archive_node::find_ex_by_loc(std::__1::__wrap_iter<GiNaC::archive_node::property const*>, GiNaC::ex&, GiNaC::container<std::__1::list>&) const", referenced from:
+      GiNaC::container<std::__1::list>::read_archive(GiNaC::archive_node const&, GiNaC::container<std::__1::list>&) in ginac_mg5_interface.o
+  "GiNaC::archive_node::find_last(std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char> > const&) const", referenced from:
+      GiNaC::container<std::__1::list>::read_archive(GiNaC::archive_node const&, GiNaC::container<std::__1::list>&) in ginac_mg5_interface.o
+  "GiNaC::ex::print(GiNaC::print_context const&, unsigned int) const", referenced from:
+      GiNaC::container<std::__1::list>::printseq(GiNaC::print_context const&, char, char, char, unsigned int, unsigned int) const in ginac_mg5_interface.o
+  "GiNaC::ex::share(GiNaC::ex const&) const", referenced from:
+      GiNaC::container<std::__1::list>::compare_same_type(GiNaC::basic const&) const in ginac_mg5_interface.o
+  "GiNaC::basic::derivative(GiNaC::symbol const&) const", referenced from:
+      vtable for GiNaC::container<std::__1::list> in ginac_mg5_interface.o
+  "GiNaC::basic::eval_integ() const", referenced from:
+      vtable for GiNaC::container<std::__1::list> in ginac_mg5_interface.o
+  "GiNaC::basic::eval_ncmul(std::__1::vector<GiNaC::ex, std::__1::allocator<GiNaC::ex> > const&) const", referenced from:
+      vtable for GiNaC::container<std::__1::list> in ginac_mg5_interface.o
+  "GiNaC::basic::add_indexed(GiNaC::ex const&, GiNaC::ex const&) const", referenced from:
+      vtable for GiNaC::container<std::__1::list> in ginac_mg5_interface.o
+  "GiNaC::basic::return_type() const", referenced from:
+      vtable for GiNaC::container<std::__1::list> in ginac_mg5_interface.o
+  "GiNaC::basic::to_rational(std::__1::map<GiNaC::ex, GiNaC::ex, GiNaC::ex_is_less, std::__1::allocator<std::__1::pair<GiNaC::ex const, GiNaC::ex> > >&) const", referenced from:
+      vtable for GiNaC::container<std::__1::list> in ginac_mg5_interface.o
+  "GiNaC::basic::dbgprinttree() const", referenced from:
+      vtable for GiNaC::container<std::__1::list> in ginac_mg5_interface.o
+  "GiNaC::basic::eval_indexed(GiNaC::basic const&) const", referenced from:
+      vtable for GiNaC::container<std::__1::list> in ginac_mg5_interface.o
+  "GiNaC::basic::contract_with(std::__1::__wrap_iter<GiNaC::ex*>, std::__1::__wrap_iter<GiNaC::ex*>, std::__1::vector<GiNaC::ex, std::__1::allocator<GiNaC::ex> >&) const", referenced from:
+      vtable for GiNaC::container<std::__1::list> in ginac_mg5_interface.o
+  "GiNaC::basic::is_polynomial(GiNaC::ex const&) const", referenced from:
+      vtable for GiNaC::container<std::__1::list> in ginac_mg5_interface.o
+  "GiNaC::basic::to_polynomial(std::__1::map<GiNaC::ex, GiNaC::ex, GiNaC::ex_is_less, std::__1::allocator<std::__1::pair<GiNaC::ex const, GiNaC::ex> > >&) const", referenced from:
+      vtable for GiNaC::container<std::__1::list> in ginac_mg5_interface.o
+  "GiNaC::basic::subs_one_level(std::__1::map<GiNaC::ex, GiNaC::ex, GiNaC::ex_is_less, std::__1::allocator<std::__1::pair<GiNaC::ex const, GiNaC::ex> > > const&, unsigned int) const", referenced from:
+      GiNaC::container<std::__1::list>::subs(std::__1::map<GiNaC::ex, GiNaC::ex, GiNaC::ex_is_less, std::__1::allocator<std::__1::pair<GiNaC::ex const, GiNaC::ex> > > const&, unsigned int) const in ginac_mg5_interface.o
+  "GiNaC::basic::integer_content() const", referenced from:
+      vtable for GiNaC::container<std::__1::list> in ginac_mg5_interface.o
+  "GiNaC::basic::match_same_type(GiNaC::basic const&) const", referenced from:
+      vtable for GiNaC::container<std::__1::list> in ginac_mg5_interface.o
+  "GiNaC::basic::max_coefficient() const", referenced from:
+      vtable for GiNaC::container<std::__1::list> in ginac_mg5_interface.o
+  "GiNaC::basic::get_free_indices() const", referenced from:
+      vtable for GiNaC::container<std::__1::list> in ginac_mg5_interface.o
+  "GiNaC::basic::return_type_tinfo() const", referenced from:
+      vtable for GiNaC::container<std::__1::list> in ginac_mg5_interface.o
+  "GiNaC::basic::scalar_mul_indexed(GiNaC::ex const&, GiNaC::numeric const&) const", referenced from:
+      vtable for GiNaC::container<std::__1::list> in ginac_mg5_interface.o
+  "GiNaC::basic::ensure_if_modifiable() const", referenced from:
+      _GinacG in ginac_mg5_interface.o
+      GiNaC::container<std::__1::list>::let_op(unsigned long) in ginac_mg5_interface.o
+  "GiNaC::basic::has(GiNaC::ex const&, unsigned int) const", referenced from:
+      vtable for GiNaC::container<std::__1::list> in ginac_mg5_interface.o
+  "GiNaC::basic::map(GiNaC::map_function&) const", referenced from:
+      vtable for GiNaC::container<std::__1::list> in ginac_mg5_interface.o
+  "GiNaC::basic::eval() const", referenced from:
+      vtable for GiNaC::container<std::__1::list> in ginac_mg5_interface.o
+  "GiNaC::basic::smod(GiNaC::numeric const&) const", referenced from:
+      vtable for GiNaC::container<std::__1::list> in ginac_mg5_interface.o
+  "GiNaC::basic::coeff(GiNaC::ex const&, int) const", referenced from:
+      vtable for GiNaC::container<std::__1::list> in ginac_mg5_interface.o
+  "GiNaC::basic::evalf() const", referenced from:
+      vtable for GiNaC::container<std::__1::list> in ginac_mg5_interface.o
+  "GiNaC::basic::evalm() const", referenced from:
+      vtable for GiNaC::container<std::__1::list> in ginac_mg5_interface.o
+  "GiNaC::basic::match(GiNaC::ex const&, std::__1::map<GiNaC::ex, GiNaC::ex, GiNaC::ex_is_less, std::__1::allocator<std::__1::pair<GiNaC::ex const, GiNaC::ex> > >&) const", referenced from:
+      vtable for GiNaC::container<std::__1::list> in ginac_mg5_interface.o
+  "GiNaC::basic::print(GiNaC::print_context const&, unsigned int) const", referenced from:
+      vtable for GiNaC::container<std::__1::list> in ginac_mg5_interface.o
+  "GiNaC::basic::degree(GiNaC::ex const&) const", referenced from:
+      vtable for GiNaC::container<std::__1::list> in ginac_mg5_interface.o
+  "GiNaC::basic::expand(unsigned int) const", referenced from:
+      vtable for GiNaC::container<std::__1::list> in ginac_mg5_interface.o
+  "GiNaC::basic::normal(std::__1::map<GiNaC::ex, GiNaC::ex, GiNaC::ex_is_less, std::__1::allocator<std::__1::pair<GiNaC::ex const, GiNaC::ex> > >&, std::__1::map<GiNaC::ex, GiNaC::ex, GiNaC::ex_is_less, std::__1::allocator<std::__1::pair<GiNaC::ex const, GiNaC::ex> > >&) const", referenced from:
+      vtable for GiNaC::container<std::__1::list> in ginac_mg5_interface.o
+  "GiNaC::basic::series(GiNaC::relational const&, int, unsigned int) const", referenced from:
+      vtable for GiNaC::container<std::__1::list> in ginac_mg5_interface.o
+  "GiNaC::basic::archive(GiNaC::archive_node&) const", referenced from:
+      GiNaC::container<std::__1::list>::archive(GiNaC::archive_node&) const in ginac_mg5_interface.o
+  "GiNaC::basic::collect(GiNaC::ex const&, bool) const", referenced from:
+      vtable for GiNaC::container<std::__1::list> in ginac_mg5_interface.o
+  "GiNaC::basic::compare(GiNaC::basic const&) const", referenced from:
+      GiNaC::container<std::__1::list>::compare_same_type(GiNaC::basic const&) const in ginac_mg5_interface.o
+  "GiNaC::basic::ldegree(GiNaC::ex const&) const", referenced from:
+      vtable for GiNaC::container<std::__1::list> in ginac_mg5_interface.o
+  "GiNaC::basic::calchash() const", referenced from:
+      vtable for GiNaC::container<std::__1::list> in ginac_mg5_interface.o
+  "GiNaC::basic::dbgprint() const", referenced from:
+      vtable for GiNaC::container<std::__1::list> in ginac_mg5_interface.o
+  "GiNaC::basic::is_equal(GiNaC::basic const&) const", referenced from:
+      GiNaC::container<std::__1::list>::is_equal_same_type(GiNaC::basic const&) const in ginac_mg5_interface.o
+  "GiNaC::basic::operator[](GiNaC::ex const&) const", referenced from:
+      vtable for GiNaC::container<std::__1::list> in ginac_mg5_interface.o
+  "GiNaC::basic::operator[](unsigned long) const", referenced from:
+      vtable for GiNaC::container<std::__1::list> in ginac_mg5_interface.o
+  "GiNaC::function::evalf() const", referenced from:
+      _GinacG in ginac_mg5_interface.o
+  "GiNaC::container<std::__1::list>::info(unsigned int) const", referenced from:
+      vtable for GiNaC::container<std::__1::list> in ginac_mg5_interface.o
+  "typeinfo for GiNaC::basic", referenced from:
+      GiNaC::container<std::__1::list>::subs(std::__1::map<GiNaC::ex, GiNaC::ex, GiNaC::ex_is_less, std::__1::allocator<std::__1::pair<GiNaC::ex const, GiNaC::ex> > > const&, unsigned int) const in ginac_mg5_interface.o
+      typeinfo for GiNaC::container<std::__1::list> in ginac_mg5_interface.o
+  "vtable for GiNaC::basic", referenced from:
+      _GinacG in ginac_mg5_interface.o
+      GiNaC::container<std::__1::list>::~container() in ginac_mg5_interface.o
+      GiNaC::container<std::__1::list>::container(std::__1::list<GiNaC::ex, std::__1::allocator<GiNaC::ex> > const&) in ginac_mg5_interface.o
+  NOTE: a missing vtable usually means the first non-inline virtual member function has no definition.
+  "vtable for GiNaC::numeric", referenced from:
+      _GinacG in ginac_mg5_interface.o
+  NOTE: a missing vtable usually means the first non-inline virtual member function has no definition.
+  "_main", referenced from:
+     implicit entry/start for main executable
+ld: symbol(s) not found for architecture x86_64
+clang: error: linker command failed with exit code 1 (use -v to see invocation)
+make[1]: *** [../../lib/libginac_mg5_interface.a] Error 1
+make: *** [lib/libginac_mg5_interface.a] Error 2

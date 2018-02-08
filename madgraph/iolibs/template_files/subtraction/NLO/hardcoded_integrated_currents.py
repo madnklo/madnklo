@@ -5,6 +5,7 @@ import ctypes
 import logging
 import math
 from madgraph import MG5DIR
+from madgraph.various import misc
 
 
 logger=logging.getLogger("SubtractionCurrents")
@@ -21,7 +22,7 @@ The output is equal to G(a_1,...,a_n,x) evaluated withour linked Ginac code """
     # except KeyError:
     #     os.environ["LD_LIBRARY_PATH"] = MG5DIR + "/HEPTools/lib"
     # print os.environ["LD_LIBRARY_PATH"]
-    _ginacG = ctypes.CDLL( MG5DIR + "/HEPTools/lib/ginac_mg5_interface.so")
+    _ginacG = ctypes.CDLL( MG5DIR + "/HEPTools/lib/libginac_mg5_interface.so")
     _ginacG.GinacG.argtypes = (ctypes.POINTER(ctypes.c_float), ctypes.c_float, ctypes.c_int)
     _ginacG.GinacG.restype = ctypes.c_float
     text= "Ginac MPL interface established"
@@ -43,9 +44,15 @@ class HE(object):
     This is a class whose static methods are the hardcoded expressions for the integrated currents
     """
     @staticmethod
-    def CqqFF_Finite_Gabor_EEJJ(a0,y12):
+    def CqqFF_Finite_Gabor_EEJJ(a0,y12in):
         '''Final-final collinear integrated counterterm for qq for m=2'''
-        return (-10/9 - (8*a0)/(3*(a0*(-2 + y12) - y12)*(-2 + y12)**2*(-1 + y12)) + 
+        if abs(y12in-1.) < 1e-6:
+            y12 = 1-1e-6
+        else:
+            y12 = y12in
+        #misc.sprint("In CqqFF")
+        #misc.sprint("y12 = " + str(y12))
+        return (-10/9 - (8*a0)/(3*(a0*(-2 + y12) - y12)*(-2 + y12)**2*(-1 + y12)) +
    (4*a0*y12)/((a0*(-2 + y12) - y12)*(-2 + y12)**2*(-1 + y12)) - 
    (4*a0*y12**2)/(3*(a0*(-2 + y12) - y12)*(-2 + y12)**2*(-1 + y12)) + (2*MPL.G([0], a0))/3 + (2*MPL.G([0], y12))/3 + 
    (2*y12*MPL.G([y12/(a0*(-2 + y12))], 1))/(3*(-2 + y12)**2) - (16*a0*MPL.G([y12/(a0*(-1 + y12))], 1))/
@@ -58,9 +65,15 @@ class HE(object):
     (3*(a0*(-2 + y12) - y12)*(-2 + y12)**2*(-1 + y12)))
 
     @staticmethod
-    def CggFF_Finite_Gabor_EEJJ(a0,y12):
+    def CggFF_Finite_Gabor_EEJJ(a0,y12in):
         '''Final-final collinear integrated counterterm for gg for m=2'''
-        return (100/9 - (2*math.pi**2)/3 + (40 - 42*y12 + 13*y12**2)/(3*(-2 + y12)**2*(-1 + y12)) - 
+        if abs(y12in-1.) < 1e-6:
+            y12 = 1-1e-6
+        else:
+            y12 = y12in
+        #misc.sprint("In CggFF")
+        #misc.sprint("y12 = " + str(y12))
+        return (100/9 - (2*math.pi**2)/3 + (40 - 42*y12 + 13*y12**2)/(3*(-2 + y12)**2*(-1 + y12)) -
    (y12*(4 - 84*a0 - 46*y12 + 126*a0*y12 + 42*y12**2 - 64*a0*y12**2 - 11*y12**3 + 11*a0*y12**3))/
     (3*(-2 + y12)**2*(-1 + y12)*(-2*a0 - y12 + a0*y12)) - (11*MPL.G([0], a0))/3 - (11*MPL.G([0], y12))/3 + 
    2*MPL.G([0], a0)*MPL.G([0], y12) + 2*MPL.G([0], a0)*MPL.G([-a0], y12) - 2*MPL.G([0], y12)*MPL.G([-y12], a0) - 
@@ -73,9 +86,16 @@ class HE(object):
    (4*MPL.G([y12/(-1 + y12), 0], a0))/(-1 + y12) - (4*MPL.G([y12/(-1 + y12), y12/(-1 + y12)], a0))/(-1 + y12))
 
     @staticmethod
-    def CqgFF_Finite_Gabor_EEJJ(a0,y12):
+    def CqgFF_Finite_Gabor_EEJJ(a0,y12in):
         '''Final-final collinear integrated counterterm for qg for m=2'''
-        return (5 - math.pi**2/3 + 3/(2*(-1 + y12)) - (3*y12)/(2*(-1 + y12)) - (3*MPL.G([0], a0))/2 - (3*MPL.G([0], y12))/2 + 
+        if abs(y12in-1.) < 1e-6:
+            y12 = 1-1e-6
+        else:
+            y12 = y12in
+        #misc.sprint("In CqgFF")
+        #misc.sprint("y12 = " + str(y12))
+        #misc.sprint("a0 = " + str(a0))
+        return (5 - math.pi**2/3 + 3/(2*(-1 + y12)) - (3*y12)/(2*(-1 + y12)) - (3*MPL.G([0], a0))/2 - (3*MPL.G([0], y12))/2 +
    MPL.G([0], a0)*MPL.G([0], y12) + MPL.G([0], a0)*MPL.G([-a0], y12) - MPL.G([0], y12)*MPL.G([-y12], a0) + 
    (3*(a0 + y12 - a0*y12)*MPL.G([y12/(-1 + y12)], a0))/(2*a0*(-1 + y12)**2) - 
    ((3*y12 - 4*a0*MPL.G([0], y12) + 4*a0*y12*MPL.G([0], y12))*MPL.G([y12/(-1 + y12)], a0))/(2*a0*(-1 + y12)**2) + 
@@ -83,7 +103,12 @@ class HE(object):
    (2*y12*MPL.G([0, y12/(-1 + y12)], a0))/(-1 + y12) + MPL.G([-a0, 0], y12) - MPL.G([-y12, 0], a0) + 
    (2*MPL.G([y12/(-1 + y12), 0], a0))/(-1 + y12) - (2*MPL.G([y12/(-1 + y12), y12/(-1 + y12)], a0))/(-1 + y12))
 
+
     @staticmethod
-    def SoftFF_Finite_Gabor_EEJJ(y0,Y):
+    def SoftFF_Finite_Gabor_EEJJ(y0,Yin):
         '''Final-final soft+soft-colinear integrated counterterm for qg for m=2'''
+        if abs(Yin-1.) < 1e-6:
+            Y = 1-1e-6
+        else:
+            Y = Yin
         return (-math.pi**2/6 + 2*(y0 + MPL.G([0], Y)*(y0 - MPL.G([0], y0))) - MPL.G([0, 0], Y) + MPL.G([1, 0], Y))

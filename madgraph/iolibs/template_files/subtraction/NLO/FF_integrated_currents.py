@@ -30,15 +30,8 @@ except ImportError:
     # If not working, then it must be within MG5_aMC context:
     import madgraph.iolibs.template_files.\
                    subtraction.subtraction_current_implementations_utils as utils
-            
 
-try:
-    # First try to import this in the context of the exported currents
-    from SubtractionCurrents.NLO.hardcoded_integrated_currents import HE
-except ImportError:
-    # If not working, then it must be within MG5_aMC context:
-    from madgraph.iolibs.template_files.\
-                   subtraction.NLO.hardcoded_integrated_currents import HE
+from hardcoded_integrated_currents import HE
 
 pjoin = os.path.join
 
@@ -209,6 +202,8 @@ class integrated_NLO_FF_QCD_collinear_qqx(integrated_NLO_FF_QCD_current):
         p12      = PS_point[parent_number]
         Q        = sum([PS_point[l.get('number')] for l in reduced_process.get_initial_legs()])
         Q_square = Q.square()
+        y12      = 2.*Q.dot(p12) / Q_square
+
 
         # Now instantiate what the result will be
         evaluation = utils.SubtractionCurrentEvaluation({
@@ -219,7 +214,11 @@ class integrated_NLO_FF_QCD_collinear_qqx(integrated_NLO_FF_QCD_current):
           }
         )
 
-        value = EpsilonExpansion({ 0 : 0., -1 : (-2./3.), -2 : 0.})
+        #Virtuality cut in the integration
+        alpha_0=0.5
+        finite_part = HE.CqqFF_Finite_Gabor_EEJJ(alpha_0,y12)
+
+        value = EpsilonExpansion({ 0 : finite_part, -1 : (-2./3.), -2 : 0.})
         
         logMuQ = math.log(mu_r**2/Q_square)
         prefactor = EpsilonExpansion({ 0 : 1., 1 : logMuQ, 2 : 0.5*logMuQ**2 })
@@ -333,7 +332,11 @@ class integrated_NLO_FF_QCD_collinear_gq(integrated_NLO_FF_QCD_current):
           }
         )
 
-        value = EpsilonExpansion({ 0 : 0., -1 : (3./2. - 2.*math.log(y12)), -2 : 1.})
+        #Virtuality cut in the integration
+        alpha_0=0.5
+        finite_part = HE.CqgFF_Finite_Gabor_EEJJ(alpha_0,y12)
+
+        value = EpsilonExpansion({ 0 : finite_part, -1 : (3./2. - 2.*math.log(y12)), -2 : 1.})
         
         logMuQ = math.log(mu_r**2/Q_square)
         
@@ -599,6 +602,8 @@ class integrated_NLO_FF_QCD_collinear_gg(integrated_NLO_FF_QCD_current):
         children_numbers = tuple(leg.n for leg in ss.legs)
         parent_number    = leg_numbers_map.inv[frozenset(children_numbers)]
 
+
+
         p12 = PS_point[parent_number]
         Q        = sum([PS_point[l.get('number')] for l in reduced_process.get_initial_legs()])
         Q_square = Q.square()
@@ -613,7 +618,11 @@ class integrated_NLO_FF_QCD_collinear_gg(integrated_NLO_FF_QCD_current):
           }
         )
 
-        value = EpsilonExpansion({ 0 : 0., -1 : (11./3. - 4.*math.log(y12)), -2 : 2.})
+        #Virtuality cut in the integration
+        alpha_0=0.5
+        finite_part = HE.CggFF_Finite_Gabor_EEJJ(alpha_0,y12)
+
+        value = EpsilonExpansion({ 0 : finite_part, -1 : (11./3. - 4.*math.log(y12)), -2 : 2.})
         
         logMuQ = math.log(mu_r**2/Q_square)
         
@@ -746,7 +755,10 @@ class integrated_NLO_QCD_soft_gluon(integrated_NLO_FF_QCD_current):
         # Now add the normalization factors
         prefactor *= (alpha_s / (2.*math.pi))
         prefactor.truncate(min_power=-2, max_power=2)
-        
+
+        #Virtuality cut in the integration
+        y_0=0.5
+
         color_correlation_index = 0
         # Now loop over the colored parton number pairs (a,b)
         # and add the corresponding contributions to this current
@@ -758,9 +770,11 @@ class integrated_NLO_QCD_soft_gluon(integrated_NLO_FF_QCD_current):
                 value = prefactor*2.
                 pa = PS_point[a]
                 pb = PS_point[b]
+                Y = (pa.dot(pb) * Q_square) / (2. * Q.dot(pa) * Q.dot(pb))
+                finite_part = HE.SoftFF_Finite_Gabor_EEJJ(y_0,Y)
                 value *= EpsilonExpansion({
-                    0   : 0., 
-                    -1  : math.log( (pa.dot(pb)*Q_square) / (2.*Q.dot(pa)*Q.dot(pb)) ),
+                    0   : finite_part,
+                    -1  : math.log(Y),
                     -2  : 0.
                 })
                 # Truncate expansion so as to keep only relevant terms

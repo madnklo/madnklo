@@ -1,0 +1,24 @@
+include make_opts
+
+LIBDIR = ./lib/
+
+# Files for GINACINTERFACE
+GINAC_MG5_INTERFACE_SRC = ./src/ginac_mg5_interface
+
+LIBGINACINTERFACE 		= libginac_mg5_interface.a
+LIBGINACINTERFACE_DYNAMIC 		= libginac_mg5_interface.so
+
+all: $(LIBDIR)$(LIBGINACINTERFACE) $(LIBDIR)$(LIBGINACINTERFACE_DYNAMIC)
+
+%.o: %.cpp
+	$(FC) $(FFLAGS) -c -I. -I$(LIBDIR) $<
+
+$(LIBDIR)$(LIBGINACINTERFACE): $(GINAC_MG5_INTERFACE_SRC)
+	cd $(GINAC_MG5_INTERFACE_SRC) && make
+
+$(LIBDIR)$(LIBGINACINTERFACE_DYNAMIC): $(GINAC_MG5_INTERFACE_SRC)
+	cd $(GINAC_MG5_INTERFACE_SRC) && make
+
+clean: $(GINAC_MG5_INTERFACE_SRC)
+	cd $(GINAC_MG5_INTERFACE_SRC) && make clean
+

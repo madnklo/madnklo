@@ -1,0 +1,37 @@
+STDLIB=-lstdc++
+STDLIB_FLAG=
+MACFLAG=
+
+# REMOVE MACFLAG IF NOT ON MAC
+UNAME := $(shell uname -s)
+ifneq ($(UNAME), Darwin)
+MACFLAG=
+endif
+
+#ifeq ($(origin CPPCOMPILER),undefined)
+CPPCOMPILER = g++
+#endif
+CXX = $(CPPCOMPILER)
+
+
+ifeq ($(origin CXXFLAGS),undefined)
+#CXXFLAGS= -g
+CXXFLAGS = -O $(STDLIB_FLAG) $(MACFLAG)
+endif
+
+ifeq ($(origin CFLAGS),undefined)
+#CFLAGS= -g
+CFLAGS = -O  $(STDLIB_FLAG) $(MACFLAG)
+endif
+
+#Create dynamic libraries
+define CREATEDYNAMICLIB
+$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $1 $2
+endef
+
+# Create static libraries
+define CREATELIB
+$(AR) cru $(1) $(2)
+ranlib $(1)
+endef
+

@@ -66,6 +66,10 @@ class Vector(np.ndarray):
 
         return not self.__eq__(other)
 
+    def __hash__(self):
+
+        return tuple(x for x in self).__hash__()
+
     def get_copy(self):
 
         # The vector instantiated by get_copy() should be modified

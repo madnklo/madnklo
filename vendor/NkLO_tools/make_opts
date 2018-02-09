@@ -30,7 +30,7 @@ $(CXX) $(CXXFLAGS) $(LDFLAGS) -o $1 $2
 endef
 
 # Create static libraries
-define CREATELIB
+define CREATESTATICLIB
 $(AR) cru $(1) $(2)
 ranlib $(1)
 endef

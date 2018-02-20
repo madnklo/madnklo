@@ -439,8 +439,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # First select only the counterterms which are not pure matrix elements 
         # (i.e. they have singular structures) and also exclude here soft-collinear 
         # counterterms since they do not have an approach limit function.
-        selected_counterterms = [ ct for ct in counterterms if ct.is_singular() and not
-                                                                  ct.has_soft_collinear() ]
+        selected_counterterms = [ ct for ct in counterterms if ct.is_singular() ]
         if len(selected_counterterms)==0:
             return []
 
@@ -1672,15 +1671,15 @@ The missing process is: %s"""%ME_process.nice_string())
             for limit_specifier_counterterm in selected_counterterms:
                 misc.sprint("Approaching limit " + str(limit_specifier_counterterm) )
 
-                # First identify the reduced PS point from which to evolve
-                # to larger multiplicity while progressively approaching the IR limit
-                res_dict = self.mapper.walk_to_lower_multiplicity(
-                    a_real_emission_PS_point, limit_specifier_counterterm,
-                    compute_kinematic_variables=True )
-
-                starting_variables = res_dict['kinematic_variables']
-                a_born_PS_point    = res_dict['resulting_PS_point']
-
+                # # First identify the reduced PS point from which to evolve
+                # # to larger multiplicity while progressively approaching the IR limit
+                # res_dict = self.mapper.walk_to_lower_multiplicity(
+                #     a_real_emission_PS_point, limit_specifier_counterterm,
+                #     compute_kinematic_variables=True )
+                #
+                # starting_variables = res_dict['kinematic_variables']
+                # a_born_PS_point    = res_dict['resulting_PS_point']
+                #
                 # Progressively approach the limit, using a log scale
                 limit_evaluations = {}
                 n_steps = test_options['n_steps']
@@ -1688,11 +1687,12 @@ The missing process is: %s"""%ME_process.nice_string())
                 base = min_value ** (1./n_steps)
                 for step in range(n_steps+1):
                     # Determine the new phase-space point
+                    scaled_real_PS_point = a_real_emission_PS_point.get_copy()
                     scaling_parameter = base ** step
-                    res_dict = self.mapper.approach_limit(
-                        a_born_PS_point, limit_specifier_counterterm,
-                        starting_variables, scaling_parameter )
-                    scaled_real_PS_point = res_dict['resulting_PS_point']
+                    self.mapper.approach_limit(
+                        scaled_real_PS_point,
+                        limit_specifier_counterterm, scaling_parameter,
+                        counterterms_to_consider )
                     # Initialize result
                     this_eval = {}
                     # Evaluate ME
@@ -1758,8 +1758,11 @@ The missing process is: %s"""%ME_process.nice_string())
             for i in range(len(x_values)):
                 total[i] += evaluations[x_values[i]][line]
             if def_ct and (line == "ME" or line == def_ct):
+                def_ct_sign = 1
+                if line == def_ct:
+                    def_ct_sign = (-1) ** def_ct.count("(")
                 for i in range(len(x_values)):
-                    ME_minus_def_ct[i] += evaluations[x_values[i]][line]
+                    ME_minus_def_ct[i] += def_ct_sign * evaluations[x_values[i]][line]
             if plot_all:
                 plt.plot(x_values, y_values, label=line)
         if def_ct:

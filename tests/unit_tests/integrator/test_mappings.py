@@ -555,7 +555,7 @@ class SomogyietalSoftTest(unittest.TestCase):
 class WalkerTest(object):
     """Test class for walkers."""
 
-    verbose = False
+    verbose = True
     irs = subtraction.IRSubtraction(
         simple_qcd.model, coupling_types=('QCD', ), n_unresolved=1 )
     parameter_values = [math.pow(0.1, i) for i in range(5)]
@@ -669,15 +669,9 @@ class WalkerTest(object):
 
     @classmethod
     def test_approach_limit(cls, test, walker, process):
-        """Test walk and inverse."""
+        """Test limit approach."""
 
-        elementary_operators = cls.irs.get_all_elementary_operators(process)
-        elementary_structures = [
-            subtraction.SingularOperatorList([op, ]).simplify()
-            for op in elementary_operators ]
-        elementary_counterterms = [
-            cls.irs.get_counterterm(combination, process)
-            for combination in elementary_structures ]
+        counterterms = cls.irs.get_all_counterterms(process)[0][1:]
 
         legs_FS = tuple(
             subtraction.SubtractionLeg(leg)
@@ -685,7 +679,7 @@ class WalkerTest(object):
             if leg['state'] == FINAL )
 
         # For each counterterm
-        for ct in elementary_counterterms:
+        for ct in counterterms:
             if cls.verbose:
                 print "\n" + "*" * 100
                 print "Considering counterterm", ct
@@ -696,18 +690,9 @@ class WalkerTest(object):
                 print "Starting phase space point:\n", my_PS_point, "\n"
             squares = {key: my_PS_point[key].square() for key in my_PS_point.keys()}
             # Compute collinear variables
-            res_dict = walker.walk_to_lower_multiplicity(my_PS_point, ct, True)
-            base_PS_point = res_dict['matrix_element'][1]
-            base_kinematic_variables = res_dict['kinematic_variables']
-            if cls.verbose:
-                print "Baseline PS point:"
-                print base_PS_point, "\n"
-                print "Starting kinematic variables:"
-                print base_kinematic_variables, "\n"
             for alpha in cls.parameter_values:
-                res_dict = walker.approach_limit(
-                    base_PS_point, ct, base_kinematic_variables, alpha)
-                new_PS_point = res_dict['currents'][0][1]
+                new_PS_point = my_PS_point.get_copy()
+                walker.approach_limit(new_PS_point, ct, alpha, counterterms)
                 if cls.verbose:
                     print "New PS point for", alpha, ":\n", new_PS_point
                 for leg in legs_FS:

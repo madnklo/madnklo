@@ -464,16 +464,22 @@ class SingularStructure(object):
     def __eq__(self, other):
         """Check if two singular structures are the same."""
 
+        # WARNING this seems to work differently than .__str__(True,True,True) comparison
+
         assert isinstance(other, SingularStructure)
         self_can = self.get_canonical_representation()
         other_can = other.get_canonical_representation()
         return self_can == other_can
 
     def is_soft(self):
+
         return False
+
     def is_collinear(self):
+
         return False
-    
+
+
     def is_soft_collinear(self, is_embedded_in_soft = False, is_embedded_in_collinear = False):
         """ Test if any structure in self contains within it both a collinear and a 
         soft structure. The two options are here only for the use of the recursive search."""
@@ -496,6 +502,17 @@ class SingularStructure(object):
     def name(self):
 
         return ""
+
+    def decompose(self):
+        """Decompose the singular structure as a flat set."""
+
+        inner = set()
+        for substructure in self.substructures:
+            inner.update(substructure.decompose())
+        if type(self) == SingularStructure:
+            return inner
+        inner.add(type(self)(legs=self.get_all_legs()))
+        return inner
 
 class SoftStructure(SingularStructure):
 

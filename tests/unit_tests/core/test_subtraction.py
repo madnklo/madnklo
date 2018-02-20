@@ -180,6 +180,38 @@ class SingularStructureOperatorTest(unittest.TestCase):
         SS_simple = SS_list.simplify()
         self.assertEqual(SS_simple.is_void, True)
 
+    def test_decompose(self):
+        """Test decomposition of singular structures."""
+
+        a_structure = sub.SingularStructure(sub.CollStructure(
+            sub.CollStructure(
+                sub.SubtractionLeg(1,  1, INITIAL),
+                sub.SubtractionLeg(4, 21, FINAL)
+            ),
+            sub.SoftStructure(
+                sub.SubtractionLeg(14,  2, FINAL),
+                sub.SubtractionLeg(11, -2, FINAL),
+            ),
+            sub.SubtractionLeg(5, 21, FINAL)
+        ))
+        sub_1 = sub.CollStructure(
+            sub.SubtractionLeg(1,   1, INITIAL),
+            sub.SubtractionLeg(4,  21, FINAL),
+            sub.SubtractionLeg(5,  21, FINAL),
+            sub.SubtractionLeg(14,  2, FINAL),
+            sub.SubtractionLeg(11, -2, FINAL) )
+        sub_2 = sub.CollStructure(
+            sub.SubtractionLeg(1,  1, INITIAL),
+            sub.SubtractionLeg(4, 21, FINAL) )
+        sub_3 = sub.SoftStructure(
+            sub.SubtractionLeg(14, 2, FINAL),
+            sub.SubtractionLeg(11, -2, FINAL) )
+        dec = a_structure.decompose()
+        ben = {sub_1, sub_2, sub_3}
+        dec_str = set(el.__str__(True, True, True) for el in dec)
+        ben_str = set(el.__str__(True, True, True) for el in ben)
+        self.assertEqual(dec_str, ben_str)
+
     def test_count_unresolved(self):
         """Test counting of unresolved particles."""
 

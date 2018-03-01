@@ -1983,7 +1983,10 @@ class SubtractionCurrentExporter(object):
             if not os.path.isdir(pjoin(self.export_dir, self.main_module_name)):
                 os.mkdir(pjoin(self.export_dir, self.main_module_name))
 
-            for file in ['__init__.py','subtraction_current_implementations_utils.py']:
+            for file in [
+                '__init__.py',
+                'QCD_local_currents.py',
+                'subtraction_current_implementations_utils.py' ]:
                 if not os.path.isfile(
                     pjoin(self.export_dir, self.main_module_name, file)):
                     cp(

@@ -1244,12 +1244,11 @@ class Contribution_R(Contribution):
         all_currents = [current
                         for current in all_currents
                         if current.get_key().get_canonical_key() not in all_MEAccessors]
-        
         return all_currents
 
     @classmethod
     def add_current_accessors(cls, model, all_MEAccessors, root_path, currents_to_consider):
-        """  Generates and add all subtraction current accessors to the MEAccessorDict."""
+        """Generate and add all subtraction current accessors to the MEAccessorDict."""
 
         # Now generate the computer code and exports it on disk for the remaining new currents
         current_exporter = subtraction.SubtractionCurrentExporter(model, root_path)

@@ -26,10 +26,13 @@ import madgraph.various.misc as misc
 try:
     # First try to import this in the context of the exported currents
     import SubtractionCurrents.subtraction_current_implementations_utils as utils
+    import SubtractionCurrents.QCD_local_currents as currents
 except ImportError:
     # If not working, then it must be within MG5_aMC context:
     import madgraph.iolibs.template_files.\
                    subtraction.subtraction_current_implementations_utils as utils
+    import madgraph.iolibs.template_files.\
+                   subtraction.QCD_local_currents as currents
 
 from hardcoded_integrated_currents import HE
 
@@ -38,7 +41,7 @@ pjoin = os.path.join
 CurrentImplementationError = utils.CurrentImplementationError
 
 # Mother function grouping functionalities common to all integrated FF NLO QCD currents
-class integrated_NLO_FF_QCD_current(utils.VirtualCurrentImplementation):
+class integrated_NLO_FF_QCD_current(currents.QCDCurrent):
     """ Just a template class for all Final-Final NLO QCD local subtraction current."""
     
     EulerGamma = 0.57721566490153286061
@@ -54,7 +57,7 @@ class integrated_NLO_FF_QCD_current(utils.VirtualCurrentImplementation):
     SEpsilon = EpsilonExpansion({ 0 : 1.})
     
     @classmethod
-    def common_does_implement_this_current(cls, current, model):
+    def common_does_implement_this_current(cls, current, QCD_squared_order=None, n_loops=None):
         """ General class of checks common to all currents inheriting from this class."""
     
         # Make sure it is an integrated subtraction counterterm and not a local one.
@@ -116,7 +119,7 @@ class integrated_NLO_FF_QCD_collinear_qqx(integrated_NLO_FF_QCD_current):
         
         # Check the general properties common to FF NLO QCD
         if super(integrated_NLO_FF_QCD_collinear_qqx, cls).common_does_implement_this_current(
-                                                                current, model) is None:
+                                                                current) is None:
             return None
 
         singular_structure = current.get('singular_structure').substructures[0]

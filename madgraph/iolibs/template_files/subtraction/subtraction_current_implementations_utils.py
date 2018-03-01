@@ -50,8 +50,8 @@ class SubtractionCurrentEvaluation(dict):
         return max(len(k) for k in cls.result_order)
 
     def get_result_order(self, result_name):
-        """ Returns an index that specifies the ordering of the results to be displayed, for the 
-        purpose of sorting."""
+        """Return an index that specifies the ordering of the results to be displayed,
+        for the purpose of sorting."""
         
         index = 0
         if result_name.startswith('eps'):
@@ -62,7 +62,7 @@ class SubtractionCurrentEvaluation(dict):
                         if result_name in self.result_order else 100000)
 
     def nice_string(self, max_len_attribute=-1):
-        """ Formats nicely the output of a particular subtraction current evaluation."""
+        """Formats nicely the output of a particular subtraction current evaluation."""
         
         res = []
         length = (max_len_attribute if max_len_attribute>0 else max(len(k) for k in self.keys()))
@@ -194,12 +194,14 @@ class SubtractionCurrentResult(dict):
 #=========================================================================================
 # CurrentImplementationError
 #=========================================================================================
+
 class CurrentImplementationError(Exception):
     """Exception raised if an exception is triggered in implementation of the currents.""" 
 
 #=========================================================================================
 # VirtualCurrentImplementation
 #=========================================================================================
+
 class VirtualCurrentImplementation(object):
     """A virtual class defining what a current implementation must specify"""
 
@@ -211,30 +213,6 @@ class VirtualCurrentImplementation(object):
         self.supports_helicity_assignment = True
 
         self.model = model
-        # Extract constants from the UFO model if present, otherwise take default values
-        try:
-            model_param_dict = self.model.get('parameter_dict')
-        except:
-            model_param_dict = {}
-        self.TR = model_param_dict.get('TR', 0.5)
-        self.NC = model_param_dict.get('NC', 3.0)
-        self.CF = model_param_dict.get('CF', (self.NC**2-1)/(2*self.NC))
-        self.CA = model_param_dict.get('CA', self.NC)
-
-    @staticmethod
-    def is_quark(leg, model):
-
-        return model.get_particle(leg.pdg).get('color') == 3
-
-    @staticmethod
-    def is_gluon(leg, model):
-
-        return model.get_particle(leg.pdg).get('color') == 8
-
-    @staticmethod
-    def is_massless(leg, model):
-
-        return model.get_particle(leg.pdg).get('mass').upper() == 'ZERO'
 
     @classmethod
     def does_implement_this_current(cls, current, model):
@@ -247,57 +225,52 @@ class VirtualCurrentImplementation(object):
         # This virtual class of course does not implement any current.
         return None 
 
-    def get_cache_and_result_key(self,  current,
-                                        PS_point,
-                                        reduced_process=None,
-                                        leg_numbers_map=None,
-                                        hel_config=None,
-                                        mapping_variables={},
-                                        **opts
-                                ):
-        """ Generates a key for the cache dictionary. Make sure that everything that can
-        lead to a different evaluation of the current ends up in the key so that two evaluations
-        that lead to different results cannot be wrongly recycled.
+    def get_cache_and_result_key(
+        self, current, PS_point,
+        reduced_process=None, leg_numbers_map=None, hel_config=None,
+        mapping_variables=None, **opts ):
+        """Generate a key for the cache dictionary.
+        Make sure that everything that can lead to a different evaluation of the current
+        ends up in the key so that two evaluations that lead to different results
+        cannot be wrongly recycled.
         The minimal key is simply the PS point and alpha_s.
-        Do not bother with helicity configurations and squared orders since those are handled in 
-        the subtraction current result structure directly.
-        The result key is trivial and is direclty related to the structure of the SubtractionCurrentResult."""
+        Do not bother with helicity configurations and squared orders
+        since those are handled in the subtraction current result structure directly.
+        The result key is trivial and is directly related to the structure
+        of the SubtractionCurrentResult.
+        """
 
         model_param_dict = self.model.get('parameter_dict')
+        PS_point_tuple = tuple(sorted([
+            (k, tuple(value)) for (k, value) in PS_point.items() ]))
         alpha_s = model_param_dict['aS']
+        singular_structure_str = current['singular_structure'].__str__(
+            print_n=True, print_pdg=True, print_state=True)
+        squared_orders = tuple(sorted(current.get('squared_orders').items()))
 
-        cache_key = {'PS_point' : tuple(sorted([(k, tuple(value)) for (k, value) in PS_point.items()])),
-                     'alpha_s'  : model_param_dict['aS'],
-                     'singular_structure' : current['singular_structure'].__str__( 
-                                                   print_n = True, print_pdg = True, print_state = True)
-                    }
-        
-        result_key = {'hel_config':hel_config,
-                      'squared_orders': tuple(sorted(current.get('squared_orders').items()))}
+        cache_key = {'PS_point': PS_point_tuple, 'alpha_s': alpha_s,
+                     'singular_structure': singular_structure_str }
+        result_key = {'hel_config':hel_config, 'squared_orders': squared_orders}
 
         return cache_key, result_key
         # Alternatively, use: 
         #return None, result_key 
         # to disable the caching system
 
-    def evaluate_subtraction_current(self,  current, 
-                                            PS_point,
-                                            reduced_process = None,
-                                            leg_numbers_map = None,
-                                            hel_config = None,
-                                            mapping_variables = {}
-                                     ):
-        """ Returns an instance of SubtractionCurrentResult, with SubtractionCurrentEvaluation as keys which store 
-        various output of this evaluation of the subtraction current, most importantly its 
-        finite part and other coefficients of its epsilon expansion.
-        The model provides quantum numbers of legs in the reduced process (useful for soft currents)
-        and the bidirectional leg_numbers_map provides the number of the mother leg which is useful
-        to provide complete spin-correlation specification.
+    def evaluate_subtraction_current(
+        self, current, PS_point,
+        reduced_process=None, hel_config=None,
+        mapping_variables=None, leg_numbers_map=None ):
+        """Returns an instance of SubtractionCurrentResult,
+        with SubtractionCurrentEvaluation as keys which store
+        various output of this evaluation of the subtraction current,
+        most importantly its finite part and other coefficients of its epsilon expansion.
+        The model provides quantum numbers of legs in the reduced process (useful for soft currents).
         The value of alpha_s and mu_r can be retrieved from the model.
-        Seee the documentation of the class method 'apply_permutations' of VirtualMEAccessor in the module
-        madgraph.core.contributions for the specification of the syntax of spin_correlations and
-        color_correlations.
-        Mapping variables can be passed and possibly reused in the subtraction current if they are the same.
+        See the documentation of the class method 'apply_permutations'
+        of VirtualMEAccessor in the module madgraph.core.contributions
+        for the specification of the syntax of spin_correlations and color_correlations.
+        Mapping variables can be passed.
         """
         ## Example:
         #
@@ -344,13 +317,20 @@ class VirtualCurrentImplementation(object):
 
         raise NotImplemented
 
+#=========================================================================================
+# DefaultCurrentImplementation
+#=========================================================================================
+
 class DefaultCurrentImplementation(VirtualCurrentImplementation):
-    """ This default implementation class will be used with a warning and *only* if none of the other implementation matches and 
-    the function 'does_implement_this_current' of this class evaluated to true.
-    This is typically useful for debugging and one has not completed the implementation of all currents but already wants to test
-    a subset of them."""
+    """This default implementation class will be used with a warning
+    *only* if none of the other implementation matches
+    and the function 'does_implement_this_current' of this class evaluated to true.
+    This is typically useful for development when one has not completed
+    the implementation of all currents but already wants to test a subset of them.
+    """
     
     def __init__(self, *args, **opts):
+
         super(DefaultCurrentImplementation, self).__init__(*args, **opts)
         self.supports_helicity_assignment = True
 
@@ -364,14 +344,14 @@ class DefaultCurrentImplementation(VirtualCurrentImplementation):
         return {}
     
     def get_cache_and_result_key(self, *args, **opts):
-        return super(DefaultCurrentImplementation, self).get_cache_and_result_key(*args, **opts)
 
-    def evaluate_subtraction_current(self, current, PS_point,
-                                            reduced_process = None,
-                                            leg_numbers_map = None,
-                                            hel_config = None,
-                                            mapping_variables = {}
-                                     ):
+        return super(DefaultCurrentImplementation, self).get_cache_and_result_key(
+            *args, **opts)
+
+    def evaluate_subtraction_current(
+        self, current, PS_point,
+        reduced_process=None, hel_config=None,
+        mapping_variables=None, leg_numbers_map=None ):
         """Simply return 0 for this current default implementation."""
         
         return SubtractionCurrentResult.zero(current=current, hel_config=hel_config)

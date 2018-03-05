@@ -252,6 +252,48 @@ class SingularStructureOperatorTest(unittest.TestCase):
 
 class CountertermTest(unittest.TestCase):
 
+    def random_children(
+        self, parent_number, momenta_dict, prob_parent, max_children):
+        """Branch a leaf in a momenta dictionary."""
+
+        n_children = random.randint(2, max_children)
+        children = set()
+        for i_child in range(n_children):
+            max_n_guess = len(momenta_dict.keys()) + 1
+            while True:
+                child_number = random.randint(1, max_n_guess)
+                if child_number in momenta_dict.keys():
+                    max_n_guess += 1
+                    continue
+                children.add(child_number)
+                momenta_dict[child_number] = frozenset([child_number, ])
+                break
+        momenta_dict[parent_number] = frozenset(children)
+        for child_number in children:
+            if random.random() < prob_parent/len(children):
+                self.random_children(
+                    child_number, momenta_dict, prob_parent**2, max_children)
+
+    def test_get_ancestor(self):
+        """Test the reconstruction of an ancestor within a momentum dictionary."""
+
+        random.seed(42)
+        for i in range(100):
+            # Generate starting tree
+            n_start = random.randint(1, 4)
+            momenta_dict = sub.bidict({
+                i: frozenset([i, ]) for i in range(1, n_start+1) })
+            for key in momenta_dict.keys():
+                self.random_children(key, momenta_dict, 0.2, 4)
+            # Branch one leaf
+            leaves_before = [key for (key, val) in momenta_dict.items() if len(val) == 1]
+            ancestor = leaves_before[random.randrange(len(leaves_before))]
+            self.random_children(ancestor, momenta_dict, 0.8, 4)
+            leaves_after  = [key for (key, val) in momenta_dict.items() if len(val) == 1]
+            ancestor_leaves = set(leaves_after).difference(set(leaves_before))
+            found_ancestor = sub.get_ancestor(frozenset(ancestor_leaves), momenta_dict)
+            self.assertEqual(ancestor, found_ancestor)
+
     def test_split_loops_flat(self):
         """Test the assignment of loop numbers within a flat counterterm."""
 

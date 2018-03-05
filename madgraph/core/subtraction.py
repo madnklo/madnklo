@@ -345,8 +345,15 @@ class SingularStructure(object):
         """Initialize a hierarchical singular structure."""
 
         self.substructures = opts.get('substructures', [])
+        if not isinstance(self.substructures, list):
+            self.substructures = list(self.substructures)
+        for substructure in self.substructures:
+            assert isinstance(substructure, SingularStructure)
         self.legs = opts.get('legs', SubtractionLegSet())
+        if not isinstance(self.legs, SubtractionLegSet):
+            self.legs = SubtractionLegSet(self.legs)
         self.is_void = opts.get('is_void', False)
+        assert isinstance(self.is_void, bool)
         for arg in args:
             if isinstance(arg, SingularStructure):
                 self.substructures.append(arg)
@@ -356,8 +363,7 @@ class SingularStructure(object):
                 self.is_void = self.is_void or arg
             else:
                 raise MadGraph5Error(
-                    "Invalid argument in SingularStructure.__init__: %s" % str(arg)
-                )
+                    "Invalid argument in SingularStructure.__init__: %s" % str(arg) )
 
     def get_copy(self):
         """Provide a modifiable copy of this singular structure."""
@@ -365,8 +371,7 @@ class SingularStructure(object):
         return type(self)(
             legs=SubtractionLegSet(self.legs),
             substructures=[ss.get_copy() for ss in self.substructures],
-            is_void=self.is_void
-        )
+            is_void=self.is_void )
 
     def __str__(self, print_n=True, print_pdg=False, print_state=False):
         """Return a string representation of the singular structure."""
@@ -479,8 +484,7 @@ class SingularStructure(object):
 
         return False
 
-
-    def is_soft_collinear(self, is_embedded_in_soft = False, is_embedded_in_collinear = False):
+    def is_soft_collinear(self, is_embedded_in_soft=False, is_embedded_in_collinear=False):
         """ Test if any structure in self contains within it both a collinear and a 
         soft structure. The two options are here only for the use of the recursive search."""
         
@@ -525,6 +529,7 @@ class SoftStructure(SingularStructure):
         return "S"
     
     def is_soft(self):
+
         return True
 
 class CollStructure(SingularStructure):
@@ -538,6 +543,7 @@ class CollStructure(SingularStructure):
         return "C"
     
     def is_collinear(self):
+
         return True
 
 #=========================================================================================
@@ -1106,6 +1112,28 @@ class CountertermNode(object):
 #=========================================================================================
 # Counterterm
 #=========================================================================================
+
+def get_ancestor(particles, momentum_dict):
+    """Recursively explore the momentum dictionary to find an ancestor
+    of the given particle set.
+    """
+
+    try:
+        return momentum_dict.inv[particles]
+    except KeyError:
+        new_particles = frozenset(particles)
+        for key in momentum_dict.inv.keys():
+            if len(key) == 1 or key.isdisjoint(new_particles):
+                continue
+            if key.issubset(new_particles):
+                new_particles = new_particles.difference(key)
+                new_particles = new_particles.union({momentum_dict.inv[key], })
+        if len(new_particles) == 1:
+            return tuple(new_particles)[0]
+        elif new_particles != particles:
+            return get_ancestor(new_particles, momentum_dict)
+        else:
+            raise KeyError
 
 class Counterterm(CountertermNode):
     """Class representing a tree of currents multiplying a matrix element."""

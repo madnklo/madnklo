@@ -25,6 +25,7 @@ import madgraph.core.subtraction as sub
 import tests.unit_tests as unittest
 import tests.input_files.simple_qcd as simple_qcd
 
+
 #=========================================================================================
 # Shorthands for initial and final state
 #=========================================================================================
@@ -291,7 +292,7 @@ class CountertermTest(unittest.TestCase):
             self.random_children(ancestor, momenta_dict, 0.8, 4)
             leaves_after  = [key for (key, val) in momenta_dict.items() if len(val) == 1]
             ancestor_leaves = set(leaves_after).difference(set(leaves_before))
-            found_ancestor = sub.get_ancestor(frozenset(ancestor_leaves), momenta_dict)
+            found_ancestor = sub.Counterterm.get_ancestor(frozenset(ancestor_leaves), momenta_dict)
             self.assertEqual(ancestor, found_ancestor)
 
     def test_split_loops_flat(self):

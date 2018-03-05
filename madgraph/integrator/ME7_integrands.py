@@ -1555,7 +1555,7 @@ The missing process is: %s"""%ME_process.nice_string())
                           apply_flavour_blind_cuts = True, apply_flavour_cuts = True)
             if CT_wgt == 0.:
                 continue
-            
+
             # Register this CT in the dictionary CT_results gathering all evaluations
             reduced_PS.flags.writeable = False
             key = reduced_PS.data
@@ -1585,7 +1585,7 @@ The missing process is: %s"""%ME_process.nice_string())
                         'counterterms' : counterterm_contribs }
                     self.observable_list.apply_observables(
                                        this_CT_group_wgt*process_wgt, data_for_observables)
-
+        
         return sigma_wgt
 
     def test_IR_limits(self, test_options):

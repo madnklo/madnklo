@@ -815,8 +815,8 @@ class Current(base_objects.Process):
             return res[0]
         
         leg_numbers = [leg.n for leg in self['singular_structure'].get_all_legs()]
-        if len(leg_numbers)>0:
-            mother_number = routing_dict.inv[frozenset(leg_numbers)]
+        if len(leg_numbers)>0:            
+            mother_number = Counterterm.get_ancestor(frozenset(leg_numbers), routing_dict)
             if mother_number not in defining_flavors:
                 defining_flavors[mother_number] = get_parent([defining_flavors[n] for n in leg_numbers])
 
@@ -1113,28 +1113,6 @@ class CountertermNode(object):
 # Counterterm
 #=========================================================================================
 
-def get_ancestor(particles, momentum_dict):
-    """Recursively explore the momentum dictionary to find an ancestor
-    of the given particle set.
-    """
-
-    try:
-        return momentum_dict.inv[particles]
-    except KeyError:
-        new_particles = frozenset(particles)
-        for key in momentum_dict.inv.keys():
-            if len(key) == 1 or key.isdisjoint(new_particles):
-                continue
-            if key.issubset(new_particles):
-                new_particles = new_particles.difference(key)
-                new_particles = new_particles.union({momentum_dict.inv[key], })
-        if len(new_particles) == 1:
-            return tuple(new_particles)[0]
-        elif new_particles != particles:
-            return get_ancestor(new_particles, momentum_dict)
-        else:
-            raise KeyError
-
 class Counterterm(CountertermNode):
     """Class representing a tree of currents multiplying a matrix element."""
 
@@ -1163,6 +1141,30 @@ class Counterterm(CountertermNode):
             self.prefactor = opts['prefactor']
         except KeyError:
             self.prefactor = self.get_prefactor(**opts)
+
+    @classmethod
+    def get_ancestor(cls, particles, momentum_dict):
+        """Recursively explore the momentum dictionary to find an ancestor
+        of the given particle set.
+        """
+    
+        try:
+            return momentum_dict.inv[particles]
+        except KeyError:
+            new_particles = frozenset(particles)
+            for key in momentum_dict.inv.keys():
+                if len(key) == 1 or key.isdisjoint(new_particles):
+                    continue
+                if key.issubset(new_particles):
+                    new_particles = new_particles.difference(key)
+                    new_particles = new_particles.union({momentum_dict.inv[key], })
+            if len(new_particles) == 1:
+                return tuple(new_particles)[0]
+            elif new_particles != particles:
+                return cls.get_ancestor(new_particles, momentum_dict)
+            else:
+                raise KeyError("Could not find leg numbers %s in this following "%str(particles)+
+                               "momentum routing dictionary:\n%s"%(momentum_dict))
 
     def __str__(self, print_n=True, print_pdg=False, print_state=False):
 

@@ -464,7 +464,7 @@ class ParseCmdArguments(object):
                             try:
                                 multi_part.append(get_particle_pdg(part))
                             except:
-                                raise IvalidCmd("Particle '%s' not recognized in current model."%part)
+                                raise InvalidCmd("Particle '%s' not recognized in current model."%part)
                         final_pdgs.append(tuple(multi_part))
                         
                     testlimits_options['process']['in_pdgs'] = tuple(initial_pdgs)

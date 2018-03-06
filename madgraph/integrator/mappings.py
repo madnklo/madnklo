@@ -571,7 +571,7 @@ class FinalCollinearMapping(VirtualMapping):
         substructure = singular_structure.substructures[0]
         parent, children, _ = get_structure_numbers(substructure, momenta_dict)
         # Determine the correct scaling for the divergence to go like 1/parameter
-        base = scaling_parameter ** (0.5 * (len(children) - 1))
+        base = scaling_parameter ** (0.5 / (len(children) - 1))
         kinematic_variables['s' + str(parent)] *= base ** 2
         for child in children:
             kinematic_variables['kt' + str(child)] *= base
@@ -1084,7 +1084,7 @@ class ElementaryMappingSoft(VirtualMapping):
         substructure = singular_structure.substructures[0]
         _, children, _ = get_structure_numbers(substructure, momenta_dict)
         # Determine the correct scaling for the divergence to go like 1/parameter
-        base = scaling_parameter ** (0.5 * len(children))
+        base = scaling_parameter ** (0.5 / len(children))
         for child in children:
             kinematic_variables['p' + str(child)] *= base
         return kinematic_variables

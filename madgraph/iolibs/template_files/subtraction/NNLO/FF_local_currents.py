@@ -92,11 +92,9 @@ class QCD_final_collinear_0_QQxq(currents.QCDLocalCollinearCurrent):
         if pair is None: return None
         # Identify the remaining quark
         other_quarks = [leg for leg in ss.legs if leg not in pair]
-        assert len(other_quarks) == 1
-        other_quark = other_quarks[0]
-        # Check the quark species is different
-        if cls.are_same_particle(other_quark, pair[0]): return None
-        if cls.are_same_particle(other_quark, pair[1]): return None
+        # Since leg numbers have been discarded, equal legs will not appear here
+        # Thus if the quark species were the same, other_quarks = []
+        if len(other_quarks) != 1: return None
         # The current is valid
         return init_vars
 

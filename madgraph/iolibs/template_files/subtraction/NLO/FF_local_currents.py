@@ -151,13 +151,11 @@ class QCD_final_collinear_0_gg(currents.QCDLocalCollinearCurrent):
 
         # Check the general properties common to NLO QCD collinear tree-level currents
         init_vars = cls.common_does_implement_this_current(current, 2, 0)
-        if init_vars is None:
-            return None
+        if init_vars is None: return None
         # Retrieve singular structure
         ss = current.get('singular_structure')
         # Check that the particles are two final-state massless gluons
-        if len(ss.legs) != 2:
-            return None
+        if len(ss.legs) != 2: return None
         for leg in ss.legs:
             if not cls.is_gluon(leg, model): return None
             if not cls.is_massless(leg, model): return None

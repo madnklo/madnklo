@@ -67,3 +67,19 @@ if ReadWrite:
                     pjoin(MG5DIR, 'Template','LO','Source','make_opts'))
     except Exception,error:
         pass
+
+# Check MPI configuration
+MPI_ACTIVE = False
+MPI_RANK   = 0
+MPI_SIZE   = 1
+try:
+    from mpi4py import MPI
+    comm = MPI.COMM_WORLD
+    MPI_RANK = comm.Get_rank()
+    MPI_SIZE = comm.Get_size()
+    if MPI_SIZE > 1:
+       MPI_ACTIVE = True
+    else:
+       MPI_ACTIVE = False
+except:
+    pass

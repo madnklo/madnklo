@@ -51,7 +51,7 @@ except:
 
 import aloha
 import madgraph
-from madgraph import MG4DIR, MG5DIR, MadGraph5Error, InvalidCmd
+from madgraph import MG4DIR, MG5DIR, MadGraph5Error, InvalidCmd, MPI_RANK, MPI_ACTIVE, MPI_SIZE
 
 
 import madgraph.core.base_objects as base_objects
@@ -116,6 +116,13 @@ logger_tuto_nlo = logging.getLogger('tutorial_aMCatNLO') # -> stdout include ins
                                                         #order to learn aMC@NLO
 
 logger_tuto_madloop = logging.getLogger('tutorial_MadLoop') # -> stoud for MadLoop tuto
+
+# Make sure MPI slave ranks only repport critical errors
+if MPI_ACTIVE and MPI_RANK>0:
+    logging.basicConfig(level=logging.CRITICAL,
+            format='MPI RANK {} :: %(levelname)-8s %(message)s'.format(MPI_RANK))
+    for logger_name, logger in logging.Logger.manager.loggerDict.items():
+        logging.getLogger(logger_name).setLevel(logging.CRITICAL)
 
 #===============================================================================
 # CmdExtended
@@ -7282,6 +7289,13 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
 
         # Configure the way to open a file:
         launch_ext.open_file.configure(self.options)
+
+
+        # Finally if MPI is active, then set run_mode to 0 and nb_core to 1
+        if MPI_ACTIVE:
+            self.options['run_mode'] = 0
+            self.options['nb_core']  = 1
+
         return self.options
 
     def check_for_export_dir(self, filepath):

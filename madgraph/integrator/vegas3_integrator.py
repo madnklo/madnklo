@@ -45,8 +45,12 @@ from madgraph.integrator.integrators import IntegratorError
 import madgraph.integrator.integrands as integrands
 import madgraph.integrator.functions as functions
 import madgraph.various.cluster as cluster
-from madgraph import InvalidCmd, MadGraph5Error, MG5DIR
+from madgraph import InvalidCmd, MadGraph5Error, MG5DIR, MPI_ACTIVE, MPI_SIZE, MPI_RANK
 from multiprocessing import Value, Array
+
+if MPI_ACTIVE:
+    from mpi4py import MPI
+    mpi_comm = MPI.COMM_WORLD
 
 logger = logging.getLogger('madgraph.vegas3')
 
@@ -58,7 +62,7 @@ class ParallelWrappedIntegrand(vegas.BatchIntegrand):
         self.integrands = integrands
         self.cluster = cluster_instance
         self.start_time = start_time
-        if not isinstance(cluster_instance,cluster.MultiCore):
+        if not isinstance(cluster_instance,(cluster.MultiCore,cluster.MPICluster)):
             raise IntegratorError("Vegas3 integrator does not have cluster support "+
                                                                      "yet, only multicore")
         
@@ -146,8 +150,11 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
         default_opts['refine_n_points'] = 10000
 
         # Steering parallelization
-        default_opts['cluster'] = cluster.onecore
-        
+        if not MPI_ACTIVE:
+            default_opts['cluster'] = cluster.onecore
+        else:
+            default_opts['cluster'] = cluster.MPICluster(MPI_RANK,MPI_SIZE)
+
         # Default batch size per node
         default_opts['batch_size'] = 1000
 
@@ -184,11 +191,10 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
             all_results.append(res)
             
         self.n_function_evals +=1
-        if self.n_function_evals%(max(self.curr_n_evals_per_iterations/2,1))==0 and \
-                                                      self.vegas3_integrator.mpi_rank == 0:
+        if self.n_function_evals%(max(self.curr_n_evals_per_iterations/2,1))==0 and MPI_RANK == 0:
             logger.debug('Evaluation #%d / %d*%d  (%.3g%%) [%s]'%(
-                self.n_function_evals, self.curr_n_iterations, self.curr_n_evals_per_iterations, 
-                (100.0*self.n_function_evals / (self.curr_n_iterations*self.curr_n_evals_per_iterations)),
+                self.n_function_evals*MPI_SIZE, self.curr_n_iterations, self.curr_n_evals_per_iterations, 
+                (100.0*self.n_function_evals*MPI_SIZE / (self.curr_n_iterations*self.curr_n_evals_per_iterations)),
                                             misc.format_time(time.time()-self.start_time)))
         
         return dict( ('I%d'%i, res) for i, res in enumerate(all_results) )
@@ -199,6 +205,8 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
 
     def integrate(self):
         """ Return the final integral and error estimators. """
+
+        start_time = time.time()
 
         for integrand in self.integrands:
             if len(integrand.discrete_dimensions)>0:
@@ -215,7 +223,7 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
         
         self.start_time = time.time()
         # Access/generate the wrapped integrand
-        if self.cluster.nb_core==1:
+        if isinstance(self.cluster,cluster.MPICluster) or self.cluster.nb_core==1:
             wrapped_integrand = self.wrapped_integrand
         else:
             wrapped_integrand = ParallelWrappedIntegrand(
@@ -223,7 +231,7 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
 
         self.tot_func_evals = 0
         # Train grid
-        if self.vegas3_integrator.mpi_rank == 0:
+        if MPI_RANK == 0:
             logger.debug("=================================")
             logger.debug("Vegas3 starting the survey stage.")
             logger.debug("=================================")
@@ -233,12 +241,12 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
         training = self.vegas3_integrator(wrapped_integrand, 
                                           nitn=self.survey_n_iterations, neval=self.survey_n_points)
 
-        if self.vegas3_integrator.mpi_rank == 0:
+        if MPI_RANK == 0:
             logger.debug('\n'+training.summary())
 
         self.tot_func_evals += self.n_function_evals         
         # Final integration
-        if self.vegas3_integrator.mpi_rank == 0:
+        if MPI_RANK == 0:
             logger.debug("=============================================")
             logger.debug("Vegas3 starting the refined integration stage")
             logger.debug("=============================================")
@@ -248,10 +256,19 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
         self.curr_n_evals_per_iterations = self.refine_n_points
         result = self.vegas3_integrator(wrapped_integrand, 
                                         nitn=self.refine_n_iterations, neval=self.refine_n_points) 
-        if self.vegas3_integrator.mpi_rank == 0:
+        if MPI_RANK == 0:
             logger.debug('\n'+result.summary())
-        
+       
         self.tot_func_evals += self.n_function_evals
+        if MPI_ACTIVE:
+            # Aggregate the number of function evaluation from each MPI rank
+            if MPI_RANK == 0:
+                for rank in range(1,MPI_SIZE):
+                    n_points_in_slave = mpi_comm.recv(source=rank,tag=11)
+                    self.tot_func_evals += n_points_in_slave
+            else:
+                mpi_comm.send(self.n_function_evals, dest=0, tag=11)
+
         # Result is a list of instances of vegas.RAvg variablesr, with the following attributes: 
         # RAvg.mean : mean 
         # RAvg.sdev : standard dev.
@@ -260,14 +277,18 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
         # RAvg.Q    : p-value of the weighted average 
         # RAvg.itn_results : list of the integral estimates for each iteration
         # RAvg.summary() : summary of the integration
-        if self.cluster.nb_core==1:
+        if isinstance(self.cluster,cluster.MPICluster) or self.cluster.nb_core==1:
             summed_result = sum(result.values())
         else:
             summed_result = result
-            
-        if self.vegas3_integrator.mpi_rank == 0:
+           
+        integration_time = time.time() - start_time
+
+        if MPI_RANK == 0:
             logger.debug("===============================================================")
-            logger.debug('Vegas3 used a total of %d function evaluations.'%self.tot_func_evals)
+            logger.debug('Total integration time: %s'%misc.format_time(integration_time))
+            logger.debug('Vegas3 used a total of %d function evaluations, on %d core(s).'%
+                                                  (self.tot_func_evals,self.cluster.nb_core))
             logger.debug('Vegas3 returned final results : %s'%summed_result)
             logger.debug("===============================================================")
 

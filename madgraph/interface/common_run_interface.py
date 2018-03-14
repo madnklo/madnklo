@@ -65,7 +65,7 @@ except ImportError:
     import internal.gen_crossxhtml as gen_crossxhtml
     import internal.lhe_parser as lhe_parser
     import internal.FO_analyse_card as FO_analyse_card 
-    from internal import InvalidCmd, MadGraph5Error
+    from internal import InvalidCmd, MadGraph5Error, MPI_ACTIVE, MPI_RANK, MPI_SIZE
     MADEVENT=True    
 else:
     # import from madgraph directory
@@ -82,7 +82,7 @@ else:
     import models.check_param_card as check_param_card
 #    import madgraph.various.histograms as histograms # imported later to not slow down the loading of the code
     
-    from madgraph import InvalidCmd, MadGraph5Error, MG5DIR
+    from madgraph import InvalidCmd, MadGraph5Error, MG5DIR, MPI_ACTIVE, MPI_RANK, MPI_SIZE
     MADEVENT=False
 
 #===============================================================================
@@ -3002,9 +3002,13 @@ class CommonRunCmd(HelpToCmd, CheckValidForCmd, cmd.Cmd):
 
 
         if run_mode in [0, 2]:
-            self.cluster = cluster.MultiCore(
+            if not MPI_ACTIVE:
+                self.cluster = cluster.MultiCore(
                              **self.options)
-            self.cluster.nb_core = nb_core
+                self.cluster.nb_core = nb_core
+            else:
+                self.cluster = cluster.MPICluster(MPI_RANK, MPI_SIZE, **self.options)
+
         #cluster_temp_path=self.options['cluster_temp_path'],
 
         if self.cluster_mode == 1:

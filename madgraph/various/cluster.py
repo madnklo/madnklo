@@ -2126,6 +2126,85 @@ class HTCaaS2Cluster(Cluster):
             cmd = "htcaas-job-cancel -m %s" % str(id)
             status = misc.Popen([cmd], shell=True, stdout=open(os.devnull,'w'))
 
+class MPICluster(Cluster):
+    """ Dummy cluster implementation for now, to be used when using MPI. """
+
+    name = 'MPICluster'
+    identifier_length = 10
+
+    def __init__(self, mpi_rank, mpi_size, **opts):
+        """Init the cluster"""
+        
+        self.mpi_rank = mpi_rank
+        self.nb_core  = mpi_size
+
+    def submit(self, prog, argument=[], cwd=None, stdout=None, stderr=None, 
+               log=None, required_output=[], nb_submit=0):
+        """How to make one submission. Return status id on the cluster."""
+        raise NotImplemented, 'No implementation of submit in cluster type \'%s\'' % self.name
+
+
+    #@store_input()
+    def submit2(self, prog, argument=[], cwd=None, stdout=None, stderr=None, 
+                log=None, input_files=[], output_files=[], required_output=[],
+                nb_submit=0):
+        """How to make one submission. Return status id on the cluster.
+        NO SHARE DISK"""  
+        raise NotImplemented, 'No implementation of submit2 in cluster type \'%s\'' % self.name
+
+
+    def cluster_submit(self, prog, argument=[], cwd=None, stdout=None, stderr=None, 
+                log=None, input_files=[], output_files=[], required_output=[],
+                nb_submit=0, packet_member=None):
+            """This function wrap the cluster submition with cluster independant
+               method should not be overwritten (but for DAG type submission)"""
+            raise NotImplemented, 'No implementation of cluster_submit in cluster type \'%s\'' % self.name 
+                
+    def control(self, me_dir=None):
+        """Check the status of job associated to directory me_dir. return (idle, run, finish, fail)"""
+        raise NotImplemented, 'No implementation of control in cluster type \'%s\'' % self.name 
+        
+    def control_one_job(self, pid):
+        """ control the status of a single job with it's cluster id """
+        raise NotImplemented, 'No implementation of control_one_job in cluster type \'%s\'' % self.name
+
+    def get_jobs_identifier(self, path, second_path=None):
+        """get a unique run_name for all the jobs helps to identify the runs 
+        in the controller for some cluster."""
+        
+        raise NotImplemented, 'No implementation of get_jobs_identifier in cluster type \'%s\'' % self.name
+
+
+    #@check_interupt()
+    def wait(self, me_dir, fct, minimal_job=0, update_first=None):
+        """Wait that all job are finish.
+        if minimal_job set, then return if idle + run is lower than that number"""
+        
+        raise NotImplemented, 'No implementation of wait in cluster type \'%s\'' % self.name
+
+    def check_termination(self, job_id):
+        """Check the termination of the jobs with job_id and relaunch it if needed."""
+        
+        raise NotImplemented, 'No implementation of check_termination in cluster type \'%s\'' % self.name
+                    
+    #@check_interupt()
+    def launch_and_wait(self, prog, argument=[], cwd=None, stdout=None, 
+                        stderr=None, log=None, required_output=[], nb_submit=0,
+                        input_files=[], output_files=[]):
+        """launch one job on the cluster and wait for it"""
+        
+        raise NotImplemented, 'No implementation of launch_and_wait in cluster type \'%s\'' % self.name
+
+    def remove(self, *args, **opts):
+        """ """
+        raise NotImplemented, 'No implementation of remove in cluster type \'%s\'' % self.name
+
+    #@store_input()
+    def metasubmit(self, me_dir):
+        raise NotImplemented, 'No implementation of metasubmit in cluster type \'%s\'' % self.name
+
+
+
 from_name = {'condor':CondorCluster, 'pbs': PBSCluster, 'sge': SGECluster, 
              'lsf': LSFCluster, 'ge':GECluster, 'slurm': SLURMCluster, 
              'htcaas':HTCaaSCluster, 'htcaas2':HTCaaS2Cluster}

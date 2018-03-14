@@ -73,7 +73,7 @@ import models.model_reader as model_reader
 import models.import_ufo as import_ufo
 
 from madgraph.iolibs.files import ln    
-from madgraph import InvalidCmd, MadGraph5Error, MG5DIR, ReadWrite
+from madgraph import InvalidCmd, MadGraph5Error, MG5DIR, ReadWrite, MPI_RANK, MPI_SIZE, MPI_ACTIVE
 
 
 
@@ -829,16 +829,17 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         # In principle we want to start by recompiling the process output so as to make sure
         # that everything is up to date.
         self.synchronize(**launch_options)
-
-        # Create a run output directory
-        run_output_path = pjoin(self.me_dir,'Results','run_%s'%self.run_card['run_tag'])
-        suffix=''
-        suffix_number = 0
-        while os.path.exists(run_output_path+suffix):
-            suffix_number += 1
-            suffix = '_%d'%suffix_number
-        run_output_path = run_output_path+suffix
-        os.makedirs(run_output_path)
+        
+        if MPI_RANK==0:
+            # Create a run output directory
+            run_output_path = pjoin(self.me_dir,'Results','run_%s'%self.run_card['run_tag'])
+            suffix=''
+            suffix_number = 0
+            while os.path.exists(run_output_path+suffix):
+                suffix_number += 1
+                suffix = '_%d'%suffix_number
+            run_output_path = run_output_path+suffix
+            os.makedirs(run_output_path)
 
         # Setup parallelization
         self.configure_run_mode(self.options['run_mode'])
@@ -905,13 +906,14 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         logger.info('{:^100}'.format("%.5e +/- %.2e [pb]"%(xsec, error)),'$MG:color:BLUE')
         logger.info("="*100+"\n")
         
-        # Write the result in 'cross_sections.dat' of the result directory
-        xsec_summary = open(pjoin(run_output_path,'cross_sections.dat'),'w')
-        xsec_summary_lines = []        
-        xsec_summary_lines.append('%-30s%-30s%-30s'%('','Cross-section [pb]','MC uncertainty [pb]'))
-        xsec_summary_lines.append('%-30s%-30s%-30s'%('Total','%.8e'%xsec,'%.3e'%error))
-        xsec_summary.write('\n'.join(xsec_summary_lines))
-        xsec_summary.close()
+        if MPI_RANK==0:
+            # Write the result in 'cross_sections.dat' of the result directory
+            xsec_summary = open(pjoin(run_output_path,'cross_sections.dat'),'w')
+            xsec_summary_lines = []        
+            xsec_summary_lines.append('%-30s%-30s%-30s'%('','Cross-section [pb]','MC uncertainty [pb]'))
+            xsec_summary_lines.append('%-30s%-30s%-30s'%('Total','%.8e'%xsec,'%.3e'%error))
+            xsec_summary.write('\n'.join(xsec_summary_lines))
+            xsec_summary.close()
     
     def do_test_IR_limits(self, line, *args, **opt):
         """This function test that local subtraction counterterms match

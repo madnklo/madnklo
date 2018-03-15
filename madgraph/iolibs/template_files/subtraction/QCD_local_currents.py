@@ -311,8 +311,8 @@ class SomogyiChoices(object):
         try:
             alpha = mapping_variables['alpha' + str(parent)]
         except:
-            pC    = mapping_variables['pC'    + str(parent)]
-            Q     = mapping_variables['Q'     + str(parent)]
+            pC = mapping_variables['pC' + str(parent)]
+            Q = mapping_variables['Q']
             alpha = mappings.FinalRescalingMappingOne.alpha(pC, Q)
         # Include the counterterm only up to alpha_0
         return alpha > SomogyiChoices.alpha_0
@@ -331,7 +331,7 @@ class SomogyiChoices(object):
             alpha = mapping_variables['alpha' + str(parent)]
         except:
             pC    = mapping_variables['pC'    + str(parent)]
-            Q     = mapping_variables['Q'     + str(parent)]
+            Q     = mapping_variables['Q']
             alpha = mappings.FinalRescalingMappingOne.alpha(pC, Q)
         norm = (1 - alpha) ** (2 * (SomogyiChoices.d_0 - 1))
         if SomogyiChoices.divide_by_jacobian:

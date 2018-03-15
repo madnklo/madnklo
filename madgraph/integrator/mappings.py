@@ -769,7 +769,7 @@ class FinalLorentzMappingOne(FinalCollinearMapping):
         for j in children:
             if j != parent: # Bypass degenerate case of 1->1 splitting
                 del PS_point[j]
-        jacobian = alpha**(-3) * (Q2-pR2)/(Q2+pC2-pR2)
+        jacobian = 1. / alpha
         return {
             'jacobian':           jacobian,
             'pC'+str(parent):     pC,

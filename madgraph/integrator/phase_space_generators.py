@@ -273,17 +273,22 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
                 raise PhaseSpaceGeneratorError(
                     "Can only generate the decay phase-space of a particle at rest.")
 
-        if self.n_initial == 2:
-            if self.initial_masses[0] != 0. or self.initial_masses[1] != 0.:
-                raise InvalidCmd(
-                    "Phase-space of massive 2-particle collision not implemented yet (trivial though).")
-
         if self.n_initial == 1:
             output_momenta[0] = LorentzVector([self.initial_masses[0] , 0., 0., 0.])
             return
 
-        output_momenta[0] = LorentzVector([E_cm/2.0 , 0., 0., +E_cm/2.0])
-        output_momenta[1] = LorentzVector([E_cm/2.0 , 0., 0., -E_cm/2.0])
+        elif self.n_initial == 2:
+            if self.initial_masses[0] == 0. or self.initial_masses[1] == 0.:
+                output_momenta[0] = LorentzVector([E_cm/2.0 , 0., 0., +E_cm/2.0])
+                output_momenta[1] = LorentzVector([E_cm/2.0 , 0., 0., -E_cm/2.0])
+            else:
+                M1sq = self.initial_masses[0]**2
+                M2sq = self.initial_masses[1]**2
+                E1 = (E_cm**2+M1sq-M2sq)/ E_cm
+                E2 = (E_cm**2-M1sq+M2sq)/ E_cm
+                Z = math.sqrt(E_cm**4 - 2*E_cm**2*M1sq - 2*E_cm**2*M2sq + M1sq**2 - 2*M1sq*M2sq + M2sq**2) / E_cm
+                output_momenta[0] = LorentzVector([E1/2.0 , 0., 0., +Z/2.0])
+                output_momenta[1] = LorentzVector([E2/2.0 , 0., 0., -Z/2.0])
         return
 
     def get_PS_point(self, random_variables):

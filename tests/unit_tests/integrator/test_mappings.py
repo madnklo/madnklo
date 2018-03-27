@@ -338,22 +338,28 @@ class MappingTest(object):
         n_recoilers = random.randint(pars['min_recoilers'], pars['max_recoilers'])
         n_unchanged = random.randint(0, pars['max_unchanged'])
         n_coll_per_set = [
-            random.randint(2, pars['max_unresolved_per_set']+1)
+            random.randint(
+                pars['min_unresolved_per_set']+1, pars['max_unresolved_per_set']+1)
             for _ in range(n_coll_sets) ]
         n_soft_per_set = [
-            random.randint(1, pars['max_unresolved_per_set'])
+            random.randint(
+                pars['min_unresolved_per_set'], pars['max_unresolved_per_set'])
             for _ in range(n_soft_sets) ]
         initial_sets = pars.get('initial_sets', 0)
         n_collinears_1 = 1
         n_collinears_2 = 1
         if initial_sets == 1:
             if bool(random.getrandbits(1)):
-                n_collinears_1 = random.randint(2, pars['max_unresolved_per_set']+1)
+                n_collinears_1 = random.randint(
+                    pars['min_unresolved_per_set']+1, pars['max_unresolved_per_set']+1)
             else:
-                n_collinears_2 = random.randint(2, pars['max_unresolved_per_set']+1)
+                n_collinears_2 = random.randint(
+                    pars['min_unresolved_per_set']+1, pars['max_unresolved_per_set']+1)
         elif initial_sets > 1:
-            n_collinears_1 = random.randint(2, pars['max_unresolved_per_set']+1)
-            n_collinears_2 = random.randint(2, pars['max_unresolved_per_set']+1)
+            n_collinears_1 = random.randint(
+                pars['min_unresolved_per_set']+1, pars['max_unresolved_per_set']+1)
+            n_collinears_2 = random.randint(
+                pars['min_unresolved_per_set']+1, pars['max_unresolved_per_set']+1)
         # Compute the total number of particles in the final state
         n_tot = sum((n_collinears_1 + n_collinears_2,
                      sum(n_coll_per_set) + sum(n_soft_per_set),
@@ -367,6 +373,7 @@ class MappingTest(object):
         shuffled_numbers = range(3, n_tot+1)
         random.shuffle(shuffled_numbers)
         pars['structure'] = []
+        pars['parents'] = []
         n_set = 1
         # Build the structure of the set collinear to 1 (if any)
         if n_collinears_1 > 1:
@@ -379,6 +386,7 @@ class MappingTest(object):
             legs_in_this_set = subtraction.SubtractionLegSet(legs_in_this_set)
             pars['structure'] += [ subtraction.CollStructure(legs=legs_in_this_set), ]
             pars['momenta_dict'][n_tot + n_set] = frozenset([1, ] + numbers_collinears_1)
+            pars['parents'].append(n_tot + n_set)
             n_set += 1
         # Build the structure of the set collinear to 2 (if any)
         if n_collinears_2 > 1:
@@ -391,6 +399,7 @@ class MappingTest(object):
             legs_in_this_set = subtraction.SubtractionLegSet(legs_in_this_set)
             pars['structure'] += [ subtraction.CollStructure(legs=legs_in_this_set), ]
             pars['momenta_dict'][n_tot + n_set] = frozenset([2, ] + numbers_collinears_2)
+            pars['parents'].append(n_tot + n_set)
             n_set += 1
         # Build the structure of final-collinear sets
         for n_in_this_set in n_coll_per_set:
@@ -401,7 +410,10 @@ class MappingTest(object):
                 for i in numbers_in_this_set)
             pars['structure'] += [subtraction.CollStructure(legs=legs_in_this_set), ]
             if n_in_this_set != 1:
-                pars['momenta_dict'][n_tot + n_set + 1] = frozenset(numbers_in_this_set)
+                pars['momenta_dict'][n_tot + n_set] = frozenset(numbers_in_this_set)
+                pars['parents'].append(n_tot + n_set)
+            else:
+                pars['parents'].append(numbers_in_this_set[0])
             n_set += 1
         # Build the structure of soft sets
         for n_in_this_set in n_soft_per_set:
@@ -452,6 +464,13 @@ class MappingTest(object):
             # Generate a random setup
             MappingTest.randomize(pars)
             my_PS_point = MappingTest.generate_PS(pars)
+            pars['masses'] = dict()
+            for parent in pars['parents']:
+                if pars['masses']:
+                    p = sum(my_PS_point[child] for child in pars['momenta_dict'][parent])
+                    pars['masses']['s'+str(parent)] = random.random()*p.square()
+                else:
+                    pars['masses']['s'+str(parent)] = 0.
             # Rotate it to avoid zero components
             for key in my_PS_point.keys():
                 my_PS_point[key].rotoboost(MappingTest.v1, MappingTest.v2)
@@ -460,14 +479,49 @@ class MappingTest(object):
             # Compute collinear variables
             variables = dict()
             lres = pars['mapping'].map_to_lower_multiplicity(
-                my_PS_point, pars['structure'], pars['momenta_dict'], variables )
+                my_PS_point, pars['structure'], pars['momenta_dict'],
+                variables, True, pars['masses'] )
             hres = pars['mapping'].map_to_higher_multiplicity(
-                my_PS_point, pars['structure'], pars['momenta_dict'], variables )
-            # print pars['structure'], pars['unchanged']
-            # print my_PS_point
-            # print old_PS_point
+                my_PS_point, pars['structure'], pars['momenta_dict'],
+                variables, True )
             assertDictAlmostEqual(test, my_PS_point, old_PS_point)
             assertDictAlmostEqual(test, lres, hres)
+
+#=========================================================================================
+# Test invariant mass mappings
+#=========================================================================================
+
+class FinalZeroMassesMappingTest(unittest.TestCase):
+    """Test class for FinalZeroMassesMapping."""
+
+    # Test settings
+    pars = {
+        'mapping': mappings.FinalZeroMassesMapping(),
+        'min_coll_sets': 2, 'max_coll_sets': 5,
+        'min_recoilers': 0, 'max_recoilers': 0,
+        'max_unchanged': 0, 'masses': None,
+        'min_unresolved_per_set': 0, 'max_unresolved_per_set': 0,
+        'supports_massive_recoilers': False }
+
+    def test_FinalZeroMassesMapping_invertible(self):
+
+        MappingTest.test_invertible(self.pars, self)
+
+class FinalMassesMappingTest(unittest.TestCase):
+    """Test class for FinalMassesMapping."""
+
+    # Test settings
+    pars = {
+        'mapping': mappings.FinalMassesMapping(),
+        'min_coll_sets': 2, 'max_coll_sets': 5,
+        'min_recoilers': 0, 'max_recoilers': 0,
+        'max_unchanged': 0, 'masses': True,
+        'min_unresolved_per_set': 0, 'max_unresolved_per_set': 0,
+        'supports_massive_recoilers': False }
+
+    def test_FinalMassesMapping_invertible(self):
+
+        MappingTest.test_invertible(self.pars, self)
 
 #=========================================================================================
 # Test final-collinear mappings
@@ -481,8 +535,8 @@ class FinalRescalingMappingOneTest(unittest.TestCase):
         'mapping': mappings.FinalRescalingMappingOne(),
         'min_coll_sets': 1, 'max_coll_sets': 1,
         'min_recoilers': 1, 'max_recoilers': 3,
-        'max_unchanged': 3,
-        'max_unresolved_per_set': 4,
+        'max_unchanged': 3, 'masses': None,
+        'min_unresolved_per_set': 1, 'max_unresolved_per_set': 4,
         'supports_massive_recoilers': False }
 
     def test_FinalRescalingMappingOne_invertible(self):
@@ -497,13 +551,61 @@ class FinalLorentzMappingOneTest(unittest.TestCase):
         'mapping': mappings.FinalLorentzMappingOne(),
         'min_coll_sets': 1, 'max_coll_sets': 1,
         'min_recoilers': 1, 'max_recoilers': 5,
-        'max_unchanged': 3,
-        'max_unresolved_per_set': 4,
+        'max_unchanged': 3, 'masses': None,
+        'min_unresolved_per_set': 1, 'max_unresolved_per_set': 4,
         'supports_massive_recoilers': True }
 
     def test_FinalLorentzMappingOne_invertible(self):
 
         MappingTest.test_invertible(self.pars, self)
+
+class FinalGroupingMapping(unittest.TestCase):
+    """Test class for FinalGroupingMapping."""
+
+    # Test settings
+    pars_min_reco_1 = {
+        'mapping': mappings.FinalGroupingMapping(),
+        'min_coll_sets': 1, 'max_coll_sets': 3,
+        'min_recoilers': 1, 'max_recoilers': 4,
+        'max_unchanged': 3, 'masses': True,
+        'min_unresolved_per_set': 0, 'max_unresolved_per_set': 3,
+        'supports_massive_recoilers': True }
+    pars_min_coll_2 = {
+        'mapping': mappings.FinalGroupingMapping(),
+        'min_coll_sets': 2, 'max_coll_sets': 3,
+        'min_recoilers': 0, 'max_recoilers': 3,
+        'max_unchanged': 3, 'masses': True,
+        'min_unresolved_per_set': 0, 'max_unresolved_per_set': 3,
+        'supports_massive_recoilers': True }
+
+    def test_FinalGroupingMapping_invertible(self):
+
+        MappingTest.test_invertible(self.pars_min_reco_1, self)
+        MappingTest.test_invertible(self.pars_min_coll_2, self)
+
+class FinalLorentzMapping(unittest.TestCase):
+    """Test class for FinalLorentzMapping."""
+
+    # Test settings
+    pars_min_reco_1 = {
+        'mapping': mappings.FinalLorentzMapping(),
+        'min_coll_sets': 1, 'max_coll_sets': 3,
+        'min_recoilers': 1, 'max_recoilers': 4,
+        'max_unchanged': 3, 'masses': True,
+        'min_unresolved_per_set': 0, 'max_unresolved_per_set': 3,
+        'supports_massive_recoilers': True }
+    pars_min_coll_2 = {
+        'mapping': mappings.FinalLorentzMapping(),
+        'min_coll_sets': 2, 'max_coll_sets': 3,
+        'min_recoilers': 0, 'max_recoilers': 3,
+        'max_unchanged': 3, 'masses': True,
+        'min_unresolved_per_set': 0, 'max_unresolved_per_set': 3,
+        'supports_massive_recoilers': True }
+
+    def test_FinalLorentzMapping_invertible(self):
+
+        MappingTest.test_invertible(self.pars_min_reco_1, self)
+        MappingTest.test_invertible(self.pars_min_coll_2, self)
 
 #=========================================================================================
 # Test initial-collinear mappings
@@ -516,10 +618,10 @@ class InitialLorentzMappingOneTest(unittest.TestCase):
     pars = {
         'mapping': mappings.InitialLorentzMappingOne(),
         'initial_sets': 1,
-        'max_unresolved_per_set': 4,
+        'min_unresolved_per_set': 1, 'max_unresolved_per_set': 4,
         'min_recoilers': 1, 'max_recoilers': 5,
-        'max_unchanged': 3,
-        'supports_massive_recoilers': True}
+        'max_unchanged': 3, 'masses': None,
+        'supports_massive_recoilers': True }
 
     def test_InitialLorentzMappingOne_invertible(self):
 
@@ -537,8 +639,8 @@ class SomogyietalSoftTest(unittest.TestCase):
         'mapping': mappings.MappingSomogyietalSoft(),
         'min_soft_sets': 1, 'max_soft_sets': 3,
         'min_recoilers': 2, 'max_recoilers': 5,
-        'max_unchanged': 3,
-        'max_unresolved_per_set': 4,
+        'max_unchanged': 3, 'masses': None,
+        'min_unresolved_per_set': 1, 'max_unresolved_per_set': 4,
         'supports_massive_recoilers': False }
 
     def test_SomogyietalSoft_invertible(self):

@@ -218,7 +218,7 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
         if n==1: 
             # The jacobian from \delta(s_hat - m_final**2) present in 2->1 convolution
             # must typically be accounted for in the MC integration framework since we
-            # don't have access to shat here, so we just return 1.
+            # don't have access to that here, so we just return 1.
             return 1.
 
         return math.pow((math.pi/2.0),n-1)*\

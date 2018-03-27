@@ -1,2 +1,8 @@
 TestME7_IR_Limits
 SubtractionCurrentTest
+FinalZeroMassesMappingPSVolumeTest
+FinalMassesMappingPSVolumeTest
+FinalRescalingMappingOnePSVolumeTest
+FinalLorentzMappingOnePSVolumeTest
+FinalGroupingMappingPSVolumeTest
+FinalLorentzMappingPSVolumeTest

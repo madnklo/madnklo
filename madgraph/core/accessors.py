@@ -303,8 +303,9 @@ class VirtualMEAccessor(object):
         self.ME_dict_key = ProcessKey(process)
         
         if not os.path.isabs(root_path):
-            raise MadGraph5Error("The initialization of VirtualMEAccessor necessitates an "+
-                                                        "absolute path for root_path.")
+            raise MadGraph5Error(
+                "The initialization of VirtualMEAccessor necessitates an " +
+                "absolute path for root_path.")
         self.root_path = root_path
         
         # Finally instantiate a cache for this MEaccessor.
@@ -516,9 +517,6 @@ class MEEvaluation(dict):
 class MEResult(dict):
     """ A class to store the different results of MatrixElement call for one specific PS point / scale."""
 
-    def __init(self, *args, **opts):
-        super(MEResult, self).__init__(*args, **opts)        
-        
     def nice_string(self):
         """ Print out all the results available in a nice form."""
         # First lists the result with the least amount of attributes specified
@@ -733,8 +731,9 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
         self.instantiation_options = instantiation_options
         
         if not os.path.isabs(root_path):
-            raise MadGraph5Error("The initialization of SubtractionCurrentAccessor necessitates an "+
-                                                        "absolute path for root_path.")
+            raise MadGraph5Error(
+                "The initialization of SubtractionCurrentAccessor necessitates an " +
+                "absolute path for root_path.")
         self.root_path = root_path
         
         # Finally instantiate a cache for this SubtractionCurrentAccessor. 

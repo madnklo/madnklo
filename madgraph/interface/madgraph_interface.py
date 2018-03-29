@@ -1428,6 +1428,18 @@ This will take effect only in a NEW terminal
                 raise self.InvalidCmd('ignore_six_quark_processes needs ' + \
                                       'a multiparticle name as argument')
 
+        if args[0] in ['subtraction_currents_scheme']:
+            if args[1] not in self._all_subtraction_currents_schemes:
+                raise self.InvalidCmd(
+                    'subtraction_currents_scheme should be one of: ' +
+                    ', '.join(self._all_subtraction_currents_schemes))
+
+        if args[0] in ['subtraction_mappings_scheme']:
+            if args[1] not in self._all_subtraction_mappings_schemes:
+                raise self.InvalidCmd(
+                    'subtraction_mappings_scheme should be one of: ' +
+                    ', '.join(self._all_subtraction_mappings_schemes))
+
         if args[0] in ['stdout_level']:
             if args[1] not in ['DEBUG','INFO','WARNING','ERROR','CRITICAL'] and \
                                                           not args[1].isdigit():
@@ -1508,8 +1520,7 @@ This will take effect only in a NEW terminal
 
 
     def check_output(self, args, default='madevent'):
-        """ check the validity of the line"""
-
+        """Check the validity of the line."""
 
         if args and args[0] in self._export_formats:
             self._export_format = args.pop(0)
@@ -1547,7 +1558,8 @@ This will take effect only in a NEW terminal
         if self._curr_contribs:
             if self._export_format != default:
                 raise self.InvalidCmd(
-                  'Export format %s is not compatible with MadEvent7 type of process generation.'%self._export_format)
+                    'Export format %s is not compatible ' % self._export_format +
+                    'with MadEvent7 type of process generation.' )
             else:
                 self._export_format = 'ME7'
 
@@ -1567,7 +1579,6 @@ This will take effect only in a NEW terminal
         if self._export_format == 'aloha':
             return
 
-
         if not self._curr_amps and not self._curr_contribs:
             text = 'No processes generated. Please generate a process first.'
             raise self.InvalidCmd(text)
@@ -1575,8 +1586,8 @@ This will take effect only in a NEW terminal
         if args and args[0][0] != '-':
             # This is a path
             path = args.pop(0)
-            forbiden_chars = ['>','<',';','&']
-            for char in forbiden_chars:
+            forbidden_chars = ['>','<',';','&']
+            for char in forbidden_chars:
                 if char in path:
                     raise self.InvalidCmd('%s is not allowed in the output path' % char)
             # Check for special directory treatment
@@ -1589,7 +1600,7 @@ This will take effect only in a NEW terminal
             elif path != 'auto':
                 if path in ['HELAS', 'tests', 'MadSpin', 'madgraph', 'mg5decay', 'vendor']:
                     if os.getcwd() == MG5DIR:
-                        raise self.InvalidCmd, "This name correspond to a buildin MG5 directory. Please choose another name"
+                        raise self.InvalidCmd, "This name correspond to a builtin MG5 directory. Please choose another name"
                 self._export_dir = path
             elif path == 'auto':
                 if self.options['pythia8_path']:
@@ -1610,7 +1621,6 @@ This will take effect only in a NEW terminal
                     self._export_dir = '.'
 
         self._export_dir = os.path.realpath(self._export_dir)
-
 
     def check_compute_widths(self, args):
         """ check and format calculate decay width:
@@ -1782,8 +1792,7 @@ This will take effect only in a NEW terminal
                 self._export_dir = auto_path(i)
                 break
         if not self._export_dir:
-            raise self.InvalidCmd('Can\'t use auto path,' + \
-                                  'more than 500 dirs already')
+            raise self.InvalidCmd('Can\'t use auto path, more than 500 dirs already')
 
 
 #===============================================================================
@@ -2498,8 +2507,12 @@ class CompleteForCmd(cmd.CompleteCmd):
                 return self.list_completion(text, self._multiparticles.keys())
             elif args[1].lower() == 'ewscheme':
                 return self.list_completion(text, ["external"])
+            elif args[1].lower() == 'subtraction_currents_scheme':
+                return self.list_completion(text, self._all_subtraction_currents_schemes)
+            elif args[1].lower() == 'subtraction_mappings_scheme':
+                return self.list_completion(text, self._all_subtraction_mappings_schemes)
             elif args[1] == 'gauge':
-                return self.list_completion(text, ['unitary', 'Feynman','default'])
+                return self.list_completion(text, ['unitary', 'Feynman', 'default'])
             elif args[1] == 'OLP':
                 return self.list_completion(text, MadGraphCmd._OLP_supported)
             elif args[1] == 'output_dependencies':
@@ -2796,67 +2809,73 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
     _valid_amp_so_types = ['=','<=', '==', '>']
     _OLP_supported = ['MadLoop', 'GoSam']
     _output_dependencies_supported = ['external', 'internal','environment_paths']
+    _all_subtraction_currents_schemes = ['colorful']
+    _all_subtraction_mappings_schemes = ['colorful']
 
     # The three options categories are treated on a different footage when a
     # set/save configuration occur. current value are kept in self.options
-    options_configuration = {'pythia8_path': './HEPTools/pythia8',
-                       'hwpp_path': './herwigPP',
-                       'thepeg_path': './thepeg',
-                       'hepmc_path': './hepmc',
-                       'madanalysis_path': './MadAnalysis',
-                       'madanalysis5_path':'./HEPTools/madanalysis5/madanalysis5',
-                       'pythia-pgs_path':'./pythia-pgs',
-                       'td_path':'./td',
-                       'delphes_path':'./Delphes',
-                       'exrootanalysis_path':'./ExRootAnalysis',
-                       'syscalc_path': './SysCalc',
-                       'timeout': 60,
-                       'web_browser':None,
-                       'eps_viewer':None,
-                       'text_editor':None,
-                       'fortran_compiler':None,
-                       'f2py_compiler':None,
-                       'cpp_compiler':None,
-                       'auto_update':7,
-                       'cluster_type': 'condor',
-                       'cluster_queue': None,
-                       'cluster_status_update': (600, 30),
-                       'fastjet':'fastjet-config',
-                       'pjfry':'auto',
-                       'golem':'auto',
-                       'samurai':None,
-                       'ninja':'./HEPTools/lib',
-                       'collier':'./HEPTools/lib',
-                       'lhapdf':'lhapdf-config',
-                       'applgrid':'applgrid-config',
-                       'amcfast':'amcfast-config',
-                       'cluster_temp_path':None,
-                       'mg5amc_py8_interface_path': './HEPTools/MG5aMC_PY8_interface',
-                       'cluster_local_path': None,
-                       'OLP': 'MadLoop',
-                       'cluster_nb_retry':1,
-                       'cluster_retry_wait':300,
-                       'cluster_size':100,
-                       'output_dependencies':'external'
-                       }
+    options_configuration = {
+        'pythia8_path': './HEPTools/pythia8',
+        'hwpp_path': './herwigPP',
+        'thepeg_path': './thepeg',
+        'hepmc_path': './hepmc',
+        'madanalysis_path': './MadAnalysis',
+        'madanalysis5_path':'./HEPTools/madanalysis5/madanalysis5',
+        'pythia-pgs_path':'./pythia-pgs',
+        'td_path':'./td',
+        'delphes_path':'./Delphes',
+        'exrootanalysis_path':'./ExRootAnalysis',
+        'syscalc_path': './SysCalc',
+        'timeout': 60,
+        'web_browser':None,
+        'eps_viewer':None,
+        'text_editor':None,
+        'fortran_compiler':None,
+        'f2py_compiler':None,
+        'cpp_compiler':None,
+        'auto_update':7,
+        'cluster_type': 'condor',
+        'cluster_queue': None,
+        'cluster_status_update': (600, 30),
+        'fastjet':'fastjet-config',
+        'pjfry':'auto',
+        'golem':'auto',
+        'samurai':None,
+        'ninja':'./HEPTools/lib',
+        'collier':'./HEPTools/lib',
+        'lhapdf':'lhapdf-config',
+        'applgrid':'applgrid-config',
+        'amcfast':'amcfast-config',
+        'cluster_temp_path':None,
+        'mg5amc_py8_interface_path': './HEPTools/MG5aMC_PY8_interface',
+        'cluster_local_path': None,
+        'OLP': 'MadLoop',
+        'cluster_nb_retry':1,
+        'cluster_retry_wait':300,
+        'cluster_size':100,
+        'output_dependencies':'external'
+    }
 
-    options_madgraph= {'group_subprocesses': 'Auto',
-                          'ignore_six_quark_processes': False,
-                          'low_mem_multicore_nlo_generation': False,
-                          'complex_mass_scheme': False,
-                          'gauge':'unitary',
-                          'stdout_level':None,
-                          'loop_optimized_output':True,
-                          'loop_color_flows':False,
-                          'max_npoint_for_channel': 0 # 0 means automaticly adapted
-                        }
+    options_madgraph= {
+        'group_subprocesses': 'Auto',
+        'ignore_six_quark_processes': False,
+        'low_mem_multicore_nlo_generation': False,
+        'complex_mass_scheme': False,
+        'gauge': 'unitary',
+        'stdout_level': None,
+        'loop_optimized_output': True,
+        'loop_color_flows': False,
+        'max_npoint_for_channel': 0, # 0 means automatically adapted
+        'subtraction_currents_scheme': 'colorful',
+        'subtraction_mappings_scheme': 'colorful'
+    }
 
-    options_madevent = {'automatic_html_opening':True,
-                         'run_mode':2,
-                         'nb_core': None,
-                         'notification_center': True
-                         }
-
+    options_madevent = {
+        'automatic_html_opening':True,
+        'run_mode':2,
+        'nb_core': None,
+        'notification_center': True
+    }
 
     # Variables to store object information
     _curr_model = None  #base_objects.Model()
@@ -7809,6 +7828,7 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
                 logger.warning("Turning off option 'loop_color_flows'"+\
                     " since it is not available for non-optimized loop output.")
                 self.do_set('loop_color_flows False',log=False)
+
         elif args[0] == 'loop_color_flows':
             if log:
                     logger.info('set loop color flows to %s' % args[1])
@@ -7914,6 +7934,12 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
                 raise self.InvalidCmd('expected bool for notification_center')
         elif args[0] in ['cluster_queue']:
             self.options[args[0]] = args[1].strip()
+        elif args[0] in ['subtraction_currents_scheme']:
+            # check that currents and mappings schemes are consistent
+            self.options[args[0]] = args[1]
+        elif args[0] in ['subtraction_mappings_scheme']:
+            # check that currents and mappings schemes are consistent
+            self.options[args[0]] = args[1]
         elif args[0] in self.options:
             if args[1] in ['None','True','False']:
                 self.options[args[0]] = eval(args[1])
@@ -8020,18 +8046,18 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
         # exporter: which exporter to use (v4/cpp/...)
         # output: [Template/dir/None] copy the Template, just create dir or do nothing
         config = {}
-        config['madevent'] =       {'check': True,  'exporter': 'v4',  'output':'Template'}
-        config['matrix'] =         {'check': False, 'exporter': 'v4',  'output':'dir'}
-        config['standalone'] =     {'check': True, 'exporter': 'v4',  'output':'Template'}
-        config['standalone_msF'] = {'check': False, 'exporter': 'v4',  'output':'Template'}
-        config['standalone_msP'] = {'check': False, 'exporter': 'v4',  'output':'Template'}
-        config['standalone_rw'] =  {'check': False, 'exporter': 'v4',  'output':'Template'}
+        config['madevent'] =       {'check': True,  'exporter': 'v4',  'output': 'Template'}
+        config['matrix'] =         {'check': False, 'exporter': 'v4',  'output': 'dir'}
+        config['standalone'] =     {'check': True,  'exporter': 'v4',  'output': 'Template'}
+        config['standalone_msF'] = {'check': False, 'exporter': 'v4',  'output': 'Template'}
+        config['standalone_msP'] = {'check': False, 'exporter': 'v4',  'output': 'Template'}
+        config['standalone_rw'] =  {'check': False, 'exporter': 'v4',  'output': 'Template'}
         config['standalone_cpp'] = {'check': False, 'exporter': 'cpp', 'output': 'Template'}
-        config['pythia8'] =        {'check': False, 'exporter': 'cpp', 'output':'dir'}
-        config['matchbox_cpp'] =   {'check': True, 'exporter': 'cpp', 'output': 'Template'}
-        config['matchbox'] =       {'check': True, 'exporter': 'v4',  'output': 'Template'}
-        config['madweight'] =      {'check': True, 'exporter': 'v4',  'output':'Template'}
-        config['ME7'] =            {'check': True, 'exporter': 'ME7',  'output':'Template'}
+        config['pythia8'] =        {'check': False, 'exporter': 'cpp', 'output': 'dir'}
+        config['matchbox_cpp'] =   {'check': True,  'exporter': 'cpp', 'output': 'Template'}
+        config['matchbox'] =       {'check': True,  'exporter': 'v4',  'output': 'Template'}
+        config['madweight'] =      {'check': True,  'exporter': 'v4',  'output': 'Template'}
+        config['ME7'] =            {'check': True,  'exporter': 'ME7', 'output': 'Template'}
 
         if self._export_format == 'plugin':
             options = {'check': self._export_plugin.check, 'exporter':self._export_plugin.exporter, 'output':self._export_plugin.output}
@@ -8099,21 +8125,22 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
 """)
                     group_processes = False
 
-        #Exporter + Template
+        # Exporter + Template
         if options['exporter'] == 'v4':
-            self._curr_exporter = export_v4.ExportV4Factory(self, noclean, 
-                                   group_subprocesses=group_processes, additional_options=output_options)
+            self._curr_exporter = export_v4.ExportV4Factory(
+                self, noclean,
+                group_subprocesses=group_processes, additional_options=output_options )
         elif options['exporter'] == 'ME7':
-            self._curr_exporter = export_ME7.ME7Exporter(self, noclean, group_subprocesses=group_processes)
-
+            self._curr_exporter = export_ME7.ME7Exporter(
+                self, noclean, group_subprocesses=group_processes )
         elif options['exporter'] == 'cpp':
-            self._curr_exporter = export_cpp.ExportCPPFactory(self, group_subprocesses=group_processes)
+            self._curr_exporter = export_cpp.ExportCPPFactory(
+                self, group_subprocesses=group_processes )
         
         self._curr_exporter.pass_information_from_cmd(self)
 
         if options['output'] == 'Template':
             self._curr_exporter.copy_template(self._curr_model)
-
         elif options['output'] == 'dir' and not os.path.isdir(self._export_dir):
             os.makedirs(self._export_dir)
 
@@ -8141,8 +8168,7 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
         self._export_dir = None
 
     # Export a matrix element
-    def export(self, nojpeg = False, main_file_name = "", group_processes=True, 
-                                                                       args=[]):
+    def export(self, nojpeg=False, main_file_name="", group_processes=True, args=[]):
         """Export a generated amplitude to file."""
 
         # For MadEvent7 output we delegate this task to the ME7 exporter itself
@@ -8150,7 +8176,7 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
             self._curr_exporter.export(nojpeg, args=args)
             return
 
-        # Define the helas call  writer
+        # Define the helas call writer
         if self._curr_exporter.exporter == 'cpp':       
             self._curr_helas_model = helas_call_writers.CPPUFOHelasCallWriter(self._curr_model)
         elif self._model_v4_path:

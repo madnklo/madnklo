@@ -1044,9 +1044,6 @@ class FinalLorentzMappingOne(FinalCollinearMapping):
         Q2  = Q.square()
         qR2 = qR.square()
         qC_perp = qC - ((Q2-qR2)/(2*Q2)) * Q
-        # misc.sprint('%.8e, %.8e, %.8e' % (Q2, qR2, pC2))
-        # misc.sprint('%.8e' % (Q2**2 + qR2 ** 2 + pC2 **2))
-        # misc.sprint('%.8e' % Kaellen(Q2, qR2, pC2))
         if (qR2 ** 0.5) > (Q2 ** 0.5 - pC2 ** 0.5):
             raise FailedMapping
         alpham1 = math.sqrt(Kaellen(Q2, qR2, pC2)) / (Q2-qR2)

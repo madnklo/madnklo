@@ -191,13 +191,15 @@ class Contribution(object):
         self.topologies_to_processes = None
         
     def add_integrated_counterterm(self, integrated_CT_properties):
-        """ By default, do not support adding integrated counterterms."""
+        """By default, do not support adding integrated counterterms."""
         
-        raise MadGraph5Error("The contribution of type %s cannot receive"%type(self)+
-                                            " contributions from integrated counterterms.")
+        raise MadGraph5Error(
+            "The contribution of type %s cannot receive" % type(self) +
+            " contributions from integrated counterterms." )
 
     def set_export_dir(self, prefix):
-        """ Assigns an export directory name."""
+        """Assigns an export directory name."""
+
         dir_name = self.contribution_definition.get_shell_name()
         # Use the name of the first process since we can't access the name of the ProcessDefinition
         dir_name += '_%s'%self.amplitudes[0].get('process').shell_string(
@@ -215,17 +217,21 @@ class Contribution(object):
         noclean specifies what to do in case the output directory already exists and group_subprocesses
         whether the exporter should attempt to group identical subprocesses.
         """
+
         self.set_export_dir(cmd_interface._export_dir)
         self.exporter = export_v4.ExportV4Factory(
-                cmd_interface, noclean, output_type=self.output_type, group_subprocesses=group_subprocesses,
-                curr_amps = self.amplitudes,
-                export_dir = self.export_dir,
-                format = self.format,
-                additional_options = self.additional_exporter_options)
+            cmd_interface, noclean, output_type=self.output_type,
+            group_subprocesses=group_subprocesses,
+            curr_amps=self.amplitudes,
+            export_dir=self.export_dir,
+            format=self.format,
+            additional_options=self.additional_exporter_options)
 
     def copy_template(self, model):
-        """ Copy the template structure for that contribution. Quite often, this limits itself to aksing its
-        exporter to do this."""
+        """Copy the template structure for that contribution.
+        Quite often, this limits itself to asking its exporter to do this.
+        """
+
         ret_value =  self.exporter.copy_template(model)
          # Make sure that this contribution's output as an __init__ file
         if not os.path.isfile(pjoin(self.export_dir, '__init__.py')):
@@ -233,8 +239,9 @@ class Contribution(object):
         return ret_value
 
     def pass_information_from_cmd(self, cmd_interface):
-        """ Pass information from the command_interface to this contribution. Most of the time, this only amounts
+        """Pass information from the command_interface to this contribution. Most of the time, this only amounts
         to passing information to the active exporter."""
+
         return self.exporter.pass_information_from_cmd(cmd_interface)
 
     def generate_matrix_elements(self, group_processes=True):
@@ -245,9 +252,9 @@ class Contribution(object):
         ndiags = 0
         
         if group_processes:
-            dc_amps = diagram_generation.DecayChainAmplitudeList(\
+            dc_amps = diagram_generation.DecayChainAmplitudeList(
                 [amp for amp in self.amplitudes if isinstance(amp, diagram_generation.DecayChainAmplitude)])
-            non_dc_amps = diagram_generation.AmplitudeList(\
+            non_dc_amps = diagram_generation.AmplitudeList(
                 [amp for amp in self.amplitudes if not isinstance(amp, diagram_generation.DecayChainAmplitude)])
             subproc_groups = group_subprocs.SubProcessGroupList()
             matrix_elements_opts = {'optimized_output': self.options['loop_optimized_output']}
@@ -553,18 +560,22 @@ class Contribution(object):
         MEAccessors = []
         for process_key, (defining_process, mapped_processes) in self.get_processes_map().items():
             # The PDGs of the hashed representations correspond to entry [0][0]
-            mapped_process_pdgs = [ (proc.get_initial_ids(), proc.get_final_ids()) 
-                                                            for proc in mapped_processes ]
-            proc_dir = pjoin(self.export_dir,'SubProcesses','P%s'%
-                                                   self.process_dir_name(defining_process))
-
+            mapped_process_pdgs = [
+                (proc.get_initial_ids(), proc.get_final_ids())
+                for proc in mapped_processes ]
+            proc_dir = pjoin(
+                self.export_dir, 'SubProcesses',
+                'P%s' % self.process_dir_name(defining_process) )
             if not os.path.isdir(proc_dir):
-                raise MadGraph5Error("Cannot find the process directory '%s' for process %s."%
-                                             ( proc_dir, defining_process.nice_string() ) )
+                raise MadGraph5Error(
+                    "Cannot find the process directory '%s' for process %s." %
+                    (proc_dir, defining_process.nice_string()) )
 
-            f2py_load_path = (os.path.dirname(self.export_dir), 
-                        '%s.matrix_%s_py'%( os.path.basename(self.export_dir), 
-                                                self.process_dir_name(defining_process) ) )
+            f2py_load_path = (
+                os.path.dirname(self.export_dir),
+                '%s.matrix_%s_py' % (
+                    os.path.basename(self.export_dir),
+                    self.process_dir_name(defining_process) ) )
             slha_card_path = pjoin(self.export_dir,'Cards','param_card.dat')
             if os.path.isdir(pjoin(self.export_dir,'SubProcesses','MadLoop5_resources')):
                 madloop_resources_path = pjoin(self.export_dir,'SubProcesses','MadLoop5_resources')
@@ -573,17 +584,17 @@ class Contribution(object):
                 
             MEAccessors.append(accessors.VirtualMEAccessor(
                 defining_process, 
-                f2py_load_path, 
+                f2py_load_path,
                 slha_card_path,
                 madloop_resources_path=madloop_resources_path,
-                mapped_pdgs = mapped_process_pdgs, 
-                root_path = root_path,
-                compile_if_necessary = False,
+                mapped_pdgs=mapped_process_pdgs,
+                root_path=root_path,
+                compile_if_necessary=False,
             ) )
 
         # Only allow overwriting accessors if processes were not grouped
-        all_MEAccessors.add_MEAccessors(MEAccessors, 
-                                          allow_overwrite = (not self.group_subprocesses) )
+        all_MEAccessors.add_MEAccessors(
+            MEAccessors, allow_overwrite=(not self.group_subprocesses) )
 
     def can_processes_be_integrated_together(self, processA, processB):
         """ Investigates whether processA and processB can be integrated together for this contribution."""
@@ -639,36 +650,38 @@ class Contribution(object):
         pass
 
     def remove_superfluous_content(self):
-        """ At the end of the export of this contributions, remove extra files not desired/necessary. """
+        """At the end of the export of this contributions,
+        remove extra files not desired/necessary.
+        """
         
-        dirs_to_remove = [ pjoin(self.export_dir, 'Cards') ]
-        
+        dirs_to_remove  = [ pjoin(self.export_dir, 'Cards') ]
         files_to_remove = [ pjoin(self.export_dir, 'Source','make_opts') ]
         
         for dir in dirs_to_remove:
             if os.path.isdir(dir):
                 shutil.rmtree(dir)
             elif os.path.islink(dir):
-                os.remove(dir)                
-        
-        if file in files_to_remove:
-            if os.path.isfile(file) or os.path.islink(file):
-                os.remove(file)                
+                os.remove(dir)
+        for f in files_to_remove:
+            if os.path.isfile(f) or os.path.islink(f):
+                os.remove(f)
 
     def finalize(self, flaglist=[], interface_history=[]):
         """ Finalize the output of the code necessary for this contribution."""
         
         # WARNING: It would be ideal to use the same DHELAS output for all contributions.
-        # This should be done eventually, but there are issues with coef_specs, complex vs real momenta,
-        # etc.. So for this first test we stick with a local DHELAS for each contributions
+        # This should be done eventually, but there are issues with coef_specs,
+        # complex vs real momenta, etc..
+        # So for this first test we stick with a local DHELAS for each contributions
         
         # This stores the wanted couplings which should be exported by the overall ME7 exporter.
         global_wanted_couplings = []
         
-        # Handling of the model.
+        # Handling of the model
         if self.options['_model_v4_path']:
-            logger.info('Copy %s model files to directory %s' % \
-                            (os.path.basename(self.options['_model_v4_path']), self.export_dir))
+            logger.info(
+                'Copy %s model files to directory %s' %
+                (os.path.basename(self.options['_model_v4_path']), self.export_dir) )
             self.exporter.export_model_files(self.options['_model_v4_path'])
             self.exporter.export_helas(pjoin(self._mgme_dir,'HELAS'))        
         else:
@@ -687,9 +700,9 @@ class Contribution(object):
         # Dedicated finalize function.
         finalize_options = dict(self.options)
         finalize_options['no_compilation'] = True
-        finalize_options['ME7_output'] = True        
-        self.exporter.finalize(self.all_matrix_elements, interface_history,
-                                                                finalize_options, flaglist)
+        finalize_options['ME7_output'] = True
+        self.exporter.finalize(
+            self.all_matrix_elements, interface_history, finalize_options, flaglist)
         
         return global_wanted_couplings
 
@@ -981,8 +994,6 @@ class Contribution_R(Contribution):
             local_counterterms, integrated_counterterms = \
                                  self.IR_subtraction.get_all_counterterms(defining_process)
             
-            integrated_counterterms = []
-            
             # Make sure that the non-singular counterterm which correspond to the real-emission
             # matrix elements themselves are not added here
             local_counterterms = [ct for ct in local_counterterms if ct.is_singular()]
@@ -1224,7 +1235,7 @@ class Contribution_R(Contribution):
       
         # Add the integrated counterterms to be passed to the exporter
         ret_value.update({'integrated_counterterms': integrated_counterterms})
-        
+
         return ret_value
 
     def get_all_necessary_local_currents(self, all_MEAccessors):
@@ -1249,29 +1260,39 @@ class Contribution_R(Contribution):
         return all_currents
 
     @classmethod
-    def add_current_accessors(cls, model, all_MEAccessors, root_path, currents_to_consider):
+    def add_current_accessors(
+        cls, model, all_MEAccessors, root_path, current_set, currents_to_consider):
         """Generate and add all subtraction current accessors to the MEAccessorDict."""
 
-        # Now generate the computer code and exports it on disk for the remaining new currents
-        current_exporter = subtraction.SubtractionCurrentExporter(model, root_path)
+        # Generate the computer code and export it on disk for the remaining new currents
+        current_exporter = subtraction.SubtractionCurrentExporter(
+            model, root_path, current_set)
         mapped_currents = current_exporter.export(currents_to_consider)
-        
-        logger.debug("The following subtraction current implementation are exported:\n%s"%\
-                    ( '\n'.join((" > %-35s for representative current '%s'"%("'%s'"%class_name, str(current_properties['defining_current']))
-                                if class_name!='DefaultCurrentImplementation' else " > %-35s for a total of %d currents."%
-                                ("'DefaultCurrentImplementation'",len(current_properties['mapped_process_keys'])))
-                            for  (module_path, class_name, _), current_properties in mapped_currents.items() ) ))
-
-        all_current_accessors = []  
-        # Finally instantiate the CurrentAccessors corresponding to all current implementations identified and needed
+        # Print to the debug log which currents were exported
+        log_string = "The following subtraction current implementation are exported:\n"
+        for (module_path, class_name, _), current_properties in mapped_currents.items():
+            if class_name != 'DefaultCurrentImplementation':
+                quote_class_name = "'%s'" % class_name
+                defining_current_str = str(current_properties['defining_current'])
+                line_pars = (quote_class_name, defining_current_str)
+                log_string += " > %-35s for representative current '%s'\n" % line_pars
+            else:
+                quote_default_name = "'DefaultCurrentImplementation'"
+                number_of_currents = len(current_properties['mapped_process_keys'])
+                line_pars = (quote_default_name, number_of_currents)
+                log_string += " > %-35s for a total of %d currents." % line_pars
+        logger.debug(log_string)
+        # Instantiate the CurrentAccessors corresponding
+        # to all current implementations identified and needed
+        all_current_accessors = []
         for (module_path, class_name, _), current_properties in mapped_currents.items():
             all_current_accessors.append(accessors.VirtualMEAccessor(
                 current_properties['defining_current'],
                 module_path,
                 class_name,
-                '%s.subtraction_current_implementations_utils'%current_exporter.main_module_name, 
+                '%s.subtraction_current_implementations_utils'%current_exporter.main_module_name,
                 current_properties['instantiation_options'], 
-                mapped_process_keys=current_properties['mapped_process_keys'], 
+                mapped_process_keys=current_properties['mapped_process_keys'],
                 root_path=root_path,
                 model=model
             ))
@@ -1289,9 +1310,10 @@ class Contribution_R(Contribution):
             self.remove_counterterms_with_no_reduced_process(all_MEAccessors, counterterms)
 
         # Obtain all necessary currents
+        current_set = self.options['subtraction_currents_scheme']
         currents_to_consider = self.get_all_necessary_local_currents(all_MEAccessors)
-
-        self.add_current_accessors(self.model, all_MEAccessors, root_path, currents_to_consider)
+        self.add_current_accessors(
+            self.model, all_MEAccessors, root_path, current_set, currents_to_consider )
      
     def get_integrands_for_process_map(self, process_map, model, run_card, all_MEAccessors, ME7_configuration):
         """ Returns all the integrands implementing this contribution for the specified process_map.
@@ -1464,13 +1486,14 @@ class Contribution_V(Contribution):
         return all_currents
 
     @classmethod
-    def add_current_accessors(cls, model, all_MEAccessors, 
-                                           root_path, currents_to_consider, *args, **opts):
+    def add_current_accessors(
+        cls, model, all_MEAccessors, root_path, current_set, currents_to_consider ):
         """Generate and add all integrated current accessors to the MEAccessorDict.
-        For now we can recycle the implementation of the Contribution_R class. """
+        For now we can recycle the implementation of the Contribution_R class.
+        """
 
-        return Contribution_R.add_current_accessors(model, 
-                          all_MEAccessors, root_path, currents_to_consider, *args, **opts)
+        return Contribution_R.add_current_accessors(
+            model, all_MEAccessors, root_path, current_set, currents_to_consider)
 
     def get_integrands_for_process_map(self, process_map, model, run_card, all_MEAccessors, ME7_configuration):
         """ Returns all the integrands implementing this contribution for the specified process_map.
@@ -1504,9 +1527,10 @@ class Contribution_V(Contribution):
             self.remove_counterterms_with_no_reduced_process(all_MEAccessors, CT_properties)
 
         # Obtain all necessary currents
+        current_set = self.options['subtraction_currents_scheme']
         currents_to_consider = self.get_all_necessary_integrated_currents(all_MEAccessors)
-
-        self.add_current_accessors(self.model, all_MEAccessors, root_path, currents_to_consider)
+        self.add_current_accessors(
+            self.model, all_MEAccessors, root_path, current_set, currents_to_consider )
 
     @classmethod
     def get_basic_permutation(cls, origin_pdg_orders, destination_pdg_orders):
@@ -1893,7 +1917,7 @@ class ContributionList(base_objects.PhysicsObjectList):
         new_order.extend(self)
         self[:] = new_order
 
-    def apply_method_to_all_contribs(self, method, log=None, method_args = [], method_opts = {}):
+    def apply_method_to_all_contribs(self, method, log=None, method_args=[], method_opts={}):
         """ Apply a given method to all contributions nicely sorted."""
         
         # Keep track of the return values

@@ -67,7 +67,8 @@ class ME7Exporter(object):
 
         # Already initialize the exporter of each contribution
         for contrib in self.contributions:
-            contrib.initialize_exporter(cmd_interface, noclean, group_subprocesses=group_subprocesses)
+            contrib.initialize_exporter(
+                cmd_interface, noclean, group_subprocesses=group_subprocesses)
 
         # During the export of a bunch of contributions, store the integrated
         # counterterms that did not find a host contribution, so as to check, *after*
@@ -84,7 +85,8 @@ class ME7Exporter(object):
             contrib.pass_information_from_cmd(cmd_interface)
 
     def update_make_opts(self):
-        """ Synchronizes make_opts with the MG5/ME7 options."""
+        """Synchronize make_opts with the MG5/ME7 options."""
+
         make_opts = pjoin(self.export_dir, 'Source', 'make_opts')
     
         cpp_compiler = self.options['cpp_compiler'] if self.options['cpp_compiler'] else 'g++'
@@ -218,7 +220,6 @@ class ME7Exporter(object):
                 if contribution_candidate.add_integrated_counterterm(integrated_CT_properties):
                     found_contribution_host = True
                     break
-            
             if not found_contribution_host:
                 # add this contribution with no host to the list and after all contributions
                 # will be finalized, this exporter will check that their reduced processes
@@ -253,7 +254,9 @@ class ME7Exporter(object):
 #            'all_integrands'  : integrand_dumps,
             'model_name'      : 'ME7_UFO_model_%s'%self.model.get('name'),
             'model_with_CMS'  : self.options['complex_mass_scheme'],
-            'n_initial'       : n_initial
+            'n_initial'       : n_initial,
+            'subtraction_currents_scheme': self.options['subtraction_currents_scheme'],
+            'subtraction_mappings_scheme': self.options['subtraction_mappings_scheme'],
         }
         
         save_load_object.save_to_file(pjoin(self.export_dir,'MadEvent7.db'), ME7_dump)
@@ -288,7 +291,7 @@ class ME7Exporter(object):
         self.contributions.apply_method_to_all_contribs('compile', log='Compiling')
 
     def finalize(self, flaglist, interface_history):
-        """ Distribute and organize the finalization of all contributions. """
+        """Distribute and organize the finalization of all contributions. """
         
         # Make sure contributions are sorted at this stage
         # It is important to act on LO contributions first, then NLO, then etc...
@@ -302,18 +305,19 @@ class ME7Exporter(object):
         for contrib in self.contributions:
             # Must clean the aloha Kernel before each aloha export for each contribution
             aloha.aloha_lib.KERNEL.clean()
-            wanted_couplings_to_add_to_global = contrib.finalize(flaglist = flaglist, 
-                                                                 interface_history = interface_history)
+            wanted_couplings_to_add_to_global = contrib.finalize(
+                flaglist=flaglist, interface_history=interface_history)
             global_wanted_couplings.extend(wanted_couplings_to_add_to_global)
 
         # Generate the global ME7 MODEL
         if global_wanted_couplings:
             output_dir=pjoin(self.export_dir, 'Source', 'MODEL')
             # Writing out the model common to all the contributions that can share it
-            model_export_options = { 'complex_mass'  : self.options['complex_mass_scheme'], 
-                                     'export_format' : 'madloop', # So as to have access to lha_read_mp.f
-                                     'mp'            : True, 
-                                     'loop_induced'  : False }
+            model_export_options = {
+                'complex_mass'  : self.options['complex_mass_scheme'],
+                'export_format' : 'madloop', # So as to have access to lha_read_mp.f
+                'mp'            : True,
+                'loop_induced'  : False }
             model_builder = export_v4.UFO_model_to_mg4(self.model, output_dir, model_export_options)
             model_builder.build(global_wanted_couplings)
         
@@ -376,7 +380,8 @@ class ME7Exporter(object):
         # We might want to recover whether prefix was used when importing the model and whether
         # the MG5 name conventions was used. But this is a detail that can easily be fixed later.
         modelReader_instance = import_ufo.import_model(
-            pjoin(self.export_dir,'Source','ME7_UFO_model_')+self.model.get('name'), prefix=True,
+            pjoin(self.export_dir,'Source','ME7_UFO_model_')+self.model.get('name'),
+            prefix=True,
             complex_mass_scheme=self.options['complex_mass_scheme'] )
         modelReader_instance.pass_particles_name_in_mg_default()
         modelReader_instance.set_parameters_and_couplings(
@@ -452,4 +457,3 @@ class ME7Exporter(object):
                                                                  %(self.export_dir, integrator.get_name())))
             logger.info('{:^100}'.format("\033[94m%.5e +/- %.2e [pb]\033[0m"%(xsec, error)))
             logger.info("="*100+"\n")
-        

@@ -12,13 +12,10 @@
 # For more information, visit madgraph.phys.ucl.ac.be and amcatnlo.web.cern.ch
 #
 ##########################################################################################
-"""Implementation of NLO type of currents."""
+"""Implementation of NLO colorful currents."""
 
 import os
 import math
-
-import madgraph.integrator.mappings as mappings
-import madgraph.various.misc as misc
 
 try:
     # First try to import this in the context of the exported currents

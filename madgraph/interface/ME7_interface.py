@@ -550,7 +550,7 @@ class ParseCmdArguments(object):
                 try:
                     display_options['format'] = int(value)
                     if display_options['format']<0:
-                        raise
+                        raise ValueError
                 except ValueError:
                     raise InvalidCmd("Value '%s' invalid for option 'format'."%value)
             elif key in ['--integrands', '--itg']:
@@ -592,7 +592,7 @@ class ParseCmdArguments(object):
                     if isinstance(integrand_type, type):
                         integrand_types.append(integrand_type)
                     else:
-                        raise
+                        raise BaseException
                 except:
                     raise InvalidCmd("Option '%s' cannot be "%filter+
                                               "understood as an integrand type specifier.")
@@ -745,7 +745,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
                 complex_mass_scheme=self.complex_mass_scheme)
 
         self.all_MEAccessors = ME7_dump['all_MEAccessors']['class'].initialize_from_dump(
-                                ME7_dump['all_MEAccessors'], root_path = self.me_dir, model=self.model)
+            ME7_dump['all_MEAccessors'], root_path=self.me_dir, model=self.model)
 
         self.all_integrands = ME7_integrands.ME7IntegrandList([integrand_dump['class'].initialize_from_dump(
             integrand_dump, self.model, self.run_card, self.all_MEAccessors, self.options
@@ -755,7 +755,9 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         self.prompt = "ME7@%s::%s > "%(self.mode, os.path.basename(pjoin(self.me_dir)))
 
         self.n_initial = ME7_dump['n_initial']
-        
+        self.subtractions_currents_scheme = ME7_dump['subtraction_currents_scheme']
+        self.subtractions_mappings_scheme = ME7_dump['subtraction_mappings_scheme']
+
     def get_maximum_overall_correction_order(self):
         """ From investigating the integrands, this function derives what is the maximum correction
         order included in this ME7 session."""
@@ -955,7 +957,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
             if not hasattr(integrand, 'test_IR_poles'):
                 continue
             logger.debug('Now testing IR poles of the following integrand:\n%s'%(integrand.nice_string()))
-            integrand.test_IR_poles(test_options = testpoles_options)
+            integrand.test_IR_poles(test_options=testpoles_options)
 
     def do_show_grid(self, line):
         """ Minimal implementation for now with no possibility of passing options."""

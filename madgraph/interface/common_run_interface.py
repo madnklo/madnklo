@@ -606,7 +606,6 @@ class CommonRunCmd(HelpToCmd, CheckValidForCmd, cmd.Cmd):
                          'nb_core': None,
                          'cluster_temp_path':None}
 
-
     def __init__(self, me_dir, options, *args, **opts):
         """common"""
 

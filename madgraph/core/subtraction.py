@@ -1964,21 +1964,27 @@ class SubtractionCurrentExporter(object):
     and generate the corresponding accessors as well.
     """
     
-    template_dir = pjoin(MG5DIR,'madgraph','iolibs','template_files','subtraction')
+    template_dir = pjoin(MG5DIR, 'madgraph', 'iolibs', 'template_files', 'subtraction')
     template_modules_path = 'madgraph.iolibs.template_files.subtraction'
     
-    # The main module name is not meant to be changed. If changed, then beware that the
-    # import statements of the implementation of the subtraction currents must be 
-    # updated accordingly
+    # The main module name is not meant to be changed.
+    # If changed, then beware that the import statements
+    # of the implementation of the subtraction currents must be updated accordingly.
     main_module_name = 'SubtractionCurrents'
 
-    def __init__(self, model, export_dir=None):
-        """Initialize the exporter with a model and target export directory."""
+    def __init__(self, model, export_dir, current_set):
+        """Initialize the exporter.
 
-        self.model      = model
-        self.export_dir = export_dir
+        :param model: Model to be used when trying to match currents.
+        :param export_dir: Target directory for currents to be exported to.
+        :param current_set: Lookup is performed within the current set with this name.
+        """
 
-    def collect_modules(self, modules_path=[]):
+        self.model       = model
+        self.export_dir  = export_dir
+        self.current_set = current_set
+
+    def collect_modules(self, modules_path):
         """Return a list of modules to load, from a given starting location."""
         
         base_path = pjoin(self.template_dir, pjoin(*modules_path))
@@ -1988,8 +1994,8 @@ class SubtractionCurrentExporter(object):
             python_file_name = os.path.basename(python_file)
             if python_file_name == '__init__.py':
                 continue
-            relative_module_path = '%s.%s'%('.'.join(modules_path), python_file_name[:-3])
-            absolute_module_path = '%s.%s'%(self.template_modules_path, relative_module_path)
+            relative_module_path = ".".join(modules_path) + "." + python_file_name[:-3]
+            absolute_module_path = self.template_modules_path + "." + relative_module_path
             collected_modules.append(
                 (relative_module_path, importlib.import_module(absolute_module_path)) )
 
@@ -2007,29 +2013,36 @@ class SubtractionCurrentExporter(object):
         subtraction_utils_module_path = '%s.%s'%(
             self.template_modules_path,'subtraction_current_implementations_utils' )
         subtraction_utils = importlib.import_module(subtraction_utils_module_path)
-        
-        if not self.export_dir is None:
-            # First copy the base files to export_dir
-            if not os.path.isdir(pjoin(self.export_dir, self.main_module_name)):
-                os.mkdir(pjoin(self.export_dir, self.main_module_name))
+        current_dir = pjoin(self.template_dir, self.current_set)
+        current_export_dir = None
 
-            for file in [
+        if not self.export_dir is None:
+            module_export_dir = pjoin(self.export_dir, self.main_module_name)
+            current_export_dir = pjoin(module_export_dir, self.current_set)
+            # Copy the base files to module_export_dir
+            if not os.path.isdir(module_export_dir):
+                os.mkdir(module_export_dir)
+            for f in [
                 '__init__.py',
                 'QCD_local_currents.py',
                 'subtraction_current_implementations_utils.py' ]:
-                if not os.path.isfile(
-                    pjoin(self.export_dir, self.main_module_name, file)):
-                    cp(
-                        pjoin(self.template_dir,file),
-                        pjoin(self.export_dir,self.main_module_name, file))
+                if not os.path.isfile(pjoin(module_export_dir, f)):
+                    cp(pjoin(self.template_dir, f), pjoin(module_export_dir, f))
+            # Copy the base files to current_export_dir
+            if not os.path.isdir(current_export_dir):
+                os.mkdir(current_export_dir)
+            for f in [
+                '__init__.py', ]:
+                if not os.path.isfile(pjoin(current_export_dir, f)):
+                    cp(pjoin(current_dir, f), pjoin(current_export_dir, f) )
 
         # Now load all modules specified in the templates
         # and identify the current implementation classes
         all_classes = []
-        for dir_name in os.listdir(self.template_dir):
-            if not os.path.isfile(pjoin(self.template_dir, dir_name, '__init__.py')):
+        for dir_name in os.listdir(current_dir):
+            if not os.path.isfile(pjoin(current_dir, dir_name, '__init__.py')):
                 continue
-            all_modules = self.collect_modules([dir_name])
+            all_modules = self.collect_modules([self.current_set, dir_name])
             for (module_path, module) in all_modules:
                 for class_name in dir(module):
                     implementation_class = getattr(module, class_name)
@@ -2073,6 +2086,11 @@ class SubtractionCurrentExporter(object):
                     current, self.model )
                 if instantiation_options is None:
                     continue
+                if found_current_class:
+                    if class_name == 'DefaultCurrentImplementation':
+                        continue
+                    raise MadGraph5Error(
+                        "Multiple implementations found for current %s." % str(current) )
                 try:
                     instantiation_options_index = all_instantiation_options.index(
                         instantiation_options )
@@ -2086,22 +2104,23 @@ class SubtractionCurrentExporter(object):
                 else:
                     main_module = 'subtraction'                    
                 key = (
-                    '%s.%s'%(main_module, module_path),
+                    '%s.%s' % (main_module, module_path),
                     class_name, instantiation_options_index )
                 if key in mapped_currents:
                     mapped_currents[key]['mapped_process_keys'].append(current.get_key())
                 else:
                     if dir_name != '':
                         directories_to_export.add(dir_name)
-                    mapped_currents[key]={'defining_current': current,
-                                          'mapped_process_keys': [current.get_key()],
-                                          'instantiation_options': instantiation_options}
+                    mapped_currents[key] = {
+                        'defining_current': current,
+                        'mapped_process_keys': [current.get_key()],
+                        'instantiation_options': instantiation_options }
                 if class_name == 'DefaultCurrentImplementation':
                     currents_with_default_implementation.append(current)
                 found_current_class = True
-                break
             if not found_current_class:
-                raise MadGraph5Error("No implementation was found for current %s."%str(current))
+                raise MadGraph5Error(
+                    "No implementation was found for current %s." % str(current) )
         
         # Warn the user whenever DefaultCurrentImplementation is used
         # (it should never be used in production)
@@ -2118,11 +2137,11 @@ class SubtractionCurrentExporter(object):
                 logger.critical(msg)
             else:
                 raise MadGraph5Error(msg)
-        
+
         # Now copy all the relevant directories
         if not self.export_dir is None:
             for directory_to_export in directories_to_export:
-                dir_path = pjoin(self.export_dir, self.main_module_name, directory_to_export)
+                dir_path = pjoin(current_export_dir, directory_to_export)
                 def ignore_function(d, files):
                     return [
                         f for f in files
@@ -2131,7 +2150,7 @@ class SubtractionCurrentExporter(object):
                             f.split('.')[-1] in ['pyc','pyo','swp'] ) ]
                 if not os.path.isdir(dir_path):
                     shutil.copytree(
-                        pjoin(self.template_dir, directory_to_export), dir_path,
+                        pjoin(current_dir, directory_to_export), dir_path,
                         ignore=ignore_function )
         
         return mapped_currents

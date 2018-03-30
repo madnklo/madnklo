@@ -1034,24 +1034,27 @@ CF2PY INTENT(OUT) :: N_COLOR_CORRELATORS
 
       END
 
-      SUBROUTINE %(proc_prefix)sGET_COLOR_CORRELATOR_ID(CORRELATED_LEG_A, CORRELATED_LEG_B, ID)
+      SUBROUTINE %(proc_prefix)sGET_COLOR_CORRELATOR_ID(CONNECTION_INDEX_A, CONNECTION_INDEX_B, ID)
         IMPLICIT NONE
         
         INTEGER    NEXTERNAL
         PARAMETER (NEXTERNAL=%(nexternal)d)
         INTEGER NCOLORCORRELATORS
         PARAMETER (NCOLORCORRELATORS=%(n_color_correlators)d)
+        INTEGER NCOLORCONNECTIONS
+        PARAMETER (NCOLORCONNECTIONS=%(n_color_connections)d)
         
-        INTEGER CORRELATED_LEG_A, CORRELATED_LEG_B, ID, IDX
-CF2PY INTENT(IN) :: CORRELATED_LEG_A
-CF2PY INTENT(IN) :: CORRELATED_LEG_B
+        
+        INTEGER CONNECTION_INDEX_A, CONNECTION_INDEX_B, ID, IDX
+CF2PY INTENT(IN) :: CONNECTION_INDEX_A
+CF2PY INTENT(IN) :: CONNECTION_INDEX_B
 CF2PY INTENT(OUT) :: ID
 
-        INTEGER COLOR_CORRELATOR_TO_INDEX(NEXTERNAL,NEXTERNAL)
-        INTEGER INDEX_TO_COLOR_CORRELATOR(NCOLORCORRELATORS, 2)
-        COMMON/%(proc_prefix)sCOLOR_CORRELATION_MAPS/COLOR_CORRELATOR_TO_INDEX, INDEX_TO_COLOR_CORRELATOR
+        INTEGER COLOR_CORRELATOR_TO_INDEX(NCOLORCONNECTIONS,NCOLORCONNECTIONS)
+        INTEGER CORRELATOR_INDEX_TO_CONNECTION_INDEX(NCOLORCORRELATORS, 2)
+        COMMON/%(proc_prefix)sCOLOR_CORRELATION_MAPS/COLOR_CORRELATOR_TO_INDEX, CORRELATOR_INDEX_TO_CONNECTION_INDEX
 
-		IDX = COLOR_CORRELATOR_TO_INDEX(CORRELATED_LEG_A, CORRELATED_LEG_B)
+		IDX = COLOR_CORRELATOR_TO_INDEX(CONNECTION_INDEX_A, CONNECTION_INDEX_B)
 		
 		IF (IDX.LE.0) THEN
 		  ID = -1
@@ -1061,44 +1064,46 @@ CF2PY INTENT(OUT) :: ID
 
       END
       
-      SUBROUTINE %(proc_prefix)sGET_COLOR_CORRELATOR_FOR_ID(IDX, CORRELATED_LEG_A, CORRELATED_LEG_B)
+      SUBROUTINE %(proc_prefix)sGET_COLOR_CORRELATOR_FOR_ID(IDX, CONNECTION_INDEX_A, CONNECTION_INDEX_B)
         IMPLICIT NONE
         
         INTEGER    NEXTERNAL
         PARAMETER (NEXTERNAL=%(nexternal)d)
         INTEGER NCOLORCORRELATORS
         PARAMETER (NCOLORCORRELATORS=%(n_color_correlators)d)
+		INTEGER NCOLORCONNECTIONS
+        PARAMETER (NCOLORCONNECTIONS=%(n_color_connections)d)
 
-        INTEGER CORRELATED_LEG_A, CORRELATED_LEG_B, IDX
+        INTEGER CONNECTION_INDEX_A, CONNECTION_INDEX_B, IDX
 CF2PY INTENT(IN) :: IDX
-CF2PY INTENT(OUT) :: CORRELATED_LEG_A
-CF2PY INTENT(OUT) :: CORRELATED_LEG_B
+CF2PY INTENT(OUT) :: CONNECTION_INDEX_A
+CF2PY INTENT(OUT) :: CONNECTION_INDEX_B
 
-        INTEGER COLOR_CORRELATOR_TO_INDEX(NEXTERNAL,NEXTERNAL)
-        INTEGER INDEX_TO_COLOR_CORRELATOR(NCOLORCORRELATORS, 2)
-        COMMON/%(proc_prefix)sCOLOR_CORRELATION_MAPS/COLOR_CORRELATOR_TO_INDEX, INDEX_TO_COLOR_CORRELATOR
+        INTEGER COLOR_CORRELATOR_TO_INDEX(NCOLORCONNECTIONS,NCOLORCONNECTIONS)
+        INTEGER CORRELATOR_INDEX_TO_CONNECTION_INDEX(NCOLORCORRELATORS, 2)
+        COMMON/%(proc_prefix)sCOLOR_CORRELATION_MAPS/COLOR_CORRELATOR_TO_INDEX, CORRELATOR_INDEX_TO_CONNECTION_INDEX
 
-		CORRELATED_LEG_A = INDEX_TO_COLOR_CORRELATOR(IDX, 1)
-		CORRELATED_LEG_B = INDEX_TO_COLOR_CORRELATOR(IDX, 2)
+		CONNECTION_INDEX_A = CORRELATOR_INDEX_TO_CONNECTION_INDEX(IDX, 1)
+		CONNECTION_INDEX_B = CORRELATOR_INDEX_TO_CONNECTION_INDEX(IDX, 2)
 
       END
 
-      SUBROUTINE %(proc_prefix)sADD_COLOR_CORRELATORS_TO_CONSIDER(FIRST_LEG_INDEX, SECOND_LEG_INDEX)
+      SUBROUTINE %(proc_prefix)sADD_COLOR_CORRELATORS_TO_CONSIDER(FIRST_CONNECTION, SECOND_CONNECTION)
         IMPLICIT NONE
 C       Adds a color correlator to compute. All leg indices must be positive in this case.
 
-        INTEGER    NEXTERNAL
-        PARAMETER (NEXTERNAL=%(nexternal)d)
         INTEGER NCOLORCORRELATORS
         PARAMETER (NCOLORCORRELATORS=%(n_color_correlators)d)
+		INTEGER NCOLORCONNECTIONS
+        PARAMETER (NCOLORCONNECTIONS=%(n_color_connections)d)
+        
+		INTEGER FIRST_CONNECTION, SECOND_CONNECTION
+CF2PY INTENT(IN) :: FIRST_CONNECTION
+CF2PY INTENT(IN) :: SECOND_CONNECTION
 
-		INTEGER FIRST_LEG_INDEX, SECOND_LEG_INDEX
-CF2PY INTENT(IN) :: FIRST_LEG_INDEX
-CF2PY INTENT(IN) :: SECOND_LEG_INDEX
-
-        INTEGER COLOR_CORRELATOR_TO_INDEX(NEXTERNAL,NEXTERNAL)        
-        INTEGER INDEX_TO_COLOR_CORRELATOR(NCOLORCORRELATORS, 2)        
-        COMMON/%(proc_prefix)sCOLOR_CORRELATION_MAPS/COLOR_CORRELATOR_TO_INDEX, INDEX_TO_COLOR_CORRELATOR
+        INTEGER COLOR_CORRELATOR_TO_INDEX(NCOLORCONNECTIONS,NCOLORCONNECTIONS)        
+        INTEGER CORRELATOR_INDEX_TO_CONNECTION_INDEX(NCOLORCORRELATORS, 2)        
+        COMMON/%(proc_prefix)sCOLOR_CORRELATION_MAPS/COLOR_CORRELATOR_TO_INDEX, CORRELATOR_INDEX_TO_CONNECTION_INDEX
         
 C       Index 0 is the number of correlators to consider and the next indices are which one to consider
 		INTEGER COLOR_CORRELATORS_TO_CONSIDER(0:NCOLORCORRELATORS)   
@@ -1115,36 +1120,36 @@ C ----------
 	   ENDIF
 		
 	   COLOR_CORRELATORS_TO_CONSIDER(0) = COLOR_CORRELATORS_TO_CONSIDER(0) +1
-	   COLOR_CORRELATORS_TO_CONSIDER(COLOR_CORRELATORS_TO_CONSIDER(0)) = COLOR_CORRELATOR_TO_INDEX(FIRST_LEG_INDEX, SECOND_LEG_INDEX)
+	   COLOR_CORRELATORS_TO_CONSIDER(COLOR_CORRELATORS_TO_CONSIDER(0)) = COLOR_CORRELATOR_TO_INDEX(FIRST_CONNECTION, SECOND_CONNECTION)
 
       END SUBROUTINE
       
-      SUBROUTINE %(proc_prefix)sSET_COLOR_CORRELATORS_TO_CONSIDER(FIRST_LEG_INDEX, SECOND_LEG_INDEX)
+      SUBROUTINE %(proc_prefix)sSET_COLOR_CORRELATORS_TO_CONSIDER(FIRST_CONNECTION, SECOND_CONNECTION)
         IMPLICIT NONE
-C       Sets which color correlators to compute. If both leg_index are specified, this will select only one.
-C       For each leg index set to -1, we will span the entire set of correlators for that leg index.
+C       Sets which color correlators to compute. If both connections are specified, this will select only one.
+C       For each leg index set to -1, we will span the entire set of connections for that leg index.
 		
-		INTEGER FIRST_LEG_INDEX, SECOND_LEG_INDEX
-CF2PY INTENT(IN) :: FIRST_LEG_INDEX
-CF2PY INTENT(IN) :: SECOND_LEG_INDEX
+		INTEGER FIRST_CONNECTION, SECOND_CONNECTION
+CF2PY INTENT(IN) :: FIRST_CONNECTION
+CF2PY INTENT(IN) :: SECOND_CONNECTION
 
-        INTEGER    NEXTERNAL
-        PARAMETER (NEXTERNAL=%(nexternal)d)
         INTEGER    NSQAMPSO
         PARAMETER (NSQAMPSO=%(nSquaredSO)d)
         INTEGER NCOLORCORRELATORS
         PARAMETER (NCOLORCORRELATORS=%(n_color_correlators)d)
+		INTEGER NCOLORCONNECTIONS
+        PARAMETER (NCOLORCONNECTIONS=%(n_color_connections)d)
         
 		INTEGER I, J, K, NCC_TO_CONSIDER, CC_TO_ADD
         LOGICAL FOUNDIT
 
-        INTEGER COLOR_CORRELATOR_TO_INDEX(NEXTERNAL,NEXTERNAL)
+        INTEGER COLOR_CORRELATOR_TO_INDEX(NCOLORCONNECTIONS,NCOLORCONNECTIONS)
 %(color_correlator_to_index_data)s
         
-        INTEGER INDEX_TO_COLOR_CORRELATOR(NCOLORCORRELATORS, 2)
-%(index_to_color_correlator_data)s
+        INTEGER CORRELATOR_INDEX_TO_CONNECTION_INDEX(NCOLORCORRELATORS, 2)
+%(correlator_index_to_connection_index_data)s
         
-        COMMON/%(proc_prefix)sCOLOR_CORRELATION_MAPS/COLOR_CORRELATOR_TO_INDEX, INDEX_TO_COLOR_CORRELATOR
+        COMMON/%(proc_prefix)sCOLOR_CORRELATION_MAPS/COLOR_CORRELATOR_TO_INDEX, CORRELATOR_INDEX_TO_CONNECTION_INDEX
         
 C       Index 0 is the number of correlators to consider and the next indices are which one to consider
 		INTEGER COLOR_CORRELATORS_TO_CONSIDER(0:NCOLORCORRELATORS)   
@@ -1160,19 +1165,20 @@ C       First reset the array
         ENDDO
         
 C       Index 0 on the first leg simply indicate the desire to reset the selection
-        IF (FIRST_LEG_INDEX.eq.0) THEN
+        IF (FIRST_CONNECTION.eq.0) THEN
           RETURN
         ENDIF
         
-        DO I=1, NEXTERNAL
-          IF (FIRST_LEG_INDEX.ne.-1.and.FIRST_LEG_INDEX.ne.I) THEN
+        DO I=1, NCOLORCONNECTIONS
+          IF (FIRST_CONNECTION.ne.-1.and.FIRST_CONNECTION.ne.I) THEN
             CYCLE
           ENDIF
-          DO J=1, NEXTERNAL
-            IF (SECOND_LEG_INDEX.ne.-1.and.SECOND_LEG_INDEX.ne.J) THEN
+          DO J=1, NCOLORCONNECTIONS
+            IF (FIRST_CONNECTION.ne.-1.and.FIRST_CONNECTION.ne.J) THEN
               CYCLE
             ENDIF
-C           If one of those legs is colorless and does not have a correlator, skip it.
+C           Normally all those correlators should be found, even though some might have not
+C           have a contributing interference  
             CC_TO_ADD = COLOR_CORRELATOR_TO_INDEX(I,J)
             IF (CC_TO_ADD.le.0) THEN
               CYCLE
@@ -1195,4 +1201,38 @@ C           Now make sure we have not considered it yet, since (i, j) maps to (j
         ENDDO
 
       END
+
+      SUBROUTINE %(proc_prefix)sGET_COLOR_CONNECTION_MAX_ORDER(MAX_ORDER)
+        IMPLICIT NONE
+        INTEGER CC_MAX_ORDER
+        PARAMETER (CC_MAX_ORDER=%(max_cc_order)d)
+        INTEGER MAX_ORDER
+CF2PY INTENT(OUT) :: MAX_ORDER
+        MAX_ORDER = CC_MAX_ORDER
+      END SUBROUTINE %(proc_prefix)sGET_COLOR_CONNECTION_MAX_ORDER
+      
+C     Now routines to map the specification of the color connections at each order to a 
+C     unique index.
+C
+C     NOTE:
+C     -----
+C
+C     Given the list of k triplets (i,j,k) at N^kLO, returns the index of corresponding color connection
+C     See documentation of the function 'generate_all_color_connections' in the file madgraph/core/color_amp.py for the meaning of these triplets.
+C     To be more concise the mapping here will be saved with a doublet only, where the differentiation between the g > q q~ and g > g g splitting is not done like this:
+C       g > g g  --> (-1,-2,-1)
+C     vs
+C       g > q q~ --> (-1,-1,-2)
+C     but instead is represented by the following two doublets instead:
+C       g > g g  --> (-1,-2)
+C     vs
+C       g > q q~ --> (-1,+2)
+C     so the information about inforcing a 'q q~' splitting is carried by the sign of the second entry which would otherwise always be negative.
+C     For all other splittings (q > q g and q~ > q~ g), the last entry is always the same as the first, so there is no loss of information.
+C
+C     Definition of the color connection to index subroutines starts now
+C     ------------------------------------------------------------------
+C
+%(color_connections_to_index)s
+
 ## }

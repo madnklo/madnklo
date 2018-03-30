@@ -12,6 +12,12 @@ C
       PARAMETER (ZERO=0D0)
       INTEGER NSPLITORDERS
       PARAMETER (NSPLITORDERS=%(nSplitOrders)d)
+      
+## if(color_correlation) {
+      INTEGER CC_PERT_ORDER
+      PARAMETER (CC_PERT_ORDER=%(check_sa_CC_pert_order)d)
+## }
+
 C     
 C     INCLUDE FILES
 C     
@@ -46,14 +52,43 @@ C
 ## if(color_correlation) {
       INTEGER NCOLORCORRELATORS
       PARAMETER (NCOLORCORRELATORS=%(n_color_correlators)d)
+      INTEGER NCOLORCONNECTIONS
+      PARAMETER (NCOLORCONNECTIONS=%(n_color_connections)d)
       REAL*8 COLOR_CORRELATED_EVALS(NCOLORCORRELATORS, 0:NSPLITORDERS)
-      INTEGER COLOR_CORRELATOR_TO_INDEX(NEXTERNAL,NEXTERNAL)  
+      INTEGER COLOR_CORRELATOR_TO_INDEX(NCOLORCONNECTIONS,NCOLORCONNECTIONS)  
       INTEGER INDEX_TO_COLOR_CORRELATOR(NCOLORCORRELATORS, 2)
       COMMON/%(proc_prefix)sCOLOR_CORRELATION_MAPS/COLOR_CORRELATOR_TO_INDEX, INDEX_TO_COLOR_CORRELATOR
       REAL*8 RUNNING_SUMA, RUNNING_SUMB, RUNNING_SUMC
       REAL*8 RUNNING_ABSSUMA, RUNNING_ABSSUMB, RUNNING_ABSSUMC      
       INTEGER CCINDEX
       LOGICAL FOUNDONE
+      INTEGER I_ORDER
+      INTEGER CC_INDICES_OFFSET(CC_PERT_ORDER)
+      %(check_sa_cc_indices_offset_for_order_data)s
+      INTEGER N_CC_FOR_ORDER(CC_PERT_ORDER)
+      %(check_sa_n_cc_for_order_data)s 
+C     The lists below is only used for the check_sa color-conservation test of color-correlated MEs
+      INTEGER N_REPRESENTATIVES_OF_CC(NCOLORCONNECTIONS)
+      %(check_sa_n_representatives_data)s
+C     Decide whether to include n_representative multiplicative factor in the colour neutrality test
+      LOGICAL INCLUDE_N_REPRESENTATIVES_IN_COLOUR_NEUTRALITY_TEST
+      PARAMETER (INCLUDE_N_REPRESENTATIVES_IN_COLOUR_NEUTRALITY_TEST=.TRUE.)
+C     Only products of T's should be used to check color neutrality, so the connections
+C     that correspond to g* > q q~ splitting should be omitted.
+C     In that list:
+C     1 labels a connection only including q > q g splittings and g > g g splittings, 
+c     2 labels a connection involving at least one g* > g g splittings but no g* > q q~ splitting
+c     3 labels a connection involving at least one g* > q q~ splittings but no g* > g g splitting
+c     4 labels a connection involving at least both one g* > q q~ and one g* > g g splitting
+c     where g* denotes a radiated gluon (i.e. not one present in the reduced process)
+      INTEGER INCLUDE_IN_COLOR_NEUTRALITY_TEST(NCOLORCONNECTIONS)
+      %(include_in_colour_neutrality_test_data)s
+      LOGICAL INCLUDE_BASIC_SPLITTING_IN_COLOUR_NEUTRALITY_TEST
+      PARAMETER (INCLUDE_BASIC_SPLITTING_IN_COLOUR_NEUTRALITY_TEST=.TRUE.)
+      LOGICAL INCLUDE_G_QQ_SPLITTING_IN_COLOUR_NEUTRALITY_TEST
+      PARAMETER (INCLUDE_G_QQ_SPLITTING_IN_COLOUR_NEUTRALITY_TEST=.FALSE.)
+      LOGICAL INCLUDE_G_GG_SPLITTING_IN_COLOUR_NEUTRALITY_TEST
+      PARAMETER (INCLUDE_G_GG_SPLITTING_IN_COLOUR_NEUTRALITY_TEST=.FALSE.)
 ## }
 
 ## if(spin_correlation) {
@@ -79,6 +114,37 @@ C -----
 C     BEGIN CODE
 C -----
 C     
+
+## if(color_correlation) {
+C     Decide which color connection will be part of the colour neutrality test
+      DO I=1,NCOLORCONNECTIONS
+        IF (INCLUDE_IN_COLOR_NEUTRALITY_TEST(I).EQ.1) THEN
+          IF (.NOT.INCLUDE_BASIC_SPLITTING_IN_COLOUR_NEUTRALITY_TEST) THEN
+            INCLUDE_IN_COLOR_NEUTRALITY_TEST(I) = 0
+          ENDIF
+        ELSEIF (INCLUDE_IN_COLOR_NEUTRALITY_TEST(I).EQ.2) THEN
+          IF (.NOT.INCLUDE_G_GG_SPLITTING_IN_COLOUR_NEUTRALITY_TEST) THEN
+            INCLUDE_IN_COLOR_NEUTRALITY_TEST(I) = 0
+          ENDIF
+        ELSEIF (INCLUDE_IN_COLOR_NEUTRALITY_TEST(I).EQ.3) THEN
+          IF (.NOT.INCLUDE_G_QQ_SPLITTING_IN_COLOUR_NEUTRALITY_TEST) THEN
+            INCLUDE_IN_COLOR_NEUTRALITY_TEST(I) = 0
+          ENDIF        
+        ELSEIF (INCLUDE_IN_COLOR_NEUTRALITY_TEST(I).EQ.4) THEN
+          IF ((.NOT.INCLUDE_G_GG_SPLITTING_IN_COLOUR_NEUTRALITY_TEST).OR.(.NOT.INCLUDE_G_QQ_SPLITTING_IN_COLOUR_NEUTRALITY_TEST)) THEN
+            INCLUDE_IN_COLOR_NEUTRALITY_TEST(I) = 0
+          ENDIF
+        ENDIF
+      ENDDO
+
+C     Decide whether to include n_representative multiplicative factor in the colour neutrality test
+      IF (.NOT.INCLUDE_N_REPRESENTATIVES_IN_COLOUR_NEUTRALITY_TEST) THEN
+        DO I=1,NCOLORCONNECTIONS
+          N_REPRESENTATIVES_OF_CC(I)=1
+        ENDDO
+      ENDIF
+## }
+
 c     Start by initializing what is the squared split orders indices chosen
       NCHOSEN=0
       DO I=1,NSPLITORDERS
@@ -164,50 +230,74 @@ c
       WRITE(*,*) "-----------------------------"
       WRITE(*,*) ""
       CALL %(proc_prefix)sGET_COLOR_CORRELATED_ME(COLOR_CORRELATED_EVALS)
-      RUNNING_SUMC = 0.0d0
-      RUNNING_ABSSUMC = 0.0d0
-      DO K=1,NSPLITORDERS+1
-C       Just show one set of results if there is only one squared coupling_order
-        IF (K.eq.1.and.NSPLITORDERS.eq.1) THEN
-          CYCLE
-        ENDIF 
-C       Just so as to place the sum last
-        SOINDEX = MOD(K, NSPLITORDERS+1)
-        RUNNING_SUMB = 0.0d0
-        RUNNING_ABSSUMB = 0.0d0
-        IF (SOINDEX.eq.0) THEN
-          WRITE(*,*) '=> Sum of all contributions:'
-        ELSE
-          WRITE(*,*) '=> Squared order index',SOINDEX,':'
-        ENDIF
-        DO I=1, NEXTERNAL
-          RUNNING_SUMA = 0.0d0
-          RUNNING_ABSSUMA = 0.0d0
-          FOUNDONE = .False.
-          DO J=1, NEXTERNAL
-            CCINDEX = COLOR_CORRELATOR_TO_INDEX(J, I)
-            IF (CCINDEX.le.0) THEN
-              CYCLE 
-            ELSE
-              FOUNDONE = .TRUE.
-              RUNNING_SUMA = RUNNING_SUMA + COLOR_CORRELATED_EVALS(CCINDEX,SOINDEX)
-              RUNNING_ABSSUMA = RUNNING_ABSSUMA + DABS(COLOR_CORRELATED_EVALS(CCINDEX,SOINDEX))
-              WRITE(*,*) '   <M| T(',J,') T(',I,') |M> =',COLOR_CORRELATED_EVALS(CCINDEX,SOINDEX)
-            ENDIF
+      
+      DO I_ORDER=1,CC_PERT_ORDER
+          WRITE(*,*) ''
+          WRITE(*,*) '>>> Investigating perturbative order N^kLO, k=',I_ORDER
+          WRITE(*,*) '----------------------------------------------------------'
+          WRITE(*,*) '>>> Total number of color connections for that order:',N_CC_FOR_ORDER(I_ORDER)
+          DO K=CC_INDICES_OFFSET(I_ORDER)+1,CC_INDICES_OFFSET(I_ORDER)+N_CC_FOR_ORDER(I_ORDER)
+            CALL PRINT_COLOR_CONNECTION(K, I_ORDER, N_REPRESENTATIVES_OF_CC(K), INCLUDE_IN_COLOR_NEUTRALITY_TEST(K))
           ENDDO
-          IF (FOUNDONE) THEN
-            WRITE(*,*) '   Check rel. sum for particle ',I,' =',ABS(RUNNING_SUMA/MAX(RUNNING_ABSSUMA,1.0d-99))
-          ENDIF
-          RUNNING_SUMB = RUNNING_SUMB + RUNNING_SUMA
-          RUNNING_ABSSUMB = RUNNING_ABSSUMB + RUNNING_ABSSUMA
-        ENDDO
-        WRITE(*,*) '   => Check rel. sum for order ',I,' =',ABS(RUNNING_SUMB/MAX(RUNNING_ABSSUMB,1.0d-99))
-        RUNNING_SUMC = RUNNING_SUMC + RUNNING_SUMB
-        RUNNING_ABSSUMC = RUNNING_ABSSUMC + RUNNING_ABSSUMB        
-        WRITE(*,*) ""        
+          WRITE(*,*) ''
+
+	      RUNNING_SUMC = 0.0d0
+	      RUNNING_ABSSUMC = 0.0d0
+	      DO K=1,NSPLITORDERS+1
+C           Just show one set of results if there is only one squared coupling_order
+	        IF (K.eq.1.and.NSPLITORDERS.eq.1) THEN
+	          CYCLE
+	        ENDIF 
+C           Just so as to place the sum last
+	        SOINDEX = MOD(K, NSPLITORDERS+1)
+	        RUNNING_SUMB = 0.0d0
+	        RUNNING_ABSSUMB = 0.0d0
+	        IF (SOINDEX.eq.0) THEN
+	          WRITE(*,*) '=> Sum of all contributions:'
+	        ELSE
+	          WRITE(*,*) '=> Squared order index',SOINDEX,':'
+	        ENDIF
+	        DO I=CC_INDICES_OFFSET(I_ORDER)+1, CC_INDICES_OFFSET(I_ORDER)+N_CC_FOR_ORDER(I_ORDER)
+	          IF (INCLUDE_IN_COLOR_NEUTRALITY_TEST(I).EQ.0) THEN
+	            CYCLE
+	          ENDIF
+	          RUNNING_SUMA = 0.0d0
+	          RUNNING_ABSSUMA = 0.0d0
+	          FOUNDONE = .False.
+	          DO J=CC_INDICES_OFFSET(I_ORDER)+1, CC_INDICES_OFFSET(I_ORDER)+N_CC_FOR_ORDER(I_ORDER)
+	            IF (INCLUDE_IN_COLOR_NEUTRALITY_TEST(J).EQ.0) THEN
+	              CYCLE
+	            ENDIF
+	            CCINDEX = COLOR_CORRELATOR_TO_INDEX(J, I)
+	            IF (CCINDEX.le.0) THEN
+	              CYCLE 
+	            ELSE
+	              FOUNDONE = .TRUE.
+	              RUNNING_SUMA = RUNNING_SUMA + COLOR_CORRELATED_EVALS(CCINDEX,SOINDEX)*N_REPRESENTATIVES_OF_CC(I)*N_REPRESENTATIVES_OF_CC(J)
+	              RUNNING_ABSSUMA = RUNNING_ABSSUMA + DABS(COLOR_CORRELATED_EVALS(CCINDEX,SOINDEX))*N_REPRESENTATIVES_OF_CC(I)*N_REPRESENTATIVES_OF_CC(J)
+	              IF ((N_REPRESENTATIVES_OF_CC(I)*N_REPRESENTATIVES_OF_CC(J)).EQ.1) THEN
+	                WRITE(*,*) '   <M| T(',J,') T(',I,') |M> =',COLOR_CORRELATED_EVALS(CCINDEX,SOINDEX)
+	              ELSE
+	                WRITE(*,*) '   <M| T(',J,') T(',I,') |M> =',COLOR_CORRELATED_EVALS(CCINDEX,SOINDEX),'*',(N_REPRESENTATIVES_OF_CC(I)*N_REPRESENTATIVES_OF_CC(J))
+	              ENDIF
+	            ENDIF
+	          ENDDO
+	          IF (FOUNDONE) THEN
+	            WRITE(*,*) '   Check rel. sum for connection ',I,' =',ABS(RUNNING_SUMA/MAX(RUNNING_ABSSUMA,1.0d-99))
+	          ENDIF
+	          RUNNING_SUMB = RUNNING_SUMB + RUNNING_SUMA
+	          RUNNING_ABSSUMB = RUNNING_ABSSUMB + RUNNING_ABSSUMA
+	        ENDDO
+	        WRITE(*,*) '   => Check rel. sum for squared order ',K,' =',ABS(RUNNING_SUMB/MAX(RUNNING_ABSSUMB,1.0d-99))
+	        RUNNING_SUMC = RUNNING_SUMC + RUNNING_SUMB
+	        RUNNING_ABSSUMC = RUNNING_ABSSUMC + RUNNING_ABSSUMB        
+	        WRITE(*,*) ""        
+	      ENDDO
+	      WRITE(*,*) '   Global check rel. sum for all contribs    =',ABS(RUNNING_SUMC/MAX(RUNNING_ABSSUMC, 1.0d-99))
+	      WRITE(*,*) ""
+      
       ENDDO
-      WRITE(*,*) '   Global check rel. sum for all contribs    =',ABS(RUNNING_SUMC/MAX(RUNNING_ABSSUMC, 1.0d-99))
-      WRITE(*,*) ""
+      
 ## }
 
 ## if(spin_correlation) {
@@ -300,7 +390,31 @@ c      write (*,*) "-------------------------------------------------"
 
       end
 	
-	  
+## if(color_correlation) {
+     SUBROUTINE PRINT_COLOR_CONNECTION(CC_INDEX, PERT_ORDER, N_REPRESENTATIVES, INCLUDED_IN_NEUTRALITY_TEST)
+      IMPLICIT NONE
+C     
+C     CONSTANTS  
+C     
+      INTEGER CC_PERT_ORDER
+      PARAMETER (CC_PERT_ORDER=%(check_sa_CC_pert_order)d)
+C     
+C     ARGUMENT
+C     
+      INTEGER CC_INDEX, PERT_ORDER, N_REPRESENTATIVES,INCLUDED_IN_NEUTRALITY_TEST
+C
+C     LOCAL
+C     
+      INTEGER I,J,K
+      INTEGER CC(3,CC_PERT_ORDER)
+C -----
+C     BEGIN CODE
+C -----
+
+     %(check_sa_print_cc_body)s
+     
+     END SUBROUTINE PRINT_COLOR_CONNECTION
+## }
 	  
 	  
 	   double precision function dot(p1,p2)

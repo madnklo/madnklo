@@ -2149,37 +2149,222 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             calls = 0
         return calls
 
+    def add_check_sa_color_correlation_code(self, color_connections, proc_prefix, return_dict):
+        """ Fills in the placeholders in return_dict for the monitoring of 
+        color-correlated MEs in check_sa.f"""
+
+        all_color_connections = sum([color_connections['N'*order+'LO'] for order in 
+                                  range(1,self.opt['color_correlators'].count('N')+1)],[])
+        
+        return_dict['check_sa_CC_pert_order'] = self.opt['color_correlators'].count('N')
+        check_sa_cc_offsets = 'DATA (CC_INDICES_OFFSET(I),I=1,CC_PERT_ORDER)/0%s%s/'%(
+            ',' if self.opt['color_correlators'].count('N')>1 else '',
+            ','.join('%d'%sum(len(color_connections['N'*o+'LO']) for o in range(1,order+1) )
+                      for order in range(1,self.opt['color_correlators'].count('N'))  )
+            )
+        return_dict['check_sa_cc_indices_offset_for_order_data'] = check_sa_cc_offsets
+        check_sa_n_cc = 'DATA (N_CC_FOR_ORDER(I),I=1,CC_PERT_ORDER)/%s/'%(
+            ','.join('%d'%len(color_connections['N'*order+'LO']) for order in 
+                                  range(1,self.opt['color_correlators'].count('N')+1)  )
+            )
+        return_dict['check_sa_n_cc_for_order_data'] = check_sa_n_cc
+        
+        check_sa_n_representatives = []
+        chunk_size = 9
+        current_index = 0
+        cc_chunk = all_color_connections[current_index:current_index+chunk_size]
+        while len(cc_chunk)>0:
+            check_sa_n_representatives.append(
+                'DATA (N_REPRESENTATIVES_OF_CC(I),I=%d,%d)/%s/'%
+                (current_index+1,current_index+len(cc_chunk),','.join(
+                    '%d'%cc['n_representatives'] for cc in cc_chunk)) )
+            current_index += chunk_size
+            cc_chunk = all_color_connections[current_index:current_index+chunk_size]            
+        return_dict['check_sa_n_representatives_data'] = '\n'.join(check_sa_n_representatives)
+        
+        include_in_colour_neutrality_test = []
+        
+        def get_splitting_type(cc):
+            """
+            This function is not crucial, but only to add some flexibility to the colour
+            neutrality test in check_sa.f
+            Returns: 
+               1 if this color connection contains only q(~) > q(~) g splittings or g > g g
+               2 if this color connection contains at least one g* > g g splitting but no g* > q q~ splitting
+               3 if this color connection contains at least one g* > q q~ splitting but no g* > g g splitting
+               4 if this color connection contains at least both one g* > q q~ and one g* > g g splitting
+            where g* denotes a radiated gluon (i.e. not one present in the reduced process)
+            """
+            
+            has_gstar_gg_splitting = False
+            has_gstar_qqx_splitting = False
+            quanta_emitted = {}
+            t_repr = list(cc['tuple_representation'])
+            while len(t_repr)>0:
+                last_t_repr_len = len(t_repr)
+                for mother, daughter1, daughter2 in list(t_repr):
+                    # Whenever the mother is positive, it can only be from a colour index which
+                    # was already present in the reduced process and the 'g > q q~' splitting
+                    # is forbidden in this case (since g can't be soft then)
+                    if mother>0:
+                        # The emitted quanta is daughter1 which must be a gluon
+                        quanta_emitted[daughter1] = 8
+                    # This quanta has not been emitted yet, wait for it to appear
+                    elif mother not in quanta_emitted:
+                        continue
+                    # The mother is a radiated particle whose history is already established
+                    else:
+                        # e.g. (-1,-1,-2) is a g > q q~ splitting
+                        if mother==daughter1:
+                            if quanta_emitted[mother]!=8:
+                                raise MadGraph5Error("Inconsistent color connection provided: %s"%str(t_repr))
+                            has_gstar_qqx_splitting = True
+                            quanta_emitted[daughter2]=-3
+                            quanta_emitted[daughter1]=3
+                        # e.g. (-1,-2,-1) could either be a g* > g g splitting or a q(~)* > q(~) g
+                        # splitting if -1 originated from a previous g* > q q~ splitting and became a quark
+                        # Use the quanta_emitted dictionary to decide.
+                        elif mother==daughter2:
+                            # a q(~)* > q(~) g splitting
+                            if abs(quanta_emitted[mother])==3:
+                                quanta_emitted[daughter1] = 8
+                            # a g* > g g splitting
+                            elif abs(quanta_emitted[mother])==8:
+                                has_gstar_gg_splitting = True
+                                quanta_emitted[daughter1] = 8
+                    # This splitting has been addressed and must now be removed
+                    t_repr.remove((mother, daughter1, daughter2))
+                if len(t_repr)==last_t_repr_len:
+                    raise MadGraph5Error("Inconsistent color connection provided: %s"%str(t_repr))
+
+            # We can now return the correct flag
+            if not has_gstar_gg_splitting and not has_gstar_qqx_splitting:
+                return 1
+            elif has_gstar_gg_splitting and not has_gstar_qqx_splitting:
+                return 2
+            elif not has_gstar_gg_splitting and has_gstar_qqx_splitting:
+                return 3
+            elif has_gstar_gg_splitting and has_gstar_qqx_splitting:
+                return 4
+                        
+        chunk_size = 9
+        current_index = 0
+        cc_chunk = all_color_connections[current_index:current_index+chunk_size]
+        while len(cc_chunk)>0:
+            include_in_colour_neutrality_test.append(
+                'DATA (INCLUDE_IN_COLOR_NEUTRALITY_TEST(I),I=%d,%d)/%s/'%
+                (current_index+1,current_index+len(cc_chunk),','.join(
+                    '%d'%(get_splitting_type(cc)) for cc in cc_chunk)) )
+            current_index += chunk_size
+            cc_chunk = all_color_connections[current_index:current_index+chunk_size]                    
+        return_dict['include_in_colour_neutrality_test_data'] = '\n'.join(include_in_colour_neutrality_test)
+        
+        check_sa_print_cc = []
+        for i_order in range(1,self.opt['color_correlators'].count('N')+1):
+            if i_order==1:
+                check_sa_print_cc.append('IF (PERT_ORDER.EQ.%d) THEN'%i_order)
+            else:
+                check_sa_print_cc.append('ELSEIF (PERT_ORDER.EQ.%d) THEN'%i_order)
+            check_sa_print_cc.append(("CALL {}INDEX_TO_COLOR_CONNECTION_%s(CC_INDEX,%s)"%(
+                'N'*i_order+'LO',','.join('CC(1,%d)'%i for i in range(1,i_order+1))
+                )).format(proc_prefix))
+            print_line = "WRITE(*,*) '%s color connection #',CC_INDEX,' -> (',%s,"%\
+                ('N'*i_order+'LO',",'),(',".join(
+                    ','.join('CC(%d,%d)'%(j,i) for j in range(1,4)) for i in range(1,i_order+1)
+                ) )
+            check_sa_print_cc.append('IF (N_REPRESENTATIVES.NE.1) THEN')
+            check_sa_print_cc.append('IF (INCLUDED_IN_NEUTRALITY_TEST.NE.0) THEN')
+            check_sa_print_cc.append(print_line+"') and #representatives =',N_REPRESENTATIVES")
+            check_sa_print_cc.append('ELSE')
+            check_sa_print_cc.append(print_line+"') and #representatives =',N_REPRESENTATIVES,' (Not part of colour neutrality test)'")
+            check_sa_print_cc.append('ENDIF')
+            check_sa_print_cc.append('ELSE')            
+            check_sa_print_cc.append('IF (INCLUDED_IN_NEUTRALITY_TEST.NE.0) THEN')
+            check_sa_print_cc.append(print_line+"')'")
+            check_sa_print_cc.append('ELSE')
+            check_sa_print_cc.append(print_line+"') (Not part of colour neutrality test)'")
+            check_sa_print_cc.append('ENDIF')
+            check_sa_print_cc.append('ENDIF')
+
+        check_sa_print_cc.append('ENDIF')
+        return_dict['check_sa_print_cc_body'] = '\n'.join(check_sa_print_cc)          
+
     #===========================================================================
     # write color-correlated matrix elements
     #===========================================================================
-    def add_color_correlated_code(self, matrix_element, **opts):
-        """Writes the code for the computing the spin- and color- correlated matrix elements."""
+    
+    def get_empty_color_correlation_placeholders(self):
+        """ Return a dictionary with all color-correlation related placeholders entries 
+        specified as default empty ones."""
         
         return_dict = {}
-        if self.opt['color_correlators'] == 'NNLO':
-            raise InvalidCmd("Color correlators for NNLO computations are not implemented yet.")
+        return_dict['n_color_correlators'] = 0
+        return_dict['n_color_connections'] = 0
+        return_dict['color_connections_to_index'] = ''            
+        return_dict['color_correlators_data_lines'] = ''
+        return_dict['color_correlator_to_index_data'] = ''
+        return_dict['correlator_index_to_connection_index_data'] = ''
+        return_dict['color_correlators_to_consider_initialization'] = ''
+        return_dict['check_sa_CC_pert_order'] = 0
+        return_dict['check_sa_cc_indices_offset_for_order_data'] = ''
+        return_dict['check_sa_n_cc_for_order_data'] = ''
+        return_dict['check_sa_print_cc_body'] = ''
+        return_dict['check_sa_n_representatives_data'] = ''
+        return_dict['include_in_colour_neutrality_test_data'] =''
+        return_dict['max_cc_order'] = 0
+        return return_dict
+    
+    def add_color_correlated_code(self, matrix_element, general_replace_dict, **opts):
+        """Writes the code for the computing the spin- and color- correlated matrix elements."""
         
         if not matrix_element.get('color_matrix') or self.opt['color_correlators'] is None:
             # No color correlation when there are no colored external lines
-            return_dict['n_color_correlators'] = 0
-            return_dict['color_correlators_data_lines'] = ''
-            return_dict['color_correlator_to_index_data'] = ''
-            return_dict['index_to_color_correlator_data'] = ''
-            return_dict['color_correlators_to_consider_initialization'] = ''
+            return_dict = self.get_empty_color_correlation_placeholders()
+            return_dict.update(general_replace_dict)
             return return_dict
+
+        return_dict = {}
 
         color_matrix = matrix_element.get('color_matrix')
         process = matrix_element.get('processes')[0]
         n_external = len(process.get_initial_ids())+len(process.get_final_ids())
-        logger.debug("Computing color correlations for %s ..."%
-                                        process.nice_string().replace('Process','process'))
-        color_correlated_matrices = color_matrix.build_color_correlated_matrices(
-                            process.get('legs'), process.get('model'), order=self.opt['color_correlators'])
+        
+        # Now do the hard computation
+        msg = "Computing color correlations at order %s for %s%s"%\
+           (self.opt['color_correlators'],process.nice_string().replace('Process','process'),
+                      ' (this can take some time at %s) ...'%self.opt['color_correlators'] 
+                                  if self.opt['color_correlators'].count('N')>1 else '')
+        if self.opt['color_correlators'].count('N')>1:
+            logger.info(msg)
+        else:
+            logger.debug(msg)
+        color_correlated_matrices, color_connections = color_matrix.build_color_correlated_matrices(
+            process.get('legs'), process.get('model'), order=self.opt['color_correlators'])
         
         sorted_color_correlators = sorted(color_correlated_matrices.keys())
+        all_color_connections = sum([color_connections['N'*order+'LO'] for order in 
+                                  range(1,self.opt['color_correlators'].count('N')+1)],[])
+        n_color_connections = len(all_color_connections)
+        
+        # Remove the trivial LO entry of the color connections
+        del color_connections['LO']
+        
+        # Set the check_sa placeholders
+        # -----------------------------
+        self.add_check_sa_color_correlation_code(color_connections, 
+                                          general_replace_dict['proc_prefix'], return_dict)
+        
+        # Now carry on with the placeholders for the matrix element code
+        # --------------------------------------------------------------
         
         # Set n_color_correlators
         return_dict['n_color_correlators'] = len(color_correlated_matrices)
+        
+        # Set the number of color connections
+        return_dict['n_color_connections'] = n_color_connections   
+
+        # Set the maximum order at which color connection have been exported        
+        return_dict['max_cc_order'] = self.opt['color_correlators'].count('N')
         
         # Set the intialization of the array color_correlators_to_consider
         array_set_lines = []
@@ -2187,35 +2372,203 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             array_set_lines.append('DATA COLOR_CORRELATORS_TO_CONSIDER(%d) / %d /'%(i, i))
         return_dict['color_correlators_to_consider_initialization'] = '\n'.join(array_set_lines)
 
-        # Set index_to_color_correlator_data
+        # Set correlator_index_to_connection_index_data
         array_set_lines = []
         for i, color_correlator_key in enumerate(sorted_color_correlators):
             array_set_lines.append('C Correlator: %s'%(' '.join('%s'%str(repr) for repr in 
                                                     color_correlated_matrices[color_correlator_key][0])))
-            array_set_lines.append('DATA (INDEX_TO_COLOR_CORRELATOR(%d, I), I=1,2) / %d, %d/'%\
+            array_set_lines.append('DATA (CORRELATOR_INDEX_TO_CONNECTION_INDEX(%d, I), I=1,2) / %d, %d/'%\
                                                   (i+1, color_correlator_key[0], color_correlator_key[1]))
-        return_dict['index_to_color_correlator_data'] = '\n'.join(array_set_lines)
+        return_dict['correlator_index_to_connection_index_data'] = '\n'.join(array_set_lines)
             
         # Set color_correlator_to_index_data
         array_set_lines = []
-        for i in range(1, n_external+1):
+        for i in range(1,n_color_connections+1):
             index_line = []
-            for j in range(1, n_external+1):
-                try:                    
-                    index = sorted_color_correlators.index(tuple(sorted([i, j])))
+            for j in range(1,n_color_connections+1):
+                try:
+                    # We don't sort (i,j) since the correlators beyond NLO are not symmetric anymore, i.e. (i,j) != (j,i)
+                    index = sorted_color_correlators.index( (i, j) )
                 except ValueError:
                     index = -1
                 index_line.append(index+1)
-            array_set_lines.append('DATA (COLOR_CORRELATOR_TO_INDEX(%d, I), I=1,NEXTERNAL) / %s /'%(
+            array_set_lines.append('DATA (COLOR_CORRELATOR_TO_INDEX(%d, I), I=1,NCOLORCONNECTIONS) / %s /'%(
                                                             i, ', '.join('%d'%index for index in index_line) ))
         return_dict['color_correlator_to_index_data'] = '\n'.join(array_set_lines)
         
+        # Now specifiy the actual color_correlated matrices
         return_dict.update(self.add_color_correlated_matrices_code(matrix_element, color_correlated_matrices, **opts))
     
+        # Add the routines for accessing the connection index from the list of triplets specifying it
+        return_dict['color_connections_to_index'] = \
+                self.add_color_connections_to_index_subroutines(color_connections, general_replace_dict)
+
 #        misc.sprint(sorted(color_correlated_matrices.keys()), len(color_correlated_matrices.keys()))
 #        misc.sprint(color_correlated_matrices[(1,2)][0])
 #        misc.sprint(str(color_correlated_matrices[(1,2)][1]))
         return return_dict
+
+    def add_color_connections_to_index_subroutines(self, color_connections, general_replace_dict):
+        """ Adds the support routines that allow to map the list of triplets identifying the
+        color connection, as documented in the function 'generate_all_color_connections' 
+        in the file madgraph/core/color_amp.py."""
+        
+        template = open(pjoin(MG5DIR,'madgraph','iolibs','template_files',
+                                 'loop_optimized','color_connection_to_index.inc')).read()
+        
+        sorted_color_connections = sorted(color_connections.items(), key=lambda el:
+                                                                          el[0].count('N'))
+        subroutines_code = []
+        cc_index_offset = 1
+        for order, color_connections_for_that_order in sorted_color_connections:
+            replace_dict_for_that_order = dict(general_replace_dict)
+            
+            replace_dict_for_that_order['order'] = order
+            order_count = order.count('N')
+            replace_dict_for_that_order['pert_order'] = order_count
+            
+            replace_dict_for_that_order['n_cc_for_that_order'] = len(color_connections_for_that_order)
+            
+            # The shape of the color_connections_map is the following for the first two indices
+            #      1:NEXTERNAL, -PERT_ORDER:-1
+            # Followed by as many times the following two as the order of the color connection
+            #      -PERT_ORDER:NEXTERNAL, -PERT_ORDER:PERT_ORDER
+            replace_dict_for_that_order['n_cc_definition_entries'] = '*'.join(
+                ['NEXTERNAL','PERT_ORDER']+
+                sum([['(NEXTERNAL+PERT_ORDER+1)','(2*PERT_ORDER+1)'] for _ 
+                     in range(2,order_count+1)],[])
+                )
+            replace_dict_for_that_order['color_connection_definition'] = \
+             'INTEGER COLOR_CONNECTIONS(%s)'%(
+                 ','.join( ['NEXTERNAL','-PERT_ORDER:-1']+
+                           sum([['-PERT_ORDER:NEXTERNAL','-PERT_ORDER:PERT_ORDER'] for _ 
+                           in range(2,order_count+1)],[])
+                     )
+                 )
+            
+            # Now specify the color connections
+            color_connection_entries = []
+            for cc_index, connection in enumerate(color_connections_for_that_order):
+                connection_specifier = []
+                t_repr = connection['tuple_representation']
+                connection_specifier.append('C %s color connection %s --> %s'%(
+                    order, str(t_repr), str(connection['color_string_Q1'])
+                ))
+                # Notice that here we change the convention and use a doublet instead to identify each triplet.
+                # That is:
+                #    q > q g    (1,-2,1) --> (1,-2)
+                #    q~ > q~ g  (1,-2,1) --> (1,-2)
+                #    g > g g    (-1,-2,-1) --> (1,-2)
+                #    g > q q~   (-1,-1,-2) --> (-1,+2)
+                # Which takes advantage that the third entry is actually redundant and we
+                # can store the information of whether it is a g > g g or g > q q~ splitting
+                # in the sign of the second entry (which is always negative otherwise
+                connection_specifier.append(
+                    'COLOR_CONNECTIONS(%s)=%d'%(
+                        ','.join('%d'%i for i in [t_repr[0][0],t_repr[0][1]]+
+                            sum(
+                                [[t[0], t[1] if t[1]!=t[0] else abs(t[2])] for t in t_repr[1:]]
+                            ,[])
+                        ),
+                    cc_index_offset+cc_index)
+                )
+                color_connection_entries.append('\n'.join(connection_specifier))
+                        
+            replace_dict_for_that_order['color_connection_entries'] = \
+                                                        '\n'.join(color_connection_entries)
+            
+            alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+            
+            replace_dict_for_that_order['color_connection_arguments'] = \
+                ','.join('SPECIFIER_%s'%alphabet[i] for i in range(order_count))
+
+            cc_args_defs = []
+            for i in range(order_count):
+                cc_args_defs.append(
+                    'INTEGER SPECIFIER_%s(3)'%alphabet[i]
+                )
+            replace_dict_for_that_order['color_connection_arguments_definition'] = \
+                                                                    '\n'.join(cc_args_defs)
+            
+            cc_args_defs_f2py = []
+            for i in range(order_count):
+                cc_args_defs_f2py.append(
+                    'CF2PY INTENT(IN) :: SPECIFIER_%s'%alphabet[i]
+                )            
+            replace_dict_for_that_order['color_connection_arguments_definition_f2py'] = \
+                                                              '\n'.join(cc_args_defs_f2py)
+
+            set_cc_specifier = [
+                'CC_SPECIFIER(1)=SPECIFIER_A(1)',
+                'CC_SPECIFIER(2)=SPECIFIER_A(2)'
+                ]
+            for i in range(1,order_count):
+                set_cc_specifier.append('CC_SPECIFIER(%d)=SPECIFIER_%s(1)'%
+                    (i*2+1,alphabet[i]))
+                set_cc_specifier.append(
+                    'IF (SPECIFIER_%s(2).ne.SPECIFIER_%s(1)) THEN'%(alphabet[i],alphabet[i])
+                )
+                set_cc_specifier.append(
+                    'CC_SPECIFIER(%d)=SPECIFIER_%s(2)'%(i*2+2,alphabet[i])
+                )
+                set_cc_specifier.append('ELSE')
+                set_cc_specifier.append(
+                    'CC_SPECIFIER(%d)=ABS(SPECIFIER_%s(3))'%(i*2+2,alphabet[i])
+                )
+                set_cc_specifier.append('ENDIF')
+                
+            replace_dict_for_that_order['set_cc_specifier'] = '\n'.join(set_cc_specifier)
+            
+            replace_dict_for_that_order['return_connection_index'] = '\n'+\
+              'INDEX_OUT = COLOR_CONNECTIONS(%s)'%(','.join(
+                  'CC_SPECIFIER(%d)'%i for i in range(1, (2*order_count)+1)
+                  ))
+
+            # Now the placeholders for the subroutine INDEX_TO_COLOR_CONNECTION_<order>
+            ###########################################################################
+            
+            replace_dict_for_that_order['index_offset_for_that_order'] = cc_index_offset-1
+            replace_dict_for_that_order['n_color_connections_for_that_order'] = \
+                                                      len(color_connections_for_that_order)
+            
+            cc_args_defs_f2py_out = []
+            for i in range(order_count):
+                cc_args_defs_f2py_out.append(
+                    'CF2PY INTENT(OUT) :: SPECIFIER_%s'%alphabet[i]
+                )            
+            replace_dict_for_that_order['color_connection_arguments_definition_f2py_out'] = \
+                                                           '\n'.join(cc_args_defs_f2py_out)
+            
+            set_returned_cc_for_index = []
+            for i in range(1,order_count+1):
+                for j in range(1,4):
+                    set_returned_cc_for_index.append(
+                        'SPECIFIER_%s(%d)=CC_INDEX_TO_DEFINITION_%s(INDEX_IN-INDEX_%s_OFFSET,%d,%d)'%(
+                                                         alphabet[i-1],j,order, order,i,j))
+            replace_dict_for_that_order['set_returned_cc_for_index']='\n'.join(set_returned_cc_for_index)
+            
+            cc_index_to_definition_data = []
+            for cc_index, connection in enumerate(color_connections_for_that_order):
+                cc_index_to_definition_data.append('C %s color connection %s --> %s'%(
+                    order, str(connection['tuple_representation']), str(connection['color_string_Q1'])
+                ))
+                for i_order in range(order_count):
+                    cc_index_to_definition_data.append(
+                        'DATA (CC_INDEX_TO_DEFINITION_%s(%d,%d,I),I=1,3)/%s/'%(
+                            order, cc_index+1, i_order+1,  ','.join('%d'%n for n in 
+                            connection['tuple_representation'][i_order]) ) )
+                    
+                    
+            replace_dict_for_that_order['cc_index_to_definition_data'] = \
+                                                     '\n'.join(cc_index_to_definition_data)
+
+            subroutines_code.append(template%replace_dict_for_that_order)
+            
+            # Update the offset index of the color connection, since they are all specified
+            # consecutively (LO-NLO-NNLO-etc...)
+            cc_index_offset += len(color_connections_for_that_order)
+        
+        return '\n\n'.join(subroutines_code)
 
     def add_color_correlated_matrices_code(self, matrix_element, color_correlated_matrices, **opts):
         """ Writes out the color correlated matrices in a suitable format for this output.
@@ -2229,9 +2582,11 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         line_break = 15
         array_set_lines = []
         for icc, color_correlator_key in enumerate(sorted(color_correlated_matrices.keys())):
-            array_set_lines.append('C Correlator: %s'%(' '.join('%s'%str(repr) for repr in 
-                                                    color_correlated_matrices[color_correlator_key][0])))
             color_matrix = color_correlated_matrices[color_correlator_key][1]
+            array_set_lines.append('C Correlator: %s%s'%(' '.join('%s'%str(repr) for repr in 
+                color_correlated_matrices[color_correlator_key][0]),' (no interference)' if 
+                color_matrix.col_matrix_fixed_Nc is None else ''))
+
             for index, denominator in enumerate(color_matrix.get_line_denominators()):
                 # First write the common denominator for this color matrix line
                 array_set_lines.append("DATA CC_DENOM(%i,%i)/%i/" % (icc+1, index + 1, denominator))
@@ -2422,7 +2777,7 @@ COMMON/%sSPIN_CORRELATION_DATA/SPIN_CORR_VECTORS, N_SPIN_CORR_VECTORS, SPIN_CORR
 
 
         # Now obtain the values for all the place-holders related to the handling of color correlations
-        replace_dict.update(self.add_color_correlated_code(matrix_element))
+        replace_dict.update(self.add_color_correlated_code(matrix_element, replace_dict))
 
         matrix_template = self.matrix_template
         if self.opt['export_format']=='standalone_msP' :
@@ -2475,7 +2830,7 @@ COMMON/%sSPIN_CORRELATION_DATA/SPIN_CORR_VECTORS, N_SPIN_CORR_VECTORS, SPIN_CORR
             return replace_dict # for subclass update
 
     def write_check_sa_splitOrders(self,squared_orders, split_orders, nexternal,
-                                                             nincoming, proc_prefix, writer, global_replace_dict):
+                                     nincoming, proc_prefix, writer, global_replace_dict):
         """ Write out a more advanced version of the check_sa drivers that
         individually returns the matrix element for each contributing squared
         order. Also print in information about color correlators if specified"""

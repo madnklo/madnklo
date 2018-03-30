@@ -18,6 +18,7 @@
 from __future__ import division
 
 import atexit
+import re
 import collections
 import cmath
 import glob
@@ -3151,11 +3152,12 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
                      output_options['postpone_model'] = True
         
             elif key in ['color_correlators','spin_correlators']:
-                if value not in ['None','NLO','NNLO']:
-                    raise InvalidCmd("The value for the option '--%s' can only be in ['None', 'NLO', 'NNLO']."%key)
                 if value == 'None':
                     output_options[key] = None
                 else:
+                    if re.match('^N*LO$',value) is None:
+                        raise InvalidCmd("The value for the option '--%s'"%key+
+                                  " can only 'None' or of the form 'N'*k+'LO' for any k.")
                     output_options[key] = value
 
             else:

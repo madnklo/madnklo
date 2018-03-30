@@ -118,9 +118,9 @@ class Contribution(object):
         ##############################################################################################################
         ##############################################################################################################
         ###                                                 TEMPORARY HACK                             
-        ### For testing purposes, one can force to always include NLO types of correlators in all matrix elements
+        ### For testing purposes, one can force to always include NNLO types of correlators in all matrix elements
         ### outputs simply with the line below
-        correlators_needed = max(correlators_needed,1)
+        #correlators_needed = max(correlators_needed,2)
         ###
         ##############################################################################################################
         ##############################################################################################################
@@ -131,16 +131,8 @@ class Contribution(object):
             # We can do so in a neat way here by simply adding this option to self.additional_exporter_options since they
             # will overwrite the interface option when the exporter will be instantiated.
             self.additional_exporter_options['loop_color_flows'] = True
-            ##############################################################################################################
-            ##############################################################################################################
-            ###                                                 TEMPORARY HACK
-            ### Since NNLO color correlators are not available yet and we already want to be able to tinker with NNLO  outputs
-            ### we force here the color correlators to be at most NLO type here. This should be removed eventually of course.
-            ###
-            self.additional_exporter_options['color_correlators'] ='N'*min(correlators_needed,1)+'LO'
-            ####
-            ##############################################################################################################
-            ##############################################################################################################
+
+            self.additional_exporter_options['color_correlators'] ='N'*correlators_needed+'LO'
             self.additional_exporter_options['spin_correlators']  ='N'*correlators_needed+'LO'
                                         
         self.amplitudes              = diagram_generation.AmplitudeList()

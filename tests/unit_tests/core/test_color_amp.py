@@ -18,6 +18,7 @@ color information for diagrams."""
 
 import copy
 import fractions
+from pprint import pprint
 
 import madgraph.core.base_objects as base_objects
 import madgraph.core.diagram_generation as diagram_generation
@@ -119,6 +120,25 @@ class ColorAmpTest(unittest.TestCase):
                       'is_part':True,
                       'self_antipart':True}))
 
+        # An electron e- and its antiparticle
+        self.mypartlist.append(base_objects.Particle({'name':'e-',
+                      'antiname':'e-',
+                      'spin':2,
+                      'color':1,
+                      'mass':'zero',
+                      'width':'zero',
+                      'texname':'e^-',
+                      'antitexname':'e^+',
+                      'line':'straight',
+                      'charge':1,
+                      'pdg_code':11,
+                      'propagating':True,
+                      'is_part':True,
+                      'self_antipart':False}))
+        antie = copy.copy(self.mypartlist[5])
+        antie.set('is_part', False)
+
+
         # 3 gluon vertiex
         self.myinterlist.append(base_objects.Interaction({
                       'id': 1,
@@ -175,6 +195,30 @@ class ColorAmpTest(unittest.TestCase):
                       'particles': base_objects.ParticleList(\
                                             [self.mypartlist[1], \
                                              antiu, \
+                                             self.mypartlist[3]]),
+                      'color': [color.ColorString([color.T(0, 1)])],
+                      'lorentz':['L1'],
+                      'couplings':{(0, 0):'GQED'},
+                      'orders':{'QED':1}}))
+
+        # Photon coupling to down
+        self.myinterlist.append(base_objects.Interaction({
+                      'id': 6,
+                      'particles': base_objects.ParticleList(\
+                                            [self.mypartlist[2], \
+                                             antid, \
+                                             self.mypartlist[3]]),
+                      'color': [color.ColorString([color.T(0, 1)])],
+                      'lorentz':['L1'],
+                      'couplings':{(0, 0):'GQED'},
+                      'orders':{'QED':1}}))
+
+        # Photon coupling to electrons
+        self.myinterlist.append(base_objects.Interaction({
+                      'id': 7,
+                      'particles': base_objects.ParticleList(\
+                                            [self.mypartlist[5], \
+                                             antie, \
                                              self.mypartlist[3]]),
                       'color': [color.ColorString([color.T(0, 1)])],
                       'lorentz':['L1'],
@@ -476,7 +520,124 @@ class ColorAmpTest(unittest.TestCase):
                          goal_cs)
 
     
+
+    def test_color_connections(self):
+        """ Test the functions in ColorMatrix related to the generation of color-correlated 
+        Matrix elements."""
         
+        from color_connections_reference_results import \
+            epem_ddx_NLO_res, \
+            epem_ddx_NNLO_res, \
+            epem_ddx_NNNLO_res, \
+            epem_ddxg_NLO_res, \
+            epem_ddxg_NNLO_res, \
+            epem_ddxgg_NLO_res, \
+            epem_ddxgg_NNLO_res, \
+            gg_ddx_NLO_res, \
+            gg_ddx_NNNLO_res, \
+            gg_ddxg_NLO_res, \
+            ddx_ddx_NLO_res, \
+            ddx_ddx_NNLO_res, \
+            ddx_ddx_NNNLO_res
+
+
+        # The tests that are commented are not because they're not working but just
+        # because they are too slow for unit tests
+        combinations = [
+            
+            ## NLO
+            ######
+            ## e+ e- > d d~ @NLO
+            (0,[11,-11],'NLO',epem_ddx_NLO_res),
+            ## e+ e- > d d~ g @NLO
+            (1,[11,-11],'NLO',epem_ddxg_NLO_res),
+            ## e+ e- > d d~ g g @NLO
+            (2,[11,-11],'NLO',epem_ddxgg_NLO_res),
+            ## g g > d d~ @NLO
+            (0,[21,21],'NLO',gg_ddx_NLO_res),
+            ## g g > d d~ g @NLO
+            (1,[21,21],'NLO',gg_ddxg_NLO_res),
+            ## d d~ > d d~ @NLO
+            (0,[1,-1],'NLO',ddx_ddx_NLO_res),
+            
+            ## NNLO
+            #######
+            ## e+ e- > d d~ @NNLO
+            (0,[11,-11],'NNLO',epem_ddx_NNLO_res),
+            ## e+ e- > d d~ g @NNLO
+            (1,[11,-11],'NNLO',epem_ddxg_NNLO_res),
+            ## e+ e- > d d~ g g @NNLO
+            (2,[11,-11],'NNLO',epem_ddxgg_NNLO_res),
+            ## d d~ > d d~ @NNLO
+            (0,[1,-1],'NNLO',ddx_ddx_NNLO_res),
+
+            ## NNNLO
+            #######
+            ## e+ e- > d d~ @NNNLO
+            (0,[11,-11],'NNNLO',epem_ddx_NNNLO_res),
+            ## g g > d d~ @NNNLO
+            # These results are too large to be stored in the hardcoded reference
+            # results and we skip them. (also too slow for unit tests. 
+            # But it's working in principle.
+            #(0,[21,21],'NNNLO',gg_ddx_NNNLO_res),
+            ## d d~ > d d~ @NNNLO
+            #(0,[1,-1],'NNNLO',ddx_ddx_NNNLO_res),
+        ]
+        
+        def compare_result(color_matrices, color_connections, reference):
+            
+            important_info_CM = [(c[0], dict(c[1][1].col_matrix_fixed_Nc) ) for c in color_matrices
+                                if c[1][1].col_matrix_fixed_Nc is not None]
+
+            important_info_CC = {k: [( i , cc['tuple_representation'] ) for i, cc in enumerate(v)] 
+                                                                                    for k,v in color_connections.items()}
+
+            #pprint(important_info_CM)
+            #pprint(important_info_CC)
+            self.assertListEqual(important_info_CM, reference['color_matrices'])
+            self.assertDictEqual(important_info_CC, reference['color_connections'])
+
+        for n_gluons, initial_states, max_order, reference in combinations:
+            myleglist = base_objects.LegList()
+            myleglist.append(base_objects.Leg({'id':initial_states[0],'state':False}))
+            myleglist.append(base_objects.Leg({'id':initial_states[1], 'state':False}))
+            myleglist.append(base_objects.Leg({'id':1,'state':True}))
+            myleglist.append(base_objects.Leg({'id':-1,'state':True}))
+            myleglist.extend([base_objects.Leg({'id':21,
+                                                'state':True})] * (n_gluons ))
+
+            myprocess = base_objects.Process({'legs':myleglist,
+                                              'model':self.mymodel})
+
+            myamplitude = diagram_generation.Amplitude()
+            myamplitude.set('process', myprocess)
+            myamplitude.generate_diagrams()
+            
+            col_basis = color_amp.ColorBasis(myamplitude)
+            
+            col_matrix = color_amp.ColorMatrix(col_basis, Nc=3)
+            
+            all_color_matrices, color_connections = col_matrix.build_color_correlated_matrices(
+                          myleglist,self.mymodel, order=max_order,Nc=3, Nc_power_min=None, Nc_power_max=None)
+
+            # Now aggregate all color_connections in a single list:
+            all_color_connections = []
+            for o in range(max_order.count('N')+1):
+                all_color_connections.extend(color_connections['N'*o+'LO'])
+
+            sorted_color_matrices = sorted(all_color_matrices.items(), key=lambda el:el[0])
+
+            compare_result(sorted_color_matrices, color_connections, reference)
+
+            if False: pprint([(
+                
+                '(%d,%d) -> [ %s | %s ]'%(k[0],k[1],
+                                          str(all_color_connections[k[0]]['tuple_representation']),
+                                          str(all_color_connections[k[1]]['tuple_representation']))
+                , (v[0] ,v[1].col_matrix_fixed_Nc)) for k,v in sorted_color_matrices])
+
+            if False: print("\nA total of %d correlator matrices have been computed (among which %d are zero)"%
+                    (len(sorted_color_matrices), len([_ for _ in sorted_color_matrices if _[1][1].col_matrix_fixed_Nc is None])) )
 
 class ColorSquareTest(unittest.TestCase):
     """Test class for the color_amp module"""

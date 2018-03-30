@@ -879,6 +879,23 @@ class ME7Integrand(integrands.VirtualIntegrand):
         ME_evaluation, all_results = self.all_MEAccessors(
                                             process, PS_point, alpha_s, mu_r, pdgs=flavors)
         
+        ## Some code to test the color correlated MEs
+        ##color_correlation_to_consider = ( ((3, -2, 3), (-2, -2, -1)), ((3, -1, 3), (-1, -1, -2)) )
+        ##color_correlation_to_consider = ( -1, ((3, -1, 3), (-1, -1, -2)) )
+        ##color_correlation_to_consider = ( -1, ((3, -1, 3), ) )        
+        ##ME_evaluation, all_results = self.all_MEAccessors(
+        ##    process, PS_point, alpha_s, mu_r, pdgs=flavors, 
+        ##    color_correlation=( color_correlation_to_consider, ),
+        ##    return_all_res = True)
+        ##misc.sprint(str(ME_evaluation))
+        ##misc.sprint(str(all_results))
+        ##ME_evaluation, all_results = self.all_MEAccessors(
+        ##    process, PS_point, alpha_s, mu_r, pdgs=flavors, 
+        ##    color_correlation=( ( ((4, -1, 4), ), ((3, -1, 3), ) ), ),
+        ##    return_all_res = True)
+        ##misc.sprint(str(ME_evaluation))
+        ##misc.sprint(str(all_results))
+        
         sigma_wgt *= ME_evaluation['finite']
         
         if self.apply_observables:
@@ -1623,7 +1640,7 @@ The missing process is: %s"""%ME_process.nice_string())
         # Loop over processes
         all_evaluations = {}
         for process_key, (defining_process, mapped_processes) in self.processes_map.items():
-            misc.sprint("Considering " + defining_process.nice_string())
+            misc.sprint("Considering %s"%defining_process.nice_string())
             # Make sure that the selected process satisfies the selection requirements
             if not self.is_part_of_process_selection(
                 [defining_process, ]+mapped_processes,
@@ -1650,7 +1667,6 @@ The missing process is: %s"""%ME_process.nice_string())
                 (i+1, mom) for i, mom in enumerate(a_real_emission_PS_point) )
 
             # Use correction_order to select CT subset
-            print "These counterterms:", [str(ct) for ct in self.counterterms[process_key]]
             counterterms_to_consider = [
                 ct for ct in self.counterterms[process_key]
                 if ct.count_unresolved() <= test_options['correction_order'].count('N') ]
@@ -1661,7 +1677,7 @@ The missing process is: %s"""%ME_process.nice_string())
             selected_counterterms = self.find_counterterms_matching_limit_type_with_regexp(
                 counterterms_to_consider, test_options['limit_type'] )
 
-            misc.sprint('\n'+'\n'.join(
+            misc.sprint('Reconstructed complete singular structure: \n'+'\n'.join(
                 str(ct.reconstruct_complete_singular_structure())
                 for ct in selected_counterterms
             ))
@@ -1669,7 +1685,7 @@ The missing process is: %s"""%ME_process.nice_string())
             # Loop over approached limits
             process_evaluations = {}
             for limit_specifier_counterterm in selected_counterterms:
-                misc.sprint("Approaching limit " + str(limit_specifier_counterterm) )
+                misc.sprint("Approaching limit %s"%str(limit_specifier_counterterm) )
 
                 # # First identify the reduced PS point from which to evolve
                 # # to larger multiplicity while progressively approaching the IR limit

@@ -538,6 +538,14 @@ class ColorMatrix(dict):
     representation of the matrix, and the other one with the "inverted" matrix,
     i.e. a dictionary where keys are values of the color matrix."""
 
+    # See doc of 'generate_all_color_connections' for details on the meaning of
+    # these general parameters
+    Q1_DUMMY_STARTING_INDEX               = -100000  
+    Q2_DUMMY_STARTING_INDEX               = -200000
+    SINGLE_PRIME_POSITIVE_INDICES_OFFSET  = 100 
+    DOUBLE_PRIME_POSITIVE_INDICES_OFFSET  = 200
+    EMITTED_NEGATIVE_INDICES_OFFSET       = 300
+
     def __init__(self, col_basis, col_basis2=None,
                  Nc=3, Nc_power_min=None, Nc_power_max=None, automatic_build=True):
         """Initialize a color matrix with one or two color basis objects. If
@@ -562,103 +570,565 @@ class ColorMatrix(dict):
                 # If the two color basis are equal, assumes the color matrix is symmetric
                 self.build_matrix(Nc, Nc_power_min, Nc_power_max, is_symmetric=True)
 
-    def get_color_generator_for_leg(self, leg, model, this_leg_index_offset, other_leg_index_offset):
-        """ Builds the color generator appropriate for a given leg, given its color charge.
-        index offsets specify what index offset to use to differentiate the indices that
-        are part of the color connections and also part of <M| and |M>.
-        The leg_index_offsets argument specifies which offset to apply to select exactly 
-        how they will be contracted (i.e. with the indices of the <M|, or |M> or even of the color 
-        connector itself. """
-
-        # Make sure indices summation in this color connection doesn't conflict with 
-        # the ones of other ColorStrings that will be part of the same chain.
-        negative_offset = -10000
-
-        color_charge = model.get_particle(leg.get('id')).get_color()
-        leg_number = leg.get('number')
-        this_leg_index = this_leg_index_offset + leg_number
-        other_leg_index = other_leg_index_offset + leg_number
+    def get_splitting_color_operator(self, incoming_index, emitting_repr, outgoing_base_index, 
+                                             outgoing_emitted_index, qqbar=False, Q='Q1'):
+        """ Returns the color operator associated with the splitting of emitting_index (in the
+        emitting_repr representation (in [8,3,-3]) into the emitted_index.
+        The flag qqbar indicates if this is a g > g g or g > q q~ splitting.
+        The outgoing_emitted_index is the new negative emitted index; that is:
         
-        if color_charge==1:
-            return None
-        if color_charge not in [3,-3,8]:
-            raise MadGraph5Error("Color connected matrix elements between particles color-charged"+
-                                 " in the %d representation are not implemented."%abs(color_charge))
+        The convention for T in the color module is T^{octet}_{incoming triplet, outgoing triplet}
+        
+          q > q g    :  T^{outgoing_emitted_index}_{incoming_index,outgoing_base_index}
+          q~ > q~ g  :  -T^{outgoing_emitted_index}_{outgoing_base_index, incoming_index}
+          g > g g    :  f^{incoming_index, outgoing_emitted_index, outgoing_base_index}
+          g > q q~   :  T^{incoming_index}_{outgoing_base_index,outgoing_emitted_index}
+          
+        Finally, when this splitting is to be added to the Q2 colour structure, the convention
+        is to *never* apply complex conjugation except for the g > q q~ splitting, where
+        it is necessary because the emitted particle (and antiquark) is not its own self-antiparticle.
+        In this case, the splitting operator added is the complex-conjugate of the one added
+        for Q1:
 
-        # Initial state anti-quark and final state quarks both carry anti-fundamental color indices
-        # The anti-charge generator takes a minus sign.
-        if color_charge == -3 and not leg.get('state') or color_charge == 3 and leg.get('state'):
-            return color_algebra.ColorString([color_algebra.T(negative_offset, other_leg_index, this_leg_index)],
+          g > q q~ (for Q2) :  -T^{incoming_index}_{outgoing_emitted_index,outgoing_base_index}        
+        
+        """
+        
+        if emitting_repr not in [3,-3,8]:
+            raise MadGraph5Error("Color connected matrix elements between particles color-charged"+
+                                 " in the %d representation are not implemented."%abs(emitting_repr))
+        if qqbar and emitting_repr != 8:
+            raise MadGraph5Error("Only a color octet can split into a q-qbar pair.")
+
+        # q > q g
+        if emitting_repr == 3:
+            return color_algebra.ColorString([color_algebra.T(outgoing_emitted_index, incoming_index, outgoing_base_index)])
+        # q~ > q~ g
+        elif emitting_repr == -3:
+            # The anti quark emissiong operator color operator is (T^c_{ab})* = -T^c_{ba}
+            return color_algebra.ColorString([color_algebra.T(outgoing_emitted_index, outgoing_base_index, incoming_index)],
                                                                                     coeff=fractions.Fraction(-1, 1))
-        # Initial state quark and final state anti-quarks both carry fundamental color indices
-        if color_charge == 3 and not leg.get('state') or color_charge == -3 and leg.get('state'):
-            return color_algebra.ColorString([color_algebra.T(negative_offset, this_leg_index, other_leg_index)])
         # For gluon self-interactions, we chose the second index 'b' of f^{abc} to be the one carrying 
         # "emitted" gluon's color.
         # The dual representation of the color charge takes an imaginary factor 'i', this is also what insures that
         # the color matrix remains real for the correlator of the type f * T
-        if color_charge == 8:
-#ORIG            return color_algebra.ColorString([color_algebra.f(other_leg_index, negative_offset,this_leg_index)],
-#ORIG                                                                                                 is_imaginary=True)
-            return color_algebra.ColorString([color_algebra.f(this_leg_index, negative_offset, other_leg_index)],
+        elif (not qqbar) and emitting_repr == 8:
+            return color_algebra.ColorString([color_algebra.f(incoming_index, outgoing_emitted_index, outgoing_base_index)],
                                                                                                  is_imaginary=True)
+        # The outgoing_emitted_index is always chosen to be an outgoing anti-quark while the
+        # outgoing_base_index is always a quark. 
+        elif qqbar and emitting_repr == 8:
+            if Q=='Q1' or True:
+                return color_algebra.ColorString([color_algebra.T(incoming_index, 
+                                            outgoing_emitted_index, outgoing_base_index)])
+            else:
+                return color_algebra.ColorString([color_algebra.T(incoming_index,
+                    outgoing_base_index, outgoing_emitted_index)],coeff=fractions.Fraction(-1, 1))
 
-    def generate_all_color_connections(self, index_offset, process_legs, model, order='NLO'):
-        """Returns a dictionary whose keys is the "identifier" of the color connection. At NLO, this identifier is
-        a tuple showing pairs of ID's from which the particle is emitted / re-absorbed and values are the ColorString 
-        corresponding to this connection.
-        """
-
-        color_connections = {}
+    def add_splitting_to_connection(self, connection, emitting_index, emitting_repr, 
+                                                              emitted_index, qqbar=False ):
+        """ Add a splitting to the connection passed in argument. The splitting is specified
+        by its emitting index and its representation as well as the emitted index.
+        A special flag denotes if a g > g g or g > q q~ must be considered."""
         
-        if order != 'NLO':
-            raise MadGraph5Error("Color connections for expansion order '%s' not implemented yet."%order)
+        # First remove the emitted_index from the list of those that must still be emitted
+        connection['emitted_numbers_pool'].remove(emitted_index)
 
-        for leg1 in process_legs:
-            color_string_1 = self.get_color_generator_for_leg(leg1, model, 0, index_offset)
-            if color_string_1 is None:
-                continue
-            for leg2 in process_legs:
-                # Only build half of the symmetric color connection CC_ij = <M| T_i T_j |M> matrix
-                # We will build the diagonal terms later
-                if leg2.get('number')<=leg1.get('number'):
-                    continue
-#ORIG                color_string_2 = self.get_color_generator_for_leg(leg2, model, index_offset, 0)
-                color_string_2 = self.get_color_generator_for_leg(leg2, model, 0, index_offset)
-                if color_string_2 is None:
-                    continue
-                color_connection = color_string_1.create_copy()
-#ORIG                color_connection.product(color_string_2.complex_conjugate())
-                color_connection.product(color_string_2)
+        # Now add the correct color operator to the current color strings representing 
+        # the connection so far. 
+        # We start by determining the first outgoing index for Q1 and Q2
+        if emitting_index > 0:
+            first_outgoing_index_Q1  = self.SINGLE_PRIME_POSITIVE_INDICES_OFFSET+emitting_index
+        else:
+            first_outgoing_index_Q1 = self.EMITTED_NEGATIVE_INDICES_OFFSET+abs(emitting_index)
+        if emitting_index > 0:
+            first_outgoing_index_Q2  = self.DOUBLE_PRIME_POSITIVE_INDICES_OFFSET+emitting_index
+        else:
+            first_outgoing_index_Q2 = self.EMITTED_NEGATIVE_INDICES_OFFSET+abs(emitting_index)
+        
+        # The second outgoing index is always identical for Q1 and Q2 as it must be negative
+        assert(emitted_index<0)
+        second_outgoing_index = self.EMITTED_NEGATIVE_INDICES_OFFSET+abs(emitted_index)
+
+        # We must now determine the emitting color index and replace it with a dummy summation
+        # if needed. We start with Q1
+        if emitting_index in connection['replace_indices_Q1']:
+            # This operator will directly link to the matrix element, no dummy indext must
+            # be introduced then
+            del connection['replace_indices_Q1'][emitting_index]
+            incoming_index_Q1 = emitting_index
+        else:
+            # We must introduce a dummy index
+            connection['last_dummy_index_Q1'] -= 1
+            incoming_index_Q1 = connection['last_dummy_index_Q1']
+            # We must replace the exiting first_outgoing_index_Q1 in the colour structure
+            # by this new dummy index
+            connection['color_string_Q1'].replace_indices({first_outgoing_index_Q1: incoming_index_Q1})
+
+        # And similarly for Q2
+        if self.SINGLE_PRIME_POSITIVE_INDICES_OFFSET+emitting_index in connection['replace_indices_Q2']:
+            # This operator will directly link to the matrix element, no dummy indext must
+            # be introduced then
+            del connection['replace_indices_Q2'][self.SINGLE_PRIME_POSITIVE_INDICES_OFFSET+emitting_index]
+            incoming_index_Q2 = self.SINGLE_PRIME_POSITIVE_INDICES_OFFSET+emitting_index
+        else:
+            # We must introduce a dummy index
+            connection['last_dummy_index_Q2'] -= 1
+            incoming_index_Q2 = connection['last_dummy_index_Q2']
+            
+            # We must replace the exiting first_outgoing_index_Q1 in the colour structure
+            # by this new dummy index
+            connection['color_string_Q2'].replace_indices({first_outgoing_index_Q2: incoming_index_Q2})
+            
+        # Now that all the indices of the color operator to add have been figured out,
+        # we can add it to the corresponding color strings
+        connection['color_string_Q1'].product( self.get_splitting_color_operator(
+            incoming_index_Q1, emitting_repr, first_outgoing_index_Q1, second_outgoing_index, qqbar=qqbar, Q='Q1') )
+        connection['color_string_Q2'].product( self.get_splitting_color_operator(
+            incoming_index_Q2, emitting_repr, first_outgoing_index_Q2, second_outgoing_index, qqbar=qqbar, Q='Q2') )
+    
+        # We must add the newly generated index to the list of available ones. 
+        if not qqbar:
+            # It is always a gluon then
+            connection['open_indices'].append((emitted_index,8))
+            # Add the splitting to the tuple representation
+            connection['tuple_representation'].append( 
+                                             (emitting_index, emitted_index, emitting_index) )
+        else:
+            # We emit an anti-quark in this case
+            connection['open_indices'].append((emitted_index,-3))
+            # We must remove the existing open index which was a gluon and replace it with
+            # a quark one
+            connection['open_indices'].remove((emitting_index,8))
+            connection['open_indices'].append((emitting_index,3))
+            # As you can see the convention for such splitting is to be denoted 
+            # (-1,-1,-2) while g > g g would be labelled as (-1,-2,-1).
+            connection['tuple_representation'].append( 
+                                          (emitting_index, emitting_index, emitted_index) )
+            
+
+    def generate_all_color_connections(self, process_legs, model, order='NLO'):
+        """Returns a dictionary whose keys is the "identifier" of the color connection.
+        This identifier is formatted as the following 2-tuple structure:
+            ( first_connection_structure, second_connection_structure )
+        where each connection structure is a tuple of tuples formatted as follows:
+            ( ColorOperator1, ColorOperator2, ColorOperator3, etc.. )
+        where each color operator (Q) is a tuple with the following three entries:
+            ( incoming_saturated_index (i), new_open_index_A (j), new_open_index_B (k) )
+        which identifies the color indices "generated" by the color operator which is 
+        connected to the previously open index labeled 'incoming_saturated_index'.
+        
+        Depending of the color representation of the 'incoming_saturated_index', one has:
+          A) color-triplet      : Q -> T^j_{ik}
+          B) color-anti-triplet : Q -> -T^j_{ik}
+          C) color-octet        : Q -> i f^ijk or
+          D) color-octet        : Q -> T^i_{jk} if i == j and i<0
+        The last condition i<0 enforces that the g > q q~ splitting occurs from an already
+        soft gluon.
+        
+        We now illustrate the notation above with the process e+(1) e-(2) > d(3) d~(4) g(5):
+        At NLO the connections are simply the following three:
+            ((3,-1,3),) 
+            ((4,-1,4),) 
+            ((5,-1,5),)
+        Leading to 9 possible color correlators. At NNLO, the possible soft currents are:
+        (Notice that using our conventions, the list of color operators is unordered and
+        can therefore be considered as a set. For convenience however, we will considered
+        its canonical representation to be an ordered list instead. The examples below
+        do not reflect this ordering and instead you can imagine all of them being wrapped
+        by a "sorted(*, key= lambda el: el[0], reverse=True)" statement. Notice that because
+        of the dummy indices, the resulting basis might still not be minimal).
+        
+          > The "simple disjoint dipoles"
+              ( (3,-1,3), (4,-2,4) )
+              ( (3,-1,3), (5,-2,5) )
+              ( (4,-1,4), (5,-2,5) )
+            
+          > The "successive gluon emissions from a single quark leg"
+              ( (3,-1,3), (3,-2,3) )
+              ( (4,-1,4), (4,-2,4) )
+            
+          > The "successive gluon emissions from a single gluon leg"
+              ( (5,-1,5), (5,-2,5) )
+              ( (5,-1,5), (-1,-2,-1) )
+          
+          > The "gluon splitting into a quark pair" 
+              ( (3,-1,3), (-1,-1,-2) )
+              ( (4,-1,4), (-1,-1,-2) )
+              ( (5,-1,5), (-1,-1,-2) )
+            Notice how the (5,-1,-2) operator is not allowed and how (-1,-1,-2) indicates
+            the splitting into two quarks while (-1,-2,-1) before indicated the splitting
+            into two gluons.
+
+          >  Emission from one quark and the gluon
+            ( (3,-1,3), (5,-2,5) )
+            ( (4,-1,4), (5,-2,5) )
+            
+        Now, we add that each of the color current structure above will exist in two copies
+        with the label -1 and -2 interchanged *when not repeated/summed over* and *when not part of
+        the same tuple*. So '( (5,-1,5), (-1,-2,-1) )' does not have any symmetric counterpart.
+        An analoguous symmetrisation involving k gluon indices is performed in an N^kLO computation.
+        
+
+        Finally, and more pragmatically, the computation is performed as follows:
+        
+        < M(c_i) | Q1(c_i -> c_i') Q2(c_i' -> c_i'') | M(c_i'') >
+        
+        where c_i are sets of color indices and the "primes" ' indicate the output images
+        of the action of color operators Q. 
+        The dummy indices part of < M(c_i) | and | M(c_i'') > will be forced to be non-overlapping,
+        while those for Q1(c_i -> c_i') (resp. Q2) will be selected decrementally from
+        Q1_DUMMY_STARTING_INDEX (resp. Q1_DUMMY_STARTING_INDEX).
+        The set of indices c_i are positive and span all leg numbers.
+        The set of color indices c_i' and c_i'' is constructed as follows:
+        
+            Negative indices c = (-1, -2, ...) which used to indicate gluon or quark emission
+            are replaced by EMITTED_NEGATIVE_INDICES_OFFSET + |c| and positive ones
+            by SINGLE_PRIME_POSITIVE_INDICES_OFFSET + c.
+            
+            Similarly for the c_i'' indices, using the variables DOUBLE_PRIME_POSITIVE_INDICES_OFFSET
+            for positive ones and EMITTED_NEGATIVE_INDICES_OFFSET again for negative ones.
+        
+        We illustrate below the actual implementation of some of the correlators shown before.
+        We will use here:
+        
+                Q1_DUMMY_STARTING_INDEX               = -100000  
+                Q2_DUMMY_STARTING_INDEX               = -200000
+                SINGLE_PRIME_POSITIVE_INDICES_OFFSET  = 100 
+                DOUBLE_PRIME_POSITIVE_INDICES_OFFSET  = 200
+                EMITTED_NEGATIVE_INDICES_OFFSET       = 300
                 
-                color_connections[(leg1.get('number'), leg2.get('number'))] = \
-                                                    (color_connection, color_connection.to_immutable())
+    
+        And the amplitude e+(1) e-(2) > d(3) d~(4) g(5) is denoted < 3 4 5 |, then the
+        color connected ME for the connection ( (3,-1,3), (4,-2,4) ) squared against itself 
+        will read:
         
-        # Now build the diagonal elements which will always be simpliable in terms of delta's and the resulting color matrix
-        # will be proportional to the original one, but since we want to retain the possibility of truncating Nc_orders
-        # we will not take advantage of this fact here
-        for leg in process_legs:
-            # The indices of the color generators inserted will saturate with themselves, so we must take
-            # them distinct from the ones that will appear in the matrix-element <M| and |M>, hence we use
-            # 100*index_offset
-            color_connection = self.get_color_generator_for_leg(leg, model, 0, 10*index_offset)
-            if color_connection is None:
-                continue
-            
-#ORIG            color_string_2 = self.get_color_generator_for_leg(leg, model, index_offset, 10*index_offset) 
-#ORIG            color_connection.product(color_string_2.complex_conjugate())
+        < 3 4 5 | 
+                   T^{301}_{3,103} T^{302}_{4,104} \delta_{5,105}  
+                   T^{301}_{103,203} T^{302}_{104,204} \delta_{105,205}
+        | 203 204 205 >
+        
+        The connection ( (3,-1,3), (4,-2,4) ) squared against ( (3,-2,3), (5,-1,5) ) reads:
 
-            color_string_2 = self.get_color_generator_for_leg(leg, model, 10*index_offset, index_offset) 
-            color_connection.product(color_string_2)            
+        < 3 4 5 | T^{301}_{3,103} T^{302}_{4,104} \delta_{5,105} 
+                   \delta_{104,204} T^{302}_{103,203} i f^{105,301,205} | 203 204 205 >   
+        
+        For ( (3,-1,3), (4,-2,4) ) squared against ( (5,-1,5), (-1,-2,-1) ) we have:
+        
+        < 3 4 5 | T^{301}_{3,103} T^{302}_{4,104} \delta_{3,103} \delta_{4,104} 
+                  \delta_{103,203} \delta_{104,204} i f^{105,-200001,205} i f^{-200001,302,301}
+        | 203 204 205 >   
+        
+        and at last, for ( (5,-1,5), (-1,-1,-2) ) squared against itself:
+        
+        < 3 4 5 | \delta_{3,103} \delta_{4,104} i f^{5,-100001,105} T^{-100001}_{301,302}
+                  \delta_{103,203} \delta_{104,204} i f^{105,-200001,205} T^{-200001}_{301,302}
+        | 203 204 205 >   
+        
+        """
+        
+        max_order = order.count('N')
+        
+        
+        # First collect all available external color indices and store them in a map with
+        # which acts as the "seed" LO color correlations (which is simply < M | Q1 Q2 | M >
+        # which Q1 and Q2 being simple deltas at LO.
+        color_connections = {'LO': [
+                {'open_indices': [],
+                 # Information related to the first color current string applied
+                 'color_string_Q1'      : color_algebra.ColorString(),
+                 # The replace indices dictionary acts like the delta in color space.
+                 # It is more efficient to do it like this than with actual color factors 
+                 'replace_indices_Q1'   : {},
+                 # Keeps track of the last dummy index used when building Q1
+                 'last_dummy_index_Q1'  : self.Q1_DUMMY_STARTING_INDEX,
+                 # Information related to the second color current string applied
+                 'color_string_Q2'      : color_algebra.ColorString(),
+                 # The replace indices dictionary acts like the delta in color space.
+                 # It is more efficient to do it like this than with actual color factors
+                 'replace_indices_Q2'   : {},
+                 # Keeps track of the last dummy index used when building Q1
+                 'last_dummy_index_Q2'  : self.Q2_DUMMY_STARTING_INDEX,
+                 # The tuple representation (common to Q1 and Q2) as specified in the doc
+                 # of the function 'generate_all_color_connections'
+                 'tuple_representation' : (),
+                 # This integer corresponds to the number of different ways in which one can
+                 # arrive at this connection. For example, the tuple_representation:
+                 #    ((4,-2,4),(3,-1,3))
+                 # could also have been written
+                 #    ((3,-2,3),(4,-1,4))
+                 # but only the former will be retained as a result of the ordering principle
+                 # of ascending first indices in all the triplets part of the tuple representation
+                 # Therefore, n_representative will be computed to be 2 for the above connection
+                 'n_representatives'    : 1}
+            ]
+        }
+
+        # Each open index is stored as a 2-tuple with the following format:
+        #    ( <open_index_number>, <SU(3) representation, taking values in [3,-3,8]> )
+        # The operators entry corresponds to the list of color object instances building the correlator
+        # and the tuple representation corresponds to the convention described in the doc of this function.
+        
+        for leg in process_legs:
+            # Obtain the color representation of the index carried by this leg
+            color_charge = model.get_particle(leg.get('id')).get_color()
+            leg_number = leg.get('number')
+            if color_charge == 1:
+                continue
+            # Initial state anti-quark and final state quarks both carry anti-fundamental color indices
+            # The anti-charge generator takes a minus sign.
+            elif color_charge == -3 and not leg.get('state') or color_charge == 3 and leg.get('state'):
+                color_connections['LO'][0]['open_indices'].append((leg_number,-3))
+            # Initial state quark and final state anti-quarks both carry fundamental color indices
+            elif color_charge == 3 and not leg.get('state') or color_charge == -3 and leg.get('state'):
+                color_connections['LO'][0]['open_indices'].append((leg_number,3))
+            # For gluon self-interactions, we chose the second index 'b' of f^{abc} to be the one carrying 
+            # "emitted" gluon's color.
+            # The dual representation of the color charge takes an imaginary factor 'i', this is also what insures that
+            # the color matrix remains real for the correlator of the type f * T
+            elif color_charge == 8:
+                color_connections['LO'][0]['open_indices'].append((leg_number,8))
+            # In all cases for color-charged particle we start with deltas
+            color_connections['LO'][0]['replace_indices_Q1'][leg_number]\
+                = self.SINGLE_PRIME_POSITIVE_INDICES_OFFSET+leg_number
+            color_connections['LO'][0]['replace_indices_Q2'][self.SINGLE_PRIME_POSITIVE_INDICES_OFFSET+leg_number]\
+                = self.DOUBLE_PRIME_POSITIVE_INDICES_OFFSET+leg_number
+
+        def create_connection_copy(correlator):
+            copy =   { 'open_indices'           : list(correlator['open_indices']),
+                       'color_string_Q1'        : correlator['color_string_Q1'].create_copy(),
+                       'replace_indices_Q1'     : dict(correlator['replace_indices_Q1']),
+                       'last_dummy_index_Q1'    : correlator['last_dummy_index_Q1'],
+                       'color_string_Q2'        : correlator['color_string_Q2'].create_copy(),
+                       'replace_indices_Q2'     : dict(correlator['replace_indices_Q2']),
+                       'last_dummy_index_Q2'    : correlator['last_dummy_index_Q2'],
+                       'tuple_representation'   : list(correlator['tuple_representation']),
+                       'n_representatives'      : correlator['n_representatives']
+                     }
+            if 'emitted_numbers_pool' in correlator:
+                copy['emitted_numbers_pool'] = list(correlator['emitted_numbers_pool'])
+            return copy
+        
+        # We can now add the correlators for each perturbative order up to max_order
+        for curr_order in range(1,max_order+1):
             
-#            misc.sprint(repr(color_connection), color_algebra.ColorFactor([color_connection]).full_simplify())
-            color_connections[(leg.get('number'), leg.get('number'))] = \
-                                                (color_connection, color_connection.to_immutable())        
+            # Now iteratively generate all n emissions, with n=curr_order. Everytime storing
+            # the intermediate list of correlators generated after the i^th emission in
+            # intermediate_step, which is initialized to the a lsit of a single element:
+            # the LO correlator so as to have access to the list of open indices
+            connections_intermediate_list = [create_connection_copy(color_connections['LO'][0])]
+            # We will add an additional helper entry in the intermediate_step records which
+            # is the list of emitted numbers that must still be used (initialized to [-1,-2]
+            # for NNLO for instance)
+            connections_intermediate_list[0]['emitted_numbers_pool'] = range(-1,-curr_order-1,-1)
+            for i_emission in range(curr_order):
+                next_connections_list = []
+                # Append an emission to all previously generated connections
+                for connection in connections_intermediate_list:
+                    # Choose one open index from which to emit
+                    for emitting_index, emitting_repr in connection['open_indices']:
+                        # Choose one emitted index in the pool of available ones
+                        for emitted_index in connection['emitted_numbers_pool']:
+                            
+                            # Now append the corresponding emission operator and tuple 
+                            # representation to the connection from which we emit
+                            new_connection = create_connection_copy(connection)
+                            
+                            self.add_splitting_to_connection(new_connection,
+                                 emitting_index, emitting_repr, emitted_index, qqbar=False)
+                            next_connections_list.append(new_connection)
+                            
+                            # If the emitting index is unresolved (i.e. negative), 
+                            # we must allow the g > q q~ splitting. 
+                            if emitting_repr == 8 and emitting_index < 0:
+                                qqbar_connection = create_connection_copy(connection)
+                                self.add_splitting_to_connection(qqbar_connection,
+                                  emitting_index, emitting_repr, emitted_index, qqbar=True)
+                                next_connections_list.append(qqbar_connection)             
+                                
+                # Now update the intermediate connections_intermediate list to be used for 
+                # the next emission. Filter here the connections generated by ordering
+                # the tuple representation and keeping only unique occurences.
+                filtered_connections = {}
+                for connection in next_connections_list:
+                    
+                    connection['tuple_representation'] = tuple(sorted(
+                        connection['tuple_representation'], key = lambda _: _[0], reverse=True
+                        ))
+                    # Comment the line above and uncomment the next three lines below if you don't want
+                    # to simplify the list of color connections using the ascending ordering
+                    # principle of the first index
+                    ##connection['tuple_representation'] = tuple(connection['tuple_representation'])
+                    ##filtered_connections[connection['tuple_representation']] = connection
+                    ##continue
+                    
+                    if connection['tuple_representation'] not in filtered_connections:
+                        # If it wasn't already listed, simply attach it to the list of connections from
+                        # which to perform the next emission
+                        filtered_connections[connection['tuple_representation']] = connection
+                    else:
+                        # If it was already listed, simply add the number of copies this connection
+                        # held to the number of copies associated to the matching connection.
+                        filtered_connections[connection['tuple_representation']]['n_representatives'] += connection['n_representatives']
+                
+                connections_intermediate_list = filtered_connections.values()
+
+            # Remove the temporary entry 'emitted_numbers_pool' to the generated connections
+            # and register them in the main dictionary color_connections
+            for corr in connections_intermediate_list:
+                assert(len(corr['emitted_numbers_pool'])==0)
+                del corr['emitted_numbers_pool']
+            # Add this list of correlators, sorted according to their tuple representation.
+            color_connections['N'*curr_order+'LO'] = sorted(connections_intermediate_list,
+                key = lambda el: el['tuple_representation'])
         
         return color_connections
 
+    def set_entries_for_correlator(self, cache, all_colored_indices_replacement,
+                 color_connection_Q1, color_connection_Q2, Nc, Nc_power_min, Nc_power_max):
+        """ Given the correlator, compute the entry of this color matrix."""
+        
+        # Useful shorthand to instantiate a ColorString from an immutable representation.
+        def from_immutable(CB):
+            a_cs = color_algebra.ColorString()
+            a_cs.from_immutable(CB)
+            return a_cs
+        
+        debug = False
+        
+        ##if ( color_connection_Q1['tuple_representation'] == ((4,-2,4 ),(4,-1,4)) and \
+        ##     color_connection_Q2['tuple_representation'] == ((4,-1,4 ),(3,-2,3)) ):
+        ##    print('Doing 12 vs 15: %s vs %s'%(color_connection_Q1['tuple_representation'],color_connection_Q2['tuple_representation']))
+        ##    debug = True
+        ##if ( color_connection_Q1['tuple_representation'] == ((4,-2,4 ),(3,-1,3)) and \
+        ##     color_connection_Q2['tuple_representation'] == ((4,-1,4 ),(4,-2,4)) ):
+        ##    print('Doing 11 vs 16: %s vs %s'%(color_connection_Q1['tuple_representation'],color_connection_Q2['tuple_representation']))
+        ##    debug = True
+        
+        if debug: print("\n>>>>>Now doing '%s' vs '%s'"%(
+            str(color_connection_Q1['tuple_representation']),
+            str(color_connection_Q2['tuple_representation']),
+            ))
+        if debug: print('color_string_Q1=',color_connection_Q1['color_string_Q1'])
+        if debug: print('color_string_Q2=',color_connection_Q2['color_string_Q2'])
+        if debug: print('replace_indices_Q1=',color_connection_Q1['replace_indices_Q1'])
+        if debug: print('replace_indices_Q2=',color_connection_Q2['replace_indices_Q2'])
+
+        # Check if the two correlators can be squared, it might not be the case
+        # when in presence of g > q q~ splittings
+        if debug:print('open_indices_Q1=',sorted(color_connection_Q1['open_indices']))
+        if debug:print('open_indices_Q2=',sorted(color_connection_Q2['open_indices']))
+        # The radiated q and q~ from Q2 must be considered with opposite quantum numbers
+        # because they are linked to those of Q1 which are not complex conjugated.
+        open_indices_Q2 = sorted((ind, -1*repr if ind<0 and abs(repr)==3 else repr) 
+                                     for ind, repr in color_connection_Q2['open_indices'])
+        if sorted(color_connection_Q1['open_indices']) != open_indices_Q2:
+            if debug: print('Incompatible quantum numbers for this correlator.')
+            # The two representations are incompatible, set the color matrix to zero
+            self.col_matrix_fixed_Nc = None
+            self.inverted_col_matrix = None
+            for i in range(len(self._col_basis1)):
+                for j in range(len(self._col_basis2)):
+                    self[(i, j)] = None
+            return
+
+        # Loop over all entries and compute them
+        for i, CB_left in enumerate(sorted(self._col_basis1.keys())):
+            for j, CB_right in enumerate(sorted(self._col_basis2.keys())):
+                if self.is_symmetric and j < i:
+                    continue
+                if debug: print('='*80)
+                # First fix negative indices that could be repeated on both sides
+                CB_right = ColorMatrix.fix_summed_indices(CB_left, CB_right)
+                # Convert the immutable representations to color strings, and apply
+                # complex conjugation.
+                if debug: print('CB_right=',CB_right)
+                CB_right_CS = from_immutable(CB_right).complex_conjugate()
+                if debug: print('CB_right_CS=',CB_right_CS)
+                # Replace the color indices of the conjugated matrix elements by their
+                # double prime image
+                CB_right_CS.replace_indices( all_colored_indices_replacement )
+                # We can now multiply the left Color Structure by the first connection and
+                # replace all indices in CB_left_CS that are not part of the color_connection_Q1
+                CB_left_CS = from_immutable(CB_left)
+                if debug: print('CB_left_CS=',CB_left_CS)
+                CB_left_CS.replace_indices(color_connection_Q1['replace_indices_Q1'])
+                # We must create a local copy of color_string_Q1, otherwise the next 
+                # replacement of indices will induce border effects.
+                CB_left_CS.product(color_connection_Q1['color_string_Q1'].create_copy())
+                # And similarly for Q2 now
+                CB_left_CS.replace_indices(color_connection_Q2['replace_indices_Q2'])
+                CB_left_CS.product(color_connection_Q2['color_string_Q2'].create_copy())
+
+                # Convert the immutable representations to color strings
+                final_color_string = color_algebra.ColorString()
+                final_color_string.product(CB_left_CS)
+                final_color_string.product(CB_right_CS)
+                
+                # Build a canonical representation of the computation to be carried in the
+                # hope of recycling its result later
+                canonical_entry, _ = final_color_string.to_canonical()
+                if debug: print('canonical_entry=',canonical_entry,' with repl=',_)
+                try:
+                    # If this has already been calculated, use the result
+                    result, result_fixed_Nc = cache[canonical_entry]
+                    # misc.sprint('<%d| %s | %s |%d> = %s = %s'%(
+                    #   i, color_connection_Q1['tuple_representation'], 
+                    #   color_connection_Q2['tuple_representation'], j, 'recycled!', res_fixed_Nc))
+                except KeyError:                 
+                    
+                    # Now simplify and evaluate the corresponding color chain
+                    col_fact = color_algebra.ColorFactor([final_color_string])
+                    if debug: print(col_fact)                        
+                    result = col_fact.full_simplify()
+                    if debug: print('result:',result)
+
+                    # Keep only terms with Nc_max >= Nc power >= Nc_min
+                    if Nc_power_min is not None:
+                        result[:] = [col_str for col_str in result if col_str.Nc_power >= Nc_power_min]
+                    if Nc_power_max is not None:
+                        result[:] = [col_str for col_str in result if col_str.Nc_power <= Nc_power_max]
+                    
+                    # Set Nc to a numerical value
+                    result_fixed_Nc = result.set_Nc(Nc)
+                    if debug: print('result_fixed_Nc:',result_fixed_Nc)
+
+                    if result_fixed_Nc[1] != 0:
+                        raise MadGraph5Error("The elements of the color correlated matrices should always be real."+
+                          " It turned out not to be the case when considering the correlator [ %s | %s ], giving %s"%
+                            (color_connection_Q1['tuple_representation'], color_connection_Q2['tuple_representation'],
+                                                                     str(result_fixed_Nc)))
+                   
+                    # Store result
+                    cache[canonical_entry] = (result, result_fixed_Nc)
+                    # misc.sprint('<%d| %s | %s |%d> = %s = %s'%(
+                    #   i, color_connection_Q1['tuple_representation'], 
+                    #   color_connection_Q2['tuple_representation'], j, 'computed!', res_fixed_Nc))
+                
+                # Now that we have recovered our result_fixed_Nc, we can store it in the matrix
+                # Store the full result.
+                self[(i, j)] = result
+                if self.is_symmetric:
+                    self[(j, i)] = result
+                    
+                # the fixed Nc one.
+                self.col_matrix_fixed_Nc[(i, j)] = result_fixed_Nc
+                if self.is_symmetric:
+                    self.col_matrix_fixed_Nc[(j, i)] = result_fixed_Nc
+
+                # and update the inverted dict
+                if result_fixed_Nc in self.inverted_col_matrix:
+                    self.inverted_col_matrix[result_fixed_Nc].append((i,j))
+                    if self.is_symmetric:
+                        self.inverted_col_matrix[result_fixed_Nc].append((j,i))
+                else:
+                    self.inverted_col_matrix[result_fixed_Nc] = [(i, j)]
+                    if self.is_symmetric:
+                        self.inverted_col_matrix[result_fixed_Nc] = [(j, i)]
+
+
     def build_color_correlated_matrices(self, process_legs, model, order='NLO', 
-                                                                    Nc=3, Nc_power_min=None, Nc_power_max=None):
+                                                Nc=3, Nc_power_min=None, Nc_power_max=None):
         """ Computes the color matrices for all relevant color connections at a given order.
         This function needs to know the process legs and a model instance so as to retrieve
         their color charges.
@@ -669,124 +1139,63 @@ class ColorMatrix(dict):
         where the color matrix is an instance of ColorMatrix.
         """
 
-        # Replacement color index offset. This is because when evaluating:
-        #  ColorString1(indices1) * ColorConnection(CCindices) * ColorString2(indices2)
-        # The indices of indices 2 and indices1 overlap with those of CC indices and we have to 
-        # differentiate them by offsetting by index_offset those in indices2 also present in 
-        # CCindices and indices1.
-        index_offset = 1000
-        
-        assert (len(process_legs)<1000), "Sillyness, will mess up with color indices threshold."
+        assert (len(process_legs)<10), "Sillyness, will mess up with color indices threshold."
 
-        # Useful shorthand to instantiate a ColorString from an immutable representation.
-        def from_immutable(CB):
-            a_cs = color_algebra.ColorString()
-            a_cs.from_immutable(CB)
-            return a_cs
-       
-        # Now list and identify all relevant color connections
-        # Keys are tuple showing pairs of ID's from which the particle is emitted / re-absorbed
-        # Values are the ColorString corresponding to this connection
-        color_connections = self.generate_all_color_connections(
-                                                index_offset, process_legs, model, order=order)
-        
+        # Now list and identify all relevant color connections, which is a dictionary
+        # whose format is explained in the documentation of generate_all_color_connections
+        color_connections = self.generate_all_color_connections(process_legs, model, order=order)
+
         # All color-correlated color matrices
         all_color_correlated_matrices = {}
         # Cache results
         canonical_dict = {}
-#        misc.sprint('Total of %d color connections.'%len(color_connections))
-        for color_connection_identifier in sorted(color_connections.keys()):
-            # Note that this uses the "identifier" format of the color connection suited for NLO.
-            # This will need to be revisited for NNLO.
-            leg1_number, leg2_number = color_connection_identifier
-            color_connection = color_connections[color_connection_identifier]
-#            misc.sprint('Considering color connection (%d, %d) -> %s ...'%(leg1_number, leg2_number, str(color_connection[1])))
-            # Instantiate the ColorMatrix that will correspond to that color connection
-            color_matrix = ColorMatrix(self._col_basis1,  
-                col_basis2 = self._col_basis2 if not self.is_symmetric else None, 
-                Nc = Nc, Nc_power_min = Nc_power_min, Nc_power_max = Nc_power_max,
-                automatic_build = False)
+        
+        # Identify all colored indices to be replaced by their double-prime image in the
+        # conjugated matrix element
+        all_colored_indices_replacement = {}
+        for leg in process_legs:
+            if model.get_particle(leg.get('id')).get_color() != 1:
+                all_colored_indices_replacement[leg.get('number')] = \
+                                self.DOUBLE_PRIME_POSITIVE_INDICES_OFFSET+leg.get('number')
 
-            # This follows very closely what "build_matrix" does but it is unfortunately sufficiently
-            # different that it is to cumbersome to modifiy the color matrix above so as to reuse the build_matrix() function.
-            # The idea would be to modify the basis elements of these color matrix so as to include there directly
-            # the color connection, but it has many pitfalls, one of which being that it could alter the 'sorted' order
-            # of the color basis keys, on which we rely for the definition of the color matrix ported in the ME code.
-            for i, CB_left in enumerate(sorted(color_matrix._col_basis1.keys())):
-                for j, CB_right in enumerate(sorted(color_matrix._col_basis2.keys())):
-                    if color_matrix.is_symmetric and j < i:
-                        continue
-
-                    # Fix negative indices that could be repeated on both sides
-                    CB_right = ColorMatrix.fix_summed_indices(CB_left, CB_right)
-                    # Convert the immutable representations to color strings
-                    CB_right_CS = from_immutable(CB_right).complex_conjugate()
-                    CB_right_CS.replace_indices({leg1_number : index_offset + leg1_number,
-                                                 leg2_number : index_offset + leg2_number})
-                    # Build a canonical representation of the computation to be carried in the hope of recycling its result
-                    canonical_entry, _ = color_algebra.ColorString().to_canonical(
-                                                                CB_left+color_connection[1]+CB_right_CS.to_immutable())
-                    try:
-                        # If this has already been calculated, use the result
-                        result, result_fixed_Nc = canonical_dict[canonical_entry]
-                        # misc.sprint('<%d| T_%d T_%d |%d> = %s = %s'%(
-                        #                  i, leg1_number, leg2_number, j, 'recycled!', res_fixed_Nc))
-                    except KeyError:
-                        # Convert the immutable representations to color strings
-                        CB_left_CS = from_immutable(CB_left)
-                        final_color_string = color_algebra.ColorString()
-                        final_color_string.product(CB_left_CS)
-                        final_color_string.product(color_connection[0])
-                        final_color_string.product(CB_right_CS)
-                        
-                        
-                        # Now simplify and evaluate the corresponding color chain
-                        col_fact = color_algebra.ColorFactor([final_color_string])
-                        result = col_fact.full_simplify()
-                        # Keep only terms with Nc_max >= Nc power >= Nc_min
-                        if Nc_power_min is not None:
-                            result[:] = [col_str for col_str in result if col_str.Nc_power >= Nc_power_min]
-                        if Nc_power_max is not None:
-                            result[:] = [col_str for col_str in result if col_str.Nc_power <= Nc_power_max]
-                        
-                        # Set Nc to a numerical value
-                        result_fixed_Nc = result.set_Nc(Nc)
-                        
-                        if result_fixed_Nc[1] != 0:
-                            raise MadGraph5Error("The elements of the color correlated matrices should always be real."+
-                                            " It turned out not to be the case when considering the correlator %s : %s"%
-                                                                             (str(color_connection[1]),str(result_fixed_Nc)))
-                       
-                        # Store result
-                        canonical_dict[canonical_entry] = (result, result_fixed_Nc)
-                        # misc.sprint('<%d| T_%d T_%d |%d> = %s = %s'%(
-                        #    i, leg1_number, leg2_number, j, repr(final_color_string), res_fixed_Nc))
+        connection_index_offset = 1
+        for curr_order in range(1,order.count('N')+1):
+            order_key = 'N'*curr_order+'LO'
+            
+            # Loop over all possible tuples (connection_Q1, connection_Q2)
+            for Q1_index, connection_Q1 in enumerate(color_connections[order_key]):
+                for Q2_index, connection_Q2 in enumerate(color_connections[order_key]):
+                    # Unlike at LO, there is no symmetry between (Q1, Q2) and (Q2, Q1) anymore!
+                    #if Q2_index < Q1_index:
+                    #    continue
+                    color_correlator_identifier = (
+                        connection_index_offset + Q1_index,
+                        connection_index_offset + Q2_index )
                     
-                    # Now that we have recovered our result_fixed_Nc, we can store it in the matrix
-                    # Store the full result.
-                    color_matrix[(i, j)] = result
-                    if color_matrix.is_symmetric:
-                        color_matrix[(j, i)] = result
-                        
-                    # the fixed Nc one.
-                    color_matrix.col_matrix_fixed_Nc[(i, j)] = result_fixed_Nc
-                    if color_matrix.is_symmetric:
-                        color_matrix.col_matrix_fixed_Nc[(j, i)] = result_fixed_Nc
+                    # Instantiate the ColorMatrix that will correspond to that color correlator
+                    color_matrix = ColorMatrix(self._col_basis1,  
+                        col_basis2 = self._col_basis2 if not self.is_symmetric else None, 
+                        Nc = Nc, Nc_power_min = Nc_power_min, Nc_power_max = Nc_power_max,
+                        automatic_build = False)
 
-                    # and update the inverted dict
-                    if result_fixed_Nc in color_matrix.inverted_col_matrix:
-                        color_matrix.inverted_col_matrix[result_fixed_Nc].append((i,j))
-                        if color_matrix.is_symmetric:
-                            color_matrix.inverted_col_matrix[result_fixed_Nc].append((j,i))
-                    else:
-                        color_matrix.inverted_col_matrix[result_fixed_Nc] = [(i, j)]
-                        if color_matrix.is_symmetric:
-                            color_matrix.inverted_col_matrix[result_fixed_Nc] = [(j, i)]
+                    # This follows very closely what "build_matrix" does but it is unfortunately sufficiently
+                    # different that it is to cumbersome to modify the color matrix above so as to reuse the build_matrix() function.
+                    # The idea would be to modify the basis elements of these color matrix so as to include there directly
+                    # the color connection, but it has many pitfalls, one of which being that it could alter the 'sorted' order
+                    # of the color basis keys, on which we rely for the definition of the color matrix ported in the ME code.
+                    color_matrix.set_entries_for_correlator( canonical_dict, 
+                        all_colored_indices_replacement, connection_Q1, connection_Q2, 
+                                               Nc=3, Nc_power_min=None, Nc_power_max=None )
 
-            # And we can now add our finalized color_matrix to the dictionary that will be returned
-            all_color_correlated_matrices[color_connection_identifier] = (color_connection[1], color_matrix)
-
-        return all_color_correlated_matrices
+                    # And we can now add our finalized color_matrix to the dictionary that will be returned
+                    all_color_correlated_matrices[color_correlator_identifier] = ( 
+                        ( str(connection_Q1['color_string_Q1']), 
+                          str(connection_Q2['color_string_Q2']) ), color_matrix )
+            
+            # Increase the offset by the length of the list of connections up to this point
+            connection_index_offset += len(color_connections[order_key])
+            
+        return all_color_correlated_matrices, color_connections
 
     def build_matrix(self, Nc=3,
                      Nc_power_min=None,
@@ -904,19 +1313,33 @@ class ColorMatrix(dict):
     def get_line_denominators(self):
         """Get a list with the denominators for the different lines in
         the color matrix"""
-
-        den_list = []
-        for i1 in range(len(self._col_basis1)):
-            den_list.append(self.lcmm(*[\
-                        self.col_matrix_fixed_Nc[(i1, i2)][0].denominator for \
-                                        i2 in range(len(self._col_basis2))]))
+        
+        # It can happen that the color matrix for fixed NC is set to None, in cases
+        # of color connections with vanishing interferences when computing color-correlated
+        # matrix elements (for higher order computations). The convention in this case
+        # is to return denominators which are all zeros
+        if self.col_matrix_fixed_Nc is None:
+            return [0 for i1 in range(len(self._col_basis1))]
+        else:
+            den_list = []
+            for i1 in range(len(self._col_basis1)):
+                den_list.append(self.lcmm(*[\
+                            self.col_matrix_fixed_Nc[(i1, i2)][0].denominator for \
+                                            i2 in range(len(self._col_basis2))]))
         return den_list
 
     def get_line_numerators(self, line_index, den):
         """Returns a list of numerator for line line_index, assuming a common
         denominator den."""
 
-        return [self.col_matrix_fixed_Nc[(line_index, i2)][0].numerator * \
+        # It can happen that the color matrix for fixed NC is set to None, in cases
+        # of color connections with vanishing interferences when computing color-correlated
+        # matrix elements (for higher order computations). The convention in this case
+        # is to return all zero numerators
+        if self.col_matrix_fixed_Nc is None:
+            return [0 for i2 in range(len(self._col_basis2))]
+        else:
+            return [self.col_matrix_fixed_Nc[(line_index, i2)][0].numerator * \
                 den / self.col_matrix_fixed_Nc[(line_index, i2)][0].denominator \
                 for i2 in range(len(self._col_basis2))]
 

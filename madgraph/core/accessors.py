@@ -405,33 +405,46 @@ class VirtualMEAccessor(object):
             leg_IDA, leg_IDB, leg_IDC, etc.. ... (these are integer) with the corresponding list of 4-vectors,
             (vec_A1, vec_A2, vec_A3,...), (vec_B1, vec_B2, vec_B3,..), etc... where vec_i are simply 4-tuples of floats.
 
-#        -> Color connections are specified by providing what SU(3) generator chain to apply in 
-#          between the amplitude product. The format is a list of 2-tuple of the form ('generator_name', (indices)).
-#          For instance
-#             [ ('T',(-100,3,-1)), ('T',(-200,-1,-2)), ('T',(-100,-2,-3)), ('T',(-200,-3,4)), ('f',(7,-300,-400)), ('f',(-400,-300,8)), ...]
-#          Indicates:
-#            T^a_(3 i) T^b_(i j) T^a_(j k) T^b_(k 4) f^(7, c, d) f^(d, c, 8) 
-
-        -> Color connections are specified at NLO by a simple list of 2-tuple, containing the leg number of each of the
-           two legs color-connected.
-           For instance
-             [ (2, 4), (5, 1), etc...]
-           Indicates the user wants
+        -> Color connections are specified by a list of 2-tuple, each containing the specifier of each of the
+           two color connections to consider. These are specified following the conventions of the documentation of the
+           function 'generate_all_color_connections' of the module color_amp.py.
+           At NLO one might have for instance:
+             [ ( ((2,-1,2),) , ((4,-1,4),) ), ( ((5,-1,5),) , ((1,-1,1),) ), etc...]
+           Which indicate that the user wants
              <M| T2 T4 |M>, <M| T5 T1 |M>, etc...
-           With T == t^a_{ij} for quarks and T = i f^{abc} for gluons.
-           /!\ : This notation will require an extension for NNLO and beyond.
-        
+           With T == t^a_{ij} for quarks, T == -t^a_{ji} for antiquarks and T = i f^{abc} for gluons.
+           Given that this notation is a bit heavy for NLO purpose, the user is also given the opportunity
+           of specifying the color connection with a simple integer, which will be mapped here automatically following
+           this simple rule:
+              i --> ( (i,-1,i), )
+           For NNLO and beyond the tuple specifiers of the connections will have more than one tuple in them.
+
         -> Helicity configuration to be considered, this can be a tuple like
             (-1, -1, +1 ,-1, +1)
           For the helicity configuration --+-+
           If a spin-connection is specified for a specific particle, the helicity specification will be dropped.
         """
-        
+
+        # Remap the NLO short-hand conventions (if present) of the color correlation to the full one
+        # Basically, [(3, 4)] becomes [(((3, -1, 3),), ((4, -1, 4),))]
+        if color_correlation and any( (isinstance(c[0],int) and c[0]>0) or 
+                            (isinstance(c[1],int) and c[1]>0) for c in color_correlation):
+            new_color_correlation = []
+            for color_correlator in color_correlation:
+                new_color_correlator = []
+                for connection in color_correlator:
+                    if isinstance(connection, int) and connection>0:
+                        new_color_correlator.append( ( (connection, -1, connection), ) )
+                    else:
+                        new_color_correlator.append( connection )
+                new_color_correlation.append(tuple(new_color_correlator))
+            color_correlation = new_color_correlation
+
         # No permutation, just return local copies of the arguments
         if permutation is None:
-            all_opts = {'spin_correlation': tuple(spin_correlation) ,
-                        'color_correlation': tuple(color_correlation),
-                        'hel_config': tuple(hel_config)}
+            all_opts = {'spin_correlation': tuple(spin_correlation) if spin_correlation else None,
+                        'color_correlation': tuple(color_correlation) if color_correlation else None,
+                        'hel_config': tuple(hel_config) if hel_config else None}
             all_opts.update(opts)
             return PS_point, all_opts
         
@@ -446,8 +459,25 @@ class VirtualMEAccessor(object):
         permuted_spin_correlation = tuple(sorted([ (permutation[leg_ID-1]+1, vectors) for leg_ID, vectors 
                                 in spin_correlation ], key=lambda el:el[0] )) if spin_correlation else None
         
-        permuted_color_correlation = tuple([ tuple(sorted([permutation[ind1-1]+1, permutation[ind2-1]+1])) 
-                                    for (ind1, ind2) in color_correlation ]) if color_correlation else None
+        if color_correlation:
+            permuted_color_correlation = []
+            for color_correlator in color_correlation:
+                permuted_color_correlator = []
+                for connection in color_correlator:
+                    # Specifying -1 for a connection means considering all of them
+                    if isinstance(connection, int) and connection < 0:
+                        permuted_color_correlator.append(connection)
+                    else:
+                        # Apply the permutation to the complete definition of the color connection
+                        permuted_connection = []
+                        for emission in connection:
+                            permuted_connection.append( tuple( (permutation[leg_ID-1]+1 if 
+                                             leg_ID > 0 else leg_ID) for leg_ID in emission ) )
+                        permuted_color_correlator.append( tuple(permuted_connection) )
+                permuted_color_correlation.append( tuple(permuted_color_correlator) )
+            permuted_color_correlation = tuple(permuted_color_correlation)
+        else:
+            permuted_color_correlation = None
         
         permuted_hel_config = tuple( hel_config[permutation[i]] for i in range(len(hel_config)) ) \
                                                                           if hel_config else None
@@ -577,7 +607,7 @@ class MEResult(dict):
         
         self[tuple(sorted(opts.items()))] = value
 
-    def get_inverse_permuted_copy(self, permutation=None):
+    def get_inverse_permuted_copy(self, permutation=None, id_to_color_connection=None):
         """ Apply the inverse permutation of the one specified to a copy of self and return."""
         
         # Nothing to do in this case, then just add a copy of self
@@ -586,12 +616,14 @@ class MEResult(dict):
         
         inverse_perm = dict((v,k) for k,v in permutation.items())
         returned_copy = MEResult()
+
         for attributes, value in self.items():
             attr = dict(attributes)
             # Make sure to temporarily redefine the color_correlators as list of color_correlator
             # since this is what apply_permutations expects
             if attr['color_correlation']:
-                attr['color_correlation'] = [attr['color_correlation'],]
+                attr['color_correlation'] = [ tuple(id_to_color_connection[connection]
+                                            for connection in attr['color_correlation']) ,]
             _, inverse_permuted_attributes = VirtualMEAccessor.apply_permutations(inverse_perm, **attr)
             # Now recast the color_correlation as a single element:
             if inverse_permuted_attributes['color_correlation']:
@@ -1082,13 +1114,34 @@ class F2PYMEAccessor(VirtualMEAccessor):
         if not self.has_function('get_n_color_correlators'):
             self.color_correlations = None
             self.id_to_color_correlation = None
+            self.color_connections = None
+            self.id_to_color_connection = None
         else:
             # Initialize a map of the color connectors
             self.color_correlations = dict( 
-                (tuple(sorted(self.get_function('get_color_correlator_for_id')(i_correlator))),i_correlator)
-                              for i_correlator in range(1,self.get_function('get_n_color_correlators')()+1))
+                (tuple(self.get_function('get_color_correlator_for_id')(i_correlator)),i_correlator)
+                            for i_correlator in range(1,self.get_function('get_n_color_correlators')()+1))
             # Reversed map
             self.id_to_color_correlation = dict((value,key) for (key,value) in self.color_correlations.items())
+
+            # Initialize a map of the color connections to their unique ID identifier
+            self.color_connections = {}
+            color_connection_max_order = self.get_function('get_color_connection_max_order')()
+            icc_offset = 0
+            for order in range(1,color_connection_max_order+1):
+                n_color_connections_for_that_order = self.get_function(
+                                              'get_n_color_connections_%slo'%('n'*order))()
+                for icc in range(icc_offset+1,n_color_connections_for_that_order+icc_offset+1):
+                    connection_definition = self.get_function(
+                                         'index_to_color_connection_%slo'%('n'*order))(icc)
+                    if order==1:
+                        connection_definition = ( tuple(connection_definition), )
+                    else:
+                        connection_definition = tuple( tuple(c) for c in connection_definition)
+                    self.color_connections[connection_definition] = icc
+                icc_offset += n_color_connections_for_that_order
+            # Reversed map
+            self.id_to_color_connection = dict((value,key) for (key,value) in self.color_connections.items())
 
         # Available squared orders
         # 'None' means summed over.
@@ -1193,15 +1246,36 @@ class F2PYMEAccessor(VirtualMEAccessor):
             if not self.spin_correlations or len(new_opts['spin_correlation']) > self.spin_correlations.count('N'):
                 raise MadGraph5Error("%sLO spin-correlations not supported in accessor:\n%s."%(
                                                     'N'*len(new_opts['spin_correlation']) , self.nice_string() ) )
-                
+
         if new_opts['color_correlation']:
-            if not self.color_correlations or any(cc not in self.color_correlations for cc in new_opts['color_correlation']):
+            # First attempt to map the color correlations specified by the use to their
+            # unique mapped ID
+            new_color_correlation = []
+            for correlator in new_opts['color_correlation']:
+                new_correlator = []
+                for connection in correlator:
+                    if isinstance(connection, int) and connection < 0:
+                        new_correlator.append(connection)
+                    else:
+                        try:
+                            new_correlator.append(self.color_connections[connection])
+                        except:
+                            raise MadGraph5Error("Color connection %s not supported in accessor:\n%s."%(
+                                                       str(connection) , self.nice_string() ) )
+                new_color_correlation.append(tuple(new_correlator))
+            new_opts['color_correlation'] = tuple(new_color_correlation)
+
+            # Now make sure this correlator is indeed available
+            if not self.color_correlations or any(
+                ( all(c>0 for c in cc) and cc not in self.color_correlations )                                     
+                                                  for cc in new_opts['color_correlation']):
                 raise MadGraph5Error("Color correlation %s not supported in accessor:\n%s."%(
-                                                       str(new_opts['color_correlation']) , self.nice_string() ) )
+                                str(new_opts['color_correlation']) , self.nice_string() ) )
+
         if new_opts['hel_config']:
             if new_opts['hel_config'] not in self.helicity_configurations:
                 raise MadGraph5Error("Helicity configuration %s not present in accessor:\n%s."%(
-                                                         str(new_opts['hel_config']) , self.nice_string() ) )
+                                        str(new_opts['hel_config']) , self.nice_string() ) )
         
         return new_opts
         
@@ -1250,7 +1324,7 @@ class F2PYMEAccessor(VirtualMEAccessor):
 
         # The mother class takes care of applying the permutations for the generic options
         PS_point, opts = VirtualMEAccessor.__call__(self, PS_point, **opts)
-
+            
         is_cache_active = opts.get('cache_active', self.cache_active)
 
         PS_point = self.format_momenta_for_f2py(PS_point)
@@ -1278,7 +1352,8 @@ class F2PYMEAccessor(VirtualMEAccessor):
             recycled_result = recycled_call.get_result(**result_key)
             if recycled_result:
                 if return_all_res:
-                    return MEEvaluation(recycled_result), recycled_call.get_inverse_permuted_copy(permutation)
+                    return MEEvaluation(recycled_result), recycled_call.get_inverse_permuted_copy(
+                            permutation, id_to_color_connection = self.id_to_color_connection)
                 else:
                     return MEEvaluation(recycled_result), None
 
@@ -1330,7 +1405,8 @@ class F2PYMEAccessor(VirtualMEAccessor):
         
         # Now return a dictionary containing the expected result anticipated by the user given the specified options,
         # along with a copy of the ME_result dictionary storing all information available at this point for this call_key
-        return main_result, ME_result.get_inverse_permuted_copy(permutation)
+        return main_result, ME_result.get_inverse_permuted_copy(permutation,
+                                      id_to_color_connection = self.id_to_color_connection)
 
     def is_color_correlation_selected(self, color_correlator, color_correlation_specified):
         """ Check if a particular spin_correlator is among those specified by the user."""
@@ -1567,7 +1643,8 @@ class F2PYMEAccessorMadLoop(F2PYMEAccessor):
             recycled_call = self.cache.get_result(**this_call_key)
             recycled_result = recycled_call.get_result(**result_key)
             if recycled_result:
-                return MEEvaluation(recycled_result), recycled_call.get_inverse_permuted_copy(permutation)
+                return MEEvaluation(recycled_result), recycled_call.get_inverse_permuted_copy(
+                         permutation, id_to_color_connection = self.id_to_color_connection)
 
         # If/When grouping several processes in the same f2py module (so as to reuse the model for example),
         # we will be able to use the information of self.process_pdgs to determine which one to call.
@@ -1616,7 +1693,8 @@ class F2PYMEAccessorMadLoop(F2PYMEAccessor):
         
         # Now return a dictionary containing the expected result anticipated by the user given the specified options,
         # along with a copy of the ME_result dictionary storing all information available at this point for this call_key
-        return main_result, ME_result.get_inverse_permuted_copy(permutation)
+        return main_result, ME_result.get_inverse_permuted_copy(permutation,
+                                     id_to_color_connection = self.id_to_color_connection)
 
     def gather_output_datas(self, main_output, user_opts):
         """ Gather additional newly generated output_data to be returned and placed in the cache.
@@ -1825,9 +1903,22 @@ class MEAccessorDict(dict):
             leg_number_to_pos_dict[leg.get('number')] = leg_pos+1
         
         new_color_correlations = []
-        for color_correlation in color_correlations:
-            new_color_correlations.append(tuple(leg_number_to_pos_dict[n] for n in color_correlation))
-        
+        for color_correlator in color_correlations:
+            new_color_correlator = []
+            for color_connection in color_correlator:
+                if isinstance(color_connection, int):
+                    if color_connection < 0:
+                        new_color_correlator.append(color_connection)
+                    else:
+                        new_color_correlator.append(leg_number_to_pos_dict[color_connection])                        
+                else:
+                    new_color_connection = []
+                    for emission in color_connection:
+                        new_color_connection.append( tuple( 
+                            (leg_number_to_pos_dict[n] if n > 0 else n) for n in emission) )
+                    new_color_correlator.append(tuple(new_color_connection))
+            new_color_correlations.append(tuple(new_color_correlator))
+
         return new_color_correlations
             
     def format_spin_correlation(self, process, spin_correlations):
@@ -1905,13 +1996,14 @@ class MEAccessorDict(dict):
                 call_args[0] = specified_process_instance.format_PS_point_for_ME_call(PS_point)
             # Also, if spin and color correlation are specified, we must change their ordering
             # according to the leg numbers
+
             if specified_process_instance and 'color_correlation' in call_options and call_options['color_correlation']:
                 call_options['color_correlation'] = self.format_color_correlation(specified_process_instance, 
                                                                                   call_options['color_correlation'])
             if specified_process_instance and 'spin_correlation' in call_options and call_options['spin_correlation']:    
                 call_options['spin_correlation'] = self.format_spin_correlation(specified_process_instance, 
                                                                                   call_options['spin_correlation'])
-        
+
         if self.cache_active:
             if isinstance(args[0], subtraction.Current):
                 args[0].accessor = ME_accessor
@@ -1922,6 +2014,7 @@ class MEAccessorDict(dict):
                         args[0].accessor[key] = (ME_accessor, call_options)
                     else:
                         args[0].accessor = {key:(ME_accessor, call_options)}
+
         return ME_accessor(*call_args, **call_options)
     
     def add_MEAccessor(self, ME_accessor, allow_overwrite=False):

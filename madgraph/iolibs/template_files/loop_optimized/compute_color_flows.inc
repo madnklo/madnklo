@@ -1149,6 +1149,8 @@ ENDIF
 c Compute the Born color correlated ME from the Born color flow amplitudes (JAMP)
 DO CCIA=1,COLOR_CORRELATORS_TO_CONSIDER(0)
   CCI = COLOR_CORRELATORS_TO_CONSIDER(CCIA)
+C It may be that this color correlator is zero because it corresponds to a non-interfering combination of color connections (can happen at NNLO, e.g. g > q q~ vs g > g g)
+  IF (BornColorCorrelatedMatrices(CCI,1,1)%%Denom.eq.0) CYCLE
   DO I=1, NBORNFLOWS
     DO J=I, NBORNFLOWS
 	  COLOR_COEF=DCMPLX(BornColorCorrelatedMatrices(CCI,I,J)%%Num/DBLE(ABS(BornColorCorrelatedMatrices(CCI,I,J)%%Denom)),0.0d0)
@@ -1183,6 +1185,8 @@ ENDDO
 C Compute the Loop color correlated MEs from the loop color flow amplitudes (JAMPL)
 DO CCIA=1,COLOR_CORRELATORS_TO_CONSIDER(0)
   CCI = COLOR_CORRELATORS_TO_CONSIDER(CCIA)
+C It may be that this color correlator is zero because it corresponds to a non-interfering combination of color connections (can happen at NNLO, e.g. g > q q~ vs g > g g)
+  IF (LoopColorCorrelatedMatrices(CCI,1,1)%%Denom.eq.0) CYCLE
   DO I=1,NLOOPFLOWS
 ## if(not LoopInduced){
     DO J=1,NBORNFLOWS

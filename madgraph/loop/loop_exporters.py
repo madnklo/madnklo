@@ -1072,8 +1072,9 @@ PARAMETER(MAX_SPIN_EXTERNAL_PARTICLE=%(max_spin_external_particle)d)
         else:
             file = open(os.path.join(self.template_dir,\
                                           'check_sa_loop_induced.inc')).read()
-        file=file%replace_dict
-        writer.writelines(file, context=self.get_context(matrix_element))
+
+        writer.writelines(file, context=self.get_context(matrix_element), 
+                                                          replace_dictionary=replace_dict)
          
         # We can always write the f2py wrapper if present (in loop optimized mode, it is)
         if not os.path.isfile(pjoin(self.template_dir,'check_py.f.inc')):
@@ -2014,9 +2015,6 @@ COMMON/%sSPIN_CORRELATION_DATA/SPIN_CORR_VECTORS, SYSTEM_SPIN_CORR_VECTORS, N_SP
             self.write_spin_correlations_include(writers.FortranWriter(filename), 
                             proc_prefix = matrix_element.rep_dict['proc_prefix'])
         
-        filename = 'check_sa.f'
-        self.write_check_sa(writers.FortranWriter(filename),matrix_element)
-        
         filename = 'polynomial.f'
         calls = self.write_polynomial_subroutines(
                                       writers.FortranWriter(filename),
@@ -2076,6 +2074,9 @@ COMMON/%sSPIN_CORRELATION_DATA/SPIN_CORR_VECTORS, SYSTEM_SPIN_CORR_VECTORS, N_SP
         if self.get_context(matrix_element)['TIRCaching']:
             filename = 'tir_cache_size.inc'
             self.write_tir_cache_size_include(writers.FortranWriter(filename))
+
+        filename = 'check_sa.f'
+        self.write_check_sa(writers.FortranWriter(filename),matrix_element)
 
         return calls
 
@@ -2442,10 +2443,17 @@ COMMON/%sSPIN_CORRELATION_DATA/SPIN_CORR_VECTORS, SYSTEM_SPIN_CORR_VECTORS, N_SP
             numerators = []
             denominators = []
             for row in range(len(col_matrix._col_basis2)):
-                coeff = col_matrix.col_matrix_fixed_Nc[(line,row)]
-                numerators.append('%6r'%coeff[0].numerator)
-                denominators.append('%6r'%(
-                                  coeff[0].denominator*(-1 if coeff[1] else 1)))
+                if not col_matrix.col_matrix_fixed_Nc is None:
+                    coeff = col_matrix.col_matrix_fixed_Nc[(line,row)]
+                    numerators.append('%6r'%coeff[0].numerator)
+                    denominators.append('%6r'%(
+                                      coeff[0].denominator*(-1 if coeff[1] else 1)))
+                else:
+                    # It may be that this color correlator is zero because it corresponds
+                    # to a non-interfering combination of color connections (can happen at 
+                    # NNLO, e.g. g > q q~ vs g > g g)
+                    numerators.append('%6r'%0)
+                    denominators.append('%6r'%0)                    
             res.append(' '.join(numerators))
             res.append(' '.join(denominators))
         
@@ -2509,8 +2517,8 @@ COMMON/%sSPIN_CORRELATION_DATA/SPIN_CORR_VECTORS, SYSTEM_SPIN_CORR_VECTORS, N_SP
         dat_writer.close() 
 
         # Now add entries related to the color-correlation data
-        matrix_element.rep_dict.update(self.add_color_correlated_code(matrix_element, 
-                                        file_base_name='LoopColorCorrelatedMatrices'))
+        matrix_element.rep_dict.update(self.add_color_correlated_code(
+            matrix_element, matrix_element.rep_dict,  file_base_name='LoopColorCorrelatedMatrices'))
 
         if matrix_element.get('processes')[0].get('has_born'):
 
@@ -2519,8 +2527,11 @@ COMMON/%sSPIN_CORRELATION_DATA/SPIN_CORR_VECTORS, SYSTEM_SPIN_CORR_VECTORS, N_SP
             if not self.opt['color_correlators'] is None:
                 # Also add data for the Born color-correlated matrices.
                 process = matrix_element.get('processes')[0]
-                born_color_correlated_matrices = born_color_matrix.build_color_correlated_matrices(
-                        process.get('legs'), process.get('model'), order=self.opt['color_correlators'])
+                born_color_correlated_matrices, born_color_connections = born_color_matrix.build_color_correlated_matrices(
+                        process.get('legs'), process.get('model'), order=self.opt['color_correlators'])                
+                ##n_color_connections = sum(len(born_color_connections['N'*order+'LO']) for order in 
+                ##                      range(1,self.opt['color_correlators'].count('N')+1) )
+                ##matrix_element.rep_dict['n_color_connections'] = n_color_connections
                 # Now write out the corresponding correlators
                 self.add_color_correlated_matrices_code(matrix_element, born_color_correlated_matrices, 
                                                           file_base_name='BornColorCorrelatedMatrices')
@@ -2926,9 +2937,11 @@ PARAMETER (NSQUAREDSO=%d)"""%matrix_element.rep_dict['nSquaredSO'])
                                                         %(matrix_element.rep_dict['proc_prefix'],file_base_name)),'w')
         # Set the color matrices for each color correlator
         for icc, color_correlator_key in enumerate(sorted(color_correlated_matrices.keys())):
-            description = 'Color correlator <M| T%d T%d |M> : %s'%(color_correlator_key[0],color_correlator_key[1],
-                ' '.join('%s'%str(repr) for repr in color_correlated_matrices[color_correlator_key][0]))
             color_matrix = color_correlated_matrices[color_correlator_key][1]
+            description = 'Color correlator <M| T%d T%d |M> : %s%s'%(color_correlator_key[0],color_correlator_key[1],
+                ' '.join('%s'%str(repr) for repr in color_correlated_matrices[color_correlator_key][0]),
+                ' (no interference)' if color_matrix.col_matrix_fixed_Nc is None else ''
+                )
             if icc != 0:
                 dat_writer.write('\n')
             dat_writer.write('%d #%s\n'%(icc+1, description))

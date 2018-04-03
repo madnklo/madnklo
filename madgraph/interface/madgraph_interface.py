@@ -2810,7 +2810,7 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
     _valid_amp_so_types = ['=','<=', '==', '>']
     _OLP_supported = ['MadLoop', 'GoSam']
     _output_dependencies_supported = ['external', 'internal','environment_paths']
-    _all_subtraction_currents_schemes = ['colorful']
+    _all_subtraction_currents_schemes = ['colorful', 'cataniseymour']
     _all_subtraction_mappings_schemes = ['colorful']
 
     # The three options categories are treated on a different footage when a

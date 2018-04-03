@@ -2080,15 +2080,17 @@ class SubtractionCurrentExporter(object):
         all_instantiation_options = []
         currents_with_default_implementation = []
         for current in currents:
-            found_current_class = False
+            found_current_class = None
             for (dir_name, module_path, class_name, implementation_class) in all_classes:
                 instantiation_options = implementation_class.does_implement_this_current(
                     current, self.model )
                 if instantiation_options is None:
                     continue
-                if found_current_class:
+                if found_current_class is not None:
                     if class_name == 'DefaultCurrentImplementation':
                         continue
+                    logger.critical(
+                        "%s found, %s already found" % (class_name, found_current_class))
                     raise MadGraph5Error(
                         "Multiple implementations found for current %s." % str(current) )
                 try:
@@ -2117,8 +2119,8 @@ class SubtractionCurrentExporter(object):
                         'instantiation_options': instantiation_options }
                 if class_name == 'DefaultCurrentImplementation':
                     currents_with_default_implementation.append(current)
-                found_current_class = True
-            if not found_current_class:
+                found_current_class = class_name
+            if found_current_class is None:
                 raise MadGraph5Error(
                     "No implementation was found for current %s." % str(current) )
         
@@ -2129,10 +2131,10 @@ class SubtractionCurrentExporter(object):
                 ' > %s' % str(crt)
                 for crt in currents_with_default_implementation )
             msg = """No implementation was found for the following subtraction currents:
-                %s
-                The class 'DefaultCurrentImplementation' will therefore be used for it
-                but results obtained in this way are very likely wrong 
-                and should be used for debugging only.""" % currents_str
+%s
+The class 'DefaultCurrentImplementation' will therefore be used for it
+but results obtained in this way are very likely wrong 
+and should be used for debugging only.""" % currents_str
             if __debug__:
                 logger.critical(msg)
             else:

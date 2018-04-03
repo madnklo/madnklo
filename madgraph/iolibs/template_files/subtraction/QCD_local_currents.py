@@ -285,6 +285,7 @@ class QCDLocalSoftCollinearCurrent(QCDCurrent):
         singular_structure = current.get('singular_structure')
         # The main structure should be collinear
         if singular_structure.name() != 'C': return None
+        if not singular_structure.substructures: return None
         # Substructures should be simple soft structures
         for sub_singular_structure in singular_structure.substructures:
             if sub_singular_structure.name() != 'S': return None

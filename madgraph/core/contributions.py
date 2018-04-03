@@ -1194,9 +1194,8 @@ class Contribution_R(Contribution):
     
     @classmethod
     def remove_counterterms_with_no_reduced_process(cls, all_MEAccessors, counterterms):
-        """ Given the list of available reduced processes encoded in the MEAccessorDict 'all_MEAccessors'
+        """Given the list of available reduced processes encoded in the MEAccessorDict 'all_MEAccessors'
         given in argument, remove all the counterterms whose underlying reduced process does not exist."""
-
 
         for counterterm in list(counterterms):
             # Of course don't remove any counterterm that would be the real-emission itself.
@@ -1288,8 +1287,23 @@ class Contribution_R(Contribution):
                 root_path=root_path,
                 model=model
             ))
-        
+        # Add MEAccessors
         all_MEAccessors.add_MEAccessors(all_current_accessors)
+        return mapped_currents
+
+    def remove_zero_counterterms(self, all_ME_accessors):
+
+        logger.critical("Called remove_zero_counterterms")
+
+        for process_key, counterterms in self.counterterms.items():
+            for counterterm in counterterms:
+                if counterterm.is_singular():
+                    misc.sprint("Considering CT %s" % str(counterterm))
+                    for current in counterterm.get_all_currents():
+                        accessor, _ = all_ME_accessors[current]
+                        if accessor.subtraction_current_instance.is_zero:
+                            misc.sprint("Zero current found in CT %s" % str(counterterm))
+                            counterterms.remove(counterterm)
 
     def add_ME_accessors(self, all_MEAccessors, root_path):
         """ Adds all MEAccessors for the matrix elements and currents generated as part of this contribution."""
@@ -1306,6 +1320,7 @@ class Contribution_R(Contribution):
         currents_to_consider = self.get_all_necessary_local_currents(all_MEAccessors)
         self.add_current_accessors(
             self.model, all_MEAccessors, root_path, current_set, currents_to_consider )
+        # self.remove_zero_counterterms(all_MEAccessors)
      
     def get_integrands_for_process_map(self, process_map, model, run_card, all_MEAccessors, ME7_configuration):
         """ Returns all the integrands implementing this contribution for the specified process_map.
@@ -1313,6 +1328,7 @@ class Contribution_R(Contribution):
         """
         
         relevant_counterterms = {}
+        # self.remove_zero_counterterms(all_MEAccessors)
         for process_key in process_map:
             relevant_counterterms[process_key] = self.counterterms[process_key]
 

@@ -205,6 +205,9 @@ class CurrentImplementationError(Exception):
 class VirtualCurrentImplementation(object):
     """A virtual class defining what a current implementation must specify"""
 
+    # Class parameter to detect currents that vanish and do not need to be evaluated
+    is_zero = False
+
     def __init__(self, model, **opts):
         """Save properties or quantities useful for the current evaluation."""
         
@@ -328,6 +331,8 @@ class DefaultCurrentImplementation(VirtualCurrentImplementation):
     This is typically useful for development when one has not completed
     the implementation of all currents but already wants to test a subset of them.
     """
+
+    is_zero = True
     
     def __init__(self, *args, **opts):
 

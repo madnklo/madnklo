@@ -476,33 +476,6 @@ class SingularStructure(object):
         other_can = other.get_canonical_representation()
         return self_can == other_can
 
-    def is_soft(self):
-
-        return False
-
-    def is_collinear(self):
-
-        return False
-
-    def is_soft_collinear(self, is_embedded_in_soft=False, is_embedded_in_collinear=False):
-        """ Test if any structure in self contains within it both a collinear and a 
-        soft structure. The two options are here only for the use of the recursive search."""
-        
-        if self.is_soft():
-            if is_embedded_in_collinear:
-                return True
-            is_embedded_in_soft = True
-        if self.is_collinear():
-            if is_embedded_in_soft:
-                return True
-            is_embedded_in_collinear = True
-
-        for structure in self.substructures:
-            if structure.is_soft_collinear(is_embedded_in_soft, is_embedded_in_collinear):
-                return True
-        
-        return False
-
     def name(self):
 
         return ""
@@ -518,6 +491,74 @@ class SingularStructure(object):
         inner.add(type(self)(legs=self.get_all_legs()))
         return inner
 
+    name_dictionary = {
+        '' : 'SingularStructure',
+        'S': 'SoftStructure',
+        'C': 'CollStructure'
+    }
+
+    @staticmethod
+    def from_string(string, process, log=False):
+        """Reconstruct a singular structure from a string representation, e.g.
+        C(S(3),5,4)
+
+        :return: The reconstructed singular structure if successful, else None.
+        """
+
+        msg = "SingularStructure.from_string:"
+        openpos = string.find('(')
+        closepos = string.rfind(')')
+        name = string[:openpos]
+        if not SingularStructure.name_dictionary.has_key(name):
+            if log:
+                print msg, "no singular structure with name", name
+            return None
+        legs = []
+        substructures = []
+        content = string[openpos+1:closepos]
+        before_comma = ""
+        while content:
+            # print "Content is", content
+            next_comma_pos = content.find(',')
+            if next_comma_pos != -1:
+                before_comma += content[:next_comma_pos]
+            else:
+                before_comma += content
+                content = ""
+            # print "Before comma:", before_comma
+            content = content[next_comma_pos+1:]
+            if '(' in before_comma or ')' in before_comma:
+                if before_comma.count('(') == before_comma.count(')'):
+                    substructure = SingularStructure.from_string(before_comma, process)
+                    if substructure is None:
+                        return None
+                    substructures.append(substructure)
+                    before_comma = ""
+                else:
+                    before_comma += ","
+            else:
+                try:
+                    leg_n = int(before_comma)
+                except:
+                    if log:
+                        print msg, "could not convert", before_comma, "to integer"
+                    return None
+                for leg in process['legs']:
+                    if leg['number'] == leg_n:
+                        legs.append(leg)
+                        before_comma = ""
+                        break
+                if before_comma:
+                    if log:
+                        print msg, "no leg number", leg_n, "found"
+                    return None
+        if before_comma:
+            if log:
+                print msg, "bracket matching failed for", before_comma[:-1]
+            return None
+        return eval(SingularStructure.name_dictionary[name])(
+            substructures=substructures, legs=legs)
+
 class SoftStructure(SingularStructure):
 
     def count_unresolved(self):
@@ -528,10 +569,6 @@ class SoftStructure(SingularStructure):
 
         return "S"
     
-    def is_soft(self):
-
-        return True
-
 class CollStructure(SingularStructure):
 
     def count_unresolved(self):
@@ -542,10 +579,6 @@ class CollStructure(SingularStructure):
 
         return "C"
     
-    def is_collinear(self):
-
-        return True
-
 #=========================================================================================
 # SingularOperator
 #=========================================================================================
@@ -941,29 +974,6 @@ class CountertermNode(object):
             total_unresolved += node.count_unresolved()
         return total_unresolved
 
-    def has_soft_collinear(self, is_embedded_in_soft = False, is_embedded_in_collinear = False):
-        """Return whether this counterterm contains currents satisfying the definition
-        of soft-collinear currents.
-        The two options are here only for the use of the recursive search."""
-
-        current_singular_structure = self.current.get('singular_structure')
-        if current_singular_structure.is_soft_collinear():
-            return True
-        if current_singular_structure.is_soft():
-            if is_embedded_in_collinear:
-                return True
-            is_embedded_in_soft = True
-        if current_singular_structure.is_collinear():
-            if is_embedded_in_soft:
-                return True
-            is_embedded_in_collinear = True
-
-        for CT_node in self.nodes:
-            if CT_node.has_soft_collinear(is_embedded_in_soft, is_embedded_in_collinear):
-                return True
-        
-        return False
-
     def find_leg(self, number):
         """Find the SubtractionLeg with number specified."""
         
@@ -1163,8 +1173,9 @@ class Counterterm(CountertermNode):
             elif new_particles != particles:
                 return cls.get_ancestor(new_particles, momentum_dict)
             else:
-                raise KeyError("Could not find leg numbers %s in this following "%str(particles)+
-                               "momentum routing dictionary:\n%s"%(momentum_dict))
+                raise KeyError(
+                    "Could not find leg numbers " + str(particles) +
+                    "in this momentum routing dictionary:\n" + str(momentum_dict) )
 
     def __str__(self, print_n=True, print_pdg=False, print_state=False):
 
@@ -1235,16 +1246,6 @@ class Counterterm(CountertermNode):
                 return subtraction_leg
         
         return None
-
-    def has_soft_collinear(self):
-        """Return whether this counterterm contains currents satisfying the definition
-        of soft-collinear currents."""
-
-        for CT_node in self.nodes:
-            if CT_node.has_soft_collinear():
-                return True
-
-        return False
 
     def get_daughter_pdgs(self, leg_number, state):
         """Walk down the tree of currents to find the pdgs 'attached'

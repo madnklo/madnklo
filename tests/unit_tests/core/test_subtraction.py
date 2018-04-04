@@ -247,6 +247,59 @@ class SingularStructureOperatorTest(unittest.TestCase):
         list7 = sub.SingularOperatorList([S4, C14, ]).simplify()
         self.assertEqual(list7.count_unresolved(), 1)
 
+    def test_from_string(self):
+        """Test reconstruction of singular structures from a string."""
+
+        mylegs = base_objects.LegList([
+            base_objects.Leg({'number': 1, 'id':  1, 'state': INITIAL}),
+            base_objects.Leg({'number': 2, 'id': -1, 'state': INITIAL}),
+            base_objects.Leg({'number': 3, 'id':  1, 'state': FINAL}),
+            base_objects.Leg({'number': 4, 'id': -1, 'state': FINAL}),
+            base_objects.Leg({'number': 5, 'id': 21, 'state': FINAL}),
+            base_objects.Leg({'number': 6, 'id': 21, 'state': FINAL}),
+        ])
+
+        myprocess = base_objects.Process({
+            'legs': mylegs, 'model': simple_qcd.model })
+
+        string0 = "C(3,6)"
+        ss0 = sub.CollStructure(legs=[mylegs[2], mylegs[5]])
+        ss0_reco = sub.SingularStructure.from_string(string0, myprocess)
+        self.assertEqual(ss0, ss0_reco)
+
+        string1 = "C(S(5),3,6)"
+        ss1 = sub.CollStructure(
+            substructures=[sub.SoftStructure(legs=(mylegs[4],))],
+            legs=[mylegs[2], mylegs[5]] )
+        ss1_reco = sub.SingularStructure.from_string(string1, myprocess)
+        self.assertEqual(ss1, ss1_reco)
+
+        string2 = "C(1,3,6)"
+        ss2_reco = sub.SingularStructure.from_string(string2, myprocess)
+        self.assertEqual(string2, str(ss2_reco))
+
+        string3 = "(C(3,6),C(4,5),)"
+        ss3_reco = sub.SingularStructure.from_string(string3, myprocess)
+        self.assertEqual(string3, str(ss3_reco))
+        string3b = "(C(3,6),C(4,5))"
+        ss3b_reco = sub.SingularStructure.from_string(string3b, myprocess)
+        self.assertEqual(str(ss3b_reco), str(ss3_reco))
+
+        string4 = "(C((3,6),C(4,5),)"
+        ss4_reco = sub.SingularStructure.from_string(string4, myprocess)
+        self.assertIsNone(ss4_reco)
+        string5 = "C(1,x,6)"
+        ss5_reco = sub.SingularStructure.from_string(string5, myprocess)
+        self.assertIsNone(ss5_reco)
+        string6 = "(XY(1,6),S(5))"
+        ss6_reco = sub.SingularStructure.from_string(string6, myprocess)
+        self.assertIsNone(ss6_reco)
+        string7 = "C(3,6,S(5)),)"
+        ss7_reco = sub.SingularStructure.from_string(string7, myprocess)
+        self.assertIsNone(ss7_reco)
+
+
+
 #=========================================================================================
 # Test Counterterm (and CountertermNode)
 #=========================================================================================

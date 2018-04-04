@@ -46,6 +46,16 @@ def no_factor(mapping_variables, parent):
     # The default behavior is that basic currents include all necessary factors
     return 1
 
+def n_final_coll_variables(PS_point, parent, children, mapping_variables):
+
+    na, nb = mappings.FinalCollinearVariables.collinear_and_reference(PS_point[parent])
+    kin_variables = dict()
+    mappings.FinalCollinearVariables.get(
+        PS_point, children, na, nb, kin_variables)
+    zs  = tuple(kin_variables['z%d'  % i] for i in children)
+    kTs = tuple(kin_variables['kt%d' % i] for i in children)
+    return zs, kTs
+
 def Q_final_coll_variables(PS_point, parent, children, mapping_variables):
 
     na = PS_point[parent]

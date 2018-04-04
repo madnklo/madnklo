@@ -329,10 +329,16 @@ class SubtractionLegSet(tuple):
                 return True
         return False
 
-    def without_leg_numbers(self):
+    def without_leg_numbers(self, discard_initial_leg_numbers=True):
         """Return a copy of this SubtractionLegSet without leg numbers."""
-
-        return SubtractionLegSet((0, leg.pdg, leg.state) for leg in self)
+        
+        if discard_initial_leg_numbers:
+            return SubtractionLegSet((0, leg.pdg, leg.state) for leg in self)
+        else:
+            return SubtractionLegSet(
+                (0, leg.pdg, leg.state) if leg.state==SubtractionLeg.FINAL else 
+                (leg.n, leg.pdg, leg.state) for leg in self
+            )
 
 #=========================================================================================
 # SingularStructure
@@ -433,12 +439,12 @@ class SingularStructure(object):
             all_legs.append(sub.get_all_legs())
         return SubtractionLegSet(union(*all_legs))
 
-    def discard_leg_numbers(self):
+    def discard_leg_numbers(self, discard_initial_leg_numbers=True):
         """Set all leg numbers to zero, discarding this information forever."""
 
-        self.legs = self.legs.without_leg_numbers()
+        self.legs = self.legs.without_leg_numbers(discard_initial_leg_numbers)
         for substructure in self.substructures:
-            substructure.discard_leg_numbers()
+            substructure.discard_leg_numbers(discard_initial_leg_numbers)
 
     def count_unresolved(self):
         """Count the number of unresolved legs."""
@@ -457,7 +463,9 @@ class SingularStructure(object):
         if track_leg_numbers:
             canonical['legs'] = self.legs
         else:
-            canonical['legs'] = self.legs.without_leg_numbers()
+            # Always track initial state leg numbers as they are always distinguishable
+            canonical['legs'] = self.legs.without_leg_numbers(
+                                                        discard_initial_leg_numbers=False)
         canonical['name'] = self.name()
         canonical['substructures'] = tuple(sorted(
             structure.get_canonical_representation(track_leg_numbers)
@@ -807,14 +815,14 @@ class Current(base_objects.Process):
 
         return self['singular_structure'].count_unresolved()
 
-    def discard_leg_numbers(self):
+    def discard_leg_numbers(self,discard_initial_leg_numbers=True):
         """Discard all leg numbers in the singular_structure
         and in the parent_subtraction_leg,
         effectively getting the type of current
         without information about momenta for which it should be evaluated.
         """
 
-        self['singular_structure'].discard_leg_numbers()
+        self['singular_structure'].discard_leg_numbers(discard_initial_leg_numbers)
 
     def __str__(
         self,
@@ -847,13 +855,21 @@ class Current(base_objects.Process):
                                             " yet by the function get_reduced_flavors")
             return res[0]
         
-        leg_numbers = [leg.n for leg in self['singular_structure'].get_all_legs()]
+        all_legs = self['singular_structure'].get_all_legs()
+        leg_numbers = [leg.n for leg in all_legs]
+        get_particle = IR_subtraction_module.model.get_particle
+        # Swap the flavors of the initial states
+        leg_flavors = [ ( 
+                get_particle(defining_flavors[leg.n]).get_anti_pdg_code() if 
+                leg.state==SubtractionLeg.INITIAL else get_particle(defining_flavors[leg.n]).get_pdg_code() ) 
+            for leg in all_legs ]
+
         if len(leg_numbers)>0:            
             mother_number = Counterterm.get_ancestor(frozenset(leg_numbers), routing_dict)
             if mother_number not in defining_flavors:
-                defining_flavors[mother_number] = get_parent([defining_flavors[n] for n in leg_numbers])
+                defining_flavors[mother_number] = get_parent(leg_flavors)
 
-    def get_key(self):
+    def get_key(self, track_leg_numbers=False):
         """Return the ProcessKey associated to this current."""
 
         from madgraph.core.accessors import ProcessKey
@@ -863,7 +879,8 @@ class Current(base_objects.Process):
                     'singular_structure',
                     'n_loops',
                     'squared_orders',
-                    'resolve_mother_spin_and_color' ] )
+                    'resolve_mother_spin_and_color' ],
+                track_leg_numbers = track_leg_numbers)
 
     def get_copy(self, copied_attributes=()):
         """Return a copy of this current with a deep-copy of its singular structure."""

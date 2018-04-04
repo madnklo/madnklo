@@ -115,6 +115,17 @@ class ETA(ProgressBarWidget):
             eta = elapsed * pbar.maxval / pbar.currval - elapsed
             return 'ETA:  %s' % self.format_time(eta)
 
+class Counter(ProgressBarWidget):
+    'Displays the current count'
+
+    __slots__ = ('format',)
+
+    def __init__(self, format='%d'):
+        self.format = format
+
+    def update(self, pbar):
+        return self.format % {'value':pbar.currval,'max_value':pbar.maxval}
+
 class FileTransferSpeed(ProgressBarWidget):
     "Widget for showing the transfer speed (useful for file transfers)."
     def __init__(self):

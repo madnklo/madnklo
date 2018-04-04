@@ -22,12 +22,14 @@ import fractions
 import operator
 import re
 import array
+import sys
 
 import madgraph.core.color_algebra as color_algebra
 import madgraph.core.diagram_generation as diagram_generation
 import madgraph.core.base_objects as base_objects
 from madgraph import MadGraph5Error
 import madgraph.various.misc as misc
+import madgraph.various.progressbar as pbar
 
 #===============================================================================
 # ColorBasis
@@ -1158,6 +1160,30 @@ class ColorMatrix(dict):
                 all_colored_indices_replacement[leg.get('number')] = \
                                 self.DOUBLE_PRIME_POSITIVE_INDICES_OFFSET+leg.get('number')
 
+
+        len_color_correlators = sum(len(v)**2 for v in color_connections.values())
+        # Decide if a progressbar is warranted. Simply set progress_bar to None if you want it disabled.
+        if __debug__ and len_color_correlators > 500:
+            proc_str = []
+            for leg in [l for l in process_legs if not l.get('state')]:
+                proc_str.append(model.get_particle(leg.get('id')).get_name())
+            proc_str.append('>')
+            for leg in [l for l in process_legs if l.get('state')]:
+                proc_str.append(model.get_particle(leg.get('id')).get_name())            
+            proc_str = ' '.join(proc_str)
+
+            widgets = ["%s color correlators for %s :"%(order, proc_str), 
+                pbar.Percentage(), ' ', pbar.Bar(),' ', pbar.ETA(), ' ', 
+                pbar.Counter(format='%%(value)0%dd/%%(max_value)d'%(len(str(len_color_correlators)))), ' ']
+            progress_bar = pbar.ProgressBar(widgets=widgets, maxval=len_color_correlators, 
+                                                                             fd=sys.stdout)
+            progress_bar.start()
+        else:
+            progress_bar = None
+            if progress_bar!=None:
+                progress_bar.finish()
+
+        n_correlator_processed = 0
         connection_index_offset = 1
         for curr_order in range(1,order.count('N')+1):
             order_key = 'N'*curr_order+'LO'
@@ -1191,10 +1217,17 @@ class ColorMatrix(dict):
                     all_color_correlated_matrices[color_correlator_identifier] = ( 
                         ( str(connection_Q1['color_string_Q1']), 
                           str(connection_Q2['color_string_Q2']) ), color_matrix )
+                    
+                    n_correlator_processed += 1
+                    if progress_bar:
+                        progress_bar.update(n_correlator_processed)
             
             # Increase the offset by the length of the list of connections up to this point
             connection_index_offset += len(color_connections[order_key])
-            
+
+        if progress_bar:
+                    progress_bar.finish()
+
         return all_color_correlated_matrices, color_connections
 
     def build_matrix(self, Nc=3,

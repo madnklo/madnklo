@@ -985,32 +985,61 @@ class Contribution_R(Contribution):
         for process_key, (defining_process, mapped_processes) in self.get_processes_map().items():
             local_counterterms, integrated_counterterms = \
                                  self.IR_subtraction.get_all_counterterms(defining_process)
+
+            ###############################################################################
+            #
+            # START HACK to bypass the generation and processing of integrated counterterms
+            # so as to debug/study local ones.
+            #
+            ###############################################################################
+            #integrated_counterterms = []
+            ###############################################################################
+            # END HACK
+            ###############################################################################
             
             # Make sure that the non-singular counterterm which correspond to the real-emission
             # matrix elements themselves are not added here
             local_counterterms = [ct for ct in local_counterterms if ct.is_singular()]
 
+#            misc.sprint('Local CTs for %s'%(defining_process.nice_string()))
+#            for lc in local_counterterms:
+#                misc.sprint(str(lc))
+#            misc.sprint('Integrated CTs for %s'%(defining_process.nice_string()))
+#            for ic in integrated_counterterms:
+#                misc.sprint(str(ic))
+                
             self.counterterms[process_key] = local_counterterms
-            
+
             # Now Add a additional information about the integrated_counterterms that will
             # be necessary for their evaluations in the corresponding lower-multiplicity
             # contribution
             
-            # First, a dictionary with keys being a one- or two- tuple of the initial
-            # states part of this mapping and the values being the number of mapped
-            # processes that possess these initial states
+            # First, a list of two tuples ( (in_pdgs, out_pdgs), (in_leg_numbers, out_leg_numbers) )
+            # listing all combinations of pdgs and leg numbers for this contribution
             flavors_combinations = []
             
             # Notice that the defining flavor combination will always be placed first
             for process in [defining_process,]+mapped_processes:
-                leg_numbers = ( tuple( leg.get('number') for leg in process.get_initial_legs() ),
-                                tuple( leg.get('number') for leg in process.get_final_legs() )   )
+                initial_numbers = tuple( leg.get('number') for leg in process.get_initial_legs() )
+                final_numbers   = tuple( leg.get('number') for leg in process.get_final_legs() )
+                leg_numbers = ( initial_numbers, final_numbers  )
                 initial_pdgs = process.get_initial_ids()
                 final_pdgs = tuple(process.get_final_ids_after_decay())
                 flavors_combinations.append( ( ( tuple(initial_pdgs),final_pdgs ), leg_numbers ) )
-                if process.get('has_mirror_process'):
-                    flavors_combinations.append( 
-                                 (tuple(reversed(initial_pdgs)),final_pdgs ), leg_numbers )
+#               It is not completely clear how to account for mirrored process at this stage,
+#               so we anticipate for now that this will only need to be processed at the
+#               integrand evaluation level.
+#               The problem with the line below is that for the process u d~ > u d~ a for instance
+#               the counterterm C(1,3) is only valid if leg #1 is u and leg #2 is d~. 
+#               So swapping u(1) d~(2) for u(2) d~(1) would require propagating the indices
+#               substitution in the entire counterterm (most importantly, its singular structure)
+#               and create a copy of it. This pretty heavy (and the idea of the 'use_mirror_process'
+#               option is precisely to avoid this work), so we can hopefully bypass this
+#               by implementing this symmetrisation during the integrand evaluation.
+##                if process.get('has_mirror_process'):
+##                    flavors_combinations.append( 
+##                           ( ( tuple(reversed(initial_pdgs)), final_pdgs ), leg_numbers ) )
+
             
 #            misc.sprint('doing process:',defining_process.nice_string())
 #            misc.sprint('flavors_combinations',flavors_combinations)
@@ -1030,7 +1059,9 @@ class Contribution_R(Contribution):
                 # where the leg numbers are removed
                 copied_current = integrated_counterterm.get_integrated_current().\
                                           get_copy(('squared_orders','singular_structure'))
-                copied_current.discard_leg_numbers()
+                # The two initial states are always distinguishable, so we should not 
+                # group them into a single topology
+                copied_current.discard_leg_numbers(discard_initial_leg_numbers=False)
                 integrated_current_topology = copied_current.get_key().get_canonical_key()
                 try:
                     integrated_current_topologies[integrated_current_topology].append(
@@ -1138,15 +1169,15 @@ class Contribution_R(Contribution):
                             l in singular_legs if l.state==subtraction.SubtractionLeg.FINAL]
                         singular_legs_symmetry_factor *= misc.symmetry_factor(singular_external_leg_pdgs)
 
-#                    misc.sprint('Counterterm: %s'%str(integrated_counterterm))
-#                    misc.sprint('    -> multiplicity                   = %d'%len(integrated_counterterms))
-#                    misc.sprint('    -> CT with same topologies        = %s'%(' | '.join(str(CT) for CT in integrated_counterterms)) )                    
-#                    misc.sprint('    -> resolved_flavors               = %s'%str(flavor_combination))
-#                    misc.sprint('    -> reduced                        = %s'%str(reduced_flavors))
-#                    misc.sprint('    -> resolved_symmetry_factor       = %d'%resolved_symmetry_factor)
-#                    misc.sprint('    -> reduced_symmetry_factor        = %d'%reduced_symmetry_factor)
-#                    misc.sprint('    -> singular_legs_symmetry_factor  = %f'%singular_legs_symmetry_factor)
-#                    misc.sprint('    -> counterterm_repetition_factor  = %f'%repetitions_for_topology[integrated_current_topology])
+   #                 misc.sprint('Counterterm: %s'%str(integrated_counterterm))
+   #                 misc.sprint('    -> multiplicity                   = %d'%len(integrated_counterterms))
+   #                 misc.sprint('    -> CT with same topologies        = %s'%(' | '.join(str(CT) for CT in integrated_counterterms)) )                    
+   #                 misc.sprint('    -> resolved_flavors               = %s'%str(flavor_combination))
+   #                 misc.sprint('    -> reduced                        = %s'%str(reduced_flavors))
+   #                 misc.sprint('    -> resolved_symmetry_factor       = %d'%resolved_symmetry_factor)
+   #                 misc.sprint('    -> reduced_symmetry_factor        = %d'%reduced_symmetry_factor)
+   #                 misc.sprint('    -> singular_legs_symmetry_factor  = %f'%singular_legs_symmetry_factor)
+   #                 misc.sprint('    -> counterterm_repetition_factor  = %f'%repetitions_for_topology[integrated_current_topology])
                         
                     # Now correct for the repetition number in that topology
                     # Notice it should always be an integer, the float here is just so that
@@ -1715,7 +1746,7 @@ class Contribution_V(Contribution):
 
         # Obtain the ProcessKey of the reduced process of the integrated counterterm
         # Use ordered PDGs since this is what is used in the inverse_processes_map
-        # Also verwrite some of the process properties to make it match the 
+        # Also overwrite some of the process properties to make it match the 
         # loop process definitions in this contribution
         counterterm_reduced_process_key = ProcessKey(integrated_counterterm.process,
             sort_PDGs=sort_PDGs, n_loops=1, NLO_mode='virt', 

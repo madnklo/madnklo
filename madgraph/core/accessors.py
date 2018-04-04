@@ -166,7 +166,8 @@ class ProcessKey(object):
                 self.key_dict['required_s_channels'] = tuple( tuple(pdg for pdg in pdg_list) for pdg_list in value)
             
             elif proc_attr == 'singular_structure':
-                self.key_dict['singular_structure'] = value.get_canonical_representation(track_leg_numbers=False)
+                self.key_dict['singular_structure'] = value.get_canonical_representation(
+                                                                   track_leg_numbers=False)
 
             # Let us not worry about WEIGHTED orders that are added automatically added when doing process matching
             # Also ignore squared order constraints that are not == as those are added automatically to improve
@@ -473,7 +474,11 @@ class VirtualMEAccessor(object):
                         for emission in connection:
                             permuted_connection.append( tuple( (permutation[leg_ID-1]+1 if 
                                              leg_ID > 0 else leg_ID) for leg_ID in emission ) )
-                        permuted_color_correlator.append( tuple(permuted_connection) )
+                        # We must sort again the connection so as to make sure that after
+                        # the replacement above, it is still ordered with the emissions
+                        # with largest first entry of the three-tuples first.
+                        permuted_color_correlator.append(tuple(sorted(permuted_connection,
+                                                 key =lambda em: em[0], reverse=True)) )
                 permuted_color_correlation.append( tuple(permuted_color_correlator) )
             permuted_color_correlation = tuple(permuted_color_correlation)
         else:

@@ -268,7 +268,7 @@ class QCD_soft_0_g(currents.QCDLocalSoftCurrent):
         })
         
         # Normalization factors
-        norm = -8. * math.pi * alpha_s
+        norm = -4. * math.pi * alpha_s
         norm *= self.factor(mapping_variables, None)
 
         color_correlation_index = 0
@@ -279,8 +279,13 @@ class QCD_soft_0_g(currents.QCDLocalSoftCurrent):
             for b in all_colored_parton_numbers[i+1:]:
                 evaluation['color_correlations'].append( ((a, b), ) )
                 # Write the eikonal for that pair
+                if a!=b:
+                    mult_factor = 2.
+                else:
+                    mult_factor = 1.
                 evaluation['values'][(0, color_correlation_index)] = {
-                    'finite': norm * self.eikonal(PS_point, a, b, soft_leg_number) }
+                    'finite': norm * mult_factor * self.eikonal(PS_point, a, b, soft_leg_number) }
+                    
                 color_correlation_index += 1
         
         result = utils.SubtractionCurrentResult()

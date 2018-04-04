@@ -122,7 +122,7 @@ class ColorAmpTest(unittest.TestCase):
 
         # An electron e- and its antiparticle
         self.mypartlist.append(base_objects.Particle({'name':'e-',
-                      'antiname':'e-',
+                      'antiname':'e+',
                       'spin':2,
                       'color':1,
                       'mass':'zero',
@@ -521,69 +521,9 @@ class ColorAmpTest(unittest.TestCase):
 
     
 
-    def test_color_connections(self):
-        """ Test the functions in ColorMatrix related to the generation of color-correlated 
-        Matrix elements."""
-        
-        from color_connections_reference_results import \
-            epem_ddx_NLO_res, \
-            epem_ddx_NNLO_res, \
-            epem_ddx_NNNLO_res, \
-            epem_ddxg_NLO_res, \
-            epem_ddxg_NNLO_res, \
-            epem_ddxgg_NLO_res, \
-            epem_ddxgg_NNLO_res, \
-            gg_ddx_NLO_res, \
-            gg_ddx_NNNLO_res, \
-            gg_ddxg_NLO_res, \
-            ddx_ddx_NLO_res, \
-            ddx_ddx_NNLO_res, \
-            ddx_ddx_NNNLO_res
+    def perform_color_connections_test(self, combinations):
+        """ Handy wrapping function to test selected cases for the color correlated matrices.""" 
 
-
-        # The tests that are commented are not because they're not working but just
-        # because they are too slow for unit tests
-        combinations = [
-            
-            ## NLO
-            ######
-            ## e+ e- > d d~ @NLO
-            (0,[11,-11],'NLO',epem_ddx_NLO_res),
-            ## e+ e- > d d~ g @NLO
-            (1,[11,-11],'NLO',epem_ddxg_NLO_res),
-            ## e+ e- > d d~ g g @NLO
-            (2,[11,-11],'NLO',epem_ddxgg_NLO_res),
-            ## g g > d d~ @NLO
-            (0,[21,21],'NLO',gg_ddx_NLO_res),
-            ## g g > d d~ g @NLO
-            (1,[21,21],'NLO',gg_ddxg_NLO_res),
-            ## d d~ > d d~ @NLO
-            (0,[1,-1],'NLO',ddx_ddx_NLO_res),
-            
-            ## NNLO
-            #######
-            ## e+ e- > d d~ @NNLO
-            (0,[11,-11],'NNLO',epem_ddx_NNLO_res),
-            ## e+ e- > d d~ g @NNLO
-            (1,[11,-11],'NNLO',epem_ddxg_NNLO_res),
-            ## e+ e- > d d~ g g @NNLO
-            (2,[11,-11],'NNLO',epem_ddxgg_NNLO_res),
-            ## d d~ > d d~ @NNLO
-            (0,[1,-1],'NNLO',ddx_ddx_NNLO_res),
-
-            ## NNNLO
-            #######
-            ## e+ e- > d d~ @NNNLO
-            (0,[11,-11],'NNNLO',epem_ddx_NNNLO_res),
-            ## g g > d d~ @NNNLO
-            # These results are too large to be stored in the hardcoded reference
-            # results and we skip them. (also too slow for unit tests. 
-            # But it's working in principle.
-            #(0,[21,21],'NNNLO',gg_ddx_NNNLO_res),
-            ## d d~ > d d~ @NNNLO
-            #(0,[1,-1],'NNNLO',ddx_ddx_NNNLO_res),
-        ]
-        
         def compare_result(color_matrices, color_connections, reference):
             
             important_info_CM = [(c[0], dict(c[1][1].col_matrix_fixed_Nc) ) for c in color_matrices
@@ -638,6 +578,86 @@ class ColorAmpTest(unittest.TestCase):
 
             if False: print("\nA total of %d correlator matrices have been computed (among which %d are zero)"%
                     (len(sorted_color_matrices), len([_ for _ in sorted_color_matrices if _[1][1].col_matrix_fixed_Nc is None])) )
+
+    def test_color_correlators_computation_slow(self):
+        """ Test the functions in ColorMatrix related to the generation of color-correlated 
+        Matrix elements, for cases that are fast to evaluate."""
+        
+        from color_connections_reference_results import \
+            epem_ddxgg_NNLO_res, \
+            ddx_ddx_NNLO_res, \
+            epem_ddx_NNNLO_res
+
+
+        # The tests that are commented are not because they're not working but just
+        # because they are too slow for unit tests
+        combinations = [
+
+            ## NNLO
+            #######
+            ## e+ e- > d d~ g g @NNLO
+            (2,[11,-11],'NNLO',epem_ddxgg_NNLO_res),
+            ## d d~ > d d~ @NNLO
+            (0,[1,-1],'NNLO',ddx_ddx_NNLO_res),
+
+            ## NNNLO
+            #######
+            ## e+ e- > d d~ @NNNLO
+            (0,[11,-11],'NNNLO',epem_ddx_NNNLO_res),
+            ## g g > d d~ @NNNLO
+            # These results are too large to be stored in the hardcoded reference
+            # results and we skip them. (also too slow for unit tests. 
+            # But it's working in principle.
+            #(0,[21,21],'NNNLO',gg_ddx_NNNLO_res),
+            ## d d~ > d d~ @NNNLO
+            #(0,[1,-1],'NNNLO',ddx_ddx_NNNLO_res),
+        ]
+        
+        self.perform_color_connections_test(combinations)
+        
+    def test_color_correlators_computation_fast(self):
+        """ Test the functions in ColorMatrix related to the generation of color-correlated 
+        Matrix elements, for cases that are slow to evaluate."""
+        
+        from color_connections_reference_results import \
+            epem_ddx_NLO_res, \
+            epem_ddx_NNLO_res, \
+            epem_ddxg_NLO_res, \
+            epem_ddxg_NNLO_res, \
+            epem_ddxgg_NLO_res, \
+            gg_ddx_NLO_res, \
+            gg_ddxg_NLO_res, \
+            ddx_ddx_NLO_res
+
+        # The tests that are commented are not because they're not working but just
+        # because they are too slow for unit tests
+        combinations = [
+            
+            ## NLO
+            ######
+            ## e+ e- > d d~ @NLO
+            (0,[11,-11],'NLO',epem_ddx_NLO_res),
+            ## e+ e- > d d~ g @NLO
+            (1,[11,-11],'NLO',epem_ddxg_NLO_res),
+            ## e+ e- > d d~ g g @NLO
+            (2,[11,-11],'NLO',epem_ddxgg_NLO_res),
+            ## g g > d d~ @NLO
+            (0,[21,21],'NLO',gg_ddx_NLO_res),
+            ## g g > d d~ g @NLO
+            (1,[21,21],'NLO',gg_ddxg_NLO_res),
+            ## d d~ > d d~ @NLO
+            (0,[1,-1],'NLO',ddx_ddx_NLO_res),
+            
+            ## NNLO
+            #######
+            ## e+ e- > d d~ @NNLO
+            (0,[11,-11],'NNLO',epem_ddx_NNLO_res),
+            ## e+ e- > d d~ g @NNLO
+            (1,[11,-11],'NNLO',epem_ddxg_NNLO_res),
+
+        ]
+        
+        self.perform_color_connections_test(combinations)
 
 class ColorSquareTest(unittest.TestCase):
     """Test class for the color_amp module"""

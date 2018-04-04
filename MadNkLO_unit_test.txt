@@ -14,4 +14,5 @@ SoftVariablesTest
 SomogyietalSoftTest
 InitialCollinearVariablesTest
 InitialLorentzMappingOneTest
-FlatCollinearWalkerTest
+test_color_correlators_computation_fast
+test_color_correlators_computation_slow

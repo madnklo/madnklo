@@ -1378,6 +1378,7 @@ class ME7Integrand_R(ME7Integrand):
                              apply_flavour_blind_cuts=True, apply_flavour_cuts=True  ):
         """ Evaluates the specified counterterm for the specified PS point."""
 
+
         # Retrieve some possibly relevant model parameters
         alpha_s = self.model.get('parameter_dict')['aS']
         mu_r = self.model.get('parameter_dict')['MU_R']
@@ -1461,8 +1462,9 @@ class ME7Integrand_R(ME7Integrand):
                 combined_correlator[0] = tuple(list(correlators_A[0])+list(correlators_B[0]))
             # Color-correlators
             if (not correlators_A[1] is None) and (not correlators_B[1] is None):
-                # We don't know what to do yet, because we haven't agreed on how to organize
-                # NNLO color correlations yet.
+                # It is not clear how to combine two currents each possessing color correlation.
+                # Whenever this will be explicitly needed, then it will be clear how this
+                # should be done and it can be implemented here.
                 raise NotImplementedError
             return combined_correlator
         
@@ -1533,7 +1535,7 @@ The missing process is: %s"""%ME_process.nice_string())
             # Again, for the integrated subtraction counterterms, some care will be needed here
             # for the real-virtual, depending on how we want to combine the two Laurent series.
             final_weight += current_weight*ME_evaluation['finite']
-
+            
         # Now finally handle the overall prefactor of the counterterm
         final_weight *= counterterm.prefactor
 
@@ -1719,7 +1721,8 @@ The missing process is: %s"""%ME_process.nice_string())
                        spin_correlation  = None,
                        hel_config        = None )
                     this_eval['ME'] = ME_evaluation['finite']
-                    misc.sprint('Weight from ME = %.16f' % ME_evaluation['finite'])
+                    misc.sprint('For scaling variable %.3e, weight from ME = %.16f' %(
+                                              scaling_parameter, ME_evaluation['finite'] ))
                     # Loop over counterterms
                     for counterterm in counterterms_to_consider:
                         # Skip counterterms upon request
@@ -1735,6 +1738,7 @@ The missing process is: %s"""%ME_process.nice_string())
                         this_eval[str(counterterm)] = ct_weight
                         misc.sprint('Weight from CT %s = %.16f' %
                                     (str(counterterm), ct_weight) )
+                        misc.sprint('Ratio: %.16f'%( ct_weight/float(ME_evaluation['finite']) ))
                     limit_evaluations[scaling_parameter] = this_eval
 
                 process_evaluations[str(limit_specifier_counterterm)] = limit_evaluations

@@ -22,6 +22,7 @@ import os
 import madgraph.core.base_objects as base_objects
 import madgraph.loop.loop_base_objects as loop_base_objects
 import madgraph.core.contributions as contributions
+import madgraph.core.accessors as accessors
 import madgraph.interface.master_interface as cmd
 import madgraph.various.misc as misc
 import madgraph.iolibs.export_ME7 as export_ME7
@@ -248,7 +249,7 @@ class ME7ContributionTest(IOTests.IOTestManager):
         })
 
         # The general accessor with the Born ME registered
-        self.all_born_MEs_accessor = contributions.MEAccessorDict()
+        self.all_born_MEs_accessor = accessors.MEAccessorDict()
         # Generate only Born LO contributions
         with misc.TMP_directory(debug=False) as tmp_path:
             
@@ -330,7 +331,7 @@ class ME7ContributionTest(IOTests.IOTestManager):
         # Test the generation of counterterms in single real-emission and virtual
         # type of contributions. Also make sure that they can be exported.
 
-        verbose = False
+        verbose = False 
         
         # Real counterterms
 
@@ -359,7 +360,7 @@ class ME7ContributionTest(IOTests.IOTestManager):
             CT.__str__(print_n=True, print_pdg=True, print_state=True)
             for CT in sum(real_emission_contrib.counterterms.values(), []) ]
         open(pjoin(self.IOpath,'Counterterms_R.txt'),'w').write(
-            "\n".join(counterterm_strings) )
+            "\n".join(sorted(counterterm_strings)) )
 
         # Virtual counterterms
 
@@ -387,7 +388,7 @@ class ME7ContributionTest(IOTests.IOTestManager):
                 print_n=True, print_pdg=True, print_state=True )
             for CT in sum(virtual_contrib.integrated_counterterms.values(), []) ]
         open(pjoin(self.IOpath,'Counterterms_V.txt'),'w').write(
-            "\n".join(counterterm_strings) )
+            "\n".join(sorted(counterterm_strings)) )
         # Check the number of counterterms that did not find a host contribution
         refused_cts = len(self.exporter.integrated_counterterms_refused_from_all_contribs)
         if verbose:
@@ -400,7 +401,7 @@ class ME7ContributionTest(IOTests.IOTestManager):
 
         # Initialize an empty accessor dictionary for the currents.
         # No currents are ignored because of potential pre-existing ones.
-        accessors_dict = contributions.MEAccessorDict()
+        accessors_dict = accessors.MEAccessorDict()
         all_local_currents = \
             real_emission_contrib.get_all_necessary_local_currents(accessors_dict)
         current_strings = [str(current) for current in all_local_currents]
@@ -429,17 +430,17 @@ class ME7ContributionTest(IOTests.IOTestManager):
             print_string += "for %s subtraction currents."
 
             # Reset the accessor dictionary so as to monitor only the newly added keys
-            accessors_dict = contributions.MEAccessorDict()
+            accessors_dict = accessors.MEAccessorDict()
             real_emission_contrib.add_current_accessors(
-                self.mymodel, accessors_dict, tmp_path, all_local_currents )
+                self.mymodel, accessors_dict, tmp_path, 'colorful', all_local_currents )
             # Print all accessor keys
             if verbose: misc.sprint(print_string % (len(accessors_dict), "local"))
             self.assertEqual(len(accessors_dict), 31)
 
             # Reset the accessor dictionary so as to monitor only the newly added keys
-            accessors_dict = contributions.MEAccessorDict()
+            accessors_dict = accessors.MEAccessorDict()
             virtual_contrib.add_current_accessors(
-                self.mymodel, accessors_dict, tmp_path, all_integrated_currents )
+                self.mymodel, accessors_dict, tmp_path, 'colorful', all_integrated_currents )
             # Print all accessor keys
             if verbose: misc.sprint(print_string % (len(accessors_dict), "integrated"))
             self.assertEqual(len(accessors_dict), 31)

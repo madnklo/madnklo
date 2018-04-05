@@ -1771,6 +1771,8 @@ The missing process is: %s"""%ME_process.nice_string())
         # Produce a plot of all counterterms
         x_values = sorted(evaluations.keys())
         lines = evaluations[x_values[0]].keys()
+        # Skip ME-def line if there is no defining ct
+        plot_def = def_ct and def_ct in lines
 
         plt.rc('text', usetex=True)
         plt.rc('font', family='serif')
@@ -1788,15 +1790,19 @@ The missing process is: %s"""%ME_process.nice_string())
             y_values = [abs(evaluations[x][line]) for x in x_values]
             for i in range(len(x_values)):
                 total[i] += evaluations[x_values[i]][line]
-            if def_ct and (line == "ME" or line == def_ct):
+            if plot_def and (line == "ME" or line == def_ct):
                 def_ct_sign = 1
                 if line == def_ct:
                     def_ct_sign = (-1) ** def_ct.count("(")
                 for i in range(len(x_values)):
                     ME_minus_def_ct[i] += def_ct_sign * evaluations[x_values[i]][line]
             if plot_all:
-                plt.plot(x_values, y_values, label=line)
-        if def_ct:
+                if '(' in line:
+                    style = '--'
+                else:
+                    style = '-'
+                plt.plot(x_values, y_values, style, label=line)
+        if plot_def:
             abs_ME_minus_def_ct = [abs(y) for y in ME_minus_def_ct]
             plt.plot(x_values, abs_ME_minus_def_ct, label='ME-def')
         abs_total = [abs(y) for y in total]
@@ -1809,7 +1815,7 @@ The missing process is: %s"""%ME_process.nice_string())
         plt.ylabel('Weighted integrands')
         plt.xscale('log')
         plt.grid(True)
-        if def_ct:
+        if plot_def:
             wgt_ME_minus_def_ct = [x_values[i] * ME_minus_def_ct[i]
                                    for i in range(len(x_values))]
             plt.plot(x_values, wgt_ME_minus_def_ct, label='ME-def')

@@ -332,7 +332,9 @@ class DefaultCurrentImplementation(VirtualCurrentImplementation):
     the implementation of all currents but already wants to test a subset of them.
     """
 
-    is_zero = True
+    # Include these counterterms even if they are zero,
+    # uncomment the following line to discard them instead
+    # is_zero = True
     
     def __init__(self, *args, **opts):
 

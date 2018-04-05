@@ -474,15 +474,22 @@ class SingularStructure(object):
 
         return tuple(sorted(canonical.items()))
 
+    def __hash__(self):
+
+        return hash(self.get_canonical_representation())
+
     def __eq__(self, other):
         """Check if two singular structures are the same."""
 
-        # WARNING this seems to work differently than .__str__(True,True,True) comparison
-
-        assert isinstance(other, SingularStructure)
+        if not isinstance(other, SingularStructure):
+            raise TypeError
         self_can = self.get_canonical_representation()
         other_can = other.get_canonical_representation()
         return self_can == other_can
+
+    def __ne__(self, other):
+
+        return not self == other
 
     def name(self):
 
@@ -496,7 +503,8 @@ class SingularStructure(object):
             inner.update(substructure.decompose())
         if type(self) == SingularStructure:
             return inner
-        inner.add(type(self)(legs=self.get_all_legs()))
+        foo = type(self)(legs=self.get_all_legs())
+        inner.add(foo)
         return inner
 
     name_dictionary = {

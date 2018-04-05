@@ -209,9 +209,7 @@ class SingularStructureOperatorTest(unittest.TestCase):
             sub.SubtractionLeg(11, -2, FINAL) )
         dec = a_structure.decompose()
         ben = {sub_1, sub_2, sub_3}
-        dec_str = set(el.__str__(True, True, True) for el in dec)
-        ben_str = set(el.__str__(True, True, True) for el in ben)
-        self.assertEqual(dec_str, ben_str)
+        self.assertEqual(dec, ben)
 
     def test_count_unresolved(self):
         """Test counting of unresolved particles."""

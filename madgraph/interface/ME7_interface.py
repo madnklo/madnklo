@@ -300,6 +300,7 @@ class ParseCmdArguments(object):
         # None means unspecified, therefore considering all types.
         testlimits_options = {'correction_order'        : None,
                               'limit_type'              : None,
+                              'limit_pattern'           : None,
                               'process'                 : {'in_pdgs'  : None,
                                                            'out_pdgs' : None,
                                                            'n_loops'  : None},
@@ -411,24 +412,26 @@ class ParseCmdArguments(object):
             elif key in ['--limit_type','--lt'] and mode=='limits':
                 if not isinstance(value, str):
                     raise InvalidCmd("'%s' is not a valid option for '%s'"%(value, key))
+                testlimits_options['limit_type'] = value
                 if value.lower() == 'soft':
-                    testlimits_options['limit_type'] = re.compile(r'.*S.*')                    
+                    testlimits_options['limit_pattern'] = re.compile(r'.*S.*')
                 elif value.lower() == 'collinear':
-                    testlimits_options['limit_type'] = re.compile(r'.*C.*')
+                    testlimits_options['limit_pattern'] = re.compile(r'.*C.*')
                 elif value.lower() == 'all':
-                    testlimits_options['limit_type'] = re.compile(r'.*')
+                    testlimits_options['limit_pattern'] = re.compile(r'.*')
                 else:
                     if any(value.startswith(start) for start in ['r"',"r'"]):
-                        testlimits_options['limit_type'] = re.compile(value)
+                        testlimits_options['limit_pattern'] = re.compile(value)
                     else:
-                        # If not specified as a raw string, we take the liberty of adding the
-                        # enclosing parenthesis.
+                        # If not specified as a raw string,
+                        # we take the liberty of adding the enclosing parenthesis.
                         if not value.startswith('('):
                             value = '(%s,)'%value
-                        # If the specified re was not explicitly made a raw string, then we take the 
-                        # liberty here of escaping the parenthesis since this is presumably what the
-                        # user expects.
-                        testlimits_options['limit_type'] = re.compile(value.replace('(','\(').replace(')','\)'))
+                        # If the specified re was not explicitly made a raw string,
+                        # we take the liberty of escaping the parenthesis
+                        # since this is presumably what the user expects.
+                        testlimits_options['limit_pattern'] = re.compile(
+                            value.replace('(','\(').replace(')','\)'))
                         
             elif key == '--seed':
                 try:

@@ -1959,6 +1959,18 @@ class VirtualWalker(object):
         self.model = model
 
     @classmethod
+    def determine_mapping(cls, structure):
+        """Determine which elementary mapping to use for a given singular structure."""
+
+        raise NotImplemented
+
+    @classmethod
+    def get_recoilers(cls, counterterm, exclude=None):
+        """Select particles to be used as recoilers for a given counterterm."""
+
+        raise NotImplemented
+
+    @classmethod
     def determine_hike(cls, counterterm):
         """Determine the sequence of elementary mappings that must be applied
         in order to map to lower multiplicity.
@@ -1978,12 +1990,11 @@ class VirtualWalker(object):
         decomposed_cts = []
         for ss in decomposed_sss:
             found = False
-            str1 = ss.__str__(True, True, True)
             for ct in counterterms:
                 if len(ct.nodes) != 1: continue
                 if ct.nodes[0].nodes: continue
-                str2 = ct.nodes[0].current['singular_structure'].__str__(True, True, True)
-                if str1 != str2: continue
+                ss2 = ct.nodes[0].current['singular_structure']
+                if ss != ss2: continue
                 decomposed_cts.append(ct)
                 found = True
                 break
@@ -2133,58 +2144,82 @@ class VirtualWalker(object):
             'resulting_PS_point': point}
 
     def approach_limit(
-        self, PS_point, counterterm, scaling_parameter, all_counterterms ):
+        self, PS_point, structure, scaling_parameter, process ):
         """Produce a higher multiplicity phase-space point from PS_point,
-        according to kinematic_variables that approach the limit of counterterm
+        according to kinematic_variables that approach the limit of structure
         parametrically with scaling_parameter.
         """
 
         # Decompose the counterterm
-        decomposed = self.decompose_counterterm(counterterm, all_counterterms)
+        decomposed = structure.decompose()
         # Always approach the limit at the same speed
         base = scaling_parameter ** (1. / len(decomposed))
+        # Prepare a momentum dictionary for each mapping
+        mom_dict = sub.bidict()
+        for leg in process['legs']:
+            mom_dict[leg['number']] = frozenset([leg['number'], ])
+        parent_index = max(leg['number'] for leg in process['legs']) + 1
+        fake_ct = sub.Counterterm(process=process, momenta_dict=mom_dict)
         # Walk the hike up and down
-        for ct in decomposed:
-            hike = self.determine_hike(ct)
-            assert len(hike) == 1
-            stroll = hike[0]
-            mapping = stroll.mapping
+        for step in decomposed:
+            mapping = self.determine_mapping(step)
+            all_children = frozenset([leg.n for leg in step.get_all_legs()])
+            recoilers = self.get_recoilers(fake_ct, exclude=all_children)
+            new_ss = sub.SingularStructure(substructures=[step, ], legs=recoilers)
+            if step.name() == "C":
+                mom_dict[parent_index] = all_children
+            elif step.name() == "S":
+                pass
+            else:
+                raise MadGraph5Error("Unrecognized structure of type " + step.name())
             kin_variables = {}
             mapping.map_to_lower_multiplicity(
-                PS_point, stroll.structure, counterterm.momenta_dict, kin_variables )
+                PS_point, new_ss, mom_dict, kin_variables )
             mapping.rescale_kinematic_variables(
-                stroll.structure, counterterm.momenta_dict, kin_variables, base)
+                new_ss, mom_dict, kin_variables, base)
             mapping.map_to_higher_multiplicity(
-                PS_point, stroll.structure, counterterm.momenta_dict, kin_variables )
+                PS_point, new_ss, mom_dict, kin_variables )
+            if parent_index in mom_dict.keys():
+                del mom_dict[parent_index]
         return
 
-# Flat collinear walker
+# Generic walker for one-level counterterms
 #=========================================================================================
 
-class FlatCollinearWalker(VirtualWalker):
+class OneNodeWalker(VirtualWalker):
+    """Implement a generic determine_hike for one-node counterterms."""
 
-    cannot_handle = """The Flat Collinear walker found a singular structure
-    it is not capable to handle.
-    """
-    collinear_map = FinalRescalingMappingOne()
+    @classmethod
+    def cannot_handle_msg(cls, obj):
 
-    @staticmethod
-    def get_recoilers(counterterm, parents=None):
+        return cls.__name__ + "found a " + obj + " it is not capable to handle."
+
+    @classmethod
+    def good_recoiler(cls, model, leg):
+        """Indicate if a particle is apt to be a recoiler according to this walker."""
+
+        raise NotImplemented
+
+    @classmethod
+    def get_recoilers(cls, counterterm, exclude=None):
+        """Select particles in the reduced process to be used as recoilers."""
 
         legs = counterterm.process['legs']
         model = counterterm.process['model']
-
-        FINAL = base_objects.Leg.FINAL
-
         recoilers = [
             sub.SubtractionLeg(leg)
-            for leg in legs
-            if leg['state'] == FINAL ]
-        if parents:
-            for recoiler in recoilers:
-                if recoiler.n in parents:
-                    recoilers.remove(recoiler)
-                    break
+            for leg in legs if cls.good_recoiler(model, leg) ]
+        if exclude:
+            # print "Recoilers", recoilers
+            # print "Excluding", exclude
+            i = 0
+            while i < len(recoilers):
+                # print "Considering", recoilers[i]
+                if recoilers[i].n in exclude:
+                    del recoilers[i]
+                else:
+                    i += 1
+        # print "Recoilers", recoilers
         return recoilers
 
     @classmethod
@@ -2196,105 +2231,86 @@ class FlatCollinearWalker(VirtualWalker):
         if counterterm.nodes:
             # Check it is only one
             if len(counterterm.nodes) != 1:
-                raise MadGraph5Error(cls.cannot_handle)
+                raise MadGraph5Error(cls.cannot_handle_msg("Counterterm"))
             # Alias node and singular structure for convenience
             node = counterterm.nodes[0]
             ss = node.current['singular_structure']
             # Do not accept nested currents
             if node.nodes:
-                raise MadGraph5Error(cls.cannot_handle)
-            # Get parent and children numbers
-            parent, children, _ = get_structure_numbers(
-                ss, counterterm.momenta_dict )
-            # Pick recoilers
-            recoilers = cls.get_recoilers(counterterm, (parent, ))
-            # Compute jacobian and map to lower multiplicity
-            if ss.name() == 'S' or node.nodes:
-                raise MadGraph5Error(cls.cannot_handle)
-            hike.append(Stroll(
-                cls.collinear_map,
-                sub.SingularStructure(legs=recoilers, substructures=(ss, )),
-                node.current))
-        # Return
-        return hike
-
-# Final-state only NLO walker
-#=========================================================================================
-
-class FinalNLOWalker(VirtualWalker):
-
-    cannot_handle = """FinalNLOWalker found a singular structure
-    it is not capable to handle.
-    """
-
-    # collinear_map = FinalLorentzMappingOne()
-    collinear_map = FinalRescalingMappingOne()
-    soft_map = MappingSomogyietalSoft()
-    soft_collinear_map = SoftCollinearMapping(soft_map, collinear_map)
-
-    @staticmethod
-    def get_recoilers(counterterm, parents=None):
-
-        legs = counterterm.process['legs']
-        model = counterterm.process['model']
-
-        FINAL = base_objects.Leg.FINAL
-
-        recoilers = [
-            sub.SubtractionLeg(leg)
-            for leg in legs
-            if leg['state'] == FINAL and model.get_particle(leg['id'])['color'] != 1 ]
-        if parents:
-            for recoiler in recoilers:
-                if recoiler.n in parents:
-                    recoilers.remove(recoiler)
-                    break
-        return recoilers
-
-    @classmethod
-    def determine_hike(cls, counterterm):
-
-        # Initialize return variables
-        hike = Hike()
-        # If the counterterm is not trivial
-        if counterterm.nodes:
-            # Check it is only one
-            if len(counterterm.nodes) != 1:
-                raise MadGraph5Error(cls.cannot_handle)
-            # Alias node and singular structure for convenience
-            node = counterterm.nodes[0]
-            ss = node.current['singular_structure']
-            # Do not accept nested currents
-            if node.nodes:
-                raise MadGraph5Error(cls.cannot_handle)
+                raise MadGraph5Error(cls.cannot_handle_msg("Counterterm"))
             # Get parent and children numbers
             parent, children, _ = get_structure_numbers(
                 ss, counterterm.momenta_dict )
             # Pick recoilers
             recoilers = cls.get_recoilers(counterterm, (parent, ))
             structure = sub.SingularStructure(legs=recoilers, substructures=(ss,))
+            # Choose mapping to use
+            mapping = cls.determine_mapping(ss)
             # Compute jacobian and map to lower multiplicity
-            if ss.name() == 'S':
-                hike.append(Stroll(cls.soft_map, structure, node.current))
-            elif ss.name() == 'C' and not ss.substructures:
-                hike.append(Stroll(cls.collinear_map, structure, node.current))
-            elif (ss.name() == 'C'
-                and len(ss.substructures) == 1
-                and ss.substructures[0].name() == 'S'
-                and not ss.substructures[0].substructures
-                and len(ss.legs) == 1 ):
-                hike.append(Stroll(cls.soft_collinear_map, structure, node.current))
-            else:
-                raise MadGraph5Error(cls.cannot_handle)
+            hike.append(Stroll(mapping, structure, node.current))
         # Return
         return hike
+
+# Flat collinear walker
+#=========================================================================================
+
+class FlatCollinearWalker(OneNodeWalker):
+
+    collinear_map = FinalRescalingMappingOne()
+    only_colored_recoilers = True
+
+    @classmethod
+    def good_recoiler(cls, model, leg):
+
+        return (
+            leg['state'] == leg.FINAL and not
+            (cls.only_colored_recoilers and model.get_particle(leg['id'])['color'] == 1) )
+
+    @classmethod
+    def determine_mapping(cls, structure):
+
+        if structure.name() == 'S' or structure.substructures:
+            raise MadGraph5Error(cls.cannot_handle_msg("SingularStructure"))
+        else:
+            return cls.collinear_map
+
+# Final-state only NLO walker
+#=========================================================================================
+
+class FinalNLOWalker(OneNodeWalker):
+
+    collinear_map = FinalRescalingMappingOne()
+    soft_map = MappingSomogyietalSoft()
+    soft_collinear_map = SoftCollinearMapping(soft_map, collinear_map)
+    only_colored_recoilers = True
+
+    @classmethod
+    def good_recoiler(cls, model, leg):
+
+        return (
+            leg['state'] == leg.FINAL and not
+            (cls.only_colored_recoilers and model.get_particle(leg['id'])['color'] == 1) )
+
+    @classmethod
+    def determine_mapping(cls, structure):
+
+        if structure.name() == 'S':
+            return cls.soft_map
+        elif structure.name() == 'C' and not structure.substructures:
+            return cls.collinear_map
+        elif (structure.name() == 'C'
+            and len(structure.substructures) == 1
+            and structure.substructures[0].name() == 'S'
+            and not structure.substructures[0].substructures
+            and len(structure.legs) == 1 ):
+            return cls.soft_collinear_map
+        else:
+            raise MadGraph5Error(cls.cannot_handle_msg("SingularStructure"))
 
 # General NLO walker
 #=========================================================================================
 
-class NLOWalker(VirtualWalker):
-
-    cannot_handle = "NLOWalker found a singular structure it cannot handle."
+class NLOWalker(OneNodeWalker):
 
     # NOTE: If rescaling mappings are used, only_colored_recoilers should be set to True.
     #       This might fail for some processes,
@@ -2315,63 +2331,26 @@ class NLOWalker(VirtualWalker):
             (cls.only_colored_recoilers and model.get_particle(leg['id'])['color'] == 1) )
 
     @classmethod
-    def get_recoilers(cls, counterterm, parents=None):
+    def determine_mapping(cls, structure):
 
-        legs = counterterm.process['legs']
-        model = counterterm.process['model']
-
-        recoilers = [
-            sub.SubtractionLeg(leg)
-            for leg in legs if cls.good_recoiler(model, leg) ]
-        if parents:
-            for recoiler in recoilers:
-                if recoiler.n in parents:
-                    recoilers.remove(recoiler)
-                    break
-        return recoilers
-
-    @classmethod
-    def determine_hike(cls, counterterm):
-
-        # Initialize return variables
-        hike = Hike()
-        # If the counterterm is not trivial
-        if counterterm.nodes:
-            # Check it is only one
-            if len(counterterm.nodes) != 1:
-                raise MadGraph5Error(cls.cannot_handle)
-            # Alias node and singular structure for convenience
-            node = counterterm.nodes[0]
-            ss = node.current['singular_structure']
-            # Do not accept nested currents
-            if node.nodes:
-                raise MadGraph5Error(cls.cannot_handle)
-            # Get parent number
-            parent, _, _ = get_structure_numbers(ss, counterterm.momenta_dict)
-            # Pick recoilers
-            recoilers = cls.get_recoilers(counterterm, (parent, ))
-            structure = sub.SingularStructure(legs=recoilers, substructures=(ss,))
-            # Map to lower multiplicity
-            if ss.name() == 'S':
-                hike.append(Stroll(cls.soft_map,structure, node.current))
-            elif ss.name() == 'C' and not ss.substructures:
-                if ss.legs.has_initial_state_leg():
-                    hike.append(Stroll(cls.i_collinear_map, structure, node.current))
-                else:
-                    hike.append(Stroll(cls.f_collinear_map, structure, node.current))
-            elif (ss.name() == 'C'
-                  and len(ss.substructures) == 1
-                  and ss.substructures[0].name() == 'S'
-                  and not ss.substructures[0].substructures
-                  and len(ss.legs) == 1):
-                if ss.legs.has_initial_state_leg():
-                    hike.append(Stroll(cls.i_soft_collinear_map, structure, node.current))
-                else:
-                    hike.append(Stroll(cls.f_soft_collinear_map, structure, node.current))
+        if structure.name() == 'S':
+            return cls.soft_map
+        elif structure.name() == 'C' and not structure.substructures:
+            if structure.legs.has_initial_state_leg():
+                return cls.i_collinear_map
             else:
-                raise MadGraph5Error(cls.cannot_handle)
-        # Return
-        return hike
+                return cls.f_collinear_map
+        elif (structure.name() == 'C'
+              and len(structure.substructures) == 1
+              and structure.substructures[0].name() == 'S'
+              and not structure.substructures[0].substructures
+              and len(structure.legs) == 1):
+            if structure.legs.has_initial_state_leg():
+                return cls.i_soft_collinear_map
+            else:
+                return cls.f_soft_collinear_map
+        else:
+            raise MadGraph5Error(cls.cannot_handle_msg("SingularStructure"))
 
 # Dictionary of available walkers
 #=========================================================================================

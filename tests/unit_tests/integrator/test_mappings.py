@@ -717,7 +717,7 @@ class WalkerTest(object):
                 my_PS_point[2] = LorentzVector([E/2., 0., 0., -E/2.])
                 my_PS_point[1].rotoboost(rest_momentum, total_momentum)
                 my_PS_point[2].rotoboost(rest_momentum, total_momentum)
-        else: raise
+        else: raise BaseException
         return my_PS_point
 
     @classmethod
@@ -773,19 +773,22 @@ class WalkerTest(object):
     def test_approach_limit(cls, test, walker, process):
         """Test limit approach."""
 
-        counterterms = cls.irs.get_all_counterterms(process)[0][1:]
-
+        # Generate all counterterms for this process, and separate the non-singular one
+        counterterms = [
+            ct for ct in cls.irs.get_all_counterterms(process)[0] if ct.is_singular()]
+        # Get all legs in the FS and the model to check masses after approach_limit
         legs_FS = tuple(
             subtraction.SubtractionLeg(leg)
             for leg in process['legs']
             if leg['state'] == FINAL )
-
+        model = process.get('model')
         # For each counterterm
         for ct in counterterms:
             if cls.verbose:
                 print "\n" + "*" * 100
                 print "Considering counterterm", ct
                 print "*" * 100 + "\n"
+            ss = ct.reconstruct_complete_singular_structure()
             # Generate random vectors
             my_PS_point = cls.generate_PS_point(process)
             if cls.verbose:
@@ -794,16 +797,18 @@ class WalkerTest(object):
             # Compute collinear variables
             for alpha in cls.parameter_values:
                 new_PS_point = my_PS_point.get_copy()
-                walker.approach_limit(new_PS_point, ct, alpha, counterterms)
+                walker.approach_limit(new_PS_point, ss, alpha, process)
                 if cls.verbose:
                     print "New PS point for", alpha, ":\n", new_PS_point
                 for leg in legs_FS:
-                    if process.get('model').get_particle(leg.pdg)['mass'].lower() == 'zero':
+                    if model.get_particle(leg.pdg)['mass'].lower() == 'zero':
                         test.assertLess(
                             abs(new_PS_point[leg.n].square()),
                             math.sqrt(new_PS_point[leg.n].eps()) )
                     else:
-                        test.assertAlmostEqual(new_PS_point[leg.n].square(), squares[leg.n])
+                        test.assertAlmostEqual(
+                            new_PS_point[leg.n].square(),
+                            squares[leg.n] )
 
 # Processes
 #=========================================================================================

@@ -431,7 +431,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
         return False
 
-    def find_counterterms_matching_limit_type_with_regexp(self, counterterms, limit_type=None):
+    def find_counterterms_matching_regexp(
+        self, counterterms, limit_pattern=None):
         """ Find all mappings that match a particular limit_type given in argument
         (takes a random one if left to None). This function is placed here given that
         it can be useful for both the ME7Integrnd_V and ME7_integrand_R."""
@@ -444,11 +445,11 @@ class ME7Integrand(integrands.VirtualIntegrand):
             return []
 
         returned_counterterms = []
-        if not limit_type:
+        if not limit_pattern:
             returned_counterterms.append(random.choice(selected_counterterms))
         else:
             for counterterm in selected_counterterms:
-                if re.match(limit_type, str(counterterm)):
+                if re.match(limit_pattern, str(counterterm)):
                     returned_counterterms.append(counterterm)
 
         return returned_counterterms
@@ -1676,18 +1677,29 @@ The missing process is: %s"""%ME_process.nice_string())
             # Here we use limit_type to select the mapper to use for approaching the limit
             # (all CT will still use their own mapper to retrieve the PS point
             # and variables to call the currents and reduced processes).
-            selected_counterterms = self.find_counterterms_matching_limit_type_with_regexp(
-                counterterms_to_consider, test_options['limit_type'] )
+            selected_counterterms = self.find_counterterms_matching_regexp(
+                counterterms_to_consider, test_options['limit_pattern'] )
+            if selected_counterterms:
+                selected_singular_structures = [
+                    ct.reconstruct_complete_singular_structure()
+                    for ct in selected_counterterms]
+            else:
+                limit_str = test_options['limit_type']
+                ss = mappings.sub.SingularStructure.from_string(
+                    limit_str, defining_process)
+                if ss is None:
+                    logger.critical(
+                        "%s is not a valid limit_type specification" % limit_str)
+                    return
+                selected_singular_structures = [ss, ]
 
             misc.sprint('Reconstructed complete singular structure: \n'+'\n'.join(
-                str(ct.reconstruct_complete_singular_structure())
-                for ct in selected_counterterms
-            ))
+                str(ss) for ss in selected_singular_structures ))
 
             # Loop over approached limits
             process_evaluations = {}
-            for limit_specifier_counterterm in selected_counterterms:
-                misc.sprint("Approaching limit %s"%str(limit_specifier_counterterm) )
+            for limit in selected_singular_structures:
+                misc.sprint("Approaching limit %s" % str(limit) )
 
                 # # First identify the reduced PS point from which to evolve
                 # # to larger multiplicity while progressively approaching the IR limit
@@ -1708,9 +1720,7 @@ The missing process is: %s"""%ME_process.nice_string())
                     scaled_real_PS_point = a_real_emission_PS_point.get_copy()
                     scaling_parameter = base ** step
                     self.mapper.approach_limit(
-                        scaled_real_PS_point,
-                        limit_specifier_counterterm, scaling_parameter,
-                        counterterms_to_consider )
+                        scaled_real_PS_point, limit, scaling_parameter, defining_process )
                     # Initialize result
                     this_eval = {}
                     # Evaluate ME
@@ -1727,7 +1737,7 @@ The missing process is: %s"""%ME_process.nice_string())
                     for counterterm in counterterms_to_consider:
                         # Skip counterterms upon request
                         if (test_options['compute_only_limit_defining_counterterm'] and
-                            counterterm != limit_specifier_counterterm ):
+                            str(counterterm) != limit ):
                             continue
                         ct_weight, _, _ = self.evaluate_counterterm(
                             counterterm,
@@ -1741,14 +1751,15 @@ The missing process is: %s"""%ME_process.nice_string())
                         misc.sprint('Ratio: %.16f'%( ct_weight/float(ME_evaluation['finite']) ))
                     limit_evaluations[scaling_parameter] = this_eval
 
-                process_evaluations[str(limit_specifier_counterterm)] = limit_evaluations
+                process_evaluations[str(limit)] = limit_evaluations
 
             process_string = defining_process.base_string()
             if defining_process.has_key('n_loops'):
                 process_string += " @ " + str(defining_process['n_loops']) + " loops"
             all_evaluations[process_string] = process_evaluations
 
-        # Now produce a nice matplotlib of the evaluations and assess whether this test passed or not
+        # Now produce a nice matplotlib of the evaluations
+        # and assess whether this test passed or not
         return self.analyze_IR_limits_test(
             all_evaluations, test_options['acceptance_threshold'], seed=seed)
 

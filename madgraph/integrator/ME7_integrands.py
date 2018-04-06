@@ -1740,7 +1740,7 @@ The missing process is: %s"""%ME_process.nice_string())
                     for counterterm in counterterms_to_consider:
                         # Skip counterterms upon request
                         if (test_options['compute_only_limit_defining_counterterm'] and
-                            str(counterterm) != limit ):
+                            str(counterterm) != str(limit) ):
                             continue
                         ct_weight, _, _ = self.evaluate_counterterm(
                             counterterm,
@@ -1817,12 +1817,13 @@ The missing process is: %s"""%ME_process.nice_string())
         plt.xlabel('$\lambda$')
         plt.ylabel('Weighted integrands')
         plt.xscale('log')
+        plt.yscale('log')
         plt.grid(True)
         if plot_def:
-            wgt_ME_minus_def_ct = [x_values[i] * ME_minus_def_ct[i]
+            wgt_ME_minus_def_ct = [abs(x_values[i] * ME_minus_def_ct[i])
                                    for i in range(len(x_values))]
             plt.plot(x_values, wgt_ME_minus_def_ct, label='ME-def')
-        wgt_total = [x_values[i] * total[i] for i in range(len(x_values))]
+        wgt_total = [abs(x_values[i] * total[i]) for i in range(len(x_values))]
         plt.plot(x_values, wgt_total, label='TOTAL')
         plt.legend()
 

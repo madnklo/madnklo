@@ -482,14 +482,15 @@ class SingularStructure(object):
         """Check if two singular structures are the same."""
 
         if not isinstance(other, SingularStructure):
-            raise TypeError
+            raise TypeError(
+                "Comparing SingularStructure to %s (%s)" % (str(other), str(type(other))))
         self_can = self.get_canonical_representation()
         other_can = other.get_canonical_representation()
         return self_can == other_can
 
     def __ne__(self, other):
 
-        return not self == other
+        return not (self == other)
 
     def name(self):
 

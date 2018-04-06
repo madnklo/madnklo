@@ -56,7 +56,7 @@ class SubtractionCurrentTest(unittest.TestCase):
         self.current_exporter = subtraction.SubtractionCurrentExporter(
             self.model, export_dir=None )
         
-        self.mapper = mappings.VirtualWalker(map_type='FlatCollinear', model=self.model)
+        self.walker = mappings.FlatCollinearWalker
         
         legs = base_objects.LegList([
             base_objects.Leg(
@@ -171,7 +171,7 @@ class SubtractionCurrentTest(unittest.TestCase):
 
 #       This would be a more generic way of doing this, but it would involve
 #       instantiating a counterterm, which I would like to avoid for now.
-#        self.mapper.walk_to_lower_multiplicity(
+#        self.walker.walk_to_lower_multiplicity(
 #            a_PS, counterterm, kinematic_variables = False)
         current_evaluation, all_current_results = accessors_dict(
                 currents[0], a_PS, hel_config=None, 

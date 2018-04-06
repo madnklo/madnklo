@@ -390,8 +390,9 @@ class ME7Exporter(object):
                 complex_mass_scheme=self.options['complex_mass_scheme'])
 
         for contrib in self.contributions:
-            all_integrands.extend(contrib.get_integrands( 
-                                        modelReader_instance, run_card, all_MEAccessors, self.options))
+            all_integrands.extend(
+                contrib.get_integrands(
+                    modelReader_instance, run_card, all_MEAccessors, self.options ) )
         
         # And finally dump ME7 output information so that all relevant objects
         # can be reconstructed for a future launch with ME7Interface.

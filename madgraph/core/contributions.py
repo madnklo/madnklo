@@ -1327,11 +1327,11 @@ class Contribution_R(Contribution):
         for process_key, counterterms in self.counterterms.items():
             for counterterm in counterterms:
                 if counterterm.is_singular():
-                    misc.sprint("Considering CT %s" % str(counterterm))
+                    # misc.sprint("Considering CT %s" % str(counterterm))
                     for current in counterterm.get_all_currents():
                         accessor, _ = all_ME_accessors[current]
                         if accessor.subtraction_current_instance.is_zero:
-                            misc.sprint("Zero current found in CT %s" % str(counterterm))
+                            # misc.sprint("Zero current found in CT %s" % str(counterterm))
                             counterterms.remove(counterterm)
 
     def add_ME_accessors(self, all_MEAccessors, root_path):
@@ -1361,15 +1361,15 @@ class Contribution_R(Contribution):
         for process_key in process_map:
             relevant_counterterms[process_key] = self.counterterms[process_key]
 
-        return [ ME7_integrands.ME7Integrand(model, run_card,
-                                       self.contribution_definition,
-                                       process_map,
-                                       self.topologies_to_processes,
-                                       self.processes_to_topologies,
-                                       all_MEAccessors,
-                                       ME7_configuration,
-                                       counterterms=relevant_counterterms)
-               ]
+        return [
+            ME7_integrands.ME7Integrand(
+                model, run_card, self.contribution_definition,
+                process_map, self.topologies_to_processes, self.processes_to_topologies,
+                all_MEAccessors, ME7_configuration,
+                counterterms=relevant_counterterms,
+                subtraction_mappings_scheme=self.options['subtraction_mappings_scheme']
+            )
+        ]
         
 class Contribution_RR(Contribution_R):
     """ Implements the handling of a double real-emission type of contribution."""

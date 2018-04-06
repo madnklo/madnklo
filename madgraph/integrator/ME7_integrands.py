@@ -275,7 +275,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         
         # Always initialize the basic flat PS generator. It can be overwritten later if necessary.
         self.phase_space_generator = phase_space_generators.FlatInvertiblePhasespace(
-            self.masses[0], self.masses[1], 
+            self.masses[0], self.masses[1],
             beam_Es    = (self.run_card['ebeam1'], self.run_card['ebeam2']),
             beam_types = (self.run_card['lpp1'], self.run_card['lpp2']),
         )
@@ -1310,26 +1310,35 @@ The missing process is: %s"""%reduced_process.nice_string())
 class ME7Integrand_R(ME7Integrand):
     """ ME7Integrand for the computation of a single real-emission type of contribution."""
     
-#    MappingWalkerType = 'CataniSeymour'
-    MappingWalkerType = 'FinalNLO'
-    
     def __init__(self, *args, **opts):
-        """Initialize a real-emission type of integrand, adding additional relevant attributes."""
+        """Initialize a real-emission type of integrand,
+        adding additional relevant attributes.
+        """
         
-        try:  
+        # Initialize the (counter)terms that make up this integrand
+        requires = "Constructor of class ME7Integrand_R requires the option '%s'."
+        try:
             self.counterterms = opts.pop('counterterms')
         except KeyError:
+            raise MadEvent7Error(requires % 'counterterms')
+        # Initialize a mapping walker to handle the limits of this integrand
+        try:
+            self.subtraction_mappings_scheme = opts.pop('subtraction_mappings_scheme')
+        except KeyError:
+            raise MadEvent7Error(requires % 'subtraction_mappings_scheme')
+        try:
+            self.walker = mappings.VirtualWalker(self.subtraction_mappings_scheme)
+        except KeyError:
             raise MadEvent7Error(
-                "Constructor of class ME7Integrand_R requires the option "
-                "'counterterms' to be specified."
-            )
-
+                "Invalid subtraction_mappings_scheme '%s'." %
+                self.subtraction_mappings_scheme)
+        # Initialize the ME7Integrand
         super(ME7Integrand_R, self).__init__(*args, **opts)
-        self.initialization_inputs['options']['counterterms'] = self.counterterms
-    
-        # Initialize a general mapping walker capable of handling all relevant limits for this integrand.
-        self.mapper = mappings.VirtualWalker(
-            map_type=self.MappingWalkerType, model=self.model )
+        # Update the initialization inputs
+        self.initialization_inputs['options']['counterterms'] = \
+            self.counterterms
+        self.initialization_inputs['options']['subtraction_mappings_scheme'] = \
+            self.subtraction_mappings_scheme
 
     def get_additional_nice_string_printout_lines(self, format=0):
         """ Return additional information lines for the function nice_string of this integrand."""
@@ -1384,7 +1393,7 @@ class ME7Integrand_R(ME7Integrand):
         alpha_s = self.model.get('parameter_dict')['aS']
         mu_r = self.model.get('parameter_dict')['MU_R']
 
-        # Now call the mapper to walk through the counterterm structure
+        # Now call the walker to hike through the counterterm structure
         # and return the list of currents
         # and PS points to use to evaluate them.
         # hike = {
@@ -1393,7 +1402,7 @@ class ME7Integrand_R(ME7Integrand):
         #         'mapping_variables' : mapping_variables (a dictionary)
         #         'kinematic_variables' : kinematic_variables  (a dictionary)
         #        }
-        hike = self.mapper.walk_to_lower_multiplicity(PS_point, counterterm)
+        hike = self.walker.walk_to_lower_multiplicity(PS_point, counterterm)
        
         # Access the matrix element characteristics
         ME_process, ME_PS = hike['matrix_element']
@@ -1604,7 +1613,7 @@ The missing process is: %s"""%ME_process.nice_string())
                         'flavors'      : flavor_contrib,
                         'counterterms' : counterterm_contribs }
                     self.observable_list.apply_observables(
-                                       this_CT_group_wgt*process_wgt, data_for_observables)
+                        this_CT_group_wgt*process_wgt, data_for_observables)
         
         return sigma_wgt
 
@@ -1614,9 +1623,14 @@ The missing process is: %s"""%ME_process.nice_string())
         # Retrieve some possibly relevant model parameters
         alpha_s = self.model.get('parameter_dict')['aS']
         mu_r = self.model.get('parameter_dict')['MU_R']
-
+        # Apply the passed options
         seed = test_options.get('seed', None)
         if seed: random.seed(seed)
+        walker_name = test_options.get('walker', None)
+        if walker_name is None:
+            walker = self.walker
+        else:
+            walker = mappings.VirtualWalker(walker_name)
 
         # First generate an underlying Born
         # Specifying None forces to use uniformly random generating variables.
@@ -1674,9 +1688,8 @@ The missing process is: %s"""%ME_process.nice_string())
                 ct for ct in self.counterterms[process_key]
                 if ct.count_unresolved() <= test_options['correction_order'].count('N') ]
             
-            # Here we use limit_type to select the mapper to use for approaching the limit
-            # (all CT will still use their own mapper to retrieve the PS point
-            # and variables to call the currents and reduced processes).
+            # Select the limits to be probed using limit_pattern
+            # or, if this fails, limit_type
             selected_counterterms = self.find_counterterms_matching_regexp(
                 counterterms_to_consider, test_options['limit_pattern'] )
             if selected_counterterms:
@@ -1700,16 +1713,6 @@ The missing process is: %s"""%ME_process.nice_string())
             process_evaluations = {}
             for limit in selected_singular_structures:
                 misc.sprint("Approaching limit %s" % str(limit) )
-
-                # # First identify the reduced PS point from which to evolve
-                # # to larger multiplicity while progressively approaching the IR limit
-                # res_dict = self.mapper.walk_to_lower_multiplicity(
-                #     a_real_emission_PS_point, limit_specifier_counterterm,
-                #     compute_kinematic_variables=True )
-                #
-                # starting_variables = res_dict['kinematic_variables']
-                # a_born_PS_point    = res_dict['resulting_PS_point']
-                #
                 # Progressively approach the limit, using a log scale
                 limit_evaluations = {}
                 n_steps = test_options['n_steps']
@@ -1719,7 +1722,7 @@ The missing process is: %s"""%ME_process.nice_string())
                     # Determine the new phase-space point
                     scaled_real_PS_point = a_real_emission_PS_point.get_copy()
                     scaling_parameter = base ** step
-                    self.mapper.approach_limit(
+                    walker.approach_limit(
                         scaled_real_PS_point, limit, scaling_parameter, defining_process )
                     # Initialize result
                     this_eval = {}

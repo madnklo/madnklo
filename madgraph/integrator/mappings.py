@@ -912,7 +912,7 @@ class FinalRescalingMappingOne(FinalCollinearMapping):
             qR += PS_point[leg.n]
         Q = qR + qC
         # Compute scalar products
-        assert abs(qC.square()) < math.sqrt(qC.eps())
+        assert abs(qC.square()/qC.view(Vector).square()) < math.sqrt(qC.eps())
         Q2 = Q.square()
         beta = Q.dot(qC) / Q2
         mu2 = kinematic_variables['s' + str(parent)] / Q2
@@ -1936,16 +1936,17 @@ class Hike(list):
 class VirtualWalker(object):
     """Base class for walker implementations."""
     
-    def __new__(cls, **opts):
+    def __new__(cls, walker=None, **opts):
         """Factory class to make plugin easy."""
 
         if cls is VirtualWalker:
-            map_type = opts.pop('map_type') if 'map_type' in opts else 'Unknown'
-            if (map_type not in mapping_walker_classes_map
-                or not mapping_walker_classes_map[map_type] ):
+            if walker is None:
                 raise MadGraph5Error(
-                    "Unknown mapping walker of type '%s'." % str(map_type) )
-            target_class = mapping_walker_classes_map[map_type]
+                    "VirtualWalker called without a walker name.")
+            if not walker_classes_map.has_key(walker):
+                raise MadGraph5Error(
+                    "Unknown mapping walker of type '%s'." % walker )
+            target_class = walker_classes_map[walker]
             return super(VirtualWalker, cls).__new__(target_class, **opts)
         else:
             return super(VirtualWalker, cls).__new__(cls, **opts)
@@ -2192,7 +2193,7 @@ class OneNodeWalker(VirtualWalker):
     @classmethod
     def cannot_handle_msg(cls, obj):
 
-        return cls.__name__ + "found a " + obj + " it is not capable to handle."
+        return cls.__name__ + " found a " + obj + " it is not capable to handle."
 
     @classmethod
     def good_recoiler(cls, model, leg):
@@ -2359,9 +2360,8 @@ class NLOWalker(OneNodeWalker):
 # by the interface when using a PLUGIN system where the user can define his own Mapping.
 # Note that this must be placed after all Mapping daughter classes in this module
 # have been declared.
-mapping_walker_classes_map = {
+walker_classes_map = {
     'FlatCollinear': FlatCollinearWalker,
     'FinalNLO': FinalNLOWalker,
     'NLO': NLOWalker,
-    'Unknown': None
 }

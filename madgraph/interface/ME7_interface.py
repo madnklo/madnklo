@@ -62,6 +62,7 @@ import madgraph.various.cluster as cluster
 import madgraph.various.misc as misc
 import madgraph.various.lhe_parser as lhe_parser
 import madgraph.integrator.integrands as integrands
+import madgraph.integrator.mappings as mappings
 import madgraph.integrator.integrators as integrators
 import madgraph.integrator.phase_space_generators as phase_space_generators
 import madgraph.integrator.pyCubaIntegrator as pyCubaIntegrator
@@ -72,7 +73,7 @@ import models.check_param_card as check_param_card
 import models.model_reader as model_reader
 import models.import_ufo as import_ufo
 
-from madgraph.iolibs.files import ln    
+from madgraph.iolibs.files import ln
 from madgraph import InvalidCmd, MadGraph5Error, MG5DIR, ReadWrite, MPI_RANK, MPI_SIZE, MPI_ACTIVE
 
 
@@ -298,25 +299,29 @@ class ParseCmdArguments(object):
         assert(mode in ['limits', 'poles'])
 
         # None means unspecified, therefore considering all types.
-        testlimits_options = {'correction_order'        : None,
-                              'limit_type'              : None,
-                              'limit_pattern'           : None,
-                              'process'                 : {'in_pdgs'  : None,
-                                                           'out_pdgs' : None,
-                                                           'n_loops'  : None},
-                              'seed'                    : None,
-                              'n_steps'                 : 10,
-                              'min_scaling_variable'    : 1.0e-5,
-                              'acceptance_threshold'    : 1.0e-6,
-                              'compute_only_limit_defining_counterterm' : False,
-                              'include_all_flavors'     : False,
-                              'apply_higher_multiplicity_cuts' : True,
-                              'apply_lower_multiplicity_cuts'  : True
-                             }
+        testlimits_options = {
+            'correction_order'        : None,
+            'limit_type'              : None,
+            'limit_pattern'           : None,
+            'walker'                  : None,
+            'process'                 : {'in_pdgs'  : None,
+                                       'out_pdgs' : None,
+                                       'n_loops'  : None},
+            'seed'                    : None,
+            'n_steps'                 : 30,
+            'min_scaling_variable'    : 1.0e-6,
+            'acceptance_threshold'    : 1.0e-6,
+            'compute_only_limit_defining_counterterm' : False,
+            'include_all_flavors'     : False,
+            'apply_higher_multiplicity_cuts' : True,
+            'apply_lower_multiplicity_cuts'  : True
+        }
 
         if mode=='poles':
             # Remove some options for the pole
             del testlimits_options['limit_type']
+            del testlimits_options['limit_pattern']
+            del testlimits_options['walker']
             del testlimits_options['n_steps']
             del testlimits_options['min_scaling_variable']
             del testlimits_options['compute_only_limit_defining_counterterm']
@@ -325,7 +330,8 @@ class ParseCmdArguments(object):
             del testlimits_options['include_all_flavors']            
  
         # Group arguments in between the '--' specifiers.
-        # For example, it will group '--process=p' 'p' '>' 'd' 'd~' 'z' into '--process=p p > d d~ z'.
+        # For example, it will group '--process=p' 'p' '>' 'd' 'd~' 'z'
+        # into '--process=p p > d d~ z'.
         opt_args = []
         new_args = []
         for arg in args:
@@ -400,6 +406,15 @@ class ParseCmdArguments(object):
                     testlimits_options[key[2:]] = float(value)                  
                 except ValueError:
                     raise InvalidCmd("'%s' is not a valid float for option '%s'"%(value, key))
+            elif key in ['--subtraction_mappings_scheme', '--walker'] and mode=='limits':
+                try:
+                    if value == "None":
+                        testlimits_options['walker'] = None
+                    else:
+                        testlimits_options['walker'] = \
+                            mappings.walker_classes_map[value]
+                except KeyError:
+                    raise InvalidCmd("'%s' is not a valid %s" % (value, key[2:]))
             elif key in ['--include_all_flavors', '--af'] and mode=='poles':
                 if value is None:
                     testlimits_options['include_all_flavors'] = True
@@ -750,16 +765,16 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         self.all_MEAccessors = ME7_dump['all_MEAccessors']['class'].initialize_from_dump(
             ME7_dump['all_MEAccessors'], root_path=self.me_dir, model=self.model)
 
-        self.all_integrands = ME7_integrands.ME7IntegrandList([integrand_dump['class'].initialize_from_dump(
-            integrand_dump, self.model, self.run_card, self.all_MEAccessors, self.options
-                                       ) for integrand_dump in ME7_dump['all_integrands']])
+        self.all_integrands = ME7_integrands.ME7IntegrandList([
+            integrand_dump['class'].initialize_from_dump(
+                integrand_dump,
+                self.model, self.run_card, self.all_MEAccessors, self.options)
+            for integrand_dump in ME7_dump['all_integrands'] ])
         
         self.mode = self.get_maximum_overall_correction_order()
         self.prompt = "ME7@%s::%s > "%(self.mode, os.path.basename(pjoin(self.me_dir)))
 
         self.n_initial = ME7_dump['n_initial']
-        self.subtractions_currents_scheme = ME7_dump['subtraction_currents_scheme']
-        self.subtractions_mappings_scheme = ME7_dump['subtraction_mappings_scheme']
 
     def get_maximum_overall_correction_order(self):
         """ From investigating the integrands, this function derives what is the maximum correction
@@ -932,14 +947,17 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         self.synchronize(**testlimits_options)
         
         if testlimits_options['correction_order'] is None:
-            # If not defined, automatically assign correction_order to the highest correction considered.
+            # If not defined, automatically assign correction_order
+            # to the highest correction considered.
             testlimits_options['correction_order'] = self.mode
 
         for integrand in self.all_integrands:
             if not hasattr(integrand, 'test_IR_limits'):
                 continue
-            logger.debug('Now testing IR limits of the following integrand:\n%s'%(integrand.nice_string()))
-            integrand.test_IR_limits(test_options = testlimits_options)
+            logger.debug(
+                'Now testing IR limits of the following integrand:\n' +
+                integrand.nice_string() )
+            integrand.test_IR_limits(test_options=testlimits_options)
 
     def do_test_IR_poles(self, line, *args, **opt):
         """This function tests that the integrated counterterms match with the IR poles

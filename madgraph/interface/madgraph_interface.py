@@ -58,8 +58,6 @@ from madgraph import MG4DIR, MG5DIR, MadGraph5Error, InvalidCmd, MPI_RANK, MPI_A
 import madgraph.core.base_objects as base_objects
 import madgraph.core.diagram_generation as diagram_generation
 import madgraph.core.contributions as contributions
-import madgraph.loop.loop_diagram_generation as loop_diagram_generation
-import madgraph.loop.loop_base_objects as loop_base_objects
 import madgraph.core.drawing as draw_lib
 import madgraph.core.helas_objects as helas_objects
 
@@ -83,6 +81,10 @@ import madgraph.interface.madevent_interface as madevent_interface
 import madgraph.interface.ME7_interface as ME7_interface
 import madgraph.interface.amcatnlo_run_interface as amcatnlo_run
 
+from madgraph.integrator.mappings import walker_classes_map
+
+import madgraph.loop.loop_base_objects as loop_base_objects
+import madgraph.loop.loop_diagram_generation as loop_diagram_generation
 import madgraph.loop.loop_exporters as loop_exporters
 import madgraph.loop.loop_helas_objects as loop_helas_objects
 
@@ -110,15 +112,14 @@ import mg5decay.decay_objects as decay_objects
 logger = logging.getLogger('cmdprint') # -> stdout
 logger_check = logging.getLogger('check') # -> stdout
 logger_mg = logging.getLogger('madgraph.interface') # -> stdout
-logger_stderr = logging.getLogger('fatalerror') # ->stderr
-logger_tuto = logging.getLogger('tutorial') # -> stdout include instruction in
-                                            #order to learn MG5
-logger_tuto_nlo = logging.getLogger('tutorial_aMCatNLO') # -> stdout include instruction in
-                                                        #order to learn aMC@NLO
+logger_stderr = logging.getLogger('fatalerror') # -> stderr
+logger_tuto = logging.getLogger('tutorial') # -> stdout include instruction
+                                            # in order to learn MG5
+logger_tuto_nlo = logging.getLogger('tutorial_aMCatNLO') # -> stdout include instruction
+                                                         # in order to learn aMC@NLO
+logger_tuto_madloop = logging.getLogger('tutorial_MadLoop') # -> stdout for MadLoop tuto
 
-logger_tuto_madloop = logging.getLogger('tutorial_MadLoop') # -> stoud for MadLoop tuto
-
-# Make sure MPI slave ranks only repport critical errors
+# Make sure MPI slave ranks only report critical errors
 if MPI_ACTIVE and MPI_RANK>0:
     logging.basicConfig(level=logging.CRITICAL,
             format='MPI RANK {} :: %(levelname)-8s %(message)s'.format(MPI_RANK))
@@ -2811,7 +2812,7 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
     _OLP_supported = ['MadLoop', 'GoSam']
     _output_dependencies_supported = ['external', 'internal','environment_paths']
     _all_subtraction_currents_schemes = ['colorful', 'cataniseymour']
-    _all_subtraction_mappings_schemes = ['colorful']
+    _all_subtraction_mappings_schemes = list(walker_classes_map.keys())
 
     # The three options categories are treated on a different footage when a
     # set/save configuration occur. current value are kept in self.options
@@ -2868,7 +2869,7 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
         'loop_color_flows': False,
         'max_npoint_for_channel': 0, # 0 means automatically adapted
         'subtraction_currents_scheme': 'colorful',
-        'subtraction_mappings_scheme': 'colorful'
+        'subtraction_mappings_scheme': 'FinalNLO'
     }
 
     options_madevent = {

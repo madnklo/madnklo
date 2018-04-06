@@ -810,7 +810,7 @@ class FinalCollinearMapping(VirtualMapping):
 # Final-collinear rescaling mapping, one set
 #=========================================================================================
 
-class FinalRescalingMappingOne(FinalCollinearMapping):
+class FinalRescalingOneMapping(FinalCollinearMapping):
     """Implementation of the rescaling mapping
     for one bunch of collinear particles (with massless parent)
     and an arbitrary number of massless recoilers.
@@ -822,7 +822,7 @@ class FinalRescalingMappingOne(FinalCollinearMapping):
         # Valid only for one bunch of final-state particles going collinear,
         # with no recursive substructure
         if len(singular_structure.substructures) == 1:
-            return super(FinalRescalingMappingOne, cls).is_valid_structure(
+            return super(FinalRescalingOneMapping, cls).is_valid_structure(
                 singular_structure )
         return False
 
@@ -841,7 +841,7 @@ class FinalRescalingMappingOne(FinalCollinearMapping):
     def alpha(pC, Q):
         """Return the parameter alpha of the rescaling mapping."""
 
-        return FinalRescalingMappingOne.abc(pC, Q)[0]
+        return FinalRescalingOneMapping.abc(pC, Q)[0]
 
     @classmethod
     def map_to_lower_multiplicity(
@@ -865,7 +865,7 @@ class FinalRescalingMappingOne(FinalCollinearMapping):
             pR += PS_point[leg.n]
         Q = pC + pR
         # Compute the parameter alpha
-        alpha, beta, gamma, mu2 = FinalRescalingMappingOne.abc(pC, Q)
+        alpha, beta, gamma, mu2 = FinalRescalingOneMapping.abc(pC, Q)
         # Map all recoilers' momenta
         for recoiler in recoilers:
             PS_point[recoiler] /= (1-alpha)
@@ -944,7 +944,7 @@ class FinalRescalingMappingOne(FinalCollinearMapping):
 # Final-collinear Lorentz mapping, one set
 #=========================================================================================
 
-class FinalLorentzMappingOne(FinalCollinearMapping):
+class FinalLorentzOneMapping(FinalCollinearMapping):
     """Implementation of the Lorentz transformation mapping
     for one bunch of collinear particles (with massless parent)
     and an arbitrary number of (eventually massive) recoilers.
@@ -956,7 +956,7 @@ class FinalLorentzMappingOne(FinalCollinearMapping):
         # Valid only for one bunch of final-state particles going collinear,
         # with no recursive substructure
         if len(singular_structure.substructures) == 1:
-            return super(FinalLorentzMappingOne, cls).is_valid_structure(
+            return super(FinalLorentzOneMapping, cls).is_valid_structure(
                 singular_structure )
         return False
 
@@ -1457,7 +1457,7 @@ class InitialCollinearMapping(VirtualMapping):
 # Initial-collinear Lorentz mapping, one set
 #=========================================================================================
 
-class InitialLorentzMappingOne(InitialCollinearMapping):
+class InitialLorentzOneMapping(InitialCollinearMapping):
     """Implementation of the Lorentz transformation mapping
     for one set of collinear particles (with massless parent)
     and an arbitrary number of (eventually massive) recoilers.
@@ -1469,7 +1469,7 @@ class InitialLorentzMappingOne(InitialCollinearMapping):
         # Valid only for one set of particles going collinear to an initial-state parton,
         # with no recursive substructure
         if len(singular_structure.substructures) == 1:
-            return super(InitialLorentzMappingOne, cls).is_valid_structure(
+            return super(InitialLorentzOneMapping, cls).is_valid_structure(
                 singular_structure )
         return False
 
@@ -2252,13 +2252,13 @@ class OneNodeWalker(VirtualWalker):
         # Return
         return hike
 
-# Flat collinear walker
+# FinalCollinearOneWalker
 #=========================================================================================
 
-class FlatCollinearWalker(OneNodeWalker):
+class FinalCollinearOneWalker(OneNodeWalker):
 
-    collinear_map = FinalRescalingMappingOne()
-    only_colored_recoilers = True
+    collinear_map = None
+    only_colored_recoilers = None
 
     @classmethod
     def good_recoiler(cls, model, leg):
@@ -2275,15 +2275,25 @@ class FlatCollinearWalker(OneNodeWalker):
         else:
             return cls.collinear_map
 
-# Final-state only NLO walker
+class FinalRescalingOneWalker(FinalCollinearOneWalker):
+
+    collinear_map = FinalRescalingOneMapping()
+    only_colored_recoilers = True
+
+class FinalLorentzOneWalker(FinalCollinearOneWalker):
+
+    collinear_map = FinalLorentzOneMapping()
+    only_colored_recoilers = False
+
+# FinalNLOWalker
 #=========================================================================================
 
 class FinalNLOWalker(OneNodeWalker):
 
-    collinear_map = FinalRescalingMappingOne()
-    soft_map = MappingSomogyietalSoft()
-    soft_collinear_map = SoftCollinearMapping(soft_map, collinear_map)
-    only_colored_recoilers = True
+    collinear_map = None
+    soft_map = None
+    soft_collinear_map = None
+    only_colored_recoilers = None
 
     @classmethod
     def good_recoiler(cls, model, leg):
@@ -2308,27 +2318,37 @@ class FinalNLOWalker(OneNodeWalker):
         else:
             raise MadGraph5Error(cls.cannot_handle_msg("SingularStructure"))
 
+class FinalRescalingNLOWalker(FinalNLOWalker):
+
+    collinear_map = FinalRescalingOneMapping()
+    soft_map = MappingSomogyietalSoft()
+    soft_collinear_map = SoftCollinearMapping(soft_map, collinear_map)
+    only_colored_recoilers = True
+
+class FinalLorentzNLOWalker(FinalNLOWalker):
+
+    collinear_map = FinalLorentzOneMapping()
+    soft_map = MappingSomogyietalSoft()
+    soft_collinear_map = SoftCollinearMapping(soft_map, collinear_map)
+    only_colored_recoilers = True
+
 # General NLO walker
 #=========================================================================================
 
 class NLOWalker(OneNodeWalker):
 
-    # NOTE: If rescaling mappings are used, only_colored_recoilers should be set to True.
-    #       This might fail for some processes,
-    #       e.g. gluon fusion Higgs production and Drell--Yan.
-
-    f_collinear_map = FinalLorentzMappingOne()
-    i_collinear_map = InitialLorentzMappingOne()
-    soft_map = MappingSomogyietalSoft()
-    f_soft_collinear_map = SoftCollinearMapping(soft_map, f_collinear_map)
-    i_soft_collinear_map = SoftCollinearMapping(soft_map, i_collinear_map)
-    only_colored_recoilers = True
+    f_collinear_map = None
+    i_collinear_map = None
+    soft_map = None
+    f_soft_collinear_map = None
+    i_soft_collinear_map = None
+    only_colored_recoilers = None
 
     @classmethod
     def good_recoiler(cls, model, leg):
 
         return (
-            leg['state'] == base_objects.Leg.FINAL and not
+            leg['state'] == leg.FINAL and not
             (cls.only_colored_recoilers and model.get_particle(leg['id'])['color'] == 1) )
 
     @classmethod
@@ -2353,6 +2373,15 @@ class NLOWalker(OneNodeWalker):
         else:
             raise MadGraph5Error(cls.cannot_handle_msg("SingularStructure"))
 
+class LorentzNLOWalker(NLOWalker):
+
+    f_collinear_map = FinalLorentzOneMapping()
+    i_collinear_map = InitialLorentzOneMapping()
+    soft_map = MappingSomogyietalSoft()
+    f_soft_collinear_map = SoftCollinearMapping(soft_map, f_collinear_map)
+    i_soft_collinear_map = SoftCollinearMapping(soft_map, i_collinear_map)
+    only_colored_recoilers = True
+
 # Dictionary of available walkers
 #=========================================================================================
 
@@ -2361,7 +2390,9 @@ class NLOWalker(OneNodeWalker):
 # Note that this must be placed after all Mapping daughter classes in this module
 # have been declared.
 walker_classes_map = {
-    'FlatCollinear': FlatCollinearWalker,
-    'FinalNLO': FinalNLOWalker,
-    'NLO': NLOWalker,
+    'FinalRescalingOne': FinalRescalingOneWalker,
+    'FinalLorentzOne': FinalLorentzOneWalker,
+    'FinalRescalingNLO': FinalRescalingNLOWalker,
+    'FinalLorentzNLO': FinalLorentzNLOWalker,
+    'LorentzNLO': LorentzNLOWalker,
 }

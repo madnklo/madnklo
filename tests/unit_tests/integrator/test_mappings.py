@@ -527,35 +527,35 @@ class FinalMassesMappingTest(unittest.TestCase):
 # Test final-collinear mappings
 #=========================================================================================
 
-class FinalRescalingMappingOneTest(unittest.TestCase):
-    """Test class for FinalRescalingMappingOne."""
+class FinalRescalingOneMappingTest(unittest.TestCase):
+    """Test class for FinalRescalingOneMapping."""
 
     # Test settings
     pars = {
-        'mapping': mappings.FinalRescalingMappingOne(),
+        'mapping': mappings.FinalRescalingOneMapping(),
         'min_coll_sets': 1, 'max_coll_sets': 1,
         'min_recoilers': 1, 'max_recoilers': 3,
         'max_unchanged': 3, 'masses': None,
         'min_unresolved_per_set': 1, 'max_unresolved_per_set': 4,
         'supports_massive_recoilers': False }
 
-    def test_FinalRescalingMappingOne_invertible(self):
+    def test_FinalRescalingOneMapping_invertible(self):
 
         MappingTest.test_invertible(self.pars, self)
 
-class FinalLorentzMappingOneTest(unittest.TestCase):
-    """Test class for FinalLorentzMappingOne."""
+class FinalLorentzOneMappingTest(unittest.TestCase):
+    """Test class for FinalLorentzOneMapping."""
 
     # Test settings
     pars = {
-        'mapping': mappings.FinalLorentzMappingOne(),
+        'mapping': mappings.FinalLorentzOneMapping(),
         'min_coll_sets': 1, 'max_coll_sets': 1,
         'min_recoilers': 1, 'max_recoilers': 5,
         'max_unchanged': 3, 'masses': None,
         'min_unresolved_per_set': 1, 'max_unresolved_per_set': 4,
         'supports_massive_recoilers': True }
 
-    def test_FinalLorentzMappingOne_invertible(self):
+    def test_FinalLorentzOneMapping_invertible(self):
 
         MappingTest.test_invertible(self.pars, self)
 
@@ -611,19 +611,19 @@ class FinalLorentzMapping(unittest.TestCase):
 # Test initial-collinear mappings
 #=========================================================================================
 
-class InitialLorentzMappingOneTest(unittest.TestCase):
-    """Test class for InitialLorentzMappingOne."""
+class InitialLorentzOneMappingTest(unittest.TestCase):
+    """Test class for InitialLorentzOneMapping."""
 
     # Test settings
     pars = {
-        'mapping': mappings.InitialLorentzMappingOne(),
+        'mapping': mappings.InitialLorentzOneMapping(),
         'initial_sets': 1,
         'min_unresolved_per_set': 1, 'max_unresolved_per_set': 4,
         'min_recoilers': 1, 'max_recoilers': 5,
         'max_unchanged': 3, 'masses': None,
         'supports_massive_recoilers': True }
 
-    def test_InitialLorentzMappingOne_invertible(self):
+    def test_InitialLorentzOneMapping_invertible(self):
 
         MappingTest.test_invertible(self.pars, self)
 

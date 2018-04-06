@@ -411,8 +411,7 @@ class ParseCmdArguments(object):
                     if value == "None":
                         testlimits_options['walker'] = None
                     else:
-                        testlimits_options['walker'] = \
-                            mappings.walker_classes_map[value]
+                        testlimits_options['walker'] = value
                 except KeyError:
                     raise InvalidCmd("'%s' is not a valid %s" % (value, key[2:]))
             elif key in ['--include_all_flavors', '--af'] and mode=='poles':

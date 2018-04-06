@@ -322,57 +322,57 @@ class FinalMassesMappingPSVolumeTest(unittest.TestCase):
 
         PSVolumeTest.test_PS_volume(self.pars_higher, self)
 
-class FinalRescalingMappingOnePSVolumeTest(unittest.TestCase):
-    """Test class for the jacobian of FinalRescalingMappingOne."""
+class FinalRescalingOneMappingPSVolumeTest(unittest.TestCase):
+    """Test class for the jacobian of FinalRescalingOneMapping."""
 
     # Test settings
     pars_lower = {
-        'mapping': mappings.FinalRescalingMappingOne(),
+        'mapping': mappings.FinalRescalingOneMapping(),
         'mapto': 'lower', 'check_cut': False,
         'min_changing': 1, 'max_changing': 1,
         'min_unchanged': 1, 'max_unchanged': 4,
         'higher_massive': True, 'lower_massive': False,
         'recoilers_massive': False, }
     pars_higher = {
-        'mapping': mappings.FinalRescalingMappingOne(),
+        'mapping': mappings.FinalRescalingOneMapping(),
         'mapto': 'higher', 'check_cut': False,
         'min_changing': 1, 'max_changing': 1,
         'min_unchanged': 1, 'max_unchanged': 4,
         'higher_massive': True, 'lower_massive': False,
         'recoilers_massive': False, }
 
-    def test_FinalRescalingMappingOne_PSvolume_lower(self):
+    def test_FinalRescalingOneMapping_PSvolume_lower(self):
 
         PSVolumeTest.test_PS_volume(self.pars_lower, self)
 
-    def test_FinalRescalingMappingOne_PSvolume_higher(self):
+    def test_FinalRescalingOneMapping_PSvolume_higher(self):
 
         PSVolumeTest.test_PS_volume(self.pars_higher, self)
 
-class FinalLorentzMappingOnePSVolumeTest(unittest.TestCase):
-    """Test class for the jacobian of FinalLorentzMappingOne."""
+class FinalLorentzOneMappingPSVolumeTest(unittest.TestCase):
+    """Test class for the jacobian of FinalLorentzOneMapping."""
 
     # Test settings
     pars_lower = {
-        'mapping': mappings.FinalLorentzMappingOne(),
+        'mapping': mappings.FinalLorentzOneMapping(),
         'mapto': 'lower', 'check_cut': True,
         'min_changing': 1, 'max_changing': 1,
         'min_unchanged': 1, 'max_unchanged': 4,
         'higher_massive': True, 'lower_massive': False,
         'recoilers_massive': True, }
     pars_higher = {
-        'mapping': mappings.FinalLorentzMappingOne(),
+        'mapping': mappings.FinalLorentzOneMapping(),
         'mapto': 'higher', 'check_cut': False,
         'min_changing': 1, 'max_changing': 1,
         'min_unchanged': 1, 'max_unchanged': 4,
         'higher_massive': True, 'lower_massive': False,
         'recoilers_massive': True, }
 
-    def test_FinalLorentzMappingOne_PSvolume_lower(self):
+    def test_FinalLorentzOneMapping_PSvolume_lower(self):
 
         PSVolumeTest.test_PS_volume(self.pars_lower, self)
 
-    def test_FinalLorentzMappingOne_PSvolume_higher(self):
+    def test_FinalLorentzOneMapping_PSvolume_higher(self):
 
         PSVolumeTest.test_PS_volume(self.pars_higher, self)
 

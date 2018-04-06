@@ -743,6 +743,85 @@ class NLOSubtractionTest(unittest.TestCase):
 
         self.assertEqual(len(currents_to_store), 14)
 
+class NNLOSubtractionTest(unittest.TestCase):
+    """Test class for the subtraction module at NNLO."""
+
+    mylegs = base_objects.LegList()
+    myprocess = base_objects.Process()
+    mysubtraction = None
+
+    def setUp(self):
+
+        # Setting up a process and its subtraction
+
+        self.mylegs = base_objects.LegList([
+            base_objects.Leg({'number': 1, 'id':  25, 'state': INITIAL}),
+            base_objects.Leg({'number': 2, 'id':  21, 'state': FINAL}),
+            base_objects.Leg({'number': 3, 'id':  21, 'state': FINAL}),
+            base_objects.Leg({'number': 4, 'id':  21, 'state': FINAL}),
+            base_objects.Leg({'number': 5, 'id':   1, 'state': FINAL}),
+            base_objects.Leg({'number': 6, 'id':  -1, 'state': FINAL}),
+        ])
+
+        self.myprocess = base_objects.Process({
+            'legs': self.mylegs,
+            'model': simple_qcd.model } )
+
+        self.mysubtraction = sub.IRSubtraction(
+            simple_qcd.model, coupling_types=('QCD', ), n_unresolved=2 )
+
+    def test_generation_of_elementary_operators_NN(self):
+        """Test generation of all elementary operators for selected process."""
+
+        elem_operators_target = [
+            sub.SoftOperator(self.mylegs[1]),
+            sub.SoftOperator(self.mylegs[2]),
+            sub.SoftOperator(self.mylegs[3]),
+            sub.SoftOperator(self.mylegs[1], self.mylegs[2]),
+            sub.SoftOperator(self.mylegs[1], self.mylegs[3]),
+            sub.SoftOperator(self.mylegs[2], self.mylegs[3]),
+            sub.SoftOperator(self.mylegs[4], self.mylegs[5]),
+            sub.CollOperator(self.mylegs[1], self.mylegs[2], self.mylegs[3]),
+            sub.CollOperator(self.mylegs[1], self.mylegs[2], self.mylegs[4]),
+            sub.CollOperator(self.mylegs[1], self.mylegs[2], self.mylegs[5]),
+            sub.CollOperator(self.mylegs[1], self.mylegs[3], self.mylegs[4]),
+            sub.CollOperator(self.mylegs[1], self.mylegs[3], self.mylegs[5]),
+            sub.CollOperator(self.mylegs[1], self.mylegs[4], self.mylegs[5]),
+            sub.CollOperator(self.mylegs[2], self.mylegs[3], self.mylegs[4]),
+            sub.CollOperator(self.mylegs[2], self.mylegs[3], self.mylegs[5]),
+            sub.CollOperator(self.mylegs[2], self.mylegs[4], self.mylegs[5]),
+            sub.CollOperator(self.mylegs[3], self.mylegs[4], self.mylegs[5]),
+            sub.CollOperator(self.mylegs[1], self.mylegs[2]),
+            sub.CollOperator(self.mylegs[1], self.mylegs[3]),
+            sub.CollOperator(self.mylegs[1], self.mylegs[4]),
+            sub.CollOperator(self.mylegs[1], self.mylegs[5]),
+            sub.CollOperator(self.mylegs[2], self.mylegs[3]),
+            sub.CollOperator(self.mylegs[2], self.mylegs[4]),
+            sub.CollOperator(self.mylegs[2], self.mylegs[5]),
+            sub.CollOperator(self.mylegs[3], self.mylegs[4]),
+            sub.CollOperator(self.mylegs[3], self.mylegs[5]),
+            sub.CollOperator(self.mylegs[4], self.mylegs[5]),
+        ]
+
+        elem_operators = self.mysubtraction.get_all_elementary_operators(self.myprocess)
+
+        self.assertEqual(
+            set(str(op) for op in elem_operators),
+            set(str(op) for op in elem_operators_target)
+        )
+
+    def test_operator_combinations_NN(self):
+        """Test the generation of all operator combinations for one selected process."""
+
+        elem_operators = self.mysubtraction.get_all_elementary_operators(self.myprocess)
+        combos = self.mysubtraction.get_all_combinations(elem_operators)
+
+        for combo in combos:
+            ct = self.mysubtraction.get_counterterm(combo, self.myprocess)
+            if str(combo) != str(ct):
+                print ct.nice_string()
+            self.assertEqual(str(combo), str(ct))
+
 class HiggsN3LOSubtractionTest(unittest.TestCase):
     """Test the generation of counterterms for Higgs production at N3LO."""
 

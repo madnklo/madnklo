@@ -303,6 +303,7 @@ class ParseCmdArguments(object):
             'correction_order'        : None,
             'limit_type'              : None,
             'limit_pattern'           : None,
+            'counterterms'            : None,
             'walker'                  : None,
             'process'                 : {'in_pdgs'  : None,
                                        'out_pdgs' : None,
@@ -311,7 +312,6 @@ class ParseCmdArguments(object):
             'n_steps'                 : 30,
             'min_scaling_variable'    : 1.0e-6,
             'acceptance_threshold'    : 1.0e-6,
-            'compute_only_limit_defining_counterterm' : False,
             'include_all_flavors'     : False,
             'apply_higher_multiplicity_cuts' : True,
             'apply_lower_multiplicity_cuts'  : True
@@ -321,10 +321,10 @@ class ParseCmdArguments(object):
             # Remove some options for the pole
             del testlimits_options['limit_type']
             del testlimits_options['limit_pattern']
+            del testlimits_options['counterterms']
             del testlimits_options['walker']
             del testlimits_options['n_steps']
             del testlimits_options['min_scaling_variable']
-            del testlimits_options['compute_only_limit_defining_counterterm']
             del testlimits_options['apply_lower_multiplicity_cuts']
         elif mode=='limits':
             del testlimits_options['include_all_flavors']            
@@ -388,14 +388,10 @@ class ParseCmdArguments(object):
                             raise ValueError
                     except ValueError:
                         raise InvalidCmd("'%s' is not a valid integer for option '%s'"%(value, key))
-            elif key in ['--compute_only_limit_defining_counterterm','--o'] and mode=='limits':
-                if value is None:
-                    testlimits_options['compute_only_limit_defining_counterterm'] = True
-                else:
-                    try:
-                        testlimits_options['compute_only_limit_defining_counterterm'] = bool(eval(value))
-                    except:
-                        raise InvalidCmd("'%s' is not a valid float for option '%s'"%(value, key))                        
+            elif key in ['--counterterms']:
+                if not isinstance(value, str):
+                    raise InvalidCmd("'%s' is not a valid option for '%s'"%(value, key))
+                testlimits_options[key[2:]] = value
             elif key in ['--acceptance_threshold']:
                 try:
                     testlimits_options[key[2:]] = float(value)                  

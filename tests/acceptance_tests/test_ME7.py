@@ -84,12 +84,12 @@ class TestME7(unittest.TestCase):
         options = {'correction_order'       : 'NLO',
 #                   'limit_type'             : 'C(S(3),4)',
                    'limit_type'             : 'S(3)',
+                   'counterterms'           : None,
                    'process'                : 'e+ e- > g g d d~',
                    'seed'                   : '666',
                    'n_steps'                : 10,
                    'min_scaling_variable'   : 1.0e-5,
                    'acceptance_threshold'   : 1.0e-6,
-                   'compute_only_limit_defining_counterterm' : True,
                    }
 
         self.do('%s %s'%(main_cmd, ' '.join(

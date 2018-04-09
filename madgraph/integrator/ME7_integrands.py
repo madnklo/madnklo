@@ -1713,6 +1713,33 @@ The missing process is: %s"""%ME_process.nice_string())
             process_evaluations = {}
             for limit in selected_singular_structures:
                 misc.sprint("Approaching limit %s" % str(limit) )
+                # Select counterterms to evaluate
+                counterterms_to_evaluate = [ct for ct in counterterms_to_consider]
+                if test_options['counterterms']:
+                    counterterm_pattern = test_options['counterterms']
+                    if counterterm_pattern.startswith('def'):
+                        counterterm_pattern = str(limit)
+                    if counterterm_pattern.lower() == 'soft':
+                        counterterm_re = re.compile(r'.*S.*')
+                    elif counterterm_pattern.lower() == 'collinear':
+                        counterterm_re = re.compile(r'.*C.*')
+                    elif counterterm_pattern.lower() == 'all':
+                        counterterm_re = re.compile(r'.*')
+                    else:
+                        if any(counterterm_pattern.startswith(start) for start in ['r"', "r'"]):
+                            counterterm_re = re.compile(counterterm_pattern)
+                        else:
+                            # If not specified as a raw string,
+                            # we take the liberty of adding the enclosing parenthesis.
+                            if not counterterm_pattern.startswith('('):
+                                counterterm_pattern = '(%s,)' % counterterm_pattern
+                            # If the specified re was not explicitly made a raw string,
+                            # we take the liberty of escaping the parenthesis
+                            # since this is presumably what the user expects.
+                            counterterm_re = re.compile(
+                                counterterm_pattern.replace('(', '\(').replace(')', '\)'))
+                    counterterms_to_evaluate = self.find_counterterms_matching_regexp(
+                        counterterms_to_evaluate, counterterm_re )
                 # Progressively approach the limit, using a log scale
                 limit_evaluations = {}
                 n_steps = test_options['n_steps']
@@ -1737,11 +1764,7 @@ The missing process is: %s"""%ME_process.nice_string())
                     misc.sprint('For scaling variable %.3e, weight from ME = %.16f' %(
                                               scaling_parameter, ME_evaluation['finite'] ))
                     # Loop over counterterms
-                    for counterterm in counterterms_to_consider:
-                        # Skip counterterms upon request
-                        if (test_options['compute_only_limit_defining_counterterm'] and
-                            str(counterterm) != str(limit) ):
-                            continue
+                    for counterterm in counterterms_to_evaluate:
                         ct_weight, _, _ = self.evaluate_counterterm(
                             counterterm,
                             scaled_real_PS_point, 

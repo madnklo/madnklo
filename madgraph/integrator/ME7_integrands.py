@@ -1396,16 +1396,16 @@ class ME7Integrand_R(ME7Integrand):
         # Now call the walker to hike through the counterterm structure
         # and return the list of currents
         # and PS points to use to evaluate them.
-        # hike = {
+        # hike_output = {
         #         'currents' : [(current1, PS1), (current2, PS2), etc...],
         #         'matrix_element': (ME, PSME),
         #         'mapping_variables' : mapping_variables (a dictionary)
         #         'kinematic_variables' : kinematic_variables  (a dictionary)
         #        }
-        hike = self.walker.walk_to_lower_multiplicity(PS_point, counterterm)
+        hike_output = self.walker.walk_to_lower_multiplicity(PS_point, counterterm)
        
         # Access the matrix element characteristics
-        ME_process, ME_PS = hike['matrix_element']
+        ME_process, ME_PS = hike_output['matrix_element']
         
         # Generate what is the kinematics (reduced_PS) returned as a list
         # and the reduced_flavors for this counterterm,
@@ -1424,14 +1424,14 @@ class ME7Integrand_R(ME7Integrand):
 
         # Separate the current in those directly connected to the matrix element
         # and those that are not
-        disconnected_currents = [
-            (current, PS) for (current, PS) in hike['currents']
-            if not current['resolve_mother_spin_and_color']
-        ]
-        connected_currents = [
-            (current, PS) for (current, PS) in hike['currents']
-            if current['resolve_mother_spin_and_color']
-        ]
+        disconnected_currents = []
+        connected_currents = []
+        for (currents, PS) in hike_output['currents']:
+            for current in currents:
+                if current['resolve_mother_spin_and_color']:
+                    connected_currents.append((current, PS))
+                else:
+                    disconnected_currents.append((current, PS))
 
         # The above "hike" can be used to evaluate the currents first and the ME last.
         # Note that the code below can become more complicated when tracking helicities,
@@ -1444,7 +1444,7 @@ class ME7Integrand_R(ME7Integrand):
                 current, PS_point_for_current, hel_config=None, 
                 reduced_process = ME_process,
                 leg_numbers_map = counterterm.momenta_dict,
-                mapping_variables=hike['mapping_variables'])
+                mapping_variables=hike_output['mapping_variables'])
             # Make sure no spin- or color-correlations are demanded by the current for this kind of currents
             assert(current_evaluation['spin_correlations']==[None,])
             assert(current_evaluation['color_correlations']==[None,])
@@ -1488,7 +1488,7 @@ class ME7Integrand_R(ME7Integrand):
                 current, PS_point_for_current, hel_config=None, 
                 reduced_process = ME_process,
                 leg_numbers_map = counterterm.momenta_dict,
-                mapping_variables=hike['mapping_variables'])
+                mapping_variables=hike_output['mapping_variables'])
             new_all_necessary_ME_calls = []
             # Now loop over all spin- and color- correlators required for this current
             # and update the necessary calls to the ME

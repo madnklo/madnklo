@@ -322,8 +322,8 @@ class SomogyiChoices(object):
         try:
             alpha = mapping_variables['alpha' + str(parent)]
         except:
-            pC = mapping_variables['pC' + str(parent)]
-            Q = mapping_variables['Q']
+            pC    = mapping_variables['pC'    + str(parent)]
+            Q     = mapping_variables['Q']
             alpha = mappings.FinalRescalingOneMapping.alpha(pC, Q)
         # Include the counterterm only up to alpha_0
         return alpha > SomogyiChoices.alpha_0

@@ -1151,6 +1151,7 @@ class FinalGroupingMapping(FinalCollinearMapping):
         res = FinalMassesMapping.map_to_lower_multiplicity(
             PS_point, reduced_singular_structure, momenta_dict, reduced_squared_masses,
             kinematic_variables, compute_jacobian )
+        res['pow'] = len(singular_structure.substructures)
         # Eliminate children momenta from the mapped phase-space point
         # and, if need be, update the kinematic_variables dictionary
         for parent in parents:
@@ -1273,6 +1274,7 @@ class FinalLorentzMapping(FinalCollinearMapping):
         res = FinalMassesMapping.map_to_lower_multiplicity(
             PS_point, reduced_singular_structure, momenta_dict, reduced_squared_masses,
             kinematic_variables, compute_jacobian )
+        res['pow'] = len(singular_structure.substructures)
         # Eliminate children momenta from the mapped phase-space point
         # and, if need be, update the kinematic_variables dictionary
         for parent in parents:
@@ -2124,7 +2126,9 @@ class VirtualWalker(object):
         # Identify reduced matrix element,
         # computed in the point which has received all mappings
         ME_PS_pair = [counterterm.process, point]
-        if verbose: print point
+        if verbose:
+            print point
+            print 'jacobian:', mapping_variables['jacobian']
         # Return
         return {
             'currents': current_PS_pairs,
@@ -2493,7 +2497,7 @@ class DisjointWalker(OneNodeWalker):
                 if parent_particle['mass'].lower() != 'zero':
                     raise MadGraph5Error("DEVELOPER: retrieve parent mass!")
         squared_masses = None
-        # Pick recoilers
+        # Pick recoilers as everything in the final state
         recoilers = cls.get_recoilers(counterterm, parents)
         structure = sub.SingularStructure(legs=recoilers, substructures=substructures)
         # Choose mapping to use

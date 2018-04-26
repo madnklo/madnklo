@@ -312,9 +312,9 @@ class SomogyiChoices(object):
 
     alpha_0 = 0.5
     y_0 = 0.5
-    divide_by_jacobian = False
-    d_0 = 0
-    d_0_prime = 0
+    divide_by_jacobian = True
+    d_0 = 1
+    d_0_prime = 2
 
     @staticmethod
     def cut_coll(mapping_variables, parent):
@@ -345,8 +345,14 @@ class SomogyiChoices(object):
             Q     = mapping_variables['Q']
             alpha = mappings.FinalRescalingOneMapping.alpha(pC, Q)
         norm = (1 - alpha) ** (2 * (SomogyiChoices.d_0 - 1))
+        # Jacobian power is a HACK,
+        # because the jacobian is now considered part of the current
+        # which leads to double counting for disjoint currents
+        # with the same mapping.
+        # Consider moving it to the mapping or the hike.
+        jacobian_power = 1./mapping_variables.get('pow', 1)
         if SomogyiChoices.divide_by_jacobian:
-            norm /= mapping_variables['jacobian']
+            norm /= mapping_variables['jacobian'] ** jacobian_power
         return norm
 
     @staticmethod

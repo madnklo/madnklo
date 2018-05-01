@@ -1,0 +1,392 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1.0in]{geometry}
+\usepackage{booktabs}
+% if pdflscape is not supported, you can try lscape instead
+%\usepackage{lscape} 
+% Or even the rotating package with \begin{sidewaystable}[ph] instead
+% \usepackage{rotating}
+\usepackage{pdflscape}
+\usepackage{array,multirow,graphicx}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{dsfont}
+\usepackage{listings}
+
+\DeclareMathOperator{\Tr}{Tr}
+\pagenumbering{gobble}
+
+%For listings
+%%%% Define here the chosen environement for input code typesetting using lstlisting
+% Use float=h in front to place it in a float.
+% define here syntax (i.e. delimiters) to be used within an lstlisting context. 
+\lstset{moredelim=[is][\it]{`}{`}}
+\lstset{moredelim=[is][\bf]{¬}{¬}}
+% For inline listings
+% First option, looks bigger but I like it better
+\def\ttin#1{{\tt #1}}
+\def\ttinc#1{'{\tt #1}'}
+% second option
+%%\def\ttin#1{\lstinline{#1}}
+% basic settings always loaded
+\def\cCode#1{\begin{lstlisting}[mathescape,basicstyle=\small\ttfamily,frame=leftline,aboveskip=4mm,belowskip=0mm,xleftmargin=40pt,framexleftmargin=10pt,
+numbers=none,framerule=2pt,abovecaptionskip=1.5mm,belowcaptionskip=0.5mm #1]}
+%%%%
+
+% Adjust row height
+\setlength\extrarowheight{8pt}
+\newcommand{\colsep}{1mm}
+\newcommand{\bk}[1]{\langle #1 \rangle}
+\newcommand{\kk}[1]{[ #1 ]}
+\newcommand{\mi}{i}
+\newcommand{\QCD}{\mathrm{QCD}}
+\newcommand{\EFT}{\mathrm{(\Lambda)}}
+\newcommand{\tree}{\mathrm{tree}}
+\newcommand{\Gr}{\mathrm{Gr}}
+\newcommand{\MkLO}{{\sc\small{MadNkLO}}}
+\newcommand{\identity}{\text{\(\mathds{1}\)}}
+\newcommand{\looptxt}{\mathrm{1-loop}}
+\newcommand{\MadLoop}{{\sc\small MadLoop}}
+\newcommand{\FeynRules}{{\sc\small FeynRules}}
+\newcommand{\NLOCT}{{\sc\small NLOCT}}
+\newcommand{\UFO}{{\sc\small UFO}}
+
+\newcommand{\braket}[2]{\left\langle#1|#2\right\rangle}
+\newcommand{\bra}[1]{\left\langle#1\right|}
+\newcommand{\ket}[1]{\left|#1\right\rangle}
+
+\chardef\MyArticleWithColor=\pdfcolorstackinit page direct{0 g}
+\def\cmtVH#1{\emph{\pdfcolorstack\MyArticleWithColor push {1 0 0 rg} V.H. : #1 \pdfcolorstack\MyArticleWithColor pop}}
+
+\begin{document}
+
+\title{\huge{Color-correlated matrix elements in MadNkLO}}
+\author{Valentin Hirschi}
+\date{}
+%\maketitle
+\thispagestyle{empty}
+\begin{center}
+{\huge Color-correlated matrix elements in {\sc\huge MadNkLO}}\\
+\vspace{0.5cm}
+\large{Valentin Hirschi}
+\end{center}
+
+\section{Notation and conventions: NLO}
+\label{NLOandConventions}
+Color-Correlated Matrix Elements (CCMEs) are necessary in the expression of the factorised soft limits of matrix elements. Indeed, the limiting behaviour of the matrix element when emitting soft colour-charged particles depends non-trivially on the colour charges of the external particles of the hard process prior the emission.
+We illustrate this in a more definite manner by explicitly writing the approximation of the matrix elements when emitting soft coloured partons, found in ref.~\cite{Catani:1999ss} (Eq.~(87)).
+\begin{equation}
+\label{NLOSoftApproximation}
+\lim_{q^0 \rightarrow 0} \left| \mathcal{M}_{g,a_1,\cdots,a_n} (q,p_1,\cdots,p_n) \right|^2 \simeq -4 \pi \alpha_s \mu^{2\epsilon} \sum_{i,j=1}^{n} \mathcal{S}_{ij}(q)  \left| \mathcal{M}^{(i,j)}_{g,a_1,\cdots,a_n} (q,p_1,\cdots,p_n) \right|^2,
+\end{equation}
+where the Eikonal factor $\mathcal{S}_{ij}(q)$ reads:
+\begin{equation}
+\label{NLOEikonal}
+\mathcal{S}_{ij}(q) = \frac{p_i \cdot p_j}{(p_i\cdot q) (p_j \cdot q)}.
+\end{equation}
+Notice that $\mathcal{S}_{ii}=0$ only for massless particles, so that the soft limit is non-trivial when a soft gluon is emitted and reabsorbed from a massive colour-charge carrier (\emph{e.g.} top quark). Also, the amplitude may involve colour neutral particles whose momenta are omitted in the kinematic dependence of the amplitude in Eq.~\ref{NLOSoftApproximation}, so that the sum $\sum_{i=1}^{n}$ only loops over colour-charged particles The second ingredient of Eq.~\ref{NLOSoftApproximation} is the NLO CCME, defined as:
+\begin{equation}
+\label{NLOCCMEs}
+|\mathcal{M}^{(i,j)}|^2 \equiv \bra{\mathcal{M}_{a_1,\cdots,a_n}} {\bf T}_i\cdot {\bf T}_j \ket{\mathcal{M}_{a_1,\cdots,a_n}},
+\end{equation}
+where the bold-faced ${\bf T}_i$ denote colour operators acting on the colour indices of the external legs of the amplitude $\ket{\mathcal{M}_{a_1,\cdots,a_n}}$.
+More specifically, the action of ${\bf T}_i$ on an amplitude carrying a list of open indices $a_1,\cdots,a_n$ depends on the $SU(3)_{\rm c}$ representation of the particle labelled '$i$' and hence of the nature of the colour index $a_i$ it carries:
+\begin{eqnarray}
+{\bf T}_i \ket{\mathcal{M}_{a_1,\cdots,a_n}} :=& t^x_{ a_i b_i} \prod_{k=1, k\ne i}^n {\delta_{a_k b_k}} \ket{\mathcal{M}_{a_1,\cdots,a_n}} &\;\;\rm{ if }\;\; i \in \bf{3} \;\; \textrm{(outgoing $q$ or incoming $\bar{q}$)}\nonumber\\
+{\bf T}_i \ket{\mathcal{M}_{a_1,\cdots,a_n}} :=& -t^x_{ b_i a_i} \prod_{k=1, k\ne i}^n {\delta_{a_k b_k}} \ket{\mathcal{M}_{a_1,\cdots,a_n}} &\;\;\rm{ if }\;\; i \in \bf{\bar{3}} \;\; \textrm{(outgoing $\bar{q}$ or incoming $q$)}\nonumber\\
+{\bf T}_i \ket{\mathcal{M}_{a_1,\cdots,a_n}} :=& i f^{a_i x b_i} \prod_{k=1, k\ne i}^n {\delta_{a_k b_k}} \ket{\mathcal{M}_{a_1,\cdots,a_n}}&\;\;\rm{ if }\;\; i \in \bf{8} \;\; \textrm{(gluons)}
+\end{eqnarray}
+where $t^{a_{\bf{8}}}_{i_{\bf{\bar{3}}}j_{\bf{{3}}}}$ denotes Gell-Mann matrices and $f^{a_{\bf{8}}b_{\bf{8}}c_{\bf{8}}}$ the $SU(3)_\textrm{c}$ structure constant. These operators act on the colour space $\{a_i, \cdots, a_n\}$ onto the space $\{b_i, \cdots, b_n, x\}$ of higher dimensionality, because of the introduction of the extra colour octet index $x$ "emitted" by the leg '$i$'. The dot-product between the two operators ${\bf T}_i$ and ${\bf T}_j$, that is ${\bf T}_i \cdot {\bf T}_j$, simply amounts to applying the definition of ${\bf T}_i$ onto the vector (in colour space) induced by ${\bf T}_j \ket{\mathcal{M}_{a_1,\cdots,a_n}}$. In this case, the input colour space is $\{b_i, \cdots, b_n, x\}$ while the output one is lower dimensional space $\{c_i, \cdots, c_n\}$  since the extra colour octet index $x$ is saturated by the same index part of the definition of ${\bf T}_j$. More specifically, if $i,j\in \bf{3}$ and $i \ne j$, we have:
+\begin{eqnarray}
+\label{ExampleNLO}
+\bra{\mathcal{M}_{a_1,\cdots,a_n}} {\bf T}_i\cdot {\bf T}_j \ket{\mathcal{M}_{a_1,\cdots,a_n}} &:=& 
+\bra{\mathcal{M}_{c_1,\cdots,c_n}} 
+\left(t^x_{b_i c_i} \prod_{k=1, k\ne i}^n {\delta_{c_k b_k}} \right)
+\left(t^x_{a_j b_j} \prod_{k=1, k\ne j}^n {\delta_{b_k a_k}} \right)
+\ket{\mathcal{M}_{a_1,\cdots,a_n}} \nonumber \\
+&=&
+\bra{\mathcal{M}_{a_1,\cdots,c_i,\cdots,b_j,\cdots,a_n}} t^x_{b_i c_i} t^x_{a_j b_j} \ket{\mathcal{M}_{a_1,\cdots,b_i,\cdots,a_n}},
+\end{eqnarray}
+In practice, these CCMEs can be computed numerically by using similar techniques as to those employed for the colour algebra necessary for the computation of regular squared matrix elements.
+First, amplitudes are decomposed onto a colour basis of $N_c$ basis vectors $\mathcal{C}^{(c)}_{a_1,\cdots,a_n}$ whose coefficients $\mathcal{A}^{(c)}$ are referred to as the \emph{Lorentz} part of the amplitude and which carries its kinematic dependence:
+\begin{equation}
+\ket{\mathcal{M}_{a_1,\cdots,a_n}(p_1,\cdots,p_n)} = \sum_{c=1}^{N_c} \mathcal{A}^{(c)}(p_1,\cdots,p_n) \mathcal{C}^{(c)}_{a_1,\cdots,a_n}.
+\end{equation}
+The choice of colour basis is in principle arbitrary, but it is common to adopt the \emph{colour-flow} basis of ref.~\cite{Maltoni:2002mq,Kilian:2012pz}, where the colour strings $\mathcal{C}^{(c)}$ are of the form $\delta^{i_1}_{j_1}\cdots\delta^{i_n}_{j_n}$ with $(i_k, j_k)$ two indices of the fundamental and anti-fundamental representation of $SU(3)_{\rm{c}}$ respectively, describing the colour charge carried by the external particles $k$. One particularly appealing property of this basis is that the corresponding Lorentz part of the amplitude $\mathcal{A}^{(c)}$ can be shown to be gauge invariant.
+The squared matrix element can then be computed as follows:
+\begin{equation}
+\braket{\mathcal{M}_{a_1,\cdots,a_n}}{\mathcal{M}_{a_1,\cdots,a_n}} = \sum_{c=1}^{N_c}\sum_{c^\prime=1}^{N_c} \mathcal{A}^{(c)}\mathcal{A}^{(c^\prime)\star} 
+\underbrace{\mathcal{C}^{(c)}_{a_1,\cdots,a_n} \mathcal{C}^{(c^\prime)\star}_{a_1,\cdots,a_n}}_{K_{cc^\prime}},
+\end{equation}
+where the $K_{cc^\prime}$ is a $N_c \times N_c$ matrix with complex-valued rational elements referred to as the \emph{color-matrix}. It is then clear that the computation of the CCMEs $|\mathcal{M}^{(i,j)}|^2$ can be implemented by simply repeating the steps suited for the computation of the non-correlated matrix element $|\mathcal{M}|^2$, but using a different colour matrix $|K_{cc^\prime}^{(i,j)}|^2$ computed as follows in the case of the example of Eq.~\ref{ExampleNLO}:
+\begin{equation}
+K_{cc^\prime}^{(i,j)} = \mathcal{C}^{(c)}_{a_1,\cdots,c_i,\cdots,b_j,\cdots,a_n} t^x_{ b_i c_i} t^x_{ a_j b_j} \mathcal{C}^{(c^\prime)\star}_{a_1,\cdots,b_i,\cdots,a_n}.
+\end{equation}
+
+When the user requires NLO type of colour correlations to be made available, the computer code output by \MkLO\ will be supplemented by the explicit numerical values of the colour matrices $K^{(i,j)}$ for all doublets $(i,j)$ where $i$ and $j$ are labels of colour-charged external particles, which can be used in place of the original colour matrix when the corresponding CCME is asked for.
+
+One useful cross-check on the CCMEs generated by \MkLO\ is that they satisfy the following relation stemming from the colour neutrality of the process (see Eq.~(84)-(85) of ref.~\cite{Catani:1999ss}):
+\begin{equation}
+\label{NLOColourNeutral}
+\sum_{i=1}^n |\mathcal{M}^{(i,j)}|^2 = 0 \;\;\forall\;j.
+\end{equation}
+This relation also reveals that even at NLO, the set of CCMEs labeled by the doublet $(i,j)$ is already non-minimal. Having set the stage for color-correlation in the context of NLO computations, we now turn to higher orders in the next section.
+ 
+\section{Colour correlations beyond NLO}
+
+The rather pedantic introduction of sect.~\ref{NLOandConventions} was necessary as it is not immediately obvious how to generalise it to higher orders. In particular, a direct inspection of the structure of the double-soft limit at NNLO does not offer a straight-forward path to generalising the previous construction to arbitrary order.
+Instead, we find it useful to go back to Eq.~\ref{ExampleNLO} and recast it for more more general N$^\text{m}$LO \emph{connections} ${\bf{S}}^{(\rm{N^mLO})}_i$ that are operators acting on the colour part of the amplitude $\mathcal{C}^{(c)}$, generating $m$ additional colour indices $x_1,\cdots,x_m$ corresponding to the emission of $m$ additional partons:
+\begin{eqnarray}
+K^{\rm{N^mLO}(i,j)}_{cc\prime} &=& \mathcal{C}^{(c)}\; {\bf{S}}^{(\rm{N^mLO})}_i\cdot{\bf{S}}^{(\rm{N^mLO})}_j \; \mathcal{C}^{(c\prime)\star} \nonumber\\
+&\sim& \underbrace{\{a_1,\cdots,a_n\}}_{ \mathcal{C}^{(c)}} 
+\underbrace{\longrightarrow}_{{\bf{S}}^{(\rm{N^mLO})}_i} 
+\{b_1,\cdots,b_n,x_1,\cdots,x_m\} 
+\underbrace{\longrightarrow}_{{\bf{S}}^{(\rm{N^mLO})}_j}
+\underbrace{\{c_1,\cdots,c_n\}}_{ \mathcal{C}^{(c\prime)\star}}
+\end{eqnarray}
+The question then becomes how to systematically construct all relevant connections ${\bf{S}}^{(\rm{N^mLO})}_i$ for an arbitrary perturbative order $m$.
+At NLO, this task is trivial as one can directly choose:
+\begin{equation}
+{\bf{S}}^{(\rm{NLO})}_i \equiv {\bf{T}}_i,
+\end{equation}
+which is the reason why the very notion of a \emph{colour-connection} is not even introduced. Beyond NLO, the structure of the \emph{raw}\footnote{Meaning: without any colour algebra manipulation on the result obtained from a direct application of soft-emission Feynman Rules} double-soft current (see Eq.~(101) and Fig.~(9) of ref.~\cite{Catani:1999ss}) suggests that one approach is to exhaust all possible ways in which the additional colour quanta $x_1,\cdots,x_m$ can be generated starting from the \emph{reduced} colour basis with indices $\{a_1,\cdots,a_n\}$, and which is consistent with QCD Feynman rules.
+We present below the pseudo code for the recursive generation of all such N$^\textrm{m}$LO colour connections:
+\cCode{}
+# `Initial empty dictionary of color connections without emissions yet`
+all_CCs = { (,): { 'to_emit'           : [-1,...,-m], 
+                   'possible_emitters' : [1, n]        } } 
+# `Add m emissions` 
+for _ in range(m):
+  for colour_connection, cc_properties in all_CCs.items():
+     all_colour_connections.update(
+       add_one_emission(colour_connection, cc_properties))
+       
+# `Logic for adding one 'emission' of a new colour index`
+def add_one_emission(cc, properties):
+  CCs_after_emission = {}  
+  # `Loop over all possible emitters`
+  for emitter in cc_properties['possible_emitters']:
+    # `Choose one emitted negative label`
+    for emitted in cc_properties['to_emit']:
+      new_list_to_emit = list(to_emit)
+      new_possible_emitters.append(new_list_to_emit.pop(emitted))
+      # `Build the corresponding new CC characteristics`
+      new_cc_characteristics = \
+              {  'to_emit'           : new_list_to_emit, 
+                 'possible_emitters' : new_possible_emitters }
+      # `Add a 'q > q g' or 'g > g g' type of emission`:
+      if emitter.is_triplet() or emitter.is_octet():
+          new_cc = list(cc) + [(emitter, to_emit, emitter),]
+          CCs_after_emission[ tuple(new_cc) ] = new_cc_characteristics
+      # `If emitter is an unresolved gluon, also add the g > q q splitting`
+      if emitter.is_octet() and emitter < 0:
+          [...] # `change nature of emitted particle from octet to triplet`
+          new_cc = list(cc) + [(emitter, emitter, to_emit),]
+          CCs_after_emission[ tuple(new_cc) ] = new_cc_characteristics
+  # `Finally return the new modified colour correlations`
+  return colour_connections_after_emission
+\end{lstlisting}
+\newpage
+We highlight here some subtleties in the above construction:
+\begin{itemize}
+\item I) The splitting of a gluon into a pair of quark-antiquark only exhibits a soft divergence if it the gluon can become soft (and therefore unresolved), which is never the case for the gluons part of the reduced process. For this reason, the colour-correlators specific to $g \rightarrow q \bar{q}$ splittings are only irreducible to simpler structures starting at $N^3LO$.
+\item II) The emitted partons must be \emph{labelled} as their order matters when emitted from the {\bf{same}} coloured line. More specifically: $T^{x_1}_{a_i y}t^{x_2}_{y b_i} \ne t^{x_2}_{a_i y}t^{x_1}_{y b_i}$ but $t^{x_1}_{a_i b_i}t^{x_2}_{a_j b_j} = t^{x_2}_{a_i b_i}t^{x_1}_{a_j b_j}$ with $i\ne j$.
+\end{itemize}
+
+The algorithm above will generate colour connections identified by a list of 3-entries tuples specifying how the successive colour indices $x_i$ are generated, which unambiguously determines the exact definition of the colour operators building that colour connection ${\bf{S}}^{(\rm{N^mLO})}_i$. This is best illustrated by listing \emph{all} colour connections for the reduced process is $e^+(1) e^-(2) \rightarrow d(3) \bar{d}(4) g(5)$. At NNLO and beyond, the colour connections themselves may require dummy indices which we choose to label here $y$ if there is only one and $y_i$ if there are severals (which can happen for N$^3$LO and beyond).
+\begin{itemize}
+
+\item A) Independent gluon emission from {\bf{different}} colour lines:\\
+A.1) {\tt{((4,-1,4),(3,-2,3))}} ( $=$ {\tt{((3,-2,3),(4,-1,4))}} $)\equiv "{{\bf{T}}_4 {\bf{T}}_3}" \equiv (-t^{x_1}_{ b_4 a_4}) t^{x_2}_{ a_3 b_3} $\\
+A.2) {\tt{((4,-2,4),(3,-1,3))}} ( $=$ {\tt{((3,-1,3),(4,-2,4))}} $)\equiv "{\bf{T}}_3 {\bf{T}}_4" \equiv t^{x_1}_{ a_3 b_3} (-t^{x_2}_{ b_4 a_4})$ \\
+A.3) {\tt{((5,-1,5),(3,-2,3))}} ( $=$ {\tt{((3,-2,3),(5,-1,5))}} $)\equiv "{{\bf{T}}_5 {\bf{T}}_3}" \equiv i f^{a_5x_1b_5} t^{x_2}_{ a_3 b_3}$\\
+A.4) {\tt{((5,-2,5),(3,-1,3))}} ( $=$ {\tt{((3,-1,3),(5,-2,5))}} $)\equiv "{{\bf{T}}_3 {\bf{T}}_5}" \equiv t^{x_1}_{ a_3 b_3} i f^{b_5x_2a_5}$ \\ 
+A.5) {\tt{((5,-1,5),(4,-2,4))}} ( $=$ {\tt{((4,-2,4),(5,-1,5))}} $)\equiv "{{\bf{T}}_5 {\bf{T}}_4}" \equiv i f^{a_5x_1b_5} (-t^{x_2}_{ b_4 a_4})$\\
+A.6) {\tt{((5,-2,5),(4,-1,4))}} ( $=$ {\tt{((4,-1,4),(5,-2,5))}} $)\equiv "{{\bf{T}}_4 {\bf{T}}_5}" \equiv (-t^{x_1}_{ b_4 a_4}) i f^{b_5x_2a_5}$ 
+
+\item B) Successive gluon emission from a {\bf{single}} colour line:\\
+B.1) {\tt{((3,-1,3),(3,-2,3))}} $ \equiv t^{x_1}_{ a_3 y} t^{x_2}_{ y b_3} $\\
+B.2) {\tt{((3,-2,3),(3,-1,3))}} $ \equiv t^{x_2}_{ a_3 y} t^{x_1}_{ y b_3} $\\
+B.3) {\tt{((4,-1,4),(4,-2,4))}} $ \equiv (-t^{x_1}_{ b_4 y}) (-t^{x_2}_{ y a_4}) $\\
+B.4) {\tt{((4,-2,4),(4,-1,4))}} $ \equiv (-t^{x_2}_{ b_4 y}) (-t^{x_1}_{ y a_4}) $\\
+B.5) {\tt{((5,-1,5),(5,-2,5))}} $ \equiv i f^{a_5 x1 y} i f^{y x_2 b_5} $\\
+B.6) {\tt{((5,-2,5),(5,-1,5))}} $ \equiv i f^{a_5 x2 y} i f^{y x_1 b_5} $
+
+\item C) Gluon emission and subsequent splitting into a gluon pair: \\
+C.1) {\tt{((3,-1,3),(-1,-2,-1))}} $\equiv t^{y}_{ a_3 b_3} i f^{yx_2x_1}$\\
+C.2) {\tt{((3,-2,3),(-2,-1,-2))}} $\equiv t^{y}_{ a_3 b_3} i f^{yx_1x_2}$ $ ( = t^{y}_{ a_3 b_3} (-i f^{yx_2x_1}) )$\\
+C.3) {\tt{((4,-1,4),(-1,-2,-1))}} $\equiv (-t^{y}_{ b_4 a_4}) i f^{yx_2x_1}$\\
+C.4) {\tt{((4,-2,4),(-2,-1,-2))}} $\equiv (-t^{y}_{ b_4 a_4}) i f^{yx_1x_2}$ $ ( = (-t^{y}_{ b_4 a_4}) (-i f^{yx_2x_1}))$ \\
+C.5) {\tt{((5,-1,5),(-1,-2,-1))}} $\equiv i f^{a_5 y b_5} i f^{yx_2x_1}$\\
+C.6) {\tt{((5,-2,5),(-2,-1,-2))}} $\equiv i f^{a_5 y b_5} i f^{yx_1x_2}$ $ ( = i f^{a_5 y b_5} (-i f^{yx_2x_1}))$
+
+\item D) Gluon emission and subsequent splitting into a quark-antiquark pair: \\
+D.1) {\tt{((3,-1,3),(-1,-1,-2))}} $\equiv t^{y}_{ a_3 b_3} t^{y}_{x_2x_1}$\\
+D.2) {\tt{((3,-2,3),(-2,-2,-1))}} $\equiv t^{y}_{ a_3 b_3} t^{y}_{x_1x_2}$\\
+D.3) {\tt{((4,-1,4),(-1,-1,-2))}} $\equiv (-t^{y}_{ b_4 a_4}) t^{y}_{x_2x_1}$\\
+D.4) {\tt{((4,-2,4),(-2,-2,-1))}} $\equiv (-t^{y}_{ b_4 a_4}) t^{y}_{x_1x_2}$ \\
+D.5) {\tt{((5,-1,5),(-1,-1,-2))}} $\equiv i f^{a_5 y b_5} t^{y}_{x_2x_1}$\\
+D.6) {\tt{((5,-2,5),(-2,-2,-1))}} $\equiv i f^{a_5 y b_5} t^{y}_{x_1x_2}$
+
+\end{itemize}
+
+\subsection{Conventions for listing relevant colour connections}
+
+On first notices that the NLO-inspired notation (\emph{e.g.} ${{\bf{T}}_4 {\bf{T}}_3}$) can only be unambiguously label the colour connections in the class A, since for the classes B to D, it is necessary to keep track of the unresolved colour indices emitted, rendering the notation ${{\bf{T}}_i}$ ill-suited.
+
+Secondly, we see that the ordering of the tuples identifying each "splitting" is irrelevant for the class A but matters for class B. For classes C and D one could technically also reverse the list of tuples (as it would lead to the same colour connection), although it would be rather unnatural to "connect" to an unresolved colour index that has not been "emitted" yet. The proposed solution to address this degeneracy, is to order the list of tuples in a \emph{descending} order of the first entry of each tuple in the list. This yields the choice {\tt{((4,-1,4),(3,-2,3))}} (and not {\tt{((3,-2,3),(4,-1,4))}}) as the canonical representation of the connection A.1 while at the same time keeping the two connections B.1 and B.2 as independent ones (as it must be since {\tt{((3,-1,3),(3,-2,3))}}$\not\equiv${\tt{((3,-2,3),(3,-1,3))}}). Additionally, this has the advantage of always placing the positive resolved indices before the negative unresolved ones for the classes C and D (\emph{i.e.} we will use {\tt{((3,-1,3),(-1,-2,-1))}} as the canonical representation of C.1 and not {\tt{((-1,-2,-1),(3,-1,3))}})\footnote{This aspect of this ordering breaks down beyond NNLO, for example the connections constructed as ${\tt{((3,-2,3),(-2,-1,-2),(-1,-3,-1))}}$ will be canonically ordered as ${\tt{((3,-2,3),(-1,-3,-1),(-2,-1,-2))}}$ which is not incorrect but renders this tuple representation harder to interpret since the gluon labelled $-1$ splits "before" having been emitted. We stress that this is a purely esthetical inconvenience that does not alter the consistency of the construction}. Unfortunately this does not lift the degeneracy of all connections, as one still has the pairs C.1/C.2, C3/C4 and C5/C6 identifying physically identical connections (up to a sign, that is {\tt{((3,-1,3),(-1,-2,-1))}}$=-$ {\tt{((3,-2,3),(-2,-1,-2))}}). This is acceptable since our objective is to guarantee the completeness of the colour connections generated, not their minimality.
+We stress once again, that even at NLO, the customary basis of colour connections is already not minimal given relation of Eq.~\ref{NLOColourNeutral}.
+
+One more comment is warranted regarding the minimality of the colour connections considered and their growth with the perturbative order considered. For any process whose final states contain $p$ colour triplets, $q$ colour anti-triplets and $r$ colour octets, one could build a rank $p+q+r$ matrix whose elements are colour-correlated squared amplitudes computed with specific assignments of the colour charges of all external states. The resulting matrix would have \emph{at most} $p^3q^3r^8$ \emph{independent} elements (though typically much less) and could be used for computations at arbitrary perturbative orders.
+This is however inconvenient for two reasons. First, for large multiplicities and low perturbative orders, this method would lead to more independent colour-correlated matrix elements than the basis proposed above. Secondly, the physical soft currents that necessitate colour-correlated matrix elements are physical quantity that naturally factorise the connections listed above. Using specific colour charge assignments instead would be very inconvenient and necessitate involved colour algebra to be performed in the current implementation.
+A less extreme alternative would of course be to decompose the connections A-D above onto a colour-flow basis. This would indeed significantly decrease the number of independent colour connections, but significantly so only for high perturbative order (N$^3$LO and beyond), and it would not be in line with existing conventions at NLO where the colour connection $-i f^{a_i x_k b_i}$ is typically not projected onto colour flow. Finally, this would once again increase the amount of colour algebra to be performed in the implementation of the soft currents in many subtraction schemes. We also remind the reader here that it is of course always possible to perform the projection of the connections A-D onto a colour basis in the implementation of the soft current if really necessary.
+
+Finally, it is convenient for the actual implementation of the computation of colour-correlated matrix elements in \MkLO\ to identify each colour connections by a unique integer that can be mapped to their canonical tuple representation. This is performed by sorting the list of all canonical tuples and identifying each of them by their position in that list. For a labelling scheme spanning all perturbative orders, one simply concatenate the sorted list of connections for each successive perturbative order (so NLO connections are sorted and listed first, then the sorted NNLO ones, then NNNLO, etc...). As we will discuss in the implementation section, the corresponding mapping from an integer identifying a colour connection to its corresponding canonical tuple representation is readily available in the matrix element code exported, so that the details of these mapping rules is irrelevant to the user in practice. It is however what allows to give an unambiguous meaning to the symbol ${\bf{S}}^{(\rm{N^mLO})}_i$ for any given integer $i$.
+
+\subsection{Building colour-correlated matrix elements beyond NLO}
+
+Having explicitly listed our conventions for establishing all colour connections relevant to a given process, we now turn to investigating how they can be used to build actual colour correlated matrix element. The generalisation of the definition of the NLO CCMEs of Eq.~\ref{NLOCCMEs} now reads:
+
+\begin{equation}
+\label{NLOCCMEs}
+|\mathcal{M}^{(i,j)}|^2 \equiv \bra{\mathcal{M}_{a_1,\cdots,a_n}} {\bf{S}}^{(\rm{N^rLO})}_i \cdot {\bf{S}}^{(\rm{N^sLO})}_j \ket{\mathcal{M}_{c_1,\cdots,c_n}}\delta_{rs},
+\end{equation}
+
+where it is understood that the superscripts $(\rm{N^rLO})$ and $(\rm{N^sLO})$ are strictly speaking not necessary since this information is already encoded in the mapping associating the indices $i$ and $j$ to specific colour connections \emph{across} all perturbative orders (\emph{i.e.} $i=1,n$ for NLO-type of colour connections and $i>n$ for higher order colour connections). The factor $\delta_{rs}$ stresses that interferences between colour connections belonging to different perturbative orders of course always vanish (they do not share the same number of "unresolved" colour indices $x_k$); for this reason the matrix $|\mathcal{M}^{(i,j)}|^2$ is block-diagonal, and we will henceforth use the notation $|\mathcal{M}^{(i,j)}_{(\rm{N^kLO})}|^2$ to denote only the particular block of this matrix $|\mathcal{M}^{(i,j)}|^2$ pertaining to $\rm{N^kLO}$ colour connections; that is:
+\begin{equation}
+\label{CCMEsNotation}
+|\mathcal{M}^{(i,j)}_{(\rm{N^kLO})}|^2 =
+\left \{ \begin{aligned}
+&|\mathcal{M}^{(i,j)}|^2 && \text{if } i,j\in \rm{N^kLO}\\
+&0 && \text{otherwise}
+\end{aligned} \right .
+\end{equation}
+
+Beyond NLO, even some classes of colour connections never interfere with others, because of the appearance of the $g \rightarrow q \bar{q}$ splitting. For instance, NNLO colour connections belonging to the class D do not interfere with those of the other classes because the "emitted indices" $x_1$ and $x_2$ are colour triplets in the former and octets in the latter. Moreover, the square of the colour connections D.i always vanish; for instance in the case of D.1:
+\begin{eqnarray}
+|\mathcal{M}^{(D.1,D.1)}|^2   &\propto& \mathcal{C}^{\{a_i\}}\; {\bf{S}}^{(\rm{NNLO}) {\{a_i\}}\rightarrow{\{b_i\}} }_{D.1}\cdot{\bf{S}}^{(\rm{NNLO}) {\{b_i\}}\rightarrow{\{c_i\}}}_{D.1} \; \mathcal{C}^{\{c_i\}\star} \nonumber\\
+&=& \mathcal{C}^{\{a_i\}}\;
+t^{y_1}_{ a_3 b_3} t^{y_1}_{x_2x_1} t^{y_2}_{ b_3 c_3} t^{y_2}_{x_2x_1}
+ \; \mathcal{C}^{\{c_i\}\star}  \propto t^{y_1}_{x_2x_1} t^{y_2}_{x_2x_1} = 0,
+\end{eqnarray}
+where the dummy indices part of the definition of the colour connections and previously denoted $y$ have been promoted to carry a subscript identifying which connection they belong to (either the first or the second one).
+This is because according to the conventions already in place at $NLO$, no complex conjugation is applied to the second colour connection dotted with the first one, and as a result of this the colour index $x_1$ (resp. $x_2$) appears as a color triplet (resp. anti-triplet) in both colour connections and can therefore not be saturated.
+On the other hand, when computing the colour correlator interfering the connections D.1 and D.2, one finds the expected result:
+\begin{eqnarray}
+|\mathcal{M}^{(D.1,D.2)}|^2   &\propto& \mathcal{C}^{\{a_i\}}\; {\bf{S}}^{(\rm{NNLO}) {\{a_i\}}\rightarrow{\{b_i\}} }_{D.1}\cdot{\bf{S}}^{(\rm{NNLO}) {\{b_i\}}\rightarrow{\{c_i\}}}_{D.2} \; \mathcal{C}^{\{c_i\}\star} \nonumber\\
+&=& \mathcal{C}^{\{a_i\}}\;
+t^{y_1}_{ a_3 b_3} t^{y_1}_{x_2x_1} t^{y_2}_{ b_3 c_3} t^{y_2}_{x_1x_2}
+ \; \mathcal{C}^{\{c_i\}\star}  \propto t^{y_1}_{x_2x_1} t^{y_2}_{x_1x_2} = C_F \delta^{y_1 y_2}.
+\end{eqnarray}
+Interestingly, this is also precisely the relation that allows one to ignore the colour connections from the class D (see ; at NNLO these always simplify to the NLO-type of colour connections, thanks to the factor $\delta^{y_1 y_2}$. In \MkLO, we keep these connections nonetheless as they become irreducible at NNNLO and beyond.
+
+We also note that in contrast with NLO, the matrix $|\mathcal{M}^{(i,j)}|^2$ is in general no longer symmetric. As an example of this, we can investigate the folllowing two color correlators: $|\mathcal{M}^{(B.1,A.2)}|^2$ and $|\mathcal{M}^{(A.2,B.1)}|^2$:
+\begin{eqnarray}
+&& |\mathcal{M}^{(B.1,A.2)}|^2   \propto \mathcal{C}^{\{a_i\}}\;
+ t^{x_1}_{ a_3 y_1} t^{x_2}_{ y_1 b_3} {\delta_{b_4 a_4}} \
+ t^{x_1}_{ b_3 c_3} (-t^{x_2}_{ c_4 b_4}) 
+ \; \mathcal{C}^{\{c_i\}\star} \nonumber \\
+\not=&& |\mathcal{M}^{(A.1,B.2)}|^2   \propto  \mathcal{C}^{\{a_i\}}\;
+ t^{x_1}_{ a_3 b_3} (-t^{x_2}_{ b_4 a_4}) 
+ t^{x_1}_{ b_3 y} t^{x_2}_{ y c_3} {\delta_{a_4 c_4}} \
+ \; \mathcal{C}^{\{c_i\}\star}
+\end{eqnarray}
+
+It is interesting to ask the question of what is the equivalent of the relation of Eq.~\ref{NLOColourNeutral} for the colour connections beyond NLO. In this generalised language, that equation simply reads:
+\begin{equation}
+\label{NLOColourNeutral}
+\sum_{j=1}^n |\mathcal{M}^{(i,j)}_{(\rm{NLO})}|^2 = 0 \;\;\forall\;i.
+\end{equation}
+One may then attempt to naively extend the sum over all connections beyond NLO, but this turns out not to sum to zero\footnote{Although a rigorous demonstration would be needed here, one should not expect the generalised sum to be zero because the colour connections are not gauge invariant quantities (\emph{i.e.} we are \emph{not} working within the colour flow decomposition here.}:
+\begin{equation}
+\label{BeyondNLOColourNeutral}
+\sum_{j=1}^n |\mathcal{M}^{(i,j)}_{(\rm{N^kLO})}|^2 \ne 0 \;\;\forall\;i.
+\end{equation}
+However, one can consider the set of abelian-like connections $\Omega_{\text{abelian-like}}$ which is defined as the connections whose emitted gluons are \emph{not} further split. This corresponds to neglecting the colour connections involving splittings of the type\footnote{One should note that because splittings of the type $g^\star \rightarrow g g$ always exist in two copies with an opposite sign (see for instance the connections C.3 and C.4), they could be included as well in the sum of Eq.~\ref{BeyondNLOColourNeutral} because they would cancel pair-wise. This is however mostly an accident of the degeneracy of colour connections left in our notation, and it is physically more meaningful to define them as not part of the set $\Omega_{\text{abelian-like}}$.} $g^\star \rightarrow g g$ or $g^\star \rightarrow q \bar{q}$ where $g^\star$ is a gluon emitted by a prior splitting and can therefore become soft. In the generalised notation introduced here, this corresponds to colour connections involving tuples where the first entry (the mother label) is a negative integer. The physical picture associated with those type of splittings is that of successive emissions from \emph{only} the hard colour-charged particles of the reduced process. When restricting the sum of Eq.~\ref{BeyondNLOColourNeutral} over that subset $\Omega_{\text{abelian-like}}$, one indeed finds some kind of generalisation of the colour coherence test:
+\begin{equation}
+\label{BeyondNLOColourNeutral}
+\sum_{j\in\Omega_{\text{abelian-like}}} \xi(j)|\mathcal{M}^{(i,j)}_{(\rm{NLO})}|^2 = 0 \;\;\forall\;i \in \Omega_{\text{abelian-like}},
+\end{equation}
+where $\xi(j)$ is a symmetry factors that counts how many redundant copies of the colour connection $j$ have been removed by the canonical ordering principle based on a sorting of the splittings according to the first entry of the three-tuple (the "emitter" leg ID). This is especially simple to compute for the colour connections belonging to $\Omega_{\text{abelian-like}}$ as the emitted gluons are never further split. This basically corresponds to the symmetry factor associated with the emitted gluons, corrected for the fact that we consider explicitly different colour connections when they are emitted from the same coloured leg of the reduced process.
+Here are some example taken from NNLO $e^+(1) e^-(2) \rightarrow d(3) \bar{d}(4) g(5)$ again:
+\begin{itemize}
+\item $\xi(A.1)=\xi({\tt{((4,-1,4),(3,-2,3))}})=2!=2$
+\item $\xi(B.1)=\xi({\tt{((3,-2,3),(3,-1,3))}})=2!/2!=2$
+\end{itemize}
+and similarly at NNNLO:
+\begin{itemize}
+\item $\xi({\tt{((5,-1,5),(4,-2,4),(3,-3,3))}})=3!=6$
+\item $\xi({\tt{((5,-1,5),(4,-2,4),(3,-3,3))}})=3!=6$
+\item $\xi({\tt{((5,-1,5),(3,-1,3),(3,-2,3))}})=3!/2!=3$
+\item $\xi({\tt{((4,-2,4),(4,-3,4),(4,-1,4))}})=3!/3!=1$
+\end{itemize}
+The interpretation of the symmetry factor $\xi(j)$ for $j \not\in \Omega_{\text{abelian-like}}$ is less clear but ultimately irrelevant given that it is only meant to be used in the context of the test of Eq.~\ref{BeyondNLOColourNeutral}. This test can be performed automatically by \MkLO\ and Eq.~\ref{BeyondNLOColourNeutral} was numerically checked to hold both at NNLO and NNNLO for various processes. Finally, before discussing the technical details of the implementation in \MkLO\ of the structure presented here, we explicitly show how we can construct the colour correlators of the double-soft current of Eq.~(112) in ref.~\cite{Catani:1999ss}, denoted $|\mathcal{M}^{(i,j)(k,l)}|^2$ and defined as:
+\begin{equation}
+|\mathcal{M}^{(i,j)(k,l)}|^2 = \bra{\mathcal{M}} \{ {{\bf{T}}_i \cdot {\bf{T}}_j}, {{\bf{T}}_k \cdot {\bf{T}}_l} \} \ket{\mathcal{M}}. 
+\end{equation}
+Here we will address each term of the anti-commutator separately and give meaning to the generic term ${{\bf{T}}_i \cdot {\bf{T}}_j} {{\bf{T}}_k \cdot {\bf{T}}_l}$ in our formalism:
+\begin{equation}
+\label{DoubleSoftCC}
+ {{\bf{T}}_i \cdot {\bf{T}}_j} {{\bf{T}}_k \cdot {\bf{T}}_l} \rightsquigarrow 
+\left \{ \begin{aligned}
+  &{\tt{((\;(i,-1,i),(l,-2,l)\;),(\;(j,-1,j),(k,-2,k)\;))}}&& \text{if } j=k \text{ and } j\ne l \\
+  &{\tt{((\;(i,-1,i),(k,-2,k)\;),(\;(j,-1,j),(l,-2,l)\;))}}&& \text{otherwise. } 
+\end{aligned} \right .
+\end{equation}
+This conditional choice of indices assignment is motivated so that the anti-commutation of this compound operator (effectively performing the relabeling $i\leftrightarrow k,j\leftrightarrow l$) has the intended effect of interverting which colour line the \emph{first} gluon emitted from leg $j$ is connected to, in the case of $j=k,j\ne l$. We illustrate this explicitly with the two terms of the commutator $\{ {{\bf{T}}_2 \cdot {\bf{T}}_3}, {{\bf{T}}_1 \cdot {\bf{T}}_2} \}$:
+\begin{eqnarray}
+ &&\text{A) }{{\bf{T}}_2 \cdot {\bf{T}}_3} {{\bf{T}}_1 \cdot {\bf{T}}_2} \rightsquigarrow {\tt{((\;(2,-1,2),(1,-2,1)\;),(\;(3,-1,3),(2,-2,2)\;))}}\nonumber\\
+ &&\text{B) }{{\bf{T}}_1 \cdot {\bf{T}}_2} {{\bf{T}}_2 \cdot {\bf{T}}_3} \rightsquigarrow {\tt{((\;(1,-1,1),(3,-2,3)\;),(\;(2,-1,2),(2,-2,2)\;))}}.
+\end{eqnarray}
+Thanks to the conditional index assignment, the first gluon emitted by leg 2 is connected to line 3 in the case of the colour correlator A) and to line 1 in the case of the colour correlator B), as it should be. A more obvious representation of the above two colour correlators would be:
+\begin{eqnarray}
+ &&\text{A) }{{\bf{T}}_2 \cdot {\bf{T}}_3} {{\bf{T}}_1 \cdot {\bf{T}}_2} \rightsquigarrow {\tt{((\;(2,-1,2),(2,-2,2)\;),(\;(3,-1,3),(1,-2,1)\;))}}\nonumber\\
+ &&\text{B) }{{\bf{T}}_1 \cdot {\bf{T}}_2} {{\bf{T}}_2 \cdot {\bf{T}}_3} \rightsquigarrow {\tt{((\;(2,-1,2),(2,-2,2)\;),(\;(3,-2,3),(1,-1,1)\;))}}
+\end{eqnarray}
+or even
+\begin{eqnarray}
+ &&\text{A) }{{\bf{T}}_2 \cdot {\bf{T}}_3} {{\bf{T}}_1 \cdot {\bf{T}}_2} \rightsquigarrow {\tt{((\;(2,-1,2),(2,-2,2)\;),(\;(3,-1,3),(1,-2,1)\;))}}\nonumber\\
+ &&\text{B) }{{\bf{T}}_1 \cdot {\bf{T}}_2} {{\bf{T}}_2 \cdot {\bf{T}}_3} \rightsquigarrow {\tt{((\;(2,-2,2),(2,-1,2)\;),(\;(3,-1,3),(1,-2,1)\;))}}.
+\end{eqnarray}
+This exercise highlights a further redundancy of the notation introduced at the level of colour correlators, which could easily be lifted in \MkLO\ using additional filtering if generation time proves to be an issue. We stress that at runtime, the user can always specify the list of the colour correlators to consider, preventing any loss of efficiency in the computation of the colour-correlated matrix elements.
+
+In conclusion, we showed how the proposed representation of N$^k$LO colour-correlated matrix elements is both readable, unambiguous and fully general.
+
+\section{Technical details on the {\sc MadNkLO} implementation}
+
+\section{Combining colour correlators of multiple soft operators }
+
+\begin{thebibliography}{9}
+
+%\cite{Catani:1999ss}
+\bibitem{Catani:1999ss} 
+  S.~Catani and M.~Grazzini,
+  %``Infrared factorization of tree level QCD amplitudes at the next-to-next-to-leading order and beyond,''
+  Nucl.\ Phys.\ B {\bf 570}, 287 (2000)
+  doi:10.1016/S0550-3213(99)00778-6
+  [hep-ph/9908523].
+  %%CITATION = doi:10.1016/S0550-3213(99)00778-6;%%
+  %206 citations counted in INSPIRE as of 05 Apr 2018
+
+%\cite{Maltoni:2002mq}
+\bibitem{Maltoni:2002mq} 
+  F.~Maltoni, K.~Paul, T.~Stelzer and S.~Willenbrock,
+  %``Color flow decomposition of QCD amplitudes,''
+  Phys.\ Rev.\ D {\bf 67}, 014026 (2003)
+  doi:10.1103/PhysRevD.67.014026
+  [hep-ph/0209271].
+  %%CITATION = doi:10.1103/PhysRevD.67.014026;%%
+  %99 citations counted in INSPIRE as of 06 Apr 2018
+  
+%\cite{Kilian:2012pz}
+\bibitem{Kilian:2012pz} 
+  W.~Kilian, T.~Ohl, J.~Reuter and C.~Speckner,
+  %``QCD in the Color-Flow Representation,''
+  JHEP {\bf 1210}, 022 (2012)
+  doi:10.1007/JHEP10(2012)022
+  [arXiv:1206.3700 [hep-ph]].
+  %%CITATION = doi:10.1007/JHEP10(2012)022;%%
+  %33 citations counted in INSPIRE as of 06 Apr 2018
+  
+\end{thebibliography}
+
+\end{document}

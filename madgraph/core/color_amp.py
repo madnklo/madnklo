@@ -573,7 +573,7 @@ class ColorMatrix(dict):
                 self.build_matrix(Nc, Nc_power_min, Nc_power_max, is_symmetric=True)
 
     def get_splitting_color_operator(self, incoming_index, emitting_repr, outgoing_base_index, 
-                                             outgoing_emitted_index, qqbar=False, Q='Q1'):
+                                             outgoing_emitted_index, qqbar=False):
         """ Returns the color operator associated with the splitting of emitting_index (in the
         emitting_repr representation (in [8,3,-3]) into the emitted_index.
         The flag qqbar indicates if this is a g > g g or g > q q~ splitting.
@@ -585,14 +585,6 @@ class ColorMatrix(dict):
           q~ > q~ g  :  -T^{outgoing_emitted_index}_{outgoing_base_index, incoming_index}
           g > g g    :  f^{incoming_index, outgoing_emitted_index, outgoing_base_index}
           g > q q~   :  T^{incoming_index}_{outgoing_base_index,outgoing_emitted_index}
-          
-        Finally, when this splitting is to be added to the Q2 colour structure, the convention
-        is to *never* apply complex conjugation except for the g > q q~ splitting, where
-        it is necessary because the emitted particle (and antiquark) is not its own self-antiparticle.
-        In this case, the splitting operator added is the complex-conjugate of the one added
-        for Q1:
-
-          g > q q~ (for Q2) :  -T^{incoming_index}_{outgoing_emitted_index,outgoing_base_index}        
         
         """
         
@@ -620,12 +612,8 @@ class ColorMatrix(dict):
         # The outgoing_emitted_index is always chosen to be an outgoing anti-quark while the
         # outgoing_base_index is always a quark. 
         elif qqbar and emitting_repr == 8:
-            if Q=='Q1' or True:
-                return color_algebra.ColorString([color_algebra.T(incoming_index, 
+            return color_algebra.ColorString([color_algebra.T(incoming_index, 
                                             outgoing_emitted_index, outgoing_base_index)])
-            else:
-                return color_algebra.ColorString([color_algebra.T(incoming_index,
-                    outgoing_base_index, outgoing_emitted_index)],coeff=fractions.Fraction(-1, 1))
 
     def add_splitting_to_connection(self, connection, emitting_index, emitting_repr, 
                                                               emitted_index, qqbar=False ):
@@ -685,9 +673,9 @@ class ColorMatrix(dict):
         # Now that all the indices of the color operator to add have been figured out,
         # we can add it to the corresponding color strings
         connection['color_string_Q1'].product( self.get_splitting_color_operator(
-            incoming_index_Q1, emitting_repr, first_outgoing_index_Q1, second_outgoing_index, qqbar=qqbar, Q='Q1') )
+            incoming_index_Q1, emitting_repr, first_outgoing_index_Q1, second_outgoing_index, qqbar=qqbar) )
         connection['color_string_Q2'].product( self.get_splitting_color_operator(
-            incoming_index_Q2, emitting_repr, first_outgoing_index_Q2, second_outgoing_index, qqbar=qqbar, Q='Q2') )
+            incoming_index_Q2, emitting_repr, first_outgoing_index_Q2, second_outgoing_index, qqbar=qqbar) )
     
         # We must add the newly generated index to the list of available ones. 
         if not qqbar:
@@ -1283,11 +1271,9 @@ class ColorMatrix(dict):
                     self.col_matrix_fixed_Nc[(i2, i1)] = result_fixed_Nc
                 # and update the inverted dict
                 if result_fixed_Nc in self.inverted_col_matrix.keys():
-                    self.inverted_col_matrix[result_fixed_Nc].append((i1,
-                                                                      i2))
+                    self.inverted_col_matrix[result_fixed_Nc].append((i1, i2))
                     if is_symmetric:
-                        self.inverted_col_matrix[result_fixed_Nc].append((i2,
-                                                                          i1))
+                        self.inverted_col_matrix[result_fixed_Nc].append((i2, i1))
                 else:
                     self.inverted_col_matrix[result_fixed_Nc] = [(i1, i2)]
                     if is_symmetric:

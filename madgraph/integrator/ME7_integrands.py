@@ -1383,11 +1383,152 @@ class ME7Integrand_R(ME7Integrand):
 
         return res
 
+    def combine_color_correlators(self, color_correlators):
+        """ This function takes a list of color_correlators in argument, each specified as:
+               color_correlator = ( connection_left, connection_right )
+            where connection_<x> is given as:
+               connection = ( (motherA, emittedA, daughterA), (motherB, emittedB, daughterB), etc...)
+            and returns two lists: 
+                combined_color_correlators: the list of of new color correlator specifiers 
+                                            that arose from the combination of all of them
+                multiplier_factors: a list of float factors to multiply the contribution
+                                    of each of the combined color correlator returned above.
+        """
+
+        # Trivial combination if there is a single one:
+        if len(color_correlators):
+            return [color_correlators[0],], [1.0,]
+
+        # First weed out the trivial color correlators set to None.
+        non_trivial_color_correlators = [ccs for ccs in color_correlators if ccs is not None]
+        
+        # We don't support terms that factorize a *sum* of color correlator
+        if any(len(ccs)!=1 for ccs in non_trivial_color_correlators):
+            raise NotImplementedError(
+""" The combination of color correlators only the supports the case where each term returned by
+    the current factorizes a *single* correlator not a sum of several ones. So re-implement as follows:
+    from:
+        evaluation = {
+              'spin_correlations'  = [ None, ]
+              'color_correlations' = [ (correlatorA, correlatorB) ]
+              'values'             = [ (0,0) : my_weight ]
+        }
+    into:
+        evaluation = {
+              'spin_correlations'  = [ None, ]
+              'color_correlations' = [ (correlatorA,), (correlatorB,) ]
+              'values'             = [ (0,0) : my_weight,
+                                       (0,1) : my_weight ]
+        }
+""")
+        non_trivial_color_correlators = [ccs[0] for ccs in non_trivial_color_correlators]
+
+        # Convert the NLO short-hand convention if present to the general one
+        normalized_non_trivial_color_correlators = []
+        for cc in non_trivial_color_correlators:
+            misc.sprint(cc)
+            normalized_non_trivial_color_correlators.append(
+                ( cc[0] if not isinstance(cc[0],int) else ((cc[0],-1,cc[0]),),
+                  cc[1] if not isinstance(cc[1],int) else ((cc[1],-1,cc[1]),)  )
+            )
+        non_trivial_color_correlators = normalized_non_trivial_color_correlators
+        
+        # Place some limitation of the combinations we understand and can support now
+        # Only combinations of two color correlators for now
+        if len(non_trivial_color_correlators)>2:
+            raise NotImplementedError("Only combinations of at most TWO color correlators are supported for now.")
+        # Only NLO-type of correlators for now
+        if any( len(cc[0])>1 for cc in non_trivial_color_correlators):
+            raise NotImplementedError("Only combinations of at most NLO-type of color correlators are supported for now.")
+        
+        # Treat the easy case first where there is only one or zero color correlator
+        if len(non_trivial_color_correlators)==0:
+            return [ None,], [1.0,]
+        elif len(non_trivial_color_correlators)==1:
+            return [ (non_trivial_color_correlators[0],) ], [1.0,]
+        
+        # Now treat the non-trivial case of the combination of two NLO-type of color correlators
+        # For details of this implementation, I refer the reader to the corresponding documentation
+        # produced on this topic
+        assert(len(non_trivial_color_correlators)==2)
+        ccA = non_trivial_color_correlators[0]
+        ccB = non_trivial_color_correlators[1]
+        # Identify the terms of the compound soft operator S^{i1,j1} \otimes S^{i2,j2} 
+        i1, j1 = ccA[0][0], ccA[1][0]
+        i2, j2 = ccB[0][0], ccB[1][0]
+        # now construct all four ways in which the two gluons could have been connected
+        # between these four lines.
+        if i1==i2:
+            connections_A = [
+                ( (i1,-1,i1),(i2,-2,i2) ),
+                ( (i2,-2,i2),(i1,-2,i1) )
+            ]
+        else:
+            connections_A = [
+                ( (i1,-1,i1),(i2,-2,i2) ) if i1>i2 else
+                ( (i2,-2,i2),(i1,-1,i1) )
+            ]
+        if j1==j2:
+            connections_B = [
+                ( (j1,-1,j1),(j2,-2,j2) ),
+                ( (j2,-2,j2),(j1,-2,j1) )
+            ]
+        else:
+            connections_B = [
+                ( (j1,-1,j1),(j2,-2,j2) ) if j1>j2 else
+                ( (j2,-2,j2),(j1,-1,j1) )
+            ]
+        combined_color_correlators = []
+        for connection_A in connections_A:
+            for connection_B in connections_B:
+                combined_color_correlators.append(
+                    ( ( connection_A, connections_A ), )
+                )
+        
+        multiplier = 1.0/float(len(combined_color_correlators))
+        
+        # Now return the combined color correlators identified
+        return combined_color_correlators, [multiplier,]*len(combined_color_correlators)
+
+    def combine_spin_correlators(self, spin_correlators):
+        """ This function takes several spin-correlators specified int the form
+              spin_correlator = ( (legIndex, ( vector_A, vector_B, ...) ),
+                                 (anotherLegIndex, ( vector_C, vector_D, ...) ),
+                                 etc... ) 
+            and returns the list of new correlator specifiers that arises from the
+            combination of all of them.
+        """
+        
+        # Trivial combination if there is a single one:
+        if len(spin_correlators):
+            return spin_correlators[0]
+
+        # This combination is done with a simple concatenation of the lists. Example:
+        # Let's say correlator A only correlates to leg #1 with two four-vectors v_A and v_B
+        # (these can be seen as a replacement of polarization vectors to consider and summed over)
+        #     correlators_A[0]  = ( (1, (v_A, v_B)), )
+        # Now correlator B correlates with the two legs #4 and #7 (they must be different 
+        #  by construction!), each defined with a single vector v_C and v_B
+        #     correlators_B[0]  = ( (4, (v_C,)), (7, (v_D,)) )
+        # Then it is clear tha the combined spin correlation should be:
+        #     combined_spin_correlator = ( (1, (v_A, v_B)), (4, (v_C,)), (7, (v_D,)) )
+        # Notice that this implies that both combinations :
+        #    pol_vec_1 = v_A, pol_vec_4 = v_C,  pol_vec_7 = v_D
+        # as well as:
+        #    pol_vec_1 = v_B, pol_vec_4 = v_C,  pol_vec_7 = v_D
+        # will be computed and summed in the resulting spin-correlated matrix element call.
+        
+        # Make sure the spin correlators don't share common legs
+        for i, sc_a in enumerate(spin_correlators):
+            for sc_b in spin_correlators[i+1:]:
+                assert (len( set(c[0] for c in sc_a)&set(c[0] for c in sc_b))==0 )
+        
+        return tuple(sum([ (list(sc) if not sc is None else []) for sc in spin_correlators],[]))
+
     def evaluate_counterterm(self, counterterm, PS_point,
                              hel_config=None, defining_flavors=None,
                              apply_flavour_blind_cuts=True, apply_flavour_cuts=True  ):
         """ Evaluates the specified counterterm for the specified PS point."""
-
 
         # Retrieve some possibly relevant model parameters
         alpha_s = self.model.get('parameter_dict')['aS']
@@ -1457,33 +1598,10 @@ class ME7Integrand_R(ME7Integrand):
             # there will be only one level anyway so that there is not need of fancy combination
             # of Laurent series.
             weight *= current_evaluation['values'][(0,0)]['finite']
-             
-        # Specify here how to combine one set of correlators with another.
-        def combine_correlators(correlators_A, correlators_B):
-            combined_correlator = [None, None, correlators_A[2]*correlators_B[2]]
-            # Trivial combination of correlators first
-            for i in range(2):
-                if (correlators_A[i] is None) and (correlators_B[i] is None):
-                    combined_correlator[i] = None
-                elif (correlators_A[i] is None):
-                    combined_correlator[i] = correlators_B[i]
-                elif (correlators_B[i] is None):
-                    combined_correlator[i] = correlators_A[i]
-            # Non-trivial combinations now
-            # Spin-correlators
-            if (not correlators_A[0] is None) and (not correlators_B[0] is None):
-                combined_correlator[0] = tuple(list(correlators_A[0])+list(correlators_B[0]))
-            # Color-correlators
-            if (not correlators_A[1] is None) and (not correlators_B[1] is None):
-                # It is not clear how to combine two currents each possessing color correlation.
-                # Whenever this will be explicitly needed, then it will be clear how this
-                # should be done and it can be implemented here.
-                raise NotImplementedError
-            return combined_correlator
-        
+
         # all_necessary_ME_calls is a list of tuples of the following form:
-        #  (spin_correlator, color_correlator, weight)
-        all_necessary_ME_calls = [(None, None, weight)]
+        #  (spin_correlators_to_combine, color_correlators_to_combine, weights_to_combine)
+        all_necessary_ME_calls = [ ([], [], []) ]
         
         # Now iterate over currents that may require color- and spin-correlations        
         for (current, PS_point_for_current) in connected_currents:
@@ -1499,18 +1617,41 @@ class ME7Integrand_R(ME7Integrand):
             for ((spin_index, color_index), current_wgt) in current_evaluation['values'].items():
                 # Now combine the correlators necessary for this current, with those already
                 # specified in 'all_necessary_ME_calls'
-                current_correlator = ( current_evaluation['spin_correlations'][spin_index],
-                                       current_evaluation['color_correlations'][color_index],
-                                       current_wgt['finite'] )
                 for ME_call in all_necessary_ME_calls:
-                    new_all_necessary_ME_calls.append( combine_correlators(ME_call,current_correlator) )
+                    new_all_necessary_ME_calls.append( (
+                        # Append this spin correlation to those already present for that call
+                        ME_call[0]+[current_evaluation['spin_correlations'][spin_index],],
+                        # Append this colour correlation to those already present for that call
+                        ME_call[1]+[current_evaluation['color_correlations'][color_index],],
+                        # Append this weight to those already present for that call
+                        ME_call[2]+[current_wgt['finite'],],
+                    ) )
             # Update the list of necessary ME calls
             all_necessary_ME_calls = new_all_necessary_ME_calls
 
-        # Finally the treat the call to the matrix element
+        # Now perform the combination of the list of spin and color correlators to be merged
+        # for each necessary ME call identified
+        new_all_necessary_ME_calls = []
+        for spin_correlators_to_combine, color_correlators_to_combine, weights_to_combine in all_necessary_ME_calls:
+            combined_spin_correlator  = self.combine_spin_correlators(spin_correlators_to_combine)
+            # The combination of color correlators can give rise to several ones, each with its multiplier
+            combined_color_correlators, multipliers = self.combine_color_correlators(color_correlators_to_combine)
+            combined_weight = reduce(lambda x,y: x*y, weights_to_combine)
+            for combined_color_correlator, multiplier in zip(combined_color_correlators,multipliers):
+                # Finally add the processed combination as a new ME call
+                new_all_necessary_ME_calls.append( (
+                    combined_spin_correlator,
+                    combined_color_correlator,
+                    combined_weight*multiplier
+                ) )
+        all_necessary_ME_calls = new_all_necessary_ME_calls
+
+        # Finally treat the call to the reduced connected matrix elements
         final_weight = 0.0
         for (spin_correlators, color_correlators, current_weight) in all_necessary_ME_calls:
 #            misc.sprint(ME_PS,ME_process.nice_string())
+#            misc.sprint(spin_correlators)
+#            misc.sprint(color_correlators)
             try:
                 ME_evaluation, all_ME_results = self.all_MEAccessors(
                    ME_process, ME_PS, alpha_s, mu_r,

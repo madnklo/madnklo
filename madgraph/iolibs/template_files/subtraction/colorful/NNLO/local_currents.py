@@ -130,7 +130,443 @@ class QCD_final_collinear_0_QQxq(currents.QCDLocalCollinearCurrent):
         })
         evaluation['values'][(0, 0)]['finite'] = self.CF*self.TR * s123 / (2*s12) * sqrbrk
         return evaluation
-    
+
+
+class QCD_final_collinear_0_qqxq(currents.QCDLocalCollinearCurrent):
+    """q q~ q (same flavour) collinear tree-level current."""
+
+    @classmethod
+    def does_implement_this_current(cls, current, model):
+
+        # Check the general properties common to NNLO QCD collinear tree-level currents
+        init_vars = cls.common_does_implement_this_current(current, 4, 0)  # gs^4 and 0 loops
+        if init_vars is None: return None
+        # Retrieve singular structure
+        ss = current.get(
+            'singular_structure')  #: C((0,21,F),(0,4,F)) -> F: fijal state , 21: gluon, 4: c  going collinear
+        # Check that there are 3 massless final state quarks or antiquarks
+        if len(ss.legs) != 3: return None  # better have 3 legs
+        for leg in ss.legs:
+            if not cls.is_massless(leg, model): return None
+            if cls.is_initial(leg): return None
+            if not cls.is_quark(leg, model): return None  # better be a (anti)quark
+        # Look for a quark/antiquark pair
+        pair = None
+        for i in range(len(ss.legs)):
+            for j in range(i + 1, len(ss.legs)):
+                if cls.are_antiparticles(ss.legs[i], ss.legs[j]):
+                    pair = (ss.legs[i], ss.legs[j])
+                    continue
+            if pair is not None: continue
+        if pair is None: return None
+        # Identify the remaining quark
+        # remaining quark only appears in other_quarks if it has a different flavor than the q-qbar pair
+        other_quarks = [leg for leg in ss.legs if leg not in pair]
+        # we want same flavour, so we want the other_quarks to be empty
+        if len(other_quarks) != 0: return None
+        # The current is valid
+        return init_vars
+
+    @classmethod
+    def get_sorted_children(cls, current, model):
+        # sorts out particles within current so, for example in q q' Q', q is always number 1
+        legs = current.get('singular_structure').legs
+        # we have a q q qx current, or a q qx qx current and we want to spot the "special" qx, or q respectively
+        if cls.are_antiparticles(legs[0], legs[1]):  # 0 and 1 are anti
+            if cls.are_antiparticles(legs[0], legs[2]):  # 0 and 2 are anti, so 0 is special
+                return (legs[0].n, legs[1].n, legs[2].n)
+            else:  # 0 and 2 are same, so 1 is special
+                return (legs[1].n, legs[2].n, legs[0].n)
+        else:  # 0 and 1 are same , so 2 is special
+            return (legs[2].n, legs[0].n, legs[1].n)
+
+    def evaluate_kernel(self, zs, kTs, parent):
+
+        # Retrieve the collinear variables and compute basic quantities
+        z1, z2, z3 = zs
+        k1, k2, k3 = kTs
+        s12 = sij(1, 2, zs, kTs)
+        s13 = sij(1, 3, zs, kTs)
+        s23 = sij(2, 3, zs, kTs)
+        s123 = s12 + s13 + s23
+
+        # Assemble kernel
+        kernel = self.evaluate_unsymmetrized_kernel((z1, z2, z3), (s12, s13, s23, s123), kTs)
+        kernel += self.evaluate_unsymmetrized_kernel((z1, z3, z2), (s13, s12, s23, s123), (k1, k3, k2))
+
+        # Instantiate the structure of the result
+        evaluation = utils.SubtractionCurrentEvaluation({
+            'spin_correlations': [None],
+            'color_correlations': [None],
+            'values': {(0, 0): {'finite': None}}
+        })
+        evaluation['values'][(0, 0)]['finite'] = kernel
+        return evaluation
+
+    def evaluate_unsymmetrized_kernel(self, zs, sijs, k_ts):
+        z1, z2, z3 = zs
+        s12, s13, s23, s123 = sijs
+        t123 = tijk(1, 2, 3, zs, k_ts, s_ij=s12, s_ik=s13, s_jk=s23)
+        # Assemble unsymmetrized kernel - piece identical to the kernel q->q q' qbar'
+        sqrbrk = -(t123 ** 2) / (s12 * s123)
+        sqrbrk += (4 * z3 + (z1 - z2) ** 2) / (z1 + z2)
+        sqrbrk += z1 + z2 - s12 / s123
+        # Assemble unsymmetrized kernel - piece special to same flavour case
+        res = 2.0 * s23 / s12
+        res += s123 / s12 * ((1 + z1 ** 2) / (1 - z2) - 2. * z2 / (1 - z3))
+        res += - s123 ** 2 / s12 / s13 * z1 / 2. * (1 + z1 ** 2) / (1 - z2) / (1 - z3)
+        return 0.5 * self.CF * self.TR * s123 / s12 * sqrbrk + self.CF * (self.CF - self.CA / 2.) * res
+
+
+class QCD_final_collinear_0_qgg(currents.QCDLocalCollinearCurrent):
+    """q g g  collinear tree-level current."""
+
+    @classmethod
+    def does_implement_this_current(cls, current, model):
+
+        # Check the general properties common to NNLO QCD collinear tree-level currents
+        init_vars = cls.common_does_implement_this_current(current, 4, 0)  # gs^4 and 0 loops
+        if init_vars is None: return None
+        # Retrieve singular structure
+        ss = current.get(
+            'singular_structure')  #: C((0,21,F),(0,4,F)) -> F: fijal state , 21: gluon, 4: c  going collinear
+        # Check that there are 3 massless final state partons
+        if len(ss.legs) != 3: return None  # better have 3 legs
+        for leg in ss.legs:
+            if not cls.is_massless(leg, model): return None
+            if cls.is_initial(leg): return None
+        # Check that there are two gluons and one (anti)quark
+        number_of_quarks = 0
+        number_of_gluons = 0
+        for leg in ss.legs:
+            if cls.is_quark(leg,model):number_of_quarks += 1
+            if cls.is_gluon(leg,model):number_of_gluons += 1
+        if number_of_quarks != 1: return None
+        if number_of_gluons != 2: return None
+
+        # The current is valid if we've made it till here
+        return init_vars
+
+    @classmethod
+    def get_sorted_children(cls, current, model):
+        # sorts out particles within current so, for example in q q' Q', q is always number 1
+        legs = current.get('singular_structure').legs
+        # we have a q g g current  and we want to spot the "special" q (and place it at position 3)
+        if cls.is_quark(legs[0], model):  # 0 is quark
+            return (legs[1].n, legs[2].n, legs[0].n)
+        elif cls.is_quark(legs[1], model): # 1 is quark
+            return (legs[2].n, legs[0].n, legs[1].n)
+        else:  # it must be that 2 is a quark
+            return (legs[0].n, legs[1].n, legs[2].n)
+
+    def evaluate_kernel(self, zs, kTs, parent):
+
+        # Retrieve the collinear variables and compute basic quantities
+        z1, z2, z3 = zs
+        k1, k2, k3 = kTs
+        s12 = sij(1, 2, zs, kTs)
+        s13 = sij(1, 3, zs, kTs)
+        s23 = sij(2, 3, zs, kTs)
+        s123 = s12 + s13 + s23
+
+        # Assemble kernel
+        kernel = self.evaluate_unsymmetrized_kernel((z1, z2, z3), (s12, s13, s23, s123), kTs)
+        kernel += self.evaluate_unsymmetrized_kernel((z2, z1, z3), (s12, s23, s13, s123), (k2, k1, k3))
+
+        # Instantiate the structure of the result
+        evaluation = utils.SubtractionCurrentEvaluation({
+            'spin_correlations': [None],
+            'color_correlations': [None],
+            'values': {(0, 0): {'finite': None}}
+        })
+        evaluation['values'][(0, 0)]['finite'] = kernel
+        return evaluation
+
+    def evaluate_unsymmetrized_kernel(self, zs, sijs, k_ts):
+        z1, z2, z3 = zs
+        s12, s13, s23, s123 = sijs
+        t123 = tijk(1, 2, 3, zs, k_ts, s_ij=s12, s_ik=s13, s_jk=s23)
+        # Assemble unsymmetrized kernel - Abelian piece
+        abelian = s123**2 / (2 * s13 * s23) * z3 * (1+z3**2) / (z1 * z2)
+        abelian += s123/s13 * (z3*(1-z1)+(1-z2)**3) / (z1 * z2)
+        abelian += - s23/s13
+        # Assemble unsymmetrized kernel - Non-abelian piece
+        nonabelian = t123**2 / (4 * s12**2) + 1. / 4. + s123**2 / (2. * s12 * s13) * (  ((1-z3)**2 + 2 * z3) / z2 + (z2**2 + 2 * (1. - z2)) / (1-z3))
+        nonabelian += - s123**2 / (4 * s13 * s23) * z3 * ((1-z3)**2 + 2 * z3 ) / (z1 * z2)
+        nonabelian += s123 / (2 * s12) * ( (z1 * (2 - 2 * z1 + z1**2) - z2 * (6 -6*z2 + z2**2)) / (z2 * (1-z3))   )
+        nonabelian += s123 / (2 * s13) * (  ((1-z2)**3 + z3**2 - z2) / (z2 * (1-z3))     - ( z3 * (1-z1) + (1-z2)**3) / (z1 * z2)  )
+        return  self.CF**2 * abelian + self.CF *  self.CA  * nonabelian
+
+
+class QCD_final_collinear_0_gqqx(currents.QCDLocalCollinearCurrent):
+    """g -> g q q~  collinear tree-level current."""
+
+    @classmethod
+    def does_implement_this_current(cls, current, model):
+
+        # Check the general properties common to NNLO QCD collinear tree-level currents
+        init_vars = cls.common_does_implement_this_current(current, 4, 0)  # gs^4 and 0 loops
+        if init_vars is None: return None
+        # Retrieve singular structure
+        ss = current.get(
+            'singular_structure')  #: C((0,21,F),(0,4,F)) -> F: fijal state , 21: gluon, 4: c  going collinear
+        # Check that there are 3 massless final state partons
+        if len(ss.legs) != 3: return None  # better have 3 legs
+        for leg in ss.legs:
+            if not cls.is_massless(leg, model): return None
+            if cls.is_initial(leg): return None
+        # Check that there are two gluons and one (anti)quark
+        number_of_quarks = 0
+        number_of_gluons = 0
+        for leg in ss.legs:
+            if cls.is_quark(leg,model):number_of_quarks += 1
+            if cls.is_gluon(leg,model):number_of_gluons += 1
+        if number_of_quarks != 2: return None
+        if number_of_gluons != 1: return None
+        # Look for a quark/antiquark pair
+        pair = None
+        for i in range(len(ss.legs)):
+            for j in range(i + 1, len(ss.legs)):
+                if cls.are_antiparticles(ss.legs[i], ss.legs[j]):
+                    pair = (ss.legs[i], ss.legs[j])
+                    continue
+            if pair is not None: continue
+        if pair is None: return None
+        # The current is valid if we've made it till here
+        return init_vars
+
+    @classmethod
+    def get_sorted_children(cls, current, model):
+        # sorts out particles within current so, for example in g q Q, g is always number 1
+        #we don;t care about the order of q and Q
+        legs = current.get('singular_structure').legs
+        # we have a g q Q current  and we want to spot the "special" g (and place it at position 1)
+        if cls.is_gluon(legs[0], model):  # 0 is gluon
+            return (legs[0].n, legs[1].n, legs[2].n)
+        elif cls.is_gluon(legs[1], model): # 1 is gluon
+            return (legs[1].n, legs[2].n, legs[0].n)
+        else:  # it must be that 2 is a gluon
+            return (legs[2].n, legs[0].n, legs[1].n)
+
+    def evaluate_kernel(self, zs, kTs, parent):
+
+        # Retrieve the collinear variables and compute basic quantities
+        z1, z2, z3 = zs
+        k1, k2, k3 = kTs
+        s12 = sij(1, 2, zs, kTs)
+        s13 = sij(1, 3, zs, kTs)
+        s23 = sij(2, 3, zs, kTs)
+        s123 = s12 + s13 + s23
+        CF = self.CF
+        CA = self.CA
+        TR = self.TR
+        t231 = tijk(2, 3, 1, zs, kTs, s_ij=s23, s_ik=s12, s_jk=s13)
+        t321 = tijk(3, 2, 1, zs, kTs, s_ij=s23, s_ik=s13, s_jk=s12)
+
+        k23 = k2 + k3
+        u23 = k2/z2 - k3/z3
+
+        # Assemble kernel
+        kernel_gmunu = (CF*TR*(2 - s23**2/(s12*s13) - s123**2/(s12*s13))
+                        + CA*TR*(0.5 + s123**2/(s12*s13) + t231**2/(4.*s23**2)
+                                 + t321**2/(4.*s23**2) + s123/(s23*(1 - z1))
+                                 - s123/(2.*s12*(1 - z1)*z1) - s123/(2.*s13*(1 - z1)*z1)
+                                 - s123/(s23*(1 - z1)*z1) - (2*s123*z1)/(s23*(1 - z1))
+                                 + (s123**2*z2)/(s12*s23*(1 - z1))
+                                 + (s123*z2)/(2.*s13*(1 - z1)*z1)
+                                 - (s123**2*z2)/(2.*s12*s23*(1 - z1)*z1)
+                                 + (s123**2*z3)/(s13*s23*(1 - z1))
+                                 + (s123*z3)/(2.*s12*(1 - z1)*z1)
+                                 - (s123**2*z3)/(2.*s13*s23*(1 - z1)*z1))
+                        )
+        kernel_k1mu_k1nu = ((2*CA*TR*s123)/(s12*s13) - (4*CF*TR*s123)/(s12*s13))
+        kernel_k2mu_k2nu = ((-4*CF*TR*s123)/(s12*s13)
+                            + CA*TR*(((4*s123)/(s12*s13)
+                                      + (s123*((-16*z3**2)/((1 - z1)*z1)
+                                               - 4*(1 + (2*(-z1 + z2)*z3)/((1 - z1)*z1))))/(s13*s23))/4.
+                                     + ((4*s123)/(s12*s13)
+                                        + (s123*(8 - 4*(1 + (2*z2*(-z1 + z3))/((1 - z1)*z1))))/(s12*s23))/4.)
+                            )
+        kernel_k3mu_k3nu = ((-4*CF*TR*s123)/(s12*s13)
+                            + CA*TR*(((4*s123)/(s12*s13)
+                                      + (s123*(8 - 4*(1 + (2*(-z1 + z2)*z3)/((1 - z1)*z1))))/(s13*s23))/4.
+                                     + ((4*s123)/(s12*s13)
+                                        + (s123*((-16*z2**2)/((1 - z1)*z1)
+                                                 - 4*(1 + (2*z2*(-z1 + z3))/((1 - z1)*z1))))/(s12*s23))/4.)
+                            )
+        kernel_k23mu_k23nu = ((4*CF*TR*s123)/(s12*s13)
+                              + CA*TR*(((-4*s123)/(s12*s13)
+                                        + (4*s123*(1 + (2*(-z1 + z2)*z3)/((1 - z1)*z1)))/(s13*s23))/4.
+                                       + ((-4*s123)/(s12*s13)
+                                          + (4*s123*(1 + (2*z2*(-z1 + z3))/((1 - z1)*z1)))/(s12*s23))/4.)
+                              )
+
+        kernel_u23mu_u23nu = ((-8*CA*TR*s123*z2**2*z3**2)/(s23**2*(1 - z1)*z1))
+
+        # Instantiate the structure of the result
+        evaluation = utils.SubtractionCurrentEvaluation({
+            'spin_correlations': [None, ((parent,( k1, )), ),
+                                        ((parent,( k2, )), ),
+                                        ((parent,( k3, )), ),
+                                        ((parent,( k23, )), ),
+                                        ((parent,( u23, )), ), ],
+            'color_correlations': [None],
+            'values': {(0, 0): {'finite': -kernel_gmunu},  # for the minus sign: Madgraph multiplies this by -g_mu_nu
+                       (1, 0): {'finite': kernel_k1mu_k1nu},
+                       (2, 0): {'finite': kernel_k2mu_k2nu},
+                       (3, 0): {'finite': kernel_k3mu_k3nu},
+                       (4, 0): {'finite': kernel_k23mu_k23nu},
+                       (5, 0): {'finite': kernel_u23mu_u23nu},}
+        })
+
+        return evaluation
+
+
+class QCD_final_collinear_0_ggg(currents.QCDLocalCollinearCurrent):
+    """g -> g g g  collinear tree-level current."""
+
+    @classmethod
+    def does_implement_this_current(cls, current, model):
+
+        # Check the general properties common to NNLO QCD collinear tree-level currents
+        init_vars = cls.common_does_implement_this_current(current, 4, 0)  # gs^4 and 0 loops
+        if init_vars is None: return None
+        # Retrieve singular structure
+        ss = current.get(
+            'singular_structure')  #: C((0,21,F),(0,4,F)) -> F: fijal state , 21: gluon, 4: c  going collinear
+        # Check that there are 3 massless final state partons
+        if len(ss.legs) != 3: return None  # better have 3 legs
+        for leg in ss.legs:
+            if not cls.is_massless(leg, model): return None
+            if cls.is_initial(leg): return None
+        # Check that there are no (anti)quarks and that there are 3 gluons
+        number_of_gluons = 0
+        for leg in ss.legs:
+            if cls.is_quark(leg, model): return None
+            if cls.is_gluon(leg, model): number_of_gluons = number_of_gluons + 1
+        if number_of_gluons != 3: return None
+
+        # The current is valid if we've made it till here
+        return init_vars
+
+    @classmethod
+    def get_sorted_children(cls, current, model):
+        # sorts out particles within current
+        # we don't care about ordering here - the g g g vertex is symmetric
+        legs =  current.get('singular_structure').legs
+        return (legs[0].n, legs[1].n, legs[2].n)
+
+    def evaluate_kernel(self, zs, kTs, parent):
+
+        # Retrieve the collinear variables and compute basic quantities
+        z1, z2, z3 = zs
+        k1, k2, k3 = kTs
+        s12 = sij(1, 2, zs, kTs)
+        s13 = sij(1, 3, zs, kTs)
+        s23 = sij(2, 3, zs, kTs)
+        s123 = s12 + s13 + s23
+        CA = self.CA
+        tt123 = tijk(1, 2, 3, zs, kTs, s_ij=s12, s_ik=s23, s_jk=s13)
+        tt312 = tijk(3, 1, 2, zs, kTs, s_ij=s13, s_ik=s12, s_jk=s23)
+        tt231 = tijk(2, 3, 1, zs, kTs, s_ij=s23, s_ik=s13, s_jk=s12)
+        tt213 = - tt123
+        tt132 = - tt312
+        tt321 = - tt231
+        k12 = k1 + k2
+        k23 = k2 + k3
+        k13 = k1 + k3
+        u12 = k1 / z1 - k2 / z2
+        u23 = k2 / z2 - k3 / z3
+        u31 = k3 / z3 - k1 / z1
+
+        # Assemble kernel
+        kernel_gmunu = (  self.evaluate_gmunu(z1, z2, z3, s12, s23, s13, s123, tt123)
+                        + self.evaluate_gmunu(z2, z3, z1, s23, s13, s12, s123, tt231)
+                        + self.evaluate_gmunu(z3, z1, z2, s13, s12, s23, s123, tt312)
+                        + self.evaluate_gmunu(z3, z2, z1, s23, s12, s13, s123, tt321)
+                        + self.evaluate_gmunu(z1, z3, z2, s13, s23, s12, s123, tt132)
+                        + self.evaluate_gmunu(z2, z1, z3, s12, s13, s23, s123, tt213)
+                        )
+        kernel_k1mu_k1nu = (CA**2*s123*((3 + (2*z1*(1 - 2*z3))/((1 - z3)*z3)
+                                         - (2*(z1 + z2)*z3)/(z1*(z1 + z3)))/(s12*s23)
+                                        + (3 + (2*z1*(1 - 2*z2))/((1 - z2)*z2)
+                                           - (2*z2*(z1 + z3))/(z1*(z1 + z2)))/(s13*s23)
+                                        + (3 + (2*z1*(1 - 2*z2))/((1 - z2)*z2)
+                                           - (2*z1*(z2 + z3))/(z2*(z1 + z2)))/(s13*s23)
+                                        + (3 + (2*z1*(1 - 2*z3))/((1 - z3)*z3)
+                                           - (2*z1*(z2 + z3))/(z3*(z1 + z3)))/(s12*s23)))
+        kernel_k2mu_k2nu = CA**2*s123*((3 + (2*z1*(1 - 2*z1))/((1 - z1)*z1)
+                                        - (2*z2*(z1 + z3))/(z1*(z1 + z2)))/(s13*s23)
+                                       + (3 + (2*z1*(1 - 2*z3))/((1 - z3)*z3)
+                                          - (2*(z1 + z2)*z3)/(z2*(z2 + z3)))/(s12*s13)
+                                       + (3 + (2*z1*(1 - 2*z3))/((1 - z3)*z3)
+                                          - (2*z2*(z1 + z3))/(z3*(z2 + z3)))/(s12*s13)
+                                       + (3 + (2*z1*(1 - 2*z1))/((1 - z1)*z1)
+                                          - (2*z1*(z2 + z3))/(z2*(z1 + z2)))/(s13*s23))
+        kernel_k3mu_k3nu =CA**2*s123*((3 + (2*z1*(1 - 2*z1))/((1 - z1)*z1)
+                                       - (2*(z1 + z2)*z3)/(z1*(z1 + z3)))/(s12*s23)
+                                      + (3 + (2*z1*(1 - 2*z2))/((1 - z2)*z2)
+                                         - (2*(z1 + z2)*z3)/(z2*(z2 + z3)))/(s12*s13)
+                                      + (3 + (2*z1*(1 - 2*z2))/((1 - z2)*z2)
+                                         - (2*z2*(z1 + z3))/(z3*(z2 + z3)))/(s12*s13)
+                                      + (3 + (2*z1*(1 - 2*z1))/((1 - z1)*z1)
+                                         - (2*z1*(z2 + z3))/(z3*(z1 + z3)))/(s12*s23))
+        kernel_k12mu_k12nu = (CA**2*s123*(-3 + (2*z2*(z1 + z3))/(z1*(z1 + z2))))/(s13*s23) \
+                             + (CA**2*s123*(-3 + (2*z1*(z2 + z3))/(z2*(z1 + z2))))/(s13*s23)
+
+        kernel_k23mu_k23nu = (CA**2*s123*(-3 + (2*(z1 + z2)*z3)/(z2*(z2 + z3))))/(s12*s13) \
+                             + (CA**2*s123*(-3 + (2*z2*(z1 + z3))/(z3*(z2 + z3))))/(s12*s13)
+
+        kernel_k13mu_k13nu = (CA**2*s123*(-3 + (2*(z1 + z2)*z3)/(z1*(z1 + z3))))/(s12*s23) \
+                             + (CA**2*s123*(-3 + (2*z1*(z2 + z3))/(z3*(z1 + z3))))/(s12*s23)
+
+        kernel_u12mu_u12nu = (8*CA**2*s123*z1**2*z2**2)/(s12**2*(1 - z3)*z3)
+
+        kernel_u23mu_u23nu = (8*CA**2*s123*z2**2*z3**2)/(s23**2*(1 - z1)*z1)
+
+        kernel_u13mu_u13nu = (8*CA**2*s123*z1**2*z3**2)/(s13**2*(1 - z2)*z2)
+
+        # Instantiate the structure of the result
+        evaluation = utils.SubtractionCurrentEvaluation({
+            'spin_correlations': [None, ((parent, (k1,)),),
+                                  ((parent, (k2,)),),
+                                  ((parent, (k3,)),),
+                                  ((parent, (k12,)),),
+                                  ((parent, (k23,)),),
+                                  ((parent, (k13,)),),
+                                  ((parent, (u12,)),),
+                                  ((parent, (u23,)),),
+                                  ((parent, (u31,)),),
+                                  ],
+            'color_correlations': [None],
+            'values': {(0, 0): {'finite': -kernel_gmunu},  # for the minus sign: Madgraph multiplies this by -g_mu_nu
+                       (1, 0): {'finite': kernel_k1mu_k1nu},
+                       (2, 0): {'finite': kernel_k2mu_k2nu},
+                       (3, 0): {'finite': kernel_k3mu_k3nu},
+                       (4, 0): {'finite': kernel_k12mu_k12nu},
+                       (5, 0): {'finite': kernel_k23mu_k23nu},
+                       (6, 0): {'finite': kernel_k13mu_k13nu},
+                       (7, 0): {'finite': kernel_u12mu_u12nu},
+                       (8, 0): {'finite': kernel_u23mu_u23nu},
+                       (9, 0): {'finite': kernel_u13mu_u13nu},
+                       }
+        })
+
+        return evaluation
+
+    def evaluate_gmunu(self,z1,z2,z3,s12,s23,s13,s123,tt123):
+        return self.CA**2*(-0.75 - tt123**2/(4.*s12**2) + (2*s123)/(s12*(1 - z1)*z1)
+                      - (2*s123)/(s12*(1 - z3)) - s123**2/(2.*s12*s13*(1 - z2)*(1 - z3))
+                      + (s123**2*z1)/(s12*s13*(1 - z2)*(1 - z3))
+                      - (s123**2*z1**2)/(s12*s13*(1 - z2)*(1 - z3)) - s123/(s12*(1 - z1)*z1*z3)
+                      - s123**2/(2.*s12*s13*z2*z3) + (s123**2*z1)/(s12*s13*z2*z3) - (s123**2*z1**2)/(s12*s13*z2*z3)
+                      + (2*s123)/(s12*(1 - z3)*z3) - (2*s123*z3)/(s12*(1 - z1)*z1) + (4*s123*z3)/(s12*(1 - z3))
+                      + (2*s123**2*z2*z3)/(s12*s13*(1 - z2)*(1 - z3)))
+#=========================================================================================
+# NNLO final-final soft currents
+#=========================================================================================
+
+
 class QCD_final_soft_0_gg(currents.QCDLocalSoftCurrent):
     """Double soft tree-level current."""
     

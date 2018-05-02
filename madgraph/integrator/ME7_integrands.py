@@ -1687,7 +1687,6 @@ The missing process is: %s"""%ME_process.nice_string())
             counterterms_to_consider = [
                 ct for ct in self.counterterms[process_key]
                 if ct.count_unresolved() <= test_options['correction_order'].count('N') ]
-            
             # Select the limits to be probed using limit_pattern
             # or, if this fails, limit_type
             selected_counterterms = self.find_counterterms_matching_regexp(

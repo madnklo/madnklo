@@ -593,11 +593,11 @@ class MappingsTest(unittest.TestCase):
     # Test soft mappings
     #=====================================================================================
 
-    def test_MappingSomogyietalSoft_invertible(self):
-        """Test if MappingSomogyietalSoft is invertible."""
+    def test_SoftVsFinalMapping_invertible(self):
+        """Test if SoftVsFinalMapping is invertible."""
 
         pars = {
-            'mapping': mappings.MappingSomogyietalSoft(),
+            'mapping': mappings.SoftVsFinalMapping(),
             'min_soft_sets': 1, 'max_soft_sets': 3,
             'min_recoilers': 2, 'max_recoilers': 5,
             'max_unchanged': 3, 'masses': None,

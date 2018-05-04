@@ -1195,6 +1195,7 @@ class FinalGroupingMapping(FinalCollinearMapping):
         res = FinalMassesMapping.map_to_higher_multiplicity(
             PS_point, reduced_singular_structure, momenta_dict,
             reduced_kinematic_variables, compute_jacobian )
+        res['pow'] = len(singular_structure.substructures)
         # Eliminate children momenta from the mapped phase-space point
         # and, if need be, update the kinematic_variables dictionary
         for parent, p in parent_momenta.items():
@@ -1355,6 +1356,7 @@ class FinalLorentzMapping(FinalCollinearMapping):
         res = FinalMassesMapping.map_to_higher_multiplicity(
             PS_point, reduced_singular_structure, momenta_dict,
             reduced_kinematic_variables, compute_jacobian )
+        res['pow'] = len(singular_structure.substructures)
         # Eliminate children momenta from the mapped phase-space point
         # and, if need be, update the kinematic_variables dictionary
         for parent, p in parent_momenta.items():
@@ -1704,7 +1706,7 @@ class ElementaryMappingSoft(VirtualMapping):
 # Soft mapping, massless final-state recoilers
 #=========================================================================================
 
-class MappingSomogyietalSoft(ElementaryMappingSoft):
+class SoftVsFinalMapping(ElementaryMappingSoft):
     """Implementation of the mapping used by Somogyi et al.
     in arXiv:hep-ph/0609042 for soft particles.
     It applies when there are at least two recoilers in the final state
@@ -1716,7 +1718,7 @@ class MappingSomogyietalSoft(ElementaryMappingSoft):
 
         # Valid only if there are at least two recoilers (assumed in the final state)
         if len(singular_structure.legs) < 2: return False
-        return super(MappingSomogyietalSoft, cls).is_valid_structure(singular_structure)
+        return super(SoftVsFinalMapping, cls).is_valid_structure(singular_structure)
 
     @classmethod
     def map_to_lower_multiplicity(
@@ -2394,14 +2396,14 @@ class FinalNLOWalker(OneNodeWalker):
 class FinalRescalingNLOWalker(FinalNLOWalker):
 
     collinear_map = FinalRescalingOneMapping()
-    soft_map = MappingSomogyietalSoft()
+    soft_map = SoftVsFinalMapping()
     soft_collinear_map = SoftCollinearMapping(soft_map, collinear_map)
     only_colored_recoilers = True
 
 class FinalLorentzNLOWalker(FinalNLOWalker):
 
     collinear_map = FinalLorentzOneMapping()
-    soft_map = MappingSomogyietalSoft()
+    soft_map = SoftVsFinalMapping()
     soft_collinear_map = SoftCollinearMapping(soft_map, collinear_map)
     only_colored_recoilers = True
 
@@ -2444,13 +2446,14 @@ class NLOWalker(OneNodeWalker):
             else:
                 return cls.f_soft_collinear_map
         else:
-            raise MadGraph5Error(cls.cannot_handle_msg(structure))
+            logger.critical("Error while processing %s" % structure)
+            raise MadGraph5Error(cls.cannot_handle_msg("SingularStructure"))
 
 class LorentzNLOWalker(NLOWalker):
 
     f_collinear_map = FinalLorentzOneMapping()
     i_collinear_map = InitialLorentzOneMapping()
-    soft_map = MappingSomogyietalSoft()
+    soft_map = SoftVsFinalMapping()
     f_soft_collinear_map = SoftCollinearMapping(soft_map, f_collinear_map)
     i_soft_collinear_map = SoftCollinearMapping(soft_map, i_collinear_map)
     only_colored_recoilers = True
@@ -2472,7 +2475,7 @@ class DisjointWalker(OneNodeWalker):
         parents = []
         currents = []
         substructures = []
-        squared_masses = {}
+        soft_particles = []
         for node in counterterm.nodes:
             # Do not accept nested currents
             if node.nodes:
@@ -2480,13 +2483,15 @@ class DisjointWalker(OneNodeWalker):
             # Alias singular structure for convenience
             ss = node.current['singular_structure']
             # Get parent and children numbers
-            parent, children, _ = get_structure_numbers(
-                ss, counterterm.momenta_dict )
-            parents.append(parent)
-            currents.append(node.current)
-            substructures.append(ss)
-            # Determine the parent mass
+            parent, _, _ = get_structure_numbers(ss, counterterm.momenta_dict )
+            # Collinear structures
             if parent is not None:
+                # Exclude parents from recoilers
+                parents.append(parent)
+                currents.append(node.current)
+                substructures.append(ss)
+                # Determine the parent mass
+                # TODO: For now, check that it is zero
                 try:
                     parent_pdg = counterterm.find_leg(parent)['id']
                 except KeyError:
@@ -2496,8 +2501,15 @@ class DisjointWalker(OneNodeWalker):
                 parent_particle = counterterm.process['model'].get_particle(parent_pdg)
                 if parent_particle['mass'].lower() != 'zero':
                     raise MadGraph5Error("DEVELOPER: retrieve parent mass!")
+            # Soft structures
+            else:
+                # Group all soft particles in one structure
+                soft_particles += ss.get_all_legs()
+                currents.append(node.current)
         squared_masses = None
-        # Pick recoilers as everything in the final state
+        if soft_particles:
+            substructures.append(sub.SoftStructure(legs=soft_particles))
+        # Pick recoilers as everything in the final state of the reduced process
         recoilers = cls.get_recoilers(counterterm, parents)
         structure = sub.SingularStructure(legs=recoilers, substructures=substructures)
         # Choose mapping to use
@@ -2540,6 +2552,35 @@ class FinalGroupingDisjointWalker(FinalCollinearDisjointWalker):
 
     collinear_map = FinalGroupingMapping()
 
+# Walker for disjoint final-collinear counterterms
+#=========================================================================================
+
+class SoftDisjointWalker(DisjointWalker):
+    """Implement a generic determine_hike for disjoint soft counterterms."""
+
+    soft_map = None
+
+    @classmethod
+    def good_recoiler(cls, model, leg):
+
+        return leg['state'] == leg.FINAL
+
+    @classmethod
+    def determine_mapping(cls, structure):
+
+        for substructure in structure.substructures:
+            if substructure.name() != 'S':
+                raise MadGraph5Error(cls.cannot_handle_msg(structure))
+            if substructure.substructures:
+                raise MadGraph5Error(cls.cannot_handle_msg(structure))
+            if structure.legs.has_initial_state_leg():
+                raise MadGraph5Error(cls.cannot_handle_msg(structure))
+        return cls.soft_map
+
+class SoftVsFinalDisjointWalker(SoftDisjointWalker):
+
+    soft_map = SoftVsFinalMapping()
+
 # Dictionary of available walkers
 #=========================================================================================
 
@@ -2555,4 +2596,5 @@ walker_classes_map = {
     'LorentzNLO': LorentzNLOWalker,
     'FinalLorentzDisjoint': FinalLorentzDisjointWalker,
     'FinalGroupingDisjoint': FinalGroupingDisjointWalker,
+    'SoftVsFinalDisjoint': SoftVsFinalDisjointWalker,
 }

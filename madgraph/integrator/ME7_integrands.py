@@ -450,6 +450,10 @@ class ME7Integrand(integrands.VirtualIntegrand):
                 limit_pattern_re = re.compile(r'.*S.*')
             elif limit_pattern.lower() == 'collinear':
                 limit_pattern_re = re.compile(r'.*C.*')
+            elif limit_pattern.lower() == 'puresoft':
+                limit_pattern_re = re.compile(r'^[S\d,\(\)]*$')
+            elif limit_pattern.lower() == 'purecollinear':
+                limit_pattern_re = re.compile(r'^[C\d,\(\)]*$')
             elif limit_pattern.lower() == 'all':
                 limit_pattern_re = re.compile(r'.*')
             else:

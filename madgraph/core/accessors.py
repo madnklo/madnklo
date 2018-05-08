@@ -1324,12 +1324,12 @@ class F2PYMEAccessor(VirtualMEAccessor):
     
     def __call__(self, PS_point, alpha_s, mu_r=91.188, return_all_res=False, **opts):
         """ Actually performs the f2py call. """
-
+ 
         permutation = opts['permutation']
 
         # The mother class takes care of applying the permutations for the generic options
         PS_point, opts = VirtualMEAccessor.__call__(self, PS_point, **opts)
-            
+        
         is_cache_active = opts.get('cache_active', self.cache_active)
 
         PS_point = self.format_momenta_for_f2py(PS_point)

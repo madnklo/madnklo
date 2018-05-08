@@ -443,13 +443,35 @@ class ME7Integrand(integrands.VirtualIntegrand):
         selected_counterterms = [ ct for ct in counterterms if ct.is_singular() ]
         if len(selected_counterterms)==0:
             return []
+        
+        limit_pattern_re = None
+        if limit_pattern:
+            if limit_pattern.lower() == 'soft':
+                limit_pattern_re = re.compile(r'.*S.*')
+            elif limit_pattern.lower() == 'collinear':
+                limit_pattern_re = re.compile(r'.*C.*')
+            elif limit_pattern.lower() == 'all':
+                limit_pattern_re = re.compile(r'.*')
+            else:
+                if any(limit_pattern.startswith(start) for start in ['r"', "r'"]):
+                    limit_pattern_re = re.compile(eval(limit_pattern))
+                else:
+                    # If not specified as a raw string, we take the liberty of adding 
+                    # the enclosing parenthesis.
+                    if not limit_pattern.startswith('('):
+                        limit_pattern = '(%s,)' % limit_pattern
+                    # If the specified re was not explicitly made a raw string,
+                    # we take the liberty of escaping the parenthesis
+                    # since this is presumably what the user expects.
+                    limit_pattern_re = re.compile(
+                        limit_pattern.replace('(', '\(').replace(')', '\)'))
 
         returned_counterterms = []
         if not limit_pattern:
             returned_counterterms.append(random.choice(selected_counterterms))
         else:
             for counterterm in selected_counterterms:
-                if re.match(limit_pattern, str(counterterm)):
+                if re.match(limit_pattern_re, str(counterterm)):
                     returned_counterterms.append(counterterm)
 
         return returned_counterterms
@@ -1837,10 +1859,11 @@ The missing process is: %s"""%ME_process.nice_string())
                 ct for ct in self.counterterms[process_key]
                 if ct.count_unresolved() <= test_options['correction_order'].count('N') ]
             
-            # Select the limits to be probed using limit_pattern
-            # or, if this fails, limit_type
+            # Select the limits to be probed interpreting limit_type as a regex pattern.
+            # If no match is found, then reconstruct the singular structure from the limit_type
+            # provided
             selected_counterterms = self.find_counterterms_matching_regexp(
-                counterterms_to_consider, test_options['limit_pattern'] )
+                                counterterms_to_consider, test_options['limit_type'] )
             if selected_counterterms:
                 selected_singular_structures = [
                     ct.reconstruct_complete_singular_structure()
@@ -1868,27 +1891,8 @@ The missing process is: %s"""%ME_process.nice_string())
                     counterterm_pattern = test_options['counterterms']
                     if counterterm_pattern.startswith('def'):
                         counterterm_pattern = str(limit)
-                    if counterterm_pattern.lower() == 'soft':
-                        counterterm_re = re.compile(r'.*S.*')
-                    elif counterterm_pattern.lower() == 'collinear':
-                        counterterm_re = re.compile(r'.*C.*')
-                    elif counterterm_pattern.lower() == 'all':
-                        counterterm_re = re.compile(r'.*')
-                    else:
-                        if any(counterterm_pattern.startswith(start) for start in ['r"', "r'"]):
-                            counterterm_re = re.compile(counterterm_pattern)
-                        else:
-                            # If not specified as a raw string,
-                            # we take the liberty of adding the enclosing parenthesis.
-                            if not counterterm_pattern.startswith('('):
-                                counterterm_pattern = '(%s,)' % counterterm_pattern
-                            # If the specified re was not explicitly made a raw string,
-                            # we take the liberty of escaping the parenthesis
-                            # since this is presumably what the user expects.
-                            counterterm_re = re.compile(
-                                counterterm_pattern.replace('(', '\(').replace(')', '\)'))
                     counterterms_to_evaluate = self.find_counterterms_matching_regexp(
-                        counterterms_to_evaluate, counterterm_re )
+                                                  counterterms_to_evaluate, counterterm_pattern )
                 # Progressively approach the limit, using a log scale
                 limit_evaluations = {}
                 n_steps = test_options['n_steps']

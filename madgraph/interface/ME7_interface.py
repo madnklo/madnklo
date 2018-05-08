@@ -303,7 +303,6 @@ class ParseCmdArguments(object):
         testlimits_options = {
             'correction_order'        : None,
             'limit_type'              : None,
-            'limit_pattern'           : None,
             'counterterms'            : None,
             'walker'                  : None,
             'process'                 : {'in_pdgs'  : None,
@@ -428,25 +427,7 @@ class ParseCmdArguments(object):
                 if not isinstance(value, str):
                     raise InvalidCmd("'%s' is not a valid option for '%s'"%(value, key))
                 testlimits_options['limit_type'] = value
-                if value.lower() == 'soft':
-                    testlimits_options['limit_pattern'] = re.compile(r'.*S.*')
-                elif value.lower() == 'collinear':
-                    testlimits_options['limit_pattern'] = re.compile(r'.*C.*')
-                elif value.lower() == 'all':
-                    testlimits_options['limit_pattern'] = re.compile(r'.*')
-                else:
-                    if any(value.startswith(start) for start in ['r"',"r'"]):
-                        testlimits_options['limit_pattern'] = re.compile(value)
-                    else:
-                        # If not specified as a raw string,
-                        # we take the liberty of adding the enclosing parenthesis.
-                        if not value.startswith('('):
-                            value = '(%s,)'%value
-                        # If the specified re was not explicitly made a raw string,
-                        # we take the liberty of escaping the parenthesis
-                        # since this is presumably what the user expects.
-                        testlimits_options['limit_pattern'] = re.compile(
-                            value.replace('(','\(').replace(')','\)'))
+
             elif key == '--show_plots':
                 try:
                     testlimits_options['show_plots'] = strtobool(value)

@@ -302,7 +302,7 @@ class ParseCmdArguments(object):
         # None means unspecified, therefore considering all types.
         testlimits_options = {
             'correction_order'        : None,
-            'limit_type'              : None,
+            'limits'                  : None,
             'counterterms'            : None,
             'walker'                  : None,
             'process'                 : {'in_pdgs'  : None,
@@ -321,8 +321,7 @@ class ParseCmdArguments(object):
 
         if mode=='poles':
             # Remove some options for the pole
-            del testlimits_options['limit_type']
-            del testlimits_options['limit_pattern']
+            del testlimits_options['limits']
             del testlimits_options['counterterms']
             del testlimits_options['walker']
             del testlimits_options['n_steps']
@@ -423,10 +422,10 @@ class ParseCmdArguments(object):
                                                  {'true':True,'false':False}[value.lower()]
                     except:
                         raise InvalidCmd("'%s' is not a valid float for option '%s'"%(value, key))
-            elif key in ['--limit_type','--limit','--lt'] and mode=='limits':
+            elif key in ['--limits','--l'] and mode=='limits':
                 if not isinstance(value, str):
                     raise InvalidCmd("'%s' is not a valid option for '%s'"%(value, key))
-                testlimits_options['limit_type'] = value
+                testlimits_options['limits'] = value
 
             elif key == '--show_plots':
                 try:

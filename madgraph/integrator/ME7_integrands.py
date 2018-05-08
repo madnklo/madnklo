@@ -433,7 +433,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
     def find_counterterms_matching_regexp(
         self, counterterms, limit_pattern=None):
-        """ Find all mappings that match a particular limit_type given in argument
+        """ Find all mappings that match a particular limits given in argument
         (takes a random one if left to None). This function is placed here given that
         it can be useful for both the ME7Integrnd_V and ME7_integrand_R."""
 
@@ -456,19 +456,28 @@ class ME7Integrand(integrands.VirtualIntegrand):
                 limit_pattern_re = re.compile(r'^[C\d,\(\)]*$')
             elif limit_pattern.lower() == 'all':
                 limit_pattern_re = re.compile(r'.*')
+            elif any(limit_pattern.startswith(start) for start in ['r"', "r'"]):
+                limit_pattern_re = re.compile(eval(limit_pattern))
             else:
-                if any(limit_pattern.startswith(start) for start in ['r"', "r'"]):
-                    limit_pattern_re = re.compile(eval(limit_pattern))
-                else:
-                    # If not specified as a raw string, we take the liberty of adding 
-                    # the enclosing parenthesis.
+                # Check if a list of counterterms is specified
+                try:
+                    list_limit_pattern = eval(limit_pattern)
+                    if not isinstance(list_limit_pattern, list):
+                        raise
+                except:
+                    list_limit_pattern = [limit_pattern]
+                new_list_limit_pattern = []
+                for limit_pattern in list_limit_pattern:
                     if not limit_pattern.startswith('('):
+                        # If not specified as a raw string, we take the liberty of adding 
+                        # the enclosing parenthesis.
                         limit_pattern = '(%s,)' % limit_pattern
-                    # If the specified re was not explicitly made a raw string,
-                    # we take the liberty of escaping the parenthesis
+                    # We also take the liberty of escaping the parenthesis
                     # since this is presumably what the user expects.
-                    limit_pattern_re = re.compile(
-                        limit_pattern.replace('(', '\(').replace(')', '\)'))
+                    limit_pattern = limit_pattern.replace('(', '\(').replace(')', '\)')
+                    new_list_limit_pattern.append(limit_pattern)
+                limit_pattern_re = re.compile(r'^(%s)$'%(
+                    '|'.join(limit_pattern for limit_pattern in new_list_limit_pattern) ))    
 
         returned_counterterms = []
         if not limit_pattern:
@@ -1863,22 +1872,22 @@ The missing process is: %s"""%ME_process.nice_string())
                 ct for ct in self.counterterms[process_key]
                 if ct.count_unresolved() <= test_options['correction_order'].count('N') ]
             
-            # Select the limits to be probed interpreting limit_type as a regex pattern.
-            # If no match is found, then reconstruct the singular structure from the limit_type
+            # Select the limits to be probed interpreting limits as a regex pattern.
+            # If no match is found, then reconstruct the singular structure from the limits
             # provided
             selected_counterterms = self.find_counterterms_matching_regexp(
-                                counterterms_to_consider, test_options['limit_type'] )
+                                counterterms_to_consider, test_options['limits'] )
             if selected_counterterms:
                 selected_singular_structures = [
                     ct.reconstruct_complete_singular_structure()
                     for ct in selected_counterterms]
             else:
-                limit_str = test_options['limit_type']
+                limit_str = test_options['limits']
                 ss = mappings.sub.SingularStructure.from_string(
                     limit_str, defining_process)
                 if ss is None:
                     logger.critical(
-                        "%s is not a valid limit_type specification" % limit_str)
+                        "%s is not a valid limits specification" % limit_str)
                     return
                 selected_singular_structures = [ss, ]
 

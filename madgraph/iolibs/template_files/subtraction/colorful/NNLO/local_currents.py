@@ -134,8 +134,12 @@ class QCD_final_collinear_0_QQxq(currents.QCDLocalCollinearCurrent):
 class QCD_final_soft_0_gg(currents.QCDLocalSoftCurrent):
     """Double soft tree-level current."""
     
-    is_cut = staticmethod(currents.SomogyiChoices.cut_soft)
-    factor = staticmethod(currents.SomogyiChoices.factor_soft)
+    #TODO Implement meaningful cut and factors for the double soft
+    # The single-soft versions below are not expected to work directly
+    # THIS IS PROBABLY CRUCIAL IN ORDER TO HAVE THE EXPECTED CANCELLATION
+    #    S(5) + S(5)S(6) + S(5,6) = 0 in the limit S(6)
+    ###is_cut = staticmethod(currents.SomogyiChoices.cut_soft)
+    ###factor = staticmethod(currents.SomogyiChoices.factor_soft)
     
     @classmethod
     def does_implement_this_current(cls, current, model):
@@ -199,26 +203,21 @@ class QCD_final_soft_0_gg(currents.QCDLocalSoftCurrent):
         pipr2 = PS_point[i].dot(PS_point[r2])
         pjpr1 = PS_point[j].dot(PS_point[r1])
         pjpr2 = PS_point[j].dot(PS_point[r2])
-        
-        fully_expanded_expression = False 
-        if not fully_expanded_expression:
-            so_double_soft = QCD_final_soft_0_gg.strongly_ordered_double_soft_kernel(
-                                                                  PS_point, i, j, r1, r2 )
-            return (
-                so_double_soft + ((pipr1*pjpr2+pipr2*pjpr1)/((pipr1+pipr2)*(pjpr1+pjpr2)))*(
-                    (1./(pr1pr2**2)) - 0.5*so_double_soft
-                ) - ((2.*pipj)/(pr1pr2*(pipr1+pipr2)*(pjpr1+pjpr2)))
-            )
 
-        else:
-            return (
-                 (1.0/(pr1pr2**2)) * ( (pipr1*pjpr2 + pipr2*pjpr1) / ( (pipr1+pipr2)*(pjpr1+pjpr2) ) )
-               - ( ((pipj)**2) / (2.*pipr1*pjpr2*pipr2*pjpr1) )*( 2. - (pipr1*pjpr2+pipr2*pjpr1)/( (pipr1+pipr2)*(pjpr1+pjpr2) ) )
-               + ( ( pipj / (2.*pr1pr2) ) * (
-                   2./(pipr1*pjpr2) + 2./(pjpr1*pipr2) - (1./((pipr1+pipr2)*(pjpr1+pjpr2)))*(4.+ ((pipr1*pjpr2+pipr2*pjpr1)**2)/(pipr1*pjpr2*pipr2*pjpr1))
-                   )
-                 )
-            )        
+        so_double_soft = QCD_final_soft_0_gg.strongly_ordered_double_soft_kernel(
+                                                                  PS_point, i, j, r1, r2 )
+        
+        pure_double_soft_non_abelian = (
+            so_double_soft + ((pipr1*pjpr2+pipr2*pjpr1)/((pipr1+pipr2)*(pjpr1+pjpr2)))*(
+                (1./(pr1pr2**2)) - 0.5*so_double_soft
+            ) - ((2.*pipj)/(pr1pr2*(pipr1+pipr2)*(pjpr1+pjpr2)))
+        )
+        
+        # We want to absorb here also the non-abelian strongly ordered part of the 
+        # two-iterated soft counterterms (i.e. S(r) \otimes S(s) and S(s) \otimes S(r)) 
+        # which are each '-so_double_soft' when using the current normalisation of 
+        # this non-abelian eikonal term.
+        return pure_double_soft_non_abelian - 2.*so_double_soft
    
     def create_CataniGrazzinni_correlator(self, (i,j),(k,l)):
         """ Returns the correlator of Catani-Grazzini (Eq.113 of hep-ph/9908523v1)

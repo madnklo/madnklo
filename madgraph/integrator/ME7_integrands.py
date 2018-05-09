@@ -1431,7 +1431,7 @@ class ME7Integrand_R(ME7Integrand):
         """
 
         # Trivial combination if there is a single one:
-        if len(color_correlators):
+        if len(color_correlators)==1:
             return [color_correlators[0],], [1.0,]
 
         # First weed out the trivial color correlators set to None.
@@ -1461,7 +1461,6 @@ class ME7Integrand_R(ME7Integrand):
         # Convert the NLO short-hand convention if present to the general one
         normalized_non_trivial_color_correlators = []
         for cc in non_trivial_color_correlators:
-            misc.sprint(cc)
             normalized_non_trivial_color_correlators.append(
                 ( cc[0] if not isinstance(cc[0],int) else ((cc[0],-1,cc[0]),),
                   cc[1] if not isinstance(cc[1],int) else ((cc[1],-1,cc[1]),)  )
@@ -1489,41 +1488,107 @@ class ME7Integrand_R(ME7Integrand):
         ccA = non_trivial_color_correlators[0]
         ccB = non_trivial_color_correlators[1]
         # Identify the terms of the compound soft operator S^{i1,j1} \otimes S^{i2,j2} 
-        i1, j1 = ccA[0][0], ccA[1][0]
-        i2, j2 = ccB[0][0], ccB[1][0]
-        # now construct all four ways in which the two gluons could have been connected
-        # between these four lines.
-        if i1==i2:
-            connections_A = [
-                ( (i1,-1,i1),(i2,-2,i2) ),
-                ( (i2,-2,i2),(i1,-2,i1) )
-            ]
-        else:
-            connections_A = [
-                ( (i1,-1,i1),(i2,-2,i2) ) if i1>i2 else
-                ( (i2,-2,i2),(i1,-1,i1) )
-            ]
-        if j1==j2:
-            connections_B = [
-                ( (j1,-1,j1),(j2,-2,j2) ),
-                ( (j2,-2,j2),(j1,-2,j1) )
-            ]
-        else:
-            connections_B = [
-                ( (j1,-1,j1),(j2,-2,j2) ) if j1>j2 else
-                ( (j2,-2,j2),(j1,-1,j1) )
-            ]
-        combined_color_correlators = []
-        for connection_A in connections_A:
-            for connection_B in connections_B:
-                combined_color_correlators.append(
-                    ( ( connection_A, connections_A ), )
-                )
+        # Each correlator ccA/B will be given in the form of:
+        #    (((i, -1, i),), ((j, -1, j),))
+        i1_, j1_ = ccA[0][0][0], ccA[1][0][0]
+        i2_, j2_ = ccB[0][0][0], ccB[1][0][0]
         
-        multiplier = 1.0/float(len(combined_color_correlators))
+        # Below is my original way of combining the color structure of the two single soft
+        def VH_two_iterated_soft_combination((i1,j1),(i2,j2)):
+            # now construct all four ways in which the two gluons could have been connected
+            # between these four lines.
+            if i1==i2:
+                connections_A = [
+                    ( (i1,-1,i1),(i2,-2,i2) ),
+                    ( (i2,-2,i2),(i1,-1,i1) )
+                ]
+            else:
+                connections_A = [
+                    ( (i1,-1,i1),(i2,-2,i2) ) if i1>i2 else
+                    ( (i2,-2,i2),(i1,-1,i1) )
+                ]
+            if j1==j2:
+                connections_B = [
+                    ( (j1,-1,j1),(j2,-2,j2) ),
+                    ( (j2,-2,j2),(j1,-1,j1) )
+                ]
+            else:
+                connections_B = [
+                    ( (j1,-1,j1),(j2,-2,j2) ) if j1>j2 else
+                    ( (j2,-2,j2),(j1,-1,j1) )
+                ]
+            combined_color_correlators = []
+            for connection_A in connections_A:
+                for connection_B in connections_B:
+                    combined_color_correlators.append(
+                        ( connection_A, connection_B )
+                    )
+            
+            multiplier = 1.0/float(len(combined_color_correlators))
+            
+             # Implementing them as separate calls to the ME, as done in the commented line below,
+            # return [ tuple(combined_color_correlators), ], [ multiplier, ]
+            # would only yield the same result once the accessor correctly sums over the
+            # different color-correlated MEs, so avoid for now.
+            
+            # Now return the combined color correlators identified
+            return [ (ccc,) for ccc in combined_color_correlators ],\
+                   [ multiplier, ]*len(combined_color_correlators)
+       
+        def double_correlator((i,j),(k,l)):
+            """ Returns the double correlator of Catani-Grazzini (Eq.113 of hep-ph/9908523v1)
+                <M| ( T^-1_i \dot T^-1_j ) * ( T^-1_k \dot T^-1_l ) | M > 
+                
+            converted into MadGraph's conventions:
+            
+              ( (a,-1,a),(b,-2,b) ) , ( (c,-1,c),(d,-2,d) ) --> T^-1_a T^-2_b T^-1_c T^-2_d
+            """
+
+            # It is important to never commute two color operators acting on the same index, so we must chose carefully which
+            # index to pick to carry the gluon index '-2' of the first connection. This can be either 'k' or 'l'.
+            if j!=k and j!=l:
+                # If all indices are different, we can pick either k or l, it is irrelevant
+                index1, index2, index3, index4 = i, k, j, l
+            elif j==k and j!=l:
+                # If j is equal to k, we must pick l
+                index1, index2, index3, index4 = i, l, j, k
+            elif j==l and j!=k:
+                # If j is equal to l, we must pick k
+                index1, index2, index3, index4 = i, k, j, l
+            elif j==l and j==k:
+                # If j is equal to both l and k, then agin it doesn't matter and we can pick k
+                index1, index2, index3, index4 = i, k, j, l
+    
+            # The sorting according to the first index of each tuple of each of the two convention is to match
+            # Madgraph's convention for sorting color connection in the color correlators definition
+            return (
+                tuple(sorted([ (index1,-1,index1), (index2,-2,index2) ], key = lambda el: el[0], reverse=True)),
+                tuple(sorted([ (index3,-1,index3), (index4,-2,index4) ], key = lambda el: el[0], reverse=True))
+            )
+       
+        # Below is a purely abelian combination of the two single softs:
+        #  -> second line of Eq. (6.13) of Gabor's hep-ph/0502226v2
         
-        # Now return the combined color correlators identified
-        return combined_color_correlators, [multiplier,]*len(combined_color_correlators)
+        def abelian_combination((i1,j1),(i2,j2)):
+            # The two terms of the symmetrised sum
+            correlator_A   = double_correlator((i1,j1),(i2,j2))
+            correlator_B   = double_correlator((i2,j2),(i1,j1))
+            # There is an extra factor 2 because in the IR subtraction module, only one combination
+            # S(r) S(s) is considered and not the symmetric version S(s) S(r)
+            overall_factor = (1.0/4.0)*2.0
+
+            # Group them if equal:
+            if correlator_A==correlator_B:
+                return [ (correlator_A,), ], [ 2.0*overall_factor ]
+            else:
+                # Implementing them as separate calls to the ME, as done in the commented line below,
+                # return [ (correlator_A,),  (correlator_B,) ], [ overall_factor, overall_factor ]
+                # would only yield the same result once the accessor correctly sums over the
+                # different color-correlated MEs, so avoid for now.
+                return [ (correlator_A,), (correlator_B,) ], [ overall_factor, overall_factor ]
+
+        #return VH_two_iterated_soft_combination((i1_,j1_),(i2_,j2_))
+        return abelian_combination((i1_,j1_),(i2_,j2_))
 
     def combine_spin_correlators(self, spin_correlators):
         """ This function takes several spin-correlators specified int the form
@@ -1683,10 +1748,11 @@ class ME7Integrand_R(ME7Integrand):
 
         # Finally treat the call to the reduced connected matrix elements
         final_weight = 0.0
+#        misc.sprint('I got for %s:'%str(counterterm.nice_string()))
         for (spin_correlators, color_correlators, current_weight) in all_necessary_ME_calls:
 #            misc.sprint(ME_PS,ME_process.nice_string())
 #            misc.sprint(spin_correlators)
-#            misc.sprint(color_correlators)
+#            misc.sprint(color_correlators, current_weight)
             try:
                 ME_evaluation, all_ME_results = self.all_MEAccessors(
                    ME_process, ME_PS, alpha_s, mu_r,
@@ -1718,8 +1784,9 @@ The missing process is: %s"""%ME_process.nice_string())
             #     ' '.join('%d(%d)' % (l.get('number'), l.get('id')) for l in
             #              counterterm.process.get_final_legs())
             # ))
+            # misc.sprint(counterterm.prefactor)
             # misc.sprint(
-            #     'color corr. = %-20s | current = %-20.16f | ME = %-20.16f | Prefactor = %-3d  |  Final = %-20.16f ' % (
+            #     'color corr. = %-20s | current = %-20.16f | ME = %-20.16f | Prefactor = %-3f  |  Final = %-20.16f ' % (
             #         str(color_correlators),
             #         current_weight,
             #         ME_evaluation['finite'],

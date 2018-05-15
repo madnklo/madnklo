@@ -1493,7 +1493,10 @@ class InitialCollinearMapping(VirtualMapping):
         substructure = singular_structure.substructures[0]
         _, fs_children, is_child = get_structure_numbers(substructure, momenta_dict)
         # Determine the correct scaling for the divergence to go like 1/parameter
-        base = scaling_parameter ** (0.5 * (len(fs_children) - 1))
+#        base = scaling_parameter ** (0.5 * (len(fs_children) - 1))
+        # TODO CHECK WITH SIMONE IF THE CHANGE BELOW IS OK
+        base = scaling_parameter ** (0.5 * (len(fs_children) - 0))
+        
         kinematic_variables['s' + str(is_child)] *= base ** 2
         kinematic_variables['kt' + str(is_child)] *= base
         for child in fs_children:
@@ -1579,9 +1582,10 @@ class InitialLorentzOneMapping(InitialCollinearMapping):
         cls, PS_point, singular_structure, momenta_dict, kinematic_variables,
         compute_jacobian=False):
 
-        # print "Mapping up the PS point:\n", PS_point
-        # print "With variables:\n", kinematic_variables
-        # print "and structure", singular_structure
+        #misc.sprint("Mapping up the PS point:\n", str(PS_point))
+        #misc.sprint("with momenta dict: %s",momenta_dict)
+        #misc.sprint("with variables:\n", kinematic_variables)
+        #misc.sprint("and structure", singular_structure)
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
@@ -2241,12 +2245,18 @@ class VirtualWalker(object):
             else:
                 raise MadGraph5Error("Unrecognized structure of type " + step.name())
             kin_variables = {}
+#            misc.sprint('Starting PS point:\n',str(PS_point))
             mapping.map_to_lower_multiplicity(
                 PS_point, new_ss, mom_dict, None, kin_variables )
+#            misc.sprint('Mapped down PS point:\n',str(PS_point))
+#            misc.sprint('kin_variables=',kin_variables)
             mapping.rescale_kinematic_variables(
                 new_ss, mom_dict, kin_variables, base)
+#            misc.sprint('rescaled kin_variables=',base,kin_variables)
             mapping.map_to_higher_multiplicity(
                 PS_point, new_ss, mom_dict, kin_variables )
+#            misc.sprint('Mapped up PS point:\n',str(PS_point))
+#            misc.sprint('kin_variables=',kin_variables)
             if parent_index in mom_dict.keys():
                 del mom_dict[parent_index]
         return

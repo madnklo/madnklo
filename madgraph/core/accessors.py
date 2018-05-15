@@ -80,7 +80,7 @@ class ProcessKey(object):
         
 
         # Try to use the dynamically created caching system for the ProcessKey
-        # which is a bit time consuming to generated
+        # which is a bit time consuming to generate
         if self.cache_active and (not process is None) and hasattr(process, 'process_key_cache'):
 
             key = self.get_key_for_cache(process,  PDGs, sort_PDGs, 
@@ -1846,7 +1846,7 @@ class MEAccessorDict(dict):
         """
 
         if isinstance(key, subtraction.Current):
-            # Automatically convert the process to a ProcessKey
+            # Automatically convert the current to a ProcessKey
             accessor_key = key.get_key()
         elif isinstance(key, base_objects.Process):
             # Automatically convert the process to a ProcessKey

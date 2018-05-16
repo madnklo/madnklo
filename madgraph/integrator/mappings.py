@@ -1841,7 +1841,8 @@ class SoftCollinearMapping(VirtualMapping):
         all_soft_recoils    = copy.copy(structure.legs)
         for substructure in structure.substructures:
             all_soft_structures += substructure.substructures
-            all_soft_recoils    += substructure.legs
+            all_soft_recoils    += tuple(
+                leg for leg in substructure.legs if leg.state != leg.INITIAL)
         return sub.SingularStructure(
             substructures=all_soft_structures,
             legs=all_soft_recoils )

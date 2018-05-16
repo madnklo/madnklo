@@ -73,7 +73,7 @@ def n_initial_coll_variables(PS_point, parent, children, mapping_variables):
     kin_variables = dict()
     # The lone initial state child is always placed first thanks to the implementation
     # of the function get_sorted_children() in the current.
-    mappings.FinalCollinearVariables.get(
+    mappings.InitialCollinearVariables.get(
         PS_point, children[1:], children[0], na, nb, kin_variables)
     zs  = tuple(kin_variables['z%d'  % i] for i in children)
     kTs = tuple(kin_variables['kt%d' % i] for i in children)

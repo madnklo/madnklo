@@ -1824,8 +1824,13 @@ class SoftCollinearMapping(VirtualMapping):
         self.coll_mapping = collinear_mapping
         super(SoftCollinearMapping, self).__init__()
 
-    @staticmethod
-    def coll_structure(structure):
+    @classmethod
+    def good_soft_recoiler(cls, recoiler_leg):
+
+        raise NotImplemented
+
+    @classmethod
+    def coll_structure(cls, structure):
 
         all_collinear_structures = [
             sub.CollStructure(legs=substructure.legs)
@@ -1834,21 +1839,22 @@ class SoftCollinearMapping(VirtualMapping):
             substructures=all_collinear_structures,
             legs=structure.legs )
 
-    @staticmethod
-    def soft_structure(structure):
+    @classmethod
+    def soft_structure(cls, structure):
 
         all_soft_structures = []
         all_soft_recoils    = copy.copy(structure.legs)
         for substructure in structure.substructures:
             all_soft_structures += substructure.substructures
             all_soft_recoils    += tuple(
-                leg for leg in substructure.legs if leg.state != leg.INITIAL)
+                leg for leg in substructure.legs
+                if cls.good_soft_recoiler(leg) )
         return sub.SingularStructure(
             substructures=all_soft_structures,
             legs=all_soft_recoils )
 
-    @staticmethod
-    def coll_momenta_dict(structure, momenta_dict):
+    @classmethod
+    def coll_momenta_dict(cls, structure, momenta_dict):
 
         coll_momenta_dict = sub.bidict()
         for substructure in structure.substructures:
@@ -1934,6 +1940,16 @@ class SoftCollinearMapping(VirtualMapping):
             kinematic_variables, compute_jacobian )
         soft_result['jacobian'] *= coll_result['jacobian']
         return soft_result
+
+class SoftCollinearVsFinalMapping(SoftCollinearMapping):
+    """Soft-collinear mapping that selects only final-state recoilers
+    for the soft mapping.
+    """
+
+    @classmethod
+    def good_soft_recoiler(cls, recoiler_leg):
+
+        return recoiler_leg.state == recoiler_leg.FINAL
 
 #=========================================================================================
 # Mapping walkers
@@ -2408,14 +2424,14 @@ class FinalRescalingNLOWalker(FinalNLOWalker):
 
     collinear_map = FinalRescalingOneMapping()
     soft_map = SoftVsFinalMapping()
-    soft_collinear_map = SoftCollinearMapping(soft_map, collinear_map)
+    soft_collinear_map = SoftCollinearVsFinalMapping(soft_map, collinear_map)
     only_colored_recoilers = True
 
 class FinalLorentzNLOWalker(FinalNLOWalker):
 
     collinear_map = FinalLorentzOneMapping()
     soft_map = SoftVsFinalMapping()
-    soft_collinear_map = SoftCollinearMapping(soft_map, collinear_map)
+    soft_collinear_map = SoftCollinearVsFinalMapping(soft_map, collinear_map)
     only_colored_recoilers = True
 
 # General NLO walker
@@ -2465,8 +2481,8 @@ class LorentzNLOWalker(NLOWalker):
     f_collinear_map = FinalLorentzOneMapping()
     i_collinear_map = InitialLorentzOneMapping()
     soft_map = SoftVsFinalMapping()
-    f_soft_collinear_map = SoftCollinearMapping(soft_map, f_collinear_map)
-    i_soft_collinear_map = SoftCollinearMapping(soft_map, i_collinear_map)
+    f_soft_collinear_map = SoftCollinearVsFinalMapping(soft_map, f_collinear_map)
+    i_soft_collinear_map = SoftCollinearVsFinalMapping(soft_map, i_collinear_map)
     only_colored_recoilers = True
 
 # Walker for disjoint counterterms

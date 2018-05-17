@@ -409,3 +409,436 @@ class QCD_final_softcollinear_0_gX(currents.QCDLocalSoftCollinearCurrent):
             hel_config=hel_config,
             squared_orders=tuple(sorted(current.get('squared_orders').items())))
         return result
+
+#=========================================================================================
+# NLO initial-collinear currents
+#=========================================================================================
+
+class QCD_initial_collinear_0_qg(currents.QCDLocalCollinearCurrent):
+    """qg collinear ISR tree-level current. q(initial) > q(initial_after_emission) g(final)"""
+
+    is_cut = staticmethod(currents.SomogyiChoices.cut_coll)
+    factor = staticmethod(currents.SomogyiChoices.factor_coll)
+    variables = staticmethod(currents.Q_initial_coll_variables)
+    
+    @classmethod
+    def does_implement_this_current(cls, current, model):
+
+        # Check the general properties common to NLO QCD collinear tree-level currents
+        init_vars = cls.common_does_implement_this_current(current, 2, 0)
+        if init_vars is None: return None
+        
+        # Retrieve singular structure
+        ss = current.get('singular_structure')
+
+        # Check that the particles are a massless quark and its anti-quark in final-state
+        if len(ss.legs) != 2: return None
+        
+        n_initial_state_quarks = 0
+        for leg in ss.legs:
+            if cls.is_quark(leg, model) and cls.is_initial(leg):
+                n_initial_state_quarks += 1
+        if n_initial_state_quarks != 1: return None
+        
+        n_final_state_gluon = 0
+        for leg in ss.legs:
+            if cls.is_gluon(leg, model) and not cls.is_initial(leg):
+                n_final_state_gluon += 1
+        if n_final_state_gluon != 1: return None
+
+        # The current is valid
+        return init_vars
+
+    @classmethod
+    def get_sorted_children(cls, current, model):
+
+        legs = current.get('singular_structure').legs
+        # Always put the initial state child first
+        children_numbers = [leg.n for leg in legs if leg.state == leg.INITIAL]
+        # Then the final state ones
+        children_numbers.extend([leg.n for leg in legs if leg.state == leg.FINAL])
+
+        return tuple(children_numbers)
+
+    def evaluate_kernel(self, xs, kTs, parent):
+
+        # Retrieve the collinear variable x
+        x = xs[0]
+        
+        # Instantiate the structure of the result
+        evaluation = utils.SubtractionCurrentEvaluation({
+            'spin_correlations'  : [None],
+            'color_correlations' : [None],
+            'values'             : {(0, 0): {'finite': None}}
+        })
+        
+        # The factor 'x' that should be part of the initial_state_crossing_factor cancels
+        # against the extra prefactor 1/x in the collinear factorisation formula
+        # (see Eq. (8) of NNLO compatible NLO scheme publication arXiv:0903.1218v2)
+        initial_state_crossing_factor = 1.
+        # Correct for the ratio of color-averaging factor between the real ME
+        # initial state flavor (quark) and the one of the reduced Born ME (quark)
+        initial_state_crossing_factor *= 1.
+        
+        z = 1./x
+
+        # We re-use here the Altarelli-Parisi Kernel of the P_qg final state kernel
+        evaluation['values'][(0, 0)]['finite'] = \
+                            initial_state_crossing_factor * self.CF * ( (1.+z**2)/(1.-z) )
+
+        return evaluation
+
+class QCD_initial_collinear_0_gq(currents.QCDLocalCollinearCurrent):
+    """gq collinear ISR tree-level current. q(initial) > g(initial_after_emission) q(final)"""
+
+    is_cut = staticmethod(currents.SomogyiChoices.cut_coll)
+    factor = staticmethod(currents.SomogyiChoices.factor_coll)
+    variables = staticmethod(currents.Q_initial_coll_variables)
+    
+    @classmethod
+    def does_implement_this_current(cls, current, model):
+
+        # Check the general properties common to NLO QCD collinear tree-level currents
+        init_vars = cls.common_does_implement_this_current(current, 2, 0)
+        if init_vars is None: return None
+        
+        # Retrieve singular structure
+        ss = current.get('singular_structure')
+
+        # Check that the particles are a massless quark and its anti-quark in final-state
+        if len(ss.legs) != 2: return None
+        
+        n_initial_state_quarks = 0
+        for leg in ss.legs:
+            if cls.is_quark(leg, model) and cls.is_initial(leg):
+                n_initial_state_quarks += 1
+        if n_initial_state_quarks != 1: return None
+        
+        n_final_state_quarks = 0
+        for leg in ss.legs:
+            if cls.is_quark(leg, model) and not cls.is_initial(leg):
+                n_final_state_quarks += 1
+        if n_final_state_quarks != 1: return None
+
+        # The current is valid
+        return init_vars
+
+    @classmethod
+    def get_sorted_children(cls, current, model):
+
+        legs = current.get('singular_structure').legs
+        # Always put the initial state child first
+        children_numbers = [leg.n for leg in legs if leg.state == leg.INITIAL]
+        # Then the final state ones
+        children_numbers.extend([leg.n for leg in legs if leg.state == leg.FINAL])
+
+        return tuple(children_numbers)
+
+    def evaluate_kernel(self, xs, kTs, parent):
+
+        # Retrieve the collinear variable x
+        x = xs[0]
+        kT = kTs[0]
+
+        evaluation = utils.SubtractionCurrentEvaluation({
+            'spin_correlations'  : [None, ((parent, (kT, )), ), ],
+            'color_correlations' : [None],
+            'values'             : {(0, 0): {'finite': None},
+                                    (1, 0): {'finite': None}, }
+        })
+
+        # The factor 'x' that should be part of the initial_state_crossing_factor cancels
+        # against the extra prefactor 1/x in the collinear factorisation formula
+        # (see Eq. (8) of NNLO compatible NLO scheme publication arXiv:0903.1218v2)
+        initial_state_crossing_factor = -1.
+        # Correct for the ratio of color-averaging factor between the real ME
+        # initial state flavor (quark) and the one of the reduced Born ME (gluon)
+        initial_state_crossing_factor *= (self.NC**2-1)/float(self.NC)
+        
+        z = 1./x
+
+        # We re-use here the Altarelli-Parisi Kernel of the P_q\bar{q} final state kernel
+        evaluation['values'][(0, 0)]['finite'] = initial_state_crossing_factor * self.TR
+        evaluation['values'][(1, 0)]['finite'] = \
+                     initial_state_crossing_factor * 4. * self.TR * z*(1.-z) / kT.square()
+
+        return evaluation
+    
+class QCD_initial_collinear_0_qq(currents.QCDLocalCollinearCurrent):
+    """qq collinear ISR tree-level current. g(initial) > q(initial_after_emission) qx(final)"""
+
+    is_cut = staticmethod(currents.SomogyiChoices.cut_coll)
+    factor = staticmethod(currents.SomogyiChoices.factor_coll)
+    variables = staticmethod(currents.Q_initial_coll_variables)
+    
+    @classmethod
+    def does_implement_this_current(cls, current, model):
+
+        # Check the general properties common to NLO QCD collinear tree-level currents
+        init_vars = cls.common_does_implement_this_current(current, 2, 0)
+        if init_vars is None: return None
+        
+        # Retrieve singular structure
+        ss = current.get('singular_structure')
+
+        # Check that the particles are a massless quark and its anti-quark in final-state
+        if len(ss.legs) != 2: return None
+        
+        n_initial_state_gluons = 0
+        for leg in ss.legs:
+            if cls.is_gluon(leg, model) and cls.is_initial(leg):
+                n_initial_state_gluons += 1
+        if n_initial_state_gluons != 1: return None
+        
+        n_final_state_quarks = 0
+        for leg in ss.legs:
+            if cls.is_quark(leg, model) and not cls.is_initial(leg):
+                n_final_state_quarks += 1
+        if n_final_state_quarks != 1: return None
+
+        # The current is valid
+        return init_vars
+
+    @classmethod
+    def get_sorted_children(cls, current, model):
+
+        legs = current.get('singular_structure').legs
+        # Always put the initial state child first
+        children_numbers = [leg.n for leg in legs if leg.state == leg.INITIAL]
+        # Then the final state ones
+        children_numbers.extend([leg.n for leg in legs if leg.state == leg.FINAL])
+
+        return tuple(children_numbers)
+
+    def evaluate_kernel(self, xs, kTs, parent):
+
+        # Retrieve the collinear variable x
+        x = xs[0]
+        
+        # Instantiate the structure of the result
+        evaluation = utils.SubtractionCurrentEvaluation({
+            'spin_correlations'  : [None],
+            'color_correlations' : [None],
+            'values'             : {(0, 0): {'finite': None}}
+        })
+        
+        # The factor 'x' that should be part of the initial_state_crossing_factor cancels
+        # against the extra prefactor 1/x in the collinear factorisation formula
+        # (see Eq. (8) of NNLO compatible NLO scheme publication arXiv:0903.1218v2)
+        initial_state_crossing_factor = -1.
+        # Correct for the ratio of color-averaging factor between the real ME
+        # initial state flavor (gluon) and the one of the reduced Born ME (quark)
+        initial_state_crossing_factor *= (self.NC/float(self.NC**2-1))
+        
+        z = 1./x
+
+        # We re-use here the Altarelli-Parisi Kernel of the P_gq final state kernel
+        evaluation['values'][(0, 0)]['finite'] = \
+                            initial_state_crossing_factor * self.CF * ( (1.+(1.-z)**2)/z )
+
+        return evaluation
+
+class QCD_initial_collinear_0_gg(currents.QCDLocalCollinearCurrent):
+    """gg collinear ISR tree-level current. g(initial) > g(initial_after_emission) g(final)"""
+
+    is_cut = staticmethod(currents.SomogyiChoices.cut_coll)
+    factor = staticmethod(currents.SomogyiChoices.factor_coll)
+    variables = staticmethod(currents.Q_initial_coll_variables)
+    
+    @classmethod
+    def does_implement_this_current(cls, current, model):
+
+        # Check the general properties common to NLO QCD collinear tree-level currents
+        init_vars = cls.common_does_implement_this_current(current, 2, 0)
+        if init_vars is None: return None
+        
+        # Retrieve singular structure
+        ss = current.get('singular_structure')
+
+        # Check that the particles are a massless quark and its anti-quark in final-state
+        if len(ss.legs) != 2: return None
+        
+        n_initial_state_gluons = 0
+        for leg in ss.legs:
+            if cls.is_gluon(leg, model) and cls.is_initial(leg):
+                n_initial_state_gluons += 1
+        if n_initial_state_gluons != 1: return None
+        
+        n_final_state_gluons = 0
+        for leg in ss.legs:
+            if cls.is_gluon(leg, model) and not cls.is_initial(leg):
+                n_final_state_gluons += 1
+        if n_final_state_gluons != 1: return None
+
+        # The current is valid
+        return init_vars
+
+    @classmethod
+    def get_sorted_children(cls, current, model):
+
+        legs = current.get('singular_structure').legs
+        # Always put the initial state child first
+        children_numbers = [leg.n for leg in legs if leg.state == leg.INITIAL]
+        # Then the final state ones
+        children_numbers.extend([leg.n for leg in legs if leg.state == leg.FINAL])
+
+        return tuple(children_numbers)
+
+    def evaluate_kernel(self, xs, kTs, parent):
+
+        # Retrieve the collinear variable x
+        x = xs[0]
+        kT = kTs[0]
+
+        # Instantiate the structure of the result
+        evaluation = utils.SubtractionCurrentEvaluation({
+            'spin_correlations'  : [None, ((parent,( kT, )), ), ],
+            'color_correlations' : [None],
+            'values'             : {(0, 0): {'finite': None},
+                                    (1, 0): {'finite': None}, }
+        })
+
+        # The factor 'x' that should be part of the initial_state_crossing_factor cancels
+        # against the extra prefactor 1/x in the collinear factorisation formula
+        # (see Eq. (8) of NNLO compatible NLO scheme publication arXiv:0903.1218v2)
+        initial_state_crossing_factor = 1.
+        # Correct for the ratio of color-averaging factor between the real ME
+        # initial state flavor (gluon) and the one of the reduced Born ME (gluon)
+        initial_state_crossing_factor *= 1.
+        
+        z = 1./x
+
+        # We re-use here the Altarelli-Parisi Kernel of the P_g\bar{g} final state kernel
+        
+        # The line below implements the g_{\mu\nu} part of the splitting kernel.
+        # Notice that the extra longitudinal terms included in the spin-correlation 'None'
+        # from the relation:
+        #    \sum_\lambda \epsilon_\lambda^\mu \epsilon_\lambda^{\star\nu}
+        #    = g^{\mu\nu} + longitudinal terms
+        # are irrelevant because Ward identities evaluate them to zero anyway.
+        evaluation['values'][(0, 0)]['finite'] =  2.*self.CA * ( (z/(1.-z)) + ((1.-z)/z) )
+        evaluation['values'][(1, 0)]['finite'] = -2.*self.CA * 2.*z*(1.-z) / kT.square()
+
+        return evaluation
+    
+#=========================================================================================
+# NLO soft initial-collinear currents
+#=========================================================================================
+
+class QCD_initial_softcollinear_0_gX(currents.QCDLocalSoftCollinearCurrent):
+    """NLO tree-level (final) soft-collinear currents."""
+
+    is_cut = staticmethod(currents.SomogyiChoices.cut_soft)
+    factor = staticmethod(currents.SomogyiChoices.factor_soft)
+    variables = staticmethod(currents.Q_initial_coll_variables)
+
+    def __init__(self, *args, **opts):
+
+        # Make sure it is initialized with the proper set of options and remove them
+        # before calling the mother constructor
+        if 'color_charge' not in opts:
+            raise CurrentImplementationError(
+                "The current '%s' must be instantiated with " % self.__class__.__name__ +
+                "a 'color_charge' option specified.")
+        color_charge = opts.pop('color_charge')
+
+        super(QCD_initial_softcollinear_0_gX, self).__init__(*args, **opts)
+        # At this state color_charge is the string of the group factor ('CA' or 'CF');
+        # now that the mother constructor has been called,
+        # the group factors have been initialized and we can retrieve them.
+        self.color_charge = getattr(self, color_charge)
+
+    @classmethod
+    def does_implement_this_current(cls, current, model):
+
+        # Check the general properties common to NLO QCD
+        init_vars = cls.common_does_implement_this_current(current, 2, 0)
+        if init_vars is None: return None
+        # Retrieve the singular structure
+        singular_structure = current.get('singular_structure')
+        # It should have only one leg and one nested substructure with one soft leg
+        if len(singular_structure.legs) != 1: return None
+        if len(singular_structure.substructures) != 1: return None
+        sub_singular_structure = singular_structure.substructures[0]
+        if len(sub_singular_structure.legs) != 1: return None
+        # The hard and soft legs are now identified
+        hard_leg = singular_structure.legs[0]
+        soft_leg = sub_singular_structure.legs[0]
+        # Make sure legs are massless and the hard one final state
+        if not cls.is_massless(hard_leg, model): return None
+        if not cls.is_massless(soft_leg, model): return None
+        if not cls.is_initial(hard_leg): return None
+        # The hard leg must be quark or a gluon
+        if not (cls.is_gluon(hard_leg, model) or cls.is_quark(hard_leg, model)):
+            return None
+        # The soft leg must be a gluon
+        if not cls.is_gluon(soft_leg, model): return None
+        # Check if hard_leg is a quark or a gluon, and set the color factor accordingly
+        if   cls.is_gluon(hard_leg, model): init_vars['color_charge'] = 'CA'
+        elif cls.is_quark(hard_leg, model): init_vars['color_charge'] = 'CF'
+        else: return None
+        # The current is valid
+        return init_vars
+
+    @classmethod
+    def get_sorted_children(cls, current, model):
+
+        ss = current.get('singular_structure')
+        return (ss.legs[0].n,ss.substructures[0].legs[0].n)
+
+    def evaluate_subtraction_current(
+        self, current, PS_point,
+        reduced_process   = None, hel_config = None,
+        mapping_variables = None, leg_numbers_map = None ):
+
+        if not hel_config is None:
+            raise CurrentImplementationError(
+                "Subtraction current implementation %s" % self.__class__.__name__ +
+                " does not support helicity assignment.")
+
+        # Retrieve alpha_s and mu_r
+        model_param_dict = self.model.get('parameter_dict')
+        alpha_s = model_param_dict['aS']
+        mu_r = model_param_dict['MU_R']
+
+        # Include the counterterm only in a part of the phase space
+        children = self.get_sorted_children(current, self.model)
+        parent = leg_numbers_map.inv[frozenset(children)]
+        if self.is_cut(mapping_variables, parent):
+            return utils.SubtractionCurrentResult.zero(
+                current=current, hel_config=hel_config)
+
+        # Now instantiate what the result will be
+        evaluation = utils.SubtractionCurrentEvaluation({
+            'spin_correlations': [None],
+            'color_correlations': [None],
+            'values': {(0, 0): {'finite': None}}
+        })
+
+        # Evaluate kernel
+        xs, kTs = self.variables(PS_point, parent, children, mapping_variables)
+        x = xs[0]
+    
+        # See Eq. (4.17) of NNLO compatible NLO scheme publication arXiv:0903.1218v2
+
+        # There is no need for the ratio of color-averaging factor between the real ME
+        # initial state flavor and the one of the reduced Born ME as they are either both
+        # gluons or both quarks
+        
+        evaluation['values'][(0, 0)]['finite'] = self.color_charge * ( 2. / (1. - x) )
+
+        # Add the normalization factors
+        pC = sum(PS_point[child] for child in children)
+        s12 = pC.square()
+        norm = 8. * math.pi * alpha_s / s12
+        norm *= self.factor(mapping_variables, parent)
+        for k in evaluation['values']:
+            evaluation['values'][k]['finite'] *= norm
+
+        # Construct and return result
+        result = utils.SubtractionCurrentResult()
+        result.add_result(
+            evaluation,
+            hel_config=hel_config,
+            squared_orders=tuple(sorted(current.get('squared_orders').items())))
+        return result

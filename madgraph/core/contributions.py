@@ -1271,7 +1271,7 @@ class Contribution_R(Contribution):
                 # We must remove the leg information since this is information is irrelevant
                 # for the selection of the hard-coded current implementation to consider.
                 copied_current = current.get_copy(('squared_orders','singular_structure'))
-                copied_current.discard_leg_numbers()
+                copied_current.discard_leg_numbers(discard_initial_leg_numbers=False)
                 if copied_current not in all_currents:
                     all_currents.append(copied_current)
 
@@ -1325,10 +1325,10 @@ class Contribution_R(Contribution):
     def remove_zero_counterterms(self, all_ME_accessors):
 
         for process_key, counterterms in self.counterterms.items():
-            for counterterm in counterterms:
+            for counterterm in list(counterterms):
+                # misc.sprint("Considering CT %s" % str(counterterm))
                 if counterterm.is_singular():
-                    # misc.sprint("Considering CT %s" % str(counterterm))
-                    for current in counterterm.get_all_currents():
+                    for current in counterterm.get_all_currents():                            
                         accessor, _ = all_ME_accessors[current]
                         if accessor.subtraction_current_instance.is_zero:
                             # misc.sprint("Zero current found in CT %s" % str(counterterm))
@@ -1512,7 +1512,7 @@ class Contribution_V(Contribution):
             # We must remove the leg information since this is information is irrelevant
             # for the selection of the hard-coded current implementation to consider.
             copied_current = integrated_current.get_copy(('squared_orders','singular_structure'))
-            copied_current.discard_leg_numbers()
+            copied_current.discard_leg_numbers(discard_initial_leg_numbers=False)
             if copied_current not in all_currents:
                 all_currents.append(copied_current)
 

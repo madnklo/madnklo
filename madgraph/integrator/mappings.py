@@ -1493,7 +1493,10 @@ class InitialCollinearMapping(VirtualMapping):
         substructure = singular_structure.substructures[0]
         _, fs_children, is_child = get_structure_numbers(substructure, momenta_dict)
         # Determine the correct scaling for the divergence to go like 1/parameter
-        base = scaling_parameter ** (0.5 * (len(fs_children) - 1))
+#        base = scaling_parameter ** (0.5 * (len(fs_children) - 1))
+        # TODO CHECK WITH SIMONE IF THE CHANGE BELOW IS OK
+        base = scaling_parameter ** (0.5 * (len(fs_children) - 0))
+        
         kinematic_variables['s' + str(is_child)] *= base ** 2
         kinematic_variables['kt' + str(is_child)] *= base
         for child in fs_children:
@@ -1579,9 +1582,10 @@ class InitialLorentzOneMapping(InitialCollinearMapping):
         cls, PS_point, singular_structure, momenta_dict, kinematic_variables,
         compute_jacobian=False):
 
-        # print "Mapping up the PS point:\n", PS_point
-        # print "With variables:\n", kinematic_variables
-        # print "and structure", singular_structure
+        #misc.sprint("Mapping up the PS point:\n", str(PS_point))
+        #misc.sprint("with momenta dict: %s",momenta_dict)
+        #misc.sprint("with variables:\n", kinematic_variables)
+        #misc.sprint("and structure", singular_structure)
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
@@ -1820,8 +1824,13 @@ class SoftCollinearMapping(VirtualMapping):
         self.coll_mapping = collinear_mapping
         super(SoftCollinearMapping, self).__init__()
 
-    @staticmethod
-    def coll_structure(structure):
+    @classmethod
+    def good_soft_recoiler(cls, recoiler_leg):
+
+        raise NotImplemented
+
+    @classmethod
+    def coll_structure(cls, structure):
 
         all_collinear_structures = [
             sub.CollStructure(legs=substructure.legs)
@@ -1830,20 +1839,22 @@ class SoftCollinearMapping(VirtualMapping):
             substructures=all_collinear_structures,
             legs=structure.legs )
 
-    @staticmethod
-    def soft_structure(structure):
+    @classmethod
+    def soft_structure(cls, structure):
 
         all_soft_structures = []
         all_soft_recoils    = copy.copy(structure.legs)
         for substructure in structure.substructures:
             all_soft_structures += substructure.substructures
-            all_soft_recoils    += substructure.legs
+            all_soft_recoils    += tuple(
+                leg for leg in substructure.legs
+                if cls.good_soft_recoiler(leg) )
         return sub.SingularStructure(
             substructures=all_soft_structures,
             legs=all_soft_recoils )
 
-    @staticmethod
-    def coll_momenta_dict(structure, momenta_dict):
+    @classmethod
+    def coll_momenta_dict(cls, structure, momenta_dict):
 
         coll_momenta_dict = sub.bidict()
         for substructure in structure.substructures:
@@ -1929,6 +1940,16 @@ class SoftCollinearMapping(VirtualMapping):
             kinematic_variables, compute_jacobian )
         soft_result['jacobian'] *= coll_result['jacobian']
         return soft_result
+
+class SoftCollinearVsFinalMapping(SoftCollinearMapping):
+    """Soft-collinear mapping that selects only final-state recoilers
+    for the soft mapping.
+    """
+
+    @classmethod
+    def good_soft_recoiler(cls, recoiler_leg):
+
+        return recoiler_leg.state == recoiler_leg.FINAL
 
 #=========================================================================================
 # Mapping walkers
@@ -2241,12 +2262,18 @@ class VirtualWalker(object):
             else:
                 raise MadGraph5Error("Unrecognized structure of type " + step.name())
             kin_variables = {}
+#            misc.sprint('Starting PS point:\n',str(PS_point))
             mapping.map_to_lower_multiplicity(
                 PS_point, new_ss, mom_dict, None, kin_variables )
+#            misc.sprint('Mapped down PS point:\n',str(PS_point))
+#            misc.sprint('kin_variables=',kin_variables)
             mapping.rescale_kinematic_variables(
                 new_ss, mom_dict, kin_variables, base)
+#            misc.sprint('rescaled kin_variables=',base,kin_variables)
             mapping.map_to_higher_multiplicity(
                 PS_point, new_ss, mom_dict, kin_variables )
+#            misc.sprint('Mapped up PS point:\n',str(PS_point))
+#            misc.sprint('kin_variables=',kin_variables)
             if parent_index in mom_dict.keys():
                 del mom_dict[parent_index]
         return
@@ -2397,14 +2424,14 @@ class FinalRescalingNLOWalker(FinalNLOWalker):
 
     collinear_map = FinalRescalingOneMapping()
     soft_map = SoftVsFinalMapping()
-    soft_collinear_map = SoftCollinearMapping(soft_map, collinear_map)
+    soft_collinear_map = SoftCollinearVsFinalMapping(soft_map, collinear_map)
     only_colored_recoilers = True
 
 class FinalLorentzNLOWalker(FinalNLOWalker):
 
     collinear_map = FinalLorentzOneMapping()
     soft_map = SoftVsFinalMapping()
-    soft_collinear_map = SoftCollinearMapping(soft_map, collinear_map)
+    soft_collinear_map = SoftCollinearVsFinalMapping(soft_map, collinear_map)
     only_colored_recoilers = True
 
 # General NLO walker
@@ -2454,8 +2481,8 @@ class LorentzNLOWalker(NLOWalker):
     f_collinear_map = FinalLorentzOneMapping()
     i_collinear_map = InitialLorentzOneMapping()
     soft_map = SoftVsFinalMapping()
-    f_soft_collinear_map = SoftCollinearMapping(soft_map, f_collinear_map)
-    i_soft_collinear_map = SoftCollinearMapping(soft_map, i_collinear_map)
+    f_soft_collinear_map = SoftCollinearVsFinalMapping(soft_map, f_collinear_map)
+    i_soft_collinear_map = SoftCollinearVsFinalMapping(soft_map, i_collinear_map)
     only_colored_recoilers = True
 
 # Walker for disjoint counterterms

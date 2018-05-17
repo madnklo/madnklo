@@ -2135,6 +2135,7 @@ class SubtractionCurrentExporter(object):
                 key = (
                     '%s.%s' % (main_module, module_path),
                     class_name, instantiation_options_index )
+
                 if key in mapped_currents:
                     mapped_currents[key]['mapped_process_keys'].append(current.get_key())
                 else:

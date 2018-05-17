@@ -1705,6 +1705,18 @@ class ME7Integrand_R(ME7Integrand):
         
         # Now iterate over currents that may require color- and spin-correlations        
         for (current, PS_point_for_current) in connected_currents:
+###########################################################################################
+#                             TEMPORARY HACK -START- 
+# 
+# This temporary hack forces the momenta passed to the current to be the ones of the original
+# higher multiplicity PS point mapped down. Eventually the walkers will be updated to pass
+# both information to the current: the original PS point and the mapped one.
+###########################################################################################
+#            for i_leg, vec_leg in PS_point.items():
+#                PS_point_for_current[i_leg] = vec_leg.get_copy()
+###########################################################################################
+#                             TEMPORARY HACK -END- 
+###########################################################################################
             current_evaluation, all_current_results = self.all_MEAccessors(
                 current, PS_point_for_current, hel_config=None, 
                 reduced_process = ME_process,

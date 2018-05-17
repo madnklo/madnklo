@@ -67,6 +67,31 @@ def Q_final_coll_variables(PS_point, parent, children, mapping_variables):
     kTs = tuple(kin_variables['kt%d' % i] for i in children)
     return zs, kTs
 
+def n_initial_coll_variables(PS_point, parent, children, mapping_variables):
+
+    na, nb = mappings.InitialCollinearVariables.collinear_and_reference(PS_point[parent])
+    kin_variables = dict()
+    # The lone initial state child is always placed first thanks to the implementation
+    # of the function get_sorted_children() in the current.
+    mappings.InitialCollinearVariables.get(
+        PS_point, children[1:], children[0], na, nb, kin_variables)
+    zs  = tuple(kin_variables['z%d'  % i] for i in children)
+    kTs = tuple(kin_variables['kt%d' % i] for i in children)
+    return zs, kTs
+
+def Q_initial_coll_variables(PS_point, parent, children, mapping_variables):
+    
+    na = PS_point[parent]
+    nb = mapping_variables['Q']
+    kin_variables = dict()
+    # The lone initial state child is always placed first thanks to the implementation
+    # of the function get_sorted_children() in the current.
+    mappings.InitialCollinearVariables.get(
+        PS_point, children[1:], children[0], na, nb, kin_variables)
+    zs  = tuple(kin_variables['z%d'  % i] for i in children)
+    kTs = tuple(kin_variables['kt%d' % i] for i in children)
+    return zs, kTs
+
 #=========================================================================================
 # QCDCurrent
 #=========================================================================================
@@ -89,7 +114,9 @@ class QCDCurrent(utils.VirtualCurrentImplementation):
 
     @staticmethod
     def is_quark(leg, model):
-
+        # This will return True both for a quark and anti-quark because it is not the function
+        # get_color() which is called but get('color'), and the sign of the dictionary
+        # value is always positive.
         return model.get_particle(leg.pdg).get('color') == 3
 
     @staticmethod
@@ -104,7 +131,11 @@ class QCDCurrent(utils.VirtualCurrentImplementation):
 
     @staticmethod
     def are_antiparticles(leg1, leg2):
-
+        
+        # Notice that for this function and two below, one should in principle use the
+        # safer functions 'get_pdg_code()' and 'get_anti_pdg_code()' of the particle objects
+        # retreived with: model.get_particle(leg.pdg)
+        # But that should be irrelevant.
         return leg1.pdg == -leg2.pdg
 
     @staticmethod

@@ -145,7 +145,11 @@ class QCD_final_collinear_0_gq(currents.QCDLocalCollinearCurrent):
             'color_correlations' : [None],
             'values'             : {(0, 0): {'finite': None}}
         })
-        evaluation['values'][(0, 0)]['finite'] = self.CF * ((1.-z)**2 - 1.)/z
+        # We must subtract the soft-collinear (CxS *not* SxC) from this contribution:
+        # P_gq           = self.CF * (1.+(1.-z)**2)/z
+        # CxS(P_gq)      = self.CF * 2.*(1.-z) / z
+        # P_gq-CxS(P_gq) = self.CF * z 
+        evaluation['values'][(0, 0)]['finite'] = self.CF * z
         return evaluation
 
     def evaluate_subtraction_current(
@@ -191,7 +195,7 @@ class QCD_final_collinear_0_gq(currents.QCDLocalCollinearCurrent):
             evaluation['color_correlations'].append(((parent, a),))
             # Write the eikonal for that pair
             evaluation['values'][(0, color_correlation_index)] = {
-                'finite': -mod_eikonal(PS_point, parent, a, children[0]) }
+                'finite': -mod_eikonal(PS_point, children[1], a, children[0]) }
             color_correlation_index += 1
 
         # Add the normalization factors
@@ -254,10 +258,13 @@ class QCD_final_collinear_0_gg(currents.QCDLocalCollinearCurrent):
         #    \sum_\lambda \epsilon_\lambda^\mu \epsilon_\lambda^{\star\nu}
         #    = g^{\mu\nu} + longitudinal terms
         # are irrelevant because Ward identities evaluate them to zero anyway.
-        # full_00 = (z/(1.-z)) + ((1.-z)/z)
-        # limit_00 = 1./z + 1./(1.-z)
-        # evaluation['values'][(0, 0)]['finite'] =  2.*self.CA * (full_00-limit_00)
-        evaluation['values'][(0, 0)]['finite'] = -4.*self.CA
+
+        # We must subtract the soft-collinear (CxS *not* SxC) from this contribution:
+        # P_gg           = 2.*self.CA * ( (z/(1.-z)) + ((1.-z)/z) )
+        # CxS(P_gg)      = 2.*self.CA * ( (1.-z) / z + z / (1.- z) )
+        # P_gg-CxS(P_gg) = 0
+
+        evaluation['values'][(0, 0)]['finite'] = 0.
         evaluation['values'][(1, 0)]['finite'] = -2.*self.CA * 2.*z*(1.-z) / kT.square()
         return evaluation
 
@@ -303,8 +310,8 @@ class QCD_final_collinear_0_gg(currents.QCDLocalCollinearCurrent):
         for a in all_colored_parton_numbers:
             evaluation['color_correlations'].append(((parent, a),))
             # Write the eikonal for that pair
-            eik0 = -mod_eikonal(PS_point, parent, a, children[0])
-            eik1 = -mod_eikonal(PS_point, parent, a, children[1])
+            eik0 = -mod_eikonal(PS_point, children[1], a, children[0])
+            eik1 = -mod_eikonal(PS_point, children[0], a, children[1])
             evaluation['values'][(0, color_correlation_index)] = {'finite': eik0 + eik1}
             color_correlation_index += 1
 
@@ -545,8 +552,12 @@ class QCD_initial_collinear_0_qg(currents.QCDLocalCollinearCurrent):
 
         # We re-use here the Altarelli-Parisi Kernel of the P_qg final state kernel, including
         # its soft subtraction
-        evaluation['values'][(0, 0)]['finite'] = \
-                               initial_state_crossing_factor * self.CF * (z**2 - 1.)/(1.-z)
+        # We must subtract the soft-collinear (CxS *not* SxC) from this contribution:
+        # P_qg           = self.CF * ( (1.+z**2)/(1.-z) )
+        # CxS(P_qg)      = self.CF * ( 2 / (x - 1) ) = self.CF * ( 2 z / (1 - z) )
+        # P_qg-CxS(P_qg) = self.CF * (1 + z**2 - 2*z) / (1 - z) = self.CF * ( 1 - z)
+        
+        evaluation['values'][(0, 0)]['finite'] = initial_state_crossing_factor * self.CF * (1 - z)
 
         return evaluation
 
@@ -593,8 +604,9 @@ class QCD_initial_collinear_0_qg(currents.QCDLocalCollinearCurrent):
         # and add the corresponding contributions to this current
         for a in all_colored_parton_numbers:
             evaluation['color_correlations'].append(((parent, a),))
-            # Write the eikonal for that pair
-            eik1 = -mod_eikonal(PS_point, parent, a, children[1])
+            # Write the eikonal for that pair (positive here since the dipole end
+            # 'children[0]' is in the initial state)
+            eik1 = mod_eikonal(PS_point, children[0], a, children[1])
             evaluation['values'][(0, color_correlation_index)] = {'finite': eik1}
             color_correlation_index += 1
 
@@ -686,12 +698,15 @@ class QCD_initial_collinear_0_gg(currents.QCDLocalCollinearCurrent):
         #    \sum_\lambda \epsilon_\lambda^\mu \epsilon_\lambda^{\star\nu}
         #    = g^{\mu\nu} + longitudinal terms
         # are irrelevant because Ward identities evaluate them to zero anyway.
-        # full_00 = (z/(1.-z)) + ((1.-z)/z)
-        # Then we must regulate only the limit z=1 as the initial state gluon cannot become
-        # soft:
-        # limit_00 = 1./(1.-z)
-        # evaluation['values'][(0, 0)]['finite'] =  2.*self.CA * (full_00-limit_00)
-        evaluation['values'][(0, 0)]['finite'] = 2.*self.CA * ( -1. + ((1.-z)/z) )
+
+        # We re-use here the Altarelli-Parisi Kernel of the P_qg final state kernel, including
+        # its soft subtraction
+        # We must subtract the soft-collinear (CxS *not* SxC) from this contribution:
+        # P_gg           = 2.*self.CA * ( (z/(1.-z)) + ((1.-z)/z) )
+        # CxS(P_gg)      = 2.*self.CA * ( (z/(1.-z)) )
+        # P_gg-CxS(P_gg) = 2.*self.CA * ((1.-z)/z)
+        
+        evaluation['values'][(0, 0)]['finite'] = 2.*self.CA * ((1.-z)/z)
         evaluation['values'][(1, 0)]['finite'] = -2.*self.CA * 2.*z*(1.-z) / kT.square()
         return evaluation
 
@@ -739,7 +754,9 @@ class QCD_initial_collinear_0_gg(currents.QCDLocalCollinearCurrent):
         for a in all_colored_parton_numbers:
             evaluation['color_correlations'].append(((parent, a),))
             # Write the eikonal for that pair
-            eik1 = -mod_eikonal(PS_point, parent, a, children[1])
+            # Write the eikonal for that pair (positive here since the dipole end
+            # 'children[0]' is in the initial state)
+            eik1 = mod_eikonal(PS_point, children[0], a, children[1])
             evaluation['values'][(0, color_correlation_index)] = {'finite': eik1}
             color_correlation_index += 1
 

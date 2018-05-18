@@ -110,10 +110,10 @@ class LowerMappedPS(MappedPS):
         ps, wgt = self.generator.generateKinematics(1., continuous_inputs)
         ps_dict = ps.to_dict()
         try:
-            res = self.mapping.map_to_lower_multiplicity(
+            _, jac = self.mapping.map_to_lower_multiplicity(
                 ps_dict, self.singular_structure, self.momenta_dict, self.final_masses_m,
                 None, True )
-            return {'weight': wgt / res['jacobian']}
+            return {'weight': wgt / jac}
         except mappings.FailedMapping:
             return {'weight': 0.}
 
@@ -124,10 +124,10 @@ class HigherMappedPS(MappedPS):
         ps, wgt = self.generator.generateKinematics(1., continuous_inputs)
         ps_dict = ps.to_dict()
         try:
-            res = self.mapping.map_to_higher_multiplicity(
+            _, jac = self.mapping.map_to_higher_multiplicity(
                 ps_dict, self.singular_structure, self.momenta_dict,
                 self.final_masses_s, True )
-            return {'weight': wgt * res['jacobian']}
+            return {'weight': wgt * jac}
         except mappings.FailedMapping:
             return {'weight': 0.}
 

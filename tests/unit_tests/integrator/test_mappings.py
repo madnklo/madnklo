@@ -327,6 +327,10 @@ class MappingsTest(unittest.TestCase):
     v1 = LorentzVector([4., 0., 0., math.sqrt(3.)])
     v2 = LorentzVector([4., 1., 1., 1.])
 
+    seed = 42
+    n_tests = 20
+    verbose = True
+
     @staticmethod
     def randomize(pars):
 
@@ -457,11 +461,13 @@ class MappingsTest(unittest.TestCase):
         """Test mapping and inverse."""
 
         # Make test deterministic by setting seed
-        random.seed(42)
+        random.seed(self.seed)
         # Check many times
-        for _ in range(20):
+        for _ in range(self.n_tests):
             # Generate a random setup
             MappingsTest.randomize(pars)
+            if self.verbose:
+                print "Structure:", pars['structure']
             my_PS_point = MappingsTest.generate_PS(pars)
             squared_masses = dict()
             for parent in pars['parents']:
@@ -473,18 +479,24 @@ class MappingsTest(unittest.TestCase):
             # Rotate it to avoid zero components
             for key in my_PS_point.keys():
                 my_PS_point[key].rotoboost(MappingsTest.v1, MappingsTest.v2)
-            # I know what I'm doing
-            old_PS_point = copy.deepcopy(my_PS_point)
+            if self.verbose:
+                print "Starting PS point:\n", my_PS_point
             # Compute collinear variables
             variables = dict()
-            lres = pars['mapping'].map_to_lower_multiplicity(
+            low_PS_point, low_jac = pars['mapping'].map_to_lower_multiplicity(
                 my_PS_point, pars['structure'], pars['momenta_dict'], squared_masses,
                 variables, True )
-            hres = pars['mapping'].map_to_higher_multiplicity(
-                my_PS_point, pars['structure'], pars['momenta_dict'],
+            if self.verbose:
+                print "Mapped PS point:\n", low_PS_point
+                print "with jacobian:", low_jac
+            high_PS_point, high_jac = pars['mapping'].map_to_higher_multiplicity(
+                low_PS_point, pars['structure'], pars['momenta_dict'],
                 variables, True )
-            assertDictAlmostEqual(self, my_PS_point, old_PS_point)
-            assertDictAlmostEqual(self, lres, hres)
+            if self.verbose:
+                print "Unmapped PS point:\n", high_PS_point
+                print "with jacobian:", high_jac
+            assertDictAlmostEqual(self, my_PS_point, high_PS_point)
+            self.assertAlmostEqual(low_jac, high_jac)
 
     # Test masses mappings
     #=====================================================================================

@@ -173,6 +173,8 @@ class FinalCollinearVariables(object):
         Sum rules are checked to assess numerical accuracy.
         """
 
+        # TODO Change total_momentum to parent number
+
         if len(children) < 2:
             for child in children:
                 PS_point[child] = total_momentum
@@ -440,8 +442,8 @@ class VirtualMapping(object):
         specified in singular_structure.
 
         :param PS_point: higher-multiplicity phase-space point,
-        as a dictionary that associates integers to Lorentz vectors,
-        which will be modified to the lower-multiplicity one
+        as a dictionary that associates integers to Lorentz vectors;
+        this will not be modified
 
         :param singular_structure: SingularStructure object that specifies
         sets of unresolved particles and recoilers recursively
@@ -613,11 +615,8 @@ class FinalZeroMassesMapping(VirtualMapping):
             assert (squared_masses is None) or (squared_masses['m2' + str(j)] == 0)
         # Build total momentum
         Q = LorentzVector()
-        mapping_variables = {'jacobian': 1, }
         for j in js:
-            mapping_variables['pC' + str(j)] = LorentzVector(PS_point[j])
             Q += PS_point[j]
-        mapping_variables['Q'] = Q
         Q2 = Q.square()
         # Compute the parameters gamma, alpha, beta
         gamma = {j: (Q.dot(PS_point[j]) / Q2) for j in js}
@@ -629,9 +628,10 @@ class FinalZeroMassesMapping(VirtualMapping):
         beta = {j: ((gamma[j] ** 2 - mu2[j]) ** 0.5 / alpha) for j in js}
         # assert abs(sum(beta.values())  - 1.) < 1.e-6
         # Map all momenta
+        new_PS_point = PS_point.get_copy()
         for j in js:
-            PS_point[j] /= alpha
-            PS_point[j] += (beta[j] - gamma[j]/alpha) * Q
+            new_PS_point[j] /= alpha
+            new_PS_point[j] += (beta[j] - gamma[j]/alpha) * Q
             # assert abs(PS_point[j].square() / Q2) < 1.e-6
         # If needed, update the kinematic_variables dictionary
         if kinematic_variables is not None:
@@ -639,16 +639,15 @@ class FinalZeroMassesMapping(VirtualMapping):
                 kinematic_variables['s' + str(j)] = mu2[j] * Q2
         # Compute the jacobian for this mapping
         if not compute_jacobian:
-            return mapping_variables
+            return new_PS_point, 1
         sum_beta2_gamma = 0.
         prod_beta_gamma = 1.
         for j in js:
             sum_beta2_gamma += beta[j] ** 2 / gamma[j]
             prod_beta_gamma *= beta[j] / gamma[j]
         jacobian = alpha**(3*len(js)-5) * prod_beta_gamma / sum_beta2_gamma
-        mapping_variables['jacobian'] = jacobian
         # Return characteristic variables
-        return mapping_variables
+        return new_PS_point, jacobian
 
     @classmethod
     def map_to_higher_multiplicity(
@@ -667,7 +666,6 @@ class FinalZeroMassesMapping(VirtualMapping):
         Q = LorentzVector()
         for j in js:
             Q += PS_point[j]
-        mapping_variables = {'Q': Q, 'jacobian': 1}
         Q2 = Q.square()
         # Compute the parameters beta
         beta = {j: (Q.dot(PS_point[j]) / Q2) for j in js}
@@ -695,22 +693,22 @@ class FinalZeroMassesMapping(VirtualMapping):
         gamma = {j: ((alpha*beta[j])**2 + mu2[j]) ** 0.5 for j in js}
         # assert abs(sum(gamma.values()) - 1.) < 1.e-6
         # Map all momenta
+        new_PS_point = PS_point.get_copy()
         for j in js:
-            PS_point[j] *= alpha
-            PS_point[j] += (gamma[j] - alpha*beta[j]) * Q
-            mapping_variables['pC' + str(j)] = LorentzVector(PS_point[j])
+            new_PS_point[j] *= alpha
+            new_PS_point[j] += (gamma[j] - alpha*beta[j]) * Q
             # assert abs(PS_point[j].square() / Q2 - mu2[j]) < 1.e-6
         # Compute the jacobian for this mapping
-        if not compute_jacobian: return mapping_variables
+        if not compute_jacobian:
+            return new_PS_point
         sum_beta2_gamma = 0.
         prod_beta_gamma = 1.
         for j in js:
             sum_beta2_gamma += beta[j] ** 2 / gamma[j]
             prod_beta_gamma *= beta[j] / gamma[j]
         jacobian = alpha**(3*len(js)-5) * prod_beta_gamma / sum_beta2_gamma
-        mapping_variables['jacobian'] = jacobian
         # Return characteristic variables
-        return mapping_variables
+        return new_PS_point, jacobian
 
 # Final masses mapping
 #=========================================================================================
@@ -721,27 +719,19 @@ class FinalMassesMapping(FinalZeroMassesMapping):
     @classmethod
     def map_to_lower_multiplicity(
         cls, PS_point, singular_structure, momenta_dict, squared_masses=None,
-        kinematic_variables=None, compute_jacobian=False, higher=False ):
+        kinematic_variables=None, compute_jacobian=False ):
 
-        tozero = FinalZeroMassesMapping.map_to_lower_multiplicity(
+        zero_PS_point, zero_jac = FinalZeroMassesMapping.map_to_lower_multiplicity(
             PS_point, singular_structure, momenta_dict, None,
             kinematic_variables, compute_jacobian )
         fake_kinematic_variables = None
         if squared_masses is not None:
             fake_kinematic_variables = {
                 's'+key[2:]: value for (key, value) in squared_masses.items()}
-        fromzero = FinalZeroMassesMapping.map_to_higher_multiplicity(
-            PS_point, singular_structure, momenta_dict, fake_kinematic_variables,
+        mass_PS_point, mass_jac = FinalZeroMassesMapping.map_to_higher_multiplicity(
+            zero_PS_point, singular_structure, momenta_dict, fake_kinematic_variables,
             compute_jacobian )
-        Qt = tozero['Q']
-        Qf = fromzero['Q']
-        assert abs((Qt-Qf).view(Vector)) / abs((Qt+Qf).view(Vector)) < Qt.eps()**0.5
-        if not higher:
-            tozero['jacobian'] /= fromzero['jacobian']
-            return tozero
-        else:
-            fromzero['jacobian'] /= tozero['jacobian']
-            return fromzero
+        return mass_PS_point, zero_jac/mass_jac
 
     @classmethod
     def map_to_higher_multiplicity(
@@ -752,12 +742,10 @@ class FinalMassesMapping(FinalZeroMassesMapping):
             'm2' + key[1:]: value
             for (key, value) in kinematic_variables.items()
             if key.startswith('s') }
-        res = cls.map_to_lower_multiplicity(
+        mapped_PS_point, jac = cls.map_to_lower_multiplicity(
             PS_point, singular_structure, momenta_dict, fake_squared_masses,
-            None, compute_jacobian, True )
-        # if compute_jacobian:
-        #     res['jacobian'] = 1./res['jacobian']
-        return res
+            None, compute_jacobian )
+        return mapped_PS_point, 1./jac
 
 #=========================================================================================
 # Final-collinear mappings
@@ -879,28 +867,26 @@ class FinalRescalingOneMapping(FinalCollinearMapping):
         Q = pC + pR
         # Compute the parameter alpha
         alpha, beta, gamma, mu2 = FinalRescalingOneMapping.abc(pC, Q)
+        # Create new PS point
+        new_PS_point = PS_point.get_copy()
         # Map all recoilers' momenta
         for recoiler in recoilers:
-            PS_point[recoiler] /= (1-alpha)
+            new_PS_point[recoiler] /= (1-alpha)
         # Map the set's momentum
-        PS_point[parent] = (pC - alpha * Q) / (1-alpha)
+        new_PS_point[parent] = (pC - alpha * Q) / (1-alpha)
         # If needed, update the kinematic_variables dictionary
         if kinematic_variables is not None:
-            na, nb = FinalCollinearVariables.collinear_and_reference(PS_point[parent])
+            na, nb = FinalCollinearVariables.collinear_and_reference(new_PS_point[parent])
             FinalCollinearVariables.get(PS_point, children, na, nb, kinematic_variables)
             kinematic_variables['s' + str(parent)] = pC.square()
         # Eliminate children momenta from the mapped phase-space point
         for j in children:
             if j != parent: # Bypass degenerate case of 1->1 splitting
-                del PS_point[j]
+                del new_PS_point[j]
         # Compute the jacobian for this mapping
         jacobian = (1-alpha)**(2*len(recoilers)) * beta / (gamma - mu2)
         # Return characteristic variables
-        return {
-            'jacobian':           jacobian,
-            'alpha'+str(parent):  alpha,
-            'pC'+str(parent):     pC,
-            'Q':                  Q, }
+        return new_PS_point, jacobian
 
     @classmethod
     def map_to_higher_multiplicity(
@@ -937,22 +923,21 @@ class FinalRescalingOneMapping(FinalCollinearMapping):
         gamma = alpha + (1-alpha) * beta
         # Compute reverse-mapped momentum
         pC = (1-alpha) * qC + alpha * Q
+        # Create new PS point
+        new_PS_point = PS_point.get_copy()
         # Map recoil momenta
         for recoiler in recoilers:
-            PS_point[recoiler] *= 1-alpha
+            new_PS_point[recoiler] *= 1-alpha
         # Set children momenta
         na, nb = FinalCollinearVariables.collinear_and_reference(qC)
-        FinalCollinearVariables.set(PS_point, children, pC, na, nb, kinematic_variables)
+        FinalCollinearVariables.set(
+            new_PS_point, children, pC, na, nb, kinematic_variables)
         # Remove parent's momentum
         if parent not in children: # Bypass degenerate case of 1->1 splitting
-            del PS_point[parent]
+            del new_PS_point[parent]
         # Return the jacobian for this mapping
         jacobian = (1-alpha)**(2*len(recoilers)) * beta / (gamma - mu2)
-        return {
-            'jacobian':           jacobian,
-            'alpha'+str(parent):  alpha,
-            'pC'+str(parent):     pC,
-            'Q':                  Q, }
+        return new_PS_point, jacobian
 
 # Final-collinear Lorentz mapping, one set
 #=========================================================================================
@@ -1000,34 +985,31 @@ class FinalLorentzOneMapping(FinalCollinearMapping):
         pC2 = pC.square()
         pR2 = pR.square()
         alpha = (Q2-pR2) / math.sqrt(Kaellen(Q2, pR2, pC2))
-        # print PS_point
-        # print 1. / alpha
+        # Create new PS point
+        new_PS_point = PS_point.get_copy()
         # Map the set's momentum
         pC_perp = pC - ((Q2+pC2-pR2)/(2*Q2)) * Q
-        PS_point[parent] = alpha*pC_perp + ((Q2-pR2)/(2*Q2))*Q
+        new_PS_point[parent] = alpha*pC_perp + ((Q2-pR2)/(2*Q2))*Q
         # Map all recoilers' momenta
-        qR = Q - PS_point[parent]
+        qR = Q - new_PS_point[parent]
         for recoiler in recoilers:
             # TODO Move this try/except to higher level
             try:
-                PS_point[recoiler].rotoboost(pR, qR)
+                new_PS_point[recoiler].rotoboost(pR, qR)
             except:
                 logger.critical("Problem encountered for %s" % str(singular_structure))
-                logger.critical("The full phase space point was\n%s" % str(PS_point))
+                logger.critical("The full phase space point was\n%s" % str(new_PS_point))
         # If needed, update the kinematic_variables dictionary
         if kinematic_variables is not None:
-            na, nb = FinalCollinearVariables.collinear_and_reference(PS_point[parent])
+            na, nb = FinalCollinearVariables.collinear_and_reference(new_PS_point[parent])
             kinematic_variables['s' + str(parent)] = pC2
             FinalCollinearVariables.get(PS_point, children, na, nb, kinematic_variables)
         # Eliminate children momenta from the mapped phase-space point
         for j in children:
             if j != parent: # Bypass degenerate case of 1->1 splitting
-                del PS_point[j]
+                del new_PS_point[j]
         jacobian = 1. / alpha
-        return {
-            'jacobian':           jacobian,
-            'pC'+str(parent):     pC,
-            'Q':                  Q, }
+        return new_PS_point, jacobian
 
     @classmethod
     def map_to_higher_multiplicity(
@@ -1065,20 +1047,20 @@ class FinalLorentzOneMapping(FinalCollinearMapping):
         # Compute reverse-mapped momentum
         pC = alpham1*qC_perp + ((Q2+pC2-qR2)/(2*Q2))*Q
         pR = Q - pC
+        # Create new PS point
+        new_PS_point = PS_point.get_copy()
         # Map recoil momenta
         for recoiler in singular_structure.legs:
-            PS_point[recoiler.n].rotoboost(qR, pR)
+            new_PS_point[recoiler.n].rotoboost(qR, pR)
         # Set children momenta
         na, nb = FinalCollinearVariables.collinear_and_reference(qC)
-        FinalCollinearVariables.set(PS_point, children, pC, na, nb, kinematic_variables)
+        FinalCollinearVariables.set(
+            new_PS_point, children, pC, na, nb, kinematic_variables)
         # Remove parent's momentum
         if parent not in children: # Bypass degenerate case of 1->1 splitting
-            del PS_point[parent]
+            del new_PS_point[parent]
         jacobian = alpham1
-        return {
-            'jacobian':           jacobian,
-            'pC'+str(parent):     pC,
-            'Q':                  Q, }
+        return new_PS_point, jacobian
 
     @classmethod
     def can_map_to_higher_multiplicity(
@@ -1127,16 +1109,15 @@ class FinalGroupingMapping(FinalCollinearMapping):
         assert isinstance(momenta_dict, sub.bidict)
         assert cls.is_valid_structure(singular_structure)
 
-        # Build a reduced singular structure & masses to call FinalMassesMapping
+        # Build reduced PS point, singular structure & masses to call FinalMassesMapping
+        reduced_PS_point = PS_point.get_copy()
         reduced_singular_structure = sub.SingularStructure()
         reduced_squared_masses = {}
         parents = []
         for substructure in singular_structure.substructures:
             parent, children, _ = get_structure_numbers(substructure, momenta_dict)
-            parents.append(parent)
-            PS_point[parent] = sum(PS_point[child] for child in children)
-            if kinematic_variables is not None:
-                kinematic_variables['s'+str(parent)] = PS_point[parent].square()
+            for child in children: del reduced_PS_point[child]
+            reduced_PS_point[parent] = sum(PS_point[child] for child in children)
             parent_leg = sub.SubtractionLeg(parent, 0, sub.SubtractionLeg.FINAL)
             reduced_singular_structure.substructures.append(sub.CollStructure(parent_leg))
             m2i = 'm2' + str(parent)
@@ -1144,26 +1125,26 @@ class FinalGroupingMapping(FinalCollinearMapping):
                 reduced_squared_masses[m2i] = 0
             else:
                 reduced_squared_masses[m2i] = squared_masses[m2i]
+            parents.append(parent)
+            if kinematic_variables is not None:
+                kinematic_variables['s' + str(parent)] = reduced_PS_point[parent].square()
         for leg in singular_structure.legs:
+            # reduced_PS_point[leg.n] = LorentzVector(PS_point[leg.n])
             reduced_singular_structure.substructures.append(sub.CollStructure(leg))
             reduced_squared_masses['m2'+str(leg.n)] = PS_point[leg.n].square()
         # Perform mapping of parent momenta to target masses
-        res = FinalMassesMapping.map_to_lower_multiplicity(
-            PS_point, reduced_singular_structure, momenta_dict, reduced_squared_masses,
+        new_PS_point, jac = FinalMassesMapping.map_to_lower_multiplicity(
+            reduced_PS_point, reduced_singular_structure,
+            momenta_dict, reduced_squared_masses,
             kinematic_variables, compute_jacobian )
-        res['pow'] = len(singular_structure.substructures)
-        # Eliminate children momenta from the mapped phase-space point
-        # and, if need be, update the kinematic_variables dictionary
-        for parent in parents:
-            children = momenta_dict[parent]
-            if kinematic_variables is not None:
-                na, nb = FinalCollinearVariables.collinear_and_reference(PS_point[parent])
+        # If need be, update the kinematic_variables dictionary
+        if kinematic_variables is not None:
+            for parent in parents:
+                na, nb = FinalCollinearVariables.collinear_and_reference(
+                    new_PS_point[parent] )
                 FinalCollinearVariables.get(
-                    PS_point, children, na, nb, kinematic_variables)
-            for j in children:
-                if j != parent: # Bypass degenerate case of 1->1 splitting
-                    del PS_point[j]
-        return res
+                    PS_point, momenta_dict[parent], na, nb, kinematic_variables)
+        return new_PS_point, jac
 
     @classmethod
     def map_to_higher_multiplicity(
@@ -1177,35 +1158,33 @@ class FinalGroupingMapping(FinalCollinearMapping):
             cls.get_kinematic_variables_names(singular_structure, momenta_dict) )
         assert needed_variables.issubset(kinematic_variables.keys())
 
-        # Build a reduced singular structure & masses to call FinalMassesMapping
+        # Build reduced PS point, singular structure & masses to call FinalMassesMapping
         reduced_singular_structure = sub.SingularStructure()
         reduced_kinematic_variables = dict()
-        parent_momenta = dict()
+        parents = []
         for substructure in singular_structure.substructures:
             parent, _, _ = get_structure_numbers(substructure, momenta_dict)
-            parent_momenta[parent] = LorentzVector(PS_point[parent])
-            s_i = 's' + str(parent)
-            reduced_kinematic_variables[s_i] = kinematic_variables[s_i]
             parent_leg = sub.SubtractionLeg(parent, 0, sub.SubtractionLeg.FINAL)
             reduced_singular_structure.substructures.append(sub.CollStructure(parent_leg))
+            s_i = 's' + str(parent)
+            reduced_kinematic_variables[s_i] = kinematic_variables[s_i]
+            parents.append(parent)
         for leg in singular_structure.legs:
             reduced_singular_structure.substructures.append(sub.CollStructure(leg))
             reduced_kinematic_variables['s' + str(leg.n)] = PS_point[leg.n].square()
         # Perform mapping of parent momenta to target masses
-        res = FinalMassesMapping.map_to_higher_multiplicity(
+        new_PS_point, jac = FinalMassesMapping.map_to_higher_multiplicity(
             PS_point, reduced_singular_structure, momenta_dict,
             reduced_kinematic_variables, compute_jacobian )
-        res['pow'] = len(singular_structure.substructures)
-        # Eliminate children momenta from the mapped phase-space point
-        # and, if need be, update the kinematic_variables dictionary
-        for parent, p in parent_momenta.items():
+        # Set the kinematic_variables
+        for parent in parents:
             children = momenta_dict[parent]
-            na, nb = FinalCollinearVariables.collinear_and_reference(p)
+            na, nb = FinalCollinearVariables.collinear_and_reference(PS_point[parent])
             FinalCollinearVariables.set(
-                PS_point, children, PS_point[parent], na, nb, kinematic_variables)
+                new_PS_point, children, new_PS_point[parent], na, nb, kinematic_variables)
             if parent not in children:  # Bypass degenerate case of 1->1 splitting
-                del PS_point[parent]
-        return res
+                del new_PS_point[parent]
+        return new_PS_point, jac
 
 # Final-collinear Lorentz mapping
 #=========================================================================================
@@ -1222,19 +1201,16 @@ class FinalLorentzMapping(FinalCollinearMapping):
         assert isinstance(momenta_dict, sub.bidict)
         assert cls.is_valid_structure(singular_structure)
 
-        # Build a reduced singular structure & masses to call FinalMassesMapping
+        # Build reduced PS point, singular structure & masses to call FinalMassesMapping
+        reduced_PS_point = PS_point.get_copy()
         reduced_singular_structure = sub.SingularStructure()
         reduced_squared_masses = {}
         parents = []
-        Q = LorentzVector()
         # First build pseudo-particles for the collinear sets
         for substructure in singular_structure.substructures:
             parent, children, _ = get_structure_numbers(substructure, momenta_dict)
-            parents.append(parent)
-            PS_point[parent] = sum(PS_point[child] for child in children)
-            Q += PS_point[parent]
-            if kinematic_variables is not None:
-                kinematic_variables['s'+str(parent)] = PS_point[parent].square()
+            for child in children: del reduced_PS_point[child]
+            reduced_PS_point[parent] = sum(PS_point[child] for child in children)
             parent_leg = sub.SubtractionLeg(parent, 0, sub.SubtractionLeg.FINAL)
             reduced_singular_structure.substructures.append(sub.CollStructure(parent_leg))
             m2i = 'm2' + str(parent)
@@ -1242,64 +1218,61 @@ class FinalLorentzMapping(FinalCollinearMapping):
                 reduced_squared_masses[m2i] = 0
             else:
                 reduced_squared_masses[m2i] = squared_masses[m2i]
+            parents.append(parent)
+            if kinematic_variables is not None:
+                kinematic_variables['s' + str(parent)] = reduced_PS_point[parent].square()
         mass_sum = sum(s ** 0.5 for s in reduced_squared_masses.values())
         # Then treat recoilers collectively if any
         recoilers = [leg.n for leg in singular_structure.legs]
         R = None
-        pR = None
         s_R = 0.
         if recoilers:
+            for recoiler in recoilers:
+                del reduced_PS_point[recoiler]
             if len(recoilers) == 1:
                 R = recoilers[0]
             else:
                 R = max(momenta_dict.keys()) + 1
-                pR = sum(PS_point[r] for r in recoilers)
-                PS_point[R] = LorentzVector(pR)
+            reduced_PS_point[R] = LorentzVector()
+            for recoiler in recoilers:
+                reduced_PS_point[R] += PS_point[recoiler]
             recoiler_leg = sub.SubtractionLeg(R, 0, sub.SubtractionLeg.FINAL)
             reduced_singular_structure.substructures.append(
                 sub.CollStructure(recoiler_leg))
-            Q += PS_point[R]
-            s_R = PS_point[R].square()
+            s_R = reduced_PS_point[R].square()
             reduced_squared_masses['m2'+str(R)] = s_R
-        # If the mapping is not valid, undo all changes and raise
+        # If the mapping is not valid, raise
+        Q = sum(p for p in reduced_PS_point.values())
         Q2 = Q.square()
         if (s_R ** 0.5) > (Q2 ** 0.5 - mass_sum):
-            for parent in parents:
-                del PS_point[parent]
-                if kinematic_variables is not None:
-                    del kinematic_variables['s'+str(parent)]
-            if R:
-                del PS_point[R]
             raise FailedMapping
         # Perform mapping of parent momenta to target masses
-        res = FinalMassesMapping.map_to_lower_multiplicity(
-            PS_point, reduced_singular_structure, momenta_dict, reduced_squared_masses,
+        new_PS_point, jac = FinalMassesMapping.map_to_lower_multiplicity(
+            reduced_PS_point, reduced_singular_structure,
+            momenta_dict, reduced_squared_masses,
             kinematic_variables, compute_jacobian )
-        res['pow'] = len(singular_structure.substructures)
-        # Eliminate children momenta from the mapped phase-space point
-        # and, if need be, update the kinematic_variables dictionary
-        for parent in parents:
-            children = momenta_dict[parent]
-            if kinematic_variables is not None:
-                na, nb = FinalCollinearVariables.collinear_and_reference(PS_point[parent])
+        # If need be, update the kinematic_variables dictionary
+        if kinematic_variables is not None:
+            for parent in parents:
+                na, nb = FinalCollinearVariables.collinear_and_reference(
+                    new_PS_point[parent] )
                 FinalCollinearVariables.get(
-                    PS_point, children, na, nb, kinematic_variables)
-            for j in children:
-                if j != parent: # Bypass degenerate case of 1->1 splitting
-                    del PS_point[j]
+                    PS_point, momenta_dict[parent], na, nb, kinematic_variables)
         # Boost recoilers
         if len(recoilers) > 1:
-            qR = PS_point[R]
+            pR = reduced_PS_point[R]
+            qR = new_PS_point[R]
             for recoiler in recoilers:
+                new_PS_point[recoiler] = LorentzVector(PS_point[recoiler])
                 # TODO Move this try/except to higher level
                 try:
-                    PS_point[recoiler].rotoboost(pR, qR)
+                    new_PS_point[recoiler].rotoboost(pR, qR)
                 except:
                     logger.critical(
                         "Problem encountered for " + str(singular_structure))
                     logger.critical("The full phase space point was\n" + str(PS_point))
-            del PS_point[R]
-        return res
+            del new_PS_point[R]
+        return new_PS_point, jac
 
     @classmethod
     def map_to_higher_multiplicity(
@@ -1313,20 +1286,21 @@ class FinalLorentzMapping(FinalCollinearMapping):
             cls.get_kinematic_variables_names(singular_structure, momenta_dict) )
         assert needed_variables.issubset(kinematic_variables.keys())
 
-        # Build a reduced singular structure & masses to call FinalMassesMapping
+        # Build reduced PS point, singular structure & masses to call FinalMassesMapping
+        reduced_PS_point = PS_point.get_copy()
         reduced_singular_structure = sub.SingularStructure()
         reduced_kinematic_variables = dict()
-        parent_momenta = dict()
+        parents = []
         Q = LorentzVector()
         # First build pseudo-particles for the collinear sets
         for substructure in singular_structure.substructures:
             parent, _, _ = get_structure_numbers(substructure, momenta_dict)
-            Q += PS_point[parent]
-            parent_momenta[parent] = LorentzVector(PS_point[parent])
-            s_i = 's' + str(parent)
-            reduced_kinematic_variables[s_i] = kinematic_variables[s_i]
             parent_leg = sub.SubtractionLeg(parent, 0, sub.SubtractionLeg.FINAL)
             reduced_singular_structure.substructures.append(sub.CollStructure(parent_leg))
+            s_i = 's' + str(parent)
+            reduced_kinematic_variables[s_i] = kinematic_variables[s_i]
+            parents.append(parent)
+            Q += PS_point[parent]
         # Then treat recoilers collectively if any
         recoilers = [leg.n for leg in singular_structure.legs]
         mass_sum = sum(s ** 0.5 for s in reduced_kinematic_variables.values())
@@ -1339,46 +1313,42 @@ class FinalLorentzMapping(FinalCollinearMapping):
             else:
                 R = max(momenta_dict.keys()) + 1
                 qR = sum(PS_point[r] for r in recoilers)
-                PS_point[R] = LorentzVector(qR)
+                reduced_PS_point[R] = LorentzVector(qR)
             recoiler_leg = sub.SubtractionLeg(R, 0, sub.SubtractionLeg.FINAL)
             reduced_singular_structure.substructures.append(
                 sub.CollStructure(recoiler_leg) )
-            Q += PS_point[R]
-            s_R = PS_point[R].square()
+            Q += reduced_PS_point[R]
+            s_R = reduced_PS_point[R].square()
             reduced_kinematic_variables['s'+str(R)] = s_R
         # If the mapping is not valid, undo all changes and raise
         Q2 = Q.square()
         if (s_R ** 0.5) > (Q2 ** 0.5 - mass_sum):
-            if R:
-                del PS_point[R]
             raise FailedMapping
         # Perform mapping of parent momenta to target masses
-        res = FinalMassesMapping.map_to_higher_multiplicity(
-            PS_point, reduced_singular_structure, momenta_dict,
+        new_PS_point, jac = FinalMassesMapping.map_to_higher_multiplicity(
+            reduced_PS_point, reduced_singular_structure, momenta_dict,
             reduced_kinematic_variables, compute_jacobian )
-        res['pow'] = len(singular_structure.substructures)
-        # Eliminate children momenta from the mapped phase-space point
-        # and, if need be, update the kinematic_variables dictionary
-        for parent, p in parent_momenta.items():
+        # Set the kinematic_variables
+        for parent in parents:
             children = momenta_dict[parent]
-            na, nb = FinalCollinearVariables.collinear_and_reference(p)
+            na, nb = FinalCollinearVariables.collinear_and_reference(PS_point[parent])
             FinalCollinearVariables.set(
-                PS_point, children, PS_point[parent], na, nb, kinematic_variables)
+                new_PS_point, children, new_PS_point[parent], na, nb, kinematic_variables)
             if parent not in children:  # Bypass degenerate case of 1->1 splitting
-                del PS_point[parent]
+                del new_PS_point[parent]
         # Boost recoilers
         if len(recoilers) > 1:
-            pR = PS_point[R]
+            pR = new_PS_point[R]
             for recoiler in recoilers:
                 # TODO Move this try/except to higher level
                 try:
-                    PS_point[recoiler].rotoboost(qR, pR)
+                    new_PS_point[recoiler].rotoboost(qR, pR)
                 except:
                     logger.critical(
                         "Problem encountered for %s" % str(singular_structure))
                     logger.critical("The full phase space point was\n%s" % str(PS_point))
-            del PS_point[R]
-        return res
+            del new_PS_point[R]
+        return new_PS_point, jac
 
     @classmethod
     def can_map_to_higher_multiplicity(
@@ -1548,34 +1518,33 @@ class InitialLorentzOneMapping(InitialCollinearMapping):
         pAmpR = pA - pR
         # Compute parameters
         xia = (pAmpR.square() - pR.square())/(2*pa.dot(pAmpR))
+        # Create new PS point
+        new_PS_point = PS_point.get_copy()
         # Map the set's momentum
         qA = xia * pa
-        PS_point[parent] = qA
+        new_PS_point[parent] = qA
         # Map all recoilers' momenta
         qR = qA - pAmpR
         for recoiler in singular_structure.legs:
             # TODO Move this try/except to higher level
             try:
-                PS_point[recoiler.n].rotoboost(pR, qR)
+                new_PS_point[recoiler.n].rotoboost(pR, qR)
             except:
                 logger.critical("Problem encountered for " + str(singular_structure))
                 logger.critical("The full phase space point was\n" + str(PS_point))
+        # Eliminate children momenta from the mapped phase-space point
+        for j in fs_children:
+            del new_PS_point[j]
+        if is_child != parent:  # Bypass degenerate case of 1->1 splitting
+            del new_PS_point[is_child]
         # If needed, update the kinematic_variables dictionary
         if kinematic_variables is not None:
             na, nb = InitialCollinearVariables.collinear_and_reference(qA)
             InitialCollinearVariables.get(
                 PS_point, fs_children, is_child, na, nb, kinematic_variables )
-        # Eliminate children momenta from the mapped phase-space point
-        for j in fs_children:
-            del PS_point[j]
-        if is_child != parent:  # Bypass degenerate case of 1->1 splitting
-            del is_child
         # TODO Compute the jacobian for this mapping
         jacobian = 1.0
-        return {
-            'jacobian':           jacobian,
-            'pC'+str(parent):     pA,
-            'Q':                  pAmpR, }
+        return new_PS_point, jacobian
 
     @classmethod
     def map_to_higher_multiplicity(
@@ -1625,29 +1594,28 @@ class InitialLorentzOneMapping(InitialCollinearMapping):
         pAp = (-quad_b+sqrt_delta)/(2*quad_a)
         xia = 2*zA*nb.dot(qA)/(pAp*nanb)
         # xia = kinematic_variables['xi' + str(parent)]
+        # Create new PS point
+        new_PS_point = PS_point.get_copy()
         # Compute parameters
         pa = qA / xia
         # Set children momenta
         InitialCollinearVariables.set(
-            PS_point, fs_children, is_child, pa, na, nb, kinematic_variables )
+            new_PS_point, fs_children, is_child, pa, na, nb, kinematic_variables )
         # Build collective momenta
         pCa = LorentzVector()
         for j in fs_children:
-            pCa += PS_point[j]
+            pCa += new_PS_point[j]
         pA = pa - pCa
         # Map recoil momenta
         pR = qR + pA - qA
         for recoiler in singular_structure.legs:
-            PS_point[recoiler.n].rotoboost(qR, pR)
+            new_PS_point[recoiler.n].rotoboost(qR, pR)
         # Remove parent's momentum
         if parent != is_child:  # Bypass degenerate case of 1->1 splitting
-            del PS_point[parent]
+            del new_PS_point[parent]
         # TODO Compute the jacobian for this mapping
         jacobian = 1.0
-        return {
-            'jacobian':           jacobian,
-            'pC'+str(parent):     pA,
-            'Q':                  pA - pR, }
+        return new_PS_point, jacobian
 
 #=========================================================================================
 # Soft mappings
@@ -1735,13 +1703,14 @@ class SoftVsFinalMapping(ElementaryMappingSoft):
 
         # Build the total soft momentum,
         # save the soft momenta in variables and eliminate them from PS_point
+        new_PS_point = PS_point.get_copy()
         pS = LorentzVector()
         for substructure in singular_structure.substructures:
             children = tuple(leg.n for leg in substructure.legs)
             if kinematic_variables is not None:
                 SoftVariables.get(PS_point, children, kinematic_variables)
             for child in children:
-                pS += PS_point.pop(child)
+                pS += new_PS_point.pop(child)
         # Build the total momentum of recoilers
         recoilers = tuple(leg.n for leg in singular_structure.legs)
         pR = LorentzVector()
@@ -1756,14 +1725,10 @@ class SoftVsFinalMapping(ElementaryMappingSoft):
         P = pR / la
         # Map all recoilers' momenta
         for recoiler in singular_structure.legs:
-            PS_point[recoiler.n] /= la
-            PS_point[recoiler.n].rotoboost(P, Q)
+            new_PS_point[recoiler.n] /= la
+            new_PS_point[recoiler.n].rotoboost(P, Q)
         jacobian = (pR2_Q2)**(len(recoilers)-2)
-        return {
-            'jacobian': jacobian,
-            'y':        y,
-            'pS':       pS,
-            'Q':        Q, }
+        return new_PS_point, jacobian
 
     @classmethod
     def map_to_higher_multiplicity(
@@ -1779,12 +1744,13 @@ class SoftVsFinalMapping(ElementaryMappingSoft):
 
         # Build the total soft momentum,
         # get the soft momenta from variables and save them in PS_point
+        new_PS_point = PS_point.get_copy()
         pS = LorentzVector()
         for substructure in singular_structure.substructures:
             children = tuple(leg.n for leg in substructure.legs)
-            SoftVariables.set(PS_point, children, kinematic_variables)
+            SoftVariables.set(new_PS_point, children, kinematic_variables)
             for child in children:
-                pS += PS_point[child]
+                pS += new_PS_point[child]
         # Build the total momentum, which is equal to the mapped recoilers'
         Q = LorentzVector()
         recoilers = tuple(leg.n for leg in singular_structure.legs)
@@ -1799,14 +1765,10 @@ class SoftVsFinalMapping(ElementaryMappingSoft):
         P = pR / la
         # Map all recoilers' momenta
         for recoiler in singular_structure.legs:
-            PS_point[recoiler.n] *= la
-            PS_point[recoiler.n].rotoboost(Q, P)
+            new_PS_point[recoiler.n] *= la
+            new_PS_point[recoiler.n].rotoboost(Q, P)
         jacobian = (pR2_Q2)**(len(recoilers)-2)
-        return {
-            'jacobian': jacobian,
-            'y':        y,
-            'pS':       pS,
-            'Q':        Q, }
+        return new_PS_point, jacobian
 
 #=========================================================================================
 # Soft-collinear mappings
@@ -2262,18 +2224,18 @@ class VirtualWalker(object):
             else:
                 raise MadGraph5Error("Unrecognized structure of type " + step.name())
             kin_variables = {}
-#            misc.sprint('Starting PS point:\n',str(PS_point))
+            # misc.sprint('Starting PS point:\n',str(PS_point))
             mapping.map_to_lower_multiplicity(
                 PS_point, new_ss, mom_dict, None, kin_variables )
-#            misc.sprint('Mapped down PS point:\n',str(PS_point))
-#            misc.sprint('kin_variables=',kin_variables)
+            # misc.sprint('Mapped down PS point:\n',str(PS_point))
+            # misc.sprint('kin_variables=',kin_variables)
             mapping.rescale_kinematic_variables(
                 new_ss, mom_dict, kin_variables, base)
-#            misc.sprint('rescaled kin_variables=',base,kin_variables)
+            # misc.sprint('rescaled kin_variables=',base,kin_variables)
             mapping.map_to_higher_multiplicity(
                 PS_point, new_ss, mom_dict, kin_variables )
-#            misc.sprint('Mapped up PS point:\n',str(PS_point))
-#            misc.sprint('kin_variables=',kin_variables)
+            # misc.sprint('Mapped up PS point:\n',str(PS_point))
+            # misc.sprint('kin_variables=',kin_variables)
             if parent_index in mom_dict.keys():
                 del mom_dict[parent_index]
         return

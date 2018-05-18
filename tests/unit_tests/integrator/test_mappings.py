@@ -743,9 +743,9 @@ class WalkersTest(unittest.TestCase):
                 res_dict1 = walker.walk_to_lower_multiplicity(
                     my_PS_point, my_counterterms[i],
                     compute_kinematic_variables=True, compute_jacobian=True )
-                (currs1, ME1, mv1, kin)  = (
+                (currs1, ME1, jac1, kin)  = (
                     res_dict1['currents'], res_dict1['matrix_element'],
-                    res_dict1['mapping_variables'], res_dict1['kinematic_variables'] )
+                    res_dict1['jacobian'], res_dict1['kinematic_variables'] )
                 if self.verbosity > 3:
                     print "Walking down"
                     for curr in currs1:
@@ -754,15 +754,15 @@ class WalkersTest(unittest.TestCase):
                 res_dict2 = walker.walk_to_higher_multiplicity(
                     ME1[1], my_counterterms[i], kin,
                     compute_jacobian=True )
-                (currs2, ME2, mv2)  = (
+                (currs2, ME2, jac2)  = (
                     res_dict2['currents'], res_dict2['matrix_element'],
-                    res_dict2['mapping_variables'] )
+                    res_dict2['jacobian'] )
                 if self.verbosity > 3:
                     print "Walking up"
                     print ME2[1]
                     for curr in currs2:
                         print curr[1]
-                    print "Jacobians:", mv1['jacobian'], mv2['jacobian']
+                    print "Jacobians:", jac1, jac2
                 # Check currents
                 self.assertEqual(len(currs1), len(currs2))
                 for i_curr in range(len(currs1)):
@@ -772,7 +772,7 @@ class WalkersTest(unittest.TestCase):
                 self.assertEqual(ME1[0], ME2[0])
                 self.assertDictEqual(ME1[1], ME2[1])
                 # Check mapping variables
-                assertDictAlmostEqual(self, mv1, mv2)
+                self.assertAlmostEqual(jac1, jac2)
 
     def _test_approach_limit(
         self, walker, process,
@@ -835,8 +835,7 @@ class WalkersTest(unittest.TestCase):
                 squares = {key: my_PS_point[key].square() for key in my_PS_point.keys()}
                 # Compute collinear variables
                 for alpha in self.parameter_values:
-                    new_PS_point = my_PS_point.get_copy()
-                    walker.approach_limit(new_PS_point, ss, alpha, process)
+                    new_PS_point = walker.approach_limit(my_PS_point, ss, alpha, process)
                     if self.verbosity > 4:
                         print "New PS point for", alpha, ":\n", new_PS_point
                     for leg in legs_FS:

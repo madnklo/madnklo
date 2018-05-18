@@ -700,7 +700,7 @@ class FinalZeroMassesMapping(VirtualMapping):
             # assert abs(PS_point[j].square() / Q2 - mu2[j]) < 1.e-6
         # Compute the jacobian for this mapping
         if not compute_jacobian:
-            return new_PS_point
+            return new_PS_point, 1
         sum_beta2_gamma = 0.
         prod_beta_gamma = 1.
         for j in js:
@@ -730,7 +730,7 @@ class FinalMassesMapping(FinalZeroMassesMapping):
                 's'+key[2:]: value for (key, value) in squared_masses.items()}
         mass_PS_point, mass_jac = FinalZeroMassesMapping.map_to_higher_multiplicity(
             zero_PS_point, singular_structure, momenta_dict, fake_kinematic_variables,
-            compute_jacobian )
+            compute_jacobian=compute_jacobian )
         return mass_PS_point, zero_jac/mass_jac
 
     @classmethod
@@ -1871,15 +1871,14 @@ class SoftCollinearMapping(VirtualMapping):
             singular_structure,
             i_soft_structure=soft_structure, i_coll_structure=coll_structure )
 
-        soft_result = self.soft_mapping.map_to_lower_multiplicity(
+        soft_PS_point, soft_jac = self.soft_mapping.map_to_lower_multiplicity(
             PS_point, soft_structure, momenta_dict, squared_masses,
             kinematic_variables, compute_jacobian )
         coll_momenta_dict = self.coll_momenta_dict(singular_structure, momenta_dict)
-        coll_result = self.coll_mapping.map_to_lower_multiplicity(
-            PS_point, coll_structure, coll_momenta_dict, squared_masses,
+        coll_PS_point, coll_jac = self.coll_mapping.map_to_lower_multiplicity(
+            soft_PS_point, coll_structure, coll_momenta_dict, squared_masses,
             kinematic_variables, compute_jacobian )
-        soft_result['jacobian'] *= coll_result['jacobian']
-        return soft_result
+        return coll_PS_point, coll_jac*soft_jac
 
     def map_to_higher_multiplicity(
         self, PS_point, singular_structure, momenta_dict, kinematic_variables,
@@ -1894,14 +1893,13 @@ class SoftCollinearMapping(VirtualMapping):
             i_soft_structure=soft_structure, i_coll_structure=coll_structure )
 
         coll_momenta_dict = self.coll_momenta_dict(singular_structure, momenta_dict)
-        coll_result = self.coll_mapping.map_to_higher_multiplicity(
+        coll_PS_point, coll_jac = self.coll_mapping.map_to_higher_multiplicity(
             PS_point, coll_structure, coll_momenta_dict,
             kinematic_variables, compute_jacobian )
-        soft_result = self.soft_mapping.map_to_higher_multiplicity(
-            PS_point, soft_structure, momenta_dict,
+        soft_PS_point, soft_jac = self.soft_mapping.map_to_higher_multiplicity(
+            coll_PS_point, soft_structure, momenta_dict,
             kinematic_variables, compute_jacobian )
-        soft_result['jacobian'] *= coll_result['jacobian']
-        return soft_result
+        return soft_PS_point, coll_jac*soft_jac
 
 class SoftCollinearVsFinalMapping(SoftCollinearMapping):
     """Soft-collinear mapping that selects only final-state recoilers
@@ -2080,47 +2078,38 @@ class VirtualWalker(object):
         'resulting_PS_point', the final lowest multiplicity PS point.
         """
 
-        # This phase-space point will be destroyed, deep copy wanted
-        point = PS_point.get_copy()
+        # Identify the starting phase-space point
+        point = PS_point
         if verbose: print point
         # Initialize return variables
         current_PS_pairs = []
-        mapping_variables = {'jacobian': 1.}
+        jacobian = 1.
         kinematic_variables = dict() if compute_kinematic_variables else None
         # Determine the hike
         hike = self.get_hike(counterterm)
         # Walk along the hike
         for stroll in hike:
-            # Deep copy the momenta
-            momenta = point.get_copy()
             # Map to lower multiplicity
-            result = stroll.mapping.map_to_lower_multiplicity(
+            new_point, new_jacobian = stroll.mapping.map_to_lower_multiplicity(
                 point, stroll.structure, counterterm.momenta_dict, stroll.squared_masses,
                 kinematic_variables=kinematic_variables,
                 compute_jacobian=compute_jacobian )
-            # Transcribe parents' momenta
-            for key in point.keys():
-                if not momenta.has_key(key):
-                    momenta[key] = LorentzVector(point[key])
+            if verbose: print new_point, "\n", new_jacobian
             # Update jacobian and mapping variables
             if compute_jacobian:
-                mapping_variables['jacobian'] *= result.pop('jacobian')
-            mapping_variables.update(result)
+                jacobian *= new_jacobian
             # Append the current and the momenta
-            current_PS_pairs.append((stroll.currents, momenta))
+            current_PS_pairs.append((stroll.currents, point))
+            point = new_point
         # Identify reduced matrix element,
         # computed in the point which has received all mappings
         ME_PS_pair = [counterterm.process, point]
-        if verbose:
-            print point
-            print 'jacobian:', mapping_variables['jacobian']
         # Return
         return {
             'currents': current_PS_pairs,
             'matrix_element': ME_PS_pair,
-            'mapping_variables': mapping_variables,
-            'kinematic_variables': kinematic_variables,
-            'resulting_PS_point': point}
+            'jacobian': jacobian,
+            'kinematic_variables': kinematic_variables }
 
     def walk_to_higher_multiplicity(
         self, PS_point, counterterm, kinematic_variables,
@@ -2154,45 +2143,30 @@ class VirtualWalker(object):
         # Identify reduced matrix element,
         # computed in the lowest multiplicity point
         ME_PS_pair = [counterterm.process, PS_point]
-        # This phase-space point will be destroyed, deep copy wanted
-        point = PS_point.get_copy()
+        # Identify the starting phase-space point
+        point = PS_point
         if verbose: print point
         # Initialize return variables
         current_PS_pairs = []
-        mapping_variables = {'jacobian': 1}
+        jacobian = 1.
         # Determine the hike
         hike = self.get_hike(counterterm)
-        # Walk the hike backwards
-        prev_point = PS_point
-        prev_parents = []
         for stroll in reversed(hike):
             # Compute jacobian and map to higher multiplicity
-            result = stroll.mapping.map_to_higher_multiplicity(
+            new_point, new_jacobian = stroll.mapping.map_to_higher_multiplicity(
                 point, stroll.structure, counterterm.momenta_dict, kinematic_variables,
                 compute_jacobian=compute_jacobian )
-            if verbose: print point
+            if verbose: print new_point, "\n", new_jacobian
             # Update jacobian and mapping variables
             if compute_jacobian:
-                mapping_variables['jacobian'] *= result.pop('jacobian')
-            mapping_variables.update(result)
-            # Prepend pair of this current and the momenta,
-            # deep copy wanted
-            momenta = point.get_copy()
-            # Transcribe parents' momenta
-            parents = []
-            for key in prev_point.keys():
-                if not momenta.has_key(key) and key not in prev_parents:
-                    parents.append(key)
-                    momenta[key] = LorentzVector(prev_point[key])
-            current_PS_pairs.insert(0, (stroll.currents, momenta))
-            prev_point = momenta
-            prev_parents = parents
+                jacobian *= new_jacobian
+            current_PS_pairs.insert(0, (stroll.currents, new_point))
+            point = new_point
         # Return
         return {
             'currents': current_PS_pairs,
             'matrix_element': ME_PS_pair,
-            'mapping_variables': mapping_variables,
-            'resulting_PS_point': point}
+            'jacobian': jacobian }
 
     def approach_limit(
         self, PS_point, structure, scaling_parameter, process ):
@@ -2225,20 +2199,20 @@ class VirtualWalker(object):
                 raise MadGraph5Error("Unrecognized structure of type " + step.name())
             kin_variables = {}
             # misc.sprint('Starting PS point:\n',str(PS_point))
-            mapping.map_to_lower_multiplicity(
+            low_PS_point, _ = mapping.map_to_lower_multiplicity(
                 PS_point, new_ss, mom_dict, None, kin_variables )
             # misc.sprint('Mapped down PS point:\n',str(PS_point))
             # misc.sprint('kin_variables=',kin_variables)
             mapping.rescale_kinematic_variables(
                 new_ss, mom_dict, kin_variables, base)
             # misc.sprint('rescaled kin_variables=',base,kin_variables)
-            mapping.map_to_higher_multiplicity(
-                PS_point, new_ss, mom_dict, kin_variables )
+            closer_PS_point, _ = mapping.map_to_higher_multiplicity(
+                low_PS_point, new_ss, mom_dict, kin_variables )
             # misc.sprint('Mapped up PS point:\n',str(PS_point))
             # misc.sprint('kin_variables=',kin_variables)
             if parent_index in mom_dict.keys():
                 del mom_dict[parent_index]
-        return
+        return closer_PS_point
 
 # Generic walker for one-level counterterms
 #=========================================================================================

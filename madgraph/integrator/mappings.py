@@ -165,9 +165,9 @@ class FinalCollinearVariables(object):
     def set(
         PS_point, parent, children, na, nb, kinematic_variables,
         precision=1e-6 ):
-        """Given the lower multiplicity parent momentum,
-        the total momentum of children and collinear variables,
+        """Given a phase-space point with an off-shell parent and collinear variables,
         compute and set the children momenta.
+        The parent's momentum is removed.
         Parent and children are indices that already refer to the position
         of momenta within the PS_point (no momentum dictionary used).
         Sum rules are checked to assess numerical accuracy.
@@ -324,7 +324,8 @@ class InitialCollinearVariables(object):
         PS_point, is_child, fs_children, na, nb, kinematic_variables,
         precision=1e-6 ):
         """Given the lower multiplicity momentum of the incoming parton
-        and collinear variables compute and set the children momenta.
+        as PS_point[is_child] and collinear variables,
+        compute and set the final-state children momenta.
         Children indices should already refer to the position
         of momenta within the PS_point (no momentum dictionary used).
         Sum rules are checked to assess numerical accuracy.
@@ -445,12 +446,15 @@ class VirtualMapping(object):
         :param PS_point: higher-multiplicity phase-space point,
         as a dictionary that associates integers to Lorentz vectors;
         this will not be modified
+        :type PS_point: LorentzVectorDict
 
         :param singular_structure: SingularStructure object that specifies
         sets of unresolved particles and recoilers recursively
+        :type PS_point: SingularStructure
 
         :param momenta_dict: two-way dictionary that associates a unique label
         to each set of one or more unresolved particles identified by their number
+        :type momenta_dict: sub.bidict
 
         :param squared_masses: squared masses of parents of particle sets,
         as a dictionary {'m2i': $m_i^2$} where i is the parent number
@@ -459,11 +463,10 @@ class VirtualMapping(object):
         the kinematic variables that are necessary to reproduce the higher-multiplicity
         phase-space point from the lower-multiplicity one will be set
 
-        :param compute_jacobian: if False, will not compute the jacobian for the mapping
+        :param compute_jacobian: if False, the jacobian of the mapping will be set to 1
+        :type compute_jacobian: bool
 
-        :return: dictionary containing the jacobian weight due to the mapping
-        and eventually other characteristic variables of the mapping,
-        like for instance the total momentum Q involved in the mapping
+        :return: lower-multiplicity phase-space point and jacobian weight of the mapping
         """
         
         raise NotImplemented
@@ -477,7 +480,7 @@ class VirtualMapping(object):
         specified in singular_structure.
 
         :param PS_point: lower-multiplicity phase-space point
-        which will be modified to the higher-multiplicity one
+        which will not be modified
         :type PS_point: LorentzVectorDict
 
         :param singular_structure: SingularStructure object that specifies
@@ -491,11 +494,10 @@ class VirtualMapping(object):
         :param kinematic_variables: variables describing the splitting,
         as a dictionary that associates variable names to values
 
-        :param compute_jacobian: if False, will not compute the jacobian for the mapping
+        :param compute_jacobian: if False, the jacobian of the mapping will be set to 1
+        :type compute_jacobian: bool
 
-        :return: dictionary containing the jacobian weight due to the mapping
-        and eventually other characteristic variables of the mapping,
-        like for instance the total momentum Q involved in the mapping
+        :return: higher-multiplicity phase-space point and jacobian of the mapping
         """
         
         raise NotImplemented

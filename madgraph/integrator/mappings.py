@@ -163,7 +163,7 @@ class FinalCollinearVariables(object):
 
     @staticmethod
     def set(
-        PS_point, children, total_momentum, na, nb, kinematic_variables,
+        PS_point, parent, children, na, nb, kinematic_variables,
         precision=1e-6 ):
         """Given the lower multiplicity parent momentum,
         the total momentum of children and collinear variables,
@@ -173,14 +173,14 @@ class FinalCollinearVariables(object):
         Sum rules are checked to assess numerical accuracy.
         """
 
-        # TODO Change total_momentum to parent number
-
         if len(children) < 2:
             for child in children:
-                PS_point[child] = total_momentum
+                if child != parent:
+                    PS_point[child] = PS_point[parent]
+                    del PS_point[parent]
             return
         # Rename the sum of momenta
-        p = total_momentum
+        p = PS_point[parent]
         # Pre-compute scalar products
         nap  = na.dot(p)
         nbp  = nb.dot(p)
@@ -205,14 +205,15 @@ class FinalCollinearVariables(object):
         if deviation / benchmark > precision:
             logger.critical(FinalCollinearVariables.precision_loss_message)
             logger.critical("The sum of children momenta is %s" % str(p_sum))
-            logger.critical("Inputs for CollinearVariables.set():")
+            logger.critical("Inputs for FinalCollinearVariables.set():")
             logger.critical("total momentum = %s" % str(p))
             logger.critical("na = %s, nb = %s" % (str(na), str(nb)))
             logger.critical("kinematic variables:")
             logger.critical(str(kinematic_variables))
-            logger.critical("Output of CollinearVariables.set():")
+            logger.critical("Output of FinalCollinearVariables.set():")
             for i in children:
                 logger.critical("child %d: %s" % (i, str(PS_point[i])))
+        del PS_point[parent]
         return
 
 #=========================================================================================
@@ -320,7 +321,7 @@ class InitialCollinearVariables(object):
 
     @staticmethod
     def set(
-        PS_point, fs_children, is_child, pa, na, nb, kinematic_variables,
+        PS_point, is_child, fs_children, na, nb, kinematic_variables,
         precision=1e-6 ):
         """Given the lower multiplicity momentum of the incoming parton
         and collinear variables compute and set the children momenta.
@@ -329,7 +330,8 @@ class InitialCollinearVariables(object):
         Sum rules are checked to assess numerical accuracy.
         """
 
-        PS_point[is_child] = pa
+        if not fs_children: return
+        pa = PS_point[is_child]
         # Get A data
         zA  = kinematic_variables['z'  + str(is_child)]
         ktA = kinematic_variables['kt' + str(is_child)]
@@ -357,7 +359,6 @@ class InitialCollinearVariables(object):
             p_sum -= PS_point[i]
         # Check how well the parent's momentum is reproduced
         # TODO Ideally switch to quadruple precision if the check fails
-        if not fs_children: return
         deviation = abs((pA - p_sum).view(Vector))
         benchmark = abs(pA.view(Vector))
         if deviation / benchmark > precision:
@@ -925,16 +926,14 @@ class FinalRescalingOneMapping(FinalCollinearMapping):
         pC = (1-alpha) * qC + alpha * Q
         # Create new PS point
         new_PS_point = PS_point.get_copy()
+        new_PS_point[parent] = pC
         # Map recoil momenta
         for recoiler in recoilers:
             new_PS_point[recoiler] *= 1-alpha
         # Set children momenta
         na, nb = FinalCollinearVariables.collinear_and_reference(qC)
         FinalCollinearVariables.set(
-            new_PS_point, children, pC, na, nb, kinematic_variables)
-        # Remove parent's momentum
-        if parent not in children: # Bypass degenerate case of 1->1 splitting
-            del new_PS_point[parent]
+            new_PS_point, parent, children, na, nb, kinematic_variables)
         # Return the jacobian for this mapping
         jacobian = (1-alpha)**(2*len(recoilers)) * beta / (gamma - mu2)
         return new_PS_point, jacobian
@@ -1049,16 +1048,14 @@ class FinalLorentzOneMapping(FinalCollinearMapping):
         pR = Q - pC
         # Create new PS point
         new_PS_point = PS_point.get_copy()
+        new_PS_point[parent] = pC
         # Map recoil momenta
         for recoiler in singular_structure.legs:
             new_PS_point[recoiler.n].rotoboost(qR, pR)
         # Set children momenta
         na, nb = FinalCollinearVariables.collinear_and_reference(qC)
         FinalCollinearVariables.set(
-            new_PS_point, children, pC, na, nb, kinematic_variables)
-        # Remove parent's momentum
-        if parent not in children: # Bypass degenerate case of 1->1 splitting
-            del new_PS_point[parent]
+            new_PS_point, parent, children, na, nb, kinematic_variables)
         jacobian = alpham1
         return new_PS_point, jacobian
 
@@ -1181,9 +1178,7 @@ class FinalGroupingMapping(FinalCollinearMapping):
             children = momenta_dict[parent]
             na, nb = FinalCollinearVariables.collinear_and_reference(PS_point[parent])
             FinalCollinearVariables.set(
-                new_PS_point, children, new_PS_point[parent], na, nb, kinematic_variables)
-            if parent not in children:  # Bypass degenerate case of 1->1 splitting
-                del new_PS_point[parent]
+                new_PS_point, parent, children, na, nb, kinematic_variables)
         return new_PS_point, jac
 
 # Final-collinear Lorentz mapping
@@ -1333,9 +1328,7 @@ class FinalLorentzMapping(FinalCollinearMapping):
             children = momenta_dict[parent]
             na, nb = FinalCollinearVariables.collinear_and_reference(PS_point[parent])
             FinalCollinearVariables.set(
-                new_PS_point, children, new_PS_point[parent], na, nb, kinematic_variables)
-            if parent not in children:  # Bypass degenerate case of 1->1 splitting
-                del new_PS_point[parent]
+                new_PS_point, parent, children, na, nb, kinematic_variables)
         # Boost recoilers
         if len(recoilers) > 1:
             pR = new_PS_point[R]
@@ -1594,13 +1587,15 @@ class InitialLorentzOneMapping(InitialCollinearMapping):
         pAp = (-quad_b+sqrt_delta)/(2*quad_a)
         xia = 2*zA*nb.dot(qA)/(pAp*nanb)
         # xia = kinematic_variables['xi' + str(parent)]
-        # Create new PS point
-        new_PS_point = PS_point.get_copy()
         # Compute parameters
         pa = qA / xia
+        # Create new PS point
+        new_PS_point = PS_point.get_copy()
+        del new_PS_point[parent]
+        new_PS_point[is_child] = pa
         # Set children momenta
         InitialCollinearVariables.set(
-            new_PS_point, fs_children, is_child, pa, na, nb, kinematic_variables )
+            new_PS_point, is_child, fs_children, na, nb, kinematic_variables )
         # Build collective momenta
         pCa = LorentzVector()
         for j in fs_children:
@@ -1610,9 +1605,6 @@ class InitialLorentzOneMapping(InitialCollinearMapping):
         pR = qR + pA - qA
         for recoiler in singular_structure.legs:
             new_PS_point[recoiler.n].rotoboost(qR, pR)
-        # Remove parent's momentum
-        if parent != is_child:  # Bypass degenerate case of 1->1 splitting
-            del new_PS_point[parent]
         # TODO Compute the jacobian for this mapping
         jacobian = 1.0
         return new_PS_point, jacobian

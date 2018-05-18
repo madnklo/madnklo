@@ -91,6 +91,7 @@ class FinalCollinearVariablesTest(unittest.TestCase):
         for _ in range(100):
             # Generate n_children random Lorentz vectors
             my_PS_point = LorentzVectorDict()
+            parent = self.n_children
             children = tuple(range(self.n_children))
             for i in children:
                 if (self.massive): my_PS_point[i] = random_momentum()
@@ -102,14 +103,11 @@ class FinalCollinearVariablesTest(unittest.TestCase):
             variables = dict()
             mappings.FinalCollinearVariables.get(
                 my_PS_point, children, na, nb, variables )
-            # Compute total momentum
-            total_momentum = LorentzVector()
-            for i in children:
-                total_momentum += my_PS_point[i]
             # Compute new phase space point
             new_PS_point = LorentzVectorDict()
+            new_PS_point[parent] = sum(my_PS_point[child] for child in children)
             mappings.FinalCollinearVariables.set(
-                new_PS_point, children, total_momentum, na, nb, variables )
+                new_PS_point, parent, children, na, nb, variables )
             # Check the two phase-space points are equal
             self.assertDictEqual(my_PS_point, new_PS_point)
 
@@ -122,6 +120,7 @@ class FinalCollinearVariablesTest(unittest.TestCase):
         random.seed(42)
         # Check many times
         for _ in range(20):
+            parent = self.n_children
             children = tuple(range(self.n_children))
             # Generate children squares
             if self.massive:
@@ -152,14 +151,11 @@ class FinalCollinearVariablesTest(unittest.TestCase):
                 variables = dict()
                 mappings.FinalCollinearVariables.get(
                     my_PS_point, children, na, nb, variables)
-                # Compute total momentum
-                total_momentum = LorentzVector()
-                for i in children:
-                    total_momentum += my_PS_point[i]
                 # Compute new phase space point
                 new_PS_point = LorentzVectorDict()
+                new_PS_point[parent] = sum(my_PS_point[child] for child in children)
                 mappings.FinalCollinearVariables.set(
-                    new_PS_point, children, total_momentum, na, nb, variables )
+                    new_PS_point, parent, children, na, nb, variables)
                 # Check the two phase-space points are equal
                 self.assertDictEqual(my_PS_point, new_PS_point)
 
@@ -184,6 +180,7 @@ class InitialCollinearVariablesTest(unittest.TestCase):
         for _ in range(100):
             # Generate n_children random Lorentz vectors
             my_PS_point = LorentzVectorDict()
+            parent = self.n_children
             is_child = 0
             fs_children = tuple(range(1, self.n_children))
             my_PS_point[is_child] = random_momentum(0)
@@ -192,15 +189,17 @@ class InitialCollinearVariablesTest(unittest.TestCase):
                 if self.massive: my_PS_point[i] = random_momentum()
                 else: my_PS_point[i] = random_momentum(0)
             # Generate two random light-cone directions
-            na, nb = mappings.InitialCollinearVariables.collinear_and_reference(my_PS_point[is_child])
+            na, nb = mappings.InitialCollinearVariables.collinear_and_reference(
+                my_PS_point[is_child])
             # Compute collinear variables
             variables = dict()
             mappings.InitialCollinearVariables.get(
                 my_PS_point, fs_children, is_child, na, nb, variables )
             # Compute new phase space point
             new_PS_point = LorentzVectorDict()
+            new_PS_point[is_child] = my_PS_point[is_child]
             mappings.InitialCollinearVariables.set(
-                new_PS_point, fs_children, is_child, my_PS_point[is_child], na, nb, variables )
+                new_PS_point, is_child, fs_children, na, nb, variables )
             # Check the two phase-space points are equal
             self.assertDictEqual(my_PS_point, new_PS_point)
 
@@ -245,9 +244,10 @@ class InitialCollinearVariablesTest(unittest.TestCase):
                     my_PS_point, fs_children, is_child, na, nb, variables )
                 # Compute new phase space point
                 new_PS_point = LorentzVectorDict()
+                new_PS_point[is_child] = my_PS_point[is_child]
                 mappings.InitialCollinearVariables.set(
-                    new_PS_point, fs_children, is_child,
-                    my_PS_point[is_child], na, nb, variables )
+                    new_PS_point, is_child, fs_children,
+                    na, nb, variables )
                 # Check the two phase-space points are equal
                 self.assertDictEqual(my_PS_point, new_PS_point)
 
@@ -329,7 +329,7 @@ class MappingsTest(unittest.TestCase):
 
     seed = 42
     n_tests = 20
-    verbose = True
+    verbose = False
 
     @staticmethod
     def randomize(pars):

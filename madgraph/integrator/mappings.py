@@ -1679,6 +1679,14 @@ class SoftVsFinalMapping(ElementaryMappingSoft):
     and all recoilers are massless.
     """
 
+    @staticmethod
+    def y(pS, Q):
+        """Return the parameter y of the SoftVsFinal mapping."""
+
+        pR = Q - pS
+        pR2_Q2 = pR.square() / Q.square()
+        return 1. - pR2_Q2
+
     @classmethod
     def is_valid_structure(cls, singular_structure):
 
@@ -1714,7 +1722,6 @@ class SoftVsFinalMapping(ElementaryMappingSoft):
         Q = pS + pR
         # Compute the parameter la
         pR2_Q2 = pR.square() / Q.square()
-        y = 1. - pR2_Q2
         la = math.sqrt(pR2_Q2)
         P = pR / la
         # Map all recoilers' momenta
@@ -1754,7 +1761,6 @@ class SoftVsFinalMapping(ElementaryMappingSoft):
         pR = Q - pS
         # Compute the parameter la
         pR2_Q2 = pR.square() / Q.square()
-        y = 1. - pR2_Q2
         la = math.sqrt(pR2_Q2)
         P = pR / la
         # Map all recoilers' momenta

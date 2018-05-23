@@ -229,17 +229,21 @@ class QCD_soft_0_g(currents.QCDLocalSoftCurrent):
         return pipj/(pipr*pjpr)
     
     def evaluate_subtraction_current(
-        self, current, PS_point,
-        reduced_process=None, hel_config=None,
-        mapping_variables=None, leg_numbers_map=None ):
-
+        self, current,
+        higher_PS_point=None, lower_PS_point=None,
+        leg_numbers_map=None, reduced_process=None, hel_config=None, **opts
+        ):
         if not hel_config is None:
             raise CurrentImplementationError(
-                "Subtraction current implementation %s" % self.__class__.__name__ +
+                "Subtraction current implementation " + self.__class__.__name__ +
                 " does not support helicity assignment.")
+        if higher_PS_point is None or lower_PS_point is None:
+            raise CurrentImplementationError(
+                "Subtraction current implementation " + self.__class__.__name__ +
+                " needs the phase-space points before and after mapping." )
         if reduced_process is None:
             raise CurrentImplementationError(
-                "Subtraction current implementation %s" % self.__class__.__name__ +
+                "Subtraction current implementation " + self.__class__.__name__ +
                 " requires a reduced_process.")
         
         # Retrieve alpha_s and mu_r
@@ -255,8 +259,11 @@ class QCD_soft_0_g(currents.QCDLocalSoftCurrent):
             all_colored_parton_numbers.append(leg.get('number'))
         soft_leg_number = current.get('singular_structure').legs[0].n
 
+        Q = self.total_mapping_momentum(higher_PS_point, lower_PS_point)
+        pS = higher_PS_point[soft_leg_number]
+
         # Include the counterterm only in a part of the phase space
-        if self.is_cut(mapping_variables, None):
+        if self.is_cut(Q=Q, pS=pS):
             return utils.SubtractionCurrentResult.zero(
                 current=current, hel_config=hel_config)
 
@@ -269,7 +276,7 @@ class QCD_soft_0_g(currents.QCDLocalSoftCurrent):
         
         # Normalization factors
         norm = -4. * math.pi * alpha_s
-        norm *= self.factor(mapping_variables, None)
+        norm *= self.factor()
 
         color_correlation_index = 0
         # Now loop over the colored parton number pairs (a,b)
@@ -283,9 +290,9 @@ class QCD_soft_0_g(currents.QCDLocalSoftCurrent):
                     mult_factor = 2.
                 else:
                     mult_factor = 1.
+                eikonal = self.eikonal(higher_PS_point, a, b, soft_leg_number)
                 evaluation['values'][(0, color_correlation_index)] = {
-                    'finite': norm * mult_factor * self.eikonal(PS_point, a, b, soft_leg_number) }
-                    
+                    'finite': norm * mult_factor * eikonal }
                 color_correlation_index += 1
         
         result = utils.SubtractionCurrentResult()
@@ -361,14 +368,18 @@ class QCD_final_softcollinear_0_gX(currents.QCDLocalSoftCollinearCurrent):
         return (ss.substructures[0].legs[0].n, ss.legs[0].n)
 
     def evaluate_subtraction_current(
-        self, current, PS_point,
-        reduced_process=None, hel_config=None,
-        mapping_variables=None, leg_numbers_map=None ):
-
+        self, current,
+        higher_PS_point=None, lower_PS_point=None,
+        leg_numbers_map=None, reduced_process=None, hel_config=None, **opts
+        ):
         if not hel_config is None:
             raise CurrentImplementationError(
-                "Subtraction current implementation %s" % self.__class__.__name__ +
+                "Subtraction current implementation " + self.__class__.__name__ +
                 " does not support helicity assignment.")
+        if higher_PS_point is None or lower_PS_point is None:
+            raise CurrentImplementationError(
+                "Subtraction current implementation " + self.__class__.__name__ +
+                " needs the phase-space points before and after mapping." )
 
         # Retrieve alpha_s and mu_r
         model_param_dict = self.model.get('parameter_dict')
@@ -378,7 +389,9 @@ class QCD_final_softcollinear_0_gX(currents.QCDLocalSoftCollinearCurrent):
         # Include the counterterm only in a part of the phase space
         children = self.get_sorted_children(current, self.model)
         parent = leg_numbers_map.inv[frozenset(children)]
-        if self.is_cut(mapping_variables, parent):
+        Q = self.total_mapping_momentum(higher_PS_point, lower_PS_point)
+        pC = sum(higher_PS_point[child] for child in children)
+        if self.is_cut():
             return utils.SubtractionCurrentResult.zero(
                 current=current, hel_config=hel_config)
 
@@ -390,15 +403,14 @@ class QCD_final_softcollinear_0_gX(currents.QCDLocalSoftCollinearCurrent):
         })
 
         # Evaluate kernel
-        zs, kTs = self.variables(PS_point, parent, children, mapping_variables)
+        zs, kTs = self.variables(higher_PS_point, parent, children, Q=Q)
         z = zs[0]
         evaluation['values'][(0, 0)]['finite'] = self.color_charge * 2.*(1.-z) / z
 
         # Add the normalization factors
-        pC = sum(PS_point[child] for child in children)
         s12 = pC.square()
         norm = 8. * math.pi * alpha_s / s12
-        norm *= self.factor(mapping_variables, parent)
+        norm *= self.factor()
         for k in evaluation['values']:
             evaluation['values'][k]['finite'] *= norm
 

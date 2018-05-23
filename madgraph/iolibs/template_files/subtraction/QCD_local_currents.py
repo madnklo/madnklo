@@ -36,17 +36,17 @@ CurrentImplementationError = utils.CurrentImplementationError
 # Cuts and factors functions
 #=========================================================================================
 
-def no_cut(mapping_variables, parent):
+def no_cut(**opts):
 
     # The default behavior is to include counterterms everywhere in phase space
     return False
 
-def no_factor(mapping_variables, parent):
+def no_factor(**opts):
 
     # The default behavior is that basic currents include all necessary factors
     return 1
 
-def n_final_coll_variables(PS_point, parent, children, mapping_variables):
+def n_final_coll_variables(PS_point, parent, children, **opts):
 
     na, nb = mappings.FinalCollinearVariables.collinear_and_reference(PS_point[parent])
     kin_variables = dict()
@@ -56,10 +56,10 @@ def n_final_coll_variables(PS_point, parent, children, mapping_variables):
     kTs = tuple(kin_variables['kt%d' % i] for i in children)
     return zs, kTs
 
-def Q_final_coll_variables(PS_point, parent, children, mapping_variables):
+def Q_final_coll_variables(PS_point, parent, children, **opts):
 
     na = PS_point[parent]
-    nb = mapping_variables['Q']
+    nb = opts['Q']
     kin_variables = dict()
     mappings.FinalCollinearVariables.get(
         PS_point, children, na, nb, kin_variables)
@@ -67,7 +67,7 @@ def Q_final_coll_variables(PS_point, parent, children, mapping_variables):
     kTs = tuple(kin_variables['kt%d' % i] for i in children)
     return zs, kTs
 
-def n_initial_coll_variables(PS_point, parent, children, mapping_variables):
+def n_initial_coll_variables(PS_point, parent, children, **opts):
 
     na, nb = mappings.InitialCollinearVariables.collinear_and_reference(PS_point[parent])
     kin_variables = dict()
@@ -79,10 +79,10 @@ def n_initial_coll_variables(PS_point, parent, children, mapping_variables):
     kTs = tuple(kin_variables['kt%d' % i] for i in children)
     return zs, kTs
 
-def Q_initial_coll_variables(PS_point, parent, children, mapping_variables):
+def Q_initial_coll_variables(PS_point, parent, children, **opts):
     
     na = PS_point[parent]
-    nb = mapping_variables['Q']
+    nb = opts['Q']
     kin_variables = dict()
     # The lone initial state child is always placed first thanks to the implementation
     # of the function get_sorted_children() in the current.
@@ -152,6 +152,16 @@ class QCDCurrent(utils.VirtualCurrentImplementation):
     def is_initial(leg):
 
         return leg.state == leg.INITIAL
+
+    @staticmethod
+    def total_mapping_momentum(PS_point_before, PS_point_after):
+
+        total = mappings.LorentzVector()
+        for i in PS_point_before.keys():
+            if i in PS_point_after.keys() and PS_point_before[i] == PS_point_after[i]:
+                continue
+            total += PS_point_before[i]
+        return total
 
     is_cut = staticmethod(no_cut)
     factor = staticmethod(no_factor)
@@ -227,14 +237,18 @@ class QCDLocalCollinearCurrent(QCDCurrent):
         raise NotImplemented
 
     def evaluate_subtraction_current(
-        self, current, PS_point,
-        reduced_process=None, hel_config=None,
-        mapping_variables=None, leg_numbers_map=None ):
-
+        self, current,
+        higher_PS_point=None, lower_PS_point=None,
+        leg_numbers_map=None, reduced_process=None, hel_config=None, **opts
+        ):
         if not hel_config is None:
             raise CurrentImplementationError(
-                "Subtraction current implementation %s"
-                "does not support helicity assignment." % self.__class__.__name__ )
+                "Subtraction current implementation " + self.__class__.__name__ +
+                " does not support helicity assignment.")
+        if higher_PS_point is None or lower_PS_point is None:
+            raise CurrentImplementationError(
+                "Subtraction current implementation " + self.__class__.__name__ +
+                " needs the phase-space points before and after mapping." )
 
         # Retrieve alpha_s and mu_r
         model_param_dict = self.model.get('parameter_dict')
@@ -244,19 +258,20 @@ class QCDLocalCollinearCurrent(QCDCurrent):
         # Include the counterterm only in a part of the phase space
         children = self.get_sorted_children(current, self.model)
         parent = leg_numbers_map.inv[frozenset(children)]
-        if self.is_cut(mapping_variables, parent):
+        Q = self.total_mapping_momentum(higher_PS_point, lower_PS_point)
+        pC = sum(higher_PS_point[child] for child in children)
+        if self.is_cut(Q=Q, pC=pC):
             return utils.SubtractionCurrentResult.zero(
                 current=current, hel_config=hel_config)
 
         # Evaluate kernel
-        zs, kTs = self.variables(PS_point, parent, children, mapping_variables)
+        zs, kTs = self.variables(parent, children, higher_PS_point, Q=Q)
         evaluation = self.evaluate_kernel(zs, kTs, parent)
 
         # Add the normalization factors
-        pC = mapping_variables['pC' + str(parent)]
         pC2 = pC.square()
         norm = (8. * math.pi * alpha_s / pC2) ** (len(children) - 1)
-        norm *= self.factor(mapping_variables, parent)
+        norm *= self.factor(Q=Q, pC=pC)
         for k in evaluation['values']:
             evaluation['values'][k]['finite'] *= norm
 
@@ -348,32 +363,29 @@ class SomogyiChoices(object):
     d_0_prime = 2
 
     @staticmethod
-    def cut_coll(mapping_variables, parent):
+    def cut_coll(**opts):
 
-        try:
-            alpha = mapping_variables['alpha' + str(parent)]
-        except:
-            pC    = mapping_variables['pC'    + str(parent)]
-            Q     = mapping_variables['Q']
-            alpha = mappings.FinalRescalingOneMapping.alpha(pC, Q)
+        pC    = opts['pC']
+        Q     = opts['Q']
+        alpha = mappings.FinalRescalingOneMapping.alpha(pC, Q)
         # Include the counterterm only up to alpha_0
         return alpha > SomogyiChoices.alpha_0
 
     @staticmethod
-    def cut_soft(mapping_variables, parent):
+    def cut_soft(**opts):
 
-        y = mapping_variables['y']
+        y = opts['y']
         # Include the counterterm only up to y_0
         return y > SomogyiChoices.y_0
 
     @staticmethod
-    def factor_coll(mapping_variables, parent):
+    def factor_coll(**opts):
 
         try:
-            alpha = mapping_variables['alpha' + str(parent)]
+            alpha = opts['alpha']
         except:
-            pC    = mapping_variables['pC'    + str(parent)]
-            Q     = mapping_variables['Q']
+            pC    = opts['pC']
+            Q     = opts['Q']
             alpha = mappings.FinalRescalingOneMapping.alpha(pC, Q)
         norm = (1 - alpha) ** (2 * (SomogyiChoices.d_0 - 1))
         # Jacobian power is a HACK,
@@ -381,16 +393,16 @@ class SomogyiChoices(object):
         # which leads to double counting for disjoint currents
         # with the same mapping.
         # Consider moving it to the mapping or the hike.
-        jacobian_power = 1./mapping_variables.get('pow', 1)
+        jacobian_power = 1./opts.get('pow', 1)
         if SomogyiChoices.divide_by_jacobian:
-            norm /= mapping_variables['jacobian'] ** jacobian_power
+            norm /= opts['jacobian'] ** jacobian_power
         return norm
 
     @staticmethod
-    def factor_soft(mapping_variables, parent):
+    def factor_soft(**opts):
 
-        y = mapping_variables['y']
+        y = mappings.SoftVsFinalMapping.y(opts['pS'], opts['Q'])
         norm = (1 - y) ** (SomogyiChoices.d_0_prime - 2)
         if SomogyiChoices.divide_by_jacobian:
-            norm /= mapping_variables['jacobian']
+            norm /= opts['jacobian']
         return norm

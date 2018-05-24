@@ -1476,9 +1476,7 @@ class InitialCollinearMapping(VirtualMapping):
         substructure = singular_structure.substructures[0]
         _, fs_children, is_child = get_structure_numbers(substructure, momenta_dict)
         # Determine the correct scaling for the divergence to go like 1/parameter
-#        base = scaling_parameter ** (0.5 * (len(fs_children) - 1))
-        # TODO CHECK WITH SIMONE IF THE CHANGE BELOW IS OK
-        base = scaling_parameter ** (0.5 * (len(fs_children) - 0))
+        base = scaling_parameter ** (0.5 / len(fs_children))
         
         kinematic_variables['s' + str(is_child)] *= base ** 2
         kinematic_variables['kt' + str(is_child)] *= base

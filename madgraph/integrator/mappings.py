@@ -2098,16 +2098,15 @@ class VirtualWalker(object):
         the phase-space jacobian.
 
         :return: a dictionary with the following entries:
-        TODO Update this doc
-        'currents', a list of all currents that need to be evaluated,
-            paired with the momenta needed for their evaluation;
+        'currents', a list with a tuple
+            (current_list, PS_point_before, variables_generated)
+            for each mapping applied, where current_list are the currents to be evaluated
+            ''in between'' PS_point_before and the next phase-space point;
         'matrix_element', the reduced matrix element,
             paired with its corresponding reduced phase-space point;
-        'mapping_variables', the cumulative variables of all mappings that were applied;
         'kinematic_variables', a dictionary of all variables needed to recover
             the starting phase-space point from the lowest multiplicity one,
-            or None if such variables were not requested;
-        'resulting_PS_point', the final lowest multiplicity PS point.
+            or None if such variables were not requested.
         """
 
         # Identify the starting phase-space point
@@ -2159,12 +2158,12 @@ class VirtualWalker(object):
         the phase-space jacobian.
 
         :return: a dictionary with the following entries:
-        'currents', a list of all currents that need to be evaluated,
-            paired with the momenta needed for their evaluation;
+        'currents', a list with a tuple
+            (current_list, PS_point_before, variables_generated)
+            for each mapping applied, where current_list are the currents to be evaluated
+            ''in between'' PS_point_before and the next phase-space point;
         'matrix_element', the reduced matrix element,
-            paired with its corresponding reduced phase-space point;
-        'mapping_variables', the cumulative variables of all mappings that were applied;
-        'resulting_PS_point', the final lowest multiplicity PS point.
+            paired with its corresponding reduced phase-space point.
         """
 
         # Identify reduced matrix element,

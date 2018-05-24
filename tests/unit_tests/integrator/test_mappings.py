@@ -483,20 +483,20 @@ class MappingsTest(unittest.TestCase):
                 print "Starting PS point:\n", my_PS_point
             # Compute collinear variables
             variables = dict()
-            low_PS_point, low_jac = pars['mapping'].map_to_lower_multiplicity(
+            low_PS_point, low_vars = pars['mapping'].map_to_lower_multiplicity(
                 my_PS_point, pars['structure'], pars['momenta_dict'], squared_masses,
                 variables, True )
             if self.verbose:
                 print "Mapped PS point:\n", low_PS_point
-                print "with jacobian:", low_jac
-            high_PS_point, high_jac = pars['mapping'].map_to_higher_multiplicity(
+                print "with variables:", low_vars
+            high_PS_point, high_vars = pars['mapping'].map_to_higher_multiplicity(
                 low_PS_point, pars['structure'], pars['momenta_dict'],
                 variables, True )
             if self.verbose:
                 print "Unmapped PS point:\n", high_PS_point
-                print "with jacobian:", high_jac
+                print "with variables:", high_vars
             assertDictAlmostEqual(self, my_PS_point, high_PS_point)
-            self.assertAlmostEqual(low_jac, high_jac)
+            assertDictAlmostEqual(self, low_vars, high_vars)
 
     # Test masses mappings
     #=====================================================================================
@@ -743,9 +743,9 @@ class WalkersTest(unittest.TestCase):
                 res_dict1 = walker.walk_to_lower_multiplicity(
                     my_PS_point, my_counterterms[i],
                     compute_kinematic_variables=True, compute_jacobian=True )
-                (currs1, ME1, jac1, kin)  = (
+                currs1, ME1, kin = (
                     res_dict1['currents'], res_dict1['matrix_element'],
-                    res_dict1['jacobian'], res_dict1['kinematic_variables'] )
+                    res_dict1['kinematic_variables'] )
                 if self.verbosity > 3:
                     print "Walking down"
                     for curr in currs1:
@@ -754,25 +754,21 @@ class WalkersTest(unittest.TestCase):
                 res_dict2 = walker.walk_to_higher_multiplicity(
                     ME1[1], my_counterterms[i], kin,
                     compute_jacobian=True )
-                (currs2, ME2, jac2)  = (
-                    res_dict2['currents'], res_dict2['matrix_element'],
-                    res_dict2['jacobian'] )
+                currs2, ME2 = res_dict2['currents'], res_dict2['matrix_element']
                 if self.verbosity > 3:
                     print "Walking up"
                     print ME2[1]
                     for curr in currs2:
                         print curr[1]
-                    print "Jacobians:", jac1, jac2
                 # Check currents
                 self.assertEqual(len(currs1), len(currs2))
                 for i_curr in range(len(currs1)):
                     self.assertEqual(currs1[i_curr][0], currs2[i_curr][0])
                     self.assertDictEqual(currs1[i_curr][1], currs2[i_curr][1])
+                    assertDictAlmostEqual(self, currs1[i_curr][2], currs2[i_curr][2])
                 # Check MEs
                 self.assertEqual(ME1[0], ME2[0])
                 self.assertDictEqual(ME1[1], ME2[1])
-                # Check mapping variables
-                self.assertAlmostEqual(jac1, jac2)
 
     def _test_approach_limit(
         self, walker, process,

@@ -281,7 +281,8 @@ class VirtualCurrentImplementation(object):
     def evaluate_subtraction_current(
         self, current,
         higher_PS_point=None, lower_PS_point=None,
-        leg_numbers_map=None, reduced_process=None, hel_config=None, **opts ):
+        leg_numbers_map=None, reduced_process=None, hel_config=None,
+        **opts ):
         """Returns an instance of SubtractionCurrentResult,
         with SubtractionCurrentEvaluation as keys which store
         various output of this evaluation of the subtraction current,

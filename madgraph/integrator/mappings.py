@@ -643,7 +643,7 @@ class FinalZeroMassesMapping(VirtualMapping):
                 kinematic_variables['s' + str(j)] = mu2[j] * Q2
         # Compute the jacobian for this mapping
         if not compute_jacobian:
-            return new_PS_point, 1
+            return new_PS_point, {'Q': Q}
         sum_beta2_gamma = 0.
         prod_beta_gamma = 1.
         for j in js:
@@ -705,7 +705,7 @@ class FinalZeroMassesMapping(VirtualMapping):
             # assert abs(PS_point[j].square() / Q2 - mu2[j]) < 1.e-6
         # Compute the jacobian for this mapping
         if not compute_jacobian:
-            return new_PS_point, 1
+            return new_PS_point, {'Q': Q}
         sum_beta2_gamma = 0.
         prod_beta_gamma = 1.
         for j in js:
@@ -737,7 +737,8 @@ class FinalMassesMapping(FinalZeroMassesMapping):
         mass_PS_point, mass_vars = FinalZeroMassesMapping.map_to_higher_multiplicity(
             zero_PS_point, singular_structure, momenta_dict, fake_kinematic_variables,
             compute_jacobian=compute_jacobian )
-        zero_vars['jacobian'] /= mass_vars['jacobian']
+        if compute_jacobian:
+            zero_vars['jacobian'] /= mass_vars['jacobian']
         # Return characteristic variables
         return mass_PS_point, zero_vars
 
@@ -753,7 +754,8 @@ class FinalMassesMapping(FinalZeroMassesMapping):
         mapped_PS_point, vars = cls.map_to_lower_multiplicity(
             PS_point, singular_structure, momenta_dict, fake_squared_masses,
             None, compute_jacobian )
-        vars['jacobian'] **= -1
+        if compute_jacobian:
+            vars['jacobian'] **= -1
         return mapped_PS_point, vars
 
 #=========================================================================================
@@ -839,8 +841,6 @@ class FinalRescalingOneMapping(FinalCollinearMapping):
     def abc(pC, Q):
         """Return the parameters alpha, beta, gamma and mu2 of the rescaling mapping."""
 
-        misc.sprint(pC)
-        misc.sprint(Q)
         Q2  = Q.square()
         mu2 = pC.square() / Q2
         gamma = pC.dot(Q) / Q2
@@ -894,11 +894,12 @@ class FinalRescalingOneMapping(FinalCollinearMapping):
         for j in children:
             if j != parent: # Bypass degenerate case of 1->1 splitting
                 del new_PS_point[j]
+        if not compute_jacobian:
+            return new_PS_point, {'Q': Q}
         # Compute the jacobian for this mapping
         jacobian = (1-alpha)**(2*len(recoilers)) * beta / (gamma - mu2)
-        mapping_variables = {'jacobian': jacobian, 'Q': Q}
         # Return characteristic variables
-        return new_PS_point, mapping_variables
+        return new_PS_point, {'jacobian': jacobian, 'Q': Q}
 
     @classmethod
     def map_to_higher_multiplicity(
@@ -945,11 +946,12 @@ class FinalRescalingOneMapping(FinalCollinearMapping):
         na, nb = FinalCollinearVariables.collinear_and_reference(qC)
         FinalCollinearVariables.set(
             new_PS_point, parent, children, na, nb, kinematic_variables)
+        if not compute_jacobian:
+            return new_PS_point, {'Q': Q}
         # Return the jacobian for this mapping
         jacobian = (1-alpha)**(2*len(recoilers)) * beta / (gamma - mu2)
-        mapping_variables = {'jacobian': jacobian, 'Q': Q}
         # Return characteristic variables
-        return new_PS_point, mapping_variables
+        return new_PS_point, {'jacobian': jacobian, 'Q': Q}
 
 # Final-collinear Lorentz mapping, one set
 #=========================================================================================
@@ -1020,10 +1022,11 @@ class FinalLorentzOneMapping(FinalCollinearMapping):
         for j in children:
             if j != parent: # Bypass degenerate case of 1->1 splitting
                 del new_PS_point[j]
+        if not compute_jacobian:
+            return new_PS_point, {'Q': Q}
         jacobian = 1. / alpha
-        mapping_variables = {'jacobian': jacobian, 'Q': Q}
         # Return characteristic variables
-        return new_PS_point, mapping_variables
+        return new_PS_point, {'jacobian': jacobian, 'Q': Q}
 
     @classmethod
     def map_to_higher_multiplicity(
@@ -1071,10 +1074,10 @@ class FinalLorentzOneMapping(FinalCollinearMapping):
         na, nb = FinalCollinearVariables.collinear_and_reference(qC)
         FinalCollinearVariables.set(
             new_PS_point, parent, children, na, nb, kinematic_variables)
-        jacobian = alpham1
-        mapping_variables = {'jacobian': jacobian, 'Q': Q}
+        if not compute_jacobian:
+            return new_PS_point, {'Q': Q}
         # Return characteristic variables
-        return new_PS_point, mapping_variables
+        return new_PS_point, {'jacobian': alpham1, 'Q': Q}
 
     @classmethod
     def can_map_to_higher_multiplicity(
@@ -1946,7 +1949,7 @@ class SoftCollinearVsFinalMapping(SoftCollinearMapping):
 class Stroll(object):
     """Container for a mapping call."""
 
-    def __init__(self, mapping, structure, squared_masses, currents):
+    def __init__(self, mapping, structure, squared_masses, currents, variables=None):
 
         super(Stroll, self).__init__()
         assert isinstance(mapping, VirtualMapping)
@@ -1957,6 +1960,7 @@ class Stroll(object):
         for current in currents:
             assert isinstance(current, sub.Current)
         self.currents = currents
+        self.variables = variables
 
     def __str__(self):
 
@@ -1966,6 +1970,8 @@ class Stroll(object):
             foo += str(self.squared_masses)
         foo += " for currents: "
         foo += ", ".join(str(current) for current in self.currents)
+        if self.variables is not None:
+            foo += " (with extra variables %s)" % str(self.variables)
         return foo
 
 # Hike
@@ -2092,6 +2098,7 @@ class VirtualWalker(object):
         the phase-space jacobian.
 
         :return: a dictionary with the following entries:
+        TODO Update this doc
         'currents', a list of all currents that need to be evaluated,
             paired with the momenta needed for their evaluation;
         'matrix_element', the reduced matrix element,
@@ -2108,23 +2115,19 @@ class VirtualWalker(object):
         if verbose: print point
         # Initialize return variables
         current_PS_pairs = []
-        jacobian = 1.
         kinematic_variables = dict() if compute_kinematic_variables else None
         # Determine the hike
         hike = self.get_hike(counterterm)
         # Walk along the hike
         for stroll in hike:
             # Map to lower multiplicity
-            new_point, new_jacobian = stroll.mapping.map_to_lower_multiplicity(
+            new_point, vars = stroll.mapping.map_to_lower_multiplicity(
                 point, stroll.structure, counterterm.momenta_dict, stroll.squared_masses,
                 kinematic_variables=kinematic_variables,
                 compute_jacobian=compute_jacobian )
-            if verbose: print new_point, "\n", new_jacobian
-            # Update jacobian and mapping variables
-            if compute_jacobian:
-                jacobian *= new_jacobian
+            if verbose: print new_point, "\n", vars
             # Append the current and the momenta
-            current_PS_pairs.append((stroll.currents, point))
+            current_PS_pairs.append((stroll.currents, point, vars))
             point = new_point
         # Identify reduced matrix element,
         # computed in the point which has received all mappings
@@ -2133,7 +2136,6 @@ class VirtualWalker(object):
         return {
             'currents': current_PS_pairs,
             'matrix_element': ME_PS_pair,
-            'jacobian': jacobian,
             'kinematic_variables': kinematic_variables }
 
     def walk_to_higher_multiplicity(
@@ -2178,20 +2180,23 @@ class VirtualWalker(object):
         hike = self.get_hike(counterterm)
         for stroll in reversed(hike):
             # Compute jacobian and map to higher multiplicity
-            new_point, new_jacobian = stroll.mapping.map_to_higher_multiplicity(
+            new_point, vars = stroll.mapping.map_to_higher_multiplicity(
                 point, stroll.structure, counterterm.momenta_dict, kinematic_variables,
                 compute_jacobian=compute_jacobian )
-            if verbose: print new_point, "\n", new_jacobian
+            if verbose: print new_point, "\n", vars
             # Update jacobian and mapping variables
             if compute_jacobian:
-                jacobian *= new_jacobian
-            current_PS_pairs.insert(0, (stroll.currents, new_point))
+                if stroll.variables:
+                    jac_pow = stroll.variables.get('pow', 1)
+                else:
+                    jac_pow = 1
+                vars['jacobian'] **= 1./jac_pow
+            current_PS_pairs.insert(0, (stroll.currents, new_point, vars))
             point = new_point
         # Return
         return {
             'currents': current_PS_pairs,
-            'matrix_element': ME_PS_pair,
-            'jacobian': jacobian }
+            'matrix_element': ME_PS_pair, }
 
     def approach_limit(
         self, PS_point, structure, scaling_parameter, process ):

@@ -850,17 +850,19 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
     def check_inputs_validity(self, opts, current):
         """ Check the validity of the inputs of the call to this current accessor."""
         
-        # Work on a copy of th eoption dictionary, filtered from irrelevant keys
-        new_opts = dict((k,v) for k,v in opts.items() if k not in 
-                                                            ['permutation','process_pdgs'])
+        # Work on a copy of the option dictionary, filtered from irrelevant keys
+        new_opts = dict(
+            (k,v) for k,v in opts.items()
+            if k not in ['permutation','process_pdgs'] )
         
         if 'hel_config' in opts and opts['hel_config']:
             new_opts['hel_config'] = tuple(opts['hel_config'])
-            # In this case it is not optimal to check the validity of the helicity configuration, so 
-            # we limit ourselves to checking if it supports helicity assignment
+            # In this case it is not optimal to check the validity of the helicity configuration,
+            # so we limit ourselves to checking if it supports helicity assignment
             if not self.subtraction_current_instance.supports_helicity_assignment:
-                raise MadGraph5Error("The following subtraction current accessor:\n%s"%(
-                                    self.nice_string() ) + "\ndoes not support helicity assignment.")
+                raise MadGraph5Error(
+                    "The subtraction current accessor:\n" + self.nice_string()
+                    + "\ndoes not support helicity assignment." )
 
         squared_orders = None
         if 'squared_orders' in opts:
@@ -870,8 +872,8 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
             elif isinstance(opts['squared_orders'], list):
                 squared_orders = tuple(sorted(opts['squared_orders']))
             if squared_orders:
-                # This information must be passed via the 'squared_orders' attribute of the current, so we
-                # simply make sure that it is identical if specified and then remove it
+                # This information must be passed via the 'squared_orders' attribute of the current,
+                # so we simply make sure that it is identical if specified and then remove it
                 if squared_orders != tuple(sorted(current.get('squared_orders').items())):
                     raise MadGraph5Error("The following subtraction current accessor:"+\
                         "\n%s\ncannot provide squared orders %s."%(

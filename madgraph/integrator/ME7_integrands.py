@@ -463,7 +463,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
                 try:
                     list_limit_pattern = eval(limit_pattern)
                     if not isinstance(list_limit_pattern, list):
-                        raise
+                        raise BaseException
                 except:
                     list_limit_pattern = [limit_pattern]
                 new_list_limit_pattern = []
@@ -1343,7 +1343,9 @@ The missing process is: %s"""%reduced_process.nice_string())
         return sigma_wgt
 
 class ME7Integrand_R(ME7Integrand):
-    """ ME7Integrand for the computation of a single real-emission type of contribution."""
+    """ME7Integrand for the computation of a single real-emission type of contribution."""
+
+    divide_by_jacobian = True
     
     def __init__(self, *args, **opts):
         """Initialize a real-emission type of integrand,
@@ -1625,25 +1627,45 @@ class ME7Integrand_R(ME7Integrand):
         
         return tuple(sum([ (list(sc) if not sc is None else []) for sc in spin_correlators],[]))
 
-    def evaluate_counterterm(self, counterterm, PS_point,
-                             hel_config=None, defining_flavors=None,
-                             apply_flavour_blind_cuts=True, apply_flavour_cuts=True  ):
-        """ Evaluates the specified counterterm for the specified PS point."""
+    @staticmethod
+    def update_all_necessary_ME_calls(all_necessary_ME_calls, new_evaluation):
+
+        new_all_necessary_ME_calls = []
+        for ((spin_index, color_index), current_wgt) in new_evaluation['values'].items():
+            # Now combine the correlators necessary for this current
+            # with those already specified in 'all_necessary_ME_calls'
+            for ME_call in all_necessary_ME_calls:
+                new_all_necessary_ME_calls.append((
+                    # Append this spin correlation to those already present for that call
+                    ME_call[0] + [new_evaluation['spin_correlations'][spin_index], ],
+                    # Append this color correlation to those already present for that call
+                    ME_call[1] + [new_evaluation['color_correlations'][color_index], ],
+                    # Append this weight to those already present for that call
+                    ME_call[2] + [current_wgt['finite'], ],
+                ))
+        # Update the list of necessary ME calls
+        all_necessary_ME_calls = new_all_necessary_ME_calls
+        return
+
+    def evaluate_counterterm(
+        self, counterterm, PS_point,
+        hel_config=None, defining_flavors=None,
+        apply_flavour_blind_cuts=True, apply_flavour_cuts=True ):
+        """Evaluate a counterterm for a given PS point."""
 
         # Retrieve some possibly relevant model parameters
         alpha_s = self.model.get('parameter_dict')['aS']
         mu_r = self.model.get('parameter_dict')['MU_R']
 
-        # Now call the walker to hike through the counterterm structure
-        # and return the list of currents
-        # and PS points to use to evaluate them.
+        # Now call the walker which hikes through the counterterm structure
+        # to return the list of currents and PS points for their evaluation
         # hike_output = {
-        #         'currents' : [(current1, PS1), (current2, PS2), etc...],
-        #         'matrix_element': (ME, PSME),
-        #         'mapping_variables' : mapping_variables (a dictionary)
-        #         'kinematic_variables' : kinematic_variables  (a dictionary)
+        #         'currents' : [(currents1, PS1, vars1), (currents2, PS2, vars2), ...],
+        #         'matrix_element': (ME_process, ME_PS),
+        #         'kinematic_variables' : kinematic_variables (a dictionary)
         #        }
-        hike_output = self.walker.walk_to_lower_multiplicity(PS_point, counterterm, compute_jacobian=True)
+        hike_output = self.walker.walk_to_lower_multiplicity(
+            PS_point, counterterm, compute_jacobian=divide_by_jacobian )
        
         # Access the matrix element characteristics
         ME_process, ME_PS = hike_output['matrix_element']
@@ -1666,80 +1688,49 @@ class ME7Integrand_R(ME7Integrand):
             reduced_PS, reduced_flavors):
             return 0.0, reduced_PS, reduced_flavors
 
-        # Separate the current in those directly connected to the matrix element
-        # and those that are not
-        disconnected_currents = []
-        connected_currents = []
-        for (currents, PS) in hike_output['currents']:
-            for current in currents:
-                if current['resolve_mother_spin_and_color']:
-                    connected_currents.append((current, PS))
-                else:
-                    disconnected_currents.append((current, PS))
-
         # The above "hike" can be used to evaluate the currents first and the ME last.
         # Note that the code below can become more complicated when tracking helicities,
         # but let's forget this for now.
         weight = 1.
-        assert((hel_config is None))
-    
-        for (current, PS_point_for_current) in disconnected_currents:
-            current_evaluation, all_current_results = self.all_MEAccessors(
-                current, PS_point_for_current, hel_config=None, 
-                reduced_process = ME_process,
-                leg_numbers_map = counterterm.momenta_dict,
-                mapping_variables=hike_output['mapping_variables'])
-            # Make sure no spin- or color-correlations are demanded by the current for this kind of currents
-            assert(current_evaluation['spin_correlations']==[None,])
-            assert(current_evaluation['color_correlations']==[None,])
-            assert(current_evaluation['values'].keys()==[(0,0),])
-            # WARNING:: this can only work for local 4D subtraction counterterms! 
-            # For the integrated ones it is very likely that we cannot use a nested structure, and
-            # there will be only one level anyway so that there is not need of fancy combination
-            # of Laurent series.
-            weight *= current_evaluation['values'][(0,0)]['finite']
-
+        assert ((hel_config is None))
         # all_necessary_ME_calls is a list of tuples of the following form:
-        #  (spin_correlators_to_combine, color_correlators_to_combine, weights_to_combine)
+        # (spin_correlators_to_combine, color_correlators_to_combine, weights_to_combine)
         all_necessary_ME_calls = [ ([], [], []) ]
-        
-        # Now iterate over currents that may require color- and spin-correlations        
-        for (current, PS_point_for_current) in connected_currents:
-###########################################################################################
-#                             TEMPORARY HACK -START- 
-# 
-# This temporary hack forces the momenta passed to the current to be the ones of the original
-# higher multiplicity PS point mapped down. Eventually the walkers will be updated to pass
-# both information to the current: the original PS point and the mapped one.
-###########################################################################################
-#            for i_leg, vec_leg in PS_point.items():
-#                PS_point_for_current[i_leg] = vec_leg.get_copy()
-###########################################################################################
-#                             TEMPORARY HACK -END- 
-###########################################################################################
-            current_evaluation, all_current_results = self.all_MEAccessors(
-                current, PS_point_for_current, hel_config=None, 
-                reduced_process = ME_process,
-                leg_numbers_map = counterterm.momenta_dict,
-                mapping_variables=hike_output['mapping_variables'])
-            new_all_necessary_ME_calls = []
-            # Now loop over all spin- and color- correlators required for this current
-            # and update the necessary calls to the ME
-            new_all_necessary_ME_calls = []
-            for ((spin_index, color_index), current_wgt) in current_evaluation['values'].items():
-                # Now combine the correlators necessary for this current, with those already
-                # specified in 'all_necessary_ME_calls'
-                for ME_call in all_necessary_ME_calls:
-                    new_all_necessary_ME_calls.append( (
-                        # Append this spin correlation to those already present for that call
-                        ME_call[0]+[current_evaluation['spin_correlations'][spin_index],],
-                        # Append this colour correlation to those already present for that call
-                        ME_call[1]+[current_evaluation['color_correlations'][color_index],],
-                        # Append this weight to those already present for that call
-                        ME_call[2]+[current_wgt['finite'],],
-                    ) )
-            # Update the list of necessary ME calls
-            all_necessary_ME_calls = new_all_necessary_ME_calls
+
+        currents = hike_output['currents']
+        for i in range(len(currents)):
+            current = currents[i][0]
+            higher_PS_point = currents[i][1]
+            if i != len(currents)-1:
+                lower_PS_point = currents[i+1][1]
+            else:
+                lower_PS_point = ME_PS
+            vars = currents[i][2]
+            if vars.has_key('jacobian'):
+                weight /= vars['jacobian']
+            for elementary_current in current:
+                # WARNING The use of reduced_process here is fishy (for all but the last)
+                current_evaluation, all_current_results = self.all_MEAccessors(
+                    elementary_current,
+                    higher_PS_point=higher_PS_point, lower_PS_point=lower_PS_point,
+                    leg_numbers_map=counterterm.momenta_dict,
+                    reduced_process=ME_process, hel_config=None,
+                    **vars )
+                # Now loop over all spin- and color- correlators required for this current
+                # and update the necessary calls to the ME
+                if not elementary_current['resolve_mother_spin_and_color']:
+                    # Make sure no spin- or color-correlations were produced by the current
+                    assert(current_evaluation['spin_correlations']==[None,])
+                    assert(current_evaluation['color_correlations']==[None,])
+                    assert(current_evaluation['values'].keys()==[(0,0),])
+                    # WARNING:: this can only work for local 4D subtraction counterterms!
+                    # For the integrated ones it is very likely that we cannot use a nested structure,
+                    # and there will be only one level anyway,
+                    # so there is not need of fancy combination of Laurent series.
+                    weight *= current_evaluation['values'][(0,0)]['finite']
+                else:
+                    ME7Integrand_R.update_all_necessary_ME_calls(
+                        all_necessary_ME_calls, current_evaluation)
 
         # Now perform the combination of the list of spin and color correlators to be merged
         # for each necessary ME call identified

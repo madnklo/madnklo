@@ -833,6 +833,8 @@ class FinalRescalingOneMapping(FinalCollinearMapping):
     def abc(pC, Q):
         """Return the parameters alpha, beta, gamma and mu2 of the rescaling mapping."""
 
+        misc.sprint(pC)
+        misc.sprint(Q)
         Q2  = Q.square()
         mu2 = pC.square() / Q2
         gamma = pC.dot(Q) / Q2

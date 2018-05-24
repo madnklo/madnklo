@@ -164,25 +164,37 @@ class SubtractionCurrentTest(unittest.TestCase):
 #       ---- Testing g > q q~ hard collinear
 #       ------------------------------------------
         misc.sprint('Testing hard collinear g > q q~:')
-        a_PS = copy.copy(base_PS)
-        n_parent = len(a_PS)
-        pC = a_PS[4] + a_PS[5]
-        a_PS[n_parent] = copy.copy(pC)
+        import madgraph.integrator.mappings as mappings
+        import madgraph.core.subtraction as sub
+        coll_leg_set = sub.SubtractionLegSet([
+            sub.SubtractionLeg(4,  1, sub.SubtractionLeg.FINAL),
+            sub.SubtractionLeg(5, -1, sub.SubtractionLeg.FINAL), ])
+        coll_structure = sub.CollStructure(legs=coll_leg_set)
+        reco_leg_set = sub.SubtractionLegSet([
+            sub.SubtractionLeg(6, 21, sub.SubtractionLeg.FINAL), ])
+        a_structure = sub.SingularStructure(
+            substructures=[coll_structure], legs=reco_leg_set)
+        n_parent = len(base_PS)
+        momenta_map = bidict( { n_parent : frozenset((4, 5)) } )
+        mapping = mappings.FinalLorentzOneMapping
+        reduced_PS, jac = mapping.map_to_lower_multiplicity(
+            base_PS, a_structure, momenta_map)
+        # reduced_PS = copy.copy(base_PS)
+        # pC = reduced_PS.pop(4) + reduced_PS.pop(5)
+        # reduced_PS[n_parent] = pC
         
         # Put the mapped momentum on-shell (this is not a well-defined mapping,
         # but it is sufficient for now to test this current)
-        a_PS[n_parent].set_square(0)
-        momenta_map = bidict( { n_parent : frozenset((4,5)) } )
-        mapping_variables = {'Q': Q, 'pC' + str(n_parent): pC}
+        # reduced_PS[n_parent].set_square(0)
 
 #       This would be a more generic way of doing this, but it would involve
 #       instantiating a counterterm, which I would like to avoid for now.
 #        self.walker.walk_to_lower_multiplicity(
 #            a_PS, counterterm, kinematic_variables = False)
         current_evaluation, all_current_results = accessors_dict(
-            currents[0], a_PS,
+            currents[0], higher_PS_point=base_PS, lower_PS_point=reduced_PS,
             hel_config=None, reduced_process=None,
-            leg_numbers_map=momenta_map, mapping_variables=mapping_variables )
+            leg_numbers_map=momenta_map, )
 
         misc.sprint(current_evaluation)
         misc.sprint(all_current_results)

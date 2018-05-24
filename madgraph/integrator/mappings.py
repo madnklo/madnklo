@@ -466,7 +466,8 @@ class VirtualMapping(object):
         :param compute_jacobian: if False, the jacobian of the mapping will be set to 1
         :type compute_jacobian: bool
 
-        :return: lower-multiplicity phase-space point and jacobian weight of the mapping
+        :return: lower-multiplicity phase-space point and mapping variables,
+        including the jacobian weight of the mapping and the total momentum involved
         """
         
         raise NotImplemented
@@ -649,8 +650,9 @@ class FinalZeroMassesMapping(VirtualMapping):
             sum_beta2_gamma += beta[j] ** 2 / gamma[j]
             prod_beta_gamma *= beta[j] / gamma[j]
         jacobian = alpha**(3*len(js)-5) * prod_beta_gamma / sum_beta2_gamma
+        mapping_variables = {'jacobian': jacobian, 'Q': Q}
         # Return characteristic variables
-        return new_PS_point, jacobian
+        return new_PS_point, mapping_variables
 
     @classmethod
     def map_to_higher_multiplicity(
@@ -710,8 +712,9 @@ class FinalZeroMassesMapping(VirtualMapping):
             sum_beta2_gamma += beta[j] ** 2 / gamma[j]
             prod_beta_gamma *= beta[j] / gamma[j]
         jacobian = alpha**(3*len(js)-5) * prod_beta_gamma / sum_beta2_gamma
+        mapping_variables = {'jacobian': jacobian, 'Q': Q}
         # Return characteristic variables
-        return new_PS_point, jacobian
+        return new_PS_point, mapping_variables
 
 # Final masses mapping
 #=========================================================================================
@@ -724,17 +727,19 @@ class FinalMassesMapping(FinalZeroMassesMapping):
         cls, PS_point, singular_structure, momenta_dict, squared_masses=None,
         kinematic_variables=None, compute_jacobian=False ):
 
-        zero_PS_point, zero_jac = FinalZeroMassesMapping.map_to_lower_multiplicity(
+        zero_PS_point, zero_vars = FinalZeroMassesMapping.map_to_lower_multiplicity(
             PS_point, singular_structure, momenta_dict, None,
             kinematic_variables, compute_jacobian )
         fake_kinematic_variables = None
         if squared_masses is not None:
             fake_kinematic_variables = {
                 's'+key[2:]: value for (key, value) in squared_masses.items()}
-        mass_PS_point, mass_jac = FinalZeroMassesMapping.map_to_higher_multiplicity(
+        mass_PS_point, mass_vars = FinalZeroMassesMapping.map_to_higher_multiplicity(
             zero_PS_point, singular_structure, momenta_dict, fake_kinematic_variables,
             compute_jacobian=compute_jacobian )
-        return mass_PS_point, zero_jac/mass_jac
+        zero_vars['jacobian'] /= mass_vars['jacobian']
+        # Return characteristic variables
+        return mass_PS_point, zero_vars
 
     @classmethod
     def map_to_higher_multiplicity(
@@ -745,10 +750,11 @@ class FinalMassesMapping(FinalZeroMassesMapping):
             'm2' + key[1:]: value
             for (key, value) in kinematic_variables.items()
             if key.startswith('s') }
-        mapped_PS_point, jac = cls.map_to_lower_multiplicity(
+        mapped_PS_point, vars = cls.map_to_lower_multiplicity(
             PS_point, singular_structure, momenta_dict, fake_squared_masses,
             None, compute_jacobian )
-        return mapped_PS_point, 1./jac
+        vars['jacobian'] **= -1
+        return mapped_PS_point, vars
 
 #=========================================================================================
 # Final-collinear mappings
@@ -890,8 +896,9 @@ class FinalRescalingOneMapping(FinalCollinearMapping):
                 del new_PS_point[j]
         # Compute the jacobian for this mapping
         jacobian = (1-alpha)**(2*len(recoilers)) * beta / (gamma - mu2)
+        mapping_variables = {'jacobian': jacobian, 'Q': Q}
         # Return characteristic variables
-        return new_PS_point, jacobian
+        return new_PS_point, mapping_variables
 
     @classmethod
     def map_to_higher_multiplicity(
@@ -940,7 +947,9 @@ class FinalRescalingOneMapping(FinalCollinearMapping):
             new_PS_point, parent, children, na, nb, kinematic_variables)
         # Return the jacobian for this mapping
         jacobian = (1-alpha)**(2*len(recoilers)) * beta / (gamma - mu2)
-        return new_PS_point, jacobian
+        mapping_variables = {'jacobian': jacobian, 'Q': Q}
+        # Return characteristic variables
+        return new_PS_point, mapping_variables
 
 # Final-collinear Lorentz mapping, one set
 #=========================================================================================
@@ -1012,7 +1021,9 @@ class FinalLorentzOneMapping(FinalCollinearMapping):
             if j != parent: # Bypass degenerate case of 1->1 splitting
                 del new_PS_point[j]
         jacobian = 1. / alpha
-        return new_PS_point, jacobian
+        mapping_variables = {'jacobian': jacobian, 'Q': Q}
+        # Return characteristic variables
+        return new_PS_point, mapping_variables
 
     @classmethod
     def map_to_higher_multiplicity(
@@ -1061,7 +1072,9 @@ class FinalLorentzOneMapping(FinalCollinearMapping):
         FinalCollinearVariables.set(
             new_PS_point, parent, children, na, nb, kinematic_variables)
         jacobian = alpham1
-        return new_PS_point, jacobian
+        mapping_variables = {'jacobian': jacobian, 'Q': Q}
+        # Return characteristic variables
+        return new_PS_point, mapping_variables
 
     @classmethod
     def can_map_to_higher_multiplicity(
@@ -1134,7 +1147,7 @@ class FinalGroupingMapping(FinalCollinearMapping):
             reduced_singular_structure.substructures.append(sub.CollStructure(leg))
             reduced_squared_masses['m2'+str(leg.n)] = PS_point[leg.n].square()
         # Perform mapping of parent momenta to target masses
-        new_PS_point, jac = FinalMassesMapping.map_to_lower_multiplicity(
+        new_PS_point, vars = FinalMassesMapping.map_to_lower_multiplicity(
             reduced_PS_point, reduced_singular_structure,
             momenta_dict, reduced_squared_masses,
             kinematic_variables, compute_jacobian )
@@ -1145,7 +1158,7 @@ class FinalGroupingMapping(FinalCollinearMapping):
                     new_PS_point[parent] )
                 FinalCollinearVariables.get(
                     PS_point, momenta_dict[parent], na, nb, kinematic_variables)
-        return new_PS_point, jac
+        return new_PS_point, vars
 
     @classmethod
     def map_to_higher_multiplicity(
@@ -1174,7 +1187,7 @@ class FinalGroupingMapping(FinalCollinearMapping):
             reduced_singular_structure.substructures.append(sub.CollStructure(leg))
             reduced_kinematic_variables['s' + str(leg.n)] = PS_point[leg.n].square()
         # Perform mapping of parent momenta to target masses
-        new_PS_point, jac = FinalMassesMapping.map_to_higher_multiplicity(
+        new_PS_point, vars = FinalMassesMapping.map_to_higher_multiplicity(
             PS_point, reduced_singular_structure, momenta_dict,
             reduced_kinematic_variables, compute_jacobian )
         # Set the kinematic_variables
@@ -1183,7 +1196,7 @@ class FinalGroupingMapping(FinalCollinearMapping):
             na, nb = FinalCollinearVariables.collinear_and_reference(PS_point[parent])
             FinalCollinearVariables.set(
                 new_PS_point, parent, children, na, nb, kinematic_variables)
-        return new_PS_point, jac
+        return new_PS_point, vars
 
 # Final-collinear Lorentz mapping
 #=========================================================================================
@@ -1246,7 +1259,7 @@ class FinalLorentzMapping(FinalCollinearMapping):
         if (s_R ** 0.5) > (Q2 ** 0.5 - mass_sum):
             raise FailedMapping
         # Perform mapping of parent momenta to target masses
-        new_PS_point, jac = FinalMassesMapping.map_to_lower_multiplicity(
+        new_PS_point, vars = FinalMassesMapping.map_to_lower_multiplicity(
             reduced_PS_point, reduced_singular_structure,
             momenta_dict, reduced_squared_masses,
             kinematic_variables, compute_jacobian )
@@ -1271,7 +1284,7 @@ class FinalLorentzMapping(FinalCollinearMapping):
                         "Problem encountered for " + str(singular_structure))
                     logger.critical("The full phase space point was\n" + str(PS_point))
             del new_PS_point[R]
-        return new_PS_point, jac
+        return new_PS_point, vars
 
     @classmethod
     def map_to_higher_multiplicity(
@@ -1324,7 +1337,7 @@ class FinalLorentzMapping(FinalCollinearMapping):
         if (s_R ** 0.5) > (Q2 ** 0.5 - mass_sum):
             raise FailedMapping
         # Perform mapping of parent momenta to target masses
-        new_PS_point, jac = FinalMassesMapping.map_to_higher_multiplicity(
+        new_PS_point, vars = FinalMassesMapping.map_to_higher_multiplicity(
             reduced_PS_point, reduced_singular_structure, momenta_dict,
             reduced_kinematic_variables, compute_jacobian )
         # Set the kinematic_variables
@@ -1345,7 +1358,7 @@ class FinalLorentzMapping(FinalCollinearMapping):
                         "Problem encountered for %s" % str(singular_structure))
                     logger.critical("The full phase space point was\n%s" % str(PS_point))
             del new_PS_point[R]
-        return new_PS_point, jac
+        return new_PS_point, vars
 
     @classmethod
     def can_map_to_higher_multiplicity(
@@ -1539,9 +1552,11 @@ class InitialLorentzOneMapping(InitialCollinearMapping):
             na, nb = InitialCollinearVariables.collinear_and_reference(qA)
             InitialCollinearVariables.get(
                 PS_point, fs_children, is_child, na, nb, kinematic_variables )
-        # TODO Compute the jacobian for this mapping
-        jacobian = 1.0
-        return new_PS_point, jacobian
+        # TODO Check if the jacobian for this mapping is really 1
+        jacobian = 1.
+        mapping_variables = {'jacobian': jacobian, 'Q': pAmpR}
+        # Return characteristic variables
+        return new_PS_point, mapping_variables
 
     @classmethod
     def map_to_higher_multiplicity(
@@ -1609,9 +1624,11 @@ class InitialLorentzOneMapping(InitialCollinearMapping):
         pR = qR + pA - qA
         for recoiler in singular_structure.legs:
             new_PS_point[recoiler.n].rotoboost(qR, pR)
-        # TODO Compute the jacobian for this mapping
-        jacobian = 1.0
-        return new_PS_point, jacobian
+        # TODO Check if the jacobian for this mapping is really 1
+        jacobian = 1.
+        mapping_variables = {'jacobian': jacobian, 'Q': -qRmqA}
+        # Return characteristic variables
+        return new_PS_point, mapping_variables
 
 #=========================================================================================
 # Soft mappings
@@ -1731,7 +1748,9 @@ class SoftVsFinalMapping(ElementaryMappingSoft):
             new_PS_point[recoiler.n] /= la
             new_PS_point[recoiler.n].rotoboost(P, Q)
         jacobian = (pR2_Q2)**(len(recoilers)-2)
-        return new_PS_point, jacobian
+        mapping_variables = {'jacobian': jacobian, 'Q': Q}
+        # Return characteristic variables
+        return new_PS_point, mapping_variables
 
     @classmethod
     def map_to_higher_multiplicity(
@@ -1770,7 +1789,9 @@ class SoftVsFinalMapping(ElementaryMappingSoft):
             new_PS_point[recoiler.n] *= la
             new_PS_point[recoiler.n].rotoboost(Q, P)
         jacobian = (pR2_Q2)**(len(recoilers)-2)
-        return new_PS_point, jacobian
+        mapping_variables = {'jacobian': jacobian, 'Q': Q}
+        # Return characteristic variables
+        return new_PS_point, mapping_variables
 
 #=========================================================================================
 # Soft-collinear mappings
@@ -1873,14 +1894,15 @@ class SoftCollinearMapping(VirtualMapping):
             singular_structure,
             i_soft_structure=soft_structure, i_coll_structure=coll_structure )
 
-        soft_PS_point, soft_jac = self.soft_mapping.map_to_lower_multiplicity(
+        soft_PS_point, soft_vars = self.soft_mapping.map_to_lower_multiplicity(
             PS_point, soft_structure, momenta_dict, squared_masses,
             kinematic_variables, compute_jacobian )
         coll_momenta_dict = self.coll_momenta_dict(singular_structure, momenta_dict)
-        coll_PS_point, coll_jac = self.coll_mapping.map_to_lower_multiplicity(
+        coll_PS_point, coll_vars = self.coll_mapping.map_to_lower_multiplicity(
             soft_PS_point, coll_structure, coll_momenta_dict, squared_masses,
             kinematic_variables, compute_jacobian )
-        return coll_PS_point, coll_jac*soft_jac
+        coll_vars['jacobian'] *= soft_vars['jacobian']
+        return coll_PS_point, coll_vars
 
     def map_to_higher_multiplicity(
         self, PS_point, singular_structure, momenta_dict, kinematic_variables,
@@ -1895,13 +1917,14 @@ class SoftCollinearMapping(VirtualMapping):
             i_soft_structure=soft_structure, i_coll_structure=coll_structure )
 
         coll_momenta_dict = self.coll_momenta_dict(singular_structure, momenta_dict)
-        coll_PS_point, coll_jac = self.coll_mapping.map_to_higher_multiplicity(
+        coll_PS_point, coll_vars = self.coll_mapping.map_to_higher_multiplicity(
             PS_point, coll_structure, coll_momenta_dict,
             kinematic_variables, compute_jacobian )
-        soft_PS_point, soft_jac = self.soft_mapping.map_to_higher_multiplicity(
+        soft_PS_point, soft_vars = self.soft_mapping.map_to_higher_multiplicity(
             coll_PS_point, soft_structure, momenta_dict,
             kinematic_variables, compute_jacobian )
-        return soft_PS_point, coll_jac*soft_jac
+        coll_vars['jacobian'] *= soft_vars['jacobian']
+        return soft_PS_point, coll_vars
 
 class SoftCollinearVsFinalMapping(SoftCollinearMapping):
     """Soft-collinear mapping that selects only final-state recoilers

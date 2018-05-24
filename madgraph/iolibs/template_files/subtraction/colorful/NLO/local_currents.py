@@ -231,21 +231,26 @@ class QCD_soft_0_g(currents.QCDLocalSoftCurrent):
     def evaluate_subtraction_current(
         self, current,
         higher_PS_point=None, lower_PS_point=None,
-        leg_numbers_map=None, reduced_process=None, hel_config=None, **opts
+        leg_numbers_map=None, reduced_process=None, hel_config=None,
+        Q=None, **opts
         ):
-        if not hel_config is None:
-            raise CurrentImplementationError(
-                "Subtraction current implementation " + self.__class__.__name__ +
-                " does not support helicity assignment.")
         if higher_PS_point is None or lower_PS_point is None:
             raise CurrentImplementationError(
                 "Subtraction current implementation " + self.__class__.__name__ +
                 " needs the phase-space points before and after mapping." )
+        if leg_numbers_map is None:
+            raise CurrentImplementationError(
+                "Subtraction current implementation " + self.__class__.__name__ +
+                " requires a reduced_process.")
         if reduced_process is None:
             raise CurrentImplementationError(
                 "Subtraction current implementation " + self.__class__.__name__ +
                 " requires a reduced_process.")
-        
+        if not hel_config is None:
+            raise CurrentImplementationError(
+                "Subtraction current implementation " + self.__class__.__name__ +
+                " does not support helicity assignment.")
+
         # Retrieve alpha_s and mu_r
         model_param_dict = self.model.get('parameter_dict')
         alpha_s = model_param_dict['aS']
@@ -259,7 +264,6 @@ class QCD_soft_0_g(currents.QCDLocalSoftCurrent):
             all_colored_parton_numbers.append(leg.get('number'))
         soft_leg_number = current.get('singular_structure').legs[0].n
 
-        Q = self.total_mapping_momentum(higher_PS_point, lower_PS_point)
         pS = higher_PS_point[soft_leg_number]
 
         # Include the counterterm only in a part of the phase space

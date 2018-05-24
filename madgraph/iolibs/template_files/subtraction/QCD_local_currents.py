@@ -153,16 +153,6 @@ class QCDCurrent(utils.VirtualCurrentImplementation):
 
         return leg.state == leg.INITIAL
 
-    @staticmethod
-    def total_mapping_momentum(PS_point_before, PS_point_after):
-
-        total = mappings.LorentzVector()
-        for i in PS_point_before.keys():
-            if i in PS_point_after.keys() and PS_point_before[i] == PS_point_after[i]:
-                continue
-            total += PS_point_before[i]
-        return total
-
     is_cut = staticmethod(no_cut)
     factor = staticmethod(no_factor)
 
@@ -239,16 +229,15 @@ class QCDLocalCollinearCurrent(QCDCurrent):
     def evaluate_subtraction_current(
         self, current,
         higher_PS_point=None, lower_PS_point=None,
-        leg_numbers_map=None, reduced_process=None, hel_config=None, **opts
+        leg_numbers_map=None, reduced_process=None, hel_config=None,
+        Q=None, **opts
         ):
-        if not hel_config is None:
-            raise CurrentImplementationError(
-                "Subtraction current implementation " + self.__class__.__name__ +
-                " does not support helicity assignment.")
         if higher_PS_point is None or lower_PS_point is None:
             raise CurrentImplementationError(
-                "Subtraction current implementation " + self.__class__.__name__ +
-                " needs the phase-space points before and after mapping." )
+                self.name() + " needs the phase-space points before and after mapping." )
+        if not hel_config is None:
+            raise CurrentImplementationError(
+                self.name() + " does not support helicity assignment." )
 
         # Retrieve alpha_s and mu_r
         model_param_dict = self.model.get('parameter_dict')
@@ -261,7 +250,6 @@ class QCDLocalCollinearCurrent(QCDCurrent):
         misc.sprint(mappings.LorentzVectorDict(higher_PS_point))
         misc.sprint(mappings.LorentzVectorDict(lower_PS_point))
         misc.sprint(parent, children)
-        Q = self.total_mapping_momentum(higher_PS_point, lower_PS_point)
         pC = sum(higher_PS_point[child] for child in children)
         if self.is_cut(Q=Q, pC=pC):
             return utils.SubtractionCurrentResult.zero(

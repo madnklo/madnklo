@@ -164,28 +164,15 @@ class SubtractionCurrentTest(unittest.TestCase):
 #       ---- Testing g > q q~ hard collinear
 #       ------------------------------------------
         misc.sprint('Testing hard collinear g > q q~:')
-        import madgraph.integrator.mappings as mappings
-        import madgraph.core.subtraction as sub
-        coll_leg_set = sub.SubtractionLegSet([
-            sub.SubtractionLeg(4,  1, sub.SubtractionLeg.FINAL),
-            sub.SubtractionLeg(5, -1, sub.SubtractionLeg.FINAL), ])
-        coll_structure = sub.CollStructure(legs=coll_leg_set)
-        reco_leg_set = sub.SubtractionLegSet([
-            sub.SubtractionLeg(6, 21, sub.SubtractionLeg.FINAL), ])
-        a_structure = sub.SingularStructure(
-            substructures=[coll_structure], legs=reco_leg_set)
         n_parent = len(base_PS)
         momenta_map = bidict( { n_parent : frozenset((4, 5)) } )
-        mapping = mappings.FinalLorentzOneMapping
-        reduced_PS, jac = mapping.map_to_lower_multiplicity(
-            base_PS, a_structure, momenta_map)
-        # reduced_PS = copy.copy(base_PS)
-        # pC = reduced_PS.pop(4) + reduced_PS.pop(5)
-        # reduced_PS[n_parent] = pC
+        reduced_PS = copy.copy(base_PS)
+        pC = reduced_PS.pop(4) + reduced_PS.pop(5)
+        reduced_PS[n_parent] = pC
         
         # Put the mapped momentum on-shell (this is not a well-defined mapping,
         # but it is sufficient for now to test this current)
-        # reduced_PS[n_parent].set_square(0)
+        reduced_PS[n_parent].set_square(0)
 
 #       This would be a more generic way of doing this, but it would involve
 #       instantiating a counterterm, which I would like to avoid for now.

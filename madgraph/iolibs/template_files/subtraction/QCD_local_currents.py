@@ -381,9 +381,8 @@ class SomogyiChoices(object):
         # which leads to double counting for disjoint currents
         # with the same mapping.
         # Consider moving it to the mapping or the hike.
-        jacobian_power = 1./mapping_variables.get('pow', 1)
         if SomogyiChoices.divide_by_jacobian:
-            norm /= mapping_variables['jacobian'] ** jacobian_power
+            norm /= mapping_variables['jacobian']
         return norm
 
     @staticmethod

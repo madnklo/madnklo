@@ -1151,7 +1151,6 @@ class FinalGroupingMapping(FinalCollinearMapping):
         res = FinalMassesMapping.map_to_lower_multiplicity(
             PS_point, reduced_singular_structure, momenta_dict, reduced_squared_masses,
             kinematic_variables, compute_jacobian )
-        res['pow'] = len(singular_structure.substructures)
         # Eliminate children momenta from the mapped phase-space point
         # and, if need be, update the kinematic_variables dictionary
         for parent in parents:
@@ -1195,7 +1194,6 @@ class FinalGroupingMapping(FinalCollinearMapping):
         res = FinalMassesMapping.map_to_higher_multiplicity(
             PS_point, reduced_singular_structure, momenta_dict,
             reduced_kinematic_variables, compute_jacobian )
-        res['pow'] = len(singular_structure.substructures)
         # Eliminate children momenta from the mapped phase-space point
         # and, if need be, update the kinematic_variables dictionary
         for parent, p in parent_momenta.items():
@@ -1275,7 +1273,6 @@ class FinalLorentzMapping(FinalCollinearMapping):
         res = FinalMassesMapping.map_to_lower_multiplicity(
             PS_point, reduced_singular_structure, momenta_dict, reduced_squared_masses,
             kinematic_variables, compute_jacobian )
-        res['pow'] = len(singular_structure.substructures)
         # Eliminate children momenta from the mapped phase-space point
         # and, if need be, update the kinematic_variables dictionary
         for parent in parents:
@@ -1356,7 +1353,6 @@ class FinalLorentzMapping(FinalCollinearMapping):
         res = FinalMassesMapping.map_to_higher_multiplicity(
             PS_point, reduced_singular_structure, momenta_dict,
             reduced_kinematic_variables, compute_jacobian )
-        res['pow'] = len(singular_structure.substructures)
         # Eliminate children momenta from the mapped phase-space point
         # and, if need be, update the kinematic_variables dictionary
         for parent, p in parent_momenta.items():
@@ -1961,7 +1957,7 @@ class SoftCollinearVsFinalMapping(SoftCollinearMapping):
 class Stroll(object):
     """Container for a mapping call."""
 
-    def __init__(self, mapping, structure, squared_masses, currents):
+    def __init__(self, mapping, structure, squared_masses, currents, variables=None):
 
         super(Stroll, self).__init__()
         assert isinstance(mapping, VirtualMapping)
@@ -1972,6 +1968,7 @@ class Stroll(object):
         for current in currents:
             assert isinstance(current, sub.Current)
         self.currents = currents
+        self.variables = variables
 
     def __str__(self):
 
@@ -1981,6 +1978,8 @@ class Stroll(object):
             foo += str(self.squared_masses)
         foo += " for currents: "
         foo += ", ".join(str(current) for current in self.currents)
+        if self.variables is not None:
+            foo += " (with extra variables %s)" % str(self.variables)
         return foo
 
 # Hike
@@ -2142,7 +2141,11 @@ class VirtualWalker(object):
                     momenta[key] = LorentzVector(point[key])
             # Update jacobian and mapping variables
             if compute_jacobian:
-                mapping_variables['jacobian'] *= result.pop('jacobian')
+                if stroll.variables:
+                    jac_pow = stroll.variables.get('pow', 1)
+                else:
+                    jac_pow = 1
+                mapping_variables['jacobian'] *= result.pop('jacobian') ** (1./jac_pow)
             mapping_variables.update(result)
             # Append the current and the momenta
             current_PS_pairs.append((stroll.currents, momenta))
@@ -2541,8 +2544,9 @@ class DisjointWalker(OneNodeWalker):
         structure = sub.SingularStructure(legs=recoilers, substructures=substructures)
         # Choose mapping to use
         mapping = cls.determine_mapping(structure)
+        variables = {'pow': len(counterterm.nodes)}
         # Compute jacobian and map to lower multiplicity
-        hike.append(Stroll(mapping, structure, squared_masses, currents))
+        hike.append(Stroll(mapping, structure, squared_masses, currents, variables))
         # Returns
         return hike
 

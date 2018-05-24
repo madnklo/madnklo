@@ -746,8 +746,8 @@ class QCD_initial_collinear_0_gg(currents.QCDLocalCollinearCurrent):
 # NLO soft initial-collinear currents
 #=========================================================================================
 
-class QCD_initial_softcollinear_0_gX(currents.QCDLocalSoftCollinearCurrent):
-    """NLO tree-level (final) soft-collinear currents."""
+class QCD_initial_softcollinear_0_Xg(currents.QCDLocalSoftCollinearCurrent):
+    """NLO tree-level (initial) soft-collinear currents."""
 
     is_cut = staticmethod(currents.SomogyiChoices.cut_soft)
     factor = staticmethod(currents.SomogyiChoices.factor_soft)
@@ -763,7 +763,7 @@ class QCD_initial_softcollinear_0_gX(currents.QCDLocalSoftCollinearCurrent):
                 "a 'color_charge' option specified.")
         color_charge = opts.pop('color_charge')
 
-        super(QCD_initial_softcollinear_0_gX, self).__init__(*args, **opts)
+        super(QCD_initial_softcollinear_0_Xg, self).__init__(*args, **opts)
         # At this state color_charge is the string of the group factor ('CA' or 'CF');
         # now that the mother constructor has been called,
         # the group factors have been initialized and we can retrieve them.
@@ -805,7 +805,7 @@ class QCD_initial_softcollinear_0_gX(currents.QCDLocalSoftCollinearCurrent):
     def get_sorted_children(cls, current, model):
 
         ss = current.get('singular_structure')
-        return (ss.legs[0].n,ss.substructures[0].legs[0].n)
+        return (ss.legs[0].n, ss.substructures[0].legs[0].n)
 
     def evaluate_subtraction_current(
         self, current,
@@ -832,11 +832,9 @@ class QCD_initial_softcollinear_0_gX(currents.QCDLocalSoftCollinearCurrent):
 
         # Include the counterterm only in a part of the phase space
         children = self.get_sorted_children(current, self.model)
-        pC = sum(higher_PS_point[child] for child in children)
-        soft_children = []
-        for substructure in current.get('singular_structure').substructures:
-            soft_children += [leg.n for leg in substructure.get_all_legs()]
-        pS = sum(higher_PS_point[child] for child in soft_children)
+        pC = higher_PS_point[children[0]]
+        pS = higher_PS_point[children[1]]
+        pC -= pS
         parent = leg_numbers_map.inv[frozenset(children)]
         if self.is_cut(Q=Q, pC=pC, pS=pS):
             return utils.SubtractionCurrentResult.zero(

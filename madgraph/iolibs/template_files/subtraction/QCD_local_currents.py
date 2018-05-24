@@ -252,9 +252,6 @@ class QCDLocalCollinearCurrent(QCDCurrent):
         # Include the counterterm only in a part of the phase space
         children = self.get_sorted_children(current, self.model)
         parent = leg_numbers_map.inv[frozenset(children)]
-        misc.sprint(mappings.LorentzVectorDict(higher_PS_point))
-        misc.sprint(mappings.LorentzVectorDict(lower_PS_point))
-        misc.sprint(parent, children)
         pC = sum(higher_PS_point[child] for child in children)
         if self.is_cut(Q=Q, pC=pC):
             return utils.SubtractionCurrentResult.zero(

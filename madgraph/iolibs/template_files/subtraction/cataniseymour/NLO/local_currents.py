@@ -153,14 +153,26 @@ class QCD_final_collinear_0_gq(currents.QCDLocalCollinearCurrent):
         return evaluation
 
     def evaluate_subtraction_current(
-        self, current, PS_point,
-        reduced_process=None, hel_config=None,
-        mapping_variables=None, leg_numbers_map=None):
+        self, current,
+        higher_PS_point=None, lower_PS_point=None,
+        leg_numbers_map=None, reduced_process=None, hel_config=None,
+        Q=None, **opts ):
 
+        if higher_PS_point is None or lower_PS_point is None:
+            raise CurrentImplementationError(
+                self.name() + " needs the phase-space points before and after mapping." )
+        if leg_numbers_map is None:
+            raise CurrentImplementationError(
+                self.name() + " requires a leg numbers map, i.e. a momentum dictionary." )
+        if reduced_process is None:
+            raise CurrentImplementationError(
+                self.name() + " requires a reduced_process.")
         if not hel_config is None:
             raise CurrentImplementationError(
-                "Subtraction current implementation %s"
-                "does not support helicity assignment." % self.__class__.__name__)
+                self.name() + " does not support helicity assignment." )
+        if Q is None:
+            raise CurrentImplementationError(
+                self.name() + " requires the total mapping momentum Q." )
 
         # Retrieve alpha_s and mu_r
         model_param_dict = self.model.get('parameter_dict')
@@ -170,12 +182,13 @@ class QCD_final_collinear_0_gq(currents.QCDLocalCollinearCurrent):
         # Include the counterterm only in a part of the phase space
         children = self.get_sorted_children(current, self.model)
         parent = leg_numbers_map.inv[frozenset(children)]
-        if self.is_cut(mapping_variables, parent):
+        pC = sum(higher_PS_point[child] for child in children)
+        if self.is_cut(Q=Q, pC=pC):
             return utils.SubtractionCurrentResult.zero(
                 current=current, hel_config=hel_config)
 
         # Evaluate collinear subtracted kernel
-        zs, kTs = self.variables(PS_point, parent, children, mapping_variables)
+        zs, kTs = self.variables(higher_PS_point, lower_PS_point[parent], children, Q=Q)
         evaluation = self.evaluate_kernel(zs, kTs, parent)
 
         # Find all colored leg numbers except for the parent in the reduced process
@@ -195,14 +208,13 @@ class QCD_final_collinear_0_gq(currents.QCDLocalCollinearCurrent):
             evaluation['color_correlations'].append(((parent, a),))
             # Write the eikonal for that pair
             evaluation['values'][(0, color_correlation_index)] = {
-                'finite': -mod_eikonal(PS_point, children[1], a, children[0]) }
+                'finite': -mod_eikonal(higher_PS_point, children[1], a, children[0]) }
             color_correlation_index += 1
 
         # Add the normalization factors
-        pC = mapping_variables['pC' + str(parent)]
         pC2 = pC.square()
         norm = 8. * math.pi * alpha_s / pC2
-        norm *= self.factor(mapping_variables, parent)
+        norm *= self.factor(Q=Q, pC=pC)
         for k in evaluation['values']:
             evaluation['values'][k]['finite'] *= norm
 
@@ -269,14 +281,26 @@ class QCD_final_collinear_0_gg(currents.QCDLocalCollinearCurrent):
         return evaluation
 
     def evaluate_subtraction_current(
-        self, current, PS_point,
-        reduced_process=None, hel_config=None,
-        mapping_variables=None, leg_numbers_map=None):
+        self, current,
+        higher_PS_point=None, lower_PS_point=None,
+        leg_numbers_map=None, reduced_process=None, hel_config=None,
+        Q=None, **opts ):
 
+        if higher_PS_point is None or lower_PS_point is None:
+            raise CurrentImplementationError(
+                self.name() + " needs the phase-space points before and after mapping." )
+        if leg_numbers_map is None:
+            raise CurrentImplementationError(
+                self.name() + " requires a leg numbers map, i.e. a momentum dictionary." )
+        if reduced_process is None:
+            raise CurrentImplementationError(
+                self.name() + " requires a reduced_process.")
         if not hel_config is None:
             raise CurrentImplementationError(
-                "Subtraction current implementation %s"
-                "does not support helicity assignment." % self.__class__.__name__)
+                self.name() + " does not support helicity assignment." )
+        if Q is None:
+            raise CurrentImplementationError(
+                self.name() + " requires the total mapping momentum Q." )
 
         # Retrieve alpha_s and mu_r
         model_param_dict = self.model.get('parameter_dict')
@@ -286,12 +310,13 @@ class QCD_final_collinear_0_gg(currents.QCDLocalCollinearCurrent):
         # Include the counterterm only in a part of the phase space
         children = self.get_sorted_children(current, self.model)
         parent = leg_numbers_map.inv[frozenset(children)]
-        if self.is_cut(mapping_variables, parent):
+        pC = sum(higher_PS_point[child] for child in children)
+        if self.is_cut(Q=Q, pC=pC):
             return utils.SubtractionCurrentResult.zero(
                 current=current, hel_config=hel_config)
 
         # Evaluate collinear subtracted kernel
-        zs, kTs = self.variables(PS_point, parent, children, mapping_variables)
+        zs, kTs = self.variables(higher_PS_point, lower_PS_point[parent], children, Q=Q)
         evaluation = self.evaluate_kernel(zs, kTs, parent)
 
         # Find all colored leg numbers except for the parent in the reduced process
@@ -310,16 +335,15 @@ class QCD_final_collinear_0_gg(currents.QCDLocalCollinearCurrent):
         for a in all_colored_parton_numbers:
             evaluation['color_correlations'].append(((parent, a),))
             # Write the eikonal for that pair
-            eik0 = -mod_eikonal(PS_point, children[1], a, children[0])
-            eik1 = -mod_eikonal(PS_point, children[0], a, children[1])
+            eik0 = -mod_eikonal(higher_PS_point, children[1], a, children[0])
+            eik1 = -mod_eikonal(higher_PS_point, children[0], a, children[1])
             evaluation['values'][(0, color_correlation_index)] = {'finite': eik0 + eik1}
             color_correlation_index += 1
 
         # Add the normalization factors
-        pC = mapping_variables['pC' + str(parent)]
         pC2 = pC.square()
         norm = 8. * math.pi * alpha_s / pC2
-        norm *= self.factor(mapping_variables, parent)
+        norm *= self.factor(Q=Q, pC=pC)
         for k in evaluation['values']:
             evaluation['values'][k]['finite'] *= norm
 
@@ -336,7 +360,9 @@ class QCD_final_collinear_0_gg(currents.QCDLocalCollinearCurrent):
 #=========================================================================================
 
 class QCD_initial_collinear_0_gq(currents.QCDLocalCollinearCurrent):
-    """gq collinear ISR tree-level current. q(initial) > g(initial_after_emission) q(final)"""
+    """gq collinear ISR tree-level current.
+    q(initial) > g(initial_after_emission) q(final)
+    """
 
     variables = staticmethod(currents.Q_initial_coll_variables)
 
@@ -416,7 +442,9 @@ class QCD_initial_collinear_0_gq(currents.QCDLocalCollinearCurrent):
         return evaluation
 
 class QCD_initial_collinear_0_qq(currents.QCDLocalCollinearCurrent):
-    """ qq collinear ISR tree-level current. g(initial) > q(initial_after_emission) qx(final)."""
+    """ qq collinear ISR tree-level current.
+    g(initial) > q(initial_after_emission) qx(final).
+    """
 
     variables = staticmethod(currents.Q_initial_coll_variables)
 
@@ -487,7 +515,9 @@ class QCD_initial_collinear_0_qq(currents.QCDLocalCollinearCurrent):
         return evaluation
 
 class QCD_initial_collinear_0_qg(currents.QCDLocalCollinearCurrent):
-    """qg collinear ISR tree-level current. q(initial) > q(initial_after_emission) g(final)"""
+    """qg collinear ISR tree-level current.
+    q(initial) > q(initial_after_emission) g(final)
+    """
 
     variables = staticmethod(currents.Q_initial_coll_variables)
 
@@ -562,16 +592,29 @@ class QCD_initial_collinear_0_qg(currents.QCDLocalCollinearCurrent):
         return evaluation
 
     def evaluate_subtraction_current(
-        self, current, PS_point,
-        reduced_process=None, hel_config=None,
-        mapping_variables=None, leg_numbers_map=None):
-        """Add the distributed partial fractioned soft eikonal approximation to this 
-        hard collinear current"""
+        self, current,
+        higher_PS_point=None, lower_PS_point=None,
+        leg_numbers_map=None, reduced_process=None, hel_config=None,
+        Q=None, **opts ):
+        """Add the distributed partial fractioned soft eikonal approximation
+        to this hard collinear current
+        """
 
+        if higher_PS_point is None or lower_PS_point is None:
+            raise CurrentImplementationError(
+                self.name() + " needs the phase-space points before and after mapping." )
+        if leg_numbers_map is None:
+            raise CurrentImplementationError(
+                self.name() + " requires a leg numbers map, i.e. a momentum dictionary." )
+        if reduced_process is None:
+            raise CurrentImplementationError(
+                self.name() + " requires a reduced_process.")
         if not hel_config is None:
             raise CurrentImplementationError(
-                "Subtraction current implementation %s"
-                "does not support helicity assignment." % self.__class__.__name__)
+                self.name() + " does not support helicity assignment." )
+        if Q is None:
+            raise CurrentImplementationError(
+                self.name() + " requires the total mapping momentum Q." )
 
         # Retrieve alpha_s and mu_r
         model_param_dict = self.model.get('parameter_dict')
@@ -581,12 +624,14 @@ class QCD_initial_collinear_0_qg(currents.QCDLocalCollinearCurrent):
         # Include the counterterm only in a part of the phase space
         children = self.get_sorted_children(current, self.model)
         parent = leg_numbers_map.inv[frozenset(children)]
-        if self.is_cut(mapping_variables, parent):
+        pC = higher_PS_point[children[0]]
+        pC -= sum(higher_PS_point[child] for child in children[1:])
+        if self.is_cut(Q=Q, pC=pC):
             return utils.SubtractionCurrentResult.zero(
                 current=current, hel_config=hel_config)
 
         # Evaluate collinear subtracted kernel
-        zs, kTs = self.variables(PS_point, parent, children, mapping_variables)
+        zs, kTs = self.variables(higher_PS_point, lower_PS_point[parent], children, Q=Q)
         evaluation = self.evaluate_kernel(zs, kTs, parent)
 
         # Find all colored leg numbers except for the parent in the reduced process
@@ -606,15 +651,14 @@ class QCD_initial_collinear_0_qg(currents.QCDLocalCollinearCurrent):
             evaluation['color_correlations'].append(((parent, a),))
             # Write the eikonal for that pair (positive here since the dipole end
             # 'children[0]' is in the initial state)
-            eik1 = mod_eikonal(PS_point, children[0], a, children[1])
+            eik1 = mod_eikonal(higher_PS_point, children[0], a, children[1])
             evaluation['values'][(0, color_correlation_index)] = {'finite': eik1}
             color_correlation_index += 1
 
         # Add the normalization factors
-        pC = mapping_variables['pC' + str(parent)]
         pC2 = pC.square()
         norm = 8. * math.pi * alpha_s / pC2
-        norm *= self.factor(mapping_variables, parent)
+        norm *= self.factor(Q=Q, pC=pC)
         for k in evaluation['values']:
             evaluation['values'][k]['finite'] *= norm
 
@@ -711,16 +755,29 @@ class QCD_initial_collinear_0_gg(currents.QCDLocalCollinearCurrent):
         return evaluation
 
     def evaluate_subtraction_current(
-        self, current, PS_point,
-        reduced_process=None, hel_config=None,
-        mapping_variables=None, leg_numbers_map=None):
-        """Add the distributed partial fractioned soft eikonal approximation to this 
-        hard collinear current"""
+        self, current,
+        higher_PS_point=None, lower_PS_point=None,
+        leg_numbers_map=None, reduced_process=None, hel_config=None,
+        Q=None, **opts ):
+        """Add the distributed partial fractioned soft eikonal approximation
+        to this hard collinear current
+        """
 
+        if higher_PS_point is None or lower_PS_point is None:
+            raise CurrentImplementationError(
+                self.name() + " needs the phase-space points before and after mapping." )
+        if leg_numbers_map is None:
+            raise CurrentImplementationError(
+                self.name() + " requires a leg numbers map, i.e. a momentum dictionary." )
+        if reduced_process is None:
+            raise CurrentImplementationError(
+                self.name() + " requires a reduced_process.")
         if not hel_config is None:
             raise CurrentImplementationError(
-                "Subtraction current implementation %s"
-                "does not support helicity assignment." % self.__class__.__name__)
+                self.name() + " does not support helicity assignment." )
+        if Q is None:
+            raise CurrentImplementationError(
+                self.name() + " requires the total mapping momentum Q." )
 
         # Retrieve alpha_s and mu_r
         model_param_dict = self.model.get('parameter_dict')
@@ -730,12 +787,14 @@ class QCD_initial_collinear_0_gg(currents.QCDLocalCollinearCurrent):
         # Include the counterterm only in a part of the phase space
         children = self.get_sorted_children(current, self.model)
         parent = leg_numbers_map.inv[frozenset(children)]
-        if self.is_cut(mapping_variables, parent):
+        pC = higher_PS_point[children[0]]
+        pC -= sum(higher_PS_point[child] for child in children[1:])
+        if self.is_cut(Q=Q, pC=pC):
             return utils.SubtractionCurrentResult.zero(
                 current=current, hel_config=hel_config)
 
         # Evaluate collinear subtracted kernel
-        zs, kTs = self.variables(PS_point, parent, children, mapping_variables)
+        zs, kTs = self.variables(higher_PS_point, lower_PS_point[parent], children, Q=Q)
         evaluation = self.evaluate_kernel(zs, kTs, parent)
 
         # Find all colored leg numbers except for the parent in the reduced process
@@ -756,15 +815,14 @@ class QCD_initial_collinear_0_gg(currents.QCDLocalCollinearCurrent):
             # Write the eikonal for that pair
             # Write the eikonal for that pair (positive here since the dipole end
             # 'children[0]' is in the initial state)
-            eik1 = mod_eikonal(PS_point, children[0], a, children[1])
+            eik1 = mod_eikonal(higher_PS_point, children[0], a, children[1])
             evaluation['values'][(0, color_correlation_index)] = {'finite': eik1}
             color_correlation_index += 1
 
         # Add the normalization factors
-        pC = mapping_variables['pC' + str(parent)]
         pC2 = pC.square()
         norm = 8. * math.pi * alpha_s / pC2
-        norm *= self.factor(mapping_variables, parent)
+        norm *= self.factor(Q=Q, pC=pC)
         for k in evaluation['values']:
             evaluation['values'][k]['finite'] *= norm
 
@@ -798,9 +856,7 @@ class NoSoftCurrent(currents.QCDCurrent):
         return init_vars
 
     def evaluate_subtraction_current(
-        self, current, PS_point,
-        reduced_process=None, hel_config=None,
-        mapping_variables=None, leg_numbers_map=None):
+        self, current, hel_config=None, **opts ):
         """Return 0 for this current."""
 
         return utils.SubtractionCurrentResult.zero(current=current, hel_config=hel_config)

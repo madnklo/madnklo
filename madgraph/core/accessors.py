@@ -1855,9 +1855,6 @@ class MEAccessorDict(dict):
            {'permutation': [1,0,2,3], 'process_pdgs': 'c c~ > g g'}
         """
 
-        misc.sprint("Print inside get_MEAccessor")
-        misc.sprint(key)
-
         if isinstance(key, subtraction.Current):
             # Automatically convert the current to a ProcessKey
             accessor_key = key.get_key()
@@ -1868,8 +1865,6 @@ class MEAccessorDict(dict):
             accessor_key = key
         else:
             raise MadGraph5Error("Key passed to get_MEAccessor should always be of type ProcessKey or base_objects.Process")
-
-        misc.sprint(accessor_key)
 
         try:
             (ME_accessor, defining_pdgs_order) = super(MEAccessorDict, self).__getitem__(accessor_key.get_canonical_key())
@@ -1964,9 +1959,6 @@ class MEAccessorDict(dict):
             "__call__ method of MEAccessorDict, the first argument should be an instance of a ProcessKey or base_objects.Process or"+\
             " subtraction.Current."
 
-        for arg in args:
-            misc.sprint(arg.__class__.__name__)
-
         if self.cache_active and hasattr(args[0], 'accessor'):
             if isinstance(args[0], subtraction.Current):
                 return args[0].accessor(*args, **opts)
@@ -2039,8 +2031,6 @@ class MEAccessorDict(dict):
                     else:
                         args[0].accessor = {key:(ME_accessor, call_options)}
 
-        misc.sprint(str(len(call_args)))
-        misc.sprint(str(len(call_options)))
         return ME_accessor(*call_args, **call_options)
     
     def add_MEAccessor(self, ME_accessor, allow_overwrite=False):

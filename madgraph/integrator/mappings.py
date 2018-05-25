@@ -2212,6 +2212,7 @@ class VirtualWalker(object):
             mom_dict[leg['number']] = frozenset([leg['number'], ])
         parent_index = max(leg['number'] for leg in process['legs']) + 1
         fake_ct = sub.Counterterm(process=process, momenta_dict=mom_dict)
+        closer_PS_point = PS_point.get_copy()
         # Walk the hike up and down
         for step in decomposed:
             mapping = self.determine_mapping(step)
@@ -2227,7 +2228,7 @@ class VirtualWalker(object):
             kin_variables = {}
             # misc.sprint('Starting PS point:\n',str(PS_point))
             low_PS_point, _ = mapping.map_to_lower_multiplicity(
-                PS_point, new_ss, mom_dict, None, kin_variables )
+                closer_PS_point, new_ss, mom_dict, None, kin_variables )
             # misc.sprint('Mapped down PS point:\n',str(PS_point))
             # misc.sprint('kin_variables=',kin_variables)
             mapping.rescale_kinematic_variables(

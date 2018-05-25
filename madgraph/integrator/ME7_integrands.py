@@ -1628,7 +1628,7 @@ class ME7Integrand_R(ME7Integrand):
         return tuple(sum([ (list(sc) if not sc is None else []) for sc in spin_correlators],[]))
 
     @staticmethod
-    def update_all_necessary_ME_calls(all_necessary_ME_calls, new_evaluation):
+    def new_all_necessary_ME_calls(all_necessary_ME_calls, new_evaluation):
 
         new_all_necessary_ME_calls = []
         for ((spin_index, color_index), current_wgt) in new_evaluation['values'].items():
@@ -1644,8 +1644,7 @@ class ME7Integrand_R(ME7Integrand):
                     ME_call[2] + [current_wgt['finite'], ],
                 ))
         # Update the list of necessary ME calls
-        all_necessary_ME_calls = new_all_necessary_ME_calls
-        return
+        return new_all_necessary_ME_calls
 
     def evaluate_counterterm(
         self, counterterm, PS_point,
@@ -1665,7 +1664,7 @@ class ME7Integrand_R(ME7Integrand):
         #         'kinematic_variables' : kinematic_variables (a dictionary)
         #        }
         hike_output = self.walker.walk_to_lower_multiplicity(
-            PS_point, counterterm, compute_jacobian=divide_by_jacobian )
+            PS_point, counterterm, compute_jacobian=self.divide_by_jacobian )
        
         # Access the matrix element characteristics
         ME_process, ME_PS = hike_output['matrix_element']
@@ -1729,7 +1728,7 @@ class ME7Integrand_R(ME7Integrand):
                     # so there is not need of fancy combination of Laurent series.
                     weight *= current_evaluation['values'][(0,0)]['finite']
                 else:
-                    ME7Integrand_R.update_all_necessary_ME_calls(
+                    all_necessary_ME_calls = ME7Integrand_R.new_all_necessary_ME_calls(
                         all_necessary_ME_calls, current_evaluation)
 
         # Now perform the combination of the list of spin and color correlators to be merged
@@ -1801,7 +1800,8 @@ The missing process is: %s"""%ME_process.nice_string())
             final_weight += current_weight*ME_evaluation['finite']
             
         # Now finally handle the overall prefactor of the counterterm
-        final_weight *= counterterm.prefactor
+        # and the weight from the disconnected currents
+        final_weight *= counterterm.prefactor*weight
 
         # Returns the corresponding weight and the mapped PS_point.
         # Also returns the mapped_process (for calling the observables), which
@@ -1983,10 +1983,10 @@ The missing process is: %s"""%ME_process.nice_string())
                 base = min_value ** (1./n_steps)
                 for step in range(n_steps+1):
                     # Determine the new phase-space point
-                    scaled_real_PS_point = a_real_emission_PS_point.get_copy()
                     scaling_parameter = base ** step
-                    walker.approach_limit(
-                        scaled_real_PS_point, limit, scaling_parameter, defining_process )
+                    scaled_real_PS_point = walker.approach_limit(
+                        a_real_emission_PS_point,
+                        limit, scaling_parameter, defining_process )
                     # Initialize result
                     this_eval = {}
                     # Evaluate ME

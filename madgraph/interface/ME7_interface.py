@@ -311,7 +311,7 @@ class ParseCmdArguments(object):
             'seed'                    : None,
             'n_steps'                 : 30,
             'min_scaling_variable'    : 1.0e-6,
-            'acceptance_threshold'    : 1.0e-6,
+            'acceptance_threshold'    : 1.0e-4,
             'include_all_flavors'     : False,
             'apply_higher_multiplicity_cuts' : True,
             'apply_lower_multiplicity_cuts'  : True,

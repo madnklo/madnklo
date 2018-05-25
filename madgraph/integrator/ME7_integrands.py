@@ -2028,9 +2028,12 @@ The missing process is: %s"""%ME_process.nice_string())
 
     @staticmethod
     def analyze_IR_limit(
-        evaluations, title=None, def_ct=None, plot_all=True, show=True, filename=None):
+        evaluations, acceptance_threshold,
+        title=None, def_ct=None, plot_all=True, show=True, filename=None ):
 
         import matplotlib.pyplot as plt
+
+        test_failed = False
 
         # Produce a plot of all counterterms
         x_values = sorted(evaluations.keys())
@@ -2092,6 +2095,21 @@ The missing process is: %s"""%ME_process.nice_string())
         if filename:
             plt.savefig(filename + '_ratios.pdf')
 
+        # Check that the ratio of def_ct to the ME is close to -1
+        if plot_def and not test_failed:
+            def_ct_2_ME_ratio = evaluations[x_values[0]][def_ct]
+            def_ct_2_ME_ratio /= evaluations[x_values[0]]["ME"]
+            foo_str = "The ratio of the defining CT to the ME at lambda = %s is: %s."
+            print foo_str % (x_values[0], def_ct_2_ME_ratio)
+            test_failed = abs(def_ct_2_ME_ratio+1) > acceptance_threshold
+        # Check that the ratio between total and ME is close to 0
+        if not test_failed:
+            total_2_ME_ratio = total[0]
+            total_2_ME_ratio /= evaluations[x_values[0]]["ME"]
+            foo_str = "The ratio of the total to the ME at lambda = %s is: %s."
+            print foo_str % (x_values[0], total_2_ME_ratio)
+            test_failed = abs(total_2_ME_ratio) > acceptance_threshold
+
         plt.figure(3)
         if title: plt.title(title)
         plt.xlabel('$\lambda$')
@@ -2114,14 +2132,17 @@ The missing process is: %s"""%ME_process.nice_string())
         else:
             plt.close('all')
 
-        return
+        return not test_failed
 
     def analyze_IR_limits_test(
         self, all_evaluations, acceptance_threshold,
         seed=None, show=True, save=False):
         """Analyze the results of the test_IR_limits command."""
 
+        test_failed = False
+        results = dict()
         for (process, process_evaluations) in all_evaluations.items():
+            results[process] = dict()
             for (limit, limit_evaluations) in process_evaluations.items():
                 proc, loops = process.split("@")
                 title = "$" + proc + "$"
@@ -2136,9 +2157,21 @@ The missing process is: %s"""%ME_process.nice_string())
                     filename = filename.replace(" ", "").replace("~", "x")
                     filename = filename.replace("@", "_") + "_" + limit
                     if seed: filename += str(seed)
-                self.analyze_IR_limit(
-                    limit_evaluations,
+                results[process][limit] = self.analyze_IR_limit(
+                    limit_evaluations, acceptance_threshold=acceptance_threshold,
                     title=title, def_ct=limit, show=show, filename=filename )
+                if not results[process][limit]:
+                    test_failed = True
+        if test_failed:
+            print "analyse_IR_limits_test result:"
+            for process in results.keys():
+                print "    " + str(process)
+                for limit in results[process].keys():
+                    if results[process][limit]:
+                        print "    " * 2 + str(limit) + ": passed"
+                    else:
+                        print "    " * 2 + str(limit) + ": NOT passed"
+            return False
         return True
     
 class ME7Integrand_RR(ME7Integrand_R):

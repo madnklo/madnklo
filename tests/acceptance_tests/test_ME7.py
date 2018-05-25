@@ -89,7 +89,7 @@ class TestME7(unittest.TestCase):
                    'seed'                   : '666',
                    'n_steps'                : 10,
                    'min_scaling_variable'   : 1.0e-5,
-                   'acceptance_threshold'   : 1.0e-6,
+                   'acceptance_threshold'   : 1.0e-4,
                    }
 
         self.do('%s %s'%(main_cmd, ' '.join(

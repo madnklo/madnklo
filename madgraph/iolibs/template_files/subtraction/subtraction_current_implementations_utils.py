@@ -218,6 +218,12 @@ class VirtualCurrentImplementation(object):
         self.model = model
 
     @classmethod
+    def name(cls):
+        """Extended name string to print the identity of current implementations."""
+
+        return "Subtraction current implementation " + cls.__class__.__name__
+
+    @classmethod
     def does_implement_this_current(cls, current, model):
         """Return None/a_dictionary depending on whether this particular current is
         part of what this particular current class implements.
@@ -229,9 +235,9 @@ class VirtualCurrentImplementation(object):
         return None 
 
     def get_cache_and_result_key(
-        self, current, PS_point,
-        reduced_process=None, leg_numbers_map=None, hel_config=None,
-        mapping_variables=None, **opts ):
+        self, current,
+        higher_PS_point=None, lower_PS_point=None,
+        leg_numbers_map=None, reduced_process=None, hel_config=None, ):
         """Generate a key for the cache dictionary.
         Make sure that everything that can lead to a different evaluation of the current
         ends up in the key so that two evaluations that lead to different results
@@ -243,17 +249,29 @@ class VirtualCurrentImplementation(object):
         of the SubtractionCurrentResult.
         """
 
-        model_param_dict = self.model.get('parameter_dict')
-        PS_point_tuple = tuple(sorted([
-            (k, tuple(value)) for (k, value) in PS_point.items() ]))
-        alpha_s = model_param_dict['aS']
         singular_structure_str = current['singular_structure'].__str__(
             print_n=True, print_pdg=True, print_state=True)
         squared_orders = tuple(sorted(current.get('squared_orders').items()))
+        higher_PS_point_tuple = tuple(sorted([
+            (k, tuple(value)) for (k, value) in higher_PS_point.items() ]))
+        lower_PS_point_tuple = tuple(sorted([
+            (k, tuple(value)) for (k, value) in lower_PS_point.items() ]))
+        if reduced_process:
+            reduced_process_hash = tuple(
+                (leg['number'], leg['id']) for leg in reduced_process['legs'] )
+        else:
+            reduced_process_hash = None
+        model_param_dict = self.model.get('parameter_dict')
+        alpha_s = model_param_dict['aS']
 
-        cache_key = {'PS_point': PS_point_tuple, 'alpha_s': alpha_s,
-                     'singular_structure': singular_structure_str }
-        result_key = {'hel_config':hel_config, 'squared_orders': squared_orders}
+        cache_key = {
+            'higher_PS_point': higher_PS_point_tuple,
+            'lower_PS_point': lower_PS_point_tuple,
+            'alpha_s': alpha_s,
+            'singular_structure': singular_structure_str,
+            'reduced_process': reduced_process_hash
+        }
+        result_key = {'hel_config': hel_config, 'squared_orders': squared_orders}
 
         return cache_key, result_key
         # Alternatively, use: 
@@ -261,9 +279,10 @@ class VirtualCurrentImplementation(object):
         # to disable the caching system
 
     def evaluate_subtraction_current(
-        self, current, PS_point,
-        reduced_process=None, hel_config=None,
-        mapping_variables=None, leg_numbers_map=None ):
+        self, current,
+        higher_PS_point=None, lower_PS_point=None,
+        leg_numbers_map=None, reduced_process=None, hel_config=None,
+        **opts ):
         """Returns an instance of SubtractionCurrentResult,
         with SubtractionCurrentEvaluation as keys which store
         various output of this evaluation of the subtraction current,
@@ -350,15 +369,10 @@ class DefaultCurrentImplementation(VirtualCurrentImplementation):
         # return None
         return {}
     
-    def get_cache_and_result_key(self, *args, **opts):
-
-        return super(DefaultCurrentImplementation, self).get_cache_and_result_key(
-            *args, **opts)
-
     def evaluate_subtraction_current(
-        self, current, PS_point,
-        reduced_process=None, hel_config=None,
-        mapping_variables=None, leg_numbers_map=None ):
+        self, current,
+        higher_PS_point=None, lower_PS_point=None,
+        leg_numbers_map=None, reduced_process=None, hel_config=None, **opts):
         """Simply return 0 for this current default implementation."""
         
         return SubtractionCurrentResult.zero(current=current, hel_config=hel_config)

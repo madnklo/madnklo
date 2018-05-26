@@ -1628,7 +1628,7 @@ class ME7Integrand_R(ME7Integrand):
         return tuple(sum([ (list(sc) if not sc is None else []) for sc in spin_correlators],[]))
 
     @staticmethod
-    def new_all_necessary_ME_calls(all_necessary_ME_calls, new_evaluation):
+    def update_all_necessary_ME_calls(all_necessary_ME_calls, new_evaluation):
 
         new_all_necessary_ME_calls = []
         for ((spin_index, color_index), current_wgt) in new_evaluation['values'].items():
@@ -1643,7 +1643,7 @@ class ME7Integrand_R(ME7Integrand):
                     # Append this weight to those already present for that call
                     ME_call[2] + [current_wgt['finite'], ],
                 ))
-        # Update the list of necessary ME calls
+        # Return the new list of necessary ME calls
         return new_all_necessary_ME_calls
 
     def evaluate_counterterm(
@@ -1723,7 +1723,7 @@ class ME7Integrand_R(ME7Integrand):
                     # so there is not need of fancy combination of Laurent series.
                     weight *= current_evaluation['values'][(0,0)]['finite']
                 else:
-                    all_necessary_ME_calls = ME7Integrand_R.new_all_necessary_ME_calls(
+                    all_necessary_ME_calls = ME7Integrand_R.update_all_necessary_ME_calls(
                         all_necessary_ME_calls, current_evaluation)
 
         # Now perform the combination of the list of spin and color correlators to be merged

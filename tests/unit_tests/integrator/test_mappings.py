@@ -763,9 +763,11 @@ class WalkersTest(unittest.TestCase):
                 # Check currents
                 self.assertEqual(len(currs1), len(currs2))
                 for i_curr in range(len(currs1)):
-                    self.assertEqual(currs1[i_curr][0], currs2[i_curr][0])
-                    self.assertDictEqual(currs1[i_curr][1], currs2[i_curr][1])
-                    assertDictAlmostEqual(self, currs1[i_curr][2], currs2[i_curr][2])
+                    c1, c2 = currs1[i_curr], currs2[i_curr]
+                    self.assertEqual(c1['stroll_currents'], c2['stroll_currents'])
+                    self.assertDictEqual(c1['higher_PS_point'], c2['higher_PS_point'])
+                    self.assertDictEqual(c1['lower_PS_point'], c2['lower_PS_point'])
+                    assertDictAlmostEqual(self, c1['stroll_vars'], c2['stroll_vars'])
                 # Check MEs
                 self.assertEqual(ME1[0], ME2[0])
                 self.assertDictEqual(ME1[1], ME2[1])

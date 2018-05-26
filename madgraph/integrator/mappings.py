@@ -2096,10 +2096,9 @@ class VirtualWalker(object):
         the phase-space jacobian.
 
         :return: a dictionary with the following entries:
-        'currents', a list with a tuple
-            (current_list, PS_point_before, variables_generated)
-            for each mapping applied, where current_list are the currents to be evaluated
-            ''in between'' PS_point_before and the next phase-space point;
+        'currents', a list of stroll output dictionaries
+            {stroll_currents, higher_PS_point, lower_PS_point, stroll_vars}
+            for each stroll/mapping applied;
         'matrix_element', the reduced matrix element,
             paired with its corresponding reduced phase-space point;
         'kinematic_variables', a dictionary of all variables needed to recover
@@ -2109,9 +2108,9 @@ class VirtualWalker(object):
 
         # Identify the starting phase-space point
         point = PS_point
-        if verbose: print point
+        if verbose: logger.debug(str(point))
         # Initialize return variables
-        current_PS_pairs = []
+        currents_4_eval = []
         kinematic_variables = dict() if compute_kinematic_variables else None
         # Determine the hike
         hike = self.get_hike(counterterm)
@@ -2122,16 +2121,21 @@ class VirtualWalker(object):
                 point, stroll.structure, counterterm.momenta_dict, stroll.squared_masses,
                 kinematic_variables=kinematic_variables,
                 compute_jacobian=compute_jacobian )
-            if verbose: print new_point, "\n", vars
+            if verbose: logger.debug(str(new_point)+"\n"+str(vars))
             # Append the current and the momenta
-            current_PS_pairs.append((stroll.currents, point, vars))
+            stroll_output = {
+                'stroll_currents': stroll.currents,
+                'higher_PS_point': point,
+                'lower_PS_point': new_point,
+                'stroll_vars': vars }
+            currents_4_eval.append(stroll_output)
             point = new_point
         # Identify reduced matrix element,
         # computed in the point which has received all mappings
         ME_PS_pair = [counterterm.process, point]
         # Return
         return {
-            'currents': current_PS_pairs,
+            'currents': currents_4_eval,
             'matrix_element': ME_PS_pair,
             'kinematic_variables': kinematic_variables }
 
@@ -2156,10 +2160,9 @@ class VirtualWalker(object):
         the phase-space jacobian.
 
         :return: a dictionary with the following entries:
-        'currents', a list with a tuple
-            (current_list, PS_point_before, variables_generated)
-            for each mapping applied, where current_list are the currents to be evaluated
-            ''in between'' PS_point_before and the next phase-space point;
+        'currents', a list of stroll output dictionaries
+            {stroll_currents, higher_PS_point, lower_PS_point, stroll_vars}
+            for each stroll/mapping applied;
         'matrix_element', the reduced matrix element,
             paired with its corresponding reduced phase-space point.
         """
@@ -2169,10 +2172,9 @@ class VirtualWalker(object):
         ME_PS_pair = [counterterm.process, PS_point]
         # Identify the starting phase-space point
         point = PS_point
-        if verbose: print point
+        if verbose: logger.debug(str(point))
         # Initialize return variables
-        current_PS_pairs = []
-        jacobian = 1.
+        currents_4_eval = []
         # Determine the hike
         hike = self.get_hike(counterterm)
         for stroll in reversed(hike):
@@ -2180,19 +2182,18 @@ class VirtualWalker(object):
             new_point, vars = stroll.mapping.map_to_higher_multiplicity(
                 point, stroll.structure, counterterm.momenta_dict, kinematic_variables,
                 compute_jacobian=compute_jacobian )
-            if verbose: print new_point, "\n", vars
+            if verbose: logger.debug(str(new_point)+"\n"+str(vars))
             # Update jacobian and mapping variables
-            if compute_jacobian:
-                if stroll.variables:
-                    jac_pow = stroll.variables.get('pow', 1)
-                else:
-                    jac_pow = 1
-                vars['jacobian'] **= 1./jac_pow
-            current_PS_pairs.insert(0, (stroll.currents, new_point, vars))
+            stroll_output = {
+                'stroll_currents': stroll.currents,
+                'higher_PS_point': new_point,
+                'lower_PS_point': point,
+                'stroll_vars': vars }
+            currents_4_eval.insert(0, stroll_output)
             point = new_point
         # Return
         return {
-            'currents': current_PS_pairs,
+            'currents': currents_4_eval,
             'matrix_element': ME_PS_pair, }
 
     def approach_limit(

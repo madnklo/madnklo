@@ -1659,10 +1659,9 @@ class ME7Integrand_R(ME7Integrand):
         # Now call the walker which hikes through the counterterm structure
         # to return the list of currents and PS points for their evaluation
         # hike_output = {
-        #         'currents' : [(currents1, PS1, vars1), (currents2, PS2, vars2), ...],
+        #         'currents' : [stroll_output1, stroll_output2, ...],
         #         'matrix_element': (ME_process, ME_PS),
-        #         'kinematic_variables' : kinematic_variables (a dictionary)
-        #        }
+        #         'kinematic_variables' : kinematic_variables (a dictionary) }
         hike_output = self.walker.walk_to_lower_multiplicity(
             PS_point, counterterm, compute_jacobian=self.divide_by_jacobian )
        
@@ -1696,28 +1695,24 @@ class ME7Integrand_R(ME7Integrand):
         # (spin_correlators_to_combine, color_correlators_to_combine, weights_to_combine)
         all_necessary_ME_calls = [ ([], [], []) ]
 
-        currents = hike_output['currents']
-        for i in range(len(currents)):
-            current = currents[i][0]
-            higher_PS_point = currents[i][1]
-            if i != len(currents)-1:
-                lower_PS_point = currents[i+1][1]
-            else:
-                lower_PS_point = ME_PS
-            vars = currents[i][2]
-            if vars.has_key('jacobian'):
-                weight /= vars['jacobian']
-            for elementary_current in current:
+        for stroll_output in hike_output['currents']:
+            stroll_currents = stroll_output['stroll_currents']
+            higher_PS_point = stroll_output['higher_PS_point']
+            lower_PS_point  = stroll_output['lower_PS_point']
+            stroll_vars     = stroll_output['stroll_vars']
+            if stroll_vars.has_key('jacobian'):
+                weight /= stroll_vars['jacobian']
+            for current in stroll_currents:
                 # WARNING The use of reduced_process here is fishy (for all but the last)
                 current_evaluation, all_current_results = self.all_MEAccessors(
-                    elementary_current,
+                    current,
                     higher_PS_point=higher_PS_point, lower_PS_point=lower_PS_point,
                     leg_numbers_map=counterterm.momenta_dict,
                     reduced_process=ME_process, hel_config=None,
-                    **vars )
+                    **stroll_vars )
                 # Now loop over all spin- and color- correlators required for this current
                 # and update the necessary calls to the ME
-                if not elementary_current['resolve_mother_spin_and_color']:
+                if not current['resolve_mother_spin_and_color']:
                     # Make sure no spin- or color-correlations were produced by the current
                     assert(current_evaluation['spin_correlations']==[None,])
                     assert(current_evaluation['color_correlations']==[None,])

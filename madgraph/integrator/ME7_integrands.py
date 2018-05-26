@@ -1689,11 +1689,12 @@ class ME7Integrand_R(ME7Integrand):
         # The above "hike" can be used to evaluate the currents first and the ME last.
         # Note that the code below can become more complicated when tracking helicities,
         # but let's forget this for now.
-        weight = 1.
         assert ((hel_config is None))
         # all_necessary_ME_calls is a list of tuples of the following form:
         # (spin_correlators_to_combine, color_correlators_to_combine, weights_to_combine)
         all_necessary_ME_calls = [ ([], [], []) ]
+        total_jacobian = 1.
+        disconnected_currents_weight = 1.
 
         for stroll_output in hike_output['currents']:
             stroll_currents = stroll_output['stroll_currents']
@@ -1701,7 +1702,7 @@ class ME7Integrand_R(ME7Integrand):
             lower_PS_point  = stroll_output['lower_PS_point']
             stroll_vars     = stroll_output['stroll_vars']
             if stroll_vars.has_key('jacobian'):
-                weight /= stroll_vars['jacobian']
+                total_jacobian *= stroll_vars['jacobian']
             for current in stroll_currents:
                 # WARNING The use of reduced_process here is fishy (for all but the last)
                 current_evaluation, all_current_results = self.all_MEAccessors(
@@ -1721,7 +1722,8 @@ class ME7Integrand_R(ME7Integrand):
                     # For the integrated ones it is very likely that we cannot use a nested structure,
                     # and there will be only one level anyway,
                     # so there is not need of fancy combination of Laurent series.
-                    weight *= current_evaluation['values'][(0,0)]['finite']
+                    disconnected_currents_weight *= \
+                        current_evaluation['values'][(0,0)]['finite']
                 else:
                     all_necessary_ME_calls = ME7Integrand_R.update_all_necessary_ME_calls(
                         all_necessary_ME_calls, current_evaluation)
@@ -1744,7 +1746,7 @@ class ME7Integrand_R(ME7Integrand):
         all_necessary_ME_calls = new_all_necessary_ME_calls
 
         # Finally treat the call to the reduced connected matrix elements
-        final_weight = 0.0
+        connected_currents_weight = 0.
 #        misc.sprint('I got for %s:'%str(counterterm.nice_string()))
         for (spin_correlators, color_correlators, current_weight) in all_necessary_ME_calls:
 #            misc.sprint(ME_PS,ME_process.nice_string())
@@ -1792,15 +1794,18 @@ The missing process is: %s"""%ME_process.nice_string())
             #     ))
             # Again, for the integrated subtraction counterterms, some care will be needed here
             # for the real-virtual, depending on how we want to combine the two Laurent series.
-            final_weight += current_weight*ME_evaluation['finite']
+            connected_currents_weight += current_weight * ME_evaluation['finite']
             
         # Now finally handle the overall prefactor of the counterterm
         # and the weight from the disconnected currents
-        final_weight *= counterterm.prefactor*weight
+        final_weight = (
+            counterterm.prefactor / total_jacobian *
+            connected_currents_weight * disconnected_currents_weight )
 
         # Returns the corresponding weight and the mapped PS_point.
-        # Also returns the mapped_process (for calling the observables), which
-        # is typically simply a reference to counterterm.current which is an instance of Process.
+        # Also returns the mapped_process (for calling the observables),
+        # which is typically simply a reference to counterterm.current
+        # which is an instance of Process.
         # Notice that the flavors in the ME_process might not be accurate for now.
         return final_weight, reduced_PS, reduced_flavors
 
@@ -2095,14 +2100,14 @@ The missing process is: %s"""%ME_process.nice_string())
             def_ct_2_ME_ratio = evaluations[x_values[0]][def_ct]
             def_ct_2_ME_ratio /= evaluations[x_values[0]]["ME"]
             foo_str = "The ratio of the defining CT to the ME at lambda = %s is: %s."
-            print foo_str % (x_values[0], def_ct_2_ME_ratio)
+            logger.critical(foo_str % (x_values[0], def_ct_2_ME_ratio))
             test_failed = abs(def_ct_2_ME_ratio+1) > acceptance_threshold
         # Check that the ratio between total and ME is close to 0
         if not test_failed:
             total_2_ME_ratio = total[0]
             total_2_ME_ratio /= evaluations[x_values[0]]["ME"]
             foo_str = "The ratio of the total to the ME at lambda = %s is: %s."
-            print foo_str % (x_values[0], total_2_ME_ratio)
+            logger.critical(foo_str % (x_values[0], total_2_ME_ratio))
             test_failed = abs(total_2_ME_ratio) > acceptance_threshold
 
         plt.figure(3)
@@ -2158,14 +2163,14 @@ The missing process is: %s"""%ME_process.nice_string())
                 if not results[process][limit]:
                     test_failed = True
         if test_failed:
-            print "analyse_IR_limits_test result:"
+            logger.critical("analyse_IR_limits_test result:")
             for process in results.keys():
-                print "    " + str(process)
+                logger.critical("    " + str(process))
                 for limit in results[process].keys():
                     if results[process][limit]:
-                        print "    " * 2 + str(limit) + ": passed"
+                        logger.critical("    " * 2 + str(limit) + ": passed")
                     else:
-                        print "    " * 2 + str(limit) + ": NOT passed"
+                        logger.critical("    " * 2 + str(limit) + ": NOT passed")
             return False
         return True
     

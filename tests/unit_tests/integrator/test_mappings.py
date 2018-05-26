@@ -18,10 +18,10 @@ import madgraph.integrator.mappings as mappings
 import madgraph.core.subtraction as subtraction
 import madgraph.core.base_objects as base_objects
 import madgraph.integrator.phase_space_generators as PS
+import madgraph.various.misc as misc
 from madgraph.integrator.vectors import Vector, LorentzVector
 from madgraph.integrator.vectors import LorentzVectorDict, LorentzVectorList
 
-import copy
 import math
 import random
 import os
@@ -467,7 +467,7 @@ class MappingsTest(unittest.TestCase):
             # Generate a random setup
             MappingsTest.randomize(pars)
             if self.verbose:
-                print "Structure:", pars['structure']
+                misc.sprint("Structure: " + str(pars['structure']))
             my_PS_point = MappingsTest.generate_PS(pars)
             squared_masses = dict()
             for parent in pars['parents']:
@@ -480,21 +480,21 @@ class MappingsTest(unittest.TestCase):
             for key in my_PS_point.keys():
                 my_PS_point[key].rotoboost(MappingsTest.v1, MappingsTest.v2)
             if self.verbose:
-                print "Starting PS point:\n", my_PS_point
+                misc.sprint("Starting PS point:\n" + str(my_PS_point))
             # Compute collinear variables
             variables = dict()
             low_PS_point, low_vars = pars['mapping'].map_to_lower_multiplicity(
                 my_PS_point, pars['structure'], pars['momenta_dict'], squared_masses,
                 variables, True )
             if self.verbose:
-                print "Mapped PS point:\n", low_PS_point
-                print "with variables:", low_vars
+                misc.sprint("Mapped PS point:\n" + str(low_PS_point))
+                misc.sprint("with variables: " + str(low_vars))
             high_PS_point, high_vars = pars['mapping'].map_to_higher_multiplicity(
                 low_PS_point, pars['structure'], pars['momenta_dict'],
                 variables, True )
             if self.verbose:
-                print "Unmapped PS point:\n", high_PS_point
-                print "with variables:", high_vars
+                misc.sprint("Unmapped PS point:\n" + str(high_PS_point))
+                misc.sprint("with variables: " + str(high_vars))
             assertDictAlmostEqual(self, my_PS_point, high_PS_point)
             assertDictAlmostEqual(self, low_vars, high_vars)
 

@@ -39,10 +39,11 @@ _pickle_path =os.path.join(_file_path, 'input_files')
 from madgraph import MG4DIR, MG5DIR, MadGraph5Error, InvalidCmd
 
 #===============================================================================
-# TestME7_IR_Limits
+# TestME7 colorful output for e+ e- > j j j @NLO
 #===============================================================================
-class TestME7(unittest.TestCase):
-    """This test validates the command 'test_IR_limits' of ME7"""
+class TestME7_NLO_colorful_epem_jjj(unittest.TestCase):
+    """This test validates the command 'test_IR_limits' of ME7 in the colorful scheme
+    as well as integrand calls for the process e+ e- > j j j --NLO=QCD"""
     
     # If the debug mode is set to True, then the process output is not refreshed
     # but reused instead
@@ -51,7 +52,7 @@ class TestME7(unittest.TestCase):
     def setUp(self):
         """ basic building of the class to test """
         
-        self.tmp_process_dir = pjoin(_file_path, 'TMP_TestME7_IR_Limits_output')
+        self.tmp_process_dir = pjoin(_file_path, 'TMP_TestME7_colorful_epem_jjj_output')
         # Generate the process output if it does not exist yet or if we
         # are not in debug mode.
         if not os.path.isdir(self.tmp_process_dir) or not self.debugging:
@@ -61,9 +62,18 @@ class TestME7(unittest.TestCase):
 
             # Now generate and output a process, so as to run ME7 commands on it
             self.do('import model loop_sm')
+            self.do('set subtraction_currents_scheme colorful')
+            self.do('set subtraction_mappings_scheme LorentzNLO')            
             self.do('generate e+ e- > j j j --NLO=QCD')
             self.do('output %s'%self.tmp_process_dir)
-
+            if self.debugging:
+                misc.sprint('/!\ USE ONLY FOR DEBUGGING /!\ Output for %s written at %s'
+                                           %(self.__class__.__name__,self.tmp_process_dir))
+        else:
+            if self.debugging:
+                misc.sprint('/!\ USE ONLY FOR DEBUGGING /!\ Reusing output for %s written at %s'%
+                                            (self.__class__.__name__,self.tmp_process_dir))
+            
         # Now initialize an ME7 interface on the above process output
         self.cmd = ME7_interface.MadEvent7Cmd(me_dir=self.tmp_process_dir)
         self.cmd.no_notification()
@@ -76,20 +86,28 @@ class TestME7(unittest.TestCase):
         """ exec a line in the cmd under test """
         self.cmd.exec_cmd(line)
         
-    def test_ME7_qqxQQx_collinear_limits(self):
+    def verify_ME7_test_results(self, results_file_path):
+        """ Parses and verify that all tests output in 'results_file_path' are passed."""
+        
+        for line in open(results_file_path,'r').read().split('\n'):
+            process, limit, outcome, ratio = line.split('|')[:4]
+            self.assertTrue(outcome.strip()=='PASSED', line)
+        
+    def test_ME7_ggqqx_collinear_limits(self):
         """Check the test of collinear limits on a particular process."""
         
         main_cmd = 'test_IR_limits'
-
         options = {'correction_order'       : 'NLO',
-#                   'limit_type'             : 'C(S(3),4)',
-                   'limit_type'             : 'S(3)',
-                   'counterterms'           : None,
+                   'limits'                 : 'purecollinear',
+                   'counterterms'           : 'all',
                    'process'                : 'e+ e- > g g d d~',
+                   'show_plots'             : False,
+                   'save_plots'             : False,
                    'seed'                   : '666',
                    'n_steps'                : 10,
-                   'min_scaling_variable'   : 1.0e-5,
-                   'acceptance_threshold'   : 1.0e-6,
+                   'min_scaling_variable'   : 1.0e-7,
+                   'acceptance_threshold'   : 5.0e-3,
+                   'save_results_to_path'   : 'test_IR_limit_output_for_acceptance_test.dat'
                    }
 
         self.do('%s %s'%(main_cmd, ' '.join(
@@ -97,6 +115,84 @@ class TestME7(unittest.TestCase):
             for key,value in options.items()
         )))
 
+        self.verify_ME7_test_results(pjoin(self.tmp_process_dir,'test_IR_limit_output_for_acceptance_test.dat'))
+
+    def test_ME7_ggqqx_soft_limits(self):
+        """Check the test of collinear limits on a particular process."""
+        
+        main_cmd = 'test_IR_limits'
+
+        options = {'correction_order'       : 'NLO',
+                   'limits'                 : 'puresoft',
+                   'counterterms'           : 'all',
+                   'process'                : 'e+ e- > g g d d~',
+                   'show_plots'             : False,
+                   'save_plots'             : False,
+                   'seed'                   : '666',
+                   'n_steps'                : 10,
+                   'min_scaling_variable'   : 1.0e-11,
+                   'acceptance_threshold'   : 1.0e-5,
+                   'save_results_to_path'   : 'test_IR_limit_output_for_acceptance_test.dat'
+                   }
+
+        self.do('%s %s'%(main_cmd, ' '.join(
+            ('--%s=%s'%(key,value) if value is not None else '--%s'%key)
+            for key,value in options.items()
+        )))
+
+        self.verify_ME7_test_results(pjoin(self.tmp_process_dir,'test_IR_limit_output_for_acceptance_test.dat'))
+
+    def test_ME7_ggqqx_softcollinear_limits(self):
+        """Check the test of collinear limits on a particular process."""
+        
+        main_cmd = 'test_IR_limits'
+
+        options = {'correction_order'       : 'NLO',
+                   'limits'                 : "r'^\(C\(S.*$'",
+                   'counterterms'           : 'all',
+                   'process'                : 'e+ e- > g g d d~',
+                   'show_plots'             : False,
+                   'save_plots'             : False,
+                   'seed'                   : '2',
+                   'n_steps'                : 10,
+                   'min_scaling_variable'   : 1.0e-7,
+                   'acceptance_threshold'   : 1.0e-2,
+                   'save_results_to_path'   : 'test_IR_limit_output_for_acceptance_test.dat'
+                   }
+
+        self.do('%s %s'%(main_cmd, ' '.join(
+            ('--%s=%s'%(key,value) if value is not None else '--%s'%key)
+            for key,value in options.items()
+        )))
+
+        self.verify_ME7_test_results(pjoin(self.tmp_process_dir,'test_IR_limit_output_for_acceptance_test.dat'))
+
+
+    def test_ME7_qqxQQx_collinear_limits(self):
+        """Check the test of collinear limits on a particular process."""
+        
+        main_cmd = 'test_IR_limits'
+
+        options = {'correction_order'       : 'NLO',
+                   'limits'                 : 'collinear',
+                   'counterterms'           : 'all',
+                   'process'                : 'e+ e- > d d~ d d~',
+                   'show_plots'             : False,
+                   'save_plots'             : False,
+                   'seed'                   : '666',
+                   'n_steps'                : 10,
+                   'min_scaling_variable'   : 1.0e-7,
+                   'acceptance_threshold'   : 5.0e-4,
+                   'save_results_to_path'   : 'test_IR_limit_output_for_acceptance_test.dat'
+                   }
+
+        self.do('%s %s'%(main_cmd, ' '.join(
+            ('--%s=%s'%(key,value) if value is not None else '--%s'%key)
+            for key,value in options.items()
+        )))
+
+        self.verify_ME7_test_results(pjoin(self.tmp_process_dir,'test_IR_limit_output_for_acceptance_test.dat'))
+
     def test_ME7_born_integrand_call(self):
         """ Check the result of a single call to the born integrand_call."""
         
@@ -112,32 +208,13 @@ class TestME7(unittest.TestCase):
                 cache_active = True
             )
 
-        n_calls = 5000
+        n_calls = 1000
         with ME7_interface.ME7RunEnvironment( silence = True, loggers = logging.CRITICAL ):
-            misc.sprint('\n'+'\n'.join('%d : %g ms'%(i+1, 1.e3*(res/float(n_calls)))
-                    for i,res in enumerate(timeit.repeat(call, number=n_calls, repeat=1))))
+            timing = [ 1.e3*(res/float(n_calls)) for i,res in 
+                                 enumerate(timeit.repeat(call, number=n_calls, repeat=2)) ]
+            res = '\n'+'\n'.join('%d : %g ms'%(i+1, res) for i,res in enumerate(timing))
+            self.assertTrue((timing[0] < 50.0), 'Born integrand call too slow: %g ms'%(timing[0]))
 
-    def test_ME7_born_integrand_call(self):
-        """ Check the result of a single call to the born integrand_call."""
-        
-        born_integrand = self.cmd.all_integrands.get_integrands_of_type(
-                                                          ME7_integrands.ME7Integrand_B)[0]
-        
-        dimensions = born_integrand.get_dimensions()
-  
-        def call():
-            born_integrand(
-                dimensions.get_continuous_dimensions().random_sample(),
-                dimensions.get_discrete_dimensions().random_sample(),
-                cache_active = True
-            )
-
-        n_calls = 5000
-        with ME7_interface.ME7RunEnvironment( silence = True, loggers = logging.CRITICAL ):
-            res = '\n'+'\n'.join('%d : %g ms'%(i+1, 1.e3*(res/float(n_calls)))
-                    for i,res in enumerate(timeit.repeat(call, number=n_calls, repeat=1)))
-        print res
-            
     def test_ME7_real_integrand_call(self):
         """ Check the result of a single call to the born integrand_call."""
         
@@ -155,9 +232,10 @@ class TestME7(unittest.TestCase):
 
         n_calls = 100
         with ME7_interface.ME7RunEnvironment( silence = True, loggers = logging.CRITICAL ):
-            res = '\n'+'\n'.join('%d : %g ms'%(i+1, 1.e3*(res/float(n_calls)))
-                    for i,res in enumerate(timeit.repeat(call, number=n_calls, repeat=1)))
-        print res
+            timing = [ 1.e3*(res/float(n_calls)) for i,res in 
+                                 enumerate(timeit.repeat(call, number=n_calls, repeat=2)) ]
+            res = '\n'+'\n'.join('%d : %g ms'%(i+1, res) for i,res in enumerate(timing))
+            self.assertTrue((timing[0] < 500.0), 'Real integrand call too slow: %g ms'%(timing[0]))
             
     def test_ME7_virtual_integrand_call(self):
         """ Check the result of a single call to the born integrand_call."""
@@ -176,6 +254,160 @@ class TestME7(unittest.TestCase):
 
         n_calls = 100
         with ME7_interface.ME7RunEnvironment( silence = True, loggers = logging.CRITICAL ):
-            res = '\n'+'\n'.join('%d : %g ms'%(i+1, 1.e3*(res/float(n_calls)))
-                    for i,res in enumerate(timeit.repeat(call, number=n_calls, repeat=1)))
-        print res
+            timing = [ 1.e3*(res/float(n_calls)) for i,res in 
+                                 enumerate(timeit.repeat(call, number=n_calls, repeat=2)) ]
+            res = '\n'+'\n'.join('%d : %g ms'%(i+1, res) for i,res in enumerate(timing))
+            self.assertTrue((timing[0] < 500.0), 'Virtual integrand call too slow: %g ms'%(timing[0]))
+
+#===============================================================================
+# TestME7 cataniseymour output for e+ e- > j j j @NLO
+#===============================================================================
+class TestME7_NLO_cataniseymour_epem_jjj(unittest.TestCase):
+    """This test validates the command 'test_IR_limits' of ME7 in the cataniseymour scheme
+    for the process e+ e- > j j j --NLO=QCD"""
+    
+    # If the debug mode is set to True, then the process output is not refreshed
+    # but reused instead
+    debugging = True 
+
+    def setUp(self):
+        """ basic building of the class to test """
+        
+        self.tmp_process_dir = pjoin(_file_path, 'TMP_TestME7_cataniseymour_epem_jjj_output')
+        # Generate the process output if it does not exist yet or if we
+        # are not in debug mode.
+        if not os.path.isdir(self.tmp_process_dir) or not self.debugging:
+            self.cmd = Cmd.MasterCmd()
+            if os.path.isdir(self.tmp_process_dir):
+                shutil.rmtree(self.tmp_process_dir)
+
+            # Now generate and output a process, so as to run ME7 commands on it
+            self.do('import model loop_sm')
+            self.do('set subtraction_currents_scheme cataniseymour')
+            self.do('set subtraction_mappings_scheme LorentzNLO')            
+            self.do('generate e+ e- > j j j --NLO=QCD')
+            self.do('output %s'%self.tmp_process_dir)
+            if self.debugging:
+                misc.sprint('USE ONLY FOR DEBUGGING: Output for %s written at %s'
+                                           %(self.__class__.__name__,self.tmp_process_dir))
+        else:
+            if self.debugging:
+                misc.sprint('USE ONLY FOR DEBUGGING: Reusing output for %s written at %s'%
+                                            (self.__class__.__name__,self.tmp_process_dir))
+            
+        # Now initialize an ME7 interface on the above process output
+        self.cmd = ME7_interface.MadEvent7Cmd(me_dir=self.tmp_process_dir)
+        self.cmd.no_notification()
+ 
+    def tearDown(self):
+        if os.path.isdir(self.tmp_process_dir) and not self.debugging:
+            shutil.rmtree(self.tmp_process_dir)
+
+    def do(self, line):
+        """ exec a line in the cmd under test """
+        self.cmd.exec_cmd(line)
+        
+    def verify_ME7_test_results(self, results_file_path):
+        """ Parses and verify that all tests output in 'results_file_path' are passed."""
+        
+        for line in open(results_file_path,'r').read().split('\n'):
+            process, limit, outcome, ratio = line.split('|')[:4]
+            self.assertTrue(outcome.strip()=='PASSED', line)
+        
+    def test_ME7_ggqqx_collinear_limits(self):
+        """Check the test of collinear limits on a particular process."""
+        
+        main_cmd = 'test_IR_limits'
+        options = {'correction_order'       : 'NLO',
+                   'limits'                 : 'purecollinear',
+                   'counterterms'           : 'all',
+                   'process'                : 'e+ e- > g g d d~',
+                   'show_plots'             : False,
+                   'save_plots'             : False,
+                   'seed'                   : '666',
+                   'n_steps'                : 10,
+                   'min_scaling_variable'   : 1.0e-7,
+                   'acceptance_threshold'   : 5.0e-4,
+                   'save_results_to_path'   : 'test_IR_limit_output_for_acceptance_test.dat'
+                   }
+
+        self.do('%s %s'%(main_cmd, ' '.join(
+            ('--%s=%s'%(key,value) if value is not None else '--%s'%key)
+            for key,value in options.items()
+        )))
+
+        self.verify_ME7_test_results(pjoin(self.tmp_process_dir,'test_IR_limit_output_for_acceptance_test.dat'))
+
+    def test_ME7_ggqqx_soft_limits(self):
+        """Check the test of collinear limits on a particular process."""
+        
+        main_cmd = 'test_IR_limits'
+        options = {'correction_order'       : 'NLO',
+                   'limits'                 : "['S(3)','S(4)']",
+                   'counterterms'           : 'all',
+                   'process'                : 'e+ e- > g g d d~',
+                   'show_plots'             : False,
+                   'save_plots'             : False,
+                   'seed'                   : '666',
+                   'n_steps'                : 10,
+                   'min_scaling_variable'   : 1.0e-7,
+                   'acceptance_threshold'   : 5.0e-4,
+                   'save_results_to_path'   : 'test_IR_limit_output_for_acceptance_test.dat'
+                   }
+
+        self.do('%s %s'%(main_cmd, ' '.join(
+            ('--%s=%s'%(key,value) if value is not None else '--%s'%key)
+            for key,value in options.items()
+        )))
+
+        self.verify_ME7_test_results(pjoin(self.tmp_process_dir,'test_IR_limit_output_for_acceptance_test.dat'))
+        
+    def test_ME7_ggqqx_softcollinear_limits(self):
+        """Check the test of collinear limits on a particular process."""
+        
+        main_cmd = 'test_IR_limits'
+        options = {'correction_order'       : 'NLO',
+                   'limits'                 : 
+        "['C(S(3),4)','C(S(3),5)','C(S(3),6)','C(S(4),3)','C(S(4),5)','C(S(4),6)']",
+                   'counterterms'           : 'all',
+                   'process'                : 'e+ e- > g g d d~',
+                   'show_plots'             : False,
+                   'save_plots'             : False,
+                   'seed'                   : '666',
+                   'n_steps'                : 10,
+                   'min_scaling_variable'   : 1.0e-7,
+                   'acceptance_threshold'   : 5.0e-4,
+                   'save_results_to_path'   : 'test_IR_limit_output_for_acceptance_test.dat'
+                   }
+
+        self.do('%s %s'%(main_cmd, ' '.join(
+            ('--%s=%s'%(key,value) if value is not None else '--%s'%key)
+            for key,value in options.items()
+        )))
+
+        self.verify_ME7_test_results(pjoin(self.tmp_process_dir,'test_IR_limit_output_for_acceptance_test.dat'))
+
+    def test_ME7_qqxQQx_collinear_limits(self):
+        """Check the test of collinear limits on a particular process."""
+        
+        main_cmd = 'test_IR_limits'
+
+        options = {'correction_order'       : 'NLO',
+                   'limits'                 : 'collinear',
+                   'counterterms'           : 'all',
+                   'process'                : 'e+ e- > d d~ d d~',
+                   'show_plots'             : False,
+                   'save_plots'             : False,
+                   'seed'                   : '666',
+                   'n_steps'                : 10,
+                   'min_scaling_variable'   : 1.0e-7,
+                   'acceptance_threshold'   : 5.0e-4,
+                   'save_results_to_path'   : 'test_IR_limit_output_for_acceptance_test.dat'
+                   }
+
+        self.do('%s %s'%(main_cmd, ' '.join(
+            ('--%s=%s'%(key,value) if value is not None else '--%s'%key)
+            for key,value in options.items()
+        )))
+
+        self.verify_ME7_test_results(pjoin(self.tmp_process_dir,'test_IR_limit_output_for_acceptance_test.dat'))

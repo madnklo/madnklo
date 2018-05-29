@@ -302,28 +302,27 @@ class ParseCmdArguments(object):
         # None means unspecified, therefore considering all types.
         testlimits_options = {
             'correction_order'        : None,
-            'limit_type'              : None,
-            'limit_pattern'           : None,
+            'limits'                  : None,
             'counterterms'            : None,
             'walker'                  : None,
             'process'                 : {'in_pdgs'  : None,
-                                       'out_pdgs' : None,
-                                       'n_loops'  : None},
+                                         'out_pdgs' : None,
+                                         'n_loops'  : None},
             'seed'                    : None,
             'n_steps'                 : 30,
             'min_scaling_variable'    : 1.0e-6,
-            'acceptance_threshold'    : 1.0e-6,
+            'acceptance_threshold'    : 1.0e-4,
             'include_all_flavors'     : False,
             'apply_higher_multiplicity_cuts' : True,
             'apply_lower_multiplicity_cuts'  : True,
             'show_plots'              : True,
             'save_plots'              : False,
+            'save_results_to_path'    : None
         }
 
         if mode=='poles':
             # Remove some options for the pole
-            del testlimits_options['limit_type']
-            del testlimits_options['limit_pattern']
+            del testlimits_options['limits']
             del testlimits_options['counterterms']
             del testlimits_options['walker']
             del testlimits_options['n_steps']
@@ -393,6 +392,19 @@ class ParseCmdArguments(object):
                             raise ValueError
                     except ValueError:
                         raise InvalidCmd("'%s' is not a valid integer for option '%s'"%(value, key))
+            elif key == '--save_results_to_path':
+                if value == 'None':
+                    testlimits_options['save_results_to_path'] = None
+                else:
+                    if os.path.isabs(value):
+                        path = value
+                    else:
+                        path = pjoin(self.me_dir, value)
+                    if os.path.isfile(path):
+                        logger.warning("File path '%s' for "%path+
+                             "saving test results already exists and will be overwritten.")
+                        os.remove(path)
+                    testlimits_options['save_results_to_path'] = path
             elif key in ['--counterterms']:
                 if not isinstance(value, str):
                     raise InvalidCmd("'%s' is not a valid option for '%s'"%(value, key))
@@ -424,29 +436,18 @@ class ParseCmdArguments(object):
                                                  {'true':True,'false':False}[value.lower()]
                     except:
                         raise InvalidCmd("'%s' is not a valid float for option '%s'"%(value, key))
-            elif key in ['--limit_type','--limit','--lt'] and mode=='limits':
+            elif key in ['--limits','--l'] and mode=='limits':
                 if not isinstance(value, str):
                     raise InvalidCmd("'%s' is not a valid option for '%s'"%(value, key))
-                testlimits_options['limit_type'] = value
-                if value.lower() == 'soft':
-                    testlimits_options['limit_pattern'] = re.compile(r'.*S.*')
-                elif value.lower() == 'collinear':
-                    testlimits_options['limit_pattern'] = re.compile(r'.*C.*')
-                elif value.lower() == 'all':
-                    testlimits_options['limit_pattern'] = re.compile(r'.*')
-                else:
-                    if any(value.startswith(start) for start in ['r"',"r'"]):
-                        testlimits_options['limit_pattern'] = re.compile(value)
-                    else:
-                        # If not specified as a raw string,
-                        # we take the liberty of adding the enclosing parenthesis.
-                        if not value.startswith('('):
-                            value = '(%s,)'%value
-                        # If the specified re was not explicitly made a raw string,
-                        # we take the liberty of escaping the parenthesis
-                        # since this is presumably what the user expects.
-                        testlimits_options['limit_pattern'] = re.compile(
-                            value.replace('(','\(').replace(')','\)'))
+                # Check if a list of defining limits is specified
+                try:
+                    evaluated_list = eval(value)
+                    if not isinstance(evaluated_list, list):
+                        raise BaseException
+                    testlimits_options['limits'] = evaluated_list
+                except:
+                    testlimits_options['limits'] = [value,]
+
             elif key == '--show_plots':
                 try:
                     testlimits_options['show_plots'] = strtobool(value)

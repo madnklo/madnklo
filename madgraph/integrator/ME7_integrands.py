@@ -433,7 +433,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
     def find_counterterms_matching_regexp(
         self, counterterms, limit_pattern=None):
-        """ Find all mappings that match a particular limit_type given in argument
+        """ Find all mappings that match a particular limits given in argument
         (takes a random one if left to None). This function is placed here given that
         it can be useful for both the ME7Integrnd_V and ME7_integrand_R."""
 
@@ -443,13 +443,48 @@ class ME7Integrand(integrands.VirtualIntegrand):
         selected_counterterms = [ ct for ct in counterterms if ct.is_singular() ]
         if len(selected_counterterms)==0:
             return []
+        
+        limit_pattern_re = None
+        if limit_pattern:
+            if limit_pattern.lower() == 'soft':
+                limit_pattern_re = re.compile(r'.*S.*')
+            elif limit_pattern.lower() == 'collinear':
+                limit_pattern_re = re.compile(r'.*C.*')
+            elif limit_pattern.lower() == 'puresoft':
+                limit_pattern_re = re.compile(r'^[S\d,\(\)]*$')
+            elif limit_pattern.lower() == 'purecollinear':
+                limit_pattern_re = re.compile(r'^[C\d,\(\)]*$')
+            elif limit_pattern.lower() == 'all':
+                limit_pattern_re = re.compile(r'.*')
+            elif any(limit_pattern.startswith(start) for start in ['r"', "r'"]):
+                limit_pattern_re = re.compile(eval(limit_pattern))
+            else:
+                # Check if a list of counterterms is specified
+                try:
+                    list_limit_pattern = eval(limit_pattern)
+                    if not isinstance(list_limit_pattern, list):
+                        raise BaseException
+                except:
+                    list_limit_pattern = [limit_pattern]
+                new_list_limit_pattern = []
+                for limit_pattern in list_limit_pattern:
+                    if not limit_pattern.startswith('('):
+                        # If not specified as a raw string, we take the liberty of adding 
+                        # the enclosing parenthesis.
+                        limit_pattern = '(%s,)' % limit_pattern
+                    # We also take the liberty of escaping the parenthesis
+                    # since this is presumably what the user expects.
+                    limit_pattern = limit_pattern.replace('(', '\(').replace(')', '\)')
+                    new_list_limit_pattern.append(limit_pattern)
+                limit_pattern_re = re.compile(r'^(%s)$'%(
+                    '|'.join(limit_pattern for limit_pattern in new_list_limit_pattern) ))    
 
         returned_counterterms = []
         if not limit_pattern:
             returned_counterterms.append(random.choice(selected_counterterms))
         else:
             for counterterm in selected_counterterms:
-                if re.match(limit_pattern, str(counterterm)):
+                if re.match(limit_pattern_re, str(counterterm)):
                     returned_counterterms.append(counterterm)
 
         return returned_counterterms
@@ -1072,7 +1107,9 @@ class ME7Integrand_V(ME7Integrand):
         # do not match the particular selection. This should however be irrelevant for the
         # evaluation of the counterterm.
         CT_evaluation, all_results = self.all_MEAccessors(
-            integrated_current, reduced_PS, reduced_process = reduced_process,
+            integrated_current, lower_PS_point=reduced_PS,
+            higher_PS_point=None,
+            reduced_process = reduced_process,
             leg_numbers_map = momenta_map,
             hel_config = hel_config,
             compute_poles = compute_poles )
@@ -1308,7 +1345,9 @@ The missing process is: %s"""%reduced_process.nice_string())
         return sigma_wgt
 
 class ME7Integrand_R(ME7Integrand):
-    """ ME7Integrand for the computation of a single real-emission type of contribution."""
+    """ME7Integrand for the computation of a single real-emission type of contribution."""
+
+    divide_by_jacobian = True
     
     def __init__(self, *args, **opts):
         """Initialize a real-emission type of integrand,
@@ -1383,35 +1422,254 @@ class ME7Integrand_R(ME7Integrand):
 
         return res
 
-    def evaluate_counterterm(self, counterterm, PS_point,
-                             hel_config=None, defining_flavors=None,
-                             apply_flavour_blind_cuts=True, apply_flavour_cuts=True  ):
-        """ Evaluates the specified counterterm for the specified PS point."""
+    def combine_color_correlators(self, color_correlators):
+        """ This function takes a list of color_correlators in argument, each specified as:
+               color_correlator = ( connection_left, connection_right )
+            where connection_<x> is given as:
+               connection = ( (motherA, emittedA, daughterA), (motherB, emittedB, daughterB), etc...)
+            and returns two lists: 
+                combined_color_correlators: the list of of new color correlator specifiers 
+                                            that arose from the combination of all of them
+                multiplier_factors: a list of float factors to multiply the contribution
+                                    of each of the combined color correlator returned above.
+        """
 
-        #misc.sprint("HELLO from evaluate_counterterm")
+        # Trivial combination if there is a single one:
+        if len(color_correlators)==1:
+            return [color_correlators[0],], [1.0,]
+
+        # First weed out the trivial color correlators set to None.
+        non_trivial_color_correlators = [ccs for ccs in color_correlators if ccs is not None]
+        
+        # We don't support terms that factorize a *sum* of color correlator
+        if any(len(ccs)!=1 for ccs in non_trivial_color_correlators):
+            raise NotImplementedError(
+""" The combination of color correlators only the supports the case where each term returned by
+    the current factorizes a *single* correlator not a sum of several ones. So re-implement as follows:
+    from:
+        evaluation = {
+              'spin_correlations'  = [ None, ]
+              'color_correlations' = [ (correlatorA, correlatorB) ]
+              'values'             = [ (0,0) : my_weight ]
+        }
+    into:
+        evaluation = {
+              'spin_correlations'  = [ None, ]
+              'color_correlations' = [ (correlatorA,), (correlatorB,) ]
+              'values'             = [ (0,0) : my_weight,
+                                       (0,1) : my_weight ]
+        }
+""")
+        non_trivial_color_correlators = [ccs[0] for ccs in non_trivial_color_correlators]
+
+        # Convert the NLO short-hand convention if present to the general one
+        normalized_non_trivial_color_correlators = []
+        for cc in non_trivial_color_correlators:
+            normalized_non_trivial_color_correlators.append(
+                ( cc[0] if not isinstance(cc[0],int) else ((cc[0],-1,cc[0]),),
+                  cc[1] if not isinstance(cc[1],int) else ((cc[1],-1,cc[1]),)  )
+            )
+        non_trivial_color_correlators = normalized_non_trivial_color_correlators
+        
+        # Place some limitation of the combinations we understand and can support now
+        # Only combinations of two color correlators for now
+        if len(non_trivial_color_correlators)>2:
+            raise NotImplementedError("Only combinations of at most TWO color correlators are supported for now.")
+        # Only NLO-type of correlators for now
+        if any( len(cc[0])>1 for cc in non_trivial_color_correlators):
+            raise NotImplementedError("Only combinations of at most NLO-type of color correlators are supported for now.")
+        
+        # Treat the easy case first where there is only one or zero color correlator
+        if len(non_trivial_color_correlators)==0:
+            return [ None,], [1.0,]
+        elif len(non_trivial_color_correlators)==1:
+            return [ (non_trivial_color_correlators[0],) ], [1.0,]
+        
+        # Now treat the non-trivial case of the combination of two NLO-type of color correlators
+        # For details of this implementation, I refer the reader to the corresponding documentation
+        # produced on this topic
+        assert(len(non_trivial_color_correlators)==2)
+        ccA = non_trivial_color_correlators[0]
+        ccB = non_trivial_color_correlators[1]
+        # Identify the terms of the compound soft operator S^{i1,j1} \otimes S^{i2,j2} 
+        # Each correlator ccA/B will be given in the form of:
+        #    (((i, -1, i),), ((j, -1, j),))
+        i1_, j1_ = ccA[0][0][0], ccA[1][0][0]
+        i2_, j2_ = ccB[0][0][0], ccB[1][0][0]
+        
+        # Below is my original way of combining the color structure of the two single soft
+        def VH_two_iterated_soft_combination((i1,j1),(i2,j2)):
+            # now construct all four ways in which the two gluons could have been connected
+            # between these four lines.
+            if i1==i2:
+                connections_A = [
+                    ( (i1,-1,i1),(i2,-2,i2) ),
+                    ( (i2,-2,i2),(i1,-1,i1) )
+                ]
+            else:
+                connections_A = [
+                    ( (i1,-1,i1),(i2,-2,i2) ) if i1>i2 else
+                    ( (i2,-2,i2),(i1,-1,i1) )
+                ]
+            if j1==j2:
+                connections_B = [
+                    ( (j1,-1,j1),(j2,-2,j2) ),
+                    ( (j2,-2,j2),(j1,-1,j1) )
+                ]
+            else:
+                connections_B = [
+                    ( (j1,-1,j1),(j2,-2,j2) ) if j1>j2 else
+                    ( (j2,-2,j2),(j1,-1,j1) )
+                ]
+            combined_color_correlators = []
+            for connection_A in connections_A:
+                for connection_B in connections_B:
+                    combined_color_correlators.append(
+                        ( connection_A, connection_B )
+                    )
+            
+            multiplier = 1.0/float(len(combined_color_correlators))
+            
+             # Implementing them as separate calls to the ME, as done in the commented line below,
+            # return [ tuple(combined_color_correlators), ], [ multiplier, ]
+            # would only yield the same result once the accessor correctly sums over the
+            # different color-correlated MEs, so avoid for now.
+            
+            # Now return the combined color correlators identified
+            return [ (ccc,) for ccc in combined_color_correlators ],\
+                   [ multiplier, ]*len(combined_color_correlators)
+       
+        def double_correlator((i,j),(k,l)):
+            """ Returns the double correlator of Catani-Grazzini (Eq.113 of hep-ph/9908523v1)
+                <M| ( T^-1_i \dot T^-1_j ) * ( T^-1_k \dot T^-1_l ) | M > 
+                
+            converted into MadGraph's conventions:
+            
+              ( (a,-1,a),(b,-2,b) ) , ( (c,-1,c),(d,-2,d) ) --> T^-1_a T^-2_b T^-1_c T^-2_d
+            """
+
+            # It is important to never commute two color operators acting on the same index, so we must chose carefully which
+            # index to pick to carry the gluon index '-2' of the first connection. This can be either 'k' or 'l'.
+            if j!=k and j!=l:
+                # If all indices are different, we can pick either k or l, it is irrelevant
+                index1, index2, index3, index4 = i, k, j, l
+            elif j==k and j!=l:
+                # If j is equal to k, we must pick l
+                index1, index2, index3, index4 = i, l, j, k
+            elif j==l and j!=k:
+                # If j is equal to l, we must pick k
+                index1, index2, index3, index4 = i, k, j, l
+            elif j==l and j==k:
+                # If j is equal to both l and k, then agin it doesn't matter and we can pick k
+                index1, index2, index3, index4 = i, k, j, l
+    
+            # The sorting according to the first index of each tuple of each of the two convention is to match
+            # Madgraph's convention for sorting color connection in the color correlators definition
+            return (
+                tuple(sorted([ (index1,-1,index1), (index2,-2,index2) ], key = lambda el: el[0], reverse=True)),
+                tuple(sorted([ (index3,-1,index3), (index4,-2,index4) ], key = lambda el: el[0], reverse=True))
+            )
+       
+        # Below is a purely abelian combination of the two single softs:
+        #  -> second line of Eq. (6.13) of Gabor's hep-ph/0502226v2
+        
+        def abelian_combination((i1,j1),(i2,j2)):
+            # The two terms of the symmetrised sum
+            correlator_A   = double_correlator((i1,j1),(i2,j2))
+            correlator_B   = double_correlator((i2,j2),(i1,j1))
+            # There is an extra factor 2 because in the IR subtraction module, only one combination
+            # S(r) S(s) is considered and not the symmetric version S(s) S(r)
+            overall_factor = (1.0/4.0)*2.0
+
+            # Group them if equal:
+            if correlator_A==correlator_B:
+                return [ (correlator_A,), ], [ 2.0*overall_factor ]
+            else:
+                # Implementing them as separate calls to the ME, as done in the commented line below,
+                # return [ (correlator_A,),  (correlator_B,) ], [ overall_factor, overall_factor ]
+                # would only yield the same result once the accessor correctly sums over the
+                # different color-correlated MEs, so avoid for now.
+                return [ (correlator_A,), (correlator_B,) ], [ overall_factor, overall_factor ]
+
+        #return VH_two_iterated_soft_combination((i1_,j1_),(i2_,j2_))
+        return abelian_combination((i1_,j1_),(i2_,j2_))
+
+    def combine_spin_correlators(self, spin_correlators):
+        """ This function takes several spin-correlators specified int the form
+              spin_correlator = ( (legIndex, ( vector_A, vector_B, ...) ),
+                                 (anotherLegIndex, ( vector_C, vector_D, ...) ),
+                                 etc... ) 
+            and returns the list of new correlator specifiers that arises from the
+            combination of all of them.
+        """
+        
+        # Trivial combination if there is a single one:
+        if len(spin_correlators):
+            return spin_correlators[0]
+
+        # This combination is done with a simple concatenation of the lists. Example:
+        # Let's say correlator A only correlates to leg #1 with two four-vectors v_A and v_B
+        # (these can be seen as a replacement of polarization vectors to consider and summed over)
+        #     correlators_A[0]  = ( (1, (v_A, v_B)), )
+        # Now correlator B correlates with the two legs #4 and #7 (they must be different 
+        #  by construction!), each defined with a single vector v_C and v_B
+        #     correlators_B[0]  = ( (4, (v_C,)), (7, (v_D,)) )
+        # Then it is clear tha the combined spin correlation should be:
+        #     combined_spin_correlator = ( (1, (v_A, v_B)), (4, (v_C,)), (7, (v_D,)) )
+        # Notice that this implies that both combinations :
+        #    pol_vec_1 = v_A, pol_vec_4 = v_C,  pol_vec_7 = v_D
+        # as well as:
+        #    pol_vec_1 = v_B, pol_vec_4 = v_C,  pol_vec_7 = v_D
+        # will be computed and summed in the resulting spin-correlated matrix element call.
+        
+        # Make sure the spin correlators don't share common legs
+        for i, sc_a in enumerate(spin_correlators):
+            for sc_b in spin_correlators[i+1:]:
+                assert (len( set(c[0] for c in sc_a)&set(c[0] for c in sc_b))==0 )
+        
+        return tuple(sum([ (list(sc) if not sc is None else []) for sc in spin_correlators],[]))
+
+    @staticmethod
+    def update_all_necessary_ME_calls(all_necessary_ME_calls, new_evaluation):
+
+        new_all_necessary_ME_calls = []
+        for ((spin_index, color_index), current_wgt) in new_evaluation['values'].items():
+            # Now combine the correlators necessary for this current
+            # with those already specified in 'all_necessary_ME_calls'
+            for ME_call in all_necessary_ME_calls:
+                new_all_necessary_ME_calls.append((
+                    # Append this spin correlation to those already present for that call
+                    ME_call[0] + [new_evaluation['spin_correlations'][spin_index], ],
+                    # Append this color correlation to those already present for that call
+                    ME_call[1] + [new_evaluation['color_correlations'][color_index], ],
+                    # Append this weight to those already present for that call
+                    ME_call[2] + [current_wgt['finite'], ],
+                ))
+        # Return the new list of necessary ME calls
+        return new_all_necessary_ME_calls
+
+    def evaluate_counterterm(
+        self, counterterm, PS_point,
+        hel_config=None, defining_flavors=None,
+        apply_flavour_blind_cuts=True, apply_flavour_cuts=True ):
+        """Evaluate a counterterm for a given PS point."""
 
         # Retrieve some possibly relevant model parameters
         alpha_s = self.model.get('parameter_dict')['aS']
         mu_r = self.model.get('parameter_dict')['MU_R']
 
-        # Now call the walker to hike through the counterterm structure
-        # and return the list of currents
-        # and PS points to use to evaluate them.
+        # Now call the walker which hikes through the counterterm structure
+        # to return the list of currents and PS points for their evaluation
         # hike_output = {
-        #         'currents' : [(current1, PS1), (current2, PS2), etc...],
-        #         'matrix_element': (ME, PSME),
-        #         'mapping_variables' : mapping_variables (a dictionary)
-        #         'kinematic_variables' : kinematic_variables  (a dictionary)
-        #        }
-
-
-        hike_output = self.walker.walk_to_lower_multiplicity(PS_point, counterterm, compute_jacobian=True)
-
-
+        #         'currents' : [stroll_output1, stroll_output2, ...],
+        #         'matrix_element': (ME_process, ME_PS),
+        #         'kinematic_variables' : kinematic_variables (a dictionary) }
+        hike_output = self.walker.walk_to_lower_multiplicity(
+            PS_point, counterterm, compute_jacobian=self.divide_by_jacobian )
+       
         # Access the matrix element characteristics
         ME_process, ME_PS = hike_output['matrix_element']
-
-
+        
         # Generate what is the kinematics (reduced_PS) returned as a list
         # and the reduced_flavors for this counterterm,
         # by using the defining selected flavors of the real-emission
@@ -1421,9 +1679,6 @@ class ME7Integrand_R(ME7Integrand):
 
         n_unresolved_left = self.contribution_definition.n_unresolved_particles
         n_unresolved_left -= counterterm.count_unresolved()
-
-
-
         # Apply cuts if requested and return immediately if they do not pass
         if apply_flavour_blind_cuts and not self.pass_flavor_blind_cuts(
             reduced_PS, reduced_flavors,
@@ -1433,96 +1688,72 @@ class ME7Integrand_R(ME7Integrand):
             reduced_PS, reduced_flavors):
             return 0.0, reduced_PS, reduced_flavors
 
-        # Separate the current in those directly connected to the matrix element
-        # and those that are not
-        disconnected_currents = []
-        connected_currents = []
-        for (currents, PS) in hike_output['currents']:
-            for current in currents:
-                if current['resolve_mother_spin_and_color']:
-                    connected_currents.append((current, PS))
-                else:
-                    disconnected_currents.append((current, PS))
-
-
-
-
         # The above "hike" can be used to evaluate the currents first and the ME last.
         # Note that the code below can become more complicated when tracking helicities,
         # but let's forget this for now.
-        weight = 1.
-        assert((hel_config is None))
-    
-        for (current, PS_point_for_current) in disconnected_currents:
-            current_evaluation, all_current_results = self.all_MEAccessors(
-                current, PS_point_for_current, hel_config=None, 
-                reduced_process = ME_process,
-                leg_numbers_map = counterterm.momenta_dict,
-                mapping_variables=hike_output['mapping_variables'])
-            # Make sure no spin- or color-correlations are demanded by the current for this kind of currents
-            assert(current_evaluation['spin_correlations']==[None,])
-            assert(current_evaluation['color_correlations']==[None,])
-            assert(current_evaluation['values'].keys()==[(0,0),])
-            # WARNING:: this can only work for local 4D subtraction counterterms! 
-            # For the integrated ones it is very likely that we cannot use a nested structure, and
-            # there will be only one level anyway so that there is not need of fancy combination
-            # of Laurent series.
-            weight *= current_evaluation['values'][(0,0)]['finite']
-             
-        # Specify here how to combine one set of correlators with another.
-        def combine_correlators(correlators_A, correlators_B):
-            combined_correlator = [None, None, correlators_A[2]*correlators_B[2]]
-            # Trivial combination of correlators first
-            for i in range(2):
-                if (correlators_A[i] is None) and (correlators_B[i] is None):
-                    combined_correlator[i] = None
-                elif (correlators_A[i] is None):
-                    combined_correlator[i] = correlators_B[i]
-                elif (correlators_B[i] is None):
-                    combined_correlator[i] = correlators_A[i]
-            # Non-trivial combinations now
-            # Spin-correlators
-            if (not correlators_A[0] is None) and (not correlators_B[0] is None):
-                combined_correlator[0] = tuple(list(correlators_A[0])+list(correlators_B[0]))
-            # Color-correlators
-            if (not correlators_A[1] is None) and (not correlators_B[1] is None):
-                # It is not clear how to combine two currents each possessing color correlation.
-                # Whenever this will be explicitly needed, then it will be clear how this
-                # should be done and it can be implemented here.
-                raise NotImplementedError
-            return combined_correlator
-        
+        assert ((hel_config is None))
         # all_necessary_ME_calls is a list of tuples of the following form:
-        #  (spin_correlator, color_correlator, weight)
-        all_necessary_ME_calls = [(None, None, weight)]
+        # (spin_correlators_to_combine, color_correlators_to_combine, weights_to_combine)
+        all_necessary_ME_calls = [ ([], [], []) ]
+        total_jacobian = 1.
+        disconnected_currents_weight = 1.
 
+        for stroll_output in hike_output['currents']:
+            stroll_currents = stroll_output['stroll_currents']
+            higher_PS_point = stroll_output['higher_PS_point']
+            lower_PS_point  = stroll_output['lower_PS_point']
+            stroll_vars     = stroll_output['stroll_vars']
+            if stroll_vars.has_key('jacobian'):
+                total_jacobian *= stroll_vars['jacobian']
+            for current in stroll_currents:
+                # WARNING The use of reduced_process here is fishy (for all but the last)
+                current_evaluation, all_current_results = self.all_MEAccessors(
+                    current,
+                    higher_PS_point=higher_PS_point, lower_PS_point=lower_PS_point,
+                    leg_numbers_map=counterterm.momenta_dict,
+                    reduced_process=ME_process, hel_config=None,
+                    **stroll_vars )
+                # Now loop over all spin- and color- correlators required for this current
+                # and update the necessary calls to the ME
+                if not current['resolve_mother_spin_and_color']:
+                    # Make sure no spin- or color-correlations were produced by the current
+                    assert(current_evaluation['spin_correlations']==[None,])
+                    assert(current_evaluation['color_correlations']==[None,])
+                    assert(current_evaluation['values'].keys()==[(0,0),])
+                    # WARNING:: this can only work for local 4D subtraction counterterms!
+                    # For the integrated ones it is very likely that we cannot use a nested structure,
+                    # and there will be only one level anyway,
+                    # so there is not need of fancy combination of Laurent series.
+                    disconnected_currents_weight *= \
+                        current_evaluation['values'][(0,0)]['finite']
+                else:
+                    all_necessary_ME_calls = ME7Integrand_R.update_all_necessary_ME_calls(
+                        all_necessary_ME_calls, current_evaluation)
 
-        # Now iterate over currents that may require color- and spin-correlations        
-        for (current, PS_point_for_current) in connected_currents:
-            current_evaluation, all_current_results = self.all_MEAccessors(
-                current, PS_point_for_current, hel_config=None, 
-                reduced_process = ME_process,
-                leg_numbers_map = counterterm.momenta_dict,
-                mapping_variables=hike_output['mapping_variables'])
-            new_all_necessary_ME_calls = []
-            # Now loop over all spin- and color- correlators required for this current
-            # and update the necessary calls to the ME
-            new_all_necessary_ME_calls = []
-            for ((spin_index, color_index), current_wgt) in current_evaluation['values'].items():
-                # Now combine the correlators necessary for this current, with those already
-                # specified in 'all_necessary_ME_calls'
-                current_correlator = ( current_evaluation['spin_correlations'][spin_index],
-                                       current_evaluation['color_correlations'][color_index],
-                                       current_wgt['finite'] )
-                for ME_call in all_necessary_ME_calls:
-                    new_all_necessary_ME_calls.append( combine_correlators(ME_call,current_correlator) )
-            # Update the list of necessary ME calls
-            all_necessary_ME_calls = new_all_necessary_ME_calls
+        # Now perform the combination of the list of spin and color correlators to be merged
+        # for each necessary ME call identified
+        new_all_necessary_ME_calls = []
+        for spin_correlators_to_combine, color_correlators_to_combine, weights_to_combine in all_necessary_ME_calls:
+            combined_spin_correlator  = self.combine_spin_correlators(spin_correlators_to_combine)
+            # The combination of color correlators can give rise to several ones, each with its multiplier
+            combined_color_correlators, multipliers = self.combine_color_correlators(color_correlators_to_combine)
+            combined_weight = reduce(lambda x,y: x*y, weights_to_combine)
+            for combined_color_correlator, multiplier in zip(combined_color_correlators,multipliers):
+                # Finally add the processed combination as a new ME call
+                new_all_necessary_ME_calls.append( (
+                    combined_spin_correlator,
+                    combined_color_correlator,
+                    combined_weight*multiplier
+                ) )
+        all_necessary_ME_calls = new_all_necessary_ME_calls
 
-        # Finally the treat the call to the matrix element
-        final_weight = 0.0
+        # Finally treat the call to the reduced connected matrix elements
+        connected_currents_weight = 0.
+#        misc.sprint('I got for %s:'%str(counterterm.nice_string()))
         for (spin_correlators, color_correlators, current_weight) in all_necessary_ME_calls:
 #            misc.sprint(ME_PS,ME_process.nice_string())
+#            misc.sprint(spin_correlators)
+#            misc.sprint(color_correlators, current_weight)
             try:
                 ME_evaluation, all_ME_results = self.all_MEAccessors(
                    ME_process, ME_PS, alpha_s, mu_r,
@@ -1554,8 +1785,9 @@ The missing process is: %s"""%ME_process.nice_string())
             #     ' '.join('%d(%d)' % (l.get('number'), l.get('id')) for l in
             #              counterterm.process.get_final_legs())
             # ))
+            # misc.sprint(counterterm.prefactor)
             # misc.sprint(
-            #     'color corr. = %-20s | current = %-20.16f | ME = %-20.16f | Prefactor = %-3d  |  Final = %-20.16f ' % (
+            #     'color corr. = %-20s | current = %-20.16f | ME = %-20.16f | Prefactor = %-3f  |  Final = %-20.16f ' % (
             #         str(color_correlators),
             #         current_weight,
             #         ME_evaluation['finite'],
@@ -1564,14 +1796,18 @@ The missing process is: %s"""%ME_process.nice_string())
             #     ))
             # Again, for the integrated subtraction counterterms, some care will be needed here
             # for the real-virtual, depending on how we want to combine the two Laurent series.
-            final_weight += current_weight*ME_evaluation['finite']
+            connected_currents_weight += current_weight * ME_evaluation['finite']
             
         # Now finally handle the overall prefactor of the counterterm
-        final_weight *= counterterm.prefactor
+        # and the weight from the disconnected currents
+        final_weight = (
+            counterterm.prefactor / total_jacobian *
+            connected_currents_weight * disconnected_currents_weight )
 
         # Returns the corresponding weight and the mapped PS_point.
-        # Also returns the mapped_process (for calling the observables), which
-        # is typically simply a reference to counterterm.current which is an instance of Process.
+        # Also returns the mapped_process (for calling the observables),
+        # which is typically simply a reference to counterterm.current
+        # which is an instance of Process.
         # Notice that the flavors in the ME_process might not be accurate for now.
         return final_weight, reduced_PS, reduced_flavors
 
@@ -1677,7 +1913,7 @@ The missing process is: %s"""%ME_process.nice_string())
         # Loop over processes
         all_evaluations = {}
         for process_key, (defining_process, mapped_processes) in self.processes_map.items():
-            misc.sprint("Considering %s"%defining_process.nice_string())
+            logger.debug("Considering %s"%defining_process.nice_string())
             # Make sure that the selected process satisfies the selection requirements
             if not self.is_part_of_process_selection(
                 [defining_process, ]+mapped_processes,
@@ -1707,58 +1943,42 @@ The missing process is: %s"""%ME_process.nice_string())
             counterterms_to_consider = [
                 ct for ct in self.counterterms[process_key]
                 if ct.count_unresolved() <= test_options['correction_order'].count('N') ]
-            # Select the limits to be probed using limit_pattern
-            # or, if this fails, limit_type
-            selected_counterterms = self.find_counterterms_matching_regexp(
-                counterterms_to_consider, test_options['limit_pattern'] )
-            if selected_counterterms:
-                selected_singular_structures = [
-                    ct.reconstruct_complete_singular_structure()
-                    for ct in selected_counterterms]
-            else:
-                limit_str = test_options['limit_type']
-                ss = mappings.sub.SingularStructure.from_string(
-                    limit_str, defining_process)
-                if ss is None:
-                    logger.critical(
-                        "%s is not a valid limit_type specification" % limit_str)
-                    return
-                selected_singular_structures = [ss, ]
+            
+            selected_singular_structures = []
 
-            misc.sprint('Reconstructed complete singular structure: \n'+'\n'.join(
+            for limit_specifier in test_options['limits']:
+                # Select the limits to be probed interpreting limits as a regex pattern.
+                # If no match is found, then reconstruct the singular structure from the limits
+                # provided
+                selected_counterterms = self.find_counterterms_matching_regexp(
+                                                counterterms_to_consider, limit_specifier )
+                if selected_counterterms:
+                    selected_singular_structures.extend([
+                        ct.reconstruct_complete_singular_structure()
+                        for ct in selected_counterterms])
+                else:
+                    ss = mappings.sub.SingularStructure.from_string(limit_specifier, defining_process)
+                    if ss is None:
+                        logger.critical(
+                            "%s is not a valid limits specification" % limit_str)
+                        continue
+                    selected_singular_structures.append(ss)
+
+            logger.debug('Reconstructed complete singular structure: \n'+'\n'.join(
                 str(ss) for ss in selected_singular_structures ))
 
             # Loop over approached limits
             process_evaluations = {}
             for limit in selected_singular_structures:
-                misc.sprint("Approaching limit %s" % str(limit) )
+                logger.debug("Approaching limit %s" % str(limit) )
                 # Select counterterms to evaluate
                 counterterms_to_evaluate = [ct for ct in counterterms_to_consider]
                 if test_options['counterterms']:
                     counterterm_pattern = test_options['counterterms']
                     if counterterm_pattern.startswith('def'):
                         counterterm_pattern = str(limit)
-                    if counterterm_pattern.lower() == 'soft':
-                        counterterm_re = re.compile(r'.*S.*')
-                    elif counterterm_pattern.lower() == 'collinear':
-                        counterterm_re = re.compile(r'.*C.*')
-                    elif counterterm_pattern.lower() == 'all':
-                        counterterm_re = re.compile(r'.*')
-                    else:
-                        if any(counterterm_pattern.startswith(start) for start in ['r"', "r'"]):
-                            counterterm_re = re.compile(counterterm_pattern)
-                        else:
-                            # If not specified as a raw string,
-                            # we take the liberty of adding the enclosing parenthesis.
-                            if not counterterm_pattern.startswith('('):
-                                counterterm_pattern = '(%s,)' % counterterm_pattern
-                            # If the specified re was not explicitly made a raw string,
-                            # we take the liberty of escaping the parenthesis
-                            # since this is presumably what the user expects.
-                            counterterm_re = re.compile(
-                                counterterm_pattern.replace('(', '\(').replace(')', '\)'))
                     counterterms_to_evaluate = self.find_counterterms_matching_regexp(
-                        counterterms_to_evaluate, counterterm_re )
+                                                  counterterms_to_evaluate, counterterm_pattern )
                 # Progressively approach the limit, using a log scale
                 limit_evaluations = {}
                 n_steps = test_options['n_steps']
@@ -1766,10 +1986,10 @@ The missing process is: %s"""%ME_process.nice_string())
                 base = min_value ** (1./n_steps)
                 for step in range(n_steps+1):
                     # Determine the new phase-space point
-                    scaled_real_PS_point = a_real_emission_PS_point.get_copy()
                     scaling_parameter = base ** step
-                    walker.approach_limit(
-                        scaled_real_PS_point, limit, scaling_parameter, defining_process )
+                    scaled_real_PS_point = walker.approach_limit(
+                        a_real_emission_PS_point,
+                        limit, scaling_parameter, defining_process )
                     # Initialize result
                     this_eval = {}
                     # Evaluate ME
@@ -1780,11 +2000,10 @@ The missing process is: %s"""%ME_process.nice_string())
                        spin_correlation  = None,
                        hel_config        = None )
                     this_eval['ME'] = ME_evaluation['finite']
-                    misc.sprint('For scaling variable %.3e, weight from ME = %.16f' %(
+                    logger.debug('For scaling variable %.3e, weight from ME = %.16f' %(
                                               scaling_parameter, ME_evaluation['finite'] ))
                     # Loop over counterterms
                     for counterterm in counterterms_to_evaluate:
-                        misc.sprint("Counterterm here %s" % str(counterterm))
                         ct_weight, _, _ = self.evaluate_counterterm(
                             counterterm,
                             scaled_real_PS_point, 
@@ -1792,9 +2011,9 @@ The missing process is: %s"""%ME_process.nice_string())
                             apply_flavour_blind_cuts=test_options['apply_lower_multiplicity_cuts'],
                             apply_flavour_cuts=test_options['apply_lower_multiplicity_cuts'] )
                         this_eval[str(counterterm)] = ct_weight
-                        misc.sprint('Weight from CT %s = %.16f' %
+                        logger.debug('Weight from CT %s = %.16f' %
                                     (str(counterterm), ct_weight) )
-                        misc.sprint('Ratio: %.16f'%( ct_weight/float(ME_evaluation['finite']) ))
+                        logger.debug('Ratio: %.16f'%( ct_weight/float(ME_evaluation['finite']) ))
                     limit_evaluations[scaling_parameter] = this_eval
 
                 process_evaluations[str(limit)] = limit_evaluations
@@ -1807,14 +2026,23 @@ The missing process is: %s"""%ME_process.nice_string())
         # Now produce a nice matplotlib of the evaluations
         # and assess whether this test passed or not
         return self.analyze_IR_limits_test(
-            all_evaluations, test_options['acceptance_threshold'],
-            seed=seed, show=test_options['show_plots'], save=test_options['save_plots'] )
+            all_evaluations, 
+            test_options['acceptance_threshold'],
+            seed                =   seed, 
+            show                =   test_options['show_plots'], 
+            save_plots          =   test_options['save_plots'],
+            save_results_path   =   test_options['save_results_to_path']
+        )
 
     @staticmethod
     def analyze_IR_limit(
-        evaluations, title=None, def_ct=None, plot_all=True, show=True, filename=None):
+        evaluations, acceptance_threshold,
+        title=None, def_ct=None, plot_all=True, show=True, filename=None ):
 
         import matplotlib.pyplot as plt
+
+        test_failed = False
+        test_ratio  = -1.0
 
         # Produce a plot of all counterterms
         x_values = sorted(evaluations.keys())
@@ -1876,6 +2104,23 @@ The missing process is: %s"""%ME_process.nice_string())
         if filename:
             plt.savefig(filename + '_ratios.pdf')
 
+        # Check that the ratio of def_ct to the ME is close to -1
+        if plot_def and not test_failed:
+            def_ct_2_ME_ratio = evaluations[x_values[0]][def_ct]
+            def_ct_2_ME_ratio /= evaluations[x_values[0]]["ME"]
+            foo_str = "The ratio of the defining CT to the ME at lambda = %s is: %s."
+            logger.info(foo_str % (x_values[0], def_ct_2_ME_ratio))
+            test_ratio = abs(def_ct_2_ME_ratio+1)
+            test_failed = test_ratio > acceptance_threshold
+        # Check that the ratio between total and ME is close to 0
+        if not test_failed:
+            total_2_ME_ratio = total[0]
+            total_2_ME_ratio /= evaluations[x_values[0]]["ME"]
+            foo_str = "The ratio of the total to the ME at lambda = %s is: %s."
+            logger.info(foo_str % (x_values[0], total_2_ME_ratio))
+            test_ratio  = abs(total_2_ME_ratio)
+            test_failed = test_ratio > acceptance_threshold
+
         plt.figure(3)
         if title: plt.title(title)
         plt.xlabel('$\lambda$')
@@ -1898,14 +2143,17 @@ The missing process is: %s"""%ME_process.nice_string())
         else:
             plt.close('all')
 
-        return
+        return (not test_failed, test_ratio)
 
     def analyze_IR_limits_test(
         self, all_evaluations, acceptance_threshold,
-        seed=None, show=True, save=False):
+        seed=None, show=True, save_plots=False, save_results_path=None):
         """Analyze the results of the test_IR_limits command."""
 
+        test_failed = False
+        results = dict()
         for (process, process_evaluations) in all_evaluations.items():
+            results[process] = dict()
             for (limit, limit_evaluations) in process_evaluations.items():
                 proc, loops = process.split("@")
                 title = "$" + proc + "$"
@@ -1914,15 +2162,40 @@ The missing process is: %s"""%ME_process.nice_string())
                 title += "@" + loops + " approaching " + limit
                 if seed: title += " (seed %d)" % seed
                 filename = None
-                if save:
+                if save_plots:
                     filename = copy.copy(process)
                     filename = filename.replace(">", "_")
                     filename = filename.replace(" ", "").replace("~", "x")
                     filename = filename.replace("@", "_") + "_" + limit
                     if seed: filename += str(seed)
-                self.analyze_IR_limit(
-                    limit_evaluations,
+                results[process][limit] = self.analyze_IR_limit(
+                    limit_evaluations, acceptance_threshold=acceptance_threshold,
                     title=title, def_ct=limit, show=show, filename=filename )
+                if not results[process][limit][0]:
+                    test_failed = True
+        if save_results_path:
+            output_lines = []
+            for process in results:
+                for limit, (test_outcome, limiting_ratio) in results[process].items():
+                    output_lines.append('%-30s | %-20s | %-10s | %-30s'%(
+                        process,
+                        str(limit),
+                        'PASSED' if test_outcome else 'FAILED',
+                        '%.16e'%limiting_ratio
+                    ))
+            with open(save_results_path,'w') as results_output:     
+                results_output.write('\n'.join(output_lines))
+
+        if test_failed:
+            logger.info("analyse_IR_limits_test results:")
+            for process in results:
+                logger.info("    " + str(process))
+                for limit, (test_outcome, limiting_ratio) in results[process].items():
+                    if test_outcome:
+                        logger.info("    " * 2 + str(limit) + ": PASSED")
+                    else:
+                        logger.info("    " * 2 + str(limit) + ": FAILED")
+            return False
         return True
     
 class ME7Integrand_RR(ME7Integrand_R):

@@ -590,8 +590,12 @@ class QCD_final_collinear_0_ggg(currents.QCDLocalCollinearCurrent):
 class QCD_final_soft_0_gg(currents.QCDLocalSoftCurrent):
     """Double soft tree-level current."""
     
-    is_cut = staticmethod(currents.SomogyiChoices.cut_soft)
-    factor = staticmethod(currents.SomogyiChoices.factor_soft)
+    #TODO Implement meaningful cut and factors for the double soft
+    # The single-soft versions below are not expected to work directly
+    # THIS IS PROBABLY CRUCIAL IN ORDER TO HAVE THE EXPECTED CANCELLATION
+    #    S(5) + S(5)S(6) + S(5,6) = 0 in the limit S(6)
+    ###is_cut = staticmethod(currents.SomogyiChoices.cut_soft)
+    ###factor = staticmethod(currents.SomogyiChoices.factor_soft)
     
     @classmethod
     def does_implement_this_current(cls, current, model):
@@ -625,7 +629,7 @@ class QCD_final_soft_0_gg(currents.QCDLocalSoftCurrent):
 
     @staticmethod
     def strongly_ordered_double_soft_kernel(PS_point, i, j, r1, r2):
-        """Non abelian piece of the double soft current with first soft particle with 
+        """Strongly ordered piece of the double soft current with first soft particle with
         number 'r1' and second with number 'r2' with emitting index 'i'  and reconnecting 
         index 'j'. See Eq.(109-111) of hep-ph/9908523v1 (Catani-Grazzini)
         """
@@ -655,28 +659,23 @@ class QCD_final_soft_0_gg(currents.QCDLocalSoftCurrent):
         pipr2 = PS_point[i].dot(PS_point[r2])
         pjpr1 = PS_point[j].dot(PS_point[r1])
         pjpr2 = PS_point[j].dot(PS_point[r2])
-        
-        fully_expanded_expression = False 
-        if not fully_expanded_expression:
-            so_double_soft = QCD_final_soft_0_gg.strongly_ordered_double_soft_kernel(
-                                                                  PS_point, i, j, r1, r2 )
-            return (
-                so_double_soft + ((pipr1*pjpr2+pipr2*pjpr1)/((pipr1+pipr2)*(pjpr1+pjpr2)))*(
-                    (1./(pr1pr2**2)) - 0.5*so_double_soft
-                ) - ((2.*pipj)/(pr1pr2*(pipr1+pipr2)*(pjpr1+pjpr2)))
-            )
 
-        else:
-            return (
-                 (1.0/(pr1pr2**2)) * ( (pipr1*pjpr2 + pipr2*pjpr1) / ( (pipr1+pipr2)*(pjpr1+pjpr2) ) )
-               - ( ((pipj)**2) / (2.*pipr1*pjpr2*pipr2*pjpr1) )*( 2. - (pipr1*pjpr2+pipr2*pjpr1)/( (pipr1+pipr2)*(pjpr1+pjpr2) ) )
-               + ( ( pipj / (2.*pr1pr2) ) * (
-                   2./(pipr1*pjpr2) + 2./(pjpr1*pipr2) - (1./((pipr1+pipr2)*(pjpr1+pjpr2)))*(4.+ ((pipr1*pjpr2+pipr2*pjpr1)**2)/(pipr1*pjpr2*pipr2*pjpr1))
-                   )
-                 )
-            )        
+        so_double_soft = QCD_final_soft_0_gg.strongly_ordered_double_soft_kernel(
+                                                                  PS_point, i, j, r1, r2 )
+        
+        pure_double_soft_non_abelian = (
+            so_double_soft + ((pipr1*pjpr2+pipr2*pjpr1)/((pipr1+pipr2)*(pjpr1+pjpr2)))*(
+                (1./(pr1pr2**2)) - 0.5*so_double_soft
+            ) - ((2.*pipj)/(pr1pr2*(pipr1+pipr2)*(pjpr1+pjpr2)))
+        )
+        
+        # We want to absorb here also the non-abelian strongly ordered part of the 
+        # two-iterated soft counterterms (i.e. S(r) \otimes S(s) and S(s) \otimes S(r)) 
+        # which are each '-so_double_soft' when using the current normalisation of 
+        # this non-abelian eikonal term.
+        return pure_double_soft_non_abelian - 2.*so_double_soft
    
-    def create_CataniGrazzinni_correlator(self, (i,j),(k,l)):
+    def create_CataniGrazzini_correlator(self, (i,j),(k,l)):
         """ Returns the correlator of Catani-Grazzini (Eq.113 of hep-ph/9908523v1)
                 <M| ( T^-1_i \dot T^-1_j ) * ( T^-1_k \dot T^-1_l ) | M > 
                 
@@ -708,18 +707,25 @@ class QCD_final_soft_0_gg(currents.QCDLocalSoftCurrent):
         )
 
     def evaluate_subtraction_current(
-        self, current, PS_point,
-        reduced_process=None, hel_config=None,
-        mapping_variables=None, leg_numbers_map=None ):
-
-        if not hel_config is None:
+        self, current,
+        higher_PS_point=None, lower_PS_point=None,
+        leg_numbers_map=None, reduced_process=None, hel_config=None,
+        Q=None, **opts ):
+        if higher_PS_point is None or lower_PS_point is None:
             raise CurrentImplementationError(
-                "Subtraction current implementation %s" % self.__class__.__name__ +
-                " does not support helicity assignment.")
+                self.name() + " needs the phase-space points before and after mapping." )
+        if leg_numbers_map is None:
+            raise CurrentImplementationError(
+                self.name() + " requires a leg numbers map, i.e. a momentum dictionary." )
         if reduced_process is None:
             raise CurrentImplementationError(
-                "Subtraction current implementation %s" % self.__class__.__name__ +
-                " requires a reduced_process.")
+                self.name() + " requires a reduced_process.")
+        if not hel_config is None:
+            raise CurrentImplementationError(
+                self.name() + " does not support helicity assignment." )
+        if Q is None:
+            raise CurrentImplementationError(
+                self.name() + " requires the total mapping momentum Q." )
         
         # Retrieve alpha_s and mu_r
         model_param_dict = self.model.get('parameter_dict')
@@ -736,9 +742,10 @@ class QCD_final_soft_0_gg(currents.QCDLocalSoftCurrent):
         # Identify the soft leg numbers
         soft_leg_number_A = current.get('singular_structure').legs[0].n
         soft_leg_number_B = current.get('singular_structure').legs[1].n
+        pS = higher_PS_point[soft_leg_number_A] + higher_PS_point[soft_leg_number_B]
 
         # Include the counterterm only in a part of the phase space
-        if self.is_cut(mapping_variables, None):
+        if self.is_cut(Q=Q, pS=pS):
             return utils.SubtractionCurrentResult.zero(
                 current=current, hel_config=hel_config)
 
@@ -751,7 +758,7 @@ class QCD_final_soft_0_gg(currents.QCDLocalSoftCurrent):
         
         # Normalization factors
         couplings_factors = 4. * math.pi * alpha_s
-        norm = (couplings_factors)**2*self.factor(mapping_variables, None)
+        norm = couplings_factors**2 * self.factor(Q=Q, pS=pS)
 
         # Keep track of the color correlators added
         color_correlators_added = {}
@@ -786,7 +793,7 @@ class QCD_final_soft_0_gg(currents.QCDLocalSoftCurrent):
         for i in all_colored_parton_numbers:
             for j in all_colored_parton_numbers:
                 non_abelian_kernel = - self.CA * norm * self.non_abelian_eikonal(
-                                      PS_point, i, j, soft_leg_number_A, soft_leg_number_B)
+                    higher_PS_point, i, j, soft_leg_number_A, soft_leg_number_B)
                 
                 # Implement the non-abelian piece
                 non_abelian_correlator = ( 
@@ -807,12 +814,12 @@ class QCD_final_soft_0_gg(currents.QCDLocalSoftCurrent):
                     for l in all_colored_parton_numbers:
                     
                         # Implement the abelian piece
-                        abelian_kernel = 0.5 * norm * \
-                                        self.eikonal(PS_point, i, j, soft_leg_number_A) * \
-                                        self.eikonal(PS_point, k, l, soft_leg_number_B)
+                        eik_ij = self.eikonal(higher_PS_point, i, j, soft_leg_number_A)
+                        eik_kl = self.eikonal(higher_PS_point, k, l, soft_leg_number_B)
+                        abelian_kernel = 0.5 * norm * eik_ij * eik_kl
                         
-                        abelian_correlator_A = ( self.create_CataniGrazzinni_correlator((i,j),(k,l)), )
-                        abelian_correlator_B = ( self.create_CataniGrazzinni_correlator((k,l),(i,j)), )
+                        abelian_correlator_A = ( self.create_CataniGrazzini_correlator((i,j),(k,l)), )
+                        abelian_correlator_B = ( self.create_CataniGrazzini_correlator((k,l),(i,j)), )
 
                         for correlator in [abelian_correlator_A, abelian_correlator_B]:
                             if correlator in color_correlators_added:
@@ -850,7 +857,3 @@ class QCD_final_soft_0_gg(currents.QCDLocalSoftCurrent):
         #misc.sprint('==ABOVE LIST CC==')
 
         return result
-
-
-
-    

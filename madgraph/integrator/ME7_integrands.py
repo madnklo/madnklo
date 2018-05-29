@@ -1107,7 +1107,9 @@ class ME7Integrand_V(ME7Integrand):
         # do not match the particular selection. This should however be irrelevant for the
         # evaluation of the counterterm.
         CT_evaluation, all_results = self.all_MEAccessors(
-            integrated_current, reduced_PS, reduced_process = reduced_process,
+            integrated_current, lower_PS_point=reduced_PS,
+            higher_PS_point=None,
+            reduced_process = reduced_process,
             leg_numbers_map = momenta_map,
             hel_config = hel_config,
             compute_poles = compute_poles )
@@ -1911,7 +1913,7 @@ The missing process is: %s"""%ME_process.nice_string())
         # Loop over processes
         all_evaluations = {}
         for process_key, (defining_process, mapped_processes) in self.processes_map.items():
-            misc.sprint("Considering %s"%defining_process.nice_string())
+            logger.debug("Considering %s"%defining_process.nice_string())
             # Make sure that the selected process satisfies the selection requirements
             if not self.is_part_of_process_selection(
                 [defining_process, ]+mapped_processes,
@@ -1942,32 +1944,33 @@ The missing process is: %s"""%ME_process.nice_string())
                 ct for ct in self.counterterms[process_key]
                 if ct.count_unresolved() <= test_options['correction_order'].count('N') ]
             
-            # Select the limits to be probed interpreting limits as a regex pattern.
-            # If no match is found, then reconstruct the singular structure from the limits
-            # provided
-            selected_counterterms = self.find_counterterms_matching_regexp(
-                                counterterms_to_consider, test_options['limits'] )
-            if selected_counterterms:
-                selected_singular_structures = [
-                    ct.reconstruct_complete_singular_structure()
-                    for ct in selected_counterterms]
-            else:
-                limit_str = test_options['limits']
-                ss = mappings.sub.SingularStructure.from_string(
-                    limit_str, defining_process)
-                if ss is None:
-                    logger.critical(
-                        "%s is not a valid limits specification" % limit_str)
-                    return
-                selected_singular_structures = [ss, ]
+            selected_singular_structures = []
 
-            misc.sprint('Reconstructed complete singular structure: \n'+'\n'.join(
+            for limit_specifier in test_options['limits']:
+                # Select the limits to be probed interpreting limits as a regex pattern.
+                # If no match is found, then reconstruct the singular structure from the limits
+                # provided
+                selected_counterterms = self.find_counterterms_matching_regexp(
+                                                counterterms_to_consider, limit_specifier )
+                if selected_counterterms:
+                    selected_singular_structures.extend([
+                        ct.reconstruct_complete_singular_structure()
+                        for ct in selected_counterterms])
+                else:
+                    ss = mappings.sub.SingularStructure.from_string(limit_specifier, defining_process)
+                    if ss is None:
+                        logger.critical(
+                            "%s is not a valid limits specification" % limit_str)
+                        continue
+                    selected_singular_structures.append(ss)
+
+            logger.debug('Reconstructed complete singular structure: \n'+'\n'.join(
                 str(ss) for ss in selected_singular_structures ))
 
             # Loop over approached limits
             process_evaluations = {}
             for limit in selected_singular_structures:
-                misc.sprint("Approaching limit %s" % str(limit) )
+                logger.debug("Approaching limit %s" % str(limit) )
                 # Select counterterms to evaluate
                 counterterms_to_evaluate = [ct for ct in counterterms_to_consider]
                 if test_options['counterterms']:
@@ -1997,7 +2000,7 @@ The missing process is: %s"""%ME_process.nice_string())
                        spin_correlation  = None,
                        hel_config        = None )
                     this_eval['ME'] = ME_evaluation['finite']
-                    misc.sprint('For scaling variable %.3e, weight from ME = %.16f' %(
+                    logger.debug('For scaling variable %.3e, weight from ME = %.16f' %(
                                               scaling_parameter, ME_evaluation['finite'] ))
                     # Loop over counterterms
                     for counterterm in counterterms_to_evaluate:
@@ -2008,9 +2011,9 @@ The missing process is: %s"""%ME_process.nice_string())
                             apply_flavour_blind_cuts=test_options['apply_lower_multiplicity_cuts'],
                             apply_flavour_cuts=test_options['apply_lower_multiplicity_cuts'] )
                         this_eval[str(counterterm)] = ct_weight
-                        misc.sprint('Weight from CT %s = %.16f' %
+                        logger.debug('Weight from CT %s = %.16f' %
                                     (str(counterterm), ct_weight) )
-                        misc.sprint('Ratio: %.16f'%( ct_weight/float(ME_evaluation['finite']) ))
+                        logger.debug('Ratio: %.16f'%( ct_weight/float(ME_evaluation['finite']) ))
                     limit_evaluations[scaling_parameter] = this_eval
 
                 process_evaluations[str(limit)] = limit_evaluations
@@ -2023,8 +2026,13 @@ The missing process is: %s"""%ME_process.nice_string())
         # Now produce a nice matplotlib of the evaluations
         # and assess whether this test passed or not
         return self.analyze_IR_limits_test(
-            all_evaluations, test_options['acceptance_threshold'],
-            seed=seed, show=test_options['show_plots'], save=test_options['save_plots'] )
+            all_evaluations, 
+            test_options['acceptance_threshold'],
+            seed                =   seed, 
+            show                =   test_options['show_plots'], 
+            save_plots          =   test_options['save_plots'],
+            save_results_path   =   test_options['save_results_to_path']
+        )
 
     @staticmethod
     def analyze_IR_limit(
@@ -2034,6 +2042,7 @@ The missing process is: %s"""%ME_process.nice_string())
         import matplotlib.pyplot as plt
 
         test_failed = False
+        test_ratio  = -1.0
 
         # Produce a plot of all counterterms
         x_values = sorted(evaluations.keys())
@@ -2100,15 +2109,17 @@ The missing process is: %s"""%ME_process.nice_string())
             def_ct_2_ME_ratio = evaluations[x_values[0]][def_ct]
             def_ct_2_ME_ratio /= evaluations[x_values[0]]["ME"]
             foo_str = "The ratio of the defining CT to the ME at lambda = %s is: %s."
-            logger.critical(foo_str % (x_values[0], def_ct_2_ME_ratio))
-            test_failed = abs(def_ct_2_ME_ratio+1) > acceptance_threshold
+            logger.info(foo_str % (x_values[0], def_ct_2_ME_ratio))
+            test_ratio = abs(def_ct_2_ME_ratio+1)
+            test_failed = test_ratio > acceptance_threshold
         # Check that the ratio between total and ME is close to 0
         if not test_failed:
             total_2_ME_ratio = total[0]
             total_2_ME_ratio /= evaluations[x_values[0]]["ME"]
             foo_str = "The ratio of the total to the ME at lambda = %s is: %s."
-            logger.critical(foo_str % (x_values[0], total_2_ME_ratio))
-            test_failed = abs(total_2_ME_ratio) > acceptance_threshold
+            logger.info(foo_str % (x_values[0], total_2_ME_ratio))
+            test_ratio  = abs(total_2_ME_ratio)
+            test_failed = test_ratio > acceptance_threshold
 
         plt.figure(3)
         if title: plt.title(title)
@@ -2132,11 +2143,11 @@ The missing process is: %s"""%ME_process.nice_string())
         else:
             plt.close('all')
 
-        return not test_failed
+        return (not test_failed, test_ratio)
 
     def analyze_IR_limits_test(
         self, all_evaluations, acceptance_threshold,
-        seed=None, show=True, save=False):
+        seed=None, show=True, save_plots=False, save_results_path=None):
         """Analyze the results of the test_IR_limits command."""
 
         test_failed = False
@@ -2151,7 +2162,7 @@ The missing process is: %s"""%ME_process.nice_string())
                 title += "@" + loops + " approaching " + limit
                 if seed: title += " (seed %d)" % seed
                 filename = None
-                if save:
+                if save_plots:
                     filename = copy.copy(process)
                     filename = filename.replace(">", "_")
                     filename = filename.replace(" ", "").replace("~", "x")
@@ -2160,17 +2171,30 @@ The missing process is: %s"""%ME_process.nice_string())
                 results[process][limit] = self.analyze_IR_limit(
                     limit_evaluations, acceptance_threshold=acceptance_threshold,
                     title=title, def_ct=limit, show=show, filename=filename )
-                if not results[process][limit]:
+                if not results[process][limit][0]:
                     test_failed = True
+        if save_results_path:
+            output_lines = []
+            for process in results:
+                for limit, (test_outcome, limiting_ratio) in results[process].items():
+                    output_lines.append('%-30s | %-20s | %-10s | %-30s'%(
+                        process,
+                        str(limit),
+                        'PASSED' if test_outcome else 'FAILED',
+                        '%.16e'%limiting_ratio
+                    ))
+            with open(save_results_path,'w') as results_output:     
+                results_output.write('\n'.join(output_lines))
+
         if test_failed:
-            logger.critical("analyse_IR_limits_test result:")
-            for process in results.keys():
-                logger.critical("    " + str(process))
-                for limit in results[process].keys():
-                    if results[process][limit]:
-                        logger.critical("    " * 2 + str(limit) + ": passed")
+            logger.info("analyse_IR_limits_test results:")
+            for process in results:
+                logger.info("    " + str(process))
+                for limit, (test_outcome, limiting_ratio) in results[process].items():
+                    if test_outcome:
+                        logger.info("    " * 2 + str(limit) + ": PASSED")
                     else:
-                        logger.critical("    " * 2 + str(limit) + ": NOT passed")
+                        logger.info("    " * 2 + str(limit) + ": FAILED")
             return False
         return True
     

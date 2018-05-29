@@ -317,6 +317,7 @@ class ParseCmdArguments(object):
             'apply_lower_multiplicity_cuts'  : True,
             'show_plots'              : True,
             'save_plots'              : False,
+            'save_results_to_path'    : None
         }
 
         if mode=='poles':
@@ -391,6 +392,19 @@ class ParseCmdArguments(object):
                             raise ValueError
                     except ValueError:
                         raise InvalidCmd("'%s' is not a valid integer for option '%s'"%(value, key))
+            elif key == '--save_results_to_path':
+                if value == 'None':
+                    testlimits_options['save_results_to_path'] = None
+                else:
+                    if os.path.isabs(value):
+                        path = value
+                    else:
+                        path = pjoin(self.me_dir, value)
+                    if os.path.isfile(path):
+                        logger.warning("File path '%s' for "%path+
+                             "saving test results already exists and will be overwritten.")
+                        os.remove(path)
+                    testlimits_options['save_results_to_path'] = path
             elif key in ['--counterterms']:
                 if not isinstance(value, str):
                     raise InvalidCmd("'%s' is not a valid option for '%s'"%(value, key))
@@ -425,7 +439,14 @@ class ParseCmdArguments(object):
             elif key in ['--limits','--l'] and mode=='limits':
                 if not isinstance(value, str):
                     raise InvalidCmd("'%s' is not a valid option for '%s'"%(value, key))
-                testlimits_options['limits'] = value
+                # Check if a list of defining limits is specified
+                try:
+                    evaluated_list = eval(value)
+                    if not isinstance(evaluated_list, list):
+                        raise BaseException
+                    testlimits_options['limits'] = evaluated_list
+                except:
+                    testlimits_options['limits'] = [value,]
 
             elif key == '--show_plots':
                 try:

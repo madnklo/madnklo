@@ -340,6 +340,19 @@ class VirtualCurrentImplementation(object):
         raise NotImplemented
 
 #=========================================================================================
+# IntegratedCurrentImplementation
+#=========================================================================================
+class IntegratedCurrent(object):
+    """ This class is only for specific aspects of integrated currents, such as forwarding
+    the lower_PS_point to just a single PS point."""
+
+    def evaluate_subtraction_current(self, current,
+        higher_PS_point=None, lower_PS_point=None,
+        **opts ):
+
+        return self.evaluate_integrated_current(current, lower_PS_point, **opts)
+
+#=========================================================================================
 # DefaultCurrentImplementation
 #=========================================================================================
 

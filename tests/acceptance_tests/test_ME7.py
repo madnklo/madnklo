@@ -39,9 +39,9 @@ _pickle_path =os.path.join(_file_path, 'input_files')
 from madgraph import MG4DIR, MG5DIR, MadGraph5Error, InvalidCmd
 
 #===============================================================================
-# TestME7 colorful output for e+ e- > j j j
+# TestME7 colorful output for e+ e- > j j j @NLO
 #===============================================================================
-class TestME7_colorful_epem_jjj(unittest.TestCase):
+class TestME7_NLO_colorful_epem_jjj(unittest.TestCase):
     """This test validates the command 'test_IR_limits' of ME7 in the colorful scheme
     as well as integrand calls for the process e+ e- > j j j --NLO=QCD"""
     
@@ -260,9 +260,9 @@ class TestME7_colorful_epem_jjj(unittest.TestCase):
             self.assertTrue((timing[0] < 500.0), 'Virtual integrand call too slow: %g ms'%(timing[0]))
 
 #===============================================================================
-# TestME7 cataniseymour output for e+ e- > j j j
+# TestME7 cataniseymour output for e+ e- > j j j @NLO
 #===============================================================================
-class TestME7_cataniseymour_epem_jjj(unittest.TestCase):
+class TestME7_NLO_cataniseymour_epem_jjj(unittest.TestCase):
     """This test validates the command 'test_IR_limits' of ME7 in the cataniseymour scheme
     for the process e+ e- > j j j --NLO=QCD"""
     

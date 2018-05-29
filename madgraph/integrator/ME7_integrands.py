@@ -1388,6 +1388,7 @@ class ME7Integrand_R(ME7Integrand):
                              apply_flavour_blind_cuts=True, apply_flavour_cuts=True  ):
         """ Evaluates the specified counterterm for the specified PS point."""
 
+        #misc.sprint("HELLO from evaluate_counterterm")
 
         # Retrieve some possibly relevant model parameters
         alpha_s = self.model.get('parameter_dict')['aS']
@@ -1396,17 +1397,21 @@ class ME7Integrand_R(ME7Integrand):
         # Now call the walker to hike through the counterterm structure
         # and return the list of currents
         # and PS points to use to evaluate them.
-        # hike = {
+        # hike_output = {
         #         'currents' : [(current1, PS1), (current2, PS2), etc...],
         #         'matrix_element': (ME, PSME),
         #         'mapping_variables' : mapping_variables (a dictionary)
         #         'kinematic_variables' : kinematic_variables  (a dictionary)
         #        }
-        hike = self.walker.walk_to_lower_multiplicity(PS_point, counterterm)
-       
+
+
+        hike_output = self.walker.walk_to_lower_multiplicity(PS_point, counterterm, compute_jacobian=True)
+
+
         # Access the matrix element characteristics
-        ME_process, ME_PS = hike['matrix_element']
-        
+        ME_process, ME_PS = hike_output['matrix_element']
+
+
         # Generate what is the kinematics (reduced_PS) returned as a list
         # and the reduced_flavors for this counterterm,
         # by using the defining selected flavors of the real-emission
@@ -1414,9 +1419,15 @@ class ME7Integrand_R(ME7Integrand):
         reduced_PS, reduced_flavors = counterterm.get_reduced_quantities(
             ME_PS, defining_flavors=defining_flavors)
 
+        n_unresolved_left = self.contribution_definition.n_unresolved_particles
+        n_unresolved_left -= counterterm.count_unresolved()
+
+
+
         # Apply cuts if requested and return immediately if they do not pass
         if apply_flavour_blind_cuts and not self.pass_flavor_blind_cuts(
-            reduced_PS, reduced_flavors, n_jets_allowed_to_be_clustered=0):
+            reduced_PS, reduced_flavors,
+            n_jets_allowed_to_be_clustered=n_unresolved_left):
             return 0.0, reduced_PS, reduced_flavors
         if apply_flavour_cuts and not self.pass_flavor_sensitive_cuts(
             reduced_PS, reduced_flavors):
@@ -1424,14 +1435,17 @@ class ME7Integrand_R(ME7Integrand):
 
         # Separate the current in those directly connected to the matrix element
         # and those that are not
-        disconnected_currents = [
-            (current, PS) for (current, PS) in hike['currents']
-            if not current['resolve_mother_spin_and_color']
-        ]
-        connected_currents = [
-            (current, PS) for (current, PS) in hike['currents']
-            if current['resolve_mother_spin_and_color']
-        ]
+        disconnected_currents = []
+        connected_currents = []
+        for (currents, PS) in hike_output['currents']:
+            for current in currents:
+                if current['resolve_mother_spin_and_color']:
+                    connected_currents.append((current, PS))
+                else:
+                    disconnected_currents.append((current, PS))
+
+
+
 
         # The above "hike" can be used to evaluate the currents first and the ME last.
         # Note that the code below can become more complicated when tracking helicities,
@@ -1444,7 +1458,7 @@ class ME7Integrand_R(ME7Integrand):
                 current, PS_point_for_current, hel_config=None, 
                 reduced_process = ME_process,
                 leg_numbers_map = counterterm.momenta_dict,
-                mapping_variables=hike['mapping_variables'])
+                mapping_variables=hike_output['mapping_variables'])
             # Make sure no spin- or color-correlations are demanded by the current for this kind of currents
             assert(current_evaluation['spin_correlations']==[None,])
             assert(current_evaluation['color_correlations']==[None,])
@@ -1481,14 +1495,15 @@ class ME7Integrand_R(ME7Integrand):
         # all_necessary_ME_calls is a list of tuples of the following form:
         #  (spin_correlator, color_correlator, weight)
         all_necessary_ME_calls = [(None, None, weight)]
-        
+
+
         # Now iterate over currents that may require color- and spin-correlations        
         for (current, PS_point_for_current) in connected_currents:
             current_evaluation, all_current_results = self.all_MEAccessors(
                 current, PS_point_for_current, hel_config=None, 
                 reduced_process = ME_process,
                 leg_numbers_map = counterterm.momenta_dict,
-                mapping_variables=hike['mapping_variables'])
+                mapping_variables=hike_output['mapping_variables'])
             new_all_necessary_ME_calls = []
             # Now loop over all spin- and color- correlators required for this current
             # and update the necessary calls to the ME
@@ -1527,21 +1542,26 @@ Make sure that your process definition is specified using the relevant multipart
 Also make sure that there is no coupling order specification which receives corrections.
 The missing process is: %s"""%ME_process.nice_string())
                 raise e
-#            misc.sprint(current_weight,ME_evaluation['finite'])
-#            misc.sprint('reduced process = %s' % (
-#                ' '.join('%d(%d)' % (l.get('number'), l.get('id')) for l in
-#                         counterterm.process.get_initial_legs()) + ' > ' +
-#                ' '.join('%d(%d)' % (l.get('number'), l.get('id')) for l in
-#                         counterterm.process.get_final_legs())
-#            ))
-#            misc.sprint(
-#                'color corr. = %-20s | current = %-20.16f | ME = %-20.16f | Prefactor = %-3d  |  Final = %-20.16f ' % (
-#                    str(color_correlators),
-#                    current_weight,
-#                    ME_evaluation['finite'],
-#                    counterterm.prefactor,
-#                    current_weight * ME_evaluation['finite'] * counterterm.prefactor
-#                ))
+            # for i in ME_PS.keys():
+            #     if i in (1, 2): continue
+            #     for j in ME_PS.keys():
+            #         if j in (1, 2) or j <= i: continue
+            #         misc.sprint(i, j, (ME_PS[i]+ME_PS[j]).square())
+            # misc.sprint(current_weight, ME_evaluation['finite'])
+            # misc.sprint('reduced process = %s' % (
+            #     ' '.join('%d(%d)' % (l.get('number'), l.get('id')) for l in
+            #              counterterm.process.get_initial_legs()) + ' > ' +
+            #     ' '.join('%d(%d)' % (l.get('number'), l.get('id')) for l in
+            #              counterterm.process.get_final_legs())
+            # ))
+            # misc.sprint(
+            #     'color corr. = %-20s | current = %-20.16f | ME = %-20.16f | Prefactor = %-3d  |  Final = %-20.16f ' % (
+            #         str(color_correlators),
+            #         current_weight,
+            #         ME_evaluation['finite'],
+            #         counterterm.prefactor,
+            #         current_weight * ME_evaluation['finite'] * counterterm.prefactor
+            #     ))
             # Again, for the integrated subtraction counterterms, some care will be needed here
             # for the real-virtual, depending on how we want to combine the two Laurent series.
             final_weight += current_weight*ME_evaluation['finite']
@@ -1764,6 +1784,7 @@ The missing process is: %s"""%ME_process.nice_string())
                                               scaling_parameter, ME_evaluation['finite'] ))
                     # Loop over counterterms
                     for counterterm in counterterms_to_evaluate:
+                        misc.sprint("Counterterm here %s" % str(counterterm))
                         ct_weight, _, _ = self.evaluate_counterterm(
                             counterterm,
                             scaled_real_PS_point, 
@@ -1786,10 +1807,12 @@ The missing process is: %s"""%ME_process.nice_string())
         # Now produce a nice matplotlib of the evaluations
         # and assess whether this test passed or not
         return self.analyze_IR_limits_test(
-            all_evaluations, test_options['acceptance_threshold'], seed=seed)
+            all_evaluations, test_options['acceptance_threshold'],
+            seed=seed, show=test_options['show_plots'], save=test_options['save_plots'] )
 
     @staticmethod
-    def analyze_IR_limit(evaluations, title=None, def_ct=None, plot_all=True):
+    def analyze_IR_limit(
+        evaluations, title=None, def_ct=None, plot_all=True, show=True, filename=None):
 
         import matplotlib.pyplot as plt
 
@@ -1833,8 +1856,27 @@ The missing process is: %s"""%ME_process.nice_string())
         abs_total = [abs(y) for y in total]
         plt.plot(x_values, abs_total, label='TOTAL')
         plt.legend()
+        if filename:
+            plt.savefig(filename + '_integrands.pdf')
 
         plt.figure(2)
+        if title: plt.title(title)
+        plt.xlabel('$\lambda$')
+        plt.ylabel('Ratio to ME')
+        plt.xscale('log')
+        plt.grid(True)
+        for line in lines:
+            y_values = [abs(evaluations[x][line]/evaluations[x]["ME"]) for x in x_values]
+            if '(' in line:
+                style = '--'
+            else:
+                style = '-'
+            plt.plot(x_values, y_values, style, label=line)
+        plt.legend()
+        if filename:
+            plt.savefig(filename + '_ratios.pdf')
+
+        plt.figure(3)
         if title: plt.title(title)
         plt.xlabel('$\lambda$')
         plt.ylabel('Weighted integrands')
@@ -1848,12 +1890,19 @@ The missing process is: %s"""%ME_process.nice_string())
         wgt_total = [abs(x_values[i] * total[i]) for i in range(len(x_values))]
         plt.plot(x_values, wgt_total, label='TOTAL')
         plt.legend()
+        if filename:
+            plt.savefig(filename + '_weighted.pdf')
 
-        plt.show()
+        if show:
+            plt.show()
+        else:
+            plt.close('all')
 
         return
 
-    def analyze_IR_limits_test(self, all_evaluations, acceptance_threshold, seed=None):
+    def analyze_IR_limits_test(
+        self, all_evaluations, acceptance_threshold,
+        seed=None, show=True, save=False):
         """Analyze the results of the test_IR_limits command."""
 
         for (process, process_evaluations) in all_evaluations.items():
@@ -1864,7 +1913,16 @@ The missing process is: %s"""%ME_process.nice_string())
                 title = title.replace('+','^+').replace('-','^-')
                 title += "@" + loops + " approaching " + limit
                 if seed: title += " (seed %d)" % seed
-                self.analyze_IR_limit(limit_evaluations, title=title, def_ct=limit)
+                filename = None
+                if save:
+                    filename = copy.copy(process)
+                    filename = filename.replace(">", "_")
+                    filename = filename.replace(" ", "").replace("~", "x")
+                    filename = filename.replace("@", "_") + "_" + limit
+                    if seed: filename += str(seed)
+                self.analyze_IR_limit(
+                    limit_evaluations,
+                    title=title, def_ct=limit, show=show, filename=filename )
         return True
     
 class ME7Integrand_RR(ME7Integrand_R):

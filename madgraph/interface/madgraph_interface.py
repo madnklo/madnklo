@@ -3079,6 +3079,7 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
                 if any(order not in valid_NLO_correction_orders for order in orders):
                     raise InvalidCmd("Current model only supports orders %s for loop computations, not: %s"
                                                                 %(valid_NLO_correction_orders, orders) )
+                add_options['loop_induced'] = orders
 
             elif key=='ignore_contributions':
                 try:

@@ -1637,13 +1637,17 @@ class IRSubtraction(object):
                 return True
         return False        
     
-    def get_all_elementary_operators(self, process):
+    def get_all_elementary_operators(self, process, max_unresolved=None):
         """Generate all 'building blocks' operators relevant for the process
         passed in argument.
         """
-        
+
+        # Initialize variables
+        if max_unresolved is None:
+            unresolved = self.n_unresolved
+        else:
+            unresolved = max_unresolved
         elementary_operator_list = SingularOperatorList([])
-        
         # Eliminate particles that do not have a role in the subtraction
         legs = SubtractionLegSet(
             SubtractionLeg(leg) for leg in process.get('legs')
@@ -1655,7 +1659,7 @@ class IRSubtraction(object):
         is_legs = SubtractionLegSet(difference(legs, fs_legs))
 
         # Loop over number of unresolved particles
-        for unresolved in range(1, self.n_unresolved + 1):
+        for unresolved in range(1, unresolved + 1):
             # Get iterators at the start of the final-state list
             it = iter(fs_legs)
             soft_it, coll_final_it, coll_initial_it = itertools.tee(it, 3)
@@ -1686,11 +1690,11 @@ class IRSubtraction(object):
         applying simplification and discarding the ones that vanish.
         """
 
+        # Initialize variables
         if max_unresolved is None:
             unresolved = self.n_unresolved
         else:
             unresolved = max_unresolved
-
         # Duplicate elimination is ugly,
         # because more combinations than needed are generated.
         # If one were to construct the list as a product of binomials,
@@ -1939,13 +1943,20 @@ class IRSubtraction(object):
                     all_currents.append(current)
         return all_currents
 
-    def get_all_counterterms(self, process):
+    def get_all_counterterms(
+        self, process,
+        max_unresolved_in_elementary=None, max_unresolved_in_combination=None):
         """Generate all counterterms for the corrections specified in this module
         and the process given in argument."""
 
-        elementary_operators = self.get_all_elementary_operators(process)
-
-        combinations = self.get_all_combinations(elementary_operators)
+        if max_unresolved_in_elementary is None:
+            max_unresolved_in_elementary = self.n_unresolved
+        if max_unresolved_in_combination is None:
+            max_unresolved_in_combination = self.n_unresolved
+        elementary_operators = self.get_all_elementary_operators(
+            process, max_unresolved_in_elementary)
+        combinations = self.get_all_combinations(
+            elementary_operators, max_unresolved_in_combination)
         all_counterterms = []
         all_integrated_counterterms = []
         for combination in combinations:

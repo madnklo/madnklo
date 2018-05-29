@@ -456,7 +456,12 @@ class QCD_final_collinear_0_ggg(currents.QCDLocalCollinearCurrent):
         legs =  current.get('singular_structure').legs
         return (legs[0].n, legs[1].n, legs[2].n)
 
+    def ttijk(self,i, j, k, zs, s_ij, s_ik, s_jk):
+        """Compute the invariant t_{ij,k} from zs and sij."""
+        return (2 * (zs[i - 1] * s_jk - zs[j - 1] * s_ik) + (zs[i - 1] - zs[j - 1]) * s_ij) / (zs[i - 1] + zs[j - 1])
+
     def evaluate_kernel(self, zs, kTs, parent):
+        #misc.sprint("HELLO")
 
         # Retrieve the collinear variables and compute basic quantities
         z1, z2, z3 = zs
@@ -466,59 +471,17 @@ class QCD_final_collinear_0_ggg(currents.QCDLocalCollinearCurrent):
         s23 = sij(2, 3, zs, kTs)
         s123 = s12 + s13 + s23
         CA = self.CA
-        tt123 = tijk(1, 2, 3, zs, kTs, s_ij=s12, s_ik=s23, s_jk=s13)
-        tt312 = tijk(3, 1, 2, zs, kTs, s_ij=s13, s_ik=s12, s_jk=s23)
-        tt231 = tijk(2, 3, 1, zs, kTs, s_ij=s23, s_ik=s13, s_jk=s12)
-        tt213 = - tt123
-        tt132 = - tt312
-        tt321 = - tt231
+
         k12 = k1 + k2
         k23 = k2 + k3
         k13 = k1 + k3
         u12 = k1 / z1 - k2 / z2
         u23 = k2 / z2 - k3 / z3
-        u31 = k3 / z3 - k1 / z1
+        u31 = k1 / z1 - k3 / z3
 
+        misc.sprint("t[1,2,3] : ",tijk(1,2,3,zs,kTs),self.ttijk(1,2,3,zs,s12,s13,s23))
         # Assemble kernel
-        kernel_gmunu = (  self.evaluate_gmunu(z1, z2, z3, s12, s23, s13, s123, tt123)
-                        + self.evaluate_gmunu(z2, z3, z1, s23, s13, s12, s123, tt231)
-                        + self.evaluate_gmunu(z3, z1, z2, s13, s12, s23, s123, tt312)
-                        + self.evaluate_gmunu(z3, z2, z1, s23, s12, s13, s123, tt321)
-                        + self.evaluate_gmunu(z1, z3, z2, s13, s23, s12, s123, tt132)
-                        + self.evaluate_gmunu(z2, z1, z3, s12, s13, s23, s123, tt213)
-                        )
-        kernel_k1mu_k1nu = (CA**2*s123*((3 + (2*z1*(1 - 2*z3))/((1 - z3)*z3)
-                                         - (2*(z1 + z2)*z3)/(z1*(z1 + z3)))/(s12*s23)
-                                        + (3 + (2*z1*(1 - 2*z2))/((1 - z2)*z2)
-                                           - (2*z2*(z1 + z3))/(z1*(z1 + z2)))/(s13*s23)
-                                        + (3 + (2*z1*(1 - 2*z2))/((1 - z2)*z2)
-                                           - (2*z1*(z2 + z3))/(z2*(z1 + z2)))/(s13*s23)
-                                        + (3 + (2*z1*(1 - 2*z3))/((1 - z3)*z3)
-                                           - (2*z1*(z2 + z3))/(z3*(z1 + z3)))/(s12*s23)))
-        kernel_k2mu_k2nu = CA**2*s123*((3 + (2*z1*(1 - 2*z1))/((1 - z1)*z1)
-                                        - (2*z2*(z1 + z3))/(z1*(z1 + z2)))/(s13*s23)
-                                       + (3 + (2*z1*(1 - 2*z3))/((1 - z3)*z3)
-                                          - (2*(z1 + z2)*z3)/(z2*(z2 + z3)))/(s12*s13)
-                                       + (3 + (2*z1*(1 - 2*z3))/((1 - z3)*z3)
-                                          - (2*z2*(z1 + z3))/(z3*(z2 + z3)))/(s12*s13)
-                                       + (3 + (2*z1*(1 - 2*z1))/((1 - z1)*z1)
-                                          - (2*z1*(z2 + z3))/(z2*(z1 + z2)))/(s13*s23))
-        kernel_k3mu_k3nu =CA**2*s123*((3 + (2*z1*(1 - 2*z1))/((1 - z1)*z1)
-                                       - (2*(z1 + z2)*z3)/(z1*(z1 + z3)))/(s12*s23)
-                                      + (3 + (2*z1*(1 - 2*z2))/((1 - z2)*z2)
-                                         - (2*(z1 + z2)*z3)/(z2*(z2 + z3)))/(s12*s13)
-                                      + (3 + (2*z1*(1 - 2*z2))/((1 - z2)*z2)
-                                         - (2*z2*(z1 + z3))/(z3*(z2 + z3)))/(s12*s13)
-                                      + (3 + (2*z1*(1 - 2*z1))/((1 - z1)*z1)
-                                         - (2*z1*(z2 + z3))/(z3*(z1 + z3)))/(s12*s23))
-        kernel_k12mu_k12nu = (CA**2*s123*(-3 + (2*z2*(z1 + z3))/(z1*(z1 + z2))))/(s13*s23) \
-                             + (CA**2*s123*(-3 + (2*z1*(z2 + z3))/(z2*(z1 + z2))))/(s13*s23)
-
-        kernel_k23mu_k23nu = (CA**2*s123*(-3 + (2*(z1 + z2)*z3)/(z2*(z2 + z3))))/(s12*s13) \
-                             + (CA**2*s123*(-3 + (2*z2*(z1 + z3))/(z3*(z2 + z3))))/(s12*s13)
-
-        kernel_k13mu_k13nu = (CA**2*s123*(-3 + (2*(z1 + z2)*z3)/(z1*(z1 + z3))))/(s12*s23) \
-                             + (CA**2*s123*(-3 + (2*z1*(z2 + z3))/(z3*(z1 + z3))))/(s12*s23)
+        kernel_gmunu = self.evaluate_permuted_gmunu(z1,z2,z3,s12,s13,s23)
 
         kernel_u12mu_u12nu = (8*CA**2*s123*z1**2*z2**2)/(s12**2*(1 - z3)*z3)
 
@@ -540,12 +503,12 @@ class QCD_final_collinear_0_ggg(currents.QCDLocalCollinearCurrent):
                                   ],
             'color_correlations': [None],
             'values': {(0, 0): {'finite': -kernel_gmunu},  # for the minus sign: Madgraph multiplies this by -g_mu_nu
-                       (1, 0): {'finite': kernel_k1mu_k1nu},
-                       (2, 0): {'finite': kernel_k2mu_k2nu},
-                       (3, 0): {'finite': kernel_k3mu_k3nu},
-                       (4, 0): {'finite': kernel_k12mu_k12nu},
-                       (5, 0): {'finite': kernel_k23mu_k23nu},
-                       (6, 0): {'finite': kernel_k13mu_k13nu},
+                       (1, 0): {'finite': self.evaluatecoefk1k1(z1,z2,z3,s12,s13,s23)},
+                       (2, 0): {'finite': self.evaluatecoefk2k2(z1,z2,z3,s12,s13,s23)},
+                       (3, 0): {'finite': self.evaluatecoefk3k3(z1,z2,z3,s12,s13,s23)},
+                       (4, 0): {'finite': self.evaluatecoefk12k12(z1,z2,z3,s12,s13,s23)},
+                       (5, 0): {'finite': self.evaluatecoefk23k23(z1,z2,z3,s12,s13,s23)},
+                       (6, 0): {'finite': self.evaluatecoefk13k13(z1,z2,z3,s12,s13,s23)},
                        (7, 0): {'finite': kernel_u12mu_u12nu},
                        (8, 0): {'finite': kernel_u23mu_u23nu},
                        (9, 0): {'finite': kernel_u13mu_u13nu},
@@ -554,14 +517,71 @@ class QCD_final_collinear_0_ggg(currents.QCDLocalCollinearCurrent):
 
         return evaluation
 
-    def evaluate_gmunu(self,z1,z2,z3,s12,s23,s13,s123,tt123):
-        return self.CA**2*(-0.75 - tt123**2/(4.*s12**2) + (2*s123)/(s12*(1 - z1)*z1)
-                      - (2*s123)/(s12*(1 - z3)) - s123**2/(2.*s12*s13*(1 - z2)*(1 - z3))
-                      + (s123**2*z1)/(s12*s13*(1 - z2)*(1 - z3))
-                      - (s123**2*z1**2)/(s12*s13*(1 - z2)*(1 - z3)) - s123/(s12*(1 - z1)*z1*z3)
-                      - s123**2/(2.*s12*s13*z2*z3) + (s123**2*z1)/(s12*s13*z2*z3) - (s123**2*z1**2)/(s12*s13*z2*z3)
-                      + (2*s123)/(s12*(1 - z3)*z3) - (2*s123*z3)/(s12*(1 - z1)*z1) + (4*s123*z3)/(s12*(1 - z3))
-                      + (2*s123**2*z2*z3)/(s12*s13*(1 - z2)*(1 - z3)))
+    def evaluate_permuted_gmunu(self,z1,z2,z3,s12,s13,s23):
+        s123 = s12 + s13 + s23
+        zs = (z1,z2,z3)
+        tt123 = self.ttijk(1, 2, 3, zs, s12, s13, s23)
+        tt312 = self.ttijk(3, 1, 2, zs, s13, s23, s12)
+        tt231 = self.ttijk(2, 3, 1, zs, s23, s12, s13)
+        tt213 = - tt123
+        tt132 = - tt312
+        tt321 = - tt231
+        return (          self.evaluate_gmunu(z1, z2, z3, s12, s13, s23, s123, tt123)
+                        + self.evaluate_gmunu(z2, z3, z1, s23, s12, s13, s123, tt231)
+                        + self.evaluate_gmunu(z3, z1, z2, s13, s23, s12, s123, tt312)
+                        + self.evaluate_gmunu(z3, z2, z1, s23, s13, s12, s123, tt321)
+                        + self.evaluate_gmunu(z1, z3, z2, s13, s12, s23, s123, tt132)
+                        + self.evaluate_gmunu(z2, z1, z3, s12, s23, s13, s123, tt213)
+                        )
+
+    def evaluate_gmunu(self, z1, z2, z3, s12, s13, s23,s123,tt123):
+        return (self.CA**2*(-0.75 - tt123**2/(4.*s12**2) + (2*s123)/(s12*(1 - z1)*z1)
+                            - (2*s123)/(s12*(1 - z3)) - s123**2/(2.*s12*s13*(1 - z2)*(1 - z3))
+                            + (s123**2*z1)/(s12*s13*(1 - z2)*(1 - z3)) - (s123**2*z1**2)/(s12*s13*(1 - z2)*(1 - z3))
+                            - s123/(s12*(1 - z1)*z1*z3) - s123**2/(2.*s12*s13*z2*z3) + (s123**2*z1)/(s12*s13*z2*z3)
+                            - (s123**2*z1**2)/(s12*s13*z2*z3)
+                            + (2*s123)/(s12*(1 - z3)*z3)
+                            - (2*s123*z3)/(s12*(1 - z1)*z1)
+                            + (4*s123*z3)/(s12*(1 - z3)) + (2*s123**2*z2*z3)/(s12*s13*(1 - z2)*(1 - z3)))
+                )
+
+    def evaluatecoefk1k1(self,z1,z2,z3,s12,s13,s23):
+        s123 = s12 + s23 + s13
+        return (self.CA**2*s123*((3 + (2*z1*(1 - 2*z3))/((1 - z3)*z3)- (2*(z1 + z2)*z3)/(z1*(z2 + z3)))/(s12*s23)
+                                 + (3 + (2*z1*(1 - 2*z2))/((1 - z2)*z2)- (2*z2*(z1 + z3))/(z1*(z2 + z3)))/(s13*s23)
+                                 + (3 + (2*z1*(1 - 2*z3))/((1 - z3)*z3) - (2*z1*(z2 + z3))/((z1 + z2)*z3))/(s12*s23)
+                                 + (3 + (2*z1*(1 - 2*z2))/((1 - z2)*z2) - (2*z1*(z2 + z3))/(z2*(z1 + z3)))/(s13*s23))
+                )
+
+    def evaluatecoefk2k2(self,z1,z2,z3,s12,s13,s23):
+        s123 = s12 + s23 + s13
+        return (self.CA**2*s123*((3 + (2*z1*(1 - 2*z3))/((1 - z3)*z3) - (2*(z1 + z2)*z3)/(z2*(z1 + z3)))/(s12*s13)
+                                 + (3 + (2*z1*(1 - 2*z3))/((1 - z3)*z3) - (2*z2*(z1 + z3))/((z1 + z2)*z3))/(s12*s13)
+                                 + (3 + (2*z1*(1 - 2*z1))/((1 - z1)*z1) - (2*z2*(z1 + z3))/(z1*(z2 + z3)))/(s13*s23)
+                                 + (3 + (2*z1*(1 - 2*z1))/((1 - z1)*z1) - (2*z1*(z2 + z3))/(z2*(z1 + z3)))/(s13*s23))
+                )
+    def evaluatecoefk3k3(self,z1,z2,z3,s12,s13,s23):
+        s123 = s12 + s23 + s13
+        return (self.CA**2*s123*((3 + (2*z1*(1 - 2*z2))/((1 - z2)*z2) - (2*(z1 + z2)*z3)/(z2*(z1 + z3)))/(s12*s13)
+                                 + (3 + (2*z1*(1 - 2*z2))/((1 - z2)*z2) - (2*z2*(z1 + z3))/((z1 + z2)*z3))/(s12*s13)
+                                 + (3 + (2*z1*(1 - 2*z1))/((1 - z1)*z1) - (2*(z1 + z2)*z3)/(z1*(z2 + z3)))/(s12*s23)
+                                 + (3 + (2*z1*(1 - 2*z1))/((1 - z1)*z1) - (2*z1*(z2 + z3))/((z1 + z2)*z3))/(s12*s23))
+                )
+    def evaluatecoefk12k12(self,z1,z2,z3,s12,s13,s23):
+        s123 = s12 + s23 + s13
+        CA = self.CA
+        return (CA**2*s123*(-3 + (2*z2*(z1 + z3))/(z1*(z2 + z3))))/(s13*s23) \
+               + (CA**2*s123*(-3 + (2*z1*(z2 + z3))/(z2*(z1 + z3))))/(s13*s23)
+    def evaluatecoefk13k13(self,z1,z2,z3,s12,s13,s23):
+        s123 = s12 + s23 + s13
+        CA = self.CA
+        return (CA**2*s123*(-3 + (2*(z1 + z2)*z3)/(z1*(z2 + z3))))/(s12*s23) \
+               + (CA**2*s123*(-3 + (2*z1*(z2 + z3))/((z1 + z2)*z3)))/(s12*s23)
+    def evaluatecoefk23k23(self,z1,z2,z3,s12,s13,s23):
+        s123 = s12 + s23 + s13
+        CA = self.CA
+        return (CA**2*s123*(-3 + (2*(z1 + z2)*z3)/(z2*(z1 + z3))))/(s12*s13) \
+               + (CA**2*s123*(-3 + (2*z2*(z1 + z3))/((z1 + z2)*z3)))/(s12*s13)
 #=========================================================================================
 # NNLO final-final soft currents
 #=========================================================================================

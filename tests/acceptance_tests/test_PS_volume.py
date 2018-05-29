@@ -85,16 +85,20 @@ class MappedPS(functions.VirtualFunction):
         self.momenta_dict = sub.bidict({1: frozenset((1, )), 2: frozenset((2, ))})
         legs = []
         substructures = []
-        self.final_masses = dict()
-        self.intermediate_masses = dict()
+        self.final_masses_m = dict()
+        self.final_masses_s = dict()
+        self.intermediate_masses_m = dict()
+        self.intermediate_masses_s = dict()
         for i in range(len(intermediate_masses)):
             self.momenta_dict[i+3] = frozenset((i+3, ))
             if intermediate_masses[i] == final_masses[i]:
                 legs.append(MappedPS.leg(i+3))
             else:
                 substructures.append(MappedPS.structure(i+3))
-                self.final_masses['s' + str(i+3)] = final_masses[i]**2
-                self.intermediate_masses['s' + str(i+3)] = intermediate_masses[i] ** 2
+                self.final_masses_m['m2' + str(i+3)] = final_masses[i]**2
+                self.final_masses_s['s'  + str(i+3)] = final_masses[i]**2
+                self.intermediate_masses_m['m2' + str(i+3)] = intermediate_masses[i] ** 2
+                self.intermediate_masses_s['s'  + str(i+3)] = intermediate_masses[i] ** 2
         self.singular_structure = sub.SingularStructure(
             legs=legs, substructures=substructures )
         print self.singular_structure
@@ -107,8 +111,8 @@ class LowerMappedPS(MappedPS):
         ps_dict = ps.to_dict()
         try:
             res = self.mapping.map_to_lower_multiplicity(
-                ps_dict, self.singular_structure, self.momenta_dict,
-                None, True, self.final_masses )
+                ps_dict, self.singular_structure, self.momenta_dict, self.final_masses_m,
+                None, True )
             return {'weight': wgt / res['jacobian']}
         except mappings.FailedMapping:
             return {'weight': 0.}
@@ -122,7 +126,7 @@ class HigherMappedPS(MappedPS):
         try:
             res = self.mapping.map_to_higher_multiplicity(
                 ps_dict, self.singular_structure, self.momenta_dict,
-                self.final_masses, True )
+                self.final_masses_s, True )
             return {'weight': wgt * res['jacobian']}
         except mappings.FailedMapping:
             return {'weight': 0.}
@@ -193,14 +197,14 @@ class PSVolumeTest(object):
             if pars.get('check_cut', False):
                 cut = lambda ps: pars['mapping'].can_map_to_higher_multiplicity(
                     ps, mapped_PS.singular_structure, mapped_PS.momenta_dict,
-                    mapped_PS.intermediate_masses )
+                    mapped_PS.intermediate_masses_s )
         elif pars['mapto'] == "higher":
             mapped_PS = HigherMappedPS(
                 pars['mapping'], pars['intermediate_masses'], pars['final_masses'] )
             if pars.get('check_cut', False):
                 cut = lambda ps: pars['mapping'].can_map_to_lower_multiplicity(
                     ps, mapped_PS.singular_structure, mapped_PS.momenta_dict,
-                    None, masses=mapped_PS.intermediate_masses )
+                    mapped_PS.intermediate_masses_m )
         else:
             raise ValueError
         if (PSVolumeTest.needs_benchmark_integration(pars['final_masses'])

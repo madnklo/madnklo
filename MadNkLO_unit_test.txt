@@ -8,11 +8,9 @@ NLOSubtractionTest
 HiggsN3LOSubtractionTest
 VectorsTest
 FinalCollinearVariablesTest
-FinalRescalingMappingOneTest
-FinalLorentzMappingOneTest
-SoftVariablesTest
-SomogyietalSoftTest
 InitialCollinearVariablesTest
-InitialLorentzMappingOneTest
+SoftVariablesTest
+MappingsTest
+WalkersTest
 test_color_correlators_computation_fast
 test_color_correlators_computation_slow

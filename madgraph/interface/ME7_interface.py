@@ -33,6 +33,7 @@ import tarfile
 import StringIO
 import shutil
 import copy
+from distutils.util import strtobool
 
 try:
     import readline
@@ -314,7 +315,9 @@ class ParseCmdArguments(object):
             'acceptance_threshold'    : 1.0e-6,
             'include_all_flavors'     : False,
             'apply_higher_multiplicity_cuts' : True,
-            'apply_lower_multiplicity_cuts'  : True
+            'apply_lower_multiplicity_cuts'  : True,
+            'show_plots'              : True,
+            'save_plots'              : False,
         }
 
         if mode=='poles':
@@ -326,6 +329,8 @@ class ParseCmdArguments(object):
             del testlimits_options['n_steps']
             del testlimits_options['min_scaling_variable']
             del testlimits_options['apply_lower_multiplicity_cuts']
+            del testlimits_options['show_plots']
+            del testlimits_options['save_plots']
         elif mode=='limits':
             del testlimits_options['include_all_flavors']            
  
@@ -419,7 +424,7 @@ class ParseCmdArguments(object):
                                                  {'true':True,'false':False}[value.lower()]
                     except:
                         raise InvalidCmd("'%s' is not a valid float for option '%s'"%(value, key))
-            elif key in ['--limit_type','--lt'] and mode=='limits':
+            elif key in ['--limit_type','--limit','--lt'] and mode=='limits':
                 if not isinstance(value, str):
                     raise InvalidCmd("'%s' is not a valid option for '%s'"%(value, key))
                 testlimits_options['limit_type'] = value
@@ -442,7 +447,16 @@ class ParseCmdArguments(object):
                         # since this is presumably what the user expects.
                         testlimits_options['limit_pattern'] = re.compile(
                             value.replace('(','\(').replace(')','\)'))
-                        
+            elif key == '--show_plots':
+                try:
+                    testlimits_options['show_plots'] = strtobool(value)
+                except ValueError:
+                    raise InvalidCmd("Cannot set '%s' option to '%s'."%(key, value))
+            elif key == '--save_plots':
+                try:
+                    testlimits_options['save_plots'] = strtobool(value)
+                except ValueError:
+                    raise InvalidCmd("Cannot set '%s' option to '%s'."%(key, value))
             elif key == '--seed':
                 try:
                     testlimits_options['seed'] = int(value)

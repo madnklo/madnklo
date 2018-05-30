@@ -1406,7 +1406,12 @@ class Counterterm(CountertermNode):
         """Given the defining flavors corresponding to the resolved process (as a dictionary),
          return a *list* of flavors corresponding to the flavor assignment of the reduced process 
          given the defining flavors.
-         """
+        """
+        if self.count_unresolved() > 1 and any(
+            any(substruct.name()=='S' for substruct in current['singular_structure'].substructures)
+                                                   for current in self.get_all_currents()):
+            raise MadGraph5Error("The function 'get_reduced_flavors' of the class Counterterm"+
+                " does not yet support NNLO soft structures such as: %s"%str(self))
 
         # Now construct the reduced flavors list
         if defining_flavors is None or IR_subtraction is None:
@@ -1425,7 +1430,6 @@ class Counterterm(CountertermNode):
                 tuple( number_to_flavors_map[n] for n in reduced_process_leg_numbers[0] ),
                 tuple( number_to_flavors_map[n] for n in reduced_process_leg_numbers[1] )
             )
-            
             
         return reduced_flavors
 
@@ -1945,7 +1949,8 @@ class IRSubtraction(object):
 
     def get_all_counterterms(
         self, process,
-        max_unresolved_in_elementary=None, max_unresolved_in_combination=None):
+        max_unresolved_in_elementary=None, max_unresolved_in_combination=None,
+        ignore_integrated_counterterms=False):
         """Generate all counterterms for the corrections specified in this module
         and the process given in argument."""
 
@@ -1961,8 +1966,12 @@ class IRSubtraction(object):
         all_integrated_counterterms = []
         for combination in combinations:
             template_counterterm = self.get_counterterm(combination, process)
-            template_integrated_counterterm = \
-                                   self.get_integrated_counterterm(template_counterterm)
+            if not ignore_integrated_counterterms:
+                template_integrated_counterterm = \
+                                       self.get_integrated_counterterm(template_counterterm)
+            else:
+                template_integrated_counterterm = None
+
             counterterms_with_loops = template_counterterm.split_loops(process['n_loops'])
             # TODO
             # For the time being, split_loops is given None instead of the squared orders

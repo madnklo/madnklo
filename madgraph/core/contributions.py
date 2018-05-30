@@ -345,7 +345,7 @@ class Contribution(object):
             max_order = max(max_order, amplitude.get('diagrams').get_max_order(order))
         return max_order
 
-    def export(self, nojpeg=False, group_processes=True, args=[]):
+    def export(self, nojpeg=False, group_processes=True, args=[], **opts):
         """ Perform the export duties, that include generation of the HelasMatrixElements and 
         the actual output of the matrix element code by the exporter."""
 
@@ -851,6 +851,10 @@ class Contribution(object):
         """ Return additional information lines for the function nice_string of this contribution."""
         return []
     
+    def short_name(self):
+        """ Returns a short-hand notation for that contribution."""
+        return self.contribution_definition.short_name()
+    
     def nice_string(self, format=0):
         """ Nice string representation of self."""
         BLUE = '\033[94m'
@@ -977,26 +981,21 @@ class Contribution_R(Contribution):
 
         return res
 
-    def generate_all_counterterms(self, group_processes=True):
+    def generate_all_counterterms(self, ignore_integrated_counterterms=False, group_processes=True):
         """ Generate all counterterms associated to the processes in this contribution."""
         
         self.counterterms = {}
         all_integrated_counterterms = []
         for process_key, (defining_process, mapped_processes) in self.get_processes_map().items():
-            local_counterterms, integrated_counterterms = \
-                                 self.IR_subtraction.get_all_counterterms(defining_process)
-
-            ###############################################################################
-            #
-            # START HACK to bypass the generation and processing of integrated counterterms
-            # so as to debug/study local ones.
-            #
-            ###############################################################################
-            #integrated_counterterms = []
-            ###############################################################################
-            # END HACK
-            ###############################################################################
+            local_counterterms, integrated_counterterms =  self.IR_subtraction.get_all_counterterms(
+                    defining_process, ignore_integrated_counterterms=ignore_integrated_counterterms)
             
+            if ignore_integrated_counterterms:
+                logger.warning(
+"""The integrated counterpart of the local counterterms of contribution '%s' for %s are ignored as per user's request.
+The resulting output must therefore be used for debugging only as it will not yield physical results."""
+                %(self.short_name(),defining_process.nice_string(print_weighted = False).replace('Process','process')))
+
             # Make sure that the non-singular counterterm which correspond to the real-emission
             # matrix elements themselves are not added here
             local_counterterms = [ct for ct in local_counterterms if ct.is_singular()]
@@ -1240,9 +1239,9 @@ class Contribution_R(Contribution):
                 # Example: C(5,6) in e+ e- > g g d d~
                 counterterms.remove(counterterm)
 
-    def export(self, *args, **opts):
+    def export(self, ignore_integrated_counterterms=False, **opts):
         """ Overloads export so as to export subtraction currents as well."""
-        ret_value = super(Contribution_R, self).export(*args, **opts)
+        ret_value = super(Contribution_R, self).export(**opts)
 
         # Fish out the group_processes option as it could be used when attempting to
         # generate all currents.
@@ -1253,7 +1252,8 @@ class Contribution_R(Contribution):
             group_processes = True
 
         integrated_counterterms = self.generate_all_counterterms(
-                                                          group_processes=group_processes)
+            group_processes=group_processes,
+            ignore_integrated_counterterms=ignore_integrated_counterterms)
       
         # Add the integrated counterterms to be passed to the exporter
         ret_value.update({'integrated_counterterms': integrated_counterterms})
@@ -1977,7 +1977,13 @@ class ContributionList(base_objects.PhysicsObjectList):
                     except AttributeError:
                         raise MadGraph5Error("The contribution\n%s\n does not have function '%s' defined."%(
                                                                                     contrib.nice_string(), method))
-                    return_values.append((contrib, contrib_function(*method_args, **method_opts)))
+                    # If method opts depend on the contribution, it can be passed as a callable
+                    # that can be evaluated here
+                    if not isinstance(method_opts, dict) and callable(method_opts):
+                        method_options = method_opts(contrib)
+                    else:
+                        method_options = dict(method_opts)
+                    return_values.append((contrib, contrib_function(*method_args, **method_options)))
                     remaining_contribs.pop(remaining_contribs.index(contrib))
 
         if remaining_contribs:

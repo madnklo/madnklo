@@ -47,7 +47,7 @@ class TestME7_NLO_colorful_epem_jjj(unittest.TestCase):
     
     # If the debug mode is set to True, then the process output is not refreshed
     # but reused instead
-    debugging = True 
+    debugging = False 
 
     def setUp(self):
         """ basic building of the class to test """
@@ -268,7 +268,7 @@ class TestME7_NLO_cataniseymour_epem_jjj(unittest.TestCase):
     
     # If the debug mode is set to True, then the process output is not refreshed
     # but reused instead
-    debugging = True 
+    debugging = False 
 
     def setUp(self):
         """ basic building of the class to test """

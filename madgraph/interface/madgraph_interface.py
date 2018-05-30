@@ -3088,7 +3088,7 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
                         raise
                     add_options[key] = ignored_contribs
                 except:
-                    add_options[key].extend([v.strip() for v in value.split(' ')])
+                    add_options[key].extend([v.strip() for v in value.split(',')])
                 for contrib in add_options[key]:
                     if not re.match(r'^(B|R*V*)$',contrib):
                         raise InvalidCmd("Ignored contribs must be specified with syntax 'B' or 'RRR(...)VVV(...)'.")
@@ -3128,7 +3128,8 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
         
         output_options = { 'color_correlators' : None,
                            'postpone_model' : False,
-                           'spin_correlators' : None
+                           'spin_correlators' : None,
+                           'ignore_integrated_counterterms' : [],
                          }
         
         # First combine all value of the options (starting with '--') separated by a space
@@ -3162,6 +3163,19 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
                                   " can only 'None' or of the form 'N'*k+'LO' for any k.")
                     output_options[key] = value
 
+            elif key=='ignore_integrated_counterterms':
+                try:
+                    list_to_ignore = eval(value)
+                    if not isinstance(list_to_ignore, list):
+                        raise BaseException
+                except:
+                    list_to_ignore = [v.strip() for v in value.split(',')]
+                    
+                for to_ignore in list_to_ignore:
+                    if to_ignore!='all' and not re.match(r'^(R*V*)$',to_ignore):
+                        raise InvalidCmd("Ignored integrated counterterms must be specified"+
+                        " each with syntax 'all' or 'RRR(...)VVV(...)', not '%s'."%to_ignore)
+                output_options[key] = list_to_ignore
             else:
                 raise InvalidCmd("Unrecognized option for command output: %s"%key)
 
@@ -3460,7 +3474,7 @@ This implies that with decay chains:
         and the target_squared_orders as constraints applying to the NNLO contributions.
         So, if the user specified QCD^2==2 at LO, these NNLO target_squared_orders would become QCD^2 in [2-6]"""
 
-        logger.warning('At NNLO, MadEvent7 currently now only generate the RR contributions.')
+        logger.warning('At NNLO, MadEvent7 can only generate the RR contributions for now.')
         
         # Shortcut accessor to quantities stores in generation_options
         all_perturbed_orders = generation_options['all_perturbed_orders']
@@ -8136,7 +8150,7 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
                 group_subprocesses=group_processes, additional_options=output_options )
         elif options['exporter'] == 'ME7':
             self._curr_exporter = export_ME7.ME7Exporter(
-                self, noclean, group_subprocesses=group_processes )
+                self, noclean, group_subprocesses=group_processes, export_options=output_options)
         elif options['exporter'] == 'cpp':
             self._curr_exporter = export_cpp.ExportCPPFactory(
                 self, group_subprocesses=group_processes )

@@ -4056,6 +4056,14 @@ class ContributionDefinition(object):
         res.append('%-30s:   %s'%('process_definition',self.process_definition.nice_string().replace('Process: ','')))
         return '\n'.join(res)
     
+    def short_name(self):
+        """ Returns a short-hand notation for that contribution."""
+        shortname = 'R'*self.n_unresolved_particles + \
+                    'V'*self.n_loops
+        if shortname=='':
+            shortname = 'B'
+        return shortname
+
     def get_shell_name(self):
         """ Returns a short descriptive name that can be used as a directory or file name."""
         shell_name = '%s'%self.correction_order

@@ -1333,6 +1333,7 @@ The resulting output must therefore be used for debugging only as it will not yi
                         if accessor.subtraction_current_instance.is_zero:
                             # misc.sprint("Zero current found in CT %s" % str(counterterm))
                             counterterms.remove(counterterm)
+                            break
 
     def add_ME_accessors(self, all_MEAccessors, root_path):
         """ Adds all MEAccessors for the matrix elements and currents generated as part of this contribution."""

@@ -18,10 +18,10 @@ import madgraph.integrator.mappings as mappings
 import madgraph.core.subtraction as subtraction
 import madgraph.core.base_objects as base_objects
 import madgraph.integrator.phase_space_generators as PS
+import madgraph.various.misc as misc
 from madgraph.integrator.vectors import Vector, LorentzVector
 from madgraph.integrator.vectors import LorentzVectorDict, LorentzVectorList
 
-import copy
 import math
 import random
 import os
@@ -91,6 +91,7 @@ class FinalCollinearVariablesTest(unittest.TestCase):
         for _ in range(100):
             # Generate n_children random Lorentz vectors
             my_PS_point = LorentzVectorDict()
+            parent = self.n_children
             children = tuple(range(self.n_children))
             for i in children:
                 if (self.massive): my_PS_point[i] = random_momentum()
@@ -102,14 +103,11 @@ class FinalCollinearVariablesTest(unittest.TestCase):
             variables = dict()
             mappings.FinalCollinearVariables.get(
                 my_PS_point, children, na, nb, variables )
-            # Compute total momentum
-            total_momentum = LorentzVector()
-            for i in children:
-                total_momentum += my_PS_point[i]
             # Compute new phase space point
             new_PS_point = LorentzVectorDict()
+            new_PS_point[parent] = sum(my_PS_point[child] for child in children)
             mappings.FinalCollinearVariables.set(
-                new_PS_point, children, total_momentum, na, nb, variables )
+                new_PS_point, parent, children, na, nb, variables )
             # Check the two phase-space points are equal
             self.assertDictEqual(my_PS_point, new_PS_point)
 
@@ -122,6 +120,7 @@ class FinalCollinearVariablesTest(unittest.TestCase):
         random.seed(42)
         # Check many times
         for _ in range(20):
+            parent = self.n_children
             children = tuple(range(self.n_children))
             # Generate children squares
             if self.massive:
@@ -152,14 +151,11 @@ class FinalCollinearVariablesTest(unittest.TestCase):
                 variables = dict()
                 mappings.FinalCollinearVariables.get(
                     my_PS_point, children, na, nb, variables)
-                # Compute total momentum
-                total_momentum = LorentzVector()
-                for i in children:
-                    total_momentum += my_PS_point[i]
                 # Compute new phase space point
                 new_PS_point = LorentzVectorDict()
+                new_PS_point[parent] = sum(my_PS_point[child] for child in children)
                 mappings.FinalCollinearVariables.set(
-                    new_PS_point, children, total_momentum, na, nb, variables )
+                    new_PS_point, parent, children, na, nb, variables)
                 # Check the two phase-space points are equal
                 self.assertDictEqual(my_PS_point, new_PS_point)
 
@@ -184,6 +180,7 @@ class InitialCollinearVariablesTest(unittest.TestCase):
         for _ in range(100):
             # Generate n_children random Lorentz vectors
             my_PS_point = LorentzVectorDict()
+            parent = self.n_children
             is_child = 0
             fs_children = tuple(range(1, self.n_children))
             my_PS_point[is_child] = random_momentum(0)
@@ -192,15 +189,17 @@ class InitialCollinearVariablesTest(unittest.TestCase):
                 if self.massive: my_PS_point[i] = random_momentum()
                 else: my_PS_point[i] = random_momentum(0)
             # Generate two random light-cone directions
-            na, nb = mappings.InitialCollinearVariables.collinear_and_reference(my_PS_point[is_child])
+            na, nb = mappings.InitialCollinearVariables.collinear_and_reference(
+                my_PS_point[is_child])
             # Compute collinear variables
             variables = dict()
             mappings.InitialCollinearVariables.get(
                 my_PS_point, fs_children, is_child, na, nb, variables )
             # Compute new phase space point
             new_PS_point = LorentzVectorDict()
+            new_PS_point[is_child] = my_PS_point[is_child]
             mappings.InitialCollinearVariables.set(
-                new_PS_point, fs_children, is_child, my_PS_point[is_child], na, nb, variables )
+                new_PS_point, is_child, fs_children, na, nb, variables )
             # Check the two phase-space points are equal
             self.assertDictEqual(my_PS_point, new_PS_point)
 
@@ -245,9 +244,10 @@ class InitialCollinearVariablesTest(unittest.TestCase):
                     my_PS_point, fs_children, is_child, na, nb, variables )
                 # Compute new phase space point
                 new_PS_point = LorentzVectorDict()
+                new_PS_point[is_child] = my_PS_point[is_child]
                 mappings.InitialCollinearVariables.set(
-                    new_PS_point, fs_children, is_child,
-                    my_PS_point[is_child], na, nb, variables )
+                    new_PS_point, is_child, fs_children,
+                    na, nb, variables )
                 # Check the two phase-space points are equal
                 self.assertDictEqual(my_PS_point, new_PS_point)
 
@@ -326,6 +326,10 @@ class MappingsTest(unittest.TestCase):
     # Leaving the IS not aligned with z avoids numerical issues
     v1 = LorentzVector([4., 0., 0., math.sqrt(3.)])
     v2 = LorentzVector([4., 1., 1., 1.])
+
+    seed = 42
+    n_tests = 20
+    verbose = False
 
     @staticmethod
     def randomize(pars):
@@ -457,11 +461,13 @@ class MappingsTest(unittest.TestCase):
         """Test mapping and inverse."""
 
         # Make test deterministic by setting seed
-        random.seed(42)
+        random.seed(self.seed)
         # Check many times
-        for _ in range(20):
+        for _ in range(self.n_tests):
             # Generate a random setup
             MappingsTest.randomize(pars)
+            if self.verbose:
+                misc.sprint("Structure: " + str(pars['structure']))
             my_PS_point = MappingsTest.generate_PS(pars)
             squared_masses = dict()
             for parent in pars['parents']:
@@ -473,18 +479,24 @@ class MappingsTest(unittest.TestCase):
             # Rotate it to avoid zero components
             for key in my_PS_point.keys():
                 my_PS_point[key].rotoboost(MappingsTest.v1, MappingsTest.v2)
-            # I know what I'm doing
-            old_PS_point = copy.deepcopy(my_PS_point)
+            if self.verbose:
+                misc.sprint("Starting PS point:\n" + str(my_PS_point))
             # Compute collinear variables
             variables = dict()
-            lres = pars['mapping'].map_to_lower_multiplicity(
+            low_PS_point, low_vars = pars['mapping'].map_to_lower_multiplicity(
                 my_PS_point, pars['structure'], pars['momenta_dict'], squared_masses,
                 variables, True )
-            hres = pars['mapping'].map_to_higher_multiplicity(
-                my_PS_point, pars['structure'], pars['momenta_dict'],
+            if self.verbose:
+                misc.sprint("Mapped PS point:\n" + str(low_PS_point))
+                misc.sprint("with variables: " + str(low_vars))
+            high_PS_point, high_vars = pars['mapping'].map_to_higher_multiplicity(
+                low_PS_point, pars['structure'], pars['momenta_dict'],
                 variables, True )
-            assertDictAlmostEqual(self, my_PS_point, old_PS_point)
-            assertDictAlmostEqual(self, lres, hres)
+            if self.verbose:
+                misc.sprint("Unmapped PS point:\n" + str(high_PS_point))
+                misc.sprint("with variables: " + str(high_vars))
+            assertDictAlmostEqual(self, my_PS_point, high_PS_point)
+            assertDictAlmostEqual(self, low_vars, high_vars)
 
     # Test masses mappings
     #=====================================================================================
@@ -731,9 +743,9 @@ class WalkersTest(unittest.TestCase):
                 res_dict1 = walker.walk_to_lower_multiplicity(
                     my_PS_point, my_counterterms[i],
                     compute_kinematic_variables=True, compute_jacobian=True )
-                (currs1, ME1, mv1, kin)  = (
+                currs1, ME1, kin = (
                     res_dict1['currents'], res_dict1['matrix_element'],
-                    res_dict1['mapping_variables'], res_dict1['kinematic_variables'] )
+                    res_dict1['kinematic_variables'] )
                 if self.verbosity > 3:
                     print "Walking down"
                     for curr in currs1:
@@ -742,25 +754,23 @@ class WalkersTest(unittest.TestCase):
                 res_dict2 = walker.walk_to_higher_multiplicity(
                     ME1[1], my_counterterms[i], kin,
                     compute_jacobian=True )
-                (currs2, ME2, mv2)  = (
-                    res_dict2['currents'], res_dict2['matrix_element'],
-                    res_dict2['mapping_variables'] )
+                currs2, ME2 = res_dict2['currents'], res_dict2['matrix_element']
                 if self.verbosity > 3:
                     print "Walking up"
                     print ME2[1]
                     for curr in currs2:
                         print curr[1]
-                    print "Jacobians:", mv1['jacobian'], mv2['jacobian']
                 # Check currents
                 self.assertEqual(len(currs1), len(currs2))
                 for i_curr in range(len(currs1)):
-                    self.assertEqual(currs1[i_curr][0], currs2[i_curr][0])
-                    self.assertDictEqual(currs1[i_curr][1], currs2[i_curr][1])
+                    c1, c2 = currs1[i_curr], currs2[i_curr]
+                    self.assertEqual(c1['stroll_currents'], c2['stroll_currents'])
+                    self.assertDictEqual(c1['higher_PS_point'], c2['higher_PS_point'])
+                    self.assertDictEqual(c1['lower_PS_point'], c2['lower_PS_point'])
+                    assertDictAlmostEqual(self, c1['stroll_vars'], c2['stroll_vars'])
                 # Check MEs
                 self.assertEqual(ME1[0], ME2[0])
                 self.assertDictEqual(ME1[1], ME2[1])
-                # Check mapping variables
-                assertDictAlmostEqual(self, mv1, mv2)
 
     def _test_approach_limit(
         self, walker, process,
@@ -823,8 +833,7 @@ class WalkersTest(unittest.TestCase):
                 squares = {key: my_PS_point[key].square() for key in my_PS_point.keys()}
                 # Compute collinear variables
                 for alpha in self.parameter_values:
-                    new_PS_point = my_PS_point.get_copy()
-                    walker.approach_limit(new_PS_point, ss, alpha, process)
+                    new_PS_point = walker.approach_limit(my_PS_point, ss, alpha, process)
                     if self.verbosity > 4:
                         print "New PS point for", alpha, ":\n", new_PS_point
                     for leg in legs_FS:

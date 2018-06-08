@@ -41,7 +41,7 @@ pjoin = os.path.join
 CurrentImplementationError = utils.CurrentImplementationError
 
 # Mother function grouping functionalities common to all integrated FF NLO QCD currents
-class integrated_NLO_FF_QCD_current(currents.QCDCurrent):
+class integrated_NLO_FF_QCD_current(utils.IntegratedCurrent, currents.QCDCurrent):
     """ Just a template class for all Final-Final NLO QCD local subtraction current."""
     
     EulerGamma = 0.57721566490153286061
@@ -147,28 +147,7 @@ class integrated_NLO_FF_QCD_collinear_qqx(integrated_NLO_FF_QCD_current):
         # options to specify upon instantiating this class.
         return {}
 
-    def get_cache_and_result_key(self,  current, 
-                                        PS_point,
-                                        reduced_process=None,
-                                        leg_numbers_map=None,
-                                        hel_config = None,
-                                        mapping_variables = {},
-                                        **opts
-                      ):
-        """ If this subtraction current depends on more than just the PS point and
-        alpha_s, then complement the cache key here with the additional necessary information. """
-        
-
-        cache_key, result_key = super(NLO_FF_QCD_collinear_qqx, self).get_cache_and_result_key(
-            current, PS_point,
-            reduced_process=reduced_process, leg_numbers_map=leg_numbers_map, 
-            hel_config=hel_config, mapping_variables=mapping_variables)
-        
-        # cache_key['another_call_specifier'] = 'set_it_here'
-
-        return cache_key, result_key
-
-    def evaluate_subtraction_current(self,  current, 
+    def evaluate_integrated_current(self,  current, 
                                             PS_point, 
                                             reduced_process = None,
                                             leg_numbers_map = None,
@@ -287,7 +266,7 @@ class integrated_NLO_FF_QCD_collinear_gq(integrated_NLO_FF_QCD_current):
         # options to specify upon instantiating this class.
         return {}
 
-    def evaluate_subtraction_current(self,  current, 
+    def evaluate_integrated_current(self,  current, 
                                             PS_point, 
                                             reduced_process = None,
                                             leg_numbers_map = None,
@@ -450,7 +429,7 @@ class integrated_NLO_FF_QCD_softcollinear_gq(integrated_NLO_FF_QCD_current):
 
         return {'color_charge': color_charge}
 
-    def evaluate_subtraction_current(self,  current, 
+    def evaluate_integrated_current(self,  current, 
                                             PS_point, 
                                             reduced_process = None,
                                             leg_numbers_map = None,
@@ -571,7 +550,7 @@ class integrated_NLO_FF_QCD_collinear_gg(integrated_NLO_FF_QCD_current):
         # options to specify upon instantiating this class.
         return {}
     
-    def evaluate_subtraction_current(self,  current, 
+    def evaluate_integrated_current(self,  current, 
                                             PS_point, 
                                             reduced_process = None,
                                             leg_numbers_map = None,
@@ -695,7 +674,7 @@ class integrated_NLO_QCD_soft_gluon(integrated_NLO_FF_QCD_current):
         # options to specify upon instantiating this class.
         return {}
     
-    def evaluate_subtraction_current(self,  current, 
+    def evaluate_integrated_current(self,  current, 
                                             PS_point, 
                                             reduced_process = None,
                                             leg_numbers_map = None,

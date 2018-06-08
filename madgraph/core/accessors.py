@@ -362,9 +362,10 @@ class VirtualMEAccessor(object):
 
         return key_value_pairs
     
-    def __call__(self, PS_point, permutation=None, defining_pdgs_order=None, squared_orders = None, **opts):
-        """ The evaluation will be implemented by the daughter classes, but we can already here apply 
-        the specified permutation and record the defining_pdgs_order (i.e. which of the mapped process
+    def __call__(self, PS_point, permutation=None, defining_pdgs_order=None, squared_orders=None, **opts):
+        """ The evaluation will be implemented by the daughter classes,
+        but we can already here apply the specified permutation
+        and record the defining_pdgs_order (i.e. which of the mapped process
         was the user really interested in, it is one of those present in self.pdgs_combs) 
         in a dictionary that we can return to the daughter class."""
 
@@ -849,17 +850,19 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
     def check_inputs_validity(self, opts, current):
         """ Check the validity of the inputs of the call to this current accessor."""
         
-        # Work on a copy of th eoption dictionary, filtered from irrelevant keys
-        new_opts = dict((k,v) for k,v in opts.items() if k not in 
-                                                            ['permutation','process_pdgs'])
+        # Work on a copy of the option dictionary, filtered from irrelevant keys
+        new_opts = dict(
+            (k,v) for k,v in opts.items()
+            if k not in ['permutation','process_pdgs'] )
         
         if 'hel_config' in opts and opts['hel_config']:
             new_opts['hel_config'] = tuple(opts['hel_config'])
-            # In this case it is not optimal to check the validity of the helicity configuration, so 
-            # we limit ourselves to checking if it supports helicity assignment
+            # In this case it is not optimal to check the validity of the helicity configuration,
+            # so we limit ourselves to checking if it supports helicity assignment
             if not self.subtraction_current_instance.supports_helicity_assignment:
-                raise MadGraph5Error("The following subtraction current accessor:\n%s"%(
-                                    self.nice_string() ) + "\ndoes not support helicity assignment.")
+                raise MadGraph5Error(
+                    "The subtraction current accessor:\n" + self.nice_string()
+                    + "\ndoes not support helicity assignment." )
 
         squared_orders = None
         if 'squared_orders' in opts:
@@ -869,8 +872,8 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
             elif isinstance(opts['squared_orders'], list):
                 squared_orders = tuple(sorted(opts['squared_orders']))
             if squared_orders:
-                # This information must be passed via the 'squared_orders' attribute of the current, so we
-                # simply make sure that it is identical if specified and then remove it
+                # This information must be passed via the 'squared_orders' attribute of the current,
+                # so we simply make sure that it is identical if specified and then remove it
                 if squared_orders != tuple(sorted(current.get('squared_orders').items())):
                     raise MadGraph5Error("The following subtraction current accessor:"+\
                         "\n%s\ncannot provide squared orders %s."%(
@@ -884,24 +887,24 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
         
         return self.subtraction_current_instance.evaluate_subtraction_current(*args, **opts)
 
-    def __call__(self, current, PS_point, **opts):
-        """ Evaluation of the subtraction current. """
+    def __call__(self, current, **opts):
+        """Evaluate the subtraction current."""
+
+        instance = self.subtraction_current_instance
         
-        if self.subtraction_current_instance is None:
-            raise MadGraph5Error("This subtraction current accessor\n'%s'\nhas not been properly initialized."%(
-                                                                                            self.nice_string()))
+        if instance is None:
+            raise MadGraph5Error(
+                "This subtraction current accessor\n'%s'" % self.nice_string() +
+                "\nhas not been properly initialized." )
         
         # Parse options and check their validity
         call_opts = self.check_inputs_validity(opts, current)
-    
-        # Set the arguments of the call
-        call_args = [current, PS_point]
-        
+
         is_cache_active = opts.get('cache_active', self.cache_active)
         if is_cache_active:
             # Now obtain the cache key directly from the current implementation
-            cache_key, result_key = self.subtraction_current_instance.get_cache_and_result_key(
-                                                                   *call_args, **call_opts)
+            cache_key, result_key = instance.get_cache_and_result_key(
+                current, **call_opts)
         else:
             cache_key, result_key = None, None
     
@@ -910,28 +913,33 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
             recycled_call = self.cache.get_result(**cache_key)
             recycled_result = recycled_call.get_result(**result_key)
             if recycled_result:
-                return self.evaluation_class(recycled_result), self.result_class(recycled_call)
+                evaluation = self.evaluation_class(recycled_result)
+                result = self.result_class(recycled_call)
+                return evaluation, result
 
-        all_evaluations = self.call_subtraction_current(*call_args, **call_opts)
+        all_evaluations = self.call_subtraction_current(current, **call_opts)
         
-        if len(all_evaluations)==1:
+        if len(all_evaluations) == 1:
             return all_evaluations.values()[0], all_evaluations
         
         # If there are several evaluations we need the result_key even in the absence
         # of caching, in which case it must be recomputed here.
         if result_key is None:
-            cache_key, result_key = self.subtraction_current_instance.get_cache_and_result_key(
-                                                                   *call_args, **call_opts)
+            cache_key, result_key = instance.get_cache_and_result_key(
+                current, **call_opts)
         
         evaluation_asked_for = all_evaluations.get_result(**result_key)
         if not evaluation_asked_for:
-            raise MadGraph5Error("Could not obtain result '%s' from evaluation:\n%s"%(str(result_key), str(all_evaluations)))
+            raise MadGraph5Error(
+                "Could not obtain result '%s'" % str(result_key) +
+                "from evaluation:\n%s" % str(all_evaluations) )
         
         # Update the cache with the new results produced
         if not cache_key is None:
             all_evaluations = self.cache.add_result(all_evaluations, **cache_key)
         
-        # Return both the specific evaluation asked for and all results available for this cache_key
+        # Return both the specific evaluation asked for
+        # and all results available for this cache_key
         return self.evaluation_class(evaluation_asked_for), self.result_class(all_evaluations)
 
     def load_module(self, module_path):
@@ -1829,9 +1837,11 @@ class MEAccessorDict(dict):
         return self.get_MEAccessor(key)
 
     def get_MEAccessor(self, key, pdgs=None):
-        """ Provides access to a given ME, provided its ProcessKey. See implementation of this ProcessKey to
+        """ Provides access to a given ME, provided its ProcessKey.
+        See implementation of this ProcessKey to
         understand how the properties of the process being accessed are stored.
-        The user can specify here a particular order in which the particles/flavors are provided. When doing so
+        The user can specify here a particular order in which the particles/flavors are provided.
+        When doing so
         the corresponding permutation will be computed and provided in the call_key returned 
         (which corresponds to the options to provide when calling the returned MEaccessor).
         
@@ -1855,7 +1865,7 @@ class MEAccessorDict(dict):
             accessor_key = key
         else:
             raise MadGraph5Error("Key passed to get_MEAccessor should always be of type ProcessKey or base_objects.Process")
-            
+
         try:
             (ME_accessor, defining_pdgs_order) = super(MEAccessorDict, self).__getitem__(accessor_key.get_canonical_key())
         except KeyError:
@@ -2002,12 +2012,13 @@ class MEAccessorDict(dict):
             # Also, if spin and color correlation are specified, we must change their ordering
             # according to the leg numbers
 
-            if specified_process_instance and 'color_correlation' in call_options and call_options['color_correlation']:
-                call_options['color_correlation'] = self.format_color_correlation(specified_process_instance, 
-                                                                                  call_options['color_correlation'])
-            if specified_process_instance and 'spin_correlation' in call_options and call_options['spin_correlation']:    
-                call_options['spin_correlation'] = self.format_spin_correlation(specified_process_instance, 
-                                                                                  call_options['spin_correlation'])
+            if specified_process_instance:
+                if call_options.get('color_correlation', False):
+                    call_options['color_correlation'] = self.format_color_correlation(
+                        specified_process_instance, call_options['color_correlation'] )
+                if call_options.get('spin_correlation', False):
+                    call_options['spin_correlation'] = self.format_spin_correlation(
+                        specified_process_instance, call_options['spin_correlation'] )
 
         if self.cache_active:
             if isinstance(args[0], subtraction.Current):
@@ -2025,11 +2036,13 @@ class MEAccessorDict(dict):
     def add_MEAccessor(self, ME_accessor, allow_overwrite=False):
         """ Add a particular ME accessor to the collection of available ME's."""
         if not isinstance(ME_accessor, VirtualMEAccessor):
-            raise MadGraph5Error("MEAccessorDict can only be assigned values inheriting from VirtualMEAccessor.")
+            raise MadGraph5Error(
+                "MEAccessorDict can only be assigned values inheriting from VirtualMEAccessor.")
         
         for key, value in ME_accessor.get_canonical_key_value_pairs():
             if key in self and not allow_overwrite:
-                raise MadGraph5Error("Attempting to assign two MEAccessors to the same key in MEAccessorDict.")
+                raise MadGraph5Error(
+                    "Attempting to assign two MEAccessors to the same key in MEAccessorDict.")
             self[key] = value
 
     def add_MEAccessors(self, ME_accessor_list, allow_overwrite=False):

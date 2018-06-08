@@ -463,7 +463,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
                 try:
                     list_limit_pattern = eval(limit_pattern)
                     if not isinstance(list_limit_pattern, list):
-                        raise
+                        raise BaseException
                 except:
                     list_limit_pattern = [limit_pattern]
                 new_list_limit_pattern = []
@@ -1107,7 +1107,9 @@ class ME7Integrand_V(ME7Integrand):
         # do not match the particular selection. This should however be irrelevant for the
         # evaluation of the counterterm.
         CT_evaluation, all_results = self.all_MEAccessors(
-            integrated_current, reduced_PS, reduced_process = reduced_process,
+            integrated_current, lower_PS_point=reduced_PS,
+            higher_PS_point=None,
+            reduced_process = reduced_process,
             leg_numbers_map = momenta_map,
             hel_config = hel_config,
             compute_poles = compute_poles )
@@ -1343,7 +1345,9 @@ The missing process is: %s"""%reduced_process.nice_string())
         return sigma_wgt
 
 class ME7Integrand_R(ME7Integrand):
-    """ ME7Integrand for the computation of a single real-emission type of contribution."""
+    """ME7Integrand for the computation of a single real-emission type of contribution."""
+
+    divide_by_jacobian = True
     
     def __init__(self, *args, **opts):
         """Initialize a real-emission type of integrand,
@@ -1625,25 +1629,43 @@ class ME7Integrand_R(ME7Integrand):
         
         return tuple(sum([ (list(sc) if not sc is None else []) for sc in spin_correlators],[]))
 
-    def evaluate_counterterm(self, counterterm, PS_point,
-                             hel_config=None, defining_flavors=None,
-                             apply_flavour_blind_cuts=True, apply_flavour_cuts=True  ):
-        """ Evaluates the specified counterterm for the specified PS point."""
+    @staticmethod
+    def update_all_necessary_ME_calls(all_necessary_ME_calls, new_evaluation):
+
+        new_all_necessary_ME_calls = []
+        for ((spin_index, color_index), current_wgt) in new_evaluation['values'].items():
+            # Now combine the correlators necessary for this current
+            # with those already specified in 'all_necessary_ME_calls'
+            for ME_call in all_necessary_ME_calls:
+                new_all_necessary_ME_calls.append((
+                    # Append this spin correlation to those already present for that call
+                    ME_call[0] + [new_evaluation['spin_correlations'][spin_index], ],
+                    # Append this color correlation to those already present for that call
+                    ME_call[1] + [new_evaluation['color_correlations'][color_index], ],
+                    # Append this weight to those already present for that call
+                    ME_call[2] + [current_wgt['finite'], ],
+                ))
+        # Return the new list of necessary ME calls
+        return new_all_necessary_ME_calls
+
+    def evaluate_counterterm(
+        self, counterterm, PS_point,
+        hel_config=None, defining_flavors=None,
+        apply_flavour_blind_cuts=True, apply_flavour_cuts=True ):
+        """Evaluate a counterterm for a given PS point."""
 
         # Retrieve some possibly relevant model parameters
         alpha_s = self.model.get('parameter_dict')['aS']
         mu_r = self.model.get('parameter_dict')['MU_R']
 
-        # Now call the walker to hike through the counterterm structure
-        # and return the list of currents
-        # and PS points to use to evaluate them.
+        # Now call the walker which hikes through the counterterm structure
+        # to return the list of currents and PS points for their evaluation
         # hike_output = {
-        #         'currents' : [(current1, PS1), (current2, PS2), etc...],
-        #         'matrix_element': (ME, PSME),
-        #         'mapping_variables' : mapping_variables (a dictionary)
-        #         'kinematic_variables' : kinematic_variables  (a dictionary)
-        #        }
-        hike_output = self.walker.walk_to_lower_multiplicity(PS_point, counterterm, compute_jacobian=True)
+        #         'currents' : [stroll_output1, stroll_output2, ...],
+        #         'matrix_element': (ME_process, ME_PS),
+        #         'kinematic_variables' : kinematic_variables (a dictionary) }
+        hike_output = self.walker.walk_to_lower_multiplicity(
+            PS_point, counterterm, compute_jacobian=self.divide_by_jacobian )
        
         # Access the matrix element characteristics
         ME_process, ME_PS = hike_output['matrix_element']
@@ -1666,80 +1688,47 @@ class ME7Integrand_R(ME7Integrand):
             reduced_PS, reduced_flavors):
             return 0.0, reduced_PS, reduced_flavors
 
-        # Separate the current in those directly connected to the matrix element
-        # and those that are not
-        disconnected_currents = []
-        connected_currents = []
-        for (currents, PS) in hike_output['currents']:
-            for current in currents:
-                if current['resolve_mother_spin_and_color']:
-                    connected_currents.append((current, PS))
-                else:
-                    disconnected_currents.append((current, PS))
-
         # The above "hike" can be used to evaluate the currents first and the ME last.
         # Note that the code below can become more complicated when tracking helicities,
         # but let's forget this for now.
-        weight = 1.
-        assert((hel_config is None))
-    
-        for (current, PS_point_for_current) in disconnected_currents:
-            current_evaluation, all_current_results = self.all_MEAccessors(
-                current, PS_point_for_current, hel_config=None, 
-                reduced_process = ME_process,
-                leg_numbers_map = counterterm.momenta_dict,
-                mapping_variables=hike_output['mapping_variables'])
-            # Make sure no spin- or color-correlations are demanded by the current for this kind of currents
-            assert(current_evaluation['spin_correlations']==[None,])
-            assert(current_evaluation['color_correlations']==[None,])
-            assert(current_evaluation['values'].keys()==[(0,0),])
-            # WARNING:: this can only work for local 4D subtraction counterterms! 
-            # For the integrated ones it is very likely that we cannot use a nested structure, and
-            # there will be only one level anyway so that there is not need of fancy combination
-            # of Laurent series.
-            weight *= current_evaluation['values'][(0,0)]['finite']
-
+        assert ((hel_config is None))
         # all_necessary_ME_calls is a list of tuples of the following form:
-        #  (spin_correlators_to_combine, color_correlators_to_combine, weights_to_combine)
+        # (spin_correlators_to_combine, color_correlators_to_combine, weights_to_combine)
         all_necessary_ME_calls = [ ([], [], []) ]
-        
-        # Now iterate over currents that may require color- and spin-correlations        
-        for (current, PS_point_for_current) in connected_currents:
-###########################################################################################
-#                             TEMPORARY HACK -START- 
-# 
-# This temporary hack forces the momenta passed to the current to be the ones of the original
-# higher multiplicity PS point mapped down. Eventually the walkers will be updated to pass
-# both information to the current: the original PS point and the mapped one.
-###########################################################################################
-#            for i_leg, vec_leg in PS_point.items():
-#                PS_point_for_current[i_leg] = vec_leg.get_copy()
-###########################################################################################
-#                             TEMPORARY HACK -END- 
-###########################################################################################
-            current_evaluation, all_current_results = self.all_MEAccessors(
-                current, PS_point_for_current, hel_config=None, 
-                reduced_process = ME_process,
-                leg_numbers_map = counterterm.momenta_dict,
-                mapping_variables=hike_output['mapping_variables'])
-            new_all_necessary_ME_calls = []
-            # Now loop over all spin- and color- correlators required for this current
-            # and update the necessary calls to the ME
-            new_all_necessary_ME_calls = []
-            for ((spin_index, color_index), current_wgt) in current_evaluation['values'].items():
-                # Now combine the correlators necessary for this current, with those already
-                # specified in 'all_necessary_ME_calls'
-                for ME_call in all_necessary_ME_calls:
-                    new_all_necessary_ME_calls.append( (
-                        # Append this spin correlation to those already present for that call
-                        ME_call[0]+[current_evaluation['spin_correlations'][spin_index],],
-                        # Append this colour correlation to those already present for that call
-                        ME_call[1]+[current_evaluation['color_correlations'][color_index],],
-                        # Append this weight to those already present for that call
-                        ME_call[2]+[current_wgt['finite'],],
-                    ) )
-            # Update the list of necessary ME calls
-            all_necessary_ME_calls = new_all_necessary_ME_calls
+        total_jacobian = 1.
+        disconnected_currents_weight = 1.
+
+        for stroll_output in hike_output['currents']:
+            stroll_currents = stroll_output['stroll_currents']
+            higher_PS_point = stroll_output['higher_PS_point']
+            lower_PS_point  = stroll_output['lower_PS_point']
+            stroll_vars     = stroll_output['stroll_vars']
+            if stroll_vars.has_key('jacobian'):
+                total_jacobian *= stroll_vars['jacobian']
+            for current in stroll_currents:
+                # WARNING The use of reduced_process here is fishy (for all but the last)
+                current_evaluation, all_current_results = self.all_MEAccessors(
+                    current,
+                    higher_PS_point=higher_PS_point, lower_PS_point=lower_PS_point,
+                    leg_numbers_map=counterterm.momenta_dict,
+                    reduced_process=ME_process, hel_config=None,
+                    **stroll_vars )
+                # Now loop over all spin- and color- correlators required for this current
+                # and update the necessary calls to the ME
+                if not current['resolve_mother_spin_and_color']:
+                    # Make sure no spin- or color-correlations were produced by the current
+                    assert(current_evaluation['spin_correlations']==[None,])
+                    assert(current_evaluation['color_correlations']==[None,])
+                    assert(current_evaluation['values'].keys()==[(0,0),])
+                    # WARNING:: this can only work for local 4D subtraction counterterms!
+                    # For the integrated ones it is very likely that we cannot use a nested structure,
+                    # and there will be only one level anyway,
+                    # so there is not need of fancy combination of Laurent series.
+                    disconnected_currents_weight *= \
+                        current_evaluation['values'][(0,0)]['finite']
+                else:
+                    all_necessary_ME_calls = ME7Integrand_R.update_all_necessary_ME_calls(
+                        all_necessary_ME_calls, current_evaluation)
 
         # Now perform the combination of the list of spin and color correlators to be merged
         # for each necessary ME call identified
@@ -1759,7 +1748,7 @@ class ME7Integrand_R(ME7Integrand):
         all_necessary_ME_calls = new_all_necessary_ME_calls
 
         # Finally treat the call to the reduced connected matrix elements
-        final_weight = 0.0
+        connected_currents_weight = 0.
 #        misc.sprint('I got for %s:'%str(counterterm.nice_string()))
         for (spin_correlators, color_correlators, current_weight) in all_necessary_ME_calls:
 #            misc.sprint(ME_PS,ME_process.nice_string())
@@ -1807,14 +1796,18 @@ The missing process is: %s"""%ME_process.nice_string())
             #     ))
             # Again, for the integrated subtraction counterterms, some care will be needed here
             # for the real-virtual, depending on how we want to combine the two Laurent series.
-            final_weight += current_weight*ME_evaluation['finite']
+            connected_currents_weight += current_weight * ME_evaluation['finite']
             
         # Now finally handle the overall prefactor of the counterterm
-        final_weight *= counterterm.prefactor
+        # and the weight from the disconnected currents
+        final_weight = (
+            counterterm.prefactor / total_jacobian *
+            connected_currents_weight * disconnected_currents_weight )
 
         # Returns the corresponding weight and the mapped PS_point.
-        # Also returns the mapped_process (for calling the observables), which
-        # is typically simply a reference to counterterm.current which is an instance of Process.
+        # Also returns the mapped_process (for calling the observables),
+        # which is typically simply a reference to counterterm.current
+        # which is an instance of Process.
         # Notice that the flavors in the ME_process might not be accurate for now.
         return final_weight, reduced_PS, reduced_flavors
 
@@ -1920,7 +1913,7 @@ The missing process is: %s"""%ME_process.nice_string())
         # Loop over processes
         all_evaluations = {}
         for process_key, (defining_process, mapped_processes) in self.processes_map.items():
-            misc.sprint("Considering %s"%defining_process.nice_string())
+            logger.debug("Considering %s"%defining_process.nice_string())
             # Make sure that the selected process satisfies the selection requirements
             if not self.is_part_of_process_selection(
                 [defining_process, ]+mapped_processes,
@@ -1951,32 +1944,33 @@ The missing process is: %s"""%ME_process.nice_string())
                 ct for ct in self.counterterms[process_key]
                 if ct.count_unresolved() <= test_options['correction_order'].count('N') ]
             
-            # Select the limits to be probed interpreting limits as a regex pattern.
-            # If no match is found, then reconstruct the singular structure from the limits
-            # provided
-            selected_counterterms = self.find_counterterms_matching_regexp(
-                                counterterms_to_consider, test_options['limits'] )
-            if selected_counterterms:
-                selected_singular_structures = [
-                    ct.reconstruct_complete_singular_structure()
-                    for ct in selected_counterterms]
-            else:
-                limit_str = test_options['limits']
-                ss = mappings.sub.SingularStructure.from_string(
-                    limit_str, defining_process)
-                if ss is None:
-                    logger.critical(
-                        "%s is not a valid limits specification" % limit_str)
-                    return
-                selected_singular_structures = [ss, ]
+            selected_singular_structures = []
 
-            misc.sprint('Reconstructed complete singular structure: \n'+'\n'.join(
+            for limit_specifier in test_options['limits']:
+                # Select the limits to be probed interpreting limits as a regex pattern.
+                # If no match is found, then reconstruct the singular structure from the limits
+                # provided
+                selected_counterterms = self.find_counterterms_matching_regexp(
+                                                counterterms_to_consider, limit_specifier )
+                if selected_counterterms:
+                    selected_singular_structures.extend([
+                        ct.reconstruct_complete_singular_structure()
+                        for ct in selected_counterterms])
+                else:
+                    ss = mappings.sub.SingularStructure.from_string(limit_specifier, defining_process)
+                    if ss is None:
+                        logger.critical(
+                            "%s is not a valid limits specification" % limit_str)
+                        continue
+                    selected_singular_structures.append(ss)
+
+            logger.debug('Reconstructed complete singular structure: \n'+'\n'.join(
                 str(ss) for ss in selected_singular_structures ))
 
             # Loop over approached limits
             process_evaluations = {}
             for limit in selected_singular_structures:
-                misc.sprint("Approaching limit %s" % str(limit) )
+                logger.debug("Approaching limit %s" % str(limit) )
                 # Select counterterms to evaluate
                 counterterms_to_evaluate = [ct for ct in counterterms_to_consider]
                 if test_options['counterterms']:
@@ -1992,10 +1986,10 @@ The missing process is: %s"""%ME_process.nice_string())
                 base = min_value ** (1./n_steps)
                 for step in range(n_steps+1):
                     # Determine the new phase-space point
-                    scaled_real_PS_point = a_real_emission_PS_point.get_copy()
                     scaling_parameter = base ** step
-                    walker.approach_limit(
-                        scaled_real_PS_point, limit, scaling_parameter, defining_process )
+                    scaled_real_PS_point = walker.approach_limit(
+                        a_real_emission_PS_point,
+                        limit, scaling_parameter, defining_process )
                     # Initialize result
                     this_eval = {}
                     # Evaluate ME
@@ -2006,7 +2000,7 @@ The missing process is: %s"""%ME_process.nice_string())
                        spin_correlation  = None,
                        hel_config        = None )
                     this_eval['ME'] = ME_evaluation['finite']
-                    misc.sprint('For scaling variable %.3e, weight from ME = %.16f' %(
+                    logger.debug('For scaling variable %.3e, weight from ME = %.16f' %(
                                               scaling_parameter, ME_evaluation['finite'] ))
                     # Loop over counterterms
                     for counterterm in counterterms_to_evaluate:
@@ -2017,9 +2011,9 @@ The missing process is: %s"""%ME_process.nice_string())
                             apply_flavour_blind_cuts=test_options['apply_lower_multiplicity_cuts'],
                             apply_flavour_cuts=test_options['apply_lower_multiplicity_cuts'] )
                         this_eval[str(counterterm)] = ct_weight
-                        misc.sprint('Weight from CT %s = %.16f' %
+                        logger.debug('Weight from CT %s = %.16f' %
                                     (str(counterterm), ct_weight) )
-                        misc.sprint('Ratio: %.16f'%( ct_weight/float(ME_evaluation['finite']) ))
+                        logger.debug('Ratio: %.16f'%( ct_weight/float(ME_evaluation['finite']) ))
                     limit_evaluations[scaling_parameter] = this_eval
 
                 process_evaluations[str(limit)] = limit_evaluations
@@ -2032,14 +2026,23 @@ The missing process is: %s"""%ME_process.nice_string())
         # Now produce a nice matplotlib of the evaluations
         # and assess whether this test passed or not
         return self.analyze_IR_limits_test(
-            all_evaluations, test_options['acceptance_threshold'],
-            seed=seed, show=test_options['show_plots'], save=test_options['save_plots'] )
+            all_evaluations, 
+            test_options['acceptance_threshold'],
+            seed                =   seed, 
+            show                =   test_options['show_plots'], 
+            save_plots          =   test_options['save_plots'],
+            save_results_path   =   test_options['save_results_to_path']
+        )
 
     @staticmethod
     def analyze_IR_limit(
-        evaluations, title=None, def_ct=None, plot_all=True, show=True, filename=None):
+        evaluations, acceptance_threshold,
+        title=None, def_ct=None, plot_all=True, show=True, filename=None ):
 
         import matplotlib.pyplot as plt
+
+        test_failed = False
+        test_ratio  = -1.0
 
         # Produce a plot of all counterterms
         x_values = sorted(evaluations.keys())
@@ -2101,6 +2104,23 @@ The missing process is: %s"""%ME_process.nice_string())
         if filename:
             plt.savefig(filename + '_ratios.pdf')
 
+        # Check that the ratio of def_ct to the ME is close to -1
+        if plot_def and not test_failed:
+            def_ct_2_ME_ratio = evaluations[x_values[0]][def_ct]
+            def_ct_2_ME_ratio /= evaluations[x_values[0]]["ME"]
+            foo_str = "The ratio of the defining CT to the ME at lambda = %s is: %s."
+            logger.info(foo_str % (x_values[0], def_ct_2_ME_ratio))
+            test_ratio = abs(def_ct_2_ME_ratio+1)
+            test_failed = test_ratio > acceptance_threshold
+        # Check that the ratio between total and ME is close to 0
+        if not test_failed:
+            total_2_ME_ratio = total[0]
+            total_2_ME_ratio /= evaluations[x_values[0]]["ME"]
+            foo_str = "The ratio of the total to the ME at lambda = %s is: %s."
+            logger.info(foo_str % (x_values[0], total_2_ME_ratio))
+            test_ratio  = abs(total_2_ME_ratio)
+            test_failed = test_ratio > acceptance_threshold
+
         plt.figure(3)
         if title: plt.title(title)
         plt.xlabel('$\lambda$')
@@ -2123,14 +2143,17 @@ The missing process is: %s"""%ME_process.nice_string())
         else:
             plt.close('all')
 
-        return
+        return (not test_failed, test_ratio)
 
     def analyze_IR_limits_test(
         self, all_evaluations, acceptance_threshold,
-        seed=None, show=True, save=False):
+        seed=None, show=True, save_plots=False, save_results_path=None):
         """Analyze the results of the test_IR_limits command."""
 
+        test_failed = False
+        results = dict()
         for (process, process_evaluations) in all_evaluations.items():
+            results[process] = dict()
             for (limit, limit_evaluations) in process_evaluations.items():
                 proc, loops = process.split("@")
                 title = "$" + proc + "$"
@@ -2139,15 +2162,40 @@ The missing process is: %s"""%ME_process.nice_string())
                 title += "@" + loops + " approaching " + limit
                 if seed: title += " (seed %d)" % seed
                 filename = None
-                if save:
+                if save_plots:
                     filename = copy.copy(process)
                     filename = filename.replace(">", "_")
                     filename = filename.replace(" ", "").replace("~", "x")
                     filename = filename.replace("@", "_") + "_" + limit
                     if seed: filename += str(seed)
-                self.analyze_IR_limit(
-                    limit_evaluations,
+                results[process][limit] = self.analyze_IR_limit(
+                    limit_evaluations, acceptance_threshold=acceptance_threshold,
                     title=title, def_ct=limit, show=show, filename=filename )
+                if not results[process][limit][0]:
+                    test_failed = True
+        if save_results_path:
+            output_lines = []
+            for process in results:
+                for limit, (test_outcome, limiting_ratio) in results[process].items():
+                    output_lines.append('%-30s | %-20s | %-10s | %-30s'%(
+                        process,
+                        str(limit),
+                        'PASSED' if test_outcome else 'FAILED',
+                        '%.16e'%limiting_ratio
+                    ))
+            with open(save_results_path,'w') as results_output:     
+                results_output.write('\n'.join(output_lines))
+
+        if test_failed:
+            logger.info("analyse_IR_limits_test results:")
+            for process in results:
+                logger.info("    " + str(process))
+                for limit, (test_outcome, limiting_ratio) in results[process].items():
+                    if test_outcome:
+                        logger.info("    " * 2 + str(limit) + ": PASSED")
+                    else:
+                        logger.info("    " * 2 + str(limit) + ": FAILED")
+            return False
         return True
     
 class ME7Integrand_RR(ME7Integrand_R):

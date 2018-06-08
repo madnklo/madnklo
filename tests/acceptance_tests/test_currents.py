@@ -164,25 +164,24 @@ class SubtractionCurrentTest(unittest.TestCase):
 #       ---- Testing g > q q~ hard collinear
 #       ------------------------------------------
         misc.sprint('Testing hard collinear g > q q~:')
-        a_PS = copy.copy(base_PS)
-        n_parent = len(a_PS)
-        pC = a_PS[4] + a_PS[5]
-        a_PS[n_parent] = copy.copy(pC)
-        
+        n_parent = len(base_PS)
+        momenta_map = bidict({n_parent: frozenset((4, 5))})
+        reduced_PS = copy.copy(base_PS)
+        pC = reduced_PS.pop(4) + reduced_PS.pop(5)
+        reduced_PS[n_parent] = pC
+        Q = pC + base_PS[6]
         # Put the mapped momentum on-shell (this is not a well-defined mapping,
         # but it is sufficient for now to test this current)
-        a_PS[n_parent].set_square(0)
-        momenta_map = bidict( { n_parent : frozenset((4,5)) } )
-        mapping_variables = {'Q': Q, 'pC' + str(n_parent): pC}
+        reduced_PS[n_parent].set_square(0)
 
 #       This would be a more generic way of doing this, but it would involve
 #       instantiating a counterterm, which I would like to avoid for now.
 #        self.walker.walk_to_lower_multiplicity(
 #            a_PS, counterterm, kinematic_variables = False)
         current_evaluation, all_current_results = accessors_dict(
-            currents[0], a_PS,
-            hel_config=None, reduced_process=None,
-            leg_numbers_map=momenta_map, mapping_variables=mapping_variables )
+            currents[0], higher_PS_point=base_PS, lower_PS_point=reduced_PS,
+            leg_numbers_map=momenta_map, reduced_process=None,
+            hel_config=None, Q=Q)
 
         misc.sprint(current_evaluation)
         misc.sprint(all_current_results)
@@ -191,20 +190,20 @@ class SubtractionCurrentTest(unittest.TestCase):
 #       ---- Testing q~ > q~ g  soft collinear
 #       ------------------------------------------
         misc.sprint('Testing soft collinear q~ > q~ g:')
-        a_PS = copy.copy(base_PS)
-        n_parent = len(a_PS)
-        a_PS[n_parent] = a_PS[5] + a_PS[7]
-
+        n_parent = len(base_PS)
+        momenta_map = bidict({n_parent: frozenset((5, 7))})
+        reduced_PS = copy.copy(base_PS)
+        pC = reduced_PS.pop(5) + reduced_PS.pop(7)
+        reduced_PS[n_parent] = pC
+        Q = pC + base_PS[4] + base_PS[6]
         # Put the mapped momentum on-shell (this is not a well-defined mapping,
         # but it is sufficient for now to test this current)
-        a_PS[n_parent].set_square(0)
-        momenta_map = bidict( { n_parent : frozenset((5,7)) } )
-        mapping_variables = {'Q': Q, 'y': 0}
+        reduced_PS[n_parent].set_square(0)
 
         current_evaluation, all_current_results = accessors_dict(
-            currents[1], a_PS,
-            hel_config=None, reduced_process=None,
-            leg_numbers_map=momenta_map, mapping_variables=mapping_variables )
+            currents[1], higher_PS_point=base_PS, lower_PS_point=reduced_PS,
+            leg_numbers_map=momenta_map, reduced_process=None,
+            hel_config=None, Q=Q)
 
         misc.sprint(current_evaluation)
         misc.sprint(all_current_results)
@@ -213,18 +212,18 @@ class SubtractionCurrentTest(unittest.TestCase):
 #       ---- Testing soft gluon current
 #       ------------------------------------------
         misc.sprint('Testing soft gluon current:')
+        momenta_map = bidict({7: frozenset((7, ))})
         reduced_process = self.reduced_process.get_copy()
         # Remove the last leg that is going soft
         reduced_process.get('legs').pop(-1)
-        a_PS = copy.copy(a_PS)
-        # Specify the trivial mapping
-        momenta_map = bidict( { 7 : frozenset((7,)) } )
-        mapping_variables = {'Q': Q, 'y': 0}
+        reduced_PS = copy.copy(base_PS)
+        pS = reduced_PS.pop(7)
+        Q = pS + base_PS[5] + base_PS[6]
 
         current_evaluation, all_current_results = accessors_dict(
-            currents[2], a_PS,
-            hel_config=None, reduced_process=reduced_process,
-            leg_numbers_map=momenta_map, mapping_variables=mapping_variables )
+            currents[2], higher_PS_point=base_PS, lower_PS_point=reduced_PS,
+            leg_numbers_map=momenta_map, reduced_process=reduced_process,
+            hel_config=None, Q=Q)
 
         misc.sprint(current_evaluation)
         misc.sprint(all_current_results)

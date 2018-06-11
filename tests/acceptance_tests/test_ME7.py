@@ -110,7 +110,6 @@ class TestME7_NLO_colorful_epem_jjj(unittest.TestCase):
     def test_ME7_colorful_ggqqx_collinear_limits(self):
         """Check the test of collinear limits on a particular process."""
         
-        main_cmd = 'test_IR_limits'
         options = {'correction_order'       : 'NLO',
                    'limits'                 : 'purecollinear',
                    'counterterms'           : 'all',
@@ -124,18 +123,12 @@ class TestME7_NLO_colorful_epem_jjj(unittest.TestCase):
                    'save_results_to_path'   : 'test_IR_limit_output_for_acceptance_test.dat'
                    }
 
-        self.do('%s %s'%(main_cmd, ' '.join(
-            ('--%s=%s'%(key,value) if value is not None else '--%s'%key)
-            for key,value in options.items()
-        )))
-
+        self.do(get_test_IR_limit_cmd(options))
         self.verify_ME7_test_results(pjoin(self.tmp_process_dir,'test_IR_limit_output_for_acceptance_test.dat'))
 
     def test_ME7_colorful_ggqqx_soft_limits(self):
         """Check the test of collinear limits on a particular process."""
         
-        main_cmd = 'test_IR_limits'
-
         options = {'correction_order'       : 'NLO',
                    'limits'                 : 'puresoft',
                    'counterterms'           : 'all',
@@ -149,18 +142,12 @@ class TestME7_NLO_colorful_epem_jjj(unittest.TestCase):
                    'save_results_to_path'   : 'test_IR_limit_output_for_acceptance_test.dat'
                    }
 
-        self.do('%s %s'%(main_cmd, ' '.join(
-            ('--%s=%s'%(key,value) if value is not None else '--%s'%key)
-            for key,value in options.items()
-        )))
-
+        self.do(get_test_IR_limit_cmd(options))
         self.verify_ME7_test_results(pjoin(self.tmp_process_dir,'test_IR_limit_output_for_acceptance_test.dat'))
 
     def test_ME7_colorful_ggqqx_softcollinear_limits(self):
         """Check the test of collinear limits on a particular process."""
         
-        main_cmd = 'test_IR_limits'
-
         options = {'correction_order'       : 'NLO',
                    'limits'                 : "r'^\(C\(S.*$'",
                    'counterterms'           : 'all',
@@ -174,11 +161,7 @@ class TestME7_NLO_colorful_epem_jjj(unittest.TestCase):
                    'save_results_to_path'   : 'test_IR_limit_output_for_acceptance_test.dat'
                    }
 
-        self.do('%s %s'%(main_cmd, ' '.join(
-            ('--%s=%s'%(key,value) if value is not None else '--%s'%key)
-            for key,value in options.items()
-        )))
-
+        self.do(get_test_IR_limit_cmd(options))
         self.verify_ME7_test_results(pjoin(self.tmp_process_dir,'test_IR_limit_output_for_acceptance_test.dat'))
 
 
@@ -200,11 +183,7 @@ class TestME7_NLO_colorful_epem_jjj(unittest.TestCase):
                    'save_results_to_path'   : 'test_IR_limit_output_for_acceptance_test.dat'
                    }
 
-        self.do('%s %s'%(main_cmd, ' '.join(
-            ('--%s=%s'%(key,value) if value is not None else '--%s'%key)
-            for key,value in options.items()
-        )))
-
+        self.do(get_test_IR_limit_cmd(options))
         self.verify_ME7_test_results(pjoin(self.tmp_process_dir,'test_IR_limit_output_for_acceptance_test.dat'))
 
     def test_ME7_born_integrand_call(self):
@@ -333,7 +312,6 @@ class TestME7_NLO_cataniseymour_epem_jjj(unittest.TestCase):
     def test_ME7_cataniseymour_ggqqx_collinear_limits(self):
         """Check the test of collinear limits on a particular process."""
         
-        main_cmd = 'test_IR_limits'
         options = {'correction_order'       : 'NLO',
                    'limits'                 : 'purecollinear',
                    'counterterms'           : 'all',
@@ -347,17 +325,12 @@ class TestME7_NLO_cataniseymour_epem_jjj(unittest.TestCase):
                    'save_results_to_path'   : 'test_IR_limit_output_for_acceptance_test.dat'
                    }
 
-        self.do('%s %s'%(main_cmd, ' '.join(
-            ('--%s=%s'%(key,value) if value is not None else '--%s'%key)
-            for key,value in options.items()
-        )))
-
+        self.do(get_test_IR_limit_cmd(options))
         self.verify_ME7_test_results(pjoin(self.tmp_process_dir,'test_IR_limit_output_for_acceptance_test.dat'))
 
     def test_ME7_cataniseymour_ggqqx_soft_limits(self):
         """Check the test of collinear limits on a particular process."""
         
-        main_cmd = 'test_IR_limits'
         options = {'correction_order'       : 'NLO',
                    'limits'                 : "['S(3)','S(4)']",
                    'counterterms'           : 'all',
@@ -371,17 +344,12 @@ class TestME7_NLO_cataniseymour_epem_jjj(unittest.TestCase):
                    'save_results_to_path'   : 'test_IR_limit_output_for_acceptance_test.dat'
                    }
 
-        self.do('%s %s'%(main_cmd, ' '.join(
-            ('--%s=%s'%(key,value) if value is not None else '--%s'%key)
-            for key,value in options.items()
-        )))
-
+        self.do(get_test_IR_limit_cmd(options))
         self.verify_ME7_test_results(pjoin(self.tmp_process_dir,'test_IR_limit_output_for_acceptance_test.dat'))
         
     def test_ME7_cataniseymour_ggqqx_softcollinear_limits(self):
         """Check the test of collinear limits on a particular process."""
         
-        main_cmd = 'test_IR_limits'
         options = {'correction_order'       : 'NLO',
                    'limits'                 : 
         "['C(S(3),4)','C(S(3),5)','C(S(3),6)','C(S(4),3)','C(S(4),5)','C(S(4),6)']",
@@ -396,18 +364,12 @@ class TestME7_NLO_cataniseymour_epem_jjj(unittest.TestCase):
                    'save_results_to_path'   : 'test_IR_limit_output_for_acceptance_test.dat'
                    }
 
-        self.do('%s %s'%(main_cmd, ' '.join(
-            ('--%s=%s'%(key,value) if value is not None else '--%s'%key)
-            for key,value in options.items()
-        )))
-
+        self.do(get_test_IR_limit_cmd(options))
         self.verify_ME7_test_results(pjoin(self.tmp_process_dir,'test_IR_limit_output_for_acceptance_test.dat'))
 
     def test_ME7_cataniseymour_qqxQQx_collinear_limits(self):
         """Check the test of collinear limits on a particular process."""
         
-        main_cmd = 'test_IR_limits'
-
         options = {'correction_order'       : 'NLO',
                    'limits'                 : 'collinear',
                    'counterterms'           : 'all',
@@ -421,11 +383,7 @@ class TestME7_NLO_cataniseymour_epem_jjj(unittest.TestCase):
                    'save_results_to_path'   : 'test_IR_limit_output_for_acceptance_test.dat'
                    }
 
-        self.do('%s %s'%(main_cmd, ' '.join(
-            ('--%s=%s'%(key,value) if value is not None else '--%s'%key)
-            for key,value in options.items()
-        )))
-
+        self.do(get_test_IR_limit_cmd(options))
         self.verify_ME7_test_results(pjoin(self.tmp_process_dir,'test_IR_limit_output_for_acceptance_test.dat'))
 
 #===============================================================================
@@ -437,7 +395,7 @@ class TestME7_NLO_colorful_pp_jj(unittest.TestCase):
 
     # If the debug mode is set to True, then the process output is not refreshed
     # but reused instead
-    debugging = True
+    debugging = False
 
     def setUp(self):
         """ basic building of the class to test """
@@ -485,7 +443,7 @@ class TestME7_NLO_colorful_pp_jj(unittest.TestCase):
             process, limit, outcome, ratio = line.split('|')[:4]
             self.assertTrue(outcome.strip() == 'PASSED', line)
 
-    def test_ME7_gq_ggq_collinear_limits(self):
+    def test_ME7_colorful_gq_ggq_collinear_limits(self):
         """Check the test of collinear limits on a particular process."""
 
         options = {'correction_order': 'NLO',

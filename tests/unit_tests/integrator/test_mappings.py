@@ -327,9 +327,9 @@ class MappingsTest(unittest.TestCase):
     v1 = LorentzVector([4., 0., 0., math.sqrt(3.)])
     v2 = LorentzVector([4., 1., 1., 1.])
 
-    seed = 42
-    n_tests = 20
-    verbose = False
+    seed = 4
+    n_tests = 2
+    verbose = True
 
     @staticmethod
     def randomize(pars):
@@ -433,8 +433,8 @@ class MappingsTest(unittest.TestCase):
             for i in shuffled_numbers[:n_recoilers]]
         pars['structure'] = subtraction.SingularStructure(*pars['structure'])
         pars['unchanged'] = shuffled_numbers[n_recoilers:]
-        # print "The random structure for this test is %s, with %s unchanged" % (
-        #     str(pars['structure']), str(pars['unchanged']) )
+        print "The random structure for this test is %s, with %s unchanged" % (
+            str(pars['structure']), str(pars['unchanged']) )
         assert len(pars['unchanged']) == n_unchanged
 
     @staticmethod
@@ -467,8 +467,7 @@ class MappingsTest(unittest.TestCase):
         for _ in range(pars.get('n_tests', self.n_tests)):
             # Generate a random setup
             MappingsTest.randomize(pars)
-            if self.verbose:
-                misc.sprint("Structure: " + str(pars['structure']))
+            misc.sprint("Structure: " + str(pars['structure']))
             my_PS_point = MappingsTest.generate_PS(pars)
             squared_masses = dict()
             for parent in pars['parents']:
@@ -542,6 +541,84 @@ class MappingsTest(unittest.TestCase):
                 misc.sprint("variables: " + str(low_vars2))
             assertDictAlmostEqual(self, low_PS_point1, low_PS_point2)
             assertDictAlmostEqual(self, low_vars1, low_vars2)
+
+    def _test_associative(self, pars):
+        """Test whether a mapping is associative."""
+
+        # Make test deterministic by setting seed
+        random.seed(self.seed)
+        # Check many times
+        for _ in range(pars.get('n_tests', self.n_tests)):
+            # Generate a random setup
+            MappingsTest.randomize(pars)
+            structure = pars['structure']
+            momenta_dict = pars['momenta_dict']
+            print "Structure:", structure
+            # Randomly divide the mapping in two steps
+            half_1_substructures = []
+            half_2_substructures = []
+            half_1_legs = [leg for leg in structure.legs]
+            half_2_legs = [leg for leg in structure.legs]
+            for substructure in structure.substructures:
+                if bool(random.getrandbits(1)):
+                    half_1_substructures.append(substructure)
+                    if substructure.name() == 'C':
+                        children = frozenset([leg.n for leg in substructure.legs])
+                        parent = momenta_dict.inv[children]
+                        state = subtraction.SubtractionLeg.FINAL
+                        if substructure.legs.has_initial_state_leg():
+                            state = subtraction.SubtractionLeg.INITIAL
+                        parent_leg = subtraction.SubtractionLeg(parent, 0, state)
+                        half_2_legs.append(parent_leg)
+                else:
+                    half_2_substructures.append(substructure)
+                    half_1_legs += substructure.legs
+            half_1 = subtraction.SingularStructure(
+                substructures=half_1_substructures, legs=half_1_legs )
+            half_2 = subtraction.SingularStructure(
+                substructures=half_2_substructures, legs=half_2_legs )
+            print "Half 1:", half_1
+            print "Half 2:", half_2
+            my_PS_point = MappingsTest.generate_PS(pars)
+            squared_masses = dict()
+            for leg in structure.legs:
+                squared_masses['m2' + str(leg.n)] = my_PS_point[leg.n].square()
+            print "parents", pars['parents']
+            for parent in pars['parents']:
+                if pars['masses']:
+                    p = sum(my_PS_point[child] for child in momenta_dict[parent])
+                    squared_masses['m2' + str(parent)] = random.random()*p.square()
+                else:
+                    squared_masses['m2' + str(parent)] = 0.
+            # Rotate it to avoid zero components
+            for key in my_PS_point.keys():
+                my_PS_point[key].rotoboost(MappingsTest.v1, MappingsTest.v2)
+            if self.verbose:
+                print "Starting PS point:\n" + str(my_PS_point)
+            # Perform the mapping in one go
+            low_PS_point, low_vars = pars['mapping'].map_to_lower_multiplicity(
+                my_PS_point, structure, momenta_dict, squared_masses,
+                compute_jacobian=False )
+            if self.verbose:
+                print "1 PS point:\n" + str(low_PS_point)
+            squared_masses_1 = {key: val for key, val in squared_masses.items()}
+            for leg in half_1_legs:
+                squared_masses_1['m2' + str(leg.n)] = my_PS_point[leg.n].square()
+            # Perform the mapping in two steps
+            half_PS_point, half_vars = pars['mapping'].map_to_lower_multiplicity(
+                my_PS_point, half_1, momenta_dict, squared_masses_1,
+                compute_jacobian=False )
+            if self.verbose:
+                print "1*0.5 PS point:\n" + str(half_PS_point)
+            squared_masses_2 = {key: val for key, val in squared_masses.items()}
+            for leg in half_2_legs:
+                squared_masses_2['m2' + str(leg.n)] = half_PS_point[leg.n].square()
+            full_PS_point, full_vars = pars['mapping'].map_to_lower_multiplicity(
+                half_PS_point, half_2, momenta_dict, squared_masses_2,
+                compute_jacobian=False )
+            if self.verbose:
+                print "2*0.5 PS point:\n" + str(full_PS_point)
+            assertDictAlmostEqual(self, low_PS_point, full_PS_point)
 
     # Test masses mappings
     #=====================================================================================
@@ -634,6 +711,23 @@ class MappingsTest(unittest.TestCase):
             'min_coll_sets': 2, 'max_coll_sets': 3,
             'min_recoilers': 0, 'max_recoilers': 3,})
         self._test_invertible(pars)
+
+    def test_FinalGroupingMapping_associative(self):
+        """Test if FinalGroupingMapping is associative."""
+
+        pars = {
+            'mapping': mappings.FinalGroupingMapping(),
+            'max_unchanged': 3, 'masses': True,
+            'min_unresolved_per_set': 0, 'max_unresolved_per_set': 3,
+            'supports_massive_recoilers': True}
+        pars.update({
+            'min_coll_sets': 2, 'max_coll_sets': 4,
+            'min_recoilers': 1, 'max_recoilers': 4,})
+        self._test_associative(pars)
+        pars.update({
+            'min_coll_sets': 2, 'max_coll_sets': 5,
+            'min_recoilers': 0, 'max_recoilers': 3,})
+        self._test_associative(pars)
 
     def test_FinalLorentzMapping_invertible(self):
         """Test if FinalLorentzMapping is invertible."""
@@ -728,6 +822,36 @@ class MappingsTest(unittest.TestCase):
             'mapping': mappings.SoftVsFinalMapping(),
             'min_soft_sets': 1, 'max_soft_sets': 3,
             'min_recoilers': 2, 'max_recoilers': 5,
+            'max_unchanged': 3, 'masses': None,
+            'min_unresolved_per_set': 1, 'max_unresolved_per_set': 4,
+            'supports_massive_recoilers': False}
+        self._test_invertible(pars)
+
+    def test_NewSoftVsFinalMapping_associative(self):
+        """Test if NewSoftVsFinalMapping is associative."""
+
+        pars = {
+            'mapping': mappings.NewSoftVsFinalMapping(),
+            'max_unchanged': 3, 'masses': True,
+            'min_unresolved_per_set': 1, 'max_unresolved_per_set': 3,
+            'supports_massive_recoilers': True}
+        pars.update({
+            'min_soft_sets': 2, 'max_soft_sets': 5,
+            'min_recoilers': 1, 'max_recoilers': 4,})
+        self._test_associative(pars)
+
+    # Test soft-collinear mappings
+    #=====================================================================================
+
+    def test_SoftCollinearMapping_invertible(self):
+        """Test if SoftCollinearMapping is invertible."""
+
+        pars = {
+            'mapping': mappings.SoftCollinearVsFinalMapping(
+                mappings.SoftVsFinalMapping(), mappings.FinalGroupingMapping() ),
+            'min_coll_sets': 1, 'max_coll_sets': 3,
+            'min_soft_sets': 1, 'max_soft_sets': 3,
+            'min_recoilers': 1, 'max_recoilers': 5,
             'max_unchanged': 3, 'masses': None,
             'min_unresolved_per_set': 1, 'max_unresolved_per_set': 4,
             'supports_massive_recoilers': False}

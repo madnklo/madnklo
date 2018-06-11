@@ -36,18 +36,17 @@ CurrentImplementationError = utils.CurrentImplementationError
 # Eikonal factor, modified by partial fractioning and without divergence
 #=========================================================================================
 
-def mod_eikonal(PS_point, i, j, r):
-    """Modified eikonal factor for soft particle with number 'r'
-    emitted from 'i' and reconnecting to 'j'.
+def mod_eikonal(pi, pj, pr):
+    """Modified eikonal factor for soft particle with momentum pr
+    emitted from the dipole with momenta pi and pj.
     This is obtained starting from the eikonal and:
     - ignoring 1 / sir, which is already included in the normalisation factor;
     - multiplying by the partial fraction sjr / (sir + sjr) to regulate for sjr -> 0.
     """
 
-    sij = 2*PS_point[i].dot(PS_point[j])
-    sir = 2*PS_point[i].dot(PS_point[r])
-    sjr = 2*PS_point[j].dot(PS_point[r])
-    return 2 * sij / (sir + sjr)
+    pipj = pi.dot(pj)
+    pijpr = pr.dot(pi+pj)
+    return 2 * pipj / pijpr
 
 #=========================================================================================
 # NLO final-collinear currents, containing the soft limits
@@ -196,19 +195,25 @@ class QCD_final_collinear_0_gq(currents.QCDLocalCollinearCurrent):
         for leg in reduced_process.get('legs'):
             if self.model.get_particle(leg.get('id')).get('color') == 1:
                 continue
-            number = leg.get('number')
-            if number == parent:
-                continue
-            all_colored_parton_numbers.append(number)
+            all_colored_parton_numbers.append(leg.get('number'))
 
         color_correlation_index = 1
-        # Now loop over the colored parton number pairs (parent, a)
+        ps = higher_PS_point[children[0]]
+        pi = higher_PS_point[children[1]]
+        # pi = lower_PS_point[parent]
+
+        # Now loop over the colored parton number pairs (parent, j)
         # and add the corresponding contributions to this current
-        for a in all_colored_parton_numbers:
-            evaluation['color_correlations'].append(((parent, a),))
+        for j in all_colored_parton_numbers:
             # Write the eikonal for that pair
+            # pj = sum(higher_PS_point[child] for child in leg_numbers_map[j])
+            # pj = lower_PS_point[j]
+            if j == parent:
+                continue
+            pj = higher_PS_point[j]
+            evaluation['color_correlations'].append(((parent, j),))
             evaluation['values'][(0, color_correlation_index)] = {
-                'finite': -mod_eikonal(higher_PS_point, children[1], a, children[0]) }
+                'finite': -mod_eikonal(pi, pj, ps) }
             color_correlation_index += 1
 
         # Add the normalization factors
@@ -324,19 +329,24 @@ class QCD_final_collinear_0_gg(currents.QCDLocalCollinearCurrent):
         for leg in reduced_process.get('legs'):
             if self.model.get_particle(leg.get('id')).get('color') == 1:
                 continue
-            number = leg.get('number')
-            if number == parent:
-                continue
-            all_colored_parton_numbers.append(number)
+            all_colored_parton_numbers.append(leg.get('number'))
 
         color_correlation_index = 1
-        # Loop over the colored parton number pairs (parent, a)
+        p0 = higher_PS_point[children[0]]
+        p1 = higher_PS_point[children[1]]
+
+        # Loop over the colored parton number pairs (parent, j)
         # and add the corresponding contributions to this current
-        for a in all_colored_parton_numbers:
-            evaluation['color_correlations'].append(((parent, a),))
+        for j in all_colored_parton_numbers:
             # Write the eikonal for that pair
-            eik0 = -mod_eikonal(higher_PS_point, children[1], a, children[0])
-            eik1 = -mod_eikonal(higher_PS_point, children[0], a, children[1])
+            if j == parent:
+                continue
+            pj = higher_PS_point[j]
+            # pj = sum(higher_PS_point[child] for child in leg_numbers_map[j])
+            # pj = lower_PS_point[j]
+            eik0 = -mod_eikonal(pj, p1, p0)
+            eik1 = -mod_eikonal(pj, p0, p1)
+            evaluation['color_correlations'].append(((parent, j),))
             evaluation['values'][(0, color_correlation_index)] = {'finite': eik0 + eik1}
             color_correlation_index += 1
 
@@ -434,10 +444,10 @@ class QCD_initial_collinear_0_gq(currents.QCDLocalCollinearCurrent):
         #    \sum_\lambda \epsilon_\lambda^\mu \epsilon_\lambda^{\star\nu}
         #    = g^{\mu\nu} + longitudinal terms
         # are irrelevant because Ward identities evaluate them to zero anyway.
-        
-        evaluation['values'][(0, 0)]['finite'] = initial_state_crossing_factor * self.TR
-        evaluation['values'][(1, 0)]['finite'] = \
-                     initial_state_crossing_factor * 4. * self.TR * z*(1.-z) / kT.square()
+
+        norm = initial_state_crossing_factor * self.TR
+        evaluation['values'][(0, 0)]['finite'] = norm
+        evaluation['values'][(1, 0)]['finite'] = norm * 4. * z*(1.-z) / kT.square()
 
         return evaluation
 
@@ -500,17 +510,17 @@ class QCD_initial_collinear_0_qq(currents.QCDLocalCollinearCurrent):
         # The factor 'x' that should be part of the initial_state_crossing_factor cancels
         # against the extra prefactor 1/x in the collinear factorisation formula
         # (see Eq. (8) of NNLO compatible NLO scheme publication arXiv:0903.1218v2)
-        initial_state_crossing_factor = -1.
+        initial_state_crossing_factor = 1.
         # Correct for the ratio of color-averaging factor between the real ME
         # initial state flavor (gluon) and the one of the reduced Born ME (quark)
         initial_state_crossing_factor *= (self.NC/float(self.NC**2-1))
         
         z = 1./x
 
+        norm = initial_state_crossing_factor * self.CF
         # We re-use here the Altarelli-Parisi Kernel of the P_gq final state kernel without
         # the soft-subtractio term 2./z since the gluon is here in the initial state
-        evaluation['values'][(0, 0)]['finite'] = \
-                            initial_state_crossing_factor * self.CF * ( (1.+(1.-z)**2)/z )
+        evaluation['values'][(0, 0)]['finite'] = norm * (1. + (1.-z)**2) / z
 
         return evaluation
 
@@ -586,8 +596,9 @@ class QCD_initial_collinear_0_qg(currents.QCDLocalCollinearCurrent):
         # P_qg           = self.CF * ( (1.+z**2)/(1.-z) )
         # CxS(P_qg)      = self.CF * ( 2 / (x - 1) ) = self.CF * ( 2 z / (1 - z) )
         # P_qg-CxS(P_qg) = self.CF * (1 + z**2 - 2*z) / (1 - z) = self.CF * ( 1 - z)
-        
-        evaluation['values'][(0, 0)]['finite'] = initial_state_crossing_factor * self.CF * (1 - z)
+
+        norm = initial_state_crossing_factor * self.CF
+        evaluation['values'][(0, 0)]['finite'] = norm * (1 - z)
 
         return evaluation
 
@@ -639,19 +650,25 @@ class QCD_initial_collinear_0_qg(currents.QCDLocalCollinearCurrent):
         for leg in reduced_process.get('legs'):
             if self.model.get_particle(leg.get('id')).get('color') == 1:
                 continue
-            number = leg.get('number')
-            if number == parent:
-                continue
-            all_colored_parton_numbers.append(number)
+            all_colored_parton_numbers.append(leg.get('number'))
 
         color_correlation_index = 1
-        # Loop over the colored parton number pairs (parent, a)
+        ps = higher_PS_point[children[1]]
+        pi = higher_PS_point[children[0]]
+        # pi = lower_PS_point[parent]
+
+        # Loop over the colored parton number pairs (parent, j)
         # and add the corresponding contributions to this current
-        for a in all_colored_parton_numbers:
-            evaluation['color_correlations'].append(((parent, a),))
-            # Write the eikonal for that pair (positive here since the dipole end
-            # 'children[0]' is in the initial state)
-            eik1 = mod_eikonal(higher_PS_point, children[0], a, children[1])
+        for j in all_colored_parton_numbers:
+            # Write the eikonal for that pair
+            # (positive here since the dipole end 'children[0]' is in the initial state)
+            if j == parent:
+                continue
+            pj = higher_PS_point[j]
+            # pj = sum(higher_PS_point[child] for child in leg_numbers_map[j])
+            # pj = lower_PS_point[j]
+            eik1 = mod_eikonal(pi, pj, ps)
+            evaluation['color_correlations'].append(((parent, j),))
             evaluation['values'][(0, color_correlation_index)] = {'finite': eik1}
             color_correlation_index += 1
 
@@ -749,9 +766,10 @@ class QCD_initial_collinear_0_gg(currents.QCDLocalCollinearCurrent):
         # P_gg           = 2.*self.CA * ( (z/(1.-z)) + ((1.-z)/z) )
         # CxS(P_gg)      = 2.*self.CA * ( (z/(1.-z)) )
         # P_gg-CxS(P_gg) = 2.*self.CA * ((1.-z)/z)
-        
-        evaluation['values'][(0, 0)]['finite'] = 2.*self.CA * ((1.-z)/z)
-        evaluation['values'][(1, 0)]['finite'] = -2.*self.CA * 2.*z*(1.-z) / kT.square()
+
+        norm = initial_state_crossing_factor * 2. * self.CA
+        evaluation['values'][(0, 0)]['finite'] =  norm * ((1.-z)/z)
+        evaluation['values'][(1, 0)]['finite'] = -norm * 2.*z*(1.-z) / kT.square()
         return evaluation
 
     def evaluate_subtraction_current(
@@ -802,20 +820,25 @@ class QCD_initial_collinear_0_gg(currents.QCDLocalCollinearCurrent):
         for leg in reduced_process.get('legs'):
             if self.model.get_particle(leg.get('id')).get('color') == 1:
                 continue
-            number = leg.get('number')
-            if number == parent:
-                continue
-            all_colored_parton_numbers.append(number)
+            all_colored_parton_numbers.append(leg.get('number'))
 
         color_correlation_index = 1
-        # Loop over the colored parton number pairs (parent, a)
+        ps = higher_PS_point[children[1]]
+        pi = higher_PS_point[children[0]]
+        # pi = lower_PS_point[parent]
+
+        # Loop over the colored parton number pairs (parent, j)
         # and add the corresponding contributions to this current
-        for a in all_colored_parton_numbers:
-            evaluation['color_correlations'].append(((parent, a),))
+        for j in all_colored_parton_numbers:
             # Write the eikonal for that pair
-            # Write the eikonal for that pair (positive here since the dipole end
-            # 'children[0]' is in the initial state)
-            eik1 = mod_eikonal(higher_PS_point, children[0], a, children[1])
+            # (positive here since the dipole end 'children[0]' is in the initial state)
+            if j == parent:
+                continue
+            pj = higher_PS_point[j]
+            # pj = sum(higher_PS_point[child] for child in leg_numbers_map[j])
+            # pj = lower_PS_point[j]
+            eik1 = mod_eikonal(pi, pj, ps)
+            evaluation['color_correlations'].append(((parent, j),))
             evaluation['values'][(0, color_correlation_index)] = {'finite': eik1}
             color_correlation_index += 1
 

@@ -61,79 +61,12 @@ def tijk(i, j, k, zs, kTs, s_ij=None, s_ik=None, s_jk=None):
     return (2*(zs[i-1]*s_jk-zs[j-1]*s_ik)+(zs[i-1]-zs[j-1])*s_ij)/(zs[i-1]+zs[j-1])
 
 #=========================================================================================
-# NNLO final-collinear currents
+# NNLO *** colorful *** soft current
 #=========================================================================================
 
-class QCD_final_collinear_0_QQxq(currents.QCDLocalCollinearCurrent):
-    """Q Q~ q collinear tree-level current."""
-
-    @classmethod
-    def does_implement_this_current(cls, current, model):
-
-        # Check the general properties common to NNLO QCD collinear tree-level currents
-        init_vars = cls.common_does_implement_this_current(current, 4, 0)
-        if init_vars is None: return None
-        # Retrieve singular structure
-        ss = current.get('singular_structure')
-        # Check that there are 3 massless final state quarks or antiquarks
-        if len(ss.legs) != 3: return None
-        for leg in ss.legs:
-            if not cls.is_massless(leg, model): return None
-            if cls.is_initial(leg): return None
-            if not cls.is_quark(leg, model): return None
-        # Look for a quark/antiquark pair
-        pair = None
-        for i in range(len(ss.legs)):
-            for j in range(i+1, len(ss.legs)):
-                if cls.are_antiparticles(ss.legs[i], ss.legs[j]):
-                    pair = (ss.legs[i], ss.legs[j])
-                    continue
-            if pair is not None: continue
-        if pair is None: return None
-        # Identify the remaining quark
-        other_quarks = [leg for leg in ss.legs if leg not in pair]
-        # Since leg numbers have been discarded, equal legs will not appear here
-        # Thus if the quark species were the same, other_quarks = []
-        if len(other_quarks) != 1: return None
-        # The current is valid
-        return init_vars
-
-    @classmethod
-    def get_sorted_children(cls, current, model):
-
-        legs = current.get('singular_structure').legs
-        if cls.are_antiparticles(legs[0], legs[1]):
-            return (legs[0].n, legs[1].n, legs[2].n)
-        elif cls.are_antiparticles(legs[0], legs[2]):
-            return (legs[0].n, legs[2].n, legs[1].n)
-        else:
-            return (legs[1].n, legs[2].n, legs[0].n)
-
-    def evaluate_kernel(self, zs, kTs, parent):
-
-        # Retrieve the collinear variables and compute basic quantities
-        z1, z2, z3 = zs
-        s12 = sij(1, 2, zs, kTs)
-        s13 = sij(1, 3, zs, kTs)
-        s23 = sij(2, 3, zs, kTs)
-        s123 = s12 + s13 + s23
-        t123 = tijk(1, 2, 3, zs, kTs, s_ij=s12, s_ik=s13, s_jk=s23)
-        # Assemble kernel
-        sqrbrk  = -(t123 ** 2)/(s12*s123)
-        sqrbrk += (4*z3 + (z1-z2)**2) / (z1+z2)
-        sqrbrk += z1 + z2 - s12/s123
-        # Instantiate the structure of the result
-        evaluation = utils.SubtractionCurrentEvaluation({
-            'spin_correlations'  : [None],
-            'color_correlations' : [None],
-            'values'             : {(0, 0): {'finite': None}}
-        })
-        evaluation['values'][(0, 0)]['finite'] = self.CF*self.TR * s123 / (2*s12) * sqrbrk
-        return evaluation
-    
-#=========================================================================================
-# NNLO soft currents
-#=========================================================================================
+# HACK
+# This is for the purpose of testing the iterated single-soft limit
+# which requires a piece of the double-soft
 
 class QCD_final_soft_0_gg(currents.QCDLocalSoftCurrent):
     """Double soft tree-level current."""

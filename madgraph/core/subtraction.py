@@ -1894,7 +1894,7 @@ class IRSubtraction(object):
             reconstruct_complete_singular_structure()
 
         reduced_process = local_counterterm.process.get_copy(
-            ['legs', 'n_loops', 'legs_with_decays'] )
+            ['legs', 'n_loops', 'legs_with_decays', 'squared_orders'] )
 
         # The following sums all the loop numbers in all nodes and reduced process,
         # the latter of which must then be removed

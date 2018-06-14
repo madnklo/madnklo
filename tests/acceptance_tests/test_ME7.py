@@ -476,9 +476,13 @@ class TestME7_NLO_colorful_pp_jj(unittest.TestCase):
             pjoin(self.tmp_process_dir, 'test_IR_limit_output_for_acceptance_test.dat'))
 
 
+
+#===============================================================================
+# TestME7 cataniseymour output for e+ e- > j j j @NNLO
+#===============================================================================
 class TestME7_NNLO_colorful_epem_jjj(unittest.TestCase):
     """This test validates the command 'test_IR_limits' of ME7 in the colorful scheme
-    as well as integrand calls for the process e+ e- > j j j --NLO=QCD"""
+    as well as integrand calls for the process e+ e- > j j j --NNLO=QCD"""
 
     # If the debug mode is set to True, then the process output is not refreshed
     # but reused instead
@@ -500,7 +504,7 @@ class TestME7_NNLO_colorful_epem_jjj(unittest.TestCase):
             self.do('set subtraction_currents_scheme colorful')
             self.do('set subtraction_mappings_scheme LorentzNLO')
             self.do('generate e+ e- > j j j  --NNLO=QCD')
-            self.do('output %s' % self.tmp_process_dir)
+            self.do('output %s --ignore_integrated_counterterms=all' % self.tmp_process_dir)
             if self.debugging:
                 misc.sprint('/!\ USE ONLY FOR DEBUGGING /!\ Output for %s written at %s'
                             % (self.__class__.__name__, self.tmp_process_dir))
@@ -536,8 +540,8 @@ class TestME7_NNLO_colorful_epem_jjj(unittest.TestCase):
                    'limits': 'C(3,4,6)',
                    'counterterms': 'C(3,4,6)',
                    'process': 'e+ e- > g u u u~ u~',
-                   'show_plots': False,
-                   'save_plots': True,
+                   'show_plots': True,
+                   'save_plots': False,
                    'seed': '666',
                    'n_steps': 10,
                    'min_scaling_variable': 1.0e-16,
@@ -559,8 +563,8 @@ class TestME7_NNLO_colorful_epem_jjj(unittest.TestCase):
                    'limits': 'C(4,5,6)',
                    'counterterms': 'C(4,5,6)',
                    'process': 'e+ e- > g u u u~ u~',
-                   'show_plots': False,
-                   'save_plots': True,
+                   'show_plots': True,
+                   'save_plots': False,
                    'seed': '666',
                    'n_steps': 10,
                    'min_scaling_variable': 1.0e-16,
@@ -583,8 +587,8 @@ class TestME7_NNLO_colorful_epem_jjj(unittest.TestCase):
                    'limits': 'C(4,5,7)',
                    'counterterms': 'C(4,5,7)',
                    'process': 'e+ e- > g u d u~ d~',
-                   'show_plots': False,
-                   'save_plots': True,
+                   'show_plots': True,
+                   'save_plots': False,
                    'seed': '666',
                    'n_steps': 10,
                    'min_scaling_variable': 1.0e-16,
@@ -606,8 +610,8 @@ class TestME7_NNLO_colorful_epem_jjj(unittest.TestCase):
                    'limits': 'C(3,4,6)',
                    'counterterms': 'C(3,4,6)',
                    'process': 'e+ e- > g g g s~ s',
-                   'show_plots': False,
-                   'save_plots': True,
+                   'show_plots': True,
+                   'save_plots': False,
                    'seed': '666',
                    'n_steps': 10,
                    'min_scaling_variable': 1.0e-16,
@@ -629,8 +633,8 @@ class TestME7_NNLO_colorful_epem_jjj(unittest.TestCase):
                    'limits': 'C(3,4,5)',
                    'counterterms': 'C(3,4,5)',
                    'process': 'e+ e- > g g g s~ s',
-                   'show_plots': False,
-                   'save_plots': True,
+                   'show_plots': True,
+                   'save_plots': False,
                    'seed': '666',
                    'n_steps': 10,
                    'min_scaling_variable': 1.0e-16,

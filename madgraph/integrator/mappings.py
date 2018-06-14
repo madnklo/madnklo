@@ -1259,7 +1259,7 @@ class FinalLorentzMapping(FinalCollinearMapping):
         # If the mapping is not valid, raise
         Q = sum(p for p in reduced_PS_point.values())
         Q2 = Q.square()
-        if (s_R ** 0.5) > (Q2 ** 0.5 - mass_sum):
+        if (abs(s_R) ** 0.5) > (Q2 ** 0.5 - mass_sum):
             raise FailedMapping
         # Perform mapping of parent momenta to target masses
         new_PS_point, vars = FinalMassesMapping.map_to_lower_multiplicity(

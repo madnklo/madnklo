@@ -56,7 +56,7 @@ class ME7Exporter(object):
     This class does not inherit from VirtualExporter because it is not responsible
     for exporting one set of amplitudes, but rather a list of Contributions."""
 
-    def __init__(self, cmd_interface, noclean, group_subprocesses):
+    def __init__(self, cmd_interface, noclean, group_subprocesses, export_options={}):
         """Initialize an ME7Exporter with an output path and a list of contributions"""
         
         self.group_subprocesses = group_subprocesses
@@ -64,6 +64,7 @@ class ME7Exporter(object):
         self.export_dir         = cmd_interface._export_dir 
         self.options            = cmd_interface.options
         self.model              = cmd_interface._curr_model
+        self.export_options     = export_options
 
         # Already initialize the exporter of each contribution
         for contrib in self.contributions:
@@ -124,12 +125,20 @@ class ME7Exporter(object):
     def export(self, nojpeg, args=[]):
         """ Distribute and organize the export of all contributions. """
         
+        # Pass the options to specify for each contrib as a callable that must be evaluated
+        # for each contrib
+        def method_options(contrib):
+            shortname = contrib.short_name()
+            to_ignore = self.export_options['ignore_integrated_counterterms']
+            return {'nojpeg':nojpeg, 
+                    'group_processes':self.group_subprocesses,
+                    'ignore_integrated_counterterms': ('all' in to_ignore) or (shortname in to_ignore),
+                    'args':args}
+        
         # Forward the export request to each contribution
         return_values = self.contributions.apply_method_to_all_contribs('export', 
             method_args = [],
-            method_opts = {'nojpeg':nojpeg, 
-                           'group_processes':self.group_subprocesses, 
-                           'args':args})
+            method_opts = method_options)
 
         # Now gather all integrated counterterms generated during the export and dispatch
         # them to the right contributions (i.e. the integrated counterterms from the 

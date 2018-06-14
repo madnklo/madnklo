@@ -132,6 +132,7 @@ class QCD_final_collinear_0_QQxq(currents.QCDLocalCollinearCurrent):
         return evaluation
 
 
+
 class QCD_final_collinear_0_qqxq(currents.QCDLocalCollinearCurrent):
     """q q~ q (same flavour) collinear tree-level current."""
 
@@ -577,10 +578,11 @@ class QCD_final_collinear_0_ggg(currents.QCDLocalCollinearCurrent):
                                 )
 
 
-#=========================================================================================
-# NNLO final-final soft currents
-#=========================================================================================
 
+
+#=========================================================================================
+# NNLO soft currents
+#=========================================================================================
 
 class QCD_final_soft_0_gg(currents.QCDLocalSoftCurrent):
     """Double soft tree-level current."""
@@ -612,51 +614,53 @@ class QCD_final_soft_0_gg(currents.QCDLocalSoftCurrent):
         return init_vars
    
     @staticmethod
-    def eikonal(PS_point, i, j, r):
+    def eikonal(pi, pj, pr):
         """Eikonal factor for soft particle with number 'r'
         emitted from 'i' and reconnecting to 'j'.
         """
 
-        pipj = PS_point[i].dot(PS_point[j])
-        pipr = PS_point[i].dot(PS_point[r])
-        pjpr = PS_point[j].dot(PS_point[r])
+        pipj = pi.dot(pj)
+        pipr = pi.dot(pr)
+        pjpr = pj.dot(pr)
         return pipj/(pipr*pjpr)
 
     @staticmethod
-    def strongly_ordered_double_soft_kernel(PS_point, i, j, r1, r2):
-        """Strongly ordered piece of the double soft current with first soft particle with
-        number 'r1' and second with number 'r2' with emitting index 'i'  and reconnecting 
-        index 'j'. See Eq.(109-111) of hep-ph/9908523v1 (Catani-Grazzini)
+    def strongly_ordered_double_soft_kernel(pi, pj, pr1, pr2):
+        """Strongly ordered piece of the double soft current
+        with first soft particle with momentum 'pr1' and second with momentum 'pr2'
+        with emitting dipole of momenta 'pi' and 'pj'.
+        See Eq.(109-111) of hep-ph/9908523v1 (Catani-Grazzini).
         """
 
-        pipj = PS_point[i].dot(PS_point[j])
-        pr1pr2 = PS_point[r1].dot(PS_point[r2])
-        pipr1 = PS_point[i].dot(PS_point[r1])
-        pipr2 = PS_point[i].dot(PS_point[r2])
-        pjpr1 = PS_point[j].dot(PS_point[r1])
-        pjpr2 = PS_point[j].dot(PS_point[r2])
+        pipj = pi.dot(pj)
+        pr1pr2 = pr1.dot(pr2)
+        pipr1 = pi.dot(pr1)
+        pipr2 = pi.dot(pr2)
+        pjpr1 = pj.dot(pr1)
+        pjpr2 = pj.dot(pr2)
         
         return ( 
-            (pipj / pr1pr2) * ( 1. / (pipr1*pjpr2) + 1. / (pjpr1*pipr2) ) - 
-                                                    (pipj)**2 / (pipr1*pjpr2*pipr2*pjpr1) 
+            (pipj/pr1pr2) * ( 1./(pipr1*pjpr2) + 1./(pjpr1*pipr2) )
+            -  (pipj)**2 / (pipr1*pjpr2*pipr2*pjpr1)
         )
 
     @staticmethod
-    def non_abelian_eikonal(PS_point, i, j, r1, r2):
-        """Non abelian piece of the double soft current with first soft particle with 
-        number 'r1' and second with number 'r2' with emitting index 'i'  and reconnecting 
-        index 'j'. See Eq.(109-111) of hep-ph/9908523v1 (Catani-Grazzini)
+    def non_abelian_eikonal(pi, pj, pr1, pr2):
+        """Non abelian piece of the double soft current
+        with first soft particle with momentum 'pr1' and second with momentum 'pr2'
+        with emitting dipole of momenta 'pi' and 'pj'.
+        See Eq.(109-111) of hep-ph/9908523v1 (Catani-Grazzini).
         """
 
-        pipj = PS_point[i].dot(PS_point[j])
-        pr1pr2 = PS_point[r1].dot(PS_point[r2])
-        pipr1 = PS_point[i].dot(PS_point[r1])
-        pipr2 = PS_point[i].dot(PS_point[r2])
-        pjpr1 = PS_point[j].dot(PS_point[r1])
-        pjpr2 = PS_point[j].dot(PS_point[r2])
+        pipj = pi.dot(pj)
+        pr1pr2 = pr1.dot(pr2)
+        pipr1 = pi.dot(pr1)
+        pipr2 = pi.dot(pr2)
+        pjpr1 = pj.dot(pr1)
+        pjpr2 = pj.dot(pr2)
 
         so_double_soft = QCD_final_soft_0_gg.strongly_ordered_double_soft_kernel(
-                                                                  PS_point, i, j, r1, r2 )
+            pi, pj, pr1, pr2)
         
         pure_double_soft_non_abelian = (
             so_double_soft + ((pipr1*pjpr2+pipr2*pjpr1)/((pipr1+pipr2)*(pjpr1+pjpr2)))*(
@@ -734,10 +738,12 @@ class QCD_final_soft_0_gg(currents.QCDLocalSoftCurrent):
                 continue
             all_colored_parton_numbers.append(leg.get('number'))
 
-        # Identify the soft leg numbers
+        # Identify the soft leg numbers and momenta
         soft_leg_number_A = current.get('singular_structure').legs[0].n
         soft_leg_number_B = current.get('singular_structure').legs[1].n
-        pS = higher_PS_point[soft_leg_number_A] + higher_PS_point[soft_leg_number_B]
+        pA = higher_PS_point[soft_leg_number_A]
+        pB = higher_PS_point[soft_leg_number_B]
+        pS = pA + pB
 
         # Include the counterterm only in a part of the phase space
         if self.is_cut(Q=Q, pS=pS):
@@ -787,8 +793,14 @@ class QCD_final_soft_0_gg(currents.QCDLocalSoftCurrent):
         #    )
         for i in all_colored_parton_numbers:
             for j in all_colored_parton_numbers:
-                non_abelian_kernel = - self.CA * norm * self.non_abelian_eikonal(
-                    higher_PS_point, i, j, soft_leg_number_A, soft_leg_number_B)
+
+                # Compute the non-abelian eikonal
+                pi = sum(higher_PS_point[child] for child in leg_numbers_map[i])
+                pj = sum(higher_PS_point[child] for child in leg_numbers_map[j])
+                # pi = lower_PS_point[i]
+                # pj = lower_PS_point[j]
+                non_abelian_eikonal = self.non_abelian_eikonal(pi, pj, pA, pB)
+                non_abelian_kernel = - self.CA * norm * non_abelian_eikonal
                 
                 # Implement the non-abelian piece
                 non_abelian_correlator = ( 
@@ -807,12 +819,17 @@ class QCD_final_soft_0_gg(currents.QCDLocalSoftCurrent):
     
                 for k in all_colored_parton_numbers:
                     for l in all_colored_parton_numbers:
-                    
-                        # Implement the abelian piece
-                        eik_ij = self.eikonal(higher_PS_point, i, j, soft_leg_number_A)
-                        eik_kl = self.eikonal(higher_PS_point, k, l, soft_leg_number_B)
+
+                        # Compute the abelian eikonal
+                        pk = sum(higher_PS_point[child] for child in leg_numbers_map[k])
+                        pl = sum(higher_PS_point[child] for child in leg_numbers_map[l])
+                        # pk = lower_PS_point[k]
+                        # pl = lower_PS_point[l]
+                        eik_ij = self.eikonal(pi, pj, pA)
+                        eik_kl = self.eikonal(pk, pl, pB)
                         abelian_kernel = 0.5 * norm * eik_ij * eik_kl
                         
+                        # Implement the abelian piece
                         abelian_correlator_A = ( self.create_CataniGrazzini_correlator((i,j),(k,l)), )
                         abelian_correlator_B = ( self.create_CataniGrazzini_correlator((k,l),(i,j)), )
 

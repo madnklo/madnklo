@@ -1797,7 +1797,12 @@ The missing process is: %s"""%ME_process.nice_string())
             # Again, for the integrated subtraction counterterms, some care will be needed here
             # for the real-virtual, depending on how we want to combine the two Laurent series.
             connected_currents_weight += current_weight * ME_evaluation['finite']
-            
+
+        # Print the different weights for debugging
+        # misc.sprint(total_jacobian)
+        # misc.sprint(connected_currents_weight)
+        # misc.sprint(disconnected_currents_weight)
+
         # Now finally handle the overall prefactor of the counterterm
         # and the weight from the disconnected currents
         final_weight = (
@@ -1817,8 +1822,9 @@ The missing process is: %s"""%ME_process.nice_string())
         
         # Compute the real-emission matrix element weight in the base ME7Integrand class
         # Notice that the observable will be called already there for the resolved kinematics
-        sigma_wgt = super(ME7Integrand_R, self).sigma(PS_point, process_key, process, 
-                                  flavors, process_wgt, mu_r, mu_f1, mu_f2, *args, **opts )
+        sigma_wgt = super(ME7Integrand_R, self).sigma(
+            PS_point, process_key, process,
+            flavors, process_wgt, mu_r, mu_f1, mu_f2, *args, **opts )
 
         # This will group all CT results with the same reduced kinematics and flavors, so
         # as to call the generation-level cuts and observables only once for each
@@ -1836,8 +1842,8 @@ The missing process is: %s"""%ME_process.nice_string())
                 continue
 
             CT_wgt, reduced_PS, reduced_flavors = self.evaluate_counterterm(
-                          counterterm, PS_point, hel_config=None, defining_flavors=flavors,
-                          apply_flavour_blind_cuts = True, apply_flavour_cuts = True)
+                counterterm, PS_point, hel_config=None, defining_flavors=flavors,
+                apply_flavour_blind_cuts=True, apply_flavour_cuts=True)
             if CT_wgt == 0.:
                 continue
 
@@ -1943,7 +1949,7 @@ The missing process is: %s"""%ME_process.nice_string())
             counterterms_to_consider = [
                 ct for ct in self.counterterms[process_key]
                 if ct.count_unresolved() <= test_options['correction_order'].count('N') ]
-            
+
             selected_singular_structures = []
 
             for limit_specifier in test_options['limits']:
@@ -1951,16 +1957,17 @@ The missing process is: %s"""%ME_process.nice_string())
                 # If no match is found, then reconstruct the singular structure from the limits
                 # provided
                 selected_counterterms = self.find_counterterms_matching_regexp(
-                                                counterterms_to_consider, limit_specifier )
+                    counterterms_to_consider, limit_specifier )
                 if selected_counterterms:
                     selected_singular_structures.extend([
                         ct.reconstruct_complete_singular_structure()
                         for ct in selected_counterterms])
                 else:
-                    ss = mappings.sub.SingularStructure.from_string(limit_specifier, defining_process)
+                    ss = mappings.sub.SingularStructure.from_string(
+                        limit_specifier, defining_process)
                     if ss is None:
                         logger.critical(
-                            "%s is not a valid limits specification" % limit_str)
+                            "%s is not a valid limits specification" % limit_specifier )
                         continue
                     selected_singular_structures.append(ss)
 
@@ -1977,8 +1984,14 @@ The missing process is: %s"""%ME_process.nice_string())
                     counterterm_pattern = test_options['counterterms']
                     if counterterm_pattern.startswith('def'):
                         counterterm_pattern = str(limit)
+                    logger.debug("Counterterms before selection")
+                    for ct in counterterms_to_evaluate:
+                        logger.debug("    "+str(ct))
                     counterterms_to_evaluate = self.find_counterterms_matching_regexp(
-                                                  counterterms_to_evaluate, counterterm_pattern )
+                        counterterms_to_evaluate, counterterm_pattern )
+                    logger.debug("Selected counterterms")
+                    for ct in counterterms_to_evaluate:
+                        logger.debug("    "+str(ct))
                 # Progressively approach the limit, using a log scale
                 limit_evaluations = {}
                 n_steps = test_options['n_steps']

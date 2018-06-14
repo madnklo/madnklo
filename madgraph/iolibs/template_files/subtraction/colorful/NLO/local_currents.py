@@ -195,8 +195,8 @@ class QCD_final_collinear_0_gg(currents.QCDLocalCollinearCurrent):
 class QCD_soft_0_g(currents.QCDLocalSoftCurrent):
     """Soft gluon eikonal current at tree level, eq.4.12-4.13 of arXiv:0903.1218."""
 
-    is_cut = staticmethod(currents.SomogyiChoices.cut_soft)
-    factor = staticmethod(currents.SomogyiChoices.factor_soft)
+    # is_cut = staticmethod(currents.SomogyiChoices.cut_soft)
+    # factor = staticmethod(currents.SomogyiChoices.factor_soft)
 
     @classmethod
     def does_implement_this_current(cls, current, model):
@@ -218,15 +218,15 @@ class QCD_soft_0_g(currents.QCDLocalSoftCurrent):
         return init_vars
    
     @staticmethod
-    def eikonal(PS_point, i, j, r):
-        """Eikonal factor for soft particle with number 'r'
-        emitted from 'i' and reconnecting to 'j'.
+    def eikonal(pi, pj, ps):
+        """Eikonal factor for soft particle with momentum ps
+        emitted from the dipole with momenta pi and pj.
         """
 
-        pipj = PS_point[i].dot(PS_point[j])
-        pipr = PS_point[i].dot(PS_point[r])
-        pjpr = PS_point[j].dot(PS_point[r])
-        return pipj/(pipr*pjpr)
+        pipj = pi.dot(pj)
+        pips = pi.dot(ps)
+        pjps = pj.dot(ps)
+        return pipj/(pips*pjps)
     
     def evaluate_subtraction_current(
         self, current,
@@ -285,14 +285,18 @@ class QCD_soft_0_g(currents.QCDLocalSoftCurrent):
         # and add the corresponding contributions to this current
         for i, a in enumerate(all_colored_parton_numbers):
             # Use the symmetry of the color correlation and soft current (a,b) <-> (b,a)
-            for b in all_colored_parton_numbers[i+1:]:
-                evaluation['color_correlations'].append( ((a, b), ) )
+            for b in all_colored_parton_numbers[i:]:
                 # Write the eikonal for that pair
                 if a!=b:
                     mult_factor = 2.
                 else:
                     mult_factor = 1.
-                eikonal = self.eikonal(higher_PS_point, a, b, soft_leg_number)
+                pa = sum(higher_PS_point[child] for child in leg_numbers_map[a])
+                pb = sum(higher_PS_point[child] for child in leg_numbers_map[b])
+                # pa = lower_PS_point[a]
+                # pb = lower_PS_point[b]
+                eikonal = self.eikonal(pa, pb, pS)
+                evaluation['color_correlations'].append( ((a, b), ) )
                 evaluation['values'][(0, color_correlation_index)] = {
                     'finite': norm * mult_factor * eikonal }
                 color_correlation_index += 1
@@ -496,16 +500,16 @@ class QCD_initial_collinear_0_qg(currents.QCDLocalCollinearCurrent):
         # The factor 'x' that should be part of the initial_state_crossing_factor cancels
         # against the extra prefactor 1/x in the collinear factorisation formula
         # (see Eq. (8) of NNLO compatible NLO scheme publication arXiv:0903.1218v2)
-        initial_state_crossing_factor = 1.
+        initial_state_crossing_factor = -1.
         # Correct for the ratio of color-averaging factor between the real ME
         # initial state flavor (quark) and the one of the reduced Born ME (quark)
         initial_state_crossing_factor *= 1.
         
         z = 1./x
 
+        norm = initial_state_crossing_factor * self.CF
         # We re-use here the Altarelli-Parisi Kernel of the P_qg final state kernel
-        evaluation['values'][(0, 0)]['finite'] = \
-                            initial_state_crossing_factor * self.CF * ( (1.+z**2)/(1.-z) )
+        evaluation['values'][(0, 0)]['finite'] = norm * ( (1.+z**2)/(1.-z) )
 
         return evaluation
 
@@ -571,17 +575,17 @@ class QCD_initial_collinear_0_gq(currents.QCDLocalCollinearCurrent):
         # The factor 'x' that should be part of the initial_state_crossing_factor cancels
         # against the extra prefactor 1/x in the collinear factorisation formula
         # (see Eq. (8) of NNLO compatible NLO scheme publication arXiv:0903.1218v2)
-        initial_state_crossing_factor = -1.
+        initial_state_crossing_factor = 1.
         # Correct for the ratio of color-averaging factor between the real ME
         # initial state flavor (quark) and the one of the reduced Born ME (gluon)
         initial_state_crossing_factor *= (self.NC**2-1)/float(self.NC)
         
         z = 1./x
 
+        norm = initial_state_crossing_factor * self.TR
         # We re-use here the Altarelli-Parisi Kernel of the P_q\bar{q} final state kernel
-        evaluation['values'][(0, 0)]['finite'] = initial_state_crossing_factor * self.TR
-        evaluation['values'][(1, 0)]['finite'] = \
-                     initial_state_crossing_factor * 4. * self.TR * z*(1.-z) / kT.square()
+        evaluation['values'][(0, 0)]['finite'] = norm
+        evaluation['values'][(1, 0)]['finite'] = 4. * norm * z*(1.-z) / kT.square()
 
         return evaluation
     
@@ -646,16 +650,16 @@ class QCD_initial_collinear_0_qq(currents.QCDLocalCollinearCurrent):
         # The factor 'x' that should be part of the initial_state_crossing_factor cancels
         # against the extra prefactor 1/x in the collinear factorisation formula
         # (see Eq. (8) of NNLO compatible NLO scheme publication arXiv:0903.1218v2)
-        initial_state_crossing_factor = -1.
+        initial_state_crossing_factor = 1.
         # Correct for the ratio of color-averaging factor between the real ME
         # initial state flavor (gluon) and the one of the reduced Born ME (quark)
         initial_state_crossing_factor *= (self.NC/float(self.NC**2-1))
         
         z = 1./x
 
+        norm = initial_state_crossing_factor * self.CF
         # We re-use here the Altarelli-Parisi Kernel of the P_gq final state kernel
-        evaluation['values'][(0, 0)]['finite'] = \
-                            initial_state_crossing_factor * self.CF * ( (1.+(1.-z)**2)/z )
+        evaluation['values'][(0, 0)]['finite'] = norm * ( (1.+(1.-z)**2)/z )
 
         return evaluation
 
@@ -722,7 +726,7 @@ class QCD_initial_collinear_0_gg(currents.QCDLocalCollinearCurrent):
         # The factor 'x' that should be part of the initial_state_crossing_factor cancels
         # against the extra prefactor 1/x in the collinear factorisation formula
         # (see Eq. (8) of NNLO compatible NLO scheme publication arXiv:0903.1218v2)
-        initial_state_crossing_factor = 1.
+        initial_state_crossing_factor = -1.
         # Correct for the ratio of color-averaging factor between the real ME
         # initial state flavor (gluon) and the one of the reduced Born ME (gluon)
         initial_state_crossing_factor *= 1.
@@ -737,8 +741,9 @@ class QCD_initial_collinear_0_gg(currents.QCDLocalCollinearCurrent):
         #    \sum_\lambda \epsilon_\lambda^\mu \epsilon_\lambda^{\star\nu}
         #    = g^{\mu\nu} + longitudinal terms
         # are irrelevant because Ward identities evaluate them to zero anyway.
-        evaluation['values'][(0, 0)]['finite'] =  2.*self.CA * ( (z/(1.-z)) + ((1.-z)/z) )
-        evaluation['values'][(1, 0)]['finite'] = -2.*self.CA * 2.*z*(1.-z) / kT.square()
+        norm = initial_state_crossing_factor * 2. * self.CA
+        evaluation['values'][(0, 0)]['finite'] =  norm * ( (z/(1.-z)) + ((1.-z)/z) )
+        evaluation['values'][(1, 0)]['finite'] = -norm * 2.*z*(1.-z) / kT.square()
 
         return evaluation
     
@@ -848,7 +853,7 @@ class QCD_initial_softcollinear_0_Xg(currents.QCDLocalSoftCollinearCurrent):
         })
 
         # Evaluate kernel
-        xs, kTs = self.variables(higher_PS_point, parent, children, Q=Q)
+        xs, kTs = self.variables(higher_PS_point, lower_PS_point[parent], children, Q=Q)
         x = xs[0]
     
         # See Eq. (4.17) of NNLO compatible NLO scheme publication arXiv:0903.1218v2

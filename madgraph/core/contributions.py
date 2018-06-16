@@ -132,9 +132,7 @@ class Contribution(object):
             # will overwrite the interface option when the exporter will be instantiated.
             self.additional_exporter_options['loop_color_flows'] = True
 
-            logger.critical("REMOVED COLOR CORELATIONS BEYOND NLO. TO PUT THEM BACK IN, UNCOMMENT lines ~ 135 in contributions.py")
-            self.additional_exporter_options['color_correlators'] ='NLO'
-            #self.additional_exporter_options['color_correlators'] ='N'*correlators_needed+'LO'
+            self.additional_exporter_options['color_correlators'] ='N'*correlators_needed+'LO'
             self.additional_exporter_options['spin_correlators']  ='N'*correlators_needed+'LO'
                                         
         self.amplitudes              = diagram_generation.AmplitudeList()

@@ -13,8 +13,7 @@
 #
 ################################################################################
 
-"""Unit test library for the color algebra related routines
-in the core library"""
+"""Unit test library for the NNLO subtraction currents"""
 
 import copy
 import fractions
@@ -26,7 +25,7 @@ import tests.unit_tests as unittest
 
 
 class NNLOCurrentsTest(unittest.TestCase):
-    """Test class for the ColorObject objects"""
+    """Test class for the NNLO currents"""
 
     def setUp(self):
         self.ggg = thecurrents.QCD_final_collinear_0_ggg(simple_qcd.model)

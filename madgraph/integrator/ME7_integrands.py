@@ -1966,8 +1966,8 @@ The missing process is: %s"""%ME_process.nice_string())
                     ss = mappings.sub.SingularStructure.from_string(
                         limit_specifier, defining_process)
                     if ss is None:
-                        logger.critical(
-                            "%s is not a valid limits specification" % limit_specifier )
+                        logger.info("No limit matching %s for process %s." % 
+                                    (limit_specifier, defining_process.nice_string()) )
                         continue
                     selected_singular_structures.append(ss)
 
@@ -2003,6 +2003,12 @@ The missing process is: %s"""%ME_process.nice_string())
                     scaled_real_PS_point = walker.approach_limit(
                         a_real_emission_PS_point,
                         limit, scaling_parameter, defining_process )
+                    if test_options['apply_higher_multiplicity_cuts']:
+                        if not self.pass_flavor_blind_cuts( scaled_real_PS_point,
+                            self.processes_map.values()[0][0].get_cached_initial_final_pdgs() ):
+                            logger.warning('Aborting prematurely since the following scaled real-emission point'+
+                                          ' does not pass higher multiplicity cuts.')
+                            break
                     # Initialize result
                     this_eval = {}
                     # Evaluate ME

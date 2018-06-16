@@ -1030,9 +1030,9 @@ class CheckValidForCmd(cmd.CheckCmd):
             if not isinstance(self._curr_model, model_reader.ModelReader):
                 self._curr_model = model_reader.ModelReader(self._curr_model)
             self._curr_model.set_parameters_and_couplings(path)
-            self.check_process_format(' '.join(args[1:-1]))
+            self.check_process_format(' '.join(' '.join(a for a in args[1:-1] if not a.startswith('--'))))
         else:
-            self.check_process_format(' '.join(args[1:]))
+            self.check_process_format(' '.join(' '.join(a for a in args[1:] if not a.startswith('--'))))
     
 
     def check_process_format(self, process):

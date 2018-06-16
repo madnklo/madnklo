@@ -996,6 +996,7 @@ class Contribution_R(Contribution):
 The resulting output must therefore be used for debugging only as it will not yield physical results."""
                 %(self.short_name(),defining_process.nice_string(print_weighted = False).replace('Process','process')))
 
+
             # Make sure that the non-singular counterterm which correspond to the real-emission
             # matrix elements themselves are not added here
             local_counterterms = [ct for ct in local_counterterms if ct.is_singular()]

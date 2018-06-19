@@ -2047,40 +2047,57 @@ The missing process is: %s"""%ME_process.nice_string())
         return self.analyze_IR_limits_test(
             all_evaluations, 
             test_options['acceptance_threshold'],
-            seed                =   seed, 
-            show                =   test_options['show_plots'], 
-            save_plots          =   test_options['save_plots'],
-            save_results_path   =   test_options['save_results_to_path']
+            seed               = seed,
+            show               = test_options['show_plots'],
+            save_plots         = test_options['save_plots'],
+            save_results_path  = test_options['save_results_to_path'],
+            plots_suffix       = test_options['plots_suffix'],
         )
 
     @staticmethod
     def analyze_IR_limit(
         evaluations, acceptance_threshold,
-        title=None, def_ct=None, plot_all=True, show=True, filename=None ):
+        title=None, def_ct=None, plot_all=True, show=True,
+        filename=None, plots_suffix=None, number_of_FS_legs=None ):
 
         import matplotlib.pyplot as plt
 
+        plot_title = False
+        plot_size = (6,6)
+        plot_extension = ".pdf"
+        if plots_suffix:
+            plot_extension = '_' + plots_suffix + plot_extension
         test_failed = False
         test_ratio  = -1.0
 
         # Produce a plot of all counterterms
         x_values = sorted(evaluations.keys())
         lines = evaluations[x_values[0]].keys()
+        lines.sort(key=len)
         # Skip ME-def line if there is no defining ct
-        plot_def = def_ct and def_ct in lines
+        plot_def = def_ct and def_ct in lines and len(lines) > 2
 
         plt.rc('text', usetex=True)
-        plt.rc('font', family='serif')
+        plt.rc('font', family='serif', size=16)
+        prop_cycle = plt.rcParams['axes.prop_cycle']
+        colors = prop_cycle.by_key()['color']
+        TOTAL_color = colors.pop(3)
+        MEdef_color = colors.pop(2)
 
-        plt.figure(1)
-        if title: plt.title(title)
+        plt.figure(1, figsize=plot_size)
+        plt.gca().set_prop_cycle(color=colors)
+        if plot_title and title: plt.title(title)
+        GeV_pow = -2*(number_of_FS_legs-2)
+        units = '[GeV${}^{' + str(GeV_pow) + '}$]'
         plt.xlabel('$\lambda$')
-        plt.ylabel('Integrands')
+        plt.ylabel('Integrands ' + units)
+        plt.subplots_adjust(left=0.15)
         plt.xscale('log')
         plt.yscale('log')
         plt.grid(True)
         total           = [0., ] * len(x_values)
         ME_minus_def_ct = [0., ] * len(x_values)
+        line_labels = {}
         for line in lines:
             y_values = [abs(evaluations[x][line]) for x in x_values]
             for i in range(len(x_values)):
@@ -2091,25 +2108,33 @@ The missing process is: %s"""%ME_process.nice_string())
                     def_ct_sign = (-1) ** def_ct.count("(")
                 for i in range(len(x_values)):
                     ME_minus_def_ct[i] += def_ct_sign * evaluations[x_values[i]][line]
+            line_label = copy.copy(line)
+            if line_label.startswith("("):
+                line_label = line_label[1:]
+            if line_label.endswith(",)"):
+                line_label = line_label[:-2]
+            line_labels[line] = line_label
             if plot_all:
                 if '(' in line:
                     style = '--'
                 else:
                     style = '-'
-                plt.plot(x_values, y_values, style, label=line)
+                plt.plot(x_values, y_values, style, label=line_label)
         if plot_def:
             abs_ME_minus_def_ct = [abs(y) for y in ME_minus_def_ct]
-            plt.plot(x_values, abs_ME_minus_def_ct, label='ME-def')
+            plt.plot(x_values, abs_ME_minus_def_ct, color=MEdef_color, label='ME-def')
         abs_total = [abs(y) for y in total]
-        plt.plot(x_values, abs_total, label='TOTAL')
+        plt.plot(x_values, abs_total, color=TOTAL_color, label='TOTAL')
         plt.legend()
         if filename:
-            plt.savefig(filename + '_integrands.pdf')
+            plt.savefig(filename + '_integrands' + plot_extension)
 
-        plt.figure(2)
-        if title: plt.title(title)
+        plt.figure(2, figsize=plot_size)
+        plt.gca().set_prop_cycle(color=colors)
+        if plot_title and title: plt.title(title)
         plt.xlabel('$\lambda$')
         plt.ylabel('Ratio to ME')
+        plt.subplots_adjust(left=0.15)
         plt.xscale('log')
         plt.grid(True)
         for line in lines:
@@ -2118,10 +2143,10 @@ The missing process is: %s"""%ME_process.nice_string())
                 style = '--'
             else:
                 style = '-'
-            plt.plot(x_values, y_values, style, label=line)
+            plt.plot(x_values, y_values, style, label=line_labels[line])
         plt.legend()
         if filename:
-            plt.savefig(filename + '_ratios.pdf')
+            plt.savefig(filename + '_ratios' + plot_extension)
 
         # Check that the ratio of def_ct to the ME is close to -1
         if plot_def and not test_failed:
@@ -2140,22 +2165,24 @@ The missing process is: %s"""%ME_process.nice_string())
             test_ratio  = abs(total_2_ME_ratio)
             test_failed = test_ratio > acceptance_threshold
 
-        plt.figure(3)
-        if title: plt.title(title)
+        plt.figure(3, figsize=plot_size)
+        plt.gca().set_prop_cycle(color=colors)
+        if plot_title and title: plt.title(title)
         plt.xlabel('$\lambda$')
-        plt.ylabel('Weighted integrands')
+        plt.ylabel('Weighted integrands ' + units)
+        plt.subplots_adjust(left=0.15)
         plt.xscale('log')
         plt.yscale('log')
         plt.grid(True)
         if plot_def:
             wgt_ME_minus_def_ct = [abs(x_values[i] * ME_minus_def_ct[i])
                                    for i in range(len(x_values))]
-            plt.plot(x_values, wgt_ME_minus_def_ct, label='ME-def')
+            plt.plot(x_values, wgt_ME_minus_def_ct, color=MEdef_color, label='ME-def')
         wgt_total = [abs(x_values[i] * total[i]) for i in range(len(x_values))]
-        plt.plot(x_values, wgt_total, label='TOTAL')
+        plt.plot(x_values, wgt_total, color=TOTAL_color, label='TOTAL')
         plt.legend()
         if filename:
-            plt.savefig(filename + '_weighted.pdf')
+            plt.savefig(filename + '_weighted' + plot_extension)
 
         if show:
             plt.show()
@@ -2166,7 +2193,8 @@ The missing process is: %s"""%ME_process.nice_string())
 
     def analyze_IR_limits_test(
         self, all_evaluations, acceptance_threshold,
-        seed=None, show=True, save_plots=False, save_results_path=None):
+        seed=None, show=True,
+        save_plots=False, save_results_path=None, plots_suffix=None ):
         """Analyze the results of the test_IR_limits command."""
 
         test_failed = False
@@ -2176,6 +2204,8 @@ The missing process is: %s"""%ME_process.nice_string())
             for (limit, limit_evaluations) in process_evaluations.items():
                 proc, loops = process.split("@")
                 title = "$" + proc + "$"
+                initial_state, final_state = proc.split('>')
+                number_of_FS_legs = final_state.count(' ') - 1
                 title = title.replace('~','x').replace('>','\\to').replace(' ','\\;')
                 title = title.replace('+','^+').replace('-','^-')
                 title += "@" + loops + " approaching " + limit
@@ -2186,10 +2216,13 @@ The missing process is: %s"""%ME_process.nice_string())
                     filename = filename.replace(">", "_")
                     filename = filename.replace(" ", "").replace("~", "x")
                     filename = filename.replace("@", "_") + "_" + limit
-                    if seed: filename += str(seed)
+                    filename = filename.replace(",", "").replace("(","").replace(")","")
+                    if seed: filename += "_"+str(seed)
                 results[process][limit] = self.analyze_IR_limit(
                     limit_evaluations, acceptance_threshold=acceptance_threshold,
-                    title=title, def_ct=limit, show=show, filename=filename )
+                    title=title, def_ct=limit, show=show,
+                    filename=filename, plots_suffix=plots_suffix,
+                    number_of_FS_legs=number_of_FS_legs)
                 if not results[process][limit][0]:
                     test_failed = True
         if save_results_path:

@@ -317,7 +317,8 @@ class ParseCmdArguments(object):
             'apply_lower_multiplicity_cuts'  : True,
             'show_plots'              : True,
             'save_plots'              : False,
-            'save_results_to_path'    : None
+            'save_results_to_path'    : None,
+            'plots_suffix'            : None,
         }
 
         if mode=='poles':
@@ -330,6 +331,7 @@ class ParseCmdArguments(object):
             del testlimits_options['apply_lower_multiplicity_cuts']
             del testlimits_options['show_plots']
             del testlimits_options['save_plots']
+            del testlimits_options['plots_suffix']
         elif mode=='limits':
             del testlimits_options['include_all_flavors']            
  
@@ -463,6 +465,8 @@ class ParseCmdArguments(object):
                     testlimits_options['seed'] = int(value)
                 except ValueError:
                     raise InvalidCmd("Cannot set '%s' option to '%s'."%(key, value))
+            elif key == '--plots_suffix':
+                testlimits_options['plots_suffix'] = value
             elif key=='--process':
                 if value.lower()=='all':
                     testlimits_options['process']['in_pdgs'] = None

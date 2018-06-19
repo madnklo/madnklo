@@ -497,15 +497,15 @@ class SingularStructure(object):
         return ""
 
     def decompose(self):
-        """Decompose the singular structure as a flat set."""
+        """Decompose the singular structure as a flat list."""
 
-        inner = set()
+        inner = list()
         for substructure in self.substructures:
-            inner.update(substructure.decompose())
+            inner += substructure.decompose()
         if type(self) == SingularStructure:
             return inner
         foo = type(self)(legs=self.get_all_legs())
-        inner.add(foo)
+        inner.append(foo)
         return inner
 
     name_dictionary = {

@@ -380,6 +380,7 @@ class ME7ContributionTest(IOTests.IOTestManager):
             print_string = 'A total of %d integrated counterterms were filtered'
             print_string += 'because a reduced process did not exist.'
             misc.sprint(print_string % (n_CTs_difference))
+
         # Check the number of filtered integrated counterterms
         self.assertEqual(n_CTs_difference, 0)
         # Output all integrated counterterms
@@ -389,6 +390,7 @@ class ME7ContributionTest(IOTests.IOTestManager):
             for CT in sum(virtual_contrib.integrated_counterterms.values(), []) ]
         open(pjoin(self.IOpath,'Counterterms_V.txt'),'w').write(
             "\n".join(sorted(counterterm_strings)) )
+
         # Check the number of counterterms that did not find a host contribution
         refused_cts = len(self.exporter.integrated_counterterms_refused_from_all_contribs)
         if verbose:

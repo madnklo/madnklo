@@ -2990,12 +2990,13 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
         
         add_options = {'NLO'                  : [],
                        'NNLO'                 : [],
-                       'NNNLO'                 : [],
+                       'NNNLO'                : [],
                        'LO'                   : False,
                        'loop_induced'         : [],
                        # ME7_definition is a tag informing whether the user asks for the new ME7 output.
                        'ME7_definition'       : False,
-                       'ignore_contributions' : []}
+                       'ignore_contributions' : [],
+                       'beam_types'           : ['auto', 'auto']}
         
         # First combine all value of the options (starting with '--') separated by a space
         # For example, it will group '--NNLO=QCD','QED' into '--NNLO=QCD QED'.
@@ -3081,6 +3082,34 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
                                                                 %(valid_NLO_correction_orders, orders) )
                 add_options['loop_induced'] = orders
 
+            elif key=='beam_one_type':
+                if value.upper() == 'NONE':
+                    add_options['beam_types'][0] = None
+                else:
+                    add_options['beam_types'][0] = value
+            elif key=='beam_two_type':
+                if value.upper() == 'NONE':
+                    add_options['beam_types'][1] = None
+                else:
+                    add_options['beam_types'][1] = value                             
+            elif key=='beam_types':
+                try:
+                    beam_types = eval(value)
+                except:
+                    beam_types = (value, value)
+                else:
+                    if beam_types is None:
+                        beam_types = (None, None)
+                    elif not isinstance(beam_types, tuple) or len(beam_types)!=2:
+                        raise InvalidCmd("Value for option '%s' must be a string or a tuple of two string"%key)
+                for i, beam_type in enumerate(beam_types):
+                    if (not beam_type is None) and not isinstance(beam_type,str):
+                        raise InvalidCmd("Value for option '%s' must be a string or a tuple of two string"%key)
+                    if beam_type is None or beam_type.upper() == 'NONE':
+                        add_options['beam_types'][i] = None
+                    else:
+                        add_options['beam_types'][i] = beam_type
+                    
             elif key=='ignore_contributions':
                 try:
                     ignored_contribs = eval(value)
@@ -3090,8 +3119,8 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
                 except:
                     add_options[key].extend([v.strip() for v in value.split(',')])
                 for contrib in add_options[key]:
-                    if not re.match(r'^(B|R*V*)$',contrib):
-                        raise InvalidCmd("Ignored contribs must be specified with syntax 'B' or 'RRR(...)VVV(...)'.")
+                    if not re.match(r'^(B|R*V*)(FL*1)?(FL*2)?$',contrib):
+                        raise InvalidCmd("Ignored contribs must be specified with syntax 'B' or 'RRR(...)VVV(...)(FL*1)?(FL*2)?'.")
             else:
                 raise InvalidCmd("Unrecognized option for command add/generate: %s"%key)
 
@@ -3120,6 +3149,9 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
 
         # Finally set the ME7_definition tag
         add_options['ME7_definition'] = any(add_options[info] for info in ['NLO', 'NNLO', 'NNNLO', 'LO', 'loop_induced'])
+
+        # Make sure beam_types is now an immutable tuple
+        add_options['beam_types'] = tuple(add_options['beam_types'])
 
         return new_args, add_options
     
@@ -3172,9 +3204,9 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
                     list_to_ignore = [v.strip() for v in value.split(',')]
                     
                 for to_ignore in list_to_ignore:
-                    if to_ignore!='all' and not re.match(r'^(R*V*)$',to_ignore):
+                    if to_ignore!='all' and not re.match(r'^(R*V*)(FL*1)?(FL*2)?$',to_ignore):
                         raise InvalidCmd("Ignored integrated counterterms must be specified"+
-                        " each with syntax 'all' or 'RRR(...)VVV(...)', not '%s'."%to_ignore)
+                        " each with syntax 'all' or 'RRR(...)VVV(...)(FL*1)?(FL*2)?', not '%s'."%to_ignore)
                 output_options[key] = list_to_ignore
             else:
                 raise InvalidCmd("Unrecognized option for command output: %s"%key)
@@ -3461,7 +3493,8 @@ This implies that with decay chains:
                         self)
     
             self._curr_contribs.append(real_emission_contribution)
-                
+            
+          
     def add_NLO_loop_induced_contributions(self, NLO_template_procdef, generation_options, target_squared_orders):
         """ Add all NLO loop_induced contributions, using the process defintion in argument as template
         and the target_squared_orders as constraints applying to the NLO contributions.
@@ -3558,6 +3591,9 @@ This implies that with decay chains:
         # Progressively increment process ID, which we store in the generation_options
         generation_options['proc_id'] = 1
         
+        # Test if the process specified is a decay process
+        is_a_decay_process = (len([1 for leg in input_procdef.get('legs') if leg['state'] == False])==1)
+        
         # Obtain what is the highest correction order required for:
         if generation_options['NNNLO']:
             generation_options['overall_correction_order'] = 'NNNLO'
@@ -3649,7 +3685,7 @@ This implies that with decay chains:
                 raise InvalidCmd('MadEvent7 does not support negative squared order constraints.')
 
         # Initialize the LO global perturbed squared orders with default values extracted from the
-        # LO contributions if generated. Always set QCD and QED default targer squared order so as 
+        # LO contributions if generated. Always set QCD and QED default target squared order so as 
         # to have efficient diagram generation.
         if LO_contrib_added:
             for order in set(all_perturbed_orders+['QCD','QED']):
@@ -3686,16 +3722,37 @@ This implies that with decay chains:
             if not all_perturbed_ids.difference(set(initial_states['ids']))==set([]) and \
                not all_perturbed_ids.difference(set(initial_states['ids']))==all_perturbed_ids:
                 logger.warning('It is typically not theoretically sound to compute higher order corrections of'+
-                    ' a process for which the initial states are only a subset of the following set:\n%s'%(
-                        str([self._curr_model.get_particle(pdg).get_name() for pdg in all_perturbed_ids])))
+                    ' a process for which the initial states are only a subset of the following set:\n(%s)'%(
+                        ' '.join(self._curr_model.get_particle(pdg).get_name() for pdg in all_perturbed_ids)))
                 break
-        
         
         # Add the certain quantities to the generation options so as to make then accessible to the various
         # add_contributions_<xxx> functions called here.
         generation_options['all_perturbed_orders'] = all_perturbed_orders
         generation_options['orders_to_perturbed_quantities'] = orders_to_perturbed_quantities
-
+        
+        # Determine the beam types automatically if needed:
+        if not is_a_decay_process:
+            initial_state_multilegs = [leg for leg in input_procdef.get('legs') if leg['state'] == False]
+            beam_one_type = self.guess_beam_type(generation_options, initial_state_multilegs[0], 0)
+            beam_two_type = self.guess_beam_type(generation_options, initial_state_multilegs[1], 1)
+        else:
+            beam_one_type = None
+            beam_two_type = None
+        
+        beam_types = (beam_one_type, beam_two_type)
+        for i, beam_type in enumerate(beam_types):
+            if beam_type != None:
+                logger.info('Selected type for beam %s: %s (incl. %s)'%('one' if i==0 else 'two', 
+                    beam_type[0], ' '.join(self._curr_model.get_particle(pdg).get_name() for pdg in beam_type[1])))
+              
+        # Keep track of the type of beam factorization added (whose format correponds to the
+        # one of the argument 'beam_factorization' of the class ContributionDefinition) so
+        # that we never add them twice, which can happen in the iterative structure employed
+        # here where the NNLO F1F2 term for example can come from F2 added to the existing NLO F1
+        # or F1 added to the existing NLO F2.
+        beam_factorizations_already_considered = []
+                
         # Add NLO contributions now
         # =========================
         if generation_options['NLO']:
@@ -3715,11 +3772,13 @@ This implies that with decay chains:
             # Adding here regular NLO contributions
             if not generation_options['loop_induced']:
                 self.add_NLO_contributions(NLO_template_procdef, generation_options, NLO_global_orders)
+                # Add collinear factorization contributions
+                self.add_beam_factorization_contributions(
+                    'NLO', generation_options, beam_types, beam_factorizations_already_considered)
             # Add NLO loop-induced contributions
             else:
                 self.add_NLO_loop_induced_contributions(
-                                            NLO_template_procdef, generation_options, NLO_global_orders)
-
+                                NLO_template_procdef, generation_options, NLO_global_orders)
 
         # Add NNLO contributions
         # ==============================
@@ -3740,8 +3799,11 @@ This implies that with decay chains:
             # Adding here regular NLO contributions
             if not generation_options['loop_induced']:
                 self.add_NNLO_contributions(NNLO_template_procdef, generation_options, NNLO_global_orders)
+                # Add collinear factorization contributions
+                self.add_beam_factorization_contributions(
+                    'NNLO', generation_options, beam_types, beam_factorizations_already_considered)
             else:
-                raise InvalidCmd("Loop-induced predictions at NNLO are not supported by MadEvent7.")
+                raise InvalidCmd("Loop-induced predictions at NNLO are not supported by MadNkLO.")
 
         # Finally add NNNLO contributions
         # =============================
@@ -3762,9 +3824,138 @@ This implies that with decay chains:
             # Adding here regular NLO contributions
             if not generation_options['loop_induced']:
                 self.add_NNNLO_contributions(NNNLO_template_procdef, generation_options, NNNLO_global_orders)
+                # Add collinear factorization contributions
+                self.add_beam_factorization_contributions(
+                    'NNNLO', generation_options, beam_types, beam_factorizations_already_considered)
             else:
-                raise InvalidCmd("Loop-induced predictions at NNNLO are not supported by MadEvent7.")
-                            
+                raise InvalidCmd("Loop-induced predictions at NNNLO are not supported by MadNkLO.")
+
+    def guess_beam_type(self, generation_options, multileg, beam_id):
+        """ Given a model, the specified beam_type (can be set to 'auto' for being automatically guessed),
+        and the initial state multileg specified, it returns the following tuple:
+            ( beam_type_name, (pdgs_contained,) ) """
+        
+        user_beam_type = generation_options['beam_types'][beam_id]
+        
+        hard_coded_beam_types = [
+            ['proton'        , (1,3,4,5,6,-1,-2,-3,-4,-5,-6,21)],
+            ['proton_photon' , (1,3,4,5,6,-1,-2,-3,-4,-5,-6,21,22)],
+            ['proton_all'    , (1,3,4,5,6,-1,-2,-3,-4,-5,-6,21,22,
+                                11,12,13,14,15,-11,-12,-13,-14,-15)],
+            ['lepton'        , (11,-11,13,-13,15,-15,22)],     
+        ]
+        
+        all_real_emission_ids = set([])
+        for order in generation_options['all_perturbed_orders']:
+            all_real_emission_ids = all_real_emission_ids.union(set(
+                generation_options['orders_to_perturbed_quantities'][order]['real_emission_ids']))
+        
+        # Weed out particles not affected by the current corrected couplints
+        for i, (hard_coded_beam_type, pdgs) in enumerate(hard_coded_beam_types):
+            hard_coded_beam_types[i][1] = tuple(pdg for pdg in pdgs if pdg in all_real_emission_ids)
+            
+        # Now sort them according to number of PDGs contained
+        hard_coded_beam_types = sorted([(beam_type, tuple(pdgs)) for 
+                      beam_type, pdgs in hard_coded_beam_types], key=lambda el: len(el[1]))
+        
+        beam_type_guessed = None
+        missing_pdgs      = []
+
+        initial_state_ids  = [pdg for pdg in multileg.get('ids') if pdg in all_real_emission_ids]
+        
+        if len(initial_state_ids)<=1:
+            beam_type_guessed = None
+        else:
+            # Now consider the smallest hard-coded range that matches users input.
+            for beam_type, pdgs in hard_coded_beam_types:
+                if all(pdg in pdgs for pdg in initial_state_ids):
+                    beam_type_guessed = beam_type
+                    # Save PDGs missing from initial state definition
+                    missing_pdgs = [pdg for pdg in pdgs if pdg not in initial_state_ids]
+                    break
+            else:
+                beam_type_guessed = 'UNKNOWN'
+        
+        # Now take different action depending on whether the user set the beam type assignment
+        # to auto or not       
+        if user_beam_type == 'auto':
+            if beam_type_guessed == 'UNKNOWN':
+                raise InvalidCmd('MadNkLO could not automatically determine the relevant beam'+
+            " type for this process. Specify it using the option 'beam_types' of the 'generate' command.")
+
+            # If there are missing PDGs in the initial state definition, issue a warning 
+            # (in the case of the proton only)
+            if len(missing_pdgs)>0 and 'proton' in beam_type_guessed:
+                logger.warning('It seems that the following particles are missing in your'+
+                    ' multiparticle definition used for beam %d: (%s)'%(beam_id+1,
+                        ' '.join(self._curr_model.get_particle(pdg).get_name() for pdg in missing_pdgs)))
+            selected_beam_type = beam_type_guessed
+        else:
+            if beam_type_guessed not in [user_beam_type, 'UNKNOWN']:
+                logger.warning("Note that the specified beam %d type '%s' does not match MadNkLO guess: '%s'"%
+                                            (beam_id+1, user_beam_type, beam_type_guessed))
+            selected_beam_type = user_beam_type
+            
+        if selected_beam_type is None:
+            return None
+        else:
+            return (selected_beam_type, sorted(initial_state_ids))
+
+    def add_beam_factorization_contributions(self, correction_order, generation_options, 
+                                       beam_types, beam_factorizations_already_considered):
+        """ Add contributions related to the collinear factorization contributions
+        (aka PDF counterterms). The beam_types is indicated as the argument beam_types with
+        the 2-tuple format ("<beam_one_name>","<beam_two_name>").
+        The final argument 'beam_factorizations_already_considered' is there to make sure
+        that the iterative procedure does not produce several copies of the same collinear 
+        factorization piece."""
+        
+        # Abort immediately if not beam factorization is necessary
+        if beam_types == (None, None):
+            return
+        
+        target_correction_order = correction_order.count('N')
+        for contrib in self._curr_contribs:
+            this_contrib_order = contrib.contribution_definition.correction_order.count('N')
+            if this_contrib_order >= target_correction_order:
+                continue
+            for i_beam, beam_name in enumerate(['beam_one','beam_two']):
+                # Ignore beam for which collinear factorisation does not apply
+                if beam_types[i_beam] is None:
+                    continue
+                # Set the collinear factorization maximum additional orders necessary
+                beam_fact_contribution_definition = contrib.contribution_definition.get_copy()
+                
+                # Properly adjust the copied contribution definition 
+                beam_fact_contribution_definition.correction_order = correction_order
+                
+                beam_factorization_CT = {
+                        'beam_type'            : beam_types[i_beam],
+                        'correction_couplings' : sorted(list(generation_options[correction_order])),
+                        'n_loops'              : (target_correction_order-this_contrib_order-1)
+                    }
+                # Now amend the collinear factorization counterterms of the original definition
+                if beam_fact_contribution_definition.beam_factorization[beam_name] is None:
+                    beam_fact_contribution_definition.beam_factorization[beam_name] = [beam_factorization_CT,]
+                else:
+                    beam_fact_contribution_definition.beam_factorization[beam_name].append(beam_factorization_CT)
+                    # Make sure to use a canonical ordering of the convoluted PDF CTs.
+                    beam_fact_contribution_definition.beam_factorization[beam_name].sort(
+                        key = lambda beam_fact_CT: (beam_fact_CT['n_loops'], 
+                                   beam_fact_CT['correction_couplings'], beam_fact_CT['beam_type']) )
+
+                # Verify if this beam_factorization has already been considered.
+                if beam_fact_contribution_definition.beam_factorization in beam_factorizations_already_considered:
+                    continue
+
+                # We can now add this contribution
+                self._curr_contribs.append(
+                            contributions.Contribution(beam_fact_contribution_definition, self))
+                # And add it to the list of beam factorization terms added so that they are
+                # not added back again later.
+                beam_factorizations_already_considered.append(
+                                      beam_fact_contribution_definition.beam_factorization)
+
     def add_model(self, args):
         """merge two model"""
         

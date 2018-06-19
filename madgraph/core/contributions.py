@@ -64,36 +64,31 @@ class Contribution(object):
 
         if cls is Contribution:
             target_type = 'Unknown'
-            if contribution_definition.correction_order == 'LO':
-                if contribution_definition.n_loops == 0 and \
-                  contribution_definition.n_unresolved_particles == 0:
-                    target_type = 'Born'
-                elif contribution_definition.n_loops == 1 and \
-                  contribution_definition.n_unresolved_particles == 0:
-                    target_type = 'LoopInduced_Born'                    
-            elif contribution_definition.correction_order == 'NLO':
-                if contribution_definition.n_loops == 1 and \
-                   contribution_definition.n_unresolved_particles == 0:
+            correction_order = contribution_definition.correction_order.count('N')
+            if contribution_definition.n_loops == 0 and \
+              contribution_definition.n_unresolved_particles == 0:
+                target_type = 'Born'
+            elif contribution_definition.n_loops == 1 and \
+              contribution_definition.n_unresolved_particles == 0:
+                if correction_order < 1:
+                    target_type = 'LoopInduced_Born'
+                else:
                     target_type = 'Virtual'
-                elif contribution_definition.n_loops == 0 and \
-                     contribution_definition.n_unresolved_particles == 1:
-                    target_type = 'SingleReals'
-            elif contribution_definition.correction_order == 'NNLO':
-                if contribution_definition.n_loops == 0 and \
-                   contribution_definition.n_unresolved_particles == 2:
-                    target_type = 'DoubleReals'
-                else:
-                    raise MadGraph5Error("Some NNLO type of contributions are not implemented yet.")
-            elif contribution_definition.correction_order == 'NNNLO':
-                if contribution_definition.n_loops == 0 and \
-                   contribution_definition.n_unresolved_particles == 3:
-                    target_type = 'TripleReals'
-                else:
-                    raise MadGraph5Error("Some NNNLO type of contributions are not implemented yet.")
-
+            elif contribution_definition.n_loops == 0 and \
+                 contribution_definition.n_unresolved_particles == 1:
+                target_type = 'SingleReals'
+            elif contribution_definition.n_loops == 0 and \
+               contribution_definition.n_unresolved_particles == 2:
+                target_type = 'DoubleReals'
+            elif contribution_definition.n_loops == 0 and \
+               contribution_definition.n_unresolved_particles == 3:
+                target_type = 'TripleReals'                
             else:
-                target_type = 'Unknown'
+                raise MadGraph5Error("Some %s type of contributions are not implemented yet."%
+                                                  contribution_definition.correction_order)
+
             target_class = Contribution_classes_map[target_type]
+            misc.sprint(target_class)
             if not target_class:
                 raise MadGraph5Error("Could not determine the class for contribution of type '%s' to be added for"%target_type+
                                      " the contribution definiton:\n%s"%str(contribution_definition.nice_string()))
@@ -860,7 +855,8 @@ class Contribution(object):
         BLUE = '\033[94m'
         GREEN = '\033[92m'
         ENDC = '\033[0m'
-        res = ['%-30s:   %s'%('contribution_type',type(self))]
+        res = ['< %s%s%s >'%(BLUE,self.short_name(),ENDC)]
+        res.append('%-30s:   %s'%('contribution_type',type(self)))
         res.extend([self.contribution_definition.nice_string()])
         if not self.topologies_to_processes is None:
             res.append('%-30s:   %d'%('Number of topologies', 
@@ -1947,7 +1943,21 @@ class ContributionList(base_objects.PhysicsObjectList):
             for contrib_type in contribution_types:
                 selected_contribs = self.get_contributions_of_order(correction_order).\
                                         get_contributions_of_type(contrib_type)
-                new_order.extend(selected_contribs)
+                # Now sort contributions of this type using the following indices (in this order)
+                #  a) Total correction orders of all the factorization terms
+                #  b) Total correction orders of the factorization terms for beam one
+                #  c) Maximum correction order amongst all factorization terms (descending)
+                #  d) Maximum correction order amongst factorization terms for beam one (descending)
+                new_order.extend(sorted(selected_contribs,
+                    key = lambda contrib: (
+                        sum(contrib.contribution_definition.get_beam_factorization_correction_orders('beam_one'))+
+                        sum(contrib.contribution_definition.get_beam_factorization_correction_orders('beam_two')),
+                        sum(contrib.contribution_definition.get_beam_factorization_correction_orders('beam_one')),
+                        -max(max(contrib.contribution_definition.get_beam_factorization_correction_orders('beam_one')),
+                            max(contrib.contribution_definition.get_beam_factorization_correction_orders('beam_two'))),
+                        -max(contrib.contribution_definition.get_beam_factorization_correction_orders('beam_one'))
+                    )
+                ))
                 for contrib in selected_contribs:
                     self.pop(self.index(contrib))
     
@@ -1991,7 +2001,7 @@ class ContributionList(base_objects.PhysicsObjectList):
             if log: logger.info('%s the %d contribution%s of unknown type...'%(log,
                         len(remaining_contribs), 's' if len(remaining_contribs)>1 else ''))                    
         for i, contrib in enumerate(remaining_contribs):
-            if log: logger.info('%s %d/%d'%(contrib_type.__name__, i+1, len(remaining_contribs)))
+            if log: logger.info('%s %d/%d'%(type(contrib).__name__, i+1, len(remaining_contribs)))
             try:
                 contrib_function = getattr(contrib, method)
             except AttributeError:

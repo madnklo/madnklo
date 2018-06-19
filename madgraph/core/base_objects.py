@@ -4013,11 +4013,25 @@ class ContributionDefinition(object):
                  process_definition, 
                  overall_correction_order   = 'LO',
                  correction_order           = 'LO',
+                 # The attribute below reflect the matrix element building that contribution
+                 # and do not include the loops/couplings present in the collinear
+                 # factorization counterterm.
                  correction_couplings       = [], 
                  n_unresolved_particles     = 0,
                  n_loops                    = -1,
-                 squared_orders_constraints = {}
-                ):
+                 squared_orders_constraints = {},
+                 # Values of the dictionary 'beam_factorization' are list of the form:
+                 #   [ { 'beam_type'            : ('proton_5fl', (PDGs_of_particles_part_of_the_beam,)),
+                 #       'correction_couplings' : ('QCD','QED',...)
+                 #       'n_loops'              : 1
+                 #     },
+                 #   ]
+                 # or None, which indicates that no factorization is needed for that beam.
+                 # The need for a list arises because collinear_factorisation of lower-order
+                 # collinear counterterms needs to be iterated (see 5th line of Eq. 8 of
+                 # ref arXiv: 1408.2500)
+                 beam_factorization         = { 'beam_one': None,
+                                                'beam_two': None  } ):
         """ Instantiate a contribution definition with all necessary information
         to generate the actual contribution. """
         self.process_definition        = process_definition
@@ -4028,6 +4042,7 @@ class ContributionDefinition(object):
         self.correction_order          = correction_order
         self.correction_couplings      = correction_couplings
         self.n_unresolved_particles    = n_unresolved_particles
+        self.beam_factorization        = beam_factorization
         # Make sure that n_loops matches the one in the process definition. We however keep
         # this attribute in ContributionDefinition as well for convenience.
         if n_loops == -1:
@@ -4044,6 +4059,26 @@ class ContributionDefinition(object):
         # {'QED':[2,2]} means that QED^2 must be exactly equal to 2.
         self.squared_orders_constraints = squared_orders_constraints
     
+    def get_copy(self):
+        """ Returns a shallow copy of self."""
+        return ContributionDefinition(
+                process_definition         = self.process_definition.get_copy(), 
+                overall_correction_order   = self.overall_correction_order,
+                correction_order           = self.correction_order,
+                correction_couplings       = self.correction_couplings, 
+                n_unresolved_particles     = self.n_unresolved_particles,
+                n_loops                    = self.n_loops,
+                squared_orders_constraints = dict(self.squared_orders_constraints),
+                beam_factorization         = { 
+                  'beam_one': [ {k : copy.copy(v) for k,v in coll_PDF_CT.items()} 
+                                for coll_PDF_CT in self.beam_factorization['beam_one'] ]
+                         if not self.beam_factorization['beam_one'] is None else None,
+                  'beam_two': [ {k : copy.copy(v) for k,v in coll_PDF_CT.items()} 
+                                for coll_PDF_CT in self.beam_factorization['beam_two'] ]
+                         if not self.beam_factorization['beam_two'] is None else None,
+                } 
+            )
+    
     def nice_string(self):
         """ Nice representation of a contribution definition."""
         res = []
@@ -4054,7 +4089,57 @@ class ContributionDefinition(object):
         res.append('%-30s:   %s'%('n_loops',self.n_loops))
         res.append('%-30s:   %s'%('squared_orders_constraints',self.squared_orders_constraints))
         res.append('%-30s:   %s'%('process_definition',self.process_definition.nice_string().replace('Process: ','')))
+        res.append('%-30s:   %s'%('beam_one',self.get_beam_factorization_nice_string(
+                self.process_definition['model'],self.beam_factorization['beam_one'])))
+        res.append('%-30s:   %s'%('beam_two',self.get_beam_factorization_nice_string(
+                self.process_definition['model'],self.beam_factorization['beam_two'])))
         return '\n'.join(res)
+
+    def get_beam_factorization_correction_orders(self, beam_name):
+        """ Returns a tuple of all correction order of the convoluted beam factorisation terms
+        for the beam ('beam_one' or 'beam_two') passed in argument."""
+        if self.beam_factorization[beam_name] is None:
+            return (0,)
+        else:
+            return tuple(bf['n_loops']+1 for bf in self.beam_factorization[beam_name])
+        
+    def get_beam_factorization_nice_string(self, model, beam_factorization_specification):
+        """ Returns a nice representation of the beam factorization specification in 
+        argument"""
+        
+        if beam_factorization_specification is None:
+            return 'None'
+
+        res = ' x '.join('%s@%d_%s_loop'%(
+                beam_fact_CT['beam_type'][0],
+                beam_fact_CT['n_loops'],
+                '+'.join(beam_fact_CT['correction_couplings'])
+            ) for beam_fact_CT in beam_factorization_specification
+        )
+        res += ' [including: %s]'%(' '.join(
+                        model.get_particle(pdg).get_name() for pdg in 
+                                      beam_factorization_specification[0]['beam_type'][1]))
+        return res
+    
+    def get_beam_factorization_short_name(self):
+        """ Return a short string identifying the beam factorization applied to this
+        contribution. For instance it can be:
+           F1      --> simple tree-level PDF CT applied to beam one
+           F2      --> simple tree-level PDF CT applied to beam two
+           F1F2    --> tree-level PDF CT applied to both beams
+           F1F1    --> twice-convoluted tree-level PDF applied to beam one
+           F1F1F1  --> three times convoluted tree-level PDF applied to beam one
+           FL1     --> one-loop PDF CT applied to beam one
+           FL1F1   --> one-loop PDF CT applied to beam one and convoluted with tree-level CT
+           FL2     --> two loop PDF CT applied to beam two
+           etc...
+        """
+        res = ''
+        for i_beam, beam_name in enumerate(['beam_one', 'beam_two']):
+            if not self.beam_factorization[beam_name] is None:
+                for coll_PDF_CT in self.beam_factorization[beam_name]:
+                    res += 'F%s%d'%('L'*coll_PDF_CT['n_loops'], i_beam+1)
+        return res        
     
     def short_name(self):
         """ Returns a short-hand notation for that contribution."""
@@ -4062,6 +4147,8 @@ class ContributionDefinition(object):
                     'V'*self.n_loops
         if shortname=='':
             shortname = 'B'
+        # Add factorization labels
+        shortname += self.get_beam_factorization_short_name()
         return shortname
 
     def get_shell_name(self):
@@ -4079,6 +4166,9 @@ class ContributionDefinition(object):
                 shell_name += 'B'
             else:
                 shell_name += 'V'*nV_in_conjugated_amplitude
+            beam_factorization_label = self.get_beam_factorization_short_name()
+            if beam_factorization_label != '':
+                shell_name += '_%s'%beam_factorization_label
         return shell_name
 
 class EpsilonExpansion(dict):

@@ -599,7 +599,7 @@ class FinalZeroMassesMapping(VirtualMapping):
 
         names = []
         for substructure in singular_structure.substructures:
-            names.append('m2' + str(tuple(substructure.legs)[0].n))
+            names.append('s' + str(tuple(substructure.legs)[0].n))
         return names
 
     @classmethod
@@ -681,11 +681,10 @@ class FinalZeroMassesMapping(VirtualMapping):
         else:
             # Solve the equation for alpha numerically
             import numpy as np
-            from scipy.optimize import fsolve
+            from scipy.optimize import newton
             func = lambda a: sum(((a*beta[j])**2 + mu2[j]) ** 0.5 for j in js) - 1.
-            alpha_guess = np.array([1.])
-            alpha = fsolve(func, alpha_guess)
-            alpha = alpha[0]
+            alpha = newton(func, 1.)
+            # misc.sprint(alpha)
             # Optional plot to monitor the numerical solution
             if cls.plot:
                 import matplotlib.pyplot as plt
@@ -712,6 +711,220 @@ class FinalZeroMassesMapping(VirtualMapping):
             sum_beta2_gamma += beta[j] ** 2 / gamma[j]
             prod_beta_gamma *= beta[j] / gamma[j]
         jacobian = alpha**(3*len(js)-5) * prod_beta_gamma / sum_beta2_gamma
+        mapping_variables = {'jacobian': jacobian, 'Q': Q}
+        # Return characteristic variables
+        return new_PS_point, mapping_variables
+
+# Final mapping to/from zero masses with soft
+#=========================================================================================
+
+class FinalZeroMassesSoftMapping(VirtualMapping):
+    """Mapping that sends massive particles into massless particles,
+    eventually removing one soft momentum.
+    """
+
+    plot = False
+
+    @classmethod
+    def is_valid_structure(cls, singular_structure):
+
+        assert isinstance(singular_structure, sub.SingularStructure)
+        # Valid only for final-state particles with no recursive substructure
+        coll_structures = 0
+        for substructure in singular_structure.substructures:
+            if substructure.substructures:
+                return False
+            if substructure.get_all_legs().has_initial_state_leg():
+                return False
+            if substructure.name() == "C":
+                coll_structures += 1
+            elif substructure.name() != "S":
+                return False
+        # At least two particles after the mapping
+        if len(singular_structure.legs) + coll_structures < 2:
+            return False
+        return True
+
+    @classmethod
+    def get_kinematic_variables_names(cls, singular_structure, momenta_dict):
+
+        # Consistency checks
+        assert isinstance(momenta_dict, sub.bidict)
+        assert cls.is_valid_structure(singular_structure)
+
+        names = []
+        for substructure in singular_structure.substructures:
+            if substructure.name() == "C":
+                names.append('s' + str(tuple(substructure.legs)[0].n))
+                parent, children, _ = get_structure_numbers(substructure, momenta_dict)
+                names += FinalCollinearVariables.names(parent, children)
+            elif substructure.name() == "S":
+                _, children, _ = get_structure_numbers(substructure, momenta_dict)
+                names += SoftVariables.names(children)
+        return names
+
+    @classmethod
+    def map_to_lower_multiplicity(
+        cls, PS_point, singular_structure, momenta_dict, squared_masses=None,
+        kinematic_variables=None, compute_jacobian=False ):
+
+        # Consistency checks
+        assert isinstance(momenta_dict, sub.bidict)
+        assert cls.is_valid_structure(singular_structure)
+
+        # Determine leg numbers and check that target masses are zero
+        pS = LorentzVector()
+        rs = [leg.n for leg in singular_structure.legs]
+        coll_squares = {}
+        all_soft_children = []
+        new_PS_point = PS_point.get_copy()
+        for substructure in singular_structure.substructures:
+            if substructure.name() == "C":
+                r, children, _ = get_structure_numbers(substructure, momenta_dict)
+                rs.append(r)
+                new_PS_point[r] = sum(new_PS_point.pop(child) for child in children)
+                coll_squares[r] = new_PS_point[r].square()
+                assert (squared_masses is None) or (squared_masses['m2' + str(r)] == 0)
+            elif substructure.name() == "S":
+                _, children, _ = get_structure_numbers(substructure, momenta_dict)
+                all_soft_children.append(children)
+                pS += sum(new_PS_point.pop(child) for child in children)
+        # Build total momentum
+        Q = LorentzVector(pS)
+        for r in rs:
+            Q += new_PS_point[r]
+        Q2 = Q.square()
+        # Compute the parameters ys, y, ybar, mubar2, ytilde, alpha
+        ps = pS / len(rs)
+        ys = Q.dot(ps) / Q2
+        y = {r: (Q.dot(new_PS_point[r]) / Q2) for r in rs}
+        ybar = {r: (y[r] + ys) for r in rs}
+        assert abs(sum(ybar.values()) - 1.) < 1.e-6
+        mubar2 = {r: ((new_PS_point[r] + ps).square() / Q2) for r in rs}
+        ytilde = {r: (ybar[r] ** 2 - mubar2[r]) ** 0.5 for r in rs}
+        alpha = sum(ytilde.values())
+        # misc.sprint(alpha)
+        for r in rs:
+            ytilde[r] /= alpha
+        assert abs(sum(ytilde.values())  - 1.) < 1.e-6
+        # Map all momenta
+        for r in rs:
+            new_PS_point[r] = (new_PS_point[r] + ps - ybar[r] * Q) / alpha + ytilde[r] * Q
+            assert abs(new_PS_point[r].square() / Q2) < 1.e-6
+        # If needed, update the kinematic_variables dictionary
+        if kinematic_variables is not None:
+            for r in coll_squares.keys():
+                kinematic_variables['s' + str(r)] = coll_squares[r]
+                na, nb = FinalCollinearVariables.collinear_and_reference(new_PS_point[r])
+                FinalCollinearVariables.get(
+                    PS_point, momenta_dict[r], na, nb, kinematic_variables)
+            recoilers = [leg.n for leg in singular_structure.legs]
+            for r in recoilers:
+                kinematic_variables['s' + str(r)] = PS_point[r].square()
+            for soft_children in all_soft_children:
+                SoftVariables.get(PS_point, soft_children, kinematic_variables)
+        # Compute the jacobian for this mapping
+        if not compute_jacobian:
+            return new_PS_point, {'Q': Q}
+        sum_deriv = 0.
+        prod_ytilde_y = 1.
+        for r in rs:
+            space_scalar_prod = ytilde[r] * ys - ps.dot(new_PS_point[r]) / Q2
+            sum_deriv += (alpha * ytilde[r]**2 - space_scalar_prod) / y[r]
+            prod_ytilde_y *= ytilde[r] / y[r]
+        jacobian = alpha**(3*len(rs)-4) * prod_ytilde_y / sum_deriv
+        mapping_variables = {'jacobian': jacobian, 'Q': Q}
+        # Return characteristic variables
+        return new_PS_point, mapping_variables
+
+    @classmethod
+    def map_to_higher_multiplicity(
+        cls, PS_point, singular_structure, momenta_dict, kinematic_variables,
+        compute_jacobian=False ):
+
+
+        # misc.sprint(kinematic_variables)
+        # Consistency checks
+        assert isinstance(momenta_dict, sub.bidict)
+        assert cls.is_valid_structure(singular_structure)
+
+        # Determine leg numbers
+        pS = LorentzVector()
+        rs = [leg.n for leg in singular_structure.legs]
+        all_soft_children = []
+        new_PS_point = PS_point.get_copy()
+        for substructure in singular_structure.substructures:
+            if substructure.name() == "C":
+                r, children, _ = get_structure_numbers(substructure, momenta_dict)
+                rs.append(r)
+            elif substructure.name() == "S":
+                _, children, _ = get_structure_numbers(substructure, momenta_dict)
+                all_soft_children.append(children)
+                SoftVariables.set(new_PS_point, children, kinematic_variables)
+                pS += sum(new_PS_point[child] for child in children)
+        # Build total momentum
+        Q = LorentzVector()
+        for r in rs:
+            Q += PS_point[r]
+        Q2 = Q.square()
+        # Compute the parameters
+        ps = pS / len(rs)
+        # misc.sprint(ps)
+        yS = pS.dot(Q) / Q2
+        ys = yS / len(rs)
+        mus2 = ps.square() / Q2
+        ytilde = {}
+        mu2 = {}
+        a = {}
+        b = {}
+        c = {}
+        for r in rs:
+            ytilde[r] = Q.dot(PS_point[r]) / Q2
+            sr = 's' + str(r)
+            mu2[r] = kinematic_variables[sr] / Q2
+            a[r] = ytilde[r] ** 2
+            b[r] = -2. * (ytilde[r] * ys - ps.dot(PS_point[r]) / Q2)
+            c[r] = ys ** 2 - mus2 + mu2[r]
+        assert abs(sum(ytilde.values())  - 1.) < 1.e-6
+        # if len(rs) == 2:
+        #     alpha = (Kaellen(1., mu2[js[0]], mu2[js[1]])) ** 0.5
+        # else:
+        # Solve the equation for alpha numerically
+        y_fun = lambda r, x: (a[r]*(x**2) + b[r]*x + c[r])**0.5
+        import numpy as np
+        from scipy.optimize import newton
+        fun = lambda x: sum(y_fun(r, x) for r in rs) - (1. - yS)
+        alpha = newton(fun, 1.)
+        # misc.sprint(alpha)
+        # Optional plot to monitor the numerical solution
+        if cls.plot:
+            import matplotlib.pyplot as plt
+            zero = lambda a: 0.*a
+            tau = np.linspace(0., 1., 101)
+            plt.plot(tau, fun(tau), "-", tau, zero(tau), "-")
+            plt.grid()
+            plt.show()
+        # Compute the parameters gamma
+        y = {r: y_fun(r, alpha) for r in rs}
+        assert abs(sum(y.values()) - (1. - yS)) < 1.e-6
+        # Map all momenta
+        for r in rs:
+            new_PS_point[r] *= alpha
+            new_PS_point[r] += (y[r] + ys - alpha*ytilde[r]) * Q - ps
+            assert abs(new_PS_point[r].square() / Q2 - mu2[r]) < 1.e-6
+            na, nb = FinalCollinearVariables.collinear_and_reference(PS_point[r])
+            FinalCollinearVariables.set(
+                new_PS_point, r, momenta_dict[r], na, nb, kinematic_variables)
+        # Compute the jacobian for this mapping
+        if not compute_jacobian:
+            return new_PS_point, {'Q': Q}
+        sum_deriv = 0.
+        prod_ytilde_y = 1.
+        for r in rs:
+            space_scalar_prod = ytilde[r] * ys - ps.dot(PS_point[r]) / Q2
+            sum_deriv += (alpha * ytilde[r]**2 - space_scalar_prod) / y[r]
+            prod_ytilde_y *= ytilde[r] / y[r]
+        jacobian = alpha**(3*len(rs)-4) * prod_ytilde_y / sum_deriv
         mapping_variables = {'jacobian': jacobian, 'Q': Q}
         # Return characteristic variables
         return new_PS_point, mapping_variables
@@ -1533,7 +1746,7 @@ class InitialLorentzOneMapping(InitialCollinearMapping):
         new_PS_point = PS_point.get_copy()
         # Map the set's momentum
         qA = xia * pa
-        new_PS_point[parent] = qA
+        new_PS_point[parent] = -qA
         # Map all recoilers' momenta
         qR = qA - pAmpR
         for recoiler in singular_structure.legs:
@@ -1581,7 +1794,7 @@ class InitialLorentzOneMapping(InitialCollinearMapping):
         parent, fs_children, is_child = get_structure_numbers(substructure, momenta_dict)
         recoilers = tuple(leg.n for leg in singular_structure.legs)
         # Build collective momenta
-        qA = PS_point[parent]
+        qA = -PS_point[parent]
         na, nb = InitialCollinearVariables.collinear_and_reference(qA)
         nanb = na.dot(nb)
         qR = LorentzVector()
@@ -1681,12 +1894,13 @@ class ElementaryMappingSoft(VirtualMapping):
         assert needed_variables.issubset(kinematic_variables.keys())
 
         # Precompute sets and numbers
-        substructure = singular_structure.substructures[0]
-        _, children, _ = get_structure_numbers(substructure, momenta_dict)
-        # Determine the correct scaling for the divergence to go like 1/parameter
-        base = scaling_parameter ** (0.5 / len(children))
-        for child in children:
-            kinematic_variables['p' + str(child)] *= base
+        base = scaling_parameter ** (1. / len(singular_structure.substructures()))
+        for substructure in singular_structure.substructures:
+            _, children, _ = get_structure_numbers(substructure, momenta_dict)
+            # Determine the correct scaling for the divergence to go like 1/parameter
+            this_base = base ** (0.5 / len(children))
+            for child in children:
+                kinematic_variables['p' + str(child)] *= this_base
         return kinematic_variables
 
 # Soft mapping, massless final-state recoilers

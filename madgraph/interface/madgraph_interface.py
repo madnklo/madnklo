@@ -3403,7 +3403,8 @@ This implies that with decay chains:
         LO_contrib = contributions.Contribution(
                         base_objects.ContributionDefinition(
                             procdef,
-                            overall_correction_order=generation_options['overall_correction_order']), 
+                            overall_correction_order=generation_options['overall_correction_order'],
+                            beam_types = generation_options['beam_types']),
                         self, diagram_filter=generation_options['diagram_filter'],
                         optimize=generation_options['optimize'])
         self._curr_contribs.append(LO_contrib)
@@ -3429,7 +3430,8 @@ This implies that with decay chains:
         LO_contrib = contributions.Contribution(base_objects.ContributionDefinition(
                         procdef,
                         n_loops = 1,
-                        overall_correction_order=generation_options['overall_correction_order']), 
+                        overall_correction_order=generation_options['overall_correction_order'],
+                        beam_types = generation_options['beam_types']),
                     self)
         self._curr_contribs.append(LO_contrib)
         return LO_contrib
@@ -3465,7 +3467,8 @@ This implies that with decay chains:
                         correction_order           = 'NLO',
                         correction_couplings       = generation_options['NLO'],
                         squared_orders_constraints = dict(target_squared_orders),
-                        overall_correction_order=generation_options['overall_correction_order'] ),
+                        overall_correction_order   = generation_options['overall_correction_order'],
+                        beam_types                 = generation_options['beam_types'] ),
                     self))
 
         # Add the real-emission contribution
@@ -3489,9 +3492,9 @@ This implies that with decay chains:
                         correction_order       = 'NLO',
                         correction_couplings   = generation_options['NLO'],
                         squared_orders_constraints = dict(target_squared_orders),
-                        overall_correction_order=generation_options['overall_correction_order'] ),
-                        self)
-    
+                        overall_correction_order=generation_options['overall_correction_order'],
+                        beam_types             = generation_options['beam_types'] ),
+                    self)
             self._curr_contribs.append(real_emission_contribution)
             
           
@@ -3535,9 +3538,10 @@ This implies that with decay chains:
                         correction_order       = 'NNLO',
                         correction_couplings   = generation_options['NNLO'],
                         squared_orders_constraints = dict(target_squared_orders),
-                        overall_correction_order=generation_options['overall_correction_order'] ),
-                        self)
-            
+                        overall_correction_order=generation_options['overall_correction_order'],
+                        beam_types             = generation_options['beam_types'] ),
+                    self)
+
             self._curr_contribs.append(double_real_emission_contribution)
 
     def add_NNNLO_contributions(self, NNNLO_template_procdef, generation_options, target_squared_orders):
@@ -3573,8 +3577,9 @@ This implies that with decay chains:
                         correction_order       = 'NNNLO',
                         correction_couplings   = generation_options['NNNLO'],
                         squared_orders_constraints = dict(target_squared_orders),
-                        overall_correction_order=generation_options['overall_correction_order'] ),
-                        self)
+                        overall_correction_order=generation_options['overall_correction_order'],
+                        beam_types             = generation_options['beam_types'] ),
+                    self )
             
             self._curr_contribs.append(triple_real_emission_contribution)
         
@@ -3625,6 +3630,41 @@ This implies that with decay chains:
                 if order in input_procdef['split_orders']:
                     continue
                 input_procdef['split_orders'].append(order)
+
+        # Map perturbed coupling orders to the corresponding relevant interactions and particles.
+        # The values of the dictionary in  are 'interactions', 'pert_particles' and 'soft_particles'.
+        orders_to_perturbed_quantities = dict(
+            (order, fks_common.find_pert_particles_interactions(self._curr_model, pert_order = order))
+             for order in all_perturbed_orders)
+        # List the ids to consider for the extra real-emission MultiLeg for each perturbed order
+        for order, infos in orders_to_perturbed_quantities.items():
+            # We typically ignore HBR (Heavy-Boson-Radiation) which are anyway separately finite and therefore
+            # limit ourselves to including massless particles in the real-emission contributions
+            orders_to_perturbed_quantities[order]['real_emission_ids'] = infos['soft_particles']
+        
+        # Add the certain quantities to the generation options so as to make then accessible to the various
+        # add_contributions_<xxx> functions called here.
+        generation_options['all_perturbed_orders'] = all_perturbed_orders
+        generation_options['orders_to_perturbed_quantities'] = orders_to_perturbed_quantities
+
+        # Determine the beam types automatically if needed:
+        if not is_a_decay_process:
+            initial_state_multilegs = [leg for leg in input_procdef.get('legs') if leg['state'] == False]
+            beam_one_type = self.guess_beam_type(generation_options, initial_state_multilegs[0], 0)
+            beam_two_type = self.guess_beam_type(generation_options, initial_state_multilegs[1], 1)
+        else:
+            beam_one_type = None
+            beam_two_type = None
+        
+        beam_types = (beam_one_type, beam_two_type)
+        for i, beam_type in enumerate(beam_types):
+            if beam_type != None:
+                logger.info('Selected type for beam %s: %s (incl. %s)'%('one' if i==0 else 'two', 
+                    beam_type[0], ' '.join(self._curr_model.get_particle(pdg).get_name() for pdg in beam_type[1])))
+
+        # Now add it to the generation option with the key 'beam_types', so that the user specified
+        # original keys "beam_one" and "beam_two" are not overwritten.
+        generation_options['beam_types'] = beam_types
 
         # Add LO contributions first
         LO_contrib_added = None
@@ -3704,17 +3744,6 @@ This implies that with decay chains:
             if order in template_procdef['sqorders_types']:
                 del template_procdef['sqorders_types'][order]
 
-        # Map perturbed coupling orders to the corresponding relevant interactions and particles.
-        # The values of the dictionary in  are 'interactions', 'pert_particles' and 'soft_particles'.
-        orders_to_perturbed_quantities = dict(
-            (order, fks_common.find_pert_particles_interactions(self._curr_model, pert_order = order))
-             for order in all_perturbed_orders)
-        # List the ids to consider for the extra real-emission MultiLeg for each perturbed order
-        for order, infos in orders_to_perturbed_quantities.items():
-            # We typically ignore HBR (Heavy-Boson-Radiation) which are anyway separately finite and therefore
-            # limit ourselves to including massless particles in the real-emission contributions
-            orders_to_perturbed_quantities[order]['real_emission_ids'] = infos['soft_particles']
-                
         # Check that the initial state of the process either contains none of the soft perturbed particles
         # or all of them.
         all_perturbed_ids = set(sum([infos['soft_particles'] for infos in orders_to_perturbed_quantities.values()],[]))
@@ -3725,34 +3754,7 @@ This implies that with decay chains:
                     ' a process for which the initial states are only a subset of the following set:\n(%s)'%(
                         ' '.join(self._curr_model.get_particle(pdg).get_name() for pdg in all_perturbed_ids)))
                 break
-        
-        # Add the certain quantities to the generation options so as to make then accessible to the various
-        # add_contributions_<xxx> functions called here.
-        generation_options['all_perturbed_orders'] = all_perturbed_orders
-        generation_options['orders_to_perturbed_quantities'] = orders_to_perturbed_quantities
-        
-        # Determine the beam types automatically if needed:
-        if not is_a_decay_process:
-            initial_state_multilegs = [leg for leg in input_procdef.get('legs') if leg['state'] == False]
-            beam_one_type = self.guess_beam_type(generation_options, initial_state_multilegs[0], 0)
-            beam_two_type = self.guess_beam_type(generation_options, initial_state_multilegs[1], 1)
-        else:
-            beam_one_type = None
-            beam_two_type = None
-        
-        beam_types = (beam_one_type, beam_two_type)
-        for i, beam_type in enumerate(beam_types):
-            if beam_type != None:
-                logger.info('Selected type for beam %s: %s (incl. %s)'%('one' if i==0 else 'two', 
-                    beam_type[0], ' '.join(self._curr_model.get_particle(pdg).get_name() for pdg in beam_type[1])))
-              
-        # Keep track of the type of beam factorization added (whose format correponds to the
-        # one of the argument 'beam_factorization' of the class ContributionDefinition) so
-        # that we never add them twice, which can happen in the iterative structure employed
-        # here where the NNLO F1F2 term for example can come from F2 added to the existing NLO F1
-        # or F1 added to the existing NLO F2.
-        beam_factorizations_already_considered = []
-                
+       
         # Add NLO contributions now
         # =========================
         if generation_options['NLO']:
@@ -3772,9 +3774,6 @@ This implies that with decay chains:
             # Adding here regular NLO contributions
             if not generation_options['loop_induced']:
                 self.add_NLO_contributions(NLO_template_procdef, generation_options, NLO_global_orders)
-                # Add collinear factorization contributions
-                self.add_beam_factorization_contributions(
-                    'NLO', generation_options, beam_types, beam_factorizations_already_considered)
             # Add NLO loop-induced contributions
             else:
                 self.add_NLO_loop_induced_contributions(
@@ -3799,9 +3798,6 @@ This implies that with decay chains:
             # Adding here regular NLO contributions
             if not generation_options['loop_induced']:
                 self.add_NNLO_contributions(NNLO_template_procdef, generation_options, NNLO_global_orders)
-                # Add collinear factorization contributions
-                self.add_beam_factorization_contributions(
-                    'NNLO', generation_options, beam_types, beam_factorizations_already_considered)
             else:
                 raise InvalidCmd("Loop-induced predictions at NNLO are not supported by MadNkLO.")
 
@@ -3824,9 +3820,6 @@ This implies that with decay chains:
             # Adding here regular NLO contributions
             if not generation_options['loop_induced']:
                 self.add_NNNLO_contributions(NNNLO_template_procdef, generation_options, NNNLO_global_orders)
-                # Add collinear factorization contributions
-                self.add_beam_factorization_contributions(
-                    'NNNLO', generation_options, beam_types, beam_factorizations_already_considered)
             else:
                 raise InvalidCmd("Loop-induced predictions at NNNLO are not supported by MadNkLO.")
 
@@ -3838,9 +3831,9 @@ This implies that with decay chains:
         user_beam_type = generation_options['beam_types'][beam_id]
         
         hard_coded_beam_types = [
-            ['proton'        , (1,3,4,5,6,-1,-2,-3,-4,-5,-6,21)],
-            ['proton_photon' , (1,3,4,5,6,-1,-2,-3,-4,-5,-6,21,22)],
-            ['proton_all'    , (1,3,4,5,6,-1,-2,-3,-4,-5,-6,21,22,
+            ['proton'        , (1,2,3,4,5,6,-1,-2,-3,-4,-5,-6,21)],
+            ['proton_photon' , (1,2,3,4,5,6,-1,-2,-3,-4,-5,-6,21,22)],
+            ['proton_all'    , (1,2,3,4,5,6,-1,-2,-3,-4,-5,-6,21,22,
                                 11,12,13,14,15,-11,-12,-13,-14,-15)],
             ['lepton'        , (11,-11,13,-13,15,-15,22)],     
         ]
@@ -3853,11 +3846,11 @@ This implies that with decay chains:
         # Weed out particles not affected by the current corrected couplints
         for i, (hard_coded_beam_type, pdgs) in enumerate(hard_coded_beam_types):
             hard_coded_beam_types[i][1] = tuple(pdg for pdg in pdgs if pdg in all_real_emission_ids)
-            
+        
         # Now sort them according to number of PDGs contained
         hard_coded_beam_types = sorted([(beam_type, tuple(pdgs)) for 
                       beam_type, pdgs in hard_coded_beam_types], key=lambda el: len(el[1]))
-        
+
         beam_type_guessed = None
         missing_pdgs      = []
 
@@ -3899,62 +3892,7 @@ This implies that with decay chains:
         if selected_beam_type is None:
             return None
         else:
-            return (selected_beam_type, sorted(initial_state_ids))
-
-    def add_beam_factorization_contributions(self, correction_order, generation_options, 
-                                       beam_types, beam_factorizations_already_considered):
-        """ Add contributions related to the collinear factorization contributions
-        (aka PDF counterterms). The beam_types is indicated as the argument beam_types with
-        the 2-tuple format ("<beam_one_name>","<beam_two_name>").
-        The final argument 'beam_factorizations_already_considered' is there to make sure
-        that the iterative procedure does not produce several copies of the same collinear 
-        factorization piece."""
-        
-        # Abort immediately if not beam factorization is necessary
-        if beam_types == (None, None):
-            return
-        
-        target_correction_order = correction_order.count('N')
-        for contrib in self._curr_contribs:
-            this_contrib_order = contrib.contribution_definition.correction_order.count('N')
-            if this_contrib_order >= target_correction_order:
-                continue
-            for i_beam, beam_name in enumerate(['beam_one','beam_two']):
-                # Ignore beam for which collinear factorisation does not apply
-                if beam_types[i_beam] is None:
-                    continue
-                # Set the collinear factorization maximum additional orders necessary
-                beam_fact_contribution_definition = contrib.contribution_definition.get_copy()
-                
-                # Properly adjust the copied contribution definition 
-                beam_fact_contribution_definition.correction_order = correction_order
-                
-                beam_factorization_CT = {
-                        'beam_type'            : beam_types[i_beam],
-                        'correction_couplings' : sorted(list(generation_options[correction_order])),
-                        'n_loops'              : (target_correction_order-this_contrib_order-1)
-                    }
-                # Now amend the collinear factorization counterterms of the original definition
-                if beam_fact_contribution_definition.beam_factorization[beam_name] is None:
-                    beam_fact_contribution_definition.beam_factorization[beam_name] = [beam_factorization_CT,]
-                else:
-                    beam_fact_contribution_definition.beam_factorization[beam_name].append(beam_factorization_CT)
-                    # Make sure to use a canonical ordering of the convoluted PDF CTs.
-                    beam_fact_contribution_definition.beam_factorization[beam_name].sort(
-                        key = lambda beam_fact_CT: (beam_fact_CT['n_loops'], 
-                                   beam_fact_CT['correction_couplings'], beam_fact_CT['beam_type']) )
-
-                # Verify if this beam_factorization has already been considered.
-                if beam_fact_contribution_definition.beam_factorization in beam_factorizations_already_considered:
-                    continue
-
-                # We can now add this contribution
-                self._curr_contribs.append(
-                            contributions.Contribution(beam_fact_contribution_definition, self))
-                # And add it to the list of beam factorization terms added so that they are
-                # not added back again later.
-                beam_factorizations_already_considered.append(
-                                      beam_fact_contribution_definition.beam_factorization)
+            return (selected_beam_type, tuple(sorted(initial_state_ids)))
 
     def add_model(self, args):
         """merge two model"""

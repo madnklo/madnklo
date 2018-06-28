@@ -65,30 +65,36 @@ class Contribution(object):
         if cls is Contribution:
             target_type = 'Unknown'
             correction_order = contribution_definition.correction_order.count('N')
-            if contribution_definition.n_loops == 0 and \
-              contribution_definition.n_unresolved_particles == 0:
+            beam_factorization_count = 0
+            if contribution_definition.is_beam_active('beam_one'):
+                beam_factorization_count += 1
+            if contribution_definition.is_beam_active('beam_two'):
+                beam_factorization_count += 1
+            n_loops = contribution_definition.n_loops
+            n_unresolved_particles = contribution_definition.n_unresolved_particles
+            # Beam factorization contributions are automatically of type RV because
+            # they must both generate local counterterms (for the form factors) and
+            # accept integrated ISR ones.
+            if beam_factorization_count > 0:
+                target_type = 'RealVirtual'                
+            elif n_loops == 0 and n_unresolved_particles == 0:
                 target_type = 'Born'
-            elif contribution_definition.n_loops == 1 and \
-              contribution_definition.n_unresolved_particles == 0:
+            elif n_loops == 1 and n_unresolved_particles == 0:
                 if correction_order < 1:
                     target_type = 'LoopInduced_Born'
                 else:
                     target_type = 'Virtual'
-            elif contribution_definition.n_loops == 0 and \
-                 contribution_definition.n_unresolved_particles == 1:
+            elif n_loops == 0 and n_unresolved_particles == 1:
                 target_type = 'SingleReals'
-            elif contribution_definition.n_loops == 0 and \
-               contribution_definition.n_unresolved_particles == 2:
+            elif n_loops == 0 and n_unresolved_particles == 2:
                 target_type = 'DoubleReals'
-            elif contribution_definition.n_loops == 0 and \
-               contribution_definition.n_unresolved_particles == 3:
+            elif n_loops == 0 and n_unresolved_particles == 3:
                 target_type = 'TripleReals'                
             else:
                 raise MadGraph5Error("Some %s type of contributions are not implemented yet."%
                                                   contribution_definition.correction_order)
 
             target_class = Contribution_classes_map[target_type]
-            misc.sprint(target_class)
             if not target_class:
                 raise MadGraph5Error("Could not determine the class for contribution of type '%s' to be added for"%target_type+
                                      " the contribution definiton:\n%s"%str(contribution_definition.nice_string()))
@@ -142,11 +148,14 @@ class Contribution(object):
         
         # Initialize an IR subtraction module if necessary
         self.IR_subtraction = None
-        if self.contribution_definition.n_unresolved_particles > 0:
+
+        if self.contribution_definition.n_unresolved_particles > 0 or \
+                                     self.contribution_definition.has_beam_factorization():
             self.IR_subtraction = subtraction.IRSubtraction(
                 self.model,
-                coupling_types=self.contribution_definition.correction_couplings,
-                n_unresolved=self.contribution_definition.n_unresolved_particles )
+                coupling_types  = self.contribution_definition.correction_couplings,
+                n_unresolved    = self.contribution_definition.n_unresolved_particles,
+                beam_types      = self.contribution_definition.get_beam_types() )
         
         # The following two attributes dicate the type of Exporter which will be assigned to this contribution
         self.output_type             = 'default'
@@ -174,8 +183,15 @@ class Contribution(object):
         self.MultiProcessClass          = diagram_generation.MultiProcess
         
         # Add default phase-space topology specifiers
-        self.processes_to_topologies = None
-        self.topologies_to_processes = None
+        self.processes_to_topologies = {}
+        self.topologies_to_processes = {}
+        
+        # Add an empty processes map, specifying that it is obtained before anything
+        # was generated yet
+        self.processes_map = ({
+                'had_amplitudes'        :   False,
+                'had_matrix_elements'   :   False
+            }, {})
         
     def add_integrated_counterterm(self, integrated_CT_properties):
         """By default, do not support adding integrated counterterms."""
@@ -339,7 +355,18 @@ class Contribution(object):
         for amplitude in self.amplitudes:
             max_order = max(max_order, amplitude.get('diagrams').get_max_order(order))
         return max_order
+    
+    def subtract(self, ignore_integrated_counterterms=False, **opts):
+        """ Generate and export all necessary subtraction counterterterms and currents
+        (including beam factorisation counterterms as well [bulk ones are already generated
+        at this stage] ones.). Nothing to do in this base class."""
+        
+        # Assign an empty list of countrerterms for now to this contribution
+        self.counterterms = {}
 
+        # No information need to be returned at this stage since nothing was generated
+        return {}
+        
     def export(self, nojpeg=False, group_processes=True, args=[], **opts):
         """ Perform the export duties, that include generation of the HelasMatrixElements and 
         the actual output of the matrix element code by the exporter."""
@@ -379,7 +406,7 @@ class Contribution(object):
         # Now investigate phase-space topologies and identify the list of kinematic configurations present
         # and, for each process key in the process map, what configuration it includes and with which defining diagrams.
         self.set_phase_space_topologies()
-        
+
         # The printout below summarizes the topologies identified and the information gathered about the
         # matrix elements and their diagrams
 #        misc.sprint('='*50)
@@ -545,6 +572,12 @@ class Contribution(object):
         """ Adds all MEAccessors for the matrix elements generated as part of this contribution."""
         
         MEAccessors = []
+        
+        # This is not needed for factorization contributions as they always use processes already
+        # in other contributions.
+        if self.has_beam_factorization():
+            return MEAccessors
+
         for process_key, (defining_process, mapped_processes) in self.get_processes_map().items():
             # The PDGs of the hashed representations correspond to entry [0][0]
             mapped_process_pdgs = [
@@ -664,6 +697,11 @@ class Contribution(object):
         # This stores the wanted couplings which should be exported by the overall ME7 exporter.
         global_wanted_couplings = []
         
+        # For some contributions, like the beam factorization ones, there is no additional
+        # export to be performed.
+        if self.has_beam_factorization():
+            return global_wanted_couplings
+
         # Handling of the model
         if self.options['_model_v4_path']:
             logger.info(
@@ -695,6 +733,11 @@ class Contribution(object):
 
     def link_global_ME7_resources(self, global_ME7_dir):
         """ Remove some of the local resources and instead link the global ones from the ME7 exporters."""
+
+        # For some contributions, like the beam factorization ones, there is no additional
+        # export to be performed.
+        if self.has_beam_factorization(): 
+            return
         
         # Link to the global model if necessary
         if not self.requires_its_own_model:
@@ -709,6 +752,12 @@ class Contribution(object):
 
     def make_model_symbolic_link(self):
         """ Links some of the MODEL resources to the other folders exported within this contribution."""
+        
+        # For some contributions, like the beam factorization ones, there is no additional
+        # export to be performed.
+        if self.has_beam_factorization():
+            return        
+        
         self.exporter.make_model_symbolic_link()
     
     def get_inverse_processes_map(self, force=False):
@@ -720,11 +769,7 @@ class Contribution(object):
         
         # Sort PDGs only when processes have been grouped
         sort_PDGs = self.group_subprocesses
-        
-        if not self.all_matrix_elements.get_matrix_elements():
-            raise MadGraph5Error("The processes reverse map can only be built *after*"+
-                                                 " the matrix element have been exported.")
-        
+
         if hasattr(self, 'inverse_processes_map') and not force:
             return self.inverse_processes_map
             
@@ -756,15 +801,16 @@ class Contribution(object):
             where defining_process is an actual instance of Process and [mapped processes] is a list 
             of processes instances mapped to that defining process.
         """
-        if not self.amplitudes:
-            return {}
-        
+
         # Attempt reusing a cached version
         if hasattr(self, 'processes_map') and not force:
             if (self.processes_map[0]['had_amplitudes'] == bool(self.amplitudes)) and \
                (self.processes_map[0]['had_matrix_elements'] == bool(
                                           self.all_matrix_elements.get_matrix_elements())):
                 return self.processes_map[1]
+        
+        if not self.amplitudes:
+            return {}
         
         all_defining_procs = [amp.get('process') for amp in self.amplitudes]
         
@@ -816,6 +862,11 @@ class Contribution(object):
     def compile(self):
         """ Compiles the f2py shared library to provide easy access to this contribution."""
         
+        # This is not needed for factorization contributions as they always use processes already
+        # in other contributions.
+        if self.has_beam_factorization():
+            return
+        
         processes_map = self.get_processes_map()
         i_process=0
         for process_key, (defining_process, mapped_processes) in processes_map.items():
@@ -832,15 +883,16 @@ class Contribution(object):
             if not os.path.isfile(pjoin(Pdir, 'matrix_%s_py.so'%name)):
                 raise InvalidCmd("The f2py compilation of subprocess '%s' failed.\n"%Pdir+
                                  "Try running 'make matrix2py.so' by hand in this directory.")
-            ln(pjoin(Pdir, 'matrix_%s_py.so'%name), starting_dir=self.export_dir)
-    
+            ln(pjoin(Pdir, 'matrix_%s_py.so'%name), starting_dir=self.export_dir)           
+
     def get_nice_string_process_line(self, process_key, defining_process, format=0):
         """ Return a nicely formated process line for the function nice_string of this 
         contribution."""
         GREEN = '\033[92m'
-        ENDC = '\033[0m'        
-        return GREEN+'  %s'%defining_process.nice_string(print_weighted=False).\
-                                                               replace('Process: ','')+ENDC
+        ENDC = '\033[0m'
+
+        return GREEN+'  %s'%(
+            defining_process.nice_string(print_weighted=False).replace('Process: ',''))+ENDC
     
     def get_additional_nice_string_printout_lines(self, format=0):
         """ Return additional information lines for the function nice_string of this contribution."""
@@ -871,7 +923,8 @@ class Contribution(object):
                 for amp in self.amplitudes:
                     res.append(GREEN+'  %s'%amp.get('process').nice_string(print_weighted=False).\
                                                                             replace('Process: ','')+ENDC)
-        elif self.amplitudes and self.all_matrix_elements.get_matrix_elements():
+        elif self.amplitudes and self.all_matrix_elements.get_matrix_elements() or \
+                                                             self.has_beam_factorization():
             processes_map = self.get_processes_map()
             if format < 1:
                 res.append('Generated and mapped processes for this contribution: %d (+%d mapped)'%
@@ -888,9 +941,157 @@ class Contribution(object):
             res.append(BLUE+'No amplitudes generated yet.'+ENDC)
             
         return '\n'.join(res).encode('utf-8')
+    
+    def has_beam_factorization(self):
+        """ Checks whether this contribution has as any beam factorization active."""
+
+        return self.contribution_definition.has_beam_factorization()
+    
+    def import_topologies_from_contrib(self, process_key, contrib):
+        """ Add to the current topologies of this contribution, the ones defined for the
+        process key of the contribution passed in argument."""
+        
+        # TODO a proper combination needs to be performed here. For now, I simply add them
+        # to the attribute processes_to_topologies and topologies_to_processes, but that
+        # doesn't work because the topology_key used is based on the 
+        #    (subprocess_group_number, config_number)
+        # which will clash between the various contributions added. So matching configurations
+        # must be combined and the different ones must be added with a topology key upgraded
+        # so as to make them unique (for example using a combination of:
+        #    contrib.contribution_definiton.process_definition.get('id')
+        # and
+        #    contrib.contribution_definiton.n_loops
+        #.which is best done when generating the topologies in the first place anyway.
+        # But they will need to be combined anyway.
+        #
+        # For now we implement a minimal behaviour below which is supposed to work for
+        # NLO with a simple 'add process' command, where we can basically copy the topologies
+        # directly from the Born
+        self.processes_to_topologies[process_key] = contrib.processes_to_topologies[process_key]
+        
+        for (topology_key, repr_diagrams) in contrib.processes_to_topologies[process_key]['topologies']:
+                self.topologies_to_processes[topology_key] = contrib.topologies_to_processes[topology_key]
+
+    def add_beam_factorization_processes_from_contribution(self, contrib, beam_factorization_order):
+        """ 'Import' the processes_map and all generated attributes of the contribution
+        passed in argument to assign them to this beam factorization contributions, and
+        generate all necessary "bulk" BeamCurrents as we go along.
+        """
+        
+        beam_factorization_configuration = (
+           (not self.contribution_definition.beam_factorization['beam_one'] is None) and \
+            self.contribution_definition.beam_factorization['beam_one']['active'],
+           (not self.contribution_definition.beam_factorization['beam_two'] is None) and \
+            self.contribution_definition.beam_factorization['beam_two']['active'] )
+
+        # If both beams must be assigned a factorisation term, then make sure that the
+        # beam_factorization_order is at least two
+        if beam_factorization_configuration == (True,True) and beam_factorization_order < 2:
+            # We have nothing to add from this contribution.
+            return 
+        
+        # Make sure the source contribution does have a factorizing beam for the active
+        # ones of this contribution.
+        if ( (beam_factorization_configuration[0] and 
+              (contrib.contribution_definition.beam_factorization['beam_one'] is None)) or
+             (beam_factorization_configuration[1] and 
+               (contrib.contribution_definition.beam_factorization['beam_two'] is None)) ):
+            return
+        
+        # Now fetch the process map to load from
+        source_processes_map = contrib.get_processes_map()
+        processes_map = self.processes_map[1]
+        # To the new contribution instances, also assign references to the generated attributes
+        # of the original contributions (no deep copy necessary here)
+        for process_key, (defining_process, mapped_processes) in source_processes_map.items():
+            
+            # First add this process to the current processes map
+            if process_key in processes_map:
+                raise MadGraph5Error('MadNkLO attempts to add beam factorization terms for'+
+                    ' the %s a second time. This should never happen.'%(
+                             defining_process.nice_string().replace('Process','process')))
+            processes_map[process_key] = (
+                  defining_process.get_copy(), [mp.get_copy() for mp in mapped_processes] )
+            
+            # Create the corresponding BeamCurrents
+            all_beam_currents = []
+                        
+            beam_one_type = contrib.contribution_definition.beam_factorization['beam_one']['beam_type']
+            beam_two_type = contrib.contribution_definition.beam_factorization['beam_two']['beam_type']
+            beam_one_PDGs = contrib.contribution_definition.beam_factorization['beam_one']['beam_PDGs']
+            beam_two_PDGs = contrib.contribution_definition.beam_factorization['beam_two']['beam_PDGs']
+            # The double for-loop below creates all compatible assignments of n_loop to the beam
+            # factorisation currents applied to the first and second beam. So (2,1),(1,2) at N^3LO for instance
+            # In principle it would also be possible here to further differentiate P^(0) x P^(0) from P^(1), but
+            # we do not do this for now.
+            for factorization_order_beam_one in range(beam_factorization_order+1):
+                if factorization_order_beam_one > 0 and not beam_factorization_configuration[0]:
+                    break
+                for factorization_order_beam_two in range(beam_factorization_order-factorization_order_beam_one+1):
+                    if factorization_order_beam_one == factorization_order_beam_two == 0:
+                        continue
+                    if factorization_order_beam_two > 0 and not beam_factorization_configuration[1]:
+                        break
+                    initial_legs = { l.get('number'): l for l in defining_process.get_initial_legs() }
+                    all_beam_currents.append({
+                        'beam_one' : None if factorization_order_beam_one == 0 else
+                          subtraction.BeamCurrent({
+                            'beam_type'         : beam_one_type,
+                            'beam_PDGs'         : beam_one_PDGs,
+                            'distribution_type' : 'bulk',
+                            'n_loops'           : factorization_order_beam_one-1,
+                            'perturbation_couplings' : self.contribution_definition.correction_couplings,
+                            'squared_orders'    : { order : factorization_order_beam_one*2 for
+                                   order in self.contribution_definition.correction_couplings },
+                            'sqorders_types'    : { order : '<=' for order in 
+                                            self.contribution_definition.correction_couplings },
+                            'singular_structure': subtraction.SingularStructure(
+                                 substructures = [ subtraction.BeamStructure(
+                                                                 legs = [initial_legs[1],]), ]
+                            ),
+                          }),
+                        'beam_two' : None if factorization_order_beam_two == 0 else
+                          subtraction.BeamCurrent({
+                            'beam_type'         : beam_two_type,
+                            'beam_PDGs'         : beam_two_PDGs,
+                            'distribution_type' : 'bulk',
+                            'n_loops'           : factorization_order_beam_two-1,
+                            'perturbation_couplings' : self.contribution_definition.correction_couplings,
+                            'squared_orders'    : { order : factorization_order_beam_two*2 for
+                                   order in self.contribution_definition.correction_couplings },
+                            'sqorders_types'    : { order : '<=' for order in 
+                                            self.contribution_definition.correction_couplings },
+                            'singular_structure': subtraction.SingularStructure(
+                                 substructures = [ subtraction.BeamStructure(
+                                                                 legs = [initial_legs[2],]), ]
+                            ),
+                          })
+                    })
+
+            # Add these beam currents to the processes just added to this contribution
+            processes_map[process_key][0].set('beam_factorization', all_beam_currents)
+            for mp in processes_map[process_key][1]:
+                mp.set('beam_factorization', all_beam_currents)
+
+            # Also add the corresponding topologies
+            self.import_topologies_from_contrib(process_key, contrib)
+
+    def generate_all_counterterms(self, 
+                        ignore_integrated_counterterms=False, group_processes=True, **opts):
+        """ Generate all counterterms associated to the processes in this contribution.
+        Since we are in the mother class Contribution here, we only consider generating the
+        beam factorisation counterterm of type 'local_CT'."""
+        
+        # Initialise local and integrated counterterms to an empty list
+        self.counterterms = {}
+        all_integrated_counterterms = []
+        
+        # Nothing done by default
+        return all_integrated_counterterms
         
     def generate_amplitudes(self, force=False):
-        """ Generates the relevant amplitudes for this contribution."""
+        """ Generates the relevant amplitudes for this contribution and the construction
+        of the instances of currents for the beam factorisation terms."""
         
         # First check if the amplitude was not already generated
         if self.amplitudes and not force:
@@ -949,8 +1150,8 @@ class Contribution_R(Contribution):
         
         GREEN = '\033[92m'
         ENDC = '\033[0m'        
-        res =  GREEN+'  %s'%defining_process.nice_string(print_weighted=False).\
-                                                               replace('Process: ','')+ENDC
+        res =  GREEN+'  %s'%(defining_process.nice_string(print_weighted=False).\
+                                                              replace('Process: ',''))+ENDC
 
         if not self.counterterms:
             return res                                                               
@@ -979,9 +1180,9 @@ class Contribution_R(Contribution):
 
     def generate_all_counterterms(self, ignore_integrated_counterterms=False, group_processes=True):
         """ Generate all counterterms associated to the processes in this contribution."""
-        
-        self.counterterms = {}
+
         all_integrated_counterterms = []
+
         for process_key, (defining_process, mapped_processes) in self.get_processes_map().items():
             local_counterterms, integrated_counterterms =  self.IR_subtraction.get_all_counterterms(
                     defining_process, ignore_integrated_counterterms=ignore_integrated_counterterms)
@@ -1223,7 +1424,12 @@ The resulting output must therefore be used for debugging only as it will not yi
         """Given the list of available reduced processes encoded in the MEAccessorDict 'all_MEAccessors'
         given in argument, remove all the counterterms whose underlying reduced process does not exist."""
 
-        for counterterm in list(counterterms):
+        for counterterm_info in list(counterterms):
+            # Integrated counterterm come as dictionaries with additional metadata
+            if isinstance(counterterm_info, dict):
+                counterterm = counterterm_info['integrated_counterterm']
+            else:
+                counterterm = counterterm_info
             # Of course don't remove any counterterm that would be the real-emission itself.
             if not counterterm.is_singular():
                 continue
@@ -1233,15 +1439,17 @@ The resulting output must therefore be used for debugging only as it will not yi
                 # This means that the reduced process could not be found and
                 # consequently, the corresponding counterterm must be removed.
                 # Example: C(5,6) in e+ e- > g g d d~
-                counterterms.remove(counterterm)
+                counterterms.remove(counterterm_info)
 
-    def export(self, ignore_integrated_counterterms=False, **opts):
-        """ Overloads export so as to export subtraction currents as well."""
-        ret_value = super(Contribution_R, self).export(**opts)
+    def subtract(self, ignore_integrated_counterterms=False, **opts):
+        """ Generate and export all necessary subtraction counterterterms and currents
+        (including beam factorization integrated counterterms [bulk ones are already generated
+        at this stage])."""
+
+        ret_value = super(Contribution_R,self).subtract(ignore_integrated_counterterms=False, **opts)
 
         # Fish out the group_processes option as it could be used when attempting to
         # generate all currents.
-        
         if 'group_processes' in opts:
             group_processes = opts['group_processes']
         else:
@@ -1318,19 +1526,6 @@ The resulting output must therefore be used for debugging only as it will not yi
         all_MEAccessors.add_MEAccessors(all_current_accessors)
         return mapped_currents
 
-    def remove_zero_counterterms(self, all_ME_accessors):
-
-        for process_key, counterterms in self.counterterms.items():
-            for counterterm in list(counterterms):
-                # misc.sprint("Considering CT %s" % str(counterterm))
-                if counterterm.is_singular():
-                    for current in counterterm.get_all_currents():                            
-                        accessor, _ = all_ME_accessors[current]
-                        if accessor.subtraction_current_instance.is_zero:
-                            # misc.sprint("Zero current found in CT %s" % str(counterterm))
-                            counterterms.remove(counterterm)
-                            break
-
     def add_ME_accessors(self, all_MEAccessors, root_path):
         """ Adds all MEAccessors for the matrix elements and currents generated as part of this contribution."""
         
@@ -1346,17 +1541,31 @@ The resulting output must therefore be used for debugging only as it will not yi
         currents_to_consider = self.get_all_necessary_local_currents(all_MEAccessors)
         self.add_current_accessors(
             self.model, all_MEAccessors, root_path, current_set, currents_to_consider )
-        self.remove_zero_counterterms(all_MEAccessors)
-     
+        
+    def remove_local_counterterms_set_to_zero(self, all_ME_accessors):
+        """ Remove all local counterterms involving currents whose implementation has set
+        them to zero."""
+        for process_key, counterterms in self.counterterms.items():
+            for counterterm in list(counterterms):
+                # misc.sprint("Considering CT %s" % str(counterterm))
+                if counterterm.is_singular():
+                    for current in counterterm.get_all_currents():                            
+                        accessor, _ = all_ME_accessors[current]
+                        if accessor.subtraction_current_instance.is_zero:
+                            # misc.sprint("Zero current found in CT %s" % str(counterterm))
+                            counterterms.remove(counterterm)
+                            break
+
     def get_integrands_for_process_map(self, process_map, model, run_card, all_MEAccessors, ME7_configuration):
         """ Returns all the integrands implementing this contribution for the specified process_map.
         The instance of MEAccessorDict is necessary so as to be passed to the integrand instances.
         """
         
         relevant_counterterms = {}
-        self.remove_zero_counterterms(all_MEAccessors)
-        for process_key in process_map:
-            relevant_counterterms[process_key] = self.counterterms[process_key]
+        self.remove_local_counterterms_set_to_zero(all_MEAccessors)
+        if self.counterterms:
+            for process_key in process_map:
+                relevant_counterterms[process_key] = self.counterterms[process_key]
 
         return [
             ME7_integrands.ME7Integrand(
@@ -1403,8 +1612,8 @@ class Contribution_V(Contribution):
         contribution."""
         GREEN = '\033[92m'
         ENDC = '\033[0m'        
-        res = GREEN+'  %s'%defining_process.nice_string(print_weighted=False).\
-                                                               replace('Process: ','')+ENDC
+        res = GREEN+'  %s'%(defining_process.nice_string(print_weighted=False)
+                                                             .replace('Process: ',''))+ENDC
 
         if not self.integrated_counterterms:
             return res
@@ -1435,24 +1644,6 @@ class Contribution_V(Contribution):
             res += '\n'.join(long_res)
 
         return res
-    
-    @classmethod
-    def remove_counterterms_with_no_reduced_process(cls, all_MEAccessors, CT_properties_list):
-        """ Given the list of available reduced processes encoded in the MEAccessorDict 'all_MEAccessors'
-        given in argument, remove all the counterterms whose underlying reduced process does not exist."""
-
-        for CT_properties in list(CT_properties_list):
-            counterterm = CT_properties['integrated_counterterm']
-            # Of course don't remove any counterterm that would be the real-emission itself.
-            if not counterterm.is_singular():
-                continue
-            try:
-                all_MEAccessors.get_MEAccessor(counterterm.process)
-            except MadGraph5Error:
-                # This means that the reduced process could not be found and
-                # consequently, the corresponding counterterm must be removed.
-                # Example: C(5,6) in e+ e- > g g d d~
-                CT_properties_list.remove(CT_properties)
 
     def generate_matrix_elements(self, group_processes=True):
         """Generate the Helas matrix elements before exporting. Uses the main function argument 
@@ -1529,12 +1720,37 @@ class Contribution_V(Contribution):
         return Contribution_R.add_current_accessors(
             model, all_MEAccessors, root_path, current_set, currents_to_consider)
 
+    @classmethod
+    def remove_counterterms_with_no_reduced_process(cls, all_MEAccessors, counterterms):
+        """Given the list of available reduced processes encoded in the MEAccessorDict 'all_MEAccessors'
+        given in argument, remove all the counterterms whose underlying reduced process does not exist.
+        For now we can recycle the implementation of the Contribution_R class.
+        """
+        return Contribution_R.remove_counterterms_with_no_reduced_process(all_MEAccessors, counterterms)
+
+    def remove_integrated_counterterms_set_to_zero(self, all_ME_accessors):
+        """ Remove all integrated counterterms involving currents whose implementation has set
+        them to zero."""
+
+        for process_key, counterterms in self.integrated_counterterms.items():
+            for integrated_counterterm_properties in list(counterterms):
+                integrated_counterterm = integrated_counterterm_properties['integrated_counterterm']
+                # misc.sprint("Considering integrated CT %s" % str(integrated_counterterm))
+                if integrated_counterterm.is_singular():
+                    for current in integrated_counterterm.get_all_currents():                            
+                        accessor, _ = all_ME_accessors[current]
+                        if accessor.subtraction_current_instance.is_zero:
+                            # misc.sprint("Zero current found in integrated CT %s" % str(integrated_counterterm))
+                            counterterms.remove(integrated_counterterm_properties)
+                            break
+
     def get_integrands_for_process_map(self, process_map, model, run_card, all_MEAccessors, ME7_configuration):
         """ Returns all the integrands implementing this contribution for the specified process_map.
         The instance of MEAccessorDict is necessary so as to be passed to the integrand instances.
         """
         
         relevant_counterterms = {}
+        self.remove_integrated_counterterms_set_to_zero(all_MEAccessors)
         if self.integrated_counterterms:
             for process_key in process_map:
                 relevant_counterterms[process_key] = self.integrated_counterterms[process_key]
@@ -1723,6 +1939,7 @@ class Contribution_V(Contribution):
         # Extract quantities from integrated_counterterm_properties
         integrated_counterterm = integrated_CT_properties['integrated_counterterm']
         # flavors_combinations = integrated_CT_properties['flavors_combinations']
+
         
         # Sort PDGs only when processes have been grouped
         sort_PDGs = self.group_subprocesses
@@ -1743,23 +1960,42 @@ class Contribution_V(Contribution):
         # Use ordered PDGs since this is what is used in the inverse_processes_map
         # Also overwrite some of the process properties to make it match the 
         # loop process definitions in this contribution
+        n_loops_of_reduced_process = self.contribution_definition.n_loops - \
+            integrated_counterterm.get_n_loops_in_beam_factorization_of_host_contribution()
+        
         counterterm_reduced_process_key = ProcessKey(integrated_counterterm.process,
-            sort_PDGs=sort_PDGs, n_loops=1, NLO_mode='virt', 
-            perturbation_couplings=self.contribution_definition.correction_couplings)\
-                                                                       .get_canonical_key()
+            sort_PDGs   = sort_PDGs,
+            n_loops     = n_loops_of_reduced_process).get_canonical_key()
         
         # misc.sprint(inverse_processes_map.keys(), len(inverse_processes_map.keys()))
         # misc.sprint(counterterm_reduced_process_key)
-        if counterterm_reduced_process_key not in inverse_processes_map:
+
+        # Now look for a matching process key using only a limited set of criteria
+        potential_matches = []
+        criteria_considered = ['PDGs','n_loops','id']
+        for process_key in inverse_processes_map:
+            if all(pk[1] == crpk[1] for (pk, crpk) in zip(process_key,
+                           counterterm_reduced_process_key) if pk[0] in criteria_considered):
+                # Now we can simply add this integrated counterterm in the group of the
+                # defining process to which the reduced process is mapped
+                potential_matches.append(inverse_processes_map[process_key])
+
+        if len(potential_matches)==0:
             # The reduced process of the integrated counterterm is not included in this
             # contribution so we return here False, letting the ME7 exporter know that
-            # we cannot host this integrated counterterm.
+            # we cannot host this integrated counterterm here.
             return False
         
-        # Now we can simply add this integrated counterterm in the group of the
-        # defining process to which the reduced process is mapped
-        defining_key, virtual_process_instance = \
-                                     inverse_processes_map[counterterm_reduced_process_key]
+        if len(potential_matches)>1:
+            logger.warning(
+                ('MadNkLO found the following processes:\n%s\nto be potential matches'+
+                 'to this integrated counterterm:\n%s\nThe first matching process will be'+
+                 ' selected, but this may indicate that the current list of criteria considered'+
+                 ' (%s) should be extended.')%(
+                     '\n'.join(p[1].nice_string() for p in potential_matches),
+                     integrated_counterterm.nice_string(), ','.join(criteria_considered)) )
+
+        defining_key, virtual_process_instance = potential_matches[0]
         
         integrated_counterterm_properties = dict(integrated_CT_properties)
        
@@ -1899,17 +2135,102 @@ class Contribution_V(Contribution):
 
 
 class Contribution_RV(Contribution_R, Contribution_V):
-    """ Implements the handling of a real-virtual type of contribution."""
-    pass
+    """ Implements the general handling of contribution with arbitrary number of reals, virtuals
+    and beam factorization contributions."""
+    
+    def get_integrands_for_process_map(self, process_map, model, run_card, all_MEAccessors, ME7_configuration):
+        """ Returns all the integrands implementing this contribution for the specified process_map.
+        The instance of MEAccessorDict is necessary so as to be passed to the integrand instances.
+        """
+        
+        relevant_counterterms = {}
+        self.remove_local_counterterms_set_to_zero(all_MEAccessors)
+        if self.counterterms:
+            for process_key in process_map:
+                relevant_counterterms[process_key] = self.counterterms[process_key]
+        
+        relevant_integrated_counterterms = {}
+        self.remove_integrated_counterterms_set_to_zero(all_MEAccessors)
+        if self.integrated_counterterms:
+            for process_key in process_map:
+                relevant_integrated_counterterms[process_key] = self.integrated_counterterms[process_key]
+
+        return [ ME7_integrands.ME7Integrand(model, run_card,
+                   self.contribution_definition,
+                   process_map,
+                   self.topologies_to_processes,
+                   self.processes_to_topologies,
+                   all_MEAccessors,
+                   ME7_configuration,
+                   subtraction_mappings_scheme=self.options['subtraction_mappings_scheme'],
+                   counterterms=relevant_counterterms,
+                   integrated_counterterms=relevant_counterterms
+                ) ]
+
+    def get_additional_nice_string_printout_lines(self, format=0):
+        """ Return additional information lines for the function nice_string of this contribution."""
+        res = Contribution_R.get_additional_nice_string_printout_lines(self, format=format)
+        res.extend(Contribution_V.get_additional_nice_string_printout_lines(self, format=format))
+        return res
+
+    def get_nice_string_process_line(self, process_key, defining_process, format=0):
+        """ Return a nicely formated process line for the function nice_string of this 
+        contribution."""
+        GREEN = '\033[92m'
+        ENDC = '\033[0m'        
+        res = GREEN+'  %s'%(defining_process.nice_string(print_weighted=False)
+                                                             .replace('Process: ',''))+ENDC
+
+        if not self.integrated_counterterms or not self.counterterms:
+            return res
+
+        if format<2:
+            if process_key in self.counterterms:
+                res += ' | %d local counterterms'%len([ 1
+                    for CT in self.counterterms[process_key] if CT.is_singular() ])
+            else:
+                res += ' | 0 local counterterm'                
+            if process_key in self.integrated_counterterms:
+                res += ' and %d integrated counterterms'%len(self.integrated_counterterms[process_key])
+            else:
+                res += ' and 0 integrated counterterm'
+        else:
+            long_res = [' | with the following local and integrated counterterms:']
+            for CT in self.counterterms[process_key]:
+                if CT.is_singular():
+                    if format==2:
+                        long_res.append( '   | %s' % str(CT))
+                    elif format==3:
+                        long_res.append( '   | %s' % CT.__str__(
+                            print_n=True, print_pdg=True, print_state=True ) )
+                    elif format>3:
+                        long_res.append(CT.nice_string("   | "))
+            for CT_properties in self.integrated_counterterms[process_key]:
+                CT = CT_properties['integrated_counterterm']
+                if format==2:
+                    long_res.append( '   | %s' % str(CT))
+                elif format==3:
+                    long_res.append( '   | %s' % CT.__str__(
+                        print_n=True, print_pdg=True, print_state=True ))
+                elif format==4:
+                    long_res.append(CT.nice_string("   | "))
+                elif format>4:
+                    long_res.append(CT.nice_string("   | "))
+                    for key, value in CT_properties.items():
+                        if not key in ['integrated_counterterm', 'matching_process_key']:
+                            long_res.append( '     + %s : %s'%(key, str(value)))
+            res += '\n'.join(long_res)
+
+        return res
 
 class ContributionList(base_objects.PhysicsObjectList):
     """ A container for storing a list of contributions."""
     
     contributions_natural_order = [
         ('LO',    (Contribution_B, Contribution_LIB) ),
-        ('NLO',   (Contribution_R, Contribution_V) ),
-        ('NNLO',  (Contribution_RR, ) ),
-        ('NNNLO', (Contribution_RRR, ) )
+        ('NLO',   (Contribution_R, Contribution_V, Contribution_RV) ),
+        ('NNLO',  (Contribution_RR, Contribution_RV) ),
+        ('NNNLO', (Contribution_RRR, Contribution_RV) )
     ]
     
     def is_valid_element(self, obj):
@@ -1928,12 +2249,18 @@ class ContributionList(base_objects.PhysicsObjectList):
                 correction_classes = tuple(correction_classes)
             else:
                 correction_classes = (correction_classes,)                
-        return ContributionList([contrib for contrib in self if isinstance(contrib, correction_classes)])
+        return ContributionList([contrib for contrib in self if type(contrib) in correction_classes])
 
     def nice_string(self, format=0):
         """ A nice representation of a list of contributions. 
         We can reuse the function from ContributionDefinitions."""
         return base_objects.ContributionDefinitionList.contrib_list_string(self, format=format)
+
+    def get_max_correction_order(self):
+        """ Returns the maximum correction order found  among these contributions."""
+        
+        return 'N'*(max(contrib.contribution_definition.correction_order.count('N')
+                                                                 for contrib in self))+'LO'
 
     def sort_contributions(self):
         """ Sort contributions according to the order dictated by the class_attribute contributions_natural_order"""
@@ -1943,20 +2270,13 @@ class ContributionList(base_objects.PhysicsObjectList):
             for contrib_type in contribution_types:
                 selected_contribs = self.get_contributions_of_order(correction_order).\
                                         get_contributions_of_type(contrib_type)
-                # Now sort contributions of this type using the following indices (in this order)
-                #  a) Total correction orders of all the factorization terms
-                #  b) Total correction orders of the factorization terms for beam one
-                #  c) Maximum correction order amongst all factorization terms (descending)
-                #  d) Maximum correction order amongst factorization terms for beam one (descending)
+                # Now sort contributions of this type using the ordering F1, F2, F1F2
+                factorization_order = [(False,False),(True, False),(False, True), (True, True)]
                 new_order.extend(sorted(selected_contribs,
-                    key = lambda contrib: (
-                        sum(contrib.contribution_definition.get_beam_factorization_correction_orders('beam_one'))+
-                        sum(contrib.contribution_definition.get_beam_factorization_correction_orders('beam_two')),
-                        sum(contrib.contribution_definition.get_beam_factorization_correction_orders('beam_one')),
-                        -max(max(contrib.contribution_definition.get_beam_factorization_correction_orders('beam_one')),
-                            max(contrib.contribution_definition.get_beam_factorization_correction_orders('beam_two'))),
-                        -max(contrib.contribution_definition.get_beam_factorization_correction_orders('beam_one'))
-                    )
+                    key = lambda contrib: factorization_order.index((
+                        contrib.contribution_definition.beam_factorization['beam_one']['active'],
+                        contrib.contribution_definition.beam_factorization['beam_two']['active']
+                    ))
                 ))
                 for contrib in selected_contribs:
                     self.pop(self.index(contrib))
@@ -1970,7 +2290,6 @@ class ContributionList(base_objects.PhysicsObjectList):
         
         # Keep track of the return values
         return_values = []
-        
         remaining_contribs = list(self)
         for correction_order, contribution_types in self.contributions_natural_order:
             for contrib_type in contribution_types:
@@ -2007,7 +2326,13 @@ class ContributionList(base_objects.PhysicsObjectList):
             except AttributeError:
                 raise MadGraph5Error("The contribution\n%s\n does not have function '%s' defined."%(
                                                                             contrib.nice_string(), method))
-            return_values.append((contrib, contrib_function(*method_args, **method_opts)))
+            # If method opts depend on the contribution, it can be passed as a callable
+            # that can be evaluated here
+            if not isinstance(method_opts, dict) and callable(method_opts):
+                method_options = method_opts(contrib)
+            else:
+                method_options = dict(method_opts)
+            return_values.append((contrib, contrib_function(*method_args, **method_options)))
         
         return return_values
 
@@ -2018,6 +2343,7 @@ Contribution_classes_map = {'Born': Contribution_B,
                             'LoopInduced_Born': Contribution_LIB,
                             'Virtual': Contribution_V,
                             'SingleReals': Contribution_R,
+                            'RealVirtual': Contribution_RV,
                             'DoubleReals': Contribution_RR,
                             'TripleReals': Contribution_RRR,
                             'Unknown': None}

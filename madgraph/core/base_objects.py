@@ -56,6 +56,7 @@ class PhysicsObject(dict):
 
         for item in init_dict.keys():
             self.set(item, init_dict[item])
+            
         
 
     def __getitem__(self, name):
@@ -2813,6 +2814,15 @@ class Process(PhysicsObject):
         # states are interchanged. This is only used for post-processing by ME7
         self['has_mirror_process'] = False
 
+        # The following will store the beam factorization currents that applies
+        # to this particular proces. The elements of the list have the following format
+        # [{ 'beam_one': <BeamCurrent>,
+        #    'beam_two': <BeamCurrent> }]
+        # while None in place of a current indicates no convolution.
+        # It may be necessary to have several instances of BeamCurrent, for example for the
+        # combination F1^(1)F2^(0) and F1^(0)F2^(1)
+        self['beam_factorization'] = [{'beam_one': None, 'beam_two': None},]
+
     def filter(self, name, value):
         """Filter for valid process property values."""
 
@@ -2837,6 +2847,21 @@ class Process(PhysicsObject):
                 if not isinstance(order, str):
                     raise self.PhysicsObjectError, \
                           "%s is not a valid string" % str(value)
+
+        if name == 'beam_factorization':
+            if not isinstance(value, list):
+                raise self.PhysicsObjectError, \
+                        "%s is not a valid list" % str(value)
+            for bf in value:
+                if not isinstance(bf, dict) or \
+                   not set(bf.keys())==set(['beam_one','beam_two']):
+                    raise self.PhysicsObjectError, \
+                        "%s is not a valid list of dictionary with keys ['beam_one','beam_two']" % str(bf)
+                from madgraph.core.subtraction import BeamCurrent
+                for key in ['beam_one','beam_two']:
+                    if (not bf[key] is None) and (not isinstance(bf[key],BeamCurrent)):
+                        raise self.PhysicsObjectError, \
+                        "%s is not None or a valid instance of a BeamCurrent" % str(bf[key])
 
         if name == 'split_orders':
             if not isinstance(value, list):
@@ -2948,10 +2973,6 @@ class Process(PhysicsObject):
             if value and isinstance(value, list) and \
                not isinstance(value[0], list):
                 value = [value]
-        
-        if name == 'perturbation_couplings':
-            if value and self['n_loops']==0:
-                self['n_loops']=1
 
         return super(Process, self).set(name, value) # call the mother routine
 
@@ -2989,7 +3010,8 @@ class Process(PhysicsObject):
                 'forbidden_onsh_s_channels', 'forbidden_s_channels',
                 'forbidden_particles', 'is_decay_chain', 'decay_chains',
                 'legs_with_decays', 'perturbation_couplings', 'has_born', 
-                'NLO_mode','split_orders','n_loops', 'has_mirror_process']
+                'NLO_mode','split_orders','n_loops', 'has_mirror_process',
+                'beam_factorization']
 
     def nice_string(self, indent = 0, print_weighted = True, prefix = True):
         """Returns a nicely formatted string about current process
@@ -3117,12 +3139,33 @@ class Process(PhysicsObject):
         if self['has_mirror_process']:
             mystr = mystr + ' (mirrored)'
         
-        if not self.get('decay_chains'):
-            return mystr
+        if self.get('decay_chains'):
+            for decay in self['decay_chains']:
+                mystr = mystr + '\n' + \
+                        decay.nice_string(indent + 2).replace('Process', 'Decay')         
 
-        for decay in self['decay_chains']:
-            mystr = mystr + '\n' + \
-                    decay.nice_string(indent + 2).replace('Process', 'Decay')         
+        # Finally add beam factorization
+        if len(self['beam_factorization'])>1 or \
+           ( len(self['beam_factorization'])>0 and
+             ( (not self['beam_factorization'][0]['beam_one'] is None) or \
+               (not self['beam_factorization'][0]['beam_two'] is None)) ):
+            beam_factorization_terms_str = []
+            for bft in self['beam_factorization']:
+                if (not bft['beam_one'] is None) and \
+                   (not bft['beam_two'] is None):
+                    parenthesis = '{%s}'
+                else:
+                    # I find it more esthetical to always include the curly brackets
+                    parenthesis = '{%s}'
+                beam_factorization_terms_str.append(parenthesis%('|'.join([
+                    bc.__str__(print_n=True, print_pdg=False, print_state=False,
+                               print_loops=True, print_orders=False) for bc in 
+                    [bft['beam_one'],bft['beam_two']] if not bc is None 
+                ])))
+            if len(self['beam_factorization'])>1:
+                mystr += ' x [%s]'%(' + '.join(beam_factorization_terms_str))
+            else:
+                mystr += ' x %s'%(' + '.join(beam_factorization_terms_str))
 
         return mystr
 
@@ -3411,6 +3454,35 @@ class Process(PhysicsObject):
             self.initial_final_pdgs = (initial_pdgs, final_pdgs)
             return self.initial_final_pdgs
 
+    def get_n_loops_in_beam_factorization(self):
+        """ Returns the total number of loops in each of the two beam factorization currents,
+        this sum is expected to be identical for each beam factorization term."""
+        
+        bft = self['beam_factorization'][0]
+        n_loops = 0
+        for beam_name in ['beam_one','beam_two']:
+            if not bft[beam_name] is None:
+                n_loops += bft[beam_name]['n_loops']
+
+        return n_loops
+        
+    def get_squared_orders_in_beam_factorization(self):
+        """ Returns the total squared orders in each of the two beam factorization currents,
+        this sum is expected to be identical for each beam factorization term."""
+        
+        bft = self['beam_factorization'][0]
+        squared_orders = {}
+        
+        for beam_name in ['beam_one','beam_two']:        
+            if not bft[beam_name] is None:
+                for squared_order, value in bft[beam_name]['squared_orders'].items():
+                    if squared_order in squared_orders:
+                        squared_orders[squared_order] += value
+                    else:
+                        squared_orders[squared_order] = value
+
+        return squared_orders
+
     def format_PS_point_for_ME_call(self, PS_point):
         """ From a dictionary formatted PS point and a process, returns the PS point as a flat list, ordered as
         the legs in the process."""
@@ -3542,7 +3614,8 @@ class Process(PhysicsObject):
         
         return ( tuple( l.get('id') for l in self.get('legs') if not l.get('state') ), 
                  tuple( l.get('id') for l in self.get('legs') if l.get('state') ),
-                 self.get('id'), self.get('n_loops'), tuple(self.get('perturbation_couplings')) )
+                 self.get('id'), self.get('n_loops'), tuple(self.get('perturbation_couplings')),
+                 tuple( (str(bf['beam_one']),str(bf['beam_two'])) for bf in self.get('beam_factorization')) )
 
     def compare_for_sort(self, other):
         """Sorting routine which allows to sort processes for
@@ -3937,7 +4010,8 @@ class ProcessDefinition(Process):
             'split_orders': self.get('split_orders'),
             'NLO_mode': self.get('NLO_mode'),
             'n_loops': self.get('n_loops'),
-            'has_mirror_process': self.get('has_mirror_process')
+            'has_mirror_process': self.get('has_mirror_process'),
+            'beam_factorization': self.get('beam_factorization'), 
             })
             
     def get_process(self, initial_state_ids, final_state_ids):
@@ -4013,25 +4087,13 @@ class ContributionDefinition(object):
                  process_definition, 
                  overall_correction_order   = 'LO',
                  correction_order           = 'LO',
-                 # The attribute below reflect the matrix element building that contribution
-                 # and do not include the loops/couplings present in the collinear
-                 # factorization counterterm.
                  correction_couplings       = [], 
                  n_unresolved_particles     = 0,
                  n_loops                    = -1,
                  squared_orders_constraints = {},
-                 # Values of the dictionary 'beam_factorization' are list of the form:
-                 #   [ { 'beam_type'            : ('proton_5fl', (PDGs_of_particles_part_of_the_beam,)),
-                 #       'correction_couplings' : ('QCD','QED',...)
-                 #       'n_loops'              : 1
-                 #     },
-                 #   ]
-                 # or None, which indicates that no factorization is needed for that beam.
-                 # The need for a list arises because collinear_factorisation of lower-order
-                 # collinear counterterms needs to be iterated (see 5th line of Eq. 8 of
-                 # ref arXiv: 1408.2500)
-                 beam_factorization         = { 'beam_one': None,
-                                                'beam_two': None  } ):
+                 beam_types                 = (None, None),
+                 # Active simply means the a convolution is in place.
+                 beam_factorization_active  = (False, False) ):
         """ Instantiate a contribution definition with all necessary information
         to generate the actual contribution. """
         self.process_definition        = process_definition
@@ -4042,7 +4104,23 @@ class ContributionDefinition(object):
         self.correction_order          = correction_order
         self.correction_couplings      = correction_couplings
         self.n_unresolved_particles    = n_unresolved_particles
-        self.beam_factorization        = beam_factorization
+        
+        # Values of the dictionary 'beam_factorization' are dicts of the form:
+        #  {  'beam_type' : beam_type_name_str
+        #     'beam_PDGs' : (beam_PDGs,)
+        #  }
+        self.beam_factorization = {}
+        for i, beam_name in enumerate(['beam_one', 'beam_two']):
+            if beam_types[i] is None:   
+                self.beam_factorization[beam_name] = None
+            else:
+                self.beam_factorization[beam_name] = {
+                    'beam_type'  : beam_types[i][0],
+                    'beam_PDGs'  : tuple(beam_types[i][1]),
+                    # Active means that a convolution with beam factorization is in place.
+                    'active'     : beam_factorization_active[i]
+                }
+
         # Make sure that n_loops matches the one in the process definition. We however keep
         # this attribute in ContributionDefinition as well for convenience.
         if n_loops == -1:
@@ -4060,7 +4138,7 @@ class ContributionDefinition(object):
         self.squared_orders_constraints = squared_orders_constraints
     
     def get_copy(self):
-        """ Returns a shallow copy of self."""
+        """ Returns a partially-shallow copy of self."""
         return ContributionDefinition(
                 process_definition         = self.process_definition.get_copy(), 
                 overall_correction_order   = self.overall_correction_order,
@@ -4069,16 +4147,33 @@ class ContributionDefinition(object):
                 n_unresolved_particles     = self.n_unresolved_particles,
                 n_loops                    = self.n_loops,
                 squared_orders_constraints = dict(self.squared_orders_constraints),
-                beam_factorization         = { 
-                  'beam_one': [ {k : copy.copy(v) for k,v in coll_PDF_CT.items()} 
-                                for coll_PDF_CT in self.beam_factorization['beam_one'] ]
-                         if not self.beam_factorization['beam_one'] is None else None,
-                  'beam_two': [ {k : copy.copy(v) for k,v in coll_PDF_CT.items()} 
-                                for coll_PDF_CT in self.beam_factorization['beam_two'] ]
-                         if not self.beam_factorization['beam_two'] is None else None,
-                } 
+                beam_factorization         = copy.deepcopy(self.beam_factorization)
             )
     
+    def get_beam_types(self):
+        """ Return the beam types in a tuple format."""
+
+        return ( 
+            ( self.beam_factorization['beam_one']['beam_type'],
+              self.beam_factorization['beam_one']['beam_PDGs']) if
+            (not self.beam_factorization['beam_one'] is None) else None,
+            ( self.beam_factorization['beam_two']['beam_type'],
+              self.beam_factorization['beam_two']['beam_PDGs']) if
+            (not self.beam_factorization['beam_two'] is None) else None )
+
+    def has_beam_factorization(self):
+        """ Checks whether this contribution has as any beam factorization active."""
+
+        return ( ( (not self.beam_factorization['beam_one'] is None) and 
+                   self.beam_factorization['beam_one']['active'] ) or
+                 ( (not self.beam_factorization['beam_two'] is None) and 
+                   self.beam_factorization['beam_two']['active'] ) )
+
+    def is_beam_active(self, beam_name):
+        """ Checks whether factorization of the beam 'beam_name' is active or not."""
+        return (not self.beam_factorization['beam_one'] is None) and \
+                                              self.beam_factorization[beam_name]['active']
+
     def nice_string(self):
         """ Nice representation of a contribution definition."""
         res = []
@@ -4095,50 +4190,35 @@ class ContributionDefinition(object):
                 self.process_definition['model'],self.beam_factorization['beam_two'])))
         return '\n'.join(res)
 
-    def get_beam_factorization_correction_orders(self, beam_name):
-        """ Returns a tuple of all correction order of the convoluted beam factorisation terms
-        for the beam ('beam_one' or 'beam_two') passed in argument."""
-        if self.beam_factorization[beam_name] is None:
-            return (0,)
-        else:
-            return tuple(bf['n_loops']+1 for bf in self.beam_factorization[beam_name])
-        
     def get_beam_factorization_nice_string(self, model, beam_factorization_specification):
         """ Returns a nice representation of the beam factorization specification in 
         argument"""
         
+        
         if beam_factorization_specification is None:
-            return 'None'
+            return ''
+        
+        res = beam_factorization_specification['beam_type']
 
-        res = ' x '.join('%s@%d_%s_loop'%(
-                beam_fact_CT['beam_type'][0],
-                beam_fact_CT['n_loops'],
-                '+'.join(beam_fact_CT['correction_couplings'])
-            ) for beam_fact_CT in beam_factorization_specification
-        )
-        res += ' [including: %s]'%(' '.join(
-                        model.get_particle(pdg).get_name() for pdg in 
-                                      beam_factorization_specification[0]['beam_type'][1]))
+        if beam_factorization_specification['active']:
+            res += ' (convoluted)'
+
+        res += ' [including: %s]'%(' '.join(model.get_particle(pdg).get_name() for pdg 
+                                     in beam_factorization_specification['beam_PDGs']))
         return res
     
     def get_beam_factorization_short_name(self):
         """ Return a short string identifying the beam factorization applied to this
         contribution. For instance it can be:
-           F1      --> simple tree-level PDF CT applied to beam one
-           F2      --> simple tree-level PDF CT applied to beam two
-           F1F2    --> tree-level PDF CT applied to both beams
-           F1F1    --> twice-convoluted tree-level PDF applied to beam one
-           F1F1F1  --> three times convoluted tree-level PDF applied to beam one
-           FL1     --> one-loop PDF CT applied to beam one
-           FL1F1   --> one-loop PDF CT applied to beam one and convoluted with tree-level CT
-           FL2     --> two loop PDF CT applied to beam two
-           etc...
+           F1      --> PDF CT applied to beam one
+           F2      --> PDF CT applied to beam two
+           F1F2    --> PDF CT applied to both beams
         """
         res = ''
         for i_beam, beam_name in enumerate(['beam_one', 'beam_two']):
-            if not self.beam_factorization[beam_name] is None:
-                for coll_PDF_CT in self.beam_factorization[beam_name]:
-                    res += 'F%s%d'%('L'*coll_PDF_CT['n_loops'], i_beam+1)
+            if not self.beam_factorization[beam_name] is None and \
+                self.beam_factorization[beam_name]['active']:
+                res += 'F%d'%(i_beam+1)
         return res        
     
     def short_name(self):

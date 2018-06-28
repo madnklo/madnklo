@@ -25,6 +25,7 @@ import sys
 import os
 import importlib
 import shutil
+import copy
 
 if __name__ == '__main__':
     sys.path.append(os.path.join(os.path.dirname(
@@ -576,6 +577,16 @@ class SingularStructure(object):
         return eval(SingularStructure.name_dictionary[name])(
             substructures=substructures, legs=legs)
 
+class BeamStructure(SingularStructure):
+
+    def count_unresolved(self):
+
+        return 0
+
+    def name(self):
+
+        return "F"
+
 class SoftStructure(SingularStructure):
 
     def count_unresolved(self):
@@ -762,6 +773,30 @@ class CollOperator(SingularOperator):
         # WARNING: this statement has to be checked
         # By default, not skipping overlaps ensures correct subtraction
         return True
+    
+class BeamOperator(SingularOperator):
+    """Object that represents a beam factorization elementary singular operator."""
+
+    def name(self):
+
+        return "F"
+
+    def get_structure(self):
+
+        return BeamStructure(legs=self)
+
+    def __init__(self, *args, **opts):
+
+        super(BeamOperator, self).__init__(*args, **opts)
+
+    def act_here_needed(self, structure):
+
+        assert isinstance(structure, SingularStructure)
+
+        # Beam factorization limits should never be needed within any other singular structure
+        # WARNING: this statement has to be checked
+        
+        return False
 
 #=========================================================================================
 # SingularOperatorList
@@ -796,7 +831,6 @@ class SingularOperatorList(list):
 #=========================================================================================
 # Current
 #=========================================================================================
-
 class Current(base_objects.Process):
 
     def default_setup(self):
@@ -888,6 +922,7 @@ class Current(base_objects.Process):
                     'singular_structure',
                     'n_loops',
                     'squared_orders',
+                    'perturbation_couplings',
                     'resolve_mother_spin_and_color' ],
                 track_leg_numbers = track_leg_numbers)
 
@@ -907,15 +942,69 @@ class Current(base_objects.Process):
         return self.get_key().key_dict == other.get_key().key_dict
 
 #=========================================================================================
+# BeamCurrent
+#=========================================================================================
+class BeamCurrent(Current):
+    """ A special class of current representing beam factorization terms 
+    (aka PDF counterterms).
+
+    If we have:
+        PDF_CT(\chsi) = F_+(\chsi) + [F] \delta(\chsi-1)
+    (which can also be explicitely written)
+        PDF_CT(\chsi) = F(\chsi) + {F(\chsi)} \delta(\chsi-1) + [F] \delta(\chsi-1)
+
+    Then this current represent the two pieces of the chsi-dependent distribution F_+(\chsi),
+    the first piece (F(\chsi)) with 'distribution_type' set to 'bulk' and the latter 
+    ({F(\chsi)} \delta(\chsi-1)) with this attribute set to 'counterterm'.
+    """
+    
+    def default_setup(self):
+        """Default values for all properties specific to the BeamCurrent,
+        additional to Process.
+        """
+        super(BeamCurrent, self).default_setup()
+        self['n_loops'] = -1
+        self['squared_orders'] = {}
+        self['resolve_mother_spin_and_color'] = False
+        self['singular_structure'] = SingularStructure()
+
+        # Which piece of the plus distribution is intended to be returned
+        self['distribution_type'] = 'bulk'
+        
+        # List of the pdgs of the particles making up this beam
+        self['beam_PDGs'] = []
+        # Name of the beam factorization type that should be employed
+        self['beam_type'] = None
+
+    def get_key(self, track_leg_numbers=False):
+        """Return the ProcessKey associated to this current."""
+
+        from madgraph.core.accessors import ProcessKey
+        return ProcessKey(
+                self,
+                allowed_attributes = [
+                    'singular_structure',
+                    'n_loops',
+                    'squared_orders',
+                    'perturbation_couplings',
+                    'resolve_mother_spin_and_color',
+                    'beam_PDGs',
+                    'beam_type',
+                    'distribution_type' ],
+                track_leg_numbers = track_leg_numbers)
+
+    def __str__(self, **opts):
+        base_str = Current.__str__(self, **opts)
+        # Denote "bulk" contributions embedded within colons ':%s:'
+        if self['distribution_type']=='bulk':
+            return ':%s:'%base_str
+        return base_str
+
+#=========================================================================================
 # Integrated current
 #=========================================================================================
-
 class IntegratedCurrent(Current):
     """Class for integrated currents."""
-
-    # TODO
-    # For now, it behaves exactly as a local 4D current,
-    # but it is conceptually different.
 
     def __str__(
         self,
@@ -928,7 +1017,50 @@ class IntegratedCurrent(Current):
             print_n=print_n, print_pdg=print_pdg, print_state=print_state,
             print_loops=print_loops, print_orders=print_orders
         )
-        return '[integrated] %s' % res
+        # Denote integrated contributions embedded within '[%s]'
+        return '[%s]' % res
+
+class IntegratedBeamCurrent(IntegratedCurrent):
+    """ A special class of current representing the integrated beam factorization terms 
+
+    If we have:
+        PDF_CT(\chsi) = F_+(\chsi) + [F] \delta(\chsi-1)
+    (which can also be explicitely written)
+        PDF_CT(\chsi) = F(\chsi) + :F(\chsi): \delta(\chsi-1) + [F] \delta(\chsi-1)
+
+    Then this current returns the end-point of the distribution: [F] \delta(\chsi-1)
+    """
+
+    def default_setup(self):
+        """Default values for all properties specific to the BeamCurrent,
+        additional to Process.
+        """
+        super(IntegratedBeamCurrent, self).default_setup()
+        self['n_loops'] = 0
+        self['squared_orders'] = {}
+        self['resolve_mother_spin_and_color'] = False
+        self['singular_structure'] = SingularStructure()
+
+        # List of the pdgs of the particles making up this beam
+        self['beam_PDGs'] = []
+        # Name of the beam factorization type that should be employed
+        self['beam_type'] = None
+
+    def get_key(self, track_leg_numbers=False):
+        """Return the ProcessKey associated to this current."""
+
+        from madgraph.core.accessors import ProcessKey
+        return ProcessKey(
+                self,
+                allowed_attributes = [
+                    'singular_structure',
+                    'n_loops',
+                    'squared_orders',
+                    'perturbation_couplings',
+                    'resolve_mother_spin_and_color',
+                    'beam_PDGs',
+                    'beam_type' ],
+                track_leg_numbers = track_leg_numbers)
 
 #=========================================================================================
 # CountertermNode
@@ -1052,7 +1184,7 @@ class CountertermNode(object):
         """Split a counterterm in several ones according to the individual
         loop orders of its currents.
         """
-
+        
         assert isinstance(n_loops, int)
 
         # Generate all combinations of nodes with total number of loops
@@ -1204,13 +1336,18 @@ class Counterterm(CountertermNode):
                     "in this momentum routing dictionary:\n" + str(momentum_dict) )
 
     def __str__(self, print_n=True, print_pdg=False, print_state=False):
-
         return self.reconstruct_complete_singular_structure().__str__(
             print_n=print_n, print_pdg=print_pdg, print_state=print_state )
 
     def nice_string(self, lead="    ", tab="    "):
+        
+        CT_type = ''
+        if type(self) == Counterterm:
+            CT_type = '[local] '
+        elif type(self) == IntegratedCounterterm:
+            CT_type = '[integrated] '
 
-        tmp_str  = lead + self.process.nice_string(0, True, False)
+        tmp_str  = lead + CT_type + self.process.nice_string(0, True, False)
         tmp_str += " ("
         tmp_str += " ".join(
             str(leg['number'])
@@ -1462,22 +1599,69 @@ class Counterterm(CountertermNode):
 class IntegratedCounterterm(Counterterm):
     """A class for the integrated counterterm."""
 
+    def __str__(self, print_n=True, print_pdg=False, print_state=False):
+        """ A nice short string for the structure of this integrated CT."""
+        
+        reconstructed_ss = self.reconstruct_complete_singular_structure()
+        
+        # We deconstruct the reconstructed ss so as to be able to render the information about
+        # wheter beam currents are local counterterms or bulk ones.
+        res = []
+        for i, node in enumerate(self.nodes):
+            if isinstance(node.current, BeamCurrent) and node.current['distribution_type']=='bulk':
+                template = ':%s:,'
+            else:
+                template = '%s,'
+            res.append(template%(reconstructed_ss.substructures[i].__str__(
+                                 print_n=print_n, print_pdg=print_pdg, print_state=print_state )))
+
+        return '[%s]'%(''.join(res))
+
     def get_integrated_current(self):
         """ This function only makes sense in the current context where we don't allow
         the factorization of the integrated counterterm into several integrated currents."""
         
         # For now we only support a basic integrated counterterm which is not broken
         # down into subcurrents but contains a single CountertermNode with a single
-        # current in it that contains the whole singular structure describing this
-        # integrated counterterm.
-        if len(self.nodes) != 1 or len(self.nodes[0].nodes) != 0:
+        # current *or* a BeamCurrent and no CountermNode
+        if len(self.nodes) == 1 and len(self.nodes[0].nodes) == 0:
+            assert isinstance(self.nodes[0].current, (IntegratedCurrent,BeamCurrent,IntegratedBeamCurrent))
+            return self.nodes[0].current
+        else:
             raise MadGraph5Error(
-                """For now, MadEvent7 only support simple integrated
+                """For now, MadNkLO only support simple integrated
                 counterterms that consists of single current encompassing the full
-                singular structure that must be analytically integrated over.""")
-        assert(isinstance(self.nodes[0].current, IntegratedCurrent))
+                singular structure that must be analytically integrated over, not:\n%s"""%str(self))
 
-        return self.nodes[0].current
+
+    def get_necessary_beam_convolutions(self):
+        """ Returns a set of beam names ('beam_one' or 'beam_two') that must be active
+        in the contribution that will host this counterterm"""
+        
+        necessary_beam_convolutions = set([])
+        
+        # First analyze the reduced process
+        for bft in self.current['beam_factorization']:
+            necessary_n_loops = 0
+            for beam_name, beam_current in bft.items():
+                if not beam_current is None:
+                    necessary_beam_convolutions.add(beam_name)
+            
+        # First fetch all integrated currents making up this integrated counterterm
+        # In the current implementation, there can only be one for now.
+        integrated_current = self.get_integrated_current()
+
+        if type(integrated_current) not in [BeamCurrent]:
+            return necessary_beam_convolutions
+            
+        # Now get all legs of its singular structure
+        all_legs = integrated_current['singular_structure'].get_all_legs()
+        
+        if any(l.n==1 for l in all_legs):
+            necessary_beam_convolutions.add('beam_one')
+        if any(l.n==2 for l in all_legs):
+            necessary_beam_convolutions.add('beam_two')
+        return necessary_beam_convolutions
 
     def get_reduced_kinematics(self, input_reduced_PS):
         """Given the PS *dictionary* providing the reduced kinematics corresponding to
@@ -1510,20 +1694,94 @@ class IntegratedCounterterm(Counterterm):
 
         return reduced_PS
 
+    def n_loops_in_host_contribution(self):
+        """ Returns the number of loops that the contribution hosting this integrated counterterm
+        is supposed to have. Factorization contributions render this quantity more subtle than
+        the naive n_loops() call to self."""
+        
+        # First account for all the loops of the building blocks
+        host_contrib_n_loops  = self.n_loops()
+        host_contrib_n_loops += self.process.get_n_loops_in_beam_factorization()
+        
+        # We must then add one loop for each unresolved parton of this integrated CT.
+        host_contrib_n_loops += self.count_unresolved()
+        
+        # Finally the ISR beamCurrent contributions do have a non-zero number of unresolved contributions
+        # which increased the loop count in the line above. However, given that those must be placed
+        # together with the beam factorization currents, we should not account for these loops.
+        beam_numbers_for_which_n_loops_is_already_decremented = []
+        for current in self.get_all_currents():
+            if not type(current)==BeamCurrent:
+                continue
+            beam_numbers_in_currents = set(sum([[l.n for l in ss.get_all_legs() if l.n in [1,2]] 
+                    for ss in current['singular_structure'].substructures if ss.name()=='C'],[]))
+            for beam_number in beam_numbers_in_currents:
+                if beam_number not in beam_numbers_for_which_n_loops_is_already_decremented:
+                    beam_numbers_for_which_n_loops_is_already_decremented.append(beam_number)
+                    host_contrib_n_loops -= 1
+
+        # Similarly, the *integrated* beamCurrent F terms have zero number of unresolved legs
+        # but they must be placed together with the virtuals which have a loop count. We must
+        # therefore increase the loop count by *at most* for each of the two beams that has
+        # at least one integratedBeamCurrent F structure attached
+        beam_numbers_for_which_n_loops_is_already_incremented = []
+        for current in self.get_all_currents():
+            if not type(current)==IntegratedBeamCurrent:
+                continue
+            
+            # We don't need to look recursively inside the singular structures since the beam
+            # factorization ones are supposed to be at the top level since they factorize
+            beam_numbers_in_currents = set(sum([[l.n for l in ss.legs] for ss in 
+                current['singular_structure'].substructures if ss.name()=='F'],[]))
+            for beam_number in beam_numbers_in_currents:
+                assert (beam_number in [1,2]), "Inconsistent beam number found."
+                if beam_number not in beam_numbers_for_which_n_loops_is_already_incremented:
+                    beam_numbers_for_which_n_loops_is_already_incremented.append(beam_number)
+                    host_contrib_n_loops += 1
+                
+        return host_contrib_n_loops
+
+    def get_n_loops_in_beam_factorization_of_host_contribution(self):
+        """ Return the effective number of loops which will be part of the beam factorization
+        of the host contribution."""
+        
+        # Start by counting the number of loops in the beam factorization of the reduced
+        # process factorized
+        n_loops = self.process.get_n_loops_in_beam_factorization()
+
+        # Then add those of the chsi-dependent integrated ISR counterterm and local F ones.
+        beam_numbers_in_currents = set([])
+        for current in self.get_all_currents():
+            if not type(current)==BeamCurrent:
+                continue
+            # We don't need to look recursively inside the singular structures since the beam
+            # factorization ones are supposed to be at the top level since they factorize
+            beam_numbers_in_current = set(sum([[l.n for l in ss.legs if l.n in [1,2]] for ss in 
+                              current['singular_structure'].substructures if ss.name()=='C'],[]))
+            beam_numbers_in_currents |= beam_numbers_in_current
+            n_loops += current['n_loops'] + current.count_unresolved()
+        # We must remove one loop per beam number encountered in integrated ISR collinear CT
+        # since the leading beam factorization counterterm has zero loop but count_unresolved()
+        # counts for one there.
+        n_loops -= len(beam_numbers_in_currents)
+        
+        return n_loops
+
 #=========================================================================================
 # IRSubtraction
 #=========================================================================================
 
 class IRSubtraction(object):
 
-    def __init__(self, model, n_unresolved, coupling_types=('QCD', )):
+    def __init__(self, model, n_unresolved, coupling_types=('QCD', ), beam_types=(None,None)):
         """Initialize a IR subtractions for a given model,
         correction order and type.
         """
         
-        self.model = model
-        self.n_unresolved = n_unresolved
+        self.model          = model
+        self.n_unresolved   = n_unresolved
         self.coupling_types = coupling_types
+        self.beam_types     = beam_types
         # Map perturbed coupling orders to the corresponding interactions and particles.
         # The entries of the dictionary are
         # 'interactions', 'pert_particles' and 'soft_particles'
@@ -1683,6 +1941,18 @@ class IRSubtraction(object):
                     coll_set = (coll_initial_leg, ) + coll_initial_set
                     if self.can_become_collinear(coll_set):
                         elementary_operator_list.append(CollOperator(*coll_set))
+                        
+        # Finally add an elementary BeamOperator if the process acted on has factorization
+        # Beam currents attached to it.
+        beam_names_added = []
+        for pbft in process.get('beam_factorization'):
+            for beam_name in ['beam_one','beam_two']:
+                if beam_name not in beam_names_added and (not pbft[beam_name] is None):
+                    beam_names_added.append(beam_name)
+                    elementary_operator_list.append(
+                             BeamOperator(*pbft[beam_name]['singular_structure'].get_all_legs()))
+            
+        
         return SingularOperatorList(elementary_operator_list)
 
 
@@ -1767,8 +2037,10 @@ class IRSubtraction(object):
 
             # The squared orders of the reduced process will be set correctly later
             reduced_process = reduced_process.get_copy(
-                ['legs', 'n_loops', 'legs_with_decays']
+                ['legs', 'n_loops', 'legs_with_decays','beam_factorization']
             )
+            # We need a deep copy of the beam_factorization here.
+            reduced_process['beam_factorization'] = copy.deepcopy(reduced_process['beam_factorization'])
             # Empty legs_with_decays: it will be regenerated automatically when asked for
             reduced_process['legs_with_decays'][:] = []
             # TODO If resetting n_loops, what about orders?
@@ -1778,7 +2050,6 @@ class IRSubtraction(object):
         nodes = []
 
         # 2. Recursively look into substructures
-
         current_args = set(structure.legs)
         for substructure in structure.substructures:
             node = self.get_counterterm(
@@ -1808,12 +2079,24 @@ class IRSubtraction(object):
             # Replace soft structures with their flattened versions
             elif current_structure.name() == "S":
                 current_args.add(current_structure)
+            # Remove all non-identity beam factorization currents for that leg of 
+            # type 'bulk' to be the identity operator ('None').
+            elif current_structure.name() == "F":
+                if len(current_structure.legs)!=1 or current_structure.legs[0].n not in [1,2]:
+                    raise MadGraph5Error("Only beam factorizations attached to leg number 1 or"+
+                                      " 2 are supported for now; not %s."%str(current_structure))
+                current_args.add(current_structure)
+                beam_names = {1:'beam_one', 2:'beam_two'}
+                # Change the distribution type of all beam_factorization terms of that beam
+                # in the reduced process to be the identity (i.e. None).
+                for bft in reduced_process.get('beam_factorization'):
+                    beam_name = beam_names[current_structure.legs[0].n]
+                    if not bft[beam_name] is None:
+                        bft[beam_name]=None
+
             # Other structures need to be implemented
             else:
-                raise MadGraph5Error(
-                    "Unrecognized current of type %s" %
-                    str(type(current_structure))
-                )
+                raise MadGraph5Error("Unrecognized current of type %s" % str(type(current_structure)))
             # Add this node
             nodes.append(node)
 
@@ -1833,12 +2116,31 @@ class IRSubtraction(object):
         # 3. Else build the current and update
         #    the reduced process as well as the dictionary
         current_type = type(structure)(*current_args)
-        current = Current({
-            'singular_structure': current_type })
+        if current_type.name()=='F':
+            # The beam factorization singular structure always have a single leg with a number
+            # matching the beam number.
+            beam_number = current_type.legs[0].n
+            assert (beam_number in [1,2]), "Beam factorization structure are expected to "+\
+                                                        "have a single leg withh number in [1,2]."
+            current = BeamCurrent({
+                'beam_type'         : self.beam_types[beam_number-1][0],
+                'beam_PDGs'         : self.beam_types[beam_number-1][1],
+                'distribution_type' : 'counterterm',
+                'singular_structure': current_type })
+        else:
+            current = Current({
+                'singular_structure': current_type })
         structure_legs = current_type.get_all_legs()
         structure_leg_ns = frozenset(leg.n for leg in structure_legs)
+        if current_type.name()=='F':
+            # We must not remove legs from the reduced process for beam factorization 
+            # contributions
+            structure_leg_ns = frozenset() 
+        else:
+            structure_leg_ns = frozenset(leg.n for leg in structure_legs)
+           
         parent = None
-        if structure.name() == "C":
+        if structure.name() in ["C"]:
             # Add entry to dictionary
             parent_index = len(momenta_dict_so_far) + 1
             momenta_dict_so_far[parent_index] = structure_leg_ns
@@ -1853,10 +2155,11 @@ class IRSubtraction(object):
         elif structure.name() == "S":
             # No parent
             pass
+        elif structure.name() == "F":
+            # No need to propagate parents for F structures
+            pass
         else:
-            raise MadGraph5Error(
-                "Building unrecognized current of type %s" %
-                str(type(structure)) )
+            raise MadGraph5Error("Building unrecognized current of type %s" %str(type(structure)) )
         # Remove legs of this structure
         legs_to_remove = []
         for leg in reduced_process['legs']:
@@ -1888,13 +2191,13 @@ class IRSubtraction(object):
         # First check that the local counterterm is singular, because if not then we
         # should of course not return any integrated counterterm.
         if not local_counterterm.is_singular():
-            return None
+            return []
 
         complete_singular_structure = local_counterterm. \
             reconstruct_complete_singular_structure()
 
         reduced_process = local_counterterm.process.get_copy(
-            ['legs', 'n_loops', 'legs_with_decays', 'squared_orders'] )
+            ['legs', 'n_loops', 'legs_with_decays', 'squared_orders', 'beam_factorization'] )
 
         # The following sums all the loop numbers in all nodes and reduced process,
         # the latter of which must then be removed
@@ -1923,17 +2226,104 @@ class IRSubtraction(object):
         #
         ########
         
-        integrated_current = IntegratedCurrent({
-            'n_loops': n_loops,
-            'squared_orders': squared_orders,
-            'resolve_mother_spin_and_color': True,
-            'singular_structure': complete_singular_structure })
+        ########
+        #
+        # TODO handle the mixed final-initial local counterterm case. This issue is more general, however and pertains
+        # to the definition of the integrated countertem(S?) of any set of disjoint local counterterms. 
+        # For now only the case of a single initial state collinear local CT is supported.
+        #
+        ########
+        
+        # First tackle the special case of single initial-state collinear structure
+        initial_state_legs = [leg for leg in complete_singular_structure.substructures[0].legs if
+                                                       leg.state == SubtractionLeg.INITIAL]
+ 
+        # A list to hold all integrated CT generated here.
+        integrated_CTs = []
+        
+        # Handle the specific case of single initial-state counterterm
+        if len(initial_state_legs) == 1 and \
+            len(complete_singular_structure.substructures)==1 and \
+            len(complete_singular_structure.substructures[0].substructures)==0:
 
-        return IntegratedCounterterm(
-            process=reduced_process,
-            nodes=[CountertermNode(current=integrated_current), ],
-            momenta_dict=bidict(local_counterterm.momenta_dict),
-            prefactor=-1. * local_counterterm.prefactor )
+            beam_number = initial_state_legs[0].n
+            beam_names = {1:'beam_one', 2:'beam_two'}
+                    
+            assert (beam_number in [1,2]), "MadNkLO only supports initial state legs with number in [1,2]."
+            beam_current_options = {
+                    'beam_type'     :   self.beam_types[beam_number-1][0],
+                    'beam_PDGs'     :   self.beam_types[beam_number-1][1],
+                    'n_loops'       :   n_loops,
+                    'squared_orders':   squared_orders,
+                    'resolve_mother_spin_and_color': False,
+                    'singular_structure': complete_singular_structure
+                }
+
+            # For now there will be no additional CT node, but for NNLO there may be because
+            # the integrated ISR has to be combined with local FSR counterterms
+            additional_CT_nodes = []
+            
+            # Handle the specific case of NLO single beam factorization counterterm
+            if complete_singular_structure.substructures[0].name() == 'F':
+
+                integrated_CTs.append(IntegratedCounterterm(
+                    process     = reduced_process,
+                    nodes       = [
+                            CountertermNode(current=IntegratedBeamCurrent(beam_current_options)), 
+                        ]+additional_CT_nodes,
+                    momenta_dict= bidict(local_counterterm.momenta_dict),
+                    prefactor   = -1. * local_counterterm.prefactor ))
+
+            # Handle the specific case of NLO ISR
+            elif complete_singular_structure.substructures[0].name() == 'C':
+
+                # Now add the three pieces of the integrated ISR. Ultimately we may choose to instead
+                # generate only the first piece ('bulk') and the other two via an iterative application
+                # of the subtraction procedure. For now however, we will generate all three at once.
+                
+                # Starting with the integrated endpoint:
+                integrated_CTs.append(IntegratedCounterterm(
+                    process     = reduced_process,
+                    nodes       = [
+                            CountertermNode(current=IntegratedBeamCurrent(beam_current_options)), 
+                        ]+additional_CT_nodes,
+                    momenta_dict= bidict(local_counterterm.momenta_dict),
+                    prefactor   = -1. * local_counterterm.prefactor ))
+    
+                # Then the bulk and counterterm integrated ISR pieces, which are both \chsi dependent.
+                beam_current_options['distribution_type'] = 'bulk'
+                integrated_CTs.append(IntegratedCounterterm(
+                    process     = reduced_process,
+                    nodes       = [
+                            CountertermNode(current=BeamCurrent(beam_current_options)), 
+                        ]+additional_CT_nodes,
+                    momenta_dict= bidict(local_counterterm.momenta_dict),
+                    prefactor   = -1. * local_counterterm.prefactor ))
+                
+                beam_current_options['distribution_type'] = 'counterterm'
+                integrated_CTs.append(IntegratedCounterterm(
+                    process     = reduced_process,
+                    nodes       = [
+                            CountertermNode(current=BeamCurrent(beam_current_options)), 
+                        ]+additional_CT_nodes,
+                    momenta_dict= bidict(local_counterterm.momenta_dict),
+                    prefactor   = +1. * local_counterterm.prefactor ))
+
+        else:
+            # Here is the general solution chosen for arbitrary final state local CT
+            integrated_current = IntegratedCurrent({
+                'n_loops': n_loops,
+                'squared_orders': squared_orders,
+                'resolve_mother_spin_and_color': True,
+                'singular_structure': complete_singular_structure })
+
+            integrated_CTs.append(IntegratedCounterterm(
+                process     = reduced_process,
+                nodes       = [CountertermNode(current=integrated_current), ],
+                momenta_dict= bidict(local_counterterm.momenta_dict),
+                prefactor   = -1. * local_counterterm.prefactor ))
+        
+        return integrated_CTs
 
     @staticmethod
     def get_all_currents(counterterms):
@@ -1953,7 +2343,7 @@ class IRSubtraction(object):
         ignore_integrated_counterterms=False):
         """Generate all counterterms for the corrections specified in this module
         and the process given in argument."""
-
+        
         if max_unresolved_in_elementary is None:
             max_unresolved_in_elementary = self.n_unresolved
         if max_unresolved_in_combination is None:
@@ -1962,15 +2352,16 @@ class IRSubtraction(object):
             process, max_unresolved_in_elementary)
         combinations = self.get_all_combinations(
             elementary_operators, max_unresolved_in_combination)
+
         all_counterterms = []
         all_integrated_counterterms = []
         for combination in combinations:
             template_counterterm = self.get_counterterm(combination, process)
             if not ignore_integrated_counterterms:
-                template_integrated_counterterm = \
+                template_integrated_counterterms = \
                                        self.get_integrated_counterterm(template_counterterm)
             else:
-                template_integrated_counterterm = None
+                template_integrated_counterterms = []
 
             counterterms_with_loops = template_counterterm.split_loops(process['n_loops'])
             # TODO
@@ -1981,14 +2372,14 @@ class IRSubtraction(object):
             # so we should loop over them
             for counterterm_with_loops in counterterms_with_loops:
                 all_counterterms.extend( counterterm_with_loops.split_orders(None) )
-            # Now also distribute the template integrated counterterm if it is not None
-            if not template_integrated_counterterm is None:
+
+            # Now also distribute the template integrated counterterms
+            for template_integrated_counterterm in template_integrated_counterterms:
                 integrated_counterterms_with_loops = template_integrated_counterterm.split_loops(
                     process['n_loops'] )
                 for integrated_counterterm_with_loops in integrated_counterterms_with_loops:
                     all_integrated_counterterms.extend(
                         integrated_counterterm_with_loops.split_orders(None) )
-
         return all_counterterms, all_integrated_counterterms
 
 #=========================================================================================

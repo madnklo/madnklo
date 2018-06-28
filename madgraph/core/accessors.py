@@ -69,7 +69,7 @@ class ProcessKey(object):
                 # intputs from this __init__
                 sort_PDGs = True,
                 # Exclude certain process attributes when creating the key for a certain process.
-                vetoed_attributes = ['model','legs','uid','has_mirror_process','legs_with_decays'],
+                vetoed_attributes = ['model','legs','uid','has_mirror_process','legs_with_decays','beam_factorization'],
                 # Specify only selected attributes to end up in the ProcessKey.
                 # If None, this filter is deactivated.
                 allowed_attributes = None,

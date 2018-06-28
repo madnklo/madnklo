@@ -107,40 +107,42 @@ class ME7Integrand(integrands.VirtualIntegrand):
                      ME7_configuration, **opt):
         all_args = [model, run_card, contribution_definition, processes_map,
                     all_MEAccessors, ME7_configuration ]
+
         if cls is ME7Integrand:
             target_type = 'Unknown'
-            if contribution_definition.correction_order == 'LO':
-                if contribution_definition.n_loops == 0 and \
-                  contribution_definition.n_unresolved_particles == 0:
-                   target_type = 'Born'
-                elif contribution_definition.n_loops == 1 and \
-                  contribution_definition.n_unresolved_particles == 0:
-                   target_type = 'LoopInduced_Born'
-            elif contribution_definition.correction_order == 'NLO':
-                if contribution_definition.n_loops == 1 and \
-                   contribution_definition.n_unresolved_particles == 0:
+            correction_order = contribution_definition.correction_order.count('N')
+            beam_factorization_count = 0
+            if contribution_definition.is_beam_active('beam_one'):
+                beam_factorization_count += 1
+            if contribution_definition.is_beam_active('beam_two'):
+                beam_factorization_count += 1
+            n_loops = contribution_definition.n_loops
+            n_unresolved_particles = contribution_definition.n_unresolved_particles
+            # Beam factorization contributions are automatically of type RV because
+            # they must both generate local counterterms (for the form factors) and
+            # accept integrated ISR ones.
+            if beam_factorization_count > 0:
+                target_type = 'RealVirtual'                
+            elif n_loops == 0 and n_unresolved_particles == 0:
+                target_type = 'Born'
+            elif n_loops == 1 and n_unresolved_particles == 0:
+                if correction_order < 1:
+                    target_type = 'LoopInduced_Born'
+                else:
                     target_type = 'Virtual'
-                elif contribution_definition.n_loops == 0 and \
-                     contribution_definition.n_unresolved_particles == 1:
-                    target_type = 'SingleReals'
-            elif contribution_definition.correction_order == 'NNLO':
-                if contribution_definition.n_loops == 0 and \
-                   contribution_definition.n_unresolved_particles == 2:
-                    target_type = 'DoubleReals'            
-                else:
-                    raise MadGraph5Error("Some NNLO type of integrands are not implemented yet.")   
-            elif contribution_definition.correction_order == 'NNNLO':
-                if contribution_definition.n_loops == 0 and \
-                   contribution_definition.n_unresolved_particles == 3:
-                    target_type = 'TripleReals'            
-                else:
-                    raise MadGraph5Error("Some NNNLO type of integrands are not implemented yet.") 
+            elif n_loops == 0 and n_unresolved_particles == 1:
+                target_type = 'SingleReals'
+            elif n_loops == 0 and n_unresolved_particles == 2:
+                target_type = 'DoubleReals'
+            elif n_loops == 0 and n_unresolved_particles == 3:
+                target_type = 'TripleReals'                
             else:
-                target_type = 'Unknown'
+                raise MadGraph5Error("Some %s type of ME7Integrands are not implemented yet."%
+                                                  contribution_definition.correction_order)
             target_class = ME7Integrand_classes_map[target_type]
 
             if not target_class:
-                raise MadGraph5Error("Could not determine the class of integrand of type '%s' to be added for"%target_type+
+                raise MadGraph5Error("Could not determine the class of ME7Integrand of type '%s' to be added for"%target_type+
                                      " the contribution definiton:\n%s"%str(contribution_definition.nice_string()))
 
             return super(ME7Integrand, cls).__new__(target_class, *all_args, **opt)
@@ -1374,10 +1376,9 @@ class ME7Integrand_R(ME7Integrand):
         # Initialize the ME7Integrand
         super(ME7Integrand_R, self).__init__(*args, **opts)
         # Update the initialization inputs
-        self.initialization_inputs['options']['counterterms'] = \
-            self.counterterms
+        self.initialization_inputs['options']['counterterms'] = self.counterterms
         self.initialization_inputs['options']['subtraction_mappings_scheme'] = \
-            self.subtraction_mappings_scheme
+                                                          self.subtraction_mappings_scheme
 
     def get_additional_nice_string_printout_lines(self, format=0):
         """ Return additional information lines for the function nice_string of this integrand."""
@@ -2211,6 +2212,12 @@ The missing process is: %s"""%ME_process.nice_string())
             return False
         return True
     
+
+class ME7Integrand_RV(ME7Integrand_R, ME7Integrand_V):
+    """ ME7Integrand for the computation of integrands featuring both local and integrated
+    counterterms."""
+    pass
+        
 class ME7Integrand_RR(ME7Integrand_R):
     """ ME7Integrand for the computation of a double real-emission type of contribution."""
     def sigma(self, PS_point, process_key, process, flavors, process_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
@@ -2287,6 +2294,7 @@ ME7Integrand_classes_map = {'Born': ME7Integrand_B,
                             'LoopInduced_Born': ME7Integrand_LIB,
                             'Virtual': ME7Integrand_V,
                             'SingleReals': ME7Integrand_R,
+                            'RealVirtual': ME7Integrand_RV,
                             'DoubleReals': ME7Integrand_RR,
                             'TripleReals': ME7Integrand_RRR,
                             'Unknown': None}

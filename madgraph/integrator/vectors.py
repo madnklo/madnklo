@@ -140,6 +140,11 @@ class LorentzVector(Vector):
         # if pos+neg != 0 and abs(2*(pos-neg)/(pos+neg)) < 100.*self.eps(): return 0
         return pos - neg
 
+    def square_almost_zero(self):
+        """Check if the square of this LorentzVector is zero within numerical accuracy."""
+
+        return (self.square() / self.view(Vector).square()) ** 2 < self.eps()
+
     def rho2(self):
         """Compute the radius squared."""
 

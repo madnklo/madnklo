@@ -1682,7 +1682,7 @@ class ElementaryMappingSoft(VirtualMapping):
         assert needed_variables.issubset(kinematic_variables.keys())
 
         # Precompute sets and numbers
-        base = scaling_parameter ** (1. / len(singular_structure.substructures()))
+        base = scaling_parameter ** (1. / len(singular_structure.substructures))
         for substructure in singular_structure.substructures:
             _, children, _ = get_structure_numbers(substructure, momenta_dict)
             # Determine the correct scaling for the divergence to go like 1/parameter

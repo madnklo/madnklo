@@ -17,8 +17,6 @@
 import os
 import math
 
-import madgraph.core.subtraction as subtraction
-import madgraph.integrator.mappings as mappings
 import madgraph.various.misc as misc
 
 try:

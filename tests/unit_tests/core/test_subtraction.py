@@ -196,19 +196,19 @@ class SingularStructureOperatorTest(unittest.TestCase):
             sub.SubtractionLeg(5, 21, FINAL)
         ))
         sub_1 = sub.CollStructure(
+            sub.SubtractionLeg(1,  1, INITIAL),
+            sub.SubtractionLeg(4, 21, FINAL) )
+        sub_2 = sub.SoftStructure(
+            sub.SubtractionLeg(14, 2, FINAL),
+            sub.SubtractionLeg(11, -2, FINAL) )
+        sub_3 = sub.CollStructure(
             sub.SubtractionLeg(1,   1, INITIAL),
             sub.SubtractionLeg(4,  21, FINAL),
             sub.SubtractionLeg(5,  21, FINAL),
             sub.SubtractionLeg(14,  2, FINAL),
             sub.SubtractionLeg(11, -2, FINAL) )
-        sub_2 = sub.CollStructure(
-            sub.SubtractionLeg(1,  1, INITIAL),
-            sub.SubtractionLeg(4, 21, FINAL) )
-        sub_3 = sub.SoftStructure(
-            sub.SubtractionLeg(14, 2, FINAL),
-            sub.SubtractionLeg(11, -2, FINAL) )
         dec = a_structure.decompose()
-        ben = {sub_1, sub_2, sub_3}
+        ben = [sub_1, sub_2, sub_3]
         self.assertEqual(dec, ben)
 
     def test_count_unresolved(self):

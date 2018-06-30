@@ -81,7 +81,7 @@ import madgraph.interface.madevent_interface as madevent_interface
 import madgraph.interface.ME7_interface as ME7_interface
 import madgraph.interface.amcatnlo_run_interface as amcatnlo_run
 
-from madgraph.integrator.mappings import walker_classes_map
+from madgraph.integrator.walkers import walker_classes_map
 
 import madgraph.loop.loop_base_objects as loop_base_objects
 import madgraph.loop.loop_diagram_generation as loop_diagram_generation

@@ -63,7 +63,6 @@ import madgraph.various.cluster as cluster
 import madgraph.various.misc as misc
 import madgraph.various.lhe_parser as lhe_parser
 import madgraph.integrator.integrands as integrands
-import madgraph.integrator.mappings as mappings
 import madgraph.integrator.integrators as integrators
 import madgraph.integrator.phase_space_generators as phase_space_generators
 import madgraph.integrator.pyCubaIntegrator as pyCubaIntegrator

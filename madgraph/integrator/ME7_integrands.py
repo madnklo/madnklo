@@ -57,6 +57,7 @@ logger = logging.getLogger('madevent7') # -> stdout
 logger_stderr = logging.getLogger('madevent7.stderr') # ->stderr
 
 import madgraph.core.base_objects as base_objects
+import madgraph.core.subtraction as subtraction
 import madgraph.interface.extended_cmd as cmd
 import madgraph.interface.common_run_interface as common_run
 import madgraph.interface.madevent_interface as madevent_interface
@@ -68,7 +69,7 @@ import madgraph.various.misc as misc
 import madgraph.various.lhe_parser as lhe_parser
 import madgraph.integrator.integrands as integrands
 import madgraph.integrator.integrators as integrators
-import madgraph.integrator.mappings as mappings
+import madgraph.integrator.walkers as walkers
 import madgraph.integrator.phase_space_generators as phase_space_generators
 import madgraph.integrator.pyCubaIntegrator as pyCubaIntegrator
 import madgraph.integrator.vegas3_integrator as vegas3_integrator
@@ -1366,7 +1367,7 @@ class ME7Integrand_R(ME7Integrand):
         except KeyError:
             raise MadEvent7Error(requires % 'subtraction_mappings_scheme')
         try:
-            self.walker = mappings.VirtualWalker(self.subtraction_mappings_scheme)
+            self.walker = walkers.VirtualWalker(self.subtraction_mappings_scheme)
         except KeyError:
             raise MadEvent7Error(
                 "Invalid subtraction_mappings_scheme '%s'." %
@@ -1892,7 +1893,7 @@ The missing process is: %s"""%ME_process.nice_string())
         if walker_name is None:
             walker = self.walker
         else:
-            walker = mappings.VirtualWalker(walker_name)
+            walker = walkers.VirtualWalker(walker_name)
 
         # First generate an underlying Born
         # Specifying None forces to use uniformly random generating variables.
@@ -1963,7 +1964,7 @@ The missing process is: %s"""%ME_process.nice_string())
                         ct.reconstruct_complete_singular_structure()
                         for ct in selected_counterterms])
                 else:
-                    ss = mappings.sub.SingularStructure.from_string(
+                    ss = subtraction.SingularStructure.from_string(
                         limit_specifier, defining_process)
                     if ss is None:
                         logger.info("No limit matching %s for process %s." % 

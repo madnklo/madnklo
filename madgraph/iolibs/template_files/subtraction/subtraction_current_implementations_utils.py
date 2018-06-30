@@ -18,7 +18,6 @@ from __builtin__ import classmethod
 import math
 import madgraph.various.misc as misc
 import madgraph.integrator.phase_space_generators as PS_utils
-import madgraph.integrator.mappings as mappings
 
 #=========================================================================================
 # Subtraction current evaluation and result

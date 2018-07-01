@@ -195,8 +195,8 @@ class QCD_final_collinear_0_gg(currents.QCDLocalCollinearCurrent):
 class QCD_soft_0_g(currents.QCDLocalSoftCurrent):
     """Soft gluon eikonal current at tree level, eq.4.12-4.13 of arXiv:0903.1218."""
 
-    # is_cut = staticmethod(currents.SomogyiChoices.cut_soft)
-    # factor = staticmethod(currents.SomogyiChoices.factor_soft)
+    is_cut = staticmethod(currents.SomogyiChoices.cut_soft)
+    factor = staticmethod(currents.SomogyiChoices.factor_soft)
 
     @classmethod
     def does_implement_this_current(cls, current, model):

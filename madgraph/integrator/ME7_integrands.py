@@ -2063,7 +2063,7 @@ The missing process is: %s"""%ME_process.nice_string())
 
         import matplotlib.pyplot as plt
 
-        plot_title = False
+        plot_title = True
         plot_size = (6,6)
         plot_extension = ".pdf"
         if plots_suffix:
@@ -2076,7 +2076,8 @@ The missing process is: %s"""%ME_process.nice_string())
         lines = evaluations[x_values[0]].keys()
         lines.sort(key=len)
         # Skip ME-def line if there is no defining ct
-        plot_def = def_ct and def_ct in lines and len(lines) > 2
+        plot_def = def_ct and def_ct in lines
+        plot_total = len(lines) > 2
 
         plt.rc('text', usetex=True)
         plt.rc('font', family='serif', size=16)
@@ -2124,8 +2125,9 @@ The missing process is: %s"""%ME_process.nice_string())
         if plot_def:
             abs_ME_minus_def_ct = [abs(y) for y in ME_minus_def_ct]
             plt.plot(x_values, abs_ME_minus_def_ct, color=MEdef_color, label='ME-def')
-        abs_total = [abs(y) for y in total]
-        plt.plot(x_values, abs_total, color=TOTAL_color, label='TOTAL')
+        if plot_total:
+            abs_total = [abs(y) for y in total]
+            plt.plot(x_values, abs_total, color=TOTAL_color, label='TOTAL')
         plt.legend()
         if filename:
             plt.savefig(filename + '_integrands' + plot_extension)
@@ -2155,10 +2157,10 @@ The missing process is: %s"""%ME_process.nice_string())
             def_ct_2_ME_ratio /= evaluations[x_values[0]]["ME"]
             foo_str = "The ratio of the defining CT to the ME at lambda = %s is: %s."
             logger.info(foo_str % (x_values[0], def_ct_2_ME_ratio))
-            test_ratio = abs(def_ct_2_ME_ratio+1)
+            test_ratio = abs(def_ct_2_ME_ratio)-1
             test_failed = test_ratio > acceptance_threshold
         # Check that the ratio between total and ME is close to 0
-        if not test_failed:
+        if plot_total and not test_failed:
             total_2_ME_ratio = total[0]
             total_2_ME_ratio /= evaluations[x_values[0]]["ME"]
             foo_str = "The ratio of the total to the ME at lambda = %s is: %s."
@@ -2179,8 +2181,9 @@ The missing process is: %s"""%ME_process.nice_string())
             wgt_ME_minus_def_ct = [abs(x_values[i] * ME_minus_def_ct[i])
                                    for i in range(len(x_values))]
             plt.plot(x_values, wgt_ME_minus_def_ct, color=MEdef_color, label='ME-def')
-        wgt_total = [abs(x_values[i] * total[i]) for i in range(len(x_values))]
-        plt.plot(x_values, wgt_total, color=TOTAL_color, label='TOTAL')
+        if plot_total:
+            wgt_total = [abs(x_values[i] * total[i]) for i in range(len(x_values))]
+            plt.plot(x_values, wgt_total, color=TOTAL_color, label='TOTAL')
         plt.legend()
         if filename:
             plt.savefig(filename + '_weighted' + plot_extension)

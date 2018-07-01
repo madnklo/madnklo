@@ -442,8 +442,6 @@ class QCD_final_softcollinear_0_gX(currents.QCDLocalSoftCollinearCurrent):
 class QCD_initial_collinear_0_qg(currents.QCDLocalCollinearCurrent):
     """qg collinear ISR tree-level current. q(initial) > q(initial_after_emission) g(final)"""
 
-    is_cut = staticmethod(currents.SomogyiChoices.cut_coll)
-    factor = staticmethod(currents.SomogyiChoices.factor_coll)
     variables = staticmethod(currents.Q_initial_coll_variables)
     
     @classmethod
@@ -516,8 +514,6 @@ class QCD_initial_collinear_0_qg(currents.QCDLocalCollinearCurrent):
 class QCD_initial_collinear_0_gq(currents.QCDLocalCollinearCurrent):
     """gq collinear ISR tree-level current. q(initial) > g(initial_after_emission) q(final)"""
 
-    is_cut = staticmethod(currents.SomogyiChoices.cut_coll)
-    factor = staticmethod(currents.SomogyiChoices.factor_coll)
     variables = staticmethod(currents.Q_initial_coll_variables)
     
     @classmethod
@@ -592,8 +588,6 @@ class QCD_initial_collinear_0_gq(currents.QCDLocalCollinearCurrent):
 class QCD_initial_collinear_0_qq(currents.QCDLocalCollinearCurrent):
     """qq collinear ISR tree-level current. g(initial) > q(initial_after_emission) qx(final)"""
 
-    is_cut = staticmethod(currents.SomogyiChoices.cut_coll)
-    factor = staticmethod(currents.SomogyiChoices.factor_coll)
     variables = staticmethod(currents.Q_initial_coll_variables)
     
     @classmethod
@@ -666,8 +660,6 @@ class QCD_initial_collinear_0_qq(currents.QCDLocalCollinearCurrent):
 class QCD_initial_collinear_0_gg(currents.QCDLocalCollinearCurrent):
     """gg collinear ISR tree-level current. g(initial) > g(initial_after_emission) g(final)"""
 
-    is_cut = staticmethod(currents.SomogyiChoices.cut_coll)
-    factor = staticmethod(currents.SomogyiChoices.factor_coll)
     variables = staticmethod(currents.Q_initial_coll_variables)
     
     @classmethod
@@ -754,8 +746,6 @@ class QCD_initial_collinear_0_gg(currents.QCDLocalCollinearCurrent):
 class QCD_initial_softcollinear_0_Xg(currents.QCDLocalSoftCollinearCurrent):
     """NLO tree-level (initial) soft-collinear currents."""
 
-    is_cut = staticmethod(currents.SomogyiChoices.cut_soft)
-    factor = staticmethod(currents.SomogyiChoices.factor_soft)
     variables = staticmethod(currents.Q_initial_coll_variables)
 
     def __init__(self, *args, **opts):

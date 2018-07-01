@@ -471,7 +471,7 @@ class TestME7_NLO_colorful_pp_jj(unittest.TestCase):
                    'save_plots': False,
                    'seed': 666,
                    'n_steps': 10,
-                   'min_scaling_variable': 1.0e-7,
+                   'min_scaling_variable': 1.0e-8,
                    'acceptance_threshold': 5.0e-3,
                    'save_results_to_path': 'test_IR_limit_output_for_acceptance_test.dat'
                    }

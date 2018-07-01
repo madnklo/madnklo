@@ -1527,7 +1527,7 @@ class InitialLorentzOneMapping(InitialCollinearMapping):
         new_PS_point = PS_point.get_copy()
         # Map the set's momentum
         qA = xia * pa
-        new_PS_point[parent] = -qA
+        new_PS_point[parent] = qA
         # Map all recoilers' momenta
         qR = qA - pAmpR
         for recoiler in singular_structure.legs:
@@ -1575,7 +1575,7 @@ class InitialLorentzOneMapping(InitialCollinearMapping):
         parent, fs_children, is_child = get_structure_numbers(substructure, momenta_dict)
         recoilers = tuple(leg.n for leg in singular_structure.legs)
         # Build collective momenta
-        qA = -PS_point[parent]
+        qA = PS_point[parent]
         na, nb = InitialCollinearVariables.collinear_and_reference(qA)
         nanb = na.dot(nb)
         qR = LorentzVector()

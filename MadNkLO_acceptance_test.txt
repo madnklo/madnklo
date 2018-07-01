@@ -1,5 +1,3 @@
-TestME7_NLO_colorful_epem_jjj
-TestME7_NLO_cataniseymour_epem_jjj
 SubtractionCurrentTest
 FinalZeroMassesMappingPSVolumeTest
 FinalMassesMappingPSVolumeTest

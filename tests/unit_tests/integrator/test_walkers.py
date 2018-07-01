@@ -80,7 +80,7 @@ class WalkersTest(unittest.TestCase):
     #=====================================================================================
 
     # Verbosity (silent = 0, max = 4)
-    verbosity = 1
+    verbosity = 0
     # Random seed to make tests deterministic
     seed = 42
     # Number of PS points the invertibility test is run for (more = stronger, slower test)

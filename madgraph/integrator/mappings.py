@@ -675,7 +675,6 @@ class FinalZeroMassesMapping(VirtualMapping):
             alpha = (Kaellen(1., mu2[js[0]], mu2[js[1]])) ** 0.5
         else:
             # Solve the equation for alpha numerically
-            import numpy as np
             from scipy.optimize import newton
             func = lambda a: sum(((a*beta[j])**2 + mu2[j]) ** 0.5 for j in js) - 1.
             alpha = newton(func, 1.)
@@ -683,6 +682,7 @@ class FinalZeroMassesMapping(VirtualMapping):
             # Optional plot to monitor the numerical solution
             if cls.plot:
                 import matplotlib.pyplot as plt
+                import numpy as np
                 zero = lambda a: 0.*a
                 tau = np.linspace(0., 1., 101)
                 plt.plot(tau, func(tau), "-", tau, zero(tau), "-")
@@ -1215,11 +1215,13 @@ class FinalLorentzMapping(FinalCollinearMapping):
         reduced_singular_structure = sub.SingularStructure()
         reduced_squared_masses = {}
         parents = []
+        Q = LorentzVector()
         # First build pseudo-particles for the collinear sets
         for substructure in singular_structure.substructures:
             parent, children, _ = get_structure_numbers(substructure, momenta_dict)
             for child in children: del reduced_PS_point[child]
             reduced_PS_point[parent] = sum(PS_point[child] for child in children)
+            Q += reduced_PS_point[parent]
             parent_leg = sub.SubtractionLeg(parent, 0, sub.SubtractionLeg.FINAL)
             reduced_singular_structure.substructures.append(sub.CollStructure(parent_leg))
             m2i = 'm2' + str(parent)
@@ -1250,8 +1252,8 @@ class FinalLorentzMapping(FinalCollinearMapping):
                 sub.CollStructure(recoiler_leg))
             s_R = reduced_PS_point[R].square()
             reduced_squared_masses['m2'+str(R)] = s_R
+            Q += reduced_PS_point[R]
         # If the mapping is not valid, raise
-        Q = sum(p for p in reduced_PS_point.values())
         Q2 = Q.square()
         if (abs(s_R) ** 0.5) > (Q2 ** 0.5 - mass_sum):
             raise FailedMapping

@@ -145,12 +145,12 @@ class QCD_final_collinear_0_gq(currents.QCDLocalCollinearCurrent):
             'values'             : {(0, 0): {'finite': None}}
         })
         # We must subtract the soft-collinear (CxS *not* SxC) from this contribution:
-        # P_gq           = self.CF * (1.+(1.-z)**2)/z
+        # P_gq           = self.CF * ((1.-z)**2 + 1.)/z
         # CxS(P_gq)      = self.CF * 2.*(1.-z) / z
         # SxC(P_gq)      = self.CF * 2. / z
         # P_gq-CxS(P_gq) = self.CF * z
         # P_gq-SxC(P_gq) = self.CF * ((1.-z)**2 - 1.)/z
-        evaluation['values'][(0, 0)]['finite'] = self.CF * ((1.-z)**2 - 1.)/z
+        evaluation['values'][(0, 0)]['finite'] = self.CF * z
         return evaluation
 
     def evaluate_subtraction_current(
@@ -215,7 +215,9 @@ class QCD_final_collinear_0_gq(currents.QCDLocalCollinearCurrent):
             pj = higher_PS_point[j]
             evaluation['color_correlations'].append(((parent, j),))
             # eiks = -mod_eikonal(pi, pj, ps)
-            eiks = -mod_eikonal(qis, qj, ps)
+            mod = (qj.dot(qis)) / (qj.dot(pi+ps))
+            qjmod = mod * qj
+            eiks = -mod_eikonal(pi, qjmod, ps)
             evaluation['values'][(0, color_correlation_index)] = {'finite': eiks}
             color_correlation_index += 1
 

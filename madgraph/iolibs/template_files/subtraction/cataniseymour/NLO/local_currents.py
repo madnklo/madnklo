@@ -147,8 +147,10 @@ class QCD_final_collinear_0_gq(currents.QCDLocalCollinearCurrent):
         # We must subtract the soft-collinear (CxS *not* SxC) from this contribution:
         # P_gq           = self.CF * (1.+(1.-z)**2)/z
         # CxS(P_gq)      = self.CF * 2.*(1.-z) / z
-        # P_gq-CxS(P_gq) = self.CF * z 
-        evaluation['values'][(0, 0)]['finite'] = self.CF * z
+        # SxC(P_gq)      = self.CF * 2. / z
+        # P_gq-CxS(P_gq) = self.CF * z
+        # P_gq-SxC(P_gq) = self.CF * ((1.-z)**2 - 1.)/z
+        evaluation['values'][(0, 0)]['finite'] = self.CF * ((1.-z)**2 - 1.)/z
         return evaluation
 
     def evaluate_subtraction_current(
@@ -200,20 +202,21 @@ class QCD_final_collinear_0_gq(currents.QCDLocalCollinearCurrent):
         color_correlation_index = 1
         ps = higher_PS_point[children[0]]
         pi = higher_PS_point[children[1]]
-        # pi = lower_PS_point[parent]
+        qis = lower_PS_point[parent]
 
         # Now loop over the colored parton number pairs (parent, j)
         # and add the corresponding contributions to this current
         for j in all_colored_parton_numbers:
             # Write the eikonal for that pair
-            # pj = sum(higher_PS_point[child] for child in leg_numbers_map[j])
-            # pj = lower_PS_point[j]
             if j == parent:
                 continue
+            # pj = sum(higher_PS_point[child] for child in leg_numbers_map[j])
+            qj = lower_PS_point[j]
             pj = higher_PS_point[j]
             evaluation['color_correlations'].append(((parent, j),))
-            evaluation['values'][(0, color_correlation_index)] = {
-                'finite': -mod_eikonal(pi, pj, ps) }
+            # eiks = -mod_eikonal(pi, pj, ps)
+            eiks = -mod_eikonal(qis, qj, ps)
+            evaluation['values'][(0, color_correlation_index)] = {'finite': eiks}
             color_correlation_index += 1
 
         # Add the normalization factors
@@ -277,11 +280,13 @@ class QCD_final_collinear_0_gg(currents.QCDLocalCollinearCurrent):
         # are irrelevant because Ward identities evaluate them to zero anyway.
 
         # We must subtract the soft-collinear (CxS *not* SxC) from this contribution:
-        # P_gg           = 2.*self.CA * ( (z/(1.-z)) + ((1.-z)/z) )
+        # P_gg           = 2.*self.CA * ( (1.-z) / z + z / (1.- z) )
         # CxS(P_gg)      = 2.*self.CA * ( (1.-z) / z + z / (1.- z) )
+        # SxC(P_gg)      = 2.*self.CA * ( 1 / z + 1 / (1.- z) )
         # P_gg-CxS(P_gg) = 0
+        # P_gg-SxC(P_gg) = -4.*self.CA
 
-        evaluation['values'][(0, 0)]['finite'] = 0.
+        evaluation['values'][(0, 0)]['finite'] = -4.*self.CA
         evaluation['values'][(1, 0)]['finite'] = -2.*self.CA * 2.*z*(1.-z) / kT.square()
         return evaluation
 
@@ -334,6 +339,7 @@ class QCD_final_collinear_0_gg(currents.QCDLocalCollinearCurrent):
         color_correlation_index = 1
         p0 = higher_PS_point[children[0]]
         p1 = higher_PS_point[children[1]]
+        q = lower_PS_point[parent]
 
         # Loop over the colored parton number pairs (parent, j)
         # and add the corresponding contributions to this current
@@ -343,9 +349,11 @@ class QCD_final_collinear_0_gg(currents.QCDLocalCollinearCurrent):
                 continue
             pj = higher_PS_point[j]
             # pj = sum(higher_PS_point[child] for child in leg_numbers_map[j])
-            # pj = lower_PS_point[j]
-            eik0 = -mod_eikonal(pj, p1, p0)
-            eik1 = -mod_eikonal(pj, p0, p1)
+            qj = lower_PS_point[j]
+            # eik0 = -mod_eikonal(pj, p1, p0)
+            # eik1 = -mod_eikonal(pj, p0, p1)
+            eik0 = -mod_eikonal(qj, q, p0)
+            eik1 = -mod_eikonal(qj, q, p1)
             evaluation['color_correlations'].append(((parent, j),))
             evaluation['values'][(0, color_correlation_index)] = {'finite': eik0 + eik1}
             color_correlation_index += 1

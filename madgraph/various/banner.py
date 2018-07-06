@@ -2173,8 +2173,7 @@ class RunCard(ConfigFile):
     def write(self, output_file, template=None, python_template=False):
         """Write the run_card in output_file according to template 
            (a path to a valid run_card)"""
-
-        to_write = set(self.user_set) 
+        to_write = set(self.user_set)
         if not template:
             raise Exception
 
@@ -2231,7 +2230,6 @@ class RunCard(ConfigFile):
             fsock.close()
         else:
             output_file.write(text)
-
 
     def get_default(self, name, default=None, log_level=None):
         """return self[name] if exist otherwise default. log control if we 
@@ -2967,9 +2965,11 @@ class RunCardME7(RunCardLO):
         
         super(RunCardME7, self).default_setup(*args, **opts)
 
+
         # Specify integrator: allowed values are [VEGAS3, NAIVE]
         self.add_param("integrator", 'VEGAS3')
-        
+        self.add_param("FO_analysis","None") # default should be none
+
         self.enforce_ME7_restrictions()
         for option, required_value, in self._ME7_limitations:
             self.hidden_param.append(option.lower())

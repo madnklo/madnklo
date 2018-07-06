@@ -2111,7 +2111,8 @@ class HwUList(histograms_PhysicsObjectList):
           lhapdfconfig='lhapdf-config'):
         """ Ouput this histogram to a file, stream or string if path is kept to
         None. The supported format are for now. Chose whether to print the header
-        or not."""
+        or not.
+        :rtype: """
         
         if len(self)==0:
             return MadGraph5Error, 'No histograms stored in the list yet.'

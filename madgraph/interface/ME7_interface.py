@@ -737,7 +737,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         
         # Instance of the current integrator
         self.integrator = None
-        
+
     def check_output_type(self, path):
         """ Check that the output path is a valid Madevent 7directory """        
         return os.path.isfile(os.path.join(path,'MadEvent7.db'))
@@ -754,7 +754,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
     def bootstrap_ME7(self):
         """ Setup internal state of MadEvent7, mostly the integrand, from the content of
         what was dumped in the database MadEvent7.db at the output stage."""
-        
+
         # Load the current run_card
         self.run_card = banner_mod.RunCardME7(pjoin(self.me_dir,'Cards','run_card.dat'))
         
@@ -779,6 +779,9 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         self.all_MEAccessors = ME7_dump['all_MEAccessors']['class'].initialize_from_dump(
             ME7_dump['all_MEAccessors'], root_path=self.me_dir, model=self.model)
 
+        # Pass on the process directory
+        self.options['me_dir'] = self.me_dir
+
         self.all_integrands = ME7_integrands.ME7IntegrandList([
             integrand_dump['class'].initialize_from_dump(
                 integrand_dump,
@@ -799,7 +802,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
             if max_integrand_order.count('N') > max_order.count('N'):
                 max_order = max_integrand_order
         return max_integrand_order
-        
+
     def synchronize(self, **opts):
         """ Re-compile all necessary resources and sync integrands with the cards and model"""
         
@@ -920,17 +923,17 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
             # Of course, in the end we wil not naively automatically put all integrands alltogether in the same integrator
             raise InvalidCmd("For now, whenever you have several integrands of different dimensions, only "+
                              "the NAIVE integrator is available.")
-        
+
         # The integration can be quite verbose, so temporarily setting their level to 50 by default is best here
         if launch_options['verbosity'] > 1:
             logger_level = logging.DEBUG
         else:
             logger_level = logging.INFO
-            
+
         logger.info("="*100)        
         logger.info('{:^100}'.format("Starting integration, lay down and enjoy..."),'$MG:color:GREEN')
         logger.info("="*100)
-        
+
         # Wrap the call in a propice environment for the run
         with ME7RunEnvironment( silence = False, accessor_optimization = True, loggers = logger_level ):
             xsec, error = self.integrator.integrate()
@@ -939,7 +942,30 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         logger.info('{:^100}'.format("Cross-section with integrator '%s':"%self.integrator.get_name()),'$MG:color:GREEN')
         logger.info('{:^100}'.format("%.5e +/- %.2e [pb]"%(xsec, error)),'$MG:color:BLUE')
         logger.info("="*100+"\n")
-        
+
+        #Deal with normalizing the plotting and outputting the plots
+        plot_collector = {} # We set it so that plot_collector[observable_name] is a HwU with the sum for all integrands
+        """Ultimately plot_collector should be an object inside a bigger DataCollector object which allows to navigate
+        between the different results etc, which would be good to be able to sum stuff (like R+V after integration)
+        """
+        for integrand in self.integrator.integrands:
+            n_integrand_calls = integrand.n_calls
+            if not integrand.apply_observables:
+                continue
+            for observable in integrand.observable_list:
+                if observable.name in plot_collector:
+                    plot_collector[observable.name] += (observable.HwU)/n_integrand_calls
+                else:
+                    plot_collector[observable.name] = (observable.HwU)/n_integrand_calls
+
+
+        """Awkwardly use the already imported histograms module: this should be the attribute of a class
+        and not require importing HwU in the ME7 interface
+        """
+        FinalHwUList = integrators.integrands.observables.histograms.HwUList(plot_collector.values())
+
+        FinalHwUList.output(run_output_path+"/FO_plots","gnuplot")
+
         if MPI_RANK==0:
             # Write the result in 'cross_sections.dat' of the result directory
             xsec_summary = open(pjoin(run_output_path,'cross_sections.dat'),'w')
@@ -1019,6 +1045,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         """ All action require before any type of run """   
         misc.sprint("Configure directory -- Nothing to be done here yet.")        
         pass
+
 
 #===============================================================================
 # MadEvent7CmdShell

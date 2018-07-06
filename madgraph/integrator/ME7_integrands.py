@@ -192,6 +192,10 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # Update and define many properties of self based on the provided run-card and model.
         self.synchronize(model, run_card, ME7_configuration)
 
+        # Initialize the call counter
+        # This counter is incremented for each time self.__call__ is run and reinitialized in self.synchronize
+        self.n_calls = 0
+
     def nice_string(self):
         """ For now simply use the contribution_definition and class name for a nice readable representation."""
         
@@ -357,7 +361,25 @@ class ME7Integrand(integrands.VirtualIntegrand):
             n_loop_for_as_running = 2
             self.alpha_s_runner = model_reader.Alphas_Runner(as_running_params['aS'], n_loop_for_as_running, 
                       as_running_params['mdl_MZ'], as_running_params['mdl_MC'], as_running_params['mdl_MB'])
-            
+
+        #Import the observables from the FO_analysis folder
+        if run_card['FO_analysis'] == "None":
+            self.apply_observables = False
+        else:
+            self.apply_observable = True
+
+            """The FO_analysis parameter points to a python module located in
+            me_dir/FO_analysis. It must contain observable_list, defined as a
+            madgraph.integrators.observables.HwUObservableList
+            """
+            sys.path.append(self.ME7_configuration['me_dir'])   # Load the process dir in the path
+            analysis_module = __import__('FO_analysis.'+run_card['FO_analysis'], fromlist=[''])
+            reload(analysis_module)    # Make sure to reinitialize the plots (empty the HwUs)
+            self.observable_list = analysis_module.observable_list
+            sys.path.pop()  # Clean the path after importing
+            self.n_calls = 0    # Re-initialize the counting tools
+
+
 
     def generate_dump(self):
         """ Generate a serializable dump of self, which can later be used, along with some more 
@@ -747,7 +769,9 @@ class ME7Integrand(integrands.VirtualIntegrand):
         wgt = 1.0
         # And the conversion from GeV^-2 to picobarns
         wgt *= 0.389379304e9
-        
+        # Increment the number of calls
+        self.n_calls+=1
+
         if __debug__: logger.debug("="*80)       
         if __debug__: logger.debug('Starting a new evaluation of the integrand from contribution:\n%s',
                                                     self.contribution_definition.nice_string())

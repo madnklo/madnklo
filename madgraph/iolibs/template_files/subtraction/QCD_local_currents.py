@@ -19,6 +19,8 @@ import math
 
 import madgraph.integrator.mappings as mappings
 import madgraph.various.misc as misc
+from madgraph.core.subtraction import BeamCurrent, IntegratedBeamCurrent, Counterterm, SubtractionLeg
+import madgraph.various.misc as misc
 
 try:
     # First try to import this in the context of the exported currents
@@ -95,7 +97,6 @@ def Q_initial_coll_variables(PS_point, parent_momentum, children, **opts):
 #=========================================================================================
 # QCDCurrent
 #=========================================================================================
-
 class QCDCurrent(utils.VirtualCurrentImplementation):
     """Common functions for QCD currents."""
 
@@ -162,7 +163,7 @@ class QCDCurrent(utils.VirtualCurrentImplementation):
     def common_does_implement_this_current(
         cls, current, QCD_squared_order=None, n_loops=None):
         """General checks common to all QCD currents."""
-        
+
         # Check the current is pure QCD
         squared_orders = current.get('squared_orders')
         for order in squared_orders:
@@ -176,11 +177,146 @@ class QCDCurrent(utils.VirtualCurrentImplementation):
         if not n_loops is None:
             if current.get('n_loops') != n_loops:
                 return None
+
         # Make sure we don't need to sum over the quantum number of the mother leg
         if not current.get('resolve_mother_spin_and_color'):
             return None
+
         # All checks passed
         return {}
+
+#=========================================================================================
+# QCDBeamFactorizationCurrent
+#=========================================================================================
+class QCDBeamFactorizationCurrent(QCDCurrent):
+    """ Mother class for QCD beam factorization currents (integrated ISR and PDF counter-terms
+    characterized by the fact that they all have a chsi-dependence (or are the end-point of
+    a chsi-dependent function."""
+
+    # When chosing a pattern where a single class accepts all distribution type, then
+    # keep the variable below set to ['bulk','counterterm','endpoint'], otherwise define
+    # a subset.
+    distribution_types_implemented_in_this_class = ['bulk','counterterm','endpoint']
+
+    # Similarly for the beam_type
+    beam_types_implemented_in_this_class = ['proton']
+    
+    # And for the beam_PDGs
+    beam_PDGs_implemented_in_this_class = [
+        tuple(sorted([1,-1,2,-2,3,-3,4,-4,5,-5,6,-6,21])),
+        tuple(sorted([1,-1,2,-2,3,-3,4,-4,5,-5,21])),
+        tuple(sorted([1,-1,2,-2,3,-3,4,-4,21])),
+        tuple(sorted([1,-1,2,-2,3,-3,21])),
+    ]
+
+    def __init__(self, model, **opts):
+        """ Initial general attributes common to all beam factorization counterterms."""
+        
+        super(QCDBeamFactorizationCurrent, self).__init__(model, **opts)
+        
+        self.beam_type = opts.get('beam_type', 'Unknown')
+        self.beam_PDGs = opts.get('beam_PDGs', tuple([]))
+
+        # This entry *must* be specified.
+        self.distribution_type = opts['distribution_type']
+
+    # Prefix this base function with 'common' to screen it from the lookup
+    # performed by the MG5aMC current exporter. Implement general checks common to all
+    # derived beam factorization currents.
+    @classmethod
+    def common_does_implement_this_current(
+        cls, current, QCD_squared_order=None, n_loops=None):
+        """General checks common to all QCD currents."""
+
+        # Check the general properties common to QCD currents
+        init_vars = super(
+            QCDBeamFactorizationCurrent, cls).common_does_implement_this_current(
+            current, QCD_squared_order, n_loops)
+        if init_vars is None:
+            return None
+        
+        if not isinstance(current, (BeamCurrent, IntegratedBeamCurrent)):
+            return None
+
+        init_vars = {}
+        
+        # All checks passed
+        if isinstance(current, IntegratedBeamCurrent):
+            init_vars['distribution_type'] = 'endpoint'
+        elif isinstance(current, BeamCurrent):
+            # The two possible types in this case are 'bulk' and 'counterterm'
+            init_vars['distribution_type'] = current['distribution_type']
+        else:
+            # Then this is not an ISR
+            return None
+        
+        if not init_vars['distribution_type'] in cls.distribution_types_implemented_in_this_class:
+            return None
+
+        if current['beam_type'] in cls.beam_types_implemented_in_this_class:
+            init_vars['beam_type'] = current['beam_type']
+        else:
+            return None
+        
+        if tuple(sorted(current['beam_PDGs'])) in cls.beam_PDGs_implemented_in_this_class:
+            init_vars['beam_PDGs'] = tuple(sorted(current['beam_PDGs']))
+        else:
+            return None
+
+        return init_vars
+
+    def evaluate_subtraction_current(
+        self, current,
+        higher_PS_point=None, lower_PS_point=None,
+        leg_numbers_map=None, reduced_process=None, hel_config=None,
+        Q=None, **opts ):
+        """ This implementation of the main function call in the base class preprocess
+        the inputs so as to define the variable generically useful for all beam factorization
+        current."""
+    
+        if higher_PS_point is None or lower_PS_point is None:
+            raise CurrentImplementationError(
+                self.name() + " needs the phase-space points before and after mapping." )
+        if leg_numbers_map is None:
+            raise CurrentImplementationError(
+                self.name() + " requires a leg numbers map, i.e. a momentum dictionary." )
+        if not hel_config is None:
+            raise CurrentImplementationError(
+                self.name() + " does not support helicity assignment." )
+        if Q is None:
+            raise CurrentImplementationError(
+                self.name() + " requires the total mapping momentum Q." )
+
+        # Retrieve alpha_s and mu_r
+        model_param_dict = self.model.get('parameter_dict')
+        alpha_s = model_param_dict['aS']
+        mu_r = model_param_dict['MU_R']
+        
+        initial_state_leg_map = current.get_initial_state_leg_map(leg_numbers_map)
+        if initial_state_leg_map is None:
+            raise CurrentImplementationError("Beam factorization currents should involve"+
+                                                                    " initial-state legs.")
+        
+        mother_initial_state_leg, daughter_initial_state_leg = initial_state_leg_map
+        # Extract the initial state momentum fraction
+        chsi = higher_PS_point[daughter_initial_state_leg.n].dot(Q) / \
+               lower_PS_point[mother_initial_state_leg.n].dot(Q)
+
+        # Compute the normalization factor
+        normalization = ( alpha_s / (2. * math.pi) ) ** (current['n_loops'] + 1)
+
+        # For beam factorization terms, this function returns an instance of
+        # BeamFactorizationCurrentEvaluation which can specify color-correlations as 
+        # well as reduced and resolved flavors.
+        evaluation = self.evaluate_kernel(chsi, normalization)
+
+        # Construct and return result
+        result = utils.SubtractionCurrentResult()
+        result.add_result(
+            evaluation,
+            hel_config=hel_config,
+            squared_orders=tuple(sorted(current.get('squared_orders').items())))
+        return result
 
 #=========================================================================================
 # QCDLocalCollinearCurrent
@@ -206,8 +342,13 @@ class QCDLocalCollinearCurrent(QCDCurrent):
         # Check the general properties common to QCD currents
         init_vars = super(
             QCDLocalCollinearCurrent, cls).common_does_implement_this_current(
-            current, QCD_squared_order, n_loops)
+            current, QCD_squared_order, n_loops)    
         if init_vars is None: return None
+        
+        # Make sure this is not a beam factorization current
+        if isinstance(current, (BeamCurrent, IntegratedBeamCurrent)):
+            return None
+        
         # Check the structure is a simple collinear
         singular_structure = current.get('singular_structure')
         if singular_structure.name() != 'C': return None
@@ -299,6 +440,15 @@ class QCDLocalSoftCurrent(QCDCurrent):
         init_vars = super(QCDLocalSoftCurrent, cls).common_does_implement_this_current(
             current, QCD_squared_order, n_loops)
         if init_vars is None: return None
+
+        # Make sure this is not a beam factorization current
+        if isinstance(current, (BeamCurrent, IntegratedBeamCurrent)):
+            return None
+
+        # Make sure we don't need to sum over the quantum number of the mother leg
+        if not current.get('resolve_mother_spin_and_color'):
+            return None
+        
         # Check the structure is a simple soft
         singular_structure = current.get('singular_structure')
         if singular_structure.name() != 'S': return None
@@ -330,6 +480,15 @@ class QCDLocalSoftCollinearCurrent(QCDCurrent):
             QCDLocalSoftCollinearCurrent, cls).common_does_implement_this_current(
             current, QCD_squared_order, n_loops)
         if init_vars is None: return None
+        
+        # Make sure we don't need to sum over the quantum number of the mother leg
+        if not current.get('resolve_mother_spin_and_color'):
+            return None
+        
+        # Make sure this is not a beam factorization current
+        if isinstance(current, (BeamCurrent, IntegratedBeamCurrent)):
+            return None
+        
         # Retrieve the singular structure
         singular_structure = current.get('singular_structure')
         # The main structure should be collinear

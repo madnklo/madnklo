@@ -455,6 +455,14 @@ class SingularStructure(object):
             total_unresolved += substructure.count_unresolved()
         return total_unresolved
 
+    def count_couplings(self):
+        """Count the number of couplings covered by this structure."""
+
+        total_couplings = 0
+        for substructure in self.substructures:
+            total_couplings += substructure.count_couplings()
+        return total_couplings
+
     def get_canonical_representation(self, track_leg_numbers=True):
         """Creates a canonical hashable representation of self."""
         
@@ -579,32 +587,35 @@ class SingularStructure(object):
 
 class BeamStructure(SingularStructure):
 
-    def count_unresolved(self):
+    def count_couplings(self):
+        return 1
 
+    def count_unresolved(self):
         return 0
 
     def name(self):
-
         return "F"
 
 class SoftStructure(SingularStructure):
 
-    def count_unresolved(self):
+    def count_couplings(self):
+        return self.count_unresolved()
 
+    def count_unresolved(self):
         return len(self.get_all_legs())
 
     def name(self):
-
         return "S"
     
 class CollStructure(SingularStructure):
 
-    def count_unresolved(self):
+    def count_couplings(self):
+        return self.count_unresolved()
 
+    def count_unresolved(self):
         return len(self.get_all_legs())-1
 
     def name(self):
-
         return "C"
     
 #=========================================================================================
@@ -891,16 +902,22 @@ class Current(base_objects.Process):
         add entries corresponding to the subtraction legs in this node and using the function
         get_parent_PDGs from the subtraction module."""
         
-        def get_parent(PDGs):
+        get_particle = IR_subtraction_module.model.get_particle
+        
+        def get_parent(PDGs, is_initial):
             res = IR_subtraction_module.parent_PDGs_from_PDGs(PDGs)
             if len(res)!=1:
                 raise MadGraph5Error("Multiple mother PDGs assignment not supported"+
                                             " yet by the function get_reduced_flavors")
-            return res[0]
+            # Now flip back the identity of the parent PDG if in the initial state
+            if is_initial:
+                return get_particle(res[0]).get_anti_pdg_code()
+            else:
+                return res[0]
         
         all_legs = self['singular_structure'].get_all_legs()
         leg_numbers = [leg.n for leg in all_legs]
-        get_particle = IR_subtraction_module.model.get_particle
+
         # Swap the flavors of the initial states
         leg_flavors = [ ( 
                 get_particle(defining_flavors[leg.n]).get_anti_pdg_code() if 
@@ -910,7 +927,8 @@ class Current(base_objects.Process):
         if len(leg_numbers)>0:            
             mother_number = Counterterm.get_ancestor(frozenset(leg_numbers), routing_dict)
             if mother_number not in defining_flavors:
-                defining_flavors[mother_number] = get_parent(leg_flavors)
+                defining_flavors[mother_number] = get_parent(leg_flavors, 
+                               any(leg.state==SubtractionLeg.INITIAL for leg in all_legs) )
 
     def get_key(self, track_leg_numbers=False):
         """Return the ProcessKey associated to this current."""
@@ -926,6 +944,44 @@ class Current(base_objects.Process):
                     'resolve_mother_spin_and_color' ],
                 track_leg_numbers = track_leg_numbers)
 
+    def get_initial_state_leg_map(self, leg_numbers_map):
+        """ Returns None if this current does not involve initial states, otherwise it returns 
+        pair of SubtractionLeg instances in the form of the 2-tuple 
+                             (mother_IS_leg, daughter_IS_leg)
+        Notice that beam factorization across more than one (i.e. two) beams must be 
+        factorized into two currents, so we should be guaranteed having to return at most
+        one pair of IS legs here."""
+        
+    
+        # First get the ancestors of all outermost leg numbers of this singular structures
+        ancestors = Counterterm.get_ancestor( 
+         [ leg.n for leg in self['singular_structure'].get_all_legs() ],  leg_numbers_map )
+        
+        # Filter initial state legs and make sure there is only one
+        ancestors = [leg for leg in ancestors if leg.state==SubtractionLeg.INITIAL]
+        
+        # This current has no initial-state
+        if len(ancestors) == 0:
+            return None
+        
+        if len(ancestors)!=1:
+            raise MadGraph5Error('Beam factorization current should involve'+
+                ' exactly one ancestor initial state leg (the two beam factorization must be factorized).')
+        initial_state_ancestor = ancestors[0]
+        
+        # Now find which external initial-state leg is connected to the initial
+        # state ancestor identified.
+        daughters = Counterterm.get_daughter_legs(
+                                                   initial_state_ancestor, leg_numbers_map)
+        # Filter initial state legs and make sure there is only one
+        daughters = [leg for leg in daughters if leg.state==SubtractionLeg.INITIAL]
+        if len(daughters)!=1:
+            raise CurrentImplementationError('Beam factorization current should involve'+
+                ' exactly one daughter initial state leg (the two beam factorization must be factorized).')        
+        initial_state_daughter = daughters[0]
+        
+        return (initial_state_ancestor, initial_state_daughter)
+
     def get_copy(self, copied_attributes=()):
         """Return a copy of this current with a deep-copy of its singular structure."""
 
@@ -935,6 +991,10 @@ class Current(base_objects.Process):
             copied_current['singular_structure'] = self['singular_structure'].get_copy()
         
         return copied_current
+
+    def get_number_of_couplings(self):
+        """ Return a naive count of the number of couplings involved in this current."""
+        return self.get('n_loops') + self['singular_structure'].count_couplings()
 
     def __eq__(self, other):
         """Compare two currents using their ProcessKey's."""
@@ -965,10 +1025,11 @@ class BeamCurrent(Current):
         super(BeamCurrent, self).default_setup()
         self['n_loops'] = -1
         self['squared_orders'] = {}
-        self['resolve_mother_spin_and_color'] = False
+        self['resolve_mother_spin_and_color'] = True
         self['singular_structure'] = SingularStructure()
 
         # Which piece of the plus distribution is intended to be returned
+        # This can be 'bulk' or 'counterterm'.
         self['distribution_type'] = 'bulk'
         
         # List of the pdgs of the particles making up this beam
@@ -992,7 +1053,7 @@ class BeamCurrent(Current):
                     'beam_type',
                     'distribution_type' ],
                 track_leg_numbers = track_leg_numbers)
-
+    
     def __str__(self, **opts):
         base_str = Current.__str__(self, **opts)
         # Denote "bulk" contributions embedded within colons ':%s:'
@@ -1038,7 +1099,7 @@ class IntegratedBeamCurrent(IntegratedCurrent):
         super(IntegratedBeamCurrent, self).default_setup()
         self['n_loops'] = 0
         self['squared_orders'] = {}
-        self['resolve_mother_spin_and_color'] = False
+        self['resolve_mother_spin_and_color'] = True
         self['singular_structure'] = SingularStructure()
 
         # List of the pdgs of the particles making up this beam
@@ -1180,7 +1241,7 @@ class CountertermNode(object):
         ])
         return type(structure)(legs=legs, substructures=substructures)
 
-    def split_loops(self, n_loops):
+    def distribute_loops(self, n_loops):
         """Split a counterterm in several ones according to the individual
         loop orders of its currents.
         """
@@ -1199,7 +1260,7 @@ class CountertermNode(object):
             # at any loop number between 0 and n_loops
             first_without_loops = self.nodes[0]
             for loop_n in range(n_loops + 1):
-                for first_with_loops in first_without_loops.split_loops(loop_n):
+                for first_with_loops in first_without_loops.distribute_loops(loop_n):
                     node_combinations += [[first_with_loops, ], ]
             # Add the other nodes one by one recursively,
             # taking care of never exceeding n_loops
@@ -1213,7 +1274,7 @@ class CountertermNode(object):
                         # Distribute the order of this node
                         # in all possible ways within the current itself
                         # (recursion step)
-                        for ith_node in self.nodes[i_current].split_loops(new_loop_n):
+                        for ith_node in self.nodes[i_current].distribute_loops(new_loop_n):
                             new_node_combinations.append(
                                 combination + [ith_node, ] )
                 node_combinations = new_node_combinations
@@ -1232,7 +1293,7 @@ class CountertermNode(object):
 
         return result
 
-    def split_orders(self, target_squared_orders):
+    def distribute_orders(self, target_squared_orders):
         """Split a counterterm in several ones according to the individual
         coupling orders of its currents.
         """
@@ -1244,15 +1305,11 @@ class CountertermNode(object):
         # TODO actually create a new counterterm with orders set
 
         for node in self.nodes:
-            node.split_orders(target_squared_orders)
+            node.distribute_orders(target_squared_orders)
 
         if isinstance(self.current, Current):
             self.current.set(
-                'squared_orders',
-                { 'QCD':
-                        (self.current.get('n_loops') * 2 +
-                         self.current[
-                             'singular_structure'].count_unresolved() * 2) } )
+                'squared_orders', { 'QCD': self.current.get_number_of_couplings() * 2 } )
         else:
             # Here the squared order reduced process should be changed accordingly
             # and decreased for each squared order "sucked up" by the currents
@@ -1313,7 +1370,7 @@ class Counterterm(CountertermNode):
     @classmethod
     def get_ancestor(cls, particles, momentum_dict):
         """Recursively explore the momentum dictionary to find an ancestor
-        of the given particle set.
+        of the given particle set (i.e. these are leg numbers here).
         """
     
         try:
@@ -1410,23 +1467,32 @@ class Counterterm(CountertermNode):
         
         return None
 
-    def get_daughter_pdgs(self, leg_number, state):
-        """Walk down the tree of currents to find the pdgs 'attached'
-        to a given leg number of the reduced process.
-        """
+    @classmethod
+    def get_daughter_legs(cls, leg_number, momentum_dict):
+        """ Walk down the momentum dictionary tree to find the outter-most daughter legs
+        coming from the leg_number specified."""
         
         external_leg_numbers = []
         intermediate_leg_number = [leg_number, ]
         while len(intermediate_leg_number) > 0:
             next_leg = intermediate_leg_number.pop(0)
-            # Check if this leg is final
-            daughters = self.momenta_dict[next_leg]
+            # Check if this leg is external
+            daughters = momentum_dict[next_leg]
             if  daughters == frozenset([next_leg,]):
                 external_leg_numbers.append(next_leg)
             else:
                 intermediate_leg_number = list(daughters) + intermediate_leg_number
         
-        # Now that we have the external leg numbers, find the corresponding pdg
+        return external_leg_numbers
+
+    def get_daughter_pdgs(self, leg_number, state):
+        """Walk down the tree of currents to find the pdgs 'attached'
+        to a given leg number of the reduced process.
+        """
+        
+        external_leg_numbers = self.get_daughter_legs(leg_number, self.momenta_dict)
+        
+        # Now that we have the external leg numbers, find the corresponding PDG
         pdgs = []
         for n in external_leg_numbers:
             leg = self.find_leg(n)
@@ -1865,8 +1931,10 @@ class IRSubtraction(object):
                 pdgs.append(cur)
             else:
                 pdgs.append(self.model.get_particle(cur).get_anti_pdg_code())
+
         # Get the parent PDG of this leg set
         parent_PDGs = self.parent_PDGs_from_PDGs(pdgs)
+
         # Cross back if the leg set referred to initial-state
         final_PDGs = []
         for parent_PDG in parent_PDGs:
@@ -1876,6 +1944,7 @@ class IRSubtraction(object):
                 )
             else:
                 final_PDGs.append(parent_PDG)
+
         return final_PDGs
         
     def can_become_soft(self, legs):
@@ -2128,8 +2197,7 @@ class IRSubtraction(object):
                 'distribution_type' : 'counterterm',
                 'singular_structure': current_type })
         else:
-            current = Current({
-                'singular_structure': current_type })
+            current = Current({'singular_structure': current_type })
         structure_legs = current_type.get_all_legs()
         structure_leg_ns = frozenset(leg.n for leg in structure_legs)
         if current_type.name()=='F':
@@ -2251,11 +2319,10 @@ class IRSubtraction(object):
                     
             assert (beam_number in [1,2]), "MadNkLO only supports initial state legs with number in [1,2]."
             beam_current_options = {
-                    'beam_type'     :   self.beam_types[beam_number-1][0],
-                    'beam_PDGs'     :   self.beam_types[beam_number-1][1],
+                    'beam_type'     :   self.beam_types[beam_number-1][0] if self.beam_types[beam_number-1] else None,
+                    'beam_PDGs'     :   self.beam_types[beam_number-1][1] if self.beam_types[beam_number-1] else None,
                     'n_loops'       :   n_loops,
                     'squared_orders':   squared_orders,
-                    'resolve_mother_spin_and_color': False,
                     'singular_structure': complete_singular_structure
                 }
 
@@ -2363,23 +2430,23 @@ class IRSubtraction(object):
             else:
                 template_integrated_counterterms = []
 
-            counterterms_with_loops = template_counterterm.split_loops(process['n_loops'])
+            counterterms_with_loops = template_counterterm.distribute_loops(process['n_loops'])
             # TODO
-            # For the time being, split_loops is given None instead of the squared orders
+            # For the time being, distribute_loops is given None instead of the squared orders
             # because they should be retrieved from the process by looking at individual
             # matrix elements
             # That is, every process has a list of possible coupling orders assignations
             # so we should loop over them
             for counterterm_with_loops in counterterms_with_loops:
-                all_counterterms.extend( counterterm_with_loops.split_orders(None) )
+                all_counterterms.extend( counterterm_with_loops.distribute_orders(None) )
 
             # Now also distribute the template integrated counterterms
             for template_integrated_counterterm in template_integrated_counterterms:
-                integrated_counterterms_with_loops = template_integrated_counterterm.split_loops(
+                integrated_counterterms_with_loops = template_integrated_counterterm.distribute_loops(
                     process['n_loops'] )
                 for integrated_counterterm_with_loops in integrated_counterterms_with_loops:
                     all_integrated_counterterms.extend(
-                        integrated_counterterm_with_loops.split_orders(None) )
+                        integrated_counterterm_with_loops.distribute_orders(None) )
         return all_counterterms, all_integrated_counterterms
 
 #=========================================================================================
@@ -2509,8 +2576,10 @@ class SubtractionCurrentExporter(object):
         for current in currents:
             found_current_class = None
             for (dir_name, module_path, class_name, implementation_class) in all_classes:
+#                misc.sprint('Testing class %s for current: %s'%(class_name,str(current)))
                 instantiation_options = implementation_class.does_implement_this_current(
                     current, self.model )
+#                misc.sprint('Result: %s'%str(instantiation_options))
                 if instantiation_options is None:
                     continue
                 if found_current_class is not None:

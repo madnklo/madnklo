@@ -192,7 +192,7 @@ class ProcessKey(object):
                 self.key_dict[proc_attr] = hash_list(sorted(value), proc_attr)
     
             # Now generically treat other attributes
-            elif isinstance(value, (int, str, tuple, bool)):
+            elif value is None or isinstance(value, (int, str, tuple, bool)):
                 self.key_dict[proc_attr] = value
             elif isinstance(value, list):
                 self.key_dict[proc_attr] = hash_list(value, proc_attr)

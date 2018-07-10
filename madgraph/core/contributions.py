@@ -969,8 +969,8 @@ class Contribution(object):
         # directly from the Born
         self.processes_to_topologies[process_key] = contrib.processes_to_topologies[process_key]
         
-        for (topology_key, repr_diagrams) in contrib.processes_to_topologies[process_key]['topologies']:
-                self.topologies_to_processes[topology_key] = contrib.topologies_to_processes[topology_key]
+        for (topology_key, processes) in contrib.topologies_to_processes.items():
+                self.topologies_to_processes[topology_key] = processes
 
     def add_beam_factorization_processes_from_contribution(self, contrib, beam_factorization_order):
         """ 'Import' the processes_map and all generated attributes of the contribution
@@ -1350,7 +1350,7 @@ The resulting output must therefore be used for debugging only as it will not yi
                     )
                     reduced_flavors = integrated_counterterm.get_reduced_flavors(
                       defining_flavors=number_to_flavor_map, IR_subtraction=self.IR_subtraction)
-#                    misc.sprint('From resolved flavor:',flavor_combination)
+#                    misc.sprint('From resolved flavor:',number_to_flavor_map)
 #                    misc.sprint('I get:',reduced_flavors)
 
                     resolved_symmetry_factor = misc.symmetry_factor(list(flavor_combination[1]))
@@ -1365,15 +1365,15 @@ The resulting output must therefore be used for debugging only as it will not yi
                             l in singular_legs if l.state==subtraction.SubtractionLeg.FINAL]
                         singular_legs_symmetry_factor *= misc.symmetry_factor(singular_external_leg_pdgs)
 
-   #                 misc.sprint('Counterterm: %s'%str(integrated_counterterm))
-   #                 misc.sprint('    -> multiplicity                   = %d'%len(integrated_counterterms))
-   #                 misc.sprint('    -> CT with same topologies        = %s'%(' | '.join(str(CT) for CT in integrated_counterterms)) )                    
-   #                 misc.sprint('    -> resolved_flavors               = %s'%str(flavor_combination))
-   #                 misc.sprint('    -> reduced                        = %s'%str(reduced_flavors))
-   #                 misc.sprint('    -> resolved_symmetry_factor       = %d'%resolved_symmetry_factor)
-   #                 misc.sprint('    -> reduced_symmetry_factor        = %d'%reduced_symmetry_factor)
-   #                 misc.sprint('    -> singular_legs_symmetry_factor  = %f'%singular_legs_symmetry_factor)
-   #                 misc.sprint('    -> counterterm_repetition_factor  = %f'%repetitions_for_topology[integrated_current_topology])
+#                    misc.sprint('Counterterm: %s'%str(integrated_counterterm))
+#                    misc.sprint('    -> multiplicity                   = %d'%len(integrated_counterterms))
+#                    misc.sprint('    -> CT with same topologies        = %s'%(' | '.join(str(CT) for CT in integrated_counterterms)) )                    
+#                    misc.sprint('    -> resolved_flavors               = %s'%str(flavor_combination))
+#                    misc.sprint('    -> reduced                        = %s'%str(reduced_flavors))
+#                    misc.sprint('    -> resolved_symmetry_factor       = %d'%resolved_symmetry_factor)
+#                    misc.sprint('    -> reduced_symmetry_factor        = %d'%reduced_symmetry_factor)
+#                    misc.sprint('    -> singular_legs_symmetry_factor  = %f'%singular_legs_symmetry_factor)
+#                    misc.sprint('    -> counterterm_repetition_factor  = %f'%repetitions_for_topology[integrated_current_topology])
                         
                     # Now correct for the repetition number in that topology
                     # Notice it should always be an integer, the float here is just so that
@@ -2274,8 +2274,8 @@ class ContributionList(base_objects.PhysicsObjectList):
                 factorization_order = [(False,False),(True, False),(False, True), (True, True)]
                 new_order.extend(sorted(selected_contribs,
                     key = lambda contrib: factorization_order.index((
-                        contrib.contribution_definition.beam_factorization['beam_one']['active'],
-                        contrib.contribution_definition.beam_factorization['beam_two']['active']
+                        contrib.contribution_definition.is_beam_active('beam_one'),
+                        contrib.contribution_definition.is_beam_active('beam_two')
                     ))
                 ))
                 for contrib in selected_contribs:

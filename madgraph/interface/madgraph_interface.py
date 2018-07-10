@@ -1035,8 +1035,11 @@ class CheckValidForCmd(cmd.CheckCmd):
             self.check_process_format(' '.join(args[1:]))
     
 
-    def check_process_format(self, process):
+    def check_process_format(self, process_string):
         """ check the validity of the string given to describe a format """
+
+        # Make sure not to consider options in the check below
+        process = process_string.split('--')[0]
 
         #check balance of paranthesis
         if process.count('(') != process.count(')'):
@@ -2988,6 +2991,21 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
     def parse_add_options(self, args):
         """ Parses the option provided via the arguments given to the command add."""
         
+        # Helper function
+        def parse_beam_type(beam_type_str):
+            try:
+                beam_type, beam_PDGs = beam_type_str.split('@')
+                try:
+                    beam_PDGs = eval(beam_PDGs)
+                except:
+                    raise InvalidCmd("Could not parse specified beam_PDGs: %s"%beam_PDGs)
+                if not isinstance(beam_PDGs, (tuple, list)) and not all(isinstance(pdg, int) 
+                                                                     for pdg in beam_PDGs):
+                    raise InvalidCmd("Specified beam_PDGs '%s' is not a valid list of integers"%beam_PDGs)
+                return beam_type, tuple(sorted(list(beam_PDGs)))          
+            except:
+                return beam_type, 'auto'
+        
         add_options = {'NLO'                  : [],
                        'NNLO'                 : [],
                        'NNNLO'                : [],
@@ -3086,12 +3104,12 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
                 if value.upper() == 'NONE':
                     add_options['beam_types'][0] = None
                 else:
-                    add_options['beam_types'][0] = value
+                    add_options['beam_types'][0] = parse_beam_type(value)
             elif key=='beam_two_type':
                 if value.upper() == 'NONE':
                     add_options['beam_types'][1] = None
                 else:
-                    add_options['beam_types'][1] = value                             
+                    add_options['beam_types'][1] = parse_beam_type(value)                       
             elif key=='beam_types':
                 try:
                     beam_types = eval(value)
@@ -3108,7 +3126,7 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
                     if beam_type is None or beam_type.upper() == 'NONE':
                         add_options['beam_types'][i] = None
                     else:
-                        add_options['beam_types'][i] = beam_type
+                        add_options['beam_types'][i] = parse_beam_type(beam_type)
                     
             elif key=='ignore_contributions':
                 try:
@@ -3828,8 +3846,14 @@ This implies that with decay chains:
         and the initial state multileg specified, it returns the following tuple:
             ( beam_type_name, (pdgs_contained,) ) """
         
-        user_beam_type = generation_options['beam_types'][beam_id]
-        
+        user_beam = generation_options['beam_types'][beam_id]
+        if isinstance(user_beam, tuple):
+            user_beam_type = user_beam[0]
+            user_beam_PDGs = user_beam[1]
+        else:
+            user_beam_type = user_beam
+            user_beam_PDGs = None
+
         hard_coded_beam_types = [
             ['proton'        , (1,2,3,4,5,6,-1,-2,-3,-4,-5,-6,21)],
             ['proton_photon' , (1,2,3,4,5,6,-1,-2,-3,-4,-5,-6,21,22)],
@@ -3856,6 +3880,14 @@ This implies that with decay chains:
 
         initial_state_ids  = [pdg for pdg in multileg.get('ids') if pdg in all_real_emission_ids]
         
+        if not user_beam_PDGs is None:
+            if user_beam_PDGs != initial_state_ids:
+                logger.warning(('The specified list of beam PDGs (%s) differs from those specified'+
+                    ' in the initial state of the processes (%s).\nIf you know what you are doing, this is fine.')%
+                    (   ','.join('%d'%pdg for pdg in user_beam_PDGs),
+                        ','.join('%d'%pdg for pdg in initial_state_ids)  ))
+            initial_state_ids = user_beam_PDGs
+
         if len(initial_state_ids)<=1:
             beam_type_guessed = None
         else:

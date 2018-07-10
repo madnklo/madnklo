@@ -4171,7 +4171,7 @@ class ContributionDefinition(object):
 
     def is_beam_active(self, beam_name):
         """ Checks whether factorization of the beam 'beam_name' is active or not."""
-        return (not self.beam_factorization['beam_one'] is None) and \
+        return (not self.beam_factorization[beam_name] is None) and \
                                               self.beam_factorization[beam_name]['active']
 
     def nice_string(self):

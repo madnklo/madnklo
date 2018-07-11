@@ -948,8 +948,9 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         """Ultimately plot_collector should be an object inside a bigger DataCollector object which allows to navigate
         between the different results etc, which would be good to be able to sum stuff (like R+V after integration)
         """
+
         for integrand in self.integrator.integrands:
-            n_integrand_calls = integrand.n_calls
+            n_integrand_calls = integrand.n_observable_calls
             if not integrand.apply_observables:
                 continue
             for observable in integrand.observable_list:

@@ -1,12 +1,12 @@
 import madgraph.integrator.observables as observables
 import pyjet
 import numpy as np
+from madgraph.integrator.vectors import LorentzVectorDict, LorentzVectorList, LorentzVector
 
 class my_functions(object):
     @staticmethod
     def ptj1(data_for_observables,*args,**kwargs):
-        from madgraph.integrator.vectors import LorentzVectorDict, LorentzVectorList, LorentzVector
-        def is_a_jet(pdg):
+        def is_a_partonic_jet(pdg):
             return abs(pdg) in range(1,5)+[21]
 
 
@@ -23,7 +23,7 @@ class my_functions(object):
         # First identify all partonic jets
         jets_list = []
         for i, p in enumerate(PS_point[len(flavors[0]):]):
-            if is_a_jet(flavors[1][i]):
+            if is_a_partonic_jet(flavors[1][i]):
                 jets_list.append(tuple(list(p) + [i + len(flavors[0]) + 1, ]))
         # Count partonic jets
         starting_n_jets = len(jets_list)

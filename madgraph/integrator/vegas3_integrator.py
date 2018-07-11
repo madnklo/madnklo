@@ -215,7 +215,14 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
 
         if len(set([len(integrand.continuous_dimensions) for integrand in self.integrands]))!=1:
             raise IntegratorError("Vegas3 only supports multiple integrands with all the same number of dimensions.")
-        
+
+        # Temporarily block the filling of integrands
+        # for the survey, save the ones who were plotted
+        plotted_integrands={}
+        for integrand in self.integrands:
+            plotted_integrands[integrand.nice_string()]=integrand.apply_observables
+            integrand.apply_observables = False
+
         n_dimensions = len(self.integrands[0].continuous_dimensions)
         # sync_ran is to decide if VEGAS3 random number generator should produce the same
         # number on different processors.
@@ -229,6 +236,8 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
         else:
             wrapped_integrand = ParallelWrappedIntegrand(
                                             self.integrands, self.cluster, self.start_time)          
+
+
 
         self.tot_func_evals = 0
         # Train grid
@@ -245,12 +254,17 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
         if MPI_RANK == 0:
             logger.debug('\n'+training.summary())
 
+
         self.tot_func_evals += self.n_function_evals         
         # Final integration
         if MPI_RANK == 0:
             logger.debug("=============================================")
             logger.debug("Vegas3 starting the refined integration stage")
             logger.debug("=============================================")
+
+        # Restore the observable filling for the survey
+        for integrand in self.integrands:
+            integrand.apply_observables=plotted_integrands[integrand.nice_string()]
 
         self.n_function_evals = 0
         self.curr_n_iterations = self.refine_n_iterations

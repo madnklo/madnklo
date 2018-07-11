@@ -103,7 +103,7 @@ class ObservableFunctions(object):
 class HwUObservable(VirtualObservable,ObservableFunctions):
     """Class that creates and fills in a HwU histogram for an observable given as a function"""
 
-    def __init__(self, name='default', observable_function = None, range = [0,2], nbins = 1):
+    def __init__(self, name='default', observable_function = None, range = [0,2], nbins = 1,*args,**opts):
         super(HwUObservable, self).__init__(name)
         if observable_function is None:
             self.observable_function = self.inclusive_xsec

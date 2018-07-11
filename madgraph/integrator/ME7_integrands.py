@@ -194,7 +194,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
         # Initialize the call counter
         # This counter is incremented for each time self.__call__ is run and reinitialized in self.synchronize
-        self.n_calls = 0
+        self.n_observable_calls = 0
 
     def nice_string(self):
         """ For now simply use the contribution_definition and class name for a nice readable representation."""
@@ -368,16 +368,25 @@ class ME7Integrand(integrands.VirtualIntegrand):
         else:
             self.apply_observable = True
 
-            """The FO_analysis parameter points to a python module located in
-            me_dir/FO_analysis. It must contain observable_list, defined as a
-            madgraph.integrators.observables.HwUObservableList
-            """
+            #The FO_analysis parameter points to a python module located in
+            #me_dir/FO_analysis. It must contain observable_list, defined as a
+            #madgraph.integrators.observables.HwUObservableList
+
             sys.path.append(self.ME7_configuration['me_dir'])   # Load the process dir in the path
-            analysis_module = __import__('FO_analysis.'+run_card['FO_analysis'], fromlist=[''])
-            reload(analysis_module)    # Make sure to reinitialize the plots (empty the HwUs)
-            self.observable_list = analysis_module.observable_list
+            try:
+                analysis_module = __import__('FO_analysis.'+run_card['FO_analysis'], fromlist=[''])
+                reload(analysis_module)    # Make sure to reinitialize the plots (empty the HwUs)
+            except ImportError:
+                sys.path.pop()  # Clean the path after importing
+                raise ImportError("The FO_analysis specified in the run_card could not be imported")
+            try:
+                self.observable_list = analysis_module.observable_list
+            except NameError:
+                sys.path.pop()  # Clean the path after importing
+                raise NameError("Failed to access specified FO_analysis.observable_list")
+
             sys.path.pop()  # Clean the path after importing
-            self.n_calls = 0    # Re-initialize the counting tools
+        self.n_observable_calls = 0    # Re-initialize the counting tools
 
 
 
@@ -770,7 +779,6 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # And the conversion from GeV^-2 to picobarns
         wgt *= 0.389379304e9
         # Increment the number of calls
-        self.n_calls+=1
 
         if __debug__: logger.debug("="*80)       
         if __debug__: logger.debug('Starting a new evaluation of the integrand from contribution:\n%s',
@@ -961,6 +969,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         if self.apply_observables:
             data_for_observables = {'PS_point': PS_point, 'flavors' : flavors}
             self.observable_list.apply_observables(sigma_wgt*process_wgt, data_for_observables)
+            self.n_observable_calls+=1
 
         return sigma_wgt
 

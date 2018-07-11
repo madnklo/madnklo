@@ -2130,7 +2130,8 @@ class SoftCollinearMapping(VirtualMapping):
         coll_PS_point, coll_vars = self.coll_mapping.map_to_lower_multiplicity(
             soft_PS_point, coll_structure, coll_momenta_dict, squared_masses,
             kinematic_variables, compute_jacobian )
-        coll_vars['jacobian'] *= soft_vars['jacobian']
+        if compute_jacobian:
+            coll_vars['jacobian'] *= soft_vars['jacobian']
         return coll_PS_point, coll_vars
 
     def map_to_higher_multiplicity(
@@ -2152,7 +2153,8 @@ class SoftCollinearMapping(VirtualMapping):
         soft_PS_point, soft_vars = self.soft_mapping.map_to_higher_multiplicity(
             coll_PS_point, soft_structure, momenta_dict,
             kinematic_variables, compute_jacobian )
-        coll_vars['jacobian'] *= soft_vars['jacobian']
+        if compute_jacobian:
+            coll_vars['jacobian'] *= soft_vars['jacobian']
         return soft_PS_point, coll_vars
 
 class SoftCollinearVsFinalMapping(SoftCollinearMapping):

@@ -1976,8 +1976,9 @@ class SoftVsFinalMapping(ElementaryMappingSoft):
         for recoiler in singular_structure.legs:
             new_PS_point[recoiler.n] /= la
             new_PS_point[recoiler.n].rotoboost(P, Q)
-        jacobian = (pR2_Q2)**(len(recoilers)-2)
-        mapping_variables = {'jacobian': jacobian, 'Q': Q}
+        mapping_variables = {'Q': Q}
+        if compute_jacobian:
+            mapping_variables['jacobian'] = (pR2_Q2)**(len(recoilers)-2)
         # Return characteristic variables
         return new_PS_point, mapping_variables
 
@@ -2017,8 +2018,9 @@ class SoftVsFinalMapping(ElementaryMappingSoft):
         for recoiler in singular_structure.legs:
             new_PS_point[recoiler.n] *= la
             new_PS_point[recoiler.n].rotoboost(Q, P)
-        jacobian = (pR2_Q2)**(len(recoilers)-2)
-        mapping_variables = {'jacobian': jacobian, 'Q': Q}
+        mapping_variables = {'Q': Q}
+        if compute_jacobian:
+            mapping_variables['jacobian'] = (pR2_Q2)**(len(recoilers)-2)
         # Return characteristic variables
         return new_PS_point, mapping_variables
 

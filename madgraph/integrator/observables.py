@@ -125,6 +125,7 @@ class HwUObservable(VirtualObservable,ObservableFunctions):
         assert super(HwUObservable, self).__call__(wgt, *args, **kwargs)
         observable = self.observable_function(*args, **kwargs)
         self.HwU.addEvent(observable, wgt)
+        #misc.sprint("ding")
 
 
 

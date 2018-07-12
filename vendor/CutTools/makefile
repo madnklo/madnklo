@@ -9,12 +9,12 @@ CTS_TAR = $(CTS_DIR).tar.gz
 ifeq ($(wildcard ../make_opts), ../make_opts)
   include ../make_opts
 else
-  FFLAGS = 
+  FFLAGS =
   FC=gfortran
 endif
 
 # These flags are vital for CT, so we enforce them here
-FFLAGS += -fPIC -fno-automatic -O2 -funroll-all-loops
+FFLAGS += -fPIC -fno-automatic -O2 -funroll-all-loops -std=legacy
 #FFLAGS += -fno-automatic -Ofast -funroll-all-loops  
 
 # make sure no bound checks is used as it crashes avholo because of string message too long

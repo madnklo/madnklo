@@ -949,6 +949,9 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         between the different results etc, which would be good to be able to sum stuff (like R+V after integration)
         """
 
+        import pdb;
+        pdb.set_trace()
+
         for integrand in self.integrator.integrands:
             n_integrand_calls = integrand.n_observable_calls
             if not integrand.apply_observables:
@@ -965,7 +968,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         """
         FinalHwUList = integrators.integrands.observables.histograms.HwUList(plot_collector.values())
 
-        FinalHwUList.output(run_output_path+"/FO_plots","gnuplot")
+        FinalHwUList.output(run_output_path+"/FO_plots","gnuplot")#TODO Path.join
 
         if MPI_RANK==0:
             # Write the result in 'cross_sections.dat' of the result directory

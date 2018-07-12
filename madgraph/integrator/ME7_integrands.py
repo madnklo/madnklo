@@ -384,7 +384,6 @@ class ME7Integrand(integrands.VirtualIntegrand):
             except NameError:
                 sys.path.pop()  # Clean the path after importing
                 raise NameError("Failed to access specified FO_analysis.observable_list")
-
             sys.path.pop()  # Clean the path after importing
         self.n_observable_calls = 0    # Re-initialize the counting tools
 
@@ -779,6 +778,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # And the conversion from GeV^-2 to picobarns
         wgt *= 0.389379304e9
         # Increment the number of calls
+        if self.apply_observables:
+            self.n_observable_calls += 1
 
         if __debug__: logger.debug("="*80)       
         if __debug__: logger.debug('Starting a new evaluation of the integrand from contribution:\n%s',
@@ -843,7 +844,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         model_param_dict['aS'] = alpha_s
         if 'MU_R' in model_param_dict:
             model_param_dict['MU_R'] = mu_r
-        
+
         # Now loop over processes
         total_wgt = 0.
         for process_key, (process, mapped_processes) in self.processes_map.items():
@@ -969,7 +970,6 @@ class ME7Integrand(integrands.VirtualIntegrand):
         if self.apply_observables:
             data_for_observables = {'PS_point': PS_point, 'flavors' : flavors}
             self.observable_list.apply_observables(sigma_wgt*process_wgt, data_for_observables)
-            self.n_observable_calls+=1
 
         return sigma_wgt
 

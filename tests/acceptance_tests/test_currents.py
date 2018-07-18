@@ -114,7 +114,7 @@ class SubtractionCurrentTest(unittest.TestCase):
             (500.0, 500.0),
             (0, 0) )
 
-        PS_point, wgt, xb_1, xb_2 = PS_generator.get_PS_point(None)
+        PS_point, wgt, x1s, x2s = PS_generator.get_PS_point(None)
         
         misc.sprint('PS point:\n\n%s\n\n'%PS_point.__str__(n_initial=len(initial_masses)))
 

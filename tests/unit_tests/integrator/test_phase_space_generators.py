@@ -462,13 +462,13 @@ class PhaseSpaceGeneratorsTest(unittest.TestCase):
         random_variables = None
         
         
-        PS_point, wgt, xb_1, xb_2 =  my_epem_PS_generator_massless.get_PS_point(random_variables)
+        PS_point, wgt, x1s, x2s =  my_epem_PS_generator_massless.get_PS_point(random_variables)
 
         misc.sprint('Generated the following PS point:')
         misc.sprint(str(PS_point))
         misc.sprint('jacobian = %.16e'%wgt)
-        misc.sprint('xb_1 = %.16e'%xb_1)
-        misc.sprint('xb_2 = %.16e'%xb_2)
+        misc.sprint('xb_1 = %.16e'%x1s[0])
+        misc.sprint('xb_2 = %.16e'%x2s[0])
         #
         # TODO: perform some (comparison) test of the PS point generated
         #
@@ -480,12 +480,12 @@ class PhaseSpaceGeneratorsTest(unittest.TestCase):
             beam_Es =(E_cm/2.,E_cm/2.), beam_types=(0,0),
             model=self.model, topology=massive_zboson_schannel_specifier)
 
-        PS_point, wgt, xb_1, xb_2 =  my_epem_PS_generator_massive.get_PS_point(random_variables)
+        PS_point, wgt, x1s, x2s =  my_epem_PS_generator_massive.get_PS_point(random_variables)
         misc.sprint('Generated the following PS point:')
         misc.sprint(str(PS_point))
         misc.sprint('jacobian = %.16e'%wgt)
-        misc.sprint('xb_1 = %.16e'%xb_1)
-        misc.sprint('xb_2 = %.16e'%xb_2)
+        misc.sprint('xb_1 = %.16e'%x1s[0])
+        misc.sprint('xb_2 = %.16e'%x2s[0])
         #
         # TODO: perform some (comparison) test of the PS point generated
         #
@@ -497,12 +497,12 @@ class PhaseSpaceGeneratorsTest(unittest.TestCase):
             beam_Es =(E_cm/2.,E_cm/2.), beam_types=(1,1), 
               model=self.model, topology=vbf_topology_s_and_t_channel_specifier)
         
-        PS_point, wgt, xb_1, xb_2 =  my_pp_PS_generator_VBF.get_PS_point(random_variables)
+        PS_point, wgt, x1s, x2s =  my_pp_PS_generator_VBF.get_PS_point(random_variables)
         misc.sprint('Generated the following PS point:')
         misc.sprint(str(PS_point))
         misc.sprint('jacobian = %.16e'%wgt)
-        misc.sprint('xb_1 = %.16e'%xb_1)
-        misc.sprint('xb_2 = %.16e'%xb_2)
+        misc.sprint('xb_1 = %.16e'%x1s[0])
+        misc.sprint('xb_2 = %.16e'%x2s[0])
         #
         # TODO: perform some (comparison) test of the PS point generated
         #

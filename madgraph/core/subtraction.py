@@ -1605,6 +1605,37 @@ class Counterterm(CountertermNode):
             currents += node.get_all_currents()
         return currents
 
+    def get_beam_currents(self):
+        """ Returns a list of dictionaries of the form
+              {   'beam_one' : beam_current_1 # None for no convolution
+                  'beam_two' : beam_current_2 # None for no convolution
+              } """
+        
+        beam_currents = self.current['beam_factorization']
+
+        # First fetch all currents making up this counterterm
+        for current in self.get_all_currents():        
+            if type(current) not in [BeamCurrent]:
+                continue
+
+            # Now get all legs of its singular structure
+            all_legs = current['singular_structure'].get_all_legs()
+    
+            if any(l.n==1 for l in all_legs):
+                for bcs in beam_currents:
+                    if bcs['beam_one'] is not None:
+                        raise MadGraph5Error('The beam factorization currents from the reduced'+
+                ' process and the ones in the counterterms must never apply to the same beam (#1).')
+                    bcs['beam_one'] = current
+            if any(l.n==2 for l in all_legs):
+                for bcs in beam_currents:
+                    if bcs['beam_two'] is not None:
+                        raise MadGraph5Error('The beam factorization currents from the reduced'+
+                ' process and the ones in the counterterms must never apply to the same beam (#2).')
+                    bcs['beam_two'] = current
+    
+        return beam_currents
+
     def get_reduced_flavors(self, defining_flavors=None, IR_subtraction=None):
         """Given the defining flavors corresponding to the resolved process (as a dictionary),
          return a *list* of flavors corresponding to the flavor assignment of the reduced process 
@@ -1700,6 +1731,39 @@ class IntegratedCounterterm(Counterterm):
                 singular structure that must be analytically integrated over, not:\n%s"""%str(self))
 
 
+    def get_beam_currents(self):
+        """ Returns a list of dictionaries of the form
+              {   'beam_one' : beam_current_1 # None for no convolution
+                  'beam_two' : beam_current_2 # None for no convolution
+              } """
+        
+        beam_currents = self.current['beam_factorization']
+
+        # First fetch all integrated currents making up this integrated counterterm
+        # In the current implementation, there can only be one for now.
+        integrated_current = self.get_integrated_current()
+        
+        if type(integrated_current) not in [BeamCurrent]:
+            return beam_currents
+            
+        # Now get all legs of its singular structure
+        all_legs = integrated_current['singular_structure'].get_all_legs()
+        
+        if any(l.n==1 for l in all_legs):
+            for bcs in beam_currents:
+                if bcs['beam_one'] is not None:
+                    raise MadGraph5Error('The beam factorization currents from the reduced'+
+            ' process and the ones in the integrated CT must never apply to the same beam (#1).')
+                bcs['beam_one'] = integrated_current
+        if any(l.n==2 for l in all_legs):
+            for bcs in beam_currents:
+                if bcs['beam_two'] is not None:
+                    raise MadGraph5Error('The beam factorization currents from the reduced'+
+            ' process and the ones in the integrated CT must never apply to the same beam (#2).')
+                bcs['beam_two'] = integrated_current
+
+        return beam_currents
+
     def get_necessary_beam_convolutions(self):
         """ Returns a set of beam names ('beam_one' or 'beam_two') that must be active
         in the contribution that will host this counterterm"""
@@ -1708,7 +1772,6 @@ class IntegratedCounterterm(Counterterm):
         
         # First analyze the reduced process
         for bft in self.current['beam_factorization']:
-            necessary_n_loops = 0
             for beam_name, beam_current in bft.items():
                 if not beam_current is None:
                     necessary_beam_convolutions.add(beam_name)

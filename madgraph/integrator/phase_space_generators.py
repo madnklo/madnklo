@@ -57,7 +57,8 @@ class VirtualPhaseSpaceGenerator(object):
 
     def __init__(self, initial_masses, final_masses,
                  beam_Es, 
-                 beam_types=(1,1)
+                 beam_types=(1,1),
+                 is_beam_factorization_active=(False, False),
                 ):
         
         self.initial_masses  = initial_masses
@@ -67,6 +68,7 @@ class VirtualPhaseSpaceGenerator(object):
         self.beam_Es         = beam_Es
         self.collider_energy = sum(beam_Es)
         self.beam_types      = beam_types
+        self.is_beam_factorization_active = is_beam_factorization_active
         self.dimensions      = self.get_dimensions()
         self.dim_ordered_names = [d.name for d in self.dimensions]
         # BALDY shouldn't you use bidict here, given we need it anyway?
@@ -94,10 +96,10 @@ class VirtualPhaseSpaceGenerator(object):
                 for p in PS_point:
                     p.boost(-lab_boost)
 
-    def boost_to_COM_frame(self, PS_point, xb_1, xb_2):
-        """Boost a phase-space point from the lab frame to the COM frame, given Bjorken x's."""
+    def boost_to_COM_frame(self, PS_point):
+        """Boost a phase-space point from the lab frame to the COM frame"""
         
-        if self.n_initial == 2 and (xb_1!=1. or xb_2!=1.):
+        if self.n_initial == 2:
             ref_com = (PS_point[0] + PS_point[1])
             if ref_com.rho2() != 0.:
                 com_boost = ref_com.boostVector()
@@ -123,6 +125,12 @@ class VirtualPhaseSpaceGenerator(object):
             # The 2>1 topology requires a special treatment
             if not (self.n_initial==2 and self.n_final==1):
                 dims.append(integrands.ContinuousDimension('tau',lower_bound=0.0, upper_bound=1.0)) 
+
+        # Add chsi beam factorization convolution factors if necessary
+        if self.is_beam_factorization_active[0]:
+            dims.append(integrands.ContinuousDimension('chsi1',lower_bound=0.0, upper_bound=1.0))             
+        if self.is_beam_factorization_active[1]:
+            dims.append(integrands.ContinuousDimension('chsi2',lower_bound=0.0, upper_bound=1.0))
 
         # Add the phase-space dimensions
         dims.extend([ integrands.ContinuousDimension('x_%d'%i,lower_bound=0.0, upper_bound=1.0) 
@@ -358,6 +366,7 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
 
             xb_1 = math.sqrt(PDF_tau) * math.exp(PDF_ycm)
             xb_2 = math.sqrt(PDF_tau) * math.exp(-PDF_ycm)
+            # /!\ The mass of initial state momenta is neglected here.
             E_cm = math.sqrt(xb_1*xb_2)*self.collider_energy
 
         elif self.beam_types[0]==self.beam_types[1]==0:
@@ -367,9 +376,25 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
         else:
             raise InvalidCmd("This basic PS generator does not yet support collider mode (%d,%d)."%self.beam_types)
 
+        # Now also generate the ISR collinear factorization convolutoin variables chsi<i> if
+        # necessary. In order for the + distributions of the PDF counterterms and integrated
+        # collinear ISR counterterms to hit the PDF only (and not the matrix elements or
+        # observables functions), a change of variable is necessary, bringing a 1/chsi<i>
+        # term for each rescaling in the Jacobian.
+        if self.is_beam_factorization_active[0]:
+            chsi1 = random_variables[self.dim_name_to_position['chsi1']]
+            wgt /= chsi1
+        else:
+            chsi1 = None
+        if self.is_beam_factorization_active[1]:
+            chsi2 = random_variables[self.dim_name_to_position['chsi2']]
+            wgt /= chsi2
+        else:
+            chsi2 = None
+        
         # Make sure the Bjorken x's are physical:
         if xb_1>1. or xb_2>1.:
-            return None, 0.0, xb_1, xb_2
+            return None, 0.0, (xb_1, chsi1) , (xb_2, chsi2)
 
         # Now generate a PS point
         PS_point, PS_weight = self.generateKinematics(E_cm, PS_random_variables)
@@ -377,7 +402,7 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
         # Apply the phase-space weight
         wgt *= PS_weight
         
-        return LorentzVectorList(PS_point), wgt, xb_1, xb_2
+        return LorentzVectorList(PS_point), wgt, (xb_1, chsi1) , (xb_2, chsi2)
 
     def generateKinematics(self, E_cm, random_variables):
         """Generate a self.n_initial -> self.n_final phase-space point
@@ -606,3 +631,75 @@ if __name__ == '__main__':
         print "\nMax. relative diff. in reconstructed variables = %.3e"%\
             max(differences[i]/random_variables[i] for i in range(len(differences)))
     print "Rel. diff. in PS weight = %.3e\n"%((wgt_reconstructed-wgt)/wgt)
+
+
+    print('-'*100)
+    print('SIDE EXPERIMENT, TO REMOVE LATER')
+    print('-'*100)
+    import copy    
+
+    my_PS_generator = FlatInvertiblePhasespace([0.]*2, [100. + 10.*i for i in range(2)],
+                                            beam_Es =(E_cm/2.,E_cm/2.), beam_types=(0,0))
+    # Try to run the above for a 2->1.    
+    #    my_PS_generator = FlatInvertiblePhasespace([0.]*2, [5000.0])
+    
+    random_variables = [random.random() for _ in range(my_PS_generator.nDimPhaseSpace())]
+
+    momenta, wgt = my_PS_generator.generateKinematics(E_cm, random_variables)
+
+
+    print("original momenta")
+    print(str(momenta))
+    print("computing boost vector to lab frame with x1=0.25 and x2=0.6")
+    boost_vector_to_lab_frame = None
+    xb_1, xb_2 = 0.25, 0.6
+    ref_lab = (momenta[0]*xb_1 + momenta[1]*xb_2)
+    boost_vector_to_lab_frame = -ref_lab.boostVector()
+
+    print("then further rescaling with chsi1=0.12 and chsi2=0.71")
+    chsi1, chsi2 = 0.12, 0.71
+    momenta[0] = chsi1*momenta[0]
+    momenta[1] = chsi2*momenta[1]
+
+    print("Boosting back to c.o.m:")
+    ref_com = (momenta[0] + momenta[1])
+    chsi_boost = ref_com.boostVector()
+    boost_vector_to_lab_frame += chsi_boost
+    momenta_boosted_to_com = copy.deepcopy(momenta)
+    for p in momenta_boosted_to_com:
+        p.boost(-chsi_boost)
+    test_momenta = copy.deepcopy(momenta_boosted_to_com)
+
+    print("Final PS point should be in c.o.m:")
+    print(str(momenta_boosted_to_com))
+    print("\nFinal check\n")
+    print("Initial state momenta obtained from simple rescaling:")
+    print("1: %s"%str(momenta_boosted_to_com[0]*xb_1*chsi1))
+    print("2: %s"%str(momenta_boosted_to_com[1]*xb_2*chsi2))
+
+    print("\n Initial state momenta obtained with chsi boost:")
+    print("chsi_boost=",str(chsi_boost))
+    test_momenta[0].boost(chsi_boost)
+    test_momenta[1].boost(chsi_boost)
+    print("1: %s"%str(test_momenta[0]))
+    print("2: %s"%str(test_momenta[1]))
+    print(".vs.")
+    print("1: %s"%str(momenta[0]))
+    print("2: %s"%str(momenta[1]))
+
+    print("\n Initial state momenta obtained with subsequent bjorken boost:")
+    test_momenta[0].boost(-ref_lab.boostVector())
+    test_momenta[1].boost(-ref_lab.boostVector())
+    print("1: %s"%str(test_momenta[0]))
+    print("2: %s"%str(test_momenta[1]))
+    print(".vs.")
+    print("1: %s"%str(momenta[0]*xb_1))
+    print("2: %s"%str(momenta[1]*xb_2))
+
+    print("\n Initial state momenta obtained with overall boost:")
+    momenta[0].boost(boost_vector_to_lab_frame)
+    momenta[1].boost(boost_vector_to_lab_frame)
+    print("1: %s"%str(momenta[0]))
+    print("2: %s"%str(momenta[1]))
+
+

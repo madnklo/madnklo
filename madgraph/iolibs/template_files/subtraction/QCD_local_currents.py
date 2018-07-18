@@ -265,42 +265,25 @@ class QCDBeamFactorizationCurrent(QCDCurrent):
 
         return init_vars
 
-    def evaluate_subtraction_current(
-        self, current,
-        higher_PS_point=None, lower_PS_point=None,
-        leg_numbers_map=None, reduced_process=None, hel_config=None,
-        Q=None, **opts ):
+    def evaluate_subtraction_current(self, current, chsi, mu_f, **opts ):
         """ This implementation of the main function call in the base class preprocess
         the inputs so as to define the variable generically useful for all beam factorization
         current."""
-    
-        if higher_PS_point is None or lower_PS_point is None:
-            raise CurrentImplementationError(
-                self.name() + " needs the phase-space points before and after mapping." )
-        if leg_numbers_map is None:
-            raise CurrentImplementationError(
-                self.name() + " requires a leg numbers map, i.e. a momentum dictionary." )
+
         if not hel_config is None:
             raise CurrentImplementationError(
                 self.name() + " does not support helicity assignment." )
-        if Q is None:
+        if chsi is None:
             raise CurrentImplementationError(
-                self.name() + " requires the total mapping momentum Q." )
+                self.name() + " requires the rescaling variable chsi." )
+        if mu_f is None:
+            raise CurrentImplementationError(
+                self.name() + " requires the factorization scale mu_f." )
 
         # Retrieve alpha_s and mu_r
         model_param_dict = self.model.get('parameter_dict')
         alpha_s = model_param_dict['aS']
         mu_r = model_param_dict['MU_R']
-        
-        initial_state_leg_map = current.get_initial_state_leg_map(leg_numbers_map)
-        if initial_state_leg_map is None:
-            raise CurrentImplementationError("Beam factorization currents should involve"+
-                                                                    " initial-state legs.")
-        
-        mother_initial_state_leg, daughter_initial_state_leg = initial_state_leg_map
-        # Extract the initial state momentum fraction
-        chsi = higher_PS_point[daughter_initial_state_leg.n].dot(Q) / \
-               lower_PS_point[mother_initial_state_leg.n].dot(Q)
 
         # Compute the normalization factor
         normalization = ( alpha_s / (2. * math.pi) ) ** (current['n_loops'] + 1)

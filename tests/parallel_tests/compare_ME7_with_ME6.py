@@ -230,4 +230,4 @@ class ME6ME7Comparator(unittest.TestCase):
                              orders = orders,
                              filename = "short_ME7_pp_wp_jets.log",
                              append_output = True,
-                             ME7_options={'n_points':1000, 'integrator':'VEGAS3'})
+                             ME7_options={'n_points':5000, 'integrator':'VEGAS3'})

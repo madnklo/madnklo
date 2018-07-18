@@ -94,10 +94,10 @@ class VirtualPhaseSpaceGenerator(object):
                 for p in PS_point:
                     p.boost(-lab_boost)
 
-    def boost_to_COM_frame(self, PS_point, xb_1, xb_2):
+    def boost_to_COM_frame(self, PS_point):
         """Boost a phase-space point from the lab frame to the COM frame, given Bjorken x's."""
         
-        if self.n_initial == 2 and (xb_1!=1. or xb_2!=1.):
+        if self.n_initial == 2:
             ref_com = (PS_point[0] + PS_point[1])
             if ref_com.rho2() != 0.:
                 com_boost = ref_com.boostVector()

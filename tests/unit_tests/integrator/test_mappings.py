@@ -27,7 +27,6 @@ import random
 import os
 
 import tests.unit_tests as unittest
-import tests.input_files.simple_qcd as simple_qcd
 
 pjoin = os.path.join
 
@@ -329,7 +328,8 @@ class MappingsTest(unittest.TestCase):
 
     seed = 42
     n_tests = 20
-    verbose = False
+    verbose = 0
+    n_skip = 0
 
     @staticmethod
     def randomize(pars):
@@ -446,12 +446,19 @@ class MappingsTest(unittest.TestCase):
         for i in range(3, pars['n_tot']+1):
             # Recoilers
             if i in leg_ns:
-                if pars['supports_massive_recoilers']: masses.append(random.random())
+                if pars.get('supports_massive_recoilers', True):
+                    masses.append(random.random())
                 else: masses.append(0.)
             # Soft particles or unchanged
             else:
-                masses.append(random.random())
-        E_cm = sum(masses) / random.random()
+                if pars.get('supports_massive_unresolved', True):
+                    masses.append(random.random())
+                else: masses.append(0.)
+        M = sum(masses)
+        if M > 0.:
+            E_cm = sum(masses) / random.random()
+        else:
+            E_cm = random.random()
         gen = PS.FlatInvertiblePhasespace(
             (0., 0.), masses, beam_Es=(E_cm/2., E_cm/2.), beam_types=(0, 0) )
         randoms = [random.random() for _ in range(gen.nDimPhaseSpace())]
@@ -464,11 +471,11 @@ class MappingsTest(unittest.TestCase):
         # Make test deterministic by setting seed
         random.seed(self.seed)
         # Check many times
-        for _ in range(pars.get('n_tests', self.n_tests)):
+        for n_test in range(pars.get('n_tests', self.n_tests)):
             # Generate a random setup
             MappingsTest.randomize(pars)
             if self.verbose:
-                misc.sprint("Structure: " + str(pars['structure']))
+                print "Test" , n_test+1, ": Structure" , str(pars['structure'])
             my_PS_point = MappingsTest.generate_PS(pars)
             squared_masses = dict()
             for parent in pars['parents']:
@@ -477,23 +484,26 @@ class MappingsTest(unittest.TestCase):
                     squared_masses['m2' + str(parent)] = random.random()*p.square()
                 else:
                     squared_masses['m2' + str(parent)] = 0.
+            if n_test < self.n_skip:
+                print "Test", n_test+1, "skipped"
+                continue
             # Rotate it to avoid zero components
             for key in my_PS_point.keys():
                 my_PS_point[key].rotoboost(MappingsTest.v1, MappingsTest.v2)
-            if self.verbose:
+            if self.verbose > 1:
                 misc.sprint("Starting PS point:\n" + str(my_PS_point))
             # Compute collinear variables
             variables = dict()
             low_PS_point, low_vars = pars['mapping'].map_to_lower_multiplicity(
                 my_PS_point, pars['structure'], pars['momenta_dict'], squared_masses,
                 variables, True )
-            if self.verbose:
+            if self.verbose > 1:
                 misc.sprint("Mapped PS point:\n" + str(low_PS_point))
                 misc.sprint("with variables: " + str(low_vars))
             high_PS_point, high_vars = pars['mapping'].map_to_higher_multiplicity(
                 low_PS_point, pars['structure'], pars['momenta_dict'],
                 variables, True )
-            if self.verbose:
+            if self.verbose > 1:
                 misc.sprint("Unmapped PS point:\n" + str(high_PS_point))
                 misc.sprint("with variables: " + str(high_vars))
             assertDictAlmostEqual(self, my_PS_point, high_PS_point)
@@ -523,25 +533,213 @@ class MappingsTest(unittest.TestCase):
             # Rotate it to avoid zero components
             for key in my_PS_point.keys():
                 my_PS_point[key].rotoboost(MappingsTest.v1, MappingsTest.v2)
-            if self.verbose:
+            if self.verbose > 1:
                 misc.sprint("Starting PS point:\n" + str(my_PS_point))
-            # Compute collinear variables
-            variables = dict()
+            # Map to lower multiplicity using mapping1 and mapping2
             low_PS_point1, low_vars1 = pars['mapping1'].map_to_lower_multiplicity(
                 my_PS_point, pars['structure'], pars['momenta_dict'], squared_masses,
-                variables, True )
+                None, True )
             low_PS_point2, low_vars2 = pars['mapping2'].map_to_lower_multiplicity(
                 my_PS_point, pars['structure'], pars['momenta_dict'], squared_masses,
-                variables, True )
-            if self.verbose:
-                misc.sprint(pars['mapping1'].__class__.__name__ + " yields")
-                misc.sprint("PS point:\n" + str(low_PS_point1))
-                misc.sprint("variables: " + str(low_vars1))
-                misc.sprint(pars['mapping2'].__class__.__name__ + " yields")
-                misc.sprint("PS point:\n" + str(low_PS_point2))
-                misc.sprint("variables: " + str(low_vars2))
+                None, True )
+            if self.verbose > 1:
+                print pars['mapping1'].__class__.__name__ + " yields"
+                print str(low_PS_point1)
+                print "variables:", low_vars1
+                print pars['mapping2'].__class__.__name__ + " yields"
+                print str(low_PS_point2)
+                print "variables:", low_vars2
             assertDictAlmostEqual(self, low_PS_point1, low_PS_point2)
             assertDictAlmostEqual(self, low_vars1, low_vars2)
+
+    def _test_associative(self, pars):
+        """Test whether a mapping is associative."""
+
+        # Make test deterministic by setting seed
+        random.seed(self.seed)
+        # Check many times
+        for _ in range(pars.get('n_tests', self.n_tests)):
+            # Generate a random setup
+            MappingsTest.randomize(pars)
+            structure = pars['structure']
+            momenta_dict = pars['momenta_dict']
+            if self.verbose:
+                print "Structure:", structure
+            # Randomly divide the mapping in two steps
+            half_1_substructures = []
+            half_2_substructures = []
+            half_1_legs = [leg for leg in structure.legs]
+            half_2_legs = [leg for leg in structure.legs]
+            for substructure in structure.substructures:
+                if bool(random.getrandbits(1)):
+                    half_1_substructures.append(substructure)
+                    if substructure.name() == 'C':
+                        children = frozenset([leg.n for leg in substructure.legs])
+                        parent = momenta_dict.inv[children]
+                        state = subtraction.SubtractionLeg.FINAL
+                        if substructure.legs.has_initial_state_leg():
+                            state = subtraction.SubtractionLeg.INITIAL
+                        parent_leg = subtraction.SubtractionLeg(parent, 0, state)
+                        half_2_legs.append(parent_leg)
+                else:
+                    half_2_substructures.append(substructure)
+                    half_1_legs += substructure.legs
+            half_1 = subtraction.SingularStructure(
+                substructures=half_1_substructures, legs=half_1_legs )
+            half_2 = subtraction.SingularStructure(
+                substructures=half_2_substructures, legs=half_2_legs )
+            if self.verbose:
+                print "Half 1:", half_1
+                print "Half 2:", half_2
+            my_PS_point = MappingsTest.generate_PS(pars)
+            squared_masses = dict()
+            for leg in structure.legs:
+                squared_masses['m2' + str(leg.n)] = my_PS_point[leg.n].square()
+            for parent in pars['parents']:
+                if pars['masses']:
+                    p = sum(my_PS_point[child] for child in momenta_dict[parent])
+                    squared_masses['m2' + str(parent)] = random.random()*p.square()
+                else:
+                    squared_masses['m2' + str(parent)] = 0.
+            # Rotate it to avoid zero components
+            for key in my_PS_point.keys():
+                my_PS_point[key].rotoboost(MappingsTest.v1, MappingsTest.v2)
+            if self.verbose > 1:
+                print "Starting PS point:\n" + str(my_PS_point)
+            # Perform the mapping in one go
+            low_PS_point, low_vars = pars['mapping'].map_to_lower_multiplicity(
+                my_PS_point, structure, momenta_dict, squared_masses,
+                compute_jacobian=False )
+            if self.verbose > 1:
+                print "1 PS point:\n" + str(low_PS_point)
+            squared_masses_1 = {key: val for key, val in squared_masses.items()}
+            for leg in half_1_legs:
+                squared_masses_1['m2' + str(leg.n)] = my_PS_point[leg.n].square()
+            # Perform the mapping in two steps
+            half_PS_point, half_vars = pars['mapping'].map_to_lower_multiplicity(
+                my_PS_point, half_1, momenta_dict, squared_masses_1,
+                compute_jacobian=False )
+            if self.verbose > 1:
+                print "1*0.5 PS point:\n" + str(half_PS_point)
+            squared_masses_2 = {key: val for key, val in squared_masses.items()}
+            for leg in half_2_legs:
+                squared_masses_2['m2' + str(leg.n)] = half_PS_point[leg.n].square()
+            full_PS_point, full_vars = pars['mapping'].map_to_lower_multiplicity(
+                half_PS_point, half_2, momenta_dict, squared_masses_2,
+                compute_jacobian=False )
+            if self.verbose > 1:
+                print "2*0.5 PS point:\n" + str(full_PS_point)
+            assertDictAlmostEqual(self, low_PS_point, full_PS_point)
+
+    def _test_commutative(self, pars):
+        """Test whether a mapping is commutative."""
+
+        # Make test deterministic by setting seed
+        random.seed(self.seed)
+        # Check many times
+        for _ in range(pars.get('n_tests', self.n_tests)):
+            # Generate a random setup
+            MappingsTest.randomize(pars)
+            structure = pars['structure']
+            momenta_dict = pars['momenta_dict']
+            if self.verbose:
+                print "Structure:", structure
+            # Randomly divide the mapping in two steps
+            half_A_substructures = []
+            half_B_substructures = []
+            recoilers = [leg for leg in structure.legs]
+            half_A_legs_1 = list(recoilers)
+            half_A_legs_2 = list(recoilers)
+            half_B_legs_1 = list(recoilers)
+            half_B_legs_2 = list(recoilers)
+            for substructure in structure.substructures:
+                if bool(random.getrandbits(1)):
+                    half_A_substructures.append(substructure)
+                    half_B_legs_1 += substructure.legs
+                    if substructure.name() == 'C':
+                        children = frozenset([leg.n for leg in substructure.legs])
+                        parent = momenta_dict.inv[children]
+                        state = subtraction.SubtractionLeg.FINAL
+                        if substructure.legs.has_initial_state_leg():
+                            state = subtraction.SubtractionLeg.INITIAL
+                        parent_leg = subtraction.SubtractionLeg(parent, 0, state)
+                        half_B_legs_2.append(parent_leg)
+                else:
+                    half_B_substructures.append(substructure)
+                    half_A_legs_1 += substructure.legs
+                    if substructure.name() == 'C':
+                        children = frozenset([leg.n for leg in substructure.legs])
+                        parent = momenta_dict.inv[children]
+                        state = subtraction.SubtractionLeg.FINAL
+                        if substructure.legs.has_initial_state_leg():
+                            state = subtraction.SubtractionLeg.INITIAL
+                        parent_leg = subtraction.SubtractionLeg(parent, 0, state)
+                        half_A_legs_2.append(parent_leg)
+            half_A_1 = subtraction.SingularStructure(
+                substructures=half_A_substructures, legs=half_A_legs_1 )
+            half_A_2 = subtraction.SingularStructure(
+                substructures=half_A_substructures, legs=half_A_legs_2 )
+            half_B_1 = subtraction.SingularStructure(
+                substructures=half_B_substructures, legs=half_B_legs_1 )
+            half_B_2 = subtraction.SingularStructure(
+                substructures=half_B_substructures, legs=half_B_legs_2 )
+            if self.verbose:
+                print "Path 1:"
+                print half_A_1
+                print half_B_2
+                print "Path 2:"
+                print half_B_1
+                print half_A_2
+            my_PS_point = MappingsTest.generate_PS(pars)
+            squared_masses = dict()
+            for leg in structure.legs:
+                squared_masses['m2' + str(leg.n)] = my_PS_point[leg.n].square()
+            for parent in pars['parents']:
+                if pars['masses']:
+                    p = sum(my_PS_point[child] for child in momenta_dict[parent])
+                    squared_masses['m2' + str(parent)] = random.random()*p.square()
+                else:
+                    squared_masses['m2' + str(parent)] = 0.
+            # Rotate it to avoid zero components
+            for key in my_PS_point.keys():
+                my_PS_point[key].rotoboost(MappingsTest.v1, MappingsTest.v2)
+            if self.verbose > 1:
+                print "Starting PS point:\n" + str(my_PS_point)
+            # Perform the mapping A then B
+            squared_masses_A_1 = {key: val for key, val in squared_masses.items()}
+            for leg in half_A_legs_1:
+                squared_masses_A_1['m2' + str(leg.n)] = my_PS_point[leg.n].square()
+            PS_point_A_1, _ = pars['mapping'].map_to_lower_multiplicity(
+                my_PS_point, half_A_1, momenta_dict, squared_masses_A_1,
+                compute_jacobian=False )
+            if self.verbose > 1:
+                print "A 1 PS point:\n" + str(PS_point_A_1)
+            squared_masses_B_2 = {key: val for key, val in squared_masses.items()}
+            for leg in half_B_legs_2:
+                squared_masses_B_2['m2' + str(leg.n)] = PS_point_A_1[leg.n].square()
+            PS_point_B_2, _ = pars['mapping'].map_to_lower_multiplicity(
+                PS_point_A_1, half_B_2, momenta_dict, squared_masses_B_2,
+                compute_jacobian=False )
+            if self.verbose > 1:
+                print "B 2 PS point:\n" + str(PS_point_B_2)
+            # Perform the mapping B then A
+            squared_masses_B_1 = {key: val for key, val in squared_masses.items()}
+            for leg in half_B_legs_1:
+                squared_masses_B_1['m2' + str(leg.n)] = my_PS_point[leg.n].square()
+            PS_point_B_1, _ = pars['mapping'].map_to_lower_multiplicity(
+                my_PS_point, half_B_1, momenta_dict, squared_masses_B_1,
+                compute_jacobian=False )
+            if self.verbose > 1:
+                print "B 1 PS point:\n" + str(PS_point_B_1)
+            squared_masses_A_2 = {key: val for key, val in squared_masses.items()}
+            for leg in half_A_legs_2:
+                squared_masses_A_2['m2' + str(leg.n)] = PS_point_B_1[leg.n].square()
+            PS_point_A_2, _ = pars['mapping'].map_to_lower_multiplicity(
+                PS_point_B_1, half_A_2, momenta_dict, squared_masses_A_2,
+                compute_jacobian=False )
+            if self.verbose > 1:
+                print "B 2 PS point:\n" + str(PS_point_B_2)
+            assertDictAlmostEqual(self, PS_point_A_2, PS_point_B_2)
 
     # Test masses mappings
     #=====================================================================================
@@ -554,7 +752,7 @@ class MappingsTest(unittest.TestCase):
             'min_coll_sets': 2, 'max_coll_sets': 5,
             'min_recoilers': 0, 'max_recoilers': 0,
             'max_unchanged': 0, 'masses': None,
-            'min_unresolved_per_set': 0, 'max_unresolved_per_set': 0,}
+            'min_unresolved_per_set': 0, 'max_unresolved_per_set': 0, }
         self._test_invertible(pars)
 
     def test_FinalMassesMapping_invertible(self):
@@ -565,7 +763,7 @@ class MappingsTest(unittest.TestCase):
             'min_coll_sets': 2, 'max_coll_sets': 5,
             'min_recoilers': 0, 'max_recoilers': 0,
             'max_unchanged': 0, 'masses': True,
-            'min_unresolved_per_set': 0, 'max_unresolved_per_set': 0,}
+            'min_unresolved_per_set': 0, 'max_unresolved_per_set': 0, }
         self._test_invertible(pars)
 
     def test_FinalMasses_reduces_to_FinalZeroMasses(self):
@@ -576,7 +774,7 @@ class MappingsTest(unittest.TestCase):
             'min_coll_sets': 2, 'max_coll_sets': 5,
             'min_recoilers': 0, 'max_recoilers': 0,
             'max_unchanged': 0, 'masses': False,
-            'min_unresolved_per_set': 0, 'max_unresolved_per_set': 0,}
+            'min_unresolved_per_set': 0, 'max_unresolved_per_set': 0, }
         self._test_equal_lower(pars)
 
     # Test final-collinear mappings
@@ -591,7 +789,7 @@ class MappingsTest(unittest.TestCase):
             'min_recoilers': 1, 'max_recoilers': 3,
             'max_unchanged': 3, 'masses': None,
             'min_unresolved_per_set': 1, 'max_unresolved_per_set': 4,
-            'supports_massive_recoilers': False}
+            'supports_massive_recoilers': False, }
         self._test_invertible(pars)
 
     def test_FinalLorentzOneMapping_invertible(self):
@@ -602,8 +800,7 @@ class MappingsTest(unittest.TestCase):
             'min_coll_sets': 1, 'max_coll_sets': 1,
             'min_recoilers': 1, 'max_recoilers': 5,
             'max_unchanged': 3, 'masses': None,
-            'min_unresolved_per_set': 1, 'max_unresolved_per_set': 4,
-            'supports_massive_recoilers': True}
+            'min_unresolved_per_set': 1, 'max_unresolved_per_set': 4, }
         self._test_invertible(pars)
 
     def test_FinalLorentzOne_reduces_to_FinalRescalingOne(self):
@@ -615,7 +812,7 @@ class MappingsTest(unittest.TestCase):
             'min_recoilers': 1, 'max_recoilers': 1,
             'max_unchanged': 0, 'masses': None,
             'min_unresolved_per_set': 1, 'max_unresolved_per_set': 1,
-            'supports_massive_recoilers': False}
+            'supports_massive_recoilers': False }
         self._test_equal_lower(pars)
 
     def test_FinalGroupingMapping_invertible(self):
@@ -624,8 +821,7 @@ class MappingsTest(unittest.TestCase):
         pars = {
             'mapping': mappings.FinalGroupingMapping(),
             'max_unchanged': 3, 'masses': True,
-            'min_unresolved_per_set': 0, 'max_unresolved_per_set': 3,
-            'supports_massive_recoilers': True}
+            'min_unresolved_per_set': 0, 'max_unresolved_per_set': 3, }
         pars.update({
             'min_coll_sets': 1, 'max_coll_sets': 3,
             'min_recoilers': 1, 'max_recoilers': 4,})
@@ -641,8 +837,7 @@ class MappingsTest(unittest.TestCase):
         pars = {
             'mapping': mappings.FinalLorentzMapping(),
             'max_unchanged': 3, 'masses': True,
-            'min_unresolved_per_set': 0, 'max_unresolved_per_set': 3,
-            'supports_massive_recoilers': True}
+            'min_unresolved_per_set': 0, 'max_unresolved_per_set': 3, }
         pars.update({
             'min_coll_sets': 1, 'max_coll_sets': 3,
             'min_recoilers': 1, 'max_recoilers': 4,})
@@ -663,8 +858,7 @@ class MappingsTest(unittest.TestCase):
             'min_coll_sets': 1, 'max_coll_sets': 1,
             'min_recoilers': 1, 'max_recoilers': 4,
             'max_unchanged': 1, 'masses': None,
-            'min_unresolved_per_set': 1, 'max_unresolved_per_set': 4,
-            'supports_massive_recoilers': True}
+            'min_unresolved_per_set': 1, 'max_unresolved_per_set': 4, }
         self._test_equal_lower(pars)
 
     def test_FinalGrouping_reduces_to_FinalRescalingOne(self):
@@ -679,7 +873,7 @@ class MappingsTest(unittest.TestCase):
             'min_recoilers': 1, 'max_recoilers': 4,
             'max_unchanged': 3, 'masses': None,
             'min_unresolved_per_set': 1, 'max_unresolved_per_set': 4,
-            'supports_massive_recoilers': False}
+            'supports_massive_recoilers': False }
         self._test_equal_lower(pars)
 
     def test_FinalLorentz_equal_FinalGrouping(self):
@@ -694,14 +888,44 @@ class MappingsTest(unittest.TestCase):
             'min_recoilers': 1, 'max_recoilers': 1,
             'max_unchanged': 1, 'masses': None,
             'min_unresolved_per_set': 1, 'max_unresolved_per_set': 4,
-            'supports_massive_recoilers': True,
-            'n_tests': 5}
+            'n_tests': 5, }
         self._test_equal_lower(pars)
         pars['supports_massive_recoilers'] = False
         self._test_equal_lower(pars)
         pars.update({'min_coll_sets': 2, 'min_recoilers': 0, 'max_recoilers': 0})
         self._test_equal_lower(pars)
 
+    def test_FinalGroupingMapping_associative(self):
+        """Test if FinalGroupingMapping is associative."""
+
+        pars = {
+            'mapping': mappings.FinalGroupingMapping(),
+            'max_unchanged': 3, 'masses': True,
+            'min_unresolved_per_set': 0, 'max_unresolved_per_set': 3, }
+        pars.update({
+            'min_coll_sets': 2, 'max_coll_sets': 4,
+            'min_recoilers': 1, 'max_recoilers': 4,})
+        self._test_associative(pars)
+        pars.update({
+            'min_coll_sets': 2, 'max_coll_sets': 5,
+            'min_recoilers': 0, 'max_recoilers': 3,})
+        self._test_associative(pars)
+
+    def test_FinalGroupingMapping_commutative(self):
+        """Test if FinalGroupingMapping is associative."""
+
+        pars = {
+            'mapping': mappings.FinalGroupingMapping(),
+            'max_unchanged': 3, 'masses': True,
+            'min_unresolved_per_set': 0, 'max_unresolved_per_set': 2, }
+        pars.update({
+            'min_coll_sets': 3, 'max_coll_sets': 4,
+            'min_recoilers': 1, 'max_recoilers': 4,})
+        self._test_commutative(pars)
+        pars.update({
+            'min_coll_sets': 3, 'max_coll_sets': 5,
+            'min_recoilers': 0, 'max_recoilers': 3,})
+        self._test_commutative(pars)
 
     # Test initial-collinear mappings
     #=====================================================================================
@@ -714,12 +938,90 @@ class MappingsTest(unittest.TestCase):
             'initial_sets': 1,
             'min_unresolved_per_set': 1, 'max_unresolved_per_set': 4,
             'min_recoilers': 1, 'max_recoilers': 5,
-            'max_unchanged': 3, 'masses': None,
-            'supports_massive_recoilers': True}
+            'max_unchanged': 3, 'masses': None, }
         self._test_invertible(pars)
 
     # Test soft mappings
     #=====================================================================================
+
+    def test_FinalAssociativeSoftMappingZero_invertible(self):
+        """Test if FinalAssociativeSoftMappingZero is invertible."""
+
+        # WARNING
+        # This mapping may produce a negative jacobian,
+        # in which case there are two solutions for alpha in the inverse mapping
+        # and the wrong one is picked.
+        # This causes this test to fail.
+        pars = {
+            'mapping': mappings.FinalAssociativeSoftMappingZero(),
+            'min_soft_sets': 1, 'max_soft_sets': 5,
+            'min_recoilers': 2, 'max_recoilers': 5,
+            'max_unchanged': 0, 'masses': None,
+            'min_unresolved_per_set': 1, 'max_unresolved_per_set': 4,
+            'supports_massive_recoilers': False, }
+        self._test_invertible(pars)
+
+    def test_FinalAssociativeSoftMappingZero_associative(self):
+        """Test if FinalAssociativeSoftMappingZero is associative."""
+
+        pars = {
+            'mapping': mappings.FinalAssociativeSoftMappingZero(),
+            'min_soft_sets': 1, 'max_soft_sets': 6,
+            'min_recoilers': 2, 'max_recoilers': 4,
+            'max_unchanged': 1, 'masses': None,
+            'min_unresolved_per_set': 1, 'max_unresolved_per_set': 3,
+            'supports_massive_recoilers': False, 'supports_massive_unresolved': False, }
+        self._test_associative(pars)
+
+    def test_FinalAssociativeSoftMappingZero_commutative(self):
+        """Test if FinalAssociativeSoftMappingZero is commutative."""
+
+        pars = {
+            'mapping': mappings.FinalAssociativeSoftMappingZero(),
+            'min_soft_sets': 1, 'max_soft_sets': 5,
+            'min_recoilers': 2, 'max_recoilers': 4,
+            'max_unchanged': 1, 'masses': None,
+            'min_unresolved_per_set': 1, 'max_unresolved_per_set': 3,
+            'supports_massive_recoilers': False, 'supports_massive_unresolved': False, }
+        self._test_commutative(pars)
+
+    def test_FinalAssociativeSoftMapping_invertible(self):
+        """Test if FinalAssociativeSoftMapping is invertible."""
+
+        # WARNING
+        # This mapping may produce a negative jacobian,
+        # in which case there are two solutions for alpha in the inverse mapping
+        # and the wrong one is picked.
+        # This causes this test to fail.
+        pars = {
+            'mapping': mappings.FinalAssociativeSoftMapping(),
+            'min_soft_sets': 1, 'max_soft_sets': 5,
+            'min_recoilers': 2, 'max_recoilers': 5,
+            'max_unchanged': 3, 'masses': None,
+            'min_unresolved_per_set': 1, 'max_unresolved_per_set': 4, }
+        self._test_invertible(pars)
+
+    def test_FinalAssociativeSoftMapping_associative(self):
+        """Test if FinalAssociativeSoftMapping is associative."""
+
+        pars = {
+            'mapping': mappings.FinalAssociativeSoftMapping(),
+            'min_soft_sets': 1, 'max_soft_sets': 6,
+            'min_recoilers': 2, 'max_recoilers': 4,
+            'max_unchanged': 2, 'masses': None,
+            'min_unresolved_per_set': 1, 'max_unresolved_per_set': 3, }
+        self._test_associative(pars)
+
+    def test_FinalAssociativeSoftMapping_commutative(self):
+        """Test if FinalAssociativeSoftMapping is commutative."""
+
+        pars = {
+            'mapping': mappings.FinalAssociativeSoftMapping(),
+            'min_soft_sets': 1, 'max_soft_sets': 5,
+            'min_recoilers': 2, 'max_recoilers': 4,
+            'max_unchanged': 2, 'masses': None,
+            'min_unresolved_per_set': 1, 'max_unresolved_per_set': 3, }
+        self._test_commutative(pars)
 
     def test_SoftVsFinalMapping_invertible(self):
         """Test if SoftVsFinalMapping is invertible."""
@@ -730,372 +1032,5 @@ class MappingsTest(unittest.TestCase):
             'min_recoilers': 2, 'max_recoilers': 5,
             'max_unchanged': 3, 'masses': None,
             'min_unresolved_per_set': 1, 'max_unresolved_per_set': 4,
-            'supports_massive_recoilers': False}
+            'supports_massive_recoilers': False, }
         self._test_invertible(pars)
-
-#=========================================================================================
-# Test the phase-space walkers
-#=========================================================================================
-
-class WalkersTest(unittest.TestCase):
-    """Test class for walkers."""
-
-    # Parameters
-    #=====================================================================================
-
-    # Verbosity (silent = 0, max = 4)
-    verbosity = 1
-    # Random seed to make tests deterministic
-    seed = 42
-    # Number of PS points the invertibility test is run for (more = stronger, slower test)
-    n_test_invertible = 3
-    # Number of PS points the approach_limit test is run for (more = stronger, slower test)
-    n_test_approach = 5
-    # Values of the parameter in approach_limit (more, smaller = stronger, slower test)
-    parameter_values = [0.1 ** i for i in range(5)]
-
-    # Setup
-    #=====================================================================================
-
-    # IRSubtraction module
-    irs = subtraction.IRSubtraction(
-        simple_qcd.model, coupling_types=('QCD', ), n_unresolved=None )
-    # Not aligning the initial state with z avoids numerical issues
-    initial_along_z = False
-    # Separator for output
-    stars = "*" * 90
-
-    # Functions
-    #=====================================================================================
-
-    @classmethod
-    def generate_PS_point(cls, process):
-        """Generate a phase-space point to test the walker."""
-
-        model = process.get('model')
-        # Generate random vectors
-        my_PS_point = LorentzVectorDict()
-        legs_FS = tuple(
-            subtraction.SubtractionLeg(leg)
-            for leg in process['legs']
-            if leg['state'] == FINAL )
-        for leg in legs_FS:
-            my_PS_point[leg.n] = random_momentum(
-                simple_qcd.masses[model.get_particle(leg.pdg)['mass'] ] )
-        total_momentum = LorentzVector()
-        for leg in legs_FS: total_momentum += my_PS_point[leg.n]
-        legs_IS = tuple(
-            subtraction.SubtractionLeg(leg)
-            for leg in process['legs']
-            if leg['state'] == INITIAL )
-        if len(legs_IS) == 1:
-            my_PS_point[legs_IS[0].n] = total_momentum
-        elif len(legs_IS) == 2:
-            if cls.initial_along_z:
-                bv = total_momentum.boostVector()
-                for key in my_PS_point.keys():
-                    my_PS_point[key].boost(-bv)
-                total_momentum.boost(-bv)
-                E = total_momentum[0]
-                my_PS_point[1] = LorentzVector([E/2., 0., 0., +E/2.])
-                my_PS_point[2] = LorentzVector([E/2., 0., 0., -E/2.])
-            else:
-                E = abs(total_momentum)
-                rest_momentum = LorentzVector([E, 0., 0., 0.])
-                my_PS_point[1] = LorentzVector([E/2., 0., 0., +E/2.])
-                my_PS_point[2] = LorentzVector([E/2., 0., 0., -E/2.])
-                my_PS_point[1].rotoboost(rest_momentum, total_momentum)
-                my_PS_point[2].rotoboost(rest_momentum, total_momentum)
-        else: raise BaseException
-        return my_PS_point
-
-    def _test_invertible(
-        self, walker, process,
-        max_unresolved_in_elementary, max_unresolved_in_combination):
-        """Check that the walker and its inverse yield the same result.
-
-        :param walker: Mapping walker to be tested
-        :type walker: mappings.VirtualWalker
-
-        :param process: The physical process the walker will be tested for
-        :type process: base_objects.Process
-
-        :param max_unresolved_in_elementary: Maximum number of unresolved particles
-        within the same elementary operator
-        :type max_unresolved_in_elementary: positive integer
-
-        :param max_unresolved_in_combination: Maximum number of unresolved particles
-        within a combination of elementary operators
-        :type max_unresolved_in_combination: positive integer
-        """
-
-        random.seed(self.seed)
-        if self.verbosity > 2:
-            print "\n" + self.stars * (self.verbosity - 2)
-        if self.verbosity > 0:
-            tmp_str = "test_invertible for " + walker.__class__.__name__
-            tmp_str += " with " + process.nice_string()
-            print tmp_str
-        if self.verbosity > 2:
-            print self.stars * (self.verbosity - 2) + "\n"
-        my_operators = self.irs.get_all_elementary_operators(
-            process, max_unresolved_in_elementary)
-        my_combinations = self.irs.get_all_combinations(
-            my_operators, max_unresolved_in_combination)
-        my_counterterms = [
-            self.irs.get_counterterm(combination, process)
-            for combination in my_combinations ]
-
-        # For each counterterm
-        for i in range(len(my_counterterms)):
-            if self.verbosity > 3: print "\n" + self.stars * (self.verbosity - 3)
-            if self.verbosity > 1: print "Considering counterterm", my_counterterms[i]
-            if self.verbosity > 3: print self.stars * (self.verbosity - 3) + "\n"
-            for j in range(self.n_test_invertible):
-                if self.verbosity > 2:
-                    print "Phase space point #", j+1
-                my_PS_point = self.generate_PS_point(process)
-                # Compute collinear variables
-                res_dict1 = walker.walk_to_lower_multiplicity(
-                    my_PS_point, my_counterterms[i],
-                    compute_kinematic_variables=True, compute_jacobian=True )
-                currs1, ME1, kin = (
-                    res_dict1['currents'], res_dict1['matrix_element'],
-                    res_dict1['kinematic_variables'] )
-                if self.verbosity > 3:
-                    print "Walking down"
-                    for curr in currs1:
-                        print curr[1]
-                    print ME1[1]
-                res_dict2 = walker.walk_to_higher_multiplicity(
-                    ME1[1], my_counterterms[i], kin,
-                    compute_jacobian=True )
-                currs2, ME2 = res_dict2['currents'], res_dict2['matrix_element']
-                if self.verbosity > 3:
-                    print "Walking up"
-                    print ME2[1]
-                    for curr in currs2:
-                        print curr[1]
-                # Check currents
-                self.assertEqual(len(currs1), len(currs2))
-                for i_curr in range(len(currs1)):
-                    c1, c2 = currs1[i_curr], currs2[i_curr]
-                    self.assertEqual(c1['stroll_currents'], c2['stroll_currents'])
-                    self.assertDictEqual(c1['higher_PS_point'], c2['higher_PS_point'])
-                    self.assertDictEqual(c1['lower_PS_point'], c2['lower_PS_point'])
-                    assertDictAlmostEqual(self, c1['stroll_vars'], c2['stroll_vars'])
-                # Check MEs
-                self.assertEqual(ME1[0], ME2[0])
-                self.assertDictEqual(ME1[1], ME2[1])
-
-    def _test_approach_limit(
-        self, walker, process,
-        max_unresolved_in_elementary, max_unresolved_in_combination):
-        """Check that the walker is capable of approaching limits.
-
-        :param walker: Mapping walker to be tested
-        :type walker: mappings.VirtualWalker
-
-        :param process: The physical process the walker will be tested for
-        :type process: base_objects.Process
-
-        :param max_unresolved_in_elementary: Maximum number of unresolved particles
-        within the same elementary operator
-        :type max_unresolved_in_elementary: positive integer
-
-        :param max_unresolved_in_combination: Maximum number of unresolved particles
-        within a combination of elementary operators
-        :type max_unresolved_in_combination: positive integer
-        """
-
-        if self.verbosity > 2:
-            print "\n" + self.stars * (self.verbosity - 2)
-        if self.verbosity > 0:
-            tmp_str = "test_approach_limit for " + walker.__class__.__name__
-            tmp_str += " with " + process.nice_string()
-            print tmp_str
-        if self.verbosity > 2:
-            print self.stars * (self.verbosity - 2) + "\n"
-        random.seed(self.seed)
-        # Generate all counterterms for this process, and separate the non-singular one
-        my_operators = self.irs.get_all_elementary_operators(
-            process, max_unresolved_in_elementary)
-        my_combinations = self.irs.get_all_combinations(
-            my_operators, max_unresolved_in_combination)
-        my_counterterms = [
-            self.irs.get_counterterm(combination, process)
-            for combination in my_combinations ]
-        # Get all legs in the FS and the model to check masses after approach_limit
-        legs_FS = tuple(
-            subtraction.SubtractionLeg(leg)
-            for leg in process['legs']
-            if leg['state'] == FINAL )
-        model = process.get('model')
-        # For each counterterm
-        for ct in my_counterterms:
-            if not ct.is_singular():
-                continue
-            if self.verbosity > 3: print "\n" + self.stars * (self.verbosity - 3)
-            if self.verbosity > 1: print "Considering counterterm", ct
-            if self.verbosity > 3: print self.stars * (self.verbosity - 3) + "\n"
-            ss = ct.reconstruct_complete_singular_structure()
-            for j in range(self.n_test_invertible):
-                if self.verbosity > 2:
-                    print "Phase space point #", j+1
-                # Generate random vectors
-                my_PS_point = self.generate_PS_point(process)
-                if self.verbosity > 3:
-                    print "Starting phase space point:\n", my_PS_point, "\n"
-                squares = {key: my_PS_point[key].square() for key in my_PS_point.keys()}
-                # Compute collinear variables
-                for alpha in self.parameter_values:
-                    new_PS_point = walker.approach_limit(my_PS_point, ss, alpha, process)
-                    if self.verbosity > 4:
-                        print "New PS point for", alpha, ":\n", new_PS_point
-                    for leg in legs_FS:
-                        if model.get_particle(leg.pdg)['mass'].lower() == 'zero':
-                            self.assertLess(
-                                abs(new_PS_point[leg.n].square()),
-                                math.sqrt(new_PS_point[leg.n].eps()) )
-                        else:
-                            self.assertAlmostEqual(
-                                new_PS_point[leg.n].square(),
-                                squares[leg.n] )
-
-    # Processes
-    #=====================================================================================
-
-    # H > u u~ d d~
-    H_to_uuxddx_legs = base_objects.LegList([
-        base_objects.Leg({'number': 1, 'id': 25, 'state': INITIAL}),
-        base_objects.Leg({'number': 2, 'id':  1, 'state': FINAL}),
-        base_objects.Leg({'number': 3, 'id': -1, 'state': FINAL}),
-        base_objects.Leg({'number': 4, 'id':  2, 'state': FINAL}),
-        base_objects.Leg({'number': 5, 'id': -2, 'state': FINAL}),
-    ])
-    H_to_uuxddx = base_objects.Process({
-        'legs': H_to_uuxddx_legs,
-        'model': simple_qcd.model,
-        'n_loops': 0
-    })
-
-    # H > u u~ d d~ H
-    H_to_uuxddxH_legs = base_objects.LegList([
-        base_objects.Leg({'number': 1, 'id': 25, 'state': INITIAL}),
-        base_objects.Leg({'number': 2, 'id':  1, 'state': FINAL}),
-        base_objects.Leg({'number': 3, 'id': -1, 'state': FINAL}),
-        base_objects.Leg({'number': 4, 'id':  2, 'state': FINAL}),
-        base_objects.Leg({'number': 5, 'id': -2, 'state': FINAL}),
-        base_objects.Leg({'number': 6, 'id': 25, 'state': FINAL}),
-    ])
-    H_to_uuxddxH = base_objects.Process({
-        'legs': H_to_uuxddxH_legs,
-        'model': simple_qcd.model,
-        'n_loops': 0
-    })
-
-    # H > q q~ g g H
-    H_to_qqxggH_legs = base_objects.LegList([
-        base_objects.Leg({'number': 1, 'id': 25, 'state': INITIAL}),
-        base_objects.Leg({'number': 2, 'id':  1, 'state': FINAL}),
-        base_objects.Leg({'number': 3, 'id': -1, 'state': FINAL}),
-        base_objects.Leg({'number': 4, 'id': 21, 'state': FINAL}),
-        base_objects.Leg({'number': 5, 'id': 21, 'state': FINAL}),
-        base_objects.Leg({'number': 6, 'id': 25, 'state': FINAL}),
-    ])
-    H_to_qqxggH = base_objects.Process({
-        'legs': H_to_qqxggH_legs,
-        'model': simple_qcd.model,
-        'n_loops': 0
-    })
-
-    # q q~ > g g H
-    # HACK: one gluon more to avoid issue with final-only soft mapping
-    qqx_to_ggH_legs = base_objects.LegList([
-        base_objects.Leg({'number': 1, 'id':  1, 'state': INITIAL}),
-        base_objects.Leg({'number': 2, 'id': -1, 'state': INITIAL}),
-        base_objects.Leg({'number': 3, 'id': 21, 'state': FINAL}),
-        base_objects.Leg({'number': 4, 'id': 21, 'state': FINAL}),
-        base_objects.Leg({'number': 5, 'id': 21, 'state': FINAL}),
-        base_objects.Leg({'number': 6, 'id': 25, 'state': FINAL}),
-    ])
-    qqx_to_ggH = base_objects.Process({
-        'legs': qqx_to_ggH_legs,
-        'model': simple_qcd.model,
-        'n_loops': 0
-    })
-
-    # Test NLO walkers
-    #=====================================================================================
-
-    def test_FinalRescalingOneWalker_invertible(self):
-
-        walker = mappings.FinalRescalingOneWalker()
-        self._test_invertible(walker, self.H_to_uuxddx, 1, 1)
-        self._test_invertible(walker, self.H_to_uuxddxH, 1, 1)
-
-    def test_FinalLorentzOneWalker_invertible(self):
-
-        walker = mappings.FinalLorentzOneWalker()
-        self._test_invertible(walker, self.H_to_uuxddx, 1, 1)
-        self._test_invertible(walker, self.H_to_uuxddxH, 1, 1)
-
-    def test_FinalRescalingNLOWalker_invertible(self):
-
-        walker = mappings.FinalRescalingNLOWalker()
-        self._test_invertible(walker, self.H_to_uuxddxH, 1, 1)
-        self._test_invertible(walker, self.H_to_qqxggH, 1, 1)
-
-    def test_FinalRescalingNLOWalker_approach_limit(self):
-
-        walker = mappings.FinalRescalingNLOWalker()
-        self._test_approach_limit(walker, self.H_to_uuxddxH, 1, 1)
-        self._test_approach_limit(walker, self.H_to_qqxggH, 1, 1)
-
-    def test_FinalLorentzNLOWalker_invertible(self):
-
-        walker = mappings.FinalLorentzNLOWalker()
-        self._test_invertible(walker, self.H_to_uuxddxH, 1, 1)
-        self._test_invertible(walker, self.H_to_qqxggH, 1, 1)
-
-    def test_FinalLorentzNLOWalker_approach_limit(self):
-
-        walker = mappings.FinalLorentzNLOWalker()
-        self._test_approach_limit(walker, self.H_to_uuxddxH, 1, 1)
-        self._test_approach_limit(walker, self.H_to_qqxggH, 1, 1)
-
-    def test_LorentzNLOWalker_invertible(self):
-
-        walker = mappings.LorentzNLOWalker()
-        self._test_invertible(walker, self.H_to_uuxddxH, 1, 1)
-        self._test_invertible(walker, self.H_to_qqxggH, 1, 1)
-        self._test_invertible(walker, self.qqx_to_ggH, 1, 1)
-
-    def test_LorentzNLOWalker_approach_limit(self):
-
-        walker = mappings.LorentzNLOWalker()
-        self._test_approach_limit(walker, self.H_to_qqxggH, 1, 1)
-        self._test_approach_limit(walker, self.qqx_to_ggH, 1, 1)
-
-    # Test disjoint walkers
-    #=====================================================================================
-
-    def test_FinalLorentzDisjointWalker_invertible(self):
-
-        walker = mappings.FinalLorentzDisjointWalker()
-        self._test_invertible(walker, self.H_to_uuxddxH, 1, 2)
-
-    def test_FinalLorentzDisjointWalker_approach_limit(self):
-
-        walker = mappings.FinalLorentzDisjointWalker()
-        self._test_approach_limit(walker, self.H_to_uuxddxH, 1, 2)
-
-    def test_FinalGroupingDisjointWalker_invertible(self):
-
-        walker = mappings.FinalGroupingDisjointWalker()
-        self._test_invertible(walker, self.H_to_uuxddxH, 1, 2)
-
-    def test_FinalGroupingDisjointWalker_approach_limit(self):
-
-        walker = mappings.FinalGroupingDisjointWalker()
-        self._test_approach_limit(walker, self.H_to_uuxddxH, 1, 2)

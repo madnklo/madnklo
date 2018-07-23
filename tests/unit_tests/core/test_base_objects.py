@@ -1925,8 +1925,8 @@ class EpsilonExpansionTest(unittest.TestCase):
         self.assertDictEqual(my_expansion_B, target)
 
         # Nice UTF-8 printout
-        # misc.sprint("'%s'"%str(my_expansion_A+my_expansion_B))
-        self.assertEqual(len(str(my_expansion_A+my_expansion_B)),66)
+        #misc.sprint("'%s'"%str(my_expansion_A+my_expansion_B))
+        self.assertEqual(len(str(my_expansion_A+my_expansion_B)),67)
 
 
 #===============================================================================

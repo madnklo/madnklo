@@ -4361,7 +4361,24 @@ class EpsilonExpansion(dict):
             raise NotImplementedError
         
     __rtruediv__ = __rdiv__
-    
+
+    def get_term(self, term_specifier):
+        """ Get on particular term of the expansion, specified either by a string or by
+        an integer."""
+        dict_key = 0
+        term_specifier = term_specifier.lower()
+        if isinstance(term_specifier, str):
+            if term_specifier == 'finite':
+                dict_key = 0
+            elif term_specifier.startswith('eps^'):
+                dict_key = int(key[4:])
+            else:
+                raise MadGraph5Error('Incorrect specification of the epsilon expansion term to access: %s'%term_specifier)
+        else:
+            dict_key = term_specifier
+
+        return self[dict_key]
+
     def to_human_readable_dict(self):
         """ Transforms this expansion into a dictionary with human readable keys.
         Typically to be used in MEEvaluation results dictionaries. """

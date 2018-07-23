@@ -28,7 +28,7 @@ import madgraph.various.misc as misc
 import models.import_ufo as import_ufo
 import madgraph.core.contributions as contributions
 import madgraph.core.accessors as accessors
-import madgraph.integrator.mappings as mappings
+import madgraph.integrator.walkers as walkers
 import madgraph.integrator.phase_space_generators as phase_space_generators
 import madgraph.iolibs.template_files.subtraction.QCD_local_currents as QCD_local_currents
 
@@ -58,7 +58,7 @@ class SubtractionCurrentTest(unittest.TestCase):
         self.current_exporter = subtraction.SubtractionCurrentExporter(
             self.model, export_dir=None, current_set='colorful')
         
-        self.walker = mappings.FinalRescalingNLOWalker
+        self.walker = walkers.FinalRescalingNLOWalker
         
         legs = base_objects.LegList([
             base_objects.Leg(
@@ -165,7 +165,8 @@ class SubtractionCurrentTest(unittest.TestCase):
 #       ------------------------------------------
         misc.sprint('Testing hard collinear g > q q~:')
         n_parent = len(base_PS)
-        momenta_map = bidict({n_parent: frozenset((4, 5))})
+        momenta_map = bidict({i: frozenset((i, )) for i in base_PS.keys()})
+        momenta_map[n_parent] = frozenset((4, 5))
         reduced_PS = copy.copy(base_PS)
         pC = reduced_PS.pop(4) + reduced_PS.pop(5)
         reduced_PS[n_parent] = pC
@@ -191,7 +192,8 @@ class SubtractionCurrentTest(unittest.TestCase):
 #       ------------------------------------------
         misc.sprint('Testing soft collinear q~ > q~ g:')
         n_parent = len(base_PS)
-        momenta_map = bidict({n_parent: frozenset((5, 7))})
+        momenta_map = bidict({i: frozenset((i, )) for i in base_PS.keys()})
+        momenta_map[n_parent] = frozenset((5, 7))
         reduced_PS = copy.copy(base_PS)
         pC = reduced_PS.pop(5) + reduced_PS.pop(7)
         reduced_PS[n_parent] = pC
@@ -212,7 +214,8 @@ class SubtractionCurrentTest(unittest.TestCase):
 #       ---- Testing soft gluon current
 #       ------------------------------------------
         misc.sprint('Testing soft gluon current:')
-        momenta_map = bidict({7: frozenset((7, ))})
+        momenta_map = bidict({i: frozenset((i, )) for i in base_PS.keys()})
+        momenta_map[7] = frozenset((7, ))
         reduced_process = self.reduced_process.get_copy()
         # Remove the last leg that is going soft
         reduced_process.get('legs').pop(-1)

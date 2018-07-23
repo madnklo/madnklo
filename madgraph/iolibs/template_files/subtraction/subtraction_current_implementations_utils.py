@@ -18,7 +18,6 @@ from __builtin__ import classmethod
 import math
 import madgraph.various.misc as misc
 import madgraph.integrator.phase_space_generators as PS_utils
-import madgraph.integrator.mappings as mappings
 
 #=========================================================================================
 # Subtraction current evaluation and result
@@ -54,10 +53,12 @@ class SubtractionCurrentEvaluation(dict):
         for the purpose of sorting."""
         
         index = 0
-        if result_name.startswith('eps'):
+        if isinstance(result_name, int):
+            index+=result_name
+            result_name='eps'
+        elif result_name.startswith('eps'):
             index += int(result_name.split('^')[1])
             result_name = 'eps'
-        
         return index + ((100*self.result_order.index(result_name))
                         if result_name in self.result_order else 100000)
 
@@ -70,7 +71,11 @@ class SubtractionCurrentEvaluation(dict):
         sorted_subresult_keys = sorted(subresult.keys(), 
                                                  key=lambda el: self.get_result_order(el))
         for subkey in sorted_subresult_keys:
-            lines.append(subtemplate%(subkey, 
+            if isinstance(subkey, int):
+                key_name='eps^%d'%subkey
+            else:
+                key_name=subkey
+            lines.append(subtemplate%(key_name, 
                                     self.format_result(subkey, subresult[subkey])))
         return lines
 
@@ -85,14 +90,16 @@ class SubtractionCurrentEvaluation(dict):
             for spin_lorentz_pair in res:
                 formatted_res.append(misc.bcolors.BLUE+'     %s:'%str(spin_lorentz_pair)+misc.bcolors.ENDC)
                 formatted_res.extend(['       -> %s'%line for 
-                                 line in self.subresult_lines(res[spin_lorentz_pair])])
+                        line in self.subresult_lines(res[spin_lorentz_pair],'%-10s=%s')])
             return '\n'.join(formatted_res)
 
         if res is None or key=='accuracy' and res < 0.:
             return 'N/A'
-        if key.startswith('eps'):
+        if isinstance(key, int):
             key = 'eps'
-        formatted_res = self.result_format[key]%res if result_key in self.result_format else str(res)
+        elif key.startswith('eps'):
+            key = 'eps'
+        formatted_res = self.result_format[key]%res if key in self.result_format else str(res)
         if isinstance(res,float) and res > 0.:
             formatted_res = ' %s'%formatted_res
         return formatted_res
@@ -139,7 +146,6 @@ class BeamFactorizationCurrentEvaluation(SubtractionCurrentEvaluation):
         
         lines = []
         reduced_to_resolved_flavors = []
-        
         for reduced_IS_flavor_PDG, values1 in subresult.items():
             for resolved_IS_flavor_PDGs, values2 in values1.items():
                 reduced_to_resolved_flavors.append((reduced_IS_flavor_PDG, resolved_IS_flavor_PDGs))
@@ -151,12 +157,17 @@ class BeamFactorizationCurrentEvaluation(SubtractionCurrentEvaluation):
             else:
                 lines.append('Flavor configuration: %d -> (%s)'%( reduced_IS_flavor_PDG,
                     ','.join('%d'%pdg for pdg in resolved_IS_flavor_PDGs) +
-                    ',' if len(resolved_IS_flavor_PDGs)==1 else '' ))
+                    (',' if len(resolved_IS_flavor_PDGs)==1 else '') ))
 
+            values = subresult[reduced_IS_flavor_PDG][resolved_IS_flavor_PDGs]
             sorted_subresult_keys = sorted(values.keys(), 
                                                      key=lambda el: self.get_result_order(el))
             for subkey in sorted_subresult_keys:
-                lines.append('   %s'%(subtemplate%(subkey, 
+                if isinstance(subkey, int):
+                    key_name='eps^%d'%subkey
+                else:
+                    key_name=subkey
+                lines.append('   %s'%(subtemplate%(key_name, 
                                              self.format_result(subkey, values[subkey]))))
         return lines
 

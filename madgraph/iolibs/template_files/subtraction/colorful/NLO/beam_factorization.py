@@ -94,51 +94,51 @@ class QCD_beam_factorization_F0(currents.QCDBeamFactorizationCurrent):
 
         # Define the NLO QCD PDF counterterms kernels
         kernel_gg = { 
-            'bulk' :  normalization*EpsilonExpansion({
+            'bulk' :  EpsilonExpansion({
                 0 : 1.
-            }),
-            'counterterm' : normalization*EpsilonExpansion({
+            })*normalization,
+            'counterterm' :  EpsilonExpansion({
                 0 : 1.
-            }),
-            'endpoint' : normalization*EpsilonExpansion({
+            })*normalization,
+            'endpoint' :  EpsilonExpansion({
                 0 : 1.
-            })
+            })*normalization
         }
                  
         kernel_gq = { 
-            'bulk' :  normalization*EpsilonExpansion({
+            'bulk' :   EpsilonExpansion({
                 0 : 1.
-            }),
-            'counterterm' : normalization*EpsilonExpansion({
+            })*normalization,
+            'counterterm' :  EpsilonExpansion({
                 0 : 1.
-            }),
-            'endpoint' : normalization*EpsilonExpansion({
+            })*normalization,
+            'endpoint' :  EpsilonExpansion({
                 0 : 1.
-            })
+            })*normalization
         }
         
         kernel_qg = { 
-            'bulk' :  normalization*EpsilonExpansion({
+            'bulk' :   EpsilonExpansion({
                 0 : 1.
-            }),
-            'counterterm' : normalization*EpsilonExpansion({
+            })*normalization,
+            'counterterm' :  EpsilonExpansion({
                 0 : 1.
-            }),
-            'endpoint' : normalization*EpsilonExpansion({
+            })*normalization,
+            'endpoint' :  EpsilonExpansion({
                 0 : 1.
-            })
+            })*normalization
         }
         
         kernel_qq = { 
-            'bulk' :  normalization*EpsilonExpansion({
+            'bulk' :   EpsilonExpansion({
                 0 : 1.
-            }),
-            'counterterm' : normalization*EpsilonExpansion({
+            })*normalization,
+            'counterterm' :  EpsilonExpansion({
                 0 : 1.
-            }),
-            'endpoint' : normalization*EpsilonExpansion({
+            })*normalization,
+            'endpoint' :  EpsilonExpansion({
                 0 : 1.
-            })
+            })*normalization
         }
 
         active_quark_PDGs = tuple([pdg for pdg in range(1,7)+range(-1,-7,-1) 
@@ -149,16 +149,15 @@ class QCD_beam_factorization_F0(currents.QCDBeamFactorizationCurrent):
         for reduced_flavor in self.beam_PDGs:
             # Gluon backward evolution
             if reduced_flavor==21:
-                flavor_matrix[21] = {
-                    (21,) : kernel_gg[self.distribution_type].to_human_readable_dict(),
-                    active_quark_PDGs : kernel_gq[self.distribution_type].to_human_readable_dict()
-                }
+                flavor_matrix[21] = { (21,) : kernel_gg[self.distribution_type] }
+                if active_quark_PDGs:
+                    flavor_matrix[21][active_quark_PDGs] = kernel_gq[self.distribution_type]
             
             # Quark backward evolution            
             if reduced_flavor in active_quark_PDGs:
                 flavor_matrix[reduced_flavor] = { 
-                    (21,) : kernel_qg[self.distribution_type].to_human_readable_dict(),
-                    (reduced_flavor,) : kernel_qq[self.distribution_type].to_human_readable_dict()
+                    (21,) : kernel_qg[self.distribution_type],
+                    (reduced_flavor,) : kernel_qq[self.distribution_type]
                 }
 
         # Now assign the flavor matrix in the BeamFactorizationCurrentEvaluation instance
@@ -213,51 +212,51 @@ class QCD_beam_factorization_single_collinear(currents.QCDBeamFactorizationCurre
 
         # Define the NLO QCD integrate initial-state single collinear counterterms kernels
         kernel_gg = { 
-            'bulk' :  normalization*EpsilonExpansion({
+            'bulk' :   EpsilonExpansion({
                 0 : 1.
-            }),
-            'counterterm' : normalization*EpsilonExpansion({
+            })*normalization,
+            'counterterm' :  EpsilonExpansion({
                 0 : 1.
-            }),
-            'endpoint' : normalization*EpsilonExpansion({
+            })*normalization,
+            'endpoint' :  EpsilonExpansion({
                 0 : 1.
-            })
+            })*normalization
         }
                  
         kernel_gq = { 
-            'bulk' :  normalization*EpsilonExpansion({
+            'bulk' :   EpsilonExpansion({
                 0 : 1.
-            }),
-            'counterterm' : normalization*EpsilonExpansion({
+            })*normalization,
+            'counterterm' :  EpsilonExpansion({
                 0 : 1.
-            }),
-            'endpoint' : normalization*EpsilonExpansion({
+            })*normalization,
+            'endpoint' :  EpsilonExpansion({
                 0 : 1.
-            })
+            })*normalization
         }
         
         kernel_qg = { 
-            'bulk' :  normalization*EpsilonExpansion({
+            'bulk' :   EpsilonExpansion({
                 0 : 1.
-            }),
-            'counterterm' : normalization*EpsilonExpansion({
+            })*normalization,
+            'counterterm' :  EpsilonExpansion({
                 0 : 1.
-            }),
-            'endpoint' : normalization*EpsilonExpansion({
+            })*normalization,
+            'endpoint' :  EpsilonExpansion({
                 0 : 1.
-            })
+            })*normalization
         }
         
         kernel_qq = { 
-            'bulk' :  normalization*EpsilonExpansion({
+            'bulk' :   EpsilonExpansion({
                 0 : 1.
-            }),
-            'counterterm' : normalization*EpsilonExpansion({
+            })*normalization,
+            'counterterm' :  EpsilonExpansion({
                 0 : 1.
-            }),
-            'endpoint' : normalization*EpsilonExpansion({
+            })*normalization,
+            'endpoint' :  EpsilonExpansion({
                 0 : 1.
-            })
+            })*normalization
         }
 
         active_quark_PDGs = tuple([pdg for pdg in range(1,7)+range(-1,-7,-1) 
@@ -268,16 +267,15 @@ class QCD_beam_factorization_single_collinear(currents.QCDBeamFactorizationCurre
         for reduced_flavor in self.beam_PDGs:
             # Gluon backward evolution
             if reduced_flavor==21:
-                flavor_matrix[21] = {
-                    (21,) : kernel_gg[self.distribution_type].to_human_readable_dict(),
-                    active_quark_PDGs : kernel_gq[self.distribution_type].to_human_readable_dict()
-                }
-            
+                flavor_matrix[21] = { (21,) : kernel_gg[self.distribution_type] }
+                if active_quark_PDGs:
+                    flavor_matrix[21][active_quark_PDGs] = kernel_gq[self.distribution_type]
+                                
             # Quark backward evolution            
             if reduced_flavor in active_quark_PDGs:
                 flavor_matrix[reduced_flavor] = { 
-                    (21,) : kernel_qg[self.distribution_type].to_human_readable_dict(),
-                    (reduced_flavor,) : kernel_qq[self.distribution_type].to_human_readable_dict()
+                    (21,) : kernel_qg[self.distribution_type],
+                    (reduced_flavor,) : kernel_qq[self.distribution_type]
                 }
 
         # Now assign the flavor matrix in the BeamFactorizationCurrentEvaluation instance

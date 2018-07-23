@@ -140,6 +140,11 @@ class LorentzVector(Vector):
         # if pos+neg != 0 and abs(2*(pos-neg)/(pos+neg)) < 100.*self.eps(): return 0
         return pos - neg
 
+    def square_almost_zero(self):
+        """Check if the square of this LorentzVector is zero within numerical accuracy."""
+
+        return (self.square() / self.view(Vector).square()) ** 2 < self.eps()
+
     def rho2(self):
         """Compute the radius squared."""
 
@@ -173,15 +178,12 @@ class LorentzVector(Vector):
         # Compute squares
         p2 = p.square()
         q2 = q.square()
-        # Ratios used to decide if the two vectors are massless
-        p2_sq_ratio = abs(p2)/p.view(Vector).square()
-        q2_sq_ratio = abs(q2)/q.view(Vector).square()
         # Numerical tolerances
         p_eps = math.sqrt(p.eps())
         q_eps = math.sqrt(q.eps())
         # Check if both Lorentz squares are small compared to the euclidean squares,
         # in which case the alternative formula should be used
-        if p2_sq_ratio < p_eps and q2_sq_ratio < q_eps:
+        if p.square_almost_zero() and q.square_almost_zero():
             # Use alternative formula
             if p == self:
                 for i in range(len(self)):
@@ -192,7 +194,7 @@ class LorentzVector(Vector):
                 logger.critical("p = %s (%.9e)" % (str(p), p2))
                 logger.critical("q = %s (%.9e)" % (str(q), q2))
                 logger.critical("Eq. (4.14) of arXiv:0706.0017v2, p. 26 not implemented")
-                raise NotImplemented
+                raise NotImplementedError
             return self
         else:
             # Check that the two invariants are close,
@@ -201,9 +203,6 @@ class LorentzVector(Vector):
                 logger.critical("Error in vectors.rotoboost: nonzero, unequal squares")
                 logger.critical("p = %s (%.9e)" % (str(p), p2))
                 logger.critical("q = %s (%.9e)" % (str(q), q2))
-                logger.critical("square ratios:")
-                logger.critical("p: %.9e (vs %.9e)" % (p2_sq_ratio, p_eps))
-                logger.critical("q: %.9e (vs %.9e)" % (q2_sq_ratio, q_eps))
                 raise InvalidOperation
             # Compute scalar products
             pq = p + q

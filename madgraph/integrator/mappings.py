@@ -21,16 +21,11 @@ try:
 except ImportError:
     MADEVENT = True
     import internal.misc as misc
-    import internal.integrands as integrands
-    import internal.base_objects as base_objects
     import internal.subtraction as sub
     from internal import InvalidCmd, MadGraph5Error
-
 else:
     MADEVENT= False
     import madgraph.various.misc as misc
-    import madgraph.integrator.integrands as integrands
-    import madgraph.core.base_objects as base_objects
     import madgraph.core.subtraction as sub
     from madgraph import InvalidCmd, MadGraph5Error
 
@@ -40,6 +35,10 @@ from madgraph.integrator.vectors import Vector, LorentzVector
 from madgraph.integrator.vectors import LorentzVectorDict, LorentzVectorList
 
 logger = logging.getLogger('madgraph.PhaseSpaceGenerator')
+
+class MappingError(Exception):
+    """Exception raised if an exception is triggered in implementation of the currents.""" 
+    pass
 
 #=========================================================================================
 # Kinematic functions
@@ -72,7 +71,7 @@ def get_structure_numbers(structure, momenta_dict):
         parent = momenta_dict.inv[children]
         is_legs = tuple(
             leg.n for leg in legs
-            if leg.state == sub.SubtractionLeg.INITIAL )
+            if leg.state == leg.INITIAL )
         if not is_legs:
             return parent, children, None
         is_leg = is_legs[0]
@@ -595,11 +594,13 @@ class FinalZeroMassesMapping(VirtualMapping):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
 
         names = []
         for substructure in singular_structure.substructures:
-            names.append('m2' + str(tuple(substructure.legs)[0].n))
+            names.append('s' + str(tuple(substructure.legs)[0].n))
         return names
 
     @classmethod
@@ -609,7 +610,9 @@ class FinalZeroMassesMapping(VirtualMapping):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
 
         # Determine leg numbers and check that target masses are zero
         js = []
@@ -661,7 +664,9 @@ class FinalZeroMassesMapping(VirtualMapping):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
 
         # Determine leg numbers
         js = []
@@ -680,15 +685,14 @@ class FinalZeroMassesMapping(VirtualMapping):
             alpha = (Kaellen(1., mu2[js[0]], mu2[js[1]])) ** 0.5
         else:
             # Solve the equation for alpha numerically
-            import numpy as np
-            from scipy.optimize import fsolve
+            from scipy.optimize import newton
             func = lambda a: sum(((a*beta[j])**2 + mu2[j]) ** 0.5 for j in js) - 1.
-            alpha_guess = np.array([1.])
-            alpha = fsolve(func, alpha_guess)
-            alpha = alpha[0]
+            alpha = newton(func, 1.)
+            # misc.sprint(alpha)
             # Optional plot to monitor the numerical solution
             if cls.plot:
                 import matplotlib.pyplot as plt
+                import numpy as np
                 zero = lambda a: 0.*a
                 tau = np.linspace(0., 1., 101)
                 plt.plot(tau, func(tau), "-", tau, zero(tau), "-")
@@ -789,7 +793,9 @@ class FinalCollinearMapping(VirtualMapping):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
 
         names = []
         for substructure in singular_structure.substructures:
@@ -803,7 +809,9 @@ class FinalCollinearMapping(VirtualMapping):
         cls, singular_structure, momenta_dict, kinematic_variables, scaling_parameter):
 
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
         needed_variables = set(
             cls.get_kinematic_variables_names(singular_structure, momenta_dict))
         assert needed_variables.issubset(kinematic_variables.keys())
@@ -861,7 +869,9 @@ class FinalRescalingOneMapping(FinalCollinearMapping):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
 
         # Precompute sets and numbers
         substructure = singular_structure.substructures[0]
@@ -908,7 +918,9 @@ class FinalRescalingOneMapping(FinalCollinearMapping):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
         needed_variables = set(
             cls.get_kinematic_variables_names(singular_structure, momenta_dict) )
         assert needed_variables.issubset(kinematic_variables.keys())
@@ -924,7 +936,7 @@ class FinalRescalingOneMapping(FinalCollinearMapping):
             qR += PS_point[leg.n]
         Q = qR + qC
         # Compute scalar products
-        assert abs(qC.square()/qC.view(Vector).square()) < qC.eps()**0.5
+        assert qC.square_almost_zero()
         Q2 = Q.square()
         beta = Q.dot(qC) / Q2
         mu2 = kinematic_variables['s' + str(parent)] / Q2
@@ -979,7 +991,9 @@ class FinalLorentzOneMapping(FinalCollinearMapping):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
 
         # Precompute sets and numbers
         substructure = singular_structure.substructures[0]
@@ -1035,7 +1049,9 @@ class FinalLorentzOneMapping(FinalCollinearMapping):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
         needed_variables = set(
             cls.get_kinematic_variables_names(singular_structure, momenta_dict) )
         assert needed_variables.issubset(kinematic_variables.keys())
@@ -1053,7 +1069,7 @@ class FinalLorentzOneMapping(FinalCollinearMapping):
         # Compute scalar products
         pC2 = kinematic_variables['s' + str(parent)]
         # Compute parameters
-        assert abs(qC.square()) < math.sqrt(qC.eps())
+        assert qC.square_almost_zero()
         Q2  = Q.square()
         qR2 = qR.square()
         qC_perp = qC - ((Q2-qR2)/(2*Q2)) * Q
@@ -1085,7 +1101,9 @@ class FinalLorentzOneMapping(FinalCollinearMapping):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
         needed_variables = set(
             cls.get_kinematic_variables_names(singular_structure, momenta_dict) )
         assert needed_variables.issubset(kinematic_variables.keys())
@@ -1103,7 +1121,7 @@ class FinalLorentzOneMapping(FinalCollinearMapping):
         # Compute scalar products
         pC2 = kinematic_variables['s'+str(parent)]
         # Compute parameters
-        assert abs(qC.square()) < math.sqrt(qC.eps())
+        assert qC.square_almost_zero()
         Q2  = Q.square()
         qR2 = qR.square()
         kaellen = Kaellen(Q2, qR2, pC2)
@@ -1124,7 +1142,9 @@ class FinalGroupingMapping(FinalCollinearMapping):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
 
         # Build reduced PS point, singular structure & masses to call FinalMassesMapping
         reduced_PS_point = PS_point.get_copy()
@@ -1170,7 +1190,9 @@ class FinalGroupingMapping(FinalCollinearMapping):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
         needed_variables = set(
             cls.get_kinematic_variables_names(singular_structure, momenta_dict) )
         assert needed_variables.issubset(kinematic_variables.keys())
@@ -1214,18 +1236,22 @@ class FinalLorentzMapping(FinalCollinearMapping):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
 
         # Build reduced PS point, singular structure & masses to call FinalMassesMapping
         reduced_PS_point = PS_point.get_copy()
         reduced_singular_structure = sub.SingularStructure()
         reduced_squared_masses = {}
         parents = []
+        Q = LorentzVector()
         # First build pseudo-particles for the collinear sets
         for substructure in singular_structure.substructures:
             parent, children, _ = get_structure_numbers(substructure, momenta_dict)
             for child in children: del reduced_PS_point[child]
             reduced_PS_point[parent] = sum(PS_point[child] for child in children)
+            Q += reduced_PS_point[parent]
             parent_leg = sub.SubtractionLeg(parent, 0, sub.SubtractionLeg.FINAL)
             reduced_singular_structure.substructures.append(sub.CollStructure(parent_leg))
             m2i = 'm2' + str(parent)
@@ -1256,8 +1282,8 @@ class FinalLorentzMapping(FinalCollinearMapping):
                 sub.CollStructure(recoiler_leg))
             s_R = reduced_PS_point[R].square()
             reduced_squared_masses['m2'+str(R)] = s_R
+            Q += reduced_PS_point[R]
         # If the mapping is not valid, raise
-        Q = sum(p for p in reduced_PS_point.values())
         Q2 = Q.square()
         if (abs(s_R) ** 0.5) > (Q2 ** 0.5 - mass_sum):
             raise FailedMapping
@@ -1296,7 +1322,9 @@ class FinalLorentzMapping(FinalCollinearMapping):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
         needed_variables = set(
             cls.get_kinematic_variables_names(singular_structure, momenta_dict) )
         assert needed_variables.issubset(kinematic_variables.keys())
@@ -1369,7 +1397,9 @@ class FinalLorentzMapping(FinalCollinearMapping):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
         needed_variables = set(
             cls.get_kinematic_variables_names(singular_structure, momenta_dict) )
         assert needed_variables.issubset(kinematic_variables.keys())
@@ -1397,7 +1427,9 @@ class FinalLorentzMapping(FinalCollinearMapping):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
 
         Q = LorentzVector()
         mass_sum = 0.
@@ -1453,7 +1485,9 @@ class InitialCollinearMapping(VirtualMapping):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
 
         names = []
         for substructure in singular_structure.substructures:
@@ -1467,7 +1501,9 @@ class InitialCollinearMapping(VirtualMapping):
         cls, singular_structure, momenta_dict, kinematic_variables, scaling_parameter):
 
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
         needed_variables = set(
             cls.get_kinematic_variables_names(singular_structure, momenta_dict))
         assert needed_variables.issubset(kinematic_variables.keys())
@@ -1510,7 +1546,9 @@ class InitialLorentzOneMapping(InitialCollinearMapping):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
 
         # Precompute sets and numbers
         substructure = singular_structure.substructures[0]
@@ -1571,7 +1609,9 @@ class InitialLorentzOneMapping(InitialCollinearMapping):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
         needed_variables = set(
             cls.get_kinematic_variables_names(singular_structure, momenta_dict))
         assert needed_variables.issubset(kinematic_variables.keys())
@@ -1652,6 +1692,8 @@ class ElementaryMappingSoft(VirtualMapping):
                 return False
             if substructure.substructures:
                 return False
+            if substructure.get_all_legs().has_initial_state_leg():
+                return False
         return True
 
     @classmethod
@@ -1660,7 +1702,9 @@ class ElementaryMappingSoft(VirtualMapping):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
 
         # For every soft particle, just return its momentum
         names = []
@@ -1675,23 +1719,260 @@ class ElementaryMappingSoft(VirtualMapping):
         cls, singular_structure, momenta_dict, kinematic_variables, scaling_parameter):
 
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
         needed_variables = set(
             cls.get_kinematic_variables_names(singular_structure, momenta_dict))
         assert needed_variables.issubset(kinematic_variables.keys())
 
         # Precompute sets and numbers
-        substructure = singular_structure.substructures[0]
-        _, children, _ = get_structure_numbers(substructure, momenta_dict)
-        # Determine the correct scaling for the divergence to go like 1/parameter
-        base = scaling_parameter ** (0.5 / len(children))
-        for child in children:
-            kinematic_variables['p' + str(child)] *= base
+        base = scaling_parameter ** (1. / len(singular_structure.substructures))
+        for substructure in singular_structure.substructures:
+            _, children, _ = get_structure_numbers(substructure, momenta_dict)
+            # Determine the correct scaling for the divergence to go like 1/parameter
+            this_base = base ** (0.5 / len(children))
+            for child in children:
+                kinematic_variables['p' + str(child)] *= this_base
         return kinematic_variables
+
+# Final mapping to/from zero masses with soft
+#=========================================================================================
+
+class FinalAssociativeSoftMappingZero(ElementaryMappingSoft):
+    """Mapping that removes momenta from a set of massless ones,
+    producing momenta that are still massless.
+    """
+
+    plot = False
+
+    @classmethod
+    def is_valid_structure(cls, singular_structure):
+
+        # Valid only if there are at least two recoilers in the final state
+        if len(singular_structure.legs) < 2:
+            return False
+        if singular_structure.legs.has_initial_state_leg():
+            return False
+        return super(FinalAssociativeSoftMappingZero, cls).is_valid_structure(
+            singular_structure)
+
+    @classmethod
+    def get_kinematic_variables_names(cls, singular_structure, momenta_dict):
+
+        # Consistency checks
+        assert isinstance(momenta_dict, sub.bidict)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
+
+        names = []
+        for substructure in singular_structure.substructures:
+            _, children, _ = get_structure_numbers(substructure, momenta_dict)
+            names += SoftVariables.names(children)
+        return names
+
+    @classmethod
+    def map_to_lower_multiplicity(
+        cls, PS_point, singular_structure, momenta_dict, squared_masses=None,
+        kinematic_variables=None, compute_jacobian=False ):
+
+        # Consistency checks
+        assert isinstance(momenta_dict, sub.bidict)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
+
+        # Determine leg numbers and check that target masses are zero
+        pS = LorentzVector()
+        recoilers = [leg.n for leg in singular_structure.legs]
+        all_soft_children = []
+        new_PS_point = PS_point.get_copy()
+        for substructure in singular_structure.substructures:
+            _, children, _ = get_structure_numbers(substructure, momenta_dict)
+            all_soft_children.append(children)
+            pS += sum(new_PS_point.pop(child) for child in children)
+        # Build total momentum
+        Q = LorentzVector(pS)
+        for r in recoilers:
+            assert PS_point[r].square_almost_zero()
+            Q += PS_point[r]
+        Q2 = Q.square()
+        # Compute the parameters ys, y, ybar, mubar2, ytilde, alpha
+        ps = pS / len(recoilers)
+        ys = Q.dot(ps) / Q2
+        y = {r: (Q.dot(new_PS_point[r]) / Q2) for r in recoilers}
+        ybar = {r: (y[r] + ys) for r in recoilers}
+        assert abs(sum(ybar.values()) - 1.) < 1.e-6
+        mubar2 = {r: ((new_PS_point[r] + ps).square() / Q2) for r in recoilers}
+        ytilde = {r: (ybar[r] ** 2 - mubar2[r]) ** 0.5 for r in recoilers}
+        alpha = sum(ytilde.values())
+        # misc.sprint(alpha)
+        for r in recoilers:
+            ytilde[r] /= alpha
+        assert abs(sum(ytilde.values())  - 1.) < 1.e-6
+        # Map all momenta
+        for r in recoilers:
+            new_PS_point[r] = (new_PS_point[r] + ps - ybar[r] * Q) / alpha + ytilde[r] * Q
+            assert abs(new_PS_point[r].square() / Q2) < 1.e-6
+        # If needed, update the kinematic_variables dictionary
+        if kinematic_variables is not None:
+            for soft_children in all_soft_children:
+                SoftVariables.get(PS_point, soft_children, kinematic_variables)
+        # Compute the jacobian for this mapping
+        if not compute_jacobian:
+            return new_PS_point, {'Q': Q}
+        sum_deriv = 0.
+        prod_ytilde_y = 1.
+        for r in recoilers:
+            space_scalar_prod = ytilde[r] * ys - ps.dot(new_PS_point[r]) / Q2
+            sum_deriv += (alpha * ytilde[r]**2 - space_scalar_prod) / y[r]
+            prod_ytilde_y *= ytilde[r] / y[r]
+        jacobian = alpha**(3*len(recoilers)-4) * prod_ytilde_y / sum_deriv
+        mapping_variables = {'jacobian': jacobian, 'Q': Q}
+        # Return characteristic variables
+        return new_PS_point, mapping_variables
+
+    @classmethod
+    def map_to_higher_multiplicity(
+        cls, PS_point, singular_structure, momenta_dict, kinematic_variables,
+        compute_jacobian=False ):
+
+        # Consistency checks
+        assert isinstance(momenta_dict, sub.bidict)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
+
+        # Determine leg numbers
+        pS = LorentzVector()
+        recoilers = [leg.n for leg in singular_structure.legs]
+        all_soft_children = []
+        new_PS_point = PS_point.get_copy()
+        for substructure in singular_structure.substructures:
+            _, children, _ = get_structure_numbers(substructure, momenta_dict)
+            all_soft_children.append(children)
+            SoftVariables.set(new_PS_point, children, kinematic_variables)
+            pS += sum(new_PS_point[child] for child in children)
+        # Build total momentum
+        Q = LorentzVector()
+        for r in recoilers:
+            assert PS_point[r].square_almost_zero()
+            Q += PS_point[r]
+        Q2 = Q.square()
+        # Compute the parameters
+        ps = pS / len(recoilers)
+        # misc.sprint(ps)
+        yS = pS.dot(Q) / Q2
+        ys = yS / len(recoilers)
+        mus2 = ps.square() / Q2
+        ytilde = {}
+        a = {}
+        b = {}
+        c = {}
+        for r in recoilers:
+            ytilde[r] = Q.dot(PS_point[r]) / Q2
+            a[r] = ytilde[r] ** 2
+            b[r] = -2. * (ytilde[r] * ys - ps.dot(PS_point[r]) / Q2)
+            c[r] = ys ** 2 - mus2
+        assert abs(sum(ytilde.values())  - 1.) < 1.e-6
+        # if len(rs) == 2:
+        #     alpha = (Kaellen(1., mu2[js[0]], mu2[js[1]])) ** 0.5
+        # else:
+        # Solve the equation for alpha numerically
+        y_fun = lambda r, x: (a[r]*(x**2) + b[r]*x + c[r])**0.5
+        from scipy.optimize import newton
+        fun = lambda x: sum(y_fun(r, x) for r in recoilers) - (1. - yS)
+        # Optional plot to monitor the numerical solution
+        if cls.plot:
+            import numpy as np
+            import matplotlib.pyplot as plt
+            zero = lambda a: 0.*a
+            tau = np.linspace(0., 1., 501)
+            plt.plot(tau, fun(tau), "-", tau, zero(tau), "-")
+            plt.grid()
+            plt.show()
+        alpha = newton(fun, 1.)
+        # misc.sprint(alpha)
+        # Compute the parameters gamma
+        y = {r: y_fun(r, alpha) for r in recoilers}
+        assert abs(sum(y.values()) - (1. - yS)) < 1.e-6
+        # Map all momenta
+        for r in recoilers:
+            new_PS_point[r] *= alpha
+            new_PS_point[r] += (y[r] + ys - alpha*ytilde[r]) * Q - ps
+            assert abs(new_PS_point[r].square() / Q2) < 1.e-6
+        # Compute the jacobian for this mapping
+        if not compute_jacobian:
+            return new_PS_point, {'Q': Q}
+        sum_deriv = 0.
+        prod_ytilde_y = 1.
+        for r in recoilers:
+            space_scalar_prod = ytilde[r] * ys - ps.dot(PS_point[r]) / Q2
+            sum_deriv += (alpha * ytilde[r]**2 - space_scalar_prod) / y[r]
+            prod_ytilde_y *= ytilde[r] / y[r]
+        jacobian = alpha**(3*len(recoilers)-4) * prod_ytilde_y / sum_deriv
+        mapping_variables = {'jacobian': jacobian, 'Q': Q}
+        # Return characteristic variables
+        return new_PS_point, mapping_variables
+
+class FinalAssociativeSoftMapping(FinalAssociativeSoftMappingZero):
+    """Associative soft mapping with final-state recoilers."""
+
+    @classmethod
+    def map_to_lower_multiplicity(
+        cls, PS_point, singular_structure, momenta_dict, squared_masses=None,
+        kinematic_variables=None, compute_jacobian=False ):
+
+        recoilers = [leg.n for leg in singular_structure.legs]
+        target_masses = {'s' + str(r): PS_point[r].square() for r in recoilers}
+        if kinematic_variables is not None:
+            target_masses.update(kinematic_variables)
+        singular_structure_to_zero = sub.SingularStructure(substructures=[
+            sub.CollStructure(legs=[leg]) for leg in singular_structure.get_all_legs() ])
+        singular_structure_from_zero = sub.SingularStructure(substructures=[
+            sub.CollStructure(legs=[leg]) for leg in singular_structure.legs ])
+        zero_PS_point, zero_vars = FinalZeroMassesMapping.map_to_lower_multiplicity(
+            PS_point, singular_structure_to_zero, momenta_dict,
+            kinematic_variables=kinematic_variables, compute_jacobian=compute_jacobian )
+        soft_PS_point, soft_vars = FinalAssociativeSoftMappingZero.map_to_lower_multiplicity(
+            zero_PS_point, singular_structure, momenta_dict,
+            kinematic_variables=kinematic_variables, compute_jacobian=compute_jacobian )
+        mass_PS_point, mass_vars = FinalZeroMassesMapping.map_to_higher_multiplicity(
+            soft_PS_point, singular_structure_from_zero, momenta_dict,
+            kinematic_variables=target_masses, compute_jacobian=compute_jacobian )
+        if compute_jacobian:
+            zero_vars['jacobian'] *= soft_vars['jacobian'] / mass_vars['jacobian']
+        # Return characteristic variables
+        return mass_PS_point, zero_vars
+
+    @classmethod
+    def map_to_higher_multiplicity(
+        cls, PS_point, singular_structure, momenta_dict, kinematic_variables,
+        compute_jacobian=False ):
+
+        # recoilers = [leg.n for leg in singular_structure.legs]
+        # target_masses = {'s' + str(r): PS_point[r].square() for r in recoilers}
+        singular_structure_from_zero = sub.SingularStructure(substructures=[
+            sub.CollStructure(legs=[leg]) for leg in singular_structure.get_all_legs() ])
+        singular_structure_to_zero = sub.SingularStructure(substructures=[
+            sub.CollStructure(legs=[leg]) for leg in singular_structure.legs ])
+        zero_PS_point, zero_vars = FinalZeroMassesMapping.map_to_lower_multiplicity(
+            PS_point, singular_structure_to_zero, momenta_dict,
+            compute_jacobian=compute_jacobian )
+        soft_PS_point, soft_vars = FinalAssociativeSoftMappingZero.map_to_higher_multiplicity(
+            zero_PS_point, singular_structure, momenta_dict,
+            kinematic_variables=kinematic_variables, compute_jacobian=compute_jacobian )
+        mass_PS_point, mass_vars = FinalZeroMassesMapping.map_to_higher_multiplicity(
+            soft_PS_point, singular_structure_from_zero, momenta_dict,
+            kinematic_variables=kinematic_variables, compute_jacobian=compute_jacobian )
+        if compute_jacobian:
+            mass_vars['jacobian'] *= soft_vars['jacobian'] / zero_vars['jacobian']
+        # Return characteristic variables
+        return mass_PS_point, mass_vars
 
 # Soft mapping, massless final-state recoilers
 #=========================================================================================
-
 class SoftVsFinalMapping(ElementaryMappingSoft):
     """Implementation of the mapping used by Somogyi et al.
     in arXiv:hep-ph/0609042 for soft particles.
@@ -1721,7 +2002,9 @@ class SoftVsFinalMapping(ElementaryMappingSoft):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
 
         # Build the total soft momentum,
         # save the soft momenta in variables and eliminate them from PS_point
@@ -1748,8 +2031,9 @@ class SoftVsFinalMapping(ElementaryMappingSoft):
         for recoiler in singular_structure.legs:
             new_PS_point[recoiler.n] /= la
             new_PS_point[recoiler.n].rotoboost(P, Q)
-        jacobian = (pR2_Q2)**(len(recoilers)-2)
-        mapping_variables = {'jacobian': jacobian, 'Q': Q}
+        mapping_variables = {'Q': Q}
+        if compute_jacobian:
+            mapping_variables['jacobian'] = (pR2_Q2)**(len(recoilers)-2)
         # Return characteristic variables
         return new_PS_point, mapping_variables
 
@@ -1760,7 +2044,9 @@ class SoftVsFinalMapping(ElementaryMappingSoft):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
         needed_variables = set(
             cls.get_kinematic_variables_names(singular_structure, momenta_dict ) )
         assert needed_variables.issubset(kinematic_variables.keys())
@@ -1789,8 +2075,9 @@ class SoftVsFinalMapping(ElementaryMappingSoft):
         for recoiler in singular_structure.legs:
             new_PS_point[recoiler.n] *= la
             new_PS_point[recoiler.n].rotoboost(Q, P)
-        jacobian = (pR2_Q2)**(len(recoilers)-2)
-        mapping_variables = {'jacobian': jacobian, 'Q': Q}
+        mapping_variables = {'Q': Q}
+        if compute_jacobian:
+            mapping_variables['jacobian'] = (pR2_Q2)**(len(recoilers)-2)
         # Return characteristic variables
         return new_PS_point, mapping_variables
 
@@ -1902,7 +2189,8 @@ class SoftCollinearMapping(VirtualMapping):
         coll_PS_point, coll_vars = self.coll_mapping.map_to_lower_multiplicity(
             soft_PS_point, coll_structure, coll_momenta_dict, squared_masses,
             kinematic_variables, compute_jacobian )
-        coll_vars['jacobian'] *= soft_vars['jacobian']
+        if compute_jacobian:
+            coll_vars['jacobian'] *= soft_vars['jacobian']
         return coll_PS_point, coll_vars
 
     def map_to_higher_multiplicity(
@@ -1924,7 +2212,8 @@ class SoftCollinearMapping(VirtualMapping):
         soft_PS_point, soft_vars = self.soft_mapping.map_to_higher_multiplicity(
             coll_PS_point, soft_structure, momenta_dict,
             kinematic_variables, compute_jacobian )
-        coll_vars['jacobian'] *= soft_vars['jacobian']
+        if compute_jacobian:
+            coll_vars['jacobian'] *= soft_vars['jacobian']
         return soft_PS_point, coll_vars
 
 class SoftCollinearVsFinalMapping(SoftCollinearMapping):
@@ -1936,657 +2225,3 @@ class SoftCollinearVsFinalMapping(SoftCollinearMapping):
     def good_soft_recoiler(cls, recoiler_leg):
 
         return recoiler_leg.state == recoiler_leg.FINAL
-
-#=========================================================================================
-# Mapping walkers
-#=========================================================================================
-
-# Stroll
-#=========================================================================================
-
-class Stroll(object):
-    """Container for a mapping call."""
-
-    def __init__(self, mapping, structure, squared_masses, currents, variables=None):
-
-        super(Stroll, self).__init__()
-        assert isinstance(mapping, VirtualMapping)
-        self.mapping = mapping
-        assert isinstance(structure, sub.SingularStructure)
-        self.structure = structure
-        self.squared_masses = squared_masses
-        for current in currents:
-            assert isinstance(current, sub.Current)
-        self.currents = currents
-        self.variables = variables
-
-    def __str__(self):
-
-        foo = self.mapping.__class__.__name__
-        foo += " with structure " + str(self.structure)
-        if self.squared_masses:
-            foo += str(self.squared_masses)
-        foo += " for currents: "
-        foo += ", ".join(str(current) for current in self.currents)
-        if self.variables is not None:
-            foo += " (with extra variables %s)" % str(self.variables)
-        return foo
-
-# Hike
-#=========================================================================================
-
-class Hike(list):
-    """Container for a sequence of mapping calls."""
-
-    def __new__(cls, *args, **opts):
-
-        for arg in args:
-            assert isinstance(arg, Stroll)
-        return super(Hike, cls).__new__(cls, *args, **opts)
-
-    def __str__(self):
-
-        foo = "--- Hike start ---\n"
-        foo += "\n".join(
-            ["Stroll "+str(i+1)+": "+str(stroll) for (i, stroll) in enumerate(self)] )
-        foo += "\n---  Hike end  ---"
-        return foo
-
-# Generic walker parent class
-#=========================================================================================
-
-class VirtualWalker(object):
-    """Base class for walker implementations."""
-    
-    def __new__(cls, walker=None, **opts):
-        """Factory class to make plugin easy."""
-
-        if cls is VirtualWalker:
-            if walker is None:
-                raise MadGraph5Error(
-                    "VirtualWalker called without a walker name.")
-            if not walker_classes_map.has_key(walker):
-                raise MadGraph5Error(
-                    "Unknown mapping walker of type '%s'." % walker )
-            target_class = walker_classes_map[walker]
-            return super(VirtualWalker, cls).__new__(target_class, **opts)
-        else:
-            return super(VirtualWalker, cls).__new__(cls, **opts)
-
-    def __init__(self, model=None, **opts):
-        """General initialization of a walker.
-        The model is an optional specification,
-        which can be useful to know properties of the leg mapped.
-        """
-
-        self.model = model
-
-    @classmethod
-    def determine_mapping(cls, structure):
-        """Determine which elementary mapping to use for a given singular structure."""
-
-        raise NotImplemented
-
-    @classmethod
-    def get_recoilers(cls, counterterm, exclude=None):
-        """Select particles to be used as recoilers for a given counterterm."""
-
-        raise NotImplemented
-
-    @classmethod
-    def determine_hike(cls, counterterm):
-        """Determine the sequence of elementary mappings that must be applied
-        in order to map to lower multiplicity.
-        """
-
-        raise NotImplemented
-
-    @classmethod
-    def decompose_counterterm(cls, counterterm, counterterms):
-        """Determine the sequence of elementary mappings that must be applied
-        in order to approach the limit.
-        """
-
-        complete_ss = counterterm.reconstruct_complete_singular_structure()
-        decomposed_sss = sorted(
-            complete_ss.decompose(), key=lambda x: x.__str__(True, True, True) )
-        decomposed_cts = []
-        for ss in decomposed_sss:
-            found = False
-            for ct in counterterms:
-                if len(ct.nodes) != 1: continue
-                if ct.nodes[0].nodes: continue
-                ss2 = ct.nodes[0].current['singular_structure']
-                if ss != ss2: continue
-                decomposed_cts.append(ct)
-                found = True
-                break
-            if not found: raise MadGraph5Error('Counterterm not found')
-        return decomposed_cts
-
-    def get_hike(self, counterterm):
-        """Try to recycle the hike from a cached previous determination
-        using the counterterm hash.
-        """
-
-        # TODO Implement
-        # Remember to make the cache instance-dependent (self.###)
-
-        return self.determine_hike(counterterm)
-
-    def walk_to_lower_multiplicity(
-        self, PS_point, counterterm,
-        compute_kinematic_variables=False, compute_jacobian=False, verbose=False ):
-        """Starting from the highest-multiplicity phase-space point,
-        generate all lower-multiplicity phase-space points
-        that are necessary for the evaluation of the given counterterm.
-
-        :param PS_point: highest-multiplicity starting phase-space point,
-        as a dictionary that associates integers to Lorentz vectors.
-
-        :param counterterm: Counterterm object that specifies
-        clusters of particle and recoilers recursively.
-        Momenta_dict will obtained directly from it.
-
-        :param compute_kinematic_variables: flag that specifies whether to compute
-        all kinematic variables needed to recover the starting phase-space point
-        from the lowest multiplicity one.
-
-        :param compute_jacobian: flag that specifies whether to compute
-        the phase-space jacobian.
-
-        :return: a dictionary with the following entries:
-        'currents', a list of stroll output dictionaries
-            {stroll_currents, higher_PS_point, lower_PS_point, stroll_vars}
-            for each stroll/mapping applied;
-        'matrix_element', the reduced matrix element,
-            paired with its corresponding reduced phase-space point;
-        'kinematic_variables', a dictionary of all variables needed to recover
-            the starting phase-space point from the lowest multiplicity one,
-            or None if such variables were not requested.
-        """
-
-        # Identify the starting phase-space point
-        point = PS_point
-        if verbose: logger.debug(str(point))
-        # Initialize return variables
-        currents_4_eval = []
-        kinematic_variables = dict() if compute_kinematic_variables else None
-        # Determine the hike
-        hike = self.get_hike(counterterm)
-        # Walk along the hike
-        for stroll in hike:
-            # Map to lower multiplicity
-            new_point, vars = stroll.mapping.map_to_lower_multiplicity(
-                point, stroll.structure, counterterm.momenta_dict, stroll.squared_masses,
-                kinematic_variables=kinematic_variables,
-                compute_jacobian=compute_jacobian )
-            if verbose: logger.debug(str(new_point)+"\n"+str(vars))
-            # Append the current and the momenta
-            stroll_output = {
-                'stroll_currents': stroll.currents,
-                'higher_PS_point': point,
-                'lower_PS_point': new_point,
-                'stroll_vars': vars }
-            currents_4_eval.append(stroll_output)
-            point = new_point
-        # Identify reduced matrix element,
-        # computed in the point which has received all mappings
-        ME_PS_pair = [counterterm.process, point]
-        # Return
-        return {
-            'currents': currents_4_eval,
-            'matrix_element': ME_PS_pair,
-            'kinematic_variables': kinematic_variables }
-
-    def walk_to_higher_multiplicity(
-        self, PS_point, counterterm, kinematic_variables,
-        compute_jacobian=False, verbose=False ):
-        """Starting from the lowest-multiplicity phase-space point,
-        generate all higher-multiplicity phase-space points
-        that are necessary for the evaluation of the given counterterm.
-
-        :param PS_point: lowest-multiplicity starting phase-space point,
-        as a dictionary that associates integers to Lorentz vectors.
-
-        :param counterterm: Counterterm object that specifies
-        clusters of particle and recoilers recursively.
-        Momenta_dict will obtained directly from it.
-
-        :param kinematic_variables: dictionary of all variables needed to recover
-        the highest-multiplicity phase-space point from the starting one.
-
-        :param compute_jacobian: flag that specifies whether to compute
-        the phase-space jacobian.
-
-        :return: a dictionary with the following entries:
-        'currents', a list of stroll output dictionaries
-            {stroll_currents, higher_PS_point, lower_PS_point, stroll_vars}
-            for each stroll/mapping applied;
-        'matrix_element', the reduced matrix element,
-            paired with its corresponding reduced phase-space point.
-        """
-
-        # Identify reduced matrix element,
-        # computed in the lowest multiplicity point
-        ME_PS_pair = [counterterm.process, PS_point]
-        # Identify the starting phase-space point
-        point = PS_point
-        if verbose: logger.debug(str(point))
-        # Initialize return variables
-        currents_4_eval = []
-        # Determine the hike
-        hike = self.get_hike(counterterm)
-        for stroll in reversed(hike):
-            # Compute jacobian and map to higher multiplicity
-            new_point, vars = stroll.mapping.map_to_higher_multiplicity(
-                point, stroll.structure, counterterm.momenta_dict, kinematic_variables,
-                compute_jacobian=compute_jacobian )
-            if verbose: logger.debug(str(new_point)+"\n"+str(vars))
-            # Update jacobian and mapping variables
-            stroll_output = {
-                'stroll_currents': stroll.currents,
-                'higher_PS_point': new_point,
-                'lower_PS_point': point,
-                'stroll_vars': vars }
-            currents_4_eval.insert(0, stroll_output)
-            point = new_point
-        # Return
-        return {
-            'currents': currents_4_eval,
-            'matrix_element': ME_PS_pair, }
-
-    def approach_limit(
-        self, PS_point, structure, scaling_parameter, process ):
-        """Produce a higher multiplicity phase-space point from PS_point,
-        according to kinematic_variables that approach the limit of structure
-        parametrically with scaling_parameter.
-        """
-
-        # Decompose the counterterm
-        decomposed = structure.decompose()
-        # Always approach the limit at the same speed
-        base = scaling_parameter ** (1. / len(decomposed))
-        # Prepare a momentum dictionary for each mapping
-        mom_dict = sub.bidict()
-        for leg in process['legs']:
-            mom_dict[leg['number']] = frozenset([leg['number'], ])
-        parent_index = max(leg['number'] for leg in process['legs']) + 1
-        fake_ct = sub.Counterterm(process=process, momenta_dict=mom_dict)
-        closer_PS_point = PS_point.get_copy()
-        # Walk the hike up and down
-        for step in decomposed:
-            mapping = self.determine_mapping(step)
-            all_children = frozenset([leg.n for leg in step.get_all_legs()])
-            recoilers = self.get_recoilers(fake_ct, exclude=all_children)
-            new_ss = sub.SingularStructure(substructures=[step, ], legs=recoilers)
-            if step.name() == "C":
-                mom_dict[parent_index] = all_children
-            elif step.name() == "S":
-                pass
-            else:
-                raise MadGraph5Error("Unrecognized structure of type " + step.name())
-            kin_variables = {}
-            # misc.sprint('Starting PS point:\n',str(PS_point))
-            low_PS_point, _ = mapping.map_to_lower_multiplicity(
-                closer_PS_point, new_ss, mom_dict, None, kin_variables )
-            # misc.sprint('Mapped down PS point:\n',str(PS_point))
-            # misc.sprint('kin_variables=',kin_variables)
-            mapping.rescale_kinematic_variables(
-                new_ss, mom_dict, kin_variables, base)
-            # misc.sprint('rescaled kin_variables=',base,kin_variables)
-            closer_PS_point, _ = mapping.map_to_higher_multiplicity(
-                low_PS_point, new_ss, mom_dict, kin_variables )
-            # misc.sprint('Mapped up PS point:\n',str(PS_point))
-            # misc.sprint('kin_variables=',kin_variables)
-            if parent_index in mom_dict.keys():
-                del mom_dict[parent_index]
-        return closer_PS_point
-
-# Generic walker for one-level counterterms
-#=========================================================================================
-
-class OneNodeWalker(VirtualWalker):
-    """Implement a generic determine_hike for one-node counterterms."""
-
-    @classmethod
-    def cannot_handle_msg(cls, obj):
-
-        name = obj.__class__.__name__
-        return cls.__name__ + " cannot handle the " + name + ": " + str(obj)
-
-    @classmethod
-    def good_recoiler(cls, model, leg):
-        """Indicate if a particle is apt to be a recoiler according to this walker."""
-
-        raise NotImplemented
-
-    @classmethod
-    def not_excluded(cls, leg, exclude):
-
-        return not(exclude and leg['number'] in exclude)
-
-    @classmethod
-    def get_recoilers(cls, counterterm, exclude=None):
-        """Select particles in the reduced process to be used as recoilers."""
-
-        legs = counterterm.process['legs']
-        model = counterterm.process['model']
-        recoilers = [
-            sub.SubtractionLeg(leg)
-            for leg in legs
-            if cls.good_recoiler(model, leg) and cls.not_excluded(leg, exclude) ]
-        return recoilers
-
-    @classmethod
-    def determine_hike(cls, counterterm):
-
-        # Initialize return variables
-        hike = Hike()
-        # If the counterterm is not trivial
-        if counterterm.nodes:
-            # Check it is only one
-            if len(counterterm.nodes) != 1:
-                raise MadGraph5Error(cls.cannot_handle_msg(counterterm))
-            # Alias node and singular structure for convenience
-            node = counterterm.nodes[0]
-            ss = node.current['singular_structure']
-            # Do not accept nested currents
-            if node.nodes:
-                raise MadGraph5Error(cls.cannot_handle_msg(counterterm))
-            # Get parent and children numbers
-            parent, children, _ = get_structure_numbers(
-                ss, counterterm.momenta_dict )
-            # Pick recoilers
-            recoilers = cls.get_recoilers(counterterm, (parent, ))
-            structure = sub.SingularStructure(legs=recoilers, substructures=(ss,))
-            # Choose mapping to use
-            mapping = cls.determine_mapping(ss)
-            # Determine the parent mass
-            if parent is not None:
-                try:
-                    parent_pdg = counterterm.find_leg(parent)['id']
-                except KeyError:
-                    raise MadGraph5Error(
-                        "Impossible to find parent " + str(parent) +
-                        " within counterterm " + str(counterterm) )
-                parent_particle = counterterm.process['model'].get_particle(parent_pdg)
-                if parent_particle['mass'].lower() != 'zero':
-                    raise MadGraph5Error("DEVELOPER: retrieve parent mass!")
-            squared_masses = None
-            # Compute jacobian and map to lower multiplicity
-            hike.append(Stroll(mapping, structure, squared_masses, (node.current, )))
-        # Return
-        return hike
-
-# FinalCollinearOneWalker
-#=========================================================================================
-
-class FinalCollinearOneWalker(OneNodeWalker):
-
-    collinear_map = None
-    only_colored_recoilers = None
-
-    @classmethod
-    def good_recoiler(cls, model, leg):
-
-        return (
-            leg['state'] == leg.FINAL and not
-            (cls.only_colored_recoilers and model.get_particle(leg['id'])['color'] == 1) )
-
-    @classmethod
-    def determine_mapping(cls, structure):
-
-        if structure.name() == 'S' or structure.substructures:
-            raise MadGraph5Error(cls.cannot_handle_msg(structure))
-        else:
-            return cls.collinear_map
-
-class FinalRescalingOneWalker(FinalCollinearOneWalker):
-
-    collinear_map = FinalRescalingOneMapping()
-    only_colored_recoilers = True
-
-class FinalLorentzOneWalker(FinalCollinearOneWalker):
-
-    collinear_map = FinalLorentzOneMapping()
-    only_colored_recoilers = False
-
-# FinalNLOWalker
-#=========================================================================================
-
-class FinalNLOWalker(OneNodeWalker):
-
-    collinear_map = None
-    soft_map = None
-    soft_collinear_map = None
-    only_colored_recoilers = None
-
-    @classmethod
-    def good_recoiler(cls, model, leg):
-
-        return (
-            leg['state'] == leg.FINAL and not
-            (cls.only_colored_recoilers and model.get_particle(leg['id'])['color'] == 1) )
-
-    @classmethod
-    def determine_mapping(cls, structure):
-
-        if structure.name() == 'S':
-            return cls.soft_map
-        elif structure.name() == 'C' and not structure.substructures:
-            return cls.collinear_map
-        elif (structure.name() == 'C'
-            and len(structure.substructures) == 1
-            and structure.substructures[0].name() == 'S'
-            and not structure.substructures[0].substructures
-            and len(structure.legs) == 1 ):
-            return cls.soft_collinear_map
-        else:
-            raise MadGraph5Error(cls.cannot_handle_msg(structure))
-
-class FinalRescalingNLOWalker(FinalNLOWalker):
-
-    collinear_map = FinalRescalingOneMapping()
-    soft_map = SoftVsFinalMapping()
-    soft_collinear_map = SoftCollinearVsFinalMapping(soft_map, collinear_map)
-    only_colored_recoilers = True
-
-class FinalLorentzNLOWalker(FinalNLOWalker):
-
-    collinear_map = FinalLorentzOneMapping()
-    soft_map = SoftVsFinalMapping()
-    soft_collinear_map = SoftCollinearVsFinalMapping(soft_map, collinear_map)
-    only_colored_recoilers = True
-
-# General NLO walker
-#=========================================================================================
-
-class NLOWalker(OneNodeWalker):
-
-    f_collinear_map = None
-    i_collinear_map = None
-    soft_map = None
-    f_soft_collinear_map = None
-    i_soft_collinear_map = None
-    only_colored_recoilers = None
-
-    @classmethod
-    def good_recoiler(cls, model, leg):
-
-        return (
-            leg['state'] == leg.FINAL and not
-            (cls.only_colored_recoilers and model.get_particle(leg['id'])['color'] == 1) )
-
-    @classmethod
-    def determine_mapping(cls, structure):
-
-        if structure.name() == 'S':
-            return cls.soft_map
-        elif structure.name() == 'C' and not structure.substructures:
-            if structure.legs.has_initial_state_leg():
-                return cls.i_collinear_map
-            else:
-                return cls.f_collinear_map
-        elif (structure.name() == 'C'
-              and len(structure.substructures) == 1
-              and structure.substructures[0].name() == 'S'
-              and not structure.substructures[0].substructures
-              and len(structure.legs) == 1):
-            if structure.legs.has_initial_state_leg():
-                return cls.i_soft_collinear_map
-            else:
-                return cls.f_soft_collinear_map
-        else:
-            logger.critical("Error while processing %s" % structure)
-            raise MadGraph5Error(cls.cannot_handle_msg("SingularStructure"))
-
-class LorentzNLOWalker(NLOWalker):
-
-    f_collinear_map = FinalLorentzOneMapping()
-    i_collinear_map = InitialLorentzOneMapping()
-    soft_map = SoftVsFinalMapping()
-    f_soft_collinear_map = SoftCollinearVsFinalMapping(soft_map, f_collinear_map)
-    i_soft_collinear_map = SoftCollinearVsFinalMapping(soft_map, i_collinear_map)
-    only_colored_recoilers = True
-
-# Walker for disjoint counterterms
-#=========================================================================================
-
-class DisjointWalker(OneNodeWalker):
-    """Implement a generic determine_hike for disjoint counterterms."""
-
-    @classmethod
-    def determine_hike(cls, counterterm):
-
-        # Initialize return variables
-        hike = Hike()
-        # If the counterterm is not trivial
-        if not counterterm.nodes:
-            return hike
-        parents = []
-        currents = []
-        substructures = []
-        soft_particles = []
-        for node in counterterm.nodes:
-            # Do not accept nested currents
-            if node.nodes:
-                raise MadGraph5Error(cls.cannot_handle_msg(counterterm))
-            # Alias singular structure for convenience
-            ss = node.current['singular_structure']
-            # Get parent and children numbers
-            parent, _, _ = get_structure_numbers(ss, counterterm.momenta_dict )
-            # Collinear structures
-            if parent is not None:
-                # Exclude parents from recoilers
-                parents.append(parent)
-                currents.append(node.current)
-                substructures.append(ss)
-                # Determine the parent mass
-                # TODO: For now, check that it is zero
-                try:
-                    parent_pdg = counterterm.find_leg(parent)['id']
-                except KeyError:
-                    raise MadGraph5Error(
-                        "Impossible to find parent " + str(parent) +
-                        " within counterterm " + str(counterterm) )
-                parent_particle = counterterm.process['model'].get_particle(parent_pdg)
-                if parent_particle['mass'].lower() != 'zero':
-                    raise MadGraph5Error("DEVELOPER: retrieve parent mass!")
-            # Soft structures
-            else:
-                # Group all soft particles in one structure
-                soft_particles += ss.get_all_legs()
-                currents.append(node.current)
-        squared_masses = None
-        if soft_particles:
-            substructures.append(sub.SoftStructure(legs=soft_particles))
-        # Pick recoilers as everything in the final state of the reduced process
-        recoilers = cls.get_recoilers(counterterm, parents)
-        structure = sub.SingularStructure(legs=recoilers, substructures=substructures)
-        # Choose mapping to use
-        mapping = cls.determine_mapping(structure)
-        # Compute jacobian and map to lower multiplicity
-        hike.append(Stroll(mapping, structure, squared_masses, currents))
-        # Returns
-        return hike
-
-# Walker for disjoint final-collinear counterterms
-#=========================================================================================
-
-class FinalCollinearDisjointWalker(DisjointWalker):
-    """Implement a generic determine_hike for disjoint final-collinear counterterms."""
-
-    collinear_map = None
-
-    @classmethod
-    def good_recoiler(cls, model, leg):
-
-        return leg['state'] == leg.FINAL
-
-    @classmethod
-    def determine_mapping(cls, structure):
-
-        for substructure in structure.substructures:
-            if substructure.name() != 'C':
-                raise MadGraph5Error(cls.cannot_handle_msg(structure))
-            if substructure.substructures:
-                raise MadGraph5Error(cls.cannot_handle_msg(structure))
-            if structure.legs.has_initial_state_leg():
-                raise MadGraph5Error(cls.cannot_handle_msg(structure))
-        return cls.collinear_map
-
-class FinalLorentzDisjointWalker(FinalCollinearDisjointWalker):
-
-    collinear_map = FinalLorentzMapping()
-
-class FinalGroupingDisjointWalker(FinalCollinearDisjointWalker):
-
-    collinear_map = FinalGroupingMapping()
-
-# Walker for disjoint final-collinear counterterms
-#=========================================================================================
-
-class SoftDisjointWalker(DisjointWalker):
-    """Implement a generic determine_hike for disjoint soft counterterms."""
-
-    soft_map = None
-
-    @classmethod
-    def good_recoiler(cls, model, leg):
-
-        return leg['state'] == leg.FINAL
-
-    @classmethod
-    def determine_mapping(cls, structure):
-
-        for substructure in structure.substructures:
-            if substructure.name() != 'S':
-                raise MadGraph5Error(cls.cannot_handle_msg(structure))
-            if substructure.substructures:
-                raise MadGraph5Error(cls.cannot_handle_msg(structure))
-            if structure.legs.has_initial_state_leg():
-                raise MadGraph5Error(cls.cannot_handle_msg(structure))
-        return cls.soft_map
-
-class SoftVsFinalDisjointWalker(SoftDisjointWalker):
-
-    soft_map = SoftVsFinalMapping()
-
-# Dictionary of available walkers
-#=========================================================================================
-
-# Mapping classes map is defined here as module variables. This map can be overwritten
-# by the interface when using a PLUGIN system where the user can define his own Mapping.
-# Note that this must be placed after all Mapping daughter classes in this module
-# have been declared.
-walker_classes_map = {
-    'FinalRescalingOne': FinalRescalingOneWalker,
-    'FinalLorentzOne': FinalLorentzOneWalker,
-    'FinalRescalingNLO': FinalRescalingNLOWalker,
-    'FinalLorentzNLO': FinalLorentzNLOWalker,
-    'LorentzNLO': LorentzNLOWalker,
-    'FinalLorentzDisjoint': FinalLorentzDisjointWalker,
-    'FinalGroupingDisjoint': FinalGroupingDisjointWalker,
-    'SoftVsFinalDisjoint': SoftVsFinalDisjointWalker,
-}

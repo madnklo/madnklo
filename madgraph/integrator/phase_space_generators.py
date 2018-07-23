@@ -325,6 +325,19 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
             PDF_tau = None
         PS_random_variables  = [rv for i, rv in enumerate(random_variables) if self.position_to_dim_name[i].startswith('x') ]
 
+        # Also generate the ISR collinear factorization convolutoin variables chsi<i> if
+        # necessary. In order for the + distributions of the PDF counterterms and integrated
+        # collinear ISR counterterms to hit the PDF only (and not the matrix elements or
+        # observables functions), a change of variable is necessary: xb_1' = xb_1 * chsi1
+        if self.is_beam_factorization_active[0]:
+            chsi1 = random_variables[self.dim_name_to_position['chsi1']]
+        else:
+            chsi1 = None
+        if self.is_beam_factorization_active[1]:
+            chsi2 = random_variables[self.dim_name_to_position['chsi2']]
+        else:
+            chsi2 = None
+
         # Now take care of the Phase-space generation:
         # Set some defaults for the variables to be set further
         xb_1 = 1.
@@ -335,7 +348,6 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
         #  x_1 = sqrt(tau) * exp(+ycm)
         #  x_2 = sqrt(tau) * exp(-ycm)
         # The jacobian of this transformation is 1.
-        
         if abs(self.beam_types[0])==abs(self.beam_types[1])==1:
             
             tot_final_state_masses = sum(self.masses)
@@ -375,25 +387,10 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
             E_cm = self.collider_energy
         else:
             raise InvalidCmd("This basic PS generator does not yet support collider mode (%d,%d)."%self.beam_types)
-
-        # Now also generate the ISR collinear factorization convolutoin variables chsi<i> if
-        # necessary. In order for the + distributions of the PDF counterterms and integrated
-        # collinear ISR counterterms to hit the PDF only (and not the matrix elements or
-        # observables functions), a change of variable is necessary, bringing a 1/chsi<i>
-        # term for each rescaling in the Jacobian.
-        if self.is_beam_factorization_active[0]:
-            chsi1 = random_variables[self.dim_name_to_position['chsi1']]
-            wgt /= chsi1
-        else:
-            chsi1 = None
-        if self.is_beam_factorization_active[1]:
-            chsi2 = random_variables[self.dim_name_to_position['chsi2']]
-            wgt /= chsi2
-        else:
-            chsi2 = None
         
         # Make sure the Bjorken x's are physical:
-        if xb_1>1. or xb_2>1.:
+        if ( (chsi1 is not None) and xb_1 > chsi1 ) or \
+           ( (chsi2 is not None) and xb_2 > chsi2 ):        
             return None, 0.0, (xb_1, chsi1) , (xb_2, chsi2)
 
         # Now generate a PS point

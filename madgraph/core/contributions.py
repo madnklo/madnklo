@@ -1193,9 +1193,14 @@ class Contribution_R(Contribution):
 The resulting output must therefore be used for debugging only as it will not yield physical results."""
                 %(self.short_name(),defining_process.nice_string(print_weighted = False).replace('Process','process')))
 
+
             # Make sure that the non-singular counterterm which correspond to the real-emission
             # matrix elements themselves are not added here
             local_counterterms = [ct for ct in local_counterterms if ct.is_singular()]
+
+            # Set the reduced flavor map of all the counterterms
+            for CT in local_counterterms+integrated_counterterms:
+                CT.set_reduced_flavors_map(defining_process, mapped_processes, self.IR_subtraction)
 
 #            misc.sprint('Local CTs for %s'%(defining_process.nice_string()))
 #            for lc in local_counterterms:
@@ -1343,13 +1348,14 @@ The resulting output must therefore be used for debugging only as it will not yi
                 # There should always be a unique value of S_t for each reduced_flavor
                 symmetry_factors                = {}
                 for flavor_combination, leg_numbers in flavors_combinations:
+                    # Access the reduced flavors
+                    reduced_flavors = integrated_counterterm.get_reduced_flavors(
+                                                    defining_flavors = flavor_combination )
                     # Create a map from leg number to flavor
                     number_to_flavor_map = dict( 
                         [ ( number, flavor_combination[0][i] ) for i, number in enumerate(leg_numbers[0]) ] +
                         [ ( number, flavor_combination[1][i] ) for i, number in enumerate(leg_numbers[1]) ]
                     )
-                    reduced_flavors = integrated_counterterm.get_reduced_flavors(
-                      defining_flavors=number_to_flavor_map, IR_subtraction=self.IR_subtraction)
 #                    misc.sprint('From resolved flavor:',number_to_flavor_map)
 #                    misc.sprint('I get:',reduced_flavors)
 
@@ -1479,11 +1485,21 @@ The resulting output must therefore be used for debugging only as it will not yi
                 if copied_current not in all_currents:
                     all_currents.append(copied_current)
 
+        # Also add the beam_factorization currents from process itself if it has any
+        for process_key, (defining_process, mapped_processes) in self.get_processes_map().items():
+            for beam_factorization_currents in defining_process['beam_factorization']:
+                for bfc in beam_factorization_currents.values():
+                    if bfc is not None:
+                        all_currents.append(bfc)
+
         # Now further remove currents that are already in all_MEAccessors
-        all_currents = [current
-                        for current in all_currents
-                        if current.get_key().get_canonical_key() not in all_MEAccessors]
-        return all_currents
+        all_necessary_currents = {}
+        for current in all_currents:
+            current_key = current.get_key().get_canonical_key()
+            if current_key not in all_MEAccessors and current_key not in all_necessary_currents:
+                all_necessary_currents[current_key] = current
+
+        return all_necessary_currents.values()
 
     @classmethod
     def add_current_accessors(
@@ -1491,8 +1507,7 @@ The resulting output must therefore be used for debugging only as it will not yi
         """Generate and add all subtraction current accessors to the MEAccessorDict."""
 
         # Generate the computer code and export it on disk for the remaining new currents
-        current_exporter = subtraction.SubtractionCurrentExporter(
-            model, root_path, current_set)
+        current_exporter = subtraction.SubtractionCurrentExporter(model, root_path, current_set)
         mapped_currents = current_exporter.export(currents_to_consider)
         # Print to the debug log which currents were exported
         log_string = "The following subtraction current implementation are exported:\n"
@@ -2164,7 +2179,7 @@ class Contribution_RV(Contribution_R, Contribution_V):
                    ME7_configuration,
                    subtraction_mappings_scheme=self.options['subtraction_mappings_scheme'],
                    counterterms=relevant_counterterms,
-                   integrated_counterterms=relevant_counterterms
+                   integrated_counterterms=relevant_integrated_counterterms
                 ) ]
 
     def get_additional_nice_string_printout_lines(self, format=0):

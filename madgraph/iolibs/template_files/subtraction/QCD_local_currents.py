@@ -265,7 +265,7 @@ class QCDBeamFactorizationCurrent(QCDCurrent):
 
         return init_vars
 
-    def evaluate_subtraction_current(self, current, chsi, mu_f, **opts ):
+    def evaluate_subtraction_current(self, current, chsi, mu_f, hel_config=None, **opts ):
         """ This implementation of the main function call in the base class preprocess
         the inputs so as to define the variable generically useful for all beam factorization
         current."""

@@ -63,7 +63,6 @@ import madgraph.various.cluster as cluster
 import madgraph.various.misc as misc
 import madgraph.various.lhe_parser as lhe_parser
 import madgraph.integrator.integrands as integrands
-import madgraph.integrator.mappings as mappings
 import madgraph.integrator.integrators as integrators
 import madgraph.integrator.phase_space_generators as phase_space_generators
 import madgraph.integrator.pyCubaIntegrator as pyCubaIntegrator
@@ -317,7 +316,8 @@ class ParseCmdArguments(object):
             'apply_lower_multiplicity_cuts'  : True,
             'show_plots'              : True,
             'save_plots'              : False,
-            'save_results_to_path'    : None
+            'save_results_to_path'    : None,
+            'plots_suffix'            : None,
         }
 
         if mode=='poles':
@@ -330,6 +330,7 @@ class ParseCmdArguments(object):
             del testlimits_options['apply_lower_multiplicity_cuts']
             del testlimits_options['show_plots']
             del testlimits_options['save_plots']
+            del testlimits_options['plots_suffix']
         elif mode=='limits':
             del testlimits_options['include_all_flavors']            
  
@@ -463,6 +464,8 @@ class ParseCmdArguments(object):
                     testlimits_options['seed'] = int(value)
                 except ValueError:
                     raise InvalidCmd("Cannot set '%s' option to '%s'."%(key, value))
+            elif key == '--plots_suffix':
+                testlimits_options['plots_suffix'] = value
             elif key=='--process':
                 if value.lower()=='all':
                     testlimits_options['process']['in_pdgs'] = None
@@ -604,9 +607,10 @@ class ParseCmdArguments(object):
         
         expansion_orders = []
         integrand_types  = []
+        short_names      = []
         
-        integrand_type_short_cuts = dict( (k, ( eval('ME7_integrands.ME7Integrand_%s'%k), )
-                                            ) for k in ['R','RR','RRR','V','LIB','B'] )
+        integrand_type_short_cuts = dict( (k, eval('ME7_integrands.ME7Integrand_%s'%k, )
+                                            ) for k in ['R','RV','RR','RRR','V','LIB','B'] )
         
         for filter in filters.split(','):
             f = filter.strip()
@@ -622,8 +626,7 @@ class ParseCmdArguments(object):
                     else:
                         raise BaseException
                 except:
-                    raise InvalidCmd("Option '%s' cannot be "%filter+
-                                              "understood as an integrand type specifier.")
+                    short_names.append(f)
         
         filter_functions = []
         if mode == 'select':
@@ -633,17 +636,21 @@ class ParseCmdArguments(object):
                     integrand.contribution_definition.correction_order in expansion_orders)
             # The the expansion orders
             if integrand_types:
-                filter_functions.append(lambda integrand: 
-                                            isinstance(integrand, tuple(integrand_types) ))
+                filter_functions.append(lambda integrand: (type(integrand) in integrand_types) )
+            if short_names:
+                filter_functions.append(lambda integrand: (
+                          integrand.contribution_definition.short_name() in short_names) )                
         else:
             # First the ordering filter if specified
             if expansion_orders:
                 filter_functions.append(lambda integrand: 
                     not (integrand.contribution_definition.correction_order in expansion_orders) )
-            # The the expansion orders
+            # Then the expansion orders
             if integrand_types:
-                filter_functions.append(lambda integrand: 
-                                        not isinstance(integrand, tuple(integrand_types) ))
+                filter_functions.append(lambda integrand: (type(integrand) not in integrand_types) )
+            if short_names:
+                filter_functions.append(lambda integrand: (
+                        integrand.contribution_definition.short_name() not in short_names) )
         
         return filter_functions
 
@@ -908,7 +915,6 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         
         integrands_to_consider = ME7_integrands.ME7IntegrandList([ itg for itg in self.all_integrands if
                            all(filter(itg) for filter in launch_options['integrands']) ])
-
         self.integrator = self._integrators[integrator_name][0](integrands_to_consider, **integrator_options)
         
         if len(set([len(itgd.get_dimensions()) for itgd in integrands_to_consider]))>1 and integrator_name not in ['NAIVE']:

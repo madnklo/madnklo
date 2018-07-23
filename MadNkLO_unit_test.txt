@@ -13,4 +13,3 @@ SoftVariablesTest
 MappingsTest
 WalkersTest
 test_color_correlators_computation_fast
-test_color_correlators_computation_slow

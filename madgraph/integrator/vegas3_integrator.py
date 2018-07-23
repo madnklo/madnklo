@@ -133,8 +133,9 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
        
         # General steering parameters
         default_opts= {
-           'verbosity':0,
-           'target_accuracy':1.0e-3}
+           'verbosity'          :   0,
+           'target_accuracy'    :   1.0e-3,
+        }
 
         # Parameter for controlling VEGAS3
         # ------------------------------------------------

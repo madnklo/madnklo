@@ -506,15 +506,15 @@ class SingularStructure(object):
         return ""
 
     def decompose(self):
-        """Decompose the singular structure as a flat set."""
+        """Decompose the singular structure as a flat list."""
 
-        inner = set()
+        inner = list()
         for substructure in self.substructures:
-            inner.update(substructure.decompose())
+            inner += substructure.decompose()
         if type(self) == SingularStructure:
             return inner
         foo = type(self)(legs=self.get_all_legs())
-        inner.add(foo)
+        inner.append(foo)
         return inner
 
     name_dictionary = {
@@ -1367,6 +1367,17 @@ class Counterterm(CountertermNode):
         except KeyError:
             self.prefactor = self.get_prefactor(**opts)
 
+        # Both attributes below will be set via a call to `set_reduced_flavors_map`
+        # during the generation of the counterterms
+        # The dictionary below takes the form:
+        #   { ( (reolved_initial_state_PDGs,), (resolved_final_state_PDGs, ) ) :
+        #               ( (resolved_initial_state_PDGs,), (resolved_final_state_PDGs, ) ) }
+        # In the future, the values can be upgraded to list of mapped reduced flavors.
+        # But for now there can only be one at a time.
+        # Also, an additional 'None' key is added which points to the reduced flavor
+        # configuration of the defining process.
+        self.reduced_flavors_map     = None
+
     @classmethod
     def get_ancestor(cls, particles, momentum_dict):
         """Recursively explore the momentum dictionary to find an ancestor
@@ -1611,7 +1622,9 @@ class Counterterm(CountertermNode):
                   'beam_two' : beam_current_2 # None for no convolution
               } """
         
-        beam_currents = self.current['beam_factorization']
+        # Copy the beam currents from the reduced process to avoid border effects
+        # when further post-processing it below.
+        beam_currents = [dict(bf) for bf in self.current['beam_factorization']]
 
         # First fetch all currents making up this counterterm
         for current in self.get_all_currents():        
@@ -1636,36 +1649,56 @@ class Counterterm(CountertermNode):
     
         return beam_currents
 
-    def get_reduced_flavors(self, defining_flavors=None, IR_subtraction=None):
-        """Given the defining flavors corresponding to the resolved process (as a dictionary),
-         return a *list* of flavors corresponding to the flavor assignment of the reduced process 
-         given the defining flavors.
-        """
+    def set_reduced_flavors_map(self, defining_process, mapped_processes, IR_subtraction):
+        """Given the defining and mapped processes subject to this counterterm, 
+        this function sets the instance attribute 'reduced_flavor_map' which can be 
+        used later to easily access the corresponding reduced flavor."""
+        
+        # Check if we do support this counterterm for this functionality for now.
         if self.count_unresolved() > 1 and any(
             any(substruct.name()=='S' for substruct in current['singular_structure'].substructures)
                                                    for current in self.get_all_currents()):
             raise MadGraph5Error("The function 'get_reduced_flavors' of the class Counterterm"+
                 " does not yet support NNLO soft structures such as: %s"%str(self))
-
-        # Now construct the reduced flavors list
-        if defining_flavors is None or IR_subtraction is None:
-            # If no defining flavors are specified then simply use the flavors already
-            # filled in the reduced process.
-            reduced_flavors = self.process.get_cached_initial_final_pdgs()
-        else:            
-            number_to_flavors_map = dict(defining_flavors)
+        
+        self.reduced_flavors_map = {}
+        for i_proc, process in enumerate([defining_process,]+mapped_processes):
+            number_to_flavors_map = { l['number'] : l['id'] for l in process.get('legs') }
             # Update the number_to_flavors_map dictionary by walking through the nodes
             for node in self.nodes:
                 node.get_reduced_flavors(
                                  number_to_flavors_map, IR_subtraction, self.momenta_dict)
             reduced_process_leg_numbers = self.process.get_cached_initial_final_numbers()
-
             reduced_flavors = (
                 tuple( number_to_flavors_map[n] for n in reduced_process_leg_numbers[0] ),
                 tuple( number_to_flavors_map[n] for n in reduced_process_leg_numbers[1] )
             )
-            
-        return reduced_flavors
+            self.reduced_flavors_map[process.get_cached_initial_final_pdgs()] = reduced_flavors
+            # Also add a None key for the default reduced flavors corresponding to the 
+            # resolved ones of the defining process.
+            if i_proc==0:
+                self.reduced_flavors_map[None] = reduced_flavors                
+
+    def get_reduced_flavors(self, defining_flavors=None):
+        """Given the defining flavors as a tuple (initial_state_PDGs, final_state_PDGs),
+         returns in the same format the flavors corresponding to the flavor assignment of
+         the reduced process  given the defining flavors.
+         If the defining defining_flavors is set to None, then the default reduced_flavors
+         will be returned, corresponding to the defining process that yielded this counterterm.
+        """
+
+        if self.reduced_flavors_map is None:
+            raise MadGraph5Error("The function 'set_reduced_flavors_map' of the counterterm"+
+                            " should be called before the function 'get_reduced_flavors'.")
+
+        try:
+            return self.reduced_flavors_map[defining_flavors]
+        except KeyError:
+            raise MadGraph5Error(
+                "The reduced flavor configuration for the resolved configuration "+
+                "'%s' was not found in the"%str(defining_flavors)+
+                " reduced flavors map:\n%s\nof this counterterm:\n%s"%(
+                                         str(self.reduced_flavors_map),self.nice_string()))
 
     def get_reduced_quantities(self, reduced_PS_dict, defining_flavors=None):
         """Given the PS *dictionary* providing the reduced kinematics returned
@@ -1737,7 +1770,7 @@ class IntegratedCounterterm(Counterterm):
                   'beam_two' : beam_current_2 # None for no convolution
               } """
         
-        beam_currents = self.current['beam_factorization']
+        beam_currents = [dict(bf) for bf in self.current['beam_factorization']]
 
         # First fetch all integrated currents making up this integrated counterterm
         # In the current implementation, there can only be one for now.
@@ -1793,7 +1826,7 @@ class IntegratedCounterterm(Counterterm):
         return necessary_beam_convolutions
 
     def get_reduced_kinematics(self, input_reduced_PS):
-        """Given the PS *dictionary* providing the reduced kinematics corresponding to
+        """Given the PS specifying the reduced kinematics corresponding to
         the current PS point thrown at the virtual contribution, return a *dictionary* of 
         momenta corresponding to the reduced kinematics."""
 

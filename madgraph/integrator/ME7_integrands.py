@@ -820,13 +820,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
             
             this_process_wgt = wgt
             process_pdgs = process.get_cached_initial_final_pdgs()
-
-            # Apply flavor blind cuts
-            if not self.pass_flavor_blind_cuts(PS_point, process_pdgs):
-                if __debug__: logger.debug('Event failed the flavour_blind generation-level cuts.')
-                if __debug__: logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)            
-                return 0.0
-            
+ 
             all_processes = [process,]+mapped_processes
             all_process_pdgs = []
             # Add mirror processes if present
@@ -913,6 +907,14 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # We specify pdgs to None her to avoid the need of any permutation since we follow the order of
         # the defining process here which is the one that was exported.
         # For the reduced matrix elements however, this cannot be done.
+
+
+        # Apply flavor blind cuts
+        if not self.pass_flavor_blind_cuts(PS_point, flavors):
+            if __debug__: logger.debug('Event failed the flavour_blind generation-level cuts.')
+            if __debug__: logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)            
+            return 0.0
+        
         ME_evaluation, all_results = self.all_MEAccessors(
                                             process, PS_point, alpha_s, mu_r, pdgs=flavors)
         
@@ -1301,7 +1303,14 @@ The missing process is: %s"""%reduced_process.nice_string())
 
     def sigma(self, PS_point, process_key, process, flavors, process_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
         """ Overloading of the sigma function from ME7Integrand to include necessary additional contributions. """
-        
+    
+
+        # Apply flavor blind cuts
+        if not self.pass_flavor_blind_cuts(PS_point, flavors):
+            if __debug__: logger.debug('Event failed the flavour_blind generation-level cuts.')
+            if __debug__: logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)            
+            return 0.0
+
         sigma_wgt = super(ME7Integrand_V, self).sigma(
                 PS_point, process_key, process, flavors, process_wgt, mu_r, mu_f1, mu_f2, *args, **opts)
         
@@ -1820,7 +1829,7 @@ The missing process is: %s"""%ME_process.nice_string())
     def sigma(self, PS_point, process_key, process, flavors, process_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
         """ Implementation of the short-distance cross-section for the real-emission integrand.
         Counterterms will be computed on top of the actual real-emission integrand."""
-        
+
         # Compute the real-emission matrix element weight in the base ME7Integrand class
         # Notice that the observable will be called already there for the resolved kinematics
         sigma_wgt = super(ME7Integrand_R, self).sigma(

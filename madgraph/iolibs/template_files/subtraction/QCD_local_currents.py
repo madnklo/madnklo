@@ -21,6 +21,7 @@ import madgraph.integrator.mappings as mappings
 import madgraph.various.misc as misc
 from madgraph.core.subtraction import BeamCurrent, IntegratedBeamCurrent, Counterterm, SubtractionLeg
 import madgraph.various.misc as misc
+from madgraph.core.base_objects import EpsilonExpansion
 
 try:
     # First try to import this in the context of the exported currents
@@ -108,10 +109,19 @@ class QCDCurrent(utils.VirtualCurrentImplementation):
             model_param_dict = self.model.get('parameter_dict')
         except:
             model_param_dict = dict()
-        self.TR = model_param_dict.get('TR', 0.5)
-        self.NC = model_param_dict.get('NC', 3.0)
+
+        self.TR = model_param_dict.get('TR', utils.Constants.TR)
+        self.NC = model_param_dict.get('NC', utils.Constants.NC)
         self.CF = model_param_dict.get('CF', (self.NC ** 2 - 1) / (2 * self.NC))
         self.CA = model_param_dict.get('CA', self.NC)
+        
+        self.EulerGamma = utils.Constants.EulerGamma
+        # S_\eps = (4 \[Pi])^\[Epsilon] E^(-\[Epsilon] EulerGamma)
+        self.SEpsilon   = utils.Constants.SEpsilon
+        # The SEpsilon volume factor is factorized from all virtual and integrated contributions
+        # so that the poles between the two cancel even before multiplying by SEpsilon, hence
+        # making the result equivalent to what one would have obtained by multiplying by SEpsilon=1.
+        self.SEpsilon = EpsilonExpansion({ 0 : 1.})
 
     @staticmethod
     def is_quark(leg, model):
@@ -217,6 +227,9 @@ class QCDBeamFactorizationCurrent(QCDCurrent):
         self.beam_type = opts.get('beam_type', 'Unknown')
         self.beam_PDGs = opts.get('beam_PDGs', tuple([]))
 
+        self.NF = len([1 for pdg in self.beam_PDGs if
+                                      model.get_particle(pdg).get('mass').upper()=='ZERO'])
+
         # This entry *must* be specified.
         self.distribution_type = opts['distribution_type']
 
@@ -265,7 +278,8 @@ class QCDBeamFactorizationCurrent(QCDCurrent):
 
         return init_vars
 
-    def evaluate_subtraction_current(self, current, chsi, mu_f, hel_config=None, **opts ):
+    def evaluate_subtraction_current(self, current, higher_PS_point=None, lower_PS_point=None, 
+            reduced_process = None, chsi=None, mu_r=None, mu_f=None, hel_config=None, **opts ):
         """ This implementation of the main function call in the base class preprocess
         the inputs so as to define the variable generically useful for all beam factorization
         current."""
@@ -279,11 +293,19 @@ class QCDBeamFactorizationCurrent(QCDCurrent):
         if mu_f is None:
             raise CurrentImplementationError(
                 self.name() + " requires the factorization scale mu_f." )
+        if mu_r is None:
+            raise CurrentImplementationError(
+                self.name() + " requires the factorization scale mu_r." )
+        if lower_PS_point is None:
+            raise CurrentImplementationError(
+                self.name() + " requires a lower PS point to be specified" )
+        if reduced_process is None:
+            raise CurrentImplementationError(
+                self.name() + " requires a process instance to be specified" )
 
-        # Retrieve alpha_s and mu_r
+        # Retrieve alpha_s
         model_param_dict = self.model.get('parameter_dict')
         alpha_s = model_param_dict['aS']
-        mu_r = model_param_dict['MU_R']
 
         # Compute the normalization factor
         normalization = ( alpha_s / (2. * math.pi) ) ** (current['n_loops'] + 1)
@@ -291,7 +313,8 @@ class QCDBeamFactorizationCurrent(QCDCurrent):
         # For beam factorization terms, this function returns an instance of
         # BeamFactorizationCurrentEvaluation which can specify color-correlations as 
         # well as reduced and resolved flavors.
-        evaluation = self.evaluate_kernel(chsi, normalization)
+        evaluation = self.evaluate_kernel(
+                          lower_PS_point, reduced_process, chsi, mu_r, mu_f, normalization)
 
         # Construct and return result
         result = utils.SubtractionCurrentResult()

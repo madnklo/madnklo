@@ -176,6 +176,11 @@ class ME7Event(object):
         
         return len(self.weights_per_flavor_configurations) != 0
 
+    def apply_flavor_blind_cuts(self, flavor_blind_cut, *args, **opts):
+        """ Apply the flavor-blind cut to this event, returning False if it failed."""
+        
+        return flavor_blind_cut(self.PS_point, *args, **opts)
+
     def select_a_flavor_configuration(self):
         """ Select a particular flavor configuration for this event which may be used
         by the flavor-sensitive observables. The selection is performed randomly with 
@@ -361,6 +366,18 @@ class ME7EventList(list):
         self[:] = new_event_list
 
         return len(self) != 0
+
+    def filter_with_flavor_blind_cuts(self, cut_function, *args, **opts):
+        """ Apply the kinematic flavor-blind cut on each event in this list, removing those with
+        failing the cut. This returns false if there is no events left."""
+        
+        new_event_list = []
+        for event in self:
+            if event.apply_flavor_blind_cuts(cut_function, *args, **opts):
+                new_event_list.append(event)
+        self[:] = new_event_list
+
+        return len(self) != 0
     
     def get_total_weight(self):
         """ Return the total weight over all events in this list."""
@@ -519,14 +536,6 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # Update and define many properties of self based on the provided run-card and model.
         self.synchronize(model, run_card, ME7_configuration)
 
-    def nice_string(self):
-        """ For now simply use the contribution_definition and class name for a nice readable representation."""
-        
-        res = []
-        res.append("Instance of class '%s', with the following contribution definition:"%(self.__class__.__name__))
-        res.append('\n'.join(' > %s'%line for line in self.contribution_definition.nice_string().split('\n')))
-        return '\n'.join(res)
-
     def get_additional_nice_string_printout_lines(self):
         """ Additional printout information for nice_string. 
         Meant to possibly be overloaded by daughter classes."""
@@ -545,7 +554,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
         BLUE = '\033[94m'
         GREEN = '\033[92m'
         ENDC = '\033[0m'
-        res = ['%-30s:   %s'%('ME7Integrand_type',type(self))]
+        res = ['< %s%s%s >'%(BLUE,self.contribution_definition.short_name(),ENDC)]
+        res.append('%-30s:   %s'%('ME7Integrand_type',type(self)))
         res.extend([self.contribution_definition.nice_string()])
         if not self.topologies_to_processes is None:
             res.append('%-30s:   %d'%('Number of topologies', 
@@ -1180,14 +1190,6 @@ class ME7Integrand(integrands.VirtualIntegrand):
             if __debug__: logger.debug('Now considering the process group from %s.'%process.nice_string())
             
             process_pdgs = process.get_cached_initial_final_pdgs()
-
-            # Apply flavor blind cuts
-            if not self.pass_flavor_blind_cuts(PS_point, process_pdgs,
-                n_jets_allowed_to_be_clustered  = self.contribution_definition.n_unresolved_particles,
-                boost_vector_to_lab_frame       = boost_vector_to_lab_frame):
-                if __debug__: logger.debug('Event failed the flavour_blind generation-level cuts.')
-                if __debug__: logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)            
-                return 0.0
             
             all_processes = [process,]+mapped_processes
             all_flavor_configurations = []
@@ -1204,6 +1206,13 @@ class ME7Integrand(integrands.VirtualIntegrand):
                 PS_point.to_dict(), process_key, process, all_flavor_configurations, 
                                                      wgt, mu_r, mu_f1, mu_f2, chsi1, chsi2)
             # misc.sprint(events)
+            # Apply flavor blind cuts
+            if not events.filter_with_flavor_blind_cuts(self.pass_flavor_blind_cuts, process_pdgs,
+                n_jets_allowed_to_be_clustered  = self.contribution_definition.n_unresolved_particles,
+                boost_vector_to_lab_frame       = boost_vector_to_lab_frame):
+                if __debug__: logger.debug('All events failed the flavour_blind generation-level cuts.')
+                if __debug__: logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)            
+                return 0.0
             
             # Select particular terms of the EpsilonExpansion terms stored as weigts
             events.select_epsilon_expansion_term('finite')
@@ -1304,7 +1313,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         ])
 
     def convolve_event_with_beam_factorization_currents(self, input_event_to_convolve, 
-                                  beam_factorization_currents, mu_f1, mu_f2, chsi1, chsi2):
+            beam_factorization_currents, PS_point, process, mu_r, mu_f1, mu_f2, chsi1, chsi2):
         """ Calls the currents specified in the 'beam_factorization_currents' argument, of the form:
             [{ 'beam_one': <BeamCurrent>,
                'beam_two': <BeamCurrent> }]
@@ -1321,14 +1330,16 @@ class ME7Integrand(integrands.VirtualIntegrand):
             event_to_convolve = input_event_to_convolve.get_copy()
             if bc1 is not None:
                 assert(isinstance(bc1, subtraction.BeamCurrent) and bc1['distribution_type']=='bulk')
-                current_evaluation, all_current_results = self.all_MEAccessors(bc1, chsi=chsi1, mu_f=mu_f1)
+                current_evaluation, all_current_results = self.all_MEAccessors(
+                    bc1, lower_PS_point=PS_point, reduced_process=process, chsi=chsi1, mu_r=mu_r, mu_f=mu_f1)
                 assert(current_evaluation['spin_correlations']==[None,])
                 assert(current_evaluation['color_correlations']==[None,])
                 event_to_convolve.convolve_flavors( 
                     base_objects.EpsilonExpansion(current_evaluation['values'][(0,0)]), leg_index=0 )
             if bc2 is not None:
                 assert(isinstance(bc2, subtraction.BeamCurrent) and bc2['distribution_type']=='bulk')
-                current_evaluation, all_current_results = self.all_MEAccessors(bc2, chsi=chsi2, mu_f=mu_f2)
+                current_evaluation, all_current_results = self.all_MEAccessors(
+                    bc2, lower_PS_point=PS_point, reduced_process=process, chsi=chsi2, mu_r=mu_r, mu_f=mu_f2)
                 assert(current_evaluation['spin_correlations']==[None,])
                 assert(current_evaluation['color_correlations']==[None,])
                 event_to_convolve.convolve_flavors( 
@@ -1349,7 +1360,6 @@ class ME7Integrand(integrands.VirtualIntegrand):
         Bjorken_scaling_beam_two = 1. if beam_factorization_currents[0][1] is None else 1./chsi2
         # Assign the Bjorken scaling found
         convolved_event.set_Bjorken_rescalings(Bjorken_scaling_beam_one, Bjorken_scaling_beam_two)
-
         return convolved_event
 
 ##########################################################################################
@@ -1442,7 +1452,7 @@ class ME7Integrand_V(ME7Integrand):
         return res
 
     def evaluate_integrated_counterterm(self, integrated_CT_characteristics, PS_point, 
-        mu_f1, mu_f2, chsi1, chsi2, is_process_mirrored, input_mapping, 
+        base_weight, mu_f1, mu_f2, chsi1, chsi2, is_process_mirrored, input_mapping, 
         all_virtual_ME_flavor_configurations, hel_config=None, compute_poles=True):
         """ Evaluates the specified integrated counterterm, provided along with its other
         characteristics, like for example the list of flavors assignments that the resolved
@@ -1550,7 +1560,7 @@ class ME7Integrand_V(ME7Integrand):
         # Then evaluate the beam factorization currents
         all_necessary_ME_calls = ME7Integrand_R.process_beam_factorization_currents(
             all_necessary_ME_calls, counterterm.get_beam_currents(), self.all_MEAccessors,
-                                                                chsi1, chsi2, mu_f1, mu_f2)
+            reduced_PS, counterterm.process, chsi1, chsi2, mu_r, mu_f1, mu_f2)
 
         # Now perform the combination of the list of spin- and color- correlators to be merged
         # for each necessary ME call identified
@@ -1561,8 +1571,8 @@ class ME7Integrand_V(ME7Integrand):
         alpha_s = self.model.get('parameter_dict')['aS']
         mu_r = self.model.get('parameter_dict')['MU_R']
         return ME7Integrand_R.generate_event_for_counterterm(
-            ME7Event( reduced_PS, 
-                {fc : 1.0 for fc in all_mapped_flavors},
+            ME7Event( mapped_PS_point, 
+                {fc : base_weight for fc in all_mapped_flavors},
                 is_mirrored                     = is_process_mirrored,
                 host_contribution_definition    = self.contribution_definition,
                 counterterm_structure           = counterterm),
@@ -1726,8 +1736,8 @@ class ME7Integrand_V(ME7Integrand):
                 host_contribution_definition    = self.contribution_definition,
                 counterterm_structure           = None
         )
-        convolved_event = self.convolve_event_with_beam_factorization_currents(
-             event_to_convolve, process['beam_factorization'], mu_f1, mu_f2, chsi1, chsi2 )
+        convolved_event = self.convolve_event_with_beam_factorization_currents(event_to_convolve, 
+            process['beam_factorization'], PS_point, process, mu_r, mu_f1, mu_f2, chsi1, chsi2 )
         
         # Now register the convoluted event
         all_events_generated.append(convolved_event)
@@ -1743,7 +1753,7 @@ class ME7Integrand_V(ME7Integrand):
                 # At NLO at least, it is OK to save a bit of time by enforcing 'compute_poles=False').
                 # This will need to be re-assessed at NNLO for RV contributions.
                 CT_event = self.evaluate_integrated_counterterm( 
-                    counterterm_characteristics, PS_point, mu_f1, mu_f2, chsi1, chsi2,
+                    counterterm_characteristics, PS_point, base_weight, mu_f1, mu_f2, chsi1, chsi2,
                     process.get('has_mirror_process'),
                     input_mapping, all_flavor_configurations,
                     hel_config=None, 
@@ -2118,8 +2128,8 @@ class ME7Integrand_R(ME7Integrand):
         return new_all_necessary_ME_calls
 
     @classmethod
-    def process_beam_factorization_currents(cls, 
-        all_necessary_ME_calls, all_beam_currents, all_MEAccessors, chsi1, chsi2, mu_f1, mu_f2):
+    def process_beam_factorization_currents(cls, all_necessary_ME_calls, all_beam_currents, 
+                     all_MEAccessors, PS_point, process, chsi1, chsi2, mu_r, mu_f1, mu_f2):
         """ Calls the beam currents specified in the argument all_beam_currents with format:
               [{ 'beam_one': <BeamCurrent>,
                'beam_two': <BeamCurrent> }]
@@ -2134,7 +2144,8 @@ class ME7Integrand_R(ME7Integrand):
                     rescaling = 1./chsi1
                 else:
                     rescaling = 1.
-                current_evaluation, all_current_results = all_MEAccessors(beam_currents['beam_one'], chsi=chsi1, mu_f=mu_f1)
+                current_evaluation, all_current_results = all_MEAccessors(beam_currents['beam_one'], 
+                    lower_PS_point=PS_point, reduced_process=process, chsi=chsi1, mu_r=mu_r, mu_f=mu_f1)
                 new_necessary_ME_calls = ME7Integrand_R.update_all_necessary_ME_calls(
                     new_necessary_ME_calls, current_evaluation,
                     weight_type='flavor_matrix_beam_one', Bjorken_rescaling_beam_one = rescaling)
@@ -2143,14 +2154,15 @@ class ME7Integrand_R(ME7Integrand):
                     rescaling = 1./chsi2
                 else:
                     rescaling = 1.
-                current_evaluation, all_current_results = all_MEAccessors(beam_currents['beam_two'], chsi=chsi2, mu_f=mu_f2) 
+                current_evaluation, all_current_results = all_MEAccessors(beam_currents['beam_two'],
+                    lower_PS_point=PS_point, reduced_process=process, chsi=chsi2, mu_r=mu_r, mu_f=mu_f2) 
                 new_necessary_ME_calls = ME7Integrand_R.update_all_necessary_ME_calls(
                     new_necessary_ME_calls, current_evaluation,  
                     weight_type='flavor_matrix_beam_two', Bjorken_rescaling_beam_two = rescaling)
             new_all_necessary_ME_calls.extend(new_necessary_ME_calls)
         return new_all_necessary_ME_calls
 
-    def evaluate_counterterm( self, counterterm, PS_point, mu_f1, mu_f2, chsi1, chsi2,
+    def evaluate_counterterm( self, counterterm, PS_point, base_weight, mu_r, mu_f1, mu_f2, chsi1, chsi2,
         is_process_mirrored, all_resolved_flavors, hel_config=None, apply_flavour_blind_cuts=True):
         """Evaluate a counterterm for a given PS point and flavors."""
 
@@ -2238,8 +2250,8 @@ class ME7Integrand_R(ME7Integrand):
 
         # Then evaluate the beam factorization currents
         all_necessary_ME_calls = ME7Integrand_R.process_beam_factorization_currents(
-                                 all_necessary_ME_calls, counterterm.get_beam_currents(), 
-                                          self.all_MEAccessors, chsi1, chsi2, mu_f1, mu_f2)
+            all_necessary_ME_calls, counterterm.get_beam_currents(), self.all_MEAccessors, 
+            ME_PS, ME_process, chsi1, chsi2, mu_r, mu_f1, mu_f2)
 
         # Now perform the combination of the list of spin- and color- correlators to be merged
         # for each necessary ME call identified
@@ -2252,7 +2264,7 @@ class ME7Integrand_R(ME7Integrand):
         mu_r = self.model.get('parameter_dict')['MU_R']
         return ME7Integrand_R.generate_event_for_counterterm(
             ME7Event( ME_PS, 
-                {fc : 1.0 for fc in all_reduced_flavors},
+                {fc : base_weight for fc in all_reduced_flavors},
                 is_mirrored                     = is_process_mirrored,
                 host_contribution_definition    = self.contribution_definition,
                 counterterm_structure           = counterterm),
@@ -2276,9 +2288,9 @@ class ME7Integrand_R(ME7Integrand):
             color_correlators = tuple(ME_call['color_correlation']) if ME_call['color_correlation'] else None
             spin_correlators = tuple(ME_call['spin_correlation']) if ME_call['spin_correlation'] else None
             connected_currents_weight = ME_call['main_weight']
-#            misc.sprint(ME_PS,ME_process.nice_string())
+#            misc.sprint(ME_PS,ME_process.nice_string(),ME_process.get_cached_initial_final_numbers())
 #            misc.sprint(spin_correlators)
-#            misc.sprint(color_correlators, current_weight)
+#            misc.sprint(color_correlators, connected_currents_weight)
             try:
                 ME_evaluation, all_ME_results = all_MEAccessors(
                    ME_process, ME_PS, alpha_s, mu_r,
@@ -2290,7 +2302,8 @@ class ME7Integrand_R(ME7Integrand):
                    spin_correlation  = spin_correlators, 
                    hel_config        = None 
                 )
-                
+#                misc.sprint(ME_evaluation)
+
             except MadGraph5Error as e:
                 logger.critical("""
 A reduced matrix element is missing in the library of automatically generated matrix elements.
@@ -2370,7 +2383,7 @@ The missing process is: %s"""%ME_process.nice_string())
                         process, PS_point, alpha_s, mu_r, pdgs=all_flavor_configurations[0])
 
         event_weight = base_objects.EpsilonExpansion(ME_evaluation) * base_weight
-
+        
         # Notice that the Bjorken rescalings for this even will be set during the convolution
         # performed in the next line, and not directly here in the constructor.
         event_to_convolve = ME7Event( PS_point, 
@@ -2379,8 +2392,8 @@ The missing process is: %s"""%ME_process.nice_string())
                 host_contribution_definition    = self.contribution_definition,
                 counterterm_structure           = None
         )
-        convolved_event = self.convolve_event_with_beam_factorization_currents(
-             event_to_convolve, process['beam_factorization'], mu_f1, mu_f2, chsi1, chsi2 )
+        convolved_event = self.convolve_event_with_beam_factorization_currents(event_to_convolve, 
+            process['beam_factorization'], PS_point, process, mu_r, mu_f1, mu_f2, chsi1, chsi2 )
         
         # Now register the convoluted event
         all_events_generated.append(convolved_event)
@@ -2389,8 +2402,9 @@ The missing process is: %s"""%ME_process.nice_string())
             if not counterterm.is_singular():
                 continue
             CT_event = self.evaluate_counterterm(
-                counterterm, PS_point, mu_f1, mu_f2, chsi1, chsi2, process.get('has_mirror_process'),
-                all_flavor_configurations, hel_config = None, apply_flavour_blind_cuts = True)
+                  counterterm, PS_point, base_weight, mu_r, mu_f1, mu_f2, chsi1, chsi2, 
+                  process.get('has_mirror_process'), all_flavor_configurations, 
+                                        hel_config = None, apply_flavour_blind_cuts = True)
             # The function above returns None if the counterterms is removed because of
             # flavour_blind_cuts.
             if CT_event is not None:
@@ -2856,7 +2870,7 @@ class ME7Integrand_RV(ME7Integrand_R, ME7Integrand_V):
                 # At NLO at least, it is OK to save a bit of time by enforcing 'compute_poles=False').
                 # This will need to be re-assessed at NNLO for RV contributions.
                 CT_event = self.evaluate_integrated_counterterm( 
-                    counterterm_characteristics, PS_point, mu_f1, mu_f2, chsi1, chsi2,
+                    counterterm_characteristics, PS_point, base_weight, mu_f1, mu_f2, chsi1, chsi2,
                     process.get('has_mirror_process'),
                     input_mapping, all_flavor_configurations,
                     hel_config=None, 

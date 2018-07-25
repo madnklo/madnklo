@@ -2407,8 +2407,7 @@ class IRSubtraction(object):
         
         # Handle the specific case of single initial-state counterterm
         if len(initial_state_legs) == 1 and \
-            len(complete_singular_structure.substructures)==1 and \
-            len(complete_singular_structure.substructures[0].substructures)==0:
+            len(complete_singular_structure.substructures)==1:
 
             beam_number = initial_state_legs[0].n
             beam_names = {1:'beam_one', 2:'beam_two'}

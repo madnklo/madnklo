@@ -18,6 +18,27 @@ from __builtin__ import classmethod
 import math
 import madgraph.various.misc as misc
 import madgraph.integrator.phase_space_generators as PS_utils
+from madgraph.core.base_objects import EpsilonExpansion
+
+#=========================================================================================
+# Useful constants
+#=========================================================================================
+class Constants(object):
+    """ Constants used throughout the implementation of the counterterms."""
+    
+    # Epsilon expansion constants
+    EulerGamma = 0.57721566490153286061
+    SEpsilon =  EpsilonExpansion({ 
+         0 : 1., 
+         1 : -EulerGamma + math.log(4.*math.pi),
+         2 : 0.5*(EulerGamma**2-2.*EulerGamma*math.log(4.*math.pi)+math.log(4.*math.pi)**2)
+    })
+    
+    # SU(3) group constants
+    TR = 0.5
+    NC = 3.0
+    CF = (NC ** 2 - 1) / (2 * NC)
+    CA = NC
 
 #=========================================================================================
 # Subtraction current evaluation and result

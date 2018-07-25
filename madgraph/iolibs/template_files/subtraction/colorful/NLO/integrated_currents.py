@@ -44,18 +44,6 @@ CurrentImplementationError = utils.CurrentImplementationError
 class integrated_NLO_FF_QCD_current(utils.IntegratedCurrent, currents.QCDCurrent):
     """ Just a template class for all Final-Final NLO QCD local subtraction current."""
     
-    EulerGamma = 0.57721566490153286061
-    # S_\eps = (4 \[Pi])^\[Epsilon] E^(-\[Epsilon] EulerGamma)
-    SEpsilon   = EpsilonExpansion({ 
-         0 : 1., 
-         1 : -EulerGamma + math.log(4.*math.pi),
-         2 : 0.5*(EulerGamma**2-2.*EulerGamma*math.log(4.*math.pi)+math.log(4.*math.pi)**2)
-    })
-    # The SEpsilon volume factor is factorized from all virtual and integrated contributions
-    # and it is applied directly in the Monte-Carlo integration routine. So we set it to one
-    # for now.
-    SEpsilon = EpsilonExpansion({ 0 : 1.})
-    
     @classmethod
     def common_does_implement_this_current(cls, current, QCD_squared_order=None, n_loops=None):
         """ General class of checks common to all currents inheriting from this class."""
@@ -345,6 +333,10 @@ class integrated_NLO_FF_QCD_collinear_gq(integrated_NLO_FF_QCD_current):
 class integrated_NLO_FF_QCD_softcollinear_gq(integrated_NLO_FF_QCD_current):
     """ Implements the NLO_FF_QCD_collinear_gq current."""
 
+    # The soft-collinear integrated counterterm has been accounted for completely in the 
+    # soft integrated counterterm
+    is_zero = True
+    
     def __init__(self, *args, **opts):
         
         # Make sure it is initialized with the proper set of options and remove them

@@ -35,6 +35,8 @@ pjoin = os.path.join
 
 CurrentImplementationError = utils.CurrentImplementationError
 
+log = math.log
+
 # All counterterms here adopt a chsi-dependent distribution of the following form:
 #
 #        Counterterm(\chsi) = F_+(\chsi) + [F] \delta(\chsi-1)
@@ -87,58 +89,43 @@ class QCD_beam_factorization_F0(currents.QCDBeamFactorizationCurrent):
         # all possible incoming flavors.
         return init_vars
 
-    def evaluate_kernel(self, chsi, normalization):
+    def evaluate_kernel(self, PS_point, process, chsi, mu_r, mu_f, normalization):
         """ Return an instance of BeamFactorizationCurrentEvaluation, whose 'values' entry
         are dictionaries specifying the counterterm in flavor space, for the value of chsi 
         specified in argument."""
 
+        # Only the order epsilon of the scales pre-factor matters here.
+        prefactor = EpsilonExpansion({
+                0 : 1.,
+                1 : log(mu_r**2 / mu_f**2)
+        })
+        prefactor *= EpsilonExpansion({-1:1.})*normalization
+
         # Define the NLO QCD PDF counterterms kernels
         kernel_gg = { 
-            'bulk' :  EpsilonExpansion({
-                0 : 1.
-            })*normalization,
-            'counterterm' :  EpsilonExpansion({
-                0 : 1.
-            })*normalization,
-            'endpoint' :  EpsilonExpansion({
-                0 : 1.
-            })*normalization
+            'bulk'          :     prefactor*( 
+                2.*self.CA*( 1./ (1.-chsi) + (1.-chsi)/chsi -1. + chsi*(1-chsi) ) 
+            ),
+            'counterterm'   :     prefactor*( 2.*self.CA / (1.-chsi) ),
+            'endpoint'      :     prefactor*( 11./6.*self.CA - 2./3.*self.NF*self.TR)
         }
                  
         kernel_gq = { 
-            'bulk' :   EpsilonExpansion({
-                0 : 1.
-            })*normalization,
-            'counterterm' :  EpsilonExpansion({
-                0 : 1.
-            })*normalization,
-            'endpoint' :  EpsilonExpansion({
-                0 : 1.
-            })*normalization
+            'bulk'          :     prefactor*( self.CF*(1.+(1.-chsi)**2)/chsi ),
+            'counterterm'   :     None,
+            'endpoint'      :     None
         }
         
         kernel_qg = { 
-            'bulk' :   EpsilonExpansion({
-                0 : 1.
-            })*normalization,
-            'counterterm' :  EpsilonExpansion({
-                0 : 1.
-            })*normalization,
-            'endpoint' :  EpsilonExpansion({
-                0 : 1.
-            })*normalization
+            'bulk'          :     prefactor*( self.TR*(chsi**2 + (1.-chsi)**2) ),
+            'counterterm'   :     None,
+            'endpoint'      :     None
         }
         
         kernel_qq = { 
-            'bulk' :   EpsilonExpansion({
-                0 : 1.
-            })*normalization,
-            'counterterm' :  EpsilonExpansion({
-                0 : 1.
-            })*normalization,
-            'endpoint' :  EpsilonExpansion({
-                0 : 1.
-            })*normalization
+            'bulk'          :     prefactor*( self.CF*((1.+chsi**2)/(1.-chsi)) ),
+            'counterterm'   :     prefactor*( self.CF*((1.+chsi**2)/(1.-chsi)) ),
+            'endpoint'      :     None
         }
 
         active_quark_PDGs = tuple([pdg for pdg in range(1,7)+range(-1,-7,-1) 
@@ -149,16 +136,23 @@ class QCD_beam_factorization_F0(currents.QCDBeamFactorizationCurrent):
         for reduced_flavor in self.beam_PDGs:
             # Gluon backward evolution
             if reduced_flavor==21:
-                flavor_matrix[21] = { (21,) : kernel_gg[self.distribution_type] }
-                if active_quark_PDGs:
-                    flavor_matrix[21][active_quark_PDGs] = kernel_gq[self.distribution_type]
+                gluon_dict = {}
+                if kernel_gg[self.distribution_type] is not None:
+                    gluon_dict[(21,)] = kernel_gg[self.distribution_type]
+                if active_quark_PDGs and kernel_gq[self.distribution_type] is not None:
+                    gluon_dict[active_quark_PDGs] = kernel_gq[self.distribution_type]
+                if gluon_dict:
+                    flavor_matrix[21] = gluon_dict
             
             # Quark backward evolution            
             if reduced_flavor in active_quark_PDGs:
-                flavor_matrix[reduced_flavor] = { 
-                    (21,) : kernel_qg[self.distribution_type],
-                    (reduced_flavor,) : kernel_qq[self.distribution_type]
-                }
+                quark_dict = {}
+                if kernel_qg[self.distribution_type] is not None:
+                    quark_dict[(21,)] = kernel_qg[self.distribution_type]
+                if kernel_qq[self.distribution_type] is not None:
+                    quark_dict[(reduced_flavor,)] = kernel_qq[self.distribution_type]
+                if quark_dict:                    
+                    flavor_matrix[reduced_flavor] = quark_dict
 
         # Now assign the flavor matrix in the BeamFactorizationCurrentEvaluation instance
         evaluation = utils.BeamFactorizationCurrentEvaluation({
@@ -205,78 +199,119 @@ class QCD_beam_factorization_single_collinear(currents.QCDBeamFactorizationCurre
         # initial state collinear counterterm of all possible incoming flavors.
         return init_vars
 
-    def evaluate_kernel(self, chsi, normalization):
+    def evaluate_kernel(self, PS_point, process, chsi, mu_r, mu_f, normalization):
         """ Return an instance of BeamFactorizationCurrentEvaluation, whose 'values' entry
         are dictionaries specifying the counterterm in flavor space, for the value of chsi 
         specified in argument."""
 
+        # Obtain Q_square
+        Q        = sum([PS_point[l.get('number')] for l in process.get_initial_legs()])
+        Q_square = Q.square()
+
+        # Only up to the order epsilon^2 of the scales prefactor matters here.
+        logMuQ = log(mu_r**2/Q_square)
+        prefactor = EpsilonExpansion({ 0 : 1., 1 : logMuQ, 2 : 0.5*logMuQ**2 })
+        prefactor *= self.SEpsilon*normalization
+
+        # The additional 1/x part of the prefactor is included later during the PDF
+        # convolution of the event (using its 'Bjorken rescaling' attribute) because
+        # we must make sure that the plus distribution hits on it.
+        # Also, the same 1/x appears in the PDF counterterms as a result of the change
+        # of variable necessary to bring them in the form where the plus distribution 
+        # only acts on the PDF. So it makes sense to keep it completely factorised.
+
+        # Input variables
+        y_0 = currents.SomogyiChoices.y_0
+        logy0 = log(y_0)
+        x  = chsi
+        log1mx = log(1.-x)
+        
+        # Heaviside
+        theta_x_1my0 = 1. if (x-(1-y_0)) >= 0. else 0.
+        theta_1my0_x = 1. if ((1-y_0)-x) >= 0. else 0.
+
         # Define the NLO QCD integrate initial-state single collinear counterterms kernels
+        color_factor = self.CA
         kernel_gg = { 
-            'bulk' :   EpsilonExpansion({
-                0 : 1.
-            })*normalization,
-            'counterterm' :  EpsilonExpansion({
-                0 : 1.
-            })*normalization,
-            'endpoint' :  EpsilonExpansion({
-                0 : 1.
-            })*normalization
+            'bulk'          :     prefactor*color_factor*(EpsilonExpansion({ 
+                -1 : -2.*( 1./(1.-x) + (1.-x)/x - 1 + x*(1-x) ),
+                 0 : (2.*log1mx / (1.-x))*(1.+theta_x_1my0) + (2.*logy0/(1.-x))*theta_1my0_x
+                     + 2.*( ((1.-x)/x) -1. + x*(1.-x) )*( log1mx*(1.+theta_x_1my0) + logy0*theta_1my0_x )
+            })),
+            'counterterm'   :     prefactor*color_factor*(EpsilonExpansion({ 
+                -1 : -2.* ( 1./(1.-x) )  ,
+                 0 : (2.*log1mx / (1.-x))*(1.+theta_x_1my0)  ,
+            })),
+            'endpoint'      :     prefactor*color_factor*(EpsilonExpansion({
+                -2 : 1.  ,
+                -1 : 0.  ,
+                 0 : -(math.pi**2/6.) + logy0**2
+            }))
         }
-                 
+        
+        color_factor = self.CA        
         kernel_gq = { 
-            'bulk' :   EpsilonExpansion({
-                0 : 1.
-            })*normalization,
-            'counterterm' :  EpsilonExpansion({
-                0 : 1.
-            })*normalization,
-            'endpoint' :  EpsilonExpansion({
-                0 : 1.
-            })*normalization
+            'bulk'          :     prefactor*color_factor*(EpsilonExpansion({ 
+                -1 : -(self.CF/self.CA)*(1.+(1.-x)**2) / x  ,
+                 0 : (self.CF/self.CA)*( ((1.+(1.-x)**2)/x)*( log1mx*(1.+theta_x_1my0) + logy0*theta_1my0_x ) + x )
+            })),
+            'counterterm'   :     None,
+            'endpoint'      :     None
         }
         
+        color_factor = self.CF
         kernel_qg = { 
-            'bulk' :   EpsilonExpansion({
-                0 : 1.
-            })*normalization,
-            'counterterm' :  EpsilonExpansion({
-                0 : 1.
-            })*normalization,
-            'endpoint' :  EpsilonExpansion({
-                0 : 1.
-            })*normalization
+            'bulk'          :     prefactor*color_factor*(EpsilonExpansion({ 
+                -1 : -(self.TR/self.CF)*(x**2+(1.-x)**2)  ,
+                 0 : (self.TR/self.CF)*( (x**2 + (1.-x)**2)*( log1mx*(1.+theta_x_1my0) + logy0*theta_1my0_x ) + 2.*x*(1.-x) )
+            })),
+            'counterterm'   :     None,
+            'endpoint'      :     None
         }
         
+        color_factor = self.CF
         kernel_qq = { 
-            'bulk' :   EpsilonExpansion({
-                0 : 1.
-            })*normalization,
-            'counterterm' :  EpsilonExpansion({
-                0 : 1.
-            })*normalization,
-            'endpoint' :  EpsilonExpansion({
-                0 : 1.
-            })*normalization
+            'bulk'          :     prefactor*color_factor*(EpsilonExpansion({ 
+                -1 : -((1.+x**2)/(1.-x))  ,
+                 0 : (2.*log1mx / (1.-x))*(1.+theta_x_1my0) + (2.*logy0/(1.-x))*theta_1my0_x
+                     - ( (1.+x)*( log1mx*(1.+theta_x_1my0)+logy0*theta_1my0_x ) -1.+x )
+            })),
+            'counterterm'   :     prefactor*color_factor*(EpsilonExpansion({ 
+                -1 : -((1.+x**2)/(1.-x))  ,
+                 0 : (2.*log1mx / (1.-x))*(1.+theta_x_1my0)  ,
+            })),
+            'endpoint'      :     prefactor*color_factor*(EpsilonExpansion({ 
+                -2 : 1.     ,
+                -1 : 3./2.  ,
+                 0 : -(math.pi**2/6.) + logy0**2
+            }))
         }
 
         active_quark_PDGs = tuple([pdg for pdg in range(1,7)+range(-1,-7,-1) 
                                                                  if pdg in self.beam_PDGs])
-        
+
         # Build the NLO flavor matrix
         flavor_matrix = {}
         for reduced_flavor in self.beam_PDGs:
             # Gluon backward evolution
             if reduced_flavor==21:
-                flavor_matrix[21] = { (21,) : kernel_gg[self.distribution_type] }
-                if active_quark_PDGs:
-                    flavor_matrix[21][active_quark_PDGs] = kernel_gq[self.distribution_type]
-                                
+                gluon_dict = {}
+                if kernel_gg[self.distribution_type] is not None:
+                    gluon_dict[(21,)] = kernel_gg[self.distribution_type]
+                if active_quark_PDGs and kernel_gq[self.distribution_type] is not None:
+                    gluon_dict[active_quark_PDGs] = kernel_gq[self.distribution_type]
+                if gluon_dict:
+                    flavor_matrix[21] = gluon_dict
+            
             # Quark backward evolution            
             if reduced_flavor in active_quark_PDGs:
-                flavor_matrix[reduced_flavor] = { 
-                    (21,) : kernel_qg[self.distribution_type],
-                    (reduced_flavor,) : kernel_qq[self.distribution_type]
-                }
+                quark_dict = {}
+                if kernel_qg[self.distribution_type] is not None:
+                    quark_dict[(21,)] = kernel_qg[self.distribution_type]
+                if kernel_qq[self.distribution_type] is not None:
+                    quark_dict[(reduced_flavor,)] = kernel_qq[self.distribution_type]
+                if quark_dict:                    
+                    flavor_matrix[reduced_flavor] = quark_dict
 
         # Now assign the flavor matrix in the BeamFactorizationCurrentEvaluation instance
         evaluation = utils.BeamFactorizationCurrentEvaluation({
@@ -286,3 +321,100 @@ class QCD_beam_factorization_single_collinear(currents.QCDBeamFactorizationCurre
         })
 
         return evaluation
+    
+#=========================================================================================
+# PDF integrated initial-state single soft-collinear counterterm
+#=========================================================================================
+class QCD_beam_factorization_single_softcollinear(currents.QCDBeamFactorizationCurrent):
+    """Implements the NLO QCD initial-state single soft-collinear integgratated counterterm
+    of type F(\chsi). These are zero here since they have already been accounted for
+    in the soft counterterms."""
+
+    distribution_types_implemented_in_this_class = ['bulk','counterterm','endpoint']
+
+    # The soft-collinear integrated counterterm has been accounted for completely in the 
+    # soft integrated counterterm
+    is_zero = True
+
+    def __init__(self, *args, **opts):
+        
+        # Make sure it is initialized with the proper set of options and remove them
+        # before calling the mother constructor
+        if 'color_charge' not in opts:
+            raise CurrentImplementationError(
+                "The current '%s' must be instantiated with "%self.__class__.__name__+
+                                                " a 'color_charge' option specified.")
+        color_charge = opts.pop('color_charge')
+        
+        super(QCD_beam_factorization_single_softcollinear, self).__init__(*args, **opts)
+        self.supports_helicity_assignment = False
+        # At this state color_charge is the string of the argument to retrieve ('CA' or 'CF')
+        # And now that the mother constructor is called, the group factors have been initialized
+        # and we can retrieve them.
+        self.color_charge = getattr(self, color_charge)
+
+    @classmethod
+    def does_implement_this_current(cls, current, model):
+
+        # Check the general properties common to NLO QCD collinear tree-level currents
+        init_vars = cls.common_does_implement_this_current(current, 2, 0)
+        if init_vars is None:
+            return None
+
+        # Retrieve singular structure
+        ss = current.get('singular_structure')
+
+        # Check that it involves exactly one collinear structure with two legs. 
+        if len(ss.substructures)!=1:
+            return None
+        
+        # Finally check that the singular structure and PDG matches
+        singular_structure = current.get('singular_structure').substructures[0]
+        
+        # It main structure should be of collinear type
+        if singular_structure.name()!='C':
+            return None        
+        
+        # It should have only one leg left, the other one being in the nested soft structure
+        # It must be an initial-state leg.
+        if len(singular_structure.legs)!=1 or not cls.is_initial(singular_structure.legs[0]) :
+            return None
+
+        # The leg not soft must be quark or a gluon      
+        if not abs(singular_structure.legs[0].pdg) in [21,]+range(1,7):
+            return None
+
+        # It should have exactly one nested structures
+        if len(singular_structure.substructures)!=1:
+            return None
+        
+        sub_singular_structure = singular_structure.substructures[0]
+        
+        # Make sure this substructure is soft
+        if sub_singular_structure.name()!='S':
+            return None
+        
+        # Make sure it contains a single soft leg
+        if len(sub_singular_structure.legs)!=1:
+            return None
+        
+        soft_leg = sub_singular_structure.legs[0]
+        
+        # Make sure the soft leg is massless final and a gluon
+        if model.get_particle(soft_leg.pdg).get('mass').upper()!='ZERO':
+            return None
+        if soft_leg.pdg != 21:
+            return None
+        
+        # We now know that this current is implemented here. We return
+        # the specific color charge to instantiate this kernel with,
+        # in the form of a the name of the group factor to retrieve upon
+        # initialization.
+        if singular_structure.legs[0].pdg == 21:
+            # This is a 'g > g g' soft-collinear splitting
+            init_vars['color_charge'] = 'CA'
+        else:
+            # This is a 'q > g g' soft-collinear splitting
+            init_vars['color_charge'] = 'CA'
+
+        return init_vars

@@ -510,16 +510,21 @@ class ParseCmdArguments(object):
     def parse_launch(self, args):
         """ Parses the argument of the launch command."""
 
-        launch_options = {'integrator': 'VEGAS3',
-                          'n_points': None,
-                          'n_iterations': None,
-                          'verbosity': 1,
-                          'refresh_filters': 'auto',
-                          'compile': 'auto',
-                          'batch_size': 1000,
+        launch_options = {'integrator'          : 'VEGAS3',
+                          'n_points'            : None,
+                          'n_points_survey'     : None,
+                          'n_points_refine'     : None,
+                          'n_iterations'        : None,
+                          'n_iterations_survey' : None,
+                          'n_iterations_refine' : None,                          
+                          'verbosity'           : 1,
+                          'refresh_filters'     : 'auto',
+                          'compile'             : 'auto',
+                          'batch_size'          : 1000,
+                          'seed'                : None,
                           # Here we store a list of lambda function to apply as filters
-                          # to the integrand we must consider
-                          'integrands': [lambda integrand: True]}        
+                          # to the ingegrand we must consider
+                          'integrands'          : [lambda integrand: True]}        
         
         for arg in args:
             try:
@@ -534,9 +539,19 @@ class ParseCmdArguments(object):
                 launch_options['integrator'] = value.upper()
             elif key in ['--n_points', '--n_iterations']:
                 launch_options[key[2:]] = int(value)
+                launch_options[key[2:]+'_survey'] = int(value)
+                launch_options[key[2:]+'_refine'] = 5*int(value)
+            elif key in ['--n_points_survey', '--n_iterations_survey',
+                         '--n_points_refine', '--n_iterations_refine']:
+                launch_options[key[2:]] = int(value)
             elif key=='--verbosity':
                 modes = {'none':0, 'integrator':1, 'all':2}
                 launch_options[key[2:]] = modes[value.lower()]
+            elif key == '--seed':
+                try:
+                    launch_options['seed'] = int(value)
+                except ValueError:
+                    raise InvalidCmd("Cannot set '%s' option to '%s'."%(key, value))
             elif key in ['--batch_size','--bs']:
                 try:
                     launch_options['batch_size'] = int(value)
@@ -871,7 +886,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
             # Create a run output directory
             run_output_path = pjoin(self.me_dir,'Results','run_%s'%self.run_card['run_tag'])
             suffix=''
-            suffix_number = 0
+            suffix_number = 1
             while os.path.exists(run_output_path+suffix):
                 suffix_number += 1
                 suffix = '_%d'%suffix_number
@@ -886,33 +901,31 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         integrator_options = self._integrators[integrator_name][1]
         
         integrator_options['verbosity'] = launch_options['verbosity']
+        integrator_options['seed'] = launch_options['seed']
         
-        if launch_options['n_points']:
-            if integrator_name=='VEGAS3':
-                integrator_options['survey_n_points'] = launch_options['n_points']
-                integrator_options['refine_n_points'] = 5*launch_options['n_points']
-                integrator_options['parallelization'] = self.cluster
-            elif integrator_name=='NAIVE':
+        if integrator_name=='VEGAS3':
+            if launch_options['n_points_survey']:
+                integrator_options['survey_n_points'] = launch_options['n_points_survey']
+            if launch_options['n_points_refine']:
+                integrator_options['refine_n_points'] = launch_options['n_points_refine']
+            integrator_options['parallelization'] = self.cluster
+        elif integrator_name=='NAIVE':
+            if launch_options['n_points']:
                 integrator_options['n_points_per_iterations'] = launch_options['n_points']
-                
-            else:
-                # For now support this option only for some integrators
-                raise InvalidCmd("The options 'n_points' is not supported for the integrator %s."%integrator_name)
 
-        if launch_options['n_iterations']:
-            if integrator_name=='VEGAS3':
-                integrator_options['survey_n_iterations'] = launch_options['n_iterations']
-                integrator_options['refine_n_iterations'] = launch_options['n_iterations']
-            elif integrator_name=='NAIVE':
+        if integrator_name=='VEGAS3':
+            if launch_options['n_iterations_survey']:
+                integrator_options['survey_n_iterations'] = launch_options['n_iterations_survey']
+            if launch_options['n_iterations_refine']:
+                integrator_options['refine_n_iterations'] = launch_options['n_iterations_refine']
+        elif integrator_name=='NAIVE':
+            if launch_options['n_iterations']:
                 integrator_options['n_iterations'] = launch_options['n_iterations']
-            else:
-                # For now support this option only for some integrators
-                raise InvalidCmd("The options 'n_iterations' is not supported for the integrator %s."%integrator_name)
 
         if integrator_name=='VEGAS3':        
             integrator_options['cluster'] = self.cluster
             integrator_options['batch_size'] = launch_options['batch_size']
-        
+            
         integrands_to_consider = ME7_integrands.ME7IntegrandList([ itg for itg in self.all_integrands if
                            all(filter(itg) for filter in launch_options['integrands']) ])
 
@@ -941,31 +954,38 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         logger.info("="*100)
         logger.info('{:^100}'.format("Cross-section with integrator '%s':"%self.integrator.get_name()),'$MG:color:GREEN')
         logger.info('{:^100}'.format("%.5e +/- %.2e [pb]"%(xsec, error)),'$MG:color:BLUE')
-        logger.info("="*100+"\n")
+        logger.info("="*100)
 
-        #Deal with normalizing the plotting and outputting the plots
+        # Deal with normalizing the plotting and outputting the plots
         plot_collector = {} # We set it so that plot_collector[observable_name] is a HwU with the sum for all integrands
-        """Ultimately plot_collector should be an object inside a bigger DataCollector object which allows to navigate
-        between the different results etc, which would be good to be able to sum stuff (like R+V after integration)
-        """
-
+        # Ultimately plot_collector should be an object inside a bigger DataCollector object which allows to navigate
+        # between the different results etc, which would be good to be able to sum stuff (like R+V after integration)
         for integrand in self.integrator.integrands:
             n_integrand_calls = integrand.n_observable_calls
             if not integrand.apply_observables:
                 continue
             for observable in integrand.observable_list:
+                # Assign a MC uncertainty to the plots
+                observable.HwU.set_statistical_uncertainty()
+                observable.HwU *= self.integrator.observables_normalization(n_integrand_calls)
                 if observable.name in plot_collector:
-                    plot_collector[observable.name] += (observable.HwU)/n_integrand_calls
+                    plot_collector[observable.name] += observable.HwU
                 else:
-                    plot_collector[observable.name] = (observable.HwU)/n_integrand_calls
+                    plot_collector[observable.name] = observable.HwU
 
+        if self.run_card['fo_analysis'].upper()!='NONE':
+            # Eventually the plot collector module will handle the histograms dependencies itself.
+            from madgraph.various.histograms import HwUList
+            final_hwu_list = HwUList(plot_collector.values())
+            HwU_plots_path = pjoin(run_output_path,'%s_plots'%self.run_card['fo_analysis'])
+            logger.info("Plots from the fixed-order analysis '%s' written out to '%s.gnuplot'."%
+                                             (self.run_card['fo_analysis'],HwU_plots_path))
+            final_hwu_list.output(
+                HwU_plots_path, 
+                format='gnuplot'
+            )
 
-        """Awkwardly use the already imported histograms module: this should be the attribute of a class
-        and not require importing HwU in the ME7 interface
-        """
-        FinalHwUList = integrators.integrands.observables.histograms.HwUList(plot_collector.values())
-
-        FinalHwUList.output(run_output_path+"/FO_plots","gnuplot")#TODO Path.join
+        logger.info('')
 
         if MPI_RANK==0:
             # Write the result in 'cross_sections.dat' of the result directory

@@ -2965,6 +2965,8 @@ class RunCardME7(RunCardLO):
         
         super(RunCardME7, self).default_setup(*args, **opts)
 
+        # Change the default run tag name
+        self.set('run_tag','default',changeifuserset=True, user=False)
 
         # Specify integrator: allowed values are [VEGAS3, NAIVE]
         self.add_param("integrator", 'VEGAS3')

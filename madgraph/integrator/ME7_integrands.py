@@ -193,7 +193,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         self.synchronize(model, run_card, ME7_configuration)
 
         # Initialize the call counter
-        # This counter is incremented for each time self.__call__ is run and reinitialized in self.synchronize
+        # This counter is incremented for each time self.__call__ is called and reinitialized in self.synchronize
         self.n_observable_calls = 0
 
     def nice_string(self):
@@ -363,7 +363,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
                       as_running_params['mdl_MZ'], as_running_params['mdl_MC'], as_running_params['mdl_MB'])
 
         #Import the observables from the FO_analysis folder
-        if run_card['FO_analysis'] == "None":
+        if run_card['FO_analysis'].upper() == "NONE":
             self.apply_observables = False
         else:
             self.apply_observable = True
@@ -781,6 +781,13 @@ class ME7Integrand(integrands.VirtualIntegrand):
         if self.apply_observables:
             self.n_observable_calls += 1
 
+        # Check if an integrator_jacobian is specified in the options to be applied to 
+        # the weight when registering observables (i.e. filling observables)
+        if 'integrator_jacobian' in opts:
+            integrator_jacobian = opts['integrator_jacobian']
+        else:
+            integrator_jacobian = 1.0
+
         if __debug__: logger.debug("="*80)       
         if __debug__: logger.debug('Starting a new evaluation of the integrand from contribution:\n%s',
                                                     self.contribution_definition.nice_string())
@@ -909,7 +916,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
             # Finally include the short-distance weight, with the PS point in a dictionary format.
             sigma_wgt = self.sigma(
                 PS_point.to_dict(), process_key, process, selected_flavors, this_process_wgt, 
-                                                                        mu_r, mu_f1, mu_f2)
+                                                     integrator_jacobian, mu_r, mu_f1, mu_f2)
             if __debug__: logger.debug('Short-distance sigma weight for this subprocess: %.5e'%sigma_wgt)        
             this_process_wgt *= sigma_wgt
             
@@ -922,7 +929,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         
         return total_wgt
     
-    def sigma(self, PS_point, process_key, process, flavors, process_wgt, mu_r, mu_f1, mu_f2):
+    def sigma(self, PS_point, process_key, process, flavors, process_wgt, integrator_jacobian, mu_r, mu_f1, mu_f2):
         """ 
         This is the core function of the integrand where the short-distance objects like the matrix elements,
         the counterterms, the mappings, etc.. will be evaluated.
@@ -969,7 +976,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         
         if self.apply_observables:
             data_for_observables = {'PS_point': PS_point, 'flavors' : flavors}
-            self.observable_list.apply_observables(sigma_wgt*process_wgt, data_for_observables)
+            self.observable_list.apply_observables(integrator_jacobian*sigma_wgt*process_wgt, data_for_observables)
 
         return sigma_wgt
 
@@ -981,18 +988,19 @@ class ME7Integrand_B(ME7Integrand):
     """ME7Integrand for the computation of a Born type of contribution."""
     
     def sigma(self, PS_point, process_key, process, flavors, process_wgt,
-                                                        mu_r, mu_f1, mu_f2, *args, **opts):
+                                    integrator_jacobian, mu_r, mu_f1, mu_f2, *args, **opts):
 
         return super(ME7Integrand_B, self).sigma(
             PS_point, process_key, process, flavors, process_wgt,
-            mu_r, mu_f1, mu_f2, *args, **opts
+            integrator_jacobian, mu_r, mu_f1, mu_f2, *args, **opts
         )
 
 class ME7Integrand_LIB(ME7Integrand):
     """ ME7Integrand for the computation of a Loop-Induced Born type of contribution."""
-    def sigma(self, PS_point, process_key, process, flavors, process_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
-        return super(ME7Integrand_LIB, self).sigma(PS_point, process_key, process, flavors, process_wgt, 
-                                                                        mu_r, mu_f1, mu_f2, *args, **opts)
+    def sigma(self, PS_point, process_key, process, flavors, process_wgt, 
+                                    integrator_jacobian, mu_r, mu_f1, mu_f2, *args, **opts):
+        return super(ME7Integrand_LIB, self).sigma(PS_point, process_key, process, 
+                flavors, process_wgt, integrator_jacobian, mu_r, mu_f1, mu_f2, *args, **opts)
         
 class ME7Integrand_V(ME7Integrand):
     """ ME7Integrand for the computation of a one-loop virtual type of contribution."""
@@ -1331,11 +1339,13 @@ The missing process is: %s"""%reduced_process.nice_string())
         
         return True
 
-    def sigma(self, PS_point, process_key, process, flavors, process_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
+    def sigma(self, PS_point, process_key, process, flavors, process_wgt, 
+                                   integrator_jacobian, mu_r, mu_f1, mu_f2, *args, **opts):
         """ Overloading of the sigma function from ME7Integrand to include necessary additional contributions. """
         
         sigma_wgt = super(ME7Integrand_V, self).sigma(
-                PS_point, process_key, process, flavors, process_wgt, mu_r, mu_f1, mu_f2, *args, **opts)
+                PS_point, process_key, process, flavors, process_wgt, 
+                                    integrator_jacobian, mu_r, mu_f1, mu_f2, *args, **opts)
         
         # This will group all CT results with the same reduced flavors, so
         # as to call the generation-level cuts and observables only once for each
@@ -1370,7 +1380,7 @@ The missing process is: %s"""%reduced_process.nice_string())
                     'flavors'      : reduced_flavors,
                     'counterterms' : counterterms_characteristics }
                 self.observable_list.apply_observables(
-                                   this_CT_group_wgt*process_wgt, data_for_observables)
+                    integrator_jacobian*this_CT_group_wgt*process_wgt, data_for_observables)
                 
                 # Register this CT_wgt in the global weight.
                 sigma_wgt += this_CT_group_wgt
@@ -1849,7 +1859,8 @@ The missing process is: %s"""%ME_process.nice_string())
         # Notice that the flavors in the ME_process might not be accurate for now.
         return final_weight, reduced_PS, reduced_flavors
 
-    def sigma(self, PS_point, process_key, process, flavors, process_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
+    def sigma(self, PS_point, process_key, process, flavors, process_wgt, 
+                                   integrator_jacobian, mu_r, mu_f1, mu_f2, *args, **opts):
         """ Implementation of the short-distance cross-section for the real-emission integrand.
         Counterterms will be computed on top of the actual real-emission integrand."""
         
@@ -1908,7 +1919,7 @@ The missing process is: %s"""%ME_process.nice_string())
                         'flavors'      : flavor_contrib,
                         'counterterms' : counterterm_contribs }
                     self.observable_list.apply_observables(
-                        this_CT_group_wgt*process_wgt, data_for_observables)
+                    integrator_jacobian*this_CT_group_wgt*process_wgt, data_for_observables)
         
         return sigma_wgt
 
@@ -2285,15 +2296,17 @@ The missing process is: %s"""%ME_process.nice_string())
     
 class ME7Integrand_RR(ME7Integrand_R):
     """ ME7Integrand for the computation of a double real-emission type of contribution."""
-    def sigma(self, PS_point, process_key, process, flavors, process_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
+    def sigma(self, PS_point, process_key, process, flavors, process_wgt, 
+                                    integrator_jacobian, mu_r, mu_f1, mu_f2, *args, **opts):
         return super(ME7Integrand_RR, self).sigma(PS_point, process_key, process, flavors, process_wgt, 
-                                                                        mu_r, mu_f1, mu_f2, *args, **opts)
+                                    integrator_jacobian, mu_r, mu_f1, mu_f2, *args, **opts)
 
 class ME7Integrand_RRR(ME7Integrand_R):
     """ ME7Integrand for the computation of a double real-emission type of contribution."""
-    def sigma(self, PS_point, process_key, process, flavors, process_wgt, mu_r, mu_f1, mu_f2, *args, **opts):
+    def sigma(self, PS_point, process_key, process, flavors, process_wgt, 
+                                    integrator_jacobian, mu_r, mu_f1, mu_f2, *args, **opts):
         return super(ME7Integrand_RRR, self).sigma(PS_point, process_key, process, flavors, process_wgt, 
-                                                                        mu_r, mu_f1, mu_f2, *args, **opts)
+                                    integrator_jacobian, mu_r, mu_f1, mu_f2, *args, **opts)
 
 #===============================================================================
 # ME7IntegrandList

@@ -57,6 +57,7 @@ logger = logging.getLogger('madevent7') # -> stdout
 logger_stderr = logging.getLogger('madevent7.stderr') # ->stderr
 
 import madgraph.core.base_objects as base_objects
+import madgraph.core.subtraction as subtraction
 import madgraph.interface.extended_cmd as cmd
 import madgraph.interface.common_run_interface as common_run
 import madgraph.interface.madevent_interface as madevent_interface
@@ -68,7 +69,7 @@ import madgraph.various.misc as misc
 import madgraph.various.lhe_parser as lhe_parser
 import madgraph.integrator.integrands as integrands
 import madgraph.integrator.integrators as integrators
-import madgraph.integrator.mappings as mappings
+import madgraph.integrator.walkers as walkers
 import madgraph.integrator.phase_space_generators as phase_space_generators
 import madgraph.integrator.pyCubaIntegrator as pyCubaIntegrator
 import madgraph.integrator.vegas3_integrator as vegas3_integrator
@@ -859,13 +860,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
             
             this_process_wgt = wgt
             process_pdgs = process.get_cached_initial_final_pdgs()
-
-            # Apply flavor blind cuts
-            if not self.pass_flavor_blind_cuts(PS_point, process_pdgs):
-                if __debug__: logger.debug('Event failed the flavour_blind generation-level cuts.')
-                if __debug__: logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)            
-                return 0.0
-            
+ 
             all_processes = [process,]+mapped_processes
             all_process_pdgs = []
             # Add mirror processes if present
@@ -952,6 +947,14 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # We specify pdgs to None her to avoid the need of any permutation since we follow the order of
         # the defining process here which is the one that was exported.
         # For the reduced matrix elements however, this cannot be done.
+
+
+        # Apply flavor blind cuts
+        if not self.pass_flavor_blind_cuts(PS_point, flavors):
+            if __debug__: logger.debug('Event failed the flavour_blind generation-level cuts.')
+            if __debug__: logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)            
+            return 0.0
+        
         ME_evaluation, all_results = self.all_MEAccessors(
                                             process, PS_point, alpha_s, mu_r, pdgs=flavors)
         
@@ -1342,7 +1345,14 @@ The missing process is: %s"""%reduced_process.nice_string())
     def sigma(self, PS_point, process_key, process, flavors, process_wgt, 
                                    integrator_jacobian, mu_r, mu_f1, mu_f2, *args, **opts):
         """ Overloading of the sigma function from ME7Integrand to include necessary additional contributions. """
-        
+    
+
+        # Apply flavor blind cuts
+        if not self.pass_flavor_blind_cuts(PS_point, flavors):
+            if __debug__: logger.debug('Event failed the flavour_blind generation-level cuts.')
+            if __debug__: logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)            
+            return 0.0
+
         sigma_wgt = super(ME7Integrand_V, self).sigma(
                 PS_point, process_key, process, flavors, process_wgt, 
                                     integrator_jacobian, mu_r, mu_f1, mu_f2, *args, **opts)
@@ -1409,7 +1419,7 @@ class ME7Integrand_R(ME7Integrand):
         except KeyError:
             raise MadEvent7Error(requires % 'subtraction_mappings_scheme')
         try:
-            self.walker = mappings.VirtualWalker(self.subtraction_mappings_scheme)
+            self.walker = walkers.VirtualWalker(self.subtraction_mappings_scheme)
         except KeyError:
             raise MadEvent7Error(
                 "Invalid subtraction_mappings_scheme '%s'." %
@@ -1863,7 +1873,7 @@ The missing process is: %s"""%ME_process.nice_string())
                                    integrator_jacobian, mu_r, mu_f1, mu_f2, *args, **opts):
         """ Implementation of the short-distance cross-section for the real-emission integrand.
         Counterterms will be computed on top of the actual real-emission integrand."""
-        
+
         # Compute the real-emission matrix element weight in the base ME7Integrand class
         # Notice that the observable will be called already there for the resolved kinematics
         sigma_wgt = super(ME7Integrand_R, self).sigma(
@@ -1936,7 +1946,7 @@ The missing process is: %s"""%ME_process.nice_string())
         if walker_name is None:
             walker = self.walker
         else:
-            walker = mappings.VirtualWalker(walker_name)
+            walker = walkers.VirtualWalker(walker_name)
 
         # First generate an underlying Born
         # Specifying None forces to use uniformly random generating variables.
@@ -2007,7 +2017,7 @@ The missing process is: %s"""%ME_process.nice_string())
                         ct.reconstruct_complete_singular_structure()
                         for ct in selected_counterterms])
                 else:
-                    ss = mappings.sub.SingularStructure.from_string(
+                    ss = subtraction.SingularStructure.from_string(
                         limit_specifier, defining_process)
                     if ss is None:
                         logger.info("No limit matching %s for process %s." % 
@@ -2106,7 +2116,7 @@ The missing process is: %s"""%ME_process.nice_string())
 
         import matplotlib.pyplot as plt
 
-        plot_title = False
+        plot_title = True
         plot_size = (6,6)
         plot_extension = ".pdf"
         if plots_suffix:
@@ -2119,7 +2129,8 @@ The missing process is: %s"""%ME_process.nice_string())
         lines = evaluations[x_values[0]].keys()
         lines.sort(key=len)
         # Skip ME-def line if there is no defining ct
-        plot_def = def_ct and def_ct in lines and len(lines) > 2
+        plot_def = def_ct and def_ct in lines
+        plot_total = len(lines) > 2
 
         plt.rc('text', usetex=True)
         plt.rc('font', family='serif', size=16)
@@ -2167,8 +2178,9 @@ The missing process is: %s"""%ME_process.nice_string())
         if plot_def:
             abs_ME_minus_def_ct = [abs(y) for y in ME_minus_def_ct]
             plt.plot(x_values, abs_ME_minus_def_ct, color=MEdef_color, label='ME-def')
-        abs_total = [abs(y) for y in total]
-        plt.plot(x_values, abs_total, color=TOTAL_color, label='TOTAL')
+        if plot_total:
+            abs_total = [abs(y) for y in total]
+            plt.plot(x_values, abs_total, color=TOTAL_color, label='TOTAL')
         plt.legend()
         if filename:
             plt.savefig(filename + '_integrands' + plot_extension)
@@ -2198,10 +2210,10 @@ The missing process is: %s"""%ME_process.nice_string())
             def_ct_2_ME_ratio /= evaluations[x_values[0]]["ME"]
             foo_str = "The ratio of the defining CT to the ME at lambda = %s is: %s."
             logger.info(foo_str % (x_values[0], def_ct_2_ME_ratio))
-            test_ratio = abs(def_ct_2_ME_ratio+1)
+            test_ratio = abs(def_ct_2_ME_ratio)-1
             test_failed = test_ratio > acceptance_threshold
         # Check that the ratio between total and ME is close to 0
-        if not test_failed:
+        if plot_total and not test_failed:
             total_2_ME_ratio = total[0]
             total_2_ME_ratio /= evaluations[x_values[0]]["ME"]
             foo_str = "The ratio of the total to the ME at lambda = %s is: %s."
@@ -2222,8 +2234,9 @@ The missing process is: %s"""%ME_process.nice_string())
             wgt_ME_minus_def_ct = [abs(x_values[i] * ME_minus_def_ct[i])
                                    for i in range(len(x_values))]
             plt.plot(x_values, wgt_ME_minus_def_ct, color=MEdef_color, label='ME-def')
-        wgt_total = [abs(x_values[i] * total[i]) for i in range(len(x_values))]
-        plt.plot(x_values, wgt_total, color=TOTAL_color, label='TOTAL')
+        if plot_total:
+            wgt_total = [abs(x_values[i] * total[i]) for i in range(len(x_values))]
+            plt.plot(x_values, wgt_total, color=TOTAL_color, label='TOTAL')
         plt.legend()
         if filename:
             plt.savefig(filename + '_weighted' + plot_extension)

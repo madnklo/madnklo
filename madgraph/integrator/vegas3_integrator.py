@@ -46,6 +46,8 @@ from madgraph.integrator.integrators import IntegratorError
 import madgraph.integrator.integrands as integrands
 import madgraph.integrator.functions as functions
 import madgraph.various.cluster as cluster
+import madgraph.iolibs.save_load_object as save_load_object
+
 from madgraph import InvalidCmd, MadGraph5Error, MG5DIR, MPI_ACTIVE, MPI_SIZE, MPI_RANK
 from multiprocessing import Value, Array
 
@@ -141,6 +143,8 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
            'verbosity'          :   0,
            'target_accuracy'    :   1.0e-3,
            'seed'               :   None,
+           'save_grids'         :   None,
+           'load_grids'         :   None,
         }
 
         # Parameter for controlling VEGAS3
@@ -252,10 +256,11 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
         n_dimensions = len(self.integrands[0].continuous_dimensions)
         # sync_ran is to decide if VEGAS3 random number generator should produce the same
         # number on different processors.
-        if any(apply_observables_for_integrands_back_up):
+        if any(apply_observables_for_integrands_back_up) and self.cluster.nb_core==1:
             if self.refine_n_iterations > 1:
                 logger.warning("Vegas3 can only run a single refine iteration when a fixed-order analysis is active.\n"+
                                "The parameter 'refine_n_iterations' will consequently be forced to take the value 1.")
+                self.refine_n_iterations = 1
             self.vegas3_integrator = VegasWithJacobianInFunctionInput(n_dimensions * [[0., 1.]],
                 analyzer        = vegas.reporter() if self.verbosity>1 else None, 
                 nhcube_batch    = self.batch_size,
@@ -283,45 +288,76 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
                                       self, self.integrands, self.cluster, self.start_time)          
 
         self.tot_func_evals = 0
-        # Train grid
-        if MPI_RANK == 0:
-            logger.debug("=================================")
-            logger.debug("Vegas3 starting the survey stage.")
-            logger.debug("=================================")
-        self.n_function_evals = 0
-        self.curr_n_iterations = self.survey_n_iterations
-        self.curr_n_evals_per_iterations = self.survey_n_points
-        training = self.vegas3_integrator(wrapped_integrand, 
-                    nitn=self.survey_n_iterations, neval=self.survey_n_points, adapt=True)
+        result = None
+        
+        # Load pre-exisitng grids if specified. Note that no information on Vegas' hypercubes is supplied
+        # here, only the standard integration grids along each dimension.
+        if self.load_grids is not None:
+            try:
+                vegas_map = save_load_object.load_from_file(self.load_grids)
+            except Exception as e:
+                raise IntegratorError("Vegas3 could not load its integration grid from '%s'. Error: %s"%(
+                                                                    self.load_grids,str(e)))
+            logger.info('Vegas3 reading integration grids from file: %s'%self.load_grids)
+            self.vegas3_integrator.set(map=vegas_map)
+        
+        if self.survey_n_iterations > 0 and self.survey_n_points > 0:
+            # Train grid
+            if MPI_RANK == 0:
+                logger.debug("=================================")
+                logger.debug("Vegas3 starting the survey stage.")
+                logger.debug("=================================")
+            self.n_function_evals = 0
+            self.curr_n_iterations = self.survey_n_iterations
+            self.curr_n_evals_per_iterations = self.survey_n_points
+            
+            result = self.vegas3_integrator(wrapped_integrand, 
+                        nitn=self.survey_n_iterations, neval=self.survey_n_points, adapt=True)
+    
+            if MPI_RANK == 0:
+                logger.debug('\n'+result.summary())
+                
+            self.tot_func_evals += self.n_function_evals
+        else:
+            logger.info("The survey step of Vegas3 integration is being skipped as per user's request.")
+           
+        # Save generated grids if asked for. Notice that no information on Vegas' hypercubes is saved here,
+        # but just the standard integration grids.
+        if self.save_grids is not None:
+            try:
+                vegas_map = save_load_object.save_to_file(self.save_grids, self.vegas3_integrator.map) 
+            except Exception as e:
+                raise IntegratorError("Vegas3 could not save its integration grid to '%s'. Error: %s"%(
+                                                                    self.load_grids,str(e)))
+            logger.info('Vegas3 saved its integration grids to file: %s'%self.save_grids)
+           
+        if self.refine_n_iterations > 0 and self.refine_n_points > 0:
+            # Final integration
+            if MPI_RANK == 0:
+                logger.debug("=============================================")
+                logger.debug("Vegas3 starting the refined integration stage")
+                logger.debug("=============================================")
+    
+                # Restore the filling of the histograms for the refine, only if not running in parallel
+                if self.cluster.nb_core==1:
+                    for i_integrand, integrand in enumerate(self.integrands):
+                        integrand.apply_observables=apply_observables_for_integrands_back_up[i_integrand]
+                else:
+                    if any(apply_observables_for_integrands_back_up):
+                        logger.warning('Filling of the histograms of the fixed-order analysis will'+
+                            ' now be disabled as this functionality is not yet available for parallel integration.')
+    
+            self.n_function_evals = 0
+            self.curr_n_iterations = self.refine_n_iterations
+            self.curr_n_evals_per_iterations = self.refine_n_points
+            result = self.vegas3_integrator(wrapped_integrand, 
+                        nitn=self.refine_n_iterations, neval=self.refine_n_points, adapt=False) 
+            if MPI_RANK == 0:
+                logger.debug('\n'+result.summary())
+        else:
+            logger.info("The refine step of Vegas3 integration is being skipped as per user's request.")
 
         if MPI_RANK == 0:
-            logger.debug('\n'+training.summary())
-
-
-        self.tot_func_evals += self.n_function_evals         
-        # Final integration
-        if MPI_RANK == 0:
-            logger.debug("=============================================")
-            logger.debug("Vegas3 starting the refined integration stage")
-            logger.debug("=============================================")
-
-            # Restore the filling of the histograms for the refine, only if not running in parallel
-            if self.cluster.nb_core==1:
-                for i_integrand, integrand in enumerate(self.integrands):
-                    integrand.apply_observables=apply_observables_for_integrands_back_up[i_integrand]
-            else:
-                if any(apply_observables_for_integrands_back_up):
-                    logger.warning('Filling of the histograms of the fixed-order analysis will'+
-                        ' now be disabled as this functionality is not yet available for parallel integration.')
-                apply_observables_for_integrands_back_up = [False,]*len(apply_observables_for_integrands_back_up)
-
-        self.n_function_evals = 0
-        self.curr_n_iterations = self.refine_n_iterations
-        self.curr_n_evals_per_iterations = self.refine_n_points
-        result = self.vegas3_integrator(wrapped_integrand, 
-                    nitn=self.refine_n_iterations, neval=self.refine_n_points, adapt=False) 
-        if MPI_RANK == 0:
-            logger.debug('\n'+result.summary())
             # Make sure to restore original settings for the 'apply_observable' attribute
             for i_integrand, integrand in enumerate(self.integrands):
                 integrand.apply_observables=apply_observables_for_integrands_back_up[i_integrand]

@@ -522,6 +522,8 @@ class ParseCmdArguments(object):
                           'compile'             : 'auto',
                           'batch_size'          : 1000,
                           'seed'                : None,
+                          'save_grids'           : None,
+                          'load_grids'           : None,
                           # Here we store a list of lambda function to apply as filters
                           # to the ingegrand we must consider
                           'integrands'          : [lambda integrand: True]}        
@@ -552,6 +554,8 @@ class ParseCmdArguments(object):
                     launch_options['seed'] = int(value)
                 except ValueError:
                     raise InvalidCmd("Cannot set '%s' option to '%s'."%(key, value))
+            elif key in ['--save_grids', '--load_grids']:
+                launch_options[key[2:]] = value
             elif key in ['--batch_size','--bs']:
                 try:
                     launch_options['batch_size'] = int(value)
@@ -904,9 +908,9 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         integrator_options['seed'] = launch_options['seed']
         
         if integrator_name=='VEGAS3':
-            if launch_options['n_points_survey']:
+            if launch_options['n_points_survey'] is not None:
                 integrator_options['survey_n_points'] = launch_options['n_points_survey']
-            if launch_options['n_points_refine']:
+            if launch_options['n_points_refine'] is not None:
                 integrator_options['refine_n_points'] = launch_options['n_points_refine']
             integrator_options['parallelization'] = self.cluster
         elif integrator_name=='NAIVE':
@@ -914,9 +918,9 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
                 integrator_options['n_points_per_iterations'] = launch_options['n_points']
 
         if integrator_name=='VEGAS3':
-            if launch_options['n_iterations_survey']:
+            if launch_options['n_iterations_survey'] is not None:
                 integrator_options['survey_n_iterations'] = launch_options['n_iterations_survey']
-            if launch_options['n_iterations_refine']:
+            if launch_options['n_iterations_refine'] is not None:
                 integrator_options['refine_n_iterations'] = launch_options['n_iterations_refine']
         elif integrator_name=='NAIVE':
             if launch_options['n_iterations']:
@@ -925,6 +929,8 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         if integrator_name=='VEGAS3':        
             integrator_options['cluster'] = self.cluster
             integrator_options['batch_size'] = launch_options['batch_size']
+            integrator_options['save_grids'] = launch_options['save_grids']
+            integrator_options['load_grids'] = launch_options['load_grids']
             
         integrands_to_consider = ME7_integrands.ME7IntegrandList([ itg for itg in self.all_integrands if
                            all(filter(itg) for filter in launch_options['integrands']) ])
@@ -962,9 +968,12 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         # between the different results etc, which would be good to be able to sum stuff (like R+V after integration)
         for integrand in self.integrator.integrands:
             n_integrand_calls = integrand.n_observable_calls
+            if n_integrand_calls <= 0:
+                continue
             if not integrand.apply_observables:
                 continue
             for observable in integrand.observable_list:
+                
                 # Assign a MC uncertainty to the plots
                 observable.HwU.set_statistical_uncertainty()
                 observable.HwU *= self.integrator.observables_normalization(n_integrand_calls)
@@ -973,7 +982,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
                 else:
                     plot_collector[observable.name] = observable.HwU
 
-        if self.run_card['fo_analysis'].upper()!='NONE':
+        if len(plot_collector) > 0:
             # Eventually the plot collector module will handle the histograms dependencies itself.
             from madgraph.various.histograms import HwUList
             final_hwu_list = HwUList(plot_collector.values())

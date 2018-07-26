@@ -512,13 +512,13 @@ class ParseCmdArguments(object):
 
         launch_options = {'integrator': 'VEGAS3',
                           'n_points': None,
-                          'n_iterations':None,
-                          'verbosity':1,
-                          'refresh_filters':'auto',
-                          'compile':'auto',
+                          'n_iterations': None,
+                          'verbosity': 1,
+                          'refresh_filters': 'auto',
+                          'compile': 'auto',
                           'batch_size': 1000,
                           # Here we store a list of lambda function to apply as filters
-                          # to the ingegrand we must consider
+                          # to the integrand we must consider
                           'integrands': [lambda integrand: True]}        
         
         for arg in args:
@@ -529,9 +529,9 @@ class ParseCmdArguments(object):
                 value = None
             
             if key == '--integrator':
-                if value not in self._integrators:
-                    raise InvalidCmd("Selected integrator '%s' not reckognized."%value)
-                launch_options['integrator'] = value
+                if value.upper() not in self._integrators:
+                    raise InvalidCmd("Selected integrator '%s' not recognized."%value)
+                launch_options['integrator'] = value.upper()
             elif key in ['--n_points', '--n_iterations']:
                 launch_options[key[2:]] = int(value)
             elif key=='--verbosity':
@@ -948,9 +948,6 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         """Ultimately plot_collector should be an object inside a bigger DataCollector object which allows to navigate
         between the different results etc, which would be good to be able to sum stuff (like R+V after integration)
         """
-
-        import pdb;
-        pdb.set_trace()
 
         for integrand in self.integrator.integrands:
             n_integrand_calls = integrand.n_observable_calls

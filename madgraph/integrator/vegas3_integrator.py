@@ -196,7 +196,7 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
     def observables_normalization(self, n_integrand_calls):
         """ Given the number of integrand calls, return the appropriate overall normalization
         to apply to the observables."""
-        return 1.0
+        return 1.0/float(self.refine_n_iterations)
 
     def wrapped_integrand(self, x_inputs):
         """ Function to wrap the integrand to the Vegas3 standards."""
@@ -257,10 +257,10 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
         # sync_ran is to decide if VEGAS3 random number generator should produce the same
         # number on different processors.
         if any(apply_observables_for_integrands_back_up) and self.cluster.nb_core==1:
-            if self.refine_n_iterations > 1:
-                logger.warning("Vegas3 can only run a single refine iteration when a fixed-order analysis is active.\n"+
-                               "The parameter 'refine_n_iterations' will consequently be forced to take the value 1.")
-                self.refine_n_iterations = 1
+#            if self.refine_n_iterations > 1:
+#                logger.warning("Vegas3 can only run a single refine iteration when a fixed-order analysis is active.\n"+
+#                               "The parameter 'refine_n_iterations' will consequently be forced to take the value 1.")
+#                self.refine_n_iterations = 1
             self.vegas3_integrator = VegasWithJacobianInFunctionInput(n_dimensions * [[0., 1.]],
                 analyzer        = vegas.reporter() if self.verbosity>1 else None, 
                 nhcube_batch    = self.batch_size,

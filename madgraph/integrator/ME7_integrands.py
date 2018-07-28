@@ -1878,7 +1878,7 @@ The missing process is: %s"""%ME_process.nice_string())
         # Notice that the observable will be called already there for the resolved kinematics
         sigma_wgt = super(ME7Integrand_R, self).sigma(
             PS_point, process_key, process,
-            flavors, process_wgt, mu_r, mu_f1, mu_f2, *args, **opts )
+            flavors, process_wgt,integrator_jacobian, mu_r, mu_f1, mu_f2, *args, **opts )
 
         # This will group all CT results with the same reduced kinematics and flavors, so
         # as to call the generation-level cuts and observables only once for each

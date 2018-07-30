@@ -1384,6 +1384,9 @@ The missing process is: %s"""%reduced_process.nice_string())
             if not self.pass_flavor_sensitive_cuts(PS_point, reduced_flavors):
                 continue
             this_CT_group_wgt = sum(contrib[1] for contrib in counterterms_characteristics)
+            # Register this CT_wgt in the global weight.
+            sigma_wgt += this_CT_group_wgt
+                        
             if self.apply_observables:
                 data_for_observables = {
                     'PS_point'     : PS_point,
@@ -1391,10 +1394,6 @@ The missing process is: %s"""%reduced_process.nice_string())
                     'counterterms' : counterterms_characteristics }
                 self.observable_list.apply_observables(
                     integrator_jacobian*this_CT_group_wgt*process_wgt, data_for_observables)
-                
-                # Register this CT_wgt in the global weight.
-                sigma_wgt += this_CT_group_wgt
-
         return sigma_wgt
 
 class ME7Integrand_R(ME7Integrand):

@@ -289,9 +289,13 @@ class VirtualWalker(object):
         """
 
         # Decompose the counterterm
-        decomposed = structure.decompose()
+        decomposed = structure.decompose()        
+        # The rescaling of the convolution variables is done independently of the mapping
+        # and should therefore not be considered
+        decomposed = [step for step in decomposed if step.name() != "F"]
+        
         # Always approach the limit at the same speed
-        base = scaling_parameter ** (1. / len(decomposed))
+        base = scaling_parameter ** (1. / max(len(decomposed),1))
         # Prepare a momentum dictionary for each mapping
         mom_dict = sub.bidict()
         for leg in process['legs']:

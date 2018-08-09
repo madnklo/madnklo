@@ -287,7 +287,7 @@ class QCDBeamFactorizationCurrent(QCDCurrent):
         if not hel_config is None:
             raise CurrentImplementationError(
                 self.name() + " does not support helicity assignment." )
-        if chsi is None:
+        if self.distribution_type != 'endpoint' and chsi is None:
             raise CurrentImplementationError(
                 self.name() + " requires the rescaling variable chsi." )
         if mu_f is None:

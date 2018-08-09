@@ -311,28 +311,30 @@ class ParseCmdArguments(object):
             'n_steps'                 : 30,
             'min_scaling_variable'    : 1.0e-6,
             'acceptance_threshold'    : 1.0e-4,
-            'include_all_flavors'     : False,
             'apply_higher_multiplicity_cuts' : True,
             'apply_lower_multiplicity_cuts'  : True,
             'show_plots'              : True,
             'save_plots'              : False,
             'save_results_to_path'    : None,
             'plots_suffix'            : None,
+            'set_PDFs_to_unity'       : True,
+            'epsilon_expansion_term'  : 'sum_all',
+            # Here we store a list of lambda function to apply as filters
+            # to the ingegrand we must consider
+            'integrands'              : [lambda integrand: True]
         }
 
         if mode=='poles':
             # Remove some options for the pole
             del testlimits_options['limits']
-            del testlimits_options['counterterms']
             del testlimits_options['walker']
             del testlimits_options['n_steps']
             del testlimits_options['min_scaling_variable']
-            del testlimits_options['apply_lower_multiplicity_cuts']
             del testlimits_options['show_plots']
             del testlimits_options['save_plots']
             del testlimits_options['plots_suffix']
         elif mode=='limits':
-            del testlimits_options['include_all_flavors']            
+            pass   
  
         # Group arguments in between the '--' specifiers.
         # For example, it will group '--process=p' 'p' '>' 'd' 'd~' 'z'
@@ -410,6 +412,10 @@ class ParseCmdArguments(object):
                 if not isinstance(value, str):
                     raise InvalidCmd("'%s' is not a valid option for '%s'"%(value, key))
                 testlimits_options[key[2:]] = value
+            elif key in ['--epsilon_expansion_term','--eet']:
+                if value.lower() not in ['sum_all','finite'] and re.match('^eps\^(-?\d*)$', value.lower().strip()) is None:
+                    raise InvalidCmd("'%s' is not a valid option for '%s'. It must be 'finite', 'sum_all' or of the form 'eps^<i>'."%(value, key))
+                testlimits_options['epsilon_expansion_term'] = value
             elif key in ['--acceptance_threshold']:
                 try:
                     testlimits_options[key[2:]] = float(value)                  
@@ -428,15 +434,6 @@ class ParseCmdArguments(object):
                         testlimits_options['walker'] = value
                 except KeyError:
                     raise InvalidCmd("'%s' is not a valid %s" % (value, key[2:]))
-            elif key in ['--include_all_flavors', '--af'] and mode=='poles':
-                if value is None:
-                    testlimits_options['include_all_flavors'] = True
-                else:
-                    try:
-                        testlimits_options['include_all_flavors'] = \
-                                                 {'true':True,'false':False}[value.lower()]
-                    except:
-                        raise InvalidCmd("'%s' is not a valid float for option '%s'"%(value, key))
             elif key in ['--limits','--l'] and mode=='limits':
                 if not isinstance(value, str):
                     raise InvalidCmd("'%s' is not a valid option for '%s'"%(value, key))
@@ -449,14 +446,9 @@ class ParseCmdArguments(object):
                 except:
                     testlimits_options['limits'] = [value,]
 
-            elif key == '--show_plots':
+            elif key in ['--show_plots','--set_PDFs_to_unity', '--save_plots']:
                 try:
-                    testlimits_options['show_plots'] = strtobool(value)
-                except ValueError:
-                    raise InvalidCmd("Cannot set '%s' option to '%s'."%(key, value))
-            elif key == '--save_plots':
-                try:
-                    testlimits_options['save_plots'] = strtobool(value)
+                    testlimits_options[key[2:]] = strtobool(value)
                 except ValueError:
                     raise InvalidCmd("Cannot set '%s' option to '%s'."%(key, value))
             elif key == '--seed':
@@ -466,6 +458,10 @@ class ParseCmdArguments(object):
                     raise InvalidCmd("Cannot set '%s' option to '%s'."%(key, value))
             elif key == '--plots_suffix':
                 testlimits_options['plots_suffix'] = value
+            elif key in ['--integrands', '--itg']:
+                testlimits_options['integrands'].extend(self.get_integrand_filters(value, 'select'))
+            elif key in ['--veto_integrands', '--veto_itg']:
+                testlimits_options['integrands'].extend(self.get_integrand_filters(value, 'reject'))
             elif key=='--process':
                 if value.lower()=='all':
                     testlimits_options['process']['in_pdgs'] = None
@@ -950,7 +946,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
             xsec_summary_lines.append('%-30s%-30s%-30s'%('Total','%.8e'%xsec,'%.3e'%error))
             xsec_summary.write('\n'.join(xsec_summary_lines))
             xsec_summary.close()
-    
+
     def do_test_IR_limits(self, line, *args, **opt):
         """This function test that local subtraction counterterms match
         with the actual matrix element in the IR limit."""
@@ -967,13 +963,19 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
             # to the highest correction considered.
             testlimits_options['correction_order'] = self.mode
 
+        n_integrands_run = 0
         for integrand in self.all_integrands:
-            if not hasattr(integrand, 'test_IR_limits'):
+            if not hasattr(integrand, 'test_IR_limits') or \
+               not all(filter(integrand) for filter in testlimits_options['integrands']):
                 continue
+            n_integrands_run += 1
             logger.debug(
                 'Now testing IR limits of the following integrand:\n' +
                 integrand.nice_string() )
             integrand.test_IR_limits(test_options=testlimits_options)
+
+        if n_integrands_run==0:
+            logger.warning("No available integrand for function 'test_IR_limits'")
 
     def do_test_IR_poles(self, line, *args, **opt):
         """This function tests that the integrated counterterms match with the IR poles
@@ -990,11 +992,17 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
             # If not defined, automatically assign correction_order to the highest correction considered.
             testpoles_options['correction_order'] = self.mode
 
+        n_integrands_run = 0
         for integrand in self.all_integrands:
-            if not hasattr(integrand, 'test_IR_poles'):
+            if not hasattr(integrand, 'test_IR_poles') or \
+               not all(filter(integrand) for filter in testpoles_options['integrands']):
                 continue
+            n_integrands_run += 1
             logger.debug('Now testing IR poles of the following integrand:\n%s'%(integrand.nice_string()))
             integrand.test_IR_poles(test_options=testpoles_options)
+
+        if n_integrands_run==0:
+            logger.warning("No available integrand for function 'test_IR_poles'")
 
     def do_show_grid(self, line):
         """ Minimal implementation for now with no possibility of passing options."""

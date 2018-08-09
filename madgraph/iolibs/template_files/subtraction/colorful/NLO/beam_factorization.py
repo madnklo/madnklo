@@ -101,6 +101,12 @@ class QCD_beam_factorization_F0(currents.QCDBeamFactorizationCurrent):
         })
         prefactor *= EpsilonExpansion({-1:1.})*normalization
 
+        # Assign a fake chsi for now if the distribution type is 'endpoint'
+        # TODO: this is not optimal, eventually we should put each of these three pieces in
+        # separate currents
+        if self.distribution_type == 'endpoint':
+            chsi = 0.5
+
         # Define the NLO QCD PDF counterterms kernels
         kernel_gg = { 
             'bulk'          :     prefactor*( 
@@ -153,6 +159,11 @@ class QCD_beam_factorization_F0(currents.QCDBeamFactorizationCurrent):
                     quark_dict[(reduced_flavor,)] = kernel_qq[self.distribution_type]
                 if quark_dict:                    
                     flavor_matrix[reduced_flavor] = quark_dict
+
+        # Truncate all entries of the flavor matrix so as to remove irrelevant O(\eps) terms
+        for flav_in, flav_outs in flavor_matrix.items():
+            for flav_out, eps_expansion in flav_outs.items():
+                eps_expansion.truncate(max_power=0)
 
         # Now assign the flavor matrix in the BeamFactorizationCurrentEvaluation instance
         evaluation = utils.BeamFactorizationCurrentEvaluation({
@@ -223,7 +234,14 @@ class QCD_beam_factorization_single_collinear(currents.QCDBeamFactorizationCurre
         # Input variables
         y_0 = currents.SomogyiChoices.y_0
         logy0 = log(y_0)
-        x  = chsi
+        # Assign a fake x for now if the distribution type is 'endpoint'
+        # TODO: this is not optimal, eventually we should put each of these three pieces in
+        # separate currents
+        if self.distribution_type == 'endpoint':
+            x = 0.5
+        else:
+            x  = chsi
+
         log1mx = log(1.-x)
         
         # Heaviside
@@ -312,6 +330,11 @@ class QCD_beam_factorization_single_collinear(currents.QCDBeamFactorizationCurre
                     quark_dict[(reduced_flavor,)] = kernel_qq[self.distribution_type]
                 if quark_dict:                    
                     flavor_matrix[reduced_flavor] = quark_dict
+
+        # Truncate all entries of the flavor matrix so as to remove irrelevant O(\eps) terms
+        for flav_in, flav_outs in flavor_matrix.items():
+            for flav_out, eps_expansion in flav_outs.items():
+                eps_expansion.truncate(max_power=0)
 
         # Now assign the flavor matrix in the BeamFactorizationCurrentEvaluation instance
         evaluation = utils.BeamFactorizationCurrentEvaluation({

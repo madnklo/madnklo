@@ -348,6 +348,7 @@ class SubtractionLegSet(tuple):
 class SingularStructure(object):
     """Object that represents a hierarchical structure of IR singularities."""
 
+
     def __init__(self, *args, **opts):
         """Initialize a hierarchical singular structure."""
 
@@ -420,6 +421,14 @@ class SingularStructure(object):
         pref *= multinomial(softs)
         
         return pref
+
+    def get_beam_factorization_legs(self):
+        """ Return the set of all the beam factorization legs involved in this singular
+        structure. Note that beam factorization structures should always be at the top level
+        and never nested."""
+        return set(sum([
+            [ l.n for l in struct.get_all_legs() ] 
+                for struct in self.substructures if isinstance(struct, BeamStructure)],[]))
 
     def annihilate(self):
         """When an operator cannot act on this structure,
@@ -517,12 +526,6 @@ class SingularStructure(object):
         inner.append(foo)
         return inner
 
-    name_dictionary = {
-        '' : 'SingularStructure',
-        'S': 'SoftStructure',
-        'C': 'CollStructure'
-    }
-
     @staticmethod
     def from_string(string, process, log=False):
         """Reconstruct a singular structure from a string representation, e.g.
@@ -531,13 +534,20 @@ class SingularStructure(object):
         :return: The reconstructed singular structure if successful, else None.
         """
 
+        singular_structures_name_dictionary = {
+            '' : SingularStructure,
+            'S': SoftStructure,
+            'C': CollStructure,
+            'F': BeamStructure
+        }
+
         msg = "SingularStructure.from_string:"
         openpos = string.find('(')
         closepos = string.rfind(')')
         name = string[:openpos]
-        if not SingularStructure.name_dictionary.has_key(name):
+        if not singular_structures_name_dictionary.has_key(name):
             if log:
-                print msg, "no singular structure with name", name
+                logger.warning('%s %s: %s'%(msg, "no singular structure with name", name))
             return None
         legs = []
         substructures = []
@@ -567,7 +577,7 @@ class SingularStructure(object):
                     leg_n = int(before_comma)
                 except:
                     if log:
-                        print msg, "could not convert", before_comma, "to integer"
+                        logger.warning('%s %s %s'%("could not convert", before_comma, "to integer"))
                     return None
                 for leg in process['legs']:
                     if leg['number'] == leg_n:
@@ -576,14 +586,13 @@ class SingularStructure(object):
                         break
                 if before_comma:
                     if log:
-                        print msg, "no leg number", leg_n, "found"
+                        logger.warning('%s %s %d %s'%(msg, "no leg number", leg_n, "found"))
                     return None
         if before_comma:
             if log:
-                print msg, "bracket matching failed for", before_comma[:-1]
+                logger.warning("%s %s '%s'"%(msg, "bracket matching failed for:", before_comma[:-1]))
             return None
-        return eval(SingularStructure.name_dictionary[name])(
-            substructures=substructures, legs=legs)
+        return singular_structures_name_dictionary[name](substructures=substructures, legs=legs)
 
 class BeamStructure(SingularStructure):
 
@@ -868,6 +877,11 @@ class Current(base_objects.Process):
         """Count the number of unresolved particles covered by this current."""
 
         return self['singular_structure'].count_unresolved()
+
+    def count_couplings(self):
+        """Count the number of couplings expected in this current."""
+
+        return self['singular_structure'].count_couplings()
 
     def discard_leg_numbers(self,discard_initial_leg_numbers=True):
         """Discard all leg numbers in the singular_structure
@@ -1192,6 +1206,14 @@ class CountertermNode(object):
         for node in self.nodes:
             total_unresolved += node.count_unresolved()
         return total_unresolved
+    
+    def get_number_of_couplings(self):
+        """Count the number of couplings expected in the currents of this counterterm node."""
+        
+        total_couplings = self.current.get_number_of_couplings()
+        for node in self.nodes:
+            total_couplings += node.get_number_of_couplings()
+        return total_couplings
 
     def find_leg(self, number):
         """Find the SubtractionLeg with number specified."""
@@ -1608,6 +1630,14 @@ class Counterterm(CountertermNode):
             total_unresolved += node.count_unresolved()
         return total_unresolved
 
+    def get_number_of_couplings(self):
+        """Count the number of couplings expected in the currents of this counterterm."""
+        
+        total_couplings = 0
+        for node in self.nodes:
+            total_couplings += node.get_number_of_couplings()
+        return total_couplings
+
     def get_all_currents(self):
         """Return a list of all currents involved in this counterterm."""
 
@@ -1755,7 +1785,7 @@ class IntegratedCounterterm(Counterterm):
         # down into subcurrents but contains a single CountertermNode with a single
         # current *or* a BeamCurrent and no CountermNode
         if len(self.nodes) == 1 and len(self.nodes[0].nodes) == 0:
-            assert isinstance(self.nodes[0].current, (IntegratedCurrent,BeamCurrent,IntegratedBeamCurrent))
+            assert isinstance(self.nodes[0].current, (IntegratedCurrent, BeamCurrent, IntegratedBeamCurrent))
             return self.nodes[0].current
         else:
             raise MadGraph5Error(
@@ -1776,7 +1806,7 @@ class IntegratedCounterterm(Counterterm):
         # In the current implementation, there can only be one for now.
         integrated_current = self.get_integrated_current()
         
-        if type(integrated_current) not in [BeamCurrent]:
+        if type(integrated_current) not in [BeamCurrent, IntegratedBeamCurrent]:
             return beam_currents
             
         # Now get all legs of its singular structure

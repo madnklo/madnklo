@@ -316,7 +316,7 @@ class VirtualCurrentImplementation(object):
     def name(cls):
         """Extended name string to print the identity of current implementations."""
 
-        return "Subtraction current implementation " + cls.__class__.__name__
+        return "Subtraction current implementation " + cls.__name__
 
     @classmethod
     def does_implement_this_current(cls, current, model):

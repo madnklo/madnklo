@@ -4322,6 +4322,11 @@ class EpsilonExpansion(dict):
     __truediv__ = __div__
     
     def __radd__(self, other):
+        # The check below is useful for this overloaded __radd__ to work with the Python
+        # intrinsic sum() function.
+        if other==0:
+            return
+        misc.sprint(other)
         for k, v in other.items():
             try:
                 self[k] += v
@@ -4368,10 +4373,12 @@ class EpsilonExpansion(dict):
         dict_key = 0
         term_specifier = term_specifier.lower()
         if isinstance(term_specifier, str):
+            if term_specifier == 'sum_all':
+                return sum(v for k,v in self.items() if isinstance(k, int))
             if term_specifier == 'finite':
                 dict_key = 0
             elif term_specifier.startswith('eps^'):
-                dict_key = int(key[4:])
+                dict_key = int(term_specifier[4:])
             else:
                 raise MadGraph5Error('Incorrect specification of the epsilon expansion term to access: %s'%term_specifier)
         else:

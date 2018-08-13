@@ -67,6 +67,11 @@ class VirtualIntegrator(object):
         """ Returns the integrator name."""
         return self.__class__.__name__
 
+    def observables_normalization(self, n_integrand_calls):
+        """ Given the number of integrand calls, return the appropriate overall normalization
+        to apply to the observables."""
+        return 1.0/float(n_integrand_calls)
+
 class SimpleMonteCarloIntegrator(VirtualIntegrator):
     """ Implements the simplest Monte-Carlo integrator. """
     

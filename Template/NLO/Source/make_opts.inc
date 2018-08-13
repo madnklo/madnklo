@@ -9,7 +9,7 @@ DEFAULT_CPP_COMPILER = g++
 # Rest of the makefile
 ifeq ($(origin FFLAGS),undefined)
   #FFLAGS= -O -w
-  FFLAGS = -O -fno-automatic
+  FFLAGS = -O -fno-automatic -std=legacy
   #FFLAGS+= -g -fbounds-check -ffpe-trap=invalid,zero,overflow,underflow,denormal -Wall
 endif
 

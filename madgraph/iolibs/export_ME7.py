@@ -58,7 +58,7 @@ class ME7Exporter(object):
 
     def __init__(self, cmd_interface, noclean, group_subprocesses, export_options={}):
         """Initialize an ME7Exporter with an output path and a list of contributions"""
-        
+
         self.group_subprocesses = group_subprocesses
         self.contributions      = cmd_interface._curr_contribs
         self.export_dir         = cmd_interface._export_dir 

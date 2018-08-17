@@ -310,7 +310,6 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
             self.n_function_evals = 0
             self.curr_n_iterations = self.survey_n_iterations
             self.curr_n_evals_per_iterations = self.survey_n_points
-            
             result = self.vegas3_integrator(wrapped_integrand, 
                         nitn=self.survey_n_iterations, neval=self.survey_n_points, adapt=True)
     

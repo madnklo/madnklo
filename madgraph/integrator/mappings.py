@@ -2081,6 +2081,116 @@ class SoftVsFinalMapping(ElementaryMappingSoft):
         # Return characteristic variables
         return new_PS_point, mapping_variables
 
+# Soft mapping recoiling against initial states, suited for p p > X collisions.
+#=========================================================================================
+
+class SoftVsInitialMapping(ElementaryMappingSoft):
+    """Implementation of the mapping described in sect. 5.3.3. of Simone's thesis.
+    It is applicable for hadronic collisions where the initial states can be rescaled.
+    """
+
+    @staticmethod
+    def y(pS, Q):
+        """Return the parameter y of the SoftVsFinal mapping."""
+
+        pR = Q - pS
+        pR2_Q2 = pR.square() / Q.square()
+        return 1. - pR2_Q2
+
+    @classmethod
+    def is_valid_structure(cls, singular_structure):
+
+        # Valid only if there are at least two recoilers (assumed in the final state)
+        if len(singular_structure.legs) < 2: return False
+        return super(SoftVsFinalMapping, cls).is_valid_structure(singular_structure)
+
+    @classmethod
+    def map_to_lower_multiplicity(
+        cls, PS_point, singular_structure, momenta_dict, squared_masses=None,
+        kinematic_variables=None, compute_jacobian=False ):
+
+        # Consistency checks
+        assert isinstance(momenta_dict, sub.bidict)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
+
+        # Build the total soft momentum,
+        # save the soft momenta in variables and eliminate them from PS_point
+        new_PS_point = PS_point.get_copy()
+        pS = LorentzVector()
+        for substructure in singular_structure.substructures:
+            children = tuple(leg.n for leg in substructure.legs)
+            if kinematic_variables is not None:
+                SoftVariables.get(PS_point, children, kinematic_variables)
+            for child in children:
+                pS += new_PS_point.pop(child)
+        # Build the total momentum of recoilers
+        recoilers = tuple(leg.n for leg in singular_structure.legs)
+        pR = LorentzVector()
+        for recoiler in recoilers:
+            pR += PS_point[recoiler]
+        # Build the total momentum Q
+        Q = pS + pR
+        # Compute the parameter la
+        pR2_Q2 = pR.square() / Q.square()
+        la = math.sqrt(pR2_Q2)
+        P = pR / la
+        # Map all recoilers' momenta
+        for recoiler in singular_structure.legs:
+            new_PS_point[recoiler.n] /= la
+            new_PS_point[recoiler.n].rotoboost(P, Q)
+        mapping_variables = {'Q': Q}
+        if compute_jacobian:
+            mapping_variables['jacobian'] = (pR2_Q2)**(len(recoilers)-2)
+        # Return characteristic variables
+        return new_PS_point, mapping_variables
+
+    @classmethod
+    def map_to_higher_multiplicity(
+        cls, PS_point, singular_structure, momenta_dict, kinematic_variables,
+        compute_jacobian=False ):
+
+        # Consistency checks
+        assert isinstance(momenta_dict, sub.bidict)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
+        needed_variables = set(
+            cls.get_kinematic_variables_names(singular_structure, momenta_dict ) )
+        assert needed_variables.issubset(kinematic_variables.keys())
+
+        # Build the total soft momentum,
+        # get the soft momenta from variables and save them in PS_point
+        new_PS_point = PS_point.get_copy()
+        pS = LorentzVector()
+        for substructure in singular_structure.substructures:
+            children = tuple(leg.n for leg in substructure.legs)
+            SoftVariables.set(new_PS_point, children, kinematic_variables)
+            for child in children:
+                pS += new_PS_point[child]
+        # Build the total momentum, which is equal to the mapped recoilers'
+        Q = LorentzVector()
+        recoilers = tuple(leg.n for leg in singular_structure.legs)
+        for recoiler in recoilers:
+            Q += PS_point[recoiler]
+        # Build the recoilers' momentum
+        pR = Q - pS
+        # Compute the parameter la
+        pR2_Q2 = pR.square() / Q.square()
+        la = math.sqrt(pR2_Q2)
+        P = pR / la
+        # Map all recoilers' momenta
+        for recoiler in singular_structure.legs:
+            new_PS_point[recoiler.n] *= la
+            new_PS_point[recoiler.n].rotoboost(Q, P)
+        mapping_variables = {'Q': Q}
+        if compute_jacobian:
+            mapping_variables['jacobian'] = (pR2_Q2)**(len(recoilers)-2)
+        # Return characteristic variables
+        return new_PS_point, mapping_variables
+
+
 #=========================================================================================
 # Soft-collinear mappings
 #=========================================================================================

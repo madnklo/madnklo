@@ -543,6 +543,23 @@ class LorentzNLOWalker(NLOWalker):
     i_soft_collinear_map = mappings.SoftCollinearVsFinalMapping(soft_map, i_collinear_map)
     only_colored_recoilers = True
 
+class ppToOneNLOWalker(NLOWalker):
+    """ Set of mappings designed to work for the NLO topology pp > X(color-singlet).
+    The collinear mapping is left untouched compared to LorentzNLOWalker, but the soft one
+    is not the original Colorful mapping where recoilers are individually rescaled but
+    instead it is a mapping that rescales both initial states. This is well-suited
+    for integrating 'p p > X' where X is a color-singlet. """
+    
+    f_collinear_map = mappings.FinalLorentzOneMapping()
+    i_collinear_map = mappings.InitialLorentzOneMapping()
+    
+    # The two lines below yield the difference w.r.t LorentzNLOWalker
+    soft_map = mappings.SoftVsInitialMapping()
+    only_colored_recoilers = False
+    
+    f_soft_collinear_map = mappings.SoftCollinearVsFinalMapping(soft_map, f_collinear_map)
+    i_soft_collinear_map = mappings.SoftCollinearVsFinalMapping(soft_map, i_collinear_map)
+
 #=========================================================================================
 # Walker for disjoint counterterms
 #=========================================================================================
@@ -683,4 +700,5 @@ walker_classes_map = {
     'FinalLorentzDisjoint': FinalLorentzDisjointWalker,
     'FinalGroupingDisjoint': FinalGroupingDisjointWalker,
     'SoftVsFinalDisjoint': SoftVsFinalDisjointWalker,
+    'ppToOneNLOWalker': ppToOneNLOWalker
 }

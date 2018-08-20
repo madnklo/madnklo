@@ -74,7 +74,7 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
 
     def __init__(self, integrands, **opts):
         """ Initialize the pyCuba integrator."""
-       
+
         # General steering parameters
         default_opts= {
            'algorithm':'Vegas',
@@ -225,7 +225,6 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
         default_opts['max_eval'] = 50000
         # Number of min and max evaluations for the integration with Cuhre
 
-
         # Set instance attributes options
         for opt in default_opts:
             if opt in opts:
@@ -308,7 +307,7 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
             raise IntegratorError("pyCuba only supports multiple integrands with all the same number of dimensions.")
 
         n_dimensions = len(self.integrands[0].continuous_dimensions)
-
+        
         if self.algorithm == 'Vegas':
             with tmpGlobal('IntegratorInstance',self):
                 self.last_integration_results = pycuba.Vegas(

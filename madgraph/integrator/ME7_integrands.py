@@ -2373,7 +2373,7 @@ class ME7Integrand_R(ME7Integrand):
         # originating from the defining process and the real-emission kinematics dictionary
         reduced_PS, reduced_flavors = counterterm.get_reduced_quantities(
                                                               ME_PS, defining_flavors=None)
-
+        
         n_unresolved_left = self.contribution_definition.n_unresolved_particles
         n_unresolved_left -= counterterm.count_unresolved()
         # Apply cuts if requested and return immediately if they do not pass
@@ -2841,7 +2841,7 @@ The missing process is: %s"""%ME_process.nice_string())
                     break
 
 #            misc.sprint('Scaled PS point: %s'%str(a_real_emission_PS_point))
-            mu_r, mu_f1, mu_f2 = self.get_scales(a_real_emission_PS_point)
+            mu_r, mu_f1, mu_f2 = self.get_scales(scaled_real_PS_point)
 
             # Specify the counterterms to be considered and backup the original values
             if self.has_local_counterterms():
@@ -2853,7 +2853,7 @@ The missing process is: %s"""%ME_process.nice_string())
             try:
                 # Now call sigma in order to gather all events
                 events = self.sigma(
-                    a_real_emission_PS_point.to_dict(), process_key, defining_process, all_flavor_configurations, 
+                    scaled_real_PS_point.to_dict(), process_key, defining_process, all_flavor_configurations, 
                     1.0, mu_r, mu_f1, mu_f2, scaled_chsi1, scaled_chsi2, a_xb_1, a_xb_2, 
                     compute_poles            = False,
                     apply_flavour_blind_cuts = test_options['apply_lower_multiplicity_cuts']
@@ -2928,7 +2928,7 @@ The missing process is: %s"""%ME_process.nice_string())
                         
             logger.debug('For scaling variable %.3e, weight from ME = %.16f' %(
                                       scaling_parameter, this_eval['ME'] ))
-            total_CTs_wgt = 1.0
+            total_CTs_wgt = 0.0
             for CT_str, CT_weight in this_eval.items():
                 if CT_str=='ME': continue
                 total_CTs_wgt += CT_weight

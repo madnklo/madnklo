@@ -2092,8 +2092,8 @@ class  SoftVsInitialMapping(ElementaryMappingSoft):
     - map_to_higher_multiplicity does TODO write description
     """
     #TODO implement a check for Had-Had initial state when calling the schemes that call SoftVsInitialMapping
-    #TODO validate map_to_lower
-    #TODO validate map_to_higher
+    #TODO validate map_to_lower | checked with unit_test, need to check test_IR_limits
+    #TODO validate map_to_higher | checked with unit_test, need to check test_IR_limits
     #TODO once validated remove NotImplementedError from the methods
 
     @classmethod
@@ -2142,18 +2142,19 @@ class  SoftVsInitialMapping(ElementaryMappingSoft):
         pR = LorentzVector()
         for recoiler in recoilers:
             pR += PS_point[recoiler]
-        # Build the total momentum Q
-        Q = pS + pR
-        # Sanity check: did we correctly recover all the momentum? (using Euclidean vector norm)
-        difference_euclidean_square = (Q-PS_point[1]-PS_point[2]).view(Vector).square()
-        total_euclidean_square = (PS_point[1]+PS_point[2]).view(Vector).square()
-        assert difference_euclidean_square/total_euclidean_square < Q.eps()
+
+        # Build the total momentum Q from the intial state
+        Q = LorentzVector()
+        Q += PS_point[1]
+        Q += PS_point[2]
 
         # Compute the parameter la (lambda_s1...sn in Vittorio's 5.44)
-        la = (Q - pS).square() / Q.square()
+        la = math.sqrt((Q - pS).square() / Q.square())
         # All recoilers are boosted by a Lorentz transform K->Ktilde
-        Ktilde = la * Q
+
+        Ktilde = Q * la
         K = Q - pS
+
         for recoiler in singular_structure.legs:
             new_PS_point[recoiler.n].rotoboost(K, Ktilde) # this is Lambda(Ktilde,K) p_n
         # The initial state is rescaled by lambda
@@ -2210,19 +2211,12 @@ class  SoftVsInitialMapping(ElementaryMappingSoft):
             SoftVariables.set(new_PS_point, children, kinematic_variables)
             for child in children:
                 pS += new_PS_point[child]
-        # Build the total momentum
-        # singular_structure.legs contains all recoilers
-        # The recoilers have already been mapped to the Born PS point with the rescaled total momentum lamda*Q
-        # Therefore sum(recoilers) = lambda*Q
-        laQ = LorentzVector()
-        recoilers = tuple(leg.n for leg in singular_structure.legs)
-        for recoiler in recoilers:
-            laQ += PS_point[recoiler]
 
-        # Sanity check: did we correctly recover all the momentum? (using Euclidean vector norm)
-        difference_euclidean_square = (laQ - PS_point[1] - PS_point[2]).view(Vector).square()
-        total_euclidean_square = (PS_point[1] + PS_point[2]).view(Vector).square()
-        assert difference_euclidean_square / total_euclidean_square < laQ.eps()
+        # Build the total momentum
+        # The sum of the momenta of initial state particles yields lambda*Q as they have been mapped
+        laQ = LorentzVector()
+        laQ += PS_point[1]
+        laQ += PS_point[2]
 
         # Compute lambda (la)
         # In the direct mapping: lambda = sqrt(1 - 2*pS.Q/Q^2 + pS^2/Q^2) = sqrt(1 - y + muS)
@@ -2232,7 +2226,7 @@ class  SoftVsInitialMapping(ElementaryMappingSoft):
         # This has a unique positive solution
         yprime = 2*laQ.dot(pS)/laQ.square()
         muSprime = pS.square()/laQ.square()
-        la = .5*(sqrt(4.*(1.-muSprime)+yprime**2)-yprime)/(1.-muSprime) # Sanity analytic check: limit of la in pS->0 is 1
+        la = .5*(math.sqrt(4.*(1.-muSprime)+yprime**2)-yprime)/(1.-muSprime) # Sanity analytic check: limit of la in pS->0 is 1
 
         # Reconstruct the momenta of the inverse Lorentz transform
         Q = laQ.get_copy()/la

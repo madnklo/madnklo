@@ -2005,7 +2005,6 @@ class SoftVsFinalMapping(ElementaryMappingSoft):
         if not cls.is_valid_structure(singular_structure):
             raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
                                                     str(singular_structure), cls.__name__))
-
         # Build the total soft momentum,
         # save the soft momenta in variables and eliminate them from PS_point
         new_PS_point = PS_point.get_copy()
@@ -2084,30 +2083,40 @@ class SoftVsFinalMapping(ElementaryMappingSoft):
 # Soft mapping recoiling against initial states, suited for p p > X collisions.
 #=========================================================================================
 
-class SoftVsInitialMapping(ElementaryMappingSoft):
-    """Implementation of the mapping described in sect. 5.3.3. of Simone's thesis.
+class  SoftVsInitialMapping(ElementaryMappingSoft):
+    """Implementation of the mapping described in sect. 5.3.2. of Vittorio's notes.
     It is applicable for hadronic collisions where the initial states can be rescaled.
+    - is_valid_structure is entirely inherited from the parent.
+    This mapping works for any hadron-hadron collider. The initial state should be checked at initialization
+    - map_to_lower_multiplicity does TODO write description
+    - map_to_higher_multiplicity does TODO write description
     """
-
-    @staticmethod
-    def y(pS, Q):
-        """Return the parameter y of the SoftVsFinal mapping."""
-
-        pR = Q - pS
-        pR2_Q2 = pR.square() / Q.square()
-        return 1. - pR2_Q2
-
-    @classmethod
-    def is_valid_structure(cls, singular_structure):
-
-        # Valid only if there are at least two recoilers (assumed in the final state)
-        if len(singular_structure.legs) < 2: return False
-        return super(SoftVsFinalMapping, cls).is_valid_structure(singular_structure)
+    #TODO implement a check for Had-Had initial state when calling the schemes that call SoftVsInitialMapping
+    #TODO validate map_to_lower
+    #TODO validate map_to_higher
+    #TODO once validated remove NotImplementedError from the methods
 
     @classmethod
     def map_to_lower_multiplicity(
         cls, PS_point, singular_structure, momenta_dict, squared_masses=None,
         kinematic_variables=None, compute_jacobian=False ):
+        """Map the resolved momenta of a real emission process to on-shell kinematics by recoling against the initial state partons.
+        This function applies the transformation described in equation 5.44 of Vittorio's notes. This is also described in Simone Lionetti's thesis at 5.3.3 but the notation here is aligned with Vittorio's notes.
+
+        :param PS_point: dictionnary of Real kinematics
+        :param singular_structure: SingularStructure describing the limit we want to factorize with this mapping
+        :param momenta_dict: ?
+        :param squared_masses: dictionnary
+        :param kinematic_variables: dictionnary to store the variables of the unresolved PS
+        :param compute_jacobian: Boolean, should the jacobian be computed for each PS point?
+        :return:
+            * new_PS_point: a dictionnary with Born kinematics
+            * mapping_variables: a dictionnary with variables needed to compute splitting functions
+        """
+        #TODO review documentation
+        # This should not be part of the working environment until tested.
+        # Commits should fail here until this is the case.
+        raise NotImplementedError
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
@@ -2115,86 +2124,139 @@ class SoftVsInitialMapping(ElementaryMappingSoft):
             raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
                                                     str(singular_structure), cls.__name__))
 
-        # Build the total soft momentum,
-        # save the soft momenta in variables and eliminate them from PS_point
+        # Construct a new phase space point
         new_PS_point = PS_point.get_copy()
+
+        # Build the total soft momentum and remove all soft legs from the mapped PS point
+        # Save the soft legs in kinematic_variables
         pS = LorentzVector()
-        for substructure in singular_structure.substructures:
+        for substructure in singular_structure.substructures: # S(3,4).legs returns [3,4]
             children = tuple(leg.n for leg in substructure.legs)
             if kinematic_variables is not None:
                 SoftVariables.get(PS_point, children, kinematic_variables)
             for child in children:
                 pS += new_PS_point.pop(child)
+
         # Build the total momentum of recoilers
-        recoilers = tuple(leg.n for leg in singular_structure.legs)
+        recoilers = tuple(leg.n for leg in singular_structure.legs) # (S(3,4),).legs returns the recoilers
         pR = LorentzVector()
         for recoiler in recoilers:
             pR += PS_point[recoiler]
         # Build the total momentum Q
         Q = pS + pR
-        # Compute the parameter la
-        pR2_Q2 = pR.square() / Q.square()
-        la = math.sqrt(pR2_Q2)
-        P = pR / la
-        # Map all recoilers' momenta
+        # Sanity check: did we correctly recover all the momentum? (using Euclidean vector norm)
+        difference_euclidean_square = (Q-PS_point[1]-PS_point[2]).view(Vector).square()
+        total_euclidean_square = (PS_point[1]+PS_point[2]).view(Vector).square()
+        assert difference_euclidean_square/total_euclidean_square < Q.eps()
+
+        # Compute the parameter la (lambda_s1...sn in Vittorio's 5.44)
+        la = (Q - pS).square() / Q.square()
+        # All recoilers are boosted by a Lorentz transform K->Ktilde
+        Ktilde = la * Q
+        K = Q - pS
         for recoiler in singular_structure.legs:
-            new_PS_point[recoiler.n] /= la
-            new_PS_point[recoiler.n].rotoboost(P, Q)
+            new_PS_point[recoiler.n].rotoboost(K, Ktilde) # this is Lambda(Ktilde,K) p_n
+        # The initial state is rescaled by lambda
+        new_PS_point[1]*=la
+        new_PS_point[2]*=la
+
         mapping_variables = {'Q': Q}
+
+        # There is no jacobian for this transformation as it is based on a pure Lorentz transform
         if compute_jacobian:
-            mapping_variables['jacobian'] = (pR2_Q2)**(len(recoilers)-2)
-        # Return characteristic variables
+            mapping_variables['jacobian'] = 1
         return new_PS_point, mapping_variables
 
     @classmethod
     def map_to_higher_multiplicity(
         cls, PS_point, singular_structure, momenta_dict, kinematic_variables,
         compute_jacobian=False ):
+        """Create a Real PS point from a Born PS point and unresolved PS variables by recoling against the initial state partons.
+        This function applies the inverse transformation of that described in equation 5.44 of Vittorio's notes. This is also described in Simone Lionetti's thesis at 5.3.3 but the notation here is aligned with Vittorio's notes.
+
+        :param PS_point: dictionnary of Born kinematics + unresolved
+        :param singular_structure: SingularStructure describing the limit we want to factorize with this mapping
+        :param momenta_dict: ?
+        :param kinematic_variables: dictionnary to store the variables of the unresolved PS
+        :param compute_jacobian: Boolean, should the jacobian be computed for each PS point?
+        :return:
+                * new_PS_point: a dictionnary with Real kinematics
+                * mapping_variables: a dictionnary with variables needed to compute splitting functions
+        """
+        # This should not be part of the working environment until tested.
+        # Commits should fail here until this is the case.
+        raise NotImplementedError
 
         # Consistency checks
+        # Type check
         assert isinstance(momenta_dict, sub.bidict)
+            # Are we using the right kind of mapping for the limit?
         if not cls.is_valid_structure(singular_structure):
             raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
                                                     str(singular_structure), cls.__name__))
+        # Do we have all the input we need?
         needed_variables = set(
             cls.get_kinematic_variables_names(singular_structure, momenta_dict ) )
         assert needed_variables.issubset(kinematic_variables.keys())
 
-        # Build the total soft momentum,
-        # get the soft momenta from variables and save them in PS_point
+        # Construct a new phase space point
         new_PS_point = PS_point.get_copy()
+
+        # Build the total soft momentum,
         pS = LorentzVector()
-        for substructure in singular_structure.substructures:
-            children = tuple(leg.n for leg in substructure.legs)
+        for substructure in singular_structure.substructures: # singular_structure = (S(...),): get the SoftStructure
+            children = tuple(leg.n for leg in substructure.legs) # Get all unresolved legs: S(1,2).legs = (1,2)
+            # the kinematic variables describing the unresolved legs are copied from kinematic_variables
             SoftVariables.set(new_PS_point, children, kinematic_variables)
             for child in children:
                 pS += new_PS_point[child]
-        # Build the total momentum, which is equal to the mapped recoilers'
-        Q = LorentzVector()
+        # Build the total momentum
+        # singular_structure.legs contains all recoilers
+        # The recoilers have already been mapped to the Born PS point with the rescaled total momentum lamda*Q
+        # Therefore sum(recoilers) = lambda*Q
+        laQ = LorentzVector()
         recoilers = tuple(leg.n for leg in singular_structure.legs)
         for recoiler in recoilers:
-            Q += PS_point[recoiler]
-        # Build the recoilers' momentum
-        pR = Q - pS
-        # Compute the parameter la
-        pR2_Q2 = pR.square() / Q.square()
-        la = math.sqrt(pR2_Q2)
-        P = pR / la
+            laQ += PS_point[recoiler]
+
+        # Sanity check: did we correctly recover all the momentum? (using Euclidean vector norm)
+        difference_euclidean_square = (laQ - PS_point[1] - PS_point[2]).view(Vector).square()
+        total_euclidean_square = (PS_point[1] + PS_point[2]).view(Vector).square()
+        assert difference_euclidean_square / total_euclidean_square < laQ.eps()
+
+        # Compute lambda (la)
+        # In the direct mapping: lambda = sqrt(1 - 2*pS.Q/Q^2 + pS^2/Q^2) = sqrt(1 - y + muS)
+        # Here the total momentum is laQ with Q = laQ / lambda.
+        # Defining y' = pS.laQ / laQ^2 = y/lambda and muS' = pS^2/Qla^2 = muS / lambda^2
+        # => lambda = sqrt(1 - lambda*y' + lambda^2*muS')
+        # This has a unique positive solution
+        yprime = 2*laQ.dot(pS)/laQ.square()
+        muSprime = pS.square()/laQ.square()
+        la = .5*(sqrt(4.*(1.-muSprime)+yprime**2)-yprime)/(1.-muSprime) # Sanity analytic check: limit of la in pS->0 is 1
+
+        # Reconstruct the momenta of the inverse Lorentz transform
+        Q = laQ.get_copy()/la
+        K = Q-pS
+        Ktilde = laQ
+
         # Map all recoilers' momenta
         for recoiler in singular_structure.legs:
-            new_PS_point[recoiler.n] *= la
-            new_PS_point[recoiler.n].rotoboost(Q, P)
+            new_PS_point[recoiler.n].rotoboost(Ktilde,K)
+        # Map the initial state
+        new_PS_point[1] *= 1. / la
+        new_PS_point[2] *= 1. / la
+
+        # Save the variables needed for the splitting functions
         mapping_variables = {'Q': Q}
         if compute_jacobian:
-            mapping_variables['jacobian'] = (pR2_Q2)**(len(recoilers)-2)
-        # Return characteristic variables
+            mapping_variables['jacobian'] = 1.
+
         return new_PS_point, mapping_variables
 
 
 #=========================================================================================
 # Soft-collinear mappings
 #=========================================================================================
-
 # Generic soft-collinear mapping
 #=========================================================================================
 

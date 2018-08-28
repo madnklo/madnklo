@@ -2362,6 +2362,7 @@ class ME7Integrand_R(ME7Integrand):
         #         'currents' : [stroll_output1, stroll_output2, ...],
         #         'matrix_element': (ME_process, ME_PS),
         #         'kinematic_variables' : kinematic_variables (a dictionary) }
+
         hike_output = self.walker.walk_to_lower_multiplicity(
             PS_point, counterterm, compute_jacobian=self.divide_by_jacobian )
 
@@ -2416,12 +2417,14 @@ class ME7Integrand_R(ME7Integrand):
                 total_jacobian *= stroll_vars['jacobian']
             for current in stroll_currents:
                 # WARNING The use of reduced_process here is fishy (for all but the last)
+
                 current_evaluation, all_current_results = self.all_MEAccessors(
                     current,
                     higher_PS_point=higher_PS_point, lower_PS_point=lower_PS_point,
                     leg_numbers_map=counterterm.momenta_dict,
                     reduced_process=ME_process, hel_config=None,
                     **stroll_vars )
+
                 # Now loop over all spin- and color- correlators required for this current
                 # and update the necessary calls to the ME
                 if not current['resolve_mother_spin_and_color']:
@@ -2453,6 +2456,7 @@ class ME7Integrand_R(ME7Integrand):
 #        misc.sprint('I got for %s:'%str(counterterm.nice_string()))
         alpha_s = self.model.get('parameter_dict')['aS']
         mu_r = self.model.get('parameter_dict')['MU_R']
+
         return ME7Integrand_R.generate_event_for_counterterm(
             ME7Event( ME_PS, 
                 {fc : base_weight for fc in all_reduced_flavors},
@@ -2894,10 +2898,12 @@ The missing process is: %s"""%ME_process.nice_string())
                 events.apply_PDF_convolution( self.get_pdfQ2, (pdf, pdf), (a_xb_1, a_xb_2), 
                                                                      (mu_f1**2, mu_f2**2) )
             # Make sure Bjorken-x rescalings chsi_i don't matter anymore
+
             for event in events:
                 event.set_Bjorken_rescalings(None, None)
             # Apply flavor sensitive cuts
-            events.filter_flavor_configurations(self.pass_flavor_sensitive_cuts,
+            if test_options['apply_lower_multiplicity_cuts']:
+                events.filter_flavor_configurations(self.pass_flavor_sensitive_cuts,
                                                               xb_1 = a_xb_1, xb_2 = a_xb_2)
     
 #            misc.sprint('Events generated after post-processing:')

@@ -87,6 +87,7 @@ def Q_initial_coll_variables(PS_point, parent_momentum, children, **opts):
     na = parent_momentum
     nb = opts['Q']
     kin_variables = dict()
+
     # The lone initial state child is always placed first thanks to the implementation
     # of the function get_sorted_children() in the current.
     mappings.InitialCollinearVariables.get(

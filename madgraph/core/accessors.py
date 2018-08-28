@@ -884,7 +884,7 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
     def call_subtraction_current(self, *args, **opts):
         """ Wrapper around the actual call of the subtraction currents, so as to be
         able to easily time it with a profiler."""
-        
+
         return self.subtraction_current_instance.evaluate_subtraction_current(*args, **opts)
 
     def __call__(self, current, **opts):
@@ -937,7 +937,7 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
         # Update the cache with the new results produced
         if not cache_key is None:
             all_evaluations = self.cache.add_result(all_evaluations, **cache_key)
-        
+
         # Return both the specific evaluation asked for
         # and all results available for this cache_key
         return self.evaluation_class(evaluation_asked_for), self.result_class(all_evaluations)

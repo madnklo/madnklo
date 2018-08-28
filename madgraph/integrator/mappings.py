@@ -2114,9 +2114,6 @@ class  SoftVsInitialMapping(ElementaryMappingSoft):
             * mapping_variables: a dictionnary with variables needed to compute splitting functions
         """
         #TODO review documentation
-        # This should not be part of the working environment until tested.
-        # Commits should fail here until this is the case.
-        raise NotImplementedError
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
@@ -2150,8 +2147,8 @@ class  SoftVsInitialMapping(ElementaryMappingSoft):
 
         # Compute the parameter la (lambda_s1...sn in Vittorio's 5.44)
         la = math.sqrt((Q - pS).square() / Q.square())
-        # All recoilers are boosted by a Lorentz transform K->Ktilde
 
+        # All recoilers are boosted by a Lorentz transform K->Ktilde
         Ktilde = Q * la
         K = Q - pS
 
@@ -2184,9 +2181,6 @@ class  SoftVsInitialMapping(ElementaryMappingSoft):
                 * new_PS_point: a dictionnary with Real kinematics
                 * mapping_variables: a dictionnary with variables needed to compute splitting functions
         """
-        # This should not be part of the working environment until tested.
-        # Commits should fail here until this is the case.
-        raise NotImplementedError
 
         # Consistency checks
         # Type check

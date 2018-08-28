@@ -1,5 +1,5 @@
 FC=gfortran
-FFLAGS = -O -fPIC
+FFLAGS = -O -fPIC -std=legacy
 HERE   = $(PWD)
 QLDIR  = $(HERE)/ql
 FFDIR  = $(HERE)/ff

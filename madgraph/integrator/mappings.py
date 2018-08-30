@@ -1593,7 +1593,13 @@ class InitialLorentzOneMapping(InitialCollinearMapping):
                 PS_point, fs_children, is_child, na, nb, kinematic_variables )
         # TODO Check if the jacobian for this mapping is really 1
         jacobian = 1.
-        mapping_variables = {'jacobian': jacobian, 'Q': pAmpR}
+        
+        # VH :: START :: TEMPORARY FIX OF MODIFYING Q DEFINITION
+        #Q = pAmpR
+        Q = PS_point[1] + PS_point[2]
+        # VH :: END :: TEMPORARY FIX OF MODIFYING Q DEFINITION
+        
+        mapping_variables = {'jacobian': jacobian, 'Q': Q}
         # Return characteristic variables
         return new_PS_point, mapping_variables
 
@@ -1667,6 +1673,12 @@ class InitialLorentzOneMapping(InitialCollinearMapping):
             new_PS_point[recoiler.n].rotoboost(qR, pR)
         # TODO Check if the jacobian for this mapping is really 1
         jacobian = 1.
+
+        # VH :: START :: TEMPORARY FIX OF MODIFYING Q DEFINITION
+        #Q = -qRmqA
+        Q = new_PS_point[1] + new_PS_point[2]
+        # VH :: END :: TEMPORARY FIX OF MODIFYING Q DEFINITION
+        
         mapping_variables = {'jacobian': jacobian, 'Q': -qRmqA}
         # Return characteristic variables
         return new_PS_point, mapping_variables
@@ -2101,7 +2113,8 @@ class  SoftVsInitialMapping(ElementaryMappingSoft):
         cls, PS_point, singular_structure, momenta_dict, squared_masses=None,
         kinematic_variables=None, compute_jacobian=False ):
         """Map the resolved momenta of a real emission process to on-shell kinematics by recoling against the initial state partons.
-        This function applies the transformation described in equation 5.44 of Vittorio's notes. This is also described in Simone Lionetti's thesis at 5.3.3 but the notation here is aligned with Vittorio's notes.
+        This function applies the transformation described in equation 5.44 of Vittorio's notes. 
+        This is also described in Simone Lionetti's thesis at 5.3.3 but the notation here is aligned with Vittorio's notes.
 
         :param PS_point: dictionnary of Real kinematics
         :param singular_structure: SingularStructure describing the limit we want to factorize with this mapping
@@ -2349,6 +2362,8 @@ class SoftCollinearMapping(VirtualMapping):
         coll_PS_point, coll_vars = self.coll_mapping.map_to_lower_multiplicity(
             soft_PS_point, coll_structure, coll_momenta_dict, squared_masses,
             kinematic_variables, compute_jacobian )
+        # We adopt the definition of Q from the soft mapping
+        coll_vars['Q'] = soft_vars['Q']
         if compute_jacobian:
             coll_vars['jacobian'] *= soft_vars['jacobian']
         return coll_PS_point, coll_vars
@@ -2372,6 +2387,8 @@ class SoftCollinearMapping(VirtualMapping):
         soft_PS_point, soft_vars = self.soft_mapping.map_to_higher_multiplicity(
             coll_PS_point, soft_structure, momenta_dict,
             kinematic_variables, compute_jacobian )
+        # We adopt the definition of Q from the soft mapping
+        coll_vars['Q'] = soft_vars['Q']
         if compute_jacobian:
             coll_vars['jacobian'] *= soft_vars['jacobian']
         return soft_PS_point, coll_vars

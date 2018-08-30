@@ -49,6 +49,12 @@ logger = logging.getLogger('cmdprint.ext_program')
 logger_stderr = logging.getLogger('madevent.misc')
 pjoin = os.path.join
 
+################################################################################
+# Python debugging
+################################################################################
+import pdb
+debug = pdb.set_trace
+
 #===============================================================================
 # HELPER class for string coloring
 #===============================================================================

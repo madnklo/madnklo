@@ -747,6 +747,7 @@ class QCD_initial_softcollinear_0_Xg(currents.QCDLocalSoftCollinearCurrent):
     """NLO tree-level (initial) soft-collinear currents."""
 
     variables = staticmethod(currents.Q_initial_coll_variables)
+    is_cut = staticmethod(currents.SomogyiChoices.cut_soft)
 
     def __init__(self, *args, **opts):
 
@@ -829,7 +830,7 @@ class QCD_initial_softcollinear_0_Xg(currents.QCDLocalSoftCollinearCurrent):
         children = self.get_sorted_children(current, self.model)
         pC = higher_PS_point[children[0]]
         pS = higher_PS_point[children[1]]
-        pC -= pS
+        pC = pC + pS
         parent = leg_numbers_map.inv[frozenset(children)]
         if self.is_cut(Q=Q, pC=pC, pS=pS):
             return utils.SubtractionCurrentResult.zero(

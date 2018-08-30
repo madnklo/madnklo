@@ -2364,7 +2364,7 @@ class ME7Integrand_R(ME7Integrand):
         #         'kinematic_variables' : kinematic_variables (a dictionary) }
 
         hike_output = self.walker.walk_to_lower_multiplicity(
-            PS_point, counterterm, compute_jacobian=self.divide_by_jacobian )
+                          PS_point, counterterm, compute_jacobian=self.divide_by_jacobian )
 
         # Access the matrix element characteristics
         ME_process, ME_PS = hike_output['matrix_element']
@@ -2417,7 +2417,6 @@ class ME7Integrand_R(ME7Integrand):
                 total_jacobian *= stroll_vars['jacobian']
             for current in stroll_currents:
                 # WARNING The use of reduced_process here is fishy (for all but the last)
-
                 current_evaluation, all_current_results = self.all_MEAccessors(
                     current,
                     higher_PS_point=higher_PS_point, lower_PS_point=lower_PS_point,
@@ -2479,6 +2478,7 @@ class ME7Integrand_R(ME7Integrand):
         # Initialize the placeholder which stores the event that we will progressively build
         # below.
         ME7_event_to_return = None
+        
         for ME_call in all_necessary_ME_calls:
             color_correlators = tuple(ME_call['color_correlation']) if ME_call['color_correlation'] else None
             spin_correlators = tuple(ME_call['spin_correlation']) if ME_call['spin_correlation'] else None
@@ -2824,6 +2824,7 @@ The missing process is: %s"""%ME_process.nice_string())
             scaling_parameter = base ** step
             scaled_real_PS_point = walker.approach_limit(
                      a_real_emission_PS_point, limit, scaling_parameter, defining_process )
+
             # Also scale the chsi initial-state convolution parameters if the limit
             # specifies a beam factorization structure for that initial state:
             beam_factorisation_legs = limit.get_beam_factorization_legs()
@@ -2931,7 +2932,18 @@ The missing process is: %s"""%ME_process.nice_string())
                         this_eval[str(event.counterterm_structure)] += event_wgt           
                     else:
                         this_eval[str(event.counterterm_structure)] = event_wgt                      
-                        
+        
+            # If some counterterm structure is not found, add it with a zero weight here
+            # (its current was probably cut off by its `is_cut` function)
+            all_str_ct = ( 
+                ( [] if not self.has_local_counterterms() else 
+                  [str(ct) for ct in local_counterterms_to_consider] ) + 
+                ( [] if not self.has_integrated_counterterms() else 
+                  [str(ct['integrated_counterterm']) for ct in integrated_counterterms_to_consider] ) )
+            for str_ct in all_str_ct:
+                if str_ct not in this_eval:
+                    this_eval[str_ct] = 0.
+
             logger.debug('For scaling variable %.3e, weight from ME = %.16f' %(
                                       scaling_parameter, this_eval['ME'] ))
             total_CTs_wgt = 0.0
@@ -2953,10 +2965,14 @@ The missing process is: %s"""%ME_process.nice_string())
         title=None, def_ct=None, plot_all=True, show=True,
         filename=None, plots_suffix=None, number_of_FS_legs=None ):
 
+        # chose whether to use a grid display or a figure display
+        display_mode = 'grid' # any value in ['figure','grid'] is legal.
+        if display_mode not in ['figure','grid']:
+            raise MadEvent7Error('Display mode %s not recognized in analyze_IR_limit.'%display_mode)
+        
         import matplotlib.pyplot as plt
 
         plot_title = True
-        plot_size = (6,6)
         plot_extension = ".pdf"
         if plots_suffix:
             plot_extension = '_' + plots_suffix + plot_extension
@@ -2978,14 +2994,24 @@ The missing process is: %s"""%ME_process.nice_string())
         TOTAL_color = colors.pop(3)
         MEdef_color = colors.pop(2)
 
-        plt.figure(1, figsize=plot_size)
+        if display_mode == 'figure':
+            plot_size = (6,6)
+            plt.figure(1, figsize=plot_size)
+            plt.subplots_adjust(left=0.15)
+        elif display_mode == 'grid':
+            # We will use a 4x4 grid
+            plot_size = (18,10)
+            plt.figure(figsize=plot_size)
+            plt.subplots_adjust(top=0.95)
+            plt.subplots_adjust(bottom=0.075)
+            plt.subplot(2,2,1)
+
         plt.gca().set_prop_cycle(color=colors)
         if plot_title and title: plt.title(title)
         GeV_pow = -2*(number_of_FS_legs-2)
         units = '[GeV${}^{' + str(GeV_pow) + '}$]'
         plt.xlabel('$\lambda$')
         plt.ylabel('Integrands ' + units)
-        plt.subplots_adjust(left=0.15)
         plt.xscale('log')
         plt.yscale('log')
         plt.grid(True)
@@ -3024,12 +3050,15 @@ The missing process is: %s"""%ME_process.nice_string())
         if filename:
             plt.savefig(filename + '_integrands' + plot_extension)
 
-        plt.figure(2, figsize=plot_size)
+        if display_mode == 'figure':
+            plt.figure(2, figsize=plot_size)
+        elif display_mode == 'grid':
+            plt.subplot(2,2,2)
+
         plt.gca().set_prop_cycle(color=colors)
         if plot_title and title: plt.title(title)
         plt.xlabel('$\lambda$')
         plt.ylabel('Ratio to ME')
-        plt.subplots_adjust(left=0.15)
         plt.xscale('log')
         plt.grid(True)
         for line in lines:
@@ -3060,12 +3089,15 @@ The missing process is: %s"""%ME_process.nice_string())
             test_ratio  = abs(total_2_ME_ratio)
             test_failed = test_ratio > acceptance_threshold
 
-        plt.figure(3, figsize=plot_size)
+        if display_mode == 'figure':
+            plt.figure(3, figsize=plot_size)
+        elif display_mode == 'grid':
+            plt.subplot(2,2,3)
+
         plt.gca().set_prop_cycle(color=colors)
         if plot_title and title: plt.title(title)
         plt.xlabel('$\lambda$')
         plt.ylabel('Weighted integrands ' + units)
-        plt.subplots_adjust(left=0.15)
         plt.xscale('log')
         plt.yscale('log')
         plt.grid(True)

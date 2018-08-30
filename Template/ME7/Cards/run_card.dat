@@ -54,7 +54,8 @@
 #*********************************************************************
 # MadEvent7 integration control                                      *
 #*********************************************************************
- %(integrator)s    = integrator ! Choose integrator [VEGAS3, NAIVE]
+ %(integrator)s    = integrator ! integrator [VEGAS3, NAIVE]
+ %(fo_analysis)s   = fo_analysis! fixed-order analysis (no '.py', None for no analysis)
 
 #*********************************************************************
 # handling of the helicities:

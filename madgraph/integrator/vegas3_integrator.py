@@ -17,6 +17,7 @@ import sys
 import time
 import os
 import logging
+import random
 from multiprocessing import Process
 
 if __name__ == '__main__':
@@ -45,6 +46,8 @@ from madgraph.integrator.integrators import IntegratorError
 import madgraph.integrator.integrands as integrands
 import madgraph.integrator.functions as functions
 import madgraph.various.cluster as cluster
+import madgraph.iolibs.save_load_object as save_load_object
+
 from madgraph import InvalidCmd, MadGraph5Error, MG5DIR, MPI_ACTIVE, MPI_SIZE, MPI_RANK
 from multiprocessing import Value, Array
 
@@ -52,13 +55,16 @@ if MPI_ACTIVE:
     from mpi4py import MPI
     mpi_comm = MPI.COMM_WORLD
 
+numpy = np
+
 logger = logging.getLogger('madgraph.vegas3')
 
 class ParallelWrappedIntegrand(vegas.BatchIntegrand):
     """ Class to wrap the integrand to the Vegas3 standards with parallelization."""
     
-    def __init__(self, integrands, cluster_instance, start_time=None):
+    def __init__(self, integrator, integrands, cluster_instance, start_time=None):
         " Save integrand; registers a cluster instance."
+        self.integrator = integrator
         self.integrands = integrands
         self.cluster = cluster_instance
         self.start_time = start_time
@@ -124,6 +130,7 @@ class ParallelWrappedIntegrand(vegas.BatchIntegrand):
         # Wait for all jobs to finish.
         self.cluster.wait('', self.wait_monitoring,update_first=self.wait_monitoring)
         
+        self.integrator.n_function_evals += batch_size
         return np.concatenate([ np.array(result[:]) for result in results ])
 
 class Vegas3Integrator(integrators.VirtualIntegrator):
@@ -135,6 +142,9 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
         default_opts= {
            'verbosity'          :   0,
            'target_accuracy'    :   1.0e-3,
+           'seed'               :   None,
+           'save_grids'         :   None,
+           'load_grids'         :   None,
         }
 
         # Parameter for controlling VEGAS3
@@ -168,6 +178,10 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
 
         super(Vegas3Integrator,self).__init__(integrands, **opts)
 
+        if self.seed is not None:
+            random.seed(self.seed)
+            np.random.seed(self.seed)
+
         # Adjust batch size proportionally to the number of nodes
         self.batch_size *= self.cluster.nb_core
 
@@ -179,15 +193,28 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
         else:
             logger.level = logging.INFO
 
+    def observables_normalization(self, n_integrand_calls):
+        """ Given the number of integrand calls, return the appropriate overall normalization
+        to apply to the observables."""
+        return 1.0/float(self.refine_n_iterations)
+
     def wrapped_integrand(self, x_inputs):
         """ Function to wrap the integrand to the Vegas3 standards."""
 
         dims = self.integrands[0].continuous_dimensions
+        if len(list(x_inputs))>len(dims):
+            jacobian = x_inputs[-1]*dims.volume()
+            x_inputs = list(x_inputs)[:-1]
+        else:
+            x_inputs = list(x_inputs)
+            jacobian = 1.0*dims.volume()
+
         fct_inputs = np.array([dims[i].lower_bound + x*(dims[i].upper_bound - dims[i].lower_bound) 
                                                                          for i, x in enumerate(x_inputs)])
-        all_results = [] 
+        
+        all_results = []
         for integrand in self.integrands:
-            res = integrand(fct_inputs, np.array([], dtype=int))
+            res = integrand(fct_inputs, np.array([], dtype=int), integrator_jacobian=jacobian)
             res *= integrand.get_dimensions().volume()
             all_results.append(res)
             
@@ -215,12 +242,42 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
 
         if len(set([len(integrand.continuous_dimensions) for integrand in self.integrands]))!=1:
             raise IntegratorError("Vegas3 only supports multiple integrands with all the same number of dimensions.")
-        
+
+        # During the survey, it is sub-optimal to fill in histograms, and we therefore disable here
+        # until the refine stage is reached.
+        # We must of course keep a back-up copy of the 'apply_observable' attribute of the
+        # integrand instances so as to be able to reinstate it before the refine.
+        if MPI_RANK == 0:
+            apply_observables_for_integrands_back_up = []
+            for i_integrand, integrand in enumerate(self.integrands):
+                apply_observables_for_integrands_back_up.append(integrand.apply_observables)
+                integrand.apply_observables = False
+
         n_dimensions = len(self.integrands[0].continuous_dimensions)
         # sync_ran is to decide if VEGAS3 random number generator should produce the same
         # number on different processors.
-        self.vegas3_integrator = vegas.Integrator(n_dimensions * [[0., 1.]],
-                                            nhcube_batch=self.batch_size, sync_ran=True)
+        if any(apply_observables_for_integrands_back_up) and self.cluster.nb_core==1:
+#            if self.refine_n_iterations > 1:
+#                logger.warning("Vegas3 can only run a single refine iteration when a fixed-order analysis is active.\n"+
+#                               "The parameter 'refine_n_iterations' will consequently be forced to take the value 1.")
+#                self.refine_n_iterations = 1
+            self.vegas3_integrator = VegasWithJacobianInFunctionInput(n_dimensions * [[0., 1.]],
+                analyzer        = vegas.reporter() if self.verbosity>1 else None, 
+                nhcube_batch    = self.batch_size,
+                # We must disable the hypercube optimisation for now when plotting observables
+                max_nhcube      = 1,
+                beta            = 0.,
+                alpha           = 0.5,
+                sync_ran        = True)
+        else:
+            self.vegas3_integrator = vegas.Integrator(n_dimensions * [[0., 1.]],
+                analyzer        = vegas.reporter() if self.verbosity>1 else None, 
+                nhcube_batch    = self.batch_size,
+                # We must disable the hypercube optimisation for now when plotting observables
+                max_nhcube      = 1e9,
+                beta            = 0.75,
+                alpha           = 0.5,
+                sync_ran        = True)
         
         self.start_time = time.time()
         # Access/generate the wrapped integrand
@@ -228,38 +285,81 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
             wrapped_integrand = self.wrapped_integrand
         else:
             wrapped_integrand = ParallelWrappedIntegrand(
-                                            self.integrands, self.cluster, self.start_time)          
+                                      self, self.integrands, self.cluster, self.start_time)          
 
         self.tot_func_evals = 0
-        # Train grid
-        if MPI_RANK == 0:
-            logger.debug("=================================")
-            logger.debug("Vegas3 starting the survey stage.")
-            logger.debug("=================================")
-        self.n_function_evals = 0
-        self.curr_n_iterations = self.survey_n_iterations
-        self.curr_n_evals_per_iterations = self.survey_n_points
+        result = None
+        
+        # Load pre-exisitng grids if specified. Note that no information on Vegas' hypercubes is supplied
+        # here, only the standard integration grids along each dimension.
+        if self.load_grids is not None:
+            try:
+                vegas_map = save_load_object.load_from_file(self.load_grids)
+            except Exception as e:
+                raise IntegratorError("Vegas3 could not load its integration grid from '%s'. Error: %s"%(
+                                                                    self.load_grids,str(e)))
+            logger.info('Vegas3 reading integration grids from file: %s'%self.load_grids)
+            self.vegas3_integrator.set(map=vegas_map)
+        
+        if self.survey_n_iterations > 0 and self.survey_n_points > 0:
+            # Train grid
+            if MPI_RANK == 0:
+                logger.debug("=================================")
+                logger.debug("Vegas3 starting the survey stage.")
+                logger.debug("=================================")
+            self.n_function_evals = 0
+            self.curr_n_iterations = self.survey_n_iterations
+            self.curr_n_evals_per_iterations = self.survey_n_points
+            result = self.vegas3_integrator(wrapped_integrand, 
+                        nitn=self.survey_n_iterations, neval=self.survey_n_points, adapt=True)
+    
+            if MPI_RANK == 0:
+                logger.debug('\n'+result.summary())
+                
+            self.tot_func_evals += self.n_function_evals
+        else:
+            logger.info("The survey step of Vegas3 integration is being skipped as per user's request.")
+           
+        # Save generated grids if asked for. Notice that no information on Vegas' hypercubes is saved here,
+        # but just the standard integration grids.
+        if self.save_grids is not None:
+            try:
+                vegas_map = save_load_object.save_to_file(self.save_grids, self.vegas3_integrator.map) 
+            except Exception as e:
+                raise IntegratorError("Vegas3 could not save its integration grid to '%s'. Error: %s"%(
+                                                                    self.load_grids,str(e)))
+            logger.info('Vegas3 saved its integration grids to file: %s'%self.save_grids)
+           
+        if self.refine_n_iterations > 0 and self.refine_n_points > 0:
+            # Final integration
+            if MPI_RANK == 0:
+                logger.debug("=============================================")
+                logger.debug("Vegas3 starting the refined integration stage")
+                logger.debug("=============================================")
+    
+                # Restore the filling of the histograms for the refine, only if not running in parallel
+                if self.cluster.nb_core==1:
+                    for i_integrand, integrand in enumerate(self.integrands):
+                        integrand.apply_observables=apply_observables_for_integrands_back_up[i_integrand]
+                else:
+                    if any(apply_observables_for_integrands_back_up):
+                        logger.warning('Filling of the histograms of the fixed-order analysis will'+
+                            ' now be disabled as this functionality is not yet available for parallel integration.')
+    
+            self.n_function_evals = 0
+            self.curr_n_iterations = self.refine_n_iterations
+            self.curr_n_evals_per_iterations = self.refine_n_points
+            result = self.vegas3_integrator(wrapped_integrand, 
+                        nitn=self.refine_n_iterations, neval=self.refine_n_points, adapt=False) 
+            if MPI_RANK == 0:
+                logger.debug('\n'+result.summary())
+        else:
+            logger.info("The refine step of Vegas3 integration is being skipped as per user's request.")
 
-        training = self.vegas3_integrator(wrapped_integrand, 
-                                          nitn=self.survey_n_iterations, neval=self.survey_n_points)
-
         if MPI_RANK == 0:
-            logger.debug('\n'+training.summary())
-
-        self.tot_func_evals += self.n_function_evals         
-        # Final integration
-        if MPI_RANK == 0:
-            logger.debug("=============================================")
-            logger.debug("Vegas3 starting the refined integration stage")
-            logger.debug("=============================================")
-
-        self.n_function_evals = 0
-        self.curr_n_iterations = self.refine_n_iterations
-        self.curr_n_evals_per_iterations = self.refine_n_points
-        result = self.vegas3_integrator(wrapped_integrand, 
-                                        nitn=self.refine_n_iterations, neval=self.refine_n_points) 
-        if MPI_RANK == 0:
-            logger.debug('\n'+result.summary())
+            # Make sure to restore original settings for the 'apply_observable' attribute
+            for i_integrand, integrand in enumerate(self.integrands):
+                integrand.apply_observables=apply_observables_for_integrands_back_up[i_integrand]
        
         self.tot_func_evals += self.n_function_evals
         if MPI_ACTIVE:
@@ -309,6 +409,205 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
         else:
             raise IntegratorError("Options for show_grid not correctly handled yet.")
             self.vegas3_integrator.map.show_grid(n_grid, shrink, axes=axes)
+
+
+# Wrapper around the original Vegas.Integrator which adds the jacobian of the point as
+# the last input of the 1-dimensional array passed to the integrand function in the 
+# __call__ function of the integrator.
+# WARNING: does not work with vegas.Integrator.beta > 0 because Cython somehow makes the
+# float attribute 'sum_sigf' of the integrand read-only, making the line:
+#     self.sum_sigf = sum_sigf
+# crash.
+class VegasWithJacobianInFunctionInput(vegas.Integrator):
+
+    def __init__(self, *args, **opts):
+        super(VegasWithJacobianInFunctionInput, self).__init__(*args, **opts)
+
+    def __call__(self, fcn, **kargs):
+        """ Integrate integrand ``fcn``.
+
+        A typical integrand has the form, for example::
+
+            def f(x):
+                return x[0] ** 2 + x[1] ** 4
+
+        The argument ``x[d]`` is an integration point, where
+        index ``d=0...`` represents direction within the
+        integration volume.
+
+        Integrands can be array-valued, representing multiple
+        integrands: e.g., ::
+
+            def f(x):
+                return [x[0] ** 2, x[0] / x[1]]
+
+        The return arrays can have any shape. Dictionary-valued
+        integrands are also supported: e.g., ::
+
+            def f(x):
+                return {'a':x[0] ** 2, 'b':[x[0] / x[1], x[1] / x[0]]}
+
+
+        Integrand functions that return arrays or dictionaries
+        are useful for multiple integrands that are closely related,
+        and can lead to substantial reductions in the errors for
+        ratios or differences of the results.
+
+        It is usually much faster to use |vegas| in batch
+        mode, where integration points are presented to the
+        integrand in batches. A simple batch integrand might
+        be, for example::
+
+            @vegas.batchintegrand
+            def f(x):
+                return x[:, 0] ** 2 + x[:, 1] ** 4
+
+        where decorator ``@vegas.batchintegrand`` tells
+        |vegas| that the integrand processes integration
+        points in batches. The array ``x[i, d]``
+        represents a collection of different integration
+        points labeled by ``i=0...``. (The number of points is controlled
+        |Integrator| parameter ``nhcube_batch``.) The batch index
+        is always first.
+
+        Batch integrands can also be constructed from classes
+        derived from :class:`vegas.BatchIntegrand`.
+
+        Batch mode is particularly useful (and fast) when the class
+        derived from :class:`vegas.BatchIntegrand` is coded
+        in Cython. Then loops over the integration points
+        can be coded explicitly, avoiding the need to use
+        :mod:`numpy`'s whole-array operators if they are not
+        well suited to the integrand.
+
+        Any |vegas| parameter can also be reset: e.g.,
+        ``self(fcn, nitn=20, neval=1e6)``.
+        """
+
+        wgt      = numpy.empty(1, numpy.float_)
+        mean     = numpy.empty(1, numpy.float_)
+        var      = numpy.empty((1, 1), numpy.float_)
+
+        neval_batch = self.nhcube_batch * self.min_neval_hcube
+        self.fdv2 = numpy.empty(neval_batch, numpy.float_)
+
+        firsteval = True
+
+        self.neval_hcube = (
+            numpy.zeros(self.nhcube_batch, numpy.intp) + self.min_neval_hcube
+            )
+
+        if kargs:
+            self.set(kargs)
+
+        # synchronize random numbers across all processes (mpi)
+        if self.sync_ran:
+            self.synchronize_random()
+
+        # Put integrand into standard form
+        fcn = vegas._vegas.VegasIntegrand(fcn)
+
+        sigf = self.sigf
+        for itn in range(self.nitn):
+            # if self.minimize_mem:
+            #     self.set()
+            if self.analyzer is not None:
+                self.analyzer.begin(itn, self)
+
+            # initalize arrays that accumulate results for a single iteration
+            mean[:] = 0.0
+            var[:, :] = 0.0
+            sum_sigf = 0.0
+                        
+            # iterate batch-slices of integration points
+            for x, y, wgt, hcube in self.random_batch(
+                yield_hcube=True, yield_y=True, fcn=fcn
+                ):
+                fdv2 = self.fdv2        # must be inside loop
+               
+                ##############################################################################################
+                # START OF MODIFICATION FROM THE ORIGINAL IMPLEMENTATION OF VEGAS3
+                ##############################################################################################
+                # Append the jacobian of the integrator as the last entry of the inputs passed to the function
+                x = numpy.asarray( [ numpy.append(one_x,[wgt[i]]) for i, one_x in enumerate(x)], numpy.float_)
+                ##############################################################################################
+                # EMD OF MODIFICATION FROM THE ORIGINAL IMPLEMENTATION OF VEGAS3
+                ##############################################################################################
+
+                # evaluate integrand at all points in x                
+                fx = fcn.eval(x)
+
+                if firsteval:
+                    # allocate work arrays on first pass through;
+                    # (needed a sample fcn evaluation in order to do this)
+                    firsteval = False
+                    wf = numpy.empty(fcn.size, numpy.float_)
+                    sum_wf = numpy.empty(fcn.size, numpy.float_)
+                    sum_wf2 = numpy.empty((fcn.size, fcn.size), numpy.float_)
+                    mean = numpy.empty(fcn.size, numpy.float_)
+                    var = numpy.empty((fcn.size, fcn.size), numpy.float_)
+                    mean[:] = 0.0
+                    var[:, :] = 0.0
+                    result = vegas._vegas.VegasResult(fcn, weighted=self.adapt)
+
+                # compute integral and variance for each h-cube
+                # j is index of hcube within batch, i is absolute index
+                j = 0
+                for i in range(hcube[0], hcube[-1] + 1):
+                    # iterate over h-cubes
+                    sum_wf[:] = 0.0
+                    sum_wf2[:, :] = 0.0
+                    neval = 0
+                    while j < len(hcube) and hcube[j] == i:
+                        for s in range(fcn.size):
+                            wf[s] = wgt[j] * fx[j, s]
+                            sum_wf[s] += wf[s]
+                            for t in range(s + 1):
+                                sum_wf2[s, t] += wf[s] * wf[t]
+                        fdv2[j] = (wf[0] * self.neval_hcube[i - hcube[0]]) ** 2
+                        j += 1
+                        neval += 1
+                    for s in range(fcn.size):
+                        mean[s] += sum_wf[s]
+                        for t in range(s + 1):
+                            var[s, t] += (
+                                sum_wf2[s, t] * neval - sum_wf[s] * sum_wf[t]
+                                ) / (neval - 1.)
+                        if var[s, s] <= 0:
+                            var[s, s] = mean[s] ** 2 * 1e-15 + TINY
+                    sigf2 = abs(sum_wf2[0, 0] * neval - sum_wf[0] * sum_wf[0])
+                    if self.beta > 0 and self.adapt:
+                        if not self.minimize_mem:
+                            sigf[i] = sigf2 ** (self.beta / 2.)
+                            sum_sigf += sigf[i]
+                        else:
+                            sum_sigf += sigf2 ** (self.beta / 2.)
+                    if self.adapt_to_errors and self.adapt:
+                        # replace fdv2 with variance
+                        fdv2[j - 1] = sigf2
+                        self.map.add_training_data(
+                            y[j - 1:, :], fdv2[j - 1:], 1
+                            )
+                if (not self.adapt_to_errors) and self.adapt and self.alpha > 0:
+                    self.map.add_training_data(y, fdv2, y.shape[0])
+
+            for s in range(var.shape[0]):
+                for t in range(s):
+                    var[t, s] = var[s, t]
+
+            # accumulate result from this iteration
+            result.update(mean, var)
+
+            if self.beta > 0 and self.adapt:
+                self.sum_sigf = sum_sigf
+            if self.alpha > 0 and self.adapt:
+                self.map.adapt(alpha=self.alpha)
+            if self.analyzer is not None:
+                result.update_analyzer(self.analyzer)
+
+            if result.converged(self.rtol, self.atol):
+                break
+        return result.result
 
 if __name__ == '__main__':
 

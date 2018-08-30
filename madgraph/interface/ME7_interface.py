@@ -505,16 +505,23 @@ class ParseCmdArguments(object):
     def parse_launch(self, args):
         """ Parses the argument of the launch command."""
 
-        launch_options = {'integrator': 'VEGAS3',
-                          'n_points': None,
-                          'n_iterations':None,
-                          'verbosity':1,
-                          'refresh_filters':'auto',
-                          'compile':'auto',
-                          'batch_size': 1000,
+        launch_options = {'integrator'          : 'VEGAS3',
+                          'n_points'            : None,
+                          'n_points_survey'     : None,
+                          'n_points_refine'     : None,
+                          'n_iterations'        : None,
+                          'n_iterations_survey' : None,
+                          'n_iterations_refine' : None,                          
+                          'verbosity'           : 1,
+                          'refresh_filters'     : 'auto',
+                          'compile'             : 'auto',
+                          'batch_size'          : 1000,
+                          'seed'                : None,
+                          'save_grids'           : None,
+                          'load_grids'           : None,
                           # Here we store a list of lambda function to apply as filters
                           # to the ingegrand we must consider
-                          'integrands': [lambda integrand: True]}        
+                          'integrands'          : [lambda integrand: True]}        
         
         for arg in args:
             try:
@@ -524,14 +531,26 @@ class ParseCmdArguments(object):
                 value = None
             
             if key == '--integrator':
-                if value not in self._integrators:
-                    raise InvalidCmd("Selected integrator '%s' not reckognized."%value)
-                launch_options['integrator'] = value
+                if value.upper() not in self._integrators:
+                    raise InvalidCmd("Selected integrator '%s' not recognized."%value)
+                launch_options['integrator'] = value.upper()
             elif key in ['--n_points', '--n_iterations']:
+                launch_options[key[2:]] = int(value)
+                launch_options[key[2:]+'_survey'] = int(value)
+                launch_options[key[2:]+'_refine'] = 5*int(value)
+            elif key in ['--n_points_survey', '--n_iterations_survey',
+                         '--n_points_refine', '--n_iterations_refine']:
                 launch_options[key[2:]] = int(value)
             elif key=='--verbosity':
                 modes = {'none':0, 'integrator':1, 'all':2}
                 launch_options[key[2:]] = modes[value.lower()]
+            elif key == '--seed':
+                try:
+                    launch_options['seed'] = int(value)
+                except ValueError:
+                    raise InvalidCmd("Cannot set '%s' option to '%s'."%(key, value))
+            elif key in ['--save_grids', '--load_grids']:
+                launch_options[key[2:]] = value
             elif key in ['--batch_size','--bs']:
                 try:
                     launch_options['batch_size'] = int(value)
@@ -736,7 +755,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         
         # Instance of the current integrator
         self.integrator = None
-        
+
     def check_output_type(self, path):
         """ Check that the output path is a valid Madevent 7directory """        
         return os.path.isfile(os.path.join(path,'MadEvent7.db'))
@@ -753,7 +772,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
     def bootstrap_ME7(self):
         """ Setup internal state of MadEvent7, mostly the integrand, from the content of
         what was dumped in the database MadEvent7.db at the output stage."""
-        
+
         # Load the current run_card
         self.run_card = banner_mod.RunCardME7(pjoin(self.me_dir,'Cards','run_card.dat'))
         
@@ -778,6 +797,9 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         self.all_MEAccessors = ME7_dump['all_MEAccessors']['class'].initialize_from_dump(
             ME7_dump['all_MEAccessors'], root_path=self.me_dir, model=self.model)
 
+        # Pass on the process directory
+        self.options['me_dir'] = self.me_dir
+
         self.all_integrands = ME7_integrands.ME7IntegrandList([
             integrand_dump['class'].initialize_from_dump(
                 integrand_dump,
@@ -798,7 +820,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
             if max_integrand_order.count('N') > max_order.count('N'):
                 max_order = max_integrand_order
         return max_integrand_order
-        
+
     def synchronize(self, **opts):
         """ Re-compile all necessary resources and sync integrands with the cards and model"""
         
@@ -867,7 +889,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
             # Create a run output directory
             run_output_path = pjoin(self.me_dir,'Results','run_%s'%self.run_card['run_tag'])
             suffix=''
-            suffix_number = 0
+            suffix_number = 1
             while os.path.exists(run_output_path+suffix):
                 suffix_number += 1
                 suffix = '_%d'%suffix_number
@@ -882,33 +904,33 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         integrator_options = self._integrators[integrator_name][1]
         
         integrator_options['verbosity'] = launch_options['verbosity']
+        integrator_options['seed'] = launch_options['seed']
         
-        if launch_options['n_points']:
-            if integrator_name=='VEGAS3':
-                integrator_options['survey_n_points'] = launch_options['n_points']
-                integrator_options['refine_n_points'] = 5*launch_options['n_points']
-                integrator_options['parallelization'] = self.cluster
-            elif integrator_name=='NAIVE':
+        if integrator_name=='VEGAS3':
+            if launch_options['n_points_survey'] is not None:
+                integrator_options['survey_n_points'] = launch_options['n_points_survey']
+            if launch_options['n_points_refine'] is not None:
+                integrator_options['refine_n_points'] = launch_options['n_points_refine']
+            integrator_options['parallelization'] = self.cluster
+        elif integrator_name=='NAIVE':
+            if launch_options['n_points']:
                 integrator_options['n_points_per_iterations'] = launch_options['n_points']
-                
-            else:
-                # For now support this option only for some integrators
-                raise InvalidCmd("The options 'n_points' is not supported for the integrator %s."%integrator_name)
 
-        if launch_options['n_iterations']:
-            if integrator_name=='VEGAS3':
-                integrator_options['survey_n_iterations'] = launch_options['n_iterations']
-                integrator_options['refine_n_iterations'] = launch_options['n_iterations']
-            elif integrator_name=='NAIVE':
+        if integrator_name=='VEGAS3':
+            if launch_options['n_iterations_survey'] is not None:
+                integrator_options['survey_n_iterations'] = launch_options['n_iterations_survey']
+            if launch_options['n_iterations_refine'] is not None:
+                integrator_options['refine_n_iterations'] = launch_options['n_iterations_refine']
+        elif integrator_name=='NAIVE':
+            if launch_options['n_iterations']:
                 integrator_options['n_iterations'] = launch_options['n_iterations']
-            else:
-                # For now support this option only for some integrators
-                raise InvalidCmd("The options 'n_iterations' is not supported for the integrator %s."%integrator_name)
 
         if integrator_name=='VEGAS3':        
             integrator_options['cluster'] = self.cluster
             integrator_options['batch_size'] = launch_options['batch_size']
-        
+            integrator_options['save_grids'] = launch_options['save_grids']
+            integrator_options['load_grids'] = launch_options['load_grids']
+            
         integrands_to_consider = ME7_integrands.ME7IntegrandList([ itg for itg in self.all_integrands if
                            all(filter(itg) for filter in launch_options['integrands']) ])
         self.integrator = self._integrators[integrator_name][0](integrands_to_consider, **integrator_options)
@@ -918,17 +940,17 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
             # Of course, in the end we wil not naively automatically put all integrands alltogether in the same integrator
             raise InvalidCmd("For now, whenever you have several integrands of different dimensions, only "+
                              "the NAIVE integrator is available.")
-        
+
         # The integration can be quite verbose, so temporarily setting their level to 50 by default is best here
         if launch_options['verbosity'] > 1:
             logger_level = logging.DEBUG
         else:
             logger_level = logging.INFO
-            
+
         logger.info("="*100)        
         logger.info('{:^100}'.format("Starting integration, lay down and enjoy..."),'$MG:color:GREEN')
         logger.info("="*100)
-        
+
         # Wrap the call in a propice environment for the run
         with ME7RunEnvironment( silence = False, accessor_optimization = True, loggers = logger_level ):
             xsec, error = self.integrator.integrate()
@@ -936,8 +958,42 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         logger.info("="*100)
         logger.info('{:^100}'.format("Cross-section with integrator '%s':"%self.integrator.get_name()),'$MG:color:GREEN')
         logger.info('{:^100}'.format("%.5e +/- %.2e [pb]"%(xsec, error)),'$MG:color:BLUE')
-        logger.info("="*100+"\n")
-        
+        logger.info("="*100)
+
+        # Deal with normalizing the plotting and outputting the plots
+        plot_collector = {} # We set it so that plot_collector[observable_name] is a HwU with the sum for all integrands
+        # Ultimately plot_collector should be an object inside a bigger DataCollector object which allows to navigate
+        # between the different results etc, which would be good to be able to sum stuff (like R+V after integration)
+        for integrand in self.integrator.integrands:
+            n_integrand_calls = integrand.n_observable_calls
+            if n_integrand_calls <= 0:
+                continue
+            if not integrand.apply_observables:
+                continue
+            for observable in integrand.observable_list:
+                
+                # Assign a MC uncertainty to the plots
+                observable.HwU.set_statistical_uncertainty()
+                observable.HwU *= self.integrator.observables_normalization(n_integrand_calls)
+                if observable.name in plot_collector:
+                    plot_collector[observable.name] += observable.HwU
+                else:
+                    plot_collector[observable.name] = observable.HwU
+
+        if len(plot_collector) > 0:
+            # Eventually the plot collector module will handle the histograms dependencies itself.
+            from madgraph.various.histograms import HwUList
+            final_hwu_list = HwUList(plot_collector.values())
+            HwU_plots_path = pjoin(run_output_path,'%s_plots'%self.run_card['fo_analysis'])
+            logger.info("Plots from the fixed-order analysis '%s' written out to '%s.gnuplot'."%
+                                             (self.run_card['fo_analysis'],HwU_plots_path))
+            final_hwu_list.output(
+                HwU_plots_path, 
+                format='gnuplot'
+            )
+
+        logger.info('')
+
         if MPI_RANK==0:
             # Write the result in 'cross_sections.dat' of the result directory
             xsec_summary = open(pjoin(run_output_path,'cross_sections.dat'),'w')
@@ -1029,6 +1085,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         """ All action require before any type of run """   
         misc.sprint("Configure directory -- Nothing to be done here yet.")        
         pass
+
 
 #===============================================================================
 # MadEvent7CmdShell

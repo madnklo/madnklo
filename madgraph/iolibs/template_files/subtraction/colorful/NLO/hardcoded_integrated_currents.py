@@ -112,3 +112,55 @@ class HE(object):
         else:
             Y = Yin
         return (-math.pi**2/6 + 2*(y0 + MPL.G([0], Y)*(y0 - MPL.G([0], y0))) - MPL.G([0, 0], Y) + MPL.G([1, 0], Y))
+
+
+    @staticmethod
+    def CqqFF_Finite_Gabor_DIVJAC_NOD0(a0,y12in):
+        '''Final-final collinear integrated counterterm for qq canonically normalized for the rescaling mapping'''
+        if abs(y12in-1.) < 1e-6:
+            y12 = 1-1e-6
+        else:
+            y12 = y12in                
+        return ((10*(-2 + y12)*y12 - 2*a0*(20 - 17*y12 + 5*y12**2))/(9*(a0*(-2 + y12) - y12)*(-2 + y12)) + 
+   (4*(-1 + y12)*MPL.G([0], 2))/(3*(-2 + y12)**2) + (4*(3 - 3*y12 + y12**2)*MPL.G([0], a0))/(3*(-2 + y12)**2) - 
+   (4*(-1 + y12)*MPL.G([0], y12))/(3*(-2 + y12)**2) + (2*MPL.G([a0/(-1 + a0)], y12))/3 + 
+   (4*(-1 + y12)*MPL.G([(2*a0)/(-1 + a0)], y12))/(3*(-2 + y12)**2))
+
+    @staticmethod
+    def CggFF_Finite_Gabor_DIVJAC_NOD0(a0,y12in):
+        '''Final-final collinear integrated counterterm for gg canonically normalized for the rescaling mapping'''
+        if abs(y12in-1.) < 1e-6:
+            y12 = 1-1e-6
+        else:
+            y12 = y12in        
+        return (((-67 + 9*math.pi**2)*(-2 + y12)*y12 + a0*(268 - 9*math.pi**2*(-2 + y12)**2 - 262*y12 + 67*y12**2))/
+    (9*(a0*(-2 + y12) - y12)*(-2 + y12)) - (4*(-1 + y12)*MPL.G([0], 2))/(3*(-2 + y12)**2) + 6*MPL.G([0], y12)**2 + 
+   MPL.G([0], a0)*((-2*(42 - 42*y12 + 11*y12**2))/(3*(-2 + y12)**2) + (8*(-2 + y12)*MPL.G([1], y12))/y12) + 
+   MPL.G([0], y12)*((4*(-1 + y12))/(3*(-2 + y12)**2) - 2*MPL.G([-a0], y12) - 4*MPL.G([a0/(-1 + a0)], y12)) - 
+   (11*MPL.G([a0/(-1 + a0)], y12))/3 - (4*(-1 + y12)*MPL.G([(2*a0)/(-1 + a0)], y12))/(3*(-2 + y12)**2) - 
+   4*MPL.G([0, 0], y12) + 2*MPL.G([0, -a0], y12) + 4*MPL.G([0, a0/(-1 + a0)], y12) + (-8 + 16/y12)*MPL.G([1, 0], y12) + 
+   (8*(-2 + y12)*MPL.G([1, a0/(-1 + a0)], y12))/y12 + 2*MPL.G([-a0, 0], y12) + 4*MPL.G([a0/(-1 + a0), 0], y12) - 
+   4*MPL.G([a0/(-1 + a0), a0/(-1 + a0)], y12))
+
+    @staticmethod
+    def CqgFF_Finite_Gabor_DIVJAC_NOD0(a0,y12in):
+        '''Final-final collinear integrated counterterm for qg canonically normalized for the rescaling mapping'''
+        if abs(y12in-1.) < 1e-6:
+            y12 = 1-1e-6
+        else:
+            y12 = y12in        
+        return ((7 - math.pi**2)/2 + 3*MPL.G([0], y12)**2 + MPL.G([0], a0)*(-3 + (4 - 8/y12)*MPL.G([1], y12)) + 
+   MPL.G([0], y12)*(-MPL.G([-a0], y12) - 2*MPL.G([a0/(-1 + a0)], y12)) - (3*MPL.G([a0/(-1 + a0)], y12))/2 - 
+   2*MPL.G([0, 0], y12) + MPL.G([0, -a0], y12) + 2*MPL.G([0, a0/(-1 + a0)], y12) + (-4 + 8/y12)*MPL.G([1, 0], y12) + 
+   (4 - 8/y12)*MPL.G([1, a0/(-1 + a0)], y12) + MPL.G([-a0, 0], y12) + 2*MPL.G([a0/(-1 + a0), 0], y12) - 
+   2*MPL.G([a0/(-1 + a0), a0/(-1 + a0)], y12))
+
+    @staticmethod
+    def SoftFF_Finite_Gabor_DIVJAC_NOD0(y0,Yin):
+        '''Final-final soft+soft-colinear integrated counterterm canonically normalized for the soft rescaling mapping'''
+        if abs(Yin-1.) < 1e-6:
+            Y = 1-1e-6
+        else:
+            Y = Yin        
+        return (-math.pi**2/6 + 2*(y0 + MPL.G([0], Y)*(y0 - MPL.G([0], y0))) - MPL.G([0, 0], Y) + MPL.G([1, 0], Y))
+

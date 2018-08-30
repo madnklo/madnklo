@@ -410,11 +410,11 @@ class ME7EventList(list):
         for event in self:
             event.select_epsilon_expansion_term(term_name)
     
-    def apply_observables(self, observable_list, xb_1=None, xb_2=None):
+    def apply_observables(self, observable_list, xb_1=None, xb_2=None, integrator_weight=1.):
         """ Applies the observable list to the entire set of events of this list."""
 
         for event in self:
-            observable_list.apply_observables(event, xb_1, xb_2)
+            observable_list.apply_observables(event, xb_1, xb_2, integrator_weight)
 
     def __str__(self):
         return self.nice_string()
@@ -544,6 +544,10 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
         # Update and define many properties of self based on the provided run-card and model.
         self.synchronize(model, run_card, ME7_configuration)
+
+        # Initialize the call counter
+        # This counter is incremented for each time self.__call__ is called and reinitialized in self.synchronize
+        self.n_observable_calls = 0
 
     def has_integrated_counterterms(self):
         """ A property of the class, indicating whether it can contain integrated counterterms."""
@@ -722,7 +726,33 @@ class ME7Integrand(integrands.VirtualIntegrand):
             n_loop_for_as_running = 2
             self.alpha_s_runner = model_reader.Alphas_Runner(as_running_params['aS'], n_loop_for_as_running, 
                       as_running_params['mdl_MZ'], as_running_params['mdl_MC'], as_running_params['mdl_MB'])
-            
+
+        #Import the observables from the FO_analysis folder
+        if run_card['FO_analysis'].upper() == "NONE":
+            self.apply_observables = False
+        else:
+            self.apply_observable = True
+
+            #The FO_analysis parameter points to a python module located in
+            #me_dir/FO_analysis. It must contain observable_list, defined as a
+            #madgraph.integrators.observables.HwUObservableList
+
+            sys.path.append(self.ME7_configuration['me_dir'])   # Load the process dir in the path
+            try:
+                analysis_module = __import__('FO_analysis.'+run_card['FO_analysis'], fromlist=[''])
+                reload(analysis_module)    # Make sure to reinitialize the plots (empty the HwUs)
+            except ImportError:
+                sys.path.pop()  # Clean the path after importing
+                raise ImportError("The FO_analysis specified in the run_card could not be imported")
+            try:
+                self.observable_list = analysis_module.observable_list
+            except NameError:
+                sys.path.pop()  # Clean the path after importing
+                raise NameError("Failed to access specified FO_analysis.observable_list")
+            sys.path.pop()  # Clean the path after importing
+        self.n_observable_calls = 0    # Re-initialize the counting tools
+
+
 
     def generate_dump(self):
         """ Generate a serializable dump of self, which can later be used, along with some more 
@@ -1154,7 +1184,17 @@ class ME7Integrand(integrands.VirtualIntegrand):
         wgt = 1.0
         # And the conversion from GeV^-2 to picobarns
         wgt *= 0.389379304e9
-        
+        # Increment the number of calls
+        if self.apply_observables:
+            self.n_observable_calls += 1
+
+        # Check if an integrator_jacobian is specified in the options to be applied to 
+        # the weight when registering observables (i.e. filling observables)
+        if 'integrator_jacobian' in opts:
+            integrator_jacobian = opts['integrator_jacobian']
+        else:
+            integrator_jacobian = 1.0
+
         if __debug__: logger.debug("="*80)       
         if __debug__: logger.debug('Starting a new evaluation of the integrand from contribution:\n%s',
                                                     self.contribution_definition.nice_string())
@@ -1231,7 +1271,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
             if __debug__: logger.debug('Now considering the process group from %s.'%process.nice_string())
             
             process_pdgs = process.get_cached_initial_final_pdgs()
-            
+
             all_processes = [process,]+mapped_processes
             all_flavor_configurations = []
             
@@ -1290,7 +1330,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
             
             # Finally apply observables
             if self.apply_observables:
-                events.apply_observables(self.observable_list, xb_1, xb_2)
+                events.apply_observables(self.observable_list, xb_1, xb_2, integrator_jacobian)
+
 
         # Now finally return the total weight for this contribution
         if __debug__: logger.debug(misc.bcolors.GREEN + "Final weight returned: %.5e"%total_wgt + misc.bcolors.ENDC)
@@ -1322,6 +1363,14 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # We specify pdgs to None her to avoid the need of any permutation since we follow the order of
         # the defining process here which is the one that was exported.
         # For the reduced matrix elements however, this cannot be done.
+
+
+        # Apply flavor blind cuts
+        if not self.pass_flavor_blind_cuts(PS_point, flavors):
+            if __debug__: logger.debug('Event failed the flavour_blind generation-level cuts.')
+            if __debug__: logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)            
+            return 0.0
+        
         ME_evaluation, all_results = self.all_MEAccessors(
                         process, PS_point, alpha_s, mu_r, pdgs=all_flavor_configurations[0])
         
@@ -1412,7 +1461,6 @@ class ME7Integrand_B(ME7Integrand):
     
     def sigma(self, PS_point, process_key, process, all_flavor_configurations, 
                                             base_weight, mu_r, mu_f1, mu_f2, *args, **opts):
-
         return super(ME7Integrand_B, self).sigma(
             PS_point, process_key, process, all_flavor_configurations, base_weight,
             mu_r, mu_f1, mu_f2, *args, **opts
@@ -2594,7 +2642,7 @@ The missing process is: %s"""%ME_process.nice_string())
         
         # Now register the convoluted event
         all_events_generated.append(convolved_event)
-        
+
         for counterterm in self.counterterms[process_key]:
             if not counterterm.is_singular():
                 continue
@@ -2612,7 +2660,6 @@ The missing process is: %s"""%ME_process.nice_string())
         # optimization that we can easily implement when proven needed.
         # all_events_generated.combine_events_with_identical_kinematics()
         # (PS: the function above is a place-holder and is not implemented yet.
-        
         return all_events_generated
 
     def test_IR_limits(self, test_options):

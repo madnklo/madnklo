@@ -15,7 +15,9 @@
 
 import sys
 import os
+import logging
 
+logger = logging.getLogger('pyCubaIntegrator')
 
 if __name__ == '__main__':
     sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.pardir, os.path.pardir))
@@ -80,6 +82,15 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
            'algorithm':'Vegas',
            'verbosity':2,
            'target_accuracy':1.0e-3}
+
+        # Number of cores to be used in Cuba.
+        # Recover nb_core in the option'cluster'
+        if 'cluster' in opts and hasattr(opts['cluster'], 'nb_core'):
+            default_opts['nb_core'] = opts['cluster'].nb_core
+        else:
+            # By default turn off parallelization as it is potentially problematic
+            # (see warning message later).
+            default_opts['nb_core'] = 0
 
         # Maximum number of evaluation before returning an answer
         default_opts['max_eval'] = 50000
@@ -221,9 +232,9 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
         # For other values, the default rule is taken, which is the degree-13 rule in 2 dimensions,
         # the degree-11 rule in 3 dimensions, and the degree-9 rule otherwise.
 
+        # Number of min and max evaluations for the integration with Cuhre
         default_opts['min_eval'] = 0
         default_opts['max_eval'] = 50000
-        # Number of min and max evaluations for the integration with Cuhre
 
         # Set instance attributes options
         for opt in default_opts:
@@ -260,7 +271,7 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
 
             return 0
         except KeyboardInterrupt:
-            print 'Integration with pyCuba aborted by user.'
+            logger.warning('Integration with pyCuba aborted by user.')
             sys.exit(1)
 
     @staticmethod
@@ -305,6 +316,19 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
 
         if len(set([len(integrand.continuous_dimensions) for integrand in self.integrands]))!=1:
             raise IntegratorError("pyCuba only supports multiple integrands with all the same number of dimensions.")
+
+        if self.nb_core > 1:
+            logger.warning(
+"""\n\n-------
+Parallelization with pyCuba is handled directly by the Cuba C++ library.
+This is potentially dangerous because python does not know that the wrapped integrands are called
+in parallel and it may overwrite memory. In practice, this seems however not to be a problem for a wide
+range of applications. To be safe however, consider making sure that your result match what is obtained
+with less statistics using one core only.
+-------\n""")
+            os.environ['CUBACORES'] = '%d'%self.nb_core
+        else:
+            os.environ['CUBACORES'] = '0'
 
         n_dimensions = len(self.integrands[0].continuous_dimensions)
         

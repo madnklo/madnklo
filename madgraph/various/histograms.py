@@ -108,6 +108,7 @@ class Bin(object):
 
         self.boundaries = boundaries
         self.n_entries  = n_entries
+        self.running_squared_weights_sum = 0.
         if not wgts:
             self.wgts       = {'central':0.0}
         else:
@@ -160,29 +161,42 @@ class Bin(object):
             raise MadGraph5Error, "Weight with ID '%s' is not defined for"+\
                                                             " this bin"%str(key)                                                
 
+    def set_statistical_uncertainty(self):
+        """ Using the attribute 'n_entries' from this bin, assign a statistical uncertainty.
+        WARNING: this function must be called *before* the normalization of the histogram
+        over the number of events added."""
+        
+        if self.n_entries > 0:
+            variance_squared = ( self.running_squared_weights_sum 
+                - (self.wgts['central']**2)/float(self.n_entries) )/float(self.n_entries)
+            if variance_squared < 0.:
+                self.wgts['stat_error'] = 0.
+            else:
+                # This is the stat_error not yet normalized by the number of entries, so
+                # we multiply by sqrt(N) instead of dividing by it.
+                self.wgts['stat_error'] = math.sqrt(variance_squared*float(self.n_entries))
+        else:
+            self.wgts['stat_error'] = 0.
+
     def addEvent(self, weights = 1.0):
         """ Add an event to this bin. """
         
         
         if isinstance(weights, float):
             weights = {'central': weights}
-        
+ 
         for key in weights:
             if key == 'stat_error':
                 continue
             try:
                 self.wgts[key] += weights[key]
+                if key=='central':
+                    self.running_squared_weights_sum += weights[key]**2
             except KeyError:
                 raise MadGraph5Error('The event added defines the weight '+
                   '%s which was not '%key+'registered in this histogram.')
         
         self.n_entries += 1
-        
-        #if 'stat_error' not in weights and 'central' in w:
-        #    self.wgts['stat_error'] = self.wgts['central']/math.sqrt(float(self.n_entries))
-        #else:
-        #    self.wgts['stat_error'] = math.sqrt( self.wgts['stat_error']**2 + 
-        #                                              weights['stat_error']**2 )
 
     def nice_string(self, order=None, short=True):
         """ Nice representation of this Bin. 
@@ -728,6 +742,15 @@ class HwU(Histogram):
             if bin.boundaries[0] <= x_value < bin.boundaries[1]:
                 bin.addEvent(weights = weights)
     
+    def set_statistical_uncertainty(self):
+        """ Using the attribute 'n_entries' from the bins, assign a statistical uncertainty
+        to each bin.
+        WARNING: this function must be called *before* the normalization of the
+        histogram over the number of events added."""
+        
+        for bin in self.bins:
+            bin.set_statistical_uncertainty()
+
     def get(self, name):
         
         if name == 'bins':
@@ -2103,7 +2126,7 @@ class HwUList(histograms_PhysicsObjectList):
                 self.append(new_histo)
         
     def output(self, path, format='gnuplot',number_of_ratios = -1, 
-          uncertainties=['scale','pdf','statitistical','merging_scale','alpsfact'],
+          uncertainties=['scale','pdf','statistical','merging_scale','alpsfact'],
           use_band = None,
           ratio_correlations=True, arg_string='', 
           jet_samples_to_keep=None,
@@ -2112,6 +2135,7 @@ class HwUList(histograms_PhysicsObjectList):
         """ Ouput this histogram to a file, stream or string if path is kept to
         None. The supported format are for now. Chose whether to print the header
         or not."""
+        
         
         if len(self)==0:
             return MadGraph5Error, 'No histograms stored in the list yet.'
@@ -2391,7 +2415,7 @@ set key invert
         HwU_stream.close()
 
         logger.debug("Histograms have been written out at "+\
-                                 "%s.[HwU|gnuplot]' and can "%output_base_name+\
+                                 "'%s.[HwU|gnuplot]' and can "%output_base_name+\
                                          "now be rendered by invoking gnuplot.")
 
     def output_group(self, HwU_out, gnuplot_out, block_position, HwU_name,
@@ -2412,7 +2436,7 @@ set key invert
                                                   title, show_mc_uncertainties):
             """ Returns two plot lines, one for the negative contributions in
             dashed and one with the positive ones in solid."""
-            
+
             template = "'%(hwu)s' index %(ind)d using (($1+$2)/2):%(data)s%(stat_col)s%(stat_err)s%(ls)s%(title)s"
             template_no_stat = "'%(hwu)s' index %(ind)d using (($1+$2)/2):%(data)s%(ls)s%(title)s"        
             rep_dic = {'hwu':HwU_name,
@@ -3164,6 +3188,7 @@ plot \\"""
             plot_lines.append(
     "'%s' index %d using (($1+$2)/2):3 ls %d title ''"%\
     (HwU_name,block_ratio_pos,color_index))
+            misc.sprint(uncertainties)
             if 'statistical' in uncertainties:
                 plot_lines.append(
     "'%s' index %d using (($1+$2)/2):3:4 w yerrorbar ls %d title ''"%\

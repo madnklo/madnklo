@@ -96,6 +96,14 @@ def glob(name, path=''):
     path = re.sub('(?P<name>\?|\*|\[|\])', '[\g<name>]', path)
     return glob_module.glob(pjoin(path, name))
 
+class dummy_lock:
+    """ This class is to be used with a 'with' statement and does nothing. It is useful
+    to replace an actual thread-lock when it is not necessary to have one."""
+    def __enter__(self, *args, **opts):
+        pass
+    def __exit__(self, *args, **opts):
+        pass
+    
 #===============================================================================
 # Low-level muter that works with f2py as well
 # From: http://code.activestate.com/recipes/577564/

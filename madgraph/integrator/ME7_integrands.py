@@ -1184,16 +1184,25 @@ class ME7Integrand(integrands.VirtualIntegrand):
         wgt = 1.0
         # And the conversion from GeV^-2 to picobarns
         wgt *= 0.389379304e9
-        # Increment the number of calls
-        if self.apply_observables:
-            self.n_observable_calls += 1
-
+        
         # Check if an integrator_jacobian is specified in the options to be applied to 
         # the weight when registering observables (i.e. filling observables)
         if 'integrator_jacobian' in opts:
             integrator_jacobian = opts['integrator_jacobian']
         else:
             integrator_jacobian = 1.0
+        
+        # The integrator may have passed an observable thread lock to make sure to avoid
+        # the concurrency issues during parallel runs
+        if 'observables_lock' in opts:
+            observables_lock = opts['observables_lock']
+        else:
+            observables_lock = misc.dummy_lock()
+        
+        # Increment the number of calls in a thread-safe manner
+        with observables_lock:
+            if self.apply_observables:
+                self.n_observable_calls += 1
 
         if __debug__: logger.debug("="*80)       
         if __debug__: logger.debug('Starting a new evaluation of the integrand from contribution:\n%s',
@@ -1328,9 +1337,10 @@ class ME7Integrand(integrands.VirtualIntegrand):
             #misc.sprint(events)
             if __debug__: logger.debug('Short-distance events for this subprocess:\n%s\n'%str(events))
             
-            # Finally apply observables
-            if self.apply_observables:
-                events.apply_observables(self.observable_list, xb_1, xb_2, integrator_jacobian)
+            # Finally apply observables in a thread-safe manner
+            with observables_lock:
+                if self.apply_observables:
+                    events.apply_observables(self.observable_list, xb_1, xb_2, integrator_jacobian)
 
 
         # Now finally return the total weight for this contribution

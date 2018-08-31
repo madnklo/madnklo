@@ -501,29 +501,119 @@ class ParseCmdArguments(object):
                 raise InvalidCmd("Option '%s' for the test_IR_%s command not recognized."%(key,mode))        
         
         return new_args, testlimits_options
-    
+
+    def parse_set_integrator_options(self, args):
+        """ Parses the argument of the set_integrator command."""
+
+        # First combine all value of the options (starting with '--') separated by a space
+        opt_args = []
+        new_args = []
+        for arg in args:
+            if arg.startswith('--'):
+                opt_args.append(arg)
+            elif len(opt_args) > 0:
+                opt_args[-1] += ' %s' % arg
+            else:
+                new_args.append(arg)
+
+        set_integrator_options = {
+                                  # Vegas3 options
+                                  'n_points'            : 1000,
+                                  'n_points_survey'     : 1000,
+                                  'n_points_refine'     : 5000,
+                                  'n_iterations'        : 10,
+                                  'n_iterations_survey' : 10,
+                                  'n_iterations_refine' : 10,                          
+                                  'verbosity'           : 1,
+                                  'batch_size'          : 1000,
+                                  'seed'                : None,
+                                  'save_grids'          : None,
+                                  'load_grids'          : None,
+                                  # Cuba@Vegas options
+                                  'max_eval'            : 1e10,
+                                  'max_eval_survey'     : 10000,
+                                  'n_start'             : 1000,
+                                  'n_start_survey'      : 1000,
+                                  'n_increase'          : 1000,
+                                  'n_increase_survey'   : 1000,
+                                  'target_accuracy'     : 1.0e-3,
+                                  'target_accuracy_survey' : 5.0e-2
+                                  }
+
+        for arg in opt_args:
+            try:
+                key, value = arg.split('=',1)
+            except ValueError:
+                key = arg
+                value = None
+            
+            if key == '--integrator':
+                if value.upper() not in self._integrators:
+                    raise InvalidCmd("Selected integrator '%s' not recognized."%value)
+                set_integrator_options['integrator'] = value.upper()
+            elif key in ['--n_points']:
+                set_integrator_options[key[2:]] = int(value)
+                set_integrator_options[key[2:]+'_survey'] = int(value)
+                set_integrator_options[key[2:]+'_refine'] = 5*int(value)
+            elif key in ['--n_iterations']:
+                set_integrator_options[key[2:]] = int(value)
+                set_integrator_options[key[2:]+'_survey'] = int(value)
+                set_integrator_options[key[2:]+'_refine'] = int(value)
+            elif key in ['--n_points_survey', '--n_iterations_survey',
+                         '--n_points_refine', '--n_iterations_refine']:
+                set_integrator_options[key[2:]] = int(value)
+            elif key=='--verbosity':
+                modes = {'none':0, 'integrator':1, 'all':2}
+                set_integrator_options[key[2:]] = modes[value.lower()]
+            elif key in ['--seed','--max_eval','--max_eval_survey','--n_start',
+                         '--n_start_survey','--n_increase','--n_increase_survey']:
+                try:
+                    set_integrator_options[key[2:]] = int(value)
+                except ValueError:
+                    raise InvalidCmd("Cannot set '%s' option to '%s'."%(key, value))
+            elif key in ['--target_accuracy','--target_accuracy_survey']:
+                try:
+                    set_integrator_options[key[2:]] = float(value)
+                except ValueError:
+                    raise InvalidCmd("Cannot set '%s' option to '%s'."%(key, value))
+            elif key in ['--save_grids', '--load_grids']:
+                set_integrator_options[key[2:]] = value
+            elif key in ['--batch_size','--bs']:
+                try:
+                    set_integrator_options['batch_size'] = int(value)
+                except ValueError:
+                    raise InvalidCmd("Value '%s' not valid integer for option '%s'."%(value,key))                
+            else:
+                # We have not coded here all the options the integrator supports, so just
+                # blindly assign them for now
+                set_integrator_options[key[2:]] = eval(value)
+
+        return new_args, set_integrator_options
+
     def parse_launch(self, args):
         """ Parses the argument of the launch command."""
 
+        # First combine all value of the options (starting with '--') separated by a space
+        opt_args = []
+        new_args = []
+        for arg in args:
+            if arg.startswith('--'):
+                opt_args.append(arg)
+            elif len(opt_args) > 0:
+                opt_args[-1] += ' %s' % arg
+            else:
+                new_args.append(arg)
+
         launch_options = {'integrator'          : 'VEGAS3',
-                          'n_points'            : None,
-                          'n_points_survey'     : None,
-                          'n_points_refine'     : None,
-                          'n_iterations'        : None,
-                          'n_iterations_survey' : None,
-                          'n_iterations_refine' : None,                          
                           'verbosity'           : 1,
                           'refresh_filters'     : 'auto',
                           'compile'             : 'auto',
-                          'batch_size'          : 1000,
                           'seed'                : None,
-                          'save_grids'           : None,
-                          'load_grids'           : None,
                           # Here we store a list of lambda function to apply as filters
                           # to the ingegrand we must consider
                           'integrands'          : [lambda integrand: True]}        
         
-        for arg in args:
+        for arg in opt_args:
             try:
                 key, value = arg.split('=',1)
             except ValueError:
@@ -534,13 +624,6 @@ class ParseCmdArguments(object):
                 if value.upper() not in self._integrators:
                     raise InvalidCmd("Selected integrator '%s' not recognized."%value)
                 launch_options['integrator'] = value.upper()
-            elif key in ['--n_points', '--n_iterations']:
-                launch_options[key[2:]] = int(value)
-                launch_options[key[2:]+'_survey'] = int(value)
-                launch_options[key[2:]+'_refine'] = 5*int(value)
-            elif key in ['--n_points_survey', '--n_iterations_survey',
-                         '--n_points_refine', '--n_iterations_refine']:
-                launch_options[key[2:]] = int(value)
             elif key=='--verbosity':
                 modes = {'none':0, 'integrator':1, 'all':2}
                 launch_options[key[2:]] = modes[value.lower()]
@@ -549,13 +632,6 @@ class ParseCmdArguments(object):
                     launch_options['seed'] = int(value)
                 except ValueError:
                     raise InvalidCmd("Cannot set '%s' option to '%s'."%(key, value))
-            elif key in ['--save_grids', '--load_grids']:
-                launch_options[key[2:]] = value
-            elif key in ['--batch_size','--bs']:
-                try:
-                    launch_options['batch_size'] = int(value)
-                except ValueError:
-                    raise InvalidCmd("Value '%s' not valid integer for option '%s'."%(value,key))                
             elif key in ['--refresh_filters','--compile']:
                 available_modes = ['auto','never','always']
                 if value is None:
@@ -575,7 +651,7 @@ class ParseCmdArguments(object):
             else:
                 raise InvalidCmd("Option '%s' for the launch command not reckognized."%key)
 
-        return launch_options
+        return new_args, launch_options
 
     def parse_display_integrands(self, args):
         """ Parses the argument of the "display contributions" command."""
@@ -689,7 +765,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
     
     # For now a very trivial setup, but we will want of course to have all these meta
     # parameter controllable by user commands, eventually.
-    integrator_verbosity = 0 if logger.level > logging.DEBUG else 1
+    integrator_verbosity = 1 if logger.level > logging.DEBUG else 2
     _integrators = {
        'NAIVE' : (integrators.SimpleMonteCarloIntegrator, 
                   { 'n_iterations'            : 10,
@@ -707,13 +783,17 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
        'VEGAS' : (pyCubaIntegrator.pyCubaIntegrator, 
                   { 'algorithm' : 'Vegas', 
                     'verbosity' : integrator_verbosity,
-                    'seed'      : 3,
+                    'seed'      : 0,
                     'target_accuracy' : 1.0e-3,
-                    'n_start'   : 1000,
-                    'n_increase': 500,
-                    'n_batch'   : 1000,
-                    'max_eval'  : 100000,
-                    'min_eval'  : 0}),
+                    'target_accuracy_survey' : 1.0e-3,
+                    'n_start'           : 1000,
+                    'n_start_survey'    : 1000,
+                    'n_increase'        : 500,
+                    'n_increase_survey' : 500,
+                    'n_batch'           : 1000,
+                    'max_eval'          : 1e10,
+                    'max_eval_survey'   : 10000,
+                    'min_eval'          : 0}),
        
        'SUAVE'   : (pyCubaIntegrator.pyCubaIntegrator, 
                     { 'algorithm' :'Suave', 
@@ -871,6 +951,21 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
 
         logger.info('\n'+integrands_to_consider.nice_string(format=display_options['format']))
 
+    def do_set_integrator_options(self, line):
+        """ Command allowing to specify options for a specific integrator."""
+        
+        args = self.split_arg(line)
+        new_args, integrator_options = self.parse_set_integrator_options(args)
+
+        if len(new_args)==0:
+            raise InvalidCmd('An integrator in %s must be specified as the first '%str(self._integrators)+
+                                         'argument in the command set_integrator_option.')
+        elif new_args[0] not in self._integrators:
+            raise InvalidCmd("The specified integrator '%s' is not in the list of supported ones (%s)."%(
+                                                      new_args[0], str(self._integrators)))            
+
+        self._integrators[new_args[0]][1].update(integrator_options)
+
     def do_launch(self, line, *args, **opt):
         """Main command, starts the cross-section computation. Very basic setup for now.
         We will eventually want to have all of these meta-data controllable via user commands
@@ -878,8 +973,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         This is super naive and only for illustrative purposes for now."""
         
         args = self.split_arg(line)
-        
-        launch_options = self.parse_launch(args)
+        new_args, launch_options = self.parse_launch(args)
 
         # In principle we want to start by recompiling the process output so as to make sure
         # that everything is up to date.
@@ -902,34 +996,12 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         # Re-initialize the integrator
         integrator_name = launch_options['integrator']
         integrator_options = self._integrators[integrator_name][1]
-        
+
         integrator_options['verbosity'] = launch_options['verbosity']
-        integrator_options['seed'] = launch_options['seed']
-        
+        integrator_options['cluster'] = self.cluster
+
         if integrator_name=='VEGAS3':
-            if launch_options['n_points_survey'] is not None:
-                integrator_options['survey_n_points'] = launch_options['n_points_survey']
-            if launch_options['n_points_refine'] is not None:
-                integrator_options['refine_n_points'] = launch_options['n_points_refine']
             integrator_options['parallelization'] = self.cluster
-        elif integrator_name=='NAIVE':
-            if launch_options['n_points']:
-                integrator_options['n_points_per_iterations'] = launch_options['n_points']
-
-        if integrator_name=='VEGAS3':
-            if launch_options['n_iterations_survey'] is not None:
-                integrator_options['survey_n_iterations'] = launch_options['n_iterations_survey']
-            if launch_options['n_iterations_refine'] is not None:
-                integrator_options['refine_n_iterations'] = launch_options['n_iterations_refine']
-        elif integrator_name=='NAIVE':
-            if launch_options['n_iterations']:
-                integrator_options['n_iterations'] = launch_options['n_iterations']
-
-        if integrator_name=='VEGAS3':        
-            integrator_options['cluster'] = self.cluster
-            integrator_options['batch_size'] = launch_options['batch_size']
-            integrator_options['save_grids'] = launch_options['save_grids']
-            integrator_options['load_grids'] = launch_options['load_grids']
             
         integrands_to_consider = ME7_integrands.ME7IntegrandList([ itg for itg in self.all_integrands if
                            all(filter(itg) for filter in launch_options['integrands']) ])

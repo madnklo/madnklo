@@ -18,7 +18,9 @@ import os
 import logging
 import threading
 import shutil
-from multiprocessing import Value, Array
+import traceback
+from ctypes import c_bool
+from multiprocessing import Value, Array, Event
 
 pjoin = os.path.join
 
@@ -95,7 +97,7 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
             default_opts['nb_core'] = 0
 
         # Maximum number of evaluation before returning an answer
-        default_opts['max_eval'] = 1e10
+        default_opts['max_eval'] = int(1e10)
         # Minimum number of evaluation before returning an answer
         default_opts['min_eval'] = 0
 
@@ -193,7 +195,7 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
         # tition is accepted as final and counting consequently restarts at zero whenever new
         # structures are found.
 
-        default_opts['border'] = 0.
+        default_opts['border'] = 1.e-5
         # *border*: the width of the border of the integration region.
         # Points falling into this border region will not be sampled directly, but will be extrap-
         # olated from two samples from the interior. Use a non-zero border if the integrand
@@ -269,12 +271,14 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
         # After each integrations, results will be available from here
         self.last_integration_results = None
 
+        # Set a stop flag which can be used to tell this python integrator to abort the run
+        # if an abort occured.
+        self.stopped = Value(c_bool,False)
+
         # Keep track of the number of iterations performed, it must be threadsafe so that
         # we provide a method for safely setting its value
         self.n_iterations_performed = Value('i',0)
-        self.iteration_count_lock = threading.Lock()
         self.n_integrand_calls = Value('i',0)
-        self.integrand_count_lock = threading.Lock()
         
         # Also add a lock for when calling the observables, in order to avoid concurrency issues.
         self.observables_lock = threading.Lock()
@@ -284,14 +288,18 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
         self.vegas_check_point_file = pjoin(os.getcwd(),'cuba_vegas_check_point.dat')
         self.vegas_check_point_file_last_run = pjoin(os.getcwd(),'cuba_vegas_check_point_last_run.dat')
 
+    def set_stopped(self, value):
+        with self.stopped.get_lock():
+            self.stopped.value = value            
+
     def set_n_iterations_performed(self, n_iterations):
         """ Assign the value of the number of iterations performed in a thread-safe way."""
-        with self.iteration_count_lock:
+        with self.n_iterations_performed.get_lock():
             self.n_iterations_performed.value = n_iterations
 
     def increment_n_integrand_calls(self):
         """ Assign the value of the number of iterations performed in a thread-safe way."""
-        with self.integrand_count_lock:
+        with self.n_integrand_calls.get_lock():
             self.n_integrand_calls.value += 1
 
     def observables_normalization(self, n_integrand_calls):
@@ -317,18 +325,20 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
             return pyCubaIntegrator.wrapped_integrand(
                 ndim, xx, ncomp, ff, userdata, jacobian_weight[0])
         except KeyboardInterrupt:
-            print 'Integration with pyCuba aborted by user.'
-            sys.exit(1)
+            IntegratorInstance.set_stopped(True)
+            logger.critical('Integration with pyCuba aborted by user.')
+            #sys.exit(1)
             return -999
 
     @staticmethod
-    def wrapped_integrand_generic(ndim, xx, ncomp, ff, phase, userdata):
+    def wrapped_integrand_generic(ndim, xx, ncomp, ff, userdata):
         """ Generic dispatch of the integrand call"""
         try:        
             return pyCubaIntegrator.wrapped_integrand(ndim, xx, ncomp, ff, userdata)
         except KeyboardInterrupt:
-            print 'Integration with pyCuba aborted by user.'
-            sys.exit(1)
+            IntegratorInstance.set_stopped(True)
+            logger.critical('Integration with pyCuba aborted by user.')
+            #sys.exit(1)
             return -999
     
     @staticmethod
@@ -336,6 +346,9 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
         """ Function to wrap the integrand to the pyCuba standards.
         IntegratorInstance is taken from a global which is set only during the
         time of the integration with the low-level language integrator implementation."""
+        if IntegratorInstance.stopped.value:
+            # Signal Cuba to stop
+            return -999
         try:
             n_integrands_to_consider = ncomp.contents.value
             IntegratorInstance.increment_n_integrand_calls()
@@ -343,16 +356,23 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
                 dimensions = integrand.continuous_dimensions
                 input_point = np.array([dimensions[i].lower_bound + xx[i]*(dimensions[i].upper_bound - dimensions[i].lower_bound) 
                                                                                          for i in range(ndim.contents.value)])
-                ff[integrand_index] = IntegratorInstance.integrands[integrand_index](
-                    input_point, np.array([], dtype=int), 
-                    integrator_jacobian=jacobian_weight, observables_lock=IntegratorInstance.observables_lock)
+                try:
+                    ff[integrand_index] = IntegratorInstance.integrands[integrand_index](
+                        input_point, np.array([], dtype=int), 
+                        integrator_jacobian=jacobian_weight, observables_lock=IntegratorInstance.observables_lock)
+                except Exception as e:
+                    IntegratorInstance.set_stopped(True)
+                    logger.critical('The following exception was raised during the evaluation of the integrand:\n%s'%
+                                                                    traceback.format_exc())
+                    return -999
                 # All integration methods here assume unit phase-space volume, so we need to rescale our evaluations here.
                 ff[integrand_index] *= IntegratorInstance.integrands[integrand_index].get_dimensions().volume()
 
             return 0
         except KeyboardInterrupt:
-            print 'Integration with pyCuba aborted by user.'
-            sys.exit(1)
+            IntegratorInstance.set_stopped(True)
+            logger.critical('Integration with pyCuba aborted by user.')
+            #sys.exit(1)
             return -999
 
     @staticmethod
@@ -371,8 +391,9 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
         try:        
             return pyCubaIntegrator.wrapped_integrand(ndim, xx, ncomp, ff, None)
         except KeyboardInterrupt:
-            print 'Integration with pyCuba aborted by user.'
-            sys.exit(1)
+            IntegratorInstance.set_stopped(True)
+            logger.critical('Integration with pyCuba aborted by user.')
+            #sys.exit(1)
             return -999
 
     def get_name(self):
@@ -384,6 +405,10 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
         
         integral = 0.0
         error    = 0.0
+        if self.stopped.value or self.last_integration_results is None:
+            logger.critical('Abnormal termination of pyCuba, returning zero for the integral result.')
+            return (integral, error)
+
         for res in self.last_integration_results['results']:
             integral += res['integral']
             error    += res['error']
@@ -391,15 +416,45 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
         logger.debug('Cuba completed integration after a total of %d integrand calls (%d refine iterations).'%
                                            (self.n_integrand_calls.value, self.n_iterations_performed.value))
         logger.debug('Final results of the integrals are:\n')
-        columns = '%-15s | %-20s | %-20s | %-20s'
-        logger.debug(columns%('integrand #', 'integral', 'error', 'prob'))
+        columns = '%-15s | %-20s | %-10s | %-10s | %-20s'
+        logger.debug(columns%('integrand #', 'integral', 'error', 'rel. error', 'prob'))
         logger.debug('-'*84)
-        columns = '%-15d | %-20.5e | %-20.5e | %-20.5g'
+        columns = '%-15d | %-20.5e | %-10.2e | %-10.2e | %-20.5g'
         for i_integrand, integrand_result in enumerate(self.last_integration_results['results']):
-            logger.debug(columns%(i_integrand+1,res['integral'],res['error'],res['prob']))
+            logger.debug(columns%(i_integrand+1,res['integral'],res['error'],
+                abs(res['error']/res['integral']) if abs(res['integral']) != 0. else 0. ,res['prob']))
         logger.debug('\n')
 
         return (integral, error)
+
+    def write_vegas_grid(self, source = None, destination = None, n_integrand_calls = None):
+        """ Write the Vegas grid while keeping track on the total number of integrand calls
+        already performed."""
+        
+        if any(el is None for el in [source, destination, n_integrand_calls]):
+            raise IntegratorError("Function write_vegas_grid of pyCubaIntegrator requires all of its options to be set.")
+        
+        vegas_grid = { 'binary_grid'         : open(source,'r').read(),
+                       'n_integrand_calls'   : n_integrand_calls }
+        open(destination,'w').write(str(vegas_grid))
+
+    def load_vegas_grid(self, source = None, destination = None):
+        """ Load Vegas grid to destination file and retun the number of integrand_calls that
+        lead to the grid. This is useful in particular because CUBA crashes if your start it
+        from a grid that already contains more integrand calls than the value 'max_n_eval' set
+        by the user."""
+
+        if any(el is None for el in [source, destination]):
+            raise IntegratorError("Function load_vegas_grid of pyCubaIntegrator requires all of its options to be set.")
+
+        try:
+            vegas_grid = eval(open(source,'r').read())
+        except Exception as e:
+            raise IntegratorError('pyCuba@Vegas could not read the grid from %s.'%source+
+                ' Make sure it was produced by the pyCubaIntegrator and not Cuba directly.')            
+
+        open(destination,'w').write(vegas_grid['binary_grid'])
+        return vegas_grid['n_integrand_calls']
 
     def integrate(self):
         """ Return the final integral and error estimators. """
@@ -415,6 +470,9 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
         self.n_iterations_performed.value = 0
         # Likewise for the number of integrand calls
         self.n_integrand_calls.value = 0
+
+        # Set the stopped flag to False
+        self.set_stopped(False)
 
         if self.nb_core > 1:
             logger.warning(
@@ -432,20 +490,45 @@ less statistics using one core only.
             os.environ['CUBACORES'] = '0'
             pycuba.set_cuba_nb_core(0)
 
+        # Disable the observables if the integration algorithm is different than Vegas
+        if self.algorithm != 'Vegas' and any(integrand.apply_observables for integrand in
+                                                                          self.integrands):
+            logger.warning('Plotting observables has been disabled when using a CUBA '+
+                                              'integration algorithm different than Vegas')
+
+        apply_observables_for_integrands_back_up = []
+        if self.algorithm != 'Vegas':
+            for i_integrand, integrand in enumerate(self.integrands):
+                apply_observables_for_integrands_back_up.append(integrand.apply_observables)
+                integrand.apply_observables = False
+
         n_dimensions = len(self.integrands[0].continuous_dimensions)
-        
-        if self.algorithm == 'Vegas':   
+        if self.algorithm == 'Vegas':
             with tmpGlobal('IntegratorInstance',self):
                 # Explicitly use the 'load_grids' option if you want to load from the check_point grid
-                if os.path.exists(self.vegas_check_point_file):
-                    shutil.move(self.vegas_check_point_file, self.vegas_check_point_file_last_run)
-                if self.load_grids:
-                    shutil.copy(self.load_grids, self.vegas_check_point_file)
+                # Add a short_cut for the option 'last_run'
+                grid_to_load = self.load_grids
+                if self.load_grids == 'last_run':
+                    if os.path.exists(self.vegas_check_point_file_last_run):
+                        grid_to_load = self.vegas_check_point_file_last_run
+                    else:
+                        logger.warning('No pyCuba@Vegas grid found from last run. Starting from scratch.')
+                        grid_to_load = None
+                else:
+                    grid_to_load = self.load_grids
+                if grid_to_load:
+                    starting_n_integrand_calls = self.load_vegas_grid(
+                        source      = grid_to_load,
+                        destination = self.vegas_check_point_file )
+                    logger.info("Starting pyCuba@Vegas from grid file '%s' (obtained from %d integrand calls)."%
+                                                (grid_to_load,starting_n_integrand_calls))
+                else:
+                    starting_n_integrand_calls = 0
                 survey_done = False
                 refine_done = False
                 apply_observables_for_integrands_back_up = []
                 vegas_flags = (
-                    2**0 * max(self.verbosity,3) + # Bits 0 and 1 encode the desired verbosity
+                    2**0 * min(self.verbosity,3) + # Bits 0 and 1 encode the desired verbosity
                     2**4 * 1              + # We want to retain the state file after the run
                     2**5 * 0                # Use the state file if present
                 )
@@ -461,148 +544,187 @@ less statistics using one core only.
                     for i_integrand, integrand in enumerate(self.integrands):
                         apply_observables_for_integrands_back_up.append(integrand.apply_observables)
                         integrand.apply_observables = False
-                        
-                    self.last_integration_results = pycuba.Vegas(
-                        pyCubaIntegrator.wrapped_integrand_vegas, 
-                        n_dimensions,
-                        ncomp       = len(self.integrands),
-                        flags       = vegas_flags,
-                        userdata    = 0,
-                        epsrel      = self.target_accuracy_survey,                  
-                        nstart      = self.n_start_survey,
-                        nincrease   = self.n_increase_survey,
-                        nbatch      = self.n_batch,
-                        seed        = self.seed,
-                        mineval     = self.min_eval,
-                        maxeval     = self.max_eval_survey,
-                        gridno      = 0,
-                        statefile   = self.vegas_check_point_file,
-                        nvec        = 1
-                    )
-                    survey_done = True
+                    try:
+                        self.last_integration_results = pycuba.Vegas(
+                            pyCubaIntegrator.wrapped_integrand_vegas, 
+                            n_dimensions,
+                            ncomp       = len(self.integrands),
+                            flags       = vegas_flags,
+                            userdata    = 0,
+                            epsrel      = self.target_accuracy_survey,                  
+                            nstart      = self.n_start_survey,
+                            nincrease   = self.n_increase_survey,
+                            nbatch      = self.n_batch,
+                            seed        = self.seed,
+                            mineval     = starting_n_integrand_calls + self.min_eval,
+                            maxeval     = starting_n_integrand_calls + self.max_eval_survey,
+                            gridno      = 0,
+                            statefile   = self.vegas_check_point_file,
+                            nvec        = 1
+                        )
+                        survey_done = True
+                    except KeyboardInterrupt:
+                        logger.critical('Integration with pyCuba aborted by user.')
+                        self.set_stopped(True)
+                        survey_done = True
                 
                 # Now save the grids if asked for
                 if survey_done and self.save_grids:
                     if os.path.exists(self.vegas_check_point_file):
                         logger.info("Cuba@Vegas grid after survey saved at '%s'"%self.save_grids)
-                        shutil.copy(self.vegas_check_point_file, self.save_grids)
+                        self.write_vegas_grid(
+                            source            = self.vegas_check_point_file, 
+                            destination       = self.save_grids,
+                            n_integrand_calls = starting_n_integrand_calls + self.n_integrand_calls.value)
                     else:
                         logger.warning("Cuba@Vegas grids could not be saved because "+
                                   "file '%s' cannot be found."%self.vegas_check_point_file)
+
                 # Revert the apply_observable flag if the survey was performed
                 if survey_done:
                     for i_integrand, integrand in enumerate(self.integrands):
                         apply_observables_for_integrands_back_up.append(integrand.apply_observables)
                         integrand.apply_observables = apply_observables_for_integrands_back_up[i_integrand]
 
-                # Make sure to reset the iteration count to 0
+                # Make sure to reset the iteration count to 0 and increment the number of
+                # integrand calls we are starting from
+                starting_n_integrand_calls += self.n_iterations_performed.value
                 self.n_iterations_performed.value = 0
                 
-                # Check if the refine was asked for
-                if self.n_start > 0 and self.max_eval > 0:                    
+                # Check if the refine was asked for and if the survey didn't abort
+                if self.n_start > 0 and self.max_eval > 0 and not self.stopped.value:
                     # Now run the refine
                     logger.info('--------------------------------')
                     logger.info('%sNow running cuba@Vegas refine...%s'%(misc.bcolors.GREEN,misc.bcolors.ENDC))
                     logger.info('--------------------------------')
-
-                    self.last_integration_results = pycuba.Vegas(
-                        pyCubaIntegrator.wrapped_integrand_vegas, 
-                        n_dimensions,
-                        ncomp       = len(self.integrands),
-                        flags       = vegas_flags,
-                        userdata    = 0,
-                        epsrel      = self.target_accuracy,                    
-                        nstart      = self.n_start,
-                        nincrease   = self.n_increase,
-                        nbatch      = self.n_batch,
-                        seed        = self.seed,
-                        mineval     = self.min_eval,
-                        maxeval     = self.max_eval,
-                        gridno      = 0,
-                        statefile   = self.vegas_check_point_file,
-                        nvec        = 1
-                    )
-                    refine_done = True
-
+                    try:
+                        self.last_integration_results = pycuba.Vegas(
+                            pyCubaIntegrator.wrapped_integrand_vegas, 
+                            n_dimensions,
+                            ncomp       = len(self.integrands),
+                            flags       = vegas_flags,
+                            userdata    = 0,
+                            epsrel      = self.target_accuracy,                    
+                            nstart      = self.n_start,
+                            nincrease   = self.n_increase,
+                            nbatch      = self.n_batch,
+                            seed        = self.seed,
+                            mineval     = starting_n_integrand_calls + self.min_eval,
+                            maxeval     = starting_n_integrand_calls + self.max_eval,
+                            gridno      = 0,
+                            statefile   = self.vegas_check_point_file,
+                            nvec        = 1
+                        )
+                        refine_done = True
+                    except KeyboardInterrupt:
+                        logger.critical('Integration with pyCuba aborted by user.')
+                        self.set_stopped(True)
+                        refine_done = True
+    
                 # Now save the grids if asked for
                 if refine_done and self.save_grids:
                     if os.path.exists(self.vegas_check_point_file):
                         logger.info("Cuba@Vegas grid after refine saved at '%s'"%self.save_grids)
-                        shutil.copy(self.vegas_check_point_file, self.save_grids)
+                        self.write_vegas_grid(
+                            source            = self.vegas_check_point_file, 
+                            destination       = self.save_grids,
+                            n_integrand_calls = starting_n_integrand_calls + self.n_integrand_calls.value)
                     else:
                         logger.warning("Cuba@Vegas grids could not be saved because "+
                                   "file '%s' cannot be found."%self.vegas_check_point_file)
 
                 # Move the Vegas check_point file in case the run was interrupted 
                 # and the user wants to restart from it
-                if os.path.exists(self.vegas_check_point_file) and self.keep_last_run_state_file:
-                    logger.info('')
-                    logger.info("If you want to run Cuba@Vegas from the last point where it stopped,"+
-                        " launch again with the option:\n   %s--load_grids=%s%s"%(
-                            misc.bcolors.BLUE, self.vegas_check_point_file_last_run, misc.bcolors.ENDC))
-                    logger.info('When loading grids in Cuba@Vegas, always make sure that you set max_eval'+
-                                ' larger than the number of evaluations already performed in the saved grids.')
-                    logger.info('')
-                    shutil.move(self.vegas_check_point_file, self.vegas_check_point_file_last_run)
+                if os.path.exists(self.vegas_check_point_file):
+                    if self.keep_last_run_state_file:
+                        logger.info('')
+                        logger.info("If you want to run Cuba@Vegas from the last point where it stopped,"+
+                            " launch again with the option:\n   %s--load_grids=%s%s"%(
+                                misc.bcolors.BLUE, self.vegas_check_point_file_last_run, misc.bcolors.ENDC))
+                        logger.info('')
+                        self.write_vegas_grid(
+                                source            = self.vegas_check_point_file, 
+                                destination       = self.vegas_check_point_file_last_run,
+                                n_integrand_calls = starting_n_integrand_calls + self.n_integrand_calls.value)
+                    os.remove(self.vegas_check_point_file)
 
-            return self.aggregate_results()
+            result = self.aggregate_results()
 
         elif self.algorithm == 'Suave':
             with tmpGlobal('IntegratorInstance',self):
-                self.last_integration_results = pycuba.Suave(
-                    pyCubaIntegrator.wrapped_integrand_generic, 
-                    n_dimensions,
-                    ncomp       = len(self.integrands),
-                    verbose     = self.verbosity,
-                    userdata    = 0,
-                    epsrel      = self.target_accuracy,                    
-                    nnew        = self.n_new,
-                    nmin        = self.n_min,
-                    flatness    = self.flatness,
-                    mineval     = self.min_eval,
-                    maxeval     = self.max_eval
-                )
-            return self.aggregate_results()
+                try:
+                    self.last_integration_results = pycuba.Suave(
+                        pyCubaIntegrator.wrapped_integrand_generic, 
+                        n_dimensions,
+                        ncomp       = len(self.integrands),
+                        verbose     = self.verbosity,
+                        userdata    = 0,
+                        epsrel      = self.target_accuracy,                    
+                        nnew        = self.n_new,
+                        nmin        = self.n_min,
+                        flatness    = self.flatness,
+                        mineval     = self.min_eval,
+                        maxeval     = self.max_eval
+                    )
+                except KeyboardInterrupt:
+                    self.set_stopped(True)
+                    logger.critical('Integration with pyCuba aborted by user.')
+            result = self.aggregate_results()
 
         elif self.algorithm == 'Divonne':
             with tmpGlobal('IntegratorInstance',self):
-                self.last_integration_results = pycuba.Divonne(
-                    pyCubaIntegrator.wrapped_integrand_divonne, 
-                    n_dimensions,
-                    self.key1,
-                    self.key2,
-                    self.key3,
-                    self.max_pass,
-                    self.border,
-                    self.maxchisq,
-                    self.min_deviation,
-                    epsrel          = self.target_accuracy,
-                    ldxgiven        = self.ldxgiven,
-                    xgiven          = self.x_given,
-                    nextra          = self.n_extra,
-                    peakfinder      = self.peak_finder,
-                    ncomp           = len(self.integrands),
-                    verbose         = self.verbosity,
-                    userdata        = 0,
-                    mineval     = self.min_eval,
-                    maxeval     = self.max_eval)
-            return self.aggregate_results()
+                try:
+                    self.last_integration_results = pycuba.Divonne(
+                        pyCubaIntegrator.wrapped_integrand_divonne, 
+                        n_dimensions,
+                        self.key1,
+                        self.key2,
+                        self.key3,
+                        self.max_pass,
+                        self.border,
+                        self.maxchisq,
+                        self.min_deviation,
+                        epsrel          = self.target_accuracy,
+                        ldxgiven        = self.ldxgiven,
+                        xgiven          = self.x_given,
+                        nextra          = self.n_extra,
+                        peakfinder      = self.peak_finder,
+                        ncomp           = len(self.integrands),
+                        verbose         = self.verbosity,
+                        userdata        = 0,
+                        mineval     = self.min_eval,
+                        maxeval     = self.max_eval)
+                except KeyboardInterrupt:
+                    self.set_stopped(True)
+                    logger.critical('Integration with pyCuba aborted by user.')
+            result = self.aggregate_results()
 
         elif self.algorithm == 'Cuhre':
             with tmpGlobal('IntegratorInstance',self):
-                self.last_integration_results = pycuba.Cuhre(
-                    pyCubaIntegrator.wrapped_integrand_generic, 
-                    n_dimensions,
-                    key         = self.key, 
-                    mineval     = self.min_eval,
-                    maxeval     = self.max_eval,
-                    epsrel      = self.target_accuracy,                
-                    ncomp       = len(self.integrands),
-                    verbose     = self.verbosity,
-                    userdata    = 0)
+                try:
+                    self.last_integration_results = pycuba.Cuhre(
+                        pyCubaIntegrator.wrapped_integrand_generic, 
+                        n_dimensions,
+                        key         = self.key, 
+                        mineval     = self.min_eval,
+                        maxeval     = self.max_eval,
+                        epsrel      = self.target_accuracy,                
+                        ncomp       = len(self.integrands),
+                        verbose     = self.verbosity,
+                        userdata    = 0)
+                except KeyboardInterrupt:
+                    self.set_stopped(True)
+                    logger.critical('Integration with pyCuba aborted by user.')
 
-            return self.aggregate_results()
+            result = self.aggregate_results()
 
+        # Restore the apply_observables attributes back to their original values
+        if self.algorithm != 'Vegas':
+            for i_integrand, integrand in enumerate(self.integrands):
+                integrand.apply_observables = apply_observables_for_integrands_back_up[i_integrand]
+        
+        return result
+        
 if __name__ == '__main__':
 
     # Example usage of the new integrator framework

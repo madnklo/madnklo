@@ -791,7 +791,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
                     'n_increase'        : 500,
                     'n_increase_survey' : 500,
                     'n_batch'           : 1000,
-                    'max_eval'          : 1e10,
+                    'max_eval'          : int(1e10),
                     'max_eval_survey'   : 10000,
                     'min_eval'          : 0}),
        
@@ -799,21 +799,21 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
                     { 'algorithm' :'Suave', 
                       'verbosity' : integrator_verbosity,
                       'target_accuracy' : 1.0e-3,
-                      'max_eval'  : 100000,
+                      'max_eval'  : int(1e10),
                       'min_eval'  : 0 } ),
       
        'DIVONNE' : (pyCubaIntegrator.pyCubaIntegrator, 
                     { 'algorithm' : 'Divonne', 
                       'verbosity': integrator_verbosity,
                       'target_accuracy' : 1.0e-5,
-                      'max_eval'  : 100000000,
+                      'max_eval'  : int(1e10),
                       'min_eval'  : 0 } ),
     
        'CUHRE'   : (pyCubaIntegrator.pyCubaIntegrator, 
                     { 'algorithm' : 'Cuhre',
                       'verbosity' : integrator_verbosity,
                       'target_accuracy' : 1.0e-3,
-                      'max_eval'  : 100000,
+                      'max_eval'  : int(1e10),
                       'min_eval'  : 0 } ),
     }
     
@@ -962,7 +962,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
                                          'argument in the command set_integrator_option.')
         elif new_args[0] not in self._integrators:
             raise InvalidCmd("The specified integrator '%s' is not in the list of supported ones (%s)."%(
-                                                      new_args[0], str(self._integrators)))            
+                                                      new_args[0], str(self._integrators.keys())))            
 
         self._integrators[new_args[0]][1].update(integrator_options)
 
@@ -1002,7 +1002,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
 
         if integrator_name=='VEGAS3':
             integrator_options['parallelization'] = self.cluster
-            
+
         integrands_to_consider = ME7_integrands.ME7IntegrandList([ itg for itg in self.all_integrands if
                            all(filter(itg) for filter in launch_options['integrands']) ])
         self.integrator = self._integrators[integrator_name][0](integrands_to_consider, **integrator_options)

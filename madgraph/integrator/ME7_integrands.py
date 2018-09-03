@@ -1221,20 +1221,24 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # rescalings xb_<i> and the ISR factorization convolution rescalings chsi<i>.
         xb_1, chsi1 = x1s
         xb_2, chsi2 = x2s
-
+        
+        if xb_1 >= 1. or xb_2 >= 1 or math.isnan(xb_1) or math.isnan(xb_2):
+            raise MadEvent7Error('Unphysical configuration: x1, x2 = %.5e, %.5e'%(xb_1, xb_2))
+            #logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)
+            #return 0.0
+        
         if PS_point is None:
-            if __debug__:
-                if xb_1 > 1. or xb_2 > 1.:
-                    logger.debug('Unphysical configuration: x1, x2 = %.5e, %.5e'%(xb_1, xb_2))
-                    logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)
-                elif (chsi1 is not None) and xb_1 > chsi1:
-                    logger.debug('Configuration above chsi1 rescaling: x1 > chsi1 : %.5e > %.5e'%(xb_1, chsi1))
-                elif (chsi2 is not None) and xb_2 > chsi2:
-                    logger.debug('Configuration above chsi1 rescaling: x2 > chsi2 : %.5e > %.5e'%(xb_2, chsi2))
-                else:
-                    logger.debug('Phase-space generation failed.')
-                logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)
-            return 0.0
+            if xb_1 > 1. or xb_2 > 1.:
+                logger.critical('Unphysical configuration: x1, x2 = %.5e, %.5e'%(xb_1, xb_2))
+            elif (chsi1 is not None) and xb_1 > chsi1:
+                logger.critical('Configuration above chsi1 rescaling: x1 > chsi1 : %.5e > %.5e'%(xb_1, chsi1))
+            elif (chsi2 is not None) and xb_2 > chsi2:
+                logger.critical('Configuration above chsi1 rescaling: x2 > chsi2 : %.5e > %.5e'%(xb_2, chsi2))
+            else:
+                logger.critical('Phase-space generation failed.')
+            raise MadEvent7Error('Unphysical configuration encountered.')
+            #logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)
+            #return 0.0
                 
         if __debug__: logger.debug("Considering the following PS point:\n%s"%(PS_point.__str__(
                                             n_initial=self.phase_space_generator.n_initial) ))
@@ -1376,11 +1380,11 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
 
         # Apply flavor blind cuts
-        if not self.pass_flavor_blind_cuts(PS_point, flavors):
+        if not self.pass_flavor_blind_cuts(PS_point, all_flavor_configurations[0]):
             if __debug__: logger.debug('Event failed the flavour_blind generation-level cuts.')
             if __debug__: logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)            
             return 0.0
-        
+
         ME_evaluation, all_results = self.all_MEAccessors(
                         process, PS_point, alpha_s, mu_r, pdgs=all_flavor_configurations[0])
         

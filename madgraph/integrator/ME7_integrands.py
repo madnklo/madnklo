@@ -1228,17 +1228,18 @@ class ME7Integrand(integrands.VirtualIntegrand):
             #return 0.0
         
         if PS_point is None:
-            if xb_1 > 1. or xb_2 > 1.:
-                logger.critical('Unphysical configuration: x1, x2 = %.5e, %.5e'%(xb_1, xb_2))
-            elif (chsi1 is not None) and xb_1 > chsi1:
-                logger.critical('Configuration above chsi1 rescaling: x1 > chsi1 : %.5e > %.5e'%(xb_1, chsi1))
-            elif (chsi2 is not None) and xb_2 > chsi2:
-                logger.critical('Configuration above chsi1 rescaling: x2 > chsi2 : %.5e > %.5e'%(xb_2, chsi2))
-            else:
-                logger.critical('Phase-space generation failed.')
-            raise MadEvent7Error('Unphysical configuration encountered.')
-            #logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)
-            #return 0.0
+            if __debug__:
+                if xb_1 > 1. or xb_2 > 1.:
+                    logger.debug('Unphysical configuration: x1, x2 = %.5e, %.5e'%(xb_1, xb_2))
+                elif (chsi1 is not None) and xb_1 > chsi1:
+                    logger.debug('Configuration above chsi1 rescaling: x1 > chsi1 : %.5e > %.5e'%(xb_1, chsi1))
+                elif (chsi2 is not None) and xb_2 > chsi2:
+                    logger.debug('Configuration above chsi1 rescaling: x2 > chsi2 : %.5e > %.5e'%(xb_2, chsi2))
+                else:
+                    logger.debug('Phase-space generation failed.')
+                #raise MadEvent7Error('Unphysical configuration encountered.')
+                logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)
+            return 0.0
                 
         if __debug__: logger.debug("Considering the following PS point:\n%s"%(PS_point.__str__(
                                             n_initial=self.phase_space_generator.n_initial) ))

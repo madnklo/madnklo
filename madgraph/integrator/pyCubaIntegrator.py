@@ -17,6 +17,7 @@ import sys
 import os
 import logging
 import threading
+import signal
 import shutil
 import traceback
 from ctypes import c_bool
@@ -75,6 +76,27 @@ class tmpGlobal(object):
             del globals()[self.global_name]
         except KeyError:
             pass
+
+class SignalHandler:
+    """
+    The object that will handle signals and stop the worker threads.
+    """
+
+    #: The stop event that's shared by this handler and threads.
+    stopper = None
+
+    def __init__(self, stopper):
+        self.stopper = stopper
+
+    def __call__(self, signum, frame):
+        """
+        This will be called by the python signal module
+
+        https://docs.python.org/3/library/signal.html#signal.signal
+        """
+        logger.critical('Abort signal detected.')
+        with self.stopper.get_lock():
+            self.stopper.value = True
 
 class pyCubaIntegrator(integrators.VirtualIntegrator):
 
@@ -324,7 +346,7 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
         try:
             return pyCubaIntegrator.wrapped_integrand(
                 ndim, xx, ncomp, ff, userdata, jacobian_weight[0])
-        except KeyboardInterrupt:
+        except (KeyboardInterrupt, SystemExit):
             IntegratorInstance.set_stopped(True)
             logger.critical('Integration with pyCuba aborted by user.')
             #sys.exit(1)
@@ -335,7 +357,7 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
         """ Generic dispatch of the integrand call"""
         try:        
             return pyCubaIntegrator.wrapped_integrand(ndim, xx, ncomp, ff, userdata)
-        except KeyboardInterrupt:
+        except (KeyboardInterrupt, SystemExit):
             IntegratorInstance.set_stopped(True)
             logger.critical('Integration with pyCuba aborted by user.')
             #sys.exit(1)
@@ -369,7 +391,7 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
                 ff[integrand_index] *= IntegratorInstance.integrands[integrand_index].get_dimensions().volume()
 
             return 0
-        except KeyboardInterrupt:
+        except (KeyboardInterrupt, SystemExit):
             IntegratorInstance.set_stopped(True)
             logger.critical('Integration with pyCuba aborted by user.')
             #sys.exit(1)
@@ -390,7 +412,7 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
         perfectly viable and much faster substitute when phase < 2."""
         try:        
             return pyCubaIntegrator.wrapped_integrand(ndim, xx, ncomp, ff, None)
-        except KeyboardInterrupt:
+        except (KeyboardInterrupt, SystemExit):
             IntegratorInstance.set_stopped(True)
             logger.critical('Integration with pyCuba aborted by user.')
             #sys.exit(1)
@@ -405,7 +427,7 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
         
         integral = 0.0
         error    = 0.0
-        if self.stopped.value or self.last_integration_results is None:
+        if self.last_integration_results is None:
             logger.critical('Abnormal termination of pyCuba, returning zero for the integral result.')
             return (integral, error)
 
@@ -435,7 +457,9 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
             raise IntegratorError("Function write_vegas_grid of pyCubaIntegrator requires all of its options to be set.")
         
         vegas_grid = { 'binary_grid'         : open(source,'r').read(),
-                       'n_integrand_calls'   : n_integrand_calls }
+                       'n_integrand_calls'   : n_integrand_calls,
+                       'last_integration_results' : self.last_integration_results }
+        
         open(destination,'w').write(str(vegas_grid))
 
     def load_vegas_grid(self, source = None, destination = None):
@@ -454,7 +478,14 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
                 ' Make sure it was produced by the pyCubaIntegrator and not Cuba directly.')            
 
         open(destination,'w').write(vegas_grid['binary_grid'])
+        self.last_integration_results = vegas_grid['last_integration_results']
+
         return vegas_grid['n_integrand_calls']
+
+    def listen_to_keyboard_interrupt(self):
+        """ Thread to make sure that a keyboard interrupt is properly intercepted."""
+        c
+
 
     def integrate(self):
         """ Return the final integral and error estimators. """
@@ -473,6 +504,9 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
 
         # Set the stopped flag to False
         self.set_stopped(False)
+        
+        # Make sure we can catch all interrupt signals
+        signal.signal(signal.SIGINT, SignalHandler(self.stopped))
 
         if self.nb_core > 1:
             logger.warning(
@@ -563,7 +597,7 @@ less statistics using one core only.
                             nvec        = 1
                         )
                         survey_done = True
-                    except KeyboardInterrupt:
+                    except (KeyboardInterrupt, SystemExit):
                         logger.critical('Integration with pyCuba aborted by user.')
                         self.set_stopped(True)
                         survey_done = True
@@ -616,7 +650,7 @@ less statistics using one core only.
                             nvec        = 1
                         )
                         refine_done = True
-                    except KeyboardInterrupt:
+                    except (KeyboardInterrupt, SystemExit):
                         logger.critical('Integration with pyCuba aborted by user.')
                         self.set_stopped(True)
                         refine_done = True
@@ -666,7 +700,7 @@ less statistics using one core only.
                         mineval     = self.min_eval,
                         maxeval     = self.max_eval
                     )
-                except KeyboardInterrupt:
+                except (KeyboardInterrupt, SystemExit):
                     self.set_stopped(True)
                     logger.critical('Integration with pyCuba aborted by user.')
             result = self.aggregate_results()
@@ -694,7 +728,7 @@ less statistics using one core only.
                         userdata        = 0,
                         mineval     = self.min_eval,
                         maxeval     = self.max_eval)
-                except KeyboardInterrupt:
+                except (KeyboardInterrupt, SystemExit):
                     self.set_stopped(True)
                     logger.critical('Integration with pyCuba aborted by user.')
             result = self.aggregate_results()
@@ -712,7 +746,7 @@ less statistics using one core only.
                         ncomp       = len(self.integrands),
                         verbose     = self.verbosity,
                         userdata    = 0)
-                except KeyboardInterrupt:
+                except (KeyboardInterrupt, SystemExit):
                     self.set_stopped(True)
                     logger.critical('Integration with pyCuba aborted by user.')
 

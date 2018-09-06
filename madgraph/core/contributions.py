@@ -76,7 +76,10 @@ class Contribution(object):
             # they must both generate local counterterms (for the form factors) and
             # accept integrated ISR ones.
             if beam_factorization_count > 0:
-                target_type = 'RealVirtual'                
+                if contribution_definition.correlated_beam_convolution:
+                    target_type = 'BeamSoft'
+                else:
+                    target_type = 'RealVirtual'                
             elif n_loops == 0 and n_unresolved_particles == 0:
                 target_type = 'Born'
             elif n_loops == 1 and n_unresolved_particles == 0:
@@ -2229,6 +2232,60 @@ class Contribution_RV(Contribution_R, Contribution_V):
 
         return res
 
+
+class Contribution_BS(Contribution_RV):
+    """ A class implementing the Beam-Soft factorization contributions (BS) originating
+    from soft counterterms in the colorful currents scheme which can recoil against the
+    initial states, as when using the ppToOneNLOWalker mappings."""
+
+    def __init__(self, contribution_definition, cmd_interface, **opts):
+        """ Make sure that this contribution is instantiated by a contribution definition
+        that enforces a correlated two-beams convolution."""
+        
+        if not contribution_definition.correlated_beam_convolution:
+            raise MadGraph5Error("A soft beam convolution contribution must be instantiated"+
+                " from a contribution definition that specifies a *correlated* convolution "+
+                "of the two beams.")
+        super(Contribution_RV,self).__init__(contribution_definition, cmd_interface, **opts)
+
+    def add_beam_factorization_processes_from_contribution(self, contrib, beam_factorization_order):
+        """ 'Import' the processes_map and all generated attributes of the contribution
+        passed in argument to assign them to this beam factorization contributions. Contrary
+        to the implementation of this function in the base class, here we do not instantiate
+        'bulk' beam factorization currents because they are not needed. The BS contribution is
+        only meant to be a receptacle for the integrated soft counterterm in the 'colorful'
+        currents scheme when the 'ppToOneWalker' mappings scheme is used (where the soft
+        recoils equally against both initial states).
+        """
+
+        # Make sure the source contribution does have a factorizing beam for the active
+        # ones of this contribution.
+        if ( contrib.contribution_definition.beam_factorization['beam_one'] is None ) or \
+           ( contrib.contribution_definition.beam_factorization['beam_two'] is None ):
+            return
+    
+        # Now fetch the process map to load from
+        source_processes_map = contrib.get_processes_map()
+        processes_map = self.processes_map[1]
+        # To the new contribution instances, also assign references to the generated attributes
+        # of the original contributions (no deep copy necessary here)
+        for process_key, (defining_process, mapped_processes) in source_processes_map.items():
+            
+            # First add this process to the current processes map
+            if process_key in processes_map:
+                raise MadGraph5Error('MadNkLO attempts to add beam factorization terms for'+
+                    ' the %s a second time. This should never happen.'%(
+                             defining_process.nice_string().replace('Process','process')))
+            processes_map[process_key] = (
+                  defining_process.get_copy(), [mp.get_copy() for mp in mapped_processes] )
+            
+            # Contrary to what is done in the base class, no 'bulk' beam factorization 
+            # current need to be added here
+            
+            # Also add the corresponding topologies
+            self.import_topologies_from_contrib(process_key, contrib)
+
+
 class ContributionList(base_objects.PhysicsObjectList):
     """ A container for storing a list of contributions."""
     
@@ -2352,4 +2409,5 @@ Contribution_classes_map = {'Born': Contribution_B,
                             'RealVirtual': Contribution_RV,
                             'DoubleReals': Contribution_RR,
                             'TripleReals': Contribution_RRR,
+                            'BeamSoft': Contribution_BS,
                             'Unknown': None}

@@ -4093,7 +4093,11 @@ class ContributionDefinition(object):
                  squared_orders_constraints = {},
                  beam_types                 = (None, None),
                  # Active simply means the a convolution is in place.
-                 beam_factorization_active  = (False, False) ):
+                 beam_factorization_active  = (False, False),
+                 # Correlated beam convolutions means that both beams are convoluted with
+                 # the same variable chsi
+                 correlated_beam_convolution = False
+                ):
         """ Instantiate a contribution definition with all necessary information
         to generate the actual contribution. """
         self.process_definition        = process_definition
@@ -4120,6 +4124,10 @@ class ContributionDefinition(object):
                     # Active means that a convolution with beam factorization is in place.
                     'active'     : beam_factorization_active[i]
                 }
+        if correlated_beam_convolution and beam_factorization_active != (True, True):
+            raise MadGraph5Error("The beam convolution can be specified to be correlated only if"+
+                                 " both beams are convoluted.")
+        self.correlated_beam_convolution = correlated_beam_convolution
 
         # Make sure that n_loops matches the one in the process definition. We however keep
         # this attribute in ContributionDefinition as well for convenience.
@@ -4140,14 +4148,15 @@ class ContributionDefinition(object):
     def get_copy(self):
         """ Returns a partially-shallow copy of self."""
         return ContributionDefinition(
-                process_definition         = self.process_definition.get_copy(), 
-                overall_correction_order   = self.overall_correction_order,
-                correction_order           = self.correction_order,
-                correction_couplings       = self.correction_couplings, 
-                n_unresolved_particles     = self.n_unresolved_particles,
-                n_loops                    = self.n_loops,
-                squared_orders_constraints = dict(self.squared_orders_constraints),
-                beam_factorization         = copy.deepcopy(self.beam_factorization)
+                process_definition          = self.process_definition.get_copy(), 
+                overall_correction_order    = self.overall_correction_order,
+                correction_order            = self.correction_order,
+                correction_couplings        = self.correction_couplings, 
+                n_unresolved_particles      = self.n_unresolved_particles,
+                n_loops                     = self.n_loops,
+                squared_orders_constraints  = dict(self.squared_orders_constraints),
+                beam_factorization          = copy.deepcopy(self.beam_factorization),
+                correlated_beam_convolution = self.correlated_beam_convolution
             )
     
     def get_beam_types(self):
@@ -4201,7 +4210,10 @@ class ContributionDefinition(object):
         res = beam_factorization_specification['beam_type']
 
         if beam_factorization_specification['active']:
-            res += ' (convoluted)'
+            if self.correlated_beam_convolution:
+                res += ' (correlated convolution)'
+            else:
+                res += ' (convoluted)'
 
         res += ' [including: %s]'%(' '.join(model.get_particle(pdg).get_name() for pdg 
                                      in beam_factorization_specification['beam_PDGs']))
@@ -4213,7 +4225,10 @@ class ContributionDefinition(object):
            F1      --> PDF CT applied to beam one
            F2      --> PDF CT applied to beam two
            F1F2    --> PDF CT applied to both beams
+           S       --> Correlated convolution of both beams
         """
+        if self.correlated_beam_convolution:
+            return 'S'
         res = ''
         for i_beam, beam_name in enumerate(['beam_one', 'beam_two']):
             if not self.beam_factorization[beam_name] is None and \

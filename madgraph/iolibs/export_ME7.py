@@ -56,6 +56,9 @@ class ME7Exporter(object):
     This class does not inherit from VirtualExporter because it is not responsible
     for exporting one set of amplitudes, but rather a list of Contributions."""
 
+    _currents_schemes_requiring_soft_beam_factorization = ['colorful', ]
+    _mappings_schemes_requiring_soft_beam_factorization = ['ppToOneNLOWalker', ]
+
     def __init__(self, cmd_interface, noclean, group_subprocesses, export_options={}):
         """Initialize an ME7Exporter with an output path and a list of contributions"""
 
@@ -226,6 +229,22 @@ class ME7Exporter(object):
                 base_objects.ContributionDefinition(dummy_process_definition,
                                               **contrib_def_options ),self.cmd_interface) )
         
+        # Now add the soft beam factorization contributions necessary for absorbing the colorful
+        # soft integrated CT when using a mapping that recoils equally against both initial states.
+        if ((not beam_types[0] is None) and (not beam_types[1] is None)) and \
+           self.options['subtraction_currents_scheme'] in ME7Exporter._currents_schemes_requiring_soft_beam_factorization and \
+           self.options['subtraction_mappings_scheme'] in ME7Exporter._mappings_schemes_requiring_soft_beam_factorization and False:
+            contrib_def_options['beam_factorization_active'] = (True, True)
+            contrib_def_options['n_loops']                   = correction_order-n_unresolved_particles-1
+            dummy_process_definition = base_objects.ProcessDefinition({
+                'model'     : template_contribution.contribution_definition.process_definition.get('model'),
+                'id'        : process_ID,
+                'n_loops'   : correction_order-n_unresolved_particles-1
+            })
+            beam_factorization_contributions.append( contributions.Contribution(
+                base_objects.ContributionDefinition(dummy_process_definition,
+                                              **contrib_def_options ),self.cmd_interface) )
+        
         if len(beam_factorization_contributions)==0:
             return []
 
@@ -249,7 +268,11 @@ class ME7Exporter(object):
                     beam_factorization_contrib.add_beam_factorization_processes_from_contribution(
                                                          contrib, beam_factorization_order)
 
-        # Finally make sure to refresh the inverse processes map of the newly instantiated
+        # Finally make sure to refresh the inverse processes map of the newly instantiated contributions
+        for beam_factorization_contrib in beam_factorization_contributions:
+            beam_factorization_contrib.get_inverse_processes_map(force=True)
+        
+        # Return all contributions instantiated here
         return beam_factorization_contributions
 
     def generate_all_beam_factorization_contributions(self):
@@ -268,6 +291,19 @@ class ME7Exporter(object):
                 # At NLO, we would create the contributions VF1 and VF2. 
                 # At NNLO RV would be use as a template for RVF1 and RVF2 and VV for VVF1, VVF2 and VVF1F2 
                 # etc...   
+                # In addition, when using colorful with a soft mapping that recoils against
+                # initial state, we will generate an extra contribution for each correction order
+                # and number of unresolved particles of the form:
+                # BS at NLO
+                # VS, RS at NNLO, etc...
+                # where both beam are convoluted with an identical fraction chsi.
+                # ------------------------------------------------------------------------------
+                # /!\ Notice that depending on the specifics of the implementation of colorful
+                # with ISR at NNLO, it may be that contributions such as VVF1S may be needed.
+                # These will not be generated for now, but it can be accommodated in the future
+                # by generating the soft beam convolution contributions *after* and *on top of*
+                # the beam factorization contributions already generated.
+                # ------------------------------------------------------------------------------
                 beam_factorization_contributions.extend(
                     self.generate_beam_factorization_contributions_for_correction_order(
                                                correction_order+1, n_unresolved_particles))

@@ -25,6 +25,7 @@ import madgraph.core.base_objects as base_objects
 import madgraph.core.color_algebra as color
 import madgraph.core.helas_objects as helas_objects
 import madgraph.core.contributions as contributions
+import madgraph.core.subtraction as subtraction
 import madgraph.core.accessors as accessors
 import madgraph.core.diagram_generation as diagram_generation
 import madgraph.interface.common_run_interface as common_run_interface
@@ -55,9 +56,6 @@ class ME7Exporter(object):
     """Class to take care of exporting a set Contributions in the ME7 format.
     This class does not inherit from VirtualExporter because it is not responsible
     for exporting one set of amplitudes, but rather a list of Contributions."""
-
-    _currents_schemes_requiring_soft_beam_factorization = ['colorful', ]
-    _mappings_schemes_requiring_soft_beam_factorization = ['ppToOneNLOWalker', ]
 
     def __init__(self, cmd_interface, noclean, group_subprocesses, export_options={}):
         """Initialize an ME7Exporter with an output path and a list of contributions"""
@@ -176,13 +174,14 @@ class ME7Exporter(object):
         # Now generate the basic options to pass to the constructor of the beam factorization
         # contribution
         contrib_def_options = {
-            'overall_correction_order'  : template_contribution.contribution_definition.overall_correction_order,
-            'correction_order'          : template_contribution.contribution_definition.correction_order,
-            'correction_couplings'      : template_contribution.contribution_definition.correction_couplings,
-            'squared_orders_constraints': template_contribution.contribution_definition.squared_orders_constraints,
-            'beam_types'                : beam_types,
-            'n_unresolved_particles'    : n_unresolved_particles,
-            'beam_factorization_active' : (False, False)
+            'overall_correction_order'    : template_contribution.contribution_definition.overall_correction_order,
+            'correction_order'            : template_contribution.contribution_definition.correction_order,
+            'correction_couplings'        : template_contribution.contribution_definition.correction_couplings,
+            'squared_orders_constraints'  : template_contribution.contribution_definition.squared_orders_constraints,
+            'beam_types'                  : beam_types,
+            'n_unresolved_particles'      : n_unresolved_particles,
+            'beam_factorization_active'   : (False, False),
+            'correlated_beam_convolution' : False
         }
 
         # When constructing the beam factorization contributions, we will assign 
@@ -232,10 +231,11 @@ class ME7Exporter(object):
         # Now add the soft beam factorization contributions necessary for absorbing the colorful
         # soft integrated CT when using a mapping that recoils equally against both initial states.
         if ((not beam_types[0] is None) and (not beam_types[1] is None)) and \
-           self.options['subtraction_currents_scheme'] in ME7Exporter._currents_schemes_requiring_soft_beam_factorization and \
-           self.options['subtraction_mappings_scheme'] in ME7Exporter._mappings_schemes_requiring_soft_beam_factorization and False:
-            contrib_def_options['beam_factorization_active'] = (True, True)
-            contrib_def_options['n_loops']                   = correction_order-n_unresolved_particles-1
+           self.options['subtraction_currents_scheme'] in subtraction._currents_schemes_requiring_soft_beam_factorization and \
+           self.options['subtraction_mappings_scheme'] in subtraction._mappings_schemes_requiring_soft_beam_factorization:
+            contrib_def_options['beam_factorization_active']   = (True, True)
+            contrib_def_options['n_loops']                     = correction_order-n_unresolved_particles-1
+            contrib_def_options['correlated_beam_convolution'] = True            
             dummy_process_definition = base_objects.ProcessDefinition({
                 'model'     : template_contribution.contribution_definition.process_definition.get('model'),
                 'id'        : process_ID,
@@ -268,10 +268,6 @@ class ME7Exporter(object):
                     beam_factorization_contrib.add_beam_factorization_processes_from_contribution(
                                                          contrib, beam_factorization_order)
 
-        # Finally make sure to refresh the inverse processes map of the newly instantiated contributions
-        for beam_factorization_contrib in beam_factorization_contributions:
-            beam_factorization_contrib.get_inverse_processes_map(force=True)
-        
         # Return all contributions instantiated here
         return beam_factorization_contributions
 
@@ -364,7 +360,8 @@ class ME7Exporter(object):
         # Note that in principle one could do a look-up of the processes in the process_map
         # of each contributions, but this is unnecessarily slow and complicated; simply
         # assigning the routing map of the distribution of the integrated counterterms
-        # based on the (proc_ID, n_loops, n_unresolved, beam_one_active, beam_two_active) 
+        # based on the (proc_ID, n_loops, n_unresolved, beam_one_active, beam_two_active, 
+        #               correlated_beam_convolution) 
         # is enough.
         routing_map = {}
         for contribution in self.contributions:
@@ -375,11 +372,13 @@ class ME7Exporter(object):
                 contribution.contribution_definition.n_unresolved_particles,
                 contribution.contribution_definition.is_beam_active('beam_one'),
                 contribution.contribution_definition.is_beam_active('beam_two'),
-                )
+                contribution.contribution_definition.correlated_beam_convolution
+            )
             if key in routing_map:
                 logger.warning("The two contributions:\n    %s\nand\n    %s\n"%(
                     routing_map[key][0].nice_string(),contribution.nice_string())+
-                    "share the same  key (proc_ID=%d, n_loops=%d, n_unresolved=%d, beam_one_active=%s, beam_two_active=%s)."%key+
+                    ("share the same  key (proc_ID=%d, n_loops=%d, n_unresolved=%d, "+
+                    "beam_one_active=%s, beam_two_active=%s, correlated_beam_convolution=%s).\n")%key+
                     "All integrated counterterms will be placed in the first of the matching"+
                     " contributions that accepts the integrated counterterm.")
                 routing_map[key].append(contribution)
@@ -419,8 +418,16 @@ class ME7Exporter(object):
             n_unresolved = contribution_origin.contribution_definition.n_unresolved_particles - \
                                                              counterterm.count_unresolved()
 
-            key = ( proc_def_ID, n_loops, n_unresolved, beam_one_convolution, beam_two_convolution)
-                    
+            # Checks whether this integrated counterterm requires a host contribution featuring
+            # correlated convolution of the beams (i.e. 'BS', 'VS', etc... contributions).
+            # This is the case only for integrated counterterms with pure-soft *BeamCurrent* that originated
+            # from a colorful subtraction currents scheme with mappings such as ppToOneWalker that
+            # recoils the soft momentum equally against both initial-state beams.
+            correlated_beam_convolution = counterterm.does_require_correlated_beam_convolution()
+
+            key = ( proc_def_ID, n_loops, n_unresolved, 
+                    beam_one_convolution, beam_two_convolution, correlated_beam_convolution)
+
             # This missing contribution can happen if for example the user explicitly 
             # disabled some contributions, typically the virtual.
             # For now we simply skip the incorporation of this integrated counterterms and
@@ -428,7 +435,8 @@ class ME7Exporter(object):
             # ad-hoc "dummy" contribution to contain those integrated counterterms.
             if key not in routing_map:
                 msg = ("Could not find a contribution with key '"+
-                    "(proc_ID=%d, n_loops=%d, n_unresolved=%d, beam_one_active=%s, beam_two_active=%s)'"%key+" to host the"+
+                    ("(proc_ID=%d, n_loops=%d, n_unresolved=%d, beam_one_active=%s,"+
+                    " beam_two_active=%s, correlated_beam_convolution=%s)'")%key+" to host the"+
                     " integrated counterterm:\n%s."%(counterterm.nice_string())+"\nIt will therefore be"+
                     " skipped making the ensuing results unphysical and wrong.")
                 if __debug__:

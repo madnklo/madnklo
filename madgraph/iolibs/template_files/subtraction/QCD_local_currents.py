@@ -20,7 +20,6 @@ import math
 import madgraph.integrator.mappings as mappings
 import madgraph.various.misc as misc
 from madgraph.core.subtraction import BeamCurrent, IntegratedBeamCurrent, Counterterm, SubtractionLeg
-import madgraph.various.misc as misc
 from madgraph.core.base_objects import EpsilonExpansion
 
 try:
@@ -248,7 +247,7 @@ class QCDBeamFactorizationCurrent(QCDCurrent):
             current, QCD_squared_order, n_loops)
         if init_vars is None:
             return None
-        
+
         if not isinstance(current, (BeamCurrent, IntegratedBeamCurrent)):
             return None
 
@@ -267,15 +266,17 @@ class QCDBeamFactorizationCurrent(QCDCurrent):
         if not init_vars['distribution_type'] in cls.distribution_types_implemented_in_this_class:
             return None
 
-        if current['beam_type'] in cls.beam_types_implemented_in_this_class:
-            init_vars['beam_type'] = current['beam_type']
-        else:
-            return None
+        if cls.beam_types_implemented_in_this_class!='ALL':
+            if current['beam_type'] in cls.beam_types_implemented_in_this_class:
+                init_vars['beam_type'] = current['beam_type']
+            else:
+                return None
         
-        if tuple(sorted(current['beam_PDGs'])) in cls.beam_PDGs_implemented_in_this_class:
-            init_vars['beam_PDGs'] = tuple(sorted(current['beam_PDGs']))
-        else:
-            return None
+        if cls.beam_PDGs_implemented_in_this_class!='ALL':
+            if tuple(sorted(current['beam_PDGs'])) in cls.beam_PDGs_implemented_in_this_class:
+                init_vars['beam_PDGs'] = tuple(sorted(current['beam_PDGs']))
+            else:
+                return None
 
         return init_vars
 

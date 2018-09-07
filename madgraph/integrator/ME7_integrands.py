@@ -471,7 +471,10 @@ class ME7Integrand(integrands.VirtualIntegrand):
             # they must both generate local counterterms (for the form factors) and
             # accept integrated ISR ones.
             if beam_factorization_count > 0:
-                target_type = 'RealVirtual'                
+                if contribution_definition.correlated_beam_convolution:
+                    target_type = 'BeamSoft'
+                else:
+                    target_type = 'RealVirtual'                          
             elif n_loops == 0 and n_unresolved_particles == 0:
                 target_type = 'Born'
             elif n_loops == 1 and n_unresolved_particles == 0:
@@ -2321,7 +2324,7 @@ class ME7Integrand_R(ME7Integrand):
             combined_spin_correlator  = cls.combine_spin_correlators(ME_call['spin_correlations'])
             # The combination of color correlators can give rise to several ones, each with its multiplier
             combined_color_correlators, multipliers = cls.combine_color_correlators(ME_call['color_correlations'])
-            # For now only multiply the finite part of currents
+
             combined_weight = reduce(lambda x,y: x*y, ME_call['main_weights'])
             flavor_matrices_beam_one = [fv for fv in ME_call['flavor_matrices_beam_one'] if fv is not None]
             flavor_matrices_beam_two = [fv for fv in ME_call['flavor_matrices_beam_two'] if fv is not None]
@@ -2383,8 +2386,10 @@ class ME7Integrand_R(ME7Integrand):
     def process_beam_factorization_currents(cls, all_necessary_ME_calls, all_beam_currents, 
                      all_MEAccessors, PS_point, process, chsi1, chsi2, mu_r, mu_f1, mu_f2):
         """ Calls the beam currents specified in the argument all_beam_currents with format:
-              [{ 'beam_one': <BeamCurrent>,
-               'beam_two': <BeamCurrent> }]
+              [{       'beam_one': <BeamCurrent>,
+                       'beam_two': <BeamCurrent>,
+           <optional>  'correlated_convolution' : <beam_current>
+               }]
         and combine their evaluation with the list of already existing inputs provided in
         the list of all_necessary_ME_calls."""
 
@@ -2392,7 +2397,8 @@ class ME7Integrand_R(ME7Integrand):
         for beam_currents in all_beam_currents:
             new_necessary_ME_calls = list(all_necessary_ME_calls)
             if beam_currents['beam_one'] is not None:
-                if isinstance(beam_currents['beam_one'], subtraction.BeamCurrent) and beam_currents['beam_one']['distribution_type']=='bulk':
+                if isinstance(beam_currents['beam_one'], subtraction.BeamCurrent) and \
+                                    beam_currents['beam_one']['distribution_type']=='bulk':
                     rescaling = 1./chsi1
                 else:
                     rescaling = 1.
@@ -2402,7 +2408,8 @@ class ME7Integrand_R(ME7Integrand):
                     new_necessary_ME_calls, current_evaluation,
                     weight_type='flavor_matrix_beam_one', Bjorken_rescaling_beam_one = rescaling)
             if beam_currents['beam_two'] is not None:
-                if isinstance(beam_currents['beam_two'], subtraction.BeamCurrent) and beam_currents['beam_two']['distribution_type']=='bulk':
+                if isinstance(beam_currents['beam_two'], subtraction.BeamCurrent) and \
+                                    beam_currents['beam_two']['distribution_type']=='bulk':
                     rescaling = 1./chsi2
                 else:
                     rescaling = 1.
@@ -2411,6 +2418,28 @@ class ME7Integrand_R(ME7Integrand):
                 new_necessary_ME_calls = ME7Integrand_R.update_all_necessary_ME_calls(
                     new_necessary_ME_calls, current_evaluation,  
                     weight_type='flavor_matrix_beam_two', Bjorken_rescaling_beam_two = rescaling)
+            if 'correlated_convolution' in beam_currents and beam_currents['correlated_convolution'] is not None:
+                if beam_currents['beam_one'] is not None or beam_currents['beam_two'] is not None:
+                    raise MadGraph5Error('MadNkLO does not support the specification of both a current'+
+                        ' requiring correlated beam convolution with one-sided convolution currents.')
+                if chsi1 != chsi2 or chsi1 is None:
+                    raise MadGraph5Error('Currents requiring correlated beam convolutions must be'
+                        ' evaluated within a current in which chsi1 == chsi2 and different than None.')
+                # By convention we pass here the factorization scale mu_f1 and not mu_f2, but that should be irrelevant 
+                # since such counterterms are in no way related to the PDF evolution or ISR factorization in general
+                current_evaluation, all_current_results = all_MEAccessors(beam_currents['correlated_convolution'],
+                    lower_PS_point=PS_point, reduced_process=process, chsi=chsi1, mu_r=mu_r, mu_f=mu_f1)
+                if isinstance(beam_currents['correlated_convolution'], subtraction.BeamCurrent) and \
+                                beam_currents['correlated_convolution']['distribution_type']=='bulk':
+                    rescaling = 1./chsi1
+                else:
+                    rescaling = 1.
+                new_necessary_ME_calls = ME7Integrand_R.update_all_necessary_ME_calls(
+                    new_necessary_ME_calls, current_evaluation,  
+                    weight_type='main_weight', 
+                    Bjorken_rescaling_beam_one = rescaling,
+                    Bjorken_rescaling_beam_two = rescaling)
+                
             new_all_necessary_ME_calls.extend(new_necessary_ME_calls)
         return new_all_necessary_ME_calls
 
@@ -2625,19 +2654,13 @@ The missing process is: %s"""%ME_process.nice_string())
 
         # Finally return the ME7 event constructed for this counterterm
         return ME7_event_to_return
-        
-    def sigma(self, PS_point, process_key, process, all_flavor_configurations, 
+    
+    def generate_matrix_element_event(self, PS_point, process_key, process, all_flavor_configurations, 
                   base_weight, mu_r, mu_f1, mu_f2, chsi1, chsi2, xb_1, xb_2, *args, **opts):
-        """ Implementation of the short-distance cross-section for the real-emission integrand.
-        Counterterms will be computed on top of the actual real-emission integrand.
-        Note that the PS_point specified corresponds to a point already multiplied by both
-        the bjorken x's and boosted back to the c.o.m frame."""
-
-        all_events_generated = ME7EventList()
-
+        """ Generates one event which corresponds to the physical contribution (i.e. not the
+        counterterms) hosted by this contribution."""
+    
         alpha_s = self.model.get('parameter_dict')['aS']
-
-        apply_flavour_blind_cuts = opts.get('apply_flavour_blind_cuts', True)
 
         ME_evaluation, all_results = self.all_MEAccessors(
                         process, PS_point, alpha_s, mu_r, pdgs=all_flavor_configurations[0])
@@ -2654,6 +2677,25 @@ The missing process is: %s"""%ME_process.nice_string())
         )
         convolved_event = self.convolve_event_with_beam_factorization_currents(event_to_convolve, 
             process['beam_factorization'], PS_point, process, mu_r, mu_f1, mu_f2, chsi1, chsi2 )
+    
+    def sigma(self, PS_point, process_key, process, all_flavor_configurations, 
+                  base_weight, mu_r, mu_f1, mu_f2, chsi1, chsi2, xb_1, xb_2, *args, **opts):
+        """ Implementation of the short-distance cross-section for the real-emission integrand.
+        Counterterms will be computed on top of the actual real-emission integrand.
+        Note that the PS_point specified corresponds to a point already multiplied by both
+        the bjorken x's and boosted back to the c.o.m frame."""
+
+        all_events_generated = ME7EventList()
+
+        apply_flavour_blind_cuts = opts.get('apply_flavour_blind_cuts', True)
+        
+        matrix_element_event = self.generate_matrix_element_event(
+                PS_point, process_key, process, all_flavor_configurations, 
+                  base_weight, mu_r, mu_f1, mu_f2, chsi1, chsi2, xb_1, xb_2, *args, **opts)
+        # Some contributions might have not physical contributions and overloaded the above
+        # so as to return None
+        if matrix_element_event is not None:
+            all_events_generated.append(matrix_element_event)
         
         # Now register the convoluted event
         all_events_generated.append(convolved_event)
@@ -2889,7 +2931,13 @@ The missing process is: %s"""%ME_process.nice_string())
 
             # Also scale the chsi initial-state convolution parameters if the limit
             # specifies a beam factorization structure for that initial state:
-            beam_factorisation_legs = limit.get_beam_factorization_legs()
+            if limit.does_require_correlated_beam_convolution():
+                beam_factorisation_legs = [1,2]
+            else:
+                beam_factorisation_legs = limit.get_beam_factorization_legs()
+            
+            # Notice that if we wanted a particular overall scaling of the counterterms,
+            # we would need to correctly adjust the power of the multiplying scaling parameter.
             if 1 in beam_factorisation_legs:
                 scaled_chsi1 = 1.-(1.-a_chsi1)*scaling_parameter
             else:
@@ -2976,7 +3024,10 @@ The missing process is: %s"""%ME_process.nice_string())
             # the IR test analyzer.
 
             # Initialize result
-            this_eval = {}
+            # Contributions such as the beam soft ones (BS, VS, etc...) do not have
+            # a physical ME contributions, so we initialize it here to zero.
+            this_eval = { 'ME': 0. }
+            
             # Loop over all events produced and distribute them in several entries of what
             # will be returned to the IR_analyzer
             for event in events:
@@ -2993,7 +3044,7 @@ The missing process is: %s"""%ME_process.nice_string())
                     if str(event.counterterm_structure) in this_eval:
                         this_eval[str(event.counterterm_structure)] += event_wgt           
                     else:
-                        this_eval[str(event.counterterm_structure)] = event_wgt                      
+                        this_eval[str(event.counterterm_structure)] = event_wgt
         
             # If some counterterm structure is not found, add it with a zero weight here
             # (its current was probably cut off by its `is_cut` function)
@@ -3007,15 +3058,18 @@ The missing process is: %s"""%ME_process.nice_string())
                     this_eval[str_ct] = 0.
 
             logger.debug('For scaling variable %.3e, weight from ME = %.16f' %(
-                                      scaling_parameter, this_eval['ME'] ))
+                                                        scaling_parameter, this_eval['ME'] ))
             total_CTs_wgt = 0.0
             for CT_str, CT_weight in this_eval.items():
                 if CT_str=='ME': continue
                 total_CTs_wgt += CT_weight
                 logger.debug('Weight from CT %s = %.16f' % (CT_str, CT_weight) )
-                logger.debug('Ratio: %.16f'%( CT_weight/float(this_eval['ME']) ))
+                if this_eval['ME'] > 0.:
+                    logger.debug('Ratio: %.16f'%( CT_weight/float(this_eval['ME']) ))
             if this_eval['ME'] > 0.:
                 logger.debug('Ratio sum(CTs)/ME: %.16f'%(total_CTs_wgt/float(this_eval['ME'])))
+            else:
+                logger.debug('Ratio sum(CTs): %.16f'%(total_CTs_wgt))                
             limit_evaluations[scaling_parameter] = this_eval
             
         # Now return all evaluations performed for each value of the scale
@@ -3239,7 +3293,6 @@ The missing process is: %s"""%ME_process.nice_string())
                         logger.info("    " * 2 + str(limit) + ": FAILED")
             return False
         return True
-    
 
 class ME7Integrand_RV(ME7Integrand_R, ME7Integrand_V):
     """ ME7Integrand for the computation of integrands featuring both local and integrated
@@ -3339,7 +3392,21 @@ class ME7Integrand_RV(ME7Integrand_R, ME7Integrand_V):
 
         return all_events_generated
 
+
+class ME7Integrand_BS(ME7Integrand_RV):
+    """ Specialisation of the RV integrand for handling contribution featuring
+        *correlated( convolution of the beams (i.e. 'BS', 'VS', etc... contributions).
+        This is the case only for integrated counterterms with possibly disjoint structures 
+        having each at least one soft *BeamCurrents* that originated from a colorful 
+        subtraction currents scheme with mappings such as ppToOneWalker that recoils the
+        soft momentum equally against both initial-state beam"""
         
+    def generate_matrix_element_event(self, *args, **opts):
+        """ This particular type of integrand should have no physical contribution. It is only
+        a receptacle for the integrated soft counterterms that recoil equally against the
+        initial-state beams."""
+        return None
+
 class ME7Integrand_RR(ME7Integrand_R):
     """ ME7Integrand for the computation of a double real-emission type of contribution."""
     def sigma(self, PS_point, process_key, process, all_flavor_configurations, base_weight, mu_r, 
@@ -3419,6 +3486,7 @@ ME7Integrand_classes_map = {'Born': ME7Integrand_B,
                             'Virtual': ME7Integrand_V,
                             'SingleReals': ME7Integrand_R,
                             'RealVirtual': ME7Integrand_RV,
+                            'BeamSoft': ME7Integrand_BS,
                             'DoubleReals': ME7Integrand_RR,
                             'TripleReals': ME7Integrand_RRR,
                             'Unknown': None}

@@ -158,7 +158,9 @@ class Contribution(object):
                 self.model,
                 coupling_types  = self.contribution_definition.correction_couplings,
                 n_unresolved    = self.contribution_definition.n_unresolved_particles,
-                beam_types      = self.contribution_definition.get_beam_types() )
+                beam_types      = self.contribution_definition.get_beam_types(),
+                currents_scheme = self.options['subtraction_currents_scheme'],
+                mappings_scheme = self.options['subtraction_mappings_scheme'] )
         
         # The following two attributes dicate the type of Exporter which will be assigned to this contribution
         self.output_type             = 'default'
@@ -2190,7 +2192,7 @@ class Contribution_RV(Contribution_R, Contribution_V):
         res = GREEN+'  %s'%(defining_process.nice_string(print_weighted=False)
                                                              .replace('Process: ',''))+ENDC
 
-        if not self.integrated_counterterms or not self.counterterms:
+        if self.integrated_counterterms is None or self.counterterms is None:
             return res
 
         if format<2:
@@ -2285,6 +2287,15 @@ class Contribution_BS(Contribution_RV):
             # Also add the corresponding topologies
             self.import_topologies_from_contrib(process_key, contrib)
 
+    def generate_all_counterterms(self, ignore_integrated_counterterms=False, group_processes=True, *args, **opts):
+        """ Contrary to the other contributions the BS one has no physical contribution that require subtraction
+        and is only a place-holder to receive the integrated soft counterterms. Therefore nothing needs to be
+        done a this stage here. """
+    
+        for process_key, (defining_process, mapped_processes) in self.get_processes_map().items():
+            self.counterterms[process_key] = []
+        all_integrated_counterterms = []
+        return all_integrated_counterterms
 
 class ContributionList(base_objects.PhysicsObjectList):
     """ A container for storing a list of contributions."""

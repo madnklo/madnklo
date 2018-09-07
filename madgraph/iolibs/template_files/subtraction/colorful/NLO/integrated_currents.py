@@ -51,6 +51,11 @@ class integrated_NLO_FF_QCD_current(utils.IntegratedCurrent, currents.QCDCurrent
         # Make sure it is an integrated subtraction counterterm and not a local one.
         if not isinstance(current, subtraction.IntegratedCurrent):
             return None
+        
+        # Also make sure this is not a beam factorization current as these are implemented
+        # by the currents in beam_factorization.py
+        if isinstance(current, (subtraction.BeamCurrent, subtraction.IntegratedBeamCurrent)):
+            return None   
 
         squared_orders = current.get('squared_orders')
 

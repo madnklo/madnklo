@@ -44,6 +44,12 @@ from bidict import bidict
 logger = logging.getLogger('madgraph')
 pjoin = os.path.join
 
+# Specify here the list of subtraction currents schemes and subtraction_mappings_scheme
+# that uses soft counterterms that recoils against the initial states. This is necessary in
+# order to decide when a contribution with a correlated convolution of both beams must be setup.
+_currents_schemes_requiring_soft_beam_factorization = ['colorful', ]
+_mappings_schemes_requiring_soft_beam_factorization = ['ppToOneNLOWalker', ]
+
 #=========================================================================================
 # Multinomial function
 #=========================================================================================
@@ -400,6 +406,26 @@ class SingularStructure(object):
         )
         tmp_str += ")"
         return tmp_str
+
+    def does_require_correlated_beam_convolution(self):
+        """ Checks whether this integrated counterterm requires a host contribution featuring
+        correlated convolution of the beams (i.e. 'BS', 'VS', etc... contributions).
+        This is the case only for integrated counterterms with disjoint structures having each
+        at least one soft *BeamCurrents* that originated from a colorful subtraction currents 
+        scheme with mappings such as ppToOneWalker that recoils the soft momentum equally 
+        against both initial-state beams."""
+
+        # One probably needs to do something more refined for higher orders, since the
+        # structure C(3,4,S(5)) probably requires a collinear mapping and not a soft one.
+        # However, maybe for such cases the mappings yielding correlated beam convolutions
+        # can be avoided altogether since one would be guaranteed to have final-state recoilers
+        # for the singly-unresolved limit S(5).
+        # Implement a caching too since this is called by the ME7Integrand at runtime.
+        if not hasattr(self,'does_require_correlated_beam_convolution_cached'):
+            self.does_require_correlated_beam_convolution_cached = \
+                all(any(c.name()=='S' for c in sub_ss.decompose()) for sub_ss in self.substructures)
+        
+        return self.does_require_correlated_beam_convolution_cached
 
     def get_subtraction_prefactor(self):
         """Determine the prefactor due to the nested subtraction technique."""
@@ -911,6 +937,17 @@ class Current(base_objects.Process):
             readable_string += " " + str(self.get('orders'))
         return readable_string
 
+    def does_require_correlated_beam_convolution(self):
+        """ Checks whether this integrated counterterm requires a host contribution featuring
+        correlated convolution of the beams (i.e. 'BS', 'VS', etc... contributions).
+        This is the case only for integrated counterterms with disjoint structures having each
+        at least one soft *BeamCurrents* that originated from a colorful subtraction currents 
+        scheme with mappings such as ppToOneWalker that recoils the soft momentum equally 
+        against both initial-state beams."""
+
+        # For basic currents, this is never the case
+        return False
+
     def get_reduced_flavors(self, defining_flavors, IR_subtraction_module, routing_dict):
         """Given the defining flavors dictionary specifying the flavors of some leg numbers,
         add entries corresponding to the subtraction legs in this node and using the function
@@ -1050,6 +1087,17 @@ class BeamCurrent(Current):
         self['beam_PDGs'] = []
         # Name of the beam factorization type that should be employed
         self['beam_type'] = None
+
+    def does_require_correlated_beam_convolution(self):
+        """ Checks whether this integrated counterterm requires a host contribution featuring
+        correlated convolution of the beams (i.e. 'BS', 'VS', etc... contributions).
+        This is the case only for integrated counterterms with disjoint structures having each
+        at least one soft *BeamCurrents* that originated from a colorful subtraction currents 
+        scheme with mappings such as ppToOneWalker that recoils the soft momentum equally 
+        against both initial-state beams."""
+
+        # Return true only if the singular structures of this current are pure soft.
+        return self['singular_structure'].does_require_correlated_beam_convolution()
 
     def get_key(self, track_leg_numbers=False):
         """Return the ProcessKey associated to this current."""
@@ -1798,7 +1846,11 @@ class IntegratedCounterterm(Counterterm):
         """ Returns a list of dictionaries of the form
               {   'beam_one' : beam_current_1 # None for no convolution
                   'beam_two' : beam_current_2 # None for no convolution
-              } """
+      <optional>  'correlated_convolution' : beam_current # None for not correlated convolution
+              }
+           Note that whenever 'correlated_convolution' is not set to None, the other beam_currents
+           will be None.
+        """
         
         beam_currents = [dict(bf) for bf in self.current['beam_factorization']]
 
@@ -1808,7 +1860,16 @@ class IntegratedCounterterm(Counterterm):
         
         if type(integrated_current) not in [BeamCurrent, IntegratedBeamCurrent]:
             return beam_currents
-            
+        
+        if integrated_current.does_require_correlated_beam_convolution():
+            for bcs in beam_currents:
+                if bcs['beam_one'] is not None or bcs['beam_two'] is not None:
+                    raise MadGraph5Error('The beam factorization currents from the reduced'+
+        ' process should all be None if the integrated counterterm necessitates a correlated'+
+        ' beam convolution.')
+                    bcs['correlated_convolution'] = integrated_current
+            return beam_currents
+
         # Now get all legs of its singular structure
         all_legs = integrated_current['singular_structure'].get_all_legs()
         
@@ -1827,6 +1888,18 @@ class IntegratedCounterterm(Counterterm):
 
         return beam_currents
 
+    def does_require_correlated_beam_convolution(self):
+        """ Checks whether this integrated counterterm requires a host contribution featuring
+        correlated convolution of the beams (i.e. 'BS', 'VS', etc... contributions).
+        This is the case only for integrated counterterms with pure-soft *BeamCurrent* that originated
+        from a colorful subtraction currents scheme with mappings such as ppToOneWalker that
+        recoils the soft momentum equally against both initial-state beams."""
+
+        # Fetch all integrated currents making up this integrated counterterm
+        # In the current implementation, there can only be one for now.
+        integrated_current = self.get_integrated_current()
+        return integrated_current.does_require_correlated_beam_convolution()
+
     def get_necessary_beam_convolutions(self):
         """ Returns a set of beam names ('beam_one' or 'beam_two') that must be active
         in the contribution that will host this counterterm"""
@@ -1839,13 +1912,18 @@ class IntegratedCounterterm(Counterterm):
                 if not beam_current is None:
                     necessary_beam_convolutions.add(beam_name)
             
-        # First fetch all integrated currents making up this integrated counterterm
+        # Then fetch all integrated currents making up this integrated counterterm
         # In the current implementation, there can only be one for now.
         integrated_current = self.get_integrated_current()
 
-        if type(integrated_current) not in [BeamCurrent]:
+        if type(integrated_current) not in [BeamCurrent,]:
             return necessary_beam_convolutions
-            
+        
+        # Check if this integrated counterterm necessitate a soft-recoil that demands
+        # a correlated convolution of both beams
+        if integrated_current.does_require_correlated_beam_convolution():
+            return set(['beam_one','beam_two'])
+        
         # Now get all legs of its singular structure
         all_legs = integrated_current['singular_structure'].get_all_legs()
         
@@ -1898,23 +1976,37 @@ class IntegratedCounterterm(Counterterm):
         # We must then add one loop for each unresolved parton of this integrated CT.
         host_contrib_n_loops += self.count_unresolved()
         
-        # Finally the ISR beamCurrent contributions do have a non-zero number of unresolved contributions
-        # which increased the loop count in the line above. However, given that those must be placed
-        # together with the beam factorization currents, we should not account for these loops.
+        
+        # We must now adjust the number of loops expected in the host contributions because
+        # some integrated counterterms don't yield loops in the host contributions, but instead
+        # beam factorisation convolutions.
         beam_numbers_for_which_n_loops_is_already_decremented = []
         for current in self.get_all_currents():
             if not type(current)==BeamCurrent:
                 continue
-            beam_numbers_in_currents = set(sum([[l.n for l in ss.get_all_legs() if l.n in [1,2]] 
-                    for ss in current['singular_structure'].substructures if ss.name()=='C'],[]))
-            for beam_number in beam_numbers_in_currents:
-                if beam_number not in beam_numbers_for_which_n_loops_is_already_decremented:
-                    beam_numbers_for_which_n_loops_is_already_decremented.append(beam_number)
+            # All the soft structures appearing as 'BeamCurrents' come from the colorful currents scheme
+            # when the a mapping such as ppToOneWalker is used, which recoils equally against both beams.
+            # In this case, the corresponding integrated soft CT is placed in dedicated contributions
+            # such as 'BS', 'VS' etc... which are defined without an increment on n_loops corresponding
+            # to the unresolved soft particle, so it must be decremented here
+            for c in current['singular_structure'].decompose():
+                if c.name()=='S':
                     host_contrib_n_loops -= 1
+
+            if not current.does_require_correlated_beam_convolution():
+                # Finally the ISR beamCurrent contributions do have a non-zero number of unresolved contributions
+                # which increased the loop count in the line above. However, given that those must be placed
+                # together with the beam factorization currents, we should not account for these loops.
+                beam_numbers_in_currents = set(sum([[l.n for l in ss.get_all_legs() if l.n in [1,2]] 
+                        for ss in current['singular_structure'].substructures if ss.name()=='C'],[]))
+                for beam_number in beam_numbers_in_currents:
+                    if beam_number not in beam_numbers_for_which_n_loops_is_already_decremented:
+                        beam_numbers_for_which_n_loops_is_already_decremented.append(beam_number)
+                        host_contrib_n_loops -= 1
 
         # Similarly, the *integrated* beamCurrent F terms have zero number of unresolved legs
         # but they must be placed together with the virtuals which have a loop count. We must
-        # therefore increase the loop count by *at most* for each of the two beams that has
+        # therefore increase the loop count by *at most* one for each of the two beams that has
         # at least one integratedBeamCurrent F structure attached
         beam_numbers_for_which_n_loops_is_already_incremented = []
         for current in self.get_all_currents():
@@ -1943,19 +2035,26 @@ class IntegratedCounterterm(Counterterm):
 
         # Then add those of the chsi-dependent integrated ISR counterterm and local F ones.
         beam_numbers_in_currents = set([])
+        soft_beam_factorisation_n_loop = 0
         for current in self.get_all_currents():
             if not type(current)==BeamCurrent:
                 continue
-            # We don't need to look recursively inside the singular structures since the beam
-            # factorization ones are supposed to be at the top level since they factorize
-            beam_numbers_in_current = set(sum([[l.n for l in ss.legs if l.n in [1,2]] for ss in 
-                              current['singular_structure'].substructures if ss.name()=='C'],[]))
-            beam_numbers_in_currents |= beam_numbers_in_current
+            # For the integrated soft counterterms that go in the BS, VS etc... contributions,
+            # we must only subtract exactly one as this correspond to exactly one convolution,
+            # irrespectively of the number of unresolved particles of the counterterm.
+            if self.does_require_correlated_beam_convolution():
+                soft_beam_factorisation_n_loop = 1
+            else:   
+                # We don't need to look recursively inside the singular structures since the beam
+                # factorization ones are supposed to be at the top level since they factorize
+                beam_numbers_in_current = set(sum([[l.n for l in ss.legs if l.n in [1,2]] for ss in 
+                                  current['singular_structure'].substructures if ss.name()=='C'],[]))
+                beam_numbers_in_currents |= beam_numbers_in_current
             n_loops += current['n_loops'] + current.count_unresolved()
         # We must remove one loop per beam number encountered in integrated ISR collinear CT
         # since the leading beam factorization counterterm has zero loop but count_unresolved()
         # counts for one there.
-        n_loops -= len(beam_numbers_in_currents)
+        n_loops -= (len(beam_numbers_in_currents) + soft_beam_factorisation_n_loop)
         
         return n_loops
 
@@ -1965,15 +2064,25 @@ class IntegratedCounterterm(Counterterm):
 
 class IRSubtraction(object):
 
-    def __init__(self, model, n_unresolved, coupling_types=('QCD', ), beam_types=(None,None)):
+    def __init__(self, model, n_unresolved, coupling_types=('QCD', ), beam_types=(None,None),
+                 currents_scheme = 'colorful', mappings_scheme = 'LorentzNLO'):
         """Initialize a IR subtractions for a given model,
         correction order and type.
         """
-        
         self.model          = model
         self.n_unresolved   = n_unresolved
         self.coupling_types = coupling_types
         self.beam_types     = beam_types
+        
+        self.currents_scheme = currents_scheme
+        self.mappings_scheme = mappings_scheme
+        # Decide is soft recoil against initial states
+        if self.currents_scheme in _currents_schemes_requiring_soft_beam_factorization and \
+           self.mappings_scheme in _mappings_schemes_requiring_soft_beam_factorization:
+            self.soft_do_recoil_against_initial_states = True
+        else:
+            self.soft_do_recoil_against_initial_states = False
+            
         # Map perturbed coupling orders to the corresponding interactions and particles.
         # The entries of the dictionary are
         # 'interactions', 'pert_particles' and 'soft_particles'
@@ -2387,8 +2496,7 @@ class IRSubtraction(object):
         if not local_counterterm.is_singular():
             return []
 
-        complete_singular_structure = local_counterterm. \
-            reconstruct_complete_singular_structure()
+        complete_singular_structure = local_counterterm.reconstruct_complete_singular_structure()
 
         reduced_process = local_counterterm.process.get_copy(
             ['legs', 'n_loops', 'legs_with_decays', 'squared_orders', 'beam_factorization'] )
@@ -2435,17 +2543,30 @@ class IRSubtraction(object):
         # A list to hold all integrated CT generated here.
         integrated_CTs = []
         
-        # Handle the specific case of single initial-state counterterm
-        if len(initial_state_legs) == 1 and \
-            len(complete_singular_structure.substructures)==1:
+        # Check if this local counterterm has a soft component that recoils symmetrically
+        # against both beams.
+        has_soft_symmetric_ISR_recoil = (self.soft_do_recoil_against_initial_states and 
+                complete_singular_structure.does_require_correlated_beam_convolution())
+        
+        # Handle the specific case of single initial-state counterterm or soft recoil against IS.
+        if (len(initial_state_legs) == 1 and len(complete_singular_structure.substructures)==1) or \
+                                                             has_soft_symmetric_ISR_recoil:
+            
+            if has_soft_symmetric_ISR_recoil:
+                # In the case of soft recoiling against initial states, the beam_type should not matter.
+                beam_type = None
+                beam_PDGs = None
+            else:  
+                beam_number = initial_state_legs[0].n
+                beam_names = {1:'beam_one', 2:'beam_two'}
+                        
+                assert (beam_number in [1,2]), "MadNkLO only supports initial state legs with number in [1,2]."
+                beam_type = self.beam_types[beam_number-1][0] if self.beam_types[beam_number-1] else None
+                beam_PDGs = self.beam_types[beam_number-1][1] if self.beam_types[beam_number-1] else None
 
-            beam_number = initial_state_legs[0].n
-            beam_names = {1:'beam_one', 2:'beam_two'}
-                    
-            assert (beam_number in [1,2]), "MadNkLO only supports initial state legs with number in [1,2]."
             beam_current_options = {
-                    'beam_type'     :   self.beam_types[beam_number-1][0] if self.beam_types[beam_number-1] else None,
-                    'beam_PDGs'     :   self.beam_types[beam_number-1][1] if self.beam_types[beam_number-1] else None,
+                    'beam_type'     :   beam_type,
+                    'beam_PDGs'     :   beam_PDGs,
                     'n_loops'       :   n_loops,
                     'squared_orders':   squared_orders,
                     'singular_structure': complete_singular_structure
@@ -2466,8 +2587,9 @@ class IRSubtraction(object):
                     momenta_dict= bidict(local_counterterm.momenta_dict),
                     prefactor   = -1. * local_counterterm.prefactor ))
 
-            # Handle the specific case of NLO ISR
-            elif complete_singular_structure.substructures[0].name() == 'C':
+            # Handle the specific case of ISR recoils, either because of ISR collinear or
+            # soft counterterms in colorful and ppToOneWalker mapping.
+            elif has_soft_symmetric_ISR_recoil or complete_singular_structure.substructures[0].name() == 'C':
 
                 # Now add the three pieces of the integrated ISR. Ultimately we may choose to instead
                 # generate only the first piece ('bulk') and the other two via an iterative application
@@ -2500,7 +2622,7 @@ class IRSubtraction(object):
                         ]+additional_CT_nodes,
                     momenta_dict= bidict(local_counterterm.momenta_dict),
                     prefactor   = +1. * local_counterterm.prefactor ))
-
+            
         else:
             # Here is the general solution chosen for arbitrary final state local CT
             integrated_current = IntegratedCurrent({

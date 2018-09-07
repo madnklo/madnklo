@@ -344,7 +344,104 @@ class QCD_beam_factorization_single_collinear(currents.QCDBeamFactorizationCurre
         })
 
         return evaluation
-    
+
+#=========================================================================================
+# Integrated single soft counterterm when recoiling equally against the two incoming beams
+# This implementation is only used for the colorful currents scheme when used together with
+# mapping like ppToOneWalker where the soft momentum recoils democratically against the two
+# incoming beams
+#=========================================================================================
+class QCD_beam_factorization_single_soft(currents.QCDBeamFactorizationCurrent):
+    """Implements the NLO QCD initial-state single soft integgratated counterterm."""
+
+    distribution_types_implemented_in_this_class = ['bulk','counterterm','endpoint']
+
+    # These integrated contributions are not really directly related to the physical
+    # properties of beam factorization (for instance they don't act on the flavor space) and
+    # therefore apply independely of it.
+    beam_types_implemented_in_this_class = 'ALL'
+    beam_PDGs_implemented_in_this_class = 'ALL'
+
+    def __init__(self, *args, **opts):
+        super(QCD_beam_factorization_single_soft, self).__init__(*args, **opts)
+        self.supports_helicity_assignment = False
+
+    @classmethod
+    def does_implement_this_current(cls, current, model):
+
+        # Check the general properties common to NLO QCD collinear tree-level currents
+        init_vars = cls.common_does_implement_this_current(current, 2, 0)
+        if init_vars is None:
+            return None
+
+        # Check the structure is an integrated simple soft
+        if len(current.get('singular_structure').substructures)==0:
+            return None
+        singular_structure = current.get('singular_structure').substructures[0]
+        if singular_structure.name() != 'S': 
+            return None
+        if len(singular_structure.substructures)>0:
+            return None
+        
+        # All checks passed
+        return init_vars
+
+    def evaluate_kernel(self, PS_point, process, chsi, mu_r, mu_f, normalization):
+        """ Return an instance of SubtractionCurrentEvaluation, whose 'values' entry
+        are simple EpsilonExpansions since soft-integrated counterterms convoluted in a 
+        correlated fashion with the initial state beams *cannot* act in flavor space."""
+
+        if process is None:
+            raise CurrentImplementationError(self.name() + " requires a reduced_process.")
+
+        # Now find all colored leg numbers in the reduced process
+        all_colored_parton_numbers = []
+        for leg in process.get('legs'):
+            if self.model.get_particle(leg.get('id')).get('color')==1:
+                continue
+            all_colored_parton_numbers.append(leg.get('number'))
+
+        # Now instantiate what the result will be
+        evaluation = utils.SubtractionCurrentEvaluation({
+            'spin_correlations'   : [ None ],
+            'color_correlations'  : [],
+            'values'              : {}
+        })
+
+        color_correlation_index = 0
+        # Now loop over the colored parton number pairs (a,b)
+        # and add the corresponding contributions to this current
+        for i, a in enumerate(all_colored_parton_numbers):
+            # Use the symmetry of the color correlation and soft current (a,b) <-> (b,a)
+            for b in all_colored_parton_numbers[i:]:
+                # Write the integrated eikonal for that pair
+                if a!=b:
+                    mult_factor = 2.
+                else:
+                    mult_factor = 1.
+                evaluation['color_correlations'].append( ((a, b), ) )
+                
+                pa = PS_point[a]
+                pb = PS_point[b]
+                if self.distribution_type == 'bulk':
+                    # TODO Place-holder example
+                    kernel = chsi**2/(1-chsi)
+                elif self.distribution_type == 'counterterm':
+                    # TODO Place-holder example, but it indeed regulates the above example
+                    kernel = 1./(1-chsi)
+                elif self.distribution_type == 'endpoint':
+                    # TODO Place-holder example
+                    kernel = 666.0
+                else:
+                    raise CurrentImplementationError("Distribution type '%s' not supported."
+                                                                    %self.distribution_type)
+
+                evaluation['values'][(0, color_correlation_index)] = {
+                    'finite': normalization * kernel }
+                color_correlation_index += 1
+
+        return evaluation
+
 #=========================================================================================
 # PDF integrated initial-state single soft-collinear counterterm
 #=========================================================================================
@@ -354,6 +451,12 @@ class QCD_beam_factorization_single_softcollinear(currents.QCDBeamFactorizationC
     in the soft counterterms."""
 
     distribution_types_implemented_in_this_class = ['bulk','counterterm','endpoint']
+
+    # These integrated contributions are not really directly related to the physical
+    # properties of beam factorization (for instance they don't act on the flavor space) and
+    # therefore apply independely of it.
+    beam_types_implemented_in_this_class = 'ALL'
+    beam_PDGs_implemented_in_this_class = 'ALL'
 
     # The soft-collinear integrated counterterm has been accounted for completely in the 
     # soft integrated counterterm

@@ -301,7 +301,7 @@ class ParseCmdArguments(object):
         # None means unspecified, therefore considering all types.
         testlimits_options = {
             'correction_order'        : None,
-            'limits'                  : None,
+            'limits'                  : [None,],
             'counterterms'            : None,
             'walker'                  : None,
             'process'                 : {'in_pdgs'  : None,

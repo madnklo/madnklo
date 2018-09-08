@@ -48,6 +48,7 @@ logger = logging.getLogger('madgraph.PhaseSpaceGenerator')
 
 class PhaseSpaceGeneratorError(Exception):
     """Exception raised if an exception is triggered in integrators.""" 
+    pass
 
 #=========================================================================================
 # Phase space generation
@@ -59,6 +60,7 @@ class VirtualPhaseSpaceGenerator(object):
                  beam_Es, 
                  beam_types=(1,1),
                  is_beam_factorization_active=(False, False),
+                 correlated_beam_convolution = False
                 ):
         
         self.initial_masses  = initial_masses
@@ -69,6 +71,11 @@ class VirtualPhaseSpaceGenerator(object):
         self.collider_energy = sum(beam_Es)
         self.beam_types      = beam_types
         self.is_beam_factorization_active = is_beam_factorization_active
+        self.correlated_beam_convolution = correlated_beam_convolution
+        # Sanity check
+        if self.correlated_beam_convolution and self.is_beam_factorization_active != (True, True):
+            raise PhaseSpaceGeneratorError(
+                'The beam convolution cannot be set to be correlated if it is one-sided only')
         self.dimensions      = self.get_dimensions()
         self.dim_ordered_names = [d.name for d in self.dimensions]
         # BALDY shouldn't you use bidict here, given we need it anyway?
@@ -127,10 +134,14 @@ class VirtualPhaseSpaceGenerator(object):
                 dims.append(integrands.ContinuousDimension('tau',lower_bound=0.0, upper_bound=1.0)) 
 
         # Add chsi beam factorization convolution factors if necessary
-        if self.is_beam_factorization_active[0]:
-            dims.append(integrands.ContinuousDimension('chsi1',lower_bound=0.0, upper_bound=1.0))             
-        if self.is_beam_factorization_active[1]:
-            dims.append(integrands.ContinuousDimension('chsi2',lower_bound=0.0, upper_bound=1.0))
+        if self.correlated_beam_convolution:
+            # A single convolution factor chsi that applies to both beams is needed in this case
+            dims.append(integrands.ContinuousDimension('chsi',lower_bound=0.0, upper_bound=1.0))
+        else:
+            if self.is_beam_factorization_active[0]:
+                dims.append(integrands.ContinuousDimension('chsi1',lower_bound=0.0, upper_bound=1.0))             
+            if self.is_beam_factorization_active[1]:
+                dims.append(integrands.ContinuousDimension('chsi2',lower_bound=0.0, upper_bound=1.0))
 
         # Add the phase-space dimensions
         dims.extend([ integrands.ContinuousDimension('x_%d'%i,lower_bound=0.0, upper_bound=1.0) 
@@ -205,7 +216,7 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
     def get_dimensions(self):
         """ Make sure the collider setup is supported."""
 
-        # Add the PDF dimensions if necessary
+        # Check if the beam configuration is supported
         if (not abs(self.beam_types[0])==abs(self.beam_types[1])==1) and \
            (not self.beam_types[0]==self.beam_types[1]==0):
             raise InvalidCmd(
@@ -329,14 +340,19 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
         # necessary. In order for the + distributions of the PDF counterterms and integrated
         # collinear ISR counterterms to hit the PDF only (and not the matrix elements or
         # observables functions), a change of variable is necessary: xb_1' = xb_1 * chsi1
-        if self.is_beam_factorization_active[0]:
-            chsi1 = random_variables[self.dim_name_to_position['chsi1']]
+        if self.correlated_beam_convolution:
+            # Both chsi1 and chsi2 must be set equal then
+            chsi1 = random_variables[self.dim_name_to_position['chsi']]
+            chsi2 = random_variables[self.dim_name_to_position['chsi']]
         else:
-            chsi1 = None
-        if self.is_beam_factorization_active[1]:
-            chsi2 = random_variables[self.dim_name_to_position['chsi2']]
-        else:
-            chsi2 = None
+            if self.is_beam_factorization_active[0]:
+                chsi1 = random_variables[self.dim_name_to_position['chsi1']]
+            else:
+                chsi1 = None
+            if self.is_beam_factorization_active[1]:
+                chsi2 = random_variables[self.dim_name_to_position['chsi2']]
+            else:
+                chsi2 = None
 
         # Now take care of the Phase-space generation:
         # Set some defaults for the variables to be set further

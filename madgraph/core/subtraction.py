@@ -1867,7 +1867,7 @@ class IntegratedCounterterm(Counterterm):
                     raise MadGraph5Error('The beam factorization currents from the reduced'+
         ' process should all be None if the integrated counterterm necessitates a correlated'+
         ' beam convolution.')
-                    bcs['correlated_convolution'] = integrated_current
+                bcs['correlated_convolution'] = integrated_current
             return beam_currents
 
         # Now get all legs of its singular structure

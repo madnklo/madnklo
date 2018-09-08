@@ -425,19 +425,30 @@ class QCD_beam_factorization_single_soft(currents.QCDBeamFactorizationCurrent):
                 pb = PS_point[b]
                 if self.distribution_type == 'bulk':
                     # TODO Place-holder example
-                    kernel = chsi**2/(1-chsi)
+                    kernel = EpsilonExpansion({
+                                0 : (1.+chsi**2)/(1-chsi),
+                                1 : chsi**2/(1-chsi)*log(mu_r**2 / mu_f**2),
+                                2 : chsi**2/(1-chsi)
+                    })
                 elif self.distribution_type == 'counterterm':
                     # TODO Place-holder example, but it indeed regulates the above example
-                    kernel = 1./(1-chsi)
+                    kernel = EpsilonExpansion({
+                                0 : 2./(1-chsi),
+                                1 : 1./(1-chsi)*log(mu_r**2 / mu_f**2),
+                                2 : 1./(1-chsi)
+                    })
                 elif self.distribution_type == 'endpoint':
                     # TODO Place-holder example
-                    kernel = 666.0
+                    kernel = EpsilonExpansion({
+                                0 : 1.,
+                                1 : 2.,
+                                2 : 3.
+                    })
                 else:
                     raise CurrentImplementationError("Distribution type '%s' not supported."
                                                                     %self.distribution_type)
 
-                evaluation['values'][(0, color_correlation_index)] = {
-                    'finite': normalization * kernel }
+                evaluation['values'][(0, color_correlation_index)] = kernel*normalization
                 color_correlation_index += 1
 
         return evaluation

@@ -648,7 +648,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
             beam_types          = simplified_beam_types,
             is_beam_factorization_active = 
                         ( self.contribution_definition.is_beam_active('beam_one'),
-                          self.contribution_definition.is_beam_active('beam_two') ) 
+                          self.contribution_definition.is_beam_active('beam_two') ),
+            correlated_beam_convolution = self.contribution_definition.correlated_beam_convolution
         )
 
         # Add a copy of the PS generator dimensions here.
@@ -2677,6 +2678,8 @@ The missing process is: %s"""%ME_process.nice_string())
         )
         convolved_event = self.convolve_event_with_beam_factorization_currents(event_to_convolve, 
             process['beam_factorization'], PS_point, process, mu_r, mu_f1, mu_f2, chsi1, chsi2 )
+        
+        return convolved_event
     
     def sigma(self, PS_point, process_key, process, all_flavor_configurations, 
                   base_weight, mu_r, mu_f1, mu_f2, chsi1, chsi2, xb_1, xb_2, *args, **opts):
@@ -2696,9 +2699,6 @@ The missing process is: %s"""%ME_process.nice_string())
         # so as to return None
         if matrix_element_event is not None:
             all_events_generated.append(matrix_element_event)
-        
-        # Now register the convoluted event
-        all_events_generated.append(convolved_event)
 
         for counterterm in self.counterterms[process_key]:
             if not counterterm.is_singular():
@@ -2718,6 +2718,14 @@ The missing process is: %s"""%ME_process.nice_string())
         # all_events_generated.combine_events_with_identical_kinematics()
         # (PS: the function above is a place-holder and is not implemented yet.
         return all_events_generated
+
+    def counterterms_to_consider(self, process_key, test_options):
+        """Function called by the function test_IR_limits so that it can be overloaded in
+        daughter classes like the beam-soft (BS) one."""
+
+        # Use correction_order to select CT subset
+        return [ ct for ct in self.counterterms[process_key]
+                 if ct.get_number_of_couplings() <= test_options['correction_order'].count('N') ]
 
     def test_IR_limits(self, test_options):
         """Test how well local counterterms approximate a real-emission matrix element."""
@@ -2804,12 +2812,13 @@ The missing process is: %s"""%ME_process.nice_string())
 
             # Make sure to have the PS point provided as LorentzVectorDict
             a_real_emission_PS_point = phase_space_generators.LorentzVectorDict(
-                (i+1, mom) for i, mom in enumerate(a_real_emission_PS_point) )
+                            (i+1, mom) for i, mom in enumerate(a_real_emission_PS_point) )
 
-            # Use correction_order to select CT subset
-            counterterms_to_consider = [
-                ct for ct in self.counterterms[process_key]
-                if ct.get_number_of_couplings() <= test_options['correction_order'].count('N') ]
+            counterterms_to_consider = self.counterterms_to_consider(process_key, test_options)
+
+            if len(counterterms_to_consider)==0:
+                logger.info('No counterterms to investigate found.')
+                return True
 
             selected_singular_structures = []
 
@@ -2818,7 +2827,7 @@ The missing process is: %s"""%ME_process.nice_string())
                 # If no match is found, then reconstruct the singular structure from the limits
                 # provided
                 selected_counterterms = self.find_counterterms_matching_regexp(
-                    counterterms_to_consider, limit_specifier )
+                                                counterterms_to_consider, limit_specifier )
                 if selected_counterterms:
                     selected_singular_structures.extend([
                         ct.reconstruct_complete_singular_structure()
@@ -2872,6 +2881,33 @@ The missing process is: %s"""%ME_process.nice_string())
             plots_suffix       = test_options['plots_suffix'],
         )
 
+    def scale_configuration(self, chsi1, chsi2, real_emission_PS_point, limit, 
+                                                  scaling_parameter, defining_process):
+        """ Function used by test_IR_limits_for_limit_and_process to scale a given
+        configuration and return the scaled chsi's and PS_point. The definition of this
+        function is useful so that it can be overloaded in the beam-soft integrands 
+        (BS, VS, etc...)"""
+
+        scaled_real_PS_point = walker.approach_limit(
+                       real_emission_PS_point, limit, scaling_parameter, defining_process )
+
+        # Also scale the chsi initial-state convolution parameters if the limit
+        # specifies a beam factorization structure for that initial state:
+        beam_factorisation_legs = limit.get_beam_factorization_legs()
+        
+        # Notice that if we wanted a particular overall scaling of the counterterms,
+        # we would need to correctly adjust the power of the multiplying scaling parameter.
+        if 1 in beam_factorisation_legs:
+            scaled_chsi1 = 1.-(1.-chsi1)*scaling_parameter
+        else:
+            scaled_chsi1 = chsi1
+        if 2 in beam_factorisation_legs:
+            scaled_chsi2 = 1.-(1.-chsi2)*scaling_parameter
+        else:
+            scaled_chsi2 = chsi2
+            
+        return scaled_real_PS_point, chsi1, chsi2
+
     def test_IR_limits_for_limit_and_process(self, test_options, walker, limit, defining_process, process_key, 
         all_flavor_configurations, a_real_emission_PS_point, a_chsi1, a_chsi2, a_xb_1, a_xb_2):
         """ Given a test_options, a process, a specific limit, a walker to approach it,
@@ -2917,35 +2953,18 @@ The missing process is: %s"""%ME_process.nice_string())
             logger.debug("Selected integrated counterterms")
             for ct in integrated_counterterms_to_consider:
                 logger.debug("    "+str(ct['integrated_counterterm']))
-
+        
         # Now progressively approach the limit, using a log scale
         limit_evaluations = {}
         n_steps = test_options['n_steps']
         min_value = test_options['min_scaling_variable']
         base = min_value ** (1./n_steps)
         for step in range(n_steps+1):
-            # Determine the new phase-space point
+            # Determine the new configuration
             scaling_parameter = base ** step
-            scaled_real_PS_point = walker.approach_limit(
-                     a_real_emission_PS_point, limit, scaling_parameter, defining_process )
+            scaled_real_PS_point, scaled_chsi1, scaled_chsi2 = self.scale_configuration(
+                a_chsi1, a_chsi2, a_real_emission_PS_point, limit, scaling_parameter, defining_process)
 
-            # Also scale the chsi initial-state convolution parameters if the limit
-            # specifies a beam factorization structure for that initial state:
-            if limit.does_require_correlated_beam_convolution():
-                beam_factorisation_legs = [1,2]
-            else:
-                beam_factorisation_legs = limit.get_beam_factorization_legs()
-            
-            # Notice that if we wanted a particular overall scaling of the counterterms,
-            # we would need to correctly adjust the power of the multiplying scaling parameter.
-            if 1 in beam_factorisation_legs:
-                scaled_chsi1 = 1.-(1.-a_chsi1)*scaling_parameter
-            else:
-                scaled_chsi1 = a_chsi1
-            if 2 in beam_factorisation_legs:
-                scaled_chsi2 = 1.-(1.-a_chsi2)*scaling_parameter
-            else:
-                scaled_chsi2 = a_chsi2
             if test_options['apply_higher_multiplicity_cuts']:
                 if not self.pass_all_cuts( scaled_real_PS_point,
                         self.processes_map.values()[0][0].get_cached_initial_final_pdgs(),
@@ -3060,16 +3079,18 @@ The missing process is: %s"""%ME_process.nice_string())
             logger.debug('For scaling variable %.3e, weight from ME = %.16f' %(
                                                         scaling_parameter, this_eval['ME'] ))
             total_CTs_wgt = 0.0
+            total_absCTs_wgt = 0.0            
             for CT_str, CT_weight in this_eval.items():
                 if CT_str=='ME': continue
                 total_CTs_wgt += CT_weight
+                total_absCTs_wgt += abs(CT_weight)
                 logger.debug('Weight from CT %s = %.16f' % (CT_str, CT_weight) )
                 if this_eval['ME'] > 0.:
                     logger.debug('Ratio: %.16f'%( CT_weight/float(this_eval['ME']) ))
             if this_eval['ME'] > 0.:
                 logger.debug('Ratio sum(CTs)/ME: %.16f'%(total_CTs_wgt/float(this_eval['ME'])))
             else:
-                logger.debug('Ratio sum(CTs): %.16f'%(total_CTs_wgt))                
+                logger.debug('Ratio sum(CTs)/sum(absCTs): %.16f'%(total_CTs_wgt/total_absCTs_wgt))                
             limit_evaluations[scaling_parameter] = this_eval
             
         # Now return all evaluations performed for each value of the scale
@@ -3131,13 +3152,15 @@ The missing process is: %s"""%ME_process.nice_string())
         plt.xscale('log')
         plt.yscale('log')
         plt.grid(True)
-        total           = [0., ] * len(x_values)
+        total               = [0., ] * len(x_values)
+        total_of_abs_values = [0., ] * len(x_values)
         ME_minus_def_ct = [0., ] * len(x_values)
         line_labels = {}
         for line in lines:
             y_values = [abs(evaluations[x][line]) for x in x_values]
             for i in range(len(x_values)):
                 total[i] += evaluations[x_values[i]][line]
+                total_of_abs_values[i] += abs(evaluations[x_values[i]][line])
             if plot_def and (line == "ME" or line == def_ct):
                 def_ct_sign = 1
                 if line == def_ct:
@@ -3174,16 +3197,24 @@ The missing process is: %s"""%ME_process.nice_string())
         plt.gca().set_prop_cycle(color=colors)
         if plot_title and title: plt.title(title)
         plt.xlabel('$\lambda$')
-        plt.ylabel('Ratio to ME')
         plt.xscale('log')
         plt.grid(True)
+        found_zero_ME = False
         for line in lines:
-            y_values = [abs(evaluations[x][line]/evaluations[x]["ME"]) for x in x_values]
+            if any(evaluations[x]["ME"]==0. for x in x_values):
+                y_values = [abs(evaluations[x][line]/total_of_abs_values[i]) for i, x in enumerate(x_values)]
+                found_zero_ME = True
+            else:
+                y_values = [abs(evaluations[x][line]/evaluations[x]["ME"]) for x in x_values]
             if '(' in line:
                 style = '--'
             else:
                 style = '-'
             plt.plot(x_values, y_values, style, label=line_labels[line])
+        if found_zero_ME:
+            plt.ylabel('Ratio to sum of abs CT')
+        else:
+            plt.ylabel('Ratio to ME')
         plt.legend()
         if filename:
             plt.savefig(filename + '_ratios' + plot_extension)
@@ -3191,16 +3222,24 @@ The missing process is: %s"""%ME_process.nice_string())
         # Check that the ratio of def_ct to the ME is close to -1
         if plot_def and not test_failed:
             def_ct_2_ME_ratio = evaluations[x_values[0]][def_ct]
-            def_ct_2_ME_ratio /= evaluations[x_values[0]]["ME"]
-            foo_str = "The ratio of the defining CT to the ME at lambda = %s is: %s."
+            if evaluations[x_values[0]]["ME"] != 0.:
+                def_ct_2_ME_ratio /= evaluations[x_values[0]]["ME"]
+                foo_str = "The ratio of the defining CT to the ME at lambda = %s is: %s."
+            else:
+                def_ct_2_ME_ratio /= total_of_abs_values[0]
+                foo_str = "The ratio of the defining CT to the total abs sum at lambda = %s is: %s."            
             logger.info(foo_str % (x_values[0], def_ct_2_ME_ratio))
             test_ratio = abs(def_ct_2_ME_ratio)-1
             test_failed = test_ratio > acceptance_threshold
         # Check that the ratio between total and ME is close to 0
         if plot_total and not test_failed:
             total_2_ME_ratio = total[0]
-            total_2_ME_ratio /= evaluations[x_values[0]]["ME"]
-            foo_str = "The ratio of the total to the ME at lambda = %s is: %s."
+            if evaluations[x_values[0]]["ME"] == 0.:
+                total_2_ME_ratio /= total_of_abs_values[0]
+                foo_str = "The ratio of the total to the sum of abs CT at lambda = %s is: %s."
+            else:
+                total_2_ME_ratio /= evaluations[x_values[0]]["ME"]
+                foo_str = "The ratio of the total to the ME at lambda = %s is: %s."
             logger.info(foo_str % (x_values[0], total_2_ME_ratio))
             test_ratio  = abs(total_2_ME_ratio)
             test_failed = test_ratio > acceptance_threshold
@@ -3406,6 +3445,47 @@ class ME7Integrand_BS(ME7Integrand_RV):
         a receptacle for the integrated soft counterterms that recoil equally against the
         initial-state beams."""
         return None
+
+    def counterterms_to_consider(self, process_key, test_options):
+        """Overload this function so as to return integrated counterterms since it is the only
+        thing present for now."""
+
+        return [
+            ct['integrated_counterterm'] for ct in self.integrated_counterterms[process_key]
+            if ct['integrated_counterterm'].get_number_of_couplings() <= test_options['correction_order'].count('N') ]
+        
+
+    def scale_configuration(self, chsi1, chsi2, real_emission_PS_point, limit, 
+                                                      scaling_parameter, defining_process):
+        """ Function used by test_IR_limits_for_limit_and_process to scale a given
+        configuration and return the scaled chsi's and PS_point. We must specialize it here
+        so as to leave the real_emission_PS untouched since the limit anyway correspond to
+        rescaling of chsi only."""
+
+        # Leave the PS point untouched.
+        scaled_real_PS_point = real_emission_PS_point.get_copy()
+
+        # Also scale the chsi initial-state convolution parameters if the limit
+        # specifies a beam factorization structure for that initial state:
+        # Notice that it should always be True in this case.
+        if limit.does_require_correlated_beam_convolution():
+            scaled_chsi1 = 1.-(1.-chsi1)*math.sqrt(scaling_parameter)
+            scaled_chsi2 = 1.-(1.-chsi2)*math.sqrt(scaling_parameter)
+        else:   
+            beam_factorisation_legs = limit.get_beam_factorization_legs()
+            # Notice that if we wanted a particular overall scaling of the counterterms,
+            # we would need to correctly adjust the power of the multiplying scaling parameter.
+            if 1 in beam_factorisation_legs:
+                scaled_chsi1 = 1.-(1.-chsi1)*scaling_parameter
+            else:
+                scaled_chsi1 = chsi1
+            if 2 in beam_factorisation_legs:
+                scaled_chsi2 = 1.-(1.-chsi2)*scaling_parameter
+            else:
+                scaled_chsi2 = chsi2
+        
+        return scaled_real_PS_point, scaled_chsi1, scaled_chsi2
+        
 
 class ME7Integrand_RR(ME7Integrand_R):
     """ ME7Integrand for the computation of a double real-emission type of contribution."""

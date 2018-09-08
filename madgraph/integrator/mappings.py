@@ -396,6 +396,7 @@ class SoftVariables(object):
         """
 
         # For soft particles, just pass the whole momentum
+        misc.sprint(PS_point)
         for i in children:
             kinematic_variables['p' + str(i)] = PS_point[i].get_copy()
         return

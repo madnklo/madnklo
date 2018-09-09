@@ -121,7 +121,7 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
         # Maximum number of evaluation before returning an answer
         default_opts['max_eval'] = int(1e10)
         # Minimum number of evaluation before returning an answer
-        default_opts['min_eval'] = 0
+        default_opts['min_eval'] = 5000
 
         # Parameter relevant for Vegas integration method
         # ------------------------------------------------
@@ -271,10 +271,6 @@ class pyCubaIntegrator(integrators.VirtualIntegrator):
         # rule is available only in 3 dimensions, the degree-13 rule only in 2 dimensions.
         # For other values, the default rule is taken, which is the degree-13 rule in 2 dimensions,
         # the degree-11 rule in 3 dimensions, and the degree-9 rule otherwise.
-
-        # Number of min and max evaluations for the integration with Cuhre
-        default_opts['min_eval'] = 0
-        default_opts['max_eval'] = 50000
 
         # Set instance attributes options
         for opt in default_opts:
@@ -542,6 +538,11 @@ less statistics using one core only.
                 # Explicitly use the 'load_grids' option if you want to load from the check_point grid
                 # Add a short_cut for the option 'last_run'
                 grid_to_load = self.load_grids
+                # If it was not done already make sure that any grid from previous runs is moved
+                # to the 'last_run' grid name, hence making sure that it will be reused *only* if
+                # it was specified by the user with the option '--last_run'.
+                if os.path.exists(self.vegas_check_point_file):
+                    shutil.move(self.vegas_check_point_file, self.vegas_check_point_file_last_run)
                 if self.load_grids == 'last_run':
                     if os.path.exists(self.vegas_check_point_file_last_run):
                         grid_to_load = self.vegas_check_point_file_last_run

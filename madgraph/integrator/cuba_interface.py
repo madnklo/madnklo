@@ -119,6 +119,8 @@ iteration.
   if seed is None:
     seed = 0
 
+  import madgraph.various.misc as misc
+
   lib.Vegas(ndim, ncomp, wrap_integrand_vegas(integrand), userdata,
     c_int(nvec), c_double(epsrel), c_double(epsabs), flags, seed,
     mineval, maxeval, nstart, nincrease, nbatch,

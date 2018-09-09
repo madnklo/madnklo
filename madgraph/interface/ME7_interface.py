@@ -530,7 +530,7 @@ class ParseCmdArguments(object):
                                   'save_grids'          : None,
                                   'load_grids'          : None,
                                   # Cuba@Vegas options
-                                  'max_eval'            : 1e10,
+                                  'max_eval'            : int(1e10),
                                   'max_eval_survey'     : 10000,
                                   'n_start'             : 1000,
                                   'n_start_survey'      : 1000,

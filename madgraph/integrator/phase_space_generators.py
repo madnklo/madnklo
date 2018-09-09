@@ -315,12 +315,23 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
         dictating a specific choice of incoming particle's momenta.
         """
 
+        # Check the sensitivity of te inputs from the integrator
+        if any(math.isnan(r) for r in random_variables):
+            logger.warning('Some input variables from the integrator are malformed: %s'%
+                ( ', '.join( '%s=%s'%( name, random_variables[pos]) for name, pos in 
+                                                     self.dim_name_to_position.items() ) ))
+            logger.warning('The PS generator will yield None, triggering the point to be skipped.')
+            return None, 0.0, (0., 0.), (0., 0.)
+
         # if random_variables are not defined, than just throw a completely random point
         if random_variables is None:
             random_variables = self.dimensions.random_sample()
         
         # Phase-space point weight to return
         wgt = 1.0
+        
+        #if any(math.isnan(r) for r in random_variables):
+        #    misc.sprint(random_variables)
         
         # Avoid extrema since the phase-space generation algorithm doesn't like it
         random_variables = [min(max(rv,self.epsilon_border),1.-self.epsilon_border) for rv in random_variables]

@@ -1870,6 +1870,7 @@ class ME7Integrand_V(ME7Integrand):
             pdf = None if test_options['set_PDFs_to_unity'] else self.pdf
             events.apply_PDF_convolution( self.get_pdfQ2, (pdf, pdf), (a_xb_1, a_xb_2), 
                                                                  (mu_f1**2, mu_f2**2) )
+
         # Make sure Bjorken-x rescalings chsi_i don't matter anymore
         for event in events:
             event.set_Bjorken_rescalings(None, None)
@@ -1881,8 +1882,10 @@ class ME7Integrand_V(ME7Integrand):
 #        misc.sprint(events)
 
         # Now collect the results necessary to test that the poles cancel in the dictionary below
+        # Some contributions like the beam-soft ones may not have any physical contributions
+        # but just are a receptacle for integrated softs. We therefore initialize it at zero.
         evaluation = {
-             'virtual_ME'           : None,
+             'virtual_ME'           : base_objects.EpsilonExpansion({0: 0.0}),
              'integrated_CTs'       : None,
              'defining_process'     : defining_process,
              'PS_point'             : a_virtual_PS_point }
@@ -1899,10 +1902,7 @@ class ME7Integrand_V(ME7Integrand):
                 events_sum += event
             event_wgt = event.get_total_weight()
             if event.counterterm_structure is None:
-                if evaluation['virtual_ME'] is None:
-                    evaluation['virtual_ME'] = event_wgt
-                else:
-                    evaluation['virtual_ME'] += event_wgt
+                evaluation['virtual_ME'] += event_wgt
             else:
                 if str(event.counterterm_structure) in evaluation:
                     evaluation[str(event.counterterm_structure)] += event_wgt           

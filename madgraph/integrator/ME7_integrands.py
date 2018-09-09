@@ -1669,12 +1669,12 @@ class ME7Integrand_V(ME7Integrand):
             else:
                 all_necessary_ME_calls = ME7Integrand_R.update_all_necessary_ME_calls(
                      all_necessary_ME_calls, current_evaluation, weight_type='main_weight')
-                
+
         # Then evaluate the beam factorization currents
         all_necessary_ME_calls = ME7Integrand_R.process_beam_factorization_currents(
             all_necessary_ME_calls, counterterm.get_beam_currents(), self.all_MEAccessors,
             reduced_PS, counterterm.process, chsi1, chsi2, mu_r, mu_f1, mu_f2)
-
+        
         # Now perform the combination of the list of spin- and color- correlators to be merged
         # for each necessary ME call identified
         all_necessary_ME_calls = ME7Integrand_R.merge_correlators_in_necessary_ME_calls(
@@ -2423,7 +2423,8 @@ class ME7Integrand_R(ME7Integrand):
                 if beam_currents['beam_one'] is not None or beam_currents['beam_two'] is not None:
                     raise MadGraph5Error('MadNkLO does not support the specification of both a current'+
                         ' requiring correlated beam convolution with one-sided convolution currents.')
-                if chsi1 != chsi2 or chsi1 is None:
+                if (not isinstance(beam_currents['correlated_convolution'], 
+                            subtraction.IntegratedBeamCurrent)) and (chsi1 != chsi2 or chsi1 is None):
                     raise MadGraph5Error('Currents requiring correlated beam convolutions must be'
                         ' evaluated within a current in which chsi1 == chsi2 and different than None.')
                 # By convention we pass here the factorization scale mu_f1 and not mu_f2, but that should be irrelevant 

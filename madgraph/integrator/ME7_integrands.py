@@ -2883,7 +2883,7 @@ The missing process is: %s"""%ME_process.nice_string())
         )
 
     def scale_configuration(self, xi1, xi2, real_emission_PS_point, limit, 
-                                                  scaling_parameter, defining_process):
+                                                  scaling_parameter, defining_process, walker):
         """ Function used by test_IR_limits_for_limit_and_process to scale a given
         configuration and return the scaled xi's and PS_point. The definition of this
         function is useful so that it can be overloaded in the beam-soft integrands 
@@ -2964,7 +2964,7 @@ The missing process is: %s"""%ME_process.nice_string())
             # Determine the new configuration
             scaling_parameter = base ** step
             scaled_real_PS_point, scaled_xi1, scaled_xi2 = self.scale_configuration(
-                a_xi1, a_xi2, a_real_emission_PS_point, limit, scaling_parameter, defining_process)
+                a_xi1, a_xi2, a_real_emission_PS_point, limit, scaling_parameter, defining_process, walker)
 
             if test_options['apply_higher_multiplicity_cuts']:
                 if not self.pass_all_cuts( scaled_real_PS_point,
@@ -3457,7 +3457,7 @@ class ME7Integrand_BS(ME7Integrand_RV):
         
 
     def scale_configuration(self, xi1, xi2, real_emission_PS_point, limit, 
-                                                      scaling_parameter, defining_process):
+                                                      scaling_parameter, defining_process, walker):
         """ Function used by test_IR_limits_for_limit_and_process to scale a given
         configuration and return the scaled xi's and PS_point. We must specialize it here
         so as to leave the real_emission_PS untouched since the limit anyway correspond to

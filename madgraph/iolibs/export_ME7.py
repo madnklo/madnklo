@@ -292,7 +292,7 @@ class ME7Exporter(object):
                 # and number of unresolved particles of the form:
                 # BS at NLO
                 # VS, RS at NNLO, etc...
-                # where both beam are convoluted with an identical fraction chsi.
+                # where both beam are convoluted with an identical fraction xi.
                 # ------------------------------------------------------------------------------
                 # /!\ Notice that depending on the specifics of the implementation of colorful
                 # with ISR at NNLO, it may be that contributions such as VVF1S may be needed.

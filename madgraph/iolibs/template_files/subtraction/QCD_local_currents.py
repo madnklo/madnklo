@@ -200,8 +200,8 @@ class QCDCurrent(utils.VirtualCurrentImplementation):
 #=========================================================================================
 class QCDBeamFactorizationCurrent(QCDCurrent):
     """ Mother class for QCD beam factorization currents (integrated ISR and PDF counter-terms
-    characterized by the fact that they all have a chsi-dependence (or are the end-point of
-    a chsi-dependent function."""
+    characterized by the fact that they all have a xi-dependence (or are the end-point of
+    a xi-dependent function."""
 
     # When chosing a pattern where a single class accepts all distribution type, then
     # keep the variable below set to ['bulk','counterterm','endpoint'], otherwise define
@@ -281,7 +281,7 @@ class QCDBeamFactorizationCurrent(QCDCurrent):
         return init_vars
 
     def evaluate_subtraction_current(self, current, higher_PS_point=None, lower_PS_point=None, 
-            reduced_process = None, chsi=None, mu_r=None, mu_f=None, hel_config=None, **opts ):
+            reduced_process = None, xi=None, mu_r=None, mu_f=None, hel_config=None, **opts ):
         """ This implementation of the main function call in the base class preprocess
         the inputs so as to define the variable generically useful for all beam factorization
         current."""
@@ -289,9 +289,9 @@ class QCDBeamFactorizationCurrent(QCDCurrent):
         if not hel_config is None:
             raise CurrentImplementationError(
                 self.name() + " does not support helicity assignment." )
-        if self.distribution_type != 'endpoint' and chsi is None:
+        if self.distribution_type != 'endpoint' and xi is None:
             raise CurrentImplementationError(
-                self.name() + " requires the rescaling variable chsi." )
+                self.name() + " requires the rescaling variable xi." )
         if mu_f is None:
             raise CurrentImplementationError(
                 self.name() + " requires the factorization scale mu_f." )
@@ -316,7 +316,7 @@ class QCDBeamFactorizationCurrent(QCDCurrent):
         # BeamFactorizationCurrentEvaluation which can specify color-correlations as 
         # well as reduced and resolved flavors.
         evaluation = self.evaluate_kernel(
-                          lower_PS_point, reduced_process, chsi, mu_r, mu_f, normalization)
+                          lower_PS_point, reduced_process, xi, mu_r, mu_f, normalization)
 
         # Construct and return result
         result = utils.SubtractionCurrentResult()

@@ -4095,7 +4095,7 @@ class ContributionDefinition(object):
                  # Active simply means the a convolution is in place.
                  beam_factorization_active  = (False, False),
                  # Correlated beam convolutions means that both beams are convoluted with
-                 # the same variable chsi
+                 # the same variable xi
                  correlated_beam_convolution = False
                 ):
         """ Instantiate a contribution definition with all necessary information

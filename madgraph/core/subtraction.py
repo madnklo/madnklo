@@ -1060,13 +1060,13 @@ class BeamCurrent(Current):
     (aka PDF counterterms).
 
     If we have:
-        PDF_CT(\chsi) = F_+(\chsi) + [F] \delta(\chsi-1)
+        PDF_CT(\xi) = F_+(\xi) + [F] \delta(\xi-1)
     (which can also be explicitely written)
-        PDF_CT(\chsi) = F(\chsi) + {F(\chsi)} \delta(\chsi-1) + [F] \delta(\chsi-1)
+        PDF_CT(\xi) = F(\xi) + {F(\xi)} \delta(\xi-1) + [F] \delta(\xi-1)
 
-    Then this current represent the two pieces of the chsi-dependent distribution F_+(\chsi),
-    the first piece (F(\chsi)) with 'distribution_type' set to 'bulk' and the latter 
-    ({F(\chsi)} \delta(\chsi-1)) with this attribute set to 'counterterm'.
+    Then this current represent the two pieces of the xi-dependent distribution F_+(\xi),
+    the first piece (F(\xi)) with 'distribution_type' set to 'bulk' and the latter 
+    ({F(\xi)} \delta(\xi-1)) with this attribute set to 'counterterm'.
     """
     
     def default_setup(self):
@@ -1147,11 +1147,11 @@ class IntegratedBeamCurrent(IntegratedCurrent):
     """ A special class of current representing the integrated beam factorization terms 
 
     If we have:
-        PDF_CT(\chsi) = F_+(\chsi) + [F] \delta(\chsi-1)
+        PDF_CT(\xi) = F_+(\xi) + [F] \delta(\xi-1)
     (which can also be explicitely written)
-        PDF_CT(\chsi) = F(\chsi) + :F(\chsi): \delta(\chsi-1) + [F] \delta(\chsi-1)
+        PDF_CT(\xi) = F(\xi) + :F(\xi): \delta(\xi-1) + [F] \delta(\xi-1)
 
-    Then this current returns the end-point of the distribution: [F] \delta(\chsi-1)
+    Then this current returns the end-point of the distribution: [F] \delta(\xi-1)
     """
 
     def default_setup(self):
@@ -2033,7 +2033,7 @@ class IntegratedCounterterm(Counterterm):
         # process factorized
         n_loops = self.process.get_n_loops_in_beam_factorization()
 
-        # Then add those of the chsi-dependent integrated ISR counterterm and local F ones.
+        # Then add those of the xi-dependent integrated ISR counterterm and local F ones.
         beam_numbers_in_currents = set([])
         soft_beam_factorisation_n_loop = 0
         for current in self.get_all_currents():
@@ -2604,7 +2604,7 @@ class IRSubtraction(object):
                     momenta_dict= bidict(local_counterterm.momenta_dict),
                     prefactor   = -1. * local_counterterm.prefactor ))
     
-                # Then the bulk and counterterm integrated ISR pieces, which are both \chsi dependent.
+                # Then the bulk and counterterm integrated ISR pieces, which are both \xi dependent.
                 beam_current_options['distribution_type'] = 'bulk'
                 integrated_CTs.append(IntegratedCounterterm(
                     process     = reduced_process,

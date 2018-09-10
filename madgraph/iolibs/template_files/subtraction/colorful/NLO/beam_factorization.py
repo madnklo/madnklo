@@ -37,25 +37,25 @@ CurrentImplementationError = utils.CurrentImplementationError
 
 log = math.log
 
-# All counterterms here adopt a chsi-dependent distribution of the following form:
+# All counterterms here adopt a xi-dependent distribution of the following form:
 #
-#        Counterterm(\chsi) = F_+(\chsi) + [F] \delta(\chsi-1)
+#        Counterterm(\xi) = F_+(\xi) + [F] \delta(\xi-1)
 #    (which can also be explicitely written)
-#        Counterterm(\chsi) = F(\chsi) + {F(\chsi)} \delta(\chsi-1) + [F] \delta(\chsi-1)
+#        Counterterm(\xi) = F(\xi) + {F(\xi)} \delta(\xi-1) + [F] \delta(\xi-1)
 #
 #  where 'F' can either be a PDF counterterm or an interated collinear ISR counterterm.
 #  Then each piece of the distribution is assigned a different value for its attribute
 #  'distribution_type' as follows:
 #
-#     F(\chsi)   --> distribution_type = 'bulk'
-#     {F(\chsi)} --> distribution_type = 'counterterm'
-#     [F(\chsi)] --> distribution_type = 'endpoint'
+#     F(\xi)   --> distribution_type = 'bulk'
+#     {F(\xi)} --> distribution_type = 'counterterm'
+#     [F(\xi)] --> distribution_type = 'endpoint'
 
 #=========================================================================================
 # PDF Counterterm
 #=========================================================================================
 class QCD_beam_factorization_F0(currents.QCDBeamFactorizationCurrent):
-    """Implements the NLO QCD PDF counterterm of type F(\chsi)"""
+    """Implements the NLO QCD PDF counterterm of type F(\xi)"""
 
     distribution_types_implemented_in_this_class = ['bulk','counterterm','endpoint']
     
@@ -89,9 +89,9 @@ class QCD_beam_factorization_F0(currents.QCDBeamFactorizationCurrent):
         # all possible incoming flavors.
         return init_vars
 
-    def evaluate_kernel(self, PS_point, process, chsi, mu_r, mu_f, normalization):
+    def evaluate_kernel(self, PS_point, process, xi, mu_r, mu_f, normalization):
         """ Return an instance of BeamFactorizationCurrentEvaluation, whose 'values' entry
-        are dictionaries specifying the counterterm in flavor space, for the value of chsi 
+        are dictionaries specifying the counterterm in flavor space, for the value of xi 
         specified in argument."""
 
         # Only the order epsilon of the scales pre-factor matters here.
@@ -101,36 +101,36 @@ class QCD_beam_factorization_F0(currents.QCDBeamFactorizationCurrent):
         })
         prefactor *= EpsilonExpansion({-1:1.})*normalization
 
-        # Assign a fake chsi for now if the distribution type is 'endpoint'
+        # Assign a fake xi for now if the distribution type is 'endpoint'
         # TODO: this is not optimal, eventually we should put each of these three pieces in
         # separate currents
         if self.distribution_type == 'endpoint':
-            chsi = 0.5
+            xi = 0.5
 
         # Define the NLO QCD PDF counterterms kernels
         kernel_gg = { 
             'bulk'          :     prefactor*( 
-                2.*self.CA*( 1./ (1.-chsi) + (1.-chsi)/chsi -1. + chsi*(1-chsi) ) 
+                2.*self.CA*( 1./ (1.-xi) + (1.-xi)/xi -1. + xi*(1-xi) ) 
             ),
-            'counterterm'   :     prefactor*( 2.*self.CA / (1.-chsi) ),
+            'counterterm'   :     prefactor*( 2.*self.CA / (1.-xi) ),
             'endpoint'      :     prefactor*( 11./6.*self.CA - 2./3.*self.NF*self.TR)
         }
                  
         kernel_gq = { 
-            'bulk'          :     prefactor*( self.CF*(1.+(1.-chsi)**2)/chsi ),
+            'bulk'          :     prefactor*( self.CF*(1.+(1.-xi)**2)/xi ),
             'counterterm'   :     None,
             'endpoint'      :     None
         }
         
         kernel_qg = { 
-            'bulk'          :     prefactor*( self.TR*(chsi**2 + (1.-chsi)**2) ),
+            'bulk'          :     prefactor*( self.TR*(xi**2 + (1.-xi)**2) ),
             'counterterm'   :     None,
             'endpoint'      :     None
         }
         
         kernel_qq = { 
-            'bulk'          :     prefactor*( self.CF*((1.+chsi**2)/(1.-chsi)) ),
-            'counterterm'   :     prefactor*( self.CF*((1.+chsi**2)/(1.-chsi)) ),
+            'bulk'          :     prefactor*( self.CF*((1.+xi**2)/(1.-xi)) ),
+            'counterterm'   :     prefactor*( self.CF*((1.+xi**2)/(1.-xi)) ),
             'endpoint'      :     None
         }
 
@@ -178,7 +178,7 @@ class QCD_beam_factorization_F0(currents.QCDBeamFactorizationCurrent):
 # PDF integrated initial-state single collinear counterterm
 #=========================================================================================
 class QCD_beam_factorization_single_collinear(currents.QCDBeamFactorizationCurrent):
-    """Implements the NLO QCD initial-state single collinear integgratated counterterm of type F(\chsi)"""
+    """Implements the NLO QCD initial-state single collinear integgratated counterterm of type F(\xi)"""
 
     distribution_types_implemented_in_this_class = ['bulk','counterterm','endpoint']
     
@@ -210,9 +210,9 @@ class QCD_beam_factorization_single_collinear(currents.QCDBeamFactorizationCurre
         # initial state collinear counterterm of all possible incoming flavors.
         return init_vars
 
-    def evaluate_kernel(self, PS_point, process, chsi, mu_r, mu_f, normalization):
+    def evaluate_kernel(self, PS_point, process, xi, mu_r, mu_f, normalization):
         """ Return an instance of BeamFactorizationCurrentEvaluation, whose 'values' entry
-        are dictionaries specifying the counterterm in flavor space, for the value of chsi 
+        are dictionaries specifying the counterterm in flavor space, for the value of xi 
         specified in argument."""
 
         # Obtain Q_square
@@ -240,7 +240,7 @@ class QCD_beam_factorization_single_collinear(currents.QCDBeamFactorizationCurre
         if self.distribution_type == 'endpoint':
             x = 0.5
         else:
-            x  = chsi
+            x  = xi
 
         log1mx = log(1.-x)
         
@@ -386,7 +386,7 @@ class QCD_beam_factorization_single_soft(currents.QCDBeamFactorizationCurrent):
         # All checks passed
         return init_vars
 
-    def evaluate_kernel(self, PS_point, process, chsi, mu_r, mu_f, normalization):
+    def evaluate_kernel(self, PS_point, process, xi, mu_r, mu_f, normalization):
         """ Return an instance of SubtractionCurrentEvaluation, whose 'values' entry
         are simple EpsilonExpansions since soft-integrated counterterms convoluted in a 
         correlated fashion with the initial state beams *cannot* act in flavor space."""
@@ -426,14 +426,14 @@ class QCD_beam_factorization_single_soft(currents.QCDBeamFactorizationCurrent):
                 if self.distribution_type == 'bulk':
                     # TODO Place-holder example
                     kernel = EpsilonExpansion({
-                                0 : ((1.+chsi**2)/(1-chsi))*(1.+log(mu_r**2 / mu_f**2)),
+                                0 : ((1.+xi**2)/(1-xi))*(1.+log(mu_r**2 / mu_f**2)),
                                 -1 : 0.,
                                 -2 : 0.
                     })
                 elif self.distribution_type == 'counterterm':
                     # TODO Place-holder example, but it indeed regulates the above example
                     kernel = EpsilonExpansion({
-                                0 : (2./(1-chsi))*(1.+log(mu_r**2 / mu_f**2)),
+                                0 : (2./(1-xi))*(1.+log(mu_r**2 / mu_f**2)),
                                 -1 : 0.,
                                 -2 : 0.
                     })
@@ -458,7 +458,7 @@ class QCD_beam_factorization_single_soft(currents.QCDBeamFactorizationCurrent):
 #=========================================================================================
 class QCD_beam_factorization_single_softcollinear(currents.QCDBeamFactorizationCurrent):
     """Implements the NLO QCD initial-state single soft-collinear integgratated counterterm
-    of type F(\chsi). These are zero here since they have already been accounted for
+    of type F(\xi). These are zero here since they have already been accounted for
     in the soft counterterms."""
 
     distribution_types_implemented_in_this_class = ['bulk','counterterm','endpoint']

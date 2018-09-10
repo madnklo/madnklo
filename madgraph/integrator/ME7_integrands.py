@@ -142,10 +142,10 @@ class ME7Event(object):
         
         # In order for the + distributions of the PDF counterterms and integrated
         # collinear ISR counterterms to hit the PDF only (and not the matrix elements or
-        # observables functions), a change of variable is necessary: xb_1' = xb_1 * chsi1
-        # In this case, the chsi1 to factor to apply is given by the Bjorken_x_rescalings
+        # observables functions), a change of variable is necessary: xb_1' = xb_1 * xi1
+        # In this case, the xi1 to factor to apply is given by the Bjorken_x_rescalings
         # factor, which must be used both for rescaling the argument of the PDF as well
-        # as bringing a factor 1/\chsi for the jacobian of the change of variable.
+        # as bringing a factor 1/\xi for the jacobian of the change of variable.
         for flavors in self.weights_per_flavor_configurations:
             PDFs = 1.
             for i, flavor in enumerate(flavors[0]):
@@ -1222,9 +1222,9 @@ class ME7Integrand(integrands.VirtualIntegrand):
         
         PS_point, PS_weight, x1s, x2s = self.phase_space_generator.get_PS_point(PS_random_variables)
         # Unpack the initial momenta rescalings (if present) so as to access both Bjorken
-        # rescalings xb_<i> and the ISR factorization convolution rescalings chsi<i>.
-        xb_1, chsi1 = x1s
-        xb_2, chsi2 = x2s
+        # rescalings xb_<i> and the ISR factorization convolution rescalings xi<i>.
+        xb_1, xi1 = x1s
+        xb_2, xi2 = x2s
         
         if xb_1 >= 1. or xb_2 >= 1 or math.isnan(xb_1) or math.isnan(xb_2):
             raise MadEvent7Error('Unphysical configuration: x1, x2 = %.5e, %.5e'%(xb_1, xb_2))
@@ -1235,10 +1235,10 @@ class ME7Integrand(integrands.VirtualIntegrand):
             if __debug__:
                 if xb_1 > 1. or xb_2 > 1.:
                     logger.debug('Unphysical configuration: x1, x2 = %.5e, %.5e'%(xb_1, xb_2))
-                elif (chsi1 is not None) and xb_1 > chsi1:
-                    logger.debug('Configuration above chsi1 rescaling: x1 > chsi1 : %.5e > %.5e'%(xb_1, chsi1))
-                elif (chsi2 is not None) and xb_2 > chsi2:
-                    logger.debug('Configuration above chsi1 rescaling: x2 > chsi2 : %.5e > %.5e'%(xb_2, chsi2))
+                elif (xi1 is not None) and xb_1 > xi1:
+                    logger.debug('Configuration above xi1 rescaling: x1 > xi1 : %.5e > %.5e'%(xb_1, xi1))
+                elif (xi2 is not None) and xb_2 > xi2:
+                    logger.debug('Configuration above xi1 rescaling: x2 > xi2 : %.5e > %.5e'%(xb_2, xi2))
                 else:
                     logger.debug('Phase-space generation failed.')
                 #raise MadEvent7Error('Unphysical configuration encountered.')
@@ -1252,7 +1252,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         wgt *= PS_weight
         if __debug__: logger.debug("PS_weight: %.5e"%PS_weight)
 
-        # The E_cm entering the flux factor is computed *without* including the chsi<i> rescalings
+        # The E_cm entering the flux factor is computed *without* including the xi<i> rescalings
         # This is necessary and must be kept so.
         E_cm = math.sqrt(xb_1*xb_2)*self.collider_energy
         
@@ -1303,7 +1303,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
             # and for each all the weights of the potentially contributing flavors.
             events = self.sigma(
                 PS_point.to_dict(), process_key, process, all_flavor_configurations, 
-                                        wgt, mu_r, mu_f1, mu_f2, chsi1, chsi2, xb_1, xb_2)
+                                        wgt, mu_r, mu_f1, mu_f2, xi1, xi2, xb_1, xb_2)
             # misc.sprint(events)
             # Apply flavor blind cuts
             if not events.filter_with_flavor_blind_cuts(self.pass_flavor_blind_cuts, process_pdgs,
@@ -1422,7 +1422,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         ])
 
     def convolve_event_with_beam_factorization_currents(self, input_event_to_convolve, 
-            beam_factorization_currents, PS_point, process, mu_r, mu_f1, mu_f2, chsi1, chsi2):
+            beam_factorization_currents, PS_point, process, mu_r, mu_f1, mu_f2, xi1, xi2):
         """ Calls the currents specified in the 'beam_factorization_currents' argument, of the form:
             [{ 'beam_one': <BeamCurrent>,
                'beam_two': <BeamCurrent> }]
@@ -1440,7 +1440,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
             if bc1 is not None:
                 assert(isinstance(bc1, subtraction.BeamCurrent) and bc1['distribution_type']=='bulk')
                 current_evaluation, all_current_results = self.all_MEAccessors(
-                    bc1, lower_PS_point=PS_point, reduced_process=process, chsi=chsi1, mu_r=mu_r, mu_f=mu_f1)
+                    bc1, lower_PS_point=PS_point, reduced_process=process, xi=xi1, mu_r=mu_r, mu_f=mu_f1)
                 assert(current_evaluation['spin_correlations']==[None,])
                 assert(current_evaluation['color_correlations']==[None,])
                 event_to_convolve.convolve_flavors( 
@@ -1448,7 +1448,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
             if bc2 is not None:
                 assert(isinstance(bc2, subtraction.BeamCurrent) and bc2['distribution_type']=='bulk')
                 current_evaluation, all_current_results = self.all_MEAccessors(
-                    bc2, lower_PS_point=PS_point, reduced_process=process, chsi=chsi2, mu_r=mu_r, mu_f=mu_f2)
+                    bc2, lower_PS_point=PS_point, reduced_process=process, xi=xi2, mu_r=mu_r, mu_f=mu_f2)
                 assert(current_evaluation['spin_correlations']==[None,])
                 assert(current_evaluation['color_correlations']==[None,])
                 event_to_convolve.convolve_flavors( 
@@ -1463,10 +1463,10 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # Determine Bjorken scalings.
         assert( all(bc[0] is None for bc in beam_factorization_currents) or
                 all(bc[0] is not None for bc in beam_factorization_currents) )
-        Bjorken_scaling_beam_one = 1. if beam_factorization_currents[0][0] is None else 1./chsi1
+        Bjorken_scaling_beam_one = 1. if beam_factorization_currents[0][0] is None else 1./xi1
         assert( all(bc[1] is None for bc in beam_factorization_currents) or
                 all(bc[1] is not None for bc in beam_factorization_currents) )
-        Bjorken_scaling_beam_two = 1. if beam_factorization_currents[0][1] is None else 1./chsi2
+        Bjorken_scaling_beam_two = 1. if beam_factorization_currents[0][1] is None else 1./xi2
         # Assign the Bjorken scaling found
         convolved_event.set_Bjorken_rescalings(Bjorken_scaling_beam_one, Bjorken_scaling_beam_two)
         return convolved_event
@@ -1564,7 +1564,7 @@ class ME7Integrand_V(ME7Integrand):
         return res
 
     def evaluate_integrated_counterterm(self, integrated_CT_characteristics, PS_point, 
-        base_weight, mu_f1, mu_f2, chsi1, chsi2, is_process_mirrored, input_mapping, 
+        base_weight, mu_f1, mu_f2, xi1, xi2, is_process_mirrored, input_mapping, 
         all_virtual_ME_flavor_configurations, hel_config=None, compute_poles=True):
         """ Evaluates the specified integrated counterterm, provided along with its other
         characteristics, like for example the list of flavors assignments that the resolved
@@ -1673,7 +1673,7 @@ class ME7Integrand_V(ME7Integrand):
         # Then evaluate the beam factorization currents
         all_necessary_ME_calls = ME7Integrand_R.process_beam_factorization_currents(
             all_necessary_ME_calls, counterterm.get_beam_currents(), self.all_MEAccessors,
-            reduced_PS, counterterm.process, chsi1, chsi2, mu_r, mu_f1, mu_f2)
+            reduced_PS, counterterm.process, xi1, xi2, mu_r, mu_f1, mu_f2)
         
         # Now perform the combination of the list of spin- and color- correlators to be merged
         # for each necessary ME call identified
@@ -1717,11 +1717,11 @@ class ME7Integrand_V(ME7Integrand):
                 break
             virtual_PS_point = None
             # Phase-space generation can fail when beam convolution is active, because of the condition
-            # Bjorken_x_i < chsi_i
+            # Bjorken_x_i < xi_i
             while virtual_PS_point is None:
                 virtual_PS_point, jac, x1s, x2s = self.phase_space_generator.get_PS_point(None)
-            xb_1, chsi1 = x1s
-            xb_2, chsi2 = x2s
+            xb_1, xi1 = x1s
+            xb_2, xi2 = x2s
             if test_options['apply_higher_multiplicity_cuts'] or test_options['apply_lower_multiplicity_cuts']:
                 if not self.pass_flavor_blind_cuts(
                     virtual_PS_point,
@@ -1754,8 +1754,8 @@ class ME7Integrand_V(ME7Integrand):
                 all_flavor_configurations.append(initial_final_pdgs)
             
             a_virtual_PS_point = virtual_PS_point.get_copy()
-            a_xb_1, a_chsi1 = x1s
-            a_xb_2, a_chsi2 = x2s
+            a_xb_1, a_xi1 = x1s
+            a_xb_2, a_xi2 = x2s
             while ( ( test_options['apply_higher_multiplicity_cuts'] or 
                       test_options['apply_higher_multiplicity_cuts']    ) and
                    not self.pass_flavor_sensitive_cuts(
@@ -1767,11 +1767,11 @@ class ME7Integrand_V(ME7Integrand):
                     break
                 a_virtual_PS_point = None
                 # Phase-space generation can fail when beam convolution is active, because of the condition
-                # Bjorken_x_i < chsi_i
+                # Bjorken_x_i < xi_i
                 while a_virtual_PS_point is None:
                     a_virtual_PS_point, a_jac, a_x1s, a_x2s = self.phase_space_generator.get_PS_point(None)
-                a_xb_1, a_chsi1 = a_x1s
-                a_xb_2, a_chsi2 = a_x2s
+                a_xb_1, a_xi1 = a_x1s
+                a_xb_2, a_xi2 = a_x2s
             if n_attempts > max_attempts:
                 raise MadEvent7Error(
                     "Could not generate a random kinematic configuration that passes " +
@@ -1780,7 +1780,7 @@ class ME7Integrand_V(ME7Integrand):
 
             process_evaluation = self.test_IR_poles_for_process(
                     test_options, defining_process, process_key, all_flavor_configurations, 
-                    a_virtual_PS_point, a_chsi1, a_chsi2, a_xb_1, a_xb_2 )
+                    a_virtual_PS_point, a_xi1, a_xi2, a_xb_1, a_xb_2 )
 
             all_evaluations[process_key] = process_evaluation
 
@@ -1788,10 +1788,10 @@ class ME7Integrand_V(ME7Integrand):
         return self.analyze_IR_poles_check(all_evaluations, test_options['acceptance_threshold'])    
 
     def test_IR_poles_for_process(self, test_options, defining_process, process_key, 
-        all_flavor_configurations, a_virtual_PS_point, a_chsi1, a_chsi2, a_xb_1, a_xb_2):
+        all_flavor_configurations, a_virtual_PS_point, a_xi1, a_xi2, a_xb_1, a_xb_2):
         """ Given a test_options, a process and all flavor configurations mapped to that 
         particular process, a PS-point onto which to evaluate the various contributions, 
-        as well as its corresponding convolution variables chsi1/2; perform the IR poles 
+        as well as its corresponding convolution variables xi1/2; perform the IR poles 
         test that consists in making sure all poles in the epsilon Laurent expansion have
         residues of zero, exhibiting the various pieces (virtual ME, integrated counterterms)
         part of the KLN cancellation."""
@@ -1839,7 +1839,7 @@ class ME7Integrand_V(ME7Integrand):
             # Now call sigma in order to gather all events
             events = self.sigma(
                 a_virtual_PS_point.to_dict(), process_key, defining_process, all_flavor_configurations, 
-                1.0, mu_r, mu_f1, mu_f2, a_chsi1, a_chsi2, a_xb_1, a_xb_2, 
+                1.0, mu_r, mu_f1, mu_f2, a_xi1, a_xi2, a_xb_1, a_xb_2, 
                 compute_poles            = True,
                 apply_flavour_blind_cuts = (test_options['apply_lower_multiplicity_cuts'] or
                                             test_options['apply_higher_multiplicity_cuts'])
@@ -1864,14 +1864,14 @@ class ME7Integrand_V(ME7Integrand):
             n_jets_allowed_to_be_clustered  = self.contribution_definition.n_unresolved_particles,
             xb_1 = a_xb_1, xb_2 = a_xb_2 )
         # Apply PDF convolution. It is important to convolve with the PDFs, so as to 
-        # correctly get the factors 1/chsi_i multiplying the weights in beam 
+        # correctly get the factors 1/xi_i multiplying the weights in beam 
         # factorization counterterms. But either the PDF density can be set to 1.
         if self.run_card['lpp1']==self.run_card['lpp2']==1:
             pdf = None if test_options['set_PDFs_to_unity'] else self.pdf
             events.apply_PDF_convolution( self.get_pdfQ2, (pdf, pdf), (a_xb_1, a_xb_2), 
                                                                  (mu_f1**2, mu_f2**2) )
 
-        # Make sure Bjorken-x rescalings chsi_i don't matter anymore
+        # Make sure Bjorken-x rescalings xi_i don't matter anymore
         for event in events:
             event.set_Bjorken_rescalings(None, None)
         # Apply flavor sensitive cuts
@@ -1965,7 +1965,7 @@ class ME7Integrand_V(ME7Integrand):
         return True
 
     def sigma(self, PS_point, process_key, process, all_flavor_configurations, 
-                             base_weight, mu_r, mu_f1, mu_f2, chsi1, chsi2, *args, **opts):
+                             base_weight, mu_r, mu_f1, mu_f2, xi1, xi2, *args, **opts):
         """ Overloading of the sigma function from ME7Integrand to include necessary 
         additional contributions. """
         
@@ -1989,7 +1989,7 @@ class ME7Integrand_V(ME7Integrand):
                 counterterm_structure           = None
         )
         convolved_event = self.convolve_event_with_beam_factorization_currents(event_to_convolve, 
-            process['beam_factorization'], PS_point, process, mu_r, mu_f1, mu_f2, chsi1, chsi2 )
+            process['beam_factorization'], PS_point, process, mu_r, mu_f1, mu_f2, xi1, xi2 )
         
         # Now register the convoluted event
         all_events_generated.append(convolved_event)
@@ -2005,7 +2005,7 @@ class ME7Integrand_V(ME7Integrand):
                 # At NLO at least, it is OK to save a bit of time by enforcing 'compute_poles=False').
                 # This will need to be re-assessed at NNLO for RV contributions.
                 CT_event = self.evaluate_integrated_counterterm( 
-                    counterterm_characteristics, PS_point, base_weight, mu_f1, mu_f2, chsi1, chsi2,
+                    counterterm_characteristics, PS_point, base_weight, mu_f1, mu_f2, xi1, xi2,
                     process.get('has_mirror_process'),
                     input_mapping, all_flavor_configurations,
                     hel_config      = None, 
@@ -2385,7 +2385,7 @@ class ME7Integrand_R(ME7Integrand):
 
     @classmethod
     def process_beam_factorization_currents(cls, all_necessary_ME_calls, all_beam_currents, 
-                     all_MEAccessors, PS_point, process, chsi1, chsi2, mu_r, mu_f1, mu_f2):
+                     all_MEAccessors, PS_point, process, xi1, xi2, mu_r, mu_f1, mu_f2):
         """ Calls the beam currents specified in the argument all_beam_currents with format:
               [{       'beam_one': <BeamCurrent>,
                        'beam_two': <BeamCurrent>,
@@ -2400,22 +2400,22 @@ class ME7Integrand_R(ME7Integrand):
             if beam_currents['beam_one'] is not None:
                 if isinstance(beam_currents['beam_one'], subtraction.BeamCurrent) and \
                                     beam_currents['beam_one']['distribution_type']=='bulk':
-                    rescaling = 1./chsi1
+                    rescaling = 1./xi1
                 else:
                     rescaling = 1.
                 current_evaluation, all_current_results = all_MEAccessors(beam_currents['beam_one'], 
-                    lower_PS_point=PS_point, reduced_process=process, chsi=chsi1, mu_r=mu_r, mu_f=mu_f1)
+                    lower_PS_point=PS_point, reduced_process=process, xi=xi1, mu_r=mu_r, mu_f=mu_f1)
                 new_necessary_ME_calls = ME7Integrand_R.update_all_necessary_ME_calls(
                     new_necessary_ME_calls, current_evaluation,
                     weight_type='flavor_matrix_beam_one', Bjorken_rescaling_beam_one = rescaling)
             if beam_currents['beam_two'] is not None:
                 if isinstance(beam_currents['beam_two'], subtraction.BeamCurrent) and \
                                     beam_currents['beam_two']['distribution_type']=='bulk':
-                    rescaling = 1./chsi2
+                    rescaling = 1./xi2
                 else:
                     rescaling = 1.
                 current_evaluation, all_current_results = all_MEAccessors(beam_currents['beam_two'],
-                    lower_PS_point=PS_point, reduced_process=process, chsi=chsi2, mu_r=mu_r, mu_f=mu_f2) 
+                    lower_PS_point=PS_point, reduced_process=process, xi=xi2, mu_r=mu_r, mu_f=mu_f2) 
                 new_necessary_ME_calls = ME7Integrand_R.update_all_necessary_ME_calls(
                     new_necessary_ME_calls, current_evaluation,  
                     weight_type='flavor_matrix_beam_two', Bjorken_rescaling_beam_two = rescaling)
@@ -2424,16 +2424,16 @@ class ME7Integrand_R(ME7Integrand):
                     raise MadGraph5Error('MadNkLO does not support the specification of both a current'+
                         ' requiring correlated beam convolution with one-sided convolution currents.')
                 if (not isinstance(beam_currents['correlated_convolution'], 
-                            subtraction.IntegratedBeamCurrent)) and (chsi1 != chsi2 or chsi1 is None):
+                            subtraction.IntegratedBeamCurrent)) and (xi1 != xi2 or xi1 is None):
                     raise MadGraph5Error('Currents requiring correlated beam convolutions must be'
-                        ' evaluated within a current in which chsi1 == chsi2 and different than None.')
+                        ' evaluated within a current in which xi1 == xi2 and different than None.')
                 # By convention we pass here the factorization scale mu_f1 and not mu_f2, but that should be irrelevant 
                 # since such counterterms are in no way related to the PDF evolution or ISR factorization in general
                 current_evaluation, all_current_results = all_MEAccessors(beam_currents['correlated_convolution'],
-                    lower_PS_point=PS_point, reduced_process=process, chsi=chsi1, mu_r=mu_r, mu_f=mu_f1)
+                    lower_PS_point=PS_point, reduced_process=process, xi=xi1, mu_r=mu_r, mu_f=mu_f1)
                 if isinstance(beam_currents['correlated_convolution'], subtraction.BeamCurrent) and \
                                 beam_currents['correlated_convolution']['distribution_type']=='bulk':
-                    rescaling = 1./chsi1
+                    rescaling = 1./xi1
                 else:
                     rescaling = 1.
                 new_necessary_ME_calls = ME7Integrand_R.update_all_necessary_ME_calls(
@@ -2446,7 +2446,7 @@ class ME7Integrand_R(ME7Integrand):
         return new_all_necessary_ME_calls
 
     def evaluate_counterterm( self, counterterm, PS_point, base_weight, mu_r, mu_f1, mu_f2, 
-        xb_1, xb_2, chsi1, chsi2, is_process_mirrored, all_resolved_flavors, hel_config=None, 
+        xb_1, xb_2, xi1, xi2, is_process_mirrored, all_resolved_flavors, hel_config=None, 
         apply_flavour_blind_cuts=True):
         """Evaluate a counterterm for a given PS point and flavors."""
 
@@ -2538,7 +2538,7 @@ class ME7Integrand_R(ME7Integrand):
         # Then evaluate the beam factorization currents
         all_necessary_ME_calls = ME7Integrand_R.process_beam_factorization_currents(
             all_necessary_ME_calls, counterterm.get_beam_currents(), self.all_MEAccessors, 
-            ME_PS, ME_process, chsi1, chsi2, mu_r, mu_f1, mu_f2)
+            ME_PS, ME_process, xi1, xi2, mu_r, mu_f1, mu_f2)
 
         # Now perform the combination of the list of spin- and color- correlators to be merged
         # for each necessary ME call identified
@@ -2658,7 +2658,7 @@ The missing process is: %s"""%ME_process.nice_string())
         return ME7_event_to_return
     
     def generate_matrix_element_event(self, PS_point, process_key, process, all_flavor_configurations, 
-                  base_weight, mu_r, mu_f1, mu_f2, chsi1, chsi2, xb_1, xb_2, *args, **opts):
+                  base_weight, mu_r, mu_f1, mu_f2, xi1, xi2, xb_1, xb_2, *args, **opts):
         """ Generates one event which corresponds to the physical contribution (i.e. not the
         counterterms) hosted by this contribution."""
     
@@ -2678,12 +2678,12 @@ The missing process is: %s"""%ME_process.nice_string())
                 counterterm_structure           = None
         )
         convolved_event = self.convolve_event_with_beam_factorization_currents(event_to_convolve, 
-            process['beam_factorization'], PS_point, process, mu_r, mu_f1, mu_f2, chsi1, chsi2 )
+            process['beam_factorization'], PS_point, process, mu_r, mu_f1, mu_f2, xi1, xi2 )
         
         return convolved_event
     
     def sigma(self, PS_point, process_key, process, all_flavor_configurations, 
-                  base_weight, mu_r, mu_f1, mu_f2, chsi1, chsi2, xb_1, xb_2, *args, **opts):
+                  base_weight, mu_r, mu_f1, mu_f2, xi1, xi2, xb_1, xb_2, *args, **opts):
         """ Implementation of the short-distance cross-section for the real-emission integrand.
         Counterterms will be computed on top of the actual real-emission integrand.
         Note that the PS_point specified corresponds to a point already multiplied by both
@@ -2695,7 +2695,7 @@ The missing process is: %s"""%ME_process.nice_string())
         
         matrix_element_event = self.generate_matrix_element_event(
                 PS_point, process_key, process, all_flavor_configurations, 
-                  base_weight, mu_r, mu_f1, mu_f2, chsi1, chsi2, xb_1, xb_2, *args, **opts)
+                  base_weight, mu_r, mu_f1, mu_f2, xi1, xi2, xb_1, xb_2, *args, **opts)
         # Some contributions might have not physical contributions and overloaded the above
         # so as to return None
         if matrix_element_event is not None:
@@ -2705,7 +2705,7 @@ The missing process is: %s"""%ME_process.nice_string())
             if not counterterm.is_singular():
                 continue
             CT_event = self.evaluate_counterterm(
-                  counterterm, PS_point, base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, chsi1, chsi2, 
+                  counterterm, PS_point, base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, 
                   process.get('has_mirror_process'), all_flavor_configurations, 
                   hel_config = None, apply_flavour_blind_cuts = apply_flavour_blind_cuts)
             # The function above returns None if the counterterms is removed because of
@@ -2751,11 +2751,11 @@ The missing process is: %s"""%ME_process.nice_string())
                 break
             real_emission_PS_point = None
             # Phase-space generation can fail when beam convolution is active, because of the condition
-            # Bjorken_x_i < chsi_i
+            # Bjorken_x_i < xi_i
             while real_emission_PS_point is None:
                 real_emission_PS_point, jac, x1s, x2s = self.phase_space_generator.get_PS_point(None)
-            xb_1, chsi1 = x1s
-            xb_2, chsi2 = x2s
+            xb_1, xi1 = x1s
+            xb_2, xi2 = x2s
             if test_options['apply_higher_multiplicity_cuts']:
                 if not self.pass_flavor_blind_cuts(
                     real_emission_PS_point,
@@ -2788,8 +2788,8 @@ The missing process is: %s"""%ME_process.nice_string())
                 all_flavor_configurations.append(initial_final_pdgs)
             
             a_real_emission_PS_point = real_emission_PS_point.get_copy()
-            a_xb_1, a_chsi1 = x1s
-            a_xb_2, a_chsi2 = x2s
+            a_xb_1, a_xi1 = x1s
+            a_xb_2, a_xi2 = x2s
             while (test_options['apply_higher_multiplicity_cuts'] and
                    not self.pass_flavor_sensitive_cuts(
                        a_real_emission_PS_point,
@@ -2800,11 +2800,11 @@ The missing process is: %s"""%ME_process.nice_string())
                     break
                 a_real_emission_PS_point = None
                 # Phase-space generation can fail when beam convolution is active, because of the condition
-                # Bjorken_x_i < chsi_i
+                # Bjorken_x_i < xi_i
                 while a_real_emission_PS_point is None:
                     a_real_emission_PS_point, a_jac, a_x1s, a_x2s = self.phase_space_generator.get_PS_point(None)
-                a_xb_1, a_chsi1 = a_x1s
-                a_xb_2, a_chsi2 = a_x2s
+                a_xb_1, a_xi1 = a_x1s
+                a_xb_2, a_xi2 = a_x2s
             if n_attempts > max_attempts:
                 raise MadEvent7Error(
                     "Could not generate a random kinematic configuration that passes " +
@@ -2846,8 +2846,8 @@ The missing process is: %s"""%ME_process.nice_string())
             # a beam factorisation not present in this integrand
             selected_singular_structures = [
                 ss for ss in selected_singular_structures if not (
-                    (1 in ss.get_beam_factorization_legs() and a_chsi1 is None) or 
-                    (2 in ss.get_beam_factorization_legs() and a_chsi2 is None))
+                    (1 in ss.get_beam_factorization_legs() and a_xi1 is None) or 
+                    (2 in ss.get_beam_factorization_legs() and a_xi2 is None))
             ]
             
             if len(selected_singular_structures)==0:
@@ -2862,7 +2862,7 @@ The missing process is: %s"""%ME_process.nice_string())
             for limit in selected_singular_structures:
                 limit_evaluations = self.test_IR_limits_for_limit_and_process(
                     test_options, walker, limit, defining_process, process_key, all_flavor_configurations, 
-                    a_real_emission_PS_point, a_chsi1, a_chsi2, a_xb_1, a_xb_2 )
+                    a_real_emission_PS_point, a_xi1, a_xi2, a_xb_1, a_xb_2 )
                 process_evaluations[str(limit)] = limit_evaluations
 
             process_string = defining_process.base_string()
@@ -2882,39 +2882,39 @@ The missing process is: %s"""%ME_process.nice_string())
             plots_suffix       = test_options['plots_suffix'],
         )
 
-    def scale_configuration(self, chsi1, chsi2, real_emission_PS_point, limit, 
+    def scale_configuration(self, xi1, xi2, real_emission_PS_point, limit, 
                                                   scaling_parameter, defining_process):
         """ Function used by test_IR_limits_for_limit_and_process to scale a given
-        configuration and return the scaled chsi's and PS_point. The definition of this
+        configuration and return the scaled xi's and PS_point. The definition of this
         function is useful so that it can be overloaded in the beam-soft integrands 
         (BS, VS, etc...)"""
 
         scaled_real_PS_point = walker.approach_limit(
                        real_emission_PS_point, limit, scaling_parameter, defining_process )
 
-        # Also scale the chsi initial-state convolution parameters if the limit
+        # Also scale the xi initial-state convolution parameters if the limit
         # specifies a beam factorization structure for that initial state:
         beam_factorisation_legs = limit.get_beam_factorization_legs()
         
         # Notice that if we wanted a particular overall scaling of the counterterms,
         # we would need to correctly adjust the power of the multiplying scaling parameter.
         if 1 in beam_factorisation_legs:
-            scaled_chsi1 = 1.-(1.-chsi1)*scaling_parameter
+            scaled_xi1 = 1.-(1.-xi1)*scaling_parameter
         else:
-            scaled_chsi1 = chsi1
+            scaled_xi1 = xi1
         if 2 in beam_factorisation_legs:
-            scaled_chsi2 = 1.-(1.-chsi2)*scaling_parameter
+            scaled_xi2 = 1.-(1.-xi2)*scaling_parameter
         else:
-            scaled_chsi2 = chsi2
+            scaled_xi2 = xi2
             
-        return scaled_real_PS_point, chsi1, chsi2
+        return scaled_real_PS_point, xi1, xi2
 
     def test_IR_limits_for_limit_and_process(self, test_options, walker, limit, defining_process, process_key, 
-        all_flavor_configurations, a_real_emission_PS_point, a_chsi1, a_chsi2, a_xb_1, a_xb_2):
+        all_flavor_configurations, a_real_emission_PS_point, a_xi1, a_xi2, a_xb_1, a_xb_2):
         """ Given a test_options, a process, a specific limit, a walker to approach it,
         all flavor configurations mapped to that particular process, a 'starting' 
         real-emission type of PS-point from which to scale towards the limit, as well as
-        its corresponding convolution variables chsi1/2, perform the IR limit test that 
+        its corresponding convolution variables xi1/2, perform the IR limit test that 
         consists in approaching the limit and computing both the real-emission matrix 
         element and all counterterms that should subtract its singularities."""
                 
@@ -2938,7 +2938,7 @@ The missing process is: %s"""%ME_process.nice_string())
             for ct in local_counterterms_to_consider:
                 logger.debug("    "+str(ct))
         
-        # We must also include the integrated counterterms as they may have a chsi dependence
+        # We must also include the integrated counterterms as they may have a xi dependence
         if self.has_integrated_counterterms():
             integrated_counterterms_to_consider = [ ct for ct in self.integrated_counterterms[process_key] 
                 if ct['integrated_counterterm'].get_number_of_couplings() <= test_options['correction_order'].count('N') ]
@@ -2963,8 +2963,8 @@ The missing process is: %s"""%ME_process.nice_string())
         for step in range(n_steps+1):
             # Determine the new configuration
             scaling_parameter = base ** step
-            scaled_real_PS_point, scaled_chsi1, scaled_chsi2 = self.scale_configuration(
-                a_chsi1, a_chsi2, a_real_emission_PS_point, limit, scaling_parameter, defining_process)
+            scaled_real_PS_point, scaled_xi1, scaled_xi2 = self.scale_configuration(
+                a_xi1, a_xi2, a_real_emission_PS_point, limit, scaling_parameter, defining_process)
 
             if test_options['apply_higher_multiplicity_cuts']:
                 if not self.pass_all_cuts( scaled_real_PS_point,
@@ -2989,7 +2989,7 @@ The missing process is: %s"""%ME_process.nice_string())
                 # Now call sigma in order to gather all events
                 events = self.sigma(
                     scaled_real_PS_point.to_dict(), process_key, defining_process, all_flavor_configurations, 
-                    1.0, mu_r, mu_f1, mu_f2, scaled_chsi1, scaled_chsi2, a_xb_1, a_xb_2, 
+                    1.0, mu_r, mu_f1, mu_f2, scaled_xi1, scaled_xi2, a_xb_1, a_xb_2, 
                     compute_poles            = False,
                     apply_flavour_blind_cuts = test_options['apply_lower_multiplicity_cuts']
                 )
@@ -3022,13 +3022,13 @@ The missing process is: %s"""%ME_process.nice_string())
             # For the test_IR_limits, we are only interested in the finite part.
             events.select_epsilon_expansion_term(test_options['epsilon_expansion_term'])
             # Apply PDF convolution. It is important to convolve with the PDFs, so as to 
-            # correctly get the factors 1/chsi_i multiplying the weights in beam 
+            # correctly get the factors 1/xi_i multiplying the weights in beam 
             # factorization counterterms. But either the PDF density can be set to 1.
             if self.run_card['lpp1']==self.run_card['lpp2']==1:
                 pdf = None if test_options['set_PDFs_to_unity'] else self.pdf
                 events.apply_PDF_convolution( self.get_pdfQ2, (pdf, pdf), (a_xb_1, a_xb_2), 
                                                                      (mu_f1**2, mu_f2**2) )
-            # Make sure Bjorken-x rescalings chsi_i don't matter anymore
+            # Make sure Bjorken-x rescalings xi_i don't matter anymore
 
             for event in events:
                 event.set_Bjorken_rescalings(None, None)
@@ -3395,10 +3395,10 @@ class ME7Integrand_RV(ME7Integrand_R, ME7Integrand_V):
         return res
     
     def sigma(self, PS_point, process_key, process, all_flavor_configurations, base_weight, mu_r, 
-                                                mu_f1, mu_f2, chsi1, chsi2, xb_1, xb_2, *args, **opts):
+                                                mu_f1, mu_f2, xi1, xi2, xb_1, xb_2, *args, **opts):
         # Start with the events from the process itself and its local counterterms.
         all_events_generated = ME7Integrand_R.sigma(self, PS_point, process_key, process, 
-            all_flavor_configurations, base_weight, mu_r, mu_f1, mu_f2, chsi1, chsi2, xb_1, xb_2, *args, **opts)
+            all_flavor_configurations, base_weight, mu_r, mu_f1, mu_f2, xi1, xi2, xb_1, xb_2, *args, **opts)
 
         compute_poles = opts.get('compute_poles', False)
 
@@ -3413,7 +3413,7 @@ class ME7Integrand_RV(ME7Integrand_R, ME7Integrand_V):
                 # At NLO at least, it is OK to save a bit of time by enforcing 'compute_poles=False').
                 # This will need to be re-assessed at NNLO for RV contributions.
                 CT_event = self.evaluate_integrated_counterterm( 
-                    counterterm_characteristics, PS_point, base_weight, mu_f1, mu_f2, chsi1, chsi2,
+                    counterterm_characteristics, PS_point, base_weight, mu_f1, mu_f2, xi1, xi2,
                     process.get('has_mirror_process'),
                     input_mapping, all_flavor_configurations,
                     hel_config    = None, 
@@ -3456,51 +3456,51 @@ class ME7Integrand_BS(ME7Integrand_RV):
             if ct['integrated_counterterm'].get_number_of_couplings() <= test_options['correction_order'].count('N') ]
         
 
-    def scale_configuration(self, chsi1, chsi2, real_emission_PS_point, limit, 
+    def scale_configuration(self, xi1, xi2, real_emission_PS_point, limit, 
                                                       scaling_parameter, defining_process):
         """ Function used by test_IR_limits_for_limit_and_process to scale a given
-        configuration and return the scaled chsi's and PS_point. We must specialize it here
+        configuration and return the scaled xi's and PS_point. We must specialize it here
         so as to leave the real_emission_PS untouched since the limit anyway correspond to
-        rescaling of chsi only."""
+        rescaling of xi only."""
 
         # Leave the PS point untouched.
         scaled_real_PS_point = real_emission_PS_point.get_copy()
 
-        # Also scale the chsi initial-state convolution parameters if the limit
+        # Also scale the xi initial-state convolution parameters if the limit
         # specifies a beam factorization structure for that initial state:
         # Notice that it should always be True in this case.
         if limit.does_require_correlated_beam_convolution():
-            scaled_chsi1 = 1.-(1.-chsi1)*math.sqrt(scaling_parameter)
-            scaled_chsi2 = 1.-(1.-chsi2)*math.sqrt(scaling_parameter)
+            scaled_xi1 = 1.-(1.-xi1)*math.sqrt(scaling_parameter)
+            scaled_xi2 = 1.-(1.-xi2)*math.sqrt(scaling_parameter)
         else:   
             beam_factorisation_legs = limit.get_beam_factorization_legs()
             # Notice that if we wanted a particular overall scaling of the counterterms,
             # we would need to correctly adjust the power of the multiplying scaling parameter.
             if 1 in beam_factorisation_legs:
-                scaled_chsi1 = 1.-(1.-chsi1)*scaling_parameter
+                scaled_xi1 = 1.-(1.-xi1)*scaling_parameter
             else:
-                scaled_chsi1 = chsi1
+                scaled_xi1 = xi1
             if 2 in beam_factorisation_legs:
-                scaled_chsi2 = 1.-(1.-chsi2)*scaling_parameter
+                scaled_xi2 = 1.-(1.-xi2)*scaling_parameter
             else:
-                scaled_chsi2 = chsi2
+                scaled_xi2 = xi2
         
-        return scaled_real_PS_point, scaled_chsi1, scaled_chsi2
+        return scaled_real_PS_point, scaled_xi1, scaled_xi2
         
 
 class ME7Integrand_RR(ME7Integrand_R):
     """ ME7Integrand for the computation of a double real-emission type of contribution."""
     def sigma(self, PS_point, process_key, process, all_flavor_configurations, base_weight, mu_r, 
-                                                mu_f1, mu_f2, chsi1, chsi2, xb_1, xb_2, *args, **opts):
+                                                mu_f1, mu_f2, xi1, xi2, xb_1, xb_2, *args, **opts):
         return super(ME7Integrand_RR, self).sigma(PS_point, process_key, process, 
-            all_flavor_configurations, base_weight, mu_r, mu_f1, mu_f2, chsi1, chsi2, xb_1, xb_2, *args, **opts)
+            all_flavor_configurations, base_weight, mu_r, mu_f1, mu_f2, xi1, xi2, xb_1, xb_2, *args, **opts)
 
 class ME7Integrand_RRR(ME7Integrand_R):
     """ ME7Integrand for the computation of a double real-emission type of contribution."""
     def sigma(self, PS_point, process_key, process, all_flavor_configurations, base_weight, 
-                                          mu_r, mu_f1, mu_f2, chsi1, chsi2, xb_1, xb_2, *args, **opts):
+                                          mu_r, mu_f1, mu_f2, xi1, xi2, xb_1, xb_2, *args, **opts):
         return super(ME7Integrand_RRR, self).sigma(PS_point, process_key, process,
-            all_flavor_configurations, base_weight, mu_r, mu_f1, mu_f2, chsi1, chsi2, xb_1, xb_2, *args, **opts)
+            all_flavor_configurations, base_weight, mu_r, mu_f1, mu_f2, xi1, xi2, xb_1, xb_2, *args, **opts)
 
 #===============================================================================
 # ME7IntegrandList

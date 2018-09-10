@@ -1185,18 +1185,6 @@ class IntegratedBeamCurrent(IntegratedCurrent):
                     'beam_type' ],
                 track_leg_numbers = track_leg_numbers)
 
-
-    def does_require_correlated_beam_convolution(self):
-        """ Checks whether this integrated counterterm requires a host contribution featuring
-        correlated convolution of the beams (i.e. 'BS', 'VS', etc... contributions).
-        This is the case only for integrated counterterms with disjoint structures having each
-        at least one soft *BeamCurrents* that originated from a colorful subtraction currents 
-        scheme with mappings such as ppToOneWalker that recoils the soft momentum equally 
-        against both initial-state beams."""
-
-        # Return true only if the singular structures of this current are pure soft.
-        return self['singular_structure'].does_require_correlated_beam_convolution()
-
 #=========================================================================================
 # CountertermNode
 #=========================================================================================
@@ -1873,7 +1861,7 @@ class IntegratedCounterterm(Counterterm):
         if type(integrated_current) not in [BeamCurrent, IntegratedBeamCurrent]:
             return beam_currents
         
-        if integrated_current.does_require_correlated_beam_convolution():
+        if integrated_current['singular_structure'].does_require_correlated_beam_convolution():
             for bcs in beam_currents:
                 if bcs['beam_one'] is not None or bcs['beam_two'] is not None:
                     raise MadGraph5Error('The beam factorization currents from the reduced'+

@@ -39,23 +39,23 @@ log = math.log
 
 # All counterterms here adopt a xi-dependent distribution of the following form:
 #
-#        Counterterm(\xi) = F_+(\xi) + [F] \delta(\xi-1)
+#        Counterterm(xi) = F_+(xi) + [F] \delta(xi-1)
 #    (which can also be explicitely written)
-#        Counterterm(\xi) = F(\xi) + {F(\xi)} \delta(\xi-1) + [F] \delta(\xi-1)
+#        Counterterm(xi) = F(xi) + {F(xi)} \delta(xi-1) + [F] \delta(xi-1)
 #
 #  where 'F' can either be a PDF counterterm or an interated collinear ISR counterterm.
 #  Then each piece of the distribution is assigned a different value for its attribute
 #  'distribution_type' as follows:
 #
-#     F(\xi)   --> distribution_type = 'bulk'
-#     {F(\xi)} --> distribution_type = 'counterterm'
-#     [F(\xi)] --> distribution_type = 'endpoint'
+#     F(xi)   --> distribution_type = 'bulk'
+#     {F(xi)} --> distribution_type = 'counterterm'
+#     [F(xi)] --> distribution_type = 'endpoint'
 
 #=========================================================================================
 # PDF Counterterm
 #=========================================================================================
 class QCD_beam_factorization_F0(currents.QCDBeamFactorizationCurrent):
-    """Implements the NLO QCD PDF counterterm of type F(\xi)"""
+    """Implements the NLO QCD PDF counterterm of type F(xi)"""
 
     distribution_types_implemented_in_this_class = ['bulk','counterterm','endpoint']
     
@@ -178,7 +178,7 @@ class QCD_beam_factorization_F0(currents.QCDBeamFactorizationCurrent):
 # PDF integrated initial-state single collinear counterterm
 #=========================================================================================
 class QCD_beam_factorization_single_collinear(currents.QCDBeamFactorizationCurrent):
-    """Implements the NLO QCD initial-state single collinear integgratated counterterm of type F(\xi)"""
+    """Implements the NLO QCD initial-state single collinear integgratated counterterm of type F(xi)"""
 
     distribution_types_implemented_in_this_class = ['bulk','counterterm','endpoint']
     
@@ -458,7 +458,7 @@ class QCD_beam_factorization_single_soft(currents.QCDBeamFactorizationCurrent):
 #=========================================================================================
 class QCD_beam_factorization_single_softcollinear(currents.QCDBeamFactorizationCurrent):
     """Implements the NLO QCD initial-state single soft-collinear integgratated counterterm
-    of type F(\xi). These are zero here since they have already been accounted for
+    of type F(xi). These are zero here since they have already been accounted for
     in the soft counterterms."""
 
     distribution_types_implemented_in_this_class = ['bulk','counterterm','endpoint']

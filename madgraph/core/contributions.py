@@ -2065,9 +2065,9 @@ class Contribution_V(Contribution):
         # Now obtain all possible ways of distributing these parent flavors over the
         # flavors of the underlying reduced process.
         flavor_permutations = self.distribute_parent_flavors(
-            (initial_state_parent_flavors, final_state_parent_flavors),
-            destination_pdgs_order)
-#        misc.sprint('For integrated counterterm %s, flavor permutations are: %s'%(str(integrated_counterterm),str(flavor_permutations)))
+            (initial_state_parent_flavors, final_state_parent_flavors), destination_pdgs_order)
+        if isinstance(self, Contribution_BS):
+            misc.sprint('For integrated counterterm %s, flavor permutations are: %s'%(str(integrated_counterterm),str(flavor_permutations)))
         
         # Now combine these permutations with the basic permutation to obtain the final
         # list of permutations to consider

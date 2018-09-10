@@ -145,7 +145,7 @@ class ME7Event(object):
         # observables functions), a change of variable is necessary: xb_1' = xb_1 * xi1
         # In this case, the xi1 to factor to apply is given by the Bjorken_x_rescalings
         # factor, which must be used both for rescaling the argument of the PDF as well
-        # as bringing a factor 1/\xi for the jacobian of the change of variable.
+        # as bringing a factor 1/xi for the jacobian of the change of variable.
         for flavors in self.weights_per_flavor_configurations:
             PDFs = 1.
             for i, flavor in enumerate(flavors[0]):

@@ -363,24 +363,60 @@ class ME7Exporter(object):
         # based on the (proc_ID, n_loops, n_unresolved, beam_one_active, beam_two_active, 
         #               correlated_beam_convolution) 
         # is enough.
+        # However, when subprocesses grouping is active (especially mirroring), the initial
+        # states can be swapped, such that an integrated counterterm naively requiring
+        # beam one to be convoluted must actually be placed in BF2. Example:
+        #
+        # Real process 'g d~ > z d~' yields '[C(1,3)]' with reduced process 'd d~ > z' 
+        # which must indeed be placed in the contribution BF1 'd d~ > z'
+        # However, Real process 'g d > z d' also yields '[C(1,3)]' but with the reduced
+        # process 'd~ d > z' which must this time be placed in the contribution BF*2* 'd d~ > z'
+        #
+        # For this reason, when grouping subprocesses, we will attempt to place the integrated
+        # CT in both BF1 and BF2 and the implementation of 'add_integrated_counterterm' is such
+        # that only the right beam-factorization contribution will accept it.
+        def key_string(key):
+            """ Return a nice string of the routing key in this function."""
+            if not self.group_subprocesses:
+                return ("(proc_ID=%d, n_loops=%d, n_unresolved=%d, n_beams_active=%s, "+
+                        "correlated_beam_convolution=%s)")%key
+            else:
+                return ("(proc_ID=%d, n_loops=%d, n_unresolved=%d, beam_one_active=%s, "+
+                        "beam_two_active=%s, correlated_beam_convolution=%s)")%key
+            
         routing_map = {}
         for contribution in self.contributions:
-            # Key is the 3-tuple (proc_ID, n_loops, n_unresolved, beam_one_active, beam_two_active)
-            key = (
-                contribution.contribution_definition.process_definition.get('id'),
-                contribution.contribution_definition.n_loops,
-                contribution.contribution_definition.n_unresolved_particles,
-                contribution.contribution_definition.is_beam_active('beam_one'),
-                contribution.contribution_definition.is_beam_active('beam_two'),
-                contribution.contribution_definition.correlated_beam_convolution
-            )
+            n_active_beams = 0
+            if contribution.contribution_definition.is_beam_active('beam_one'):
+                n_active_beams += 1
+            if contribution.contribution_definition.is_beam_active('beam_two'):
+                n_active_beams += 1
+            if not self.group_subprocesses:
+                key = (
+                    contribution.contribution_definition.process_definition.get('id'),
+                    contribution.contribution_definition.n_loops,
+                    contribution.contribution_definition.n_unresolved_particles,
+                    contribution.contribution_definition.is_beam_active('beam_one'),
+                    contribution.contribution_definition.is_beam_active('beam_two'),
+                    contribution.contribution_definition.correlated_beam_convolution
+                )
+            else:
+                key = (
+                    contribution.contribution_definition.process_definition.get('id'),
+                    contribution.contribution_definition.n_loops,
+                    contribution.contribution_definition.n_unresolved_particles,
+                    n_active_beams,
+                    contribution.contribution_definition.correlated_beam_convolution
+                )
             if key in routing_map:
-                logger.warning("The two contributions:\n    %s\nand\n    %s\n"%(
-                    routing_map[key][0].nice_string(),contribution.nice_string())+
-                    ("share the same  key (proc_ID=%d, n_loops=%d, n_unresolved=%d, "+
-                    "beam_one_active=%s, beam_two_active=%s, correlated_beam_convolution=%s).\n")%key+
-                    "All integrated counterterms will be placed in the first of the matching"+
-                    " contributions that accepts the integrated counterterm.")
+                # Only trigger the warning if not grouping subprocesses, otherwise it is
+                # expected that BF1 and BF2 share the same key, by design
+                if not self.group_subprocesses or n_active_beams!=1:
+                    logger.warning("The two contributions:\n    %s\nand\n    %s\n"%(
+                        routing_map[key][0].nice_string(),contribution.nice_string())+
+                        ("share the same  key %s.\n")%key_string(key)+
+                        "All integrated counterterms will be placed in the first of the matching"+
+                        " contributions that accepts the integrated counterterm.")
                 routing_map[key].append(contribution)
             else:
                 routing_map[key] = [contribution,]
@@ -398,7 +434,12 @@ class ME7Exporter(object):
             necessary_beam_convolutions = counterterm.get_necessary_beam_convolutions()
             beam_one_convolution = 'beam_one' in necessary_beam_convolutions
             beam_two_convolution = 'beam_two' in necessary_beam_convolutions
-            
+            n_active_beams = 0
+            if beam_one_convolution:
+                n_active_beams += 1
+            if beam_two_convolution:
+                n_active_beams += 1
+
             # The integrated counterterm belongs to contribution whose defining number of
             # loops is the sum of the number of loops in the reduced process and the 
             # integrated current *plus* the total number of unresolved legs of that structure.
@@ -425,18 +466,22 @@ class ME7Exporter(object):
             # recoils the soft momentum equally against both initial-state beams.
             correlated_beam_convolution = counterterm.does_require_correlated_beam_convolution()
 
-            key = ( proc_def_ID, n_loops, n_unresolved, 
-                    beam_one_convolution, beam_two_convolution, correlated_beam_convolution)
-
+            if not self.group_subprocesses:
+                key = ( proc_def_ID, n_loops, n_unresolved, 
+                        beam_one_convolution, beam_two_convolution, correlated_beam_convolution)
+            else:
+                # As explained before, we must always engineer BF1 and BF2 (similarly at higher orders)
+                # as potential matches when grouping subprocesses (with mirroring), so in this case
+                # we build the routing key only based off the number of active beam factorization.
+                key = ( proc_def_ID, n_loops, n_unresolved, n_active_beams, correlated_beam_convolution)
+                
             # This missing contribution can happen if for example the user explicitly 
             # disabled some contributions, typically the virtual.
             # For now we simply skip the incorporation of this integrated counterterms and
             # issue a critical warning, but eventually one can think of creating an 
             # ad-hoc "dummy" contribution to contain those integrated counterterms.
             if key not in routing_map:
-                msg = ("Could not find a contribution with key '"+
-                    ("(proc_ID=%d, n_loops=%d, n_unresolved=%d, beam_one_active=%s,"+
-                    " beam_two_active=%s, correlated_beam_convolution=%s)'")%key+" to host the"+
+                msg = ("Could not find a contribution with key '%s'"%key_string(key)+" to host the"+
                     " integrated counterterm:\n%s."%(counterterm.nice_string())+"\nIt will therefore be"+
                     " skipped making the ensuing results unphysical and wrong.")
                 if __debug__:
@@ -462,7 +507,16 @@ class ME7Exporter(object):
                 # were indeed inexistent.
                 self.integrated_counterterms_refused_from_all_contribs.append(integrated_CT_properties)
                 continue
-            
+        
+        # Finally, the initial state collinear counterterms may be combined because the
+        # BeamCurrents that implements them return the full backward evolution flavor
+        # matrix, so that several initial state collinear counterterms that differ only
+        # by the resulting backward evolved flavor (e.g. 'd g <- d' and 'g d~ <- d') could
+        # be combined. This option is not implemented as of now, so the function below will
+        # do nothing.
+        for contribution in self.contributions:
+            contribution.combine_initial_state_counterterms()
+                
     def copy_model_resources(self):
         """Make the copy/symbolic links"""
         model_path = pjoin(self.export_dir, 'Source','MODEL')

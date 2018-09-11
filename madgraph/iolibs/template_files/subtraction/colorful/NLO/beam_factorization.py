@@ -89,10 +89,15 @@ class QCD_beam_factorization_F0(currents.QCDBeamFactorizationCurrent):
         # all possible incoming flavors.
         return init_vars
 
-    def evaluate_kernel(self, PS_point, process, xi, mu_r, mu_f, normalization):
+    def evaluate_kernel(self, PS_point, process, xi, mu_r, mu_f, normalization, 
+                                                  allowed_backward_evolved_flavors='ALL'):
         """ Return an instance of BeamFactorizationCurrentEvaluation, whose 'values' entry
         are dictionaries specifying the counterterm in flavor space, for the value of xi 
         specified in argument."""
+
+        if allowed_backward_evolved_flavors != 'ALL':
+            raise CurrentImplementationError('The current %s must always be called with'%self.__class__.__name__+
+                "allowed_backward_evolved_flavors='ALL', not %s"%str(allowed_backward_evolved_flavors))
 
         # Only the order epsilon of the scales pre-factor matters here.
         prefactor = EpsilonExpansion({
@@ -210,7 +215,8 @@ class QCD_beam_factorization_single_collinear(currents.QCDBeamFactorizationCurre
         # initial state collinear counterterm of all possible incoming flavors.
         return init_vars
 
-    def evaluate_kernel(self, PS_point, process, xi, mu_r, mu_f, normalization):
+    def evaluate_kernel(self, PS_point, process, xi, mu_r, mu_f, normalization,
+                                                   allowed_backward_evolved_flavors='ALL'):
         """ Return an instance of BeamFactorizationCurrentEvaluation, whose 'values' entry
         are dictionaries specifying the counterterm in flavor space, for the value of xi 
         specified in argument."""
@@ -336,6 +342,13 @@ class QCD_beam_factorization_single_collinear(currents.QCDBeamFactorizationCurre
             for flav_out, eps_expansion in flav_outs.items():
                 eps_expansion.truncate(max_power=0)
 
+        # Now apply the mask 'allowed_backward_evolved_flavors' if not set to 'ALL'
+        if allowed_backward_evolved_flavors != 'ALL':
+            filtered_flavor_matrix = { reduced_flavor: 
+                { end_flavor : wgt for end_flavor, wgt in  flavor_matrix[reduced_flavor].items() if 
+                  end_flavor in allowed_backward_evolved_flavors
+                }  for reduced_flavor in flavor_matrix }
+
         # Now assign the flavor matrix in the BeamFactorizationCurrentEvaluation instance
         evaluation = utils.BeamFactorizationCurrentEvaluation({
             'spin_correlations'         : [None,],
@@ -386,10 +399,15 @@ class QCD_beam_factorization_single_soft(currents.QCDBeamFactorizationCurrent):
         # All checks passed
         return init_vars
 
-    def evaluate_kernel(self, PS_point, process, xi, mu_r, mu_f, normalization):
+    def evaluate_kernel(self, PS_point, process, xi, mu_r, mu_f, normalization,
+                                                    allowed_backward_evolved_flavors='ALL'):
         """ Return an instance of SubtractionCurrentEvaluation, whose 'values' entry
         are simple EpsilonExpansions since soft-integrated counterterms convoluted in a 
         correlated fashion with the initial state beams *cannot* act in flavor space."""
+
+        if allowed_backward_evolved_flavors != 'ALL':
+            raise CurrentImplementationError('The current %s must always be called with'%self.__class__.__name__+
+                "allowed_backward_evolved_flavors='ALL', not %s"%str(allowed_backward_evolved_flavors))
 
         if process is None:
             raise CurrentImplementationError(self.name() + " requires a reduced_process.")

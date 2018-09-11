@@ -50,6 +50,14 @@ from madgraph.iolibs.files import cp, ln, mv
 
 logger = logging.getLogger('contributions')
 
+# The initial state collinear counterterms may be combined because the
+# BeamCurrents that implements them return the full backward evolution flavor
+# matrix, so that several initial state collinear counterterms that differ only
+# by the resulting backward evolved flavor (e.g. 'd g <- d' and 'g d~ <- d') could
+# be combined. This option is not implemented as of now, so the only valid value
+# for the global parameter below is False.
+_COMBINE_INITIAL_STATE_INTEGRATED_COLLINEAR_COUNTERTERMS = False
+
 #===============================================================================
 # Contribution mother class
 #===============================================================================
@@ -204,6 +212,10 @@ class Contribution(object):
         raise MadGraph5Error(
             "The contribution of type %s cannot receive" % type(self) +
             " contributions from integrated counterterms." )
+
+    def combine_initial_state_counterterms(self, *args, **opts):
+        """ By default, does nothing. For inheritance purposes only."""
+        pass
 
     def set_export_dir(self, prefix):
         """Assigns an export directory name."""
@@ -1318,8 +1330,7 @@ The resulting output must therefore be used for debugging only as it will not yi
                 except KeyError:
                     # Register the new integrated current topology
                     integrated_current_topologies[integrated_current_topology] = [integrated_counterterm,]
-            
-            
+
             # For each topology, count the number of counterterms that are associated to
             # various list of external leg numbers. Within a given topology, one expects
             # that there is the same number of counterterm repetition for each combination of external legs
@@ -1943,6 +1954,45 @@ class Contribution_V(Contribution):
         
         return all_mappings
 
+    def combine_initial_state_counterterms(self):
+        """ The initial state beam factorization current, include the integrated collinear
+        ones, return a flavor matrix that represents all possible backward evolution of the
+        initial state. For instance, if the BF1 process is:
+              d d~ > z
+        then there will be two [C(1,3)] coming from the real processes d d~ > z g and g d~ > z
+        which correspond to the two possible backward evolutions to a d-quark and a gluon
+        respectively. Given that those are accounted for at once in the beam-factorization
+        current via the flavor matrix, we must make sure to combine all such integrated
+        initial-state counterterms so as to avoid double-counting.
+        Alternatively, one can disable this combination and always backward evolve only to 
+        the particular initial-state flavor specified in this particular integrated counterterm."""
+        
+        for process_key, (process, mapped_processes) in self.get_processes_map().items():
+            for counterterm_characteristics in self.integrated_counterterms[process_key]:
+                # One should perform here the combination of the values of each key in
+                # self.integrated_counterterms.
+            
+                # By default include all possible bbackward evolutions.
+                counterterm_characteristics['allowed_backward_evolved_flavors'] = \
+                                                        {'beam_one': 'ALL', 'beam_two': 'ALL',}
+                if _COMBINE_INITIAL_STATE_INTEGRATED_COLLINEAR_COUNTERTERMS:
+                    raise MadGraph5Error('Combination of integrated initial-state collinear '+
+                                                                    'counterterms not implemented yet')
+                else:
+                    # Since in this case we don't combine different initial state integrated
+                    # collinear counterterms that differ only by the backward evolved flavor,
+                    # we must restrict each one to the particular backward evolved flavor they
+                    # correspond to.
+                    integrated_counterterm = counterterm_characteristics['integrated_counterterm']
+                    if integrated_counterterm.does_require_correlated_beam_convolution():
+                        # In this case the beam currents has no flavor matrix anyway
+                        continue
+                    beam_number_map = {'beam_one': 0, 'beam_two': 1}
+                    for beam_name in integrated_counterterm.get_necessary_beam_convolutions():
+                        counterterm_characteristics['allowed_backward_evolved_flavors'][beam_name] = \
+                            tuple(set(fl[0][beam_number_map[beam_name]] for fl in 
+                                counterterm_characteristics['resolved_flavors_combinations']))
+
     def add_integrated_counterterm(self, integrated_CT_properties):
         """ Virtual contributions can receive integrated counterterms and they will
         be stored in the attribute list self.integrated_counterterms."""
@@ -2037,6 +2087,23 @@ class Contribution_V(Contribution):
         # Obtain the corresponding permutation
         basic_permutation = self.get_basic_permutation(origin_pdgs_order,destination_pdgs_order)
 
+        # If the integrated counterterm requires only a single active beam factorization then
+        # this beam-factorization contribution should indeed host this counterterm only if:
+        #  a) The initial state legs *does* require swapping and the factorized beam number of
+        #     this integrated CT does *not* match the factorized beam number of thhis contribution
+        #  b) The initial state legs does *not* require swapping and the factorized beam number 
+        #     of this integrated CT *does* match the factorized beam number of this contribution
+        active_beams = {k:self.contribution_definition.is_beam_active(k) for k in ['beam_one','beam_two'] }
+        integrated_CT_active_beams = integrated_counterterm.get_necessary_beam_convolutions()
+        if active_beams.values().count(True)==1 and len(integrated_CT_active_beams)==1:
+            require_initial_state_swapping = ( basic_permutation[0] == 1 and 
+                                               basic_permutation[1] == 0 )
+            integrated_CT_active_beam = list(integrated_CT_active_beams)[0]
+            if (require_initial_state_swapping and active_beams[integrated_CT_active_beam]==True) or \
+                ((not require_initial_state_swapping) and active_beams[integrated_CT_active_beam]==False):
+                # Then this integrated CT should not be hosted in this contribution
+                return False
+        
         # Now we need to distribute all flavors that are parents of the integrated current
         # in all possible ways. In the example below, the parent of C(3,7) is a d-quark and
         # we must assign it as both leg #3 and leg #5 of the following reduced integrated
@@ -2064,11 +2131,13 @@ class Contribution_V(Contribution):
 
         # Now obtain all possible ways of distributing these parent flavors over the
         # flavors of the underlying reduced process.
+        # Initial-state are always distinguishible (and they were treated as so when 
+        # generating the list of integrated counterterms to dispatch) so that we must not
+        # distribute over identical initial_state_parent_flavors:
+        initial_state_parent_flavors = {}
         flavor_permutations = self.distribute_parent_flavors(
             (initial_state_parent_flavors, final_state_parent_flavors), destination_pdgs_order)
-        if isinstance(self, Contribution_BS):
-            misc.sprint('For integrated counterterm %s, flavor permutations are: %s'%(str(integrated_counterterm),str(flavor_permutations)))
-        
+
         # Now combine these permutations with the basic permutation to obtain the final
         # list of permutations to consider
         for flavor_permutation in flavor_permutations:
@@ -2076,6 +2145,16 @@ class Contribution_V(Contribution):
             for index in basic_permutation.keys():
                 combined_permuation[index] = basic_permutation[flavor_permutation.get(index, index)]
             permutations.append(combined_permuation)
+
+        if isinstance(self, Contribution_RV) and False:
+            misc.sprint('-'*50)
+            misc.sprint(momenta_dict)
+            misc.sprint(initial_state_parent_flavors)
+            misc.sprint(final_state_parent_flavors)
+            misc.sprint(destination_pdgs_order)            
+            misc.sprint(integrated_counterterm.process.nice_string())
+            misc.sprint('For integrated counterterm %s, flavor permutations are: %s'%(str(integrated_counterterm),str(permutations)))
+            misc.sprint('-'*50)
 
         # Store the mapping to apply to the virtual ME inputs
         integrated_counterterm_properties['input_mappings'] = permutations

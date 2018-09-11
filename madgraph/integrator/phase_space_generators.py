@@ -78,7 +78,7 @@ class VirtualPhaseSpaceGenerator(object):
                 'The beam convolution cannot be set to be correlated if it is one-sided only')
         self.dimensions      = self.get_dimensions()
         self.dim_ordered_names = [d.name for d in self.dimensions]
-        # BALDY shouldn't you use bidict here, given we need it anyway?
+
         self.dim_name_to_position = dict((d.name,i) for i, d in enumerate(self.dimensions))
         self.position_to_dim_name = dict((v,k) for (k,v) in self.dim_name_to_position.items())
         
@@ -345,7 +345,7 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
             PDF_tau = random_variables[self.dim_name_to_position['tau']]
         else:
             PDF_tau = None
-        PS_random_variables  = [rv for i, rv in enumerate(random_variables) if self.position_to_dim_name[i].startswith('x') ]
+        PS_random_variables  = [rv for i, rv in enumerate(random_variables) if self.position_to_dim_name[i].startswith('x_') ]
 
         # Also generate the ISR collinear factorization convolutoin variables xi<i> if
         # necessary. In order for the + distributions of the PDF counterterms and integrated

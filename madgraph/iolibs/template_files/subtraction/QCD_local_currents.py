@@ -281,8 +281,9 @@ class QCDBeamFactorizationCurrent(QCDCurrent):
         return init_vars
 
     def evaluate_subtraction_current(self, current, higher_PS_point=None, lower_PS_point=None, 
-            reduced_process = None, xi=None, mu_r=None, mu_f=None, hel_config=None, **opts ):
-        """ This implementation of the main function call in the base class preprocess
+            reduced_process = None, xi=None, mu_r=None, mu_f=None, hel_config=None, 
+            allowed_backward_evolved_flavors = 'ALL', **opts ):
+        """ This implementation of the main function call in the base class pre-process
         the inputs so as to define the variable generically useful for all beam factorization
         current."""
 
@@ -316,7 +317,8 @@ class QCDBeamFactorizationCurrent(QCDCurrent):
         # BeamFactorizationCurrentEvaluation which can specify color-correlations as 
         # well as reduced and resolved flavors.
         evaluation = self.evaluate_kernel(
-                          lower_PS_point, reduced_process, xi, mu_r, mu_f, normalization)
+            lower_PS_point, reduced_process, xi, mu_r, mu_f, normalization,
+            allowed_backward_evolved_flavors = allowed_backward_evolved_flavors)
 
         # Construct and return result
         result = utils.SubtractionCurrentResult()

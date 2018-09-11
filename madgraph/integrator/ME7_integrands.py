@@ -81,8 +81,6 @@ import models.import_ufo as import_ufo
 from madgraph.iolibs.files import ln    
 from madgraph import InvalidCmd, MadGraph5Error, MG5DIR, ReadWrite
 
-
-
 class MadEvent7Error(Exception):
     pass
 
@@ -100,6 +98,7 @@ class ME7Event(object):
                  is_mirrored                  = False,
                  host_contribution_definition = 'N/A',
                  counterterm_structure        = None,
+                 Bjorken_xs                   = (1.0,1.0),
                  Bjorken_x_rescalings         = (1.0,1.0) ):
         """ Initilize this particular event with a unique PS point and a dictionary of
         the form:
@@ -115,7 +114,8 @@ class ME7Event(object):
         self.host_contribution_definition = host_contribution_definition
         self.counterterm_structure = counterterm_structure
         self.Bjorken_x_rescalings = Bjorken_x_rescalings
-        
+        self.Bjorken_xs = Bjorken_xs
+
         # This entry specifies which flavor has been selected for this event.
         # None implies that it has not been selected yet.
         self.selected_flavors = None
@@ -129,15 +129,19 @@ class ME7Event(object):
             is_mirrored                  = self.is_mirrored,
             host_contribution_definition = self.host_contribution_definition,
             counterterm_structure        = self.counterterm_structure,
-            Bjorken_x_rescalings         = self.Bjorken_x_rescalings
+            Bjorken_x_rescalings         = self.Bjorken_x_rescalings,
+            Bjorken_xs                   = self.Bjorken_xs,
         )
         
     def set_Bjorken_rescalings(self, *args):
         """ Assigns the specified Bjorken x rescaling to this event."""
-
         self.Bjorken_x_rescalings = tuple(args)
 
-    def apply_PDF_convolution(self, pdf_accessor, all_pdf, all_x, all_mu_f_squared):
+    def set_Bjorken_xs(self, *args):
+        """ Assigns the specified Bjorken x's."""
+        self.Bjorken_xs = tuple(args)
+
+    def apply_PDF_convolution(self, pdf_accessor, all_pdf, all_mu_f_squared):
         """ Convolute the weights_per_flavor_configurations."""
         
         # In order for the + distributions of the PDF counterterms and integrated
@@ -150,7 +154,7 @@ class ME7Event(object):
             PDFs = 1.
             for i, flavor in enumerate(flavors[0]):
                 PDFs *= pdf_accessor(all_pdf[i], flavor, 
-                                     all_x[i]*self.Bjorken_x_rescalings[i], all_mu_f_squared[i])
+                     self.Bjorken_xs[i]*self.Bjorken_x_rescalings[i], all_mu_f_squared[i])
                 PDFs *= self.Bjorken_x_rescalings[i]
             self.weights_per_flavor_configurations[flavors] *= PDFs
 
@@ -165,10 +169,20 @@ class ME7Event(object):
                 summed_weight += wgt
         if summed_weight is None:
             return 0.
-        if self.is_mirrored:
-            return summed_weight*2.
-        else:
-            return summed_weight
+        
+        return summed_weight
+
+    def generate_mirrored_configurations(self):
+        """ Creates the mirror configurations if necessary."""
+        if not self.is_mirrored:
+            return
+        for flavor_config, wgt in self.weights_per_flavor_configurations.items():
+            swapped_flavor_config = ( (flavor_config[0][1],flavor_config[0][0]),
+                                           flavor_config[1] )
+            try:
+                self.weights_per_flavor_configurations[swapped_flavor_config] += wgt
+            except KeyError:
+                self.weights_per_flavor_configurations[swapped_flavor_config] = wgt
 
     def filter_flavor_configurations(self, flavor_cut, **opts):
         """ Apply the flavor cut on this event for each flavor configuration, removing
@@ -176,7 +190,8 @@ class ME7Event(object):
         
         new_weights_per_flavor_configurations = {}
         for flavors, weight in self.weights_per_flavor_configurations.items():
-            if flavor_cut(self.PS_point, flavors, **opts):
+            if flavor_cut(self.PS_point, flavors, xb_1=self.Bjorken_xs[0], 
+                                                        xb_2=self.Bjorken_xs[1], **opts):
                 new_weights_per_flavor_configurations[flavors] = weight
         
         self.weights_per_flavor_configurations = new_weights_per_flavor_configurations
@@ -186,7 +201,8 @@ class ME7Event(object):
     def apply_flavor_blind_cuts(self, flavor_blind_cut, *args, **opts):
         """ Apply the flavor-blind cut to this event, returning False if it failed."""
         
-        return flavor_blind_cut(self.PS_point, *args, **opts)
+        return flavor_blind_cut(self.PS_point, *args, xb_1=self.Bjorken_xs[0], 
+                                                        xb_2=self.Bjorken_xs[1], **opts)
 
     def select_a_flavor_configuration(self):
         """ Select a particular flavor configuration for this event which may be used
@@ -334,6 +350,8 @@ class ME7Event(object):
         res.extend('     %s'%line for line in str(self.PS_point).split('\n'))
         if not any(bs is None for bs in self.Bjorken_x_rescalings):
             res.append("     Bjorken x's scalings: %s"%(', '.join('%.16e'%bs for bs in self.Bjorken_x_rescalings)))
+        if not any(bs is None for bs in self.Bjorken_xs):
+            res.append("     Bjorken x's         : %s"%(', '.join('%.16e'%bs for bs in self.Bjorken_xs)))
         res.append('%s  Flavors configurations:%s'%(BLUE, ENDC))
         for flavors in sorted(self.weights_per_flavor_configurations.keys()):
             wgt = self.weights_per_flavor_configurations[flavors]
@@ -410,11 +428,16 @@ class ME7EventList(list):
         for event in self:
             event.select_epsilon_expansion_term(term_name)
     
-    def apply_observables(self, observable_list, xb_1=None, xb_2=None, integrator_weight=1.):
+    def apply_observables(self, observable_list, integrator_weight=1.):
         """ Applies the observable list to the entire set of events of this list."""
 
         for event in self:
-            observable_list.apply_observables(event, xb_1, xb_2, integrator_weight)
+            observable_list.apply_observables(event, integrator_weight)
+
+    def generate_mirrored_configurations(self):
+        """ Creates the mirror configurations if necessary."""
+        for event in self:
+            event.generate_mirrored_configurations()
 
     def __str__(self):
         return self.nice_string()
@@ -1303,12 +1326,11 @@ class ME7Integrand(integrands.VirtualIntegrand):
             # and for each all the weights of the potentially contributing flavors.
             events = self.sigma(
                 PS_point.to_dict(), process_key, process, all_flavor_configurations, 
-                                        wgt, mu_r, mu_f1, mu_f2, xi1, xi2, xb_1, xb_2)
+                                        wgt, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2)
             # misc.sprint(events)
             # Apply flavor blind cuts
             if not events.filter_with_flavor_blind_cuts(self.pass_flavor_blind_cuts, process_pdgs,
-                n_jets_allowed_to_be_clustered  = self.contribution_definition.n_unresolved_particles,
-                xb_1 = xb_1, xb_2 = xb_2):
+                n_jets_allowed_to_be_clustered  = self.contribution_definition.n_unresolved_particles):
                 if __debug__: logger.debug('All events failed the flavour_blind generation-level cuts.')
                 if __debug__: logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)            
                 return 0.0
@@ -1319,11 +1341,15 @@ class ME7Integrand(integrands.VirtualIntegrand):
             # Apply PDF convolution
             if self.run_card['lpp1']==self.run_card['lpp2']==1:
                 events.apply_PDF_convolution( self.get_pdfQ2, 
-                                 (self.pdf, self.pdf), (xb_1, xb_2), (mu_f1**2, mu_f2**2) )
+                                               (self.pdf, self.pdf), (mu_f1**2, mu_f2**2) )
             # Make sure Bjorken-x rescalings don't matter anymore
             for event in events:
                 event.set_Bjorken_rescalings(None, None)
                 
+            # Now handle the process mirroring, by adding, for each ME7Event defined with
+            # is_mirrored = True, its counterpart with the initial states and Bjorken x's swapped.
+            events.generate_mirrored_configurations()
+            
             # Now that the PDF convolution has been performed and that the Bjorken rescaling
             # attributed of the events no longer matter, it may be possible here to combine
             # several events having the same kinematic support. This is a further
@@ -1332,8 +1358,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
             # (PS: the function above is a place-holder and is not implemented yet.
             
             # Apply flavor sensitive cuts
-            if not events.filter_flavor_configurations(self.pass_flavor_sensitive_cuts,
-                                                                 xb_1 = xb_1, xb_2 = xb_2):
+            if not events.filter_flavor_configurations(self.pass_flavor_sensitive_cuts):
                 if __debug__: logger.debug('Events failed the flavour-sensitive generation-level cuts.')
                 if __debug__: logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)            
                 return 0.0
@@ -1349,7 +1374,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
             # Finally apply observables in a thread-safe manner
             with observables_lock:
                 if self.apply_observables:
-                    events.apply_observables(self.observable_list, xb_1, xb_2, integrator_jacobian)
+                    events.apply_observables(self.observable_list, integrator_jacobian)
 
 
         # Now finally return the total weight for this contribution
@@ -1358,8 +1383,34 @@ class ME7Integrand(integrands.VirtualIntegrand):
         
         return total_wgt
     
+    def generate_matrix_element_event(self, PS_point, process_key, process, all_flavor_configurations, 
+                  base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts):
+        """ Generates one event which corresponds to the physical contribution (i.e. not the
+        counterterms) hosted by this contribution."""
+    
+        alpha_s = self.model.get('parameter_dict')['aS']
+
+        ME_evaluation, all_results = self.all_MEAccessors(
+                        process, PS_point, alpha_s, mu_r, pdgs=all_flavor_configurations[0])
+
+        event_weight = base_objects.EpsilonExpansion(ME_evaluation) * base_weight
+        
+        # Notice that the Bjorken rescalings for this even will be set during the convolution
+        # performed in the next line, and not directly here in the constructor.
+        event_to_convolve = ME7Event( PS_point, 
+                {fc : event_weight for fc in all_flavor_configurations},
+                is_mirrored                     = process.get('has_mirror_process'),
+                host_contribution_definition    = self.contribution_definition,
+                counterterm_structure           = None,
+                Bjorken_xs = (xb_1, xb_2)
+        )
+        convolved_event = self.convolve_event_with_beam_factorization_currents(event_to_convolve, 
+            process['beam_factorization'], PS_point, process, mu_r, mu_f1, mu_f2, xi1, xi2 )
+        
+        return convolved_event
+    
     def sigma(self, PS_point, process_key, process, all_flavor_configurations, 
-                                            base_weight, mu_r, mu_f1, mu_f2, *args, **opts):
+                                base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, *args, **opts):
         """ 
         This is the core function of the integrand where the short-distance objects like the matrix elements,
         the counterterms, the mappings, etc.. will be evaluated.
@@ -1417,7 +1468,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
             ME7Event( PS_point, {fc : sigma_wgt for fc in all_flavor_configurations},
                 is_mirrored = process.get('has_mirror_process'),
                 host_contribution_definition = self.contribution_definition,
-                counterterm_structure  = None
+                counterterm_structure  = None,
+                Bjorken_xs = (xb_1, xb_2)
             )
         ])
 
@@ -1564,7 +1616,7 @@ class ME7Integrand_V(ME7Integrand):
         return res
 
     def evaluate_integrated_counterterm(self, integrated_CT_characteristics, PS_point, 
-        base_weight, mu_f1, mu_f2, xi1, xi2, is_process_mirrored, input_mapping, 
+        base_weight, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, is_process_mirrored, input_mapping, 
         all_virtual_ME_flavor_configurations, hel_config=None, compute_poles=True):
         """ Evaluates the specified integrated counterterm, provided along with its other
         characteristics, like for example the list of flavors assignments that the resolved
@@ -1581,7 +1633,8 @@ class ME7Integrand_V(ME7Integrand):
         resolved_flavors = integrated_CT_characteristics['resolved_flavors_combinations']
         reduced_flavors = integrated_CT_characteristics['reduced_flavors_combinations']
         symmetry_factor = integrated_CT_characteristics['symmetry_factor']
-
+        allowed_backward_evolved_flavors1 = integrated_CT_characteristics['allowed_backward_evolved_flavors']['beam_one']
+        allowed_backward_evolved_flavors2 = integrated_CT_characteristics['allowed_backward_evolved_flavors']['beam_two']
 
         # And the multiplicity prefactor coming from the several *resolved* flavor assignment
         # that this counterterm can lead to. Typically an integrated counterterm for g > q qbar
@@ -1616,6 +1669,11 @@ class ME7Integrand_V(ME7Integrand):
             # List formatLorentzVectorList starts at 0
             mapped_PS_point = phase_space_generators.LorentzVectorDict(   
                 (i+1, PS_point[input_mapping[i]]) for i in range(n_initial+n_final) )
+        
+        # We must also map the Bjorken x's and the xi rescalings
+        xi1, xi2 = [xi1, xi2][input_mapping[0]], [xi1, xi2][input_mapping[1]]
+        xb_1, xb_2 = [xb_1, xb_2][input_mapping[0]], [xb_1, xb_2][input_mapping[1]]
+        
         
         # Retrieve some possibly relevant model parameters
         alpha_s = self.model.get('parameter_dict')['aS']
@@ -1673,7 +1731,9 @@ class ME7Integrand_V(ME7Integrand):
         # Then evaluate the beam factorization currents
         all_necessary_ME_calls = ME7Integrand_R.process_beam_factorization_currents(
             all_necessary_ME_calls, counterterm.get_beam_currents(), self.all_MEAccessors,
-            reduced_PS, counterterm.process, xi1, xi2, mu_r, mu_f1, mu_f2)
+            reduced_PS, counterterm.process, xi1, xi2, mu_r, mu_f1, mu_f2,
+            allowed_backward_evolved_flavors1 = allowed_backward_evolved_flavors1,
+            allowed_backward_evolved_flavors2 = allowed_backward_evolved_flavors2)
         
         # Now perform the combination of the list of spin- and color- correlators to be merged
         # for each necessary ME call identified
@@ -1688,7 +1748,9 @@ class ME7Integrand_V(ME7Integrand):
                 {fc : base_weight for fc in all_mapped_flavors},
                 is_mirrored                     = is_process_mirrored,
                 host_contribution_definition    = self.contribution_definition,
-                counterterm_structure           = counterterm),
+                counterterm_structure           = counterterm,
+                Bjorken_xs                      = (xb_1, xb_2)
+            ),
             disconnected_currents_weight,
             ( counterterm.prefactor / total_jacobian ),
             all_necessary_ME_calls,
@@ -1839,7 +1901,7 @@ class ME7Integrand_V(ME7Integrand):
             # Now call sigma in order to gather all events
             events = self.sigma(
                 a_virtual_PS_point.to_dict(), process_key, defining_process, all_flavor_configurations, 
-                1.0, mu_r, mu_f1, mu_f2, a_xi1, a_xi2, a_xb_1, a_xb_2, 
+                1.0, mu_r, mu_f1, mu_f2, a_xb_1, a_xb_2, a_xi1, a_xi2, 
                 compute_poles            = True,
                 apply_flavour_blind_cuts = (test_options['apply_lower_multiplicity_cuts'] or
                                             test_options['apply_higher_multiplicity_cuts'])
@@ -1861,22 +1923,19 @@ class ME7Integrand_V(ME7Integrand):
         # Apply flavor blind cuts
         events.filter_with_flavor_blind_cuts(self.pass_flavor_blind_cuts, 
             defining_process.get_cached_initial_final_pdgs(),
-            n_jets_allowed_to_be_clustered  = self.contribution_definition.n_unresolved_particles,
-            xb_1 = a_xb_1, xb_2 = a_xb_2 )
+            n_jets_allowed_to_be_clustered  = self.contribution_definition.n_unresolved_particles)
         # Apply PDF convolution. It is important to convolve with the PDFs, so as to 
         # correctly get the factors 1/xi_i multiplying the weights in beam 
         # factorization counterterms. But either the PDF density can be set to 1.
         if self.run_card['lpp1']==self.run_card['lpp2']==1:
             pdf = None if test_options['set_PDFs_to_unity'] else self.pdf
-            events.apply_PDF_convolution( self.get_pdfQ2, (pdf, pdf), (a_xb_1, a_xb_2), 
-                                                                 (mu_f1**2, mu_f2**2) )
+            events.apply_PDF_convolution( self.get_pdfQ2, (pdf, pdf), (mu_f1**2, mu_f2**2) )
 
         # Make sure Bjorken-x rescalings xi_i don't matter anymore
         for event in events:
             event.set_Bjorken_rescalings(None, None)
         # Apply flavor sensitive cuts
-        events.filter_flavor_configurations(self.pass_flavor_sensitive_cuts,
-                                                          xb_1 = a_xb_1, xb_2 = a_xb_2)
+        events.filter_flavor_configurations(self.pass_flavor_sensitive_cuts)
 
 #        misc.sprint('Events generated after post-processing:')
 #        misc.sprint(events)
@@ -1965,34 +2024,21 @@ class ME7Integrand_V(ME7Integrand):
         return True
 
     def sigma(self, PS_point, process_key, process, all_flavor_configurations, 
-                             base_weight, mu_r, mu_f1, mu_f2, xi1, xi2, *args, **opts):
+                             base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts):
         """ Overloading of the sigma function from ME7Integrand to include necessary 
         additional contributions. """
         
         all_events_generated = ME7EventList()
 
-        alpha_s = self.model.get('parameter_dict')['aS']
-
         compute_poles = opts.get('compute_poles', False)
 
-        ME_evaluation, all_results = self.all_MEAccessors(
-                        process, PS_point, alpha_s, mu_r, pdgs=all_flavor_configurations[0])
-
-        event_weight = base_objects.EpsilonExpansion(ME_evaluation) * base_weight
-
-        # Notice that the Bjorken rescalings for this even will be set during the convolution
-        # performed in the next line, and not directly here in the constructor.
-        event_to_convolve = ME7Event( PS_point, 
-                {fc : event_weight for fc in all_flavor_configurations},
-                is_mirrored                     = process.get('has_mirror_process'),
-                host_contribution_definition    = self.contribution_definition,
-                counterterm_structure           = None
-        )
-        convolved_event = self.convolve_event_with_beam_factorization_currents(event_to_convolve, 
-            process['beam_factorization'], PS_point, process, mu_r, mu_f1, mu_f2, xi1, xi2 )
-        
-        # Now register the convoluted event
-        all_events_generated.append(convolved_event)
+        matrix_element_event = self.generate_matrix_element_event(
+                PS_point, process_key, process, all_flavor_configurations, 
+                  base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts)
+        # Some contributions might have not physical contributions and overloaded the above
+        # so as to return None
+        if matrix_element_event is not None:
+            all_events_generated.append(matrix_element_event)
         
         # Now loop over all integrated counterterms
         for counterterm_characteristics in self.integrated_counterterms[process_key]:
@@ -2005,7 +2051,7 @@ class ME7Integrand_V(ME7Integrand):
                 # At NLO at least, it is OK to save a bit of time by enforcing 'compute_poles=False').
                 # This will need to be re-assessed at NNLO for RV contributions.
                 CT_event = self.evaluate_integrated_counterterm( 
-                    counterterm_characteristics, PS_point, base_weight, mu_f1, mu_f2, xi1, xi2,
+                    counterterm_characteristics, PS_point, base_weight, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2,
                     process.get('has_mirror_process'),
                     input_mapping, all_flavor_configurations,
                     hel_config      = None, 
@@ -2385,14 +2431,18 @@ class ME7Integrand_R(ME7Integrand):
 
     @classmethod
     def process_beam_factorization_currents(cls, all_necessary_ME_calls, all_beam_currents, 
-                     all_MEAccessors, PS_point, process, xi1, xi2, mu_r, mu_f1, mu_f2):
+                     all_MEAccessors, PS_point, process, xi1, xi2, mu_r, mu_f1, mu_f2,
+                     allowed_backward_evolved_flavors1='ALL',
+                     allowed_backward_evolved_flavors2='ALL'):
         """ Calls the beam currents specified in the argument all_beam_currents with format:
               [{       'beam_one': <BeamCurrent>,
                        'beam_two': <BeamCurrent>,
            <optional>  'correlated_convolution' : <beam_current>
                }]
         and combine their evaluation with the list of already existing inputs provided in
-        the list of all_necessary_ME_calls."""
+        the list of all_necessary_ME_calls. The two options allowed_backward_evolved_flavors<i>
+        allow to specify to the BeamCurrents a mask to apply, selecting only particular
+        flavors that the current can backward evolve onto."""
 
         new_all_necessary_ME_calls = []
         for beam_currents in all_beam_currents:
@@ -2404,7 +2454,9 @@ class ME7Integrand_R(ME7Integrand):
                 else:
                     rescaling = 1.
                 current_evaluation, all_current_results = all_MEAccessors(beam_currents['beam_one'], 
-                    lower_PS_point=PS_point, reduced_process=process, xi=xi1, mu_r=mu_r, mu_f=mu_f1)
+                    lower_PS_point=PS_point, reduced_process=process, xi=xi1, mu_r=mu_r, mu_f=mu_f1,
+                    allowed_backward_evolved_flavors = allowed_backward_evolved_flavors1)
+
                 new_necessary_ME_calls = ME7Integrand_R.update_all_necessary_ME_calls(
                     new_necessary_ME_calls, current_evaluation,
                     weight_type='flavor_matrix_beam_one', Bjorken_rescaling_beam_one = rescaling)
@@ -2415,7 +2467,8 @@ class ME7Integrand_R(ME7Integrand):
                 else:
                     rescaling = 1.
                 current_evaluation, all_current_results = all_MEAccessors(beam_currents['beam_two'],
-                    lower_PS_point=PS_point, reduced_process=process, xi=xi2, mu_r=mu_r, mu_f=mu_f2) 
+                    lower_PS_point=PS_point, reduced_process=process, xi=xi2, mu_r=mu_r, mu_f=mu_f2,
+                    allowed_backward_evolved_flavors = allowed_backward_evolved_flavors2) 
                 new_necessary_ME_calls = ME7Integrand_R.update_all_necessary_ME_calls(
                     new_necessary_ME_calls, current_evaluation,  
                     weight_type='flavor_matrix_beam_two', Bjorken_rescaling_beam_two = rescaling)
@@ -2555,7 +2608,9 @@ class ME7Integrand_R(ME7Integrand):
                 {fc : base_weight for fc in all_reduced_flavors},
                 is_mirrored                     = is_process_mirrored,
                 host_contribution_definition    = self.contribution_definition,
-                counterterm_structure           = counterterm),
+                counterterm_structure           = counterterm,
+                Bjorken_xs                      = (xb_1, xb_2)
+            ),
             disconnected_currents_weight,
             ( counterterm.prefactor / total_jacobian ), 
             all_necessary_ME_calls,
@@ -2657,33 +2712,8 @@ The missing process is: %s"""%ME_process.nice_string())
         # Finally return the ME7 event constructed for this counterterm
         return ME7_event_to_return
     
-    def generate_matrix_element_event(self, PS_point, process_key, process, all_flavor_configurations, 
-                  base_weight, mu_r, mu_f1, mu_f2, xi1, xi2, xb_1, xb_2, *args, **opts):
-        """ Generates one event which corresponds to the physical contribution (i.e. not the
-        counterterms) hosted by this contribution."""
-    
-        alpha_s = self.model.get('parameter_dict')['aS']
-
-        ME_evaluation, all_results = self.all_MEAccessors(
-                        process, PS_point, alpha_s, mu_r, pdgs=all_flavor_configurations[0])
-
-        event_weight = base_objects.EpsilonExpansion(ME_evaluation) * base_weight
-        
-        # Notice that the Bjorken rescalings for this even will be set during the convolution
-        # performed in the next line, and not directly here in the constructor.
-        event_to_convolve = ME7Event( PS_point, 
-                {fc : event_weight for fc in all_flavor_configurations},
-                is_mirrored                     = process.get('has_mirror_process'),
-                host_contribution_definition    = self.contribution_definition,
-                counterterm_structure           = None
-        )
-        convolved_event = self.convolve_event_with_beam_factorization_currents(event_to_convolve, 
-            process['beam_factorization'], PS_point, process, mu_r, mu_f1, mu_f2, xi1, xi2 )
-        
-        return convolved_event
-    
     def sigma(self, PS_point, process_key, process, all_flavor_configurations, 
-                  base_weight, mu_r, mu_f1, mu_f2, xi1, xi2, xb_1, xb_2, *args, **opts):
+                  base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts):
         """ Implementation of the short-distance cross-section for the real-emission integrand.
         Counterterms will be computed on top of the actual real-emission integrand.
         Note that the PS_point specified corresponds to a point already multiplied by both
@@ -2695,7 +2725,8 @@ The missing process is: %s"""%ME_process.nice_string())
         
         matrix_element_event = self.generate_matrix_element_event(
                 PS_point, process_key, process, all_flavor_configurations, 
-                  base_weight, mu_r, mu_f1, mu_f2, xi1, xi2, xb_1, xb_2, *args, **opts)
+                  base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts)
+    
         # Some contributions might have not physical contributions and overloaded the above
         # so as to return None
         if matrix_element_event is not None:
@@ -2989,7 +3020,7 @@ The missing process is: %s"""%ME_process.nice_string())
                 # Now call sigma in order to gather all events
                 events = self.sigma(
                     scaled_real_PS_point.to_dict(), process_key, defining_process, all_flavor_configurations, 
-                    1.0, mu_r, mu_f1, mu_f2, scaled_xi1, scaled_xi2, a_xb_1, a_xb_2, 
+                    1.0, mu_r, mu_f1, mu_f2, a_xb_1, a_xb_2, scaled_xi1, scaled_xi2,
                     compute_poles            = False,
                     apply_flavour_blind_cuts = test_options['apply_lower_multiplicity_cuts']
                 )
@@ -3016,8 +3047,7 @@ The missing process is: %s"""%ME_process.nice_string())
             # Apply flavor blind cuts
             events.filter_with_flavor_blind_cuts(self.pass_flavor_blind_cuts, 
                 defining_process.get_cached_initial_final_pdgs(),
-                n_jets_allowed_to_be_clustered  = self.contribution_definition.n_unresolved_particles,
-                xb_1 = a_xb_1, xb_2 = a_xb_2 )
+                n_jets_allowed_to_be_clustered  = self.contribution_definition.n_unresolved_particles)
             # Select particular terms of the EpsilonExpansion terms stored as weights.
             # For the test_IR_limits, we are only interested in the finite part.
             events.select_epsilon_expansion_term(test_options['epsilon_expansion_term'])
@@ -3026,16 +3056,14 @@ The missing process is: %s"""%ME_process.nice_string())
             # factorization counterterms. But either the PDF density can be set to 1.
             if self.run_card['lpp1']==self.run_card['lpp2']==1:
                 pdf = None if test_options['set_PDFs_to_unity'] else self.pdf
-                events.apply_PDF_convolution( self.get_pdfQ2, (pdf, pdf), (a_xb_1, a_xb_2), 
-                                                                     (mu_f1**2, mu_f2**2) )
+                events.apply_PDF_convolution( self.get_pdfQ2, (pdf, pdf), (mu_f1**2, mu_f2**2) )
             # Make sure Bjorken-x rescalings xi_i don't matter anymore
 
             for event in events:
                 event.set_Bjorken_rescalings(None, None)
             # Apply flavor sensitive cuts
             if test_options['apply_lower_multiplicity_cuts']:
-                events.filter_flavor_configurations(self.pass_flavor_sensitive_cuts,
-                                                              xb_1 = a_xb_1, xb_2 = a_xb_2)
+                events.filter_flavor_configurations(self.pass_flavor_sensitive_cuts)
     
 #            misc.sprint('Events generated after post-processing:')
 #            misc.sprint(events)
@@ -3395,10 +3423,10 @@ class ME7Integrand_RV(ME7Integrand_R, ME7Integrand_V):
         return res
     
     def sigma(self, PS_point, process_key, process, all_flavor_configurations, base_weight, mu_r, 
-                                                mu_f1, mu_f2, xi1, xi2, xb_1, xb_2, *args, **opts):
+                                                mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts):
         # Start with the events from the process itself and its local counterterms.
         all_events_generated = ME7Integrand_R.sigma(self, PS_point, process_key, process, 
-            all_flavor_configurations, base_weight, mu_r, mu_f1, mu_f2, xi1, xi2, xb_1, xb_2, *args, **opts)
+            all_flavor_configurations, base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts)
 
         compute_poles = opts.get('compute_poles', False)
 
@@ -3413,7 +3441,7 @@ class ME7Integrand_RV(ME7Integrand_R, ME7Integrand_V):
                 # At NLO at least, it is OK to save a bit of time by enforcing 'compute_poles=False').
                 # This will need to be re-assessed at NNLO for RV contributions.
                 CT_event = self.evaluate_integrated_counterterm( 
-                    counterterm_characteristics, PS_point, base_weight, mu_f1, mu_f2, xi1, xi2,
+                    counterterm_characteristics, PS_point, base_weight, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2,
                     process.get('has_mirror_process'),
                     input_mapping, all_flavor_configurations,
                     hel_config    = None, 
@@ -3491,16 +3519,16 @@ class ME7Integrand_BS(ME7Integrand_RV):
 class ME7Integrand_RR(ME7Integrand_R):
     """ ME7Integrand for the computation of a double real-emission type of contribution."""
     def sigma(self, PS_point, process_key, process, all_flavor_configurations, base_weight, mu_r, 
-                                                mu_f1, mu_f2, xi1, xi2, xb_1, xb_2, *args, **opts):
+                                                mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts):
         return super(ME7Integrand_RR, self).sigma(PS_point, process_key, process, 
-            all_flavor_configurations, base_weight, mu_r, mu_f1, mu_f2, xi1, xi2, xb_1, xb_2, *args, **opts)
+            all_flavor_configurations, base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts)
 
 class ME7Integrand_RRR(ME7Integrand_R):
     """ ME7Integrand for the computation of a double real-emission type of contribution."""
     def sigma(self, PS_point, process_key, process, all_flavor_configurations, base_weight, 
-                                          mu_r, mu_f1, mu_f2, xi1, xi2, xb_1, xb_2, *args, **opts):
+                                          mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts):
         return super(ME7Integrand_RRR, self).sigma(PS_point, process_key, process,
-            all_flavor_configurations, base_weight, mu_r, mu_f1, mu_f2, xi1, xi2, xb_1, xb_2, *args, **opts)
+            all_flavor_configurations, base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts)
 
 #===============================================================================
 # ME7IntegrandList

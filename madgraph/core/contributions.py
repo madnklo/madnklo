@@ -1256,7 +1256,9 @@ The resulting output must therefore be used for debugging only as it will not yi
             local_counterterms = [ct for ct in local_counterterms if ct.is_singular()]
 
             # Set the reduced flavor map of all the counterterms
-            for CT in local_counterterms+integrated_counterterms:
+            for CT in integrated_counterterms:
+                CT.set_reduced_flavors_map(defining_process, mapped_processes, self.IR_subtraction)
+            for CT in local_counterterms:
                 CT.set_reduced_flavors_map(defining_process, mapped_processes, self.IR_subtraction)
 
 #            misc.sprint('Local CTs for %s'%(defining_process.nice_string()))

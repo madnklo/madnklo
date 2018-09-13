@@ -3219,6 +3219,9 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
                     if not isinstance(list_to_ignore, list):
                         raise BaseException
                 except:
+                    if value is None:
+                        raise InvalidCmd("The option 'ignore_integrated_counterterms' necessitates a list"+
+                          " of contributions with format 'RRR(...)VVV(...)(FL*1)?(FL*2)?', not '%s'."%value)
                     list_to_ignore = [v.strip() for v in value.split(',')]
                     
                 for to_ignore in list_to_ignore:

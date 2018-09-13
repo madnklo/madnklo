@@ -137,6 +137,10 @@ class ME7Exporter(object):
             n_unresolved_particles]
 
         if len(candidates)==0:
+            logger.critical('No host contribution was found to be template of the beam factorization'+
+                ' contribution of peturbative order %s with %d unresolved final state%s.\n'%(
+                    'N'*correction_order+'LO', n_unresolved_particles, 's' if n_unresolved_particles > 1 else '')+
+                'Results from this output are therefore incomplete and unphysical.')
             return []
         
         # Now split the candidates according to their process_IDs

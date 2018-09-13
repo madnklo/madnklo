@@ -26,6 +26,7 @@ import os
 import importlib
 import shutil
 import copy
+import traceback
 
 if __name__ == '__main__':
     sys.path.append(os.path.join(os.path.dirname(
@@ -967,19 +968,31 @@ class Current(base_objects.Process):
                 return res[0]
         
         all_legs = self['singular_structure'].get_all_legs()
+        
+        # If all legs are unresolved, as it is the case in the pure soft configurations,
+        # then nothing needs to be done
+        if self.count_unresolved()==len(all_legs):
+            return
+        
         leg_numbers = [leg.n for leg in all_legs]
 
-        # Swap the flavors of the initial states
-        leg_flavors = [ ( 
-                get_particle(defining_flavors[leg.n]).get_anti_pdg_code() if 
-                leg.state==SubtractionLeg.INITIAL else get_particle(defining_flavors[leg.n]).get_pdg_code() ) 
-            for leg in all_legs ]
-
-        if len(leg_numbers)>0:            
-            mother_number = Counterterm.get_ancestor(frozenset(leg_numbers), routing_dict)
-            if mother_number not in defining_flavors:
-                defining_flavors[mother_number] = get_parent(leg_flavors, 
-                               any(leg.state==SubtractionLeg.INITIAL for leg in all_legs) )
+        try:
+            # Swap the flavors of the initial states
+            leg_flavors = [ ( 
+                    get_particle(defining_flavors[leg.n]).get_anti_pdg_code() if 
+                    leg.state==SubtractionLeg.INITIAL else get_particle(defining_flavors[leg.n]).get_pdg_code() ) 
+                for leg in all_legs ]
+    
+            if len(leg_numbers)>0: 
+                mother_number = Counterterm.get_ancestor(frozenset(leg_numbers), routing_dict)
+                if mother_number not in defining_flavors:
+                    defining_flavors[mother_number] = get_parent(leg_flavors, 
+                                   any(leg.state==SubtractionLeg.INITIAL for leg in all_legs) )
+        except Exception as e:
+            raise MadGraph5Error('\nError when computing reduced quantities for current:\n%s\n'%str(self)+
+                                 'Defining flavors:\n%s\n'%str(defining_flavors)+
+                                 'routing dict:\n%s\n'%str(routing_dict)+
+                                 'Exception encountered:\n%s'%traceback.format_exc())
 
     def get_key(self, track_leg_numbers=False):
         """Return the ProcessKey associated to this current."""
@@ -1290,12 +1303,12 @@ class CountertermNode(object):
         add entries corresponding to the subtraction legs in this node and using the function
         get_parent_PDGs from the subtraction module."""
 
-        self.current.get_reduced_flavors(
-                                    defining_flavors, IR_subtraction_module, routing_dict)
-
         for node in self.nodes:
             node.current.get_reduced_flavors(
                                     defining_flavors, IR_subtraction_module, routing_dict)  
+
+        self.current.get_reduced_flavors(
+                                    defining_flavors, IR_subtraction_module, routing_dict)
 
     def recursive_singular_structure(self, intermediate_leg_ns):
         """Reconstruct recursively the singular structure of this CountertermNode."""
@@ -1732,13 +1745,13 @@ class Counterterm(CountertermNode):
         this function sets the instance attribute 'reduced_flavor_map' which can be 
         used later to easily access the corresponding reduced flavor."""
         
-        # Check if we do support this counterterm for this functionality for now.
         if self.count_unresolved() > 1 and any(
             any(substruct.name()=='S' for substruct in current['singular_structure'].substructures)
-                                                   for current in self.get_all_currents()):
+                for current in self.get_all_currents() if isinstance(current,(
+                                    IntegratedBeamCurrent,IntegratedCurrent,BeamCurrent))):
             raise MadGraph5Error("The function 'get_reduced_flavors' of the class Counterterm"+
-                " does not yet support NNLO soft structures such as: %s"%str(self))
-        
+                " does not yet support integrated NNLO soft structures such as: %s"%str(self))
+
         self.reduced_flavors_map = {}
         for i_proc, process in enumerate([defining_process,]+mapped_processes):
             number_to_flavors_map = { l['number'] : l['id'] for l in process.get('legs') }

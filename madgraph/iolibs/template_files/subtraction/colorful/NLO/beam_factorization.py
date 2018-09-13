@@ -532,7 +532,7 @@ class QCD_beam_factorization_single_softcollinear(currents.QCDBeamFactorizationC
         
         # It should have only one leg left, the other one being in the nested soft structure
         # It must be an initial-state leg.
-        if len(singular_structure.legs)!=1 or not cls.is_initial(singular_structure.legs[0]) :
+        if len(singular_structure.legs)!=1:
             return None
 
         # The leg not soft must be quark or a gluon      

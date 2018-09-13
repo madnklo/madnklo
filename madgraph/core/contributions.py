@@ -653,7 +653,7 @@ class Contribution(object):
                 quote_default_name = "'DefaultCurrentImplementation'"
                 number_of_currents = len(current_properties['mapped_process_keys'])
                 line_pars = (quote_default_name, number_of_currents)
-                log_string += " > %-35s for a total of %d currents." % line_pars
+                log_string += " > %-35s for a total of %d currents.\n" % line_pars
         logger.debug(log_string)
         # Instantiate the CurrentAccessors corresponding
         # to all current implementations identified and needed
@@ -2317,7 +2317,7 @@ class Contribution_RV(Contribution_R, Contribution_V):
 class Contribution_BS(Contribution_RV):
     """ A class implementing the Beam-Soft factorization contributions (BS) originating
     from soft counterterms in the colorful currents scheme which can recoil against the
-    initial states, as when using the ppToOneNLOWalker mappings."""
+    initial states, as when using the SoftBeamsRecoilNLOWalker mappings."""
 
     def __init__(self, contribution_definition, cmd_interface, **opts):
         """ Make sure that this contribution is instantiated by a contribution definition

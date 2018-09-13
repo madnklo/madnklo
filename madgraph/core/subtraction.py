@@ -48,7 +48,7 @@ pjoin = os.path.join
 # that uses soft counterterms that recoils against the initial states. This is necessary in
 # order to decide when a contribution with a correlated convolution of both beams must be setup.
 _currents_schemes_requiring_soft_beam_factorization = ['colorful', ]
-_mappings_schemes_requiring_soft_beam_factorization = ['ppToOneNLOWalker', ]
+_mappings_schemes_requiring_soft_beam_factorization = ['SoftBeamsRecoilNLO', ]
 
 #=========================================================================================
 # Multinomial function
@@ -2498,6 +2498,9 @@ class IRSubtraction(object):
 
         complete_singular_structure = local_counterterm.reconstruct_complete_singular_structure()
 
+        # Useful to also have access to the flatten complete singular structure
+        flatten_singular_structure = complete_singular_structure.decompose()
+
         reduced_process = local_counterterm.process.get_copy(
             ['legs', 'n_loops', 'legs_with_decays', 'squared_orders', 'beam_factorization'] )
 
@@ -2547,10 +2550,11 @@ class IRSubtraction(object):
         # against both beams.
         has_soft_symmetric_ISR_recoil = (self.soft_do_recoil_against_initial_states and 
                 complete_singular_structure.does_require_correlated_beam_convolution())
-        
-        # Handle the specific case of single initial-state counterterm or soft recoil against IS.
-        if (len(initial_state_legs) == 1 and len(complete_singular_structure.substructures)==1) or \
-                                                             has_soft_symmetric_ISR_recoil:
+
+        # Handle the specific case of single initial-state pure collinear counterterm or 
+        # soft recoil against IS.
+        if (len(initial_state_legs) == 1 and not any(ss.name()=='S' 
+                   for ss in flatten_singular_structure)) or has_soft_symmetric_ISR_recoil:
             
             if has_soft_symmetric_ISR_recoil:
                 # In the case of soft recoiling against initial states, the beam_type should not matter.
@@ -2872,7 +2876,7 @@ class SubtractionCurrentExporter(object):
         # (it should never be used in production)
         if currents_with_default_implementation:
             currents_str = '\n'.join(
-                ' > %s' % str(crt)
+                ' > %s (type: %s)' % (str(crt), type(crt) )
                 for crt in currents_with_default_implementation )
             msg = """No implementation was found for the following subtraction currents:
 %s

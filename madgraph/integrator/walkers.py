@@ -543,12 +543,12 @@ class LorentzNLOWalker(NLOWalker):
     i_soft_collinear_map = mappings.SoftCollinearVsFinalMapping(soft_map, i_collinear_map)
     only_colored_recoilers = True
 
-class ppToOneNLOWalker(NLOWalker):
-    """ Set of mappings designed to work for the NLO topology pp > X(color-singlet).
-    The collinear mapping is left untouched compared to LorentzNLOWalker, but the soft one
-    is not the original Colorful mapping where recoilers are individually rescaled but
-    instead it is a mapping that rescales both initial states. This is well-suited
-    for integrating 'p p > X' where X is a color-singlet. """
+class SoftBeamsRecoilNLOWalker(NLOWalker):
+    """ Set of mappings designed to work for the NLO topology pp > X(color-singlet) + at most
+    one jet. The collinear mapping is left untouched compared to LorentzNLOWalker, but the 
+    soft one is not the original Colorful mapping where recoilers are individually rescaled but
+    instead it is a mapping that rescales both initial states without boosting the c.o.m frame.
+    This is well-suited for integrating 'p p > X (+j)' where X is a color-singlet. """
     
     f_collinear_map = mappings.FinalLorentzOneMapping()
     i_collinear_map = mappings.InitialLorentzOneMapping()
@@ -700,5 +700,5 @@ walker_classes_map = {
     'FinalLorentzDisjoint': FinalLorentzDisjointWalker,
     'FinalGroupingDisjoint': FinalGroupingDisjointWalker,
     'SoftVsFinalDisjoint': SoftVsFinalDisjointWalker,
-    'ppToOneNLOWalker': ppToOneNLOWalker
+    'SoftBeamsRecoilNLO': SoftBeamsRecoilNLOWalker
 }

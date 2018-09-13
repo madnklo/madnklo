@@ -19,7 +19,8 @@ import math
 
 import madgraph.integrator.mappings as mappings
 import madgraph.various.misc as misc
-from madgraph.core.subtraction import BeamCurrent, IntegratedBeamCurrent, Counterterm, SubtractionLeg
+from madgraph.core.subtraction import BeamCurrent, IntegratedBeamCurrent, \
+    IntegratedCurrent, Counterterm, SubtractionLeg
 from madgraph.core.base_objects import EpsilonExpansion
 
 try:
@@ -356,7 +357,7 @@ class QCDLocalCollinearCurrent(QCDCurrent):
         if init_vars is None: return None
         
         # Make sure this is not a beam factorization current
-        if isinstance(current, (BeamCurrent, IntegratedBeamCurrent)):
+        if isinstance(current, (BeamCurrent, IntegratedBeamCurrent, IntegratedCurrent)):
             return None
         
         # Check the structure is a simple collinear
@@ -452,7 +453,7 @@ class QCDLocalSoftCurrent(QCDCurrent):
         if init_vars is None: return None
 
         # Make sure this is not a beam factorization current
-        if isinstance(current, (BeamCurrent, IntegratedBeamCurrent)):
+        if isinstance(current, (BeamCurrent, IntegratedBeamCurrent, IntegratedCurrent)):
             return None
 
         # Make sure we don't need to sum over the quantum number of the mother leg
@@ -496,18 +497,22 @@ class QCDLocalSoftCollinearCurrent(QCDCurrent):
             return None
         
         # Make sure this is not a beam factorization current
-        if isinstance(current, (BeamCurrent, IntegratedBeamCurrent)):
+        if isinstance(current, (BeamCurrent, IntegratedBeamCurrent, IntegratedCurrent)):
             return None
-        
+
         # Retrieve the singular structure
         singular_structure = current.get('singular_structure')
         # The main structure should be collinear
-        if singular_structure.name() != 'C': return None
-        if not singular_structure.substructures: return None
+        if singular_structure.name() != 'C': 
+            return None
+        if not singular_structure.substructures: 
+            return None
         # Substructures should be simple soft structures
         for sub_singular_structure in singular_structure.substructures:
-            if sub_singular_structure.name() != 'S': return None
-            if sub_singular_structure.substructures: return None
+            if sub_singular_structure.name() != 'S': 
+                return None
+            if sub_singular_structure.substructures: 
+                return None
         # All checks passed
         return init_vars
 

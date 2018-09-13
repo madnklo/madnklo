@@ -51,7 +51,7 @@ class integrated_NLO_FF_QCD_current(utils.IntegratedCurrent, currents.QCDCurrent
         # Make sure it is an integrated subtraction counterterm and not a local one.
         if not isinstance(current, subtraction.IntegratedCurrent):
             return None
-        
+
         # Also make sure this is not a beam factorization current as these are implemented
         # by the currents in beam_factorization.py
         if isinstance(current, (subtraction.BeamCurrent, subtraction.IntegratedBeamCurrent)):
@@ -82,17 +82,10 @@ class integrated_NLO_FF_QCD_current(utils.IntegratedCurrent, currents.QCDCurrent
         
         # Finally check that the singular structure and PDG matches 
         
-        # Check that all legs are final states
-        for leg in singular_structure.legs:
-            if leg.state != subtraction.SubtractionLeg.FINAL:
-                return None
-
+        # Check that there is at most one substructure (it's NLO here)
         for substructure in singular_structure.substructures:
             if len(substructure.substructures)>0:
                 return None
-            for leg in substructure.legs:
-                if leg.state != subtraction.SubtractionLeg.FINAL:
-                    return None
 
         return {}
     
@@ -373,7 +366,7 @@ class integrated_NLO_FF_QCD_softcollinear_gq(integrated_NLO_FF_QCD_current):
 
         # Finally check that the singular structure and PDG matches
         singular_structure = current.get('singular_structure').substructures[0]
-
+        
         # It main structure should be of collinear type
         if singular_structure.name()!='C':
             return None

@@ -244,7 +244,7 @@ class ME7Exporter(object):
             beam_factorization_contributions.append( contributions.Contribution(
                 base_objects.ContributionDefinition(dummy_process_definition,
                                               **contrib_def_options ),self.cmd_interface) )
-        
+
         if len(beam_factorization_contributions)==0:
             return []
 
@@ -377,7 +377,7 @@ class ME7Exporter(object):
         # that only the right beam-factorization contribution will accept it.
         def key_string(key):
             """ Return a nice string of the routing key in this function."""
-            if not self.group_subprocesses:
+            if self.group_subprocesses:
                 return ("(proc_ID=%d, n_loops=%d, n_unresolved=%d, n_beams_active=%s, "+
                         "correlated_beam_convolution=%s)")%key
             else:

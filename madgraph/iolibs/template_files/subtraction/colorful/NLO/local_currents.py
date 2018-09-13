@@ -28,6 +28,8 @@ except ImportError:
     import madgraph.iolibs.template_files.\
                    subtraction.QCD_local_currents as currents
 
+import madgraph.various.misc as misc
+
 pjoin = os.path.join
 
 CurrentImplementationError = utils.CurrentImplementationError
@@ -770,30 +772,40 @@ class QCD_initial_softcollinear_0_Xg(currents.QCDLocalSoftCollinearCurrent):
 
         # Check the general properties common to NLO QCD
         init_vars = cls.common_does_implement_this_current(current, 2, 0)
-        if init_vars is None: return None
+        if init_vars is None: 
+            return None
         # Retrieve the singular structure
         singular_structure = current.get('singular_structure')
+        
         # It should have only one leg and one nested substructure with one soft leg
-        if len(singular_structure.legs) != 1: return None
-        if len(singular_structure.substructures) != 1: return None
+        if len(singular_structure.legs) != 1: 
+            return None
+        if len(singular_structure.substructures) != 1:
+            return None
         sub_singular_structure = singular_structure.substructures[0]
-        if len(sub_singular_structure.legs) != 1: return None
+        if len(sub_singular_structure.legs) != 1:
+            return None
         # The hard and soft legs are now identified
         hard_leg = singular_structure.legs[0]
         soft_leg = sub_singular_structure.legs[0]
         # Make sure legs are massless and the hard one final state
-        if not cls.is_massless(hard_leg, model): return None
-        if not cls.is_massless(soft_leg, model): return None
-        if not cls.is_initial(hard_leg): return None
+        if not cls.is_massless(hard_leg, model):
+            return None
+        if not cls.is_massless(soft_leg, model):
+            return None
+        if not cls.is_initial(hard_leg): 
+            return None
         # The hard leg must be quark or a gluon
         if not (cls.is_gluon(hard_leg, model) or cls.is_quark(hard_leg, model)):
             return None
         # The soft leg must be a gluon
-        if not cls.is_gluon(soft_leg, model): return None
+        if not cls.is_gluon(soft_leg, model):
+            return None
         # Check if hard_leg is a quark or a gluon, and set the color factor accordingly
         if   cls.is_gluon(hard_leg, model): init_vars['color_charge'] = 'CA'
         elif cls.is_quark(hard_leg, model): init_vars['color_charge'] = 'CF'
-        else: return None
+        else: 
+            return None
         # The current is valid
         return init_vars
 

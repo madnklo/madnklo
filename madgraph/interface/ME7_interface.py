@@ -29,10 +29,13 @@ import stat
 import subprocess
 import sys
 import time
+from datetime import datetime
 import tarfile
 import StringIO
 import shutil
 import copy
+import json
+from collections import OrderedDict
 from distutils.util import strtobool
 
 try:
@@ -611,7 +614,8 @@ class ParseCmdArguments(object):
                           'seed'                : None,
                           # Here we store a list of lambda function to apply as filters
                           # to the ingegrand we must consider
-                          'integrands'          : [lambda integrand: True]}        
+                          'integrands'          : [lambda integrand: True],
+                          'run_name'            : ''}
         
         for arg in opt_args:
             try:
@@ -641,13 +645,14 @@ class ParseCmdArguments(object):
                 if mode not in available_modes:
                     raise InvalidCmd("Value '%s' not valid for option '%s'."%(value,key))
                 launch_options[key[2:]] = mode
-                
+
             elif key in ['--integrands', '--itg']:
                 launch_options['integrands'].extend(self.get_integrand_filters(value, 'select'))
             
             elif key in ['--veto_integrands', '--veto_itg']:
                 launch_options['integrands'].extend(self.get_integrand_filters(value, 'reject'))
-            
+            elif key=='--run_name':
+                launch_options['run_name'] = value
             else:
                 raise InvalidCmd("Option '%s' for the launch command not reckognized."%key)
 
@@ -978,17 +983,6 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         # In principle we want to start by recompiling the process output so as to make sure
         # that everything is up to date.
         self.synchronize(**launch_options)
-        
-        if MPI_RANK==0:
-            # Create a run output directory
-            run_output_path = pjoin(self.me_dir,'Results','run_%s'%self.run_card['run_tag'])
-            suffix=''
-            suffix_number = 1
-            while os.path.exists(run_output_path+suffix):
-                suffix_number += 1
-                suffix = '_%d'%suffix_number
-            run_output_path = run_output_path+suffix
-            os.makedirs(run_output_path)
 
         # Setup parallelization
         self.configure_run_mode(self.options['run_mode'])
@@ -1012,6 +1006,44 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
             # Of course, in the end we wil not naively automatically put all integrands alltogether in the same integrator
             raise InvalidCmd("For now, whenever you have several integrands of different dimensions, only "+
                              "the NAIVE integrator is available.")
+
+        #Setup the output folder
+        if MPI_RANK==0:
+            if launch_options['run_name']:
+                run_output_path = pjoin(self.me_dir, 'Results', 'run_%s' % launch_options['run_name'])
+            else:
+                run_output_path = pjoin(self.me_dir,'Results','run_%s'%self.run_card['run_tag'])
+            suffix_number = 1
+            suffix = '_%d' % suffix_number
+            existing_results = {}
+
+            if (os.path.exists(run_output_path + suffix)):
+                while os.path.exists(run_output_path + suffix):
+                    suffix_number += 1
+                    suffix = '_%d' % suffix_number
+                suffix_number -= 1
+                suffix = '_%d' % suffix_number
+                contribution_names = [integrand.contribution_definition.short_name() for integrand in self.integrator.integrands]
+                try:
+                    with open(pjoin(run_output_path + suffix, "cross_sections.json"), "r") as result_file:
+                        existing_results = json.load(result_file)
+                except (IOError,ValueError) as e:
+                    logger.warn("Could not open the result file in the existing result folder %s."%(run_output_path + suffix))
+                if (not existing_results) or any([name in existing_results for name in contribution_names]):
+                    suffix_number += 1
+                    suffix = '_%d' % suffix_number
+                    existing_results = {}
+                    logger.info("Current contribution already in the existing result folder %s."%(run_output_path + suffix))
+                else:
+                    logger.info("Current contribution added in the existing result folder %s."%(run_output_path + suffix))
+            else:
+                logger.info("This is the first run with this name")
+            run_output_path = run_output_path + suffix
+            try:
+                os.makedirs(run_output_path)
+                logger.info("Creating a new result folder at %s"%run_output_path)
+            except OSError:
+                pass
 
         # The integration can be quite verbose, so temporarily setting their level to 50 by default is best here
         if launch_options['verbosity'] > 1:
@@ -1068,12 +1100,8 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
 
         if MPI_RANK==0:
             # Write the result in 'cross_sections.dat' of the result directory
-            xsec_summary = open(pjoin(run_output_path,'cross_sections.dat'),'w')
-            xsec_summary_lines = []        
-            xsec_summary_lines.append('%-30s%-30s%-30s'%('','Cross-section [pb]','MC uncertainty [pb]'))
-            xsec_summary_lines.append('%-30s%-30s%-30s'%('Total','%.8e'%xsec,'%.3e'%error))
-            xsec_summary.write('\n'.join(xsec_summary_lines))
-            xsec_summary.close()
+            self.output_run_results(run_output_path,xsec,error,self.integrator.integrands, existing_results)
+
 
     def do_test_IR_limits(self, line, *args, **opt):
         """This function test that local subtraction counterterms match
@@ -1158,6 +1186,32 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         misc.sprint("Configure directory -- Nothing to be done here yet.")        
         pass
 
+    @staticmethod
+    def output_run_results(run_output_path, xsec, error, integrands, existing_results):
+        """Output the run results as a json file
+
+        [description]
+
+        Arguments:
+            run_output_path {[str]} -- where to save the file
+            xsec {[float]} -- cross section for the set of integrands considered
+            error {[float]} -- Monte Carlo uncertainty on xsec
+            integrands {[ME7IntegrandList]} -- List of ME7Integrand objects that were integrated
+            """
+        with open(pjoin(run_output_path, 'cross_sections.json'), 'w') as xsec_summary:
+            logger.info("Saving the integration result to:")
+            logger.info("%s"%(pjoin(run_output_path, 'cross_sections.json')))
+            contribution_name = "+".join([integrand.contribution_definition.short_name() for integrand in integrands])
+            result = {contribution_name: OrderedDict()}
+            result[contribution_name]["name"] = contribution_name
+            result[contribution_name]["Cross section"] = xsec
+            result[contribution_name]["MC uncertainty"] = error
+            result[contribution_name]["unit"] = "pb"
+            orders = [integrand.contribution_definition.correction_order for integrand in integrands]
+            result[contribution_name]["order"] = max(orders)
+            result[contribution_name]["timestamp"] = datetime.now().strftime('%Y:%m:%d:%H:%M:%S')
+            result.update(existing_results)
+            json.dump(result, xsec_summary, sort_keys=True, indent=4, separators=(',', ': '))
 
 #===============================================================================
 # MadEvent7CmdShell

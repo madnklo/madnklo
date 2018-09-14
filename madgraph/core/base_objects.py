@@ -4115,12 +4115,12 @@ class EpsilonExpansion(dict):
         return res
     
     def __sub__(self, other):
-        res = EpsilonExpansion(other)
-        for k, v in self.items():
+        res = EpsilonExpansion(self)
+        for k, v in other.items():
             try:
                 res[k] -= v
             except KeyError:
-                res[k] = v        
+                res[k] = -v        
         return res
     
     def __mul__(self, other):
@@ -4163,7 +4163,7 @@ class EpsilonExpansion(dict):
             try:
                 self[k] -= v
             except KeyError:
-                self[k] = v        
+                self[k] = -v        
     
     def __rmul__(self, other):
         if not isinstance(other, EpsilonExpansion):

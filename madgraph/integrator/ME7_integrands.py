@@ -1324,6 +1324,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
             # Compute the short distance cross-section. The 'events' returned is an instance
             # of EventList, specifying all the contributing kinematic configurations, 
             # and for each all the weights of the potentially contributing flavors.
+
             events = self.sigma(
                 PS_point.to_dict(), process_key, process, all_flavor_configurations, 
                                         wgt, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2)
@@ -1936,7 +1937,6 @@ class ME7Integrand_V(ME7Integrand):
             event.set_Bjorken_rescalings(None, None)
         # Apply flavor sensitive cuts
         events.filter_flavor_configurations(self.pass_flavor_sensitive_cuts)
-
 #        misc.sprint('Events generated after post-processing:')
 #        misc.sprint(events)
 
@@ -2479,7 +2479,7 @@ class ME7Integrand_R(ME7Integrand):
                 if (not isinstance(beam_currents['correlated_convolution'], 
                             subtraction.IntegratedBeamCurrent)) and (xi1 != xi2 or xi1 is None):
                     raise MadGraph5Error('Currents requiring correlated beam convolutions must be'
-                        ' evaluated within a current in which xi1 == xi2 and different than None.')
+                        ' evaluated within a contribution in which xi1 == xi2 and different than None.')
                 # By convention we pass here the factorization scale mu_f1 and not mu_f2, but that should be irrelevant 
                 # since such counterterms are in no way related to the PDF evolution or ISR factorization in general
                 current_evaluation, all_current_results = all_MEAccessors(beam_currents['correlated_convolution'],
@@ -3498,8 +3498,8 @@ class ME7Integrand_BS(ME7Integrand_RV):
         # specifies a beam factorization structure for that initial state:
         # Notice that it should always be True in this case.
         if limit.does_require_correlated_beam_convolution():
-            scaled_xi1 = 1.-(1.-xi1)*math.sqrt(scaling_parameter)
-            scaled_xi2 = 1.-(1.-xi2)*math.sqrt(scaling_parameter)
+            scaled_xi1 = 1.-(1.-xi1)*scaling_parameter
+            scaled_xi2 = 1.-(1.-xi2)*scaling_parameter
         else:   
             beam_factorisation_legs = limit.get_beam_factorization_legs()
             # Notice that if we wanted a particular overall scaling of the counterterms,

@@ -36,6 +36,7 @@ pjoin = os.path.join
 CurrentImplementationError = utils.CurrentImplementationError
 
 log = math.log
+pi = math.pi
 
 # All counterterms here adopt a xi-dependent distribution of the following form:
 #
@@ -426,6 +427,20 @@ class QCD_beam_factorization_single_soft(currents.QCDBeamFactorizationCurrent):
             'values'              : {}
         })
 
+        # Obtain Q_square
+        Q        = sum([PS_point[l.get('number')] for l in process.get_initial_legs()])
+        Q_square = Q.square()
+
+        # Only up to the order epsilon^2 of the scales prefactor matters here.
+        logMuQ = log(mu_r**2/Q_square)
+        prefactor = EpsilonExpansion({ 0 : 1., 1 : logMuQ, 2 : 0.5*logMuQ**2 })
+        prefactor *= self.SEpsilon*normalization
+
+        #TODO Look at how this works beyond Initial-initial
+        # For II: Soft +CS(beam 1) + BS(beam 2) = -1/2 Soft
+        prefactor *= -1./2.
+
+
         color_correlation_index = 0
         # Now loop over the colored parton number pairs (a,b)
         # and add the corresponding contributions to this current
@@ -444,23 +459,23 @@ class QCD_beam_factorization_single_soft(currents.QCDBeamFactorizationCurrent):
                 if self.distribution_type == 'bulk':
                     # TODO Place-holder example
                     kernel = EpsilonExpansion({
-                                0 : ((1.+xi**2)/(1-xi))*(1.+log(mu_r**2 / mu_f**2)),
-                                -1 : 0.,
+                                0 : - 16.*xi * log(1.-xi**2) /(1.-xi**2),
+                                -1 : 8. * xi / (1.-xi**2),
                                 -2 : 0.
                     })
                 elif self.distribution_type == 'counterterm':
                     # TODO Place-holder example, but it indeed regulates the above example
                     kernel = EpsilonExpansion({
-                                0 : (2./(1-xi))*(1.+log(mu_r**2 / mu_f**2)),
-                                -1 : 0.,
+                                0 : -8.*log(2.*(1.-xi))/(1.-xi),
+                                -1 : 4./(1.-xi),
                                 -2 : 0.
                     })
                 elif self.distribution_type == 'endpoint':
                     # TODO Place-holder example
                     kernel = EpsilonExpansion({
-                                0 : 11.,
-                                -1 : 22.,
-                                -2 : 33.
+                                0 : pi**2./3.-4.*log(2.)**2,
+                                -1 : 4.*log(2.),
+                                -2 : -2.
                     })
                 else:
                     raise CurrentImplementationError("Distribution type '%s' not supported."

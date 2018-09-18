@@ -235,12 +235,12 @@ class ME7Event(object):
 
     def convolve_flavors(self, flavor_matrix, leg_index, initial_state=True):
         """ Convolves the flavor matrix in argument (of the form: 
-            {   start_flavor_a :  {  end_flavor_1 : wgt_x,
-                                     end_flavor_2 : wgt_y,
+            {   start_flavor_a :  {  end_flavors_1 : wgt_x,
+                                     end_flavors_2 : wgt_y,
                                      [...]
                                  },
-                start_flavor_b :  {  end_flavor_1 : wgt_z,
-                                     end_flavor_2 : wgt_w,
+                start_flavor_b :  {  end_flavors_1 : wgt_z,
+                                     end_flavors_2 : wgt_w,
                                      [...]
                                  },
                 [...]
@@ -248,7 +248,10 @@ class ME7Event(object):
             where 'wgt_x' can be EpsilonExpansion instances.
             and modifies self.weights_per_flavor_configurations with the convolved result.
             leg index specifies which leg must be convolved.
-               (e.g. beam #1 correpsonds to leg_index=0 and initial_state = True."""
+               (e.g. beam #1 correpsonds to leg_index=0 and initial_state = True.
+            Note that end_flavors is a tuple of flavor with identical matrix elements (such as in q -> q g, which is flavor independent)
+               """
+
             
         def substitute_flavor(flavor_config, new_flavor):
             """ Substitute in the flavor config the convoluted flavor with the one in 
@@ -264,9 +267,7 @@ class ME7Event(object):
         new_flavor_configurations = {}
         for flavor_config, wgt in self.weights_per_flavor_configurations.items():
             start_flavor = flavor_config[0][leg_index] if initial_state else flavor_config[1][leg_index]
-            if start_flavor not in flavor_matrix:
-                new_flavor_configs = [(flavor_config, wgt),]
-            else:
+            if start_flavor in flavor_matrix:
                 new_flavor_configs = []
                 for end_flavors, matrix_wgt in flavor_matrix[start_flavor].items():
                     new_flavor_configs.extend([
@@ -274,14 +275,22 @@ class ME7Event(object):
                                 base_objects.EpsilonExpansion(matrix_wgt)*wgt )
                                                            for end_flavor in end_flavors ])
 
-            for new_flavor_config, new_wgt in new_flavor_configs:
-                try:
-                    new_flavor_configurations[new_flavor_config] += new_wgt
-                except KeyError:
-                    new_flavor_configurations[new_flavor_config] = new_wgt
+                for new_flavor_config, new_wgt in new_flavor_configs:
+                    try:
+                        new_flavor_configurations[new_flavor_config] += new_wgt
+                    except KeyError:
+                        new_flavor_configurations[new_flavor_config] = new_wgt
         
         # Now assign the newly create flavor configurations
         self.weights_per_flavor_configurations = new_flavor_configurations
+
+    def is_empty(self):
+        """
+        Check if the weight vector (weights_per_flavor_configurations) is an empty dictionary.
+        For now does not check if all weights are zero
+        :return: bool
+        """
+        return len(self.weights_per_flavor_configurations) == 0
 
     def __add__(self, other):
         """ overload the '+' operator."""
@@ -1504,8 +1513,11 @@ class ME7Integrand(integrands.VirtualIntegrand):
                     bc2, lower_PS_point=PS_point, reduced_process=process, xi=xi2, mu_r=mu_r, mu_f=mu_f2)
                 assert(current_evaluation['spin_correlations']==[None,])
                 assert(current_evaluation['color_correlations']==[None,])
-                event_to_convolve.convolve_flavors( 
+                event_to_convolve.convolve_flavors(
                        base_objects.EpsilonExpansion(current_evaluation['values'][(0,0)]), leg_index=1 )
+            # Check if the flavor matrix that multiplied this event was zero
+            if event_to_convolve.is_empty():
+                return None
             if convolved_event is None:
                 convolved_event = event_to_convolve
             else:
@@ -1948,18 +1960,16 @@ class ME7Integrand_V(ME7Integrand):
              'integrated_CTs'       : None,
              'defining_process'     : defining_process,
              'PS_point'             : a_virtual_PS_point }
-        events_sum = None
+        event_weight_sum = base_objects.EpsilonExpansion({0: 0.0})
+
         for event in events:
             # TODO: instead of looking at the total weight, we could consider doing the
             # check for one particular flavor configuration which could be specified
             # as an extra test parameter.
             # An alternative way is to look at the overall summed event which should have
             # zero poles for all its flavour configurations
-            if events_sum is None:
-                events_sum = event.get_copy()
-            else:
-                events_sum += event
             event_wgt = event.get_total_weight()
+            event_weight_sum += event_wgt
             if event.counterterm_structure is None:
                 evaluation['virtual_ME'] += event_wgt
             else:
@@ -1981,7 +1991,7 @@ class ME7Integrand_V(ME7Integrand):
         logger.debug('%-20s : %s'%('integrated_CTs', evaluation['integrated_CTs'].__str__(format='.16e')))
         logger.debug('%-20s : %s'%('virtual_ME', evaluation['virtual_ME'].__str__(format='.16e')))        
         logger.debug('-'*50)
-        logger.debug('\nAll events summed:\n%s\n'%str(events_sum))
+        logger.debug('\nAll events summed:\n%s\n'%str(event_weight_sum))
         logger.debug('-'*50)
 
         relative_diff = evaluation['virtual_ME'].relative_diff(evaluation['integrated_CTs']*-1.)
@@ -2702,6 +2712,10 @@ The missing process is: %s"""%ME_process.nice_string())
                 event_to_convolve.convolve_flavors( ME_call['flavor_matrix_beam_one'], leg_index=0 )
             if ME_call['flavor_matrix_beam_two'] is not None:    
                 event_to_convolve.convolve_flavors( ME_call['flavor_matrix_beam_two'], leg_index=1 )
+
+            # If the convolution is with a zero flavor matrix, this event does not contribute
+            if event_to_convolve is None:
+                continue
             
             # Aggregate this event with the previous one, they should always be compatible
             if ME7_event_to_return is None:

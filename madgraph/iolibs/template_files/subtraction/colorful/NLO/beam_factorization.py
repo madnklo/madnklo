@@ -344,11 +344,7 @@ class QCD_beam_factorization_single_collinear(currents.QCDBeamFactorizationCurre
                 eps_expansion.truncate(max_power=0)
 
         # Now apply the mask 'allowed_backward_evolved_flavors' if not set to 'ALL'
-        if allowed_backward_evolved_flavors != 'ALL':
-            filtered_flavor_matrix = { reduced_flavor: 
-                { end_flavor : wgt for end_flavor, wgt in  flavor_matrix[reduced_flavor].items() if 
-                  end_flavor in allowed_backward_evolved_flavors
-                }  for reduced_flavor in flavor_matrix }
+        filtered_flavor_matrix = self.apply_flavor_mask(flavor_matrix,allowed_backward_evolved_flavors)
 
         # Now assign the flavor matrix in the BeamFactorizationCurrentEvaluation instance
         evaluation = utils.BeamFactorizationCurrentEvaluation({

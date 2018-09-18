@@ -354,7 +354,7 @@ class QCD_beam_factorization_single_collinear(currents.QCDBeamFactorizationCurre
         evaluation = utils.BeamFactorizationCurrentEvaluation({
             'spin_correlations'         : [None,],
             'color_correlations'        : [None,],
-            'values'                    : { (0,0) : flavor_matrix }
+            'values'                    : { (0,0) : filtered_flavor_matrix }
         })
 
         return evaluation

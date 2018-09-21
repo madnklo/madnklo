@@ -4129,8 +4129,26 @@ class ContributionDefinition(object):
                                  " both beams are convoluted.")
         self.correlated_beam_convolution = correlated_beam_convolution
 
-        # Make sure that n_loops matches the one in the process definition. We however keep
-        # this attribute in ContributionDefinition as well for convenience.
+        # Extract n_loops from the one in the process definition. However these need *not*
+        # be the same, for example a Loop-Induced contribution 'RV' would have a process 
+        # definition with n_loops=2 while the contribution itself has n_loops=1 because it
+        # must always match the expected number of loops in such contribution (i.e. RV in this
+        # example) in the case of a non-loop induced process.
+        if n_loops == -1:
+            self.n_loops               = process_definition.get('n_loops')
+        else:
+            self.n_loops = n_loops 
+
+        # Possibly extract n_loops from the one in the process definition. Notice that the
+        # attribute 'n_loops' of the contribution and of the process *must* be the same 
+        # even in the case of loop-induced processes. This attribute 'n_loops' is meant to
+        # be used only for the whole MadNkLO construction where it *must* be equivalent to 
+        # labeling the number of loops one would find in this contribution or the processes
+        # hosted *in the situation where the lowest order is tree-level*.
+        # In order to specify the number of loops the process must really have when its 
+        # ME code is exported on disk, one must either set the 'NLO_mode' of the process
+        # to be 'virt' or 'sqrvirt', or use the squared order constraint 'NLOOP' when using
+        # multi-loop UFO form factors.
         if n_loops == -1:
             self.n_loops               = process_definition.get('n_loops')
         else:
@@ -4139,6 +4157,7 @@ class ContributionDefinition(object):
                   "should be instantiated with a ProcessDefinition with the same n_loops.")
             else:
                 self.n_loops = n_loops 
+
         # Squared orders to consider. Note that this is not the same as the attribute
         # of the process definition, since it can be {'QED':[2,4]} to indicates that all
         # squared order for QED between 2 and 4 must be considered. A constraint of 
@@ -4182,6 +4201,15 @@ class ContributionDefinition(object):
         """ Checks whether factorization of the beam 'beam_name' is active or not."""
         return (not self.beam_factorization[beam_name] is None) and \
                                               self.beam_factorization[beam_name]['active']
+
+    def is_loop_induced(self):
+        """ Returns whether this contribution hosts a 'loop-induced' process. This is not
+        so important in the whole MadNkLO construction and for now we simply use the 
+        mode of the process definition, but later we'll also have to investigate the 
+        coupling orders (to see if any is 'NLOOP') as (multi-)loops in Matrix Element can also 
+        be obtained with UFO form factors."""
+        n_process_loops = 1 if (self.process_definition.get('NLO_mode') in ['virt','sqrvirt']) else 0
+        return ((n_process_loops - self.n_loops) > 0)
 
     def nice_string(self):
         """ Nice representation of a contribution definition."""

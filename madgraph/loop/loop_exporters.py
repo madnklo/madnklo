@@ -2086,6 +2086,14 @@ COMMON/%sSPIN_CORRELATION_DATA/SPIN_CORR_VECTORS, SYSTEM_SPIN_CORR_VECTORS, N_SP
 
         file = open(os.path.join(self.template_dir,'user_access_subroutines.inc')).read()  
         replace_dict =copy.copy(matrix_element.rep_dict)
+        
+        # For loop-induced processes the split-order namess information cannot be retrieved
+        # from the Born and it will need to be specified in a user_access_subroutine as
+        # well, in which case the following place-holders must be defined too.
+        split_orders=matrix_element.get('processes')[0].get('split_orders')
+        replace_dict['nSplitOrders']=len(split_orders)
+        replace_dict['split_order_name_definitions'] = '\n'.join("SONAMES(%d)='%s'"%
+                               (i+1,so_name) for i, so_name in enumerate(split_orders) )
         writer.writelines(file,
             context=self.get_context(matrix_element),
             replace_dictionary = replace_dict)

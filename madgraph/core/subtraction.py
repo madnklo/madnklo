@@ -1386,7 +1386,6 @@ class CountertermNode(object):
         # Eventually, it should create new instances, set orders there, and return the
         # new list of counterterm copies with orders
         # TODO actually create a new counterterm with orders set
-
         for node in self.nodes:
             node.distribute_orders(target_squared_orders)
 
@@ -2077,6 +2076,9 @@ class IntegratedCounterterm(Counterterm):
 
 class IRSubtraction(object):
 
+    _allowed_model_names = ['sm', 'loop_sm', 'loopsm', 
+                            'simple_qcd','loop_qcd_qed_sm','hc_nlo_x0_ufo']
+
     def __init__(self, model, n_unresolved, coupling_types=('QCD', ), beam_types=(None,None),
                  currents_scheme = 'colorful', mappings_scheme = 'LorentzNLO'):
         """Initialize a IR subtractions for a given model,
@@ -2131,9 +2133,8 @@ class IRSubtraction(object):
         #             self.model.get_particle(-2).get('mass')=='zero'
         #             )
 
-        if not any(
-            self.model.get('name').lower().startswith(name)
-            for name in ['sm', 'loop_sm', 'loopsm', 'simple_qcd'] ):
+        if not any(self.model.get('name').lower().startswith(name) for name in 
+                                                                self._allowed_model_names):
             raise InvalidCmd(
                 "parent_PDGs_from_PDGs is implemented for SM only, "
                 "not in model %s." % self.model.get('name') )

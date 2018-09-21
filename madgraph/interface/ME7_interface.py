@@ -336,6 +336,9 @@ class ParseCmdArguments(object):
             del testlimits_options['show_plots']
             del testlimits_options['save_plots']
             del testlimits_options['plots_suffix']
+            # We must be much tighter in the check of the relative difference of the pole
+            # residues.
+            testlimits_options['acceptance_threshold'] = 1.0e-13
         elif mode=='limits':
             pass   
  
@@ -706,7 +709,7 @@ class ParseCmdArguments(object):
         short_names      = []
         
         integrand_type_short_cuts = dict( (k, eval('ME7_integrands.ME7Integrand_%s'%k, )
-                                            ) for k in ['R','RV','RR','RRR','V','LIB','B'] )
+                                                 ) for k in ['R','RV','RR','RRR','V','B'] )
         
         for filter in filters.split(','):
             f = filter.strip()

@@ -442,6 +442,87 @@ C
 		ENDIF
 ## }
 	  END SUBROUTINE
+	 
+## if(LoopInduced){
+C     Give access to the helicity definition to the f2py API. This only needs to be done
+C     for loop-induced ME, otherwise this subroutine is already present in born_matrix.f
+C     where it is easier since no reading must be performed from a data file.
+      SUBROUTINE %(proc_prefix)sGET_HELICITY_DEFINITIONS(NHEL_OUT)
+      IMPLICIT NONE
+
+      INTEGER    NEXTERNAL
+      PARAMETER (NEXTERNAL=%(nexternal)d)
+      INTEGER    NCOMB
+      PARAMETER (NCOMB=%(ncomb)d)
+      INTEGER HELC(NEXTERNAL,NCOMB)
+      COMMON/%(proc_prefix)sHELCONFIGS/HELC
+
+      INTEGER NHEL_OUT(NCOMB,NEXTERNAL)
+CF2PY INTENT(OUT) :: NHEL_OUT
+
+      CHARACTER*512 TMP, HELCONFIGFN
+
+      CHARACTER*512 HELCONFIGFNAME
+      PARAMETER ( HELCONFIGFNAME='HelConfigs.dat')
+
+      LOGICAL ML_INIT
+      COMMON/ML_INIT/ML_INIT
+
+      CHARACTER(512) MLPATH
+      COMMON/MLPATH/MLPATH
+
+      CHARACTER*512 PROC_PREFIX
+      PARAMETER ( PROC_PREFIX='%(proc_prefix)s')
+
+      INTEGER I,J
+
+      IF(ML_INIT) THEN
+C If MadLoop has not been initialized yet, we must read the helicity configuration from the corresponding file.
+        TMP = 'auto'
+        CALL SETMADLOOPPATH(TMP)
+        CALL JOINPATH(MLPATH,PROC_PREFIX,TMP)
+        CALL JOINPATH(TMP,HELCONFIGFNAME,HELCONFIGFN)
+
+OPEN(1, FILE=HelConfigFN, err=108, status='OLD',                  action='READ')
+  DO J=1,NCOMB
+    READ(1,*,END=109) (HELC(I,J),I=1,NEXTERNAL)
+  ENDDO
+  GOTO 109
+108  CONTINUE
+  STOP 'Helictiy configurations could not be initialized from file %(proc_prefix)sHelConfigs.dat. File not found.' 
+109  CONTINUE
+CLOSE(1)
+
+      ENDIF
+
+      DO I=1,NEXTERNAL
+        DO J=1,NCOMB
+          NHEL_OUT(J,I) = HELC(I,J)
+        ENDDO
+      ENDDO
+
+      END
+
+      SUBROUTINE %(proc_prefix)sGET_SPLIT_ORDER_NAMES(SONAMES)
+      IMPLICIT NONE
+C
+C CONSTANTS
+C
+      INTEGER    NSO
+	  PARAMETER (NSO=%(nSplitOrders)d)
+C ARGUMENTS
+C
+      CHARACTER*100 SONAMES(NSO)
+      INTEGER IDX
+CF2PY INTENT(OUT) :: SONAMES
+C
+C BEGIN CODE
+C
+      %(split_order_name_definitions)s
+
+      END
+
+## }
 	  
 	  SUBROUTINE %(proc_prefix)sSET_COUPLINGORDERS_TARGET(SOTARGET)
 	  IMPLICIT NONE

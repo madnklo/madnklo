@@ -384,7 +384,7 @@ class LoopAmplitude(diagram_generation.Amplitude):
         # By default the user filter does nothing if filter is not set, 
         # if you want to turn it on and edit it by hand, then set the 
         # variable edit_filter_manually to True
-        edit_filter_manually = False
+        edit_filter_manually = False 
         if not edit_filter_manually and filter in [None,'None']:
             return
         if isinstance(filter,str) and  filter.lower() == 'true':
@@ -412,8 +412,16 @@ class LoopAmplitude(diagram_generation.Amplitude):
                 try:
                     valid_diag = filter_func(diag, structs, model, i)
                 except Exception as e:
-                    raise InvalidCmd("The user-defined filter '%s' did not"%filter+
-                                 " returned the following error:\n       > %s"%str(e))
+                    raise InvalidCmd("The user-defined filter '%s' "%filter+
+                                     " returned the following error:\n       > %s"%str(e))
+
+#            connected_id = diag.get_pdgs_attached_to_loop(structs)
+#            loop_line_pdgs = diag.get_loop_lines_pdgs()
+#            if any(abs(pdg) not in range(1,7)+[25,21] for pdg in connected_id):
+#                valid_diag = False
+#            if len(loop_line_pdgs)<=3 and any(abs(pdg) in [23,24] for pdg in loop_line_pdgs):
+#                valid_diag = False
+
 #            if any([abs(i)!=1000021 for i in diag.get_loop_lines_pdgs()]):
 #                valid_diag=False
 #            if len(diag.get_loop_lines_pdgs())<4:

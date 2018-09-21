@@ -308,8 +308,13 @@ class ME7Exporter(object):
                     self.generate_beam_factorization_contributions_for_correction_order(
                                                correction_order+1, n_unresolved_particles))
 
-        # Add the new contributions generated
-        self.contributions.extend(beam_factorization_contributions)
+        # Add the new contributions generated unless explicitly asked to be ignored by the user
+        for bf_contribution in beam_factorization_contributions:
+            if bf_contribution.short_name() not in self.export_options['ignore_contributions']:
+                self.contributions.append(bf_contribution)
+            else:
+                logger.warning("User explicitly asked to remove contribution "+
+                    "'%s'. This can potentially yield incorrect results."%bf_contribution.short_name())
         self.contributions.sort_contributions()
     
     def export(self, nojpeg, args=[]):
@@ -486,13 +491,15 @@ class ME7Exporter(object):
             # ad-hoc "dummy" contribution to contain those integrated counterterms.
             if key not in routing_map:
                 msg = ("Could not find a contribution with key '%s'"%key_string(key)+" to host the"+
-                    " integrated counterterm:\n%s."%(counterterm.nice_string())+"\nIt will therefore be"+
-                    " skipped making the ensuing results unphysical and wrong.")
+                    " integrated counterterm:\n%s\n with key:\n%s"%(counterterm.nice_string(),key_string(key))+
+                    "\nIt will therefore be skipped making the ensuing results unphysical and wrong.\n"+
+                    "Available keys are:\n%s"%('\n'.join(key_string(k) for k in routing_map)))
                 if __debug__:
                     if not warned:
                         logger.critical(msg)
                         warned = True
                         logger.critical("Further occurrences of this warning will now be suppressed.")
+                    stop
                     continue
                 else:
                     raise MadGraph5Error(msg)
@@ -564,7 +571,7 @@ class ME7Exporter(object):
         processes = [[v[0] for v in contrib.get_processes_map().values()] for contrib in self.contributions]
         proc_characteristic = {
             'ninitial':processes[0][0].get_ninitial(), 
-            'loop_induced': len(self.contributions.get_contributions_of_type(contributions.Contribution_LIB)), 
+            'loop_induced': len(self.contributions.get_loop_induced_contributions()), 
             'colored_pdgs': range(1,7)+[21]}
 
         run_card.create_default_for_process(proc_characteristic, history, processes)
@@ -648,11 +655,12 @@ class ME7Exporter(object):
         all_MEAccessors = accessors.MEAccessorDict()
         for contrib in self.contributions:
             contrib.add_ME_accessors(all_MEAccessors, self.export_dir)
-
+        
         # Now make sure that the integrated counterterms without any contribution host
         # indeed have a non-existent reduced process.
         contributions.Contribution_V.remove_counterterms_with_no_reduced_process(
                    all_MEAccessors, self.integrated_counterterms_refused_from_all_contribs)
+
         # Check there is none left over after this filtering
         if len(self.integrated_counterterms_refused_from_all_contribs)>0:
             counterterm_list = (

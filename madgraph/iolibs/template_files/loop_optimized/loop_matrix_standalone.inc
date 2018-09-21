@@ -586,7 +586,7 @@ OPEN(1, FILE=ColorNumFN, err=104, status='OLD',           action='READ')
   ENDDO
   GOTO 105
 104  CONTINUE
-  STOP 'Color factors could not be initialized from file %(proc_prefix)sColorNumFactors.dat. File not found' 
+  STOP 'Color factors could not be initialized from file %(proc_prefix)sColorNumFactors.dat. File not found.' 
 105  CONTINUE
 CLOSE(1)
 OPEN(1, FILE=ColorDenomFN, err=106, status='OLD',           action='READ')
@@ -595,7 +595,7 @@ OPEN(1, FILE=ColorDenomFN, err=106, status='OLD',           action='READ')
   ENDDO
   GOTO 107
 106  CONTINUE
-  STOP 'Color factors could not be initialized from file %(proc_prefix)sColorDenomFactors.dat. File not found' 
+  STOP 'Color factors could not be initialized from file %(proc_prefix)sColorDenomFactors.dat. File not found.' 
 107  CONTINUE
 CLOSE(1)
 OPEN(1, FILE=HelConfigFN, err=108, status='OLD',                  action='READ')
@@ -604,7 +604,7 @@ OPEN(1, FILE=HelConfigFN, err=108, status='OLD',                  action='READ')
   ENDDO
   GOTO 109
 108  CONTINUE
-  STOP 'Color helictiy configurations could not be initialized from file %(proc_prefix)sHelConfigs.dat. File not found' 
+  STOP 'Helictiy configurations could not be initialized from file %(proc_prefix)sHelConfigs.dat. File not found.' 
 109  CONTINUE
 CLOSE(1)
 

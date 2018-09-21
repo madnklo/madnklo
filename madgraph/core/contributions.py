@@ -170,9 +170,10 @@ class Contribution(object):
                 currents_scheme = self.options['subtraction_currents_scheme'],
                 mappings_scheme = self.options['subtraction_mappings_scheme'] )
         
-        # The following two attributes dicate the type of Exporter which will be assigned to this contribution
+        # The following two attributes dictate the type of Exporter which will be assigned to this contribution
         self.output_type             = 'default'
         self.format                  = 'standalone'
+        
         self.export_dir              = 'None'
         if self.options['group_subprocesses'] == 'Auto':
             self.collect_mirror_procs = True
@@ -183,17 +184,29 @@ class Contribution(object):
 
         # Options relevant only for LO diagram generation
         self.ignore_six_quark_processes = False
-        self.diagram_filter             = False 
+        if 'diagram_filter' in opts:
+            self.diagram_filter         = opts['diagram_filter']
+        else:
+            self.diagram_filter         = False
         self.optimize                   = False
         # Flag to indicate whether this contribution supports decay chains
         # Typically only LO contributions support decay chain amplitudes
         self.supports_decay_chain       = False
         
+        if 'loop_filter' in opts:
+            self.loop_filter            = opts['loop_filter']
+        else:
+            self.loop_filter            = None
+
         # Specifies if this contribution output requires its own MODEL in Source
         self.requires_its_own_model     = False
         
+        # The following two attributes dictate the type of Exporter which will be assigned to this contribution
+        self.output_type             = self.get_output_type()
+        self.format                  = self.get_output_format()
+        
         # Specify the MultiProcessClass to use to generate amplitudes
-        self.MultiProcessClass          = diagram_generation.MultiProcess
+        self.MultiProcessClass       = self.get_multi_process_class()
         
         # Add default phase-space topology specifiers
         self.processes_to_topologies = {}
@@ -206,6 +219,63 @@ class Contribution(object):
                 'had_matrix_elements'   :   False
             }, {})
         
+    def get_multi_process_class(self):
+        """ Function returning the appropriate multiprocess class to instantiate during
+        the amplitude generation for this particular contribution."""
+        
+        if self.output_type == 'madloop':
+            # Make sure to adjust the MultiProcessClass to be used in the case of a 'madloop' output
+            return loop_diagram_generation.LoopMultiProcess
+        elif self.output_type == 'default':
+            return diagram_generation.MultiProcess
+        else:
+            raise MadGraph5Error(
+                "Output type '%s' not reckognized by the base Contribution class."%self.output_type+
+                " It must be implemented explicitely in the daughter class.")
+
+    def get_output_type(self):
+        """ Function returning the appropriate output type to be used when outputting
+        the amplitudes from this particular contribution."""
+        
+        # Decide whether a MadLoop output is required based on the process definition
+        # underlying this contribution.
+        if (self.contribution_definition.process_definition.get('NLO_mode') in ['virt','sqrvirt']):
+            return 'madloop'
+        else:
+            return 'default'
+
+    def get_output_format(self):
+        """ Function returning the appropriate output format to be used when outputting
+        the amplitudes from this particular contribution."""
+        return 'standalone'
+        
+    def add_content_to_global_ME7_resources(self, global_ME7_dir, **opts):
+        """ Possibly add content to the global ME7 resources pool, depending on the output 
+        format requested."""
+        
+        if self.format == 'standalone' and self.output_type == 'madloop':        
+            destination = pjoin(global_ME7_dir,'Cards','MadLoopParams.dat')
+            if not os.path.exists(destination):
+                shutil.copyfile(pjoin(self.export_dir,'Cards','MadLoopParams.dat'), destination)
+
+
+    def set_helas_model(self):
+        """ Instantiate properly the helas model according to the exporter and the
+        output type."""
+
+        if self.exporter.exporter == 'cpp':       
+            self.helas_model = helas_call_writers.CPPUFOHelasCallWriter(self.model)
+        else:
+            assert self.exporter.exporter == 'v4'
+            if self.output_type == 'madloop':
+                assert (not self.options['_model_v4_path'])
+                self.helas_model = helas_call_writers.FortranUFOHelasCallWriter(self.model)
+            else:
+                if self.options['_model_v4_path']:
+                    self.helas_model = helas_call_writers.FortranHelasCallWriter(self.model)
+                else:
+                    self.helas_model = helas_call_writers.FortranUFOHelasCallWriter(self.model)
+
     def add_integrated_counterterm(self, integrated_CT_properties):
         """By default, do not support adding integrated counterterms."""
         
@@ -265,7 +335,42 @@ class Contribution(object):
         return self.exporter.pass_information_from_cmd(cmd_interface)
 
     def generate_matrix_elements(self, group_processes=True):
-        """Generate the Helas matrix elements before exporting. Uses the main function argument 
+        """ Generate the matrix element in the manner appropriate to the selected output type."""
+        
+        if self.output_type == 'madloop':
+            return self.generate_loop_matrix_elements(group_processes=group_processes)
+        else:
+            return self.generate_tree_matrix_elements(group_processes=group_processes)
+    
+    def generate_loop_matrix_elements(self, group_processes=True):
+        """Generate the *loop* Helas matrix elements before exporting. Uses the main function argument 
+        'group_processes' to decide whether to use group_subprocess or not."""
+
+        cpu_time1 = time.time()
+        ndiags = 0
+
+        generation_mode = {'optimized_output': self.options['loop_optimized_output']}
+
+        self.all_matrix_elements = loop_helas_objects.LoopHelasProcess(
+            self.amplitudes,
+            compute_loop_nc = True,
+            matrix_element_opts = generation_mode,
+            optimized_output = self.options['loop_optimized_output'],
+            combine_matrix_elements=group_processes
+        )
+        ndiags = sum([len(me.get('diagrams')) for me in self.all_matrix_elements.get_matrix_elements()])
+        
+        # assign a unique id number to all process
+        uid = 0 
+        for me in self.all_matrix_elements.get_matrix_elements():
+            uid += 1 # update the identification number
+            me.get('processes')[0].set('uid', uid)
+
+        cpu_time2 = time.time()
+        return ndiags, cpu_time2 - cpu_time1     
+
+    def generate_tree_matrix_elements(self, group_processes=True):
+        """Generate the *tree* Helas matrix elements before exporting. Uses the main function argument 
         'group_processes' to decide whether to use group_subprocess or not."""
 
         cpu_time1 = time.time()
@@ -328,39 +433,51 @@ class Contribution(object):
 
         return ndiags, cpu_time2 - cpu_time1
 
-    def set_helas_model(self):
-        """ Instantiate properly the helas model """
-
-        if self.exporter.exporter == 'cpp':       
-            self.helas_model = helas_call_writers.CPPUFOHelasCallWriter(self.model)
-        elif self.options['_model_v4_path']:
-            assert self.exporter.exporter == 'v4'
-            self.helas_model = helas_call_writers.FortranHelasCallWriter(self.model)
-        else:
-            assert self.exporter.exporter == 'v4'
-            self.helas_model = helas_call_writers.FortranUFOHelasCallWriter(self.model)
-
     def generate_code(self):
         """ Assuming the Helas Matrix Elements are now generated, we can write out the corresponding code."""
 
         matrix_elements = self.all_matrix_elements.get_matrix_elements()
-        
         calls=0
         cpu_time_start = time.time()
-        if isinstance(self.all_matrix_elements, group_subprocs.SubProcessGroupList) and \
-                                                                                self.exporter.grouped_mode:
-            modified, self.all_matrix_elements = self.exporter.modify_grouping(self.all_matrix_elements)
-            for me_number, me in enumerate(self.all_matrix_elements):
-                calls = calls + self.exporter.generate_subprocess_directory(me, self.helas_model, me_number)
-
-        else: # Non-grouped mode
-            for nb, me in enumerate(matrix_elements[:]):
-                new_calls = self.exporter.generate_subprocess_directory(me, self.helas_model, nb)
-                if isinstance(new_calls, int):
-                    if new_calls ==0:
-                        matrix_elements.remove(me)
-                    else:
-                        calls = calls + new_calls
+        
+        if self.output_type == 'madloop':
+            for me in matrix_elements:
+                # Choose the group number to be the unique id so that the output prefix
+                # is nicely P<proc_id>_<unique_id>_
+                calls = calls + self.exporter.generate_loop_subprocess(me, 
+                    self.helas_model,
+                    group_number = me.get('processes')[0].get('uid'),
+                    proc_id = None,
+                    config_map=None,
+                    unique_id=me.get('processes')[0].get('uid'))
+    
+            # If all ME's do not share the same maximum loop vertex rank and the
+            # same loop maximum wavefunction size, we need to set the maximum
+            # in coef_specs.inc of the HELAS Source. The SubProcesses/P* directory
+            # all link this file, so it should be properly propagated
+            if self.options['loop_optimized_output'] and len(matrix_elements)>1:
+                max_lwfspins = [m.get_max_loop_particle_spin() for m in \
+                                                                matrix_elements]
+                max_loop_vert_ranks = [me.get_max_loop_vertex_rank() for me in \
+                                                                matrix_elements]
+                if len(set(max_lwfspins))>1 or len(set(max_loop_vert_ranks))>1:
+                    self.exporter.fix_coef_specs(max(max_lwfspins),\
+                                                       max(max_loop_vert_ranks))
+        else:
+            if isinstance(self.all_matrix_elements, group_subprocs.SubProcessGroupList) and \
+                                                                                    self.exporter.grouped_mode:
+                modified, self.all_matrix_elements = self.exporter.modify_grouping(self.all_matrix_elements)
+                for me_number, me in enumerate(self.all_matrix_elements):
+                    calls = calls + self.exporter.generate_subprocess_directory(me, self.helas_model, me_number)
+    
+            else: # Non-grouped mode
+                for nb, me in enumerate(matrix_elements[:]):
+                    new_calls = self.exporter.generate_subprocess_directory(me, self.helas_model, nb)
+                    if isinstance(new_calls, int):
+                        if new_calls ==0:
+                            matrix_elements.remove(me)
+                        else:
+                            calls = calls + new_calls
         
         return calls, time.time() - cpu_time_start
 
@@ -597,12 +714,8 @@ class Contribution(object):
 
         for process_key, (defining_process, mapped_processes) in self.get_processes_map().items():
             # The PDGs of the hashed representations correspond to entry [0][0]
-            mapped_process_pdgs = [
-                (proc.get_initial_ids(), proc.get_final_ids())
-                for proc in mapped_processes ]
-            proc_dir = pjoin(
-                self.export_dir, 'SubProcesses',
-                'P%s' % self.process_dir_name(defining_process) )
+            mapped_process_pdgs = [ (proc.get_initial_ids(), proc.get_final_ids()) for proc in mapped_processes ]
+            proc_dir = pjoin(self.export_dir, 'SubProcesses', 'P%s' % self.process_dir_name(defining_process) )
             if not os.path.isdir(proc_dir):
                 raise MadGraph5Error(
                     "Cannot find the process directory '%s' for process %s." %
@@ -721,10 +834,6 @@ class Contribution(object):
             all_integrands.extend(self.get_integrands_for_process_map(integrand_process_map, *args))
         
         return all_integrands
-        
-    def add_content_to_global_ME7_resources(self, global_ME7_dir, **opts):
-        """ Possibly add content to the global ME7 resources pool."""
-        pass
 
     def remove_superfluous_content(self):
         """At the end of the export of this contributions,
@@ -913,9 +1022,13 @@ class Contribution(object):
 
     def process_dir_name(self, process):
         """ Given a specified process, return the directory name in which it is output."""
-        # This function is essentially useful in order to be shadowed by daughter classes     
-        return process.shell_string()       
-    
+        # This function is essentially useful in order to be shadowed by daughter classes
+        if self.output_type == 'madloop':
+            return "%d_%s_%s"%(process.get('id'), process.get('uid'),
+                                                      process.shell_string(print_id=False))
+        else:
+            return process.shell_string()
+
     def compile(self):
         """ Compiles the f2py shared library to provide easy access to this contribution."""
         
@@ -1157,7 +1270,8 @@ class Contribution(object):
         myproc = self.MultiProcessClass(self.contribution_definition.process_definition,
                     collect_mirror_procs = self.collect_mirror_procs,
                     ignore_six_quark_processes = self.ignore_six_quark_processes,
-                    optimize=self.optimize, diagram_filter=self.diagram_filter)
+                    optimize=self.optimize, diagram_filter=self.diagram_filter,
+                    loop_filter=self.loop_filter)
     
         for amp in myproc.get('amplitudes'):
             if amp not in self.amplitudes:
@@ -1173,15 +1287,9 @@ class Contribution_B(Contribution):
         super(Contribution_B,self).__init__(contribution_definition, cmd_interface, **opts)
         self.ignore_six_quark_processes = self.options['ignore_six_quark_processes'] if \
             "ignore_six_quark_processes" in self.options else []
-        if 'diagram_filter' in opts:
-            self.diagram_filter = opts['diagram_filter']
         if 'optimize' in opts:
             self.optimize = opts['optimize']
         self.supports_decay_chain       = True
-
-class Contribution_LIB(Contribution_B):
-    """ Implements the handling of loop-induced Born-type of contribution."""
-    pass
 
 class Contribution_R(Contribution):
     """ Implements the handling of a single real-emission type of contribution."""
@@ -1267,7 +1375,7 @@ The resulting output must therefore be used for debugging only as it will not yi
 #            misc.sprint('Integrated CTs for %s'%(defining_process.nice_string()))
 #            for ic in integrated_counterterms:
 #                misc.sprint(str(ic))
-                
+
             self.counterterms[process_key] = local_counterterms
 
             # Now Add a additional information about the integrated_counterterms that will
@@ -1488,6 +1596,7 @@ The resulting output must therefore be used for debugging only as it will not yi
         """Given the list of available reduced processes encoded in the MEAccessorDict 'all_MEAccessors'
         given in argument, remove all the counterterms whose underlying reduced process does not exist."""
 
+        all_removed = True
         for counterterm_info in list(counterterms):
             # Integrated counterterm come as dictionaries with additional metadata
             if isinstance(counterterm_info, dict):
@@ -1499,11 +1608,24 @@ The resulting output must therefore be used for debugging only as it will not yi
                 continue
             try:
                 all_MEAccessors.get_MEAccessor(counterterm.process)
+                all_removed = False
             except MadGraph5Error:
                 # This means that the reduced process could not be found and
                 # consequently, the corresponding counterterm must be removed.
                 # Example: C(5,6) in e+ e- > g g d d~
+                # Useful debug lines below
+#                misc.sprint('-'*50)
+#                import pprint
+#                misc.sprint('Process key:\n%s'%(
+#                    pprint.pformat(dict(ProcessKey(counterterm.process).get_canonical_key()))))
+#                misc.sprint('-'*50)
+#                misc.sprint('All process keys in the accessor:\n')
+#                for key in all_MEAccessors:
+#                    misc.sprint(pprint.pformat(key))
+#                misc.sprint('-'*50)
                 counterterms.remove(counterterm_info)
+        
+        return all_removed
 
     def subtract(self, ignore_integrated_counterterms=False, **opts):
         """ Generate and export all necessary subtraction counterterterms and currents
@@ -1525,7 +1647,7 @@ The resulting output must therefore be used for debugging only as it will not yi
       
         # Add the integrated counterterms to be passed to the exporter
         ret_value.update({'integrated_counterterms': integrated_counterterms})
-
+        
         return ret_value
 
     def get_all_necessary_local_currents(self, all_MEAccessors):
@@ -1565,9 +1687,18 @@ The resulting output must therefore be used for debugging only as it will not yi
         # Get the basic accessors for the matrix elements
         super(Contribution_R, self).add_ME_accessors(all_MEAccessors, root_path)
 
+        # Only initialize all_counterterms_removed to True if there is CT to removed to begin with
+        all_counterterms_removed = any(len(CTs)>0 for CTs in self.counterterms.values())    
         for process_key, counterterms in self.counterterms.items():
             # Remove counterterms with non-existing underlying Born processes
-            self.remove_counterterms_with_no_reduced_process(all_MEAccessors, counterterms)
+            if not self.remove_counterterms_with_no_reduced_process(all_MEAccessors, counterterms):
+                all_counterterms_removed = False
+        # Sanity check
+        if all_counterterms_removed:
+            logger.warning("All local counterterms from contribution '%s' were removed because"%self.short_name()+
+                " their corresponding reduced processes was not found in the list of processes exported.\n"+
+                " This is likely wrong and originates from a mismatch in the process definitions of the various"+
+                " contributions building this higher order computation.")
 
         # Obtain all necessary currents
         current_set = self.options['subtraction_currents_scheme']
@@ -1596,6 +1727,7 @@ The resulting output must therefore be used for debugging only as it will not yi
         
         relevant_counterterms = {}
         self.remove_local_counterterms_set_to_zero(all_MEAccessors)
+
         if self.counterterms:
             for process_key in process_map:
                 relevant_counterterms[process_key] = self.counterterms[process_key]
@@ -1624,10 +1756,7 @@ class Contribution_V(Contribution):
     def __init__(self, contribution_definition, cmd_interface, **opts):
         """ Bring in the couple of modifications necessary for this type of contributions."""
         super(Contribution_V,self).__init__(contribution_definition, cmd_interface, **opts)
-        # Make sure to adjust the MultiProcessClass to be used
-        self.MultiProcessClass          = loop_diagram_generation.LoopMultiProcess
-        self.output_type                = 'madloop'
-        
+
         # Store values being integration counterterms and their properties (as a dictionary), 
         # with the ProcessKey they are attached to as keys of this attribute's dictionary.
         self.integrated_counterterms    = {}
@@ -1677,48 +1806,6 @@ class Contribution_V(Contribution):
             res += '\n'.join(long_res)
 
         return res
-
-    def generate_matrix_elements(self, group_processes=True):
-        """Generate the Helas matrix elements before exporting. Uses the main function argument 
-        'group_processes' to decide whether to use group_subprocess or not."""
-
-        cpu_time1 = time.time()
-        ndiags = 0
-
-        generation_mode = {'optimized_output': self.options['loop_optimized_output']}
-
-        self.all_matrix_elements = loop_helas_objects.LoopHelasProcess(
-            self.amplitudes,
-            compute_loop_nc = True,
-            matrix_element_opts = generation_mode,
-            optimized_output = self.options['loop_optimized_output'],
-            combine_matrix_elements=group_processes
-        )
-        ndiags = sum([len(me.get('diagrams')) for me in self.all_matrix_elements.get_matrix_elements()])
-        
-        # assign a unique id number to all process
-        uid = 0 
-        for me in self.all_matrix_elements.get_matrix_elements():
-            uid += 1 # update the identification number
-            me.get('processes')[0].set('uid', uid)
-
-        cpu_time2 = time.time()
-        return ndiags, cpu_time2 - cpu_time1        
-
-    def add_content_to_global_ME7_resources(self, global_ME7_dir, **opts):
-        """ Pass the MadLoopParams.dat card to the global ME7 resources."""
-        super(Contribution_V, self).add_content_to_global_ME7_resources(global_ME7_dir, **opts)
-        
-        destination = pjoin(global_ME7_dir,'Cards','MadLoopParams.dat')
-        if not os.path.exists(destination):
-            shutil.copyfile(pjoin(self.export_dir,'Cards','MadLoopParams.dat'), destination)
-
-    def set_helas_model(self):
-        """ Instantiate properly the helas model """
-
-        assert self.exporter.exporter == 'v4'
-        assert (not self.options['_model_v4_path'])
-        self.helas_model = helas_call_writers.FortranUFOHelasCallWriter(self.model)
 
     def get_all_necessary_integrated_currents(self, all_MEAccessors):
         """ Given the list of currents already available encoded in the all_MEAccessors,
@@ -1796,10 +1883,20 @@ class Contribution_V(Contribution):
         # Get the basic accessors for the matrix elements
         super(Contribution_V, self).add_ME_accessors(all_MEAccessors, root_path)
 
+        # Only initialize all_counterterms_removed to True if there is CT to removed to begin with
+        all_counterterms_removed = any(len(CTs)>0 for CTs in self.integrated_counterterms.values())
         for process_key, CT_properties in self.integrated_counterterms.items():
             # Remove integrated counterterms with non-existing underlying Born processes
-            self.remove_counterterms_with_no_reduced_process(all_MEAccessors, CT_properties)
-
+            if not self.remove_counterterms_with_no_reduced_process(all_MEAccessors, CT_properties):
+                all_counterterms_removed = False
+ 
+        # Sanity check
+        if all_counterterms_removed:
+            logger.warning("All integrated counterterms from contribution '%s' were removed because"%self.short_name()+
+                " their corresponding reduced processes was not found in the list of processes exported.\n"+
+                " This is likely wrong and originates from a mismatch in the process definitions of the various"+
+                " contributions building this higher order computation.")
+        
         # Obtain all necessary currents
         current_set = self.options['subtraction_currents_scheme']
         currents_to_consider = self.get_all_necessary_integrated_currents(all_MEAccessors)
@@ -1810,7 +1907,6 @@ class Contribution_V(Contribution):
     def get_basic_permutation(cls, origin_pdg_orders, destination_pdg_orders):
         """ Figures out the permutation to apply to map the origin pdg orders
         (a 2-tuple of initial and final state pdgs) to the destination pdg orders (same format)."""
-
 
         # Create a look_up list from the user-provided list of PDGs, whose elements will progressively be set to zero
         # as they are being mapped
@@ -2148,15 +2244,16 @@ class Contribution_V(Contribution):
                 combined_permuation[index] = basic_permutation[flavor_permutation.get(index, index)]
             permutations.append(combined_permuation)
 
-        if isinstance(self, Contribution_RV) and False:
-            misc.sprint('-'*50)
-            misc.sprint(momenta_dict)
-            misc.sprint(initial_state_parent_flavors)
-            misc.sprint(final_state_parent_flavors)
-            misc.sprint(destination_pdgs_order)            
-            misc.sprint(integrated_counterterm.process.nice_string())
-            misc.sprint('For integrated counterterm %s, flavor permutations are: %s'%(str(integrated_counterterm),str(permutations)))
-            misc.sprint('-'*50)
+#       Example of how to print out information of a specific contribution.
+#        if isinstance(self, Contribution_RV) and False:
+#            misc.sprint('-'*50)
+#            misc.sprint(momenta_dict)
+#            misc.sprint(initial_state_parent_flavors)
+#            misc.sprint(final_state_parent_flavors)
+#            misc.sprint(destination_pdgs_order)            
+#            misc.sprint(integrated_counterterm.process.nice_string())
+#            misc.sprint('For integrated counterterm %s, flavor permutations are: %s'%(str(integrated_counterterm),str(permutations)))
+#            misc.sprint('-'*50)
 
         # Store the mapping to apply to the virtual ME inputs
         integrated_counterterm_properties['input_mappings'] = permutations
@@ -2180,51 +2277,6 @@ class Contribution_V(Contribution):
         
         # Let the ME7 exporter that we could successfully host this integrated counterterm
         return True
-
-    def process_dir_name(self, process):
-        """ Given a specified process, return the directory name in which it is output."""
-        
-        # For MadLoop ME's there is extra prefixes to avoid symbol and resource file clashes.
-        return "%d_%s_%s"%(process.get('id'), process.get('uid'),
-                                                      process.shell_string(print_id=False))
-
-
-    def generate_code(self):
-        """ Assuming the Helas Matrix Elements are now generated, we can write out the corresponding code."""
-
-        matrix_elements = self.all_matrix_elements.get_matrix_elements()
-            
-        cpu_time_start = time.time()
-
-        # Pick out the matrix elements in a list
-        matrix_elements = self.all_matrix_elements.get_matrix_elements()
-        # MadLoop standalone fortran output
-        calls = 0
-        for me in matrix_elements:
-            # Choose the group number to be the unique id so that the output prefix
-            # is nicely P<proc_id>_<unique_id>_
-            calls = calls + self.exporter.generate_loop_subprocess(me, 
-                self.helas_model,
-                group_number = me.get('processes')[0].get('uid'),
-                proc_id = None,
-                config_map=None,
-                unique_id=me.get('processes')[0].get('uid'))
-
-        # If all ME's do not share the same maximum loop vertex rank and the
-        # same loop maximum wavefunction size, we need to set the maximum
-        # in coef_specs.inc of the HELAS Source. The SubProcesses/P* directory
-        # all link this file, so it should be properly propagated
-        if self.options['loop_optimized_output'] and len(matrix_elements)>1:
-            max_lwfspins = [m.get_max_loop_particle_spin() for m in \
-                                                            matrix_elements]
-            max_loop_vert_ranks = [me.get_max_loop_vertex_rank() for me in \
-                                                            matrix_elements]
-            if len(set(max_lwfspins))>1 or len(set(max_loop_vert_ranks))>1:
-                self.exporter.fix_coef_specs(max(max_lwfspins),\
-                                                   max(max_loop_vert_ranks))
-        
-        return calls, time.time() - cpu_time_start
-
 
 class Contribution_RV(Contribution_R, Contribution_V):
     """ Implements the general handling of contribution with arbitrary number of reals, virtuals
@@ -2382,7 +2434,7 @@ class ContributionList(base_objects.PhysicsObjectList):
     """ A container for storing a list of contributions."""
     
     contributions_natural_order = [
-        ('LO',    (Contribution_B, Contribution_LIB) ),
+        ('LO',    (Contribution_B,) ),
         ('NLO',   (Contribution_R, Contribution_V, Contribution_RV) ),
         ('NNLO',  (Contribution_RR, Contribution_RV) ),
         ('NNNLO', (Contribution_RRR, Contribution_RV) )
@@ -2391,6 +2443,11 @@ class ContributionList(base_objects.PhysicsObjectList):
     def is_valid_element(self, obj):
         """Test if object obj is a valid instance of Contribution."""
         return isinstance(obj, Contribution)
+    
+    def get_loop_induced_contributions(self):
+        """ Return a list of loop-induced contributions."""
+        return ContributionList([contrib for contrib in self if
+                                        contrib.contribution_definition.is_loop_induced()])
     
     def get_contributions_of_order(self, correction_order):
         """ Returns a list of all contributions of a certain correction_order in argument."""
@@ -2495,7 +2552,6 @@ class ContributionList(base_objects.PhysicsObjectList):
 # by the interface when using a PLUGIN system where the user can define his own class of Contribution.
 # Notice that this Contribution must be placed after all the Contribution daughter classes have been declared.
 Contribution_classes_map = {'Born': Contribution_B,
-                            'LoopInduced_Born': Contribution_LIB,
                             'Virtual': Contribution_V,
                             'SingleReals': Contribution_R,
                             'RealVirtual': Contribution_RV,

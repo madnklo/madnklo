@@ -782,10 +782,10 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
                     'verbosity'               : integrator_verbosity  } ),
     
        'VEGAS3' : (vegas3_integrator.Vegas3Integrator,
-                   { 'survey_n_iterations'     : 10,
-                     'survey_n_points'         : 1000,
-                     'refine_n_iterations'     : 10,
-                     'refine_n_points'         : 2000,
+                   { 'n_iterations_survey'     : 10,
+                     'n_points_survey'         : 1000,
+                     'n_iterations_refine'     : 10,
+                     'n_points_refine'         : 2000,
                      'verbosity'               : integrator_verbosity  } ),
     
        'VEGAS' : (pyCubaIntegrator.pyCubaIntegrator, 

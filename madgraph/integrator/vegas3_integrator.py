@@ -153,7 +153,7 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
         # the number of iterations for the training session. 
         default_opts['n_iterations_survey'] = 10
         # the number of points per iteration in the training session. 
-        default_opts['survey_n_points'] = 2000
+        default_opts['n_points_survey'] = 2000
 
         # the number of iterations for the production session. 
         default_opts['n_iterations_refine'] = 10
@@ -303,7 +303,7 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
             logger.info('Vegas3 reading integration grids from file: %s'%self.load_grids)
             self.vegas3_integrator.set(map=vegas_map)
         
-        if self.n_iterations_survey > 0 and self.survey_n_points > 0:
+        if self.n_iterations_survey > 0 and self.n_points_survey > 0:
             # Train grid
             if MPI_RANK == 0:
                 logger.debug("=================================")
@@ -311,9 +311,9 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
                 logger.debug("=================================")
             self.n_function_evals = 0
             self.curr_n_iterations = self.n_iterations_survey
-            self.curr_n_evals_per_iterations = self.survey_n_points
+            self.curr_n_evals_per_iterations = self.n_points_survey
             result = self.vegas3_integrator(wrapped_integrand, 
-                        nitn=self.n_iterations_survey, neval=self.survey_n_points, adapt=True)
+                        nitn=self.n_iterations_survey, neval=self.n_points_survey, adapt=True)
     
             if MPI_RANK == 0:
                 logger.debug('\n'+result.summary())

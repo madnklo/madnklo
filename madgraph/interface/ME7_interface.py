@@ -427,9 +427,9 @@ class ParseCmdArguments(object):
                     testlimits_options[key[2:]] = float(value)                  
                 except ValueError:
                     raise InvalidCmd("'%s' is not a valid float for option '%s'"%(value, key))
-            elif key in ['--min_scaling_variable'] and mode=='limits':
+            elif key in ['--min_scaling_variable','--ms'] and mode=='limits':
                 try:
-                    testlimits_options[key[2:]] = float(value)                  
+                    testlimits_options['min_scaling_variable'] = float(value)                  
                 except ValueError:
                     raise InvalidCmd("'%s' is not a valid float for option '%s'"%(value, key))
             elif key in ['--subtraction_mappings_scheme', '--walker'] and mode=='limits':

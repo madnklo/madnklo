@@ -226,17 +226,31 @@ class ME7Event(object):
             # Two initial states
             assert(len(self.weights_per_flavor_configurations.keys()[0][0])==2)
             sqrts = math.sqrt((self.PS_point[0]+self.PS_point[1]).square())
-            # Assert initial states are back to back along the z axis
+            # Assert initial states along the z axis
             assert(abs(self.PS_point[0][1]/sqrts)<1.0e-9)
             assert(abs(self.PS_point[1][1]/sqrts)<1.0e-9)
             assert(abs(self.PS_point[0][2]/sqrts)<1.0e-9)
             assert(abs(self.PS_point[1][2]/sqrts)<1.0e-9)
-            assert(abs((self.PS_point[0]+self.PS_point[1])[3]/sqrts)<1.0e-9)
-        mirrored_event.PS_point = vectors.LorentzVectorList([
-            self.PS_point[1].get_copy(),self.PS_point[0].get_copy() ])
-        for vector in self.PS_point[2:]:
+        # If initial states are back to back we can directly proceed with a simple swap of the
+        # z-axis, otherwise we must first boost to the c.o.m
+        PS_point_to_swap = self.PS_point.get_copy()
+        boost_vector = None
+        if abs((self.PS_point[0]+self.PS_point[1])[3]/sqrts)>1.0e-9:
+            boost_vector = (PS_point_to_swap[0]+PS_point_to_swap[1]).boostVector()
+            for vector in PS_point_to_swap:
+                vector.boost(-boost_vector)
+        # debug: now make sure the event is back to back
+        if __debug__:
+            sqrts = math.sqrt((self.PS_point[0]+self.PS_point[1]).square())
+            assert(abs((PS_point_to_swap[0]+PS_point_to_swap[1])[3]/sqrts)<1.0e-9)
+        mirrored_event.PS_point = vectors.LorentzVectorList([ PS_point_to_swap[1],PS_point_to_swap[0] ])
+        for vector in PS_point_to_swap[2:]:
             mirrored_event.PS_point.append(vectors.LorentzVector(
                                                [vector[0],vector[1],vector[2],-vector[3]]))
+        # And now if we had boosted the event we must now boost it back
+        if boost_vector is not None:
+            for vector in PS_point_to_swap:
+                vector.boost(boost_vector)
         
         # Then swap Bjorken x's and rescaling.
         mirrored_event.Bjorken_x_rescalings = (self.Bjorken_x_rescalings[1], self.Bjorken_x_rescalings[0])

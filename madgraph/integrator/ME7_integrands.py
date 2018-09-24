@@ -2272,6 +2272,14 @@ class ME7Integrand_V(ME7Integrand):
             event_weight_sum += event_wgt
             if event.counterterm_structure is None:
                 evaluation['virtual_ME'] += event_wgt
+                if not event.is_a_mirrored_event:
+                    event_str = 'Event'
+                else:
+                    event_str = '<->Event'
+                if event_str in evaluation:
+                    evaluation[event_str] += event_wgt
+                else:
+                    evaluation[event_str] = event_wgt                    
             else:
                 event_str = event_string(event)
                 if event_str in evaluation:
@@ -2285,8 +2293,9 @@ class ME7Integrand_V(ME7Integrand):
 
         # Small monitoring of the various contributions:
         logger.debug('-'*50)
+        # Fancy ordering key to get a nice printout order of the event weights.
         for entry in sorted(evaluation.keys(), key=lambda e:
-                                                 e[3:]+'1' if e.startswith('<->') else e):
+            (e[3:].replace('Event','0_')+'1' if e.startswith('<->') else e.replace('Event','0_')) ):
             value = evaluation[entry]
             if entry not in ['defining_process','PS_point','integrated_CTs','virtual_ME']:
                 logger.debug('%-50s : %s'%(entry, value.__str__(format='.16e')))

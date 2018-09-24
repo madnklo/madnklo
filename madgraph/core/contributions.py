@@ -2053,7 +2053,7 @@ class Contribution_V(Contribution):
         return all_mappings
 
     def combine_initial_state_counterterms(self):
-        """ The initial state beam factorization current, include the integrated collinear
+        """ The initial state beam factorization current, including the integrated collinear
         ones, return a flavor matrix that represents all possible backward evolution of the
         initial state. For instance, if the BF1 process is:
               d d~ > z
@@ -2063,7 +2063,14 @@ class Contribution_V(Contribution):
         current via the flavor matrix, we must make sure to combine all such integrated
         initial-state counterterms so as to avoid double-counting.
         Alternatively, one can disable this combination and always backward evolve only to 
-        the particular initial-state flavor specified in this particular integrated counterterm."""
+        the particular initial-state flavor specified in this particular integrated counterterm.
+        
+        WARNING: Eventually this entire construction of the 'allowed_backward_evolved_flavors'
+        should be dropped in favour of further differentiation of the integrated collinear ISR
+        current that should apply only to particular current (for instance the one 
+        *only* backward-evolving to a gluon). When this will be done, we will be able to 
+        drop this construction altogether.
+        """
         
         for process_key, (process, mapped_processes) in self.get_processes_map().items():
             for counterterm_characteristics in self.integrated_counterterms[process_key]:
@@ -2083,10 +2090,27 @@ class Contribution_V(Contribution):
                     # correspond to.
                     integrated_counterterm = counterterm_characteristics['integrated_counterterm']
                     if integrated_counterterm.does_require_correlated_beam_convolution():
-                        # In this case the beam currents has no flavor matrix anyway
+                        # In this case the beam currents has a diagonal flavor matrix anyway
                         continue
                     beam_number_map = {'beam_one': 0, 'beam_two': 1}
-                    for beam_name in integrated_counterterm.get_necessary_beam_convolutions():
+                    beam_currents = integrated_counterterm.get_beam_currents()
+                    active_beams = set([])
+                    # Check if the counterterm contains any current that could have a 
+                    # flavor matrix attached to either beam_one of beam_two
+                    for bc in beam_currents:
+                        for beam_name in beam_number_map:
+                            # If it is a pure integrated mass collinear counterterm, then
+                            # no masking should be applied
+                            if (bc[beam_name] is None) or all(ss.name()=='F' for ss in 
+                                      bc[beam_name].get('singular_structure').decompose()):
+                                continue
+                            # Now we can add this beam as a one for which a masking of the
+                            # allowed initial state flavours must be specified.
+                            active_beams.add(beam_name)
+                    # Now for each beam identified as potentially having a flavour matrix
+                    # then identify which flavours must be allowed as allowed ones after
+                    # the application of the flavor matrix
+                    for beam_name in active_beams:
                         counterterm_characteristics['allowed_backward_evolved_flavors'][beam_name] = \
                             tuple(set(fl[0][beam_number_map[beam_name]] for fl in 
                                 counterterm_characteristics['resolved_flavors_combinations']))

@@ -1919,7 +1919,7 @@ class IntegratedCounterterm(Counterterm):
         necessary_beam_convolutions = set([])
         
         # First analyze the reduced process
-        for bft in self.current['beam_factorization']:
+        for bft in self.process['beam_factorization']:
             for beam_name, beam_current in bft.items():
                 if not beam_current is None:
                     necessary_beam_convolutions.add(beam_name)

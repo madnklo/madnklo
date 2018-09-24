@@ -1522,7 +1522,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         xb_1, xi1 = x1s
         xb_2, xi2 = x2s
         
-        if xb_1 >= 1. or xb_2 >= 1 or math.isnan(xb_1) or math.isnan(xb_2):
+        if xb_1 > 1. or xb_2 > 1. or math.isnan(xb_1) or math.isnan(xb_2):
             raise MadEvent7Error('Unphysical configuration: x1, x2 = %.5e, %.5e'%(xb_1, xb_2))
             #logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)
             #return 0.0

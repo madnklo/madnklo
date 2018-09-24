@@ -298,8 +298,9 @@ class ME7Event(object):
         """ Select a particular EpsilonExpansion term in the weights of the flavor 
         matrix of this event. If the weights are float already, then they will be
         set to zero unless the term_name is 'finite'."""
-        
-        is_finite_specified = (term_name.lower()=='finite')
+
+        if not isinstance(term_name, int):
+            is_finite_specified = (term_name.lower()=='finite')
         for flavors, weight in self.weights_per_flavor_configurations.items():
             if isinstance(weight, float):
                 if not is_finite_specified:

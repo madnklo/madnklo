@@ -410,11 +410,17 @@ class QCD_beam_factorization_single_soft(currents.QCDBeamFactorizationCurrent):
             raise CurrentImplementationError(self.name() + " requires a reduced_process.")
 
         # Now find all colored leg numbers in the reduced process
+        # also find the initial state colored partons to tag initial/final eikonals
         all_colored_parton_numbers = []
+        colored_initial_parton_numbers = []
+        all_initial_numbers = [l.get('number') for l in process.get_initial_legs()]
         for leg in process.get('legs'):
+            leg_number =leg.get('number')
             if self.model.get_particle(leg.get('id')).get('color')==1:
                 continue
-            all_colored_parton_numbers.append(leg.get('number'))
+            all_colored_parton_numbers.append(leg_number)
+            if leg_number in all_initial_numbers:
+                colored_initial_parton_numbers.append(leg.get('number'))
 
         # Now instantiate what the result will be
         evaluation = utils.SubtractionCurrentEvaluation({
@@ -432,50 +438,70 @@ class QCD_beam_factorization_single_soft(currents.QCDBeamFactorizationCurrent):
         prefactor = EpsilonExpansion({ 0 : 1., 1 : logMuQ, 2 : 0.5*logMuQ**2 })
         prefactor *= self.SEpsilon*normalization
 
-        #TODO Look at how this works beyond Initial-initial
-        # For II: Soft +CS(beam 1) + BS(beam 2) = -1/2 Soft
-        prefactor *= -1./2.
-
-
         color_correlation_index = 0
         # Now loop over the colored parton number pairs (a,b)
         # and add the corresponding contributions to this current
         for i, a in enumerate(all_colored_parton_numbers):
             # Use the symmetry of the color correlation and soft current (a,b) <-> (b,a)
-            for b in all_colored_parton_numbers[i:]:
+            for b in all_colored_parton_numbers[i+1:]:
                 # Write the integrated eikonal for that pair
-                if a!=b:
-                    mult_factor = 2.
-                else:
-                    mult_factor = 1.
+
                 evaluation['color_correlations'].append( ((a, b), ) )
-                
+
                 pa = PS_point[a]
                 pb = PS_point[b]
-                if self.distribution_type == 'bulk':
-                    # TODO Place-holder example
-                    kernel = EpsilonExpansion({
-                                0 : - 16.*xi * log(1.-xi**2) /(1.-xi**2),
-                                -1 : 8. * xi / (1.-xi**2),
-                                -2 : 0.
-                    })
-                elif self.distribution_type == 'counterterm':
-                    # TODO Place-holder example, but it indeed regulates the above example
-                    kernel = EpsilonExpansion({
-                                0 : -8.*log(2.*(1.-xi))/(1.-xi),
-                                -1 : 4./(1.-xi),
-                                -2 : 0.
-                    })
-                elif self.distribution_type == 'endpoint':
-                    # TODO Place-holder example
-                    kernel = EpsilonExpansion({
-                                0 : pi**2./3.-4.*log(2.)**2,
-                                -1 : 4.*log(2.),
-                                -2 : -2.
-                    })
-                else:
-                    raise CurrentImplementationError("Distribution type '%s' not supported."
-                                                                    %self.distribution_type)
+
+                # We can only handle massless particles
+                try:
+                    assert pa.square()/Q_square < 1.e-09
+                except AssertionError:
+                    misc.sprint("No massive particles in soft currents for now")
+                    raise
+
+                # Assign the type of dipole
+                # dipole_type = [bool_a, bool_b] tags the dipole tag, with True indicating initial state and False final
+                dipole_type = [a in colored_initial_parton_numbers, b in colored_initial_parton_numbers]
+
+                if not any(dipole_type): # Final-final
+                    raise NotImplementedError
+                elif not dipole_type[0]: # a final, b initial
+                    raise NotImplementedError
+                elif not dipole_type[1]: # b final, a initial
+                    raise NotImplementedError
+                else: # initial initial
+                    # Initial-initial: S+CS = 0
+                    if self.distribution_type == 'bulk':
+                        kernel = EpsilonExpansion({0:0})
+                    elif self.distribution_type == 'counterterm':
+                        kernel = EpsilonExpansion({0:0})
+                    elif self.distribution_type == 'endpoint':
+                        kernel = EpsilonExpansion({0:0})
+                    else:
+                        raise CurrentImplementationError("Distribution type '%s' not supported."
+                                                                        %self.distribution_type)
+                    # Former implementation of the II soft+SC. Commented by Nicolas
+                    # While no longer useful, this is kept for now to remember how non-zero integrated soft shoud be implemented
+                    # if self.distribution_type == 'bulk':
+                    #     kernel = EpsilonExpansion({
+                    #                 0 : - 16.*xi * log(1.-xi**2) /(1.-xi**2),
+                    #                 -1 : 8. * xi / (1.-xi**2),
+                    #                 -2 : 0.
+                    #     })
+                    # elif self.distribution_type == 'counterterm':
+                    #     kernel = EpsilonExpansion({
+                    #                 0 : -8.*log(2.*(1.-xi))/(1.-xi),
+                    #                 -1 : 4./(1.-xi),
+                    #                 -2 : 0.
+                    #     })
+                    # elif self.distribution_type == 'endpoint':
+                    #     kernel = EpsilonExpansion({
+                    #                 0 : pi**2./3.-4.*log(2.)**2,
+                    #                 -1 : 4.*log(2.),
+                    #                 -2 : -2.
+                    #     })
+                    # else:
+                    #     raise CurrentImplementationError("Distribution type '%s' not supported."
+                    #                                                     %self.distribution_type)
 
                 evaluation['values'][(0, color_correlation_index)] = kernel*normalization
                 color_correlation_index += 1

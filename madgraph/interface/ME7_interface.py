@@ -321,6 +321,7 @@ class ParseCmdArguments(object):
             'save_results_to_path'    : None,
             'plots_suffix'            : None,
             'set_PDFs_to_unity'       : True,
+            'boost_back_to_com'       : True,
             'epsilon_expansion_term'  : 'sum_all',
             # Here we store a list of lambda function to apply as filters
             # to the ingegrand we must consider
@@ -336,6 +337,7 @@ class ParseCmdArguments(object):
             del testlimits_options['show_plots']
             del testlimits_options['save_plots']
             del testlimits_options['plots_suffix']
+            del testlimits_options['boost_back_to_com']
             # We must be much tighter in the check of the relative difference of the pole
             # residues.
             testlimits_options['acceptance_threshold'] = 1.0e-13
@@ -452,7 +454,7 @@ class ParseCmdArguments(object):
                 except:
                     testlimits_options['limits'] = [value,]
 
-            elif key in ['--show_plots','--set_PDFs_to_unity', '--save_plots']:
+            elif key in ['--show_plots','--set_PDFs_to_unity', '--save_plots','--boost_back_to_com']:
                 try:
                     testlimits_options[key[2:]] = strtobool(value)
                 except ValueError:

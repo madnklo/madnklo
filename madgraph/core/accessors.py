@@ -1704,6 +1704,11 @@ class F2PYMEAccessorMadLoop(F2PYMEAccessor):
                        'estimated_accuracies': estimated_accuracies,
                        'return_code': return_code}   
 
+        if __debug__ and return_code%100 ==4:
+            logger.debug("MadLoop library '%s@%s' could not reach target accuracy %.2e for PS_point:\n%s"%(
+                self.f2py_module_path[1], self.f2py_module_path[0],
+                required_accuracy, str(PS_point) ))
+            logger.debug("Accuracies obtained: %s"%str(estimated_accuracies))
         # Gather additional newly generated output_data to be returned and placed in the cache.
         output_datas = self.gather_output_datas(main_output, new_opts)
         

@@ -222,6 +222,9 @@ class ME7Event(object):
         # a) Initial-state momenta must be swapped
         # b) Final-state momenta must have their z-component swapped (for this to be correct
         # however, first make sure that initial momenta are indeed on the z-axis in the c.o.m frame)
+        # Normally all events generated should be in the c.o.m frame already, but it may be
+        # that in test_IR_limits, for debugging purposes only, the option 'boost_back_to_com' was
+        # set to False, in which case we must here first *temporarily boost* it back to the c.o.m.
         if __debug__:
             # Two initial states
             assert(len(self.weights_per_flavor_configurations.keys()[0][0])==2)
@@ -2841,8 +2844,12 @@ class ME7Integrand_R(ME7Integrand):
 
     def evaluate_counterterm( self, counterterm, PS_point, base_weight, mu_r, mu_f1, mu_f2, 
         xb_1, xb_2, xi1, xi2, is_process_mirrored, all_resolved_flavors, hel_config=None, 
-        apply_flavour_blind_cuts=True):
-        """Evaluate a counterterm for a given PS point and flavors."""
+        apply_flavour_blind_cuts=True, boost_back_to_com=True):
+        """Evaluate a counterterm for a given PS point and flavors.
+        The option 'boost_back_to_com' allows to prevent this functiont to boost back the
+        PS point of the Event generated to the c.o.m frame. This would yields *incorrect* 
+        distributions but it is useful for diagnostic purposes when called from within
+        test_IR_limits. It however *must* be kept to True by default."""
 
         # Now call the walker which hikes through the counterterm structure
         # to return the list of currents and PS points for their evaluation
@@ -2925,6 +2932,22 @@ class ME7Integrand_R(ME7Integrand):
                     all_necessary_ME_calls = ME7Integrand_R.update_all_necessary_ME_calls(
                         all_necessary_ME_calls, current_evaluation, weight_type='main_weight')
 
+        # Now that all currents have been evaluated using the PS points with initial-state
+        # momenta that can be boosted because of initial-collinear mappings, we must boost
+        # back in the c.o.m frame the PS point that will be used for generating the 
+        # ME7Event as well as for calling the reduced ME.
+        # First avoid possible border effects by making a copy (should be removed for performance
+        # gain, after it is checked to be safe).
+        ME_PS = ME_PS.get_copy()
+        # And now boost it back in the c.o.m frame.
+        if boost_back_to_com:
+            ME_PS.boost_to_com(tuple([l.get('number') for l in counterterm.process.get_initial_legs()]))
+
+        # Now the phase-space point stored in the event generated is not a dictionary but
+        # a LorentzVectorList which must be ordered exactly like the flavor configurations
+        # in it are.
+        event_PS = ME_PS.to_list(ordered_keys=[l.get('number') for l in counterterm.process.get('legs')])
+
         # Then evaluate the beam factorization currents
         all_necessary_ME_calls = ME7Integrand_R.process_beam_factorization_currents(
             all_necessary_ME_calls, counterterm.get_beam_currents(), self.all_MEAccessors, 
@@ -2961,7 +2984,7 @@ class ME7Integrand_R(ME7Integrand):
          
 
         return ME7Integrand_R.generate_event_for_counterterm(
-            ME7Event( ME_PS, 
+            ME7Event( event_PS, 
                 {fc : base_weight for fc in all_reduced_flavored_with_initial_states_subsituted},
                 requires_mirroring              = is_process_mirrored,
                 host_contribution_definition    = self.contribution_definition,
@@ -3085,6 +3108,7 @@ The missing process is: %s"""%ME_process.nice_string())
         all_events_generated = ME7EventList()
 
         apply_flavour_blind_cuts = opts.get('apply_flavour_blind_cuts', True)
+        boost_back_to_com = opts.get('boost_back_to_com', True)
         
         matrix_element_event = self.generate_matrix_element_event(
                 PS_point, process_key, process, all_flavor_configurations, 
@@ -3101,7 +3125,8 @@ The missing process is: %s"""%ME_process.nice_string())
             CT_event = self.evaluate_counterterm(
                   counterterm, PS_point, base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, 
                   process.get('has_mirror_process'), all_flavor_configurations, 
-                  hel_config = None, apply_flavour_blind_cuts = apply_flavour_blind_cuts)
+                  hel_config = None, apply_flavour_blind_cuts = apply_flavour_blind_cuts,
+                  boost_back_to_com = boost_back_to_com)
             
             # The function above returns None if the counterterms is removed because of
             # flavour_blind_cuts.
@@ -3282,7 +3307,7 @@ The missing process is: %s"""%ME_process.nice_string())
         )
 
     def scale_configuration(self, xi1, xi2, real_emission_PS_point, limit, 
-                                                  scaling_parameter, defining_process, walker):
+                          scaling_parameter, defining_process, walker, boost_back_to_com):
         """ Function used by test_IR_limits_for_limit_and_process to scale a given
         configuration and return the scaled xi's and PS_point. The definition of this
         function is useful so that it can be overloaded in the beam-soft integrands 
@@ -3290,6 +3315,9 @@ The missing process is: %s"""%ME_process.nice_string())
 
         scaled_real_PS_point = walker.approach_limit(
                        real_emission_PS_point, limit, scaling_parameter, defining_process )
+
+        if boost_back_to_com:
+            scaled_real_PS_point.boost_to_com((1,2))
 
         # Also scale the xi initial-state convolution parameters if the limit
         # specifies a beam factorization structure for that initial state:
@@ -3363,7 +3391,8 @@ The missing process is: %s"""%ME_process.nice_string())
             # Determine the new configuration
             scaling_parameter = base ** step
             scaled_real_PS_point, scaled_xi1, scaled_xi2 = self.scale_configuration(
-                a_xi1, a_xi2, a_real_emission_PS_point, limit, scaling_parameter, defining_process, walker)
+                a_xi1, a_xi2, a_real_emission_PS_point, limit, scaling_parameter, 
+                defining_process, walker, test_options['boost_back_to_com'])
             if test_options['apply_higher_multiplicity_cuts']:
                 if not self.pass_flavor_blind_cuts( scaled_real_PS_point,
                         self.processes_map.values()[0][0].get_cached_initial_final_pdgs(),
@@ -3374,7 +3403,8 @@ The missing process is: %s"""%ME_process.nice_string())
                     logger.warning(str(scaled_real_PS_point))
                     break
 
-            misc.sprint('Scaled PS point: %s'%str(scaled_real_PS_point))
+            #misc.sprint('Scaled PS point: %s'%str(scaled_real_PS_point))
+            #misc.sprint('Scaled Bjorken rescalings: %s %s'%(scaled_xi1, scaled_xi2))
             mu_r, mu_f1, mu_f2 = self.get_scales(scaled_real_PS_point)
 
             # Specify the counterterms to be considered and backup the original values
@@ -3390,7 +3420,8 @@ The missing process is: %s"""%ME_process.nice_string())
                     scaled_real_PS_point.to_dict(), process_key, defining_process, all_flavor_configurations, 
                     1.0, mu_r, mu_f1, mu_f2, a_xb_1, a_xb_2, scaled_xi1, scaled_xi2,
                     compute_poles            = False,
-                    apply_flavour_blind_cuts = test_options['apply_lower_multiplicity_cuts']
+                    apply_flavour_blind_cuts = test_options['apply_lower_multiplicity_cuts'],
+                    boost_back_to_com        = test_options['boost_back_to_com']
                 )
             except Exception as e:
                 logger.critical("The following exception occurred when generating events for this integrand %s:\n%s"%(
@@ -3408,8 +3439,8 @@ The missing process is: %s"""%ME_process.nice_string())
             if self.has_integrated_counterterms():
                 self.integrated_counterterms[process_key] = integrated_CT_backup
 
-#            misc.sprint('Events generated before post-processing.')
-#            misc.sprint(events)
+            #misc.sprint('Events generated before post-processing.')
+            #misc.sprint(events)
             
             # Now post-process the events as done in __call__ of the integrand.
             
@@ -3441,8 +3472,8 @@ The missing process is: %s"""%ME_process.nice_string())
             if test_options['apply_lower_multiplicity_cuts']:
                 events.filter_flavor_configurations(self.pass_flavor_sensitive_cuts)
     
-#            misc.sprint('Events generated after post-processing:')
-#            misc.sprint(events)
+            #misc.sprint('Events generated after post-processing:')
+            #misc.sprint(events)
             
             # Now store the results to be returned which will eventually be passed to 
             # the IR test analyzer.
@@ -3530,7 +3561,7 @@ The missing process is: %s"""%ME_process.nice_string())
         lines.sort(key=len)
         # Skip ME-def line if there is no defining ct
         plot_def = def_ct and def_ct in lines
-        plot_total = len(lines) > 2
+        plot_total = len(lines) > 2 or (not plot_def)
 
         plt.rc('text', usetex=True)
         plt.rc('font', family='serif', size=16)
@@ -3868,7 +3899,7 @@ class ME7Integrand_BS(ME7Integrand_RV):
         
 
     def scale_configuration(self, xi1, xi2, real_emission_PS_point, limit, 
-                                                      scaling_parameter, defining_process, walker):
+                           scaling_parameter, defining_process, walker, boost_back_to_com):
         """ Function used by test_IR_limits_for_limit_and_process to scale a given
         configuration and return the scaled xi's and PS_point. We must specialize it here
         so as to leave the real_emission_PS untouched since the limit anyway correspond to

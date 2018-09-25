@@ -1022,31 +1022,39 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
             suffix = '_%d' % suffix_number
             existing_results = {}
 
+            # If a folder for this run_name exists, go through appending/creating new folder logic
             if (os.path.exists(run_output_path + suffix)):
+                # Go through existing folders to find the last one
                 while os.path.exists(run_output_path + suffix):
                     suffix_number += 1
                     suffix = '_%d' % suffix_number
                 suffix_number -= 1
                 suffix = '_%d' % suffix_number
+                # Get the names of all the integrands to be integrated
                 contribution_names = [integrand.contribution_definition.short_name() for integrand in self.integrator.integrands]
+                # Import all results already in the data file
                 try:
                     with open(pjoin(run_output_path + suffix, "cross_sections.json"), "r") as result_file:
                         existing_results = json.load(result_file)
                 except (IOError,ValueError) as e:
                     logger.warn("Could not open the result file in the existing result folder %s."%(run_output_path + suffix))
+                # If the importation failed (inexistant file or json problem) or if there is overlap with existing data, create a new folder
                 if (not existing_results) or any([name in existing_results for name in contribution_names]):
+                    logger.info("Current contribution already in the existing result folder %s."%(run_output_path + suffix))
                     suffix_number += 1
                     suffix = '_%d' % suffix_number
                     existing_results = {}
-                    logger.info("Current contribution already in the existing result folder %s."%(run_output_path + suffix))
+                # If the JSON datafile was correctly imported AND the integrands are not already in this data file, append there
                 else:
                     logger.info("Current contribution added in the existing result folder %s."%(run_output_path + suffix))
             else:
                 logger.info("This is the first run with this name")
+            # Suffix is either the last existing if appending is possible or last+1 if new folder needed
             run_output_path = run_output_path + suffix
             try:
+                # This fails if the folder exists already. Creation only goes through if we need it.
                 os.makedirs(run_output_path)
-                logger.info("Creating a new result folder at %s"%run_output_path)
+                logger.info("Creating a new result folder at %s"%run_output_path) # Message only displayed if the new folder is created
             except OSError:
                 pass
 
@@ -1104,7 +1112,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         logger.info('')
 
         if MPI_RANK==0:
-            # Write the result in 'cross_sections.dat' of the result directory
+            # Write the result in 'cross_sections.json' of the result directory
             self.output_run_results(run_output_path,xsec,error,self.integrator.integrands, existing_results)
 
 
@@ -1195,13 +1203,14 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
     def output_run_results(run_output_path, xsec, error, integrands, existing_results):
         """Output the run results as a json file
 
-        [description]
+        Take the preexisting data in a JSON output file, add the information for the new run and update the output file with all the data. When multiple integrands are considered in one integration, we output their sum, tagged as "Contrib1+Contrib2+..." (e.g. V+R+BS).
 
         Arguments:
             run_output_path {[str]} -- where to save the file
             xsec {[float]} -- cross section for the set of integrands considered
             error {[float]} -- Monte Carlo uncertainty on xsec
             integrands {[ME7IntegrandList]} -- List of ME7Integrand objects that were integrated
+            existing_results dict -- The JSON data for results already present in run_output_path/cross_sections.json
             """
         with open(pjoin(run_output_path, 'cross_sections.json'), 'w') as xsec_summary:
             logger.info("Saving the integration result to:")
@@ -1213,6 +1222,8 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
             result[contribution_name]["MC uncertainty"] = error
             result[contribution_name]["unit"] = "pb"
             orders = [integrand.contribution_definition.correction_order for integrand in integrands]
+            # The overall order of the contribution is taken as the maximum of the orders considered:
+            # B+V+R is NLO, RR+B is NNLO etc
             result[contribution_name]["order"] = max(orders)
             result[contribution_name]["timestamp"] = datetime.now().strftime('%Y:%m:%d:%H:%M:%S')
             result.update(existing_results)

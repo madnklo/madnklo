@@ -1258,7 +1258,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         if isinstance(PS_point, LorentzVectorDict):
             PS_point = PS_point.to_list()
         elif not isinstance(PS_point, LorentzVectorList):
-            PS_point = LorentzVectorList(LorentzVector(v) for v in PS_point)    
+            PS_point = LorentzVectorList(LorentzVector(v) for v in PS_point)
 
         if PYJET_AVAILABLE and drjj_cut > 0.:
 
@@ -1604,7 +1604,9 @@ class ME7Integrand(integrands.VirtualIntegrand):
             events = self.sigma(
                 PS_point.to_dict(), process_key, process, all_flavor_configurations, 
                                         wgt, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2)
-
+            
+            if events is None or len(events)==0:
+                continue
             # Now handle the process mirroring, by adding, for each ME7Event defined with
             # requires_mirroring = True, a new mirrored event with the initial states swapped,
             # as well as the Bjorken x's and rescalings and with p_z -> -p_z on all final
@@ -1617,11 +1619,11 @@ class ME7Integrand(integrands.VirtualIntegrand):
                 n_jets_allowed_to_be_clustered  = self.contribution_definition.n_unresolved_particles):
                 if __debug__: logger.debug('All events failed the flavour_blind generation-level cuts.')
                 if __debug__: logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)            
-                return 0.0
-            
+                continue
+
             # Select particular terms of the EpsilonExpansion terms stored as weigts
             events.select_epsilon_expansion_term('finite')
-            
+
             # Apply PDF convolution
             if self.run_card['lpp1']==self.run_card['lpp2']==1:
                 events.apply_PDF_convolution( self.get_pdfQ2, 
@@ -1641,7 +1643,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
             if not events.filter_flavor_configurations(self.pass_flavor_sensitive_cuts):
                 if __debug__: logger.debug('Events failed the flavour-sensitive generation-level cuts.')
                 if __debug__: logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)            
-                return 0.0
+                continue
 
             # Aggregate the total weight to be returned to the integrator
             total_wgt += events.get_total_weight()
@@ -1719,7 +1721,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         if not self.pass_flavor_blind_cuts(PS_point, all_flavor_configurations[0]):
             if __debug__: logger.debug('Event failed the flavour_blind generation-level cuts.')
             if __debug__: logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)            
-            return 0.0
+            return None
 
         ME_evaluation, all_results = self.all_MEAccessors(
                         process, PS_point, alpha_s, mu_r, pdgs=all_flavor_configurations[0])
@@ -1742,7 +1744,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         ##misc.sprint(str(all_results))
         
         sigma_wgt *= ME_evaluation['finite']
-
+        
         # Return the lone LO event
         return ME7EventList([
             ME7Event( PS_point, {fc : sigma_wgt for fc in all_flavor_configurations},
@@ -3403,8 +3405,8 @@ The missing process is: %s"""%ME_process.nice_string())
                     logger.warning(str(scaled_real_PS_point))
                     break
 
-            #misc.sprint('Scaled PS point: %s'%str(scaled_real_PS_point))
-            #misc.sprint('Scaled Bjorken rescalings: %s %s'%(scaled_xi1, scaled_xi2))
+            misc.sprint('Scaled PS point: %s'%str(scaled_real_PS_point))
+            misc.sprint('Scaled Bjorken rescalings: %s %s'%(scaled_xi1, scaled_xi2))
             mu_r, mu_f1, mu_f2 = self.get_scales(scaled_real_PS_point)
 
             # Specify the counterterms to be considered and backup the original values
@@ -3626,11 +3628,13 @@ The missing process is: %s"""%ME_process.nice_string())
             plt.plot(x_values, abs_total, color=TOTAL_color, label='TOTAL')
         plt.legend()
         if filename:
+            #pass
             plt.savefig(filename + '_integrands' + plot_extension)
 
         if display_mode == 'figure':
             plt.figure(2, figsize=plot_size)
         elif display_mode == 'grid':
+            #pass
             plt.subplot(2,2,2)
 
         plt.gca().set_prop_cycle(color=colors)
@@ -3687,6 +3691,7 @@ The missing process is: %s"""%ME_process.nice_string())
             plt.figure(3, figsize=plot_size)
         elif display_mode == 'grid':
             plt.subplot(2,2,3)
+            #plt.subplot(2,2,2)
 
         plt.gca().set_prop_cycle(color=colors)
         if plot_title and title: plt.title(title)

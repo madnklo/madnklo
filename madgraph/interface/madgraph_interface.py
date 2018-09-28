@@ -3289,29 +3289,39 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
         existing amplitudes
         or merge two model
         """
-
-        args = self.split_arg(line)
-
         
+        processed_line = line.split('--')
+        args_line = processed_line[0]
+        options = [opt.strip() for opt in processed_line[1:]]
+        args = self.split_arg(args_line)
+
         warning_duplicate = True
-        if '--no_warning=duplicate' in args:
-            warning_duplicate = False
-            args.remove('--no_warning=duplicate')
-
         diagram_filter = False
-        if '--diagram_filter' in args:
-            diagram_filter = True
-            args.remove('--diagram_filter')
-        
         standalone_only = False
-        if '--standalone' in args:
-            standalone_only = True
-            args.remove('--standalone')            
+        MadNkLO_options = []
+        for option in options:
+            processed_option = option.split('=')
+            key = processed_option[0]
+            if len(processed_option)>1:
+                value = '='.join(processed_option[1:]).strip()
+            else:
+                value = None
+                
+            if key == 'no_warning':
+                if value != 'duplicate':
+                    raise InvalidCmd("Option %s only supports value 'duplicate'."%key)
+                warning_duplicate = False
+            elif key=='diagram_filter':
+                diagram_filter = True        
+            elif key=='standalone':
+                standalone_only = True
+            else:
+                MadNkLO_options.append('--%s'%key+('' if value is None else '=%s'%value))
 
         # Check the validity of the arguments
         self.check_add(args)
         # Parse the options and remove them from args
-        args, add_options = self.parse_add_options(args)
+        args, add_options = self.parse_add_options(args+MadNkLO_options)
         
         if args[0] == 'model':
             return self.add_model(args[1:])
@@ -4007,23 +4017,31 @@ This implies that with decay chains:
             ['lepton'        , (11,-11,13,-13,15,-15,22)],     
         ]
         
+        # If a higher order computation then use the active particles to weed out 
+        # the list of the hardcoded beam types. Otherwise, just the massless particles.
         all_real_emission_ids = set([])
-        for order in generation_options['all_perturbed_orders']:
-            all_real_emission_ids = all_real_emission_ids.union(set(
-                generation_options['orders_to_perturbed_quantities'][order]['real_emission_ids']))
-        
-        # Weed out particles not affected by the current corrected couplints
+        if len(generation_options['all_perturbed_orders'])>1:
+            for order in generation_options['all_perturbed_orders']:
+                all_real_emission_ids = all_real_emission_ids.union(set(
+                    generation_options['orders_to_perturbed_quantities'][order]['real_emission_ids']))
+        else:
+            for p in self._curr_model.get('particles'):
+                if p.get('mass').upper()=='ZERO':
+                    all_real_emission_ids.add(p.get_pdg_code())
+                    all_real_emission_ids.add(p.get_anti_pdg_code())
+          
+        # Weed out particles not affected by the current corrected couplings
         for i, (hard_coded_beam_type, pdgs) in enumerate(hard_coded_beam_types):
             hard_coded_beam_types[i][1] = tuple(pdg for pdg in pdgs if pdg in all_real_emission_ids)
-        
+
         # Now sort them according to number of PDGs contained
         hard_coded_beam_types = sorted([(beam_type, tuple(pdgs)) for 
                       beam_type, pdgs in hard_coded_beam_types], key=lambda el: len(el[1]))
 
+        initial_state_ids  = [pdg for pdg in multileg.get('ids') if pdg in all_real_emission_ids]
+        
         beam_type_guessed = None
         missing_pdgs      = []
-
-        initial_state_ids  = [pdg for pdg in multileg.get('ids') if pdg in all_real_emission_ids]
         
         if not user_beam_PDGs is None:
             if user_beam_PDGs != initial_state_ids:
@@ -4054,8 +4072,9 @@ This implies that with decay chains:
             " type for this process. Specify it using the option 'beam_types' of the 'generate' command.")
 
             # If there are missing PDGs in the initial state definition, issue a warning 
-            # (in the case of the proton only)
-            if len(missing_pdgs)>0 and 'proton' in beam_type_guessed:
+            # (in the case of the proton only). Also bypass this warning if we are doing
+            # a LO computation.
+            if len(missing_pdgs)>0 and 'proton' in beam_type_guessed and len(generation_options['all_perturbed_orders'])>0:
                 logger.warning('It seems that the following particles are missing in your'+
                     ' multiparticle definition used for beam %d: (%s)'%(beam_id+1,
                         ' '.join(self._curr_model.get_particle(pdg).get_name() for pdg in missing_pdgs)))

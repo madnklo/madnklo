@@ -881,8 +881,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
             # No pattern matched upt to this point so we must return False
             return False
             
-            # We can now return the flavor cut function created
-            return pass_flavor_cut_func
+        # We can now return the flavor cut function created
+        return pass_flavor_cut_func
                 
     def synchronize(self, model, run_card, ME7_configuration):
         """ Synchronize this integrand with the most recent run_card and model."""

@@ -90,7 +90,7 @@ class QCD_beam_factorization_F0(currents.QCDBeamFactorizationCurrent):
         # all possible incoming flavors.
         return init_vars
 
-    def evaluate_kernel(self, PS_point, process, xi, mu_r, mu_f, normalization, 
+    def evaluate_kernel(self, PS_point, process, xi, mu_r, mu_f, Q, normalization, 
                                                   allowed_backward_evolved_flavors='ALL'):
         """ Return an instance of BeamFactorizationCurrentEvaluation, whose 'values' entry
         are dictionaries specifying the counterterm in flavor space, for the value of xi 
@@ -216,14 +216,14 @@ class QCD_beam_factorization_single_collinear(currents.QCDBeamFactorizationCurre
         # initial state collinear counterterm of all possible incoming flavors.
         return init_vars
 
-    def evaluate_kernel(self, PS_point, process, xi, mu_r, mu_f, normalization,
+    def evaluate_kernel(self, PS_point, process, xi, mu_r, mu_f, Q, normalization,
                                                    allowed_backward_evolved_flavors='ALL'):
         """ Return an instance of BeamFactorizationCurrentEvaluation, whose 'values' entry
         are dictionaries specifying the counterterm in flavor space, for the value of xi 
         specified in argument."""
 
         # Obtain Q_square
-        Q        = sum([PS_point[l.get('number')] for l in process.get_initial_legs()])
+        #Q        = sum([PS_point[l.get('number')] for l in process.get_initial_legs()])
         Q_square = Q.square()
 
         # Only up to the order epsilon^2 of the scales prefactor matters here.
@@ -239,7 +239,7 @@ class QCD_beam_factorization_single_collinear(currents.QCDBeamFactorizationCurre
         # only acts on the PDF. So it makes sense to keep it completely factorised.
 
         # Input variables
-        y_0 = currents.SomogyiChoices.y_0
+        y_0 = currents.SomogyiChoices.y_0_prime
         logy0 = log(y_0)
         # Assign a fake x for now if the distribution type is 'endpoint'
         # TODO: this is not optimal, eventually we should put each of these three pieces in
@@ -396,7 +396,7 @@ class QCD_beam_factorization_single_soft(currents.QCDBeamFactorizationCurrent):
         # All checks passed
         return init_vars
 
-    def evaluate_kernel(self, PS_point, process, xi, mu_r, mu_f, normalization,
+    def evaluate_kernel(self, PS_point, process, xi, mu_r, mu_f, Q, normalization,
                                                     allowed_backward_evolved_flavors='ALL'):
         """ Return an instance of SubtractionCurrentEvaluation, whose 'values' entry
         are simple EpsilonExpansions since soft-integrated counterterms convoluted in a 
@@ -430,7 +430,7 @@ class QCD_beam_factorization_single_soft(currents.QCDBeamFactorizationCurrent):
         })
 
         # Obtain Q_square
-        Q        = sum([PS_point[l.get('number')] for l in process.get_initial_legs()])
+        #Q        = sum([PS_point[l.get('number')] for l in process.get_initial_legs()])
         Q_square = Q.square()
 
         # Only up to the order epsilon^2 of the scales prefactor matters here.

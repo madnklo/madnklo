@@ -282,7 +282,7 @@ class QCDBeamFactorizationCurrent(QCDCurrent):
         return init_vars
 
     def evaluate_subtraction_current(self, current, higher_PS_point=None, lower_PS_point=None, 
-            reduced_process = None, xi=None, mu_r=None, mu_f=None, hel_config=None, 
+            reduced_process = None, xi=None, mu_r=None, mu_f=None, Q=None, hel_config=None, 
             allowed_backward_evolved_flavors = 'ALL', **opts ):
         """ This implementation of the main function call in the base class pre-process
         the inputs so as to define the variable generically useful for all beam factorization
@@ -306,6 +306,9 @@ class QCDBeamFactorizationCurrent(QCDCurrent):
         if reduced_process is None:
             raise CurrentImplementationError(
                 self.name() + " requires a process instance to be specified" )
+        if Q is None:
+            raise CurrentImplementationError(
+                self.name() + " requires the total initial momentum Q." )
 
         # Retrieve alpha_s
         model_param_dict = self.model.get('parameter_dict')
@@ -318,7 +321,7 @@ class QCDBeamFactorizationCurrent(QCDCurrent):
         # BeamFactorizationCurrentEvaluation which can specify color-correlations as 
         # well as reduced and resolved flavors.
         evaluation = self.evaluate_kernel(
-            lower_PS_point, reduced_process, xi, mu_r, mu_f, normalization,
+            lower_PS_point, reduced_process, xi, mu_r, mu_f, Q, normalization,
             allowed_backward_evolved_flavors = allowed_backward_evolved_flavors)
 
         # Construct and return result
@@ -421,20 +424,27 @@ class QCDLocalCollinearCurrent(QCDCurrent):
                 self.name() + " does not support helicity assignment." )
         if Q is None:
             raise CurrentImplementationError(
-                self.name() + " requires the total mapping momentum Q." )
+                self.name() + " requires the total initial momentum Q." )
 
         # Retrieve alpha_s and mu_r
         model_param_dict = self.model.get('parameter_dict')
         alpha_s = model_param_dict['aS']
         mu_r = model_param_dict['MU_R']
 
-        # Include the counterterm only in a part of the phase space
         children = self.get_sorted_children(current, self.model)
         parent = leg_numbers_map.inv[frozenset(children)]
         pC = sum(higher_PS_point[child] for child in children)
-        if self.is_cut(Q=Q, pC=pC):
-            return utils.SubtractionCurrentResult.zero(
-                current=current, hel_config=hel_config)
+        # Include the counterterm only in a part of the phase space
+        if any(leg.state == leg.INITIAL for leg in current.get('singular_structure').legs):
+            pA = higher_PS_point[children[0]]
+            pR = sum(higher_PS_point[child] for child in children[1:])
+            # Initial state collinear cut
+            if self.is_cut(Q=Q, pA=pA, pR=pR):
+                return utils.SubtractionCurrentResult.zero(current=current, hel_config=hel_config)
+        else:
+            # Final state collinear cut
+            if self.is_cut(Q=Q, pC=pC):
+                return utils.SubtractionCurrentResult.zero(current=current, hel_config=hel_config)
 
         # Evaluate kernel
         zs, kTs = self.variables(higher_PS_point, lower_PS_point[parent], children, Q=Q)
@@ -550,10 +560,11 @@ class QCDLocalSoftCollinearCurrent(QCDCurrent):
 class SomogyiChoices(object):
     """Original Somogyi choices."""
 
-    alpha_0 = 0.5
-    y_0 = 0.5
-    d_0 = 1
-    d_0_prime = 2
+    alpha_0     = 0.5
+    y_0         = 0.5
+    y_0_prime   = 0.5
+    d_0         = 1
+    d_0_prime   = 2
 
     @staticmethod
     def cut_coll(**opts):
@@ -566,6 +577,16 @@ class SomogyiChoices(object):
             alpha = mappings.FinalRescalingOneMapping.alpha(pC, Q)
         # Include the counterterm only up to alpha_0
         return alpha > SomogyiChoices.alpha_0
+
+    @staticmethod
+    def cut_initial_coll(**opts):
+
+        pA    = opts['pA']
+        pR    = opts['pR']
+        Q     = opts['Q']
+        y_0p  = (2.*pA.dot(pR))/Q.square()
+        # Include the counterterm only up to y_0_prime
+        return y_0p > SomogyiChoices.y_0_prime
 
     @staticmethod
     def cut_soft(**opts):

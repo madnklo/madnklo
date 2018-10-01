@@ -1985,6 +1985,10 @@ class ME7Integrand_V(ME7Integrand):
         total_jacobian = 1.
         disconnected_currents_weight = base_objects.EpsilonExpansion({'finite': 1.0})
         
+        # Compute the 4-vector Q characterizing this PS point, defined as the sum of all
+        # initial_state momenta, before any mapping is applied.
+        Q = sum(p for i, p in enumerate(mapped_PS_point.to_list()) if i<self.n_initial)
+        
         # First call the non-beam factorization currents
         for integrated_current in counterterm.get_all_currents():
             if isinstance(integrated_current, (subtraction.BeamCurrent,subtraction.IntegratedBeamCurrent)):
@@ -1998,7 +2002,8 @@ class ME7Integrand_V(ME7Integrand):
                 reduced_process = counterterm.process,
                 leg_numbers_map = counterterm.momenta_dict,
                 hel_config      = hel_config,
-                compute_poles   = compute_poles )
+                compute_poles   = compute_poles,
+                Q               = Q )
 
             # Now loop over all spin- and color- correlators required for this current
             # and update the necessary calls to the ME
@@ -2016,7 +2021,7 @@ class ME7Integrand_V(ME7Integrand):
         # Then evaluate the beam factorization currents
         all_necessary_ME_calls = ME7Integrand_R.process_beam_factorization_currents(
             all_necessary_ME_calls, counterterm.get_beam_currents(), self.all_MEAccessors,
-            reduced_PS, counterterm.process, xi1, xi2, mu_r, mu_f1, mu_f2,
+            reduced_PS, counterterm.process, xi1, xi2, mu_r, mu_f1, mu_f2, Q,
             allowed_backward_evolved_flavors1 = allowed_backward_evolved_flavors1,
             allowed_backward_evolved_flavors2 = allowed_backward_evolved_flavors2)
         
@@ -2783,7 +2788,7 @@ class ME7Integrand_R(ME7Integrand):
 
     @classmethod
     def process_beam_factorization_currents(cls, all_necessary_ME_calls, all_beam_currents, 
-                     all_MEAccessors, PS_point, process, xi1, xi2, mu_r, mu_f1, mu_f2,
+                     all_MEAccessors, PS_point, process, xi1, xi2, mu_r, mu_f1, mu_f2, Q,
                      allowed_backward_evolved_flavors1='ALL',
                      allowed_backward_evolved_flavors2='ALL'):
         """ Calls the beam currents specified in the argument all_beam_currents with format:
@@ -2806,7 +2811,7 @@ class ME7Integrand_R(ME7Integrand):
                 else:
                     rescaling = 1.
                 current_evaluation, all_current_results = all_MEAccessors(beam_currents['beam_one'], 
-                    lower_PS_point=PS_point, reduced_process=process, xi=xi1, mu_r=mu_r, mu_f=mu_f1,
+                    lower_PS_point=PS_point, reduced_process=process, xi=xi1, mu_r=mu_r, mu_f=mu_f1, Q=Q,
                     allowed_backward_evolved_flavors = allowed_backward_evolved_flavors1)
 
                 new_necessary_ME_calls = ME7Integrand_R.update_all_necessary_ME_calls(
@@ -2819,7 +2824,7 @@ class ME7Integrand_R(ME7Integrand):
                 else:
                     rescaling = 1.
                 current_evaluation, all_current_results = all_MEAccessors(beam_currents['beam_two'],
-                    lower_PS_point=PS_point, reduced_process=process, xi=xi2, mu_r=mu_r, mu_f=mu_f2,
+                    lower_PS_point=PS_point, reduced_process=process, xi=xi2, mu_r=mu_r, mu_f=mu_f2, Q=Q,
                     allowed_backward_evolved_flavors = allowed_backward_evolved_flavors2) 
                 new_necessary_ME_calls = ME7Integrand_R.update_all_necessary_ME_calls(
                     new_necessary_ME_calls, current_evaluation,  
@@ -2835,7 +2840,7 @@ class ME7Integrand_R(ME7Integrand):
                 # By convention we pass here the factorization scale mu_f1 and not mu_f2, but that should be irrelevant 
                 # since such counterterms are in no way related to the PDF evolution or ISR factorization in general
                 current_evaluation, all_current_results = all_MEAccessors(beam_currents['correlated_convolution'],
-                    lower_PS_point=PS_point, reduced_process=process, xi=xi1, mu_r=mu_r, mu_f=mu_f1)
+                    lower_PS_point=PS_point, reduced_process=process, xi=xi1, mu_r=mu_r, mu_f=mu_f1, Q=Q)
                 if isinstance(beam_currents['correlated_convolution'], subtraction.BeamCurrent) and \
                                 beam_currents['correlated_convolution']['distribution_type']=='bulk':
                     rescaling = 1./xi1
@@ -2866,6 +2871,10 @@ class ME7Integrand_R(ME7Integrand):
         #         'matrix_element': (ME_process, ME_PS),
         #         'kinematic_variables' : kinematic_variables (a dictionary) }
 
+        # Compute the 4-vector Q characterizing this PS point, defined as the sum of all
+        # initial_state momenta, before any mapping is applied.
+        Q = sum(p for i, p in enumerate(PS_point.to_list()) if i<self.n_initial)
+       
         hike_output = self.walker.walk_to_lower_multiplicity(
                           PS_point, counterterm, compute_jacobian=self.divide_by_jacobian )
 
@@ -2904,7 +2913,7 @@ class ME7Integrand_R(ME7Integrand):
             },
         ]
         total_jacobian = 1.
-        disconnected_currents_weight = base_objects.EpsilonExpansion({'finite': 1.0})
+        disconnected_currents_weight = base_objects.EpsilonExpansion({'finite': 1.0})        
 
         # First evaluate the currents building the counterterm
         for stroll_output in hike_output['currents']:
@@ -2912,6 +2921,12 @@ class ME7Integrand_R(ME7Integrand):
             higher_PS_point = stroll_output['higher_PS_point']
             lower_PS_point  = stroll_output['lower_PS_point']
             stroll_vars     = stroll_output['stroll_vars']
+            # Set the variable 'Q' as the total initial-state momentum before any mapping
+            # It is possible that this overwrites an alternative definition that is used
+            # within the mapping routines. And this is OK, because the choice of which 
+            # Q to use in the definition of the variables used by the local currents is
+            # independent on what the mapping internally uses.
+            stroll_vars['Q'] = Q
             if stroll_vars.has_key('jacobian'):
                 total_jacobian *= stroll_vars['jacobian']
             for current in stroll_currents:
@@ -2959,7 +2974,7 @@ class ME7Integrand_R(ME7Integrand):
         # Then evaluate the beam factorization currents
         all_necessary_ME_calls = ME7Integrand_R.process_beam_factorization_currents(
             all_necessary_ME_calls, counterterm.get_beam_currents(), self.all_MEAccessors, 
-            ME_PS, ME_process, xi1, xi2, mu_r, mu_f1, mu_f2)
+            ME_PS, ME_process, xi1, xi2, mu_r, mu_f1, mu_f2, Q)
 
         # Now perform the combination of the list of spin- and color- correlators to be merged
         # for each necessary ME call identified

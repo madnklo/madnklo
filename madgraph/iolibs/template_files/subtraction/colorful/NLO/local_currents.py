@@ -445,6 +445,7 @@ class QCD_initial_collinear_0_qg(currents.QCDLocalCollinearCurrent):
     """qg collinear ISR tree-level current. q(initial) > q(initial_after_emission) g(final)"""
 
     variables = staticmethod(currents.Q_initial_coll_variables)
+    is_cut = staticmethod(currents.SomogyiChoices.cut_initial_coll)
     
     @classmethod
     def does_implement_this_current(cls, current, model):
@@ -517,6 +518,7 @@ class QCD_initial_collinear_0_gq(currents.QCDLocalCollinearCurrent):
     """gq collinear ISR tree-level current. q(initial) > g(initial_after_emission) q(final)"""
 
     variables = staticmethod(currents.Q_initial_coll_variables)
+    is_cut = staticmethod(currents.SomogyiChoices.cut_initial_coll)
     
     @classmethod
     def does_implement_this_current(cls, current, model):
@@ -591,6 +593,7 @@ class QCD_initial_collinear_0_qq(currents.QCDLocalCollinearCurrent):
     """qq collinear ISR tree-level current. g(initial) > q(initial_after_emission) qx(final)"""
 
     variables = staticmethod(currents.Q_initial_coll_variables)
+    is_cut = staticmethod(currents.SomogyiChoices.cut_initial_coll)
     
     @classmethod
     def does_implement_this_current(cls, current, model):
@@ -663,6 +666,7 @@ class QCD_initial_collinear_0_gg(currents.QCDLocalCollinearCurrent):
     """gg collinear ISR tree-level current. g(initial) > g(initial_after_emission) g(final)"""
 
     variables = staticmethod(currents.Q_initial_coll_variables)
+    is_cut = staticmethod(currents.SomogyiChoices.cut_initial_coll)
     
     @classmethod
     def does_implement_this_current(cls, current, model):

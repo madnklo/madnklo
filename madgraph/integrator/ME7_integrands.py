@@ -836,50 +836,50 @@ class ME7Integrand(integrands.VirtualIntegrand):
                         raise MadEvent7Error('Malformed flavor-cut pattern: %s.'%matcher)
             processed_patterns.append(processed_pattern)
             
-            # Ok, now that we've processed the patterns to consider, we can create the function
-            # that checks it:
-            def pass_flavor_cut_func(flavor_config):
-                initial_pdgs, final_pdgs = flavor_config[0], flavor_config[1]
-                # Loop over all capturing patterns
-                for pattern in processed_patterns:
-                    # First check the initial states
-                    if len(initial_pdgs)!=len(pattern['initial_states']):
-                        continue
+        # Ok, now that we've processed the patterns to consider, we can create the function
+        # that checks it:
+        def pass_flavor_cut_func(flavor_config):
+            initial_pdgs, final_pdgs = flavor_config[0], flavor_config[1]
+            # Loop over all capturing patterns
+            for pattern in processed_patterns:
+                # First check the initial states
+                if len(initial_pdgs)!=len(pattern['initial_states']):
+                    continue
+                must_continue = False
+                for i, pdg in enumerate(initial_pdgs):
+                    if (pattern['initial_states'][i] is not None) and \
+                                    (pdg not in pattern['initial_states'][i]):
+                        must_continue = True
+                        break
+                if must_continue:
+                    continue
+                
+                # Then check the final states.
+                # First make sure all constraints specified by the user apply
+                must_continue = False
+                for (matcher, multiplier) in pattern['final_states']:
+                    if len([1 for pdg in final_pdgs if pdg in matcher])!=multiplier:
+                        must_continue = True
+                        break
+                if must_continue:
+                    continue
+                # And if 'needs_exact_final_states' then also make sure that all final
+                # states belong in at least one category
+                if pattern['needs_exact_final_states']:
                     must_continue = False
-                    for i, pdg in enumerate(initial_pdgs):
-                        if (pattern['initial_states'][i] is not None) and \
-                                        (pdg not in pattern['initial_states'][i]):
+                    for pdg in final_pdgs:
+                        if not any(pdg in matcher for (matcher, multiplier) in pattern['final_states']):
                             must_continue = True
                             break
                     if must_continue:
                         continue
-                    
-                    # Then check the final states.
-                    # First make sure all constraints specified by the user apply
-                    must_continue = False
-                    for (matcher, multiplier) in pattern['final_states']:
-                        if len([1 for pdg in final_pdgs if pdg in matcher])!=multiplier:
-                            must_continue = True
-                            break
-                    if must_continue:
-                        continue
-                    # And if 'needs_exact_final_states' then also make sure that all final
-                    # states belong in at least one category
-                    if pattern['needs_exact_final_states']:
-                        must_continue = False
-                        for pdg in final_pdgs:
-                            if not any(pdg in matcher for (matcher, multiplier) in pattern['final_states']):
-                                must_continue = True
-                                break
-                        if must_continue:
-                            continue
-                    
-                    # If we haven't "continued" by now, then it means that the pattern was
-                    # capturing and we can return True
-                    return True
-                    
-                # No pattern matched upt to this point so we must return False
-                return False
+                
+                # If we haven't "continued" by now, then it means that the pattern was
+                # capturing and we can return True
+                return True
+                
+            # No pattern matched upt to this point so we must return False
+            return False
             
             # We can now return the flavor cut function created
             return pass_flavor_cut_func

@@ -1073,7 +1073,9 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
             xsec, error = self.integrator.integrate()
 
         logger.info("="*100)
-        logger.info('{:^100}'.format("Cross-section with integrator '%s':"%self.integrator.get_name()),'$MG:color:GREEN')
+        logger.info('{:^100}'.format("Cross-section of %s@%s with integrator '%s':"%(
+            os.path.basename(pjoin(self.me_dir)), '+'.join(itg.get_short_name() for itg in integrands_to_consider),
+                                            self.integrator.get_name())),'$MG:color:GREEN')
         logger.info('{:^100}'.format("%.5e +/- %.2e [pb]"%(xsec, error)),'$MG:color:BLUE')
         logger.info("="*100)
 

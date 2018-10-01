@@ -1011,7 +1011,7 @@ class CheckValidForCmd(cmd.CheckCmd):
 
     def check_generate(self, args):
         """check the validity of args"""
-
+        misc.sprint(args)
         if not self._curr_model:
             logger.info("No model currently active, so we import the Standard Model")
             self.do_import('model sm')
@@ -1030,14 +1030,14 @@ class CheckValidForCmd(cmd.CheckCmd):
             if not isinstance(self._curr_model, model_reader.ModelReader):
                 self._curr_model = model_reader.ModelReader(self._curr_model)
             process_line = ''
-            for a in args[1:-1]:
+            for a in args[1:]:
                 if a.startswith('--'):
                     break
                 process_line += ' %s'%a
             self.check_process_format(process_line)
         else:
             process_line = ''
-            for a in args[1:-1]:
+            for a in args[1:]:
                 if a.startswith('--'):
                     break
                 process_line += ' %s'%a

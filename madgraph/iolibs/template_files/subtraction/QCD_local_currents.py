@@ -312,7 +312,7 @@ class QCDBeamFactorizationCurrent(QCDCurrent):
         alpha_s = model_param_dict['aS']
 
         # Compute the normalization factor
-        normalization = ( alpha_s / (2. * math.pi) ) ** (current['n_loops'] + 1)
+        normalization = self.SEpsilon * ( alpha_s / (2. * math.pi) ) ** (current['n_loops'] + 1)
 
         # For beam factorization terms, this function returns an instance of
         # BeamFactorizationCurrentEvaluation which can specify color-correlations as 

@@ -1235,6 +1235,19 @@ class ME7Integrand(integrands.VirtualIntegrand):
         if n_jets_allowed_to_be_clustered is None:
             n_jets_allowed_to_be_clustered = self.contribution_definition.n_unresolved_particles
 
+        # The PS point in input is sometimes provided as a dictionary or a flat list, but
+        # we need it as a flat list here, so we force the conversion
+        if isinstance(PS_point, LorentzVectorDict):
+            PS_point = PS_point.to_list()
+        elif not isinstance(PS_point, LorentzVectorList):
+            PS_point = LorentzVectorList(LorentzVector(v) for v in PS_point)    
+
+        #for i, p in enumerate(PS_point[self.n_initial:]):
+        #    if process_pdgs[1][i]==25:
+        #        assert((p.square()-125.0**2)<0.1)
+        #        if p.pt() < 400.0:
+        #            return False
+
         ###################################################################################
         # JET CLUSTERING AND CUTS
         ###################################################################################
@@ -1252,13 +1265,6 @@ class ME7Integrand(integrands.VirtualIntegrand):
             if (not PYJET_AVAILABLE) and n_jets_allowed_to_be_clustered>0:
                 raise MadEvent7Error("Fast-jet python bindings are necessary for integrating"+
                              " real-emission type of contributions. Please install pyjet.")
-
-        # The PS point in input is sometimes provided as a dictionary or a flat list, but
-        # we need it as a flat list here, so we force the conversion
-        if isinstance(PS_point, LorentzVectorDict):
-            PS_point = PS_point.to_list()
-        elif not isinstance(PS_point, LorentzVectorList):
-            PS_point = LorentzVectorList(LorentzVector(v) for v in PS_point)
 
         if PYJET_AVAILABLE and drjj_cut > 0.:
 

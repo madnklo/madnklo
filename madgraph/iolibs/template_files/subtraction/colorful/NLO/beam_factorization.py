@@ -230,6 +230,14 @@ class QCD_beam_factorization_single_collinear(currents.QCDBeamFactorizationCurre
         prefactor = EpsilonExpansion({ 0 : 1., 1 : logMuQ, 2 : 0.5*logMuQ**2 })
         prefactor *= self.SEpsilon*normalization
 
+        # In MadNkLO, we use the change of variable xb' = xb*xi so that the factor 
+        # (Q^2)^\eps in Eq. 5.21 of https://arxiv.org/pdf/0903.1218.pdf actually reads
+        # (Q^2/(xi1*xi2))^\eps and the '+' distributions also act on it, which we realize
+        # by simply multiplying the Q^2 provided by the xi factor that must be set to one.
+        logMuQ_plus = log(mu_r**2/(Q_square*xi))
+        prefactor_plus = EpsilonExpansion({ 0 : 1., 1 : logMuQ_plus, 2 : 0.5*logMuQ_plus**2 })
+        prefactor_plus *= self.SEpsilon*normalization
+
         # The additional 1/x part of the prefactor is included later during the PDF
         # convolution of the event (using its 'Bjorken rescaling' attribute) because
         # we must make sure that the plus distribution hits on it.
@@ -262,7 +270,7 @@ class QCD_beam_factorization_single_collinear(currents.QCDBeamFactorizationCurre
                  0 : (2.*log1mx / (1.-x))*(1.+theta_x_1my0) + (2.*logy0/(1.-x))*theta_1my0_x
                      + 2.*( ((1.-x)/x) -1. + x*(1.-x) )*( log1mx*(1.+theta_x_1my0) + logy0*theta_1my0_x )
             })),
-            'counterterm'   :     prefactor*color_factor*(EpsilonExpansion({ 
+            'counterterm'   :     prefactor_plus*color_factor*(EpsilonExpansion({ 
                 -1 : -2.* ( 1./(1.-x) )  ,
                  0 : (2.*log1mx / (1.-x))*(1.+theta_x_1my0)  ,
             })),
@@ -300,7 +308,7 @@ class QCD_beam_factorization_single_collinear(currents.QCDBeamFactorizationCurre
                  0 : (2.*log1mx / (1.-x))*(1.+theta_x_1my0) + (2.*logy0/(1.-x))*theta_1my0_x
                      - ( (1.+x)*( log1mx*(1.+theta_x_1my0)+logy0*theta_1my0_x ) -1.+x )
             })),
-            'counterterm'   :     prefactor*color_factor*(EpsilonExpansion({ 
+            'counterterm'   :     prefactor_plus*color_factor*(EpsilonExpansion({ 
                 -1 : -((1.+x**2)/(1.-x))  ,
                  0 : (2.*log1mx / (1.-x))*(1.+theta_x_1my0)  ,
             })),

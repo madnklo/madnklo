@@ -1774,13 +1774,19 @@ class ME7Integrand(integrands.VirtualIntegrand):
         beam_factorization_currents = [
             (  bc['beam_one'],  bc['beam_two'] ) for bc in beam_factorization_currents ]
 
+        # Compute the 4-vector Q characterizing this PS point, defined as the sum of all
+        # initial_state momenta. This is not expected to be used or relevant here, but we
+        # specify it nonetheless so as to conform with the prototype of the call to
+        # BeamFactorization currents.
+        Q = sum(p for i, p in enumerate(PS_point.to_list()) if i<self.n_initial)
+
         convolved_event = None
         for bc1, bc2 in beam_factorization_currents:
             event_to_convolve = input_event_to_convolve.get_copy()
             if bc1 is not None:
                 assert(isinstance(bc1, subtraction.BeamCurrent) and bc1['distribution_type']=='bulk')
                 current_evaluation, all_current_results = self.all_MEAccessors(
-                    bc1, lower_PS_point=PS_point, reduced_process=process, xi=xi1, mu_r=mu_r, mu_f=mu_f1)
+                    bc1, lower_PS_point=PS_point, reduced_process=process, xi=xi1, mu_r=mu_r, mu_f=mu_f1, Q=Q)
                 assert(current_evaluation['spin_correlations']==[None,])
                 assert(current_evaluation['color_correlations']==[None,])
                 event_to_convolve.convolve_flavors( 
@@ -1788,7 +1794,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
             if bc2 is not None:
                 assert(isinstance(bc2, subtraction.BeamCurrent) and bc2['distribution_type']=='bulk')
                 current_evaluation, all_current_results = self.all_MEAccessors(
-                    bc2, lower_PS_point=PS_point, reduced_process=process, xi=xi2, mu_r=mu_r, mu_f=mu_f2)
+                    bc2, lower_PS_point=PS_point, reduced_process=process, xi=xi2, mu_r=mu_r, mu_f=mu_f2, Q=Q)
                 assert(current_evaluation['spin_correlations']==[None,])
                 assert(current_evaluation['color_correlations']==[None,])
                 event_to_convolve.convolve_flavors(

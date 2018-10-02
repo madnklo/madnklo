@@ -1993,7 +1993,18 @@ class ME7Integrand_V(ME7Integrand):
         
         # Compute the 4-vector Q characterizing this PS point, defined as the sum of all
         # initial_state momenta, before any mapping is applied.
-        Q = sum(p for i, p in enumerate(mapped_PS_point.to_list()) if i<self.n_initial)
+        # Notice that the initial state momenta in mapped_PS_point include *both* the 
+        # Bjorken x's rescalings *and* the xi rescalings. However, what is factorised in the
+        # initial-state PS factorization is the sum of initial-state moment *without* the 
+        # xi rescalings (see Eq.5.20 of https://arxiv.org/pdf/0903.1218.pdf),
+        # So we must divide here each momentum by the xi rescalings.
+        rescalings = (
+            1. if xi1 is None else 1./xi1,
+            1. if xi2 is None else 1./xi2,
+        )
+        Q = vectors.LorentzVector()
+        for i, p in enumerate(mapped_PS_point.to_list()[:self.n_initial]):
+            Q += p*rescalings[i]
         
         # First call the non-beam factorization currents
         for integrated_current in counterterm.get_all_currents():

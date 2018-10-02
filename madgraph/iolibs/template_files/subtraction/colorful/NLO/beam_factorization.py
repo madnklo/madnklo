@@ -222,8 +222,7 @@ class QCD_beam_factorization_single_collinear(currents.QCDBeamFactorizationCurre
         are dictionaries specifying the counterterm in flavor space, for the value of xi 
         specified in argument."""
 
-        # Obtain Q_square
-        #Q        = sum([PS_point[l.get('number')] for l in process.get_initial_legs()])
+        # Obtain Q_square.
         Q_square = Q.square()
 
         # Only up to the order epsilon^2 of the scales prefactor matters here.

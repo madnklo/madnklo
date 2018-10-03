@@ -252,7 +252,7 @@ class QCD_beam_factorization_single_collinear(currents.QCDBeamFactorizationCurre
         # (Q^2)^\eps in Eq. 5.21 of https://arxiv.org/pdf/0903.1218.pdf actually reads
         # (Q^2/(xi1*xi2))^\eps and the '+' distributions also act on it, which we realize
         # by simply multiplying the Q^2 provided by the xi factor that must be set to one.
-        logMuQ_plus = log(mu_r**2/(Q_square*xi))
+        logMuQ_plus = log(mu_r**2/(Q_square*x))
         prefactor_plus = EpsilonExpansion({ 0 : 1., 1 : logMuQ_plus, 2 : 0.5*logMuQ_plus**2 })
         prefactor_plus *= self.SEpsilon*normalization
 

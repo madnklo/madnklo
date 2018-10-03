@@ -228,7 +228,11 @@ class QCDBeamFactorizationCurrent(QCDCurrent):
         self.beam_type = opts.get('beam_type', 'Unknown')
         self.beam_PDGs = opts.get('beam_PDGs', tuple([]))
 
-        self.NF = len([1 for pdg in self.beam_PDGs if
+        # Retrieve NF from the active beam_PDGs, ommitting all massless gauge vectors
+        # and grouping particles and anti particles
+        self.active_quarks = sorted(list(set( abs(pdg) for pdg in self.beam_PDGs if 
+                                                model.get_particle(pdg).get('spin')==2  )))
+        self.NF = len([1 for pdg in self.active_quarks if
                                       model.get_particle(pdg).get('mass').upper()=='ZERO'])
 
         # This entry *must* be specified.

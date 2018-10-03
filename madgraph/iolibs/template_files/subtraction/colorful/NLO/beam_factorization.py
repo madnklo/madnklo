@@ -230,14 +230,6 @@ class QCD_beam_factorization_single_collinear(currents.QCDBeamFactorizationCurre
         prefactor = EpsilonExpansion({ 0 : 1., 1 : logMuQ, 2 : 0.5*logMuQ**2 })
         prefactor *= self.SEpsilon*normalization
 
-        # In MadNkLO, we use the change of variable xb' = xb*xi so that the factor 
-        # (Q^2)^\eps in Eq. 5.21 of https://arxiv.org/pdf/0903.1218.pdf actually reads
-        # (Q^2/(xi1*xi2))^\eps and the '+' distributions also act on it, which we realize
-        # by simply multiplying the Q^2 provided by the xi factor that must be set to one.
-        logMuQ_plus = log(mu_r**2/(Q_square*xi))
-        prefactor_plus = EpsilonExpansion({ 0 : 1., 1 : logMuQ_plus, 2 : 0.5*logMuQ_plus**2 })
-        prefactor_plus *= self.SEpsilon*normalization
-
         # The additional 1/x part of the prefactor is included later during the PDF
         # convolution of the event (using its 'Bjorken rescaling' attribute) because
         # we must make sure that the plus distribution hits on it.
@@ -255,6 +247,14 @@ class QCD_beam_factorization_single_collinear(currents.QCDBeamFactorizationCurre
             x = 0.5
         else:
             x  = xi
+
+        # In MadNkLO, we use the change of variable xb' = xb*xi so that the factor 
+        # (Q^2)^\eps in Eq. 5.21 of https://arxiv.org/pdf/0903.1218.pdf actually reads
+        # (Q^2/(xi1*xi2))^\eps and the '+' distributions also act on it, which we realize
+        # by simply multiplying the Q^2 provided by the xi factor that must be set to one.
+        logMuQ_plus = log(mu_r**2/(Q_square*xi))
+        prefactor_plus = EpsilonExpansion({ 0 : 1., 1 : logMuQ_plus, 2 : 0.5*logMuQ_plus**2 })
+        prefactor_plus *= self.SEpsilon*normalization
 
         log1mx = log(1.-x)
         

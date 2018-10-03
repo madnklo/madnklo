@@ -1011,7 +1011,7 @@ class CheckValidForCmd(cmd.CheckCmd):
 
     def check_generate(self, args):
         """check the validity of args"""
-        misc.sprint(args)
+
         if not self._curr_model:
             logger.info("No model currently active, so we import the Standard Model")
             self.do_import('model sm')

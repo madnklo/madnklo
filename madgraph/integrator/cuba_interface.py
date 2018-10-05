@@ -14,7 +14,11 @@ that the call is in parallel and writes to the same memory location, causing
 overrides. This could be overcome by using locks.
 """
 os.environ['CUBACORES'] = '0'
-lib = ctypes.cdll.LoadLibrary('libcuba.so')
+
+try:
+  lib = ctypes.cdll.LoadLibrary('libcuba.so')
+except OSError:
+  print('WARNING :: Cuba shared library could not be found, install it if needed.')
 
 NULL = ctypes.POINTER(c_int)()
 

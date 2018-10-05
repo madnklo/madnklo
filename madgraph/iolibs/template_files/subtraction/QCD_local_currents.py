@@ -96,6 +96,24 @@ def Q_initial_coll_variables(PS_point, parent_momentum, children, **opts):
     kTs = tuple(kin_variables['kt%d' % i] for i in children)
     return zs, kTs
 
+def compute_energy_fractions(momenta,reference,**opts):
+    """Compute the energy fractions of a set of momenta with respect to a reference
+
+    Given a set of momenta p1...pk and a reference vector n, the energy fractions are defined as zi = pi.n/(p1.n+...+pk.n)
+    :param momenta: momenta whose energy fraction we compute
+    :type momenta: list of LorentzVector
+    :param reference: reference vector
+    :type reference: LorentzVector
+    :return: list of energy fractions ordered like the list of momenta
+    :rtype: list of float
+    """
+    energy_fractions = []
+    for p in momenta:
+        z = p.dot(reference)
+        energy_fractions.append(z)
+    normalization = sum(energy_fractions)
+    return [z/normalization for z in energy_fractions]
+
 #=========================================================================================
 # QCDCurrent
 #=========================================================================================

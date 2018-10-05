@@ -4088,6 +4088,8 @@ This implies that with decay chains:
         if selected_beam_type is None:
             return None
         else:
+            if tuple(sorted(initial_state_ids)) == tuple(sorted([-1,1,21])):
+                logger.warning("Beam definition: %s with d, d~, g only. For debugging purposes only."%selected_beam_type)
             return (selected_beam_type, tuple(sorted(initial_state_ids)))
 
     def add_model(self, args):

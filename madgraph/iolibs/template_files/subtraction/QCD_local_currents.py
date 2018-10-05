@@ -235,7 +235,9 @@ class QCDBeamFactorizationCurrent(QCDCurrent):
         tuple(sorted([1,-1,2,-2,3,-3,4,-4,5,-5,6,-6,21])),
         tuple(sorted([1,-1,2,-2,3,-3,4,-4,5,-5,21])),
         tuple(sorted([1,-1,2,-2,3,-3,4,-4,21])),
-        tuple(sorted([1,-1,2,-2,3,-3,21])),
+        tuple(sorted([1, -1, 2, -2, 3, -3, 21])),
+        tuple(sorted([1, -1, 2, -2, 21])),
+        tuple(sorted([1, -1, 21]))
     ]
 
     def __init__(self, model, **opts):

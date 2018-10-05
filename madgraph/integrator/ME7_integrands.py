@@ -98,6 +98,14 @@ class ME7Event(object):
     def __init__(self, PS_point, weights_per_flavor_configurations, 
                  requires_mirroring           = False,
                  host_contribution_definition = 'N/A',
+                 # This entry is mostly for debugging purposes, but it is useful to be able
+                 # to know what is the list of defining PDGs of the resolved process from 
+                 # which this counterterm originates. For this reason the counterterm_structure
+                 # is (possible a list of) tuple(s) of the form:
+                 #   (
+                 #      integrated_CT_instance, 
+                 #      list_of_all combination_of_PDGs_of_the_resolved_process_this_integrated_CT_can_comes_from
+                 #   )
                  counterterm_structure        = None,
                  Bjorken_xs                   = (1.0,1.0),
                  Bjorken_x_rescalings         = (1.0,1.0),
@@ -427,13 +435,25 @@ class ME7Event(object):
                 ENDC))
         else:
             if isinstance(self.counterterm_structure, list):
-                if len(self.counterterm_structure) > 1:
-                    counterterm_structure_str = "( %s )"%(' | '.join(
-                                             str(ct) for ct in self.counterterm_structure))
-                else:
-                    counterterm_structure_str = str(self.counterterm_structure)
+                all_ct_strucs = self.counterterm_structure
             else:
-                counterterm_structure_str = str(self.counterterm_structure) 
+                all_ct_strucs = [self.counterterm_structure,]
+            
+            counterterm_structure_str_elems = []
+            for ct_struct, all_resolved_PDGs in all_ct_strucs:
+                # We show only one representative resolved_PDGs structure: the first one.
+                if isinstance(all_resolved_PDGs, dict):
+                    representative_resolved_PDGs = all_resolved_PDGs.keys()[0]
+                else:
+                    representative_resolved_PDGs = all_resolved_PDGs[0]                    
+                counterterm_structure_str_elems.append('%s@%s'%(str(ct_struct), 
+                                        str(representative_resolved_PDGs).replace(' ','')))
+            
+            if len(all_ct_strucs)>1:
+                counterterm_structure_str = '( %s )'%(' + '.join(counterterm_structure_str_elems))
+            else:
+                counterterm_structure_str = counterterm_structure_str_elems[0]
+
             res.append('%s%sounterterm event from limit%s %s of %s contribution %s%s'%(
                 GREEN,
                 'C' if not self.is_a_mirrored_event else 'Mirrored c',
@@ -468,6 +488,49 @@ class ME7Event(object):
                 res.append('    %s : %s'%(str(key), str(value)))
 
         return '\n'.join(res)
+
+    def counterterm_structure_short_string(self):
+        """ Return a short string specifying the counterterm structure(s) of this event."""
+
+        if self.counterterm_structure is None:
+            if not self.is_a_mirrored_event:
+                return 'Event'
+            else:
+                return '<->Event'
+
+        event_str = str(self.counterterm_structure)
+        if isinstance(self.counterterm_structure, list):
+            event_ct_structs = self.counterterm_structure
+        else:
+            event_ct_structs = [self.counterterm_structure,]
+        
+        event_str_elems = []
+        for ct_struct, all_resolved_PDGs in event_ct_structs:
+            # We show only one representative resolved_PDGs structure: the first one.
+            if isinstance(all_resolved_PDGs, dict):
+                representative_resolved_PDGs = all_resolved_PDGs.keys()[0]
+            else:
+                representative_resolved_PDGs = all_resolved_PDGs[0]                    
+            event_str_elems.append('%s@%s'%(str(ct_struct), 
+                                    str(representative_resolved_PDGs).replace(' ','')))
+        
+        if len(event_ct_structs)>1:
+            event_str = '( %s )'%(' + '.join(event_str_elems))
+        else:
+            event_str = event_str_elems[0]
+        input_mapping = self.get_information('input_mapping')
+        if input_mapping is not None:
+             event_str += 'x{%s}'%(','.join('%d:%d'%(k,input_mapping[k]) for k in
+                                                        sorted(input_mapping.keys()) ))                 
+        if self.is_a_mirrored_event:
+            event_str = '<->%s'%event_str
+        beam_convolution_masks = self.get_information('beam_convolution_masks') 
+        if beam_convolution_masks is not None:
+            for (beam_name, beam_short_name) in [('beam_one','F1'),('beam_two','F2')]:
+                if beam_convolution_masks[beam_name] != 'ALL':
+                    event_str += '@%s<-(%s)'%(beam_short_name,'|'.join('%d'%pdg for pdg in
+                                                    beam_convolution_masks[beam_name]))
+        return event_str
 
 class ME7EventList(list):
     """ A class handling a collection of ME7Events, with helper function to 
@@ -2055,7 +2118,7 @@ class ME7Integrand_V(ME7Integrand):
                 {fc : base_weight for fc in all_mapped_flavors},
                 requires_mirroring              = is_reduced_process_mirrored,
                 host_contribution_definition    = self.contribution_definition,
-                counterterm_structure           = counterterm,
+                counterterm_structure           = (counterterm, resolved_flavors),
                 Bjorken_xs                      = (xb_1, xb_2)
             ),
             disconnected_currents_weight,
@@ -2265,9 +2328,9 @@ class ME7Integrand_V(ME7Integrand):
         if test_options['apply_higher_multiplicity_cuts'] or test_options['apply_lower_multiplicity_cuts']:
             events.filter_flavor_configurations(self.pass_flavor_sensitive_cuts)
 
-#        misc.sprint('Events generated after post-processing:')
-#        misc.sprint(events)
-#        misc.sprint('After post-processing:',len(events))
+        #misc.sprint('Events generated after post-processing:')
+        #misc.sprint(events)
+        #misc.sprint('After post-processing:',len(events))
 
         # Now collect the results necessary to test that the poles cancel in the dictionary below
         # Some contributions like the beam-soft ones may not have any physical contributions
@@ -2279,23 +2342,6 @@ class ME7Integrand_V(ME7Integrand):
              'PS_point'             : a_virtual_PS_point }
         event_weight_sum = base_objects.EpsilonExpansion({0: 0.0})
 
-        def event_string(event):
-            # Quick inline function for returning a *short* string of the integrated CT structure
-            event_str = str(event.counterterm_structure)
-            input_mapping = event.get_information('input_mapping')
-            if input_mapping is not None:
-                 event_str += 'x{%s}'%(','.join('%d:%d'%(k,input_mapping[k]) for k in
-                                                            sorted(input_mapping.keys()) ))
-            if event.is_a_mirrored_event:
-                event_str = '<->%s'%event_str
-            beam_convolution_masks = event.get_information('beam_convolution_masks') 
-            if beam_convolution_masks is not None:
-                for (beam_name, beam_short_name) in [('beam_one','F1'),('beam_two','F2')]:
-                    if beam_convolution_masks[beam_name] != 'ALL':
-                        event_str += '@%s<-(%s)'%(beam_short_name,'|'.join('%d'%pdg for pdg in
-                                                        beam_convolution_masks[beam_name]))
-            return event_str
-
         for event in events:
             # TODO: instead of looking at the total weight, we could consider doing the
             # check for one particular flavor configuration which could be specified
@@ -2304,41 +2350,33 @@ class ME7Integrand_V(ME7Integrand):
             # zero poles for all its flavor configurations
             event_wgt = event.get_total_weight()
             event_weight_sum += event_wgt
-            if event.counterterm_structure is None:
-                evaluation['virtual_ME'] += event_wgt
-                if not event.is_a_mirrored_event:
-                    event_str = 'Event'
-                else:
-                    event_str = '<->Event'
-                if event_str in evaluation:
-                    evaluation[event_str] += event_wgt
-                else:
-                    evaluation[event_str] = event_wgt                    
+            event_str = event.counterterm_structure_short_string()
+            if event_str in evaluation:
+                evaluation[event_str] += event_wgt
             else:
-                event_str = event_string(event)
-                if event_str in evaluation:
-                    evaluation[event_str] += event_wgt           
-                else:
-                    evaluation[event_str] = event_wgt
-                if evaluation['integrated_CTs'] is None:
-                    evaluation['integrated_CTs'] = event_wgt
-                else:
-                    evaluation['integrated_CTs'] += event_wgt
+                evaluation[event_str] = event_wgt
+            # Also add the weight from this event in the two aggregation keys
+            if event.counterterm_structure is None:
+                evaluation['virtual_ME'] += event_wgt                   
+            else:
+                evaluation['integrated_CTs'] += event_wgt
 
         # Small monitoring of the various contributions:
-        logger.debug('-'*50)
+        max_length = max(len(k) for k in evaluation)+1
+        separator_length = max_length+2
+        logger.debug('-'*separator_length)
         # Fancy ordering key to get a nice printout order of the event weights.
         for entry in sorted(evaluation.keys(), key=lambda e:
             (e[3:].replace('Event','0_')+'1' if e.startswith('<->') else e.replace('Event','0_')) ):
             value = evaluation[entry]
             if entry not in ['defining_process','PS_point','integrated_CTs','virtual_ME']:
-                logger.debug('%-50s : %s'%(entry, value.__str__(format='.16e')))
-        logger.debug('-'*50)
-        logger.debug('%-50s : %s'%('integrated_CTs', evaluation['integrated_CTs'].__str__(format='.16e')))
-        logger.debug('%-50s : %s'%('virtual_ME', evaluation['virtual_ME'].__str__(format='.16e')))        
-        logger.debug('-'*50)
+                logger.debug(('%%-%ds : %%s'%max_length)%(entry, value.__str__(format='.16e')))
+        logger.debug('-'*separator_length)
+        logger.debug(('%%-%ds : %%s'%max_length)%('integrated_CTs', evaluation['integrated_CTs'].__str__(format='.16e')))
+        logger.debug(('%%-%ds : %%s'%max_length)%('virtual_ME', evaluation['virtual_ME'].__str__(format='.16e')))        
+        logger.debug('-'*separator_length)
         logger.debug('\nAll events summed:\n%s'%str(event_weight_sum))
-        logger.debug('-'*50)
+        logger.debug('-'*separator_length)
 
         diff = evaluation['virtual_ME']+evaluation['integrated_CTs']
         relative_diff = evaluation['virtual_ME'].relative_diff(evaluation['integrated_CTs']*-1.)
@@ -3028,7 +3066,7 @@ class ME7Integrand_R(ME7Integrand):
                 {fc : base_weight for fc in all_reduced_flavored_with_initial_states_subsituted},
                 requires_mirroring              = is_process_mirrored,
                 host_contribution_definition    = self.contribution_definition,
-                counterterm_structure           = counterterm,
+                counterterm_structure           = (counterterm, all_resolved_flavors),
                 Bjorken_xs                      = (xb_1, xb_2)
             ),
             disconnected_currents_weight,

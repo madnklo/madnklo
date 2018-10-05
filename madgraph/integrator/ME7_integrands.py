@@ -2393,8 +2393,9 @@ class ME7Integrand_V(ME7Integrand):
              'relative diff.',
              relative_diff.__str__(format='.16e')
         ))
-        normalization = max(max(abs(v) for v in evaluation['virtual_ME'].values()),
-                            max(abs(v) for v in evaluation['integrated_CTs'].values()))
+        normalization = max(
+            max(abs(v) for v in evaluation['virtual_ME'].values()) if len(evaluation['virtual_ME'])>0 else 0.,
+            max(abs(v) for v in evaluation['integrated_CTs'].values()) if len(evaluation['integrated_CTs'])>0 else 0.)
         if normalization == 0.:
             logger.info('%sResults identically zero.%s'%(misc.bcolors.GREEN, misc.bcolors.ENDC))
         else:

@@ -48,7 +48,7 @@ pjoin = os.path.join
 # Specify here the list of subtraction currents schemes and subtraction_mappings_scheme
 # that uses soft counterterms that recoils against the initial states. This is necessary in
 # order to decide when a contribution with a correlated convolution of both beams must be setup.
-_currents_schemes_requiring_soft_beam_factorization = ['colorful', ]
+_currents_schemes_requiring_soft_beam_factorization = ['colorful', 'colorful_pp']
 _mappings_schemes_requiring_soft_beam_factorization = ['SoftBeamsRecoilNLO', ]
 
 #=========================================================================================

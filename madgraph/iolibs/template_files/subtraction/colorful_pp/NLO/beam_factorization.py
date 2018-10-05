@@ -471,7 +471,7 @@ class QCD_beam_factorization_single_soft(currents.QCDBeamFactorizationCurrent):
                 # dipole_type = [bool_a, bool_b] tags the dipole tag, with True indicating initial state and False final
                 dipole_type = [a in colored_initial_parton_numbers, b in colored_initial_parton_numbers]
 
-                if not all(dipole_type): # Initial-initial
+                if all(dipole_type): # Initial-initial
                     # Initial-initial: S+CS = 0
                     if self.distribution_type == 'bulk':
                         kernel = EpsilonExpansion({0:0})

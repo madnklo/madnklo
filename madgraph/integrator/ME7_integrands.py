@@ -2114,8 +2114,8 @@ class ME7Integrand_V(ME7Integrand):
         alpha_s = self.model.get('parameter_dict')['aS']
         mu_r = self.model.get('parameter_dict')['MU_R']
         return ME7Integrand_R.generate_event_for_counterterm(
-            ME7Event( mapped_PS_point, 
-                {fc : base_weight for fc in all_mapped_flavors},
+            ME7Event( mapped_PS_point,
+                {fc : multiplicity*base_weight for fc,multiplicity in all_mapped_flavors.items()},
                 requires_mirroring              = is_reduced_process_mirrored,
                 host_contribution_definition    = self.contribution_definition,
                 counterterm_structure           = (counterterm, resolved_flavors),

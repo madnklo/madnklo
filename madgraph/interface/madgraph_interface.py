@@ -4044,7 +4044,7 @@ This implies that with decay chains:
         missing_pdgs      = []
         
         if not user_beam_PDGs is None:
-            if user_beam_PDGs != initial_state_ids:
+            if set(user_beam_PDGs) != set(initial_state_ids):
                 logger.warning(('The specified list of beam PDGs (%s) differs from those specified'+
                     ' in the initial state of the processes (%s).\nIf you know what you are doing, this is fine.')%
                     (   ','.join('%d'%pdg for pdg in user_beam_PDGs),

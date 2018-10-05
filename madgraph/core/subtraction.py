@@ -1304,8 +1304,7 @@ class CountertermNode(object):
         get_parent_PDGs from the subtraction module."""
 
         for node in self.nodes:
-            node.current.get_reduced_flavors(
-                                    defining_flavors, IR_subtraction_module, routing_dict)  
+            node.get_reduced_flavors(defining_flavors, IR_subtraction_module, routing_dict)  
 
         self.current.get_reduced_flavors(
                                     defining_flavors, IR_subtraction_module, routing_dict)

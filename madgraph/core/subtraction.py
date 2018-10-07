@@ -1753,6 +1753,7 @@ class Counterterm(CountertermNode):
         self.reduced_flavors_map = {}
         for i_proc, process in enumerate([defining_process,]+mapped_processes):
             number_to_flavors_map = { l['number'] : l['id'] for l in process.get('legs') }
+
             # Update the number_to_flavors_map dictionary by walking through the nodes
             for node in self.nodes:
                 node.get_reduced_flavors(

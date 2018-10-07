@@ -1010,7 +1010,11 @@ class Contribution(object):
                 all_defining_procs[proc][1].extend([all_procs_pdgs[p] for p in all_procs_pdgs
                                             if p!=proc and p not in all_defining_procs[proc][1]])
 
-
+        # Insure that all processes have leg numbers that are consecutive
+        for process_key, (defining_process, mapped_processes) in all_defining_procs.items():
+            for p in [defining_process,]+mapped_processes:
+                for i, leg in enumerate(p.get('legs')):
+                    leg.set('number', i+1)
 
         # Cache the process map
         self.processes_map = ({
@@ -1349,6 +1353,7 @@ class Contribution_R(Contribution):
         all_integrated_counterterms = []
 
         for process_key, (defining_process, mapped_processes) in self.get_processes_map().items():
+
             local_counterterms, integrated_counterterms =  self.IR_subtraction.get_all_counterterms(
                     defining_process, ignore_integrated_counterterms=ignore_integrated_counterterms)
             

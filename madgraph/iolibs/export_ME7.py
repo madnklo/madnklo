@@ -279,6 +279,15 @@ class ME7Exporter(object):
         """ Generates all necessary additional beam factorization contributions, also
         assigning them them a reference to the already generated attributes of the original
         contributions."""
+        
+        # If no contribution has an "active" beam then simply return here immediately
+        # Actually, nothing wrong would happen if we were to continue nonetheless, but 
+        # some info/warning message could be sent which would be awkward for the user to
+        # understand if, say, he is doing some e+ e- process. We therefore opt for returning
+        # here immediately.
+        if all( c.contribution_definition.beam_factorization==
+                         {'beam_one': None, 'beam_two': None} for c in self.contributions):
+            return
 
         max_correction_order = self.contributions.get_max_correction_order().count('N')
         
@@ -499,7 +508,6 @@ class ME7Exporter(object):
                         logger.critical(msg)
                         warned = True
                         logger.critical("Further occurrences of this warning will now be suppressed.")
-                    stop
                     continue
                 else:
                     raise MadGraph5Error(msg)

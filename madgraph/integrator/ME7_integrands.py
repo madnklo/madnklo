@@ -116,8 +116,8 @@ class ME7Event(object):
                  # and the convolutional mask employed for nicer printouts.
                  additional_information       = {}
                 ):
-        """ Initilize this particular event with a unique PS point and a dictionary of
-        the form:
+        """Initialize this particular event with a unique PS point
+        and a dictionary of the form:
              ( (initial_state_flavors,), (final_state_flavors,) ) : weight
         to specify all possible flavor configurations applying to this event.
         For PDF counterterms and integrated collinear CT counterterms, we must
@@ -3139,7 +3139,7 @@ The missing process is: %s"""%ME_process.nice_string())
             
             # Multiply the various pieces building the event weight (most being Epsilon expansions):
             # The ME evaluation, disconnected current weights and connected current weight
-            event_weight = base_objects.EpsilonExpansion(ME_evaluation) * disconnected_currents_weight * connected_currents_weight                
+            event_weight = base_objects.EpsilonExpansion(ME_evaluation) * disconnected_currents_weight * connected_currents_weight
             # And the prefactor
             event_weight *= overall_prefactor
 
@@ -3249,8 +3249,8 @@ The missing process is: %s"""%ME_process.nice_string())
             if n_attempts > max_attempts:
                 break
             real_emission_PS_point = None
-            # Phase-space generation can fail when beam convolution is active, because of the condition
-            # Bjorken_x_i < xi_i
+            # Phase-space generation can fail when beam convolution is active,
+            # because of the condition Bjorken_x_i < xi_i
             while real_emission_PS_point is None:
                 real_emission_PS_point, jac, x1s, x2s = self.phase_space_generator.get_PS_point(None)
             xb_1, xi1 = x1s
@@ -3259,8 +3259,8 @@ The missing process is: %s"""%ME_process.nice_string())
                 if not self.pass_flavor_blind_cuts(
                     real_emission_PS_point,
                     self.processes_map.values()[0][0].get_cached_initial_final_pdgs(),
-                    n_jets_allowed_to_be_clustered  = self.contribution_definition.n_unresolved_particles,
-                    xb_1 = xb_1, xb_2 = xb_2):
+                    n_jets_allowed_to_be_clustered=self.contribution_definition.n_unresolved_particles,
+                    xb_1=xb_1, xb_2=xb_2):
                     continue
             break
         if n_attempts > max_attempts:
@@ -3561,6 +3561,7 @@ The missing process is: %s"""%ME_process.nice_string())
             # Contributions such as the beam soft ones (BS, VS, etc...) do not have
             # a physical ME contributions, so we initialize it here to zero.
             this_eval = { 'ME': 0. }
+            cts_in_eval = []
             
             # Loop over all events produced and distribute them in several entries of what
             # will be returned to the IR_analyzer
@@ -3570,25 +3571,21 @@ The missing process is: %s"""%ME_process.nice_string())
                 # as an extra test parameter.
                 event_wgt = event.get_total_weight()
                 if event.counterterm_structure is None:
-                    if 'ME' in this_eval:
-                        this_eval['ME'] += event_wgt
-                    else:
-                        this_eval['ME'] = event_wgt
+                    this_eval['ME'] += event_wgt
                 else:
-                    if str(event.counterterm_structure) in this_eval:
-                        this_eval[str(event.counterterm_structure)] += event_wgt           
-                    else:
-                        this_eval[str(event.counterterm_structure)] = event_wgt
-        
+                    event_str = event.counterterm_structure_short_string()
+                    this_eval[event_str] = event_wgt
+                    cts_in_eval.append(str(event.counterterm_structure[0]))
+
             # If some counterterm structure is not found, add it with a zero weight here
             # (its current was probably cut off by its `is_cut` function)
             all_str_ct = ( 
                 ( [] if not self.has_local_counterterms() else 
-                  [str(ct) for ct in local_counterterms_to_consider] ) + 
+                  [str(ct) for ct in local_counterterms_to_consider] ) +
                 ( [] if not self.has_integrated_counterterms() else 
                   [str(ct['integrated_counterterm']) for ct in integrated_counterterms_to_consider] ) )
             for str_ct in all_str_ct:
-                if str_ct not in this_eval:
+                if str_ct not in cts_in_eval:
                     this_eval[str_ct] = 0.
 
             logger.debug('For scaling variable %.3e, weight from ME = %.16e' %(

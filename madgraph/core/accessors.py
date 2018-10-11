@@ -128,7 +128,10 @@ class ProcessKey(object):
                                      " via the options 'PDGs', 'legs' or 'process' (with precedence in this order).")
             
             if sort_PDGs:
-                self.key_dict['PDGs'] = ( tuple(sorted(self.key_dict['PDGs'][0])), tuple(sorted(self.key_dict['PDGs'][1])) )
+                self.key_dict['PDGs'] = ( tuple(sorted(self.key_dict['PDGs'][0])), tuple(sorted(self.key_dict['PDGs'][1])))
+            else: # The final state still needs to be sorted
+                self.key_dict['PDGs'] = ( self.key_dict['PDGs'][0], tuple(sorted(self.key_dict['PDGs'][1])))
+
         
         # Now make sure to instantiate a default process if the user didn't select one
         if not process:

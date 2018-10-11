@@ -959,8 +959,10 @@ class Current(base_objects.Process):
         def get_parent(PDGs, is_initial):
             res = IR_subtraction_module.parent_PDGs_from_PDGs(PDGs)
             if len(res)!=1:
-                raise MadGraph5Error("Multiple mother PDGs assignment not supported"+
-                                            " yet by the function get_reduced_flavors")
+                str1 = "Multiple mother PDGs assignment "
+                str2 = " is not yet supported by the function get_reduced_flavors"
+                misc.sprint("get_parent called with PDGs = " + str(PDGs))
+                raise MadGraph5Error(str1 + str(res) + str2)
             # Now flip back the identity of the parent PDG if in the initial state
             if is_initial:
                 return get_particle(res[0]).get_anti_pdg_code()
@@ -2133,8 +2135,10 @@ class IRSubtraction(object):
         #             self.model.get_particle(-2).get('mass')=='zero'
         #             )
 
-        if not any(self.model.get('name').lower().startswith(name) for name in 
-                                                                self._allowed_model_names):
+        if not any(
+            self.model.get('name').lower().startswith(name)
+            for name in self._allowed_model_names
+        ):
             raise InvalidCmd(
                 "parent_PDGs_from_PDGs is implemented for SM only, "
                 "not in model %s." % self.model.get('name') )

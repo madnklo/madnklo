@@ -211,8 +211,8 @@ class QCD_final_collinear_0_gq(currents.QCDLocalCollinearCurrent):
             if j == parent:
                 continue
             # pj = sum(higher_PS_point[child] for child in leg_numbers_map[j])
+            # pj = higher_PS_point[j]
             qj = lower_PS_point[j]
-            pj = higher_PS_point[j]
             evaluation['color_correlations'].append(((parent, j),))
             # eiks = -mod_eikonal(pi, pj, ps)
             mod = (qj.dot(qis)) / (qj.dot(pi+ps))
@@ -349,7 +349,7 @@ class QCD_final_collinear_0_gg(currents.QCDLocalCollinearCurrent):
             # Write the eikonal for that pair
             if j == parent:
                 continue
-            pj = higher_PS_point[j]
+            # pj = higher_PS_point[j]
             # pj = sum(higher_PS_point[child] for child in leg_numbers_map[j])
             qj = lower_PS_point[j]
             # eik0 = -mod_eikonal(pj, p1, p0)

@@ -312,6 +312,7 @@ class ParseCmdArguments(object):
                                          'n_loops'  : None},
             'seed'                    : None,
             'n_steps'                 : 30,
+            'max_scaling_variable'    : 1.,
             'min_scaling_variable'    : 1.0e-6,
             'acceptance_threshold'    : 1.0e-4,
             'apply_higher_multiplicity_cuts' : True,
@@ -320,6 +321,7 @@ class ParseCmdArguments(object):
             'save_plots'              : False,
             'save_results_to_path'    : None,
             'plots_suffix'            : None,
+            'ignore_flavors'          : False,
             'set_PDFs_to_unity'       : True,
             'boost_back_to_com'       : True,
             'epsilon_expansion_term'  : 'sum_all',
@@ -334,6 +336,7 @@ class ParseCmdArguments(object):
             del testlimits_options['walker']
             del testlimits_options['n_steps']
             del testlimits_options['min_scaling_variable']
+            del testlimits_options['max_scaling_variable']
             del testlimits_options['show_plots']
             del testlimits_options['save_plots']
             del testlimits_options['plots_suffix']
@@ -434,6 +437,11 @@ class ParseCmdArguments(object):
                     testlimits_options['min_scaling_variable'] = float(value)                  
                 except ValueError:
                     raise InvalidCmd("'%s' is not a valid float for option '%s'"%(value, key))
+            elif key in ['--max_scaling_variable'] and mode == 'limits':
+                try:
+                    testlimits_options['max_scaling_variable'] = float(value)
+                except ValueError:
+                    raise InvalidCmd("'%s' is not a valid float for option '%s'"%(value, key))
             elif key in ['--subtraction_mappings_scheme', '--walker'] and mode=='limits':
                 try:
                     if value == "None":
@@ -454,9 +462,14 @@ class ParseCmdArguments(object):
                 except:
                     testlimits_options['limits'] = [value,]
 
-            elif key in ['--show_plots','--set_PDFs_to_unity', '--save_plots','--boost_back_to_com']:
+            elif key in [
+                '--show_plots','--set_PDFs_to_unity', '--save_plots',
+                '--boost_back_to_com', '--ignore_flavors' ]:
                 try:
-                    testlimits_options[key[2:]] = strtobool(value)
+                    if value is None:
+                        testlimits_options[key[2:]] = True
+                    else:
+                        testlimits_options[key[2:]] = strtobool(value)
                 except ValueError:
                     raise InvalidCmd("Cannot set '%s' option to '%s'."%(key, value))
             elif key == '--seed':

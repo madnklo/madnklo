@@ -1969,7 +1969,7 @@ class ME7Integrand_V(ME7Integrand):
 
     def evaluate_integrated_counterterm(self, integrated_CT_characteristics, PS_point, 
         base_weight, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, input_mapping, 
-        all_virtual_ME_flavor_configurations, hel_config=None, compute_poles=True):
+        all_virtual_ME_flavor_configurations, hel_config=None, compute_poles=True, **opts):
         """ Evaluates the specified integrated counterterm, provided along with its other
         characteristics, like for example the list of flavors assignments that the resolved
         process it corresponds to can take. This function returns an ME7Event specifying the
@@ -2911,9 +2911,14 @@ class ME7Integrand_R(ME7Integrand):
             new_all_necessary_ME_calls.extend(new_necessary_ME_calls)
         return new_all_necessary_ME_calls
 
-    def evaluate_counterterm( self, counterterm, PS_point, base_weight, mu_r, mu_f1, mu_f2, 
-        xb_1, xb_2, xi1, xi2, is_process_mirrored, all_resolved_flavors, hel_config=None, 
-        apply_flavour_blind_cuts=True, boost_back_to_com=True):
+    # TODO review call of evaluate_counterterm
+    def evaluate_counterterm(
+        self, counterterm, PS_point, base_weight,
+        mu_r, mu_f1, mu_f2,
+        xb_1, xb_2, xi1, xi2,
+        is_process_mirrored, all_resolved_flavors,
+        hel_config=None, apply_flavour_blind_cuts=True,
+        boost_back_to_com=True, always_generate_event=False, **opts ):
         """Evaluate a counterterm for a given PS point and flavors.
         The option 'boost_back_to_com' allows to prevent this functiont to boost back the
         PS point of the Event generated to the c.o.m frame. This would yields *incorrect* 
@@ -2946,11 +2951,15 @@ class ME7Integrand_R(ME7Integrand):
         n_unresolved_left = self.contribution_definition.n_unresolved_particles
         n_unresolved_left -= counterterm.count_unresolved()
         # Apply cuts if requested and return immediately if they do not pass
+        cut_weight = 1.
         if apply_flavour_blind_cuts and not self.pass_flavor_blind_cuts(reduced_PS,
                 reduced_flavors, xb_1 = xb_1, xb_2 = xb_2, 
                 n_jets_allowed_to_be_clustered=n_unresolved_left):
-            # Return None to indicate that no counter-event was generated.
-            return None
+            # Return None to indicate that no counter-event was generated
+            if not always_generate_event:
+                return None
+            else:
+                cut_weight = 0.
 
         # The above "hike" can be used to evaluate the currents first and the ME last.
         # Note that the code below can become more complicated when tracking helicities,
@@ -3063,8 +3072,10 @@ class ME7Integrand_R(ME7Integrand):
          
 
         return ME7Integrand_R.generate_event_for_counterterm(
-            ME7Event( event_PS, 
-                {fc : base_weight for fc in all_reduced_flavored_with_initial_states_subsituted},
+            ME7Event(
+                event_PS,
+                {fc: cut_weight*base_weight
+                 for fc in all_reduced_flavored_with_initial_states_subsituted},
                 requires_mirroring              = is_process_mirrored,
                 host_contribution_definition    = self.contribution_definition,
                 counterterm_structure           = (counterterm, all_resolved_flavors),
@@ -3186,9 +3197,6 @@ The missing process is: %s"""%ME_process.nice_string())
 
         all_events_generated = ME7EventList()
 
-        apply_flavour_blind_cuts = opts.get('apply_flavour_blind_cuts', True)
-        boost_back_to_com = opts.get('boost_back_to_com', True)
-        
         matrix_element_event = self.generate_matrix_element_event(
                 PS_point, process_key, process, all_flavor_configurations, 
                   base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts)
@@ -3202,10 +3210,10 @@ The missing process is: %s"""%ME_process.nice_string())
             if not counterterm.is_singular():
                 continue
             CT_event = self.evaluate_counterterm(
-                  counterterm, PS_point, base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, 
-                  process.get('has_mirror_process'), all_flavor_configurations, 
-                  hel_config = None, apply_flavour_blind_cuts = apply_flavour_blind_cuts,
-                  boost_back_to_com = boost_back_to_com)
+                counterterm, PS_point, base_weight, mu_r, mu_f1, mu_f2,
+                xb_1, xb_2, xi1, xi2,
+                process.get('has_mirror_process'), all_flavor_configurations,
+                **opts)
             
             # The function above returns None if the counterterms is removed because of
             # flavour_blind_cuts.
@@ -3465,25 +3473,26 @@ The missing process is: %s"""%ME_process.nice_string())
         limit_evaluations = {}
         n_steps = test_options['n_steps']
         min_value = test_options['min_scaling_variable']
-        base = min_value ** (1./n_steps)
+        max_value = test_options['max_scaling_variable']
+        base = (min_value/max_value) ** (1./n_steps)
         for step in range(n_steps+1):
             # Determine the new configuration
-            scaling_parameter = base ** step
+            scaling_parameter = max_value * (base ** step)
             scaled_real_PS_point, scaled_xi1, scaled_xi2 = self.scale_configuration(
                 a_xi1, a_xi2, a_real_emission_PS_point, limit, scaling_parameter, 
                 defining_process, walker, test_options['boost_back_to_com'])
             if test_options['apply_higher_multiplicity_cuts']:
                 if not self.pass_flavor_blind_cuts( scaled_real_PS_point,
                         self.processes_map.values()[0][0].get_cached_initial_final_pdgs(),
-                        n_jets_allowed_to_be_clustered  = self.contribution_definition.n_unresolved_particles,
+                        n_jets_allowed_to_be_clustered = self.contribution_definition.n_unresolved_particles,
                         xb_1 = a_xb_1, xb_2 = a_xb_2 ):
                     logger.warning('Aborting prematurely since the following scaled real-emission point'+
                                   ' does not pass higher multiplicity cuts.')
                     logger.warning(str(scaled_real_PS_point))
                     break
 
-            misc.sprint('Scaled PS point: %s'%str(scaled_real_PS_point))
-            misc.sprint('Scaled Bjorken rescalings: %s %s'%(scaled_xi1, scaled_xi2))
+            # misc.sprint('Scaled PS point: %s'%str(scaled_real_PS_point))
+            # misc.sprint('Scaled Bjorken rescalings: %s %s'%(scaled_xi1, scaled_xi2))
             mu_r, mu_f1, mu_f2 = self.get_scales(scaled_real_PS_point)
 
             # Specify the counterterms to be considered and backup the original values
@@ -3500,7 +3509,8 @@ The missing process is: %s"""%ME_process.nice_string())
                     1.0, mu_r, mu_f1, mu_f2, a_xb_1, a_xb_2, scaled_xi1, scaled_xi2,
                     compute_poles            = False,
                     apply_flavour_blind_cuts = test_options['apply_lower_multiplicity_cuts'],
-                    boost_back_to_com        = test_options['boost_back_to_com']
+                    boost_back_to_com        = test_options['boost_back_to_com'],
+                    always_generate_event    = True
                 )
             except Exception as e:
                 logger.critical("The following exception occurred when generating events for this integrand %s:\n%s"%(
@@ -3561,8 +3571,7 @@ The missing process is: %s"""%ME_process.nice_string())
             # Contributions such as the beam soft ones (BS, VS, etc...) do not have
             # a physical ME contributions, so we initialize it here to zero.
             this_eval = { 'ME': 0. }
-            cts_in_eval = []
-            
+
             # Loop over all events produced and distribute them in several entries of what
             # will be returned to the IR_analyzer
             for event in events:
@@ -3574,19 +3583,9 @@ The missing process is: %s"""%ME_process.nice_string())
                     this_eval['ME'] += event_wgt
                 else:
                     event_str = event.counterterm_structure_short_string()
+                    if test_options['ignore_flavors']:
+                        event_str, _ = event_str.split('@')
                     this_eval[event_str] = event_wgt
-                    cts_in_eval.append(str(event.counterterm_structure[0]))
-
-            # If some counterterm structure is not found, add it with a zero weight here
-            # (its current was probably cut off by its `is_cut` function)
-            all_str_ct = ( 
-                ( [] if not self.has_local_counterterms() else 
-                  [str(ct) for ct in local_counterterms_to_consider] ) +
-                ( [] if not self.has_integrated_counterterms() else 
-                  [str(ct['integrated_counterterm']) for ct in integrated_counterterms_to_consider] ) )
-            for str_ct in all_str_ct:
-                if str_ct not in cts_in_eval:
-                    this_eval[str_ct] = 0.
 
             logger.debug('For scaling variable %.3e, weight from ME = %.16e' %(
                                                         scaling_parameter, this_eval['ME'] ))
@@ -3635,6 +3634,8 @@ The missing process is: %s"""%ME_process.nice_string())
         x_values = sorted(evaluations.keys())
         lines = evaluations[x_values[0]].keys()
         lines.sort(key=len)
+        misc.sprint(evaluations)
+        misc.sprint(lines)
         # Skip ME-def line if there is no defining ct
         plot_def = def_ct and def_ct in lines
         plot_total = len(lines) > 2 or (not plot_def)

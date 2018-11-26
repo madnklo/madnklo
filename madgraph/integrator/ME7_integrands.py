@@ -3020,6 +3020,8 @@ class ME7Integrand_R(ME7Integrand):
                     all_necessary_ME_calls = ME7Integrand_R.update_all_necessary_ME_calls(
                         all_necessary_ME_calls, current_evaluation, weight_type='main_weight')
 
+        # misc.sprint(str(counterterm), total_jacobian)
+
         # Now that all currents have been evaluated using the PS points with initial-state
         # momenta that can be boosted because of initial-collinear mappings, we must boost
         # back in the c.o.m frame the PS point that will be used for generating the 
@@ -3102,21 +3104,19 @@ class ME7Integrand_R(ME7Integrand):
             color_correlators = tuple(ME_call['color_correlation']) if ME_call['color_correlation'] else None
             spin_correlators = tuple(ME_call['spin_correlation']) if ME_call['spin_correlation'] else None
             connected_currents_weight = ME_call['main_weight']
-#            misc.sprint(ME_PS,ME_process.nice_string(),ME_process.get_cached_initial_final_numbers())
-#            misc.sprint(spin_correlators)
-#            misc.sprint(color_correlators, connected_currents_weight)
+            # misc.sprint(ME_PS, ME_process.nice_string())
+            # misc.sprint(ME_process.get_cached_initial_final_numbers())
             try:
                 ME_evaluation, all_ME_results = all_MEAccessors(
-                   ME_process, ME_PS, alpha_s, mu_r,
-                   # Let's worry about the squared orders later, we will probably directly fish
-                   # them out from the ME_process, since they should be set to a unique combination
-                   # at this stage.
-                   squared_orders    = None,
-                   color_correlation = color_correlators,
-                   spin_correlation  = spin_correlators, 
-                   hel_config        = None 
+                    ME_process, ME_PS, alpha_s, mu_r,
+                    # Let's worry about the squared orders later,
+                    # we will probably directly fish them out from the ME_process,
+                    # since they should be set to a unique combination at this stage.
+                    squared_orders    = None,
+                    color_correlation = color_correlators,
+                    spin_correlation  = spin_correlators,
+                    hel_config        = None
                 )
-#                misc.sprint(ME_evaluation)
 
             except MadGraph5Error as e:
                 logger.critical("""
@@ -3126,33 +3126,19 @@ Make sure that your process definition is specified using the relevant multipart
 Also make sure that there is no coupling order specification which receives corrections.
 The missing process is: %s"""%ME_process.nice_string())
                 raise e
-            # for i in ME_PS.keys():
-            #     if i in (1, 2): continue
-            #     for j in ME_PS.keys():
-            #         if j in (1, 2) or j <= i: continue
-            #         misc.sprint(i, j, (ME_PS[i]+ME_PS[j]).square())
-            # misc.sprint(current_weight.get_term('finite'), ME_evaluation['finite'])
-            # misc.sprint('reduced process = %s' % (
-            #     ' '.join('%d(%d)' % (l.get('number'), l.get('id')) for l in
-            #              counterterm.process.get_initial_legs()) + ' > ' +
-            #     ' '.join('%d(%d)' % (l.get('number'), l.get('id')) for l in
-            #              counterterm.process.get_final_legs())
-            # ))
-            # misc.sprint(counterterm.prefactor)
-            # misc.sprint(
-            #     'color corr. = %-20s | current = %-20.16f | ME = %-20.16f | Prefactor = %-3f  |  Final = %-20.16f ' % (
-            #         str(color_correlators),
-            #         current_weight.get_term('finite'),
-            #         ME_evaluation['finite'],
-            #         counterterm.prefactor,
-            #         current_weight.get_term('finite') * ME_evaluation['finite'] * counterterm.prefactor
-            #     ))
-            
-            # Multiply the various pieces building the event weight (most being Epsilon expansions):
-            # The ME evaluation, disconnected current weights and connected current weight
-            event_weight = base_objects.EpsilonExpansion(ME_evaluation) * disconnected_currents_weight * connected_currents_weight
-            # And the prefactor
+
+            # Multiply the various pieces building the event weight
+            # (most are EpsilonExpansion's)
+            event_weight = base_objects.EpsilonExpansion(ME_evaluation)
+            event_weight *= disconnected_currents_weight
+            event_weight *= connected_currents_weight
             event_weight *= overall_prefactor
+            # misc.sprint("")
+            # misc.sprint(spin_correlators, color_correlators)
+            # misc.sprint(base_objects.EpsilonExpansion(ME_evaluation))
+            # misc.sprint(disconnected_currents_weight)
+            # misc.sprint(connected_currents_weight)
+            # misc.sprint(event_weight)
 
             # Skip an event with no contribution (some dipoles of the eikonal for example)
             if event_weight.norm() == 0.:
@@ -3252,10 +3238,8 @@ The missing process is: %s"""%ME_process.nice_string())
         # Make sure to generate a point within the cuts if necessary:
         max_attempts = 10000
         n_attempts   = 0
-        while True:
+        while n_attempts < max_attempts:
             n_attempts += 1
-            if n_attempts > max_attempts:
-                break
             real_emission_PS_point = None
             # Phase-space generation can fail when beam convolution is active,
             # because of the condition Bjorken_x_i < xi_i
@@ -3271,7 +3255,7 @@ The missing process is: %s"""%ME_process.nice_string())
                     xb_1=xb_1, xb_2=xb_2):
                     continue
             break
-        if n_attempts > max_attempts:
+        if not n_attempts < max_attempts:
             raise MadEvent7Error(
                 "Could not generate a random kinematic configuration that passes " +
                 "the flavour blind cuts in less than %d attempts." % max_attempts )
@@ -3638,6 +3622,7 @@ The missing process is: %s"""%ME_process.nice_string())
         misc.sprint(lines)
         # Skip ME-def line if there is no defining ct
         plot_def = def_ct and def_ct in lines
+        plot_def = False
         plot_total = len(lines) > 2 or (not plot_def)
 
         plt.rc('text', usetex=True)
@@ -3702,7 +3687,7 @@ The missing process is: %s"""%ME_process.nice_string())
             abs_total = [abs(y) for y in total]
             plt.plot(x_values, abs_total, color=TOTAL_color, label='TOTAL')
         plt.legend()
-        if filename:
+        if display_mode == 'figure' and filename:
             #pass
             plt.savefig(filename + '_integrands' + plot_extension)
 
@@ -3734,7 +3719,7 @@ The missing process is: %s"""%ME_process.nice_string())
         else:
             plt.ylabel('Ratio to ME')
         plt.legend()
-        if filename:
+        if display_mode == 'figure' and filename:
             plt.savefig(filename + '_ratios' + plot_extension)
 
         # Check that the ratio of def_ct to the ME is close to -1
@@ -3783,8 +3768,11 @@ The missing process is: %s"""%ME_process.nice_string())
             wgt_total = [abs(x_values[i] * total[i]) for i in range(len(x_values))]
             plt.plot(x_values, wgt_total, color=TOTAL_color, label='TOTAL')
         plt.legend()
-        if filename:
+        if display_mode == 'figure' and filename:
             plt.savefig(filename + '_weighted' + plot_extension)
+
+        if display_mode == 'grid' and filename:
+            plt.savefig(filename + plot_extension)
 
         if show:
             plt.show()

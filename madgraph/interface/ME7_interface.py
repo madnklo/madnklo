@@ -711,8 +711,8 @@ class ParseCmdArguments(object):
 
     def get_integrand_filters(self, filters, mode):
         """ Given user defined filters (a string), returns a lambda function on
-        a ME7 integrand that applies it. mode can either be 'accept' or 'reject',
-        depending on wheter one wants to keep or reject those integrands."""
+        a ME7 integrand that applies it. mode can either be 'select' or 'reject',
+        depending on whether one wants to keep or reject those integrands."""
         
         assert(mode in ['select','reject'])
         
@@ -723,8 +723,9 @@ class ParseCmdArguments(object):
         integrand_types  = []
         short_names      = []
         
-        integrand_type_short_cuts = dict( (k, eval('ME7_integrands.ME7Integrand_%s'%k, )
-                                                 ) for k in ['R','RV','RR','RRR','V','B'] )
+        integrand_type_short_cuts = dict(
+            (k, eval('ME7_integrands.ME7Integrand_%s'%k, ))
+            for k in ['R','RV','RR','RRR','V','B'] )
         
         for filter in filters.split(','):
             f = filter.strip()

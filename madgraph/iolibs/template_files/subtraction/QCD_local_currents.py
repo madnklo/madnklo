@@ -49,6 +49,16 @@ def no_factor(**opts):
     # The default behavior is that basic currents include all necessary factors
     return 1
 
+def alpha_jacobian(**opts):
+    """The jacobian of the change of variables
+    between virtuality and the alpha parameter of the rescaling collinear mapping.
+    """
+
+    Q = opts['Q']
+    pC = opts['pC']
+    qC = opts['qC']
+    return Q.dot(qC)/Q.dot(pC)
+
 def n_final_coll_variables(PS_point, parent_momentum, children, **opts):
 
     na, nb = mappings.FinalCollinearVariables.collinear_and_reference(parent_momentum)
@@ -63,6 +73,24 @@ def Q_final_coll_variables(PS_point, parent_momentum, children, **opts):
 
     na = parent_momentum
     nb = opts['Q']
+    kin_variables = dict()
+    mappings.FinalCollinearVariables.get(
+        PS_point, children, na, nb, kin_variables)
+    zs  = tuple(kin_variables['z%d'  % i] for i in children)
+    kTs = tuple(kin_variables['kt%d' % i] for i in children)
+    return zs, kTs
+
+def anti_final_coll_variables(PS_point, parent_momentum, children, **opts):
+
+    Q = opts['Q']
+    Q2 = Q.square()
+    Qnorm = Q2 ** 0.5
+    pvec = parent_momentum - (Q.dot(parent_momentum)/Q2) * Q
+    pnorm = (-pvec.square()) ** 0.5
+    n = pvec / pnorm
+    t = Q / Qnorm
+    na = t + n
+    nb = t - n
     kin_variables = dict()
     mappings.FinalCollinearVariables.get(
         PS_point, children, na, nb, kin_variables)
@@ -390,7 +418,8 @@ class QCDBeamFactorizationCurrent(QCDCurrent):
 class QCDLocalCollinearCurrent(QCDCurrent):
     """Common functions for QCD local collinear currents."""
 
-    variables = staticmethod(Q_final_coll_variables)
+    factor = staticmethod(alpha_jacobian)
+    variables = staticmethod(n_final_coll_variables)
 
     def __init__(self, *args, **opts):
 
@@ -458,6 +487,7 @@ class QCDLocalCollinearCurrent(QCDCurrent):
         children = self.get_sorted_children(current, self.model)
         parent = leg_numbers_map.inv[frozenset(children)]
         pC = sum(higher_PS_point[child] for child in children)
+        qC = lower_PS_point[parent]
         # Include the counterterm only in a part of the phase space
         if any(leg.state == leg.INITIAL for leg in current.get('singular_structure').legs):
             pA = higher_PS_point[children[0]]
@@ -471,13 +501,13 @@ class QCDLocalCollinearCurrent(QCDCurrent):
                 return utils.SubtractionCurrentResult.zero(current=current, hel_config=hel_config)
 
         # Evaluate kernel
-        zs, kTs = self.variables(higher_PS_point, lower_PS_point[parent], children, Q=Q)
+        zs, kTs = self.variables(higher_PS_point, qC, children, Q=Q)
         evaluation = self.evaluate_kernel(zs, kTs, parent)
 
         # Add the normalization factors
         pC2 = pC.square()
         norm = (8. * math.pi * alpha_s / pC2) ** (len(children) - 1)
-        norm *= self.factor(Q=Q, pC=pC)
+        norm *= self.factor(Q=Q, pC=pC, qC=qC)
         for k in evaluation['values']:
             evaluation['values'][k]['finite'] *= norm
 

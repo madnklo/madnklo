@@ -1660,8 +1660,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
             all_processes = [process,]+mapped_processes
             all_flavor_configurations = []
-            
-            # The process mirroring is accounted for at the very end only            
+
+            # The process mirroring is accounted for at the very end only
             for proc in all_processes:
                 initial_final_pdgs = proc.get_cached_initial_final_pdgs()
                 all_flavor_configurations.append(initial_final_pdgs)
@@ -2740,39 +2740,56 @@ class ME7Integrand_R(ME7Integrand):
 
     @classmethod
     def combine_spin_correlators(cls, spin_correlators):
-        """ This function takes several spin-correlators specified int the form
-              spin_correlator = ( (legIndex, ( vector_A, vector_B, ...) ),
-                                 (anotherLegIndex, ( vector_C, vector_D, ...) ),
-                                 etc... ) 
-            and returns the list of new correlator specifiers that arises from the
-            combination of all of them.
+        """This function takes several spin correlators specified in the form
+        spin_correlator = ( (legIndex_1, ( vector_A, vector_B, ...) ),
+                            (legIndex_2, ( vector_C, vector_D, ...) ),
+                            etc... )
+        and returns the new correlator specifier
+        that arises from the combination of all of them.
         """
         
-        # Trivial combination if there is a single one:
-        if len(spin_correlators):
-            return spin_correlators[0]
-
-        # This combination is done with a simple concatenation of the lists. Example:
-        # Let's say correlator A only correlates to leg #1 with two four-vectors v_A and v_B
-        # (these can be seen as a replacement of polarization vectors to consider and summed over)
+        # This combination is done with a simple concatenation of the lists.
+        # Example:
+        # Say correlator A only correlates to leg #1 with two four-vectors v_A and v_B
+        # (these are replacement of polarization vectors to consider and summed over)
         #     correlators_A[0]  = ( (1, (v_A, v_B)), )
-        # Now correlator B correlates with the two legs #4 and #7 (they must be different 
-        #  by construction!), each defined with a single vector v_C and v_B
+        # Now correlator B correlates with the two legs #4 and #7
+        # (they must be different by construction!)
+        # each defined with a single vector v_C and v_B
         #     correlators_B[0]  = ( (4, (v_C,)), (7, (v_D,)) )
         # Then it is clear tha the combined spin correlation should be:
         #     combined_spin_correlator = ( (1, (v_A, v_B)), (4, (v_C,)), (7, (v_D,)) )
-        # Notice that this implies that both combinations :
-        #    pol_vec_1 = v_A, pol_vec_4 = v_C,  pol_vec_7 = v_D
-        # as well as:
-        #    pol_vec_1 = v_B, pol_vec_4 = v_C,  pol_vec_7 = v_D
-        # will be computed and summed in the resulting spin-correlated matrix element call.
+        # Notice that this implies that both combinations
+        #    pol_vec_1 = v_A,  pol_vec_4 = v_C,  pol_vec_7 = v_D
+        # and
+        #    pol_vec_1 = v_B,  pol_vec_4 = v_C,  pol_vec_7 = v_D
+        # will be computed and summed in the resulting
+        # spin-correlated matrix element call.
         
+        # Trivial combination if there is a single one or none (all are None)
+        if len(spin_correlators) == 1:
+            return spin_correlators[0]
+        if all(sc is None for sc in spin_correlators):
+            return None
+
         # Make sure the spin correlators don't share common legs
-        for i, sc_a in enumerate(spin_correlators):
+        for i, sc_a in enumerate(spin_correlators[:-1]):
+            if sc_a is None:
+                continue
+            set_a = set(c[0] for c in sc_a)
             for sc_b in spin_correlators[i+1:]:
-                assert (len( set(c[0] for c in sc_a)&set(c[0] for c in sc_b))==0 )
-        
-        return tuple(sum([ (list(sc) if not sc is None else []) for sc in spin_correlators],[]))
+                if sc_b is None:
+                    continue
+                set_b = set(c[0] for c in sc_b)
+                assert set_a.isdisjoint(set_b)
+
+        # Combine spin correlators
+        combined = []
+        for sc in spin_correlators:
+            if not sc is None:
+                combined += sc
+
+        return tuple(combined)
 
     @classmethod
     def merge_correlators_in_necessary_ME_calls(cls, all_necessary_ME_calls):

@@ -396,16 +396,6 @@ class ParseCmdArguments(object):
                         raise ValueError  
                 except ValueError:
                     raise InvalidCmd("'%s' is not a valid integer for option '%s'"%(value, key))
-            elif key == '--n_loops':
-                if value.lower()=='all':
-                    testlimits_options['process'][key[2:]] = None
-                else:
-                    try:
-                        testlimits_options['process'][key[2:]] = int(value)
-                        if int(value)<0:
-                            raise ValueError
-                    except ValueError:
-                        raise InvalidCmd("'%s' is not a valid integer for option '%s'"%(value, key))
             elif key == '--save_results_to_path':
                 if value == 'None':
                     testlimits_options['save_results_to_path'] = None
@@ -517,6 +507,16 @@ class ParseCmdArguments(object):
                         
                     testlimits_options['process']['in_pdgs'] = tuple(initial_pdgs)
                     testlimits_options['process']['out_pdgs'] = tuple(final_pdgs)
+            elif key == '--n_loops':
+                if value.lower()=='all':
+                    testlimits_options['process'][key[2:]] = None
+                else:
+                    try:
+                        testlimits_options['process'][key[2:]] = int(value)
+                        if int(value)<0:
+                            raise ValueError
+                    except ValueError:
+                        raise InvalidCmd("'%s' is not a valid integer for option '%s'"%(value, key))
 
             else:
                 raise InvalidCmd("Option '%s' for the test_IR_%s command not recognized."%(key,mode))        
@@ -631,7 +631,7 @@ class ParseCmdArguments(object):
                           'compile'             : 'auto',
                           'seed'                : None,
                           # Here we store a list of lambda function to apply as filters
-                          # to the ingegrand we must consider
+                          # to the integrand we must consider
                           'integrands'          : [lambda integrand: True],
                           'run_name'            : ''}
         
@@ -672,7 +672,7 @@ class ParseCmdArguments(object):
             elif key=='--run_name':
                 launch_options['run_name'] = value
             else:
-                raise InvalidCmd("Option '%s' for the launch command not reckognized."%key)
+                raise InvalidCmd("Option '%s' for the launch command not recognized."%key)
 
         return new_args, launch_options
 
@@ -705,7 +705,7 @@ class ParseCmdArguments(object):
                 display_options['integrands'].extend(self.get_integrand_filters(value, 'reject'))
             
             else:
-                raise InvalidCmd("Option '%s' for the display integrands command not reckognized."%key)
+                raise InvalidCmd("Option '%s' for the display integrands command not recognized."%key)
 
         return display_options
 
@@ -864,7 +864,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         """ Check that the output path is a valid Madevent 7directory """        
         return os.path.isfile(os.path.join(path,'MadEvent7.db'))
 
-    def check_already_running(sefl):
+    def check_already_running(self):
         pass
 
     def set_configuration(self, amcatnlo=False, final=True, **opt):
@@ -999,8 +999,8 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         args = self.split_arg(line)
         new_args, launch_options = self.parse_launch(args)
 
-        # In principle we want to start by recompiling the process output so as to make sure
-        # that everything is up to date.
+        # In principle we want to start by recompiling the process output
+        # to make sure that everything is up to date.
         self.synchronize(**launch_options)
 
         # Setup parallelization
@@ -1016,9 +1016,11 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         if integrator_name=='VEGAS3':
             integrator_options['parallelization'] = self.cluster
 
-        integrands_to_consider = ME7_integrands.ME7IntegrandList([ itg for itg in self.all_integrands if
-                           all(filter(itg) for filter in launch_options['integrands']) ])
-        self.integrator = self._integrators[integrator_name][0](integrands_to_consider, **integrator_options)
+        integrands_to_consider = ME7_integrands.ME7IntegrandList([
+            itg for itg in self.all_integrands
+            if all(filter(itg) for filter in launch_options['integrands']) ])
+        self.integrator = self._integrators[integrator_name][0](
+            integrands_to_consider, **integrator_options)
         
         if len(set([len(itgd.get_dimensions()) for itgd in integrands_to_consider]))>1 and integrator_name not in ['NAIVE']:
             # Skip integrators that do not support integrands with different dimensions.
@@ -1031,7 +1033,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
             if launch_options['run_name']:
                 run_output_path = pjoin(self.me_dir, 'Results', 'run_%s' % launch_options['run_name'])
             else:
-                run_output_path = pjoin(self.me_dir,'Results','run_%s'%self.run_card['run_tag'])
+                run_output_path = pjoin(self.me_dir, 'Results', 'run_%s' % self.run_card['run_tag'])
             suffix_number = 1
             suffix = '_%d' % suffix_number
             existing_results = {}
@@ -1129,7 +1131,8 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
 
         if MPI_RANK==0:
             # Write the result in 'cross_sections.json' of the result directory
-            self.output_run_results(run_output_path,xsec,error,self.integrator.integrands, existing_results)
+            self.output_run_results(
+                run_output_path, xsec, error, self.integrator.integrands, existing_results)
 
 
     def do_test_IR_limits(self, line, *args, **opt):

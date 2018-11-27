@@ -1964,18 +1964,21 @@ class MEAccessorDict(dict):
 
         return new_color_correlations
             
-    def format_spin_correlation(self, process, spin_correlations):
-        """ Synchronize the numbers in the spin correlation specifier to the leg_number in the process."""        
+    def format_spin_correlation(self, process, spin_correlation):
+        """Synchronize the leg numbers in the spin correlation specifier
+        to the leg numbers in the _reduced_ process.
+        """
         
         leg_number_to_pos_dict = {}
         for leg_pos, leg in enumerate(process.get_initial_legs()+process.get_final_legs()):
             leg_number_to_pos_dict[leg.get('number')] = leg_pos+1
-        
-        new_spin_correlations = []
-        for spin_correlation in spin_correlations:
-            new_spin_correlations.append( ( leg_number_to_pos_dict[spin_correlation[0]], spin_correlation[1] ) )
 
-        return new_spin_correlations
+        new_spin_correlation = []
+        for pol_vector in spin_correlation:
+            new_spin_correlation.append(
+                (leg_number_to_pos_dict[pol_vector[0]], pol_vector[1],))
+
+        return new_spin_correlation
         
     def __call__(self, *args, **opts):
         """ Quick access to directly calling a Matrix Element. The first argument should always be the MEdictionary key

@@ -1342,7 +1342,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
             # Cluster them with fastjet
             this_event = np.array(jets_list,dtype=np.dtype(
                     [('E', 'f8'), ('px', 'f8'), ('py', 'f8'), ('pz', 'f8'), ('id', 'i8')]) )
-            sequence = pyjet.cluster(this_event, R=drjj_cut, p=-1, ep=True)
+            sequence = pyjet.cluster(this_event, R=drjj_cut, p=-1, ep=True, algo='kt')
             jets = sequence.inclusive_jets()
 
 #            misc.sprint('Process flavors: %s'%str(process_pdgs))

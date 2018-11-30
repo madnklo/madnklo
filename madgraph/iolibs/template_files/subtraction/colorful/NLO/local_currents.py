@@ -446,6 +446,7 @@ class QCD_initial_collinear_0_qg(currents.QCDLocalCollinearCurrent):
 
     variables = staticmethod(currents.Q_initial_coll_variables)
     is_cut = staticmethod(currents.SomogyiChoices.cut_initial_coll)
+    factor = staticmethod(currents.no_factor)
     
     @classmethod
     def does_implement_this_current(cls, current, model):
@@ -519,6 +520,7 @@ class QCD_initial_collinear_0_gq(currents.QCDLocalCollinearCurrent):
 
     variables = staticmethod(currents.Q_initial_coll_variables)
     is_cut = staticmethod(currents.SomogyiChoices.cut_initial_coll)
+    factor = staticmethod(currents.no_factor)
     
     @classmethod
     def does_implement_this_current(cls, current, model):
@@ -594,6 +596,7 @@ class QCD_initial_collinear_0_qq(currents.QCDLocalCollinearCurrent):
 
     variables = staticmethod(currents.Q_initial_coll_variables)
     is_cut = staticmethod(currents.SomogyiChoices.cut_initial_coll)
+    factor = staticmethod(currents.no_factor)
     
     @classmethod
     def does_implement_this_current(cls, current, model):
@@ -667,6 +670,7 @@ class QCD_initial_collinear_0_gg(currents.QCDLocalCollinearCurrent):
 
     variables = staticmethod(currents.Q_initial_coll_variables)
     is_cut = staticmethod(currents.SomogyiChoices.cut_initial_coll)
+    factor = staticmethod(currents.no_factor)
     
     @classmethod
     def does_implement_this_current(cls, current, model):

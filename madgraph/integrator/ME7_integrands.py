@@ -642,6 +642,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
     # Maximum size of the cache for PDF calls
     PDF_cache_max_size = 1000
     
+    FROZEN_DIMENSIONS = {}#{'x_1': 0.13, 'x_2': 0.26, 'x_3': 0.35}
+
     def __new__(cls, model, 
                      run_card,
                      contribution_definition,
@@ -1008,13 +1010,16 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # Notice however that we could add more dimensions pertaining to this integrand only, and PS generation.
         # This is in particular true for discrete integration dimension like sectors, helicities, etc...
         integrand_dimensions = integrands.DimensionList(self.phase_space_generator.dimensions)
+
+        # Now remove the frozen dimensions from the list of continuous ones.
+        integrand_dimensions = integrands.DimensionList(
+                            d for d in integrand_dimensions if d.name not in self.FROZEN_DIMENSIONS)
         self.set_dimensions(integrand_dimensions)
         self.dim_ordered_names = [d.name for d in self.get_dimensions()]
         self.dim_name_to_position = dict((name,i) for i, name in enumerate(self.dim_ordered_names))
         self.position_to_dim_name = dict((v,k) for (k,v) in self.dim_name_to_position.items())
 
         self.collider_energy = self.run_card['ebeam1'] + self.run_card['ebeam2']
-        
         # Set the seed
         if self.run_card['iseed'] > 0:
             random.seed(self.run_card['iseed'])
@@ -1591,8 +1596,10 @@ class ME7Integrand(integrands.VirtualIntegrand):
         if __debug__: logger.debug('Random variables received: %s',str(random_variables))        
     
         # Now assign the variables pertaining to PS generations
-        PS_random_variables = [random_variables[self.dim_name_to_position[name]] for name in 
-                                                self.phase_space_generator.dim_ordered_names]
+        PS_random_variables = [
+                ( self.FROZEN_DIMENSIONS[name] if name in self.FROZEN_DIMENSIONS else 
+                  random_variables[self.dim_name_to_position[name]] )
+                                          for name in self.phase_space_generator.dim_ordered_names ]
         
         PS_point, PS_weight, x1s, x2s = self.phase_space_generator.get_PS_point(PS_random_variables)
         # Unpack the initial momenta rescalings (if present) so as to access both Bjorken

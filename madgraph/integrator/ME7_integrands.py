@@ -510,8 +510,14 @@ class ME7Event(object):
             if isinstance(all_resolved_PDGs, dict):
                 representative_resolved_PDGs = all_resolved_PDGs.keys()[0]
             else:
-                representative_resolved_PDGs = all_resolved_PDGs[0]                    
-            event_str_elems.append('%s@%s'%(str(ct_struct), 
+                representative_resolved_PDGs = all_resolved_PDGs[0]
+            str_ct_struct = str(ct_struct)
+            # Clean-up of the embedding overall parenthesis for the short string
+            if str_ct_struct.startswith("("):
+                str_ct_struct = str_ct_struct[1:]
+            if str_ct_struct.endswith(",)"):
+                str_ct_struct = str_ct_struct[:-2]                
+            event_str_elems.append('%s@%s'%(str_ct_struct, 
                                     str(representative_resolved_PDGs).replace(' ','')))
         
         if len(event_ct_structs)>1:
@@ -3607,7 +3613,17 @@ The missing process is: %s"""%ME_process.nice_string())
                 else:
                     logger.debug('Ratio sum(CTs): %.16e'%(total_CTs_wgt))                                    
             limit_evaluations[scaling_parameter] = this_eval
-            
+        
+        # Pad missing evaluations (typically counterterms that were evaluated outside of their active range)
+        # by zeros so that it can be uniformly treated by analyze_IR_limits
+        all_keys = set([])
+        for entry, evaluations in limit_evaluations.items():
+            all_keys |= set(evaluations.keys())
+        for entry, evaluations in limit_evaluations.items():
+            for key in all_keys:
+                if key not in evaluations:
+                    evaluations[key] = 0.0
+        
         # Now return all evaluations performed for each value of the scale
         return limit_evaluations
 
@@ -3635,8 +3651,9 @@ The missing process is: %s"""%ME_process.nice_string())
         x_values = sorted(evaluations.keys())
         lines = evaluations[x_values[0]].keys()
         lines.sort(key=len)
-        misc.sprint(evaluations)
-        misc.sprint(lines)
+##        from pprint import pprint
+##        pprint(evaluations)
+##        misc.sprint(lines)
         # Skip ME-def line if there is no defining ct
         plot_def = def_ct and def_ct in lines
         plot_def = False
@@ -3686,10 +3703,8 @@ The missing process is: %s"""%ME_process.nice_string())
                 for i in range(len(x_values)):
                     ME_minus_def_ct[i] += def_ct_sign * evaluations[x_values[i]][line]
             line_label = copy.copy(line)
-            if line_label.startswith("("):
-                line_label = line_label[1:]
-            if line_label.endswith(",)"):
-                line_label = line_label[:-2]
+            # The matplotlib display of <-> is corrupted on some system
+            line_label = line_label.replace('<->','[M] ')
             line_labels[line] = line_label
             if plot_all:
                 if '(' in line:
@@ -3809,13 +3824,19 @@ The missing process is: %s"""%ME_process.nice_string())
         for (process, process_evaluations) in all_evaluations.items():
             results[process] = dict()
             for (limit, limit_evaluations) in process_evaluations.items():
+                # Clean-up of the embedding overall parenthesis for the title label
+                limit_str = limit
+                if limit_str.startswith("("):
+                    limit_str = limit_str[1:]
+                if limit_str.endswith(",)"):
+                    limit_str = limit_str[:-2] 
                 proc, loops = process.split("@")
                 title = "$" + proc + "$"
                 initial_state, final_state = proc.split('>')
                 number_of_FS_legs = final_state.count(' ') - 1
                 title = title.replace('~','x').replace('>','\\to').replace(' ','\\;')
                 title = title.replace('+','^+').replace('-','^-')
-                title += "@" + loops + " approaching " + limit
+                title += "@" + loops + " approaching " + limit_str
                 if seed: title += " (seed %d)" % seed
                 filename = None
                 if save_plots:

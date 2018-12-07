@@ -444,6 +444,12 @@ class QCD_beam_factorization_single_soft(currents.QCDBeamFactorizationCurrent):
 
         # Only up to the order epsilon^2 of the scales prefactor matters here.
         logMuQ = log(mu_r**2/Q_square)
+        # Correction for the counterterm: in BS (bulk+counterterm), the variable Q_square corresponds to that
+        # of the real event. However the counterterm corresponds to the residue of the bulk at xi=1.
+        # This is effectively obtained by multiplying by xi: Q_residue = Q_real * xi.
+        # Note for future dumb-me: log(mu_r**2/(Q_square*xi**2)) = logMuQ - log(xi**2)
+        if self.distribution_type == 'counterterm':
+            logMuQ-=log(xi**2)        
         prefactor = EpsilonExpansion({ 0 : 1., 1 : logMuQ, 2 : 0.5*logMuQ**2 })
         prefactor *= normalization
 

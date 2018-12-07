@@ -487,7 +487,10 @@ class QCD_beam_factorization_single_soft(currents.QCDBeamFactorizationCurrent):
                     # dipole_invariant = 1-cos(angle between the dipole momenta)
                     dipole_invariant = 0.5*pa.dot(pb)*Q.square()/(pa.dot(Q)*pb.dot(Q))
                     if self.distribution_type == 'bulk':
-                        kernel = EpsilonExpansion({0:HE.integrated_bs_bulk_finite(dipole_invariant,xi)})
+                        #The factor xi^2 below corrects the flux factor used in the bulk BS which has a 1/xi^2 too many
+                        #A more permanent change is warranted after testing.
+                        #See github issue #9 for reference 
+                        kernel = EpsilonExpansion({0:xi**2*HE.integrated_bs_bulk_finite(dipole_invariant,xi)})
                     elif self.distribution_type == 'counterterm':
                         kernel = EpsilonExpansion({0:HE.integrated_bs_counterterm_finite(dipole_invariant,xi)})
                     elif self.distribution_type == 'endpoint':

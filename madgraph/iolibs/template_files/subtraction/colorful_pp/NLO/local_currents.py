@@ -203,8 +203,8 @@ class QCD_soft_0_g(currents.QCDLocalSoftCurrent):
     eikonal by their mapped version.
     """
 
-    is_cut = staticmethod(currents.SomogyiChoices.cut_soft)
-    factor = staticmethod(currents.SomogyiChoices.factor_soft)
+    is_cut = staticmethod(currents.no_cut)
+    factor = staticmethod(currents.no_factor)
 
     @classmethod
     def does_implement_this_current(cls, current, model):
@@ -334,9 +334,9 @@ class QCD_soft_0_g(currents.QCDLocalSoftCurrent):
 class QCD_final_softcollinear_0_gX(currents.QCDLocalSoftCollinearCurrent):
     """NLO tree-level (final) soft-collinear currents. The momenta used in this current are the mapped momenta from the soft mapping."""
 
-    is_cut = staticmethod(currents.SomogyiChoices.cut_soft)
+    is_cut = staticmethod(currents.no_cut)
     variables = staticmethod(currents.compute_energy_fractions)
-    factor = staticmethod(currents.SomogyiChoices.factor_soft)
+    factor = staticmethod(currents.no_factor)
 
     def __init__(self, *args, **opts):
 
@@ -780,7 +780,7 @@ class QCD_initial_softcollinear_0_Xg(currents.QCDLocalSoftCollinearCurrent):
     """NLO tree-level (initial) soft-collinear currents."""
 
     variables = staticmethod(currents.Q_initial_coll_variables)
-    is_cut = staticmethod(currents.SomogyiChoices.cut_soft)
+    is_cut = staticmethod(currents.no_cut)
 
     def __init__(self, *args, **opts):
 

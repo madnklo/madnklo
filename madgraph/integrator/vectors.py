@@ -78,10 +78,12 @@ class Vector(np.ndarray):
         # return copy.deepcopy(self)
         return copy.copy(self)
 
-    def dot(self, v):
-
-        assert len(self) == len(v)
-        return sum(el * v[i] for i, el in enumerate(self))
+##   This slows down the code unnecessarily and significantly just for a debug. 
+##   Not worth it.
+#    def dot(self, v):
+#
+#        assert len(self) == len(v)
+#        return sum(el * v[i] for i, el in enumerate(self))
 
     def square(self):
 
@@ -133,12 +135,14 @@ class LorentzVector(Vector):
         return self[1:].view(type=Vector)
 
     def dot(self, v):
-        """Compute the Lorentz scalar product."""
-        
-        pos = self[0]*v[0]
-        neg = self.space().dot(v.space())
+        """C ompute the Lorentz scalar product."""
+        ## The implementation below allows for a check but it should be done upstream and
+        ## significantly slows down the code here.
+        # pos = self[0]*v[0]
+        # neg = self.space().dot(v.space())
         # if pos+neg != 0 and abs(2*(pos-neg)/(pos+neg)) < 100.*self.eps(): return 0
-        return pos - neg
+        # return pos - neg
+        return self[0]*v[0] - self[1]*v[1] - self[2]*v[2] - self[3]*v[3]
 
     def square_almost_zero(self):
         """Check if the square of this LorentzVector is zero within numerical accuracy."""

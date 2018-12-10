@@ -530,7 +530,7 @@ class QCD_beam_factorization_single_soft(currents.QCDBeamFactorizationCurrent):
                     #     raise CurrentImplementationError("Distribution type '%s' not supported."
                     #                                                     %self.distribution_type)
 
-                evaluation['values'][(0, color_correlation_index)] = kernel*normalization
+                evaluation['values'][(0, color_correlation_index)] = kernel*prefactor
                 color_correlation_index += 1
 
         return evaluation

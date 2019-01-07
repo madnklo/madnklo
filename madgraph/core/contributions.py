@@ -2076,8 +2076,16 @@ class Contribution_V(Contribution):
         *only* backward-evolving to a gluon). When this will be done, we will be able to 
         drop this construction altogether.
         """
-        
+
         for process_key, (process, mapped_processes) in self.get_processes_map().items():
+            # It may be that a particular process does not have any counterterms (typically when
+            # considering forcing a beam-type by hand at generation time for debugging purposes, for 
+            # example:
+            #    generate e+ e- > j j j / a QED=2 --NLO=QCD --beam_types=proton@(1,-1,21)
+            # In this case, self.integrated_counterterms would be empty and this combination 
+            # should be skipped.
+            if process_key not in self.integrated_counterterms:
+                continue
             for counterterm_characteristics in self.integrated_counterterms[process_key]:
                 # One should perform here the combination of the values of each key in
                 # self.integrated_counterterms.

@@ -414,11 +414,6 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
             E_cm = self.collider_energy
         else:
             raise InvalidCmd("This basic PS generator does not yet support collider mode (%d,%d)."%self.beam_types)
-        
-        # Make sure the Bjorken x's are physical:
-        if ( (xi1 is not None) and xb_1 > xi1 ) or \
-           ( (xi2 is not None) and xb_2 > xi2 ):        
-            return None, 0.0, (xb_1, xi1) , (xb_2, xi2)
 
         # Now generate a PS point
         PS_point, PS_weight = self.generateKinematics(E_cm, PS_random_variables)

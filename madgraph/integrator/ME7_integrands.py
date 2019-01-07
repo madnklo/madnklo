@@ -1540,6 +1540,10 @@ class ME7Integrand(integrands.VirtualIntegrand):
     def get_pdfQ2(self, pdf, pdg, x, scale2):
         """ Call the PDF and return the corresponding density."""
 
+        # For testing, one can easily substitute PDFs with a 1./x distribution by uncommenting the 
+        # line below
+        #return 1./x
+
         if pdf is None:
             return 1.
        
@@ -1551,7 +1555,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         
         # Call to lhapdf API
         f = pdf.xfxQ2(pdg, x, scale2)/x
-        
+
         # Update the PDF cache
         self.PDF_cache[(pdf, pdg,x,scale2)] = f
         self.PDF_cache_entries.append((pdf, pdg,x,scale2)) 
@@ -1602,6 +1606,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
                                           for name in self.phase_space_generator.dim_ordered_names ]
         
         PS_point, PS_weight, x1s, x2s = self.phase_space_generator.get_PS_point(PS_random_variables)
+
         # Unpack the initial momenta rescalings (if present) so as to access both Bjorken
         # rescalings xb_<i> and the ISR factorization convolution rescalings xi<i>.
         xb_1, xi1 = x1s
@@ -1616,10 +1621,6 @@ class ME7Integrand(integrands.VirtualIntegrand):
             if __debug__:
                 if xb_1 > 1. or xb_2 > 1.:
                     logger.debug('Unphysical configuration: x1, x2 = %.5e, %.5e'%(xb_1, xb_2))
-                elif (xi1 is not None) and xb_1 > xi1:
-                    logger.debug('Configuration above xi1 rescaling: x1 > xi1 : %.5e > %.5e'%(xb_1, xi1))
-                elif (xi2 is not None) and xb_2 > xi2:
-                    logger.debug('Configuration above xi1 rescaling: x2 > xi2 : %.5e > %.5e'%(xb_2, xi2))
                 else:
                     logger.debug('Phase-space generation failed.')
                 #raise MadEvent7Error('Unphysical configuration encountered.')
@@ -1667,6 +1668,12 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # Now loop over processes
         total_wgt = 0.
         for process_key, (process, mapped_processes) in self.processes_map.items():
+            # If one wishes to integrate only one particular subprocess, it can be done by uncommenting
+            # and modifying the lines below.
+#            if process.get_cached_initial_final_pdgs() in [((2,-2),(23,1,-1)), ((2,-2),(23,1,-1))] :
+#               continue
+#            else:
+#                misc.sprint("Now doing: %s"%str(process.get_cached_initial_final_pdgs()))
             if __debug__: logger.debug('Now considering the process group from %s.'%process.nice_string())
             
             process_pdgs = process.get_cached_initial_final_pdgs()
@@ -2040,7 +2047,20 @@ class ME7Integrand_V(ME7Integrand):
         # We must also map the Bjorken x's and the xi rescalings
         xi1, xi2 = [xi1, xi2][input_mapping[0]], [xi1, xi2][input_mapping[1]]
         xb_1, xb_2 = [xb_1, xb_2][input_mapping[0]], [xb_1, xb_2][input_mapping[1]]
-        
+
+        # When beam convolutions are active, we must remember that both the Bjorken x's *and*
+        # the convolution variable xi are integrated between zero and one.
+        #TODO this will need to be refined so as:
+        #    1) be moved to where the beam convolution takes place so as to affect each current 
+        #       independently of each other.
+        #    2) When called from test_IR_limits, we should never return None, but instead an 
+        #       event with zero weights. We need the case below to follow this requirement. 
+        if 'distribution_type' not in counterterm.nodes[0].current or \
+          counterterm.nodes[0].current['distribution_type'] not in ['counterterm']:
+            if (xi1 is not None) and (xb_1>xi1):
+                return None
+            if (xi2 is not None) and (xb_2>xi2):
+                return None
         
         # Retrieve some possibly relevant model parameters
         alpha_s = self.model.get('parameter_dict')['aS']
@@ -2341,9 +2361,8 @@ class ME7Integrand_V(ME7Integrand):
         if test_options['apply_higher_multiplicity_cuts'] or test_options['apply_lower_multiplicity_cuts']:
             events.filter_flavor_configurations(self.pass_flavor_sensitive_cuts)
 
-        #misc.sprint('Events generated after post-processing:')
-        #misc.sprint(events)
-        #misc.sprint('After post-processing:',len(events))
+#        misc.sprint('Events generated after post-processing:')
+#        misc.sprint(events)
 
         # Now collect the results necessary to test that the poles cancel in the dictionary below
         # Some contributions like the beam-soft ones may not have any physical contributions
@@ -2464,6 +2483,11 @@ class ME7Integrand_V(ME7Integrand):
         
         # Now loop over all integrated counterterms
         for counterterm_characteristics in self.integrated_counterterms[process_key]:
+            
+            # Example of a hack below to include only soft integrated CT. Uncomment to enable.
+#            if counterterm_characteristics['integrated_counterterm'].reconstruct_complete_singular_structure()\
+#                                                     .substructures[0].substructures[0].name()!='S':
+#                continue
 
             # And over all the ways in which this current PS point must be remapped to
             # account for all contributions of the integrated CT. (e.g. the integrated
@@ -2961,6 +2985,20 @@ class ME7Integrand_R(ME7Integrand):
         #         'currents' : [stroll_output1, stroll_output2, ...],
         #         'matrix_element': (ME_process, ME_PS),
         #         'kinematic_variables' : kinematic_variables (a dictionary) }
+        
+        # When beam convolutions are active, we must remember that both the Bjorken x's *and*
+        # the convolution variable xi are integrated between zero and one.
+        #TODO this will need to be refined so as:
+        #    1) be moved to where the beam convolution takes place so as to affect each current 
+        #       independently of each other.
+        #    2) When called from test_IR_limits, we should never return None, but instead an 
+        #       event with zero weights. We need the case below to follow this requirement. 
+        if 'distribution_type' not in counterterm.nodes[0].current or \
+          counterterm.nodes[0].current['distribution_type'] not in ['counterterm']:
+            if (xi1 is not None) and (xb_1>xi1):
+                return None
+            if (xi2 is not None) and (xb_2>xi2):
+                return None
 
         # Compute the 4-vector Q characterizing this PS point, defined as the sum of all
         # initial_state momenta, before any mapping is applied.
@@ -3101,7 +3139,6 @@ class ME7Integrand_R(ME7Integrand):
         for i_config, reduced_flavors in enumerate(all_reduced_flavors):
             all_reduced_flavored_with_initial_states_subsituted.append(
                                     (all_resolved_flavors[i_config][0],reduced_flavors[1]))
-         
 
         return ME7Integrand_R.generate_event_for_counterterm(
             ME7Event(
@@ -3213,7 +3250,12 @@ The missing process is: %s"""%ME_process.nice_string())
 
         all_events_generated = ME7EventList()
 
-        matrix_element_event = self.generate_matrix_element_event(
+        # When beam convolutions are active, we must remember that both the Bjorken x's *and*
+        # the convolution variable xi are integrated between zero and one.
+        if ((xi1 is not None) and xb_1 > xi1) or ((xi2 is not None) and xb_2 > xi2):
+            matrix_element_event = None
+        else:
+            matrix_element_event = self.generate_matrix_element_event(
                 PS_point, process_key, process, all_flavor_configurations, 
                   base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts)
     
@@ -3552,7 +3594,7 @@ The missing process is: %s"""%ME_process.nice_string())
             # as well as the Bjorken x's and rescalings and with p_z -> -p_z on all final
             # state momenta
             events.generate_mirrored_events()
-            
+
             # Apply flavor blind cuts
             if test_options['apply_higher_multiplicity_cuts']:
                 events.filter_with_flavor_blind_cuts(self.pass_flavor_blind_cuts, 

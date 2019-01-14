@@ -1594,10 +1594,10 @@ class InitialLorentzOneMapping(InitialCollinearMapping):
         # TODO Check if the jacobian for this mapping is really 1
         jacobian = 1.
         
-        # VH :: START :: TEMPORARY FIX OF MODIFYING Q DEFINITION
-        #Q = pAmpR
-        Q = PS_point[1] + PS_point[2]
-        # VH :: END :: TEMPORARY FIX OF MODIFYING Q DEFINITION
+
+        # WARNING: for ISR counterterms, the quantity Q below may *not* match with 
+        # PS_point[1] + PS_point[2]. So it should be used only for what it actually is!
+        Q = pAmpR
         
         mapping_variables = {'jacobian': jacobian, 'Q': Q}
         # Return characteristic variables

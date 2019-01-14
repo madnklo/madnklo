@@ -256,6 +256,7 @@ class ME7ContributionTest(IOTests.IOTestManager):
             # Generate the output for this.
             self.madgraph_cmd = cmd.MasterCmd(main='MadGraph')
             self.madgraph_cmd._curr_model = self.mymodel
+            self.madgraph_cmd.reset_interface_before_new_generation()            
             self.madgraph_cmd._export_dir = pjoin(tmp_path,'ME7ContributionTest_LO')
 
             # Generate contributions
@@ -267,7 +268,10 @@ class ME7ContributionTest(IOTests.IOTestManager):
                                   'optimize': False, 
                                   'NLO': [], 
                                   'loop_induced': [],
-                                  'ignore_contributions' : []}
+                                  'ignore_contributions' : [],
+                                  'beam_types': ['auto', 'auto'],
+                                  'loop_filter'          : None,
+                                  'process_definitions'  : {}}
 
             self.madgraph_cmd.add_contributions(self.myprocdef, generation_options)
             LO_contributions = self.madgraph_cmd._curr_contribs
@@ -293,6 +297,7 @@ class ME7ContributionTest(IOTests.IOTestManager):
             # Generate the output for this.
             self.madgraph_cmd = cmd.MasterCmd(main='MadGraph')
             self.madgraph_cmd._curr_model = self.mymodel
+            self.madgraph_cmd.reset_interface_before_new_generation()
             self.madgraph_cmd._export_dir = pjoin(tmp_path,'ME7ContributionTest_LO')
 
             # Generate contributions
@@ -304,7 +309,11 @@ class ME7ContributionTest(IOTests.IOTestManager):
                                   'optimize': False, 
                                   'NLO': ['QCD'], 
                                   'loop_induced': [],
-                                  'ignore_contributions' : []}
+                                  'ignore_contributions' : [],
+                                  'beam_types': ['auto', 'auto'],
+                                  'loop_filter'          : None,
+                                  'process_definitions'  : {},
+                                  }
 
             self.madgraph_cmd.add_contributions(self.myprocdef, generation_options)  
 
@@ -397,7 +406,7 @@ class ME7ContributionTest(IOTests.IOTestManager):
             print_string = 'A total of %d integrated subtraction counterterms'
             print_string += 'did not find a host contribution.'
             misc.sprint(print_string % refused_cts)
-        self.assertEqual(refused_cts, 6)
+        self.assertEqual(refused_cts, 14)
 
         # Local currents
 
@@ -437,7 +446,7 @@ class ME7ContributionTest(IOTests.IOTestManager):
                 self.mymodel, accessors_dict, tmp_path, 'colorful', all_local_currents )
             # Print all accessor keys
             if verbose: misc.sprint(print_string % (len(accessors_dict), "local"))
-            self.assertEqual(len(accessors_dict), 31)
+            self.assertEqual(len(accessors_dict), 43)
 
             # Reset the accessor dictionary so as to monitor only the newly added keys
             accessors_dict = accessors.MEAccessorDict()
@@ -445,4 +454,4 @@ class ME7ContributionTest(IOTests.IOTestManager):
                 self.mymodel, accessors_dict, tmp_path, 'colorful', all_integrated_currents )
             # Print all accessor keys
             if verbose: misc.sprint(print_string % (len(accessors_dict), "integrated"))
-            self.assertEqual(len(accessors_dict), 31)
+            self.assertEqual(len(accessors_dict), 50)

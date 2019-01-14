@@ -67,6 +67,11 @@ class ME7Exporter(object):
         self.options            = cmd_interface.options
         self.model              = cmd_interface._curr_model
         self.export_options     = export_options
+        # Set some options to default if absent
+        if 'ignore_contributions' not in self.export_options:
+            self.export_options['ignore_contributions'] = []
+        if 'ignore_integrated_counterterms' not in self.export_options:
+            self.export_options['ignore_integrated_counterterms'] = []
 
         # Already initialize the exporter of each contribution
         for contrib in self.contributions:

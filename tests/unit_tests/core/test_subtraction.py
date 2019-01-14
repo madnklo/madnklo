@@ -368,7 +368,7 @@ class CountertermTest(unittest.TestCase):
             prefactor=1, momenta_dict=md )
 
         # Sprinkle 2 loops over this counterterm
-        ct_all = ct.split_loops(2)
+        ct_all = ct.distribute_loops(2)
 
         # Build the benchmark by hand
         # Node #1
@@ -440,7 +440,7 @@ class CountertermTest(unittest.TestCase):
             prefactor=1, momenta_dict=md )
 
         # Sprinkle 2 loops over this counterterm
-        ct_all = ct.split_loops(2)
+        ct_all = ct.distribute_loops(2)
 
         # Build the benchmark by hand
         # Node #1
@@ -522,7 +522,7 @@ class CountertermTest(unittest.TestCase):
             prefactor=1, momenta_dict=md )
 
         # Sprinkle 2 loops over this counterterm
-        ct_all = ct.split_loops(2)
+        ct_all = ct.distribute_loops(2)
 
         # Painfully build the benchmark by hand
         # Node #1
@@ -732,7 +732,7 @@ class NLOSubtractionTest(unittest.TestCase):
 
         for combo in combos:
             ct = self.mysubtraction.get_counterterm(combo, self.myprocess)
-            for ct_n_loops in ct.split_loops(1):
+            for ct_n_loops in ct.distribute_loops(1):
                 all_currents += ct_n_loops.get_all_currents()
 
         currents_to_store = []

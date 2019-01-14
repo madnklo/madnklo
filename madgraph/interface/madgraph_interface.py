@@ -5346,9 +5346,9 @@ This implies that with decay chains:
         if not options['reuse']:
             process_checks.clean_up(self._mgme_dir)
 
-    # Generate a new amplitude
-    def do_generate(self, line):
-        """Main commands: Generate an amplitude for a given process"""
+
+    def reset_interface_before_new_generation(self):
+        """ Reset overall attributes of the interface before an entirely new independent generation."""
 
         aloha_lib.KERNEL.clean()
         # Reset amplitudes
@@ -5359,12 +5359,17 @@ This implies that with decay chains:
         self._curr_proc_defs = base_objects.ProcessDefinitionList()
         # Reset Helas matrix elements
         self._curr_matrix_elements = helas_objects.HelasMultiProcess()
-        self._generate_info = line
         # Reset _done_export, since we have new process
         self._done_export = False
         # Also reset _export_format and _export_dir
         self._export_format = None
-
+        
+    # Generate a new amplitude
+    def do_generate(self, line):
+        """Main commands: Generate an amplitude for a given process"""
+        
+        self.reset_interface_before_new_generation()
+        self._generate_info = line
 
         # Call add process
         args = self.split_arg(line)

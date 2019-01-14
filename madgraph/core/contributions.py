@@ -1399,20 +1399,22 @@ The resulting output must therefore be used for debugging only as it will not yi
                 initial_pdgs = process.get_initial_ids()
                 final_pdgs = tuple(process.get_final_ids_after_decay())
                 flavors_combinations.append( ( ( tuple(initial_pdgs),final_pdgs ), leg_numbers ) )
-#               It is not completely clear how to account for mirrored process at this stage,
-#               so we anticipate for now that this will only need to be processed at the
-#               integrand evaluation level.
-#               The problem with the line below is that for the process u d~ > u d~ a for instance
-#               the counterterm C(1,3) is only valid if leg #1 is u and leg #2 is d~. 
-#               So swapping u(1) d~(2) for u(2) d~(1) would require propagating the indices
-#               substitution in the entire counterterm (most importantly, its singular structure)
-#               and create a copy of it. This pretty heavy (and the idea of the 'use_mirror_process'
-#               option is precisely to avoid this work), so we can hopefully bypass this
-#               by implementing this symmetrisation during the integrand evaluation.
+#               Mirrored processes are not accounted for at this stage, as these are processed at the
+#               integrand evaluation level where mirrored copy of events are generated.
+#               Notice that this mirroring shouldn't be done simply as in the line below.
+##
 ##                if process.get('has_mirror_process'):
 ##                    flavors_combinations.append( 
 ##                           ( ( tuple(reversed(initial_pdgs)), final_pdgs ), leg_numbers ) )
-
+##
+#               because if one takes the following process for instance:
+#                     u d~ > u d~ a
+#               then the counterterm C(1,3) is only valid if leg #1 is u and leg #2 is d~. 
+#               So swapping u(1) d~(2) for u(2) d~(1) would require propagating the indices
+#               substitution in the entire counterterm (most importantly, its singular structure)
+#               and create a copy of it. This pretty heavy (and the idea of the 'use_mirror_process'
+#               option is precisely to avoid this work), so this is entirely bypassed
+#               by implementing this symmetrisation during the integrand evaluation.
             
 #            misc.sprint('doing process:',defining_process.nice_string())
 #            misc.sprint('flavors_combinations',flavors_combinations)
@@ -1451,7 +1453,7 @@ The resulting output must therefore be used for debugging only as it will not yi
             # that there is the same number of counterterm repetition for each combination of external legs
             # Example: resolved process is
             #   e+(1) e-(2) > g(3) g(4) g(5) d(6) d~(7)
-            # All the following counterterm belong to the same topology, which we group here according
+            # All the following counterterms belong to the same topology, which we group here according
             # to which list of external leg numbers they include:
             #   (3,4,6) : C(C(S(3),4),6), C(C(S(4),3),6) 
             #   (3,5,6) : C(C(S(3),5),6), C(C(S(5),3),6) 
@@ -1497,6 +1499,32 @@ The resulting output must therefore be used for debugging only as it will not yi
                 # flavors combination and the value is the multiplication factor.
                 reduced_flavors_combinations    = {}
                 resolved_flavors_combinations   = {}
+                # One subtlety occurs because of the backward flavor evolution in the initial
+                # states which will be registered in the event since it must be convoluted with
+                # the correct PDFs.
+                # Consider the following process:
+                #             g(1) s(2) > s(3) c(4) c~(5) u(6) u~(7)
+                #   + mapped  g(1) q(2) > q(3) qprime(4) qprime~(5) u(6) u~(7)
+                # and the counterterm C(2,3)C(4,5) which yields the following reduced mapped flavor:
+                #             g g > g u u~             
+                # with a multiplicity of naively n_f**2. However, the actual events that will be generated
+                # will be the following:
+                #             g s > g u u~
+                #             g d > g u u~
+                #             ...
+                # It is then clear that each of this flavor configuration in the ME7 event should not be
+                # multiplied by n_f**2 but instead just n_f. For this reason, the function 
+                # generate_all_counterterms of the contribution class also produces the dictionary 
+                # 'reduced_flavors_with_resolved_initial_states_combinations' which, in the example above, 
+                # would be (nf=5):
+                #     {  (21,3),(21,2,-2) : 5,
+                #        (21,1),(21,2,-2) : 5,
+                #        ...
+                #     }
+                # which will allow to divide the weight of each of these flavor configurations at the very
+                # by the corresponding multiplicity factor n_f.
+                reduced_flavors_with_resolved_initial_states_combinations = {}
+                
                 # Each integrated counterterm contributes proportionally to the ratio
                 # of the symmetry factors of the resolved process and reduced one,
                 # further divided by the symmetry factor of each group external leg
@@ -1565,6 +1593,16 @@ The resulting output must therefore be used for debugging only as it will not yi
                         reduced_flavors_combinations[reduced_flavors] = 1
                     resolved_flavors_combinations[flavor_combination] = reduced_flavors
                     
+                    # Now also build a multiplicity factor for combination of resolved initial-state
+                    # flavors and reduced final-state ones.
+                    reduced_flavors_with_resolved_initial_states = (flavor_combination[0], reduced_flavors[1])
+                    try:
+                        reduced_flavors_with_resolved_initial_states_combinations[
+                                            reduced_flavors_with_resolved_initial_states] += 1
+                    except KeyError:
+                        reduced_flavors_with_resolved_initial_states_combinations[
+                                            reduced_flavors_with_resolved_initial_states] = 1
+                    
                     if reduced_flavors in symmetry_factors:
                         # Sanity check, all reduced flavors should share the same S_t
                         if overall_symmetry_factor != symmetry_factors[reduced_flavors]:
@@ -1590,6 +1628,8 @@ The resulting output must therefore be used for debugging only as it will not yi
                     'integrated_counterterm'             :   integrated_counterterm,
                     'resolved_flavors_combinations'      :   resolved_flavors_combinations,
                     'reduced_flavors_combinations'       :   reduced_flavors_combinations,
+                    'reduced_flavors_with_resolved_initial_states_combinations' :
+                                        reduced_flavors_with_resolved_initial_states_combinations,
                     'symmetry_factor'                    :   symmetry_factors.values()[0],
                     'multiplicity'                       :   len(integrated_counterterms)
                 })

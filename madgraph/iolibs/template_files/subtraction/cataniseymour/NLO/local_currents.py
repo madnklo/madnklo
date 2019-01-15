@@ -97,8 +97,9 @@ class QCD_final_collinear_0_qqx(currents.QCDLocalCollinearCurrent):
         #    \sum_\lambda \epsilon_\lambda^\mu \epsilon_\lambda^{\star\nu}
         #    = g^{\mu\nu} + longitudinal terms
         # are irrelevant because Ward identities evaluate them to zero anyway.
-        evaluation['values'][(0, 0)]['finite'] = self.TR
-        evaluation['values'][(1, 0)]['finite'] = 4. * self.TR * z*(1.-z) / kT.square()
+        # WARNING multiplied by two because of flavor factors
+        evaluation['values'][(0, 0)]['finite'] = 2. * self.TR
+        evaluation['values'][(1, 0)]['finite'] = 2. * 4. * self.TR * z*(1.-z) / kT.square()
         return evaluation
 
 class QCD_final_collinear_0_gq(currents.QCDLocalCollinearCurrent):
@@ -184,6 +185,7 @@ class QCD_final_collinear_0_gq(currents.QCDLocalCollinearCurrent):
         children = self.get_sorted_children(current, self.model)
         parent = leg_numbers_map.inv[frozenset(children)]
         pC = sum(higher_PS_point[child] for child in children)
+        qC = lower_PS_point[parent]
         if self.is_cut(Q=Q, pC=pC):
             return utils.SubtractionCurrentResult.zero(
                 current=current, hel_config=hel_config)
@@ -202,7 +204,6 @@ class QCD_final_collinear_0_gq(currents.QCDLocalCollinearCurrent):
         color_correlation_index = 1
         ps = higher_PS_point[children[0]]
         pi = higher_PS_point[children[1]]
-        qis = lower_PS_point[parent]
 
         # Now loop over the colored parton number pairs (parent, j)
         # and add the corresponding contributions to this current
@@ -211,11 +212,11 @@ class QCD_final_collinear_0_gq(currents.QCDLocalCollinearCurrent):
             if j == parent:
                 continue
             # pj = sum(higher_PS_point[child] for child in leg_numbers_map[j])
+            # pj = higher_PS_point[j]
             qj = lower_PS_point[j]
-            pj = higher_PS_point[j]
             evaluation['color_correlations'].append(((parent, j),))
             # eiks = -mod_eikonal(pi, pj, ps)
-            mod = (qj.dot(qis)) / (qj.dot(pi+ps))
+            mod = (qj.dot(qC)) / (qj.dot(pi+ps))
             qjmod = mod * qj
             eiks = -mod_eikonal(pi, qjmod, ps)
             evaluation['values'][(0, color_correlation_index)] = {'finite': eiks}
@@ -224,7 +225,7 @@ class QCD_final_collinear_0_gq(currents.QCDLocalCollinearCurrent):
         # Add the normalization factors
         pC2 = pC.square()
         norm = 8. * math.pi * alpha_s / pC2
-        norm *= self.factor(Q=Q, pC=pC)
+        norm *= self.factor(Q=Q, pC=pC, qC=qC)
         for k in evaluation['values']:
             evaluation['values'][k]['finite'] *= norm
 
@@ -323,6 +324,7 @@ class QCD_final_collinear_0_gg(currents.QCDLocalCollinearCurrent):
         children = self.get_sorted_children(current, self.model)
         parent = leg_numbers_map.inv[frozenset(children)]
         pC = sum(higher_PS_point[child] for child in children)
+        qC = lower_PS_point[parent]
         if self.is_cut(Q=Q, pC=pC):
             return utils.SubtractionCurrentResult.zero(
                 current=current, hel_config=hel_config)
@@ -341,7 +343,6 @@ class QCD_final_collinear_0_gg(currents.QCDLocalCollinearCurrent):
         color_correlation_index = 1
         p0 = higher_PS_point[children[0]]
         p1 = higher_PS_point[children[1]]
-        q = lower_PS_point[parent]
 
         # Loop over the colored parton number pairs (parent, j)
         # and add the corresponding contributions to this current
@@ -349,13 +350,13 @@ class QCD_final_collinear_0_gg(currents.QCDLocalCollinearCurrent):
             # Write the eikonal for that pair
             if j == parent:
                 continue
-            pj = higher_PS_point[j]
+            # pj = higher_PS_point[j]
             # pj = sum(higher_PS_point[child] for child in leg_numbers_map[j])
             qj = lower_PS_point[j]
             # eik0 = -mod_eikonal(pj, p1, p0)
             # eik1 = -mod_eikonal(pj, p0, p1)
-            eik0 = -mod_eikonal(qj, q, p0)
-            eik1 = -mod_eikonal(qj, q, p1)
+            eik0 = -mod_eikonal(qj, qC, p0)
+            eik1 = -mod_eikonal(qj, qC, p1)
             evaluation['color_correlations'].append(((parent, j),))
             evaluation['values'][(0, color_correlation_index)] = {'finite': eik0 + eik1}
             color_correlation_index += 1
@@ -363,7 +364,7 @@ class QCD_final_collinear_0_gg(currents.QCDLocalCollinearCurrent):
         # Add the normalization factors
         pC2 = pC.square()
         norm = 8. * math.pi * alpha_s / pC2
-        norm *= self.factor(Q=Q, pC=pC)
+        norm *= self.factor(Q=Q, pC=pC, qC=qC)
         for k in evaluation['values']:
             evaluation['values'][k]['finite'] *= norm
 

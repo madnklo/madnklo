@@ -78,10 +78,12 @@ class Vector(np.ndarray):
         # return copy.deepcopy(self)
         return copy.copy(self)
 
-    def dot(self, v):
-
-        assert len(self) == len(v)
-        return sum(el * v[i] for i, el in enumerate(self))
+##   This slows down the code unnecessarily and significantly just for a debug. 
+##   Not worth it.
+#    def dot(self, v):
+#
+#        assert len(self) == len(v)
+#        return sum(el * v[i] for i, el in enumerate(self))
 
     def square(self):
 
@@ -133,12 +135,14 @@ class LorentzVector(Vector):
         return self[1:].view(type=Vector)
 
     def dot(self, v):
-        """Compute the Lorentz scalar product."""
-        
-        pos = self[0]*v[0]
-        neg = self.space().dot(v.space())
+        """C ompute the Lorentz scalar product."""
+        ## The implementation below allows for a check but it should be done upstream and
+        ## significantly slows down the code here.
+        # pos = self[0]*v[0]
+        # neg = self.space().dot(v.space())
         # if pos+neg != 0 and abs(2*(pos-neg)/(pos+neg)) < 100.*self.eps(): return 0
-        return pos - neg
+        # return pos - neg
+        return self[0]*v[0] - self[1]*v[1] - self[2]*v[2] - self[3]*v[3]
 
     def square_almost_zero(self):
         """Check if the square of this LorentzVector is zero within numerical accuracy."""
@@ -304,11 +308,15 @@ class LorentzVector(Vector):
 class LorentzVectorDict(dict):
     """A simple class wrapping dictionaries that store Lorentz vectors."""
 
-    def to_list(self):
+    def to_list(self, ordered_keys=None):
         """Return list copy of self. Notice that the actual values of the keys
-        are lost in this process."""
-
-        return LorentzVectorList(self[k] for k in sorted(self.keys()))
+        are lost in this process. The user can specify in which order (and potentially which ones)
+        the keys must be placed in the list returned."""
+        
+        if ordered_keys is None:
+            return LorentzVectorList(self[k] for k in sorted(self.keys()))
+        else:
+            return LorentzVectorList(self[k] for k in ordered_keys)
 
     def to_dict(self):
         """Return a copy of this LorentzVectorDict """
@@ -356,6 +364,39 @@ class LorentzVectorDict(dict):
 
         return '\n'.join(out_lines)
 
+    def boost_to_com(self, initial_leg_numbers):
+        """ Boost this kinematic configuration back to its c.o.m. frame given the
+        initial leg numbers. This is not meant to be generic and here we *want* to crash
+        if we encounter a configuration that is not supposed to ever need boosting in the
+        MadNkLO construction.
+        """
+    
+        if len(initial_leg_numbers)==2:
+            if __debug__:
+                sqrts = math.sqrt((self[initial_leg_numbers[0]]+self[initial_leg_numbers[1]]).square())
+                # Assert initial states along the z axis
+                assert(abs(self[initial_leg_numbers[0]][1]/sqrts)<1.0e-9)
+                assert(abs(self[initial_leg_numbers[1]][1]/sqrts)<1.0e-9)
+                assert(abs(self[initial_leg_numbers[0]][2]/sqrts)<1.0e-9)
+                assert(abs(self[initial_leg_numbers[1]][2]/sqrts)<1.0e-9)
+            # Now send the self back into its c.o.m frame, if necessary
+            initial_momenta_summed = self[initial_leg_numbers[0]]+self[initial_leg_numbers[1]]
+            sqrts = math.sqrt((initial_momenta_summed).square())
+            if abs(initial_momenta_summed[3]/sqrts)>1.0e-9:
+                boost_vector = (initial_momenta_summed).boostVector()
+                for vec in self.values():
+                    vec.boost(-boost_vector)
+            if __debug__:
+                assert(abs((self[initial_leg_numbers[0]]+self[initial_leg_numbers[1]])[3]/sqrts)<=1.0e-9)
+        elif len(initial_leg_numbers)==1:
+            if __debug__:
+                sqrts = math.sqrt(self[initial_leg_numbers[0]].square())
+                assert(abs(self[initial_leg_numbers[0]][1]/sqrts)<1.0e-9)
+                assert(abs(self[initial_leg_numbers[0]][2]/sqrts)<1.0e-9)
+                assert(abs(self[initial_leg_numbers[0]][3]/sqrts)<1.0e-9)
+        else:
+            raise InvalidOperation('MadNkLO only supports processes with one or two initial states.')
+
     def get_copy(self):
         """Return a copy that can be freely modified
         without changing the current instance.
@@ -391,6 +432,40 @@ class LorentzVectorList(list):
         """Return a copy of this LorentzVectorList as a LorentzVectorDict."""
 
         return LorentzVectorDict( (i+1, v) for i, v in enumerate(self) )
+        
+    def boost_to_com(self, initial_leg_numbers):
+        """ Boost this kinematic configuration back to its c.o.m. frame given the
+        initial leg numbers. This is not meant to be generic and here we *want* to crash
+        if we encounter a configuration that is not supposed to ever need boosting in the
+        MadNkLO construction.
+        """
+        # Given that this is a list, we must subtract one to the indices given
+        initial_leg_numbers = tuple(n-1 for n in initial_leg_numbers)
+        if len(initial_leg_numbers)==2:
+            if __debug__:
+                sqrts = math.sqrt((self[initial_leg_numbers[0]]+self[initial_leg_numbers[1]]).square())
+                # Assert initial states along the z axis
+                assert(abs(self[initial_leg_numbers[0]][1]/sqrts)<1.0e-9)
+                assert(abs(self[initial_leg_numbers[1]][1]/sqrts)<1.0e-9)
+                assert(abs(self[initial_leg_numbers[0]][2]/sqrts)<1.0e-9)
+                assert(abs(self[initial_leg_numbers[1]][2]/sqrts)<1.0e-9)
+            # Now send the self back into its c.o.m frame, if necessary
+            initial_momenta_summed = self[initial_leg_numbers[0]]+self[initial_leg_numbers[1]]
+            sqrts = math.sqrt((initial_momenta_summed).square())
+            if abs(initial_momenta_summed[3]/sqrts)>1.0e-9:
+                boost_vector = (initial_momenta_summed).boostVector()
+                for vec in self:
+                    vec.boost(-boost_vector)
+            if __debug__:
+                assert(abs((self[initial_leg_numbers[0]]+self[initial_leg_numbers[1]])[3]/sqrts)<=1.0e-9)
+        elif len(initial_leg_numbers)==1:
+            if __debug__:
+                sqrts = math.sqrt(self[initial_leg_numbers[0]].square())
+                assert(abs(self[initial_leg_numbers[0]][1]/sqrts)<1.0e-9)
+                assert(abs(self[initial_leg_numbers[0]][2]/sqrts)<1.0e-9)
+                assert(abs(self[initial_leg_numbers[0]][3]/sqrts)<1.0e-9)
+        else:
+            raise InvalidOperation('MadNkLO only supports processes with one or two initial states.')
 
     def get_copy(self):
         """Return a copy that can be freely modified

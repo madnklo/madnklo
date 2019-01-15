@@ -151,14 +151,14 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
         # ------------------------------------------------
         
         # the number of iterations for the training session. 
-        default_opts['survey_n_iterations'] = 10
+        default_opts['n_iterations_survey'] = 10
         # the number of points per iteration in the training session. 
-        default_opts['survey_n_points'] = 2000
+        default_opts['n_points_survey'] = 2000
 
         # the number of iterations for the production session. 
-        default_opts['refine_n_iterations'] = 10
+        default_opts['n_iterations_refine'] = 10
         # the number of points per iteration in the production session. 
-        default_opts['refine_n_points'] = 10000
+        default_opts['n_points_refine'] = 10000
 
         # Steering parallelization
         if not MPI_ACTIVE:
@@ -175,6 +175,8 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
                 setattr(self,opt,opts.pop(opt))
             else:
                 setattr(self,opt,default_opts[opt])
+                
+        
 
         super(Vegas3Integrator,self).__init__(integrands, **opts)
 
@@ -196,7 +198,7 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
     def observables_normalization(self, n_integrand_calls):
         """ Given the number of integrand calls, return the appropriate overall normalization
         to apply to the observables."""
-        return 1.0/float(self.refine_n_iterations)
+        return 1.0/float(self.n_iterations_refine)
 
     def wrapped_integrand(self, x_inputs):
         """ Function to wrap the integrand to the Vegas3 standards."""
@@ -257,10 +259,10 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
         # sync_ran is to decide if VEGAS3 random number generator should produce the same
         # number on different processors.
         if any(apply_observables_for_integrands_back_up) and self.cluster.nb_core==1:
-#            if self.refine_n_iterations > 1:
+#            if self.n_iterations_refine > 1:
 #                logger.warning("Vegas3 can only run a single refine iteration when a fixed-order analysis is active.\n"+
-#                               "The parameter 'refine_n_iterations' will consequently be forced to take the value 1.")
-#                self.refine_n_iterations = 1
+#                               "The parameter 'n_iterations_refine' will consequently be forced to take the value 1.")
+#                self.n_iterations_refine = 1
             self.vegas3_integrator = VegasWithJacobianInFunctionInput(n_dimensions * [[0., 1.]],
                 analyzer        = vegas.reporter() if self.verbosity>1 else None, 
                 nhcube_batch    = self.batch_size,
@@ -301,17 +303,17 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
             logger.info('Vegas3 reading integration grids from file: %s'%self.load_grids)
             self.vegas3_integrator.set(map=vegas_map)
         
-        if self.survey_n_iterations > 0 and self.survey_n_points > 0:
+        if self.n_iterations_survey > 0 and self.n_points_survey > 0:
             # Train grid
             if MPI_RANK == 0:
                 logger.debug("=================================")
                 logger.debug("Vegas3 starting the survey stage.")
                 logger.debug("=================================")
             self.n_function_evals = 0
-            self.curr_n_iterations = self.survey_n_iterations
-            self.curr_n_evals_per_iterations = self.survey_n_points
+            self.curr_n_iterations = self.n_iterations_survey
+            self.curr_n_evals_per_iterations = self.n_points_survey
             result = self.vegas3_integrator(wrapped_integrand, 
-                        nitn=self.survey_n_iterations, neval=self.survey_n_points, adapt=True)
+                        nitn=self.n_iterations_survey, neval=self.n_points_survey, adapt=True)
     
             if MPI_RANK == 0:
                 logger.debug('\n'+result.summary())
@@ -330,7 +332,7 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
                                                                     self.load_grids,str(e)))
             logger.info('Vegas3 saved its integration grids to file: %s'%self.save_grids)
            
-        if self.refine_n_iterations > 0 and self.refine_n_points > 0:
+        if self.n_iterations_refine > 0 and self.n_points_refine > 0:
             # Final integration
             if MPI_RANK == 0:
                 logger.debug("=============================================")
@@ -347,10 +349,10 @@ class Vegas3Integrator(integrators.VirtualIntegrator):
                             ' now be disabled as this functionality is not yet available for parallel integration.')
     
             self.n_function_evals = 0
-            self.curr_n_iterations = self.refine_n_iterations
-            self.curr_n_evals_per_iterations = self.refine_n_points
+            self.curr_n_iterations = self.n_iterations_refine
+            self.curr_n_evals_per_iterations = self.n_points_refine
             result = self.vegas3_integrator(wrapped_integrand, 
-                        nitn=self.refine_n_iterations, neval=self.refine_n_points, adapt=False) 
+                        nitn=self.n_iterations_refine, neval=self.n_points_refine, adapt=False) 
             if MPI_RANK == 0:
                 logger.debug('\n'+result.summary())
         else:

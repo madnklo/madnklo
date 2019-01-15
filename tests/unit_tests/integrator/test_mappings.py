@@ -1034,3 +1034,36 @@ class MappingsTest(unittest.TestCase):
             'min_unresolved_per_set': 1, 'max_unresolved_per_set': 4,
             'supports_massive_recoilers': False, }
         self._test_invertible(pars)
+
+    def test_SoftVsInitialMapping_invertible(self):
+        """Test if SoftVsInitialMapping is invertible."""
+
+        pars = {
+            'mapping': mappings.SoftVsInitialMapping(),
+            'min_soft_sets': 1, 'max_soft_sets': 5,
+            'min_recoilers': 2, 'max_recoilers': 5,
+            'max_unchanged': 3, 'masses': None,
+            'min_unresolved_per_set': 1, 'max_unresolved_per_set': 4, }
+        self._test_invertible(pars)
+    # TODO Confirm that indeed the SoftVsInitialMapping is neither associative or commutative
+    # def test_SoftVsInitialMapping_associative(self):
+    #     """Test if SoftVsInitialMapping is associative."""
+    #
+    #     pars = {
+    #         'mapping': mappings.SoftVsInitialMapping(),
+    #         'min_soft_sets': 1, 'max_soft_sets': 6,
+    #         'min_recoilers': 2, 'max_recoilers': 4,
+    #         'max_unchanged': 2, 'masses': None,
+    #         'min_unresolved_per_set': 1, 'max_unresolved_per_set': 3, }
+    #     self._test_associative(pars)
+    #
+    # def test_SoftVsInitialMapping_commutative(self):
+    #     """Test if SoftVsInitialMapping is commutative."""
+    #
+    #     pars = {
+    #         'mapping': mappings.SoftVsInitialMapping(),
+    #         'min_soft_sets': 1, 'max_soft_sets': 5,
+    #         'min_recoilers': 2, 'max_recoilers': 4,
+    #         'max_unchanged': 2, 'masses': None,
+    #         'min_unresolved_per_set': 1, 'max_unresolved_per_set': 3, }
+    #     self._test_commutative(pars)

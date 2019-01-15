@@ -36,6 +36,10 @@ from madgraph.integrator.vectors import LorentzVectorDict, LorentzVectorList
 
 logger = logging.getLogger('madgraph.PhaseSpaceGenerator')
 
+class MappingError(Exception):
+    """Exception raised if an exception is triggered in implementation of the currents.""" 
+    pass
+
 #=========================================================================================
 # Kinematic functions
 #=========================================================================================
@@ -590,7 +594,9 @@ class FinalZeroMassesMapping(VirtualMapping):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
 
         names = []
         for substructure in singular_structure.substructures:
@@ -604,7 +610,9 @@ class FinalZeroMassesMapping(VirtualMapping):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
 
         # Determine leg numbers and check that target masses are zero
         js = []
@@ -656,7 +664,9 @@ class FinalZeroMassesMapping(VirtualMapping):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
 
         # Determine leg numbers
         js = []
@@ -783,7 +793,9 @@ class FinalCollinearMapping(VirtualMapping):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
 
         names = []
         for substructure in singular_structure.substructures:
@@ -797,7 +809,9 @@ class FinalCollinearMapping(VirtualMapping):
         cls, singular_structure, momenta_dict, kinematic_variables, scaling_parameter):
 
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
         needed_variables = set(
             cls.get_kinematic_variables_names(singular_structure, momenta_dict))
         assert needed_variables.issubset(kinematic_variables.keys())
@@ -855,7 +869,9 @@ class FinalRescalingOneMapping(FinalCollinearMapping):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
 
         # Precompute sets and numbers
         substructure = singular_structure.substructures[0]
@@ -902,7 +918,9 @@ class FinalRescalingOneMapping(FinalCollinearMapping):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
         needed_variables = set(
             cls.get_kinematic_variables_names(singular_structure, momenta_dict) )
         assert needed_variables.issubset(kinematic_variables.keys())
@@ -973,7 +991,9 @@ class FinalLorentzOneMapping(FinalCollinearMapping):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
 
         # Precompute sets and numbers
         substructure = singular_structure.substructures[0]
@@ -1029,7 +1049,9 @@ class FinalLorentzOneMapping(FinalCollinearMapping):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
         needed_variables = set(
             cls.get_kinematic_variables_names(singular_structure, momenta_dict) )
         assert needed_variables.issubset(kinematic_variables.keys())
@@ -1079,7 +1101,9 @@ class FinalLorentzOneMapping(FinalCollinearMapping):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
         needed_variables = set(
             cls.get_kinematic_variables_names(singular_structure, momenta_dict) )
         assert needed_variables.issubset(kinematic_variables.keys())
@@ -1118,7 +1142,9 @@ class FinalGroupingMapping(FinalCollinearMapping):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
 
         # Build reduced PS point, singular structure & masses to call FinalMassesMapping
         reduced_PS_point = PS_point.get_copy()
@@ -1164,7 +1190,9 @@ class FinalGroupingMapping(FinalCollinearMapping):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
         needed_variables = set(
             cls.get_kinematic_variables_names(singular_structure, momenta_dict) )
         assert needed_variables.issubset(kinematic_variables.keys())
@@ -1208,7 +1236,9 @@ class FinalLorentzMapping(FinalCollinearMapping):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
 
         # Build reduced PS point, singular structure & masses to call FinalMassesMapping
         reduced_PS_point = PS_point.get_copy()
@@ -1292,7 +1322,9 @@ class FinalLorentzMapping(FinalCollinearMapping):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
         needed_variables = set(
             cls.get_kinematic_variables_names(singular_structure, momenta_dict) )
         assert needed_variables.issubset(kinematic_variables.keys())
@@ -1365,7 +1397,9 @@ class FinalLorentzMapping(FinalCollinearMapping):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
         needed_variables = set(
             cls.get_kinematic_variables_names(singular_structure, momenta_dict) )
         assert needed_variables.issubset(kinematic_variables.keys())
@@ -1393,7 +1427,9 @@ class FinalLorentzMapping(FinalCollinearMapping):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
 
         Q = LorentzVector()
         mass_sum = 0.
@@ -1449,7 +1485,9 @@ class InitialCollinearMapping(VirtualMapping):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
 
         names = []
         for substructure in singular_structure.substructures:
@@ -1463,7 +1501,9 @@ class InitialCollinearMapping(VirtualMapping):
         cls, singular_structure, momenta_dict, kinematic_variables, scaling_parameter):
 
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
         needed_variables = set(
             cls.get_kinematic_variables_names(singular_structure, momenta_dict))
         assert needed_variables.issubset(kinematic_variables.keys())
@@ -1506,7 +1546,9 @@ class InitialLorentzOneMapping(InitialCollinearMapping):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
 
         # Precompute sets and numbers
         substructure = singular_structure.substructures[0]
@@ -1551,7 +1593,13 @@ class InitialLorentzOneMapping(InitialCollinearMapping):
                 PS_point, fs_children, is_child, na, nb, kinematic_variables )
         # TODO Check if the jacobian for this mapping is really 1
         jacobian = 1.
-        mapping_variables = {'jacobian': jacobian, 'Q': pAmpR}
+        
+
+        # WARNING: for ISR counterterms, the quantity Q below may *not* match with 
+        # PS_point[1] + PS_point[2]. So it should be used only for what it actually is!
+        Q = pAmpR
+        
+        mapping_variables = {'jacobian': jacobian, 'Q': Q}
         # Return characteristic variables
         return new_PS_point, mapping_variables
 
@@ -1567,7 +1615,9 @@ class InitialLorentzOneMapping(InitialCollinearMapping):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
         needed_variables = set(
             cls.get_kinematic_variables_names(singular_structure, momenta_dict))
         assert needed_variables.issubset(kinematic_variables.keys())
@@ -1623,6 +1673,12 @@ class InitialLorentzOneMapping(InitialCollinearMapping):
             new_PS_point[recoiler.n].rotoboost(qR, pR)
         # TODO Check if the jacobian for this mapping is really 1
         jacobian = 1.
+
+        # VH :: START :: TEMPORARY FIX OF MODIFYING Q DEFINITION
+        #Q = -qRmqA
+        Q = new_PS_point[1] + new_PS_point[2]
+        # VH :: END :: TEMPORARY FIX OF MODIFYING Q DEFINITION
+        
         mapping_variables = {'jacobian': jacobian, 'Q': -qRmqA}
         # Return characteristic variables
         return new_PS_point, mapping_variables
@@ -1658,7 +1714,9 @@ class ElementaryMappingSoft(VirtualMapping):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
 
         # For every soft particle, just return its momentum
         names = []
@@ -1673,7 +1731,9 @@ class ElementaryMappingSoft(VirtualMapping):
         cls, singular_structure, momenta_dict, kinematic_variables, scaling_parameter):
 
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
         needed_variables = set(
             cls.get_kinematic_variables_names(singular_structure, momenta_dict))
         assert needed_variables.issubset(kinematic_variables.keys())
@@ -1714,7 +1774,9 @@ class FinalAssociativeSoftMappingZero(ElementaryMappingSoft):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
 
         names = []
         for substructure in singular_structure.substructures:
@@ -1729,7 +1791,9 @@ class FinalAssociativeSoftMappingZero(ElementaryMappingSoft):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
 
         # Determine leg numbers and check that target masses are zero
         pS = LorentzVector()
@@ -1788,7 +1852,9 @@ class FinalAssociativeSoftMappingZero(ElementaryMappingSoft):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
 
         # Determine leg numbers
         pS = LorentzVector()
@@ -1919,7 +1985,6 @@ class FinalAssociativeSoftMapping(FinalAssociativeSoftMappingZero):
 
 # Soft mapping, massless final-state recoilers
 #=========================================================================================
-
 class SoftVsFinalMapping(ElementaryMappingSoft):
     """Implementation of the mapping used by Somogyi et al.
     in arXiv:hep-ph/0609042 for soft particles.
@@ -1949,8 +2014,9 @@ class SoftVsFinalMapping(ElementaryMappingSoft):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
-
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
         # Build the total soft momentum,
         # save the soft momenta in variables and eliminate them from PS_point
         new_PS_point = PS_point.get_copy()
@@ -1989,7 +2055,9 @@ class SoftVsFinalMapping(ElementaryMappingSoft):
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
-        assert cls.is_valid_structure(singular_structure)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
         needed_variables = set(
             cls.get_kinematic_variables_names(singular_structure, momenta_dict ) )
         assert needed_variables.issubset(kinematic_variables.keys())
@@ -2024,10 +2092,172 @@ class SoftVsFinalMapping(ElementaryMappingSoft):
         # Return characteristic variables
         return new_PS_point, mapping_variables
 
+# Soft mapping recoiling against initial states, suited for p p > X collisions.
+#=========================================================================================
+
+class  SoftVsInitialMapping(ElementaryMappingSoft):
+    """Implementation of the mapping described in sect. 5.3.2. of Vittorio's notes.
+    It is applicable for hadronic collisions where the initial states can be rescaled.
+    - is_valid_structure is entirely inherited from the parent.
+    This mapping works for any hadron-hadron collider. The initial state should be checked at initialization
+    - map_to_lower_multiplicity does TODO write description
+    - map_to_higher_multiplicity does TODO write description
+    """
+    #TODO implement a check for Had-Had initial state when calling the schemes that call SoftVsInitialMapping
+    #TODO validate map_to_lower | checked with unit_test, need to check test_IR_limits
+    #TODO validate map_to_higher | checked with unit_test, need to check test_IR_limits
+    #TODO once validated remove NotImplementedError from the methods
+
+    @classmethod
+    def map_to_lower_multiplicity(
+        cls, PS_point, singular_structure, momenta_dict, squared_masses=None,
+        kinematic_variables=None, compute_jacobian=False ):
+        """Map the resolved momenta of a real emission process to on-shell kinematics by recoling against the initial state partons.
+        This function applies the transformation described in equation 5.44 of Vittorio's notes. 
+        This is also described in Simone Lionetti's thesis at 5.3.3 but the notation here is aligned with Vittorio's notes.
+
+        :param PS_point: dictionnary of Real kinematics
+        :param singular_structure: SingularStructure describing the limit we want to factorize with this mapping
+        :param momenta_dict: ?
+        :param squared_masses: dictionnary
+        :param kinematic_variables: dictionnary to store the variables of the unresolved PS
+        :param compute_jacobian: Boolean, should the jacobian be computed for each PS point?
+        :return:
+            * new_PS_point: a dictionnary with Born kinematics
+            * mapping_variables: a dictionnary with variables needed to compute splitting functions
+        """
+        #TODO review documentation
+
+        # Consistency checks
+        assert isinstance(momenta_dict, sub.bidict)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
+
+        # Construct a new phase space point
+        new_PS_point = PS_point.get_copy()
+
+        # Build the total soft momentum and remove all soft legs from the mapped PS point
+        # Save the soft legs in kinematic_variables
+        pS = LorentzVector()
+        for substructure in singular_structure.substructures: # S(3,4).legs returns [3,4]
+            children = tuple(leg.n for leg in substructure.legs)
+            if kinematic_variables is not None:
+                SoftVariables.get(PS_point, children, kinematic_variables)
+            for child in children:
+                pS += new_PS_point.pop(child)
+
+        # Build the total momentum of recoilers
+        recoilers = tuple(leg.n for leg in singular_structure.legs) # (S(3,4),).legs returns the recoilers
+        pR = LorentzVector()
+        for recoiler in recoilers:
+            pR += PS_point[recoiler]
+
+        # Build the total momentum Q from the intial state
+        Q = LorentzVector()
+        Q += PS_point[1]
+        Q += PS_point[2]
+
+        # Compute the parameter la (lambda_s1...sn in Vittorio's 5.44)
+        la = math.sqrt((Q - pS).square() / Q.square())
+
+        # All recoilers are boosted by a Lorentz transform K->Ktilde
+        Ktilde = Q * la
+        K = Q - pS
+
+        for recoiler in singular_structure.legs:
+            new_PS_point[recoiler.n].rotoboost(K, Ktilde) # this is Lambda(Ktilde,K) p_n
+        # The initial state is rescaled by lambda
+        new_PS_point[1]*=la
+        new_PS_point[2]*=la
+
+        mapping_variables = {'Q': Q}
+
+        # There is no jacobian for this transformation as it is based on a pure Lorentz transform
+        if compute_jacobian:
+            mapping_variables['jacobian'] = 1
+        return new_PS_point, mapping_variables
+
+    @classmethod
+    def map_to_higher_multiplicity(
+        cls, PS_point, singular_structure, momenta_dict, kinematic_variables,
+        compute_jacobian=False ):
+        """Create a Real PS point from a Born PS point and unresolved PS variables by recoling against the initial state partons.
+        This function applies the inverse transformation of that described in equation 5.44 of Vittorio's notes. This is also described in Simone Lionetti's thesis at 5.3.3 but the notation here is aligned with Vittorio's notes.
+
+        :param PS_point: dictionnary of Born kinematics + unresolved
+        :param singular_structure: SingularStructure describing the limit we want to factorize with this mapping
+        :param momenta_dict: ?
+        :param kinematic_variables: dictionnary to store the variables of the unresolved PS
+        :param compute_jacobian: Boolean, should the jacobian be computed for each PS point?
+        :return:
+                * new_PS_point: a dictionnary with Real kinematics
+                * mapping_variables: a dictionnary with variables needed to compute splitting functions
+        """
+
+        # Consistency checks
+        # Type check
+        assert isinstance(momenta_dict, sub.bidict)
+            # Are we using the right kind of mapping for the limit?
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                                                    str(singular_structure), cls.__name__))
+        # Do we have all the input we need?
+        needed_variables = set(
+            cls.get_kinematic_variables_names(singular_structure, momenta_dict ) )
+        assert needed_variables.issubset(kinematic_variables.keys())
+
+        # Construct a new phase space point
+        new_PS_point = PS_point.get_copy()
+
+        # Build the total soft momentum,
+        pS = LorentzVector()
+        for substructure in singular_structure.substructures: # singular_structure = (S(...),): get the SoftStructure
+            children = tuple(leg.n for leg in substructure.legs) # Get all unresolved legs: S(1,2).legs = (1,2)
+            # the kinematic variables describing the unresolved legs are copied from kinematic_variables
+            SoftVariables.set(new_PS_point, children, kinematic_variables)
+            for child in children:
+                pS += new_PS_point[child]
+
+        # Build the total momentum
+        # The sum of the momenta of initial state particles yields lambda*Q as they have been mapped
+        laQ = LorentzVector()
+        laQ += PS_point[1]
+        laQ += PS_point[2]
+
+        # Compute lambda (la)
+        # In the direct mapping: lambda = sqrt(1 - 2*pS.Q/Q^2 + pS^2/Q^2) = sqrt(1 - y + muS)
+        # Here the total momentum is laQ with Q = laQ / lambda.
+        # Defining y' = pS.laQ / laQ^2 = y/lambda and muS' = pS^2/Qla^2 = muS / lambda^2
+        # => lambda = sqrt(1 - lambda*y' + lambda^2*muS')
+        # This has a unique positive solution
+        yprime = 2*laQ.dot(pS)/laQ.square()
+        muSprime = pS.square()/laQ.square()
+        la = .5*(math.sqrt(4.*(1.-muSprime)+yprime**2)-yprime)/(1.-muSprime) # Sanity analytic check: limit of la in pS->0 is 1
+
+        # Reconstruct the momenta of the inverse Lorentz transform
+        Q = laQ.get_copy()/la
+        K = Q-pS
+        Ktilde = laQ
+
+        # Map all recoilers' momenta
+        for recoiler in singular_structure.legs:
+            new_PS_point[recoiler.n].rotoboost(Ktilde,K)
+        # Map the initial state
+        new_PS_point[1] *= 1. / la
+        new_PS_point[2] *= 1. / la
+
+        # Save the variables needed for the splitting functions
+        mapping_variables = {'Q': Q}
+        if compute_jacobian:
+            mapping_variables['jacobian'] = 1.
+
+        return new_PS_point, mapping_variables
+
+
 #=========================================================================================
 # Soft-collinear mappings
 #=========================================================================================
-
 # Generic soft-collinear mapping
 #=========================================================================================
 
@@ -2132,6 +2362,8 @@ class SoftCollinearMapping(VirtualMapping):
         coll_PS_point, coll_vars = self.coll_mapping.map_to_lower_multiplicity(
             soft_PS_point, coll_structure, coll_momenta_dict, squared_masses,
             kinematic_variables, compute_jacobian )
+        # We adopt the definition of Q from the soft mapping
+        coll_vars['Q'] = soft_vars['Q']
         if compute_jacobian:
             coll_vars['jacobian'] *= soft_vars['jacobian']
         return coll_PS_point, coll_vars
@@ -2155,6 +2387,8 @@ class SoftCollinearMapping(VirtualMapping):
         soft_PS_point, soft_vars = self.soft_mapping.map_to_higher_multiplicity(
             coll_PS_point, soft_structure, momenta_dict,
             kinematic_variables, compute_jacobian )
+        # We adopt the definition of Q from the soft mapping
+        coll_vars['Q'] = soft_vars['Q']
         if compute_jacobian:
             coll_vars['jacobian'] *= soft_vars['jacobian']
         return soft_PS_point, coll_vars

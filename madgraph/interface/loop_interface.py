@@ -805,7 +805,29 @@ own and set the path to its library in the MG5aMC option '%(p)s'.""" % {'p': key
         """Generate an amplitude for a given process and add to
         existing amplitudes
         """
-        args = self.split_arg(line)
+
+        processed_line = line.split('--')
+        args_line = processed_line[0]
+        options = [opt.strip() for opt in processed_line[1:]]
+
+        loop_filter=None
+        for option in options:
+            processed_option = option.split('=')
+            key = processed_option[0]
+            if len(processed_option)>1:
+                value = '='.join(processed_option[1:]).strip()
+            else:
+                value = None
+                
+            if key == 'loop_filter':
+                loop_filter = value
+                if not isinstance(self, extended_cmd.CmdShell):
+                    raise self.InvalidCmd("loop_filter is not allowed in web mode")
+            else:
+                raise self.InvalidCmd("Option '%s' not reckognized for command 'add'."%key)
+                
+        
+        args = self.split_arg(args_line)
         # Check the validity of the arguments
         self.check_add(args)
         perturbation_couplings_pattern = \
@@ -820,16 +842,7 @@ own and set the path to its library in the MG5aMC option '%(p)s'.""" % {'p': key
         else:
             self.validate_model()
 
-        loop_filter=None
         if args[0] == 'process':
-
-            # Extract potential loop_filter          
-            for arg in args:
-                if arg.startswith('--loop_filter='):
-                    loop_filter = arg[14:]
-                if not isinstance(self, extended_cmd.CmdShell):
-                    raise InvalidCmd, "loop_filter is not allowed in web mode"
-            args = [a for a in args if not a.startswith('--loop_filter=')]
 
             # Rejoin line
             line = ' '.join(args[1:])

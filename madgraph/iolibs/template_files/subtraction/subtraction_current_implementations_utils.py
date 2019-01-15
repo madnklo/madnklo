@@ -18,6 +18,27 @@ from __builtin__ import classmethod
 import math
 import madgraph.various.misc as misc
 import madgraph.integrator.phase_space_generators as PS_utils
+from madgraph.core.base_objects import EpsilonExpansion
+
+#=========================================================================================
+# Useful constants
+#=========================================================================================
+class Constants(object):
+    """ Constants used throughout the implementation of the counterterms."""
+    
+    # Epsilon expansion constants
+    EulerGamma = 0.57721566490153286061
+    SEpsilon =  EpsilonExpansion({ 
+         0 : 1., 
+         1 : -EulerGamma + math.log(4.*math.pi),
+         2 : 0.5*(EulerGamma**2-2.*EulerGamma*math.log(4.*math.pi)+math.log(4.*math.pi)**2)
+    })
+    
+    # SU(3) group constants
+    TR = 0.5
+    NC = 3.0
+    CF = (NC ** 2 - 1) / (2 * NC)
+    CA = NC
 
 #=========================================================================================
 # Subtraction current evaluation and result
@@ -53,12 +74,56 @@ class SubtractionCurrentEvaluation(dict):
         for the purpose of sorting."""
         
         index = 0
-        if result_name.startswith('eps'):
+        if isinstance(result_name, int):
+            index+=result_name
+            result_name='eps'
+        elif result_name.startswith('eps'):
             index += int(result_name.split('^')[1])
             result_name = 'eps'
-        
         return index + ((100*self.result_order.index(result_name))
                         if result_name in self.result_order else 100000)
+
+    def subresult_lines(self, subresult, subtemplate):
+        """ Returns the string line describing the subresult in argument corresponding to 
+        a paricular combination of color and Lorentz structure. The subtemplate specified
+        will be used for rendering each line."""
+        
+        lines = []        
+        sorted_subresult_keys = sorted(subresult.keys(), 
+                                                 key=lambda el: self.get_result_order(el))
+        for subkey in sorted_subresult_keys:
+            if isinstance(subkey, int):
+                key_name='eps^%d'%subkey
+            else:
+                key_name=subkey
+            lines.append(subtemplate%(key_name, 
+                                    self.format_result(subkey, subresult[subkey])))
+        return lines
+
+    def format_result(self, key, res):
+        """ Format a string for the pair key-result specified."""
+        
+        # Special handling for the subresult for each spin/lorentz connection pairing
+        if key=='values':
+            if len(res)==0:
+                return 'N/A'
+            formatted_res = ['']
+            for spin_lorentz_pair in res:
+                formatted_res.append(misc.bcolors.BLUE+'     %s:'%str(spin_lorentz_pair)+misc.bcolors.ENDC)
+                formatted_res.extend(['       -> %s'%line for 
+                        line in self.subresult_lines(res[spin_lorentz_pair],'%-10s=%s')])
+            return '\n'.join(formatted_res)
+
+        if res is None or key=='accuracy' and res < 0.:
+            return 'N/A'
+        if isinstance(key, int):
+            key = 'eps'
+        elif key.startswith('eps'):
+            key = 'eps'
+        formatted_res = self.result_format[key]%res if key in self.result_format else str(res)
+        if isinstance(res,float) and res > 0.:
+            formatted_res = ' %s'%formatted_res
+        return formatted_res
 
     def nice_string(self, max_len_attribute=-1):
         """Formats nicely the output of a particular subtraction current evaluation."""
@@ -69,35 +134,10 @@ class SubtractionCurrentEvaluation(dict):
         subtemplate = '%%-%ds = %%s'%max((length-5), 10)
 
         sorted_result_keys = sorted(self.keys(), key=lambda el: self.get_result_order(el))
-
-        def format_result(key, res):
-
-            # Special handling for the subresult for each spin/lorentz connection pairing
-            if key=='values':
-                if len(res)==0:
-                    return 'N/A'
-                formatted_res = ['']
-                for spin_lorentz_pair in res:
-                    formatted_res.append(misc.bcolors.BLUE+'     %s:'%str(spin_lorentz_pair)+misc.bcolors.ENDC)
-                    sorted_subresult_keys = sorted(res[spin_lorentz_pair].keys(), 
-                                                    key=lambda el: self.get_result_order(el))
-                    for subkey in sorted_subresult_keys:
-                        formatted_res.append(('       -> %s'%subtemplate)%(subkey, 
-                                                format_result(subkey, res[spin_lorentz_pair][subkey])))
-                return '\n'.join(formatted_res)
-
-            if res is None or key=='accuracy' and res < 0.:
-                return 'N/A'
-            if key.startswith('eps'):
-                key = 'eps'
-            formatted_res = self.result_format[key]%res if result_key in self.result_format else str(res)
-            if isinstance(res,float) and res > 0.:
-                formatted_res = ' %s'%formatted_res
-            return formatted_res
-
+        
         res.append(misc.bcolors.BLUE+'Result:'+misc.bcolors.ENDC)
         for result_key in sorted_result_keys:
-            res.append(('  -> %s'%template)%(result_key, format_result(result_key, self[result_key])))
+            res.append(('  -> %s'%template)%(result_key, self.format_result(result_key, self[result_key])))
         
         return '\n'.join(res)
     
@@ -105,13 +145,69 @@ class SubtractionCurrentEvaluation(dict):
 
         return self.nice_string()
 
-    @staticmethod
-    def zero():
+    @classmethod
+    def zero(cls):
 
         return SubtractionCurrentEvaluation({
             'spin_correlations'   : [ None ],
             'color_correlations'  : [ None ],
-            'values'              : {(0,0): {'finite' : 0.0 }}
+            'values'              : {(0,0): { 'finite' : 0.0 }}
+        })
+
+class BeamFactorizationCurrentEvaluation(SubtractionCurrentEvaluation):
+    """Container class for the output of the evaluation of beam factorization current.
+    The main difference w.r.t the mother class is that values of the dictionary in the
+    attribute 'values' of this class are themselves dictionaries representing the flavor
+    matrix."""
+
+    def subresult_lines(self, subresult, subtemplate):
+        """ Returns the string line describing the subresult in argument corresponding to 
+        a paricular combination of color and Lorentz structure. The subtemplate specified
+        will be used for rendering each line. Here we must process a matrix output."""
+        
+        lines = []
+        reduced_to_resolved_flavors = []
+        for reduced_IS_flavor_PDG, values1 in subresult.items():
+            for resolved_IS_flavor_PDGs, values2 in values1.items():
+                reduced_to_resolved_flavors.append((reduced_IS_flavor_PDG, resolved_IS_flavor_PDGs))
+        
+        reduced_to_resolved_flavors.sort()
+        for (reduced_IS_flavor_PDG, resolved_IS_flavor_PDGs) in reduced_to_resolved_flavors:
+            if reduced_IS_flavor_PDG is None and resolved_IS_flavor_PDGs is None:
+                lines.append('Diagonal flavor configuration')
+            else:
+                lines.append('Flavor configuration: %d -> (%s)'%( reduced_IS_flavor_PDG,
+                    ','.join('%d'%pdg for pdg in resolved_IS_flavor_PDGs) +
+                    (',' if len(resolved_IS_flavor_PDGs)==1 else '') ))
+
+            values = subresult[reduced_IS_flavor_PDG][resolved_IS_flavor_PDGs]
+            sorted_subresult_keys = sorted(values.keys(), 
+                                                     key=lambda el: self.get_result_order(el))
+            for subkey in sorted_subresult_keys:
+                if isinstance(subkey, int):
+                    key_name='eps^%d'%subkey
+                else:
+                    key_name=subkey
+                lines.append('   %s'%(subtemplate%(key_name, 
+                                             self.format_result(subkey, values[subkey]))))
+        return lines
+
+    def __init__(self, *args, **opts):
+        super(SubtractionCurrentEvaluation, self).__init__(*args, **opts)      
+
+    @classmethod
+    def zero(cls):
+        
+        # None for reduced_IS_flavor_PDG and resolved_IS_flavor_PDGs means purely diagonal
+        return SubtractionCurrentEvaluation({
+            'spin_correlations'      : [ None ],
+            'color_correlations'     : [ None ],
+            'values'                 : { (0,0): {
+                    None : {
+                        None : { 'finite' : 0.0 }
+                    }
+                }
+            }
         })
 
 class SubtractionCurrentResult(dict):
@@ -220,7 +316,7 @@ class VirtualCurrentImplementation(object):
     def name(cls):
         """Extended name string to print the identity of current implementations."""
 
-        return "Subtraction current implementation " + cls.__class__.__name__
+        return "Subtraction current implementation " + cls.__name__
 
     @classmethod
     def does_implement_this_current(cls, current, model):

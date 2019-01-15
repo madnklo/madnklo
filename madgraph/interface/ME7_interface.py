@@ -29,10 +29,13 @@ import stat
 import subprocess
 import sys
 import time
+from datetime import datetime
 import tarfile
 import StringIO
 import shutil
 import copy
+import json
+from collections import OrderedDict
 from distutils.util import strtobool
 
 try:
@@ -301,7 +304,7 @@ class ParseCmdArguments(object):
         # None means unspecified, therefore considering all types.
         testlimits_options = {
             'correction_order'        : None,
-            'limits'                  : None,
+            'limits'                  : [None,],
             'counterterms'            : None,
             'walker'                  : None,
             'process'                 : {'in_pdgs'  : None,
@@ -309,30 +312,40 @@ class ParseCmdArguments(object):
                                          'n_loops'  : None},
             'seed'                    : None,
             'n_steps'                 : 30,
+            'max_scaling_variable'    : 1.,
             'min_scaling_variable'    : 1.0e-6,
             'acceptance_threshold'    : 1.0e-4,
-            'include_all_flavors'     : False,
             'apply_higher_multiplicity_cuts' : True,
             'apply_lower_multiplicity_cuts'  : True,
             'show_plots'              : True,
             'save_plots'              : False,
             'save_results_to_path'    : None,
             'plots_suffix'            : None,
+            'ignore_flavors'          : False,
+            'set_PDFs_to_unity'       : True,
+            'boost_back_to_com'       : True,
+            'epsilon_expansion_term'  : 'sum_all',
+            # Here we store a list of lambda function to apply as filters
+            # to the ingegrand we must consider
+            'integrands'              : [lambda integrand: True]
         }
 
         if mode=='poles':
             # Remove some options for the pole
             del testlimits_options['limits']
-            del testlimits_options['counterterms']
             del testlimits_options['walker']
             del testlimits_options['n_steps']
             del testlimits_options['min_scaling_variable']
-            del testlimits_options['apply_lower_multiplicity_cuts']
+            del testlimits_options['max_scaling_variable']
             del testlimits_options['show_plots']
             del testlimits_options['save_plots']
             del testlimits_options['plots_suffix']
+            del testlimits_options['boost_back_to_com']
+            # We must be much tighter in the check of the relative difference of the pole
+            # residues.
+            testlimits_options['acceptance_threshold'] = 1.0e-13
         elif mode=='limits':
-            del testlimits_options['include_all_flavors']            
+            pass   
  
         # Group arguments in between the '--' specifiers.
         # For example, it will group '--process=p' 'p' '>' 'd' 'd~' 'z'
@@ -383,16 +396,6 @@ class ParseCmdArguments(object):
                         raise ValueError  
                 except ValueError:
                     raise InvalidCmd("'%s' is not a valid integer for option '%s'"%(value, key))
-            elif key == '--n_loops':
-                if value.lower()=='all':
-                    testlimits_options['process'][key[2:]] = None
-                else:
-                    try:
-                        testlimits_options['process'][key[2:]] = int(value)
-                        if int(value)<0:
-                            raise ValueError
-                    except ValueError:
-                        raise InvalidCmd("'%s' is not a valid integer for option '%s'"%(value, key))
             elif key == '--save_results_to_path':
                 if value == 'None':
                     testlimits_options['save_results_to_path'] = None
@@ -410,14 +413,23 @@ class ParseCmdArguments(object):
                 if not isinstance(value, str):
                     raise InvalidCmd("'%s' is not a valid option for '%s'"%(value, key))
                 testlimits_options[key[2:]] = value
+            elif key in ['--epsilon_expansion_term','--eet']:
+                if value.lower() not in ['sum_all','finite'] and re.match('^eps\^(-?\d*)$', value.lower().strip()) is None:
+                    raise InvalidCmd("'%s' is not a valid option for '%s'. It must be 'finite', 'sum_all' or of the form 'eps^<i>'."%(value, key))
+                testlimits_options['epsilon_expansion_term'] = value
             elif key in ['--acceptance_threshold']:
                 try:
                     testlimits_options[key[2:]] = float(value)                  
                 except ValueError:
                     raise InvalidCmd("'%s' is not a valid float for option '%s'"%(value, key))
-            elif key in ['--min_scaling_variable'] and mode=='limits':
+            elif key in ['--min_scaling_variable','--ms'] and mode=='limits':
                 try:
-                    testlimits_options[key[2:]] = float(value)                  
+                    testlimits_options['min_scaling_variable'] = float(value)                  
+                except ValueError:
+                    raise InvalidCmd("'%s' is not a valid float for option '%s'"%(value, key))
+            elif key in ['--max_scaling_variable'] and mode == 'limits':
+                try:
+                    testlimits_options['max_scaling_variable'] = float(value)
                 except ValueError:
                     raise InvalidCmd("'%s' is not a valid float for option '%s'"%(value, key))
             elif key in ['--subtraction_mappings_scheme', '--walker'] and mode=='limits':
@@ -428,15 +440,6 @@ class ParseCmdArguments(object):
                         testlimits_options['walker'] = value
                 except KeyError:
                     raise InvalidCmd("'%s' is not a valid %s" % (value, key[2:]))
-            elif key in ['--include_all_flavors', '--af'] and mode=='poles':
-                if value is None:
-                    testlimits_options['include_all_flavors'] = True
-                else:
-                    try:
-                        testlimits_options['include_all_flavors'] = \
-                                                 {'true':True,'false':False}[value.lower()]
-                    except:
-                        raise InvalidCmd("'%s' is not a valid float for option '%s'"%(value, key))
             elif key in ['--limits','--l'] and mode=='limits':
                 if not isinstance(value, str):
                     raise InvalidCmd("'%s' is not a valid option for '%s'"%(value, key))
@@ -449,14 +452,14 @@ class ParseCmdArguments(object):
                 except:
                     testlimits_options['limits'] = [value,]
 
-            elif key == '--show_plots':
+            elif key in [
+                '--show_plots','--set_PDFs_to_unity', '--save_plots',
+                '--boost_back_to_com', '--ignore_flavors' ]:
                 try:
-                    testlimits_options['show_plots'] = strtobool(value)
-                except ValueError:
-                    raise InvalidCmd("Cannot set '%s' option to '%s'."%(key, value))
-            elif key == '--save_plots':
-                try:
-                    testlimits_options['save_plots'] = strtobool(value)
+                    if value is None:
+                        testlimits_options[key[2:]] = True
+                    else:
+                        testlimits_options[key[2:]] = strtobool(value)
                 except ValueError:
                     raise InvalidCmd("Cannot set '%s' option to '%s'."%(key, value))
             elif key == '--seed':
@@ -466,6 +469,10 @@ class ParseCmdArguments(object):
                     raise InvalidCmd("Cannot set '%s' option to '%s'."%(key, value))
             elif key == '--plots_suffix':
                 testlimits_options['plots_suffix'] = value
+            elif key in ['--integrands', '--itg']:
+                testlimits_options['integrands'].extend(self.get_integrand_filters(value, 'select'))
+            elif key in ['--veto_integrands', '--veto_itg']:
+                testlimits_options['integrands'].extend(self.get_integrand_filters(value, 'reject'))
             elif key=='--process':
                 if value.lower()=='all':
                     testlimits_options['process']['in_pdgs'] = None
@@ -500,34 +507,135 @@ class ParseCmdArguments(object):
                         
                     testlimits_options['process']['in_pdgs'] = tuple(initial_pdgs)
                     testlimits_options['process']['out_pdgs'] = tuple(final_pdgs)
+            elif key == '--n_loops':
+                if value.lower()=='all':
+                    testlimits_options['process'][key[2:]] = None
+                else:
+                    try:
+                        testlimits_options['process'][key[2:]] = int(value)
+                        if int(value)<0:
+                            raise ValueError
+                    except ValueError:
+                        raise InvalidCmd("'%s' is not a valid integer for option '%s'"%(value, key))
 
             else:
                 raise InvalidCmd("Option '%s' for the test_IR_%s command not recognized."%(key,mode))        
         
         return new_args, testlimits_options
-    
+
+    def parse_set_integrator_options(self, args):
+        """ Parses the argument of the set_integrator command."""
+
+        # First combine all value of the options (starting with '--') separated by a space
+        opt_args = []
+        new_args = []
+        for arg in args:
+            if arg.startswith('--'):
+                opt_args.append(arg)
+            elif len(opt_args) > 0:
+                opt_args[-1] += ' %s' % arg
+            else:
+                new_args.append(arg)
+
+        set_integrator_options = {
+                                  # Vegas3 options
+                                  'n_points'            : 1000,
+                                  'n_points_survey'     : 1000,
+                                  'n_points_refine'     : 5000,
+                                  'n_iterations'        : 10,
+                                  'n_iterations_survey' : 10,
+                                  'n_iterations_refine' : 10,                          
+                                  'verbosity'           : 1,
+                                  'batch_size'          : 1000,
+                                  'seed'                : None,
+                                  'save_grids'          : None,
+                                  'load_grids'          : None,
+                                  # Cuba@Vegas options
+                                  'max_eval'            : int(1e10),
+                                  'max_eval_survey'     : 10000,
+                                  'n_start'             : 1000,
+                                  'n_start_survey'      : 1000,
+                                  'n_increase'          : 1000,
+                                  'n_increase_survey'   : 1000,
+                                  'target_accuracy'     : 1.0e-3,
+                                  'target_accuracy_survey' : 5.0e-2
+                                  }
+
+        for arg in opt_args:
+            try:
+                key, value = arg.split('=',1)
+            except ValueError:
+                key = arg
+                value = None
+            
+            if key == '--integrator':
+                if value.upper() not in self._integrators:
+                    raise InvalidCmd("Selected integrator '%s' not recognized."%value)
+                set_integrator_options['integrator'] = value.upper()
+            elif key in ['--n_points']:
+                set_integrator_options[key[2:]] = int(value)
+                set_integrator_options[key[2:]+'_survey'] = int(value)
+                set_integrator_options[key[2:]+'_refine'] = 5*int(value)
+            elif key in ['--n_iterations']:
+                set_integrator_options[key[2:]] = int(value)
+                set_integrator_options[key[2:]+'_survey'] = int(value)
+                set_integrator_options[key[2:]+'_refine'] = int(value)
+            elif key in ['--n_points_survey', '--n_iterations_survey',
+                         '--n_points_refine', '--n_iterations_refine']:
+                set_integrator_options[key[2:]] = int(value)
+            elif key=='--verbosity':
+                modes = {'none':0, 'integrator':1, 'all':2}
+                set_integrator_options[key[2:]] = modes[value.lower()]
+            elif key in ['--seed','--max_eval','--max_eval_survey','--n_start',
+                         '--n_start_survey','--n_increase','--n_increase_survey']:
+                try:
+                    set_integrator_options[key[2:]] = int(value)
+                except ValueError:
+                    raise InvalidCmd("Cannot set '%s' option to '%s'."%(key, value))
+            elif key in ['--target_accuracy','--target_accuracy_survey']:
+                try:
+                    set_integrator_options[key[2:]] = float(value)
+                except ValueError:
+                    raise InvalidCmd("Cannot set '%s' option to '%s'."%(key, value))
+            elif key in ['--save_grids', '--load_grids']:
+                set_integrator_options[key[2:]] = value
+            elif key in ['--batch_size','--bs']:
+                try:
+                    set_integrator_options['batch_size'] = int(value)
+                except ValueError:
+                    raise InvalidCmd("Value '%s' not valid integer for option '%s'."%(value,key))                
+            else:
+                # We have not coded here all the options the integrator supports, so just
+                # blindly assign them for now
+                set_integrator_options[key[2:]] = eval(value)
+
+        return new_args, set_integrator_options
+
     def parse_launch(self, args):
         """ Parses the argument of the launch command."""
 
+        # First combine all value of the options (starting with '--') separated by a space
+        opt_args = []
+        new_args = []
+        for arg in args:
+            if arg.startswith('--'):
+                opt_args.append(arg)
+            elif len(opt_args) > 0:
+                opt_args[-1] += ' %s' % arg
+            else:
+                new_args.append(arg)
+
         launch_options = {'integrator'          : 'VEGAS3',
-                          'n_points'            : None,
-                          'n_points_survey'     : None,
-                          'n_points_refine'     : None,
-                          'n_iterations'        : None,
-                          'n_iterations_survey' : None,
-                          'n_iterations_refine' : None,                          
                           'verbosity'           : 1,
                           'refresh_filters'     : 'auto',
                           'compile'             : 'auto',
-                          'batch_size'          : 1000,
                           'seed'                : None,
-                          'save_grids'           : None,
-                          'load_grids'           : None,
                           # Here we store a list of lambda function to apply as filters
-                          # to the ingegrand we must consider
-                          'integrands'          : [lambda integrand: True]}        
+                          # to the integrand we must consider
+                          'integrands'          : [lambda integrand: True],
+                          'run_name'            : ''}
         
-        for arg in args:
+        for arg in opt_args:
             try:
                 key, value = arg.split('=',1)
             except ValueError:
@@ -538,13 +646,6 @@ class ParseCmdArguments(object):
                 if value.upper() not in self._integrators:
                     raise InvalidCmd("Selected integrator '%s' not recognized."%value)
                 launch_options['integrator'] = value.upper()
-            elif key in ['--n_points', '--n_iterations']:
-                launch_options[key[2:]] = int(value)
-                launch_options[key[2:]+'_survey'] = int(value)
-                launch_options[key[2:]+'_refine'] = 5*int(value)
-            elif key in ['--n_points_survey', '--n_iterations_survey',
-                         '--n_points_refine', '--n_iterations_refine']:
-                launch_options[key[2:]] = int(value)
             elif key=='--verbosity':
                 modes = {'none':0, 'integrator':1, 'all':2}
                 launch_options[key[2:]] = modes[value.lower()]
@@ -553,13 +654,6 @@ class ParseCmdArguments(object):
                     launch_options['seed'] = int(value)
                 except ValueError:
                     raise InvalidCmd("Cannot set '%s' option to '%s'."%(key, value))
-            elif key in ['--save_grids', '--load_grids']:
-                launch_options[key[2:]] = value
-            elif key in ['--batch_size','--bs']:
-                try:
-                    launch_options['batch_size'] = int(value)
-                except ValueError:
-                    raise InvalidCmd("Value '%s' not valid integer for option '%s'."%(value,key))                
             elif key in ['--refresh_filters','--compile']:
                 available_modes = ['auto','never','always']
                 if value is None:
@@ -569,17 +663,18 @@ class ParseCmdArguments(object):
                 if mode not in available_modes:
                     raise InvalidCmd("Value '%s' not valid for option '%s'."%(value,key))
                 launch_options[key[2:]] = mode
-                
+
             elif key in ['--integrands', '--itg']:
                 launch_options['integrands'].extend(self.get_integrand_filters(value, 'select'))
             
             elif key in ['--veto_integrands', '--veto_itg']:
                 launch_options['integrands'].extend(self.get_integrand_filters(value, 'reject'))
-            
+            elif key=='--run_name':
+                launch_options['run_name'] = value
             else:
-                raise InvalidCmd("Option '%s' for the launch command not reckognized."%key)
+                raise InvalidCmd("Option '%s' for the launch command not recognized."%key)
 
-        return launch_options
+        return new_args, launch_options
 
     def parse_display_integrands(self, args):
         """ Parses the argument of the "display contributions" command."""
@@ -610,14 +705,14 @@ class ParseCmdArguments(object):
                 display_options['integrands'].extend(self.get_integrand_filters(value, 'reject'))
             
             else:
-                raise InvalidCmd("Option '%s' for the display integrands command not reckognized."%key)
+                raise InvalidCmd("Option '%s' for the display integrands command not recognized."%key)
 
         return display_options
 
     def get_integrand_filters(self, filters, mode):
         """ Given user defined filters (a string), returns a lambda function on
-        a ME7 integrand that applies it. mode can either be 'accept' or 'reject',
-        depending on wheter one wants to keep or reject those integrands."""
+        a ME7 integrand that applies it. mode can either be 'select' or 'reject',
+        depending on whether one wants to keep or reject those integrands."""
         
         assert(mode in ['select','reject'])
         
@@ -626,9 +721,11 @@ class ParseCmdArguments(object):
         
         expansion_orders = []
         integrand_types  = []
+        short_names      = []
         
-        integrand_type_short_cuts = dict( (k, ( eval('ME7_integrands.ME7Integrand_%s'%k), )
-                                            ) for k in ['R','RR','RRR','V','LIB','B'] )
+        integrand_type_short_cuts = dict(
+            (k, eval('ME7_integrands.ME7Integrand_%s'%k, ))
+            for k in ['R','RV','RR','RRR','V','B'] )
         
         for filter in filters.split(','):
             f = filter.strip()
@@ -644,8 +741,7 @@ class ParseCmdArguments(object):
                     else:
                         raise BaseException
                 except:
-                    raise InvalidCmd("Option '%s' cannot be "%filter+
-                                              "understood as an integrand type specifier.")
+                    short_names.append(f)
         
         filter_functions = []
         if mode == 'select':
@@ -655,17 +751,21 @@ class ParseCmdArguments(object):
                     integrand.contribution_definition.correction_order in expansion_orders)
             # The the expansion orders
             if integrand_types:
-                filter_functions.append(lambda integrand: 
-                                            isinstance(integrand, tuple(integrand_types) ))
+                filter_functions.append(lambda integrand: (type(integrand) in integrand_types) )
+            if short_names:
+                filter_functions.append(lambda integrand: (
+                          integrand.contribution_definition.short_name() in short_names) )                
         else:
             # First the ordering filter if specified
             if expansion_orders:
                 filter_functions.append(lambda integrand: 
                     not (integrand.contribution_definition.correction_order in expansion_orders) )
-            # The the expansion orders
+            # Then the expansion orders
             if integrand_types:
-                filter_functions.append(lambda integrand: 
-                                        not isinstance(integrand, tuple(integrand_types) ))
+                filter_functions.append(lambda integrand: (type(integrand) not in integrand_types) )
+            if short_names:
+                filter_functions.append(lambda integrand: (
+                        integrand.contribution_definition.short_name() not in short_names) )
         
         return filter_functions
 
@@ -689,7 +789,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
     
     # For now a very trivial setup, but we will want of course to have all these meta
     # parameter controllable by user commands, eventually.
-    integrator_verbosity = 0 if logger.level > logging.DEBUG else 1
+    integrator_verbosity = 1 if logger.level > logging.DEBUG else 2
     _integrators = {
        'NAIVE' : (integrators.SimpleMonteCarloIntegrator, 
                   { 'n_iterations'            : 10,
@@ -698,42 +798,46 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
                     'verbosity'               : integrator_verbosity  } ),
     
        'VEGAS3' : (vegas3_integrator.Vegas3Integrator,
-                   { 'survey_n_iterations'     : 10,
-                     'survey_n_points'         : 1000,
-                     'refine_n_iterations'     : 10,
-                     'refine_n_points'         : 2000,
+                   { 'n_iterations_survey'     : 10,
+                     'n_points_survey'         : 1000,
+                     'n_iterations_refine'     : 10,
+                     'n_points_refine'         : 2000,
                      'verbosity'               : integrator_verbosity  } ),
     
        'VEGAS' : (pyCubaIntegrator.pyCubaIntegrator, 
                   { 'algorithm' : 'Vegas', 
                     'verbosity' : integrator_verbosity,
-                    'seed'      : 3,
+                    'seed'      : 0,
                     'target_accuracy' : 1.0e-3,
-                    'n_start'   : 1000,
-                    'n_increase': 500,
-                    'n_batch'   : 1000,
-                    'max_eval'  : 100000,
-                    'min_eval'  : 0}),
+                    'target_accuracy_survey' : 1.0e-3,
+                    'n_start'           : 1000,
+                    'n_start_survey'    : 1000,
+                    'n_increase'        : 500,
+                    'n_increase_survey' : 500,
+                    'n_batch'           : 1000,
+                    'max_eval'          : int(1e10),
+                    'max_eval_survey'   : 10000,
+                    'min_eval'          : 0}),
        
        'SUAVE'   : (pyCubaIntegrator.pyCubaIntegrator, 
                     { 'algorithm' :'Suave', 
                       'verbosity' : integrator_verbosity,
                       'target_accuracy' : 1.0e-3,
-                      'max_eval'  : 100000,
+                      'max_eval'  : int(1e10),
                       'min_eval'  : 0 } ),
       
        'DIVONNE' : (pyCubaIntegrator.pyCubaIntegrator, 
                     { 'algorithm' : 'Divonne', 
                       'verbosity': integrator_verbosity,
                       'target_accuracy' : 1.0e-5,
-                      'max_eval'  : 100000000,
+                      'max_eval'  : int(1e10),
                       'min_eval'  : 0 } ),
     
        'CUHRE'   : (pyCubaIntegrator.pyCubaIntegrator, 
                     { 'algorithm' : 'Cuhre',
                       'verbosity' : integrator_verbosity,
                       'target_accuracy' : 1.0e-3,
-                      'max_eval'  : 100000,
+                      'max_eval'  : int(1e10),
                       'min_eval'  : 0 } ),
     }
     
@@ -760,7 +864,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         """ Check that the output path is a valid Madevent 7directory """        
         return os.path.isfile(os.path.join(path,'MadEvent7.db'))
 
-    def check_already_running(sefl):
+    def check_already_running(self):
         pass
 
     def set_configuration(self, amcatnlo=False, final=True, **opt):
@@ -871,6 +975,21 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
 
         logger.info('\n'+integrands_to_consider.nice_string(format=display_options['format']))
 
+    def do_set_integrator_options(self, line):
+        """ Command allowing to specify options for a specific integrator."""
+        
+        args = self.split_arg(line)
+        new_args, integrator_options = self.parse_set_integrator_options(args)
+
+        if len(new_args)==0:
+            raise InvalidCmd('An integrator in %s must be specified as the first '%str(self._integrators)+
+                                         'argument in the command set_integrator_option.')
+        elif new_args[0] not in self._integrators:
+            raise InvalidCmd("The specified integrator '%s' is not in the list of supported ones (%s)."%(
+                                                      new_args[0], str(self._integrators.keys())))            
+
+        self._integrators[new_args[0]][1].update(integrator_options)
+
     def do_launch(self, line, *args, **opt):
         """Main command, starts the cross-section computation. Very basic setup for now.
         We will eventually want to have all of these meta-data controllable via user commands
@@ -878,23 +997,11 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         This is super naive and only for illustrative purposes for now."""
         
         args = self.split_arg(line)
-        
-        launch_options = self.parse_launch(args)
+        new_args, launch_options = self.parse_launch(args)
 
-        # In principle we want to start by recompiling the process output so as to make sure
-        # that everything is up to date.
+        # In principle we want to start by recompiling the process output
+        # to make sure that everything is up to date.
         self.synchronize(**launch_options)
-        
-        if MPI_RANK==0:
-            # Create a run output directory
-            run_output_path = pjoin(self.me_dir,'Results','run_%s'%self.run_card['run_tag'])
-            suffix=''
-            suffix_number = 1
-            while os.path.exists(run_output_path+suffix):
-                suffix_number += 1
-                suffix = '_%d'%suffix_number
-            run_output_path = run_output_path+suffix
-            os.makedirs(run_output_path)
 
         # Setup parallelization
         self.configure_run_mode(self.options['run_mode'])
@@ -902,45 +1009,70 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         # Re-initialize the integrator
         integrator_name = launch_options['integrator']
         integrator_options = self._integrators[integrator_name][1]
-        
+
         integrator_options['verbosity'] = launch_options['verbosity']
-        integrator_options['seed'] = launch_options['seed']
-        
+        integrator_options['cluster'] = self.cluster
+
         if integrator_name=='VEGAS3':
-            if launch_options['n_points_survey'] is not None:
-                integrator_options['survey_n_points'] = launch_options['n_points_survey']
-            if launch_options['n_points_refine'] is not None:
-                integrator_options['refine_n_points'] = launch_options['n_points_refine']
             integrator_options['parallelization'] = self.cluster
-        elif integrator_name=='NAIVE':
-            if launch_options['n_points']:
-                integrator_options['n_points_per_iterations'] = launch_options['n_points']
 
-        if integrator_name=='VEGAS3':
-            if launch_options['n_iterations_survey'] is not None:
-                integrator_options['survey_n_iterations'] = launch_options['n_iterations_survey']
-            if launch_options['n_iterations_refine'] is not None:
-                integrator_options['refine_n_iterations'] = launch_options['n_iterations_refine']
-        elif integrator_name=='NAIVE':
-            if launch_options['n_iterations']:
-                integrator_options['n_iterations'] = launch_options['n_iterations']
-
-        if integrator_name=='VEGAS3':        
-            integrator_options['cluster'] = self.cluster
-            integrator_options['batch_size'] = launch_options['batch_size']
-            integrator_options['save_grids'] = launch_options['save_grids']
-            integrator_options['load_grids'] = launch_options['load_grids']
-            
-        integrands_to_consider = ME7_integrands.ME7IntegrandList([ itg for itg in self.all_integrands if
-                           all(filter(itg) for filter in launch_options['integrands']) ])
-
-        self.integrator = self._integrators[integrator_name][0](integrands_to_consider, **integrator_options)
+        integrands_to_consider = ME7_integrands.ME7IntegrandList([
+            itg for itg in self.all_integrands
+            if all(filter(itg) for filter in launch_options['integrands']) ])
+        self.integrator = self._integrators[integrator_name][0](
+            integrands_to_consider, **integrator_options)
         
         if len(set([len(itgd.get_dimensions()) for itgd in integrands_to_consider]))>1 and integrator_name not in ['NAIVE']:
             # Skip integrators that do not support integrands with different dimensions.
             # Of course, in the end we wil not naively automatically put all integrands alltogether in the same integrator
             raise InvalidCmd("For now, whenever you have several integrands of different dimensions, only "+
                              "the NAIVE integrator is available.")
+
+        #Setup the output folder
+        if MPI_RANK==0:
+            if launch_options['run_name']:
+                run_output_path = pjoin(self.me_dir, 'Results', 'run_%s' % launch_options['run_name'])
+            else:
+                run_output_path = pjoin(self.me_dir, 'Results', 'run_%s' % self.run_card['run_tag'])
+            suffix_number = 1
+            suffix = '_%d' % suffix_number
+            existing_results = {}
+
+            # If a folder for this run_name exists, go through appending/creating new folder logic
+            if (os.path.exists(run_output_path + suffix)):
+                # Go through existing folders to find the last one
+                while os.path.exists(run_output_path + suffix):
+                    suffix_number += 1
+                    suffix = '_%d' % suffix_number
+                suffix_number -= 1
+                suffix = '_%d' % suffix_number
+                # Get the names of all the integrands to be integrated
+                contribution_names = [integrand.contribution_definition.short_name() for integrand in self.integrator.integrands]
+                # Import all results already in the data file
+                try:
+                    with open(pjoin(run_output_path + suffix, "cross_sections.json"), "r") as result_file:
+                        existing_results = json.load(result_file)
+                except (IOError,ValueError) as e:
+                    logger.warn("Could not open the result file in the existing result folder %s."%(run_output_path + suffix))
+                # If the importation failed (inexistant file or json problem) or if there is overlap with existing data, create a new folder
+                if (not existing_results) or any([name in existing_results for name in contribution_names]):
+                    logger.info("Current contribution already in the existing result folder %s."%(run_output_path + suffix))
+                    suffix_number += 1
+                    suffix = '_%d' % suffix_number
+                    existing_results = {}
+                # If the JSON datafile was correctly imported AND the integrands are not already in this data file, append there
+                else:
+                    logger.info("Current contribution added in the existing result folder %s."%(run_output_path + suffix))
+            else:
+                logger.info("This is the first run with this name")
+            # Suffix is either the last existing if appending is possible or last+1 if new folder needed
+            run_output_path = run_output_path + suffix
+            try:
+                # This fails if the folder exists already. Creation only goes through if we need it.
+                os.makedirs(run_output_path)
+                logger.info("Creating a new result folder at %s"%run_output_path) # Message only displayed if the new folder is created
+            except OSError:
+                pass
 
         # The integration can be quite verbose, so temporarily setting their level to 50 by default is best here
         if launch_options['verbosity'] > 1:
@@ -957,7 +1089,9 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
             xsec, error = self.integrator.integrate()
 
         logger.info("="*100)
-        logger.info('{:^100}'.format("Cross-section with integrator '%s':"%self.integrator.get_name()),'$MG:color:GREEN')
+        logger.info('{:^100}'.format("Cross-section of %s@%s with integrator '%s':"%(
+            os.path.basename(pjoin(self.me_dir)), '+'.join(itg.get_short_name() for itg in integrands_to_consider),
+                                            self.integrator.get_name())),'$MG:color:GREEN')
         logger.info('{:^100}'.format("%.5e +/- %.2e [pb]"%(xsec, error)),'$MG:color:BLUE')
         logger.info("="*100)
 
@@ -996,14 +1130,11 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         logger.info('')
 
         if MPI_RANK==0:
-            # Write the result in 'cross_sections.dat' of the result directory
-            xsec_summary = open(pjoin(run_output_path,'cross_sections.dat'),'w')
-            xsec_summary_lines = []        
-            xsec_summary_lines.append('%-30s%-30s%-30s'%('','Cross-section [pb]','MC uncertainty [pb]'))
-            xsec_summary_lines.append('%-30s%-30s%-30s'%('Total','%.8e'%xsec,'%.3e'%error))
-            xsec_summary.write('\n'.join(xsec_summary_lines))
-            xsec_summary.close()
-    
+            # Write the result in 'cross_sections.json' of the result directory
+            self.output_run_results(
+                run_output_path, xsec, error, self.integrator.integrands, existing_results)
+
+
     def do_test_IR_limits(self, line, *args, **opt):
         """This function test that local subtraction counterterms match
         with the actual matrix element in the IR limit."""
@@ -1020,13 +1151,19 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
             # to the highest correction considered.
             testlimits_options['correction_order'] = self.mode
 
+        n_integrands_run = 0
         for integrand in self.all_integrands:
-            if not hasattr(integrand, 'test_IR_limits'):
+            if not hasattr(integrand, 'test_IR_limits') or \
+               not all(filter(integrand) for filter in testlimits_options['integrands']):
                 continue
+            n_integrands_run += 1
             logger.debug(
                 'Now testing IR limits of the following integrand:\n' +
                 integrand.nice_string() )
             integrand.test_IR_limits(test_options=testlimits_options)
+
+        if n_integrands_run==0:
+            logger.warning("No available integrand for function 'test_IR_limits'")
 
     def do_test_IR_poles(self, line, *args, **opt):
         """This function tests that the integrated counterterms match with the IR poles
@@ -1043,11 +1180,17 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
             # If not defined, automatically assign correction_order to the highest correction considered.
             testpoles_options['correction_order'] = self.mode
 
+        n_integrands_run = 0
         for integrand in self.all_integrands:
-            if not hasattr(integrand, 'test_IR_poles'):
+            if not hasattr(integrand, 'test_IR_poles') or \
+               not all(filter(integrand) for filter in testpoles_options['integrands']):
                 continue
+            n_integrands_run += 1
             logger.debug('Now testing IR poles of the following integrand:\n%s'%(integrand.nice_string()))
             integrand.test_IR_poles(test_options=testpoles_options)
+
+        if n_integrands_run==0:
+            logger.warning("No available integrand for function 'test_IR_poles'")
 
     def do_show_grid(self, line):
         """ Minimal implementation for now with no possibility of passing options."""
@@ -1075,6 +1218,35 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         misc.sprint("Configure directory -- Nothing to be done here yet.")        
         pass
 
+    @staticmethod
+    def output_run_results(run_output_path, xsec, error, integrands, existing_results):
+        """Output the run results as a json file
+
+        Take the preexisting data in a JSON output file, add the information for the new run and update the output file with all the data. When multiple integrands are considered in one integration, we output their sum, tagged as "Contrib1+Contrib2+..." (e.g. V+R+BS).
+
+        Arguments:
+            run_output_path {[str]} -- where to save the file
+            xsec {[float]} -- cross section for the set of integrands considered
+            error {[float]} -- Monte Carlo uncertainty on xsec
+            integrands {[ME7IntegrandList]} -- List of ME7Integrand objects that were integrated
+            existing_results dict -- The JSON data for results already present in run_output_path/cross_sections.json
+            """
+        with open(pjoin(run_output_path, 'cross_sections.json'), 'w') as xsec_summary:
+            logger.info("Saving the integration result to:")
+            logger.info("%s"%(pjoin(run_output_path, 'cross_sections.json')))
+            contribution_name = "+".join([integrand.contribution_definition.short_name() for integrand in integrands])
+            result = {contribution_name: OrderedDict()}
+            result[contribution_name]["name"] = contribution_name
+            result[contribution_name]["Cross section"] = xsec
+            result[contribution_name]["MC uncertainty"] = error
+            result[contribution_name]["unit"] = "pb"
+            orders = [integrand.contribution_definition.correction_order for integrand in integrands]
+            # The overall order of the contribution is taken as the maximum of the orders considered:
+            # B+V+R is NLO, RR+B is NNLO etc
+            result[contribution_name]["order"] = max(orders)
+            result[contribution_name]["timestamp"] = datetime.now().strftime('%Y:%m:%d:%H:%M:%S')
+            result.update(existing_results)
+            json.dump(result, xsec_summary, sort_keys=True, indent=4, separators=(',', ': '))
 
 #===============================================================================
 # MadEvent7CmdShell

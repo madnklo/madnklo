@@ -1029,14 +1029,27 @@ class CheckValidForCmd(cmd.CheckCmd):
             # Update the default value of the model here.
             if not isinstance(self._curr_model, model_reader.ModelReader):
                 self._curr_model = model_reader.ModelReader(self._curr_model)
-            self._curr_model.set_parameters_and_couplings(path)
-            self.check_process_format(' '.join(' '.join(a for a in args[1:-1] if not a.startswith('--'))))
+            process_line = ''
+            for a in args[1:]:
+                if a.startswith('--'):
+                    break
+                process_line += ' %s'%a
+            self.check_process_format(process_line)
         else:
-            self.check_process_format(' '.join(' '.join(a for a in args[1:] if not a.startswith('--'))))
+            process_line = ''
+            for a in args[1:]:
+                if a.startswith('--'):
+                    break
+                process_line += ' %s'%a
+            self.check_process_format(process_line)
+            #self.check_process_format(' '.join(' '.join(a for a in args[1:] if not a.startswith('--'))))
     
 
-    def check_process_format(self, process):
+    def check_process_format(self, process_string):
         """ check the validity of the string given to describe a format """
+
+        # Make sure not to consider options in the check below
+        process = process_string.split('--')[0]
 
         #check balance of paranthesis
         if process.count('(') != process.count(')'):
@@ -2811,7 +2824,7 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
     _valid_amp_so_types = ['=','<=', '==', '>']
     _OLP_supported = ['MadLoop', 'GoSam']
     _output_dependencies_supported = ['external', 'internal','environment_paths']
-    _all_subtraction_currents_schemes = ['colorful', 'cataniseymour']
+    _all_subtraction_currents_schemes = ['colorful', 'colorful_pp', 'cataniseymour']
     _all_subtraction_mappings_schemes = list(walker_classes_map.keys())
 
     # The three options categories are treated on a different footage when a
@@ -2988,14 +3001,35 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
     def parse_add_options(self, args):
         """ Parses the option provided via the arguments given to the command add."""
         
+        # Helper function
+        def parse_beam_type(beam_type_str):
+            try:
+                beam_type, beam_PDGs = beam_type_str.split('@')
+                try:
+                    beam_PDGs = eval(beam_PDGs)
+                except:
+                    raise InvalidCmd("Could not parse specified beam_PDGs: %s"%beam_PDGs)
+                if not isinstance(beam_PDGs, (tuple, list)) and not all(isinstance(pdg, int) 
+                                                                     for pdg in beam_PDGs):
+                    raise InvalidCmd("Specified beam_PDGs '%s' is not a valid list of integers"%beam_PDGs)
+                return beam_type, tuple(sorted(list(beam_PDGs)))          
+            except:
+                return beam_type, 'auto'
+        
         add_options = {'NLO'                  : [],
                        'NNLO'                 : [],
-                       'NNNLO'                 : [],
+                       'NNNLO'                : [],
                        'LO'                   : False,
                        'loop_induced'         : [],
+                       'loop_filter'          : None,
                        # ME7_definition is a tag informing whether the user asks for the new ME7 output.
                        'ME7_definition'       : False,
-                       'ignore_contributions' : []}
+                       'ignore_contributions' : [],
+                       'beam_types'           : ['auto', 'auto'],
+                       # A dictionary with keys 'B', 'V', 'VV', 'RRRVV' etc... allowing the user to
+                       # possibly overwrite what the process definition for that particular contribution
+                       # should be.
+                       'process_definitions'  : {}}
         
         # First combine all value of the options (starting with '--') separated by a space
         # For example, it will group '--NNLO=QCD','QED' into '--NNLO=QCD QED'.
@@ -3029,12 +3063,30 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
         
         for arg in opt_args:
             try:
-                key, value = arg.split('=')
+                key, value = arg.split('=',1)
             except:
                 key, value = arg, None
             key = key[2:]
-   
-            if key == 'NLO':
+
+            if re.match(r'^(B|R*V*)$',key):
+                logger.warning('You are now overwriting what should be the process definition for the'+
+                                " contribution '%s'.\nThis is an expert usage of MadNkLO and consistent"%key+
+                                " results can no longer be guaranteed.")
+                process_line = value.strip()
+                self.check_process_format(process_line)
+                try:
+                    new_proc_def, _ = self.extract_decay_chain_process(process_line)
+                except Exception as e:
+                    raise InvalidCmd("Could not parse\n   '%s'\n as the process definition"%process_line+
+                        " that must be employed for contribution '%s'. Error: %s"%(key, str(e)))
+                add_options['process_definitions'][key] = new_proc_def
+                
+            elif key=='loop_filter':
+                add_options['loop_filter'] = value
+                logger.warning('You specified a filter to apply to the loop diagrams generated by MadLoop.'+
+                                "\nThis is an expert usage of MadNkLO and consistent"+
+                                " results can no longer be guaranteed.")
+            elif key == 'NLO':
                 if value is None:
                     orders = ['QCD']
                 else:
@@ -3081,6 +3133,34 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
                                                                 %(valid_NLO_correction_orders, orders) )
                 add_options['loop_induced'] = orders
 
+            elif key=='beam_one_type':
+                if value.upper() == 'NONE':
+                    add_options['beam_types'][0] = None
+                else:
+                    add_options['beam_types'][0] = parse_beam_type(value)
+            elif key=='beam_two_type':
+                if value.upper() == 'NONE':
+                    add_options['beam_types'][1] = None
+                else:
+                    add_options['beam_types'][1] = parse_beam_type(value)                       
+            elif key=='beam_types':
+                try:
+                    beam_types = eval(value)
+                except:
+                    beam_types = (value, value)
+                else:
+                    if beam_types is None:
+                        beam_types = (None, None)
+                    elif not isinstance(beam_types, tuple) or len(beam_types)!=2:
+                        raise InvalidCmd("Value for option '%s' must be a string or a tuple of two string"%key)
+                for i, beam_type in enumerate(beam_types):
+                    if (not beam_type is None) and not isinstance(beam_type,str):
+                        raise InvalidCmd("Value for option '%s' must be a string or a tuple of two string"%key)
+                    if beam_type is None or beam_type.upper() == 'NONE':
+                        add_options['beam_types'][i] = None
+                    else:
+                        add_options['beam_types'][i] = parse_beam_type(beam_type)
+                    
             elif key=='ignore_contributions':
                 try:
                     ignored_contribs = eval(value)
@@ -3090,8 +3170,9 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
                 except:
                     add_options[key].extend([v.strip() for v in value.split(',')])
                 for contrib in add_options[key]:
-                    if not re.match(r'^(B|R*V*)$',contrib):
-                        raise InvalidCmd("Ignored contribs must be specified with syntax 'B' or 'RRR(...)VVV(...)'.")
+                    if not re.match(r'^(B|BS|R*V*)(F1)?(F2)?$',contrib):
+                        raise InvalidCmd("Ignored contribs must be specified with syntax 'B', 'BS'"+
+                                         " or 'RRR(...)VVV(...)(F1)?(F2)?'.")
             else:
                 raise InvalidCmd("Unrecognized option for command add/generate: %s"%key)
 
@@ -3121,6 +3202,9 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
         # Finally set the ME7_definition tag
         add_options['ME7_definition'] = any(add_options[info] for info in ['NLO', 'NNLO', 'NNNLO', 'LO', 'loop_induced'])
 
+        # Make sure beam_types is now an immutable tuple
+        add_options['beam_types'] = tuple(add_options['beam_types'])
+
         return new_args, add_options
     
     def parse_output_options(self, args):
@@ -3130,6 +3214,7 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
                            'postpone_model' : False,
                            'spin_correlators' : None,
                            'ignore_integrated_counterterms' : [],
+                           'ignore_contributions' : [],
                          }
         
         # First combine all value of the options (starting with '--') separated by a space
@@ -3163,18 +3248,34 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
                                   " can only 'None' or of the form 'N'*k+'LO' for any k.")
                     output_options[key] = value
 
+            elif key=='ignore_contributions':
+                try:
+                    ignored_contribs = eval(value)
+                    if not isinstance(ignored_contribs, list):
+                        raise
+                    output_options[key] = ignored_contribs
+                except:
+                    output_options[key].extend([v.strip() for v in value.split(',')])
+                for contrib in output_options[key]:
+                    if not re.match(r'^(B|BS|R*V*)(F1)?(F2)?$',contrib):
+                        raise InvalidCmd("Ignored contribs must be specified with syntax 'B', 'BS'"+
+                                         " or 'RRR(...)VVV(...)(F1)?(F2)?'.")
+
             elif key=='ignore_integrated_counterterms':
                 try:
                     list_to_ignore = eval(value)
                     if not isinstance(list_to_ignore, list):
                         raise BaseException
                 except:
+                    if value is None:
+                        raise InvalidCmd("The option 'ignore_integrated_counterterms' necessitates a list"+
+                          " of contributions with format 'RRR(...)VVV(...)(F1)?(F2)?', not '%s'."%value)
                     list_to_ignore = [v.strip() for v in value.split(',')]
                     
                 for to_ignore in list_to_ignore:
-                    if to_ignore!='all' and not re.match(r'^(R*V*)$',to_ignore):
+                    if to_ignore!='all' and not re.match(r'^(R*V*)(F1)?(F2)?$',to_ignore):
                         raise InvalidCmd("Ignored integrated counterterms must be specified"+
-                        " each with syntax 'all' or 'RRR(...)VVV(...)', not '%s'."%to_ignore)
+                        " each with syntax 'all' or 'RRR(...)VVV(...)(F1)?(F2)?', not '%s'."%to_ignore)
                 output_options[key] = list_to_ignore
             else:
                 raise InvalidCmd("Unrecognized option for command output: %s"%key)
@@ -3188,29 +3289,39 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
         existing amplitudes
         or merge two model
         """
-
-        args = self.split_arg(line)
-
         
+        processed_line = line.split('--')
+        args_line = processed_line[0]
+        options = [opt.strip() for opt in processed_line[1:]]
+        args = self.split_arg(args_line)
+
         warning_duplicate = True
-        if '--no_warning=duplicate' in args:
-            warning_duplicate = False
-            args.remove('--no_warning=duplicate')
-
         diagram_filter = False
-        if '--diagram_filter' in args:
-            diagram_filter = True
-            args.remove('--diagram_filter')
-        
         standalone_only = False
-        if '--standalone' in args:
-            standalone_only = True
-            args.remove('--standalone')            
+        MadNkLO_options = []
+        for option in options:
+            processed_option = option.split('=')
+            key = processed_option[0]
+            if len(processed_option)>1:
+                value = '='.join(processed_option[1:]).strip()
+            else:
+                value = None
+                
+            if key == 'no_warning':
+                if value != 'duplicate':
+                    raise InvalidCmd("Option %s only supports value 'duplicate'."%key)
+                warning_duplicate = False
+            elif key=='diagram_filter':
+                diagram_filter = True        
+            elif key=='standalone':
+                standalone_only = True
+            else:
+                MadNkLO_options.append('--%s'%key+('' if value is None else '=%s'%value))
 
         # Check the validity of the arguments
         self.check_add(args)
         # Parse the options and remove them from args
-        args, add_options = self.parse_add_options(args)
+        args, add_options = self.parse_add_options(args+MadNkLO_options)
         
         if args[0] == 'model':
             return self.add_model(args[1:])
@@ -3351,15 +3462,39 @@ This implies that with decay chains:
             logger.info("Total: %i processes with %i diagrams" % \
                   (len(self._curr_amps), ndiags))        
 
-    def add_LO_contributions(self, procdef, generation_options):
+    def add_LO_contributions(self, template_Born_proc_def, generation_options):
         """ Add all regular LO contributions, starting from this specific instance
         of process definition."""
         
         if 'B' in generation_options['ignore_contributions']:
+            logger.warning("User explicitly asked to remove contribution 'B'."+
+                                          " This can potentially yield incorrect results.")
             return None
         
+        # Overwrite the process definition by the one specified by the user if necessary
+        if 'B' in generation_options['process_definitions']:
+            procdef = generation_options['process_definitions']['B'].get_copy()
+            # We need to port some aspect of the template_Born_proc_def onto the
+            # one specified by the user, in all cases (we can change this later if necessary).
+            new_split_orders = list(template_Born_proc_def.get('split_orders'))
+            for so in procdef.get('split_orders'):
+                if so not in new_split_orders:
+                    new_split_orders.append(so)
+            procdef.set('split_orders', new_split_orders)
+            logger.info("Forcing the process definition for contribution 'B' to "+
+                                                            "be:\n%s"%procdef.nice_string())
+        else:
+            procdef = template_Born_proc_def.get_copy()
+            if generation_options['loop_induced']:
+                # In this case we must upgrade the process so as to include loop contributions
+                # of the specified order. Remember however that the attribute 'n_loops' of the
+                # process definition *must* remain 0.
+                procdef.set('perturbation_couplings', generation_options['loop_induced'])
+                procdef.set('NLO_mode', 'sqrvirt')
+
         # Update process id
         procdef.set('id', generation_options['proc_id'])
+
 #        generation_options['proc_id'] += 1
         # Make sure to add split_orders to the tree-level Born contributions if higher order
         # corrections are considered since this is necessary when used as reduced ME.
@@ -3371,34 +3506,12 @@ This implies that with decay chains:
         LO_contrib = contributions.Contribution(
                         base_objects.ContributionDefinition(
                             procdef,
-                            overall_correction_order=generation_options['overall_correction_order']), 
+                            overall_correction_order=generation_options['overall_correction_order'],
+                            beam_types = generation_options['beam_types']),
                         self, diagram_filter=generation_options['diagram_filter'],
+                        loop_filter=generation_options['loop_filter'],
                         optimize=generation_options['optimize'])
-        self._curr_contribs.append(LO_contrib)
-        return LO_contrib
 
-    def add_LO_loop_induced_contributions(self, procdef, generation_options):
-        """ Add all LO loop-induced contributions, starting from this specific instance
-        of process definition."""
-
-        if 'B' in generation_options['ignore_contributions']:
-            return None
-
-        # Update process id
-        procdef.set('id', generation_options['proc_id'])
-#        generation_options['proc_id'] += 1
-        # Add here the loop-induced syntax to this process
-        procdef.set('perturbation_couplings', generation_options['loop_induced'])
-        procdef.set('NLO_mode', 'sqrvirt')
-        for order in generation_options['loop_induced']:
-            if order in procdef['split_orders']:
-                continue
-            procdef['split_orders'].append(order)
-        LO_contrib = contributions.Contribution(base_objects.ContributionDefinition(
-                        procdef,
-                        n_loops = 1,
-                        overall_correction_order=generation_options['overall_correction_order']), 
-                    self)
         self._curr_contribs.append(LO_contrib)
         return LO_contrib
                 
@@ -3413,17 +3526,43 @@ This implies that with decay chains:
         
         # Add the virtual contribution
         # ----------------------------
-        if 'V' not in generation_options['ignore_contributions']:
-            procdef = NLO_template_procdef.get_copy()
-            # Make sure to set the corresponding number of loops to 1.
+        if 'V' in generation_options['ignore_contributions']:
+            logger.warning("User explicitly asked to remove contribution 'V'."+
+                                          " This can potentially yield incorrect results.")
+        else:
+            # Overwrite the process definition by the one specified by the user if necessary
+            if 'V' in generation_options['process_definitions']:
+                procdef = generation_options['process_definitions']['V'].get_copy()
+                # We need to port some aspect of the template_Born_proc_def onto the
+                # one specified by the user, in all cases (we can change this later if necessary).
+                new_split_orders = list(NLO_template_procdef.get('split_orders'))
+                for so in procdef.get('split_orders'):
+                    if so not in new_split_orders:
+                        new_split_orders.append(so)
+                procdef.set('split_orders', new_split_orders)
+                logger.info("Forcing the process definition for contribution 'V' to "+
+                                                            "be:\n%s"%procdef.nice_string())
+            else:
+                procdef = NLO_template_procdef.get_copy()
+                if generation_options['loop_induced']:
+                    logger.warning('There is currently no solution for including the two-loop'+
+                    ' virtual contribution of NLO loop-induced computations.\n'+
+                    'In the future, UFO multi-loop form factors will offer a solution.\n'+
+                    'For now, one-loop Born matrix elements will be used instead.')
+                # Here setting the perturbation_couplings is enough to guarantee that 
+                # the relevant diagrams for these coupling orders will be generated
+                procdef.set('perturbation_couplings', generation_options['NLO'])
+                procdef.set('NLO_mode', 'virt')
+            
+            # Make sure to set the corresponding number of loops to 1. This *must* always
+            # be the case as it is necessary for the MadNkLO construction to hold.
+            # So even for a loop-induced process which would in this case contain 2 loops,
+            # we should set this attribute 'n_loops' to 1.
             procdef.set('n_loops',1)
             # Update process id
             procdef.set('id', generation_options['proc_id'])
 #            generation_options['proc_id'] += 1
-            # Here setting the perturbation_couplings is enough to guarantee that 
-            # the relevant diagrams for these coupling orders will be generated
-            procdef.set('perturbation_couplings', generation_options['NLO'])
-            procdef.set('NLO_mode', 'virt')
+
             self._curr_contribs.append(
                 contributions.Contribution(
                     base_objects.ContributionDefinition(
@@ -3433,22 +3572,50 @@ This implies that with decay chains:
                         correction_order           = 'NLO',
                         correction_couplings       = generation_options['NLO'],
                         squared_orders_constraints = dict(target_squared_orders),
-                        overall_correction_order=generation_options['overall_correction_order'] ),
-                    self))
+                        overall_correction_order   = generation_options['overall_correction_order'],
+                        beam_types                 = generation_options['beam_types'] ),
+                    self,
+                    loop_filter                = generation_options['loop_filter'],
+                )
+            )
 
         # Add the real-emission contribution
         # ----------------------------------
-        if 'R' not in generation_options['ignore_contributions']:
-            procdef = NLO_template_procdef.get_copy()
+        if 'R' in generation_options['ignore_contributions']:
+            logger.warning("User explicitly asked to remove contribution 'R'."+
+                                          " This can potentially yield incorrect results.")
+        else:
+    
+            if 'R' in generation_options['process_definitions']:
+                procdef = generation_options['process_definitions']['R'].get_copy()
+                # We need to port some aspect of the template_Born_proc_def onto the
+                # one specified by the user, in all cases (we can change this later if necessary).
+                new_split_orders = list(NLO_template_procdef.get('split_orders'))
+                for so in procdef.get('split_orders'):
+                    if so not in new_split_orders:
+                        new_split_orders.append(so)
+                procdef.set('split_orders', new_split_orders)
+                logger.info("Forcing the process definition for contribution 'R' to "+
+                                                            "be:\n%s"%procdef.nice_string())
+            else:
+                procdef = NLO_template_procdef.get_copy()
+
+                if generation_options['loop_induced']:
+                    # In this case we must upgrade the process so as to include loop contributions
+                    # of the specified order. Remember however that the attribute 'n_loops' of the
+                    # process definition *must* remain 0.
+                    procdef.set('perturbation_couplings', generation_options['loop_induced'])
+                    procdef.set('NLO_mode', 'sqrvirt')
+
+                # Now add the corresponding MultiLeg to the final state
+                procdef['legs'].append(base_objects.MultiLeg({'ids':
+                    sum([orders_to_perturbed_quantities[order]['real_emission_ids'] 
+                         for order in generation_options['NLO']],[]), 'state': True}))
+
             # Update process id
             procdef.set('id', generation_options['proc_id'])
 #            generation_options['proc_id'] += 1
-
-            # Now add the corresponding MultiLeg to the final state
-            procdef['legs'].append(base_objects.MultiLeg({'ids':
-                sum([orders_to_perturbed_quantities[order]['real_emission_ids'] 
-                     for order in generation_options['NLO']],[]), 'state': True}))
-    
+            
             real_emission_contribution = contributions.Contribution(
                     base_objects.ContributionDefinition(
                         procdef,
@@ -3457,17 +3624,13 @@ This implies that with decay chains:
                         correction_order       = 'NLO',
                         correction_couplings   = generation_options['NLO'],
                         squared_orders_constraints = dict(target_squared_orders),
-                        overall_correction_order=generation_options['overall_correction_order'] ),
-                        self)
-    
+                        overall_correction_order=generation_options['overall_correction_order'],
+                        beam_types             = generation_options['beam_types']
+                    ),
+                    self,
+                    loop_filter              = generation_options['loop_filter']
+            )
             self._curr_contribs.append(real_emission_contribution)
-                
-    def add_NLO_loop_induced_contributions(self, NLO_template_procdef, generation_options, target_squared_orders):
-        """ Add all NLO loop_induced contributions, using the process defintion in argument as template
-        and the target_squared_orders as constraints applying to the NLO contributions.
-        So, if the user specified QCD^2==2 at LO, these NLO target_squared_orders would become QCD^2 in [2-4]"""     
-        
-        raise InvalidCmd("NLO loop-induced contributions not yet supported.")
     
     def add_NNLO_contributions(self, NNLO_template_procdef, generation_options, target_squared_orders):
         """ Add all regular NNLO contributions, using the process defintion in argument as template
@@ -3482,29 +3645,55 @@ This implies that with decay chains:
         
         # Add the double real-emission contribution
         # -----------------------------------------
-        if 'RR' not in generation_options['ignore_contributions']:
-            procdef = NNLO_template_procdef.get_copy()
+        if 'RR' in generation_options['ignore_contributions']:
+            logger.warning("User explicitly asked to remove contribution 'RR'."+
+                                          " This can potentially yield incorrect results.")
+        else:
+            
+            if 'RR' in generation_options['process_definitions']:
+                procdef = generation_options['process_definitions']['RR'].get_copy()
+                # We need to port some aspect of the template_Born_proc_def onto the
+                # one specified by the user, in all cases (we can change this later if necessary).
+                new_split_orders = list(NNLO_template_procdef.get('split_orders'))
+                for so in procdef.get('split_orders'):
+                    if so not in new_split_orders:
+                        new_split_orders.append(so)
+                procdef.set('split_orders', new_split_orders)
+                logger.info("Forcing the process definition for contribution 'RR' to "+
+                                                            "be:\n%s"%procdef.nice_string())
+            else:
+                procdef = NNLO_template_procdef.get_copy()
+                if generation_options['loop_induced']:
+                    # In this case we must upgrade the process so as to include loop contributions
+                    # of the specified order. Remember however that the attribute 'n_loops' of the
+                    # process definition *must* remain 0.
+                    procdef.set('perturbation_couplings', generation_options['loop_induced'])
+                    procdef.set('NLO_mode', 'sqrvirt')
+
+                # Now add the two corresponding MultiLeg to the final state
+                unresolved_emission = base_objects.MultiLeg({'ids':
+                    sum([orders_to_perturbed_quantities[order]['real_emission_ids'] 
+                         for order in generation_options['NNLO']],[]), 'state': True})
+                procdef['legs'].extend([unresolved_emission,]*2)
+
             # Update process id
             procdef.set('id', generation_options['proc_id'])
 #            generation_options['proc_id'] += 1
-
-            # Now add the two corresponding MultiLeg to the final state
-            unresolved_emission = base_objects.MultiLeg({'ids':
-                sum([orders_to_perturbed_quantities[order]['real_emission_ids'] 
-                     for order in generation_options['NNLO']],[]), 'state': True})
-            procdef['legs'].extend([unresolved_emission,]*2)
     
             double_real_emission_contribution = contributions.Contribution(
-                    base_objects.ContributionDefinition(
-                        procdef,
-                        n_loops                = 0,
-                        n_unresolved_particles = 2,
-                        correction_order       = 'NNLO',
-                        correction_couplings   = generation_options['NNLO'],
-                        squared_orders_constraints = dict(target_squared_orders),
-                        overall_correction_order=generation_options['overall_correction_order'] ),
-                        self)
-            
+                base_objects.ContributionDefinition(
+                    procdef,
+                    n_loops                = 0,
+                    n_unresolved_particles = 2,
+                    correction_order       = 'NNLO',
+                    correction_couplings   = generation_options['NNLO'],
+                    squared_orders_constraints = dict(target_squared_orders),
+                    overall_correction_order=generation_options['overall_correction_order'],
+                    beam_types             = generation_options['beam_types'] 
+                ),
+                self,
+                loop_filter            = generation_options['loop_filter']
+            )
             self._curr_contribs.append(double_real_emission_contribution)
 
     def add_NNNLO_contributions(self, NNNLO_template_procdef, generation_options, target_squared_orders):
@@ -3520,28 +3709,55 @@ This implies that with decay chains:
         
         # Add the triple real-emission contribution
         # -----------------------------------------
-        if 'RRR' not in generation_options['ignore_contributions']:
-            procdef = NNNLO_template_procdef.get_copy()
+        if 'RRR' in generation_options['ignore_contributions']:
+            logger.warning("User explicitly asked to remove contribution 'RRR'."+
+                                          " This can potentially yield incorrect results.")
+        else:
+            
+            if 'RRR' in generation_options['process_definitions']:
+                procdef = generation_options['process_definitions']['RRR'].get_copy()
+                # We need to port some aspect of the template_Born_proc_def onto the
+                # one specified by the user, in all cases (we can change this later if necessary).
+                new_split_orders = list(NNNLO_template_procdef.get('split_orders'))
+                for so in procdef.get('split_orders'):
+                    if so not in new_split_orders:
+                        new_split_orders.append(so)
+                procdef.set('split_orders', new_split_orders)
+                logger.info("Forcing the process definition for contribution 'RRR' to "+
+                                                            "be:\n%s"%procdef.nice_string())
+            else:
+                procdef = NNNLO_template_procdef.get_copy()
+                if generation_options['loop_induced']:
+                    # In this case we must upgrade the process so as to include loop contributions
+                    # of the specified order. Remember however that the attribute 'n_loops' of the
+                    # process definition *must* remain 0.
+                    procdef.set('perturbation_couplings', generation_options['loop_induced'])
+                    procdef.set('NLO_mode', 'sqrvirt')
+
+                # Now add the two corresponding MultiLeg to the final state
+                unresolved_emission = base_objects.MultiLeg({'ids':
+                    sum([orders_to_perturbed_quantities[order]['real_emission_ids'] 
+                         for order in generation_options['NNNLO']],[]), 'state': True})
+                procdef['legs'].extend([unresolved_emission,]*3)
+                        
             # Update process id
             procdef.set('id', generation_options['proc_id'])
 #            generation_options['proc_id'] += 1
-
-            # Now add the two corresponding MultiLeg to the final state
-            unresolved_emission = base_objects.MultiLeg({'ids':
-                sum([orders_to_perturbed_quantities[order]['real_emission_ids'] 
-                     for order in generation_options['NNNLO']],[]), 'state': True})
-            procdef['legs'].extend([unresolved_emission,]*3)
     
             triple_real_emission_contribution = contributions.Contribution(
-                    base_objects.ContributionDefinition(
-                        procdef,
-                        n_loops                = 0,
-                        n_unresolved_particles = 3,
-                        correction_order       = 'NNNLO',
-                        correction_couplings   = generation_options['NNNLO'],
-                        squared_orders_constraints = dict(target_squared_orders),
-                        overall_correction_order=generation_options['overall_correction_order'] ),
-                        self)
+                base_objects.ContributionDefinition(
+                    procdef,
+                    n_loops                = 0,
+                    n_unresolved_particles = 3,
+                    correction_order       = 'NNNLO',
+                    correction_couplings   = generation_options['NNNLO'],
+                    squared_orders_constraints = dict(target_squared_orders),
+                    overall_correction_order=generation_options['overall_correction_order'],
+                    beam_types             = generation_options['beam_types'] 
+                ),
+                self,
+                loop_filter            = generation_options['loop_filter']
+            )
             
             self._curr_contribs.append(triple_real_emission_contribution)
         
@@ -3553,10 +3769,12 @@ This implies that with decay chains:
         if input_procdef.get('perturbation_couplings'):
             raise InvalidCmd("Do not specify perturbed coupling order with the [...] syntax together with"+
                              " higher order corrections specified via --NLO=..., --NNLO=... and --LO.")
-        
-        
+
         # Progressively increment process ID, which we store in the generation_options
         generation_options['proc_id'] = 1
+        
+        # Test if the process specified is a decay process
+        is_a_decay_process = (len([1 for leg in input_procdef.get('legs') if leg['state'] == False])==1)
         
         # Obtain what is the highest correction order required for:
         if generation_options['NNNLO']:
@@ -3582,7 +3800,7 @@ This implies that with decay chains:
                 CommonLoopInterface.validate_model(self,loop_type='virtual',stop=True)
 
             # Add to the input_procdef (and therefore the proc_def of all contributions possibly added)
-            # the spit_orders of the perturbed couplings and in any case of 'QCD' and 'QED'. This is because
+            # the split_orders of the perturbed couplings and in any case of 'QCD' and 'QED'. This is because
             # we will always have squared order constraints on 'QED' and 'QCD' so as to maximize diagram
             # generation efficiency.
             for order in set(all_perturbed_orders+['QCD','QED']):
@@ -3590,14 +3808,45 @@ This implies that with decay chains:
                     continue
                 input_procdef['split_orders'].append(order)
 
+        # Map perturbed coupling orders to the corresponding relevant interactions and particles.
+        # The values of the dictionary in  are 'interactions', 'pert_particles' and 'soft_particles'.
+        orders_to_perturbed_quantities = dict(
+            (order, fks_common.find_pert_particles_interactions(self._curr_model, pert_order = order))
+             for order in all_perturbed_orders)
+        # List the ids to consider for the extra real-emission MultiLeg for each perturbed order
+        for order, infos in orders_to_perturbed_quantities.items():
+            # We typically ignore HBR (Heavy-Boson-Radiation) which are anyway separately finite and therefore
+            # limit ourselves to including massless particles in the real-emission contributions
+            orders_to_perturbed_quantities[order]['real_emission_ids'] = infos['soft_particles']
+        
+        # Add the certain quantities to the generation options so as to make then accessible to the various
+        # add_contributions_<xxx> functions called here.
+        generation_options['all_perturbed_orders'] = all_perturbed_orders
+        generation_options['orders_to_perturbed_quantities'] = orders_to_perturbed_quantities
+
+        # Determine the beam types automatically if needed:
+        if not is_a_decay_process:
+            initial_state_multilegs = [leg for leg in input_procdef.get('legs') if leg['state'] == False]
+            beam_one_type = self.guess_beam_type(generation_options, initial_state_multilegs[0], 0)
+            beam_two_type = self.guess_beam_type(generation_options, initial_state_multilegs[1], 1)
+        else:
+            beam_one_type = None
+            beam_two_type = None
+        
+        beam_types = (beam_one_type, beam_two_type)
+        for i, beam_type in enumerate(beam_types):
+            if beam_type != None:
+                logger.info('Selected type for beam %s: %s (incl. %s)'%('one' if i==0 else 'two', 
+                    beam_type[0], ' '.join(self._curr_model.get_particle(pdg).get_name() for pdg in beam_type[1])))
+
+        # Now add it to the generation option with the key 'beam_types', so that the user specified
+        # original keys "beam_one" and "beam_two" are not overwritten.
+        generation_options['beam_types'] = beam_types
+
         # Add LO contributions first
         LO_contrib_added = None
         if generation_options['LO']:
-            procdef = input_procdef.get_copy()
-            if not generation_options['loop_induced']:
-                LO_contrib_added = self.add_LO_contributions(procdef, generation_options)
-            else:                
-                LO_contrib_added = self.add_LO_loop_induced_contributions(procdef, generation_options)
+            LO_contrib_added = self.add_LO_contributions(input_procdef, generation_options)
 
         # If there was only a LO contribution we are now done
         if not generation_options['NLO'] and not generation_options['NNLO'] and not generation_options['NNNLO']:
@@ -3649,7 +3898,7 @@ This implies that with decay chains:
                 raise InvalidCmd('MadEvent7 does not support negative squared order constraints.')
 
         # Initialize the LO global perturbed squared orders with default values extracted from the
-        # LO contributions if generated. Always set QCD and QED default targer squared order so as 
+        # LO contributions if generated. Always set QCD and QED default target squared order so as 
         # to have efficient diagram generation.
         if LO_contrib_added:
             for order in set(all_perturbed_orders+['QCD','QED']):
@@ -3668,17 +3917,6 @@ This implies that with decay chains:
             if order in template_procdef['sqorders_types']:
                 del template_procdef['sqorders_types'][order]
 
-        # Map perturbed coupling orders to the corresponding relevant interactions and particles.
-        # The values of the dictionary in  are 'interactions', 'pert_particles' and 'soft_particles'.
-        orders_to_perturbed_quantities = dict(
-            (order, fks_common.find_pert_particles_interactions(self._curr_model, pert_order = order))
-             for order in all_perturbed_orders)
-        # List the ids to consider for the extra real-emission MultiLeg for each perturbed order
-        for order, infos in orders_to_perturbed_quantities.items():
-            # We typically ignore HBR (Heavy-Boson-Radiation) which are anyway separately finite and therefore
-            # limit ourselves to including massless particles in the real-emission contributions
-            orders_to_perturbed_quantities[order]['real_emission_ids'] = infos['soft_particles']
-                
         # Check that the initial state of the process either contains none of the soft perturbed particles
         # or all of them.
         all_perturbed_ids = set(sum([infos['soft_particles'] for infos in orders_to_perturbed_quantities.values()],[]))
@@ -3686,16 +3924,10 @@ This implies that with decay chains:
             if not all_perturbed_ids.difference(set(initial_states['ids']))==set([]) and \
                not all_perturbed_ids.difference(set(initial_states['ids']))==all_perturbed_ids:
                 logger.warning('It is typically not theoretically sound to compute higher order corrections of'+
-                    ' a process for which the initial states are only a subset of the following set:\n%s'%(
-                        str([self._curr_model.get_particle(pdg).get_name() for pdg in all_perturbed_ids])))
+                    ' a process for which the initial states are only a subset of the following set:\n(%s)'%(
+                        ' '.join(self._curr_model.get_particle(pdg).get_name() for pdg in all_perturbed_ids)))
                 break
-        
-        
-        # Add the certain quantities to the generation options so as to make then accessible to the various
-        # add_contributions_<xxx> functions called here.
-        generation_options['all_perturbed_orders'] = all_perturbed_orders
-        generation_options['orders_to_perturbed_quantities'] = orders_to_perturbed_quantities
-
+       
         # Add NLO contributions now
         # =========================
         if generation_options['NLO']:
@@ -3718,8 +3950,7 @@ This implies that with decay chains:
             # Add NLO loop-induced contributions
             else:
                 self.add_NLO_loop_induced_contributions(
-                                            NLO_template_procdef, generation_options, NLO_global_orders)
-
+                                NLO_template_procdef, generation_options, NLO_global_orders)
 
         # Add NNLO contributions
         # ==============================
@@ -3741,7 +3972,7 @@ This implies that with decay chains:
             if not generation_options['loop_induced']:
                 self.add_NNLO_contributions(NNLO_template_procdef, generation_options, NNLO_global_orders)
             else:
-                raise InvalidCmd("Loop-induced predictions at NNLO are not supported by MadEvent7.")
+                raise InvalidCmd("Loop-induced predictions at NNLO are not supported by MadNkLO.")
 
         # Finally add NNNLO contributions
         # =============================
@@ -3763,8 +3994,104 @@ This implies that with decay chains:
             if not generation_options['loop_induced']:
                 self.add_NNNLO_contributions(NNNLO_template_procdef, generation_options, NNNLO_global_orders)
             else:
-                raise InvalidCmd("Loop-induced predictions at NNNLO are not supported by MadEvent7.")
-                            
+                raise InvalidCmd("Loop-induced predictions at NNNLO are not supported by MadNkLO.")
+
+    def guess_beam_type(self, generation_options, multileg, beam_id):
+        """ Given a model, the specified beam_type (can be set to 'auto' for being automatically guessed),
+        and the initial state multileg specified, it returns the following tuple:
+            ( beam_type_name, (pdgs_contained,) ) """
+        
+        user_beam = generation_options['beam_types'][beam_id]
+        if isinstance(user_beam, tuple):
+            user_beam_type = user_beam[0]
+            user_beam_PDGs = user_beam[1]
+        else:
+            user_beam_type = user_beam
+            user_beam_PDGs = None
+
+        hard_coded_beam_types = [
+            ['proton'        , (1,2,3,4,5,6,-1,-2,-3,-4,-5,-6,21)],
+            ['proton_photon' , (1,2,3,4,5,6,-1,-2,-3,-4,-5,-6,21,22)],
+            ['proton_all'    , (1,2,3,4,5,6,-1,-2,-3,-4,-5,-6,21,22,
+                                11,12,13,14,15,-11,-12,-13,-14,-15)],
+            ['lepton'        , (11,-11,13,-13,15,-15,22)],     
+        ]
+        
+        # If a higher order computation then use the active particles to weed out 
+        # the list of the hardcoded beam types. Otherwise, just the massless particles.
+        all_real_emission_ids = set([])
+        if len(generation_options['all_perturbed_orders'])>1:
+            for order in generation_options['all_perturbed_orders']:
+                all_real_emission_ids = all_real_emission_ids.union(set(
+                    generation_options['orders_to_perturbed_quantities'][order]['real_emission_ids']))
+        else:
+            for p in self._curr_model.get('particles'):
+                if p.get('mass').upper()=='ZERO':
+                    all_real_emission_ids.add(p.get_pdg_code())
+                    all_real_emission_ids.add(p.get_anti_pdg_code())
+          
+        # Weed out particles not affected by the current corrected couplings
+        for i, (hard_coded_beam_type, pdgs) in enumerate(hard_coded_beam_types):
+            hard_coded_beam_types[i][1] = tuple(pdg for pdg in pdgs if pdg in all_real_emission_ids)
+
+        # Now sort them according to number of PDGs contained
+        hard_coded_beam_types = sorted([(beam_type, tuple(pdgs)) for 
+                      beam_type, pdgs in hard_coded_beam_types], key=lambda el: len(el[1]))
+
+        initial_state_ids  = [pdg for pdg in multileg.get('ids') if pdg in all_real_emission_ids]
+        
+        beam_type_guessed = None
+        missing_pdgs      = []
+        
+        if not user_beam_PDGs is None:
+            if set(user_beam_PDGs) != set(initial_state_ids):
+                logger.warning(('The specified list of beam PDGs (%s) differs from those specified'+
+                    ' in the initial state of the processes (%s).\nIf you know what you are doing, this is fine.')%
+                    (   ','.join('%d'%pdg for pdg in user_beam_PDGs),
+                        ','.join('%d'%pdg for pdg in initial_state_ids)  ))
+            initial_state_ids = user_beam_PDGs
+
+        if len(initial_state_ids)<=1:
+            beam_type_guessed = None
+        else:
+            # Now consider the smallest hard-coded range that matches users input.
+            for beam_type, pdgs in hard_coded_beam_types:
+                if all(pdg in pdgs for pdg in initial_state_ids):
+                    beam_type_guessed = beam_type
+                    # Save PDGs missing from initial state definition
+                    missing_pdgs = [pdg for pdg in pdgs if pdg not in initial_state_ids]
+                    break
+            else:
+                beam_type_guessed = 'UNKNOWN'
+        
+        # Now take different action depending on whether the user set the beam type assignment
+        # to auto or not       
+        if user_beam_type == 'auto':
+            if beam_type_guessed == 'UNKNOWN':
+                raise InvalidCmd('MadNkLO could not automatically determine the relevant beam'+
+            " type for this process. Specify it using the option 'beam_types' of the 'generate' command.")
+
+            # If there are missing PDGs in the initial state definition, issue a warning 
+            # (in the case of the proton only). Also bypass this warning if we are doing
+            # a LO computation.
+            if len(missing_pdgs)>0 and 'proton' in beam_type_guessed and len(generation_options['all_perturbed_orders'])>0:
+                logger.warning('It seems that the following particles are missing in your'+
+                    ' multiparticle definition used for beam %d: (%s)'%(beam_id+1,
+                        ' '.join(self._curr_model.get_particle(pdg).get_name() for pdg in missing_pdgs)))
+            selected_beam_type = beam_type_guessed
+        else:
+            if beam_type_guessed not in [user_beam_type, 'UNKNOWN']:
+                logger.warning("Note that the specified beam %d type '%s' does not match MadNkLO guess: '%s'"%
+                                            (beam_id+1, user_beam_type, beam_type_guessed))
+            selected_beam_type = user_beam_type
+            
+        if selected_beam_type is None:
+            return None
+        else:
+            if tuple(sorted(initial_state_ids)) == tuple(sorted([-1,1,21])):
+                logger.warning("Beam definition: %s with d, d~, g only. For debugging purposes only."%selected_beam_type)
+            return (selected_beam_type, tuple(sorted(initial_state_ids)))
+
     def add_model(self, args):
         """merge two model"""
         
@@ -5019,9 +5346,9 @@ This implies that with decay chains:
         if not options['reuse']:
             process_checks.clean_up(self._mgme_dir)
 
-    # Generate a new amplitude
-    def do_generate(self, line):
-        """Main commands: Generate an amplitude for a given process"""
+
+    def reset_interface_before_new_generation(self):
+        """ Reset overall attributes of the interface before an entirely new independent generation."""
 
         aloha_lib.KERNEL.clean()
         # Reset amplitudes
@@ -5032,12 +5359,17 @@ This implies that with decay chains:
         self._curr_proc_defs = base_objects.ProcessDefinitionList()
         # Reset Helas matrix elements
         self._curr_matrix_elements = helas_objects.HelasMultiProcess()
-        self._generate_info = line
         # Reset _done_export, since we have new process
         self._done_export = False
         # Also reset _export_format and _export_dir
         self._export_format = None
-
+        
+    # Generate a new amplitude
+    def do_generate(self, line):
+        """Main commands: Generate an amplitude for a given process"""
+        
+        self.reset_interface_before_new_generation()
+        self._generate_info = line
 
         # Call add process
         args = self.split_arg(line)

@@ -845,7 +845,7 @@ C       LOCAL VARIABLES
 C  
         
         INTEGER I,J,N
-        INTEGER OLD_N_SPIN_CORR_RUNS
+        INTEGER NEW_N_SPIN_CORR_RUNS
         INTEGER N_LEGS_WITH_SPIN_CORRELATORS
 
 C
@@ -895,25 +895,39 @@ C           Leave the flexibility of having these vectors complex, although we t
         ENDDO
 		
 C       Now assign the additional runs to be performed within the loop over helicity configuration so as to capture these spin-correlations.
-        OLD_N_SPIN_CORR_RUNS = N_SPIN_CORR_RUNS
+C       First initialise the new runs to empty
+        DO I=0, MAX_SPIN_CORR_RUNS
+          DO J=1,NEXTERNAL
+            NEW_SPIN_CORR_RUNS(I,J) = -1000
+          ENDDO
+        ENDDO
+        NEW_N_SPIN_CORR_RUNS = 0
+
+C       Now recompute what are the spin-correlated runs to be performed within the loop over helicity configuration so as to capture these spin-correlations.
         DO I=1,N_VECTORS
 C         Add a run for each of the existing ones. This means that if user specifies vector VEC1A and VEC1B for leg 1, and VEC2A and VEC2B for leg 2, we will include all 4 combinations. (VEC1A, VEC2A), (VEC1A, VEC2B), etc...
-C         The MIN(1,OLD_N_SPIN_CORR_RUNS) is just here because the first time we add spin correlation we must start from the blank entries in SPIN_CORR_RUNS(0,*)
-          DO J=MIN(1,OLD_N_SPIN_CORR_RUNS),OLD_N_SPIN_CORR_RUNS
-            N_SPIN_CORR_RUNS = N_SPIN_CORR_RUNS + 1
+C         The MIN(1,N_SPIN_CORR_RUNS) is just here because the first time we add spin correlation we must start from the blank entries in SPIN_CORR_RUNS(0,*)
+          DO J=MIN(1,N_SPIN_CORR_RUNS),N_SPIN_CORR_RUNS
+            NEW_N_SPIN_CORR_RUNS = NEW_N_SPIN_CORR_RUNS + 1
             DO N=1,NEXTERNAL
               IF (N.eq.LEG_INDEX) THEN
 C               If the leg is the one selected, enforce the vectors specified by the user
-                SPIN_CORR_RUNS(N_SPIN_CORR_RUNS,N) = I 
+                NEW_SPIN_CORR_RUNS(NEW_N_SPIN_CORR_RUNS,N) = I 
               ELSE
 C               Otherwise, just copy the ones of the previous runs.
-                SPIN_CORR_RUNS(N_SPIN_CORR_RUNS,N) = SPIN_CORR_RUNS(J,N)
+                NEW_SPIN_CORR_RUNS(NEW_N_SPIN_CORR_RUNS,N) = SPIN_CORR_RUNS(J,N)
               ENDIF
             ENDDO
           ENDDO
         ENDDO
-        
-C       That's it, the corresponding additional runs for the new spin correlations asked for have been added to the list SPIN_CORR_RUNS
+
+C       That's it, the new runs featuring the combination of previously defined spin correlation vectors with the new ones can be set to SPIN_CORR_RUNS
+        N_SPIN_CORR_RUNS = NEW_N_SPIN_CORR_RUNS
+        DO I=0, N_SPIN_CORR_RUNS
+          DO J=1, NEXTERNAL
+            SPIN_CORR_RUNS(I,J) = NEW_SPIN_CORR_RUNS(I,J)
+          ENDDO
+        ENDDO
 
       END SUBROUTINE %(proc_prefix)sSET_SPIN_CORRELATION_VECTORS
       

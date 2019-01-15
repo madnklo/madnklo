@@ -73,6 +73,7 @@ import madgraph.integrator.walkers as walkers
 import madgraph.integrator.phase_space_generators as phase_space_generators
 import madgraph.integrator.pyCubaIntegrator as pyCubaIntegrator
 import madgraph.integrator.vegas3_integrator as vegas3_integrator
+import madgraph.integrator.vectors as vectors
 #    import madgraph.various.histograms as histograms  # imported later to not slow down the loading of the code
 import models.check_param_card as check_param_card
 import models.model_reader as model_reader
@@ -81,13 +82,556 @@ import models.import_ufo as import_ufo
 from madgraph.iolibs.files import ln    
 from madgraph import InvalidCmd, MadGraph5Error, MG5DIR, ReadWrite
 
-
-
 class MadEvent7Error(Exception):
     pass
 
 class ZeroResult(MadEvent7Error):
     pass
+
+#===============================================================================
+# ME7Events
+#===============================================================================
+class ME7Event(object):
+    """ A class to store a particular configuration produced by the integrands
+    when evaluated and which has undefinite flavor configuration to begin with."""
+    
+    def __init__(self, PS_point, weights_per_flavor_configurations, 
+                 requires_mirroring           = False,
+                 host_contribution_definition = 'N/A',
+                 # This entry is mostly for debugging purposes, but it is useful to be able
+                 # to know what is the list of defining PDGs of the resolved process from 
+                 # which this counterterm originates. For this reason the counterterm_structure
+                 # is (possible a list of) tuple(s) of the form:
+                 #   (
+                 #      integrated_CT_instance, 
+                 #      list_of_all combination_of_PDGs_of_the_resolved_process_this_integrated_CT_can_comes_from
+                 #   )
+                 counterterm_structure        = None,
+                 Bjorken_xs                   = (1.0,1.0),
+                 Bjorken_x_rescalings         = (1.0,1.0),
+                 is_a_mirrored_event          = False,
+                 # The user is free to add below any additional information that 
+                 # plays no structural role in in the MadNkLO construction. Example:
+                 # test_IR_poles will store here information such as the input_mapping used
+                 # and the convolutional mask employed for nicer printouts.
+                 additional_information       = {}
+                ):
+        """Initialize this particular event with a unique PS point
+        and a dictionary of the form:
+             ( (initial_state_flavors,), (final_state_flavors,) ) : weight
+        to specify all possible flavor configurations applying to this event.
+        For PDF counterterms and integrated collinear CT counterterms, we must
+        provide the possibility of applying a rescaling to the Bjorken x that will be
+        used to compute each of the two beams. By default this rescaling is of course one."""
+        
+        self.PS_point = PS_point.to_list()
+        self.weights_per_flavor_configurations = weights_per_flavor_configurations
+        self.requires_mirroring = requires_mirroring
+        self.is_a_mirrored_event = is_a_mirrored_event
+        self.host_contribution_definition = host_contribution_definition
+        self.counterterm_structure = counterterm_structure
+        # This can either be None or a dictionary of the format:
+        # {  'beam_one' : 'ALL' or (PDG_allowed_1, PDG_allowed_2, PDG_allowed_3, ...)
+        #    'beam_two' : 'ALL' or (PDG_allowed_1, PDG_allowed_2, PDG_allowed_3, ...)
+        # }
+        self.Bjorken_x_rescalings = Bjorken_x_rescalings
+        self.Bjorken_xs = Bjorken_xs
+        self.additional_information = additional_information
+
+        # This entry specifies which flavor has been selected for this event.
+        # None implies that it has not been selected yet.
+        self.selected_flavors = None
+        
+    def get_copy(self):
+        """ Returns a shallow copy of self, except for the 
+        'weights_per_flavor_configurations' attribute. """
+        
+        return ME7Event(
+            self.PS_point, dict(self.weights_per_flavor_configurations), 
+            requires_mirroring           = self.requires_mirroring,
+            host_contribution_definition = self.host_contribution_definition,
+            counterterm_structure        = self.counterterm_structure,
+            Bjorken_x_rescalings         = self.Bjorken_x_rescalings,
+            Bjorken_xs                   = self.Bjorken_xs,
+            is_a_mirrored_event          = self.is_a_mirrored_event,
+            additional_information       = copy.deepcopy(self.additional_information)
+        )
+        
+    def set_Bjorken_rescalings(self, *args):
+        """ Assigns the specified Bjorken x rescaling to this event."""
+        self.Bjorken_x_rescalings = tuple(args)
+
+    def set_Bjorken_xs(self, *args):
+        """ Assigns the specified Bjorken x's."""
+        self.Bjorken_xs = tuple(args)
+
+    def apply_PDF_convolution(self, pdf_accessor, all_pdf, all_mu_f_squared):
+        """ Convolute the weights_per_flavor_configurations."""
+        
+        # In order for the + distributions of the PDF counterterms and integrated
+        # collinear ISR counterterms to hit the PDF only (and not the matrix elements or
+        # observables functions), a change of variable is necessary: xb_1' = xb_1 * xi1
+        # In this case, the xi1 to factor to apply is given by the Bjorken_x_rescalings
+        # factor, which must be used both for rescaling the argument of the PDF as well
+        # as bringing a factor 1/xi for the jacobian of the change of variable.
+        for flavors in self.weights_per_flavor_configurations:
+            PDFs = 1.
+            for i, flavor in enumerate(flavors[0]):
+                PDFs *= pdf_accessor(all_pdf[i], flavor, 
+                     self.Bjorken_xs[i]*self.Bjorken_x_rescalings[i], all_mu_f_squared[i])
+                PDFs *= self.Bjorken_x_rescalings[i]
+            self.weights_per_flavor_configurations[flavors] *= PDFs
+
+    def store_information(self, key, value):
+        """ This function registers a new additional information that will be attached to this
+        event."""
+        self.additional_information[key] = value
+
+    def get_information(self, key):
+        """ Tries to fetch a particular additional information registered in this event.
+        If not present, it returns None."""
+        return self.additional_information.get(key, None)
+
+    def get_total_weight(self):
+        """ Return the total weight of this event for all flavor considerations to consider."""
+
+        summed_weight = None
+        for wgt in self.weights_per_flavor_configurations.values():
+            if summed_weight is None:
+                summed_weight = copy.copy(wgt)
+            else:
+                summed_weight += wgt
+        if summed_weight is None:
+            return 0.
+        
+        return summed_weight
+
+    def generate_mirrored_event(self):
+        """ Creates a mirror event of self if necessary."""
+        if not self.requires_mirroring or self.is_empty():
+            return None
+        
+
+        # Now that the mirroring was applied to this event, it no longer needs any
+        self.requires_mirroring = False
+        # Neither does the mirrored event we instantiate below
+        mirrored_event = self.get_copy()
+        # Set the mirrored event flag "is_a_mirrored_event" appropriately
+        mirrored_event.is_a_mirrored_event = True
+
+        # First swap initial state flavors
+        mirrored_event.weights_per_flavor_configurations = {}
+        for flavor_config, wgt in self.weights_per_flavor_configurations.items():
+            swapped_flavor_config = ( (flavor_config[0][1],flavor_config[0][0]),
+                                           flavor_config[1] )        
+            mirrored_event.weights_per_flavor_configurations[swapped_flavor_config] = wgt
+        
+        # Then swap the kinematic configurations: 
+        # a) Initial-state momenta must be swapped
+        # b) Final-state momenta must have their z-component swapped (for this to be correct
+        # however, first make sure that initial momenta are indeed on the z-axis in the c.o.m frame)
+        # Normally all events generated should be in the c.o.m frame already, but it may be
+        # that in test_IR_limits, for debugging purposes only, the option 'boost_back_to_com' was
+        # set to False, in which case we must here first *temporarily boost* it back to the c.o.m.
+        if __debug__:
+            # Two initial states
+            assert(len(self.weights_per_flavor_configurations.keys()[0][0])==2)
+            sqrts = math.sqrt((self.PS_point[0]+self.PS_point[1]).square())
+            # Assert initial states along the z axis
+            assert(abs(self.PS_point[0][1]/sqrts)<1.0e-9)
+            assert(abs(self.PS_point[1][1]/sqrts)<1.0e-9)
+            assert(abs(self.PS_point[0][2]/sqrts)<1.0e-9)
+            assert(abs(self.PS_point[1][2]/sqrts)<1.0e-9)
+        # If initial states are back to back we can directly proceed with a simple swap of the
+        # z-axis, otherwise we must first boost to the c.o.m
+        PS_point_to_swap = self.PS_point.get_copy()
+        boost_vector = None
+        if abs((self.PS_point[0]+self.PS_point[1])[3]/sqrts)>1.0e-9:
+            boost_vector = (PS_point_to_swap[0]+PS_point_to_swap[1]).boostVector()
+            for vector in PS_point_to_swap:
+                vector.boost(-boost_vector)
+        # debug: now make sure the event is back to back
+        if __debug__:
+            sqrts = math.sqrt((self.PS_point[0]+self.PS_point[1]).square())
+            assert(abs((PS_point_to_swap[0]+PS_point_to_swap[1])[3]/sqrts)<1.0e-9)
+        mirrored_event.PS_point = vectors.LorentzVectorList([ PS_point_to_swap[1],PS_point_to_swap[0] ])
+        for vector in PS_point_to_swap[2:]:
+            mirrored_event.PS_point.append(vectors.LorentzVector(
+                                               [vector[0],vector[1],vector[2],-vector[3]]))
+        # And now if we had boosted the event we must now boost it back
+        if boost_vector is not None:
+            for vector in PS_point_to_swap:
+                vector.boost(boost_vector)
+        
+        # Then swap Bjorken x's and rescaling.
+        mirrored_event.Bjorken_x_rescalings = (self.Bjorken_x_rescalings[1], self.Bjorken_x_rescalings[0])
+        mirrored_event.Bjorken_xs = (self.Bjorken_xs[1], self.Bjorken_xs[0])
+        
+        return mirrored_event
+
+    def filter_flavor_configurations(self, flavor_cut, **opts):
+        """ Apply the flavor cut on this event for each flavor configuration, removing
+        all those failings. If there is None left, this returns False."""
+        
+        new_weights_per_flavor_configurations = {}
+        for flavors, weight in self.weights_per_flavor_configurations.items():
+            if flavor_cut(self.PS_point, flavors, xb_1=self.Bjorken_xs[0], 
+                                                        xb_2=self.Bjorken_xs[1], **opts):
+                new_weights_per_flavor_configurations[flavors] = weight
+        
+        self.weights_per_flavor_configurations = new_weights_per_flavor_configurations
+        
+        return (not self.is_empty())
+
+    def apply_flavor_blind_cuts(self, flavor_blind_cut, *args, **opts):
+        """ Apply the flavor-blind cut to this event, returning False if it failed."""
+        
+        return flavor_blind_cut(self.PS_point, *args, xb_1=self.Bjorken_xs[0], 
+                                                        xb_2=self.Bjorken_xs[1], **opts)
+
+    def select_a_flavor_configuration(self):
+        """ Select a particular flavor configuration for this event which may be used
+        by the flavor-sensitive observables. The selection is performed randomly with 
+        a probability proportional to the weight of each flavor configuration."""
+
+        weights_by_flavor_configurations = self.weights_per_flavor_configurations.items()
+        index_selected=0
+        abs_flavor_wgts_sum = sum(abs(value) for value in 
+                                         self.weights_per_flavor_configurations.values())
+        running_sum = abs(weights_by_flavor_configurations[index_selected][1])
+        rv_flavor = random.random()*abs_flavor_wgts_sum
+        while rv_flavor > running_sum:
+            index_selected +=1
+            running_sum += abs(weights_by_flavor_configurations[index_selected][1])
+        self.selected_flavors = weights_by_flavor_configurations[index_selected][0]
+
+    def select_epsilon_expansion_term(self, term_name):
+        """ Select a particular EpsilonExpansion term in the weights of the flavor 
+        matrix of this event. If the weights are float already, then they will be
+        set to zero unless the term_name is 'finite'."""
+
+        if not isinstance(term_name, int):
+            is_finite_specified = (term_name.lower()=='finite')
+        for flavors, weight in self.weights_per_flavor_configurations.items():
+            if isinstance(weight, float):
+                if not is_finite_specified:
+                    del self.weights_per_flavor_configurations[flavors]
+            else:
+                self.weights_per_flavor_configurations[flavors] = weight.get_term(term_name)
+
+    def convolve_flavors(self, flavor_matrix, leg_index, initial_state=True):
+        """ Convolves the flavor matrix in argument (of the form: 
+            {   start_flavor_a :  {  end_flavors_1 : wgt_x,
+                                     end_flavors_2 : wgt_y,
+                                     [...]
+                                 },
+                start_flavor_b :  {  end_flavors_1 : wgt_z,
+                                     end_flavors_2 : wgt_w,
+                                     [...]
+                                 },
+                [...]
+            }
+            where 'wgt_x' can be EpsilonExpansion instances.
+            and modifies self.weights_per_flavor_configurations with the convolved result.
+            leg index specifies which leg must be convolved.
+               (e.g. beam #1 correpsonds to leg_index=0 and initial_state = True.
+            Note that end_flavors is a tuple of flavor with identical matrix elements (such as in q -> q g, which is flavor independent)
+        """
+            
+        def substitute_flavor(flavor_config, new_flavor):
+            """ Substitute in the flavor config the convoluted flavor with the one in 
+            argument and returns the corresponding new flavor configuration as a two tuples,
+            for the initial and final states respectively."""
+            return ( 
+                tuple( (pdg if i!=leg_index else new_flavor) 
+                       for i, pdg in enumerate(flavor_config[0]) ) if initial_state else flavor_config[0],
+                tuple( (pdg if i!=leg_index else new_flavor) 
+                       for i, pdg in enumerate(flavor_config[1]) ) if (not initial_state) else flavor_config[1]
+            )
+            
+        if len(flavor_matrix)==0:
+            # shortcut in case an empty convolutional flavor matrix is specified which can happen
+            # if the beam currents are zero but don't have the attribute is_zero = True
+            self.weights_per_flavor_configurations = {}
+            return
+
+        new_flavor_configurations = {}
+        for flavor_config, wgt in self.weights_per_flavor_configurations.items():
+            start_flavor = flavor_config[0][leg_index] if initial_state else flavor_config[1][leg_index]
+            if start_flavor in flavor_matrix:
+                new_flavor_configs = []
+                for end_flavors, matrix_wgt in flavor_matrix[start_flavor].items():
+                    new_flavor_configs.extend([
+                    ( substitute_flavor(flavor_config, end_flavor), 
+                                base_objects.EpsilonExpansion(matrix_wgt)*wgt )
+                                                           for end_flavor in end_flavors ])
+
+                for new_flavor_config, new_wgt in new_flavor_configs:
+                    try:
+                        new_flavor_configurations[new_flavor_config] += new_wgt
+                    except KeyError:
+                        new_flavor_configurations[new_flavor_config] = new_wgt
+        
+        # Now assign the newly create flavor configurations
+        self.weights_per_flavor_configurations = new_flavor_configurations
+
+    def is_empty(self):
+        """
+        Check if the weight vector (weights_per_flavor_configurations) is an empty dictionary.
+        For now does not check if all weights are zero
+        :return: bool
+        """
+        return len(self.weights_per_flavor_configurations) == 0
+
+    def __add__(self, other):
+        """ overload the '+' operator."""
+        new_event = self.get_copy()
+        return new_event.__iadd__(other)
+            
+    def __iadd__(self, other):
+        """ overload the '+=' operator."""
+        if __debug__: assert(self.requires_mirroring == other.requires_mirroring)
+        if __debug__: assert(self.PS_point == other.PS_point)
+        if __debug__: assert(self.Bjorken_x_rescalings  == other.Bjorken_x_rescalings)
+        if __debug__: assert(self.Bjorken_xs  == other.Bjorken_xs)
+        for flavor_configuration, wgt in other.weights_per_flavor_configurations.items():
+            try:
+                self.weights_per_flavor_configurations[flavor_configuration] += wgt
+            except KeyError:
+                self.weights_per_flavor_configurations[flavor_configuration] = wgt
+        return self
+
+    def __mul__(self, multiplier):
+        """ overload the '*' operator with a float or an EpsilonExpansion. """
+        new_event = self.get_copy()
+        return new_event.__imul__(multiplier)
+    
+    def __imul__(self, multiplier):
+        """ overload the '*=' operator with a float or an EpsilonExpansion. """
+        if __debug__: assert( isinstance(multiplier, (float, base_objects.EpsilonExpansion)) )
+        for flavor_configuration, wgt in self.weights_per_flavor_configurations.items():
+            try:
+                self.weights_per_flavor_configurations[flavor_configuration] = multiplier*wgt
+            except KeyError:
+                self.weights_per_flavor_configurations[flavor_configuration] = multiplier*wgt
+        return self
+
+    def __str__(self):
+        return self.nice_string()
+
+    def nice_string(self):
+        """ Returns a nice and short string representation of this event."""
+        BLUE = misc.bcolors.BLUE
+        GREEN = misc.bcolors.GREEN
+        ENDC = misc.bcolors.ENDC
+        res = []
+        if self.counterterm_structure is None:
+            res.append("%s%svent from %s contribution '%s'%s%s:"%(
+                GREEN,
+                'E' if not self.is_a_mirrored_event else 'Mirrored e',
+                self.host_contribution_definition.correction_order,
+                self.host_contribution_definition.short_name(),
+                ' (requires mirroring)' if self.requires_mirroring else '',
+                ENDC))
+        else:
+            if isinstance(self.counterterm_structure, list):
+                all_ct_strucs = self.counterterm_structure
+            else:
+                all_ct_strucs = [self.counterterm_structure,]
+            
+            counterterm_structure_str_elems = []
+            for ct_struct, all_resolved_PDGs in all_ct_strucs:
+                # We show only one representative resolved_PDGs structure: the first one.
+                if isinstance(all_resolved_PDGs, dict):
+                    representative_resolved_PDGs = all_resolved_PDGs.keys()[0]
+                else:
+                    representative_resolved_PDGs = all_resolved_PDGs[0]                    
+                counterterm_structure_str_elems.append('%s@%s'%(str(ct_struct), 
+                                        str(representative_resolved_PDGs).replace(' ','')))
+            
+            if len(all_ct_strucs)>1:
+                counterterm_structure_str = '( %s )'%(' + '.join(counterterm_structure_str_elems))
+            else:
+                counterterm_structure_str = counterterm_structure_str_elems[0]
+
+            res.append('%s%sounterterm event from limit%s %s of %s contribution %s%s'%(
+                GREEN,
+                'C' if not self.is_a_mirrored_event else 'Mirrored c',
+                's' if isinstance(self.counterterm_structure, list) and len(self.counterterm_structure)>1 else '',
+                counterterm_structure_str,
+                self.host_contribution_definition.correction_order,
+                self.host_contribution_definition.short_name(),
+                ENDC))
+            
+        res.append('%s  Kinematic configuration:%s'%(BLUE, ENDC))
+        res.extend('     %s'%line for line in str(self.PS_point).split('\n'))
+        if not any(bs is None for bs in self.Bjorken_x_rescalings):
+            res.append("     Bjorken x's scalings: %s"%(', '.join('%.16e'%bs for bs in self.Bjorken_x_rescalings)))
+        if not any(bs is None for bs in self.Bjorken_xs):
+            res.append("     Bjorken x's         : %s"%(', '.join('%.16e'%bs for bs in self.Bjorken_xs)))
+        res.append('%s  Flavors configurations:%s'%(BLUE, ENDC))
+        for flavors in sorted(self.weights_per_flavor_configurations.keys()):
+            wgt = self.weights_per_flavor_configurations[flavors]
+            res.append('%s  |  %s'%('%-25s'%('     %s -> %s'%(
+                ' '.join('%s'%pdg for pdg in flavors[0]),
+                ' '.join('%s'%pdg for pdg in flavors[1]))), 
+                wgt.__str__(format='.16e') if isinstance(wgt,base_objects.EpsilonExpansion) 
+                                                                         else '%.16e'%wgt ))
+        if not self.selected_flavors is None:
+            res.append('%s  Selected flavors configuration : %s%s -> %s'%(BLUE,  ENDC,
+             ' '.join('%s'%pdg for pdg in self.selected_flavors[0]), 
+             ' '.join('%s'%pdg for pdg in self.selected_flavors[1]) ))
+        
+        if len(self.additional_information)>0:
+            res.append('%s  Additional information:%s'%(BLUE,  ENDC))            
+            for key, value in self.additional_information.items():
+                res.append('    %s : %s'%(str(key), str(value)))
+
+        return '\n'.join(res)
+
+    def counterterm_structure_short_string(self):
+        """ Return a short string specifying the counterterm structure(s) of this event."""
+
+        if self.counterterm_structure is None:
+            if not self.is_a_mirrored_event:
+                return 'Event'
+            else:
+                return '<->Event'
+
+        event_str = str(self.counterterm_structure)
+        if isinstance(self.counterterm_structure, list):
+            event_ct_structs = self.counterterm_structure
+        else:
+            event_ct_structs = [self.counterterm_structure,]
+        
+        event_str_elems = []
+        for ct_struct, all_resolved_PDGs in event_ct_structs:
+            # We show only one representative resolved_PDGs structure: the first one.
+            if isinstance(all_resolved_PDGs, dict):
+                representative_resolved_PDGs = all_resolved_PDGs.keys()[0]
+            else:
+                representative_resolved_PDGs = all_resolved_PDGs[0]
+            str_ct_struct = str(ct_struct)
+            # Clean-up of the embedding overall parenthesis for the short string
+            if str_ct_struct.startswith("("):
+                str_ct_struct = str_ct_struct[1:]
+            if str_ct_struct.endswith(",)"):
+                str_ct_struct = str_ct_struct[:-2]                
+            event_str_elems.append('%s@%s'%(str_ct_struct, 
+                                    str(representative_resolved_PDGs).replace(' ','')))
+        
+        if len(event_ct_structs)>1:
+            event_str = '( %s )'%(' + '.join(event_str_elems))
+        else:
+            event_str = event_str_elems[0]
+        input_mapping = self.get_information('input_mapping')
+        if input_mapping is not None:
+             event_str += 'x{%s}'%(','.join('%d:%d'%(k,input_mapping[k]) for k in
+                                                        sorted(input_mapping.keys()) ))                 
+        if self.is_a_mirrored_event:
+            event_str = '<->%s'%event_str
+        beam_convolution_masks = self.get_information('beam_convolution_masks') 
+        if beam_convolution_masks is not None:
+            for (beam_name, beam_short_name) in [('beam_one','F1'),('beam_two','F2')]:
+                if beam_convolution_masks[beam_name] != 'ALL':
+                    event_str += '@%s<-(%s)'%(beam_short_name,'|'.join('%d'%pdg for pdg in
+                                                    beam_convolution_masks[beam_name]))
+        return event_str
+
+class ME7EventList(list):
+    """ A class handling a collection of ME7Events, with helper function to 
+    collectively act on them. This customized list is mainly intended to
+    store a list of ME7Events that all originate from the same integrand 
+    evaluation call."""
+    
+    def __init__(self, *args, **opts):
+        super(ME7EventList,self).__init__(*args, **opts)
+
+    def apply_PDF_convolution(self, *args,**opts):
+        """ Convolute the weights_per_flavor_configurations of each event 
+        with the PDF luminosity."""
+        for event in self:
+            event.apply_PDF_convolution(*args, **opts)
+
+    def filter_flavor_configurations(self, flavor_cut, **opts):
+        """ Apply the flavor cut on each event in this list, removing those with
+        no valid flavor configuration left. This returns false if there is no events left."""
+        
+        new_event_list = []
+        for event in self:
+            if event.filter_flavor_configurations(flavor_cut, **opts):
+                new_event_list.append(event)
+        self[:] = new_event_list
+
+        return len(self) != 0
+
+    def filter_with_flavor_blind_cuts(self, cut_function, *args, **opts):
+        """ Apply the kinematic flavor-blind cut on each event in this list, removing those with
+        failing the cut. This returns false if there is no events left."""
+        
+        new_event_list = []
+        for event in self:
+            if event.apply_flavor_blind_cuts(cut_function, *args, **opts):
+                new_event_list.append(event)
+        self[:] = new_event_list
+
+        return len(self) != 0
+    
+    def get_total_weight(self):
+        """ Return the total weight over all events in this list."""
+        if len(self) > 0:
+            return sum(event.get_total_weight() for event in self)
+        else:
+            return 0.
+
+    def select_a_flavor_configuration(self):
+        """ Select a particular flavor configuration to be used in the flavor-sensitive
+        observables for each event. """
+        
+        for event in self:
+            event.select_a_flavor_configuration()
+    
+    def select_epsilon_expansion_term(self, term_name):
+        """ Select a particular EpsilonExpansion term in the weights of the flavor 
+        matrix of these events. If the weights are float already, then they will be
+        set to zero unless the term_name is 'finite'."""
+        
+        for event in self:
+            event.select_epsilon_expansion_term(term_name)
+    
+    def apply_observables(self, observable_list, integrator_weight=1.):
+        """ Applies the observable list to the entire set of events of this list."""
+
+        for event in self:
+            observable_list.apply_observables(event, integrator_weight)
+
+    def generate_mirrored_events(self):
+        """ Creates the mirror configurations if necessary."""
+        for event in list(self):
+            mirrored_event = event.generate_mirrored_event()
+            if mirrored_event:
+                self.append(mirrored_event)
+
+    def __str__(self):
+        return self.nice_string()
+
+    def nice_string(self):
+        """ Returns a nice string representation of this list of event."""
+        
+        BLUE = misc.bcolors.BLUE
+        GREEN = misc.bcolors.GREEN
+        ENDC = misc.bcolors.ENDC
+        
+        n_events = len(self)
+        res=['%s>> Start of a list of %d event%s:%s'%(
+                                        GREEN, n_events, 's' if n_events > 1 else '',ENDC)]
+        res.append('')
+        for i_event, event in enumerate(self):
+             res.append('#%d '%(i_event+1) + event.nice_string())
+             res.append('')
+        res.append('%s>> End of a list of %d event%s.%s'%(
+                                        GREEN, n_events, 's' if n_events > 1 else '',ENDC))
+        return '\n'.join(res)
 
 #===============================================================================
 # ME7Integrand
@@ -98,6 +642,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
     # Maximum size of the cache for PDF calls
     PDF_cache_max_size = 1000
     
+    FROZEN_DIMENSIONS = {}#{'x_1': 0.13, 'x_2': 0.26, 'x_3': 0.35}
+
     def __new__(cls, model, 
                      run_card,
                      contribution_definition,
@@ -108,40 +654,45 @@ class ME7Integrand(integrands.VirtualIntegrand):
                      ME7_configuration, **opt):
         all_args = [model, run_card, contribution_definition, processes_map,
                     all_MEAccessors, ME7_configuration ]
+
         if cls is ME7Integrand:
             target_type = 'Unknown'
-            if contribution_definition.correction_order == 'LO':
-                if contribution_definition.n_loops == 0 and \
-                  contribution_definition.n_unresolved_particles == 0:
-                   target_type = 'Born'
-                elif contribution_definition.n_loops == 1 and \
-                  contribution_definition.n_unresolved_particles == 0:
-                   target_type = 'LoopInduced_Born'
-            elif contribution_definition.correction_order == 'NLO':
-                if contribution_definition.n_loops == 1 and \
-                   contribution_definition.n_unresolved_particles == 0:
+            correction_order = contribution_definition.correction_order.count('N')
+            beam_factorization_count = 0
+            if contribution_definition.is_beam_active('beam_one'):
+                beam_factorization_count += 1
+            if contribution_definition.is_beam_active('beam_two'):
+                beam_factorization_count += 1
+            n_loops = contribution_definition.n_loops
+            n_unresolved_particles = contribution_definition.n_unresolved_particles
+            # Beam factorization contributions are automatically of type RV because
+            # they must both generate local counterterms (for the form factors) and
+            # accept integrated ISR ones.
+            if beam_factorization_count > 0:
+                if contribution_definition.correlated_beam_convolution:
+                    target_type = 'BeamSoft'
+                else:
+                    target_type = 'RealVirtual'                          
+            elif n_loops == 0 and n_unresolved_particles == 0:
+                target_type = 'Born'
+            elif n_loops == 1 and n_unresolved_particles == 0:
+                if correction_order < 1:
+                    target_type = 'LoopInduced_Born'
+                else:
                     target_type = 'Virtual'
-                elif contribution_definition.n_loops == 0 and \
-                     contribution_definition.n_unresolved_particles == 1:
-                    target_type = 'SingleReals'
-            elif contribution_definition.correction_order == 'NNLO':
-                if contribution_definition.n_loops == 0 and \
-                   contribution_definition.n_unresolved_particles == 2:
-                    target_type = 'DoubleReals'            
-                else:
-                    raise MadGraph5Error("Some NNLO type of integrands are not implemented yet.")   
-            elif contribution_definition.correction_order == 'NNNLO':
-                if contribution_definition.n_loops == 0 and \
-                   contribution_definition.n_unresolved_particles == 3:
-                    target_type = 'TripleReals'            
-                else:
-                    raise MadGraph5Error("Some NNNLO type of integrands are not implemented yet.") 
+            elif n_loops == 0 and n_unresolved_particles == 1:
+                target_type = 'SingleReals'
+            elif n_loops == 0 and n_unresolved_particles == 2:
+                target_type = 'DoubleReals'
+            elif n_loops == 0 and n_unresolved_particles == 3:
+                target_type = 'TripleReals'                
             else:
-                target_type = 'Unknown'
+                raise MadGraph5Error("Some %s type of ME7Integrands are not implemented yet."%
+                                                  contribution_definition.correction_order)
             target_class = ME7Integrand_classes_map[target_type]
 
             if not target_class:
-                raise MadGraph5Error("Could not determine the class of integrand of type '%s' to be added for"%target_type+
+                raise MadGraph5Error("Could not determine the class of ME7Integrand of type '%s' to be added for"%target_type+
                                      " the contribution definiton:\n%s"%str(contribution_definition.nice_string()))
 
             return super(ME7Integrand, cls).__new__(target_class, *all_args, **opt)
@@ -176,6 +727,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         
         # The original ContributionDefinition instance at the origin this integrand 
         self.contribution_definition    = contribution_definition
+
         # The process map of the Contribution instance at the origin of this integrand.
         # The format is identical to the one generated from the function 'get_process_map' of a contribution.
         self.processes_map              = processes_map
@@ -197,13 +749,17 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # This counter is incremented for each time self.__call__ is called and reinitialized in self.synchronize
         self.n_observable_calls = 0
 
-    def nice_string(self):
-        """ For now simply use the contribution_definition and class name for a nice readable representation."""
-        
-        res = []
-        res.append("Instance of class '%s', with the following contribution definition:"%(self.__class__.__name__))
-        res.append('\n'.join(' > %s'%line for line in self.contribution_definition.nice_string().split('\n')))
-        return '\n'.join(res)
+        # Store a flavor cut definition, which the ME7 interface can overwrite. This will be used
+        # by the function pass_flavor_sensitive cut and it is always None by default.
+        self.flavor_cut_function = None 
+
+    def has_integrated_counterterms(self):
+        """ A property of the class, indicating whether it can contain integrated counterterms."""
+        return False
+
+    def has_local_counterterms(self):
+        """ A property of the class, indicating whether it can contain local counterterms."""
+        return False
 
     def get_additional_nice_string_printout_lines(self):
         """ Additional printout information for nice_string. 
@@ -218,12 +774,18 @@ class ME7Integrand(integrands.VirtualIntegrand):
         return GREEN+'  %s'%defining_process.nice_string(print_weighted=False).\
                                                                replace('Process: ','')+ENDC
 
+    def get_short_name(self):
+        """ Returns the short-name for this integrand, typically extracted from the one
+        of the contribution definition."""
+        return self.contribution_definition.short_name()
+
     def nice_string(self, format=0):
         """ Nice string representation of self."""
         BLUE = '\033[94m'
         GREEN = '\033[92m'
         ENDC = '\033[0m'
-        res = ['%-30s:   %s'%('ME7Integrand_type',type(self))]
+        res = ['< %s%s%s >'%(BLUE,self.get_short_name(),ENDC)]
+        res.append('%-30s:   %s'%('ME7Integrand_type',type(self)))
         res.extend([self.contribution_definition.nice_string()])
         if not self.topologies_to_processes is None:
             res.append('%-30s:   %d'%('Number of topologies', 
@@ -244,6 +806,155 @@ class ME7Integrand(integrands.VirtualIntegrand):
             
         return '\n'.join(res).encode('utf-8')
 
+    def __str__(self):
+        return self.nice_string()
+
+    @staticmethod
+    def build_flavor_cut_function(flavor_cut_string):
+        """ Given a string defining a flavor cut function specification (taken from the run
+        card), build here the flavor cut function to apply at run-time. Example of a complicated
+        cut function:
+          
+          "{
+            'R':'* 21 > (21,2)x3 * | * 21 > (21,3)x3 *',
+            'V':'21 (-2,2) > 21x2 (range(1,7)+range(-1,-7,-1))x5
+           }"
+
+          Means that the real must have:
+            a) anything as first incoming particle and a gluon the second incoming particle
+            b) Three 'gluons or up quarks' in the final state  + anything
+               *or* Three 'gluons or strange quarks' in the final state  + anything
+          
+          Means that the virtual must have:
+            a) a gluon and a 'up quark or anti-up quark' as first and second particle
+            b) 2 gluons and 5 quarks or antiquarks *exactly* (all particles must fit in one category at least)
+            
+          Notice that one can also speficy just a string, in which case the cut will apply
+          to all contributions.
+    
+        """
+
+        # First check if the format is a dictionary that specifies a different function
+        # for different integrand or if it applies to all integrands.
+        try:
+            flavor_func_dic = eval(flavor_cut_string)
+            is_a_dict = isinstance(flavor_func_dic, dict)
+        except:
+            is_a_dict = False
+        if is_a_dict:
+            if self.get_short_name() in flavor_func_dic:
+                flavor_cut_string = flavor_func_dic[self.get_short_name()]
+            else:
+                return None
+        
+        if flavor_cut_string.lower() == 'none':
+            return None
+        if flavor_cut_string.lower() == 'hardcoded':
+            return 'hardcoded'
+        
+        patterns = [p.strip() for p in flavor_cut_string.split('|')]
+        processed_patterns = []
+        for pattern in patterns:
+            processed_pattern = {}
+            try:
+                initial_state_pattern, final_state_pattern = pattern.split('>')
+                initial_state_pattern = initial_state_pattern.strip()
+                final_state_pattern = final_state_pattern.strip()
+            except:
+                raise MadEvent7Error('Malformed flavor-cut pattern: %s.'%pattern)
+            initial_state_patterns = [isp.strip() for isp in re.split(r'\s+',initial_state_pattern)]
+            processed_pattern['initial_states'] = []
+            for isp in initial_state_patterns:
+                if isp=='*':
+                    processed_pattern['initial_states'].append(None)
+                else:
+                    try:
+                        specifier = eval(isp)
+                    except:
+                        raise MadEvent7Error('Malformed flavor-cut pattern: %s.'%isp)
+                    if isinstance(specifier,int):
+                        processed_pattern['initial_states'].append((specifier,))
+                    elif isinstance(specifier, (tuple, list)):
+                        processed_pattern['initial_states'].append(tuple(specifier))
+                    else:
+                        raise MadEvent7Error('Malformed flavor-cut pattern: %s.'%isp)
+            processed_pattern['final_states'] = []
+            processed_pattern['needs_exact_final_states'] = True
+            final_state_patterns = [fsp.strip() for fsp in re.split(r'\s+',final_state_pattern)]
+            for fsp in final_state_patterns:
+                try:
+                    matcher, multiplier = fsp.split('x')
+                except:
+                    multiplier = '1'
+                    matcher = fsp
+                try:
+                    multiplier = int(multiplier.strip())
+                except:
+                    raise MadEvent7Error('Malformed flavor-cut pattern: %s.'%multiplier)
+                matcher = matcher.strip()
+                if matcher=='*':
+                    processed_pattern['needs_exact_final_states'] = False
+                else:
+                    try:
+                        specifier = eval(matcher)
+                    except:
+                        raise MadEvent7Error('Malformed flavor-cut pattern: %s.'%matcher)
+                    if isinstance(specifier,int):
+                        processed_pattern['final_states'].append(((specifier,),multiplier))
+                    elif isinstance(specifier, (tuple, list)):
+                        processed_pattern['initial_states'].append((tuple(specifier),multiplier))
+                    else:
+                        raise MadEvent7Error('Malformed flavor-cut pattern: %s.'%matcher)
+            processed_patterns.append(processed_pattern)
+            
+        # Ok, now that we've processed the patterns to consider, we can create the function
+        # that checks it:
+        def pass_flavor_cut_func(flavor_config):
+            initial_pdgs, final_pdgs = flavor_config[0], flavor_config[1]
+            # Loop over all capturing patterns
+            for pattern in processed_patterns:
+                # First check the initial states
+                if len(initial_pdgs)!=len(pattern['initial_states']):
+                    continue
+                must_continue = False
+                for i, pdg in enumerate(initial_pdgs):
+                    if (pattern['initial_states'][i] is not None) and \
+                                    (pdg not in pattern['initial_states'][i]):
+                        must_continue = True
+                        break
+                if must_continue:
+                    continue
+                
+                # Then check the final states.
+                # First make sure all constraints specified by the user apply
+                must_continue = False
+                for (matcher, multiplier) in pattern['final_states']:
+                    if len([1 for pdg in final_pdgs if pdg in matcher])!=multiplier:
+                        must_continue = True
+                        break
+                if must_continue:
+                    continue
+                # And if 'needs_exact_final_states' then also make sure that all final
+                # states belong in at least one category
+                if pattern['needs_exact_final_states']:
+                    must_continue = False
+                    for pdg in final_pdgs:
+                        if not any(pdg in matcher for (matcher, multiplier) in pattern['final_states']):
+                            must_continue = True
+                            break
+                    if must_continue:
+                        continue
+                
+                # If we haven't "continued" by now, then it means that the pattern was
+                # capturing and we can return True
+                return True
+                
+            # No pattern matched upt to this point so we must return False
+            return False
+            
+        # We can now return the flavor cut function created
+        return pass_flavor_cut_func
+                
     def synchronize(self, model, run_card, ME7_configuration):
         """ Synchronize this integrand with the most recent run_card and model."""
 
@@ -257,6 +968,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
         # A RunCardME7 instance, properly initialized with the values of the run_card.dat of this run
         self.run_card                   = run_card
+        
+        self.flavor_cut_function = ME7Integrand.build_flavor_cut_function(self.run_card['flavor_cuts'])
         
         # Set external masses
         all_processes = [p[0] for p in self.processes_map.values()]
@@ -279,22 +992,34 @@ class ME7Integrand(integrands.VirtualIntegrand):
                                                             (self.run_card['lpp1'], self.run_card['lpp2']))
         
         # Always initialize the basic flat PS generator. It can be overwritten later if necessary.
+        simplified_beam_types = (
+            0 if self.contribution_definition.beam_factorization['beam_one'] is None else 1,
+            0 if self.contribution_definition.beam_factorization['beam_two'] is None else 1,
+        )
         self.phase_space_generator = phase_space_generators.FlatInvertiblePhasespace(
             self.masses[0], self.masses[1],
-            beam_Es    = (self.run_card['ebeam1'], self.run_card['ebeam2']),
-            beam_types = (self.run_card['lpp1'], self.run_card['lpp2']),
+            beam_Es             = (self.run_card['ebeam1'], self.run_card['ebeam2']),
+            beam_types          = simplified_beam_types,
+            is_beam_factorization_active = 
+                        ( self.contribution_definition.is_beam_active('beam_one'),
+                          self.contribution_definition.is_beam_active('beam_two') ),
+            correlated_beam_convolution = self.contribution_definition.correlated_beam_convolution
         )
 
         # Add a copy of the PS generator dimensions here.
         # Notice however that we could add more dimensions pertaining to this integrand only, and PS generation.
-        # This is in particular true for discrete integration dimension like sectors, helicities, etc... 
-        self.set_dimensions(integrands.DimensionList(self.phase_space_generator.dimensions))
+        # This is in particular true for discrete integration dimension like sectors, helicities, etc...
+        integrand_dimensions = integrands.DimensionList(self.phase_space_generator.dimensions)
+
+        # Now remove the frozen dimensions from the list of continuous ones.
+        integrand_dimensions = integrands.DimensionList(
+                            d for d in integrand_dimensions if d.name not in self.FROZEN_DIMENSIONS)
+        self.set_dimensions(integrand_dimensions)
         self.dim_ordered_names = [d.name for d in self.get_dimensions()]
         self.dim_name_to_position = dict((name,i) for i, name in enumerate(self.dim_ordered_names))
         self.position_to_dim_name = dict((v,k) for (k,v) in self.dim_name_to_position.items())
 
         self.collider_energy = self.run_card['ebeam1'] + self.run_card['ebeam2']
-        
         # Set the seed
         if self.run_card['iseed'] > 0:
             random.seed(self.run_card['iseed'])
@@ -462,8 +1187,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
         return False
 
-    def find_counterterms_matching_regexp(
-        self, counterterms, limit_pattern=None):
+    def find_counterterms_matching_regexp(self,
+                                    counterterms, limit_pattern=None, integrated_CT=False):
         """ Find all mappings that match a particular limits given in argument
         (takes a random one if left to None). This function is placed here given that
         it can be useful for both the ME7Integrnd_V and ME7_integrand_R."""
@@ -471,7 +1196,11 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # First select only the counterterms which are not pure matrix elements 
         # (i.e. they have singular structures) and also exclude here soft-collinear 
         # counterterms since they do not have an approach limit function.
-        selected_counterterms = [ ct for ct in counterterms if ct.is_singular() ]
+        if not integrated_CT:
+            selected_counterterms = [ ct for ct in counterterms if ct.is_singular() ]
+        else:
+            selected_counterterms = [ ct for ct in counterterms if ct['integrated_counterterm'].is_singular() ]
+
         if len(selected_counterterms)==0:
             return []
         
@@ -499,13 +1228,18 @@ class ME7Integrand(integrands.VirtualIntegrand):
                     list_limit_pattern = [limit_pattern]
                 new_list_limit_pattern = []
                 for limit_pattern in list_limit_pattern:
-                    if not limit_pattern.startswith('('):
+                    if not integrated_CT and not limit_pattern.startswith('('):
                         # If not specified as a raw string, we take the liberty of adding 
                         # the enclosing parenthesis.
                         limit_pattern = '(%s,)' % limit_pattern
+                    elif integrated_CT and not limit_pattern.startswith('['):
+                        # If not specified as a raw string, we take the liberty of adding 
+                        # the enclosing parenthesis.
+                        limit_pattern = '[%s,]' % limit_pattern                    
                     # We also take the liberty of escaping the parenthesis
                     # since this is presumably what the user expects.
                     limit_pattern = limit_pattern.replace('(', '\(').replace(')', '\)')
+                    limit_pattern = limit_pattern.replace('[', '\[').replace(']', '\]')
                     new_list_limit_pattern.append(limit_pattern)
                 limit_pattern_re = re.compile(r'^(%s)$'%(
                     '|'.join(limit_pattern for limit_pattern in new_list_limit_pattern) ))    
@@ -515,25 +1249,46 @@ class ME7Integrand(integrands.VirtualIntegrand):
             returned_counterterms.append(random.choice(selected_counterterms))
         else:
             for counterterm in selected_counterterms:
-                if re.match(limit_pattern_re, str(counterterm)):
+                ct = counterterm if not integrated_CT else counterterm['integrated_counterterm']
+                if re.match(limit_pattern_re, str(ct)):
                     returned_counterterms.append(counterterm)
 
         return returned_counterterms
 
-    def pass_flavor_blind_cuts(self, PS_point, process_pdgs, n_jets_allowed_to_be_clustered = None):
+    def pass_all_cuts(self, PS_point, flavors, 
+                          n_jets_allowed_to_be_clustered = None, xb_1 = None, xb_2 = None):
+        """ Calls both the flavor-blind and flavor-sensitive cuts."""
+        return self.pass_flavor_blind_cuts(PS_point, flavors, 
+                    n_jets_allowed_to_be_clustered = n_jets_allowed_to_be_clustered, 
+                    xb_1 = xb_1, xb_2 = xb_2 ) and \
+                self.pass_flavor_sensitive_cuts(PS_point, flavors, 
+                    xb_1 = xb_1, xb_2 = xb_2 )
+
+    def pass_flavor_blind_cuts(self, PS_point, process_pdgs, 
+                          n_jets_allowed_to_be_clustered = None, xb_1 = None, xb_2 = None):
         """ Implementation of a minimal set of isolation cuts. This can be made much nicer in the future and 
         will probably be taken outside of this class so as to ease user-specific cuts, fastjet, etc...
         We consider here a two-level cuts system, this first one of which is flavour blind.
         The 'n_jets_allowed_to_be_clustered' is an option that allows to overwrite the
         maximum number of jets that can be clustered and which is by default taken to be:
             self.contribution_definition.n_unresolved_particles 
-        This is useful when using this function to apply cuts to the reduced PS of the CTs."""
+        This is useful when using this function to apply cuts to the reduced PS of the CTs.
+        Finally, the options 'xb_1' and 'xb_2' allow to specify the boost bringing
+        the PS point back from the c.o.m. to the lab frame, necessary if some cuts are not
+        invariant under a boost along the beam axis."""
+
         debug_cuts = False
         # This is a temporary function anyway which should eventually be replaced by a full
         # fledged module for handling generation level cuts, which would also make use of fjcore.
         # return True
 
         from madgraph.integrator.vectors import LorentzVectorDict, LorentzVectorList, LorentzVector
+        
+        # If the cuts depend on the boost to the lab frame in case of hadronic collision
+        # then the quantity below can be used:
+#        boost_vector_to_lab_frame = None
+#        if (xb_1 is not None) and (xb_2 is not None) and (xb_1, xb_2)!=(1.,1.):
+#            boost_vector_to_lab_frame = PS_point.get_boost_vector_to_lab_frame(xb_1, xb_2)
         
         # These cuts are not allowed to resolve flavour, but only whether a particle is a jet or not
         def is_a_jet(pdg):
@@ -554,6 +1309,19 @@ class ME7Integrand(integrands.VirtualIntegrand):
         if n_jets_allowed_to_be_clustered is None:
             n_jets_allowed_to_be_clustered = self.contribution_definition.n_unresolved_particles
 
+        # The PS point in input is sometimes provided as a dictionary or a flat list, but
+        # we need it as a flat list here, so we force the conversion
+        if isinstance(PS_point, LorentzVectorDict):
+            PS_point = PS_point.to_list()
+        elif not isinstance(PS_point, LorentzVectorList):
+            PS_point = LorentzVectorList(LorentzVector(v) for v in PS_point)    
+
+        #for i, p in enumerate(PS_point[self.n_initial:]):
+        #    if process_pdgs[1][i]==25:
+        #        assert((p.square()-125.0**2)<0.1)
+        #        if p.pt() < 400.0:
+        #            return False
+
         ###################################################################################
         # JET CLUSTERING AND CUTS
         ###################################################################################
@@ -572,13 +1340,6 @@ class ME7Integrand(integrands.VirtualIntegrand):
                 raise MadEvent7Error("Fast-jet python bindings are necessary for integrating"+
                              " real-emission type of contributions. Please install pyjet.")
 
-        # The PS point in input is sometimes provided as a dictionary or a flat list, but
-        # we need it as a flat list here, so we force the conversion
-        if isinstance(PS_point, LorentzVectorDict):
-            PS_point = PS_point.to_list()
-        elif not isinstance(PS_point, LorentzVectorList):
-            PS_point = LorentzVectorList(LorentzVector(v) for v in PS_point)    
-
         if PYJET_AVAILABLE and drjj_cut > 0.:
 
             # First identify all partonic jets
@@ -592,7 +1353,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
             # Cluster them with fastjet
             this_event = np.array(jets_list,dtype=np.dtype(
                     [('E', 'f8'), ('px', 'f8'), ('py', 'f8'), ('pz', 'f8'), ('id', 'i8')]) )
-            sequence = pyjet.cluster(this_event, R=drjj_cut, p=-1, ep=True)
+            sequence = pyjet.cluster(this_event, R=drjj_cut, p=-1, ep=True, algo='genkt')
             jets = sequence.inclusive_jets()
 
 #            misc.sprint('Process flavors: %s'%str(process_pdgs))
@@ -714,14 +1475,28 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # All cuts pass, therefore return True
         return True
 
-    def pass_flavor_sensitive_cuts(self, PS_point, flavors):
+    def pass_flavor_sensitive_cuts(self, PS_point, flavors, xb_1 = None, xb_2 = None):
         """ Implementation of a minimal set of isolation cuts. This can be made much nicer in the future and 
         will probably be taken outside of this class so as to ease user-specific cuts, fastjet, etc...
-        We consider here a two-level cuts system, this second one of which is flavour sensitive."""
+        We consider here a two-level cuts system, this second one of which is flavour sensitive.
+        The xb_1 and xb_2 Bjorken x's can be specified, which can be useful in cases where
+        the cut depends on quantities not invariant under boosts along the beam axis. """
 
-        # None implemented yet
-        return True
-    
+        # None implemented by default
+        if self.flavor_cut_function is None:
+            return True
+        elif callable(self.flavor_cut_function):
+            return self.flavor_cut_function(flavors)
+        elif self.flavor_cut_function.lower() != 'hardcoded':
+            raise MadEvent7Error("Flavor cut function '%s' not reckognized."%self.flavor_cut_function)
+            
+
+        # If the cuts depend on the boost to the lab frame in case of hadronic collision
+        # then the quantity below can be used:
+#        boost_vector_to_lab_frame = None
+#        if (xb_1 is not None) and (xb_2 is not None) and (xb_1, xb_2)!=(1.,1.):
+#            boost_vector_to_lab_frame = PS_point.get_boost_vector_to_lab_frame(xb_1, xb_2)
+
         debug_cuts = False
         from madgraph.integrator.vectors import LorentzVectorDict, LorentzVectorList, LorentzVector
 
@@ -735,7 +1510,17 @@ class ME7Integrand(integrands.VirtualIntegrand):
         if debug_cuts: logger.debug( "Processing flavor-sensitive cuts for flavors %s and PS point:\n%s"%(
             str(flavors), LorentzVectorList(PS_point).__str__(n_initial=self.phase_space_generator.n_initial) ))
         
-        # All cuts pass, therefore return True
+        ###########################################
+        # User can define his own flavor cut below
+        ###########################################
+        
+        #--> USER-DEFINED CODE
+
+        ###########################################
+        # User can define his own flavor cut above
+        ###########################################
+        
+        # Apply the flavor_cut_definition
         return True
 
     @staticmethod
@@ -753,6 +1538,14 @@ class ME7Integrand(integrands.VirtualIntegrand):
         return self.run_card['scale'], self.run_card['dsqrt_q2fact1'], self.run_card['dsqrt_q2fact2'] 
 
     def get_pdfQ2(self, pdf, pdg, x, scale2):
+        """ Call the PDF and return the corresponding density."""
+
+        # For testing, one can easily substitute PDFs with a 1./x distribution by uncommenting the 
+        # line below
+        #return 1./x
+
+        if pdf is None:
+            return 1.
        
         if pdg not in [21,22] and abs(pdg) not in range(1,7):
             return 1.
@@ -762,14 +1555,14 @@ class ME7Integrand(integrands.VirtualIntegrand):
         
         # Call to lhapdf API
         f = pdf.xfxQ2(pdg, x, scale2)/x
-        
+
         # Update the PDF cache
         self.PDF_cache[(pdf, pdg,x,scale2)] = f
         self.PDF_cache_entries.append((pdf, pdg,x,scale2)) 
         if len(self.PDF_cache_entries) > self.PDF_cache_max_size:
             del self.PDF_cache[self.PDF_cache_entries.pop(0)]
 
-        return f 
+        return f
 
     def __call__(self, continuous_inputs, discrete_inputs, **opts):
         """ Main function of the integrand, returning the weight to be passed to the integrator."""
@@ -778,16 +1571,25 @@ class ME7Integrand(integrands.VirtualIntegrand):
         wgt = 1.0
         # And the conversion from GeV^-2 to picobarns
         wgt *= 0.389379304e9
-        # Increment the number of calls
-        if self.apply_observables:
-            self.n_observable_calls += 1
-
+        
         # Check if an integrator_jacobian is specified in the options to be applied to 
         # the weight when registering observables (i.e. filling observables)
         if 'integrator_jacobian' in opts:
             integrator_jacobian = opts['integrator_jacobian']
         else:
             integrator_jacobian = 1.0
+        
+        # The integrator may have passed an observable thread lock to make sure to avoid
+        # the concurrency issues during parallel runs
+        if 'observables_lock' in opts:
+            observables_lock = opts['observables_lock']
+        else:
+            observables_lock = misc.dummy_lock()
+        
+        # Increment the number of calls in a thread-safe manner
+        with observables_lock:
+            if self.apply_observables:
+                self.n_observable_calls += 1
 
         if __debug__: logger.debug("="*80)       
         if __debug__: logger.debug('Starting a new evaluation of the integrand from contribution:\n%s',
@@ -798,33 +1600,43 @@ class ME7Integrand(integrands.VirtualIntegrand):
         if __debug__: logger.debug('Random variables received: %s',str(random_variables))        
     
         # Now assign the variables pertaining to PS generations
-        PS_random_variables = [random_variables[self.dim_name_to_position[name]] for name in 
-                                                self.phase_space_generator.dim_ordered_names]
+        PS_random_variables = [
+                ( self.FROZEN_DIMENSIONS[name] if name in self.FROZEN_DIMENSIONS else 
+                  random_variables[self.dim_name_to_position[name]] )
+                                          for name in self.phase_space_generator.dim_ordered_names ]
         
-        PS_point, PS_weight, xb_1, xb_2 = self.phase_space_generator.get_PS_point(PS_random_variables)
-        E_cm = math.sqrt(xb_1*xb_2)*self.collider_energy
+        PS_point, PS_weight, x1s, x2s = self.phase_space_generator.get_PS_point(PS_random_variables)
+
+        # Unpack the initial momenta rescalings (if present) so as to access both Bjorken
+        # rescalings xb_<i> and the ISR factorization convolution rescalings xi<i>.
+        xb_1, xi1 = x1s
+        xb_2, xi2 = x2s
+        
+        if xb_1 > 1. or xb_2 > 1. or math.isnan(xb_1) or math.isnan(xb_2):
+            raise MadEvent7Error('Unphysical configuration: x1, x2 = %.5e, %.5e'%(xb_1, xb_2))
+            #logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)
+            #return 0.0
         
         if PS_point is None:
             if __debug__:
                 if xb_1 > 1. or xb_2 > 1.:
                     logger.debug('Unphysical configuration: x1, x2 = %.5e, %.5e'%(xb_1, xb_2))
-                    logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)
                 else:
                     logger.debug('Phase-space generation failed.')
-                    logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)
+                #raise MadEvent7Error('Unphysical configuration encountered.')
+                logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)
             return 0.0
-    
-        ###
-        # /!\ WARNING One typically only boosts to the lab frame at the very end. But we do it here nonetheless. Can easily be changed.
-        ###
-        # self.phase_space_generator.boost_to_lab_frame(PS_point, xb_1, xb_2)
                 
         if __debug__: logger.debug("Considering the following PS point:\n%s"%(PS_point.__str__(
                                             n_initial=self.phase_space_generator.n_initial) ))
-        
+
         # Account for PS weight
         wgt *= PS_weight
         if __debug__: logger.debug("PS_weight: %.5e"%PS_weight)
+
+        # The E_cm entering the flux factor is computed *without* including the xi<i> rescalings
+        # This is necessary and must be kept so.
+        E_cm = math.sqrt(xb_1*xb_2)*self.collider_energy
         
         # Include the flux factor
         flux = 1.
@@ -856,67 +1668,85 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # Now loop over processes
         total_wgt = 0.
         for process_key, (process, mapped_processes) in self.processes_map.items():
+            # If one wishes to integrate only one particular subprocess, it can be done by uncommenting
+            # and modifying the lines below.
+#            if process.get_cached_initial_final_pdgs() in [((2,-2),(23,1,-1)), ((2,-2),(23,1,-1))] :
+#               continue
+#            else:
+#                misc.sprint("Now doing: %s"%str(process.get_cached_initial_final_pdgs()))
             if __debug__: logger.debug('Now considering the process group from %s.'%process.nice_string())
             
-            this_process_wgt = wgt
             process_pdgs = process.get_cached_initial_final_pdgs()
- 
+
             all_processes = [process,]+mapped_processes
-            all_process_pdgs = []
-            # Add mirror processes if present
+            all_flavor_configurations = []
+
+            # The process mirroring is accounted for at the very end only
             for proc in all_processes:
                 initial_final_pdgs = proc.get_cached_initial_final_pdgs()
-                all_process_pdgs.append(initial_final_pdgs)
-                if proc.get('has_mirror_process'):
-                    all_process_pdgs.append(
-                       ( tuple(list(initial_final_pdgs[0])[::-1]), initial_final_pdgs[1] ) )
+                all_flavor_configurations.append(initial_final_pdgs)
 
-            if __debug__:
-                if abs(self.run_card['lpp1'])==abs(self.run_card['lpp2'])==1:
-                    logger.debug("Bjorken x's x1, x2, sqrt(x1*x2*s): %.5e, %.5e. %.5e"%(
-                                 xb_1, xb_2, math.sqrt(self.collider_energy**2*xb_1*xb_2)))
-            proc_PDFs_weights = []
-            for proc_pdgs in all_process_pdgs:            
-                if self.run_card['lpp1']==self.run_card['lpp2']==1:            
-                    PDF1 = self.get_pdfQ2(self.pdf, proc_pdgs[0][0], xb_1, mu_f1**2)
-                    PDF2 = self.get_pdfQ2(self.pdf, proc_pdgs[0][1], xb_2, mu_f2**2)
-                    proc_PDFs_weights.append(PDF1*PDF2)
-                    if __debug__: logger.debug("PDF(x1, %d), PDF(x2, %d) = %.5e, %.5e"%(
-                                             proc_pdgs[0][0], proc_pdgs[0][1], PDF1, PDF2))
-                else:
-                    proc_PDFs_weights.append(1.)
+            # Compute the short distance cross-section. The 'events' returned is an instance
+            # of EventList, specifying all the contributing kinematic configurations, 
+            # and for each all the weights of the potentially contributing flavors.
 
-            # Pick a flavor combination
-            abs_pdf_wgts_sum = sum(abs(pdf_wgt) for pdf_wgt in proc_PDFs_weights)
-            rv_flavor = random.random()*abs_pdf_wgts_sum
-            index_selected=0
-            running_sum = abs(proc_PDFs_weights[index_selected])
-            while rv_flavor > running_sum:
-                index_selected +=1
-                running_sum += abs(proc_PDFs_weights[index_selected])
+            events = self.sigma(
+                PS_point.to_dict(), process_key, process, all_flavor_configurations, 
+                                        wgt, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2)
+            
+            if events is None or len(events)==0:
+                continue
+            # Now handle the process mirroring, by adding, for each ME7Event defined with
+            # requires_mirroring = True, a new mirrored event with the initial states swapped,
+            # as well as the Bjorken x's and rescalings and with p_z -> -p_z on all final
+            # state momenta
+            events.generate_mirrored_events()
 
-            selected_flavors = all_process_pdgs[index_selected]
+            # misc.sprint(events)
+            # Apply flavor blind cuts
+            if not events.filter_with_flavor_blind_cuts(self.pass_flavor_blind_cuts, process_pdgs,
+                n_jets_allowed_to_be_clustered  = self.contribution_definition.n_unresolved_particles):
+                if __debug__: logger.debug('All events failed the flavour_blind generation-level cuts.')
+                if __debug__: logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)            
+                continue
 
-            if __debug__: logger.debug('Selected flavor combination : %s'%str(selected_flavors))
+            # Select particular terms of the EpsilonExpansion terms stored as weigts
+            events.select_epsilon_expansion_term('finite')
 
+            # Apply PDF convolution
+            if self.run_card['lpp1']==self.run_card['lpp2']==1:
+                events.apply_PDF_convolution( self.get_pdfQ2, 
+                                               (self.pdf, self.pdf), (mu_f1**2, mu_f2**2) )
+            # Make sure Bjorken-x rescalings don't matter anymore
+            for event in events:
+                event.set_Bjorken_rescalings(None, None)
+            
+            # Now that the PDF convolution has been performed and that the Bjorken rescaling
+            # attributed of the events no longer matter, it may be possible here to combine
+            # several events having the same kinematic support. This is a further
+            # optimization that we can easily implement when proven needed.
+            #   all_events_generated.combine_events_with_identical_kinematics()
+            # (PS: the function above is a place-holder and is not implemented yet.
+            
             # Apply flavor sensitive cuts
-            if not self.pass_flavor_sensitive_cuts(PS_point, selected_flavors):
-                logger.debug('Event failed the flavour_sensitive generation-level cuts.')
-                logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)            
-                return 0.0      
+            if not events.filter_flavor_configurations(self.pass_flavor_sensitive_cuts):
+                if __debug__: logger.debug('Events failed the flavour-sensitive generation-level cuts.')
+                if __debug__: logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)            
+                continue
+
+            # Aggregate the total weight to be returned to the integrator
+            total_wgt += events.get_total_weight()
             
-            # Apply PDF weight
-            this_process_wgt *= sum(proc_PDFs_weights)
-    
-            # Finally include the short-distance weight, with the PS point in a dictionary format.
-            sigma_wgt = self.sigma(
-                PS_point.to_dict(), process_key, process, selected_flavors, this_process_wgt, 
-                                                     integrator_jacobian, mu_r, mu_f1, mu_f2)
-            if __debug__: logger.debug('Short-distance sigma weight for this subprocess: %.5e'%sigma_wgt)        
-            this_process_wgt *= sigma_wgt
+            # Select a unique flavor configuration for each event
+            events.select_a_flavor_configuration()
+            #misc.sprint(events)
+            if __debug__: logger.debug('Short-distance events for this subprocess:\n%s\n'%str(events))
             
-            # Accumulate this process weight
-            total_wgt += this_process_wgt
+            # Finally apply observables in a thread-safe manner
+            with observables_lock:
+                if self.apply_observables:
+                    events.apply_observables(self.observable_list, integrator_jacobian)
+
 
         # Now finally return the total weight for this contribution
         if __debug__: logger.debug(misc.bcolors.GREEN + "Final weight returned: %.5e"%total_wgt + misc.bcolors.ENDC)
@@ -924,7 +1754,34 @@ class ME7Integrand(integrands.VirtualIntegrand):
         
         return total_wgt
     
-    def sigma(self, PS_point, process_key, process, flavors, process_wgt, integrator_jacobian, mu_r, mu_f1, mu_f2):
+    def generate_matrix_element_event(self, PS_point, process_key, process, all_flavor_configurations, 
+                  base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts):
+        """ Generates one event which corresponds to the physical contribution (i.e. not the
+        counterterms) hosted by this contribution."""
+    
+        alpha_s = self.model.get('parameter_dict')['aS']
+
+        ME_evaluation, all_results = self.all_MEAccessors(
+                        process, PS_point, alpha_s, mu_r, pdgs=all_flavor_configurations[0])
+
+        event_weight = base_objects.EpsilonExpansion(ME_evaluation) * base_weight
+        
+        # Notice that the Bjorken rescalings for this even will be set during the convolution
+        # performed in the next line, and not directly here in the constructor.
+        event_to_convolve = ME7Event( PS_point, 
+                {fc : event_weight for fc in all_flavor_configurations},
+                requires_mirroring              = process.get('has_mirror_process'),
+                host_contribution_definition    = self.contribution_definition,
+                counterterm_structure           = None,
+                Bjorken_xs = (xb_1, xb_2)
+        )
+        convolved_event = self.convolve_event_with_beam_factorization_currents(event_to_convolve, 
+            process['beam_factorization'], PS_point, process, mu_r, mu_f1, mu_f2, xi1, xi2 )
+        
+        return convolved_event
+    
+    def sigma(self, PS_point, process_key, process, all_flavor_configurations, 
+                                base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, *args, **opts):
         """ 
         This is the core function of the integrand where the short-distance objects like the matrix elements,
         the counterterms, the mappings, etc.. will be evaluated.
@@ -938,7 +1795,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         It can potentially call it several times, for the various counterterms.
         """
 
-        sigma_wgt = 1.
+        sigma_wgt = base_weight
 
         alpha_s = self.model.get('parameter_dict')['aS']
 
@@ -950,13 +1807,13 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
 
         # Apply flavor blind cuts
-        if not self.pass_flavor_blind_cuts(PS_point, flavors):
+        if not self.pass_flavor_blind_cuts(PS_point, all_flavor_configurations[0]):
             if __debug__: logger.debug('Event failed the flavour_blind generation-level cuts.')
             if __debug__: logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)            
-            return 0.0
-        
+            return None
+
         ME_evaluation, all_results = self.all_MEAccessors(
-                                            process, PS_point, alpha_s, mu_r, pdgs=flavors)
+                        process, PS_point, alpha_s, mu_r, pdgs=all_flavor_configurations[0])
         
         ## Some code to test the color correlated MEs
         ##color_correlation_to_consider = ( ((3, -2, 3), (-2, -2, -1)), ((3, -1, 3), (-1, -1, -2)) )
@@ -977,11 +1834,74 @@ class ME7Integrand(integrands.VirtualIntegrand):
         
         sigma_wgt *= ME_evaluation['finite']
         
-        if self.apply_observables:
-            data_for_observables = {'PS_point': PS_point, 'flavors' : flavors}
-            self.observable_list.apply_observables(integrator_jacobian*sigma_wgt*process_wgt, data_for_observables)
+        # Return the lone LO event
+        return ME7EventList([
+            ME7Event( PS_point, {fc : sigma_wgt for fc in all_flavor_configurations},
+                requires_mirroring = process.get('has_mirror_process'),
+                host_contribution_definition = self.contribution_definition,
+                counterterm_structure  = None,
+                Bjorken_xs = (xb_1, xb_2)
+            )
+        ])
 
-        return sigma_wgt
+    def convolve_event_with_beam_factorization_currents(self, input_event_to_convolve, 
+            beam_factorization_currents, PS_point, process, mu_r, mu_f1, mu_f2, xi1, xi2):
+        """ Calls the currents specified in the 'beam_factorization_currents' argument, of the form:
+            [{ 'beam_one': <BeamCurrent>,
+               'beam_two': <BeamCurrent> }]
+        and convolve their evaluations with the ME7Event specified in input so to construct
+        a new convolved ME7Event which is then returned. This function is placed in the mother
+        class because it is useful both in ME7_integrand_R and ME7_integrand_V."""
+
+        # Adjust the format of the input:
+        beam_factorization_currents = [
+            (  bc['beam_one'],  bc['beam_two'] ) for bc in beam_factorization_currents ]
+
+        # Compute the 4-vector Q characterizing this PS point, defined as the sum of all
+        # initial_state momenta. This is not expected to be used or relevant here, but we
+        # specify it nonetheless so as to conform with the prototype of the call to
+        # BeamFactorization currents.
+        Q = sum(p for i, p in enumerate(PS_point.to_list()) if i<self.n_initial)
+
+        convolved_event = None
+        for bc1, bc2 in beam_factorization_currents:
+            event_to_convolve = input_event_to_convolve.get_copy()
+            if bc1 is not None:
+                assert(isinstance(bc1, subtraction.BeamCurrent) and bc1['distribution_type']=='bulk')
+                current_evaluation, all_current_results = self.all_MEAccessors(
+                    bc1, lower_PS_point=PS_point, reduced_process=process, xi=xi1, mu_r=mu_r, mu_f=mu_f1, Q=Q)
+                assert(current_evaluation['spin_correlations']==[None,])
+                assert(current_evaluation['color_correlations']==[None,])
+                event_to_convolve.convolve_flavors( 
+                    base_objects.EpsilonExpansion(current_evaluation['values'][(0,0)]), leg_index=0 )
+            if bc2 is not None:
+                assert(isinstance(bc2, subtraction.BeamCurrent) and bc2['distribution_type']=='bulk')
+                current_evaluation, all_current_results = self.all_MEAccessors(
+                    bc2, lower_PS_point=PS_point, reduced_process=process, xi=xi2, mu_r=mu_r, mu_f=mu_f2, Q=Q)
+                assert(current_evaluation['spin_correlations']==[None,])
+                assert(current_evaluation['color_correlations']==[None,])
+                event_to_convolve.convolve_flavors(
+                       base_objects.EpsilonExpansion(current_evaluation['values'][(0,0)]), leg_index=1 )
+            # Check if the flavor matrix that multiplied this event was zero
+            if event_to_convolve.is_empty():
+                return None
+            if convolved_event is None:
+                convolved_event = event_to_convolve
+            else:
+                # Combine the weights and flavor of the event obtained from this convolution
+                # with the ones obtained from the previous convolutions in this loop.
+                convolved_event += event_to_convolve
+        
+        # Determine Bjorken scalings.
+        assert( all(bc[0] is None for bc in beam_factorization_currents) or
+                all(bc[0] is not None for bc in beam_factorization_currents) )
+        Bjorken_scaling_beam_one = 1. if beam_factorization_currents[0][0] is None else 1./xi1
+        assert( all(bc[1] is None for bc in beam_factorization_currents) or
+                all(bc[1] is not None for bc in beam_factorization_currents) )
+        Bjorken_scaling_beam_two = 1. if beam_factorization_currents[0][1] is None else 1./xi2
+        # Assign the Bjorken scaling found
+        convolved_event.set_Bjorken_rescalings(Bjorken_scaling_beam_one, Bjorken_scaling_beam_two)
+        return convolved_event
 
 ##########################################################################################
 # Daughter classes for the various type of ME7Integrands which require a redefinition 
@@ -990,20 +1910,12 @@ class ME7Integrand(integrands.VirtualIntegrand):
 class ME7Integrand_B(ME7Integrand):
     """ME7Integrand for the computation of a Born type of contribution."""
     
-    def sigma(self, PS_point, process_key, process, flavors, process_wgt,
-                                    integrator_jacobian, mu_r, mu_f1, mu_f2, *args, **opts):
-
+    def sigma(self, PS_point, process_key, process, all_flavor_configurations, 
+                                            base_weight, mu_r, mu_f1, mu_f2, *args, **opts):
         return super(ME7Integrand_B, self).sigma(
-            PS_point, process_key, process, flavors, process_wgt,
-            integrator_jacobian, mu_r, mu_f1, mu_f2, *args, **opts
+            PS_point, process_key, process, all_flavor_configurations, base_weight,
+            mu_r, mu_f1, mu_f2, *args, **opts
         )
-
-class ME7Integrand_LIB(ME7Integrand):
-    """ ME7Integrand for the computation of a Loop-Induced Born type of contribution."""
-    def sigma(self, PS_point, process_key, process, flavors, process_wgt, 
-                                    integrator_jacobian, mu_r, mu_f1, mu_f2, *args, **opts):
-        return super(ME7Integrand_LIB, self).sigma(PS_point, process_key, process, 
-                flavors, process_wgt, integrator_jacobian, mu_r, mu_f1, mu_f2, *args, **opts)
         
 class ME7Integrand_V(ME7Integrand):
     """ ME7Integrand for the computation of a one-loop virtual type of contribution."""
@@ -1022,6 +1934,10 @@ class ME7Integrand_V(ME7Integrand):
         super(ME7Integrand_V, self).__init__(*args, **opts)
         self.initialization_inputs['options']['integrated_counterterms'] = \
                                                               self.integrated_counterterms
+
+    def has_integrated_counterterms(self):
+        """ A virtual type of integrand can contain integrated counterterms."""
+        return True
 
     def get_additional_nice_string_printout_lines(self, format=0):
         """ Return additional information lines for the function nice_string of this contribution."""
@@ -1071,49 +1987,106 @@ class ME7Integrand_V(ME7Integrand):
 
         return res
 
-    def evaluate_integrated_counterterm(self, integrated_CT_characteristics, 
-                    PS_point, flavors, input_mapping, hel_config=None, compute_poles=True):
-        """ Evaluates the specified integrated counterterm specified along with its other
+    def evaluate_integrated_counterterm(self, integrated_CT_characteristics, PS_point, 
+        base_weight, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, input_mapping, 
+        all_virtual_ME_flavor_configurations, hel_config=None, compute_poles=True, **opts):
+        """ Evaluates the specified integrated counterterm, provided along with its other
         characteristics, like for example the list of flavors assignments that the resolved
-        process it corresponds to can take. This function returns
-            integrated_CT_res, reduced_flavors
-        where integrated_CT_res is the result of the evaluation (and EpsilonExpansion instance
-        if compute_poles is True, otherwise just a float, and reduced_flavors is the list
-        of flavors for the reduced process to be used when calling the pass_cuts and 
-        observable functions.
+        process it corresponds to can take. This function returns an ME7Event specifying the
+        counterevent for the specified input_mapping considered (i.e. an integrated CT like
+        g > d d~ must be "attached" to all final-state gluons of the virtual process definition).
         """
 
         # Access the various characteristics of the integrated counterterm passed to this
         # function.
-        counterterm = integrated_CT_characteristics['integrated_counterterm'] 
+        counterterm = integrated_CT_characteristics['integrated_counterterm']
+        # The resolved flavor configurations dictionary (mapping resolved to reduced) is
+        # typically no longer useful here.
         resolved_flavors = integrated_CT_characteristics['resolved_flavors_combinations']
         reduced_flavors = integrated_CT_characteristics['reduced_flavors_combinations']
+        reduced_flavors_with_resolved_initial_states = \
+            integrated_CT_characteristics['reduced_flavors_with_resolved_initial_states_combinations']
         symmetry_factor = integrated_CT_characteristics['symmetry_factor']
-
-        n_initial = len(flavors[0])
-        n_final   = len(flavors[1])
+        beam_convolution_masks = integrated_CT_characteristics['allowed_backward_evolved_flavors']
+        allowed_backward_evolved_flavors1 = beam_convolution_masks['beam_one']
+        allowed_backward_evolved_flavors2 = beam_convolution_masks['beam_two']
+        is_reduced_process_mirrored = counterterm.process.get('has_mirror_process')
         
-        mapped_flavors = ( 
-            tuple( flavors[0][input_mapping[i]] for i in range(n_initial) ),
-            tuple( flavors[1][input_mapping[i]-n_initial] for i in 
-                                                      range(n_initial, n_initial+n_final) )
-        )        
+        # Typical debug lines below
+        #misc.sprint(counterterm)
+        #misc.sprint(beam_convolution_masks)
+        #misc.sprint(resolved_flavors)
+        #misc.sprint(reduced_flavors)        
+        #misc.sprint(reduced_flavors_with_resolved_initial_states)
+        #import pdb
+        #pdb.set_trace()
+
         # And the multiplicity prefactor coming from the several *resolved* flavor assignment
         # that this counterterm can lead to. Typically an integrated counterterm for g > q qbar
         # splitting will have the same reduced flavors, but with the gluon coming from
-        # n_f different massless flavors. So that its multiplcitiy factor is n_f.        
+        # n_f different massless flavors. So that its multiplicitiy factor is n_f.    
+        # --    
         # Also, if you think of the resolved flavors e+ e- > c c~ u u~, the two counterterms
         # C(3,4) and C(5,6) will lead to the reduced flavors g u u~ and c c~ g respectively.
-        # These two are however mapped in the same virtual group, so it's possible that if
-        # the flavors 'g u u~' was selected for example, then the integrated CT C(5,6) would
-        # not have any match in its reduced flavors which contains 'c c~ g' only, and it should
-        # therefore be skipped. 
-        if not (mapped_flavors in reduced_flavors):
-            return None, None
-        integrated_CT_multiplicity = reduced_flavors[mapped_flavors]
-        # Also account for the multiplicity from overall symmetry factors S_t
-        integrated_CT_multiplicity *= symmetry_factor
+        # These two are however mapped in the same virtual group. In this case, the flavor 
+        # configuration 'g u u~' in the ME7Event would therefore not receive any contribution
+        # from the integrated CT C(5,6), but the configuration 'g c c~' will.
+        # --
+        # One other subtlety occurs because the backward flavor evolution in the initial
+        # states will be registered in the event since it must be convoluted with the correct PDFs.
+        # Building upon the previous example, we can consider the following process:
+        #             g(1) s(2) > s(3) c(4) c~(5) u(6) u~(7)
+        #   + mapped  g(1) q(2) > q(3) qprime(4) qprime~(5) u(6) u~(7)
+        # And the counterterm C(2,3)C(4,5) which yields the following reduced mapped flavor:
+        #             g g > g u u~             
+        # With a multiplicity of naively n_f**2. However, the actual events that will be generated
+        # will be the following:
+        #             g s > g u u~
+        #             g d > g u u~
+        #             ...
+        # It is then clear that each of this flavor configuration in the ME7 event should not be
+        # multiplied by n_f**2 but instead just n_f. For this reason, the function 
+        # generate_all_counterterms of the contribution class also produces the dictionary 
+        # 'reduced_flavors_with_resolved_initial_states_combinations' which, in the example above, 
+        # would be (nf=5):
+        #     {  (21,3),(21,2,-2) : 5,
+        #        (21,1),(21,2,-2) : 5,
+        #        ...
+        #     }
+        # which will allow to apply the corresponding multiplicity factor 'n_f' at the end.
+        # --
+        # Finally, one last issue when considering the grouping of flavors is affecting cases like:
+        #
+        #    C(2,5)  of              u(1) u~(2) > z(3) u(4) u~(5)
+        #                 + mapped   c(1) c~(2) > z(3) c(4) c~(5)
+        # 
+        # whose reduced flavors are:
+        #                             u(1) g > z(3) u(4)
+        #                 + mapped    c(1) g > z(3) c(4)
+        # unfortunately, the backward evolution matrix returned by the current C(2,5) with
+        # beam_convolution_masks of (-2,-4) will yield contributions like:
+        #
+        #                             u(1) c~(2) > z(3) u(4)
+        #
+        # which do not belong here (and would be double-counted if kept here). For this reason,
+        # the dictionary 'reduced_flavors_with_resolved_initial_states' discussed above is used
+        # not only so as to include the correct multiplicity factor to each flavor, but also
+        # as a post-flavor-backward-evolution mask which will remove all spurious contributions like
+        # the ones above.
+        n_initial = len(all_virtual_ME_flavor_configurations[0][0])
+        n_final   = len(all_virtual_ME_flavor_configurations[0][1])
+        all_mapped_flavors = []
+        for flavors in all_virtual_ME_flavor_configurations:
+            mapped_flavors = ( 
+                tuple( flavors[0][input_mapping[i]] for i in range(n_initial) ),
+                tuple( flavors[1][input_mapping[i]-n_initial] for i in 
+                                                      range(n_initial, n_initial+n_final) )
+            )
+            if mapped_flavors in reduced_flavors:
+                assert ((mapped_flavors not in all_mapped_flavors))
+                all_mapped_flavors.append(mapped_flavors)
 
+        # Now map the momenta
         if isinstance(PS_point,dict):
             # Dictionary format LorentzVectorDict starts at 1
             mapped_PS_point = phase_space_generators.LorentzVectorDict(   
@@ -1123,201 +2096,437 @@ class ME7Integrand_V(ME7Integrand):
             mapped_PS_point = phase_space_generators.LorentzVectorDict(   
                 (i+1, PS_point[input_mapping[i]]) for i in range(n_initial+n_final) )
         
+        # We must also map the Bjorken x's and the xi rescalings
+        xi1, xi2 = [xi1, xi2][input_mapping[0]], [xi1, xi2][input_mapping[1]]
+        xb_1, xb_2 = [xb_1, xb_2][input_mapping[0]], [xb_1, xb_2][input_mapping[1]]
+
+        # When beam convolutions are active, we must remember that both the Bjorken x's *and*
+        # the convolution variable xi are integrated between zero and one.
+        #TODO this will need to be refined so as:
+        #    1) be moved to where the beam convolution takes place so as to affect each current 
+        #       independently of each other.
+        #    2) When called from test_IR_limits, we should never return None, but instead an 
+        #       event with zero weights. We need the case below to follow this requirement. 
+        if 'distribution_type' not in counterterm.nodes[0].current or \
+          counterterm.nodes[0].current['distribution_type'] not in ['counterterm']:
+            if (xi1 is not None) and (xb_1>xi1):
+                return None
+            if (xi2 is not None) and (xb_2>xi2):
+                return None
+        
         # Retrieve some possibly relevant model parameters
         alpha_s = self.model.get('parameter_dict')['aS']
         mu_r = self.model.get('parameter_dict')['MU_R']   
         
-        # Now compute the reduced quantities which will be necessary for evalauting the
+        # Now compute the reduced quantities which will be necessary for evaluating the
         # integrated current
         reduced_PS = counterterm.get_reduced_kinematics(mapped_PS_point)
         
-#        misc.sprint('input_mapping %d=%s'%(i_mapping+1, input_mapping))
-#        misc.sprint('mapped_flavors=%s'%str(mapped_flavors))
-#        misc.sprint('mapped_PS_point=\n%s'%str(mapped_PS_point))
-#        misc.sprint('reduced_PS=\n%s'%str(reduced_PS))
-#        misc.sprint('counterterm.momenta_dict = %s'%str(counterterm.momenta_dict))
-#        misc.sprint('counterterm.process.initial_eg_numbers = %s'%str([l.get('number') for l in counterterm.process.get_initial_legs()]))
-#        misc.sprint('counterterm.process.final_numbers = %s'%str([l.get('number') for l in counterterm.process.get_final_legs()]))
+        # Make sure no helicity configuration is specified since this is not supported yet.
+        assert ((hel_config is None))
+        # all_necessary_ME_calls is a list inputs to call the Matrix Element and the weights
+        # that we must multiply/convolve them with. We start with empty entries.
+        all_necessary_ME_calls = [ 
+            {   'spin_correlations'             : [ ],
+                'color_correlations'            : [ ],
+                'main_weights'                  : [ ],
+                'flavor_matrices_beam_one'      : [ ],
+                'flavor_matrices_beam_two'      : [ ],
+                'Bjorken_rescalings_beam_one'   : [ ],
+                'Bjorken_rescalings_beam_two'   : [ ],
+            },
+        ]
+        total_jacobian = 1.
+        disconnected_currents_weight = base_objects.EpsilonExpansion({'finite': 1.0})
         
-        # For now the integrated counterterm are always composed of a *single* integrated
-        # current, which we can call directly.
-        assert(len(counterterm.nodes)==1)
-        assert(len(counterterm.nodes[0].nodes)==0)
-        integrated_current  = counterterm.nodes[0].current
-        reduced_process     = counterterm.process
-        momenta_map         = counterterm.momenta_dict
+        # Compute the 4-vector Q characterizing this PS point, defined as the sum of all
+        # initial_state momenta, before any mapping is applied.
+        # Notice that the initial state momenta in mapped_PS_point include *both* the 
+        # Bjorken x's rescalings *and* the xi rescalings. However, what is factorised in the
+        # initial-state PS factorization is the sum of initial-state moment *without* the 
+        # xi rescalings (see Eq.5.20 of https://arxiv.org/pdf/0903.1218.pdf),
+        # So we must divide here each momentum by the xi rescalings.
+        rescalings = (
+            1. if xi1 is None else 1./xi1,
+            1. if xi2 is None else 1./xi2,
+        )
+        Q = vectors.LorentzVector()
+        for i, p in enumerate(mapped_PS_point.to_list()[:self.n_initial]):
+            Q += p*rescalings[i]
         
-        # /!\ Warnings the flavor of the reduced process and well as the current
-        # do not match the particular selection. This should however be irrelevant for the
-        # evaluation of the counterterm.
-        CT_evaluation, all_results = self.all_MEAccessors(
-            integrated_current, lower_PS_point=reduced_PS,
-            higher_PS_point=None,
-            reduced_process = reduced_process,
-            leg_numbers_map = momenta_map,
-            hel_config = hel_config,
-            compute_poles = compute_poles )
+        # First call the non-beam factorization currents
+        for integrated_current in counterterm.get_all_currents():
+            if isinstance(integrated_current, (subtraction.BeamCurrent,subtraction.IntegratedBeamCurrent)):
+                continue
+            # /!\ Warnings the flavors of the reduced process as well as the ones of the current
+            # are tokens that will apply to all possible flavor configuration in this contribution
+            # This should however be irrelevant for the evaluation of the counterterm.
+            current_evaluation, all_results = self.all_MEAccessors(
+                integrated_current, lower_PS_point=reduced_PS,
+                higher_PS_point=None,
+                reduced_process = counterterm.process,
+                leg_numbers_map = counterterm.momenta_dict,
+                hel_config      = hel_config,
+                compute_poles   = compute_poles,
+                Q               = Q )
 
-        all_necessary_ME_calls = []
-        for ((spin_index, color_index), current_wgt) in CT_evaluation['values'].items():
-            # Now combine the correlators necessary for this current, with those already
-            # specified in 'all_necessary_ME_calls'
-            all_necessary_ME_calls.append( ( CT_evaluation['spin_correlations'][spin_index],
-                                   CT_evaluation['color_correlations'][color_index],
-                                   base_objects.EpsilonExpansion(current_wgt) ) )
+            # Now loop over all spin- and color- correlators required for this current
+            # and update the necessary calls to the ME
+            if not integrated_current['resolve_mother_spin_and_color']:
+                # Make sure no spin- or color-correlations were produced by the current
+                assert(current_evaluation['spin_correlations']==[None,])
+                assert(current_evaluation['color_correlations']==[None,])
+                assert(current_evaluation['values'].keys()==[(0,0),])
+                disconnected_currents_weight *= \
+                         base_objects.EpsilonExpansion(current_evaluation['values'][(0,0)])
+            else:
+                all_necessary_ME_calls = ME7Integrand_R.update_all_necessary_ME_calls(
+                     all_necessary_ME_calls, current_evaluation, weight_type='main_weight')
 
-        # Finally treat the call to the reduced matrix element
-        final_weight = base_objects.EpsilonExpansion()
-        for (spin_correlators, color_correlators, current_weight) in all_necessary_ME_calls:
-            try:
-                ME_evaluation, all_ME_results = self.all_MEAccessors(
-                   reduced_process, reduced_PS, alpha_s, mu_r,
-                   # Let's worry about the squared orders later, we will probably directly fish
-                   # them out from the ME_process, since they should be set to a unique combination
-                   # at this stage.
-                   squared_orders    = None,
-                   color_correlation = color_correlators,
-                   spin_correlation  = spin_correlators, 
-                   hel_config        = hel_config
-                )
-                #misc.sprint(str(reduced_PS),str(counterterm), reduced_process.nice_string(), spin_correlators, color_correlators, current_weight, ME_evaluation)
-            except MadGraph5Error as e:
-                logger.critical("""
-A reduced matrix element is missing in the library of automatically generated matrix elements.
-This is typically what can happen when your process definition is not inclusive over all IR sensitive particles.
-Make sure that your process definition is specified using the relevant multiparticle labels (typically 'p' and 'j').
-Also make sure that there is no coupling order specification which receives corrections.
-The missing process is: %s"""%reduced_process.nice_string())
-                raise e
-            # Again, for the integrated subtraction counterterms, some care will be needed here
-            # for the real-virtual, depending on how we want to combine the two Laurent series.
-            final_weight += current_weight*base_objects.EpsilonExpansion(ME_evaluation)
+        # Then evaluate the beam factorization currents
+        all_necessary_ME_calls = ME7Integrand_R.process_beam_factorization_currents(
+            all_necessary_ME_calls, counterterm.get_beam_currents(), self.all_MEAccessors,
+            reduced_PS, counterterm.process, xb_1, xb_2, xi1, xi2, mu_r, mu_f1, mu_f2, Q,
+            allowed_backward_evolved_flavors1 = allowed_backward_evolved_flavors1,
+            allowed_backward_evolved_flavors2 = allowed_backward_evolved_flavors2)
+        # If there is no necessary ME call left, it is likely because the xi upper bound of the 
+        # Bjorken x's convolution were not respected. We must now abort the event. 
+        if len(all_necessary_ME_calls) == 0:
+            return None
+    
+        # Now perform the combination of the list of spin- and color- correlators to be merged
+        # for each necessary ME call identified
+        all_necessary_ME_calls = ME7Integrand_R.merge_correlators_in_necessary_ME_calls(
+                                                                    all_necessary_ME_calls)
 
-        # Now finally handle the overall prefactor of the counterterm and the counterterm
-        # multiplicity factor
-        final_weight *= counterterm.prefactor*integrated_CT_multiplicity
-            
-        # Make sure we have an Laurent series with a double pole at most.
-        if not final_weight.max_eps_power()<=0 or \
-           not final_weight.min_eps_power()>=-2:
-            raise MadGraph5Error("The integrated counterterm:\n%s\n"%str(counterterm)+
-                "with reduced matrix element:\n%s\n"%str(reduced_process)+
-                "yielded the following laurent series:\n%s\n"%str(final_weight)+
-                "which has powers of epsilon not in [-2,-1,0]. This is incorrect for the virtual contribution")   
+        # Finally treat the call to the reduced connected matrix elements
+        alpha_s = self.model.get('parameter_dict')['aS']
+        mu_r = self.model.get('parameter_dict')['MU_R']
+
+        integrated_CT_event = ME7Integrand_R.generate_event_for_counterterm(
+            ME7Event( mapped_PS_point,
+                {fc : base_objects.EpsilonExpansion({0:base_weight}) for fc in all_mapped_flavors},
+                requires_mirroring              = is_reduced_process_mirrored,
+                host_contribution_definition    = self.contribution_definition,
+                counterterm_structure           = (counterterm, resolved_flavors),
+                Bjorken_xs                      = (xb_1, xb_2)
+            ),
+            disconnected_currents_weight,
+            ( counterterm.prefactor / total_jacobian ),
+            all_necessary_ME_calls,
+            counterterm.process,
+            reduced_PS,
+            alpha_s, mu_r,
+            self.all_MEAccessors
+        )
         
-        if compute_poles:
-            result = final_weight
-        else:
-            result = final_weight[0]
+        # Immediately return the integrated CTevent if it is None (which can happen during the flavor
+        # convolution for instance:
+        if integrated_CT_event is None:
+            return None
+
+        # Finally account for the integrated counterterm multiplicity
+        new_weights_per_flavor_configurations = {}
+        for fc, wgt in integrated_CT_event.weights_per_flavor_configurations.items():
+            # Account for both the overall symmetry factors S_t and the flavor symmetry factor
+            # identified when the contribution class built this counterterm
+            if fc in reduced_flavors_with_resolved_initial_states:
+                # See comments at the beginning of this function as to how it may be that this
+                # flavor configuration is not part of the 'reduced_flavors_with_resolved_initial_states'
+                # and why it should then not be included.  
+                new_weights_per_flavor_configurations[fc] = \
+                     wgt*float(symmetry_factor)*reduced_flavors_with_resolved_initial_states[fc]
+        integrated_CT_event.weights_per_flavor_configurations = new_weights_per_flavor_configurations
+        # Make sure to crash if the Event is now empty since the lines above are not
+        # supposed to kill all flavor contributions of the event.
+        if integrated_CT_event.is_empty():
+            raise MadEvent7Error(
+                "The post-flavor-convolution masking step disabled all flavor configuration for the " +
+                " following integrated counterterm event. This should never happen.\n%s" % str(integrated_CT_event) )
         
-        # For now always return the original flavor selection, but this may become different
-        # when doing initial-final
-        return result, flavors
+        return integrated_CT_event
         
     def test_IR_poles(self, test_options):
         """ Compare the IR poles residues in dimensional regularization from the virtual
         contribution and from the integrated counterterm. """
         
         if test_options['seed']:
-            random.seed(test_options['seed'])
-        
-        # Retrieve some possibly relevant model parameters
-        alpha_s = self.model.get('parameter_dict')['aS']
-        mu_r = self.model.get('parameter_dict')['MU_R']    
-        
+            random.seed(test_options['seed']) 
+
         # First generate a kinematic point
         # Specifying None forces to use uniformly random generating variables.
-        a_virtual_PS_point, _, _, _ = self.phase_space_generator.get_PS_point(None)
-        a_virtual_PS_point = phase_space_generators.LorentzVectorDict(
-                                   (i+1, mom) for i, mom in enumerate(a_virtual_PS_point) )
+        # Make sure to generate a point within the cuts if necessary:
+        max_attempts = 10000
+        n_attempts   = 0
+        while True:
+            n_attempts += 1
+            if n_attempts > max_attempts:
+                break
+            virtual_PS_point = None
+            while virtual_PS_point is None:
+                virtual_PS_point, jac, x1s, x2s = self.phase_space_generator.get_PS_point(None)
+            xb_1, xi1 = x1s
+            xb_2, xi2 = x2s
+            # Make sure that xb_k < xik for k=1,2 if xik!=None because we want to make sure that
+            # we capture all the contributions
+            if not xi1 is None and xi1 < xb_1:
+                continue
+            if not xi2 is None and xi2 < xb_1:
+                continue
+            # Then make sure it passes the generation cuts if present
+            if test_options['apply_higher_multiplicity_cuts'] or test_options['apply_lower_multiplicity_cuts']:
+                if not self.pass_flavor_blind_cuts(
+                    virtual_PS_point,
+                    self.processes_map.values()[0][0].get_cached_initial_final_pdgs(),
+                    n_jets_allowed_to_be_clustered  = self.contribution_definition.n_unresolved_particles,
+                    xb_1 = xb_1, xb_2 = xb_2):
+                    continue
+            break
+        if n_attempts > max_attempts:
+            raise MadEvent7Error(
+                "Could not generate a random kinematic configuration that passes " +
+                "the flavour blind cuts in less than %d attempts." % max_attempts )
+        n_attempts = 0
 
-        # Now keep track of the results from each process and limit checked
+        # Now keep track of the results from each process and poles checked
         all_evaluations = {}
         for process_key, (defining_process, mapped_processes) in self.processes_map.items():
+            misc.sprint('\nConsidering %s'%
+                              defining_process.nice_string().replace('Process','process'))
             # Make sure that the selected process satisfies the selected process
             if not self.is_part_of_process_selection(
                 [defining_process,]+mapped_processes, selection = test_options['process'] ):
                 continue
-            
-            misc.sprint('\nTesting virtual %s'%
-                              defining_process.nice_string().replace('Process','process'))
 
-            # Here we use correction_order to select CT subset
-            counterterms_to_consider = [
-                ct for ct in self.integrated_counterterms[process_key]
-                if ct['integrated_counterterm'].count_unresolved() <= 
-                                            test_options['correction_order'].count('N') ]
+            all_processes = [defining_process,]+mapped_processes
+            all_flavor_configurations = []
+            # The process mirroring is accounted for at the very end only            
+            for proc in all_processes:
+                initial_final_pdgs = proc.get_cached_initial_final_pdgs()
+                all_flavor_configurations.append(initial_final_pdgs)
             
-            virtual_ME_evaluation, all_results = self.all_MEAccessors(
-               defining_process, a_virtual_PS_point, alpha_s, mu_r,
-               squared_orders    = None,
-               color_correlation = None,
-               spin_correlation  = None, 
-               hel_config        = None )
+            a_virtual_PS_point = virtual_PS_point.get_copy()
+            a_xb_1, a_xi1 = x1s
+            a_xb_2, a_xi2 = x2s
+            # We should not test here the flavour sensitive cuts because counterterms
+            # act on the flavor space and make an event pass the cut even if the resolved one
+            # does not.
+            while ( ( test_options['apply_higher_multiplicity_cuts'] or 
+                      test_options['apply_higher_multiplicity_cuts']    ) and
+                   not self.pass_flavor_blind_cuts(
+                       a_virtual_PS_point,
+                       defining_process.get_cached_initial_final_pdgs(),
+                       n_jets_allowed_to_be_clustered  = self.contribution_definition.n_unresolved_particles,
+                       xb_1 = a_xb_1, xb_2 = a_xb_2 ) ):
+                n_attempts += 1
+                if n_attempts > max_attempts:
+                    break
+                a_virtual_PS_point = None
+                # Phase-space generation can fail when beam convolution is active, because of the condition
+                # Bjorken_x_i < xi_i
+                while a_virtual_PS_point is None:
+                    a_virtual_PS_point, a_jac, a_x1s, a_x2s = self.phase_space_generator.get_PS_point(None)
+                a_xb_1, a_xi1 = a_x1s
+                a_xb_2, a_xi2 = a_x2s
+            if n_attempts > max_attempts:
+                raise MadEvent7Error(
+                    "Could not generate a random kinematic configuration that passes " +
+                    "the flavour blind cuts in less than %d attempts." % max_attempts )
+            n_attempts = 0
 
-            # Turn the evaluation into an epsilon expansion
-            virtual_ME_expansion = base_objects.EpsilonExpansion(virtual_ME_evaluation)
-            
-            # Add the corresponding multiplicity factor if all flavors are to be considered
-            if test_options['include_all_flavors']:
-                virtual_ME_expansion *= float(1+len(mapped_processes))
-            
-            # Now loop over all counterterms
-            all_integrated_CT_summed_res = base_objects.EpsilonExpansion()
-            for i_proc, process in enumerate([defining_process,]+mapped_processes):
-                if i_proc > 0 and not test_options['include_all_flavors']:
-                    continue
-                flavors = process.get_cached_initial_final_pdgs()
-#                misc.sprint('Integrated counterterms for flavors: %s'%str(flavors))
-                for counterterm in counterterms_to_consider:
-#                    misc.sprint('>>Investigating counterterm: %s'%str(counterterm['integrated_counterterm']))
-#                    misc.sprint('>>with mappings: %s'%str(counterterm['input_mappings']))
-                    for i_mapping, input_mapping in enumerate(counterterm['input_mappings']):
-                        # Evaluate the counterterm
-                        integrated_CT_res, reduced_flavors = self.evaluate_integrated_counterterm(
-                            counterterm, a_virtual_PS_point, flavors, input_mapping, 
-                                                          hel_config=None, compute_poles=True)
-                        if integrated_CT_res is None:
-                            continue
-                        misc.sprint('%-20s @ %-35s (permutation #%-2d) => %s' % (
-                            str(counterterm['integrated_counterterm']), 
-                            str(counterterm['resolved_flavors_combinations'].keys()[0]),
-                            i_mapping+1, integrated_CT_res.__str__(format='.16e') ) )
-#                        misc.sprint('   :: %s'%(' & '.join('%s => %s'%(str(k),str(v)) for k,v in 
-#                                       counterterm['resolved_flavors_combinations'].items() )))
-#                        misc.sprint('   :: %s'%(input_mapping))
-#                        misc.sprint('   :: %s'%(counterterm['integrated_counterterm'].process.nice_string()))
-#                        misc.sprint('   :: leg numbers = %s > %s'%(
-#                            ' '.join('%d'%l.get('number') for l in counterterm['integrated_counterterm'].process.get_initial_legs()),
-#                            ' '.join('%d'%l.get('number') for l in counterterm['integrated_counterterm'].process.get_final_legs())
-#                            ))
-                        
-                        all_integrated_CT_summed_res += integrated_CT_res
-                
-            # Add evaluations to the list so as to study how the approximated reals converge towards the real
-            evaluation = {
-                 'virtual_ME'           : virtual_ME_expansion, 
-                 'integrated_CTs'       : all_integrated_CT_summed_res,
-                 'defining_process'     : defining_process,
-                 'PS_point'             : a_virtual_PS_point }
-            
-            relative_diff = virtual_ME_expansion.relative_diff(all_integrated_CT_summed_res*-1.)
-            # Finite parts are of course expected to differ, so let's not show them
-            relative_diff.truncate(min_power = -2, max_power = -1)
-            # To be commented out when we will have a full-fledged analysis coded up 
-            # in analyze_IR_poles_check()
-            misc.sprint('Summary for that PS point:\n%-20s : %s\n%-20s : %s\n%-20s : %s'%(
-                 'virtual contrib.',
-                 virtual_ME_expansion.__str__(format='.16e'),
-                 'integrated CTs.',
-                 all_integrated_CT_summed_res.__str__(format='.16e'),
-                 'relative diff.',
-                 relative_diff.__str__(format='.16e')
-            ))
-            all_evaluations[process_key] = evaluation
-    
+            process_evaluation = self.test_IR_poles_for_process(
+                    test_options, defining_process, process_key, all_flavor_configurations, 
+                    a_virtual_PS_point, a_xi1, a_xi2, a_xb_1, a_xb_2 )
+
+            all_evaluations[process_key] = process_evaluation
+
         # Now produce a nice output of the evaluations and assess whether this test passed or not.
         return self.analyze_IR_poles_check(all_evaluations, test_options['acceptance_threshold'])    
+
+    def test_IR_poles_for_process(self, test_options, defining_process, process_key, 
+        all_flavor_configurations, a_virtual_PS_point, a_xi1, a_xi2, a_xb_1, a_xb_2):
+        """ Given a test_options, a process and all flavor configurations mapped to that 
+        particular process, a PS-point onto which to evaluate the various contributions, 
+        as well as its corresponding convolution variables xi1/2; perform the IR poles 
+        test that consists in making sure all poles in the epsilon Laurent expansion have
+        residues of zero, exhibiting the various pieces (virtual ME, integrated counterterms)
+        part of the KLN cancellation."""
+        
+        # Select which integrated counterterms are selected for the test
+        if self.has_integrated_counterterms():
+            integrated_counterterms_to_consider = [ ct for ct in self.integrated_counterterms[process_key] 
+                if ct['integrated_counterterm'].get_number_of_couplings() <= test_options['correction_order'].count('N') ]
+            if test_options['counterterms']:
+                counterterm_pattern = test_options['counterterms']
+                logger.debug("Integrated counterterms before selection")
+                for ct in integrated_counterterms_to_consider:
+                    logger.debug("    "+str(ct['integrated_counterterm']))
+                integrated_counterterms_to_consider = self.find_counterterms_matching_regexp(
+                    integrated_counterterms_to_consider, counterterm_pattern, integrated_CT=True )
+            logger.debug("Selected integrated counterterms")
+            for ct in integrated_counterterms_to_consider:
+                logger.debug("    "+str(ct['integrated_counterterm']))
+
+        # We must also include local counterterms as they too can have poles
+        if self.has_local_counterterms():
+            local_counterterms_to_consider = [ ct for ct in self.counterterms[process_key]
+                if ct.get_number_of_couplings() <= test_options['correction_order'].count('N') ]
+            if test_options['counterterms']:
+                counterterm_pattern = test_options['counterterms']
+                logger.debug("Local counterterms before selection")
+                for ct in local_counterterms_to_consider:
+                    logger.debug("    "+str(ct))
+                local_counterterms_to_consider = self.find_counterterms_matching_regexp(
+                    local_counterterms_to_consider, counterterm_pattern )
+            logger.debug("Selected local counterterms")
+            for ct in local_counterterms_to_consider:
+                logger.debug("    "+str(ct))
+
+        mu_r, mu_f1, mu_f2 = self.get_scales(a_virtual_PS_point)
+
+        # Specify the counterterms to be considered and backup the original values
+        if self.has_local_counterterms():
+            local_CT_backup = self.counterterms[process_key]
+            self.counterterms[process_key] = local_counterterms_to_consider
+        if self.has_integrated_counterterms():
+            integrated_CT_backup = self.integrated_counterterms[process_key]
+            self.integrated_counterterms[process_key] = integrated_counterterms_to_consider
+        try:
+            # Now call sigma in order to gather all events
+            events = self.sigma(
+                a_virtual_PS_point.to_dict(), process_key, defining_process, all_flavor_configurations, 
+                1.0, mu_r, mu_f1, mu_f2, a_xb_1, a_xb_2, a_xi1, a_xi2, 
+                compute_poles            = True,
+                apply_flavour_blind_cuts = (test_options['apply_lower_multiplicity_cuts'] or
+                                            test_options['apply_higher_multiplicity_cuts'])
+            )
+        except Exception as e:
+            logger.critical("The following exception occurred when generating events for this integrand %s:\n%s"%(
+                                                  self.get_short_name(), str(e)))
+            if self.has_local_counterterms():
+                self.counterterms[process_key] = local_CT_backup
+            if self.has_integrated_counterterms():
+                self.integrated_counterterms[process_key] = integrated_CT_backup
+            # Forward the exception while not resetting the stack trace.
+            raise
+
+        # Restore the original list of counterterms
+        if self.has_local_counterterms():
+            self.counterterms[process_key] = local_CT_backup
+        if self.has_integrated_counterterms():
+            self.integrated_counterterms[process_key] = integrated_CT_backup
+
+#        misc.sprint('Events generated before post-processing.')
+#        misc.sprint(events)
+#        misc.sprint('Before post-processing:',len(events))
+
+        # Now post-process the events as done in __call__ of the integrand.
+        
+        # Now handle the process mirroring, by adding, for each ME7Event defined with
+        # requires_mirroring = True, a new mirrored event with the initial states swapped,
+        # as well as the Bjorken x's and rescalings and with p_z -> -p_z on all final
+        # state momenta
+        events.generate_mirrored_events()
+
+        # Apply flavor blind cuts
+        if test_options['apply_higher_multiplicity_cuts'] or test_options['apply_lower_multiplicity_cuts']:
+            events.filter_with_flavor_blind_cuts(self.pass_flavor_blind_cuts, 
+                defining_process.get_cached_initial_final_pdgs(),
+                n_jets_allowed_to_be_clustered  = self.contribution_definition.n_unresolved_particles)
+        # Apply PDF convolution. It is important to convolve with the PDFs, so as to 
+        # correctly get the factors 1/xi_i multiplying the weights in beam 
+        # factorization counterterms. But either the PDF density can be set to 1.
+        if self.run_card['lpp1']==self.run_card['lpp2']==1:
+            pdf = None if test_options['set_PDFs_to_unity'] else self.pdf
+            events.apply_PDF_convolution( self.get_pdfQ2, (pdf, pdf), (mu_f1**2, mu_f2**2) )
+
+        # Make sure Bjorken-x rescalings xi_i don't matter anymore
+        for event in events:
+            event.set_Bjorken_rescalings(None, None)
+
+        # Apply flavor sensitive cuts
+        if test_options['apply_higher_multiplicity_cuts'] or test_options['apply_lower_multiplicity_cuts']:
+            events.filter_flavor_configurations(self.pass_flavor_sensitive_cuts)
+
+#        misc.sprint('Events generated after post-processing:')
+#        misc.sprint(events)
+
+        # Now collect the results necessary to test that the poles cancel in the dictionary below
+        # Some contributions like the beam-soft ones may not have any physical contributions
+        # but just are a receptacle for integrated softs. We therefore initialize it at zero.
+        evaluation = {
+             'virtual_ME'           : base_objects.EpsilonExpansion({0: 0.0}),
+             'integrated_CTs'       : base_objects.EpsilonExpansion({0: 0.0}),
+             'defining_process'     : defining_process,
+             'PS_point'             : a_virtual_PS_point }
+        event_weight_sum = base_objects.EpsilonExpansion({0: 0.0})
+
+        for event in events:
+            # TODO: instead of looking at the total weight, we could consider doing the
+            # check for one particular flavor configuration which could be specified
+            # as an extra test parameter.
+            # An alternative way is to look at the overall summed event which should have
+            # zero poles for all its flavor configurations
+            event_wgt = event.get_total_weight()
+            event_weight_sum += event_wgt
+            event_str = event.counterterm_structure_short_string()
+            if event_str in evaluation:
+                evaluation[event_str] += event_wgt
+            else:
+                evaluation[event_str] = event_wgt
+            # Also add the weight from this event in the two aggregation keys
+            if event.counterterm_structure is None:
+                evaluation['virtual_ME'] += event_wgt                   
+            else:
+                evaluation['integrated_CTs'] += event_wgt
+
+        # Small monitoring of the various contributions:
+        max_length = max(len(k) for k in evaluation)+1
+        separator_length = max_length+2
+        logger.debug('-'*separator_length)
+        # Fancy ordering key to get a nice printout order of the event weights.
+        for entry in sorted(evaluation.keys(), key=lambda e:
+            (e[3:].replace('Event','0_')+'1' if e.startswith('<->') else e.replace('Event','0_')) ):
+            value = evaluation[entry]
+            if entry not in ['defining_process','PS_point','integrated_CTs','virtual_ME']:
+                logger.debug(('%%-%ds : %%s'%max_length)%(entry, value.__str__(format='.16e')))
+        logger.debug('-'*separator_length)
+        logger.debug(('%%-%ds : %%s'%max_length)%('integrated_CTs', evaluation['integrated_CTs'].__str__(format='.16e')))
+        logger.debug(('%%-%ds : %%s'%max_length)%('virtual_ME', evaluation['virtual_ME'].__str__(format='.16e')))        
+        logger.debug('-'*separator_length)
+        logger.debug('\nAll events summed:\n%s'%str(event_weight_sum))
+        logger.debug('-'*separator_length)
+
+        diff = evaluation['virtual_ME']+evaluation['integrated_CTs']
+        relative_diff = evaluation['virtual_ME'].relative_diff(evaluation['integrated_CTs']*-1.)
+        # Finite parts are of course expected to differ, so let's not show them
+        diff.truncate(max_power = -1)
+        relative_diff.truncate(max_power = -1)
+        # To be commented out when we will have a full-fledged analysis coded up 
+        # in analyze_IR_poles_check()
+        logger.info('Summary for that PS point:\n%-20s : %s\n%-20s : %s\n%-20s : %s'%(
+             'virtual contrib.',
+             evaluation['virtual_ME'].__str__(format='.16e'),
+             'integrated CTs.',
+             evaluation['integrated_CTs'].__str__(format='.16e'),
+             'relative diff.',
+             relative_diff.__str__(format='.16e')
+        ))
+        normalization = max(
+            max(abs(v) for v in evaluation['virtual_ME'].values()) if len(evaluation['virtual_ME'])>0 else 0.,
+            max(abs(v) for v in evaluation['integrated_CTs'].values()) if len(evaluation['integrated_CTs'])>0 else 0.)
+        if normalization == 0.:
+            logger.info('%sResults identically zero.%s'%(misc.bcolors.GREEN, misc.bcolors.ENDC))
+        else:
+            max_diff = max( abs(v/normalization) for v in diff.values()) if len(diff)>0 else 0.
+            if max_diff > test_options['acceptance_threshold']:
+                logger.info('%sFAILED%s (%.2e > %.2e)'%(misc.bcolors.RED, misc.bcolors.ENDC,
+                                                max_diff, test_options['acceptance_threshold']))          
+            else:
+                logger.info('%sPASSED%s (%.2e < %.2e)'%(misc.bcolors.GREEN, misc.bcolors.ENDC,
+                                                max_diff, test_options['acceptance_threshold']))        
+            
+        return evaluation
 
     def analyze_IR_poles_check(self, all_evaluations, acceptance_threshold):
         """ Analyze the results of the check_IR_pole_residues command. """
@@ -1342,59 +2551,62 @@ The missing process is: %s"""%reduced_process.nice_string())
         
         return True
 
-    def sigma(self, PS_point, process_key, process, flavors, process_wgt, 
-                                   integrator_jacobian, mu_r, mu_f1, mu_f2, *args, **opts):
-        """ Overloading of the sigma function from ME7Integrand to include necessary additional contributions. """
-    
-
-        # Apply flavor blind cuts
-        if not self.pass_flavor_blind_cuts(PS_point, flavors):
-            if __debug__: logger.debug('Event failed the flavour_blind generation-level cuts.')
-            if __debug__: logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)            
-            return 0.0
-
-        sigma_wgt = super(ME7Integrand_V, self).sigma(
-                PS_point, process_key, process, flavors, process_wgt, 
-                                    integrator_jacobian, mu_r, mu_f1, mu_f2, *args, **opts)
+    def sigma(self, PS_point, process_key, process, all_flavor_configurations, 
+                             base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts):
+        """ Overloading of the sigma function from ME7Integrand to include necessary 
+        additional contributions. """
         
-        # This will group all CT results with the same reduced flavors, so
-        # as to call the generation-level cuts and observables only once for each
-        # flavour configuration.
-        # The format is:
-        #     { <reduced_flavors_tuple> : [(counterterm, CT_wgt), ] }
-        CT_results = {}
-        for counterterm_characteristics in self.integrated_counterterms[process_key]:
-            for input_mapping in counterterm_characteristics['input_mappings']:
-                CT_wgt, reduced_flavors = self.evaluate_integrated_counterterm(
-                   counterterm_characteristics, PS_point, flavors, input_mapping,
-                   hel_config=None, compute_poles=False)
-                    
-                if CT_wgt is None or CT_wgt == 0.:
-                    continue
-    
-                # Register this CT in the dictionary CT_results gathering all evaluations
-                key = reduced_flavors
-                if key not in CT_results:
-                    CT_results[key] = [(counterterm_characteristics, CT_wgt)]
-                else:
-                    CT_results[key].append((counterterm_characteristics, CT_wgt))
+        all_events_generated = ME7EventList()
 
-        # Now investigate all the different counterterm contributions to add:
-        for reduced_flavors, counterterms_characteristics in CT_results.items():
-            if not self.pass_flavor_sensitive_cuts(PS_point, reduced_flavors):
-                continue
-            this_CT_group_wgt = sum(contrib[1] for contrib in counterterms_characteristics)
-            # Register this CT_wgt in the global weight.
-            sigma_wgt += this_CT_group_wgt
-                        
-            if self.apply_observables:
-                data_for_observables = {
-                    'PS_point'     : PS_point,
-                    'flavors'      : reduced_flavors,
-                    'counterterms' : counterterms_characteristics }
-                self.observable_list.apply_observables(
-                    integrator_jacobian*this_CT_group_wgt*process_wgt, data_for_observables)
-        return sigma_wgt
+        compute_poles = opts.get('compute_poles', False)
+
+        matrix_element_event = self.generate_matrix_element_event(
+                PS_point, process_key, process, all_flavor_configurations, 
+                  base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts)
+        # Some contributions might have not physical contributions and overloaded the above
+        # so as to return None
+        if matrix_element_event is not None:
+            all_events_generated.append(matrix_element_event)
+        
+        # Now loop over all integrated counterterms
+        for counterterm_characteristics in self.integrated_counterterms[process_key]:
+            
+            # Example of a hack below to include only soft integrated CT. Uncomment to enable.
+#            if counterterm_characteristics['integrated_counterterm'].reconstruct_complete_singular_structure()\
+#                                                     .substructures[0].substructures[0].name()!='S':
+#                continue
+
+            # And over all the ways in which this current PS point must be remapped to
+            # account for all contributions of the integrated CT. (e.g. the integrated
+            # splitting g > d d~ must be "attached" to all final state gluons appearing
+            # in this virtual ME process definition.)
+            for input_mapping in counterterm_characteristics['input_mappings']:
+                # At NLO at least, it is OK to save a bit of time by enforcing 'compute_poles=False').
+                # This will need to be re-assessed at NNLO for RV contributions.
+                CT_event = self.evaluate_integrated_counterterm( 
+                    counterterm_characteristics, PS_point, base_weight, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2,
+                    input_mapping, all_flavor_configurations,
+                    hel_config      = None, 
+                    compute_poles   = compute_poles)
+            
+                if CT_event is not None:
+                    # Attach additional information to this CT_event which plays no role in the
+                    # MadNkLO construction but which may be used, in test_IR_poles for instance,
+                    # for improving the printout of the event record.
+                    if ('allowed_backward_evolved_flavors' in counterterm_characteristics) and \
+                      not all(aef=='ALL' for aef in counterterm_characteristics['allowed_backward_evolved_flavors'].values()):
+                        CT_event.store_information('beam_convolution_masks', 
+                                counterterm_characteristics['allowed_backward_evolved_flavors'])
+                    CT_event.store_information('input_mapping',input_mapping)
+                    all_events_generated.append( CT_event )
+
+        # Notice that it may be possible in some subtraction scheme to combine
+        # several events having the same kinematics support. This is a further
+        # optimization that we can easily implement when proven needed.
+        # all_events_generated.combine_events_with_identical_kinematics()
+        # (PS: the function above is a place-holder and is not implemented yet.
+        
+        return all_events_generated
 
 class ME7Integrand_R(ME7Integrand):
     """ME7Integrand for the computation of a single real-emission type of contribution."""
@@ -1426,10 +2638,13 @@ class ME7Integrand_R(ME7Integrand):
         # Initialize the ME7Integrand
         super(ME7Integrand_R, self).__init__(*args, **opts)
         # Update the initialization inputs
-        self.initialization_inputs['options']['counterterms'] = \
-            self.counterterms
+        self.initialization_inputs['options']['counterterms'] = self.counterterms
         self.initialization_inputs['options']['subtraction_mappings_scheme'] = \
-            self.subtraction_mappings_scheme
+                                                          self.subtraction_mappings_scheme
+
+    def has_local_counterterms(self):
+        """ A real-emission type of integrand can contain local counterterms."""
+        return True
 
     def get_additional_nice_string_printout_lines(self, format=0):
         """ Return additional information lines for the function nice_string of this integrand."""
@@ -1474,7 +2689,8 @@ class ME7Integrand_R(ME7Integrand):
 
         return res
 
-    def combine_color_correlators(self, color_correlators):
+    @classmethod
+    def combine_color_correlators(cls, color_correlators):
         """ This function takes a list of color_correlators in argument, each specified as:
                color_correlator = ( connection_left, connection_right )
             where connection_<x> is given as:
@@ -1646,69 +2862,223 @@ class ME7Integrand_R(ME7Integrand):
         #return VH_two_iterated_soft_combination((i1_,j1_),(i2_,j2_))
         return abelian_combination((i1_,j1_),(i2_,j2_))
 
-    def combine_spin_correlators(self, spin_correlators):
-        """ This function takes several spin-correlators specified int the form
-              spin_correlator = ( (legIndex, ( vector_A, vector_B, ...) ),
-                                 (anotherLegIndex, ( vector_C, vector_D, ...) ),
-                                 etc... ) 
-            and returns the list of new correlator specifiers that arises from the
-            combination of all of them.
+    @classmethod
+    def combine_spin_correlators(cls, spin_correlators):
+        """This function takes several spin correlators specified in the form
+        spin_correlator = ( (legIndex_1, ( vector_A, vector_B, ...) ),
+                            (legIndex_2, ( vector_C, vector_D, ...) ),
+                            etc... )
+        and returns the new correlator specifier
+        that arises from the combination of all of them.
         """
         
-        # Trivial combination if there is a single one:
-        if len(spin_correlators):
-            return spin_correlators[0]
-
-        # This combination is done with a simple concatenation of the lists. Example:
-        # Let's say correlator A only correlates to leg #1 with two four-vectors v_A and v_B
-        # (these can be seen as a replacement of polarization vectors to consider and summed over)
+        # This combination is done with a simple concatenation of the lists.
+        # Example:
+        # Say correlator A only correlates to leg #1 with two four-vectors v_A and v_B
+        # (these are replacement of polarization vectors to consider and summed over)
         #     correlators_A[0]  = ( (1, (v_A, v_B)), )
-        # Now correlator B correlates with the two legs #4 and #7 (they must be different 
-        #  by construction!), each defined with a single vector v_C and v_B
+        # Now correlator B correlates with the two legs #4 and #7
+        # (they must be different by construction!)
+        # each defined with a single vector v_C and v_B
         #     correlators_B[0]  = ( (4, (v_C,)), (7, (v_D,)) )
         # Then it is clear tha the combined spin correlation should be:
         #     combined_spin_correlator = ( (1, (v_A, v_B)), (4, (v_C,)), (7, (v_D,)) )
-        # Notice that this implies that both combinations :
-        #    pol_vec_1 = v_A, pol_vec_4 = v_C,  pol_vec_7 = v_D
-        # as well as:
-        #    pol_vec_1 = v_B, pol_vec_4 = v_C,  pol_vec_7 = v_D
-        # will be computed and summed in the resulting spin-correlated matrix element call.
+        # Notice that this implies that both combinations
+        #    pol_vec_1 = v_A,  pol_vec_4 = v_C,  pol_vec_7 = v_D
+        # and
+        #    pol_vec_1 = v_B,  pol_vec_4 = v_C,  pol_vec_7 = v_D
+        # will be computed and summed in the resulting
+        # spin-correlated matrix element call.
         
+        # Trivial combination if there is a single one or none (all are None)
+        if len(spin_correlators) == 1:
+            return spin_correlators[0]
+        if all(sc is None for sc in spin_correlators):
+            return None
+
         # Make sure the spin correlators don't share common legs
-        for i, sc_a in enumerate(spin_correlators):
+        for i, sc_a in enumerate(spin_correlators[:-1]):
+            if sc_a is None:
+                continue
+            set_a = set(c[0] for c in sc_a)
             for sc_b in spin_correlators[i+1:]:
-                assert (len( set(c[0] for c in sc_a)&set(c[0] for c in sc_b))==0 )
+                if sc_b is None:
+                    continue
+                set_b = set(c[0] for c in sc_b)
+                assert set_a.isdisjoint(set_b)
+
+        # Combine spin correlators
+        combined = []
+        for sc in spin_correlators:
+            if not sc is None:
+                combined += sc
+
+        return tuple(combined)
+
+    @classmethod
+    def merge_correlators_in_necessary_ME_calls(cls, all_necessary_ME_calls):
+        """ Merges the correlators defined the list of inputs to provide to the various calls
+        to the reduced matrix elements specified by the argument all_necessary_ME_calls. """
         
-        return tuple(sum([ (list(sc) if not sc is None else []) for sc in spin_correlators],[]))
+        new_all_necessary_ME_calls = []
+        for ME_call in all_necessary_ME_calls:
+            combined_spin_correlator  = cls.combine_spin_correlators(ME_call['spin_correlations'])
+            # The combination of color correlators can give rise to several ones, each with its multiplier
+            combined_color_correlators, multipliers = cls.combine_color_correlators(ME_call['color_correlations'])
 
-    @staticmethod
-    def update_all_necessary_ME_calls(all_necessary_ME_calls, new_evaluation):
+            combined_weight = reduce(lambda x,y: x*y, ME_call['main_weights'])
+            flavor_matrices_beam_one = [fv for fv in ME_call['flavor_matrices_beam_one'] if fv is not None]
+            flavor_matrices_beam_two = [fv for fv in ME_call['flavor_matrices_beam_two'] if fv is not None]
+            if len(flavor_matrices_beam_one)>1 or len(flavor_matrices_beam_two)>1:
+                raise MadGraph5Error("MadNkLO currently does not support the combination of multiple beam convolution flavor matrices.")
+            flavor_matrix_beam_one = flavor_matrices_beam_one[0] if len(flavor_matrices_beam_one)==1 else None
+            flavor_matrix_beam_two = flavor_matrices_beam_two[0] if len(flavor_matrices_beam_two)==1 else None
+            Bjorken_rescalings_beam_one = [br for br in ME_call['Bjorken_rescalings_beam_one'] if br is not None]
+            Bjorken_rescalings_beam_two = [br for br in ME_call['Bjorken_rescalings_beam_two'] if br is not None]
+            if len(Bjorken_rescalings_beam_one)>1 or len(Bjorken_rescalings_beam_two)>1:
+                raise MadGraph5Error("MadNkLO currently does not support the combination of multiple beam Bjorken x's rescalings.")
+            Bjorken_rescaling_beam_one = Bjorken_rescalings_beam_one[0] if len(Bjorken_rescalings_beam_one)==1 else 1.0
+            Bjorken_rescaling_beam_two = Bjorken_rescalings_beam_two[0] if len(Bjorken_rescalings_beam_two)==1 else 1.0
+            for combined_color_correlator, multiplier in zip(combined_color_correlators,multipliers):
+                # Finally add the processed combination as a new ME call
+                new_all_necessary_ME_calls.append(
+                    {   'spin_correlation'            : combined_spin_correlator,
+                        'color_correlation'           : combined_color_correlator,
+                        'main_weight'                 : combined_weight*multiplier,
+                        'flavor_matrix_beam_one'      : flavor_matrix_beam_one,
+                        'flavor_matrix_beam_two'      : flavor_matrix_beam_two,
+                        'Bjorken_rescaling_beam_one'  : Bjorken_rescaling_beam_one,
+                        'Bjorken_rescaling_beam_two'  : Bjorken_rescaling_beam_two,
+                    },
+                )
+        return new_all_necessary_ME_calls
 
+    @classmethod
+    def update_all_necessary_ME_calls(cls, all_necessary_ME_calls, new_evaluation, 
+            weight_type='main_weight', Bjorken_rescaling_beam_one=None, Bjorken_rescaling_beam_two=None):
+        """ Combined previous current evaluation with the new one in argument so as to setup
+        the input of the matrix elements to be computed. The current type can be either:
+            'main_weight', 'flavor_matrices_beam_one', 'flavor_matrices_beam_two'
+        which indicates if this is a weight that necessitate flavor convolutions (i.e. from
+        beam factorization).
+        """ 
         new_all_necessary_ME_calls = []
         for ((spin_index, color_index), current_wgt) in new_evaluation['values'].items():
             # Now combine the correlators necessary for this current
             # with those already specified in 'all_necessary_ME_calls'
             for ME_call in all_necessary_ME_calls:
-                new_all_necessary_ME_calls.append((
+                new_all_necessary_ME_calls.append({
                     # Append this spin correlation to those already present for that call
-                    ME_call[0] + [new_evaluation['spin_correlations'][spin_index], ],
+                    'spin_correlations' : ME_call['spin_correlations'] + [new_evaluation['spin_correlations'][spin_index], ],
                     # Append this color correlation to those already present for that call
-                    ME_call[1] + [new_evaluation['color_correlations'][color_index], ],
+                    'color_correlations' : ME_call['color_correlations'] + [new_evaluation['color_correlations'][color_index], ],
                     # Append this weight to those already present for that call
-                    ME_call[2] + [current_wgt['finite'], ],
-                ))
+                    'main_weights' : ME_call['main_weights'] + [ base_objects.EpsilonExpansion(current_wgt) if 
+                        weight_type=='main_weight' else base_objects.EpsilonExpansion({'finite':1.0}) ],
+                    'flavor_matrices_beam_one' : ME_call['flavor_matrices_beam_one'] + [ current_wgt if weight_type=='flavor_matrix_beam_one' else None ],
+                    'flavor_matrices_beam_two' : ME_call['flavor_matrices_beam_two'] + [ current_wgt if weight_type=='flavor_matrix_beam_two' else None ],
+                    'Bjorken_rescalings_beam_one' : ME_call['Bjorken_rescalings_beam_one'] + [ Bjorken_rescaling_beam_one,],
+                    'Bjorken_rescalings_beam_two' : ME_call['Bjorken_rescalings_beam_two'] + [ Bjorken_rescaling_beam_two,],
+                })
         # Return the new list of necessary ME calls
         return new_all_necessary_ME_calls
 
-    def evaluate_counterterm(
-        self, counterterm, PS_point,
-        hel_config=None, defining_flavors=None,
-        apply_flavour_blind_cuts=True, apply_flavour_cuts=True ):
-        """Evaluate a counterterm for a given PS point."""
+    @classmethod
+    def process_beam_factorization_currents(cls, all_necessary_ME_calls, all_beam_currents, 
+                     all_MEAccessors, PS_point, process, xb_1, xb_2, xi1, xi2, mu_r, mu_f1, mu_f2, Q,
+                     allowed_backward_evolved_flavors1='ALL',
+                     allowed_backward_evolved_flavors2='ALL'):
+        """ Calls the beam currents specified in the argument all_beam_currents with format:
+              [{       'beam_one': <BeamCurrent>,
+                       'beam_two': <BeamCurrent>,
+           <optional>  'correlated_convolution' : <beam_current>
+               }]
+        and combine their evaluation with the list of already existing inputs provided in
+        the list of all_necessary_ME_calls. The two options allowed_backward_evolved_flavors<i>
+        allow to specify to the BeamCurrents a mask to apply, selecting only particular
+        flavors that the current can backward evolve onto."""
 
-        # Retrieve some possibly relevant model parameters
-        alpha_s = self.model.get('parameter_dict')['aS']
-        mu_r = self.model.get('parameter_dict')['MU_R']
+        new_all_necessary_ME_calls = []
+        for beam_currents in all_beam_currents:
+            new_necessary_ME_calls = list(all_necessary_ME_calls)
+            if beam_currents['beam_one'] is not None:
+                if isinstance(beam_currents['beam_one'], subtraction.BeamCurrent) and \
+                                    beam_currents['beam_one']['distribution_type']=='bulk':
+                    rescaling = 1./xi1
+                    # Additionally, when convoluting a 'bulk' distribution,
+                    # which is devoid of delta function, we must make sure to enforce the boundaries
+                    # of the Bjorken x's convolution to be xi1 (because of the change of variable xi1' = xb_1*xi1)
+                    # (for the 'counterterm' type of distribution, their delta puts this boundary to one).
+                    if xb_1 > xi1:
+                        # Skip this convolution current
+                        continue
+                else:
+                    rescaling = 1.
+                current_evaluation, all_current_results = all_MEAccessors(beam_currents['beam_one'], 
+                    lower_PS_point=PS_point, reduced_process=process, xi=xi1, mu_r=mu_r, mu_f=mu_f1, Q=Q,
+                    allowed_backward_evolved_flavors = allowed_backward_evolved_flavors1)
+
+                new_necessary_ME_calls = ME7Integrand_R.update_all_necessary_ME_calls(
+                    new_necessary_ME_calls, current_evaluation,
+                    weight_type='flavor_matrix_beam_one', Bjorken_rescaling_beam_one = rescaling)
+            if beam_currents['beam_two'] is not None:
+                if isinstance(beam_currents['beam_two'], subtraction.BeamCurrent) and \
+                                    beam_currents['beam_two']['distribution_type']=='bulk':
+                    rescaling = 1./xi2
+                    # Apply boundary conditions of bulk counterterms
+                    if xb_2 > xi2:
+                        # Skip this convolution current
+                        continue
+                else:
+                    rescaling = 1.
+                current_evaluation, all_current_results = all_MEAccessors(beam_currents['beam_two'],
+                    lower_PS_point=PS_point, reduced_process=process, xi=xi2, mu_r=mu_r, mu_f=mu_f2, Q=Q,
+                    allowed_backward_evolved_flavors = allowed_backward_evolved_flavors2) 
+                new_necessary_ME_calls = ME7Integrand_R.update_all_necessary_ME_calls(
+                    new_necessary_ME_calls, current_evaluation,  
+                    weight_type='flavor_matrix_beam_two', Bjorken_rescaling_beam_two = rescaling)
+            if 'correlated_convolution' in beam_currents and beam_currents['correlated_convolution'] is not None:
+                if beam_currents['beam_one'] is not None or beam_currents['beam_two'] is not None:
+                    raise MadGraph5Error('MadNkLO does not support the specification of both a current'+
+                        ' requiring correlated beam convolution with one-sided convolution currents.')
+                if (not isinstance(beam_currents['correlated_convolution'], 
+                            subtraction.IntegratedBeamCurrent)) and (xi1 != xi2 or xi1 is None):
+                    raise MadGraph5Error('Currents requiring correlated beam convolutions must be'
+                        ' evaluated within a contribution in which xi1 == xi2 and different than None.')
+                # By convention we pass here the factorization scale mu_f1 and not mu_f2, but that should be irrelevant 
+                # since such counterterms are in no way related to the PDF evolution or ISR factorization in general
+                current_evaluation, all_current_results = all_MEAccessors(beam_currents['correlated_convolution'],
+                    lower_PS_point=PS_point, reduced_process=process, xi=xi1, mu_r=mu_r, mu_f=mu_f1, Q=Q)
+                if isinstance(beam_currents['correlated_convolution'], subtraction.BeamCurrent) and \
+                                beam_currents['correlated_convolution']['distribution_type']=='bulk':
+                    rescaling = 1./xi1
+                    # Apply boundary conditions of bulk counterterms
+                    if xb_1 > xi1 or xb_2 > xi2:
+                        # Skip this convolution current
+                        continue
+                else:
+                    rescaling = 1.
+                new_necessary_ME_calls = ME7Integrand_R.update_all_necessary_ME_calls(
+                    new_necessary_ME_calls, current_evaluation,  
+                    weight_type='main_weight', 
+                    Bjorken_rescaling_beam_one = rescaling,
+                    Bjorken_rescaling_beam_two = rescaling)
+                
+            new_all_necessary_ME_calls.extend(new_necessary_ME_calls)
+        return new_all_necessary_ME_calls
+
+    def evaluate_counterterm(
+        self, counterterm, PS_point, base_weight,
+        mu_r, mu_f1, mu_f2,
+        xb_1, xb_2, xi1, xi2,
+        is_process_mirrored, all_resolved_flavors,
+        hel_config=None, apply_flavour_blind_cuts=True,
+        boost_back_to_com=True, always_generate_event=False, **opts ):
+        """Evaluate a counterterm for a given PS point and flavors.
+        The option 'boost_back_to_com' allows to prevent this functiont to boost back the
+        PS point of the Event generated to the c.o.m frame. This would yields *incorrect* 
+        distributions but it is useful for diagnostic purposes when called from within
+        test_IR_limits. It however *must* be kept to True by default."""
 
         # Now call the walker which hikes through the counterterm structure
         # to return the list of currents and PS points for their evaluation
@@ -1716,45 +3086,81 @@ class ME7Integrand_R(ME7Integrand):
         #         'currents' : [stroll_output1, stroll_output2, ...],
         #         'matrix_element': (ME_process, ME_PS),
         #         'kinematic_variables' : kinematic_variables (a dictionary) }
-        hike_output = self.walker.walk_to_lower_multiplicity(
-            PS_point, counterterm, compute_jacobian=self.divide_by_jacobian )
+        
+        # When beam convolutions are active, we must remember that both the Bjorken x's *and*
+        # the convolution variable xi are integrated between zero and one.
+        #TODO this will need to be refined so as:
+        #    1) be moved to where the beam convolution takes place so as to affect each current 
+        #       independently of each other.
+        #    2) When called from test_IR_limits, we should never return None, but instead an 
+        #       event with zero weights. We need the case below to follow this requirement. 
+        if 'distribution_type' not in counterterm.nodes[0].current or \
+          counterterm.nodes[0].current['distribution_type'] not in ['counterterm']:
+            if (xi1 is not None) and (xb_1>xi1):
+                return None
+            if (xi2 is not None) and (xb_2>xi2):
+                return None
+
+        # Compute the 4-vector Q characterizing this PS point, defined as the sum of all
+        # initial_state momenta, before any mapping is applied.
+        Q = sum(p for i, p in enumerate(PS_point.to_list()) if i<self.n_initial)
        
+        hike_output = self.walker.walk_to_lower_multiplicity(
+                          PS_point, counterterm, compute_jacobian=self.divide_by_jacobian )
+
         # Access the matrix element characteristics
         ME_process, ME_PS = hike_output['matrix_element']
         
         # Generate what is the kinematics (reduced_PS) returned as a list
-        # and the reduced_flavors for this counterterm,
-        # by using the defining selected flavors of the real-emission
-        # and the real-emission kinematics dictionary
+        # and the reduced_flavors for this counterterm by using the default reduced flavors
+        # originating from the defining process and the real-emission kinematics dictionary
         reduced_PS, reduced_flavors = counterterm.get_reduced_quantities(
-            ME_PS, defining_flavors=defining_flavors)
-
+                                                              ME_PS, defining_flavors=None)
+        
         n_unresolved_left = self.contribution_definition.n_unresolved_particles
         n_unresolved_left -= counterterm.count_unresolved()
         # Apply cuts if requested and return immediately if they do not pass
-        if apply_flavour_blind_cuts and not self.pass_flavor_blind_cuts(
-            reduced_PS, reduced_flavors,
-            n_jets_allowed_to_be_clustered=n_unresolved_left):
-            return 0.0, reduced_PS, reduced_flavors
-        if apply_flavour_cuts and not self.pass_flavor_sensitive_cuts(
-            reduced_PS, reduced_flavors):
-            return 0.0, reduced_PS, reduced_flavors
+        cut_weight = 1.
+        if apply_flavour_blind_cuts and not self.pass_flavor_blind_cuts(reduced_PS,
+                reduced_flavors, xb_1 = xb_1, xb_2 = xb_2, 
+                n_jets_allowed_to_be_clustered=n_unresolved_left):
+            # Return None to indicate that no counter-event was generated
+            if not always_generate_event:
+                return None
+            else:
+                cut_weight = 0.
 
         # The above "hike" can be used to evaluate the currents first and the ME last.
         # Note that the code below can become more complicated when tracking helicities,
         # but let's forget this for now.
         assert ((hel_config is None))
-        # all_necessary_ME_calls is a list of tuples of the following form:
-        # (spin_correlators_to_combine, color_correlators_to_combine, weights_to_combine)
-        all_necessary_ME_calls = [ ([], [], []) ]
+        # all_necessary_ME_calls is a list inputs to call the Matrix Element and the weights
+        # that we must multiply/convolve them with. We start with empty entries.
+        all_necessary_ME_calls = [ 
+            {   'spin_correlations'             : [ ],
+                'color_correlations'            : [ ],
+                'main_weights'                  : [ ],
+                'flavor_matrices_beam_one'      : [ ],
+                'flavor_matrices_beam_two'      : [ ],
+                'Bjorken_rescalings_beam_one'   : [ ],
+                'Bjorken_rescalings_beam_two'   : [ ],
+            },
+        ]
         total_jacobian = 1.
-        disconnected_currents_weight = 1.
+        disconnected_currents_weight = base_objects.EpsilonExpansion({'finite': 1.0})        
 
+        # First evaluate the currents building the counterterm
         for stroll_output in hike_output['currents']:
             stroll_currents = stroll_output['stroll_currents']
             higher_PS_point = stroll_output['higher_PS_point']
             lower_PS_point  = stroll_output['lower_PS_point']
             stroll_vars     = stroll_output['stroll_vars']
+            # Set the variable 'Q' as the total initial-state momentum before any mapping
+            # It is possible that this overwrites an alternative definition that is used
+            # within the mapping routines. And this is OK, because the choice of which 
+            # Q to use in the definition of the variables used by the local currents is
+            # independent on what the mapping internally uses.
+            stroll_vars['Q'] = Q
             if stroll_vars.has_key('jacobian'):
                 total_jacobian *= stroll_vars['jacobian']
             for current in stroll_currents:
@@ -1765,6 +3171,7 @@ class ME7Integrand_R(ME7Integrand):
                     leg_numbers_map=counterterm.momenta_dict,
                     reduced_process=ME_process, hel_config=None,
                     **stroll_vars )
+
                 # Now loop over all spin- and color- correlators required for this current
                 # and update the necessary calls to the ME
                 if not current['resolve_mother_spin_and_color']:
@@ -1777,46 +3184,115 @@ class ME7Integrand_R(ME7Integrand):
                     # and there will be only one level anyway,
                     # so there is not need of fancy combination of Laurent series.
                     disconnected_currents_weight *= \
-                        current_evaluation['values'][(0,0)]['finite']
+                         base_objects.EpsilonExpansion(current_evaluation['values'][(0,0)])
                 else:
                     all_necessary_ME_calls = ME7Integrand_R.update_all_necessary_ME_calls(
-                        all_necessary_ME_calls, current_evaluation)
+                        all_necessary_ME_calls, current_evaluation, weight_type='main_weight')
 
-        # Now perform the combination of the list of spin and color correlators to be merged
+        # misc.sprint(str(counterterm), total_jacobian)
+
+        # Now that all currents have been evaluated using the PS points with initial-state
+        # momenta that can be boosted because of initial-collinear mappings, we must boost
+        # back in the c.o.m frame the PS point that will be used for generating the 
+        # ME7Event as well as for calling the reduced ME.
+        # First avoid possible border effects by making a copy (should be removed for performance
+        # gain, after it is checked to be safe).
+        ME_PS = ME_PS.get_copy()
+        # And now boost it back in the c.o.m frame.
+        if boost_back_to_com:
+            ME_PS.boost_to_com(tuple([l.get('number') for l in counterterm.process.get_initial_legs()]))
+
+        # Now the phase-space point stored in the event generated is not a dictionary but
+        # a LorentzVectorList which must be ordered exactly like the flavor configurations
+        # in it are.
+        event_PS = ME_PS.to_list(ordered_keys=[l.get('number') for l in counterterm.process.get('legs')])
+
+        # Then evaluate the beam factorization currents
+        all_necessary_ME_calls = ME7Integrand_R.process_beam_factorization_currents(
+            all_necessary_ME_calls, counterterm.get_beam_currents(), self.all_MEAccessors, 
+            ME_PS, ME_process, xb_1, xb_2, xi1, xi2, mu_r, mu_f1, mu_f2, Q)
+        # If there is no necessary ME call left, it is likely because the xi upper bound of the 
+        # Bjorken x's convolution were not respected. We must now abort the event. 
+        if len(all_necessary_ME_calls) == 0:
+            if not always_generate_event:
+                return None
+            else:
+                cut_weight = 0.    
+        
+        # Now perform the combination of the list of spin- and color- correlators to be merged
         # for each necessary ME call identified
-        new_all_necessary_ME_calls = []
-        for spin_correlators_to_combine, color_correlators_to_combine, weights_to_combine in all_necessary_ME_calls:
-            combined_spin_correlator  = self.combine_spin_correlators(spin_correlators_to_combine)
-            # The combination of color correlators can give rise to several ones, each with its multiplier
-            combined_color_correlators, multipliers = self.combine_color_correlators(color_correlators_to_combine)
-            combined_weight = reduce(lambda x,y: x*y, weights_to_combine)
-            for combined_color_correlator, multiplier in zip(combined_color_correlators,multipliers):
-                # Finally add the processed combination as a new ME call
-                new_all_necessary_ME_calls.append( (
-                    combined_spin_correlator,
-                    combined_color_correlator,
-                    combined_weight*multiplier
-                ) )
-        all_necessary_ME_calls = new_all_necessary_ME_calls
+        all_necessary_ME_calls = ME7Integrand_R.merge_correlators_in_necessary_ME_calls(
+                                                                    all_necessary_ME_calls)
 
         # Finally treat the call to the reduced connected matrix elements
-        connected_currents_weight = 0.
 #        misc.sprint('I got for %s:'%str(counterterm.nice_string()))
-        for (spin_correlators, color_correlators, current_weight) in all_necessary_ME_calls:
-#            misc.sprint(ME_PS,ME_process.nice_string())
-#            misc.sprint(spin_correlators)
-#            misc.sprint(color_correlators, current_weight)
+        alpha_s = self.model.get('parameter_dict')['aS']
+        mu_r = self.model.get('parameter_dict')['MU_R']
+
+
+        # Compute all the reduced flavor configurations for this counterterm
+        all_reduced_flavors = [ counterterm.get_reduced_flavors(resolved_flavors) 
+                                             for resolved_flavors in all_resolved_flavors ]
+        # VERY IMPORTANT: We must convolve the counter-event with the initial state PDFs
+        # corresponding to the *RESOLVED* flavors, and the flavour_sensitive_cuts also
+        # applied on the resolved flavors (since for the initial-state the cuts are basically
+        # use to select particular PDF components). The correct thing to do is to overwrite
+        # the initial states flavors to *always* match their resolve counterpart.
+        # The counterpart of this is that the integrated collinear initial-state counterterms 
+        # will get their initial state flavor backward evolved to also match the initial
+        # states of this local counterterm, so that the cancellation between local and integrated
+        # collinear counterterm is maintained. Of coure this plays no role for purely final-state
+        # counterterms.
+        all_reduced_flavored_with_initial_states_subsituted = []
+        for i_config, reduced_flavors in enumerate(all_reduced_flavors):
+            all_reduced_flavored_with_initial_states_subsituted.append(
+                                    (all_resolved_flavors[i_config][0],reduced_flavors[1]))
+
+        return ME7Integrand_R.generate_event_for_counterterm(
+            ME7Event(
+                event_PS,
+                {fc: cut_weight*base_weight
+                 for fc in all_reduced_flavored_with_initial_states_subsituted},
+                requires_mirroring              = is_process_mirrored,
+                host_contribution_definition    = self.contribution_definition,
+                counterterm_structure           = (counterterm, all_resolved_flavors),
+                Bjorken_xs                      = (xb_1, xb_2)
+            ),
+            disconnected_currents_weight,
+            ( counterterm.prefactor / total_jacobian ), 
+            all_necessary_ME_calls,
+            ME_process,
+            ME_PS, 
+            alpha_s, mu_r,
+            self.all_MEAccessors
+        )
+
+    @classmethod
+    def generate_event_for_counterterm(cls, template_MEEvent, disconnected_currents_weight,
+            overall_prefactor, all_necessary_ME_calls, ME_process, ME_PS, alpha_s, mu_r, all_MEAccessors):
+
+        # Initialize the placeholder which stores the event that we will progressively build
+        # below.
+        ME7_event_to_return = None
+        
+        for ME_call in all_necessary_ME_calls:
+            color_correlators = tuple(ME_call['color_correlation']) if ME_call['color_correlation'] else None
+            spin_correlators = tuple(ME_call['spin_correlation']) if ME_call['spin_correlation'] else None
+            connected_currents_weight = ME_call['main_weight']
+            # misc.sprint(ME_PS, ME_process.nice_string())
+            # misc.sprint(ME_process.get_cached_initial_final_numbers())
             try:
-                ME_evaluation, all_ME_results = self.all_MEAccessors(
-                   ME_process, ME_PS, alpha_s, mu_r,
-                   # Let's worry about the squared orders later, we will probably directly fish
-                   # them out from the ME_process, since they should be set to a unique combination
-                   # at this stage.
-                   squared_orders    = None,
-                   color_correlation = tuple(color_correlators) if color_correlators else None,
-                   spin_correlation  = tuple(spin_correlators) if spin_correlators else None, 
-                   hel_config        = None 
+                ME_evaluation, all_ME_results = all_MEAccessors(
+                    ME_process, ME_PS, alpha_s, mu_r,
+                    # Let's worry about the squared orders later,
+                    # we will probably directly fish them out from the ME_process,
+                    # since they should be set to a unique combination at this stage.
+                    squared_orders    = None,
+                    color_correlation = color_correlators,
+                    spin_correlation  = spin_correlators,
+                    hel_config        = None
                 )
+
             except MadGraph5Error as e:
                 logger.critical("""
 A reduced matrix element is missing in the library of automatically generated matrix elements.
@@ -1825,119 +3301,110 @@ Make sure that your process definition is specified using the relevant multipart
 Also make sure that there is no coupling order specification which receives corrections.
 The missing process is: %s"""%ME_process.nice_string())
                 raise e
-            # for i in ME_PS.keys():
-            #     if i in (1, 2): continue
-            #     for j in ME_PS.keys():
-            #         if j in (1, 2) or j <= i: continue
-            #         misc.sprint(i, j, (ME_PS[i]+ME_PS[j]).square())
-            # misc.sprint(current_weight, ME_evaluation['finite'])
-            # misc.sprint('reduced process = %s' % (
-            #     ' '.join('%d(%d)' % (l.get('number'), l.get('id')) for l in
-            #              counterterm.process.get_initial_legs()) + ' > ' +
-            #     ' '.join('%d(%d)' % (l.get('number'), l.get('id')) for l in
-            #              counterterm.process.get_final_legs())
-            # ))
-            # misc.sprint(counterterm.prefactor)
-            # misc.sprint(
-            #     'color corr. = %-20s | current = %-20.16f | ME = %-20.16f | Prefactor = %-3f  |  Final = %-20.16f ' % (
-            #         str(color_correlators),
-            #         current_weight,
-            #         ME_evaluation['finite'],
-            #         counterterm.prefactor,
-            #         current_weight * ME_evaluation['finite'] * counterterm.prefactor
-            #     ))
-            # Again, for the integrated subtraction counterterms, some care will be needed here
-            # for the real-virtual, depending on how we want to combine the two Laurent series.
-            connected_currents_weight += current_weight * ME_evaluation['finite']
 
-        # Print the different weights for debugging
-        # misc.sprint(total_jacobian)
-        # misc.sprint(connected_currents_weight)
-        # misc.sprint(disconnected_currents_weight)
+            # Multiply the various pieces building the event weight
+            # (most are EpsilonExpansion's)
+            event_weight = base_objects.EpsilonExpansion(ME_evaluation)
+            event_weight *= disconnected_currents_weight
+            event_weight *= connected_currents_weight
+            event_weight *= overall_prefactor
+            # misc.sprint("")
+            # misc.sprint(spin_correlators, color_correlators)
+            # misc.sprint(base_objects.EpsilonExpansion(ME_evaluation))
+            # misc.sprint(disconnected_currents_weight)
+            # misc.sprint(connected_currents_weight)
+            # misc.sprint(event_weight)
 
-        # Now finally handle the overall prefactor of the counterterm
-        # and the weight from the disconnected currents
-        final_weight = (
-            counterterm.prefactor / total_jacobian *
-            connected_currents_weight * disconnected_currents_weight )
+            # Skip an event with no contribution (some dipoles of the eikonal for example)
+            if event_weight.norm() == 0.:
+                continue
 
-        # Returns the corresponding weight and the mapped PS_point.
-        # Also returns the mapped_process (for calling the observables),
-        # which is typically simply a reference to counterterm.current
-        # which is an instance of Process.
-        # Notice that the flavors in the ME_process might not be accurate for now.
-        return final_weight, reduced_PS, reduced_flavors
+            # Now build the event from the template provided
+            event_to_convolve  = template_MEEvent.get_copy()
+            event_to_convolve *= event_weight
+            
+            # The PDF Bjorken x's arguments will need a 1/z rescaling due to the change
+            # of variable making the + distribution act on the PDF only and on the boundary of 
+            # the convolution over the Bjorken x's.
+            event_to_convolve.set_Bjorken_rescalings(ME_call['Bjorken_rescaling_beam_one'],
+                                                     ME_call['Bjorken_rescaling_beam_two'] )
 
-    def sigma(self, PS_point, process_key, process, flavors, process_wgt, 
-                                   integrator_jacobian, mu_r, mu_f1, mu_f2, *args, **opts):
+            # And convolve if necessary
+            if ME_call['flavor_matrix_beam_one'] is not None:
+                event_to_convolve.convolve_flavors( ME_call['flavor_matrix_beam_one'], leg_index=0 )
+            if ME_call['flavor_matrix_beam_two'] is not None:
+                event_to_convolve.convolve_flavors( ME_call['flavor_matrix_beam_two'], leg_index=1 )
+
+            # If the convolution is with a zero flavor matrix, this event does not contribute
+            if event_to_convolve.is_empty():
+                continue
+            
+            # Aggregate this event with the previous one, they should always be compatible
+            if ME7_event_to_return is None:
+                ME7_event_to_return = event_to_convolve
+            else:
+                ME7_event_to_return += event_to_convolve
+
+        # Finally return the ME7 event constructed for this counterterm
+        # Notice that this can be None if all terms were zero (for example during the flavor
+        # convolution).
+        return ME7_event_to_return
+    
+    def sigma(self, PS_point, process_key, process, all_flavor_configurations, 
+                  base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts):
         """ Implementation of the short-distance cross-section for the real-emission integrand.
-        Counterterms will be computed on top of the actual real-emission integrand."""
+        Counterterms will be computed on top of the actual real-emission integrand.
+        Note that the PS_point specified corresponds to a point already multiplied by both
+        the bjorken x's and boosted back to the c.o.m frame."""
 
-        # Compute the real-emission matrix element weight in the base ME7Integrand class
-        # Notice that the observable will be called already there for the resolved kinematics
-        sigma_wgt = super(ME7Integrand_R, self).sigma(
-            PS_point, process_key, process,
-            flavors, process_wgt,integrator_jacobian, mu_r, mu_f1, mu_f2, *args, **opts )
+        all_events_generated = ME7EventList()
 
-        # This will group all CT results with the same reduced kinematics and flavors, so
-        # as to call the generation-level cuts and observables only once for each
-        # configuration.
-        # The format is:
-        #     { <tupled_version_of_reduced_PS> :
-        #       { 'reduced_PS' : <LorentzVectorList equivalent of the tupled version>,
-        #         'flavor_contribs': 
-        #           { <reduced_flavors_tuple> : [(counterterm, CT_wgt), ] }
-        #       }
-        #     }
-        CT_results = {}
+        # When beam convolutions are active, we must remember that both the Bjorken x's *and*
+        # the convolution variable xi are integrated between zero and one.
+        if ((xi1 is not None) and xb_1 > xi1) or ((xi2 is not None) and xb_2 > xi2):
+            matrix_element_event = None
+        else:
+            matrix_element_event = self.generate_matrix_element_event(
+                PS_point, process_key, process, all_flavor_configurations, 
+                  base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts)
+    
+        # Some contributions might have not physical contributions and overloaded the above
+        # so as to return None
+        if matrix_element_event is not None:
+            all_events_generated.append(matrix_element_event)
+
         for counterterm in self.counterterms[process_key]:
             if not counterterm.is_singular():
                 continue
+            CT_event = self.evaluate_counterterm(
+                counterterm, PS_point, base_weight, mu_r, mu_f1, mu_f2,
+                xb_1, xb_2, xi1, xi2,
+                process.get('has_mirror_process'), all_flavor_configurations,
+                **opts)
+            
+            # The function above returns None if the counterterms is removed because of
+            # flavour_blind_cuts.
+            if CT_event is not None:
+                all_events_generated.append( CT_event )
 
-            CT_wgt, reduced_PS, reduced_flavors = self.evaluate_counterterm(
-                counterterm, PS_point, hel_config=None, defining_flavors=flavors,
-                apply_flavour_blind_cuts=True, apply_flavour_cuts=True)
-            if CT_wgt == 0.:
-                continue
+        # Notice that it may be possible in some subtraction scheme to combine
+        # several events having the same kinematics support. This is a further
+        # optimization that we can easily implement when proven needed.
+        # all_events_generated.combine_events_with_identical_kinematics()
+        # (PS: the function above is a place-holder and is not implemented yet.
+        return all_events_generated
 
-            # Register this CT in the dictionary CT_results gathering all evaluations
-            reduced_PS.flags.writeable = False
-            key = reduced_PS.data
-            if key not in CT_results:
-                new_entry = {'flavor_contribs': {}, 'reduced_PS' : reduced_PS}
-                CT_results[key] = new_entry
-            flavor_results = CT_results[key]['flavor_contribs']
-                        
-            try:
-                flavor_results[reduced_flavors].append( (counterterm, CT_wgt), )
-            except KeyError:
-                flavor_results[reduced_flavors] = [ (counterterm, CT_wgt), ]
+    def counterterms_to_consider(self, process_key, test_options):
+        """Function called by the function test_IR_limits so that it can be overloaded in
+        daughter classes like the beam-soft (BS) one."""
 
-        # Now investigate all the different counterterm contributions to add:
-        for reduced_PS_tuple, value in CT_results.items():
-            reduced_PS      = value['reduced_PS']
-            flavor_contribs = value['flavor_contribs'] 
-            for flavor_contrib, counterterm_contribs in flavor_contribs.items():
-                this_CT_group_wgt = sum(contrib[1] for contrib in counterterm_contribs)
-                # Register this CT_wgt in the global weight.
-                sigma_wgt += this_CT_group_wgt
-                # Apply observables if requested
-                if self.apply_observables:
-                    data_for_observables = {
-                        'PS_point'     : reduced_PS,
-                        'flavors'      : flavor_contrib,
-                        'counterterms' : counterterm_contribs }
-                    self.observable_list.apply_observables(
-                    integrator_jacobian*this_CT_group_wgt*process_wgt, data_for_observables)
-        
-        return sigma_wgt
+        # Use correction_order to select CT subset
+        return [ ct for ct in self.counterterms[process_key]
+                 if ct.get_number_of_couplings() <= test_options['correction_order'].count('N') ]
 
     def test_IR_limits(self, test_options):
         """Test how well local counterterms approximate a real-emission matrix element."""
 
-        # Retrieve some possibly relevant model parameters
-        alpha_s = self.model.get('parameter_dict')['aS']
-        mu_r = self.model.get('parameter_dict')['MU_R']
         # Apply the passed options
         seed = test_options.get('seed', None)
         if seed: random.seed(seed)
@@ -1952,18 +3419,24 @@ The missing process is: %s"""%ME_process.nice_string())
         # Make sure to generate a point within the cuts if necessary:
         max_attempts = 10000
         n_attempts   = 0
-        while True:
+        while n_attempts < max_attempts:
             n_attempts += 1
-            if n_attempts > max_attempts:
-                break
-            real_emission_PS_point, _, _, _ = self.phase_space_generator.get_PS_point(None)
+            real_emission_PS_point = None
+            # Phase-space generation can fail when beam convolution is active,
+            # because of the condition Bjorken_x_i < xi_i
+            while real_emission_PS_point is None:
+                real_emission_PS_point, jac, x1s, x2s = self.phase_space_generator.get_PS_point(None)
+            xb_1, xi1 = x1s
+            xb_2, xi2 = x2s
             if test_options['apply_higher_multiplicity_cuts']:
                 if not self.pass_flavor_blind_cuts(
                     real_emission_PS_point,
-                    self.processes_map.values()[0][0].get_cached_initial_final_pdgs() ):
+                    self.processes_map.values()[0][0].get_cached_initial_final_pdgs(),
+                    n_jets_allowed_to_be_clustered=self.contribution_definition.n_unresolved_particles,
+                    xb_1=xb_1, xb_2=xb_2):
                     continue
             break
-        if n_attempts > max_attempts:
+        if not n_attempts < max_attempts:
             raise MadEvent7Error(
                 "Could not generate a random kinematic configuration that passes " +
                 "the flavour blind cuts in less than %d attempts." % max_attempts )
@@ -1979,15 +3452,35 @@ The missing process is: %s"""%ME_process.nice_string())
                 selection=test_options['process'] ):
                 continue
             
-            a_real_emission_PS_point = copy.copy(real_emission_PS_point)
+            all_processes = [defining_process,]+mapped_processes
+            all_flavor_configurations = []
+            # The process mirroring is accounted for at the very end only            
+            for proc in all_processes:
+                initial_final_pdgs = proc.get_cached_initial_final_pdgs()
+                all_flavor_configurations.append(initial_final_pdgs)
+            
+            a_real_emission_PS_point = real_emission_PS_point.get_copy()
+            a_xb_1, a_xi1 = x1s
+            a_xb_2, a_xi2 = x2s
+            # We should not test here the flavour sensitive cuts because counterterms
+            # act on the flavor space and make an event pass the cut even if the resolved one
+            # does not.
             while (test_options['apply_higher_multiplicity_cuts'] and
-                   not self.pass_flavor_sensitive_cuts(
+                   not self.pass_flavor_blind_cuts(
                        a_real_emission_PS_point,
-                       defining_process.get_cached_initial_final_pdgs() ) ):
+                       defining_process.get_cached_initial_final_pdgs(),
+                       n_jets_allowed_to_be_clustered  = self.contribution_definition.n_unresolved_particles,
+                       xb_1 = xb_1, xb_2 = xb_2 ) ):
                 n_attempts += 1
                 if n_attempts > max_attempts:
                     break
-                a_real_emission_PS_point, _, _, _ = self.phase_space_generator.get_PS_point(None)
+                a_real_emission_PS_point = None
+                # Phase-space generation can fail when beam convolution is active, because of the condition
+                # Bjorken_x_i < xi_i
+                while a_real_emission_PS_point is None:
+                    a_real_emission_PS_point, a_jac, a_x1s, a_x2s = self.phase_space_generator.get_PS_point(None)
+                a_xb_1, a_xi1 = a_x1s
+                a_xb_2, a_xi2 = a_x2s
             if n_attempts > max_attempts:
                 raise MadEvent7Error(
                     "Could not generate a random kinematic configuration that passes " +
@@ -1996,12 +3489,13 @@ The missing process is: %s"""%ME_process.nice_string())
 
             # Make sure to have the PS point provided as LorentzVectorDict
             a_real_emission_PS_point = phase_space_generators.LorentzVectorDict(
-                (i+1, mom) for i, mom in enumerate(a_real_emission_PS_point) )
+                            (i+1, mom) for i, mom in enumerate(a_real_emission_PS_point) )
 
-            # Use correction_order to select CT subset
-            counterterms_to_consider = [
-                ct for ct in self.counterterms[process_key]
-                if ct.count_unresolved() <= test_options['correction_order'].count('N') ]
+            counterterms_to_consider = self.counterterms_to_consider(process_key, test_options)
+
+            if len(counterterms_to_consider)==0:
+                logger.info('No counterterms to investigate found.')
+                return True
 
             selected_singular_structures = []
 
@@ -2010,7 +3504,7 @@ The missing process is: %s"""%ME_process.nice_string())
                 # If no match is found, then reconstruct the singular structure from the limits
                 # provided
                 selected_counterterms = self.find_counterterms_matching_regexp(
-                    counterterms_to_consider, limit_specifier )
+                                                counterterms_to_consider, limit_specifier )
                 if selected_counterterms:
                     selected_singular_structures.extend([
                         ct.reconstruct_complete_singular_structure()
@@ -2020,9 +3514,21 @@ The missing process is: %s"""%ME_process.nice_string())
                         limit_specifier, defining_process)
                     if ss is None:
                         logger.info("No limit matching %s for process %s." % 
-                                    (limit_specifier, defining_process.nice_string()) )
+                            (limit_specifier, defining_process.nice_string()) )
                         continue
                     selected_singular_structures.append(ss)
+
+            # Filter the singular structures to consider so as to remove those involving
+            # a beam factorisation not present in this integrand
+            selected_singular_structures = [
+                ss for ss in selected_singular_structures if not (
+                    (1 in ss.get_beam_factorization_legs() and a_xi1 is None) or 
+                    (2 in ss.get_beam_factorization_legs() and a_xi2 is None))
+            ]
+            
+            if len(selected_singular_structures)==0:
+                logger.warning('Empty selection of limits when investigating process %s'%defining_process.nice_string())
+                continue
 
             logger.debug('Reconstructed complete singular structure: \n'+'\n'.join(
                 str(ss) for ss in selected_singular_structures ))
@@ -2030,64 +3536,9 @@ The missing process is: %s"""%ME_process.nice_string())
             # Loop over approached limits
             process_evaluations = {}
             for limit in selected_singular_structures:
-                logger.debug("Approaching limit %s" % str(limit) )
-                # Select counterterms to evaluate
-                counterterms_to_evaluate = [ct for ct in counterterms_to_consider]
-                if test_options['counterterms']:
-                    counterterm_pattern = test_options['counterterms']
-                    if counterterm_pattern.startswith('def'):
-                        counterterm_pattern = str(limit)
-                    logger.debug("Counterterms before selection")
-                    for ct in counterterms_to_evaluate:
-                        logger.debug("    "+str(ct))
-                    counterterms_to_evaluate = self.find_counterterms_matching_regexp(
-                        counterterms_to_evaluate, counterterm_pattern )
-                    logger.debug("Selected counterterms")
-                    for ct in counterterms_to_evaluate:
-                        logger.debug("    "+str(ct))
-                # Progressively approach the limit, using a log scale
-                limit_evaluations = {}
-                n_steps = test_options['n_steps']
-                min_value = test_options['min_scaling_variable']
-                base = min_value ** (1./n_steps)
-                for step in range(n_steps+1):
-                    # Determine the new phase-space point
-                    scaling_parameter = base ** step
-                    scaled_real_PS_point = walker.approach_limit(
-                        a_real_emission_PS_point,
-                        limit, scaling_parameter, defining_process )
-                    if test_options['apply_higher_multiplicity_cuts']:
-                        if not self.pass_flavor_blind_cuts( scaled_real_PS_point,
-                            self.processes_map.values()[0][0].get_cached_initial_final_pdgs() ):
-                            logger.warning('Aborting prematurely since the following scaled real-emission point'+
-                                          ' does not pass higher multiplicity cuts.')
-                            break
-                    # Initialize result
-                    this_eval = {}
-                    # Evaluate ME
-                    ME_evaluation, all_results = self.all_MEAccessors(
-                       defining_process, scaled_real_PS_point, alpha_s, mu_r,
-                       squared_orders    = None,
-                       color_correlation = None,
-                       spin_correlation  = None,
-                       hel_config        = None )
-                    this_eval['ME'] = ME_evaluation['finite']
-                    logger.debug('For scaling variable %.3e, weight from ME = %.16f' %(
-                                              scaling_parameter, ME_evaluation['finite'] ))
-                    # Loop over counterterms
-                    for counterterm in counterterms_to_evaluate:
-                        ct_weight, _, _ = self.evaluate_counterterm(
-                            counterterm,
-                            scaled_real_PS_point, 
-                            hel_config=None,
-                            apply_flavour_blind_cuts=test_options['apply_lower_multiplicity_cuts'],
-                            apply_flavour_cuts=test_options['apply_lower_multiplicity_cuts'] )
-                        this_eval[str(counterterm)] = ct_weight
-                        logger.debug('Weight from CT %s = %.16f' %
-                                    (str(counterterm), ct_weight) )
-                        logger.debug('Ratio: %.16f'%( ct_weight/float(ME_evaluation['finite']) ))
-                    limit_evaluations[scaling_parameter] = this_eval
-
+                limit_evaluations = self.test_IR_limits_for_limit_and_process(
+                    test_options, walker, limit, defining_process, process_key, all_flavor_configurations, 
+                    a_real_emission_PS_point, a_xi1, a_xi2, a_xb_1, a_xb_2 )
                 process_evaluations[str(limit)] = limit_evaluations
 
             process_string = defining_process.base_string()
@@ -2107,16 +3558,247 @@ The missing process is: %s"""%ME_process.nice_string())
             plots_suffix       = test_options['plots_suffix'],
         )
 
+    def scale_configuration(self, xi1, xi2, real_emission_PS_point, limit, 
+                          scaling_parameter, defining_process, walker, boost_back_to_com):
+        """ Function used by test_IR_limits_for_limit_and_process to scale a given
+        configuration and return the scaled xi's and PS_point. The definition of this
+        function is useful so that it can be overloaded in the beam-soft integrands 
+        (BS, VS, etc...)"""
+
+        scaled_real_PS_point = walker.approach_limit(
+                       real_emission_PS_point, limit, scaling_parameter, defining_process )
+
+        if boost_back_to_com:
+            scaled_real_PS_point.boost_to_com((1,2))
+
+        # Also scale the xi initial-state convolution parameters if the limit
+        # specifies a beam factorization structure for that initial state:
+        beam_factorisation_legs = limit.get_beam_factorization_legs()
+        
+        # Notice that if we wanted a particular overall scaling of the counterterms,
+        # we would need to correctly adjust the power of the multiplying scaling parameter.
+        if 1 in beam_factorisation_legs:
+            scaled_xi1 = 1.-(1.-xi1)*scaling_parameter
+        else:
+            scaled_xi1 = xi1
+        if 2 in beam_factorisation_legs:
+            scaled_xi2 = 1.-(1.-xi2)*scaling_parameter
+        else:
+            scaled_xi2 = xi2
+            
+        return scaled_real_PS_point, scaled_xi1, scaled_xi2
+
+    def test_IR_limits_for_limit_and_process(self, test_options, walker, limit, defining_process, process_key, 
+        all_flavor_configurations, a_real_emission_PS_point, a_xi1, a_xi2, a_xb_1, a_xb_2):
+        """ Given a test_options, a process, a specific limit, a walker to approach it,
+        all flavor configurations mapped to that particular process, a 'starting' 
+        real-emission type of PS-point from which to scale towards the limit, as well as
+        its corresponding convolution variables xi1/2, perform the IR limit test that 
+        consists in approaching the limit and computing both the real-emission matrix 
+        element and all counterterms that should subtract its singularities."""
+                
+        logger.debug("Approaching limit %s " % str(limit) )
+        
+        # First select the counterterms to evaluate and temporarily assign them to this
+        # integrand instance so that the sigma function will run on them.
+        if self.has_local_counterterms():
+            local_counterterms_to_consider = [ ct for ct in self.counterterms[process_key]
+                if ct.get_number_of_couplings() <= test_options['correction_order'].count('N') ]
+            if test_options['counterterms']:
+                counterterm_pattern = test_options['counterterms']
+                if counterterm_pattern.startswith('def'):
+                    counterterm_pattern = str(limit)
+                logger.debug("Local counterterms before selection")
+                for ct in local_counterterms_to_consider:
+                    logger.debug("    "+str(ct))
+                local_counterterms_to_consider = self.find_counterterms_matching_regexp(
+                    local_counterterms_to_consider, counterterm_pattern )
+            logger.debug("Selected local counterterms")
+            for ct in local_counterterms_to_consider:
+                logger.debug("    "+str(ct))
+        
+        # We must also include the integrated counterterms as they may have a xi dependence
+        if self.has_integrated_counterterms():
+            integrated_counterterms_to_consider = [ ct for ct in self.integrated_counterterms[process_key] 
+                if ct['integrated_counterterm'].get_number_of_couplings() <= test_options['correction_order'].count('N') ]
+            if test_options['counterterms']:
+                counterterm_pattern = test_options['counterterms']
+                if counterterm_pattern.startswith('def'):
+                    counterterm_pattern = str(limit)
+                logger.debug("Integrated counterterms before selection")
+                for ct in integrated_counterterms_to_consider:
+                    logger.debug("    "+str(ct['integrated_counterterm']))
+                integrated_counterterms_to_consider = self.find_counterterms_matching_regexp(
+                    integrated_counterterms_to_consider, counterterm_pattern, integrated_CT=True )
+            logger.debug("Selected integrated counterterms")
+            for ct in integrated_counterterms_to_consider:
+                logger.debug("    "+str(ct['integrated_counterterm']))
+        
+        # Now progressively approach the limit, using a log scale
+        limit_evaluations = {}
+        n_steps = test_options['n_steps']
+        min_value = test_options['min_scaling_variable']
+        max_value = test_options['max_scaling_variable']
+        base = (min_value/max_value) ** (1./n_steps)
+        for step in range(n_steps+1):
+            # Determine the new configuration
+            scaling_parameter = max_value * (base ** step)
+            scaled_real_PS_point, scaled_xi1, scaled_xi2 = self.scale_configuration(
+                a_xi1, a_xi2, a_real_emission_PS_point, limit, scaling_parameter, 
+                defining_process, walker, test_options['boost_back_to_com'])
+            if test_options['apply_higher_multiplicity_cuts']:
+                if not self.pass_flavor_blind_cuts( scaled_real_PS_point,
+                        self.processes_map.values()[0][0].get_cached_initial_final_pdgs(),
+                        n_jets_allowed_to_be_clustered = self.contribution_definition.n_unresolved_particles,
+                        xb_1 = a_xb_1, xb_2 = a_xb_2 ):
+                    logger.warning('Aborting prematurely since the following scaled real-emission point'+
+                                  ' does not pass higher multiplicity cuts.')
+                    logger.warning(str(scaled_real_PS_point))
+                    break
+
+            # misc.sprint('Scaled PS point: %s'%str(scaled_real_PS_point))
+            # misc.sprint('Scaled Bjorken rescalings: %s %s'%(scaled_xi1, scaled_xi2))
+            mu_r, mu_f1, mu_f2 = self.get_scales(scaled_real_PS_point)
+
+            # Specify the counterterms to be considered and backup the original values
+            if self.has_local_counterterms():
+                local_CT_backup = self.counterterms[process_key]
+                self.counterterms[process_key] = local_counterterms_to_consider
+            if self.has_integrated_counterterms():
+                integrated_CT_backup = self.integrated_counterterms[process_key]
+                self.integrated_counterterms[process_key] = integrated_counterterms_to_consider
+            try:
+                # Now call sigma in order to gather all events
+                events = self.sigma(
+                    scaled_real_PS_point.to_dict(), process_key, defining_process, all_flavor_configurations, 
+                    1.0, mu_r, mu_f1, mu_f2, a_xb_1, a_xb_2, scaled_xi1, scaled_xi2,
+                    compute_poles            = False,
+                    apply_flavour_blind_cuts = test_options['apply_lower_multiplicity_cuts'],
+                    boost_back_to_com        = test_options['boost_back_to_com'],
+                    always_generate_event    = True
+                )
+            except Exception as e:
+                logger.critical("The following exception occurred when generating events for this integrand %s:\n%s"%(
+                                                      self.get_short_name(), str(e)))
+                if self.has_local_counterterms():
+                    self.counterterms[process_key] = local_CT_backup
+                if self.has_integrated_counterterms():
+                    self.integrated_counterterms[process_key] = integrated_CT_backup
+                # Forward the exception while not resetting the stack trace.
+                raise
+
+            # Restore the original list of counterterms
+            if self.has_local_counterterms():
+                self.counterterms[process_key] = local_CT_backup
+            if self.has_integrated_counterterms():
+                self.integrated_counterterms[process_key] = integrated_CT_backup
+
+            #misc.sprint('Events generated before post-processing.')
+            #misc.sprint(events)
+            
+            # Now post-process the events as done in __call__ of the integrand.
+            
+            # Now handle the process mirroring, by adding, for each ME7Event defined with
+            # requires_mirroring = True, a new mirrored event with the initial states swapped,
+            # as well as the Bjorken x's and rescalings and with p_z -> -p_z on all final
+            # state momenta
+            events.generate_mirrored_events()
+
+            # Apply flavor blind cuts
+            if test_options['apply_higher_multiplicity_cuts']:
+                events.filter_with_flavor_blind_cuts(self.pass_flavor_blind_cuts, 
+                    defining_process.get_cached_initial_final_pdgs(),
+                    n_jets_allowed_to_be_clustered  = self.contribution_definition.n_unresolved_particles)
+            # Select particular terms of the EpsilonExpansion terms stored as weights.
+            # For the test_IR_limits, we are only interested in the finite part.
+            events.select_epsilon_expansion_term(test_options['epsilon_expansion_term'])
+            # Apply PDF convolution. It is important to convolve with the PDFs, so as to 
+            # correctly get the factors 1/xi_i multiplying the weights in beam 
+            # factorization counterterms. But either the PDF density can be set to 1.
+            if self.run_card['lpp1']==self.run_card['lpp2']==1:
+                pdf = None if test_options['set_PDFs_to_unity'] else self.pdf
+                events.apply_PDF_convolution( self.get_pdfQ2, (pdf, pdf), (mu_f1**2, mu_f2**2) )
+            # Make sure Bjorken-x rescalings xi_i don't matter anymore
+
+            for event in events:
+                event.set_Bjorken_rescalings(None, None)
+            # Apply flavor sensitive cuts
+            if test_options['apply_lower_multiplicity_cuts']:
+                events.filter_flavor_configurations(self.pass_flavor_sensitive_cuts)
+    
+            #misc.sprint('Events generated after post-processing:')
+            #misc.sprint(events)
+            
+            # Now store the results to be returned which will eventually be passed to 
+            # the IR test analyzer.
+
+            # Initialize result
+            # Contributions such as the beam soft ones (BS, VS, etc...) do not have
+            # a physical ME contributions, so we initialize it here to zero.
+            this_eval = { 'ME': 0. }
+
+            # Loop over all events produced and distribute them in several entries of what
+            # will be returned to the IR_analyzer
+            for event in events:
+                # TODO: instead of looking at the total weight, we could consider doing the
+                # check for one particular flavor configuration which could be specified
+                # as an extra test parameter.
+                event_wgt = event.get_total_weight()
+                if event.counterterm_structure is None:
+                    this_eval['ME'] += event_wgt
+                else:
+                    event_str = event.counterterm_structure_short_string()
+                    if test_options['ignore_flavors']:
+                        event_str, _ = event_str.split('@')
+                    this_eval[event_str] = event_wgt
+
+            logger.debug('For scaling variable %.3e, weight from ME = %.16e' %(
+                                                        scaling_parameter, this_eval['ME'] ))
+            total_CTs_wgt = 0.0
+            total_absCTs_wgt = 0.0            
+            for CT_str, CT_weight in this_eval.items():
+                if CT_str=='ME': continue
+                total_CTs_wgt += CT_weight
+                total_absCTs_wgt += abs(CT_weight)
+                logger.debug('Weight from CT %s = %.16e' % (CT_str, CT_weight) )
+                if this_eval['ME'] > 0.:
+                    logger.debug('Ratio: %.16f'%( CT_weight/float(this_eval['ME']) ))
+            if this_eval['ME'] > 0.:
+                logger.debug('Ratio sum(CTs)/ME: %.16e'%(total_CTs_wgt/float(this_eval['ME'])))
+            else:
+                if total_absCTs_wgt > 0.:
+                    logger.debug('Ratio sum(CTs)/sum(absCTs): %.16e'%(total_CTs_wgt/total_absCTs_wgt))  
+                else:
+                    logger.debug('Ratio sum(CTs): %.16e'%(total_CTs_wgt))                                    
+            limit_evaluations[scaling_parameter] = this_eval
+        
+        # Pad missing evaluations (typically counterterms that were evaluated outside of their active range)
+        # by zeros so that it can be uniformly treated by analyze_IR_limits
+        all_keys = set([])
+        for entry, evaluations in limit_evaluations.items():
+            all_keys |= set(evaluations.keys())
+        for entry, evaluations in limit_evaluations.items():
+            for key in all_keys:
+                if key not in evaluations:
+                    evaluations[key] = 0.0
+        
+        # Now return all evaluations performed for each value of the scale
+        return limit_evaluations
+
     @staticmethod
     def analyze_IR_limit(
         evaluations, acceptance_threshold,
         title=None, def_ct=None, plot_all=True, show=True,
         filename=None, plots_suffix=None, number_of_FS_legs=None ):
 
+        # chose whether to use a grid display or a figure display
+        display_mode = 'grid' # any value in ['figure','grid'] is legal.
+        if display_mode not in ['figure','grid']:
+            raise MadEvent7Error('Display mode %s not recognized in analyze_IR_limit.'%display_mode)
+        
         import matplotlib.pyplot as plt
 
         plot_title = True
-        plot_size = (6,6)
         plot_extension = ".pdf"
         if plots_suffix:
             plot_extension = '_' + plots_suffix + plot_extension
@@ -2127,9 +3809,13 @@ The missing process is: %s"""%ME_process.nice_string())
         x_values = sorted(evaluations.keys())
         lines = evaluations[x_values[0]].keys()
         lines.sort(key=len)
+##        from pprint import pprint
+##        pprint(evaluations)
+##        misc.sprint(lines)
         # Skip ME-def line if there is no defining ct
         plot_def = def_ct and def_ct in lines
-        plot_total = len(lines) > 2
+        plot_def = False
+        plot_total = len(lines) > 2 or (not plot_def)
 
         plt.rc('text', usetex=True)
         plt.rc('font', family='serif', size=16)
@@ -2138,24 +3824,36 @@ The missing process is: %s"""%ME_process.nice_string())
         TOTAL_color = colors.pop(3)
         MEdef_color = colors.pop(2)
 
-        plt.figure(1, figsize=plot_size)
+        if display_mode == 'figure':
+            plot_size = (6,6)
+            plt.figure(1, figsize=plot_size)
+            plt.subplots_adjust(left=0.15)
+        elif display_mode == 'grid':
+            # We will use a 4x4 grid
+            plot_size = (18,10)
+            plt.figure(figsize=plot_size)
+            plt.subplots_adjust(top=0.95)
+            plt.subplots_adjust(bottom=0.075)
+            plt.subplot(2,2,1)
+
         plt.gca().set_prop_cycle(color=colors)
         if plot_title and title: plt.title(title)
         GeV_pow = -2*(number_of_FS_legs-2)
         units = '[GeV${}^{' + str(GeV_pow) + '}$]'
         plt.xlabel('$\lambda$')
         plt.ylabel('Integrands ' + units)
-        plt.subplots_adjust(left=0.15)
         plt.xscale('log')
         plt.yscale('log')
         plt.grid(True)
-        total           = [0., ] * len(x_values)
+        total               = [0., ] * len(x_values)
+        total_of_abs_values = [0., ] * len(x_values)
         ME_minus_def_ct = [0., ] * len(x_values)
         line_labels = {}
         for line in lines:
             y_values = [abs(evaluations[x][line]) for x in x_values]
             for i in range(len(x_values)):
                 total[i] += evaluations[x_values[i]][line]
+                total_of_abs_values[i] += abs(evaluations[x_values[i]][line])
             if plot_def and (line == "ME" or line == def_ct):
                 def_ct_sign = 1
                 if line == def_ct:
@@ -2163,10 +3861,8 @@ The missing process is: %s"""%ME_process.nice_string())
                 for i in range(len(x_values)):
                     ME_minus_def_ct[i] += def_ct_sign * evaluations[x_values[i]][line]
             line_label = copy.copy(line)
-            if line_label.startswith("("):
-                line_label = line_label[1:]
-            if line_label.endswith(",)"):
-                line_label = line_label[:-2]
+            # The matplotlib display of <-> is corrupted on some system
+            line_label = line_label.replace('<->','[M] ')
             line_labels[line] = line_label
             if plot_all:
                 if '(' in line:
@@ -2181,51 +3877,76 @@ The missing process is: %s"""%ME_process.nice_string())
             abs_total = [abs(y) for y in total]
             plt.plot(x_values, abs_total, color=TOTAL_color, label='TOTAL')
         plt.legend()
-        if filename:
+        if display_mode == 'figure' and filename:
+            #pass
             plt.savefig(filename + '_integrands' + plot_extension)
 
-        plt.figure(2, figsize=plot_size)
+        if display_mode == 'figure':
+            plt.figure(2, figsize=plot_size)
+        elif display_mode == 'grid':
+            #pass
+            plt.subplot(2,2,2)
+
         plt.gca().set_prop_cycle(color=colors)
         if plot_title and title: plt.title(title)
         plt.xlabel('$\lambda$')
-        plt.ylabel('Ratio to ME')
-        plt.subplots_adjust(left=0.15)
         plt.xscale('log')
         plt.grid(True)
+        found_zero_ME = False
         for line in lines:
-            y_values = [abs(evaluations[x][line]/evaluations[x]["ME"]) for x in x_values]
+            if any(evaluations[x]["ME"]==0. for x in x_values):
+                y_values = [abs(evaluations[x][line]/total_of_abs_values[i]) for i, x in enumerate(x_values)]
+                found_zero_ME = True
+            else:
+                y_values = [abs(evaluations[x][line]/evaluations[x]["ME"]) for x in x_values]
             if '(' in line:
                 style = '--'
             else:
                 style = '-'
             plt.plot(x_values, y_values, style, label=line_labels[line])
+        if found_zero_ME:
+            plt.ylabel('Ratio to sum of abs CT')
+        else:
+            plt.ylabel('Ratio to ME')
         plt.legend()
-        if filename:
+        if display_mode == 'figure' and filename:
             plt.savefig(filename + '_ratios' + plot_extension)
 
         # Check that the ratio of def_ct to the ME is close to -1
         if plot_def and not test_failed:
             def_ct_2_ME_ratio = evaluations[x_values[0]][def_ct]
-            def_ct_2_ME_ratio /= evaluations[x_values[0]]["ME"]
-            foo_str = "The ratio of the defining CT to the ME at lambda = %s is: %s."
+            if evaluations[x_values[0]]["ME"] != 0.:
+                def_ct_2_ME_ratio /= evaluations[x_values[0]]["ME"]
+                foo_str = "The ratio of the defining CT to the ME at lambda = %s is: %s."
+            else:
+                def_ct_2_ME_ratio /= total_of_abs_values[0]
+                foo_str = "The ratio of the defining CT to the total abs sum at lambda = %s is: %s."            
             logger.info(foo_str % (x_values[0], def_ct_2_ME_ratio))
             test_ratio = abs(def_ct_2_ME_ratio)-1
             test_failed = test_ratio > acceptance_threshold
         # Check that the ratio between total and ME is close to 0
         if plot_total and not test_failed:
             total_2_ME_ratio = total[0]
-            total_2_ME_ratio /= evaluations[x_values[0]]["ME"]
-            foo_str = "The ratio of the total to the ME at lambda = %s is: %s."
+            if evaluations[x_values[0]]["ME"] == 0.:
+                total_2_ME_ratio /= total_of_abs_values[0]
+                foo_str = "The ratio of the total to the sum of abs CT at lambda = %s is: %s."
+            else:
+                total_2_ME_ratio /= evaluations[x_values[0]]["ME"]
+                foo_str = "The ratio of the total to the ME at lambda = %s is: %s."
             logger.info(foo_str % (x_values[0], total_2_ME_ratio))
             test_ratio  = abs(total_2_ME_ratio)
             test_failed = test_ratio > acceptance_threshold
 
-        plt.figure(3, figsize=plot_size)
+        if display_mode == 'figure':
+            plt.figure(3, figsize=plot_size)
+        elif display_mode == 'grid':
+            plt.subplot(2,2,3)
+            #plt.subplot(2,2,2)
+
         plt.gca().set_prop_cycle(color=colors)
         if plot_title and title: plt.title(title)
         plt.xlabel('$\lambda$')
         plt.ylabel('Weighted integrands ' + units)
-        plt.subplots_adjust(left=0.15)
         plt.xscale('log')
         plt.yscale('log')
         plt.grid(True)
@@ -2237,8 +3958,11 @@ The missing process is: %s"""%ME_process.nice_string())
             wgt_total = [abs(x_values[i] * total[i]) for i in range(len(x_values))]
             plt.plot(x_values, wgt_total, color=TOTAL_color, label='TOTAL')
         plt.legend()
-        if filename:
+        if display_mode == 'figure' and filename:
             plt.savefig(filename + '_weighted' + plot_extension)
+
+        if display_mode == 'grid' and filename:
+            plt.savefig(filename + plot_extension)
 
         if show:
             plt.show()
@@ -2258,13 +3982,19 @@ The missing process is: %s"""%ME_process.nice_string())
         for (process, process_evaluations) in all_evaluations.items():
             results[process] = dict()
             for (limit, limit_evaluations) in process_evaluations.items():
+                # Clean-up of the embedding overall parenthesis for the title label
+                limit_str = limit
+                if limit_str.startswith("("):
+                    limit_str = limit_str[1:]
+                if limit_str.endswith(",)"):
+                    limit_str = limit_str[:-2] 
                 proc, loops = process.split("@")
                 title = "$" + proc + "$"
                 initial_state, final_state = proc.split('>')
                 number_of_FS_legs = final_state.count(' ') - 1
                 title = title.replace('~','x').replace('>','\\to').replace(' ','\\;')
                 title = title.replace('+','^+').replace('-','^-')
-                title += "@" + loops + " approaching " + limit
+                title += "@" + loops + " approaching " + limit_str
                 if seed: title += " (seed %d)" % seed
                 filename = None
                 if save_plots:
@@ -2305,20 +4035,178 @@ The missing process is: %s"""%ME_process.nice_string())
                         logger.info("    " * 2 + str(limit) + ": FAILED")
             return False
         return True
+
+class ME7Integrand_RV(ME7Integrand_R, ME7Integrand_V):
+    """ ME7Integrand for the computation of integrands featuring both local and integrated
+    counterterms."""
     
+    def get_additional_nice_string_printout_lines(self, format=0):
+        """ Return additional information lines for the function nice_string of this contribution."""
+        res = ME7Integrand_R.get_additional_nice_string_printout_lines(self, format=format)
+        res.extend(ME7Integrand_V.get_additional_nice_string_printout_lines(self, format=format))
+        return res
+    
+    def get_nice_string_process_line(self, process_key, defining_process, format=0):
+        """ Return a nicely formated process line for the function nice_string of this 
+        contribution."""
+        GREEN = '\033[92m'
+        ENDC = '\033[0m'        
+        res = GREEN+'  %s'%(defining_process.nice_string(print_weighted=False)
+                                                             .replace('Process: ',''))+ENDC
+
+        if not self.integrated_counterterms or not self.counterterms:
+            return res
+
+        if format<2:
+            if process_key in self.counterterms:
+                res += ' | %d local counterterms'%len([ 1
+                    for CT in self.counterterms[process_key] if CT.is_singular() ])
+            else:
+                res += ' | 0 local counterterm'                
+            if process_key in self.integrated_counterterms:
+                res += ' and %d integrated counterterms'%len(self.integrated_counterterms[process_key])
+            else:
+                res += ' and 0 integrated counterterm'
+        else:
+            long_res = [' | with the following local and integrated counterterms:']
+            for CT in self.counterterms[process_key]:
+                if CT.is_singular():
+                    if format==2:
+                        long_res.append( '   | %s' % str(CT))
+                    elif format==3:
+                        long_res.append( '   | %s' % CT.__str__(
+                            print_n=True, print_pdg=True, print_state=True ) )
+                    elif format>3:
+                        long_res.append(CT.nice_string("   | "))
+            for CT_properties in self.integrated_counterterms[process_key]:
+                CT = CT_properties['integrated_counterterm']
+                if format==2:
+                    long_res.append( '   | %s' % str(CT))
+                elif format==3:
+                    long_res.append( '   | %s' % CT.__str__(
+                        print_n=True, print_pdg=True, print_state=True ))
+                elif format==4:
+                    long_res.append(CT.nice_string("   | "))
+                elif format>4:
+                    long_res.append(CT.nice_string("   | "))
+                    for key, value in CT_properties.items():
+                        if not key in ['integrated_counterterm', 'matching_process_key']:
+                            long_res.append( '     + %s : %s'%(key, str(value)))
+            res += '\n'.join(long_res)
+
+        return res
+    
+    def sigma(self, PS_point, process_key, process, all_flavor_configurations, base_weight, mu_r, 
+                                                mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts):
+        # Start with the events from the process itself and its local counterterms.
+        all_events_generated = ME7Integrand_R.sigma(self, PS_point, process_key, process, 
+            all_flavor_configurations, base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts)
+
+        compute_poles = opts.get('compute_poles', False)
+
+        # Add the integrated counterterms
+        # Now loop over all integrated counterterms
+        for counterterm_characteristics in self.integrated_counterterms[process_key]:
+            # And over all the ways in which this current PS point must be remapped to
+            # account for all contributions of the integrated CT. (e.g. the integrated
+            # splitting g > d d~ must be "attached" to all final state gluons appearing
+            # in this virtual ME process definition.)
+            for input_mapping in counterterm_characteristics['input_mappings']:
+                # At NLO at least, it is OK to save a bit of time by enforcing 'compute_poles=False').
+                # This will need to be re-assessed at NNLO for RV contributions.
+                CT_event = self.evaluate_integrated_counterterm( 
+                    counterterm_characteristics, PS_point, base_weight, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2,
+                    input_mapping, all_flavor_configurations,
+                    hel_config    = None, 
+                    compute_poles = compute_poles)
+                if CT_event is not None:
+                    # Attach additional information to this CT_event which plays no role in the
+                    # MadNkLO construction but which may be used, in test_IR_poles for instance,
+                    # for improving the printout of the event record.
+                    if ('allowed_backward_evolved_flavors' in counterterm_characteristics) and \
+                          not all(aef=='ALL' for aef in counterterm_characteristics['allowed_backward_evolved_flavors'].values()):
+                        CT_event.store_information('beam_convolution_masks', 
+                                counterterm_characteristics['allowed_backward_evolved_flavors'])
+                    CT_event.store_information('input_mapping',input_mapping)
+                    all_events_generated.append( CT_event )
+
+        # Notice that it may be possible in some subtraction scheme to combine
+        # several events having the same kinematics support. This is a further
+        # optimization that we can easily implement when proven needed.
+        # all_events_generated.combine_events_with_identical_kinematics()
+        # (PS: the function above is a place-holder and is not implemented yet.
+
+        return all_events_generated
+
+
+class ME7Integrand_BS(ME7Integrand_RV):
+    """ Specialisation of the RV integrand for handling contribution featuring
+        *correlated( convolution of the beams (i.e. 'BS', 'VS', etc... contributions).
+        This is the case only for integrated counterterms with possibly disjoint structures 
+        having each at least one soft *BeamCurrents* that originated from a colorful 
+        subtraction currents scheme with mappings such as ppToOneWalker that recoils the
+        soft momentum equally against both initial-state beam"""
+        
+    def generate_matrix_element_event(self, *args, **opts):
+        """ This particular type of integrand should have no physical contribution. It is only
+        a receptacle for the integrated soft counterterms that recoil equally against the
+        initial-state beams."""
+        return None
+
+    def counterterms_to_consider(self, process_key, test_options):
+        """Overload this function so as to return integrated counterterms since it is the only
+        thing present for now."""
+
+        return [
+            ct['integrated_counterterm'] for ct in self.integrated_counterterms[process_key]
+            if ct['integrated_counterterm'].get_number_of_couplings() <= test_options['correction_order'].count('N') ]
+        
+
+    def scale_configuration(self, xi1, xi2, real_emission_PS_point, limit, 
+                           scaling_parameter, defining_process, walker, boost_back_to_com):
+        """ Function used by test_IR_limits_for_limit_and_process to scale a given
+        configuration and return the scaled xi's and PS_point. We must specialize it here
+        so as to leave the real_emission_PS untouched since the limit anyway correspond to
+        rescaling of xi only."""
+
+        # Leave the PS point untouched.
+        scaled_real_PS_point = real_emission_PS_point.get_copy()
+
+        # Also scale the xi initial-state convolution parameters if the limit
+        # specifies a beam factorization structure for that initial state:
+        # Notice that it should always be True in this case.
+        if limit.does_require_correlated_beam_convolution():
+            scaled_xi1 = 1.-(1.-xi1)*scaling_parameter
+            scaled_xi2 = 1.-(1.-xi2)*scaling_parameter
+        else:   
+            beam_factorisation_legs = limit.get_beam_factorization_legs()
+            # Notice that if we wanted a particular overall scaling of the counterterms,
+            # we would need to correctly adjust the power of the multiplying scaling parameter.
+            if 1 in beam_factorisation_legs:
+                scaled_xi1 = 1.-(1.-xi1)*scaling_parameter
+            else:
+                scaled_xi1 = xi1
+            if 2 in beam_factorisation_legs:
+                scaled_xi2 = 1.-(1.-xi2)*scaling_parameter
+            else:
+                scaled_xi2 = xi2
+        
+        return scaled_real_PS_point, scaled_xi1, scaled_xi2
+        
+
 class ME7Integrand_RR(ME7Integrand_R):
     """ ME7Integrand for the computation of a double real-emission type of contribution."""
-    def sigma(self, PS_point, process_key, process, flavors, process_wgt, 
-                                    integrator_jacobian, mu_r, mu_f1, mu_f2, *args, **opts):
-        return super(ME7Integrand_RR, self).sigma(PS_point, process_key, process, flavors, process_wgt, 
-                                    integrator_jacobian, mu_r, mu_f1, mu_f2, *args, **opts)
+    def sigma(self, PS_point, process_key, process, all_flavor_configurations, base_weight, mu_r, 
+                                                mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts):
+        return super(ME7Integrand_RR, self).sigma(PS_point, process_key, process, 
+            all_flavor_configurations, base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts)
 
 class ME7Integrand_RRR(ME7Integrand_R):
     """ ME7Integrand for the computation of a double real-emission type of contribution."""
-    def sigma(self, PS_point, process_key, process, flavors, process_wgt, 
-                                    integrator_jacobian, mu_r, mu_f1, mu_f2, *args, **opts):
-        return super(ME7Integrand_RRR, self).sigma(PS_point, process_key, process, flavors, process_wgt, 
-                                    integrator_jacobian, mu_r, mu_f1, mu_f2, *args, **opts)
+    def sigma(self, PS_point, process_key, process, all_flavor_configurations, base_weight, 
+                                          mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts):
+        return super(ME7Integrand_RRR, self).sigma(PS_point, process_key, process,
+            all_flavor_configurations, base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts)
 
 #===============================================================================
 # ME7IntegrandList
@@ -2328,7 +4216,7 @@ class ME7IntegrandList(base_objects.PhysicsObjectList):
     
         
     integrands_natural_order = [
-        ('LO',    (ME7Integrand_B, ME7Integrand_LIB) ),
+        ('LO',    (ME7Integrand_B,) ),
         ('NLO',   (ME7Integrand_R, ME7Integrand_V) ),
         ('NNLO',  (ME7Integrand_RR, ) ),
         ('NNNLO', (ME7Integrand_RRR, ) )
@@ -2381,9 +4269,10 @@ class ME7IntegrandList(base_objects.PhysicsObjectList):
 # by the interface when using a PLUGIN system where the user can define his own Integrand.
 # Notice that this must be placed after all the Integrand daughter classes in this module have been declared.
 ME7Integrand_classes_map = {'Born': ME7Integrand_B,
-                            'LoopInduced_Born': ME7Integrand_LIB,
                             'Virtual': ME7Integrand_V,
                             'SingleReals': ME7Integrand_R,
+                            'RealVirtual': ME7Integrand_RV,
+                            'BeamSoft': ME7Integrand_BS,
                             'DoubleReals': ME7Integrand_RR,
                             'TripleReals': ME7Integrand_RRR,
                             'Unknown': None}

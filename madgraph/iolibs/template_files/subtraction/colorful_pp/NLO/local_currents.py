@@ -198,10 +198,13 @@ class QCD_final_collinear_0_gg(currents.QCDLocalCollinearCurrent):
 #=========================================================================================
 
 class QCD_soft_0_g(currents.QCDLocalSoftCurrent):
-    """Soft gluon eikonal current at tree level, eq.4.12-4.13 of arXiv:0903.1218."""
+    """Soft gluon eikonal current at tree level, eq.4.12-4.13 of arXiv:0903.1218.
+    This is modified with respect to the above reference because we replace all the two legs of the dipole of each
+    eikonal by their mapped version.
+    """
 
-    is_cut = staticmethod(currents.SomogyiChoices.cut_soft)
-    factor = staticmethod(currents.SomogyiChoices.factor_soft)
+    is_cut = staticmethod(currents.no_cut)
+    factor = staticmethod(currents.no_factor)
 
     @classmethod
     def does_implement_this_current(cls, current, model):
@@ -253,7 +256,18 @@ class QCD_soft_0_g(currents.QCDLocalSoftCurrent):
         if Q is None:
             raise CurrentImplementationError(
                 self.name() + " requires the total mapping momentum Q." )
-
+        """Important note about the IF CS:
+        - in this scheme we want to use "tilded" momenta for the dipole legs in eikonals. This is explicitly implemented in the soft local current
+        - this implies that the correct form for the local C(ir)S(r) taken as the collinear limit of the eikonals is 
+        1/ (p_r + p_i_tilde)^2 (1-z_r)/z_r where z_r = p_r.Q/(p_r+p_i_tilde).Q
+        - Specializing to the case where the collinear partner of the soft particle is an initial state particle (i = a ), we have 
+        p_a_tilde = xi p_a and 2p_a.Q = Q^2 so that the soft-collinear takes the form
+        1/(p_r+xi p_a)^2 * xi/y_rQ where y_rQ is the usual Hungarian variable
+        this simplifies to 
+        1/(p_r+p_a)^2 * 1/y_rQ which is exactly the soft collinear as computed *without* tilded variables (i.e. exactly eq.5.29 of 0903.1218)
+        
+        As a result we use exactly the same way of evaluating the counterterms as in honest-to-god colorful.
+        """
         # Retrieve alpha_s and mu_r
         model_param_dict = self.model.get('parameter_dict')
         alpha_s = model_param_dict['aS']
@@ -296,10 +310,10 @@ class QCD_soft_0_g(currents.QCDLocalSoftCurrent):
                     mult_factor = 2.
                 else:
                     mult_factor = 1.
-                pa = sum(higher_PS_point[child] for child in leg_numbers_map[a])
-                pb = sum(higher_PS_point[child] for child in leg_numbers_map[b])
-                # pa = lower_PS_point[a]
-                # pb = lower_PS_point[b]
+                #pa = sum(higher_PS_point[child] for child in leg_numbers_map[a])
+                #pb = sum(higher_PS_point[child] for child in leg_numbers_map[b])
+                pa = lower_PS_point[a]
+                pb = lower_PS_point[b]
                 eikonal = self.eikonal(pa, pb, pS)
                 evaluation['color_correlations'].append( ((a, b), ) )
                 evaluation['values'][(0, color_correlation_index)] = {
@@ -318,11 +332,11 @@ class QCD_soft_0_g(currents.QCDLocalSoftCurrent):
 #=========================================================================================
 
 class QCD_final_softcollinear_0_gX(currents.QCDLocalSoftCollinearCurrent):
-    """NLO tree-level (final) soft-collinear currents."""
+    """NLO tree-level (final) soft-collinear currents. The momenta used in this current are the mapped momenta from the soft mapping."""
 
-    is_cut = staticmethod(currents.SomogyiChoices.cut_soft)
-    variables = staticmethod(currents.Q_final_coll_variables)
-    factor = staticmethod(currents.SomogyiChoices.factor_soft)
+    is_cut = staticmethod(currents.no_cut)
+    variables = staticmethod(currents.compute_energy_fractions)
+    factor = staticmethod(currents.no_factor)
 
     def __init__(self, *args, **opts):
 
@@ -402,14 +416,20 @@ class QCD_final_softcollinear_0_gX(currents.QCDLocalSoftCollinearCurrent):
         mu_r = model_param_dict['MU_R']
 
         # Include the counterterm only in a part of the phase space
+        # children are the the set of particles that are going unresolved.
+        # Here we have C and S going collinear with S soft.
+        # The parent is the mapped C with a soft mapping, usually refered to as Ctilde.
+        # S is just removed in a soft mapping.
+        # Here S is a single particle but we obtain it as a list soft_children\
+        # to illustrate how multiple softs would be obtained
         children = self.get_sorted_children(current, self.model)
-        pC = sum(higher_PS_point[child] for child in children)
+        parent = leg_numbers_map.inv[frozenset(children)]
+        pCtilde = lower_PS_point[parent]
         soft_children = []
         for substructure in current.get('singular_structure').substructures:
             soft_children += [leg.n for leg in substructure.get_all_legs()]
         pS = sum(higher_PS_point[child] for child in soft_children)
-        parent = leg_numbers_map.inv[frozenset(children)]
-        if self.is_cut(Q=Q, pC=pC, pS=pS):
+        if self.is_cut(Q=Q, pC=pCtilde, pS=pS):
             return utils.SubtractionCurrentResult.zero(
                 current=current, hel_config=hel_config)
 
@@ -421,14 +441,14 @@ class QCD_final_softcollinear_0_gX(currents.QCDLocalSoftCollinearCurrent):
         })
 
         # Evaluate kernel
-        zs, kTs = self.variables(higher_PS_point, lower_PS_point[parent], children, Q=Q)
+        zs = self.variables([pS,pCtilde],Q)
         z = zs[0]
         evaluation['values'][(0, 0)]['finite'] = self.color_charge * 2.*(1.-z) / z
 
         # Add the normalization factors
-        s12 = pC.square()
+        s12 = (pCtilde+pS).square()
         norm = 8. * math.pi * alpha_s / s12
-        norm *= self.factor(Q=Q, pC=pC, pS=pS)
+        norm *= self.factor(Q=Q, pC=pCtilde, pS=pS)
         for k in evaluation['values']:
             evaluation['values'][k]['finite'] *= norm
 
@@ -760,7 +780,7 @@ class QCD_initial_softcollinear_0_Xg(currents.QCDLocalSoftCollinearCurrent):
     """NLO tree-level (initial) soft-collinear currents."""
 
     variables = staticmethod(currents.Q_initial_coll_variables)
-    is_cut = staticmethod(currents.SomogyiChoices.cut_soft)
+    is_cut = staticmethod(currents.no_cut)
 
     def __init__(self, *args, **opts):
 

@@ -2970,6 +2970,7 @@ class RunCardME7(RunCardLO):
 
         # Specify integrator: allowed values are [VEGAS3, NAIVE]
         self.add_param("integrator", 'VEGAS3')
+        self.add_param('flavor_cuts', "'None'")
         self.add_param("FO_analysis","None") # default should be none
 
         self.enforce_ME7_restrictions()

@@ -45,6 +45,20 @@ class ProcessKey(object):
     
     cache_active = False
     
+    #######################################################################################
+    #  WARNING:
+    #  The squared orders and coupling orders (those that correspond to the perturbed couplings
+    #  of the reduced processes of counterterms is not correctly set for now. It is typically
+    # only relevant when performing mixed QCD-QED corrections which MadNkLO does not support
+    # yet. So for now the option below disables the order_matching in the process key for
+    # the orders specified in the variable below. Eventually however, all orders should be
+    # matched correctly, except 'WEIGHTED' maybe, which is typically only used for generation
+    # performance optimizations.
+    _DISABLED_ORDERS_FOR_PROCESS_MATCHING = ['QCD','QED','WEIGHTED']
+    #######################################################################################
+    # Disable process coupling orders-matching
+    
+    
     def get_key_for_cache(self,
                  process,  PDGs, sort_PDGs, vetoed_attributes, allowed_attributes, opts):
         """ Generates the look-up key for the dynamically created dictionary 'process_key_cache'
@@ -69,7 +83,7 @@ class ProcessKey(object):
                 # intputs from this __init__
                 sort_PDGs = True,
                 # Exclude certain process attributes when creating the key for a certain process.
-                vetoed_attributes = ['model','legs','uid','has_mirror_process','legs_with_decays'],
+                vetoed_attributes = ['model','legs','uid','has_mirror_process','legs_with_decays','beam_factorization'],
                 # Specify only selected attributes to end up in the ProcessKey.
                 # If None, this filter is deactivated.
                 allowed_attributes = None,
@@ -114,7 +128,10 @@ class ProcessKey(object):
                                      " via the options 'PDGs', 'legs' or 'process' (with precedence in this order).")
             
             if sort_PDGs:
-                self.key_dict['PDGs'] = ( tuple(sorted(self.key_dict['PDGs'][0])), tuple(sorted(self.key_dict['PDGs'][1])) )
+                self.key_dict['PDGs'] = ( tuple(sorted(self.key_dict['PDGs'][0])), tuple(sorted(self.key_dict['PDGs'][1])))
+            else: # The final state still needs to be sorted
+                self.key_dict['PDGs'] = ( self.key_dict['PDGs'][0], tuple(sorted(self.key_dict['PDGs'][1])))
+
         
         # Now make sure to instantiate a default process if the user didn't select one
         if not process:
@@ -175,12 +192,11 @@ class ProcessKey(object):
             # overlap and cannot be constructed unambiguously in reduced processes for counterterms
             elif proc_attr in ['orders']:
                 self.key_dict[proc_attr] = hash_dict(dict((k, v) for k, v in value.items() 
-                                                             if k!='WEIGHTED'), proc_attr)
+                            if k not in self._DISABLED_ORDERS_FOR_PROCESS_MATCHING), proc_attr)
             elif proc_attr in ['sqorders_types', 'squared_orders']:
                 self.key_dict[proc_attr] = hash_dict(dict((k, v) for k, v in value.items() if \
-                        ( k!='WEIGHTED' and ( isinstance(process, subtraction.Current) or
-                                              (k not in process['sqorders_types']) or 
-                                              process['sqorders_types'][k]=='==') )
+                        ( k not in self._DISABLED_ORDERS_FOR_PROCESS_MATCHING and ( isinstance(process, subtraction.Current) or
+                        (k not in process['sqorders_types']) or process['sqorders_types'][k]=='==') )
                     ), proc_attr)
     
             elif proc_attr == 'parent_subtraction_leg':
@@ -192,7 +208,7 @@ class ProcessKey(object):
                 self.key_dict[proc_attr] = hash_list(sorted(value), proc_attr)
     
             # Now generically treat other attributes
-            elif isinstance(value, (int, str, tuple, bool)):
+            elif value is None or isinstance(value, (int, str, tuple, bool)):
                 self.key_dict[proc_attr] = value
             elif isinstance(value, list):
                 self.key_dict[proc_attr] = hash_list(value, proc_attr)
@@ -884,7 +900,7 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
     def call_subtraction_current(self, *args, **opts):
         """ Wrapper around the actual call of the subtraction currents, so as to be
         able to easily time it with a profiler."""
-        
+
         return self.subtraction_current_instance.evaluate_subtraction_current(*args, **opts)
 
     def __call__(self, current, **opts):
@@ -937,7 +953,7 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
         # Update the cache with the new results produced
         if not cache_key is None:
             all_evaluations = self.cache.add_result(all_evaluations, **cache_key)
-        
+
         # Return both the specific evaluation asked for
         # and all results available for this cache_key
         return self.evaluation_class(evaluation_asked_for), self.result_class(all_evaluations)
@@ -979,14 +995,10 @@ class F2PYMEAccessor(VirtualMEAccessor):
 
         if cls is F2PYMEAccessor:
             target_class = None
-            n_loops = process.get('n_loops')
-            if process.get('perturbation_couplings') and n_loops==1:
+            if process.get('perturbation_couplings') and process.get('NLO_mode') in ['virt','sqrvirt']:
                 target_class = F2PYMEAccessorMadLoop
-            elif n_loops==0:
-                target_class = F2PYMEAccessor
             else:
-                raise MadGraph5Error("Could not determine the type of F2PYMEAccessor suited for "+
-                                     " %s with %d loops."%(process.nice_string(), n_loops))
+                target_class = F2PYMEAccessor
 
             return super(F2PYMEAccessor, cls).__new__(target_class, 
                                                 process, f2py_module_path, slha_card_path, **opts)
@@ -1109,7 +1121,7 @@ class F2PYMEAccessor(VirtualMEAccessor):
             self.f2py_module = reload(self.f2py_module)
 
         # Now gather various properties about the Matrix Elements
-        # Get all helicities orderin
+        # Get all helicities ordering
         self.helicity_configurations = dict((tuple(hels),i+1) for i, hels in enumerate(
                                               self.get_function('get_helicity_definitions')() ))
         # Reversed map
@@ -1498,25 +1510,30 @@ class F2PYMEAccessorMadLoop(F2PYMEAccessor):
 
     cache_active = False
 
-    def __init__(self, process, f2py_module_path, slha_card_path, madloop_resources_path=None, **opts):
+    def __init__(self, process, f2py_module_path, slha_card_path, 
+                                        madloop_resources_path=None, root_path='', **opts):
         """ Use the MadLoop resources path for MadLoop outputs """
   
-        super(F2PYMEAccessorMadLoop, self).__init__(process, 
-                                                 f2py_module_path, slha_card_path, **opts)
-        
         # Add the additional inputs to the back-up to be used later for the dump 
-        #  (if not already added by the mother)
-        if not 'madloop_resources_path' in self.initialization_inputs['opts']:
-            self.initialization_inputs['opts']['madloop_resources_path'] = madloop_resources_path
-
+        #  (if not already present). It is important that this path is set before the 
+        # call to the mother's __init__ implementation because this path must have been
+        # already set at the time synchronize() is called.
         if madloop_resources_path:
             # Save the location of MadLoop resources directory path
             if not os.path.isabs(madloop_resources_path):
                 raise MadGraph5Error("The initialization of F2PYMEAccessorMadLoop necessitates an "+
                                                             "absolute path for madloop_resources_path.")
-            self.madloop_resources_path = os.path.relpath(madloop_resources_path, self.root_path)
+            self.madloop_resources_path = os.path.relpath(madloop_resources_path, root_path)
         else:
             self.madloop_resources_path = None
+  
+        super(F2PYMEAccessorMadLoop, self).__init__(process, 
+                            f2py_module_path, slha_card_path, root_path=root_path, **opts)
+
+        # Add the input madloop_resouces_path to the initialization inputs necessary for the
+        # dump (if not already present).
+        if not 'madloop_resources_path' in self.initialization_inputs['opts']:
+            self.initialization_inputs['opts']['madloop_resources_path'] = madloop_resources_path
 
         if self.f2py_module is None:
             # We are at the generation stage and the f2py module has never been compiled yet.
@@ -1528,6 +1545,9 @@ class F2PYMEAccessorMadLoop(F2PYMEAccessor):
         self.loop_squared_orders = {None: 0}
         if self.has_function('get_nsqso_loop'):
             n_squared_orders = self.get_function('get_nsqso_loop')()
+            # For loop-induced processes, the split order names would not have been set yet, so it is
+            # always OK to re-import it here.
+            self.split_order_names = [''.join(name).strip() for name in self.get_function('get_split_order_names')()]
             for i_sq_order in range(1,n_squared_orders+1):
                 key = tuple(sorted([(self.split_order_names[i], value) for i, value in enumerate(
                                             self.get_function('ml5get_squared_orders_for_soindex')(i_sq_order) )]))
@@ -1552,6 +1572,11 @@ class F2PYMEAccessorMadLoop(F2PYMEAccessor):
                                                                                         proc_dirs_initialized=[], **opts):
         """ Synchronizes this accessor with the possibly updated value of parameter cards and ME source code.
         Must be defined by daughter classes."""
+        
+        # Before the whole synchronization make sure that the current MadLoop resource path
+        # is correctly propagated to fortran.
+        if self.madloop_resources_path:
+            self.f2py_module.initialise_madloop_path(pjoin(self.root_path, self.madloop_resources_path))
         
         ret_value = super(F2PYMEAccessorMadLoop, self).synchronize(ME7_options, from_init=from_init,**opts)
         
@@ -1665,8 +1690,6 @@ class F2PYMEAccessorMadLoop(F2PYMEAccessor):
         if not self.module_initialized:
             # These functions are not prefixed, so we should not ask to get them via the accessor self.get_function
             self.f2py_module.initialise(pjoin(self.root_path, self.slha_card_path))
-            if self.madloop_resources_path:
-                    self.f2py_module.initialise_madloop_path(pjoin(self.root_path, self.madloop_resources_path))
             self.module_initialized = True
         
         
@@ -1684,6 +1707,11 @@ class F2PYMEAccessorMadLoop(F2PYMEAccessor):
                        'estimated_accuracies': estimated_accuracies,
                        'return_code': return_code}   
 
+        if __debug__ and return_code%100 ==4:
+            logger.debug("MadLoop library '%s@%s' could not reach target accuracy %.2e for PS_point:\n%s"%(
+                self.f2py_module_path[1], self.f2py_module_path[0],
+                required_accuracy, str(PS_point) ))
+            logger.debug("Accuracies obtained: %s"%str(estimated_accuracies))
         # Gather additional newly generated output_data to be returned and placed in the cache.
         output_datas = self.gather_output_datas(main_output, new_opts)
         
@@ -1936,18 +1964,21 @@ class MEAccessorDict(dict):
 
         return new_color_correlations
             
-    def format_spin_correlation(self, process, spin_correlations):
-        """ Synchronize the numbers in the spin correlation specifier to the leg_number in the process."""        
+    def format_spin_correlation(self, process, spin_correlation):
+        """Synchronize the leg numbers in the spin correlation specifier
+        to the leg numbers in the _reduced_ process.
+        """
         
         leg_number_to_pos_dict = {}
         for leg_pos, leg in enumerate(process.get_initial_legs()+process.get_final_legs()):
             leg_number_to_pos_dict[leg.get('number')] = leg_pos+1
-        
-        new_spin_correlations = []
-        for spin_correlation in spin_correlations:
-            new_spin_correlations.append( ( leg_number_to_pos_dict[spin_correlation[0]], spin_correlation[1] ) )
 
-        return new_spin_correlations
+        new_spin_correlation = []
+        for pol_vector in spin_correlation:
+            new_spin_correlation.append(
+                (leg_number_to_pos_dict[pol_vector[0]], pol_vector[1],))
+
+        return new_spin_correlation
         
     def __call__(self, *args, **opts):
         """ Quick access to directly calling a Matrix Element. The first argument should always be the MEdictionary key
@@ -2030,7 +2061,7 @@ class MEAccessorDict(dict):
                         args[0].accessor[key] = (ME_accessor, call_options)
                     else:
                         args[0].accessor = {key:(ME_accessor, call_options)}
-
+        
         return ME_accessor(*call_args, **call_options)
     
     def add_MEAccessor(self, ME_accessor, allow_overwrite=False):

@@ -623,6 +623,11 @@ class integrated_NLO_QCD_soft_gluon(integrated_NLO_FF_QCD_current):
     See Eq.4.12-4.13 of ref. https://arxiv.org/pdf/0903.1218.pdf"""
 
     def __init__(self, *args, **opts):
+        misc.sprint("")
+        misc.sprint("=======================================================================================")
+        misc.sprint("Warning: the integrated Final-final soft no longer matches the definition of the locals")
+        misc.sprint("=======================================================================================")
+        misc.sprint("")
         super(integrated_NLO_QCD_soft_gluon, self).__init__(*args, **opts)
         self.supports_helicity_assignment = False
         

@@ -49,6 +49,12 @@ logger = logging.getLogger('cmdprint.ext_program')
 logger_stderr = logging.getLogger('madevent.misc')
 pjoin = os.path.join
 
+################################################################################
+# Python debugging
+################################################################################
+import pdb
+debug = pdb.set_trace
+
 #===============================================================================
 # HELPER class for string coloring
 #===============================================================================
@@ -56,11 +62,17 @@ class bcolors:
     HEADER = '\033[95m'
     BLUE = '\033[94m'
     GREEN = '\033[92m'
-    WARNING = '\033[93m'
+    YELLOW = '\033[93m'
+    WARNING = YELLOW
     FAIL = '\033[91m'
     ENDC = '\033[0m'
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
+    PURPLE = '\033[95m'
+    CYAN = '\033[96m'
+    DARKCYAN = '\033[36m'
+    RED = '\033[91m'
+    END = ENDC
 
 #===============================================================================
 # parse_info_str
@@ -90,6 +102,14 @@ def glob(name, path=''):
     path = re.sub('(?P<name>\?|\*|\[|\])', '[\g<name>]', path)
     return glob_module.glob(pjoin(path, name))
 
+class dummy_lock:
+    """ This class is to be used with a 'with' statement and does nothing. It is useful
+    to replace an actual thread-lock when it is not necessary to have one."""
+    def __enter__(self, *args, **opts):
+        pass
+    def __exit__(self, *args, **opts):
+        pass
+    
 #===============================================================================
 # Low-level muter that works with f2py as well
 # From: http://code.activestate.com/recipes/577564/

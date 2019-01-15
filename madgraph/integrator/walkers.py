@@ -15,19 +15,11 @@
 
 import logging
 
-try:
-    import madgraph
-except ImportError:
-    MADEVENT = True
-    import internal.misc as misc
-    import internal.subtraction as sub
-    from internal import InvalidCmd, MadGraph5Error
-else:
-    MADEVENT= False
-    import madgraph.various.misc as misc
-    import madgraph.integrator.mappings as mappings
-    import madgraph.core.subtraction as sub
-    from madgraph import InvalidCmd, MadGraph5Error
+import madgraph
+import madgraph.various.misc as misc
+import madgraph.integrator.mappings as mappings
+import madgraph.core.subtraction as sub
+from madgraph import InvalidCmd, MadGraph5Error
 
 logger = logging.getLogger('madgraph.PhaseSpaceGenerator')
 
@@ -297,9 +289,14 @@ class VirtualWalker(object):
         """
 
         # Decompose the counterterm
-        decomposed = structure.decompose()
+        decomposed = structure.decompose()        
+        # The rescaling of the convolution variables is done independently of the mapping
+        # and should therefore not be considered
+        decomposed = [step for step in decomposed if step.name() != "F"]
+        
         # Always approach the limit at the same speed
-        base = scaling_parameter ** (1. / len(decomposed))
+        base = scaling_parameter ** (1. / max(len(decomposed),1))
+        #base = scaling_parameter
         # Prepare a momentum dictionary for each mapping
         mom_dict = sub.bidict()
         for leg in process['legs']:
@@ -312,6 +309,8 @@ class VirtualWalker(object):
             mapping = self.determine_mapping(step)
             all_children = frozenset([leg.n for leg in step.get_all_legs()])
             recoilers = self.get_recoilers(fake_ct, exclude=all_children)
+            # Below is a hack to recoil against the Higgs for C(1,3),C(2,4) of g g > d d~ h.
+            #recoilers = [sub.SubtractionLeg(5,25,sub.SubtractionLeg.FINAL),]
             new_ss = sub.SingularStructure(substructures=[step, ], legs=recoilers)
             if step.name() == "C":
                 mom_dict[parent_index] = all_children
@@ -320,18 +319,19 @@ class VirtualWalker(object):
             else:
                 raise MadGraph5Error("Unrecognized structure of type " + step.name())
             kin_variables = {}
-            # misc.sprint('Starting PS point:\n',str(PS_point))
+            #misc.sprint('Now doing step: %s'%str(step))
+            #misc.sprint('Starting PS point:\n',str(closer_PS_point))
             low_PS_point, _ = mapping.map_to_lower_multiplicity(
                 closer_PS_point, new_ss, mom_dict, None, kin_variables )
-            # misc.sprint('Mapped down PS point:\n',str(PS_point))
-            # misc.sprint('kin_variables=',kin_variables)
+            #misc.sprint('Mapped down PS point:\n',str(low_PS_point))
+            #misc.sprint('kin_variables=',kin_variables)
             mapping.rescale_kinematic_variables(
                 new_ss, mom_dict, kin_variables, base)
-            # misc.sprint('rescaled kin_variables=',base,kin_variables)
+            #misc.sprint('rescaled kin_variables=',base,kin_variables)
             closer_PS_point, _ = mapping.map_to_higher_multiplicity(
                 low_PS_point, new_ss, mom_dict, kin_variables )
-            # misc.sprint('Mapped up PS point:\n',str(PS_point))
-            # misc.sprint('kin_variables=',kin_variables)
+            #misc.sprint('Mapped up PS point:\n',str(closer_PS_point))
+            #misc.sprint('kin_variables=',kin_variables)
             if parent_index in mom_dict.keys():
                 del mom_dict[parent_index]
         return closer_PS_point
@@ -377,8 +377,11 @@ class OneNodeWalker(VirtualWalker):
 
         # Initialize return variables
         hike = Hike()
+        all_nodes = [ node for node in counterterm.nodes if not isinstance(node.current, 
+                    (sub.BeamCurrent, sub.IntegratedCurrent, sub.IntegratedBeamCurrent) ) ]
+        
         # If the counterterm is not trivial
-        if counterterm.nodes:
+        if len(all_nodes)>=1:
             # Check it is only one
             if len(counterterm.nodes) != 1:
                 raise MadGraph5Error(cls.cannot_handle_msg(counterterm))
@@ -544,6 +547,23 @@ class LorentzNLOWalker(NLOWalker):
     i_soft_collinear_map = mappings.SoftCollinearVsFinalMapping(soft_map, i_collinear_map)
     only_colored_recoilers = True
 
+class SoftBeamsRecoilNLOWalker(NLOWalker):
+    """ Set of mappings designed to work for the NLO topology pp > X(color-singlet) + at most
+    one jet. The collinear mapping is left untouched compared to LorentzNLOWalker, but the 
+    soft one is not the original Colorful mapping where recoilers are individually rescaled but
+    instead it is a mapping that rescales both initial states without boosting the c.o.m frame.
+    This is well-suited for integrating 'p p > X (+j)' where X is a color-singlet. """
+    
+    f_collinear_map = mappings.FinalLorentzOneMapping()
+    i_collinear_map = mappings.InitialLorentzOneMapping()
+    
+    # The two lines below yield the difference w.r.t LorentzNLOWalker
+    soft_map = mappings.SoftVsInitialMapping()
+    only_colored_recoilers = False
+    
+    f_soft_collinear_map = mappings.SoftCollinearVsFinalMapping(soft_map, f_collinear_map)
+    i_soft_collinear_map = mappings.SoftCollinearVsFinalMapping(soft_map, i_collinear_map)
+
 #=========================================================================================
 # Walker for disjoint counterterms
 #=========================================================================================
@@ -684,4 +704,5 @@ walker_classes_map = {
     'FinalLorentzDisjoint': FinalLorentzDisjointWalker,
     'FinalGroupingDisjoint': FinalGroupingDisjointWalker,
     'SoftVsFinalDisjoint': SoftVsFinalDisjointWalker,
+    'SoftBeamsRecoilNLO': SoftBeamsRecoilNLOWalker
 }

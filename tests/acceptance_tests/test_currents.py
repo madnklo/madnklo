@@ -114,7 +114,7 @@ class SubtractionCurrentTest(unittest.TestCase):
             (500.0, 500.0),
             (0, 0) )
 
-        PS_point, wgt, xb_1, xb_2 = PS_generator.get_PS_point(None)
+        PS_point, wgt, x1s, x2s = PS_generator.get_PS_point(None)
         
         misc.sprint('PS point:\n\n%s\n\n'%PS_point.__str__(n_initial=len(initial_masses)))
 
@@ -184,8 +184,8 @@ class SubtractionCurrentTest(unittest.TestCase):
             leg_numbers_map=momenta_map, reduced_process=None,
             hel_config=None, Q=Q)
 
-        misc.sprint(current_evaluation)
-        misc.sprint(all_current_results)
+        #misc.sprint(current_evaluation)
+        #misc.sprint(all_current_results)
 
 #       ------------------------------------------
 #       ---- Testing q~ > q~ g  soft collinear
@@ -207,8 +207,8 @@ class SubtractionCurrentTest(unittest.TestCase):
             leg_numbers_map=momenta_map, reduced_process=None,
             hel_config=None, Q=Q)
 
-        misc.sprint(current_evaluation)
-        misc.sprint(all_current_results)
+        #misc.sprint(current_evaluation)
+        #misc.sprint(all_current_results)
         
 #       ------------------------------------------
 #       ---- Testing soft gluon current
@@ -228,5 +228,5 @@ class SubtractionCurrentTest(unittest.TestCase):
             leg_numbers_map=momenta_map, reduced_process=reduced_process,
             hel_config=None, Q=Q)
 
-        misc.sprint(current_evaluation)
-        misc.sprint(all_current_results)
+        #misc.sprint(current_evaluation)
+        #misc.sprint(all_current_results)

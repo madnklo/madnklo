@@ -451,8 +451,8 @@ class PhaseSpaceGeneratorsTest(unittest.TestCase):
         MH = self.model.get('parameter_dict')['mdl_MH']
                 
         # Now try it on the two e+ e- s-channel topologies. First the massless one.
-        misc.sprint('='*100)
-        misc.sprint('Now considering the following topology:\n'+print_topology(massless_photon_schannel_specifier))
+#        misc.sprint('='*100)
+#        misc.sprint('Now considering the following topology:\n'+print_topology(massless_photon_schannel_specifier))
         my_epem_PS_generator_massless = PS.MultiChannelPhasespace([0.]*2, [0.]*2, 
             beam_Es =(E_cm/2.,E_cm/2.), beam_types=(0,0),
             model=self.model, topology=massless_photon_schannel_specifier)
@@ -462,47 +462,47 @@ class PhaseSpaceGeneratorsTest(unittest.TestCase):
         random_variables = None
         
         
-        PS_point, wgt, xb_1, xb_2 =  my_epem_PS_generator_massless.get_PS_point(random_variables)
+        PS_point, wgt, x1s, x2s =  my_epem_PS_generator_massless.get_PS_point(random_variables)
 
-        misc.sprint('Generated the following PS point:')
-        misc.sprint(str(PS_point))
-        misc.sprint('jacobian = %.16e'%wgt)
-        misc.sprint('xb_1 = %.16e'%xb_1)
-        misc.sprint('xb_2 = %.16e'%xb_2)
+ #       misc.sprint('Generated the following PS point:')
+ #       misc.sprint(str(PS_point))
+ #       misc.sprint('jacobian = %.16e'%wgt)
+ #       misc.sprint('xb_1 = %.16e'%x1s[0])
+ #       misc.sprint('xb_2 = %.16e'%x2s[0])
         #
         # TODO: perform some (comparison) test of the PS point generated
         #
 
         # Now try it on the two e+ e- s-channel topologies. Then the massive one.
-        misc.sprint('='*100)
-        misc.sprint('Now considering the following topology:\n'+print_topology(massive_zboson_schannel_specifier))
+#       misc.sprint('='*100)
+#        misc.sprint('Now considering the following topology:\n'+print_topology(massive_zboson_schannel_specifier))
         my_epem_PS_generator_massive = PS.MultiChannelPhasespace([0.]*2, [0.]*2, 
             beam_Es =(E_cm/2.,E_cm/2.), beam_types=(0,0),
             model=self.model, topology=massive_zboson_schannel_specifier)
 
-        PS_point, wgt, xb_1, xb_2 =  my_epem_PS_generator_massive.get_PS_point(random_variables)
-        misc.sprint('Generated the following PS point:')
-        misc.sprint(str(PS_point))
-        misc.sprint('jacobian = %.16e'%wgt)
-        misc.sprint('xb_1 = %.16e'%xb_1)
-        misc.sprint('xb_2 = %.16e'%xb_2)
+        PS_point, wgt, x1s, x2s =  my_epem_PS_generator_massive.get_PS_point(random_variables)
+#        misc.sprint('Generated the following PS point:')
+#        misc.sprint(str(PS_point))
+#        misc.sprint('jacobian = %.16e'%wgt)
+#        misc.sprint('xb_1 = %.16e'%x1s[0])
+#        misc.sprint('xb_2 = %.16e'%x2s[0])
         #
         # TODO: perform some (comparison) test of the PS point generated
         #
         
         # Now try this pp multichannel PS generator on the hadronic VBF topology
-        misc.sprint('='*100)
-        misc.sprint('Now considering the following topology:\n'+print_topology(vbf_topology_s_and_t_channel_specifier))
+#        misc.sprint('='*100)
+#        misc.sprint('Now considering the following topology:\n'+print_topology(vbf_topology_s_and_t_channel_specifier))
         my_pp_PS_generator_VBF = PS.MultiChannelPhasespace([0.]*2, [0.]*6,
             beam_Es =(E_cm/2.,E_cm/2.), beam_types=(1,1), 
               model=self.model, topology=vbf_topology_s_and_t_channel_specifier)
         
-        PS_point, wgt, xb_1, xb_2 =  my_pp_PS_generator_VBF.get_PS_point(random_variables)
-        misc.sprint('Generated the following PS point:')
-        misc.sprint(str(PS_point))
-        misc.sprint('jacobian = %.16e'%wgt)
-        misc.sprint('xb_1 = %.16e'%xb_1)
-        misc.sprint('xb_2 = %.16e'%xb_2)
+        PS_point, wgt, x1s, x2s =  my_pp_PS_generator_VBF.get_PS_point(random_variables)
+#        misc.sprint('Generated the following PS point:')
+#        misc.sprint(str(PS_point))
+#        misc.sprint('jacobian = %.16e'%wgt)
+#        misc.sprint('xb_1 = %.16e'%x1s[0])
+#        misc.sprint('xb_2 = %.16e'%x2s[0])
         #
         # TODO: perform some (comparison) test of the PS point generated
         #

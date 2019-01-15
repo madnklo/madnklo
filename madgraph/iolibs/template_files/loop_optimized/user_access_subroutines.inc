@@ -442,6 +442,87 @@ C
 		ENDIF
 ## }
 	  END SUBROUTINE
+	 
+## if(LoopInduced){
+C     Give access to the helicity definition to the f2py API. This only needs to be done
+C     for loop-induced ME, otherwise this subroutine is already present in born_matrix.f
+C     where it is easier since no reading must be performed from a data file.
+      SUBROUTINE %(proc_prefix)sGET_HELICITY_DEFINITIONS(NHEL_OUT)
+      IMPLICIT NONE
+
+      INTEGER    NEXTERNAL
+      PARAMETER (NEXTERNAL=%(nexternal)d)
+      INTEGER    NCOMB
+      PARAMETER (NCOMB=%(ncomb)d)
+      INTEGER HELC(NEXTERNAL,NCOMB)
+      COMMON/%(proc_prefix)sHELCONFIGS/HELC
+
+      INTEGER NHEL_OUT(NCOMB,NEXTERNAL)
+CF2PY INTENT(OUT) :: NHEL_OUT
+
+      CHARACTER*512 TMP, HELCONFIGFN
+
+      CHARACTER*512 HELCONFIGFNAME
+      PARAMETER ( HELCONFIGFNAME='HelConfigs.dat')
+
+      LOGICAL ML_INIT
+      COMMON/ML_INIT/ML_INIT
+
+      CHARACTER(512) MLPATH
+      COMMON/MLPATH/MLPATH
+
+      CHARACTER*512 PROC_PREFIX
+      PARAMETER ( PROC_PREFIX='%(proc_prefix)s')
+
+      INTEGER I,J
+
+      IF(ML_INIT) THEN
+C If MadLoop has not been initialized yet, we must read the helicity configuration from the corresponding file.
+        TMP = 'auto'
+        CALL SETMADLOOPPATH(TMP)
+        CALL JOINPATH(MLPATH,PROC_PREFIX,TMP)
+        CALL JOINPATH(TMP,HELCONFIGFNAME,HELCONFIGFN)
+
+OPEN(1, FILE=HelConfigFN, err=108, status='OLD',                  action='READ')
+  DO J=1,NCOMB
+    READ(1,*,END=109) (HELC(I,J),I=1,NEXTERNAL)
+  ENDDO
+  GOTO 109
+108  CONTINUE
+  STOP 'Helictiy configurations could not be initialized from file %(proc_prefix)sHelConfigs.dat. File not found.' 
+109  CONTINUE
+CLOSE(1)
+
+      ENDIF
+
+      DO I=1,NEXTERNAL
+        DO J=1,NCOMB
+          NHEL_OUT(J,I) = HELC(I,J)
+        ENDDO
+      ENDDO
+
+      END
+
+      SUBROUTINE %(proc_prefix)sGET_SPLIT_ORDER_NAMES(SONAMES)
+      IMPLICIT NONE
+C
+C CONSTANTS
+C
+      INTEGER    NSO
+	  PARAMETER (NSO=%(nSplitOrders)d)
+C ARGUMENTS
+C
+      CHARACTER*100 SONAMES(NSO)
+      INTEGER IDX
+CF2PY INTENT(OUT) :: SONAMES
+C
+C BEGIN CODE
+C
+      %(split_order_name_definitions)s
+
+      END
+
+## }
 	  
 	  SUBROUTINE %(proc_prefix)sSET_COUPLINGORDERS_TARGET(SOTARGET)
 	  IMPLICIT NONE
@@ -827,7 +908,7 @@ C       LOCAL VARIABLES
 C  
         
         INTEGER I,J,N
-        INTEGER OLD_N_SPIN_CORR_RUNS
+        INTEGER NEW_N_SPIN_CORR_RUNS
         INTEGER N_LEGS_WITH_SPIN_CORRELATORS
 
 C
@@ -849,6 +930,9 @@ C       The integer -1000 will indicate to simply keep the original helicity pol
 		COMMON/%(proc_prefix)sSPIN_CORR_PARAMS_BACKUP/BYPASS_CHECK_VALUE_BACKUP
 	    LOGICAL BYPASS_CHECK, ALWAYS_TEST_STABILITY
 	    COMMON/%(proc_prefix)sBYPASS_CHECK/BYPASS_CHECK, ALWAYS_TEST_STABILITY
+
+      	INTEGER NEW_SPIN_CORR_RUNS(0:MAX_SPIN_CORR_RUNS,NEXTERNAL)
+
 C       ----------
 C       BEGIN CODE
 C       ----------
@@ -885,27 +969,41 @@ C           Leave the flexibility of having these vectors complex, although we t
             SPIN_CORR_VECTORS(LEG_INDEX,I,J) = DCMPLX(VECTORS(I,J),0.0d0)
           ENDDO
         ENDDO
-		
+
 C       Now assign the additional runs to be performed within the loop over helicity configuration so as to capture these spin-correlations.
-        OLD_N_SPIN_CORR_RUNS = N_SPIN_CORR_RUNS
+C       First initialise the new runs to empty
+        DO I=0, MAX_SPIN_CORR_RUNS
+          DO J=1,NEXTERNAL
+            NEW_SPIN_CORR_RUNS(I,J) = -1000
+          ENDDO
+        ENDDO
+        NEW_N_SPIN_CORR_RUNS = 0
+
+C       Now recompute what are the spin-correlated runs to be performed within the loop over helicity configuration so as to capture these spin-correlations.
         DO I=1,N_VECTORS
 C         Add a run for each of the existing ones. This means that if user specifies vector VEC1A and VEC1B for leg 1, and VEC2A and VEC2B for leg 2, we will include all 4 combinations. (VEC1A, VEC2A), (VEC1A, VEC2B), etc...
-C         The MIN(1,OLD_N_SPIN_CORR_RUNS) is just here because the first time we add spin correlation we must start from the blank entries in SPIN_CORR_RUNS(0,*)
-          DO J=MIN(1,OLD_N_SPIN_CORR_RUNS),OLD_N_SPIN_CORR_RUNS
-            N_SPIN_CORR_RUNS = N_SPIN_CORR_RUNS + 1
+C         The MIN(1,N_SPIN_CORR_RUNS) is just here because the first time we add spin correlation we must start from the blank entries in SPIN_CORR_RUNS(0,*)
+          DO J=MIN(1,N_SPIN_CORR_RUNS),N_SPIN_CORR_RUNS
+            NEW_N_SPIN_CORR_RUNS = NEW_N_SPIN_CORR_RUNS + 1
             DO N=1,NEXTERNAL
               IF (N.eq.LEG_INDEX) THEN
 C               If the leg is the one selected, enforce the vectors specified by the user
-                SPIN_CORR_RUNS(N_SPIN_CORR_RUNS,N) = I 
+                NEW_SPIN_CORR_RUNS(NEW_N_SPIN_CORR_RUNS,N) = I 
               ELSE
 C               Otherwise, just copy the ones of the previous runs.
-                SPIN_CORR_RUNS(N_SPIN_CORR_RUNS,N) = SPIN_CORR_RUNS(J,N)
+                NEW_SPIN_CORR_RUNS(NEW_N_SPIN_CORR_RUNS,N) = SPIN_CORR_RUNS(J,N)
               ENDIF
             ENDDO
           ENDDO
         ENDDO
-        
-C       That's it, the corresponding additional runs for the new spin correlations asked for have been added to the list SPIN_CORR_RUNS
+
+C       That's it, the new runs featuring the combination of previously defined spin correlation vectors with the new ones can be set to SPIN_CORR_RUNS
+        N_SPIN_CORR_RUNS = NEW_N_SPIN_CORR_RUNS
+        DO I=0, N_SPIN_CORR_RUNS
+          DO J=1, NEXTERNAL
+            SPIN_CORR_RUNS(I,J) = NEW_SPIN_CORR_RUNS(I,J)
+          ENDDO
+        ENDDO
 
       END SUBROUTINE %(proc_prefix)sSET_SPIN_CORRELATION_VECTORS
       

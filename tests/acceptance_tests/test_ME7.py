@@ -259,10 +259,10 @@ class TestME7_NLO_colorful_epem_jjj(unittest.TestCase):
                 'Virtual integrand call too slow: %g ms'%(timing[0]) )
 
 #===============================================================================
-# TestME7 cataniseymour output for e+ e- > j j j @NLO
+# TestME7 distributed_softs output for e+ e- > j j j @NLO
 #===============================================================================
 class TestME7_NLO_cataniseymour_epem_jjj(unittest.TestCase):
-    """This test validates the command 'test_IR_limits' of ME7 in the cataniseymour scheme
+    """This test validates the command 'test_IR_limits' of ME7 in the distributed_softs scheme
     for the process e+ e- > j j j --NLO=QCD"""
     
     # If the debug mode is set to True, then the process output is not refreshed
@@ -287,7 +287,7 @@ class TestME7_NLO_cataniseymour_epem_jjj(unittest.TestCase):
 
             # Now generate and output a process, so as to run ME7 commands on it
             self.do('import model loop_sm')
-            self.do('set subtraction_currents_scheme cataniseymour')
+            self.do('set subtraction_currents_scheme distributed_softs')
             self.do('set subtraction_mappings_scheme LorentzNLO')            
             self.do('generate e+ e- > j j j --NLO=QCD --ignore_contributions=V')
             self.do('output %s --ignore_integrated_counterterms=R' % self.tmp_process_dir)

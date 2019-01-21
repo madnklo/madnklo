@@ -1,0 +1,6 @@
+.bzr
+*.pyc
+*.o
+*.mod
+*.a
+MG5_debug

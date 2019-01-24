@@ -498,7 +498,7 @@ class QCD_beam_factorization_single_soft(currents.QCDBeamFactorizationCurrent):
                         #See github issue #9 for reference 
                         kernel = EpsilonExpansion({0:xi**2*HE.integrated_bs_bulk_finite(dipole_invariant,xi)})
                     elif self.distribution_type == 'counterterm':
-                        kernel = EpsilonExpansion({0:HE.integrated_bs_counterterm_finite(dipole_invariant,xi)})
+                        kernel = EpsilonExpansion({0:HE.integrated_bs_counterterm_finite(dipole_invariant,xi)})*0. #TODO bulk test
                     elif self.distribution_type == 'endpoint':
                         kernel = EpsilonExpansion({-1:HE.integrated_bs_endpoint_pole(dipole_invariant),
                                                     0:HE.integrated_bs_endpoint_finite(dipole_invariant)})
@@ -530,6 +530,8 @@ class QCD_beam_factorization_single_soft(currents.QCDBeamFactorizationCurrent):
                     #     raise CurrentImplementationError("Distribution type '%s' not supported."
                     #                                                     %self.distribution_type)
 
+                if xi > 0.9: #TODO bulk test
+                    kernel*=0. #TODO bulk test
                 evaluation['values'][(0, color_correlation_index)] = kernel*prefactor
                 color_correlation_index += 1
 

@@ -310,10 +310,10 @@ class QCD_soft_0_g(currents.QCDLocalSoftCurrent):
                     mult_factor = 2.
                 else:
                     mult_factor = 1.
-                #pa = sum(higher_PS_point[child] for child in leg_numbers_map[a])
-                #pb = sum(higher_PS_point[child] for child in leg_numbers_map[b])
-                pa = lower_PS_point[a]
-                pb = lower_PS_point[b]
+                pa = sum(higher_PS_point[child] for child in leg_numbers_map[a])
+                pb = sum(higher_PS_point[child] for child in leg_numbers_map[b])
+                #pa = lower_PS_point[a]
+                #pb = lower_PS_point[b]
                 eikonal = self.eikonal(pa, pb, pS)
                 evaluation['color_correlations'].append( ((a, b), ) )
                 evaluation['values'][(0, color_correlation_index)] = {
@@ -423,13 +423,12 @@ class QCD_final_softcollinear_0_gX(currents.QCDLocalSoftCollinearCurrent):
         # Here S is a single particle but we obtain it as a list soft_children\
         # to illustrate how multiple softs would be obtained
         children = self.get_sorted_children(current, self.model)
-        parent = leg_numbers_map.inv[frozenset(children)]
-        pCtilde = lower_PS_point[parent]
+        pC = sum(higher_PS_point[child] for child in children)
         soft_children = []
         for substructure in current.get('singular_structure').substructures:
             soft_children += [leg.n for leg in substructure.get_all_legs()]
         pS = sum(higher_PS_point[child] for child in soft_children)
-        if self.is_cut(Q=Q, pC=pCtilde, pS=pS):
+        if self.is_cut(Q=Q, pC=pC, pS=pS):
             return utils.SubtractionCurrentResult.zero(
                 current=current, hel_config=hel_config)
 
@@ -441,14 +440,14 @@ class QCD_final_softcollinear_0_gX(currents.QCDLocalSoftCollinearCurrent):
         })
 
         # Evaluate kernel
-        zs = self.variables([pS,pCtilde],Q)
+        zs = self.variables([pS,pC],Q)
         z = zs[0]
         evaluation['values'][(0, 0)]['finite'] = self.color_charge * 2.*(1.-z) / z
 
         # Add the normalization factors
-        s12 = (pCtilde+pS).square()
+        s12 = (pC+pS).square()
         norm = 8. * math.pi * alpha_s / s12
-        norm *= self.factor(Q=Q, pC=pCtilde, pS=pS)
+        norm *= self.factor(Q=Q, pC=pC, pS=pS)
         for k in evaluation['values']:
             evaluation['values'][k]['finite'] *= norm
 

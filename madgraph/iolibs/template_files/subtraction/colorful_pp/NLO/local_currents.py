@@ -282,6 +282,7 @@ class QCD_soft_0_g(currents.QCDLocalSoftCurrent):
         soft_leg_number = current.get('singular_structure').legs[0].n
 
         pS = higher_PS_point[soft_leg_number]
+        local_xi = math.sqrt(1 - 2. * pS.dot(Q) / Q.square())  # TODO bulk test
 
         # Include the counterterm only in a part of the phase space
         if self.is_cut(Q=Q, pS=pS):
@@ -315,6 +316,8 @@ class QCD_soft_0_g(currents.QCDLocalSoftCurrent):
                 #pa = lower_PS_point[a]
                 #pb = lower_PS_point[b]
                 eikonal = self.eikonal(pa, pb, pS)
+                if local_xi > 0.9: #TODO bulk test
+                    eikonal=0.#TODO bulk test
                 evaluation['color_correlations'].append( ((a, b), ) )
                 evaluation['values'][(0, color_correlation_index)] = {
                     'finite': norm * mult_factor * eikonal }
@@ -431,6 +434,7 @@ class QCD_final_softcollinear_0_gX(currents.QCDLocalSoftCollinearCurrent):
         if self.is_cut(Q=Q, pC=pC, pS=pS):
             return utils.SubtractionCurrentResult.zero(
                 current=current, hel_config=hel_config)
+        local_xi = math.sqrt(1-2.*pS.dot(Q)/Q.square())#TODO bulk test
 
         # Now instantiate what the result will be
         evaluation = utils.SubtractionCurrentEvaluation({
@@ -448,6 +452,8 @@ class QCD_final_softcollinear_0_gX(currents.QCDLocalSoftCollinearCurrent):
         s12 = (pC+pS).square()
         norm = 8. * math.pi * alpha_s / s12
         norm *= self.factor(Q=Q, pC=pC, pS=pS)
+        if local_xi>0.9: #TODO bulk test
+            norm = 0.#TODO bulk test
         for k in evaluation['values']:
             evaluation['values'][k]['finite'] *= norm
 
@@ -877,6 +883,8 @@ class QCD_initial_softcollinear_0_Xg(currents.QCDLocalSoftCollinearCurrent):
         if self.is_cut(Q=Q, pC=pC, pS=pS):
             return utils.SubtractionCurrentResult.zero(
                 current=current, hel_config=hel_config)
+        local_xi = math.sqrt(1-2.*pS.dot(Q)/Q.square())#TODO bulk test
+
 
         # Now instantiate what the result will be
         evaluation = utils.SubtractionCurrentEvaluation({
@@ -901,6 +909,8 @@ class QCD_initial_softcollinear_0_Xg(currents.QCDLocalSoftCollinearCurrent):
         s12 = pC.square()
         norm = 8. * math.pi * alpha_s / s12
         norm *= self.factor(Q=Q, pC=pC, pS=pS)
+        if local_xi > 0.9: #TODO bulk test
+            norm=0. #TODO bulk test
         for k in evaluation['values']:
             evaluation['values'][k]['finite'] *= norm
 

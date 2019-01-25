@@ -3367,7 +3367,10 @@ The missing process is: %s"""%ME_process.nice_string())
             matrix_element_event = self.generate_matrix_element_event(
                 PS_point, process_key, process, all_flavor_configurations, 
                   base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts)
-    
+
+        # TODO bulk check
+        matrix_element_event = None
+
         # Some contributions might have not physical contributions and overloaded the above
         # so as to return None
         if matrix_element_event is not None:
@@ -3376,6 +3379,12 @@ The missing process is: %s"""%ME_process.nice_string())
         for counterterm in self.counterterms[process_key]:
             if not counterterm.is_singular():
                 continue
+            #TODO bulk check
+            singular_structure = counterterm.reconstruct_complete_singular_structure().substructures[0]
+            if not (singular_structure.name() == 'S' or len(singular_structure.substructures) == 1):
+                continue
+                #misc.sprint("CT candidate: "+str(counterterm))
+            #TODO /bulk
             CT_event = self.evaluate_counterterm(
                 counterterm, PS_point, base_weight, mu_r, mu_f1, mu_f2,
                 xb_1, xb_2, xi1, xi2,

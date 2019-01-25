@@ -193,3 +193,42 @@ class HE(object):
         """Finite part of the counterterm contribution of the collinear-subtracted eikonal integrated over the SoftVsInitial mapping unresolved PS (BS)"""
         return (4. * math.log(dipole_invariant) ) / (-1. + xi)
 
+    ############################################################################################################
+    # Beam-soft integrated counterterms - unmapped momenta
+    # These are (Eikonal - its collinear limits) integrated over the unresolved phase space of Vittorio's
+    # soft-recoiling-against-initial-state mapping. This is defined in sec 5.1.2 of his notes
+    # Each of these should multiply a color-correlated amplitude and when summed over colors reconstruct
+    # the S+CS counterterms.
+    # This version corresponds to the integrated counterterms for the local soft CTs where the momenta
+    # used in the eikonal are unmapped momenta (higher-multiplicity phase space)
+    # Detailed information in Vittorio's handwritten notes from ???
+    # The results are summarized in Nicolas' handwritten notes from 24.01.2019
+    # calculation in ndeutsch/workdir/research/Active/Subtractions/ReverseUnitarityCT/\
+    # Vittorio_Soft/ExpandVittorioUnmapped.nb
+    ############################################################################################################
+    # The following components have the same value for both final-final and initial-initial
+
+    @staticmethod
+    def integrated_bs_endpoint_pole_unmapped(dipole_invariant):
+        """Pole of the endpoint contribution of the collinear-subtracted eikonal integrated over the SoftVsInitial mapping unresolved PS (BS)"""
+        return 2.*math.log(dipole_invariant)
+
+    @staticmethod
+    def integrated_bs_endpoint_finite_unmapped(dipole_invariant):
+        """Finite part of the endpoint contribution of the collinear-subtracted eikonal integrated over the SoftVsInitial mapping unresolved PS (BS)"""
+        return  - math.log(16.)*math.log(dipole_invariant) - math.log(dipole_invariant)**2 + 2.*(MPL.G([1,0],dipole_invariant)-math.pi**2/6.)
+
+    @staticmethod
+    def integrated_bs_counterterm_finite_unmapped(dipole_invariant,xi):
+        """Finite part of the counterterm contribution of the collinear-subtracted eikonal integrated over the SoftVsInitial mapping unresolved PS (BS)"""
+        return (4. * math.log(dipole_invariant) ) / (-1. + xi)
+
+    @staticmethod
+    def integrated_bs_bulk_finite_unmapped_FF(dipole_invariant,xi):
+        """Finite part of the bulk contribution of the collinear-subtracted eikonal integrated over the SoftVsInitial mapping unresolved PS (BS)"""
+        return 8. * xi *(-1 + xi**2 + xi**2*math.log(dipole_invariant)) / ((-1. + xi) * (1. + xi))
+
+    @staticmethod
+    def integrated_bs_bulk_finite_unmapped_IF(dipole_invariant,xi):
+        """Finite part of the bulk contribution of the collinear-subtracted eikonal integrated over the SoftVsInitial mapping unresolved PS (BS)"""
+        return 8. * xi *(-1 + xi + xi*math.log(dipole_invariant)) / ((-1. + xi) * (1. + xi))

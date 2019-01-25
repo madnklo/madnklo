@@ -488,7 +488,24 @@ class QCD_beam_factorization_single_soft(currents.QCDBeamFactorizationCurrent):
                     else:
                         raise CurrentImplementationError("Distribution type '%s' not supported."
                                                                         %self.distribution_type)
-                else: # At least one leg final
+                elif any(dipole_type): # Initial-Final
+                    # The integrated counterterms are evaluated in terms of
+                    # dipole_invariant = 1-cos(angle between the dipole momenta)
+                    dipole_invariant = 0.5*pa.dot(pb)*Q.square()/(pa.dot(Q)*pb.dot(Q))
+                    if self.distribution_type == 'bulk':
+                        #The factor xi^2 below corrects the flux factor used in the bulk BS which has a 1/xi^2 too many
+                        #A more permanent change is warranted after testing.
+                        #See github issue #9 for reference
+                        kernel = EpsilonExpansion({0:xi**2*HE.integrated_bs_bulk_finite_unmapped_FF(dipole_invariant,xi)})
+                    elif self.distribution_type == 'counterterm':
+                        kernel = EpsilonExpansion({0:HE.integrated_bs_counterterm_finite_unmapped(dipole_invariant,xi)})
+                    elif self.distribution_type == 'endpoint':
+                        kernel = EpsilonExpansion({-1:HE.integrated_bs_endpoint_pole_unmapped(dipole_invariant),
+                                                    0:HE.integrated_bs_endpoint_finite_unmapped(dipole_invariant)})
+                    else:
+                        raise CurrentImplementationError("Distribution type '%s' not supported."
+                                                                        %self.distribution_type)
+                else: # Final-final
                     # The integrated counterterms are evaluated in terms of
                     # dipole_invariant = 1-cos(angle between the dipole momenta)
                     dipole_invariant = 0.5*pa.dot(pb)*Q.square()/(pa.dot(Q)*pb.dot(Q))
@@ -496,12 +513,12 @@ class QCD_beam_factorization_single_soft(currents.QCDBeamFactorizationCurrent):
                         #The factor xi^2 below corrects the flux factor used in the bulk BS which has a 1/xi^2 too many
                         #A more permanent change is warranted after testing.
                         #See github issue #9 for reference 
-                        kernel = EpsilonExpansion({0:xi**2*HE.integrated_bs_bulk_finite(dipole_invariant,xi)})
+                        kernel = EpsilonExpansion({0:xi**2*HE.integrated_bs_bulk_finite_unmapped_IF(dipole_invariant,xi)})
                     elif self.distribution_type == 'counterterm':
-                        kernel = EpsilonExpansion({0:HE.integrated_bs_counterterm_finite(dipole_invariant,xi)})
+                        kernel = EpsilonExpansion({0:HE.integrated_bs_counterterm_finite_unmapped(dipole_invariant,xi)})
                     elif self.distribution_type == 'endpoint':
-                        kernel = EpsilonExpansion({-1:HE.integrated_bs_endpoint_pole(dipole_invariant),
-                                                    0:HE.integrated_bs_endpoint_finite(dipole_invariant)})
+                        kernel = EpsilonExpansion({-1:HE.integrated_bs_endpoint_pole_unmapped(dipole_invariant),
+                                                    0:HE.integrated_bs_endpoint_finite_unmapped(dipole_invariant)})
                     else:
                         raise CurrentImplementationError("Distribution type '%s' not supported."
                                                                         %self.distribution_type)

@@ -449,7 +449,7 @@ class QCD_final_softcollinear_0_gX(currents.QCDLocalSoftCollinearCurrent):
         evaluation['values'][(0, 0)]['finite'] = self.color_charge * 2.*(1.-z) / z
 
         # Add the normalization factors
-        s12 = (pC+pS).square()
+        s12 = pC.square()
         norm = 8. * math.pi * alpha_s / s12
         norm *= self.factor(Q=Q, pC=pC, pS=pS)
         if local_xi>0.9: #TODO bulk test

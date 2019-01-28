@@ -496,9 +496,9 @@ class QCD_beam_factorization_single_soft(currents.QCDBeamFactorizationCurrent):
                         #The factor xi^2 below corrects the flux factor used in the bulk BS which has a 1/xi^2 too many
                         #A more permanent change is warranted after testing.
                         #See github issue #9 for reference
-                        kernel = EpsilonExpansion({0:xi**2*HE.integrated_bs_bulk_finite_unmapped_FF(dipole_invariant,xi)})
+                        kernel = EpsilonExpansion({0:xi**2*HE.integrated_bs_bulk_finite_unmapped_IF(dipole_invariant,xi)})
                     elif self.distribution_type == 'counterterm':
-                        kernel = EpsilonExpansion({0:HE.integrated_bs_counterterm_finite_unmapped(dipole_invariant,xi)})
+                        kernel = EpsilonExpansion({0:HE.integrated_bs_counterterm_finite_unmapped(dipole_invariant,xi)})*0. #TODO bulk test
                     elif self.distribution_type == 'endpoint':
                         kernel = EpsilonExpansion({-1:HE.integrated_bs_endpoint_pole_unmapped(dipole_invariant),
                                                     0:HE.integrated_bs_endpoint_finite_unmapped(dipole_invariant)})
@@ -513,7 +513,7 @@ class QCD_beam_factorization_single_soft(currents.QCDBeamFactorizationCurrent):
                         #The factor xi^2 below corrects the flux factor used in the bulk BS which has a 1/xi^2 too many
                         #A more permanent change is warranted after testing.
                         #See github issue #9 for reference 
-                        kernel = EpsilonExpansion({0:xi**2*HE.integrated_bs_bulk_finite_unmapped_IF(dipole_invariant,xi)})
+                        kernel = EpsilonExpansion({0:xi**2*HE.integrated_bs_bulk_finite_unmapped_FF(dipole_invariant,xi)})
                     elif self.distribution_type == 'counterterm':
                         kernel = EpsilonExpansion({0:HE.integrated_bs_counterterm_finite_unmapped(dipole_invariant,xi)})*0. #TODO bulk test
                     elif self.distribution_type == 'endpoint':

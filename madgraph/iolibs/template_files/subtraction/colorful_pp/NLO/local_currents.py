@@ -444,7 +444,7 @@ class QCD_final_softcollinear_0_gX(currents.QCDLocalSoftCollinearCurrent):
         })
 
         # Evaluate kernel
-        zs = self.variables([pS,pC],Q)
+        zs = self.variables([pS,pC-pS],Q)
         z = zs[0]
         evaluation['values'][(0, 0)]['finite'] = self.color_charge * 2.*(1.-z) / z
 

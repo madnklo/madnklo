@@ -440,12 +440,12 @@ class QCD_final_softcollinear_0_gX(currents.QCDLocalSoftCollinearCurrent):
         })
 
         # Evaluate kernel
-        zs = self.variables([pS,pC],Q)
+        zs = self.variables([pS,pC-pS],Q)
         z = zs[0]
         evaluation['values'][(0, 0)]['finite'] = self.color_charge * 2.*(1.-z) / z
 
         # Add the normalization factors
-        s12 = (pC+pS).square()
+        s12 = pC.square()
         norm = 8. * math.pi * alpha_s / s12
         norm *= self.factor(Q=Q, pC=pC, pS=pS)
         for k in evaluation['values']:

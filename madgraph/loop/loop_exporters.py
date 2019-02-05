@@ -1942,11 +1942,12 @@ COMPLEX*16 SYSTEM_SPIN_CORR_VECTORS(NEXTERNAL,MAX_N_SPIN_CORR_VECTORS,4)
 C Indicates the number of spin correlations vectors defined for each external leg
 INTEGER N_SPIN_CORR_VECTORS(NEXTERNAL)
 
+INTEGER MAX_SPIN_CORR_RUNS
 C Also we use a temporary parameter const buffer to store the value of max_spin_corr_runs because f2py
 C can't realize it is constant otherwise
-c INTEGER TMPCONST
-c PARAMETER(TMPCONST=MAX_N_SPIN_CORR_VECTORS**(MAX_LEGS_WITH_SPIN_CORR))
-INTEGER MAX_SPIN_CORR_RUNS
+C INTEGER TMPCONST
+C PARAMETER(TMPCONST=MAX_N_SPIN_CORR_VECTORS**(MAX_LEGS_WITH_SPIN_CORR))
+C PARAMETER(MAX_SPIN_CORR_RUNS=TMPCONST)
 PARAMETER(MAX_SPIN_CORR_RUNS=MAX_N_SPIN_CORR_VECTORS**(MAX_LEGS_WITH_SPIN_CORR))
 C Store the number of spin-correlation runs defined by the user.
 C A run is just a pass through the helas calls for computing the integrand for a specific helicity configuration

@@ -494,7 +494,8 @@ class FinalLorentzNLOWalker(FinalNLOWalker):
     collinear_map = mappings.FinalLorentzOneMapping()
     soft_map = mappings.SoftVsFinalMapping()
     soft_collinear_map = mappings.SoftCollinearVsFinalMapping(soft_map, collinear_map)
-    only_colored_recoilers = True
+    # The integrated counterterms are only correct when recoiling against *all* final states.
+    only_colored_recoilers = False
 
 # General NLO walker
 #=========================================================================================

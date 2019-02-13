@@ -1640,11 +1640,13 @@ class ME7Integrand(integrands.VirtualIntegrand):
         
         # Include the flux factor
         flux = 1.
-        if self.n_initial == 2:
-            flux = 1. / (2.*math.sqrt(self.Lambda(E_cm**2, self.masses[0][0]**2, self.masses[0][1]**2)))
-        elif self.n_initial == 1:
-            flux = 1. / (2.*E_cm)
-        flux /= math.pow(2.*math.pi, 3*self.n_final - 4)
+        #TODO DEV endpoint test
+        # if self.n_initial == 2:
+        #     flux = 1. / (2.*math.sqrt(self.Lambda(E_cm**2, self.masses[0][0]**2, self.masses[0][1]**2)))
+        # elif self.n_initial == 1:
+        #     flux = 1. / (2.*E_cm)
+        # flux /= math.pow(2.*math.pi, 3*self.n_final - 4)
+        #TODO DEV /endpoint test
         wgt *= flux
         if __debug__: logger.debug("Flux factor: %.5e"%flux)
 
@@ -2565,6 +2567,10 @@ class ME7Integrand_V(ME7Integrand):
                   base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts)
         # Some contributions might have not physical contributions and overloaded the above
         # so as to return None
+
+        #TODO DEV endpoint test
+        matrix_element_event = None
+
         if matrix_element_event is not None:
             all_events_generated.append(matrix_element_event)
         
@@ -3304,7 +3310,7 @@ The missing process is: %s"""%ME_process.nice_string())
 
             # Multiply the various pieces building the event weight
             # (most are EpsilonExpansion's)
-            event_weight = base_objects.EpsilonExpansion(ME_evaluation)
+            event_weight = base_objects.EpsilonExpansion({0:1}) #TODO DEV endpoint_test
             event_weight *= disconnected_currents_weight
             event_weight *= connected_currents_weight
             event_weight *= overall_prefactor

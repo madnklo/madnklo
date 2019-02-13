@@ -1542,7 +1542,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
         # For testing, one can easily substitute PDFs with a 1./x distribution by uncommenting the 
         # line below
-        #return 1./x
+        return 1. #TODO DEV EP
 
         if pdf is None:
             return 1.
@@ -2604,6 +2604,11 @@ class ME7Integrand_V(ME7Integrand):
                         CT_event.store_information('beam_convolution_masks', 
                                 counterterm_characteristics['allowed_backward_evolved_flavors'])
                     CT_event.store_information('input_mapping',input_mapping)
+                    singular_structure=CT_event.counterterm_structure[0].reconstruct_complete_singular_structure().substructures[0].substructures[0]#TODO DEV EP
+                    if not (singular_structure.name() == 'S' or len(singular_structure.substructures) == 1):#TODO DEV EP
+                        #misc.sprint("REJECT: {}".format(singular_structure))#TODO DEV
+                        continue #TODO DEV EP
+                    #misc.sprint("KEEP: {}".format(singular_structure))#TODO DEV
                     all_events_generated.append( CT_event )
 
         # Notice that it may be possible in some subtraction scheme to combine

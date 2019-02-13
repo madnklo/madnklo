@@ -1570,7 +1570,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # A unique float must be returned
         wgt = 1.0
         # And the conversion from GeV^-2 to picobarns
-        wgt *= 0.389379304e9
+        # wgt *= 0.389379304e9 TODO DEV
         
         # Check if an integrator_jacobian is specified in the options to be applied to 
         # the weight when registering observables (i.e. filling observables)
@@ -3315,7 +3315,7 @@ The missing process is: %s"""%ME_process.nice_string())
 
             # Multiply the various pieces building the event weight
             # (most are EpsilonExpansion's)
-            event_weight = base_objects.EpsilonExpansion({0:1}) #TODO DEV endpoint_test
+            event_weight = base_objects.EpsilonExpansion({0:1.}) #TODO DEV endpoint_test
             event_weight *= disconnected_currents_weight
             event_weight *= connected_currents_weight
             event_weight *= overall_prefactor

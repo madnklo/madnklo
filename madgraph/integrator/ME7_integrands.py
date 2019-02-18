@@ -1645,7 +1645,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         #     flux = 1. / (2.*math.sqrt(self.Lambda(E_cm**2, self.masses[0][0]**2, self.masses[0][1]**2)))
         # elif self.n_initial == 1:
         #     flux = 1. / (2.*E_cm)
-        # flux /= math.pow(2.*math.pi, 3*self.n_final - 4)
+        flux /= math.pow(2.*math.pi, 3*self.n_final - 4)
         #TODO DEV /endpoint test
         wgt *= flux
         if __debug__: logger.debug("Flux factor: %.5e"%flux)

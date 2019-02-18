@@ -3,5 +3,6 @@
 *.o
 *.mod
 *.a
+ME7_debug
 MG5_debug
 HEPTools

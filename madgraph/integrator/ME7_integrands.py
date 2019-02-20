@@ -842,7 +842,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         except:
             is_a_dict = False
         if is_a_dict:
-            if self.get_short_name() in flavor_func_dic:
+            if contrib_name in flavor_func_dic:
                 flavor_cut_string = flavor_func_dic[contrib_name]
             else:
                 return None

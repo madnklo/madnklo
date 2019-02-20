@@ -545,7 +545,8 @@ class LorentzNLOWalker(NLOWalker):
     soft_map = mappings.SoftVsFinalMapping()
     f_soft_collinear_map = mappings.SoftCollinearVsFinalMapping(soft_map, f_collinear_map)
     i_soft_collinear_map = mappings.SoftCollinearVsFinalMapping(soft_map, i_collinear_map)
-    only_colored_recoilers = True
+    # The integrated counterterms are only correct when recoiling against *all* final states.
+    only_colored_recoilers = False
 
 class SoftBeamsRecoilNLOWalker(NLOWalker):
     """ Set of mappings designed to work for the NLO topology pp > X(color-singlet) + at most

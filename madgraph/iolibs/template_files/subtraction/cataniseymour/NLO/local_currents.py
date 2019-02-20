@@ -16,6 +16,8 @@
 
 import os
 import math
+import madgraph.integrator.mappings as mappings
+import madgraph.various.misc as misc
 
 try:
     # First try to import this in the context of the exported currents
@@ -36,6 +38,16 @@ CurrentImplementationError = utils.CurrentImplementationError
 # Eikonal factor, modified by partial fractioning and without divergence
 #=========================================================================================
 
+def eikonal(pi, pj, pr):
+    """Eikonal factor for soft particle with momentum pr
+    emitted from the dipole with momenta pi and pj.
+    """
+
+    pipj = pi.dot(pj)
+    prpi = pr.dot(pi)
+    prpj = pr.dot(pj)
+    return pipj / (prpi*prpj)
+
 def mod_eikonal(pi, pj, pr):
     """Modified eikonal factor for soft particle with momentum pr
     emitted from the dipole with momenta pi and pj.
@@ -47,6 +59,44 @@ def mod_eikonal(pi, pj, pr):
     pipj = pi.dot(pj)
     pijpr = pr.dot(pi+pj)
     return 2 * pipj / pijpr
+
+def partial_fraction(pi, pj, pr, Q):
+
+    sjr = (pj+pr).square()
+    sir = (pi+pr).square()
+    return sjr / (sir + sjr)
+    # arj = mappings.FinalRescalingOneMapping.alpha(pr+pj, Q)
+    # ari = mappings.FinalRescalingOneMapping.alpha(pr+pi, Q)
+    # return arj / (ari + arj)
+
+def pf_eikonal_pole(pi, qj, pr, Q, qir):
+    """Partial-fractioned eikonal pole in the variables alpha_ir and zr,
+    for soft particle with momentum pr
+    emitted from a recoiler of momentum pi and spectator of (mapped) momentum qj.
+    """
+
+    pir = pi + pr
+    air = mappings.FinalRescalingOneMapping.alpha(pir, Q)
+    Q2 = Q.square()
+    Qnorm = Q2 ** 0.5
+    pirvec = pir - (Q.dot(pir)/Q2) * Q
+    pirnorm = (-pirvec.square()) ** 0.5
+    n = pirvec / pirnorm
+    t = Q / Qnorm
+    na = t + n
+    nb = t - n
+    zr = pr.dot(nb) / pir.dot(nb)
+    bir = qir.dot(Q) / Q2
+    prperp = pr - pr.dot(na) * nb/2 - pr.dot(nb) * na/2
+    nperp = prperp / ((-prperp.square())**0.5)
+    qjna = qj.dot(na)
+    qjnb = qj.dot(nb)
+    qjnperp = qj.dot(nperp)
+    brk = air*(qjnb + 2*bir*Qnorm)
+    brk = air*(2*qjnb + qjna)
+    brk += 2*qjna*zr*bir
+    brk += 2*qjnperp*((2*air*bir*zr)**0.5)
+    return 2*qjna / (air*brk*Q2)
 
 #=========================================================================================
 # NLO final-collinear currents, containing the soft limits
@@ -135,7 +185,7 @@ class QCD_final_collinear_0_gq(currents.QCDLocalCollinearCurrent):
         if cls.is_gluon(legs[0], model): return (legs[0].n, legs[1].n)
         else: return (legs[1].n, legs[0].n)
 
-    def evaluate_kernel(self, zs, kTs, parent):
+    def evaluate_kernel(self, zs, kTs, parent, **opts):
 
         # Retrieve the collinear variables
         z = zs[0]
@@ -150,8 +200,16 @@ class QCD_final_collinear_0_gq(currents.QCDLocalCollinearCurrent):
         # CxS(P_gq)      = self.CF * 2.*(1.-z) / z
         # SxC(P_gq)      = self.CF * 2. / z
         # P_gq-CxS(P_gq) = self.CF * z
-        # P_gq-SxC(P_gq) = self.CF * ((1.-z)**2 - 1.)/z
-        evaluation['values'][(0, 0)]['finite'] = self.CF * z
+        # P_gq-SxC(P_gq) = self.CF * ((1.-z)**2 - 1.)/z = self.CF * (z-2.)
+        Q = opts['Q']
+        pir = opts['pC']
+        qir = opts['qC']
+        air = mappings.FinalRescalingOneMapping.alpha(pir, Q)
+        Q2 = Q.square()
+        bir = qir.dot(Q) / Q2
+        brk = air*(1. - 1./(2.*bir))
+        evaluation['values'][(0, 0)]['finite'] = self.CF *(z - 2. + 2*brk/z)
+        evaluation['values'][(0, 0)]['finite'] = self.CF * ((1.-z)**2 - 1.)/z
         return evaluation
 
     def evaluate_subtraction_current(
@@ -186,13 +244,21 @@ class QCD_final_collinear_0_gq(currents.QCDLocalCollinearCurrent):
         parent = leg_numbers_map.inv[frozenset(children)]
         pC = sum(higher_PS_point[child] for child in children)
         qC = lower_PS_point[parent]
+        ps = higher_PS_point[children[0]]
+        pi = higher_PS_point[children[1]]
+        pC2 = pC.square()
+        alpha = mappings.FinalRescalingOneMapping.alpha(pC, Q)
+        Q2 = Q.square()
+        beta = qC.dot(Q) / Q2
+        pC2exp = 2*alpha*beta*Q2
+        pC2alt = 2*alpha*Q2*(alpha*(1-2*beta)+beta)
         if self.is_cut(Q=Q, pC=pC):
             return utils.SubtractionCurrentResult.zero(
                 current=current, hel_config=hel_config)
 
         # Evaluate collinear subtracted kernel
         zs, kTs = self.variables(higher_PS_point, lower_PS_point[parent], children, Q=Q)
-        evaluation = self.evaluate_kernel(zs, kTs, parent)
+        evaluation = self.evaluate_kernel(zs, kTs, parent, Q=Q, pC=pC, qC=qC, pr=ps)
 
         # Find all colored leg numbers except for the parent in the reduced process
         all_colored_parton_numbers = []
@@ -202,8 +268,6 @@ class QCD_final_collinear_0_gq(currents.QCDLocalCollinearCurrent):
             all_colored_parton_numbers.append(leg.get('number'))
 
         color_correlation_index = 1
-        ps = higher_PS_point[children[0]]
-        pi = higher_PS_point[children[1]]
 
         # Now loop over the colored parton number pairs (parent, j)
         # and add the corresponding contributions to this current
@@ -211,20 +275,21 @@ class QCD_final_collinear_0_gq(currents.QCDLocalCollinearCurrent):
             # Write the eikonal for that pair
             if j == parent:
                 continue
-            # pj = sum(higher_PS_point[child] for child in leg_numbers_map[j])
+            pj = sum(higher_PS_point[child] for child in leg_numbers_map[j])
             # pj = higher_PS_point[j]
             qj = lower_PS_point[j]
             evaluation['color_correlations'].append(((parent, j),))
+            # eiks = -pC2*eikonal(pi, qj, ps)*partial_fraction(pi, pj, ps, Q)
+            eiks = -pC2exp*pf_eikonal_pole(pi, qj, ps, Q, qC)
             # eiks = -mod_eikonal(pi, pj, ps)
-            mod = (qj.dot(qC)) / (qj.dot(pi+ps))
-            qjmod = mod * qj
-            eiks = -mod_eikonal(pi, qjmod, ps)
+            # mod = (qj.dot(qC)) / (qj.dot(pi+ps))
+            # qjmod = mod * qj
+            # eiks = -mod_eikonal(pi, qjmod, ps)
             evaluation['values'][(0, color_correlation_index)] = {'finite': eiks}
             color_correlation_index += 1
 
         # Add the normalization factors
-        pC2 = pC.square()
-        norm = 8. * math.pi * alpha_s / pC2
+        norm = 8. * math.pi * alpha_s / pC2alt
         norm *= self.factor(Q=Q, pC=pC, qC=qC)
         for k in evaluation['values']:
             evaluation['values'][k]['finite'] *= norm
@@ -263,7 +328,7 @@ class QCD_final_collinear_0_gg(currents.QCDLocalCollinearCurrent):
         legs = current.get('singular_structure').legs
         return tuple(leg.n for leg in legs)
 
-    def evaluate_kernel(self, zs, kTs, parent):
+    def evaluate_kernel(self, zs, kTs, parent, **opts):
 
         # Retrieve the collinear variables
         z = zs[0]
@@ -288,7 +353,15 @@ class QCD_final_collinear_0_gg(currents.QCDLocalCollinearCurrent):
         # SxC(P_gg)      = 2.*self.CA * ( 1 / z + 1 / (1.- z) )
         # P_gg-CxS(P_gg) = 0
         # P_gg-SxC(P_gg) = -4.*self.CA
-
+        Q = opts['Q']
+        pir = opts['pC']
+        qir = opts['qC']
+        air = mappings.FinalRescalingOneMapping.alpha(pir, Q)
+        Q2 = Q.square()
+        bir = qir.dot(Q) / Q2
+        brk = (1. - 1./(2.*bir))
+        brk *= air / z + air / (1-z)
+        evaluation['values'][(0, 0)]['finite'] = 2.*self.CA*(-2.+brk)
         evaluation['values'][(0, 0)]['finite'] = -4.*self.CA
         evaluation['values'][(1, 0)]['finite'] = -2.*self.CA * 2.*z*(1.-z) / kT.square()
         return evaluation
@@ -307,7 +380,7 @@ class QCD_final_collinear_0_gg(currents.QCDLocalCollinearCurrent):
                 self.name() + " requires a leg numbers map, i.e. a momentum dictionary." )
         if reduced_process is None:
             raise CurrentImplementationError(
-                self.name() + " requires a reduced_process.")
+                self.name() + " requires a reduced_process." )
         if not hel_config is None:
             raise CurrentImplementationError(
                 self.name() + " does not support helicity assignment." )
@@ -325,13 +398,20 @@ class QCD_final_collinear_0_gg(currents.QCDLocalCollinearCurrent):
         parent = leg_numbers_map.inv[frozenset(children)]
         pC = sum(higher_PS_point[child] for child in children)
         qC = lower_PS_point[parent]
+        pC2 = pC.square()
+        alpha = mappings.FinalRescalingOneMapping.alpha(pC, Q)
+        Q2 = Q.square()
+        beta = qC.dot(Q) / Q2
+        betaQ2 = qC.dot(Q)
+        pC2exp = 2*alpha*beta*Q2
+        pC2alt = 2*alpha*Q2*(alpha*(1-2*beta)+beta)
         if self.is_cut(Q=Q, pC=pC):
             return utils.SubtractionCurrentResult.zero(
                 current=current, hel_config=hel_config)
 
         # Evaluate collinear subtracted kernel
         zs, kTs = self.variables(higher_PS_point, lower_PS_point[parent], children, Q=Q)
-        evaluation = self.evaluate_kernel(zs, kTs, parent)
+        evaluation = self.evaluate_kernel(zs, kTs, parent, Q=Q, pC=pC, qC=qC)
 
         # Find all colored leg numbers except for the parent in the reduced process
         all_colored_parton_numbers = []
@@ -355,15 +435,20 @@ class QCD_final_collinear_0_gg(currents.QCDLocalCollinearCurrent):
             qj = lower_PS_point[j]
             # eik0 = -mod_eikonal(pj, p1, p0)
             # eik1 = -mod_eikonal(pj, p0, p1)
-            eik0 = -mod_eikonal(qj, qC, p0)
-            eik1 = -mod_eikonal(qj, qC, p1)
+            # eik0 = -mod_eikonal(qj, qC, p0)
+            # eik1 = -mod_eikonal(qj, qC, p1)
+            # eik0 = -pC2*eikonal(p1, qj, p0)*partial_fraction(p1, qj, p0, Q)
+            # eik1 = -pC2*eikonal(p0, qj, p1)*partial_fraction(p0, qj, p1, Q)
+
+            eik0 = -pC2exp*pf_eikonal_pole(p0, qj, p1, Q, qC)
+            eik1 = -pC2exp*pf_eikonal_pole(p1, qj, p0, Q, qC)
+
             evaluation['color_correlations'].append(((parent, j),))
             evaluation['values'][(0, color_correlation_index)] = {'finite': eik0 + eik1}
             color_correlation_index += 1
 
         # Add the normalization factors
-        pC2 = pC.square()
-        norm = 8. * math.pi * alpha_s / pC2
+        norm = 8. * math.pi * alpha_s / pC2alt
         norm *= self.factor(Q=Q, pC=pC, qC=qC)
         for k in evaluation['values']:
             evaluation['values'][k]['finite'] *= norm

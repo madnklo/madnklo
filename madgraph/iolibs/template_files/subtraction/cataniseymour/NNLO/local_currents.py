@@ -25,12 +25,15 @@ try:
     # First try to import this in the context of the exported currents
     import SubtractionCurrents.subtraction_current_implementations_utils as utils
     import SubtractionCurrents.QCD_local_currents as currents
+    import SubtractionCurrents.cataniseymour.NLO.local_currents as NLO
 except ImportError:
     # If not working, then it must be within MG5_aMC context:
     import madgraph.iolibs.template_files.\
                    subtraction.subtraction_current_implementations_utils as utils
     import madgraph.iolibs.template_files.\
                    subtraction.QCD_local_currents as currents
+    import madgraph.iolibs.template_files.\
+                   subtraction.cataniseymour.NLO.local_currents as NLO
 
 pjoin = os.path.join
 
@@ -38,6 +41,9 @@ CurrentImplementationError = utils.CurrentImplementationError
 
 #=========================================================================================
 # Auxiliary functions
+#=========================================================================================
+
+# Kinematic functions
 #=========================================================================================
 
 def kTdiff(i, j, zs, kTs):
@@ -63,6 +69,110 @@ def t(i, j, k, zs, kTs, s_ij=None, s_ik=None, s_jk=None):
     if not s_ik: s_ik = sij(i, k, zs, kTs)
     if not s_jk: s_jk = sij(j, k, zs, kTs)
     return tijk(zs[i-1],zs[j-1],s_ij,s_ik,s_jk)
+
+def dummy_leg(i):
+    """Quickly construct a final-state SubtractionLeg with gluon flavour and number i."""
+    return subtraction.SubtractionLeg(i, 21, subtraction.SubtractionLeg.FINAL)
+
+def get_intermediate_PS_point(higher_PS_point, children):
+    """HACK to obtain intermediate PS points
+    by grouping together children particles in higher_PS_point."""
+
+    recoilers = tuple(
+        i for i in higher_PS_point.keys()
+        if i not in (1, 2, children[0], children[1]) )
+    structure = subtraction.SingularStructure(
+        substructures=[subtraction.CollStructure(
+            legs=(dummy_leg(children[0]), dummy_leg(children[1])) ), ],
+        legs=(dummy_leg(r) for r in recoilers) )
+    leg_numbers_map = subtraction.bidict({
+        i: frozenset({i,})
+        for i in higher_PS_point.keys()
+        if i not in (children[0], children[1])})
+    leg_numbers_map[1000] = frozenset({children[0], children[1]})
+    mapping = mappings.FinalGroupingMapping
+    intermediate_ps_point, mapping_vars = mapping.map_to_lower_multiplicity(
+        higher_PS_point, structure, leg_numbers_map)
+    return intermediate_ps_point, mapping_vars
+
+# Data structures
+#=========================================================================================
+
+def initialize_kernel():
+
+    # Instantiate the structure of the result
+    evaluation = utils.SubtractionCurrentEvaluation({
+        'spin_correlations'  : [None],
+        'color_correlations' : [None],
+        'values'             : {}
+    })
+    evaluation['values'][(0, 0)] = {'finite': 0.}
+    return evaluation
+
+# Soft kernels
+#=========================================================================================
+
+def eikonal(pipj, pipr, pjpr):
+    """Eikonal factor for soft particle r emitted from i and j."""
+
+    return pipj / (pipr * pjpr)
+
+def strongly_ordered_double_soft_kernel(pipj, prps, pipr, pips, pjpr, pjps):
+    """Strongly ordered piece of the double soft current
+    with soft particles of momenta pr and ps,
+    and emitting dipole of directions pi and pj.
+    See Eq. (111) of hep-ph/9908523v1 (Catani-Grazzini).
+    """
+
+    # pipj = pi.dot(pj)
+    # prps = pr.dot(ps)
+    # pipr = pi.dot(pr)
+    # pips = pi.dot(ps)
+    # pjpr = pj.dot(pr)
+    # pjps = pj.dot(ps)
+
+    return (
+        (pipj / prps) * (1. / (pipr * pjps) + 1. / (pjpr * pips))
+        - (pipj) ** 2 / (pipr * pjps * pips * pjpr)
+    )
+
+def non_ordered_double_soft_kernel(pipj, prps, pipr, pips, pjpr, pjps, so=None):
+    """Unordered piece of the double soft current
+    with soft particles of momenta pr and ps,
+    and emitting dipole of directions pi and pj.
+    Referring to Eqs. (110) of hep-ph/9908523v1 (Catani-Grazzini),
+    this equals the non-abelian minus the strong-ordered
+    """
+
+    so_double_soft = so
+    if so_double_soft is None:
+        so_double_soft = strongly_ordered_double_soft_kernel(
+            pipj, prps, pipr, pips, pjpr, pjps)
+
+    piprs = pipr + pips
+    pjprs = pjpr + pjps
+    den = piprs * pjprs
+    sqrbrk_factor = pipr * pjps + pips * pjpr
+    sqrbrk = 1. / (prps ** 2) - 0.5 * so_double_soft
+    secondline = 2. * pipj / prps
+    off_diag = ((pipr*pips) / (piprs**2) + (pjpr*pjps) / (pjprs**2)) / (prps**2)
+
+    return (sqrbrk_factor * sqrbrk - secondline) / den - off_diag
+
+def non_abelian_double_soft_kernel(pipj, prps, pipr, pips, pjpr, pjps):
+    """Non abelian piece of the double soft current
+    with soft particles of momenta pr and ps,
+    and emitting dipole of directions pi and pj.
+    See Eq. (110) of hep-ph/9908523v1 (Catani-Grazzini).
+    """
+
+    so_double_soft = strongly_ordered_double_soft_kernel(
+        pipj, prps, pipr, pips, pjpr, pjps)
+    no_double_soft = non_ordered_double_soft_kernel(
+        pipj, prps, pipr, pips, pjpr, pjps, so=so_double_soft)
+
+    return no_double_soft + so_double_soft
+
 
 #=========================================================================================
 # NNLO final-collinear currents, containing the soft limits
@@ -146,34 +256,13 @@ class QCD_final_collinear_0_QQxq(currents.QCDLocalCollinearCurrent):
         c123_m_c123s12 = self.C123_minus_C123S12_kernel(z1, z2, z3, s12, s13, s23, s123)
         return c123 - c123_m_c123s12
 
-    def get_intermediate_PS_point(self, higher_PS_point, children):
-
-        recoilers = tuple(
-            i for i in higher_PS_point.keys()
-            if i not in (1, 2, children[0], children[1]) )
-        def dummy_leg(i):
-            return subtraction.SubtractionLeg(i, 21, subtraction.SubtractionLeg.FINAL)
-        structure = subtraction.SingularStructure(
-            substructures=[subtraction.CollStructure(
-                legs=(dummy_leg(children[0]), dummy_leg(children[1])) ), ],
-            legs=(dummy_leg(r) for r in recoilers) )
-        leg_numbers_map = subtraction.bidict({
-            i: frozenset({i,})
-            for i in higher_PS_point.keys()
-            if i not in (children[0], children[1])})
-        leg_numbers_map[1000] = frozenset({children[0], children[1]})
-        mapping = mappings.FinalGroupingMapping
-        intermediate_ps_point, mapping_vars = mapping.map_to_lower_multiplicity(
-            higher_PS_point, structure, leg_numbers_map)
-        return intermediate_ps_point, mapping_vars
-
     def C123C12_kernel(self, higher_PS_point, parent_momentum, children, **opts):
 
         p1 = higher_PS_point[children[0]]
         p2 = higher_PS_point[children[1]]
         p12 = p1+p2
         s12 = p12.square()
-        intermediate_PS_point, mapping_vars = self.get_intermediate_PS_point(
+        intermediate_PS_point, mapping_vars = get_intermediate_PS_point(
             higher_PS_point, children )
         p12hat = intermediate_PS_point[1000]
         p3hat = intermediate_PS_point[children[2]]
@@ -218,7 +307,7 @@ class QCD_final_collinear_0_QQxq(currents.QCDLocalCollinearCurrent):
         s34  = p34.square()
         s123 = p123.square()
         s124 = p124.square()
-        intermediate_PS_point, mapping_vars = self.get_intermediate_PS_point(
+        intermediate_PS_point, mapping_vars = get_intermediate_PS_point(
             higher_PS_point, children )
         p12hat = intermediate_PS_point[1000]
         p3hat = intermediate_PS_point[emitter]
@@ -247,7 +336,9 @@ class QCD_final_collinear_0_QQxq(currents.QCDLocalCollinearCurrent):
         frac = 1
         frac = s12hat_4hat / (s12hat_3hat+s12hat_4hat)
         # frac = s124 / (s123+s124)
-        return 2*self.TR*frac*(eik_num+cor_num*offdiag)/den
+        Q = mapping_vars['Q']
+        fix = Q.dot(p12hat)/Q.dot(p12)
+        return 2*self.TR*frac*(eik_num+cor_num*offdiag)/den/fix
 
     def C123S12C12_kernel(self, higher_PS_point, parent_momentum, children, **opts):
 
@@ -255,7 +346,7 @@ class QCD_final_collinear_0_QQxq(currents.QCDLocalCollinearCurrent):
         p2 = higher_PS_point[children[1]]
         p12 = p1+p2
         s12 = p12.square()
-        intermediate_PS_point, mapping_vars = self.get_intermediate_PS_point(
+        intermediate_PS_point, mapping_vars = get_intermediate_PS_point(
             higher_PS_point, children )
         p12hat = intermediate_PS_point[1000]
         p3hat = intermediate_PS_point[children[2]]
@@ -274,27 +365,6 @@ class QCD_final_collinear_0_QQxq(currents.QCDLocalCollinearCurrent):
         kThat2 = kThat.square()
         sqrbrk = 1. - z*(1-z)*sTThat*sTThat/(kT2*kThat2)
         return 8*(1-zhat)/zhat/(s12hat_3hat*s12)*sqrbrk
-
-    def evaluate_kernel(self, zs, kTs, parent):
-
-        # Retrieve the collinear variables and compute basic quantities
-        z1, z2, z3 = zs
-        s12 = sij(1, 2, zs, kTs)
-        s13 = sij(1, 3, zs, kTs)
-        s23 = sij(2, 3, zs, kTs)
-        misc.sprint(s12,s13,s23)
-        s123 = s12 + s13 + s23
-        # Assemble kernel
-        # Instantiate the structure of the result
-        evaluation = utils.SubtractionCurrentEvaluation({
-            'spin_correlations'  : [None],
-            'color_correlations' : [None],
-            'values'             : {}
-        })
-        ker = 0
-        # ker += 2*C123(z1, z2, z3, s12, s13, s23, s123)
-        evaluation['values'][(0, 0)] = {'finite': 0.5*self.CF*self.TR*ker}
-        return evaluation
 
     def evaluate_subtraction_current(
         self, current,
@@ -340,7 +410,7 @@ class QCD_final_collinear_0_QQxq(currents.QCDLocalCollinearCurrent):
         sir = 2*pi.dot(pr)
         sis = 2*pi.dot(ps)
         srs = 2*pr.dot(ps)
-        evaluation = self.evaluate_kernel(zs, kTs, parent)
+        evaluation = initialize_kernel()
         ker = 0
         misc.sprint(srs,sir,sis)
         ker += 2*self.C123_kernel(zs[0], zs[1], zs[2], srs, sir, sis, sir+sis+srs)
@@ -377,6 +447,221 @@ class QCD_final_collinear_0_QQxq(currents.QCDLocalCollinearCurrent):
                 weight += self.S12_kernel(sir, sis, sik, skr, sks, srs)
                 weight -= 2*self.S12C12_kernel(
                     higher_PS_point, children, emitter, spectator, Q=Q)
+            evaluation['values'][(0, color_correlation_index)] = {'finite': weight}
+            color_correlation_index += 1
+
+        # Add the normalization factors
+        norm = (8. * math.pi * alpha_s) ** 2
+        norm *= self.factor(Q=Q, pC=pC, qC=qC)
+        for k in evaluation['values']:
+            evaluation['values'][k]['finite'] *= norm
+
+        # Construct and return result
+        result = utils.SubtractionCurrentResult()
+        result.add_result(
+            evaluation,
+            hel_config=hel_config,
+            squared_orders=tuple(sorted(current.get('squared_orders').items())))
+        return result
+
+class QCD_final_collinear_0_ggq(currents.QCDLocalCollinearCurrent):
+    """g g q collinear tree-level current."""
+
+    Cgq = NLO.QCD_final_collinear_0_gq()
+
+    @classmethod
+    def does_implement_this_current(cls, current, model):
+
+        # Check the general properties common to NNLO QCD collinear tree-level currents
+        init_vars = cls.common_does_implement_this_current(current, 4, 0)  # gs^4 and 0 loops
+        if init_vars is None: return None
+        # Retrieve singular structure
+        ss = current.get(
+            'singular_structure')  #: C((0,21,F),(0,4,F)) -> F: fijal state , 21: gluon, 4: c  going collinear
+        # Check that there are 3 massless final state partons
+        if len(ss.legs) != 3: return None  # better have 3 legs
+        for leg in ss.legs:
+            if not cls.is_massless(leg, model): return None
+            if cls.is_initial(leg): return None
+        # Check that there are two gluons and one (anti)quark
+        number_of_quarks = 0
+        number_of_gluons = 0
+        for leg in ss.legs:
+            if cls.is_quark(leg,model):number_of_quarks += 1
+            if cls.is_gluon(leg,model):number_of_gluons += 1
+        if number_of_quarks != 1: return None
+        if number_of_gluons != 2: return None
+
+        # The current is valid if we've made it till here
+        return init_vars
+
+    @classmethod
+    def get_sorted_children(cls, current, model):
+        # sorts out particles within current so, for example in q q' Q', q is always number 1
+        legs = current.get('singular_structure').legs
+        # we have a q g g current  and we want to spot the "special" q (and place it at position 3)
+        if cls.is_quark(legs[0], model):  # 0 is quark
+            return (legs[1].n, legs[2].n, legs[0].n)
+        elif cls.is_quark(legs[1], model): # 1 is quark
+            return (legs[2].n, legs[0].n, legs[1].n)
+        else:  # it must be that 2 is a quark
+            return (legs[0].n, legs[1].n, legs[2].n)
+
+    def C123_unsymmetrized(self, z1, z2, z3, s12, s13, s23, s123):
+
+        t123 = tijk(z1, z2, s12, s13, s23)
+        # Assemble unsymmetrized kernel - Abelian piece
+        abelian = s123**2 / (2*s13*s23) * z3 * (1+z3**2) / (z1*z2)
+        abelian += s123/s13 * (z3*(1-z1)+(1-z2)**3) / (z1*z2)
+        abelian += - s23/s13
+        # Assemble unsymmetrized kernel - Non-abelian piece
+        nonabelian = t123**2 / (4 * s12**2) + 1./4. + s123**2 / (2*s12*s13) * ( ((1-z3)**2 + 2*z3) / z2 + (z2**2 + 2*(1-z2)) / (1-z3) )
+        nonabelian += - s123**2 / (4*s13*s23) * z3 * ((1-z3)**2 + 2*z3) / (z1*z2)
+        nonabelian += s123 / (2*s12) * ( (z1 * (2 - 2*z1 + z1**2) - z2 * (6 - 6*z2 + z2**2)) / (z2 * (1-z3)) )
+        nonabelian += s123 / (2*s13) * ( ((1-z2)**3 + z3**2 - z2) / (z2 * (1-z3)) - (z3 * (1-z1) + (1-z2)**3) / (z1*z2) )
+        return self.CF * abelian + self.CA * nonabelian
+
+    def C123_kernel(self, z1, z2, z3, s12, s13, s23, s123):
+
+        kernel = 0.
+        kernel += self.C123_unsymmetrized(z1, z2, z3, s12, s13, s23, s123)
+        kernel += self.C123_unsymmetrized(z2, z1, z3, s12, s23, s13, s123)
+        return kernel / (s123**2)
+
+    def S12_kernel(self, sir, sis, sik, skr, sks, srs):
+
+        sk_rs = skr + sks
+        si_rs = sir + sis
+        skrs = sk_rs + srs
+        sirs = si_rs + srs
+        frac = skrs / (sirs + skrs)
+        return frac * 4 * self.TR * (
+            (sir*sks + skr*sis - sik*srs) / (sirs*sk_rs)
+            - sir * sis / (sirs ** 2)
+            - skr * sks / (sk_rs ** 2)
+        ) / (srs ** 2)
+
+    def S1C23_kernel(self, higher_PS_point, parent_momentum, children, **opts):
+
+        p2 = higher_PS_point[children[1]]
+        p3 = higher_PS_point[children[2]]
+        p23 = p2+p3
+        s23 = p23.square()
+        intermediate_PS_point, mapping_vars = get_intermediate_PS_point(
+            higher_PS_point, [children[1], children[2]] )
+        Q = mapping_vars['Q']
+        p23hat = intermediate_PS_point[1000]
+        p1hat = intermediate_PS_point[children[2]]
+        zs, kTs = self.variables(
+            higher_PS_point, p23hat, children[1:], Q=Q)
+        zs2, kTs2 = self.variables(
+            intermediate_PS_point, parent_momentum,
+            (1000, children[2]), Q=Q)
+        C23_pure_coll = self.Cgq.evaluate_kernel(
+            zs, kTs, 1000, pC=p23, qC=p23hat, Q=Q)
+        s23hat_1hat = 2*p1hat.dot(p23hat)
+        z1 = zs[0]
+        k1perp = kTs[0]
+        z12 = zs2[0]
+        k12perp = kTs2[0]
+        # misc.sprint(z1, k1perp, z12, k12perp)
+        k1perp2 = k1perp.square()
+        # sperp = 2*p3hat.dot(k1perp)
+        k12perp2 = k12perp.square()
+        kperpSP = 2*k1perp.dot(k12perp)
+        # perpterm = sperp**2/(k1perp2*s12hat_3hat)
+        perptermalt = ((1-z12)/z12) * (kperpSP**2)/(k1perp2*k12perp2)
+        # perpratio = perpterm / perptermalt
+        # n = mappings.LorentzVector([1,0,0,1])
+        # Q = mapping_vars['Q']
+        # misc.sprint(p12.dot(k12perp), n.dot(k12perp), Q.dot(k12perp))
+        # misc.sprint(perpterm, perptermalt, perpratio)
+        pqg = (1+(1-z12)**2) / z12
+        brk = z12 + perptermalt
+        # brk = z12 - sperp**2/(k1perp2*s12hat_3hat)
+        return 4*(pqg - 2*z1*(1-z1) *brk) / (s12hat_3hat*s12)
+
+    def evaluate_subtraction_current(
+        self, current,
+        higher_PS_point=None, lower_PS_point=None,
+        leg_numbers_map=None, reduced_process=None, hel_config=None,
+        Q=None, **opts ):
+
+        if higher_PS_point is None or lower_PS_point is None:
+            raise CurrentImplementationError(
+                self.name() + " needs the phase-space points before and after mapping." )
+        if leg_numbers_map is None:
+            raise CurrentImplementationError(
+                self.name() + " requires a leg numbers map, i.e. a momentum dictionary." )
+        if reduced_process is None:
+            raise CurrentImplementationError(
+                self.name() + " requires a reduced_process.")
+        if not hel_config is None:
+            raise CurrentImplementationError(
+                self.name() + " does not support helicity assignment." )
+        if Q is None:
+            raise CurrentImplementationError(
+                self.name() + " requires the total mapping momentum Q." )
+
+        # Retrieve alpha_s and mu_r
+        model_param_dict = self.model.get('parameter_dict')
+        alpha_s = model_param_dict['aS']
+        mu_r = model_param_dict['MU_R']
+
+        # Include the counterterm only in a part of the phase space
+        children = self.get_sorted_children(current, self.model)
+        parent = leg_numbers_map.inv[frozenset(children)]
+        pC = sum(higher_PS_point[child] for child in children)
+        qC = lower_PS_point[parent]
+        if self.is_cut(Q=Q, pC=pC):
+            return utils.SubtractionCurrentResult.zero(
+                current=current, hel_config=hel_config)
+
+        # Evaluate collinear subtracted kernel
+        zs, kTs = self.variables(higher_PS_point, qC, children, Q=Q)
+        pr = higher_PS_point[children[0]]
+        ps = higher_PS_point[children[1]]
+        pi = higher_PS_point[children[2]]
+        sir = 2*pi.dot(pr)
+        sis = 2*pi.dot(ps)
+        srs = 2*pr.dot(ps)
+        evaluation = initialize_kernel()
+        ker = 0
+        # ker += self.C123_kernel(zs[0], zs[1], zs[2], srs, sir, sis, sir+sis+srs) # OK
+        # ker -= self.C123S12_kernel(zs[0], zs[1], zs[2], srs, sir, sis, sir+sis+srs)
+        # ker -= self.C123C12_kernel(
+        #     higher_PS_point, lower_PS_point[parent], children, Q=Q)
+        # ker += self.C123S12C12_kernel(
+        #     higher_PS_point, lower_PS_point[parent], children, Q=Q)
+        evaluation['values'][(0, 0)]['finite'] += self.CF*ker
+
+        # Find all colored leg numbers except for the parent in the reduced process
+        all_colored_parton_numbers = []
+        for leg in reduced_process.get('legs'):
+            if self.model.get_particle(leg.get('id')).get('color') == 1:
+                continue
+            all_colored_parton_numbers.append(leg.get('number'))
+
+        color_correlation_index = 1
+
+        # Now loop over the colored parton number pairs (parent, k)
+        # and add the corresponding contributions to this current
+        emitter = children[2]
+        for k in all_colored_parton_numbers:
+            spectator = k
+            if k == parent:
+                spectator = children[2]
+            evaluation['color_correlations'].append(((parent, k),))
+            weight = 0
+            if k != parent:
+                pk = higher_PS_point[k]
+                sik = 2*pi.dot(pk)
+                skr = 2*pk.dot(pr)
+                sks = 2*pk.dot(ps)
+                # weight += -0.5 * self.CA * non_abelian_double_soft_kernel(
+                #     sik/2., srs/2., sir/2., sis/2., skr/2., sks/2.)
+                # weight -= 2*self.S12C12_kernel(
+                #     higher_PS_point, children, emitter, spectator, Q=Q)
             evaluation['values'][(0, color_correlation_index)] = {'finite': weight}
             color_correlation_index += 1
 

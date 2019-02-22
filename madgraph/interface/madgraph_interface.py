@@ -2882,7 +2882,7 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
         'loop_color_flows': False,
         'max_npoint_for_channel': 0, # 0 means automatically adapted
         'subtraction_currents_scheme': 'colorful',
-        'subtraction_mappings_scheme': 'LorentzNLO'
+        'subtraction_mappings_scheme': 'FinalRescalingNLO'
     }
 
     options_madevent = {

@@ -1317,17 +1317,17 @@ class ME7Integrand(integrands.VirtualIntegrand):
         elif not isinstance(PS_point, LorentzVectorList):
             PS_point = LorentzVectorList(LorentzVector(v) for v in PS_point)    
 
-#        for i, p in enumerate(PS_point[self.n_initial:]):
-#            if is_a_photon(process_pdgs[1][i]):
-#                if p.pt() < 100.0:
-#                    return False
+        for i, p in enumerate(PS_point[self.n_initial:]):
+            if is_a_photon(process_pdgs[1][i]):
+                if p.pt() < 100.0:
+                    return False
 
-#        for i, p in enumerate(PS_point[self.n_initial:]):
-#            if is_a_photon(process_pdgs[1][i]):
-#                for j, p2 in enumerate(PS_point[self.n_initial:]):
-#                    if (j != i) and process_pdgs[1][j]!=21:
-#                        if p.deltaR(p2) < 0.4:
-#                            return False
+        for i, p in enumerate(PS_point[self.n_initial:]):
+            if is_a_photon(process_pdgs[1][i]):
+                for j, p2 in enumerate(PS_point[self.n_initial:]):
+                    if (j != i) and process_pdgs[1][j]!=21:
+                        if p.deltaR(p2) < 0.4:
+                            return False
 
         ###################################################################################
         # JET CLUSTERING AND CUTS

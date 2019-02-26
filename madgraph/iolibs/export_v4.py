@@ -2195,7 +2195,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
                4 if this color connection contains at least both one g* > q q~ and one g* > g g splitting
             where g* denotes a radiated gluon (i.e. not one present in the reduced process)
             """
-            
+
             has_gstar_gg_splitting = False
             has_gstar_qqx_splitting = False
             quanta_emitted = {}
@@ -2206,14 +2206,23 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
                     # Whenever the mother is positive, it can only be from a colour index which
                     # was already present in the reduced process and the 'g > q q~' splitting
                     # is forbidden in this case (since g can't be soft then)
-                    if mother>0:
+                    if mother not in quanta_emitted and mother>0:
                         # The emitted quanta is daughter1 which must be a gluon
-                        quanta_emitted[daughter1] = 8
-                    # This quanta has not been emitted yet, wait for it to appear
-                    elif mother not in quanta_emitted:
-                        continue
+                        if mother==daughter2:
+                            quanta_emitted[daughter1] = 8
+                        else:
+                            # Unless it is of the type (mother, mother, emitted) or
+                            # (mother, 0, emitted) in which case it is a resolved gluon (positive mother index)
+                            # splitting into q q~ (or q~ q when index 0 is provided).
+                            if daughter1!=0:
+                                quanta_emitted[daughter1] = 3
+                                quanta_emitted[daughter2] = -3
+                            else:
+                                # 0 means that daughter1 index is the same as mother, but for a q~ q splitting
+                                quanta_emitted[mother] = -3
+                                quanta_emitted[daughter2] = 3
                     # The mother is a radiated particle whose history is already established
-                    else:
+                    elif mother in quanta_emitted:
                         # e.g. (-1,-1,-2) is a g > q q~ splitting
                         if mother==daughter1:
                             if quanta_emitted[mother]!=8:
@@ -2232,6 +2241,9 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
                             elif abs(quanta_emitted[mother])==8:
                                 has_gstar_gg_splitting = True
                                 quanta_emitted[daughter1] = 8
+                    else:
+                        # This quanta has not been emitted yet, wait for it to appear
+                        continue
                     # This splitting has been addressed and must now be removed
                     t_repr.remove((mother, daughter1, daughter2))
                 if len(t_repr)==last_t_repr_len:

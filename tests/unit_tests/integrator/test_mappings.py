@@ -751,7 +751,7 @@ class MappingsTest(unittest.TestCase):
             'mapping': mappings.FinalZeroMassesMapping(),
             'min_coll_sets': 2, 'max_coll_sets': 5,
             'min_recoilers': 0, 'max_recoilers': 0,
-            'max_unchanged': 0, 'masses': None,
+            'max_unchanged': 0, 'masses': False,
             'min_unresolved_per_set': 0, 'max_unresolved_per_set': 0, }
         self._test_invertible(pars)
 
@@ -787,7 +787,7 @@ class MappingsTest(unittest.TestCase):
             'mapping': mappings.FinalRescalingOneMapping(),
             'min_coll_sets': 1, 'max_coll_sets': 1,
             'min_recoilers': 1, 'max_recoilers': 3,
-            'max_unchanged': 3, 'masses': None,
+            'max_unchanged': 3, 'masses': False,
             'min_unresolved_per_set': 1, 'max_unresolved_per_set': 4,
             'supports_massive_recoilers': False, }
         self._test_invertible(pars)
@@ -799,7 +799,7 @@ class MappingsTest(unittest.TestCase):
             'mapping': mappings.FinalLorentzOneMapping(),
             'min_coll_sets': 1, 'max_coll_sets': 1,
             'min_recoilers': 1, 'max_recoilers': 5,
-            'max_unchanged': 3, 'masses': None,
+            'max_unchanged': 3, 'masses': False,
             'min_unresolved_per_set': 1, 'max_unresolved_per_set': 4, }
         self._test_invertible(pars)
 
@@ -810,7 +810,7 @@ class MappingsTest(unittest.TestCase):
             'mapping2': mappings.FinalLorentzOneMapping(),
             'min_coll_sets': 1, 'max_coll_sets': 1,
             'min_recoilers': 1, 'max_recoilers': 1,
-            'max_unchanged': 0, 'masses': None,
+            'max_unchanged': 0, 'masses': False,
             'min_unresolved_per_set': 1, 'max_unresolved_per_set': 1,
             'supports_massive_recoilers': False }
         self._test_equal_lower(pars)
@@ -857,7 +857,7 @@ class MappingsTest(unittest.TestCase):
             'mapping2': mappings.FinalLorentzOneMapping(),
             'min_coll_sets': 1, 'max_coll_sets': 1,
             'min_recoilers': 1, 'max_recoilers': 4,
-            'max_unchanged': 1, 'masses': None,
+            'max_unchanged': 1, 'masses': False,
             'min_unresolved_per_set': 1, 'max_unresolved_per_set': 4, }
         self._test_equal_lower(pars)
 
@@ -871,7 +871,7 @@ class MappingsTest(unittest.TestCase):
             'mapping2': mappings.FinalRescalingOneMapping(),
             'min_coll_sets': 1, 'max_coll_sets': 1,
             'min_recoilers': 1, 'max_recoilers': 4,
-            'max_unchanged': 3, 'masses': None,
+            'max_unchanged': 3, 'masses': False,
             'min_unresolved_per_set': 1, 'max_unresolved_per_set': 4,
             'supports_massive_recoilers': False }
         self._test_equal_lower(pars)
@@ -886,7 +886,7 @@ class MappingsTest(unittest.TestCase):
             'mapping2': mappings.FinalGroupingMapping(),
             'min_coll_sets': 1, 'max_coll_sets': 5,
             'min_recoilers': 1, 'max_recoilers': 1,
-            'max_unchanged': 1, 'masses': None,
+            'max_unchanged': 1, 'masses': False,
             'min_unresolved_per_set': 1, 'max_unresolved_per_set': 4,
             'n_tests': 5, }
         self._test_equal_lower(pars)
@@ -938,7 +938,7 @@ class MappingsTest(unittest.TestCase):
             'initial_sets': 1,
             'min_unresolved_per_set': 1, 'max_unresolved_per_set': 4,
             'min_recoilers': 1, 'max_recoilers': 5,
-            'max_unchanged': 3, 'masses': None, }
+            'max_unchanged': 3, 'masses': False, }
         self._test_invertible(pars)
 
     # Test soft mappings
@@ -956,7 +956,7 @@ class MappingsTest(unittest.TestCase):
             'mapping': mappings.FinalAssociativeSoftMappingZero(),
             'min_soft_sets': 1, 'max_soft_sets': 5,
             'min_recoilers': 2, 'max_recoilers': 5,
-            'max_unchanged': 0, 'masses': None,
+            'max_unchanged': 0,
             'min_unresolved_per_set': 1, 'max_unresolved_per_set': 4,
             'supports_massive_recoilers': False, }
         self._test_invertible(pars)
@@ -968,7 +968,7 @@ class MappingsTest(unittest.TestCase):
             'mapping': mappings.FinalAssociativeSoftMappingZero(),
             'min_soft_sets': 1, 'max_soft_sets': 6,
             'min_recoilers': 2, 'max_recoilers': 4,
-            'max_unchanged': 1, 'masses': None,
+            'max_unchanged': 1,
             'min_unresolved_per_set': 1, 'max_unresolved_per_set': 3,
             'supports_massive_recoilers': False, 'supports_massive_unresolved': False, }
         self._test_associative(pars)
@@ -980,7 +980,7 @@ class MappingsTest(unittest.TestCase):
             'mapping': mappings.FinalAssociativeSoftMappingZero(),
             'min_soft_sets': 1, 'max_soft_sets': 5,
             'min_recoilers': 2, 'max_recoilers': 4,
-            'max_unchanged': 1, 'masses': None,
+            'max_unchanged': 1,
             'min_unresolved_per_set': 1, 'max_unresolved_per_set': 3,
             'supports_massive_recoilers': False, 'supports_massive_unresolved': False, }
         self._test_commutative(pars)
@@ -997,7 +997,7 @@ class MappingsTest(unittest.TestCase):
             'mapping': mappings.FinalAssociativeSoftMapping(),
             'min_soft_sets': 1, 'max_soft_sets': 5,
             'min_recoilers': 2, 'max_recoilers': 5,
-            'max_unchanged': 3, 'masses': None,
+            'max_unchanged': 3,
             'min_unresolved_per_set': 1, 'max_unresolved_per_set': 4, }
         self._test_invertible(pars)
 
@@ -1008,7 +1008,7 @@ class MappingsTest(unittest.TestCase):
             'mapping': mappings.FinalAssociativeSoftMapping(),
             'min_soft_sets': 1, 'max_soft_sets': 6,
             'min_recoilers': 2, 'max_recoilers': 4,
-            'max_unchanged': 2, 'masses': None,
+            'max_unchanged': 2,
             'min_unresolved_per_set': 1, 'max_unresolved_per_set': 3, }
         self._test_associative(pars)
 
@@ -1019,7 +1019,7 @@ class MappingsTest(unittest.TestCase):
             'mapping': mappings.FinalAssociativeSoftMapping(),
             'min_soft_sets': 1, 'max_soft_sets': 5,
             'min_recoilers': 2, 'max_recoilers': 4,
-            'max_unchanged': 2, 'masses': None,
+            'max_unchanged': 2,
             'min_unresolved_per_set': 1, 'max_unresolved_per_set': 3, }
         self._test_commutative(pars)
 
@@ -1030,7 +1030,7 @@ class MappingsTest(unittest.TestCase):
             'mapping': mappings.SoftVsFinalMapping(),
             'min_soft_sets': 1, 'max_soft_sets': 3,
             'min_recoilers': 2, 'max_recoilers': 5,
-            'max_unchanged': 3, 'masses': None,
+            'max_unchanged': 3,
             'min_unresolved_per_set': 1, 'max_unresolved_per_set': 4,
             'supports_massive_recoilers': False, }
         self._test_invertible(pars)
@@ -1042,7 +1042,7 @@ class MappingsTest(unittest.TestCase):
             'mapping': mappings.SoftVsInitialMapping(),
             'min_soft_sets': 1, 'max_soft_sets': 5,
             'min_recoilers': 2, 'max_recoilers': 5,
-            'max_unchanged': 3, 'masses': None,
+            'max_unchanged': 3,
             'min_unresolved_per_set': 1, 'max_unresolved_per_set': 4, }
         self._test_invertible(pars)
     # TODO Confirm that indeed the SoftVsInitialMapping is neither associative or commutative
@@ -1053,7 +1053,7 @@ class MappingsTest(unittest.TestCase):
     #         'mapping': mappings.SoftVsInitialMapping(),
     #         'min_soft_sets': 1, 'max_soft_sets': 6,
     #         'min_recoilers': 2, 'max_recoilers': 4,
-    #         'max_unchanged': 2, 'masses': None,
+    #         'max_unchanged': 2,
     #         'min_unresolved_per_set': 1, 'max_unresolved_per_set': 3, }
     #     self._test_associative(pars)
     #
@@ -1064,6 +1064,6 @@ class MappingsTest(unittest.TestCase):
     #         'mapping': mappings.SoftVsInitialMapping(),
     #         'min_soft_sets': 1, 'max_soft_sets': 5,
     #         'min_recoilers': 2, 'max_recoilers': 4,
-    #         'max_unchanged': 2, 'masses': None,
+    #         'max_unchanged': 2,
     #         'min_unresolved_per_set': 1, 'max_unresolved_per_set': 3, }
     #     self._test_commutative(pars)

@@ -565,7 +565,7 @@ class Contribution(object):
 #        misc.sprint('='*50)
 #        stop
         
-        # In principle information can be passed back to ME7_exporter with the return value
+        # In principle information can be passed back to ME7Exporter with the return value
         return {}
 
     def set_phase_space_topologies(self):

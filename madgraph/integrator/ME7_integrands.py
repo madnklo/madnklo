@@ -1843,7 +1843,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
             ME7Event( PS_point, {fc : sigma_wgt for fc in all_flavor_configurations},
                 requires_mirroring = process.get('has_mirror_process'),
                 host_contribution_definition = self.contribution_definition,
-                counterterm_structure  = None,
+                counterterm_structure = None,
                 Bjorken_xs = (xb_1, xb_2)
             )
         ])
@@ -3771,12 +3771,12 @@ The missing process is: %s"""%ME_process.nice_string())
                 total_CTs_wgt += CT_weight
                 total_absCTs_wgt += abs(CT_weight)
                 logger.debug('Weight from CT %s = %.16e' % (CT_str, CT_weight) )
-                if this_eval['ME'] > 0.:
+                if this_eval['ME'] != 0.:
                     logger.debug('Ratio: %.16f'%( CT_weight/float(this_eval['ME']) ))
-            if this_eval['ME'] > 0.:
+            if this_eval['ME'] != 0.:
                 logger.debug('Ratio sum(CTs)/ME: %.16e'%(total_CTs_wgt/float(this_eval['ME'])))
             else:
-                if total_absCTs_wgt > 0.:
+                if total_absCTs_wgt != 0.:
                     logger.debug('Ratio sum(CTs)/sum(absCTs): %.16e'%(total_CTs_wgt/total_absCTs_wgt))  
                 else:
                     logger.debug('Ratio sum(CTs): %.16e'%(total_CTs_wgt))                                    

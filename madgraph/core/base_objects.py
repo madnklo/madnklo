@@ -4414,8 +4414,8 @@ class EpsilonExpansion(dict):
         """ Get on particular term of the expansion, specified either by a string or by
         an integer."""
         dict_key = 0
-        term_specifier = term_specifier.lower()
         if isinstance(term_specifier, str):
+            term_specifier = term_specifier.lower()
             if term_specifier == 'sum_all':
                 return sum(v for k,v in self.items() if isinstance(k, int))
             if term_specifier == 'finite':

@@ -195,7 +195,7 @@ class FortranWriter(FileWriter):
     downcase = False
     line_length = 71
     max_split = 20
-    split_characters = "+-*/,) "
+    split_characters = "+-/,() "
     comment_split_characters = " "
 
     # Private variables

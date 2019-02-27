@@ -1,1 +1,13 @@
 .bzr
+*.a
+*.mod
+*.o
+*.pkl
+*.pyc
+.bzr
+additional_command
+ME7_debug
+MG5_debug
+HEPTools
+param.log
+py.py

@@ -810,7 +810,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         return self.nice_string()
 
     @staticmethod
-    def build_flavor_cut_function(flavor_cut_string):
+    def build_flavor_cut_function(flavor_cut_string, contrib_name):
         """ Given a string defining a flavor cut function specification (taken from the run
         card), build here the flavor cut function to apply at run-time. Example of a complicated
         cut function:
@@ -842,8 +842,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
         except:
             is_a_dict = False
         if is_a_dict:
-            if self.get_short_name() in flavor_func_dic:
-                flavor_cut_string = flavor_func_dic[self.get_short_name()]
+            if contrib_name in flavor_func_dic:
+                flavor_cut_string = flavor_func_dic[contrib_name]
             else:
                 return None
         
@@ -969,7 +969,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # A RunCardME7 instance, properly initialized with the values of the run_card.dat of this run
         self.run_card                   = run_card
         
-        self.flavor_cut_function = ME7Integrand.build_flavor_cut_function(self.run_card['flavor_cuts'])
+        self.flavor_cut_function = ME7Integrand.build_flavor_cut_function(
+                                                self.run_card['flavor_cuts'], self.get_short_name())
         
         # Set external masses
         all_processes = [p[0] for p in self.processes_map.values()]
@@ -1316,11 +1317,17 @@ class ME7Integrand(integrands.VirtualIntegrand):
         elif not isinstance(PS_point, LorentzVectorList):
             PS_point = LorentzVectorList(LorentzVector(v) for v in PS_point)    
 
-        #for i, p in enumerate(PS_point[self.n_initial:]):
-        #    if process_pdgs[1][i]==25:
-        #        assert((p.square()-125.0**2)<0.1)
-        #        if p.pt() < 400.0:
-        #            return False
+        for i, p in enumerate(PS_point[self.n_initial:]):
+            if is_a_photon(process_pdgs[1][i]):
+                if p.pt() < 100.0:
+                    return False
+
+        for i, p in enumerate(PS_point[self.n_initial:]):
+            if is_a_photon(process_pdgs[1][i]):
+                for j, p2 in enumerate(PS_point[self.n_initial:]):
+                    if (j != i) and process_pdgs[1][j]!=21:
+                        if p.deltaR(p2) < 0.4:
+                            return False
 
         ###################################################################################
         # JET CLUSTERING AND CUTS
@@ -1390,7 +1397,6 @@ class ME7Integrand(integrands.VirtualIntegrand):
             if debug_cuts: logger.debug("Number of identified jets: %d (min %d)"%
                            ( len(jets), (starting_n_jets-n_jets_allowed_to_be_clustered) ))
             if len(jets) < (starting_n_jets-n_jets_allowed_to_be_clustered):
-
                 return False
             
             all_jets = LorentzVectorList([LorentzVector(
@@ -1427,7 +1433,6 @@ class ME7Integrand(integrands.VirtualIntegrand):
         ###################################################################################
         # LEPTON AND PHOTON CUTS
         ###################################################################################
-        
         for i, p in enumerate(PS_point[self.n_initial:]):
             # photons
             if is_a_photon(process_pdgs[1][i]):
@@ -1489,7 +1494,6 @@ class ME7Integrand(integrands.VirtualIntegrand):
             return self.flavor_cut_function(flavors)
         elif self.flavor_cut_function.lower() != 'hardcoded':
             raise MadEvent7Error("Flavor cut function '%s' not reckognized."%self.flavor_cut_function)
-            
 
         # If the cuts depend on the boost to the lab frame in case of hadronic collision
         # then the quantity below can be used:
@@ -1839,7 +1843,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
             ME7Event( PS_point, {fc : sigma_wgt for fc in all_flavor_configurations},
                 requires_mirroring = process.get('has_mirror_process'),
                 host_contribution_definition = self.contribution_definition,
-                counterterm_structure  = None,
+                counterterm_structure = None,
                 Bjorken_xs = (xb_1, xb_2)
             )
         ])
@@ -2563,6 +2567,7 @@ class ME7Integrand_V(ME7Integrand):
         matrix_element_event = self.generate_matrix_element_event(
                 PS_point, process_key, process, all_flavor_configurations, 
                   base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts)
+
         # Some contributions might have not physical contributions and overloaded the above
         # so as to return None
         if matrix_element_event is not None:
@@ -2570,11 +2575,12 @@ class ME7Integrand_V(ME7Integrand):
         
         # Now loop over all integrated counterterms
         for counterterm_characteristics in self.integrated_counterterms[process_key]:
-            
+
+
             # Example of a hack below to include only soft integrated CT. Uncomment to enable.
-#            if counterterm_characteristics['integrated_counterterm'].reconstruct_complete_singular_structure()\
-#                                                     .substructures[0].substructures[0].name()!='S':
-#                continue
+            #if counterterm_characteristics['integrated_counterterm'].reconstruct_complete_singular_structure()\
+            #                                         .substructures[0].substructures[0].name()!='S':
+            #    continue
 
             # And over all the ways in which this current PS point must be remapped to
             # account for all contributions of the integrated CT. (e.g. the integrated
@@ -3367,7 +3373,7 @@ The missing process is: %s"""%ME_process.nice_string())
             matrix_element_event = self.generate_matrix_element_event(
                 PS_point, process_key, process, all_flavor_configurations, 
                   base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts)
-    
+
         # Some contributions might have not physical contributions and overloaded the above
         # so as to return None
         if matrix_element_event is not None:
@@ -3376,6 +3382,10 @@ The missing process is: %s"""%ME_process.nice_string())
         for counterterm in self.counterterms[process_key]:
             if not counterterm.is_singular():
                 continue
+            #singular_structure = counterterm.reconstruct_complete_singular_structure().substructures[0]
+            #if not (singular_structure.name() == 'S' or len(singular_structure.substructures) == 1):
+            #    continue
+            #    #misc.sprint("CT candidate: "+str(counterterm))
             CT_event = self.evaluate_counterterm(
                 counterterm, PS_point, base_weight, mu_r, mu_f1, mu_f2,
                 xb_1, xb_2, xi1, xi2,
@@ -3761,12 +3771,12 @@ The missing process is: %s"""%ME_process.nice_string())
                 total_CTs_wgt += CT_weight
                 total_absCTs_wgt += abs(CT_weight)
                 logger.debug('Weight from CT %s = %.16e' % (CT_str, CT_weight) )
-                if this_eval['ME'] > 0.:
+                if this_eval['ME'] != 0.:
                     logger.debug('Ratio: %.16f'%( CT_weight/float(this_eval['ME']) ))
-            if this_eval['ME'] > 0.:
+            if this_eval['ME'] != 0.:
                 logger.debug('Ratio sum(CTs)/ME: %.16e'%(total_CTs_wgt/float(this_eval['ME'])))
             else:
-                if total_absCTs_wgt > 0.:
+                if total_absCTs_wgt != 0.:
                     logger.debug('Ratio sum(CTs)/sum(absCTs): %.16e'%(total_CTs_wgt/total_absCTs_wgt))  
                 else:
                     logger.debug('Ratio sum(CTs): %.16e'%(total_CTs_wgt))                                    
@@ -3796,6 +3806,8 @@ The missing process is: %s"""%ME_process.nice_string())
         if display_mode not in ['figure','grid']:
             raise MadEvent7Error('Display mode %s not recognized in analyze_IR_limit.'%display_mode)
         
+        import matplotlib
+        matplotlib.use('Agg')
         import matplotlib.pyplot as plt
 
         plot_title = True

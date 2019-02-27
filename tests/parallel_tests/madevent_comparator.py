@@ -81,6 +81,7 @@ class MadEventComparator(me_comparator.MEComparator):
             self.results.append(runner.run(proc_list, model[i], orders))
             cpu_time2 = time.time()
             logging.info(" Done in %0.3f s" % (cpu_time2 - cpu_time1))
+            misc.sprint(" Done in %0.3f s" % (cpu_time2 - cpu_time1))
 #            logging.info(" (%i/%i with zero ME)" % \
 #                    (len([res for res in self.results[-1] if res[0][0] == 0.0]),
 #                     len(proc_list)))
@@ -510,7 +511,7 @@ class MG5Runner(MadEventRunner):
 
         for i, proc in enumerate(proc_list):
             v5_string += 'add process ' + proc + ' ' + couplings + \
-                         '@%i' % i + '\n'
+                         '@%i' % i + ' --diagram_filter' + '\n'
         v5_string += "output %s -f\n" % \
                      os.path.join(self.mg5_path, self.temp_dir_name)
         v5_string += "launch -i --multicore\n"
@@ -635,6 +636,9 @@ class ME7Runner(MG5Runner):
     def __init__(self, *args, **opts):
 
         self.n_points = 1000
+        if 'PS_generator' in opts:
+            self.PS_generator = opts.pop('PS_generator')
+            self.name = 'ME7 %s'  %self.PS_generator
         if 'n_points' in opts:
             self.n_points = opts.pop('n_points')
         self.integrator = 'VEGAS3'
@@ -660,7 +664,7 @@ class ME7Runner(MG5Runner):
     def format_ME7_proc_card(self, proc_list, model, orders):
         """Create a proc_card.dat string following v5 conventions."""
 
-        perturbation_orders = '--LO'
+        perturbation_orders = '--LO --diagram_filter'
         v5_string = "import model %s\n" % os.path.join(self.model_dir, model)
         v5_string += "set automatic_html_opening False\n"
         couplings =  me_comparator.MERunner.get_coupling_definitions(orders)
@@ -670,7 +674,7 @@ class ME7Runner(MG5Runner):
         v5_string += "output %s -f\n" % \
                      os.path.join(self.mg5_path, self.temp_dir_name)
         v5_string += "launch %s \n"%(os.path.join(self.mg5_path, self.temp_dir_name))
-        v5_string += "launch --integrator=%s --n_points=%d\n"%(self.integrator, self.n_points)
+        v5_string += "launch --integrator=%s --n_points=%d --PS_generator=%s\n"%(self.integrator, self.n_points,self.PS_generator)
         v5_string += "exit\n"
         v5_string += "exit\n"
         return v5_string

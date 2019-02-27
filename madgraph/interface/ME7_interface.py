@@ -12,6 +12,7 @@
 # For more information, visit madgraph.phys.ucl.ac.be and amcatnlo.web.cern.ch
 #
 ################################################################################
+from gvar.ode import Integrator
 """A user friendly command line interface to steer ME7 integration.
    Uses the cmd package for command interpretation and tab completion.
 """
@@ -324,6 +325,7 @@ class ParseCmdArguments(object):
             'ignore_flavors'          : False,
             'set_PDFs_to_unity'       : True,
             'boost_back_to_com'       : True,
+            'PS_generator'            : None,
             'epsilon_expansion_term'  : 'sum_all',
             # Here we store a list of lambda function to apply as filters
             # to the ingegrand we must consider
@@ -630,6 +632,7 @@ class ParseCmdArguments(object):
                           'refresh_filters'     : 'auto',
                           'compile'             : 'auto',
                           'seed'                : None,
+                          'PS_generator'        : None,
                           # Here we store a list of lambda function to apply as filters
                           # to the integrand we must consider
                           'integrands'          : [lambda integrand: True],
@@ -669,10 +672,19 @@ class ParseCmdArguments(object):
             
             elif key in ['--veto_integrands', '--veto_itg']:
                 launch_options['integrands'].extend(self.get_integrand_filters(value, 'reject'))
+            
+            elif key == '--PS_generator':
+                launch_options['PS_generator'] = value
+            
             elif key=='--run_name':
                 launch_options['run_name'] = value
             else:
                 raise InvalidCmd("Option '%s' for the launch command not recognized."%key)
+
+        # Automatically adjust the default value of the PS_generator depending on the selected integrator
+        if launch_options['PS_generator'] is None:
+            if launch_options['integrator'] == 'MC_VEGAS3':
+                launch_options['PS_generator'] = 'MCPS'
 
         return new_args, launch_options
 
@@ -791,10 +803,15 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
     # parameter controllable by user commands, eventually.
     integrator_verbosity = 1 if logger.level > logging.DEBUG else 2
     _integrators = {
+       'MC_VEGAS3' : (vegas3_integrator.MultiChannelVegas3Integrator, 
+                  { 'n_iterations'            : 10,
+                    'n_points'                : 1000                  } ),
+        
        'NAIVE' : (integrators.SimpleMonteCarloIntegrator, 
                   { 'n_iterations'            : 10,
                     'n_points_per_iterations' : 100,
                     'accuracy_target'         : None,
+                    'save_points_to_file'     : None, #'./TEST.dat',
                     'verbosity'               : integrator_verbosity  } ),
     
        'VEGAS3' : (vegas3_integrator.Vegas3Integrator,
@@ -803,7 +820,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
                      'n_iterations_refine'     : 10,
                      'n_points_refine'         : 2000,
                      'verbosity'               : integrator_verbosity  } ),
-    
+        
        'VEGAS' : (pyCubaIntegrator.pyCubaIntegrator, 
                   { 'algorithm' : 'Vegas', 
                     'verbosity' : integrator_verbosity,
@@ -925,10 +942,15 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
                 max_order = max_integrand_order
         return max_integrand_order
 
-    def synchronize(self, **opts):
-        """ Re-compile all necessary resources and sync integrands with the cards and model"""
+    def synchronize(self, integrands_to_synchronize=None, **opts):
+        """ Re-compile all necessary resources and sync integrands with the cards and model.
+        The option integrands_to_synchronize offers the possibility of specifying which integrands
+        must be specified. If None, then all will be synchronised."""
         
         logger.info("Synchronizing MadEvent7 internal status with cards and matrix elements source codes...")
+        
+        if integrands_to_synchronize is None:
+            integrands_to_synchronize = self.all_integrands
         
         self.run_card = banner_mod.RunCardME7(pjoin(self.me_dir,'Cards','run_card.dat'))
         # Check if run_card values are supported.
@@ -938,8 +960,12 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
             param_card = pjoin(self.me_dir,'Cards','param_card.dat'), 
             scale=self.run_card['scale'], 
             complex_mass_scheme=self.complex_mass_scheme)
-
-        for integrand in self.all_integrands:
+        
+        self.options['PS_generator'] = opts['PS_generator']
+        
+        #misc.sprint(self.options)
+        
+        for integrand in integrands_to_synchronize:
             integrand.synchronize(self.model, self.run_card, self.options)
         
         # Try and import some options from those provided to this function
@@ -997,11 +1023,16 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         This is super naive and only for illustrative purposes for now."""
         
         args = self.split_arg(line)
+
         new_args, launch_options = self.parse_launch(args)
+
+        integrands_to_consider = ME7_integrands.ME7IntegrandList([
+            itg for itg in self.all_integrands
+            if all(filter(itg) for filter in launch_options['integrands']) ])
 
         # In principle we want to start by recompiling the process output
         # to make sure that everything is up to date.
-        self.synchronize(**launch_options)
+        self.synchronize(integrands_to_synchronize=integrands_to_consider, **launch_options)
 
         # Setup parallelization
         self.configure_run_mode(self.options['run_mode'])
@@ -1011,14 +1042,12 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         integrator_options = self._integrators[integrator_name][1]
 
         integrator_options['verbosity'] = launch_options['verbosity']
+
         integrator_options['cluster'] = self.cluster
 
         if integrator_name=='VEGAS3':
             integrator_options['parallelization'] = self.cluster
 
-        integrands_to_consider = ME7_integrands.ME7IntegrandList([
-            itg for itg in self.all_integrands
-            if all(filter(itg) for filter in launch_options['integrands']) ])
         self.integrator = self._integrators[integrator_name][0](
             integrands_to_consider, **integrator_options)
         

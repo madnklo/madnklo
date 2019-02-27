@@ -84,16 +84,24 @@ class ME6ME7Comparator(unittest.TestCase):
        
     def compare_cross_section(self, my_proc_list = [], orders = {}, model = 'sm',
                         filename = "", print_result = False, append_output=False,
-                        tolerance = 1e-02, ME6_options={}, ME7_options={}):
+                        tolerance = 1e-01, ME6_options={}, ME7_options={}):
         """ """
      
         ME6_runner = madevent_comparator.ME6Runner(**ME6_options)
         ME6_runner.setup(MG5DIR)
         ME6_runner.store_proc_card = True
 
-        ME7_runner = madevent_comparator.ME7Runner(**ME7_options)
-        ME7_runner.setup(MG5DIR)
-        ME7_runner.store_proc_card = True
+        ME7_options['PS_generator'] = 'MCPS'
+        
+        ME7_runner_MCPS = madevent_comparator.ME7Runner(**ME7_options)
+        ME7_runner_MCPS.setup(MG5DIR)
+        ME7_runner_MCPS.store_proc_card = True
+        
+        ME7_options['PS_generator'] = 'FLATPS'
+        
+        ME7_runner_FLATPS = madevent_comparator.ME7Runner(**ME7_options)
+        ME7_runner_FLATPS.setup(MG5DIR)
+        ME7_runner_FLATPS.store_proc_card = True
         
         self.nb_test +=1      
         if os.path.exists(pjoin(MG5DIR,'models','paralel_test_model_%s' % model)):
@@ -103,11 +111,11 @@ class ME6ME7Comparator(unittest.TestCase):
         
         # Create and setup a comparator
         my_comp = madevent_comparator.MadEventComparator(allow_no_present=True)
-        my_comp.set_me_runners(ME6_runner,ME7_runner)
+        my_comp.set_me_runners(ME6_runner,ME7_runner_MCPS,ME7_runner_FLATPS)
 
         # Run the actual comparison
         my_comp.run_comparison(my_proc_list,
-                               ['paralel_test_model_%s' % model, model], orders)
+                               ['paralel_test_model_%s' % model, model, model], orders)
 
         # Print the output
         if filename:
@@ -115,7 +123,7 @@ class ME6ME7Comparator(unittest.TestCase):
                 mystream = open(filename, 'a')
             else:
                 mystream = open(filename, 'w')
-            my_comp.output_result(filename=mystream)
+            my_comp.output_result(filename=mystream,tolerance=tolerance)
             mystream.close()
         
         if print_result:
@@ -172,18 +180,28 @@ class ME6ME7Comparator(unittest.TestCase):
     # An example of a comparison against values recomputed live with ME6
     def test_ME7_paralel_cross_sm(self):
         """Test a short list of sm processes"""
+        
+        #print(opts)
+        
+        #if 'PS_generator' in opts:
+        #    misc.sprint('hello')
+        #self.PS_gen = opts['PS_generator']
+        
         # Create a list of processes to check automatically                                                                                                                             
-        proc_lists = [['p p > t t~'], ['u d~ > W+ j'], ['u d~ > W+ j j']]
+        #proc_lists = [['p p > t t~'], ['u d~ > W+ j'], ['u d~ > W+ j j']]
+        proc_lists= [(['u c > h > u c e+ e- mu+ mu- $$ c u / a s d s~ d~'],0,99)]
+        #proc_lists = [['u d > u d  mu+ mu-']]
+        #proc_lists = [['u d~ > W+ j j']]
         #proc_lists = [['p p > t t~']]
         #proc_lists = [['u d~ > W+ j', 'u d~ > W+ j j']]
         # Store list of non-zero processes and results in file                                                                                                     
         pickle_file = os.path.join(_pickle_path, "short_ME7_parraleltest_cross_sm.pkl")
         if os.path.isfile('short_ME7_cs_sm.log'):
             os.remove('short_ME7_cs_sm.log')
-        for my_proc_list in proc_lists:
+        for my_proc_list, QCDorder, QEDorder in proc_lists:
             print 'Now running process(es) %s ...'%str(my_proc_list)
             self.compare_cross_section(my_proc_list,
-                             orders = {'QED':99, 'QCD':99},
+                             orders = {'QED':QEDorder, 'QCD':QCDorder},
                              filename = "short_ME7_cs_sm.log",
                              append_output = True,
                              ME6_options={'accuracy':0.01},

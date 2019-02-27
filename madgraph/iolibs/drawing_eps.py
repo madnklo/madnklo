@@ -674,7 +674,7 @@ class MultiEpsDiagramDrawer(EpsDiagramDrawer):
         #compute the number of pages
         self.npage = 1
         self.diagram_type = diagram_type
-
+        
         diagramlist = [d for d in diagramlist if not (isinstance(d, loop_objects.LoopUVCTDiagram) or \
                 (isinstance(d, loop_objects.LoopDiagram) and d.get('type') < 0))]
         diagramlist = base_objects.DiagramList(diagramlist)
@@ -686,7 +686,7 @@ class MultiEpsDiagramDrawer(EpsDiagramDrawer):
             add = (len(diagramlist) - limit -1) // \
                      (self.second_scale['nb_col'] * self.second_scale['nb_line'])
             self.npage += self.lower_scale + add
-            
+   
         if diagramlist:
             # diagramlist Argument should be a DiagramList object
             assert(isinstance(diagramlist, base_objects.DiagramList))

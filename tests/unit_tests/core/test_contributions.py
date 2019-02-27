@@ -256,7 +256,7 @@ class ME7ContributionTest(IOTests.IOTestManager):
             # Generate the output for this.
             self.madgraph_cmd = cmd.MasterCmd(main='MadGraph')
             self.madgraph_cmd._curr_model = self.mymodel
-            self.madgraph_cmd.reset_interface_before_new_generation()            
+            self.madgraph_cmd.clean_process()            
             self.madgraph_cmd._export_dir = pjoin(tmp_path,'ME7ContributionTest_LO')
 
             # Generate contributions
@@ -297,7 +297,7 @@ class ME7ContributionTest(IOTests.IOTestManager):
             # Generate the output for this.
             self.madgraph_cmd = cmd.MasterCmd(main='MadGraph')
             self.madgraph_cmd._curr_model = self.mymodel
-            self.madgraph_cmd.reset_interface_before_new_generation()
+            self.madgraph_cmd.clean_process()
             self.madgraph_cmd._export_dir = pjoin(tmp_path,'ME7ContributionTest_LO')
 
             # Generate contributions

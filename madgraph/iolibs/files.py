@@ -137,6 +137,7 @@ def cp(path1, path2, log=True, error=False):
     try:
         shutil.copy(path1, path2)
     except IOError, why:
+        import madgraph.various.misc as misc
         try: 
             if os.path.exists(path2):
                 path2 = os.path.join(path2, os.path.split(path1)[1])
@@ -146,6 +147,8 @@ def cp(path1, path2, log=True, error=False):
                 raise
             if log:
                 logger.warning(why)
+            else:
+                misc.sprint("fail to cp", why)
     except shutil.Error:
         # idetical file
         pass
@@ -184,6 +187,15 @@ def mv(path1, path2):
         else:
             raise
         
+def put_at_end(src, *add):
+    
+    with open(src,'ab') as wfd:
+        for f in add:
+            with open(f,'rb') as fd:
+                shutil.copyfileobj(fd, wfd, 1024*1024*100)
+                #100Mb chunk to avoid memory issue
+    
+        
 def ln(file_pos, starting_dir='.', name='', log=True, cwd=None, abspath=False):
     """a simple way to have a symbolic link without to have to change directory
     starting_point is the directory where to write the link
@@ -202,9 +214,13 @@ def ln(file_pos, starting_dir='.', name='', log=True, cwd=None, abspath=False):
             starting_dir = os.path.join(cwd, starting_dir)        
 
     # Remove existing link if necessary
-    if os.path.exists(os.path.join(starting_dir, name)):
-        os.remove(os.path.join(starting_dir, name))
-    
+    path = os.path.join(starting_dir, name)
+    if os.path.exists(path):
+        if os.path.realpath(path) != os.path.realpath(file_pos):
+            os.remove(os.path.join(starting_dir, name))
+        else:
+            return
+
     if not abspath:
         target = os.path.join('.',os.path.relpath(file_pos, starting_dir))
         import madgraph.various.misc as misc
@@ -215,6 +231,7 @@ def ln(file_pos, starting_dir='.', name='', log=True, cwd=None, abspath=False):
         os.symlink(target, os.path.join(starting_dir, name))
     except Exception, error:
         if log:
+            logger.debug(error)
             logger.warning('Could not link %s at position: %s' % (file_pos, \
                                                 os.path.realpath(starting_dir)))
 

@@ -53,9 +53,9 @@ C
       INTEGER NBORNAMPS
       PARAMETER (NBORNAMPS=7)
       INTEGER    NLOOPS, NLOOPGROUPS, NCTAMPS
-      PARAMETER (NLOOPS=773, NLOOPGROUPS=118, NCTAMPS=201)
+      PARAMETER (NLOOPS=773, NLOOPGROUPS=118, NCTAMPS=207)
       INTEGER    NLOOPAMPS
-      PARAMETER (NLOOPAMPS=974)
+      PARAMETER (NLOOPAMPS=980)
       INTEGER    NCOLORROWS
       PARAMETER (NCOLORROWS=NLOOPAMPS)
       INTEGER    NEXTERNAL
@@ -225,7 +225,7 @@ C
 
 
       LOGICAL CHOSEN_SO_CONFIGS(NSQUAREDSO)
-      DATA CHOSEN_SO_CONFIGS/.FALSE.,.TRUE.,.FALSE./
+      DATA CHOSEN_SO_CONFIGS/.FALSE.,.TRUE.,.TRUE./
       COMMON/ML5_0_CHOSEN_LOOP_SQSO/CHOSEN_SO_CONFIGS
 
       INTEGER N_DP_EVAL, N_QP_EVAL
@@ -358,9 +358,9 @@ C      subroutine of MadLoopCommons.dat
       COMPLEX*32 MPW(20,NWAVEFUNCS)
       COMMON/ML5_0_MP_W/MPW
 
-      COMPLEX*16 WL(MAXLWFSIZE,0:LOOPMAXCOEFS-1,MAXLWFSIZE
-     $ ,0:NLOOPWAVEFUNCS)
-      COMPLEX*16 PL(0:3,0:NLOOPWAVEFUNCS)
+      COMPLEX*16 WL(MAXLWFSIZE,0:LOOPMAXCOEFS-1,MAXLWFSIZE,
+     $ -1:NLOOPWAVEFUNCS)
+      COMPLEX*16 PL(0:3,-1:NLOOPWAVEFUNCS)
       COMMON/ML5_0_WL/WL,PL
 
       COMPLEX*16 LOOPCOEFS(0:LOOPMAXCOEFS-1,NSQUAREDSO,NLOOPGROUPS)
@@ -591,12 +591,16 @@ C         We write a dummy filter for structural reasons here
 
 C       SETUP OF THE COMMON STARTING EXTERNAL LOOP WAVEFUNCTION
 C       IT IS ALSO PS POINT INDEPENDENT, SO IT CAN BE DONE HERE.
+C       The index -1 is for the charge-conjugated fermions with
+C        flipped fermion flow.
         DO I=0,3
+          PL(I,-1)=DCMPLX(0.0D0,0.0D0)
           PL(I,0)=DCMPLX(0.0D0,0.0D0)
         ENDDO
         DO I=1,MAXLWFSIZE
           DO J=0,LOOPMAXCOEFS-1
             DO K=1,MAXLWFSIZE
+              WL(I,J,K,-1)=(0.0D0,0.0D0)
               IF(I.EQ.K.AND.J.EQ.0) THEN
                 WL(I,J,K,0)=(1.0D0,0.0D0)
               ELSE
@@ -610,6 +614,14 @@ C       IT IS ALSO PS POINT INDEPENDENT, SO IT CAN BE DONE HERE.
           STOP
         ENDIF
       ENDIF
+
+C     This is the chare conjugate version of the unit 4-currents in
+C      the canonical cartesian basis.
+C     This, for now, is only defined for 4-fermionic currents.
+      WL(1,0,2,-1) = DCMPLX(-1.0D0,0.0D0)
+      WL(2,0,1,-1) = DCMPLX(1.0D0,0.0D0)
+      WL(3,0,4,-1) = DCMPLX(1.0D0,0.0D0)
+      WL(4,0,3,-1) = DCMPLX(-1.0D0,0.0D0)
 
 C     Make sure that lorentz rotation tests are not used if there is
 C      external loop wavefunction of spin 2 and that one specific
@@ -650,6 +662,14 @@ C      helicity is asked
         ENDDO
  101    CONTINUE
         CLOSE(1)
+
+        IF (.NOT.USELOOPFILTER) THEN
+          DO J=1,NLOOPGROUPS
+            DO I=1,NSQUAREDSO
+              GOODAMP(I,J)=.TRUE.
+            ENDDO
+          ENDDO
+        ENDIF
 
         IF (HELICITYFILTERLEVEL.EQ.0) THEN
           FOUNDHELFILTER=.TRUE.
@@ -954,7 +974,7 @@ C         In general, only wavefunction renormalization counterterms
 C         (if needed by the loop UFO model) are of this type.
 C         Quite often and in principle for all loop UFO models from 
 C         FeynRules, there are none of these type of counterterms.
-
+          CALL ML5_0_HELAS_CALLS_UVCT_1(P,NHEL,H,IC)
  3000     CONTINUE
           UVCT_REQ_SO_DONE=.TRUE.
 
@@ -1888,6 +1908,8 @@ C
 C     
 C     GLOBAL VARIABLES
 C     
+      LOGICAL CHOSEN_SO_CONFIGS(NSQUAREDSO)
+      COMMON/ML5_0_CHOSEN_LOOP_SQSO/CHOSEN_SO_CONFIGS
       INTEGER I_LIB
       COMMON/ML5_0_I_LIB/I_LIB
       INCLUDE 'MadLoopParams.inc'
@@ -1950,6 +1972,24 @@ C        use the average but rather the first evaluation.
             ESTIMATE(I,K) = FULLLIST(I,K,1)
           ENDDO
         ENDIF
+
+C       Make sure to hard-set to zero accuracies of coupling orders
+C        not included
+        IF (K.NE.0) THEN
+          IF (.NOT.CHOSEN_SO_CONFIGS(K)) THEN
+            ACC(K) = 0.0D0
+          ENDIF
+        ENDIF
+
+C       If NaN are present in the evaluation, automatically set the
+C        accuracy to 1.0d99.
+        DO I=1,3
+          DO J=1,MAXSTABILITYLENGTH
+            IF (ISNAN(FULLLIST(I,K,J))) THEN
+              ACC(K) = 1.0D99
+            ENDIF
+          ENDDO
+        ENDDO
 
       ENDDO
 
@@ -2081,6 +2121,49 @@ C
 
       END
 
+      INTEGER FUNCTION ML5_0_GETORDPOWFROMINDEX_ML5(IORDER, INDX)
+C     
+C     Return the power of the IORDER-th order appearing at position
+C      INDX
+C     in the split-orders output
+C     
+C     ['WEIGHTED', 'QCD', 'QED']
+C     
+C     CONSTANTS
+C     
+      INTEGER    NSO, NSQSO
+      PARAMETER (NSO=3, NSQSO=3)
+C     
+C     ARGUMENTS
+C     
+      INTEGER ORDERS(NSO)
+C     
+C     LOCAL VARIABLES
+C     
+      INTEGER I,J
+      INTEGER SQPLITORDERS(NSQSO,NSO)
+      DATA (SQPLITORDERS(  1,I),I=  1,  3) /    8,    4,    2/
+      DATA (SQPLITORDERS(  2,I),I=  1,  3) /   10,    2,    4/
+      DATA (SQPLITORDERS(  3,I),I=  1,  3) /   12,    0,    6/
+C     
+C     BEGIN CODE
+C     
+      IF (IORDER.GT.NSO.OR.IORDER.LT.1) THEN
+        WRITE(*,*) 'INVALID IORDER ML5', IORDER
+        WRITE(*,*) 'SHOULD BE BETWEEN 1 AND ', NSO
+        STOP
+      ENDIF
+
+      IF (INDX.GT.NSQSO.OR.INDX.LT.1) THEN
+        WRITE(*,*) 'INVALID INDX ML5', INDX
+        WRITE(*,*) 'SHOULD BE BETWEEN 1 AND ', NSQSO
+        STOP
+      ENDIF
+
+      ML5_0_GETORDPOWFROMINDEX_ML5=SQPLITORDERS(INDX, IORDER)
+
+      END
+
       INTEGER FUNCTION ML5_0_ML5SOINDEX_FOR_BORN_AMP(AMPID)
 C     
 C     For a given born amplitude number, it returns the ID of the
@@ -2119,7 +2202,7 @@ C
 C     CONSTANTS
 C     
       INTEGER    NLOOPAMPS
-      PARAMETER (NLOOPAMPS=974)
+      PARAMETER (NLOOPAMPS=980)
 C     
 C     ARGUMENTS
 C     
@@ -2179,8 +2262,8 @@ C
       DATA (LOOPAMPORDERS(I),I=241,245) /    3,    3,    3,    3,    3/
       DATA (LOOPAMPORDERS(I),I=246,250) /    3,    3,    3,    3,    3/
       DATA (LOOPAMPORDERS(I),I=251,255) /    3,    3,    3,    3,    3/
-      DATA (LOOPAMPORDERS(I),I=256,260) /    3,    3,    2,    2,    2/
-      DATA (LOOPAMPORDERS(I),I=261,265) /    2,    2,    2,    2,    2/
+      DATA (LOOPAMPORDERS(I),I=256,260) /    3,    3,    3,    3,    3/
+      DATA (LOOPAMPORDERS(I),I=261,265) /    3,    3,    3,    2,    2/
       DATA (LOOPAMPORDERS(I),I=266,270) /    2,    2,    2,    2,    2/
       DATA (LOOPAMPORDERS(I),I=271,275) /    2,    2,    2,    2,    2/
       DATA (LOOPAMPORDERS(I),I=276,280) /    2,    2,    2,    2,    2/
@@ -2322,7 +2405,8 @@ C
       DATA (LOOPAMPORDERS(I),I=956,960) /    2,    2,    2,    2,    2/
       DATA (LOOPAMPORDERS(I),I=961,965) /    2,    2,    2,    2,    2/
       DATA (LOOPAMPORDERS(I),I=966,970) /    2,    2,    2,    2,    2/
-      DATA (LOOPAMPORDERS(I),I=971,974) /    2,    2,    2,    2/
+      DATA (LOOPAMPORDERS(I),I=971,975) /    2,    2,    2,    2,    2/
+      DATA (LOOPAMPORDERS(I),I=976,980) /    2,    2,    2,    2,    2/
 C     -----------
 C     BEGIN CODE
 C     -----------

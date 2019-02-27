@@ -523,7 +523,7 @@ class ALOHAWriterForFortran(WriteALOHA):
         if 'MP' in self.tag:
             out.write(' complex*32 CI\n')
             if KERNEL.has_pi:
-                out.write(' double*16 PI\n')
+                out.write(' REAL ( KIND = 16 ) PI\n')
         else:
             out.write(' complex*16 CI\n')
             if KERNEL.has_pi:
@@ -673,6 +673,8 @@ class ALOHAWriterForFortran(WriteALOHA):
             self.has_model_parameter = True
             if name.lower() in ['pi', 'as', 'mu_r', 'aewm1','g']:
                 return name
+            if name.startswith(aloha.aloha_prefix):
+                return name
             return '%s%s' % (aloha.aloha_prefix, name)
         
         if '_' in name:
@@ -802,7 +804,13 @@ class ALOHAWriterForFortran(WriteALOHA):
             for ind in numerator.listindices():
                 formatted = self.write_obj(numerator.get_rep(ind))
                 if formatted.startswith(('+','-')):
-                    formatted = '(%s)*%s' % tuple(formatted.split('*',1))
+                    if '*' in formatted:
+                        formatted = '(%s)*%s' % tuple(formatted.split('*',1))
+                    else:
+                        if formatted.startswith('+'):
+                            formatted = formatted[1:]
+                        else:
+                            formatted = '(-1)*%s' % formatted[1:]
                 to_order[self.pass_to_HELAS(ind)] = \
                         '    %s(%d)= %s%s\n' % (self.outname, self.pass_to_HELAS(ind)+1, 
                         coeff, formatted)
@@ -856,7 +864,7 @@ class ALOHAWriterForFortran(WriteALOHA):
             
         lor_list = (self.routine.name,) + lor_names
         line = "    call %(name)s%(addon)s(%(before_coup)s,%(coup)s%(after_coup)s,%(out)s)\n"
-        main = '%(spin)s%(id)d' % {'spin': self.particles[self.offshell -1],
+        main = '%(spin)s%(id)d' % {'spin': self.particles[self.outgoing -1],
                            'id': self.outgoing}
         for i, name in enumerate(lor_list):
             data['name'] = name
@@ -868,7 +876,7 @@ class ALOHAWriterForFortran(WriteALOHA):
                     data['out'] = main
             elif i==1:
                 if self.offshell:
-                    type = self.particles[self.offshell-1]
+                    type = self.particles[self.outgoing-1]
                     self.declaration.add(('list_complex','%stmp' % type))
                 else:
                     type = ''
@@ -879,7 +887,7 @@ class ALOHAWriterForFortran(WriteALOHA):
                 if not offshell:
                     routine.write( '    vertex = vertex + tmp\n')
                 else:
-                    size = self.type_to_size[self.particles[offshell -1]] -2
+                    size = self.type_to_size[self.particles[self.outgoing -1]] -2
                     routine.write(" do i = %s, %s\n" % (self.momentum_size+1, self.momentum_size+size))
                     routine.write("        %(main)s(i) = %(main)s(i) + %(tmp)s(i)\n" %\
                                {'main': main, 'tmp': data['out']})
@@ -1171,7 +1179,7 @@ class ALOHAWriterForFortranLoopQP(QP, ALOHAWriterForFortranLoop):
 
 def get_routine_name(name=None, outgoing=None, tag=None, abstract=None):
     """ build the name of the aloha function """
-    
+
     assert (name and outgoing is not None) or abstract
 
     if tag is None:
@@ -1199,6 +1207,22 @@ def get_routine_name(name=None, outgoing=None, tag=None, abstract=None):
 def combine_name(name, other_names, outgoing, tag=None, unknown_propa=False):
     """ build the name for combined aloha function """
 
+    def myHash(target_string):
+        if len(target_string)<50:
+            return target_string
+        if '%(propa)s' in target_string:
+            return 'ALOHA_'+(str(hash(target_string.lower()))).replace('-','m')+'%(propa)s'
+        else:
+            return 'ALOHA_'+(str(hash(target_string.lower()))).replace('-','m')
+
+    if tag and any(t.startswith('P') for t in tag[:-1]):
+        # propagator need to be the last entry for the tag
+        for i,t  in enumerate(tag):
+            if t.startswith('P'):
+                tag.pop(i)
+                tag.append(t)
+                break
+
     # Two possible scheme FFV1C1_2_X or FFV1__FFV2C1_X
     # If they are all in FFVX scheme then use the first
     p=re.compile('^(?P<type>[RFSVT]{2,})(?P<id>\d+)$')
@@ -1224,9 +1248,11 @@ def combine_name(name, other_names, outgoing, tag=None, unknown_propa=False):
         if unknown_propa and outgoing:
             routine += '%(propa)s'
         if outgoing is not None:
-            return routine +'_%s' % outgoing
+            return myHash(routine)+'_%s' % outgoing
+#            return routine +'_%s' % outgoing
         else:
-            return routine
+            return myHash(routine)
+#            return routine
 
     if tag is not None:
         addon = ''.join(tag)
@@ -1243,10 +1269,15 @@ def combine_name(name, other_names, outgoing, tag=None, unknown_propa=False):
     if unknown_propa:
         addon += '%(propa)s'
 
+#    if outgoing is not None:
+#        return '_'.join((name,) + tuple(other_names)) + addon + '_%s' % outgoing
+#    else:
+#        return '_'.join((name,) + tuple(other_names)) + addon
+
     if outgoing is not None:
-        return '_'.join((name,) + tuple(other_names)) + addon + '_%s' % outgoing
+        return myHash('_'.join((name,) + tuple(other_names))) + addon + '_%s' % outgoing
     else:
-        return '_'.join((name,) + tuple(other_names)) + addon
+        return myHash('_'.join((name,) + tuple(other_names))) + addon
 
 class ALOHAWriterForCPP(WriteALOHA): 
     """Routines for writing out helicity amplitudes as C++ .h and .cc files."""
@@ -1334,7 +1365,7 @@ class ALOHAWriterForCPP(WriteALOHA):
                    'cmath.sqrt':'sqrt(%s)', 
                    'sqrt': 'sqrt(%s)',
                    'complexconjugate': 'conj(dcmplx(%s))',
-                   '/' : '{0}/%s'.format(one),
+                   '/' : '{0}/(%s)'.format(one),
                    'abs': 'std::abs(%s)'
                    }
             
@@ -1392,7 +1423,7 @@ class ALOHAWriterForCPP(WriteALOHA):
 
         return out.getvalue() 
 
-    def get_declaration_txt(self):
+    def get_declaration_txt(self, add_i=True):
         """ Prototype for how to write the declaration of variable
             Include the symmetry line (entry FFV_2)
         """
@@ -1400,7 +1431,8 @@ class ALOHAWriterForCPP(WriteALOHA):
         out = StringIO()
         argument_var = [name for type,name in self.call_arg]
         # define the complex number CI = 0+1j
-        out.write(self.ci_definition)
+        if add_i:
+            out.write(self.ci_definition)
                     
         for type, name in self.declaration:
             if type.startswith('list'):
@@ -1671,18 +1703,20 @@ class ALOHAWriterForCPP(WriteALOHA):
                     routine.write('}\n')
                     self.declaration.add(('int','i'))
         self.declaration.discard(('complex','COUP'))
+        self.declaration.discard(('complex', 'denom'))
+        if self.outgoing:
+            self.declaration.discard(('list_double', 'P%s' % self.outgoing))
+            self.declaration.discard(('double', 'OM%s' % self.outgoing))
         for name in aloha_lib.KERNEL.reduced_expr2:
             self.declaration.discard(('complex', name))
         
         #clean pointless declaration
         #self.declaration.discard
-        
-        text.write(self.get_declaration_txt())
+        text.write(self.get_declaration_txt(add_i=False))
         text.write(routine.getvalue())
         text.write(self.get_foot_txt())
 
         text = text.getvalue()
-
         return text
 
     
@@ -1719,7 +1753,7 @@ class ALOHAWriterForCPP(WriteALOHA):
             # added to another file
             self.mode = 'no_include'
         
-        #name = combine_name(self.name, lor_names, offshell, self.tag)
+
         
         #h_text = self.write_combined_h(lor_names, offshell, **opt)
         cc_text, h_text = StringIO() , StringIO() 
@@ -1744,11 +1778,11 @@ class ALOHAWriterForCPP(WriteALOHA):
             
             writer_h = writers.CPPWriter(path + ".h")
             writer_h.write_comments(commentstring)
-            writer_h.writelines(h_text)
+            writer_h.writelines(h_text.getvalue())
             
             writer_cc = writers.CPPWriter(path + ".cc")
             writer_cc.write_comments(commentstring)
-            writer_cc.writelines(cc_text)
+            writer_cc.writelines(cc_text.getvalue())
         
         return h_text.getvalue(), cc_text.getvalue()
         

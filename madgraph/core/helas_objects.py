@@ -86,8 +86,10 @@ class IdentifyMETag(diagram_generation.DiagramTag):
                 process.get('NLO_mode') not in ['virt', 'loop','noborn']:
             sorted_tags = sorted([IdentifyMETagFKS(d, model, ninitial) for d in \
                                       amplitude.get('diagrams')])
-        elif process.get('NLO_mode') in ['virt','noborn']:
-            # For loop processes, make sure to create the Tag based on
+
+        elif process.get('NLO_mode')=='noborn' or \
+            (process.get('NLO_mode')=='virt' and not process.get('has_born')):
+            # For loop-induced processes, make sure to create the Tag based on
             # the contracted diagram
             sorted_tags = sorted([cls(d.get_contracted_loop_diagram(model,
              amplitude.get('structure_repository')), model, ninitial) for d in \
@@ -976,7 +978,6 @@ class HelasWavefunction(base_objects.PhysicsObject):
                 " not been computed yet for this wavefunction and an"+\
                 " alohaModel was not specified, so that the information"+\
                 " cannot be retrieved."
-        
         result = None
         
         if info=="interaction_rank" and len(self['mothers'])==0:
@@ -4569,6 +4570,13 @@ class HelasMatrixElement(base_objects.PhysicsObject):
         return sum([d.get('wavefunctions') for d in \
                        self.get('diagrams')], [])
 
+
+    def get_all_mass_widths(self):
+        """Gives a list of all widths used by this ME (from propagator)"""
+
+        return set([(d.get('mass'),d.get('width')) for d in self.get_all_wavefunctions()])
+
+
     def get_all_amplitudes(self):
         """Gives a list of all amplitudes for this ME"""
 
@@ -5523,9 +5531,11 @@ class HelasMultiProcess(base_objects.PhysicsObject):
         
         colorize_obj = col_basis.create_color_dict_list(\
                          matrix_element.get('base_amplitude'))
-        #list_colorize = []
-        #list_color_basis = []
-        #list_color_matrices = []
+
+        # The global color information was already fetched in the above exec statement
+        #list_colorize = color_information['list_colorize']
+        #list_color_basis = color_information['list_color_basis']
+        #list_color_matrices = color_information['list_color_matrices']
         
         try:
             # If the color configuration of the ME has

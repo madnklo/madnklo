@@ -8,8 +8,8 @@ C     Returns amplitude squared summed/avg over colors
 C     and helicities for the point in phase space P(0:3,NEXTERNAL)
 C     and external lines W(0:6,NEXTERNAL)
 C     
-C     Process: u d~ > w+ QED<=1 WEIGHTED<=2 [ all = QCD ]
-C     Process: c s~ > w+ QED<=1 WEIGHTED<=2 [ all = QCD ]
+C     Process: u d~ > w+ [ all = QED QCD ] QCD^2=2 QED^2=2
+C     Process: c s~ > w+ [ all = QED QCD ] QCD^2=2 QED^2=2
 C     
 C     Modules
 C     
@@ -43,7 +43,7 @@ C
       PARAMETER (DP_IMAG1=(0D0,1D0))
 C     These are constants related to the split orders
       INTEGER    NSO, NSQUAREDSO, NAMPSO
-      PARAMETER (NSO=1, NSQUAREDSO=1, NAMPSO=2)
+      PARAMETER (NSO=2, NSQUAREDSO=1, NAMPSO=2)
 
 
 C     
@@ -119,14 +119,14 @@ C
       COMPLEX*16 DPW(20,NWAVEFUNCS)
       COMMON/W/DPW
 
-      COMPLEX*32 WL(MAXLWFSIZE,0:LOOPMAXCOEFS-1,MAXLWFSIZE
-     $ ,0:NLOOPWAVEFUNCS)
-      COMPLEX*32 PL(0:3,0:NLOOPWAVEFUNCS)
+      COMPLEX*32 WL(MAXLWFSIZE,0:LOOPMAXCOEFS-1,MAXLWFSIZE,
+     $ -1:NLOOPWAVEFUNCS)
+      COMPLEX*32 PL(0:3,-1:NLOOPWAVEFUNCS)
       COMMON/MP_WL/WL,PL
 
-      COMPLEX*16 DP_WL(MAXLWFSIZE,0:LOOPMAXCOEFS-1,MAXLWFSIZE
-     $ ,0:NLOOPWAVEFUNCS)
-      COMPLEX*16 DP_PL(0:3,0:NLOOPWAVEFUNCS)
+      COMPLEX*16 DP_WL(MAXLWFSIZE,0:LOOPMAXCOEFS-1,MAXLWFSIZE,
+     $ -1:NLOOPWAVEFUNCS)
+      COMPLEX*16 DP_PL(0:3,-1:NLOOPWAVEFUNCS)
       COMMON/WL/DP_WL,DP_PL
 
       COMPLEX*32 LOOPCOEFS(0:LOOPMAXCOEFS-1,NSQUAREDSO,NLOOPGROUPS)
@@ -191,8 +191,10 @@ C     AS A SAFETY MEASURE WE FIRST COPY HERE THE PS POINT
       ENDDO
 
       DO I=0,3
+        PL(I,-1)=CMPLX(ZERO,ZERO,KIND=16)
         PL(I,0)=CMPLX(ZERO,ZERO,KIND=16)
         IF (.NOT.COMPUTE_INTEGRAND_IN_QP) THEN
+          DP_PL(I,-1)=DCMPLX(0.0D0,0.0D0)
           DP_PL(I,0)=DCMPLX(0.0D0,0.0D0)
         ENDIF
       ENDDO
@@ -200,6 +202,8 @@ C     AS A SAFETY MEASURE WE FIRST COPY HERE THE PS POINT
       DO I=1,MAXLWFSIZE
         DO J=0,LOOPMAXCOEFS-1
           DO K=1,MAXLWFSIZE
+            WL(I,J,K,-1)=(ZERO,ZERO)
+            DP_WL(I,J,K,-1)=(0.0D0,0.0D0)
             IF (I.EQ.K.AND.J.EQ.0) THEN
               WL(I,J,K,0)=(1.0E0_16,ZERO)
             ELSE
@@ -215,6 +219,19 @@ C     AS A SAFETY MEASURE WE FIRST COPY HERE THE PS POINT
           ENDDO
         ENDDO
       ENDDO
+
+C     This is the chare conjugate version of the unit 4-currents in
+C      the canonical cartesian basis.
+C     This, for now, is only defined for 4-fermionic currents.
+      WL(1,0,2,-1) = (-1.0E0_16,ZERO)
+      WL(2,0,1,-1) = (1.0E0_16,ZERO)
+      WL(3,0,4,-1) = (1.0E0_16,ZERO)
+      WL(4,0,3,-1) = (-1.0E0_16,ZERO)
+      DP_WL(1,0,2,-1) = DCMPLX(-1.0D0,0.0D0)
+      DP_WL(2,0,1,-1) = DCMPLX(1.0D0,0.0D0)
+      DP_WL(3,0,4,-1) = DCMPLX(1.0D0,0.0D0)
+      DP_WL(4,0,3,-1) = DCMPLX(-1.0D0,0.0D0)
+
 
       DO K=1, 3
         DO I=1,NCTAMPS

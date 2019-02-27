@@ -5,7 +5,7 @@ c Sums plots from input files. This code is obtained from read11
       real * 8 xfacts(1:40),step(1:40)
       real * 8 xv(1:40,1:1000),yv(1:40,1:1000),er(1:40,1:1000)
       real * 8 xa(1:1000),ya(1:1000),ea(1:1000)
-      character * 70 file,file1,filename(1:40)
+      character * 700 file,file1,filename(1:40)
       character * 70 line,vartype,vartype2
       character * 70 strscale,strlimx,strlimy,strtit
       character * 11 chref1,chref7
@@ -314,7 +314,7 @@ c$$$          if(i.eq.1)print*,xpt,xv(i,j+1),xv(i,ioff(i))
       close(99)
       do i=0,nfil-1
         iunit=10+i
-        close(iunit)
+        close(iunit, status='delete')
       enddo
       end
 

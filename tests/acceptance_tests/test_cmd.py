@@ -163,6 +163,7 @@ class TestCmdShell1(unittest.TestCase):
                     'pythia-pgs_path': './pythia-pgs', 
                     'td_path': './td', 
                     'delphes_path': './Delphes', 
+                    'default_unset_couplings': 99,
                     'cluster_type': 'condor', 
                     'cluster_status_update': (600, 30),
                     'madanalysis_path': './MadAnalysis', 
@@ -185,7 +186,9 @@ class TestCmdShell1(unittest.TestCase):
                     'notification_center':True,
                     'timeout': 60,
                     'ignore_six_quark_processes': False,
+                    'include_lepton_initiated_processes': False,
                     'OLP': 'MadLoop',
+                    'crash_on_error': False,
                     'auto_update': 7,
                     'cluster_nb_retry': 1,
                     'f2py_compiler':None,
@@ -1140,7 +1143,7 @@ C
         if os.path.isdir(self.out_dir):
             shutil.rmtree(self.out_dir)
 
-        self.do('import model mssm')
+        self.do('import model MSSM_SLHA2')
         self.do('define q = u d u~ d~')
         self.do('set group_subprocesses True')
         self.do('generate u u~ > g > go go, go > q q n1 / ur dr')

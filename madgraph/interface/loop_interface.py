@@ -21,6 +21,7 @@ import shutil
 import time
 import logging
 import re
+import sys
 
 import madgraph
 from madgraph import MG4DIR, MG5DIR, MadGraph5Error
@@ -293,9 +294,9 @@ class CommonLoopInterface(mg_interface.MadGraphCmd):
         if isinstance(coupling_type,str):
             coupling_type = [coupling_type,]
 
-        if coupling_type!= ['QCD'] and loop_type not in ['virtual','noborn']:
-            c = ' '.join(coupling_type)
-            raise self.InvalidCmd, 'MG5aMC can only handle QCD at NLO accuracy.\n We can however compute loop with [virt=%s].\n We can also compute cross-section for loop-induced processes with [noborn=%s]' % (c,c)
+##        if coupling_type!= ['QCD'] and loop_type not in ['virtual','noborn']:
+##            c = ' '.join(coupling_type)
+##            raise self.InvalidCmd, 'MG5aMC can only handle QCD at NLO accuracy.\n We can however compute loop with [virt=%s].\n We can also compute cross-section for loop-induced processes with [noborn=%s]' % (c,c)
         
 
         if not isinstance(self._curr_model,loop_base_objects.LoopModel) or \
@@ -446,6 +447,7 @@ class LoopInterface(CheckLoop, CompleteLoop, HelpLoop, CommonLoopInterface):
             main_file_name = args[args.index('-name') + 1]
         except Exception:
             pass
+        line_options = dict(arg[2:].split('=') for arg in args if arg.startswith('--') and '=' in arg)
 
         # Whatever the format we always output the quadruple precision routines
         # to allow for curing possible unstable points.
@@ -511,16 +513,21 @@ class LoopInterface(CheckLoop, CompleteLoop, HelpLoop, CommonLoopInterface):
         aloha.mp_precision = aloha_original_quad_mode
 
 
-    def install_reduction_library(self):
+    def install_reduction_library(self, force=False):
         """Code to install the reduction library if needed"""
         
         opt = self.options
-        
+                
         # Check if first time:
-        if (opt['ninja'] is None) or (os.path.isfile(pjoin(MG5DIR, opt['ninja'],'libninja.a'))): 
+        if not force and ((opt['ninja'] is None) or (os.path.isfile(pjoin(MG5DIR, opt['ninja'],'libninja.a')))): 
             return
+
+        # do not trigger the question for tests
+        if 'test_manager.py' in sys.argv[0]:
+            from unittest.case import SkipTest
+            raise SkipTest
         
-        logger.info("First output using loop matrix-elements has been detected. Now asking for loop reduction:", '$MG:color:BLACK')
+        logger.info("First output using loop matrix-elements has been detected. Now asking for loop reduction:", '$MG:BOLD')
         to_install = self.ask('install', '0',  ask_class=AskLoopInstaller, timeout=300, 
                               path_msg=' ')
         
@@ -583,7 +590,7 @@ In the future, if you want to reactivate Ninja, you can do so by re-attempting
 its online installation with the command 'install %(p)s' or install it on your
 own and set the path to its library in the MG5aMC option '%(p)s'.""" % {'p': key})
                             self.exec_cmd("set %s ''" % key)
-                            self.exec_cmd('save options')
+                            self.exec_cmd('save options %s' % key)
             
             # ONLINE INSTALLATION
             elif value == 'install':
@@ -625,11 +632,18 @@ own and set the path to its library in the MG5aMC option '%(p)s'.""" % {'p': key
                 ndiags = sum([len(me.get('diagrams')) for \
                               me in self._curr_matrix_elements.\
                               get_matrix_elements()])
+                
                 # assign a unique id number to all process
-                uid = 0 
+                uid = 0
+                id_list = set() # the id needs also to be different to ensure that 
+                                # all the prefix are different which allows to have 
+                                # a unique library  
                 for me in self._curr_matrix_elements.get_matrix_elements():
                     uid += 1 # update the identification number
                     me.get('processes')[0].set('uid', uid)
+                    if me.get('processes')[0].get('id') in id_list:
+                        me.get('processes')[0].set('id', uid)
+                    id_list.add(me.get('processes')[0].get('id'))
 
             cpu_time2 = time.time()
             return ndiags, cpu_time2 - cpu_time1
@@ -648,7 +662,7 @@ own and set the path to its library in the MG5aMC option '%(p)s'.""" % {'p': key
         # Pick out the matrix elements in a list
         matrix_elements = \
                         self._curr_matrix_elements.get_matrix_elements()
-
+        
         # Fortran MadGraph5_aMC@NLO Standalone
         if self._export_format in self.supported_ML_format:
             for unique_id, me in enumerate(matrix_elements):
@@ -844,6 +858,14 @@ own and set the path to its library in the MG5aMC option '%(p)s'.""" % {'p': key
 
         if args[0] == 'process':
 
+            # Extract potential loop_filter          
+            for arg in args:
+                if arg.startswith('--loop_filter='):
+                    loop_filter = arg[14:]
+                if not isinstance(self, extended_cmd.CmdShell):
+                    raise self.InvalidCmd, "loop_filter is not allowed in web mode"
+            args = [a for a in args if not a.startswith('--loop_filter=')]
+
             # Rejoin line
             line = ' '.join(args[1:])
             
@@ -861,14 +883,17 @@ own and set the path to its library in the MG5aMC option '%(p)s'.""" % {'p': key
             # split it in a loop
             succes, failed = 0, 0
             for base_proc in myprocdef:
+                command = "add process %s" % base_proc.nice_string(prefix=False, print_weighted=True)
+                if '@' not in command:
+                    command += ' @%s'  % base_proc.get('id')
                 try:
-                    self.exec_cmd("add process %s" % base_proc.nice_string(prefix=False, print_weighted=True))
+                    self.exec_cmd(command)
                     succes += 1
                 except Exception:
                     failed +=1
             logger.info("%s/%s processes succeeded" % (succes, failed+succes))
             if succes == 0:
-                raise
+                raise BaseException
             else:
                 return
              
@@ -876,9 +901,11 @@ own and set the path to its library in the MG5aMC option '%(p)s'.""" % {'p': key
         # If it is a process for MadLoop standalone, make sure it has a 
         # unique ID. It is important for building a BLHA library which
         # contains unique entry point for each process generated.
-        all_ids = [amp.get('process').get('id') for amp in self._curr_amps]
-        if myprocdef.get('id') in all_ids:
-                myprocdef.set('id',max(all_ids)+1)
+        #all_ids = [amp.get('process').get('id') for amp in self._curr_amps]
+        #if myprocdef.get('id') in all_ids:
+        #        myprocdef.set('id',max(all_ids)+1)
+        #This is ensure at the output stage! by checking that every output have
+        # a different id => No need here.
              
         self.proc_validity(myprocdef,'ML5')
 
@@ -922,7 +949,8 @@ class AskLoopInstaller(cmd.OneLinePathCompletion):
     local_installer = ['ninja', 'collier']
     required = ['cuttools', 'iregi']
     order = ['cuttools', 'iregi', 'ninja', 'collier', 'golem', 'pjfry']
-    
+    bypassed = ['pjfry']
+
     @property
     def answer(self):
         return self.code
@@ -967,9 +995,11 @@ class AskLoopInstaller(cmd.OneLinePathCompletion):
             if os.path.exists(pjoin(install_dir1, 'collier')):
                 self.code['collier'] =  pjoin(install_dir1, 'collier')
             if os.path.exists(pjoin(install_dir2, 'PJFry','bin','qd-config')):
-                self.code['collier'] =  pjoin(install_dir2, 'PJFry')
+                self.code['pjfry'] =  pjoin(install_dir2, 'PJFry')
             if os.path.exists(pjoin(install_dir2, 'golem95')):
-                self.code['collier'] =  pjoin(install_dir2, 'golem95')
+                self.code['glem'] =  pjoin(install_dir2, 'golem95')
+            if os.path.exists(pjoin(install_dir1, 'ninja')):
+                self.code['ninja'] =  pjoin(install_dir2, 'ninja','lib')
         
         # 1. create the question
         question, allowed_answer = self.create_question(first=True)
@@ -1003,6 +1033,8 @@ class AskLoopInstaller(cmd.OneLinePathCompletion):
                   'required': 'will be installed (required)'}
         
         for i,key in enumerate(self.order,1):
+            if key in self.bypassed and self.code[key] == 'off':
+                continue
             if os.path.sep not in self.code[key]:
                 question += '%s. %%(start_blue)s%-9s %-5s %-13s%%(stop)s : %s%s\n' % \
                    tuple([i,]+descript[key]+[status[self.code[key]],]+\

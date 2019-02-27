@@ -493,7 +493,7 @@ class FinalLorentzNLOWalker(FinalNLOWalker):
 
     collinear_map = mappings.FinalLorentzOneMapping()
     soft_map = mappings.SoftVsFinalMapping()
-    soft_collinear_map = mappings.SoftCollinearVsFinalMapping(soft_map, collinear_map)
+    soft_collinear_map = mappings.SoftCollinearVsFinalMapping(soft_map, collinear_map) 
     only_colored_recoilers = True
 
 # General NLO walker

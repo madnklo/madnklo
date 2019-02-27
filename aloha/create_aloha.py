@@ -24,6 +24,7 @@ import re
 import shutil
 import sys
 import time
+from madgraph.interface.tutorial_text import output
 
 root_path = os.path.split(os.path.dirname(os.path.realpath( __file__ )))[0]
 sys.path.append(root_path)
@@ -274,10 +275,9 @@ in presence of majorana particle/flow violation"""
         if not self.routine_kernel:
             AbstractRoutineBuilder.counter += 1
             if self.tag == []:
-                logger.info('aloha creates %s routines' % self.name)
-            elif AbstractALOHAModel.lastprint < time.time() - 1:
-                AbstractALOHAModel.lastprint = time.time()
-                logger.info('aloha creates %s set of routines with options: %s' \
+                logger.debug( 'aloha creates %s routines', self.name)
+            else:
+                logger.debug('aloha creates %s set of routines with options: %s' \
                             % (self.name, ','.join(self.tag)) )
             try:
                 lorentz = self.parse_expression()  
@@ -407,19 +407,22 @@ in presence of majorana particle/flow violation"""
     @staticmethod
     def mod_propagator_expression(tag, text):
         """Change the index of the propagator to match the current need"""
-        data = re.split(r'(\b[a-zA-Z]\w*?)\(([\'\w,\s]*?)\)',text)
 
+        data = re.split(r'(\b[a-zA-Z]\w*?)\(([\'\w,\s\"\+\-]*?)\)',text)
+        to_change = {}
+        for old, new in tag.items():
+            if isinstance(new, str):
+                new='\'%s\'' % new
+            else:
+                new = str(new)
+            to_change[r'%s' % old] = new
         pos=-2
         while pos +3 < len(data):
             pos = pos+3
             ltype = data[pos]
             if ltype != 'complex':
-                for old, new in tag.items():
-                    if isinstance(new, str):
-                        new='\'%s\'' % new
-                    else:
-                        new = str(new)
-                    data[pos+1] = re.sub(r'\b%s\b' % old, new, data[pos+1])
+                data[pos+1] = re.sub(r'\b(?<!-)(%s)\b' % '|'.join(to_change),
+                                     lambda x: to_change[x.group()], data[pos+1])
             data[pos+1] = '(%s)' % data[pos+1]
         text=''.join(data)
         return text
@@ -457,29 +460,33 @@ in presence of majorana particle/flow violation"""
                 spin_id = id + _conjugate_gap + id % 2 - (id +1) % 2
             else:
                 spin_id = id
+            tag = {'1': 'pr1', '2': 'pr2', 'id':id}
             if spin_id % 2:
                 needPflipping = True
-                tag = {'1': 'pr_1', '2': 'pr_2', 'id':id}
+                # propaR is needed to do the correct contraction since we need to distinguish spin from lorentz index
+                propaR = deltaL('pr1',id) * deltaL('pr2', 'I2') * delta('pr1', spin_id) * delta('pr2', 'I3')
             else:
-                tag = {'1': 'pr_2', '2': 'pr_1'}
-            numerator *= deltaL('pr_1',id) * deltaL('pr_2', 'I2') * \
-                                    delta('pr_1', spin_id) * delta('pr_2', 'I3')
+                propaR = deltaL('pr1',id) * deltaL('pr2', 'I2') * delta('pr2', spin_id) * delta('pr1', 'I3')
+            #numerator += "*deltaL('pr_1',id) * deltaL('pr_2', 'I2') * delta('pr_1', spin_id) * delta('pr_2', 'I3')"
         elif spin == 5 :
-            tag = {'1': _spin2_mult + id, '2': 2 * _spin2_mult + id, 
-                   '51': 'I2', '52': 'I3', 'id':id}
+            tag = {'1': _spin2_mult + id, '2': 'I2', 
+                   '51': 2 * _spin2_mult + id, '52': 'I3', 'id':id}
         
         numerator = self.mod_propagator_expression(tag, numerator)
         if denominator:
             denominator = self.mod_propagator_expression(tag, denominator)      
-        
         numerator = self.parse_expression(numerator, needPflipping)
+        
         if denominator:
             self.denominator = self.parse_expression(denominator, needPflipping)
             self.denominator = eval(self.denominator)
             if not isinstance(self.denominator, numbers.Number):
                 self.denominator = self.denominator.simplify().expand().simplify().get((0,))
-
-        return eval(numerator)
+                
+        if spin ==4:
+            return eval(numerator) * propaR
+        else:
+            return eval(numerator)
     
             
 
@@ -848,6 +855,8 @@ class AbstractALOHAModel(dict):
         tag should be the list of special tag (like conjugation on pair)
         to apply on the object """
 
+        logger.info('aloha starts to compute helicity amplitudes')
+        start = time.time()
         # Search identical particles in the vertices in order to avoid
         #to compute identical contribution
         self.look_for_symmetries()
@@ -930,7 +939,7 @@ class AbstractALOHAModel(dict):
                 if self.has_key((lorentzname, outgoing)):
                     self[(lorentzname, outgoing)].add_combine(list_l_name[1:])
                 else:
-                    lorentz = eval('self.model.lorentz.%s' % lorentzname)
+                    lorentz = eval('self.model.lorentz.%s' % list_l_name[0])
                     assert lorentz.structure == 'external'
             else:
                 l_lorentz = []
@@ -954,8 +963,8 @@ class AbstractALOHAModel(dict):
                         # Compute routines
                         self.compute_aloha(conjg_builder, symmetry=lorentz.name,
                                         routines=routines)
-                      
-  
+        
+        logger.info("aloha creates %s routines in  %0.3f s", AbstractRoutineBuilder.counter, time.time()-start)
                             
     def compute_aloha(self, builder, symmetry=None, routines=None, tag=[]):
         """ define all the AbstractRoutine linked to a given lorentz structure
@@ -1232,7 +1241,6 @@ def create_prop_library(tag, lib={}):
     
     # avoid to add tag in global
     old_tag = set(aloha_lib.KERNEL.use_tag)
-    print 'create lib',tag
     name, i = tag
     if name == "Spin2Prop":
         lib[('Spin2Prop',i)] = create( Spin2Propagator(_spin2_mult + i, \

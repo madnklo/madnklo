@@ -13,6 +13,7 @@
 #
 ################################################################################
 from __future__ import division
+
 if __name__ == "__main__":
     import sys
     import os
@@ -35,6 +36,7 @@ import time
 import StringIO
 
 pjoin = os.path.join
+root = os.path.dirname(__file__)
 
 class SystematicsError(Exception):
     pass
@@ -49,8 +51,13 @@ class Systematics(object):
                  pdf='errorset', #[(id, subset)]
                  dyn=[-1,1,2,3,4],
                  together=[('mur', 'muf', 'dyn')],
+                 remove_wgts=[],
+                 keep_wgts=[],
+                 start_id=None,
                  lhapdf_config=misc.which('lhapdf-config'),
-                 log=lambda x: sys.stdout.write(str(x)+'\n')
+                 log=lambda x: sys.stdout.write(str(x)+'\n'),
+                 only_beam=False,
+                 ion_scaling=True,
                  ):
 
         # INPUT/OUTPUT FILE
@@ -76,7 +83,8 @@ class Systematics(object):
         self.force_write_banner = bool(write_banner)
         self.orig_dyn = self.banner.get('run_card', 'dynamical_scale_choice')
         self.orig_pdf = self.banner.run_card.get_lhapdf_id()
-    
+        matching_mode = self.banner.get('run_card', 'ickkw')
+
         #check for beam
         beam1, beam2 = self.banner.get_pdg_beam()
         if abs(beam1) != 2212 and abs(beam2) != 2212:
@@ -94,10 +102,19 @@ class Systematics(object):
             self.b1 = beam1//2212
             self.b2 = beam2//2212
     
+        self.orig_ion_pdf = False
+        self.ion_scaling = ion_scaling
+        self.only_beam = only_beam 
         if isinstance(self.banner.run_card, banner_mod.RunCardLO):
             self.is_lo = True
             if not self.banner.run_card['use_syst']:
                 raise SystematicsError, 'The events have not been generated with use_syst=True. Cannot evaluate systematics error on these events.'
+            
+            if self.banner.run_card['nb_neutron1'] != 0 or \
+               self.banner.run_card['nb_neutron2'] != 0 or \
+               self.banner.run_card['nb_proton1'] != 1 or \
+               self.banner.run_card['nb_proton2'] != 1:
+                self.orig_ion_pdf = True
         else:
             self.is_lo = False
             if not self.banner.run_card['store_rwgt_info']:
@@ -119,7 +136,13 @@ class Systematics(object):
         if isinstance(dyn, str):
             dyn = dyn.split(',')
         self.dyn=[int(i) for i in dyn]
- 
+        # For FxFx only mode -1 makes sense
+        if matching_mode == 3:
+            self.dyn = [-1]
+        # avoid sqrts at NLO if ISR is possible
+        if 4 in self.dyn and self.b1 and self.b2 and not self.is_lo:
+            self.dyn.remove(4)
+
         if isinstance(together, str):
             self.together = together.split(',')
         else:
@@ -138,6 +161,7 @@ class Systematics(object):
             lhapdf_config = lhapdf_config[0]
         lhapdf = misc.import_python_lhapdf(lhapdf_config)
         if not lhapdf:
+            log('fail to load lhapdf: doe not perform systematics')
             return
         lhapdf.setVerbosity(0)
         self.pdfsets = {}  
@@ -219,7 +243,80 @@ class Systematics(object):
                 bmass = 4.7
             self.alpsrunner = Alphas_Runner(asmz, nloop, zmass, cmass, bmass)
         
+        # Store which weight to keep/removed
+        self.remove_wgts = []
+        for id in remove_wgts:
+            if id == 'all':
+                self.remove_wgts = ['all']
+                break
+            elif ',' in id:
+                min_value, max_value = [int(v) for v in id.split(',')]
+                self.remove_wgts += [i for i in range(min_value, max_value+1)]
+            else:
+                self.remove_wgts.append(id)
+        self.keep_wgts = []
+        for id in keep_wgts:
+            if id == 'all':
+                self.keep_wgts = ['all']
+                break
+            elif ',' in id:
+                min_value, max_value = [int(v) for v in id.split(',')]
+                self.remove_wgts += [i for i in range(min_value, max_value+1)]
+            else:
+                self.remove_wgts.append(id)  
+                
+        # input to start the id in the weight
+        self.start_wgt_id = int(start_id[0]) if (start_id is not None) else None
+        self.has_wgts_pattern = False # tag to check if the pattern for removing
+                                      # the weights was computed already
+        
+    def is_wgt_kept(self, name):
+        """ determine if we have to keep/remove such weight """
+        
+        if 'all' in self.keep_wgts or not self.remove_wgts:
+            return True
 
+        #start by checking what we want to keep        
+        if name in self.keep_wgts: 
+            return True
+        
+        # check for regular expression
+        if not self.has_wgts_pattern:
+            pat = r'|'.join(w for w in self.keep_wgts if any(letter in w for letter in '*?.([+\\'))
+            if pat:
+                self.keep_wgts_pattern = re.compile(pat)
+            else:
+                self.keep_wgts_pattern = None
+            pat = r'|'.join(w for w in self.remove_wgts if any(letter in w for letter in '*?.([+\\'))
+            if pat:
+                self.rm_wgts_pattern = re.compile(pat)
+            else:
+                self.rm_wgts_pattern = None                
+            self.has_wgts_pattern=True
+            
+        if self.keep_wgts_pattern and re.match(self.keep_wgts_pattern,name):
+            return True
+
+        #check what we want to remove
+        if 'all' in self.remove_wgts:
+            return False
+        elif name in self.remove_wgts:
+            return False
+        elif self.rm_wgts_pattern and re.match(self.rm_wgts_pattern, name):
+            return False
+        else:
+            return True
+
+    def remove_old_wgts(self, event):
+        """remove the weight as requested by the user"""
+        
+        rwgt_data = event.parse_reweight()
+        for name in rwgt_data.keys():
+            if not self.is_wgt_kept(name):
+                del rwgt_data[name]
+                event.reweight_order.remove(name)
+        
+        
     def run(self, stdout=sys.stdout):
         """ """
         start_time = time.time()
@@ -251,6 +348,7 @@ class Systematics(object):
                     self.log( '# currently at event %i [elapsed time: %.2g s]' % (nb_event, time.time()-start_time))
                     
             self.new_event() #re-init the caching of alphas/pdf
+            self.remove_old_wgts(event)
             if self.is_lo:
                 wgts = [self.get_lo_wgt(event, *arg) for arg in self.args]
             else:
@@ -275,8 +373,18 @@ class Systematics(object):
         self.print_cross_sections(all_cross, min(nb_event,self.stop_event)-self.start_event+1, stdout)
         
         if self.output.name != self.output_path:
-            import shutil
-            shutil.move(self.output.name, self.output_path)
+            #check problem for .gz missinf in output.name
+            if not os.path.exists(self.output.name) and os.path.exists('%s.gz' % self.output.name):
+                to_check = '%s.gz' % self.output.name
+            else:
+                to_check = self.output.name
+            
+            if to_check != self.output_path:
+                if '%s.gz' % to_check == self.output_path:
+                    misc.gzip(to_check) 
+                else:
+                    import shutil
+                    shutil.move(to_check, self.output_path)
         
         return all_cross
         
@@ -295,7 +403,7 @@ class Systematics(object):
 
         if norm == 'sum':
             norm = 1
-        elif norm == 'average':
+        elif norm in ['average', 'bias']:
             norm = 1./nb_event
         elif norm == 'unity':
             norm = 1
@@ -364,8 +472,12 @@ class Systematics(object):
             lhapdfid = self.orig_pdf.lhapdfID
             values = pdfs[lhapdfid]
             pdfset = self.pdfsets[lhapdfid]
-            pdferr =  pdfset.uncertainty(values)
-            resume.write( '# PDF variation: +%2.3g%% -%2.3g%%\n' % (pdferr.errplus*100/all_cross[0], pdferr.errminus*100/all_cross[0]))       
+            try:
+                pdferr =  pdfset.uncertainty(values)
+            except RuntimeError:
+                resume.write( '# PDF variation: missing combination\n')
+            else:
+                resume.write( '# PDF variation: +%2.3g%% -%2.3g%%\n' % (pdferr.errplus*100/all_cross[0], pdferr.errminus*100/all_cross[0]))       
         # report error/central not directly linked to the central
         resume.write( "#\n")        
         for lhapdfid,values in pdfs.items():
@@ -380,8 +492,13 @@ class Systematics(object):
                 # File "lhapdf.pyx", line 329, in lhapdf.PDFSet.uncertainty (lhapdf.cpp:6621)
                 # RuntimeError: "ErrorType: unknown" not supported by LHAPDF::PDFSet::uncertainty.
                 continue
-            pdferr =  pdfset.uncertainty(values)
-            resume.write( '#PDF %s: %g +%2.3g%% -%2.3g%%\n' % (pdfset.name, pdferr.central,pdferr.errplus*100/all_cross[0], pdferr.errminus*100/all_cross[0]))
+            try:
+                pdferr =  pdfset.uncertainty(values)
+            except RuntimeError:
+                # the same error can happend to some other type of error like custom.
+                pass
+            else:
+                resume.write( '#PDF %s: %g +%2.3g%% -%2.3g%%\n' % (pdfset.name, pdferr.central,pdferr.errplus*100/all_cross[0], pdferr.errminus*100/all_cross[0]))
 
         dyn_name = {1: '\sum ET', 2:'\sum\sqrt{m^2+pt^2}', 3:'0.5 \sum\sqrt{m^2+pt^2}',4:'\sqrt{\hat s}' }
         for key, curr in dyns.items():
@@ -501,7 +618,39 @@ class Systematics(object):
              text += "</weightgroup>\n"
             
         if 'initrwgt' in self.banner:
-            self.banner['initrwgt'] += text
+            if not self.remove_wgts:
+                self.banner['initrwgt'] += text
+            else:
+                # remove the line which correspond to removed weight
+                # removed empty group.
+                wgt_in_group=0
+                tmp_group_txt =[]
+                out =[]
+                keep_last = False
+                for line in self.banner['initrwgt'].split('\n'):
+                    sline = line.strip()
+                    if sline.startswith('</weightgroup'):
+                        if wgt_in_group:
+                            out += tmp_group_txt
+                            out.append('</weightgroup>')
+                        if '<weightgroup' in line:
+                            wgt_in_group=0
+                            tmp_group_txt = [line[line.index('<weightgroup'):]]                            
+                    elif sline.startswith('<weightgroup'):
+                        wgt_in_group=0
+                        tmp_group_txt = [line]   
+                    elif sline.startswith('<weight'):
+                        name = re.findall(r'\bid=[\'\"]([^\'\"]*)[\'\"]', sline)
+                        if self.is_wgt_kept(name[0]):
+                            tmp_group_txt.append(line)
+                            keep_last = True
+                            wgt_in_group +=1
+                        else:
+                            keep_last = False
+                    elif keep_last:
+                        tmp_group_txt.append(line)
+                out.append(text)
+                self.banner['initrwgt'] = '\n'.join(out) 
         else:
             self.banner['initrwgt'] = text
             
@@ -513,15 +662,18 @@ class Systematics(object):
 
     def get_id(self):
         
+        if self.start_wgt_id is not None:
+            return int(self.start_wgt_id)
+        
         if 'initrwgt' in self.banner:
             pattern = re.compile('<weight id=(?:\'|\")([_\w]+)(?:\'|\")', re.S+re.I+re.M)
-            return  max([int(wid) for wid in  pattern.findall(self.banner['initrwgt']) if wid.isdigit()])+1
+            matches =  pattern.findall(self.banner['initrwgt'])
+            matches.append('0') #ensure to have a valid entry for the max 
+            return  max([int(wid) for wid in  matches if wid.isdigit()])+1
         else:
             return 1
         
         
-
-
     def get_all_fct(self):
         
         all_args = []
@@ -562,32 +714,86 @@ class Systematics(object):
         self.pdfQ2 = {}
         
             
-    def get_pdfQ(self, pdf, pdg, x, scale):
+    def get_pdfQ(self, pdf, pdg, x, scale, beam=1):
         
         if pdg in [-21,-22]:
             pdg = abs(pdg)
         elif pdg == 0:
             return 1
         
-        f = pdf.xfxQ(pdg, x, scale)/x
+        if self.only_beam and self.only_beam!= beam and pdf.lhapdfID != self.orig_pdf:
+            return self.getpdfQ(self.pdfsets[self.orig_pdf], pdg, x, scale, beam)
+        
+        if self.orig_ion_pdf and (self.ion_scaling or pdf.lhapdfID == self.orig_pdf):
+            nb_p = self.banner.run_card["nb_proton%s" % beam]
+            nb_n = self.banner.run_card["nb_neutron%s" % beam]
+
+
+            if pdg in [1,2]:
+                pdf1 =  pdf.xfxQ(1, x, scale)/x
+                pdf2 =  pdf.xfxQ(2, x, scale)/x
+                if pdg == 1:
+                    f = nb_p * pdf1 + nb_n * pdf2
+                else:
+                    f = nb_p * pdf2 + nb_n * pdf1
+            elif pdg in [-1,-2]:
+                pdf1 =  pdf.xfxQ(-1, x, scale)/x
+                pdf2 =  pdf.xfxQ(-2, x, scale)/x
+                if pdg == -1:
+                    f = nb_p * pdf1 + nb_n * pdf2
+                else:
+                    f = nb_p * pdf2 + nb_n * pdf1                    
+            else: 
+                f = (nb_p + nb_n) * pdf.xfxQ(pdg, x, scale)/x
+                
+            f = f * (nb_p+nb_n) 
+        else:
+            f = pdf.xfxQ(pdg, x, scale)/x
 #        if f == 0 and pdf.memberID ==0:
 #            pdfset = pdf.set()
 #            allnumber= [p.xfxQ(pdg, x, scale) for p in pdfset.mkPDFs()]
 #            f = pdfset.uncertainty(allnumber).central /x
         return f
 
-    def get_pdfQ2(self, pdf, pdg, x, scale):
+    def get_pdfQ2(self, pdf, pdg, x, scale, beam=1):
 
         if pdg in [-21,-22]:
             pdg = abs(pdg)
         elif pdg == 0:
             return 1
+        
+        if (pdf, pdg,x,scale, beam) in self.pdfQ2:
+            return self.pdfQ2[(pdf, pdg,x,scale,beam)]
+        
+        if self.orig_ion_pdf and (self.ion_scaling or pdf.lhapdfID == self.orig_pdf):
+            nb_p = self.banner.run_card["nb_proton%s" % beam]
+            nb_n = self.banner.run_card["nb_neutron%s" % beam]
+
+
+            if pdg in [1,2]:
+                pdf1 =  pdf.xfxQ2(1, x, scale)/x
+                pdf2 =  pdf.xfxQ2(2, x, scale)/x
+                if pdg == 1:
+                    f = nb_p * pdf1 + nb_n * pdf2
+                else:
+                    f = nb_p * pdf2 + nb_n * pdf1
+            elif pdg in [-1,-2]:
+                pdf1 =  pdf.xfxQ2(-1, x, scale)/x
+                pdf2 =  pdf.xfxQ2(-2, x, scale)/x
+                if pdg == -1:
+                    f = nb_p * pdf1 + nb_n * pdf2
+                else:
+                    f = nb_p * pdf2 + nb_n * pdf1                    
+            else: 
+                f = (nb_p + nb_n) * pdf.xfxQ2(pdg, x, scale)/x
                 
-        if (pdf, pdg,x,scale) in self.pdfQ2:
-            return self.pdfQ2[(pdf, pdg,x,scale)]
-        f = pdf.xfxQ2(pdg, x, scale)/x
-        self.pdfQ2[(pdf, pdg,x,scale)] = f
+            f = f * (nb_p+nb_n)      
+        else:
+            f = pdf.xfxQ2(pdg, x, scale)/x
+        self.pdfQ2[(pdf, pdg,x,scale,beam)] = f
         return f        
+        
+        
         
         #one method to handle the nnpd2.3 problem -> now just move to central
         if f == 0 and pdf.memberID ==0:
@@ -626,7 +832,6 @@ class Systematics(object):
             loinfo['pdf_q2'] = loinfo['pdf_q2'] [:-1] + [mur]
             
         
-        
         # MUR part
         if self.b1 == 0 == self.b2:
             if loinfo['n_qcd'] != 0:
@@ -636,8 +841,8 @@ class Systematics(object):
         else:
             wgt = pdf.alphasQ(Dmur*mur)**loinfo['n_qcd']
         # MUF/PDF part
-        wgt *= self.get_pdfQ(pdf, self.b1*loinfo['pdf_pdg_code1'][-1], loinfo['pdf_x1'][-1], Dmuf*muf1) 
-        wgt *= self.get_pdfQ(pdf, self.b2*loinfo['pdf_pdg_code2'][-1], loinfo['pdf_x2'][-1], Dmuf*muf2) 
+        wgt *= self.get_pdfQ(pdf, self.b1*loinfo['pdf_pdg_code1'][-1], loinfo['pdf_x1'][-1], Dmuf*muf1, beam=1) 
+        wgt *= self.get_pdfQ(pdf, self.b2*loinfo['pdf_pdg_code2'][-1], loinfo['pdf_x2'][-1], Dmuf*muf2, beam=2) 
 
         for scale in loinfo['asrwt']:
             if self.b1 == 0 == self.b2:
@@ -648,13 +853,13 @@ class Systematics(object):
         # ALS part
         for i in range(loinfo['n_pdfrw1']-1):
             scale = min(Dalps*loinfo['pdf_q1'][i], Dmuf*muf1)
-            wgt *= self.get_pdfQ(pdf, self.b1*loinfo['pdf_pdg_code1'][i], loinfo['pdf_x1'][i], scale)
-            wgt /= self.get_pdfQ(pdf, self.b1*loinfo['pdf_pdg_code1'][i], loinfo['pdf_x1'][i+1], scale)
+            wgt *= self.get_pdfQ(pdf, self.b1*loinfo['pdf_pdg_code1'][i], loinfo['pdf_x1'][i], scale, beam=1)
+            wgt /= self.get_pdfQ(pdf, self.b1*loinfo['pdf_pdg_code1'][i], loinfo['pdf_x1'][i+1], scale, beam=1)
 
         for i in range(loinfo['n_pdfrw2']-1):
             scale = min(Dalps*loinfo['pdf_q2'][i], Dmuf*muf2)
-            wgt *= self.get_pdfQ(pdf, self.b2*loinfo['pdf_pdg_code2'][i], loinfo['pdf_x2'][i], scale)
-            wgt /= self.get_pdfQ(pdf, self.b2*loinfo['pdf_pdg_code2'][i], loinfo['pdf_x2'][i+1], scale)            
+            wgt *= self.get_pdfQ(pdf, self.b2*loinfo['pdf_pdg_code2'][i], loinfo['pdf_x2'][i], scale, beam=2)
+            wgt /= self.get_pdfQ(pdf, self.b2*loinfo['pdf_pdg_code2'][i], loinfo['pdf_x2'][i+1], scale, beam=2)            
         
         return wgt
 
@@ -665,11 +870,11 @@ class Systematics(object):
         nloinfo = event.parse_nlo_weight(real_type=(1,11,12,13))
         for cevent in nloinfo.cevents:
             if dyn == 1: 
-                mur2 = cevent.get_et_scale(1.)**2
+                mur2 = max(1.0, cevent.get_et_scale(1.)**2) 
             elif dyn == 2:
-                mur2 = cevent.get_ht_scale(1.)**2
+                mur2 = max(1.0, cevent.get_ht_scale(1.)**2)
             elif dyn == 3:
-                mur2 = cevent.get_ht_scale(0.5)**2
+                mur2 = max(1.0, cevent.get_ht_scale(0.5)**2)
             elif dyn == 4:
                 mur2 = cevent.get_sqrts_scale(event,1)**2
             else:
@@ -679,6 +884,7 @@ class Systematics(object):
             for onewgt in cevent.wgts:
                 if not __debug__ and (dyn== -1 and Dmur==1 and Dmuf==1 and pdf==self.orig_pdf):
                     wgt += onewgt.ref_wgt 
+                    continue
                 
                 if dyn == -1:
                     mur2 = onewgt.scales2[1]
@@ -715,6 +921,7 @@ class Systematics(object):
                 tmp *= wgtpdf                
                 wgt += tmp
                 
+                
                 if __debug__ and dyn== -1 and Dmur==1 and Dmuf==1 and pdf==self.orig_pdf:
                     if not misc.equal(tmp, onewgt.ref_wgt, sig_fig=2):
                         misc.sprint(tmp, onewgt.ref_wgt, (tmp-onewgt.ref_wgt)/tmp)
@@ -722,7 +929,6 @@ class Systematics(object):
                         misc.sprint(cevent)
                         misc.sprint(mur2,muf2)
                         raise Exception, 'not enough agreement between stored value and computed one'
-                
                 
         return wgt
                             
@@ -748,10 +954,10 @@ def call_systematics(args, result=sys.stdout, running=True,
                     opts[key]=[tuple(values)]
             elif key == 'result':
                 result = open(values[0],'w')
-            elif key in ['start_event', 'stop_event']:
-                opts[key] = int(values[0])
-            elif key == 'write_banner':
-                opts[key] = banner_mod.ConfigFile.format_variable(values[0], bool, 'write_banner')
+            elif key in ['start_event', 'stop_event', 'only_beam']:
+                opts[key] = banner_mod.ConfigFile.format_variable(values[0], int, key)
+            elif key in ['write_banner', 'ion_scalling']:
+                opts[key] = banner_mod.ConfigFile.format_variable(values[0], bool, key)
             else:
                 if key in opts:
                     opts[key] += values
@@ -818,8 +1024,8 @@ def call_systematics(args, result=sys.stdout, running=True,
         del opts['from_card']
     
 
-    obj = Systematics(input, output, log=log,**opts)
-    if running:
+    obj = Systematics(input, output, log=log, **opts)
+    if running and obj:
         obj.run(result)  
     return obj
 

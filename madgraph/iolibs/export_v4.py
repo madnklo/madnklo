@@ -12,6 +12,7 @@
 # For more information, visit madgraph.phys.ucl.ac.be and amcatnlo.web.cern.ch
 #
 ################################################################################
+from madgraph.iolibs.helas_call_writers import HelasCallWriter
 """Methods and classes to export matrix elements to v4 format."""
 
 import copy
@@ -27,6 +28,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 import traceback
 
 import aloha
@@ -93,11 +95,28 @@ class VirtualExporter(object):
     #    - None, madgraph do nothing for initialisation
     exporter = 'v4'
     # language of the output 'v4' for Fortran output
-    #                        'cpp' for C++ output 
+    #                        'cpp' for C++ output
     
     
     def __init__(self, dir_path = "", opt=None):
-        return
+        # cmd_options is a dictionary with all the optional argurment passed at output time
+        
+        # Activate some monkey patching for the helas call writer.
+        helas_call_writers.HelasCallWriter.customize_argument_for_all_other_helas_object = \
+                self.helas_call_writer_custom
+        
+
+    # helper function for customise helas writter
+    @staticmethod
+    def custom_helas_call(call, arg):
+        """static method to customise the way aloha function call are written
+        call is the default template for the call
+        arg are the dictionary used for the call
+        """
+        return call, arg
+    
+    helas_call_writer_custom = lambda x,y,z: x.custom_helas_call(y,z)
+
 
     def copy_template(self, model):
         return
@@ -139,7 +158,8 @@ class ProcessExporterFortran(VirtualExporter):
 
     default_opt = {'clean': False, 'complex_mass':False,
                         'export_format':'madevent', 'mp': False,
-                        'v5_model': True
+                        'v5_model': True,
+                        'output_options':{}
                         }
     grouped_mode = False
 
@@ -153,8 +173,12 @@ class ProcessExporterFortran(VirtualExporter):
         if opt:
             self.opt.update(opt)
         
+        self.cmd_options = self.opt['output_options']
+        
         #place holder to pass information to the run_interface
         self.proc_characteristic = banner_mod.ProcCharacteristic()
+        # call mother class
+        super(ProcessExporterFortran,self).__init__(dir_path, opt)
         
         
     #===========================================================================
@@ -318,7 +342,7 @@ class ProcessExporterFortran(VirtualExporter):
         
         if len(levels)==0:
             return
-        
+        start = time.time()
         logger.info('Generating MadAnalysis5 default cards tailored to this process')
         try:
             MA5_interpreter = common_run_interface.CommonRunCmd.\
@@ -330,7 +354,6 @@ class ProcessExporterFortran(VirtualExporter):
             return
 
         MA5_main = MA5_interpreter.main
-       
         for lvl in ['parton','hadron']:
             if lvl in levels:
                 card_to_generate = pjoin(output_dir,'madanalysis5_%s_card_default.dat'%lvl)
@@ -349,6 +372,9 @@ class ProcessExporterFortran(VirtualExporter):
                     logger.debug('-'*60)
                 else:
                     open(card_to_generate,'w').write(text)
+        stop = time.time()
+        if stop-start >1:
+            logger.info('Cards created in %.2fs' % (stop-start))
 
     #===========================================================================
     # write a procdef_mg5 (an equivalent of the MG4 proc_card.dat)
@@ -640,10 +666,17 @@ param_card.inc: MODEL/MG5_param.dat\n\t../bin/madevent treatcards param\n'''
         else:
             model_line='''$(LIBDIR)libmodel.$(libext): MODEL param_card.inc\n\tcd MODEL; make    
 param_card.inc: ../Cards/param_card.dat\n\t../bin/madevent treatcards param\n'''
-        text = open(path).read() % {'libraries': set_of_lib, 'model':model_line} 
-        writer.write(text)
         
-        return True
+        replace_dict= {'libraries': set_of_lib, 
+                       'model':model_line,
+                       'additional_dsample': '',
+                       'additional_dependencies':''} 
+        
+        if writer:
+            text = open(path).read() % replace_dict
+            writer.write(text)
+            
+        return replace_dict
 
     #===========================================================================
     # write_nexternal_madspin
@@ -991,6 +1024,11 @@ param_card.inc: ../Cards/param_card.dat\n\t../bin/madevent treatcards param\n'''
         for sqsos in squared_orders:
             is_a_match = True
             for user_sqso, value in user_squared_orders.items():
+                if user_sqso == 'WEIGHTED' :
+                    logger.debug('WEIGHTED^2%s%s encoutered. Please check behavior for' + \
+                            'https://bazaar.launchpad.net/~maddevelopers/mg5amcnlo/3.0.1/revision/613', \
+                            (process.get_squared_order_type(user_sqso), sqsos[split_orders.index(user_sqso)]))
+
                 if (process.get_squared_order_type(user_sqso) =='==' and \
                         value!=sqsos[split_orders.index(user_sqso)]) or \
                    (process.get_squared_order_type(user_sqso) in ['<=','='] and \
@@ -1452,21 +1490,22 @@ param_card.inc: ../Cards/param_card.dat\n\t../bin/madevent treatcards param\n'''
                            "IF (ABS(LPP(%d)) .GE. 1) THEN\nLP=SIGN(1,LPP(%d))\n" \
                                  % (i + 1, i + 1)
 
-                for initial_state in init_states:
+                for nbi,initial_state in enumerate(init_states):
                     if initial_state in pdf_codes.keys():
                         if subproc_group:
                             pdf_lines = pdf_lines + \
-                                        ("%s%d=PDG2PDF(ABS(LPP(IB(%d))),%d*LP," + \
+                                        ("%s%d=PDG2PDF(ABS(LPP(IB(%d))),%d*LP, 1," + \
                                          "XBK(IB(%d)),DSQRT(Q2FACT(%d)))\n") % \
                                          (pdf_codes[initial_state],
                                           i + 1, i + 1, pdgtopdf[initial_state],
                                           i + 1, i + 1)
                         else:
                             pdf_lines = pdf_lines + \
-                                        ("%s%d=PDG2PDF(ABS(LPP(%d)),%d*LP," + \
+                                        ("%s%d=PDG2PDF(ABS(LPP(%d)),%d*LP, %d," + \
                                          "XBK(%d),DSQRT(Q2FACT(%d)))\n") % \
                                          (pdf_codes[initial_state],
                                           i + 1, i + 1, pdgtopdf[initial_state],
+                                          i + 1,
                                           i + 1, i + 1)
                 pdf_lines = pdf_lines + "ENDIF\n"
 
@@ -1736,7 +1775,7 @@ param_card.inc: ../Cards/param_card.dat\n\t../bin/madevent treatcards param\n'''
             f2py_compiler = ''
         # Try to find the correct one.
         if default_compiler['f2py'] and misc.which(default_compiler['f2py']):
-            f2py_compiler = default_compiler
+            f2py_compiler = default_compiler['f2py']
         elif misc.which('f2py'):
             f2py_compiler = 'f2py'
         elif sys.version_info[1] == 6:
@@ -1830,13 +1869,25 @@ param_card.inc: ../Cards/param_card.dat\n\t../bin/madevent treatcards param\n'''
         is_clang = misc.detect_if_cpp_compiler_is_clang(compiler)
         is_lc    = misc.detect_cpp_std_lib_dependence(compiler) == '-lc++'
 
+
         # list of the variable to set in the make_opts file
         for_update= {'DEFAULT_CPP_COMPILER':compiler,
                      'MACFLAG':'-mmacosx-version-min=10.7' if is_clang and is_lc else '',
                      'STDLIB': '-lc++' if is_lc else '-lstdc++',
                      'STDLIB_FLAG': '-stdlib=libc++' if is_lc and is_clang else ''
                      }
-        
+
+        # for MOJAVE remove the MACFLAG:
+        if is_clang:
+            import platform
+            version, _, _ = platform.mac_ver()
+            if not version:# not linux 
+                version = 14 # set version to remove MACFLAG
+            else:
+                version = int(version.split('.')[1])
+            if version >= 14:
+                for_update['MACFLAG'] = '-mmacosx-version-min=10.8' if is_lc else ''
+
         if not root_dir:
             root_dir = self.dir_path
         make_opts = pjoin(root_dir, 'Source', 'make_opts')
@@ -1859,7 +1910,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
 
     matrix_template = "matrix_standalone_v4.inc"
 
-    def __init__(self, *args, **opts):
+    def __init__(self, *args,**opts):
         """add the format information compare to standard init"""
         
         if 'format' in opts:
@@ -1867,6 +1918,8 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             del opts['format']
         else:
             self.format = 'standalone'
+        
+        self.prefix_info = {}
         ProcessExporterFortran.__init__(self, *args, **opts)
 
     def copy_template(self, model):
@@ -1905,7 +1958,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         
         # Add file in SubProcesses
         shutil.copy(pjoin(self.mgme_dir, 'madgraph', 'iolibs', 'template_files', 'makefile_sa_f_sp'), 
-                    pjoin(self.dir_path, 'SubProcesses', 'makefile'))
+                    pjoin(self.dir_path, 'SubProcesses', 'makefileP'))
         
         if self.format == 'standalone':
             shutil.copy(pjoin(self.mgme_dir, 'madgraph', 'iolibs', 'template_files', 'check_sa.f'), 
@@ -1944,6 +1997,18 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         fsock.close()
         
         self.make_model_symbolic_link()
+
+    #===========================================================================
+    # write a procdef_mg5 (an equivalent of the MG4 proc_card.dat)
+    #===========================================================================
+    def write_procdef_mg5(self, file_pos, modelname, process_str):
+        """ write an equivalent of the MG4 proc_card in order that all the Madevent
+        Perl script of MadEvent4 are still working properly for pure MG5 run.
+        Not needed for StandAlone so just return
+        """
+        
+        return
+
 
     #===========================================================================
     # Make the Helas and Model directories for Standalone directory
@@ -1995,24 +2060,141 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
                            pjoin(self.dir_path, 'Source', 'PDF'))
             self.write_pdf_opendata()
             
-        # create a single makefile to compile all the subprocesses
-        text = '''\n# For python linking (require f2py part of numpy)\nifeq ($(origin MENUM),undefined)\n  MENUM=2\nendif\n''' 
-        deppython = ''
-        for Pdir in os.listdir(pjoin(self.dir_path,'SubProcesses')):
-            if os.path.isdir(pjoin(self.dir_path, 'SubProcesses', Pdir)):
-                text += '%(0)s/matrix$(MENUM)py.so:\n\tcd %(0)s;make matrix$(MENUM)py.so\n'% {'0': Pdir}
-                deppython += ' %(0)s/matrix$(MENUM)py.so ' % {'0': Pdir}
-        
-        text+='all: %s\n\techo \'done\'' % deppython
+        if self.prefix_info:
+            self.write_f2py_splitter()
+            self.write_f2py_makefile()
+            self.write_f2py_check_sa(matrix_elements,
+                            pjoin(self.dir_path,'SubProcesses','check_sa.py'))
+        else:
+            # create a single makefile to compile all the subprocesses
+            text = '''\n# For python linking (require f2py part of numpy)\nifeq ($(origin MENUM),undefined)\n  MENUM=2\nendif\n''' 
+            deppython = ''
+            for Pdir in os.listdir(pjoin(self.dir_path,'SubProcesses')):
+                if os.path.isdir(pjoin(self.dir_path, 'SubProcesses', Pdir)):
+                    text += '%(0)s/matrix$(MENUM)py.so:\n\tcd %(0)s;make matrix$(MENUM)py.so\n'% {'0': Pdir}
+                    deppython += ' %(0)s/matrix$(MENUM)py.so ' % {'0': Pdir}
+            text+='all: %s\n\techo \'done\'' % deppython
             
-        ff = open(pjoin(self.dir_path, 'SubProcesses', 'makefile'),'a')
-        ff.write(text)
-        ff.close()
+            ff = open(pjoin(self.dir_path, 'SubProcesses', 'makefile'),'a')
+            ff.write(text)
+            ff.close()
+                    
+    def write_f2py_splitter(self):
+        """write a function to call the correct matrix element"""
         
-        
-        
-        
+        template = """
+%(python_information)s
+  subroutine smatrixhel(pdgs, npdg, p, ALPHAS, SCALE2, nhel, ANS)
+  IMPLICIT NONE
+
+CF2PY double precision, intent(in), dimension(0:3,npdg) :: p
+CF2PY integer, intent(in), dimension(npdg) :: pdgs
+CF2PY integer, intent(in) :: npdg
+CF2PY double precision, intent(out) :: ANS
+CF2PY double precision, intent(in) :: ALPHAS
+CF2PY double precision, intent(in) :: SCALE2
+  integer pdgs(*)
+  integer npdg, nhel
+  double precision p(*)
+  double precision ANS, ALPHAS, PI,SCALE2
+  include 'coupl.inc'
+  
+  PI = 3.141592653589793D0
+  G = 2* DSQRT(ALPHAS*PI)
+  CALL UPDATE_AS_PARAM()
+  if (scale2.ne.0d0) stop 1
+
+%(smatrixhel)s
+
+      return
+      end
+  
+      SUBROUTINE INITIALISE(PATH)
+C     ROUTINE FOR F2PY to read the benchmark point.
+      IMPLICIT NONE
+      CHARACTER*512 PATH
+CF2PY INTENT(IN) :: PATH
+      CALL SETPARA(PATH)  !first call to setup the paramaters
+      RETURN
+      END
+
+    subroutine get_pdg_order(PDG)
+  IMPLICIT NONE
+CF2PY INTEGER, intent(out) :: PDG(%(nb_me)i,%(maxpart)i)  
+  INTEGER PDG(%(nb_me)i,%(maxpart)i), PDGS(%(nb_me)i,%(maxpart)i)
+  DATA PDGS/ %(pdgs)s /
+  PDG = PDGS
+  RETURN
+  END 
+
+    subroutine get_prefix(PREFIX)
+  IMPLICIT NONE
+CF2PY CHARACTER*20, intent(out) :: PREFIX(%(nb_me)i)
+  character*20 PREFIX(%(nb_me)i),PREF(%(nb_me)i)
+  DATA PREF / '%(prefix)s'/
+  PREFIX = PREF
+  RETURN
+  END 
+ 
+  
+        """
+         
+        allids = self.prefix_info.keys()
+        allprefix = [self.prefix_info[key][0] for key in allids]
+        min_nexternal = min([len(ids) for ids in allids])
+        max_nexternal = max([len(ids) for ids in allids])
+
+        info = []
+        for key, (prefix, tag) in self.prefix_info.items():
+            info.append('#PY %s : %s # %s' % (tag, key, prefix))
             
+
+        text = []
+        for n_ext in range(min_nexternal, max_nexternal+1):
+            current = [ids for ids in allids if len(ids)==n_ext]
+            if not current:
+                continue
+            if min_nexternal != max_nexternal:
+                if n_ext == min_nexternal:
+                    text.append('       if (npdg.eq.%i)then' % n_ext)
+                else:
+                    text.append('       else if (npdg.eq.%i)then' % n_ext)
+            for ii,pdgs in enumerate(current):
+                condition = '.and.'.join(['%i.eq.pdgs(%i)' %(pdg, i+1) for i, pdg in enumerate(pdgs)])
+                if ii==0:
+                    text.append( ' if(%s) then ! %i' % (condition, i))
+                else:
+                    text.append( ' else if(%s) then ! %i' % (condition,i))
+                text.append(' call %ssmatrixhel(p, nhel, ans)' % self.prefix_info[pdgs][0])
+            text.append(' endif')
+        #close the function
+        if min_nexternal != max_nexternal:
+            text.append('endif')
+
+        formatting = {'python_information':'\n'.join(info), 
+                          'smatrixhel': '\n'.join(text),
+                          'maxpart': max_nexternal,
+                          'nb_me': len(allids),
+                          'pdgs': ','.join(str(pdg[i]) if i<len(pdg) else '0' 
+                                             for i in range(max_nexternal) for pdg in allids),
+                          'prefix':'\',\''.join(allprefix)
+                          }
+        formatting['lenprefix'] = len(formatting['prefix'])
+        text = template % formatting
+        fsock = writers.FortranWriter(pjoin(self.dir_path, 'SubProcesses', 'all_matrix.f'),'w')
+        fsock.writelines(text)
+        fsock.close()
+            
+    def write_f2py_check_sa(self, matrix_element, writer):
+        """ Write the general check_sa.py in SubProcesses that calls all processes successively."""
+        # To be implemented. It is just an example file, i.e. not crucial.
+        return
+    
+    def write_f2py_makefile(self):
+        """ """
+        # Add file in SubProcesses
+        shutil.copy(pjoin(self.mgme_dir, 'madgraph', 'iolibs', 'template_files', 'makefile_sa_f2py'), 
+                    pjoin(self.dir_path, 'SubProcesses', 'makefile'))
 
     def create_MA5_cards(self,*args,**opts):
         """ Overload the function of the mother so as to bypass this in StandAlone."""
@@ -2040,13 +2222,8 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         if self.opt['sa_symmetry']:
             # avoid symmetric output
             for i,proc in enumerate(matrix_element.get('processes')):
-                        
-                initial = []    #filled in the next line
-                final = [l.get('id') for l in proc.get('legs')\
-                      if l.get('state') or initial.append(l.get('id'))]
-                decay_finals = proc.get_final_ids_after_decay()
-                decay_finals.sort()
-                tag = (tuple(initial), tuple(decay_finals))
+                   
+                tag = proc.get_tag()     
                 legs = proc.get('legs')[:]
                 leg0 = proc.get('legs')[0]
                 leg1 = proc.get('legs')[1]
@@ -2087,10 +2264,24 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             filename = pjoin(dirpath, 'matrix_prod.f')
         else:
             filename = pjoin(dirpath, 'matrix.f')
+            
+        proc_prefix = ''
+        if 'prefix' in self.cmd_options:
+            if self.cmd_options['prefix'] == 'int':
+                proc_prefix = 'M%s_' % number
+            elif self.cmd_options['prefix'] == 'proc':
+                proc_prefix = matrix_element.get('processes')[0].shell_string().split('_',1)[1]
+            else:
+                raise Exception, '--prefix options supports only \'int\' and \'proc\''
+            for proc in matrix_element.get('processes'):
+                ids = [l.get('id') for l in proc.get('legs_with_decays')]
+                self.prefix_info[tuple(ids)] = [proc_prefix, proc.get_tag()] 
+                
         calls = self.write_matrix_element_v4(
             writers.FortranWriter(filename),
             matrix_element,
-            fortran_model)
+            fortran_model,
+            proc_prefix=proc_prefix)
 
         if self.opt['export_format'] == 'standalone_msP':
             filename =  pjoin(dirpath,'configs_production.inc')
@@ -2126,22 +2317,31 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
                            len(matrix_element.get_all_amplitudes()))
 
         # Generate diagrams
-        filename = pjoin(dirpath, "matrix.ps")
-        plot = draw.MultiEpsDiagramDrawer(matrix_element.get('base_amplitude').\
-                                             get('diagrams'),
-                                          filename,
-                                          model=matrix_element.get('processes')[0].\
-                                             get('model'),
-                                          amplitude=True)
-        logger.info("Generating Feynman diagrams for " + \
-                     matrix_element.get('processes')[0].nice_string())
-        plot.draw()
+        if not 'noeps' in self.opt['output_options'] or self.opt['output_options']['noeps'] != 'True':
+            filename = pjoin(dirpath, "matrix.ps")
+            plot = draw.MultiEpsDiagramDrawer(matrix_element.get('base_amplitude').\
+                                                 get('diagrams'),
+                                              filename,
+                                              model=matrix_element.get('processes')[0].\
+                                                 get('model'),
+                                              amplitude=True)
+            logger.info("Generating Feynman diagrams for " + \
+                         matrix_element.get('processes')[0].nice_string())
+            plot.draw()
 
-        linkfiles = ['check_sa.f', 'coupl.inc', 'makefile']
+        linkfiles = ['check_sa.f', 'coupl.inc']
+
+        if proc_prefix and os.path.exists(pjoin(dirpath, '..', 'check_sa.f')):
+            text = open(pjoin(dirpath, '..', 'check_sa.f')).read()
+            pat = re.compile('smatrix', re.I)
+            new_text, n  = re.subn(pat, '%ssmatrix' % proc_prefix, text)
+            with open(pjoin(dirpath, 'check_sa.f'),'w') as f:
+                f.write(new_text)
+            linkfiles.pop(0)
 
         for file in linkfiles:
             ln('../%s' % file, cwd=dirpath)
-
+        ln('../makefileP', name='makefile', cwd=dirpath)
         # Return to original PWD
         #os.chdir(cwd)
 
@@ -2195,7 +2395,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
                4 if this color connection contains at least both one g* > q q~ and one g* > g g splitting
             where g* denotes a radiated gluon (i.e. not one present in the reduced process)
             """
-
+            
             has_gstar_gg_splitting = False
             has_gstar_qqx_splitting = False
             quanta_emitted = {}
@@ -2206,23 +2406,14 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
                     # Whenever the mother is positive, it can only be from a colour index which
                     # was already present in the reduced process and the 'g > q q~' splitting
                     # is forbidden in this case (since g can't be soft then)
-                    if mother not in quanta_emitted and mother>0:
+                    if mother>0:
                         # The emitted quanta is daughter1 which must be a gluon
-                        if mother==daughter2:
-                            quanta_emitted[daughter1] = 8
-                        else:
-                            # Unless it is of the type (mother, mother, emitted) or
-                            # (mother, 0, emitted) in which case it is a resolved gluon (positive mother index)
-                            # splitting into q q~ (or q~ q when index 0 is provided).
-                            if daughter1!=0:
-                                quanta_emitted[daughter1] = 3
-                                quanta_emitted[daughter2] = -3
-                            else:
-                                # 0 means that daughter1 index is the same as mother, but for a q~ q splitting
-                                quanta_emitted[mother] = -3
-                                quanta_emitted[daughter2] = 3
+                        quanta_emitted[daughter1] = 8
+                    # This quanta has not been emitted yet, wait for it to appear
+                    elif mother not in quanta_emitted:
+                        continue
                     # The mother is a radiated particle whose history is already established
-                    elif mother in quanta_emitted:
+                    else:
                         # e.g. (-1,-1,-2) is a g > q q~ splitting
                         if mother==daughter1:
                             if quanta_emitted[mother]!=8:
@@ -2241,9 +2432,6 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
                             elif abs(quanta_emitted[mother])==8:
                                 has_gstar_gg_splitting = True
                                 quanta_emitted[daughter1] = 8
-                    else:
-                        # This quanta has not been emitted yet, wait for it to appear
-                        continue
                     # This splitting has been addressed and must now be removed
                     t_repr.remove((mother, daughter1, daughter2))
                 if len(t_repr)==last_t_repr_len:
@@ -2621,10 +2809,18 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         path = pjoin(_file_path,'iolibs','template_files','madevent_makefile_source')
         set_of_lib = '$(LIBDIR)libdhelas.$(libext) $(LIBDIR)libmodel.$(libext)'
         model_line='''$(LIBDIR)libmodel.$(libext): MODEL\n\t cd MODEL; make\n'''
-        text = open(path).read() % {'libraries': set_of_lib, 'model':model_line} 
-        writer.write(text)
+
+        replace_dict= {'libraries': set_of_lib, 
+                       'model':model_line,
+                       'additional_dsample': '',
+                       'additional_dependencies':''} 
+
+        text = open(path).read() % replace_dict
         
-        return True
+        if writer:
+            writer.write(text)
+        
+        return replace_dict
 
     #===========================================================================
     # write_matrix_element_v4
@@ -2651,7 +2847,6 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             
         if not self.opt.has_key('sa_symmetry'):
             self.opt['sa_symmetry']=False
-
 
 
         # The proc_id is for MadEvent grouping which is never used in SA.
@@ -2771,14 +2966,13 @@ COMPLEX*16 SPIN_CORR_VECTORS(NEXTERNAL,MAX_N_SPIN_CORR_VECTORS,4)
 C Indicates the number of spin correlations vectors defined for each external leg
 INTEGER N_SPIN_CORR_VECTORS(NEXTERNAL)
 
-INTEGER MAX_SPIN_CORR_RUNS
 C Store the list of combination of spin_corr_vectors with which to enhance the loop over helicity combinations
 C Also we use a temporary parameter const buffer to store the value of max_spin_corr_runs because f2py
 C can't realize it is constant otherwise
-C INTEGER TMPCONST
-C PARAMETER(TMPCONST=MAX_N_SPIN_CORR_VECTORS**(MAX_LEGS_WITH_SPIN_CORR))
-C PARAMETER(MAX_SPIN_CORR_RUNS=TMPCONST)
-PARAMETER(MAX_SPIN_CORR_RUNS=MAX_N_SPIN_CORR_VECTORS**(MAX_LEGS_WITH_SPIN_CORR))
+INTEGER TMPCONST
+PARAMETER(TMPCONST=MAX_N_SPIN_CORR_VECTORS**(MAX_LEGS_WITH_SPIN_CORR))
+INTEGER MAX_SPIN_CORR_RUNS
+PARAMETER(MAX_SPIN_CORR_RUNS=TMPCONST)
 C Store the number of spin-correlation runs defined by the user.
 C A run is just a pass through the helas calls for computing the integrand for a specific helicity configuration
 INTEGER N_SPIN_CORR_RUNS
@@ -3092,8 +3286,14 @@ class ProcessExporterFortranMW(ProcessExporterFortran):
                             self.dir_path+'/bin/internal/common_run_interface.py')
         cp(_file_path+'/various/misc.py', self.dir_path+'/bin/internal/misc.py')        
         cp(_file_path+'/iolibs/files.py', self.dir_path+'/bin/internal/files.py')
-        #cp(_file_path+'/iolibs/save_load_object.py', 
-        #                      self.dir_path+'/bin/internal/save_load_object.py') 
+        cp(_file_path+'/iolibs/save_load_object.py', 
+                              self.dir_path+'/bin/internal/save_load_object.py') 
+        cp(_file_path+'/madevent/gen_crossxhtml.py', 
+                              self.dir_path+'/bin/internal/gen_crossxhtml.py')
+        cp(_file_path+'/madevent/sum_html.py', 
+                              self.dir_path+'/bin/internal/sum_html.py')
+        cp(_file_path+'/various/FO_analyse_card.py', 
+                              self.dir_path+'/bin/internal/FO_analyse_card.py')                 
         cp(_file_path+'/iolibs/file_writers.py', 
                               self.dir_path+'/bin/internal/file_writers.py')
         #model file                        
@@ -3301,7 +3501,6 @@ class ProcessExporterFortranMW(ProcessExporterFortran):
         including the necessary matrix.f and nexternal.inc files"""
 
         cwd = os.getcwd()
-        misc.sprint(type(matrix_element))
         # Create the directory PN_xx_xxxxx in the specified path
         dirpath = os.path.join(self.dir_path, 'SubProcesses', \
                        "P%s" % matrix_element.get('processes')[0].shell_string())
@@ -3372,16 +3571,17 @@ class ProcessExporterFortranMW(ProcessExporterFortran):
                            )
 
         # Generate diagrams
-        filename = pjoin(dirpath, "matrix.ps")
-        plot = draw.MultiEpsDiagramDrawer(matrix_element.get('base_amplitude').\
-                                             get('diagrams'),
-                                          filename,
-                                          model=matrix_element.get('processes')[0].\
-                                             get('model'),
-                                          amplitude='')
-        logger.info("Generating Feynman diagrams for " + \
-                     matrix_element.get('processes')[0].nice_string())
-        plot.draw()
+        if not 'noeps' in self.opt['output_options'] or self.opt['output_options']['noeps'] != 'True':
+            filename = pjoin(dirpath, "matrix.ps")
+            plot = draw.MultiEpsDiagramDrawer(matrix_element.get('base_amplitude').\
+                                                 get('diagrams'),
+                                              filename,
+                                              model=matrix_element.get('processes')[0].\
+                                                 get('model'),
+                                              amplitude='')
+            logger.info("Generating Feynman diagrams for " + \
+                         matrix_element.get('processes')[0].nice_string())
+            plot.draw()
 
         #import genps.inc and maxconfigs.inc into Subprocesses
         ln(self.dir_path + '/Source/genps.inc', self.dir_path + '/SubProcesses', log=False)
@@ -3769,6 +3969,7 @@ c     channel position
         return s_and_t_channels
 
 
+
 #===============================================================================
 # ProcessExporterFortranME
 #===============================================================================
@@ -3777,7 +3978,16 @@ class ProcessExporterFortranME(ProcessExporterFortran):
     MadEvent format."""
 
     matrix_file = "matrix_madevent_v4.inc"
-
+    
+    # helper function for customise helas writter
+    @staticmethod
+    def custom_helas_call(call, arg):
+        if arg['mass'] == '%(M)s,%(W)s,':
+            arg['mass'] = '%(M)s, fk_%(W)s,'
+        elif '%(W)s' in arg['mass']:
+            raise Exception
+        return call, arg
+    
     def copy_template(self, model):
         """Additional actions needed for setup of Template
         """
@@ -3801,6 +4011,7 @@ class ProcessExporterFortranME(ProcessExporterFortran):
         
         
 
+    
 
 
     #===========================================================================
@@ -4054,16 +4265,17 @@ class ProcessExporterFortranME(ProcessExporterFortran):
         self.write_symfact_file(open(filename, 'w'), symmetry)
 
         # Generate diagrams
-        filename = pjoin(Ppath, "matrix.ps")
-        plot = draw.MultiEpsDiagramDrawer(matrix_element.get('base_amplitude').\
-                                             get('diagrams'),
-                                          filename,
-                                          model=matrix_element.get('processes')[0].\
-                                             get('model'),
-                                          amplitude=True)
-        logger.info("Generating Feynman diagrams for " + \
-                     matrix_element.get('processes')[0].nice_string())
-        plot.draw()
+        if not 'noeps' in self.opt['output_options'] or self.opt['output_options']['noeps'] != 'True':
+            filename = pjoin(Ppath, "matrix.ps")
+            plot = draw.MultiEpsDiagramDrawer(matrix_element.get('base_amplitude').\
+                                                 get('diagrams'),
+                                              filename,
+                                              model=matrix_element.get('processes')[0].\
+                                                 get('model'),
+                                              amplitude=True)
+            logger.info("Generating Feynman diagrams for " + \
+                         matrix_element.get('processes')[0].nice_string())
+            plot.draw()
 
         self.link_files_in_SubProcess(Ppath)
 
@@ -4091,16 +4303,7 @@ class ProcessExporterFortranME(ProcessExporterFortran):
             calls = 0
         return calls
 
-    def link_files_in_SubProcess(self, Ppath):
-        """ Create the necessary links in the P* directory path Ppath"""
-        
-        #import genps.inc and maxconfigs.inc into Subprocesses
-        ln(self.dir_path + '/Source/genps.inc', 
-                                     self.dir_path + '/SubProcesses', log=False)
-        ln(self.dir_path + '/Source/maxconfigs.inc',
-                                     self.dir_path + '/SubProcesses', log=False)
-
-        linkfiles = ['addmothers.f',
+    link_Sub_files = ['addmothers.f',
                      'cluster.f',
                      'cluster.inc',
                      'coupl.inc',
@@ -4123,7 +4326,20 @@ class ProcessExporterFortranME(ProcessExporterFortran):
                      'setscales.f',
                      'sudakov.inc',
                      'symmetry.f',
-                     'unwgt.f']
+                     'unwgt.f',
+                     'dummy_fct.f'
+                     ]
+
+    def link_files_in_SubProcess(self, Ppath):
+        """ Create the necessary links in the P* directory path Ppath"""
+        
+        #import genps.inc and maxconfigs.inc into Subprocesses
+        ln(self.dir_path + '/Source/genps.inc', 
+                                     self.dir_path + '/SubProcesses', log=False)
+        ln(self.dir_path + '/Source/maxconfigs.inc',
+                                     self.dir_path + '/SubProcesses', log=False)
+
+        linkfiles = self.link_Sub_files
 
         for file in linkfiles:
             ln('../' + file , cwd=Ppath)    
@@ -4150,7 +4366,17 @@ class ProcessExporterFortranME(ProcessExporterFortran):
         if  not isinstance(self, ProcessExporterFortranMEGroup):
             self.proc_characteristic['grouped_matrix'] = False
         self.proc_characteristic['complex_mass_scheme'] = mg5options['complex_mass_scheme']
-
+        # indicate the PDG of all initial particle
+        try:
+            pdgs1 = [p.get_initial_pdg(1) for me in matrix_elements for m in me.get('matrix_elements') for p in m.get('processes') if p.get_initial_pdg(1)]
+            pdgs2 = [p.get_initial_pdg(2) for me in matrix_elements for m in me.get('matrix_elements') for p in m.get('processes') if p.get_initial_pdg(2)]
+        except AttributeError:
+            pdgs1 = [p.get_initial_pdg(1) for m in matrix_elements.get('matrix_elements') for p in m.get('processes') if p.get_initial_pdg(1)]
+            pdgs2 = [p.get_initial_pdg(2) for m in matrix_elements.get('matrix_elements') for p in m.get('processes') if p.get_initial_pdg(2)]
+        self.proc_characteristic['pdg_initial1'] = pdgs1
+        self.proc_characteristic['pdg_initial2'] = pdgs2
+        
+        
         modelname = self.opt['model']
         if modelname == 'mssm' or modelname.startswith('mssm-'):
             param_card = pjoin(self.dir_path, 'Cards','param_card.dat')
@@ -4277,9 +4503,28 @@ class ProcessExporterFortranME(ProcessExporterFortran):
         # Extract helas calls
         helas_calls = fortran_model.get_matrix_element_calls(\
                     matrix_element)
+        
 
         replace_dict['helas_calls'] = "\n".join(helas_calls)
 
+
+        #adding the support for the fake width (forbidding too small width)
+        mass_width = matrix_element.get_all_mass_widths()
+        width_list = set([e[1] for e in mass_width])
+        
+        replace_dict['fake_width_declaration'] = \
+            ('  double precision fk_%s \n' * len(width_list)) % tuple(width_list)
+        replace_dict['fake_width_declaration'] += \
+            ('  save fk_%s \n' * len(width_list)) % tuple(width_list)
+        fk_w_defs = []
+        one_def = ' fk_%(w)s = SIGN(MAX(ABS(%(w)s), ABS(%(m)s*small_width_treatment)), %(w)s)'     
+        for m, w in mass_width:
+            if w == 'zero':
+                if ' fk_zero = 0d0' not in fk_w_defs: 
+                    fk_w_defs.append(' fk_zero = 0d0')
+                continue    
+            fk_w_defs.append(one_def %{'m':m, 'w':w})
+        replace_dict['fake_width_definitions'] = '\n'.join(fk_w_defs)
 
         # Extract version number and date from VERSION file
         info_lines = self.get_mg5_info_lines()
@@ -5285,17 +5530,18 @@ class ProcessExporterFortranMEGroup(ProcessExporterFortranME):
             maxamps = max(maxamps, len(matrix_element.get('diagrams')))
 
             # Draw diagrams
-            filename = "matrix%d.ps" % (ime+1)
-            plot = draw.MultiEpsDiagramDrawer(matrix_element.get('base_amplitude').\
-                                                                    get('diagrams'),
-                                              filename,
-                                              model = \
-                                                matrix_element.get('processes')[0].\
-                                                                       get('model'),
-                                              amplitude=True)
-            logger.info("Generating Feynman diagrams for " + \
-                         matrix_element.get('processes')[0].nice_string())
-            plot.draw()
+            if not 'noeps' in self.opt['output_options'] or self.opt['output_options']['noeps'] != 'True':
+                filename = "matrix%d.ps" % (ime+1)
+                plot = draw.MultiEpsDiagramDrawer(matrix_element.get('base_amplitude').\
+                                                                        get('diagrams'),
+                                                  filename,
+                                                  model = \
+                                                    matrix_element.get('processes')[0].\
+                                                                           get('model'),
+                                                  amplitude=True)
+                logger.info("Generating Feynman diagrams for " + \
+                             matrix_element.get('processes')[0].nice_string())
+                plot.draw()
 
         # Extract number of external particles
         (nexternal, ninitial) = matrix_element.get_nexternal_ninitial()
@@ -5753,8 +5999,8 @@ class UFO_model_to_mg4(object):
         self.params_dep = []   # (name, expression, type)
         self.params_indep = [] # (name, expression, type)
         self.params_ext = []   # external parameter
-        self.p_to_f = parsers.UFOExpressionParserFortran()
-        self.mp_p_to_f = parsers.UFOExpressionParserMPFortran()            
+        self.p_to_f = parsers.UFOExpressionParserFortran(self.model)
+        self.mp_p_to_f = parsers.UFOExpressionParserMPFortran(self.model)            
     
     def pass_parameter_to_case_insensitive(self):
         """modify the parameter if some of them are identical up to the case"""
@@ -6017,9 +6263,15 @@ class UFO_model_to_mg4(object):
                 double precision MU_R
                 common/rscale/ MU_R
 
-                double precision Nf
-                parameter(Nf=%d)
+                """        
+        # Nf is the number of light quark flavours
+        header = header+"""double precision Nf
+                parameter(Nf=%dd0)
                 """ % self.model.get_nflav()
+        #Nl is the number of massless leptons
+        header = header+"""double precision Nl
+                parameter(Nl=%dd0)
+                """ % self.model.get_nleps()
                 
         fsock.writelines(header)
         
@@ -6304,26 +6556,46 @@ class UFO_model_to_mg4(object):
                                             self.mp_p_to_f.parse(param.expr)))
 
         fsock.write_comments("\nDefinition of the EW coupling used in the write out of aqed\n")
-        if ('aEWM1',) in self.model['parameters']:
+
+        # Let us not necessarily investigate the presence of alpha_EW^-1 of Gf as an external parameter, but also just as a parameter
+        if ('aEWM1',) in self.model['parameters'] or \
+           any( ('aEWM1'.lower() in [p.name.lower() for p in p_list]) for p_list in self.model['parameters'].values() ):
             if dp:
-                fsock.writelines(""" gal(1) = 3.5449077018110318d0 / DSQRT(aEWM1)
+                fsock.writelines(""" gal(1) = 3.5449077018110318d0 / DSQRT(ABS(aEWM1))
                                  gal(2) = 1d0
                          """)
             elif mp:
-                fsock.writelines(""" %(mp_prefix)sgal(1) = 2 * SQRT(MP__PI/MP__aEWM1)
+                fsock.writelines(""" %(mp_prefix)sgal(1) = 2 * SQRT(MP__PI/ABS(MP__aEWM1))
                                  %(mp_prefix)sgal(2) = 1d0 
                                  """ %{'mp_prefix':self.mp_prefix})
                 pass
         # in Gmu scheme, aEWM1 is not external but Gf is an exteranl variable
         elif ('Gf',) in self.model['parameters']:
+            # Make sure to consider complex masses if the complex mass scheme is activated
+            if self.opt['complex_mass']:
+                mass_prefix = 'CMASS_MDL_'
+            else:
+                mass_prefix = 'MDL_'
+
             if dp:
-                fsock.writelines(""" gal(1) = 2.378414230005442133435d0*MDL_MW*DSQRT(1D0-MDL_MW**2/MDL_MZ**2)*DSQRT(MDL_Gf)
+                if self.opt['complex_mass']:
+                    fsock.writelines(""" gal(1) = ABS(2.378414230005442133435d0*%(mass_prefix)sMW*SQRT(DCMPLX(1.0D0,0.0d0)-%(mass_prefix)sMW**2/%(mass_prefix)sMZ**2)*DSQRT(MDL_Gf))
                                  gal(2) = 1d0
-                         """)
+                         """%{'mass_prefix':mass_prefix})
+                else:
+                    fsock.writelines(""" gal(1) = 2.378414230005442133435d0*%(mass_prefix)sMW*DSQRT(1D0-%(mass_prefix)sMW**2/%(mass_prefix)sMZ**2)*DSQRT(MDL_Gf)
+                                 gal(2) = 1d0
+                         """%{'mass_prefix':mass_prefix})
             elif mp:
-                fsock.writelines(""" %(mp_prefix)sgal(1) = 2*MP__MDL_MW*SQRT(1e0_16-MP__MDL_MW**2/MP__MDL_MZ**2)*SQRT(SQRT(2e0_16)*MP__MDL_Gf)
-                                 %(mp_prefix)sgal(2) = 1d0
-                                 """ %{'mp_prefix':self.mp_prefix})
+                if self.opt['complex_mass']:
+                    fsock.writelines(""" %(mp_prefix)sgal(1) = ABS(2*%(mp_prefix)s%(mass_prefix)sMW*SQRT(CMPLX(1e0_16,0.0e0_16,KIND=16)-%(mp_prefix)s%(mass_prefix)sMW**2/%(mp_prefix)s%(mass_prefix)sMZ**2)*SQRT(SQRT(2e0_16)*%(mp_prefix)sMDL_Gf))
+                                 %(mp_prefix)sgal(2) = 1e0_16
+                                 """ %{'mp_prefix':self.mp_prefix,'mass_prefix':mass_prefix})
+                else:
+                    fsock.writelines(""" %(mp_prefix)sgal(1) = 2*%(mp_prefix)s%(mass_prefix)sMW*SQRT(1e0_16-%(mp_prefix)s%(mass_prefix)sMW**2/%(mp_prefix)s%(mass_prefix)sMZ**2)*SQRT(SQRT(2e0_16)*%(mp_prefix)sMDL_Gf)
+                                 %(mp_prefix)sgal(2) = 1e0_16
+                                 """ %{'mp_prefix':self.mp_prefix,'mass_prefix':mass_prefix})
+
                 pass
         else:
             if dp:
@@ -6532,7 +6804,8 @@ class UFO_model_to_mg4(object):
                 # already handle by default
                 if fct.name not in ["complexconjugate", "re", "im", "sec", 
                        "csc", "asec", "acsc", "theta_function", "cond", 
-                       "condif", "reglogp", "reglogm", "reglog", "recms", "arg", "cot"]:
+                       "condif", "reglogp", "reglogm", "reglog", "recms", "arg", "cot",
+                                    "grreglog","regsqrt"]:
                     additional_fct.append(fct.name)
 
         
@@ -6542,6 +6815,8 @@ class UFO_model_to_mg4(object):
           double complex reglog
           double complex reglogp
           double complex reglogm
+          double complex regsqrt
+          double complex grreglog
           double complex recms
           double complex arg
           %s
@@ -6554,11 +6829,13 @@ class UFO_model_to_mg4(object):
           %(complex_mp_format)s mp_reglog
           %(complex_mp_format)s mp_reglogp
           %(complex_mp_format)s mp_reglogm
+          %(complex_mp_format)s mp_regsqrt
+          %(complex_mp_format)s mp_grreglog
           %(complex_mp_format)s mp_recms
           %(complex_mp_format)s mp_arg
           %(additional)s
           """ %\
-          {"additional": "\n".join(["          %s %s" % (self.mp_complex_format, i) for i in additional_fct]),
+          {"additional": "\n".join(["          %s mp_%s" % (self.mp_complex_format, i) for i in additional_fct]),
            'complex_mp_format':self.mp_complex_format
            }) 
 
@@ -6600,12 +6877,20 @@ class UFO_model_to_mg4(object):
              recms=dcmplx(dble(expr))
           endif
           end
-          
-          double complex function reglog(arg)
+
+          double complex function reglog(arg_in)
           implicit none
           double complex TWOPII
           parameter (TWOPII=2.0d0*3.1415926535897932d0*(0.0d0,1.0d0))
+          double complex arg_in
           double complex arg
+          arg=arg_in
+          if(dabs(dimag(arg)).eq.0.0d0)then
+             arg=dcmplx(dble(arg),0.0d0)
+          endif
+          if(dabs(dble(arg)).eq.0.0d0)then
+             arg=dcmplx(0.0d0,dimag(arg))
+          endif
           if(arg.eq.(0.0d0,0.0d0)) then
              reglog=(0.0d0,0.0d0)
           else
@@ -6613,11 +6898,19 @@ class UFO_model_to_mg4(object):
           endif
           end
 
-          double complex function reglogp(arg)
+          double complex function reglogp(arg_in)
           implicit none
           double complex TWOPII
           parameter (TWOPII=2.0d0*3.1415926535897932d0*(0.0d0,1.0d0))
+          double complex arg_in
           double complex arg
+          arg=arg_in
+          if(dabs(dimag(arg)).eq.0.0d0)then
+             arg=dcmplx(dble(arg),0.0d0)
+          endif
+          if(dabs(dble(arg)).eq.0.0d0)then
+             arg=dcmplx(0.0d0,dimag(arg))
+          endif
           if(arg.eq.(0.0d0,0.0d0))then
              reglogp=(0.0d0,0.0d0)
           else
@@ -6629,11 +6922,19 @@ class UFO_model_to_mg4(object):
           endif
           end
 
-          double complex function reglogm(arg)
+          double complex function reglogm(arg_in)
           implicit none
           double complex TWOPII
           parameter (TWOPII=2.0d0*3.1415926535897932d0*(0.0d0,1.0d0))
+          double complex arg_in
           double complex arg
+          arg=arg_in
+          if(dabs(dimag(arg)).eq.0.0d0)then
+             arg=dcmplx(dble(arg),0.0d0)
+          endif
+          if(dabs(dble(arg)).eq.0.0d0)then
+             arg=dcmplx(0.0d0,dimag(arg))
+          endif
           if(arg.eq.(0.0d0,0.0d0))then
              reglogm=(0.0d0,0.0d0)
           else
@@ -6641,6 +6942,62 @@ class UFO_model_to_mg4(object):
                 reglogm=log(arg) - TWOPII
              else
                 reglogm=log(arg)
+             endif
+          endif
+          end
+
+          double complex function regsqrt(arg_in)
+          implicit none
+          double complex arg_in
+          double complex arg
+          arg=arg_in
+          if(dabs(dimag(arg)).eq.0.0d0)then
+             arg=dcmplx(dble(arg),0.0d0)
+          endif
+          if(dabs(dble(arg)).eq.0.0d0)then
+             arg=dcmplx(0.0d0,dimag(arg))
+          endif
+          regsqrt=sqrt(arg)
+          end
+
+          double complex function grreglog(logsw,expr1_in,expr2_in)
+          implicit none
+          double complex TWOPII
+          parameter (TWOPII=2.0d0*3.1415926535897932d0*(0.0d0,1.0d0))
+          double complex expr1_in,expr2_in
+          double complex expr1,expr2
+          double precision logsw
+          double precision imagexpr
+          logical firstsheet
+          expr1=expr1_in
+          expr2=expr2_in
+          if(dabs(dimag(expr1)).eq.0.0d0)then
+             expr1=dcmplx(dble(expr1),0.0d0)
+          endif
+          if(dabs(dble(expr1)).eq.0.0d0)then
+             expr1=dcmplx(0.0d0,dimag(expr1))
+          endif
+          if(dabs(dimag(expr2)).eq.0.0d0)then
+             expr2=dcmplx(dble(expr2),0.0d0)
+          endif
+          if(dabs(dble(expr2)).eq.0.0d0)then
+             expr2=dcmplx(0.0d0,dimag(expr2))
+          endif
+          if(expr1.eq.(0.0d0,0.0d0))then
+             grreglog=(0.0d0,0.0d0)
+          else
+             imagexpr=dimag(expr1)*dimag(expr2)
+             firstsheet=imagexpr.ge.0.0d0
+             firstsheet=firstsheet.or.dble(expr1).ge.0.0d0
+             firstsheet=firstsheet.or.dble(expr2).ge.0.0d0
+             if(firstsheet)then
+                grreglog=log(expr1)
+             else
+                if(dimag(expr1).gt.0.0d0)then
+                   grreglog=log(expr1) - logsw*TWOPII
+                else
+                   grreglog=log(expr1) + logsw*TWOPII
+                endif
              endif
           endif
           end
@@ -6690,12 +7047,21 @@ class UFO_model_to_mg4(object):
                  mp_recms=cmplx(real(expr),kind=16)
               endif
               end
+
               
-              %(complex_mp_format)s function mp_reglog(arg)
+              %(complex_mp_format)s function mp_reglog(arg_in)
               implicit none
               %(complex_mp_format)s TWOPII
               parameter (TWOPII=2.0e0_16*3.14169258478796109557151794433593750e0_16*(0.0e0_16,1.0e0_16))
+              %(complex_mp_format)s arg_in
               %(complex_mp_format)s arg
+              arg=arg_in
+              if(abs(imagpart(arg)).eq.0.0e0_16)then
+                 arg=cmplx(real(arg,kind=16),0.0e0_16)
+              endif
+              if(abs(real(arg,kind=16)).eq.0.0e0_16)then
+                 arg=cmplx(0.0e0_16,imagpart(arg))
+              endif
               if(arg.eq.(0.0e0_16,0.0e0_16)) then
                  mp_reglog=(0.0e0_16,0.0e0_16)
               else
@@ -6703,11 +7069,19 @@ class UFO_model_to_mg4(object):
               endif
               end
 
-              %(complex_mp_format)s function mp_reglogp(arg)
+              %(complex_mp_format)s function mp_reglogp(arg_in)
               implicit none
               %(complex_mp_format)s TWOPII
               parameter (TWOPII=2.0e0_16*3.14169258478796109557151794433593750e0_16*(0.0e0_16,1.0e0_16))
+              %(complex_mp_format)s arg_in
               %(complex_mp_format)s arg
+              arg=arg_in
+              if(abs(imagpart(arg)).eq.0.0e0_16)then
+                 arg=cmplx(real(arg,kind=16),0.0e0_16)
+              endif
+              if(abs(real(arg,kind=16)).eq.0.0e0_16)then
+                 arg=cmplx(0.0e0_16,imagpart(arg))
+              endif
               if(arg.eq.(0.0e0_16,0.0e0_16))then
                  mp_reglogp=(0.0e0_16,0.0e0_16)
               else
@@ -6719,11 +7093,19 @@ class UFO_model_to_mg4(object):
               endif
               end
               
-              %(complex_mp_format)s function mp_reglogm(arg)
+              %(complex_mp_format)s function mp_reglogm(arg_in)
               implicit none
               %(complex_mp_format)s TWOPII
               parameter (TWOPII=2.0e0_16*3.14169258478796109557151794433593750e0_16*(0.0e0_16,1.0e0_16))
+              %(complex_mp_format)s arg_in
               %(complex_mp_format)s arg
+              arg=arg_in
+              if(abs(imagpart(arg)).eq.0.0e0_16)then
+                 arg=cmplx(real(arg,kind=16),0.0e0_16)
+              endif
+              if(abs(real(arg,kind=16)).eq.0.0e0_16)then
+                 arg=cmplx(0.0e0_16,imagpart(arg))
+              endif
               if(arg.eq.(0.0e0_16,0.0e0_16))then
                  mp_reglogm=(0.0e0_16,0.0e0_16)
               else
@@ -6732,6 +7114,62 @@ class UFO_model_to_mg4(object):
                  else
                     mp_reglogm=log(arg)
                  endif 
+              endif
+              end
+
+              %(complex_mp_format)s function mp_regsqrt(arg_in)
+              implicit none
+              %(complex_mp_format)s arg_in
+              %(complex_mp_format)s arg
+              arg=arg_in
+              if(abs(imagpart(arg)).eq.0.0e0_16)then
+                 arg=cmplx(real(arg,kind=16),0.0e0_16)
+              endif
+              if(abs(real(arg,kind=16)).eq.0.0e0_16)then
+                 arg=cmplx(0.0e0_16,imagpart(arg))
+              endif
+              mp_regsqrt=sqrt(arg)
+              end
+
+              %(complex_mp_format)s function mp_grreglog(logsw,expr1_in,expr2_in)
+              implicit none
+              %(complex_mp_format)s TWOPII
+              parameter (TWOPII=2.0e0_16*3.14169258478796109557151794433593750e0_16*(0.0e0_16,1.0e0_16))
+              %(complex_mp_format)s expr1_in,expr2_in
+              %(complex_mp_format)s expr1,expr2
+              %(real_mp_format)s logsw
+              %(real_mp_format)s imagexpr
+              logical firstsheet
+              expr1=expr1_in
+              expr2=expr2_in
+              if(abs(imagpart(expr1)).eq.0.0e0_16)then
+                 expr1=cmplx(real(expr1,kind=16),0.0e0_16)
+              endif
+              if(abs(real(expr1,kind=16)).eq.0.0e0_16)then
+                 expr1=cmplx(0.0e0_16,imagpart(expr1))
+              endif
+              if(abs(imagpart(expr2)).eq.0.0e0_16)then
+                 expr2=cmplx(real(expr2,kind=16),0.0e0_16)
+              endif
+              if(abs(real(expr2,kind=16)).eq.0.0e0_16)then
+                 expr2=cmplx(0.0e0_16,imagpart(expr2))
+              endif
+              if(expr1.eq.(0.0e0_16,0.0e0_16))then
+                 mp_grreglog=(0.0e0_16,0.0e0_16)
+              else
+                 imagexpr=imagpart(expr1)*imagpart(expr2)
+                 firstsheet=imagexpr.ge.0.0e0_16
+                 firstsheet=firstsheet.or.real(expr1,kind=16).ge.0.0e0_16
+                 firstsheet=firstsheet.or.real(expr2,kind=16).ge.0.0e0_16
+                 if(firstsheet)then
+                    mp_grreglog=log(expr1)
+                 else
+                    if(imagpart(expr1).gt.0.0e0_16)then
+                       mp_grreglog=log(expr1) - logsw*TWOPII
+                    else
+                       mp_grreglog=log(expr1) + logsw*TWOPII
+                    endif
+                 endif
               endif
               end
               
@@ -6745,7 +7183,7 @@ class UFO_model_to_mg4(object):
               else
                  mp_arg=log(comnum/abs(comnum))/imm
               endif
-              end"""%{'complex_mp_format':self.mp_complex_format})
+              end"""%{'complex_mp_format':self.mp_complex_format,'real_mp_format':self.mp_real_format})
 
 
         #check for the file functions.f
@@ -6763,41 +7201,73 @@ class UFO_model_to_mg4(object):
             for fct in ufo_fct:
                 # already handle by default
                 if fct.name not in ["complexconjugate", "re", "im", "sec", "csc", "asec", "acsc", "condif",
-                                    "theta_function", "cond", "reglog", "reglogp", "reglogm", "recms","arg"]:
+                                    "theta_function", "cond", "reglog", "reglogp", "reglogm", "recms","arg",
+                                    "grreglog","regsqrt"]:
+
                     ufo_fct_template = """
           double complex function %(name)s(%(args)s)
           implicit none
           double complex %(args)s
+          %(definitions)s
           %(name)s = %(fct)s
 
           return
           end
           """
+                    str_fct = self.p_to_f.parse(fct.expr)
+                    if not self.p_to_f.to_define:
+                        definitions = []
+                    else:
+                        definitions=[]
+                        for d in self.p_to_f.to_define:
+                            if d == 'pi':
+                                definitions.append(' double precision pi')
+                                definitions.append(' data pi /3.1415926535897932d0/')
+                            else:
+                                definitions.append(' double complex %s' % d)
+                                
                     text = ufo_fct_template % {
                                 'name': fct.name,
                                 'args': ", ".join(fct.arguments),                
-                                'fct': self.p_to_f.parse(fct.expr)
+                                'fct': str_fct,
+                                'definitions': '\n'.join(definitions)
                                  }
+
                     fsock.writelines(text)
             if self.opt['mp']:
                 fsock.write_comment_line(' START UFO DEFINE FUNCTIONS FOR MP')
                 for fct in ufo_fct:
                     # already handle by default
                     if fct.name not in ["complexconjugate", "re", "im", "sec", "csc", "asec", "acsc","condif",
-                                        "theta_function", "cond", "reglog", "reglogp","reglogm", "recms","arg"]:
+                                        "theta_function", "cond", "reglog", "reglogp","reglogm", "recms","arg",
+                                        "grreglog","regsqrt"]:
+
                         ufo_fct_template = """
-          %(complex_mp_format)s function mp__%(name)s(mp__%(args)s)
+          %(complex_mp_format)s function mp_%(name)s(mp__%(args)s)
           implicit none
           %(complex_mp_format)s mp__%(args)s
-          mp__%(name)s = %(fct)s
+          %(definitions)s
+          mp_%(name)s = %(fct)s
 
           return
           end
           """
+                        str_fct = self.mp_p_to_f.parse(fct.expr)
+                        if not self.mp_p_to_f.to_define:
+                            definitions = []
+                        else:
+                            definitions=[]
+                            for d in self.mp_p_to_f.to_define:
+                                if d == 'pi': 
+                                    definitions.append(' %s mp__pi' % self.mp_real_format)
+                                    definitions.append(' data mp__pi /3.141592653589793238462643383279502884197e+00_16/')
+                                else:   
+                                    definitions.append(' %s mp_%s' % (self.mp_complex_format,d))
                         text = ufo_fct_template % {
                                 'name': fct.name,
                                 'args': ", mp__".join(fct.arguments),                
-                                'fct': self.mp_p_to_f.parse(fct.expr),
+                                'fct': str_fct,
+                                'definitions': '\n'.join(definitions),
                                 'complex_mp_format': self.mp_complex_format
                                  }
                         fsock.writelines(text)
@@ -6983,20 +7453,20 @@ class UFO_model_to_mg4(object):
         
 def ExportV4Factory(cmd, noclean, output_type='default', group_subprocesses=True,
                     curr_amps = None, export_dir = None, format = None, additional_options={}):
-    """ Determine which Export_v4 class is required. cmd is the command 
+    """ Determine which Export_v4 class is required. cmd is the command
         interface containing all potential usefull information.
         The output_type argument specifies from which context the output
         is called. It is 'madloop' for MadLoop5, 'amcatnlo' for FKS5 output
         and 'default' for tree-level outputs."""
 
     opt = dict(cmd.options)
-    
+
     opt.update(additional_options)
 
     # Make sure the additional options 'color_correlators' and 'spin_correlators' are defined.
     for mandatory_option in ['color_correlators','spin_correlators']:
         if mandatory_option not in opt:
-            opt['mandatory_option'] = None
+            opt[mandatory_option] = None
 
     # Consistency check on inputs. If either curr_amps_input or export_dir_input is
     # specified, it should be a stanalone type of output and _fks_multi_proc should
@@ -7017,6 +7487,8 @@ def ExportV4Factory(cmd, noclean, output_type='default', group_subprocesses=True
         export_dir = cmd._export_dir
     if format is None:
         format = cmd._export_format
+
+    opt['output_options'] = additional_options
 
     # ==========================================================================
     # First check whether Ninja must be installed.
@@ -7044,12 +7516,12 @@ def ExportV4Factory(cmd, noclean, output_type='default', group_subprocesses=True
     # default local one and that the Ninja library appears missing.
     if requires_reduction_tool:
         cmd.install_reduction_library()
-        
+
     # ==========================================================================
-    # First treat the MadLoop5 standalone case       
-    MadLoop_SA_options = {'clean': not noclean, 
+    # First treat the MadLoop5 standalone case
+    MadLoop_SA_options = {'clean': not noclean,
       'complex_mass':opt['complex_mass_scheme'],
-      'export_format':'madloop', 
+      'export_format':'madloop',
       'mp':True,
       'loop_dir': os.path.join(cmd._mgme_dir,'Template','loop_material'),
       'cuttools_dir': cmd._cuttools_dir,
@@ -7064,13 +7536,14 @@ def ExportV4Factory(cmd, noclean, output_type='default', group_subprocesses=True
       'output_dependencies':opt['output_dependencies'],
       'SubProc_prefix':'P',
       'compute_color_flows':opt['loop_color_flows'],
-      'mode': 'reweight' if format == "standalone_rw" else '',
+      'mode': 'reweight' if cmd._export_format == "standalone_rw" else '',
       'cluster_local_path': opt['cluster_local_path'],
       'color_correlators' : opt['color_correlators'],
       'spin_correlators' : opt['spin_correlators'],
-      }
-    
-    if output_type.startswith('madloop'):        
+      'output_options': additional_options
+    }
+
+    if output_type.startswith('madloop'):
         import madgraph.loop.loop_exporters as loop_exporters
         if os.path.isdir(os.path.join(cmd._mgme_dir, 'Template/loop_material')):
             ExporterClass=None
@@ -7090,7 +7563,7 @@ def ExportV4Factory(cmd, noclean, output_type='default', group_subprocesses=True
             raise MadGraph5Error('MG5_aMC cannot find the \'loop_material\' directory'+\
                                  ' in %s'%str(cmd._mgme_dir))
 
-    # Then treat the aMC@NLO output     
+    # Then treat the aMC@NLO output
     elif output_type=='amcatnlo':
         import madgraph.iolibs.export_fks as export_fks
         ExporterClass=None
@@ -7111,53 +7584,53 @@ def ExportV4Factory(cmd, noclean, output_type='default', group_subprocesses=True
     # Then the default tree-level output
     elif output_type=='default':
         assert group_subprocesses in [True, False]
-        
+
         opt.update({'clean': not noclean,
                'complex_mass': opt['complex_mass_scheme'],
                'export_format':format,
-               'mp': False,  
-               'sa_symmetry':False, 
+               'mp': False,
+               'sa_symmetry':False,
                'model': cmd._curr_model.get('name'),
                'v5_model': False if cmd._model_v4_path else True,
                'color_correlators': opt['color_correlators'],
                'spin_correlators': opt['spin_correlators'] })
 
         if format in ['standalone_msP', 'standalone_msF', 'standalone_rw']:
-            opt['sa_symmetry'] = True      
+            opt['sa_symmetry'] = True
         elif format == 'plugin':
             opt['sa_symmetry'] = cmd._export_plugin.sa_symmetry
-    
+
         loop_induced_opt = dict(opt)
         loop_induced_opt.update(MadLoop_SA_options)
         loop_induced_opt['export_format'] = 'madloop_optimized'
         loop_induced_opt['SubProc_prefix'] = 'PV'
-        # For loop_induced output with MadEvent, we must have access to the 
+        # For loop_induced output with MadEvent, we must have access to the
         # color flows.
         loop_induced_opt['compute_color_flows'] = True
         for key in opt:
             if key not in loop_induced_opt:
                 loop_induced_opt[key] = opt[key]
-    
+
         # Madevent output supports MadAnalysis5
         if format in ['madevent']:
             opt['madanalysis5'] = opt['madanalysis5_path']
-            
+
         if format == 'matrix' or format.startswith('standalone'):
             return ProcessExporterFortranSA(export_dir, opt, format=format)
-        
+
         elif format in ['madevent'] and group_subprocesses:
-            if isinstance(curr_amps[0], 
+            if isinstance(curr_amps[0],
                                          loop_diagram_generation.LoopAmplitude):
                 import madgraph.loop.loop_exporters as loop_exporters
-                return  loop_exporters.LoopInducedExporterMEGroup( 
+                return  loop_exporters.LoopInducedExporterMEGroup(
                                                export_dir,loop_induced_opt)
             else:
-                return  ProcessExporterFortranMEGroup(export_dir,opt)                
+                return  ProcessExporterFortranMEGroup(export_dir,opt)
         elif format in ['madevent']:
-            if isinstance(curr_amps[0], 
+            if isinstance(curr_amps[0],
                                          loop_diagram_generation.LoopAmplitude):
                 import madgraph.loop.loop_exporters as loop_exporters
-                return  loop_exporters.LoopInducedExporterMENoGroup( 
+                return  loop_exporters.LoopInducedExporterMENoGroup(
                                                export_dir,loop_induced_opt)
             else:
                 return  ProcessExporterFortranME(export_dir,opt)
@@ -7169,7 +7642,12 @@ def ExportV4Factory(cmd, noclean, output_type='default', group_subprocesses=True
         elif format in ['madweight']:
             return ProcessExporterFortranMW(export_dir, opt)
         elif format == 'plugin':
-            return cmd._export_plugin(export_dir, opt)
+            if isinstance(cmd._curr_amps[0],
+                                         loop_diagram_generation.LoopAmplitude):
+                return cmd._export_plugin(cmd._export_dir, loop_induced_opt)
+            else:
+                return cmd._export_plugin(cmd._export_dir, opt)
+
         else:
             raise Exception, 'Wrong export_v4 format'
     else:

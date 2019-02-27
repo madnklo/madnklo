@@ -850,7 +850,7 @@ C END OF THE DEFINITIONS OF THE DIFFERENT EVALUATION METHODS
 
   IF(DOING_QP_EVALS) THEN
     CALL %(proc_prefix)sCOMPUTE_ACCURACY(QP_RES,N_QP_EVAL,ACC,ANS(1))
-	ACCURACY(0)=ACC	
+	ACCURACY(0)=ACC
 	RET_CODE_H=3	
 	IF(ACC.GE.MLSTABTHRES) THEN
 	  RET_CODE_H=4
@@ -1004,6 +1004,15 @@ C     The following is used instead
         AVG = AVG + ESTIMATE(I)
       ENDDO
       ACC  = ACC / ( ABS(AVG) / 3.0d0)
+
+c     If NaN are present in the evaluation, automatically set the accuracy to 1.0d99.
+      DO I=1,3
+        DO J=1,MAXSTABILITYLENGTH
+          IF (isnan(FULLLIST(I,J))) then
+            ACC = 1.0d99
+          ENDIF
+        ENDDO
+      ENDDO
 
       end
 

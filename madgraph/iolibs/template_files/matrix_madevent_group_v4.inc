@@ -68,6 +68,9 @@ C
  
     REAL*8 POL(2)
     COMMON/TO_POLARIZATION/ POL
+
+	double precision small_width_treatment
+	common/narrow_width/small_width_treatment
     
     INTEGER          ISUM_HEL
     LOGICAL                    MULTI_CHANNEL
@@ -87,6 +90,7 @@ C  To be able to control when the matrix<i> subroutine can add entries to the gr
 C ----------
 C BEGIN CODE
 C ----------
+
     NTRY(IMIRROR)=NTRY(IMIRROR)+1
     THIS_NTRY(IMIRROR) = THIS_NTRY(IMIRROR)+1 
     DO I=1,NEXTERNAL
@@ -201,8 +205,9 @@ c         Set right sign for ANS, based on sign of chosen helicity
         ENDDO
         IF (XTOT.NE.0D0) THEN
 %(set_amp2_line)s
-        ELSE
-            ANS=0D0
+        ELSE IF(ANS.ne.0d0) THEN
+			write(*,*) "Problem in the multi-channeling. All amp2 are zero but not the total matrix-element"
+	        stop 1
         ENDIF
     ENDIF
     ANS=ANS/DBLE(IDEN)
@@ -254,6 +259,11 @@ C
 C   Needed for v4 models
     COMPLEX*16 DUM0,DUM1
     DATA DUM0, DUM1/(0d0, 0d0), (1d0, 0d0)/
+
+	%(fake_width_declaration)s
+	logical first
+	data first /.true./
+	save first
 C
 C FUNCTION
 C
@@ -264,6 +274,9 @@ C
     Double Precision amp2(maxamps), jamp2(0:maxflow)
     common/to_amps/  amp2,       jamp2
     include 'coupl.inc'
+
+	double precision small_width_treatment
+	common/narrow_width/small_width_treatment
 C  
 C COLOR DATA
 C  
@@ -271,6 +284,12 @@ C
 C ----------
 C BEGIN CODE
 C ----------
+if (first) then
+	first=.false.
+	%(fake_width_definitions)s
+endif
+
+
 %(helas_calls)s
 %(jamp_lines)s
 

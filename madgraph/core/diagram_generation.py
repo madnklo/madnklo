@@ -894,10 +894,9 @@ class Amplitude(base_objects.PhysicsObject):
         list in argument."""
 
         if True:
-            try:
-                from PLUGIN.user_filter import remove_diag
-            except ImportError:
-                raise MadGraph5Error, 'user filter required to be defined in PLUGIN/user_filter.py with the function remove_diag(ONEDIAG) which returns True if the daigram has to be removed'
+            remove_diag = misc.plugin_import('user_filter', 
+                                             'user filter required to be defined in PLUGIN/user_filter.py with the function remove_diag(ONEDIAG) which returns True if the diagram has to be removed',
+                                             fcts=['remove_diag'])
         else:
             #example and simple tests
             def remove_diag(diag):
@@ -911,8 +910,8 @@ class Amplitude(base_objects.PhysicsObject):
 
         res = diag_list.__class__()                
         nb_removed = 0 
-        for diag in diag_list:
-            if remove_diag(diag):
+        for i,diag in enumerate(diag_list):
+            if remove_diag(diag) or (i != 0 and i != 1):
                 nb_removed +=1
             else:
                 res.append(diag)
@@ -1668,16 +1667,18 @@ class MultiProcess(base_objects.PhysicsObject):
                                     "%s not valid ProcessDefinition object" % \
                                     repr(process_definition)
 
-        # Set automatic coupling orders
-        process_definition.set('orders', MultiProcess.\
+        # Set automatic coupling orders if born_orders are not specified
+        # otherwise skip
+        if not process_definition['born_orders']:
+            process_definition.set('orders', MultiProcess.\
                                find_optimal_process_orders(process_definition,
-                               diagram_filter))
+                                                           diagram_filter))
         # Check for maximum orders from the model
         process_definition.check_expansion_orders()
 
         processes = base_objects.ProcessList()
         amplitudes = AmplitudeList()
-
+        
         # failed_procs and success_procs are sorted processes that have
         # already failed/succeeded based on crossing symmetry
         failed_procs = []
@@ -1723,7 +1724,7 @@ class MultiProcess(base_objects.PhysicsObject):
                         for id in prod])
                 
                 legs = base_objects.LegList(leg_list)
-
+                
                 # Check for crossed processes
                 sorted_legs = sorted([(l,i+1) for (i,l) in \
                                    enumerate(legs.get_outgoing_id_list(model))])
@@ -1843,7 +1844,6 @@ class MultiProcess(base_objects.PhysicsObject):
             "No amplitudes generated from process %s. Please enter a valid process" % \
                   process_definition.nice_string()
         
-
         # Return the produced amplitudes
         return amplitudes
 
@@ -1928,7 +1928,6 @@ class MultiProcess(base_objects.PhysicsObject):
 
         max_WEIGHTED_order = \
                         (len(fsids + isids) - 2)*int(model.get_max_WEIGHTED())
-
         # get the definition of the WEIGHTED
         hierarchydef = process_definition['model'].get('order_hierarchy')
         tmp = []
@@ -1951,7 +1950,6 @@ class MultiProcess(base_objects.PhysicsObject):
             # failed_procs are processes that have already failed
             # based on crossing symmetry
             failed_procs = []
-            
             # Generate all combinations for the initial state        
             for prod in apply(itertools.product, isids):
                 islegs = [ base_objects.Leg({'id':id, 'state': False}) \
@@ -2025,13 +2023,13 @@ class MultiProcess(base_objects.PhysicsObject):
                     sorted_legs = sorted(legs.get_outgoing_id_list(model))
                     # Check if crossed process has already failed
                     # In that case don't check process
-                    if tuple(sorted_legs) in failed_procs:
+                    if tuple(sorted_legs) in failed_procs and not process_definition.get('forbidden_s_channels'):
                         continue
 
                     amplitude = Amplitude({'process': process})
                     try:
                         amplitude.generate_diagrams(diagram_filter=diagram_filter)
-                    except InvalidCmd:
+                    except InvalidCmd, error:
                         failed_procs.append(tuple(sorted_legs))
                     else:
                         if amplitude.get('diagrams'):
@@ -2040,7 +2038,6 @@ class MultiProcess(base_objects.PhysicsObject):
                             return {coupling: max_order_now}
                         else:
                             failed_procs.append(tuple(sorted_legs))
-
             # No processes found, increase max_order_now
             max_order_now += 1
             logger.setLevel(oldloglevel)

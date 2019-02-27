@@ -38,8 +38,13 @@ C     external functions that can be used. Some are defined in this
 C     file, others are in ./Source/kin_functions.f
       REAL*8 R2_04,invm2_04,pt_04,eta_04,pt,eta
       external R2_04,invm2_04,pt_04,eta_04,pt,eta
+C     recombination of photons
+      double precision p_reco(0:4,nexternal), R_reco
+      integer iPDG_reco(nexternal)
 c local integers
       integer i,j
+c temporary variable for caching locally computation
+      double precision tmpvar
 c jet cluster algorithm
       integer nQCD,NJET,JET(nexternal)
       double precision pQCD(0:3,nexternal),PJET(0:3,nexternal)
@@ -62,6 +67,11 @@ c The UNLOPS cut
       double precision p_unlops(0:3,nexternal)
       include "run.inc" ! includes the ickkw parameter
       logical passUNLOPScuts
+c PDG specific cut
+      double precision etmin(nincoming+1:nexternal-1)
+      double precision etmax(nincoming+1:nexternal-1)
+      double precision mxxmin(nincoming+1:nexternal-1,nincoming+1:nexternal-1)
+      common /to_cuts/etmin,etmax,mxxmin
 c logicals that define if particles are leptons, jets or photons. These
 c are filled from the PDG codes (iPDG array) in this function.
       logical is_a_lp(nexternal),is_a_lm(nexternal),is_a_j(nexternal)
@@ -74,19 +84,23 @@ C***************************************************************
 C Cuts from the run_card.dat
 C***************************************************************
 C***************************************************************
+      !first recombine the photons and fermions
+      call recombine_momenta(rphreco, etaphreco, lepphreco, quarkphreco,
+     $                       p, iPDG, p_reco, iPDG_reco)
+
 c
 c CHARGED LEPTON CUTS
 c
 c find the charged leptons (also used in the photon isolation cuts below)
       do i=1,nexternal
          if(istatus(i).eq.1 .and.
-     &    (ipdg(i).eq.11 .or. ipdg(i).eq.13 .or. ipdg(i).eq.15)) then
+     &    (ipdg_reco(i).eq.11 .or. ipdg_reco(i).eq.13 .or. ipdg_reco(i).eq.15)) then
             is_a_lm(i)=.true.
          else
             is_a_lm(i)=.false.
          endif
          if(istatus(i).eq.1 .and.
-     &    (ipdg(i).eq.-11 .or. ipdg(i).eq.-13 .or. ipdg(i).eq.-15)) then
+     &    (ipdg_reco(i).eq.-11 .or. ipdg_reco(i).eq.-13 .or. ipdg_reco(i).eq.-15)) then
             is_a_lp(i)=.true.
          else
             is_a_lp(i)=.false.
@@ -97,14 +111,14 @@ c apply the charged lepton cuts
          if (is_a_lp(i).or.is_a_lm(i)) then
 c transverse momentum
             if (ptl.gt.0d0) then
-               if (pt_04(p(0,i)).lt.ptl) then
+               if (pt_04(p_reco(0,i)).lt.ptl) then
                   passcuts_user=.false.
                   return
                endif
             endif
 c pseudo-rapidity
             if (etal.gt.0d0) then
-               if (abs(eta_04(p(0,i))).gt.etal) then
+               if (abs(eta_04(p_reco(0,i))).gt.etal) then
                   passcuts_user=.false.
                   return
                endif
@@ -114,26 +128,26 @@ c DeltaR and invariant mass cuts
                do j=nincoming+1,nexternal
                   if (is_a_lm(j)) then
                      if (drll.gt.0d0) then
-                        if (R2_04(p(0,i),p(0,j)).lt.drll**2) then
+                        if (R2_04(p_reco(0,i),p_reco(0,j)).lt.drll**2) then
                            passcuts_user=.false.
                            return
                         endif
                      endif
                      if (mll.gt.0d0) then
-                        if (invm2_04(p(0,i),p(0,j),1d0).lt.mll**2) then
+                        if (invm2_04(p_reco(0,i),p_reco(0,j),1d0).lt.mll**2) then
                            passcuts_user=.false.
                            return
                         endif
                      endif
                      if (ipdg(i).eq.-ipdg(j)) then
                         if (drll_sf.gt.0d0) then
-                           if (R2_04(p(0,i),p(0,j)).lt.drll_sf**2) then
+                           if (R2_04(p_reco(0,i),p_reco(0,j)).lt.drll_sf**2) then
                               passcuts_user=.false.
                               return
                            endif
                         endif
                         if (mll_sf.gt.0d0) then
-                           if (invm2_04(p(0,i),p(0,j),1d0).lt.mll_sf**2)
+                           if (invm2_04(p_reco(0,i),p_reco(0,j),1d0).lt.mll_sf**2)
      $                          then
                               passcuts_user=.false.
                               return
@@ -151,7 +165,8 @@ c
 c find the jets
       do i=1,nexternal
          if (istatus(i).eq.1 .and.
-     &        (abs(ipdg(i)).le.maxjetflavor .or. ipdg(i).eq.21)) then
+     &        (abs(ipdg_reco(i)).le.maxjetflavor .or. ipdg_reco(i).eq.21
+     &         .or.(ipdg_reco(i).eq.22.and.gamma_is_j))) then
             is_a_j(i)=.true.
          else
             is_a_j(i)=.false.
@@ -171,7 +186,7 @@ c more than the Born).
             if (is_a_j(j)) then
                nQCD=nQCD+1
                do i=0,3
-                  pQCD(i,nQCD)=p(i,j)
+                  pQCD(i,nQCD)=p_reco(i,j)
                enddo
             endif
          enddo
@@ -182,7 +197,7 @@ c THE UNLOPS CUT:
 c Use special pythia pt cut for minimal pT
          do i=1,nexternal
             do j=0,3
-               p_unlops(j,i)=p(j,i)
+               p_unlops(j,i)=p_reco(j,i)
             enddo
          enddo
          call pythia_UNLOPS(p_unlops,passUNLOPScuts)
@@ -263,7 +278,7 @@ c PHOTON (ISOLATION) CUTS
 c
 c find the photons
       do i=1,nexternal
-         if (istatus(i).eq.1 .and. ipdg(i).eq.22) then
+         if (istatus(i).eq.1 .and. ipdg(i).eq.22 .and. .not.gamma_is_j) then
             is_a_ph(i)=.true.
          else
             is_a_ph(i)=.false.
@@ -280,6 +295,9 @@ c find the photons
             endif
          enddo
          if(nph.eq.0)goto 444
+         write(*,*) 'ERROR in cuts.f: photon isolation is not working'
+     $           // ' for mixed QED-QCD corrections'
+         stop 1
          
          if(isoEM)then
             nem=nph
@@ -372,6 +390,31 @@ c End of loop over photons
 c End photon isolation
       endif
 
+C
+C     PDG SPECIFIC CUTS (PT/M_IJ)
+C
+      do i=nincoming+1,nexternal-1
+         if(etmin(i).gt.0d0 .or. etmax(i).gt.0d0)then
+            tmpvar = pt_04(p(0,i))
+            if (tmpvar.lt.etmin(i)) then
+               passcuts_user=.false.
+               return
+            elseif (tmpvar.gt.etmax(i) .and. etmax(i).gt.0d0) then
+               passcuts_user=.false.
+               return
+            endif
+         endif
+         do j=i+1, nexternal-1
+            if (mxxmin(i,j).gt.0d0)then
+               if (invm2_04(p(0,i),p(0,j),1d0).lt.mxxmin(i,j)**2)then
+                  passcuts_user=.false.
+                  return
+               endif
+            endif
+         enddo
+      enddo
+
+
 C***************************************************************
 C***************************************************************
 C PUT HERE YOUR USER-DEFINED CUTS
@@ -379,6 +422,7 @@ C***************************************************************
 C***************************************************************
 C
 c$$$C EXAMPLE: cut on top quark pT
+c$$$C          Note that PDG specific cut are more optimised than simple user cut
 c$$$      do i=1,nexternal   ! loop over all external particles
 c$$$         if (istatus(i).eq.1    ! final state particle
 c$$$     &        .and. abs(ipdg(i)).eq.6) then    ! top quark
@@ -397,6 +441,147 @@ c
 
 
 
+
+
+      subroutine recombine_momenta(R, etaph, reco_l, reco_q, p_in, pdg_in, p_out, pdg_out)
+      implicit none
+      ! recombine photons with the closest fermion if the distance is
+      ! less than R and if the rapidity of photons is < etaph (etaph < 0
+      ! means no cut). Output a new set of momenta and pdgs corresponding
+      ! to the recombined particles. If recombination occurs the photon
+      ! disappears from the output particles
+      ! arguments
+      include 'nexternal.inc'
+      double precision R, etaph, p_in(0:4,nexternal), p_out(0:4,nexternal)
+      logical reco_l, reco_q
+      integer pdg_in(nexternal), pdg_out(nexternal)
+      ! local variables
+      integer nq, nl
+      integer id_ph
+      parameter (id_ph=22)
+      integer n_ph, i_ph
+      integer i,j
+      integer ifreco
+      double precision dreco, dthis
+      integer skip
+      logical is_light_charged_fermion
+      double precision R2_04, eta_04
+      ! 
+      integer times_reco
+      common/to_times_reco/ times_reco
+      ! reset everything
+      do j=1,nexternal
+        pdg_out(j)=0
+        do i=0,4
+          p_out(i,j)=0d0
+        enddo
+      enddo
+
+      ! check if we want to recombine with leptons
+      if (reco_l) then
+          nl = 3
+      else 
+          nl = 0
+      endif
+
+      ! check if we want to recombine with quarks
+      if (reco_q) then
+          nq = 5
+      else 
+          nq = 0
+      endif
+
+      ! count the photons
+      n_ph=0
+      do i=nincoming+1, nexternal
+        if (pdg_in(i).eq.id_ph.and.
+     $   (abs(eta_04(p_in(0,i))).lt.etaph.or.etaph.lt.0d0)) then
+            n_ph=n_ph+1
+            i_ph=i
+        endif
+      enddo
+      if (n_ph.eq.0 .or. (nl.eq.0 .and. nq.eq.0)) then
+        ! do nothing
+        do j=1,nexternal
+          pdg_out(j)=pdg_in(j)
+          do i=0,4
+            p_out(i,j)=p_in(i,j)
+          enddo
+        enddo
+        return
+      elseif (n_ph.eq.1) then
+        ! do nothing for initial states
+        do j=1,nincoming
+          pdg_out(j)=pdg_in(j)
+          do i=0,4
+            p_out(i,j)=p_in(i,j)
+          enddo
+        enddo
+        ! find the closest fermion to the photon
+        ifreco=0
+        dreco=R
+        if (i_ph.gt.0) then
+          do i = nincoming+1, nexternal
+            if (is_light_charged_fermion(pdg_in(i),nq,nl)) then
+              dthis=dsqrt(R2_04(p_in(0,i_ph),p_in(0,i)))
+              if (dthis.le.dreco) then
+                dreco=dthis
+                ifreco=i
+              endif
+            endif
+          enddo
+        endif
+        if (ifreco.eq.0) then
+        ! do nothing also for final states
+          do j=nincoming+1,nexternal
+            pdg_out(j)=pdg_in(j)
+            do i=0,4
+              p_out(i,j)=p_in(i,j)
+            enddo
+          enddo
+        else
+          times_reco=times_reco+1
+          skip=0
+          do j=nincoming+1,nexternal
+            if (j.ne.i_ph.and.j.ne.ifreco) then
+              pdg_out(j-skip)=pdg_in(j)
+              do i=0,4
+                p_out(i,j-skip)=p_in(i,j)
+              enddo
+            elseif (j.eq.ifreco) then
+              pdg_out(j-skip)=pdg_in(j)
+              do i=0,3
+                p_out(i,j-skip)=p_in(i,j)+p_in(i,i_ph)
+              enddo
+              p_out(4,j-skip)=p_in(4,j)
+            elseif (j.eq.i_ph) then
+              skip=skip+1
+            endif
+          enddo
+        endif
+      else
+        write(*,*) 'ERROR, too many photons', n_ph
+        stop 1
+      endif
+
+      return 
+      end
+
+
+      logical function is_light_charged_fermion(id, nf, nl)
+      implicit none
+      integer id, nf, nl
+      if (abs(id).le.nf) then
+          is_light_charged_fermion = .true.
+      elseif ((abs(id).eq.11.and.nl.ge.1).or.
+     $        (abs(id).eq.13.and.nl.ge.2).or.
+     $        (abs(id).eq.15.and.nl.ge.3)) then
+          is_light_charged_fermion = .true.
+      else
+          is_light_charged_fermion = .false.
+      endif
+      return
+      end
 
 
 
@@ -428,8 +613,6 @@ c Masses of external particles
       double precision pmass(nexternal)
       common/to_mass/pmass
 c PDG codes of particles
-      integer maxflow
-      parameter (maxflow=999)
       integer idup(nexternal,maxproc),mothup(2,nexternal,maxproc),
      &     icolup(2,nexternal,maxflow),niprocs
       common /c_leshouche_inc/idup,mothup,icolup,niprocs
@@ -868,8 +1051,6 @@ c-----
       implicit none
       include "genps.inc"
       include 'nexternal.inc'
-      integer maxflow
-      parameter (maxflow=999)
       integer idup(nexternal,maxproc),mothup(2,nexternal,maxproc),
      &     icolup(2,nexternal,maxflow),niprocs
 c      include 'leshouche.inc'
@@ -887,8 +1068,6 @@ c
       implicit none
       include "genps.inc"
       include 'nexternal.inc'
-      integer    maxflow
-      parameter (maxflow=999)
       integer idup(nexternal,maxproc)
       integer mothup(2,nexternal,maxproc)
       integer icolup(2,nexternal,maxflow)
@@ -904,32 +1083,47 @@ c
       end
 
 
-      subroutine unweight_function(p_born,unwgtfun)
-c This is a user-defined function to which to unweight the events
-c A non-flat distribution will generate events with a certain
-c weight. This is particularly useful to generate more events
-c (with smaller weight) in tails of distributions.
-c It computes the unwgt factor from the momenta and multiplies
-c the weight that goes into MINT (or vegas) with this factor.
-c Before writing out the events (or making the plots), this factor
-c is again divided out.
-c This function should be called with the Born momenta to be sure
-c that it stays the same for the events, counter-events, etc.
-c A value different from 1 makes that MINT (or vegas) does not list
-c the correct cross section.
+      subroutine bias_weight_function(p,ipdg,bias_wgt)
+c This is a user-defined function to which to bias the event generation.
+c A non-flat distribution will generate events with a certain weight
+c inversely proportinal to the bias_wgt. This is particularly useful to
+c generate more events (with smaller weight) in tails of distributions.
+c It computes the bias_wgt factor from the momenta and multiplies the
+c weight that goes into MINT (or vegas) with this factor.  Before
+c writing out the events (or making the plots), this factor is again
+c divided out. A value different from 1 makes that MINT (or vegas) does
+c not list the correct cross section, but the cross section can still be
+c computed from summing all the weights of the events (and dividing by
+c the number of events). Since the weights of the events are no longer
+c identical for all events, the statistical uncertainty on this total
+c cross section can be much larger than without including the bias.
+c
+c The 'bias_wgt' should be a IR-safe function of the momenta.
+c      
+c For this to be used, the 'event_norm' option in the run_card should be
+c set to
+c      'bias' = event_norm      
+c
       implicit none
       include 'nexternal.inc'
-      double precision unwgtfun,p_born(0:3,nexternal-1),shat,sumdot
-      external sumdot
+      double precision bias_wgt,p(0:3,nexternal),H_T
+      integer ipdg(nexternal),i
 
-      unwgtfun=1d0
+      bias_wgt=1d0
 
-c How to enhance the tails is very process dependent. But, it is
-c probably easiest to enhance the tails using shat, e.g.:
-c      shat=sumdot(p_born(0,1),p_born(0,2),1d0)
-c      unwgtfun=max(100d0**2,shat)/100d0**2
-c      unwgtfun=unwgtfun**2
-
+c How to enhance the tails is very process dependent. For example for
+c top quark production one could use:
+c      do i=1,nexternal
+c         if (ipdg(i).eq.6) then
+c            bias_wgt=sqrt(p(1,i)**2+p(2,i)**2)**3
+c         endif
+c      enddo
+c Or to use H_T^2 one does     
+c      H_T=0d0
+c      do i=3,nexternal
+c         H_T=H_T+sqrt(max(0d0,(p(0,i)+p(3,i))*(p(0,i)-p(3,i))))
+c      enddo
+c      bias_wgt=H_T**2
       return
       end
 

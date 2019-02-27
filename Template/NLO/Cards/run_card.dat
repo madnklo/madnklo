@@ -13,6 +13,9 @@
 #                                                                      *
 #   Some of the values of variables can be list. These can either be   *
 #   comma or space separated.                                          *
+#                                                                      *
+#   To display additional parameter, you can use the command:          *
+#      update to_full                                                  *
 #***********************************************************************
 #
 #*******************                                                 
@@ -36,7 +39,7 @@
 # Normalize the weights of LHE events such that they sum or average to *
 # the total cross section                                              *
 #***********************************************************************
- %(event_norm)s = event_norm      ! average or sum
+ %(event_norm)s = event_norm    ! valid settings: average, sum, bias
 #***********************************************************************
 # Number of points per itegration channel (ignored for aMC@NLO runs)   *
 #***********************************************************************
@@ -71,7 +74,7 @@
 # WARNING: PYTHIA6PT works only for processes without FSR!!!!          *
 #***********************************************************************
   %(parton_shower)s   = parton_shower
-  %(shower_scale_factor)s       = shower_scale_factor ! multiply default shower starting
+  %(shower_scale_factor)s = shower_scale_factor ! multiply default shower starting
                                   ! scale by this factor
 #***********************************************************************
 # Renormalization and factorization scales                             *
@@ -126,6 +129,7 @@
  %(bwcutoff)s  = bwcutoff
 #***********************************************************************
 # Cuts on the jets. Jet clustering is performed by FastJet.            *
+#  - If gamma_is_j, photons are also clustered                            *
 #  - When matching to a parton shower, these generation cuts should be *
 #    considerably softer than the analysis cuts.                       *
 #  - More specific cuts can be specified in SubProcesses/cuts.f        *
@@ -134,6 +138,7 @@
   %(jetradius)s  = jetradius ! The radius parameter for the jet algorithm
  %(ptj)s  = ptj       ! Min jet transverse momentum
  %(etaj)s  = etaj      ! Max jet abs(pseudo-rap) (a value .lt.0 means no cut)
+ %(gamma_is_j)s = gamma_is_j! Wether to cluster photons as jets or not
 #***********************************************************************
 # Cuts on the charged leptons (e+, e-, mu+, mu-, tau+ and tau-)        *
 # More specific cuts can be specified in SubProcesses/cuts.f           *
@@ -143,18 +148,36 @@
   %(drll)s  = drll    ! Min distance between opposite sign lepton pairs
   %(drll_sf)s  = drll_sf ! Min distance between opp. sign same-flavor lepton pairs
   %(mll)s  = mll     ! Min inv. mass of all opposite sign lepton pairs
- %(mll_sf)s  = mll_sf  ! Min inv. mass of all opp. sign same-flavor lepton pairs
+  %(mll_sf)s  = mll_sf  ! Min inv. mass of all opp. sign same-flavor lepton pairs
 #***********************************************************************
-# Photon-isolation cuts, according to hep-ph/9801442. When ptgmin=0,   *
-# all the other parameters are ignored.                                *
+# Fermion-photon recombination parameters                              *
+# If Rphreco=0, no recombination is performed                          *
+#***********************************************************************
+ %(rphreco)s  = Rphreco  ! Minimum fermion-photon distance for recombination
+ %(etaphreco)s  = etaphreco  ! Maximum abs(pseudo-rap) for photons to be recombined (a value .lt.0 means no cut)
+ %(lepphreco)s  = lepphreco  ! Recombine photons and leptons together
+ %(quarkphreco)s  = quarkphreco  ! Recombine photons and quarks together
+#***********************************************************************
+# Photon-isolation cuts, according to hep-ph/9801442                   *
+# Not applied if gamma_is_j                                            *
+# When ptgmin=0, all the other parameters are ignored                  *
 # More specific cuts can be specified in SubProcesses/cuts.f           *
 #***********************************************************************
- %(ptgmin)s  = ptgmin    ! Min photon transverse momentum
- %(etagamma)s  = etagamma  ! Max photon abs(pseudo-rap)
+  %(ptgmin)s  = ptgmin    ! Min photon transverse momentum
+  %(etagamma)s  = etagamma  ! Max photon abs(pseudo-rap)
   %(r0gamma)s  = R0gamma   ! Radius of isolation code
   %(xn)s  = xn        ! n parameter of eq.(3.4) in hep-ph/9801442
   %(epsgamma)s  = epsgamma  ! epsilon_gamma parameter of eq.(3.4) in hep-ph/9801442
  %(isoem)s  = isoEM  ! isolate photons from EM energy (photons and leptons)
+#***********************************************************************
+# Cuts associated to MASSIVE particles identified by their PDG codes.  *
+# All cuts are applied to both particles and anti-particles, so use    *
+# POSITIVE PDG CODES only. Example of the syntax is {6 : 100} or       *
+# {6:100, 25:200} for multiple particles                               *
+#***********************************************************************
+  %(pt_min_pdg)s = pt_min_pdg ! Min pT for a massive particle
+  %(pt_max_pdg)s = pt_max_pdg ! Max pT for a massive particle
+  %(mxx_min_pdg)s = mxx_min_pdg ! inv. mass for any pair of (anti)particles
 #***********************************************************************
 # For aMCfast+APPLGRID use in PDF fitting (http://amcfast.hepforge.org)*
 #***********************************************************************

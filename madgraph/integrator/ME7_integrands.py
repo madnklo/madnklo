@@ -3806,6 +3806,8 @@ The missing process is: %s"""%ME_process.nice_string())
         if display_mode not in ['figure','grid']:
             raise MadEvent7Error('Display mode %s not recognized in analyze_IR_limit.'%display_mode)
         
+        import matplotlib
+        matplotlib.use('Agg')
         import matplotlib.pyplot as plt
 
         plot_title = True

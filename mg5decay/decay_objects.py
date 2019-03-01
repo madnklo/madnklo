@@ -1992,6 +1992,9 @@ class DecayModel(model_reader.ModelReader):
     def running_externals(self, q, loopnum=2):
         """ Recalculate external parameters at the given scale. """
         
+        if q < 0.5:
+            return
+
         # Raise error for wrong type of q
         if not isinstance(q, int) and not isinstance(q, long) and \
                 not isinstance(q, float):
@@ -4088,7 +4091,7 @@ class Channel(base_objects.Diagram):
                         model.lorentz_dict = dict([(l.name, l) for l in model['lorentz']])
                         self.init_regular_expression()
                         
-                    structure = model.lorentz_dict[vertex['lorentz'][key[1]]].structure 
+                    structure = model.lorentz_dict[vertex['lorentz'][key[1]]].structure
                     new_structure = self.lor_pattern.sub(self.simplify_lorentz,
                                                          structure)
                     lor_value = eval(new_structure % q_dict_lor)

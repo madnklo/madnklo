@@ -394,7 +394,7 @@ class AllResults(dict):
     
     def output(self):
         """ write the output file """
-        
+            
         # 1) Create the text for the status directory        
         if self.status and self.current:
             if isinstance(self.status, str):
@@ -542,9 +542,12 @@ class RunResults(list):
             self.info['collider'] = '''%s %s <br> %s x %s  GeV''' % \
                     (name1, name2, run_card['ebeam1'], run_card['ebeam2'])
             self.info['unit'] = 'pb'                       
-        else:
+        elif len(data) == 1:
             self.info['collider'] = 'decay'
             self.info['unit'] = 'GeV'
+        else:
+            self.info['collider'] = 'special mode'
+            self.info['unit'] = ''            
         
         self.append(OneTagResults(run_name, run_card, path))
         
@@ -750,6 +753,7 @@ class OneTagResults(dict):
         # define at run_result
         self['run_name'] = run_name
         self['tag'] = run_card['run_tag']
+        self['event_norm'] = run_card['event_norm']
         self.event_path = pjoin(path,'Events')
         self.me_dir = path
         self.debug = None
@@ -846,7 +850,7 @@ class OneTagResults(dict):
                 self.parton.append('ma5_plot')                
 
             if 'ma5_html' not in self.parton and \
-               misc.glob(pjoin('%s_MA5_PARTON_ANALYSIS_*'%self['tag'],'HTML','index.html'),html_path):
+               misc.glob(pjoin('%s_MA5_PARTON_ANALYSIS_*'%self['tag'],'Output','HTML','MadAnalysis5job_0','index.html'),html_path):
                 self.parton.append('ma5_html')                
             
             if 'ma5_card' not in self.parton and \
@@ -864,7 +868,7 @@ class OneTagResults(dict):
                 self.madanalysis5_hadron.append('ma5_plot')                
 
             if 'ma5_html' not in self.madanalysis5_hadron and \
-               misc.glob(pjoin('%s_MA5_HADRON_ANALYSIS_*'%self['tag'],'HTML','index.html'),html_path):
+               misc.glob(pjoin('%s_MA5_HADRON_ANALYSIS_*'%self['tag'],'Output','HTML','MadAnalysis5job_0','index.html'),html_path):
                 self.madanalysis5_hadron.append('ma5_html')                
 
             if 'ma5_cls' not in self.madanalysis5_hadron and \
@@ -910,7 +914,6 @@ class OneTagResults(dict):
                             (exists(pjoin(path,"%s_pythia_events.hep.gz" % tag)) or
                              exists(pjoin(path,"%s_pythia_events.hep" % tag))):
                 self.pythia.append('hep')
-
             if 'log' not in self.pythia and \
                           exists(pjoin(path,"%s_pythia.log" % tag)):
                 self.pythia.append('log')  
@@ -1051,7 +1054,7 @@ class OneTagResults(dict):
             if 'ma5_html' in self.parton:
                 for result in misc.glob(pjoin('%s_MA5_PARTON_ANALYSIS_*'%self['tag']),
                                         pjoin(self.me_dir,'HTML',self['run_name'])):
-                    target    = pjoin(os.curdir,os.path.relpath(result,self.me_dir),'HTML','index.html')
+                    target    = pjoin(os.curdir,os.path.relpath(result,self.me_dir),'Output','HTML','MadAnalysis5job_0','index.html')
                     link_name = os.path.basename(result).split('PARTON_ANALYSIS')[-1]
                     out += """ <a href="%s">MA5_report%s</a> """%(target, link_name)
                         
@@ -1160,7 +1163,7 @@ class OneTagResults(dict):
                 linked_analysis = False
                 for result in misc.glob(pjoin('%s_MA5_HADRON_ANALYSIS_*'%self['tag']),
                                         pjoin(self.me_dir,'HTML',self['run_name'])):
-                    target    = pjoin(os.curdir,os.path.relpath(result,self.me_dir),'HTML','index.html')
+                    target    = pjoin(os.curdir,os.path.relpath(result,self.me_dir),'Output','HTML','MadAnalysis5job_0','index.html')
                     link_name = os.path.basename(result).split('HADRON_ANALYSIS')[-1]
                     if link_name.startswith('_reco_'):
                         continue
@@ -1176,7 +1179,7 @@ class OneTagResults(dict):
                     for result in misc.glob(pjoin('%s_MA5_HADRON_ANALYSIS_*'%self['tag']),
                                             pjoin(self.me_dir,'HTML',self['run_name'])):
                         target    = pjoin(os.curdir,os.path.relpath(
-                                        result,self.me_dir),'HTML','index.html')
+                                        result,self.me_dir),'Output','HTML','MadAnalysis5job_0','index.html')
                         link_name = os.path.basename(result).split('HADRON_ANALYSIS')[-1]
                         if not link_name.startswith('_reco_'):
                             continue
@@ -1316,10 +1319,14 @@ class OneTagResults(dict):
     def get_nb_line(self):
         
         nb_line = 0
+        self.nb_line = nb_line
         for key in ['parton', 'reweight', 'pythia', 'pythia8', 'pgs', 
                     'delphes', 'shower', 'madanalysis5_hadron']:
             if len(getattr(self, key)):
                 nb_line += 1
+        if nb_line ==0 and not os.path.exists(pjoin(self.me_dir, "Events", self["run_name"], "%(run)s_%(tag)s_banner.txt)" % \
+                                    {"run":self["run_name"], 'tag': self["tag"]})):
+            return 0
         return max([nb_line,1])
     
     
@@ -1336,11 +1343,18 @@ class OneTagResults(dict):
         # Compute the text for eachsubpart
         
         sub_part_template_parton = """
-        <td rowspan=%(cross_span)s><center><a href="./HTML/%(run)s/results.html"> %(cross).4g <font face=symbol>&#177;</font> %(err).2g</a> %(syst)s </center></td>
+        <td rowspan=%(cross_span)s><center><a href="./HTML/%(run)s/results.html"> %(cross).4g <font face=symbol>&#177;</font> %(err).2g %(bias)s</a> %(syst)s </center></td>
         <td rowspan=%(cross_span)s><center> %(nb_event)s<center></td><td> %(type)s </td>
         <td> %(links)s</td>
         <td> %(action)s</td>
         </tr>"""
+        sub_part_template_parton_no_results = """
+        <td rowspan=%(cross_span)s><center><a> %(cross).4g <font face=symbol>&#177;</font> %(err).2g %(bias)s</a> %(syst)s </center></td>
+        <td rowspan=%(cross_span)s><center> %(nb_event)s<center></td><td> %(type)s </td>
+        <td> %(links)s</td>
+        <td> %(action)s</td>
+        </tr>"""
+
 
         sub_part_template_py8 = """
         <td rowspan=%(cross_span)s><center><a href="./Events/%(run)s/%(tag)s_merged_xsecs.txt"> merged xsection</a> %(syst)s </center></td>
@@ -1370,6 +1384,8 @@ class OneTagResults(dict):
         
         # Compute the HTMl output for subpart
         nb_line = self.get_nb_line()
+        if nb_line == 0:
+            return ""
         # Check that cross/nb_event/error are define
         if self.pythia and not self['nb_event']:
             try:
@@ -1411,6 +1427,10 @@ class OneTagResults(dict):
                 continue
             local_dico = {'type': ttype, 'run': self['run_name'], 'syst': '',
                           'tag': self['tag']}
+            if self['event_norm'].lower()=='bias':
+                local_dico['bias']='(biased, do not use)'
+            else:
+                local_dico['bias']=''
 
             if 'run_mode' in self.keys():
                 local_dico['run_mode'] = self['run_mode']
@@ -1422,7 +1442,10 @@ class OneTagResults(dict):
                 elif ttype=='pythia8' and self['cross_pythia'] == -1:
                     template = sub_part_template_py8
                 else:
-                    template = sub_part_template_parton
+                    if os.path.exists(pjoin(self.me_dir,'HTML', self['run_name'],'results.html')):
+                        template = sub_part_template_parton
+                    else:
+                        template = sub_part_template_parton_no_results
                 first = ttype
                 if ttype=='parton' and self['cross_pythia']:
                     local_dico['cross_span'] = 1
@@ -1545,7 +1568,8 @@ class OneTagResults(dict):
                            'links': 'banner only',
                            'action': action,
                            'run_mode': '',
-                           'syst':''
+                           'syst':'',
+                           'bias':''
                            }                                
                                   
         if self.debug is KeyboardInterrupt:

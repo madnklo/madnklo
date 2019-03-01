@@ -25,7 +25,8 @@ PROCESS= $(patsubst %(dotf)s,%(doto)s,$(wildcard polynomial.f)) \
 		 $(patsubst %(dotf)s,%(doto)s,$(wildcard TIR_interface.f)) \
 		 $(patsubst %(dotf)s,%(doto)s,$(wildcard GOLEM_interface.f)) \
 		 $(patsubst %(dotf)s,%(doto)s,$(wildcard COLLIER_interface.f)) \
-		 $(patsubst %(dotf)s,%(doto)s,$(wildcard compute_color_flows.f))
+		 $(patsubst %(dotf)s,%(doto)s,$(wildcard compute_color_flows.f)) \
+		 $(patsubst %(dotf)s,%(doto)s,$(wildcard user_access_subroutines.f))
 
 # This is the core of madloop computationally wise, so make sure to turn optimizations on and bound checks off.
 # We use %%olynomial.o and not directly polynomial.o because we want it to match when both doing make check here

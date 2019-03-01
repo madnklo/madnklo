@@ -179,7 +179,7 @@ C GLOBAL VARIABLES
 C
       INTEGER NHEL(NEXTERNAL,NCOMB)
 %(helicity_lines)s
-      COMMON/%(proc_prefix)sBORN_HEL_CONFIGS/NHEL
+      COMMON/%(proc_prefix)sPROCESS_NHEL/NHEL
       
       INTEGER USERHEL
 	  DATA USERHEL/-1/	  	  
@@ -219,7 +219,7 @@ C     Index 0 is the number of correlators to consider and the next indices are 
       INTEGER ISC
       COMPLEX*16 WEXT(20,NEXTERNAL)
 ## }
- 
+
 C
 C     FUNCTIONS
 C
@@ -612,7 +612,7 @@ ENDIF
 
       END
 
-      SUBROUTINE %(proc_prefix)sGET_ME(P, ALPHAS, NHEL ,ANS)
+      SUBROUTINE %(proc_prefix)sGET_value(P, ALPHAS, NHEL ,ANS)
       IMPLICIT NONE   
 C
 C CONSTANT
@@ -646,13 +646,25 @@ C     the include file with the values of the parameters and masses
       end
 
       SUBROUTINE %(proc_prefix)sINITIALISE(PATH)
+C     ROUTINE FOR F2PY to read the benchmark point.
+      IMPLICIT NONE
+      CHARACTER*512 PATH
+CF2PY INTENT(IN) :: PATH
+C     USE SETPARA2 and not SETPARA so that ident_card.dat can be automatically found.
+      CALL SETPARA2(path)
+      return
+      end
+
+      SUBROUTINE %(proc_prefix)sINITIALISEMODEL(PATH)
 C     ROUTINE FOR F2PY to read the benchmark point.    
       IMPLICIT NONE   
       CHARACTER*512 PATH
+
 CF2PY INTENT(IN) :: PATH
 C     USE SETPARA2 and not SETPARA so that ident_card.dat can be automatically found
       call setpara2(PATH)  !first call to setup the paramaters    
-      return 
+
+      return
       end
 
       LOGICAL FUNCTION %(proc_prefix)sIS_BORN_HEL_SELECTED(HELID)
@@ -677,7 +689,7 @@ C
 C     GLOBALS
 C
       INTEGER HELC(NEXTERNAL,NCOMB)
-      COMMON/%(proc_prefix)sBORN_HEL_CONFIGS/HELC
+      COMMON/%(proc_prefix)sPROCESS_NHEL/HELC
 
       INTEGER POLARIZATIONS(0:NEXTERNAL,0:5)
       COMMON/%(proc_prefix)sBORN_BEAM_POL/POLARIZATIONS

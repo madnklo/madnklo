@@ -38,6 +38,7 @@ import madgraph.loop.loop_helas_objects as loop_helas_objects
 import madgraph.iolibs.drawing_eps as draw
 import madgraph.iolibs.files as files
 import madgraph.iolibs.group_subprocs as group_subprocs
+import madgraph.various.banner as banner_mod
 import madgraph.various.misc as misc
 import madgraph.various.q_polynomial as q_polynomial
 import madgraph.iolibs.file_writers as writers
@@ -55,7 +56,7 @@ import models.check_param_card as check_param_card
 from madgraph.loop.loop_base_objects import LoopDiagram
 from madgraph.loop.MadLoopBannerStyles import MadLoopBannerStyles
 
-import madgraph.various.banner as banner_mod
+
 
 pjoin = os.path.join
 
@@ -80,14 +81,15 @@ class LoopExporterFortran(object):
         ProcessExporterFortran but give access to arguments like dir_path and
         clean using options. This avoids method resolution object ambiguity"""
 
-    default_opt = {'clean': False, 'complex_mass':False,
+    default_opt = dict(export_v4.ProcessExporterFortran.default_opt)
+    default_opt.update({'clean': False, 'complex_mass':False,
                         'export_format':'madloop', 'mp':True,
                         'loop_dir':'', 'cuttools_dir':'', 
                         'fortran_compiler':'gfortran',
                         'SubProc_prefix': 'P',
                         'output_dependencies': 'external',
                         'compute_color_flows': False,
-                        'mode':''}
+                        'mode':''})
 
     include_names    = {'ninja' : 'mninja.mod',
                         'golem' : 'generic_function_1p.mod',
@@ -154,7 +156,7 @@ class LoopExporterFortran(object):
         elif self.dependencies=='external':
             if not os.path.exists(os.path.join(self.cuttools_dir,'includects','libcts.a')):
                 logger.info('Compiling CutTools. This has to be done only once and'+\
-                                  ' can take a couple of minutes.','$MG:color:BLACK')
+                                  ' can take a couple of minutes.','$MG:BOLD')
                 current = misc.detect_current_compiler(os.path.join(\
                                                   self.cuttools_dir,'makefile'))
                 new = 'gfortran' if self.fortran_compiler is None else \
@@ -235,13 +237,165 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
     def __init__(self, *args, **opts):
         super(LoopProcessExporterFortranSA,self).__init__(*args,**opts)
         self.unique_id=0 # to allow collier to distinguish the various loop subprocesses
-
+        self.has_loop_induced = False
+        
     def copy_template(self, model):
         """Additional actions needed to setup the Template.
         """
         super(LoopProcessExporterFortranSA, self).copy_template(model)
 
         self.loop_additional_template_setup()
+        
+    def finalize(self, matrix_element, cmdhistory, MG5options, outputflag):
+        """create the global information for loops"""
+        
+        super(LoopProcessExporterFortranSA,self).finalize(matrix_element,
+                                             cmdhistory, MG5options, outputflag)
+        
+
+        MLCard = banner_mod.MadLoopParam(pjoin(self.dir_path, 'Cards', 'MadLoopParams.dat'))
+        # For loop-induced processes and *only* when summing over all helicity configurations
+        # (which is the default for standalone usage), COLLIER is faster than Ninja.
+        if self.has_loop_induced:
+            MLCard['MLReductionLib'] = "7|6|1"
+            # Computing the poles with COLLIER also unnecessarily slows down the code
+            # It should only be set to True for checks and it's acceptable to remove them
+            # here because for loop-induced processes they should be zero anyway.
+            # We keep it active for non-loop induced processes because COLLIER is not the
+            # main reduction tool in that case, and the poles wouldn't be zero then
+            MLCard['COLLIERComputeUVpoles'] = False
+            MLCard['COLLIERComputeIRpoles'] = False
+
+        MLCard.write(pjoin(self.dir_path, 'Cards', 'MadLoopParams_default.dat'))
+        MLCard.write(pjoin(self.dir_path, 'Cards', 'MadLoopParams.dat'))
+            
+    def write_f2py_makefile(self):
+        return
+    
+    def write_f2py_check_sa(self, matrix_element, output_path):
+        """ Write the general check_sa.py in SubProcesses that calls all processes successively."""
+ 
+        # No need to further edit this file for now.
+        file = open(os.path.join(self.template_dir,\
+                                       'check_sa_all.py.inc')).read()
+        open(output_path,'w').writelines(file)
+        # Make it executable
+        os.chmod(output_path, os.stat(output_path).st_mode | stat.S_IEXEC)
+       
+    
+    def write_f2py_splitter(self):
+        """write a function to call the correct matrix element"""
+        
+        template = """
+%(python_information)s
+
+      SUBROUTINE INITIALISE(PATH)
+C     ROUTINE FOR F2PY to read the benchmark point.
+      IMPLICIT NONE
+      CHARACTER*512 PATH
+CF2PY INTENT(IN) :: PATH
+      CALL SETPARA(PATH)  !first call to setup the paramaters
+      RETURN
+      END
+
+      SUBROUTINE SET_MADLOOP_PATH(PATH)
+C     Routine to set the path of the folder 'MadLoop5_resources' to MadLoop
+        CHARACTER(512) PATH
+CF2PY intent(in)::path
+        CALL SETMADLOOPPATH(PATH)
+      END
+
+  subroutine smatrixhel(pdgs, npdg, p, ALPHAS, SCALES2, nhel, ANS, RETURNCODE)
+  IMPLICIT NONE
+
+CF2PY double precision, intent(in), dimension(0:3,npdg) :: p
+CF2PY integer, intent(in), dimension(npdg) :: pdgs
+CF2PY integer, intent(in) :: npdg
+CF2PY double precision, intent(out) :: ANS
+CF2PY integer, intent(out) :: RETURNCODE
+CF2PY double precision, intent(in) :: ALPHAS
+CF2PY double precision, intent(in) :: SCALES2
+
+  integer pdgs(*)
+  integer npdg, nhel, RETURNCODE
+  double precision p(*)
+  double precision ANS, ALPHAS, PI,SCALES2
+
+%(smatrixhel)s
+
+      return
+      end
+  
+  subroutine get_pdg_order(OUT)
+  IMPLICIT NONE
+CF2PY INTEGER, intent(out) :: OUT(%(nb_me)i,%(maxpart)i)  
+  
+  INTEGER OUT(%(nb_me)i,%(maxpart)i), PDGS(%(nb_me)i,%(maxpart)i)
+  DATA PDGS/ %(pdgs)s /
+  OUT=PDGS
+  RETURN
+  END
+  
+  subroutine get_prefix(PREFIX)
+  IMPLICIT NONE
+CF2PY CHARACTER*20, intent(out) :: PREFIX(%(nb_me)i)
+  character*20 PREFIX(%(nb_me)i),PREF(%(nb_me)i)
+  DATA PREF / '%(prefix)s'/
+  PREFIX = PREF
+  RETURN
+  END 
+  
+        """
+         
+        allids = self.prefix_info.keys()
+        allprefix = [self.prefix_info[key][0] for key in allids]
+        min_nexternal = min([len(ids) for ids in allids])
+        max_nexternal = max([len(ids) for ids in allids])
+
+        info = []
+        for key, (prefix, tag) in self.prefix_info.items():
+            info.append('#PY %s : %s # %s' % (tag, key, prefix))
+            
+
+        text = []
+        for n_ext in range(min_nexternal, max_nexternal+1):
+            current = [ids for ids in allids if len(ids)==n_ext]
+            if not current:
+                continue
+            if min_nexternal != max_nexternal:
+                if n_ext == min_nexternal:
+                    text.append('       if (npdg.eq.%i)then' % n_ext)
+                else:
+                    text.append('       else if (npdg.eq.%i)then' % n_ext)
+            for ii,pdgs in enumerate(current):
+                condition = '.and.'.join(['%i.eq.pdgs(%i)' %(pdg, i+1) for i, pdg in enumerate(pdgs)])
+                if ii==0:
+                    text.append( ' if(%s) then ! %i' % (condition, i))
+                else:
+                    text.append( ' else if(%s) then ! %i' % (condition,i))
+                text.append(' call %sget_me(p, ALPHAS, DSQRT(SCALES2), NHEL, ANS, RETURNCODE)' % self.prefix_info[pdgs][0])
+            text.append(' endif')
+        #close the function
+        if min_nexternal != max_nexternal:
+            text.append('endif')
+
+        formatting = {'python_information':'\n'.join(info), 
+                          'smatrixhel': '\n'.join(text),
+                          'maxpart': max_nexternal,
+                          'nb_me': len(allids),
+                          'pdgs': ','.join([str(pdg[i]) if i<len(pdg) else '0' 
+                                             for i in range(max_nexternal) \
+                                             for pdg in allids]),
+                      'prefix':'\',\''.join(allprefix)
+                      }
+    
+    
+        text = template % formatting
+        fsock = writers.FortranWriter(pjoin(self.dir_path, 'SubProcesses', 'all_matrix.f'),'w')
+        fsock.writelines(text)
+        fsock.close()
+        
+    
     
     def loop_additional_template_setup(self, copy_Source_makefile = True):
         """ Perform additional actions specific for this class when setting
@@ -257,18 +411,13 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         for file in cpfiles:
             shutil.copy(os.path.join(self.loop_dir,'StandAlone/', file),
                         os.path.join(self.dir_path, file))
-        
-        # Also put a copy of MadLoopParams.dat into MadLoopParams_default.dat
-        shutil.copy(pjoin(self.dir_path, 'Cards','MadLoopParams.dat'),
-                      pjoin(self.dir_path, 'Cards','MadLoopParams_default.dat'))
 
-        self.MadLoopparam = banner_mod.MadLoopParam(pjoin(self.loop_dir,'StandAlone',
-                                                  'Cards', 'MadLoopParams.dat'))
-        # write the output file
-        self.MadLoopparam.write(pjoin(self.dir_path,"SubProcesses",
-                                                           "MadLoopParams.dat"))
+        cp(pjoin(self.loop_dir,'StandAlone/Cards/MadLoopParams.dat'),
+           pjoin(self.dir_path, 'Cards/MadLoopParams_default.dat'))
 
-        # We might need to give a different name to the MadLoop makefile\
+        ln(pjoin(self.dir_path, 'Cards','MadLoopParams.dat'), pjoin(self.dir_path,'SubProcesses'))
+
+        # We might need to give a different name to the MadLoop makefile
         shutil.copy(pjoin(self.loop_dir,'StandAlone','SubProcesses','makefile'),
                 pjoin(self.dir_path, 'SubProcesses',self.madloop_makefile_name))
 
@@ -676,7 +825,8 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
             n_squared_split_orders = 1
 
         LoopInduced = not matrix_element.get('processes')[0].get('has_born')
-        
+        self.has_loop_induced = max(LoopInduced, self.has_loop_induced)
+
         # Specify whether color/spin-correlators are active
         ColorCorrelation = (not self.opt['color_correlators'] is None)
         SpinCorrelation = (not self.opt['spin_correlators'] is None)
@@ -698,6 +848,7 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
                 'AmplitudeReduction': AmplitudeReduction,
                 'TIRCaching': TIRCaching,
                 'MadEventOutput': MadEventOutput}
+
 
     #===========================================================================
     # generate_subprocess_directory
@@ -837,6 +988,11 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         
         dict['proc_prefix'] = self.get_ME_identifier(matrix_element,
                        group_number = group_number, group_elem_number = proc_id)
+
+        if 'prefix' in self.cmd_options and self.cmd_options['prefix'] in ['int','proc']:
+            for proc in matrix_element.get('processes'):
+                ids = [l.get('id') for l in proc.get('legs_with_decays')]
+                self.prefix_info[tuple(ids)] = [dict['proc_prefix'], proc.get_tag()]
 
         # The proc_id is used for MadEvent grouping, so none of our concern here
         # and it is simply set to an empty string.        
@@ -1079,9 +1235,15 @@ PARAMETER(MAX_SPIN_EXTERNAL_PARTICLE=%(max_spin_external_particle)d)
         # We can always write the f2py wrapper if present (in loop optimized mode, it is)
         if not os.path.isfile(pjoin(self.template_dir,'check_py.f.inc')):
             return
+        
         file = open(os.path.join(self.template_dir,\
                                       'check_py.f.inc')).read()
-        file=file%replace_dict
+
+        if 'prefix' in self.cmd_options and self.cmd_options['prefix'] in ['int','proc']:
+            replace_dict['prefix_routine'] = replace_dict['proc_prefix']
+        else:
+            replace_dict['prefix_routine'] = ''
+        file=file%replace_dict        
         new_path = writer.name.replace('check_sa.f', 'f2py_wrapper.f')
         new_writer = writer.__class__(new_path, 'w')
         new_writer.writelines(file)
@@ -1096,7 +1258,8 @@ PARAMETER(MAX_SPIN_EXTERNAL_PARTICLE=%(max_spin_external_particle)d)
 p= [[None,]*4]*%d"""%len(curr_proc.get('legs'))
 
         process_definition_string = curr_proc.nice_string().replace('Process:','')
-        file=file.format(random_PSpoint_python_formatted,process_definition_string)
+        file=file.format(random_PSpoint_python_formatted,process_definition_string,
+                         replace_dict['proc_prefix'].lower())
         new_path = writer.name.replace('check_sa.f', 'check_sa.py')
         new_writer = open(new_path, 'w')
         new_writer.writelines(file)
@@ -1862,7 +2025,7 @@ class LoopProcessOptimizedExporterFortranSA(LoopProcessExporterFortranSA):
                 
                 
                 logger.info('Compiling IREGI. This has to be done only once and'+\
-                             ' can take a couple of minutes.','$MG:color:BLACK')
+                             ' can take a couple of minutes.','$MG:BOLD')
                 
                 current = misc.detect_current_compiler(os.path.join(\
                                                     libpath,'makefile_ML5_lib'))
@@ -1926,6 +2089,7 @@ class LoopProcessOptimizedExporterFortranSA(LoopProcessExporterFortranSA):
                                              cmdhistory, MG5options, outputflag)
         self.write_global_specs(matrix_element)
     
+
     
     def write_spin_correlations_include(self, writer, proc_prefix):
         """ Write the include file for all general parameters of the spin-correlations."""
@@ -1942,13 +2106,12 @@ COMPLEX*16 SYSTEM_SPIN_CORR_VECTORS(NEXTERNAL,MAX_N_SPIN_CORR_VECTORS,4)
 C Indicates the number of spin correlations vectors defined for each external leg
 INTEGER N_SPIN_CORR_VECTORS(NEXTERNAL)
 
-INTEGER MAX_SPIN_CORR_RUNS
 C Also we use a temporary parameter const buffer to store the value of max_spin_corr_runs because f2py
 C can't realize it is constant otherwise
-C INTEGER TMPCONST
-C PARAMETER(TMPCONST=MAX_N_SPIN_CORR_VECTORS**(MAX_LEGS_WITH_SPIN_CORR))
-C PARAMETER(MAX_SPIN_CORR_RUNS=TMPCONST)
-PARAMETER(MAX_SPIN_CORR_RUNS=MAX_N_SPIN_CORR_VECTORS**(MAX_LEGS_WITH_SPIN_CORR))
+INTEGER TMPCONST
+PARAMETER(TMPCONST=MAX_N_SPIN_CORR_VECTORS**(MAX_LEGS_WITH_SPIN_CORR))
+INTEGER MAX_SPIN_CORR_RUNS
+PARAMETER(MAX_SPIN_CORR_RUNS=TMPCONST)
 C Store the number of spin-correlation runs defined by the user.
 C A run is just a pass through the helas calls for computing the integrand for a specific helicity configuration
 INTEGER N_SPIN_CORR_RUNS
@@ -2162,9 +2325,10 @@ COMMON/%sSPIN_CORRELATION_DATA/SPIN_CORR_VECTORS, SYSTEM_SPIN_CORR_VECTORS, N_SP
                 final_lwf = lamp.get_final_loop_wavefunction()
                 while not final_lwf is None:
                     # We define here an HEFT vertex as any vertex built up from
-                    # only massless vectors and scalars (at least one of each)
+                    # only massless vectors and massive scalars (at least one of each)
+                    # We ask for massive scalars in part to remove the gluon ghost false positive.
                     scalars = len([1 for wf in final_lwf.get('mothers') if 
-                                                             wf.get('spin')==1])
+                                    wf.get('spin')==1 and wf.get('mass')!='ZERO'])
                     vectors = len([1 for wf in final_lwf.get('mothers') if 
                                   wf.get('spin')==3 and wf.get('mass')=='ZERO'])
                     if scalars>=1 and vectors>=1 and \
@@ -3019,7 +3183,18 @@ class LoopInducedExporterME(LoopProcessOptimizedExporterFortranSA):
         context['MadEventOutput'] = True
         return context
         
-    
+    #===========================================================================
+    # write a procdef_mg5 (an equivalent of the MG4 proc_card.dat)
+    #===========================================================================
+    def write_procdef_mg5(self, file_pos, modelname, process_str):
+        """ write an equivalent of the MG4 proc_card in order that all the Madevent
+        Perl script of MadEvent4 are still working properly for pure MG5 run.
+        Not needed for StandAlone so we need to call the correct one 
+        """
+        
+        return export_v4.ProcessExporterFortranMEGroup.write_procdef_mg5(
+            self, file_pos, modelname, process_str)
+
     def get_source_libraries_list(self):
         """ Returns the list of libraries to be compiling when compiling the
         SOURCE directory. It is different for loop_induced processes and 

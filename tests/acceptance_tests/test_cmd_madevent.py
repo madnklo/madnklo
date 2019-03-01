@@ -47,6 +47,22 @@ from madgraph import MG4DIR, MG5DIR, MadGraph5Error, InvalidCmd
 
 pjoin = os.path.join
 
+def check_html_page(cls, link):
+    """return True if all link in the html page are existing on disk.
+       otherwise raise an assertion error"""
+        
+    text=open(link).read()
+    pattern = re.compile(r'href=[\"\']?(.*?)?[\"\'\s\#]', re.DOTALL)
+    
+    cwd = os.path.dirname(link)
+    with misc.chdir(cwd):
+        for path in pattern.findall(text):
+            if not path:
+                continue # means is just a linke starting with #
+            cls.assertTrue(os.path.exists(path), '%s/%s' %(cwd,path))
+    return True
+    
+
 #===============================================================================
 # TestCmd
 #===============================================================================
@@ -297,16 +313,16 @@ class TestMECmdShell(unittest.TestCase):
         text = open('%s/param_card.dat' % self.path).read()
         pattern = re.compile(r"decay\s+23\s+([+-.\de]*)", re.I)
         value = float(pattern.search(text).group(1))
-        self.assertAlmostEqual(2.42823,value, delta=1e-3)
+        self.assertAlmostEqual(2.48883,value, delta=1e-3)
         pattern = re.compile(r"decay\s+24\s+([+-.\de]*)", re.I)
         value = float(pattern.search(text).group(1))
-        self.assertAlmostEqual(2.028440,value, delta=1e-3)
+        self.assertAlmostEqual(2.08465,value, delta=1e-3)
         pattern = re.compile(r"decay\s+25\s+([+-.\de]*)", re.I)
         value = float(pattern.search(text).group(1))
         self.assertAlmostEqual(3.514960e-03,value, delta=1e-3)
         pattern = re.compile(r"decay\s+6\s+([+-.\de]*)", re.I)
         value = float(pattern.search(text).group(1))
-        self.assertAlmostEqual(1.354080,value, delta=5e-3)        
+        self.assertAlmostEqual(1.36728,value, delta=5e-3)        
         
 
 
@@ -423,6 +439,53 @@ class TestMECmdShell(unittest.TestCase):
         target = 3932.0
         self.assertTrue(abs(val1 - target) / err1 < 1., 'large diference between %s and %s +- %s'%
                         (target, val1, err1))
+        
+    def test_complex_mass_scheme(self):
+        """check that auto-width and Madspin works nicely with complex-mass-scheme"""
+        mg_cmd = MGCmd.MasterCmd()
+        mg_cmd.no_notification()
+        mg_cmd.exec_cmd('set automatic_html_opening False --save')
+        mg_cmd.exec_cmd('set complex_mass_scheme', precmd=True)
+        mg_cmd.exec_cmd('generate g g  > t t~', precmd=True)
+        mg_cmd.exec_cmd('output %s' % self.run_dir, precmd=True)
+        
+        self.cmd_line = MECmd.MadEventCmdShell(me_dir=  self.run_dir)
+        self.cmd_line.no_notification()
+        self.cmd_line.exec_cmd('set automatic_html_opening False')
+        
+        #modify run_card
+        run_card = banner_mod.RunCard(pjoin(self.run_dir, 'Cards', 'run_card.dat'))
+        run_card.set('nevents', 100)
+        run_card.write(pjoin(self.run_dir, 'Cards', 'run_card.dat'))
+        
+        # check the auto-width
+        self.cmd_line.exec_cmd('compute_widths 6 -f')
+
+        # check value for the width    
+        import models.check_param_card as check_param_card    
+        param_card = check_param_card.ParamCard(pjoin(self.run_dir, 'Cards', 'param_card.dat'))
+        self.assertTrue(misc.equal(1.491257, param_card['decay'].get(6).value),3)
+                        
+        # generate events
+        self.cmd_line.exec_cmd('launch -f')
+        val1 = self.cmd_line.results.current['cross']
+        err1 = self.cmd_line.results.current['error']
+        target = 440.779
+        self.assertTrue(misc.equal(target, val1, 4*err1))                
+        
+        # run madspin
+        fsock = open(pjoin(self.run_dir, 'Cards', 'madspin_card.dat'),'w')
+        fsock.write('decay t > w+ b \n launch')
+        fsock.close()
+        
+        self.cmd_line.exec_cmd('decay_events run_01 -f')
+        val1 = self.cmd_line.results.current['cross']
+        err1 = self.cmd_line.results.current['error']
+        target = 440.779
+        self.assertTrue(misc.equal(target, val1, 4*err1))          
+             
+        
+        
         
     def test_width_scan(self):
         """check that the width settings works on a scan based.
@@ -541,6 +604,12 @@ class TestMECmdShell(unittest.TestCase):
             text = fsock.read()
             self.assertTrue(text.count('dynamical scheme') >= 3)
         
+        # check that the html link makes sense
+        #check_html_page(self, pjoin(self.run_dir, 'crossx.html'))
+    
+        
+        
+        
                 
     def check_pythia_output(self, run_name='run_01', syst=False):
         """ """
@@ -587,6 +656,7 @@ class TestMEfromfile(unittest.TestCase):
 
         if not self.debuging:
             shutil.rmtree(self.path)
+        self.assertFalse(self.debuging)
 
     def test_add_time_of_flight(self):
         """checking time of flight is working fine"""
@@ -777,6 +847,7 @@ class TestMEfromfile(unittest.TestCase):
                         stdout=stdout,stderr=stdout)
         
         self.check_parton_output(cross=4.541638, error=0.035)
+    
         self.check_parton_output('run_02', cross=4.41887317, error=0.035)
         self.check_pythia_output()
         self.assertEqual(cwd, os.getcwd())
@@ -830,13 +901,18 @@ class TestMEfromfile(unittest.TestCase):
                             'cross is %s and not %s. NB_SIGMA %s' % (float(data[0]['cross']), cross, float(data[0]['cross'])/new_error)
                             )
             self.assertTrue(float(data[0]['error']) < 3 * error)
-                            
+            
+        check_html_page(self, pjoin(self.run_dir, 'crossx.html'))
+        if 'decayed' not in run_name:
+            check_html_page(self, pjoin(self.run_dir,'HTML', run_name, 'results.html'))
+        
     def check_pythia_output(self, run_name='run_01'):
         """ """
         # check that the number of event is fine:
         data = self.load_result(run_name)
         self.assertTrue('hep' in data[0].pythia)
         self.assertTrue('log' in data[0].pythia)
+
     
     def test_decay_width_nlo_model(self):
         """ """

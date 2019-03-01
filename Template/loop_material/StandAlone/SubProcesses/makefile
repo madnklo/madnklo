@@ -76,6 +76,11 @@ F2PY_RESOURCES = $(wildcard f2py_wrapper.f) \
  $(wildcard user_access_subroutines.f) \
  $(wildcard $(LOOP_PREFIX)*/user_access_subroutines.f) \
 
+POLYNOMIAL = $(patsubst $(DOTF),$(DOTO),$(wildcard polynomial.f))
+OLP_POLYNOMIAL = $(patsubst $(DOTF),$(DOTO),$(wildcard $(LOOP_PREFIX)*/polynomial.f))
+
+
+
 $(PROG): check_sa.o $(PROCESS) makefile $(LIBS)
 	$(FC) $(FFLAGS) -o $(PROG) check_sa.o $(PROCESS) $(LINKLIBS)
 
@@ -99,6 +104,9 @@ $(CHECK_SA_BORN_SPLITORDERS): ../$(OLP)_static check_sa_born_splitOrders.o $(pat
 # or make OLP one directory above
 %olynomial.o : %olynomial.f
 	$(FC) $(patsubst -O%,, $(subst -fbounds-check,,$(FFLAGS))) $(POLYNOMIAL_OPTIMIZATION) $(POLYNOMIAL_BOUNDS_CHECK) -c $< -o $@ $(LOOP_INCLUDE)
+
+$(DOTO) : $(DOTF) $(POLYNOMIAL) $(OLP_POLYNOMIAL)
+	$(FC) $(FFLAGS) -c $< -o $@ $(LOOP_INCLUDE)
 
 $(DOTO) : $(DOTF)
 	$(FC) $(FFLAGS) -c $< -o $@ $(LOOP_INCLUDE)
@@ -132,6 +140,10 @@ endif
 matrix$(MENUM)py.so: ../$(OLP)_static $(F2PY_RESOURCES) 
 	touch __init__.py
 	$(F2PY) $(MADLOOP_LIB) -m matrix$(MENUM)py -c $(F2PY_RESOURCES) --fcompiler=$(FC)   -L../../lib/ -ldhelas -lmodel $(LINK_LOOP_LIBS) $(STDLIB)
+
+allmatrix$(MENUM)py.so: $(OLP)_static all_matrix.f $(LIBS) $(WRAPPER)
+	touch __init__.py
+	$(F2PY) $(MADLOOP_LIB)  -m allmatrix$(MENUM)py -c all_matrix.f $(wildcard $(LOOP_PREFIX)*/f2py_wrapper.f) --fcompiler=$(FC)   -L../lib/ -ldhelas -lmodel $(LINK_LOOP_LIBS) $(STDLIB)
 
 clean:
 	@rm -f *.o *.so *.$(libext) *.$(dylibext)

@@ -26,6 +26,7 @@ import models.import_ufo as import_ufo
 import models.model_reader as model_reader
 import madgraph.iolibs.export_v4 as export_v4
 import models as ufomodels
+import madgraph.various.misc as misc
 
 _file_path = os.path.split(os.path.dirname(os.path.realpath(__file__)))[0]
 
@@ -68,12 +69,81 @@ class TestNFlav(unittest.TestCase):
         model = import_ufo.import_model(sm_path + '-no_b_mass')
         self.assertEqual(model.get_nflav(), 5)
 
-
     def test_get_nflav_sm_nomasses(self):
         """Tests the get_nflav_function for the SM, with the no_masses restriction"""
         sm_path = import_ufo.find_ufo_path('sm')
         model = import_ufo.import_model(sm_path + '-no_masses')
         self.assertEqual(model.get_nflav(), 5)
+
+class TestGetQuarkPDG(unittest.TestCase):
+    """Test class for the get_nflav function"""
+
+    def test_get_quark_pdgs_sm(self):
+        """Tests the get_quark_pdg_function for the full SM.
+        Here b and c quark are massive"""
+        sm_path = import_ufo.find_ufo_path('sm')
+        model = import_ufo.import_full_model(sm_path)
+        self.assertEqual(model.get_quark_pdgs(), [-3, -2, -1, 1, 2, 3])
+
+    def test_get_quark_pdgs_sm_nobmass(self):
+        """Tests the get_quark_pdg_function for the SM, with the no-b-mass restriction"""
+        sm_path = import_ufo.find_ufo_path('sm')
+        model = import_ufo.import_model(sm_path + '-no_b_mass')
+        self.assertEqual(model.get_quark_pdgs(), [-5, -4, -3, -2, -1, 1, 2, 3, 4, 5])
+
+    def test_get_quark_pdgs_sm_nomasses(self):
+        """Tests the get_quark_pdg_function for the SM, with the no_masses restriction"""
+        sm_path = import_ufo.find_ufo_path('sm')
+        model = import_ufo.import_model(sm_path + '-no_masses')
+        self.assertEqual(model.get_quark_pdgs(), [-5, -4, -3, -2, -1, 1, 2, 3, 4, 5])
+
+class TestNLeps(unittest.TestCase):
+    """Test class for the get_nflav function"""
+
+    def test_get_nleps_sm(self):
+        """Tests the get_nleps_function for the full SM.
+        Here all leptons have a mass"""
+        sm_path = import_ufo.find_ufo_path('sm')
+        model = import_ufo.import_full_model(sm_path)
+        self.assertEqual(model.get_nleps(), 0)
+
+    def test_get_nleps_sm_nobmass(self):
+        """Tests the get_nleps_function for the SM, with the no-b-mass restriction
+        here the electron and muon are massless"""
+        sm_path = import_ufo.find_ufo_path('sm')
+        model = import_ufo.import_model(sm_path + '-no_b_mass')
+        self.assertEqual(model.get_nleps(), 2)
+
+    def test_get_nleps_sm_nomasses(self):
+        """Tests the get_nleps_function for the SM, with the no_masses restriction
+        here the three leptons are massless"""
+        sm_path = import_ufo.find_ufo_path('sm')
+        model = import_ufo.import_model(sm_path + '-no_masses')
+        self.assertEqual(model.get_nleps(), 3)
+
+class TestGetLuarkPDG(unittest.TestCase):
+    """Test class for the get_nflav function"""
+
+    def test_get_lepton_pdgs_sm(self):
+        """Tests the get_lepton_pdg_function for the full SM.
+        Here all leptons have a mass"""
+        sm_path = import_ufo.find_ufo_path('sm')
+        model = import_ufo.import_full_model(sm_path)
+        self.assertEqual(model.get_lepton_pdgs(), [])
+
+    def test_get_lepton_pdgs_sm_nobmass(self):
+        """Tests the get_lepton_pdg_function for the SM, with the no-b-mass restriction
+        here the electron and muon are massless"""
+        sm_path = import_ufo.find_ufo_path('sm')
+        model = import_ufo.import_model(sm_path + '-no_b_mass')
+        self.assertEqual(model.get_lepton_pdgs(), [-13, -11, 11, 13])
+
+    def test_get_lepton_pdgs_sm_nomasses(self):
+        """Tests the get_lepton_pdg_function for the SM, with the no_masses restriction
+        here the three leptons are massless"""
+        sm_path = import_ufo.find_ufo_path('sm')
+        model = import_ufo.import_model(sm_path + '-no_masses')
+        self.assertEqual(model.get_lepton_pdgs(), [-15, -13, -11, 11, 13, 15])
 
 class TestImportUFONoSideEffect(unittest.TestCase):
     """Test class for the the possible side effect on a UFO model loaded when
@@ -144,13 +214,41 @@ class TestImportUFONoSideEffect(unittest.TestCase):
 
         self.assertEqual(original_all_particles,ufo_model.all_particles)
         self.assertEqual(original_all_vertices,ufo_model.all_vertices)
-#        self.assertEqual(original_all_couplings,ufo_model.all_couplings)
+        self.assertEqual(original_all_couplings,ufo_model.all_couplings)
         self.assertEqual(original_all_lorentz,ufo_model.all_lorentz)
         self.assertEqual(original_all_parameters,ufo_model.all_parameters)
         self.assertEqual(original_all_orders,ufo_model.all_orders)
         self.assertEqual(original_all_functions,ufo_model.all_functions)
         self.assertEqual(original_all_CTvertices,ufo_model.all_CTvertices)
         self.assertEqual(original_all_CTparameters,ufo_model.all_CTparameters)
+
+        # Also test that one new lorentz struture has been added within the model
+        # and that the associate optimization is working as expected.
+        self.assertEqual(len(original_all_lorentz) + 1, len(model['lorentz']))
+        new_l = [l for l  in model['lorentz'] if l not in original_all_lorentz][0]
+        new_name = new_l.name
+        self.assertEqual(new_l.name, 'R2RGA_VVVV1')
+        # find interactions with that lorentz structure
+        int_with_it = []
+        for id, vertices in model.get('interaction_dict').items():
+            if new_name in vertices['lorentz']:
+                int_with_it.append(vertices)
+        self.assertEqual(len(int_with_it), 2)
+        # check the first one
+        vert = int_with_it[0]
+        pdg = [p['pdg_code'] for p in vert['particles']]
+        self.assertEqual(pdg, [21,21,21,21])
+        # check the equivalent vertex in the original model
+        old_vert = [ v for v in ufo_model.all_CTvertices if pdg == [p.pdg_code for p in v.particles]]
+        #pick one
+        old_vert = old_vert[0]
+        
+        # find the number of coupling associate to this lorentz structure
+        ind = vert['lorentz'].index(new_name)
+        coup_name = [ c for ((l,col),c) in vert['couplings'].items() if l ==ind]
+        nb_old = len([ c for ((l,col),c) in vert['couplings'].items() if c == coup_name[0]])
+        nb_new = len([ c for ((l,col,k),c) in old_vert.couplings.items() if c.name == coup_name[0]])
+        self.assertEqual(3*nb_old, nb_new)
 
 #===============================================================================
 # TestRestrictModel
@@ -241,7 +339,20 @@ class TestRestrictModel(unittest.TestCase):
         self.assertEqual(expected, result)        
         
         # check what are the identical coupling
-        expected = [['GC_100', 'GC_108', 'GC_49', 'GC_45', 'GC_40', 'GC_41', 'GC_104']]
+        expected = [[('GC_100',1), ('GC_108',1), ('GC_49',1), ('GC_45',1), ('GC_40',1), ('GC_41',1), ('GC_104',1)],
+                    [('GC_21', 1), ('GC_27', -1)],
+                    [('GC_3', 1), ('GC_4', -1)],
+                    [('GC_39', 1), ('GC_38', -1)],
+                    [('GC_51', 1), ('GC_50', -1)],
+                    #[('GC_53', 1), ('GC_52', -1)], #GC_52 is not assigned to a vertex to they are consider as different coupling order and not merged... not relevant anyway
+                    [('GC_56', 1), ('GC_54', -1)],
+                    [('GC_66', 1), ('GC_67', -1)],
+                    [('GC_7', 1), ('GC_9', -1)],
+                    [('GC_70', 1), ('GC_73', -1)],
+                    [('GC_75', 1), ('GC_74', -1)],
+                    [('GC_76', 1), ('GC_79', -1)],
+                    [('GC_77', 1), ('GC_78', -1)],
+                    [('GC_97', 1), ('GC_96', -1)]]
         expected.sort()
         iden.sort()
         self.assertEqual(expected, iden)
@@ -283,31 +394,33 @@ class TestRestrictModel(unittest.TestCase):
         
         self.model.locate_coupling()
         zero, iden = self.model.detect_identical_couplings()
+        self.assertEqual(len(iden), 13)
         
         # Check that All the code/model is the one intended for this test
         target = [i for i in iden if len(i)==7][0] 
-        GC = target[0]
+        target2 = [i[0] for i in target]
+        GC = target2[0]
         
         check_content = [['d', 'u', 'w+'], ['s', 'c', 'w+'], ['b', 't', 'w+'], ['u', 'd', 'w+'], ['c', 's', 'w+'], ['t', 'b', 'w+'], ['e-', 've', 'w+'], ['m-', 'vm', 'w+'], ['tt-', 'vt', 'w+'], ['ve', 'e-', 'w+'], ['vm', 'm-', 'w+'], ['vt', 'tt-', 'w+']]
         content =  [[p.get('name') for p in v.get('particles')] \
                for v in self.model.get('interactions') \
-               if any([c in target for c in v['couplings'].values()])]
+               if any([c in target2 for c in v['couplings'].values()])]
 
         self.assertEqual(len(check_content),len(content))#, 'test not up-to-date'      
 
         vertex_id = [v.get('id') \
                for v in self.model.get('interactions') \
-               if any([c in target for c in v['couplings'].values()])]
+               if any([c in target2 for c in v['couplings'].values()])]
 
 
         for id in vertex_id:
             is_in_target = False
             for coup in self.model.get_interaction(id)['couplings'].values():
-                if coup in target:
+                if coup in target2:
                     is_in_target = True
             assert is_in_target == True, 'test not up-to-date'
         
-        # check now that everything is fine        
+        # check now that everything is fine
         self.model.merge_iden_couplings(target)
         for id in vertex_id:
             has_GC = False
@@ -316,6 +429,41 @@ class TestRestrictModel(unittest.TestCase):
                 if coup == GC:
                     has_GC = True
             self.assertTrue(has_GC, True)
+        
+        # check that the same occur with opposite sign coupling
+        target = [i for i in iden if len(i)==2][1] 
+        target2 = [i[0] for i in target]
+        GC = target2[0]
+        
+        check_content = [['a', 'w+', 'w+'], ['e-', 'e-', 'a'], ['mu-', 'mu-', 'a'], ['ta-', 'ta-', 'a']]
+        content =  [[p.get('name') for p in v.get('particles')] \
+               for v in self.model.get('interactions') \
+               if any([c in target2 for c in v['couplings'].values()])]
+        #content =  [[v.get('couplings').values() for p in v.get('particles')] \
+        #       for v in self.model.get('interactions')]
+        self.assertEqual(len(check_content),len(content))#, 'test not up-to-date'
+        
+        vertex_id = [v.get('id') \
+               for v in self.model.get('interactions') \
+               if any([c in target2[1:] for c in v['couplings'].values()])]
+        
+        for id in vertex_id:
+            is_in_target = False
+            for coup in self.model.get_interaction(id)['couplings'].values():
+                if coup in target2:
+                    is_in_target = True
+            assert is_in_target == True, 'test not up-to-date'
+        
+        self.model.merge_iden_couplings(target)
+        for id in vertex_id:
+            has_GC = False
+            for coup in self.model.get_interaction(id)['couplings'].values():
+                self.assertFalse(coup in target[1:])
+                if coup == '-%s' % GC:
+                    has_GC = True
+            self.assertTrue(has_GC, True)
+        
+                 
 
     def test_remove_couplings(self):
         """ check that the detection of irrelevant interactions works """
@@ -428,7 +576,58 @@ class TestRestrictModel(unittest.TestCase):
                 self.assertFalse(param.name in  ['ymb'])
                 if param.name == 'yb':
                     param.expr == 'ZERO'
-                        
+                    
+    def test_get_new_coupling_name(self):
+        """ test that the static function get_new_coupling_name
+            behaves as expected
+        """
+        
+        # reject wrong input
+        self.assertRaises(AssertionError, import_ufo.RestrictModel.get_new_coupling_name,
+                         '','','',0)
+        self.assertRaises(AssertionError, import_ufo.RestrictModel.get_new_coupling_name,
+                         '','','',2.)
+        self.assertRaises(AssertionError, import_ufo.RestrictModel.get_new_coupling_name,
+                         '','1','2',1)      
+        self.assertRaises(AssertionError, import_ufo.RestrictModel.get_new_coupling_name,
+                         '',1,1,1)         
+        self.assertRaises(AssertionError, import_ufo.RestrictModel.get_new_coupling_name,
+                         1,'1','1',1)
+        
+        # real test
+        self.assertEqual(import_ufo.RestrictModel.get_new_coupling_name(\
+                        'GC1', 'GC2', 'GC2', 1), 'GC1')        
+        self.assertEqual(import_ufo.RestrictModel.get_new_coupling_name(\
+                        'GC1', 'GC2', '-GC2', 1), '-GC1') 
+        self.assertEqual(import_ufo.RestrictModel.get_new_coupling_name(\
+                        'GC1', '-GC2', 'GC2', 1), '-GC1') 
+        self.assertEqual(import_ufo.RestrictModel.get_new_coupling_name(\
+                        'GC1', '-GC2', '-GC2', 1), 'GC1') 
+        self.assertEqual(import_ufo.RestrictModel.get_new_coupling_name(\
+                        '-GC1', 'GC2', 'GC2', 1), '-GC1') 
+        self.assertEqual(import_ufo.RestrictModel.get_new_coupling_name(\
+                        '-GC1', 'GC2', '-GC2', 1), 'GC1') 
+        self.assertEqual(import_ufo.RestrictModel.get_new_coupling_name(\
+                        '-GC1', '-GC2', 'GC2', 1), 'GC1') 
+        self.assertEqual(import_ufo.RestrictModel.get_new_coupling_name(\
+                        '-GC1', '-GC2', '-GC2', 1), '-GC1') 
+        self.assertEqual(import_ufo.RestrictModel.get_new_coupling_name(\
+                        'GC1', 'GC2', 'GC2', -1), '-GC1') 
+        self.assertEqual(import_ufo.RestrictModel.get_new_coupling_name(\
+                        'GC1', 'GC2', '-GC2', -1), 'GC1') 
+        self.assertEqual(import_ufo.RestrictModel.get_new_coupling_name(\
+                        'GC1', '-GC2', 'GC2', -1), 'GC1') 
+        self.assertEqual(import_ufo.RestrictModel.get_new_coupling_name(\
+                        'GC1', '-GC2', '-GC2', -1), '-GC1') 
+        self.assertEqual(import_ufo.RestrictModel.get_new_coupling_name(\
+                        '-GC1', 'GC2', 'GC2', -1), 'GC1') 
+        self.assertEqual(import_ufo.RestrictModel.get_new_coupling_name(\
+                        '-GC1', 'GC2', '-GC2', -1), '-GC1') 
+        self.assertEqual(import_ufo.RestrictModel.get_new_coupling_name(\
+                        '-GC1', '-GC2', 'GC2', -1), '-GC1') 
+        self.assertEqual(import_ufo.RestrictModel.get_new_coupling_name(\
+                        '-GC1', '-GC2', '-GC2', -1), 'GC1')
+                   
     def test_restrict_from_a_param_card(self):
         """ check the full restriction chain in one case b b~ h """
         

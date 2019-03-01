@@ -19,6 +19,12 @@ Fortran, C++, etc."""
 
 import re
 import collections
+try:
+    import madgraph
+except ImportError:
+        import internal.misc
+else:
+    import madgraph.various.misc as misc
 
 class FileWriter(file):
     """Generic Writer class. All writers should inherit from this class."""
@@ -80,7 +86,7 @@ class FileWriter(file):
 
         pass
 
-    def writelines(self, lines, context={}, replace_dictionary={}):
+    def writelines(self, lines, context={}, formatting=True, replace_dictionary={}):
         """Extends the regular file.writeline() function to write out
         nicely formatted code. When defining a context, then the lines
         will be preprocessed to apply possible conditional statements on the
@@ -109,7 +115,10 @@ class FileWriter(file):
             splitlines = (('\n'.join(splitlines))%replace_dictionary).split('\n')
 
         for line in splitlines:
-            res_lines = self.write_line(line)
+            if formatting:
+                res_lines = self.write_line(line)
+            else:
+                res_lines = [line+'\n']
             for line_to_write in res_lines:
                 self.write(line_to_write)
                 
@@ -195,13 +204,14 @@ class FortranWriter(FileWriter):
     downcase = False
     line_length = 71
     max_split = 20
-    split_characters = "+-/,() "
+    split_characters = "+-*/,) "
     comment_split_characters = " "
 
     # Private variables
     __indent = 0
     __keyword_list = []
     __comment_pattern = re.compile(r"^(\s*#|c$|(c\s+([^=]|$))|cf2py|c\-\-|c\*\*)", re.IGNORECASE)
+    __continuation_line = re.compile(r"(?:     )[$&]")
 
     def write_line(self, line):
         """Write a fortran line, with correct indent and line splits"""
@@ -222,7 +232,8 @@ class FortranWriter(FileWriter):
             # This is a comment
             res_lines = self.write_comment_line(line.lstrip()[1:])
             return res_lines
-
+        elif self.__continuation_line.search(line):
+            return line+'\n'
         else:
             # This is a regular Fortran line
 
@@ -390,16 +401,62 @@ class FortranWriter(FileWriter):
         splitline = line.split('\'')
         i = 0
         while i < len(splitline):
-           if i % 2 == 1:
+            if i % 2 == 1:
                 # This is a quote - check for escaped \'s
                 while  splitline[i] and splitline[i][-1] == '\\':
                     splitline[i] = splitline[i] + '\'' + splitline.pop(i + 1)
-           i = i + 1
+            i = i + 1
         return len(splitline)-1
 
 #===============================================================================
 # CPPWriter
 #===============================================================================
+
+
+    def remove_routine(self, text, fct_names, formatting=True):
+        """write the incoming text but fully removing the associate routine/function
+           text can be a path to a file, an iterator, a string
+           fct_names should be a list of functions to remove
+        """
+
+        f77_type = ['real*8', 'integer', 'double precision', 'logical']
+        pattern = re.compile('^\s+(?:SUBROUTINE|(?:%(type)s)\s+function)\s+([a-zA-Z]\w*)' \
+                             % {'type':'|'.join(f77_type)}, re.I)
+        
+        removed = []
+        if isinstance(text, str):   
+            if '\n' in text:
+                text = text.split('\n')
+            else:
+                text = open(text)
+        if isinstance(fct_names, str):
+            fct_names = [fct_names]
+        
+        to_write=True     
+        for line in text:
+            fct = pattern.findall(line)
+            if fct:
+                if fct[0] in fct_names:
+                    to_write = False
+                else:
+                    to_write = True
+
+            if to_write:
+                if formatting:
+                    if line.endswith('\n'):
+                        line = line[:-1]
+                    self.writelines(line)
+                else:
+                    if not line.endswith('\n'):
+                        line = '%s\n' % line
+                    file.writelines(self, line)
+            else:
+                removed.append(line)
+                
+        return removed
+        
+
+
 class CPPWriter(FileWriter):
     """Routines for writing C++ lines. Keeps track of brackets,
     spaces, indentation and splitting of long lines"""

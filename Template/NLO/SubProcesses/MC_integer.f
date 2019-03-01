@@ -68,6 +68,7 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
       common/to_readgrid/flat_grid                !Tells if grid read from file
       if (this_dim.lt.1.or.this_dim.gt.maxdim) then
          write (*,*) 'Increase maxdim in MC_integer.f',maxdim,this_dim
+         stop 1
       endif
 c Set the number of intervales for all the dimensions to zero the very
 c first time this subroutine is called
@@ -131,9 +132,6 @@ c Safety
       endif
 c Compute the volume 'vol'
       vol=(grid(iint,this_dim)-grid(iint-1,this_dim))
-c Increase the array that keeps track of the number of times this iint
-c (for 'this_dim') has been picked.
-      ncall(iint,this_dim)=ncall(iint,this_dim)+1
       return
       end
 
@@ -173,6 +171,9 @@ c (for 'this_dim') has been picked.
      &     ,maxdim)
       common/integration_integer/grid,acc,ncall,nintervals
       acc(iint,this_dim)=acc(iint,this_dim)+f_abs
+c Increase the array that keeps track of the number of times this iint
+c (for 'this_dim') has been picked.
+      ncall(iint,this_dim)=ncall(iint,this_dim)+1
       return
       end
 
@@ -283,12 +284,8 @@ c Give a nice printout of the grids after the current iteration
       enddo
 c
 c Reset the accumulated results because we start new iteration.
-      do this_dim=1,maxdim
-         do i=0,nintervals(this_dim)
-            acc(i,this_dim)=0d0
-            ncall(i,this_dim)=0
-         enddo
-      enddo
+      call empty_MC_integer
+c
       return
  999  write (*,*) 'Cannot open "grid.MC_integer" file'
       stop

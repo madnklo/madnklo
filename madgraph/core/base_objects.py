@@ -294,7 +294,7 @@ class Particle(PhysicsObject):
             if not isinstance(value,bool):
                 raise self.PhysicsObjectError, \
                  "%s is not a valid bool for the 'ghost' attribute" % str(value)
-    
+                 
         if name is 'counterterm':
             if not isinstance(value,dict):
                 raise self.PhysicsObjectError, \
@@ -947,6 +947,26 @@ class Interaction(PhysicsObject):
 
         return mystr
 
+    def canonical_repr(self):
+        """ Returns a string representation that allows to order CT vertices in 
+        a diagram so that identical HelasMatrix element (i.e. typically different
+        flavors with identical masses and couplings) can be matched even though
+        the order of the couplings specified in the UFO is different. """
+
+        return '%s|%s'%(self['type'],
+           '&'.join( sorted('%s_%s_%s'%(self['color'][k[0]],self['lorentz'][k[1]],v)
+                                          for k,v in self['couplings'].items() ) ) )
+
+    def get_canonical_couplings_keys_order(self):
+        """ Returns a list of the keys to the 'couplings' dictionary, canonically 
+        ordered so so that identical HelasMatrix element (i.e. typically different
+        flavors with identical masses and couplings) can be matched even though
+        the order of the couplings specified in the UFO is different. """
+
+        return sorted(self['couplings'].keys(), key=lambda k:
+        '%s_%s_%s'%(self['color'][k[0]],self['lorentz'][k[1]],self['couplings'][k]))
+
+
 #===============================================================================
 # InteractionList
 #===============================================================================
@@ -1356,6 +1376,42 @@ class Model(PhysicsObject):
                 if p['spin'] == 2 and p['is_part'] and \
                 p ['color'] != 1 and p['mass'].lower() == 'zero'])
 
+
+    def get_quark_pdgs(self):
+        """returns the PDG codes of the light quarks and antiquarks"""
+        pdg_list = [p['pdg_code'] for p in self.get('particles') \
+                       if p['spin'] == 2 and \
+                       p['color'] == 3 and \
+                       p['charge'] != 0. and p['mass'].lower() == 'zero']
+
+        for p in pdg_list[:]:
+            if not self.get('particle_dict')[p]['self_antipart']:
+                pdg_list.append(self.get('particle_dict')[p].get_anti_pdg_code())
+                
+        return sorted(pdg_list)
+
+
+    def get_nleps(self):
+        """returns the number of light lepton flavours in the model."""
+        return len([p for p in self.get('particles') \
+                if p['spin'] == 2 and p['is_part'] and \
+                p['color'] == 1 and \
+                p['charge'] != 0. and p['mass'].lower() == 'zero'])
+
+
+    def get_lepton_pdgs(self):
+        """returns the PDG codes of the light leptons and antileptons"""
+        pdg_list = [p['pdg_code'] for p in self.get('particles') \
+                       if p['spin'] == 2 and \
+                       p['color'] == 1 and \
+                       p['charge'] != 0. and p['mass'].lower() == 'zero']
+
+        for p in pdg_list[:]:
+            if not self.get('particle_dict')[p]['self_antipart']:
+                pdg_list.append(self.get('particle_dict')[p].get_anti_pdg_code())
+                
+        return sorted(pdg_list)
+
     
     def get_particles_hierarchy(self):
         """Returns the order hierarchies of the model and the
@@ -1502,7 +1558,7 @@ class Model(PhysicsObject):
     def change_parameter_name_with_prefix(self, prefix='mdl_'):
         """ Change all model parameter by a given prefix.
         Modify the parameter if some of them are identical up to the case"""
-
+        
         lower_dict={}
         duplicate = set()
         keys = self.get('parameters').keys()
@@ -1583,7 +1639,13 @@ class Model(PhysicsObject):
             for key in self['couplings'].keys():
                 for coup in self['couplings'][key]:
                     coup.expr = rep_pattern.sub(replace, coup.expr)
-                    
+
+            # change form-factor
+            ff = [l.formfactors for l in self['lorentz'] if hasattr(l, 'formfactors')]
+            ff = set(sum(ff,[])) # here we have the list of ff used in the model
+            for f in ff:
+                f.value = rep_pattern.sub(replace, f.value)
+
             # change mass/width
             for part in self['particles']:
                 if str(part.get('mass')) in one_change:
@@ -1682,7 +1744,7 @@ class Model(PhysicsObject):
                 self.add_param(newsw2, ['external'])
             # Force a refresh of the parameter dictionary
             self.parameters_dict = None
-            return true
+            return True
 
         elif mode==set(['mz','mw','alpha']):
             # For now, all we support is to go from mz, Gf, alpha to mz, mw, alpha
@@ -2800,6 +2862,11 @@ class Process(PhysicsObject):
         # The NLO_mode is always None for a tree-level process and can be
         # 'all', 'real', 'virt' for a loop process.
         self['NLO_mode'] = 'tree'
+        # in the context of QED or QED+QCD perturbation, it is useful to
+        # keep track of the orders that have been explicitly asked by the 
+        # user, because other borns will appear used for the subtraction
+        # of singularities
+        self['born_orders'] = {}
         # The user might want to have the individual matrix element evaluations
         # for specific values of the coupling orders. The list below specifies
         # what are the coupling names which need be individually treated.
@@ -2831,7 +2898,7 @@ class Process(PhysicsObject):
                 raise self.PhysicsObjectError, \
                         "%s is not a valid LegList object" % str(value)
 
-        if name in ['orders', 'overall_orders', 'squared_orders']:
+        if name in ['orders', 'overall_orders','squared_orders', 'born_orders']:
             Interaction.filter(Interaction(), 'orders', value)
 
         if name == 'constrained_orders':
@@ -2998,8 +3065,10 @@ class Process(PhysicsObject):
                 if order not in self['sqorders_types']:
                     # Then assign its type to the default '='
                     self['sqorders_types'][order]='='
-
+                    
         return super(Process, self).get(name) # call the mother routine
+
+    
 
     def get_sorted_keys(self):
         """Return process property names as a nicely sorted list."""
@@ -3011,7 +3080,7 @@ class Process(PhysicsObject):
                 'forbidden_particles', 'is_decay_chain', 'decay_chains',
                 'legs_with_decays', 'perturbation_couplings', 'has_born', 
                 'NLO_mode','split_orders','n_loops', 'has_mirror_process',
-                'beam_factorization']
+                'beam_factorization', 'born_orders']
 
     def nice_string(self, indent = 0, print_weighted = True, prefix = True):
         """Returns a nicely formatted string about current process
@@ -3021,8 +3090,13 @@ class Process(PhysicsObject):
         # TODO: indent only makes sense if prefix is True, move it afterwards
 
         mystr = ""
-        if prefix:
+        if isinstance(prefix, bool) and prefix:
             mystr = " " * indent + "Process: "
+        elif isinstance(prefix, str):
+            mystr = prefix
+        else:
+            mystr = ""
+
         prevleg = None
         for leg in self['legs']:
             mypart = self['model'].get('particle_dict')[leg['id']]
@@ -3199,6 +3273,11 @@ class Process(PhysicsObject):
             mystr = mystr + " ".join([key + '=' + repr(self['orders'][key]) \
                        for key in self['orders']]) + ' '
 
+        # Add squared orders
+        if self['squared_orders']:
+            mystr = mystr + " ".join([key + '^2=' + repr(self['squared_orders'][key]) \
+                       for key in self['squared_orders']]) + ' '
+
         # Add perturbation orders
         if self['perturbation_couplings']:
             mystr = mystr + '[ '
@@ -3212,10 +3291,6 @@ class Process(PhysicsObject):
                 mystr = mystr + order + ' '
             mystr = mystr + '] '
 
-        # Add squared orders
-        if self['perturbation_couplings'] and self['squared_orders']:
-            mystr = mystr + " ".join([key + '=' + repr(self['squared_orders'][key]) \
-                       for key in self['squared_orders']]) + ' '
 
         # Add forbidden s-channels
         if self['forbidden_onsh_s_channels']:
@@ -3428,9 +3503,13 @@ class Process(PhysicsObject):
     def get_initial_pdg(self, number):
         """Return the pdg codes for initial state particles for beam number"""
 
-        return filter(lambda leg: leg.get('state') == False and\
+        legs = filter(lambda leg: leg.get('state') == False and\
                        leg.get('number') == number,
-                       self.get('legs'))[0].get('id')
+                       self.get('legs'))
+        if not legs:
+            return None
+        else:
+            return legs[0].get('id')
 
     def get_cached_initial_final_numbers(self):
         """ Return the initial and final numbers using a cache."""
@@ -3587,6 +3666,18 @@ class Process(PhysicsObject):
         self['legs_with_decays'] = LegList(legs)
 
         return self['legs_with_decays']
+    
+    def get_tag(self):
+        """return the tag for standalone call"""
+        
+        initial = []    #filled in the next line
+        final = [l.get('id') for l in self.get('legs')\
+              if l.get('state') or initial.append(l.get('id'))]
+        decay_finals = self.get_final_ids_after_decay()
+        decay_finals.sort()
+        tag = (tuple(initial), tuple(decay_finals))
+        return tag
+        
 
     def list_for_sort(self):
         """Output a list that can be compared to other processes as:
@@ -3816,11 +3907,11 @@ class ProcessDefinition(Process):
         # Extract hierarchy and particles corresponding to the
         # different hierarchy levels from the model
         particles, hierarchy = model.get_particles_hierarchy()
-
         # Find legs corresponding to the different orders
         # making sure we look at lowest hierarchy first for each leg
         max_order_now = []
         new_legs =  copy.copy(self.get('legs'))
+        import madgraph.core.base_objects as base_objects
         for parts, value in zip(particles, hierarchy):
             ileg = 0
             while ileg < len(new_legs):
@@ -4008,11 +4099,12 @@ class ProcessDefinition(Process):
             'is_decay_chain': self.get('is_decay_chain'),
             'overall_orders': self.get('overall_orders'),
             'split_orders': self.get('split_orders'),
+            'born_orders': self.get('born_orders'),
             'NLO_mode': self.get('NLO_mode'),
             'n_loops': self.get('n_loops'),
             'has_mirror_process': self.get('has_mirror_process'),
-            'beam_factorization': self.get('beam_factorization'), 
-            })
+            'beam_factorization': self.get('beam_factorization')
+        })
             
     def get_process(self, initial_state_ids, final_state_ids):
         """ Return a Process object which has the same properties of this 
@@ -4414,8 +4506,8 @@ class EpsilonExpansion(dict):
         """ Get on particular term of the expansion, specified either by a string or by
         an integer."""
         dict_key = 0
+        term_specifier = term_specifier.lower()
         if isinstance(term_specifier, str):
-            term_specifier = term_specifier.lower()
             if term_specifier == 'sum_all':
                 return sum(v for k,v in self.items() if isinstance(k, int))
             if term_specifier == 'finite':

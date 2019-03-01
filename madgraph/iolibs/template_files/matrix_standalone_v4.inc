@@ -136,6 +136,8 @@ C LOCAL VARIABLES
 C  
       LOGICAL DO_INCLUDE_HEL_CONTRIB
       INTEGER NHEL(NEXTERNAL,NCOMB),NTRY
+C  put in common block to expose this variable to python interface
+      COMMON/%(proc_prefix)sPROCESS_NHEL/NHEL 
       REAL*8 T
       REAL*8 %(proc_prefix)sMATRIX
       INTEGER IHEL,IDEN, I, J
@@ -157,7 +159,6 @@ C
 	  DATA USERHEL/-1/	  
 
 %(helicity_lines)s
-      COMMON/%(proc_prefix)sHELICITYDEF/NHEL
 %(den_factor_line)s
 
 	  INTEGER POLARIZATIONS(0:NEXTERNAL,0:5)
@@ -509,7 +510,7 @@ ENDIF
 %(amp2_lines)s
       END
 
-      SUBROUTINE %(proc_prefix)sGET_ME(P, ALPHAS, NHEL ,ANS)
+      SUBROUTINE %(proc_prefix)sGET_value(P, ALPHAS, NHEL ,ANS)
       IMPLICIT NONE   
 C
 C CONSTANT
@@ -539,10 +540,20 @@ C     the include file with the values of the parameters and masses
       else
         CALL %(proc_prefix)sSMATRIX(P, ANS)
       endif
-      return 
+      return
       end
 
       SUBROUTINE %(proc_prefix)sINITIALISE(PATH)
+C     ROUTINE FOR F2PY to read the benchmark point.
+      IMPLICIT NONE
+      CHARACTER*512 PATH
+CF2PY INTENT(IN) :: PATH
+C     USE SETPARA2 and not SETPARA so that ident_card.dat can be automatically found.
+      CALL SETPARA2(path)
+      return
+      end
+
+      SUBROUTINE %(proc_prefix)sINITIALISEMODEL(PATH)
 C     ROUTINE FOR F2PY to read the benchmark point.    
       IMPLICIT NONE   
       CHARACTER*512 PATH
@@ -574,7 +585,7 @@ C
 C     GLOBALS
 C
       INTEGER HELC(NEXTERNAL,NCOMB)
-      COMMON/%(proc_prefix)sBORN_HEL_CONFIGS/HELC
+      COMMON/%(proc_prefix)sPROCESS_NHEL/HELC
 
       INTEGER POLARIZATIONS(0:NEXTERNAL,0:5)
       COMMON/%(proc_prefix)sBORN_BEAM_POL/POLARIZATIONS

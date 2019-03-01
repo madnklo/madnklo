@@ -222,7 +222,7 @@ class MECmdShell(IOTests.IOTestManager):
         card = card.replace('10000 = nevents', '6 = nevents')
         card = card.replace(' -1 = req_acc', '0.1 = req_acc')
         open('%s/Cards/run_card.dat' % self.path, 'w').write(card)
-        self.cmd_line.exec_cmd('set  cluster_temp_path /tmp/')
+        self.cmd_line.exec_cmd('set  cluster_temp_path /tmp/ --no_save')
         self.do('generate_events -pf')
         # test the lhe event file exists
         self.assertTrue(os.path.exists('%s/Events/run_01/events.lhe.gz' % self.path))
@@ -240,7 +240,7 @@ class MECmdShell(IOTests.IOTestManager):
         is needed in order to test the correct wavefunction size setting for spin2
         particles"""
         cmd = os.getcwd()
-        self.generate(['p p > w+ y [QCD] '], 'tests/loop_smgrav')
+        self.generate(['p p > w+ y [QCD] '], '%s/tests/input_files/loop_smgrav' % MG5DIR)
         card = open('%s/Cards/run_card_default.dat' % self.path).read()
         self.assertTrue( '10000 = nevents' in card)
         card = card.replace('10000 = nevents', '100 = nevents')

@@ -513,6 +513,10 @@ C
 
       double precision stot,m1,m2
       common/to_stot/stot,m1,m2
+
+      INTEGER IMIRROR
+      INTEGER IPROC
+      COMMON/TO_MIRROR/IMIRROR, IPROC
 c
 c     Data
 c
@@ -603,7 +607,7 @@ c
       if (nincoming.eq.2) then
          if (xbk(1) .gt. 0d0 .and. xbk(1) .le. 1d0 .and.
      $       xbk(2) .gt. 0d0 .and. xbk(2) .le. 1d0) then
-            if(xbk(1).eq.1d0.or.pmass(1).eq.0d0) then
+            if(lpp(2).ne.0.and.(xbk(1).eq.1d0.or.pmass(1).eq.0d0)) then
                ! construct the beam momenta in each frame and compute the related (z)boost
                ebi(0) = p(0,1)/xbk(1) ! this assumes that particle 1 is massless or mass equal to beam
                ebi(1) = 0
@@ -641,6 +645,13 @@ c
             pb(4,isym(j,jsym))=pmass(j)
          enddo
       endif
+
+      if (IMIRROR.eq.2.and.pmass(1).ne.pmass(2)) then
+c        Note that in this context isym(1,jsym) should never be "2" since the mass differ 
+         pb(4,isym(1,jsym))=pmass(2)
+         pb(4,isym(2,jsym))=pmass(1)
+      endif
+
 c
 c     Add info on resonant mothers
 c

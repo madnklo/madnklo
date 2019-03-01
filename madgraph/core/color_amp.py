@@ -573,11 +573,10 @@ class ColorMatrix(dict):
                 self.build_matrix(Nc, Nc_power_min, Nc_power_max, is_symmetric=True)
 
     def get_splitting_color_operator(self, incoming_index, emitting_repr, outgoing_base_index, 
-                                             outgoing_emitted_index, qqbar=0):
+                                             outgoing_emitted_index, qqbar=False):
         """ Returns the color operator associated with the splitting of emitting_index (in the
         emitting_repr representation (in [8,3,-3]) into the emitted_index.
-        The flag qqbar indicates if this is a g > g g (qqbar=0), g > q q~ splitting (qqbar=1) or
-        g > q~ q (qqbar=-1).
+        The flag qqbar indicates if this is a g > g g or g > q q~ splitting.
         The outgoing_emitted_index is the new negative emitted index; that is:
         
         The convention for T in the color module is T^{octet}_{incoming triplet, outgoing triplet}
@@ -585,9 +584,8 @@ class ColorMatrix(dict):
           q > q g    :  T^{outgoing_emitted_index}_{incoming_index,outgoing_base_index}
           q~ > q~ g  :  -T^{outgoing_emitted_index}_{outgoing_base_index, incoming_index}
           g > g g    :  f^{incoming_index, outgoing_emitted_index, outgoing_base_index}
-          g > q q~   :  T^{incoming_index}_{outgoing_base_index,outgoing_emitted_index} (qqbar=1)
-          g > q~ q   :  T^{incoming_index}_{outgoing_emitted_index,outgoing_base_index} (qqbar=-1)
-
+          g > q q~   :  T^{incoming_index}_{outgoing_base_index,outgoing_emitted_index}
+        
         """
         
         if emitting_repr not in [3,-3,8]:
@@ -612,23 +610,17 @@ class ColorMatrix(dict):
             return color_algebra.ColorString([color_algebra.f(incoming_index, outgoing_emitted_index, outgoing_base_index)],
                                                                                                  is_imaginary=True)
         # The outgoing_emitted_index is always chosen to be an outgoing anti-quark while the
-        # outgoing_base_index is always a quark, unless qqbar=-1
+        # outgoing_base_index is always a quark. 
         elif qqbar and emitting_repr == 8:
-            if qqbar == 1:
-                return color_algebra.ColorString([color_algebra.T(incoming_index,
+            return color_algebra.ColorString([color_algebra.T(incoming_index, 
                                             outgoing_emitted_index, outgoing_base_index)])
-            else:
-                return color_algebra.ColorString([color_algebra.T(incoming_index,
-                                            outgoing_base_index, outgoing_emitted_index)])
 
     def add_splitting_to_connection(self, connection, emitting_index, emitting_repr, 
-                                                              emitted_index, qqbar=0 ):
+                                                              emitted_index, qqbar=False ):
         """ Add a splitting to the connection passed in argument. The splitting is specified
         by its emitting index and its representation as well as the emitted index.
-        The flag qqbar indicates if this is a g > g g (qqbar=0), g > q q~ splitting (qqbar=1) or
-        g > q~ q (qqbar=-1)."""
-
-        assert(qqbar in (-1,0,1))
+        A special flag denotes if a g > g g or g > q q~ must be considered."""
+        
         # First remove the emitted_index from the list of those that must still be emitted
         connection['emitted_numbers_pool'].remove(emitted_index)
 
@@ -640,12 +632,7 @@ class ColorMatrix(dict):
         else:
             first_outgoing_index_Q1 = self.EMITTED_NEGATIVE_INDICES_OFFSET+abs(emitting_index)
         if emitting_index > 0:
-            # When facing a g > q q~ or g > q~ q (i.e. pay attention, g, not g*, so a gluon coming directly
-            # from a reduced process, not previously emitted). W
-            if qqbar or emitting_repr!=connection['reduced_indices'][emitting_index]:
-                first_outgoing_index_Q2  = self.SINGLE_PRIME_POSITIVE_INDICES_OFFSET+emitting_index
-            else:
-                first_outgoing_index_Q2  = self.DOUBLE_PRIME_POSITIVE_INDICES_OFFSET+emitting_index
+            first_outgoing_index_Q2  = self.DOUBLE_PRIME_POSITIVE_INDICES_OFFSET+emitting_index
         else:
             first_outgoing_index_Q2 = self.EMITTED_NEGATIVE_INDICES_OFFSET+abs(emitting_index)
         
@@ -656,7 +643,7 @@ class ColorMatrix(dict):
         # We must now determine the emitting color index and replace it with a dummy summation
         # if needed. We start with Q1
         if emitting_index in connection['replace_indices_Q1']:
-            # This operator will directly link to the matrix element, no dummy index must
+            # This operator will directly link to the matrix element, no dummy indext must
             # be introduced then
             del connection['replace_indices_Q1'][emitting_index]
             incoming_index_Q1 = emitting_index
@@ -664,67 +651,50 @@ class ColorMatrix(dict):
             # We must introduce a dummy index
             connection['last_dummy_index_Q1'] -= 1
             incoming_index_Q1 = connection['last_dummy_index_Q1']
-            # We must replace the existing first_outgoing_index_Q1 in the colour structure
+            # We must replace the exiting first_outgoing_index_Q1 in the colour structure
             # by this new dummy index
             connection['color_string_Q1'].replace_indices({first_outgoing_index_Q1: incoming_index_Q1})
 
         # And similarly for Q2
         if self.SINGLE_PRIME_POSITIVE_INDICES_OFFSET+emitting_index in connection['replace_indices_Q2']:
-            # This operator will directly link to the matrix element, no dummy index must
+            # This operator will directly link to the matrix element, no dummy indext must
             # be introduced then
             del connection['replace_indices_Q2'][self.SINGLE_PRIME_POSITIVE_INDICES_OFFSET+emitting_index]
-            if emitting_index > 0 and (qqbar or emitting_repr!=connection['reduced_indices'][emitting_index]):
-                incoming_index_Q2 = self.DOUBLE_PRIME_POSITIVE_INDICES_OFFSET+emitting_index
-            else:
-                incoming_index_Q2 = self.SINGLE_PRIME_POSITIVE_INDICES_OFFSET+emitting_index
+            incoming_index_Q2 = self.SINGLE_PRIME_POSITIVE_INDICES_OFFSET+emitting_index
         else:
             # We must introduce a dummy index
             connection['last_dummy_index_Q2'] -= 1
             incoming_index_Q2 = connection['last_dummy_index_Q2']
-
+            
             # We must replace the exiting first_outgoing_index_Q1 in the colour structure
             # by this new dummy index
             connection['color_string_Q2'].replace_indices({first_outgoing_index_Q2: incoming_index_Q2})
-
-#        if (emitting_index > 0 and qqbar):
-#            first_outgoing_index_Q2, incoming_index_Q2 = incoming_index_Q2, first_outgoing_index_Q2
-
+            
         # Now that all the indices of the color operator to add have been figured out,
         # we can add it to the corresponding color strings
         connection['color_string_Q1'].product( self.get_splitting_color_operator(
             incoming_index_Q1, emitting_repr, first_outgoing_index_Q1, second_outgoing_index, qqbar=qqbar) )
         connection['color_string_Q2'].product( self.get_splitting_color_operator(
             incoming_index_Q2, emitting_repr, first_outgoing_index_Q2, second_outgoing_index, qqbar=qqbar) )
-
-
+    
         # We must add the newly generated index to the list of available ones. 
         if not qqbar:
             # It is always a gluon then
             connection['open_indices'].append((emitted_index,8))
             # Add the splitting to the tuple representation
-            connection['tuple_representation'].append( (emitting_index, emitted_index, emitting_index) )
+            connection['tuple_representation'].append( 
+                                             (emitting_index, emitted_index, emitting_index) )
         else:
-            if qqbar==1:
-                # We emit an anti-quark in this case
-                connection['open_indices'].append((emitted_index,-3))
-                # We must remove the existing open index which was a gluon and replace it with
-                # a quark one
-                connection['open_indices'].remove((emitting_index,8))
-                connection['open_indices'].append((emitting_index,3))
-                # As you can see the convention for such splitting is to be denoted
-                # (-1,-1,-2) while g > g g would be labelled as (-1,-2,-1).
-                connection['tuple_representation'].append( (emitting_index, emitting_index, emitted_index) )
-            elif qqbar==-1:
-                # We emit a quark in this case.
-                connection['open_indices'].append((emitted_index,3))
-                # We must remove the existing open index which was a gluon and replace it with
-                # an anti-quark one
-                connection['open_indices'].remove((emitting_index,8))
-                connection['open_indices'].append((emitting_index,-3))
-                # As you can see the convention for such splitting is to be denoted
-                # (5,0,-1) while g > q q~ would be labelled as (5,5,-1).
-                connection['tuple_representation'].append( (emitting_index, 0, emitted_index) )
-
+            # We emit an anti-quark in this case
+            connection['open_indices'].append((emitted_index,-3))
+            # We must remove the existing open index which was a gluon and replace it with
+            # a quark one
+            connection['open_indices'].remove((emitting_index,8))
+            connection['open_indices'].append((emitting_index,3))
+            # As you can see the convention for such splitting is to be denoted 
+            # (-1,-1,-2) while g > g g would be labelled as (-1,-2,-1).
+            connection['tuple_representation'].append( 
+                                          (emitting_index, emitting_index, emitted_index) )
             
 
     def generate_all_color_connections(self, process_legs, model, order='NLO'):
@@ -880,18 +850,7 @@ class ColorMatrix(dict):
                  # but only the former will be retained as a result of the ordering principle
                  # of ascending first indices in all the triplets part of the tuple representation
                  # Therefore, n_representative will be computed to be 2 for the above connection
-                 'n_representatives'    : 1,
-                 # Finally since we allow g > q q~ and not only g* > q q~ (i.e. we allow a gluon
-                 # of the reduced process, that is not an emitted one, to split into q q~), it is useful
-                 # to keep what are the original quantum numbers of the reduced process, in order to be
-                 # able to detect when a resolved gluon (that is, from the reduced process) is turned into
-                 # a quark. This will only be used in the function set_entries_for_correlator.
-                 # It is a bit redundant to have this stored in *all* color connections, but this is
-                 # structurally convenient and adds only insignificant memory overhead since this dictionary
-                 # will be copied as a reference in each color connection.
-                 # Keys are leg number while values are quantum numbers.
-                 'reduced_indices'      : {}
-                 }
+                 'n_representatives'    : 1}
             ]
         }
 
@@ -910,18 +869,15 @@ class ColorMatrix(dict):
             # The anti-charge generator takes a minus sign.
             elif color_charge == -3 and not leg.get('state') or color_charge == 3 and leg.get('state'):
                 color_connections['LO'][0]['open_indices'].append((leg_number,-3))
-                color_connections['LO'][0]['reduced_indices'][leg_number] = -3
             # Initial state quark and final state anti-quarks both carry fundamental color indices
             elif color_charge == 3 and not leg.get('state') or color_charge == -3 and leg.get('state'):
                 color_connections['LO'][0]['open_indices'].append((leg_number,3))
-                color_connections['LO'][0]['reduced_indices'][leg_number] = 3
             # For gluon self-interactions, we chose the second index 'b' of f^{abc} to be the one carrying 
             # "emitted" gluon's color.
             # The dual representation of the color charge takes an imaginary factor 'i', this is also what insures that
             # the color matrix remains real for the correlator of the type f * T
             elif color_charge == 8:
                 color_connections['LO'][0]['open_indices'].append((leg_number,8))
-                color_connections['LO'][0]['reduced_indices'][leg_number] = 8
             # In all cases for color-charged particle we start with deltas
             color_connections['LO'][0]['replace_indices_Q1'][leg_number]\
                 = self.SINGLE_PRIME_POSITIVE_INDICES_OFFSET+leg_number
@@ -937,8 +893,7 @@ class ColorMatrix(dict):
                        'replace_indices_Q2'     : dict(correlator['replace_indices_Q2']),
                        'last_dummy_index_Q2'    : correlator['last_dummy_index_Q2'],
                        'tuple_representation'   : list(correlator['tuple_representation']),
-                       'n_representatives'      : correlator['n_representatives'],
-                       'reduced_indices'        : correlator['reduced_indices']
+                       'n_representatives'      : correlator['n_representatives']
                      }
             if 'emitted_numbers_pool' in correlator:
                 copy['emitted_numbers_pool'] = list(correlator['emitted_numbers_pool'])
@@ -968,35 +923,18 @@ class ColorMatrix(dict):
                             # Now append the corresponding emission operator and tuple 
                             # representation to the connection from which we emit
                             new_connection = create_connection_copy(connection)
+                            
                             self.add_splitting_to_connection(new_connection,
-                                 emitting_index, emitting_repr, emitted_index, qqbar=0)
+                                 emitting_index, emitting_repr, emitted_index, qqbar=False)
                             next_connections_list.append(new_connection)
                             
                             # If the emitting index is unresolved (i.e. negative), 
-                            # we must allow the g* > q q~ splitting.
+                            # we must allow the g > q q~ splitting. 
                             if emitting_repr == 8 and emitting_index < 0:
                                 qqbar_connection = create_connection_copy(connection)
                                 self.add_splitting_to_connection(qqbar_connection,
-                                  emitting_index, emitting_repr, emitted_index, qqbar=1)
-                                next_connections_list.append(qqbar_connection)
-                            # When one wants to also compute collinear limits of color
-                            # correlated matrix elements, we must also include the possibility
-                            # of a g > q q~ *and* of g > q~ q splitting (i.e. a gluon of the
-                            # reduced process, that is a resolved gluon, splitting into a
-                            # quark-antiquark pair.). Indeed, in this case we must create
-                            # two color connections for q q~ *and* q~ q. The former will
-                            # be noted (5,5,-1) and the latter (5,0,-1).
-                            if emitting_repr == 8 and emitting_index > 0:
-                                # g > q q~, denoted e.g. (5,5,-1)
-                                qqbar_connection = create_connection_copy(connection)
-                                self.add_splitting_to_connection(
-                                    qqbar_connection, emitting_index, emitting_repr, emitted_index, qqbar=1)
-                                next_connections_list.append(qqbar_connection)
-                                # g > q~ q, denoted e.g. (5,0,-1)
-                                qbarq_connection = create_connection_copy(connection)
-                                self.add_splitting_to_connection(
-                                    qbarq_connection, emitting_index, emitting_repr, emitted_index, qqbar=-1)
-                                next_connections_list.append(qbarq_connection)
+                                  emitting_index, emitting_repr, emitted_index, qqbar=True)
+                                next_connections_list.append(qqbar_connection)             
                                 
                 # Now update the intermediate connections_intermediate list to be used for 
                 # the next emission. Filter here the connections generated by ordering
@@ -1039,7 +977,7 @@ class ColorMatrix(dict):
     def set_entries_for_correlator(self, cache, all_colored_indices_replacement,
                  color_connection_Q1, color_connection_Q2, Nc, Nc_power_min, Nc_power_max):
         """ Given the correlator, compute the entry of this color matrix."""
-
+        
         # Useful shorthand to instantiate a ColorString from an immutable representation.
         def from_immutable(CB):
             a_cs = color_algebra.ColorString()
@@ -1056,7 +994,7 @@ class ColorMatrix(dict):
         ##     color_connection_Q2['tuple_representation'] == ((4,-1,4 ),(4,-2,4)) ):
         ##    print('Doing 11 vs 16: %s vs %s'%(color_connection_Q1['tuple_representation'],color_connection_Q2['tuple_representation']))
         ##    debug = True
-
+        
         if debug: print("\n>>>>>Now doing '%s' vs '%s'"%(
             str(color_connection_Q1['tuple_representation']),
             str(color_connection_Q2['tuple_representation']),
@@ -1072,10 +1010,8 @@ class ColorMatrix(dict):
         if debug:print('open_indices_Q2=',sorted(color_connection_Q2['open_indices']))
         # The radiated q and q~ from Q2 must be considered with opposite quantum numbers
         # because they are linked to those of Q1 which are not complex conjugated.
-        open_indices_Q2 = sorted((ind, -1*repr if
-            (abs(repr)==3 and (ind<0 or (ind>0 and repr!=color_connection_Q2['reduced_indices'][ind]))) else repr)
-                                                            for ind, repr in color_connection_Q2['open_indices'])
-        if debug:print('open_indices_Q2 post_processed=',open_indices_Q2)
+        open_indices_Q2 = sorted((ind, -1*repr if ind<0 and abs(repr)==3 else repr) 
+                                     for ind, repr in color_connection_Q2['open_indices'])
         if sorted(color_connection_Q1['open_indices']) != open_indices_Q2:
             if debug: print('Incompatible quantum numbers for this correlator.')
             # The two representations are incompatible, set the color matrix to zero
@@ -1155,9 +1091,9 @@ class ColorMatrix(dict):
                    
                     # Store result
                     cache[canonical_entry] = (result, result_fixed_Nc)
-                    if debug: print '<%d| %s | %s |%d> = %s = %s' % (
-                        i, color_connection_Q1['tuple_representation'],
-                        color_connection_Q2['tuple_representation'], j, 'computed!', result_fixed_Nc)
+                    # misc.sprint('<%d| %s | %s |%d> = %s = %s'%(
+                    #   i, color_connection_Q1['tuple_representation'], 
+                    #   color_connection_Q2['tuple_representation'], j, 'computed!', res_fixed_Nc))
                 
                 # Now that we have recovered our result_fixed_Nc, we can store it in the matrix
                 # Store the full result.

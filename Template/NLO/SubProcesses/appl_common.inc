@@ -2,10 +2,10 @@
 ************************************************************************
 *     NLO mode of aMC@NLO
 ************************************************************************
-
-*     Power of alphaS for Born matrix element (alphas^(appl_bpower) multiplies W0)
-      integer appl_bpower
-      common / appl_common_fixed / appl_bpower
+      include 'orders.inc'
+*     Amp split size
+      integer appl_amp_split_size 
+      common / appl_common_fixed / appl_amp_split_size
 
 *     Initial state map to be used together with the info in appl_flavmap
       integer appl_nlumi
@@ -17,14 +17,21 @@
       common / appl_common_lumi / appl_lumimap,appl_nproc,appl_nlumi
 
 *     Event weights, kinematics, observables etc. that are different event by event
-      double precision appl_x1(4),appl_x2(4)
-      double precision appl_muF2(4),appl_muR2(4),appl_QES2(4)
-      double precision appl_w0(4),appl_wR(4),appl_wF(4),appl_wB(4)
+      double precision appl_x1(4, amp_split_size), 
+     1                 appl_x2(4, amp_split_size)
+      double precision appl_muF2(4, amp_split_size),
+     1                 appl_muR2(4, amp_split_size),
+     2                 appl_QES2(4, amp_split_size)
+      double precision appl_w0(4, amp_split_size),
+     1                 appl_wR(4, amp_split_size),
+     2                 appl_wF(4, amp_split_size),
+     3                 appl_wB(4, amp_split_size)
+      integer appl_qcdpower(4, amp_split_size)
       integer appl_flavmap(4)
       common / appl_common_weights / appl_x1,appl_x2,
      1                               appl_muF2,appl_muR2,appl_QES2,
      2                               appl_w0,appl_wR,appl_wF,appl_wB,
-     3                               appl_flavmap
+     3                               appl_flavmap,appl_qcdpower
 
 *     Parameters of the grids.
 *     These parameters can optionally be singularly specified by the user,

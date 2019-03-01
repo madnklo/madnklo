@@ -49,12 +49,12 @@ except:
 # useful shortcut
 pjoin = os.path.join
 
-#root_path = pjoin(os.path.dirname(os.path.realpath( __file__ )), *([os.path.pardir]*3))
-#sys.path.insert(0, root_path)
+# root_path = pjoin(os.path.dirname(os.path.realpath( __file__ )), *([os.path.pardir]*3))
+# sys.path.insert(0, root_path)
 
 # Special logger for the Cmd Interface
-logger = logging.getLogger('madevent7') # -> stdout
-logger_stderr = logging.getLogger('madevent7.stderr') # ->stderr
+logger = logging.getLogger('madevent7')  # -> stdout
+logger_stderr = logging.getLogger('madevent7.stderr')  # ->stderr
 
 import madgraph.core.base_objects as base_objects
 import madgraph.core.subtraction as subtraction
@@ -639,6 +639,8 @@ class ME7EventList(list):
 class ME7Integrand(integrands.VirtualIntegrand):
     """ Specialization for multi-purpose integration with ME7."""
     
+    counter = 0
+    
     # Maximum size of the cache for PDF calls
     PDF_cache_max_size = 1000
     
@@ -699,7 +701,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         else:
             return super(ME7Integrand, cls).__new__(cls, *all_args, **opt)
     
-    def __init__(self, model, 
+    def __init__(self, model,
                        run_card,
                        contribution_definition,
                        processes_map,
@@ -730,17 +732,17 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
         # The process map of the Contribution instance at the origin of this integrand.
         # The format is identical to the one generated from the function 'get_process_map' of a contribution.
-        self.processes_map              = processes_map
+        self.processes_map = processes_map
         
         # Add information about the topology of the diagrams constituting the processes,
         # so as to be able to build efficient phase-space parametrizations. The format of these dictionaries
         # is specified in the function 'set_phase_space_topologies' of the class contributions.Contribution
-        self.topologies_to_processes    = topologies_to_processes
-        self.processes_to_topologies    = processes_to_topologies
+        self.topologies_to_processes = topologies_to_processes
+        self.processes_to_topologies = processes_to_topologies
         
         # An instance of accessors.MEAccessorDict providing access to all ME available as part of this
         # ME7 session.
-        self.all_MEAccessors            = all_MEAccessors
+        self.all_MEAccessors = all_MEAccessors
 
         # Update and define many properties of self based on the provided run-card and model.
         self.synchronize(model, run_card, ME7_configuration)
@@ -771,8 +773,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
         contribution. Can be overloaded by daughter classes."""
         GREEN = '\033[92m'
         ENDC = '\033[0m'        
-        return GREEN+'  %s'%defining_process.nice_string(print_weighted=False).\
-                                                               replace('Process: ','')+ENDC
+        return GREEN + '  %s' % defining_process.nice_string(print_weighted=False).\
+                                                               replace('Process: ', '') + ENDC
 
     def get_short_name(self):
         """ Returns the short-name for this integrand, typically extracted from the one
@@ -788,21 +790,21 @@ class ME7Integrand(integrands.VirtualIntegrand):
         res.append('%-30s:   %s'%('ME7Integrand_type',type(self)))
         res.extend([self.contribution_definition.nice_string()])
         if not self.topologies_to_processes is None:
-            res.append('%-30s:   %d'%('Number of topologies', 
+            res.append('%-30s:   %d' % ('Number of topologies',
                                                     len(self.topologies_to_processes.keys())))
         res.extend(self.get_additional_nice_string_printout_lines())
 
         if format < 1:
-            res.append('Generated and mapped processes for this contribution: %d (+%d mapped)'%
-                       ( len(self.processes_map.keys()),
-                         len(sum([v[1] for v in self.processes_map.values()],[])) ) )
+            res.append('Generated and mapped processes for this contribution: %d (+%d mapped)' % 
+                       (len(self.processes_map.keys()),
+                         len(sum([v[1] for v in self.processes_map.values()], []))))
         else:
             res.append('Generated and mapped processes for this contribution:')
             for process_key, (defining_process, mapped_processes) in self.processes_map.items():
                 res.append(self.get_nice_string_process_line(process_key, defining_process, format=format))                
                 for mapped_process in mapped_processes:
-                    res.append(BLUE+u'   \u21b3  '+mapped_process.nice_string(print_weighted=False)\
-                                                                        .replace('Process: ','')+ENDC)
+                    res.append(BLUE + u'   \u21b3  ' + mapped_process.nice_string(print_weighted=False)\
+                                                                        .replace('Process: ', '') + ENDC)
             
         return '\n'.join(res).encode('utf-8')
 
@@ -810,7 +812,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         return self.nice_string()
 
     @staticmethod
-    def build_flavor_cut_function(flavor_cut_string, contrib_name):
+    def build_flavor_cut_function(flavor_cut_string):
         """ Given a string defining a flavor cut function specification (taken from the run
         card), build here the flavor cut function to apply at run-time. Example of a complicated
         cut function:
@@ -842,8 +844,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
         except:
             is_a_dict = False
         if is_a_dict:
-            if contrib_name in flavor_func_dic:
-                flavor_cut_string = flavor_func_dic[contrib_name]
+            if self.get_short_name() in flavor_func_dic:
+                flavor_cut_string = flavor_func_dic[self.get_short_name()]
             else:
                 return None
         
@@ -959,18 +961,17 @@ class ME7Integrand(integrands.VirtualIntegrand):
         """ Synchronize this integrand with the most recent run_card and model."""
 
         # The option dictionary of ME7
-        self.ME7_configuration          = ME7_configuration
+        self.ME7_configuration = ME7_configuration
         
         # A ModelReader instance, initialized with the values of the param_card.dat of this run
-        self.model                      = model
+        self.model = model
         if not isinstance(self.model, model_reader.ModelReader):
             raise MadGraph5Error("The ME7Integrand must be initialized with a ModelReader instance.")
 
         # A RunCardME7 instance, properly initialized with the values of the run_card.dat of this run
-        self.run_card                   = run_card
+        self.run_card = run_card
         
-        self.flavor_cut_function = ME7Integrand.build_flavor_cut_function(
-                                                self.run_card['flavor_cuts'], self.get_short_name())
+        self.flavor_cut_function = ME7Integrand.build_flavor_cut_function(self.run_card['flavor_cuts'])
         
         # Set external masses
         all_processes = [p[0] for p in self.processes_map.values()]
@@ -979,17 +980,17 @@ class ME7Integrand(integrands.VirtualIntegrand):
             this_proc_masses = proc.get_external_masses(self.model)
             if this_proc_masses != self.masses:
                 raise MadGraph5Error("A contribution must entail processes with all the same external masses.\n"
-                 "This is not the case; process\n%s\nhas masses '%s' while process\n%s\n has masses '%s'."%
-                 (all_processes[0].nice_string(), self.masses, proc.nice_string(), this_proc_masses) )
+                 "This is not the case; process\n%s\nhas masses '%s' while process\n%s\n has masses '%s'." % 
+                 (all_processes[0].nice_string(), self.masses, proc.nice_string(), this_proc_masses))
         self.n_initial = len(self.masses[0])
         self.n_final = len(self.masses[1])
         
-        if self.n_initial==1:
+        if self.n_initial == 1:
             raise InvalidCmd("MadEvent7 does not yet support decay processes.")
         
-        if not (self.run_card['lpp1']==self.run_card['lpp2']==1) and \
-           not (self.run_card['lpp1']==self.run_card['lpp2']==0):
-            raise InvalidCmd("MadEvent7 does not support the following collider mode yet (%d,%d)."%\
+        if not (self.run_card['lpp1'] == self.run_card['lpp2'] == 1) and \
+           not (self.run_card['lpp1'] == self.run_card['lpp2'] == 0):
+            raise InvalidCmd("MadEvent7 does not support the following collider mode yet (%d,%d)." % \
                                                             (self.run_card['lpp1'], self.run_card['lpp2']))
         
         # Always initialize the basic flat PS generator. It can be overwritten later if necessary.
@@ -997,15 +998,57 @@ class ME7Integrand(integrands.VirtualIntegrand):
             0 if self.contribution_definition.beam_factorization['beam_one'] is None else 1,
             0 if self.contribution_definition.beam_factorization['beam_two'] is None else 1,
         )
-        self.phase_space_generator = phase_space_generators.FlatInvertiblePhasespace(
-            self.masses[0], self.masses[1],
-            beam_Es             = (self.run_card['ebeam1'], self.run_card['ebeam2']),
-            beam_types          = simplified_beam_types,
-            is_beam_factorization_active = 
-                        ( self.contribution_definition.is_beam_active('beam_one'),
-                          self.contribution_definition.is_beam_active('beam_two') ),
-            correlated_beam_convolution = self.contribution_definition.correlated_beam_convolution
-        )
+        
+	   # now choose the right PS_generator according to specified option
+        if 'PS_generator' not in ME7_configuration.keys() or ME7_configuration['PS_generator'] is None:
+            # If nothing is specified, we use FLATPS by default
+            selected_PS_generator = "FLATPS"
+        else:
+            selected_PS_generator = ME7_configuration['PS_generator']
+        
+        PS_generator_args    = [self.masses[0], self.masses[1]]
+        PS_generator_options = {
+            'beam_Es' : (self.run_card['ebeam1'], self.run_card['ebeam2']),
+            'beam_types' : simplified_beam_types,
+            'is_beam_factorization_active' : ( self.contribution_definition.is_beam_active('beam_one'),
+                                               self.contribution_definition.is_beam_active('beam_two') ),
+            'correlated_beam_convolution' : self.contribution_definition.correlated_beam_convolution
+        }
+        
+        if selected_PS_generator.startswith('SCPS'):
+            if '@' in ME7_configuration['PS_generator']:
+                topology_number = int(ME7_configuration['PS_generator'].split('@')[1])-1
+            else:
+                topology_number = 0
+            if topology_number >= len(self.topologies_to_processes):
+                raise InvalidCmd('This process only has %d topologies. You cannot choose the #%dth one.'%(
+                    len(self.topologies_to_processes), topology_number+1))
+            chosen_key = self.topologies_to_processes.keys()[topology_number]
+            a_topology = self.topologies_to_processes[chosen_key]['s_and_t_channels']
+            PS_generator_options['model'] = self.model
+            PS_generator_options['topology'] = a_topology
+            self.phase_space_generator = phase_space_generators.SingleChannelPhasespace(
+                                                         *PS_generator_args, **PS_generator_options)
+            logger.debug('Integrand %s is using PS_generator=SCPS, with topology #%d/%d:%s'%(
+                self.get_short_name(),
+                topology_number+1, len(self.topologies_to_processes),
+                self.phase_space_generator.get_topology_string(a_topology,
+                                                     path_to_print=self.phase_space_generator.path)
+            ))
+        elif selected_PS_generator == 'MCPS':
+            all_topologies = [None] * len(self.topologies_to_processes.keys())
+            for a_key in self.topologies_to_processes.keys():
+                all_topologies[a_key[1]] = self.topologies_to_processes[a_key]['s_and_t_channels']
+            PS_generator_options['model'] = self.model
+            PS_generator_options['topologies'] = all_topologies
+            self.phase_space_generator = phase_space_generators.MultiChannelPhasespace(
+                                                        *PS_generator_args, **PS_generator_options)
+        elif selected_PS_generator == 'FLATPS':
+            self.phase_space_generator = phase_space_generators.FlatInvertiblePhasespace(
+                                                        *PS_generator_args, **PS_generator_options)
+            #logger.info('Using PS_generator=FLATPS')
+        else:
+            raise MadGraph5Error('Specified phase-space generator not reckognized: %s'%selected_PS_generator)
 
         # Add a copy of the PS generator dimensions here.
         # Notice however that we could add more dimensions pertaining to this integrand only, and PS generation.
@@ -1017,8 +1060,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
                             d for d in integrand_dimensions if d.name not in self.FROZEN_DIMENSIONS)
         self.set_dimensions(integrand_dimensions)
         self.dim_ordered_names = [d.name for d in self.get_dimensions()]
-        self.dim_name_to_position = dict((name,i) for i, name in enumerate(self.dim_ordered_names))
-        self.position_to_dim_name = dict((v,k) for (k,v) in self.dim_name_to_position.items())
+        self.dim_name_to_position = dict((name, i) for i, name in enumerate(self.dim_ordered_names))
+        self.position_to_dim_name = dict((v, k) for (k, v) in self.dim_name_to_position.items())
 
         self.collider_energy = self.run_card['ebeam1'] + self.run_card['ebeam2']
         # Set the seed
@@ -1029,7 +1072,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # Setup the PDF cache
         self.PDF_cache = {}
         self.PDF_cache_entries = []
-        if self.run_card['lpp1']==0 and self.run_card['lpp2']==0:
+        if self.run_card['lpp1'] == 0 and self.run_card['lpp2'] == 0:
             self.pdf = None 
             self.pdfsets = None
         else:
@@ -1045,21 +1088,21 @@ class ME7Integrand(integrands.VirtualIntegrand):
                 raise MadGraph5Error("The python lhapdf API could not be loaded.")
             # Adjust LHAPDF verbosity to current logger's verbosity
             # Ask for logging.DEBUG-1 so as to only have lhapdf verbose if really desired.
-            lhapdf.setVerbosity(1 if logger.level<=(logging.DEBUG-1) else 0)
+            lhapdf.setVerbosity(1 if logger.level <= (logging.DEBUG - 1) else 0)
 
-            pdfsets_dir = subprocess.Popen([lhapdf_config,'--datadir'],\
+            pdfsets_dir = subprocess.Popen([lhapdf_config, '--datadir'], \
                                            stdout=subprocess.PIPE).stdout.read().strip()
             lhapdf.pathsPrepend(pdfsets_dir)
-            lhapdf_version = subprocess.Popen([lhapdf_config,'--version'],\
+            lhapdf_version = subprocess.Popen([lhapdf_config, '--version'], \
                                            stdout=subprocess.PIPE).stdout.read().strip()
             pdf_info = common_run.CommonRunCmd.get_lhapdf_pdfsets_list_static(pdfsets_dir, lhapdf_version)
             lhaid = self.run_card.get_lhapdf_id()
             if lhaid not in pdf_info:
-                raise InvalidCmd("Could not find PDF set with lhaid #%d in %s."%(lhaid, pdfsets_dir))
+                raise InvalidCmd("Could not find PDF set with lhaid #%d in %s." % (lhaid, pdfsets_dir))
             pdf_set_name = pdf_info[lhaid]['filename']
             if not os.path.isdir(pjoin(pdfsets_dir, pdf_set_name)):
-                raise InvalidCmd("Could not find PDF set directory named "+
-                    "'%s' in '%s'.\n"%(pdf_set_name, pdfsets_dir)+
+                raise InvalidCmd("Could not find PDF set directory named " + 
+                    "'%s' in '%s'.\n" % (pdf_set_name, pdfsets_dir) + 
                     "It can be downloaded from LHAPDF official online resources.")
 
             self.pdfsets = lhapdf.getPDFSet(pdf_info[lhaid]['filename'])
@@ -1080,13 +1123,13 @@ class ME7Integrand(integrands.VirtualIntegrand):
                         # Leave these parameters to their default if not specified in the model
                         continue
                     else:
-                        raise InvalidCmd("When not using PDFsets, MadEvent7 requires a model with the"+
-                                    " parameter %s to be defined so as to be able to run alpha_S."%param)
+                        raise InvalidCmd("When not using PDFsets, MadEvent7 requires a model with the" + 
+                                    " parameter %s to be defined so as to be able to run alpha_S." % param)
                 if model_param_dict[param] != 0.:
                     as_running_params[param] = model_param_dict[param]
             # For now always chose to run alpha_S at two loops.
             n_loop_for_as_running = 2
-            self.alpha_s_runner = model_reader.Alphas_Runner(as_running_params['aS'], n_loop_for_as_running, 
+            self.alpha_s_runner = model_reader.Alphas_Runner(as_running_params['aS'], n_loop_for_as_running,
                       as_running_params['mdl_MZ'], as_running_params['mdl_MC'], as_running_params['mdl_MB'])
 
         #Import the observables from the FO_analysis folder
@@ -1129,8 +1172,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
         """ Initialize self from a dump and possibly other information necessary for reconstructing this
         integrand."""
         
-        return cls(  model, 
-                     run_card,                             
+        return cls(model,
+                     run_card,
                      dump['contribution_definition'],
                      dump['processes_map'],
                      dump['topologies_to_processes'],
@@ -1142,12 +1185,12 @@ class ME7Integrand(integrands.VirtualIntegrand):
     def set_phase_space_generator(self, PS_generator):
         """ Overwrites current phase-space generator."""
         if not isinstance(PS_generator, phase_space_generators.VirtualPhaseSpaceGenerator):
-            raise MadGraph5Error("Cannot assign to a MadEvent7 integrand a phase-space generator that "+
+            raise MadGraph5Error("Cannot assign to a MadEvent7 integrand a phase-space generator that " + 
                                  " does not inherit from VirtualPhaseSpaceGenerator.")
         if PS_generator.nDimPhaseSpace() != self.phase_space_generator.nDimPhaseSpace():
-            raise MadGraph5Error("A MadEvent7 integrand was assigned a phase-space generator with the"+
-                                 " wrong number of integration dimensions: %d instead of %d"%
-                (PS_generator.nDimPhaseSpace(),self.phase_space_generator.nDimPhaseSpace()))
+            raise MadGraph5Error("A MadEvent7 integrand was assigned a phase-space generator with the" + 
+                                 " wrong number of integration dimensions: %d instead of %d" % 
+                (PS_generator.nDimPhaseSpace(), self.phase_space_generator.nDimPhaseSpace()))
         self.phase_space_generator = PS_generator
 
     def is_part_of_process_selection(self, process_list, selection=None):
@@ -1160,7 +1203,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         def pdg_list_match(target_list, selection_list):
             if len(target_list) != len(selection_list):
                 return False
-            targets = dict( (k, target_list.count(k)) for k in set(target_list) )
+            targets = dict((k, target_list.count(k)) for k in set(target_list))
             found_it = False
             for sel in itertools.product(*selection_list):
                 found_it = True
@@ -1293,19 +1336,19 @@ class ME7Integrand(integrands.VirtualIntegrand):
         
         # These cuts are not allowed to resolve flavour, but only whether a particle is a jet or not
         def is_a_jet(pdg):
-            return abs(pdg) in range(1,self.run_card['maxjetflavor']+1)+[21]
+            return abs(pdg) in range(1, self.run_card['maxjetflavor'] + 1) + [21]
         
         def is_a_lepton(pdg):
-            return abs(pdg) in [11,13,15]
+            return abs(pdg) in [11, 13, 15]
         
         def is_a_neutrino(pdg):
-            return abs(pdg) in [12,14,16]
+            return abs(pdg) in [12, 14, 16]
         
         def is_a_photon(pdg):
-            return pdg==22
+            return pdg == 22
         
-        if debug_cuts: logger.debug( "Processing flavor-blind cuts for process %s and PS point:\n%s"%(
-            str(process_pdgs), LorentzVectorList(PS_point).__str__(n_initial=self.phase_space_generator.n_initial) ))
+        if debug_cuts: logger.debug("Processing flavor-blind cuts for process %s and PS point:\n%s" % (
+            str(process_pdgs), LorentzVectorList(PS_point).__str__(n_initial=self.phase_space_generator.n_initial)))
 
         if n_jets_allowed_to_be_clustered is None:
             n_jets_allowed_to_be_clustered = self.contribution_definition.n_unresolved_particles
@@ -1317,17 +1360,11 @@ class ME7Integrand(integrands.VirtualIntegrand):
         elif not isinstance(PS_point, LorentzVectorList):
             PS_point = LorentzVectorList(LorentzVector(v) for v in PS_point)    
 
-        for i, p in enumerate(PS_point[self.n_initial:]):
-            if is_a_photon(process_pdgs[1][i]):
-                if p.pt() < 100.0:
-                    return False
-
-        for i, p in enumerate(PS_point[self.n_initial:]):
-            if is_a_photon(process_pdgs[1][i]):
-                for j, p2 in enumerate(PS_point[self.n_initial:]):
-                    if (j != i) and process_pdgs[1][j]!=21:
-                        if p.deltaR(p2) < 0.4:
-                            return False
+        #for i, p in enumerate(PS_point[self.n_initial:]):
+        #    if process_pdgs[1][i]==25:
+        #        assert((p.square()-125.0**2)<0.1)
+        #        if p.pt() < 400.0:
+        #            return False
 
         ###################################################################################
         # JET CLUSTERING AND CUTS
@@ -1343,8 +1380,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
             return True
         else:
             # If fastjet is needed but not found, make sure to stop
-            if (not PYJET_AVAILABLE) and n_jets_allowed_to_be_clustered>0:
-                raise MadEvent7Error("Fast-jet python bindings are necessary for integrating"+
+            if (not PYJET_AVAILABLE) and n_jets_allowed_to_be_clustered > 0:
+                raise MadEvent7Error("Fast-jet python bindings are necessary for integrating" + 
                              " real-emission type of contributions. Please install pyjet.")
 
         if PYJET_AVAILABLE and drjj_cut > 0.:
@@ -1353,7 +1390,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
             jets_list = []
             for i, p in enumerate(PS_point[self.n_initial:]):
                 if is_a_jet(process_pdgs[1][i]):
-                    jets_list.append(tuple(list(p)+[i+self.n_initial+1,]))
+                    jets_list.append(tuple(list(p) + [i + self.n_initial + 1, ]))
             # Count partonic jets
             starting_n_jets = len(jets_list)
 
@@ -1394,9 +1431,10 @@ class ME7Integrand(integrands.VirtualIntegrand):
             # Make sure that the number of clustered jets is at least larger or equal to the
             # starting list of jets minus the number of particles that are allowed to go
             # unresolved in this contribution.
-            if debug_cuts: logger.debug("Number of identified jets: %d (min %d)"%
-                           ( len(jets), (starting_n_jets-n_jets_allowed_to_be_clustered) ))
-            if len(jets) < (starting_n_jets-n_jets_allowed_to_be_clustered):
+            if debug_cuts: logger.debug("Number of identified jets: %d (min %d)" % 
+                           (len(jets), (starting_n_jets - n_jets_allowed_to_be_clustered)))
+            if len(jets) < (starting_n_jets - n_jets_allowed_to_be_clustered):
+
                 return False
             
             all_jets = LorentzVectorList([LorentzVector(
@@ -1408,7 +1446,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
             if ptj_cut > 0.:
                 # Apply the Ptj cut first
                 for i, p in enumerate(all_jets):
-                    if debug_cuts: logger.debug('pj_%i.pt()=%.5e'%((i+1),p.pt()))
+                    if debug_cuts: logger.debug('pj_%i.pt()=%.5e' % ((i + 1), p.pt()))
                     if p.pt() < ptj_cut:
                         return False
     
@@ -1418,21 +1456,22 @@ class ME7Integrand(integrands.VirtualIntegrand):
                     for j, p2 in enumerate(all_jets):
                         if j <= i:
                             continue
-                        if debug_cuts: logger.debug('deltaR(pj_%i,pj_%i)=%.5e'%(
-                             i+1, j+1, p1.deltaR(p2)))
+                        if debug_cuts: logger.debug('deltaR(pj_%i,pj_%i)=%.5e' % (
+                             i + 1, j + 1, p1.deltaR(p2)))
                         if p1.deltaR(p2) < drjj_cut:
                             return False
     
         # Now handle all other cuts
         if etaj_cut > 0.:
             for i, p_jet in enumerate(all_jets):
-                if debug_cuts: logger.debug('eta(pj_%i)=%.5e'%(i+1,p_jet.pseudoRap()))
+                if debug_cuts: logger.debug('eta(pj_%i)=%.5e' % (i + 1, p_jet.pseudoRap()))
                 if abs(p_jet.pseudoRap()) > etaj_cut:
                     return False
 
         ###################################################################################
         # LEPTON AND PHOTON CUTS
         ###################################################################################
+        
         for i, p in enumerate(PS_point[self.n_initial:]):
             # photons
             if is_a_photon(process_pdgs[1][i]):
@@ -1475,8 +1514,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
                     if debug_cuts: logger.debug('deltaR(pl_%i,pj_%i)=%.5e'%(i+1, j+1, p.deltaR(p_jet)))
                     if self.run_card['drjl'] > 0.0 and p.deltaR(p_jet) < self.run_card['drjl']:
                         return False  
-            
-
+        
         # All cuts pass, therefore return True
         return True
 
@@ -1494,6 +1532,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
             return self.flavor_cut_function(flavors)
         elif self.flavor_cut_function.lower() != 'hardcoded':
             raise MadEvent7Error("Flavor cut function '%s' not reckognized."%self.flavor_cut_function)
+            
 
         # If the cuts depend on the boost to the lab frame in case of hadronic collision
         # then the quantity below can be used:
@@ -1511,8 +1550,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
         elif not isinstance(PS_point, LorentzVectorList):
             PS_point = LorentzVectorList(LorentzVector(v) for v in PS_point)   
 
-        if debug_cuts: logger.debug( "Processing flavor-sensitive cuts for flavors %s and PS point:\n%s"%(
-            str(flavors), LorentzVectorList(PS_point).__str__(n_initial=self.phase_space_generator.n_initial) ))
+        if debug_cuts: logger.debug("Processing flavor-sensitive cuts for flavors %s and PS point:\n%s" % (
+            str(flavors), LorentzVectorList(PS_point).__str__(n_initial=self.phase_space_generator.n_initial)))
         
         ###########################################
         # User can define his own flavor cut below
@@ -1528,10 +1567,10 @@ class ME7Integrand(integrands.VirtualIntegrand):
         return True
 
     @staticmethod
-    def Lambda(s,sqrMA,sqrMB):
+    def Lambda(s, sqrMA, sqrMB):
         """ Kahlen function."""
 
-        return s**2 + sqrMA**2 + sqrMB**2 - 2.*s*sqrMA - 2.*sqrMB*sqrMA - 2.*s*sqrMB
+        return s ** 2 + sqrMA ** 2 + sqrMB ** 2 - 2.*s * sqrMA - 2.*sqrMB * sqrMA - 2.*s * sqrMB
 
     def get_scales(self, PS_point):
         """ Returns mu_r, mu_f1, mu_f2 for that PS point."""
@@ -1551,7 +1590,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         if pdf is None:
             return 1.
        
-        if pdg not in [21,22] and abs(pdg) not in range(1,7):
+        if pdg not in [21, 22] and abs(pdg) not in range(1, 7):
             return 1.
                 
         if (pdf, pdg, x, scale2) in self.PDF_cache:
@@ -1561,8 +1600,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
         f = pdf.xfxQ2(pdg, x, scale2)/x
 
         # Update the PDF cache
-        self.PDF_cache[(pdf, pdg,x,scale2)] = f
-        self.PDF_cache_entries.append((pdf, pdg,x,scale2)) 
+        self.PDF_cache[(pdf, pdg, x, scale2)] = f
+        self.PDF_cache_entries.append((pdf, pdg, x, scale2)) 
         if len(self.PDF_cache_entries) > self.PDF_cache_max_size:
             del self.PDF_cache[self.PDF_cache_entries.pop(0)]
 
@@ -1570,7 +1609,16 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
     def __call__(self, continuous_inputs, discrete_inputs, **opts):
         """ Main function of the integrand, returning the weight to be passed to the integrator."""
-
+        
+        if 'adaptive_wgts' in opts:
+            adaptive_wgts = opts.pop('adaptive_wgts')
+        else:
+            adaptive_wgts = None
+        if 'channel_nr' in opts:
+            channel_nr = opts.pop('channel_nr')
+        else:
+            channel_nr = None
+        
         # A unique float must be returned
         wgt = 1.0
         # And the conversion from GeV^-2 to picobarns
@@ -1600,8 +1648,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
                                                     self.contribution_definition.nice_string())
         
         # Random variables sent
-        random_variables    = list(continuous_inputs)
-        if __debug__: logger.debug('Random variables received: %s',str(random_variables))        
+        random_variables = list(continuous_inputs)
+        if __debug__: logger.debug('Random variables received: %s', str(random_variables))        
     
         # Now assign the variables pertaining to PS generations
         PS_random_variables = [
@@ -1609,7 +1657,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
                   random_variables[self.dim_name_to_position[name]] )
                                           for name in self.phase_space_generator.dim_ordered_names ]
         
-        PS_point, PS_weight, x1s, x2s = self.phase_space_generator.get_PS_point(PS_random_variables)
+        PS_point, PS_weight, x1s, x2s = self.phase_space_generator.get_PS_point(PS_random_variables,
+                                                  adaptive_wgts=adaptive_wgts,channel_nr=channel_nr)
 
         # Unpack the initial momenta rescalings (if present) so as to access both Bjorken
         # rescalings xb_<i> and the ISR factorization convolution rescalings xi<i>.
@@ -1636,6 +1685,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
         # Account for PS weight
         wgt *= PS_weight
+
         if __debug__: logger.debug("PS_weight: %.5e"%PS_weight)
 
         # The E_cm entering the flux factor is computed *without* including the xi<i> rescalings
@@ -1648,10 +1698,10 @@ class ME7Integrand(integrands.VirtualIntegrand):
             flux = 1. / (2.*math.sqrt(self.Lambda(E_cm**2, self.masses[0][0]**2, self.masses[0][1]**2)))
         elif self.n_initial == 1:
             flux = 1. / (2.*E_cm)
-        flux /= math.pow(2.*math.pi, 3*self.n_final - 4)
+        flux /= math.pow(2.*math.pi, 3 * self.n_final - 4)
         wgt *= flux
-        if __debug__: logger.debug("Flux factor: %.5e"%flux)
-
+        if __debug__: logger.debug("Flux factor: %.5e" % flux)
+        
         # Recover scales to be used
         mu_r, mu_f1, mu_f2 = self.get_scales(PS_point)
 
@@ -1672,6 +1722,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # Now loop over processes
         total_wgt = 0.
         for process_key, (process, mapped_processes) in self.processes_map.items():
+
             # If one wishes to integrate only one particular subprocess, it can be done by uncommenting
             # and modifying the lines below.
 #            if process.get_cached_initial_final_pdgs() in [((2,-2),(23,1,-1)), ((2,-2),(23,1,-1))] :
@@ -1686,8 +1737,10 @@ class ME7Integrand(integrands.VirtualIntegrand):
             all_flavor_configurations = []
 
             # The process mirroring is accounted for at the very end only
+
             for proc in all_processes:
                 initial_final_pdgs = proc.get_cached_initial_final_pdgs()
+                
                 all_flavor_configurations.append(initial_final_pdgs)
 
             # Compute the short distance cross-section. The 'events' returned is an instance
@@ -1706,7 +1759,6 @@ class ME7Integrand(integrands.VirtualIntegrand):
             # state momenta
             events.generate_mirrored_events()
 
-            # misc.sprint(events)
             # Apply flavor blind cuts
             if not events.filter_with_flavor_blind_cuts(self.pass_flavor_blind_cuts, process_pdgs,
                 n_jets_allowed_to_be_clustered  = self.contribution_definition.n_unresolved_particles):
@@ -1721,6 +1773,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
             if self.run_card['lpp1']==self.run_card['lpp2']==1:
                 events.apply_PDF_convolution( self.get_pdfQ2, 
                                                (self.pdf, self.pdf), (mu_f1**2, mu_f2**2) )
+
             # Make sure Bjorken-x rescalings don't matter anymore
             for event in events:
                 event.set_Bjorken_rescalings(None, None)
@@ -1753,7 +1806,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
 
         # Now finally return the total weight for this contribution
-        if __debug__: logger.debug(misc.bcolors.GREEN + "Final weight returned: %.5e"%total_wgt + misc.bcolors.ENDC)
+        if __debug__: logger.debug(misc.bcolors.GREEN + "Final weight returned: %.5e" % total_wgt + misc.bcolors.ENDC)
         if __debug__: logger.debug("="*80)
         
         return total_wgt
@@ -1835,7 +1888,6 @@ class ME7Integrand(integrands.VirtualIntegrand):
         ##    return_all_res = True)
         ##misc.sprint(str(ME_evaluation))
         ##misc.sprint(str(all_results))
-        
         sigma_wgt *= ME_evaluation['finite']
         
         # Return the lone LO event
@@ -1843,7 +1895,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
             ME7Event( PS_point, {fc : sigma_wgt for fc in all_flavor_configurations},
                 requires_mirroring = process.get('has_mirror_process'),
                 host_contribution_definition = self.contribution_definition,
-                counterterm_structure = None,
+                counterterm_structure  = None,
                 Bjorken_xs = (xb_1, xb_2)
             )
         ])
@@ -1895,7 +1947,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
                 # Combine the weights and flavor of the event obtained from this convolution
                 # with the ones obtained from the previous convolutions in this loop.
                 convolved_event += event_to_convolve
-        
+
         # Determine Bjorken scalings.
         assert( all(bc[0] is None for bc in beam_factorization_currents) or
                 all(bc[0] is not None for bc in beam_factorization_currents) )
@@ -1947,8 +1999,8 @@ class ME7Integrand_V(ME7Integrand):
         """ Return additional information lines for the function nice_string of this contribution."""
         res = []
         if self.integrated_counterterms:
-            res.append('%-30s:   %d'%('Nb. of integrated counterterms', 
-                                      len(sum(self.integrated_counterterms.values(),[]))))
+            res.append('%-30s:   %d' % ('Nb. of integrated counterterms',
+                                      len(sum(self.integrated_counterterms.values(), []))))
         return res
     
     def get_nice_string_process_line(self, process_key, defining_process, format=0):
@@ -1957,15 +2009,15 @@ class ME7Integrand_V(ME7Integrand):
 
         GREEN = '\033[92m'
         ENDC = '\033[0m'        
-        res = GREEN+'  %s'%defining_process.nice_string(print_weighted=False).\
-                                                               replace('Process: ','')+ENDC
+        res = GREEN + '  %s' % defining_process.nice_string(print_weighted=False).\
+                                                               replace('Process: ', '') + ENDC
 
         if not self.integrated_counterterms:
             return res
 
-        if format<2:
+        if format < 2:
             if process_key in self.integrated_counterterms:
-                res += ' | %d integrated counterterms'%len(self.integrated_counterterms[process_key])
+                res += ' | %d integrated counterterms' % len(self.integrated_counterterms[process_key])
             else:
                 res += ' | 0 integrated counterterm'
                 
@@ -1973,19 +2025,19 @@ class ME7Integrand_V(ME7Integrand):
             long_res = [' | with the following integrated counterterms:']
             for CT_properties in self.integrated_counterterms[process_key]:
                 CT = CT_properties['integrated_counterterm']
-                if format==2:
-                    long_res.append( '   | %s'%CT.__str__(
-                                        print_n=True, print_pdg=False, print_state=False )  )
-                elif format==3:
-                    long_res.append( '   | %s'%CT.__str__(
-                                        print_n=True, print_pdg=True, print_state=True )  )
-                elif format==4:
-                    long_res.append( '   | %s'%str(CT))
-                elif format>4:
-                    long_res.append( '   | %s'%str(CT))
+                if format == 2:
+                    long_res.append('   | %s' % CT.__str__(
+                                        print_n=True, print_pdg=False, print_state=False))
+                elif format == 3:
+                    long_res.append('   | %s' % CT.__str__(
+                                        print_n=True, print_pdg=True, print_state=True))
+                elif format == 4:
+                    long_res.append('   | %s' % str(CT))
+                elif format > 4:
+                    long_res.append('   | %s' % str(CT))
                     for key, value in CT_properties.items():
                         if not key in ['integrated_counterterm', 'matching_process_key']:
-                            long_res.append( '     + %s : %s'%(key, str(value)))
+                            long_res.append('     + %s : %s' % (key, str(value)))
 
             res += '\n'.join(long_res)
 
@@ -2090,15 +2142,16 @@ class ME7Integrand_V(ME7Integrand):
                 assert ((mapped_flavors not in all_mapped_flavors))
                 all_mapped_flavors.append(mapped_flavors)
 
+
         # Now map the momenta
         if isinstance(PS_point,dict):
             # Dictionary format LorentzVectorDict starts at 1
-            mapped_PS_point = phase_space_generators.LorentzVectorDict(   
-                (i+1, PS_point[input_mapping[i]+1]) for i in range(n_initial+n_final) )
+            mapped_PS_point = phase_space_generators.LorentzVectorDict(
+                (i + 1, PS_point[input_mapping[i] + 1]) for i in range(n_initial + n_final))
         else:
             # List formatLorentzVectorList starts at 0
-            mapped_PS_point = phase_space_generators.LorentzVectorDict(   
-                (i+1, PS_point[input_mapping[i]]) for i in range(n_initial+n_final) )
+            mapped_PS_point = phase_space_generators.LorentzVectorDict(
+                (i + 1, PS_point[input_mapping[i]]) for i in range(n_initial + n_final))
         
         # We must also map the Bjorken x's and the xi rescalings
         xi1, xi2 = [xi1, xi2][input_mapping[0]], [xi1, xi2][input_mapping[1]]
@@ -2259,6 +2312,7 @@ class ME7Integrand_V(ME7Integrand):
 
         # First generate a kinematic point
         # Specifying None forces to use uniformly random generating variables.
+
         # Make sure to generate a point within the cuts if necessary:
         max_attempts = 10000
         n_attempts   = 0
@@ -2299,7 +2353,7 @@ class ME7Integrand_V(ME7Integrand):
                               defining_process.nice_string().replace('Process','process'))
             # Make sure that the selected process satisfies the selected process
             if not self.is_part_of_process_selection(
-                [defining_process,]+mapped_processes, selection = test_options['process'] ):
+                [defining_process, ] + mapped_processes, selection=test_options['process']):
                 continue
 
             all_processes = [defining_process,]+mapped_processes
@@ -2535,7 +2589,7 @@ class ME7Integrand_V(ME7Integrand):
     def analyze_IR_poles_check(self, all_evaluations, acceptance_threshold):
         """ Analyze the results of the check_IR_pole_residues command. """
         
-        #TODO
+        # TODO
 #        misc.sprint("----- SUMMARY -----")
 #        for key, evaluation in all_evaluations.items():
 #            misc.sprint("Result for test: %s | %s"%(str(dict(key[0])['PDGs']),key[1]))
@@ -2567,7 +2621,6 @@ class ME7Integrand_V(ME7Integrand):
         matrix_element_event = self.generate_matrix_element_event(
                 PS_point, process_key, process, all_flavor_configurations, 
                   base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts)
-
         # Some contributions might have not physical contributions and overloaded the above
         # so as to return None
         if matrix_element_event is not None:
@@ -2575,12 +2628,11 @@ class ME7Integrand_V(ME7Integrand):
         
         # Now loop over all integrated counterterms
         for counterterm_characteristics in self.integrated_counterterms[process_key]:
-
-
+            
             # Example of a hack below to include only soft integrated CT. Uncomment to enable.
-            #if counterterm_characteristics['integrated_counterterm'].reconstruct_complete_singular_structure()\
-            #                                         .substructures[0].substructures[0].name()!='S':
-            #    continue
+#            if counterterm_characteristics['integrated_counterterm'].reconstruct_complete_singular_structure()\
+#                                                     .substructures[0].substructures[0].name()!='S':
+#                continue
 
             # And over all the ways in which this current PS point must be remapped to
             # account for all contributions of the integrated CT. (e.g. the integrated
@@ -2656,8 +2708,8 @@ class ME7Integrand_R(ME7Integrand):
         """ Return additional information lines for the function nice_string of this integrand."""
         res = []
         if self.counterterms:
-            res.append('%-30s:   %d'%('Number of local counterterms', 
-               len([1 for CT in sum(self.counterterms.values(),[]) if CT.is_singular()]) ))
+            res.append('%-30s:   %d' % ('Number of local counterterms',
+               len([1 for CT in sum(self.counterterms.values(), []) if CT.is_singular()])))
         return res
         
     def get_nice_string_process_line(self, process_key, defining_process, format=0):
@@ -3305,7 +3357,7 @@ A reduced matrix element is missing in the library of automatically generated ma
 This is typically what can happen when your process definition is not inclusive over all IR sensitive particles.
 Make sure that your process definition is specified using the relevant multiparticle labels (typically 'p' and 'j').
 Also make sure that there is no coupling order specification which receives corrections.
-The missing process is: %s"""%ME_process.nice_string())
+The missing process is: %s""" % ME_process.nice_string())
                 raise e
 
             # Multiply the various pieces building the event weight
@@ -3373,7 +3425,7 @@ The missing process is: %s"""%ME_process.nice_string())
             matrix_element_event = self.generate_matrix_element_event(
                 PS_point, process_key, process, all_flavor_configurations, 
                   base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts)
-
+    
         # Some contributions might have not physical contributions and overloaded the above
         # so as to return None
         if matrix_element_event is not None:
@@ -3382,10 +3434,7 @@ The missing process is: %s"""%ME_process.nice_string())
         for counterterm in self.counterterms[process_key]:
             if not counterterm.is_singular():
                 continue
-            #singular_structure = counterterm.reconstruct_complete_singular_structure().substructures[0]
-            #if not (singular_structure.name() == 'S' or len(singular_structure.substructures) == 1):
-            #    continue
-            #    #misc.sprint("CT candidate: "+str(counterterm))
+            
             CT_event = self.evaluate_counterterm(
                 counterterm, PS_point, base_weight, mu_r, mu_f1, mu_f2,
                 xb_1, xb_2, xi1, xi2,
@@ -3428,6 +3477,7 @@ The missing process is: %s"""%ME_process.nice_string())
         # Specifying None forces to use uniformly random generating variables.
         # Make sure to generate a point within the cuts if necessary:
         max_attempts = 10000
+
         n_attempts   = 0
         while n_attempts < max_attempts:
             n_attempts += 1
@@ -3771,12 +3821,12 @@ The missing process is: %s"""%ME_process.nice_string())
                 total_CTs_wgt += CT_weight
                 total_absCTs_wgt += abs(CT_weight)
                 logger.debug('Weight from CT %s = %.16e' % (CT_str, CT_weight) )
-                if this_eval['ME'] != 0.:
+                if this_eval['ME'] > 0.:
                     logger.debug('Ratio: %.16f'%( CT_weight/float(this_eval['ME']) ))
-            if this_eval['ME'] != 0.:
+            if this_eval['ME'] > 0.:
                 logger.debug('Ratio sum(CTs)/ME: %.16e'%(total_CTs_wgt/float(this_eval['ME'])))
             else:
-                if total_absCTs_wgt != 0.:
+                if total_absCTs_wgt > 0.:
                     logger.debug('Ratio sum(CTs)/sum(absCTs): %.16e'%(total_CTs_wgt/total_absCTs_wgt))  
                 else:
                     logger.debug('Ratio sum(CTs): %.16e'%(total_CTs_wgt))                                    
@@ -3806,8 +3856,6 @@ The missing process is: %s"""%ME_process.nice_string())
         if display_mode not in ['figure','grid']:
             raise MadEvent7Error('Display mode %s not recognized in analyze_IR_limit.'%display_mode)
         
-        import matplotlib
-        matplotlib.use('Agg')
         import matplotlib.pyplot as plt
 
         plot_title = True
@@ -4241,7 +4289,7 @@ class ME7IntegrandList(base_objects.PhysicsObjectList):
     def get_integrands_of_order(self, correction_order):
         """ Returns a list of all contributions of a certain correction_order in argument."""
         return ME7IntegrandList([integrand for integrand in self if
-                integrand.contribution_definition.correction_order==correction_order])
+                integrand.contribution_definition.correction_order == correction_order])
 
     def get_integrands_of_type(self, correction_classes):
         """ Returns a list of all contributions that are direct instances of certain classes."""
@@ -4256,7 +4304,7 @@ class ME7IntegrandList(base_objects.PhysicsObjectList):
     def nice_string(self, format=0):
         """ A nice representation of a list of contributions. 
         We can reuse the function from ContributionDefinitions."""
-        return base_objects.ContributionDefinitionList.contrib_list_string(self, 
+        return base_objects.ContributionDefinitionList.contrib_list_string(self,
                                                                             format=format)
 
     def sort_integrands(self):

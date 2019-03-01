@@ -13,6 +13,7 @@
 #
 ################################################################################
 
+import traceback
 import os
 import logging
 import math
@@ -79,15 +80,19 @@ class SimpleMonteCarloIntegrator(VirtualIntegrator):
                  accuracy_target=0.01,
                  n_iterations=None,
                  n_points_per_iterations=100,
-                 verbosity = 2, **opts):
+                 verbosity = 2,
+                 save_points_to_file = None,
+                 **opts):
         """ Initialize the simplest MC integrator."""
         
         self.accuracy_target = accuracy_target
         self.n_iterations = n_iterations
         self.n_points_per_iterations = n_points_per_iterations
         self.verbosity = verbosity
+        self.save_points_to_file = save_points_to_file
         
         super(SimpleMonteCarloIntegrator, self).__init__(integrands, **opts)
+        #misc.sprint(self.integrands)
         
     def integrate(self):
         """ Return the final integral and error estimates."""
@@ -99,8 +104,19 @@ class SimpleMonteCarloIntegrator(VirtualIntegrator):
         error_estimate     = sys.maxint
         integral_estimate  = 0.0
         
-        phase_space_volumes = [integrand.get_dimensions().volume() for integrand in self.integrands]
+        for i, integrand in enumerate(self.integrands):
+            integrand.counter = 0
 
+        phase_space_volumes = [integrand.get_dimensions().volume() for integrand in self.integrands]
+    
+        if self.save_points_to_file is not None:
+            logger.info("Saving all integration sample points to file '%s'."%self.save_points_to_file)
+            out_stream = open(self.save_points_to_file, 'w')
+            out_stream.write('IntegrandNumber, continuous_dimensions, discrete_dimension, complete_weight\n')
+        else:
+            out_stream = None
+
+        points_to_write_to_file = []
         while (self.n_iterations is None or iteration_number < self.n_iterations ) and \
               (self.accuracy_target is None or error_estimate/(1e-99+integral_estimate) > self.accuracy_target):   
 
@@ -109,15 +125,26 @@ class SimpleMonteCarloIntegrator(VirtualIntegrator):
             while n_curr_points < self.n_points_per_iterations:
                 n_points += 1
                 n_curr_points += 1
-                # Compute phase-space volue
+                # Compute phase-space volume
                 new_wgt = 0.0
                 for i, integrand in enumerate(self.integrands):
                     discrete_dimensions = integrand.discrete_dimensions.random_sample()
                     continuous_dimensions = integrand.continuous_dimensions.random_sample()
-                    new_wgt += phase_space_volumes[i]*integrand(continuous_dimensions,discrete_dimensions)
+                    try:
+                        new_wgt += phase_space_volumes[i]*integrand(continuous_dimensions,discrete_dimensions)
+                    except AssertionError as err:
+                        traceback.print_tb(sys.exc_info()[-1])
+                        logger.warning('Assertion error encountered.')
+                        pass
+                    if out_stream is not None:
+                        points_to_write_to_file.append(', '.join([str(i+1),str(list(continuous_dimensions)),str(list(discrete_dimensions)),'%.16e'%new_wgt]))
+                    if len(points_to_write_to_file) > 1 and len(points_to_write_to_file)%1000==1:
+                        out_stream.write('\n'.join(points_to_write_to_file)+'\n')
+                        points_to_write_to_file = []
+
                 sum_int += new_wgt
                 sum_squared += new_wgt**2
-            
+
             integral_estimate = sum_int / n_points
             error_estimate =  math.sqrt( ((sum_squared / n_points) - integral_estimate**2)/n_points)
             msg = '%s :: iteration # %d / %s :: point #%d :: %.4e +/- %.2e'%(
@@ -125,10 +152,16 @@ class SimpleMonteCarloIntegrator(VirtualIntegrator):
                 '%d'%self.n_iterations if self.n_iterations else 'inf' ,n_points, 
                 integral_estimate, error_estimate)
             if self.verbosity > 0:
-                print msg
+                logger.info(msg)
+        
+        if out_stream is not None:
+            out_stream.write('\n'.join(points_to_write_to_file))
+            points_to_write_to_file = []
+            out_stream.close()
+            logger.info("Saved all integration sample points to file '%s'."%self.save_points_to_file)
 
         return integral_estimate, error_estimate
-            
+   
                 
 if __name__ == "__main__":
 

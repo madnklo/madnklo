@@ -207,8 +207,12 @@ class Switcher(object):
             else:
                 # If not option is set the convention is that the mode is 'all'
                 # unless no perturbation orders is defined.
-                if len(orders)>0:
-                    return ('NLO','virt',orders)
+
+                # if order is set to LOonly assume LOonly=QCD
+                if orders == ['LOonly']:
+                    return ('NLO', 'LOonly', ['QCD'])
+                elif len(orders)>0:
+                    return ('NLO','all',orders) 
                 else:
                     return ('tree',None,[])               
         else:
@@ -234,6 +238,7 @@ class Switcher(object):
                     self.cmd.validate_model(self, loop_type=nlo_mode, coupling_type=orders)
                     self.change_principal_cmd('MadGraph')
                     return self.cmd.create_loop_induced(self, line, *args, **opts)
+
             elif type=='tree':
                 self.change_principal_cmd('MadGraph')
 
@@ -242,13 +247,16 @@ class Switcher(object):
                     self.change_principal_cmd('MadLoop')
                     self.cmd.validate_model(self, loop_type='all', coupling_type=orders)    
                 self.change_principal_cmd('MadGraph')
+            else:
+                raise MadGraph5Error('Unknown process type: %s'%type)
+
         try:
             return  self.cmd.do_add(self, line, *args, **opts)
         except fks_base.NoBornException:
-            logger.info("------------------------------------------------------------------------", '$MG:color:BLACK')
-            logger.info(" No Born diagrams found. Now switching to the loop-induced mode.        ", '$MG:color:BLACK')
-            logger.info(" Please cite ref. 'arXiv:1507.00020' when using results from this mode. ", '$MG:color:BLACK')
-            logger.info("------------------------------------------------------------------------", '$MG:color:BLACK')            
+            logger.info("------------------------------------------------------------------------", '$MG:BOLD')
+            logger.info(" No Born diagrams found. Now switching to the loop-induced mode.        ", '$MG:BOLD')
+            logger.info(" Please cite ref. 'arXiv:1507.00020' when using results from this mode. ", '$MG:BOLD')
+            logger.info("------------------------------------------------------------------------", '$MG:BOLD')            
             self.change_principal_cmd('MadGraph')
             return self.cmd.create_loop_induced(self, line, *args, **opts)
 
@@ -630,9 +638,10 @@ class MasterCmd(Switcher, LoopCmd.LoopInterface, amcatnloCmd.aMCatNLOInterface, 
         else:
             raise self.InvalidCmd("Invalid switch command or non existing interface %s."\
                             %args[0]+" Valid interfaces are %s"\
-                            %','.join(interface_quick_name.keys()))
+                            %','.join(self.interface_names.keys()))
         
     def change_principal_cmd(self, name):
+
         old_cmd=self.current_interface
         if name in self.interface_names.keys():
             self.prompt= self.interface_names[name][0]+'>'
@@ -732,7 +741,7 @@ class MasterCmdWeb(MGcmd.MadGraphCmdWeb, Switcher, LoopCmd.LoopInterfaceWeb):
         
         if check:
             self.check_save([])
-            raise #useless but full security
+            raise BaseException #useless but full security
         
         args = self.split_arg(line)
         if args[0] != 'options':

@@ -27,6 +27,7 @@ import shutil
 import subprocess
 import sys
 import time
+from shutil import copyfile
 
 pjoin = os.path.join
 # Get the grand parent directory (mg5 root) of the module real path 
@@ -40,6 +41,7 @@ import madgraph.iolibs.save_load_object as save_load_object
 import madgraph.interface.master_interface as cmd_interface
 
 import madgraph.various.misc as misc
+import madgraph.various.json_result_handler as mnk_results
 
 from madgraph import MadGraph5Error, MG5DIR
 import me_comparator
@@ -699,8 +701,7 @@ class ME7Runner(MG5Runner):
 
         # Run ME7
         logging.info("Running MadEvent7")
-        devnull = open(os.devnull,'w') 
-
+        devnull = open(os.devnull,'w')
         if logging.root.level >=20:
             subprocess.call([pjoin(self.mg5_path,'bin','mg5'), proc_card_location],
                         stdout=devnull, stderr=devnull)
@@ -726,6 +727,7 @@ class ME7Runner(MG5Runner):
                 output['total_cross_section'] = entries[1]
         
         return output
+
 
 class MG5gaugeRunner(MG5Runner):
     """Runner object for the MG5 Matrix Element generator."""
@@ -758,3 +760,179 @@ class MG5gaugeRunner(MG5Runner):
         v5_string += 'set complex_mass_scheme False \n'
         v5_string += 'set gauge unitary'
         return v5_string
+
+
+class MadNkLOFinalNLORunner(ME7Runner):
+    """A runner to evaluate MadNkLO, final-state-radiation-only processes at NLO QCD (i.e. e+ e- > XXX --NLO)"""
+
+    def __init__(self,*args,**opts):
+        super(MadNkLOFinalNLORunner, self).__init__(*args, **opts)
+        self.custom_run_card = None
+
+    def format_ME7_proc_card(self, proc_list, model, orders):
+        """Create a proc_card.dat string following v5 conventions.
+        This class only accepts electron-positron initial states."""
+
+        perturbation_orders = '--NLO'
+        v5_string = "import model %s\n" % os.path.join(self.model_dir, model)
+        v5_string += "set automatic_html_opening False\n"
+        couplings = me_comparator.MERunner.get_coupling_definitions(orders)
+
+        for i, proc in enumerate(proc_list):
+            # First we check if the process has an e+ e- initial state
+            # The initial state is the part of the process string before the first '>'
+            initial_state=proc.split(">")[0].split()
+            accepted_initial_states = [['e+','e-'],['e-','e+']]
+            if initial_state not in accepted_initial_states:
+                logging.error("Error in ME7FinalNLORunner: only e+ e- initial state accepted")
+                error_text = "This process is incompatible with ME7FinalNLORunner %s"%(proc)
+                logging.error(error_text)
+                raise ValueError(error_text)
+
+            v5_string += 'add process %s %s @%i %s\n'%(proc, couplings, i, perturbation_orders)
+        v5_string += "output %s -f\n" % \
+                     os.path.join(self.mg5_path, self.temp_dir_name)
+        if self.custom_run_card != None:
+            v5_string += self.retrieve_run_card()
+        v5_string += "launch %s \n"%(os.path.join(self.mg5_path, self.temp_dir_name))
+        if self.integrator == 'VEGAS3':
+            v5_string +="set_integrator_options VEGAS3 --n_points_survey=%s --n_points_refine=%s\n"%(self.n_points,self.n_points)
+        v5_string += "launch --integrator=%s --PS_generator=%s --integrands=B\n" % (
+        self.integrator, self.PS_generator)
+        v5_string += "launch --integrator=%s --PS_generator=%s --integrands=V\n" % (
+        self.integrator, self.PS_generator)
+        v5_string += "launch --integrator=%s --PS_generator=%s --integrands=R\n" % (
+        self.integrator, self.PS_generator)
+        v5_string += "exit\n"
+        v5_string += "exit\n"
+        return v5_string
+
+    def get_values(self):
+
+        dir_name = os.path.join(self.mg5_path, self.temp_dir_name)
+        output = {}
+
+        filepath = os.path.join(dir_name, 'Results', 'run_default_1', 'cross_sections.json')
+        results = mnk_results.ResultDict(filepath)
+
+        output['LO'] = str(results['B'].value)
+        output['NLO'] = str((results['R']+results['V']).value)
+
+        return output
+
+    def retrieve_run_card(self):
+        """Retrieve a specific run card for the process at hand"""
+        dir_name = os.path.join(self.mg5_path, self.temp_dir_name)
+        run_card_tgt = os.path.join(dir_name, "Cards", "run_card.dat")
+        return "!cp %s %s\n"%(self.custom_run_card, run_card_tgt)
+
+
+class ME7RunnerV2(MG5Runner):
+    """Runner object for the ME7 cross-section computation.
+
+
+    """
+
+    mg5_path = ""
+    name = 'ME7'
+    type = 'ME7'
+
+    def __init__(self, *args, **opts):
+
+        self.PS_generator = 'FLATPS'
+        self.n_points = 1000
+        self.integrator = 'VEGAS3'
+        if 'PS_generator' in opts:
+            self.PS_generator = opts.pop('PS_generator')
+            self.name = 'ME7 %s' % self.PS_generator
+        if 'n_points' in opts:
+            self.n_points = opts.pop('n_points')
+        if 'integrator' in opts:
+            self.integrator = opts.pop('integrator')
+
+        return super(ME7Runner, self).__init__(*args, **opts)
+
+    def setup(self, mg5_path, temp_dir=None):
+        """Wrapper for the mg4 setup, also initializing the mg5 path variable"""
+
+        self.mg5_path = os.path.abspath(mg5_path)
+
+        if not temp_dir:
+            i = 0
+            while os.path.exists(os.path.join(mg5_path,
+                                              "p_xsec_test_%s_%s" % (self.type, i))):
+                i += 1
+            temp_dir = "p_xsec_test_%s_%s" % (self.type, i)
+
+        self.temp_dir_name = temp_dir
+
+    def format_ME7_proc_card(self, proc_list, model, orders):
+        """Create a proc_card.dat string following v5 conventions."""
+
+        perturbation_orders = '--LO --diagram_filter'
+        v5_string = "import model %s\n" % os.path.join(self.model_dir, model)
+        v5_string += "set automatic_html_opening False\n"
+        couplings = me_comparator.MERunner.get_coupling_definitions(orders)
+
+        for i, proc in enumerate(proc_list):
+            v5_string += 'add process %s %s @%i %s\n' % (proc, couplings, i, perturbation_orders)
+        v5_string += "output %s -f\n" % \
+                     os.path.join(self.mg5_path, self.temp_dir_name)
+        v5_string += "launch %s \n" % (os.path.join(self.mg5_path, self.temp_dir_name))
+        v5_string += "launch --integrator=%s --n_points=%d --PS_generator=%s\n" % (
+        self.integrator, self.n_points, self.PS_generator)
+        v5_string += "exit\n"
+        v5_string += "exit\n"
+        return v5_string
+
+    def run(self, proc_list, model, orders={}):
+        """Execute MG5 on the list of processes mentioned in proc_list, using
+        the specified model, the specified maximal coupling orders and a certain
+        energy for incoming particles (for decay, incoming particle is at rest).
+        """
+        self.res_list = []  # ensure that to be void, and avoid pointer problem
+        self.proc_list = proc_list
+        self.model = model
+        self.orders = orders
+        self.non_zero = 0
+        dir_name = os.path.join(self.mg5_path, self.temp_dir_name)
+
+        # Create a proc_card.dat
+        proc_card_location = os.path.join(self.mg5_path, 'proc_card_%s.dat' % \
+                                          self.temp_dir_name)
+        proc_card_file = open(proc_card_location, 'w')
+        proc_card_file.write(self.format_ME7_proc_card(proc_list, model, orders))
+        proc_card_file.close()
+
+        logging.info("proc_card.dat file for %i processes successfully created in %s" % \
+                     (len(proc_list), os.path.join(dir_name, 'Cards')))
+
+        # Run ME7
+        logging.info("Running MadEvent7")
+        devnull = open(os.devnull, 'w')
+        if logging.root.level >= 20:
+            subprocess.call([pjoin(self.mg5_path, 'bin', 'mg5'), proc_card_location],
+                            stdout=devnull, stderr=devnull)
+        else:
+            subprocess.call([pjoin(self.mg5_path, 'bin', 'mg5'), proc_card_location])
+        os.remove(proc_card_location)
+
+        values = self.get_values()
+        self.res_list.append(values)
+        return values
+
+    def get_values(self):
+
+        dir_name = os.path.join(self.mg5_path, self.temp_dir_name)
+        output = {}
+
+        filepath = os.path.join(dir_name, 'Results', 'run_default_1', 'cross_sections.dat')
+        for i, line in enumerate(open(filepath).read().split('\n')):
+            entries = line.split()
+            if len(entries) < 2:
+                continue
+            if entries[0] == 'Total':
+                output['total_cross_section'] = entries[1]
+
+        return output
+

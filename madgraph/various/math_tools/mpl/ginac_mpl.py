@@ -3,8 +3,7 @@ import ctypes
 import logging
 import math
 
-logger=logging.getLogger("SubtractionCurrents")
-
+logger=logging.getLogger(__name__)
 
 class GinacMPL(object):
     """ MPL is a class to numerically evaluate multiple polylogarithms

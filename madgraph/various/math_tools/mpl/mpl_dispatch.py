@@ -1,6 +1,8 @@
 """This module implement a singleton class that evaluates MPLs on entries based on a list of implementations
 that are tried sequentially for compatibility"""
 
+import logging
+logging.getLogger(__name__)
 
 
 class MPL_dispatcher(object):

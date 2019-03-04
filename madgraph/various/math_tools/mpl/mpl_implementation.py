@@ -1,11 +1,13 @@
 """Main dispatcher module that centralizes all polylogarithm evaluations and calls the relevant specialized tools"""
 
+import logging
 from numbers import Number
 import zero_weight_mpl
 import python_log
 import dilogarithms
 import ginac_mpl
 
+logger=logging.getLogger(__name__)
 
 class MPL_implementation(object):
     """Representation of one type of implementation of some subset of MPL that verifies conditions
@@ -19,6 +21,7 @@ class MPL_implementation(object):
         """Check the compatibility conditions. If possible return the value of the MPL, if not return None
         For now we enforce a hard check that all entries are real (numeric types)
         """
+        logger.debug("Calling the MPL implementation %s"%self.implementation.__name__)
         all_reals = isinstance(x,Number) and all([isinstance(a,Number) for a in entries])
         if not all_reals:
             raise NotImplementedError("The entries ({},{}) are incompatible with all MPL"

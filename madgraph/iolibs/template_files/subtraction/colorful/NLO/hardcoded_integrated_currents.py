@@ -10,30 +10,7 @@ from madgraph.various import misc
 
 logger=logging.getLogger("SubtractionCurrents")
 
-class MPL(object):
-    """ MPL is a class to numerically evaluate multiple polylogarithms
-Usage: MPL.G([a_1,...,a_n],x)
-Output: float
-The output is equal to G(a_1,...,a_n,x) evaluated withour linked Ginac code """
-
-    # establish the interface with ginacg
-    # try:
-    #     os.environ["LD_LIBRARY_PATH"]=MG5DIR + "/HEPTools/lib:"+os.environ["LD_LIBRARY_PATH"]
-    # except KeyError:
-    #     os.environ["LD_LIBRARY_PATH"] = MG5DIR + "/HEPTools/lib"
-    # print os.environ["LD_LIBRARY_PATH"]
-    _ginacG = ctypes.CDLL( MG5DIR + "/HEPTools/lib/ginac_mg5_interface.so")
-    _ginacG.GinacG.argtypes = (ctypes.POINTER(ctypes.c_float), ctypes.c_float, ctypes.c_int)
-    _ginacG.GinacG.restype = ctypes.c_float
-    text= "Ginac MPL interface established"
-    logger.info(text)
-
-    @classmethod
-    def G(cls,l, x, *args, **opts):
-        w = len(l)
-        array_type = ctypes.c_float * w
-        return cls._ginacG.GinacG(array_type(*l), ctypes.c_float(x), ctypes.c_int(w))
-
+import madgraph.various.math_tools.mpl as MPL
 
 # =============================================
 #          Harcoded Expression Class (HE)

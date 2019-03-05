@@ -7,9 +7,10 @@ import logging
 
 logger=logging.getLogger(__name__)
 
-def li2(x):
-    """Float-returning dilogarithm"""
-    return float(polylog(2,x))
+def Rli2(x):
+    """Real part of the the dilogarithm
+    """
+    return float(polylog(2.,x).real)
 
 def mpl_dilog(entries,x):
     """We use the formula between general real weight-two MPL and logs and dilogs"""
@@ -21,11 +22,17 @@ def mpl_dilog(entries,x):
         else:
             return 0.5*log(1-x/a)**2
     elif a == 0.:
-        return -li2(x/b)
+        return -Rli2(x/b)
     elif b == 0.:
         return log(x)*log(1-x/a)+li2(x/a)
     else:
-        return -li2(b/(b-a)) + li2((b - x)/(b-a)) + log((x-a)/(b-a))*log(1 - x/b)
+        # When this point is reached, the reality condition is already verified so we know that the final answer
+        # *has to be* real. The individual Li2 can be imaginary, so can log((x-a)/(b-a)). The reality condition on the
+        # other hand ensures that log(1-x/b) is real by itself.
+        # We know that all the imaginary parts will cancel,
+        # and we also know that nowhere will we multiply two complex numbers so we can simply use the
+        # real parts of the Li2 and log that can develop an imaginary part. We hence use Rli2 and log(abs(x)).
+        return -Rli2(b/(b-a)) + Rli2((b - x)/(b-a)) + log(abs((x-a)/(b-a)))*log(1 - x/b)
 
 
 def mpl_dilog_conditions(entries,x):

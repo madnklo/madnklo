@@ -66,7 +66,8 @@ def mpl_dilog_conditions(entries,x):
             #     msg = "Trying to evaluate log(0)"
             #     logger.error(msg)
             #     raise ValueError(msg)
-    else: # General case: int log(1-t/b)/(t-a) dt
+    # General case: int log(1-t/b)/(t-a) dt
+    else:
         if x/b <= 1. and (a/x <= 0. or a/x >= 1.):
             return True
 

@@ -20,7 +20,6 @@ import os
 import logging
 import random
 from multiprocessing import Process
-from aetypes import Enum
 
 if __name__ == '__main__':
     sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.pardir, os.path.pardir))

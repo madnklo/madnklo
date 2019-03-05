@@ -7,7 +7,7 @@ if len(logger.handlers) == 0:
     logging.basicConfig()  # Really basic setup here
 
 # The MPL module loggers all inherit from this one and will respect this level
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 from mpl_dispatch import MPL_dispatcher
 from mpl_implementation import mpl_implementations

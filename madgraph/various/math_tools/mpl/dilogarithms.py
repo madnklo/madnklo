@@ -8,8 +8,7 @@ import logging
 logger=logging.getLogger(__name__)
 
 def Rli2(x):
-    """Real part of the the dilogarithm
-    """
+    """Real part of the the dilogarithm"""
     return float(polylog(2.,x).real)
 
 def mpl_dilog(entries,x):

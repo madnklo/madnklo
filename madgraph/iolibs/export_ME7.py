@@ -123,6 +123,11 @@ class ME7Exporter(object):
         
         shutil.copytree(pjoin(template_path,'ME7'),self.export_dir)
 
+        # Generate a .gitignore file so that the process folder is ignored by the versionning system
+        gitignore = open(pjoin(self.export_dir,".gitignore"),"w+")
+        gitignore.write("*\n")
+        gitignore.close()
+
         # Make sure to have make_opts synchronized
         self.update_make_opts()
 

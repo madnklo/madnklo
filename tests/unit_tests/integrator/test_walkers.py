@@ -201,7 +201,7 @@ class WalkersTest(unittest.TestCase):
                 if self.verbosity > 3:
                     print "Walking down"
                     for curr in currs1:
-                        print curr[1]
+                        print curr['higher_PS_point']
                     print ME1[1]
                 res_dict2 = walker.walk_to_higher_multiplicity(
                     ME1[1], my_counterterms[i], kin,
@@ -211,7 +211,7 @@ class WalkersTest(unittest.TestCase):
                     print "Walking up"
                     print ME2[1]
                     for curr in currs2:
-                        print curr[1]
+                        print curr['higher_PS_point']
                 # Check currents
                 self.assertEqual(len(currs1), len(currs2))
                 for i_curr in range(len(currs1)):
@@ -410,6 +410,20 @@ class WalkersTest(unittest.TestCase):
     def test_LorentzNLOWalker_approach_limit(self):
 
         walker = walkers.LorentzNLOWalker()
+        self._test_approach_limit(walker, self.H_to_qqxggH, 1, 1)
+        self._test_approach_limit(walker, self.qqx_to_ggH, 1, 1)
+
+    def test_SoftBeamsRecoilNLOWalker_invertible(self):
+
+        walker = walkers.SoftBeamsRecoilNLOWalker()
+        self._test_invertible(walker, self.H_to_uuxddxH, 1, 1)
+        # TODO understand why this fails
+        # self._test_invertible(walker, self.H_to_qqxggH, 1, 1)
+        self._test_invertible(walker, self.qqx_to_ggH, 1, 1)
+
+    def test_SoftBeamsRecoilNLOWalker_approach_limit(self):
+
+        walker = walkers.SoftBeamsRecoilNLOWalker()
         self._test_approach_limit(walker, self.H_to_qqxggH, 1, 1)
         self._test_approach_limit(walker, self.qqx_to_ggH, 1, 1)
 

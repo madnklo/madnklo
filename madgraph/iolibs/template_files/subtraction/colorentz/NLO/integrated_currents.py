@@ -192,7 +192,7 @@ class integrated_NLO_FF_QCD_collinear_qqx(integrated_NLO_FF_QCD_current):
         # Construct the maximal invariant mass of the pair (y = s/Q2)
         if abs(1.-yijtildeQ)<1e-6:
             yijtildeQ = 0.99999
-        ymax = 1-math.sqrt(1-yijtildeQ)
+        ymax = (1-math.sqrt(1-yijtildeQ))**2
         alpha_0 = (yijtildeQ - math.sqrt(4*ymax - 4*ymax*yijtildeQ + yijtildeQ**2))/(2.*(-1 + yijtildeQ))
         assert alpha_0 < 1 and alpha_0 > 0
         finite_part = HE.CqqFF_Finite_Gabor_DIVJAC_NOD0(alpha_0,y12)
@@ -321,7 +321,7 @@ class integrated_NLO_FF_QCD_collinear_gq(integrated_NLO_FF_QCD_current):
         # Construct the maximal invariant mass of the pair (y = s/Q2)
         if abs(1.-yijtildeQ)<1e-6:
             yijtildeQ = 0.99999
-        ymax = 1-math.sqrt(1-yijtildeQ)
+        ymax = (1-math.sqrt(1-yijtildeQ))**2
         alpha_0 = (yijtildeQ - math.sqrt(4*ymax - 4*ymax*yijtildeQ + yijtildeQ**2))/(2.*(-1 + yijtildeQ))
         assert alpha_0 < 1 and alpha_0 > 0
         finite_part = HE.CqgFF_Finite_Gabor_DIVJAC_NOD0(alpha_0,y12)
@@ -623,7 +623,7 @@ class integrated_NLO_FF_QCD_collinear_gg(integrated_NLO_FF_QCD_current):
         #  the maximal invariant mass of the pair (y = s/Q2)
         if abs(1.-yijtildeQ)<1e-6:
             yijtildeQ = 0.99999
-        ymax = 1-math.sqrt(1-yijtildeQ)
+        ymax = (1-math.sqrt(1-yijtildeQ))**2
         alpha_0 = (yijtildeQ - math.sqrt(4*ymax - 4*ymax*yijtildeQ + yijtildeQ**2))/(2.*(-1 + yijtildeQ))
         assert alpha_0 < 1 and alpha_0 > 0
         finite_part = HE.CggFF_Finite_Gabor_DIVJAC_NOD0(alpha_0,y12)

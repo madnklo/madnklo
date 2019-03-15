@@ -1563,7 +1563,7 @@ class Counterterm(CountertermNode):
 
     @classmethod
     def get_daughter_legs(cls, leg_number, momentum_dict):
-        """ Walk down the momentum dictionary tree to find the outter-most daughter legs
+        """Walk down the momentum dictionary tree to find the outermost daughter legs
         coming from the leg_number specified."""
         
         external_leg_numbers = []
@@ -1572,11 +1572,10 @@ class Counterterm(CountertermNode):
             next_leg = intermediate_leg_number.pop(0)
             # Check if this leg is external
             daughters = momentum_dict[next_leg]
-            if  daughters == frozenset([next_leg,]):
+            if daughters == frozenset([next_leg,]):
                 external_leg_numbers.append(next_leg)
             else:
                 intermediate_leg_number = list(daughters) + intermediate_leg_number
-        
         return external_leg_numbers
 
     def get_daughter_pdgs(self, leg_number, state):
@@ -2273,10 +2272,8 @@ class IRSubtraction(object):
                     beam_names_added.append(beam_name)
                     elementary_operator_list.append(
                              BeamOperator(*pbft[beam_name]['singular_structure'].get_all_legs()))
-            
         
         return SingularOperatorList(elementary_operator_list)
-
 
     def get_all_combinations(
         self, elementary_operators,
@@ -2443,7 +2440,7 @@ class IRSubtraction(object):
             # matching the beam number.
             beam_number = current_type.legs[0].n
             assert (beam_number in [1,2]), "Beam factorization structure are expected to "+\
-                                                        "have a single leg withh number in [1,2]."
+                                                        "have a single leg with number in [1,2]."
             current = BeamCurrent({
                 'beam_type'         : self.beam_types[beam_number-1][0],
                 'beam_PDGs'         : self.beam_types[beam_number-1][1],

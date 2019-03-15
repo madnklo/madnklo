@@ -3081,7 +3081,7 @@ class ME7Integrand_R(ME7Integrand):
         hel_config=None, apply_flavour_blind_cuts=True,
         boost_back_to_com=True, always_generate_event=False, **opts ):
         """Evaluate a counterterm for a given PS point and flavors.
-        The option 'boost_back_to_com' allows to prevent this functiont to boost back the
+        The option 'boost_back_to_com' allows to prevent this function to boost back the
         PS point of the Event generated to the c.o.m frame. This would yields *incorrect* 
         distributions but it is useful for diagnostic purposes when called from within
         test_IR_limits. It however *must* be kept to True by default."""

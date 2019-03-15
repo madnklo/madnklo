@@ -819,7 +819,8 @@ class FinalCollinearMapping(VirtualMapping):
         # Precompute sets and numbers
         substructure = singular_structure.substructures[0]
         parent, children, _ = get_structure_numbers(substructure, momenta_dict)
-        # Determine the correct scaling for the divergence to go like 1/parameter
+        # Determine the correct scaling of variables for the phase-space volume
+        # to be proportional to scaling_parameter
         base = scaling_parameter ** (0.5 / (len(children) - 1))
         kinematic_variables['s' + str(parent)] *= base ** 2
         for child in children:

@@ -15,13 +15,74 @@
 
 import logging
 
-import madgraph
 import madgraph.various.misc as misc
 import madgraph.integrator.mappings as mappings
 import madgraph.core.subtraction as sub
-from madgraph import InvalidCmd, MadGraph5Error
+from madgraph import MadGraph5Error
 
 logger = logging.getLogger('madgraph.PhaseSpaceGenerator')
+
+#=========================================================================================
+# Low-level approach limit function
+#=========================================================================================
+
+def low_level_approach_limit(
+    PS_point, mappings_sequence, scaling_parameter, momenta_dict,
+    verbose=False):
+    """Parametrically approach a limit
+    starting from a given resolved kinematic configuration.
+
+    :param PS_point: starting phase-space point
+
+    :param mappings_sequence: a list of tuples (mapping, structure, power)
+    that specifies a sequence of mappings to be applied with their input structure,
+    and the weight of the rescaling to be applied at each step
+
+    :param scaling_parameter: the value in (0,1) of the dimensionless
+    scaling parameter which regulate the distance from the limit
+
+    :param momenta_dict: the momentum dictionary used by all mappings
+    to determine the leg numbers of parent and children
+
+    :param verbose: False suppresses any debugging output
+    """
+
+    tmp_PS_point = PS_point.get_copy()
+    kin_variables_list = list()
+    if verbose:
+        misc.sprint(PS_point.__str__(n_initial=1))
+        # misc.sprint(PS_point)
+        misc.sprint(momenta_dict)
+        misc.sprint("*** Walking down ***")
+    for mapping, structure, power in mappings_sequence:
+        if verbose:
+            misc.sprint(mapping.__class__.__name__, str(structure))
+        kin_variables = {}
+        sub.update_momenta_dict(momenta_dict, structure)
+        tmp_PS_point, _ = mapping.map_to_lower_multiplicity(
+            tmp_PS_point, structure, momenta_dict, None, kin_variables)
+        if verbose:
+            misc.sprint(tmp_PS_point.__str__(n_initial=1))
+            # misc.sprint(tmp_PS_point)
+            misc.sprint(momenta_dict)
+            misc.sprint(kin_variables)
+        mapping.rescale_kinematic_variables(
+            structure, momenta_dict, kin_variables, scaling_parameter ** power)
+        if verbose:
+            misc.sprint(power)
+            misc.sprint(kin_variables)
+        kin_variables_list.append(kin_variables)
+    if verbose:
+        misc.sprint("*** Walking up ***")
+    for mapping, structure, power in reversed(mappings_sequence):
+        tmp_PS_point, _ = mapping.map_to_higher_multiplicity(
+            tmp_PS_point, structure, momenta_dict, kin_variables_list[-1])
+        kin_variables_list = kin_variables_list[:-1]
+        if verbose:
+            misc.sprint(mapping.__name__, str(structure))
+            misc.sprint(tmp_PS_point.__str__(n_initial=1))
+            # misc.sprint(tmp_PS_point)
+    return tmp_PS_point
 
 #=========================================================================================
 # Stroll

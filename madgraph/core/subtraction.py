@@ -2072,6 +2072,33 @@ class IntegratedCounterterm(Counterterm):
         return n_loops
 
 #=========================================================================================
+# Create and update momenta dictionaries
+#=========================================================================================
+
+def create_momenta_dict(process):
+    """Create a new momenta dictionary for a given process."""
+
+    momenta_dict = bidict()
+    for leg in process['legs']:
+        momenta_dict[leg['number']] = frozenset((leg['number'],))
+    return momenta_dict
+
+def update_momenta_dict(momenta_dict, singular_structure):
+    """Update momenta dictionary."""
+
+    children = list(singular_structure.legs)
+    parent_number = None
+    for substructure in singular_structure.substructures:
+        children.append(update_momenta_dict(momenta_dict, substructure))
+    if singular_structure.name() in ["C", ]:
+        all_leg_numbers = frozenset.union(
+            frozenset.union(*momenta_dict.values()),
+            frozenset(momenta_dict.keys()) )
+        parent_number = max(*all_leg_numbers) + 1
+        momenta_dict[parent_number] = frozenset(child.n for child in children)
+    return parent_number
+
+#=========================================================================================
 # IRSubtraction
 #=========================================================================================
 
@@ -2345,15 +2372,8 @@ class IRSubtraction(object):
 
         # If no momenta dictionary was passed
         if not momenta_dict_so_far:
-            # Initialize it with process legs
-            momenta_dict_so_far = bidict()
-            for leg in process['legs']:
-                # Check that legs are numbered progressively
-                # from 1 to len(process['legs']),
-                # else a more elaborate treatment of indices is needed
-                assert leg['number'] == len(momenta_dict_so_far) + 1
-                momenta_dict_so_far[leg['number']] = frozenset((leg['number'], ))
-
+            # Initialize a trivial momenta_dict
+            momenta_dict_so_far = create_momenta_dict(process)
             # The squared orders of the reduced process will be set correctly later
             reduced_process = reduced_process.get_copy(
                 ['legs', 'n_loops', 'legs_with_decays','beam_factorization']
@@ -2449,7 +2469,6 @@ class IRSubtraction(object):
         else:
             current = Current({'singular_structure': current_type })
         structure_legs = current_type.get_all_legs()
-        structure_leg_ns = frozenset(leg.n for leg in structure_legs)
         if current_type.name()=='F':
             # We must not remove legs from the reduced process for beam factorization 
             # contributions
@@ -2470,11 +2489,8 @@ class IRSubtraction(object):
             if structure_legs.has_initial_state_leg():
                 parent_state = SubtractionLeg.INITIAL
             parent = SubtractionLeg(parent_index, parent_PDG, parent_state)
-        elif structure.name() == "S":
-            # No parent
-            pass
-        elif structure.name() == "F":
-            # No need to propagate parents for F structures
+        elif structure.name() in ["S", "F", ]:
+            # No need to propagate parents
             pass
         else:
             raise MadGraph5Error("Building unrecognized current of type %s" %str(type(structure)) )

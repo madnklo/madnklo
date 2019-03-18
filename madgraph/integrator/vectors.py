@@ -135,7 +135,7 @@ class LorentzVector(Vector):
         return self[1:].view(type=Vector)
 
     def dot(self, v):
-        """C ompute the Lorentz scalar product."""
+        """Compute the Lorentz scalar product."""
         ## The implementation below allows for a check but it should be done upstream and
         ## significantly slows down the code here.
         # pos = self[0]*v[0]

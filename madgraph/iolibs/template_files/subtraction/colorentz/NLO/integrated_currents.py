@@ -195,6 +195,9 @@ class integrated_NLO_FF_QCD_collinear_qqx(integrated_NLO_FF_QCD_current):
         ymax = (1-math.sqrt(1-yijtildeQ))**2
         alpha_0 = (yijtildeQ - math.sqrt(4*ymax - 4*ymax*yijtildeQ + yijtildeQ**2))/(2.*(-1 + yijtildeQ))
         assert alpha_0 < 1 and alpha_0 > 0
+
+        if alpha_0>currents.SomogyiChoices.alpha_0:
+            alpha_0 = currents.SomogyiChoices.alpha_0
         finite_part = HE.CqqFF_Finite_Gabor_DIVJAC_NOD0(alpha_0,y12)
 
         value = EpsilonExpansion({ 0 : finite_part, -1 : (-2./3.), -2 : 0.})
@@ -324,6 +327,8 @@ class integrated_NLO_FF_QCD_collinear_gq(integrated_NLO_FF_QCD_current):
         ymax = (1-math.sqrt(1-yijtildeQ))**2
         alpha_0 = (yijtildeQ - math.sqrt(4*ymax - 4*ymax*yijtildeQ + yijtildeQ**2))/(2.*(-1 + yijtildeQ))
         assert alpha_0 < 1 and alpha_0 > 0
+        if alpha_0>currents.SomogyiChoices.alpha_0:
+            alpha_0 = currents.SomogyiChoices.alpha_0
         finite_part = HE.CqgFF_Finite_Gabor_DIVJAC_NOD0(alpha_0,y12)
 
         value = EpsilonExpansion({ 0 : finite_part, -1 : (3./2. - 2.*math.log(y12)), -2 : 1.})
@@ -626,6 +631,8 @@ class integrated_NLO_FF_QCD_collinear_gg(integrated_NLO_FF_QCD_current):
         ymax = (1-math.sqrt(1-yijtildeQ))**2
         alpha_0 = (yijtildeQ - math.sqrt(4*ymax - 4*ymax*yijtildeQ + yijtildeQ**2))/(2.*(-1 + yijtildeQ))
         assert alpha_0 < 1 and alpha_0 > 0
+        if alpha_0>currents.SomogyiChoices.alpha_0:
+            alpha_0 = currents.SomogyiChoices.alpha_0
         finite_part = HE.CggFF_Finite_Gabor_DIVJAC_NOD0(alpha_0,y12)
 
         value = EpsilonExpansion({ 0 : finite_part, -1 : (11./3. - 4.*math.log(y12)), -2 : 2.})

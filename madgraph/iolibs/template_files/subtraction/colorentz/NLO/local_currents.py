@@ -41,7 +41,7 @@ CurrentImplementationError = utils.CurrentImplementationError
 class QCD_final_collinear_0_qqx(currents.QCDLocalCollinearCurrent):
     """q q~ collinear tree-level current."""
 
-    is_cut = staticmethod(currents.no_cut)
+    is_cut = staticmethod(currents.SomogyiChoices.cut_coll)
     factor = staticmethod(currents.SomogyiChoices.factor_coll)
     variables = staticmethod(currents.Q_final_coll_variables)
 
@@ -94,7 +94,7 @@ class QCD_final_collinear_0_qqx(currents.QCDLocalCollinearCurrent):
 class QCD_final_collinear_0_gq(currents.QCDLocalCollinearCurrent):
     """g q collinear tree-level current."""
 
-    is_cut = staticmethod(currents.no_cut)
+    is_cut = staticmethod(currents.SomogyiChoices.cut_coll)
     factor = staticmethod(currents.SomogyiChoices.factor_coll)
     variables = staticmethod(currents.Q_final_coll_variables)
 
@@ -144,7 +144,7 @@ class QCD_final_collinear_0_gq(currents.QCDLocalCollinearCurrent):
 class QCD_final_collinear_0_gg(currents.QCDLocalCollinearCurrent):
     """g g collinear tree-level current."""
 
-    is_cut = staticmethod(currents.no_cut)
+    is_cut = staticmethod(currents.SomogyiChoices.cut_coll)
     factor = staticmethod(currents.SomogyiChoices.factor_coll)
     variables = staticmethod(currents.Q_final_coll_variables)
 

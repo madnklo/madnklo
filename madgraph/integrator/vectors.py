@@ -106,6 +106,14 @@ class Vector(np.ndarray):
 
         return self - self.project_onto(v)
 
+    @classmethod
+    def cos(cls, v, w):
+        """Cosine of the angle between two vectors."""
+
+        assert v.square() > 0
+        assert w.square() > 0
+        return v.dot(w)/(abs(v)*abs(w))
+
     # Specific to 3D vectors
     def cross(self, v):
 
@@ -158,6 +166,11 @@ class LorentzVector(Vector):
         """Compute the radius."""
 
         return abs(self.space())
+
+    def space_direction(self):
+        """Compute the corresponding unit vector in ordinary space."""
+
+        return self.space()/self.rho()
 
     def set_square(self, square, negative=False):
         """Change the time component of this LorentzVector
@@ -278,6 +291,12 @@ class LorentzVector(Vector):
         ptot = self.rho()
         assert (ptot > 0.)
         return self[3] / ptot
+
+    @classmethod
+    def cos(cls, v, w):
+        """Cosine of the angle between the space part of two vectors."""
+
+        return Vector.cos(v.space(), w.space())
 
     def phi(self):
 

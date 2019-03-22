@@ -28,6 +28,16 @@ import tests.unit_tests as unittest
 pjoin = os.path.join
 
 #=========================================================================================
+# Shorthands for initial and final state
+#=========================================================================================
+
+INITIAL = base_objects.Leg.INITIAL
+FINAL   = base_objects.Leg.FINAL
+
+assert subtraction.SubtractionLeg.INITIAL == INITIAL
+assert subtraction.SubtractionLeg.FINAL   == FINAL
+
+#===============================================================================
 # Test the phase-space generators
 #=========================================================================================
 

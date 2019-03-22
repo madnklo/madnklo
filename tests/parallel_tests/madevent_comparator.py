@@ -636,7 +636,10 @@ class ME7Runner(MG5Runner):
   
     def __init__(self, *args, **opts):
 
-        self.n_points = 1000
+        self.n_points = 30000
+        if 'PS_generator' in opts:
+            self.PS_generator = opts.pop('PS_generator')
+            self.name = 'ME7 %s'  %self.PS_generator
         if 'n_points' in opts:
             self.n_points = opts.pop('n_points')
         self.integrator = 'VEGAS3'
@@ -796,7 +799,7 @@ class MadNkLOFinalNLORunner(ME7Runner):
             v5_string += self.retrieve_run_card()
         v5_string += "launch %s \n"%(os.path.join(self.mg5_path, self.temp_dir_name))
         if self.integrator == 'VEGAS3':
-            v5_string +="set_integrator_options VEGAS3 --n_points_survey=%s --n_points_refine=%s\n"%(self.n_points,self.n_points)
+            v5_string +="set_integrator_options VEGAS3 --n_points_survey=%d --n_points_refine=%d\n"%(self.n_points,self.n_points)
         v5_string += "launch --integrator=%s --PS_generator=%s --integrands=B\n" % (
         self.integrator, self.PS_generator)
         v5_string += "launch --integrator=%s --PS_generator=%s --integrands=V\n" % (

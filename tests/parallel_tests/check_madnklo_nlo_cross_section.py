@@ -73,7 +73,7 @@ class MadNkLONLOCrossSectionChecker(unittest.TestCase):
         self.compare_cross_section_to_values(values, my_proc_list,
                                              orders={'QED': 99, 'QCD': 99},
                                              filename="short_MNK_NLO_epem_jj.log",
-                                             ME7_options={'n_points': 2,
+                                             ME7_options={'n_points': 5000,
                                                           'integrator': 'VEGAS3',
                                                           'PS_generator':'FLATPS'},
                                              custom_run_card=custom_run_card)

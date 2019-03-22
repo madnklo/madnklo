@@ -558,7 +558,7 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
         for i in range(2,self.n_final):
             for k in range(i, self.n_final+1):
                 Q[i-1] = Q[i-1] + moms[k+self.n_initial-1]
-            M[i-1] = abs(Q[i-1])
+            M[i-1] = abs(Q[i-1].square()) ** 0.5
 
         weight = self.invertIntermediatesMassive(M, E_cm, random_variables)
 

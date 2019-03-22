@@ -24,6 +24,26 @@ logger = logging.getLogger('madgraph.PhaseSpaceGenerator')
 class InvalidOperation(Exception):
     pass
 
+def almost_equal(x, y, rel_tol=0, abs_tol=0):
+    """Check if two objects are equal within certain relative and absolute tolerances.
+    The operations abs(x + y) and abs(x - y) need to be well-defined
+    for this function to work.
+
+    :param x: first object to be compared
+    :param y: second object to be compared
+    :param rel_tol: relative tolerance for the comparison
+    :param abs_tol: absolute tolerance for the comparison
+    :return: True if the elements are equal within tolerance, False otherwise
+    :rtype: bool
+    """
+
+    diffxy = abs(x - y)
+    if diffxy <= abs_tol: return True
+    sumxy = abs(x + y)
+    # Rough check that the ratio is smaller than 1 to avoid division by zero
+    if sumxy < diffxy: return False
+    return diffxy / sumxy <= rel_tol
+
 #=========================================================================================
 # Vector
 #=========================================================================================
@@ -38,10 +58,11 @@ class Vector(np.ndarray):
             foo = np.asanyarray(*args, **opts).view(cls)
         return foo
 
-    def eps(self):
+    def __array_finalize__(self, obj):
 
-        try: return np.finfo(self.dtype).eps
-        except: return 0
+        try: self.eps = np.finfo(self.dtype).eps ** 0.5
+        except: self.eps = 0
+        return
 
     def huge(self):
 
@@ -52,19 +73,30 @@ class Vector(np.ndarray):
         else:
             raise ValueError
 
+    def almost_zero(self, x):
+
+        return x < self.eps
+
+    def almost_equal(self, x, y=None):
+        """Check if two numbers are equal within the square root
+        of the typical numerical accuracy of the underlying array data type.
+        """
+
+        if y is None: y = self
+        return almost_equal(x, y, rel_tol=self.eps)
+
+    def square(self):
+
+        return self.dot(self)
+
+    def __abs__(self):
+
+        foo = self.view(np.ndarray)
+        return np.dot(foo, foo) ** 0.5
+
     def __eq__(self, other):
 
-        eps = max(self.eps(), other.eps())
-        # numpy.allclose uses abs(self-other) which would compute the norm
-        # for LorentzVector, thus view self and other as numpy.ndarray's
-        return np.allclose(
-            self.view(type=np.ndarray), other.view(type=np.ndarray),
-            math.sqrt(eps), 0.
-        )
-
-    def __ne__(self, other):
-
-        return not self.__eq__(other)
+        return almost_equal(self, other, rel_tol=self.eps+other.eps)
 
     def __hash__(self):
 
@@ -78,25 +110,10 @@ class Vector(np.ndarray):
         # return copy.deepcopy(self)
         return copy.copy(self)
 
-##   This slows down the code unnecessarily and significantly just for a debug. 
-##   Not worth it.
-#    def dot(self, v):
-#
-#        assert len(self) == len(v)
-#        return sum(el * v[i] for i, el in enumerate(self))
-
-    def square(self):
-
-        return self.dot(self)
-
-    def __abs__(self):
-
-        return math.sqrt(self.square())
-
     def normalize(self):
 
         self.__idiv__(abs(self))
-        return
+        return self
 
     def project_onto(self, v):
 
@@ -142,8 +159,8 @@ class LorentzVector(Vector):
 
         return self[1:].view(type=Vector)
 
-    def dot(self, v):
-        """C ompute the Lorentz scalar product."""
+    def dot(self, v, out=None):
+        """Compute the Lorentz scalar product."""
         ## The implementation below allows for a check but it should be done upstream and
         ## significantly slows down the code here.
         # pos = self[0]*v[0]
@@ -155,7 +172,7 @@ class LorentzVector(Vector):
     def square_almost_zero(self):
         """Check if the square of this LorentzVector is zero within numerical accuracy."""
 
-        return (self.square() / self.view(Vector).square()) ** 2 < self.eps()
+        return self.almost_zero(self.square() / np.dot(self, self))
 
     def rho2(self):
         """Compute the radius squared."""
@@ -182,7 +199,7 @@ class LorentzVector(Vector):
         # Note: square = self[0]**2 - self.rho2(),
         # so if (self.rho2() + square) is negative, self[0] is imaginary.
         # Letting math.sqrt fail if data is not complex on purpose in this case.
-        self[0] = math.sqrt(self.rho2() + square)
+        self[0] = (self.rho2() + square) ** 0.5
         if negative: self[0] *= -1
         return self
 
@@ -195,14 +212,11 @@ class LorentzVector(Vector):
         # Compute squares
         p2 = p.square()
         q2 = q.square()
-        # Numerical tolerances
-        p_eps = math.sqrt(p.eps())
-        q_eps = math.sqrt(q.eps())
         # Check if both Lorentz squares are small compared to the euclidean squares,
         # in which case the alternative formula should be used
         if p.square_almost_zero() and q.square_almost_zero():
             # Use alternative formula
-            if p == self:
+            if self.almost_equal(p):
                 for i in range(len(self)):
                     self[i] = q[i]
             else:
@@ -216,10 +230,13 @@ class LorentzVector(Vector):
         else:
             # Check that the two invariants are close,
             # else the transformation is invalid
-            if abs(p2-q2)/(abs(p2)+abs(q2)) > (p_eps+q_eps):
+            if not almost_equal(p2, q2, rel_tol=p.eps+q.eps):
                 logger.critical("Error in vectors.rotoboost: nonzero, unequal squares")
                 logger.critical("p = %s (%.9e)" % (str(p), p2))
                 logger.critical("q = %s (%.9e)" % (str(q), q2))
+                print "Error in vectors.rotoboost: nonzero, unequal squares"
+                print "p = %s (%.9e)" % (str(p), p2)
+                print "q = %s (%.9e)" % (str(q), q2)
                 raise InvalidOperation
             # Compute scalar products
             pq = p + q
@@ -240,7 +257,7 @@ class LorentzVector(Vector):
         """Compute pseudorapidity."""
 
         pt = self.pt()
-        if pt < self.eps() and abs(self[3]) < self.eps():
+        if pt < self.eps and abs(self[3]) < self.eps:
             return self.huge()*(self[3]/abs(self[3]))
         th = math.atan2(pt, self[3])
         return -math.log(math.tan(th/2.))
@@ -248,7 +265,7 @@ class LorentzVector(Vector):
     def rap(self):
         """Compute rapidity in the lab frame. (needs checking)"""
 
-        if self.pt() < self.eps() and abs(self[3]) < self.eps():
+        if self.pt() < self.eps and abs(self[3]) < self.eps:
             return self.huge()*(self[3]/abs(self[3]))
 
         return .5*math.log((self[0]+self[3])/(self[0]-self[3]))
@@ -262,7 +279,7 @@ class LorentzVector(Vector):
             return self.huge()
         tmp = self[1]*p2[1] + self[2]*p2[2]
         tmp /= (pt1*pt2)
-        if abs(tmp) > (1.0+math.sqrt(self.eps())):
+        if abs(tmp) > (1.0+self.eps):
             logger.critical("Cosine larger than 1. in phase-space cuts.")
             raise ValueError
         if abs(tmp) > 1.0:
@@ -319,6 +336,97 @@ class LorentzVector(Vector):
         self_space = self.space()
         self_space += factor*boost_vector
         self[0] = gamma*(self[0] + bp)
+        return self
+
+    @classmethod
+    def boost_vector_from_to(cls, p, q):
+        """Determine the boost vector for a pure boost that sends p into q.
+        For details, see appendix A.2.2 of Simone Lionetti's PhD thesis.
+
+        :param LorentzVector p: Starting Lorentz vector to define the boost.
+        :param LorentzVector q: Target Lorentz vector to define the boost.
+        :return: Velocity vector for a boost that sends p into q.
+        :rtype: Vector
+        """
+
+        eps = p.eps+q.eps
+        p_abs = abs(p)
+        q_abs = abs(q)
+        assert almost_equal(p.square(), q.square(), rel_tol=eps) or \
+               (p.square_almost_zero() and q.square_almost_zero())
+        p_vec = p.space()
+        q_vec = q.space()
+        if almost_equal(p_vec, q_vec, rel_tol=eps):
+            return Vector([0 for _ in p_vec])
+        n_vec = (q_vec - p_vec).normalize()
+        na = LorentzVector([1, ] + list(+n_vec))
+        nb = LorentzVector([1, ] + list(-n_vec))
+        assert na.square_almost_zero()
+        assert nb.square_almost_zero()
+        assert almost_equal(na.dot(nb), 2, rel_tol=eps)
+        p_plus  =  p.dot(nb)
+        p_minus =  p.dot(na)
+        q_plus  =  q.dot(nb)
+        q_minus =  q.dot(na)
+        if p_minus/p_abs < eps and q_minus/q_abs < eps:
+            if p_plus/p_abs < eps and q_plus/q_abs < eps:
+                exppy = 1
+            else:
+                exppy = q_plus / p_plus
+        else:
+            if p_plus/p_abs < eps and q_plus/q_abs < eps:
+                exppy = p_minus / q_minus
+            else:
+                exppy = ((q_plus*p_minus) / (q_minus*p_plus)) ** 0.5
+        expmy = 1. / exppy
+        return abs((exppy - expmy) / (exppy + expmy)) * n_vec
+
+    def boost_from_to(self, p, q):
+        """Apply a pure boost that sends p into q to this LorentzVector.
+        For details, see appendix A.2.2 of Simone Lionetti's PhD thesis.
+
+        :param LorentzVector p: Starting Lorentz vector to define the boost.
+        :param LorentzVector q: Target Lorentz vector to define the boost.
+        """
+
+        eps = p.eps+q.eps
+        p_abs = abs(p)
+        q_abs = abs(q)
+        assert almost_equal(p.square(), q.square(), rel_tol=eps) or \
+               (p.square_almost_zero() and q.square_almost_zero())
+        p_vec = p.space()
+        q_vec = q.space()
+        if almost_equal(p_vec, q_vec, rel_tol=eps):
+            return Vector([0 for _ in p_vec])
+        n_vec = (q_vec - p_vec).normalize()
+        na = LorentzVector([1, ] + list(+n_vec))
+        nb = LorentzVector([1, ] + list(-n_vec))
+        assert na.square_almost_zero()
+        assert nb.square_almost_zero()
+        assert almost_equal(na.dot(nb), 2, rel_tol=eps)
+        p_plus  = p.dot(nb)
+        p_minus = p.dot(na)
+        q_plus  = q.dot(nb)
+        q_minus = q.dot(na)
+        if p_minus/p_abs < eps and q_minus/q_abs < eps:
+            if p_plus/p_abs < eps and q_plus/q_abs < eps:
+                ratioa = 1
+                ratiob = 1
+            else:
+                ratiob = q_plus / p_plus
+                ratioa = 1. / ratiob
+        else:
+            if p_plus/p_abs < eps and q_plus/q_abs < eps:
+                ratioa = q_minus / p_minus
+                ratiob = 1. / ratioa
+            else:
+                ratioa = q_minus / p_minus
+                ratiob = q_plus / p_plus
+        plus  = self.dot(nb)
+        minus = self.dot(na)
+        self.__iadd__(((ratiob - 1) * 0.5 * plus ) * na)
+        self.__iadd__(((ratioa - 1) * 0.5 * minus) * nb)
+        return self
 
 #=========================================================================================
 # LorentzVectorDict

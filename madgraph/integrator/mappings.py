@@ -144,8 +144,8 @@ class FinalCollinearVariables(object):
                 ktabssum[j] += abs(kti[j])
         # Check numerical accuracy
         # TODO Ideally switch to quadruple precision if the check fails
-        ktsum_abs = abs(ktsum.view(Vector))
-        ktabssum_abs = abs(ktabssum.view(Vector))
+        ktsum_abs = abs(ktsum)
+        ktabssum_abs = abs(ktabssum)
         ktsum_ratio = ktsum_abs / ktabssum_abs
         if (abs(zsum - 1) > precision) or (ktsum_ratio > precision):
             logger.critical(FinalCollinearVariables.precision_loss_message)
@@ -199,8 +199,8 @@ class FinalCollinearVariables(object):
             p_sum += PS_point[i]
         # Check how well the parent's momentum is reproduced
         # TODO Ideally switch to quadruple precision if the check fails
-        deviation = abs((p - p_sum).view(Vector))
-        benchmark = abs(p.view(Vector))
+        deviation = abs(p - p_sum)
+        benchmark = abs(p)
         if deviation / benchmark > precision:
             logger.critical(FinalCollinearVariables.precision_loss_message)
             logger.critical("The sum of children momenta is %s" % str(p_sum))
@@ -301,8 +301,8 @@ class InitialCollinearVariables(object):
         # Check numerical accuracy
         # TODO Ideally switch to quadruple precision if the check fails
         if not fs_children: return
-        ktsum_abs = abs(ktsum.view(Vector))
-        ktabssum_abs = abs(ktabssum.view(Vector))
+        ktsum_abs = abs(ktsum)
+        ktabssum_abs = abs(ktabssum)
         ktsum_ratio = ktsum_abs / ktabssum_abs
         if (abs(zsum - 1) > precision) or (ktsum_ratio > precision):
             logger.critical(FinalCollinearVariables.precision_loss_message)
@@ -359,8 +359,8 @@ class InitialCollinearVariables(object):
             p_sum -= PS_point[i]
         # Check how well the parent's momentum is reproduced
         # TODO Ideally switch to quadruple precision if the check fails
-        deviation = abs((pA - p_sum).view(Vector))
-        benchmark = abs(pA.view(Vector))
+        deviation = abs(pA - p_sum)
+        benchmark = abs(pA)
         if deviation / benchmark > precision:
             logger.critical(FinalCollinearVariables.precision_loss_message)
             logger.critical("The sum of children momenta is %s" % str(p_sum))
@@ -1025,6 +1025,7 @@ class FinalLorentzOneMapping(FinalCollinearMapping):
             # TODO Move this try/except to higher level
             try:
                 new_PS_point[recoiler].rotoboost(pR, qR)
+                # new_PS_point[recoiler].boost_from_to(pR, qR)
             except:
                 logger.critical("Problem encountered for %s" % str(singular_structure))
                 logger.critical("The full phase space point was\n%s" % str(new_PS_point))
@@ -1087,6 +1088,7 @@ class FinalLorentzOneMapping(FinalCollinearMapping):
         # Map recoil momenta
         for recoiler in singular_structure.legs:
             new_PS_point[recoiler.n].rotoboost(qR, pR)
+            # new_PS_point[recoiler.n].boost_from_to(qR, pR)
         # Set children momenta
         na, nb = FinalCollinearVariables.collinear_and_reference(qC)
         FinalCollinearVariables.set(
@@ -1309,6 +1311,7 @@ class FinalLorentzMapping(FinalCollinearMapping):
                 # TODO Move this try/except to higher level
                 try:
                     new_PS_point[recoiler].rotoboost(pR, qR)
+                    # new_PS_point[recoiler].boost_from_to(pR, qR)
                 except:
                     logger.critical(
                         "Problem encountered for " + str(singular_structure))
@@ -1385,6 +1388,7 @@ class FinalLorentzMapping(FinalCollinearMapping):
                 # TODO Move this try/except to higher level
                 try:
                     new_PS_point[recoiler].rotoboost(qR, pR)
+                    # new_PS_point[recoiler].boost_from_to(qR, pR)
                 except:
                     logger.critical(
                         "Problem encountered for %s" % str(singular_structure))
@@ -1579,6 +1583,7 @@ class InitialLorentzOneMapping(InitialCollinearMapping):
             # TODO Move this try/except to higher level
             try:
                 new_PS_point[recoiler.n].rotoboost(pR, qR)
+                # new_PS_point[recoiler.n].boost_from_to(pR, qR)
             except:
                 logger.critical("Problem encountered for " + str(singular_structure))
                 logger.critical("The full phase space point was\n" + str(PS_point))
@@ -1672,6 +1677,7 @@ class InitialLorentzOneMapping(InitialCollinearMapping):
         pR = qR + pA - qA
         for recoiler in singular_structure.legs:
             new_PS_point[recoiler.n].rotoboost(qR, pR)
+            # new_PS_point[recoiler.n].boost_from_to(qR, pR)
         # TODO Check if the jacobian for this mapping is really 1
         jacobian = 1.
 
@@ -2043,6 +2049,7 @@ class SoftVsFinalMapping(ElementaryMappingSoft):
         for recoiler in singular_structure.legs:
             new_PS_point[recoiler.n] /= la
             new_PS_point[recoiler.n].rotoboost(P, Q)
+            # new_PS_point[recoiler.n].boost_from_to(P, Q)
         mapping_variables = {'Q': Q}
         if compute_jacobian:
             mapping_variables['jacobian'] = (pR2_Q2)**(len(recoilers)-2)
@@ -2087,6 +2094,7 @@ class SoftVsFinalMapping(ElementaryMappingSoft):
         for recoiler in singular_structure.legs:
             new_PS_point[recoiler.n] *= la
             new_PS_point[recoiler.n].rotoboost(Q, P)
+            # new_PS_point[recoiler.n].boost_from_to(Q, P)
         mapping_variables = {'Q': Q}
         if compute_jacobian:
             mapping_variables['jacobian'] = (pR2_Q2)**(len(recoilers)-2)
@@ -2167,7 +2175,8 @@ class  SoftVsInitialMapping(ElementaryMappingSoft):
         K = Q - pS
 
         for recoiler in singular_structure.legs:
-            new_PS_point[recoiler.n].rotoboost(K, Ktilde) # this is Lambda(Ktilde,K) p_n
+            new_PS_point[recoiler.n].rotoboost(K, Ktilde)  # this is Lambda(Ktilde,K) p_n
+            # new_PS_point[recoiler.n].boost_from_to(K, Ktilde)  # this is Lambda(Ktilde,K) p_n
         # The initial state is rescaled by lambda
         new_PS_point[1]*=la
         new_PS_point[2]*=la
@@ -2244,6 +2253,7 @@ class  SoftVsInitialMapping(ElementaryMappingSoft):
         # Map all recoilers' momenta
         for recoiler in singular_structure.legs:
             new_PS_point[recoiler.n].rotoboost(Ktilde,K)
+            # new_PS_point[recoiler.n].boost_from_to(Ktilde, K)
         # Map the initial state
         new_PS_point[1] *= 1. / la
         new_PS_point[2] *= 1. / la

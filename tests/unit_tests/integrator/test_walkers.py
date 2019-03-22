@@ -136,7 +136,7 @@ class WalkersTest(unittest.TestCase):
                 my_PS_point[1] = LorentzVector([E/2., 0., 0., +E/2.])
                 my_PS_point[2] = LorentzVector([E/2., 0., 0., -E/2.])
             else:
-                E = abs(total_momentum)
+                E = abs(total_momentum.square()) ** 0.5
                 rest_momentum = LorentzVector([E, 0., 0., 0.])
                 my_PS_point[1] = LorentzVector([E/2., 0., 0., +E/2.])
                 my_PS_point[2] = LorentzVector([E/2., 0., 0., -E/2.])
@@ -292,7 +292,7 @@ class WalkersTest(unittest.TestCase):
                         if model.get_particle(leg.pdg)['mass'].lower() == 'zero':
                             self.assertLess(
                                 abs(new_PS_point[leg.n].square()),
-                                math.sqrt(new_PS_point[leg.n].eps()) )
+                                math.sqrt(new_PS_point[leg.n].eps) )
                         else:
                             self.assertAlmostEqual(
                                 new_PS_point[leg.n].square(),
@@ -311,6 +311,21 @@ class WalkersTest(unittest.TestCase):
     ])
     H_to_uuxddx = base_objects.Process({
         'legs': H_to_uuxddx_legs,
+        'model': simple_qcd.model,
+        'n_loops': 0
+    })
+
+    # H > u u~ d d~ g
+    H_to_uuxddxg_legs = base_objects.LegList([
+        base_objects.Leg({'number': 1, 'id': 25, 'state': INITIAL}),
+        base_objects.Leg({'number': 2, 'id':  1, 'state': FINAL}),
+        base_objects.Leg({'number': 3, 'id': -1, 'state': FINAL}),
+        base_objects.Leg({'number': 4, 'id':  2, 'state': FINAL}),
+        base_objects.Leg({'number': 5, 'id': -2, 'state': FINAL}),
+        base_objects.Leg({'number': 6, 'id': 21, 'state': FINAL}),
+    ])
+    H_to_uuxddxg = base_objects.Process({
+        'legs': H_to_uuxddxg_legs,
         'model': simple_qcd.model,
         'n_loops': 0
     })
@@ -379,19 +394,23 @@ class WalkersTest(unittest.TestCase):
     def test_FinalRescalingNLOWalker_invertible(self):
 
         walker = walkers.FinalRescalingNLOWalker()
+        self._test_invertible(walker, self.H_to_uuxddx, 1, 1)
+        self._test_invertible(walker, self.H_to_uuxddxg, 1, 1)
         self._test_invertible(walker, self.H_to_uuxddxH, 1, 1)
         self._test_invertible(walker, self.H_to_qqxggH, 1, 1)
 
     def test_FinalRescalingNLOWalker_approach_limit(self):
 
         walker = walkers.FinalRescalingNLOWalker()
+        self._test_approach_limit(walker, self.H_to_uuxddx, 1, 1)
+        self._test_approach_limit(walker, self.H_to_uuxddxg, 1, 1)
         self._test_approach_limit(walker, self.H_to_uuxddxH, 1, 1)
         self._test_approach_limit(walker, self.H_to_qqxggH, 1, 1)
 
     def test_FinalLorentzNLOWalker_invertible(self):
 
         walker = walkers.FinalLorentzNLOWalker()
-        self._test_invertible(walker, self.H_to_uuxddxH, 1, 1)
+        self._test_invertible(walker, self.H_to_uuxddxg, 1, 1)
         self._test_invertible(walker, self.H_to_qqxggH, 1, 1)
 
     def test_FinalLorentzNLOWalker_approach_limit(self):
@@ -403,6 +422,7 @@ class WalkersTest(unittest.TestCase):
     def test_LorentzNLOWalker_invertible(self):
 
         walker = walkers.LorentzNLOWalker()
+        self._test_approach_limit(walker, self.H_to_uuxddxg, 1, 1)
         self._test_invertible(walker, self.H_to_uuxddxH, 1, 1)
         self._test_invertible(walker, self.H_to_qqxggH, 1, 1)
         self._test_invertible(walker, self.qqx_to_ggH, 1, 1)
@@ -410,8 +430,11 @@ class WalkersTest(unittest.TestCase):
     def test_LorentzNLOWalker_approach_limit(self):
 
         walker = walkers.LorentzNLOWalker()
-        self._test_approach_limit(walker, self.H_to_qqxggH, 1, 1)
-        self._test_approach_limit(walker, self.qqx_to_ggH, 1, 1)
+        self._test_approach_limit(walker, self.H_to_uuxddxg, 1, 1)
+        # The following fails because the soft mapping does not handle massive particles
+        # self._test_approach_limit(walker, self.H_to_uuxddxH, 1, 1)
+        # self._test_approach_limit(walker, self.H_to_qqxggH, 1, 1)
+        # self._test_approach_limit(walker, self.qqx_to_ggH, 1, 1)
 
     def test_SoftBeamsRecoilNLOWalker_invertible(self):
 

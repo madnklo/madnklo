@@ -487,7 +487,6 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
 
             nextQ = Q - p
             nextQ.set_square(M[i-self.n_initial+1]**2)
-
             Q = nextQ
        
         output_momenta.append(Q)
@@ -550,10 +549,10 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
         # The random variables that would yield this PS point.
         random_variables = [-1.0]*self.nDimPhaseSpace()
         
-        M    = [ 0. ]*(self.n_final-1)
+        M    = [0., ]*(self.n_final-1)
         M[0] = E_cm
 
-        Q     = [LorentzVector(4*[0., ])]*(self.n_final-1)
+        Q     = [LorentzVector(), ]*(self.n_final-1)
         Q[0]  = LorentzVector([M[0],0.,0.,0.])
 
         for i in range(2,self.n_final):

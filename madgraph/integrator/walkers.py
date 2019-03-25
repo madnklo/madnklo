@@ -485,14 +485,14 @@ class FinalNLOWalker(OneNodeWalker):
 class FinalRescalingNLOWalker(FinalNLOWalker):
 
     collinear_map = mappings.FinalRescalingOneMapping()
-    soft_map = mappings.SoftVsFinalMapping()
+    soft_map = mappings.SoftVsFinalPureRescalingMapping()
     soft_collinear_map = mappings.SoftCollinearVsFinalMapping(soft_map, collinear_map)
     only_colored_recoilers = True
 
 class FinalLorentzNLOWalker(FinalNLOWalker):
 
     collinear_map = mappings.FinalLorentzOneMapping()
-    soft_map = mappings.SoftVsFinalMapping()
+    soft_map = mappings.SoftVsFinalPureRescalingMapping()
     soft_collinear_map = mappings.SoftCollinearVsFinalMapping(soft_map, collinear_map) 
     # Beware that integrated counterterms are only correct
     # when recoiling against *all* final states
@@ -544,7 +544,7 @@ class LorentzNLOWalker(NLOWalker):
 
     f_collinear_map = mappings.FinalLorentzOneMapping()
     i_collinear_map = mappings.InitialLorentzOneMapping()
-    soft_map = mappings.SoftVsFinalMapping()
+    soft_map = mappings.SoftVsFinalPureRescalingMapping()
     f_soft_collinear_map = mappings.SoftCollinearVsFinalMapping(soft_map, f_collinear_map)
     i_soft_collinear_map = mappings.SoftCollinearVsFinalMapping(soft_map, i_collinear_map)
     # The integrated counterterms are only correct when recoiling against *all* final states
@@ -690,7 +690,7 @@ class SoftDisjointWalker(DisjointWalker):
 
 class SoftVsFinalDisjointWalker(SoftDisjointWalker):
 
-    soft_map = mappings.SoftVsFinalMapping()
+    soft_map = mappings.SoftVsFinalPureRescalingMapping()
 
 # Dictionary of available walkers
 #=========================================================================================

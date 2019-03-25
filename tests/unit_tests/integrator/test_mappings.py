@@ -496,13 +496,13 @@ class MappingsTest(unittest.TestCase):
             variables = dict()
             low_PS_point, low_vars = pars['mapping'].map_to_lower_multiplicity(
                 my_PS_point, pars['structure'], pars['momenta_dict'], squared_masses,
-                variables, True )
+                variables, pars.get('jacobian', True) )
             if self.verbose > 1:
                 misc.sprint("Mapped PS point:\n" + str(low_PS_point))
                 misc.sprint("with variables: " + str(low_vars))
             high_PS_point, high_vars = pars['mapping'].map_to_higher_multiplicity(
                 low_PS_point, pars['structure'], pars['momenta_dict'],
-                variables, True )
+                variables, pars.get('jacobian', True) )
             if self.verbose > 1:
                 misc.sprint("Unmapped PS point:\n" + str(high_PS_point))
                 misc.sprint("with variables: " + str(high_vars))
@@ -538,10 +538,10 @@ class MappingsTest(unittest.TestCase):
             # Map to lower multiplicity using mapping1 and mapping2
             low_PS_point1, low_vars1 = pars['mapping1'].map_to_lower_multiplicity(
                 my_PS_point, pars['structure'], pars['momenta_dict'], squared_masses,
-                None, True )
+                None, pars.get('jacobian', True) )
             low_PS_point2, low_vars2 = pars['mapping2'].map_to_lower_multiplicity(
                 my_PS_point, pars['structure'], pars['momenta_dict'], squared_masses,
-                None, True )
+                None, pars.get('jacobian', True) )
             if self.verbose > 1:
                 print pars['mapping1'].__class__.__name__ + " yields"
                 print str(low_PS_point1)
@@ -1023,17 +1023,65 @@ class MappingsTest(unittest.TestCase):
             'min_unresolved_per_set': 1, 'max_unresolved_per_set': 3, }
         self._test_commutative(pars)
 
-    def test_SoftVsFinalMapping_invertible(self):
-        """Test if SoftVsFinalMapping is invertible."""
+    def test_SoftVsFinalPureRescalingMapping_invertible(self):
+        """Test if SoftVsFinalPureRescalingMapping is invertible."""
 
         pars = {
-            'mapping': mappings.SoftVsFinalMapping(),
+            'mapping': mappings.SoftVsFinalPureRescalingMapping(),
             'min_soft_sets': 1, 'max_soft_sets': 3,
             'min_recoilers': 2, 'max_recoilers': 5,
             'max_unchanged': 3,
             'min_unresolved_per_set': 1, 'max_unresolved_per_set': 4,
             'supports_massive_recoilers': False, }
         self._test_invertible(pars)
+
+    def test_SoftVsFinal_BoostThenRescale_invertible(self):
+        """Test if SoftVsFinalBoostThenRescaleMapping is invertible."""
+
+        pars = {
+            'mapping': mappings.SoftVsFinalBoostThenRescaleMapping(),
+            'min_soft_sets': 1, 'max_soft_sets': 3,
+            'min_recoilers': 2, 'max_recoilers': 5,
+            'max_unchanged': 3, 'masses': None,
+            'min_unresolved_per_set': 1, 'max_unresolved_per_set': 4,
+            'supports_massive_recoilers': False, 'jacobian': False, }
+        self._test_invertible(pars)
+
+    def test_SoftVsFinal_RescaleThenBoost_reduces_to_PureRescaling(self):
+
+        pars = {
+            'mapping1': mappings.SoftVsFinalPureRescalingMapping(),
+            'mapping2': mappings.SoftVsFinalRescaleThenBoostMapping(),
+            'min_soft_sets': 1, 'max_soft_sets': 3,
+            'min_recoilers': 2, 'max_recoilers': 5,
+            'max_unchanged': 3, 'masses': False,
+            'min_unresolved_per_set': 1, 'max_unresolved_per_set': 4,
+            'supports_massive_recoilers': False, 'jacobian': False, }
+        self._test_equal_lower(pars)
+
+    def test_SoftVsFinal_BoostThenRescale_reduces_to_PureRescaling(self):
+
+        pars = {
+            'mapping1': mappings.SoftVsFinalPureRescalingMapping(),
+            'mapping2': mappings.SoftVsFinalBoostThenRescaleMapping(),
+            'min_soft_sets': 1, 'max_soft_sets': 3,
+            'min_recoilers': 2, 'max_recoilers': 5,
+            'max_unchanged': 3, 'masses': False,
+            'min_unresolved_per_set': 1, 'max_unresolved_per_set': 4,
+            'supports_massive_recoilers': False, 'jacobian': False, }
+        self._test_equal_lower(pars)
+
+    def test_SoftVsFinal_BoostThenRescale_equal_RescaleThenBoost(self):
+
+        pars = {
+            'mapping1': mappings.SoftVsFinalRescaleThenBoostMapping(),
+            'mapping2': mappings.SoftVsFinalBoostThenRescaleMapping(),
+            'min_soft_sets': 1, 'max_soft_sets': 3,
+            'min_recoilers': 2, 'max_recoilers': 5,
+            'max_unchanged': 3, 'masses': False,
+            'min_unresolved_per_set': 1, 'max_unresolved_per_set': 4,
+            'supports_massive_recoilers': True, 'jacobian': False, }
+        self._test_equal_lower(pars)
 
     def test_SoftVsInitialMapping_invertible(self):
         """Test if SoftVsInitialMapping is invertible."""
@@ -1045,6 +1093,7 @@ class MappingsTest(unittest.TestCase):
             'max_unchanged': 3,
             'min_unresolved_per_set': 1, 'max_unresolved_per_set': 4, }
         self._test_invertible(pars)
+
     # TODO Confirm that indeed the SoftVsInitialMapping is neither associative or commutative
     # def test_SoftVsInitialMapping_associative(self):
     #     """Test if SoftVsInitialMapping is associative."""

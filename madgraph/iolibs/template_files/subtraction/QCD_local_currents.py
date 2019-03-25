@@ -650,7 +650,7 @@ class SomogyiChoices(object):
         except KeyError:
             pS = opts['pS']
             Q  = opts['Q']
-            y = mappings.SoftVsFinalMapping.y(pS, Q)
+            y = mappings.SoftVsFinalPureRescalingMapping.y(pS, Q)
         # Include the counterterm only up to y_0
         return y > SomogyiChoices.y_0
 
@@ -674,6 +674,6 @@ class SomogyiChoices(object):
         except KeyError:
             pS = opts['pS']
             Q  = opts['Q']
-            y = mappings.SoftVsFinalMapping.y(pS, Q)
+            y = mappings.SoftVsFinalPureRescalingMapping.y(pS, Q)
         norm = (1 - y) ** (SomogyiChoices.d_0_prime - 2)
         return norm

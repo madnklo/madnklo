@@ -34,16 +34,122 @@ pjoin = os.path.join
 
 CurrentImplementationError = utils.CurrentImplementationError
 
+
+# =========================================================================================
+# Defining the mapping-independent z
+# =========================================================================================
+
+def variable_MI_Q(higher_PS_point, lower_PS_point, parent, children, **opts):
+    """A definition of z such that we can use the same integrated counterterm for any mapping.
+    The notation used here is aligned with ND's handwritten note from 21.03.2019.
+    This is the first option where the variable v is defined as the energy fraction with respect to the rescaling
+    mapping collinear direction.
+    """
+    pij = sum(higher_PS_point[child] for child in children)
+    pi = higher_PS_point[children[0]]
+    Q = opts['Q']
+    Q2 = Q.square()
+    pijtilde = lower_PS_point[parent]
+    yij = pij.square()/Q2
+    yijQ = 2.*pijtilde.dot(Q)/Q2
+    yijtildeQ = 2.*pijtilde.dot(Q)/Q2
+
+    # Defining the reference vector to have a light-cone energy fraction v
+    # ------------
+    # Alpha defined from the higher-multiplicity phase space point (0903.1218/eq5.6)
+    # This is equal to alpha only in the case of the rescaling mapping
+    alphaR = 0.5*(yijQ - math.sqrt(yijQ**2-4.*yij))
+    # We then define the collinear direction *in the rescaling mapping*
+    pijtildeR = 1./(1.-alphaR)*(pij-alphaR*Q)
+    yijtildeQR = 2.*pijtildeR.dot(Q) / Q2
+    # The anti-collinear direction is then
+    nbar =  (2./yijtildeQR)*Q-(2./yijtildeQR**2)*pijtildeR
+    v = pi.dot(nbar) / pij.dot(nbar)
+
+    # Now we write our integral in terms of the parameters that describe
+    # the factorized phase space in the current mapping
+    alpha = 0.5*(math.sqrt(4.*yij + yijtildeQ**2 - 4. * yij * yijtildeQ)-yijtildeQ)/(1-yijtildeQ)
+    z = ((1-alpha)*yijtildeQ*v+alpha)/((1-alpha)*yijtildeQ+2.*alpha)
+
+    foo, kTs = currents.Q_final_coll_variables(higher_PS_point, pij, children, Q=Q)
+    return [z,1-z], kTs
+
+
 #=========================================================================================
 # NLO final-collinear currents
 #=========================================================================================
+class QCD_final_collinear_mapping_independent(currents.QCDLocalCollinearCurrent):
+    """One extra layer of abstraction in local currents
+    to accommodate the specific needs of mapping independent
+    collinear counterterms based on
+    """
 
-class QCD_final_collinear_0_qqx(currents.QCDLocalCollinearCurrent):
+    def evaluate_subtraction_current(
+        self, current,
+        higher_PS_point=None, lower_PS_point=None,
+        leg_numbers_map=None, reduced_process=None, hel_config=None,
+        Q=None, **opts ):
+        if higher_PS_point is None or lower_PS_point is None:
+            raise CurrentImplementationError(
+                self.name() + " needs the phase-space points before and after mapping." )
+        if leg_numbers_map is None:
+            raise CurrentImplementationError(
+                self.name() + " requires a leg numbers map, i.e. a momentum dictionary." )
+        if not hel_config is None:
+            raise CurrentImplementationError(
+                self.name() + " does not support helicity assignment." )
+        if Q is None:
+            raise CurrentImplementationError(
+                self.name() + " requires the total initial momentum Q." )
+
+        # Retrieve alpha_s and mu_r
+        model_param_dict = self.model.get('parameter_dict')
+        alpha_s = model_param_dict['aS']
+        mu_r = model_param_dict['MU_R']
+
+        children = self.get_sorted_children(current, self.model)
+        parent = leg_numbers_map.inv[frozenset(children)]
+        pC = sum(higher_PS_point[child] for child in children)
+        qC = lower_PS_point[parent]
+        # Include the counterterm only in a part of the phase space
+        if any(leg.state == leg.INITIAL for leg in current.get('singular_structure').legs):
+            pA = higher_PS_point[children[0]]
+            pR = sum(higher_PS_point[child] for child in children[1:])
+            # Initial state collinear cut
+            if self.is_cut(Q=Q, pA=pA, pR=pR):
+                return utils.SubtractionCurrentResult.zero(current=current, hel_config=hel_config)
+        else:
+            # Final state collinear cut
+            if self.is_cut(Q=Q, pC=pC):
+                return utils.SubtractionCurrentResult.zero(current=current, hel_config=hel_config)
+
+        # Evaluate kernel
+        zs, kTs = self.variables(higher_PS_point,lower_PS_point, parent, children, Q=Q)
+        evaluation = self.evaluate_kernel(zs, kTs, parent)
+
+        # Add the normalization factors
+        pC2 = pC.square()
+        norm = (8. * math.pi * alpha_s / pC2) ** (len(children) - 1)
+        norm *= self.factor(Q=Q, pC=pC, qC=qC)
+        for k in evaluation['values']:
+            evaluation['values'][k]['finite'] *= norm
+
+        # Construct and return result
+        result = utils.SubtractionCurrentResult()
+        result.add_result(
+            evaluation,
+            hel_config=hel_config,
+            squared_orders=tuple(sorted(current.get('squared_orders').items())))
+        return result
+
+
+
+class QCD_final_collinear_0_qqx(QCD_final_collinear_mapping_independent):
     """q q~ collinear tree-level current."""
 
     is_cut = staticmethod(currents.no_cut)
     factor = staticmethod(currents.SomogyiChoices.factor_coll)
-    variables = staticmethod(currents.Q_final_coll_variables)
+    variables = staticmethod(variable_MI_Q)
 
     @classmethod
     def does_implement_this_current(cls, current, model):
@@ -91,12 +197,12 @@ class QCD_final_collinear_0_qqx(currents.QCDLocalCollinearCurrent):
         evaluation['values'][(1, 0)]['finite'] = 4. * self.TR * z*(1.-z) / kT.square()
         return evaluation
 
-class QCD_final_collinear_0_gq(currents.QCDLocalCollinearCurrent):
+class QCD_final_collinear_0_gq(QCD_final_collinear_mapping_independent):
     """g q collinear tree-level current."""
 
     is_cut = staticmethod(currents.no_cut)
     factor = staticmethod(currents.SomogyiChoices.factor_coll)
-    variables = staticmethod(currents.Q_final_coll_variables)
+    variables = staticmethod(variable_MI_Q)
 
     @classmethod
     def does_implement_this_current(cls, current, model):
@@ -141,12 +247,12 @@ class QCD_final_collinear_0_gq(currents.QCDLocalCollinearCurrent):
         evaluation['values'][(0, 0)]['finite'] = self.CF * (1.+(1.-z)**2)/z
         return evaluation
 
-class QCD_final_collinear_0_gg(currents.QCDLocalCollinearCurrent):
+class QCD_final_collinear_0_gg(QCD_final_collinear_mapping_independent):
     """g g collinear tree-level current."""
 
     is_cut = staticmethod(currents.no_cut)
     factor = staticmethod(currents.SomogyiChoices.factor_coll)
-    variables = staticmethod(currents.Q_final_coll_variables)
+    variables = staticmethod(variable_MI_Q)
 
     @classmethod
     def does_implement_this_current(cls, current, model):

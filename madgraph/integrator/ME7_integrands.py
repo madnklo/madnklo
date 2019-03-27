@@ -3087,12 +3087,13 @@ class ME7Integrand_R(ME7Integrand):
             if (xi2 is not None) and (xb_2>xi2):
                 return None
 
-        # Compute the 4-vector Q characterizing this PS point, defined as the sum of all
-        # initial_state momenta, before any mapping is applied.
-        Q = sum(p for i, p in enumerate(PS_point.to_list()) if i<self.n_initial)
-       
         hike_output = self.walker.walk_to_lower_multiplicity(
                           PS_point, counterterm, compute_jacobian=self.divide_by_jacobian )
+        # Compute the total momentum of this PS point, before any mapping is applied.
+        # TODO change in sum(PS_point.to_list()[:self.n_initial])
+        total_momentum = sum(p for i, p in enumerate(PS_point.to_list())
+                             if i < self.n_initial)
+
 
         # Access the matrix element characteristics
         ME_process, ME_PS = hike_output['matrix_element']
@@ -3101,15 +3102,15 @@ class ME7Integrand_R(ME7Integrand):
         # and the reduced_flavors for this counterterm by using the default reduced flavors
         # originating from the defining process and the real-emission kinematics dictionary
         reduced_PS, reduced_flavors = counterterm.get_reduced_quantities(
-                                                              ME_PS, defining_flavors=None)
-        
+            ME_PS, defining_flavors=None)
+
         n_unresolved_left = self.contribution_definition.n_unresolved_particles
         n_unresolved_left -= counterterm.count_unresolved()
         # Apply cuts if requested and return immediately if they do not pass
         cut_weight = 1.
-        if apply_flavour_blind_cuts and not self.pass_flavor_blind_cuts(reduced_PS,
-                reduced_flavors, xb_1 = xb_1, xb_2 = xb_2, 
-                n_jets_allowed_to_be_clustered=n_unresolved_left):
+        if apply_flavour_blind_cuts and not self.pass_flavor_blind_cuts(
+            reduced_PS, reduced_flavors, xb_1=xb_1, xb_2=xb_2,
+            n_jets_allowed_to_be_clustered=n_unresolved_left):
             # Return None to indicate that no counter-event was generated
             if not always_generate_event:
                 return None
@@ -3196,15 +3197,15 @@ class ME7Integrand_R(ME7Integrand):
         # Then evaluate the beam factorization currents
         all_necessary_ME_calls = ME7Integrand_R.process_beam_factorization_currents(
             all_necessary_ME_calls, counterterm.get_beam_currents(), self.all_MEAccessors, 
-            ME_PS, ME_process, xb_1, xb_2, xi1, xi2, mu_r, mu_f1, mu_f2, Q)
+            ME_PS, ME_process, xb_1, xb_2, xi1, xi2, mu_r, mu_f1, mu_f2, total_momentum)
         # If there is no necessary ME call left, it is likely because the xi upper bound of the 
         # Bjorken x's convolution were not respected. We must now abort the event. 
         if len(all_necessary_ME_calls) == 0:
             if not always_generate_event:
                 return None
             else:
-                cut_weight = 0.    
-        
+                cut_weight = 0.
+
         # Now perform the combination of the list of spin- and color- correlators to be merged
         # for each necessary ME call identified
         all_necessary_ME_calls = ME7Integrand_R.merge_correlators_in_necessary_ME_calls(

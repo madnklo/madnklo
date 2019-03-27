@@ -2630,23 +2630,10 @@ class ME7Integrand_R(ME7Integrand):
             self.counterterms = opts.pop('counterterms')
         except KeyError:
             raise MadEvent7Error(requires % 'counterterms')
-        # Initialize a mapping walker to handle the limits of this integrand
-        try:
-            self.subtraction_mappings_scheme = opts.pop('subtraction_mappings_scheme')
-        except KeyError:
-            raise MadEvent7Error(requires % 'subtraction_mappings_scheme')
-        try:
-            self.walker = walkers.VirtualWalker(self.subtraction_mappings_scheme)
-        except KeyError:
-            raise MadEvent7Error(
-                "Invalid subtraction_mappings_scheme '%s'." %
-                self.subtraction_mappings_scheme)
         # Initialize the ME7Integrand
         super(ME7Integrand_R, self).__init__(*args, **opts)
         # Update the initialization inputs
         self.initialization_inputs['options']['counterterms'] = self.counterterms
-        self.initialization_inputs['options']['subtraction_mappings_scheme'] = \
-                                                          self.subtraction_mappings_scheme
 
     def has_local_counterterms(self):
         """ A real-emission type of integrand can contain local counterterms."""
@@ -3086,20 +3073,13 @@ class ME7Integrand_R(ME7Integrand):
         distributions but it is useful for diagnostic purposes when called from within
         test_IR_limits. It however *must* be kept to True by default."""
 
-        # Now call the walker which hikes through the counterterm structure
-        # to return the list of currents and PS points for their evaluation
-        # hike_output = {
-        #         'currents' : [stroll_output1, stroll_output2, ...],
-        #         'matrix_element': (ME_process, ME_PS),
-        #         'kinematic_variables' : kinematic_variables (a dictionary) }
-        
-        # When beam convolutions are active, we must remember that both the Bjorken x's *and*
-        # the convolution variable xi are integrated between zero and one.
-        #TODO this will need to be refined so as:
-        #    1) be moved to where the beam convolution takes place so as to affect each current 
-        #       independently of each other.
-        #    2) When called from test_IR_limits, we should never return None, but instead an 
-        #       event with zero weights. We need the case below to follow this requirement. 
+        # When beam convolutions are active, we must remember that both the Bjorken x's
+        # *and* the convolution variable xi are integrated between zero and one.
+        # TODO
+        # 1) moved where the beam convolution takes place so as to affect each current
+        #    independently of each other.
+        # 2) when called from test_IR_limits, we should never return None,
+        #    but instead an event with zero weights.
         if 'distribution_type' not in counterterm.nodes[0].current or \
           counterterm.nodes[0].current['distribution_type'] not in ['counterterm']:
             if (xi1 is not None) and (xb_1>xi1):
@@ -3371,8 +3351,8 @@ The missing process is: %s"""%ME_process.nice_string())
             matrix_element_event = None
         else:
             matrix_element_event = self.generate_matrix_element_event(
-                PS_point, process_key, process, all_flavor_configurations, 
-                  base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts)
+                PS_point, process_key, process, all_flavor_configurations,
+                base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts)
 
         # Some contributions might have not physical contributions and overloaded the above
         # so as to return None
@@ -3395,7 +3375,7 @@ The missing process is: %s"""%ME_process.nice_string())
             # The function above returns None if the counterterms is removed because of
             # flavour_blind_cuts.
             if CT_event is not None:
-                all_events_generated.append( CT_event )
+                all_events_generated.append(CT_event)
 
         # Notice that it may be possible in some subtraction scheme to combine
         # several events having the same kinematics support. This is a further
@@ -3418,11 +3398,8 @@ The missing process is: %s"""%ME_process.nice_string())
         # Apply the passed options
         seed = test_options.get('seed', None)
         if seed: random.seed(seed)
-        walker_name = test_options.get('walker', None)
-        if walker_name is None:
-            walker = self.walker
-        else:
-            walker = walkers.VirtualWalker(walker_name)
+        walker_name = test_options.get('walker', 'LorentzNLO')
+        walker = walkers.VirtualWalker(walker_name)
 
         # First generate an underlying Born
         # Specifying None forces to use uniformly random generating variables.

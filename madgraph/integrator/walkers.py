@@ -15,66 +15,12 @@
 
 import logging
 
-import madgraph
 import madgraph.various.misc as misc
 import madgraph.integrator.mappings as mappings
 import madgraph.core.subtraction as sub
 from madgraph import InvalidCmd, MadGraph5Error
 
 logger = logging.getLogger('madgraph.PhaseSpaceGenerator')
-
-#=========================================================================================
-# Stroll
-#=========================================================================================
-
-class Stroll(object):
-    """Container for a mapping call."""
-
-    def __init__(self, mapping, structure, squared_masses, currents, variables=None):
-
-        super(Stroll, self).__init__()
-        assert isinstance(mapping, mappings.VirtualMapping)
-        self.mapping = mapping
-        assert isinstance(structure, sub.SingularStructure)
-        self.structure = structure
-        self.squared_masses = squared_masses
-        for current in currents:
-            assert isinstance(current, sub.Current)
-        self.currents = currents
-        self.variables = variables
-
-    def __str__(self):
-
-        foo = self.mapping.__class__.__name__
-        foo += " with structure " + str(self.structure)
-        if self.squared_masses:
-            foo += str(self.squared_masses)
-        foo += " for currents: "
-        foo += ", ".join(str(current) for current in self.currents)
-        if self.variables is not None:
-            foo += " (with extra variables %s)" % str(self.variables)
-        return foo
-
-#=========================================================================================
-# Hike
-#=========================================================================================
-
-class Hike(list):
-    """Container for a sequence of mapping calls."""
-
-    def __new__(cls, *args, **opts):
-
-        for arg in args:
-            assert isinstance(arg, Stroll)
-        return super(Hike, cls).__new__(cls, *args, **opts)
-
-    def __str__(self):
-
-        foo = "--- Hike start ---\n"
-        foo += "\n".join(
-            ["Stroll "+str(i+1)+": "+str(stroll) for (i, stroll) in enumerate(self)] )
-        foo += "\n---  Hike end  ---"
-        return foo
 
 #=========================================================================================
 # Generic walker parent class
@@ -119,14 +65,6 @@ class VirtualWalker(object):
         raise NotImplemented
 
     @classmethod
-    def determine_hike(cls, counterterm):
-        """Determine the sequence of elementary mappings that must be applied
-        in order to map to lower multiplicity.
-        """
-
-        raise NotImplemented
-
-    @classmethod
     def decompose_counterterm(cls, counterterm, counterterms):
         """Determine the sequence of elementary mappings that must be applied
         in order to approach the limit.
@@ -148,138 +86,6 @@ class VirtualWalker(object):
                 break
             if not found: raise MadGraph5Error('Counterterm not found')
         return decomposed_cts
-
-    def get_hike(self, counterterm):
-        """Try to recycle the hike from a cached previous determination
-        using the counterterm hash.
-        """
-
-        # TODO Implement
-        # Remember to make the cache instance-dependent (self.###)
-
-        return self.determine_hike(counterterm)
-
-    def walk_to_lower_multiplicity(
-        self, PS_point, counterterm,
-        compute_kinematic_variables=False, compute_jacobian=False, verbose=False ):
-        """Starting from the highest-multiplicity phase-space point,
-        generate all lower-multiplicity phase-space points
-        that are necessary for the evaluation of the given counterterm.
-
-        :param PS_point: highest-multiplicity starting phase-space point,
-        as a dictionary that associates integers to Lorentz vectors.
-
-        :param counterterm: Counterterm object that specifies
-        clusters of particle and recoilers recursively.
-        Momenta_dict will obtained directly from it.
-
-        :param compute_kinematic_variables: flag that specifies whether to compute
-        all kinematic variables needed to recover the starting phase-space point
-        from the lowest multiplicity one.
-
-        :param compute_jacobian: flag that specifies whether to compute
-        the phase-space jacobian.
-
-        :return: a dictionary with the following entries:
-        'currents', a list of stroll output dictionaries
-            {stroll_currents, higher_PS_point, lower_PS_point, stroll_vars}
-            for each stroll/mapping applied;
-        'matrix_element', the reduced matrix element,
-            paired with its corresponding reduced phase-space point;
-        'kinematic_variables', a dictionary of all variables needed to recover
-            the starting phase-space point from the lowest multiplicity one,
-            or None if such variables were not requested.
-        """
-
-        # Identify the starting phase-space point
-        point = PS_point
-        if verbose: logger.debug(str(point))
-        # Initialize return variables
-        currents_4_eval = []
-        kinematic_variables = dict() if compute_kinematic_variables else None
-        # Determine the hike
-        hike = self.get_hike(counterterm)
-        # Walk along the hike
-        for stroll in hike:
-            # Map to lower multiplicity
-            new_point, vars = stroll.mapping.map_to_lower_multiplicity(
-                point, stroll.structure, counterterm.momenta_dict, stroll.squared_masses,
-                kinematic_variables=kinematic_variables,
-                compute_jacobian=compute_jacobian )
-            if verbose: logger.debug(str(new_point)+"\n"+str(vars))
-            # Append the current and the momenta
-            stroll_output = {
-                'stroll_currents': stroll.currents,
-                'higher_PS_point': point,
-                'lower_PS_point': new_point,
-                'stroll_vars': vars }
-            currents_4_eval.append(stroll_output)
-            point = new_point
-        # Identify reduced matrix element,
-        # computed in the point which has received all mappings
-        ME_PS_pair = [counterterm.process, point]
-        # Return
-        return {
-            'currents': currents_4_eval,
-            'matrix_element': ME_PS_pair,
-            'kinematic_variables': kinematic_variables }
-
-    def walk_to_higher_multiplicity(
-        self, PS_point, counterterm, kinematic_variables,
-        compute_jacobian=False, verbose=False ):
-        """Starting from the lowest-multiplicity phase-space point,
-        generate all higher-multiplicity phase-space points
-        that are necessary for the evaluation of the given counterterm.
-
-        :param PS_point: lowest-multiplicity starting phase-space point,
-        as a dictionary that associates integers to Lorentz vectors.
-
-        :param counterterm: Counterterm object that specifies
-        clusters of particle and recoilers recursively.
-        Momenta_dict will obtained directly from it.
-
-        :param kinematic_variables: dictionary of all variables needed to recover
-        the highest-multiplicity phase-space point from the starting one.
-
-        :param compute_jacobian: flag that specifies whether to compute
-        the phase-space jacobian.
-
-        :return: a dictionary with the following entries:
-        'currents', a list of stroll output dictionaries
-            {stroll_currents, higher_PS_point, lower_PS_point, stroll_vars}
-            for each stroll/mapping applied;
-        'matrix_element', the reduced matrix element,
-            paired with its corresponding reduced phase-space point.
-        """
-
-        # Identify reduced matrix element,
-        # computed in the lowest multiplicity point
-        ME_PS_pair = [counterterm.process, PS_point]
-        # Identify the starting phase-space point
-        point = PS_point
-        if verbose: logger.debug(str(point))
-        # Initialize return variables
-        currents_4_eval = []
-        # Determine the hike
-        hike = self.get_hike(counterterm)
-        for stroll in reversed(hike):
-            # Compute jacobian and map to higher multiplicity
-            new_point, vars = stroll.mapping.map_to_higher_multiplicity(
-                point, stroll.structure, counterterm.momenta_dict, kinematic_variables,
-                compute_jacobian=compute_jacobian )
-            if verbose: logger.debug(str(new_point)+"\n"+str(vars))
-            # Update jacobian and mapping variables
-            stroll_output = {
-                'stroll_currents': stroll.currents,
-                'higher_PS_point': new_point,
-                'lower_PS_point': point,
-                'stroll_vars': vars }
-            currents_4_eval.insert(0, stroll_output)
-            point = new_point
-        # Return
-        return {
-            'currents': currents_4_eval,
-            'matrix_element': ME_PS_pair, }
 
     def approach_limit(
         self, PS_point, structure, scaling_parameter, process ):
@@ -371,50 +177,6 @@ class OneNodeWalker(VirtualWalker):
             for leg in legs
             if cls.good_recoiler(model, leg) and cls.not_excluded(leg, exclude) ]
         return recoilers
-
-    @classmethod
-    def determine_hike(cls, counterterm):
-
-        # Initialize return variables
-        hike = Hike()
-        all_nodes = [ node for node in counterterm.nodes if not isinstance(node.current, 
-                    (sub.BeamCurrent, sub.IntegratedCurrent, sub.IntegratedBeamCurrent) ) ]
-        
-        # If the counterterm is not trivial
-        if len(all_nodes)>=1:
-            # Check it is only one
-            if len(counterterm.nodes) != 1:
-                raise MadGraph5Error(cls.cannot_handle_msg(counterterm))
-            # Alias node and singular structure for convenience
-            node = counterterm.nodes[0]
-            ss = node.current['singular_structure']
-            # Do not accept nested currents
-            if node.nodes:
-                raise MadGraph5Error(cls.cannot_handle_msg(counterterm))
-            # Get parent and children numbers
-            parent, children, _ = mappings.get_structure_numbers(
-                ss, counterterm.momenta_dict )
-            # Pick recoilers
-            recoilers = cls.get_recoilers(counterterm, (parent, ))
-            structure = sub.SingularStructure(legs=recoilers, substructures=(ss,))
-            # Choose mapping to use
-            mapping = cls.determine_mapping(ss)
-            # Determine the parent mass
-            if parent is not None:
-                try:
-                    parent_pdg = counterterm.find_leg(parent)['id']
-                except KeyError:
-                    raise MadGraph5Error(
-                        "Impossible to find parent " + str(parent) +
-                        " within counterterm " + str(counterterm) )
-                parent_particle = counterterm.process['model'].get_particle(parent_pdg)
-                if parent_particle['mass'].lower() != 'zero':
-                    raise MadGraph5Error("DEVELOPER: retrieve parent mass!")
-            squared_masses = None
-            # Compute jacobian and map to lower multiplicity
-            hike.append(Stroll(mapping, structure, squared_masses, (node.current, )))
-        # Return
-        return hike
 
 # FinalCollinearOneWalker
 #=========================================================================================
@@ -568,130 +330,6 @@ class SoftBeamsRecoilNLOWalker(NLOWalker):
     f_soft_collinear_map = mappings.SoftCollinearVsFinalMapping(soft_map, f_collinear_map)
     i_soft_collinear_map = mappings.SoftCollinearVsFinalMapping(soft_map, i_collinear_map)
 
-#=========================================================================================
-# Walker for disjoint counterterms
-#=========================================================================================
-
-class DisjointWalker(OneNodeWalker):
-    """Implement a generic determine_hike for disjoint counterterms."""
-
-    @classmethod
-    def determine_hike(cls, counterterm):
-
-        # Initialize return variables
-        hike = Hike()
-        # If the counterterm is not trivial
-        if not counterterm.nodes:
-            return hike
-        parents = []
-        currents = []
-        substructures = []
-        soft_particles = []
-        for node in counterterm.nodes:
-            # Do not accept nested currents
-            if node.nodes:
-                raise MadGraph5Error(cls.cannot_handle_msg(counterterm))
-            # Alias singular structure for convenience
-            ss = node.current['singular_structure']
-            # Get parent and children numbers
-            parent, _, _ = mappings.get_structure_numbers(ss, counterterm.momenta_dict )
-            # Collinear structures
-            if parent is not None:
-                # Exclude parents from recoilers
-                parents.append(parent)
-                currents.append(node.current)
-                substructures.append(ss)
-                # Determine the parent mass
-                # TODO: For now, check that it is zero
-                try:
-                    parent_pdg = counterterm.find_leg(parent)['id']
-                except KeyError:
-                    raise MadGraph5Error(
-                        "Impossible to find parent " + str(parent) +
-                        " within counterterm " + str(counterterm) )
-                parent_particle = counterterm.process['model'].get_particle(parent_pdg)
-                if parent_particle['mass'].lower() != 'zero':
-                    raise MadGraph5Error("DEVELOPER: retrieve parent mass!")
-            # Soft structures
-            else:
-                # Group all soft particles in one structure
-                soft_particles += ss.get_all_legs()
-                currents.append(node.current)
-        squared_masses = None
-        if soft_particles:
-            substructures.append(sub.SoftStructure(legs=soft_particles))
-        # Pick recoilers as everything in the final state of the reduced process
-        recoilers = cls.get_recoilers(counterterm, parents)
-        structure = sub.SingularStructure(legs=recoilers, substructures=substructures)
-        # Choose mapping to use
-        mapping = cls.determine_mapping(structure)
-        # Compute jacobian and map to lower multiplicity
-        hike.append(Stroll(mapping, structure, squared_masses, currents))
-        # Returns
-        return hike
-
-# Walker for disjoint final-collinear counterterms
-#=========================================================================================
-
-class FinalCollinearDisjointWalker(DisjointWalker):
-    """Implement a generic determine_hike for disjoint final-collinear counterterms."""
-
-    collinear_map = None
-
-    @classmethod
-    def good_recoiler(cls, model, leg):
-
-        return leg['state'] == leg.FINAL
-
-    @classmethod
-    def determine_mapping(cls, structure):
-
-        for substructure in structure.substructures:
-            if substructure.name() != 'C':
-                raise MadGraph5Error(cls.cannot_handle_msg(structure))
-            if substructure.substructures:
-                raise MadGraph5Error(cls.cannot_handle_msg(structure))
-            if structure.legs.has_initial_state_leg():
-                raise MadGraph5Error(cls.cannot_handle_msg(structure))
-        return cls.collinear_map
-
-class FinalLorentzDisjointWalker(FinalCollinearDisjointWalker):
-
-    collinear_map = mappings.FinalLorentzMapping()
-
-class FinalGroupingDisjointWalker(FinalCollinearDisjointWalker):
-
-    collinear_map = mappings.FinalGroupingMapping()
-
-# Walker for disjoint final-collinear counterterms
-#=========================================================================================
-
-class SoftDisjointWalker(DisjointWalker):
-    """Implement a generic determine_hike for disjoint soft counterterms."""
-
-    soft_map = None
-
-    @classmethod
-    def good_recoiler(cls, model, leg):
-
-        return leg['state'] == leg.FINAL
-
-    @classmethod
-    def determine_mapping(cls, structure):
-
-        for substructure in structure.substructures:
-            if substructure.name() != 'S':
-                raise MadGraph5Error(cls.cannot_handle_msg(structure))
-            if substructure.substructures:
-                raise MadGraph5Error(cls.cannot_handle_msg(structure))
-            if structure.legs.has_initial_state_leg():
-                raise MadGraph5Error(cls.cannot_handle_msg(structure))
-        return cls.soft_map
-
-class SoftVsFinalDisjointWalker(SoftDisjointWalker):
-
-    soft_map = mappings.SoftVsFinalPureRescalingMapping()
-
 # Dictionary of available walkers
 #=========================================================================================
 
@@ -705,8 +343,5 @@ walker_classes_map = {
     'FinalRescalingNLO': FinalRescalingNLOWalker,
     'FinalLorentzNLO': FinalLorentzNLOWalker,
     'LorentzNLO': LorentzNLOWalker,
-    'FinalLorentzDisjoint': FinalLorentzDisjointWalker,
-    'FinalGroupingDisjoint': FinalGroupingDisjointWalker,
-    'SoftVsFinalDisjoint': SoftVsFinalDisjointWalker,
     'SoftBeamsRecoilNLO': SoftBeamsRecoilNLOWalker
 }

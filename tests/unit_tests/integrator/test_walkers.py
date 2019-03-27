@@ -145,85 +145,6 @@ class WalkersTest(unittest.TestCase):
         else: raise BaseException
         return my_PS_point
 
-    def _test_invertible(
-        self, walker, process,
-        max_unresolved_in_elementary, max_unresolved_in_combination):
-        """Check that the walker and its inverse yield the same result.
-
-        :param walker: Mapping walker to be tested
-        :type walker: walkers.VirtualWalker
-
-        :param process: The physical process the walker will be tested for
-        :type process: base_objects.Process
-
-        :param max_unresolved_in_elementary: Maximum number of unresolved particles
-        within the same elementary operator
-        :type max_unresolved_in_elementary: positive integer
-
-        :param max_unresolved_in_combination: Maximum number of unresolved particles
-        within a combination of elementary operators
-        :type max_unresolved_in_combination: positive integer
-        """
-
-        random.seed(self.seed)
-        if self.verbosity > 2:
-            print "\n" + self.stars * (self.verbosity - 2)
-        if self.verbosity > 0:
-            tmp_str = "test_invertible for " + walker.__class__.__name__
-            tmp_str += " with " + process.nice_string()
-            print tmp_str
-        if self.verbosity > 2:
-            print self.stars * (self.verbosity - 2) + "\n"
-        my_operators = self.irs.get_all_elementary_operators(
-            process, max_unresolved_in_elementary)
-        my_combinations = self.irs.get_all_combinations(
-            my_operators, max_unresolved_in_combination)
-        my_counterterms = [
-            self.irs.get_counterterm(combination, process)
-            for combination in my_combinations ]
-
-        # For each counterterm
-        for i in range(len(my_counterterms)):
-            if self.verbosity > 3: print "\n" + self.stars * (self.verbosity - 3)
-            if self.verbosity > 1: print "Considering counterterm", my_counterterms[i]
-            if self.verbosity > 3: print self.stars * (self.verbosity - 3) + "\n"
-            for j in range(self.n_test_invertible):
-                if self.verbosity > 2:
-                    print "Phase space point #", j+1
-                my_PS_point = self.generate_PS_point(process)
-                # Compute collinear variables
-                res_dict1 = walker.walk_to_lower_multiplicity(
-                    my_PS_point, my_counterterms[i],
-                    compute_kinematic_variables=True, compute_jacobian=True )
-                currs1, ME1, kin = (
-                    res_dict1['currents'], res_dict1['matrix_element'],
-                    res_dict1['kinematic_variables'] )
-                if self.verbosity > 3:
-                    print "Walking down"
-                    for curr in currs1:
-                        print curr['higher_PS_point']
-                    print ME1[1]
-                res_dict2 = walker.walk_to_higher_multiplicity(
-                    ME1[1], my_counterterms[i], kin,
-                    compute_jacobian=True )
-                currs2, ME2 = res_dict2['currents'], res_dict2['matrix_element']
-                if self.verbosity > 3:
-                    print "Walking up"
-                    print ME2[1]
-                    for curr in currs2:
-                        print curr['higher_PS_point']
-                # Check currents
-                self.assertEqual(len(currs1), len(currs2))
-                for i_curr in range(len(currs1)):
-                    c1, c2 = currs1[i_curr], currs2[i_curr]
-                    self.assertEqual(c1['stroll_currents'], c2['stroll_currents'])
-                    self.assertDictEqual(c1['higher_PS_point'], c2['higher_PS_point'])
-                    self.assertDictEqual(c1['lower_PS_point'], c2['lower_PS_point'])
-                    assertDictAlmostEqual(self, c1['stroll_vars'], c2['stroll_vars'])
-                # Check MEs
-                self.assertEqual(ME1[0], ME2[0])
-                self.assertDictEqual(ME1[1], ME2[1])
-
     def _test_approach_limit(
         self, walker, process,
         max_unresolved_in_elementary, max_unresolved_in_combination):
@@ -379,26 +300,6 @@ class WalkersTest(unittest.TestCase):
     # Test NLO walkers
     #=====================================================================================
 
-    def test_FinalRescalingOneWalker_invertible(self):
-
-        walker = walkers.FinalRescalingOneWalker()
-        self._test_invertible(walker, self.H_to_uuxddx, 1, 1)
-        self._test_invertible(walker, self.H_to_uuxddxH, 1, 1)
-
-    def test_FinalLorentzOneWalker_invertible(self):
-
-        walker = walkers.FinalLorentzOneWalker()
-        self._test_invertible(walker, self.H_to_uuxddx, 1, 1)
-        self._test_invertible(walker, self.H_to_uuxddxH, 1, 1)
-
-    def test_FinalRescalingNLOWalker_invertible(self):
-
-        walker = walkers.FinalRescalingNLOWalker()
-        self._test_invertible(walker, self.H_to_uuxddx, 1, 1)
-        self._test_invertible(walker, self.H_to_uuxddxg, 1, 1)
-        self._test_invertible(walker, self.H_to_uuxddxH, 1, 1)
-        self._test_invertible(walker, self.H_to_qqxggH, 1, 1)
-
     def test_FinalRescalingNLOWalker_approach_limit(self):
 
         walker = walkers.FinalRescalingNLOWalker()
@@ -407,25 +308,11 @@ class WalkersTest(unittest.TestCase):
         self._test_approach_limit(walker, self.H_to_uuxddxH, 1, 1)
         self._test_approach_limit(walker, self.H_to_qqxggH, 1, 1)
 
-    def test_FinalLorentzNLOWalker_invertible(self):
-
-        walker = walkers.FinalLorentzNLOWalker()
-        self._test_invertible(walker, self.H_to_uuxddxg, 1, 1)
-        self._test_invertible(walker, self.H_to_qqxggH, 1, 1)
-
     def test_FinalLorentzNLOWalker_approach_limit(self):
 
         walker = walkers.FinalLorentzNLOWalker()
         self._test_approach_limit(walker, self.H_to_uuxddxH, 1, 1)
         self._test_approach_limit(walker, self.H_to_qqxggH, 1, 1)
-
-    def test_LorentzNLOWalker_invertible(self):
-
-        walker = walkers.LorentzNLOWalker()
-        self._test_approach_limit(walker, self.H_to_uuxddxg, 1, 1)
-        self._test_invertible(walker, self.H_to_uuxddxH, 1, 1)
-        self._test_invertible(walker, self.H_to_qqxggH, 1, 1)
-        self._test_invertible(walker, self.qqx_to_ggH, 1, 1)
 
     def test_LorentzNLOWalker_approach_limit(self):
 
@@ -436,39 +323,8 @@ class WalkersTest(unittest.TestCase):
         # self._test_approach_limit(walker, self.H_to_qqxggH, 1, 1)
         # self._test_approach_limit(walker, self.qqx_to_ggH, 1, 1)
 
-    def test_SoftBeamsRecoilNLOWalker_invertible(self):
-
-        walker = walkers.SoftBeamsRecoilNLOWalker()
-        self._test_invertible(walker, self.H_to_uuxddxH, 1, 1)
-        # TODO understand why this fails
-        # self._test_invertible(walker, self.H_to_qqxggH, 1, 1)
-        self._test_invertible(walker, self.qqx_to_ggH, 1, 1)
-
     def test_SoftBeamsRecoilNLOWalker_approach_limit(self):
 
         walker = walkers.SoftBeamsRecoilNLOWalker()
         self._test_approach_limit(walker, self.H_to_qqxggH, 1, 1)
         self._test_approach_limit(walker, self.qqx_to_ggH, 1, 1)
-
-    # Test disjoint walkers
-    #=====================================================================================
-
-    def test_FinalLorentzDisjointWalker_invertible(self):
-
-        walker = walkers.FinalLorentzDisjointWalker()
-        self._test_invertible(walker, self.H_to_uuxddxH, 1, 2)
-
-    def test_FinalLorentzDisjointWalker_approach_limit(self):
-
-        walker = walkers.FinalLorentzDisjointWalker()
-        self._test_approach_limit(walker, self.H_to_uuxddxH, 1, 2)
-
-    def test_FinalGroupingDisjointWalker_invertible(self):
-
-        walker = walkers.FinalGroupingDisjointWalker()
-        self._test_invertible(walker, self.H_to_uuxddxH, 1, 2)
-
-    def test_FinalGroupingDisjointWalker_approach_limit(self):
-
-        walker = walkers.FinalGroupingDisjointWalker()
-        self._test_approach_limit(walker, self.H_to_uuxddxH, 1, 2)

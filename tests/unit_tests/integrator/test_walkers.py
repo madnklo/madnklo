@@ -87,6 +87,8 @@ class WalkersTest(unittest.TestCase):
     n_test_invertible = 3
     # Number of PS points the approach_limit test is run for (more = stronger, slower test)
     n_test_approach = 5
+    # Number of PS points for the low_level_approach_limit test (more = stronger, slower test)
+    n_test_low_level_approach = 100
     # Values of the parameter in approach_limit (more, smaller = stronger, slower test)
     parameter_values = [0.1 ** i for i in range(5)]
 
@@ -219,6 +221,33 @@ class WalkersTest(unittest.TestCase):
                                 new_PS_point[leg.n].square(),
                                 squares[leg.n] )
 
+    def _test_low_level_approach_limit(self, process, low_level_limit):
+
+        model = process.get('model')
+        legs = process.get('legs')
+        for j in range(self.n_test_low_level_approach):
+            if self.verbosity > 0:
+                print "Phase space point #", j + 1
+            my_PS_point = self.generate_PS_point(process)
+            clean_momenta_dict = subtraction.create_momenta_dict(process)
+            new_PS_point = walkers.low_level_approach_limit(
+                my_PS_point, low_level_limit, 10 ** (-8*random.random()), clean_momenta_dict,
+                verbose=True )
+            # Sanity checks on masses and energy positivity
+            for leg in legs:
+                pdg = leg['id']
+                n = leg['number']
+                if model.get_particle(pdg)['mass'].lower() == 'zero':
+                    self.assertLess(
+                        abs(new_PS_point[n].square()),
+                        math.sqrt(new_PS_point[n].eps()))
+                else:
+                    self.assertAlmostEqual(
+                        new_PS_point[n].square(),
+                        my_PS_point[n].square())
+                self.assertTrue(
+                    new_PS_point[n][0] > 0 or abs(new_PS_point[n][0]) < new_PS_point[n].eps())
+
     # Processes
     #=====================================================================================
 
@@ -266,6 +295,23 @@ class WalkersTest(unittest.TestCase):
         'n_loops': 0
     })
 
+    # H > b b~ u u~ g g g
+    H_to_bbxuuxggg_legs = base_objects.LegList([
+        base_objects.Leg({'number': 1, 'id': 25, 'state': INITIAL}),
+        base_objects.Leg({'number': 2, 'id':  1, 'state': FINAL}),
+        base_objects.Leg({'number': 3, 'id': -1, 'state': FINAL}),
+        base_objects.Leg({'number': 4, 'id':  2, 'state': FINAL}),
+        base_objects.Leg({'number': 5, 'id': -2, 'state': FINAL}),
+        base_objects.Leg({'number': 6, 'id': 21, 'state': FINAL}),
+        base_objects.Leg({'number': 7, 'id': 21, 'state': FINAL}),
+        base_objects.Leg({'number': 8, 'id': 21, 'state': FINAL}),
+    ])
+    H_to_bbxuuxggg = base_objects.Process({
+        'legs': H_to_bbxuuxggg_legs,
+        'model': simple_qcd.model,
+        'n_loops': 0
+    })
+
     # H > q q~ g g H
     H_to_qqxggH_legs = base_objects.LegList([
         base_objects.Leg({'number': 1, 'id': 25, 'state': INITIAL}),
@@ -296,6 +342,22 @@ class WalkersTest(unittest.TestCase):
         'model': simple_qcd.model,
         'n_loops': 0
     })
+
+    # Test low-level approach limit
+    #=====================================================================================
+
+    def test_low_level_approach_limit(self):
+
+        K = subtraction.SingularStructure
+        C = subtraction.CollStructure
+        S = subtraction.SoftStructure
+        def L(n, state=FINAL):
+            return subtraction.SubtractionLeg(n, 0, state)
+        limit1 = [
+            (walkers.mappings.FinalGroupingMapping, K(C(L(3), L(4)), L(2), L(5), L(6)), 0.,),
+            (walkers.mappings.FinalGroupingMapping, K(C(L(5), L(9)), L(2), L(6)), 1.,)
+        ]
+        self._test_low_level_approach_limit(self.H_to_bbxuuxggg, limit1)
 
     # Test NLO walkers
     #=====================================================================================

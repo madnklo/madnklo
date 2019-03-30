@@ -3507,7 +3507,7 @@ The missing process is: %s"""%ME_process.nice_string())
                     selected_singular_structures.append(ss)
 
             # Filter the singular structures to consider so as to remove those involving
-            # a beam factorisation not present in this integrand
+            # a beam factorization not present in this integrand
             selected_singular_structures = [
                 ss for ss in selected_singular_structures if not (
                     (1 in ss.get_beam_factorization_legs() and a_xi1 is None) or 
@@ -3561,15 +3561,15 @@ The missing process is: %s"""%ME_process.nice_string())
 
         # Also scale the xi initial-state convolution parameters if the limit
         # specifies a beam factorization structure for that initial state:
-        beam_factorisation_legs = limit.get_beam_factorization_legs()
+        beam_factorization_legs = limit.get_beam_factorization_legs()
         
         # Notice that if we wanted a particular overall scaling of the counterterms,
         # we would need to correctly adjust the power of the multiplying scaling parameter.
-        if 1 in beam_factorisation_legs:
+        if 1 in beam_factorization_legs:
             scaled_xi1 = 1.-(1.-xi1)*scaling_parameter
         else:
             scaled_xi1 = xi1
-        if 2 in beam_factorisation_legs:
+        if 2 in beam_factorization_legs:
             scaled_xi2 = 1.-(1.-xi2)*scaling_parameter
         else:
             scaled_xi2 = xi2
@@ -4169,14 +4169,14 @@ class ME7Integrand_BS(ME7Integrand_RV):
             scaled_xi1 = 1.-(1.-xi1)*scaling_parameter
             scaled_xi2 = 1.-(1.-xi2)*scaling_parameter
         else:   
-            beam_factorisation_legs = limit.get_beam_factorization_legs()
+            beam_factorization_legs = limit.get_beam_factorization_legs()
             # Notice that if we wanted a particular overall scaling of the counterterms,
             # we would need to correctly adjust the power of the multiplying scaling parameter.
-            if 1 in beam_factorisation_legs:
+            if 1 in beam_factorization_legs:
                 scaled_xi1 = 1.-(1.-xi1)*scaling_parameter
             else:
                 scaled_xi1 = xi1
-            if 2 in beam_factorisation_legs:
+            if 2 in beam_factorization_legs:
                 scaled_xi2 = 1.-(1.-xi2)*scaling_parameter
             else:
                 scaled_xi2 = xi2

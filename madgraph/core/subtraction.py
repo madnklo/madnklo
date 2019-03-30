@@ -1995,7 +1995,7 @@ class IntegratedCounterterm(Counterterm):
         
         # We must now adjust the number of loops expected in the host contributions because
         # some integrated counterterms don't yield loops in the host contributions, but instead
-        # beam factorisation convolutions.
+        # beam factorization convolutions.
         beam_numbers_for_which_n_loops_is_already_decremented = []
         for current in self.get_all_currents():
             if not type(current)==BeamCurrent:
@@ -2051,7 +2051,7 @@ class IntegratedCounterterm(Counterterm):
 
         # Then add those of the xi-dependent integrated ISR counterterm and local F ones.
         beam_numbers_in_currents = set([])
-        soft_beam_factorisation_n_loop = 0
+        soft_beam_factorization_n_loop = 0
         for current in self.get_all_currents():
             if not type(current)==BeamCurrent:
                 continue
@@ -2059,7 +2059,7 @@ class IntegratedCounterterm(Counterterm):
             # we must only subtract exactly one as this correspond to exactly one convolution,
             # irrespectively of the number of unresolved particles of the counterterm.
             if self.does_require_correlated_beam_convolution():
-                soft_beam_factorisation_n_loop = 1
+                soft_beam_factorization_n_loop = 1
             else:   
                 # We don't need to look recursively inside the singular structures since the beam
                 # factorization ones are supposed to be at the top level since they factorize
@@ -2070,7 +2070,7 @@ class IntegratedCounterterm(Counterterm):
         # We must remove one loop per beam number encountered in integrated ISR collinear CT
         # since the leading beam factorization counterterm has zero loop but count_unresolved()
         # counts for one there.
-        n_loops -= (len(beam_numbers_in_currents) + soft_beam_factorisation_n_loop)
+        n_loops -= (len(beam_numbers_in_currents) + soft_beam_factorization_n_loop)
         
         return n_loops
 
@@ -2447,7 +2447,7 @@ class IRSubtraction(object):
 
         substructures = structure.substructures
         assert not structure.legs
-        # Separate beam_factorisation structures
+        # Separate beam_factorization structures
         beam_structures = (s for s in substructures if s.name() == 'F')
         other_structures = (s for s in substructures if s.name() != 'F')
         other_structures = SingularStructure(substructures=other_structures)

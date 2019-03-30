@@ -12,7 +12,7 @@
 # For more information, visit madgraph.phys.ucl.ac.be and amcatnlo.web.cern.ch
 #
 ##########################################################################################
-"""Implementation of NLO beam_factorisation currents. These are the PDF counterterms as well
+"""Implementation of NLO beam_factorization currents. These are the PDF counterterms as well
 as the integrated initial state collinear counterterms."""
 
 import os

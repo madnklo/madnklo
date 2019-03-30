@@ -492,7 +492,7 @@ class Contribution(object):
     
     def subtract(self, ignore_integrated_counterterms=False, **opts):
         """ Generate and export all necessary subtraction counterterterms and currents
-        (including beam factorisation counterterms as well [bulk ones are already generated
+        (including beam factorization counterterms as well [bulk ones are already generated
         at this stage] ones.). Nothing to do in this base class."""
         
         # Assign an empty list of countrerterms for now to this contribution
@@ -1158,7 +1158,7 @@ class Contribution(object):
            (not self.contribution_definition.beam_factorization['beam_two'] is None) and \
             self.contribution_definition.beam_factorization['beam_two']['active'] )
 
-        # If both beams must be assigned a factorisation term, then make sure that the
+        # If both beams must be assigned a factorization term, then make sure that the
         # beam_factorization_order is at least two
         if beam_factorization_configuration == (True,True) and beam_factorization_order < 2:
             # We have nothing to add from this contribution.
@@ -1195,7 +1195,7 @@ class Contribution(object):
             beam_one_PDGs = contrib.contribution_definition.beam_factorization['beam_one']['beam_PDGs']
             beam_two_PDGs = contrib.contribution_definition.beam_factorization['beam_two']['beam_PDGs']
             # The double for-loop below creates all compatible assignments of n_loop to the beam
-            # factorisation currents applied to the first and second beam. So (2,1),(1,2) at N^3LO for instance
+            # factorization currents applied to the first and second beam. So (2,1),(1,2) at N^3LO for instance
             # In principle it would also be possible here to further differentiate P^(0) x P^(0) from P^(1), but
             # we do not do this for now.
             for factorization_order_beam_one in range(beam_factorization_order+1):
@@ -1254,7 +1254,7 @@ class Contribution(object):
                         ignore_integrated_counterterms=False, group_processes=True, **opts):
         """ Generate all counterterms associated to the processes in this contribution.
         Since we are in the mother class Contribution here, we only consider generating the
-        beam factorisation counterterm of type 'local_CT'."""
+        beam factorization counterterm of type 'local_CT'."""
         
         # Initialise local and integrated counterterms to an empty list
         self.counterterms = {}
@@ -1265,7 +1265,7 @@ class Contribution(object):
         
     def generate_amplitudes(self, force=False):
         """ Generates the relevant amplitudes for this contribution and the construction
-        of the instances of currents for the beam factorisation terms."""
+        of the instances of currents for the beam factorization terms."""
         
         # First check if the amplitude was not already generated
         if self.amplitudes and not force:

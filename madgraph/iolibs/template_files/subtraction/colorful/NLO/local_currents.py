@@ -503,7 +503,7 @@ class QCD_initial_collinear_0_qg(currents.QCDLocalCollinearCurrent):
         })
         
         # The factor 'x' that should be part of the initial_state_crossing_factor cancels
-        # against the extra prefactor 1/x in the collinear factorisation formula
+        # against the extra prefactor 1/x in the collinear factorization formula
         # (see Eq. (8) of NNLO compatible NLO scheme publication arXiv:0903.1218v2)
         initial_state_crossing_factor = -1.
         # Correct for the ratio of color-averaging factor between the real ME
@@ -578,7 +578,7 @@ class QCD_initial_collinear_0_gq(currents.QCDLocalCollinearCurrent):
         })
 
         # The factor 'x' that should be part of the initial_state_crossing_factor cancels
-        # against the extra prefactor 1/x in the collinear factorisation formula
+        # against the extra prefactor 1/x in the collinear factorization formula
         # (see Eq. (8) of NNLO compatible NLO scheme publication arXiv:0903.1218v2)
         initial_state_crossing_factor = 1.
         # Correct for the ratio of color-averaging factor between the real ME
@@ -653,7 +653,7 @@ class QCD_initial_collinear_0_qq(currents.QCDLocalCollinearCurrent):
         })
         
         # The factor 'x' that should be part of the initial_state_crossing_factor cancels
-        # against the extra prefactor 1/x in the collinear factorisation formula
+        # against the extra prefactor 1/x in the collinear factorization formula
         # (see Eq. (8) of NNLO compatible NLO scheme publication arXiv:0903.1218v2)
         initial_state_crossing_factor = 1.
         # Correct for the ratio of color-averaging factor between the real ME
@@ -729,7 +729,7 @@ class QCD_initial_collinear_0_gg(currents.QCDLocalCollinearCurrent):
         })
 
         # The factor 'x' that should be part of the initial_state_crossing_factor cancels
-        # against the extra prefactor 1/x in the collinear factorisation formula
+        # against the extra prefactor 1/x in the collinear factorization formula
         # (see Eq. (8) of NNLO compatible NLO scheme publication arXiv:0903.1218v2)
         initial_state_crossing_factor = -1.
         # Correct for the ratio of color-averaging factor between the real ME

@@ -454,8 +454,9 @@ class SingularStructure(object):
         structure. Note that beam factorization structures should always be at the top level
         and never nested."""
         return set(sum([
-            [ l.n for l in struct.get_all_legs() ] 
-                for struct in self.substructures if isinstance(struct, BeamStructure)],[]))
+            [ l.n for l in struct.get_all_legs() ]
+            for struct in self.substructures if isinstance(struct, BeamStructure)
+        ], []))
 
     def annihilate(self):
         """When an operator cannot act on this structure,
@@ -619,10 +620,12 @@ class SingularStructure(object):
             if log:
                 logger.warning("%s %s '%s'"%(msg, "bracket matching failed for:", before_comma[:-1]))
             return None
-        return singular_structures_name_dictionary[name](substructures=substructures, legs=legs)
+        return singular_structures_name_dictionary[name](
+            substructures=substructures, legs=legs)
 
 class BeamStructure(SingularStructure):
 
+    # TODO this only works at NLO...
     def count_couplings(self):
         return 1
 
@@ -739,7 +742,7 @@ class SingularOperator(SubtractionLegSet):
             else:
                 if self.act_here_needed(structure):
                     structure.substructures.append(self.get_structure())
-                    structure.legs = difference(structure.legs, self)
+                    structure.legs = SubtractionLegSet(difference(structure.legs, self))
                     return
                 else:
                     structure.annihilate()
@@ -910,7 +913,7 @@ class Current(base_objects.Process):
 
         return self['singular_structure'].count_couplings()
 
-    def discard_leg_numbers(self,discard_initial_leg_numbers=True):
+    def discard_leg_numbers(self, discard_initial_leg_numbers=True):
         """Discard all leg numbers in the singular_structure
         and in the parent_subtraction_leg,
         effectively getting the type of current
@@ -1055,7 +1058,7 @@ class Current(base_objects.Process):
             tuple(attr for attr in copied_attributes if attr != 'singular_structure') )
         if 'singular_structure' in copied_attributes:
             copied_current['singular_structure'] = self['singular_structure'].get_copy()
-        
+
         return copied_current
 
     def get_number_of_couplings(self):
@@ -2083,18 +2086,25 @@ def create_momenta_dict(process):
         momenta_dict[leg['number']] = frozenset((leg['number'],))
     return momenta_dict
 
-def update_momenta_dict(momenta_dict, singular_structure):
+def new_leg_number(momenta_dict):
+    """Get a leg number that does not appear in momenta_dict."""
+
+    all_leg_numbers = frozenset.union(
+        frozenset.union(*momenta_dict.values()),
+        frozenset(momenta_dict.keys()) )
+    return max(*all_leg_numbers) + 1
+
+def update_momenta_dict(momenta_dict, singular_structure, reduced_process=None):
     """Update momenta dictionary."""
 
     children = list(singular_structure.legs)
     parent_number = None
     for substructure in singular_structure.substructures:
-        children.append(update_momenta_dict(momenta_dict, substructure))
+        child = update_momenta_dict(momenta_dict, substructure, reduced_process)
+        if child is not None:
+            children.append(child)
     if singular_structure.name() in ["C", ]:
-        all_leg_numbers = frozenset.union(
-            frozenset.union(*momenta_dict.values()),
-            frozenset(momenta_dict.keys()) )
-        parent_number = max(*all_leg_numbers) + 1
+        parent_number = new_leg_number(momenta_dict)
         momenta_dict[parent_number] = frozenset(child.n for child in children)
     return parent_number
 
@@ -2104,7 +2114,7 @@ def update_momenta_dict(momenta_dict, singular_structure):
 
 class IRSubtraction(object):
 
-    _allowed_model_names = ['sm', 'loop_sm', 'loopsm', 
+    _allowed_model_names = ['sm', 'loop_sm', 'loopsm',
                             'simple_qcd','loop_qcd_qed_sm','hc_nlo_x0_ufo']
 
     def __init__(self, model, n_unresolved, coupling_types=('QCD', ), beam_types=(None,None),
@@ -2355,132 +2365,40 @@ class IRSubtraction(object):
             strucs.append(strucs_n)
         return list(itertools.chain.from_iterable(strucs))
 
-    def get_counterterm(self, structure, process, momenta_dict_so_far=None):
-        """Build the product of a set of currents and a matrix element
-        that approximates the matrix element for process
-        in the singular limit specified by structure.
-        Also build the integrated counterterm that cancels the contribution of the local
-        subtraction counterterm inclusively over the splitting phase-space in d-dimension.
+    def reduce_process(self, structure, process, momenta_dict):
+        """Starting from a process, determine the reduced one in an unresolved limit.
+
+        :param SingularStructure structure: singular structure which specifies the limit
+        :param base_objects.Process process: the process to be reduced, will be modified!
+        :param bidict momenta_dict: the momentum dictionary to be updated
+
+        :return: the parent leg of the singular structure
+        :rtype: SubtractionLeg
         """
 
-        # 1. Initialize variables
+        # Create the momenta dictionary and build the reduced process
+        structure_legs = structure.get_all_legs()
+        # Do not remove legs from the reduced process
+        # for beam factorization contributions
+        if structure.name() in ['F', ]:
+            structure_leg_ns = []
+        else:
+            structure_leg_ns = [leg.n for leg in structure_legs]
 
-        assert isinstance(structure, SingularStructure)
-        assert isinstance(process, base_objects.Process)
-
-        reduced_process = process
-
-        # If no momenta dictionary was passed
-        if not momenta_dict_so_far:
-            # Initialize a trivial momenta_dict
-            momenta_dict_so_far = create_momenta_dict(process)
-            # The squared orders of the reduced process will be set correctly later
-            reduced_process = reduced_process.get_copy(
-                ['legs', 'n_loops', 'legs_with_decays','beam_factorization']
-            )
-            # We need a deep copy of the beam_factorization here.
-            reduced_process['beam_factorization'] = copy.deepcopy(reduced_process['beam_factorization'])
-            # Empty legs_with_decays: it will be regenerated automatically when asked for
-            reduced_process['legs_with_decays'][:] = []
-            # TODO If resetting n_loops, what about orders?
-            # The n_loops will be distributed later
-            reduced_process.set('n_loops', -1)
-
-        nodes = []
-
-        # 2. Recursively look into substructures
-        current_args = set(structure.legs)
+        # Recurse into substructures
         for substructure in structure.substructures:
-            node = self.get_counterterm(
-                substructure, reduced_process, momenta_dict_so_far )
-            current_structure = node.current['singular_structure']
-            current_legs = current_structure.get_all_legs()
-            current_leg_ns = frozenset(leg.n for leg in current_legs)
-            # Replace collinear substructures with their parent
-            if current_structure.name() == "C":
-                # The parent has already been generated by recursion,
-                # retrieve its number
-                parent_index = momenta_dict_so_far.inv[current_leg_ns]
-                # Build the SubtractionLeg that appears in the current arguments
-                parent_PDGs = self.parent_PDGs_from_legs(current_legs)
-                assert len(parent_PDGs) == 1
-                parent_PDG = parent_PDGs[0]
-                parent_state = SubtractionLeg.FINAL
-                if current_legs.has_initial_state_leg():
-                    parent_state = SubtractionLeg.INITIAL
-                current_args.add(SubtractionLeg(parent_index, parent_PDG, parent_state))
-                # Eliminate soft sub-nodes without losing their children
-                subnodes = [subnode for subnode in node.nodes] # else remove() is trouble
-                for subnode in subnodes:
-                    if subnode.current['singular_structure'].name() == "S":
-                        node.nodes += subnode.nodes
-                        node.nodes.remove(subnode)
-            # Replace soft structures with their flattened versions
-            elif current_structure.name() == "S":
-                current_args.add(current_structure)
-            # Remove all non-identity beam factorization currents for that leg of 
-            # type 'bulk' to be the identity operator ('None').
-            elif current_structure.name() == "F":
-                if len(current_structure.legs)!=1 or current_structure.legs[0].n not in [1,2]:
-                    raise MadGraph5Error("Only beam factorizations attached to leg number 1 or"+
-                                      " 2 are supported for now; not %s."%str(current_structure))
-                current_args.add(current_structure)
-                beam_names = {1:'beam_one', 2:'beam_two'}
-                # Change the distribution type of all beam_factorization terms of that beam
-                # in the reduced process to be the identity (i.e. None).
-                for bft in reduced_process.get('beam_factorization'):
-                    beam_name = beam_names[current_structure.legs[0].n]
-                    if not bft[beam_name] is None:
-                        bft[beam_name]=None
+            subparent = self.reduce_process(substructure, process, momenta_dict)
+            if subparent is not None:
+                structure_leg_ns.append(subparent.n)
+        if structure.name() == "":
+            return None
 
-            # Other structures need to be implemented
-            else:
-                raise MadGraph5Error("Unrecognized current of type %s" % str(type(current_structure)))
-            # Add this node
-            nodes.append(node)
-
-        # If this is the outermost level,
-        # the recursion was all that needed to be done
-        if type(structure) is SingularStructure:
-            for subnode in nodes:
-                subnode.current['resolve_mother_spin_and_color'] = True
-            return Counterterm(
-                process=reduced_process,
-                nodes=nodes,
-                momenta_dict=momenta_dict_so_far,
-                resolved_process=process,
-                complete_singular_structure=structure
-            )
-
-        # 3. Else build the current and update
-        #    the reduced process as well as the dictionary
-        current_type = type(structure)(*current_args)
-        if current_type.name()=='F':
-            # The beam factorization singular structure always have a single leg with a number
-            # matching the beam number.
-            beam_number = current_type.legs[0].n
-            assert (beam_number in [1,2]), "Beam factorization structure are expected to "+\
-                                                        "have a single leg with number in [1,2]."
-            current = BeamCurrent({
-                'beam_type'         : self.beam_types[beam_number-1][0],
-                'beam_PDGs'         : self.beam_types[beam_number-1][1],
-                'distribution_type' : 'counterterm',
-                'singular_structure': current_type })
-        else:
-            current = Current({'singular_structure': current_type })
-        structure_legs = current_type.get_all_legs()
-        if current_type.name()=='F':
-            # We must not remove legs from the reduced process for beam factorization 
-            # contributions
-            structure_leg_ns = frozenset() 
-        else:
-            structure_leg_ns = frozenset(leg.n for leg in structure_legs)
-           
+        # Determine parent leg and update momentum dictionary
         parent = None
-        if structure.name() in ["C"]:
+        if structure.name() in ['C', ]:
             # Add entry to dictionary
-            parent_index = len(momenta_dict_so_far) + 1
-            momenta_dict_so_far[parent_index] = structure_leg_ns
+            parent_number = new_leg_number(momenta_dict)
+            momenta_dict[parent_number] = frozenset(structure_leg_ns)
             # Work out the complete SubtractionLeg for the parent
             parent_PDGs = self.parent_PDGs_from_legs(structure_legs)
             assert len(parent_PDGs) == 1
@@ -2488,34 +2406,100 @@ class IRSubtraction(object):
             parent_state = SubtractionLeg.FINAL
             if structure_legs.has_initial_state_leg():
                 parent_state = SubtractionLeg.INITIAL
-            parent = SubtractionLeg(parent_index, parent_PDG, parent_state)
-        elif structure.name() in ["S", "F", ]:
-            # No need to propagate parents
-            pass
+            parent = SubtractionLeg(parent_number, parent_PDG, parent_state)
+        elif structure.name() in ['S', 'F', ]:
+            pass # No need to propagate parents
         else:
-            raise MadGraph5Error("Building unrecognized current of type %s" %str(type(structure)) )
-        # Remove legs of this structure
+            raise MadGraph5Error("Unrecognized structure of type " + str(type(structure)))
+
+        # Adjust legs of the reduced process:
+        # 1) remove children legs
         legs_to_remove = []
-        for leg in reduced_process['legs']:
+        for leg in process['legs']:
             if leg['number'] in structure_leg_ns:
                 legs_to_remove.append(leg)
         for leg in legs_to_remove:
-            reduced_process['legs'].remove(leg)
-        # Add parent of this structure
+            process['legs'].remove(leg)
+        # 2) add parent leg
         if parent:
-            reduced_process['legs'].append(
+            process['legs'].append(
                 base_objects.Leg({
                     'number': parent.n,
                     'id': parent.pdg,
-                    'state': parent.state }) )
-        # Sort preserving the initial state order
-        rp_legs = reduced_process['legs']
+                    'state': parent.state}))
+        # 3) re-sort preserving the initial state order
+        rp_legs = process['legs']
         rp_legs.sort(key=lambda x: (x['state'], x['number']))
         if rp_legs[0]['number'] == 2:
             rp_legs[0], rp_legs[1] = rp_legs[1], rp_legs[0]
 
-        # Finally return the counterterm node
-        return CountertermNode(current=current, nodes=nodes)
+        # Return the parent leg if any (this is useful for the recursion)
+        return parent
+
+    def get_counterterm(self, structure, process):
+        """Build the product of a set of currents and a matrix element
+        that approximates the matrix element for process
+        in the singular limit specified by structure.
+        """
+
+        assert type(structure) is SingularStructure
+        assert isinstance(process, base_objects.Process)
+
+        substructures = structure.substructures
+        assert not structure.legs
+        # Separate beam_factorisation structures
+        beam_structures = (s for s in substructures if s.name() == 'F')
+        other_structures = (s for s in substructures if s.name() != 'F')
+        other_structures = SingularStructure(substructures=other_structures)
+        # Build the nodes
+        nodes = []
+        # Add a node for each beam structure
+        for beam_structure in beam_structures:
+            # The beam factorization singular structure always have a single leg
+            # with a number matching the beam number
+            beam_number = beam_structure.legs[0].n
+            assert (beam_number in [1, 2]), \
+                "BeamStructure is expected to have a single leg with number in [1, 2]."
+            current = BeamCurrent({
+                'beam_type': self.beam_types[beam_number - 1][0],
+                'beam_PDGs': self.beam_types[beam_number - 1][1],
+                'distribution_type': 'counterterm',
+                'singular_structure': beam_structure})
+            nodes.append(CountertermNode(current=current))
+        # Add a single node for all other singular structures
+        if other_structures != SingularStructure():
+            current = Current({'singular_structure': other_structures})
+            nodes.append(CountertermNode(current=current))
+
+        # Initialize a trivial momenta_dict
+        momenta_dict = create_momenta_dict(process)
+        # Get a modifiable copy of the reduced process
+        reduced_process = process.get_copy(
+            ['legs', 'n_loops', 'legs_with_decays', 'beam_factorization'])
+        # We need a deep copy of the beam_factorization here
+        reduced_process['beam_factorization'] = copy.deepcopy(
+            reduced_process['beam_factorization'])
+        # Empty legs_with_decays: it will be regenerated automatically when asked for
+        reduced_process['legs_with_decays'][:] = []
+        # The n_loops will be distributed later
+        reduced_process.set('n_loops', -1)
+        # TODO If resetting n_loops, what about orders?
+
+        # Determine reduced_process and momenta_dict
+        self.reduce_process(other_structures, reduced_process, momenta_dict)
+
+        # Set resolve_mother_spin_and_color to True for backward compatibility
+        for subnode in nodes:
+            subnode.current['resolve_mother_spin_and_color'] = True
+
+        # Assemble the counterterm object and return it
+        return Counterterm(
+            process=reduced_process,
+            nodes=nodes,
+            momenta_dict=momenta_dict,
+            resolved_process=process,
+            complete_singular_structure=structure
+        )
 
     def get_integrated_counterterm(self, local_counterterm):
         """Given a local subtraction counterterm, return the corresponding integrated one.

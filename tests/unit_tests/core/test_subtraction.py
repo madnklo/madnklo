@@ -816,11 +816,17 @@ class NNLOSubtractionTest(unittest.TestCase):
         elem_operators = self.mysubtraction.get_all_elementary_operators(self.myprocess)
         combos = self.mysubtraction.get_all_combinations(elem_operators)
 
+        # Skip the empty counterterm
         for combo in combos:
             ct = self.mysubtraction.get_counterterm(combo, self.myprocess)
-            if str(combo) != str(ct):
-                print ct.nice_string()
-            self.assertEqual(str(combo), str(ct))
+            # Remove the outermost (which is for beams) layer from counterterms,
+            # except from the empty counterterm
+            if str(combo) == "()":
+                self.assertEqual(str(combo), str(ct))
+            else:
+                if str(combo) != str(ct)[1:-2]:
+                    print ct.nice_string()
+                self.assertEqual(str(combo), str(ct)[1:-2])
 
 class HiggsN3LOSubtractionTest(unittest.TestCase):
     """Test the generation of counterterms for Higgs production at N3LO."""
@@ -834,18 +840,12 @@ class HiggsN3LOSubtractionTest(unittest.TestCase):
         # g g > g g g H
 
         self.ggglegs = base_objects.LegList([
-            base_objects.Leg(
-                    {'number': 1, 'id': 21, 'state': base_objects.Leg.INITIAL}),
-            base_objects.Leg(
-                    {'number': 2, 'id': 21, 'state': base_objects.Leg.INITIAL}),
-            base_objects.Leg(
-                    {'number': 3, 'id': 21, 'state': base_objects.Leg.FINAL}),
-            base_objects.Leg(
-                    {'number': 4, 'id': 21, 'state': base_objects.Leg.FINAL}),
-            base_objects.Leg(
-                    {'number': 5, 'id': 21, 'state': base_objects.Leg.FINAL}),
-            base_objects.Leg(
-                    {'number': 6, 'id': 25, 'state': base_objects.Leg.FINAL}),
+            base_objects.Leg({'number': 1, 'id': 21, 'state': INITIAL}),
+            base_objects.Leg({'number': 2, 'id': 21, 'state': INITIAL}),
+            base_objects.Leg({'number': 3, 'id': 21, 'state': FINAL}),
+            base_objects.Leg({'number': 4, 'id': 21, 'state': FINAL}),
+            base_objects.Leg({'number': 5, 'id': 21, 'state': FINAL}),
+            base_objects.Leg({'number': 6, 'id': 25, 'state': FINAL}),
         ])
 
         self.ggg = base_objects.Process({

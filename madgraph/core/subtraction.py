@@ -623,18 +623,6 @@ class SingularStructure(object):
         return singular_structures_name_dictionary[name](
             substructures=substructures, legs=legs)
 
-class BeamStructure(SingularStructure):
-
-    # TODO this only works at NLO...
-    def count_couplings(self):
-        return 1
-
-    def count_unresolved(self):
-        return 0
-
-    def name(self):
-        return "F"
-
 class SoftStructure(SingularStructure):
 
     def count_couplings(self):
@@ -657,6 +645,18 @@ class CollStructure(SingularStructure):
     def name(self):
         return "C"
     
+class BeamStructure(SingularStructure):
+
+    # TODO this only works at NLO...
+    def count_couplings(self):
+        return 1
+
+    def count_unresolved(self):
+        return 0
+
+    def name(self):
+        return "F"
+
 #=========================================================================================
 # SingularOperator
 #=========================================================================================
@@ -2308,7 +2308,7 @@ class IRSubtraction(object):
                 if beam_name not in beam_names_added and (not pbft[beam_name] is None):
                     beam_names_added.append(beam_name)
                     elementary_operator_list.append(
-                             BeamOperator(*pbft[beam_name]['singular_structure'].get_all_legs()))
+                        BeamOperator(*pbft[beam_name]['singular_structure'].get_all_legs()))
         
         return SingularOperatorList(elementary_operator_list)
 

@@ -132,10 +132,10 @@ class SubsetTest(unittest.TestCase):
         )
 
 #=========================================================================================
-# Test SingularStructure and SingularOperator
+# Test SingularStructure
 #=========================================================================================
 
-class SingularStructureOperatorTest(unittest.TestCase):
+class SingularStructureTest(unittest.TestCase):
     """Test class for SingularStructure."""
 
     def test_singular_structure_init(self):
@@ -157,13 +157,13 @@ class SingularStructureOperatorTest(unittest.TestCase):
         leg4 = base_objects.Leg({'number': 4, 'id': 21, 'state': FINAL})
         leg5 = base_objects.Leg({'number': 5, 'id': 21, 'state': FINAL})
 
-        C14  = sub.CollOperator(leg1, leg4)
-        C145 = sub.CollOperator(leg1, leg4, leg5)
-        S4   = sub.SoftOperator(leg4)
-        S45  = sub.SoftOperator(leg4, leg5)
+        C14  = sub.CollStructure(leg1, leg4)
+        C145 = sub.CollStructure(leg1, leg4, leg5)
+        S4   = sub.SoftStructure(leg4)
+        S45  = sub.SoftStructure(leg4, leg5)
 
-        CC_list = sub.SingularOperatorList([C14, C145])
-        CC_simple = CC_list.simplify()
+        CC_list = sub.SingularStructure(C14, C145)
+        CC_simple = CC_list.nest()
         CC_benchmark = sub.SingularStructure(sub.CollStructure(
             sub.CollStructure(
                 sub.SubtractionLeg(1,  1, INITIAL),
@@ -173,12 +173,12 @@ class SingularStructureOperatorTest(unittest.TestCase):
         ))
         self.assertEqual(CC_simple,CC_benchmark)
 
-        SC_list = sub.SingularOperatorList([S4, C145])
-        SC_simple = SC_list.simplify()
+        SC_list = sub.SingularStructure(S4, C145)
+        SC_simple = SC_list.nest()
         self.assertEqual(str(SC_simple), '(C(S(4),1,5),)')
 
-        SS_list = sub.SingularOperatorList([S4, S45])
-        SS_simple = SS_list.simplify()
+        SS_list = sub.SingularStructure(S4, S45)
+        SS_simple = SS_list.nest()
         self.assertEqual(SS_simple.is_void, True)
 
     def test_decompose(self):
@@ -218,31 +218,31 @@ class SingularStructureOperatorTest(unittest.TestCase):
         leg4 = base_objects.Leg({'number': 4, 'id': 21, 'state': FINAL})
         leg5 = base_objects.Leg({'number': 5, 'id': 21, 'state': FINAL})
 
-        C14  = sub.CollOperator(leg1, leg4)
-        C145 = sub.CollOperator(leg1, leg4, leg5)
-        S4   = sub.SoftOperator(leg4)
-        S5   = sub.SoftOperator(leg5)
-        S45  = sub.SoftOperator(leg4, leg5)
+        C14  = sub.CollStructure(leg1, leg4)
+        C145 = sub.CollStructure(leg1, leg4, leg5)
+        S4   = sub.SoftStructure(leg4)
+        S5   = sub.SoftStructure(leg5)
+        S45  = sub.SoftStructure(leg4, leg5)
 
-        list1 = sub.SingularOperatorList([C145, ]).simplify()
+        list1 = sub.SingularStructure(C145).nest()
         self.assertEqual(list1.count_unresolved(), 2)
 
-        list2 = sub.SingularOperatorList([S45, ]).simplify()
+        list2 = sub.SingularStructure(S45).nest()
         self.assertEqual(list2.count_unresolved(), 2)
 
-        list3 = sub.SingularOperatorList([S45, C145, ]).simplify()
+        list3 = sub.SingularStructure(S45, C145).nest()
         self.assertEqual(list3.count_unresolved(), 2)
 
-        list4 = sub.SingularOperatorList([S4, S5, ]).simplify()
+        list4 = sub.SingularStructure(S4, S5).nest()
         self.assertEqual(list4.count_unresolved(), 2)
 
-        list5 = sub.SingularOperatorList([S4, S5, C145, ]).simplify()
+        list5 = sub.SingularStructure(S4, S5, C145).nest()
         self.assertEqual(list5.count_unresolved(), 2)
 
-        list6 = sub.SingularOperatorList([C14, ]).simplify()
+        list6 = sub.SingularStructure(C14).nest()
         self.assertEqual(list6.count_unresolved(), 1)
 
-        list7 = sub.SingularOperatorList([S4, C14, ]).simplify()
+        list7 = sub.SingularStructure(S4, C14).nest()
         self.assertEqual(list7.count_unresolved(), 1)
 
     def test_from_string(self):
@@ -686,27 +686,27 @@ class NLOSubtractionTest(unittest.TestCase):
         self.mysubtraction = sub.IRSubtraction(
             simple_qcd.model, coupling_types=('QCD', ), n_unresolved=1 )
 
-    def test_generation_of_elementary_operators(self):
+    def test_generation_of_elementary_structures(self):
         """Test generation of all elementary operators for selected process."""
 
-        elem_operators_target = [
-            sub.SoftOperator(self.mylegs[3]),
-            sub.SoftOperator(self.mylegs[4]),
-            sub.CollOperator(self.mylegs[3], self.mylegs[4]),
-            sub.CollOperator(self.mylegs[0], self.mylegs[3]),
-            sub.CollOperator(self.mylegs[0], self.mylegs[4]),
-            sub.CollOperator(self.mylegs[1], self.mylegs[3]),
-            sub.CollOperator(self.mylegs[1], self.mylegs[4]),
+        elem_structures_target = [
+            sub.SoftStructure(self.mylegs[3]),
+            sub.SoftStructure(self.mylegs[4]),
+            sub.CollStructure(self.mylegs[3], self.mylegs[4]),
+            sub.CollStructure(self.mylegs[0], self.mylegs[3]),
+            sub.CollStructure(self.mylegs[0], self.mylegs[4]),
+            sub.CollStructure(self.mylegs[1], self.mylegs[3]),
+            sub.CollStructure(self.mylegs[1], self.mylegs[4]),
         ]
 
-        elem_operators = self.mysubtraction.get_all_elementary_operators(self.myprocess)
+        elem_structures = self.mysubtraction.get_all_elementary_structures(self.myprocess)
 
         self.assertEqual(
-            set(str(op) for op in elem_operators),
-            set(str(op) for op in elem_operators_target)
+            set(str(op) for op in elem_structures),
+            set(str(op) for op in elem_structures_target)
         )
 
-    def test_operator_combinations(self):
+    def test_structure_combinations(self):
         """Test the generation of all operator combinations for one selected process."""
 
         target_NLO_combos = [
@@ -720,8 +720,8 @@ class NLOSubtractionTest(unittest.TestCase):
             '(C(S(5),4),)', '(C(S(5),1),)', '(C(S(5),2),)'
         ]
 
-        elem_operators = self.mysubtraction.get_all_elementary_operators(self.myprocess)
-        combos = self.mysubtraction.get_all_combinations(elem_operators)
+        elem_structures = self.mysubtraction.get_all_elementary_structures(self.myprocess)
+        combos = self.mysubtraction.get_all_combinations(elem_structures)
 
         self.assertEqual(
             set(target_NLO_combos),
@@ -770,53 +770,52 @@ class NNLOSubtractionTest(unittest.TestCase):
         self.mysubtraction = sub.IRSubtraction(
             simple_qcd.model, coupling_types=('QCD', ), n_unresolved=2 )
 
-    def test_generation_of_elementary_operators_NN(self):
+    def test_generation_of_elementary_structures_NN(self):
         """Test generation of all elementary operators for selected process."""
 
-        elem_operators_target = [
-            sub.SoftOperator(self.mylegs[1]),
-            sub.SoftOperator(self.mylegs[2]),
-            sub.SoftOperator(self.mylegs[3]),
-            sub.SoftOperator(self.mylegs[1], self.mylegs[2]),
-            sub.SoftOperator(self.mylegs[1], self.mylegs[3]),
-            sub.SoftOperator(self.mylegs[2], self.mylegs[3]),
-            sub.SoftOperator(self.mylegs[4], self.mylegs[5]),
-            sub.CollOperator(self.mylegs[1], self.mylegs[2], self.mylegs[3]),
-            sub.CollOperator(self.mylegs[1], self.mylegs[2], self.mylegs[4]),
-            sub.CollOperator(self.mylegs[1], self.mylegs[2], self.mylegs[5]),
-            sub.CollOperator(self.mylegs[1], self.mylegs[3], self.mylegs[4]),
-            sub.CollOperator(self.mylegs[1], self.mylegs[3], self.mylegs[5]),
-            sub.CollOperator(self.mylegs[1], self.mylegs[4], self.mylegs[5]),
-            sub.CollOperator(self.mylegs[2], self.mylegs[3], self.mylegs[4]),
-            sub.CollOperator(self.mylegs[2], self.mylegs[3], self.mylegs[5]),
-            sub.CollOperator(self.mylegs[2], self.mylegs[4], self.mylegs[5]),
-            sub.CollOperator(self.mylegs[3], self.mylegs[4], self.mylegs[5]),
-            sub.CollOperator(self.mylegs[1], self.mylegs[2]),
-            sub.CollOperator(self.mylegs[1], self.mylegs[3]),
-            sub.CollOperator(self.mylegs[1], self.mylegs[4]),
-            sub.CollOperator(self.mylegs[1], self.mylegs[5]),
-            sub.CollOperator(self.mylegs[2], self.mylegs[3]),
-            sub.CollOperator(self.mylegs[2], self.mylegs[4]),
-            sub.CollOperator(self.mylegs[2], self.mylegs[5]),
-            sub.CollOperator(self.mylegs[3], self.mylegs[4]),
-            sub.CollOperator(self.mylegs[3], self.mylegs[5]),
-            sub.CollOperator(self.mylegs[4], self.mylegs[5]),
+        elem_structures_target = [
+            sub.SoftStructure(self.mylegs[1]),
+            sub.SoftStructure(self.mylegs[2]),
+            sub.SoftStructure(self.mylegs[3]),
+            sub.SoftStructure(self.mylegs[1], self.mylegs[2]),
+            sub.SoftStructure(self.mylegs[1], self.mylegs[3]),
+            sub.SoftStructure(self.mylegs[2], self.mylegs[3]),
+            sub.SoftStructure(self.mylegs[4], self.mylegs[5]),
+            sub.CollStructure(self.mylegs[1], self.mylegs[2], self.mylegs[3]),
+            sub.CollStructure(self.mylegs[1], self.mylegs[2], self.mylegs[4]),
+            sub.CollStructure(self.mylegs[1], self.mylegs[2], self.mylegs[5]),
+            sub.CollStructure(self.mylegs[1], self.mylegs[3], self.mylegs[4]),
+            sub.CollStructure(self.mylegs[1], self.mylegs[3], self.mylegs[5]),
+            sub.CollStructure(self.mylegs[1], self.mylegs[4], self.mylegs[5]),
+            sub.CollStructure(self.mylegs[2], self.mylegs[3], self.mylegs[4]),
+            sub.CollStructure(self.mylegs[2], self.mylegs[3], self.mylegs[5]),
+            sub.CollStructure(self.mylegs[2], self.mylegs[4], self.mylegs[5]),
+            sub.CollStructure(self.mylegs[3], self.mylegs[4], self.mylegs[5]),
+            sub.CollStructure(self.mylegs[1], self.mylegs[2]),
+            sub.CollStructure(self.mylegs[1], self.mylegs[3]),
+            sub.CollStructure(self.mylegs[1], self.mylegs[4]),
+            sub.CollStructure(self.mylegs[1], self.mylegs[5]),
+            sub.CollStructure(self.mylegs[2], self.mylegs[3]),
+            sub.CollStructure(self.mylegs[2], self.mylegs[4]),
+            sub.CollStructure(self.mylegs[2], self.mylegs[5]),
+            sub.CollStructure(self.mylegs[3], self.mylegs[4]),
+            sub.CollStructure(self.mylegs[3], self.mylegs[5]),
+            sub.CollStructure(self.mylegs[4], self.mylegs[5]),
         ]
 
-        elem_operators = self.mysubtraction.get_all_elementary_operators(self.myprocess)
+        elem_structures = self.mysubtraction.get_all_elementary_structures(self.myprocess)
 
         self.assertEqual(
-            set(str(op) for op in elem_operators),
-            set(str(op) for op in elem_operators_target)
+            set(str(op) for op in elem_structures),
+            set(str(op) for op in elem_structures_target)
         )
 
-    def test_operator_combinations_NN(self):
+    def test_structure_combinations_NN(self):
         """Test the generation of all operator combinations for one selected process."""
 
-        elem_operators = self.mysubtraction.get_all_elementary_operators(self.myprocess)
-        combos = self.mysubtraction.get_all_combinations(elem_operators)
+        elem_structures = self.mysubtraction.get_all_elementary_structures(self.myprocess)
+        combos = self.mysubtraction.get_all_combinations(elem_structures)
 
-        # Skip the empty counterterm
         for combo in combos:
             ct = self.mysubtraction.get_counterterm(combo, self.myprocess)
             # Remove the outermost (which is for beams) layer from counterterms,
@@ -856,55 +855,55 @@ class HiggsN3LOSubtractionTest(unittest.TestCase):
         self.mysubtraction = sub.IRSubtraction(
             simple_qcd.model, coupling_types=('QCD', ), n_unresolved=3 )
 
-    def test_generation_of_elementary_operators(self):
+    def test_generation_of_elementary_structures(self):
         """Test generation of all elementary operators for Higgs RRR."""
 
         # Shorthand
         ggglegs = self.ggglegs
 
-        elem_operators_target = [
+        elem_structures_target = [
             # single-unresolved
-            sub.SoftOperator(ggglegs[2]),
-            sub.SoftOperator(ggglegs[3]),
-            sub.SoftOperator(ggglegs[4]),
-            sub.CollOperator(ggglegs[2], ggglegs[3]),
-            sub.CollOperator(ggglegs[2], ggglegs[4]),
-            sub.CollOperator(ggglegs[3], ggglegs[4]),
-            sub.CollOperator(ggglegs[0], ggglegs[2]),
-            sub.CollOperator(ggglegs[0], ggglegs[3]),
-            sub.CollOperator(ggglegs[0], ggglegs[4]),
-            sub.CollOperator(ggglegs[1], ggglegs[2]),
-            sub.CollOperator(ggglegs[1], ggglegs[3]),
-            sub.CollOperator(ggglegs[1], ggglegs[4]),
+            sub.SoftStructure(ggglegs[2]),
+            sub.SoftStructure(ggglegs[3]),
+            sub.SoftStructure(ggglegs[4]),
+            sub.CollStructure(ggglegs[2], ggglegs[3]),
+            sub.CollStructure(ggglegs[2], ggglegs[4]),
+            sub.CollStructure(ggglegs[3], ggglegs[4]),
+            sub.CollStructure(ggglegs[0], ggglegs[2]),
+            sub.CollStructure(ggglegs[0], ggglegs[3]),
+            sub.CollStructure(ggglegs[0], ggglegs[4]),
+            sub.CollStructure(ggglegs[1], ggglegs[2]),
+            sub.CollStructure(ggglegs[1], ggglegs[3]),
+            sub.CollStructure(ggglegs[1], ggglegs[4]),
             # double-unresolved
-            sub.SoftOperator(ggglegs[2], ggglegs[3]),
-            sub.SoftOperator(ggglegs[2], ggglegs[4]),
-            sub.SoftOperator(ggglegs[3], ggglegs[4]),
-            sub.CollOperator(ggglegs[2], ggglegs[3], ggglegs[4]),
-            sub.CollOperator(ggglegs[0], ggglegs[2], ggglegs[3]),
-            sub.CollOperator(ggglegs[0], ggglegs[2], ggglegs[4]),
-            sub.CollOperator(ggglegs[0], ggglegs[3], ggglegs[4]),
-            sub.CollOperator(ggglegs[1], ggglegs[2], ggglegs[3]),
-            sub.CollOperator(ggglegs[1], ggglegs[2], ggglegs[4]),
-            sub.CollOperator(ggglegs[1], ggglegs[3], ggglegs[4]),
+            sub.SoftStructure(ggglegs[2], ggglegs[3]),
+            sub.SoftStructure(ggglegs[2], ggglegs[4]),
+            sub.SoftStructure(ggglegs[3], ggglegs[4]),
+            sub.CollStructure(ggglegs[2], ggglegs[3], ggglegs[4]),
+            sub.CollStructure(ggglegs[0], ggglegs[2], ggglegs[3]),
+            sub.CollStructure(ggglegs[0], ggglegs[2], ggglegs[4]),
+            sub.CollStructure(ggglegs[0], ggglegs[3], ggglegs[4]),
+            sub.CollStructure(ggglegs[1], ggglegs[2], ggglegs[3]),
+            sub.CollStructure(ggglegs[1], ggglegs[2], ggglegs[4]),
+            sub.CollStructure(ggglegs[1], ggglegs[3], ggglegs[4]),
             # triple-unresolved
-            sub.SoftOperator(ggglegs[2], ggglegs[3], ggglegs[4]),
-            sub.CollOperator(ggglegs[0], ggglegs[2], ggglegs[3], ggglegs[4]),
-            sub.CollOperator(ggglegs[1], ggglegs[2], ggglegs[3], ggglegs[4]),
+            sub.SoftStructure(ggglegs[2], ggglegs[3], ggglegs[4]),
+            sub.CollStructure(ggglegs[0], ggglegs[2], ggglegs[3], ggglegs[4]),
+            sub.CollStructure(ggglegs[1], ggglegs[2], ggglegs[3], ggglegs[4]),
         ]
 
-        elem_operators = self.mysubtraction.get_all_elementary_operators(self.ggg)
+        elem_structures = self.mysubtraction.get_all_elementary_structures(self.ggg)
 
         self.assertEqual(
-            set(str(op) for op in elem_operators),
-            set(str(op) for op in elem_operators_target)
+            set(str(op) for op in elem_structures),
+            set(str(op) for op in elem_structures_target)
         )
 
-    def test_operator_combinations(self):
+    def test_structure_combinations(self):
         """Test the generation of all operator combinations for g g > g g g H."""
 
-        elem_operators = self.mysubtraction.get_all_elementary_operators(self.ggg)
-        combos = self.mysubtraction.get_all_combinations(elem_operators)
+        elem_structures = self.mysubtraction.get_all_elementary_structures(self.ggg)
+        combos = self.mysubtraction.get_all_combinations(elem_structures)
         # The number of counterterms may turn out to be incorrect,
         # but test that the generation goes through
         self.assertEqual(len(combos), 1026)

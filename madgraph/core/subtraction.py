@@ -374,6 +374,8 @@ class SingularStructure(object):
                 self.substructures.append(arg)
             elif isinstance(arg, SubtractionLeg):
                 self.legs = SubtractionLegSet(self.legs + (arg, ))
+            elif isinstance(arg, base_objects.Leg):
+                self.legs = SubtractionLegSet(self.legs + (SubtractionLeg(arg),))
             elif isinstance(arg, bool):
                 self.is_void = self.is_void or arg
             else:
@@ -554,10 +556,96 @@ class SingularStructure(object):
         inner.append(foo)
         return inner
 
+    def act_here_needed(self, structure):
+        """Return True if the counterterm obtained adding this limit
+        on the given structure at the first level is needed for subtraction.
+        """
+
+        assert not self.substructures
+        raise MadGraph5Error(
+            "act_here_needed called in SingularStructure of unspecified type.")
+
+    def non_overlapping_with(self, structure):
+        """Determines if this limit does not affect any leg
+        that appears within the given structure, at any level.
+        """
+
+        assert isinstance(structure, SingularStructure)
+        assert not self.substructures
+        # Check if the structure has any legs in common
+        if not is_disjoint(self.legs, structure.legs):
+            return False
+        # Check if substructures have any leg in common
+        for substructure in structure.substructures:
+            if not self.non_overlapping_with(substructure):
+                return False
+        # All checks passed
+        return True
+
+    def act_on(self, structure):
+        """Act with an elementary operator on a non-elementary structure."""
+
+        assert isinstance(structure, SingularStructure)
+        assert not self.substructures
+
+        # If the limit does not overlap with the existing structure at all,
+        # just append it at the end
+        if self.non_overlapping_with(structure):
+            structure.substructures.append(self)
+            return
+
+        # If the limit acts at least partly at the current level
+        if not is_disjoint(self.legs, structure.legs):
+            # If the limit acts at different levels,
+            # it is not needed for subtraction
+            if not is_subset(self.legs, structure.legs):
+                structure.annihilate()
+            # If the limit acts completely within this level,
+            # it may be needed or not
+            else:
+                if self.act_here_needed(structure):
+                    structure.substructures.append(self)
+                    structure.legs = SubtractionLegSet(difference(structure.legs, self.legs))
+                else:
+                    structure.annihilate()
+            return
+
+        # The limit acts deeper
+        for substructure in structure.substructures:
+            # Find the first substructure hit by the limit, even partially
+            if not self.non_overlapping_with(substructure):
+                self.act_on(substructure)
+                # If the action on the substructure annihilated it,
+                # then annihilate this structure as well
+                if substructure.is_void:
+                    structure.annihilate()
+                return
+
+    def nest(self, structure=None):
+
+        assert isinstance(self, SingularStructure)
+        if structure is None:
+            structure = SingularStructure()
+        else:
+            structure = structure.get_copy()
+
+        substructures = self.substructures
+        # Empty list of operators to apply or invalid structure: done
+        if structure.is_void or not substructures:
+            return structure
+        # Apply last operator and advance recursion
+        most_operators = SingularStructure(substructures=substructures[:-1])
+        # Act using the last operator
+        substructures[-1].act_on(structure)
+        # And now act using the rest of the operators, if needed
+        if structure.is_void:
+            return structure
+        return most_operators.nest(structure)
+
     @staticmethod
     def from_string(string, process, log=False):
-        """Reconstruct a singular structure from a string representation, e.g.
-        C(S(3),5,4)
+        """Reconstruct a singular structure from a string representation,
+        e.g. C(S(3),5,4)
 
         :return: The reconstructed singular structure if successful, else None.
         """
@@ -633,151 +721,8 @@ class SoftStructure(SingularStructure):
 
     def name(self):
         return "S"
-    
-class CollStructure(SingularStructure):
-
-    def count_couplings(self):
-        return self.count_unresolved()
-
-    def count_unresolved(self):
-        return len(self.get_all_legs())-1
-
-    def name(self):
-        return "C"
-    
-class BeamStructure(SingularStructure):
-
-    # TODO this only works at NLO...
-    def count_couplings(self):
-        return 1
-
-    def count_unresolved(self):
-        return 0
-
-    def name(self):
-        return "F"
-
-#=========================================================================================
-# SingularOperator
-#=========================================================================================
-
-class SingularOperator(SubtractionLegSet):
-    """Virtual base class for elementary singular operators."""
-
-    def __new__(cls, *args, **opts):
-
-        return super(SingularOperator, cls).__new__(cls, args, **opts)
-
-    def __init__(self, *args, **opts):
-
-        super(SingularOperator, self).__init__(args, **opts)
-
-    def __str__(self):
-        """Return a simple string representation of the singular operator."""
-
-        return self.name() + str(tuple(self))
-
-    def name(self):
-        """Symbol used to represent this operator within output."""
-
-        raise MadGraph5Error(
-            "name called in SingularOperator of unspecified type."
-        )
-
-    def get_structure(self):
-        """Singular structure corresponding to this operator
-        acting on hard particles.
-        """
-
-        raise MadGraph5Error(
-            "get_structure called in SingularOperator of unspecified type."
-        )
 
     def act_here_needed(self, structure):
-        """Return True if the counterterm obtained acting with this operator
-        on the given structure at the first level is needed for subtraction.
-        """
-
-        # WARNING Rules may not extend to non-QCD cases
-        raise MadGraph5Error(
-            "act_here_needed called in SingularOperator of unspecified type."
-        )
-
-    def non_overlapping_with(self, structure):
-        """Determines if this operator does not affect any leg
-        that appears within the given structure, at any level.
-        """
-
-        assert isinstance(structure, SingularStructure)
-
-        if not is_disjoint(self, structure.legs):
-            return False
-
-        for substructure in structure.substructures:
-            if not self.non_overlapping_with(substructure):
-                return False
-
-        return True
-
-    def act_on(self, structure):
-        """Act with an elementary operator on a non-elementary structure."""
-
-        assert isinstance(structure, SingularStructure)
-
-        # If the limit does not overlap with the existing structure at all,
-        # just append it at the end
-        if self.non_overlapping_with(structure):
-            structure.substructures.append(self.get_structure())
-            return
-
-        # If the limit acts at least partly at the current level
-        if not is_disjoint(self, structure.legs):
-            # If the limit acts at different levels,
-            # it is not needed for subtraction
-            if not is_subset(self, structure.legs):
-                structure.annihilate()
-                return
-            # If the limit acts completely within this level,
-            # it may be needed or not
-            else:
-                if self.act_here_needed(structure):
-                    structure.substructures.append(self.get_structure())
-                    structure.legs = SubtractionLegSet(difference(structure.legs, self))
-                    return
-                else:
-                    structure.annihilate()
-                    return
-
-        # The limit acts deeper
-        for substructure in structure.substructures:
-            # Find the first substructure hit by the limit, even partially
-            if not self.non_overlapping_with(substructure):
-
-                self.act_on(substructure)
-                # If the action on the substructure annihilated it,
-                # then annihilate this structure as well
-                if substructure.is_void:
-                    structure.annihilate()
-                return
-
-class SoftOperator(SingularOperator):
-    """Object that represents a soft elementary singular operator."""
-
-    def __init__(self, *args, **opts):
-
-        super(SoftOperator, self).__init__(*args, **opts)
-
-    def name(self):
-
-        return "S"
-
-    def get_structure(self):
-
-        return SoftStructure(legs=self)
-
-    def act_here_needed(self, structure):
-
-        assert isinstance(structure, SingularStructure)
 
         # Soft limits are not needed within soft structures
         if structure.name() == "S":
@@ -787,7 +732,7 @@ class SoftOperator(SingularOperator):
         # if there is at least one hard particle left
         if structure.name() == "C":
             # If there is a hard particle at this level, the limit is needed
-            if len(self) < len(structure.legs):
+            if len(self.legs) < len(structure.legs):
                 return True
             # If there is a hard collinear substructure, the limit is needed
             else:
@@ -800,83 +745,34 @@ class SoftOperator(SingularOperator):
         # By default, not skipping overlaps ensures correct subtraction
         return True
 
-class CollOperator(SingularOperator):
-    """Object that represents a collinear elementary singular operator."""
+class CollStructure(SingularStructure):
+
+    def count_couplings(self):
+        return self.count_unresolved()
+
+    def count_unresolved(self):
+        return len(self.get_all_legs())-1
 
     def name(self):
-
         return "C"
 
-    def get_structure(self):
-
-        return CollStructure(legs=self)
-
-    def __init__(self, *args, **opts):
-
-        super(CollOperator, self).__init__(*args, **opts)
-
     def act_here_needed(self, structure):
-
-        assert isinstance(structure, SingularStructure)
-
-        # Collinear limits are needed within soft _and_ collinear structures
-        # WARNING: this statement has to be checked
-        # By default, not skipping overlaps ensures correct subtraction
         return True
-    
-class BeamOperator(SingularOperator):
-    """Object that represents a beam factorization elementary singular operator."""
+
+class BeamStructure(SingularStructure):
+
+    # TODO this only works at NLO...
+    def count_couplings(self):
+        return 1
+
+    def count_unresolved(self):
+        return 0
 
     def name(self):
-
         return "F"
 
-    def get_structure(self):
-
-        return BeamStructure(legs=self)
-
-    def __init__(self, *args, **opts):
-
-        super(BeamOperator, self).__init__(*args, **opts)
-
     def act_here_needed(self, structure):
-
-        assert isinstance(structure, SingularStructure)
-
-        # Beam factorization limits should never be needed within any other singular structure
-        # WARNING: this statement has to be checked
-        
         return False
-
-#=========================================================================================
-# SingularOperatorList
-#=========================================================================================
-
-class SingularOperatorList(list):
-    """List of subtraction operators."""
-
-    def act_on(self, structure):
-        """Act with a list of operators on a substructure."""
-
-        # Empty list of operators to apply or invalid structure: done
-        if structure.is_void or not self:
-            return structure
-        # Apply last operator and advance recursion
-        all_but_last_operators = SingularOperatorList(self[:-1])
-        # Act using the last operator
-        self[-1].act_on(structure)
-        # And now act using the rest of the operators, if needed
-        if not structure.is_void:
-            return all_but_last_operators.act_on(structure)
-
-    def simplify(self):
-        """Simplify a list of operators,
-        returning the real structure of the corresponding singularities.
-        """
-
-        structure = SingularStructure()
-        self.act_on(structure)
-        return structure
 
 #=========================================================================================
 # Current
@@ -2257,8 +2153,8 @@ class IRSubtraction(object):
                 return True
         return False        
     
-    def get_all_elementary_operators(self, process, max_unresolved=None):
-        """Generate all 'building blocks' operators relevant for the process
+    def get_all_elementary_structures(self, process, max_unresolved=None):
+        """Generate all 'building blocks' structures relevant for the process
         passed in argument.
         """
 
@@ -2267,7 +2163,7 @@ class IRSubtraction(object):
             unresolved = self.n_unresolved
         else:
             unresolved = max_unresolved
-        elementary_operator_list = SingularOperatorList([])
+        elementary_operator_list = []
         # Eliminate particles that do not have a role in the subtraction
         legs = SubtractionLegSet(
             SubtractionLeg(leg) for leg in process.get('legs')
@@ -2286,11 +2182,11 @@ class IRSubtraction(object):
             # Final state particle sets going soft
             for soft_set in itertools.combinations(soft_it, unresolved):
                 if self.can_become_soft(soft_set):
-                    elementary_operator_list.append(SoftOperator(*soft_set))
+                    elementary_operator_list.append(SoftStructure(*soft_set))
             # Final state particle sets going collinear
             for coll_final_set in itertools.combinations(coll_final_it, unresolved + 1):
                 if self.can_become_collinear(coll_final_set):
-                    elementary_operator_list.append(CollOperator(*coll_final_set))
+                    elementary_operator_list.append(CollStructure(*coll_final_set))
             # Initial-final collinear
             # For any final-state set with one less particle
             for coll_initial_set in itertools.combinations(coll_initial_it, unresolved):
@@ -2298,9 +2194,9 @@ class IRSubtraction(object):
                 for coll_initial_leg in is_legs:
                     coll_set = (coll_initial_leg, ) + coll_initial_set
                     if self.can_become_collinear(coll_set):
-                        elementary_operator_list.append(CollOperator(*coll_set))
+                        elementary_operator_list.append(CollStructure(*coll_set))
                         
-        # Finally add an elementary BeamOperator if the process acted on has factorization
+        # Finally add an elementary BeamStructure if the process acted on has factorization
         # Beam currents attached to it.
         beam_names_added = []
         for pbft in process.get('beam_factorization'):
@@ -2308,9 +2204,9 @@ class IRSubtraction(object):
                 if beam_name not in beam_names_added and (not pbft[beam_name] is None):
                     beam_names_added.append(beam_name)
                     elementary_operator_list.append(
-                        BeamOperator(*pbft[beam_name]['singular_structure'].get_all_legs()))
+                        BeamStructure(*pbft[beam_name]['singular_structure'].get_all_legs()))
         
-        return SingularOperatorList(elementary_operator_list)
+        return elementary_operator_list
 
     def get_all_combinations(
         self, elementary_operators,
@@ -2331,7 +2227,7 @@ class IRSubtraction(object):
         # (1 - O1)(1 - O2) ...
         # adding one monomial at a time, duplicates would never appear from the beginning
         # and simplification might still occur at each stage.
-        combos = [[SingularOperatorList()]]
+        combos = [[[]]]
         strucs = [[SingularStructure()]]
         for n in range(len(elementary_operators)):
             if verbose:
@@ -2344,8 +2240,8 @@ class IRSubtraction(object):
             for op in elementary_operators:
                 for combo in combos[-1]:
                     if op not in combo:
-                        this_combo = SingularOperatorList(combo + [op, ])
-                        this_struc = this_combo.simplify()
+                        this_combo = combo + [op, ]
+                        this_struc = SingularStructure(substructures=this_combo).nest()
                         if not this_struc.is_void:
                             if this_struc.count_unresolved() <= unresolved:
                                 if this_struc not in strucs_n:

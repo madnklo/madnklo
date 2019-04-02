@@ -141,3 +141,9 @@ class HE(object):
             Y = Yin        
         return (-math.pi**2/6 + 2*(y0 + MPL.G([0], Y)*(y0 - MPL.G([0], y0))) - MPL.G([0, 0], Y) + MPL.G([1, 0], Y))
 
+    @staticmethod
+    def SoftIF_Finite_Gabor_DIVJAC_NOD0(y0, Y):
+        '''Mapping independent initial-final soft+soft-colinear integrated counterterm'''
+        return (-4 * (-1 + math.sqrt(1 - y0)) * (1 + MPL.G([0], Y)) - 4 * (1 + MPL.G([0], Y)) * (
+                    MPL.G([0], 2) - MPL.G([0], 1 + math.sqrt(1 - y0))) -
+                (MPL.G([0], Y) * (MPL.G([0], Y) + 4 * MPL.G([0], y0))) / 2 + MPL.G([0, 1], 1 - Y))

@@ -915,4 +915,4 @@ class HiggsN3LOSubtractionTest(unittest.TestCase):
         combos = self.mysubtraction.get_all_combinations(elem_structures)
         # The number of counterterms may turn out to be incorrect,
         # but test that the generation goes through
-        self.assertEqual(len(combos), 1026)
+        self.assertEqual(1398, len(combos))

@@ -591,7 +591,7 @@ class SingularStructure(object):
         # If the limit does not overlap with the existing structure at all,
         # just append it at the end
         if self.non_overlapping_with(structure):
-            structure.substructures.append(self)
+            structure.substructures.append(self.get_copy())
             return
 
         # If the limit acts at least partly at the current level
@@ -604,7 +604,7 @@ class SingularStructure(object):
             # it may be needed or not
             else:
                 if self.act_here_needed(structure):
-                    structure.substructures.append(self)
+                    structure.substructures.append(self.get_copy())
                     structure.legs = SubtractionLegSet(difference(structure.legs, self.legs))
                 else:
                     structure.annihilate()
@@ -626,9 +626,6 @@ class SingularStructure(object):
         assert isinstance(self, SingularStructure)
         if structure is None:
             structure = SingularStructure()
-        else:
-            structure = structure.get_copy()
-
         substructures = self.substructures
         # Empty list of operators to apply or invalid structure: done
         if structure.is_void or not substructures:

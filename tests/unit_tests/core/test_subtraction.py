@@ -158,19 +158,17 @@ class SingularStructureTest(unittest.TestCase):
         leg5 = base_objects.Leg({'number': 5, 'id': 21, 'state': FINAL})
 
         C14  = sub.CollStructure(leg1, leg4)
+        C45  = sub.CollStructure(leg4, leg5)
         C145 = sub.CollStructure(leg1, leg4, leg5)
         S4   = sub.SoftStructure(leg4)
         S45  = sub.SoftStructure(leg4, leg5)
 
         CC_list = sub.SingularStructure(C14, C145)
         CC_simple = CC_list.nest()
-        CC_benchmark = sub.SingularStructure(sub.CollStructure(
+        CC_benchmark = sub.SingularStructure(
             sub.CollStructure(
-                sub.SubtractionLeg(1,  1, INITIAL),
-                sub.SubtractionLeg(4, 21, FINAL)
-            ),
-            sub.SubtractionLeg(5, 21, FINAL)
-        ))
+                sub.CollStructure(leg1, leg4),
+                leg5 ) )
         self.assertEqual(CC_simple,CC_benchmark)
 
         SC_list = sub.SingularStructure(S4, C145)
@@ -179,7 +177,18 @@ class SingularStructureTest(unittest.TestCase):
 
         SS_list = sub.SingularStructure(S4, S45)
         SS_simple = SS_list.nest()
-        self.assertEqual(SS_simple.is_void, True)
+        self.assertTrue(SS_simple.is_void)
+
+        C45S45_list = sub.SingularStructure(C45, S45)
+        C45S45_simple = C45S45_list.nest()
+        C45S45_benchmark = sub.SingularStructure(
+            sub.SoftStructure(
+                sub.CollStructure(leg4, leg5) ) )
+        self.assertEqual(C45S45_simple,C45S45_benchmark)
+
+        S45C45_list = sub.SingularStructure(S45, C45)
+        S45C45_simple = S45C45_list.nest()
+        self.assertTrue(S45C45_simple.is_void)
 
     def test_decompose(self):
         """Test decomposition of singular structures."""

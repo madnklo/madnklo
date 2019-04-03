@@ -3,6 +3,7 @@
 \usepackage[T1]{fontenc}
 
 \usepackage[margin=2cm]{geometry}
+\usepackage{hyperref}
 \usepackage[x11names]{xcolor}
 \usepackage{array,multirow,graphicx}
 \usepackage{amsmath,amssymb}
@@ -12,15 +13,17 @@
 \usetikzlibrary{shapes.geometric}
 \usepackage{cleveref}
 \usepackage{listings}
-\lstset{
+\lstdefinestyle{madnklo}{
 	basicstyle=\ttfamily\small,
 	keywordstyle=\color{Firebrick4},
 	commentstyle=\color{RoyalBlue4},
 	identifierstyle=\color{black},
 	stringstyle=\color{SpringGreen4},
 }
+\lstset{basicstyle=\ttfamily}
 
 \newcommand{\MadNkLO}[0]{\sc{MadNkLO}}
+\newcommand{\py}[1]{\lstinline[language=python]{#1}}
 
 \title{Generation of counterterms in \MadNkLO}
 \author{Simone Lionetti}
@@ -38,73 +41,52 @@ This document describes the contents of the file \texttt{subtraction.py}
 \section{Classes}
 
 
-\subsection{\texttt{SubtractionLeg}}
+\subsection{\py{SubtractionLeg}}
 \label{ssec:subtractionleg}
 
 For the purpose of the subtraction,
 it is impractical to carry around the whole information
-that is contained in an object of the type \texttt{base\_objects.Leg}.
-A simpler object \texttt{SubtractionLeg} is therefore defined
+that is contained in an object of the type \py{base_objects.Leg}.
+A simpler object \py{SubtractionLeg} is therefore defined
 with the following three attributes:
 \begin{itemize}
-	\item \texttt{n}: an integer that indicates the leg number in the process,
-	\item \texttt{pdg}: the PDG identifier which specifies the type of particle,
-	\item \texttt{state}: a flag to specify if the leg
+	\item \py{n}: an integer that indicates the leg number in the process,
+	\item \py{pdg}: the PDG identifier which specifies the type of particle,
+	\item \py{state}: a flag to specify if the leg
 		is in the initial or in the final state.
 \end{itemize}
 
-For convenience, a class \texttt{SubtractionLegSet} which represents
-a set of \texttt{SubtractionLeg}s is also implemented.
-Internally, this is just a sorted \texttt{tuple} since it is assumed
+For convenience, a class \py{SubtractionLegSet} which represents
+a set of \py{SubtractionLeg}'s is also implemented.
+Internally, this is just a sorted \py{tuple} since it is assumed
 that order is irrelevant.
 However, this object also provides some additional useful methods.
 
 
-\subsection{\texttt{SingularStructure}}
+\subsection{\py{SingularStructure}}
 \label{ssec:singularstructure}
 
-The \texttt{SingularStructure} class is designed to identify
-unresolved regions of phase space, and by extension counterterms.
-It is a recursive structure which represents a tree of \texttt{SubtractionLeg}s
+The \py{SingularStructure} class is designed to identify
+unresolved limits in phase space, and by extension counterterms.
+It is a recursive structure which represents a tree of \py{SubtractionLeg}'s
 in a process.
 At each level, the leaves are gathered
-into a \texttt{SubtractionLegSet} attribute called `\texttt{legs}'
-and the \texttt{SingularStructure} that specify sub-trees are grouped
-into a \texttt{list} called `\texttt{substructures}'.
-There are currently three classes that inherit from \texttt{SingularStructure}
-and represent different types of phase space regions:
+into a \py{SubtractionLegSet} attribute called `\py{legs}'
+and the \py{SingularStructure} that specify sub-trees are grouped
+into a \py{list} called `\py{substructures}'.
+There are currently three classes that inherit from \py{SingularStructure}
+and represent different unresolved limits:
 \begin{itemize}
-	\item \texttt{SoftStructure} indicates that all of its sub-legs are soft,
-	\item \texttt{CollStructure} indicates
+	\item \py{SoftStructure} indicates that all of its sub-legs are soft,
+	\item \py{CollStructure} indicates
 		that all of its sub-legs are collinear,
-	\item \texttt{BeamStructure} specifies that a leg is taken from a hadron
+	\item \py{BeamStructure} specifies that a leg is taken from a hadron
 		beam after some splitting.
 \end{itemize}
-The generic parent class \texttt{SingularStructure} can be instantiated
+The generic parent class \py{SingularStructure} can be instantiated
 to group together several structures and specify an additional set of legs;
 this feature is exploited in the implementation of momentum mappings
-to specify recoilers.
-
-For the sake of concreteness,
-a non-trivial example of \texttt{SingularStructure}
-is illustrated in \cref{fig:singularstructure}.
-In the conversion to a string, by default the PDGs and the state labels
-of \texttt{SubtractionLeg}s are suppressed,
-and \texttt{SingularStructure}s are converted to a single character
-such that the object of \cref{fig:singularstructure} prints as
-\begin{equation}
-	\texttt{C(C(C(5,13),C(7,10,11,16)),S(4,6,8),1,9)}.
-\end{equation}
-The conversion of objects to characters is carried out
-through the method \texttt{name}, according to the rules
-\begin{equation}
-\begin{aligned}
-	&\texttt{SingularStructure} \to \texttt{`'}, &
-	&\texttt{CollStructure} \to \texttt{`C'}, \\
-	&\texttt{SoftStructure} \to \texttt{`S'}, &
-	&\texttt{BeamStructure} \to \texttt{`F'}.
-\end{aligned}
-\end{equation}
+to identify which particles to recoil against.
 
 \begin{figure}
 \centering
@@ -143,21 +125,98 @@ through the method \texttt{name}, according to the rules
 	\draw (C3b) edge (leg4f.west);
 \end{tikzpicture}
 \caption{
-Example scheme of a \texttt{SingularStructure} object.
-The nodes in bubbles belong to the list of \texttt{substructure}
+Example scheme of a \py{SingularStructure} object.
+The nodes in bubbles belong to the list of \py{substructure}
 of the structure they are linked to on the left,
-while the ones in boxes belong to its \texttt{legs}.
-Within \texttt{SubtractionLeg} objects, initial and final states
-are here abbreviated with the letters \texttt{i} and \texttt{f} respectively.
+while the ones in boxes belong to its \py{legs}.
+Within \py{SubtractionLeg} objects, initial and final states
+are here abbreviated with the letters \py{i} and \py{f} respectively.
 }
 \label{fig:singularstructure}
 \end{figure}
 
+For the sake of concreteness,
+a non-trivial example of \py{SingularStructure}
+is illustrated in \cref{fig:singularstructure}.
+In the conversion to a string,
+\py{SingularStructure}'s are converted to a single character,
+and the PDG codes and the state labels
+of \py{SubtractionLeg}'s are suppressed,%
+\footnote{
+This is the default behaviour,
+the printout can be tuned by calling the function
+\py{__str__()} explicitly
+and passing the keyword arguments
+\py{print_n}, \py{print_pdg} and \py{print_state}.
+}
+such that the object of \cref{fig:singularstructure} prints as
+\begin{equation}
+	\texttt{C(C(C(5,13),C(7,10,11,16)),S(4,6,8),1,9)}.
+\end{equation}
+The conversion of objects to characters is carried out
+through the method \py{name()}, according to the rules
+\begin{equation}
+\label{eq:singularnames}
+\begin{aligned}
+	&\text{\py{SingularStructure}} \to \texttt{`'}, &
+	&\text{\py{CollStructure}} \to \texttt{`C'}, \\
+	&\text{\py{SoftStructure}} \to \texttt{`S'}, &
+	&\text{\py{BeamStructure}} \to \texttt{`F'}.
+\end{aligned}
+\end{equation}
+Whenever the species of particles and their state are not relevant
+or clear from the context, we will identify \py{SingularStructure}'s
+using their printout for brevity.
 
-\section{Generation of elementary operators}
-\label{sec:operators}
+In order to understand how limits are specified using these objects,
+let us consider some simpler examples.
+While the \py{SingularStructure} \texttt{C(3,5,7,8)}
+indicates the limit where legs number 3, 5, 7 and 8
+are simultaneously taken to be collinear,
+\texttt{(C(3,5),C(7,8))} denotes the limit
+where 3 goes collinear to 5, and 7 to 8.%
+\footnote{
+Note that the outermost bracket around the latter printout
+denotes a \py{SingularStructure} of unspecified type,
+as indicated in \cref{eq:singularnames}.
+Although the default behaviour does not distinguish among
+different orderings of the limits which appear at the same level,
+this can be tweaked using the keyword argument \py{orderless}
+of the comparison function \py{__eq__} for \py{SingularStructure}.
+}
+These situations are still distinct from the nested limit
+\texttt{C(C(3,5),7,8)}, which approaches the configuration
+where all four particles are collinear
+by first letting legs 3 and 5 go to the same direction,
+and subsequently sending the angles among their common parent,
+leg 7 and 8 to zero.
+Similarly, \texttt{S(C(4,7))} indicates the limit
+of legs 4 and 7 going collinear to each other,
+and their parent leg subsequently going soft.
+
+
+\subsection{\py{Current}}
+
+
+\subsection{\py{Counterterm}}
+
+
+\subsection{\py{IRSubtraction}}
+
+
+\section{Generation of local counterterms}
+\label{sec:generation}
+
+\subsection{Listing elementary structures}
+\label{ssec:elementary}
 
 Given a process, the first 
+
+\subsection{Nesting structures}
+\label{ssec:nest}
+
+\subsection{Assembling counterterms}
+\label{ssec:counterterms}
 
 \begin{thebibliography}{9}
 

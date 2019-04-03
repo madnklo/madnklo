@@ -390,17 +390,18 @@ class SingularStructure(object):
             substructures=[ss.get_copy() for ss in self.substructures],
             is_void=self.is_void )
 
-    def __str__(self, print_n=True, print_pdg=False, print_state=False):
+    def __str__(self, print_n=True, print_pdg=False, print_state=False, sort=True):
         """Return a string representation of the singular structure."""
 
         if self.is_void:
             return 'Void structure'
 
         tmp_str = self.name() + "("
-        tmp_str += ",".join(sorted(
-            sub.__str__(print_n, print_pdg, print_state)
-            for sub in self.substructures
-        ))
+        sub_strs = ( sub.__str__(print_n, print_pdg, print_state, sort)
+            for sub in self.substructures )
+        if sort:
+            sub_strs = sorted(sub_strs)
+        tmp_str += ",".join(sub_strs)
         if self.substructures:
             tmp_str += ","
         tmp_str += ",".join(
@@ -502,7 +503,7 @@ class SingularStructure(object):
             total_couplings += substructure.count_couplings()
         return total_couplings
 
-    def get_canonical_representation(self, track_leg_numbers=True):
+    def get_canonical_representation(self, track_leg_numbers=True, sort=True):
         """Creates a canonical hashable representation of self."""
         
         canonical = dict()
@@ -513,27 +514,27 @@ class SingularStructure(object):
         else:
             # Always track initial state leg numbers as they are always distinguishable
             canonical['legs'] = self.legs.without_leg_numbers(
-                                                        discard_initial_leg_numbers=False)
+                discard_initial_leg_numbers=False)
         canonical['name'] = self.name()
-        canonical['substructures'] = tuple(sorted(
+        canonical['substructures'] = tuple(
             structure.get_canonical_representation(track_leg_numbers)
-            for structure in self.substructures
-        ))
-
+            for structure in self.substructures)
+        if sort:
+            canonical['substructures'] = tuple(sorted(canonical['substructures']))
         return tuple(sorted(canonical.items()))
 
     def __hash__(self):
 
         return hash(self.get_canonical_representation())
 
-    def __eq__(self, other):
+    def __eq__(self, other, orderless=True):
         """Check if two singular structures are the same."""
 
         if not isinstance(other, SingularStructure):
             raise TypeError(
                 "Comparing SingularStructure to %s (%s)" % (str(other), str(type(other))))
-        self_can = self.get_canonical_representation()
-        other_can = other.get_canonical_representation()
+        self_can = self.get_canonical_representation(sort=orderless)
+        other_can = other.get_canonical_representation(sort=orderless)
         return self_can == other_can
 
     def __ne__(self, other):

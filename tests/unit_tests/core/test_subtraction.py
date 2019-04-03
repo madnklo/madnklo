@@ -634,7 +634,7 @@ class CountertermTest(unittest.TestCase):
 class IRSubstractionTest(unittest.TestCase):
 
     subtraction = sub.IRSubtraction(
-        simple_qcd.model, coupling_types=('QCD', ), n_unresolved=2 )
+        simple_qcd.model, coupling_types=('QCD', ), )
 
     def test_parent_PDGs(self):
         """Test determination of parent PDGs."""
@@ -693,7 +693,7 @@ class NLOSubtractionTest(unittest.TestCase):
             'model': simple_qcd.model } )
 
         self.mysubtraction = sub.IRSubtraction(
-            simple_qcd.model, coupling_types=('QCD', ), n_unresolved=1 )
+            simple_qcd.model, coupling_types=('QCD', ) )
 
     def test_generation_of_elementary_structures(self):
         """Test generation of all elementary operators for selected process."""
@@ -708,7 +708,8 @@ class NLOSubtractionTest(unittest.TestCase):
             sub.CollStructure(self.mylegs[1], self.mylegs[4]),
         ]
 
-        elem_structures = self.mysubtraction.get_all_elementary_structures(self.myprocess)
+        elem_structures = self.mysubtraction.get_all_elementary_structures(
+            self.myprocess, 1)
 
         self.assertEqual(
             set(str(op) for op in elem_structures),
@@ -729,8 +730,9 @@ class NLOSubtractionTest(unittest.TestCase):
             '(C(S(5),4),)', '(C(S(5),1),)', '(C(S(5),2),)'
         ]
 
-        elem_structures = self.mysubtraction.get_all_elementary_structures(self.myprocess)
-        combos = self.mysubtraction.get_all_combinations(elem_structures)
+        elem_structures = self.mysubtraction.get_all_elementary_structures(
+            self.myprocess, 1)
+        combos = self.mysubtraction.get_all_combinations(elem_structures, 1)
 
         self.assertEqual(
             set(target_NLO_combos),
@@ -777,7 +779,7 @@ class NNLOSubtractionTest(unittest.TestCase):
             'model': simple_qcd.model } )
 
         self.mysubtraction = sub.IRSubtraction(
-            simple_qcd.model, coupling_types=('QCD', ), n_unresolved=2 )
+            simple_qcd.model, coupling_types=('QCD', ), )
 
     def test_generation_of_elementary_structures_NN(self):
         """Test generation of all elementary operators for selected process."""
@@ -812,7 +814,8 @@ class NNLOSubtractionTest(unittest.TestCase):
             sub.CollStructure(self.mylegs[4], self.mylegs[5]),
         ]
 
-        elem_structures = self.mysubtraction.get_all_elementary_structures(self.myprocess)
+        elem_structures = self.mysubtraction.get_all_elementary_structures(
+            self.myprocess, 2)
 
         self.assertEqual(
             set(str(op) for op in elem_structures),
@@ -822,8 +825,9 @@ class NNLOSubtractionTest(unittest.TestCase):
     def test_structure_combinations_NN(self):
         """Test the generation of all operator combinations for one selected process."""
 
-        elem_structures = self.mysubtraction.get_all_elementary_structures(self.myprocess)
-        combos = self.mysubtraction.get_all_combinations(elem_structures)
+        elem_structures = self.mysubtraction.get_all_elementary_structures(
+            self.myprocess, 2)
+        combos = self.mysubtraction.get_all_combinations(elem_structures, 2)
 
         for combo in combos:
             ct = self.mysubtraction.get_counterterm(combo, self.myprocess)
@@ -862,7 +866,7 @@ class HiggsN3LOSubtractionTest(unittest.TestCase):
         })
 
         self.mysubtraction = sub.IRSubtraction(
-            simple_qcd.model, coupling_types=('QCD', ), n_unresolved=3 )
+            simple_qcd.model, coupling_types=('QCD', ), )
 
     def test_generation_of_elementary_structures(self):
         """Test generation of all elementary operators for Higgs RRR."""
@@ -901,7 +905,7 @@ class HiggsN3LOSubtractionTest(unittest.TestCase):
             sub.CollStructure(ggglegs[1], ggglegs[2], ggglegs[3], ggglegs[4]),
         ]
 
-        elem_structures = self.mysubtraction.get_all_elementary_structures(self.ggg)
+        elem_structures = self.mysubtraction.get_all_elementary_structures(self.ggg, 3)
 
         self.assertEqual(
             set(str(op) for op in elem_structures),
@@ -911,8 +915,8 @@ class HiggsN3LOSubtractionTest(unittest.TestCase):
     def test_structure_combinations(self):
         """Test the generation of all operator combinations for g g > g g g H."""
 
-        elem_structures = self.mysubtraction.get_all_elementary_structures(self.ggg)
-        combos = self.mysubtraction.get_all_combinations(elem_structures)
+        elem_structures = self.mysubtraction.get_all_elementary_structures(self.ggg, 3)
+        combos = self.mysubtraction.get_all_combinations(elem_structures, 3)
         # The number of counterterms may turn out to be incorrect,
         # but test that the generation goes through
         self.assertEqual(1398, len(combos))

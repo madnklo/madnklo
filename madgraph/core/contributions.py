@@ -165,7 +165,6 @@ class Contribution(object):
             self.IR_subtraction = subtraction.IRSubtraction(
                 self.model,
                 coupling_types  = self.contribution_definition.correction_couplings,
-                n_unresolved    = self.contribution_definition.n_unresolved_particles,
                 beam_types      = self.contribution_definition.get_beam_types(),
                 currents_scheme = self.options['subtraction_currents_scheme'],
                 mappings_scheme = self.options['subtraction_mappings_scheme'] )
@@ -1355,7 +1354,8 @@ class Contribution_R(Contribution):
         for process_key, (defining_process, mapped_processes) in self.get_processes_map().items():
 
             local_counterterms, integrated_counterterms =  self.IR_subtraction.get_all_counterterms(
-                    defining_process, ignore_integrated_counterterms=ignore_integrated_counterterms)
+                defining_process, self.contribution_definition.n_unresolved_particles,
+                ignore_integrated_counterterms=ignore_integrated_counterterms)
             
             if ignore_integrated_counterterms:
                 logger.warning(

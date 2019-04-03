@@ -2009,13 +2009,12 @@ class IRSubtraction(object):
     _allowed_model_names = ['sm', 'loop_sm', 'loopsm',
                             'simple_qcd','loop_qcd_qed_sm','hc_nlo_x0_ufo']
 
-    def __init__(self, model, n_unresolved, coupling_types=('QCD', ), beam_types=(None,None),
+    def __init__(self, model, coupling_types=('QCD', ), beam_types=(None,None),
                  currents_scheme = 'colorful', mappings_scheme = 'LorentzNLO'):
         """Initialize a IR subtractions for a given model,
         correction order and type.
         """
         self.model          = model
-        self.n_unresolved   = n_unresolved
         self.coupling_types = coupling_types
         self.beam_types     = beam_types
         
@@ -2149,16 +2148,12 @@ class IRSubtraction(object):
                 return True
         return False        
     
-    def get_all_elementary_structures(self, process, max_unresolved=None):
+    def get_all_elementary_structures(self, process, max_unresolved):
         """Generate all 'building blocks' structures relevant for the process
         passed in argument.
         """
 
         # Initialize variables
-        if max_unresolved is None:
-            unresolved = self.n_unresolved
-        else:
-            unresolved = max_unresolved
         elementary_structure_list = []
         # Eliminate particles that do not have a role in the subtraction
         legs = SubtractionLegSet(
@@ -2171,7 +2166,7 @@ class IRSubtraction(object):
         is_legs = SubtractionLegSet(difference(legs, fs_legs))
 
         # Loop over number of unresolved particles
-        for unresolved in range(1, unresolved + 1):
+        for unresolved in range(1, max_unresolved + 1):
             # Get iterators at the start of the final-state list
             it = iter(fs_legs)
             soft_it, coll_final_it, coll_initial_it = itertools.tee(it, 3)
@@ -2204,19 +2199,11 @@ class IRSubtraction(object):
         
         return elementary_structure_list
 
-    def get_all_combinations(
-        self, elementary_structures,
-        max_unresolved=None, verbose=False
-    ):
+    def get_all_combinations(self, elementary_structures, max_unresolved, verbose=False):
         """Determine all combinations of elementary structures,
         applying simplification and discarding the ones that vanish.
         """
 
-        # Initialize variables
-        if max_unresolved is None:
-            unresolved = self.n_unresolved
-        else:
-            unresolved = max_unresolved
         # Duplicate elimination is ugly,
         # because more combinations than needed are generated.
         # If one were to construct the list as a product of binomials,
@@ -2239,7 +2226,7 @@ class IRSubtraction(object):
                         this_combo = combo + [el, ]
                         this_struc = SingularStructure(substructures=this_combo).nest()
                         if not this_struc.is_void:
-                            if this_struc.count_unresolved() <= unresolved:
+                            if this_struc.count_unresolved() <= max_unresolved:
                                 if this_struc not in strucs_n:
                                     combos_n.append(this_combo)
                                     strucs_n.append(this_struc)
@@ -2563,20 +2550,16 @@ class IRSubtraction(object):
         return all_currents
 
     def get_all_counterterms(
-        self, process,
-        max_unresolved_in_elementary=None, max_unresolved_in_combination=None,
+        self, process, max_unresolved,
+        extra_unresolved_in_combination=0,
         ignore_integrated_counterterms=False):
         """Generate all counterterms for the corrections specified in this module
         and the process given in argument."""
         
-        if max_unresolved_in_elementary is None:
-            max_unresolved_in_elementary = self.n_unresolved
-        if max_unresolved_in_combination is None:
-            max_unresolved_in_combination = self.n_unresolved
         elementary_structures = self.get_all_elementary_structures(
-            process, max_unresolved_in_elementary)
+            process, max_unresolved)
         combinations = self.get_all_combinations(
-            elementary_structures, max_unresolved_in_combination)
+            elementary_structures, max_unresolved + extra_unresolved_in_combination)
 
         all_counterterms = []
         all_integrated_counterterms = []

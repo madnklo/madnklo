@@ -441,7 +441,7 @@ class SingularStructure(object):
         else:
             pref = -1
 
-        # Account for simplification of soft operators
+        # Account for simplification of soft structures
         # TODO Check this works for collinears inside softs
         softs = []
         for sub in self.substructures:
@@ -462,9 +462,8 @@ class SingularStructure(object):
         ], []))
 
     def annihilate(self):
-        """When an operator cannot act on this structure,
-        remove this structure altogether
-        by flagging it as unapplicable to any other operator.
+        """When an elementary structure cannot be nested within this structure,
+        remove this structure altogether by flagging it as void.
         """
 
         # Really clear structures and legs
@@ -584,7 +583,7 @@ class SingularStructure(object):
         return True
 
     def act_on(self, structure):
-        """Act with an elementary operator on a non-elementary structure."""
+        """Act with this elementary structure on another, non-elementary structure."""
 
         assert isinstance(structure, SingularStructure)
         assert not self.substructures
@@ -628,17 +627,16 @@ class SingularStructure(object):
         if structure is None:
             structure = SingularStructure()
         substructures = self.substructures
-        # Empty list of operators to apply or invalid structure: done
+        # Empty list of elementary structures to apply or invalid target structure: done
         if structure.is_void or not substructures:
             return structure
-        # Apply last operator and advance recursion
-        most_operators = SingularStructure(substructures=substructures[:-1])
-        # Act using the last operator
+        # Apply last elementary structure and advance recursion
+        most_structures = SingularStructure(substructures=substructures[:-1])
         substructures[-1].act_on(structure)
-        # And now act using the rest of the operators, if needed
+        # And now act using the rest of the elementary structures, if needed
         if structure.is_void:
             return structure
-        return most_operators.nest(structure)
+        return most_structures.nest(structure)
 
     @staticmethod
     def from_string(string, process, log=False):
@@ -2161,7 +2159,7 @@ class IRSubtraction(object):
             unresolved = self.n_unresolved
         else:
             unresolved = max_unresolved
-        elementary_operator_list = []
+        elementary_structure_list = []
         # Eliminate particles that do not have a role in the subtraction
         legs = SubtractionLegSet(
             SubtractionLeg(leg) for leg in process.get('legs')
@@ -2180,11 +2178,11 @@ class IRSubtraction(object):
             # Final state particle sets going soft
             for soft_set in itertools.combinations(soft_it, unresolved):
                 if self.can_become_soft(soft_set):
-                    elementary_operator_list.append(SoftStructure(*soft_set))
+                    elementary_structure_list.append(SoftStructure(*soft_set))
             # Final state particle sets going collinear
             for coll_final_set in itertools.combinations(coll_final_it, unresolved + 1):
                 if self.can_become_collinear(coll_final_set):
-                    elementary_operator_list.append(CollStructure(*coll_final_set))
+                    elementary_structure_list.append(CollStructure(*coll_final_set))
             # Initial-final collinear
             # For any final-state set with one less particle
             for coll_initial_set in itertools.combinations(coll_initial_it, unresolved):
@@ -2192,7 +2190,7 @@ class IRSubtraction(object):
                 for coll_initial_leg in is_legs:
                     coll_set = (coll_initial_leg, ) + coll_initial_set
                     if self.can_become_collinear(coll_set):
-                        elementary_operator_list.append(CollStructure(*coll_set))
+                        elementary_structure_list.append(CollStructure(*coll_set))
                         
         # Finally add an elementary BeamStructure if the process acted on has factorization
         # Beam currents attached to it.
@@ -2201,16 +2199,16 @@ class IRSubtraction(object):
             for beam_name in ['beam_one','beam_two']:
                 if beam_name not in beam_names_added and (not pbft[beam_name] is None):
                     beam_names_added.append(beam_name)
-                    elementary_operator_list.append(
+                    elementary_structure_list.append(
                         BeamStructure(*pbft[beam_name]['singular_structure'].get_all_legs()))
         
-        return elementary_operator_list
+        return elementary_structure_list
 
     def get_all_combinations(
-        self, elementary_operators,
+        self, elementary_structures,
         max_unresolved=None, verbose=False
     ):
-        """Determine all combinations of elementary operators,
+        """Determine all combinations of elementary structures,
         applying simplification and discarding the ones that vanish.
         """
 
@@ -2227,18 +2225,18 @@ class IRSubtraction(object):
         # and simplification might still occur at each stage.
         combos = [[[]]]
         strucs = [[SingularStructure()]]
-        for n in range(len(elementary_operators)):
+        for n in range(len(elementary_structures)):
             if verbose:
-                misc.sprint("Considering combinations of %d operators" % (n+1))
+                misc.sprint("Considering combinations of %d elementary structures" % (n+1))
             combos_n = []
             strucs_n = []
             n_filtered = 0
             n_void = 0
             n_duplicates = 0
-            for op in elementary_operators:
+            for el in elementary_structures:
                 for combo in combos[-1]:
-                    if op not in combo:
-                        this_combo = combo + [op, ]
+                    if el not in combo:
+                        this_combo = combo + [el, ]
                         this_struc = SingularStructure(substructures=this_combo).nest()
                         if not this_struc.is_void:
                             if this_struc.count_unresolved() <= unresolved:
@@ -2575,10 +2573,10 @@ class IRSubtraction(object):
             max_unresolved_in_elementary = self.n_unresolved
         if max_unresolved_in_combination is None:
             max_unresolved_in_combination = self.n_unresolved
-        elementary_operators = self.get_all_elementary_operators(
+        elementary_structures = self.get_all_elementary_structures(
             process, max_unresolved_in_elementary)
         combinations = self.get_all_combinations(
-            elementary_operators, max_unresolved_in_combination)
+            elementary_structures, max_unresolved_in_combination)
 
         all_counterterms = []
         all_integrated_counterterms = []

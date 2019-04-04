@@ -7,6 +7,7 @@
 \usepackage[x11names]{xcolor}
 \usepackage{array,multirow,graphicx}
 \usepackage{amsmath,amssymb}
+\usepackage[boxed]{algorithm2e}
 \usepackage{enumitem}
 \setlist{itemsep=1pt,topsep=1pt,parsep=1pt,partopsep=1pt}
 \usepackage{tikz}
@@ -210,10 +211,72 @@ and their parent leg subsequently going soft.
 \subsection{Listing elementary structures}
 \label{ssec:elementary}
 
-Given a process, the first 
+Given a process, the first step towards constructing
+a local infrared subtraction is to enumerate
+all of the different unresolved limits which potentially need to be regulated.
+In order to achieve this, we start with the identification of all possible
+\emph{elementary} limits of a single set of particles
+simultaneously approaching a singular configuration.
+In practice, this corresponds to a set of particles
+which are either all soft or all collinear to each other,
+and may be represented by a \py{SingularStructure} of the appropriate type
+with no substructure.
+
+After an \py{IRSubtraction} module has been initialised
+with the appropriate model and couplings specifications,
+a list of all relevant elementary structures can be obtained
+by calling the method \py{get_all_elementary_structures()}
+on a \py{base_objects.Process} instance \py{process}
+for a given maximum number \py{max_unresolved} of unresolved particles.
+Internally, the generation proceeds as follows:
+\begin{algorithm}[H]
+\For{$n=1$ to \emph{\py{max_unresolved}}}{
+	\For{each combination of $n$ final-state legs}{
+		\If{the combination can become soft}{
+			add its soft structure to the list\;
+		}
+	}
+	\For{each combination of $n+1$ final-state legs}{
+		\If{the combination can become collinear}{
+		add its collinear structure to the list\;
+		}
+	}
+	\For{each combination of $n$ final-state legs}{
+		\For{each hadronic initial-state leg}{
+			\If{the set of these $n+1$ legs can become collinear}{
+				add its collinear structure to the list\;
+			}
+		}
+	}
+}
+\end{algorithm}
+The conditional statements about whether a set of particles
+can become soft or collinear are implemented in the methods
+\py{can_become_soft()} and \py{can_become_collinear()} of \py{IRSubtraction}.
+They determine the candidate parent particles of the given legs
+using \py{parent_PDGs_from_legs()}.%
+\footnote{
+Note that in principle there might be more than one possible parent,
+as for instance in the case of a $q\bar{q}$ pair
+which might be produced from a gluon or a photon.
+}
+
 
 \subsection{Nesting structures}
 \label{ssec:nest}
+
+Lists of elementary structures can be assembled into nested structures
+of the type described in \cref{ssec:singularstructure},
+which are arguably more practical to process counterterms.
+This is achieved by grouping the list
+under a \py{SingularStructure} of unspecified type,
+and calling the method \py{nest()} on it.
+In turn, this relies on \py{act_on()}.
+
+Moreover, all possible combinations can be formed
+from a list of elementary structure using the method \py{get_all_combinations}
+of \py{SingularStructure}.
+
 
 \subsection{Assembling counterterms}
 \label{ssec:counterterms}

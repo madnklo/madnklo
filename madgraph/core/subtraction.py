@@ -45,11 +45,11 @@ from bidict import bidict
 logger = logging.getLogger('madgraph')
 pjoin = os.path.join
 
-# Specify here the list of subtraction currents schemes and subtraction_mappings_scheme
-# that uses soft counterterms that recoils against the initial states. This is necessary in
-# order to decide when a contribution with a correlated convolution of both beams must be setup.
-_currents_schemes_requiring_soft_beam_factorization = ['colorful', 'colorful_pp']
-_mappings_schemes_requiring_soft_beam_factorization = ['SoftBeamsRecoilNLO', ]
+# Specify here the list of subtraction schemes
+# whose soft counterterms recoil against the initial states.
+# This is necessary in order to decide when a contribution
+# with a correlated convolution of both beams must be setup.
+_schemes_requiring_soft_beam_factorization = ['colorful_pp']
 
 #=========================================================================================
 # Multinomial function
@@ -2009,8 +2009,9 @@ class IRSubtraction(object):
     _allowed_model_names = ['sm', 'loop_sm', 'loopsm',
                             'simple_qcd','loop_qcd_qed_sm','hc_nlo_x0_ufo']
 
-    def __init__(self, model, coupling_types=('QCD', ), beam_types=(None,None),
-                 currents_scheme = 'colorful', mappings_scheme = 'LorentzNLO'):
+    def __init__(
+        self, model,
+        coupling_types=('QCD', ), beam_types=(None, None), subtraction_scheme=None):
         """Initialize a IR subtractions for a given model,
         correction order and type.
         """
@@ -2018,11 +2019,8 @@ class IRSubtraction(object):
         self.coupling_types = coupling_types
         self.beam_types     = beam_types
         
-        self.currents_scheme = currents_scheme
-        self.mappings_scheme = mappings_scheme
         # Decide is soft recoil against initial states
-        if self.currents_scheme in _currents_schemes_requiring_soft_beam_factorization and \
-           self.mappings_scheme in _mappings_schemes_requiring_soft_beam_factorization:
+        if subtraction_scheme in _schemes_requiring_soft_beam_factorization:
             self.soft_do_recoil_against_initial_states = True
         else:
             self.soft_do_recoil_against_initial_states = False

@@ -1,0 +1,128 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+
+\usepackage[margin=2cm]{geometry}
+\usepackage{hyperref}
+\usepackage{amsmath,amssymb,mathtools,delimset}
+\usepackage{enumitem}
+\setlist{itemsep=1pt,topsep=1pt,parsep=1pt,partopsep=1pt}
+\usepackage{cleveref}
+
+\let\olddim\dim
+\renewcommand{\dim}[0]{d}
+\newcommand{\eps}[0]{\epsilon}
+\newcommand{\colorT}[1]{\mathbf{T}_{#1}}
+
+\title{Subtraction of $e^+e^- \to u\bar{u}d\bar{d}$
+with distributed soft counterterms}
+\author{Simone Lionetti}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Counterterms}
+
+\subsection{C(1,2)}
+
+\begin{equation}
+	C_{12} = \frac{T_R}{s_{12}} \brk[s]*{
+		- g^{\mu\nu}
+		+ 4 z (1-z) \frac{n_\perp^\mu n_\perp^\nu}{n_\perp^2}
+	}
+\end{equation}
+
+
+\subsection{C(1,2,3)}
+
+\begin{equation}
+	t_{12,3}
+	\equiv 2 \frac{z_1 s_{23} - z_2 s_{13}}{z_1 + z_2}
+	+ \frac{z_1 - z_2}{z_1 + z_2} s_{12},
+\end{equation}
+\begin{equation}
+	C_{123} = \frac{C_F T_R}{2 s_{123}^2} \brk[s]*{
+		- \frac{t_{12,3}^2}{s_{12}^2}
+		+ \frac{s_{123}}{s_{12}} \brk*{
+			\frac{4 z_3 + (z_1 - z_2)^2}{z_1 + z_2}
+			+(1 - 2\eps)(z_1 + z_2)
+		}
+		- (1 - 2\eps)
+	}
+\end{equation}
+
+
+\subsection{S(1,2)}
+
+\begin{equation}
+	S_{12} = \frac{T_R}{s_{12}^2} \sum_{(j,k) \ne 1,2}
+	\brk[s]*{
+		\frac{s_{1j}s_{2k} + s_{1k}s_{2j} - s_{12}s_{jk}}{s_{12j} s_{12k}}
+		- \frac{s_{1j}s_{2j}}{s_{12j}^2} - \frac{s_{1k}s_{2k}}{s_{12k}^2}
+	} \colorT{j}\cdot\colorT{k},
+\end{equation}
+
+
+\subsection{C(S(1,2),3)}
+
+\begin{equation}
+	C_{123}S_{12} = - \frac{2T_R}{s_{12}^2} \colorT{3}^2
+	\brk[s]*{
+		\frac{s_{13} z_2 + s_{23} z_1 - s_{12} z_3}{s_{123} (z_1+z_2)}
+		- \frac{s_{13}s_{23}}{s_{123}^2} - \frac{z_1 z_2}{(z_1+z_2)^2}
+	}
+\end{equation}
+\begin{equation}
+	C_{123} - C_{123}S_{12} = \frac{C_F T_R}{s_{123}^2} \brk[s]*{
+		\frac{s_{123}}{s_{12}} \frac{z_1^2 + z_2^2}{z_1+z_2} - 1
+		+ \eps \brk*{1 + \frac{s_{123}}{s_{12}} (z_1+z_2) }
+	}
+\end{equation}
+
+
+\subsection{S(C(1,2))}
+
+
+\subsection{C(C(1,2),3)}
+
+
+\subsection{C(S(C(1,2)),3)}
+
+
+\begin{thebibliography}{9}
+
+%\cite{Catani:1999ss}
+\bibitem{Catani:1999ss} 
+  S.~Catani and M.~Grazzini,
+  %``Infrared factorization of tree level QCD amplitudes at the next-to-next-to-leading order and beyond,''
+  Nucl.\ Phys.\ B {\bf 570}, 287 (2000)
+  doi:10.1016/S0550-3213(99)00778-6
+  [hep-ph/9908523].
+  %%CITATION = doi:10.1016/S0550-3213(99)00778-6;%%
+  %227 citations counted in INSPIRE as of 04 Apr 2019
+
+%\cite{Somogyi:2005xz}
+\bibitem{Somogyi:2005xz} 
+  G.~Somogyi, Z.~Trocsanyi and V.~Del Duca,
+  %``Matching of singly- and doubly-unresolved limits of tree-level QCD squared matrix elements,''
+  JHEP {\bf 0506}, 024 (2005)
+  doi:10.1088/1126-6708/2005/06/024
+  [hep-ph/0502226].
+  %%CITATION = doi:10.1088/1126-6708/2005/06/024;%%
+  %111 citations counted in INSPIRE as of 04 Apr 2019
+
+%\cite{Somogyi:2006da}
+\bibitem{Somogyi:2006da} 
+  G.~Somogyi, Z.~Trocsanyi and V.~Del Duca,
+  %``A Subtraction scheme for computing QCD jet cross sections at NNLO: Regularization of doubly-real emissions,''
+  JHEP {\bf 0701}, 070 (2007)
+  doi:10.1088/1126-6708/2007/01/070
+  [hep-ph/0609042].
+  %%CITATION = doi:10.1088/1126-6708/2007/01/070;%%
+  %115 citations counted in INSPIRE as of 04 Apr 2019
+ 
+\end{thebibliography}
+
+\end{document}

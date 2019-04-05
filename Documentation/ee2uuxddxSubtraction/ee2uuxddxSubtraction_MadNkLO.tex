@@ -4,9 +4,9 @@
 
 \usepackage[margin=2cm]{geometry}
 \usepackage{hyperref}
-\usepackage{amsmath,amssymb,mathtools,delimset}
-\usepackage{enumitem}
-\setlist{itemsep=1pt,topsep=1pt,parsep=1pt,partopsep=1pt}
+\usepackage{amssymb,mathtools}
+\usepackage[extdef]{delimset}
+\usepackage{physics}
 \usepackage{cleveref}
 
 \let\olddim\dim
@@ -25,67 +25,237 @@ with distributed soft counterterms}
 
 \section{Counterterms}
 
-\subsection{C(1,2)}
-
+For the process $e^+e^- \to u_1\bar{u}_2d_3\bar{d}_4$
+as a real correction to $e^+e^- \to jj+X$,
+the elementary limits that need to be regulated are
 \begin{equation}
-	C_{12} = \frac{T_R}{s_{12}} \brk[s]*{
-		- g^{\mu\nu}
-		+ 4 z (1-z) \frac{n_\perp^\mu n_\perp^\nu}{n_\perp^2}
-	}
+	C_{12}, \quad C_{34}, \quad
+	C_{134}, \quad C_{234}, \quad C_{123}, \quad C_{124}, \quad
+	S_{12}, \quad S_{34}.
 \end{equation}
+At most three of these limits have a common overlap
+and need to be considered simultaneously.
+Due to the lack of a tree-level diagram for $e^+e^- \to gg$,
+the limit of two collinear pairs $C_{12}C_{34}$ is regular.
+The maximal overlaps that we need to consider are therefore
+\begin{equation}
+	C_{123}S_{12}C_{12}, \quad
+	C_{124}S_{12}C_{12}, \quad
+	C_{134}S_{34}C_{34}, \quad
+	C_{234}S_{34}C_{34}.
+\end{equation}
+These are all of the same type,
+so it will be sufficient to consider the representative $C_{123}S_{12}C_{12}$.
 
+\subsection{C(1,2)}
+We subtract the limit of a $q\bar{q}$ pair going collinear using the current
+\begin{equation}
+	C_{12}^{\mu\nu} = \frac{T_R}{s_{12}} \brk[s]*{
+		- g^{\mu\nu}
+		+ 4 z_{1,2} z_{2,1} \frac{k_{1,2}^\mu k_{1,2}^\nu}{k_{1,2}^2}
+	},
+\end{equation}
+in combination with the generalised rescaling mapping
+and ? variables.
 
 \subsection{C(1,2,3)}
 
-\begin{equation}
-	t_{12,3}
-	\equiv 2 \frac{z_1 s_{23} - z_2 s_{13}}{z_1 + z_2}
-	+ \frac{z_1 - z_2}{z_1 + z_2} s_{12},
-\end{equation}
+The triple-collinear counterterm for $q'\bar{q}'q$
+is determined using the current \cite{Catani:1999ss}
 \begin{equation}
 	C_{123} = \frac{C_F T_R}{2 s_{123}^2} \brk[s]*{
 		- \frac{t_{12,3}^2}{s_{12}^2}
 		+ \frac{s_{123}}{s_{12}} \brk*{
-			\frac{4 z_3 + (z_1 - z_2)^2}{z_1 + z_2}
-			+(1 - 2\eps)(z_1 + z_2)
+			\frac{4 z_{3,12} + (z_{1,23} - z_{2,13})^2}{z_{12,3}}
+			+(1 - 2\eps) z_{12,3}
 		}
 		- (1 - 2\eps)
-	}
+	},
 \end{equation}
+where
+\begin{equation}
+	t_{12,3}
+	\equiv 2 \frac{z_{1,23} s_{23} - z_{2,13} s_{13}}{z_{12,3}}
+	+ \frac{z_{1,23} - z_{2,13}}{z_{12,3}} s_{12}.
+\end{equation}
+Once more we use ? variables and the generalised rescaling mapping.
 
 
 \subsection{S(1,2)}
 
+In order to construct the $q\bar{q}$ soft counterterm,
+we start from the form of the current used in \cite{Somogyi:2005xz} which reads
 \begin{equation}
-	S_{12} = \frac{T_R}{s_{12}^2} \sum_{(j,k) \ne 1,2}
-	\brk[s]*{
-		\frac{s_{1j}s_{2k} + s_{1k}s_{2j} - s_{12}s_{jk}}{s_{12j} s_{12k}}
-		- \frac{s_{1j}s_{2j}}{s_{12j}^2} - \frac{s_{1k}s_{2k}}{s_{12k}^2}
-	} \colorT{j}\cdot\colorT{k},
+	\frac{T_R}{s_{12}^2} \sum_i \sum_j
+	\frac{s_{1i}s_{2j} + s_{1j}s_{2i} - s_{12}s_{ij}}{s_{(12)i} s_{(12)j}}
+	\colorT{i}\cdot\colorT{j},
 \end{equation}
+where the sum runs over all coloured partons of the reduced process
+and includes the case $i=j$.
+Before discussing partial fractioning, we carry out two modifications.
+
+The first one, which may be inessential, is the replacement of
+the invariants $s_{(12)i} = 2p_{12}\cdot p_i$ and $s_{(12)j} = 2p_{12}\cdot p_j$
+in the denominator with $s_{12i}$ and $s_{12j}$.
+This operation modifies the counterterm by terms which are of higher order
+in the double-soft limit $S_{12}$, and therefore does not spoil the cancellation
+in the counterterm's defining limit.
+Using the triple invariants $s_{12i}$ and $s_{12j}$ seems convenient
+because they make denominators naturally match the ones of collinear counterterms
+(which cannot be changed because the modification $s_{123}\to s_{(12)3}$
+is \emph{not} higher-order in the triple-collinear limit).
+
+The second modification is more important, and is related to the fact
+that the global factor $s_{12}^{-2}$ may cause the counterterm to diverge
+in limits which do not require either $s_{12i}$ nor $s_{12j}$ to go to zero.
+More concretely, the contribution from the terms with $i=j$ reads
+\begin{equation}
+\label{eq:qqsoftieqj}
+	\frac{T_R}{s_{12}^2} \sum_{i}
+	\frac{2s_{1i}s_{2i}}{s_{(12)i}^2}
+	\colorT{i}^2,
+\end{equation}
+and \emph{all} terms are divergent in the triple-collinear limit $12j$
+for \emph{any} $j$.
+Thus, although from \cref{eq:qqsoftieqj} one might be tempted
+to assign the $i$-th term to $12i$-collinear kinematics,
+every term needs to be distributed among all $12j$-collinear kinematics.
+To this end, we use colour conservation to move all terms off the diagonal
+\begin{equation}
+	\sum_{i}
+	\frac{2s_{1i}s_{2i}}{s_{(12)i}^2}
+	\colorT{i}^2
+	= - \sum_i \sum_{j\ne i}
+	\frac{2s_{1i}s_{2i}}{s_{(12)i}^2}
+	\colorT{i}\cdot\colorT{j}
+	= - \sum_i \sum_{j\ne i} \brk[s]*{
+	\frac{s_{1i}s_{2i}}{s_{(12)i}^2}
+	+ \frac{s_{1j}s_{2j}}{s_{(12)j}^2}
+	}
+	\colorT{i}\cdot\colorT{j}.
+\end{equation}
+In this sense, the kinematics that we assign do not follow the divergent structure
+of the invariant poles but rather the colour,
+in a similar way as proposed for geometric subtraction \cite{Herzog:2018ggi}.
+
+Our complete soft currents thus reads
+\begin{equation}
+	S_{12} = \frac{T_R}{s_{12}^2} \sum_i \sum_{j \ne i}
+	\brk[s]*{
+		\frac{s_{1i}s_{2j} + s_{1j}s_{2i} - s_{12}s_{ij}}{s_{12i} s_{12j}}
+		- \frac{s_{1i}s_{2i}}{s_{12i}^2} - \frac{s_{1j}s_{2j}}{s_{12j}^2}
+	} \colorT{i}\cdot\colorT{j}.
+\end{equation}
+It is easy to partial-fraction this expression into collinear kinematics;
+in the present implementation we use
+\begin{equation}
+	1 = \frac{s_{12i}}{s_{12i} + s_{12j}} + \frac{s_{12j}}{s_{12i} + s_{12j}},
+\end{equation}
+for each term in the dipole sum, which leads to
+\begin{equation}
+	S_{12}^{(i)} = \frac{T_R}{s_{12}^2} \sum_{j \ne i}
+	\frac{s_{12i}}{s_{12i} + s_{12j}}
+	\brk[s]*{
+		\frac{s_{1i}s_{2j} + s_{1j}s_{2i} - s_{12}s_{ij}}{s_{12i} s_{12j}}
+		- \frac{s_{1i}s_{2i}}{s_{12i}^2} - \frac{s_{1j}s_{2j}}{s_{12j}^2}
+	} \colorT{i}\cdot\colorT{j}.
+\end{equation}
+Possibly in the future we may want to change the partial fractions
+to be dependent only on angles and not on energies:
+in the case of two collinear pairs with distributed single-soft limits,
+this has been noted to be essential for disjoint collinear limits to work
+in combination with distributed soft subtraction.
 
 
 \subsection{C(S(1,2),3)}
 
+Shifting out of the diagonal the sum over colour dipoles for the $q\bar{q}$ soft limit
+turns out to be extremely practical also to take its $C_{123}$ triple-collinear limit.
+Indeed it is sufficient to note that for a given term to contribute one of $i$ or $j$
+needs to be equal to $3$, and that in the collinear limit
+the ratio of scalar products with another leg
+is equal to a ratio of momentum fractions.
+After this replacement colour conservation can be used and we find
 \begin{equation}
 	C_{123}S_{12} = - \frac{2T_R}{s_{12}^2} \colorT{3}^2
 	\brk[s]*{
-		\frac{s_{13} z_2 + s_{23} z_1 - s_{12} z_3}{s_{123} (z_1+z_2)}
-		- \frac{s_{13}s_{23}}{s_{123}^2} - \frac{z_1 z_2}{(z_1+z_2)^2}
-	}
+		\frac{s_{13} z_{2,13} + s_{23} z_{1,23} - s_{12} z_{3,12}}
+		{s_{123} z_{12,3}}
+		- \frac{s_{13}s_{23}}{s_{123}^2} - \frac{z_{1,23} z_{2,13}}{z_{12,3}^2}
+	}.
 \end{equation}
+Note that, if the contributions on the diagonal have not been reshuffled,
+some effort is needed to see that the latter two terms are needed.
+We also note that subtracting this sub-limit from $C_{123}$
+many terms simplify and we are left with
 \begin{equation}
 	C_{123} - C_{123}S_{12} = \frac{C_F T_R}{s_{123}^2} \brk[s]*{
 		\frac{s_{123}}{s_{12}} \frac{z_1^2 + z_2^2}{z_1+z_2} - 1
 		+ \eps \brk*{1 + \frac{s_{123}}{s_{12}} (z_1+z_2) }
+	},
+\end{equation}
+which is what is currently implemented in the code (admittedly with $\eps=0$).
+This hard triple-collinear counterterm is clearly associated
+to $123$-collinear kinematics, and for the simplifications to occur
+the momentum fractions have to be computed as in $C_{123}$.
+
+
+\subsection{C(C(1,2),3)}
+
+\begin{equation}
+	\Pi^{\alpha\beta}(p, n) =
+	-g^{\alpha\beta}
+	+ \frac{p^\alpha n^\beta + p^\beta n^\alpha}{p \cdot n},
+\end{equation}
+\begin{equation}
+	C_{(12)3}^{\alpha\beta,ss'} = \frac{C_F}{s_{123}}
+	\delta_{ss'} \brk[s]*{
+		\frac{z_{12,3}}{2} \Pi^{\alpha\beta}
+		- 2 \frac{z_{3,12}}{z_{12,3}}
+		\frac{k_{3,12}^\alpha k_{3,12}^\beta}{k_{3,12}^2}
 	}
 \end{equation}
+\begin{equation}
+	-g_{\alpha\beta} \Pi^{\alpha\beta}
+	= (\dim-2) - 2
+	= - 2 \eps
+\end{equation}
+\begin{multline}
+	C_{(12)3}^{\alpha\beta,ss'} C_{12,\alpha\beta}
+	= \frac{C_FT_R}{s_{12}s_{123}} \bigg[
+		- z_{12,3} \brk*{\eps + 2 z_{1,2} z_{2,1} + \text{gauge terms?}}
+		\\
+		+ 2 \frac{z_{3,12}}{z_{1,23}} \brk3{
+			1 - z_{1,2} z_{2,1}
+			\frac{(2k_{1,2}\cdot k_{3,12})^2}{k_{1,2}^2 k_{3,12}^2}
+		}
+	\bigg]
+\end{multline}
 
 
 \subsection{S(C(1,2))}
 
-
-\subsection{C(C(1,2),3)}
+\begin{equation}
+	S_{12}^{\mu\nu}
+	= \sum_{(j,k)}
+	2 \frac{p_j^\mu p_k^\nu + p_j^\nu p_k^\mu}{s_{12j} s_{12k}}
+	\colorT{j}\cdot\colorT{k}
+	= \sum_{(j,k) \ne 1, 2} \brk[s]*{
+		\frac{p_j^\mu p_k^\nu + p_j^\nu p_k^\mu}{s_{12j} s_{12k}}
+		- \frac{p_j^\mu p_j^\nu}{s_{12j}^2}
+		- \frac{p_k^\mu p_k^\nu}{s_{12k}^2}
+	} 2 \colorT{j}\cdot\colorT{k},
+\end{equation}
+\begin{equation}
+	S_{12} C_{12} = \frac{T_R}{s_{12}} \sum_{(j,k) \ne 1, 2} \brk[s]*{
+		\frac{s_{jk}}{s_{12j}s_{12k}}
+		-z(1-z)\brk*{
+		\frac{2 s_{j\perp} s_{k\perp}}{s_{12j} s_{12k} n_\perp^2}
+		- \frac{s_{j\perp}^2}{s_{12j}^2 n_\perp^2}
+		- \frac{s_{k\perp}^2}{s_{12k}^2 n_\perp^2}
+		}
+	} \colorT{j}\cdot\colorT{k},
+\end{equation}
 
 
 \subsection{C(S(C(1,2)),3)}
@@ -122,6 +292,11 @@ with distributed soft counterterms}
   [hep-ph/0609042].
   %%CITATION = doi:10.1088/1126-6708/2007/01/070;%%
   %115 citations counted in INSPIRE as of 04 Apr 2019
+  
+\bibitem{Herzog:2018ggi}
+	F.~Herzog,
+	Geometric subtraction for real radiation at NNLO,
+	\url{https://www.ggi.infn.it/talkfiles/slides/slides4304.pdf}
  
 \end{thebibliography}
 

@@ -467,7 +467,7 @@ class QCD_final_collinear_0_QQxq(currents.QCDLocalCollinearCurrent):
 class QCD_final_collinear_0_ggq(currents.QCDLocalCollinearCurrent):
     """g g q collinear tree-level current."""
 
-    Cgq = NLO.QCD_final_collinear_0_gq()
+    # Cgq = NLO.QCD_final_collinear_0_gq()
 
     @classmethod
     def does_implement_this_current(cls, current, model):
@@ -557,8 +557,8 @@ class QCD_final_collinear_0_ggq(currents.QCDLocalCollinearCurrent):
         zs2, kTs2 = self.variables(
             intermediate_PS_point, parent_momentum,
             (1000, children[2]), Q=Q)
-        C23_pure_coll = self.Cgq.evaluate_kernel(
-            zs, kTs, 1000, pC=p23, qC=p23hat, Q=Q)
+        # C23_pure_coll = self.Cgq.evaluate_kernel(
+        #     zs, kTs, 1000, pC=p23, qC=p23hat, Q=Q)
         s23hat_1hat = 2*p1hat.dot(p23hat)
         z1 = zs[0]
         k1perp = kTs[0]

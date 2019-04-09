@@ -18,7 +18,7 @@
 % Colour operators
 \newcommand{\colorT}[1]{\mathbf{T}_{#1}}
 % Merged particles in intermediate mappings
-\newcommand{\mgd}[1]{\widehat{#1}}
+\newcommand{\mpd}[1]{\widehat{#1}}
 
 \title{Regularisation of real emissions
 with distributed soft counterterms}
@@ -286,17 +286,17 @@ The strong-ordered collinear limit $C_{123}C_{12}$ is the first nested limit
 that we encounter whose counterterm we implement in an iterated fashion.
 To this end we follow the steps of \cite{Somogyi:2006da}.
 Starting from the counterterm $C_{12}$, we take the extra collinear limit
-of the parent gluon $\mgd{12}$ of the quark-antiquark pair
-going collinear to the mapped, different-species quark $\mgd{3}$.
+of the parent gluon $\mpd{12}$ of the quark-antiquark pair
+going collinear to the mapped, different-species quark $\mpd{3}$.
 This involves taking the collinear limit of a spin-correlated matrix element,
 which gives the splitting function
 \begin{equation}
-	C_{\mgd{12}\mgd{3}}^{\alpha\beta,ss'} = \frac{C_F}{s_{\mgd{12}\mgd{3}}}
+	C_{\mpd{12}\mpd{3}}^{\alpha\beta,ss'} = \frac{C_F}{s_{\mpd{12}\mpd{3}}}
 	\delta_{ss'} \brk[s]*{
-		\frac{z_{\mgd{12},\mgd{3}}}{2} d^{\alpha\beta}
-		- 2 \frac{z_{\mgd{3},\mgd{12}}}{z_{\mgd{12},\mgd{3}}}
-		\frac{k_{\mgd{3},\mgd{12}}^\alpha k_{\mgd{3},\mgd{12}}^\beta}
-		{k_{\mgd{3},\mgd{12}}^2}
+		\frac{z_{\mpd{12},\mpd{3}}}{2} d^{\alpha\beta}
+		- 2 \frac{z_{\mpd{3},\mpd{12}}}{z_{\mpd{12},\mpd{3}}}
+		\frac{k_{\mpd{3},\mpd{12}}^\alpha k_{\mpd{3},\mpd{12}}^\beta}
+		{k_{\mpd{3},\mpd{12}}^2}
 	}.
 \end{equation}
 The sum over physical polarisations is given by the transverse tensor
@@ -312,24 +312,24 @@ after merging particles 1 and 2.
 Performing the Lorentz algebra we find
 \begin{equation}
 \label{eq:iterC123C12qq}
-	C_{\mgd{12}\mgd{3}}^{\alpha\beta,ss'} C_{12,\alpha\beta}
-	= \frac{C_FT_R}{s_{12}s_{\mgd{12}\mgd{3}}} \delta^{ss'} \brk[s]3{
+	C_{\mpd{12}\mpd{3}}^{\alpha\beta,ss'} C_{12,\alpha\beta}
+	= \frac{C_FT_R}{s_{12}s_{\mpd{12}\mpd{3}}} \delta^{ss'} \brk[s]3{
 		\brk3{
-			2 \frac{z_{\mgd{3},\mgd{12}}}{z_{\mgd{12},\mgd{3}}}+
-			z_{\mgd{12},\mgd{3}} (1 - \eps)
+			2 \frac{z_{\mpd{3},\mpd{12}}}{z_{\mpd{12},\mpd{3}}}+
+			z_{\mpd{12},\mpd{3}} (1 - \eps)
 		} - 2 z_{1,2} z_{2,1} \brk3{
-			z_{\mgd{12},\mgd{3}} +
-			\frac{z_{\mgd{3},\mgd{12}}}{z_{\mgd{12},\mgd{3}}}
-			\frac{(2k_{1,2}\cdot k_{\mgd{3},\mgd{12}})^2}
-			{k_{1,2}^2 k_{\mgd{3},\mgd{12}}^2}
+			z_{\mpd{12},\mpd{3}} +
+			\frac{z_{\mpd{3},\mpd{12}}}{z_{\mpd{12},\mpd{3}}}
+			\frac{(2k_{1,2}\cdot k_{\mpd{3},\mpd{12}})^2}
+			{k_{1,2}^2 k_{\mpd{3},\mpd{12}}^2}
 		}
 	}.
 \end{equation}
 The reduced matrix element is evaluated for momenta that have been obtained
 merging particles 1, 2 and 3 with a generalised rescaling mapping.
-This is equivalent to merging 1 and 2 into $\mgd{12}$
+This is equivalent to merging 1 and 2 into $\mpd{12}$
 recoiling against all other legs,
-and later merging $\mgd{12}$ with $\mgd{3}$
+and later merging $\mpd{12}$ with $\mpd{3}$
 recoiling against all remaining momenta.
 
 
@@ -340,13 +340,13 @@ and needs to be added back.
 The corresponding counter-counterterm $S_{12}C_{12}$
 may also be constructed iteratively as done in \cite{Somogyi:2005xz}.
 After the $C_{12}$ limit has been taken the reduced, spin-correlated matrix element 
-which contains the single parent $\mgd{12}$ in the limit of soft $\mgd{12}$
+which contains the single parent $\mpd{12}$ in the limit of soft $\mpd{12}$
 factorises with the current
 \begin{equation}
-	S_{\mgd{12}}^{\mu\nu}
+	S_{\mpd{12}}^{\mu\nu}
 	= \sum_{i, j}
-	\frac{\mgd{p}_i^\mu \mgd{p}_j^\nu + \mgd{p}_i^\nu \mgd{p}_j^\mu}
-	{s_{\mgd{12}\mgd{i}} s_{\mgd{12}\mgd{j}}}
+	\frac{\mpd{p}_i^\mu \mpd{p}_j^\nu + \mpd{p}_i^\nu \mpd{p}_j^\mu}
+	{s_{\mpd{12}\mpd{i}} s_{\mpd{12}\mpd{j}}}
 	2\colorT{i}\cdot\colorT{j}.
 \end{equation}
 
@@ -358,31 +358,31 @@ Similarly to the case of $S_{12}$, it is thus convenient
 to shift away the elements on the colour diagonal using colour conservation,
 which gives
 \begin{equation}
-	S_{\mgd{12}}^{\mu\nu}
+	S_{\mpd{12}}^{\mu\nu}
 	= \sum_{i \ne j} \brk[s]*{
-		\frac{\mgd{p}_i^\mu \mgd{p}_j^\nu + \mgd{p}_i^\nu \mgd{p}_j^\mu}
-		{s_{\mgd{12}\mgd{i}} s_{\mgd{12}\mgd{j}}}
-		- \frac{\mgd{p}_i^\mu \mgd{p}_i^\nu}{s_{\mgd{12}\mgd{i}}^2}
-		- \frac{\mgd{p}_j^\mu \mgd{p}_j^\nu}{s_{\mgd{12}\mgd{j}}^2}
+		\frac{\mpd{p}_i^\mu \mpd{p}_j^\nu + \mpd{p}_i^\nu \mpd{p}_j^\mu}
+		{s_{\mpd{12}\mpd{i}} s_{\mpd{12}\mpd{j}}}
+		- \frac{\mpd{p}_i^\mu \mpd{p}_i^\nu}{s_{\mpd{12}\mpd{i}}^2}
+		- \frac{\mpd{p}_j^\mu \mpd{p}_j^\nu}{s_{\mpd{12}\mpd{j}}^2}
 	} 2 \colorT{i}\cdot\colorT{j}.
 \end{equation}
 Contracting this expression with \cref{eq:Pqq},
-with the assumption that $\mgd{p}_i$ and $\mgd{p}_j$
+with the assumption that $\mpd{p}_i$ and $\mpd{p}_j$
 be massless, we find
 \begin{multline}
 \label{eq:S12C12iter}
 	S_{12}^{\mu\nu} C_{12,\mu\nu}
 	= \frac{T_R}{s_{12}} \sum_{i \ne j} \bigg[
-		- \frac{s_{\mgd{i}\mgd{j}}}{s_{\mgd{12}\mgd{i}}s_{\mgd{12}\mgd{j}}}
+		- \frac{s_{\mpd{i}\mpd{j}}}{s_{\mpd{12}\mpd{i}}s_{\mpd{12}\mpd{j}}}
 		+ 2 z_{1,2} z_{2,1}
-		\frac{(2k_{1,2}\cdot\mgd{p}_i)(2k_{1,2}\cdot\mgd{p}_j)}
-		{s_{\mgd{12}\mgd{i}} s_{\mgd{12}\mgd{j}} k_{1,2}^2}
+		\frac{(2k_{1,2}\cdot\mpd{p}_i)(2k_{1,2}\cdot\mpd{p}_j)}
+		{s_{\mpd{12}\mpd{i}} s_{\mpd{12}\mpd{j}} k_{1,2}^2}
 		\\\times
 		\brk3{ 1
-		- \frac{1}{2} \frac{s_{\mgd{12}\mgd{j}}}{s_{\mgd{12}\mgd{i}}}
-		\frac{2k_{1,2}\cdot\mgd{p}_i}{2k_{1,2}\cdot\mgd{p}_j}
-		- \frac{1}{2} \frac{s_{\mgd{12}\mgd{i}}}{s_{\mgd{12}\mgd{j}}}
-		\frac{2k_{1,2}\cdot\mgd{p}_j}{2k_{1,2}\cdot\mgd{p}_i}
+		- \frac{1}{2} \frac{s_{\mpd{12}\mpd{j}}}{s_{\mpd{12}\mpd{i}}}
+		\frac{2k_{1,2}\cdot\mpd{p}_i}{2k_{1,2}\cdot\mpd{p}_j}
+		- \frac{1}{2} \frac{s_{\mpd{12}\mpd{i}}}{s_{\mpd{12}\mpd{j}}}
+		\frac{2k_{1,2}\cdot\mpd{p}_j}{2k_{1,2}\cdot\mpd{p}_i}
 		}
 	\bigg] \colorT{i}\cdot\colorT{j}.
 \end{multline}
@@ -390,11 +390,11 @@ be massless, we find
 At this stage, the $S_{12}C_{12}$ counterterm may be partial-fractioned
 into triple-collinear sectors following the colour structure.
 We choose to perform this operation \emph{after} the limit $C_{12}$
-has been taken, as if we were dealing with a single-soft gluon $\mgd{12}$.%
+has been taken, as if we were dealing with a single-soft gluon $\mpd{12}$.%
 \footnote{
 This choice might match better the structure of iterated limits,
 such that $S_{12}C_{12}$ regulates the $C_{12}$ integrated counterterm
-in the $S_{\mgd{12}}$ single-unresolved limit
+in the $S_{\mpd{12}}$ single-unresolved limit
 within the single-unresolved phase space.
 However the specific form of partial fraction employed
 may have interplay with other subtraction elements
@@ -403,7 +403,7 @@ and deserves further investigation.
 We thus use the current
 \begin{equation}
 	S_{12}^{(i),\mu\nu} C_{12,\mu\nu}
-	= \frac{s_{\mgd{12}\mgd{j}}}{s_{\mgd{12}\mgd{i}}+s_{\mgd{12}\mgd{j}}}
+	= \frac{s_{\mpd{12}\mpd{j}}}{s_{\mpd{12}\mpd{i}}+s_{\mpd{12}\mpd{j}}}
 	S_{12}^{\mu\nu} C_{12,\mu\nu},
 \end{equation}
 within $12i$ triple-collinear kinematics.
@@ -439,7 +439,7 @@ The second possibility is to reabsorb the mismatch factor
 into the definition of the counterterm, replacing for instance
 \begin{equation}
 	S_{12}^{(i),\mu\nu} C_{12,\mu\nu}
-	\to \frac{Q\cdot p_{12}}{Q\cdot p_{\mgd{12}}}
+	\to \frac{Q\cdot p_{12}}{Q\cdot p_{\mpd{12}}}
 	S_{12}^{(i),\mu\nu} C_{12,\mu\nu}.
 \end{equation}
 Note that the factor is only defined up to terms
@@ -470,7 +470,7 @@ In fact, within the formula
 \begin{equation}
 	1
 	- C_{12} - C_{34}
-	+ C_{\mgd{3}\mgd{4}} C_{12} + C_{\mgd{1}\mgd{2}} C_{34}
+	+ C_{\mpd{3}\mpd{4}} C_{12} + C_{\mpd{1}\mpd{2}} C_{34}
 	- C_{12;34},
 \end{equation}
 the last three terms, which all feature the same kinematics
@@ -488,24 +488,24 @@ and added back three times in the double overlaps,
 so that it still needs to be subtracted from the original integrand.
 The singular current, which is constructed to match \cite{Somogyi:2006da},
 can be obtained from \cref{eq:iterC123C12qq} dropping terms
-which do not have a $z_{\mgd{12},\mgd{3}}$ denominator%
+which do not have a $z_{\mpd{12},\mpd{3}}$ denominator%
 \footnote{
 In performing this step we somewhat arbitrarily decide
-to keep the $z_{\mgd{3},\mgd{12}}$ terms at the numerator
+to keep the $z_{\mpd{3},\mpd{12}}$ terms at the numerator
 which theoretically could or should be set to one.
 Very roughly speaking this is equivalent to taking
-the $C_{\mgd{12}\mgd{3}}$ limit of the soft counterterm for $S_{\mgd{12}}$,
+the $C_{\mpd{12}\mpd{3}}$ limit of the soft counterterm for $S_{\mpd{12}}$,
 as it is sometimes useful to do for single-unresolved
 nested soft-collinear limits.
 }
 \begin{equation}
-	S_{\mgd{12}} C_{\mgd{12}\mgd{3}} C_{12}
-	= \frac{2 C_F T_R}{s_{12}s_{\mgd{12}\mgd{3}}}
-	\frac{z_{\mgd{3},\mgd{12}}}{z_{\mgd{12},\mgd{3}}}
+	S_{\mpd{12}} C_{\mpd{12}\mpd{3}} C_{12}
+	= \frac{2 C_F T_R}{s_{12}s_{\mpd{12}\mpd{3}}}
+	\frac{z_{\mpd{3},\mpd{12}}}{z_{\mpd{12},\mpd{3}}}
 	\brk[s]3{
 		1 - z_{1,2} z_{2,1}
-		\frac{(2k_{1,2}\cdot k_{\mgd{3},\mgd{12}})^2}
-		{k_{1,2}^2 k_{\mgd{3},\mgd{12}}^2}
+		\frac{(2k_{1,2}\cdot k_{\mpd{3},\mpd{12}})^2}
+		{k_{1,2}^2 k_{\mpd{3},\mpd{12}}^2}
 	}.
 \end{equation}
 This counterterm is associated to $123$-collinear kinematics.

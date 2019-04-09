@@ -7,6 +7,7 @@
 \usepackage{amssymb,mathtools}
 \usepackage[extdef]{delimset}
 \usepackage{physics}
+\usepackage{verbatim}
 \usepackage{cleveref}
 
 % Number of spacetime dimensions
@@ -78,8 +79,9 @@ act on the phase space volume,
 i.e.\ we divide each counterterm by the jacobian $\mathcal{J}$
 defined by
 \begin{equation}
+\label{eq:jaccanonical}
 	\dd{\Phi} = \mathcal{J}\times \dd{\tilde{\Phi}}
-	\prod_{C} \frac{\dd{s}_C}{2\pi} \dd{\Phi_C},
+	\prod_{C} \frac{\dd{s_C}}{2\pi} \dd{\Phi_C},
 \end{equation}
 where $\Phi$ is the full phase space,
 $\tilde{\Phi}$ the reduced one,
@@ -368,6 +370,7 @@ Contracting this expression with \cref{eq:Pqq},
 with the assumption that $\mgd{p}_i$ and $\mgd{p}_j$
 be massless, we find
 \begin{multline}
+\label{eq:S12C12iter}
 	S_{12}^{\mu\nu} C_{12,\mu\nu}
 	= \frac{T_R}{s_{12}} \sum_{i \ne j} \bigg[
 		- \frac{s_{\mgd{i}\mgd{j}}}{s_{\mgd{12}\mgd{i}}s_{\mgd{12}\mgd{j}}}
@@ -404,6 +407,76 @@ We thus use the current
 	S_{12}^{\mu\nu} C_{12,\mu\nu},
 \end{equation}
 within $12i$ triple-collinear kinematics.
+
+This, however, is not sufficient to achieve
+the desired cancellation pattern.
+Indeed, when the counterterm built from the current \labelcref{eq:S12C12iter}
+is included with $12k$ collinear kinematics for some $k$,
+which clearly reduce to no momentum mapping for soft $p_{12}$,
+it does \emph{not} automatically match
+the counterterm $C_{12}$ from \cref{eq:Pqq} in the $S_{12}$ limit.
+This is due to our choice of dividing by the jacobian factor
+of \cref{eq:jaccanonical} which, in the $S_{12}$ limit,
+is different between the mappings that merge
+the sets $\set{1,2}$ and $\set{1,2,3}$.
+To fix this mismatch we have two options.
+The first one, which essentially follows \cite{Somogyi:2006da},
+is to forfeit \cref{eq:jaccanonical} and divide by jacobians
+which are defined by the alternative
+canonical factorisation of phase space
+\begin{equation}
+	\dd{\Phi} = \mathcal{J}\times \dd{\tilde{\Phi}}
+	\prod_{C} \frac{\dd{\alpha_C}}{2\pi} \dd{\Phi_C},
+\end{equation}
+where $\alpha_C$ are the parameters of the rescaling mapping
+defined in \cite{Somogyi:2006da}.
+Given that $\alpha_C$ is essentially the light-cone component
+of the momentum of the collinear set in the anti-collinear direction,
+i.e.\ its `minus' component,
+this choice amounts to parametrise the virtuality variables
+with the anti-collinear components of the collinear momenta.
+The second possibility is to reabsorb the mismatch factor
+into the definition of the counterterm, replacing for instance
+\begin{equation}
+	S_{12}^{(i),\mu\nu} C_{12,\mu\nu}
+	\to \frac{Q\cdot p_{12}}{Q\cdot p_{\mgd{12}}}
+	S_{12}^{(i),\mu\nu} C_{12,\mu\nu}.
+\end{equation}
+Note that the factor is only defined up to terms
+which are higher-order in the $S_{12}$ limit,
+with the constraint that it goes to 1
+in the $C_{12}$ and $C_{123}$ limits.
+At the moment it does not seem clear which option
+is the most convenient, but it is relatively easy
+to switch between the two.%
+\footnote{
+Within \texttt{MadNkLO}, the first option can be chosen
+by selecting \texttt{alpha\_jacobian} as \texttt{factor}
+for the currents, either individually
+or globally in \texttt{QCD\_local\_currents.py}
+(beware that this might affect other schemes).
+The mismatch factor is instead implemented
+within the \texttt{ee2qqgg-NNLO-IR-limits} branch
+in the \texttt{cataniseymour} NNLO local current
+\texttt{QCD\_final\_collinear\_0\_QQxq},
+and more precisely in the method \texttt{S12C12\_kernel}
+with the variable \texttt{fix}.
+}
+
+\begin{comment}
+A potential drawback of this choice is that
+it makes the subtraction of disjoint collinear limits more complicated.
+In fact, within the formula
+\begin{equation}
+	1
+	- C_{12} - C_{34}
+	+ C_{\mgd{3}\mgd{4}} C_{12} + C_{\mgd{1}\mgd{2}} C_{34}
+	- C_{12;34},
+\end{equation}
+the last three terms, which all feature the same kinematics
+thanks to the commutativity property of the rescaling mapping,
+now differ \emph{only} because of jacobian factors.	
+\end{comment}
 
 
 \subsection{Counterterm $S_{12}C_{123}C_{12}$}

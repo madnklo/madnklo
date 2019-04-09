@@ -8,6 +8,8 @@
 \usepackage[extdef]{delimset}
 \usepackage{physics}
 \usepackage{verbatim}
+\usepackage{enumitem}
+\setlist{itemsep=1pt,topsep=1pt,parsep=1pt,partopsep=1pt}
 \usepackage{cleveref}
 
 % Number of spacetime dimensions
@@ -42,6 +44,7 @@ which features a minimal number of reduced kinematic configurations.
 
 The elementary unresolved limits that need to be regulated are
 \begin{equation}
+\label{eq:ee2uuxddxelem}
 	C_{12}, \quad C_{34}, \quad
 	C_{134}, \quad C_{234}, \quad C_{123}, \quad C_{124}, \quad
 	S_{12}, \quad S_{34}.
@@ -108,6 +111,15 @@ and transverse momenta are determined via
 	\qquad
 	k_{A,B}^\mu \equiv k_A^\mu - z_{A,B} k_{AB}^\mu.
 \end{equation}
+We have verified that the regularisation
+of the unresolved limits \cref{eq:ee2uuxddxelem}
+is not sensitive to the choice of $\bar{n}$ among the following:
+\begin{itemize}
+	\item an arbitrary, fixed null vector $(1, \hat{z})$;
+	\item the fixed, time-like total momentum $Q$ of the $e^+ e^-$ collision;
+	\item a light-like vector in the anti-collinear direction,
+	which is different for the collinear sets $\set{1,2}$ and $\set{1,2,3}$.
+\end{itemize}
 
 
 \subsection{Counterterm $C_{12}$}

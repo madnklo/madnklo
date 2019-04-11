@@ -51,7 +51,7 @@ def variable_MI_Q(higher_PS_point, lower_PS_point, parent, children, **opts):
     Q2 = Q.square()
     pijtilde = lower_PS_point[parent]
     yij = pij.square()/Q2
-    yijQ = 2.*pijtilde.dot(Q)/Q2
+    yijQ = 2.*pij.dot(Q)/Q2
     yijtildeQ = 2.*pijtilde.dot(Q)/Q2
 
     # Defining the reference vector to have a light-cone energy fraction v

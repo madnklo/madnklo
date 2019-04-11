@@ -304,14 +304,15 @@ class WalkersTest(unittest.TestCase):
 
         model = process.get('model')
         legs = process.get('legs')
+        random.seed(self.seed)
         for j in range(self.n_test_low_level_approach):
             if self.verbosity > 0:
                 print "Phase space point #", j + 1
             my_PS_point = self.generate_PS_point(process)
             clean_momenta_dict = subtraction.create_momenta_dict(process)
             new_PS_point = walkers.low_level_approach_limit(
-                my_PS_point, low_level_limit, 10 ** (-8*random.random()), clean_momenta_dict,
-                verbose=True )
+                my_PS_point, low_level_limit, 10 ** (-8*random.random()),
+                clean_momenta_dict, )
             # Sanity checks on masses and energy positivity
             for leg in legs:
                 pdg = leg['id']

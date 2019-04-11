@@ -12,7 +12,7 @@
 # For more information, visit madgraph.phys.ucl.ac.be and amcatnlo.web.cern.ch
 #
 ##########################################################################################
-"""Unit test library for mappings."""
+"""Unit test library for walkers."""
 
 import madgraph.integrator.walkers as walkers
 import madgraph.core.subtraction as subtraction

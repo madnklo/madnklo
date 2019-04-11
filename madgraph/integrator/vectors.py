@@ -75,7 +75,7 @@ class Vector(np.ndarray):
 
     def almost_zero(self, x):
 
-        return x < self.eps
+        return abs(x) < self.eps
 
     def almost_equal(self, x, y=None):
         """Check if two numbers are equal within the square root

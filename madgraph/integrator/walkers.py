@@ -50,6 +50,7 @@ def low_level_approach_limit(
     tmp_PS_point = PS_point.get_copy()
     kin_variables_list = list()
     if verbose:
+        print "\n" + "*" * 120 + "\n"
         misc.sprint(PS_point.__str__(n_initial=1))
         # misc.sprint(PS_point)
         misc.sprint(momenta_dict)
@@ -77,11 +78,11 @@ def low_level_approach_limit(
     for mapping, structure, power in reversed(mappings_sequence):
         tmp_PS_point, _ = mapping.map_to_higher_multiplicity(
             tmp_PS_point, structure, momenta_dict, kin_variables_list[-1])
-        kin_variables_list = kin_variables_list[:-1]
         if verbose:
             misc.sprint(mapping.__name__, str(structure))
+            misc.sprint(kin_variables_list[-1])
             misc.sprint(tmp_PS_point.__str__(n_initial=1))
-            # misc.sprint(tmp_PS_point)
+        kin_variables_list = kin_variables_list[:-1]
     return tmp_PS_point
 
 #=========================================================================================

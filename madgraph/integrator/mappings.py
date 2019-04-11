@@ -134,7 +134,8 @@ class FinalCollinearVariables(object):
             napi = na.dot(pi)
             nbpi = nb.dot(pi)
             zi = nbpi / nbp
-            kti = pi - (nbpi*na+napi*nb) / nanb - zi*pt
+            pti = pi - (nbpi*na+napi*nb) / nanb
+            kti = pti - zi*pt
             kinematic_variables['z'  + str(i)] = zi
             kinematic_variables['kt' + str(i)] = kti
             kinematic_variables['m2' + str(i)] = pi.square()
@@ -192,8 +193,18 @@ class FinalCollinearVariables(object):
             zi  = kinematic_variables['z'  + str(i)]
             kti = kinematic_variables['kt' + str(i)]
             pi2 = kinematic_variables['m2' + str(i)]
+            nakti = na.dot(kti)
+            nbkti = nb.dot(kti)
+            if kti.almost_zero(nakti) and kti.almost_zero(nbkti) == 0:
+                real_kti = kti
+            else:
+                logger.warning(
+                    "Transverse momenta in final-collinear variables are not transverse" +
+                    ", this might indicate a problem if you are not taking tilde limits.")
+                real_kti = kti - (nbkti * na + nakti * nb) / nanb
+                real_kti *= (kti.square() / real_kti.square()) ** 0.5
+            pti = real_kti + zi*pt
             nbpi = zi*nbp
-            pti = kti + zi*pt
             napi = (pi2-pti.square())*nanb/(2*nbpi)
             PS_point[i] = (nbpi*na+napi*nb) / nanb + pti
             p_sum += PS_point[i]
@@ -1171,7 +1182,7 @@ class FinalGroupingMapping(FinalCollinearMapping):
         for leg in singular_structure.legs:
             # reduced_PS_point[leg.n] = LorentzVector(PS_point[leg.n])
             reduced_singular_structure.substructures.append(sub.CollStructure(leg))
-            reduced_squared_masses['m2'+str(leg.n)] = PS_point[leg.n].square()
+            reduced_squared_masses['m2' + str(leg.n)] = PS_point[leg.n].square()
         # Perform mapping of parent momenta to target masses
         new_PS_point, vars = FinalMassesMapping.map_to_lower_multiplicity(
             reduced_PS_point, reduced_singular_structure,

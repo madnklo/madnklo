@@ -319,13 +319,13 @@ class WalkersTest(unittest.TestCase):
                 if model.get_particle(pdg)['mass'].lower() == 'zero':
                     self.assertLess(
                         abs(new_PS_point[n].square()),
-                        math.sqrt(new_PS_point[n].eps()))
+                        new_PS_point[n].eps)
                 else:
                     self.assertAlmostEqual(
                         new_PS_point[n].square(),
                         my_PS_point[n].square())
                 self.assertTrue(
-                    new_PS_point[n][0] > 0 or abs(new_PS_point[n][0]) < new_PS_point[n].eps())
+                    new_PS_point[n][0] > 0 or abs(new_PS_point[n][0]) < new_PS_point[n].eps)
 
     # Processes
     #=====================================================================================

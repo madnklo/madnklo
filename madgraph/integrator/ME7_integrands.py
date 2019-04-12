@@ -88,6 +88,9 @@ class MadEvent7Error(Exception):
 class ZeroResult(MadEvent7Error):
     pass
 
+def QL(n, state=base_objects.Leg.FINAL):
+    return subtraction.SubtractionLeg(n, 0, state)
+
 #===============================================================================
 # ME7Events
 #===============================================================================
@@ -3513,8 +3516,11 @@ The missing process is: %s"""%ME_process.nice_string())
                 # Select the limits to be probed interpreting limits as a regex pattern.
                 # If no match is found, then reconstruct the singular structure from the limits
                 # provided
+                if limit_specifier.startswith("tilde"):
+                    selected_singular_structures.append(limit_specifier)
+                    continue
                 selected_counterterms = self.find_counterterms_matching_regexp(
-                                                counterterms_to_consider, limit_specifier )
+                    counterterms_to_consider, limit_specifier )
                 if selected_counterterms:
                     selected_singular_structures.extend([
                         ct.reconstruct_complete_singular_structure()
@@ -3531,7 +3537,8 @@ The missing process is: %s"""%ME_process.nice_string())
             # Filter the singular structures to consider so as to remove those involving
             # a beam factorisation not present in this integrand
             selected_singular_structures = [
-                ss for ss in selected_singular_structures if not (
+                ss for ss in selected_singular_structures if
+                    isinstance(ss, basestring) or not (
                     (1 in ss.get_beam_factorization_legs() and a_xi1 is None) or 
                     (2 in ss.get_beam_factorization_legs() and a_xi2 is None))
             ]
@@ -3568,15 +3575,55 @@ The missing process is: %s"""%ME_process.nice_string())
             plots_suffix       = test_options['plots_suffix'],
         )
 
-    def scale_configuration(self, xi1, xi2, real_emission_PS_point, limit, 
-                          scaling_parameter, defining_process, walker, boost_back_to_com):
+    K = subtraction.SingularStructure
+    C = subtraction.CollStructure
+    S = subtraction.SoftStructure
+
+    coll_mapping = walkers.mappings.FinalGroupingMapping
+    soft_mapping = walkers.mappings.SoftVsFinalPureRescalingMapping
+
+    tilde_momenta_dict = subtraction.bidict({
+        1: frozenset([1, ]),
+        2: frozenset([2, ]),
+        3: frozenset([3, ]),
+        4: frozenset([4, ]),
+        5: frozenset([5, ]),
+        6: frozenset([6, ]),
+        # 7: frozenset([3, 5, ]),
+    })
+
+    tilde_limit_1 = [
+        (coll_mapping, K(C(QL(3), QL(5)), QL(4), QL(6)), 0.,),
+        (coll_mapping, K(C(QL(4), QL(7)), QL(6)), 1.,)
+    ]
+    tilde_limit_2 = [
+        (coll_mapping, K(C(QL(3), QL(5)), QL(4), QL(6)), 0.,),
+        (soft_mapping, K(S(QL(7)), QL(4), QL(6)), 1.,)
+    ]
+
+    def scale_configuration(
+        self, xi1, xi2, real_emission_PS_point, limit,
+        scaling_parameter, defining_process, walker, boost_back_to_com):
         """ Function used by test_IR_limits_for_limit_and_process to scale a given
         configuration and return the scaled xi's and PS_point. The definition of this
         function is useful so that it can be overloaded in the beam-soft integrands 
         (BS, VS, etc...)"""
 
+        new_dict = copy.copy(self.tilde_momenta_dict)
+        if isinstance(limit, basestring) and limit.startswith("tilde"):
+            if limit[-1] == '1':
+                tilde_limit = self.tilde_limit_1
+            elif limit[-1] == '2':
+                tilde_limit = self.tilde_limit_2
+            else:
+                raise MadEvent7Error("No tilde limit number " + limit[-1])
+            scaled_real_PS_point = walkers.low_level_approach_limit(
+                real_emission_PS_point, tilde_limit,
+                scaling_parameter, new_dict)
+            return scaled_real_PS_point, xi1, xi2
+
         scaled_real_PS_point = walker.approach_limit(
-                       real_emission_PS_point, limit, scaling_parameter, defining_process )
+            real_emission_PS_point, limit, scaling_parameter, defining_process )
 
         if boost_back_to_com:
             scaled_real_PS_point.boost_to_com((1,2))
@@ -3798,7 +3845,7 @@ The missing process is: %s"""%ME_process.nice_string())
     @staticmethod
     def analyze_IR_limit(
         evaluations, acceptance_threshold,
-        title=None, def_ct=None, plot_all=True, show=True,
+        title=None, def_ct=None, plot_all=True, show=True, ratio_to="ME",
         filename=None, plots_suffix=None, number_of_FS_legs=None ):
 
         # chose whether to use a grid display or a figure display
@@ -3906,11 +3953,11 @@ The missing process is: %s"""%ME_process.nice_string())
         plt.grid(True)
         found_zero_ME = False
         for line in lines:
-            if any(evaluations[x]["ME"]==0. for x in x_values):
+            if any(evaluations[x][ratio_to]==0. for x in x_values):
                 y_values = [abs(evaluations[x][line]/total_of_abs_values[i]) for i, x in enumerate(x_values)]
                 found_zero_ME = True
             else:
-                y_values = [abs(evaluations[x][line]/evaluations[x]["ME"]) for x in x_values]
+                y_values = [abs(evaluations[x][line]/evaluations[x][ratio_to]) for x in x_values]
             if '(' in line:
                 style = '--'
             else:
@@ -3919,7 +3966,7 @@ The missing process is: %s"""%ME_process.nice_string())
         if found_zero_ME:
             plt.ylabel('Ratio to sum of abs CT')
         else:
-            plt.ylabel('Ratio to ME')
+            plt.ylabel('Ratio to '+ratio_to)
         plt.legend()
         if display_mode == 'figure' and filename:
             plt.savefig(filename + '_ratios' + plot_extension)
@@ -4016,9 +4063,12 @@ The missing process is: %s"""%ME_process.nice_string())
                     filename = filename.replace("@", "_") + "_" + limit
                     filename = filename.replace(",", "").replace("(","").replace(")","")
                     if seed: filename += "_"+str(seed)
+                ratio_to = "ME"
+                if isinstance(limit, basestring) and limit.startswith("tilde"):
+                    ratio_to = "C(3,5)"
                 results[process][limit] = self.analyze_IR_limit(
                     limit_evaluations, acceptance_threshold=acceptance_threshold,
-                    title=title, def_ct=limit, show=show,
+                    title=title, def_ct=limit, show=show, ratio_to=ratio_to,
                     filename=filename, plots_suffix=plots_suffix,
                     number_of_FS_legs=number_of_FS_legs)
                 if not results[process][limit][0]:

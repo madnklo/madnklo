@@ -438,6 +438,11 @@ class WalkersTest(unittest.TestCase):
             (walkers.mappings.FinalGroupingMapping, K(C(L(5), L(9)), L(2), L(6)), 1.,)
         ]
         self._test_low_level_approach_limit(self.H_to_bbxuuxggg, limit1)
+        limit2 = [
+            (walkers.mappings.FinalGroupingMapping, K(C(L(3), L(4)), L(2), L(5), L(6)), 0.,),
+            (walkers.mappings.SoftVsFinalPureRescalingMapping, K(S(L(9)), L(2), L(5), L(6)), 1.,)
+        ]
+        self._test_low_level_approach_limit(self.H_to_bbxuuxggg, limit2)
 
     # Test NLO walkers
     #=====================================================================================

@@ -80,6 +80,34 @@ def Q_final_coll_variables(PS_point, parent_momentum, children, **opts):
     kTs = tuple(kin_variables['kt%d' % i] for i in children)
     return zs, kTs
 
+def Gabor_final_coll_variables(PS_point, parent_momentum, children, **opts):
+    # These variables are a generalisations
+    # of eqs. (5.7), (5.8), (5.10) and (6.5), (6.6), (6.7) in 0609042
+    # assuming the sign in front of yrs in (6.7) is a +
+
+    n_children = len(children)
+    Q = opts['Q']
+    Q2 = Q.square()
+    p = sum(PS_point[child] for child in children)
+    pt = parent_momentum
+    Qp = Q.dot(p)
+    Qpt = Q.dot(pt)
+    e = Qp / Q2
+    et = Qpt / Q2
+    zs = tuple(Q.dot(PS_point[child])/Qp for child in children)
+    y_complement = tuple((p - PS_point[child]).square()/Q2 for child in children)
+    y = p.square() / Q2
+    a = e - (e ** 2 - y) ** 0.5
+    frac = 0.5 / (a * e)
+    zetas = tuple(zs[i] - frac*(y-y_complement[i]) for i in range(n_children))
+    pi_factor = 1 - 2*frac*y
+    fract = 0.5 / (a * et)
+    kTs = tuple(
+        zetas[i] * p - pi_factor * PS_point[children[i]] +
+        ((1-2*zs[i])*y-y_complement[i]) * fract * pt
+        for i in range(n_children) )
+    return zs, kTs
+
 def anti_final_coll_variables(PS_point, parent_momentum, children, **opts):
 
     Q = opts['Q']
@@ -418,7 +446,7 @@ class QCDBeamFactorizationCurrent(QCDCurrent):
 class QCDLocalCollinearCurrent(QCDCurrent):
     """Common functions for QCD local collinear currents."""
 
-    factor = staticmethod(alpha_jacobian)
+    # factor = staticmethod(alpha_jacobian)
     variables = staticmethod(n_final_coll_variables)
 
     def __init__(self, *args, **opts):
@@ -501,8 +529,9 @@ class QCDLocalCollinearCurrent(QCDCurrent):
                 return utils.SubtractionCurrentResult.zero(current=current, hel_config=hel_config)
 
         # Evaluate kernel
-        zs, kTs = self.variables(higher_PS_point, qC, children, Q=Q)
-        evaluation = self.evaluate_kernel(zs, kTs, parent)
+        zs_Q, kTs_Q = Q_final_coll_variables(higher_PS_point, qC, children, Q=Q)
+        zs_a, kTs_a = anti_final_coll_variables(higher_PS_point, qC, children, Q=Q)
+        evaluation = self.evaluate_kernel(zs_Q, kTs_a, parent)
 
         # Add the normalization factors
         pC2 = pC.square()

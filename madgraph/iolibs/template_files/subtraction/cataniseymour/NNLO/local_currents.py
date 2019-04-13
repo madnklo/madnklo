@@ -162,34 +162,140 @@ class QCD_final_collinear_0_QQxq(currents.QCDLocalCollinearCurrent):
             for i in higher_PS_point.keys()
             if i not in (children[0], children[1])})
         leg_numbers_map[1000] = frozenset({children[0], children[1]})
-        mapping = mappings.FinalGroupingMapping
+        mapping = mappings.FinalRescalingOneMapping
         intermediate_ps_point, mapping_vars = mapping.map_to_lower_multiplicity(
-            higher_PS_point, structure, leg_numbers_map)
+            higher_PS_point, structure, leg_numbers_map, compute_jacobian=True)
         return intermediate_ps_point, mapping_vars
+
+    def get_final_PS_point(self, intermediate_PS_point, children):
+
+        recoilers = tuple(
+            i for i in intermediate_PS_point.keys()
+            if i not in (1, 2, children[2], 1000) )
+        def dummy_leg(i):
+            return subtraction.SubtractionLeg(i, 21, subtraction.SubtractionLeg.FINAL)
+        structure = subtraction.SingularStructure(
+            substructures=[subtraction.CollStructure(
+                legs=(dummy_leg(1000), dummy_leg(children[2])) ), ],
+            legs=(dummy_leg(r) for r in recoilers) )
+        leg_numbers_map = subtraction.bidict({
+            i: frozenset({i,})
+            for i in intermediate_PS_point.keys()
+            if i not in (children[0], children[1], children[2])})
+        leg_numbers_map[1000] = frozenset({children[0], children[1]})
+        leg_numbers_map[2000] = frozenset({children[2], 1000})
+        mapping = mappings.FinalRescalingOneMapping
+        final_PS_point, mapping_vars = mapping.map_to_lower_multiplicity(
+            intermediate_PS_point, structure, leg_numbers_map, compute_jacobian=True)
+        return final_PS_point, mapping_vars
+
+    def get_final_PS_point_direct(self, PS_point, children):
+
+        recoilers = tuple(
+            i for i in PS_point.keys()
+            if i not in (1, 2, children[0], children[1], children[2]) )
+        def dummy_leg(i):
+            return subtraction.SubtractionLeg(i, 21, subtraction.SubtractionLeg.FINAL)
+        structure = subtraction.SingularStructure(
+            substructures=[subtraction.CollStructure(
+                legs=(dummy_leg(children[0]), dummy_leg(children[1]), dummy_leg(children[2])) ), ],
+            legs=(dummy_leg(r) for r in recoilers) )
+        leg_numbers_map = subtraction.bidict({
+            i: frozenset({i,})
+            for i in PS_point.keys()
+            if i not in (children[0], children[1], children[2])})
+        leg_numbers_map[2000] = frozenset({children[0], children[1], children[2]})
+        mapping = mappings.FinalRescalingOneMapping
+        final_PS_point, mapping_vars = mapping.map_to_lower_multiplicity(
+            PS_point, structure, leg_numbers_map, compute_jacobian=True)
+        return final_PS_point, mapping_vars
 
     def C123C12_kernel(self, higher_PS_point, parent_momentum, children, **opts):
 
         p1 = higher_PS_point[children[0]]
         p2 = higher_PS_point[children[1]]
-        p12 = p1+p2
+        p12 = p1 + p2
         s12 = p12.square()
+        p3 = higher_PS_point[children[2]]
+        p123 = p12 + p3
+        s123 = p123.square()
         intermediate_PS_point, mapping_vars = self.get_intermediate_PS_point(
             higher_PS_point, children )
         p12hat = intermediate_PS_point[1000]
         p3hat = intermediate_PS_point[children[2]]
-        zs, kTs = self.variables(
+        p123hat = p12hat + p3hat
+        misc.sprint(intermediate_PS_point)
+        misc.sprint(mapping_vars)
+        final_PS_point, final_mapping_vars = self.get_final_PS_point(
+            intermediate_PS_point, children )
+        p123tilde = final_PS_point[2000]
+        misc.sprint(final_PS_point)
+        misc.sprint(final_mapping_vars)
+        final_PS_point_d, final_mapping_vars_d = self.get_final_PS_point_direct(
+            higher_PS_point, children )
+        misc.sprint(final_PS_point_d)
+        misc.sprint(final_mapping_vars_d)
+        Q = mapping_vars['Q']
+        misc.sprint(Q.dot(p12)/Q.dot(p12hat))
+        misc.sprint(Q.dot(p123hat)/Q.dot(p123tilde))
+        misc.sprint(Q.dot(p123)/Q.dot(p123tilde))
+
+        ##################################################################################
+        zs1_n, kTs1_n = currents.n_final_coll_variables(
             higher_PS_point, p12hat, children[:2], Q=mapping_vars['Q'])
-        zs2, kTs2 = self.variables(
+        zs2_n, kTs2_n = currents.n_final_coll_variables(
             intermediate_PS_point, parent_momentum,
             (1000, children[2]), Q=mapping_vars['Q'])
-        s12hat_3hat = 2*p3hat.dot(p12hat)
-        z1 = zs[0]
-        k1perp = kTs[0]
-        z12 = zs2[0]
-        k12perp = kTs2[0]
+        zs1_Q, kTs1_Q = currents.Q_final_coll_variables(
+            higher_PS_point, p12hat, children[:2], Q=mapping_vars['Q'])
+        zs2_Q, kTs2_Q = currents.Q_final_coll_variables(
+            intermediate_PS_point, parent_momentum,
+            (1000, children[2]), Q=mapping_vars['Q'])
+        zs1_a, kTs1_a = currents.anti_final_coll_variables(
+            higher_PS_point, p12hat, children[:2], Q=mapping_vars['Q'])
+        zs2_a, kTs2_a = currents.anti_final_coll_variables(
+            intermediate_PS_point, parent_momentum,
+            (1000, children[2]), Q=mapping_vars['Q'])
+        zs1_G, kTs1_G = currents.Gabor_final_coll_variables(
+            higher_PS_point, p12hat, children[:2], Q=mapping_vars['Q'])
+        zs2_G, kTs2_G = currents.Gabor_final_coll_variables(
+            intermediate_PS_point, parent_momentum,
+            (1000, children[2]), Q=mapping_vars['Q'])
+        # misc.sprint(zs1_n[0], zs1_Q[0], zs1_a[0], zs1_G[0])
+        # misc.sprint(zs2_n[0], zs2_Q[0], zs2_a[0], zs2_G[0])
+        # kTs1_n = [kT.normalize() for kT in kTs1_n]
+        # kTs1_Q = [kT.normalize() for kT in kTs1_Q]
+        # kTs1_a = [kT.normalize() for kT in kTs1_a]
+        # kTs1_G = [kT.normalize() for kT in kTs1_G]
+        # kTs2_n = [kT.normalize() for kT in kTs2_n]
+        # kTs2_Q = [kT.normalize() for kT in kTs2_Q]
+        # kTs2_a = [kT.normalize() for kT in kTs2_a]
+        # kTs2_G = [kT.normalize() for kT in kTs2_G]
+        # misc.sprint(kTs1_n[0], kTs1_Q[0], kTs1_a[0], kTs1_G[0])
+        # misc.sprint(kTs2_n[0], kTs2_Q[0], kTs2_a[0], kTs2_G[0])
+        z1 = zs1_Q[0]
+        k1perp = kTs1_a[0]
+        z12 = zs2_Q[0]
+        k12perp = kTs2_a[0]
+
+        ##################################################################################
+
+        # zs, kTs = self.variables(
+        #     higher_PS_point, p12hat, children[:2], Q=mapping_vars['Q'])
+        # zs2, kTs2 = self.variables(
+        #     intermediate_PS_point, parent_momentum,
+        #     (1000, children[2]), Q=mapping_vars['Q'])
+        # z1 = zs[0]
+        # k1perp = kTs[0]
+        # z12 = zs2[0]
+        # k12perp = kTs2[0]
+
+        ##################################################################################
+
         # misc.sprint(z1, k1perp, z12, k12perp)
+        s12hat_3hat = 2*p3hat.dot(p12hat)
         k1perp2 = k1perp.square()
-        # sperp = 2*p3hat.dot(k1perp)
+        sperp = 2*p3hat.dot(k1perp)
         k12perp2 = k12perp.square()
         kperpSP = 2*k1perp.dot(k12perp)
         # perpterm = sperp**2/(k1perp2*s12hat_3hat)
@@ -200,9 +306,11 @@ class QCD_final_collinear_0_QQxq(currents.QCDLocalCollinearCurrent):
         # misc.sprint(p12.dot(k12perp), n.dot(k12perp), Q.dot(k12perp))
         # misc.sprint(perpterm, perptermalt, perpratio)
         pqg = (1+(1-z12)**2) / z12
-        brk = z12 + perptermalt
-        # brk = z12 - sperp**2/(k1perp2*s12hat_3hat)
-        return 4*(pqg - 2*z1*(1-z1) *brk) / (s12hat_3hat*s12)
+        # brk = z12 + perptermalt
+        brk = z12 - sperp**2/(k1perp2*s12hat_3hat)
+        C123C12_current = 4*(pqg - 2*z1*(1-z1) *brk) / (s12hat_3hat*s12)
+        misc.sprint(C123C12_current)
+        return C123C12_current
 
     def S12C12_kernel(self, higher_PS_point, children, emitter, spectator, **opts):
 
@@ -282,7 +390,7 @@ class QCD_final_collinear_0_QQxq(currents.QCDLocalCollinearCurrent):
         s12 = sij(1, 2, zs, kTs)
         s13 = sij(1, 3, zs, kTs)
         s23 = sij(2, 3, zs, kTs)
-        misc.sprint(s12,s13,s23)
+        # misc.sprint(s12,s13,s23)
         s123 = s12 + s13 + s23
         # Assemble kernel
         # Instantiate the structure of the result
@@ -318,6 +426,10 @@ class QCD_final_collinear_0_QQxq(currents.QCDLocalCollinearCurrent):
             raise CurrentImplementationError(
                 self.name() + " requires the total mapping momentum Q." )
 
+        # misc.sprint(self.__class__.__name__)
+        # misc.sprint(higher_PS_point)
+        # misc.sprint(lower_PS_point)
+
         # Retrieve alpha_s and mu_r
         model_param_dict = self.model.get('parameter_dict')
         alpha_s = model_param_dict['aS']
@@ -342,13 +454,13 @@ class QCD_final_collinear_0_QQxq(currents.QCDLocalCollinearCurrent):
         srs = 2*pr.dot(ps)
         evaluation = self.evaluate_kernel(zs, kTs, parent)
         ker = 0
-        misc.sprint(srs,sir,sis)
-        ker += 2*self.C123_kernel(zs[0], zs[1], zs[2], srs, sir, sis, sir+sis+srs)
-        ker -= 2*self.C123S12_kernel(zs[0], zs[1], zs[2], srs, sir, sis, sir+sis+srs)
+        # misc.sprint(srs,sir,sis)
+        # ker += 2*self.C123_kernel(zs[0], zs[1], zs[2], srs, sir, sis, sir+sis+srs)
+        # ker -= 2*self.C123S12_kernel(zs[0], zs[1], zs[2], srs, sir, sis, sir+sis+srs)
         ker -= self.C123C12_kernel(
             higher_PS_point, lower_PS_point[parent], children, Q=Q)
-        ker += self.C123S12C12_kernel(
-            higher_PS_point, lower_PS_point[parent], children, Q=Q)
+        # ker += self.C123S12C12_kernel(
+        #     higher_PS_point, lower_PS_point[parent], children, Q=Q)
         evaluation['values'][(0, 0)]['finite'] += 0.5*self.CF*self.TR*ker
 
         # Find all colored leg numbers except for the parent in the reduced process
@@ -374,9 +486,9 @@ class QCD_final_collinear_0_QQxq(currents.QCDLocalCollinearCurrent):
                 sik = 2*pi.dot(pk)
                 skr = 2*pk.dot(pr)
                 sks = 2*pk.dot(ps)
-                weight += self.S12_kernel(sir, sis, sik, skr, sks, srs)
-                weight -= 2*self.S12C12_kernel(
-                    higher_PS_point, children, emitter, spectator, Q=Q)
+                # weight += self.S12_kernel(sir, sis, sik, skr, sks, srs)
+                # weight -= 2*self.S12C12_kernel(
+                #     higher_PS_point, children, emitter, spectator, Q=Q)
             evaluation['values'][(0, color_correlation_index)] = {'finite': weight}
             color_correlation_index += 1
 

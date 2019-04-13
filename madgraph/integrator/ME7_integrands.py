@@ -2620,7 +2620,7 @@ class ME7Integrand_V(ME7Integrand):
 class ME7Integrand_R(ME7Integrand):
     """ME7Integrand for the computation of a single real-emission type of contribution."""
 
-    divide_by_jacobian = True
+    divide_by_jacobian = False
     
     def __init__(self, *args, **opts):
         """Initialize a real-emission type of integrand,

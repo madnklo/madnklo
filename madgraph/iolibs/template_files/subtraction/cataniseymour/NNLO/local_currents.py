@@ -254,7 +254,6 @@ class QCD_final_collinear_0_QQxq(currents.QCDLocalCollinearCurrent):
 
         jacobian = final_mapping_vars_d['jacobian']
         jacobian /= (final_mapping_vars['jacobian']*mapping_vars['jacobian'])
-        jacobian = 1
         return C123C12_current*jacobian
 
     def S12C12_kernel(self, higher_PS_point, children, emitter, spectator, **opts):

@@ -529,9 +529,8 @@ class QCDLocalCollinearCurrent(QCDCurrent):
                 return utils.SubtractionCurrentResult.zero(current=current, hel_config=hel_config)
 
         # Evaluate kernel
-        zs_Q, kTs_Q = Q_final_coll_variables(higher_PS_point, qC, children, Q=Q)
-        zs_a, kTs_a = anti_final_coll_variables(higher_PS_point, qC, children, Q=Q)
-        evaluation = self.evaluate_kernel(zs_Q, kTs_a, parent)
+        zs, kTs = self.variables(higher_PS_point, qC, children, Q=Q)
+        evaluation = self.evaluate_kernel(zs, kTs, parent)
 
         # Add the normalization factors
         pC2 = pC.square()

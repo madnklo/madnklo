@@ -216,101 +216,46 @@ class QCD_final_collinear_0_QQxq(currents.QCDLocalCollinearCurrent):
         p2 = higher_PS_point[children[1]]
         p12 = p1 + p2
         s12 = p12.square()
-        p3 = higher_PS_point[children[2]]
-        p123 = p12 + p3
-        s123 = p123.square()
+        # p3 = higher_PS_point[children[2]]
+        # p123 = p12 + p3
+        # s123 = p123.square()
         intermediate_PS_point, mapping_vars = self.get_intermediate_PS_point(
             higher_PS_point, children )
         p12hat = intermediate_PS_point[1000]
         p3hat = intermediate_PS_point[children[2]]
-        p123hat = p12hat + p3hat
-        misc.sprint(intermediate_PS_point)
-        misc.sprint(mapping_vars)
+        # p123hat = p12hat + p3hat
         final_PS_point, final_mapping_vars = self.get_final_PS_point(
             intermediate_PS_point, children )
-        p123tilde = final_PS_point[2000]
-        misc.sprint(final_PS_point)
-        misc.sprint(final_mapping_vars)
+        # p123tilde = final_PS_point[2000]
         final_PS_point_d, final_mapping_vars_d = self.get_final_PS_point_direct(
             higher_PS_point, children )
-        misc.sprint(final_PS_point_d)
-        misc.sprint(final_mapping_vars_d)
-        Q = mapping_vars['Q']
-        misc.sprint(Q.dot(p12)/Q.dot(p12hat))
-        misc.sprint(Q.dot(p123hat)/Q.dot(p123tilde))
-        misc.sprint(Q.dot(p123)/Q.dot(p123tilde))
+        # Q = mapping_vars['Q']
+        # misc.sprint(Q.dot(p12)/Q.dot(p12hat))
+        # misc.sprint(Q.dot(p123hat)/Q.dot(p123tilde))
+        # misc.sprint(Q.dot(p123)/Q.dot(p123tilde))
 
-        ##################################################################################
-        zs1_n, kTs1_n = currents.n_final_coll_variables(
+        zs, kTs = self.variables(
             higher_PS_point, p12hat, children[:2], Q=mapping_vars['Q'])
-        zs2_n, kTs2_n = currents.n_final_coll_variables(
+        zs2, kTs2 = self.variables(
             intermediate_PS_point, parent_momentum,
             (1000, children[2]), Q=mapping_vars['Q'])
-        zs1_Q, kTs1_Q = currents.Q_final_coll_variables(
-            higher_PS_point, p12hat, children[:2], Q=mapping_vars['Q'])
-        zs2_Q, kTs2_Q = currents.Q_final_coll_variables(
-            intermediate_PS_point, parent_momentum,
-            (1000, children[2]), Q=mapping_vars['Q'])
-        zs1_a, kTs1_a = currents.anti_final_coll_variables(
-            higher_PS_point, p12hat, children[:2], Q=mapping_vars['Q'])
-        zs2_a, kTs2_a = currents.anti_final_coll_variables(
-            intermediate_PS_point, parent_momentum,
-            (1000, children[2]), Q=mapping_vars['Q'])
-        zs1_G, kTs1_G = currents.Gabor_final_coll_variables(
-            higher_PS_point, p12hat, children[:2], Q=mapping_vars['Q'])
-        zs2_G, kTs2_G = currents.Gabor_final_coll_variables(
-            intermediate_PS_point, parent_momentum,
-            (1000, children[2]), Q=mapping_vars['Q'])
-        # misc.sprint(zs1_n[0], zs1_Q[0], zs1_a[0], zs1_G[0])
-        # misc.sprint(zs2_n[0], zs2_Q[0], zs2_a[0], zs2_G[0])
-        # kTs1_n = [kT.normalize() for kT in kTs1_n]
-        # kTs1_Q = [kT.normalize() for kT in kTs1_Q]
-        # kTs1_a = [kT.normalize() for kT in kTs1_a]
-        # kTs1_G = [kT.normalize() for kT in kTs1_G]
-        # kTs2_n = [kT.normalize() for kT in kTs2_n]
-        # kTs2_Q = [kT.normalize() for kT in kTs2_Q]
-        # kTs2_a = [kT.normalize() for kT in kTs2_a]
-        # kTs2_G = [kT.normalize() for kT in kTs2_G]
-        # misc.sprint(kTs1_n[0], kTs1_Q[0], kTs1_a[0], kTs1_G[0])
-        # misc.sprint(kTs2_n[0], kTs2_Q[0], kTs2_a[0], kTs2_G[0])
-        z1 = zs1_Q[0]
-        k1perp = kTs1_a[0]
-        z12 = zs2_Q[0]
-        k12perp = kTs2_a[0]
-
-        ##################################################################################
-
-        # zs, kTs = self.variables(
-        #     higher_PS_point, p12hat, children[:2], Q=mapping_vars['Q'])
-        # zs2, kTs2 = self.variables(
-        #     intermediate_PS_point, parent_momentum,
-        #     (1000, children[2]), Q=mapping_vars['Q'])
-        # z1 = zs[0]
-        # k1perp = kTs[0]
-        # z12 = zs2[0]
-        # k12perp = kTs2[0]
-
-        ##################################################################################
-
-        # misc.sprint(z1, k1perp, z12, k12perp)
+        z1 = zs[0]
+        k1perp = kTs[0]
+        z12 = zs2[0]
+        k12perp = kTs2[0]
         s12hat_3hat = 2*p3hat.dot(p12hat)
         k1perp2 = k1perp.square()
-        sperp = 2*p3hat.dot(k1perp)
         k12perp2 = k12perp.square()
         kperpSP = 2*k1perp.dot(k12perp)
-        # perpterm = sperp**2/(k1perp2*s12hat_3hat)
-        perptermalt = ((1-z12)/z12) * (kperpSP**2)/(k1perp2*k12perp2)
-        # perpratio = perpterm / perptermalt
-        # n = mappings.LorentzVector([1,0,0,1])
-        # Q = mapping_vars['Q']
-        # misc.sprint(p12.dot(k12perp), n.dot(k12perp), Q.dot(k12perp))
-        # misc.sprint(perpterm, perptermalt, perpratio)
+        perpterm = ((1-z12)/z12) * (kperpSP**2)/(k1perp2*k12perp2)
         pqg = (1+(1-z12)**2) / z12
-        # brk = z12 + perptermalt
-        brk = z12 - sperp**2/(k1perp2*s12hat_3hat)
-        C123C12_current = 4*(pqg - 2*z1*(1-z1) *brk) / (s12hat_3hat*s12)
-        misc.sprint(C123C12_current)
-        return C123C12_current
+        brk = z12 + perpterm
+        C123C12_current = 4*(pqg - 2*z1*(1-z1)*brk) / (s12hat_3hat*s12)
+
+        jacobian = final_mapping_vars_d['jacobian']
+        jacobian /= (final_mapping_vars['jacobian']*mapping_vars['jacobian'])
+        jacobian = 1
+        return C123C12_current*jacobian
 
     def S12C12_kernel(self, higher_PS_point, children, emitter, spectator, **opts):
 
@@ -455,7 +400,7 @@ class QCD_final_collinear_0_QQxq(currents.QCDLocalCollinearCurrent):
         evaluation = self.evaluate_kernel(zs, kTs, parent)
         ker = 0
         # misc.sprint(srs,sir,sis)
-        # ker += 2*self.C123_kernel(zs[0], zs[1], zs[2], srs, sir, sis, sir+sis+srs)
+        ker += 2*self.C123_kernel(zs[0], zs[1], zs[2], srs, sir, sis, sir+sis+srs)
         # ker -= 2*self.C123S12_kernel(zs[0], zs[1], zs[2], srs, sir, sis, sir+sis+srs)
         ker -= self.C123C12_kernel(
             higher_PS_point, lower_PS_point[parent], children, Q=Q)

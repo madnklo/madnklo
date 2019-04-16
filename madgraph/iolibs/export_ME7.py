@@ -245,8 +245,7 @@ class ME7Exporter(object):
         # Now add the soft beam factorization contributions necessary for absorbing the colorful
         # soft integrated CT when using a mapping that recoils equally against both initial states.
         if ((not beam_types[0] is None) and (not beam_types[1] is None)) and \
-           self.options['subtraction_currents_scheme'] in subtraction._currents_schemes_requiring_soft_beam_factorization and \
-           self.options['subtraction_mappings_scheme'] in subtraction._mappings_schemes_requiring_soft_beam_factorization:
+           self.options['subtraction_currents_scheme'] in subtraction._currents_schemes_requiring_soft_beam_factorization:
             contrib_def_options['beam_factorization_active']   = (True, True)
             contrib_def_options['n_loops']                     = correction_order-n_unresolved_particles-1
             contrib_def_options['correlated_beam_convolution'] = True            
@@ -574,8 +573,7 @@ class ME7Exporter(object):
             'model_name'      : 'ME7_UFO_model_%s'%self.model.get('name'),
             'model_with_CMS'  : self.options['complex_mass_scheme'],
             'n_initial'       : n_initial,
-            'subtraction_currents_scheme': self.options['subtraction_currents_scheme'],
-            'subtraction_mappings_scheme': self.options['subtraction_mappings_scheme'],
+            'subtraction_currents_scheme': self.options['subtraction_currents_scheme']
         }
         
         save_load_object.save_to_file(pjoin(self.export_dir,'MadEvent7.db'), ME7_dump)

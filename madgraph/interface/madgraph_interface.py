@@ -1449,12 +1449,6 @@ This will take effect only in a NEW terminal
                     'subtraction_currents_scheme should be one of: ' +
                     ', '.join(self._all_subtraction_currents_schemes))
 
-        if args[0] in ['subtraction_mappings_scheme']:
-            if args[1] not in self._all_subtraction_mappings_schemes:
-                raise self.InvalidCmd(
-                    'subtraction_mappings_scheme should be one of: ' +
-                    ', '.join(self._all_subtraction_mappings_schemes))
-
         if args[0] in ['stdout_level']:
             if args[1] not in ['DEBUG','INFO','WARNING','ERROR','CRITICAL'] and \
                                                           not args[1].isdigit():
@@ -2524,8 +2518,6 @@ class CompleteForCmd(cmd.CompleteCmd):
                 return self.list_completion(text, ["external"])
             elif args[1].lower() == 'subtraction_currents_scheme':
                 return self.list_completion(text, self._all_subtraction_currents_schemes)
-            elif args[1].lower() == 'subtraction_mappings_scheme':
-                return self.list_completion(text, self._all_subtraction_mappings_schemes)
             elif args[1] == 'gauge':
                 return self.list_completion(text, ['unitary', 'Feynman', 'default'])
             elif args[1] == 'OLP':
@@ -2825,7 +2817,6 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
     _OLP_supported = ['MadLoop', 'GoSam']
     _output_dependencies_supported = ['external', 'internal','environment_paths']
     _all_subtraction_currents_schemes = ['colorful', 'colorful_pp', 'cataniseymour']
-    _all_subtraction_mappings_schemes = list(walker_classes_map.keys())
 
     # The three options categories are treated on a different footage when a
     # set/save configuration occur. current value are kept in self.options
@@ -2882,7 +2873,6 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
         'loop_color_flows': False,
         'max_npoint_for_channel': 0, # 0 means automatically adapted
         'subtraction_currents_scheme': 'colorful',
-        'subtraction_mappings_scheme': 'FinalRescalingNLO'
     }
 
     options_madevent = {
@@ -3615,7 +3605,7 @@ This implies that with decay chains:
             # Update process id
             procdef.set('id', generation_options['proc_id'])
 #            generation_options['proc_id'] += 1
-            
+
             real_emission_contribution = contributions.Contribution(
                     base_objects.ContributionDefinition(
                         procdef,
@@ -3630,6 +3620,7 @@ This implies that with decay chains:
                     self,
                     loop_filter              = generation_options['loop_filter']
             )
+
             self._curr_contribs.append(real_emission_contribution)
     
     def add_NNLO_contributions(self, NNLO_template_procdef, generation_options, target_squared_orders):
@@ -8285,9 +8276,6 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
         elif args[0] in ['cluster_queue']:
             self.options[args[0]] = args[1].strip()
         elif args[0] in ['subtraction_currents_scheme']:
-            # check that currents and mappings schemes are consistent
-            self.options[args[0]] = args[1]
-        elif args[0] in ['subtraction_mappings_scheme']:
             # check that currents and mappings schemes are consistent
             self.options[args[0]] = args[1]
         elif args[0] in self.options:

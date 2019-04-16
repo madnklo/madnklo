@@ -432,7 +432,7 @@ class ParseCmdArguments(object):
                     testlimits_options['max_scaling_variable'] = float(value)
                 except ValueError:
                     raise InvalidCmd("'%s' is not a valid float for option '%s'"%(value, key))
-            elif key in ['--subtraction_mappings_scheme', '--walker'] and mode=='limits':
+            elif key in ['--walker'] and mode=='limits':
                 try:
                     if value == "None":
                         testlimits_options['walker'] = None
@@ -959,7 +959,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         try:
             object_to_display = self.split_arg(line)[0]
             display_function = getattr(self,'display_%s'%object_to_display)
-        except IndexError, AttributeError:        
+        except IndexError, AttributeError:
             return super(MadEvent7Cmd, self).do_display(line, *args, **opts)
         
         display_function(line, *args, **opts)

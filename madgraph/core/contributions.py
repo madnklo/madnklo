@@ -164,10 +164,9 @@ class Contribution(object):
                                      self.contribution_definition.has_beam_factorization():
             self.IR_subtraction = subtraction.IRSubtraction(
                 self.model,
-                coupling_types  = self.contribution_definition.correction_couplings,
-                beam_types      = self.contribution_definition.get_beam_types(),
-                currents_scheme = self.options['subtraction_currents_scheme'],
-                mappings_scheme = self.options['subtraction_mappings_scheme'] )
+                coupling_types     = self.contribution_definition.correction_couplings,
+                beam_types         = self.contribution_definition.get_beam_types(),
+                subtraction_scheme = self.options['subtraction_currents_scheme'] )
         
         # The following two attributes dictate the type of Exporter which will be assigned to this contribution
         self.output_type             = 'default'
@@ -1782,8 +1781,7 @@ The resulting output must therefore be used for debugging only as it will not yi
                 model, run_card, self.contribution_definition,
                 process_map, self.topologies_to_processes, self.processes_to_topologies,
                 all_MEAccessors, ME7_configuration,
-                counterterms=relevant_counterterms,
-                subtraction_mappings_scheme=self.options['subtraction_mappings_scheme']
+                counterterms=relevant_counterterms
             )
         ]
         
@@ -2383,7 +2381,6 @@ class Contribution_RV(Contribution_R, Contribution_V):
                    self.processes_to_topologies,
                    all_MEAccessors,
                    ME7_configuration,
-                   subtraction_mappings_scheme=self.options['subtraction_mappings_scheme'],
                    counterterms=relevant_counterterms,
                    integrated_counterterms=relevant_integrated_counterterms
                 ) ]

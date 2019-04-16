@@ -2011,7 +2011,7 @@ class IRSubtraction(object):
 
     def __init__(
         self, model,
-        coupling_types=('QCD', ), beam_types=(None, None), subtraction_scheme=None):
+        coupling_types=('QCD', ), beam_types=(None, None), subtraction_scheme='colorful'):
         """Initialize a IR subtractions for a given model,
         correction order and type.
         """

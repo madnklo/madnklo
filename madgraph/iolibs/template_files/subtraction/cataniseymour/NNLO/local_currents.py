@@ -272,9 +272,20 @@ class QCD_final_collinear_0_QQxq(currents.QCDLocalCollinearCurrent):
         s124 = p124.square()
         intermediate_PS_point, mapping_vars = self.get_intermediate_PS_point(
             higher_PS_point, children )
+        final_PS_point, final_mapping_vars = self.get_final_PS_point(
+            intermediate_PS_point, children )
+        # p123tilde = final_PS_point[2000]
+        final_PS_point_d, final_mapping_vars_d = self.get_final_PS_point_direct(
+            higher_PS_point, children )
         p12hat = intermediate_PS_point[1000]
         p3hat = intermediate_PS_point[emitter]
         p4hat = intermediate_PS_point[spectator]
+        p123hat = p12hat + p3hat
+        p123tilde = final_PS_point[2000]
+        Q = mapping_vars['Q']
+        norm_interm = self.factor(Q=Q, pC=p12, qC=p12hat)
+        norm_final  = self.factor(Q=Q, pC=p123hat, qC=p123tilde)
+        norm_direct = self.factor(Q=Q, pC=p123, qC=p123tilde)
         zs, kTs = self.variables(
             higher_PS_point, p12hat, children[:2], Q=mapping_vars['Q'])
         # zs, kTs = self.variables(
@@ -297,9 +308,13 @@ class QCD_final_collinear_0_QQxq(currents.QCDLocalCollinearCurrent):
         den = s12*s12hat_3hat*s12hat_4hat
         # den = s12*s123*s124
         frac = 1
-        frac = s12hat_4hat / (s12hat_3hat+s12hat_4hat)
+        # frac = s12hat_4hat / (s12hat_3hat+s12hat_4hat)
         # frac = s124 / (s123+s124)
-        return 2*self.TR*frac*(eik_num+cor_num*offdiag)/den
+        jacobian = final_mapping_vars_d['jacobian']
+        jacobian /= (final_mapping_vars['jacobian']*mapping_vars['jacobian'])
+        jacobian *= norm_interm*norm_final/norm_direct
+        S12C12 = 2*self.TR*frac*(eik_num+cor_num*offdiag)/den
+        return jacobian*S12C12
 
     def C123S12C12_kernel(self, higher_PS_point, parent_momentum, children, **opts):
 
@@ -399,10 +414,10 @@ class QCD_final_collinear_0_QQxq(currents.QCDLocalCollinearCurrent):
         evaluation = self.evaluate_kernel(zs, kTs, parent)
         ker = 0
         # misc.sprint(srs,sir,sis)
-        ker += 2*self.C123_kernel(zs[0], zs[1], zs[2], srs, sir, sis, sir+sis+srs)
+        # ker += 2*self.C123_kernel(zs[0], zs[1], zs[2], srs, sir, sis, sir+sis+srs)
         # ker -= 2*self.C123S12_kernel(zs[0], zs[1], zs[2], srs, sir, sis, sir+sis+srs)
-        ker -= self.C123C12_kernel(
-            higher_PS_point, lower_PS_point[parent], children, Q=Q)
+        # ker -= self.C123C12_kernel(
+        #     higher_PS_point, lower_PS_point[parent], children, Q=Q)
         # ker += self.C123S12C12_kernel(
         #     higher_PS_point, lower_PS_point[parent], children, Q=Q)
         evaluation['values'][(0, 0)]['finite'] += 0.5*self.CF*self.TR*ker
@@ -431,8 +446,8 @@ class QCD_final_collinear_0_QQxq(currents.QCDLocalCollinearCurrent):
                 skr = 2*pk.dot(pr)
                 sks = 2*pk.dot(ps)
                 # weight += self.S12_kernel(sir, sis, sik, skr, sks, srs)
-                # weight -= 2*self.S12C12_kernel(
-                #     higher_PS_point, children, emitter, spectator, Q=Q)
+                weight -= 2*self.S12C12_kernel(
+                    higher_PS_point, children, emitter, spectator, Q=Q)
             evaluation['values'][(0, color_correlation_index)] = {'finite': weight}
             color_correlation_index += 1
 

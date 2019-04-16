@@ -446,7 +446,7 @@ class QCDBeamFactorizationCurrent(QCDCurrent):
 class QCDLocalCollinearCurrent(QCDCurrent):
     """Common functions for QCD local collinear currents."""
 
-    # factor = staticmethod(alpha_jacobian)
+    factor = staticmethod(alpha_jacobian)
     variables = staticmethod(n_final_coll_variables)
 
     def __init__(self, *args, **opts):

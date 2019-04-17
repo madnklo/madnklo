@@ -212,109 +212,124 @@ class QCD_final_collinear_0_QQxq(currents.QCDLocalCollinearCurrent):
 
     def C123C12_kernel(self, higher_PS_point, parent_momentum, children, **opts):
 
+        # Rebuild the two-stage mapping
+        interm_PS_point, interm_mapping_vars = self.get_intermediate_PS_point(
+            higher_PS_point, children )
+        final__PS_point, final__mapping_vars = self.get_final_PS_point(
+            interm_PS_point, children )
+
+        # Retrieve momenta
         p1 = higher_PS_point[children[0]]
         p2 = higher_PS_point[children[1]]
+        p3 = higher_PS_point[children[2]]
         p12 = p1 + p2
-        s12 = p12.square()
-        # p3 = higher_PS_point[children[2]]
-        # p123 = p12 + p3
-        # s123 = p123.square()
-        intermediate_PS_point, mapping_vars = self.get_intermediate_PS_point(
-            higher_PS_point, children )
-        p12hat = intermediate_PS_point[1000]
-        p3hat = intermediate_PS_point[children[2]]
-        # p123hat = p12hat + p3hat
-        final_PS_point, final_mapping_vars = self.get_final_PS_point(
-            intermediate_PS_point, children )
-        # p123tilde = final_PS_point[2000]
-        final_PS_point_d, final_mapping_vars_d = self.get_final_PS_point_direct(
-            higher_PS_point, children )
-        # Q = mapping_vars['Q']
-        # misc.sprint(Q.dot(p12)/Q.dot(p12hat))
-        # misc.sprint(Q.dot(p123hat)/Q.dot(p123tilde))
-        # misc.sprint(Q.dot(p123)/Q.dot(p123tilde))
+        p123 = p12 + p3
+        p12hat = interm_PS_point[1000]
+        p3hat = interm_PS_point[children[2]]
+        p123hat = p12hat + p3hat
+        p123tilde = final__PS_point[2000]
+        Q = interm_mapping_vars['Q']
 
-        zs, kTs = self.variables(
-            higher_PS_point, p12hat, children[:2], Q=mapping_vars['Q'])
-        zs2, kTs2 = self.variables(
-            intermediate_PS_point, parent_momentum,
-            (1000, children[2]), Q=mapping_vars['Q'])
-        z1 = zs[0]
-        k1perp = kTs[0]
-        z12 = zs2[0]
-        k12perp = kTs2[0]
+        # Compute momentum fractions and transverse momenta
+        zs_interm, kTs_interm = self.variables(
+            higher_PS_point, p12hat, children[:2], Q=Q)
+        zs_final_, kTs_final_ = self.variables(
+            interm_PS_point, p123tilde, (1000, children[2]), Q=Q)
+        z1 = zs_interm[0]
+        k1perp = kTs_interm[0]
+        z12 = zs_final_[0]
+        k12perp = kTs_final_[0]
+
+        # Build scalar products
+        s12 = p12.square()
         s12hat_3hat = 2*p3hat.dot(p12hat)
         k1perp2 = k1perp.square()
         k12perp2 = k12perp.square()
         kperpSP = 2*k1perp.dot(k12perp)
+
+        # Construct the iterated current C(C(1,2),3)
         perpterm = ((1-z12)/z12) * (kperpSP**2)/(k1perp2*k12perp2)
         pqg = (1+(1-z12)**2) / z12
         brk = z12 + perpterm
         C123C12_current = 4*(pqg - 2*z1*(1-z1)*brk) / (s12hat_3hat*s12)
 
-        jacobian = final_mapping_vars_d['jacobian']
-        jacobian /= (final_mapping_vars['jacobian']*mapping_vars['jacobian'])
-        return C123C12_current*jacobian
+        # If jacobians are active, correct the one-step jacobian to the two-step one
+        # and correct current factors altogether
+        try:
+            jacobian = opts['jacobian']
+            jacobian /= (final__mapping_vars['jacobian']*interm_mapping_vars['jacobian'])
+        except KeyError:
+            jacobian = 1
+        # Correct current factors if they are active
+        factor_interm = self.factor(Q=Q, pC=p12, qC=p12hat)
+        factor_final_ = self.factor(Q=Q, pC=p123hat, qC=p123tilde)
+        factor_direct = self.factor(Q=Q, pC=p123, qC=p123tilde)
+        factor = factor_interm * factor_final_ / factor_direct
+
+        return factor*C123C12_current*jacobian
 
     def S12C12_kernel(self, higher_PS_point, children, emitter, spectator, **opts):
 
+        # Rebuild the two-stage mapping
+        interm_PS_point, interm_mapping_vars = self.get_intermediate_PS_point(
+            higher_PS_point, children )
+        final__PS_point, final__mapping_vars = self.get_final_PS_point(
+            interm_PS_point, children )
+
+        # Retrieve momenta
         p1 = higher_PS_point[children[0]]
         p2 = higher_PS_point[children[1]]
         p3 = higher_PS_point[emitter]
         p4 = higher_PS_point[spectator]
         p12  = p1+p2
-        p34  = p3+p4
         p123 = p1+p2+p3
-        p124 = p1+p2+p4
-        s12  = p12.square()
-        s34  = p34.square()
-        s123 = p123.square()
-        s124 = p124.square()
-        intermediate_PS_point, mapping_vars = self.get_intermediate_PS_point(
-            higher_PS_point, children )
-        final_PS_point, final_mapping_vars = self.get_final_PS_point(
-            intermediate_PS_point, children )
-        # p123tilde = final_PS_point[2000]
-        final_PS_point_d, final_mapping_vars_d = self.get_final_PS_point_direct(
-            higher_PS_point, children )
-        p12hat = intermediate_PS_point[1000]
-        p3hat = intermediate_PS_point[emitter]
-        p4hat = intermediate_PS_point[spectator]
+        p12hat = interm_PS_point[1000]
+        p3hat = interm_PS_point[emitter]
+        p4hat = interm_PS_point[spectator]
         p123hat = p12hat + p3hat
-        p123tilde = final_PS_point[2000]
-        Q = mapping_vars['Q']
-        norm_interm = self.factor(Q=Q, pC=p12, qC=p12hat)
-        norm_final  = self.factor(Q=Q, pC=p123hat, qC=p123tilde)
-        norm_direct = self.factor(Q=Q, pC=p123, qC=p123tilde)
-        zs, kTs = self.variables(
-            higher_PS_point, p12hat, children[:2], Q=mapping_vars['Q'])
-        # zs, kTs = self.variables(
-        #     higher_PS_point, p12hat, children[:2], Q=opts['Q'])
+        p123tilde = final__PS_point[2000]
+        Q = interm_mapping_vars['Q']
+
+        # Compute momentum fractions and transverse momenta
+        zs, kTs = self.variables(higher_PS_point, p12hat, children[:2], Q=Q)
+        z = zs[0]
+        kperp = kTs[0]
+
+        # Build scalar products
+        s12  = p12.square()
         s12hat_3hat = 2*p3hat.dot(p12hat)
         s12hat_4hat = 2*p4hat.dot(p12hat)
         s3hat_4hat  = 2*p3hat.dot(p4hat)
-        z = zs[0]
-        kperp = kTs[0]
-        eik_num = -s3hat_4hat
-        # eik_num = -2*s34
         sperp3hat = 2*kperp.dot(p3hat)
         sperp4hat = 2*kperp.dot(p4hat)
         kperp2 = kperp.square()
         kperp_part = sperp3hat*sperp4hat/kperp2
+
+        # Construct the iterated current S(C(1,2))
+        eik_num = -s3hat_4hat
         x = (sperp3hat*s12hat_4hat)/(sperp4hat*s12hat_3hat)
         offdiag = 1. - 0.5*(x + 1./x)
-        # kperp_part = k1perp.dot(p3)*k1perp.dot(p4)/k1perp.square()
         cor_num = 2*z*(1-z)*kperp_part
         den = s12*s12hat_3hat*s12hat_4hat
-        # den = s12*s123*s124
+        S12C12 = 2*self.TR*(eik_num+cor_num*offdiag)/den
+
+        # Compute the partial fraction
         frac = 1
         # frac = s12hat_4hat / (s12hat_3hat+s12hat_4hat)
-        # frac = s124 / (s123+s124)
-        jacobian = final_mapping_vars_d['jacobian']
-        jacobian /= (final_mapping_vars['jacobian']*mapping_vars['jacobian'])
-        jacobian *= norm_interm*norm_final/norm_direct
-        S12C12 = 2*self.TR*frac*(eik_num+cor_num*offdiag)/den
-        return jacobian*S12C12
+
+        # If jacobians are active, correct the one-step jacobian to the two-step one
+        try:
+            jacobian = opts['jacobian']
+            jacobian /= (final__mapping_vars['jacobian']*interm_mapping_vars['jacobian'])
+        except KeyError:
+            jacobian = 1
+        # Correct current factors if they are active
+        factor_interm = self.factor(Q=Q, pC=p12, qC=p12hat)
+        factor_final_ = self.factor(Q=Q, pC=p123hat, qC=p123tilde)
+        factor_direct = self.factor(Q=Q, pC=p123, qC=p123tilde)
+        factor = factor_interm * factor_final_ / factor_direct
+
+        return frac*factor*jacobian*S12C12
 
     def C123S12C12_kernel(self, higher_PS_point, parent_momentum, children, **opts):
 
@@ -414,10 +429,10 @@ class QCD_final_collinear_0_QQxq(currents.QCDLocalCollinearCurrent):
         evaluation = self.evaluate_kernel(zs, kTs, parent)
         ker = 0
         # misc.sprint(srs,sir,sis)
-        # ker += 2*self.C123_kernel(zs[0], zs[1], zs[2], srs, sir, sis, sir+sis+srs)
+        ker += 2*self.C123_kernel(zs[0], zs[1], zs[2], srs, sir, sis, sir+sis+srs)
         # ker -= 2*self.C123S12_kernel(zs[0], zs[1], zs[2], srs, sir, sis, sir+sis+srs)
-        # ker -= self.C123C12_kernel(
-        #     higher_PS_point, lower_PS_point[parent], children, Q=Q)
+        ker -= self.C123C12_kernel(
+            higher_PS_point, lower_PS_point[parent], children, Q=Q, **opts)
         # ker += self.C123S12C12_kernel(
         #     higher_PS_point, lower_PS_point[parent], children, Q=Q)
         evaluation['values'][(0, 0)]['finite'] += 0.5*self.CF*self.TR*ker
@@ -446,8 +461,8 @@ class QCD_final_collinear_0_QQxq(currents.QCDLocalCollinearCurrent):
                 skr = 2*pk.dot(pr)
                 sks = 2*pk.dot(ps)
                 # weight += self.S12_kernel(sir, sis, sik, skr, sks, srs)
-                weight -= 2*self.S12C12_kernel(
-                    higher_PS_point, children, emitter, spectator, Q=Q)
+                # weight -= 2*self.S12C12_kernel(
+                #     higher_PS_point, children, emitter, spectator, Q=Q, **opts)
             evaluation['values'][(0, color_correlation_index)] = {'finite': weight}
             color_correlation_index += 1
 

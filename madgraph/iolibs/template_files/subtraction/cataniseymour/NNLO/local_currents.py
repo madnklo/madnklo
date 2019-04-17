@@ -281,8 +281,8 @@ class QCD_final_collinear_0_QQxq(currents.QCDLocalCollinearCurrent):
         p2 = higher_PS_point[children[1]]
         p3 = higher_PS_point[emitter]
         p4 = higher_PS_point[spectator]
-        p12  = p1+p2
-        p123 = p1+p2+p3
+        p12  = p1 + p2
+        p123 = p12 + p3
         p12hat = interm_PS_point[1000]
         p3hat = interm_PS_point[emitter]
         p4hat = interm_PS_point[spectator]
@@ -314,8 +314,7 @@ class QCD_final_collinear_0_QQxq(currents.QCDLocalCollinearCurrent):
         S12C12 = 2*self.TR*(eik_num+cor_num*offdiag)/den
 
         # Compute the partial fraction
-        frac = 1
-        # frac = s12hat_4hat / (s12hat_3hat+s12hat_4hat)
+        frac = s12hat_4hat / (s12hat_3hat+s12hat_4hat)
 
         # If jacobians are active, correct the one-step jacobian to the two-step one
         try:
@@ -333,50 +332,58 @@ class QCD_final_collinear_0_QQxq(currents.QCDLocalCollinearCurrent):
 
     def C123S12C12_kernel(self, higher_PS_point, parent_momentum, children, **opts):
 
+        # Rebuild the two-stage mapping
+        interm_PS_point, interm_mapping_vars = self.get_intermediate_PS_point(
+            higher_PS_point, children )
+        final__PS_point, final__mapping_vars = self.get_final_PS_point(
+            interm_PS_point, children )
+
+        # Retrieve momenta
         p1 = higher_PS_point[children[0]]
         p2 = higher_PS_point[children[1]]
-        p12 = p1+p2
-        s12 = p12.square()
-        intermediate_PS_point, mapping_vars = self.get_intermediate_PS_point(
-            higher_PS_point, children )
-        p12hat = intermediate_PS_point[1000]
-        p3hat = intermediate_PS_point[children[2]]
+        p3 = higher_PS_point[children[2]]
+        p12 = p1 + p2
+        p123 = p12 + p3
+        p12hat = interm_PS_point[1000]
+        p3hat = interm_PS_point[children[2]]
+        p123hat = p12hat + p3hat
+        p123tilde = final__PS_point[2000]
+        Q = interm_mapping_vars['Q']
+
+        # Compute momentum fractions and transverse momenta
         zs, kTs = self.variables(
-            higher_PS_point, p12hat, children[:2], Q=mapping_vars['Q'])
+            higher_PS_point, p12hat, children[:2], Q=Q)
         zhats, kThats = self.variables(
-            intermediate_PS_point, parent_momentum,
-            (1000, children[2]), Q=mapping_vars['Q'])
-        s12hat_3hat = 2*p3hat.dot(p12hat)
+            interm_PS_point, p123tilde, (1000, children[2]), Q=Q)
         z = zs[0]
         kT = kTs[0]
         zhat = zhats[0]
         kThat = kThats[0]
+
+        # Build scalar products
+        s12 = p12.square()
+        s12hat_3hat = 2*p3hat.dot(p12hat)
         sTThat = 2*kT.dot(kThat)
         kT2 = kT.square()
         kThat2 = kThat.square()
+
+        # Construct the iterated current C(S(C(1,2)),3)
         sqrbrk = 1. - z*(1-z)*sTThat*sTThat/(kT2*kThat2)
-        return 8*(1-zhat)/zhat/(s12hat_3hat*s12)*sqrbrk
+        C123S12C12 = 8*(1-zhat)/zhat/(s12hat_3hat*s12)*sqrbrk
 
-    def evaluate_kernel(self, zs, kTs, parent):
+        # If jacobians are active, correct the one-step jacobian to the two-step one
+        try:
+            jacobian = opts['jacobian']
+            jacobian /= (final__mapping_vars['jacobian']*interm_mapping_vars['jacobian'])
+        except KeyError:
+            jacobian = 1
+        # Correct current factors if they are active
+        factor_interm = self.factor(Q=Q, pC=p12, qC=p12hat)
+        factor_final_ = self.factor(Q=Q, pC=p123hat, qC=p123tilde)
+        factor_direct = self.factor(Q=Q, pC=p123, qC=p123tilde)
+        factor = factor_interm * factor_final_ / factor_direct
 
-        # Retrieve the collinear variables and compute basic quantities
-        z1, z2, z3 = zs
-        s12 = sij(1, 2, zs, kTs)
-        s13 = sij(1, 3, zs, kTs)
-        s23 = sij(2, 3, zs, kTs)
-        # misc.sprint(s12,s13,s23)
-        s123 = s12 + s13 + s23
-        # Assemble kernel
-        # Instantiate the structure of the result
-        evaluation = utils.SubtractionCurrentEvaluation({
-            'spin_correlations'  : [None],
-            'color_correlations' : [None],
-            'values'             : {}
-        })
-        ker = 0
-        # ker += 2*C123(z1, z2, z3, s12, s13, s23, s123)
-        evaluation['values'][(0, 0)] = {'finite': 0.5*self.CF*self.TR*ker}
-        return evaluation
+        return factor*jacobian*C123S12C12
 
     def evaluate_subtraction_current(
         self, current,
@@ -426,15 +433,14 @@ class QCD_final_collinear_0_QQxq(currents.QCDLocalCollinearCurrent):
         sir = 2*pi.dot(pr)
         sis = 2*pi.dot(ps)
         srs = 2*pr.dot(ps)
-        evaluation = self.evaluate_kernel(zs, kTs, parent)
+        evaluation = utils.SubtractionCurrentEvaluation.zero()
         ker = 0
-        # misc.sprint(srs,sir,sis)
         ker += 2*self.C123_kernel(zs[0], zs[1], zs[2], srs, sir, sis, sir+sis+srs)
-        # ker -= 2*self.C123S12_kernel(zs[0], zs[1], zs[2], srs, sir, sis, sir+sis+srs)
+        ker -= 2*self.C123S12_kernel(zs[0], zs[1], zs[2], srs, sir, sis, sir+sis+srs)
         ker -= self.C123C12_kernel(
             higher_PS_point, lower_PS_point[parent], children, Q=Q, **opts)
-        # ker += self.C123S12C12_kernel(
-        #     higher_PS_point, lower_PS_point[parent], children, Q=Q)
+        ker += self.C123S12C12_kernel(
+            higher_PS_point, lower_PS_point[parent], children, Q=Q, **opts)
         evaluation['values'][(0, 0)]['finite'] += 0.5*self.CF*self.TR*ker
 
         # Find all colored leg numbers except for the parent in the reduced process
@@ -460,9 +466,9 @@ class QCD_final_collinear_0_QQxq(currents.QCDLocalCollinearCurrent):
                 sik = 2*pi.dot(pk)
                 skr = 2*pk.dot(pr)
                 sks = 2*pk.dot(ps)
-                # weight += self.S12_kernel(sir, sis, sik, skr, sks, srs)
-                # weight -= 2*self.S12C12_kernel(
-                #     higher_PS_point, children, emitter, spectator, Q=Q, **opts)
+                weight += self.S12_kernel(sir, sis, sik, skr, sks, srs)
+                weight -= 2*self.S12C12_kernel(
+                    higher_PS_point, children, emitter, spectator, Q=Q, **opts)
             evaluation['values'][(0, color_correlation_index)] = {'finite': weight}
             color_correlation_index += 1
 

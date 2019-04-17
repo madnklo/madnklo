@@ -195,7 +195,7 @@ class FinalCollinearVariables(object):
             pi2 = kinematic_variables['m2' + str(i)]
             nakti = na.dot(kti)
             nbkti = nb.dot(kti)
-            if kti.almost_zero(nakti) and kti.almost_zero(nbkti) == 0:
+            if kti.almost_zero(nakti) and kti.almost_zero(nbkti):
                 real_kti = kti
             else:
                 logger.warning(

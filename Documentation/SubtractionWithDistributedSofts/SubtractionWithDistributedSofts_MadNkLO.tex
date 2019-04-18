@@ -77,18 +77,6 @@ that applies to massive particles was presented in \cite{}.
 Counterterms that are associated to soft configurations
 will be split into multiple contributions
 and distributed among collinear reduced kinematics.
-Within each counterterm we let the limit operation
-act on the phase space volume,
-i.e.\ we divide each counterterm by the jacobian $\mathcal{J}$
-defined by
-\begin{equation}
-\label{eq:jaccanonical}
-	\dd{\Phi} = \mathcal{J}\times \dd{\tilde{\Phi}}
-	\prod_{C} \frac{\dd{s_C}}{2\pi} \dd{\Phi_C},
-\end{equation}
-where $\Phi$ is the full phase space,
-$\tilde{\Phi}$ the reduced one,
-and $C$ each merged set of particles.
 
 In the expression for local currents
 we make extensive use of the momentum fractions $z_{A,B}$
@@ -420,6 +408,54 @@ We thus use the current
 \end{equation}
 within $12i$ triple-collinear kinematics.
 
+
+\subsection{Counterterm $S_{12}C_{123}C_{12}$}
+
+The last piece that is missing for the three limits
+$S_{12}$, $C_{123}$ and $C_{12}$ to be regulated is the triple overlap,
+which has been subtracted three times in the simple counterterms
+and added back three times in the double overlaps,
+so that it still needs to be subtracted from the original integrand.
+The singular current, which is constructed to match \cite{Somogyi:2006da},
+can be obtained from \cref{eq:iterC123C12qq} dropping terms
+which do not have a $z_{\mpd{12},\mpd{3}}$ denominator%
+\footnote{
+In performing this step we somewhat arbitrarily decide
+to keep the $z_{\mpd{3},\mpd{12}}$ terms at the numerator
+which theoretically could or should be set to one.
+Very roughly speaking this is equivalent to taking
+the $C_{\mpd{12}\mpd{3}}$ limit of the soft counterterm for $S_{\mpd{12}}$,
+as it is sometimes useful to do for single-unresolved
+nested soft-collinear limits.
+}
+\begin{equation}
+	S_{\mpd{12}} C_{\mpd{12}\mpd{3}} C_{12}
+	= \frac{2 C_F T_R}{s_{12}s_{\mpd{12}\mpd{3}}}
+	\frac{z_{\mpd{3},\mpd{12}}}{z_{\mpd{12},\mpd{3}}}
+	\brk[s]3{
+		1 - z_{1,2} z_{2,1}
+		\frac{(2k_{1,2}\cdot k_{\mpd{3},\mpd{12}})^2}
+		{k_{1,2}^2 k_{\mpd{3},\mpd{12}}^2}
+	}.
+\end{equation}
+This counterterm is associated to $123$-collinear kinematics.
+
+
+\subsection{Spurious limits and division by jacobian}
+
+Within each counterterm we let the limit operation
+act on the phase space volume,
+i.e.\ we divide each counterterm by the jacobian $\mathcal{J}$
+defined by
+\begin{equation}
+\label{eq:jaccanonical}
+	\dd{\Phi} = \mathcal{J}\times \dd{\tilde{\Phi}}
+	\prod_{C} \frac{\dd{s_C}}{2\pi} \dd{\Phi_C},
+\end{equation}
+where $\Phi$ is the full phase space,
+$\tilde{\Phi}$ the reduced one,
+and $C$ each merged set of particles.
+
 This, however, is not sufficient to achieve
 the desired cancellation pattern.
 Indeed, when the counterterm built from the current \labelcref{eq:S12C12iter}
@@ -489,38 +525,6 @@ the last three terms, which all feature the same kinematics
 thanks to the commutativity property of the rescaling mapping,
 now differ \emph{only} because of jacobian factors.	
 \end{comment}
-
-
-\subsection{Counterterm $S_{12}C_{123}C_{12}$}
-
-The last piece that is missing for the three limits
-$S_{12}$, $C_{123}$ and $C_{12}$ to be regulated is the triple overlap,
-which has been subtracted three times in the simple counterterms
-and added back three times in the double overlaps,
-so that it still needs to be subtracted from the original integrand.
-The singular current, which is constructed to match \cite{Somogyi:2006da},
-can be obtained from \cref{eq:iterC123C12qq} dropping terms
-which do not have a $z_{\mpd{12},\mpd{3}}$ denominator%
-\footnote{
-In performing this step we somewhat arbitrarily decide
-to keep the $z_{\mpd{3},\mpd{12}}$ terms at the numerator
-which theoretically could or should be set to one.
-Very roughly speaking this is equivalent to taking
-the $C_{\mpd{12}\mpd{3}}$ limit of the soft counterterm for $S_{\mpd{12}}$,
-as it is sometimes useful to do for single-unresolved
-nested soft-collinear limits.
-}
-\begin{equation}
-	S_{\mpd{12}} C_{\mpd{12}\mpd{3}} C_{12}
-	= \frac{2 C_F T_R}{s_{12}s_{\mpd{12}\mpd{3}}}
-	\frac{z_{\mpd{3},\mpd{12}}}{z_{\mpd{12},\mpd{3}}}
-	\brk[s]3{
-		1 - z_{1,2} z_{2,1}
-		\frac{(2k_{1,2}\cdot k_{\mpd{3},\mpd{12}})^2}
-		{k_{1,2}^2 k_{\mpd{3},\mpd{12}}^2}
-	}.
-\end{equation}
-This counterterm is associated to $123$-collinear kinematics.
 
 
 \begin{thebibliography}{9}

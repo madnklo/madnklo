@@ -45,12 +45,6 @@ from bidict import bidict
 logger = logging.getLogger('madgraph')
 pjoin = os.path.join
 
-# Specify here the list of subtraction schemes
-# whose soft counterterms recoil against the initial states.
-# This is necessary in order to decide when a contribution
-# with a correlated convolution of both beams must be setup.
-_schemes_requiring_soft_beam_factorization = ['colorful_pp']
-
 #=========================================================================================
 # Multinomial function
 #=========================================================================================
@@ -1765,10 +1759,10 @@ class IntegratedCounterterm(Counterterm):
         # First fetch all integrated currents making up this integrated counterterm
         # In the current implementation, there can only be one for now.
         integrated_current = self.get_integrated_current()
-        
+
         if type(integrated_current) not in [BeamCurrent, IntegratedBeamCurrent]:
             return beam_currents
-        
+
         if integrated_current['singular_structure'].does_require_correlated_beam_convolution():
             for bcs in beam_currents:
                 if bcs['beam_one'] is not None or bcs['beam_two'] is not None:
@@ -1780,7 +1774,7 @@ class IntegratedCounterterm(Counterterm):
 
         # Now get all legs of its singular structure
         all_legs = integrated_current['singular_structure'].get_all_legs()
-        
+
         if any(l.n==1 for l in all_legs):
             for bcs in beam_currents:
                 if bcs['beam_one'] is not None:
@@ -1819,12 +1813,11 @@ class IntegratedCounterterm(Counterterm):
             for beam_name, beam_current in bft.items():
                 if not beam_current is None:
                     necessary_beam_convolutions.add(beam_name)
-            
+
         # Then fetch all integrated currents making up this integrated counterterm
         # In the current implementation, there can only be one for now.
         integrated_current = self.get_integrated_current()
-
-        if type(integrated_current) not in [BeamCurrent,]:
+        if type(integrated_current) not in [BeamCurrent ]:
             return necessary_beam_convolutions
         
         # Check if this integrated counterterm necessitate a soft-recoil that demands
@@ -1893,9 +1886,9 @@ class IntegratedCounterterm(Counterterm):
             if not type(current)==BeamCurrent:
                 continue
             # All the soft structures appearing as 'BeamCurrents' come from the colorful currents scheme
-            # when the a mapping such as ppToOneWalker is used, which recoils equally against both beams.
+            # when a mapping is chosen that recoils equally against both beams.
             # In this case, the corresponding integrated soft CT is placed in dedicated contributions
-            # such as 'BS', 'VS' etc... which are defined without an increment on n_loops corresponding
+            # such as 'BS', 'VS' etc... which iare defined without an increment on n_loops corresponding
             # to the unresolved soft particle, so it must be decremented here
             for c in current['singular_structure'].decompose():
                 if c.name()=='S':
@@ -1906,7 +1899,7 @@ class IntegratedCounterterm(Counterterm):
                 # which increased the loop count in the line above. However, given that those must be placed
                 # together with the beam factorization currents, we should not account for these loops.
                 beam_numbers_in_currents = set(sum([[l.n for l in ss.get_all_legs() if l.n in [1,2]] 
-                        for ss in current['singular_structure'].substructures if ss.name()=='C'],[]))
+                        for ss in current['singular_structure'].substructures[0].substructures if ss.name()=='C'],[]))
                 for beam_number in beam_numbers_in_currents:
                     if beam_number not in beam_numbers_for_which_n_loops_is_already_decremented:
                         beam_numbers_for_which_n_loops_is_already_decremented.append(beam_number)
@@ -1924,7 +1917,7 @@ class IntegratedCounterterm(Counterterm):
             # We don't need to look recursively inside the singular structures since the beam
             # factorization ones are supposed to be at the top level since they factorize
             beam_numbers_in_currents = set(sum([[l.n for l in ss.legs] for ss in 
-                current['singular_structure'].substructures if ss.name()=='F'],[]))
+                current['singular_structure'].substructures[0].substructures if ss.name()=='F'],[]))
             for beam_number in beam_numbers_in_currents:
                 assert (beam_number in [1,2]), "Inconsistent beam number found."
                 if beam_number not in beam_numbers_for_which_n_loops_is_already_incremented:
@@ -1956,7 +1949,7 @@ class IntegratedCounterterm(Counterterm):
                 # We don't need to look recursively inside the singular structures since the beam
                 # factorization ones are supposed to be at the top level since they factorize
                 beam_numbers_in_current = set(sum([[l.n for l in ss.legs if l.n in [1,2]] for ss in 
-                                  current['singular_structure'].substructures if ss.name()=='C'],[]))
+                        current['singular_structure'].substructures[0].substructures if ss.name()=='C'],[]))
                 beam_numbers_in_currents |= beam_numbers_in_current
             n_loops += current['n_loops'] + current.count_unresolved()
         # We must remove one loop per beam number encountered in integrated ISR collinear CT
@@ -1965,40 +1958,6 @@ class IntegratedCounterterm(Counterterm):
         n_loops -= (len(beam_numbers_in_currents) + soft_beam_factorization_n_loop)
         
         return n_loops
-
-#=========================================================================================
-# Create and update momenta dictionaries
-#=========================================================================================
-
-def create_momenta_dict(process):
-    """Create a new momenta dictionary for a given process."""
-
-    momenta_dict = bidict()
-    for leg in process['legs']:
-        momenta_dict[leg['number']] = frozenset((leg['number'],))
-    return momenta_dict
-
-def new_leg_number(momenta_dict):
-    """Get a leg number that does not appear in momenta_dict."""
-
-    all_leg_numbers = frozenset.union(
-        frozenset.union(*momenta_dict.values()),
-        frozenset(momenta_dict.keys()) )
-    return max(*all_leg_numbers) + 1
-
-def update_momenta_dict(momenta_dict, singular_structure, reduced_process=None):
-    """Update momenta dictionary."""
-
-    children = list(singular_structure.legs)
-    parent_number = None
-    for substructure in singular_structure.substructures:
-        child = update_momenta_dict(momenta_dict, substructure, reduced_process)
-        if child is not None:
-            children.append(child)
-    if singular_structure.name() in ["C", ]:
-        parent_number = new_leg_number(momenta_dict)
-        momenta_dict[parent_number] = frozenset(child.n for child in children)
-    return parent_number
 
 #=========================================================================================
 # IRSubtraction
@@ -2011,16 +1970,17 @@ class IRSubtraction(object):
 
     def __init__(
         self, model,
-        coupling_types=('QCD', ), beam_types=(None, None), subtraction_scheme='colorful'):
-        """Initialize a IR subtractions for a given model,
+        coupling_types=('QCD', ), beam_types=(None, None), subtraction_scheme='colorful_pp'):
+        """Initialize a IR subtractions for a given model,ss
         correction order and type.
         """
         self.model          = model
         self.coupling_types = coupling_types
         self.beam_types     = beam_types
-        
+
+        self.subtraction_scheme_module = SubtractionCurrentExporter.get_subtraction_scheme_module(subtraction_scheme)
         # Decide is soft recoil against initial states
-        if subtraction_scheme in _schemes_requiring_soft_beam_factorization:
+        if self.subtraction_scheme_module.requires_soft_beam_factorization:
             self.soft_do_recoil_against_initial_states = True
         else:
             self.soft_do_recoil_against_initial_states = False
@@ -2038,6 +1998,42 @@ class IRSubtraction(object):
             )
             for coupling in coupling_types
         )
+
+    # =========================================================================================
+    # Create and update momenta dictionaries
+    # =========================================================================================
+    @staticmethod
+    def create_momenta_dict(process):
+        """Create a new momenta dictionary for a given process."""
+
+        momenta_dict = bidict()
+        for leg in process['legs']:
+            momenta_dict[leg['number']] = frozenset((leg['number'],))
+        return momenta_dict
+
+    @staticmethod
+    def new_leg_number(momenta_dict):
+        """Get a leg number that does not appear in momenta_dict."""
+
+        all_leg_numbers = frozenset.union(
+            frozenset.union(*momenta_dict.values()),
+            frozenset(momenta_dict.keys()))
+        return max(*all_leg_numbers) + 1
+
+    @staticmethod
+    def update_momenta_dict(momenta_dict, singular_structure, reduced_process=None):
+        """Update momenta dictionary."""
+
+        children = list(singular_structure.legs)
+        parent_number = None
+        for substructure in singular_structure.substructures:
+            child = IRSubtraction.update_momenta_dict(momenta_dict, substructure, reduced_process)
+            if child is not None:
+                children.append(child)
+        if singular_structure.name() in ["C", ]:
+            parent_number = IRSubtraction.new_leg_number(momenta_dict)
+            momenta_dict[parent_number] = frozenset(child.n for child in children)
+        return parent_number
 
     def can_be_IR_unresolved(self, PDG):
         """Check whether a particle given by its PDG can become unresolved
@@ -2274,7 +2270,7 @@ class IRSubtraction(object):
         parent = None
         if structure.name() in ['C', ]:
             # Add entry to dictionary
-            parent_number = new_leg_number(momenta_dict)
+            parent_number = IRSubtraction.new_leg_number(momenta_dict)
             momenta_dict[parent_number] = frozenset(structure_leg_ns)
             # Work out the complete SubtractionLeg for the parent
             parent_PDGs = self.parent_PDGs_from_legs(structure_legs)
@@ -2284,10 +2280,27 @@ class IRSubtraction(object):
             if structure_legs.has_initial_state_leg():
                 parent_state = SubtractionLeg.INITIAL
             parent = SubtractionLeg(parent_number, parent_PDG, parent_state)
-        elif structure.name() in ['S', 'F', ]:
+        elif structure.name() in ['S', ]:
             pass # No need to propagate parents
+
+        elif structure.name() in ['F', ]:
+            if len(structure.legs) != 1 or structure.legs[0].n not in [1, 2]:
+                raise MadGraph5Error("Only beam factorizations attached to leg number 1 or" +
+                                     " 2 are supported for now; not %s." % str(structure))
+            beam_names = {1: 'beam_one', 2: 'beam_two'}
+            # Change the distribution type of all beam_factorization terms of that beam
+            # in the reduced process to be the identity (i.e. None).
+            for bft in process.get('beam_factorization'):
+                beam_name = beam_names[structure.legs[0].n]
+                # It may be in the future that if there are several currents attached to this
+                # beam we must only remove that particular one. However, it is likely that
+                # any additional convolution between beam current will need to be carried out
+                # analytically and treated as a singled overall counterterm.
+                if not bft[beam_name] is None:
+                    bft[beam_name] = None
+
         else:
-            raise MadGraph5Error("Unrecognized structure of type " + str(type(structure)))
+            raise MadGraph5Error("Unrecognized structure of type : %s (name: %s)"%(str(type(structure)),structure.name()))
 
         # Adjust legs of the reduced process:
         # 1) remove children legs
@@ -2325,31 +2338,14 @@ class IRSubtraction(object):
         substructures = structure.substructures
         assert not structure.legs
         # Separate beam_factorization structures
-        beam_structures = (s for s in substructures if s.name() == 'F')
-        other_structures = (s for s in substructures if s.name() != 'F')
+        beam_structures = [s for s in substructures if s.name() == 'F']
+        other_structures = [s for s in substructures if s.name() != 'F']
         other_structures = SingularStructure(substructures=other_structures)
         # Build the nodes
         nodes = []
-        # Add a node for each beam structure
-        for beam_structure in beam_structures:
-            # The beam factorization singular structure always have a single leg
-            # with a number matching the beam number
-            beam_number = beam_structure.legs[0].n
-            assert (beam_number in [1, 2]), \
-                "BeamStructure is expected to have a single leg with number in [1, 2]."
-            current = BeamCurrent({
-                'beam_type': self.beam_types[beam_number - 1][0],
-                'beam_PDGs': self.beam_types[beam_number - 1][1],
-                'distribution_type': 'counterterm',
-                'singular_structure': beam_structure})
-            nodes.append(CountertermNode(current=current))
-        # Add a single node for all other singular structures
-        if other_structures != SingularStructure():
-            current = Current({'singular_structure': other_structures})
-            nodes.append(CountertermNode(current=current))
 
         # Initialize a trivial momenta_dict
-        momenta_dict = create_momenta_dict(process)
+        momenta_dict = IRSubtraction.create_momenta_dict(process)
         # Get a modifiable copy of the reduced process
         reduced_process = process.get_copy(
             ['legs', 'n_loops', 'legs_with_decays', 'beam_factorization'])
@@ -2361,6 +2357,28 @@ class IRSubtraction(object):
         # The n_loops will be distributed later
         reduced_process.set('n_loops', -1)
         # TODO If resetting n_loops, what about orders?
+
+        # Add a node for each beam structure
+        for beam_structure in beam_structures:
+            # The beam factorization singular structure always have a single leg
+            # with a number matching the beam number
+            beam_number = beam_structure.legs[0].n
+            assert (beam_number in [1, 2]), \
+                "BeamStructure is expected to have a single leg with number in [1, 2]."
+            current = BeamCurrent({
+                'beam_type': self.beam_types[beam_number - 1][0],
+                'beam_PDGs': self.beam_types[beam_number - 1][1],
+                'distribution_type': 'counterterm',
+                'singular_structure': SingularStructure(substructures=[beam_structure,])})
+            nodes.append(CountertermNode(current=current))
+            # Modify the reduced process so as to remove the beam factorisation currents
+            # like :F: which are now counterterm, i.e. [F]
+            self.reduce_process(beam_structure, reduced_process, momenta_dict)
+
+        # Add a single node for all other singular structures
+        if other_structures != SingularStructure():
+            current = Current({'singular_structure': other_structures})
+            nodes.append(CountertermNode(current=current))
 
         # Determine reduced_process and momenta_dict
         self.reduce_process(other_structures, reduced_process, momenta_dict)
@@ -2432,9 +2450,9 @@ class IRSubtraction(object):
         ########
         
         # First tackle the special case of single initial-state collinear structure
-        initial_state_legs = [leg for leg in complete_singular_structure.substructures[0].legs if
-                                                       leg.state == SubtractionLeg.INITIAL]
- 
+        initial_state_legs = [leg for leg in complete_singular_structure.substructures[0].substructures[0].legs if
+                                                                                leg.state == SubtractionLeg.INITIAL]
+
         # A list to hold all integrated CT generated here.
         integrated_CTs = []
         
@@ -2471,9 +2489,10 @@ class IRSubtraction(object):
             # For now there will be no additional CT node, but for NNLO there may be because
             # the integrated ISR has to be combined with local FSR counterterms
             additional_CT_nodes = []
-            
+
             # Handle the specific case of NLO single beam factorization counterterm
-            if complete_singular_structure.substructures[0].name() == 'F':
+            ss_name = complete_singular_structure.substructures[0].substructures[0].name()
+            if ss_name == 'F':
 
                 integrated_CTs.append(IntegratedCounterterm(
                     process     = reduced_process,
@@ -2485,8 +2504,7 @@ class IRSubtraction(object):
 
             # Handle the specific case of ISR recoils, either because of ISR collinear or
             # soft counterterms in colorful and ppToOneWalker mapping.
-            elif has_soft_symmetric_ISR_recoil or complete_singular_structure.substructures[0].name() == 'C':
-
+            elif has_soft_symmetric_ISR_recoil or ss_name == 'C':
                 # Now add the three pieces of the integrated ISR. Ultimately we may choose to instead
                 # generate only the first piece ('bulk') and the other two via an iterative application
                 # of the subtraction procedure. For now however, we will generate all three at once.
@@ -2600,108 +2618,104 @@ class SubtractionCurrentExporter(object):
     template_dir = pjoin(MG5DIR, 'madgraph', 'iolibs', 'template_files', 'subtraction')
     template_modules_path = 'madgraph.iolibs.template_files.subtraction'
     
-    # The main module name is not meant to be changed.
-    # If changed, then beware that the import statements
-    # of the implementation of the subtraction currents must be updated accordingly.
-    main_module_name = 'SubtractionCurrents'
+    # The main module name in a process output
+    main_module_name = 'SubtractionResources'
 
-    def __init__(self, model, export_dir, current_set):
+    @staticmethod
+    def get_all_available_subtraction_schemes():
+        """ Inspects the subtraction template directory to identify all available subtraction schemes defined."""
+
+        subtraction_schemes_available = []
+        for dir_name in os.listdir(pjoin(SubtractionCurrentExporter.template_dir,'subtraction_schemes')):
+            if not os.path.exists(pjoin(SubtractionCurrentExporter.template_dir,
+                                                        'subtraction_schemes', dir_name, '__init__.py')):
+                continue
+            subtraction_schemes_available.append(dir_name)
+        return subtraction_schemes_available
+
+    @staticmethod
+    def get_subtraction_scheme_module(subtraction_scheme, root_path = None):
+        """ Loads the subtractions scheme module specified.
+        One can also decide to load this module from the specified root_path which can be a process output for instance."""
+
+        # Attempt to import the subtraction scheme
+        try:
+            if root_path is None:
+                subtraction_scheme_module = importlib.import_module('%s.%s.%s' % (
+                    SubtractionCurrentExporter.template_modules_path, 'subtraction_schemes', subtraction_scheme))
+                subtraction_utils = importlib.import_module('%s.%s.%s' % (
+                    SubtractionCurrentExporter.template_modules_path, 'commons', 'utils'))
+            else:
+                sys.path.insert(0, root_path)
+                subtraction_scheme_module = importlib.import_module('%s.%s.%s' % (
+                         SubtractionCurrentExporter.main_module_name, 'subtraction_schemes', subtraction_scheme))
+                subtraction_utils = importlib.import_module('%s.%s.%s' % (
+                    SubtractionCurrentExporter.main_module_name, 'commons', 'utils'))
+                sys.path.pop(0)
+        except ZeroDivisionError as e:
+            raise MadGraph5Error("Specified subtraction module could not be found or loaded: %s. Error:\n%s"%(
+                                                                                            subtraction_scheme, str(e)))
+
+
+        mandatory_attributes = ['all_subtraction_current_classes','__authors__','exporter',]
+        missing_attributes = [ attr for attr in mandatory_attributes if not hasattr(subtraction_scheme_module,attr) ]
+        if len(missing_attributes)>0:
+            raise MadGraph5Error("The specified subtraction module '%s' is missing the following mandatory attributes: %s"%
+                                                                        (subtraction_scheme, missing_attributes))
+
+        # Sanity check that all these currents class implementations are valid
+        for current_class in subtraction_scheme_module.all_subtraction_current_classes:
+            if not (inspect.isclass(current_class) and hasattr(current_class, 'does_implement_this_current') ):
+                raise MadGraph5Error("The current '%s' does not implement the mandatory function 'does_implement_this_current'."%
+                                                                                                (current_class.__name__))
+
+        # Add an attribute to the module which is a dictionary mapping a subtraction current unique identifier to the
+        # class implementing it
+        if not hasattr(subtraction_scheme_module, 'ordered_current_identifiers'):
+            subtraction_scheme_module.ordered_current_identifiers = [
+                current_class.__name__ for current_class in subtraction_scheme_module.all_subtraction_current_classes ]
+        if not hasattr(subtraction_scheme_module, 'currents'):
+            subtraction_scheme_module.currents = dict(
+                (current_class.__name__, current_class)
+                    for current_class in subtraction_scheme_module.all_subtraction_current_classes)
+
+        # Add a default implementation for the currents used for debugging
+        if 'DefaultCurrentImplementation' not in subtraction_scheme_module.ordered_current_identifiers:
+            # If there is a "default current" in the utils class,
+            # presumably used for debugging only, then add this one at the very end of all_classes so that
+            # it will be selected only if no other class matches.
+            if hasattr(subtraction_utils, 'DefaultCurrentImplementation'):
+                default_implementation_class = getattr( subtraction_utils, 'DefaultCurrentImplementation' )
+
+                if (inspect.isclass(default_implementation_class) and
+                    hasattr(default_implementation_class, 'does_implement_this_current')):
+                    subtraction_scheme_module.ordered_current_identifiers.append('DefaultCurrentImplementation')
+                    subtraction_scheme_module.currents['DefaultCurrentImplementation'] = default_implementation_class
+
+        return subtraction_scheme_module
+
+    def __init__(self, model, export_dir, subtraction_scheme):
         """Initialize the exporter.
 
         :param model: Model to be used when trying to match currents.
         :param export_dir: Target directory for currents to be exported to.
-        :param current_set: Lookup is performed within the current set with this name.
+        :param subtraction_scheme: Lookup is performed within the subtraction scheme module specified
         """
 
         self.model       = model
         self.export_dir  = export_dir
-        self.current_set = current_set
-
-    def collect_modules(self, modules_path):
-        """Return a list of modules to load, from a given starting location."""
-        
-        base_path = pjoin(self.template_dir, pjoin(*modules_path))
-        collected_modules = []
-
-        for python_file in misc.glob(pjoin(base_path, '*.py')):
-            python_file_name = os.path.basename(python_file)
-            if python_file_name == '__init__.py':
-                continue
-            relative_module_path = ".".join(modules_path) + "." + python_file_name[:-3]
-            absolute_module_path = self.template_modules_path + "." + relative_module_path
-            collected_modules.append(
-                (relative_module_path, importlib.import_module(absolute_module_path)) )
-
-        for dir_name in os.listdir(base_path):
-            if os.path.isdir(dir_name) and os.path.isfile(pjoin(dir_name, '__init__.py')):
-                collected_modules.extend(self.collect_modules(modules_path+[dir_name, ]))
-        
-        return collected_modules
+        self.subtraction_scheme = subtraction_scheme
 
     def export(self, currents):
         """Export the specified list of currents and return a list of accessors
         which contain the mapping information.
         """
-        
-        subtraction_utils_module_path = '%s.%s'%(
-            self.template_modules_path,'subtraction_current_implementations_utils' )
-        subtraction_utils = importlib.import_module(subtraction_utils_module_path)
-        current_dir = pjoin(self.template_dir, self.current_set)
-        current_export_dir = None
 
-        if not self.export_dir is None:
-            module_export_dir = pjoin(self.export_dir, self.main_module_name)
-            current_export_dir = pjoin(module_export_dir, self.current_set)
-            # Copy the base files to module_export_dir
-            if not os.path.isdir(module_export_dir):
-                os.mkdir(module_export_dir)
-            for f in [
-                '__init__.py',
-                'QCD_local_currents.py',
-                'subtraction_current_implementations_utils.py' ]:
-                if not os.path.isfile(pjoin(module_export_dir, f)):
-                    cp(pjoin(self.template_dir, f), pjoin(module_export_dir, f))
-            # Copy the base files to current_export_dir
-            if not os.path.isdir(current_export_dir):
-                os.mkdir(current_export_dir)
-            for f in [
-                '__init__.py', ]:
-                if not os.path.isfile(pjoin(current_export_dir, f)):
-                    cp(pjoin(current_dir, f), pjoin(current_export_dir, f) )
+        subtraction_scheme_module = SubtractionCurrentExporter.get_subtraction_scheme_module(self.subtraction_scheme)
 
-        # Now load all modules specified in the templates
-        # and identify the current implementation classes
-        all_classes = []
-        for dir_name in os.listdir(current_dir):
-            if not os.path.isfile(pjoin(current_dir, dir_name, '__init__.py')):
-                continue
-            all_modules = self.collect_modules([self.current_set, dir_name])
-            for (module_path, module) in all_modules:
-                for class_name in dir(module):
-                    implementation_class = getattr(module, class_name)
-                    if (inspect.isclass(implementation_class) and
-                        hasattr(implementation_class, 'does_implement_this_current') ):
-                        all_classes.append(
-                            (dir_name, module_path, class_name, implementation_class) )
-        
-        # If there is a "default current" in the subtraction_current_implementations_utils class,
-        # presumably used for debugging only, then add this one at the very end of all_classes so that
-        # it will be selected only if no other class matches.
-        if hasattr(subtraction_utils,'DefaultCurrentImplementation'):
-            default_implementation_class = getattr(
-                subtraction_utils, 'DefaultCurrentImplementation' )
-            if (inspect.isclass(default_implementation_class) and
-                hasattr(default_implementation_class, 'does_implement_this_current') ):
-                all_classes.append((
-                    '', 'subtraction_current_implementations_utils',
-                    'DefaultCurrentImplementation', default_implementation_class ) )
-        
-        # Save directories that will need to be exported
-        directories_to_export = set([])
-        
         # Group all currents according to mapping rules.
         # The mapped currents is a dictionary of the form
-        #         { (module_path, class_name, instantiation_options_index), 
+        #         { (subtraction_scheme_name, current_identifier, instantiation_options_index),
         #                {'defining_current': <...>,
         #                 'mapped_process_keys': [<...>],
         #                 'instantiation_options': instantiation_options
@@ -2714,18 +2728,20 @@ class SubtractionCurrentExporter(object):
         currents_with_default_implementation = []
         for current in currents:
             found_current_class = None
-            for (dir_name, module_path, class_name, implementation_class) in all_classes:
-#                misc.sprint('Testing class %s for current: %s'%(class_name,str(current)))
+            for current_identifier in subtraction_scheme_module.ordered_current_identifiers:
+                implementation_class = subtraction_scheme_module.currents[current_identifier]
+
+                #misc.sprint('Testing class %s for current: %s'%(current_identifier, str(current)))
                 instantiation_options = implementation_class.does_implement_this_current(
                     current, self.model )
-#                misc.sprint('Result: %s'%str(instantiation_options))
+                #misc.sprint('Result: %s'%str(instantiation_options))
                 if instantiation_options is None:
                     continue
                 if found_current_class is not None:
-                    if class_name == 'DefaultCurrentImplementation':
+                    if current_identifier == 'DefaultCurrentImplementation':
                         continue
                     logger.critical(
-                        "%s found, %s already found" % (class_name, found_current_class))
+                        "%s found, %s already found" % (current_identifier, found_current_class))
                     raise MadGraph5Error(
                         "Multiple implementations found for current %s." % str(current) )
                 try:
@@ -2734,32 +2750,25 @@ class SubtractionCurrentExporter(object):
                 except ValueError:
                     all_instantiation_options.append(instantiation_options)
                     instantiation_options_index = len(all_instantiation_options)-1
-                # If no export is asked for,
-                # load directly from the subtraction template directory
-                if not self.export_dir is None:
-                    main_module = self.main_module_name
-                else:
-                    main_module = 'subtraction'                    
-                key = (
-                    '%s.%s' % (main_module, module_path),
-                    class_name, instantiation_options_index )
+
+                key = ( self.subtraction_scheme, current_identifier, instantiation_options_index )
 
                 if key in mapped_currents:
                     mapped_currents[key]['mapped_process_keys'].append(current.get_key())
                 else:
-                    if dir_name != '':
-                        directories_to_export.add(dir_name)
+
                     mapped_currents[key] = {
                         'defining_current': current,
                         'mapped_process_keys': [current.get_key()],
                         'instantiation_options': instantiation_options }
-                if class_name == 'DefaultCurrentImplementation':
+                if current_identifier == 'DefaultCurrentImplementation':
                     currents_with_default_implementation.append(current)
-                found_current_class = class_name
+                found_current_class = current_identifier
+
             if found_current_class is None:
                 raise MadGraph5Error(
                     "No implementation was found for current %s." % str(current) )
-        
+
         # Warn the user whenever DefaultCurrentImplementation is used
         # (it should never be used in production)
         if currents_with_default_implementation:
@@ -2776,21 +2785,10 @@ and should be used for debugging only.""" % currents_str
             else:
                 raise MadGraph5Error(msg)
 
-        # Now copy all the relevant directories
-        if not self.export_dir is None:
-            for directory_to_export in directories_to_export:
-                dir_path = pjoin(current_export_dir, directory_to_export)
-                def ignore_function(d, files):
-                    return [
-                        f for f in files
-                        if (
-                            os.path.isfile(pjoin(d, f)) and
-                            f.split('.')[-1] in ['pyc','pyo','swp'] ) ]
-                if not os.path.isdir(dir_path):
-                    shutil.copytree(
-                        pjoin(current_dir, directory_to_export), dir_path,
-                        ignore=ignore_function )
-        
+        # Export all the relevant resources to the specified export directory (process output)
+        if self.export_dir is not None:
+            subtraction_scheme_module.exporter.export(pjoin(self.export_dir, self.main_module_name), mapped_currents)
+
         return mapped_currents
         
 #=========================================================================================

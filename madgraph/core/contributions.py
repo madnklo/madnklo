@@ -166,7 +166,7 @@ class Contribution(object):
                 self.model,
                 coupling_types     = self.contribution_definition.correction_couplings,
                 beam_types         = self.contribution_definition.get_beam_types(),
-                subtraction_scheme = self.options['subtraction_currents_scheme'] )
+                subtraction_scheme = self.options['subtraction_scheme'] )
         
         # The following two attributes dictate the type of Exporter which will be assigned to this contribution
         self.output_type             = 'default'
@@ -752,6 +752,7 @@ class Contribution(object):
         current_exporter = subtraction.SubtractionCurrentExporter(model, root_path, current_set)
         mapped_currents = current_exporter.export(currents_to_consider)
         # Print to the debug log which currents were exported
+
         log_string = "The following subtraction current implementation are exported "+\
                      "in contribution '%s':\n"%self.short_name()
         for (module_path, class_name, _), current_properties in mapped_currents.items():
@@ -769,13 +770,13 @@ class Contribution(object):
         # Instantiate the CurrentAccessors corresponding
         # to all current implementations identified and needed
         all_current_accessors = []
-        for (module_path, class_name, _), current_properties in mapped_currents.items():
+        for (subtraction_scheme, class_identifier, _), current_properties in mapped_currents.items():
             all_current_accessors.append(accessors.VirtualMEAccessor(
                 current_properties['defining_current'],
-                module_path,
-                class_name,
-                '%s.subtraction_current_implementations_utils'%current_exporter.main_module_name,
-                current_properties['instantiation_options'], 
+                subtraction_scheme,
+                class_identifier,
+                '%s.commons.utils'%current_exporter.main_module_name,
+                current_properties['instantiation_options'],
                 mapped_process_keys=current_properties['mapped_process_keys'],
                 root_path=root_path,
                 model=model
@@ -1727,7 +1728,7 @@ The resulting output must therefore be used for debugging only as it will not yi
 
     def add_ME_accessors(self, all_MEAccessors, root_path):
         """ Adds all MEAccessors for the matrix elements and currents generated as part of this contribution."""
-        
+
         # Get the basic accessors for the matrix elements
         super(Contribution_R, self).add_ME_accessors(all_MEAccessors, root_path)
 
@@ -1745,8 +1746,10 @@ The resulting output must therefore be used for debugging only as it will not yi
                 " contributions building this higher order computation.")
 
         # Obtain all necessary currents
-        current_set = self.options['subtraction_currents_scheme']
+        current_set = self.options['subtraction_scheme']
+
         currents_to_consider = self.get_all_necessary_local_currents(all_MEAccessors)
+
         self.add_current_accessors(
             self.model, all_MEAccessors, root_path, current_set, currents_to_consider )
         
@@ -1941,7 +1944,7 @@ class Contribution_V(Contribution):
                 " contributions building this higher order computation.")
         
         # Obtain all necessary currents
-        current_set = self.options['subtraction_currents_scheme']
+        current_set = self.options['subtraction_scheme']
         currents_to_consider = self.get_all_necessary_integrated_currents(all_MEAccessors)
         self.add_current_accessors(
             self.model, all_MEAccessors, root_path, current_set, currents_to_consider )
@@ -2169,12 +2172,12 @@ class Contribution_V(Contribution):
     def add_integrated_counterterm(self, integrated_CT_properties):
         """ Virtual contributions can receive integrated counterterms and they will
         be stored in the attribute list self.integrated_counterterms."""
-        
+
+
         # Extract quantities from integrated_counterterm_properties
         integrated_counterterm = integrated_CT_properties['integrated_counterterm']
         # flavors_combinations = integrated_CT_properties['flavors_combinations']
 
-        
         # Sort PDGs only when processes have been grouped
         sort_PDGs = self.group_subprocesses
         
@@ -2423,6 +2426,7 @@ class Contribution_RV(Contribution_R, Contribution_V):
                             print_n=True, print_pdg=True, print_state=True ) )
                     elif format>3:
                         long_res.append(CT.nice_string("   | "))
+
             for CT_properties in self.integrated_counterterms[process_key]:
                 CT = CT_properties['integrated_counterterm']
                 if format==2:

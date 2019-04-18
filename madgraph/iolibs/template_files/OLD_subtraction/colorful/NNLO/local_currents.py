@@ -19,16 +19,8 @@ import math
 
 import madgraph.various.misc as misc
 
-try:
-    # First try to import this in the context of the exported currents
-    import SubtractionCurrents.subtraction_current_implementations_utils as utils
-    import SubtractionCurrents.QCD_local_currents as currents
-except ImportError:
-    # If not working, then it must be within MG5_aMC context:
-    import madgraph.iolibs.template_files.\
-                   subtraction.subtraction_current_implementations_utils as utils
-    import madgraph.iolibs.template_files.\
-                   subtraction.QCD_local_currents as currents
+import commons.utils as utils
+import commons.QCD_local_currents as currents
 
 pjoin = os.path.join
 

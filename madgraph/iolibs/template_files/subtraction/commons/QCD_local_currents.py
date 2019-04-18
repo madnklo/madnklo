@@ -23,13 +23,7 @@ from madgraph.core.subtraction import BeamCurrent, IntegratedBeamCurrent, \
     IntegratedCurrent, Counterterm, SubtractionLeg
 from madgraph.core.base_objects import EpsilonExpansion
 
-try:
-    # First try to import this in the context of the exported currents
-    import SubtractionCurrents.subtraction_current_implementations_utils as utils
-except ImportError:
-    # If not working, then it must be within MG5_aMC context:
-    import madgraph.iolibs.template_files.\
-                   subtraction.subtraction_current_implementations_utils as utils
+import commons.utils as utils
 
 pjoin = os.path.join
 
@@ -444,9 +438,11 @@ class QCDLocalCollinearCurrent(QCDCurrent):
             return None
         
         # Check the structure is a simple collinear
-        singular_structure = current.get('singular_structure')
+        singular_structure = current.get('singular_structure').substructures[0]
+
         if singular_structure.name() != 'C': return None
         if singular_structure.substructures: return None
+        
         # All checks passed
         return init_vars
 
@@ -552,7 +548,7 @@ class QCDLocalSoftCurrent(QCDCurrent):
             return None
         
         # Check the structure is a simple soft
-        singular_structure = current.get('singular_structure')
+        singular_structure = current.get('singular_structure').substructures[0]
         if singular_structure.name() != 'S': return None
         if singular_structure.substructures: return None
         # All checks passed
@@ -592,7 +588,7 @@ class QCDLocalSoftCollinearCurrent(QCDCurrent):
             return None
 
         # Retrieve the singular structure
-        singular_structure = current.get('singular_structure')
+        singular_structure = current.get('singular_structure').substructures[0]
         # The main structure should be collinear
         if singular_structure.name() != 'C': 
             return None

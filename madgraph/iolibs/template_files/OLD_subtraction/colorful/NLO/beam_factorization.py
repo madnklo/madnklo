@@ -20,18 +20,8 @@ import math
 from madgraph.core.base_objects import EpsilonExpansion
 import madgraph.various.misc as misc
 
-try:
-    # First try to import this in the context of the exported currents
-    import SubtractionCurrents.subtraction_current_implementations_utils as utils
-    import SubtractionCurrents.QCD_local_currents as currents
-except ImportError:
-    # If not working, then it must be within MG5_aMC context:
-    import madgraph.iolibs.template_files.\
-                   subtraction.subtraction_current_implementations_utils as utils
-    import madgraph.iolibs.template_files.\
-                   subtraction.QCD_local_currents as currents
-
-from hardcoded_integrated_currents import HE
+import commons.utils as utils
+import commons.QCD_local_currents as currents
 
 pjoin = os.path.join
 
@@ -230,7 +220,7 @@ class QCD_beam_factorization_single_collinear(currents.QCDBeamFactorizationCurre
         # Only up to the order epsilon^2 of the scales prefactor matters here.
         logMuQ = log(mu_r**2/Q_square)
         prefactor = EpsilonExpansion({ 0 : 1., 1 : logMuQ, 2 : 0.5*logMuQ**2 })
-        prefactor *= normalization
+        prefactor *= self.SEpsilon*normalization
 
         # The additional 1/x part of the prefactor is included later during the PDF
         # convolution of the event (using its 'Bjorken rescaling' attribute) because
@@ -256,7 +246,7 @@ class QCD_beam_factorization_single_collinear(currents.QCDBeamFactorizationCurre
         # by simply multiplying the Q^2 provided by the xi factor that must be set to one.
         logMuQ_plus = log(mu_r**2/(Q_square*x))
         prefactor_plus = EpsilonExpansion({ 0 : 1., 1 : logMuQ_plus, 2 : 0.5*logMuQ_plus**2 })
-        prefactor_plus *= normalization
+        prefactor_plus *= self.SEpsilon*normalization
 
         log1mx = log(1.-x)
         
@@ -444,14 +434,8 @@ class QCD_beam_factorization_single_soft(currents.QCDBeamFactorizationCurrent):
 
         # Only up to the order epsilon^2 of the scales prefactor matters here.
         logMuQ = log(mu_r**2/Q_square)
-        # Correction for the counterterm: in BS (bulk+counterterm), the variable Q_square corresponds to that
-        # of the real event. However the counterterm corresponds to the residue of the bulk at xi=1.
-        # This is effectively obtained by multiplying by xi: Q_residue = Q_real * xi.
-        # Note for future dumb-me: log(mu_r**2/(Q_square*xi**2)) = logMuQ - log(xi**2)
-        if self.distribution_type == 'counterterm':
-            logMuQ-=log(xi**2)        
         prefactor = EpsilonExpansion({ 0 : 1., 1 : logMuQ, 2 : 0.5*logMuQ**2 })
-        prefactor *= normalization
+        prefactor *= self.SEpsilon*normalization
 
         color_correlation_index = 0
         # Now loop over the colored parton number pairs (a,b)
@@ -477,7 +461,13 @@ class QCD_beam_factorization_single_soft(currents.QCDBeamFactorizationCurrent):
                 # dipole_type = [bool_a, bool_b] tags the dipole tag, with True indicating initial state and False final
                 dipole_type = [a in colored_initial_parton_numbers, b in colored_initial_parton_numbers]
 
-                if all(dipole_type): # Initial-initial
+                if not any(dipole_type): # Final-final
+                    raise NotImplementedError
+                elif not dipole_type[0]: # a final, b initial
+                    raise NotImplementedError
+                elif not dipole_type[1]: # b final, a initial
+                    raise NotImplementedError
+                else: # initial initial
                     # Initial-initial: S+CS = 0
                     if self.distribution_type == 'bulk':
                         kernel = EpsilonExpansion({0:0})
@@ -488,24 +478,6 @@ class QCD_beam_factorization_single_soft(currents.QCDBeamFactorizationCurrent):
                     else:
                         raise CurrentImplementationError("Distribution type '%s' not supported."
                                                                         %self.distribution_type)
-                else: # At least one leg final
-                    # The integrated counterterms are evaluated in terms of
-                    # dipole_invariant = 1-cos(angle between the dipole momenta)
-                    dipole_invariant = 0.5*pa.dot(pb)*Q.square()/(pa.dot(Q)*pb.dot(Q))
-                    if self.distribution_type == 'bulk':
-                        #The factor xi^2 below corrects the flux factor used in the bulk BS which has a 1/xi^2 too many
-                        #A more permanent change is warranted after testing.
-                        #See github issue #9 for reference 
-                        kernel = EpsilonExpansion({0:xi**2*HE.integrated_bs_bulk_finite(dipole_invariant,xi)})
-                    elif self.distribution_type == 'counterterm':
-                        kernel = EpsilonExpansion({0:HE.integrated_bs_counterterm_finite(dipole_invariant,xi)})
-                    elif self.distribution_type == 'endpoint':
-                        kernel = EpsilonExpansion({-1:HE.integrated_bs_endpoint_pole(dipole_invariant),
-                                                    0:HE.integrated_bs_endpoint_finite(dipole_invariant)})
-                    else:
-                        raise CurrentImplementationError("Distribution type '%s' not supported."
-                                                                        %self.distribution_type)
-
                     # Former implementation of the II soft+SC. Commented by Nicolas
                     # While no longer useful, this is kept for now to remember how non-zero integrated soft shoud be implemented
                     # if self.distribution_type == 'bulk':
@@ -530,7 +502,7 @@ class QCD_beam_factorization_single_soft(currents.QCDBeamFactorizationCurrent):
                     #     raise CurrentImplementationError("Distribution type '%s' not supported."
                     #                                                     %self.distribution_type)
 
-                evaluation['values'][(0, color_correlation_index)] = kernel*prefactor
+                evaluation['values'][(0, color_correlation_index)] = kernel*normalization
                 color_correlation_index += 1
 
         return evaluation

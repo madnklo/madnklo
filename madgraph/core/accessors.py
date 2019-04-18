@@ -749,8 +749,8 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
     cache_active = False
 
     def __init__(self, defining_current,
-                       relative_module_path,
-                       current_implementation_class_name,
+                       subtraction_scheme_name,
+                       current_class_identifier,
                        relative_generic_module_path, 
                        instantiation_options, 
                        mapped_process_keys=[], 
@@ -767,8 +767,8 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
         # instance is reconstructed from a dump.
         self.initialization_inputs = {'args':[], 'opts':{}}
         self.initialization_inputs['args'].append(defining_current)
-        self.initialization_inputs['args'].append(relative_module_path)
-        self.initialization_inputs['args'].append(current_implementation_class_name)
+        self.initialization_inputs['args'].append(subtraction_scheme_name)
+        self.initialization_inputs['args'].append(current_class_identifier)
         self.initialization_inputs['args'].append(relative_generic_module_path)
         self.initialization_inputs['args'].append(instantiation_options)
         self.initialization_inputs['opts'].update(
@@ -779,9 +779,9 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
         # Now define the attributes for this particular subtraction current accessor.
         self.defining_current = defining_current
         self.mapped_current_keys  = mapped_process_keys
-        self.relative_module_path = relative_module_path
+        self.subtraction_scheme_name = subtraction_scheme_name
         self.relative_generic_module_path = relative_generic_module_path
-        self.current_implementation_class_name = current_implementation_class_name
+        self.current_class_identifier = current_class_identifier
         self.instantiation_options = instantiation_options
         
         if not os.path.isabs(root_path):
@@ -795,7 +795,9 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
         self.cache = SubtractionCurrentAccessorCache()
 
         # Now load the modules and specify the result classes        
-        self.module = self.load_module(self.relative_module_path)
+        self.module = subtraction.SubtractionCurrentExporter.get_subtraction_scheme_module(
+                            self.subtraction_scheme_name, None if root_path=='' else root_path)
+
         self.generic_module = self.load_module(self.relative_generic_module_path)
         self.evaluation_class = self.generic_module.SubtractionCurrentEvaluation
         self.result_class = self.generic_module.SubtractionCurrentResult
@@ -809,8 +811,8 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
         """ Synchronizes this accessor with the possibly updated model and value."""
         if not model is None:
             self.model = model
-            self.subtraction_current_instance = getattr(self.module, 
-                self.current_implementation_class_name)(model, **self.instantiation_options)
+            self.subtraction_current_instance = \
+                    self.module.currents[self.current_class_identifier](model, **self.instantiation_options)
 
     def generate_dump(self, **opts):
         """ Generate a serializable dump of self, which can later be used, along with some more 
@@ -846,7 +848,7 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
     def nice_string(self):
         """ Summary of the details of this Subtraction current accessor."""
         res = []
-        res.append("%s: %s @ '%s'"%(self.__class__.__name__,self.relative_module_path, self.current_implementation_class_name))
+        res.append("%s: %s @ '%s'"%(self.__class__.__name__,self.subtraction_scheme_name, self.current_class_identifier))
         res.append('Defining subtraction current: %s'%str(self.defining_current))
         return '\n'.join(res)
 

@@ -12,23 +12,14 @@
 # For more information, visit madgraph.phys.ucl.ac.be and amcatnlo.web.cern.ch
 #
 ##########################################################################################
-"""Implementation of NLO colorful currents."""
+"""Implementation of NLO colorful_pp local currents."""
 
 import os
 import math
-
-try:
-    # First try to import this in the context of the exported currents
-    import SubtractionCurrents.subtraction_current_implementations_utils as utils
-    import SubtractionCurrents.QCD_local_currents as currents
-except ImportError:
-    # If not working, then it must be within MG5_aMC context:
-    import madgraph.iolibs.template_files.\
-                   subtraction.subtraction_current_implementations_utils as utils
-    import madgraph.iolibs.template_files.\
-                   subtraction.QCD_local_currents as currents
-
 import madgraph.various.misc as misc
+
+import commons.utils as utils
+import commons.QCD_local_currents as currents
 
 pjoin = os.path.join
 
@@ -52,21 +43,25 @@ class QCD_final_collinear_0_qqx(currents.QCDLocalCollinearCurrent):
         init_vars = cls.common_does_implement_this_current(current, 2, 0)
         if init_vars is None: return None
         # Retrieve singular structure
-        ss = current.get('singular_structure')
+        ss = current.get('singular_structure').substructures[0]
+        
         # Check that the particles are a massless quark and its anti-quark in final-state
         if len(ss.legs) != 2: return None
+        
         for leg in ss.legs:
             if not cls.is_quark(leg, model): return None
             if not cls.is_massless(leg, model): return None
             if cls.is_initial(leg): return None
+        
         if not cls.are_antiparticles(ss.legs[0], ss.legs[1]): return None
+        
         # The current is valid
         return init_vars
 
     @classmethod
     def get_sorted_children(cls, current, model):
 
-        legs = current.get('singular_structure').legs
+        legs = current.get('singular_structure').substructures[0].legs
         return tuple(leg.n for leg in legs)
 
     def evaluate_kernel(self, zs, kTs, parent):
@@ -105,7 +100,7 @@ class QCD_final_collinear_0_gq(currents.QCDLocalCollinearCurrent):
         init_vars = cls.common_does_implement_this_current(current, 2, 0)
         if init_vars is None: return None
         # Retrieve singular structure
-        ss = current.get('singular_structure')
+        ss = current.get('singular_structure').substructures[0]
         # Check that all particles are massless final state
         for leg in ss.legs:
             if not cls.is_massless(leg, model): return None
@@ -124,7 +119,7 @@ class QCD_final_collinear_0_gq(currents.QCDLocalCollinearCurrent):
     @classmethod
     def get_sorted_children(cls, current, model):
 
-        legs = current.get('singular_structure').legs
+        legs = current.get('singular_structure').substructures[0].legs
         if cls.is_gluon(legs[0], model): return (legs[0].n, legs[1].n)
         else: return (legs[1].n, legs[0].n)
 
@@ -155,7 +150,7 @@ class QCD_final_collinear_0_gg(currents.QCDLocalCollinearCurrent):
         init_vars = cls.common_does_implement_this_current(current, 2, 0)
         if init_vars is None: return None
         # Retrieve singular structure
-        ss = current.get('singular_structure')
+        ss = current.get('singular_structure').substructures[0]
         # Check that the particles are two final-state massless gluons
         if len(ss.legs) != 2: return None
         for leg in ss.legs:
@@ -168,7 +163,7 @@ class QCD_final_collinear_0_gg(currents.QCDLocalCollinearCurrent):
     @classmethod
     def get_sorted_children(cls, current, model):
 
-        legs = current.get('singular_structure').legs
+        legs = current.get('singular_structure').substructures[0].legs
         return tuple(leg.n for leg in legs)
 
     def evaluate_kernel(self, zs, kTs, parent):
@@ -213,7 +208,7 @@ class QCD_soft_0_g(currents.QCDLocalSoftCurrent):
         init_vars = cls.common_does_implement_this_current(current, 2, 0)
         if init_vars is None: return None
         # Retrieve the singular structure
-        singular_structure = current.get('singular_structure')
+        singular_structure = current.get('singular_structure').substructures[0]
         # It should consist in exactly one legs going soft
         if len(singular_structure.legs) != 1:
             return None
@@ -279,7 +274,7 @@ class QCD_soft_0_g(currents.QCDLocalSoftCurrent):
             if self.model.get_particle(leg.get('id')).get('color')==1:
                 continue
             all_colored_parton_numbers.append(leg.get('number'))
-        soft_leg_number = current.get('singular_structure').legs[0].n
+        soft_leg_number = current.get('singular_structure').substructures[0].legs[0].n
 
         pS = higher_PS_point[soft_leg_number]
 
@@ -361,7 +356,7 @@ class QCD_final_softcollinear_0_gX(currents.QCDLocalSoftCollinearCurrent):
         init_vars = cls.common_does_implement_this_current(current, 2, 0)
         if init_vars is None: return None
         # Retrieve the singular structure
-        singular_structure = current.get('singular_structure')
+        singular_structure = current.get('singular_structure').substructures[0]
         # It should have only one leg and one nested substructure with one soft leg
         if len(singular_structure.legs) != 1: return None
         if len(singular_structure.substructures) != 1: return None
@@ -389,7 +384,7 @@ class QCD_final_softcollinear_0_gX(currents.QCDLocalSoftCollinearCurrent):
     @classmethod
     def get_sorted_children(cls, current, model):
 
-        ss = current.get('singular_structure')
+        ss = current.get('singular_structure').substructures[0]
         return (ss.substructures[0].legs[0].n, ss.legs[0].n)
 
     def evaluate_subtraction_current(
@@ -426,7 +421,7 @@ class QCD_final_softcollinear_0_gX(currents.QCDLocalSoftCollinearCurrent):
         parent = leg_numbers_map.inv[frozenset(children)]
         pCtilde = lower_PS_point[parent]
         soft_children = []
-        for substructure in current.get('singular_structure').substructures:
+        for substructure in current.get('singular_structure').substructures[0].substructures:
             soft_children += [leg.n for leg in substructure.get_all_legs()]
         pS = sum(higher_PS_point[child] for child in soft_children)
         if self.is_cut(Q=Q, pC=pCtilde, pS=pS):
@@ -479,8 +474,8 @@ class QCD_initial_collinear_0_qg(currents.QCDLocalCollinearCurrent):
         if init_vars is None: return None
         
         # Retrieve singular structure
-        ss = current.get('singular_structure')
-
+        ss = current.get('singular_structure').substructures[0]
+        
         # Check that the particles are a massless quark and its anti-quark in final-state
         if len(ss.legs) != 2: return None
         
@@ -502,7 +497,7 @@ class QCD_initial_collinear_0_qg(currents.QCDLocalCollinearCurrent):
     @classmethod
     def get_sorted_children(cls, current, model):
 
-        legs = current.get('singular_structure').legs
+        legs = current.get('singular_structure').substructures[0].legs
         # Always put the initial state child first
         children_numbers = [leg.n for leg in legs if leg.state == leg.INITIAL]
         # Then the final state ones
@@ -553,7 +548,7 @@ class QCD_initial_collinear_0_gq(currents.QCDLocalCollinearCurrent):
         if init_vars is None: return None
         
         # Retrieve singular structure
-        ss = current.get('singular_structure')
+        ss = current.get('singular_structure').substructures[0]
 
         # Check that the particles are a massless quark and its anti-quark in final-state
         if len(ss.legs) != 2: return None
@@ -576,7 +571,7 @@ class QCD_initial_collinear_0_gq(currents.QCDLocalCollinearCurrent):
     @classmethod
     def get_sorted_children(cls, current, model):
 
-        legs = current.get('singular_structure').legs
+        legs = current.get('singular_structure').substructures[0].legs
         # Always put the initial state child first
         children_numbers = [leg.n for leg in legs if leg.state == leg.INITIAL]
         # Then the final state ones
@@ -629,7 +624,7 @@ class QCD_initial_collinear_0_qq(currents.QCDLocalCollinearCurrent):
         if init_vars is None: return None
         
         # Retrieve singular structure
-        ss = current.get('singular_structure')
+        ss = current.get('singular_structure').substructures[0]
 
         # Check that the particles are a massless quark and its anti-quark in final-state
         if len(ss.legs) != 2: return None
@@ -652,7 +647,7 @@ class QCD_initial_collinear_0_qq(currents.QCDLocalCollinearCurrent):
     @classmethod
     def get_sorted_children(cls, current, model):
 
-        legs = current.get('singular_structure').legs
+        legs = current.get('singular_structure').substructures[0].legs
         # Always put the initial state child first
         children_numbers = [leg.n for leg in legs if leg.state == leg.INITIAL]
         # Then the final state ones
@@ -703,7 +698,7 @@ class QCD_initial_collinear_0_gg(currents.QCDLocalCollinearCurrent):
         if init_vars is None: return None
         
         # Retrieve singular structure
-        ss = current.get('singular_structure')
+        ss = current.get('singular_structure').substructures[0]
 
         # Check that the particles are a massless quark and its anti-quark in final-state
         if len(ss.legs) != 2: return None
@@ -726,7 +721,7 @@ class QCD_initial_collinear_0_gg(currents.QCDLocalCollinearCurrent):
     @classmethod
     def get_sorted_children(cls, current, model):
 
-        legs = current.get('singular_structure').legs
+        legs = current.get('singular_structure').substructures[0].legs
         # Always put the initial state child first
         children_numbers = [leg.n for leg in legs if leg.state == leg.INITIAL]
         # Then the final state ones
@@ -806,7 +801,7 @@ class QCD_initial_softcollinear_0_Xg(currents.QCDLocalSoftCollinearCurrent):
         if init_vars is None: 
             return None
         # Retrieve the singular structure
-        singular_structure = current.get('singular_structure')
+        singular_structure = current.get('singular_structure').substructures[0]
         
         # It should have only one leg and one nested substructure with one soft leg
         if len(singular_structure.legs) != 1: 
@@ -843,7 +838,7 @@ class QCD_initial_softcollinear_0_Xg(currents.QCDLocalSoftCollinearCurrent):
     @classmethod
     def get_sorted_children(cls, current, model):
 
-        ss = current.get('singular_structure')
+        ss = current.get('singular_structure').substructures[0]
         return (ss.legs[0].n, ss.substructures[0].legs[0].n)
 
     def evaluate_subtraction_current(

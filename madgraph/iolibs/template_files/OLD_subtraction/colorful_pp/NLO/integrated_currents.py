@@ -23,16 +23,8 @@ import madgraph.integrator.phase_space_generators as PS_utils
 from madgraph.core.base_objects import EpsilonExpansion
 import madgraph.various.misc as misc
 
-try:
-    # First try to import this in the context of the exported currents
-    import SubtractionCurrents.subtraction_current_implementations_utils as utils
-    import SubtractionCurrents.QCD_local_currents as currents
-except ImportError:
-    # If not working, then it must be within MG5_aMC context:
-    import madgraph.iolibs.template_files.\
-                   subtraction.subtraction_current_implementations_utils as utils
-    import madgraph.iolibs.template_files.\
-                   subtraction.QCD_local_currents as currents
+import commons.utils as utils
+import commons.QCD_local_currents as currents
 
 from hardcoded_integrated_currents import HE
 
@@ -623,6 +615,11 @@ class integrated_NLO_QCD_soft_gluon(integrated_NLO_FF_QCD_current):
     See Eq.4.12-4.13 of ref. https://arxiv.org/pdf/0903.1218.pdf"""
 
     def __init__(self, *args, **opts):
+        misc.sprint("")
+        misc.sprint("=======================================================================================")
+        misc.sprint("Warning: the integrated Final-final soft no longer matches the definition of the locals")
+        misc.sprint("=======================================================================================")
+        misc.sprint("")
         super(integrated_NLO_QCD_soft_gluon, self).__init__(*args, **opts)
         self.supports_helicity_assignment = False
         

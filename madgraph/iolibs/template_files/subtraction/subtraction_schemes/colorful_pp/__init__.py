@@ -25,12 +25,9 @@ requires_soft_beam_factorization = True
 
 # Note: specifying below which resources are needed is optional
 exporter = GenericCurrentsExporter(relative_resource_paths=[
-    '__init__.py',
-    'commons',
-    'subtraction_schemes/__init__.py',
     'subtraction_schemes/colorful_pp'
 ])
-c
+
 all_subtraction_current_classes = []
 
 # Add NLO beam factorization counterterms (BF terms)

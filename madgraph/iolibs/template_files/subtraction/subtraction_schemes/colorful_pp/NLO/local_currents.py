@@ -123,18 +123,14 @@ class QCD_final_collinear_0_gq(currents.QCDLocalCollinearCurrent):
         if cls.is_gluon(legs[0], model): return (legs[0].n, legs[1].n)
         else: return (legs[1].n, legs[0].n)
 
-    def evaluate_kernel(self, zs, kTs, parent):
+    def evaluate_kernel(self, zs, kTs, parent, subtraction_current_evaluation):
 
         # Retrieve the collinear variables
         z = zs[0]
-        # Instantiate the structure of the result
-        evaluation = utils.SubtractionCurrentEvaluation({
-            'spin_correlations'  : [None],
-            'color_correlations' : [None],
-            'values'             : {(0, 0): {'finite': None}}
-        })
-        evaluation['values'][(0, 0)]['finite'] = self.CF * (1.+(1.-z)**2)/z
-        return evaluation
+
+        subtraction_current_evaluation['values'][(0, 0, 0)]['finite'] = self.CF * (1.+(1.-z)**2)/z
+
+        return subtraction_current_evaluation
 
 class QCD_final_collinear_0_gg(currents.QCDLocalCollinearCurrent):
     """g g collinear tree-level current."""

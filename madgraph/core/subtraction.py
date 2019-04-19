@@ -2652,7 +2652,7 @@ class SubtractionCurrentExporter(object):
                 subtraction_utils = importlib.import_module('%s.%s.%s' % (
                     SubtractionCurrentExporter.main_module_name, 'commons', 'utils'))
                 sys.path.pop(0)
-        except ZeroDivisionError as e:
+        except ImportError as e:
             raise MadGraph5Error("Specified subtraction module could not be found or loaded: %s. Error:\n%s"%(
                                                                                             subtraction_scheme, str(e)))
 

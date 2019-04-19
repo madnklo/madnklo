@@ -104,7 +104,8 @@ class ME7Event(object):
                  # is (possible a list of) tuple(s) of the form:
                  #   (
                  #      integrated_CT_instance, 
-                 #      list_of_all combination_of_PDGs_of_the_resolved_process_this_integrated_CT_can_comes_from
+                 #      list_of_all combination_of_PDGs_of_the_resolved_process_this_integrated_CT_can_comes_from,
+                 #      identifier_of_the_reduced_kinematics (None if unique for that counterterm or a string otherwise)
                  #   )
                  counterterm_structure        = None,
                  Bjorken_xs                   = (1.0,1.0),
@@ -440,14 +441,15 @@ class ME7Event(object):
                 all_ct_strucs = [self.counterterm_structure,]
             
             counterterm_structure_str_elems = []
-            for ct_struct, all_resolved_PDGs in all_ct_strucs:
+            for ct_struct, all_resolved_PDGs, kinematics_identifier in all_ct_strucs:
                 # We show only one representative resolved_PDGs structure: the first one.
                 if isinstance(all_resolved_PDGs, dict):
                     representative_resolved_PDGs = all_resolved_PDGs.keys()[0]
                 else:
                     representative_resolved_PDGs = all_resolved_PDGs[0]                    
-                counterterm_structure_str_elems.append('%s@%s'%(str(ct_struct), 
-                                        str(representative_resolved_PDGs).replace(' ','')))
+                counterterm_structure_str_elems.append('%s%s@%s'%(str(ct_struct),
+                    '' if kinematics_identifier is None else '|%s'%kinematics_identifier,
+                    str(representative_resolved_PDGs).replace(' ','')))
             
             if len(all_ct_strucs)>1:
                 counterterm_structure_str = '( %s )'%(' + '.join(counterterm_structure_str_elems))
@@ -505,7 +507,7 @@ class ME7Event(object):
             event_ct_structs = [self.counterterm_structure,]
         
         event_str_elems = []
-        for ct_struct, all_resolved_PDGs in event_ct_structs:
+        for ct_struct, all_resolved_PDGs, kinematics_identifier in event_ct_structs:
             # We show only one representative resolved_PDGs structure: the first one.
             if isinstance(all_resolved_PDGs, dict):
                 representative_resolved_PDGs = all_resolved_PDGs.keys()[0]
@@ -517,8 +519,9 @@ class ME7Event(object):
                 str_ct_struct = str_ct_struct[1:]
             if str_ct_struct.endswith(",)"):
                 str_ct_struct = str_ct_struct[:-2]                
-            event_str_elems.append('%s@%s'%(str_ct_struct, 
-                                    str(representative_resolved_PDGs).replace(' ','')))
+            event_str_elems.append('%s%s@%s'%(str_ct_struct,
+                '' if kinematics_identifier is None else '|%s' % kinematics_identifier,
+                str(representative_resolved_PDGs).replace(' ','')))
         
         if len(event_ct_structs)>1:
             event_str = '( %s )'%(' + '.join(event_str_elems))
@@ -2212,7 +2215,7 @@ class ME7Integrand_V(ME7Integrand):
                 {fc : base_objects.EpsilonExpansion({0:base_weight}) for fc in all_mapped_flavors},
                 requires_mirroring              = is_reduced_process_mirrored,
                 host_contribution_definition    = self.contribution_definition,
-                counterterm_structure           = (counterterm, resolved_flavors),
+                counterterm_structure           = (counterterm, resolved_flavors, None),
                 Bjorken_xs                      = (xb_1, xb_2)
             ),
             disconnected_currents_weight,
@@ -2954,25 +2957,60 @@ class ME7Integrand_R(ME7Integrand):
             'main_weight', 'flavor_matrices_beam_one', 'flavor_matrices_beam_two'
         which indicates if this is a weight that necessitate flavor convolutions (i.e. from
         beam factorization).
-        """ 
-        new_all_necessary_ME_calls = []
-        for ((spin_index, color_index), current_wgt) in new_evaluation['values'].items():
-            # Now combine the correlators necessary for this current
-            # with those already specified in 'all_necessary_ME_calls'
-            for ME_call in all_necessary_ME_calls:
-                new_all_necessary_ME_calls.append({
-                    # Append this spin correlation to those already present for that call
-                    'spin_correlations' : ME_call['spin_correlations'] + [new_evaluation['spin_correlations'][spin_index], ],
-                    # Append this color correlation to those already present for that call
-                    'color_correlations' : ME_call['color_correlations'] + [new_evaluation['color_correlations'][color_index], ],
-                    # Append this weight to those already present for that call
-                    'main_weights' : ME_call['main_weights'] + [ base_objects.EpsilonExpansion(current_wgt) if 
-                        weight_type=='main_weight' else base_objects.EpsilonExpansion({'finite':1.0}) ],
-                    'flavor_matrices_beam_one' : ME_call['flavor_matrices_beam_one'] + [ current_wgt if weight_type=='flavor_matrix_beam_one' else None ],
-                    'flavor_matrices_beam_two' : ME_call['flavor_matrices_beam_two'] + [ current_wgt if weight_type=='flavor_matrix_beam_two' else None ],
-                    'Bjorken_rescalings_beam_one' : ME_call['Bjorken_rescalings_beam_one'] + [ Bjorken_rescaling_beam_one,],
-                    'Bjorken_rescalings_beam_two' : ME_call['Bjorken_rescalings_beam_two'] + [ Bjorken_rescaling_beam_two,],
-                })
+        """
+
+        # Firs breakdown the current evaluation into chunks for each different reduced kinematics
+        current_evaluation_per_reduced_kinematics = {}
+        for ((spin_index, color_index, reduced_kinematics_index), current_wgt) in new_evaluation['values'].items():
+            if reduced_kinematics_index in current_evaluation_per_reduced_kinematics:
+                current_evaluation_per_reduced_kinematics[reduced_kinematics_index][(spin_index, color_index)] = current_wgt
+            else:
+                current_evaluation_per_reduced_kinematics[reduced_kinematics_index] = {(spin_index, color_index) : current_wgt}
+
+        # Now make sure that we will not be combining reduced kinematics from different currents
+        # This check is redundant with he one done below
+        #if new_all_necessary_ME_calls.keys() != [None,] and \
+        #                any(new_evaluation['reduced_kinematics'][ri]!=None for ri in reduced_kinematics_chunks):
+        #    raise MadEvent7Error("MadNkLO cannot combine several subtraction currents that each return mapped kinematics.")
+
+        new_all_necessary_ME_calls = {}
+        for reduced_kinematics_identifier, (reduced_kinematics, necessary_ME_calls) in all_necessary_ME_calls.items():
+
+            for reduced_kinematics_index, current_evaluation in current_evaluation_per_reduced_kinematics.items():
+
+                # "combine" reduced kinematics
+                new_reduced_kinematics_identifier = None
+                new_reduced_kinematics = None
+                if new_evaluation['reduced_kinematics'][reduced_kinematics_index] is None:
+                    new_reduced_kinematics_identifier = reduced_kinematics_identifier
+                    new_reduced_kinematics = reduced_kinematics
+                elif reduced_kinematics_identifier is None:
+                    new_reduced_kinematics_identifier = new_evaluation['reduced_kinematics'][reduced_kinematics_index][0]
+                    new_reduced_kinematics = new_evaluation['reduced_kinematics'][reduced_kinematics_index][1]
+                else:
+                    raise MadEvent7Error("MadNkLO cannot combine several subtraction currents that each return mapped kinematics.")
+
+                new_necessary_ME_calls = []
+                for ((spin_index, color_index), current_wgt) in current_evaluation['values'].items():
+                    # Now combine the correlators necessary for this current
+                    # with those already specified in 'all_necessary_ME_calls'
+                    for ME_call in necessary_ME_calls:
+                        new_necessary_ME_calls.append({
+                            # Append this spin correlation to those already present for that call
+                            'spin_correlations' : ME_call['spin_correlations'] + [new_evaluation['spin_correlations'][spin_index], ],
+                            # Append this color correlation to those already present for that call
+                            'color_correlations' : ME_call['color_correlations'] + [new_evaluation['color_correlations'][color_index], ],
+                            # Append this weight to those already present for that call
+                            'main_weights' : ME_call['main_weights'] + [ base_objects.EpsilonExpansion(current_wgt) if
+                                weight_type=='main_weight' else base_objects.EpsilonExpansion({'finite':1.0}) ],
+                            'flavor_matrices_beam_one' : ME_call['flavor_matrices_beam_one'] + [ current_wgt if weight_type=='flavor_matrix_beam_one' else None ],
+                            'flavor_matrices_beam_two' : ME_call['flavor_matrices_beam_two'] + [ current_wgt if weight_type=='flavor_matrix_beam_two' else None ],
+                            'Bjorken_rescalings_beam_one' : ME_call['Bjorken_rescalings_beam_one'] + [ Bjorken_rescaling_beam_one,],
+                            'Bjorken_rescalings_beam_two' : ME_call['Bjorken_rescalings_beam_two'] + [ Bjorken_rescaling_beam_two,],
+                        })
+
+                new_all_necessary_ME_calls[new_reduced_kinematics_identifier] = (new_reduced_kinematics, new_necessary_ME_calls)
+
         # Return the new list of necessary ME calls
         return new_all_necessary_ME_calls
 
@@ -3078,181 +3116,193 @@ class ME7Integrand_R(ME7Integrand):
         # TODO
         # 1) moved where the beam convolution takes place so as to affect each current
         #    independently of each other.
-        # 2) when called from test_IR_limits, we should never return None,
-        #    but instead an event with zero weights.
+
+        # Apply cuts if requested and return immediately if they do not pass
+        cut_weight = 1.
+
         if 'distribution_type' not in counterterm.nodes[0].current or \
           counterterm.nodes[0].current['distribution_type'] not in ['counterterm']:
-            if (xi1 is not None) and (xb_1>xi1):
-                return None
-            if (xi2 is not None) and (xb_2>xi2):
-                return None
+            if ( (xi1 is not None) and (xb_1>xi1) ) or ( (xi2 is not None) and (xb_2>xi2) ):
+                if not always_generate_event:
+                    return None
+                else:
+                    cut_weight = 0.
 
-        hike_output = self.walker.walk_to_lower_multiplicity(
-                          PS_point, counterterm, compute_jacobian=self.divide_by_jacobian )
+#        hike_output = self.walker.walk_to_lower_multiplicity(
+#                          PS_point, counterterm, compute_jacobian=self.divide_by_jacobian )
+
         # Compute the total momentum of this PS point, before any mapping is applied.
         # TODO change in sum(PS_point.to_list()[:self.n_initial])
+        # @Simone why? is that any different?
         total_momentum = sum(p for i, p in enumerate(PS_point.to_list())
                              if i < self.n_initial)
 
-
         # Access the matrix element characteristics
-        ME_process, ME_PS = hike_output['matrix_element']
-        
-        # Generate what is the kinematics (reduced_PS) returned as a list
-        # and the reduced_flavors for this counterterm by using the default reduced flavors
-        # originating from the defining process and the real-emission kinematics dictionary
-        reduced_PS, reduced_flavors = counterterm.get_reduced_quantities(
-            ME_PS, defining_flavors=None)
+        #        ME_process, ME_PS = hike_output['matrix_element']
+        ME_process = counterterm.current
 
-        n_unresolved_left = self.contribution_definition.n_unresolved_particles
-        n_unresolved_left -= counterterm.count_unresolved()
-        # Apply cuts if requested and return immediately if they do not pass
-        cut_weight = 1.
-        if apply_flavour_blind_cuts and not self.pass_flavor_blind_cuts(
-            reduced_PS, reduced_flavors, xb_1=xb_1, xb_2=xb_2,
-            n_jets_allowed_to_be_clustered=n_unresolved_left):
-            # Return None to indicate that no counter-event was generated
-            if not always_generate_event:
-                return None
-            else:
-                cut_weight = 0.
-
-        # The above "hike" can be used to evaluate the currents first and the ME last.
         # Note that the code below can become more complicated when tracking helicities,
         # but let's forget this for now.
         assert ((hel_config is None))
+
         # all_necessary_ME_calls is a list inputs to call the Matrix Element and the weights
         # that we must multiply/convolve them with. We start with empty entries.
-        all_necessary_ME_calls = [ 
-            {   'spin_correlations'             : [ ],
-                'color_correlations'            : [ ],
-                'main_weights'                  : [ ],
-                'flavor_matrices_beam_one'      : [ ],
-                'flavor_matrices_beam_two'      : [ ],
-                'Bjorken_rescalings_beam_one'   : [ ],
-                'Bjorken_rescalings_beam_two'   : [ ],
-            },
-        ]
+        all_necessary_ME_calls = { None : # This key corresponds to the reduced_kinematics identifier (only esthetics for tagging the event)
+            ( None, # This first tuple entry will be the specific reduced kinematics to consider
+                [
+                    {   'spin_correlations'             : [ ],
+                        'color_correlations'            : [ ],
+                        'main_weights'                  : [ ],
+                        'flavor_matrices_beam_one'      : [ ],
+                        'flavor_matrices_beam_two'      : [ ],
+                        'Bjorken_rescalings_beam_one'   : [ ],
+                        'Bjorken_rescalings_beam_two'   : [ ],
+                    },
+                ]
+            )
+        }
         total_jacobian = 1.
-        disconnected_currents_weight = base_objects.EpsilonExpansion({'finite': 1.0})        
+        disconnected_currents_weight = base_objects.EpsilonExpansion({'finite': 1.0})
 
-        # First evaluate the currents building the counterterm
-        for stroll_output in hike_output['currents']:
-            stroll_currents = stroll_output['stroll_currents']
-            higher_PS_point = stroll_output['higher_PS_point']
-            lower_PS_point  = stroll_output['lower_PS_point']
-            stroll_vars     = stroll_output['stroll_vars']
-            # Set the variable 'Q' as the total initial-state momentum before any mapping
-            # It is possible that this overwrites an alternative definition that is used
-            # within the mapping routines. And this is OK, because the choice of which 
-            # Q to use in the definition of the variables used by the local currents is
-            # independent on what the mapping internally uses.
-            stroll_vars['Q'] = Q
-            if stroll_vars.has_key('jacobian'):
-                total_jacobian *= stroll_vars['jacobian']
-            for current in stroll_currents:
-                # WARNING The use of reduced_process here is fishy (for all but the last)
-                current_evaluation, all_current_results = self.all_MEAccessors(
-                    current,
-                    higher_PS_point=higher_PS_point, lower_PS_point=lower_PS_point,
-                    leg_numbers_map=counterterm.momenta_dict,
-                    reduced_process=ME_process, hel_config=None,
-                    **stroll_vars )
 
-                # Now loop over all spin- and color- correlators required for this current
-                # and update the necessary calls to the ME
-                if not current['resolve_mother_spin_and_color']:
-                    # Make sure no spin- or color-correlations were produced by the current
-                    assert(current_evaluation['spin_correlations']==[None,])
-                    assert(current_evaluation['color_correlations']==[None,])
-                    assert(current_evaluation['values'].keys()==[(0,0),])
-                    # WARNING:: this can only work for local 4D subtraction counterterms!
-                    # For the integrated ones it is very likely that we cannot use a nested structure,
-                    # and there will be only one level anyway,
-                    # so there is not need of fancy combination of Laurent series.
-                    disconnected_currents_weight *= \
-                         base_objects.EpsilonExpansion(current_evaluation['values'][(0,0)])
-                else:
-                    all_necessary_ME_calls = ME7Integrand_R.update_all_necessary_ME_calls(
-                        all_necessary_ME_calls, current_evaluation, weight_type='main_weight')
+        # With the current design we only consider and support the case where there is only
+        # *one* regular (i.e. non-beam) "mapping currents" in the counterterm.
+        # Notice that exactly *one* of such currents must return a specific reduced kinematics
+        # as it does not make sense to be combine several together
+        mapping_currents = [ c for c in counterterm.get_all_currents() if
+                                        type(integrated_current) not in (BeamCurrent, IntegratedBeamCurrent) ]
 
-        # misc.sprint(str(counterterm), total_jacobian)
+        # Set the variable 'Q' as the total initial-state momentum before any mapping
+        current_call_variables = {'Q': Q}
+        # Now evaluate the mapping currents identified
+        for current in mapping_currents:
 
-        # Now that all currents have been evaluated using the PS points with initial-state
-        # momenta that can be boosted because of initial-collinear mappings, we must boost
-        # back in the c.o.m frame the PS point that will be used for generating the 
-        # ME7Event as well as for calling the reduced ME.
-        # First avoid possible border effects by making a copy (should be removed for performance
-        # gain, after it is checked to be safe).
-        ME_PS = ME_PS.get_copy()
-        # And now boost it back in the c.o.m frame.
-        if boost_back_to_com:
-            ME_PS.boost_to_com(tuple([l.get('number') for l in counterterm.process.get_initial_legs()]))
+            # WARNING The use of reduced_process here is fishy (for all but the last)
+            current_evaluation, all_current_results = self.all_MEAccessors(
+                current,
+                higher_PS_point=PS_point,
+                leg_numbers_map=counterterm.momenta_dict,
+                reduced_process=ME_process, hel_config=None,
+                **current_call_variables )
 
-        # Now the phase-space point stored in the event generated is not a dictionary but
-        # a LorentzVectorList which must be ordered exactly like the flavor configurations
-        # in it are.
-        event_PS = ME_PS.to_list(ordered_keys=[l.get('number') for l in counterterm.process.get('legs')])
-
-        # Then evaluate the beam factorization currents
-        all_necessary_ME_calls = ME7Integrand_R.process_beam_factorization_currents(
-            all_necessary_ME_calls, counterterm.get_beam_currents(), self.all_MEAccessors, 
-            ME_PS, ME_process, xb_1, xb_2, xi1, xi2, mu_r, mu_f1, mu_f2, total_momentum)
-        # If there is no necessary ME call left, it is likely because the xi upper bound of the 
-        # Bjorken x's convolution were not respected. We must now abort the event. 
-        if len(all_necessary_ME_calls) == 0:
-            if not always_generate_event:
-                return None
+            # Now loop over all spin- and color- correlators required for this current
+            # and update the necessary calls to the ME
+            if not current['resolve_mother_spin_and_color']:
+                # Make sure no spin- or color-correlations were produced by the current
+                assert(current_evaluation['spin_correlations']==[None,])
+                assert(current_evaluation['color_correlations']==[None,])
+                assert(current_evaluation['reduced_kinematics']==[None,])
+                assert(current_evaluation['values'].keys()==[(0,0,0),])
+                # Note: this can only work for local 4D subtraction counterterms!
+                # For the integrated ones it is very likely that we cannot use a nested structure,
+                # and there will be only one counterterm node level in this case anyway,
+                disconnected_currents_weight *= \
+                     base_objects.EpsilonExpansion(current_evaluation['values'][(0,0,0)])
             else:
-                cut_weight = 0.
+                all_necessary_ME_calls = ME7Integrand_R.update_all_necessary_ME_calls(
+                    all_necessary_ME_calls, current_evaluation, weight_type='main_weight')
 
-        # Now perform the combination of the list of spin- and color- correlators to be merged
-        # for each necessary ME call identified
-        all_necessary_ME_calls = ME7Integrand_R.merge_correlators_in_necessary_ME_calls(
-                                                                    all_necessary_ME_calls)
-
-        # Finally treat the call to the reduced connected matrix elements
-#        misc.sprint('I got for %s:'%str(counterterm.nice_string()))
-        alpha_s = self.model.get('parameter_dict')['aS']
-        mu_r = self.model.get('parameter_dict')['MU_R']
+        # misc.sprint(str(counterterm))
 
 
-        # Compute all the reduced flavor configurations for this counterterm
-        all_reduced_flavors = [ counterterm.get_reduced_flavors(resolved_flavors) 
-                                             for resolved_flavors in all_resolved_flavors ]
-        # VERY IMPORTANT: We must convolve the counter-event with the initial state PDFs
-        # corresponding to the *RESOLVED* flavors, and the flavour_sensitive_cuts also
-        # applied on the resolved flavors (since for the initial-state the cuts are basically
-        # use to select particular PDF components). The correct thing to do is to overwrite
-        # the initial states flavors to *always* match their resolve counterpart.
-        # The counterpart of this is that the integrated collinear initial-state counterterms 
-        # will get their initial state flavor backward evolved to also match the initial
-        # states of this local counterterm, so that the cancellation between local and integrated
-        # collinear counterterm is maintained. Of coure this plays no role for purely final-state
-        # counterterms.
-        all_reduced_flavored_with_initial_states_subsituted = []
-        for i_config, reduced_flavors in enumerate(all_reduced_flavors):
-            all_reduced_flavored_with_initial_states_subsituted.append(
-                                    (all_resolved_flavors[i_config][0],reduced_flavors[1]))
+        n_unresolved_left = self.contribution_definition.n_unresolved_particles
+        n_unresolved_left -= counterterm.count_unresolved()
 
-        return ME7Integrand_R.generate_event_for_counterterm(
-            ME7Event(
-                event_PS,
-                {fc: cut_weight*base_weight
-                 for fc in all_reduced_flavored_with_initial_states_subsituted},
-                requires_mirroring              = is_process_mirrored,
-                host_contribution_definition    = self.contribution_definition,
-                counterterm_structure           = (counterterm, all_resolved_flavors),
-                Bjorken_xs                      = (xb_1, xb_2)
-            ),
-            disconnected_currents_weight,
-            ( counterterm.prefactor / total_jacobian ), 
-            all_necessary_ME_calls,
-            ME_process,
-            ME_PS, 
-            alpha_s, mu_r,
-            self.all_MEAccessors
-        )
+        # We can now loop over the reduced kinematics produced by the currents:
+        all_events = ME7EventList()
+        for reduced_kinematics_identifier, (reduced_kinematics, necessary_ME_calls) in all_necessary_ME_calls.items():
+
+            # Now that all currents have been evaluated using the PS points with initial-state
+            # momenta that can be boosted because of initial-collinear mappings, we must boost
+            # back in the c.o.m frame the PS point that will be used for generating the
+            # ME7Event as well as for calling the reduced ME.
+            # First avoid possible border effects by making a copy (should be removed for performance
+            # gain, after it is checked to be safe).
+            ME_PS =  reduced_kinematics.get_copy()
+            # And now boost it back in the c.o.m frame.
+            if boost_back_to_com:
+                ME_PS.boost_to_com(tuple([l.get('number') for l in counterterm.process.get_initial_legs()]))
+
+            # Generate what is the kinematics (reduced_PS) returned as a list
+            # and the reduced_flavors for this counterterm by using the default reduced flavors
+            # originating from the defining process and the real-emission kinematics dictionary
+            reduced_PS, reduced_flavors = counterterm.get_reduced_quantities(ME_PS, defining_flavors=None)
+
+            this_cut_weight = cut_weight
+            if apply_flavour_blind_cuts and not self.pass_flavor_blind_cuts(
+                reduced_PS, reduced_flavors, xb_1=xb_1, xb_2=xb_2,
+                n_jets_allowed_to_be_clustered=n_unresolved_left):
+                # this configuration must be skipped
+                if not always_generate_event:
+                    continue
+                else:
+                    this_cut_weight = 0.
+
+            # Now the phase-space point stored in the event generated is not a dictionary but
+            # a LorentzVectorList which must be ordered exactly like the flavor configurations
+            # in it are.
+            event_PS = ME_PS.to_list(ordered_keys=[l.get('number') for l in counterterm.process.get('legs')])
+
+            # Then evaluate the beam factorization currents this must be done for each reduced kinematics configuration
+            # so that it is important that whatever that can be cached in these currents is cached.
+            necessary_ME_calls = ME7Integrand_R.process_beam_factorization_currents(
+                necessary_ME_calls, counterterm.get_beam_currents(), self.all_MEAccessors,
+                ME_PS, ME_process, xb_1, xb_2, xi1, xi2, mu_r, mu_f1, mu_f2, total_momentum)
+            # If there is no necessary ME call left, it is likely because the xi upper bound of the
+            # Bjorken x's convolution were not respected. We must now abort the event.
+            if len(necessary_ME_calls) == 0:
+                if not always_generate_event:
+                    return None
+                else:
+                    this_cut_weight = 0.
+
+            # Now perform the combination of the list of spin- and color- correlators to be merged
+            # for each necessary ME call identified
+            necessary_ME_calls = ME7Integrand_R.merge_correlators_in_necessary_ME_calls(necessary_ME_calls)
+
+            # Finally treat the call to the reduced connected matrix elements
+#            misc.sprint('I got for %s:'%str(counterterm.nice_string()))
+            alpha_s = self.model.get('parameter_dict')['aS']
+            mu_r = self.model.get('parameter_dict')['MU_R']
+
+            # Compute all the reduced flavor configurations for this counterterm
+            all_reduced_flavors = [ counterterm.get_reduced_flavors(resolved_flavors)
+                                                 for resolved_flavors in all_resolved_flavors ]
+            # VERY IMPORTANT: We must convolve the counter-event with the initial state PDFs
+            # corresponding to the *RESOLVED* flavors, and the flavour_sensitive_cuts also
+            # applied on the resolved flavors (since for the initial-state the cuts are basically
+            # use to select particular PDF components). The correct thing to do is to overwrite
+            # the initial states flavors to *always* match their resolve counterpart.
+            # The counterpart of this is that the integrated collinear initial-state counterterms
+            # will get their initial state flavor backward evolved to also match the initial
+            # states of this local counterterm, so that the cancellation between local and integrated
+            # collinear counterterm is maintained. Of coure this plays no role for purely final-state
+            # counterterms.
+            all_reduced_flavored_with_initial_states_subsituted = []
+            for i_config, reduced_flavors in enumerate(all_reduced_flavors):
+                all_reduced_flavored_with_initial_states_subsituted.append(
+                                        (all_resolved_flavors[i_config][0],reduced_flavors[1]))
+
+            all_events.append(ME7Integrand_R.generate_event_for_counterterm(
+                ME7Event(
+                    event_PS,
+                    {fc: this_cut_weight*base_weight
+                     for fc in all_reduced_flavored_with_initial_states_subsituted},
+                    requires_mirroring              = is_process_mirrored,
+                    host_contribution_definition    = self.contribution_definition,
+                    counterterm_structure           = (counterterm, all_resolved_flavors,reduced_kinematics_identifier),
+                    Bjorken_xs                      = (xb_1, xb_2)
+                ),
+                disconnected_currents_weight,
+                counterterm.prefactor,
+                necessary_ME_calls,
+                ME_process,
+                ME_PS,
+                alpha_s, mu_r,
+                self.all_MEAccessors
+            ))
+
+        return all_events
 
     @classmethod
     def generate_event_for_counterterm(cls, template_MEEvent, disconnected_currents_weight,
@@ -3400,6 +3450,7 @@ The missing process is: %s"""%ME_process.nice_string())
         seed = test_options.get('seed', None)
         if seed: random.seed(seed)
         walker_name = test_options.get('walker', 'LorentzNLO')
+
         walker = walkers.VirtualWalker(walker_name)
 
         # First generate an underlying Born

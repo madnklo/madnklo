@@ -63,7 +63,7 @@ class QCD_beam_factorization_F0(currents.QCDBeamFactorizationCurrent):
         if init_vars is None: return None
 
         # Retrieve singular structure
-        ss = current.get('singular_structure')
+        ss = current.get('singular_structure').substructures[0]
         # Check that it involves exactly one F structure with one leg. 
         if len(ss.substructures)==0:
             factorization_structure = ss
@@ -191,7 +191,7 @@ class QCD_beam_factorization_single_collinear(currents.QCDBeamFactorizationCurre
         if init_vars is None: return None
 
         # Retrieve singular structure
-        ss = current.get('singular_structure')
+        ss = current.get('singular_structure').substructures[0]
 
         # Check that it involves exactly one collinear structure with two legs. 
         if len(ss.substructures)!=1:

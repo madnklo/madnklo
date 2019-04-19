@@ -17,6 +17,8 @@
 import os
 import math
 
+import madgraph.integrator.vectors as vectors
+
 import commons.utils as utils
 import commons.QCD_local_currents as currents
 
@@ -68,10 +70,10 @@ class QCD_soft_0_g(currents.QCDLocalSoftCurrent):
     
     def evaluate_subtraction_current(
         self, current,
-        higher_PS_point=None, lower_PS_point=None,
+        higher_PS_point=None,
         leg_numbers_map=None, reduced_process=None, hel_config=None,
         Q=None, **opts ):
-        if higher_PS_point is None or lower_PS_point is None:
+        if higher_PS_point is None:
             raise CurrentImplementationError(
                 self.name() + " needs the phase-space points before and after mapping." )
         if leg_numbers_map is None:
@@ -131,8 +133,7 @@ class QCD_soft_0_g(currents.QCDLocalSoftCurrent):
                     mult_factor = 1.
                 pa = sum(higher_PS_point[child] for child in leg_numbers_map[a])
                 pb = sum(higher_PS_point[child] for child in leg_numbers_map[b])
-                # pa = lower_PS_point[a]
-                # pb = lower_PS_point[b]
+                
                 eikonal = self.eikonal(pa, pb, pS)
                 evaluation['color_correlations'].append( ((a, b), ) )
                 evaluation['values'][(0, color_correlation_index)] = {
@@ -213,10 +214,10 @@ class QCD_final_softcollinear_0_gX(currents.QCDLocalSoftCollinearCurrent):
 
     def evaluate_subtraction_current(
         self, current,
-        higher_PS_point=None, lower_PS_point=None,
+        higher_PS_point=None,
         leg_numbers_map=None, reduced_process=None, hel_config=None,
         Q=None, **opts ):
-        if higher_PS_point is None or lower_PS_point is None:
+        if higher_PS_point is None:
             raise CurrentImplementationError(
                 self.name() + " needs the phase-space points before and after mapping." )
         if leg_numbers_map is None:
@@ -253,8 +254,13 @@ class QCD_final_softcollinear_0_gX(currents.QCDLocalSoftCollinearCurrent):
             'values': {(0, 0): {'finite': None}}
         })
 
+        ######
+        # TODO lower_PS_point no longer available here, mapping must be invoked!
+        ######
         # Evaluate kernel
-        zs, kTs = self.variables(higher_PS_point, lower_PS_point[parent], children, Q=Q)
+        # zs, kTs = self.variables(higher_PS_point, lower_PS_point[parent], children, Q=Q)
+        zs, kTs = self.variables(higher_PS_point, vectors.LorentzVector(), children, Q=Q)
+
         z = zs[0]
         evaluation['values'][(0, 0)]['finite'] = self.color_charge * 2.*(1.-z) / z
 

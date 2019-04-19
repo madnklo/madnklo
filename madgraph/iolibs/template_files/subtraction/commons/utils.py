@@ -52,11 +52,12 @@ class SubtractionCurrentEvaluation(dict):
     
     # values will list the weight from this current for each particular pairing
     # of the spin_correlations and color_correlations
-    main_layer_result_order  = ['spin_correlations','color_correlations','values']
+    main_layer_result_order  = ['spin_correlations','color_correlations','reduced_kinematics','values']
     sub_layer_result_order   = ['finite','return_code','accuracy','eps'] 
     result_order = main_layer_result_order+sub_layer_result_order
 
-    main_layer_result_format = {'spin_correlations':'%s','color_correlations':'%s','values':'%s'}
+    main_layer_result_format = {'spin_correlations':'%s','color_correlations':'%s',
+                                'reduced_kinematics':'%s','values':'%s'}
     sub_layer_result_format  = {'tree':'%.15e','finite':'%.15e','eps':'%.15e',
                                 'return_code':'%d','accuracy': '%.2g'}
 
@@ -151,7 +152,8 @@ class SubtractionCurrentEvaluation(dict):
         return SubtractionCurrentEvaluation({
             'spin_correlations'   : [ None ],
             'color_correlations'  : [ None ],
-            'values'              : {(0,0): { 'finite' : 0.0 }}
+            'reduced_kinematics'  : [ None ],
+            'values'              : {(0,0,0): { 'finite' : 0.0 }}
         })
 
 class BeamFactorizationCurrentEvaluation(SubtractionCurrentEvaluation):
@@ -202,7 +204,8 @@ class BeamFactorizationCurrentEvaluation(SubtractionCurrentEvaluation):
         return SubtractionCurrentEvaluation({
             'spin_correlations'      : [ None ],
             'color_correlations'     : [ None ],
-            'values'                 : { (0,0): {
+            'reduced_kinematics'     : [ None ],
+            'values'                 : { (0,0,0): {
                     None : {
                         None : { 'finite' : 0.0 }
                     }
@@ -331,7 +334,7 @@ class VirtualCurrentImplementation(object):
 
     def get_cache_and_result_key(
         self, current,
-        higher_PS_point=None, lower_PS_point=None,
+        higher_PS_point=None,
         leg_numbers_map=None, reduced_process=None, hel_config=None, ):
         """Generate a key for the cache dictionary.
         Make sure that everything that can lead to a different evaluation of the current
@@ -349,8 +352,6 @@ class VirtualCurrentImplementation(object):
         squared_orders = tuple(sorted(current.get('squared_orders').items()))
         higher_PS_point_tuple = tuple(sorted([
             (k, tuple(value)) for (k, value) in higher_PS_point.items() ]))
-        lower_PS_point_tuple = tuple(sorted([
-            (k, tuple(value)) for (k, value) in lower_PS_point.items() ]))
         if reduced_process:
             reduced_process_hash = tuple(
                 (leg['number'], leg['id']) for leg in reduced_process['legs'] )
@@ -361,7 +362,6 @@ class VirtualCurrentImplementation(object):
 
         cache_key = {
             'higher_PS_point': higher_PS_point_tuple,
-            'lower_PS_point': lower_PS_point_tuple,
             'alpha_s': alpha_s,
             'singular_structure': singular_structure_str,
             'reduced_process': reduced_process_hash
@@ -375,7 +375,7 @@ class VirtualCurrentImplementation(object):
 
     def evaluate_subtraction_current(
         self, current,
-        higher_PS_point=None, lower_PS_point=None,
+        higher_PS_point=None,
         leg_numbers_map=None, reduced_process=None, hel_config=None,
         **opts ):
         """Returns an instance of SubtractionCurrentResult,
@@ -439,13 +439,13 @@ class VirtualCurrentImplementation(object):
 #=========================================================================================
 class IntegratedCurrent(object):
     """ This class is only for specific aspects of integrated currents, such as forwarding
-    the lower_PS_point to just a single PS point."""
+    the higher_PS_point to just a single PS point."""
 
     def evaluate_subtraction_current(self, current,
-        higher_PS_point=None, lower_PS_point=None,
+        higher_PS_point=None,
         **opts ):
 
-        return self.evaluate_integrated_current(current, lower_PS_point, **opts)
+        return self.evaluate_integrated_current(current, higher_PS_point, **opts)
 
 #=========================================================================================
 # DefaultCurrentImplementation
@@ -479,7 +479,7 @@ class DefaultCurrentImplementation(VirtualCurrentImplementation):
     
     def evaluate_subtraction_current(
         self, current,
-        higher_PS_point=None, lower_PS_point=None,
+        higher_PS_point=None,
         leg_numbers_map=None, reduced_process=None, hel_config=None, **opts):
         """Simply return 0 for this current default implementation."""
         

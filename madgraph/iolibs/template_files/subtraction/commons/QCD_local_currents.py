@@ -18,6 +18,7 @@ import os
 import math
 
 import madgraph.integrator.mappings as mappings
+import madgraph.integrator.vectors as vectors
 import madgraph.various.misc as misc
 from madgraph.core.subtraction import BeamCurrent, IntegratedBeamCurrent, \
     IntegratedCurrent, Counterterm, SubtractionLeg
@@ -327,7 +328,7 @@ class QCDBeamFactorizationCurrent(QCDCurrent):
 
         return init_vars
 
-    def evaluate_subtraction_current(self, current, higher_PS_point=None, lower_PS_point=None, 
+    def evaluate_subtraction_current(self, current, higher_PS_point=None, 
             reduced_process = None, xi=None, mu_r=None, mu_f=None, Q=None, hel_config=None, 
             allowed_backward_evolved_flavors = 'ALL', **opts ):
         """ This implementation of the main function call in the base class pre-process
@@ -346,9 +347,6 @@ class QCDBeamFactorizationCurrent(QCDCurrent):
         if mu_r is None:
             raise CurrentImplementationError(
                 self.name() + " requires the factorization scale mu_r." )
-        if lower_PS_point is None:
-            raise CurrentImplementationError(
-                self.name() + " requires a lower PS point to be specified" )
         if reduced_process is None:
             raise CurrentImplementationError(
                 self.name() + " requires a process instance to be specified" )
@@ -367,7 +365,7 @@ class QCDBeamFactorizationCurrent(QCDCurrent):
         # BeamFactorizationCurrentEvaluation which can specify color-correlations as 
         # well as reduced and resolved flavors.
         evaluation = self.evaluate_kernel(
-            lower_PS_point, reduced_process, xi, mu_r, mu_f, Q, normalization,
+            reduced_process, xi, mu_r, mu_f, Q, normalization,
             allowed_backward_evolved_flavors = allowed_backward_evolved_flavors)
 
         # Construct and return result
@@ -459,10 +457,10 @@ class QCDLocalCollinearCurrent(QCDCurrent):
 
     def evaluate_subtraction_current(
         self, current,
-        higher_PS_point=None, lower_PS_point=None,
+        higher_PS_point=None,
         leg_numbers_map=None, reduced_process=None, hel_config=None,
         Q=None, **opts ):
-        if higher_PS_point is None or lower_PS_point is None:
+        if higher_PS_point is None:
             raise CurrentImplementationError(
                 self.name() + " needs the phase-space points before and after mapping." )
         if leg_numbers_map is None:
@@ -483,7 +481,16 @@ class QCDLocalCollinearCurrent(QCDCurrent):
         children = self.get_sorted_children(current, self.model)
         parent = leg_numbers_map.inv[frozenset(children)]
         pC = sum(higher_PS_point[child] for child in children)
+        
+        ######
+        # TODO lower_PS_point no longer available, mapping must be invoked here!
+        #
+        #   lower_PS_point = mappings.[...]
+        #
+        ######  
+
         qC = lower_PS_point[parent]
+
         # Include the counterterm only in a part of the phase space
         if any(leg.state == leg.INITIAL for leg in current.get('singular_structure').legs):
             pA = higher_PS_point[children[0]]
@@ -496,9 +503,17 @@ class QCDLocalCollinearCurrent(QCDCurrent):
             if self.is_cut(Q=Q, pC=pC):
                 return utils.SubtractionCurrentResult.zero(current=current, hel_config=hel_config)
 
+        # Initialise a base subtraction current evaluation
+        subtraction_current_evaluation = SubtractionCurrentEvaluation({
+            'spin_correlations'   : [ None ],
+            'color_correlations'  : [ None ],
+            'reduced_kinematics'  : [ ( None, lower_PS_point ) ],
+            'values'              : {(0,0,0): { 'finite' : 0.0 }}
+        })
+
         # Evaluate kernel
         zs, kTs = self.variables(higher_PS_point, qC, children, Q=Q)
-        evaluation = self.evaluate_kernel(zs, kTs, parent)
+        evaluation = self.evaluate_kernel(zs, kTs, parent, subtraction_current_evaluation)
 
         # Add the normalization factors
         pC2 = pC.square()

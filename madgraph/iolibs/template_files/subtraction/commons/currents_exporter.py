@@ -30,6 +30,10 @@ class GenericCurrentsExporter(object):
                   (not any(path.endswith(veto_extension)) for veto_extension in ['.pyc']) ]
         else:
             self.relative_resource_paths = relative_resource_paths
+            mandatory_resources = ['__init__.py', 'commons', 'subtraction_schemes/__init__.py']
+            for mandatory_resource in mandatory_resources:
+                if mandatory_resource not in self.relative_resource_paths:
+                    self.relative_resource_paths.append(mandatory_resource)
 
     def export(self, destination_root_path, mapped_currents_to_export=None, **opts):
         """ Copy all resources to their destination path. """

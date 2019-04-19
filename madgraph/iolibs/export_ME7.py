@@ -515,11 +515,11 @@ class ME7Exporter(object):
             # For now we simply skip the incorporation of this integrated counterterms and
             # issue a critical warning, but eventually one can think of creating an 
             # ad-hoc "dummy" contribution to contain those integrated counterterms.
-            msg = ("Could not find a contribution with key '%s'" % key_string(key) + " to host the" +
-                   " integrated counterterm:\n%s\n with key:\n%s" % (counterterm.nice_string(), key_string(key)) +
-                    "\nIt will therefore be skipped making the ensuing results unphysical and wrong.\n" +
-                    "Available keys are:\n%s" % ('\n'.join(key_string(k) for k in routing_map)))
-            logger.critical(msg)
+#            msg = ("Could not find a contribution with key '%s'" % key_string(key) + " to host the" +
+#                   " integrated counterterm:\n%s\n with key:\n%s" % (counterterm.nice_string(), key_string(key)) +
+#                    "\nIt will therefore be skipped making the ensuing results unphysical and wrong.\n" +
+#                    "Available keys are:\n%s" % ('\n'.join(key_string(k) for k in routing_map)))
+#            logger.critical(msg)
             if key not in routing_map:
                 msg = ("Could not find a contribution with key '%s'"%key_string(key)+" to host the"+
                     " integrated counterterm:\n%s\n with key:\n%s"%(counterterm.nice_string(),key_string(key))+
@@ -533,7 +533,7 @@ class ME7Exporter(object):
                     continue
                 else:
                     raise MadGraph5Error(msg)
-            misc.sprint("Contribution candidates: %s"%str([c.nice_string() for c in routing_map[key]]))
+#            misc.sprint("Contribution candidates: %s"%str([c.nice_string() for c in routing_map[key]]))
             found_contribution_host = False
             for contribution_candidate in routing_map[key]:
                 # Try to add this integrated counterterm to all candidate contributions

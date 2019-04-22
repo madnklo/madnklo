@@ -326,7 +326,7 @@ class ParseCmdArguments(object):
             'boost_back_to_com'       : True,
             'epsilon_expansion_term'  : 'sum_all',
             # Here we store a list of lambda function to apply as filters
-            # to the ingegrand we must consider
+            # to the integrand we must consider
             'integrands'              : [lambda integrand: True]
         }
 
@@ -1151,15 +1151,15 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         n_integrands_run = 0
         for integrand in self.all_integrands:
             if not hasattr(integrand, 'test_IR_limits') or \
-               not all(filter(integrand) for filter in testlimits_options['integrands']):
-                continue
+                not all(filter(integrand) for filter in testlimits_options['integrands']):
+                    continue
             n_integrands_run += 1
             logger.debug(
                 'Now testing IR limits of the following integrand:\n' +
                 integrand.nice_string() )
             integrand.test_IR_limits(test_options=testlimits_options)
 
-        if n_integrands_run==0:
+        if n_integrands_run == 0:
             logger.warning("No available integrand for function 'test_IR_limits'")
 
     def do_test_IR_poles(self, line, *args, **opt):

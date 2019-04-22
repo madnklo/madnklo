@@ -306,7 +306,7 @@ class ParseCmdArguments(object):
             'correction_order'        : None,
             'limits'                  : [None,],
             'counterterms'            : None,
-            'walker'                  : None,
+            'walker'                  : 'LorentzNLO',
             'process'                 : {'in_pdgs'  : None,
                                          'out_pdgs' : None,
                                          'n_loops'  : None},
@@ -434,10 +434,7 @@ class ParseCmdArguments(object):
                     raise InvalidCmd("'%s' is not a valid float for option '%s'"%(value, key))
             elif key in ['--walker'] and mode=='limits':
                 try:
-                    if value == "None":
-                        testlimits_options['walker'] = None
-                    else:
-                        testlimits_options['walker'] = value
+                    testlimits_options['walker'] = value
                 except KeyError:
                     raise InvalidCmd("'%s' is not a valid %s" % (value, key[2:]))
             elif key in ['--limits','--l'] and mode=='limits':

@@ -3447,10 +3447,9 @@ The missing process is: %s"""%ME_process.nice_string())
         """Test how well local counterterms approximate a real-emission matrix element."""
 
         # Apply the passed options
-        seed = test_options.get('seed', None)
+        seed = test_options['seed']
         if seed: random.seed(seed)
-        walker_name = test_options.get('walker', 'LorentzNLO')
-
+        walker_name = test_options['walker']
         walker = walkers.VirtualWalker(walker_name)
 
         # First generate an underlying Born

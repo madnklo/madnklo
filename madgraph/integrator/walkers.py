@@ -58,7 +58,7 @@ def low_level_approach_limit(
         if verbose:
             misc.sprint(mapping.__class__.__name__, str(structure))
         kin_variables = {}
-        sub.update_momenta_dict(momenta_dict, structure)
+        sub.IRSubtraction.update_momenta_dict(momenta_dict, structure)
         tmp_PS_point, _ = mapping.map_to_lower_multiplicity(
             tmp_PS_point, structure, momenta_dict, None, kin_variables)
         if verbose:

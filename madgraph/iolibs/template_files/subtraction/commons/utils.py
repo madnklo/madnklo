@@ -57,7 +57,7 @@ class SubtractionCurrentEvaluation(dict):
 
     main_layer_result_format = {'spin_correlations':'%s','color_correlations':'%s',
                                 'reduced_kinematics':'%s','values':'%s'}
-    sub_layer_result_format  = {'tree':'%.15e','finite':'%.15e','eps':'%.15e',
+    sub_layer_result_format  = {'finite':'%.15e','eps':'%.15e',
                                 'return_code':'%d','accuracy': '%.2g'}
 
     result_format = dict(it for it in main_layer_result_format.items()+sub_layer_result_format.items())
@@ -275,8 +275,7 @@ class SubtractionCurrentResult(dict):
         self[tuple(sorted(opts.items()))] = value
 
     @staticmethod
-    def zero(squared_orders=None, current=None, hel_config=None,
-             **opts):
+    def zero(squared_orders=None, current=None, hel_config=None, **opts):
         """Return a 'zero' result."""
 
         if squared_orders is None and current is not None:

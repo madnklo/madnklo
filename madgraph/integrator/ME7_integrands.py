@@ -3133,8 +3133,8 @@ class ME7Integrand_R(ME7Integrand):
 #                          PS_point, counterterm, compute_jacobian=self.divide_by_jacobian )
 
         # Compute the total momentum of this PS point, before any mapping is applied.
-        total_momentum = sum(p for i, p in enumerate(PS_point.to_list())
-                             if i < self.n_initial)
+        total_incoming_momentum = sum(p for i, p in enumerate(PS_point.to_list())
+                                      if i < self.n_initial)
 
         # Access the matrix element characteristics
         #        ME_process, ME_PS = hike_output['matrix_element']
@@ -3172,13 +3172,12 @@ class ME7Integrand_R(ME7Integrand):
             c for c in counterterm.get_all_currents()
             if type(c) not in (subtraction.BeamCurrent, subtraction.IntegratedBeamCurrent) ]
 
-        # Set the variable 'Q' as the total initial-state momentum before any mapping
-        # WARNING Bad name
-        current_call_variables = {'Q': total_momentum}
+        # Set the variable total_incoming_momentum
+        # as the total initial-state momentum before any mapping
+        current_call_variables = {'total_incoming_momentum': total_incoming_momentum}
         # Now evaluate the mapping currents identified
         for current in mapping_currents:
 
-            # WARNING The use of reduced_process here is fishy (for all but the last)
             current_evaluation, all_current_results = self.all_MEAccessors(
                 current,
                 higher_PS_point=PS_point,
@@ -3248,7 +3247,7 @@ class ME7Integrand_R(ME7Integrand):
             # so that it is important that whatever that can be cached in these currents is cached.
             necessary_ME_calls = ME7Integrand_R.process_beam_factorization_currents(
                 necessary_ME_calls, counterterm.get_beam_currents(), self.all_MEAccessors,
-                ME_PS, ME_process, xb_1, xb_2, xi1, xi2, mu_r, mu_f1, mu_f2, total_momentum)
+                ME_PS, ME_process, xb_1, xb_2, xi1, xi2, mu_r, mu_f1, mu_f2, total_incoming_momentum)
             # If there is no necessary ME call left, it is likely because the xi upper bound of the
             # Bjorken x's convolution were not respected. We must now abort the event.
             if len(necessary_ME_calls) == 0:

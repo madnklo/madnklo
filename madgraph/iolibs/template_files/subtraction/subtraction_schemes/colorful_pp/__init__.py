@@ -4,6 +4,11 @@
 #
 ###########################################################
 
+import os
+import sys
+root_path = os.path.dirname(os.path.realpath( __file__ ))
+sys.path.insert(0,root_path)
+
 from commons.currents_exporter import GenericCurrentsExporter
 
 # From common resources

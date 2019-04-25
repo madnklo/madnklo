@@ -25,7 +25,6 @@ import madgraph.core.subtraction as sub
 import tests.unit_tests as unittest
 import tests.input_files.simple_qcd as simple_qcd
 
-
 #=========================================================================================
 # Shorthands for initial and final state
 #=========================================================================================
@@ -130,6 +129,124 @@ class SubsetTest(unittest.TestCase):
             sub.difference(a, b),
             tuple(iter("ab"))
         )
+
+#=========================================================================================
+# Test SubtractionLegSet
+#=========================================================================================
+
+SLeg = sub.SubtractionLeg
+SLegSet = sub.SubtractionLegSet
+
+class SubtractionLegSetTest(unittest.TestCase):
+    """Test class for SubtractionLegSet."""
+
+    def test_split_by_pdg_abs(self):
+        """Test the method split_by_pdg_abs."""
+
+        subtraction_leg_set = SLegSet((
+            SLeg(0, +1, INITIAL),
+            SLeg(1, -1, INITIAL),
+            SLeg(2, 25, FINAL),
+            SLeg(3, +5, FINAL),
+            SLeg(4, +1, FINAL),
+            SLeg(5, +5, FINAL),
+            SLeg(6, -1, FINAL),
+            SLeg(7, +2, FINAL),
+            SLeg(8, -5, FINAL),
+        ))
+        legs_by_pdg, pdg_counts, rest = subtraction_leg_set.split_by_pdg_abs([1,2,3,4,5], FINAL)
+        target_legs_by_pdg = {
+            1: [SLegSet([subtraction_leg_set[4], ]), SLegSet([subtraction_leg_set[6], ])],
+            2: [SLegSet(), SLegSet([subtraction_leg_set[7], ])],
+            3: [SLegSet(), SLegSet()],
+            4: [SLegSet(), SLegSet()],
+            5: [SLegSet([subtraction_leg_set[8], ]),
+                SLegSet([subtraction_leg_set[3], subtraction_leg_set[5], ])]
+        }
+        target_pdg_counts = {(1, 1): [1], (0, 1): [2], (0, 0): [3, 4], (1, 2): [5]}
+        target_rest = SLegSet(subtraction_leg_set[0:3])
+        self.assertDictEqual(target_legs_by_pdg, legs_by_pdg)
+        self.assertDictEqual(target_pdg_counts, pdg_counts)
+        self.assertEqual(target_rest, rest)
+
+    def test_map_leg_numbers(self):
+        """Test the method map_leg_numbers."""
+
+        # Basic test
+        set_1a = SLegSet([SLeg(2, 21, FINAL), SLeg(6, -1, FINAL), SLeg(7, +2, FINAL), ])
+        set_1b = SLegSet([SLeg(1, 21, FINAL), SLeg(5, -1, FINAL), SLeg(6, +2, FINAL), ])
+        map_1b = set_1a.map_leg_numbers(set_1b)
+        target_map_1 = {2: 1, 6: 5, 7: 6}
+        self.assertDictEqual(target_map_1, map_1b)
+        set_1c = SLegSet([SLeg(1, 21, FINAL), SLeg(5, -1, FINAL), ])
+        map_1c = set_1a.map_leg_numbers(set_1c)
+        self.assertIsNone(map_1c)
+        set_1d = SLegSet([SLeg(1, 21, FINAL), SLeg(5, -1, FINAL), SLeg(6, -2, FINAL), ])
+        map_1d = set_1a.map_leg_numbers(set_1d)
+        self.assertIsNone(map_1d)
+        map_1d = set_1a.map_leg_numbers(set_1d, [[2, ], ])
+        self.assertDictEqual(target_map_1, map_1d)
+        set_1e = SLegSet([SLeg(1, 21, FINAL), SLeg(5, -1, FINAL), SLeg(6, +3, FINAL), ])
+        map_1e = set_1a.map_leg_numbers(set_1e)
+        self.assertIsNone(map_1e)
+        map_1e = set_1a.map_leg_numbers(set_1e, [[2, 3, ], ])
+        self.assertDictEqual(target_map_1, map_1e)
+        map_1e = set_1a.map_leg_numbers(set_1e, [[1, 2, 3, ], ])
+        self.assertDictEqual(target_map_1, map_1e)
+
+        # Example test: d dx u
+        set_2a = SLegSet([SLeg(2, +1, FINAL), SLeg(6, -1, FINAL), SLeg(7, +2, FINAL), ])
+        set_2b = SLegSet([SLeg(2, +4, FINAL), SLeg(6, -2, FINAL), SLeg(7, +2, FINAL), ])
+        map_2b = set_2a.map_leg_numbers(set_2b, [range(1, 6), ])
+        target_maps_2 = [
+            {2: 7, 6: 6, 7: 2},
+            {2: 7, 6: 2, 7: 6},
+        ]
+        self.assertTrue(map_2b in target_maps_2)
+        set_2c = SLegSet(set_2b + (SLeg(8, +2, FINAL), ))
+        map_2c = set_2a.map_leg_numbers(set_2c, [range(1, 6), ])
+        self.assertIsNone(map_2c)
+
+        # Example test: d dx s sx
+        set_3a = SLegSet([
+            SLeg(12, +1, FINAL), SLeg(11, -1, FINAL),
+            SLeg(17, -3, FINAL), SLeg(19, +3, FINAL),
+        ])
+        set_3b = SLegSet([
+            SLeg(21, +4, FINAL), SLeg(24, +3, FINAL),
+            SLeg(22, -4, FINAL), SLeg(23, -3, FINAL),
+        ])
+        map_3b = set_3a.map_leg_numbers(set_3b, [range(1, 6), ])
+        target_maps_3 = [
+            {12: 21, 11: 22, 17: 24, 19: 23},
+            {12: 21, 11: 22, 17: 23, 19: 24},
+            {12: 22, 11: 21, 17: 24, 19: 23},
+            {12: 22, 11: 21, 17: 23, 19: 24},
+            {12: 23, 11: 24, 17: 21, 19: 22},
+            {12: 23, 11: 24, 17: 22, 19: 21},
+            {12: 24, 11: 23, 17: 21, 19: 22},
+            {12: 24, 11: 23, 17: 22, 19: 21},
+        ]
+        self.assertTrue(map_3b in target_maps_3)
+        set_3c = SLegSet([
+            SLeg(21, +4, FINAL), SLeg(24, +4, FINAL),
+            SLeg(22, -4, FINAL), SLeg(23, -4, FINAL),
+        ])
+        map_3c = set_3a.map_leg_numbers(set_3c, [range(1, 6), ])
+        self.assertIsNone(map_3c)
+        set_3d = SLegSet([SLeg(21, +4, FINAL), SLeg(24, +3, FINAL), ])
+        map_3d = set_3a.map_leg_numbers(set_3d, [range(1, 6), ])
+        self.assertIsNone(map_3d)
+
+        # Example test: INITIAL d FINAL d
+        set_4a = SLegSet([SLeg(1, +1, INITIAL), SLeg(2, +1, FINAL), ])
+        set_4b = SLegSet([SLeg(4, +4, INITIAL), SLeg(1, +4, FINAL), ])
+        map_4b = set_4a.map_leg_numbers(set_4b, [range(1, 6), ])
+        target_map_4 = {1: 4, 2: 1}
+        self.assertDictEqual(map_4b, target_map_4)
+        set_4c = SLegSet([SLeg(4, +4, FINAL), SLeg(1, +4, FINAL), ])
+        map_4c = set_4a.map_leg_numbers(set_4c, [range(1, 6), ])
+        self.assertIsNone(map_4c)
 
 #=========================================================================================
 # Test SingularStructure
@@ -305,7 +422,118 @@ class SingularStructureTest(unittest.TestCase):
         ss7_reco = sub.SingularStructure.from_string(string7, myprocess)
         self.assertIsNone(ss7_reco)
 
+    def test_map_leg_number(self):
+        """Test matching of singular structures."""
 
+        mylegs = SLegSet([
+            SLeg(0,  1, INITIAL),
+            SLeg(1, -1, INITIAL),
+            SLeg(2,  2, FINAL),
+            SLeg(3, -2, FINAL),
+            SLeg(4, 21, FINAL),
+            SLeg(5, 21, FINAL),
+            SLeg(6,  2, FINAL),
+            SLeg(7,  3, FINAL),
+            SLeg(8, -3, FINAL),
+            SLeg(9,  1, FINAL),
+        ])
+
+        # Match C(d1,g2)
+        ss1 = sub.CollStructure(legs=[SLeg(1, 1, FINAL), SLeg(2, 21, FINAL)])
+        ss1a = sub.CollStructure(legs=[mylegs[2], mylegs[5]])
+        map1a = ss1.map_leg_numbers(ss1a, equivalent_pdg_sets=[range(1,6)])
+        self.assertDictEqual({1: 2, 2: 5}, map1a)
+        ss1b = sub.SoftStructure(legs=[mylegs[2], mylegs[5]])
+        map1b = ss1.map_leg_numbers(ss1b, equivalent_pdg_sets=[range(1,6)])
+        self.assertIsNone(map1b)
+        ss1c = sub.CollStructure(legs=[mylegs[4], mylegs[3]])
+        map1c = ss1.map_leg_numbers(ss1c, equivalent_pdg_sets=[range(1,6)])
+        self.assertDictEqual({1: 3, 2: 4}, map1c)
+        ss1d = sub.SoftStructure(legs=[mylegs[4], mylegs[5]])
+        map1d = ss1.map_leg_numbers(ss1d, equivalent_pdg_sets=[range(1,6)])
+        self.assertIsNone(map1d)
+
+        # Match S(C(u1, u~2))
+        ss2 = sub.SoftStructure(substructures=[
+            sub.CollStructure(legs=[SLeg(1, +1, FINAL), SLeg(2, -1, FINAL)])
+        ])
+        ss2a = sub.SoftStructure(substructures=[
+            sub.CollStructure(legs=[mylegs[3], mylegs[6]])
+        ])
+        map2a = ss2.map_leg_numbers(ss2a, equivalent_pdg_sets=[range(1,6)])
+        maps2a = [{1: 3, 2: 6}, {1: 6, 2: 3}]
+        self.assertTrue(map2a in maps2a)
+        ss2b = sub.SoftStructure(
+            substructures=[sub.CollStructure(legs=[mylegs[3], mylegs[6]])],
+            legs=[mylegs[4]]
+        )
+        map2b = ss2.map_leg_numbers(ss2b, equivalent_pdg_sets=[range(1,6)])
+        self.assertIsNone(map2b)
+        ss2c = sub.CollStructure(substructures=[
+            sub.CollStructure(legs=[mylegs[3], mylegs[6]])
+        ])
+        map2c = ss2.map_leg_numbers(ss2c, equivalent_pdg_sets=[range(1,6)])
+        self.assertIsNone(map2c)
+        ss2d = sub.SoftStructure(substructures=[
+            sub.CollStructure(legs=[mylegs[7], mylegs[8]])
+        ])
+        map2d = ss2.map_leg_numbers(ss2d, equivalent_pdg_sets=[range(1,6)])
+        maps2d = [{1: 7, 2: 8}, {1: 8, 2: 7}]
+        self.assertTrue(map2d in maps2d)
+        ss2e = sub.SoftStructure(substructures=[
+            sub.CollStructure(legs=[mylegs[2], mylegs[6]])
+        ])
+        map2e = ss2.map_leg_numbers(ss2e, equivalent_pdg_sets=[range(1,6)])
+        self.assertIsNone(map2e)
+
+        # Match (C(u1, u~2, g3), C(d4, d~5))
+        ss3 = sub.SingularStructure(substructures=[
+            sub.CollStructure(legs=[SLeg(1, +1, FINAL), SLeg(2, -1, FINAL), SLeg(3, 21, FINAL)]),
+            sub.CollStructure(legs=[SLeg(4, +2, FINAL), SLeg(5, -2, FINAL)]),
+        ])
+        ss3a = sub.SingularStructure(substructures=[
+            sub.CollStructure(legs=[mylegs[8], mylegs[7]]),
+            sub.CollStructure(legs=[mylegs[4], mylegs[3], mylegs[6]]),
+        ])
+        map3a = ss3.map_leg_numbers(ss3a, equivalent_pdg_sets=[range(1,6)])
+        maps3a = [
+            {1: 3, 2: 6, 3: 4, 4: 7, 5: 8},
+            {1: 3, 2: 6, 3: 4, 4: 8, 5: 7},
+            {1: 6, 2: 3, 3: 4, 4: 7, 5: 8},
+            {1: 6, 2: 3, 3: 4, 4: 8, 5: 7},
+        ]
+        self.assertTrue(map3a in maps3a)
+        ss3b = sub.SingularStructure(substructures=[
+            sub.CollStructure(legs=[mylegs[8], mylegs[5], mylegs[7]]),
+            sub.CollStructure(legs=[mylegs[2], mylegs[3]]),
+        ])
+        map3b = ss3.map_leg_numbers(ss3b, equivalent_pdg_sets=[range(1,6)])
+        maps3b = [
+            {1: 7, 2: 8, 3: 5, 4: 2, 5: 3},
+            {1: 7, 2: 8, 3: 5, 4: 3, 5: 2},
+            {1: 8, 2: 7, 3: 5, 4: 2, 5: 3},
+            {1: 8, 2: 7, 3: 5, 4: 3, 5: 2},
+        ]
+        self.assertTrue(map3b in maps3b)
+        ss3c = sub.SingularStructure(substructures=[
+            sub.CollStructure(legs=[mylegs[8], mylegs[5], mylegs[7]]),
+            sub.SoftStructure(legs=[mylegs[2], mylegs[3]]),
+        ])
+        map3c = ss3.map_leg_numbers(ss3c, equivalent_pdg_sets=[range(1,6)])
+        self.assertIsNone(map3c)
+        ss3d = sub.SingularStructure(substructures=[
+            sub.CollStructure(legs=[mylegs[8], mylegs[5], mylegs[7]]),
+            sub.CollStructure(legs=[mylegs[2], mylegs[4], mylegs[3]]),
+        ])
+        map3d = ss3.map_leg_numbers(ss3d, equivalent_pdg_sets=[range(1,6)])
+        self.assertIsNone(map3d)
+        ss3e = sub.SingularStructure(substructures=[
+            sub.CollStructure(legs=[mylegs[8], mylegs[5], mylegs[7]]),
+            sub.CollStructure(legs=[mylegs[2], mylegs[3]]),
+            sub.CollStructure(legs=[mylegs[4], mylegs[6]]),
+        ])
+        map3e = ss3.map_leg_numbers(ss3e, equivalent_pdg_sets=[range(1,6)])
+        self.assertIsNone(map3e)
 
 #=========================================================================================
 # Test Counterterm (and CountertermNode)

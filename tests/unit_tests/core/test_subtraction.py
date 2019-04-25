@@ -26,14 +26,17 @@ import tests.unit_tests as unittest
 import tests.input_files.simple_qcd as simple_qcd
 
 #=========================================================================================
-# Shorthands for initial and final state
+# Shorthands for this test file
 #=========================================================================================
+
+SLeg = sub.SubtractionLeg
+SLegSet = sub.SubtractionLegSet
 
 INITIAL = base_objects.Leg.INITIAL
 FINAL   = base_objects.Leg.FINAL
 
-assert sub.SubtractionLeg.INITIAL == INITIAL
-assert sub.SubtractionLeg.FINAL   == FINAL
+assert SLeg.INITIAL == INITIAL
+assert SLeg.FINAL   == FINAL
 
 #=========================================================================================
 # Test ordered tuples
@@ -133,9 +136,6 @@ class SubsetTest(unittest.TestCase):
 #=========================================================================================
 # Test SubtractionLegSet
 #=========================================================================================
-
-SLeg = sub.SubtractionLeg
-SLegSet = sub.SubtractionLegSet
 
 class SubtractionLegSetTest(unittest.TestCase):
     """Test class for SubtractionLegSet."""
@@ -258,10 +258,7 @@ class SingularStructureTest(unittest.TestCase):
     def test_singular_structure_init(self):
         """Test initialization of SingularStructure."""
 
-        subtraction_leg_set = sub.SubtractionLegSet((
-            sub.SubtractionLeg(1,  1, INITIAL),
-            sub.SubtractionLeg(3, 25, FINAL)
-        ))
+        subtraction_leg_set = SLegSet((SLeg(1,  1, INITIAL), SLeg(3, 25, FINAL), ))
         self.assertEqual(
             sub.SingularStructure(legs=subtraction_leg_set),
             sub.SingularStructure(*subtraction_leg_set)
@@ -311,28 +308,18 @@ class SingularStructureTest(unittest.TestCase):
         """Test decomposition of singular structures."""
 
         a_structure = sub.SingularStructure(sub.CollStructure(
-            sub.CollStructure(
-                sub.SubtractionLeg(1,  1, INITIAL),
-                sub.SubtractionLeg(4, 21, FINAL)
-            ),
-            sub.SoftStructure(
-                sub.SubtractionLeg(14,  2, FINAL),
-                sub.SubtractionLeg(11, -2, FINAL),
-            ),
-            sub.SubtractionLeg(5, 21, FINAL)
+            sub.CollStructure( SLeg(1,  1, INITIAL), SLeg(4,  21, FINAL), ),
+            sub.SoftStructure( SLeg(14, 2, FINAL),   SLeg(11, -2, FINAL), ),
+            SLeg(5, 21, FINAL)
         ))
-        sub_1 = sub.CollStructure(
-            sub.SubtractionLeg(1,  1, INITIAL),
-            sub.SubtractionLeg(4, 21, FINAL) )
-        sub_2 = sub.SoftStructure(
-            sub.SubtractionLeg(14, 2, FINAL),
-            sub.SubtractionLeg(11, -2, FINAL) )
+        sub_1 = sub.CollStructure(SLeg(1,  1, INITIAL), SLeg(4, 21, FINAL), )
+        sub_2 = sub.SoftStructure(SLeg(14, 2, FINAL),   SLeg(11, -2, FINAL), )
         sub_3 = sub.CollStructure(
-            sub.SubtractionLeg(1,   1, INITIAL),
-            sub.SubtractionLeg(4,  21, FINAL),
-            sub.SubtractionLeg(5,  21, FINAL),
-            sub.SubtractionLeg(14,  2, FINAL),
-            sub.SubtractionLeg(11, -2, FINAL) )
+            SLeg(1,   1, INITIAL),
+            SLeg(4,  21, FINAL),
+            SLeg(5,  21, FINAL),
+            SLeg(14,  2, FINAL),
+            SLeg(11, -2, FINAL) )
         dec = a_structure.decompose()
         ben = [sub_1, sub_2, sub_3]
         self.assertEqual(dec, ben)
@@ -590,8 +577,8 @@ class CountertermTest(unittest.TestCase):
         # Momentum dictionary: particles from 1 to 3
         md = sub.bidict({i: frozenset((i, )) for i in range(1, 5)})
         # SingularStructures:  S(4), S(5)
-        s4 = sub.SoftStructure(sub.SubtractionLeg(4, 21, FINAL))
-        s5 = sub.SoftStructure(sub.SubtractionLeg(5, 21, FINAL))
+        s4 = sub.SoftStructure(SLeg(4, 21, FINAL))
+        s5 = sub.SoftStructure(SLeg(5, 21, FINAL))
         # Reduced process: 1 > 2 3 (H > d d~)
         ll = base_objects.LegList([
             base_objects.Leg({'number': 1, 'id': 25, 'state': INITIAL}),
@@ -655,12 +642,8 @@ class CountertermTest(unittest.TestCase):
         md[6]  = frozenset((3, 4, ))
         md[7]  = frozenset((5, 6, ))
         # SingularStructures:  C(3, 4), C(5, 6)
-        c34 = sub.CollStructure(
-            sub.SubtractionLeg(3, -1, FINAL),
-            sub.SubtractionLeg(4, 21, FINAL) )
-        c56 = sub.CollStructure(
-            sub.SubtractionLeg(5, 21, FINAL),
-            sub.SubtractionLeg(6, -1, FINAL) )
+        c34 = sub.CollStructure(SLeg(3, -1, FINAL), SLeg(4, 21, FINAL), )
+        c56 = sub.CollStructure(SLeg(5, 21, FINAL), SLeg(6, -1, FINAL), )
         # Reduced process: 1 > 2 10 (H > d d~)
         ll = base_objects.LegList([
             base_objects.Leg({'number': 1, 'id': 25, 'state': INITIAL}),
@@ -728,20 +711,14 @@ class CountertermTest(unittest.TestCase):
         md[9]  = frozenset((6, 8, ))
         md[10] = frozenset((7, 9, ))
         # SingularStructures:  S(3), C(4, 5), C(6, 8), C(7, 9),
-        s3  = sub.SoftStructure(sub.SubtractionLeg(3, 21, FINAL))
-        c45 = sub.CollStructure(
-            sub.SubtractionLeg(5, 21, FINAL),
-            sub.SubtractionLeg(4, -1, FINAL) )
-        c68 = sub.CollStructure(
-            sub.SubtractionLeg(6, 21, FINAL),
-            sub.SubtractionLeg(8, -1, FINAL) )
-        c79 = sub.CollStructure(
-            sub.SubtractionLeg(7, 21, FINAL),
-            sub.SubtractionLeg(9, -1, FINAL) )
+        s3  = sub.SoftStructure(SLeg(3, 21, FINAL))
+        c45 = sub.CollStructure(SLeg(5, 21, FINAL), SLeg(4, -1, FINAL), )
+        c68 = sub.CollStructure(SLeg(6, 21, FINAL), SLeg(8, -1, FINAL), )
+        c79 = sub.CollStructure(SLeg(7, 21, FINAL), SLeg(9, -1, FINAL), )
         # Reduced process: 1 > 2 10 (H > d d~)
         ll = base_objects.LegList([
-            base_objects.Leg({'number': 1, 'id': 25, 'state': INITIAL}),
-            base_objects.Leg({'number': 2, 'id':  1, 'state': FINAL}),
+            base_objects.Leg({'number': 1,  'id': 25, 'state': INITIAL}),
+            base_objects.Leg({'number': 2,  'id':  1, 'state': FINAL}),
             base_objects.Leg({'number': 10, 'id': -1, 'state': FINAL}), ])
         rp = sub.Current({
             'legs': ll, 'model': simple_qcd.model})
@@ -867,29 +844,29 @@ class IRSubstractionTest(unittest.TestCase):
     def test_parent_PDGs(self):
         """Test determination of parent PDGs."""
 
-        children1 = sub.SubtractionLegSet((
-            sub.SubtractionLeg(1,  1, FINAL),
-            sub.SubtractionLeg(2, 21, FINAL),
-            sub.SubtractionLeg(3, -1, FINAL),
-            sub.SubtractionLeg(4, -2, FINAL),
-            sub.SubtractionLeg(5,  1, FINAL),
-            sub.SubtractionLeg(8, -1, FINAL),
-            sub.SubtractionLeg(9,  2, FINAL),
+        children1 = SLegSet((
+            SLeg(1,  1, FINAL),
+            SLeg(2, 21, FINAL),
+            SLeg(3, -1, FINAL),
+            SLeg(4, -2, FINAL),
+            SLeg(5,  1, FINAL),
+            SLeg(8, -1, FINAL),
+            SLeg(9,  2, FINAL),
         ))
         self.assertEqual(self.subtraction.parent_PDGs_from_legs(children1), [21])
 
-        children2 = sub.SubtractionLegSet((
-            sub.SubtractionLeg(1,  1, INITIAL),
-            sub.SubtractionLeg(2, 21, FINAL),
-            sub.SubtractionLeg(3,  1, FINAL),
-            sub.SubtractionLeg(4, -2, FINAL),
+        children2 = SLegSet((
+            SLeg(1,  1, INITIAL),
+            SLeg(2, 21, FINAL),
+            SLeg(3,  1, FINAL),
+            SLeg(4, -2, FINAL),
         ))
         self.assertEqual(self.subtraction.parent_PDGs_from_legs(children2), [2])
 
-        children3 = sub.SubtractionLegSet((
-            sub.SubtractionLeg(1,  1, INITIAL),
-            sub.SubtractionLeg(2, 21, FINAL),
-            sub.SubtractionLeg(3, -1, FINAL),
+        children3 = SLegSet((
+            SLeg(1,  1, INITIAL),
+            SLeg(2, 21, FINAL),
+            SLeg(3, -1, FINAL),
         ))
         self.assertEqual(self.subtraction.parent_PDGs_from_legs(children3), [])
 

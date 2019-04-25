@@ -2169,10 +2169,11 @@ class ME7Integrand_V(ME7Integrand):
             # are tokens that will apply to all possible flavor configuration in this contribution
             # This should however be irrelevant for the evaluation of the counterterm.
             current_evaluation, all_results = self.all_MEAccessors(
-                integrated_current, lower_PS_point=reduced_PS,
-                higher_PS_point=None,
+                integrated_current,
+                lower_PS_point  = reduced_PS,
+                higher_PS_point = None,
                 reduced_process = counterterm.process,
-                leg_numbers_map = counterterm.momenta_dict,
+                momenta_dict    = counterterm.momenta_dict,
                 hel_config      = hel_config,
                 compute_poles   = compute_poles,
                 Q               = Q )
@@ -2991,7 +2992,7 @@ class ME7Integrand_R(ME7Integrand):
                     raise MadEvent7Error("MadNkLO cannot combine several subtraction currents that each return mapped kinematics.")
 
                 new_necessary_ME_calls = []
-                for ((spin_index, color_index), current_wgt) in current_evaluation['values'].items():
+                for ((spin_index, color_index), current_wgt) in current_evaluation.items():
                     # Now combine the correlators necessary for this current
                     # with those already specified in 'all_necessary_ME_calls'
                     for ME_call in necessary_ME_calls:
@@ -3167,11 +3168,13 @@ class ME7Integrand_R(ME7Integrand):
         # *one* regular (i.e. non-beam) "mapping currents" in the counterterm.
         # Notice that exactly *one* of such currents must return a specific reduced kinematics
         # as it does not make sense to be combine several together
-        mapping_currents = [ c for c in counterterm.get_all_currents() if
-                                        type(integrated_current) not in (BeamCurrent, IntegratedBeamCurrent) ]
+        mapping_currents = [
+            c for c in counterterm.get_all_currents()
+            if type(c) not in (subtraction.BeamCurrent, subtraction.IntegratedBeamCurrent) ]
 
         # Set the variable 'Q' as the total initial-state momentum before any mapping
-        current_call_variables = {'Q': Q}
+        # WARNING Bad name
+        current_call_variables = {'Q': total_momentum}
         # Now evaluate the mapping currents identified
         for current in mapping_currents:
 
@@ -3179,7 +3182,7 @@ class ME7Integrand_R(ME7Integrand):
             current_evaluation, all_current_results = self.all_MEAccessors(
                 current,
                 higher_PS_point=PS_point,
-                leg_numbers_map=counterterm.momenta_dict,
+                momenta_dict=counterterm.momenta_dict,
                 reduced_process=ME_process, hel_config=None,
                 **current_call_variables )
 
@@ -3281,16 +3284,17 @@ class ME7Integrand_R(ME7Integrand):
                 all_reduced_flavored_with_initial_states_subsituted.append(
                                         (all_resolved_flavors[i_config][0],reduced_flavors[1]))
 
-            all_events.append(ME7Integrand_R.generate_event_for_counterterm(
-                ME7Event(
-                    event_PS,
-                    {fc: this_cut_weight*base_weight
-                     for fc in all_reduced_flavored_with_initial_states_subsituted},
-                    requires_mirroring              = is_process_mirrored,
-                    host_contribution_definition    = self.contribution_definition,
-                    counterterm_structure           = (counterterm, all_resolved_flavors,reduced_kinematics_identifier),
-                    Bjorken_xs                      = (xb_1, xb_2)
-                ),
+            template_event = ME7Event(
+                event_PS,
+                {fc: this_cut_weight*base_weight
+                 for fc in all_reduced_flavored_with_initial_states_subsituted},
+                requires_mirroring              = is_process_mirrored,
+                host_contribution_definition    = self.contribution_definition,
+                counterterm_structure           = (counterterm, all_resolved_flavors,reduced_kinematics_identifier),
+                Bjorken_xs                      = (xb_1, xb_2)
+            )
+            CT_event = ME7Integrand_R.generate_event_for_counterterm(
+                template_event,
                 disconnected_currents_weight,
                 counterterm.prefactor,
                 necessary_ME_calls,
@@ -3298,7 +3302,9 @@ class ME7Integrand_R(ME7Integrand):
                 ME_PS,
                 alpha_s, mu_r,
                 self.all_MEAccessors
-            ))
+            )
+            if CT_event is not None:
+                all_events.append(CT_event)
 
         return all_events
 
@@ -3415,7 +3421,7 @@ The missing process is: %s"""%ME_process.nice_string())
             #if not (singular_structure.name() == 'S' or len(singular_structure.substructures) == 1):
             #    continue
             #    #misc.sprint("CT candidate: "+str(counterterm))
-            CT_event = self.evaluate_counterterm(
+            CT_events = self.evaluate_counterterm(
                 counterterm, PS_point, base_weight, mu_r, mu_f1, mu_f2,
                 xb_1, xb_2, xi1, xi2,
                 process.get('has_mirror_process'), all_flavor_configurations,
@@ -3423,8 +3429,8 @@ The missing process is: %s"""%ME_process.nice_string())
             
             # The function above returns None if the counterterms is removed because of
             # flavour_blind_cuts.
-            if CT_event is not None:
-                all_events_generated.append(CT_event)
+            if CT_events is not None:
+                all_events_generated.extend(CT_events)
 
         # Notice that it may be possible in some subtraction scheme to combine
         # several events having the same kinematics support. This is a further

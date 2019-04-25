@@ -146,12 +146,12 @@ class SubtractionCurrentEvaluation(dict):
         return self.nice_string()
 
     @classmethod
-    def zero(cls):
+    def zero(cls, spin_correlations=None, color_correlations=None, reduced_kinematics=None):
 
         return SubtractionCurrentEvaluation({
-            'spin_correlations'   : [ None ],
-            'color_correlations'  : [ None ],
-            'reduced_kinematics'  : [ None ],
+            'spin_correlations'   : [ spin_correlations ],
+            'color_correlations'  : [ color_correlations ],
+            'reduced_kinematics'  : [ reduced_kinematics ],
             'values'              : {(0,0,0): { 'finite' : 0.0 }}
         })
 
@@ -275,7 +275,8 @@ class SubtractionCurrentResult(dict):
         self[tuple(sorted(opts.items()))] = value
 
     @staticmethod
-    def zero(squared_orders=None, current=None, hel_config=None):
+    def zero(squared_orders=None, current=None, hel_config=None,
+             **opts):
         """Return a 'zero' result."""
 
         if squared_orders is None and current is not None:
@@ -284,7 +285,7 @@ class SubtractionCurrentResult(dict):
             sqo = squared_orders
         subtraction_current_result = SubtractionCurrentResult()
         subtraction_current_result.add_result(
-            SubtractionCurrentEvaluation.zero(),
+            SubtractionCurrentEvaluation.zero(**opts),
             hel_config=hel_config, squared_orders=sqo)
         return subtraction_current_result
 

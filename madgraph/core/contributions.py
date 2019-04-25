@@ -1436,7 +1436,6 @@ The resulting output must therefore be used for debugging only as it will not yi
                                           get_copy(('squared_orders','singular_structure'))
                 # The two initial states are always distinguishable, so we should not 
                 # group them into a single topology
-                copied_current.discard_leg_numbers(discard_initial_leg_numbers=False)
                 integrated_current_topology = copied_current.get_key().get_canonical_key()
                 try:
                     integrated_current_topologies[integrated_current_topology].append(
@@ -1706,7 +1705,6 @@ The resulting output must therefore be used for debugging only as it will not yi
                 # We must remove the leg information since this is information is irrelevant
                 # for the selection of the hard-coded current implementation to consider.
                 copied_current = current.get_copy(('squared_orders','singular_structure'))
-                copied_current.discard_leg_numbers(discard_initial_leg_numbers=False)
                 if copied_current not in all_currents:
                     all_currents.append(copied_current)
 
@@ -1866,7 +1864,6 @@ class Contribution_V(Contribution):
             # We must remove the leg information since this is information is irrelevant
             # for the selection of the hard-coded current implementation to consider.
             copied_current = integrated_current.get_copy(('squared_orders','singular_structure'))
-            copied_current.discard_leg_numbers(discard_initial_leg_numbers=False)
             if copied_current not in all_currents:
                 all_currents.append(copied_current)
 

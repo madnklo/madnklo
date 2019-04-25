@@ -24,7 +24,7 @@ from madgraph.core.base_objects import EpsilonExpansion
 # Useful constants
 #=========================================================================================
 class Constants(object):
-    """ Constants used throughout the implementation of the counterterms."""
+    """Constants used throughout the implementation of the counterterms."""
     
     # Epsilon expansion constants
     EulerGamma = 0.57721566490153286061
@@ -47,8 +47,7 @@ class Constants(object):
 class SubtractionCurrentEvaluation(dict):
     """Container class for the output of the evaluation of a current."""
 
-    # All residues of the poles for the epsilon expansion can be specified with a
-    # key names 'eps^n'.
+    # All epsilon expansion poles can be specified with key names 'eps^n'.
     
     # values will list the weight from this current for each particular pairing
     # of the spin_correlations and color_correlations

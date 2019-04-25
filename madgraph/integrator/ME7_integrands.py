@@ -3132,8 +3132,6 @@ class ME7Integrand_R(ME7Integrand):
 #                          PS_point, counterterm, compute_jacobian=self.divide_by_jacobian )
 
         # Compute the total momentum of this PS point, before any mapping is applied.
-        # TODO change in sum(PS_point.to_list()[:self.n_initial])
-        # @Simone why? is that any different?
         total_momentum = sum(p for i, p in enumerate(PS_point.to_list())
                              if i < self.n_initial)
 

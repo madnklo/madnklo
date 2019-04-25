@@ -54,6 +54,10 @@ def alpha_jacobian(**opts):
     qC = opts['qC']
     return Q.dot(qC)/Q.dot(pC)
 
+#=========================================================================================
+# Current variables
+#=========================================================================================
+
 def n_final_coll_variables(PS_point, parent_momentum, children, **opts):
 
     na, nb = mappings.FinalCollinearVariables.collinear_and_reference(parent_momentum)
@@ -617,74 +621,3 @@ class QCDLocalSoftCollinearCurrent(QCDCurrent):
                 return None
         # All checks passed
         return init_vars
-
-#=========================================================================================
-# Original Somogyi choices
-#=========================================================================================
-
-class SomogyiChoices(object):
-    """Original Somogyi choices."""
-
-    alpha_0     = 0.5
-    y_0         = 0.5
-    y_0_prime   = 0.5
-    d_0         = 1
-    d_0_prime   = 2
-
-    @staticmethod
-    def cut_coll(**opts):
-
-        try:
-            alpha = opts['alpha']
-        except KeyError:
-            pC    = opts['pC']
-            Q     = opts['Q']
-            alpha = mappings.FinalRescalingOneMapping.alpha(pC, Q)
-        # Include the counterterm only up to alpha_0
-        return alpha > SomogyiChoices.alpha_0
-
-    @staticmethod
-    def cut_initial_coll(**opts):
-
-        pA    = opts['pA']
-        pR    = opts['pR']
-        Q     = opts['Q']
-        y_0p  = (2.*pA.dot(pR))/Q.square()
-        # Include the counterterm only up to y_0_prime
-        return y_0p > SomogyiChoices.y_0_prime
-
-    @staticmethod
-    def cut_soft(**opts):
-
-        try:
-            y  = opts['y']
-        except KeyError:
-            pS = opts['pS']
-            Q  = opts['Q']
-            y = mappings.SoftVsFinalPureRescalingMapping.y(pS, Q)
-        # Include the counterterm only up to y_0
-        return y > SomogyiChoices.y_0
-
-    @staticmethod
-    def factor_coll(**opts):
-
-        try:
-            alpha = opts['alpha']
-        except KeyError:
-            pC    = opts['pC']
-            Q     = opts['Q']
-            alpha = mappings.FinalRescalingOneMapping.alpha(pC, Q)
-        norm = (1 - alpha) ** (2 * (SomogyiChoices.d_0 - 1))
-        return norm
-
-    @staticmethod
-    def factor_soft(**opts):
-
-        try:
-            y  = opts['y']
-        except KeyError:
-            pS = opts['pS']
-            Q  = opts['Q']
-            y = mappings.SoftVsFinalPureRescalingMapping.y(pS, Q)
-        norm = (1 - y) ** (SomogyiChoices.d_0_prime - 2)
-        return norm

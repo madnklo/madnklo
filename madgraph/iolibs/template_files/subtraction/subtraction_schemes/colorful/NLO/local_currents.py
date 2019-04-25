@@ -21,6 +21,7 @@ import madgraph.integrator.vectors as vectors
 
 import commons.utils as utils
 import commons.QCD_local_currents as currents
+import commons.factors_and_cuts as factors_and_cuts
 
 import madgraph.various.misc as misc
 
@@ -35,8 +36,8 @@ CurrentImplementationError = utils.CurrentImplementationError
 class QCD_soft_0_g(currents.QCDLocalSoftCurrent):
     """Soft gluon eikonal current at tree level, eq.4.12-4.13 of arXiv:0903.1218."""
 
-    is_cut = staticmethod(currents.SomogyiChoices.cut_soft)
-    factor = staticmethod(currents.SomogyiChoices.factor_soft)
+    factor = staticmethod(factors_and_cuts.factor_soft)
+    is_cut = staticmethod(factors_and_cuts.cut_soft)
 
     @classmethod
     def does_implement_this_current(cls, current, model):
@@ -153,10 +154,9 @@ class QCD_soft_0_g(currents.QCDLocalSoftCurrent):
 
 class QCD_final_softcollinear_0_gX(currents.QCDLocalSoftCollinearCurrent):
     """NLO tree-level (final) soft-collinear currents."""
+    factor = staticmethod(factors_and_cuts.factor_soft)
+    is_cut = staticmethod(factors_and_cuts.cut_soft)
 
-    is_cut = staticmethod(currents.SomogyiChoices.cut_soft)
-    variables = staticmethod(currents.Q_final_coll_variables)
-    factor = staticmethod(currents.SomogyiChoices.factor_soft)
 
     def __init__(self, *args, **opts):
 

@@ -14,15 +14,13 @@
 ##########################################################################################
 """Implementation of NLO colorful_pp local currents."""
 
-import os
 import math
-import madgraph.various.misc as misc
 
 import commons.utils as utils
 import commons.QCD_local_currents as currents
-
-pjoin = os.path.join
 import commons.factors_and_cuts as factors_and_cuts
+
+import madgraph.various.misc as misc
 
 CurrentImplementationError = utils.CurrentImplementationError
 

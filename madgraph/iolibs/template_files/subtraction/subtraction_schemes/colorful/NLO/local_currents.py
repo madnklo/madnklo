@@ -14,18 +14,14 @@
 ##########################################################################################
 """Implementation of NLO colorful currents."""
 
-import os
 import math
 
-import madgraph.integrator.vectors as vectors
 
 import commons.utils as utils
 import commons.QCD_local_currents as currents
 import commons.factors_and_cuts as factors_and_cuts
 
 import madgraph.various.misc as misc
-
-pjoin = os.path.join
 
 CurrentImplementationError = utils.CurrentImplementationError
 
@@ -278,5 +274,3 @@ class QCD_final_softcollinear_0_gX(currents.QCDLocalSoftCollinearCurrent):
             hel_config=hel_config,
             squared_orders=tuple(sorted(current.get('squared_orders').items())))
         return result
-
-

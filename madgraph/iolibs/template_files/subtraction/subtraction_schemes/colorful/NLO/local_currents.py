@@ -27,6 +27,10 @@ import madgraph.various.misc as misc
 
 CurrentImplementationError = utils.CurrentImplementationError
 
+#=========================================================================================
+# Choice of recoilers
+#=========================================================================================
+
 def get_recoilers(reduced_process, excluded=()):
 
     model = reduced_process.get('model')
@@ -38,7 +42,20 @@ def get_recoilers(reduced_process, excluded=()):
         ])
     ])
 
-variables = staticmethod(currents.Q_final_coll_variables)
+#=========================================================================================
+# Variables, mappings, jacobians, factors and cuts
+#=========================================================================================
+
+variables = currents.Q_final_coll_variables
+coll_mapping = mappings.FinalRescalingOneMapping
+soft_mapping = mappings.SoftVsFinalPureRescalingMapping
+soft_coll_mapping = mappings.SoftCollinearVsFinalMapping(
+    soft_mapping=soft_mapping, collinear_mapping=coll_mapping)
+divide_by_jacobian = True
+soft_factor = factors_and_cuts.factor_soft
+soft_is_cut = factors_and_cuts.cut_soft
+coll_factor = factors_and_cuts.factor_coll
+coll_is_cut = factors_and_cuts.cut_coll
 
 #=========================================================================================
 # NLO soft current
@@ -46,15 +63,10 @@ variables = staticmethod(currents.Q_final_coll_variables)
 
 class QCD_soft_0_g(currents.QCDCurrent):
     """Soft gluon eikonal current at tree level, eq.4.12-4.13 of arXiv:0903.1218."""
-    # TODO Ideally set recoilers for mapping_singular_structure
-    # within does_implement_this_current and __init__
 
     structure = sub.SingularStructure(substructures=(
         sub.SoftStructure(legs=[sub.SubtractionLeg(1, 21, sub.SubtractionLeg.FINAL), ]),
     ))
-    mapping = mappings.SoftVsFinalPureRescalingMapping
-    factor = staticmethod(factors_and_cuts.factor_soft)
-    is_cut = staticmethod(factors_and_cuts.cut_soft)
 
     @classmethod
     def does_implement_this_current(cls, current, model):
@@ -122,26 +134,25 @@ class QCD_soft_0_g(currents.QCDCurrent):
         mu_r    = model_param_dict['MU_R']
 
         # Perform mapping
-        if not self.mapping_singular_structure.legs:
-            self.mapping_singular_structure.legs = get_recoilers(reduced_process)
-        lower_PS_point, mapping_vars = self.mapping.map_to_lower_multiplicity(
+        self.mapping_singular_structure.legs = get_recoilers(reduced_process)
+        lower_PS_point, mapping_vars = soft_mapping.map_to_lower_multiplicity(
             higher_PS_point, self.mapping_singular_structure, momenta_dict,
-            compute_jacobian=True )
+            compute_jacobian=divide_by_jacobian )
         Q = mapping_vars['Q']
-        jacobian = mapping_vars['jacobian']
+        jacobian = mapping_vars.get('jacobian', 1)
 
         soft_leg_number = self.leg_numbers_map[1]
         pS = higher_PS_point[soft_leg_number]
 
         # Include the counterterm only in a part of the phase space
-        if self.is_cut(Q=Q, pS=pS):
+        if soft_is_cut(Q=Q, pS=pS):
             return utils.SubtractionCurrentResult.zero(
                 current=current, hel_config=hel_config,
                 reduced_kinematics=(None, lower_PS_point))
 
         # Normalization factors
         norm = -4. * math.pi * alpha_s
-        norm *= self.factor(Q=Q, pS=pS)
+        norm *= soft_factor(Q=Q, pS=pS)
         norm /= jacobian
 
         # Find all colored leg numbers in the reduced process
@@ -191,8 +202,6 @@ class QCD_soft_0_g(currents.QCDCurrent):
 
 class QCD_final_softcollinear_0_gX(currents.QCDLocalSoftCollinearCurrent):
     """NLO tree-level (final) soft-collinear currents."""
-    # TODO Ideally set recoilers for mapping_singular_structure
-    # within does_implement_this_current and __init__
 
     soft_structure = sub.SoftStructure(
         legs=(sub.SubtractionLeg(1, 21, sub.SubtractionLeg.FINAL), ) )
@@ -204,9 +213,6 @@ class QCD_final_softcollinear_0_gX(currents.QCDLocalSoftCollinearCurrent):
         legs=(sub.SubtractionLeg(2, 21, sub.SubtractionLeg.FINAL), ) )
     structure_q = sub.SingularStructure(substructures=(soft_coll_structure_q, ))
     structure_g = sub.SingularStructure(substructures=(soft_coll_structure_g, ))
-    mapping = mappings.SoftVsFinalPureRescalingMapping
-    factor = staticmethod(factors_and_cuts.factor_soft)
-    is_cut = staticmethod(factors_and_cuts.cut_soft)
 
     @classmethod
     def does_implement_this_current(cls, current, model):
@@ -228,10 +234,7 @@ class QCD_final_softcollinear_0_gX(currents.QCDLocalSoftCollinearCurrent):
                 current.get('singular_structure'), [range(1, model.get_nflav()+1)])
             if leg_numbers_map is None:
                 return None
-        mapping_soft_structure = sub.SoftStructure(
-            legs=(sub.SubtractionLeg(leg_numbers_map[1], 21, sub.SubtractionLeg.FINAL),))
-        mapping_singular_structure = sub.SingularStructure(
-            substructures=[mapping_soft_structure, ])
+        mapping_singular_structure = current.get('singular_structure').get_copy()
         return {
             'leg_numbers_map': leg_numbers_map,
             'color_charge': color_charge,
@@ -282,33 +285,32 @@ class QCD_final_softcollinear_0_gX(currents.QCDLocalSoftCollinearCurrent):
         pC = higher_PS_point[soft_leg_number] + higher_PS_point[coll_leg_number]
         pS = higher_PS_point[soft_leg_number]
 
-        # Now instantiate what the result will be
-        evaluation = utils.SubtractionCurrentEvaluation.zero()
-
         # Perform mapping
-        if not self.mapping_singular_structure.legs:
-            self.mapping_singular_structure.legs = get_recoilers(
-                reduced_process, excluded=(parent, ))
-        lower_PS_point, mapping_vars = self.mapping.map_to_lower_multiplicity(
+        self.mapping_singular_structure.legs = get_recoilers(
+            reduced_process, excluded=(parent, ))
+        lower_PS_point, mapping_vars = soft_coll_mapping.map_to_lower_multiplicity(
             higher_PS_point, self.mapping_singular_structure, momenta_dict,
-            compute_jacobian=True )
+            compute_jacobian=divide_by_jacobian )
         Q = mapping_vars['Q']
-        jacobian = mapping_vars['jacobian']
+        jacobian = mapping_vars.get('jacobian', 1)
 
         # Include the counterterm only in a part of the phase space
-        if self.is_cut(Q=Q, pC=pC, pS=pS):
+        if soft_is_cut(Q=Q, pS=pS):
             return utils.SubtractionCurrentResult.zero(
-                current=current, hel_config=hel_config)
+                current=current, hel_config=hel_config,
+                reduced_kinematics=(None, lower_PS_point))
 
         # Evaluate kernel
         zs, kTs = variables(higher_PS_point, lower_PS_point[parent], children, Q=Q)
         z = zs[0]
+        evaluation = utils.SubtractionCurrentEvaluation.zero(
+            reduced_kinematics=(None, lower_PS_point))
         evaluation['values'][(0, 0, 0)]['finite'] = self.color_charge * 2. * (1.-z) / z
 
         # Add the normalization factors
         s12 = pC.square()
         norm = 8. * math.pi * alpha_s / s12
-        norm *= self.factor(Q=Q, pC=pC, pS=pS)
+        norm *= soft_factor(Q=Q, pC=pC, pS=pS)
         norm /= jacobian
         for k in evaluation['values']:
             evaluation['values'][k]['finite'] *= norm

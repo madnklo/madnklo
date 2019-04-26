@@ -19,6 +19,10 @@ import commons.beam_factorization_BS as BS
 import NLO.local_currents as NLO_local_currents
 import NLO.integrated_currents as NLO_integrated_currents
 
+# Imports from the colorful scheme
+import subtraction_schemes.colorful.NLO.local_currents as colorful_NLO_local_currents
+import subtraction_schemes.colorful.NLO.integrated_currents as colorful_NLO_integrated_currents
+
 __authors__ = ["valentin.hirschi@gmail.com", "simone.lionetti@gmail.com", "nicoldeu@phys.ethz.ch"]
 
 # Mandatory variables of each subtraction module
@@ -54,9 +58,9 @@ all_subtraction_current_classes.extend([
 # ==========================
 all_subtraction_current_classes.extend([
     # final-final collinears
-    NLO_local_currents.QCD_final_collinear_0_qqx,
-    NLO_local_currents.QCD_final_collinear_0_gq,
-    NLO_local_currents.QCD_final_collinear_0_gg,
+    colorful_NLO_local_currents.QCD_final_collinear_0_qqx,
+    colorful_NLO_local_currents.QCD_final_collinear_0_gq,
+    colorful_NLO_local_currents.QCD_final_collinear_0_gg,
     # initial-final collinears
     NLO_local_currents.QCD_initial_collinear_0_qg,
     NLO_local_currents.QCD_initial_collinear_0_gq,
@@ -72,9 +76,9 @@ all_subtraction_current_classes.extend([
 # ===============================
 all_subtraction_current_classes.extend([
     # final-final collinears
-    NLO_integrated_currents.integrated_NLO_FF_QCD_collinear_qqx,
-    NLO_integrated_currents.integrated_NLO_FF_QCD_collinear_gq,
-    NLO_integrated_currents.integrated_NLO_FF_QCD_collinear_gg,
+    colorful_NLO_integrated_currents.integrated_NLO_FF_QCD_collinear_qqx,
+    colorful_NLO_integrated_currents.integrated_NLO_FF_QCD_collinear_gq,
+    colorful_NLO_integrated_currents.integrated_NLO_FF_QCD_collinear_gg,
     # soft and soft-collinear
     NLO_integrated_currents.integrated_NLO_QCD_soft_gluon,
     NLO_integrated_currents.integrated_NLO_FF_QCD_softcollinear_gq

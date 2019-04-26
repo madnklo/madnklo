@@ -45,6 +45,10 @@ def get_recoilers(reduced_process, excluded=()):
 #=========================================================================================
 # Variables, mappings, jacobians, factors and cuts
 #=========================================================================================
+# Note that variables, factors and cuts will be class members by design
+# so they can easily be overridden by subclasses.
+# They will be taken from the following variables
+# so we can quickly switch them coherently across the entire subtraction scheme.
 
 variables = currents.Q_final_coll_variables
 coll_mapping = mappings.FinalRescalingOneMapping
@@ -52,52 +56,134 @@ soft_mapping = mappings.SoftVsFinalPureRescalingMapping
 soft_coll_mapping = mappings.SoftCollinearVsFinalMapping(
     soft_mapping=soft_mapping, collinear_mapping=coll_mapping)
 divide_by_jacobian = True
-soft_factor = factors_and_cuts.factor_soft
-soft_is_cut = factors_and_cuts.cut_soft
-coll_factor = factors_and_cuts.factor_coll
-coll_is_cut = factors_and_cuts.cut_coll
+factor_coll = factors_and_cuts.factor_coll
+factor_soft = factors_and_cuts.factor_soft
+is_cut_coll = factors_and_cuts.cut_coll
+is_cut_soft = factors_and_cuts.cut_soft
+
+#=========================================================================================
+# NLO final-collinear currents
+#=========================================================================================
+
+class QCD_final_collinear_0_XX(currents.QCDLocalCollinearCurrent):
+    """Two-collinear tree-level current."""
+
+    squared_orders = {'QCD': 2}
+    n_loops = 0
+    is_cut = staticmethod(is_cut_coll)
+    factor = staticmethod(factor_coll)
+    mapping = coll_mapping
+    variables = staticmethod(variables)
+    divide_by_jacobian = divide_by_jacobian
+    get_recoilers = staticmethod(get_recoilers)
+
+
+class QCD_final_collinear_0_qqx(QCD_final_collinear_0_XX):
+    """q q~ collinear tree-level current."""
+
+    structure = sub.SingularStructure(sub.CollStructure(
+        sub.SubtractionLeg(0, +1, sub.SubtractionLeg.FINAL),
+        sub.SubtractionLeg(1, -1, sub.SubtractionLeg.FINAL), ))
+
+    def kernel(self, zs, kTs, parent, reduced_kinematics):
+
+        # Retrieve the collinear variables
+        z = zs[0]
+        kT = kTs[0]
+        # Instantiate the structure of the result
+        evaluation = utils.SubtractionCurrentEvaluation({
+            'spin_correlations': [None, ((parent, (kT,)),), ],
+            'color_correlations': [None],
+            'reduced_kinematics': [reduced_kinematics],
+            'values': {(0, 0, 0): {'finite': None},
+                       (1, 0, 0): {'finite': None}, }
+        })
+        # Compute the kernel
+        # The line below implements the g_{\mu\nu} part of the splitting kernel.
+        # Notice that the extra longitudinal terms included in the spin-correlation 'None'
+        # from the relation:
+        #    \sum_\lambda \epsilon_\lambda^\mu \epsilon_\lambda^{\star\nu}
+        #    = g^{\mu\nu} + longitudinal terms
+        # are irrelevant because Ward identities evaluate them to zero anyway.
+        evaluation['values'][(0, 0, 0)]['finite'] = self.TR
+        evaluation['values'][(1, 0, 0)]['finite'] = 4 * self.TR * z * (1-z) / kT.square()
+        return evaluation
+
+
+class QCD_final_collinear_0_gq(QCD_final_collinear_0_XX):
+    """g q collinear tree-level current."""
+
+    structure = sub.SingularStructure(sub.CollStructure(
+        sub.SubtractionLeg(0, 21, sub.SubtractionLeg.FINAL),
+        sub.SubtractionLeg(1, +1, sub.SubtractionLeg.FINAL), ))
+
+    def kernel(self, zs, kTs, parent, reduced_kinematics):
+
+        # Retrieve the collinear variables
+        z = zs[0]
+        # Instantiate the structure of the result
+        evaluation = utils.SubtractionCurrentEvaluation({
+            'spin_correlations': [None],
+            'color_correlations': [None],
+            'reduced_kinematics': [reduced_kinematics],
+            'values': {(0, 0, 0): {'finite': None}}
+        })
+        # Compute the kernel
+        evaluation['values'][(0, 0, 0)]['finite'] = \
+            self.CF * (1 + (1-z)**2) / z
+        return evaluation
+
+
+class QCD_final_collinear_0_gg(QCD_final_collinear_0_XX):
+    """g g collinear tree-level current."""
+
+    structure = sub.SingularStructure(sub.CollStructure(
+        sub.SubtractionLeg(0, 21, sub.SubtractionLeg.FINAL),
+        sub.SubtractionLeg(1, 21, sub.SubtractionLeg.FINAL), ))
+
+    def kernel(self, zs, kTs, parent, reduced_kinematics):
+
+        # Retrieve the collinear variables
+        z = zs[0]
+        kT = kTs[0]
+        # Instantiate the structure of the result
+        evaluation = utils.SubtractionCurrentEvaluation({
+            'spin_correlations': [None, ((parent, (kT,)),), ],
+            'color_correlations': [None],
+            'reduced_kinematics': [reduced_kinematics],
+            'values': {(0, 0, 0): {'finite': None},
+                       (1, 0, 0): {'finite': None}, }
+        })
+        # Compute the kernel
+        # The line below implements the g_{\mu\nu} part of the splitting kernel.
+        # Notice that the extra longitudinal terms included in the spin-correlation 'None'
+        # from the relation:
+        #    \sum_\lambda \epsilon_\lambda^\mu \epsilon_\lambda^{\star\nu}
+        #    = g^{\mu\nu} + longitudinal terms
+        # are irrelevant because Ward identities evaluate them to zero anyway.
+        evaluation['values'][(0, 0, 0)]['finite'] = \
+            +2 * self.CA * (z/(1-z) + (1-z)/z)
+        evaluation['values'][(1, 0, 0)]['finite'] = \
+            -2 * self.CA * 2 * z * (1-z) / kT.square()
+        return evaluation
 
 #=========================================================================================
 # NLO soft current
 #=========================================================================================
 
-class QCD_soft_0_g(currents.QCDCurrent):
+class QCD_soft_0_g(currents.QCDLocalCurrent):
     """Soft gluon eikonal current at tree level, eq.4.12-4.13 of arXiv:0903.1218."""
 
-    structure = sub.SingularStructure(substructures=(
-        sub.SoftStructure(legs=[sub.SubtractionLeg(1, 21, sub.SubtractionLeg.FINAL), ]),
-    ))
+    squared_orders = {'QCD': 2}
+    n_loops = 0
+    is_cut = staticmethod(is_cut_soft)
+    factor = staticmethod(factor_soft)
+    mapping = soft_mapping
+    divide_by_jacobian = divide_by_jacobian
+    get_recoilers = staticmethod(get_recoilers)
 
-    @classmethod
-    def does_implement_this_current(cls, current, model):
-
-        if not all([
-            current.get('squared_orders') == {'QCD': 2},
-            current.get('n_loops') == 0,
-            current.get('resolve_mother_spin_and_color') == True,
-            not isinstance(current, (sub.BeamCurrent, sub.IntegratedBeamCurrent, sub.IntegratedCurrent))
-        ]):
-            return None
-
-        leg_numbers_map = cls.structure.map_leg_numbers(
-            current.get('singular_structure'), [range(1, model.get_nflav()+1)])
-        if leg_numbers_map is None:
-            return None
-        mapping_singular_structure = current.get('singular_structure').get_copy()
-        return {
-            'leg_numbers_map': leg_numbers_map,
-            'mapping_singular_structure': mapping_singular_structure }
-
-    def __init__(self, *args, **opts):
-
-        for opt_name in ['leg_numbers_map', 'mapping_singular_structure']:
-            try:
-                setattr(self, opt_name, opts.pop(opt_name))
-            except KeyError:
-                raise CurrentImplementationError(
-                    "__init__ of " + self.__class__.__name__ + " requires " + opt_name)
-        self.supports_helicity_assignment = False
-        super(QCD_soft_0_g, self).__init__(*args, **opts)
+    structure = sub.SingularStructure(
+        sub.SoftStructure(sub.SubtractionLeg(0, 21, sub.SubtractionLeg.FINAL)) )
 
     @staticmethod
     def eikonal(pi, pj, ps):
@@ -133,26 +219,29 @@ class QCD_soft_0_g(currents.QCDCurrent):
         alpha_s = model_param_dict['aS']
         mu_r    = model_param_dict['MU_R']
 
+        # Retrieve leg numbers
+        soft_leg_number = self.leg_numbers_map[0]
+
         # Perform mapping
-        self.mapping_singular_structure.legs = get_recoilers(reduced_process)
+        self.mapping_singular_structure.legs = self.get_recoilers(reduced_process)
         lower_PS_point, mapping_vars = soft_mapping.map_to_lower_multiplicity(
             higher_PS_point, self.mapping_singular_structure, momenta_dict,
-            compute_jacobian=divide_by_jacobian )
+            compute_jacobian=self.divide_by_jacobian )
+
+        # Retrieve kinematics
         Q = mapping_vars['Q']
+        pS = higher_PS_point[soft_leg_number]
         jacobian = mapping_vars.get('jacobian', 1)
 
-        soft_leg_number = self.leg_numbers_map[1]
-        pS = higher_PS_point[soft_leg_number]
-
         # Include the counterterm only in a part of the phase space
-        if soft_is_cut(Q=Q, pS=pS):
+        if self.is_cut(Q=Q, pS=pS):
             return utils.SubtractionCurrentResult.zero(
                 current=current, hel_config=hel_config,
                 reduced_kinematics=(None, lower_PS_point))
 
         # Normalization factors
-        norm = -4. * math.pi * alpha_s
-        norm *= soft_factor(Q=Q, pS=pS)
+        norm = -4 * math.pi * alpha_s
+        norm *= self.factor(Q=Q, pS=pS)
         norm /= jacobian
 
         # Find all colored leg numbers in the reduced process
@@ -200,17 +289,26 @@ class QCD_soft_0_g(currents.QCDCurrent):
 # NLO final soft-collinear currents
 #=========================================================================================
 
-class QCD_final_softcollinear_0_gX(currents.QCDLocalSoftCollinearCurrent):
+class QCD_final_softcollinear_0_gX(currents.QCDLocalCurrent):
     """NLO tree-level (final) soft-collinear currents."""
 
+    squared_orders = {'QCD': 2}
+    n_loops = 0
+    is_cut = staticmethod(is_cut_soft)
+    factor = staticmethod(factor_soft)
+    mapping = soft_mapping
+    variables = staticmethod(variables)
+    divide_by_jacobian = divide_by_jacobian
+    get_recoilers = staticmethod(get_recoilers)
+
     soft_structure = sub.SoftStructure(
-        legs=(sub.SubtractionLeg(1, 21, sub.SubtractionLeg.FINAL), ) )
+        legs=(sub.SubtractionLeg(0, 21, sub.SubtractionLeg.FINAL), ) )
     soft_coll_structure_q = sub.CollStructure(
         substructures=(soft_structure, ),
-        legs=(sub.SubtractionLeg(2,  1, sub.SubtractionLeg.FINAL), ) )
+        legs=(sub.SubtractionLeg(1,  1, sub.SubtractionLeg.FINAL), ) )
     soft_coll_structure_g = sub.CollStructure(
         substructures=(soft_structure, ),
-        legs=(sub.SubtractionLeg(2, 21, sub.SubtractionLeg.FINAL), ) )
+        legs=(sub.SubtractionLeg(1, 21, sub.SubtractionLeg.FINAL), ) )
     structure_q = sub.SingularStructure(substructures=(soft_coll_structure_q, ))
     structure_g = sub.SingularStructure(substructures=(soft_coll_structure_g, ))
 
@@ -221,7 +319,7 @@ class QCD_final_softcollinear_0_gX(currents.QCDLocalSoftCollinearCurrent):
             current.get('squared_orders') == {'QCD': 2},
             current.get('n_loops') == 0,
             current.get('resolve_mother_spin_and_color') == True,
-            not isinstance(current, (sub.BeamCurrent, sub.IntegratedBeamCurrent, sub.IntegratedCurrent))
+            not isinstance(current, cls.non_local_currents)
         ]):
             return None
 
@@ -243,7 +341,7 @@ class QCD_final_softcollinear_0_gX(currents.QCDLocalSoftCollinearCurrent):
 
     def __init__(self, *args, **opts):
 
-        for opt_name in ['leg_numbers_map', 'color_charge', 'mapping_singular_structure']:
+        for opt_name in ['color_charge', ]:
             try:
                 setattr(self, opt_name, opts.pop(opt_name))
             except KeyError:
@@ -278,39 +376,42 @@ class QCD_final_softcollinear_0_gX(currents.QCDLocalSoftCollinearCurrent):
         alpha_s = model_param_dict['aS']
         mu_r = model_param_dict['MU_R']
 
-        soft_leg_number = self.leg_numbers_map[1]
-        coll_leg_number = self.leg_numbers_map[2]
+        # Retrieve leg numbers
+        soft_leg_number = self.leg_numbers_map[0]
+        coll_leg_number = self.leg_numbers_map[1]
         children = (soft_leg_number, coll_leg_number, )
         parent = momenta_dict.inv[frozenset(children)]
-        pC = higher_PS_point[soft_leg_number] + higher_PS_point[coll_leg_number]
-        pS = higher_PS_point[soft_leg_number]
 
         # Perform mapping
-        self.mapping_singular_structure.legs = get_recoilers(
+        self.mapping_singular_structure.legs = self.get_recoilers(
             reduced_process, excluded=(parent, ))
         lower_PS_point, mapping_vars = soft_coll_mapping.map_to_lower_multiplicity(
             higher_PS_point, self.mapping_singular_structure, momenta_dict,
             compute_jacobian=divide_by_jacobian )
+
+        # Retrieve kinematics
         Q = mapping_vars['Q']
+        pS = higher_PS_point[soft_leg_number]
+        pC = pS + higher_PS_point[coll_leg_number]
         jacobian = mapping_vars.get('jacobian', 1)
 
         # Include the counterterm only in a part of the phase space
-        if soft_is_cut(Q=Q, pS=pS):
+        if self.is_cut(Q=Q, pS=pS):
             return utils.SubtractionCurrentResult.zero(
                 current=current, hel_config=hel_config,
                 reduced_kinematics=(None, lower_PS_point))
 
         # Evaluate kernel
-        zs, kTs = variables(higher_PS_point, lower_PS_point[parent], children, Q=Q)
+        zs, kTs = self.variables(higher_PS_point, lower_PS_point[parent], children, Q=Q)
         z = zs[0]
         evaluation = utils.SubtractionCurrentEvaluation.zero(
             reduced_kinematics=(None, lower_PS_point))
-        evaluation['values'][(0, 0, 0)]['finite'] = self.color_charge * 2. * (1.-z) / z
+        evaluation['values'][(0, 0, 0)]['finite'] = self.color_charge * 2 * (1-z) / z
 
         # Add the normalization factors
         s12 = pC.square()
-        norm = 8. * math.pi * alpha_s / s12
-        norm *= soft_factor(Q=Q, pC=pC, pS=pS)
+        norm = 8 * math.pi * alpha_s / s12
+        norm *= self.factor(Q=Q, pC=pC, pS=pS)
         norm /= jacobian
         for k in evaluation['values']:
             evaluation['values'][k]['finite'] *= norm

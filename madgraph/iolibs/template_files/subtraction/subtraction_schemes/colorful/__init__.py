@@ -1,6 +1,6 @@
 ###########################################################
 #
-# colorful_pp subtraction scheme
+# colorful_ subtraction scheme
 #
 ###########################################################
 
@@ -14,10 +14,6 @@ from commons.currents_exporter import GenericCurrentsExporter
 # From common resources
 import commons.beam_factorization_BF as BF
 import commons.beam_factorization_BS as BS
-
-# Imports from the colorful_pp scheme
-import subtraction_schemes.colorful_pp.NLO.local_currents as colorful_pp_NLO_local_currents
-import subtraction_schemes.colorful_pp.NLO.integrated_currents as colorful_pp_NLO_integrated_currents
 
 # Specific to the colorful scheme
 import NLO.local_currents as NLO_local_currents
@@ -59,9 +55,9 @@ all_subtraction_current_classes.extend([
 # ==========================
 all_subtraction_current_classes.extend([
     # final-final collinears
-    colorful_pp_NLO_local_currents.QCD_final_collinear_0_qqx,
-    colorful_pp_NLO_local_currents.QCD_final_collinear_0_gq,
-    colorful_pp_NLO_local_currents.QCD_final_collinear_0_gg,
+    NLO_local_currents.QCD_final_collinear_0_qqx,
+    NLO_local_currents.QCD_final_collinear_0_gq,
+    NLO_local_currents.QCD_final_collinear_0_gg,
     # initial-final collinears
     #       This scheme does *not* support ISR and the DefaultCurrent
     #       implementation will be used for them with an appropriate warning.
@@ -74,9 +70,9 @@ all_subtraction_current_classes.extend([
 # ===============================
 all_subtraction_current_classes.extend([
     # final-final collinears
-    colorful_pp_NLO_integrated_currents.integrated_NLO_FF_QCD_collinear_qqx,
-    colorful_pp_NLO_integrated_currents.integrated_NLO_FF_QCD_collinear_gq,
-    colorful_pp_NLO_integrated_currents.integrated_NLO_FF_QCD_collinear_gg,
+    NLO_integrated_currents.integrated_NLO_FF_QCD_collinear_qqx,
+    NLO_integrated_currents.integrated_NLO_FF_QCD_collinear_gq,
+    NLO_integrated_currents.integrated_NLO_FF_QCD_collinear_gg,
     # soft and soft-collinear
     NLO_integrated_currents.integrated_NLO_QCD_soft_gluon,
     NLO_integrated_currents.integrated_NLO_FF_QCD_softcollinear_gq

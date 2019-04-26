@@ -1,6 +1,6 @@
 ###########################################################
 #
-# colorful_pp subtraction scheme
+# torino subtraction scheme
 #
 ###########################################################
 
@@ -15,11 +15,10 @@ from commons.currents_exporter import GenericCurrentsExporter
 import commons.beam_factorization_BF as BF
 import commons.beam_factorization_BS as BS
 
-# Specific to the colorful_pp scheme
-import NLO.local_currents as NLO_local_currents
-import NLO.integrated_currents as NLO_integrated_currents
+# Import the sectors defining function
+from sectors import SectorGenerator
 
-# Imports from the colorful scheme
+# Import currents from colorful for now
 import subtraction_schemes.colorful.NLO.local_currents as colorful_NLO_local_currents
 import subtraction_schemes.colorful.NLO.integrated_currents as colorful_NLO_integrated_currents
 
@@ -30,13 +29,14 @@ __authors__ = ["valentin.hirschi@gmail.com", "simone.lionetti@gmail.com", "nicol
 # General properties
 # ==================
 
-requires_soft_beam_factorization = True
-# Colorful_pp does not use sectors
-sector_generator = None
+requires_soft_beam_factorization = False 
+# Colorful does not use sectors
+sector_generator = SectorGenerator()
 
 # Note: specifying below which resources are needed is optional
 exporter = GenericCurrentsExporter(relative_resource_paths=[
-    'subtraction_schemes/colorful_pp'
+    'subtraction_schemes/colorful',
+    'subtraction_schemes/torino'
 ])
 
 all_subtraction_current_classes = []
@@ -49,13 +49,6 @@ all_subtraction_current_classes.extend([
     BF.QCD_beam_factorization_single_softcollinear
 ])
 
-# Add NLO beam factorization counterterms of soft origin
-# recoiling symmetrically against the initial state (BS)
-# ======================================================
-all_subtraction_current_classes.extend([
-    BS.QCD_beam_factorization_single_soft,
-])
-
 # Add local NLO counterterms
 # ==========================
 all_subtraction_current_classes.extend([
@@ -64,14 +57,11 @@ all_subtraction_current_classes.extend([
     colorful_NLO_local_currents.QCD_final_collinear_0_gq,
     colorful_NLO_local_currents.QCD_final_collinear_0_gg,
     # initial-final collinears
-    NLO_local_currents.QCD_initial_collinear_0_qg,
-    NLO_local_currents.QCD_initial_collinear_0_gq,
-    NLO_local_currents.QCD_initial_collinear_0_qq,
-    NLO_local_currents.QCD_initial_collinear_0_gg,
+    #       This scheme does *not* support ISR and the DefaultCurrent
+    #       implementation will be used for them with an appropriate warning.
     # soft and soft-collinears
-    NLO_local_currents.QCD_soft_0_g,
-    NLO_local_currents.QCD_final_softcollinear_0_gX,    
-    NLO_local_currents.QCD_initial_softcollinear_0_Xg,
+    colorful_NLO_local_currents.QCD_soft_0_g,
+    colorful_NLO_local_currents.QCD_final_softcollinear_0_gX,
 ])
 
 # Add NLO integrated counterterms
@@ -82,6 +72,6 @@ all_subtraction_current_classes.extend([
     colorful_NLO_integrated_currents.integrated_NLO_FF_QCD_collinear_gq,
     colorful_NLO_integrated_currents.integrated_NLO_FF_QCD_collinear_gg,
     # soft and soft-collinear
-    NLO_integrated_currents.integrated_NLO_QCD_soft_gluon,
-    NLO_integrated_currents.integrated_NLO_FF_QCD_softcollinear_gq
+    colorful_NLO_integrated_currents.integrated_NLO_QCD_soft_gluon,
+    colorful_NLO_integrated_currents.integrated_NLO_FF_QCD_softcollinear_gq
 ])

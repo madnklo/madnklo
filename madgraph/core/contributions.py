@@ -1777,12 +1777,19 @@ The resulting output must therefore be used for debugging only as it will not yi
             for process_key in process_map:
                 relevant_counterterms[process_key] = self.counterterms[process_key]
 
+        identified_sectors = self.IR_subtraction.get_sectors(
+            self.contribution_definition,
+            process_map,
+            counterterms=relevant_counterterms,
+        )
+
         return [
             ME7_integrands.ME7Integrand(
                 model, run_card, self.contribution_definition,
                 process_map, self.topologies_to_processes, self.processes_to_topologies,
                 all_MEAccessors, ME7_configuration,
-                counterterms=relevant_counterterms
+                sectors = identified_sectors,
+                counterterms = relevant_counterterms
             )
         ]
         
@@ -1909,6 +1916,15 @@ class Contribution_V(Contribution):
             for process_key in process_map:
                 relevant_counterterms[process_key] = self.integrated_counterterms[process_key]
 
+        if self.IR_subtraction is None:
+            identified_sectors = None
+        else:
+            identified_sectors = self.IR_subtraction.get_sectors(
+                self.contribution_definition,
+                process_map,
+                integrated_counterterms=relevant_counterterms,
+            )
+
         return [ ME7_integrands.ME7Integrand(model, run_card,
                                        self.contribution_definition,
                                        process_map,
@@ -1916,6 +1932,7 @@ class Contribution_V(Contribution):
                                        self.processes_to_topologies,
                                        all_MEAccessors,
                                        ME7_configuration,
+                                       sectors = identified_sectors,
                                        integrated_counterterms=relevant_counterterms)
                ]
 
@@ -2374,6 +2391,16 @@ class Contribution_RV(Contribution_R, Contribution_V):
             for process_key in process_map:
                 relevant_integrated_counterterms[process_key] = self.integrated_counterterms[process_key]
 
+        if self.IR_subtraction is None:
+            identified_sectors = None
+        else:
+            identified_sectors = self.IR_subtraction.get_sectors(
+                self.contribution_definition,
+                process_map,
+                counterterms=relevant_counterterms,
+                integrated_counterterms=relevant_integrated_counterterms
+            )
+
         return [ ME7_integrands.ME7Integrand(model, run_card,
                    self.contribution_definition,
                    process_map,
@@ -2381,6 +2408,7 @@ class Contribution_RV(Contribution_R, Contribution_V):
                    self.processes_to_topologies,
                    all_MEAccessors,
                    ME7_configuration,
+                   sectors=identified_sectors,
                    counterterms=relevant_counterterms,
                    integrated_counterterms=relevant_integrated_counterterms
                 ) ]

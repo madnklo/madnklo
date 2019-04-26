@@ -26,7 +26,9 @@ __authors__ = ["valentin.hirschi@gmail.com", "simone.lionetti@gmail.com", "nicol
 # General properties
 # ==================
 
-requires_soft_beam_factorization = False 
+requires_soft_beam_factorization = False
+# Colorful does not use sectors
+sector_generator = None
 
 # Note: specifying below which resources are needed is optional
 exporter = GenericCurrentsExporter(relative_resource_paths=[
@@ -42,13 +44,6 @@ all_subtraction_current_classes.extend([
     BF.QCD_beam_factorization_F0,
     BF.QCD_beam_factorization_single_collinear,
     BF.QCD_beam_factorization_single_softcollinear
-])
-
-# Add NLO beam factorization counterterms of soft origin
-# recoiling symmetrically against the initial state (BS)
-# ======================================================
-all_subtraction_current_classes.extend([
-    BS.QCD_beam_factorization_single_soft,
 ])
 
 # Add local NLO counterterms

@@ -709,7 +709,10 @@ class ME7Integrand(integrands.VirtualIntegrand):
                        topologies_to_processes,
                        processes_to_topologies,
                        all_MEAccessors,
-                       ME7_configuration):
+                       ME7_configuration,
+                       subtraction_scheme_name = None,
+                       sectors = None,
+        ):
         """ Initializes a generic ME7 integrand defined by the high-level abstract information
         given in arguments, whose explanations are provided in the comments of this initializer's body. """
         
@@ -724,9 +727,14 @@ class ME7Integrand(integrands.VirtualIntegrand):
                                        'processes_map'              : processes_map,
                                        'topologies_to_processes'    : topologies_to_processes,
                                        'processes_to_topologies'    : processes_to_topologies,
+                                       'subtraction_scheme_name'    : subtraction_scheme_name,
                                        'all_MEAccessors'            : None,
                                        'ME7_configuration'          : None,
-                                       'options'                    : {} }
+                                       'options'                    : {
+                                           'subtraction_scheme_name': subtraction_scheme_name,
+                                           'sectors': sectors
+                                        }
+                                    }
         
         # The original ContributionDefinition instance at the origin this integrand 
         self.contribution_definition    = contribution_definition
@@ -744,6 +752,16 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # An instance of accessors.MEAccessorDict providing access to all ME available as part of this
         # ME7 session.
         self.all_MEAccessors            = all_MEAccessors
+
+        # Load or access the already loaded subtraction scheme module
+        if subtraction_scheme_name is not None:
+            self.subtraction_scheme = subtraction.SubtractionCurrentExporter.get_subtraction_scheme_module(
+                                        subtraction_scheme_name, root_path = self.ME7_configuration['me_dir'])
+        else:
+            self.subtraction_scheme = None
+
+        # Save identified sectors if any
+        self.sectors = sectors
 
         # Update and define many properties of self based on the provided run-card and model.
         self.synchronize(model, run_card, ME7_configuration)
@@ -1573,11 +1591,6 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
     def __call__(self, continuous_inputs, discrete_inputs, **opts):
         """ Main function of the integrand, returning the weight to be passed to the integrator."""
-
-        # A unique float must be returned
-        wgt = 1.0
-        # And the conversion from GeV^-2 to picobarns
-        wgt *= 0.389379304e9
         
         # Check if an integrator_jacobian is specified in the options to be applied to 
         # the weight when registering observables (i.e. filling observables)
@@ -1611,7 +1624,30 @@ class ME7Integrand(integrands.VirtualIntegrand):
                 ( self.FROZEN_DIMENSIONS[name] if name in self.FROZEN_DIMENSIONS else 
                   random_variables[self.dim_name_to_position[name]] )
                                           for name in self.phase_space_generator.dim_ordered_names ]
-        
+
+        if self.sectors is None:
+            return self.evaluate(PS_random_variables, integrator_jacobian, selected_process_key=None, sector_info=None)
+        else:
+            total_weight = 0.
+            for process_key, (process, mapped_processes) in self.processes_map.items():
+                for sector_info in self.sectors[process_key]:
+                    total_weight += self.evaluate(PS_random_variables, integrator_jacobian,
+                                                  selected_process_key=process_key, sector_info=sector_info)
+
+    def evaluate(self,PS_random_variables, integrator_jacobian, selected_process_key=None, sector_info=None):
+        """ Evaluate this integrand given the PS generating random variables and
+        possibily for a particular defining process and sector. If no process_key is specified, this funcion will
+        loop over and aggregate all of them"""
+
+        # A unique float must be returned
+        wgt = 1.0
+        # And the conversion from GeV^-2 to picobarns
+        wgt *= 0.389379304e9
+
+        # Note: if the process_key is defined as well as the sector info, one may consider using a dedicated
+        # PS generator for those (i.e. g g > X is mapped with d d~ > X but the bjorken x's pre-sampling could be
+        # improved and for the sector, the parametrisation of the unresolved degrees of freedom could be chosen
+        # accordingly to the singularities present in this sector.)
         PS_point, PS_weight, x1s, x2s = self.phase_space_generator.get_PS_point(PS_random_variables)
 
         # Unpack the initial momenta rescalings (if present) so as to access both Bjorken
@@ -1675,6 +1711,11 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # Now loop over processes
         total_wgt = 0.
         for process_key, (process, mapped_processes) in self.processes_map.items():
+
+            # Make sure to skip processes that should not be considered if the process_key is specified
+            if selected_process_key is not None and selected_process_key != process_key:
+                continue
+
             # If one wishes to integrate only one particular subprocess, it can be done by uncommenting
             # and modifying the lines below.
 #            if process.get_cached_initial_final_pdgs() in [((2,-2),(23,1,-1)), ((2,-2),(23,1,-1))] :
@@ -1699,7 +1740,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
             events = self.sigma(
                 PS_point.to_dict(), process_key, process, all_flavor_configurations, 
-                                        wgt, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2)
+                wgt, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, sector_info)
             
             if events is None or len(events)==0:
                 continue
@@ -1746,6 +1787,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
             
             # Select a unique flavor configuration for each event
             events.select_a_flavor_configuration()
+
             #misc.sprint(events)
             if __debug__: logger.debug('Short-distance events for this subprocess:\n%s\n'%str(events))
             
@@ -1772,7 +1814,12 @@ class ME7Integrand(integrands.VirtualIntegrand):
                         process, PS_point, alpha_s, mu_r, pdgs=all_flavor_configurations[0])
 
         event_weight = base_objects.EpsilonExpansion(ME_evaluation) * base_weight
-        
+
+        sector_info = opts.get('sector_info', None)
+        if sector_info is not None:
+            event_weight *= sector_info['sector'](PS_point,all_flavor_configurations[0],
+                                                  counterterm_index=-1, input_mapping_index=-1)
+
         # Notice that the Bjorken rescalings for this even will be set during the convolution
         # performed in the next line, and not directly here in the constructor.
         event_to_convolve = ME7Event( PS_point, 
@@ -1996,7 +2043,7 @@ class ME7Integrand_V(ME7Integrand):
 
     def evaluate_integrated_counterterm(self, integrated_CT_characteristics, PS_point, 
         base_weight, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, input_mapping, 
-        all_virtual_ME_flavor_configurations, hel_config=None, compute_poles=True, **opts):
+        all_virtual_ME_flavor_configurations, hel_config=None, compute_poles=True, sector=(None,-1,-1), **opts):
         """ Evaluates the specified integrated counterterm, provided along with its other
         characteristics, like for example the list of flavors assignments that the resolved
         process it corresponds to can take. This function returns an ME7Event specifying the
@@ -2206,6 +2253,10 @@ class ME7Integrand_V(ME7Integrand):
         # for each necessary ME call identified
         all_necessary_ME_calls = ME7Integrand_R.merge_correlators_in_necessary_ME_calls(
                                                                     all_necessary_ME_calls)
+
+        if sector[0] is not None:
+            base_weight *= sector[0](reduced_PS, all_mapped_flavors[0],
+                            counterterm_index=sector[1], flavor_mapping_index=sector[2])
 
         # Finally treat the call to the reduced connected matrix elements
         alpha_s = self.model.get('parameter_dict')['aS']
@@ -2567,6 +2618,7 @@ class ME7Integrand_V(ME7Integrand):
         all_events_generated = ME7EventList()
 
         compute_poles = opts.get('compute_poles', False)
+        sector_info = opts.get('sector_info', None)
 
         matrix_element_event = self.generate_matrix_element_event(
                 PS_point, process_key, process, all_flavor_configurations, 
@@ -2578,8 +2630,7 @@ class ME7Integrand_V(ME7Integrand):
             all_events_generated.append(matrix_element_event)
         
         # Now loop over all integrated counterterms
-        for counterterm_characteristics in self.integrated_counterterms[process_key]:
-
+        for i_ct, counterterm_characteristics in enumerate(self.integrated_counterterms[process_key]):
 
             # Example of a hack below to include only soft integrated CT. Uncomment to enable.
             #if counterterm_characteristics['integrated_counterterm'].reconstruct_complete_singular_structure()\
@@ -2590,14 +2641,21 @@ class ME7Integrand_V(ME7Integrand):
             # account for all contributions of the integrated CT. (e.g. the integrated
             # splitting g > d d~ must be "attached" to all final state gluons appearing
             # in this virtual ME process definition.)
-            for input_mapping in counterterm_characteristics['input_mappings']:
+            for i_mapping, input_mapping in enumerate(counterterm_characteristics['input_mappings']):
+
+                # Skip integrated counterterms that do not belong to this sector
+                if sector_info is not None and (i_ct,i_mapping) not in sector_info['integrated_counterterms']:
+                    continue
+
                 # At NLO at least, it is OK to save a bit of time by enforcing 'compute_poles=False').
                 # This will need to be re-assessed at NNLO for RV contributions.
                 CT_event = self.evaluate_integrated_counterterm( 
                     counterterm_characteristics, PS_point, base_weight, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2,
                     input_mapping, all_flavor_configurations,
                     hel_config      = None, 
-                    compute_poles   = compute_poles)
+                    compute_poles   = compute_poles,
+                    sector          = (sector_info['sector'] if sector_info else None, i_ct, i_mapping)
+                )
             
                 if CT_event is not None:
                     # Attach additional information to this CT_event which plays no role in the
@@ -3105,7 +3163,7 @@ class ME7Integrand_R(ME7Integrand):
         xb_1, xb_2, xi1, xi2,
         is_process_mirrored, all_resolved_flavors,
         hel_config=None, apply_flavour_blind_cuts=True,
-        boost_back_to_com=True, always_generate_event=False, **opts ):
+        boost_back_to_com=True, always_generate_event=False, sector=(None,-1), **opts ):
         """Evaluate a counterterm for a given PS point and flavors.
         The option 'boost_back_to_com' allows to prevent this function to boost back the
         PS point of the Event generated to the c.o.m frame. This would yields *incorrect* 
@@ -3212,6 +3270,8 @@ class ME7Integrand_R(ME7Integrand):
         all_events = ME7EventList()
         for reduced_kinematics_identifier, (reduced_kinematics, necessary_ME_calls) in all_necessary_ME_calls.items():
 
+            this_base_weight = base_weight
+
             # Now that all currents have been evaluated using the PS points with initial-state
             # momenta that can be boosted because of initial-collinear mappings, we must boost
             # back in the c.o.m frame the PS point that will be used for generating the
@@ -3237,6 +3297,11 @@ class ME7Integrand_R(ME7Integrand):
                     continue
                 else:
                     this_cut_weight = 0.
+
+            # Now apply the sectoring function if specified
+            if sector[0] is not None:
+                this_base_weight *= sector[0](reduced_PS,reduced_flavors,
+                                                                counterterm_index=sector[1], input_mapping_index=-1)
 
             # Now the phase-space point stored in the event generated is not a dictionary but
             # a LorentzVectorList which must be ordered exactly like the flavor configurations
@@ -3285,7 +3350,7 @@ class ME7Integrand_R(ME7Integrand):
 
             template_event = ME7Event(
                 event_PS,
-                {fc: this_cut_weight*base_weight
+                {fc: this_cut_weight*this_base_weight
                  for fc in all_reduced_flavored_with_initial_states_subsituted},
                 requires_mirroring              = is_process_mirrored,
                 host_contribution_definition    = self.contribution_definition,
@@ -3398,6 +3463,7 @@ The missing process is: %s"""%ME_process.nice_string())
         the bjorken x's and boosted back to the c.o.m frame."""
 
         all_events_generated = ME7EventList()
+        sector_info = opts.get('sector_info', None)
 
         # When beam convolutions are active, we must remember that both the Bjorken x's *and*
         # the convolution variable xi are integrated between zero and one.
@@ -3413,7 +3479,12 @@ The missing process is: %s"""%ME_process.nice_string())
         if matrix_element_event is not None:
             all_events_generated.append(matrix_element_event)
 
-        for counterterm in self.counterterms[process_key]:
+        for i_ct, counterterm in enumerate(self.counterterms[process_key]):
+
+            # Skip counterterms that do not belong to this sector
+            if sector_info is not None and i_ct not in sector_info['counterterms']:
+                continue
+
             if not counterterm.is_singular():
                 continue
             #singular_structure = counterterm.reconstruct_complete_singular_structure().substructures[0]
@@ -3424,6 +3495,7 @@ The missing process is: %s"""%ME_process.nice_string())
                 counterterm, PS_point, base_weight, mu_r, mu_f1, mu_f2,
                 xb_1, xb_2, xi1, xi2,
                 process.get('has_mirror_process'), all_flavor_configurations,
+                sector = (sector_info['sector'] if sector_info else None, i_ct),
                 **opts)
             
             # The function above returns None if the counterterms is removed because of
@@ -4146,22 +4218,30 @@ class ME7Integrand_RV(ME7Integrand_R, ME7Integrand_V):
             all_flavor_configurations, base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts)
 
         compute_poles = opts.get('compute_poles', False)
+        sector_info = opts.get('sector_info', None)
 
         # Add the integrated counterterms
         # Now loop over all integrated counterterms
-        for counterterm_characteristics in self.integrated_counterterms[process_key]:
+        for i_ct, counterterm_characteristics in enumerate(self.integrated_counterterms[process_key]):
             # And over all the ways in which this current PS point must be remapped to
             # account for all contributions of the integrated CT. (e.g. the integrated
             # splitting g > d d~ must be "attached" to all final state gluons appearing
             # in this virtual ME process definition.)
-            for input_mapping in counterterm_characteristics['input_mappings']:
+            for i_mapping, input_mapping in enumerate(counterterm_characteristics['input_mappings']):
+
+                # Skip integrated counterterms that do not belong to this sector
+                if sector_info is not None and (i_ct,i_mapping) not in sector_info['integrated_counterterms']:
+                    continue
+
                 # At NLO at least, it is OK to save a bit of time by enforcing 'compute_poles=False').
                 # This will need to be re-assessed at NNLO for RV contributions.
                 CT_event = self.evaluate_integrated_counterterm( 
                     counterterm_characteristics, PS_point, base_weight, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2,
                     input_mapping, all_flavor_configurations,
                     hel_config    = None, 
-                    compute_poles = compute_poles)
+                    compute_poles = compute_poles,
+                    sector        = (sector_info['sector'] if sector_info else None, i_ct, i_mapping)
+                )
                 if CT_event is not None:
                     # Attach additional information to this CT_event which plays no role in the
                     # MadNkLO construction but which may be used, in test_IR_poles for instance,
@@ -4235,18 +4315,18 @@ class ME7Integrand_BS(ME7Integrand_RV):
                 scaled_xi2 = xi2
         
         return scaled_real_PS_point, scaled_xi1, scaled_xi2
-        
+
 
 class ME7Integrand_RR(ME7Integrand_R):
     """ ME7Integrand for the computation of a double real-emission type of contribution."""
-    def sigma(self, PS_point, process_key, process, all_flavor_configurations, base_weight, mu_r, 
+    def sigma(self, PS_point, process_key, process, all_flavor_configurations, base_weight, mu_r,
                                                 mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts):
-        return super(ME7Integrand_RR, self).sigma(PS_point, process_key, process, 
+        return super(ME7Integrand_RR, self).sigma(PS_point, process_key, process,
             all_flavor_configurations, base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts)
 
 class ME7Integrand_RRR(ME7Integrand_R):
     """ ME7Integrand for the computation of a double real-emission type of contribution."""
-    def sigma(self, PS_point, process_key, process, all_flavor_configurations, base_weight, 
+    def sigma(self, PS_point, process_key, process, all_flavor_configurations, base_weight,
                                           mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts):
         return super(ME7Integrand_RRR, self).sigma(PS_point, process_key, process,
             all_flavor_configurations, base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts)

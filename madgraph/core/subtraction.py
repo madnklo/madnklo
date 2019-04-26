@@ -2202,6 +2202,43 @@ class IRSubtraction(object):
             momenta_dict[parent_number] = frozenset(child.n for child in children)
         return parent_number
 
+    def get_sectors(self, contrib_definition, process_map, counterterms=None, integrated_counterterms=None):
+        """ Given a particular contribution definition, its process_map and the counterterms contained, this
+        uses the subtraction module to build, for each defining process, the sectors to consider (or None if the subtraction
+        does not require any) as well as the list of counterterms to consider for each of them.
+        The sectors dictionary returned has the following format:
+
+            sectors = {
+                process_key: [
+                    sector_1, sector_2, ....
+                ]
+            }
+
+        where each sector_<i> is a dictionary with the following format:
+
+            sector_<i> = {
+                'sector'    :   sector_instance_or_identifier (exact format is up to the subtraction_scheme),
+                'counterterms' : [list of counterterm indices (as per the ordering in self.counterterms of the integrand) to be considered],
+                'integrated_counterterms' : [list of tuples (counterterm indices, input_mapping_index) for integrated CT to be considered]
+            }
+
+        'None' is returned for the sectors when not applicable for the particular subtraction scheme considered.
+
+        """
+
+        # If no subtraction module is loaded or if it doesn't require sectors, then return None
+        if self.subtraction_scheme_module is None or self.subtraction_scheme_module.sector_generator is None:
+            return None
+
+        sectors = {}
+        for process_key, (defining_process, mapped_processes) in process_map.items():
+            sectors[process_key] = self.subtraction_scheme_module.sector_generator(
+                contrib_definition, defining_process,
+                None if counterterms is None else counterterms[process_key],
+                None if integrated_counterterms is None else integrated_counterterms[process_key] )
+
+        return sectors
+
     def can_be_IR_unresolved(self, PDG):
         """Check whether a particle given by its PDG can become unresolved
         and lead to singular behavior.

@@ -24,7 +24,7 @@ from madgraph.core.base_objects import EpsilonExpansion
 # Useful constants
 #=========================================================================================
 class Constants(object):
-    """ Constants used throughout the implementation of the counterterms."""
+    """Constants used throughout the implementation of the counterterms."""
     
     # Epsilon expansion constants
     EulerGamma = 0.57721566490153286061
@@ -47,8 +47,7 @@ class Constants(object):
 class SubtractionCurrentEvaluation(dict):
     """Container class for the output of the evaluation of a current."""
 
-    # All residues of the poles for the epsilon expansion can be specified with a
-    # key names 'eps^n'.
+    # All epsilon expansion poles can be specified with key names 'eps^n'.
     
     # values will list the weight from this current for each particular pairing
     # of the spin_correlations and color_correlations
@@ -58,7 +57,7 @@ class SubtractionCurrentEvaluation(dict):
 
     main_layer_result_format = {'spin_correlations':'%s','color_correlations':'%s',
                                 'reduced_kinematics':'%s','values':'%s'}
-    sub_layer_result_format  = {'tree':'%.15e','finite':'%.15e','eps':'%.15e',
+    sub_layer_result_format  = {'finite':'%.15e','eps':'%.15e',
                                 'return_code':'%d','accuracy': '%.2g'}
 
     result_format = dict(it for it in main_layer_result_format.items()+sub_layer_result_format.items())
@@ -147,12 +146,12 @@ class SubtractionCurrentEvaluation(dict):
         return self.nice_string()
 
     @classmethod
-    def zero(cls):
+    def zero(cls, spin_correlations=None, color_correlations=None, reduced_kinematics=None):
 
         return SubtractionCurrentEvaluation({
-            'spin_correlations'   : [ None ],
-            'color_correlations'  : [ None ],
-            'reduced_kinematics'  : [ None ],
+            'spin_correlations'   : [ spin_correlations ],
+            'color_correlations'  : [ color_correlations ],
+            'reduced_kinematics'  : [ reduced_kinematics ],
             'values'              : {(0,0,0): { 'finite' : 0.0 }}
         })
 
@@ -276,7 +275,7 @@ class SubtractionCurrentResult(dict):
         self[tuple(sorted(opts.items()))] = value
 
     @staticmethod
-    def zero(squared_orders=None, current=None, hel_config=None):
+    def zero(squared_orders=None, current=None, hel_config=None, **opts):
         """Return a 'zero' result."""
 
         if squared_orders is None and current is not None:
@@ -285,7 +284,7 @@ class SubtractionCurrentResult(dict):
             sqo = squared_orders
         subtraction_current_result = SubtractionCurrentResult()
         subtraction_current_result.add_result(
-            SubtractionCurrentEvaluation.zero(),
+            SubtractionCurrentEvaluation.zero(**opts),
             hel_config=hel_config, squared_orders=sqo)
         return subtraction_current_result
 

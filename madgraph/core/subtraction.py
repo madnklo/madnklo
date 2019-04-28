@@ -342,6 +342,119 @@ class SubtractionLegSet(tuple):
                 (leg.n, leg.pdg, leg.state) for leg in self
             )
 
+    def split_by_pdg_abs(self, pdgs, state):
+        """Restructure the information about the SubtractionLegSet,
+        grouping legs by absolute value of their pdg and their state.
+        For each pdg abs, generate two sets of legs with opposite pdg sign,
+        and count the positive/negative occurrences.
+        This information is useful for the map_leg_numbers method.
+
+        For example, calling
+        split_by_pdg_abs(
+            ((1, 2=u, I), (2, 1=d, F), (3, -2=u~, F), (4, 2=u, F), (5, 2=u, F), (6, 3=s, F), ),
+            [2=u|u~, 3=s|s~],
+            F )
+        where I/F stands for initial/final yields
+            legs_by_pdg = {
+                2=u|u~: [((3, -2=u~, F), ), ((4, 2=u, F), (5, 2=u, F), )],
+                3=s|s~: [(), ((6, 3=s, F), )],
+            }
+        as, for the specified pdgs 2=u|u~ and 3=s|s~, there are respectively
+        1 negative / 2 positive and 0 negative / two positive legs.
+        Note that the two sets of legs for a given pdg abs are sorted by leg count
+        and not by positive/negative, and only the legs with state F are considered.
+        The counts are expressed by
+            pdg_counts = {(0, 1): [3=s|s~], (1, 2): [2=u|u~]}
+        which means that the pdg abs values
+        with 0 legs of one sign and 1 leg of the opposite are the list [3=s|s~],
+        and the ones with 1 leg of one sign and 2 of the other are the list [2=u|u~].
+        The function also returns the SubtractionLegSet without the legs
+        that have a pdg/state which was specified, i.e.
+            rest = ((1, 2=u, I), (2, 1=d, F), ).
+        """
+
+        legs_by_pdg = dict()
+        pdg_counts = dict()
+        rest = SubtractionLegSet(self)
+        for pdg in set(map(abs, pdgs)):
+            pos = SubtractionLegSet(leg for leg in self
+                                    if leg.pdg ==  pdg and leg.state == state)
+            neg = SubtractionLegSet(leg for leg in self
+                                    if leg.pdg == -pdg and leg.state == state)
+            legs_by_pdg[pdg] = sorted((pos, neg), key=len)
+            count_key = tuple(map(len, legs_by_pdg[pdg]))
+            pdg_counts.setdefault(count_key, [])
+            pdg_counts[count_key].append(pdg)
+            rest = SubtractionLegSet(difference(rest, union(pos, neg)))
+        return legs_by_pdg, pdg_counts, rest
+
+    def map_leg_numbers(self, target, equivalent_pdg_sets=()):
+        """Find a correspondence between this SubtractionLegSet and another
+        that only differs by leg numbers.
+        The optional argument equivalent_pdg_sets allows to consider some particle species
+        to be interchangeable in this matching. This is designed to identify processes
+        where legs have the same quantum numbers up to some details which are irrelevant
+        for subtraction. Typically this is the case of massless quarks, where one only
+        keeps track of which quarks have the same flavor or are antiparticles.
+        For instance
+            (1, 1=d, F), (2, -1=d~, F)
+        should match
+            (7, 3=s, F), (5, -3=s~, F)    or    (4, -1=d~, F), (1, 1=d,    F),
+        but not
+            (4, 3=s, F), (5, -1=d~, F)    or    (7, 24=W+, F), (2, -24=W-, F).
+
+        :param target: the target SubtractionLegSet
+        :param equivalent_pdg_sets: a list of lists pdgs that should be considered
+            equivalent in the matching (note that particles and antiparticles
+            for these values will also be considered equivalent)
+        :return: a dictionary of leg numbers that sends this set into the target one,
+            if any; None otherwise.
+        """
+
+        if len(self) != len(target):
+            return None
+
+        s_rest = self
+        t_rest = target
+        leg_numbers_map = dict()
+
+        for pdgs in equivalent_pdg_sets:
+            for state in (SubtractionLeg.INITIAL, SubtractionLeg.FINAL):
+                s_legs_by_pdgs, s_pdg_counts, s_rest = s_rest.split_by_pdg_abs(pdgs, state)
+                t_legs_by_pdgs, t_pdg_counts, t_rest = t_rest.split_by_pdg_abs(pdgs, state)
+                for count in s_pdg_counts.keys():
+                    for i in range(len(s_pdg_counts[count])):
+                        s_pdg = s_pdg_counts[count][i]
+                        try:
+                            t_pdg = t_pdg_counts[count][i]
+                        except (KeyError, IndexError):
+                            return None
+                        s_list_1, s_list_2 = s_legs_by_pdgs[s_pdg]
+                        t_list_1, t_list_2 = t_legs_by_pdgs[t_pdg]
+                        if len(s_list_1) != len(t_list_1) or len(s_list_2) != len(t_list_2):
+                            raise MadGraph5Error(
+                                "Inconsistent lists in SubtractionLegSet.map_leg_numbers, "
+                                "SubtractionLegSet.split_by_pdg_abs is bugged.")
+                        leg_numbers_map.update(zip(
+                            [leg.n for leg in s_list_1],
+                            [leg.n for leg in t_list_1] ))
+                        leg_numbers_map.update(zip(
+                            [leg.n for leg in s_list_2],
+                            [leg.n for leg in t_list_2] ))
+
+        for s_leg in s_rest:
+            try:
+                t_leg = next(leg for leg in t_rest
+                             if leg.state == s_leg.state and leg.pdg == s_leg.pdg)
+                leg_numbers_map[s_leg.n] = t_leg.n
+                t_rest = SubtractionLegSet(difference(t_rest, (t_leg, )))
+            except StopIteration:
+                return None
+
+        assert(not t_rest)
+        return leg_numbers_map
+
+
 #=========================================================================================
 # SingularStructure
 #=========================================================================================
@@ -701,6 +814,56 @@ class SingularStructure(object):
         return singular_structures_name_dictionary[name](
             substructures=substructures, legs=legs)
 
+    def map_leg_numbers(self, target, equivalent_pdg_sets=()):
+        """Find a correspondence between this SingularStructure and another
+        that only differs by leg numbers.
+        The optional argument equivalent_pdg_sets allows to consider some particle species
+        to be interchangeable in this matching. This is designed to identify identical
+        structures whose legs have the same quantum numbers up to details which are
+        irrelevant for subtraction. Typically this is the case of massless quarks, where
+        one only keeps track of which quarks have the same flavor or are antiparticles.
+        For instance
+            C(S((1, 21=g, F)), (2, -1=d~, F))
+        should match
+            C(S((3, 21=g, F)), (2, +3=s,  F))    or    C(S((7, 21=g, F)), (4, -1=d~, F))
+        but not
+            S(S((1, 21=g, F)), (2, -1=d~, F))    or    C(S((6, 21=g, F)), (4, 21=g,  F)).
+
+        :param target: the target SingularStructure
+        :param equivalent_pdg_sets: a list of lists pdgs that should be considered
+            equivalent in the matching (note that particles and antiparticles
+            for these values will also be considered equivalent)
+        :return: a dictionary of leg numbers that sends this structure
+            into the target one, if any; None otherwise.
+        """
+
+
+        # 1) Match type
+        if self.name() != target.name():
+            return None
+
+        # 2) Match legs
+        leg_number_dict = self.legs.map_leg_numbers(target.legs, equivalent_pdg_sets)
+        if leg_number_dict is None:
+            return None
+
+        # 3) Match substructures
+        if len(self.substructures) != len(target.substructures):
+            return None
+        target_subs = [target_sub for target_sub in target.substructures]
+        for sub in self.substructures:
+            matching = None
+            for i in range(len(target_subs)):
+                sub_dict = sub.map_leg_numbers(target_subs[i], equivalent_pdg_sets)
+                if sub_dict is not None:
+                    matching = target_subs.pop(i)
+                    leg_number_dict.update(sub_dict)
+                    break
+            if matching is None:
+                return None
+
+        return leg_number_dict
+
 class SoftStructure(SingularStructure):
 
     def count_couplings(self):
@@ -931,7 +1094,7 @@ class Current(base_objects.Process):
         # Filter initial state legs and make sure there is only one
         daughters = [leg for leg in daughters if leg.state==SubtractionLeg.INITIAL]
         if len(daughters)!=1:
-            raise CurrentImplementationError('Beam factorization current should involve'+
+            raise MadGraph5Error('Beam factorization current should involve'+
                 ' exactly one daughter initial state leg (the two beam factorization must be factorized).')        
         initial_state_daughter = daughters[0]
         
@@ -1970,7 +2133,7 @@ class IRSubtraction(object):
 
     def __init__(
         self, model,
-        coupling_types=('QCD', ), beam_types=(None, None), subtraction_scheme='colorful_pp'):
+        coupling_types=('QCD', ), beam_types=(None, None), subtraction_scheme=None):
         """Initialize a IR subtractions for a given model,ss
         correction order and type.
         """
@@ -1978,12 +2141,16 @@ class IRSubtraction(object):
         self.coupling_types = coupling_types
         self.beam_types     = beam_types
 
-        self.subtraction_scheme_module = SubtractionCurrentExporter.get_subtraction_scheme_module(subtraction_scheme)
-        # Decide is soft recoil against initial states
-        if self.subtraction_scheme_module.requires_soft_beam_factorization:
-            self.soft_do_recoil_against_initial_states = True
-        else:
+        if subtraction_scheme is None:
+            self.subtraction_scheme_module = None
             self.soft_do_recoil_against_initial_states = False
+        else:
+            self.subtraction_scheme_module = SubtractionCurrentExporter.get_subtraction_scheme_module(subtraction_scheme)
+            # Decide is soft recoil against initial states
+            if self.subtraction_scheme_module.requires_soft_beam_factorization:
+                self.soft_do_recoil_against_initial_states = True
+            else:
+                self.soft_do_recoil_against_initial_states = False
             
         # Map perturbed coupling orders to the corresponding interactions and particles.
         # The entries of the dictionary are
@@ -2034,6 +2201,43 @@ class IRSubtraction(object):
             parent_number = IRSubtraction.new_leg_number(momenta_dict)
             momenta_dict[parent_number] = frozenset(child.n for child in children)
         return parent_number
+
+    def get_sectors(self, contrib_definition, process_map, counterterms=None, integrated_counterterms=None):
+        """ Given a particular contribution definition, its process_map and the counterterms contained, this
+        uses the subtraction module to build, for each defining process, the sectors to consider (or None if the subtraction
+        does not require any) as well as the list of counterterms to consider for each of them.
+        The sectors dictionary returned has the following format:
+
+            sectors = {
+                process_key: [
+                    sector_1, sector_2, ....
+                ]
+            }
+
+        where each sector_<i> is a dictionary with the following format:
+
+            sector_<i> = {
+                'sector'    :   sector_instance_or_identifier (exact format is up to the subtraction_scheme),
+                'counterterms' : [list of counterterm indices (as per the ordering in self.counterterms of the integrand) to be considered],
+                'integrated_counterterms' : [list of tuples (counterterm indices, input_mapping_index) for integrated CT to be considered]
+            }
+
+        'None' is returned for the sectors when not applicable for the particular subtraction scheme considered.
+
+        """
+
+        # If no subtraction module is loaded or if it doesn't require sectors, then return None
+        if self.subtraction_scheme_module is None or self.subtraction_scheme_module.sector_generator is None:
+            return None
+
+        sectors = {}
+        for process_key, (defining_process, mapped_processes) in process_map.items():
+            sectors[process_key] = self.subtraction_scheme_module.sector_generator(
+                contrib_definition, defining_process,
+                None if counterterms is None else counterterms[process_key],
+                None if integrated_counterterms is None else integrated_counterterms[process_key] )
+
+        return sectors
 
     def can_be_IR_unresolved(self, PDG):
         """Check whether a particle given by its PDG can become unresolved
@@ -2634,9 +2838,10 @@ class SubtractionCurrentExporter(object):
         return subtraction_schemes_available
 
     @staticmethod
-    def get_subtraction_scheme_module(subtraction_scheme, root_path = None):
+    def get_subtraction_scheme_module(subtraction_scheme, root_path=None):
         """ Loads the subtractions scheme module specified.
-        One can also decide to load this module from the specified root_path which can be a process output for instance."""
+        One can also decide to load this module from the specified root_path
+        which can be a process output for instance."""
 
         # Attempt to import the subtraction scheme
         try:

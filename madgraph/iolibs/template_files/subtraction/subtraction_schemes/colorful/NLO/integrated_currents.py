@@ -81,7 +81,381 @@ class integrated_NLO_FF_QCD_current(utils.IntegratedCurrent, currents.QCDCurrent
                 return None
 
         return {}
- 
+
+
+class integrated_NLO_FF_QCD_collinear_qqx(integrated_NLO_FF_QCD_current):
+    """ Implements the GluonToQQbar collinear NLO current."""
+
+    def __init__(self, *args, **opts):
+        super(integrated_NLO_FF_QCD_collinear_qqx, self).__init__(*args, **opts)
+        self.supports_helicity_assignment = False
+
+    @classmethod
+    def does_implement_this_current(cls, current, model):
+        """ Returns None/a_dictionary depending on whether this particular current is
+        part of what this particular current class implements. When returning
+        a dictionary, it specifies potential options that must passed upon instantiating
+        this implementation for the current given in argument. """
+
+        # Check the general properties common to FF NLO QCD
+        if super(integrated_NLO_FF_QCD_collinear_qqx,
+                 cls).common_does_implement_this_current(
+            current) is None:
+            return None
+
+        singular_structure = \
+        current.get('singular_structure').substructures[0].substructures[0]
+
+        # It should be a collinear type of structure
+        if singular_structure.name() != 'C':
+            return None
+
+        # It should not have nested structures
+        if singular_structure.substructures:
+            return None
+
+        # It should consist in exactly two legs going collinear
+        if len(singular_structure.legs) != 2:
+            return None
+
+        for leg in singular_structure.legs:
+            if abs(leg.pdg) not in range(1, 7):
+                return None
+            if model.get_particle(leg.pdg).get('mass').upper() != 'ZERO':
+                return None
+
+        # We now know that this current is implemented here, so we return
+        # an empty dictionary which could potentially have contained specific
+        # options to specify upon instantiating this class.
+        return {}
+
+    def evaluate_integrated_current(self, current,
+                                    PS_point,
+                                    reduced_process=None,
+                                    leg_numbers_map=None,
+                                    hel_config=None,
+                                    compute_poles=False,
+                                    **opts
+                                    ):
+        """ Now evalaute the current and return the corresponding instance of
+        SubtractionCurrentResult. See documentation of the mother function for more details."""
+
+        if not hel_config is None:
+            raise CurrentImplementationError("Subtraction current implementation " +
+                                             "%s does not support helicity assignment." % self.__class__.__name__)
+        if leg_numbers_map is None:
+            raise CurrentImplementationError("Subtraction current implementation " +
+                                             "%s requires the leg_number_map." % self.__class__.__name__)
+        if reduced_process is None:
+            raise CurrentImplementationError("Subtraction current implementation " +
+                                             "%s requires the reduced_process." % self.__class__.__name__)
+
+        result = utils.SubtractionCurrentResult()
+
+        ss = current.get('singular_structure').substructures[0].substructures[0]
+
+        # Retrieve alpha_s and mu_r
+        model_param_dict = self.model.get('parameter_dict')
+        alpha_s = model_param_dict['aS']
+        mu_r = model_param_dict['MU_R']
+
+        # Retrieve kinematic variables from the specified PS point
+        children_numbers = tuple(leg.n for leg in ss.legs)
+        parent_number = leg_numbers_map.inv[frozenset(children_numbers)]
+
+        p12 = PS_point[parent_number]
+        Q = sum([PS_point[l.get('number')] for l in reduced_process.get_initial_legs()])
+        Q_square = Q.square()
+        y12 = 2. * Q.dot(p12) / Q_square
+
+        # Now instantiate what the result will be
+        evaluation = utils.SubtractionCurrentEvaluation({
+            'spin_correlations': [None],
+            'color_correlations': [None],
+            'values': {(0, 0): {}
+                       }
+        }
+        )
+
+        # Virtuality cut in the integration
+        alpha_0 = currents.SomogyiChoices.alpha_0
+        finite_part = HE.CqqFF_Finite_Gabor_DIVJAC_NOD0(alpha_0, y12)
+
+        value = EpsilonExpansion({0: finite_part, -1: (-2. / 3.), -2: 0.})
+
+        logMuQ = math.log(mu_r ** 2 / Q_square)
+        prefactor = EpsilonExpansion({0: 1., 1: logMuQ, 2: 0.5 * logMuQ ** 2})
+        prefactor *= self.SEpsilon
+
+        # Now add the normalization factors
+        value *= prefactor * (alpha_s / (2. * math.pi)) * self.TR
+        # Truncate expansion so as to keep only relevant terms
+        value.truncate(min_power=-2, max_power=0)
+
+        # Now register the value in the evaluation
+        evaluation['values'][(0, 0)] = value.to_human_readable_dict()
+
+        # And add it to the results
+        result.add_result(
+            evaluation,
+            hel_config=hel_config,
+            squared_orders=tuple(sorted(current.get('squared_orders').items()))
+        )
+
+        return result
+
+
+class integrated_NLO_FF_QCD_collinear_gq(integrated_NLO_FF_QCD_current):
+    """ Implements the NLO_FF_QCD_collinear_gq current."""
+
+    def __init__(self, *args, **opts):
+        super(integrated_NLO_FF_QCD_collinear_gq, self).__init__(*args, **opts)
+        self.supports_helicity_assignment = False
+
+    @classmethod
+    def does_implement_this_current(cls, current, model):
+        """ Returns None/a_dictionary depending on whether this particular current is
+        part of what this particular current class implements. When returning
+        a dictionary, it specifies potential options that must passed upon instantiating
+        this implementation for the current given in argument. """
+
+        # Check the general properties common to FF NLO QCD
+        if super(integrated_NLO_FF_QCD_collinear_gq,
+                 cls).common_does_implement_this_current(
+            current, model) is None:
+            return None
+
+        singular_structure = \
+        current.get('singular_structure').substructures[0].substructures[0]
+
+        # It should not have nested structures
+        if singular_structure.substructures:
+            return None
+
+        # It should consist in exactly two legs going collinear
+        if len(singular_structure.legs) != 2:
+            return None
+
+        for leg in singular_structure.legs:
+            if model.get_particle(leg.pdg).get('mass').upper() != 'ZERO':
+                return None
+
+        # Check that it is indeed a quark and a gluon going collinear
+        if set([abs(leg.pdg) for leg in singular_structure.legs]) not in \
+            [set([21, q_pdg]) for q_pdg in range(1, 7)]:
+            return None
+
+            # We now know that this current is implemented here, so we return
+        # an empty dictionary which could potentially have contained specific
+        # options to specify upon instantiating this class.
+        return {}
+
+    def evaluate_integrated_current(self, current,
+                                    PS_point,
+                                    reduced_process=None,
+                                    leg_numbers_map=None,
+                                    hel_config=None,
+                                    compute_poles=False,
+                                    **opts
+                                    ):
+        """ Now evalaute the current and return the corresponding instance of
+        SubtractionCurrentResult. See documentation of the mother function for more details."""
+
+        if not hel_config is None:
+            raise CurrentImplementationError("Subtraction current implementation " +
+                                             "%s does not support helicity assignment." % self.__class__.__name__)
+        if leg_numbers_map is None:
+            raise CurrentImplementationError("Subtraction current implementation " +
+                                             "%s requires the leg_number_map." % self.__class__.__name__)
+        if reduced_process is None:
+            raise CurrentImplementationError("Subtraction current implementation " +
+                                             "%s requires the reduced_process." % self.__class__.__name__)
+
+        result = utils.SubtractionCurrentResult()
+
+        ss = current.get('singular_structure').substructures[0].substructures[0]
+
+        # Retrieve alpha_s and mu_r
+        model_param_dict = self.model.get('parameter_dict')
+        alpha_s = model_param_dict['aS']
+        mu_r = model_param_dict['MU_R']
+
+        # Retrieve kinematic variables from the specified PS point
+        children_numbers = tuple(leg.n for leg in ss.legs)
+        parent_number = leg_numbers_map.inv[frozenset(children_numbers)]
+
+        p12 = PS_point[parent_number]
+        Q = sum([PS_point[l.get('number')] for l in reduced_process.get_initial_legs()])
+        Q_square = Q.square()
+        y12 = 2. * Q.dot(p12) / Q_square
+
+        # Now instantiate what the result will be
+        evaluation = utils.SubtractionCurrentEvaluation({
+            'spin_correlations': [None],
+            'color_correlations': [None],
+            'values': {(0, 0): {}
+                       }
+        }
+        )
+
+        # Virtuality cut in the integration
+        alpha_0 = currents.SomogyiChoices.alpha_0
+        finite_part = HE.CqgFF_Finite_Gabor_DIVJAC_NOD0(alpha_0, y12)
+
+        value = EpsilonExpansion(
+            {0: finite_part, -1: (3. / 2. - 2. * math.log(y12)), -2: 1.})
+
+        logMuQ = math.log(mu_r ** 2 / Q_square)
+
+        prefactor = EpsilonExpansion({0: 1., 1: logMuQ, 2: 0.5 * logMuQ ** 2})
+        prefactor *= self.SEpsilon
+
+        # Now add the normalization factors
+        value *= prefactor * (alpha_s / (2. * math.pi)) * self.CF
+        # Truncate expansion so as to keep only relevant terms
+        value.truncate(min_power=-2, max_power=0)
+
+        # Now register the value in the evaluation
+        evaluation['values'][(0, 0)] = value.to_human_readable_dict()
+
+        # And add it to the results
+        result.add_result(
+            evaluation,
+            hel_config=hel_config,
+            squared_orders=tuple(sorted(current.get('squared_orders').items()))
+        )
+
+        return result
+
+
+class integrated_NLO_FF_QCD_collinear_gg(integrated_NLO_FF_QCD_current):
+    """ Implements the NLO_FF_QCD_collinear_gg current."""
+
+    def __init__(self, *args, **opts):
+        super(integrated_NLO_FF_QCD_collinear_gg, self).__init__(*args, **opts)
+        self.supports_helicity_assignment = False
+
+    @classmethod
+    def does_implement_this_current(cls, current, model):
+        """ Returns None/a_dictionary depending on whether this particular current is
+        part of what this particular current class implements. When returning
+        a dictionary, it specifies potential options that must passed upon instantiating
+        this implementation for the current given in argument. """
+
+        # Check the general properties common to FF NLO QCD
+        if super(integrated_NLO_FF_QCD_collinear_gg,
+                 cls).common_does_implement_this_current(
+            current, model) is None:
+            return None
+
+        # Finally check that the singular structure and PDG matches
+        singular_structure = \
+        current.get('singular_structure').substructures[0].substructures[0]
+
+        # It should be a collinear type of structure
+        if singular_structure.name() != 'C':
+            return None
+
+        # It should not have nested structures
+        if singular_structure.substructures:
+            return None
+
+        # It should consist in exactly two legs going collinear
+        if len(singular_structure.legs) != 2:
+            return None
+
+        # They should be massless final states
+        for leg in singular_structure.legs:
+            if model.get_particle(leg.pdg).get('mass').upper() != 'ZERO':
+                return None
+
+        # Check that it is indeed two gluons going collinear
+        if [abs(leg.pdg) for leg in singular_structure.legs] != [21, 21]:
+            return None
+
+        # We now know that this current is implemented here, so we return
+        # an empty dictionary which could potentially have contained specific
+        # options to specify upon instantiating this class.
+        return {}
+
+    def evaluate_integrated_current(self, current,
+                                    PS_point,
+                                    reduced_process=None,
+                                    leg_numbers_map=None,
+                                    hel_config=None,
+                                    compute_poles=False,
+                                    **opts
+                                    ):
+        """ Now evalaute the current and return the corresponding instance of
+        SubtractionCurrentResult. See documentation of the mother function for more details."""
+
+        if not hel_config is None:
+            raise CurrentImplementationError("Subtraction current implementation " +
+                                             "%s does not support helicity assignment." % self.__class__.__name__)
+        if leg_numbers_map is None:
+            raise CurrentImplementationError("Subtraction current implementation " +
+                                             "%s requires the leg_number_map." % self.__class__.__name__)
+        if reduced_process is None:
+            raise CurrentImplementationError("Subtraction current implementation " +
+                                             "%s requires the reduced_process." % self.__class__.__name__)
+
+        result = utils.SubtractionCurrentResult()
+
+        ss = current.get('singular_structure').substructures[0].substructures[0]
+
+        # Retrieve alpha_s and mu_r
+        model_param_dict = self.model.get('parameter_dict')
+        alpha_s = model_param_dict['aS']
+        mu_r = model_param_dict['MU_R']
+
+        # Retrieve kinematic variables from the specified PS point
+        children_numbers = tuple(leg.n for leg in ss.legs)
+        parent_number = leg_numbers_map.inv[frozenset(children_numbers)]
+
+        p12 = PS_point[parent_number]
+        Q = sum([PS_point[l.get('number')] for l in reduced_process.get_initial_legs()])
+        Q_square = Q.square()
+        y12 = 2. * Q.dot(p12) / Q_square
+
+        # Now instantiate what the result will be
+        evaluation = utils.SubtractionCurrentEvaluation({
+            'spin_correlations': [None],
+            'color_correlations': [None],
+            'values': {(0, 0): {}
+                       }
+        }
+        )
+
+        # Virtuality cut in the integration
+        alpha_0 = currents.SomogyiChoices.alpha_0
+        finite_part = HE.CggFF_Finite_Gabor_DIVJAC_NOD0(alpha_0, y12)
+
+        value = EpsilonExpansion(
+            {0: finite_part, -1: (11. / 3. - 4. * math.log(y12)), -2: 2.})
+
+        logMuQ = math.log(mu_r ** 2 / Q_square)
+
+        prefactor = EpsilonExpansion({0: 1., 1: logMuQ, 2: 0.5 * logMuQ ** 2})
+        prefactor *= self.SEpsilon
+
+        # Now add the normalization factors
+        value *= prefactor * (alpha_s / (2. * math.pi)) * self.CA
+        # Truncate expansion so as to keep only relevant terms
+        value.truncate(min_power=-2, max_power=0)
+
+        # Now register the value in the evaluation
+        evaluation['values'][(0, 0)] = value.to_human_readable_dict()
+
+        # And add it to the results
+        result.add_result(
+            evaluation,
+            hel_config=hel_config,
+            squared_orders=tuple(sorted(current.get('squared_orders').items()))
+        )
+
+        return result
+
+
 class integrated_NLO_QCD_soft_gluon(integrated_NLO_FF_QCD_current):
     """ Implements the soft gluon Eikonel current.
     See Eq.4.12-4.13 of ref. https://arxiv.org/pdf/0903.1218.pdf"""

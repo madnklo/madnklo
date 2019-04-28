@@ -54,6 +54,10 @@ def alpha_jacobian(**opts):
     qC = opts['qC']
     return Q.dot(qC)/Q.dot(pC)
 
+#=========================================================================================
+# Current variables
+#=========================================================================================
+
 def n_final_coll_variables(PS_point, parent_momentum, children, **opts):
 
     na, nb = mappings.FinalCollinearVariables.collinear_and_reference(parent_momentum)
@@ -159,11 +163,11 @@ class QCDCurrent(utils.VirtualCurrentImplementation):
         
         self.EulerGamma = utils.Constants.EulerGamma
         # S_\eps = (4 \[Pi])^\[Epsilon] E^(-\[Epsilon] EulerGamma)
-        self.SEpsilon   = utils.Constants.SEpsilon
+        # self.SEpsilon   = utils.Constants.SEpsilon
         # The SEpsilon volume factor is factorized from all virtual and integrated contributions
         # so that the poles between the two cancel even before multiplying by SEpsilon, hence
         # making the result equivalent to what one would have obtained by multiplying by SEpsilon=1.
-        self.SEpsilon = EpsilonExpansion({ 0 : 1.})
+        self.SEpsilon = EpsilonExpansion({0 : 1.})
 
     @staticmethod
     def is_quark(leg, model):
@@ -209,8 +213,7 @@ class QCDCurrent(utils.VirtualCurrentImplementation):
     is_cut = staticmethod(no_cut)
     factor = staticmethod(no_factor)
 
-    # Prefix this base function with 'common' to screen it from the lookup
-    # performed by the MG5aMC current exporter.
+    # TODO This is mantained for backward compatibility, DEPRECATED
     @classmethod
     def common_does_implement_this_current(
         cls, current, QCD_squared_order=None, n_loops=None):
@@ -236,6 +239,61 @@ class QCDCurrent(utils.VirtualCurrentImplementation):
 
         # All checks passed
         return {}
+
+#=========================================================================================
+# QCDLocalCurrent
+#=========================================================================================
+class QCDLocalCurrent(QCDCurrent):
+    """Parent class for QCD local currents."""
+
+    expected_init_opts = ('leg_numbers_map', 'mapping_singular_structure')
+    non_local_currents = (BeamCurrent, IntegratedBeamCurrent, IntegratedCurrent)
+    resolve_mother_spin_and_color = True
+
+    @classmethod
+    def check_current_properties(cls, current):
+
+        try:
+            return all([
+                current['squared_orders'] == cls.squared_orders,
+                current['n_loops'] == cls.n_loops,
+                current['resolve_mother_spin_and_color'] == cls.resolve_mother_spin_and_color,
+                not isinstance(current, cls.non_local_currents)
+            ])
+        except KeyError as ke:
+            raise CurrentImplementationError(
+                "The current " + cls.__name__ + " called check_current_properties " +
+                "without setting " + str(ke) + ", please review your implementation")
+
+
+    @classmethod
+    def does_implement_this_current(cls, current, model):
+
+        if not cls.check_current_properties(current):
+            return None
+
+        try:
+            leg_numbers_map = cls.structure.map_leg_numbers(
+                current.get('singular_structure'), [range(1, model.get_nflav()+1)])
+        except AttributeError:
+            return None
+        if leg_numbers_map is None:
+            return None
+        mapping_singular_structure = current.get('singular_structure').get_copy()
+        return {
+            'leg_numbers_map': leg_numbers_map,
+            'mapping_singular_structure': mapping_singular_structure }
+
+    def __init__(self, *args, **opts):
+
+        for opt_name in self.expected_init_opts:
+            try:
+                setattr(self, opt_name, opts.pop(opt_name))
+            except KeyError:
+                raise CurrentImplementationError(
+                    "__init__ of " + self.__class__.__name__ + " requires " + opt_name)
+        self.supports_helicity_assignment = False
+        super(QCDLocalCurrent, self).__init__(*args, **opts)
 
 #=========================================================================================
 # QCDBeamFactorizationCurrent
@@ -407,118 +465,90 @@ class QCDBeamFactorizationCurrent(QCDCurrent):
 # QCDLocalCollinearCurrent
 #=========================================================================================
 
-class QCDLocalCollinearCurrent(QCDCurrent):
+class QCDLocalCollinearCurrent(QCDLocalCurrent):
     """Common functions for QCD local collinear currents."""
 
-    factor = staticmethod(alpha_jacobian)
-    variables = staticmethod(n_final_coll_variables)
+    def kernel(self, zs, kTs, parent, reduced_kinematics):
+        """Evaluate the basic splitting kernel.
 
-    def __init__(self, *args, **opts):
-
-        super(QCDLocalCollinearCurrent, self).__init__(*args, **opts)
-        self.supports_helicity_assignment = False
-
-    # Prefix this base function with 'common' to screen it from the lookup
-    # performed by the MG5aMC current exporter.
-    @classmethod
-    def common_does_implement_this_current(
-        cls, current, QCD_squared_order=None, n_loops=None):
-        """General checks common to all QCD collinear currents."""
-
-        # Check the general properties common to QCD currents
-        init_vars = super(
-            QCDLocalCollinearCurrent, cls).common_does_implement_this_current(
-            current, QCD_squared_order, n_loops)    
-        if init_vars is None: return None
-        
-        # Make sure this is not a beam factorization current
-        if isinstance(current, (BeamCurrent, IntegratedBeamCurrent, IntegratedCurrent)):
-            return None
-        
-        # Check the structure is a simple collinear
-        singular_structure = current.get('singular_structure').substructures[0]
-
-        if singular_structure.name() != 'C': return None
-        if singular_structure.substructures: return None
-        
-        # All checks passed
-        return init_vars
-
-    @classmethod
-    def get_sorted_children(cls, current, model):
-        """Return a tuple with the leg numbers of canonically sorted children."""
-
-        raise NotImplemented
-
-    def evaluate_kernel(self, zs, kTs, parent):
-        """Evaluate the basic splitting kernel, return a SubtractionCurrentEvaluation."""
+        :param zs: momentum fractions
+        :param kTs: transverse momenta
+        :param parent: parent leg number
+        :param reduced_kinematics: reduced kinematics associated to this kernel
+            in the form (reduced_kinematics_identifier, lower_PS_point)
+        :return: value of the splitting kernel
+        :return type: SubtractionCurrentEvaluation
+        """
 
         raise NotImplemented
 
     def evaluate_subtraction_current(
         self, current,
-        higher_PS_point=None,
-        leg_numbers_map=None, reduced_process=None, hel_config=None,
-        Q=None, **opts ):
+        higher_PS_point=None, momenta_dict=None, reduced_process=None,
+        hel_config=None, **opts):
+
         if higher_PS_point is None:
             raise CurrentImplementationError(
-                self.name() + " needs the phase-space points before and after mapping." )
-        if leg_numbers_map is None:
+                self.name() + " needs the higher phase-space point.")
+        if momenta_dict is None:
             raise CurrentImplementationError(
-                self.name() + " requires a leg numbers map, i.e. a momentum dictionary." )
+                self.name() + " requires a momenta dictionary.")
+        if reduced_process is None:
+            raise CurrentImplementationError(
+                self.name() + " requires a reduced_process.")
         if not hel_config is None:
             raise CurrentImplementationError(
-                self.name() + " does not support helicity assignment." )
-        if Q is None:
-            raise CurrentImplementationError(
-                self.name() + " requires the total initial momentum Q." )
+                self.name() + " does not support helicity assignment.")
 
         # Retrieve alpha_s and mu_r
         model_param_dict = self.model.get('parameter_dict')
         alpha_s = model_param_dict['aS']
         mu_r = model_param_dict['MU_R']
 
-        children = self.get_sorted_children(current, self.model)
-        parent = leg_numbers_map.inv[frozenset(children)]
-        pC = sum(higher_PS_point[child] for child in children)
-        
-        ######
-        # TODO lower_PS_point no longer available, mapping must be invoked here!
-        #
-        #   lower_PS_point = mappings.[...]
-        #
-        ######  
+        # Retrieve leg numbers
+        children = tuple(self.leg_numbers_map[i]
+                         for i in sorted(self.leg_numbers_map.keys()))
+        parent = momenta_dict.inv[frozenset(children)]
 
+        # Perform mapping
+        self.mapping_singular_structure.legs = self.get_recoilers(
+            reduced_process, excluded=(parent, ) )
+        lower_PS_point, mapping_vars = self.mapping.map_to_lower_multiplicity(
+            higher_PS_point, self.mapping_singular_structure, momenta_dict,
+            compute_jacobian=self.divide_by_jacobian)
+
+        # Retrieve kinematics
+        Q = mapping_vars['Q']
+        pC = sum(higher_PS_point[child] for child in children)
         qC = lower_PS_point[parent]
+        jacobian = mapping_vars.get('jacobian', 1)
+        reduced_kinematics = (None, lower_PS_point)
 
         # Include the counterterm only in a part of the phase space
-        if any(leg.state == leg.INITIAL for leg in current.get('singular_structure').legs):
+        if current.get('singular_structure').get_all_legs().has_initial_state_leg():
             pA = higher_PS_point[children[0]]
             pR = sum(higher_PS_point[child] for child in children[1:])
             # Initial state collinear cut
             if self.is_cut(Q=Q, pA=pA, pR=pR):
-                return utils.SubtractionCurrentResult.zero(current=current, hel_config=hel_config)
+                return utils.SubtractionCurrentResult.zero(
+                    current=current, hel_config=hel_config,
+                    reduced_kinematics=reduced_kinematics)
         else:
             # Final state collinear cut
             if self.is_cut(Q=Q, pC=pC):
-                return utils.SubtractionCurrentResult.zero(current=current, hel_config=hel_config)
-
-        # Initialise a base subtraction current evaluation
-        subtraction_current_evaluation = SubtractionCurrentEvaluation({
-            'spin_correlations'   : [ None ],
-            'color_correlations'  : [ None ],
-            'reduced_kinematics'  : [ ( None, lower_PS_point ) ],
-            'values'              : {(0,0,0): { 'finite' : 0.0 }}
-        })
+                return utils.SubtractionCurrentResult.zero(
+                    current=current, hel_config=hel_config,
+                    reduced_kinematics=reduced_kinematics)
 
         # Evaluate kernel
         zs, kTs = self.variables(higher_PS_point, qC, children, Q=Q)
-        evaluation = self.evaluate_kernel(zs, kTs, parent, subtraction_current_evaluation)
+        evaluation = self.kernel(zs, kTs, parent, reduced_kinematics)
 
         # Add the normalization factors
         pC2 = pC.square()
         norm = (8. * math.pi * alpha_s / pC2) ** (len(children) - 1)
         norm *= self.factor(Q=Q, pC=pC, qC=qC)
+        norm /= jacobian
         for k in evaluation['values']:
             evaluation['values'][k]['finite'] *= norm
 
@@ -534,6 +564,7 @@ class QCDLocalCollinearCurrent(QCDCurrent):
 # QCDLocalSoftCurrent
 #=========================================================================================
 
+# TODO This is mantained for backward compatibility, DEPRECATED
 class QCDLocalSoftCurrent(QCDCurrent):
     """Common functions for QCD local soft currents."""
 
@@ -573,6 +604,7 @@ class QCDLocalSoftCurrent(QCDCurrent):
 # QCDLocalSoftCollinearCurrent
 #=========================================================================================
 
+# TODO This is mantained for backward compatibility, DEPRECATED
 class QCDLocalSoftCollinearCurrent(QCDCurrent):
     """Common functions for QCD local soft-collinear currents."""
 
@@ -617,74 +649,3 @@ class QCDLocalSoftCollinearCurrent(QCDCurrent):
                 return None
         # All checks passed
         return init_vars
-
-#=========================================================================================
-# Original Somogyi choices
-#=========================================================================================
-
-class SomogyiChoices(object):
-    """Original Somogyi choices."""
-
-    alpha_0     = 0.5
-    y_0         = 0.5
-    y_0_prime   = 0.5
-    d_0         = 1
-    d_0_prime   = 2
-
-    @staticmethod
-    def cut_coll(**opts):
-
-        try:
-            alpha = opts['alpha']
-        except KeyError:
-            pC    = opts['pC']
-            Q     = opts['Q']
-            alpha = mappings.FinalRescalingOneMapping.alpha(pC, Q)
-        # Include the counterterm only up to alpha_0
-        return alpha > SomogyiChoices.alpha_0
-
-    @staticmethod
-    def cut_initial_coll(**opts):
-
-        pA    = opts['pA']
-        pR    = opts['pR']
-        Q     = opts['Q']
-        y_0p  = (2.*pA.dot(pR))/Q.square()
-        # Include the counterterm only up to y_0_prime
-        return y_0p > SomogyiChoices.y_0_prime
-
-    @staticmethod
-    def cut_soft(**opts):
-
-        try:
-            y  = opts['y']
-        except KeyError:
-            pS = opts['pS']
-            Q  = opts['Q']
-            y = mappings.SoftVsFinalPureRescalingMapping.y(pS, Q)
-        # Include the counterterm only up to y_0
-        return y > SomogyiChoices.y_0
-
-    @staticmethod
-    def factor_coll(**opts):
-
-        try:
-            alpha = opts['alpha']
-        except KeyError:
-            pC    = opts['pC']
-            Q     = opts['Q']
-            alpha = mappings.FinalRescalingOneMapping.alpha(pC, Q)
-        norm = (1 - alpha) ** (2 * (SomogyiChoices.d_0 - 1))
-        return norm
-
-    @staticmethod
-    def factor_soft(**opts):
-
-        try:
-            y  = opts['y']
-        except KeyError:
-            pS = opts['pS']
-            Q  = opts['Q']
-            y = mappings.SoftVsFinalPureRescalingMapping.y(pS, Q)
-        norm = (1 - y) ** (SomogyiChoices.d_0_prime - 2)
-        return norm

@@ -1436,7 +1436,6 @@ The resulting output must therefore be used for debugging only as it will not yi
                                           get_copy(('squared_orders','singular_structure'))
                 # The two initial states are always distinguishable, so we should not 
                 # group them into a single topology
-                copied_current.discard_leg_numbers(discard_initial_leg_numbers=False)
                 integrated_current_topology = copied_current.get_key().get_canonical_key()
                 try:
                     integrated_current_topologies[integrated_current_topology].append(
@@ -1706,7 +1705,6 @@ The resulting output must therefore be used for debugging only as it will not yi
                 # We must remove the leg information since this is information is irrelevant
                 # for the selection of the hard-coded current implementation to consider.
                 copied_current = current.get_copy(('squared_orders','singular_structure'))
-                copied_current.discard_leg_numbers(discard_initial_leg_numbers=False)
                 if copied_current not in all_currents:
                     all_currents.append(copied_current)
 
@@ -1779,12 +1777,19 @@ The resulting output must therefore be used for debugging only as it will not yi
             for process_key in process_map:
                 relevant_counterterms[process_key] = self.counterterms[process_key]
 
+        identified_sectors = self.IR_subtraction.get_sectors(
+            self.contribution_definition,
+            process_map,
+            counterterms=relevant_counterterms,
+        )
+
         return [
             ME7_integrands.ME7Integrand(
                 model, run_card, self.contribution_definition,
                 process_map, self.topologies_to_processes, self.processes_to_topologies,
                 all_MEAccessors, ME7_configuration,
-                counterterms=relevant_counterterms
+                sectors = identified_sectors,
+                counterterms = relevant_counterterms
             )
         ]
         
@@ -1866,7 +1871,6 @@ class Contribution_V(Contribution):
             # We must remove the leg information since this is information is irrelevant
             # for the selection of the hard-coded current implementation to consider.
             copied_current = integrated_current.get_copy(('squared_orders','singular_structure'))
-            copied_current.discard_leg_numbers(discard_initial_leg_numbers=False)
             if copied_current not in all_currents:
                 all_currents.append(copied_current)
 
@@ -1912,6 +1916,15 @@ class Contribution_V(Contribution):
             for process_key in process_map:
                 relevant_counterterms[process_key] = self.integrated_counterterms[process_key]
 
+        if self.IR_subtraction is None:
+            identified_sectors = None
+        else:
+            identified_sectors = self.IR_subtraction.get_sectors(
+                self.contribution_definition,
+                process_map,
+                integrated_counterterms=relevant_counterterms,
+            )
+
         return [ ME7_integrands.ME7Integrand(model, run_card,
                                        self.contribution_definition,
                                        process_map,
@@ -1919,6 +1932,7 @@ class Contribution_V(Contribution):
                                        self.processes_to_topologies,
                                        all_MEAccessors,
                                        ME7_configuration,
+                                       sectors = identified_sectors,
                                        integrated_counterterms=relevant_counterterms)
                ]
 
@@ -2377,6 +2391,16 @@ class Contribution_RV(Contribution_R, Contribution_V):
             for process_key in process_map:
                 relevant_integrated_counterterms[process_key] = self.integrated_counterterms[process_key]
 
+        if self.IR_subtraction is None:
+            identified_sectors = None
+        else:
+            identified_sectors = self.IR_subtraction.get_sectors(
+                self.contribution_definition,
+                process_map,
+                counterterms=relevant_counterterms,
+                integrated_counterterms=relevant_integrated_counterterms
+            )
+
         return [ ME7_integrands.ME7Integrand(model, run_card,
                    self.contribution_definition,
                    process_map,
@@ -2384,6 +2408,7 @@ class Contribution_RV(Contribution_R, Contribution_V):
                    self.processes_to_topologies,
                    all_MEAccessors,
                    ME7_configuration,
+                   sectors=identified_sectors,
                    counterterms=relevant_counterterms,
                    integrated_counterterms=relevant_integrated_counterterms
                 ) ]

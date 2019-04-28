@@ -14,49 +14,179 @@
 ##########################################################################################
 """Implementation of NLO colorful currents."""
 
-import os
 import math
 
-import madgraph.integrator.vectors as vectors
+import madgraph.core.subtraction as sub
+import madgraph.integrator.mappings as mappings
 
 import commons.utils as utils
 import commons.QCD_local_currents as currents
+import commons.factors_and_cuts as factors_and_cuts
 
 import madgraph.various.misc as misc
 
-pjoin = os.path.join
-
 CurrentImplementationError = utils.CurrentImplementationError
+
+#=========================================================================================
+# Choice of recoilers
+#=========================================================================================
+
+def get_recoilers(reduced_process, excluded=()):
+
+    model = reduced_process.get('model')
+    return sub.SubtractionLegSet([
+        leg for leg in reduced_process.get('legs') if all([
+            model.get_particle(leg['id']).get('mass').upper() == 'ZERO',
+            leg['state'] == leg.FINAL,
+            leg['number'] not in excluded
+        ])
+    ])
+
+#=========================================================================================
+# Variables, mappings, jacobians, factors and cuts
+#=========================================================================================
+# Note that variables, factors and cuts will be class members by design
+# so they can easily be overridden by subclasses.
+# They will be taken from the following variables
+# so we can quickly switch them coherently across the entire subtraction scheme.
+
+variables = currents.Q_final_coll_variables
+coll_mapping = mappings.FinalRescalingOneMapping
+soft_mapping = mappings.SoftVsFinalPureRescalingMapping
+soft_coll_mapping = mappings.SoftCollinearVsFinalMapping(
+    soft_mapping=soft_mapping, collinear_mapping=coll_mapping)
+divide_by_jacobian = True
+factor_coll = factors_and_cuts.factor_coll
+factor_soft = factors_and_cuts.factor_soft
+is_cut_coll = factors_and_cuts.cut_coll
+is_cut_soft = factors_and_cuts.cut_soft
+
+#=========================================================================================
+# NLO final-collinear currents
+#=========================================================================================
+
+class QCD_final_collinear_0_XX(currents.QCDLocalCollinearCurrent):
+    """Two-collinear tree-level current."""
+
+    squared_orders = {'QCD': 2}
+    n_loops = 0
+
+    is_cut = staticmethod(is_cut_coll)
+    factor = staticmethod(factor_coll)
+    mapping = coll_mapping
+    variables = staticmethod(variables)
+    divide_by_jacobian = divide_by_jacobian
+    get_recoilers = staticmethod(get_recoilers)
+
+
+class QCD_final_collinear_0_qqx(QCD_final_collinear_0_XX):
+    """q q~ collinear tree-level current."""
+
+    structure = sub.SingularStructure(sub.CollStructure(
+        sub.SubtractionLeg(0, +1, sub.SubtractionLeg.FINAL),
+        sub.SubtractionLeg(1, -1, sub.SubtractionLeg.FINAL), ))
+
+    def kernel(self, zs, kTs, parent, reduced_kinematics):
+
+        # Retrieve the collinear variables
+        z = zs[0]
+        kT = kTs[0]
+        # Instantiate the structure of the result
+        evaluation = utils.SubtractionCurrentEvaluation({
+            'spin_correlations': [None, ((parent, (kT,)),), ],
+            'color_correlations': [None],
+            'reduced_kinematics': [reduced_kinematics],
+            'values': {(0, 0, 0): {'finite': None},
+                       (1, 0, 0): {'finite': None}, }
+        })
+        # Compute the kernel
+        # The line below implements the g_{\mu\nu} part of the splitting kernel.
+        # Notice that the extra longitudinal terms included in the spin-correlation 'None'
+        # from the relation:
+        #    \sum_\lambda \epsilon_\lambda^\mu \epsilon_\lambda^{\star\nu}
+        #    = g^{\mu\nu} + longitudinal terms
+        # are irrelevant because Ward identities evaluate them to zero anyway.
+        evaluation['values'][(0, 0, 0)]['finite'] = self.TR
+        evaluation['values'][(1, 0, 0)]['finite'] = 4 * self.TR * z * (1-z) / kT.square()
+        return evaluation
+
+
+class QCD_final_collinear_0_gq(QCD_final_collinear_0_XX):
+    """g q collinear tree-level current."""
+
+    structure = sub.SingularStructure(sub.CollStructure(
+        sub.SubtractionLeg(0, 21, sub.SubtractionLeg.FINAL),
+        sub.SubtractionLeg(1, +1, sub.SubtractionLeg.FINAL), ))
+
+    def kernel(self, zs, kTs, parent, reduced_kinematics):
+
+        # Retrieve the collinear variables
+        z = zs[0]
+        # Instantiate the structure of the result
+        evaluation = utils.SubtractionCurrentEvaluation({
+            'spin_correlations': [None],
+            'color_correlations': [None],
+            'reduced_kinematics': [reduced_kinematics],
+            'values': {(0, 0, 0): {'finite': None}}
+        })
+        # Compute the kernel
+        evaluation['values'][(0, 0, 0)]['finite'] = \
+            self.CF * (1 + (1-z)**2) / z
+        return evaluation
+
+
+class QCD_final_collinear_0_gg(QCD_final_collinear_0_XX):
+    """g g collinear tree-level current."""
+
+    structure = sub.SingularStructure(sub.CollStructure(
+        sub.SubtractionLeg(0, 21, sub.SubtractionLeg.FINAL),
+        sub.SubtractionLeg(1, 21, sub.SubtractionLeg.FINAL), ))
+
+    def kernel(self, zs, kTs, parent, reduced_kinematics):
+
+        # Retrieve the collinear variables
+        z = zs[0]
+        kT = kTs[0]
+        # Instantiate the structure of the result
+        evaluation = utils.SubtractionCurrentEvaluation({
+            'spin_correlations': [None, ((parent, (kT,)),), ],
+            'color_correlations': [None],
+            'reduced_kinematics': [reduced_kinematics],
+            'values': {(0, 0, 0): {'finite': None},
+                       (1, 0, 0): {'finite': None}, }
+        })
+        # Compute the kernel
+        # The line below implements the g_{\mu\nu} part of the splitting kernel.
+        # Notice that the extra longitudinal terms included in the spin-correlation 'None'
+        # from the relation:
+        #    \sum_\lambda \epsilon_\lambda^\mu \epsilon_\lambda^{\star\nu}
+        #    = g^{\mu\nu} + longitudinal terms
+        # are irrelevant because Ward identities evaluate them to zero anyway.
+        evaluation['values'][(0, 0, 0)]['finite'] = \
+            +2 * self.CA * (z/(1-z) + (1-z)/z)
+        evaluation['values'][(1, 0, 0)]['finite'] = \
+            -2 * self.CA * 2 * z * (1-z) / kT.square()
+        return evaluation
 
 #=========================================================================================
 # NLO soft current
 #=========================================================================================
 
-class QCD_soft_0_g(currents.QCDLocalSoftCurrent):
+class QCD_soft_0_g(currents.QCDLocalCurrent):
     """Soft gluon eikonal current at tree level, eq.4.12-4.13 of arXiv:0903.1218."""
 
-    is_cut = staticmethod(currents.SomogyiChoices.cut_soft)
-    factor = staticmethod(currents.SomogyiChoices.factor_soft)
+    squared_orders = {'QCD': 2}
+    n_loops = 0
 
-    @classmethod
-    def does_implement_this_current(cls, current, model):
+    structure = sub.SingularStructure(
+        sub.SoftStructure(sub.SubtractionLeg(0, 21, sub.SubtractionLeg.FINAL)) )
 
-        # Check the general properties common to NLO QCD soft tree-level currents
-        init_vars = cls.common_does_implement_this_current(current, 2, 0)
-        if init_vars is None: return None
-        # Retrieve the singular structure
-        singular_structure = current.get('singular_structure').substructures[0]
-        # It should consist in exactly one legs going soft
-        if len(singular_structure.legs) != 1:
-            return None
-        # The leg going soft should be a massless gluon in the final state
-        leg = singular_structure.legs[0]
-        if not cls.is_gluon(leg, model): return None
-        if not cls.is_massless(leg, model): return None
-        if cls.is_initial(leg): return None
-        # The current is valid
-        return init_vars
-   
+    is_cut = staticmethod(is_cut_soft)
+    factor = staticmethod(factor_soft)
+    mapping = soft_mapping
+    divide_by_jacobian = divide_by_jacobian
+    get_recoilers = staticmethod(get_recoilers)
+
     @staticmethod
     def eikonal(pi, pj, ps):
         """Eikonal factor for soft particle with momentum ps
@@ -70,73 +200,83 @@ class QCD_soft_0_g(currents.QCDLocalSoftCurrent):
     
     def evaluate_subtraction_current(
         self, current,
-        higher_PS_point=None,
-        leg_numbers_map=None, reduced_process=None, hel_config=None,
-        Q=None, **opts ):
+        higher_PS_point=None, momenta_dict=None, reduced_process=None,
+        hel_config=None, **opts ):
+
         if higher_PS_point is None:
             raise CurrentImplementationError(
-                self.name() + " needs the phase-space points before and after mapping." )
-        if leg_numbers_map is None:
+                self.name() + " needs the higher phase-space point." )
+        if momenta_dict is None:
             raise CurrentImplementationError(
-                self.name() + " requires a leg numbers map, i.e. a momentum dictionary." )
+                self.name() + " requires a momenta dictionary." )
         if reduced_process is None:
             raise CurrentImplementationError(
                 self.name() + " requires a reduced_process.")
         if not hel_config is None:
             raise CurrentImplementationError(
                 self.name() + " does not support helicity assignment." )
-        if Q is None:
-            raise CurrentImplementationError(
-                self.name() + " requires the total mapping momentum Q." )
 
         # Retrieve alpha_s and mu_r
         model_param_dict = self.model.get('parameter_dict')
         alpha_s = model_param_dict['aS']
         mu_r    = model_param_dict['MU_R']
 
-        # Now find all colored leg numbers in the reduced process
-        all_colored_parton_numbers = []
-        for leg in reduced_process.get('legs'):
-            if self.model.get_particle(leg.get('id')).get('color')==1:
-                continue
-            all_colored_parton_numbers.append(leg.get('number'))
-        soft_leg_number = current.get('singular_structure').substructures[0].legs[0].n
+        # Retrieve leg numbers
+        soft_leg_number = self.leg_numbers_map[0]
 
+        # Perform mapping
+        self.mapping_singular_structure.legs = self.get_recoilers(reduced_process)
+        lower_PS_point, mapping_vars = soft_mapping.map_to_lower_multiplicity(
+            higher_PS_point, self.mapping_singular_structure, momenta_dict,
+            compute_jacobian=self.divide_by_jacobian )
+
+        # Retrieve kinematics
+        Q = mapping_vars['Q']
         pS = higher_PS_point[soft_leg_number]
+        jacobian = mapping_vars.get('jacobian', 1)
 
         # Include the counterterm only in a part of the phase space
         if self.is_cut(Q=Q, pS=pS):
             return utils.SubtractionCurrentResult.zero(
-                current=current, hel_config=hel_config)
+                current=current, hel_config=hel_config,
+                reduced_kinematics=(None, lower_PS_point))
 
-        # Now instantiate what the result will be
-        evaluation = utils.SubtractionCurrentEvaluation({
-            'spin_correlations'   : [ None ],
-            'color_correlations'  : [],
-            'values'              : {}
-        })
-        
         # Normalization factors
-        norm = -4. * math.pi * alpha_s
+        norm = -4 * math.pi * alpha_s
         norm *= self.factor(Q=Q, pS=pS)
+        norm /= jacobian
 
-        color_correlation_index = 0
-        # Now loop over the colored parton number pairs (a,b)
+        # Find all colored leg numbers in the reduced process
+        all_colored_parton_numbers = []
+        for leg in reduced_process.get('legs'):
+            if self.model.get_particle(leg.get('id')).get('color') == 1:
+                continue
+            all_colored_parton_numbers.append(leg.get('number'))
+
+        # Initialize the result
+        evaluation = utils.SubtractionCurrentEvaluation({
+            'spin_correlations': [None],
+            'color_correlations': [],
+            'reduced_kinematics': [(None, lower_PS_point)],
+            'values': {}
+        })
+
+        # Loop over colored parton number pairs (a, b)
         # and add the corresponding contributions to this current
+        color_correlation_index = 0
         for i, a in enumerate(all_colored_parton_numbers):
             # Use the symmetry of the color correlation and soft current (a,b) <-> (b,a)
             for b in all_colored_parton_numbers[i:]:
                 # Write the eikonal for that pair
-                if a!=b:
+                if a != b:
                     mult_factor = 2.
                 else:
                     mult_factor = 1.
-                pa = sum(higher_PS_point[child] for child in leg_numbers_map[a])
-                pb = sum(higher_PS_point[child] for child in leg_numbers_map[b])
-                
+                pa = higher_PS_point[a]
+                pb = higher_PS_point[b]
                 eikonal = self.eikonal(pa, pb, pS)
                 evaluation['color_correlations'].append( ((a, b), ) )
-                evaluation['values'][(0, color_correlation_index)] = {
+                evaluation['values'][(0, color_correlation_index, 0)] = {
                     'finite': norm * mult_factor * eikonal }
                 color_correlation_index += 1
         
@@ -151,123 +291,125 @@ class QCD_soft_0_g(currents.QCDLocalSoftCurrent):
 # NLO final soft-collinear currents
 #=========================================================================================
 
-class QCD_final_softcollinear_0_gX(currents.QCDLocalSoftCollinearCurrent):
+class QCD_final_softcollinear_0_gX(currents.QCDLocalCurrent):
     """NLO tree-level (final) soft-collinear currents."""
 
-    is_cut = staticmethod(currents.SomogyiChoices.cut_soft)
-    variables = staticmethod(currents.Q_final_coll_variables)
-    factor = staticmethod(currents.SomogyiChoices.factor_soft)
+    squared_orders = {'QCD': 2}
+    n_loops = 0
 
-    def __init__(self, *args, **opts):
+    soft_structure = sub.SoftStructure(
+        legs=(sub.SubtractionLeg(0, 21, sub.SubtractionLeg.FINAL), ) )
+    soft_coll_structure_q = sub.CollStructure(
+        substructures=(soft_structure, ),
+        legs=(sub.SubtractionLeg(1,  1, sub.SubtractionLeg.FINAL), ) )
+    soft_coll_structure_g = sub.CollStructure(
+        substructures=(soft_structure, ),
+        legs=(sub.SubtractionLeg(1, 21, sub.SubtractionLeg.FINAL), ) )
+    structure_q = sub.SingularStructure(substructures=(soft_coll_structure_q, ))
+    structure_g = sub.SingularStructure(substructures=(soft_coll_structure_g, ))
 
-        # Make sure it is initialized with the proper set of options and remove them
-        # before calling the mother constructor
-        if 'color_charge' not in opts:
-            raise CurrentImplementationError(
-                "The current '%s' must be instantiated with " % self.__class__.__name__ +
-                "a 'color_charge' option specified.")
-        color_charge = opts.pop('color_charge')
-
-        super(QCD_final_softcollinear_0_gX, self).__init__(*args, **opts)
-        # At this state color_charge is the string of the group factor ('CA' or 'CF');
-        # now that the mother constructor has been called,
-        # the group factors have been initialized and we can retrieve them.
-        self.color_charge = getattr(self, color_charge)
+    is_cut = staticmethod(is_cut_soft)
+    factor = staticmethod(factor_soft)
+    mapping = soft_coll_mapping
+    variables = staticmethod(variables)
+    divide_by_jacobian = divide_by_jacobian
+    get_recoilers = staticmethod(get_recoilers)
 
     @classmethod
     def does_implement_this_current(cls, current, model):
 
-        # Check the general properties common to NLO QCD
-        init_vars = cls.common_does_implement_this_current(current, 2, 0)
-        if init_vars is None: return None
-        # Retrieve the singular structure
-        singular_structure = current.get('singular_structure').substructures[0]
-        # It should have only one leg and one nested substructure with one soft leg
-        if len(singular_structure.legs) != 1: return None
-        if len(singular_structure.substructures) != 1: return None
-        sub_singular_structure = singular_structure.substructures[0]
-        if len(sub_singular_structure.legs) != 1: return None
-        # The hard and soft legs are now identified
-        hard_leg = singular_structure.legs[0]
-        soft_leg = sub_singular_structure.legs[0]
-        # Make sure legs are massless and final state
-        if not cls.is_massless(hard_leg, model): return None
-        if not cls.is_massless(soft_leg, model): return None
-        if cls.is_initial(hard_leg) or cls.is_initial(soft_leg): return None
-        # The hard leg must be quark or a gluon
-        if not (cls.is_gluon(hard_leg, model) or cls.is_quark(hard_leg, model)):
-            return None
-        # The soft leg must be a gluon
-        if not cls.is_gluon(soft_leg, model): return None
-        # Check if hard_leg is a quark or a gluon, and set the color factor accordingly
-        if   cls.is_gluon(hard_leg, model): init_vars['color_charge'] = 'CA'
-        elif cls.is_quark(hard_leg, model): init_vars['color_charge'] = 'CF'
-        else: return None
-        # The current is valid
-        return init_vars
+        if not cls.check_current_properties(current): return None
 
-    @classmethod
-    def get_sorted_children(cls, current, model):
+        color_charge = 'CF'
+        leg_numbers_map = cls.structure_q.map_leg_numbers(
+            current.get('singular_structure'), [range(1, model.get_nflav()+1)])
+        if leg_numbers_map is None:
+            color_charge = 'CA'
+            leg_numbers_map = cls.structure_g.map_leg_numbers(
+                current.get('singular_structure'), [range(1, model.get_nflav()+1)])
+            if leg_numbers_map is None:
+                return None
+        mapping_singular_structure = current.get('singular_structure').get_copy()
+        return {
+            'leg_numbers_map': leg_numbers_map,
+            'color_charge': color_charge,
+            'mapping_singular_structure': mapping_singular_structure
+        }
 
-        ss = current.get('singular_structure').substructures[0]
-        return (ss.substructures[0].legs[0].n, ss.legs[0].n)
+    def __init__(self, *args, **opts):
+
+        for opt_name in ['color_charge', ]:
+            try:
+                setattr(self, opt_name, opts.pop(opt_name))
+            except KeyError:
+                raise CurrentImplementationError(
+                    "__init__ of " + self.__class__.__name__ + " requires " + opt_name)
+
+        super(QCD_final_softcollinear_0_gX, self).__init__(*args, **opts)
+        # At this state color_charge is the string of the group factor ('CA' or 'CF');
+        # now that the super constructor has been called,
+        # the group factors have been initialized and we can retrieve them.
+        self.color_charge = getattr(self, self.color_charge)
 
     def evaluate_subtraction_current(
         self, current,
-        higher_PS_point=None,
-        leg_numbers_map=None, reduced_process=None, hel_config=None,
-        Q=None, **opts ):
+        higher_PS_point=None, momenta_dict=None, reduced_process=None,
+        hel_config=None, **opts ):
         if higher_PS_point is None:
             raise CurrentImplementationError(
-                self.name() + " needs the phase-space points before and after mapping." )
-        if leg_numbers_map is None:
+                self.name() + " needs the higher phase-space point." )
+        if momenta_dict is None:
             raise CurrentImplementationError(
-                self.name() + " requires a leg numbers map, i.e. a momentum dictionary." )
+                self.name() + " requires a momenta dictionary." )
+        if reduced_process is None:
+            raise CurrentImplementationError(
+                self.name() + " requires a reduced_process.")
         if not hel_config is None:
             raise CurrentImplementationError(
                 self.name() + " does not support helicity assignment." )
-        if Q is None:
-            raise CurrentImplementationError(
-                self.name() + " requires the total mapping momentum Q." )
 
         # Retrieve alpha_s and mu_r
         model_param_dict = self.model.get('parameter_dict')
         alpha_s = model_param_dict['aS']
         mu_r = model_param_dict['MU_R']
 
+        # Retrieve leg numbers
+        soft_leg_number = self.leg_numbers_map[0]
+        coll_leg_number = self.leg_numbers_map[1]
+        children = (soft_leg_number, coll_leg_number, )
+        parent = momenta_dict.inv[frozenset(children)]
+
+        # Perform mapping
+        self.mapping_singular_structure.legs = self.get_recoilers(
+            reduced_process, excluded=(parent, ))
+        lower_PS_point, mapping_vars = self.mapping.map_to_lower_multiplicity(
+            higher_PS_point, self.mapping_singular_structure, momenta_dict,
+            compute_jacobian=self.divide_by_jacobian )
+
+        # Retrieve kinematics
+        Q = mapping_vars['Q']
+        pS = higher_PS_point[soft_leg_number]
+        pC = pS + higher_PS_point[coll_leg_number]
+        jacobian = mapping_vars.get('jacobian', 1)
+
         # Include the counterterm only in a part of the phase space
-        children = self.get_sorted_children(current, self.model)
-        pC = sum(higher_PS_point[child] for child in children)
-        soft_children = []
-        for substructure in current.get('singular_structure').substructures[0].substructures:
-            soft_children += [leg.n for leg in substructure.get_all_legs()]
-        pS = sum(higher_PS_point[child] for child in soft_children)
-        parent = leg_numbers_map.inv[frozenset(children)]
-        if self.is_cut(Q=Q, pC=pC, pS=pS):
+        if self.is_cut(Q=Q, pS=pS):
             return utils.SubtractionCurrentResult.zero(
-                current=current, hel_config=hel_config)
+                current=current, hel_config=hel_config,
+                reduced_kinematics=(None, lower_PS_point))
 
-        # Now instantiate what the result will be
-        evaluation = utils.SubtractionCurrentEvaluation({
-            'spin_correlations': [None],
-            'color_correlations': [None],
-            'values': {(0, 0): {'finite': None}}
-        })
-
-        ######
-        # TODO lower_PS_point no longer available here, mapping must be invoked!
-        ######
         # Evaluate kernel
-        # zs, kTs = self.variables(higher_PS_point, lower_PS_point[parent], children, Q=Q)
-        zs, kTs = self.variables(higher_PS_point, vectors.LorentzVector(), children, Q=Q)
-
+        zs, kTs = self.variables(higher_PS_point, lower_PS_point[parent], children, Q=Q)
         z = zs[0]
-        evaluation['values'][(0, 0)]['finite'] = self.color_charge * 2.*(1.-z) / z
+        evaluation = utils.SubtractionCurrentEvaluation.zero(
+            reduced_kinematics=(None, lower_PS_point))
+        evaluation['values'][(0, 0, 0)]['finite'] = self.color_charge * 2 * (1-z) / z
 
         # Add the normalization factors
         s12 = pC.square()
-        norm = 8. * math.pi * alpha_s / s12
+        norm = 8 * math.pi * alpha_s / s12
         norm *= self.factor(Q=Q, pC=pC, pS=pS)
+        norm /= jacobian
         for k in evaluation['values']:
             evaluation['values'][k]['finite'] *= norm
 
@@ -278,5 +420,3 @@ class QCD_final_softcollinear_0_gX(currents.QCDLocalSoftCollinearCurrent):
             hel_config=hel_config,
             squared_orders=tuple(sorted(current.get('squared_orders').items())))
         return result
-
-

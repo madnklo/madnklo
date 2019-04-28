@@ -14,175 +14,15 @@
 ##########################################################################################
 """Implementation of NLO colorful_pp local currents."""
 
-import os
 import math
-import madgraph.various.misc as misc
 
 import commons.utils as utils
 import commons.QCD_local_currents as currents
+import commons.factors_and_cuts as factors_and_cuts
 
-pjoin = os.path.join
+import madgraph.various.misc as misc
 
 CurrentImplementationError = utils.CurrentImplementationError
-
-#=========================================================================================
-# NLO final-collinear currents
-#=========================================================================================
-
-class QCD_final_collinear_0_qqx(currents.QCDLocalCollinearCurrent):
-    """q q~ collinear tree-level current."""
-
-    is_cut = staticmethod(currents.SomogyiChoices.cut_coll)
-    factor = staticmethod(currents.SomogyiChoices.factor_coll)
-    variables = staticmethod(currents.Q_final_coll_variables)
-
-    @classmethod
-    def does_implement_this_current(cls, current, model):
-
-        # Check the general properties common to NLO QCD collinear tree-level currents
-        init_vars = cls.common_does_implement_this_current(current, 2, 0)
-        if init_vars is None: return None
-        # Retrieve singular structure
-        ss = current.get('singular_structure').substructures[0]
-        
-        # Check that the particles are a massless quark and its anti-quark in final-state
-        if len(ss.legs) != 2: return None
-        
-        for leg in ss.legs:
-            if not cls.is_quark(leg, model): return None
-            if not cls.is_massless(leg, model): return None
-            if cls.is_initial(leg): return None
-        
-        if not cls.are_antiparticles(ss.legs[0], ss.legs[1]): return None
-        
-        # The current is valid
-        return init_vars
-
-    @classmethod
-    def get_sorted_children(cls, current, model):
-
-        legs = current.get('singular_structure').substructures[0].legs
-        return tuple(leg.n for leg in legs)
-
-    def evaluate_kernel(self, zs, kTs, parent):
-
-        # Retrieve the collinear variables
-        z = zs[0]
-        kT = kTs[0]
-        # Instantiate the structure of the result
-        evaluation = utils.SubtractionCurrentEvaluation({
-            'spin_correlations'  : [None, ((parent, (kT, )), ), ],
-            'color_correlations' : [None],
-            'values'             : {(0, 0): {'finite': None},
-                                    (1, 0): {'finite': None}, }
-        })
-        # The line below implements the g_{\mu\nu} part of the splitting kernel.
-        # Notice that the extra longitudinal terms included in the spin-correlation 'None'
-        # from the relation:
-        #    \sum_\lambda \epsilon_\lambda^\mu \epsilon_\lambda^{\star\nu}
-        #    = g^{\mu\nu} + longitudinal terms
-        # are irrelevant because Ward identities evaluate them to zero anyway.
-        evaluation['values'][(0, 0)]['finite'] = self.TR
-        evaluation['values'][(1, 0)]['finite'] = 4. * self.TR * z*(1.-z) / kT.square()
-        return evaluation
-
-class QCD_final_collinear_0_gq(currents.QCDLocalCollinearCurrent):
-    """g q collinear tree-level current."""
-
-    is_cut = staticmethod(currents.SomogyiChoices.cut_coll)
-    factor = staticmethod(currents.SomogyiChoices.factor_coll)
-    variables = staticmethod(currents.Q_final_coll_variables)
-
-    @classmethod
-    def does_implement_this_current(cls, current, model):
-
-        # Check the general properties common to NLO QCD collinear tree-level currents
-        init_vars = cls.common_does_implement_this_current(current, 2, 0)
-        if init_vars is None: return None
-        # Retrieve singular structure
-        ss = current.get('singular_structure').substructures[0]
-        # Check that all particles are massless final state
-        for leg in ss.legs:
-            if not cls.is_massless(leg, model): return None
-            if cls.is_initial(leg): return None
-        # Check that there are a quark and a gluon
-        if len(ss.legs) != 2: return None
-        if (cls.is_gluon(ss.legs[0], model) and cls.is_quark(ss.legs[1], model)):
-            pass
-        elif (cls.is_quark(ss.legs[0], model) and cls.is_gluon(ss.legs[1], model)):
-            pass
-        else:
-            return None
-        # The current is valid
-        return init_vars
-
-    @classmethod
-    def get_sorted_children(cls, current, model):
-
-        legs = current.get('singular_structure').substructures[0].legs
-        if cls.is_gluon(legs[0], model): return (legs[0].n, legs[1].n)
-        else: return (legs[1].n, legs[0].n)
-
-    def evaluate_kernel(self, zs, kTs, parent, subtraction_current_evaluation):
-
-        # Retrieve the collinear variables
-        z = zs[0]
-
-        subtraction_current_evaluation['values'][(0, 0, 0)]['finite'] = self.CF * (1.+(1.-z)**2)/z
-
-        return subtraction_current_evaluation
-
-class QCD_final_collinear_0_gg(currents.QCDLocalCollinearCurrent):
-    """g g collinear tree-level current."""
-
-    is_cut = staticmethod(currents.SomogyiChoices.cut_coll)
-    factor = staticmethod(currents.SomogyiChoices.factor_coll)
-    variables = staticmethod(currents.Q_final_coll_variables)
-
-    @classmethod
-    def does_implement_this_current(cls, current, model):
-
-        # Check the general properties common to NLO QCD collinear tree-level currents
-        init_vars = cls.common_does_implement_this_current(current, 2, 0)
-        if init_vars is None: return None
-        # Retrieve singular structure
-        ss = current.get('singular_structure').substructures[0]
-        # Check that the particles are two final-state massless gluons
-        if len(ss.legs) != 2: return None
-        for leg in ss.legs:
-            if not cls.is_gluon(leg, model): return None
-            if not cls.is_massless(leg, model): return None
-            if cls.is_initial(leg): return None
-        # The current is valid
-        return init_vars
-
-    @classmethod
-    def get_sorted_children(cls, current, model):
-
-        legs = current.get('singular_structure').substructures[0].legs
-        return tuple(leg.n for leg in legs)
-
-    def evaluate_kernel(self, zs, kTs, parent):
-
-        # Retrieve the collinear variables
-        z = zs[0]
-        kT = kTs[0]
-        # Instantiate the structure of the result
-        evaluation = utils.SubtractionCurrentEvaluation({
-            'spin_correlations'  : [None, ((parent,( kT, )), ), ],
-            'color_correlations' : [None],
-            'values'             : {(0, 0): {'finite': None},
-                                    (1, 0): {'finite': None}, }
-        })
-        # The line below implements the g_{\mu\nu} part of the splitting kernel.
-        # Notice that the extra longitudinal terms included in the spin-correlation 'None'
-        # from the relation:
-        #    \sum_\lambda \epsilon_\lambda^\mu \epsilon_\lambda^{\star\nu}
-        #    = g^{\mu\nu} + longitudinal terms
-        # are irrelevant because Ward identities evaluate them to zero anyway.
-        evaluation['values'][(0, 0)]['finite'] =  2.*self.CA * ( (z/(1.-z)) + ((1.-z)/z) )
-        evaluation['values'][(1, 0)]['finite'] = -2.*self.CA * 2.*z*(1.-z) / kT.square()
-        return evaluation
 
 #=========================================================================================
 # NLO soft current
@@ -459,7 +299,7 @@ class QCD_initial_collinear_0_qg(currents.QCDLocalCollinearCurrent):
     """qg collinear ISR tree-level current. q(initial) > q(initial_after_emission) g(final)"""
 
     variables = staticmethod(currents.Q_initial_coll_variables)
-    is_cut = staticmethod(currents.SomogyiChoices.cut_initial_coll)
+    is_cut = staticmethod(factors_and_cuts.cut_initial_coll)
     factor = staticmethod(currents.no_factor)
     
     @classmethod
@@ -533,7 +373,7 @@ class QCD_initial_collinear_0_gq(currents.QCDLocalCollinearCurrent):
     """gq collinear ISR tree-level current. q(initial) > g(initial_after_emission) q(final)"""
 
     variables = staticmethod(currents.Q_initial_coll_variables)
-    is_cut = staticmethod(currents.SomogyiChoices.cut_initial_coll)
+    is_cut = staticmethod(factors_and_cuts.cut_initial_coll)
     factor = staticmethod(currents.no_factor)
     
     @classmethod
@@ -609,7 +449,7 @@ class QCD_initial_collinear_0_qq(currents.QCDLocalCollinearCurrent):
     """qq collinear ISR tree-level current. g(initial) > q(initial_after_emission) qx(final)"""
 
     variables = staticmethod(currents.Q_initial_coll_variables)
-    is_cut = staticmethod(currents.SomogyiChoices.cut_initial_coll)
+    is_cut = staticmethod(factors_and_cuts.cut_initial_coll)
     factor = staticmethod(currents.no_factor)
     
     @classmethod
@@ -683,7 +523,7 @@ class QCD_initial_collinear_0_gg(currents.QCDLocalCollinearCurrent):
     """gg collinear ISR tree-level current. g(initial) > g(initial_after_emission) g(final)"""
 
     variables = staticmethod(currents.Q_initial_coll_variables)
-    is_cut = staticmethod(currents.SomogyiChoices.cut_initial_coll)
+    is_cut = staticmethod(factors_and_cuts.cut_initial_coll)
     factor = staticmethod(currents.no_factor)
     
     @classmethod

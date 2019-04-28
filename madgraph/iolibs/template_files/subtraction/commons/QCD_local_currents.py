@@ -248,16 +248,28 @@ class QCDLocalCurrent(QCDCurrent):
 
     expected_init_opts = ('leg_numbers_map', 'mapping_singular_structure')
     non_local_currents = (BeamCurrent, IntegratedBeamCurrent, IntegratedCurrent)
+    resolve_mother_spin_and_color = True
+
+    @classmethod
+    def check_current_properties(cls, current):
+
+        try:
+            return all([
+                current['squared_orders'] == cls.squared_orders,
+                current['n_loops'] == cls.n_loops,
+                current['resolve_mother_spin_and_color'] == cls.resolve_mother_spin_and_color,
+                not isinstance(current, cls.non_local_currents)
+            ])
+        except KeyError as ke:
+            raise CurrentImplementationError(
+                "The current " + cls.__name__ + " called check_current_properties " +
+                "without setting " + str(ke) + ", please review your implementation")
+
 
     @classmethod
     def does_implement_this_current(cls, current, model):
 
-        if not all([
-            current.get('squared_orders') == cls.squared_orders,
-            current.get('n_loops') == cls.n_loops,
-            current.get('resolve_mother_spin_and_color') == True,
-            not isinstance(current, cls.non_local_currents)
-        ]):
+        if not cls.check_current_properties(current):
             return None
 
         try:

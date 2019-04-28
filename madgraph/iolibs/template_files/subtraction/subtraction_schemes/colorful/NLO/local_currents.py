@@ -70,6 +70,7 @@ class QCD_final_collinear_0_XX(currents.QCDLocalCollinearCurrent):
 
     squared_orders = {'QCD': 2}
     n_loops = 0
+
     is_cut = staticmethod(is_cut_coll)
     factor = staticmethod(factor_coll)
     mapping = coll_mapping
@@ -176,14 +177,15 @@ class QCD_soft_0_g(currents.QCDLocalCurrent):
 
     squared_orders = {'QCD': 2}
     n_loops = 0
+
+    structure = sub.SingularStructure(
+        sub.SoftStructure(sub.SubtractionLeg(0, 21, sub.SubtractionLeg.FINAL)) )
+
     is_cut = staticmethod(is_cut_soft)
     factor = staticmethod(factor_soft)
     mapping = soft_mapping
     divide_by_jacobian = divide_by_jacobian
     get_recoilers = staticmethod(get_recoilers)
-
-    structure = sub.SingularStructure(
-        sub.SoftStructure(sub.SubtractionLeg(0, 21, sub.SubtractionLeg.FINAL)) )
 
     @staticmethod
     def eikonal(pi, pj, ps):
@@ -294,12 +296,6 @@ class QCD_final_softcollinear_0_gX(currents.QCDLocalCurrent):
 
     squared_orders = {'QCD': 2}
     n_loops = 0
-    is_cut = staticmethod(is_cut_soft)
-    factor = staticmethod(factor_soft)
-    mapping = soft_mapping
-    variables = staticmethod(variables)
-    divide_by_jacobian = divide_by_jacobian
-    get_recoilers = staticmethod(get_recoilers)
 
     soft_structure = sub.SoftStructure(
         legs=(sub.SubtractionLeg(0, 21, sub.SubtractionLeg.FINAL), ) )
@@ -312,16 +308,17 @@ class QCD_final_softcollinear_0_gX(currents.QCDLocalCurrent):
     structure_q = sub.SingularStructure(substructures=(soft_coll_structure_q, ))
     structure_g = sub.SingularStructure(substructures=(soft_coll_structure_g, ))
 
+    is_cut = staticmethod(is_cut_soft)
+    factor = staticmethod(factor_soft)
+    mapping = soft_coll_mapping
+    variables = staticmethod(variables)
+    divide_by_jacobian = divide_by_jacobian
+    get_recoilers = staticmethod(get_recoilers)
+
     @classmethod
     def does_implement_this_current(cls, current, model):
 
-        if not all([
-            current.get('squared_orders') == {'QCD': 2},
-            current.get('n_loops') == 0,
-            current.get('resolve_mother_spin_and_color') == True,
-            not isinstance(current, cls.non_local_currents)
-        ]):
-            return None
+        if not cls.check_current_properties(current): return None
 
         color_charge = 'CF'
         leg_numbers_map = cls.structure_q.map_leg_numbers(
@@ -385,9 +382,9 @@ class QCD_final_softcollinear_0_gX(currents.QCDLocalCurrent):
         # Perform mapping
         self.mapping_singular_structure.legs = self.get_recoilers(
             reduced_process, excluded=(parent, ))
-        lower_PS_point, mapping_vars = soft_coll_mapping.map_to_lower_multiplicity(
+        lower_PS_point, mapping_vars = self.mapping.map_to_lower_multiplicity(
             higher_PS_point, self.mapping_singular_structure, momenta_dict,
-            compute_jacobian=divide_by_jacobian )
+            compute_jacobian=self.divide_by_jacobian )
 
         # Retrieve kinematics
         Q = mapping_vars['Q']

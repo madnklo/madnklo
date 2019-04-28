@@ -21,7 +21,7 @@ import madgraph.integrator.mappings as mappings
 
 import commons.utils as utils
 import commons.QCD_local_currents as currents
-import commons.factors_and_cuts as factors_and_cuts
+# import commons.factors_and_cuts as factors_and_cuts
 
 import madgraph.various.misc as misc
 
@@ -376,7 +376,7 @@ class NoSoftCollinear(currents.QCDLocalCurrent):
                 raise CurrentImplementationError(
                     "__init__ of " + self.__class__.__name__ + " requires " + opt_name)
 
-        super(QCD_final_softcollinear_0_gX, self).__init__(*args, **opts)
+        super(NoSoftCollinear, self).__init__(*args, **opts)
         # At this state color_charge is the string of the group factor ('CA' or 'CF');
         # now that the super constructor has been called,
         # the group factors have been initialized and we can retrieve them.

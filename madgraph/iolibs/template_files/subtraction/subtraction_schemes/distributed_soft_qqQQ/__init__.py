@@ -33,7 +33,8 @@ sector_generator = None
 # Note: specifying below which resources are needed is optional
 exporter = GenericCurrentsExporter(relative_resource_paths=[
     'subtraction_schemes/colorful',
-    'subtraction_schemes/colorful_pp'    
+    'subtraction_schemes/colorful_pp',
+    'subtraction_schemes/distributed_soft_qqQQ'
 ])
 
 all_subtraction_current_classes = []
@@ -57,8 +58,8 @@ all_subtraction_current_classes.extend([
     #       This scheme does *not* support ISR and the DefaultCurrent
     #       implementation will be used for them with an appropriate warning.
     # soft and soft-collinears
-    NLO_local_currents.QCD_soft_0_g,
-    NLO_local_currents.QCD_final_softcollinear_0_gX,    
+    NLO_local_currents.NoSoft,
+    NLO_local_currents.NoSoftCollinear,
 ])
 
 # Add NLO integrated counterterms

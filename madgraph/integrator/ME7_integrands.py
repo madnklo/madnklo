@@ -762,6 +762,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
         # Save identified sectors if any
         self.sectors = sectors
+        # For now specify a specific sector by hardcoding a selector function
+        self.is_sector_selected = lambda defining_process, sector: True
 
         # Update and define many properties of self based on the provided run-card and model.
         self.synchronize(model, run_card, ME7_configuration)
@@ -1631,6 +1633,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
             total_weight = 0.
             for process_key, (process, mapped_processes) in self.processes_map.items():
                 for sector_info in self.sectors[process_key]:
+                    if not self.is_sector_selected(process, sector_info['sector']):
+                        continue
                     total_weight += self.evaluate(PS_random_variables, integrator_jacobian,
                                                   selected_process_key=process_key, sector_info=sector_info)
 
@@ -1816,6 +1820,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         event_weight = base_objects.EpsilonExpansion(ME_evaluation) * base_weight
 
         sector_info = opts.get('sector_info', None)
+
         if sector_info is not None:
             event_weight *= sector_info['sector'](PS_point,all_flavor_configurations[0],
                                                   counterterm_index=-1, input_mapping_index=-1)
@@ -3300,7 +3305,7 @@ class ME7Integrand_R(ME7Integrand):
 
             # Now apply the sectoring function if specified
             if sector[0] is not None:
-                this_base_weight *= sector[0](reduced_PS,reduced_flavors,
+                this_base_weight *= sector[0](ME_PS,reduced_flavors,
                                                                 counterterm_index=sector[1], input_mapping_index=-1)
 
             # Now the phase-space point stored in the event generated is not a dictionary but
@@ -3464,7 +3469,7 @@ The missing process is: %s"""%ME_process.nice_string())
 
         all_events_generated = ME7EventList()
         sector_info = opts.get('sector_info', None)
-
+        misc.sprint(sector_info)
         # When beam convolutions are active, we must remember that both the Bjorken x's *and*
         # the convolution variable xi are integrated between zero and one.
         if ((xi1 is not None) and xb_1 > xi1) or ((xi2 is not None) and xb_2 > xi2):
@@ -3559,105 +3564,119 @@ The missing process is: %s"""%ME_process.nice_string())
         all_evaluations = {}
         for process_key, (defining_process, mapped_processes) in self.processes_map.items():
             logger.debug("Considering %s"%defining_process.nice_string())
-            # Make sure that the selected process satisfies the selection requirements
-            if not self.is_part_of_process_selection(
-                [defining_process, ]+mapped_processes,
-                selection=test_options['process'] ):
-                continue
-            
-            all_processes = [defining_process,]+mapped_processes
-            all_flavor_configurations = []
-            # The process mirroring is accounted for at the very end only            
-            for proc in all_processes:
-                initial_final_pdgs = proc.get_cached_initial_final_pdgs()
-                all_flavor_configurations.append(initial_final_pdgs)
-            
-            a_real_emission_PS_point = real_emission_PS_point.get_copy()
-            a_xb_1, a_xi1 = x1s
-            a_xb_2, a_xi2 = x2s
-            # We should not test here the flavour sensitive cuts because counterterms
-            # act on the flavor space and make an event pass the cut even if the resolved one
-            # does not.
-            while (test_options['apply_higher_multiplicity_cuts'] and
-                   not self.pass_flavor_blind_cuts(
-                       a_real_emission_PS_point,
-                       defining_process.get_cached_initial_final_pdgs(),
-                       n_jets_allowed_to_be_clustered  = self.contribution_definition.n_unresolved_particles,
-                       xb_1 = xb_1, xb_2 = xb_2 ) ):
-                n_attempts += 1
+
+            all_sectors = [None, ] if self.sectors is None else self.sectors[process_key]
+
+            for sector_info in all_sectors:
+                if not self.is_sector_selected(defining_process, sector_info['sector']):
+                    continue
+
+                if sector_info is not None:
+                    logger.debug("Considering sector: %s" %str(sector_info['sector']))
+
+                # Make sure that the selected process satisfies the selection requirements
+                if not self.is_part_of_process_selection(
+                    [defining_process, ]+mapped_processes,
+                    selection=test_options['process'] ):
+                    continue
+
+                all_processes = [defining_process,]+mapped_processes
+                all_flavor_configurations = []
+                # The process mirroring is accounted for at the very end only
+                for proc in all_processes:
+                    initial_final_pdgs = proc.get_cached_initial_final_pdgs()
+                    all_flavor_configurations.append(initial_final_pdgs)
+
+                a_real_emission_PS_point = real_emission_PS_point.get_copy()
+                a_xb_1, a_xi1 = x1s
+                a_xb_2, a_xi2 = x2s
+                # We should not test here the flavour sensitive cuts because counterterms
+                # act on the flavor space and make an event pass the cut even if the resolved one
+                # does not.
+                while (test_options['apply_higher_multiplicity_cuts'] and
+                       not self.pass_flavor_blind_cuts(
+                           a_real_emission_PS_point,
+                           defining_process.get_cached_initial_final_pdgs(),
+                           n_jets_allowed_to_be_clustered  = self.contribution_definition.n_unresolved_particles,
+                           xb_1 = xb_1, xb_2 = xb_2 ) ):
+                    n_attempts += 1
+                    if n_attempts > max_attempts:
+                        break
+                    a_real_emission_PS_point = None
+                    # Phase-space generation can fail when beam convolution is active, because of the condition
+                    # Bjorken_x_i < xi_i
+                    while a_real_emission_PS_point is None:
+                        a_real_emission_PS_point, a_jac, a_x1s, a_x2s = self.phase_space_generator.get_PS_point(None)
+                    a_xb_1, a_xi1 = a_x1s
+                    a_xb_2, a_xi2 = a_x2s
                 if n_attempts > max_attempts:
-                    break
-                a_real_emission_PS_point = None
-                # Phase-space generation can fail when beam convolution is active, because of the condition
-                # Bjorken_x_i < xi_i
-                while a_real_emission_PS_point is None:
-                    a_real_emission_PS_point, a_jac, a_x1s, a_x2s = self.phase_space_generator.get_PS_point(None)
-                a_xb_1, a_xi1 = a_x1s
-                a_xb_2, a_xi2 = a_x2s
-            if n_attempts > max_attempts:
-                raise MadEvent7Error(
-                    "Could not generate a random kinematic configuration that passes " +
-                    "the flavour blind cuts in less than %d attempts." % max_attempts )
-            n_attempts = 0
+                    raise MadEvent7Error(
+                        "Could not generate a random kinematic configuration that passes " +
+                        "the flavour blind cuts in less than %d attempts." % max_attempts )
+                n_attempts = 0
 
-            # Make sure to have the PS point provided as LorentzVectorDict
-            a_real_emission_PS_point = phase_space_generators.LorentzVectorDict(
-                            (i+1, mom) for i, mom in enumerate(a_real_emission_PS_point) )
+                # Make sure to have the PS point provided as LorentzVectorDict
+                a_real_emission_PS_point = phase_space_generators.LorentzVectorDict(
+                                (i+1, mom) for i, mom in enumerate(a_real_emission_PS_point) )
 
-            counterterms_to_consider = self.counterterms_to_consider(process_key, test_options)
+                counterterms_to_consider = self.counterterms_to_consider(process_key, test_options)
 
-            if len(counterterms_to_consider)==0:
-                logger.info('No counterterms to investigate found.')
-                return True
+                if len(counterterms_to_consider)==0:
+                    logger.info('No counterterms to investigate found.')
+                    return True
 
-            selected_singular_structures = []
+                selected_singular_structures = []
 
-            for limit_specifier in test_options['limits']:
-                # Select the limits to be probed interpreting limits as a regex pattern.
-                # If no match is found, then reconstruct the singular structure from the limits
-                # provided
-                selected_counterterms = self.find_counterterms_matching_regexp(
-                                                counterterms_to_consider, limit_specifier )
-                if selected_counterterms:
-                    selected_singular_structures.extend([
-                        ct.reconstruct_complete_singular_structure()
-                        for ct in selected_counterterms])
-                else:
-                    ss = subtraction.SingularStructure.from_string(
-                        limit_specifier, defining_process)
-                    if ss is None:
-                        logger.info("No limit matching %s for process %s." % 
-                            (limit_specifier, defining_process.nice_string()) )
-                        continue
-                    selected_singular_structures.append(ss)
+                for limit_specifier in test_options['limits']:
+                    # Select the limits to be probed interpreting limits as a regex pattern.
+                    # If no match is found, then reconstruct the singular structure from the limits
+                    # provided
+                    selected_counterterms = self.find_counterterms_matching_regexp(
+                                                    counterterms_to_consider, limit_specifier )
+                    if selected_counterterms:
+                        selected_singular_structures.extend([
+                            ct.reconstruct_complete_singular_structure()
+                            for ct in selected_counterterms])
+                    else:
+                        ss = subtraction.SingularStructure.from_string(
+                            limit_specifier, defining_process)
+                        if ss is None:
+                            logger.info("No limit matching %s for process %s." %
+                                (limit_specifier, defining_process.nice_string()) )
+                            continue
+                        selected_singular_structures.append(ss)
 
-            # Filter the singular structures to consider so as to remove those involving
-            # a beam factorization not present in this integrand
-            selected_singular_structures = [
-                ss for ss in selected_singular_structures if not (
-                    (1 in ss.get_beam_factorization_legs() and a_xi1 is None) or 
-                    (2 in ss.get_beam_factorization_legs() and a_xi2 is None))
-            ]
-            
-            if len(selected_singular_structures)==0:
-                logger.warning('Empty selection of limits when investigating process %s'%defining_process.nice_string())
-                continue
+                # Filter the singular structures to consider so as to remove those involving
+                # a beam factorization not present in this integrand
+                selected_singular_structures = [
+                    ss for ss in selected_singular_structures if not (
+                        (1 in ss.get_beam_factorization_legs() and a_xi1 is None) or
+                        (2 in ss.get_beam_factorization_legs() and a_xi2 is None))
+                ]
 
-            logger.debug('Reconstructed complete singular structure: \n'+'\n'.join(
-                str(ss) for ss in selected_singular_structures ))
+                if len(selected_singular_structures)==0:
+                    logger.warning('Empty selection of limits when investigating process %s'%defining_process.nice_string())
+                    continue
 
-            # Loop over approached limits
-            process_evaluations = {}
-            for limit in selected_singular_structures:
-                limit_evaluations = self.test_IR_limits_for_limit_and_process(
-                    test_options, walker, limit, defining_process, process_key, all_flavor_configurations, 
-                    a_real_emission_PS_point, a_xi1, a_xi2, a_xb_1, a_xb_2 )
-                process_evaluations[str(limit)] = limit_evaluations
+                logger.debug('Reconstructed complete singular structure: \n'+'\n'.join(
+                    str(ss) for ss in selected_singular_structures ))
 
-            process_string = defining_process.base_string()
-            if defining_process.has_key('n_loops'):
-                process_string += " @ " + str(defining_process['n_loops']) + " loops"
-            all_evaluations[process_string] = process_evaluations
+                # Loop over approached limits
+                process_evaluations = {}
+                for limit in selected_singular_structures:
+                    limit_evaluations = self.test_IR_limits_for_limit_and_process(
+                        test_options, walker, limit, defining_process, process_key, all_flavor_configurations,
+                        a_real_emission_PS_point, a_xi1, a_xi2, a_xb_1, a_xb_2, sector_info=sector_info )
+                    process_evaluations[str(limit)] = limit_evaluations
+
+                process_string = defining_process.base_string()
+                if defining_process.has_key('n_loops'):
+                    process_string += " @ " + str(defining_process['n_loops']) + " loops"
+
+                if sector_info is not None:
+                    process_string += "|sector:%s"%str(sector_info['sector'])
+
+                all_evaluations[process_string] = process_evaluations
 
         # Now produce a nice matplotlib of the evaluations
         # and assess whether this test passed or not
@@ -3702,7 +3721,7 @@ The missing process is: %s"""%ME_process.nice_string())
         return scaled_real_PS_point, scaled_xi1, scaled_xi2
 
     def test_IR_limits_for_limit_and_process(self, test_options, walker, limit, defining_process, process_key, 
-        all_flavor_configurations, a_real_emission_PS_point, a_xi1, a_xi2, a_xb_1, a_xb_2):
+        all_flavor_configurations, a_real_emission_PS_point, a_xi1, a_xi2, a_xb_1, a_xb_2, sector_info=None):
         """ Given a test_options, a process, a specific limit, a walker to approach it,
         all flavor configurations mapped to that particular process, a 'starting' 
         real-emission type of PS-point from which to scale towards the limit, as well as
@@ -3788,7 +3807,8 @@ The missing process is: %s"""%ME_process.nice_string())
                     compute_poles            = False,
                     apply_flavour_blind_cuts = test_options['apply_lower_multiplicity_cuts'],
                     boost_back_to_com        = test_options['boost_back_to_com'],
-                    always_generate_event    = True
+                    always_generate_event    = True,
+                    sector_info = sector_info,
                 )
             except Exception as e:
                 logger.critical("The following exception occurred when generating events for this integrand %s:\n%s"%(
@@ -3902,7 +3922,8 @@ The missing process is: %s"""%ME_process.nice_string())
     def analyze_IR_limit(
         evaluations, acceptance_threshold,
         title=None, def_ct=None, plot_all=True, show=True,
-        filename=None, plots_suffix=None, number_of_FS_legs=None ):
+        filename=None, plots_suffix=None, number_of_FS_legs=None,
+        string_idenfier=None):
 
         # chose whether to use a grid display or a figure display
         display_mode = 'grid' # any value in ['figure','grid'] is legal.
@@ -3910,7 +3931,8 @@ The missing process is: %s"""%ME_process.nice_string())
             raise MadEvent7Error('Display mode %s not recognized in analyze_IR_limit.'%display_mode)
         
         import matplotlib
-        matplotlib.use('Agg')
+        # @ Simone, not all matplotlib implementation support Agg, mine doesn't :(
+#        matplotlib.use('Agg')
         import matplotlib.pyplot as plt
 
         plot_title = True
@@ -4032,10 +4054,10 @@ The missing process is: %s"""%ME_process.nice_string())
             def_ct_2_ME_ratio = evaluations[x_values[0]][def_ct]
             if evaluations[x_values[0]]["ME"] != 0.:
                 def_ct_2_ME_ratio /= evaluations[x_values[0]]["ME"]
-                foo_str = "The ratio of the defining CT to the ME at lambda = %s is: %s."
+                foo_str = "{}: One minus the ratio of the defining CT to the ME at lambda = %s is: %s.".format(string_idenfier)
             else:
                 def_ct_2_ME_ratio /= total_of_abs_values[0]
-                foo_str = "The ratio of the defining CT to the total abs sum at lambda = %s is: %s."            
+                foo_str = "{}: One minus the ratio of the defining CT to the total abs sum at lambda = %s is: %s.".format(string_idenfier)
             logger.info(foo_str % (x_values[0], def_ct_2_ME_ratio))
             test_ratio = abs(def_ct_2_ME_ratio)-1
             test_failed = test_ratio > acceptance_threshold
@@ -4044,10 +4066,10 @@ The missing process is: %s"""%ME_process.nice_string())
             total_2_ME_ratio = total[0]
             if evaluations[x_values[0]]["ME"] == 0.:
                 total_2_ME_ratio /= total_of_abs_values[0]
-                foo_str = "The ratio of the total to the sum of abs CT at lambda = %s is: %s."
+                foo_str = "{}: One minus the ratio of the total to the sum of abs CT at lambda = %s is: %s.".format(string_idenfier)
             else:
                 total_2_ME_ratio /= evaluations[x_values[0]]["ME"]
-                foo_str = "The ratio of the total to the ME at lambda = %s is: %s."
+                foo_str = "{}: One minus the ratio of the total to the ME at lambda = %s is: %s.".format(string_idenfier)
             logger.info(foo_str % (x_values[0], total_2_ME_ratio))
             test_ratio  = abs(total_2_ME_ratio)
             test_failed = test_ratio > acceptance_threshold
@@ -4123,7 +4145,7 @@ The missing process is: %s"""%ME_process.nice_string())
                     limit_evaluations, acceptance_threshold=acceptance_threshold,
                     title=title, def_ct=limit, show=show,
                     filename=filename, plots_suffix=plots_suffix,
-                    number_of_FS_legs=number_of_FS_legs)
+                    number_of_FS_legs=number_of_FS_legs, string_idenfier=process)
                 if not results[process][limit][0]:
                     test_failed = True
         if save_results_path:

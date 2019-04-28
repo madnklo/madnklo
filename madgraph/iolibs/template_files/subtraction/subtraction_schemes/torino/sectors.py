@@ -24,9 +24,26 @@ class Sector(generic_sectors.GenericSector):
         mapping index if an integrated counterterm is considered.
         """
 
-        sector_weight = 1.0
+        # Below is a hard-coded sector implementation for the process e+(1) e-(2) > d(3) d~(4) g(5) --NLO
+
+        # No sectoring necessary for the reduced NLO singly-unresolved kinematics
+        if len(PDGs[1])==2:
+            return 1.0
+
+        # Then simply use the partial-fractioning facotors s(3,5) / ( s(3,5) + s(4,5) )
+        if self.external_leg_numbers==(5,3):
+            sector_weight = (PS_point[5]+PS_point[4]).square()
+        else:
+            sector_weight = (PS_point[5]+PS_point[3]).square()
+
+        sector_weight /= ((PS_point[5]+PS_point[3]).square() + (PS_point[5]+PS_point[4]).square())
 
         return sector_weight
+
+    def __str__(self):
+        """ String representation of this sector. """
+
+        return "(%s)"%(','.join('%d'%ln for ln in self.external_leg_numbers))
 
 class SectorGenerator(generic_sectors.GenericSectorGenerator):
     """ Class responsible for generating the correct list of sectors to consider for specific processes."""
@@ -69,7 +86,21 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
             a_sector['sector'] = Sector(external_leg_numbers=sector_legs)
             if counterterms is not None:
-                a_sector['counterterms'] = range(len(counterterms))
+                a_sector['counterterms'] = []
+                for i_ct, ct in enumerate(counterterms):
+                    current = ct.nodes[0].current
+                    singular_structure = current.get('singular_structure').substructures[0]
+                    all_legs = singular_structure.get_all_legs()
+                    if singular_structure.name()=='S':
+                        if all_legs[0].n == sector_legs[0]:
+                            a_sector['counterterms'].append(i_ct)
+                    if singular_structure.name()=='C':
+                        if sorted([l.n for l in all_legs]) == sorted(sector_legs):
+                            a_sector['counterterms'].append(i_ct)
+
+                # a_sector['counterterms'] = range(len(counterterms))
+
+            # Irrelevant if this NLO example, but let me specify all of them explicitly so as to make the strucuture clear.
             if integrated_counterterms is not None:
                 a_sector['integrated_counterterms'] = [ (i_ct, i_mapping) for i_ct, ct in enumerate(integrated_counterterms)
                                                         for i_mapping in range(len(ct['input_mappings']))]

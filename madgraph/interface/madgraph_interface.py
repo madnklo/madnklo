@@ -3156,7 +3156,7 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
                 try:
                     ignored_contribs = eval(value)
                     if not isinstance(ignored_contribs, list):
-                        raise
+                        raise InvalidCmd("Ignored contributions should be a list")
                     add_options[key] = ignored_contribs
                 except:
                     add_options[key].extend([v.strip() for v in value.split(',')])
@@ -3243,7 +3243,7 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
                 try:
                     ignored_contribs = eval(value)
                     if not isinstance(ignored_contribs, list):
-                        raise
+                        raise InvalidCmd("Ignored contributions should be a list.")
                     output_options[key] = ignored_contribs
                 except:
                     output_options[key].extend([v.strip() for v in value.split(',')])
@@ -6498,7 +6498,7 @@ This implies that with decay chains:
                            [lhapdf_config,'--version'], stdout=subprocess.PIPE)
                     lhapdf_version = int(version.stdout.read()[0])
                     if lhapdf_version not in [5,6]:
-                        raise 
+                        raise self.InvalidCmd('LHAPDF version must be 5 or 6.')
                 except:
                     raise self.InvalidCmd('Could not detect LHAPDF version. Make'+
                            " sure '%s --version ' runs properly."%lhapdf_config)

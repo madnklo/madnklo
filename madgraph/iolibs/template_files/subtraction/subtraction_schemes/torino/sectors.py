@@ -3,6 +3,7 @@
 #
 
 import commons.generic_sectors as generic_sectors
+import madgraph.various.misc
 
 class Sector(generic_sectors.GenericSector):
     """ Class implementing a particular sector, with attributes identifying it and methods 
@@ -98,12 +99,17 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                         if sorted([l.n for l in all_legs]) == sorted(sector_legs):
                             a_sector['counterterms'].append(i_ct)
 
+                # Uncomment below for enabling all counterterms
                 # a_sector['counterterms'] = range(len(counterterms))
 
             # Irrelevant if this NLO example, but let me specify all of them explicitly so as to make the strucuture clear.
             if integrated_counterterms is not None:
-                a_sector['integrated_counterterms'] = [ (i_ct, i_mapping) for i_ct, ct in enumerate(integrated_counterterms)
-                                                        for i_mapping in range(len(ct['input_mappings']))]
+                a_sector['integrated_counterterms'] = {}
+                for i_ct, ct in enumerate(integrated_counterterms):
+                    # For now enable all integrated counterterms. Notice that the value None in this dictionary
+                    # is interpreted as all input mappings contributing, but for the sake of example here
+                    # we list explicitly each index.
+                    a_sector['integrated_counterterms'][i_ct] = range(len(ct['input_mappings']))
 
             all_sectors.append(a_sector)
 

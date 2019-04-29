@@ -515,10 +515,11 @@ class ME7Event(object):
                 representative_resolved_PDGs = all_resolved_PDGs[0]
             str_ct_struct = str(ct_struct)
             # Clean-up of the embedding overall parenthesis for the short string
-            if str_ct_struct.startswith("("):
-                str_ct_struct = str_ct_struct[1:]
-            if str_ct_struct.endswith(",)"):
-                str_ct_struct = str_ct_struct[:-2]                
+            while str_ct_struct.startswith("(") or str_ct_struct.endswith(",)"):
+                if str_ct_struct.startswith("("):
+                    str_ct_struct = str_ct_struct[1:]
+                if str_ct_struct.endswith(",)"):
+                    str_ct_struct = str_ct_struct[:-2]
             event_str_elems.append('%s%s@%s'%(str_ct_struct,
                 '' if kinematics_identifier is None else '|%s' % kinematics_identifier,
                 str(representative_resolved_PDGs).replace(' ','')))
@@ -793,9 +794,48 @@ class ME7Integrand(integrands.VirtualIntegrand):
         """ Return a nicely formated process line for the function nice_string of this 
         contribution. Can be overloaded by daughter classes."""
         GREEN = '\033[92m'
-        ENDC = '\033[0m'        
-        return GREEN+'  %s'%defining_process.nice_string(print_weighted=False).\
+        ENDC = '\033[0m'
+        main_line = GREEN+'  %s'%defining_process.nice_string(print_weighted=False).\
                                                                replace('Process: ','')+ENDC
+
+    def get_nice_string_sector_lines(self, process_key, format=0):
+        """ Returns a nicely formatted summary of the sector information for this integrand."""
+
+        if self.sectors is None or self.sectors[process_key] is None:
+            return []
+
+        all_sectors_info = self.sectors[process_key]
+
+        res = []
+        if format <2:
+            res.append(' | %s sectors: %s'%(len(all_sectors_info),
+                                            ' / '.join('%s'%str(s['sector'] for s in all_sectors_info))))
+        else:
+            res.append(' | with sectors:')
+            for sector_info in all_sectors_info:
+                line_elems = [ '  | sector %s'%str(sector_info['sector']) ]
+                if sector_info['counterterms'] is not None:
+                    line_elems.append('local counterterms [%s]'%(','.join('%d'%i_ct for i_ct in sector_info['counterterms'])))
+                else:
+                    if self.has_local_counterterms():
+                        line_elems.append('all local counterterms')
+                if sector_info['integrated_counterterms'] is not None:
+                    i_cts= sector_info['integrated_counterterms']
+                    line_elems.append('integrated counterterms [%s].'%(','.join(
+                        '%d@%s'%(i_ct, 'ALL' if i_cts[i_ct] is None else '{%s}'%(','.join(
+                            '%d'%i_mapping for i_mapping in i_cts[i_ct])) ) for i_ct in sorted(i_cts.keys()))))
+                else:
+                    if self.has_integrated_counterterms():
+                        line_elems.append('all integrated counterterms')
+
+                if len(line_elems)==1:
+                    res.append('%s'%line_elems[0])
+                elif len(line_elems)==2:
+                    res.append('%s with %s'%tuple(line_elems))
+                else:
+                    res.append('%s with %s and %s'%tuple(line_elems))
+
+        return res
 
     def get_short_name(self):
         """ Returns the short-name for this integrand, typically extracted from the one
@@ -822,7 +862,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
         else:
             res.append('Generated and mapped processes for this contribution:')
             for process_key, (defining_process, mapped_processes) in self.processes_map.items():
-                res.append(self.get_nice_string_process_line(process_key, defining_process, format=format))                
+                res.append(self.get_nice_string_process_line(process_key, defining_process, format=format))
+                res.extend(self.get_nice_string_sector_lines(process_key, format=format))
                 for mapped_process in mapped_processes:
                     res.append(BLUE+u'   \u21b3  '+mapped_process.nice_string(print_weighted=False)\
                                                                         .replace('Process: ','')+ENDC)
@@ -1215,15 +1256,19 @@ class ME7Integrand(integrands.VirtualIntegrand):
                                     counterterms, limit_pattern=None, integrated_CT=False):
         """ Find all mappings that match a particular limits given in argument
         (takes a random one if left to None). This function is placed here given that
-        it can be useful for both the ME7Integrnd_V and ME7_integrand_R."""
+        it can be useful for both the ME7Integrnd_V and ME7_integrand_R.
+        Note here that 'counterterms' is not a simple list of counterterms but rather a list
+        of two-tuples (ID, ct) where ID is the "identifier" of the CT (i.e. its position in
+        the list of counterterms for that particular process.
+        """
 
         # First select only the counterterms which are not pure matrix elements 
         # (i.e. they have singular structures) and also exclude here soft-collinear 
         # counterterms since they do not have an approach limit function.
         if not integrated_CT:
-            selected_counterterms = [ ct for ct in counterterms if ct.is_singular() ]
+            selected_counterterms = [ ct for ct in counterterms if ct[1].is_singular() ]
         else:
-            selected_counterterms = [ ct for ct in counterterms if ct['integrated_counterterm'].is_singular() ]
+            selected_counterterms = [ ct for ct in counterterms if ct[1]['integrated_counterterm'].is_singular() ]
 
         if len(selected_counterterms)==0:
             return []
@@ -1255,11 +1300,11 @@ class ME7Integrand(integrands.VirtualIntegrand):
                     if not integrated_CT and not limit_pattern.startswith('('):
                         # If not specified as a raw string, we take the liberty of adding 
                         # the enclosing parenthesis.
-                        limit_pattern = '(%s,)' % limit_pattern
+                        limit_pattern = '((%s,),)' % limit_pattern
                     elif integrated_CT and not limit_pattern.startswith('['):
                         # If not specified as a raw string, we take the liberty of adding 
                         # the enclosing parenthesis.
-                        limit_pattern = '[%s,]' % limit_pattern                    
+                        limit_pattern = '[(%s,),]' % limit_pattern
                     # We also take the liberty of escaping the parenthesis
                     # since this is presumably what the user expects.
                     limit_pattern = limit_pattern.replace('(', '\(').replace(')', '\)')
@@ -1273,7 +1318,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
             returned_counterterms.append(random.choice(selected_counterterms))
         else:
             for counterterm in selected_counterterms:
-                ct = counterterm if not integrated_CT else counterterm['integrated_counterterm']
+                ct = counterterm[1] if not integrated_CT else counterterm[1]['integrated_counterterm']
                 if re.match(limit_pattern_re, str(ct)):
                     returned_counterterms.append(counterterm)
 
@@ -2418,43 +2463,58 @@ class ME7Integrand_V(ME7Integrand):
         
         # Select which integrated counterterms are selected for the test
         if self.has_integrated_counterterms():
-            integrated_counterterms_to_consider = [ ct for ct in self.integrated_counterterms[process_key] 
+            integrated_counterterms_to_consider = [ (i_ct, ct) for i_ct, ct in enumerate(self.integrated_counterterms[process_key])
                 if ct['integrated_counterterm'].get_number_of_couplings() <= test_options['correction_order'].count('N') ]
             if test_options['counterterms']:
                 counterterm_pattern = test_options['counterterms']
                 logger.debug("Integrated counterterms before selection")
-                for ct in integrated_counterterms_to_consider:
+                for i_ct, ct in integrated_counterterms_to_consider:
                     logger.debug("    "+str(ct['integrated_counterterm']))
                 integrated_counterterms_to_consider = self.find_counterterms_matching_regexp(
                     integrated_counterterms_to_consider, counterterm_pattern, integrated_CT=True )
             logger.debug("Selected integrated counterterms")
-            for ct in integrated_counterterms_to_consider:
+            for i_ct, ct in integrated_counterterms_to_consider:
                 logger.debug("    "+str(ct['integrated_counterterm']))
 
         # We must also include local counterterms as they too can have poles
         if self.has_local_counterterms():
-            local_counterterms_to_consider = [ ct for ct in self.counterterms[process_key]
+            local_counterterms_to_consider = [ (i_ct, ct) for i_ct, ct in enumerate(self.counterterms[process_key])
                 if ct.get_number_of_couplings() <= test_options['correction_order'].count('N') ]
             if test_options['counterterms']:
                 counterterm_pattern = test_options['counterterms']
                 logger.debug("Local counterterms before selection")
-                for ct in local_counterterms_to_consider:
+                for i_ct, ct in local_counterterms_to_consider:
                     logger.debug("    "+str(ct))
                 local_counterterms_to_consider = self.find_counterterms_matching_regexp(
                     local_counterterms_to_consider, counterterm_pattern )
             logger.debug("Selected local counterterms")
-            for ct in local_counterterms_to_consider:
+            for i_ct, ct in local_counterterms_to_consider:
                 logger.debug("    "+str(ct))
 
         mu_r, mu_f1, mu_f2 = self.get_scales(a_virtual_PS_point)
 
         # Specify the counterterms to be considered and backup the original values
+        if sector_info is None:
+            input_sector_info = {'sector': None,
+                                 'counterterms': None,
+                                 'integrated_counterterms': None}
+        else:
+            input_sector_info = copy.deepcopy(sector_info)
         if self.has_local_counterterms():
-            local_CT_backup = self.counterterms[process_key]
-            self.counterterms[process_key] = local_counterterms_to_consider
+            if input_sector_info['counterterms'] is None:
+                input_sector_info['counterterms'] = local_counterterms_to_consider
+            else:
+                input_sector_info['counterterms'] = filter(lambda i_ct: i_ct in local_counterterms_to_consider,
+                                                           input_sector_info['counterterms'])
         if self.has_integrated_counterterms():
-            integrated_CT_backup = self.integrated_counterterms[process_key]
-            self.integrated_counterterms[process_key] = integrated_counterterms_to_consider
+            if input_sector_info['integrated_counterterms'] is None:
+                input_sector_info['integrated_counterterms'] = {i_ct: None for i_ct in
+                                                                integrated_counterterms_to_consider}
+            else:
+                for i_ct in list(input_sector_info['integrated_counterterms'].keys()):
+                    if i_ct not in integrated_counterterms_to_consider:
+                        del input_sector_info['integrated_counterterms'][i_ct]
+
         try:
             # Now call sigma in order to gather all events
             events = self.sigma(
@@ -2462,23 +2522,14 @@ class ME7Integrand_V(ME7Integrand):
                 1.0, mu_r, mu_f1, mu_f2, a_xb_1, a_xb_2, a_xi1, a_xi2, 
                 compute_poles            = True,
                 apply_flavour_blind_cuts = (test_options['apply_lower_multiplicity_cuts'] or
-                                            test_options['apply_higher_multiplicity_cuts'])
+                                            test_options['apply_higher_multiplicity_cuts']),
+                sector_info = input_sector_info
             )
         except Exception as e:
             logger.critical("The following exception occurred when generating events for this integrand %s:\n%s"%(
                                                   self.get_short_name(), str(e)))
-            if self.has_local_counterterms():
-                self.counterterms[process_key] = local_CT_backup
-            if self.has_integrated_counterterms():
-                self.integrated_counterterms[process_key] = integrated_CT_backup
             # Forward the exception while not resetting the stack trace.
             raise
-
-        # Restore the original list of counterterms
-        if self.has_local_counterterms():
-            self.counterterms[process_key] = local_CT_backup
-        if self.has_integrated_counterterms():
-            self.integrated_counterterms[process_key] = integrated_CT_backup
 
 #        misc.sprint('Events generated before post-processing.')
 #        misc.sprint(events)
@@ -2637,6 +2688,13 @@ class ME7Integrand_V(ME7Integrand):
         # Now loop over all integrated counterterms
         for i_ct, counterterm_characteristics in enumerate(self.integrated_counterterms[process_key]):
 
+            # Skip integrated counterterms that do not belong to this sector
+            selected_input_mappings = None
+            if (sector_info is not None) and (sector_info['integrated_counterterms'] is not None):
+                if i_ct not in sector_info['integrated_counterterms']:
+                    continue
+                selected_input_mappings = sector_info['integrated_counterterms'][i_ct]
+
             # Example of a hack below to include only soft integrated CT. Uncomment to enable.
             #if counterterm_characteristics['integrated_counterterm'].reconstruct_complete_singular_structure()\
             #                                         .substructures[0].substructures[0].name()!='S':
@@ -2649,7 +2707,7 @@ class ME7Integrand_V(ME7Integrand):
             for i_mapping, input_mapping in enumerate(counterterm_characteristics['input_mappings']):
 
                 # Skip integrated counterterms that do not belong to this sector
-                if sector_info is not None and (i_ct,i_mapping) not in sector_info['integrated_counterterms']:
+                if (selected_input_mappings is not None) and i_mapping not in selected_input_mappings:
                     continue
 
                 # At NLO at least, it is OK to save a bit of time by enforcing 'compute_poles=False').
@@ -3469,7 +3527,6 @@ The missing process is: %s"""%ME_process.nice_string())
 
         all_events_generated = ME7EventList()
         sector_info = opts.get('sector_info', None)
-        misc.sprint(sector_info)
         # When beam convolutions are active, we must remember that both the Bjorken x's *and*
         # the convolution variable xi are integrated between zero and one.
         if ((xi1 is not None) and xb_1 > xi1) or ((xi2 is not None) and xb_2 > xi2):
@@ -3487,7 +3544,7 @@ The missing process is: %s"""%ME_process.nice_string())
         for i_ct, counterterm in enumerate(self.counterterms[process_key]):
 
             # Skip counterterms that do not belong to this sector
-            if sector_info is not None and i_ct not in sector_info['counterterms']:
+            if (sector_info is not None) and (sector_info['counterterms'] is not None) and i_ct not in sector_info['counterterms']:
                 continue
 
             if not counterterm.is_singular():
@@ -3631,8 +3688,10 @@ The missing process is: %s"""%ME_process.nice_string())
                     # Select the limits to be probed interpreting limits as a regex pattern.
                     # If no match is found, then reconstruct the singular structure from the limits
                     # provided
+                    # The CT identifier is irrelevant here, but we must supply the correct format for the function below
                     selected_counterterms = self.find_counterterms_matching_regexp(
-                                                    counterterms_to_consider, limit_specifier )
+                                                    [(None, ct) for ct in counterterms_to_consider], limit_specifier )
+                    selected_counterterms = [ct for i_ct, ct in selected_counterterms]
                     if selected_counterterms:
                         selected_singular_structures.extend([
                             ct.reconstruct_complete_singular_structure()
@@ -3734,37 +3793,39 @@ The missing process is: %s"""%ME_process.nice_string())
         # First select the counterterms to evaluate and temporarily assign them to this
         # integrand instance so that the sigma function will run on them.
         if self.has_local_counterterms():
-            local_counterterms_to_consider = [ ct for ct in self.counterterms[process_key]
+            local_counterterms_to_consider = [ (i_ct, ct) for i_ct, ct in enumerate(self.counterterms[process_key])
                 if ct.get_number_of_couplings() <= test_options['correction_order'].count('N') ]
             if test_options['counterterms']:
                 counterterm_pattern = test_options['counterterms']
                 if counterterm_pattern.startswith('def'):
                     counterterm_pattern = str(limit)
                 logger.debug("Local counterterms before selection")
-                for ct in local_counterterms_to_consider:
+                for i_ct, ct in local_counterterms_to_consider:
                     logger.debug("    "+str(ct))
                 local_counterterms_to_consider = self.find_counterterms_matching_regexp(
                     local_counterterms_to_consider, counterterm_pattern )
             logger.debug("Selected local counterterms")
-            for ct in local_counterterms_to_consider:
+            for i_ct, ct in local_counterterms_to_consider:
                 logger.debug("    "+str(ct))
+            local_counterterms_to_consider = [i_ct for i_ct, ct in local_counterterms_to_consider]
         
         # We must also include the integrated counterterms as they may have a xi dependence
         if self.has_integrated_counterterms():
-            integrated_counterterms_to_consider = [ ct for ct in self.integrated_counterterms[process_key] 
+            integrated_counterterms_to_consider = [ (i_ct, ct) for i_ct, ct in enumerate(self.integrated_counterterms[process_key])
                 if ct['integrated_counterterm'].get_number_of_couplings() <= test_options['correction_order'].count('N') ]
             if test_options['counterterms']:
                 counterterm_pattern = test_options['counterterms']
                 if counterterm_pattern.startswith('def'):
                     counterterm_pattern = str(limit)
                 logger.debug("Integrated counterterms before selection")
-                for ct in integrated_counterterms_to_consider:
+                for i_ct, ct in integrated_counterterms_to_consider:
                     logger.debug("    "+str(ct['integrated_counterterm']))
                 integrated_counterterms_to_consider = self.find_counterterms_matching_regexp(
                     integrated_counterterms_to_consider, counterterm_pattern, integrated_CT=True )
             logger.debug("Selected integrated counterterms")
-            for ct in integrated_counterterms_to_consider:
+            for i_ct, ct in integrated_counterterms_to_consider:
                 logger.debug("    "+str(ct['integrated_counterterm']))
+            integrated_counterterms_to_consider = [i_ct for i_ct, ct in integrated_counterterms_to_consider]
         
         # Now progressively approach the limit, using a log scale
         limit_evaluations = {}
@@ -3793,12 +3854,26 @@ The missing process is: %s"""%ME_process.nice_string())
             mu_r, mu_f1, mu_f2 = self.get_scales(scaled_real_PS_point)
 
             # Specify the counterterms to be considered and backup the original values
+            if sector_info is None:
+                input_sector_info = {'sector': None,
+                                     'counterterms':None,
+                                     'integrated_counterterms':None}
+            else:
+                input_sector_info = copy.deepcopy(sector_info)
             if self.has_local_counterterms():
-                local_CT_backup = self.counterterms[process_key]
-                self.counterterms[process_key] = local_counterterms_to_consider
+                if input_sector_info['counterterms'] is None:
+                    input_sector_info['counterterms'] = local_counterterms_to_consider
+                else:
+                    input_sector_info['counterterms'] = filter(lambda i_ct: i_ct in local_counterterms_to_consider,
+                                                                                input_sector_info['counterterms'])
             if self.has_integrated_counterterms():
-                integrated_CT_backup = self.integrated_counterterms[process_key]
-                self.integrated_counterterms[process_key] = integrated_counterterms_to_consider
+                if input_sector_info['integrated_counterterms'] is None:
+                    input_sector_info['integrated_counterterms'] = {i_ct: None for i_ct in integrated_counterterms_to_consider}
+                else:
+                    for i_ct in list(input_sector_info['integrated_counterterms'].keys()):
+                        if i_ct not in integrated_counterterms_to_consider:
+                            del input_sector_info['integrated_counterterms'][i_ct]
+
             try:
                 # Now call sigma in order to gather all events
                 events = self.sigma(
@@ -3808,23 +3883,13 @@ The missing process is: %s"""%ME_process.nice_string())
                     apply_flavour_blind_cuts = test_options['apply_lower_multiplicity_cuts'],
                     boost_back_to_com        = test_options['boost_back_to_com'],
                     always_generate_event    = True,
-                    sector_info = sector_info,
+                    sector_info = input_sector_info,
                 )
             except Exception as e:
                 logger.critical("The following exception occurred when generating events for this integrand %s:\n%s"%(
                                                       self.get_short_name(), str(e)))
-                if self.has_local_counterterms():
-                    self.counterterms[process_key] = local_CT_backup
-                if self.has_integrated_counterterms():
-                    self.integrated_counterterms[process_key] = integrated_CT_backup
                 # Forward the exception while not resetting the stack trace.
                 raise
-
-            # Restore the original list of counterterms
-            if self.has_local_counterterms():
-                self.counterterms[process_key] = local_CT_backup
-            if self.has_integrated_counterterms():
-                self.integrated_counterterms[process_key] = integrated_CT_backup
 
             #misc.sprint('Events generated before post-processing.')
             #misc.sprint(events)
@@ -4058,18 +4123,24 @@ The missing process is: %s"""%ME_process.nice_string())
             else:
                 def_ct_2_ME_ratio /= total_of_abs_values[0]
                 foo_str = "{}: One minus the ratio of the defining CT to the total abs sum at lambda = %s is: %s.".format(string_idenfier)
-            logger.info(foo_str % (x_values[0], def_ct_2_ME_ratio))
-            test_ratio = abs(def_ct_2_ME_ratio)-1
+            # If there is no counterterms at all then the test must pass trivially
+            if def_ct_2_ME_ratio == 0.:
+                def_ct_2_ME_ratio = 1.
+            test_ratio = abs(def_ct_2_ME_ratio)-1.
+            logger.info(foo_str % (x_values[0], test_ratio))
             test_failed = test_ratio > acceptance_threshold
         # Check that the ratio between total and ME is close to 0
         if plot_total and not test_failed:
             total_2_ME_ratio = total[0]
             if evaluations[x_values[0]]["ME"] == 0.:
                 total_2_ME_ratio /= total_of_abs_values[0]
-                foo_str = "{}: One minus the ratio of the total to the sum of abs CT at lambda = %s is: %s.".format(string_idenfier)
+                foo_str = "{}: Ratio of the total to the sum of abs CT at lambda = %s is: %s.".format(string_idenfier)
             else:
                 total_2_ME_ratio /= evaluations[x_values[0]]["ME"]
-                foo_str = "{}: One minus the ratio of the total to the ME at lambda = %s is: %s.".format(string_idenfier)
+                foo_str = "{}: Ratio of the total to the ME at lambda = %s is: %s.".format(string_idenfier)
+            # If there is no counterterms at all then the test must pass trivially
+            if total_2_ME_ratio==1.0:
+                total_2_ME_ratio = 0.
             logger.info(foo_str % (x_values[0], total_2_ME_ratio))
             test_ratio  = abs(total_2_ME_ratio)
             test_failed = test_ratio > acceptance_threshold
@@ -4121,10 +4192,11 @@ The missing process is: %s"""%ME_process.nice_string())
             for (limit, limit_evaluations) in process_evaluations.items():
                 # Clean-up of the embedding overall parenthesis for the title label
                 limit_str = limit
-                if limit_str.startswith("("):
-                    limit_str = limit_str[1:]
-                if limit_str.endswith(",)"):
-                    limit_str = limit_str[:-2] 
+                while limit_str.startswith("(") or limit_str.endswith(",)"):
+                    if limit_str.startswith("("):
+                        limit_str = limit_str[1:]
+                    if limit_str.endswith(",)"):
+                        limit_str = limit_str[:-2]
                 proc, loops = process.split("@")
                 title = "$" + proc + "$"
                 initial_state, final_state = proc.split('>')
@@ -4245,6 +4317,14 @@ class ME7Integrand_RV(ME7Integrand_R, ME7Integrand_V):
         # Add the integrated counterterms
         # Now loop over all integrated counterterms
         for i_ct, counterterm_characteristics in enumerate(self.integrated_counterterms[process_key]):
+
+            # Skip integrated counterterms that do not belong to this sector
+            selected_input_mappings = None
+            if (sector_info is not None) and (sector_info['integrated_counterterms'] is not None):
+                if i_ct not in sector_info['integrated_counterterms']:
+                    continue
+                selected_input_mappings = sector_info['integrated_counterterms'][i_ct]
+
             # And over all the ways in which this current PS point must be remapped to
             # account for all contributions of the integrated CT. (e.g. the integrated
             # splitting g > d d~ must be "attached" to all final state gluons appearing
@@ -4252,7 +4332,7 @@ class ME7Integrand_RV(ME7Integrand_R, ME7Integrand_V):
             for i_mapping, input_mapping in enumerate(counterterm_characteristics['input_mappings']):
 
                 # Skip integrated counterterms that do not belong to this sector
-                if sector_info is not None and (i_ct,i_mapping) not in sector_info['integrated_counterterms']:
+                if (selected_input_mappings is not None) and i_mapping not in selected_input_mappings:
                     continue
 
                 # At NLO at least, it is OK to save a bit of time by enforcing 'compute_poles=False').

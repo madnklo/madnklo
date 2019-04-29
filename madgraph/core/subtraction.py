@@ -211,7 +211,16 @@ def difference(A, B):
 #=========================================================================================
 
 class SubtractionLeg(tuple):
-    """Leg object specialized for subtraction."""
+    """Leg object specialized for subtraction.
+    A SubtractionLeg is (LEG_ID,PDG_ID,STATE) where
+    - LEG_ID is the ID of this specific leg in the process
+    - PDG_ID identifies the type of particle through the standard PDG codes
+    - STATE is FINAL or INITIAL
+    Initialization is performed using
+    - SubtractionLeg(LEG_ID:int,PDG_ID:int,STATE:bool)
+    - SubtractionLeg(Leg) using the Leg objects
+    - SubtractionLeg(Leg_dict:dict) using a dict with keys  'number', 'id', 'state'
+    """
 
     FINAL = base_objects.Leg.FINAL
     INITIAL = base_objects.Leg.INITIAL

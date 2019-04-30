@@ -325,6 +325,7 @@ class ParseCmdArguments(object):
             'set_PDFs_to_unity'       : True,
             'boost_back_to_com'       : True,
             'epsilon_expansion_term'  : 'sum_all',
+            'selected_sectors'        : None,
             # Here we store a list of lambda function to apply as filters
             # to the integrand we must consider
             'integrands'              : [lambda integrand: True]
@@ -448,6 +449,19 @@ class ParseCmdArguments(object):
                     testlimits_options['limits'] = evaluated_list
                 except:
                     testlimits_options['limits'] = [value,]
+
+            elif key in ['--selected_sector', '--sector', '--ss']:
+                eval_value = eval(value)
+                if testlimits_options['selected_sectors'] is None:
+                    if isinstance(eval_value, list):
+                        testlimits_options['selected_sectors'] = eval_value
+                    else:
+                        testlimits_options['selected_sectors'] = [ eval_value,]
+                else:
+                    if isinstance(eval_value, list):
+                        testlimits_options['selected_sectors'].extend(eval_value)
+                    else:
+                        testlimits_options['selected_sectors'].append(eval_value)
 
             elif key in [
                 '--show_plots','--set_PDFs_to_unity', '--save_plots',
@@ -630,7 +644,8 @@ class ParseCmdArguments(object):
                           # Here we store a list of lambda function to apply as filters
                           # to the integrand we must consider
                           'integrands'          : [lambda integrand: True],
-                          'run_name'            : ''}
+                          'run_name'            : ''
+                          }
         
         for arg in opt_args:
             try:
@@ -666,6 +681,7 @@ class ParseCmdArguments(object):
             
             elif key in ['--veto_integrands', '--veto_itg']:
                 launch_options['integrands'].extend(self.get_integrand_filters(value, 'reject'))
+
             elif key=='--run_name':
                 launch_options['run_name'] = value
             else:
@@ -1157,7 +1173,13 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
             logger.debug(
                 'Now testing IR limits of the following integrand:\n' +
                 integrand.nice_string() )
+            # Adjust the selection of sectors if necessary
+            old_selector = integrand.is_sector_selected
+            if testlimits_options['selected_sectors'] is not None:
+                integrand.is_sector_selected = lambda defining_process, sector: \
+                                            sector.leg_numbers in testlimits_options['selected_sectors']
             integrand.test_IR_limits(test_options=testlimits_options)
+            integrand.is_sector_selected = old_selector
 
         if n_integrands_run == 0:
             logger.warning("No available integrand for function 'test_IR_limits'")
@@ -1184,7 +1206,13 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
                 continue
             n_integrands_run += 1
             logger.debug('Now testing IR poles of the following integrand:\n%s'%(integrand.nice_string()))
+            # Adjust the selection of sectors if necessary
+            old_selector = integrand.is_sector_selected
+            if testpoles_options['selected_sectors'] is not None:
+                integrand.is_sector_selected = lambda defining_process, sector: \
+                                            sector.external_legs in testpoles_options['selected_sectors']
             integrand.test_IR_poles(test_options=testpoles_options)
+            integrand.is_sector_selected = old_selector
 
         if n_integrands_run==0:
             logger.warning("No available integrand for function 'test_IR_poles'")

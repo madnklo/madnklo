@@ -3,14 +3,15 @@
 #
 
 import commons.generic_sectors as generic_sectors
+import madgraph.various.misc as misc
 
 class Sector(generic_sectors.GenericSector):
     """ Class implementing a particular sector, with attributes identifying it and methods 
     for its evaluation."""
 
-    def __init__(self, external_leg_numbers, **opts):
+    def __init__(self, leg_numbers, **opts):
         super(Sector, self).__init__(**opts)
-        self.external_leg_numbers = external_leg_numbers
+        self.leg_numbers = leg_numbers
 
     def __call__(self, PS_point, PDGs, counterterm_index=-1, input_mapping_index=-1):
         """ Given a kinematic configuration (PS_point is a *dict* here) and flavors of external states, returns the sector weight (float)
@@ -24,9 +25,26 @@ class Sector(generic_sectors.GenericSector):
         mapping index if an integrated counterterm is considered.
         """
 
-        sector_weight = 1.0
+        # Below is a hard-coded sector implementation for the real-emission process e+(1) e-(2) > g(3) d(4) d~(5)
+
+        # No sectoring necessary for the reduced NLO singly-unresolved kinematics
+        if len(PDGs[1])==2:
+            return 1.0
+
+        # Then simply use the partial-fractioning facotors s(3,4) / ( s(3,4) + s(3,5) )
+        if self.leg_numbers==(3,4):
+            sector_weight = (PS_point[3]+PS_point[5]).square()
+        else:
+            sector_weight = (PS_point[3]+PS_point[4]).square()
+
+        sector_weight /= ((PS_point[3]+PS_point[4]).square() + (PS_point[3]+PS_point[5]).square())
 
         return sector_weight
+
+    def __str__(self):
+        """ String representation of this sector. """
+
+        return "(%s)"%(','.join('%d'%ln for ln in self.leg_numbers))
 
 class SectorGenerator(generic_sectors.GenericSectorGenerator):
     """ Class responsible for generating the correct list of sectors to consider for specific processes."""
@@ -54,12 +72,15 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         """
         
         model = defining_process.get('model')
-        initial_state_PDGs, final_state_PDGs = defining_process.get_initial_final_ids()
+        initial_state_PDGs, final_state_PDGs = defining_process.get_cached_initial_final_pdgs()
 
-        # Hardcoding to FKS-like sectors for e+(1) e-(2) > d(3) d~(4) g(5)
+        # Hardcoding to FKS-like sectors for e+(1) e-(2) > g(3) d(4) d~(5)
+        if initial_state_PDGs != (-11,11) or final_state_PDGs != (21, 1, -1):
+            return None
+
         all_sectors = []
 
-        for sector_legs in [(5,3), (5,4)]:
+        for sector_legs in [(3,4), (3,5)]:
 
             a_sector = {
                 'sector' : None,
@@ -67,12 +88,31 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                 'integrated_counterterms' : None
             }
 
-            a_sector['sector'] = Sector(external_leg_numbers=sector_legs)
+            a_sector['sector'] = Sector(leg_numbers=sector_legs)
             if counterterms is not None:
-                a_sector['counterterms'] = range(len(counterterms))
+                a_sector['counterterms'] = []
+                for i_ct, ct in enumerate(counterterms):
+                    current = ct.nodes[0].current
+                    singular_structure = current.get('singular_structure').substructures[0]
+                    all_legs = singular_structure.get_all_legs()
+                    if singular_structure.name()=='S':
+                        if all_legs[0].n == sector_legs[0]:
+                            a_sector['counterterms'].append(i_ct)
+                    if singular_structure.name()=='C':
+                        if sorted([l.n for l in all_legs]) == sorted(sector_legs):
+                            a_sector['counterterms'].append(i_ct)
+
+                # Uncomment below for enabling all counterterms
+                # a_sector['counterterms'] = range(len(counterterms))
+
+            # Irrelevant if this NLO example, but let me specify all of them explicitly so as to make the strucuture clear.
             if integrated_counterterms is not None:
-                a_sector['integrated_counterterms'] = [ (i_ct, i_mapping) for i_ct, ct in enumerate(integrated_counterterms)
-                                                        for i_mapping in range(len(ct['input_mappings']))]
+                a_sector['integrated_counterterms'] = {}
+                for i_ct, ct in enumerate(integrated_counterterms):
+                    # For now enable all integrated counterterms. Notice that the value None in this dictionary
+                    # is interpreted as all input mappings contributing, but for the sake of example here
+                    # we list explicitly each index.
+                    a_sector['integrated_counterterms'][i_ct] = range(len(ct['input_mappings']))
 
             all_sectors.append(a_sector)
 

@@ -29,9 +29,12 @@ __authors__ = ["valentin.hirschi@gmail.com", "simone.lionetti@gmail.com", "nicol
 # General properties
 # ==================
 
+# In the torino implementation, softs do not recoil symmetrically against initial states
 requires_soft_beam_factorization = False 
 # Colorful does not use sectors
 sector_generator = SectorGenerator()
+# This scheme belongs to a family of scheme using leg number information to instantiates its currents
+are_current_instances_for_specific_leg_numbers = True
 
 # Note: specifying below which resources are needed is optional
 exporter = GenericCurrentsExporter(relative_resource_paths=[

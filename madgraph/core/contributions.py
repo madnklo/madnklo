@@ -1702,8 +1702,6 @@ The resulting output must therefore be used for debugging only as it will not yi
         for process_key, counterterms in self.counterterms.items():
             for current in subtraction.IRSubtraction.get_all_currents(counterterms):
                 # Retain only a single copy of each needed current.
-                # We must remove the leg information since this is information is irrelevant
-                # for the selection of the hard-coded current implementation to consider.
                 copied_current = current.get_copy(('squared_orders','singular_structure'))
                 if copied_current not in all_currents:
                     all_currents.append(copied_current)
@@ -1716,9 +1714,17 @@ The resulting output must therefore be used for debugging only as it will not yi
                         all_currents.append(bfc)
 
         # Now further remove currents that are already in all_MEAccessors
+
+
+        # We can remove the leg information if for the subtraction scheme considered it is irrelevant
+        # for the selection of the hard-coded current implementation to consider.
         all_necessary_currents = {}
+        if self.IR_subtraction is None or self.IR_subtraction.subtraction_scheme_module is None:
+            track_leg_numbers = False
+        else:
+            track_leg_numbers = self.IR_subtraction.subtraction_scheme_module.are_current_instances_for_specific_leg_numbers
         for current in all_currents:
-            current_key = current.get_key().get_canonical_key()
+            current_key = current.get_key(track_leg_numbers=track_leg_numbers).get_canonical_key()
             if current_key not in all_MEAccessors and current_key not in all_necessary_currents:
                 all_necessary_currents[current_key] = current
 

@@ -121,7 +121,6 @@ class QCD_final_collinear_with_soft(QCD_final_collinear_0_XX):
         model_param_dict = self.model.get('parameter_dict')
         alpha_s = model_param_dict['aS']
         mu_r = model_param_dict['MU_R']
-
         # Include the counterterm only in a part of the phase space
         # Retrieve leg numbers
         children = tuple(self.leg_numbers_map[i]

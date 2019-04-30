@@ -30,6 +30,9 @@ requires_soft_beam_factorization = False
 # Colorful does not use sectors
 sector_generator = None
 
+# This scheme belongs to a family of scheme using leg number information to instantiates its currents
+are_current_instances_for_specific_leg_numbers = True
+
 # Note: specifying below which resources are needed is optional
 exporter = GenericCurrentsExporter(relative_resource_paths=[
     'subtraction_schemes/colorful',

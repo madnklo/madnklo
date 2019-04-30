@@ -2767,14 +2767,13 @@ class IRSubtraction(object):
         return integrated_CTs
 
     @staticmethod
-    def get_all_currents(counterterms):
+    def get_all_currents(counterterms,track_leg_numbers=False):
         """Deduce the list of currents needed to compute all counterterms given."""
-
         all_currents = []
         for counterterm in counterterms:
             for current in counterterm.get_all_currents():
                 # Remove duplicates already at this level
-                if current not in all_currents:
+                if track_leg_numbers or current not in all_currents:
                     all_currents.append(current)
         return all_currents
 
@@ -2924,8 +2923,8 @@ class SubtractionCurrentExporter(object):
         """Export the specified list of currents and return a list of accessors
         which contain the mapping information.
         """
-
         subtraction_scheme_module = SubtractionCurrentExporter.get_subtraction_scheme_module(self.subtraction_scheme)
+        track_leg_numbers=subtraction_scheme_module.are_current_instances_for_specific_leg_numbers
 
         # Group all currents according to mapping rules.
         # The mapped currents is a dictionary of the form
@@ -2968,12 +2967,12 @@ class SubtractionCurrentExporter(object):
                 key = ( self.subtraction_scheme, current_identifier, instantiation_options_index )
 
                 if key in mapped_currents:
-                    mapped_currents[key]['mapped_process_keys'].append(current.get_key())
+                    mapped_currents[key]['mapped_process_keys'].append(current.get_key(track_leg_numbers=track_leg_numbers))
                 else:
 
                     mapped_currents[key] = {
                         'defining_current': current,
-                        'mapped_process_keys': [current.get_key()],
+                        'mapped_process_keys': [current.get_key(track_leg_numbers=track_leg_numbers)],
                         'instantiation_options': instantiation_options }
                 if current_identifier == 'DefaultCurrentImplementation':
                     currents_with_default_implementation.append(current)

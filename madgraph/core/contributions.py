@@ -159,7 +159,7 @@ class Contribution(object):
         
         # Initialize an IR subtraction module if necessary
         self.IR_subtraction = None
-
+        self.track_leg_numbers = False
         if self.contribution_definition.n_unresolved_particles > 0 or \
                                      self.contribution_definition.has_beam_factorization():
             self.IR_subtraction = subtraction.IRSubtraction(
@@ -167,6 +167,8 @@ class Contribution(object):
                 coupling_types     = self.contribution_definition.correction_couplings,
                 beam_types         = self.contribution_definition.get_beam_types(),
                 subtraction_scheme = self.options['subtraction_scheme'] )
+            if self.IR_subtraction.subtraction_scheme_module is not None:
+                self.track_leg_numbers = self.IR_subtraction.subtraction_scheme_module.are_current_instances_for_specific_leg_numbers
         
         # The following two attributes dictate the type of Exporter which will be assigned to this contribution
         self.output_type             = 'default'
@@ -752,7 +754,6 @@ class Contribution(object):
         current_exporter = subtraction.SubtractionCurrentExporter(model, root_path, current_set)
         mapped_currents = current_exporter.export(currents_to_consider)
         # Print to the debug log which currents were exported
-
         log_string = "The following subtraction current implementation are exported "+\
                      "in contribution '%s':\n"%self.short_name()
         for (module_path, class_name, _), current_properties in mapped_currents.items():
@@ -782,7 +783,7 @@ class Contribution(object):
                 model=model
             ))
         # Add MEAccessors
-        all_MEAccessors.add_MEAccessors(all_current_accessors)
+        all_MEAccessors.add_MEAccessors(all_current_accessors,)
         return mapped_currents
 
     def can_processes_be_integrated_together(self, processA, processB):
@@ -1697,13 +1698,13 @@ The resulting output must therefore be used for debugging only as it will not yi
     def get_all_necessary_local_currents(self, all_MEAccessors):
         """ Given the counterterms in place and the currents already accessible in the 
         all_MEAccessors, return what local currents are needed."""
-        
+
         all_currents = []
         for process_key, counterterms in self.counterterms.items():
-            for current in subtraction.IRSubtraction.get_all_currents(counterterms):
+            for current in subtraction.IRSubtraction.get_all_currents(counterterms,track_leg_numbers=self.track_leg_numbers):
                 # Retain only a single copy of each needed current.
                 copied_current = current.get_copy(('squared_orders','singular_structure'))
-                if copied_current not in all_currents:
+                if copied_current not in all_currents or self.track_leg_numbers:
                     all_currents.append(copied_current)
 
         # Also add the beam_factorization currents from process itself if it has any
@@ -1719,12 +1720,8 @@ The resulting output must therefore be used for debugging only as it will not yi
         # We can remove the leg information if for the subtraction scheme considered it is irrelevant
         # for the selection of the hard-coded current implementation to consider.
         all_necessary_currents = {}
-        if self.IR_subtraction is None or self.IR_subtraction.subtraction_scheme_module is None:
-            track_leg_numbers = False
-        else:
-            track_leg_numbers = self.IR_subtraction.subtraction_scheme_module.are_current_instances_for_specific_leg_numbers
         for current in all_currents:
-            current_key = current.get_key(track_leg_numbers=track_leg_numbers).get_canonical_key()
+            current_key = current.get_key(track_leg_numbers=self.track_leg_numbers).get_canonical_key()
             if current_key not in all_MEAccessors and current_key not in all_necessary_currents:
                 all_necessary_currents[current_key] = current
 
@@ -1764,8 +1761,8 @@ The resulting output must therefore be used for debugging only as it will not yi
             for counterterm in list(counterterms):
                 # misc.sprint("Considering CT %s" % str(counterterm))
                 if counterterm.is_singular():
-                    for current in counterterm.get_all_currents():                            
-                        accessor, _ = all_ME_accessors[current]
+                    for current in counterterm.get_all_currents():
+                        accessor, _ = all_ME_accessors[current.get_key(track_leg_numbers=self.track_leg_numbers)]
                         if accessor.subtraction_current_instance.is_zero:
                             # misc.sprint("Zero current found in CT %s" % str(counterterm))
                             counterterms.remove(counterterm)
@@ -1795,7 +1792,8 @@ The resulting output must therefore be used for debugging only as it will not yi
                 process_map, self.topologies_to_processes, self.processes_to_topologies,
                 all_MEAccessors, ME7_configuration,
                 sectors = identified_sectors,
-                counterterms = relevant_counterterms
+                counterterms = relevant_counterterms,
+                subtraction_scheme_name=self.options['subtraction_scheme']
             )
         ]
         
@@ -1877,12 +1875,12 @@ class Contribution_V(Contribution):
             # We must remove the leg information since this is information is irrelevant
             # for the selection of the hard-coded current implementation to consider.
             copied_current = integrated_current.get_copy(('squared_orders','singular_structure'))
-            if copied_current not in all_currents:
+            if copied_current not in all_currents or self.track_leg_numbers:
                 all_currents.append(copied_current)
 
         # Now further remove currents that are already in all_MEAccessors
         all_currents = [current for current in all_currents if 
-                        current.get_key().get_canonical_key() not in all_MEAccessors]
+                        current.get_key(track_leg_numbers=self.track_leg_numbers).get_canonical_key() not in all_MEAccessors]
         
         return all_currents
 

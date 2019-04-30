@@ -754,13 +754,6 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # ME7 session.
         self.all_MEAccessors            = all_MEAccessors
 
-        # Load or access the already loaded subtraction scheme module
-        if subtraction_scheme_name is not None:
-            self.subtraction_scheme = subtraction.SubtractionCurrentExporter.get_subtraction_scheme_module(
-                                        subtraction_scheme_name, root_path = self.ME7_configuration['me_dir'])
-        else:
-            self.subtraction_scheme = None
-
         # Save identified sectors if any
         self.sectors = sectors
         # For now specify a specific sector by hardcoding a selector function
@@ -1025,6 +1018,14 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
         # The option dictionary of ME7
         self.ME7_configuration          = ME7_configuration
+        misc.sprint(ME7_configuration)
+        # Load or access the already loaded subtraction scheme module
+        if self.contribution_definition.get_overall_order is not None:#TODO check if this is a NLO contribution
+            self.subtraction_scheme = subtraction.SubtractionCurrentExporter.get_subtraction_scheme_module(
+                                        self.ME7_configuration['subtraction_scheme'], root_path = self.ME7_configuration['me_dir'])
+        else:
+            self.subtraction_scheme = None
+
         
         # A ModelReader instance, initialized with the values of the param_card.dat of this run
         self.model                      = model
@@ -1872,7 +1873,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
         sector_info = opts.get('sector_info', None)
 
-        if sector_info is not None:
+        if sector_info['sector'] is not None:
             event_weight *= sector_info['sector'](PS_point,all_flavor_configurations[0],
                                                   counterterm_index=-1, input_mapping_index=-1)
 
@@ -3306,7 +3307,7 @@ class ME7Integrand_R(ME7Integrand):
         for current in mapping_currents:
 
             current_evaluation, all_current_results = self.all_MEAccessors(
-                current,
+                current.get_key(track_leg_numbers=self.subtraction_scheme.are_current_instances_for_specific_leg_numbers),
                 higher_PS_point=PS_point,
                 momenta_dict=counterterm.momenta_dict,
                 reduced_process=ME_process, hel_config=None,

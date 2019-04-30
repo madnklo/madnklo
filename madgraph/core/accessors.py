@@ -2071,7 +2071,6 @@ class MEAccessorDict(dict):
         if not isinstance(ME_accessor, VirtualMEAccessor):
             raise MadGraph5Error(
                 "MEAccessorDict can only be assigned values inheriting from VirtualMEAccessor.")
-        
         for key, value in ME_accessor.get_canonical_key_value_pairs():
             if key in self and not allow_overwrite:
                 raise MadGraph5Error(

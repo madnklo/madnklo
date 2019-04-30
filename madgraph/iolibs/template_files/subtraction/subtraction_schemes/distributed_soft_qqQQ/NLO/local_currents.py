@@ -142,14 +142,16 @@ class QCD_final_collinear_with_soft(QCD_final_collinear_0_XX):
         if self.is_cut(Q=Q, pC=pC):
             return utils.SubtractionCurrentResult.zero(
                 current=current, hel_config=hel_config)
+        reduced_kinematics = (None, lower_PS_point)
 
         # Evaluate collinear subtracted kernel
         zs, kTs = self.variables(higher_PS_point, qC, children, Q=Q)
-        evaluation = self.kernel(zs, kTs, parent)
+        evaluation = self.kernel(zs, kTs, parent, reduced_kinematics)
 
         # Start handling the soft counterterms
         # First check which particles can go soft
-        gluons = [self.is_gluon(l) for l in self.structure.get_all_legs()]
+
+        gluons = [self.is_gluon(l,self.model) for l in self.structure.get_all_legs()]
         # If any can go soft, we need to add eikonal pieces
         if any(gluons):
             # Find all colored leg numbers ?except for the parent? in the reduced process
@@ -170,20 +172,23 @@ class QCD_final_collinear_with_soft(QCD_final_collinear_0_XX):
             # As a result, S(0) emitted from the dipole (1,j) has the unresolved color correlation (parent,j)
             # as well as S(1) emitted from the dipole (0,j). As a result, for each j, we have a single color
             # correlation for the two eikonal pieces pj.p1/(pj.p0)/(pj.p0+p1.p0) and pj.p0/(pj.p1)/(pj.p1+p0.p1)
+
             for j in all_colored_parton_numbers:
                 # Write the eikonal for that pair
                 if j == parent:
+                    # j is already the other leg of the dipole,
+                    # we skip as we don't handle massive emitters
                     continue
-                pj = sum(higher_PS_point[child] for child in leg_numbers_map[j])
+                pj = higher_PS_point[j]
                 evaluation['color_correlations'].append(((parent, j),))
                 eiks = 0
                 if gluons[0]:
                     # Soft 0 emitted from (1,j) with C(0,j) screened
-                    eiks += self.partial_fractionned_eikonal(p1, pj, p0)
+                    eiks -= self.partial_fractionned_eikonal(p1, pj, p0)
                 if gluons[1]:
                     # Soft 1 emitted from (0,j) with C(1,j) screened
-                    eiks += self.partial_fractionned_eikonal(p0, pj, p1)
-                evaluation['values'][(0, color_correlation_index)] = {'finite': eiks}
+                    eiks -= self.partial_fractionned_eikonal(p0, pj, p1)
+                evaluation['values'][(0, color_correlation_index,0)] = {'finite': eiks}
                 color_correlation_index += 1
 
         # Add the normalization factors

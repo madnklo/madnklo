@@ -480,7 +480,7 @@ class QCDLocalCollinearCurrent(QCDLocalCurrent):
         :return type: SubtractionCurrentEvaluation
         """
 
-        raise NotImplemented
+        raise NotImplementedError
 
     def evaluate_subtraction_current(
         self, current,

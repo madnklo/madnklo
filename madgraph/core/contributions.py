@@ -160,8 +160,7 @@ class Contribution(object):
         # Initialize an IR subtraction module if necessary
         self.IR_subtraction = None
         self.track_leg_numbers = False
-        if self.contribution_definition.n_unresolved_particles > 0 or \
-                                     self.contribution_definition.has_beam_factorization():
+        if self.contribution_definition.overall_correction_order.count('N') > 0:
             self.IR_subtraction = subtraction.IRSubtraction(
                 self.model,
                 coupling_types     = self.contribution_definition.correction_couplings,
@@ -1792,8 +1791,7 @@ The resulting output must therefore be used for debugging only as it will not yi
                 process_map, self.topologies_to_processes, self.processes_to_topologies,
                 all_MEAccessors, ME7_configuration,
                 sectors = identified_sectors,
-                counterterms = relevant_counterterms,
-                subtraction_scheme_name=self.options['subtraction_scheme']
+                counterterms = relevant_counterterms
             )
         ]
         
@@ -1901,8 +1899,8 @@ class Contribution_V(Contribution):
                 integrated_counterterm = integrated_counterterm_properties['integrated_counterterm']
                 # misc.sprint("Considering integrated CT %s" % str(integrated_counterterm))
                 if integrated_counterterm.is_singular():
-                    for current in integrated_counterterm.get_all_currents():                            
-                        accessor, _ = all_ME_accessors[current]
+                    for current in integrated_counterterm.get_all_currents():
+                        accessor, _ = all_ME_accessors[current.get_key(track_leg_numbers=self.track_leg_numbers)]
                         if accessor.subtraction_current_instance.is_zero:
                             # misc.sprint("Zero current found in integrated CT %s" % str(integrated_counterterm))
                             logger.debug("Zero current found in integrated CT %s, removing it now."%str(integrated_counterterm))

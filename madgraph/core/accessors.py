@@ -1866,7 +1866,7 @@ class MEAccessorDict(dict):
     def __getitem__(self, key):
         return self.get_MEAccessor(key)
 
-    def get_MEAccessor(self, key, pdgs=None):
+    def get_MEAccessor(self, key, pdgs=None, track_leg_numbers=False):
         """ Provides access to a given ME, provided its ProcessKey.
         See implementation of this ProcessKey to
         understand how the properties of the process being accessed are stored.
@@ -1887,7 +1887,7 @@ class MEAccessorDict(dict):
 
         if isinstance(key, subtraction.Current):
             # Automatically convert the current to a ProcessKey
-            accessor_key = key.get_key()
+            accessor_key = key.get_key(track_leg_numbers=track_leg_numbers)
         elif isinstance(key, base_objects.Process):
             # Automatically convert the process to a ProcessKey
             accessor_key = ProcessKey(process=key, PDGs=pdgs if pdgs else [])
@@ -1988,6 +1988,10 @@ class MEAccessorDict(dict):
         out which permutation to apply and which flavours to specify.
         """
 
+        # We must check whether we must track leg numbers when getting the subtraction current key for the specified
+        # current in args[0]
+        track_leg_numbers = opts.pop('track_leg_numbers',False)
+
         assert (len(args)>0 and isinstance(args[0], (ProcessKey, base_objects.Process, subtraction.Current))), "When using the shortcut "+\
             "__call__ method of MEAccessorDict, the first argument should be an instance of a ProcessKey or base_objects.Process or"+\
             " subtraction.Current."
@@ -2024,8 +2028,8 @@ class MEAccessorDict(dict):
             specified_process_instance = args[0]
             if not pdgs_specified:
                 desired_pdgs_order = specified_process_instance.get_cached_initial_final_pdgs()
-            
-        ME_accessor, call_key = self.get_MEAccessor(me_accessor_key, pdgs=desired_pdgs_order)
+
+        ME_accessor, call_key = self.get_MEAccessor(me_accessor_key, pdgs=desired_pdgs_order, track_leg_numbers=track_leg_numbers)
         call_options.update(call_key)
 
         # Now for subtraction current accessors, we must pass the current as first argument

@@ -861,7 +861,8 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         self.n_initial = 2
         CmdExtended.__init__(self, me_dir, options, *completekey, **stdin)
         self.prompt = "ME7::%s > "%os.path.basename(pjoin(self.me_dir))
-        
+        self.options['me_dir'] = self.me_dir
+
         # Initialize default properties that will be overwritten during the bootstrap.
         self.all_MEAccessors = None
         self.all_integrands = ME7_integrands.ME7IntegrandList()

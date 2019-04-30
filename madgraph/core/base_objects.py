@@ -4221,9 +4221,11 @@ class ContributionDefinition(object):
         res.append('%-30s:   %s'%('n_loops',self.n_loops))
         res.append('%-30s:   %s'%('squared_orders_constraints',self.squared_orders_constraints))
         res.append('%-30s:   %s'%('process_definition',self.process_definition.nice_string().replace('Process: ','')))
-        res.append('%-30s:   %s'%('beam_one',self.get_beam_factorization_nice_string(
-                self.process_definition['model'],self.beam_factorization['beam_one'])))
-        res.append('%-30s:   %s'%('beam_two',self.get_beam_factorization_nice_string(
+        if self.beam_factorization['beam_one'] is not None:
+            res.append('%-30s:   %s'%('beam_one',self.get_beam_factorization_nice_string(
+                    self.process_definition['model'],self.beam_factorization['beam_one'])))
+        if self.beam_factorization['beam_two'] is not None:
+            res.append('%-30s:   %s'%('beam_two',self.get_beam_factorization_nice_string(
                 self.process_definition['model'],self.beam_factorization['beam_two'])))
         return '\n'.join(res)
 

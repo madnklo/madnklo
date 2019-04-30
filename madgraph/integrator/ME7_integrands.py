@@ -764,7 +764,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # Save identified sectors if any
         self.sectors = sectors
         # For now specify a specific sector by hardcoding a selector function
-        self.is_sector_selected = lambda defining_process, sector: True
+        # None is equivalent to `lambda defining_process, sector: True`
+        self.is_sector_selected = None
 
         # Update and define many properties of self based on the provided run-card and model.
         self.synchronize(model, run_card, ME7_configuration)
@@ -795,7 +796,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         contribution. Can be overloaded by daughter classes."""
         GREEN = '\033[92m'
         ENDC = '\033[0m'
-        main_line = GREEN+'  %s'%defining_process.nice_string(print_weighted=False).\
+        return GREEN+'  %s'%defining_process.nice_string(print_weighted=False).\
                                                                replace('Process: ','')+ENDC
 
     def get_nice_string_sector_lines(self, process_key, format=0):
@@ -808,12 +809,12 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
         res = []
         if format <2:
-            res.append(' | %s sectors: %s'%(len(all_sectors_info),
-                                            ' / '.join('%s'%str(s['sector'] for s in all_sectors_info))))
+            res.append('   | %d sectors: %s'%(len(all_sectors_info),
+                                            ' | '.join('%s'%str(s['sector']) for s in all_sectors_info)))
         else:
-            res.append(' | with sectors:')
+            res.append('   | with %d sectors:'%len(all_sectors_info))
             for sector_info in all_sectors_info:
-                line_elems = [ '  | sector %s'%str(sector_info['sector']) ]
+                line_elems = [ '   | > sector %s'%str(sector_info['sector']) ]
                 if sector_info['counterterms'] is not None:
                     line_elems.append('local counterterms [%s]'%(','.join('%d'%i_ct for i_ct in sector_info['counterterms'])))
                 else:
@@ -867,7 +868,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
                 for mapped_process in mapped_processes:
                     res.append(BLUE+u'   \u21b3  '+mapped_process.nice_string(print_weighted=False)\
                                                                         .replace('Process: ','')+ENDC)
-            
+
         return '\n'.join(res).encode('utf-8')
 
     def __str__(self):
@@ -1677,8 +1678,13 @@ class ME7Integrand(integrands.VirtualIntegrand):
         else:
             total_weight = 0.
             for process_key, (process, mapped_processes) in self.processes_map.items():
-                for sector_info in self.sectors[process_key]:
-                    if not self.is_sector_selected(process, sector_info['sector']):
+                if self.sectors is None or self.sectors[process_key] is None:
+                    all_sectors = [None, ]
+                else:
+                    all_sectors = self.sectors[process_key]
+                for sector_info in all_sectors:
+                    if (sector_info is not None) and (self.is_sector_selected is not None) and \
+                                                    not self.is_sector_selected(process, sector_info['sector']):
                         continue
                     total_weight += self.evaluate(PS_random_variables, integrator_jacobian,
                                                   selected_process_key=process_key, sector_info=sector_info)
@@ -2071,18 +2077,18 @@ class ME7Integrand_V(ME7Integrand):
                 
         else:
             long_res = [' | with the following integrated counterterms:']
-            for CT_properties in self.integrated_counterterms[process_key]:
+            for i_CT, CT_properties in enumerate(self.integrated_counterterms[process_key]):
                 CT = CT_properties['integrated_counterterm']
                 if format==2:
-                    long_res.append( '   | %s'%CT.__str__(
-                                        print_n=True, print_pdg=False, print_state=False )  )
+                    long_res.append( '   | %d : %s'%(i_CT, CT.__str__(
+                                        print_n=True, print_pdg=False, print_state=False )  ) )
                 elif format==3:
-                    long_res.append( '   | %s'%CT.__str__(
-                                        print_n=True, print_pdg=True, print_state=True )  )
+                    long_res.append( '   | %d : %s'%(i_CT, CT.__str__(
+                                        print_n=True, print_pdg=True, print_state=True )  ) )
                 elif format==4:
-                    long_res.append( '   | %s'%str(CT))
+                    long_res.append( '   | %d : %s'%(i_CT, str(CT)))
                 elif format>4:
-                    long_res.append( '   | %s'%str(CT))
+                    long_res.append( '   | %d : %s'%(i_CT, str(CT)))
                     for key, value in CT_properties.items():
                         if not key in ['integrated_counterterm', 'matching_process_key']:
                             long_res.append( '     + %s : %s'%(key, str(value)))
@@ -2793,16 +2799,16 @@ class ME7Integrand_R(ME7Integrand):
                 
         else:
             long_res = [' | with the following local counterterms:']
-            for CT in self.counterterms[process_key]:
+            for i_CT, CT in enumerate(self.counterterms[process_key]):
                 if CT.is_singular():
                     if format==2:
-                        long_res.append( '   | %s'%CT.__str__(
-                            print_n=True, print_pdg=False, print_state=False )  )
+                        long_res.append( '   | %d : %s'%(i_CT, CT.__str__(
+                            print_n=True, print_pdg=False, print_state=False )  ))
                     elif format==3:
-                        long_res.append( '   | %s'%CT.__str__(
-                            print_n=True, print_pdg=True, print_state=True )  )
+                        long_res.append( '   | %d : %s'%(i_CT, CT.__str__(
+                            print_n=True, print_pdg=True, print_state=True )  ))
                     elif format>3:
-                        long_res.append( '   | %s'%str(CT))
+                        long_res.append( '   | %d : %s'%(i_CT, str(CT)))
             res += '\n'.join(long_res)
 
         return res
@@ -3622,10 +3628,14 @@ The missing process is: %s"""%ME_process.nice_string())
         for process_key, (defining_process, mapped_processes) in self.processes_map.items():
             logger.debug("Considering %s"%defining_process.nice_string())
 
-            all_sectors = [None, ] if self.sectors is None else self.sectors[process_key]
+            if self.sectors is None or self.sectors[process_key] is None:
+                all_sectors = [None, ]
+            else:
+                all_sectors = self.sectors[process_key]
 
             for sector_info in all_sectors:
-                if not self.is_sector_selected(defining_process, sector_info['sector']):
+                if (sector_info is not None) and (self.is_sector_selected is not None) and \
+                                    not self.is_sector_selected(defining_process, sector_info['sector']):
                     continue
 
                 if sector_info is not None:
@@ -4278,26 +4288,26 @@ class ME7Integrand_RV(ME7Integrand_R, ME7Integrand_V):
                 res += ' and 0 integrated counterterm'
         else:
             long_res = [' | with the following local and integrated counterterms:']
-            for CT in self.counterterms[process_key]:
+            for i_CT, CT in enumerate(self.counterterms[process_key]):
                 if CT.is_singular():
                     if format==2:
-                        long_res.append( '   | %s' % str(CT))
+                        long_res.append( '   | %d : %s' % (i_CT, str(CT)))
                     elif format==3:
-                        long_res.append( '   | %s' % CT.__str__(
-                            print_n=True, print_pdg=True, print_state=True ) )
+                        long_res.append( '   | %d : %s' % (i_CT, CT.__str__(
+                            print_n=True, print_pdg=True, print_state=True ) ))
                     elif format>3:
                         long_res.append(CT.nice_string("   | "))
-            for CT_properties in self.integrated_counterterms[process_key]:
+            for i_CT, CT_properties in enumerate(self.integrated_counterterms[process_key]):
                 CT = CT_properties['integrated_counterterm']
                 if format==2:
-                    long_res.append( '   | %s' % str(CT))
+                    long_res.append( '   | %d : %s' % (i_CT, str(CT)))
                 elif format==3:
-                    long_res.append( '   | %s' % CT.__str__(
-                        print_n=True, print_pdg=True, print_state=True ))
+                    long_res.append( '   | %d : %s' % (i_CT, CT.__str__(
+                        print_n=True, print_pdg=True, print_state=True )))
                 elif format==4:
-                    long_res.append(CT.nice_string("   | "))
+                    long_res.append(CT.nice_string("   | %d : "%i_CT))
                 elif format>4:
-                    long_res.append(CT.nice_string("   | "))
+                    long_res.append(CT.nice_string("   | %d : "%i_CT))
                     for key, value in CT_properties.items():
                         if not key in ['integrated_counterterm', 'matching_process_key']:
                             long_res.append( '     + %s : %s'%(key, str(value)))

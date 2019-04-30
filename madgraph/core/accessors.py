@@ -74,9 +74,9 @@ class ProcessKey(object):
 
     def __init__(self, 
                 # The user can initialize an ProcessKey directly from a process, or leave it empty
-                # in which case the default argument of a base_objects.Process() instance will be considered.      
+                # in which case the default argument of a base_objects.Process() instance will be considered.
                 process=None,
-                # Instead, or on top of the above, one can decide to overwrite what set of PDGs this key 
+                # Instead, or on top of the above, one can decide to overwrite what set of PDGs this key
                 # will it correspond to
                 PDGs = [],
                 # Decide whether to store sorted PDGs or the original order provided by the process or other
@@ -89,7 +89,7 @@ class ProcessKey(object):
                 allowed_attributes = None,
                 # Finally the user can overwrite the relevant attributes of the process passed in argument
                 # if he so wants. Remember however that only attributes with *hashable* values are allowed
-                # to be specified here.
+                # to be specified here.,
                 **opts):
         
 
@@ -184,7 +184,7 @@ class ProcessKey(object):
             
             elif proc_attr == 'singular_structure':
                 self.key_dict['singular_structure'] = value.get_canonical_representation(
-                                                                   track_leg_numbers=False)
+                                                                  track_leg_numbers=opts.get('track_leg_numbers',False))
 
             # Let us not worry about WEIGHTED orders that are added automatically added when doing process matching
             # Also ignore squared order constraints that are not == as those are added automatically to improve

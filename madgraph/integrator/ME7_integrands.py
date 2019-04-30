@@ -2211,21 +2211,6 @@ class ME7Integrand_V(ME7Integrand):
         xi1, xi2 = [xi1, xi2][input_mapping[0]], [xi1, xi2][input_mapping[1]]
         xb_1, xb_2 = [xb_1, xb_2][input_mapping[0]], [xb_1, xb_2][input_mapping[1]]
 
-        all_CT_events = self.evaluate_counterterm()
-
-        if all_CT_events is None:
-            return None
-
-        # When beam convolutions are active, we must remember that both the Bjorken x's *and*
-        # the convolution variable xi are integrated between zero and one.
-        # TODO this will need to be refined so as:
-        #    1) be moved to where the beam convolution takes place so as to affect each current
-        #       independently of each other.
-        if 'distribution_type' not in counterterm.nodes[0].current or \
-                counterterm.nodes[0].current['distribution_type'] not in ['counterterm']:
-            if ((xi1 is not None) and (xb_1 > xi1)) or ((xi2 is not None) and (xb_2 > xi2)):
-                return None
-
         # Retrieve some possibly relevant model parameters
         alpha_s = self.model.get('parameter_dict')['aS']
         mu_r = self.model.get('parameter_dict')['MU_R']
@@ -2236,20 +2221,6 @@ class ME7Integrand_V(ME7Integrand):
 
         # Make sure no helicity configuration is specified since this is not supported yet.
         assert ((hel_config is None))
-        # all_necessary_ME_calls is a list inputs to call the Matrix Element and the weights
-        # that we must multiply/convolve them with. We start with empty entries.
-        all_necessary_ME_calls = [
-            {'spin_correlations': [],
-             'color_correlations': [],
-             'main_weights': [],
-             'flavor_matrices_beam_one': [],
-             'flavor_matrices_beam_two': [],
-             'Bjorken_rescalings_beam_one': [],
-             'Bjorken_rescalings_beam_two': [],
-             },
-        ]
-
-        disconnected_currents_weight = base_objects.EpsilonExpansion({'finite': 1.0})
 
         # Compute the 4-vector Q characterizing this PS point, defined as the sum of all
         # initial_state momenta, before any mapping is applied.
@@ -2266,110 +2237,101 @@ class ME7Integrand_V(ME7Integrand):
         for i, p in enumerate(mapped_PS_point.to_list()[:self.n_initial]):
             total_incoming_momentum += p * rescalings[i]
 
+
         # With the current design we only consider and support the case where there is only
         # *one* regular (i.e. non-beam) "mapping currents" in the counterterm.
         # Notice that exactly *one* of such currents must return a specific reduced kinematics
         # as it does not make sense to be combine several together
-        mapping_currents = [
+        non_beam_factorization_currents = [
             c for c in counterterm.get_all_currents()
             if type(c) not in (subtraction.BeamCurrent, subtraction.IntegratedBeamCurrent)]
 
-        # First call the non-beam factorization currents
-        for integrated_current in counterterm.get_all_currents():
-            if isinstance(integrated_current, (subtraction.BeamCurrent, subtraction.IntegratedBeamCurrent)):
+        all_necessary_ME_calls, disconnected_currents_weight = self.generate_all_necessary_ME_calls(
+            non_beam_factorization_currents, counterterm.process, reduced_PS, counterterm.momenta_dict,
+            total_incoming_momentum, compute_poles=compute_poles)
+
+
+        # We can now loop over the reduced kinematics produced by the currents:
+        all_events = ME7EventList()
+        for reduced_kinematics_identifier, (reduced_kinematics, necessary_ME_calls) in all_necessary_ME_calls.items():
+
+            this_base_weight = base_weight
+            this_cut_weight = 1.0
+
+            reduced_PS = counterterm.get_reduced_kinematics(reduced_kinematics.get_copy())
+
+            # Then evaluate the beam factorization currents
+            necessary_ME_calls = ME7Integrand_R.process_beam_factorization_currents(
+                necessary_ME_calls, counterterm.get_beam_currents(), self.all_MEAccessors,
+                reduced_PS, counterterm.process, xb_1, xb_2, xi1, xi2, mu_r, mu_f1, mu_f2, Q,
+                allowed_backward_evolved_flavors1=allowed_backward_evolved_flavors1,
+                allowed_backward_evolved_flavors2=allowed_backward_evolved_flavors2)
+
+            # Now perform the combination of the list of spin- and color- correlators to be merged
+            # for each necessary ME call identified
+            necessary_ME_calls = ME7Integrand_R.merge_correlators_in_necessary_ME_calls(necessary_ME_calls)
+
+            # If there is no necessary ME call left, it is likely because the xi upper bound of the
+            # Bjorken x's convolution were not respected. We must now abort the event.
+            if len(all_necessary_ME_calls) == 0:
+                return None
+
+            if sector[0] is not None:
+                base_weight *= sector[0](reduced_PS, all_mapped_flavors[0],
+                                         counterterm_index=sector[1], input_mapping_index=sector[2])
+
+            # Finally treat the call to the reduced connected matrix elements
+            alpha_s = self.model.get('parameter_dict')['aS']
+            mu_r = self.model.get('parameter_dict')['MU_R']
+
+
+            template_event = ME7Event(
+                reduced_PS,
+                {fc: base_objects.EpsilonExpansion({0: this_cut_weight * this_base_weight}) for fc in all_mapped_flavors},
+                requires_mirroring=is_reduced_process_mirrored,
+                host_contribution_definition=self.contribution_definition,
+                counterterm_structure=(counterterm, resolved_flavors, None),
+                Bjorken_xs=(xb_1, xb_2)
+            )
+
+            integrated_CT_event = ME7Integrand_R.generate_event_for_counterterm(
+                template_event,
+                disconnected_currents_weight,
+                counterterm.prefactor,
+                necessary_ME_calls,
+                counterterm.process,
+                reduced_PS,
+                alpha_s, mu_r,
+                self.all_MEAccessors
+            )
+
+            # Immediately return the integrated CTevent if it is None (which can happen during the flavor
+            # convolution for instance:
+            if integrated_CT_event is None:
                 continue
-            # /!\ Warnings the flavors of the reduced process as well as the ones of the current
-            # are tokens that will apply to all possible flavor configuration in this contribution
-            # This should however be irrelevant for the evaluation of the counterterm.
-            current_evaluation, all_results = self.all_MEAccessors(
-                integrated_current,
-                lower_PS_point=reduced_PS,
-                higher_PS_point=None,
-                reduced_process=counterterm.process,
-                momenta_dict=counterterm.momenta_dict,
-                hel_config=hel_config,
-                compute_poles=compute_poles,
-                Q=Q)
 
-            # Now loop over all spin- and color- correlators required for this current
-            # and update the necessary calls to the ME
-            if not integrated_current['resolve_mother_spin_and_color']:
-                # Make sure no spin- or color-correlations were produced by the current
-                assert (current_evaluation['spin_correlations'] == [None, ])
-                assert (current_evaluation['color_correlations'] == [None, ])
-                assert (current_evaluation['values'].keys() == [(0, 0), ])
-                disconnected_currents_weight *= \
-                    base_objects.EpsilonExpansion(current_evaluation['values'][(0, 0)])
-            else:
-                all_necessary_ME_calls = ME7Integrand_R.update_all_necessary_ME_calls(
-                    all_necessary_ME_calls, current_evaluation, weight_type='main_weight')
+            # Finally account for the integrated counterterm multiplicity
+            new_weights_per_flavor_configurations = {}
+            for fc, wgt in integrated_CT_event.weights_per_flavor_configurations.items():
+                # Account for both the overall symmetry factors S_t and the flavor symmetry factor
+                # identified when the contribution class built this counterterm
+                if fc in reduced_flavors_with_resolved_initial_states:
+                    # See comments at the beginning of this function as to how it may be that this
+                    # flavor configuration is not part of the 'reduced_flavors_with_resolved_initial_states'
+                    # and why it should then not be included.
+                    new_weights_per_flavor_configurations[fc] = \
+                        wgt * float(symmetry_factor) * reduced_flavors_with_resolved_initial_states[fc]
+            integrated_CT_event.weights_per_flavor_configurations = new_weights_per_flavor_configurations
+            # Make sure to crash if the Event is now empty since the lines above are not
+            # supposed to kill all flavor contributions of the event.
+            if integrated_CT_event.is_empty():
+                raise MadEvent7Error(
+                    "The post-flavor-convolution masking step disabled all flavor configuration for the " +
+                    " following integrated counterterm event. This should never happen.\n%s" % str(integrated_CT_event))
 
-        # Then evaluate the beam factorization currents
-        all_necessary_ME_calls = ME7Integrand_R.process_beam_factorization_currents(
-            all_necessary_ME_calls, counterterm.get_beam_currents(), self.all_MEAccessors,
-            reduced_PS, counterterm.process, xb_1, xb_2, xi1, xi2, mu_r, mu_f1, mu_f2, Q,
-            allowed_backward_evolved_flavors1=allowed_backward_evolved_flavors1,
-            allowed_backward_evolved_flavors2=allowed_backward_evolved_flavors2)
-        # If there is no necessary ME call left, it is likely because the xi upper bound of the
-        # Bjorken x's convolution were not respected. We must now abort the event.
-        if len(all_necessary_ME_calls) == 0:
-            return None
+            all_events.append(integrated_CT_event)
 
-        # Now perform the combination of the list of spin- and color- correlators to be merged
-        # for each necessary ME call identified
-        all_necessary_ME_calls = ME7Integrand_R.merge_correlators_in_necessary_ME_calls(
-            all_necessary_ME_calls)
-
-        if sector[0] is not None:
-            base_weight *= sector[0](reduced_PS, all_mapped_flavors[0],
-                                     counterterm_index=sector[1], input_mapping_index=sector[2])
-
-        # Finally treat the call to the reduced connected matrix elements
-        alpha_s = self.model.get('parameter_dict')['aS']
-        mu_r = self.model.get('parameter_dict')['MU_R']
-
-        integrated_CT_event = ME7Integrand_R.generate_event_for_counterterm(
-            ME7Event(mapped_PS_point,
-                     {fc: base_objects.EpsilonExpansion({0: base_weight}) for fc in all_mapped_flavors},
-                     requires_mirroring=is_reduced_process_mirrored,
-                     host_contribution_definition=self.contribution_definition,
-                     counterterm_structure=(counterterm, resolved_flavors, None),
-                     Bjorken_xs=(xb_1, xb_2)
-                     ),
-            disconnected_currents_weight,
-            (counterterm.prefactor / total_jacobian),
-            all_necessary_ME_calls,
-            counterterm.process,
-            reduced_PS,
-            alpha_s, mu_r,
-            self.all_MEAccessors
-        )
-
-        # Immediately return the integrated CTevent if it is None (which can happen during the flavor
-        # convolution for instance:
-        if integrated_CT_event is None:
-            return None
-
-        # Finally account for the integrated counterterm multiplicity
-        new_weights_per_flavor_configurations = {}
-        for fc, wgt in integrated_CT_event.weights_per_flavor_configurations.items():
-            # Account for both the overall symmetry factors S_t and the flavor symmetry factor
-            # identified when the contribution class built this counterterm
-            if fc in reduced_flavors_with_resolved_initial_states:
-                # See comments at the beginning of this function as to how it may be that this
-                # flavor configuration is not part of the 'reduced_flavors_with_resolved_initial_states'
-                # and why it should then not be included.
-                new_weights_per_flavor_configurations[fc] = \
-                    wgt * float(symmetry_factor) * reduced_flavors_with_resolved_initial_states[fc]
-        integrated_CT_event.weights_per_flavor_configurations = new_weights_per_flavor_configurations
-        # Make sure to crash if the Event is now empty since the lines above are not
-        # supposed to kill all flavor contributions of the event.
-        if integrated_CT_event.is_empty():
-            raise MadEvent7Error(
-                "The post-flavor-convolution masking step disabled all flavor configuration for the " +
-                " following integrated counterterm event. This should never happen.\n%s" % str(integrated_CT_event))
-
-        return integrated_CT_event
+        return all_events
 
     def old_evaluate_integrated_counterterm(self, integrated_CT_characteristics, PS_point,
         base_weight, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, input_mapping, 
@@ -3673,7 +3635,7 @@ class ME7Integrand_R(ME7Integrand):
         return all_events
 
 
-    def generate_all_necessary_ME_calls(self, currents, ME_process, PS_point, momenta_dict, total_incoming_momentum):
+    def generate_all_necessary_ME_calls(self, currents, ME_process, PS_point, momenta_dict, total_incoming_momentum, **opts):
         """ Generates a list of counterterm events using the following specified inputs:
                 > List of non-beam-factorisation currents
                 > Reduced process
@@ -3703,7 +3665,9 @@ class ME7Integrand_R(ME7Integrand):
 
         # Set the variable total_incoming_momentum
         # as the total initial-state momentum before any mapping
-        current_call_variables = {'total_incoming_momentum': total_incoming_momentum}
+        current_call_options = {'total_incoming_momentum': total_incoming_momentum}
+        current_call_options.update(opts)
+
         # Now evaluate the mapping currents identified
         for current in currents:
 
@@ -3712,7 +3676,7 @@ class ME7Integrand_R(ME7Integrand):
                 higher_PS_point=PS_point,
                 momenta_dict=momenta_dict,
                 reduced_process=ME_process, hel_config=None,
-                **current_call_variables)
+                **current_call_options)
 
             # Now loop over all spin- and color- correlators required for this current
             # and update the necessary calls to the ME

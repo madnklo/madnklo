@@ -4005,8 +4005,11 @@ The missing process is: %s"""%ME_process.nice_string())
             raise MadEvent7Error('Display mode %s not recognized in analyze_IR_limit.'%display_mode)
         
         import matplotlib
-        # @ Simone, not all matplotlib implementation support Agg, mine doesn't :(
-#        matplotlib.use('Agg')
+        # If possible use Agg as it allows display-less systems to use pyplot (i.e. work over ssh)
+        try:
+            matplotlib.use('Agg')
+        except ValueError:
+            pass
         import matplotlib.pyplot as plt
 
         plot_title = True

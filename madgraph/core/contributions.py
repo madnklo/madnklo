@@ -770,6 +770,7 @@ class Contribution(object):
         # Instantiate the CurrentAccessors corresponding
         # to all current implementations identified and needed
         all_current_accessors = []
+
         for (subtraction_scheme, class_identifier, _), current_properties in mapped_currents.items():
             all_current_accessors.append(accessors.VirtualMEAccessor(
                 current_properties['defining_current'],
@@ -1716,7 +1717,7 @@ The resulting output must therefore be used for debugging only as it will not yi
         # Now further remove currents that are already in all_MEAccessors
 
 
-        # We can remove the leg information if for the subtraction scheme considered it is irrelevant
+        # We can remove the leg information only if for the subtraction scheme considered it is irrelevant
         # for the selection of the hard-coded current implementation to consider.
         all_necessary_currents = {}
         for current in all_currents:
@@ -1876,11 +1877,15 @@ class Contribution_V(Contribution):
             if copied_current not in all_currents or self.track_leg_numbers:
                 all_currents.append(copied_current)
 
-        # Now further remove currents that are already in all_MEAccessors
-        all_currents = [current for current in all_currents if 
-                        current.get_key(track_leg_numbers=self.track_leg_numbers).get_canonical_key() not in all_MEAccessors]
-        
-        return all_currents
+        # We can remove the leg information only if for the subtraction scheme considered it is irrelevant
+        # for the selection of the hard-coded current implementation to consider.
+        all_necessary_currents = {}
+        for current in all_currents:
+            current_key = current.get_key(track_leg_numbers=self.track_leg_numbers).get_canonical_key()
+            if current_key not in all_MEAccessors and current_key not in all_necessary_currents:
+                all_necessary_currents[current_key] = current
+
+        return all_necessary_currents.values()
 
     @classmethod
     def remove_counterterms_with_no_reduced_process(cls, all_MEAccessors, counterterms):

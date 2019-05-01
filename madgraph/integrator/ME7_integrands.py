@@ -3328,6 +3328,7 @@ class ME7Integrand_R(ME7Integrand):
             # Compute all the reduced flavor configurations for this counterterm
             all_reduced_flavors = [counterterm.get_reduced_flavors(resolved_flavors)
                                    for resolved_flavors in all_resolved_flavors]
+
             # VERY IMPORTANT: We must convolve the counter-event with the initial state PDFs
             # corresponding to the *RESOLVED* flavors, and the flavour_sensitive_cuts also
             # applied on the resolved flavors (since for the initial-state the cuts are basically
@@ -3338,10 +3339,28 @@ class ME7Integrand_R(ME7Integrand):
             # states of this local counterterm, so that the cancellation between local and integrated
             # collinear counterterm is maintained. Of coure this plays no role for purely final-state
             # counterterms.
-            all_reduced_flavored_with_initial_states_subsituted = []
+            all_reduced_flavored_with_initial_states_substituted = []
             for i_config, reduced_flavors in enumerate(all_reduced_flavors):
-                all_reduced_flavored_with_initial_states_subsituted.append(
+                all_reduced_flavored_with_initial_states_substituted.append(
                     (all_resolved_flavors[i_config][0], reduced_flavors[1]))
+
+
+            # Certain identical reduced flavor combinations can arise multiple times from different resolved ones,
+            # for instance the process e+ e- > u d u~ d~ has four mapped configurations:
+            #    -11 11 -> 2 1 -2 -1
+            #    -11 11 -> 2 3 -2 -3
+            #    -11 11 -> 4 1 -4 -1
+            #    -11 11 -> 4 3 -4 -3
+            # Which however yields only two mapped flavour configurations, each appearing twice:
+            #    -11 11 -> 1 -1 21
+            #    -11 11 -> 3 -3 21
+            # It is important then to keep this multiplicity factor
+            all_unique_reduced_flavored_with_initial_states_substituted = {}
+            for fc in all_reduced_flavored_with_initial_states_substituted:
+                if fc in all_unique_reduced_flavored_with_initial_states_substituted:
+                    all_unique_reduced_flavored_with_initial_states_substituted[fc] += 1.0
+                else:
+                    all_unique_reduced_flavored_with_initial_states_substituted[fc] = 1.0
 
             # Now the phase-space point stored in the event generated is not a dictionary but
             # a LorentzVectorList which must be ordered exactly like the flavor configurations
@@ -3350,8 +3369,8 @@ class ME7Integrand_R(ME7Integrand):
 
             template_event = ME7Event(
                 event_PS,
-                {fc: cut_weight * this_base_weight
-                 for fc in all_reduced_flavored_with_initial_states_subsituted},
+                {fc: cut_weight * this_base_weight * multiplicity
+                 for fc, multiplicity in all_unique_reduced_flavored_with_initial_states_substituted.items()},
                 requires_mirroring=is_process_mirrored,
                 host_contribution_definition=self.contribution_definition,
                 counterterm_structure=(counterterm, all_resolved_flavors, reduced_kinematics_identifier),
@@ -3613,7 +3632,7 @@ The missing process is: %s"""%ME_process.nice_string())
         # Loop over processes
         all_evaluations = {}
         for process_key, (defining_process, mapped_processes) in self.processes_map.items():
-            logger.debug("Considering %s"%defining_process.nice_string())
+            logger.info("Considering %s"%defining_process.nice_string())
 
             if self.sectors is None or self.sectors[process_key] is None:
                 all_sectors = [None, ]
@@ -3626,7 +3645,7 @@ The missing process is: %s"""%ME_process.nice_string())
                     continue
 
                 if sector_info is not None:
-                    logger.debug("Considering sector: %s" %str(sector_info['sector']))
+                    logger.info("Considering sector: %s" %str(sector_info['sector']))
 
                 # Make sure that the selected process satisfies the selection requirements
                 if not self.is_part_of_process_selection(
@@ -3785,7 +3804,7 @@ The missing process is: %s"""%ME_process.nice_string())
         consists in approaching the limit and computing both the real-emission matrix 
         element and all counterterms that should subtract its singularities."""
                 
-        logger.debug("Approaching limit %s " % str(limit) )
+        logger.info("Approaching limit %s " % str(limit) )
         
         # First select the counterterms to evaluate and temporarily assign them to this
         # integrand instance so that the sigma function will run on them.
@@ -3958,13 +3977,27 @@ The missing process is: %s"""%ME_process.nice_string())
                 logger.debug('Weight from CT %s = %.16e' % (CT_str, CT_weight) )
                 if this_eval['ME'] != 0.:
                     logger.debug('Ratio: %.16f'%( CT_weight/float(this_eval['ME']) ))
+
+            if step==n_steps:
+                printout_func = logger.info
+            else:
+                printout_func = logger.debug
             if this_eval['ME'] != 0.:
-                logger.debug('Ratio sum(CTs)/ME: %.16e'%(total_CTs_wgt/float(this_eval['ME'])))
+                test_result = total_CTs_wgt/float(this_eval['ME'])
+                printout_func('%sRatio sum(CTs)/ME: %.16e%s'%(
+                    misc.bcolors.RED if abs(test_result)-1.0 > test_options['acceptance_threshold'] else misc.bcolors.GREEN
+                    , test_result,misc.bcolors.ENDC) )
             else:
                 if total_absCTs_wgt != 0.:
-                    logger.debug('Ratio sum(CTs)/sum(absCTs): %.16e'%(total_CTs_wgt/total_absCTs_wgt))  
+                    test_result = total_CTs_wgt/total_absCTs_wgt
+                    printout_func('Ratio sum(CTs)/sum(absCTs): %s%.16e%s'%(
+                        misc.bcolors.RED if abs(test_result) > test_options['acceptance_threshold'] else misc.bcolors.GREEN
+                        , test_result, misc.bcolors.ENDC))
                 else:
-                    logger.debug('Ratio sum(CTs): %.16e'%(total_CTs_wgt))                                    
+                    test_result = total_CTs_wgt
+                    printout_func('Ratio sum(CTs): %s%.16e%s'%(
+                        misc.bcolors.RED if abs(test_result) > test_options['acceptance_threshold'] else misc.bcolors.GREEN
+                        , test_result, misc.bcolors.ENDC))
             limit_evaluations[scaling_parameter] = this_eval
         
         # Pad missing evaluations (typically counterterms that were evaluated outside of their active range)
@@ -4112,33 +4145,34 @@ The missing process is: %s"""%ME_process.nice_string())
             plt.savefig(filename + '_ratios' + plot_extension)
 
         # Check that the ratio of def_ct to the ME is close to -1
+        string_idenfier_with_limit = string_idenfier+'<>'+def_ct
         if plot_def and not test_failed:
             def_ct_2_ME_ratio = evaluations[x_values[0]][def_ct]
             if evaluations[x_values[0]]["ME"] != 0.:
                 def_ct_2_ME_ratio /= evaluations[x_values[0]]["ME"]
-                foo_str = "{}: One minus the ratio of the defining CT to the ME at lambda = %s is: %s.".format(string_idenfier)
+                foo_str = "{}: One minus the ratio of the defining CT to the ME at lambda = %s is: %s.".format(string_idenfier_with_limit)
             else:
                 def_ct_2_ME_ratio /= total_of_abs_values[0]
-                foo_str = "{}: One minus the ratio of the defining CT to the total abs sum at lambda = %s is: %s.".format(string_idenfier)
+                foo_str = "{}: One minus the ratio of the defining CT to the total abs sum at lambda = %s is: %s.".format(string_idenfier_with_limit)
             # If there is no counterterms at all then the test must pass trivially
             if def_ct_2_ME_ratio == 0.:
                 def_ct_2_ME_ratio = 1.
             test_ratio = abs(def_ct_2_ME_ratio)-1.
-            logger.info(foo_str % (x_values[0], test_ratio))
+            logger.debug(foo_str % (x_values[0], test_ratio))
             test_failed = test_ratio > acceptance_threshold
         # Check that the ratio between total and ME is close to 0
         if plot_total and not test_failed:
             total_2_ME_ratio = total[0]
             if evaluations[x_values[0]]["ME"] == 0.:
                 total_2_ME_ratio /= total_of_abs_values[0]
-                foo_str = "{}: Ratio of the total to the sum of abs CT at lambda = %s is: %s.".format(string_idenfier)
+                foo_str = "{}: Ratio of the total to the sum of abs CT at lambda = %s is: %s.".format(string_idenfier_with_limit)
             else:
                 total_2_ME_ratio /= evaluations[x_values[0]]["ME"]
-                foo_str = "{}: Ratio of the total to the ME at lambda = %s is: %s.".format(string_idenfier)
+                foo_str = "{}: Ratio of the total to the ME at lambda = %s is: %s.".format(string_idenfier_with_limit)
             # If there is no counterterms at all then the test must pass trivially
             if total_2_ME_ratio==1.0:
                 total_2_ME_ratio = 0.
-            logger.info(foo_str % (x_values[0], total_2_ME_ratio))
+            logger.debug(foo_str % (x_values[0], total_2_ME_ratio))
             test_ratio  = abs(total_2_ME_ratio)
             test_failed = test_ratio > acceptance_threshold
 
@@ -4236,9 +4270,9 @@ The missing process is: %s"""%ME_process.nice_string())
                 logger.info("    " + str(process))
                 for limit, (test_outcome, limiting_ratio) in results[process].items():
                     if test_outcome:
-                        logger.info("    " * 2 + str(limit) + ": PASSED")
+                        logger.info('%s%s%s'%(misc.bcolors.GREEN,"    " * 2 + str(limit) + ": PASSED",misc.bcolors.ENDC))
                     else:
-                        logger.info("    " * 2 + str(limit) + ": FAILED")
+                        logger.info('%s%s%s'%(misc.bcolors.RED,"    " * 2 + str(limit) + ": FAILED",misc.bcolors.ENDC))
             return False
         return True
 

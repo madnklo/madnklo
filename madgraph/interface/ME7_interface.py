@@ -326,6 +326,7 @@ class ParseCmdArguments(object):
             'boost_back_to_com'       : True,
             'epsilon_expansion_term'  : 'sum_all',
             'selected_sectors'        : None,
+            'verbosity': 2,
             # Here we store a list of lambda function to apply as filters
             # to the integrand we must consider
             'integrands'              : [lambda integrand: True]
@@ -418,9 +419,12 @@ class ParseCmdArguments(object):
                 if value.lower() not in ['sum_all','finite'] and re.match('^eps\^(-?\d*)$', value.lower().strip()) is None:
                     raise InvalidCmd("'%s' is not a valid option for '%s'. It must be 'finite', 'sum_all' or of the form 'eps^<i>'."%(value, key))
                 testlimits_options['epsilon_expansion_term'] = value
-            elif key in ['--acceptance_threshold']:
+            elif key in ['--verbosity','--v']:
+                modes = {'none':0, 'minimal':1, 'all':2}
+                testlimits_options['verbosity'] = modes[value.lower()]
+            elif key in ['--acceptance_threshold','--thres']:
                 try:
-                    testlimits_options[key[2:]] = float(value)                  
+                    testlimits_options['acceptance_threshold'] = float(value)
                 except ValueError:
                     raise InvalidCmd("'%s' is not a valid float for option '%s'"%(value, key))
             elif key in ['--min_scaling_variable','--ms'] and mode=='limits':
@@ -658,9 +662,9 @@ class ParseCmdArguments(object):
                 if value.upper() not in self._integrators:
                     raise InvalidCmd("Selected integrator '%s' not recognized."%value)
                 launch_options['integrator'] = value.upper()
-            elif key=='--verbosity':
+            elif key in ['--verbosity','--v']:
                 modes = {'none':0, 'integrator':1, 'all':2}
-                launch_options[key[2:]] = modes[value.lower()]
+                launch_options['verbosity'] = modes[value.lower()]
             elif key == '--seed':
                 try:
                     launch_options['seed'] = int(value)
@@ -1099,7 +1103,9 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         logger.info("="*100)
 
         # Wrap the call in a propice environment for the run
-        with ME7RunEnvironment( silence = False, accessor_optimization = True, loggers = logger_level ):
+        # WARNING: Test that `accessor_optimization` is safe to be turned on before setting it to True.
+        # TODO This must be test again since the counterterm refactoring!
+        with ME7RunEnvironment( silence = False, accessor_optimization = False, loggers = logger_level ):
             xsec, error = self.integrator.integrate()
 
         logger.info("="*100)
@@ -1165,6 +1171,12 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
             # to the highest correction considered.
             testlimits_options['correction_order'] = self.mode
 
+        # The integration can be quite verbose, so temporarily setting their level to 50 by default is best here
+        if testlimits_options['verbosity'] > 1:
+            logger_level = logging.DEBUG
+        else:
+            logger_level = logging.INFO
+
         n_integrands_run = 0
         for integrand in self.all_integrands:
             if not hasattr(integrand, 'test_IR_limits') or \
@@ -1179,7 +1191,8 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
             if testlimits_options['selected_sectors'] is not None:
                 integrand.is_sector_selected = lambda defining_process, sector: \
                                             sector.leg_numbers in testlimits_options['selected_sectors']
-            integrand.test_IR_limits(test_options=testlimits_options)
+            with ME7RunEnvironment(silence=False, accessor_optimization=False, loggers=logger_level):
+                integrand.test_IR_limits(test_options=testlimits_options)
             integrand.is_sector_selected = old_selector
 
         if n_integrands_run == 0:
@@ -1200,6 +1213,12 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
             # If not defined, automatically assign correction_order to the highest correction considered.
             testpoles_options['correction_order'] = self.mode
 
+        # The integration can be quite verbose, so temporarily setting their level to 50 by default is best here
+        if testpoles_options['verbosity'] > 1:
+            logger_level = logging.DEBUG
+        else:
+            logger_level = logging.INFO
+
         n_integrands_run = 0
         for integrand in self.all_integrands:
             if not hasattr(integrand, 'test_IR_poles') or \
@@ -1212,7 +1231,8 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
             if testpoles_options['selected_sectors'] is not None:
                 integrand.is_sector_selected = lambda defining_process, sector: \
                                             sector.external_legs in testpoles_options['selected_sectors']
-            integrand.test_IR_poles(test_options=testpoles_options)
+            with ME7RunEnvironment(silence=False, accessor_optimization=False, loggers=logger_level):
+                integrand.test_IR_poles(test_options=testpoles_options)
             integrand.is_sector_selected = old_selector
 
         if n_integrands_run==0:

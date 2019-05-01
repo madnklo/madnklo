@@ -296,7 +296,7 @@ class QCD_final_collinear_0_gg(QCD_final_collinear_with_soft):
         #    = g^{\mu\nu} + longitudinal terms
         # are irrelevant because Ward identities evaluate them to zero anyway.
         evaluation['values'][(0, 0, 0)]['finite'] = \
-            -4. * self.CA
+            0.
         evaluation['values'][(1, 0, 0)]['finite'] = \
             -2. * self.CA * 2. * z * (1. - z) / kT.square()
         return evaluation

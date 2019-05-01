@@ -1865,8 +1865,7 @@ class Counterterm(CountertermNode):
         # integrated counterterm reduced kinematics which should be a *dictionary* with
         # keys aligned with the leg number of the reduced process and subtraction legs,
         # so that the integrated current evaluations can be performed.
-        reduced_PS = LorentzVectorList()
-        
+
         # First construct the reduced kinematic list
         reduced_PS = self.process.format_PS_point_for_ME_call(reduced_PS_dict)
 

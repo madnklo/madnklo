@@ -711,7 +711,6 @@ class ME7Integrand(integrands.VirtualIntegrand):
                        processes_to_topologies,
                        all_MEAccessors,
                        ME7_configuration,
-                       subtraction_scheme_name = None,
                        sectors = None,
         ):
         """ Initializes a generic ME7 integrand defined by the high-level abstract information
@@ -728,11 +727,9 @@ class ME7Integrand(integrands.VirtualIntegrand):
                                        'processes_map'              : processes_map,
                                        'topologies_to_processes'    : topologies_to_processes,
                                        'processes_to_topologies'    : processes_to_topologies,
-                                       'subtraction_scheme_name'    : subtraction_scheme_name,
                                        'all_MEAccessors'            : None,
                                        'ME7_configuration'          : None,
                                        'options'                    : {
-                                           'subtraction_scheme_name': subtraction_scheme_name,
                                            'sectors': sectors
                                         }
                                     }
@@ -753,13 +750,6 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # An instance of accessors.MEAccessorDict providing access to all ME available as part of this
         # ME7 session.
         self.all_MEAccessors            = all_MEAccessors
-
-        # Load or access the already loaded subtraction scheme module
-        if subtraction_scheme_name is not None:
-            self.subtraction_scheme = subtraction.SubtractionCurrentExporter.get_subtraction_scheme_module(
-                                        subtraction_scheme_name, root_path = self.ME7_configuration['me_dir'])
-        else:
-            self.subtraction_scheme = None
 
         # Save identified sectors if any
         self.sectors = sectors
@@ -1025,6 +1015,14 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
         # The option dictionary of ME7
         self.ME7_configuration          = ME7_configuration
+
+        # Load or access the already loaded subtraction scheme module
+        if self.contribution_definition.overall_correction_order.count('N')>0:
+            self.subtraction_scheme = subtraction.SubtractionCurrentExporter.get_subtraction_scheme_module(
+                            self.ME7_configuration['subtraction_scheme'], root_path = self.ME7_configuration['me_dir'])
+        else:
+            self.subtraction_scheme = None
+
         
         # A ModelReader instance, initialized with the values of the param_card.dat of this run
         self.model                      = model
@@ -1872,7 +1870,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
         sector_info = opts.get('sector_info', None)
 
-        if sector_info is not None:
+        if sector_info['sector'] is not None:
             event_weight *= sector_info['sector'](PS_point,all_flavor_configurations[0],
                                                   counterterm_index=-1, input_mapping_index=-1)
 
@@ -3673,6 +3671,7 @@ class ME7Integrand_R(ME7Integrand):
 
             current_evaluation, all_current_results = self.all_MEAccessors(
                 current,
+                track_leg_numbers=self.subtraction_scheme.are_current_instances_for_specific_leg_numbers,
                 higher_PS_point=PS_point,
                 momenta_dict=momenta_dict,
                 reduced_process=ME_process, hel_config=None,

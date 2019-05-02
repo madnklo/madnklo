@@ -67,14 +67,14 @@ all_subtraction_current_classes.extend([
     colorful_NLO_local_currents.QCD_final_collinear_0_gq,
     colorful_NLO_local_currents.QCD_final_collinear_0_gg,
     # initial-final collinears
-    NLO_local_currents.QCD_initial_collinear_0_qg,
-    NLO_local_currents.QCD_initial_collinear_0_gq,
-    NLO_local_currents.QCD_initial_collinear_0_qq,
-    NLO_local_currents.QCD_initial_collinear_0_gg,
+#    NLO_local_currents.QCD_initial_collinear_0_qg,
+#    NLO_local_currents.QCD_initial_collinear_0_gq,
+#    NLO_local_currents.QCD_initial_collinear_0_qq,
+#    NLO_local_currents.QCD_initial_collinear_0_gg,
     # soft and soft-collinears
     NLO_local_currents.QCD_soft_0_g,
-    NLO_local_currents.QCD_final_softcollinear_0_gX,    
-    NLO_local_currents.QCD_initial_softcollinear_0_Xg,
+#    NLO_local_currents.QCD_final_softcollinear_0_gX,
+#    NLO_local_currents.QCD_initial_softcollinear_0_Xg,
 ])
 
 # Add NLO integrated counterterms

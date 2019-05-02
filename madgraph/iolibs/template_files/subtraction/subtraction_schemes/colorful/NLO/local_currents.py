@@ -86,19 +86,14 @@ class QCD_final_collinear_0_qqx(QCD_final_collinear_0_XX):
         sub.SubtractionLeg(0, +1, sub.SubtractionLeg.FINAL),
         sub.SubtractionLeg(1, -1, sub.SubtractionLeg.FINAL), ))
 
-    def kernel(self, zs, kTs, parent, reduced_kinematics):
+    def kernel(self, evaluation, parent, zs, kTs):
 
         # Retrieve the collinear variables
         z = zs[0]
         kT = kTs[0]
         # Instantiate the structure of the result
-        evaluation = utils.SubtractionCurrentEvaluation({
-            'spin_correlations': [None, ((parent, (kT,)),), ],
-            'color_correlations': [None],
-            'reduced_kinematics': [reduced_kinematics],
-            'values': {(0, 0, 0): {'finite': None},
-                       (1, 0, 0): {'finite': None}, }
-        })
+        evaluation['spin_correlations'] = [None, ((parent, (kT,)),), ]
+
         # Compute the kernel
         # The line below implements the g_{\mu\nu} part of the splitting kernel.
         # Notice that the extra longitudinal terms included in the spin-correlation 'None'
@@ -106,8 +101,8 @@ class QCD_final_collinear_0_qqx(QCD_final_collinear_0_XX):
         #    \sum_\lambda \epsilon_\lambda^\mu \epsilon_\lambda^{\star\nu}
         #    = g^{\mu\nu} + longitudinal terms
         # are irrelevant because Ward identities evaluate them to zero anyway.
-        evaluation['values'][(0, 0, 0)]['finite'] = self.TR
-        evaluation['values'][(1, 0, 0)]['finite'] = 4 * self.TR * z * (1-z) / kT.square()
+        evaluation['values'][(0, 0, 0)] = { 'finite' : self.TR }
+        evaluation['values'][(1, 0, 0)] = { 'finite' : 4 * self.TR * z * (1-z) / kT.square() }
         return evaluation
 
 
@@ -118,20 +113,15 @@ class QCD_final_collinear_0_gq(QCD_final_collinear_0_XX):
         sub.SubtractionLeg(0, 21, sub.SubtractionLeg.FINAL),
         sub.SubtractionLeg(1, +1, sub.SubtractionLeg.FINAL), ))
 
-    def kernel(self, zs, kTs, parent, reduced_kinematics):
+    def kernel(self, evaluation, parent, zs, kTs):
 
         # Retrieve the collinear variables
         z = zs[0]
-        # Instantiate the structure of the result
-        evaluation = utils.SubtractionCurrentEvaluation({
-            'spin_correlations': [None],
-            'color_correlations': [None],
-            'reduced_kinematics': [reduced_kinematics],
-            'values': {(0, 0, 0): {'finite': None}}
-        })
+
         # Compute the kernel
-        evaluation['values'][(0, 0, 0)]['finite'] = \
-            self.CF * (1 + (1-z)**2) / z
+        evaluation['values'][(0, 0, 0)] = { 'finite' : \
+            self.CF * (1 + (1-z)**2) / z }
+
         return evaluation
 
 
@@ -142,19 +132,15 @@ class QCD_final_collinear_0_gg(QCD_final_collinear_0_XX):
         sub.SubtractionLeg(0, 21, sub.SubtractionLeg.FINAL),
         sub.SubtractionLeg(1, 21, sub.SubtractionLeg.FINAL), ))
 
-    def kernel(self, zs, kTs, parent, reduced_kinematics):
+    def kernel(self, evaluation, parent, zs, kTs):
 
         # Retrieve the collinear variables
         z = zs[0]
         kT = kTs[0]
+
         # Instantiate the structure of the result
-        evaluation = utils.SubtractionCurrentEvaluation({
-            'spin_correlations': [None, ((parent, (kT,)),), ],
-            'color_correlations': [None],
-            'reduced_kinematics': [reduced_kinematics],
-            'values': {(0, 0, 0): {'finite': None},
-                       (1, 0, 0): {'finite': None}, }
-        })
+        evaluation['spin_correlations'] = [None, ((parent, (kT,)),), ]
+
         # Compute the kernel
         # The line below implements the g_{\mu\nu} part of the splitting kernel.
         # Notice that the extra longitudinal terms included in the spin-correlation 'None'
@@ -162,10 +148,10 @@ class QCD_final_collinear_0_gg(QCD_final_collinear_0_XX):
         #    \sum_\lambda \epsilon_\lambda^\mu \epsilon_\lambda^{\star\nu}
         #    = g^{\mu\nu} + longitudinal terms
         # are irrelevant because Ward identities evaluate them to zero anyway.
-        evaluation['values'][(0, 0, 0)]['finite'] = \
-            +2 * self.CA * (z/(1-z) + (1-z)/z)
-        evaluation['values'][(1, 0, 0)]['finite'] = \
-            -2 * self.CA * 2 * z * (1-z) / kT.square()
+        evaluation['values'][(0, 0, 0)] = { 'finite' : \
+            +2 * self.CA * (z/(1-z) + (1-z)/z) }
+        evaluation['values'][(1, 0, 0)] = { 'finite' : \
+            -2 * self.CA * 2 * z * (1-z) / kT.square() }
         return evaluation
 
 #=========================================================================================

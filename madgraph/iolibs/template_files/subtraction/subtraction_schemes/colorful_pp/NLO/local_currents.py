@@ -105,7 +105,7 @@ class QCD_soft_0_g(currents.QCDLocalCurrent):
             if self.model.get_particle(leg.get('id')).get('color')==1:
                 continue
             all_colored_parton_numbers.append(leg.get('number'))
-        soft_leg_number = self.leg_number_map[0]
+        soft_leg_number = self.leg_numbers_map[0]
 
         pS = higher_PS_point[soft_leg_number]
 
@@ -136,6 +136,8 @@ class QCD_soft_0_g(currents.QCDLocalCurrent):
         # Normalization factors
         norm = -4. * math.pi * alpha_s
         norm *= self.factor(Q=Q, pS=pS)
+        if self.divide_by_jacobian:
+            norm /= jacobian
 
         color_correlation_index = 0
         # Now loop over the colored parton number pairs (a,b)

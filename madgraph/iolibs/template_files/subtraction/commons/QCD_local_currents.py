@@ -541,8 +541,16 @@ class QCDLocalCollinearCurrent(QCDLocalCurrent):
                     reduced_kinematics=reduced_kinematics)
 
         # Evaluate kernel
-        zs, kTs = self.variables(higher_PS_point, qC, children, Q=Q)
-        evaluation = self.kernel(zs, kTs, parent, reduced_kinematics)
+        # First construct variables necessary for its evaluation
+        kernel_arguments = self.variables(higher_PS_point, qC, children, Q=Q)
+
+        evaluation = utils.SubtractionCurrentEvaluation({
+            'spin_correlations': [ None, ],
+            'color_correlations': [ None, ],
+            'reduced_kinematics': [ reduced_kinematics ],
+            'values': { }
+        })
+        evaluation = self.kernel(evaluation, parent, *kernel_arguments)
 
         # Add the normalization factors
         pC2 = pC.square()

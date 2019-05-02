@@ -16,9 +16,12 @@
 
 import math
 
+import madgraph.core.subtraction as sub
+import madgraph.integrator.mappings as mappings
+
 import commons.utils as utils
 import commons.QCD_local_currents as currents
-import commons.factors_and_cuts as factors_and_cuts
+import colorful_pp_config
 
 import madgraph.various.misc as misc
 
@@ -28,33 +31,23 @@ CurrentImplementationError = utils.CurrentImplementationError
 # NLO soft current
 #=========================================================================================
 
-class QCD_soft_0_g(currents.QCDLocalSoftCurrent):
+class QCD_soft_0_g(currents.QCDLocalCurrent):
     """Soft gluon eikonal current at tree level, eq.4.12-4.13 of arXiv:0903.1218.
     This is modified with respect to the above reference because we replace all the two legs of the dipole of each
     eikonal by their mapped version.
     """
 
-    is_cut = staticmethod(currents.no_cut)
-    factor = staticmethod(currents.no_factor)
+    is_cut = staticmethod(colorful_pp_config.cut_soft)
+    factor = staticmethod(colorful_pp_config.factor_soft)
 
-    @classmethod
-    def does_implement_this_current(cls, current, model):
+    squared_orders = {'QCD': 2}
+    n_loops = 0
 
-        # Check the general properties common to NLO QCD soft tree-level currents
-        init_vars = cls.common_does_implement_this_current(current, 2, 0)
-        if init_vars is None: return None
-        # Retrieve the singular structure
-        singular_structure = current.get('singular_structure').substructures[0]
-        # It should consist in exactly one legs going soft
-        if len(singular_structure.legs) != 1:
-            return None
-        # The leg going soft should be a massless gluon in the final state
-        leg = singular_structure.legs[0]
-        if not cls.is_gluon(leg, model): return None
-        if not cls.is_massless(leg, model): return None
-        if cls.is_initial(leg): return None
-        # The current is valid
-        return init_vars
+    structure = sub.SingularStructure(
+        sub.SoftStructure(sub.SubtractionLeg(0, 21, sub.SubtractionLeg.FINAL)) )
+
+    mapping = colorful_pp_config.soft_mapping
+    divide_by_jacobian = colorful_pp_config.divide_by_jacobian
    
     @staticmethod
     def eikonal(pi, pj, ps):
@@ -69,15 +62,15 @@ class QCD_soft_0_g(currents.QCDLocalSoftCurrent):
     
     def evaluate_subtraction_current(
         self, current,
-        higher_PS_point=None, lower_PS_point=None,
-        leg_numbers_map=None, reduced_process=None, hel_config=None,
-        Q=None, **opts ):
-        if higher_PS_point is None or lower_PS_point is None:
+        higher_PS_point = None, momenta_dict = None, reduced_process = None,
+        hel_config = None, Q=None, **opts ):
+
+        if higher_PS_point is None:
             raise CurrentImplementationError(
                 self.name() + " needs the phase-space points before and after mapping." )
-        if leg_numbers_map is None:
+        if momenta_dict is None:
             raise CurrentImplementationError(
-                self.name() + " requires a leg numbers map, i.e. a momentum dictionary." )
+                self.name() + " requires a momentum routing dictionary." )
         if reduced_process is None:
             raise CurrentImplementationError(
                 self.name() + " requires a reduced_process.")
@@ -87,6 +80,7 @@ class QCD_soft_0_g(currents.QCDLocalSoftCurrent):
         if Q is None:
             raise CurrentImplementationError(
                 self.name() + " requires the total mapping momentum Q." )
+
         """Important note about the IF CS:
         - in this scheme we want to use "tilded" momenta for the dipole legs in eikonals. This is explicitly implemented in the soft local current
         - this implies that the correct form for the local C(ir)S(r) taken as the collinear limit of the eikonals is 
@@ -99,6 +93,7 @@ class QCD_soft_0_g(currents.QCDLocalSoftCurrent):
         
         As a result we use exactly the same way of evaluating the counterterms as in honest-to-god colorful.
         """
+
         # Retrieve alpha_s and mu_r
         model_param_dict = self.model.get('parameter_dict')
         alpha_s = model_param_dict['aS']
@@ -110,7 +105,7 @@ class QCD_soft_0_g(currents.QCDLocalSoftCurrent):
             if self.model.get_particle(leg.get('id')).get('color')==1:
                 continue
             all_colored_parton_numbers.append(leg.get('number'))
-        soft_leg_number = current.get('singular_structure').substructures[0].legs[0].n
+        soft_leg_number = self.leg_numbers_map[0]
 
         pS = higher_PS_point[soft_leg_number]
 
@@ -119,16 +114,30 @@ class QCD_soft_0_g(currents.QCDLocalSoftCurrent):
             return utils.SubtractionCurrentResult.zero(
                 current=current, hel_config=hel_config)
 
+        # Perform mapping
+        this_mapping_singular_structure = self.mapping_singular_structure.get_copy()
+        this_mapping_singular_structure.legs = (soft_leg_number, )
+        lower_PS_point, mapping_vars = self.mapping.map_to_lower_multiplicity(
+            higher_PS_point, this_mapping_singular_structure, momenta_dict,
+            compute_jacobian=self.divide_by_jacobian )
+
+        # Retrieve kinematics
+        pS = higher_PS_point[soft_leg_number]
+        jacobian = mapping_vars.get('jacobian', 1.)
+
         # Now instantiate what the result will be
         evaluation = utils.SubtractionCurrentEvaluation({
             'spin_correlations'   : [ None ],
             'color_correlations'  : [],
+            'reduced_kinematics'  : [(None, lower_PS_point)],
             'values'              : {}
         })
         
         # Normalization factors
         norm = -4. * math.pi * alpha_s
         norm *= self.factor(Q=Q, pS=pS)
+        if self.divide_by_jacobian:
+            norm /= jacobian
 
         color_correlation_index = 0
         # Now loop over the colored parton number pairs (a,b)
@@ -141,13 +150,13 @@ class QCD_soft_0_g(currents.QCDLocalSoftCurrent):
                     mult_factor = 2.
                 else:
                     mult_factor = 1.
-                #pa = sum(higher_PS_point[child] for child in leg_numbers_map[a])
-                #pb = sum(higher_PS_point[child] for child in leg_numbers_map[b])
+                #pa = sum(higher_PS_point[child] for child in momenta_dict[a])
+                #pb = sum(higher_PS_point[child] for child in momenta_dict[b])
                 pa = lower_PS_point[a]
                 pb = lower_PS_point[b]
                 eikonal = self.eikonal(pa, pb, pS)
                 evaluation['color_correlations'].append( ((a, b), ) )
-                evaluation['values'][(0, color_correlation_index)] = {
+                evaluation['values'][(0, color_correlation_index, 0)] = {
                     'finite': norm * mult_factor * eikonal }
                 color_correlation_index += 1
         
@@ -295,13 +304,21 @@ class QCD_final_softcollinear_0_gX(currents.QCDLocalSoftCollinearCurrent):
 # NLO initial-collinear currents
 #=========================================================================================
 
-class QCD_initial_collinear_0_qg(currents.QCDLocalCollinearCurrent):
+class QCD_initial_collinear_0_XX(currents.QCDLocalCollinearCurrent):
+    """Two-collinear tree-level current."""
+
+    squared_orders = {'QCD': 2}
+    n_loops = 0
+
+    is_cut = staticmethod(colorful_pp_config.cut_initial_coll)
+    factor = staticmethod(colorful_pp_config.factor_initial_coll)
+    mapping = colorful_pp_config.initial_coll_mapping
+    variables = staticmethod(colorful_pp_config.initial_coll_variables)
+    divide_by_jacobian = colorful_pp_config.divide_by_jacobian
+
+class QCD_initial_collinear_0_qg(QCD_initial_collinear_0_XX):
     """qg collinear ISR tree-level current. q(initial) > q(initial_after_emission) g(final)"""
 
-    variables = staticmethod(currents.Q_initial_coll_variables)
-    is_cut = staticmethod(factors_and_cuts.cut_initial_coll)
-    factor = staticmethod(currents.no_factor)
-    
     @classmethod
     def does_implement_this_current(cls, current, model):
 
@@ -369,13 +386,9 @@ class QCD_initial_collinear_0_qg(currents.QCDLocalCollinearCurrent):
 
         return evaluation
 
-class QCD_initial_collinear_0_gq(currents.QCDLocalCollinearCurrent):
+class QCD_initial_collinear_0_gq(QCD_initial_collinear_0_XX):
     """gq collinear ISR tree-level current. q(initial) > g(initial_after_emission) q(final)"""
 
-    variables = staticmethod(currents.Q_initial_coll_variables)
-    is_cut = staticmethod(factors_and_cuts.cut_initial_coll)
-    factor = staticmethod(currents.no_factor)
-    
     @classmethod
     def does_implement_this_current(cls, current, model):
 
@@ -445,13 +458,9 @@ class QCD_initial_collinear_0_gq(currents.QCDLocalCollinearCurrent):
 
         return evaluation
     
-class QCD_initial_collinear_0_qq(currents.QCDLocalCollinearCurrent):
+class QCD_initial_collinear_0_qq(QCD_initial_collinear_0_XX):
     """qq collinear ISR tree-level current. g(initial) > q(initial_after_emission) qx(final)"""
 
-    variables = staticmethod(currents.Q_initial_coll_variables)
-    is_cut = staticmethod(factors_and_cuts.cut_initial_coll)
-    factor = staticmethod(currents.no_factor)
-    
     @classmethod
     def does_implement_this_current(cls, current, model):
 
@@ -519,13 +528,9 @@ class QCD_initial_collinear_0_qq(currents.QCDLocalCollinearCurrent):
 
         return evaluation
 
-class QCD_initial_collinear_0_gg(currents.QCDLocalCollinearCurrent):
+class QCD_initial_collinear_0_gg(QCD_initial_collinear_0_XX):
     """gg collinear ISR tree-level current. g(initial) > g(initial_after_emission) g(final)"""
 
-    variables = staticmethod(currents.Q_initial_coll_variables)
-    is_cut = staticmethod(factors_and_cuts.cut_initial_coll)
-    factor = staticmethod(currents.no_factor)
-    
     @classmethod
     def does_implement_this_current(cls, current, model):
 

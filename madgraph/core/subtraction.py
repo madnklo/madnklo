@@ -2868,6 +2868,10 @@ class SubtractionCurrentExporter(object):
             raise MadGraph5Error("Specified subtraction module could not be found or loaded: %s. Error:\n%s"%(
                                                                                             subtraction_scheme, str(e)))
 
+        # Now load this subtraction scheme (i.e. defining all static module variables)
+        subtraction_scheme_module.load()
+        for attr, value in subtraction_scheme_module.loaded_attributes.items():
+            setattr(subtraction_scheme_module, attr, value)
 
         mandatory_attributes = ['all_subtraction_current_classes','__authors__','exporter',]
         missing_attributes = [ attr for attr in mandatory_attributes if not hasattr(subtraction_scheme_module,attr) ]

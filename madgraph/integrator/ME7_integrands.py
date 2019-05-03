@@ -3645,6 +3645,7 @@ The missing process is: %s"""%ME_process.nice_string())
         # Apply the passed options
         seed = test_options['seed']
         if seed: random.seed(seed)
+
         walker_name = test_options['walker']
         walker = walkers.VirtualWalker(walker_name)
 
@@ -3706,6 +3707,11 @@ The missing process is: %s"""%ME_process.nice_string())
                 for proc in all_processes:
                     initial_final_pdgs = proc.get_cached_initial_final_pdgs()
                     all_flavor_configurations.append(initial_final_pdgs)
+
+                # Reset the seed before each process so that results from a global scan of test_IR_limits
+                # can easily be reproduced for a specific limit.
+                seed = test_options['seed']
+                if seed: random.seed(seed)
 
                 a_real_emission_PS_point = real_emission_PS_point.get_copy()
                 a_xb_1, a_xi1 = x1s
@@ -4032,7 +4038,7 @@ The missing process is: %s"""%ME_process.nice_string())
             if this_eval['ME'] != 0.:
                 test_result = total_CTs_wgt/float(this_eval['ME'])
                 printout_func('%sRatio sum(CTs)/ME: %.16e%s'%(
-                    misc.bcolors.RED if abs(test_result)-1.0 > test_options['acceptance_threshold'] else misc.bcolors.GREEN
+                    misc.bcolors.RED if abs(test_result+1.0) > test_options['acceptance_threshold'] else misc.bcolors.GREEN
                     , test_result,misc.bcolors.ENDC) )
             else:
                 if total_absCTs_wgt != 0.:

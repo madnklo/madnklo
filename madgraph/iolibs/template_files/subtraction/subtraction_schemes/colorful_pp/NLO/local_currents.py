@@ -179,6 +179,7 @@ class QCD_final_softcollinear_0_gX(currents.QCDLocalCurrent):
     is_cut = staticmethod(colorful_pp_config.cut_soft)
     factor = staticmethod(colorful_pp_config.factor_soft)
     get_recoilers = staticmethod(colorful_pp_config.get_recoilers)
+    variables = staticmethod(colorful_pp_config.final_soft_coll_variables)
 
     squared_orders = {'QCD': 2}
     n_loops = 0
@@ -195,7 +196,6 @@ class QCD_final_softcollinear_0_gX(currents.QCDLocalCurrent):
     structure_g = sub.SingularStructure(substructures=(soft_coll_structure_g, ))
 
     mapping = colorful_pp_config.final_soft_collinear_mapping
-    variables = colorful_pp_config.final_soft_coll_variables
     divide_by_jacobian = colorful_pp_config.divide_by_jacobian
 
     def __init__(self, *args, **opts):
@@ -265,9 +265,13 @@ class QCD_final_softcollinear_0_gX(currents.QCDLocalCurrent):
         alpha_s = model_param_dict['aS']
         mu_r = model_param_dict['MU_R']
 
+        children = tuple(self.leg_numbers_map[i]
+                         for i in sorted(self.leg_numbers_map.keys()))
+        parent = momenta_dict.inv[frozenset(children)]
+
         # Perform mapping
         this_mapping_singular_structure = self.mapping_singular_structure.get_copy()
-        this_mapping_singular_structure.legs = self.get_recoilers(reduced_process)
+        this_mapping_singular_structure.legs = self.get_recoilers(reduced_process, excluded=(parent, ))
         lower_PS_point, mapping_vars = self.mapping.map_to_lower_multiplicity(
             higher_PS_point, this_mapping_singular_structure, momenta_dict,
             compute_jacobian=self.divide_by_jacobian )
@@ -280,9 +284,6 @@ class QCD_final_softcollinear_0_gX(currents.QCDLocalCurrent):
         # S is just removed in a soft mapping.
         # Here S is a single particle but we obtain it as a list soft_children\
         # to illustrate how multiple softs would be obtained
-        children = tuple(self.leg_numbers_map[i]
-                         for i in sorted(self.leg_numbers_map.keys()))
-        parent = momenta_dict.inv[frozenset(children)]
         pCtilde = lower_PS_point[parent]
         soft_children = [ self.leg_numbers_map[1], ]
 

@@ -10,8 +10,6 @@ import commons.utils as utils
 import commons.QCD_local_currents as currents
 import commons.factors_and_cuts as factors_and_cuts
 
-import subtraction_schemes.colorful.NLO.local_currents as colorful_NLO_local_currents
-
 #=========================================================================================
 # Variables, mappings, jacobians, factors and cuts
 #=========================================================================================
@@ -50,7 +48,10 @@ soft_mapping = mappings.SoftVsInitialMapping
 
 final_soft_coll_variables = currents.compute_energy_fractions
 
-final_coll_mapping = colorful_NLO_local_currents.coll_mapping
+# WARNING: This is *not* the same final-collinear mapping as in colorful where one has 'FinalRescalingOneMapping' instead
+# The __init__.py of colorful_pp will make sure to overwrite this mapping choice for the final collinear imported from
+# coloful.
+final_coll_mapping = mappings.FinalLorentzOneMapping
 
 final_soft_collinear_mapping = mappings.SoftCollinearVsFinalMapping(
     soft_mapping=soft_mapping, collinear_mapping=final_coll_mapping)

@@ -38,6 +38,7 @@ def load():
     import colorful_pp_config
     import NLO.local_currents as NLO_local_currents
     import NLO.integrated_currents as NLO_integrated_currents
+    import NNLO.local_currents as NNLO_local_currents
 
     # Imports from the colorful scheme
     import subtraction_schemes.colorful.NLO.local_currents as colorful_NLO_local_currents
@@ -53,6 +54,10 @@ def load():
     ])
 
     all_subtraction_current_classes = []
+
+    ###########
+    # NLO
+    ###########
 
     # Add NLO beam factorization counterterms (BF terms)
     # ==================================================
@@ -108,6 +113,17 @@ def load():
         # soft and soft-collinear
         NLO_integrated_currents.integrated_NLO_QCD_soft_gluon,
         NLO_integrated_currents.integrated_NLO_FF_QCD_softcollinear_gq
+    ])
+
+
+    ###########
+    # NNLO
+    ###########
+
+    # For now we are only trying an elementary IFF q > q q' q' collinear
+    all_subtraction_current_classes.extend([
+        # Initial-final-final-collinears
+        NNLO_local_currents.QCD_initial_collinear_0_qqpqp,
     ])
 
     # Finally register the subtraction current classes loaded

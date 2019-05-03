@@ -757,6 +757,7 @@ class Contribution(object):
         # Print to the debug log which currents were exported
         log_string = "The following subtraction %s current implementations are exported "%CT_type+\
                      "in contribution '%s':\n"%self.short_name()
+        default_implementation_string = ''
         already_listed = []
         for (module_path, class_name, _), current_properties in mapped_currents.items():
             if class_name != 'DefaultCurrentImplementation':
@@ -770,7 +771,9 @@ class Contribution(object):
                 quote_default_name = "'DefaultCurrentImplementation'"
                 number_of_currents = len(current_properties['mapped_process_keys'])
                 line_pars = (quote_default_name, number_of_currents)
-                log_string += " > %-35s for a total of %d currents.\n" % line_pars
+                default_implementation_string = " > %-35s for a total of %d currents.\n" % line_pars
+
+        log_string +=default_implementation_string
         if len(mapped_currents)>0:
             logger.debug(log_string)
         # Instantiate the CurrentAccessors corresponding

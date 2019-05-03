@@ -29,6 +29,7 @@ import commons.utils as utils
 pjoin = os.path.join
 
 CurrentImplementationError = utils.CurrentImplementationError
+import madgraph.core.subtraction as sub
 
 #=========================================================================================
 # Cuts and factors functions
@@ -273,7 +274,7 @@ class QCDLocalCurrent(QCDCurrent):
             return None
 
         all_template_structures = cls.structure
-        if not isinstance(all_template_structures,list):
+        if isinstance(all_template_structures, sub.SingularStructure):
             all_template_structures = [cls.structure, ]
 
         leg_numbers_map = None

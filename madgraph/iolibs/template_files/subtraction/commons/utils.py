@@ -161,6 +161,9 @@ class BeamFactorizationCurrentEvaluation(SubtractionCurrentEvaluation):
     attribute 'values' of this class are themselves dictionaries representing the flavor
     matrix."""
 
+    main_layer_result_order  = ['spin_correlations','color_correlations','values']
+    main_layer_result_format = {'spin_correlations':'%s','color_correlations':'%s', 'values':'%s'}
+
     def subresult_lines(self, subresult, subtemplate):
         """ Returns the string line describing the subresult in argument corresponding to 
         a paricular combination of color and Lorentz structure. The subtemplate specified
@@ -203,7 +206,6 @@ class BeamFactorizationCurrentEvaluation(SubtractionCurrentEvaluation):
         return SubtractionCurrentEvaluation({
             'spin_correlations'      : [ None ],
             'color_correlations'     : [ None ],
-            'reduced_kinematics'     : [ None ],
             'values'                 : { (0,0,0): {
                     None : {
                         None : { 'finite' : 0.0 }

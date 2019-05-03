@@ -75,3 +75,9 @@ def factor_soft(**opts):
         y = mappings.SoftVsFinalPureRescalingMapping.y(pS, Q)
     norm = (1 - y) ** (d_0_prime - 2)
     return norm
+
+def no_factor(**opts):
+    return 1.0
+
+def no_cut(**opts):
+    return False

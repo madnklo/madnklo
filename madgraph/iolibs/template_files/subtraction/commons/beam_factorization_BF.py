@@ -23,6 +23,7 @@ import madgraph.various.misc as misc
 
 import commons.utils as utils
 import commons.QCD_local_currents as currents
+import commons.factors_and_cuts as factors_and_cuts
 
 from commons.integrated_current_expressions import HE
 
@@ -87,6 +88,7 @@ class QCD_beam_factorization_F0(currents.QCDBeamFactorizationCurrent):
 
     def evaluate_kernel(self, PS_point, process, xi, mu_r, mu_f, Q, normalization, 
                                                   allowed_backward_evolved_flavors='ALL'):
+
         """ Return an instance of BeamFactorizationCurrentEvaluation, whose 'values' entry
         are dictionaries specifying the counterterm in flavor space, for the value of xi 
         specified in argument."""
@@ -167,6 +169,8 @@ class QCD_beam_factorization_F0(currents.QCDBeamFactorizationCurrent):
                 eps_expansion.truncate(max_power=0)
 
         # Now assign the flavor matrix in the BeamFactorizationCurrentEvaluation instance
+        # If this is a physical contribution (i.e. not a counterterm) then we must enforce that
+        # the reduced kinematics is None as it will not even be read by MadNkLO.
         evaluation = utils.BeamFactorizationCurrentEvaluation({
             'spin_correlations'         : [None,],
             'color_correlations'        : [None,],
@@ -179,10 +183,10 @@ class QCD_beam_factorization_F0(currents.QCDBeamFactorizationCurrent):
 # PDF integrated initial-state single collinear counterterm
 #=========================================================================================
 class QCD_beam_factorization_single_collinear(currents.QCDBeamFactorizationCurrent):
-    """Implements the NLO QCD initial-state single collinear integgratated counterterm of type F(xi)"""
+    """Implements the NLO QCD initial-state single collinear integratated counterterm of type F(xi)"""
 
     distribution_types_implemented_in_this_class = ['bulk','counterterm','endpoint']
-    
+
     @classmethod
     def does_implement_this_current(cls, current, model):
 
@@ -234,7 +238,7 @@ class QCD_beam_factorization_single_collinear(currents.QCDBeamFactorizationCurre
         # only acts on the PDF. So it makes sense to keep it completely factorised.
 
         # Input variables
-        y_0 = currents.SomogyiChoices.y_0_prime
+        y_0 = factors_and_cuts.y_0_prime
         logy0 = log(y_0)
         # Assign a fake x for now if the distribution type is 'endpoint'
         # TODO: this is not optimal, eventually we should put each of these three pieces in

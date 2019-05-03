@@ -8,6 +8,9 @@ import madgraph.core.subtraction as sub
 import madgraph.integrator.mappings as mappings
 import commons.utils as utils
 import commons.QCD_local_currents as currents
+import commons.factors_and_cuts as factors_and_cuts
+
+import subtraction_schemes.colorful.NLO.local_currents as colorful_NLO_local_currents
 
 #=========================================================================================
 # Variables, mappings, jacobians, factors and cuts
@@ -19,83 +22,37 @@ import commons.QCD_local_currents as currents
 
 import madgraph.integrator.mappings as mappings
 
-alpha_0     = 0.5
-y_0         = 0.5
-y_0_prime   = 0.5
-d_0         = 1
-d_0_prime   = 2
+# We consider all final state particles as recoiler, including massive and colorless ones
+def get_all_final_recoilers(reduced_process, excluded=()):
 
-def cut_coll(**opts):
-
-    try:
-        alpha = opts['alpha']
-    except KeyError:
-        pC    = opts['pC']
-        Q     = opts['Q']
-        alpha = mappings.FinalRescalingOneMapping.alpha(pC, Q)
-    # Include the counterterm only up to alpha_0
-    return alpha > alpha_0
-
-def cut_initial_coll(**opts):
-
-    pA    = opts['pA']
-    pR    = opts['pR']
-    Q     = opts['Q']
-    y_0p  = (2.*pA.dot(pR))/Q.square()
-    # Include the counterterm only up to y_0_prime
-    return y_0p > y_0_prime
-
-def cut_soft(**opts):
-
-    try:
-        y  = opts['y']
-    except KeyError:
-        pS = opts['pS']
-        Q  = opts['Q']
-        y = mappings.SoftVsFinalPureRescalingMapping.y(pS, Q)
-    # Include the counterterm only up to y_0
-    return y > y_0
-
-def no_cut(**opts):
-    return True
-
-def factor_coll(**opts):
-
-    try:
-        alpha = opts['alpha']
-    except KeyError:
-        pC    = opts['pC']
-        Q     = opts['Q']
-        alpha = mappings.FinalRescalingOneMapping.alpha(pC, Q)
-    norm = (1 - alpha) ** (2 * (d_0 - 1))
-    return norm
-
-def factor_soft(**opts):
-
-    try:
-        y  = opts['y']
-    except KeyError:
-        pS = opts['pS']
-        Q  = opts['Q']
-        y = mappings.SoftVsFinalPureRescalingMapping.y(pS, Q)
-    norm = (1 - y) ** (d_0_prime - 2)
-    return norm
-
-def no_factor(**opts):
-    return 1.0
+    model = reduced_process.get('model')
+    return sub.SubtractionLegSet([
+        leg for leg in reduced_process.get('legs') if all([
+            leg['state'] == leg.FINAL,
+            leg['number'] not in excluded
+        ])
+    ])
 
 divide_by_jacobian = True
 
+get_recoilers = get_all_final_recoilers
+
 # Initial-collinear configuration
 initial_coll_variables = currents.Q_initial_coll_variables
-factor_initial_coll = factor_coll
-cut_initial_coll = cut_coll
+factor_initial_coll = factors_and_cuts.factor_coll
+cut_initial_coll = factors_and_cuts.cut_initial_coll
+initial_coll_mapping = mappings.InitialLorentzOneMapping
 
 # Soft configuration
-factor_soft = no_factor
-cut_soft = no_cut
-
-initial_coll_mapping = mappings.InitialLorentzOneMapping
+factor_soft = factors_and_cuts.no_factor
+cut_soft = factors_and_cuts.no_cut
 soft_mapping = mappings.SoftVsInitialMapping
-soft_coll_mapping = mappings.SoftCollinearVsFinalMapping(
+
+final_soft_coll_variables = currents.compute_energy_fractions
+
+final_coll_mapping = colorful_NLO_local_currents.coll_mapping
+
+final_soft_collinear_mapping = mappings.SoftCollinearVsFinalMapping(
+    soft_mapping=soft_mapping, collinear_mapping=final_coll_mapping)
+initial_soft_collinear_mapping = mappings.SoftCollinearVsFinalMapping(
     soft_mapping=soft_mapping, collinear_mapping=initial_coll_mapping)

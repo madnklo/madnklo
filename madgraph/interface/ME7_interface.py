@@ -317,16 +317,16 @@ class ParseCmdArguments(object):
             'acceptance_threshold'    : 1.0e-4,
             'apply_higher_multiplicity_cuts' : True,
             'apply_lower_multiplicity_cuts'  : True,
-            'show_plots'              : True,
+            'show_plots'              : False,
             'save_plots'              : False,
             'save_results_to_path'    : None,
             'plots_suffix'            : None,
-            'ignore_flavors'          : False,
+            'minimal_label'           : True,
             'set_PDFs_to_unity'       : True,
             'boost_back_to_com'       : True,
             'epsilon_expansion_term'  : 'sum_all',
             'selected_sectors'        : None,
-            'verbosity': 2,
+            'verbosity': 1,
             # Here we store a list of lambda function to apply as filters
             # to the integrand we must consider
             'integrands'              : [lambda integrand: True]
@@ -469,7 +469,7 @@ class ParseCmdArguments(object):
 
             elif key in [
                 '--show_plots','--set_PDFs_to_unity', '--save_plots',
-                '--boost_back_to_com', '--ignore_flavors' ]:
+                '--boost_back_to_com', '--minimal_label' ]:
                 try:
                     if value is None:
                         testlimits_options[key[2:]] = True

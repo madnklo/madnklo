@@ -1014,7 +1014,6 @@ class Current(base_objects.Process):
         """Given the defining flavors dictionary specifying the flavors of some leg numbers,
         add entries corresponding to the subtraction legs in this node and using the function
         get_parent_PDGs from the subtraction module."""
-        
         get_particle = IR_subtraction_module.model.get_particle
         
         def get_parent(PDGs, is_initial):
@@ -1029,33 +1028,47 @@ class Current(base_objects.Process):
                 return get_particle(res[0]).get_anti_pdg_code()
             else:
                 return res[0]
-        
-        all_legs = self['singular_structure'].get_all_legs()
-        
-        # If all legs are unresolved, as it is the case in the pure soft configurations,
-        # then nothing needs to be done
-        if self.count_unresolved()==len(all_legs):
-            return
-        
-        leg_numbers = [leg.n for leg in all_legs]
 
-        try:
-            # Swap the flavors of the initial states
-            leg_flavors = [ ( 
-                    get_particle(defining_flavors[leg.n]).get_anti_pdg_code() if 
-                    leg.state==SubtractionLeg.INITIAL else get_particle(defining_flavors[leg.n]).get_pdg_code() ) 
-                for leg in all_legs ]
-    
-            if len(leg_numbers)>0: 
-                mother_number = Counterterm.get_ancestor(frozenset(leg_numbers), routing_dict)
-                if mother_number not in defining_flavors:
-                    defining_flavors[mother_number] = get_parent(leg_flavors, 
-                                   any(leg.state==SubtractionLeg.INITIAL for leg in all_legs) )
-        except Exception as e:
-            raise MadGraph5Error('\nError when computing reduced quantities for current:\n%s\n'%str(self)+
-                                 'Defining flavors:\n%s\n'%str(defining_flavors)+
-                                 'routing dict:\n%s\n'%str(routing_dict)+
-                                 'Exception encountered:\n%s'%traceback.format_exc())
+        # Go through the current's singular structure to find the disjoint unresolved sets
+        ss = self.get('singular_structure')
+        # The singular structure has a trivial nesting of variable depth
+        # eg: local C(1,2) is (C(1,2),) while integrated C(1,2) is ((C(1,2),),)
+        # We recursively go through until we have all the actual disjoint current directly accessible
+        # i.e. something like ss = (C(1,2),C(3,4))
+        above_disjoint = False
+        while not above_disjoint:
+            sub_ss = ss.substructures[0]
+            if len(sub_ss.legs) != 0:
+                above_disjoint = True
+            else:
+                ss = sub_ss
+        for sub_ss in ss.substructures:
+            all_legs = sub_ss.get_all_legs()
+
+            # If all legs are unresolved, as it is the case in the pure soft configurations,
+            # then nothing needs to be done for this substructure
+            if sub_ss.count_unresolved() == len(all_legs):
+                continue
+
+            leg_numbers = [leg.n for leg in all_legs]
+
+            try:
+                # Swap the flavors of the initial states
+                leg_flavors = [(
+                    get_particle(defining_flavors[leg.n]).get_anti_pdg_code() if
+                    leg.state == SubtractionLeg.INITIAL else get_particle(defining_flavors[leg.n]).get_pdg_code())
+                    for leg in all_legs]
+
+                if len(leg_numbers)>0:
+                    mother_number = Counterterm.get_ancestor(frozenset(leg_numbers), routing_dict)
+                    if mother_number not in defining_flavors:
+                        defining_flavors[mother_number] = get_parent(leg_flavors,
+                                       any(leg.state==SubtractionLeg.INITIAL for leg in all_legs) )
+            except Exception as e:
+                raise MadGraph5Error('\nError when computing reduced quantities for current:\n%s\n'%str(self)+
+                                     'Defining flavors:\n%s\n'%str(defining_flavors)+
+                                     'routing dict:\n%s\n'%str(routing_dict)+
+                                     'Exception encountered:\n%s'%traceback.format_exc())
 
     def get_key(self, track_leg_numbers=False):
         """Return the ProcessKey associated to this current."""
@@ -1365,7 +1378,6 @@ class CountertermNode(object):
         """Given the defining flavors dictionary specifying the flavors of some leg numbers,
         add entries corresponding to the subtraction legs in this node and using the function
         get_parent_PDGs from the subtraction module."""
-
         for node in self.nodes:
             node.get_reduced_flavors(defining_flavors, IR_subtraction_module, routing_dict)  
 
@@ -1815,7 +1827,6 @@ class Counterterm(CountertermNode):
         self.reduced_flavors_map = {}
         for i_proc, process in enumerate([defining_process,]+mapped_processes):
             number_to_flavors_map = { l['number'] : l['id'] for l in process.get('legs') }
-
             # Update the number_to_flavors_map dictionary by walking through the nodes
             for node in self.nodes:
                 node.get_reduced_flavors(
@@ -2469,12 +2480,15 @@ class IRSubtraction(object):
             structure_leg_ns = []
         else:
             structure_leg_ns = [leg.n for leg in structure_legs]
-
         # Recurse into substructures
         for substructure in structure.substructures:
             subparent = self.reduce_process(substructure, process, momenta_dict)
             if subparent is not None:
+                # Adding the parent
                 structure_leg_ns.append(subparent.n)
+                # Removing the children
+                for n in [leg.n for leg in substructure.legs]:
+                    structure_leg_ns.remove(n)
         if structure.name() == "":
             return None
 
@@ -2555,7 +2569,6 @@ class IRSubtraction(object):
         other_structures = SingularStructure(substructures=other_structures)
         # Build the nodes
         nodes = []
-
         # Initialize a trivial momenta_dict
         momenta_dict = IRSubtraction.create_momenta_dict(process)
         # Get a modifiable copy of the reduced process

@@ -2484,7 +2484,11 @@ class IRSubtraction(object):
         for substructure in structure.substructures:
             subparent = self.reduce_process(substructure, process, momenta_dict)
             if subparent is not None:
+                # Adding the parent
                 structure_leg_ns.append(subparent.n)
+                # Removing the children
+                for n in [leg.n for leg in substructure.legs]:
+                    structure_leg_ns.remove(n)
         if structure.name() == "":
             return None
 

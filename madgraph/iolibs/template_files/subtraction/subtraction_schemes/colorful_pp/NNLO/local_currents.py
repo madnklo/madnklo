@@ -20,6 +20,8 @@ import madgraph.core.subtraction as sub
 import madgraph.integrator.mappings as mappings
 
 import commons.utils as utils
+AltarelliParisiKernels = utils.AltarelliParisiKernels
+
 import commons.QCD_local_currents as currents
 import colorful_pp_config
 
@@ -53,38 +55,6 @@ def Q_initial_coll_variables_with_ss(PS_point, parent_momentum, children, **opts
     return zs, kTs, ss
 
 #=========================================================================================
-# Class listing Altarelli-Parisi Kernels
-#=========================================================================================
-
-class AltarelliParisiKernels:
-    """ Implementation of AltarelliParisiKernels. Notice that the the first argument color_factors is always
-    any object with the float attributes CF, CA, etc... to access color factors."""
-
-    @staticmethod
-    def P_qqpqp(color_factors, z_i, z_r, z_s, kT_i, kT_r, kT_s, s_ir, s_is, s_rs):
-        """ Kernel for the q -> q qp' qp' splitting. The return value is not a float but a list of tuples:
-                ( spin_correlation_vectors_with_parent, weight )
-            where spin_correlation_vector_with_parent can be None if None is required.
-        """
-
-        # Compute handy term and variables
-        s_irs = s_ir+s_is+s_rs
-        t_rs_i = 2.*(z_r*s_is-z_s*s_ir)/(z_r+z_s) + ((z_r-z_s)/(z_r+z_s))*s_rs
-        dimensional_term = z_r + z_s - s_rs/s_irs
-
-        # Overall prefactor
-        prefactor = (1./2.)*color_factors.CF*color_factors.TR*(s_irs/s_rs)
-
-        return [
-            ( None,
-                EpsilonExpansion({
-                    0 : -(t_rs_i**2/(s_rs*s_irs)) + (4.*z_i + (z_r - z_s)**2)/(z_r+z_s) + dimensional_term,
-                    1 : -2.*dimensional_term
-                })*prefactor
-            )
-        ]
-
-#=========================================================================================
 # NLO initial-collinear currents
 #=========================================================================================
 
@@ -111,14 +81,9 @@ class QCD_initial_collinear_0_qqpqp(QCD_initial_collinear_0_XXX):
             sub.SubtractionLeg(1, +2, sub.SubtractionLeg.FINAL),
             sub.SubtractionLeg(2, -2, sub.SubtractionLeg.FINAL),
         )),
-        sub.SingularStructure(sub.CollStructure(
-            sub.SubtractionLeg(0, -1, sub.SubtractionLeg.INITIAL),
-            sub.SubtractionLeg(1, +2, sub.SubtractionLeg.FINAL),
-            sub.SubtractionLeg(2, -2, sub.SubtractionLeg.FINAL),
-        )),
     ]
 
-    def kernel(self, evaluation, parent, xs, ss, kTs):
+    def kernel(self, evaluation, parent, xs, kTs, ss):
 
         # Retrieve the collinear variable x
         x_a, x_r, x_s = xs

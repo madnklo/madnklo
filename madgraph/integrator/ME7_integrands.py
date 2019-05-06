@@ -4080,10 +4080,10 @@ The missing process is: %s"""%ME_process.nice_string())
         
         import matplotlib
         # If possible use Agg as it allows display-less systems to use pyplot (i.e. work over ssh)
-        try:
-            matplotlib.use('Agg')
-        except ValueError:
-            pass
+        #try:
+        #    matplotlib.use('Agg')
+        #except ValueError:
+        #    pass
         import matplotlib.pyplot as plt
 
         plot_title = True

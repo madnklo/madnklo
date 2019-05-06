@@ -72,11 +72,11 @@ def n_final_coll_variables_triple(higher_PS_point, qC, children,**opts):
 
     In the spirit of future low-level hardcoded structures, we hardcode the expectation that there are three relevant invariants
     """
-    return currents.n_final_coll_variables(higher_PS_point, qC, children,**opts)+(
+    return currents.n_final_coll_variables(higher_PS_point, qC, children,**opts)+((
         2. * higher_PS_point[children[0]].dot(higher_PS_point[children[1]]),
         2. * higher_PS_point[children[0]].dot(higher_PS_point[children[2]]),
         2. * higher_PS_point[children[1]].dot(higher_PS_point[children[2]])
-    )
+    ),)
 
 #=========================================================================================
 # Variables, mappings, jacobians, factors and cuts
@@ -86,7 +86,8 @@ def n_final_coll_variables_triple(higher_PS_point, qC, children,**opts):
 # They will be taken from the following variables
 # so we can quickly switch them coherently across the entire subtraction scheme.
 
-variables = currents.n_final_coll_variables
+variables = n_final_coll_variables_triple
+#currents.n_final_coll_variables
 mapping = mappings.FinalGroupingMapping
 # soft_mapping = mappings.SoftVsFinalPureRescalingMapping
 # soft_coll_mapping = mappings.SoftCollinearVsFinalMapping(
@@ -133,12 +134,13 @@ class QCD_final_collinear_0_QQxq(QCD_final_collinear_0_XX):
         sqrbrk  = -(t123 ** 2)/(s12*s123)
         sqrbrk += (4*z3 + (z1-z2)**2) / (z1+z2)
         sqrbrk += z1 + z2 - s12/s123
-        return sqrbrk / (s12*s123)
+        return 1./2.*self.CF*self.TR*s123*sqrbrk / (s12)
 
 
     def kernel(self, evaluation, parent, zs, kTs , sijs):
         ker = self.C123_Qqqx_kernel(zs[0],zs[1],zs[2], sijs[0], sijs[1], sijs[2], sum(sijs))
-        evaluation['values'][(0, 0, 0)]['finite'] = ker
+        evaluation['values'][(0, 0, 0)] = {'finite' : ker}
+        return evaluation
 
     #     # Instantiate the structure of the result
     #     evaluation = utils.SubtractionCurrentEvaluation({

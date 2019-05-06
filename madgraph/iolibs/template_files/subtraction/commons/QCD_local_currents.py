@@ -581,7 +581,6 @@ class QCDLocalCollinearCurrent(QCDLocalCurrent):
             'values': { }
         })
         evaluation = self.kernel(evaluation, parent, *kernel_arguments)
-
         # Add the normalization factors
         pC2 = pC.square()
         norm = (8. * math.pi * alpha_s / pC2) ** (len(children) - 1)

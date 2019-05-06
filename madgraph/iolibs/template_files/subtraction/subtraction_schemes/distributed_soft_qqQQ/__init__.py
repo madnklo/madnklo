@@ -36,6 +36,7 @@ def load():
     # Specific to the colorful scheme
     import NLO.local_currents as NLO_local_currents
     import NLO.integrated_currents as NLO_integrated_currents
+    import NNLO.local_currents as NNLO_local_currents
 
     # The distributed soft scheme does not use sectors for now
     loaded_attributes['sector_generator'] = None
@@ -49,40 +50,46 @@ def load():
 
     all_subtraction_current_classes = []
 
-    # Add NLO beam factorization counterterms (BF terms)
+    # Add NLO beam factorization counterterms (BF terms) TODO REMOVED FOR TESTING
     # ==================================================
-    all_subtraction_current_classes.extend([
-        BF.QCD_beam_factorization_F0,
-        BF.QCD_beam_factorization_single_collinear,
-        BF.QCD_beam_factorization_single_softcollinear
-    ])
+    # all_subtraction_current_classes.extend([
+    #     BF.QCD_beam_factorization_F0,
+    #     BF.QCD_beam_factorization_single_collinear,
+    #     BF.QCD_beam_factorization_single_softcollinear
+    # ])
 
     # Add local NLO counterterms
-    # ==========================
-    all_subtraction_current_classes.extend([
-        # final-final collinears
-        NLO_local_currents.QCD_final_collinear_0_qqx,
-        NLO_local_currents.QCD_final_collinear_0_gq,
-        NLO_local_currents.QCD_final_collinear_0_gg,
-        # initial-final collinears
-        #       This scheme does *not* support ISR and the DefaultCurrent
-        #       implementation will be used for them with an appropriate warning.
-        # soft and soft-collinears
-        NLO_local_currents.NoSoft,
-        NLO_local_currents.NoSoftCollinear,
-    ])
+    # ========================== TODO REMOVED FOR TESTING
+    # all_subtraction_current_classes.extend([
+    #     # final-final collinears
+    #     NLO_local_currents.QCD_final_collinear_0_qqx,
+    #     NLO_local_currents.QCD_final_collinear_0_gq,
+    #     NLO_local_currents.QCD_final_collinear_0_gg,
+    #     # initial-final collinears
+    #     #       This scheme does *not* support ISR and the DefaultCurrent
+    #     #       implementation will be used for them with an appropriate warning.
+    #     # soft and soft-collinears
+    #     NLO_local_currents.NoSoft,
+    #     NLO_local_currents.NoSoftCollinear,
+    # ])
 
-    # Add NLO integrated counterterms
-    # ===============================
+    # Add local NNLO counterterms
     all_subtraction_current_classes.extend([
-        # final-final collinears
-        NLO_integrated_currents.integrated_NLO_FF_QCD_collinear_qqx,
-        NLO_integrated_currents.integrated_NLO_FF_QCD_collinear_gq,
-        NLO_integrated_currents.integrated_NLO_FF_QCD_collinear_gg,
-        # soft and soft-collinear
-        NLO_integrated_currents.integrated_NLO_QCD_soft_gluon,
-        NLO_integrated_currents.integrated_NLO_FF_QCD_softcollinear_gq
-    ])
+         # final triple collinears
+         NNLO_local_currents.QCD_final_collinear_0_QQxq,
+     ])
+
+    # # Add NLO integrated counterterms
+    # # ===============================
+    # all_subtraction_current_classes.extend([
+    #     # final-final collinears
+    #     NLO_integrated_currents.integrated_NLO_FF_QCD_collinear_qqx,
+    #     NLO_integrated_currents.integrated_NLO_FF_QCD_collinear_gq,
+    #     NLO_integrated_currents.integrated_NLO_FF_QCD_collinear_gg,
+    #     # soft and soft-collinear
+    #     NLO_integrated_currents.integrated_NLO_QCD_soft_gluon,
+    #     NLO_integrated_currents.integrated_NLO_FF_QCD_softcollinear_gq
+    # ])
 
     # Finally register the subtraction current classes loaded
     loaded_attributes['all_subtraction_current_classes'] = all_subtraction_current_classes

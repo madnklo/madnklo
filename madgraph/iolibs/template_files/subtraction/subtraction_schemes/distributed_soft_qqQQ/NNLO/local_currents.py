@@ -27,7 +27,7 @@ import madgraph.various.misc as misc
 
 CurrentImplementationError = utils.CurrentImplementationError
 #=========================================================================================
-# Choice of recoilers
+# Helper functions
 #=========================================================================================
 
 def get_recoilers(reduced_process, excluded=()):
@@ -41,6 +41,42 @@ def get_recoilers(reduced_process, excluded=()):
         ])
     ])
 
+def kTdiff(i, j, zs, kTs):
+    """Compute the difference vector (kTi/zi - kTj/zj)."""
+
+    return kTs[i-1]/zs[i-1] - kTs[j-1]/zs[j-1]
+
+def sij(i, j, zs, kTs, kTdiffij=None):
+    """Compute the invariant mass sij from zs and kTs."""
+
+    if kTdiffij: kTdiffij2 = kTdiffij.square()
+    else: kTdiffij2 = kTdiff(i, j, zs, kTs).square()
+    return -zs[i-1]*zs[j-1]*kTdiffij2
+
+def tijk(zi, zj, sij, sik, sjk):
+
+    return (2*(zi*sjk-zj*sik)+(zi-zj)*sij)/(zi+zj)
+
+def t(i, j, k, zs, kTs, s_ij=None, s_ik=None, s_jk=None):
+    """Compute the invariant t_{ij,k} from zs and kTs."""
+
+    if not s_ij: s_ij = sij(i, j, zs, kTs)
+    if not s_ik: s_ik = sij(i, k, zs, kTs)
+    if not s_jk: s_jk = sij(j, k, zs, kTs)
+    return tijk(zs[i-1],zs[j-1],s_ij,s_ik,s_jk)
+
+def n_final_coll_variables_triple(higher_PS_point, qC, children,**opts):
+    """Obtain the n_final_coll_variables definition of z and kT and also provide the pair-wise invariants from the higher_PS_point.
+
+    This is redundant information but screens possible issues when using the freedom to redefine kT in a way that would break the relationship used in the function sij above.
+
+    In the spirit of future low-level hardcoded structures, we hardcode the expectation that there are three relevant invariants
+    """
+    return currents.n_final_coll_variables(higher_PS_point, qC, children,**opts)+(
+        2. * higher_PS_point[children[0]].dot(higher_PS_point[children[1]]),
+        2. * higher_PS_point[children[0]].dot(higher_PS_point[children[2]]),
+        2. * higher_PS_point[children[1]].dot(higher_PS_point[children[2]])
+    )
 
 #=========================================================================================
 # Variables, mappings, jacobians, factors and cuts
@@ -64,7 +100,7 @@ no_cut = currents.no_cut
 no_factor = currents.no_factor
 
 #=========================================================================================
-# NLO final-collinear currents
+# NNLO final-collinear currents
 #=========================================================================================
 
 class QCD_final_collinear_0_XX(currents.QCDLocalCollinearCurrent):
@@ -87,12 +123,12 @@ class QCD_final_collinear_0_QQxq(QCD_final_collinear_0_XX):
         sub.SubtractionLeg(1, -1, sub.SubtractionLeg.FINAL),
         sub.SubtractionLeg(2, +2, sub.SubtractionLeg.FINAL), ))
 
-    def __init__(self,*args,**kwargs):
+#    def __init__(self,*args,**kwargs):
         # TODO THIS SHOULD NOT BE USED YET
-        raise NotImplementedError
+#        raise NotImplementedError
 
     def C123_Qqqx_kernel(self, z1, z2, z3, s12, s13, s23, s123):
-
+        """Triple collinear splitting kernel"""
         t123 = tijk(z1, z2, s12, s13, s23)
         sqrbrk  = -(t123 ** 2)/(s12*s123)
         sqrbrk += (4*z3 + (z1-z2)**2) / (z1+z2)
@@ -100,11 +136,10 @@ class QCD_final_collinear_0_QQxq(QCD_final_collinear_0_XX):
         return sqrbrk / (s12*s123)
 
 
-    # def kernel(self, zs, kTs, invariants, parent, reduced_kinematics):
-    #     #raise NotImplementedError TODO DEV
-    #     # Retrieve the collinear variables
-    #     z = zs[0]
-    #     kT = kTs[0]
+    def kernel(self, evaluation, parent, zs, kTs , sijs):
+        ker = self.C123_Qqqx_kernel(zs[0],zs[1],zs[2], sijs[0], sijs[1], sijs[2], sum(sijs))
+        evaluation['values'][(0, 0, 0)]['finite'] = ker
+
     #     # Instantiate the structure of the result
     #     evaluation = utils.SubtractionCurrentEvaluation({
     #         'spin_correlations': [None, ((parent, (kT,)),), ],

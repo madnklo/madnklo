@@ -2410,12 +2410,6 @@ class SoftVsInitialMapping(ElementaryMappingSoft):
             for child in children:
                 pS += new_PS_point.pop(child)
 
-        # Build the total momentum of recoilers
-        recoilers = tuple(leg.n for leg in singular_structure.legs) # (S(3,4),).legs returns the recoilers
-        pR = LorentzVector()
-        for recoiler in recoilers:
-            pR += PS_point[recoiler]
-
         # Build the total momentum Q from the intial state
         Q = LorentzVector()
         Q += PS_point[1]

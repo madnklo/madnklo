@@ -29,6 +29,7 @@ import commons.utils as utils
 pjoin = os.path.join
 
 CurrentImplementationError = utils.CurrentImplementationError
+import madgraph.core.subtraction as sub
 
 #=========================================================================================
 # Cuts and factors functions
@@ -272,13 +273,23 @@ class QCDLocalCurrent(QCDCurrent):
         if not cls.check_current_properties(current):
             return None
 
-        try:
-            leg_numbers_map = cls.structure.map_leg_numbers(
-                current.get('singular_structure'), [range(1, model.get_nflav()+1)])
-        except AttributeError:
-            return None
+        all_template_structures = cls.structure
+        if isinstance(all_template_structures, sub.SingularStructure):
+            all_template_structures = [cls.structure, ]
+
+        leg_numbers_map = None
+        for template_structure in all_template_structures:
+            try:
+                leg_numbers_map = template_structure.map_leg_numbers(
+                    current.get('singular_structure'), [range(1, model.get_nflav()+1)])
+            except AttributeError:
+                continue
+            if leg_numbers_map is None:
+                continue
+
         if leg_numbers_map is None:
             return None
+
         mapping_singular_structure = current.get('singular_structure').get_copy()
         return {
             'leg_numbers_map': leg_numbers_map,
@@ -386,7 +397,7 @@ class QCDBeamFactorizationCurrent(QCDCurrent):
 
         return init_vars
 
-    def evaluate_subtraction_current(self, current, higher_PS_point=None, 
+    def evaluate_subtraction_current(self, current, lower_PS_point=None,
             reduced_process = None, xi=None, mu_r=None, mu_f=None, Q=None, hel_config=None, 
             allowed_backward_evolved_flavors = 'ALL', **opts ):
         """ This implementation of the main function call in the base class pre-process
@@ -399,6 +410,9 @@ class QCDBeamFactorizationCurrent(QCDCurrent):
         if self.distribution_type != 'endpoint' and xi is None:
             raise CurrentImplementationError(
                 self.name() + " requires the rescaling variable xi." )
+        if lower_PS_point is None:
+            raise CurrentImplementationError(
+                self.name() + " needs the lower phase-space point.")
         if mu_f is None:
             raise CurrentImplementationError(
                 self.name() + " requires the factorization scale mu_f." )
@@ -423,7 +437,7 @@ class QCDBeamFactorizationCurrent(QCDCurrent):
         # BeamFactorizationCurrentEvaluation which can specify color-correlations as 
         # well as reduced and resolved flavors.
         evaluation = self.evaluate_kernel(
-            reduced_process, xi, mu_r, mu_f, Q, normalization,
+            lower_PS_point, reduced_process, xi, mu_r, mu_f, Q, normalization,
             allowed_backward_evolved_flavors = allowed_backward_evolved_flavors)
 
         # Construct and return result
@@ -468,6 +482,18 @@ class QCDBeamFactorizationCurrent(QCDCurrent):
 class QCDLocalCollinearCurrent(QCDLocalCurrent):
     """Common functions for QCD local collinear currents."""
 
+    expected_init_opts = ('leg_numbers_map', 'mapping_singular_structure', 'has_initial_state')
+
+    @classmethod
+    def does_implement_this_current(cls, current, model):
+        """ Add information about whether or not this local collinear current contains initial states."""
+        res = super(QCDLocalCollinearCurrent, cls).does_implement_this_current(current, model)
+
+        if res is not None:
+            res['has_initial_state'] = current.get('singular_structure').get_all_legs().has_initial_state_leg()
+
+        return res
+
     def kernel(self, zs, kTs, parent, reduced_kinematics):
         """Evaluate the basic splitting kernel.
 
@@ -485,7 +511,7 @@ class QCDLocalCollinearCurrent(QCDLocalCurrent):
     def evaluate_subtraction_current(
         self, current,
         higher_PS_point=None, momenta_dict=None, reduced_process=None,
-        hel_config=None, **opts):
+        hel_config=None, Q=None, **opts):
 
         if higher_PS_point is None:
             raise CurrentImplementationError(
@@ -499,6 +525,9 @@ class QCDLocalCollinearCurrent(QCDLocalCurrent):
         if not hel_config is None:
             raise CurrentImplementationError(
                 self.name() + " does not support helicity assignment.")
+        if Q is None:
+            raise CurrentImplementationError(
+                self.name() + " requires specification of the total incoming momentum Q.")
 
         # Retrieve alpha_s and mu_r
         model_param_dict = self.model.get('parameter_dict')
@@ -518,27 +547,28 @@ class QCDLocalCollinearCurrent(QCDLocalCurrent):
             compute_jacobian=self.divide_by_jacobian)
 
         # Retrieve kinematics
-        Q = mapping_vars['Q']
+        # The Q variable of the mapping cannot be relied upon
+        #Q = mapping_vars['Q']
         pC = sum(higher_PS_point[child] for child in children)
         qC = lower_PS_point[parent]
         jacobian = mapping_vars.get('jacobian', 1)
         reduced_kinematics = (None, lower_PS_point)
 
         # Include the counterterm only in a part of the phase space
-        if current.get('singular_structure').get_all_legs().has_initial_state_leg():
+        if self.has_initial_state:
             pA = higher_PS_point[children[0]]
             pR = sum(higher_PS_point[child] for child in children[1:])
             # Initial state collinear cut
             if self.is_cut(Q=Q, pA=pA, pR=pR):
                 return utils.SubtractionCurrentResult.zero(
                     current=current, hel_config=hel_config,
-                    reduced_kinematics=reduced_kinematics)
+                    reduced_kinematics=('IS_CUT', lower_PS_point))
         else:
             # Final state collinear cut
             if self.is_cut(Q=Q, pC=pC):
                 return utils.SubtractionCurrentResult.zero(
                     current=current, hel_config=hel_config,
-                    reduced_kinematics=reduced_kinematics)
+                    reduced_kinematics=('IS_CUT', lower_PS_point))
 
         # Evaluate kernel
         # First construct variables necessary for its evaluation
@@ -567,93 +597,3 @@ class QCDLocalCollinearCurrent(QCDLocalCurrent):
             hel_config=hel_config,
             squared_orders=tuple(sorted(current.get('squared_orders').items())))
         return result
-
-#=========================================================================================
-# QCDLocalSoftCurrent
-#=========================================================================================
-
-# TODO This is mantained for backward compatibility, DEPRECATED
-class QCDLocalSoftCurrent(QCDCurrent):
-    """Common functions for QCD local soft currents."""
-
-    def __init__(self, *args, **opts):
-
-        super(QCDLocalSoftCurrent, self).__init__(*args, **opts)
-        self.supports_helicity_assignment = False
-
-    # Prefix this base function with 'common' to screen it from the lookup
-    # performed by the MG5aMC current exporter.
-    @classmethod
-    def common_does_implement_this_current(
-        cls, current, QCD_squared_order=None, n_loops=None):
-        """General checks common to all QCD soft currents."""
-
-        # Check the general properties common to QCD currents
-        init_vars = super(QCDLocalSoftCurrent, cls).common_does_implement_this_current(
-            current, QCD_squared_order, n_loops)
-        if init_vars is None: return None
-
-        # Make sure this is not a beam factorization current
-        if isinstance(current, (BeamCurrent, IntegratedBeamCurrent, IntegratedCurrent)):
-            return None
-
-        # Make sure we don't need to sum over the quantum number of the mother leg
-        if not current.get('resolve_mother_spin_and_color'):
-            return None
-        
-        # Check the structure is a simple soft
-        singular_structure = current.get('singular_structure').substructures[0]
-        if singular_structure.name() != 'S': return None
-        if singular_structure.substructures: return None
-        # All checks passed
-        return init_vars
-
-#=========================================================================================
-# QCDLocalSoftCollinearCurrent
-#=========================================================================================
-
-# TODO This is mantained for backward compatibility, DEPRECATED
-class QCDLocalSoftCollinearCurrent(QCDCurrent):
-    """Common functions for QCD local soft-collinear currents."""
-
-    def __init__(self, *args, **opts):
-
-        super(QCDLocalSoftCollinearCurrent, self).__init__(*args, **opts)
-        self.supports_helicity_assignment = False
-
-    # Prefix this base function with 'common' to screen it from the lookup
-    # performed by the MG5aMC current exporter.
-    @classmethod
-    def common_does_implement_this_current(
-        cls, current, QCD_squared_order=None, n_loops=None):
-        """General checks common to all QCD soft-collinear currents."""
-
-        # Check the general properties common to QCD currents
-        init_vars = super(
-            QCDLocalSoftCollinearCurrent, cls).common_does_implement_this_current(
-            current, QCD_squared_order, n_loops)
-        if init_vars is None: return None
-        
-        # Make sure we don't need to sum over the quantum number of the mother leg
-        if not current.get('resolve_mother_spin_and_color'):
-            return None
-        
-        # Make sure this is not a beam factorization current
-        if isinstance(current, (BeamCurrent, IntegratedBeamCurrent, IntegratedCurrent)):
-            return None
-
-        # Retrieve the singular structure
-        singular_structure = current.get('singular_structure').substructures[0]
-        # The main structure should be collinear
-        if singular_structure.name() != 'C': 
-            return None
-        if not singular_structure.substructures: 
-            return None
-        # Substructures should be simple soft structures
-        for sub_singular_structure in singular_structure.substructures:
-            if sub_singular_structure.name() != 'S': 
-                return None
-            if sub_singular_structure.substructures: 
-                return None
-        # All checks passed
-        return init_vars

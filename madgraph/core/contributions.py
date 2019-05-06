@@ -746,27 +746,36 @@ class Contribution(object):
             MEAccessors, allow_overwrite=(not self.group_subprocesses) )
 
     def add_current_accessors(
-        self, model, all_MEAccessors, root_path, current_set, currents_to_consider):
-        """Generate and add all subtraction current accessors to the MEAccessorDict."""
+        self, model, all_MEAccessors, root_path, current_set, currents_to_consider, CT_type='local'):
+        """Generate and add all subtraction current accessors to the MEAccessorDict.
+        The optioin CT_type is only present in order to give a more precise printout
+        """
 
         # Generate the computer code and export it on disk for the remaining new currents
         current_exporter = subtraction.SubtractionCurrentExporter(model, root_path, current_set)
         mapped_currents = current_exporter.export(currents_to_consider)
         # Print to the debug log which currents were exported
-        log_string = "The following subtraction current implementation are exported "+\
+        log_string = "The following subtraction %s current implementations are exported "%CT_type+\
                      "in contribution '%s':\n"%self.short_name()
+        default_implementation_string = ''
+        already_listed = []
         for (module_path, class_name, _), current_properties in mapped_currents.items():
             if class_name != 'DefaultCurrentImplementation':
-                quote_class_name = "'%s'" % class_name
-                defining_current_str = str(current_properties['defining_current'])
-                line_pars = (quote_class_name, defining_current_str)
-                log_string += " > %-35s for representative current '%s'\n" % line_pars
+                if class_name not in already_listed:
+                    already_listed.append(class_name)
+                    quote_class_name = "'%s'" % class_name
+                    defining_current_str = str(current_properties['defining_current'])
+                    line_pars = (quote_class_name, defining_current_str)
+                    log_string += " > %-35s for representative current '%s'\n" % line_pars
             else:
                 quote_default_name = "'DefaultCurrentImplementation'"
                 number_of_currents = len(current_properties['mapped_process_keys'])
                 line_pars = (quote_default_name, number_of_currents)
-                log_string += " > %-35s for a total of %d currents.\n" % line_pars
-        logger.debug(log_string)
+                default_implementation_string = " > %-35s for a total of %d currents.\n" % line_pars
+
+        log_string +=default_implementation_string
+        if len(mapped_currents)>0:
+            logger.debug(log_string)
         # Instantiate the CurrentAccessors corresponding
         # to all current implementations identified and needed
         all_current_accessors = []
@@ -1752,7 +1761,7 @@ The resulting output must therefore be used for debugging only as it will not yi
         currents_to_consider = self.get_all_necessary_local_currents(all_MEAccessors)
 
         self.add_current_accessors(
-            self.model, all_MEAccessors, root_path, current_set, currents_to_consider )
+            self.model, all_MEAccessors, root_path, current_set, currents_to_consider, CT_type='local' )
         
     def remove_local_counterterms_set_to_zero(self, all_ME_accessors):
         """ Remove all local counterterms involving currents whose implementation has set
@@ -1968,7 +1977,7 @@ class Contribution_V(Contribution):
         current_set = self.options['subtraction_scheme']
         currents_to_consider = self.get_all_necessary_integrated_currents(all_MEAccessors)
         self.add_current_accessors(
-            self.model, all_MEAccessors, root_path, current_set, currents_to_consider )
+            self.model, all_MEAccessors, root_path, current_set, currents_to_consider, CT_type='integrated' )
 
     @classmethod
     def get_basic_permutation(cls, origin_pdg_orders, destination_pdg_orders):

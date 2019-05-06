@@ -35,8 +35,10 @@ def load():
     import commons.beam_factorization_BS as BS
 
     # Specific to the colorful_pp scheme
+    import colorful_pp_config
     import NLO.local_currents as NLO_local_currents
     import NLO.integrated_currents as NLO_integrated_currents
+    import NNLO.local_currents as NNLO_local_currents
 
     # Imports from the colorful scheme
     import subtraction_schemes.colorful.NLO.local_currents as colorful_NLO_local_currents
@@ -52,6 +54,10 @@ def load():
     ])
 
     all_subtraction_current_classes = []
+
+    ###########
+    # NLO
+    ###########
 
     # Add NLO beam factorization counterterms (BF terms)
     # ==================================================
@@ -71,20 +77,31 @@ def load():
     # Add local NLO counterterms
     # ==========================
     all_subtraction_current_classes.extend([
-        # final-final collinears
+        # initial-final collinears
+        NLO_local_currents.QCD_initial_collinear_0_qg,
+        NLO_local_currents.QCD_initial_collinear_0_gq,
+        NLO_local_currents.QCD_initial_collinear_0_qq,
+        NLO_local_currents.QCD_initial_collinear_0_gg,
+        # soft and soft-collinears
+        NLO_local_currents.QCD_soft_0_g,
+        NLO_local_currents.QCD_final_softcollinear_0_gX,
+        NLO_local_currents.QCD_initial_softcollinear_0_Xg,
+    ])
+
+    final_collinears_from_colorful = [
         colorful_NLO_local_currents.QCD_final_collinear_0_qqx,
         colorful_NLO_local_currents.QCD_final_collinear_0_gq,
         colorful_NLO_local_currents.QCD_final_collinear_0_gg,
-        # initial-final collinears
-    #    NLO_local_currents.QCD_initial_collinear_0_qg,
-    #    NLO_local_currents.QCD_initial_collinear_0_gq,
-    #    NLO_local_currents.QCD_initial_collinear_0_qq,
-    #    NLO_local_currents.QCD_initial_collinear_0_gg,
-        # soft and soft-collinears
-        NLO_local_currents.QCD_soft_0_g,
-    #    NLO_local_currents.QCD_final_softcollinear_0_gX,
-    #    NLO_local_currents.QCD_initial_softcollinear_0_Xg,
-    ])
+    ]
+    # We must modify the mapping employed by the colorful final collinear CT which is 'FinalRescalingOneMapping'
+    # in colorful and must now be colorful_pp_config.final_coll_mapping (which is 'mappings.FinalLorentzOneMapping')
+    # Also we must then allow massive recoilers, as their mass can be kept intact then.
+    for final_collinear_current_class in final_collinears_from_colorful:
+        final_collinear_current_class.mapping = colorful_pp_config.final_coll_mapping
+        final_collinear_current_class.get_recoilers = staticmethod(colorful_pp_config.get_recoilers)
+
+    # final-final collinears
+    all_subtraction_current_classes.extend(final_collinears_from_colorful)
 
     # Add NLO integrated counterterms
     # ===============================
@@ -96,6 +113,17 @@ def load():
         # soft and soft-collinear
         NLO_integrated_currents.integrated_NLO_QCD_soft_gluon,
         NLO_integrated_currents.integrated_NLO_FF_QCD_softcollinear_gq
+    ])
+
+
+    ###########
+    # NNLO
+    ###########
+
+    # For now we are only trying an elementary IFF q > q q' q' collinear
+    all_subtraction_current_classes.extend([
+        # Initial-final-final-collinears
+        NNLO_local_currents.QCD_initial_collinear_0_qqpqp,
     ])
 
     # Finally register the subtraction current classes loaded

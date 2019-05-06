@@ -750,6 +750,10 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # An instance of accessors.MEAccessorDict providing access to all ME available as part of this
         # ME7 session.
         self.all_MEAccessors            = all_MEAccessors
+        # When accessing currents we must know whether leg numbers must be tracked.
+        # By default, this is not the case and in higher order ME7Integrands, this will depend on the
+        # particular subtraction scheme loaded.
+        self.accessor_tracks_leg_numbers = False
 
         # Save identified sectors if any
         self.sectors = sectors
@@ -1020,8 +1024,10 @@ class ME7Integrand(integrands.VirtualIntegrand):
         if self.contribution_definition.overall_correction_order.count('N')>0:
             self.subtraction_scheme = subtraction.SubtractionCurrentExporter.get_subtraction_scheme_module(
                             self.ME7_configuration['subtraction_scheme'], root_path = self.ME7_configuration['me_dir'])
+            self.accessor_tracks_leg_numbers = self.subtraction_scheme.are_current_instances_for_specific_leg_numbers
         else:
             self.subtraction_scheme = None
+            self.accessor_tracks_leg_numbers = False
 
         
         # A ModelReader instance, initialized with the values of the param_card.dat of this run
@@ -1977,15 +1983,17 @@ class ME7Integrand(integrands.VirtualIntegrand):
             if bc1 is not None:
                 assert(isinstance(bc1, subtraction.BeamCurrent) and bc1['distribution_type']=='bulk')
                 current_evaluation, all_current_results = self.all_MEAccessors(
-                    bc1, lower_PS_point=PS_point, reduced_process=process, xi=xi1, mu_r=mu_r, mu_f=mu_f1, Q=Q)
+                    bc1, track_leg_numbers=self.accessor_tracks_leg_numbers,
+                    lower_PS_point=PS_point, reduced_process=process, xi=xi1, mu_r=mu_r, mu_f=mu_f1, Q=Q)
                 assert(current_evaluation['spin_correlations']==[None,])
                 assert(current_evaluation['color_correlations']==[None,])
-                event_to_convolve.convolve_flavors( 
+                event_to_convolve.convolve_flavors(
                     base_objects.EpsilonExpansion(current_evaluation['values'][(0,0)]), leg_index=0 )
             if bc2 is not None:
                 assert(isinstance(bc2, subtraction.BeamCurrent) and bc2['distribution_type']=='bulk')
                 current_evaluation, all_current_results = self.all_MEAccessors(
-                    bc2, lower_PS_point=PS_point, reduced_process=process, xi=xi2, mu_r=mu_r, mu_f=mu_f2, Q=Q)
+                    bc2, track_leg_numbers=self.accessor_tracks_leg_numbers,
+                    lower_PS_point=PS_point, reduced_process=process, xi=xi2, mu_r=mu_r, mu_f=mu_f2, Q=Q)
                 assert(current_evaluation['spin_correlations']==[None,])
                 assert(current_evaluation['color_correlations']==[None,])
                 event_to_convolve.convolve_flavors(
@@ -2246,7 +2254,7 @@ class ME7Integrand_V(ME7Integrand):
 
         all_necessary_ME_calls, disconnected_currents_weight = ME7Integrand_R.generate_all_necessary_ME_calls(
             non_beam_factorization_currents, counterterm.process, reduced_PS,
-            self.all_MEAccessors, self.subtraction_scheme.are_current_instances_for_specific_leg_numbers,
+            self.all_MEAccessors, self.accessor_tracks_leg_numbers,
             compute_poles=compute_poles, leg_numbers_map = counterterm.momenta_dict, Q=total_incoming_momentum)
 
         # For now integrated counterterms are supposed to return a single reduced kinematics with Non as identifier
@@ -2264,6 +2272,7 @@ class ME7Integrand_V(ME7Integrand):
             # Then evaluate the beam factorization currents
             necessary_ME_calls = ME7Integrand_R.process_beam_factorization_currents(
                 necessary_ME_calls, counterterm.get_beam_currents(), self.all_MEAccessors,
+                self.accessor_tracks_leg_numbers,
                 reduced_PS, counterterm.process, xb_1, xb_2, xi1, xi2, mu_r, mu_f1, mu_f2, total_incoming_momentum,
                 allowed_backward_evolved_flavors1=allowed_backward_evolved_flavors1,
                 allowed_backward_evolved_flavors2=allowed_backward_evolved_flavors2)
@@ -3066,23 +3075,61 @@ class ME7Integrand_R(ME7Integrand):
                 )
         return new_all_necessary_ME_calls
 
+
     @classmethod
-    def update_all_necessary_ME_calls(cls, all_necessary_ME_calls, new_evaluation, 
-            weight_type='main_weight', Bjorken_rescaling_beam_one=None, Bjorken_rescaling_beam_two=None):
+    def update_all_necessary_ME_calls_for_specific_reduced_kinematics(cls,
+            necessary_ME_calls_fixed_kinematics, new_evaluation_fixed_kinematics, weight_type='main_weight',
+            Bjorken_rescaling_beam_one=None, Bjorken_rescaling_beam_two=None):
         """ Combined previous current evaluation with the new one in argument so as to setup
         the input of the matrix elements to be computed. The current type can be either:
             'main_weight', 'flavor_matrices_beam_one', 'flavor_matrices_beam_two'
         which indicates if this is a weight that necessitate flavor convolutions (i.e. from
         beam factorization).
+        This combination is done for a single entry specifying a particular reduced kinematics.
+        """
+
+        new_necessary_ME_calls = []
+        for ((spin_index, color_index), current_wgt) in new_evaluation_fixed_kinematics['values'].items():
+            # Now combine the correlators necessary for this current
+            # with those already specified in 'all_necessary_ME_calls'
+            for ME_call in necessary_ME_calls_fixed_kinematics:
+                new_necessary_ME_calls.append({
+                    # Append this spin correlation to those already present for that call
+                    'spin_correlations': ME_call['spin_correlations'] + [new_evaluation_fixed_kinematics['spin_correlations'][spin_index], ],
+                    # Append this color correlation to those already present for that call
+                    'color_correlations': ME_call['color_correlations'] + [
+                        new_evaluation_fixed_kinematics['color_correlations'][color_index], ],
+                    # Append this weight to those already present for that call
+                    'main_weights': ME_call['main_weights'] + [base_objects.EpsilonExpansion(current_wgt) if
+                                                               weight_type == 'main_weight' else base_objects.EpsilonExpansion(
+                        {'finite': 1.0})],
+                    'flavor_matrices_beam_one': ME_call['flavor_matrices_beam_one'] + [
+                        current_wgt if weight_type == 'flavor_matrix_beam_one' else None],
+                    'flavor_matrices_beam_two': ME_call['flavor_matrices_beam_two'] + [
+                        current_wgt if weight_type == 'flavor_matrix_beam_two' else None],
+                    'Bjorken_rescalings_beam_one': ME_call['Bjorken_rescalings_beam_one'] + [Bjorken_rescaling_beam_one, ],
+                    'Bjorken_rescalings_beam_two': ME_call['Bjorken_rescalings_beam_two'] + [Bjorken_rescaling_beam_two, ],
+                })
+        return new_necessary_ME_calls
+
+    @classmethod
+    def update_all_necessary_ME_calls(cls, all_necessary_ME_calls, new_evaluation, **opts):
+        """ Combined previous current evaluation with the new one in argument so as to setup
+        the input of the matrix elements to be computed. The current type can be either:
+            'main_weight', 'flavor_matrices_beam_one', 'flavor_matrices_beam_two'
+        which indicates if this is a weight that necessitate flavor convolutions (i.e. from
+        beam factorization).
+        This combination is done across all specified reduced kinematics.
         """
 
         # Firs breakdown the current evaluation into chunks for each different reduced kinematics
         current_evaluation_per_reduced_kinematics = {}
         for ((spin_index, color_index, reduced_kinematics_index), current_wgt) in new_evaluation['values'].items():
-            if reduced_kinematics_index in current_evaluation_per_reduced_kinematics:
-                current_evaluation_per_reduced_kinematics[reduced_kinematics_index][(spin_index, color_index)] = current_wgt
-            else:
-                current_evaluation_per_reduced_kinematics[reduced_kinematics_index] = {(spin_index, color_index) : current_wgt}
+            if reduced_kinematics_index not in current_evaluation_per_reduced_kinematics:
+                current_evaluation_per_reduced_kinematics[reduced_kinematics_index] = dict(new_evaluation)
+                # We want to overwrite the values as the reduced_kinematics index is treated externally
+                current_evaluation_per_reduced_kinematics[reduced_kinematics_index]['values'] = {}
+            current_evaluation_per_reduced_kinematics[reduced_kinematics_index]['values'][(spin_index, color_index)] = current_wgt
 
         # Now make sure that we will not be combining reduced kinematics from different currents
         # This check is redundant with he one done below
@@ -3096,8 +3143,6 @@ class ME7Integrand_R(ME7Integrand):
             for reduced_kinematics_index, current_evaluation in current_evaluation_per_reduced_kinematics.items():
 
                 # "combine" reduced kinematics
-                new_reduced_kinematics_identifier = None
-                new_reduced_kinematics = None
                 if new_evaluation['reduced_kinematics'][reduced_kinematics_index] is None:
                     new_reduced_kinematics_identifier = reduced_kinematics_identifier
                     new_reduced_kinematics = reduced_kinematics
@@ -3107,24 +3152,8 @@ class ME7Integrand_R(ME7Integrand):
                 else:
                     raise MadEvent7Error("MadNkLO cannot combine several subtraction currents that each return mapped kinematics.")
 
-                new_necessary_ME_calls = []
-                for ((spin_index, color_index), current_wgt) in current_evaluation.items():
-                    # Now combine the correlators necessary for this current
-                    # with those already specified in 'all_necessary_ME_calls'
-                    for ME_call in necessary_ME_calls:
-                        new_necessary_ME_calls.append({
-                            # Append this spin correlation to those already present for that call
-                            'spin_correlations' : ME_call['spin_correlations'] + [new_evaluation['spin_correlations'][spin_index], ],
-                            # Append this color correlation to those already present for that call
-                            'color_correlations' : ME_call['color_correlations'] + [new_evaluation['color_correlations'][color_index], ],
-                            # Append this weight to those already present for that call
-                            'main_weights' : ME_call['main_weights'] + [ base_objects.EpsilonExpansion(current_wgt) if
-                                weight_type=='main_weight' else base_objects.EpsilonExpansion({'finite':1.0}) ],
-                            'flavor_matrices_beam_one' : ME_call['flavor_matrices_beam_one'] + [ current_wgt if weight_type=='flavor_matrix_beam_one' else None ],
-                            'flavor_matrices_beam_two' : ME_call['flavor_matrices_beam_two'] + [ current_wgt if weight_type=='flavor_matrix_beam_two' else None ],
-                            'Bjorken_rescalings_beam_one' : ME_call['Bjorken_rescalings_beam_one'] + [ Bjorken_rescaling_beam_one,],
-                            'Bjorken_rescalings_beam_two' : ME_call['Bjorken_rescalings_beam_two'] + [ Bjorken_rescaling_beam_two,],
-                        })
+                new_necessary_ME_calls = cls.update_all_necessary_ME_calls_for_specific_reduced_kinematics(
+                                                                        necessary_ME_calls , current_evaluation, **opts)
 
                 new_all_necessary_ME_calls[new_reduced_kinematics_identifier] = (new_reduced_kinematics, new_necessary_ME_calls)
 
@@ -3133,7 +3162,7 @@ class ME7Integrand_R(ME7Integrand):
 
     @classmethod
     def process_beam_factorization_currents(cls, all_necessary_ME_calls, all_beam_currents, 
-                     all_MEAccessors, PS_point, process, xb_1, xb_2, xi1, xi2, mu_r, mu_f1, mu_f2, Q,
+                     all_MEAccessors, track_leg_numbers, PS_point, process, xb_1, xb_2, xi1, xi2, mu_r, mu_f1, mu_f2, Q,
                      allowed_backward_evolved_flavors1='ALL',
                      allowed_backward_evolved_flavors2='ALL'):
         """ Calls the beam currents specified in the argument all_beam_currents with format:
@@ -3162,11 +3191,11 @@ class ME7Integrand_R(ME7Integrand):
                         continue
                 else:
                     rescaling = 1.
-                current_evaluation, all_current_results = all_MEAccessors(beam_currents['beam_one'], 
-                    lower_PS_point=PS_point, reduced_process=process, xi=xi1, mu_r=mu_r, mu_f=mu_f1, Q=Q,
-                    allowed_backward_evolved_flavors = allowed_backward_evolved_flavors1)
+                current_evaluation, all_current_results = all_MEAccessors(beam_currents['beam_one'],
+                    track_leg_numbers=track_leg_numbers, lower_PS_point=PS_point, reduced_process=process, xi=xi1,
+                    mu_r=mu_r, mu_f=mu_f1, Q=Q, allowed_backward_evolved_flavors = allowed_backward_evolved_flavors1)
 
-                new_necessary_ME_calls = ME7Integrand_R.update_all_necessary_ME_calls(
+                new_necessary_ME_calls = ME7Integrand_R.update_all_necessary_ME_calls_for_specific_reduced_kinematics(
                     new_necessary_ME_calls, current_evaluation,
                     weight_type='flavor_matrix_beam_one', Bjorken_rescaling_beam_one = rescaling)
             if beam_currents['beam_two'] is not None:
@@ -3180,9 +3209,9 @@ class ME7Integrand_R(ME7Integrand):
                 else:
                     rescaling = 1.
                 current_evaluation, all_current_results = all_MEAccessors(beam_currents['beam_two'],
-                    lower_PS_point=PS_point, reduced_process=process, xi=xi2, mu_r=mu_r, mu_f=mu_f2, Q=Q,
-                    allowed_backward_evolved_flavors = allowed_backward_evolved_flavors2) 
-                new_necessary_ME_calls = ME7Integrand_R.update_all_necessary_ME_calls(
+                    track_leg_numbers=track_leg_numbers, lower_PS_point=PS_point, reduced_process=process, xi=xi2,
+                    mu_r=mu_r, mu_f=mu_f2, Q=Q, allowed_backward_evolved_flavors = allowed_backward_evolved_flavors2)
+                new_necessary_ME_calls = ME7Integrand_R.update_all_necessary_ME_calls_for_specific_reduced_kinematics(
                     new_necessary_ME_calls, current_evaluation,  
                     weight_type='flavor_matrix_beam_two', Bjorken_rescaling_beam_two = rescaling)
             if 'correlated_convolution' in beam_currents and beam_currents['correlated_convolution'] is not None:
@@ -3196,7 +3225,8 @@ class ME7Integrand_R(ME7Integrand):
                 # By convention we pass here the factorization scale mu_f1 and not mu_f2, but that should be irrelevant 
                 # since such counterterms are in no way related to the PDF evolution or ISR factorization in general
                 current_evaluation, all_current_results = all_MEAccessors(beam_currents['correlated_convolution'],
-                    lower_PS_point=PS_point, reduced_process=process, xi=xi1, mu_r=mu_r, mu_f=mu_f1, Q=Q)
+                    track_leg_numbers=track_leg_numbers, lower_PS_point=PS_point, reduced_process=process, xi=xi1,
+                    mu_r=mu_r, mu_f=mu_f1, Q=Q)
                 if isinstance(beam_currents['correlated_convolution'], subtraction.BeamCurrent) and \
                                 beam_currents['correlated_convolution']['distribution_type']=='bulk':
                     rescaling = 1./xi1
@@ -3206,7 +3236,7 @@ class ME7Integrand_R(ME7Integrand):
                         continue
                 else:
                     rescaling = 1.
-                new_necessary_ME_calls = ME7Integrand_R.update_all_necessary_ME_calls(
+                new_necessary_ME_calls = ME7Integrand_R.update_all_necessary_ME_calls_for_specific_reduced_kinematics(
                     new_necessary_ME_calls, current_evaluation,  
                     weight_type='main_weight', 
                     Bjorken_rescaling_beam_one = rescaling,
@@ -3260,7 +3290,7 @@ class ME7Integrand_R(ME7Integrand):
 
         all_necessary_ME_calls, disconnected_currents_weight = ME7Integrand_R.generate_all_necessary_ME_calls(
             non_beam_factorization_currents, ME_process, PS_point,
-            self.all_MEAccessors, self.subtraction_scheme.are_current_instances_for_specific_leg_numbers,
+            self.all_MEAccessors, self.accessor_tracks_leg_numbers,
             momenta_dict = counterterm.momenta_dict, Q=total_incoming_momentum)
 
         n_unresolved_left = self.contribution_definition.n_unresolved_particles
@@ -3270,6 +3300,14 @@ class ME7Integrand_R(ME7Integrand):
         all_events = ME7EventList()
         for reduced_kinematics_identifier, (reduced_kinematics, necessary_ME_calls) in all_necessary_ME_calls.items():
 
+            # Make sure to skip this configuration if zero because counterterm is cut, unless one must always generate
+            # an event
+            if reduced_kinematics_identifier=='IS_CUT':
+                if not always_generate_event:
+                    continue
+                else:
+                    reduced_kinematics_identifier = None
+
             this_base_weight = base_weight
 
             # Now that all currents have been evaluated using the PS points with initial-state
@@ -3278,7 +3316,6 @@ class ME7Integrand_R(ME7Integrand):
             # ME7Event as well as for calling the reduced ME.
             # First avoid possible border effects by making a copy (should be removed for performance
             # gain, after it is checked to be safe).
-            reduced_kinematics = reduced_kinematics.get_copy()
             # And now boost it back in the c.o.m frame.
             if boost_back_to_com:
                 reduced_kinematics.boost_to_com(tuple([l.get('number') for l in counterterm.process.get_initial_legs()]))
@@ -3307,7 +3344,9 @@ class ME7Integrand_R(ME7Integrand):
             # so that it is important that whatever that can be cached in these currents is cached.
             necessary_ME_calls = ME7Integrand_R.process_beam_factorization_currents(
                 necessary_ME_calls, counterterm.get_beam_currents(), self.all_MEAccessors,
+                self.accessor_tracks_leg_numbers,
                 reduced_kinematics, ME_process, xb_1, xb_2, xi1, xi2, mu_r, mu_f1, mu_f2, total_incoming_momentum)
+
             # If there is no necessary ME call left, it is likely because the xi upper bound of the
             # Bjorken x's convolution were not respected. We must now abort the event.
             if len(necessary_ME_calls) == 0:
@@ -3384,7 +3423,8 @@ class ME7Integrand_R(ME7Integrand):
                 ME_process,
                 reduced_kinematics_as_list,
                 alpha_s, mu_r,
-                self.all_MEAccessors
+                self.all_MEAccessors,
+                always_generate_event = always_generate_event
             )
             if CT_event is not None:
                 all_events.append(CT_event)
@@ -3445,11 +3485,18 @@ class ME7Integrand_R(ME7Integrand):
                 all_necessary_ME_calls = ME7Integrand_R.update_all_necessary_ME_calls(
                     all_necessary_ME_calls, current_evaluation, weight_type='main_weight')
 
+        # Check if any current produced a particular reduced kinematics.
+        # Whenever a specific reduced kinematic identifier is present, a corresponding kinematic configuration
+        # should be present, so this needs not be checked.
+        if None in all_necessary_ME_calls and all_necessary_ME_calls[None][0] is None:
+            all_necessary_ME_calls[None] = (PS_point , all_necessary_ME_calls[None][1])
+
         return all_necessary_ME_calls, disconnected_currents_weight
 
     @classmethod
     def generate_event_for_counterterm(cls, template_MEEvent, disconnected_currents_weight,
-            overall_prefactor, all_necessary_ME_calls, ME_process, ME_PS, alpha_s, mu_r, all_MEAccessors):
+            overall_prefactor, all_necessary_ME_calls, ME_process, ME_PS, alpha_s, mu_r, all_MEAccessors,
+            always_generate_event=False):
 
         # Initialize the placeholder which stores the event that we will progressively build
         # below.
@@ -3496,7 +3543,7 @@ The missing process is: %s"""%ME_process.nice_string())
             # misc.sprint(event_weight)
 
             # Skip an event with no contribution (some dipoles of the eikonal for example)
-            if event_weight.norm() == 0.:
+            if not always_generate_event and event_weight.norm() == 0.:
                 continue
 
             # Now build the event from the template provided
@@ -3598,6 +3645,7 @@ The missing process is: %s"""%ME_process.nice_string())
         # Apply the passed options
         seed = test_options['seed']
         if seed: random.seed(seed)
+
         walker_name = test_options['walker']
         walker = walkers.VirtualWalker(walker_name)
 
@@ -3659,6 +3707,11 @@ The missing process is: %s"""%ME_process.nice_string())
                 for proc in all_processes:
                     initial_final_pdgs = proc.get_cached_initial_final_pdgs()
                     all_flavor_configurations.append(initial_final_pdgs)
+
+                # Reset the seed before each process so that results from a global scan of test_IR_limits
+                # can easily be reproduced for a specific limit.
+                seed = test_options['seed']
+                if seed: random.seed(seed)
 
                 a_real_emission_PS_point = real_emission_PS_point.get_copy()
                 a_xb_1, a_xi1 = x1s
@@ -3962,8 +4015,8 @@ The missing process is: %s"""%ME_process.nice_string())
                     this_eval['ME'] += event_wgt
                 else:
                     event_str = event.counterterm_structure_short_string()
-                    if test_options['ignore_flavors']:
-                        event_str, _ = event_str.split('@')
+                    if test_options['minimal_label']:
+                        event_str = event_str.split('@')[0]
                     this_eval[event_str] = event_wgt
 
             logger.debug('For scaling variable %.3e, weight from ME = %.16e' %(
@@ -3985,7 +4038,7 @@ The missing process is: %s"""%ME_process.nice_string())
             if this_eval['ME'] != 0.:
                 test_result = total_CTs_wgt/float(this_eval['ME'])
                 printout_func('%sRatio sum(CTs)/ME: %.16e%s'%(
-                    misc.bcolors.RED if abs(test_result)-1.0 > test_options['acceptance_threshold'] else misc.bcolors.GREEN
+                    misc.bcolors.RED if abs(test_result+1.0) > test_options['acceptance_threshold'] else misc.bcolors.GREEN
                     , test_result,misc.bcolors.ENDC) )
             else:
                 if total_absCTs_wgt != 0.:
@@ -4027,10 +4080,10 @@ The missing process is: %s"""%ME_process.nice_string())
         
         import matplotlib
         # If possible use Agg as it allows display-less systems to use pyplot (i.e. work over ssh)
-        try:
-            matplotlib.use('Agg')
-        except ValueError:
-            pass
+        #try:
+        #    matplotlib.use('Agg')
+        #except ValueError:
+        #    pass
         import matplotlib.pyplot as plt
 
         plot_title = True
@@ -4130,7 +4183,10 @@ The missing process is: %s"""%ME_process.nice_string())
         found_zero_ME = False
         for line in lines:
             if any(evaluations[x]["ME"]==0. for x in x_values):
-                y_values = [abs(evaluations[x][line]/total_of_abs_values[i]) for i, x in enumerate(x_values)]
+                if any(total_of_abs_values[i]==0. for i in range(len(x_values))):
+                    y_values = [0.0 for _ in range(len(x_values))]
+                else:
+                    y_values = [abs(evaluations[x][line]/total_of_abs_values[i]) for i, x in enumerate(x_values)]
                 found_zero_ME = True
             else:
                 y_values = [abs(evaluations[x][line]/evaluations[x]["ME"]) for x in x_values]
@@ -4167,7 +4223,10 @@ The missing process is: %s"""%ME_process.nice_string())
         if plot_total and not test_failed:
             total_2_ME_ratio = total[0]
             if evaluations[x_values[0]]["ME"] == 0.:
-                total_2_ME_ratio /= total_of_abs_values[0]
+                if total_of_abs_values[0] != 0.:
+                    total_2_ME_ratio /= total_of_abs_values[0]
+                else:
+                    total_2_ME_ratio = 0.
                 foo_str = "{}: Ratio of the total to the sum of abs CT at lambda = %s is: %s.".format(string_idenfier_with_limit)
             else:
                 total_2_ME_ratio /= evaluations[x_values[0]]["ME"]

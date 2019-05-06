@@ -20,7 +20,7 @@ import madgraph.core.subtraction as sub
 import madgraph.integrator.mappings as mappings
 
 import commons.utils as utils
-AltarelliParisiKernels = utils.AltarelliParisiKernels
+from commons.altarelli_parisi import AltarelliParisiKernels
 
 import commons.QCD_local_currents as currents
 import colorful_pp_config

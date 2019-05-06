@@ -1,4 +1,5 @@
 from madgraph.core.base_objects import EpsilonExpansion
+import madgraph.various.misc as misc
 
 #=========================================================================================
 # Class listing Altarelli-Parisi Kernels

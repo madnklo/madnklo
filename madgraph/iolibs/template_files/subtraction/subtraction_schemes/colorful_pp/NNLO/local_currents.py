@@ -32,27 +32,53 @@ import madgraph.various.misc as misc
 CurrentImplementationError = utils.CurrentImplementationError
 
 #=========================================================================================
-# Static function for accessing collinear variables with s_ij invariants
+# Static function for accessing initial collinear variables with s_(a,r,s) invariants
 #=========================================================================================
-def Q_initial_coll_variables_with_ss(PS_point, parent_momentum, children, **opts):
-    na = parent_momentum
-    nb = opts['Q']
-    kin_variables = dict()
+def colorful_pp_initial_coll_variables(PS_point, parent_momentum, children, **opts):
+    """ Initial state collinear variables as specified in Gabors Colorful ISR NNLO note."""
+    
+    p_a = PS_point[children[0]]
+    p_fs = [PS_point[child] for child in children[1:]]
+    Q = opts['Q']
+    pa_dot_pb = Q.square()/2.
 
+    # Loop over all final state momenta to obtain the corresponding variables
+    xs = []
+    kTs = []
+    ss = {}
+    for i_fs in range(len(p_fs)):
+        p_r = p_fs[i_fs]
+        p_s = sum(p_fs[i_fs_prime] for i_fs_prime in range(len(p_fs)) if i_fs_prime!=i_fs)
+        xs.append(
+            (p_r.dot(Q)/pa_dot_pb) - (p_r.dot(p_s)/pa_dot_pb)*(p_a.dot(p_r)/p_a.dot(p_r+p_s))
+        )
+        kTs.append(
+            p_r - ((p_r.dot(Q)-2.*p_a.dot(p_r))/pa_dot_pb)*p_a - (p_a.dot(p_r)/pa_dot_pb)*Q
+        )
+        ss[(0,i_fs+1)] = 2.*p_a.dot(p_r)
+
+    # Finally add the x and kT corresponding to the initial state leg
+    #xs.insert(0, 1.0-sum(xs))
+    xs.insert(0, 1.0 - (((p_fs[0]+p_fs[1]).dot(Q)-p_fs[0].dot(p_fs[1]))/pa_dot_pb) )
+    kTs.insert(0, -sum(kTs))
+
+    # Alternative way of getting these variables using Simone's mappings function
+#    na = parent_momentum
+#    nb = opts['Q']
+#    kin_variables = dict()
     # The lone initial state child is always placed first thanks to the implementation
     # of the function get_sorted_children() in the current.
-    mappings.InitialCollinearVariables.get(
-        PS_point, children[1:], children[0], na, nb, kin_variables)
-    zs = tuple(kin_variables['z%d' % i] for i in children)
-    kTs = tuple(kin_variables['kt%d' % i] for i in children)
-    # This is suited for massless particles. I prefer to use explicitly the squares
-    # as it would be numerically less stable
-    ss = (
-        2.0*PS_point[children[0]].dot(PS_point[children[1]]),
-        2.0*PS_point[children[0]].dot(PS_point[children[2]]),
-        2.0*PS_point[children[1]].dot(PS_point[children[2]]),
-    )
-    return zs, kTs, ss
+#    mappings.InitialCollinearVariables.get(
+#        PS_point, children[1:], children[0], na, nb, kin_variables)
+#    xs = tuple(kin_variables['z%d' % i] for i in children)
+#    kTs = tuple(kin_variables['kt%d' % i] for i in children)
+
+    # Add additional ss's
+    for i_fs in range(len(p_fs)):
+        for j_fs in range(i_fs+1,len(p_fs)):
+            ss[(i_fs+1,j_fs+1)] = 2.*p_fs[i_fs].dot(p_fs[j_fs])
+
+    return tuple(xs), tuple(kTs), ss
 
 #=========================================================================================
 # NLO initial-collinear currents
@@ -68,7 +94,7 @@ class QCD_initial_collinear_0_XXX(currents.QCDLocalCollinearCurrent):
     factor = staticmethod(colorful_pp_config.factor_initial_coll)
     get_recoilers = staticmethod(colorful_pp_config.get_recoilers)
     mapping = colorful_pp_config.initial_coll_mapping
-    variables = staticmethod(Q_initial_coll_variables_with_ss)
+    variables = staticmethod(colorful_pp_initial_coll_variables)
     divide_by_jacobian = colorful_pp_config.divide_by_jacobian
 
 class QCD_initial_collinear_0_qqpqp(QCD_initial_collinear_0_XXX):
@@ -87,8 +113,8 @@ class QCD_initial_collinear_0_qqpqp(QCD_initial_collinear_0_XXX):
 
         # Retrieve the collinear variable x
         x_a, x_r, x_s = xs
-        s_ar, s_as, s_rs = ss
         kT_a, kT_r, kT_s = kTs
+        s_ar, s_as, s_rs = ss[(0,1)], ss[(0,2)], ss[(1,2)]
 
         # The factor 'x' that should be part of the initial_state_crossing_factor cancels
         # against the extra prefactor 1/x in the collinear factorization formula
@@ -101,11 +127,11 @@ class QCD_initial_collinear_0_qqpqp(QCD_initial_collinear_0_XXX):
         for spin_correlation_vector, weight in AltarelliParisiKernels.P_qqpqp(self,
                 1./x_a, -x_r/x_a, -x_s/x_a, s_ar, s_as, s_rs, kT_a, kT_r, kT_s
             ):
-            complete_weight = (weight*initial_state_crossing_factor).to_human_readable_dict()
+            complete_weight = weight*initial_state_crossing_factor
             if spin_correlation_vector is None:
-                evaluation['values'][(0, 0, 0)] = complete_weight
+                evaluation['values'][(0, 0, 0)] = {'finite': complete_weight[0]}
             else:
                 evaluation['spin_correlations'].append((parent, spin_correlation_vector))
-                evaluation['values'][(len(evaluation['spin_correlations'])-1, 0, 0)] = complete_weight
+                evaluation['values'][(len(evaluation['spin_correlations'])-1, 0, 0)] = {'finite': complete_weight[0]}
 
         return evaluation

@@ -2002,7 +2002,6 @@ class SoftVsFinalPureRescalingMapping(ElementaryMappingSoft):
     @staticmethod
     def y(pS, Q):
         """Return the parameter y of the SoftVsFinal mapping."""
-
         pR = Q - pS
         pR2_Q2 = pR.square() / Q.square()
         return 1. - pR2_Q2

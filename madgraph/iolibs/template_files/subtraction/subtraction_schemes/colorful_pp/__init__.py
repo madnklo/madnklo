@@ -122,8 +122,10 @@ def load():
 
     # For now we are only trying an elementary IFF q > q q' q' collinear
     all_subtraction_current_classes.extend([
-        # Initial-final-final-collinears
+        # Initial collinears
         NNLO_local_currents.QCD_initial_collinear_0_qqpqp,
+        # Final collinears
+        NNLO_local_currents.QCD_final_collinear_0_qqpqp
     ])
 
     # Finally register the subtraction current classes loaded

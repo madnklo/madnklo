@@ -549,7 +549,11 @@ class QCDLocalCollinearCurrent(QCDLocalCurrent):
         # Retrieve kinematics
         # The Q variable of the mapping cannot be relied upon
         #Q = mapping_vars['Q']
-        pC = sum(higher_PS_point[child] for child in children)
+        if self.has_initial_state:
+            pC = higher_PS_point[children[0]]-sum(higher_PS_point[child] for child in children[1:])
+        else:
+            pC = sum(higher_PS_point[child] for child in children)
+
         qC = lower_PS_point[parent]
         jacobian = mapping_vars.get('jacobian', 1)
         reduced_kinematics = (None, lower_PS_point)

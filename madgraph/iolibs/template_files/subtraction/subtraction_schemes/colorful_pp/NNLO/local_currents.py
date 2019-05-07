@@ -31,9 +31,10 @@ import madgraph.various.misc as misc
 
 CurrentImplementationError = utils.CurrentImplementationError
 
-#=========================================================================================
-# Static function for accessing initial collinear variables with s_(a,r,s) invariants
-#=========================================================================================
+#=================================================================================================
+# Variable functions for accessing initial and final collinear variables with s_(a,r,s) invariants
+#=================================================================================================
+
 def colorful_pp_initial_coll_variables(PS_point, parent_momentum, children, **opts):
     """ Initial state collinear variables as specified in Gabors Colorful ISR NNLO note."""
     
@@ -80,6 +81,26 @@ def colorful_pp_initial_coll_variables(PS_point, parent_momentum, children, **op
 
     return tuple(xs), tuple(kTs), ss
 
+def colorful_pp_final_coll_variables(PS_point, parent_momentum, children, **opts):
+    """ For now this is identical as Q_final_coll_variables"""
+
+    na = parent_momentum
+    nb = opts['Q']
+    kin_variables = dict()
+    mappings.FinalCollinearVariables.get(
+        PS_point, children, na, nb, kin_variables)
+    zs  = tuple(kin_variables['z%d'  % i] for i in children)
+    kTs = tuple(kin_variables['kt%d' % i] for i in children)
+
+    p_fs = [PS_point[child] for child in children]
+    ss = {}
+    # Add additional ss's
+    for i_fs in range(len(p_fs)):
+        for j_fs in range(i_fs+1,len(p_fs)):
+            ss[(i_fs+1,j_fs+1)] = 2.*p_fs[i_fs].dot(p_fs[j_fs])
+
+    return zs, kTs, ss
+
 #=========================================================================================
 # NLO initial-collinear currents
 #=========================================================================================
@@ -119,15 +140,63 @@ class QCD_initial_collinear_0_qqpqp(QCD_initial_collinear_0_XXX):
         # The factor 'x' that should be part of the initial_state_crossing_factor cancels
         # against the extra prefactor 1/x in the collinear factorization formula
         # (see Eq. (8) of NNLO compatible NLO scheme publication arXiv:0903.1218v2)
-        initial_state_crossing_factor = -1.
+        initial_state_crossing_factor = 1.
         # Correct for the ratio of color-averaging factor between the real ME
         # initial state flavor (quark) and the one of the reduced Born ME (quark)
         initial_state_crossing_factor *= 1.
 
         for spin_correlation_vector, weight in AltarelliParisiKernels.P_qqpqp(self,
-                1./x_a, -x_r/x_a, -x_s/x_a, s_ar, s_as, s_rs, kT_a, kT_r, kT_s
+                1./x_a, -x_r/x_a, -x_s/x_a, -s_ar, -s_as, s_rs, kT_a, kT_r, kT_s
             ):
             complete_weight = weight*initial_state_crossing_factor
+            if spin_correlation_vector is None:
+                evaluation['values'][(0, 0, 0)] = {'finite': complete_weight[0]}
+            else:
+                evaluation['spin_correlations'].append((parent, spin_correlation_vector))
+                evaluation['values'][(len(evaluation['spin_correlations'])-1, 0, 0)] = {'finite': complete_weight[0]}
+
+        return evaluation
+
+#=========================================================================================
+# NLO final-collinear currents
+#=========================================================================================
+
+class QCD_final_collinear_0_XXX(currents.QCDLocalCollinearCurrent):
+    """Triple collinear initial-final-final tree-level current."""
+
+    squared_orders = {'QCD': 4}
+    n_loops = 0
+
+    is_cut = staticmethod(colorful_pp_config.cut_final_coll)
+    factor = staticmethod(colorful_pp_config.factor_final_coll)
+    get_recoilers = staticmethod(colorful_pp_config.get_recoilers)
+    mapping = colorful_pp_config.final_coll_mapping
+    variables = staticmethod(colorful_pp_final_coll_variables)
+    divide_by_jacobian = colorful_pp_config.divide_by_jacobian
+
+class QCD_final_collinear_0_qqpqp(QCD_final_collinear_0_XXX):
+    """qg collinear FSR tree-level current. q(final) > q(final) q'(final) qbar' (final) """
+
+    # Make sure to have the initial particle with the lowest index
+    structure = [
+        sub.SingularStructure(sub.CollStructure(
+            sub.SubtractionLeg(0, +1, sub.SubtractionLeg.FINAL),
+            sub.SubtractionLeg(1, +2, sub.SubtractionLeg.FINAL),
+            sub.SubtractionLeg(2, -2, sub.SubtractionLeg.FINAL),
+        )),
+    ]
+
+    def kernel(self, evaluation, parent, zs, kTs, ss):
+
+        # Retrieve the collinear variable x
+        z_i, z_r, z_s = zs
+        kT_i, kT_r, kT_s = kTs
+        s_ir, s_is, s_rs = ss[(1,2)], ss[(1,3)], ss[(2,3)]
+
+        for spin_correlation_vector, weight in AltarelliParisiKernels.P_qqpqp(self,
+                z_i, z_r, z_s, s_ir, s_is, s_rs, kT_i, kT_r, kT_s
+            ):
+            complete_weight = weight
             if spin_correlation_vector is None:
                 evaluation['values'][(0, 0, 0)] = {'finite': complete_weight[0]}
             else:

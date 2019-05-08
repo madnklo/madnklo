@@ -30,7 +30,6 @@ CurrentImplementationError = utils.CurrentImplementationError
 #=========================================================================================
 # NLO soft current
 #=========================================================================================
-
 class QCD_soft_0_g(currents.QCDLocalCurrent):
     """Soft gluon eikonal current at tree level, eq.4.12-4.13 of arXiv:0903.1218.
     This is modified with respect to the above reference because we replace all the two legs of the dipole of each
@@ -604,13 +603,14 @@ class QCD_initial_softcollinear_0_Xg(currents.QCDLocalCurrent):
         # Include the counterterm only in a part of the phase space
         children = tuple(self.leg_numbers_map[i]
                          for i in sorted(self.leg_numbers_map.keys()))
-        pC = higher_PS_point[children[0]]
+        pC_child = higher_PS_point[children[0]]
         pS = higher_PS_point[children[1]]
-        pC = pC + pS
         parent = momenta_dict.inv[frozenset(children)]
-        if self.is_cut(Q=Q, pC=pC, pS=pS):
+        if self.is_cut(Q=Q, pC=pC_child, pS=pS):
             return utils.SubtractionCurrentResult.zero(
                 current=current, hel_config=hel_config, reduced_kinematics=('IS_CUT',lower_PS_point))
+        pC_mother = pC_child - pS
+        pC_tilde = lower_PS_point[parent]
 
         # Now instantiate what the result will be
         evaluation = utils.SubtractionCurrentEvaluation({
@@ -621,7 +621,7 @@ class QCD_initial_softcollinear_0_Xg(currents.QCDLocalCurrent):
         })
 
         # Evaluate kernel
-        xs, kTs = self.variables(higher_PS_point, lower_PS_point[parent], children, Q=Q)
+        xs, kTs = self.variables(higher_PS_point, pC_tilde, children, Q=Q)
         x = xs[0]
         # See Eq. (4.17) of NNLO compatible NLO scheme publication arXiv:0903.1218v2
 
@@ -632,9 +632,8 @@ class QCD_initial_softcollinear_0_Xg(currents.QCDLocalCurrent):
         evaluation['values'][(0, 0,0)]['finite'] = self.color_charge * ( 2. / (1. - x) )
 
         # Add the normalization factors
-        s12 = pC.square()
-        norm = 8. * math.pi * alpha_s / s12
-        norm *= self.factor(Q=Q, pC=pC, pS=pS)
+        norm = 8. * math.pi * alpha_s / (pC_tilde+pS).square()
+        norm *= self.factor(Q=Q, pC=pC_mother, pS=pS)
         for k in evaluation['values']:
             evaluation['values'][k]['finite'] *= norm
 

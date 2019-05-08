@@ -93,6 +93,7 @@ def load():
         colorful_NLO_local_currents.QCD_final_collinear_0_gq,
         colorful_NLO_local_currents.QCD_final_collinear_0_gg,
     ]
+
     # We must modify the mapping employed by the colorful final collinear CT which is 'FinalRescalingOneMapping'
     # in colorful and must now be colorful_pp_config.final_coll_mapping (which is 'mappings.FinalLorentzOneMapping')
     # Also we must then allow massive recoilers, as their mass can be kept intact then.
@@ -125,7 +126,11 @@ def load():
         # Initial collinears
         NNLO_local_currents.QCD_initial_collinear_0_qqpqp,
         # Final collinears
-        NNLO_local_currents.QCD_final_collinear_0_qqpqp
+        NNLO_local_currents.QCD_final_collinear_0_qqpqp,
+        # Softs
+        NNLO_local_currents.QCD_soft_0_qqp,
+        # Initial soft-collinears
+        NNLO_local_currents.QCD_initial_soft_collinear_0_qqpqp
     ])
 
     # Finally register the subtraction current classes loaded

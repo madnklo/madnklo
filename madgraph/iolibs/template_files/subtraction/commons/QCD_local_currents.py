@@ -286,6 +286,8 @@ class QCDLocalCurrent(QCDCurrent):
                 continue
             if leg_numbers_map is None:
                 continue
+            else:
+                break
 
         if leg_numbers_map is None:
             return None

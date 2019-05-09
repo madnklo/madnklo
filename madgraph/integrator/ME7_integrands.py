@@ -1338,7 +1338,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
                 self.pass_flavor_sensitive_cuts(PS_point, flavors, 
                     xb_1 = xb_1, xb_2 = xb_2 )
 
-    def pass_flavor_blind_cuts(self, PS_point, process_pdgs, 
+    def pass_flavor_blind_cuts(self, PS_point, process_pdgs,
                           n_jets_allowed_to_be_clustered = None, xb_1 = None, xb_2 = None):
         """ Implementation of a minimal set of isolation cuts. This can be made much nicer in the future and 
         will probably be taken outside of this class so as to ease user-specific cuts, fastjet, etc...
@@ -1357,13 +1357,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # return True
 
         from madgraph.integrator.vectors import LorentzVectorDict, LorentzVectorList, LorentzVector
-        
-        # If the cuts depend on the boost to the lab frame in case of hadronic collision
-        # then the quantity below can be used:
-#        boost_vector_to_lab_frame = None
-#        if (xb_1 is not None) and (xb_2 is not None) and (xb_1, xb_2)!=(1.,1.):
-#            boost_vector_to_lab_frame = PS_point.get_boost_vector_to_lab_frame(xb_1, xb_2)
-        
+
         # These cuts are not allowed to resolve flavour, but only whether a particle is a jet or not
         def is_a_jet(pdg):
             return abs(pdg) in range(1,self.run_card['maxjetflavor']+1)+[21]
@@ -1388,7 +1382,17 @@ class ME7Integrand(integrands.VirtualIntegrand):
         if isinstance(PS_point, LorentzVectorDict):
             PS_point = PS_point.to_list()
         elif not isinstance(PS_point, LorentzVectorList):
-            PS_point = LorentzVectorList(LorentzVector(v) for v in PS_point)    
+            PS_point = LorentzVectorList(LorentzVector(v) for v in PS_point)
+
+        # If the cuts depend on the boost to the lab frame in case of hadronic collision
+        # then the boost below can be used. Notice that the jet cuts is typically formulated in terms of
+        # *pseudo* rapidities and not rapidities, so that when jets are clustered into a massive combined
+        # momentum, this makes it important to boost to the lab frame. We therefore turn on this boost here
+        # by default.
+        if (xb_1 is not None) and (xb_2 is not None) and (xb_1, xb_2) != (1., 1.):
+            # Prevent border effects
+            PS_point = PS_point.get_copy()
+            PS_point.boost_from_com_to_lab_frame(xb_1, xb_2, self.run_card['ebeam1'], self.run_card['ebeam2'])
 
         for i, p in enumerate(PS_point[self.n_initial:]):
             if is_a_photon(process_pdgs[1][i]):
@@ -1568,12 +1572,6 @@ class ME7Integrand(integrands.VirtualIntegrand):
         elif self.flavor_cut_function.lower() != 'hardcoded':
             raise MadEvent7Error("Flavor cut function '%s' not reckognized."%self.flavor_cut_function)
 
-        # If the cuts depend on the boost to the lab frame in case of hadronic collision
-        # then the quantity below can be used:
-#        boost_vector_to_lab_frame = None
-#        if (xb_1 is not None) and (xb_2 is not None) and (xb_1, xb_2)!=(1.,1.):
-#            boost_vector_to_lab_frame = PS_point.get_boost_vector_to_lab_frame(xb_1, xb_2)
-
         debug_cuts = False
         from madgraph.integrator.vectors import LorentzVectorDict, LorentzVectorList, LorentzVector
 
@@ -1582,7 +1580,17 @@ class ME7Integrand(integrands.VirtualIntegrand):
         if isinstance(PS_point, LorentzVectorDict):
             PS_point = PS_point.to_list()
         elif not isinstance(PS_point, LorentzVectorList):
-            PS_point = LorentzVectorList(LorentzVector(v) for v in PS_point)   
+            PS_point = LorentzVectorList(LorentzVector(v) for v in PS_point)
+
+        # If the cuts depend on the boost to the lab frame in case of hadronic collision
+        # then the boost below can be used. Notice that the jet cuts is typically formulated in terms of
+        # *pseudo* rapidities and not rapidities, so that when jets are clustered into a massive combined
+        # momentum, this makes it important to boost to the lab frame. We therefore turn on this boost here
+        # by default.
+        if (xb_1 is not None) and (xb_2 is not None) and (xb_1, xb_2) != (1., 1.):
+            # Prevent border effects
+            PS_point = PS_point.get_copy()
+            PS_point.boost_from_com_to_lab_frame(xb_1, xb_2, self.run_card['ebeam1'], self.run_card['ebeam2'])
 
         if debug_cuts: logger.debug( "Processing flavor-sensitive cuts for flavors %s and PS point:\n%s"%(
             str(flavors), LorentzVectorList(PS_point).__str__(n_initial=self.phase_space_generator.n_initial) ))
@@ -2130,11 +2138,11 @@ class ME7Integrand_V(ME7Integrand):
         is_reduced_process_mirrored = counterterm.process.get('has_mirror_process')
 
         # Typical debug lines below
-        # misc.sprint(counterterm)
-        # misc.sprint(beam_convolution_masks)
-        # misc.sprint(resolved_flavors)
-        # misc.sprint(reduced_flavors)
-        # misc.sprint(reduced_flavors_with_resolved_initial_states)
+        misc.sprint(counterterm)
+        misc.sprint(beam_convolution_masks)
+        misc.sprint(resolved_flavors)
+        misc.sprint(reduced_flavors)
+        misc.sprint(reduced_flavors_with_resolved_initial_states)
         # import pdb
         # pdb.set_trace()
 
@@ -2341,6 +2349,11 @@ class ME7Integrand_V(ME7Integrand):
                     " following integrated counterterm event. This should never happen.\n%s" % str(integrated_CT_event))
 
             all_events.append(integrated_CT_event)
+
+        if len(all_events)==0:
+            misc.sprint('RETURNING NO EVENTS!%s'%('=='*40))
+        else:
+            misc.sprint('RETURNING EVENTS!'%len(all_events))
 
         return all_events
         
@@ -3191,6 +3204,7 @@ class ME7Integrand_R(ME7Integrand):
                         continue
                 else:
                     rescaling = 1.
+                misc.sprint('ONE',beam_currents['beam_one'],xi1,xb_1,allowed_backward_evolved_flavors1)
                 current_evaluation, all_current_results = all_MEAccessors(beam_currents['beam_one'],
                     track_leg_numbers=track_leg_numbers, lower_PS_point=PS_point, reduced_process=process, xi=xi1,
                     mu_r=mu_r, mu_f=mu_f1, Q=Q, allowed_backward_evolved_flavors = allowed_backward_evolved_flavors1)
@@ -3208,6 +3222,7 @@ class ME7Integrand_R(ME7Integrand):
                         continue
                 else:
                     rescaling = 1.
+                misc.sprint('TWO',beam_currents['beam_two'],xi2,xb_2,allowed_backward_evolved_flavors1)
                 current_evaluation, all_current_results = all_MEAccessors(beam_currents['beam_two'],
                     track_leg_numbers=track_leg_numbers, lower_PS_point=PS_point, reduced_process=process, xi=xi2,
                     mu_r=mu_r, mu_f=mu_f2, Q=Q, allowed_backward_evolved_flavors = allowed_backward_evolved_flavors2)
@@ -3834,7 +3849,7 @@ The missing process is: %s"""%ME_process.nice_string())
         # Also scale the xi initial-state convolution parameters if the limit
         # specifies a beam factorization structure for that initial state:
         beam_factorization_legs = limit.get_beam_factorization_legs()
-        
+
         # Notice that if we wanted a particular overall scaling of the counterterms,
         # we would need to correctly adjust the power of the multiplying scaling parameter.
         if 1 in beam_factorization_legs:
@@ -4019,8 +4034,7 @@ The missing process is: %s"""%ME_process.nice_string())
                         event_str = event_str.split('@')[0]
                     this_eval[event_str] = event_wgt
 
-            logger.debug('For scaling variable %.3e, weight from ME = %.16e' %(
-                                                        scaling_parameter, this_eval['ME'] ))
+            logger.debug('For scaling variable %.3e, weight from ME = %.16e' %( scaling_parameter, this_eval['ME'] ))
             total_CTs_wgt = 0.0
             total_absCTs_wgt = 0.0            
             for CT_str, CT_weight in this_eval.items():
@@ -4048,7 +4062,7 @@ The missing process is: %s"""%ME_process.nice_string())
                         , test_result, misc.bcolors.ENDC))
                 else:
                     test_result = total_CTs_wgt
-                    printout_func('Ratio sum(CTs): %s%.16e%s'%(
+                    printout_func('sum(CTs): %s%.16e%s'%(
                         misc.bcolors.RED if abs(test_result) > test_options['acceptance_threshold'] else misc.bcolors.GREEN
                         , test_result, misc.bcolors.ENDC))
             limit_evaluations[scaling_parameter] = this_eval

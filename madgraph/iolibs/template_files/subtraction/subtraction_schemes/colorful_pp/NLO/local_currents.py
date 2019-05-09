@@ -28,6 +28,46 @@ import madgraph.various.misc as misc
 CurrentImplementationError = utils.CurrentImplementationError
 
 #=========================================================================================
+# Final collinear variables rendering the integrated counterterm mapping independent,
+# so that we can use the original integrated CTs that had rescaling mappings from Gabor
+#=========================================================================================
+def Q_final_coll_mapping_independent_variables(higher_PS_point, pijtilde, children, **opts):
+    """A definition of z such that we can use the same integrated counterterm for any mapping.
+    The notation used here is aligned with ND's handwritten note from 21.03.2019.
+    This is the first option where the variable v is defined as the energy fraction with respect to the rescaling
+    mapping collinear direction.
+    """
+    pij = sum(higher_PS_point[child] for child in children)
+    pi = higher_PS_point[children[0]]
+    Q = opts['Q']
+    Q2 = Q.square()
+    #pijtilde = lower_PS_point[parent]
+    yij = pij.square()/Q2
+    yijQ = 2.*pij.dot(Q)/Q2
+    yijtildeQ = 2.*pijtilde.dot(Q)/Q2
+
+    # Defining the reference vector to have a light-cone energy fraction v
+    # ------------
+    # Alpha defined from the higher-multiplicity phase space point (0903.1218/eq5.6)
+    # This is equal to alpha only in the case of the rescaling mapping
+    alphaR = 0.5*(yijQ - math.sqrt(yijQ**2-4.*yij))
+    # We then define the collinear direction *in the rescaling mapping*
+    pijtildeR = 1./(1.-alphaR)*(pij-alphaR*Q)
+    yijtildeQR = 2.*pijtildeR.dot(Q) / Q2
+    # The anti-collinear direction is then
+    nbar =  (2./yijtildeQR)*Q-(2./yijtildeQR**2)*pijtildeR
+    v = pi.dot(nbar) / pij.dot(nbar)
+
+    # Now we write our integral in terms of the parameters that describe
+    # the factorized phase space in the current mapping
+    alpha = 0.5*(math.sqrt(4.*yij + yijtildeQ**2 - 4. * yij * yijtildeQ)-yijtildeQ)/(1-yijtildeQ)
+    z = ((1-alpha)*yijtildeQ*v+alpha)/((1-alpha)*yijtildeQ+2.*alpha)
+
+    foo, kTs = currents.Q_final_coll_variables(higher_PS_point, pij, children, Q=Q)
+    return [z,1-z], kTs
+
+
+#=========================================================================================
 # NLO soft current
 #=========================================================================================
 class QCD_soft_0_g(currents.QCDLocalCurrent):
@@ -36,8 +76,8 @@ class QCD_soft_0_g(currents.QCDLocalCurrent):
     eikonal by their mapped version.
     """
 
-    is_cut = staticmethod(colorful_pp_config.cut_soft)
-    factor = staticmethod(colorful_pp_config.factor_soft)
+    is_cut = staticmethod(colorful_pp_config.soft_cut)
+    factor = staticmethod(colorful_pp_config.soft_factor)
     get_recoilers = staticmethod(colorful_pp_config.get_recoilers)
 
     squared_orders = {'QCD': 2}
@@ -175,8 +215,8 @@ class QCD_soft_0_g(currents.QCDLocalCurrent):
 class QCD_final_softcollinear_0_gX(currents.QCDLocalCurrent):
     """NLO tree-level (final) soft-collinear currents. The momenta used in this current are the mapped momenta from the soft mapping."""
 
-    is_cut = staticmethod(colorful_pp_config.cut_soft)
-    factor = staticmethod(colorful_pp_config.factor_soft)
+    is_cut = staticmethod(colorful_pp_config.soft_cut)
+    factor = staticmethod(colorful_pp_config.soft_factor)
     get_recoilers = staticmethod(colorful_pp_config.get_recoilers)
     variables = staticmethod(colorful_pp_config.final_soft_coll_variables)
 
@@ -194,7 +234,7 @@ class QCD_final_softcollinear_0_gX(currents.QCDLocalCurrent):
     structure_q = sub.SingularStructure(substructures=(soft_coll_structure_q, ))
     structure_g = sub.SingularStructure(substructures=(soft_coll_structure_g, ))
 
-    mapping = colorful_pp_config.final_soft_collinear_mapping
+    mapping = colorful_pp_config.final_soft_coll_mapping
     divide_by_jacobian = colorful_pp_config.divide_by_jacobian
 
     def __init__(self, *args, **opts):
@@ -329,8 +369,8 @@ class QCD_initial_collinear_0_XX(currents.QCDLocalCollinearCurrent):
     squared_orders = {'QCD': 2}
     n_loops = 0
 
-    is_cut = staticmethod(colorful_pp_config.cut_initial_coll)
-    factor = staticmethod(colorful_pp_config.factor_initial_coll)
+    is_cut = staticmethod(colorful_pp_config.initial_coll_cut)
+    factor = staticmethod(colorful_pp_config.initial_coll_factor)
     get_recoilers = staticmethod(colorful_pp_config.get_recoilers)
     mapping = colorful_pp_config.initial_coll_mapping
     variables = staticmethod(colorful_pp_config.initial_coll_variables)
@@ -356,7 +396,7 @@ class QCD_initial_collinear_0_qg(QCD_initial_collinear_0_XX):
         # The factor 'x' that should be part of the initial_state_crossing_factor cancels
         # against the extra prefactor 1/x in the collinear factorization formula
         # (see Eq. (8) of NNLO compatible NLO scheme publication arXiv:0903.1218v2)
-        initial_state_crossing_factor = -1.
+        initial_state_crossing_factor = 1.
         # Correct for the ratio of color-averaging factor between the real ME
         # initial state flavor (quark) and the one of the reduced Born ME (quark)
         initial_state_crossing_factor *= 1.
@@ -394,7 +434,7 @@ class QCD_initial_collinear_0_gq(QCD_initial_collinear_0_XX):
         # The factor 'x' that should be part of the initial_state_crossing_factor cancels
         # against the extra prefactor 1/x in the collinear factorization formula
         # (see Eq. (8) of NNLO compatible NLO scheme publication arXiv:0903.1218v2)
-        initial_state_crossing_factor = 1.
+        initial_state_crossing_factor = -1.
         # Correct for the ratio of color-averaging factor between the real ME
         # initial state flavor (quark) and the one of the reduced Born ME (gluon)
         initial_state_crossing_factor *= (self.NC**2-1)/float(self.NC)
@@ -440,7 +480,7 @@ class QCD_initial_collinear_0_qq(QCD_initial_collinear_0_XX):
         # The factor 'x' that should be part of the initial_state_crossing_factor cancels
         # against the extra prefactor 1/x in the collinear factorization formula
         # (see Eq. (8) of NNLO compatible NLO scheme publication arXiv:0903.1218v2)
-        initial_state_crossing_factor = 1.
+        initial_state_crossing_factor = -1.
         # Correct for the ratio of color-averaging factor between the real ME
         # initial state flavor (gluon) and the one of the reduced Born ME (quark)
         initial_state_crossing_factor *= (self.NC/float(self.NC**2-1))
@@ -474,7 +514,7 @@ class QCD_initial_collinear_0_gg(QCD_initial_collinear_0_XX):
         # The factor 'x' that should be part of the initial_state_crossing_factor cancels
         # against the extra prefactor 1/x in the collinear factorization formula
         # (see Eq. (8) of NNLO compatible NLO scheme publication arXiv:0903.1218v2)
-        initial_state_crossing_factor = -1.
+        initial_state_crossing_factor = 1.
         # Correct for the ratio of color-averaging factor between the real ME
         # initial state flavor (gluon) and the one of the reduced Born ME (gluon)
         initial_state_crossing_factor *= 1.
@@ -502,8 +542,8 @@ class QCD_initial_collinear_0_gg(QCD_initial_collinear_0_XX):
 class QCD_initial_softcollinear_0_Xg(currents.QCDLocalCurrent):
     """NLO tree-level (initial) soft-collinear currents."""
 
-    is_cut = staticmethod(colorful_pp_config.cut_soft)
-    factor = staticmethod(colorful_pp_config.factor_soft)
+    is_cut = staticmethod(colorful_pp_config.soft_cut)
+    factor = staticmethod(colorful_pp_config.soft_factor)
     get_recoilers = staticmethod(colorful_pp_config.get_recoilers)
 
     squared_orders = {'QCD': 2}
@@ -520,7 +560,7 @@ class QCD_initial_softcollinear_0_Xg(currents.QCDLocalCurrent):
     structure_q = sub.SingularStructure(substructures=(soft_coll_structure_q,))
     structure_g = sub.SingularStructure(substructures=(soft_coll_structure_g,))
 
-    mapping = colorful_pp_config.initial_soft_collinear_mapping
+    mapping = colorful_pp_config.initial_soft_coll_mapping
     divide_by_jacobian = colorful_pp_config.divide_by_jacobian
 
     variables = staticmethod(colorful_pp_config.initial_coll_variables)
@@ -632,7 +672,8 @@ class QCD_initial_softcollinear_0_Xg(currents.QCDLocalCurrent):
         evaluation['values'][(0, 0,0)]['finite'] = self.color_charge * ( 2. / (1. - x) )
 
         # Add the normalization factors
-        norm = 8. * math.pi * alpha_s / (pC_tilde+pS).square()
+        # Note: normalising with (pC_tilde+pS).square() will *not* work!
+        norm = 8. * math.pi * alpha_s / (pC_child+pS).square()
         norm *= self.factor(Q=Q, pC=pC_mother, pS=pS)
         for k in evaluation['values']:
             evaluation['values'][k]['finite'] *= norm

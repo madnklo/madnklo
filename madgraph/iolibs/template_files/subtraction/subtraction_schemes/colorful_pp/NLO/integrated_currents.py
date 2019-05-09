@@ -25,12 +25,29 @@ import madgraph.various.misc as misc
 
 import commons.utils as utils
 import commons.QCD_local_currents as currents
+import commons.factors_and_cuts as factors_and_cuts
 
 from integrated_current_expressions import HE
 
 pjoin = os.path.join
 
 CurrentImplementationError = utils.CurrentImplementationError
+
+def dynamic_alpha_virtuality_upper_bound(parent_momentum, Q, *args, **opts):
+    """ Dynamic computation of the virtuality bound for the integrated counterterms orignally computed by
+    Gabor for the rescaling mapping to now become mapping independent. """
+
+    Q_square = Q.square()
+    yijtildeQ = 2 * parent_momentum.dot(Q) / Q_square
+
+    # Construct the maximal invariant mass of the pair (y = s/Q2)
+    # Specify an upper bound for this quantity to avoid numerical instability in the evaluation of the square root below.
+    if abs(1. - yijtildeQ) < 1e-6:
+        yijtildeQ = 0.99999
+    ymax = (1. - math.sqrt(1. - yijtildeQ)) ** 2
+    alpha_0 = (yijtildeQ - math.sqrt(4 * ymax - 4 * ymax * yijtildeQ + yijtildeQ**2)) / (2. * (-1. + yijtildeQ))
+    assert alpha_0 < 1. and alpha_0 > 0.
+    return min(alpha_0, factors_and_cuts.alpha_0)
 
 # Mother function grouping functionalities common to all integrated FF NLO QCD currents
 class integrated_NLO_FF_QCD_current(utils.IntegratedCurrent, currents.QCDCurrent):

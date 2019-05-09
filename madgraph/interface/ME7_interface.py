@@ -54,6 +54,9 @@ pjoin = os.path.join
 logger = logging.getLogger('madevent7') # -> stdout
 logger_stderr = logging.getLogger('madevent7.stderr') # ->stderr
 
+# mute matplotlib debug messages
+mpl_logger = logging.getLogger('matplotlib')
+mpl_logger.setLevel(logging.WARNING)
 
 import madgraph.core.base_objects as base_objects
 import madgraph.interface.extended_cmd as cmd

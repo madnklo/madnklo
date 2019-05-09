@@ -35,27 +35,29 @@ divide_by_jacobian = True
 
 get_recoilers = get_all_final_recoilers
 
-# Initial-collinear configuration
+# Initial collinear configuration
 initial_coll_variables = currents.Q_initial_coll_variables
-factor_initial_coll = factors_and_cuts.factor_coll
-cut_initial_coll = factors_and_cuts.cut_initial_coll
+initial_coll_factor = factors_and_cuts.no_factor
+initial_coll_cut = factors_and_cuts.cut_initial_coll
 initial_coll_mapping = mappings.InitialLorentzOneMapping
 
 # Soft configuration
-factor_soft = factors_and_cuts.no_factor
-cut_soft = factors_and_cuts.no_cut
+soft_factor = factors_and_cuts.no_factor
+soft_cut = factors_and_cuts.no_cut
 soft_mapping = mappings.SoftVsInitialMapping
 
-# Final-collinear configuration
-final_soft_coll_variables = currents.compute_energy_fractions
-# WARNING: This is *not* the same final-collinear mapping as in colorful where one has 'FinalRescalingOneMapping' instead
+# Final collinear configuration
+# WARNING: This is *not* the same final-collinear mapping as in colorful, where one has 'FinalRescalingOneMapping' instead.
 # The __init__.py of colorful_pp will make sure to overwrite this mapping choice for the final collinear imported from
-# coloful.
+# coloful. Notice then that the final_coll quantity specified here apply only then to the *NNLO* final collinear.
+# For the NLO ones, as explained above, these properties will be overwritten appropriately irrespectively of what is below.
 final_coll_mapping = mappings.FinalLorentzOneMapping
-factor_final_coll = factors_and_cuts.no_factor
-cut_final_coll = factors_and_cuts.cut_coll
+final_coll_factor = factors_and_cuts.no_factor
+final_coll_cut = factors_and_cuts.cut_coll
 
-final_soft_collinear_mapping = mappings.SoftCollinearVsFinalMapping(
+# Final soft-collinear configuration
+final_soft_coll_variables = currents.compute_energy_fractions
+final_soft_coll_mapping = mappings.SoftCollinearVsFinalMapping(
     soft_mapping=soft_mapping, collinear_mapping=final_coll_mapping)
-initial_soft_collinear_mapping = mappings.SoftCollinearVsFinalMapping(
+initial_soft_coll_mapping = mappings.SoftCollinearVsFinalMapping(
     soft_mapping=soft_mapping, collinear_mapping=initial_coll_mapping)

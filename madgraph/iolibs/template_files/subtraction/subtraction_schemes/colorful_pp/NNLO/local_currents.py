@@ -155,8 +155,8 @@ class QCD_initial_collinear_0_XXX(currents.QCDLocalCollinearCurrent):
     squared_orders = {'QCD': 4}
     n_loops = 0
 
-    is_cut = staticmethod(colorful_pp_config.cut_initial_coll)
-    factor = staticmethod(colorful_pp_config.factor_initial_coll)
+    is_cut = staticmethod(colorful_pp_config.initial_coll_cut)
+    factor = staticmethod(colorful_pp_config.initial_coll_factor)
     get_recoilers = staticmethod(colorful_pp_config.get_recoilers)
     mapping = colorful_pp_config.initial_coll_mapping
     variables = staticmethod(colorful_pp_initial_coll_variables)
@@ -211,8 +211,8 @@ class QCD_final_collinear_0_XXX(currents.QCDLocalCollinearCurrent):
     squared_orders = {'QCD': 4}
     n_loops = 0
 
-    is_cut = staticmethod(colorful_pp_config.cut_final_coll)
-    factor = staticmethod(colorful_pp_config.factor_final_coll)
+    is_cut = staticmethod(colorful_pp_config.final_coll_cut)
+    factor = staticmethod(colorful_pp_config.final_coll_factor)
     get_recoilers = staticmethod(colorful_pp_config.get_recoilers)
     mapping = colorful_pp_config.final_coll_mapping
     variables = staticmethod(colorful_pp_final_coll_variables)
@@ -255,8 +255,8 @@ class QCD_final_collinear_0_qqpqp(QCD_final_collinear_0_XXX):
 class QCD_soft_0_kX(currents.QCDLocalCurrent):
     """ NNLO soft currents."""
 
-    is_cut = staticmethod(colorful_pp_config.cut_soft)
-    factor = staticmethod(colorful_pp_config.factor_soft)
+    is_cut = staticmethod(colorful_pp_config.soft_cut)
+    factor = staticmethod(colorful_pp_config.soft_factor)
     get_recoilers = staticmethod(colorful_pp_config.get_recoilers)
 
     squared_orders = {'QCD': 4}
@@ -379,10 +379,10 @@ class QCD_initial_soft_collinear_0_kX(currents.QCDLocalCurrent):
     squared_orders = {'QCD': 4}
     n_loops = 0
 
-    is_cut = staticmethod(colorful_pp_config.cut_soft)
-    factor = staticmethod(colorful_pp_config.factor_soft)
+    is_cut = staticmethod(colorful_pp_config.soft_cut)
+    factor = staticmethod(colorful_pp_config.soft_factor)
     get_recoilers = staticmethod(colorful_pp_config.get_recoilers)
-    mapping = colorful_pp_config.initial_soft_collinear_mapping
+    mapping = colorful_pp_config.initial_soft_coll_mapping
     divide_by_jacobian = colorful_pp_config.divide_by_jacobian
 
     variables = staticmethod(colorful_pp_initial_soft_coll_variables)
@@ -468,6 +468,7 @@ class QCD_initial_soft_collinear_0_kX(currents.QCDLocalCurrent):
 
         # Evaluate kernel
         kernel_arguments = self.variables(higher_PS_point, pCtilde, children, Q=Q)
+#        kernel_arguments = self.variables(higher_PS_point, pCinitial, children, Q=Q)
 
         # There is no need for the ratio of color-averaging factor between the real ME
         # initial state flavor and the one of the reduced Born ME as they are either both
@@ -476,6 +477,7 @@ class QCD_initial_soft_collinear_0_kX(currents.QCDLocalCurrent):
 
         # Add the normalization factors
         norm = (8. * math.pi * alpha_s)**(len(soft_children)+len(collinear_final_children)) / ((pCtilde+pS).square()*pS.square())
+#        norm = (8. * math.pi * alpha_s)**(len(soft_children)+len(collinear_final_children)) / ((pCinitial+pS).square()*pS.square())
         norm *= self.factor(Q=Q, pC=pCmother, pS=pS)
         for k in evaluation['values']:
             evaluation['values'][k]['finite'] *= norm

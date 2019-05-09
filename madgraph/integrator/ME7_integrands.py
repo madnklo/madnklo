@@ -2138,11 +2138,11 @@ class ME7Integrand_V(ME7Integrand):
         is_reduced_process_mirrored = counterterm.process.get('has_mirror_process')
 
         # Typical debug lines below
-        misc.sprint(counterterm)
-        misc.sprint(beam_convolution_masks)
-        misc.sprint(resolved_flavors)
-        misc.sprint(reduced_flavors)
-        misc.sprint(reduced_flavors_with_resolved_initial_states)
+        # misc.sprint(counterterm)
+        # misc.sprint(beam_convolution_masks)
+        # misc.sprint(resolved_flavors)
+        # misc.sprint(reduced_flavors)
+        # misc.sprint(reduced_flavors_with_resolved_initial_states)
         # import pdb
         # pdb.set_trace()
 
@@ -2350,10 +2350,10 @@ class ME7Integrand_V(ME7Integrand):
 
             all_events.append(integrated_CT_event)
 
-        if len(all_events)==0:
-            misc.sprint('RETURNING NO EVENTS!%s'%('=='*40))
-        else:
-            misc.sprint('RETURNING EVENTS!'%len(all_events))
+        #if len(all_events)==0:
+        #    misc.sprint('RETURNING NO EVENTS!%s'%('=='*40))
+        #else:
+        #    misc.sprint('RETURNING %d EVENTS!'%len(all_events))
 
         return all_events
         
@@ -3204,7 +3204,6 @@ class ME7Integrand_R(ME7Integrand):
                         continue
                 else:
                     rescaling = 1.
-                misc.sprint('ONE',beam_currents['beam_one'],xi1,xb_1,allowed_backward_evolved_flavors1)
                 current_evaluation, all_current_results = all_MEAccessors(beam_currents['beam_one'],
                     track_leg_numbers=track_leg_numbers, lower_PS_point=PS_point, reduced_process=process, xi=xi1,
                     mu_r=mu_r, mu_f=mu_f1, Q=Q, allowed_backward_evolved_flavors = allowed_backward_evolved_flavors1)
@@ -3222,7 +3221,6 @@ class ME7Integrand_R(ME7Integrand):
                         continue
                 else:
                     rescaling = 1.
-                misc.sprint('TWO',beam_currents['beam_two'],xi2,xb_2,allowed_backward_evolved_flavors1)
                 current_evaluation, all_current_results = all_MEAccessors(beam_currents['beam_two'],
                     track_leg_numbers=track_leg_numbers, lower_PS_point=PS_point, reduced_process=process, xi=xi2,
                     mu_r=mu_r, mu_f=mu_f2, Q=Q, allowed_backward_evolved_flavors = allowed_backward_evolved_flavors2)

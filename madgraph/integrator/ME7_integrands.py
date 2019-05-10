@@ -1692,7 +1692,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
                                           for name in self.phase_space_generator.dim_ordered_names ]
 
         if self.sectors is None:
-            return self.evaluate(PS_random_variables, integrator_jacobian, selected_process_key=None, sector_info=None)
+            return self.evaluate(PS_random_variables, integrator_jacobian, observables_lock,
+                                                                            selected_process_key=None, sector_info=None)
         else:
             total_weight = 0.
             for process_key, (process, mapped_processes) in self.processes_map.items():
@@ -1704,10 +1705,10 @@ class ME7Integrand(integrands.VirtualIntegrand):
                     if (sector_info is not None) and (self.is_sector_selected is not None) and \
                                                     not self.is_sector_selected(process, sector_info['sector']):
                         continue
-                    total_weight += self.evaluate(PS_random_variables, integrator_jacobian,
+                    total_weight += self.evaluate(PS_random_variables, integrator_jacobian, observables_lock,
                                                   selected_process_key=process_key, sector_info=sector_info)
 
-    def evaluate(self,PS_random_variables, integrator_jacobian, selected_process_key=None, sector_info=None):
+    def evaluate(self,PS_random_variables, integrator_jacobian, observables_lock, selected_process_key=None, sector_info=None):
         """ Evaluate this integrand given the PS generating random variables and
         possibily for a particular defining process and sector. If no process_key is specified, this funcion will
         loop over and aggregate all of them"""
@@ -1889,8 +1890,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         event_weight = base_objects.EpsilonExpansion(ME_evaluation) * base_weight
 
         sector_info = opts.get('sector_info', None)
-
-        if sector_info['sector'] is not None:
+        if sector_info is not None:
             event_weight *= sector_info['sector'](PS_point,all_flavor_configurations[0],
                                                   counterterm_index=-1, input_mapping_index=-1)
 

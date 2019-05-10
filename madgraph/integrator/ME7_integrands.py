@@ -1226,9 +1226,14 @@ class ME7Integrand(integrands.VirtualIntegrand):
             'out_pdgs' : ( (out_pgs1), (out_pdgs2), ...) 
             'n_loops'  : n_loops }"""
         
-        def pdg_list_match(target_list, selection_list):
+        def pdg_list_match(target_list, selection_list, exact=False):
             if len(target_list) != len(selection_list):
                 return False
+            if exact:
+                for target_pdg, selected_pdgs in zip(target_list, selection_list):
+                    if target_pdg not in selected_pdgs:
+                        return False
+                return True
             targets = dict( (k, target_list.count(k)) for k in set(target_list) )
             found_it = False
             for sel in itertools.product(*selection_list):
@@ -1243,8 +1248,9 @@ class ME7Integrand(integrands.VirtualIntegrand):
     
         for process in process_list:
 
+            # Ask for exact match for the initial states
             if (not selection['in_pdgs'] is None) and \
-               (not pdg_list_match(process.get_initial_ids(), selection['in_pdgs'])):
+               (not pdg_list_match(process.get_initial_ids(), selection['in_pdgs'], exact=True)):
                 continue
 
             if (not selection['out_pdgs'] is None) and \
@@ -2122,6 +2128,9 @@ class ME7Integrand_V(ME7Integrand):
         g > d d~ must be "attached" to all final-state gluons of the virtual process definition).
         """
 
+        # Make sure no helicity configuration is specified since this is not supported yet.
+        assert ((hel_config is None))
+
         # Access the various characteristics of the integrated counterterm passed to this
         # function.
         counterterm = integrated_CT_characteristics['integrated_counterterm']
@@ -2225,16 +2234,13 @@ class ME7Integrand_V(ME7Integrand):
         xi1, xi2 = [xi1, xi2][input_mapping[0]], [xi1, xi2][input_mapping[1]]
         xb_1, xb_2 = [xb_1, xb_2][input_mapping[0]], [xb_1, xb_2][input_mapping[1]]
 
-        # Retrieve some possibly relevant model parameters
-        alpha_s = self.model.get('parameter_dict')['aS']
-        mu_r = self.model.get('parameter_dict')['MU_R']
-
         # Now compute the reduced quantities which will be necessary for evaluating the
         # integrated current
         reduced_PS = counterterm.get_reduced_kinematics(mapped_PS_point)
 
-        # Make sure no helicity configuration is specified since this is not supported yet.
-        assert ((hel_config is None))
+        # Retrieve some possibly relevant model parameters
+        alpha_s = self.model.get('parameter_dict')['aS']
+        mu_r = self.model.get('parameter_dict')['MU_R']
 
         # Compute the 4-vector Q characterizing this PS point, defined as the sum of all
         # initial_state momenta, before any mapping is applied.
@@ -2291,21 +2297,21 @@ class ME7Integrand_V(ME7Integrand):
 
             # If there is no necessary ME call left, it is likely because the xi upper bound of the
             # Bjorken x's convolution were not respected. We must now abort the event.
-            if len(all_necessary_ME_calls) == 0:
-                return None
+            if len(necessary_ME_calls) == 0:
+                continue
 
             if sector[0] is not None:
-                base_weight *= sector[0](reduced_PS, all_mapped_flavors[0],
+                this_base_weight *= sector[0](reduced_PS, all_mapped_flavors[0],
                                          counterterm_index=sector[1], input_mapping_index=sector[2])
 
             # Finally treat the call to the reduced connected matrix elements
             alpha_s = self.model.get('parameter_dict')['aS']
             mu_r = self.model.get('parameter_dict')['MU_R']
 
-            event_PS = reduced_PS.to_list(ordered_keys=[l.get('number') for l in counterterm.process.get('legs')])
+            #event_PS = reduced_PS.to_list(ordered_keys=[l.get('number') for l in counterterm.process.get('legs')])
 
             template_event = ME7Event(
-                event_PS,
+                mapped_PS_point,
                 {fc: base_objects.EpsilonExpansion({0: cut_weight * this_base_weight}) for fc in all_mapped_flavors},
                 requires_mirroring=is_reduced_process_mirrored,
                 host_contribution_definition=self.contribution_definition,
@@ -2349,11 +2355,6 @@ class ME7Integrand_V(ME7Integrand):
                     " following integrated counterterm event. This should never happen.\n%s" % str(integrated_CT_event))
 
             all_events.append(integrated_CT_event)
-
-        #if len(all_events)==0:
-        #    misc.sprint('RETURNING NO EVENTS!%s'%('=='*40))
-        #else:
-        #    misc.sprint('RETURNING %d EVENTS!'%len(all_events))
 
         return all_events
         
@@ -3693,7 +3694,13 @@ The missing process is: %s"""%ME_process.nice_string())
         # Loop over processes
         all_evaluations = {}
         for process_key, (defining_process, mapped_processes) in self.processes_map.items():
-            logger.info("Considering %s"%defining_process.nice_string())
+
+            # Make sure that the selected process satisfies the selection requirements
+            if not self.is_part_of_process_selection(
+                    [defining_process, ] + mapped_processes,
+                    selection=test_options['process']):
+                continue
+            logger.info("Considering %s" % defining_process.nice_string())
 
             if self.sectors is None or self.sectors[process_key] is None:
                 all_sectors = [None, ]
@@ -3704,15 +3711,8 @@ The missing process is: %s"""%ME_process.nice_string())
                 if (sector_info is not None) and (self.is_sector_selected is not None) and \
                                     not self.is_sector_selected(defining_process, sector_info['sector']):
                     continue
-
                 if sector_info is not None:
                     logger.info("Considering sector: %s" %str(sector_info['sector']))
-
-                # Make sure that the selected process satisfies the selection requirements
-                if not self.is_part_of_process_selection(
-                    [defining_process, ]+mapped_processes,
-                    selection=test_options['process'] ):
-                    continue
 
                 all_processes = [defining_process,]+mapped_processes
                 all_flavor_configurations = []
@@ -4006,8 +4006,8 @@ The missing process is: %s"""%ME_process.nice_string())
             if test_options['apply_lower_multiplicity_cuts']:
                 events.filter_flavor_configurations(self.pass_flavor_sensitive_cuts)
     
-            #misc.sprint('Events generated after post-processing:')
-            #misc.sprint(events)
+            # misc.sprint('Events generated after post-processing:')
+            # misc.sprint(events)
             
             # Now store the results to be returned which will eventually be passed to 
             # the IR test analyzer.
@@ -4030,7 +4030,10 @@ The missing process is: %s"""%ME_process.nice_string())
                     event_str = event.counterterm_structure_short_string()
                     if test_options['minimal_label']:
                         event_str = event_str.split('@')[0]
-                    this_eval[event_str] = event_wgt
+                    if event_str in this_eval:
+                        this_eval[event_str] += event_wgt
+                    else:
+                        this_eval[event_str] = event_wgt
 
             logger.debug('For scaling variable %.3e, weight from ME = %.16e' %( scaling_parameter, this_eval['ME'] ))
             total_CTs_wgt = 0.0

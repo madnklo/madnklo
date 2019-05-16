@@ -85,6 +85,14 @@ class ME7Exporter(object):
         # all_ME_accessor dict.)
         self.integrated_counterterms_refused_from_all_contribs = []
 
+        # We need to import the subtraction_module if the max_correction_order is beyond LO
+        max_correction_order = self.contributions.get_max_correction_order().count('N')
+        if max_correction_order:
+            self.subtraction_scheme_module = subtraction.SubtractionCurrentExporter.get_subtraction_scheme_module(
+                                                                                self.options['subtraction_scheme'])
+        else:
+            self.subtraction_scheme_module = None
+
     def pass_information_from_cmd(self, cmd_interface):
         """ Pass information from the cmd_interface to this exporter and all contributions."""
         
@@ -241,12 +249,11 @@ class ME7Exporter(object):
             beam_factorization_contributions.append( contributions.Contribution(
                 base_objects.ContributionDefinition(dummy_process_definition,
                                               **contrib_def_options ),self.cmd_interface) )
-        
+
         # Now add the soft beam factorization contributions necessary for absorbing the colorful
         # soft integrated CT when using a mapping that recoils equally against both initial states.
         if ((not beam_types[0] is None) and (not beam_types[1] is None)) and \
-           self.options['subtraction_currents_scheme'] in subtraction._currents_schemes_requiring_soft_beam_factorization and \
-           self.options['subtraction_mappings_scheme'] in subtraction._mappings_schemes_requiring_soft_beam_factorization:
+                                                self.subtraction_scheme_module.requires_soft_beam_factorization:
             contrib_def_options['beam_factorization_active']   = (True, True)
             contrib_def_options['n_loops']                     = correction_order-n_unresolved_particles-1
             contrib_def_options['correlated_beam_convolution'] = True            
@@ -300,7 +307,7 @@ class ME7Exporter(object):
             return
 
         max_correction_order = self.contributions.get_max_correction_order().count('N')
-        
+
         beam_factorization_contributions = []
         # We will now add the beam factorization contributions at each perturbative order
         for correction_order in range(max_correction_order):
@@ -508,6 +515,11 @@ class ME7Exporter(object):
             # For now we simply skip the incorporation of this integrated counterterms and
             # issue a critical warning, but eventually one can think of creating an 
             # ad-hoc "dummy" contribution to contain those integrated counterterms.
+#            msg = ("Could not find a contribution with key '%s'" % key_string(key) + " to host the" +
+#                   " integrated counterterm:\n%s\n with key:\n%s" % (counterterm.nice_string(), key_string(key)) +
+#                    "\nIt will therefore be skipped making the ensuing results unphysical and wrong.\n" +
+#                    "Available keys are:\n%s" % ('\n'.join(key_string(k) for k in routing_map)))
+#            logger.critical(msg)
             if key not in routing_map:
                 msg = ("Could not find a contribution with key '%s'"%key_string(key)+" to host the"+
                     " integrated counterterm:\n%s\n with key:\n%s"%(counterterm.nice_string(),key_string(key))+
@@ -521,7 +533,7 @@ class ME7Exporter(object):
                     continue
                 else:
                     raise MadGraph5Error(msg)
-
+#            misc.sprint("Contribution candidates: %s"%str([c.nice_string() for c in routing_map[key]]))
             found_contribution_host = False
             for contribution_candidate in routing_map[key]:
                 # Try to add this integrated counterterm to all candidate contributions
@@ -574,8 +586,7 @@ class ME7Exporter(object):
             'model_name'      : 'ME7_UFO_model_%s'%self.model.get('name'),
             'model_with_CMS'  : self.options['complex_mass_scheme'],
             'n_initial'       : n_initial,
-            'subtraction_currents_scheme': self.options['subtraction_currents_scheme'],
-            'subtraction_mappings_scheme': self.options['subtraction_mappings_scheme'],
+            'subtraction_scheme': self.options['subtraction_scheme']
         }
         
         save_load_object.save_to_file(pjoin(self.export_dir,'MadEvent7.db'), ME7_dump)
@@ -710,10 +721,12 @@ class ME7Exporter(object):
                 scale=run_card['scale'], 
                 complex_mass_scheme=self.options['complex_mass_scheme'])
 
+        ME7_options = dict(self.options)
+        ME7_options['me_dir'] = self.export_dir
         for contrib in self.contributions:
             all_integrands.extend(
                 contrib.get_integrands(
-                    modelReader_instance, run_card, all_MEAccessors, self.options ) )
+                    modelReader_instance, run_card, all_MEAccessors, ME7_options ) )
    
         # And finally dump ME7 output information so that all relevant objects
         # can be reconstructed for a future launch with ME7Interface.

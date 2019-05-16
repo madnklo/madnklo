@@ -1,0 +1,569 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+
+\usepackage[margin=2cm]{geometry}
+\usepackage{hyperref}
+\usepackage{amssymb,mathtools}
+\usepackage[extdef]{delimset}
+\usepackage{physics}
+\usepackage{verbatim}
+\usepackage{enumitem}
+\setlist{itemsep=1pt,topsep=1pt,parsep=1pt,partopsep=1pt}
+\usepackage{cleveref}
+
+% Number of spacetime dimensions
+\let\olddim\dim
+\renewcommand{\dim}[0]{d}
+% Dimensional regularisation parameter
+\newcommand{\eps}[0]{\epsilon}
+% Colour operators
+\newcommand{\colorT}[1]{\mathbf{T}_{#1}}
+% Merged particles in intermediate mappings
+\newcommand{\mpd}[1]{\widehat{#1}}
+
+\title{Regularisation of real emissions
+with distributed soft counterterms}
+\author{Simone Lionetti}
+\date{\today}
+
+
+\begin{document}
+
+\maketitle
+
+
+\section{Process $e^+e^- \to u\bar{u}d\bar{d}$}
+\label{sec:uuxddx}
+
+In this \namecref{sec:uuxddx} we consider the process
+$e^+e^- \to u_1\bar{u}_2d_3\bar{d}_4$
+as a double-real correction to $e^+e^- \to jj+X$,
+and we attempt to construct a subtraction procedure
+which features a minimal number of reduced kinematic configurations.
+
+The elementary unresolved limits that need to be regulated are
+\begin{equation}
+\label{eq:ee2uuxddxelem}
+	C_{12}, \quad C_{34}, \quad
+	C_{134}, \quad C_{234}, \quad C_{123}, \quad C_{124}, \quad
+	S_{12}, \quad S_{34}.
+\end{equation}
+At most three of these limits have a common overlap
+and need to be considered simultaneously.
+Due to the lack of a tree-level diagram for $e^+e^- \to gg$,
+the limit of two collinear pairs $C_{12}C_{34}$ is regular.
+The maximal overlaps that we need to consider are therefore
+\begin{equation}
+	C_{123}S_{12}C_{12}, \quad
+	C_{124}S_{12}C_{12}, \quad
+	C_{134}S_{34}C_{34}, \quad
+	C_{234}S_{34}C_{34}.
+\end{equation}
+These are all of the same type,
+so it will be sufficient to consider the representative $C_{123}S_{12}C_{12}$.
+
+In order to have a minimal number of kinematic configurations per evaluation,
+all measurement functions and matrix elements within counterterms
+will be evaluated for collinear reduced kinematics,
+where a set of particles have been merged into a single on-shell parent
+without violating overall momentum conservation.
+The momentum mapping that we use to achieve this
+is the rescaling mapping of ref.~\cite{Somogyi:2006da}.%
+\footnote{
+A generalisation of the rescaling mapping
+that applies to massive particles was presented in \cite{}.
+}
+Counterterms that are associated to soft configurations
+will be split into multiple contributions
+and distributed among collinear reduced kinematics.
+
+In the expression for local currents
+we make extensive use of the momentum fractions $z_{A,B}$
+and the transverse momenta $k_{A,B}$.
+Since these variables which describe unresolved kinematics
+are shared by multiple counterterms,
+we find it useful to discuss them here.
+Given the light-like vector $n$ in the direction of $\vec{p}_{AB}$
+(where $p_{AB} = p_A+p_B$)
+and an arbitrary reference vector $\bar{n}$,
+momentum fractions are defined by
+\begin{equation}
+	z_{A,B} \equiv \frac{\bar{n}\cdot p_A}{\bar{n}\cdot p_{AB}},
+\end{equation}
+and transverse momenta are determined via
+\begin{equation}
+	k_A^\mu \equiv p_A^\mu
+	- \frac{\bar{n}\cdot p_A}{\bar{n}\cdot n} n^\mu
+	- \frac{n \cdot p_A}{n\cdot\bar{n}} \bar{n}^\mu,
+	\qquad
+	k_{A,B}^\mu \equiv k_A^\mu - z_{A,B} k_{AB}^\mu.
+\end{equation}
+We have verified that the regularisation
+of the unresolved limits \cref{eq:ee2uuxddxelem}
+is not sensitive to the choice of $\bar{n}$ among the following:
+\begin{itemize}
+	\item an arbitrary, fixed null vector $(1, \hat{z})$;
+	\item the fixed, time-like total momentum $Q$ of the $e^+ e^-$ collision;
+	\item a light-like vector in the anti-collinear direction,
+	which is different for the collinear sets $\set{1,2}$ and $\set{1,2,3}$.
+\end{itemize}
+
+
+\subsection{Counterterm $C_{12}$}
+
+We subtract the limit of a $q\bar{q}$ pair going collinear using the current
+\begin{equation}
+\label{eq:Pqq}
+	C_{12}^{\mu\nu} = \frac{T_R}{s_{12}} \brk[s]*{
+		- g^{\mu\nu}
+		+ 4 z_{1,2} z_{2,1} \frac{k_{1,2}^\mu k_{1,2}^\nu}{k_{1,2}^2}
+	},
+\end{equation}
+which is associated to $12$-collinear kinematics.
+
+
+\subsection{Counterterm $C_{123}$}
+
+The triple-collinear counterterm for $q'\bar{q}'q$
+is determined using the current \cite{Catani:1999ss}
+\begin{equation}
+	C_{123} = \frac{C_F T_R}{2 s_{123}^2} \brk[s]*{
+		- \frac{t_{12,3}^2}{s_{12}^2}
+		+ \frac{s_{123}}{s_{12}} \brk*{
+			\frac{4 z_{3,12} + (z_{1,23} - z_{2,13})^2}{z_{12,3}}
+			+(1 - 2\eps) z_{12,3}
+		}
+		- (1 - 2\eps)
+	},
+\end{equation}
+where
+\begin{equation}
+	t_{12,3}
+	\equiv 2 \frac{z_{1,23} s_{23} - z_{2,13} s_{13}}{z_{12,3}}
+	+ \frac{z_{1,23} - z_{2,13}}{z_{12,3}} s_{12}.
+\end{equation}
+Clearly in this case we use $123$-collinear kinematics.
+
+
+\subsection{Counterterm $S_{12}$}
+
+In order to construct the $q\bar{q}$ soft counterterm,
+we start from the form of the current used in \cite{Somogyi:2005xz} which reads
+\begin{equation}
+	\frac{T_R}{s_{12}^2} \sum_i \sum_j
+	\frac{s_{1i}s_{2j} + s_{1j}s_{2i} - s_{12}s_{ij}}{s_{(12)i} s_{(12)j}}
+	\colorT{i}\cdot\colorT{j},
+\end{equation}
+where the sum runs over all coloured partons of the reduced process
+and includes the case $i=j$.
+
+Before discussing partial fractioning, we observe
+that the global factor $s_{12}^{-2}$ may cause the counterterm to diverge
+in limits where neither $s_{12i}$ nor $s_{12j}$ go to zero.
+More concretely, the contribution from the terms with $i=j$ reads
+\begin{equation}
+\label{eq:qqsoftieqj}
+	\frac{T_R}{s_{12}^2} \sum_{i}
+	\frac{2s_{1i}s_{2i}}{s_{(12)i}^2}
+	\colorT{i}^2,
+\end{equation}
+and \emph{all} terms are divergent in the triple-collinear limit $12j$
+for \emph{any} $j$.
+Thus, although from \cref{eq:qqsoftieqj} one might be tempted
+to assign the $i$-th term to $12i$-collinear kinematics,
+every term needs to be distributed among all $12j$-collinear kinematics.
+To this end, we use colour conservation to move all terms off the colour diagonal
+\begin{equation}
+	\sum_{i}
+	\frac{2s_{1i}s_{2i}}{s_{(12)i}^2}
+	\colorT{i}^2
+	= - \sum_i \sum_{j\ne i}
+	\frac{2s_{1i}s_{2i}}{s_{(12)i}^2}
+	\colorT{i}\cdot\colorT{j}
+	= - \sum_i \sum_{j\ne i} \brk[s]*{
+	\frac{s_{1i}s_{2i}}{s_{(12)i}^2}
+	+ \frac{s_{1j}s_{2j}}{s_{(12)j}^2}
+	}
+	\colorT{i}\cdot\colorT{j}.
+\end{equation}
+In this sense, the kinematics that we assign do not follow the divergent structure
+of the invariant poles but rather the colour,
+in a similar way as proposed for geometric subtraction \cite{Herzog:2018ggi}.
+
+The complete off-diagonal soft current reads
+\begin{equation}
+\label{eq:qqsoftoffdiag}
+	\frac{T_R}{s_{12}^2} \sum_i \sum_{j \ne i}
+	\brk[s]*{
+		\frac{s_{1i}s_{2j} + s_{1j}s_{2i} - s_{12}s_{ij}}{s_{(12)i} s_{(12)j}}
+		- \frac{s_{1i}s_{2i}}{s_{(12)i}^2} - \frac{s_{1j}s_{2j}}{s_{(12)j}^2}
+	} \colorT{i}\cdot\colorT{j}.
+\end{equation}
+At this stage, we observe that we may replace
+the invariants $s_{(12)i} = 2p_{12}\cdot p_i$ and $s_{(12)j} = 2p_{12}\cdot p_j$
+in the denominator with $s_{12i}$ and $s_{12j}$ at our leisure.
+Indeed, this operation modifies the counterterm by terms which are of higher order
+in the double-soft limit $S_{12}$, and therefore does not spoil the cancellation
+in the counterterm's defining limit.
+Using the triple invariant $s_{12i}$ seems convenient
+because it makes denominators naturally match the ones of the collinear counterterm
+(which cannot be changed because the modification $s_{123}\to s_{(12)3}$
+is \emph{not} higher-order in the triple-collinear limit).
+We thus use
+\begin{equation}
+\label{eq:qqsoftoffdiagmod}
+	S_{12} = \frac{T_R}{s_{12}^2} \sum_{j \ne i}
+	\brk[s]*{
+		\frac{s_{1i}s_{2j} + s_{1j}s_{2i} - s_{12}s_{ij}}{s_{12i} s_{(12)j}}
+		- \frac{s_{1i}s_{2i}}{s_{12i}^2} - \frac{s_{1j}s_{2j}}{s_{(12)j}^2}
+	} \colorT{i}\cdot\colorT{j}.
+\end{equation}
+Whether the choice of using $s_{(12)j}$ instead of $s_{12j}$
+is important elsewhere in the subtraction was not documented
+and needs investigation.
+
+It is easy to partial-fraction \cref{eq:qqsoftoffdiagmod}
+into collinear kinematics.
+In the present implementation we use
+\begin{equation}
+	1 = \frac{s_{12i}}{s_{12i} + s_{12j}} + \frac{s_{12j}}{s_{12i} + s_{12j}},
+\end{equation}
+for each term in the dipole sum which leads to
+\begin{equation}
+\label{eq:qqsoftoffdiagmodpf}
+	S_{12}^{(i)} = \frac{T_R}{s_{12}^2} \sum_{j \ne i}
+	\frac{s_{12j}}{s_{12i} + s_{12j}}
+	\brk[s]*{
+		\frac{s_{1i}s_{2j} + s_{1j}s_{2i} - s_{12}s_{ij}}{s_{12i} s_{(12)j}}
+		- \frac{s_{1i}s_{2i}}{s_{12i}^2} - \frac{s_{1j}s_{2j}}{s_{(12)j}^2}
+	} \colorT{i}\cdot\colorT{j}.
+\end{equation}
+Possibly in the future we may want to change the partial fractions
+to be dependent only on angles and not on energies:
+in the case of two collinear pairs with distributed single-soft limits,
+this has been noted to be essential for disjoint collinear limits to work
+in combination with distributed soft subtraction.
+
+
+\subsection{Counterterm $C_{123}S_{12}$}
+
+Shifting out of the diagonal the sum over colour dipoles for the $q\bar{q}$ soft limit
+turns out to be extremely practical also to take its $C_{123}$ triple-collinear limit.
+We start with either \cref{eq:qqsoftoffdiagmod} or \cref{eq:qqsoftoffdiagmodpf}
+(the partial fraction makes no difference in the $C_{123}$ limit), and observe that
+for a given term to contribute one of $i$ or $j$ needs to be equal to $3$,
+and in the collinear limit the ratio of scalar products with another leg
+is equal to a ratio of momentum fractions.
+After this replacement, colour conservation can be used and we find
+\begin{equation}
+	C_{123}S_{12} = - \frac{2T_R}{s_{12}^2} \colorT{3}^2
+	\brk[s]*{
+		\frac{s_{13} z_{2,13} + s_{23} z_{1,23} - s_{12} z_{3,12}}
+		{s_{123} z_{12,3}}
+		- \frac{s_{13}s_{23}}{s_{123}^2} - \frac{z_{1,23} z_{2,13}}{z_{12,3}^2}
+	}.
+\end{equation}
+Note that, if the contributions on the diagonal have not been reshuffled,
+some effort is needed to see that the latter two terms are needed.
+We also note that subtracting this sub-limit from $C_{123}$
+many terms simplify and we are left with
+\begin{equation}
+	C_{123} - C_{123}S_{12} = \frac{C_F T_R}{s_{123}^2} \brk[s]*{
+		\frac{s_{123}}{s_{12}} \frac{z_{1,23}^2 + z_{2,13}^2}{z_{12,3}} - 1
+		+ \eps \brk*{1 + \frac{s_{123}}{s_{12}} z_{12,3} }
+	},
+\end{equation}
+which is what is currently implemented in the code (for $\eps=0$).
+This hard triple-collinear counterterm is clearly associated
+to $123$-collinear kinematics, and for the simplifications to occur
+the momentum fractions have to be computed as in $C_{123}$.
+
+
+\subsection{Counterterm $C_{123}C_{12}$}
+
+The strong-ordered collinear limit $C_{123}C_{12}$ is the first nested limit
+that we encounter whose counterterm we implement in an iterated fashion.
+To this end we follow the steps of \cite{Somogyi:2006da}.
+Starting from the counterterm $C_{12}$, we take the extra collinear limit
+of the parent gluon $\mpd{12}$ of the quark-antiquark pair
+going collinear to the mapped, different-species quark $\mpd{3}$.
+This involves taking the collinear limit of a spin-correlated matrix element,
+which gives the splitting function
+\begin{equation}
+	C_{\mpd{12}\mpd{3}}^{\alpha\beta,ss'} = \frac{C_F}{s_{\mpd{12}\mpd{3}}}
+	\delta_{ss'} \brk[s]*{
+		\frac{z_{\mpd{12},\mpd{3}}}{2} d^{\alpha\beta}
+		- 2 \frac{z_{\mpd{3},\mpd{12}}}{z_{\mpd{12},\mpd{3}}}
+		\frac{k_{\mpd{3},\mpd{12}}^\alpha k_{\mpd{3},\mpd{12}}^\beta}
+		{k_{\mpd{3},\mpd{12}}^2}
+	}.
+\end{equation}
+The sum over physical polarisations is given by the transverse tensor
+with respect to the light-cone vector in the collinear direction $p$
+and a reference null vector $n$,
+\begin{equation}
+	d^{\alpha\beta}(p, n) \equiv
+	-g^{\alpha\beta}
+	+ \frac{p^\alpha n^\beta + p^\beta n^\alpha}{p \cdot n}.
+\end{equation}
+We have indicated with a hat the variables which are computed
+after merging particles 1 and 2.
+Performing the Lorentz algebra we find
+\begin{equation}
+\label{eq:iterC123C12qq}
+	C_{\mpd{12}\mpd{3}}^{\alpha\beta,ss'} C_{12,\alpha\beta}
+	= \frac{C_FT_R}{s_{12}s_{\mpd{12}\mpd{3}}} \delta^{ss'} \brk[s]3{
+		\brk3{
+			2 \frac{z_{\mpd{3},\mpd{12}}}{z_{\mpd{12},\mpd{3}}}+
+			z_{\mpd{12},\mpd{3}} (1 - \eps)
+		} - 2 z_{1,2} z_{2,1} \brk3{
+			z_{\mpd{12},\mpd{3}} +
+			\frac{z_{\mpd{3},\mpd{12}}}{z_{\mpd{12},\mpd{3}}}
+			\frac{(2k_{1,2}\cdot k_{\mpd{3},\mpd{12}})^2}
+			{k_{1,2}^2 k_{\mpd{3},\mpd{12}}^2}
+		}
+	}.
+\end{equation}
+The reduced matrix element is evaluated for momenta that have been obtained
+merging particles 1, 2 and 3 with a generalised rescaling mapping.
+This is equivalent to merging 1 and 2 into $\mpd{12}$
+recoiling against all other legs,
+and later merging $\mpd{12}$ with $\mpd{3}$
+recoiling against all remaining momenta.
+
+
+\subsection{Counterterm $S_{12}C_{12}$}
+
+The limit where the $q\bar{q}$ pair is both collinear and soft is over-subtracted
+and needs to be added back.
+The corresponding counter-counterterm $S_{12}C_{12}$
+may also be constructed iteratively as done in \cite{Somogyi:2005xz}.
+After the $C_{12}$ limit has been taken the reduced, spin-correlated matrix element 
+which contains the single parent $\mpd{12}$ in the limit of soft $\mpd{12}$
+factorises with the current
+\begin{equation}
+	S_{\mpd{12}}^{\mu\nu}
+	= \sum_{i, j}
+	\frac{\mpd{p}_i^\mu \mpd{p}_j^\nu + \mpd{p}_i^\nu \mpd{p}_j^\mu}
+	{s_{\mpd{12}\mpd{i}} s_{\mpd{12}\mpd{j}}}
+	2\colorT{i}\cdot\colorT{j}.
+\end{equation}
+
+Since this current multiplies the splitting function for the 12-collinear limit
+which features a factor $s_{12}^{-1}$,
+the counterterm is divergent in all triple-collinear configurations
+and not just in the $12i$- or $12j$-collinear limits.
+Similarly to the case of $S_{12}$, it is thus convenient
+to shift away the elements on the colour diagonal using colour conservation,
+which gives
+\begin{equation}
+	S_{\mpd{12}}^{\mu\nu}
+	= \sum_{i \ne j} \brk[s]*{
+		\frac{\mpd{p}_i^\mu \mpd{p}_j^\nu + \mpd{p}_i^\nu \mpd{p}_j^\mu}
+		{s_{\mpd{12}\mpd{i}} s_{\mpd{12}\mpd{j}}}
+		- \frac{\mpd{p}_i^\mu \mpd{p}_i^\nu}{s_{\mpd{12}\mpd{i}}^2}
+		- \frac{\mpd{p}_j^\mu \mpd{p}_j^\nu}{s_{\mpd{12}\mpd{j}}^2}
+	} 2 \colorT{i}\cdot\colorT{j}.
+\end{equation}
+Contracting this expression with \cref{eq:Pqq},
+with the assumption that $\mpd{p}_i$ and $\mpd{p}_j$
+be massless, we find
+\begin{multline}
+\label{eq:S12C12iter}
+	S_{12}^{\mu\nu} C_{12,\mu\nu}
+	= \frac{T_R}{s_{12}} \sum_{i \ne j} \bigg[
+		- \frac{s_{\mpd{i}\mpd{j}}}{s_{\mpd{12}\mpd{i}}s_{\mpd{12}\mpd{j}}}
+		+ 2 z_{1,2} z_{2,1}
+		\frac{(2k_{1,2}\cdot\mpd{p}_i)(2k_{1,2}\cdot\mpd{p}_j)}
+		{s_{\mpd{12}\mpd{i}} s_{\mpd{12}\mpd{j}} k_{1,2}^2}
+		\\\times
+		\brk3{ 1
+		- \frac{1}{2} \frac{s_{\mpd{12}\mpd{j}}}{s_{\mpd{12}\mpd{i}}}
+		\frac{2k_{1,2}\cdot\mpd{p}_i}{2k_{1,2}\cdot\mpd{p}_j}
+		- \frac{1}{2} \frac{s_{\mpd{12}\mpd{i}}}{s_{\mpd{12}\mpd{j}}}
+		\frac{2k_{1,2}\cdot\mpd{p}_j}{2k_{1,2}\cdot\mpd{p}_i}
+		}
+	\bigg] \colorT{i}\cdot\colorT{j}.
+\end{multline}
+
+At this stage, the $S_{12}C_{12}$ counterterm may be partial-fractioned
+into triple-collinear sectors following the colour structure.
+We choose to perform this operation \emph{after} the limit $C_{12}$
+has been taken, as if we were dealing with a single-soft gluon $\mpd{12}$.%
+\footnote{
+This choice might match better the structure of iterated limits,
+such that $S_{12}C_{12}$ regulates the $C_{12}$ integrated counterterm
+in the $S_{\mpd{12}}$ single-unresolved limit
+within the single-unresolved phase space.
+However the specific form of partial fraction employed
+may have interplay with other subtraction elements
+and deserves further investigation.
+}
+We thus use the current
+\begin{equation}
+	S_{12}^{(i),\mu\nu} C_{12,\mu\nu}
+	= \frac{s_{\mpd{12}\mpd{j}}}{s_{\mpd{12}\mpd{i}}+s_{\mpd{12}\mpd{j}}}
+	S_{12}^{\mu\nu} C_{12,\mu\nu},
+\end{equation}
+within $12i$ triple-collinear kinematics.
+
+
+\subsection{Counterterm $S_{12}C_{123}C_{12}$}
+
+The last piece that is missing for the three limits
+$S_{12}$, $C_{123}$ and $C_{12}$ to be regulated is the triple overlap,
+which has been subtracted three times in the simple counterterms
+and added back three times in the double overlaps,
+so that it still needs to be subtracted from the original integrand.
+The singular current, which is constructed to match \cite{Somogyi:2006da},
+can be obtained from \cref{eq:iterC123C12qq} dropping terms
+which do not have a $z_{\mpd{12},\mpd{3}}$ denominator%
+\footnote{
+In performing this step we somewhat arbitrarily decide
+to keep the $z_{\mpd{3},\mpd{12}}$ terms at the numerator
+which theoretically could or should be set to one.
+Very roughly speaking this is equivalent to taking
+the $C_{\mpd{12}\mpd{3}}$ limit of the soft counterterm for $S_{\mpd{12}}$,
+as it is sometimes useful to do for single-unresolved
+nested soft-collinear limits.
+}
+\begin{equation}
+	S_{\mpd{12}} C_{\mpd{12}\mpd{3}} C_{12}
+	= \frac{2 C_F T_R}{s_{12}s_{\mpd{12}\mpd{3}}}
+	\frac{z_{\mpd{3},\mpd{12}}}{z_{\mpd{12},\mpd{3}}}
+	\brk[s]3{
+		1 - z_{1,2} z_{2,1}
+		\frac{(2k_{1,2}\cdot k_{\mpd{3},\mpd{12}})^2}
+		{k_{1,2}^2 k_{\mpd{3},\mpd{12}}^2}
+	}.
+\end{equation}
+This counterterm is associated to $123$-collinear kinematics.
+
+
+\subsection{Spurious limits and division by jacobian}
+
+Within each counterterm we let the limit operation
+act on the phase space volume,
+i.e.\ we divide each counterterm by the jacobian $\mathcal{J}$
+defined by
+\begin{equation}
+\label{eq:jaccanonical}
+	\dd{\Phi} = \mathcal{J}\times \dd{\tilde{\Phi}}
+	\prod_{C} \frac{\dd{s_C}}{2\pi} \dd{\Phi_C},
+\end{equation}
+where $\Phi$ is the full phase space,
+$\tilde{\Phi}$ the reduced one,
+and $C$ each merged set of particles.
+
+This, however, is not sufficient to achieve
+the desired cancellation pattern.
+Indeed, when the counterterm built from the current \labelcref{eq:S12C12iter}
+is included with $12k$ collinear kinematics for some $k$,
+which clearly reduce to no momentum mapping for soft $p_{12}$,
+it does \emph{not} automatically match
+the counterterm $C_{12}$ from \cref{eq:Pqq} in the $S_{12}$ limit.
+This is due to our choice of dividing by the jacobian factor
+of \cref{eq:jaccanonical} which, in the $S_{12}$ limit,
+is different between the mappings that merge
+the sets $\set{1,2}$ and $\set{1,2,3}$.
+To fix this mismatch we have two options.
+The first one, which essentially follows \cite{Somogyi:2006da},
+is to forfeit \cref{eq:jaccanonical} and divide by jacobians
+which are defined by the alternative
+canonical factorisation of phase space
+\begin{equation}
+	\dd{\Phi} = \mathcal{J}\times \dd{\tilde{\Phi}}
+	\prod_{C} \frac{\dd{\alpha_C}}{2\pi} \dd{\Phi_C},
+\end{equation}
+where $\alpha_C$ are the parameters of the rescaling mapping
+defined in \cite{Somogyi:2006da}.
+Given that $\alpha_C$ is essentially the light-cone component
+of the momentum of the collinear set in the anti-collinear direction,
+i.e.\ its `minus' component,
+this choice amounts to parametrise the virtuality variables
+with the anti-collinear components of the collinear momenta.
+The second possibility is to reabsorb the mismatch factor
+into the definition of the counterterm, replacing for instance
+\begin{equation}
+	S_{12}^{(i),\mu\nu} C_{12,\mu\nu}
+	\to \frac{Q\cdot p_{12}}{Q\cdot p_{\mpd{12}}}
+	S_{12}^{(i),\mu\nu} C_{12,\mu\nu}.
+\end{equation}
+Note that the factor is only defined up to terms
+which are higher-order in the $S_{12}$ limit,
+with the constraint that it goes to 1
+in the $C_{12}$ and $C_{123}$ limits.
+At the moment it does not seem clear which option
+is the most convenient, but it is relatively easy
+to switch between the two.%
+\footnote{
+Within \texttt{MadNkLO}, the first option can be chosen
+by selecting \texttt{alpha\_jacobian} as \texttt{factor}
+for the currents, either individually
+or globally in \texttt{QCD\_local\_currents.py}
+(beware that this might affect other schemes).
+The mismatch factor is instead implemented
+within the \texttt{ee2qqgg-NNLO-IR-limits} branch
+in the \texttt{cataniseymour} NNLO local current
+\texttt{QCD\_final\_collinear\_0\_QQxq},
+and more precisely in the method \texttt{S12C12\_kernel}
+with the variable \texttt{fix}.
+}
+
+\begin{comment}
+A potential drawback of this choice is that
+it makes the subtraction of disjoint collinear limits more complicated.
+In fact, within the formula
+\begin{equation}
+	1
+	- C_{12} - C_{34}
+	+ C_{\mpd{3}\mpd{4}} C_{12} + C_{\mpd{1}\mpd{2}} C_{34}
+	- C_{12;34},
+\end{equation}
+the last three terms, which all feature the same kinematics
+thanks to the commutativity property of the rescaling mapping,
+now differ \emph{only} because of jacobian factors.	
+\end{comment}
+
+
+\begin{thebibliography}{9}
+
+%\cite{Catani:1999ss}
+\bibitem{Catani:1999ss} 
+  S.~Catani and M.~Grazzini,
+  %``Infrared factorization of tree level QCD amplitudes at the next-to-next-to-leading order and beyond,''
+  Nucl.\ Phys.\ B {\bf 570}, 287 (2000)
+  doi:10.1016/S0550-3213(99)00778-6
+  [hep-ph/9908523].
+  %%CITATION = doi:10.1016/S0550-3213(99)00778-6;%%
+  %227 citations counted in INSPIRE as of 04 Apr 2019
+
+%\cite{Somogyi:2005xz}
+\bibitem{Somogyi:2005xz} 
+  G.~Somogyi, Z.~Trocsanyi and V.~Del Duca,
+  %``Matching of singly- and doubly-unresolved limits of tree-level QCD squared matrix elements,''
+  JHEP {\bf 0506}, 024 (2005)
+  doi:10.1088/1126-6708/2005/06/024
+  [hep-ph/0502226].
+  %%CITATION = doi:10.1088/1126-6708/2005/06/024;%%
+  %111 citations counted in INSPIRE as of 04 Apr 2019
+
+%\cite{Somogyi:2006da}
+\bibitem{Somogyi:2006da} 
+  G.~Somogyi, Z.~Trocsanyi and V.~Del Duca,
+  %``A Subtraction scheme for computing QCD jet cross sections at NNLO: Regularization of doubly-real emissions,''
+  JHEP {\bf 0701}, 070 (2007)
+  doi:10.1088/1126-6708/2007/01/070
+  [hep-ph/0609042].
+  %%CITATION = doi:10.1088/1126-6708/2007/01/070;%%
+  %115 citations counted in INSPIRE as of 04 Apr 2019
+  
+\bibitem{Herzog:2018ggi}
+	F.~Herzog,
+	Geometric subtraction for real radiation at NNLO,
+	\url{https://www.ggi.infn.it/talkfiles/slides/slides4304.pdf}
+ 
+\end{thebibliography}
+
+\end{document}

@@ -60,6 +60,7 @@ import madgraph.core.diagram_generation as diagram_generation
 import madgraph.core.contributions as contributions
 import madgraph.core.drawing as draw_lib
 import madgraph.core.helas_objects as helas_objects
+import madgraph.core.subtraction as subtraction
 
 import madgraph.iolibs.drawing_eps as draw
 import madgraph.iolibs.export_cpp as export_cpp
@@ -1443,17 +1444,11 @@ This will take effect only in a NEW terminal
                 raise self.InvalidCmd('ignore_six_quark_processes needs ' + \
                                       'a multiparticle name as argument')
 
-        if args[0] in ['subtraction_currents_scheme']:
-            if args[1] not in self._all_subtraction_currents_schemes:
+        if args[0] in ['subtraction_scheme']:
+            if args[1] not in self._all_subtraction_schemes:
                 raise self.InvalidCmd(
-                    'subtraction_currents_scheme should be one of: ' +
-                    ', '.join(self._all_subtraction_currents_schemes))
-
-        if args[0] in ['subtraction_mappings_scheme']:
-            if args[1] not in self._all_subtraction_mappings_schemes:
-                raise self.InvalidCmd(
-                    'subtraction_mappings_scheme should be one of: ' +
-                    ', '.join(self._all_subtraction_mappings_schemes))
+                    'subtraction_scheme should be one of: ' +
+                    ', '.join(self._all_subtraction_schemes))
 
         if args[0] in ['stdout_level']:
             if args[1] not in ['DEBUG','INFO','WARNING','ERROR','CRITICAL'] and \
@@ -2522,10 +2517,8 @@ class CompleteForCmd(cmd.CompleteCmd):
                 return self.list_completion(text, self._multiparticles.keys())
             elif args[1].lower() == 'ewscheme':
                 return self.list_completion(text, ["external"])
-            elif args[1].lower() == 'subtraction_currents_scheme':
-                return self.list_completion(text, self._all_subtraction_currents_schemes)
-            elif args[1].lower() == 'subtraction_mappings_scheme':
-                return self.list_completion(text, self._all_subtraction_mappings_schemes)
+            elif args[1].lower() == 'subtraction_scheme':
+                return self.list_completion(text, self._all_subtraction_schemes)
             elif args[1] == 'gauge':
                 return self.list_completion(text, ['unitary', 'Feynman', 'default'])
             elif args[1] == 'OLP':
@@ -2824,8 +2817,7 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
     _valid_amp_so_types = ['=','<=', '==', '>']
     _OLP_supported = ['MadLoop', 'GoSam']
     _output_dependencies_supported = ['external', 'internal','environment_paths']
-    _all_subtraction_currents_schemes = ['colorful', 'colorful_pp', 'cataniseymour']
-    _all_subtraction_mappings_schemes = list(walker_classes_map.keys())
+    _all_subtraction_schemes = subtraction.SubtractionCurrentExporter.get_all_available_subtraction_schemes()
 
     # The three options categories are treated on a different footage when a
     # set/save configuration occur. current value are kept in self.options
@@ -2881,8 +2873,7 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
         'loop_optimized_output': True,
         'loop_color_flows': False,
         'max_npoint_for_channel': 0, # 0 means automatically adapted
-        'subtraction_currents_scheme': 'colorful',
-        'subtraction_mappings_scheme': 'FinalRescalingNLO'
+        'subtraction_scheme': 'colorful_pp',
     }
 
     options_madevent = {
@@ -3165,7 +3156,7 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
                 try:
                     ignored_contribs = eval(value)
                     if not isinstance(ignored_contribs, list):
-                        raise
+                        raise InvalidCmd("Ignored contributions should be a list")
                     add_options[key] = ignored_contribs
                 except:
                     add_options[key].extend([v.strip() for v in value.split(',')])
@@ -3252,7 +3243,7 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
                 try:
                     ignored_contribs = eval(value)
                     if not isinstance(ignored_contribs, list):
-                        raise
+                        raise InvalidCmd("Ignored contributions should be a list.")
                     output_options[key] = ignored_contribs
                 except:
                     output_options[key].extend([v.strip() for v in value.split(',')])
@@ -3615,7 +3606,7 @@ This implies that with decay chains:
             # Update process id
             procdef.set('id', generation_options['proc_id'])
 #            generation_options['proc_id'] += 1
-            
+
             real_emission_contribution = contributions.Contribution(
                     base_objects.ContributionDefinition(
                         procdef,
@@ -3630,6 +3621,7 @@ This implies that with decay chains:
                     self,
                     loop_filter              = generation_options['loop_filter']
             )
+
             self._curr_contribs.append(real_emission_contribution)
     
     def add_NNLO_contributions(self, NNLO_template_procdef, generation_options, target_squared_orders):
@@ -6506,7 +6498,7 @@ This implies that with decay chains:
                            [lhapdf_config,'--version'], stdout=subprocess.PIPE)
                     lhapdf_version = int(version.stdout.read()[0])
                     if lhapdf_version not in [5,6]:
-                        raise 
+                        raise self.InvalidCmd('LHAPDF version must be 5 or 6.')
                 except:
                     raise self.InvalidCmd('Could not detect LHAPDF version. Make'+
                            " sure '%s --version ' runs properly."%lhapdf_config)
@@ -8284,10 +8276,7 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
                 raise self.InvalidCmd('expected bool for notification_center')
         elif args[0] in ['cluster_queue']:
             self.options[args[0]] = args[1].strip()
-        elif args[0] in ['subtraction_currents_scheme']:
-            # check that currents and mappings schemes are consistent
-            self.options[args[0]] = args[1]
-        elif args[0] in ['subtraction_mappings_scheme']:
+        elif args[0] in ['subtraction_scheme']:
             # check that currents and mappings schemes are consistent
             self.options[args[0]] = args[1]
         elif args[0] in self.options:

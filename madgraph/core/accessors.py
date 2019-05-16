@@ -74,9 +74,9 @@ class ProcessKey(object):
 
     def __init__(self, 
                 # The user can initialize an ProcessKey directly from a process, or leave it empty
-                # in which case the default argument of a base_objects.Process() instance will be considered.      
+                # in which case the default argument of a base_objects.Process() instance will be considered.
                 process=None,
-                # Instead, or on top of the above, one can decide to overwrite what set of PDGs this key 
+                # Instead, or on top of the above, one can decide to overwrite what set of PDGs this key
                 # will it correspond to
                 PDGs = [],
                 # Decide whether to store sorted PDGs or the original order provided by the process or other
@@ -89,7 +89,7 @@ class ProcessKey(object):
                 allowed_attributes = None,
                 # Finally the user can overwrite the relevant attributes of the process passed in argument
                 # if he so wants. Remember however that only attributes with *hashable* values are allowed
-                # to be specified here.
+                # to be specified here.,
                 **opts):
         
 
@@ -184,7 +184,7 @@ class ProcessKey(object):
             
             elif proc_attr == 'singular_structure':
                 self.key_dict['singular_structure'] = value.get_canonical_representation(
-                                                                   track_leg_numbers=False)
+                                                                  track_leg_numbers=opts.get('track_leg_numbers',False))
 
             # Let us not worry about WEIGHTED orders that are added automatically added when doing process matching
             # Also ignore squared order constraints that are not == as those are added automatically to improve
@@ -749,8 +749,8 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
     cache_active = False
 
     def __init__(self, defining_current,
-                       relative_module_path,
-                       current_implementation_class_name,
+                       subtraction_scheme_name,
+                       current_class_identifier,
                        relative_generic_module_path, 
                        instantiation_options, 
                        mapped_process_keys=[], 
@@ -767,8 +767,8 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
         # instance is reconstructed from a dump.
         self.initialization_inputs = {'args':[], 'opts':{}}
         self.initialization_inputs['args'].append(defining_current)
-        self.initialization_inputs['args'].append(relative_module_path)
-        self.initialization_inputs['args'].append(current_implementation_class_name)
+        self.initialization_inputs['args'].append(subtraction_scheme_name)
+        self.initialization_inputs['args'].append(current_class_identifier)
         self.initialization_inputs['args'].append(relative_generic_module_path)
         self.initialization_inputs['args'].append(instantiation_options)
         self.initialization_inputs['opts'].update(
@@ -779,9 +779,9 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
         # Now define the attributes for this particular subtraction current accessor.
         self.defining_current = defining_current
         self.mapped_current_keys  = mapped_process_keys
-        self.relative_module_path = relative_module_path
+        self.subtraction_scheme_name = subtraction_scheme_name
         self.relative_generic_module_path = relative_generic_module_path
-        self.current_implementation_class_name = current_implementation_class_name
+        self.current_class_identifier = current_class_identifier
         self.instantiation_options = instantiation_options
         
         if not os.path.isabs(root_path):
@@ -795,7 +795,9 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
         self.cache = SubtractionCurrentAccessorCache()
 
         # Now load the modules and specify the result classes        
-        self.module = self.load_module(self.relative_module_path)
+        self.module = subtraction.SubtractionCurrentExporter.get_subtraction_scheme_module(
+                            self.subtraction_scheme_name, None if root_path=='' else root_path)
+
         self.generic_module = self.load_module(self.relative_generic_module_path)
         self.evaluation_class = self.generic_module.SubtractionCurrentEvaluation
         self.result_class = self.generic_module.SubtractionCurrentResult
@@ -809,8 +811,8 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
         """ Synchronizes this accessor with the possibly updated model and value."""
         if not model is None:
             self.model = model
-            self.subtraction_current_instance = getattr(self.module, 
-                self.current_implementation_class_name)(model, **self.instantiation_options)
+            self.subtraction_current_instance = \
+                    self.module.currents[self.current_class_identifier](model, **self.instantiation_options)
 
     def generate_dump(self, **opts):
         """ Generate a serializable dump of self, which can later be used, along with some more 
@@ -846,7 +848,7 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
     def nice_string(self):
         """ Summary of the details of this Subtraction current accessor."""
         res = []
-        res.append("%s: %s @ '%s'"%(self.__class__.__name__,self.relative_module_path, self.current_implementation_class_name))
+        res.append("%s: %s @ '%s'"%(self.__class__.__name__,self.subtraction_scheme_name, self.current_class_identifier))
         res.append('Defining subtraction current: %s'%str(self.defining_current))
         return '\n'.join(res)
 
@@ -1864,7 +1866,7 @@ class MEAccessorDict(dict):
     def __getitem__(self, key):
         return self.get_MEAccessor(key)
 
-    def get_MEAccessor(self, key, pdgs=None):
+    def get_MEAccessor(self, key, pdgs=None, track_leg_numbers=False):
         """ Provides access to a given ME, provided its ProcessKey.
         See implementation of this ProcessKey to
         understand how the properties of the process being accessed are stored.
@@ -1885,7 +1887,7 @@ class MEAccessorDict(dict):
 
         if isinstance(key, subtraction.Current):
             # Automatically convert the current to a ProcessKey
-            accessor_key = key.get_key()
+            accessor_key = key.get_key(track_leg_numbers=track_leg_numbers)
         elif isinstance(key, base_objects.Process):
             # Automatically convert the process to a ProcessKey
             accessor_key = ProcessKey(process=key, PDGs=pdgs if pdgs else [])
@@ -1986,6 +1988,10 @@ class MEAccessorDict(dict):
         out which permutation to apply and which flavours to specify.
         """
 
+        # We must check whether we must track leg numbers when getting the subtraction current key for the specified
+        # current in args[0]
+        track_leg_numbers = opts.pop('track_leg_numbers',False)
+
         assert (len(args)>0 and isinstance(args[0], (ProcessKey, base_objects.Process, subtraction.Current))), "When using the shortcut "+\
             "__call__ method of MEAccessorDict, the first argument should be an instance of a ProcessKey or base_objects.Process or"+\
             " subtraction.Current."
@@ -2022,8 +2028,8 @@ class MEAccessorDict(dict):
             specified_process_instance = args[0]
             if not pdgs_specified:
                 desired_pdgs_order = specified_process_instance.get_cached_initial_final_pdgs()
-            
-        ME_accessor, call_key = self.get_MEAccessor(me_accessor_key, pdgs=desired_pdgs_order)
+
+        ME_accessor, call_key = self.get_MEAccessor(me_accessor_key, pdgs=desired_pdgs_order, track_leg_numbers=track_leg_numbers)
         call_options.update(call_key)
 
         # Now for subtraction current accessors, we must pass the current as first argument
@@ -2069,7 +2075,6 @@ class MEAccessorDict(dict):
         if not isinstance(ME_accessor, VirtualMEAccessor):
             raise MadGraph5Error(
                 "MEAccessorDict can only be assigned values inheriting from VirtualMEAccessor.")
-        
         for key, value in ME_accessor.get_canonical_key_value_pairs():
             if key in self and not allow_overwrite:
                 raise MadGraph5Error(

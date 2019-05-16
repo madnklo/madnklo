@@ -45,12 +45,6 @@ from bidict import bidict
 logger = logging.getLogger('madgraph')
 pjoin = os.path.join
 
-# Specify here the list of subtraction currents schemes and subtraction_mappings_scheme
-# that uses soft counterterms that recoils against the initial states. This is necessary in
-# order to decide when a contribution with a correlated convolution of both beams must be setup.
-_currents_schemes_requiring_soft_beam_factorization = ['colorful', 'colorful_pp']
-_mappings_schemes_requiring_soft_beam_factorization = ['SoftBeamsRecoilNLO', ]
-
 #=========================================================================================
 # Multinomial function
 #=========================================================================================
@@ -217,7 +211,16 @@ def difference(A, B):
 #=========================================================================================
 
 class SubtractionLeg(tuple):
-    """Leg object specialized for subtraction."""
+    """Leg object specialized for subtraction.
+    A SubtractionLeg is (LEG_ID,PDG_ID,STATE) where
+    - LEG_ID is the ID of this specific leg in the process
+    - PDG_ID identifies the type of particle through the standard PDG codes
+    - STATE is FINAL or INITIAL
+    Initialization is performed using
+    - SubtractionLeg(LEG_ID:int,PDG_ID:int,STATE:bool)
+    - SubtractionLeg(Leg) using the Leg objects
+    - SubtractionLeg(Leg_dict:dict) using a dict with keys  'number', 'id', 'state'
+    """
 
     FINAL = base_objects.Leg.FINAL
     INITIAL = base_objects.Leg.INITIAL
@@ -348,6 +351,119 @@ class SubtractionLegSet(tuple):
                 (leg.n, leg.pdg, leg.state) for leg in self
             )
 
+    def split_by_pdg_abs(self, pdgs, state):
+        """Restructure the information about the SubtractionLegSet,
+        grouping legs by absolute value of their pdg and their state.
+        For each pdg abs, generate two sets of legs with opposite pdg sign,
+        and count the positive/negative occurrences.
+        This information is useful for the map_leg_numbers method.
+
+        For example, calling
+        split_by_pdg_abs(
+            ((1, 2=u, I), (2, 1=d, F), (3, -2=u~, F), (4, 2=u, F), (5, 2=u, F), (6, 3=s, F), ),
+            [2=u|u~, 3=s|s~],
+            F )
+        where I/F stands for initial/final yields
+            legs_by_pdg = {
+                2=u|u~: [((3, -2=u~, F), ), ((4, 2=u, F), (5, 2=u, F), )],
+                3=s|s~: [(), ((6, 3=s, F), )],
+            }
+        as, for the specified pdgs 2=u|u~ and 3=s|s~, there are respectively
+        1 negative / 2 positive and 0 negative / two positive legs.
+        Note that the two sets of legs for a given pdg abs are sorted by leg count
+        and not by positive/negative, and only the legs with state F are considered.
+        The counts are expressed by
+            pdg_counts = {(0, 1): [3=s|s~], (1, 2): [2=u|u~]}
+        which means that the pdg abs values
+        with 0 legs of one sign and 1 leg of the opposite are the list [3=s|s~],
+        and the ones with 1 leg of one sign and 2 of the other are the list [2=u|u~].
+        The function also returns the SubtractionLegSet without the legs
+        that have a pdg/state which was specified, i.e.
+            rest = ((1, 2=u, I), (2, 1=d, F), ).
+        """
+
+        legs_by_pdg = dict()
+        pdg_counts = dict()
+        rest = SubtractionLegSet(self)
+        for pdg in set(map(abs, pdgs)):
+            pos = SubtractionLegSet(leg for leg in self
+                                    if leg.pdg ==  pdg and leg.state == state)
+            neg = SubtractionLegSet(leg for leg in self
+                                    if leg.pdg == -pdg and leg.state == state)
+            legs_by_pdg[pdg] = sorted((pos, neg), key=len)
+            count_key = tuple(map(len, legs_by_pdg[pdg]))
+            pdg_counts.setdefault(count_key, [])
+            pdg_counts[count_key].append(pdg)
+            rest = SubtractionLegSet(difference(rest, union(pos, neg)))
+        return legs_by_pdg, pdg_counts, rest
+
+    def map_leg_numbers(self, target, equivalent_pdg_sets=()):
+        """Find a correspondence between this SubtractionLegSet and another
+        that only differs by leg numbers.
+        The optional argument equivalent_pdg_sets allows to consider some particle species
+        to be interchangeable in this matching. This is designed to identify processes
+        where legs have the same quantum numbers up to some details which are irrelevant
+        for subtraction. Typically this is the case of massless quarks, where one only
+        keeps track of which quarks have the same flavor or are antiparticles.
+        For instance
+            (1, 1=d, F), (2, -1=d~, F)
+        should match
+            (7, 3=s, F), (5, -3=s~, F)    or    (4, -1=d~, F), (1, 1=d,    F),
+        but not
+            (4, 3=s, F), (5, -1=d~, F)    or    (7, 24=W+, F), (2, -24=W-, F).
+
+        :param target: the target SubtractionLegSet
+        :param equivalent_pdg_sets: a list of lists pdgs that should be considered
+            equivalent in the matching (note that particles and antiparticles
+            for these values will also be considered equivalent)
+        :return: a dictionary of leg numbers that sends this set into the target one,
+            if any; None otherwise.
+        """
+
+        if len(self) != len(target):
+            return None
+
+        s_rest = self
+        t_rest = target
+        leg_numbers_map = dict()
+
+        for pdgs in equivalent_pdg_sets:
+            for state in (SubtractionLeg.INITIAL, SubtractionLeg.FINAL):
+                s_legs_by_pdgs, s_pdg_counts, s_rest = s_rest.split_by_pdg_abs(pdgs, state)
+                t_legs_by_pdgs, t_pdg_counts, t_rest = t_rest.split_by_pdg_abs(pdgs, state)
+                for count in s_pdg_counts.keys():
+                    for i in range(len(s_pdg_counts[count])):
+                        s_pdg = s_pdg_counts[count][i]
+                        try:
+                            t_pdg = t_pdg_counts[count][i]
+                        except (KeyError, IndexError):
+                            return None
+                        s_list_1, s_list_2 = s_legs_by_pdgs[s_pdg]
+                        t_list_1, t_list_2 = t_legs_by_pdgs[t_pdg]
+                        if len(s_list_1) != len(t_list_1) or len(s_list_2) != len(t_list_2):
+                            raise MadGraph5Error(
+                                "Inconsistent lists in SubtractionLegSet.map_leg_numbers, "
+                                "SubtractionLegSet.split_by_pdg_abs is bugged.")
+                        leg_numbers_map.update(zip(
+                            [leg.n for leg in s_list_1],
+                            [leg.n for leg in t_list_1] ))
+                        leg_numbers_map.update(zip(
+                            [leg.n for leg in s_list_2],
+                            [leg.n for leg in t_list_2] ))
+
+        for s_leg in s_rest:
+            try:
+                t_leg = next(leg for leg in t_rest
+                             if leg.state == s_leg.state and leg.pdg == s_leg.pdg)
+                leg_numbers_map[s_leg.n] = t_leg.n
+                t_rest = SubtractionLegSet(difference(t_rest, (t_leg, )))
+            except StopIteration:
+                return None
+
+        assert(not t_rest)
+        return leg_numbers_map
+
+
 #=========================================================================================
 # SingularStructure
 #=========================================================================================
@@ -374,6 +490,8 @@ class SingularStructure(object):
                 self.substructures.append(arg)
             elif isinstance(arg, SubtractionLeg):
                 self.legs = SubtractionLegSet(self.legs + (arg, ))
+            elif isinstance(arg, base_objects.Leg):
+                self.legs = SubtractionLegSet(self.legs + (SubtractionLeg(arg),))
             elif isinstance(arg, bool):
                 self.is_void = self.is_void or arg
             else:
@@ -388,17 +506,18 @@ class SingularStructure(object):
             substructures=[ss.get_copy() for ss in self.substructures],
             is_void=self.is_void )
 
-    def __str__(self, print_n=True, print_pdg=False, print_state=False):
+    def __str__(self, print_n=True, print_pdg=False, print_state=False, sort=True):
         """Return a string representation of the singular structure."""
 
         if self.is_void:
             return 'Void structure'
 
         tmp_str = self.name() + "("
-        tmp_str += ",".join(sorted(
-            sub.__str__(print_n, print_pdg, print_state)
-            for sub in self.substructures
-        ))
+        sub_strs = ( sub.__str__(print_n, print_pdg, print_state, sort)
+            for sub in self.substructures )
+        if sort:
+            sub_strs = sorted(sub_strs)
+        tmp_str += ",".join(sub_strs)
         if self.substructures:
             tmp_str += ","
         tmp_str += ",".join(
@@ -438,7 +557,7 @@ class SingularStructure(object):
         else:
             pref = -1
 
-        # Account for simplification of soft operators
+        # Account for simplification of soft structures
         # TODO Check this works for collinears inside softs
         softs = []
         for sub in self.substructures:
@@ -453,14 +572,17 @@ class SingularStructure(object):
         """ Return the set of all the beam factorization legs involved in this singular
         structure. Note that beam factorization structures should always be at the top level
         and never nested."""
-        return set(sum([
-            [ l.n for l in struct.get_all_legs() ] 
-                for struct in self.substructures if isinstance(struct, BeamStructure)],[]))
+        res = set([])
+        for struct in self.substructures:
+            if isinstance(struct, BeamStructure):
+                res |= set([l.n for l in struct.get_all_legs() ])
+            else:
+                res |=  struct.get_beam_factorization_legs()
+        return res
 
     def annihilate(self):
-        """When an operator cannot act on this structure,
-        remove this structure altogether
-        by flagging it as unapplicable to any other operator.
+        """When an elementary structure cannot be nested within this structure,
+        remove this structure altogether by flagging it as void.
         """
 
         # Really clear structures and legs
@@ -499,7 +621,7 @@ class SingularStructure(object):
             total_couplings += substructure.count_couplings()
         return total_couplings
 
-    def get_canonical_representation(self, track_leg_numbers=True):
+    def get_canonical_representation(self, track_leg_numbers=True, sort=True):
         """Creates a canonical hashable representation of self."""
         
         canonical = dict()
@@ -510,27 +632,27 @@ class SingularStructure(object):
         else:
             # Always track initial state leg numbers as they are always distinguishable
             canonical['legs'] = self.legs.without_leg_numbers(
-                                                        discard_initial_leg_numbers=False)
+                discard_initial_leg_numbers=False)
         canonical['name'] = self.name()
-        canonical['substructures'] = tuple(sorted(
+        canonical['substructures'] = tuple(
             structure.get_canonical_representation(track_leg_numbers)
-            for structure in self.substructures
-        ))
-
+            for structure in self.substructures)
+        if sort:
+            canonical['substructures'] = tuple(sorted(canonical['substructures']))
         return tuple(sorted(canonical.items()))
 
     def __hash__(self):
 
         return hash(self.get_canonical_representation())
 
-    def __eq__(self, other):
+    def __eq__(self, other, orderless=True):
         """Check if two singular structures are the same."""
 
         if not isinstance(other, SingularStructure):
             raise TypeError(
                 "Comparing SingularStructure to %s (%s)" % (str(other), str(type(other))))
-        self_can = self.get_canonical_representation()
-        other_can = other.get_canonical_representation()
+        self_can = self.get_canonical_representation(sort=orderless)
+        other_can = other.get_canonical_representation(sort=orderless)
         return self_can == other_can
 
     def __ne__(self, other):
@@ -553,10 +675,92 @@ class SingularStructure(object):
         inner.append(foo)
         return inner
 
+    def act_here_needed(self, structure):
+        """Return True if the counterterm obtained adding this limit
+        on the given structure at the first level is needed for subtraction.
+        """
+
+        assert not self.substructures
+        raise MadGraph5Error(
+            "act_here_needed called in SingularStructure of unspecified type.")
+
+    def non_overlapping_with(self, structure):
+        """Determines if this limit does not affect any leg
+        that appears within the given structure, at any level.
+        """
+
+        assert isinstance(structure, SingularStructure)
+        assert not self.substructures
+        # Check if the structure has any legs in common
+        if not is_disjoint(self.legs, structure.legs):
+            return False
+        # Check if substructures have any leg in common
+        for substructure in structure.substructures:
+            if not self.non_overlapping_with(substructure):
+                return False
+        # All checks passed
+        return True
+
+    def act_on(self, structure):
+        """Act with this elementary structure on another, non-elementary structure."""
+
+        assert isinstance(structure, SingularStructure)
+        assert not self.substructures
+
+        # If the limit does not overlap with the existing structure at all,
+        # just append it at the end
+        if self.non_overlapping_with(structure):
+            structure.substructures.append(self.get_copy())
+            return
+
+        # If the limit acts at least partly at the current level
+        if not is_disjoint(self.legs, structure.legs):
+            # If the limit acts at different levels,
+            # it is not needed for subtraction
+            if not is_subset(self.legs, structure.legs):
+                structure.annihilate()
+            # If the limit acts completely within this level,
+            # it may be needed or not
+            else:
+                if self.act_here_needed(structure):
+                    structure.substructures.append(self.get_copy())
+                    structure.legs = SubtractionLegSet(difference(structure.legs, self.legs))
+                else:
+                    structure.annihilate()
+            return
+
+        # The limit acts deeper
+        for substructure in structure.substructures:
+            # Find the first substructure hit by the limit, even partially
+            if not self.non_overlapping_with(substructure):
+                self.act_on(substructure)
+                # If the action on the substructure annihilated it,
+                # then annihilate this structure as well
+                if substructure.is_void:
+                    structure.annihilate()
+                return
+
+    def nest(self, structure=None):
+
+        assert isinstance(self, SingularStructure)
+        if structure is None:
+            structure = SingularStructure()
+        substructures = self.substructures
+        # Empty list of elementary structures to apply or invalid target structure: done
+        if structure.is_void or not substructures:
+            return structure
+        # Apply last elementary structure and advance recursion
+        most_structures = SingularStructure(substructures=substructures[:-1])
+        substructures[-1].act_on(structure)
+        # And now act using the rest of the elementary structures, if needed
+        if structure.is_void:
+            return structure
+        return most_structures.nest(structure)
+
     @staticmethod
     def from_string(string, process, log=False):
-        """Reconstruct a singular structure from a string representation, e.g.
-        C(S(3),5,4)
+        """Reconstruct a singular structure from a string representation,
+        e.g. C(S(3),5,4)
 
         :return: The reconstructed singular structure if successful, else None.
         """
@@ -619,18 +823,58 @@ class SingularStructure(object):
             if log:
                 logger.warning("%s %s '%s'"%(msg, "bracket matching failed for:", before_comma[:-1]))
             return None
-        return singular_structures_name_dictionary[name](substructures=substructures, legs=legs)
+        return singular_structures_name_dictionary[name](
+            substructures=substructures, legs=legs)
 
-class BeamStructure(SingularStructure):
+    def map_leg_numbers(self, target, equivalent_pdg_sets=()):
+        """Find a correspondence between this SingularStructure and another
+        that only differs by leg numbers.
+        The optional argument equivalent_pdg_sets allows to consider some particle species
+        to be interchangeable in this matching. This is designed to identify identical
+        structures whose legs have the same quantum numbers up to details which are
+        irrelevant for subtraction. Typically this is the case of massless quarks, where
+        one only keeps track of which quarks have the same flavor or are antiparticles.
+        For instance
+            C(S((1, 21=g, F)), (2, -1=d~, F))
+        should match
+            C(S((3, 21=g, F)), (2, +3=s,  F))    or    C(S((7, 21=g, F)), (4, -1=d~, F))
+        but not
+            S(S((1, 21=g, F)), (2, -1=d~, F))    or    C(S((6, 21=g, F)), (4, 21=g,  F)).
 
-    def count_couplings(self):
-        return 1
+        :param target: the target SingularStructure
+        :param equivalent_pdg_sets: a list of lists pdgs that should be considered
+            equivalent in the matching (note that particles and antiparticles
+            for these values will also be considered equivalent)
+        :return: a dictionary of leg numbers that sends this structure
+            into the target one, if any; None otherwise.
+        """
 
-    def count_unresolved(self):
-        return 0
 
-    def name(self):
-        return "F"
+        # 1) Match type
+        if self.name() != target.name():
+            return None
+
+        # 2) Match legs
+        leg_number_dict = self.legs.map_leg_numbers(target.legs, equivalent_pdg_sets)
+        if leg_number_dict is None:
+            return None
+
+        # 3) Match substructures
+        if len(self.substructures) != len(target.substructures):
+            return None
+        target_subs = [target_sub for target_sub in target.substructures]
+        for sub in self.substructures:
+            matching = None
+            for i in range(len(target_subs)):
+                sub_dict = sub.map_leg_numbers(target_subs[i], equivalent_pdg_sets)
+                if sub_dict is not None:
+                    matching = target_subs.pop(i)
+                    leg_number_dict.update(sub_dict)
+                    break
+            if matching is None:
+                return None
+
+        return leg_number_dict
 
 class SoftStructure(SingularStructure):
 
@@ -642,139 +886,8 @@ class SoftStructure(SingularStructure):
 
     def name(self):
         return "S"
-    
-class CollStructure(SingularStructure):
-
-    def count_couplings(self):
-        return self.count_unresolved()
-
-    def count_unresolved(self):
-        return len(self.get_all_legs())-1
-
-    def name(self):
-        return "C"
-    
-#=========================================================================================
-# SingularOperator
-#=========================================================================================
-
-class SingularOperator(SubtractionLegSet):
-    """Virtual base class for elementary singular operators."""
-
-    def __new__(cls, *args, **opts):
-
-        return super(SingularOperator, cls).__new__(cls, args, **opts)
-
-    def __init__(self, *args, **opts):
-
-        super(SingularOperator, self).__init__(args, **opts)
-
-    def __str__(self):
-        """Return a simple string representation of the singular operator."""
-
-        return self.name() + str(tuple(self))
-
-    def name(self):
-        """Symbol used to represent this operator within output."""
-
-        raise MadGraph5Error(
-            "name called in SingularOperator of unspecified type."
-        )
-
-    def get_structure(self):
-        """Singular structure corresponding to this operator
-        acting on hard particles.
-        """
-
-        raise MadGraph5Error(
-            "get_structure called in SingularOperator of unspecified type."
-        )
 
     def act_here_needed(self, structure):
-        """Return True if the counterterm obtained acting with this operator
-        on the given structure at the first level is needed for subtraction.
-        """
-
-        # WARNING Rules may not extend to non-QCD cases
-        raise MadGraph5Error(
-            "act_here_needed called in SingularOperator of unspecified type."
-        )
-
-    def non_overlapping_with(self, structure):
-        """Determines if this operator does not affect any leg
-        that appears within the given structure, at any level.
-        """
-
-        assert isinstance(structure, SingularStructure)
-
-        if not is_disjoint(self, structure.legs):
-            return False
-
-        for substructure in structure.substructures:
-            if not self.non_overlapping_with(substructure):
-                return False
-
-        return True
-
-    def act_on(self, structure):
-        """Act with an elementary operator on a non-elementary structure."""
-
-        assert isinstance(structure, SingularStructure)
-
-        # If the limit does not overlap with the existing structure at all,
-        # just append it at the end
-        if self.non_overlapping_with(structure):
-            structure.substructures.append(self.get_structure())
-            return
-
-        # If the limit acts at least partly at the current level
-        if not is_disjoint(self, structure.legs):
-            # If the limit acts at different levels,
-            # it is not needed for subtraction
-            if not is_subset(self, structure.legs):
-                structure.annihilate()
-                return
-            # If the limit acts completely within this level,
-            # it may be needed or not
-            else:
-                if self.act_here_needed(structure):
-                    structure.substructures.append(self.get_structure())
-                    structure.legs = difference(structure.legs, self)
-                    return
-                else:
-                    structure.annihilate()
-                    return
-
-        # The limit acts deeper
-        for substructure in structure.substructures:
-            # Find the first substructure hit by the limit, even partially
-            if not self.non_overlapping_with(substructure):
-
-                self.act_on(substructure)
-                # If the action on the substructure annihilated it,
-                # then annihilate this structure as well
-                if substructure.is_void:
-                    structure.annihilate()
-                return
-
-class SoftOperator(SingularOperator):
-    """Object that represents a soft elementary singular operator."""
-
-    def __init__(self, *args, **opts):
-
-        super(SoftOperator, self).__init__(*args, **opts)
-
-    def name(self):
-
-        return "S"
-
-    def get_structure(self):
-
-        return SoftStructure(legs=self)
-
-    def act_here_needed(self, structure):
-
-        assert isinstance(structure, SingularStructure)
 
         # Soft limits are not needed within soft structures
         if structure.name() == "S":
@@ -784,7 +897,7 @@ class SoftOperator(SingularOperator):
         # if there is at least one hard particle left
         if structure.name() == "C":
             # If there is a hard particle at this level, the limit is needed
-            if len(self) < len(structure.legs):
+            if len(self.legs) < len(structure.legs):
                 return True
             # If there is a hard collinear substructure, the limit is needed
             else:
@@ -797,83 +910,34 @@ class SoftOperator(SingularOperator):
         # By default, not skipping overlaps ensures correct subtraction
         return True
 
-class CollOperator(SingularOperator):
-    """Object that represents a collinear elementary singular operator."""
+class CollStructure(SingularStructure):
+
+    def count_couplings(self):
+        return self.count_unresolved()
+
+    def count_unresolved(self):
+        return len(self.get_all_legs())-1
 
     def name(self):
-
         return "C"
 
-    def get_structure(self):
-
-        return CollStructure(legs=self)
-
-    def __init__(self, *args, **opts):
-
-        super(CollOperator, self).__init__(*args, **opts)
-
     def act_here_needed(self, structure):
-
-        assert isinstance(structure, SingularStructure)
-
-        # Collinear limits are needed within soft _and_ collinear structures
-        # WARNING: this statement has to be checked
-        # By default, not skipping overlaps ensures correct subtraction
         return True
-    
-class BeamOperator(SingularOperator):
-    """Object that represents a beam factorization elementary singular operator."""
+
+class BeamStructure(SingularStructure):
+
+    # TODO this only works at NLO...
+    def count_couplings(self):
+        return 1
+
+    def count_unresolved(self):
+        return 0
 
     def name(self):
-
         return "F"
 
-    def get_structure(self):
-
-        return BeamStructure(legs=self)
-
-    def __init__(self, *args, **opts):
-
-        super(BeamOperator, self).__init__(*args, **opts)
-
     def act_here_needed(self, structure):
-
-        assert isinstance(structure, SingularStructure)
-
-        # Beam factorization limits should never be needed within any other singular structure
-        # WARNING: this statement has to be checked
-        
         return False
-
-#=========================================================================================
-# SingularOperatorList
-#=========================================================================================
-
-class SingularOperatorList(list):
-    """List of subtraction operators."""
-
-    def act_on(self, structure):
-        """Act with a list of operators on a substructure."""
-
-        # Empty list of operators to apply or invalid structure: done
-        if structure.is_void or not self:
-            return structure
-        # Apply last operator and advance recursion
-        all_but_last_operators = SingularOperatorList(self[:-1])
-        # Act using the last operator
-        self[-1].act_on(structure)
-        # And now act using the rest of the operators, if needed
-        if not structure.is_void:
-            return all_but_last_operators.act_on(structure)
-
-    def simplify(self):
-        """Simplify a list of operators,
-        returning the real structure of the corresponding singularities.
-        """
-
-        structure = SingularStructure()
-        self.act_on(structure)
-        return structure
 
 #=========================================================================================
 # Current
@@ -910,7 +974,7 @@ class Current(base_objects.Process):
 
         return self['singular_structure'].count_couplings()
 
-    def discard_leg_numbers(self,discard_initial_leg_numbers=True):
+    def discard_leg_numbers(self, discard_initial_leg_numbers=True):
         """Discard all leg numbers in the singular_structure
         and in the parent_subtraction_leg,
         effectively getting the type of current
@@ -953,7 +1017,6 @@ class Current(base_objects.Process):
         """Given the defining flavors dictionary specifying the flavors of some leg numbers,
         add entries corresponding to the subtraction legs in this node and using the function
         get_parent_PDGs from the subtraction module."""
-        
         get_particle = IR_subtraction_module.model.get_particle
         
         def get_parent(PDGs, is_initial):
@@ -968,33 +1031,47 @@ class Current(base_objects.Process):
                 return get_particle(res[0]).get_anti_pdg_code()
             else:
                 return res[0]
-        
-        all_legs = self['singular_structure'].get_all_legs()
-        
-        # If all legs are unresolved, as it is the case in the pure soft configurations,
-        # then nothing needs to be done
-        if self.count_unresolved()==len(all_legs):
-            return
-        
-        leg_numbers = [leg.n for leg in all_legs]
 
-        try:
-            # Swap the flavors of the initial states
-            leg_flavors = [ ( 
-                    get_particle(defining_flavors[leg.n]).get_anti_pdg_code() if 
-                    leg.state==SubtractionLeg.INITIAL else get_particle(defining_flavors[leg.n]).get_pdg_code() ) 
-                for leg in all_legs ]
-    
-            if len(leg_numbers)>0: 
-                mother_number = Counterterm.get_ancestor(frozenset(leg_numbers), routing_dict)
-                if mother_number not in defining_flavors:
-                    defining_flavors[mother_number] = get_parent(leg_flavors, 
-                                   any(leg.state==SubtractionLeg.INITIAL for leg in all_legs) )
-        except Exception as e:
-            raise MadGraph5Error('\nError when computing reduced quantities for current:\n%s\n'%str(self)+
-                                 'Defining flavors:\n%s\n'%str(defining_flavors)+
-                                 'routing dict:\n%s\n'%str(routing_dict)+
-                                 'Exception encountered:\n%s'%traceback.format_exc())
+        # Go through the current's singular structure to find the disjoint unresolved sets
+        ss = self.get('singular_structure')
+        # The singular structure has a trivial nesting of variable depth
+        # eg: local C(1,2) is (C(1,2),) while integrated C(1,2) is ((C(1,2),),)
+        # We recursively go through until we have all the actual disjoint current directly accessible
+        # i.e. something like ss = (C(1,2),C(3,4))
+        above_disjoint = False
+        while not above_disjoint:
+            sub_ss = ss.substructures[0]
+            if len(sub_ss.legs) != 0:
+                above_disjoint = True
+            else:
+                ss = sub_ss
+        for sub_ss in ss.substructures:
+            all_legs = sub_ss.get_all_legs()
+
+            # If all legs are unresolved, as it is the case in the pure soft configurations,
+            # then nothing needs to be done for this substructure
+            if sub_ss.count_unresolved() == len(all_legs):
+                continue
+
+            leg_numbers = [leg.n for leg in all_legs]
+
+            try:
+                # Swap the flavors of the initial states
+                leg_flavors = [(
+                    get_particle(defining_flavors[leg.n]).get_anti_pdg_code() if
+                    leg.state == SubtractionLeg.INITIAL else get_particle(defining_flavors[leg.n]).get_pdg_code())
+                    for leg in all_legs]
+
+                if len(leg_numbers)>0:
+                    mother_number = Counterterm.get_ancestor(frozenset(leg_numbers), routing_dict)
+                    if mother_number not in defining_flavors:
+                        defining_flavors[mother_number] = get_parent(leg_flavors,
+                                       any(leg.state==SubtractionLeg.INITIAL for leg in all_legs) )
+            except Exception as e:
+                raise MadGraph5Error('\nError when computing reduced quantities for current:\n%s\n'%str(self)+
+                                     'Defining flavors:\n%s\n'%str(defining_flavors)+
+                                     'routing dict:\n%s\n'%str(routing_dict)+
+                                     'Exception encountered:\n%s'%traceback.format_exc())
 
     def get_key(self, track_leg_numbers=False):
         """Return the ProcessKey associated to this current."""
@@ -1042,7 +1119,7 @@ class Current(base_objects.Process):
         # Filter initial state legs and make sure there is only one
         daughters = [leg for leg in daughters if leg.state==SubtractionLeg.INITIAL]
         if len(daughters)!=1:
-            raise CurrentImplementationError('Beam factorization current should involve'+
+            raise MadGraph5Error('Beam factorization current should involve'+
                 ' exactly one daughter initial state leg (the two beam factorization must be factorized).')        
         initial_state_daughter = daughters[0]
         
@@ -1055,7 +1132,7 @@ class Current(base_objects.Process):
             tuple(attr for attr in copied_attributes if attr != 'singular_structure') )
         if 'singular_structure' in copied_attributes:
             copied_current['singular_structure'] = self['singular_structure'].get_copy()
-        
+
         return copied_current
 
     def get_number_of_couplings(self):
@@ -1304,7 +1381,6 @@ class CountertermNode(object):
         """Given the defining flavors dictionary specifying the flavors of some leg numbers,
         add entries corresponding to the subtraction legs in this node and using the function
         get_parent_PDGs from the subtraction module."""
-
         for node in self.nodes:
             node.get_reduced_flavors(defining_flavors, IR_subtraction_module, routing_dict)  
 
@@ -1754,7 +1830,6 @@ class Counterterm(CountertermNode):
         self.reduced_flavors_map = {}
         for i_proc, process in enumerate([defining_process,]+mapped_processes):
             number_to_flavors_map = { l['number'] : l['id'] for l in process.get('legs') }
-
             # Update the number_to_flavors_map dictionary by walking through the nodes
             for node in self.nodes:
                 node.get_reduced_flavors(
@@ -1804,8 +1879,7 @@ class Counterterm(CountertermNode):
         # integrated counterterm reduced kinematics which should be a *dictionary* with
         # keys aligned with the leg number of the reduced process and subtraction legs,
         # so that the integrated current evaluations can be performed.
-        reduced_PS = LorentzVectorList()
-        
+
         # First construct the reduced kinematic list
         reduced_PS = self.process.format_PS_point_for_ME_call(reduced_PS_dict)
 
@@ -1870,10 +1944,10 @@ class IntegratedCounterterm(Counterterm):
         # First fetch all integrated currents making up this integrated counterterm
         # In the current implementation, there can only be one for now.
         integrated_current = self.get_integrated_current()
-        
+
         if type(integrated_current) not in [BeamCurrent, IntegratedBeamCurrent]:
             return beam_currents
-        
+
         if integrated_current['singular_structure'].does_require_correlated_beam_convolution():
             for bcs in beam_currents:
                 if bcs['beam_one'] is not None or bcs['beam_two'] is not None:
@@ -1885,7 +1959,7 @@ class IntegratedCounterterm(Counterterm):
 
         # Now get all legs of its singular structure
         all_legs = integrated_current['singular_structure'].get_all_legs()
-        
+
         if any(l.n==1 for l in all_legs):
             for bcs in beam_currents:
                 if bcs['beam_one'] is not None:
@@ -1924,12 +1998,11 @@ class IntegratedCounterterm(Counterterm):
             for beam_name, beam_current in bft.items():
                 if not beam_current is None:
                     necessary_beam_convolutions.add(beam_name)
-            
+
         # Then fetch all integrated currents making up this integrated counterterm
         # In the current implementation, there can only be one for now.
         integrated_current = self.get_integrated_current()
-
-        if type(integrated_current) not in [BeamCurrent,]:
+        if type(integrated_current) not in [BeamCurrent ]:
             return necessary_beam_convolutions
         
         # Check if this integrated counterterm necessitate a soft-recoil that demands
@@ -1992,15 +2065,15 @@ class IntegratedCounterterm(Counterterm):
         
         # We must now adjust the number of loops expected in the host contributions because
         # some integrated counterterms don't yield loops in the host contributions, but instead
-        # beam factorisation convolutions.
+        # beam factorization convolutions.
         beam_numbers_for_which_n_loops_is_already_decremented = []
         for current in self.get_all_currents():
             if not type(current)==BeamCurrent:
                 continue
             # All the soft structures appearing as 'BeamCurrents' come from the colorful currents scheme
-            # when the a mapping such as ppToOneWalker is used, which recoils equally against both beams.
+            # when a mapping is chosen that recoils equally against both beams.
             # In this case, the corresponding integrated soft CT is placed in dedicated contributions
-            # such as 'BS', 'VS' etc... which are defined without an increment on n_loops corresponding
+            # such as 'BS', 'VS' etc... which iare defined without an increment on n_loops corresponding
             # to the unresolved soft particle, so it must be decremented here
             for c in current['singular_structure'].decompose():
                 if c.name()=='S':
@@ -2011,7 +2084,7 @@ class IntegratedCounterterm(Counterterm):
                 # which increased the loop count in the line above. However, given that those must be placed
                 # together with the beam factorization currents, we should not account for these loops.
                 beam_numbers_in_currents = set(sum([[l.n for l in ss.get_all_legs() if l.n in [1,2]] 
-                        for ss in current['singular_structure'].substructures if ss.name()=='C'],[]))
+                        for ss in current['singular_structure'].substructures[0].substructures if ss.name()=='C'],[]))
                 for beam_number in beam_numbers_in_currents:
                     if beam_number not in beam_numbers_for_which_n_loops_is_already_decremented:
                         beam_numbers_for_which_n_loops_is_already_decremented.append(beam_number)
@@ -2029,7 +2102,7 @@ class IntegratedCounterterm(Counterterm):
             # We don't need to look recursively inside the singular structures since the beam
             # factorization ones are supposed to be at the top level since they factorize
             beam_numbers_in_currents = set(sum([[l.n for l in ss.legs] for ss in 
-                current['singular_structure'].substructures if ss.name()=='F'],[]))
+                current['singular_structure'].substructures[0].substructures if ss.name()=='F'],[]))
             for beam_number in beam_numbers_in_currents:
                 assert (beam_number in [1,2]), "Inconsistent beam number found."
                 if beam_number not in beam_numbers_for_which_n_loops_is_already_incremented:
@@ -2048,7 +2121,7 @@ class IntegratedCounterterm(Counterterm):
 
         # Then add those of the xi-dependent integrated ISR counterterm and local F ones.
         beam_numbers_in_currents = set([])
-        soft_beam_factorisation_n_loop = 0
+        soft_beam_factorization_n_loop = 0
         for current in self.get_all_currents():
             if not type(current)==BeamCurrent:
                 continue
@@ -2056,18 +2129,18 @@ class IntegratedCounterterm(Counterterm):
             # we must only subtract exactly one as this correspond to exactly one convolution,
             # irrespectively of the number of unresolved particles of the counterterm.
             if self.does_require_correlated_beam_convolution():
-                soft_beam_factorisation_n_loop = 1
+                soft_beam_factorization_n_loop = 1
             else:   
                 # We don't need to look recursively inside the singular structures since the beam
                 # factorization ones are supposed to be at the top level since they factorize
                 beam_numbers_in_current = set(sum([[l.n for l in ss.legs if l.n in [1,2]] for ss in 
-                                  current['singular_structure'].substructures if ss.name()=='C'],[]))
+                        current['singular_structure'].substructures[0].substructures if ss.name()=='C'],[]))
                 beam_numbers_in_currents |= beam_numbers_in_current
             n_loops += current['n_loops'] + current.count_unresolved()
         # We must remove one loop per beam number encountered in integrated ISR collinear CT
         # since the leading beam factorization counterterm has zero loop but count_unresolved()
         # counts for one there.
-        n_loops -= (len(beam_numbers_in_currents) + soft_beam_factorisation_n_loop)
+        n_loops -= (len(beam_numbers_in_currents) + soft_beam_factorization_n_loop)
         
         return n_loops
 
@@ -2077,27 +2150,29 @@ class IntegratedCounterterm(Counterterm):
 
 class IRSubtraction(object):
 
-    _allowed_model_names = ['sm', 'loop_sm', 'loopsm', 
+    _allowed_model_names = ['sm', 'loop_sm', 'loopsm',
                             'simple_qcd','loop_qcd_qed_sm','hc_nlo_x0_ufo']
 
-    def __init__(self, model, n_unresolved, coupling_types=('QCD', ), beam_types=(None,None),
-                 currents_scheme = 'colorful', mappings_scheme = 'LorentzNLO'):
-        """Initialize a IR subtractions for a given model,
+    def __init__(
+        self, model,
+        coupling_types=('QCD', ), beam_types=(None, None), subtraction_scheme=None):
+        """Initialize a IR subtractions for a given model,ss
         correction order and type.
         """
         self.model          = model
-        self.n_unresolved   = n_unresolved
         self.coupling_types = coupling_types
         self.beam_types     = beam_types
-        
-        self.currents_scheme = currents_scheme
-        self.mappings_scheme = mappings_scheme
-        # Decide is soft recoil against initial states
-        if self.currents_scheme in _currents_schemes_requiring_soft_beam_factorization and \
-           self.mappings_scheme in _mappings_schemes_requiring_soft_beam_factorization:
-            self.soft_do_recoil_against_initial_states = True
-        else:
+
+        if subtraction_scheme is None:
+            self.subtraction_scheme_module = None
             self.soft_do_recoil_against_initial_states = False
+        else:
+            self.subtraction_scheme_module = SubtractionCurrentExporter.get_subtraction_scheme_module(subtraction_scheme)
+            # Decide is soft recoil against initial states
+            if self.subtraction_scheme_module.requires_soft_beam_factorization:
+                self.soft_do_recoil_against_initial_states = True
+            else:
+                self.soft_do_recoil_against_initial_states = False
             
         # Map perturbed coupling orders to the corresponding interactions and particles.
         # The entries of the dictionary are
@@ -2112,6 +2187,79 @@ class IRSubtraction(object):
             )
             for coupling in coupling_types
         )
+
+    # =========================================================================================
+    # Create and update momenta dictionaries
+    # =========================================================================================
+    @staticmethod
+    def create_momenta_dict(process):
+        """Create a new momenta dictionary for a given process."""
+
+        momenta_dict = bidict()
+        for leg in process['legs']:
+            momenta_dict[leg['number']] = frozenset((leg['number'],))
+        return momenta_dict
+
+    @staticmethod
+    def new_leg_number(momenta_dict):
+        """Get a leg number that does not appear in momenta_dict."""
+
+        all_leg_numbers = frozenset.union(
+            frozenset.union(*momenta_dict.values()),
+            frozenset(momenta_dict.keys()))
+        return max(*all_leg_numbers) + 1
+
+    @staticmethod
+    def update_momenta_dict(momenta_dict, singular_structure, reduced_process=None):
+        """Update momenta dictionary."""
+
+        children = list(singular_structure.legs)
+        parent_number = None
+        for substructure in singular_structure.substructures:
+            child = IRSubtraction.update_momenta_dict(momenta_dict, substructure, reduced_process)
+            if child is not None:
+                children.append(child)
+        if singular_structure.name() in ["C", ]:
+            parent_number = IRSubtraction.new_leg_number(momenta_dict)
+            momenta_dict[parent_number] = frozenset(child.n for child in children)
+        return parent_number
+
+    def get_sectors(self, contrib_definition, process_map, counterterms=None, integrated_counterterms=None):
+        """ Given a particular contribution definition, its process_map and the counterterms contained, this
+        uses the subtraction module to build, for each defining process, the sectors to consider (or None if the subtraction
+        does not require any) as well as the list of counterterms to consider for each of them.
+        The sectors dictionary returned has the following format:
+
+            sectors = {
+                process_key: [
+                    sector_1, sector_2, ....
+                ]
+            }
+
+        where each sector_<i> is a dictionary with the following format:
+
+            sector_<i> = {
+                'sector'    :   sector_instance_or_identifier (exact format is up to the subtraction_scheme),
+                'counterterms' : [list of counterterm indices (as per the ordering in self.counterterms of the integrand) to be considered],
+                'integrated_counterterms' : [list of tuples (counterterm indices, input_mapping_index) for integrated CT to be considered]
+            }
+
+        'None' is returned for the sectors when not applicable for the particular subtraction scheme considered.
+
+        """
+
+        # If no subtraction module is loaded or if it doesn't require sectors, then return None
+        if self.subtraction_scheme_module is None or self.subtraction_scheme_module.sector_generator is None:
+            return None
+
+        sectors = {}
+        for process_key, (defining_process, mapped_processes) in process_map.items():
+            sectors[process_key] = self.subtraction_scheme_module.sector_generator(
+                contrib_definition, defining_process,
+                None if counterterms is None else counterterms[process_key],
+                None if integrated_counterterms is None else integrated_counterterms[process_key] )
+
+        return sectors
 
     def can_be_IR_unresolved(self, PDG):
         """Check whether a particle given by its PDG can become unresolved
@@ -2220,17 +2368,13 @@ class IRSubtraction(object):
                 return True
         return False        
     
-    def get_all_elementary_operators(self, process, max_unresolved=None):
-        """Generate all 'building blocks' operators relevant for the process
+    def get_all_elementary_structures(self, process, max_unresolved):
+        """Generate all 'building blocks' structures relevant for the process
         passed in argument.
         """
 
         # Initialize variables
-        if max_unresolved is None:
-            unresolved = self.n_unresolved
-        else:
-            unresolved = max_unresolved
-        elementary_operator_list = SingularOperatorList([])
+        elementary_structure_list = []
         # Eliminate particles that do not have a role in the subtraction
         legs = SubtractionLegSet(
             SubtractionLeg(leg) for leg in process.get('legs')
@@ -2242,18 +2386,18 @@ class IRSubtraction(object):
         is_legs = SubtractionLegSet(difference(legs, fs_legs))
 
         # Loop over number of unresolved particles
-        for unresolved in range(1, unresolved + 1):
+        for unresolved in range(1, max_unresolved + 1):
             # Get iterators at the start of the final-state list
             it = iter(fs_legs)
             soft_it, coll_final_it, coll_initial_it = itertools.tee(it, 3)
             # Final state particle sets going soft
             for soft_set in itertools.combinations(soft_it, unresolved):
                 if self.can_become_soft(soft_set):
-                    elementary_operator_list.append(SoftOperator(*soft_set))
+                    elementary_structure_list.append(SoftStructure(*soft_set))
             # Final state particle sets going collinear
             for coll_final_set in itertools.combinations(coll_final_it, unresolved + 1):
                 if self.can_become_collinear(coll_final_set):
-                    elementary_operator_list.append(CollOperator(*coll_final_set))
+                    elementary_structure_list.append(CollStructure(*coll_final_set))
             # Initial-final collinear
             # For any final-state set with one less particle
             for coll_initial_set in itertools.combinations(coll_initial_it, unresolved):
@@ -2261,56 +2405,48 @@ class IRSubtraction(object):
                 for coll_initial_leg in is_legs:
                     coll_set = (coll_initial_leg, ) + coll_initial_set
                     if self.can_become_collinear(coll_set):
-                        elementary_operator_list.append(CollOperator(*coll_set))
+                        elementary_structure_list.append(CollStructure(*coll_set))
                         
-        # Finally add an elementary BeamOperator if the process acted on has factorization
+        # Finally add an elementary BeamStructure if the process acted on has factorization
         # Beam currents attached to it.
         beam_names_added = []
         for pbft in process.get('beam_factorization'):
             for beam_name in ['beam_one','beam_two']:
                 if beam_name not in beam_names_added and (not pbft[beam_name] is None):
                     beam_names_added.append(beam_name)
-                    elementary_operator_list.append(
-                             BeamOperator(*pbft[beam_name]['singular_structure'].get_all_legs()))
+                    elementary_structure_list.append(
+                        BeamStructure(*pbft[beam_name]['singular_structure'].get_all_legs()))
         
-        return SingularOperatorList(elementary_operator_list)
+        return elementary_structure_list
 
-    def get_all_combinations(
-        self, elementary_operators,
-        max_unresolved=None, verbose=False
-    ):
-        """Determine all combinations of elementary operators,
+    def get_all_combinations(self, elementary_structures, max_unresolved, verbose=False):
+        """Determine all combinations of elementary structures,
         applying simplification and discarding the ones that vanish.
         """
 
-        # Initialize variables
-        if max_unresolved is None:
-            unresolved = self.n_unresolved
-        else:
-            unresolved = max_unresolved
         # Duplicate elimination is ugly,
         # because more combinations than needed are generated.
         # If one were to construct the list as a product of binomials,
         # (1 - O1)(1 - O2) ...
         # adding one monomial at a time, duplicates would never appear from the beginning
         # and simplification might still occur at each stage.
-        combos = [[SingularOperatorList()]]
+        combos = [[[]]]
         strucs = [[SingularStructure()]]
-        for n in range(len(elementary_operators)):
+        for n in range(len(elementary_structures)):
             if verbose:
-                misc.sprint("Considering combinations of %d operators" % (n+1))
+                misc.sprint("Considering combinations of %d elementary structures" % (n+1))
             combos_n = []
             strucs_n = []
             n_filtered = 0
             n_void = 0
             n_duplicates = 0
-            for op in elementary_operators:
+            for el in elementary_structures:
                 for combo in combos[-1]:
-                    if op not in combo:
-                        this_combo = SingularOperatorList(combo + [op, ])
-                        this_struc = this_combo.simplify()
+                    if el not in combo:
+                        this_combo = combo + [el, ]
+                        this_struc = SingularStructure(substructures=this_combo).nest()
                         if not this_struc.is_void:
-                            if this_struc.count_unresolved() <= unresolved:
+                            if this_struc.count_unresolved() <= max_unresolved:
                                 if this_struc not in strucs_n:
                                     combos_n.append(this_combo)
                                     strucs_n.append(this_struc)
@@ -2328,140 +2464,43 @@ class IRSubtraction(object):
             strucs.append(strucs_n)
         return list(itertools.chain.from_iterable(strucs))
 
-    def get_counterterm(self, structure, process, momenta_dict_so_far=None):
-        """Build the product of a set of currents and a matrix element
-        that approximates the matrix element for process
-        in the singular limit specified by structure.
-        Also build the integrated counterterm that cancels the contribution of the local
-        subtraction counterterm inclusively over the splitting phase-space in d-dimension.
+    def reduce_process(self, structure, process, momenta_dict):
+        """Starting from a process, determine the reduced one in an unresolved limit.
+
+        :param SingularStructure structure: singular structure which specifies the limit
+        :param base_objects.Process process: the process to be reduced, will be modified!
+        :param bidict momenta_dict: the momentum dictionary to be updated
+
+        :return: the parent leg of the singular structure
+        :rtype: SubtractionLeg
         """
 
-        # 1. Initialize variables
-
-        assert isinstance(structure, SingularStructure)
-        assert isinstance(process, base_objects.Process)
-
-        reduced_process = process
-
-        # If no momenta dictionary was passed
-        if not momenta_dict_so_far:
-            # Initialize it with process legs
-            momenta_dict_so_far = bidict()
-            for leg in process['legs']:
-                # Check that legs are numbered progressively
-                # from 1 to len(process['legs']),
-                # else a more elaborate treatment of indices is needed
-                assert leg['number'] == len(momenta_dict_so_far) + 1
-                momenta_dict_so_far[leg['number']] = frozenset((leg['number'], ))
-
-            # The squared orders of the reduced process will be set correctly later
-            reduced_process = reduced_process.get_copy(
-                ['legs', 'n_loops', 'legs_with_decays','beam_factorization']
-            )
-            # We need a deep copy of the beam_factorization here.
-            reduced_process['beam_factorization'] = copy.deepcopy(reduced_process['beam_factorization'])
-            # Empty legs_with_decays: it will be regenerated automatically when asked for
-            reduced_process['legs_with_decays'][:] = []
-            # TODO If resetting n_loops, what about orders?
-            # The n_loops will be distributed later
-            reduced_process.set('n_loops', -1)
-
-        nodes = []
-
-        # 2. Recursively look into substructures
-        current_args = set(structure.legs)
+        # Create the momenta dictionary and build the reduced process
+        structure_legs = structure.get_all_legs()
+        # Do not remove legs from the reduced process
+        # for beam factorization contributions
+        if structure.name() in ['F', ]:
+            structure_leg_ns = []
+        else:
+            structure_leg_ns = [leg.n for leg in structure_legs]
+        # Recurse into substructures
         for substructure in structure.substructures:
-            node = self.get_counterterm(
-                substructure, reduced_process, momenta_dict_so_far )
-            current_structure = node.current['singular_structure']
-            current_legs = current_structure.get_all_legs()
-            current_leg_ns = frozenset(leg.n for leg in current_legs)
-            # Replace collinear substructures with their parent
-            if current_structure.name() == "C":
-                # The parent has already been generated by recursion,
-                # retrieve its number
-                parent_index = momenta_dict_so_far.inv[current_leg_ns]
-                # Build the SubtractionLeg that appears in the current arguments
-                parent_PDGs = self.parent_PDGs_from_legs(current_legs)
-                assert len(parent_PDGs) == 1
-                parent_PDG = parent_PDGs[0]
-                parent_state = SubtractionLeg.FINAL
-                if current_legs.has_initial_state_leg():
-                    parent_state = SubtractionLeg.INITIAL
-                current_args.add(SubtractionLeg(parent_index, parent_PDG, parent_state))
-                # Eliminate soft sub-nodes without losing their children
-                subnodes = [subnode for subnode in node.nodes] # else remove() is trouble
-                for subnode in subnodes:
-                    if subnode.current['singular_structure'].name() == "S":
-                        node.nodes += subnode.nodes
-                        node.nodes.remove(subnode)
-            # Replace soft structures with their flattened versions
-            elif current_structure.name() == "S":
-                current_args.add(current_structure)
-            # Remove all non-identity beam factorization currents for that leg of 
-            # type 'bulk' to be the identity operator ('None').
-            elif current_structure.name() == "F":
-                if len(current_structure.legs)!=1 or current_structure.legs[0].n not in [1,2]:
-                    raise MadGraph5Error("Only beam factorizations attached to leg number 1 or"+
-                                      " 2 are supported for now; not %s."%str(current_structure))
-                current_args.add(current_structure)
-                beam_names = {1:'beam_one', 2:'beam_two'}
-                # Change the distribution type of all beam_factorization terms of that beam
-                # in the reduced process to be the identity (i.e. None).
-                for bft in reduced_process.get('beam_factorization'):
-                    beam_name = beam_names[current_structure.legs[0].n]
-                    if not bft[beam_name] is None:
-                        bft[beam_name]=None
+            subparent = self.reduce_process(substructure, process, momenta_dict)
+            if subparent is not None:
+                # Adding the parent
+                structure_leg_ns.append(subparent.n)
+                # Removing the children
+                for n in [leg.n for leg in substructure.legs]:
+                    structure_leg_ns.remove(n)
+        if structure.name() == "":
+            return None
 
-            # Other structures need to be implemented
-            else:
-                raise MadGraph5Error("Unrecognized current of type %s" % str(type(current_structure)))
-            # Add this node
-            nodes.append(node)
-
-        # If this is the outermost level,
-        # the recursion was all that needed to be done
-        if type(structure) is SingularStructure:
-            for subnode in nodes:
-                subnode.current['resolve_mother_spin_and_color'] = True
-            return Counterterm(
-                process=reduced_process,
-                nodes=nodes,
-                momenta_dict=momenta_dict_so_far,
-                resolved_process=process,
-                complete_singular_structure=structure
-            )
-
-        # 3. Else build the current and update
-        #    the reduced process as well as the dictionary
-        current_type = type(structure)(*current_args)
-        if current_type.name()=='F':
-            # The beam factorization singular structure always have a single leg with a number
-            # matching the beam number.
-            beam_number = current_type.legs[0].n
-            assert (beam_number in [1,2]), "Beam factorization structure are expected to "+\
-                                                        "have a single leg with number in [1,2]."
-            current = BeamCurrent({
-                'beam_type'         : self.beam_types[beam_number-1][0],
-                'beam_PDGs'         : self.beam_types[beam_number-1][1],
-                'distribution_type' : 'counterterm',
-                'singular_structure': current_type })
-        else:
-            current = Current({'singular_structure': current_type })
-        structure_legs = current_type.get_all_legs()
-        structure_leg_ns = frozenset(leg.n for leg in structure_legs)
-        if current_type.name()=='F':
-            # We must not remove legs from the reduced process for beam factorization 
-            # contributions
-            structure_leg_ns = frozenset() 
-        else:
-            structure_leg_ns = frozenset(leg.n for leg in structure_legs)
-           
+        # Determine parent leg and update momentum dictionary
         parent = None
-        if structure.name() in ["C"]:
+        if structure.name() in ['C', ]:
             # Add entry to dictionary
-            parent_index = len(momenta_dict_so_far) + 1
-            momenta_dict_so_far[parent_index] = structure_leg_ns
+            parent_number = IRSubtraction.new_leg_number(momenta_dict)
+            momenta_dict[parent_number] = frozenset(structure_leg_ns)
             # Work out the complete SubtractionLeg for the parent
             parent_PDGs = self.parent_PDGs_from_legs(structure_legs)
             assert len(parent_PDGs) == 1
@@ -2469,37 +2508,121 @@ class IRSubtraction(object):
             parent_state = SubtractionLeg.FINAL
             if structure_legs.has_initial_state_leg():
                 parent_state = SubtractionLeg.INITIAL
-            parent = SubtractionLeg(parent_index, parent_PDG, parent_state)
-        elif structure.name() == "S":
-            # No parent
-            pass
-        elif structure.name() == "F":
-            # No need to propagate parents for F structures
-            pass
+            parent = SubtractionLeg(parent_number, parent_PDG, parent_state)
+        elif structure.name() in ['S', ]:
+            pass # No need to propagate parents
+
+        elif structure.name() in ['F', ]:
+            if len(structure.legs) != 1 or structure.legs[0].n not in [1, 2]:
+                raise MadGraph5Error("Only beam factorizations attached to leg number 1 or" +
+                                     " 2 are supported for now; not %s." % str(structure))
+            beam_names = {1: 'beam_one', 2: 'beam_two'}
+            # Change the distribution type of all beam_factorization terms of that beam
+            # in the reduced process to be the identity (i.e. None).
+            for bft in process.get('beam_factorization'):
+                beam_name = beam_names[structure.legs[0].n]
+                # It may be in the future that if there are several currents attached to this
+                # beam we must only remove that particular one. However, it is likely that
+                # any additional convolution between beam current will need to be carried out
+                # analytically and treated as a singled overall counterterm.
+                if not bft[beam_name] is None:
+                    bft[beam_name] = None
+
         else:
-            raise MadGraph5Error("Building unrecognized current of type %s" %str(type(structure)) )
-        # Remove legs of this structure
+            raise MadGraph5Error("Unrecognized structure of type : %s (name: %s)"%(str(type(structure)),structure.name()))
+
+        # Adjust legs of the reduced process:
+        # 1) remove children legs
         legs_to_remove = []
-        for leg in reduced_process['legs']:
+        for leg in process['legs']:
             if leg['number'] in structure_leg_ns:
                 legs_to_remove.append(leg)
         for leg in legs_to_remove:
-            reduced_process['legs'].remove(leg)
-        # Add parent of this structure
+            process['legs'].remove(leg)
+        # 2) add parent leg
         if parent:
-            reduced_process['legs'].append(
+            process['legs'].append(
                 base_objects.Leg({
                     'number': parent.n,
                     'id': parent.pdg,
-                    'state': parent.state }) )
-        # Sort preserving the initial state order
-        rp_legs = reduced_process['legs']
+                    'state': parent.state}))
+        # 3) re-sort preserving the initial state order
+        rp_legs = process['legs']
         rp_legs.sort(key=lambda x: (x['state'], x['number']))
         if rp_legs[0]['number'] == 2:
             rp_legs[0], rp_legs[1] = rp_legs[1], rp_legs[0]
 
-        # Finally return the counterterm node
-        return CountertermNode(current=current, nodes=nodes)
+        # Return the parent leg if any (this is useful for the recursion)
+        return parent
+
+    def get_counterterm(self, structure, process):
+        """Build the product of a set of currents and a matrix element
+        that approximates the matrix element for process
+        in the singular limit specified by structure.
+        """
+
+        assert type(structure) is SingularStructure
+        assert isinstance(process, base_objects.Process)
+
+        substructures = structure.substructures
+        assert not structure.legs
+        # Separate beam_factorization structures
+        beam_structures = [s for s in substructures if s.name() == 'F']
+        other_structures = [s for s in substructures if s.name() != 'F']
+        other_structures = SingularStructure(substructures=other_structures)
+        # Build the nodes
+        nodes = []
+        # Initialize a trivial momenta_dict
+        momenta_dict = IRSubtraction.create_momenta_dict(process)
+        # Get a modifiable copy of the reduced process
+        reduced_process = process.get_copy(
+            ['legs', 'n_loops', 'legs_with_decays', 'beam_factorization'])
+        # We need a deep copy of the beam_factorization here
+        reduced_process['beam_factorization'] = copy.deepcopy(
+            reduced_process['beam_factorization'])
+        # Empty legs_with_decays: it will be regenerated automatically when asked for
+        reduced_process['legs_with_decays'][:] = []
+        # The n_loops will be distributed later
+        reduced_process.set('n_loops', -1)
+        # TODO If resetting n_loops, what about orders?
+
+        # Add a node for each beam structure
+        for beam_structure in beam_structures:
+            # The beam factorization singular structure always have a single leg
+            # with a number matching the beam number
+            beam_number = beam_structure.legs[0].n
+            assert (beam_number in [1, 2]), \
+                "BeamStructure is expected to have a single leg with number in [1, 2]."
+            current = BeamCurrent({
+                'beam_type': self.beam_types[beam_number - 1][0],
+                'beam_PDGs': self.beam_types[beam_number - 1][1],
+                'distribution_type': 'counterterm',
+                'singular_structure': SingularStructure(substructures=[beam_structure,])})
+            nodes.append(CountertermNode(current=current))
+            # Modify the reduced process so as to remove the beam factorisation currents
+            # like :F: which are now counterterm, i.e. [F]
+            self.reduce_process(beam_structure, reduced_process, momenta_dict)
+
+        # Add a single node for all other singular structures
+        if other_structures != SingularStructure():
+            current = Current({'singular_structure': other_structures})
+            nodes.append(CountertermNode(current=current))
+
+        # Determine reduced_process and momenta_dict
+        self.reduce_process(other_structures, reduced_process, momenta_dict)
+
+        # Set resolve_mother_spin_and_color to True for backward compatibility
+        for subnode in nodes:
+            subnode.current['resolve_mother_spin_and_color'] = True
+
+        # Assemble the counterterm object and return it
+        return Counterterm(
+            process=reduced_process,
+            nodes=nodes,
+            momenta_dict=momenta_dict,
+            resolved_process=process,
+            complete_singular_structure=structure
+        )
 
     def get_integrated_counterterm(self, local_counterterm):
         """Given a local subtraction counterterm, return the corresponding integrated one.
@@ -2555,9 +2678,9 @@ class IRSubtraction(object):
         ########
         
         # First tackle the special case of single initial-state collinear structure
-        initial_state_legs = [leg for leg in complete_singular_structure.substructures[0].legs if
-                                                       leg.state == SubtractionLeg.INITIAL]
- 
+        initial_state_legs = [leg for leg in complete_singular_structure.substructures[0].substructures[0].legs if
+                                                                                leg.state == SubtractionLeg.INITIAL]
+
         # A list to hold all integrated CT generated here.
         integrated_CTs = []
         
@@ -2594,9 +2717,10 @@ class IRSubtraction(object):
             # For now there will be no additional CT node, but for NNLO there may be because
             # the integrated ISR has to be combined with local FSR counterterms
             additional_CT_nodes = []
-            
+
             # Handle the specific case of NLO single beam factorization counterterm
-            if complete_singular_structure.substructures[0].name() == 'F':
+            ss_name = complete_singular_structure.substructures[0].substructures[0].name()
+            if ss_name == 'F':
 
                 integrated_CTs.append(IntegratedCounterterm(
                     process     = reduced_process,
@@ -2608,8 +2732,7 @@ class IRSubtraction(object):
 
             # Handle the specific case of ISR recoils, either because of ISR collinear or
             # soft counterterms in colorful and ppToOneWalker mapping.
-            elif has_soft_symmetric_ISR_recoil or complete_singular_structure.substructures[0].name() == 'C':
-
+            elif has_soft_symmetric_ISR_recoil or ss_name == 'C':
                 # Now add the three pieces of the integrated ISR. Ultimately we may choose to instead
                 # generate only the first piece ('bulk') and the other two via an iterative application
                 # of the subtraction procedure. For now however, we will generate all three at once.
@@ -2659,32 +2782,27 @@ class IRSubtraction(object):
         return integrated_CTs
 
     @staticmethod
-    def get_all_currents(counterterms):
+    def get_all_currents(counterterms,track_leg_numbers=False):
         """Deduce the list of currents needed to compute all counterterms given."""
-
         all_currents = []
         for counterterm in counterterms:
             for current in counterterm.get_all_currents():
                 # Remove duplicates already at this level
-                if current not in all_currents:
+                if track_leg_numbers or current not in all_currents:
                     all_currents.append(current)
         return all_currents
 
     def get_all_counterterms(
-        self, process,
-        max_unresolved_in_elementary=None, max_unresolved_in_combination=None,
+        self, process, max_unresolved,
+        extra_unresolved_in_combination=0,
         ignore_integrated_counterterms=False):
         """Generate all counterterms for the corrections specified in this module
         and the process given in argument."""
         
-        if max_unresolved_in_elementary is None:
-            max_unresolved_in_elementary = self.n_unresolved
-        if max_unresolved_in_combination is None:
-            max_unresolved_in_combination = self.n_unresolved
-        elementary_operators = self.get_all_elementary_operators(
-            process, max_unresolved_in_elementary)
+        elementary_structures = self.get_all_elementary_structures(
+            process, max_unresolved)
         combinations = self.get_all_combinations(
-            elementary_operators, max_unresolved_in_combination)
+            elementary_structures, max_unresolved + extra_unresolved_in_combination)
 
         all_counterterms = []
         all_integrated_counterterms = []
@@ -2727,108 +2845,109 @@ class SubtractionCurrentExporter(object):
     template_dir = pjoin(MG5DIR, 'madgraph', 'iolibs', 'template_files', 'subtraction')
     template_modules_path = 'madgraph.iolibs.template_files.subtraction'
     
-    # The main module name is not meant to be changed.
-    # If changed, then beware that the import statements
-    # of the implementation of the subtraction currents must be updated accordingly.
-    main_module_name = 'SubtractionCurrents'
+    # The main module name in a process output
+    main_module_name = 'SubtractionResources'
 
-    def __init__(self, model, export_dir, current_set):
+    @staticmethod
+    def get_all_available_subtraction_schemes():
+        """ Inspects the subtraction template directory to identify all available subtraction schemes defined."""
+
+        subtraction_schemes_available = []
+        for dir_name in os.listdir(pjoin(SubtractionCurrentExporter.template_dir,'subtraction_schemes')):
+            if not os.path.exists(pjoin(SubtractionCurrentExporter.template_dir,
+                                                        'subtraction_schemes', dir_name, '__init__.py')):
+                continue
+            subtraction_schemes_available.append(dir_name)
+        return subtraction_schemes_available
+
+    @staticmethod
+    def get_subtraction_scheme_module(subtraction_scheme, root_path=None):
+        """ Loads the subtractions scheme module specified.
+        One can also decide to load this module from the specified root_path
+        which can be a process output for instance."""
+
+        # Attempt to import the subtraction scheme
+        try:
+            if root_path is None:
+                subtraction_scheme_module = importlib.import_module('%s.%s.%s' % (
+                    SubtractionCurrentExporter.template_modules_path, 'subtraction_schemes', subtraction_scheme))
+                subtraction_utils = importlib.import_module('%s.%s.%s' % (
+                    SubtractionCurrentExporter.template_modules_path, 'commons', 'utils'))
+            else:
+                sys.path.insert(0, root_path)
+                subtraction_scheme_module = importlib.import_module('%s.%s.%s' % (
+                         SubtractionCurrentExporter.main_module_name, 'subtraction_schemes', subtraction_scheme))
+                subtraction_utils = importlib.import_module('%s.%s.%s' % (
+                    SubtractionCurrentExporter.main_module_name, 'commons', 'utils'))
+                sys.path.pop(0)
+        except ImportError as e:
+            raise MadGraph5Error("Specified subtraction module could not be found or loaded: %s. Error:\n%s"%(
+                                                                                            subtraction_scheme, str(e)))
+
+        # Now load this subtraction scheme (i.e. defining all static module variables)
+        subtraction_scheme_module.load()
+        for attr, value in subtraction_scheme_module.loaded_attributes.items():
+            setattr(subtraction_scheme_module, attr, value)
+
+        mandatory_attributes = ['all_subtraction_current_classes','__authors__','exporter',]
+        missing_attributes = [ attr for attr in mandatory_attributes if not hasattr(subtraction_scheme_module,attr) ]
+        if len(missing_attributes)>0:
+            raise MadGraph5Error("The specified subtraction module '%s' is missing the following mandatory attributes: %s"%
+                                                                        (subtraction_scheme, missing_attributes))
+
+        # Sanity check that all these currents class implementations are valid
+        for current_class in subtraction_scheme_module.all_subtraction_current_classes:
+            if not (inspect.isclass(current_class) and hasattr(current_class, 'does_implement_this_current') ):
+                raise MadGraph5Error("The current '%s' does not implement the mandatory function 'does_implement_this_current'."%
+                                                                                                (current_class.__name__))
+
+        # Add an attribute to the module which is a dictionary mapping a subtraction current unique identifier to the
+        # class implementing it
+        if not hasattr(subtraction_scheme_module, 'ordered_current_identifiers'):
+            subtraction_scheme_module.ordered_current_identifiers = [
+                current_class.__name__ for current_class in subtraction_scheme_module.all_subtraction_current_classes ]
+        if not hasattr(subtraction_scheme_module, 'currents'):
+            subtraction_scheme_module.currents = dict(
+                (current_class.__name__, current_class)
+                    for current_class in subtraction_scheme_module.all_subtraction_current_classes)
+
+        # Add a default implementation for the currents used for debugging
+        if 'DefaultCurrentImplementation' not in subtraction_scheme_module.ordered_current_identifiers:
+            # If there is a "default current" in the utils class,
+            # presumably used for debugging only, then add this one at the very end of all_classes so that
+            # it will be selected only if no other class matches.
+            if hasattr(subtraction_utils, 'DefaultCurrentImplementation'):
+                default_implementation_class = getattr( subtraction_utils, 'DefaultCurrentImplementation' )
+
+                if (inspect.isclass(default_implementation_class) and
+                    hasattr(default_implementation_class, 'does_implement_this_current')):
+                    subtraction_scheme_module.ordered_current_identifiers.append('DefaultCurrentImplementation')
+                    subtraction_scheme_module.currents['DefaultCurrentImplementation'] = default_implementation_class
+
+        return subtraction_scheme_module
+
+    def __init__(self, model, export_dir, subtraction_scheme):
         """Initialize the exporter.
 
         :param model: Model to be used when trying to match currents.
         :param export_dir: Target directory for currents to be exported to.
-        :param current_set: Lookup is performed within the current set with this name.
+        :param subtraction_scheme: Lookup is performed within the subtraction scheme module specified
         """
 
         self.model       = model
         self.export_dir  = export_dir
-        self.current_set = current_set
-
-    def collect_modules(self, modules_path):
-        """Return a list of modules to load, from a given starting location."""
-        
-        base_path = pjoin(self.template_dir, pjoin(*modules_path))
-        collected_modules = []
-
-        for python_file in misc.glob(pjoin(base_path, '*.py')):
-            python_file_name = os.path.basename(python_file)
-            if python_file_name == '__init__.py':
-                continue
-            relative_module_path = ".".join(modules_path) + "." + python_file_name[:-3]
-            absolute_module_path = self.template_modules_path + "." + relative_module_path
-            collected_modules.append(
-                (relative_module_path, importlib.import_module(absolute_module_path)) )
-
-        for dir_name in os.listdir(base_path):
-            if os.path.isdir(dir_name) and os.path.isfile(pjoin(dir_name, '__init__.py')):
-                collected_modules.extend(self.collect_modules(modules_path+[dir_name, ]))
-        
-        return collected_modules
+        self.subtraction_scheme = subtraction_scheme
 
     def export(self, currents):
         """Export the specified list of currents and return a list of accessors
         which contain the mapping information.
         """
-        
-        subtraction_utils_module_path = '%s.%s'%(
-            self.template_modules_path,'subtraction_current_implementations_utils' )
-        subtraction_utils = importlib.import_module(subtraction_utils_module_path)
-        current_dir = pjoin(self.template_dir, self.current_set)
-        current_export_dir = None
+        subtraction_scheme_module = SubtractionCurrentExporter.get_subtraction_scheme_module(self.subtraction_scheme)
+        track_leg_numbers=subtraction_scheme_module.are_current_instances_for_specific_leg_numbers
 
-        if not self.export_dir is None:
-            module_export_dir = pjoin(self.export_dir, self.main_module_name)
-            current_export_dir = pjoin(module_export_dir, self.current_set)
-            # Copy the base files to module_export_dir
-            if not os.path.isdir(module_export_dir):
-                os.mkdir(module_export_dir)
-            for f in [
-                '__init__.py',
-                'QCD_local_currents.py',
-                'subtraction_current_implementations_utils.py' ]:
-                if not os.path.isfile(pjoin(module_export_dir, f)):
-                    cp(pjoin(self.template_dir, f), pjoin(module_export_dir, f))
-            # Copy the base files to current_export_dir
-            if not os.path.isdir(current_export_dir):
-                os.mkdir(current_export_dir)
-            for f in [
-                '__init__.py', ]:
-                if not os.path.isfile(pjoin(current_export_dir, f)):
-                    cp(pjoin(current_dir, f), pjoin(current_export_dir, f) )
-
-        # Now load all modules specified in the templates
-        # and identify the current implementation classes
-        all_classes = []
-        for dir_name in os.listdir(current_dir):
-            if not os.path.isfile(pjoin(current_dir, dir_name, '__init__.py')):
-                continue
-            all_modules = self.collect_modules([self.current_set, dir_name])
-            for (module_path, module) in all_modules:
-                for class_name in dir(module):
-                    implementation_class = getattr(module, class_name)
-                    if (inspect.isclass(implementation_class) and
-                        hasattr(implementation_class, 'does_implement_this_current') ):
-                        all_classes.append(
-                            (dir_name, module_path, class_name, implementation_class) )
-        
-        # If there is a "default current" in the subtraction_current_implementations_utils class,
-        # presumably used for debugging only, then add this one at the very end of all_classes so that
-        # it will be selected only if no other class matches.
-        if hasattr(subtraction_utils,'DefaultCurrentImplementation'):
-            default_implementation_class = getattr(
-                subtraction_utils, 'DefaultCurrentImplementation' )
-            if (inspect.isclass(default_implementation_class) and
-                hasattr(default_implementation_class, 'does_implement_this_current') ):
-                all_classes.append((
-                    '', 'subtraction_current_implementations_utils',
-                    'DefaultCurrentImplementation', default_implementation_class ) )
-        
-        # Save directories that will need to be exported
-        directories_to_export = set([])
-        
         # Group all currents according to mapping rules.
         # The mapped currents is a dictionary of the form
-        #         { (module_path, class_name, instantiation_options_index), 
+        #         { (subtraction_scheme_name, current_identifier, instantiation_options_index),
         #                {'defining_current': <...>,
         #                 'mapped_process_keys': [<...>],
         #                 'instantiation_options': instantiation_options
@@ -2841,18 +2960,20 @@ class SubtractionCurrentExporter(object):
         currents_with_default_implementation = []
         for current in currents:
             found_current_class = None
-            for (dir_name, module_path, class_name, implementation_class) in all_classes:
-#                misc.sprint('Testing class %s for current: %s'%(class_name,str(current)))
+            for current_identifier in subtraction_scheme_module.ordered_current_identifiers:
+                implementation_class = subtraction_scheme_module.currents[current_identifier]
+
+                #misc.sprint('Testing class %s for current: %s'%(current_identifier, str(current)))
                 instantiation_options = implementation_class.does_implement_this_current(
                     current, self.model )
-#                misc.sprint('Result: %s'%str(instantiation_options))
+                #misc.sprint('Result: %s'%str(instantiation_options))
                 if instantiation_options is None:
                     continue
                 if found_current_class is not None:
-                    if class_name == 'DefaultCurrentImplementation':
+                    if current_identifier == 'DefaultCurrentImplementation':
                         continue
                     logger.critical(
-                        "%s found, %s already found" % (class_name, found_current_class))
+                        "%s found, %s already found" % (current_identifier, found_current_class))
                     raise MadGraph5Error(
                         "Multiple implementations found for current %s." % str(current) )
                 try:
@@ -2861,32 +2982,25 @@ class SubtractionCurrentExporter(object):
                 except ValueError:
                     all_instantiation_options.append(instantiation_options)
                     instantiation_options_index = len(all_instantiation_options)-1
-                # If no export is asked for,
-                # load directly from the subtraction template directory
-                if not self.export_dir is None:
-                    main_module = self.main_module_name
-                else:
-                    main_module = 'subtraction'                    
-                key = (
-                    '%s.%s' % (main_module, module_path),
-                    class_name, instantiation_options_index )
+
+                key = ( self.subtraction_scheme, current_identifier, instantiation_options_index )
 
                 if key in mapped_currents:
-                    mapped_currents[key]['mapped_process_keys'].append(current.get_key())
+                    mapped_currents[key]['mapped_process_keys'].append(current.get_key(track_leg_numbers=track_leg_numbers))
                 else:
-                    if dir_name != '':
-                        directories_to_export.add(dir_name)
+
                     mapped_currents[key] = {
                         'defining_current': current,
-                        'mapped_process_keys': [current.get_key()],
+                        'mapped_process_keys': [current.get_key(track_leg_numbers=track_leg_numbers)],
                         'instantiation_options': instantiation_options }
-                if class_name == 'DefaultCurrentImplementation':
+                if current_identifier == 'DefaultCurrentImplementation':
                     currents_with_default_implementation.append(current)
-                found_current_class = class_name
+                found_current_class = current_identifier
+
             if found_current_class is None:
                 raise MadGraph5Error(
                     "No implementation was found for current %s." % str(current) )
-        
+
         # Warn the user whenever DefaultCurrentImplementation is used
         # (it should never be used in production)
         if currents_with_default_implementation:
@@ -2903,21 +3017,10 @@ and should be used for debugging only.""" % currents_str
             else:
                 raise MadGraph5Error(msg)
 
-        # Now copy all the relevant directories
-        if not self.export_dir is None:
-            for directory_to_export in directories_to_export:
-                dir_path = pjoin(current_export_dir, directory_to_export)
-                def ignore_function(d, files):
-                    return [
-                        f for f in files
-                        if (
-                            os.path.isfile(pjoin(d, f)) and
-                            f.split('.')[-1] in ['pyc','pyo','swp'] ) ]
-                if not os.path.isdir(dir_path):
-                    shutil.copytree(
-                        pjoin(current_dir, directory_to_export), dir_path,
-                        ignore=ignore_function )
-        
+        # Export all the relevant resources to the specified export directory (process output)
+        if self.export_dir is not None:
+            subtraction_scheme_module.exporter.export(pjoin(self.export_dir, self.main_module_name), mapped_currents)
+
         return mapped_currents
         
 #=========================================================================================

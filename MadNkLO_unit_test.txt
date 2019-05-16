@@ -1,7 +1,8 @@
 PhaseSpaceGeneratorsTest
 ME7ContributionTest
 SubsetTest
-SingularStructureOperatorTest
+SubtractionLegSetTest
+SingularStructureTest
 CountertermTest
 IRSubstractionTest
 NLOSubtractionTest

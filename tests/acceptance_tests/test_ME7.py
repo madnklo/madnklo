@@ -79,8 +79,7 @@ class TestME7_NLO_colorful_epem_jjj(unittest.TestCase):
 
             # Now generate and output a process, so as to run ME7 commands on it
             self.do('import model loop_sm')
-            self.do('set subtraction_currents_scheme colorful')
-            self.do('set subtraction_mappings_scheme FinalRescalingNLO')
+            self.do('set subtraction_scheme colorful')
             self.do('generate e+ e- > j j j --NLO=QCD')
             self.do('output %s' % self.tmp_process_dir)
             TestME7_NLO_colorful_epem_jjj.is_process_generated = True
@@ -287,8 +286,7 @@ class TestME7_NLO_cataniseymour_epem_jjj(unittest.TestCase):
 
             # Now generate and output a process, so as to run ME7 commands on it
             self.do('import model loop_sm')
-            self.do('set subtraction_currents_scheme cataniseymour')
-            self.do('set subtraction_mappings_scheme LorentzNLO')            
+            self.do('set subtraction_scheme cataniseymour')
             self.do('generate e+ e- > j j j --NLO=QCD --ignore_contributions=V')
             self.do('output %s --ignore_integrated_counterterms=R' % self.tmp_process_dir)
             TestME7_NLO_cataniseymour_epem_jjj.is_process_generated = True
@@ -426,8 +424,7 @@ class TestME7_NLO_colorful_pp_jj(unittest.TestCase):
 
             # Now generate and output a process, so as to run ME7 commands on it
             self.do('import model loop_sm')
-            self.do('set subtraction_currents_scheme colorful')
-            self.do('set subtraction_mappings_scheme LorentzNLO')
+            self.do('set subtraction_scheme colorful')
             self.do('generate p p > j j --NLO=QCD --ignore_contributions=V')
             self.do('output %s --ignore_integrated_counterterms=R' % self.tmp_process_dir)
             TestME7_NLO_colorful_pp_jj.is_process_generated = True
@@ -519,8 +516,7 @@ class TestME7_NNLO_colorful_epem_guux(unittest.TestCase):
 
             # Now generate and output a process, so as to run ME7 commands on it
             self.do('import model loop_sm')
-            self.do('set subtraction_currents_scheme colorful')
-            self.do('set subtraction_mappings_scheme LorentzNLO')
+            self.do('set subtraction_scheme colorful')
             self.do('generate e+ e- > g u u~ --NNLO=QCD --ignore_contributions=V,VV')
             self.do('output %s --ignore_integrated_counterterms=all' % self.tmp_process_dir)
             TestME7_NNLO_colorful_epem_guux.is_process_generated = True

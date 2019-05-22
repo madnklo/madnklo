@@ -1890,7 +1890,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         event_weight = base_objects.EpsilonExpansion(ME_evaluation) * base_weight
 
         sector_info = opts.get('sector_info', None)
-        if sector_info is not None:
+        if sector_info is not None and sector_info['sector'] is not None:
             event_weight *= sector_info['sector'](PS_point,all_flavor_configurations[0],
                                                   counterterm_index=-1, input_mapping_index=-1)
 

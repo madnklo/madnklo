@@ -542,8 +542,7 @@ class QCDLocalCollinearCurrent(QCDLocalCurrent):
         parent = momenta_dict.inv[frozenset(children)]
 
         # Perform mapping
-        self.mapping_singular_structure.legs = self.get_recoilers(
-            reduced_process, excluded=(parent, ) )
+        self.mapping_singular_structure.legs = self.get_recoilers( reduced_process, excluded=(parent, ) )
         lower_PS_point, mapping_vars = self.mapping.map_to_lower_multiplicity(
             higher_PS_point, self.mapping_singular_structure, momenta_dict,
             compute_jacobian=self.divide_by_jacobian)

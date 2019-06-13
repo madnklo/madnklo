@@ -3916,6 +3916,7 @@ The missing process is: %s"""%ME_process.nice_string())
         max_value = test_options['max_scaling_variable']
         base = (min_value/max_value) ** (1./n_steps)
         for step in range(n_steps+1):
+
             # Determine the new configuration
             scaling_parameter = max_value * (base ** step)
             scaled_real_PS_point, scaled_xi1, scaled_xi2 = self.scale_configuration(
@@ -3931,7 +3932,7 @@ The missing process is: %s"""%ME_process.nice_string())
                     logger.warning(str(scaled_real_PS_point))
                     break
 
-            # misc.sprint('Scaled PS point: %s'%str(scaled_real_PS_point))
+            misc.sprint('Scaled PS point: %s'%str(scaled_real_PS_point))
             # misc.sprint('Scaled Bjorken rescalings: %s %s'%(scaled_xi1, scaled_xi2))
             mu_r, mu_f1, mu_f2 = self.get_scales(scaled_real_PS_point)
 

@@ -311,13 +311,12 @@ class QCD_soft_0_kX(currents.QCDLocalCurrent):
             higher_PS_point, this_mapping_singular_structure, momenta_dict,
             compute_jacobian=self.divide_by_jacobian)
         reduced_kinematics = (None, lower_PS_point)
+        jacobian = mapping_vars.get('jacobian', 1.)
 
         # Include the counterterm only in a part of the phase space
         if self.is_cut(Q=Q, pS=pS):
             return utils.SubtractionCurrentResult.zero(
                 current=current, hel_config=hel_config, reduced_kinematics=('IS_CUT', lower_PS_point))
-
-        jacobian = mapping_vars.get('jacobian', 1.)
 
         # Now instantiate what the result will be
         evaluation = utils.SubtractionCurrentEvaluation({
@@ -435,6 +434,7 @@ class QCD_initial_soft_collinear_0_kX(currents.QCDLocalCurrent):
             higher_PS_point, this_mapping_singular_structure, momenta_dict,
             compute_jacobian=self.divide_by_jacobian )
         reduced_kinematics = (None, lower_PS_point)
+        jacobian = mapping_vars.get('jacobian', 1.)
 
         # Include the counterterm only in a part of the phase space
         # children are the the set of particles that are going unresolved.
@@ -476,9 +476,10 @@ class QCD_initial_soft_collinear_0_kX(currents.QCDLocalCurrent):
         evaluation = self.kernel(evaluation, parent, *kernel_arguments)
 
         # Add the normalization factors
-        norm = (8. * math.pi * alpha_s)**(len(soft_children)+len(collinear_final_children)) / ((pCtilde+pS).square()*pS.square())
-#        norm = (8. * math.pi * alpha_s)**(len(soft_children)+len(collinear_final_children)) / ((pCinitial+pS).square()*pS.square())
+        norm = (8. * math.pi * alpha_s)**(len(soft_children)+len(collinear_final_children)) / ((2.*pCtilde.dot(pS))*pS.square())
         norm *= self.factor(Q=Q, pC=pCmother, pS=pS)
+        if self.divide_by_jacobian:
+            norm /= jacobian
         for k in evaluation['values']:
             evaluation['values'][k]['finite'] *= norm
 

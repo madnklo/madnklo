@@ -31,7 +31,7 @@ def get_all_final_recoilers(reduced_process, excluded=()):
         ])
     ])
 
-divide_by_jacobian = True
+divide_by_jacobian = False
 
 get_recoilers = get_all_final_recoilers
 

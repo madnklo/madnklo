@@ -21,6 +21,8 @@ import madgraph.integrator.mappings as mappings
 
 import commons.utils as utils
 import commons.QCD_local_currents as currents
+import commons.factors_and_cuts as factors_and_cuts
+
 import colorful_pp_config
 
 import madgraph.various.misc as misc
@@ -28,43 +30,102 @@ import madgraph.various.misc as misc
 CurrentImplementationError = utils.CurrentImplementationError
 
 #=========================================================================================
-# Final collinear variables rendering the integrated counterterm mapping independent,
-# so that we can use the original integrated CTs that had rescaling mappings from Gabor
+# NLO final collinears
 #=========================================================================================
-def Q_final_coll_mapping_independent_variables(higher_PS_point, pijtilde, children, **opts):
-    """A definition of z such that we can use the same integrated counterterm for any mapping.
-    The notation used here is aligned with ND's handwritten note from 21.03.2019.
-    This is the first option where the variable v is defined as the energy fraction with respect to the rescaling
-    mapping collinear direction.
-    """
-    pij = sum(higher_PS_point[child] for child in children)
-    pi = higher_PS_point[children[0]]
-    Q = opts['Q']
-    Q2 = Q.square()
-    #pijtilde = lower_PS_point[parent]
-    yij = pij.square()/Q2
-    yijQ = 2.*pij.dot(Q)/Q2
-    yijtildeQ = 2.*pijtilde.dot(Q)/Q2
+class QCD_final_collinear_0_XX(currents.QCDLocalCollinearCurrent):
+    """Two-collinear tree-level current."""
 
-    # Defining the reference vector to have a light-cone energy fraction v
-    # ------------
-    # Alpha defined from the higher-multiplicity phase space point (0903.1218/eq5.6)
-    # This is equal to alpha only in the case of the rescaling mapping
-    alphaR = 0.5*(yijQ - math.sqrt(yijQ**2-4.*yij))
-    # We then define the collinear direction *in the rescaling mapping*
-    pijtildeR = 1./(1.-alphaR)*(pij-alphaR*Q)
-    yijtildeQR = 2.*pijtildeR.dot(Q) / Q2
-    # The anti-collinear direction is then
-    nbar =  (2./yijtildeQR)*Q-(2./yijtildeQR**2)*pijtildeR
-    v = pi.dot(nbar) / pij.dot(nbar)
+    squared_orders = {'QCD': 2}
+    n_loops = 0
 
-    # Now we write our integral in terms of the parameters that describe
-    # the factorized phase space in the current mapping
-    alpha = 0.5*(math.sqrt(4.*yij + yijtildeQ**2 - 4. * yij * yijtildeQ)-yijtildeQ)/(1-yijtildeQ)
-    z = ((1-alpha)*yijtildeQ*v+alpha)/((1-alpha)*yijtildeQ+2.*alpha)
+    # Cuts are applicable now, and the corresponding alpha_0 will be used as a max upper bound for the dynamically
+    # computed virtuality in the corresponding integrated CT
+    is_cut = staticmethod(factors_and_cuts.cut_coll)
+    factor = staticmethod(factors_and_cuts.no_factor)
+    # IMPORTANT: the mapping employed for final collinears here recoils against initial state.
+    mapping = colorful_pp_config.final_coll_mapping
+    # Force the use of Gabor's variable for the full final collinear
+    variables = staticmethod(colorful_pp_config.final_coll_variables)
+    # Never divide by the jacobian in Gabor's case.
+    divide_by_jacobian = False
+    # Specify only initial states as recoilers.
+    get_recoilers = staticmethod(colorful_pp_config.get_recoilers)
 
-    foo, kTs = currents.Q_final_coll_variables(higher_PS_point, pij, children, Q=Q)
-    return [z,1-z], kTs
+
+class QCD_final_collinear_0_qqx(QCD_final_collinear_0_XX):
+    """q q~ collinear tree-level current."""
+
+    structure = sub.SingularStructure(sub.CollStructure(
+        sub.SubtractionLeg(0, +1, sub.SubtractionLeg.FINAL),
+        sub.SubtractionLeg(1, -1, sub.SubtractionLeg.FINAL), ))
+
+    def kernel(self, evaluation, parent, zs, kTs, ss_i_j, ss_i):
+
+        # Retrieve the collinear variables
+        z = zs[0]
+        kT = kTs[0,(1,)]
+        # Instantiate the structure of the result
+        evaluation['spin_correlations'] = [None, ((parent, (kT,)),), ]
+
+        # Compute the kernel
+        # The line below implements the g_{\mu\nu} part of the splitting kernel.
+        # Notice that the extra longitudinal terms included in the spin-correlation 'None'
+        # from the relation:
+        #    \sum_\lambda \epsilon_\lambda^\mu \epsilon_\lambda^{\star\nu}
+        #    = g^{\mu\nu} + longitudinal terms
+        # are irrelevant because Ward identities evaluate them to zero anyway.
+        evaluation['values'][(0, 0, 0)] = { 'finite' : self.TR }
+        evaluation['values'][(1, 0, 0)] = { 'finite' : 4 * self.TR * z * (1-z) / kT.square() }
+        return evaluation
+
+
+class QCD_final_collinear_0_gq(QCD_final_collinear_0_XX):
+    """g q collinear tree-level current."""
+
+    structure = sub.SingularStructure(sub.CollStructure(
+        sub.SubtractionLeg(0, 21, sub.SubtractionLeg.FINAL),
+        sub.SubtractionLeg(1, +1, sub.SubtractionLeg.FINAL), ))
+
+    def kernel(self, evaluation, parent, zs, kTs, ss_i_j, ss_i):
+
+        # Retrieve the collinear variables
+        z = zs[0]
+
+        # Compute the kernel
+        evaluation['values'][(0, 0, 0)] = { 'finite' : \
+            self.CF * (1 + (1-z)**2) / z }
+
+        return evaluation
+
+
+class QCD_final_collinear_0_gg(QCD_final_collinear_0_XX):
+    """g g collinear tree-level current."""
+
+    structure = sub.SingularStructure(sub.CollStructure(
+        sub.SubtractionLeg(0, 21, sub.SubtractionLeg.FINAL),
+        sub.SubtractionLeg(1, 21, sub.SubtractionLeg.FINAL), ))
+
+    def kernel(self, evaluation, parent, zs, kTs, ss_i_j, ss_i):
+
+        # Retrieve the collinear variables
+        z = zs[0]
+        kT = kTs[(0,(1,))]
+
+        # Instantiate the structure of the result
+        evaluation['spin_correlations'] = [None, ((parent, (kT,)),), ]
+
+        # Compute the kernel
+        # The line below implements the g_{\mu\nu} part of the splitting kernel.
+        # Notice that the extra longitudinal terms included in the spin-correlation 'None'
+        # from the relation:
+        #    \sum_\lambda \epsilon_\lambda^\mu \epsilon_\lambda^{\star\nu}
+        #    = g^{\mu\nu} + longitudinal terms
+        # are irrelevant because Ward identities evaluate them to zero anyway.
+        evaluation['values'][(0, 0, 0)] = { 'finite' : \
+            +2 * self.CA * (z/(1-z) + (1-z)/z) }
+        evaluation['values'][(1, 0, 0)] = { 'finite' : \
+            -2 * self.CA * 2 * z * (1-z) / kT.square() }
+        return evaluation
 
 
 #=========================================================================================

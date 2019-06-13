@@ -20,20 +20,22 @@ import commons.factors_and_cuts as factors_and_cuts
 
 import madgraph.integrator.mappings as mappings
 
-# We consider all final state particles as recoiler, including massive and colorless ones
-def get_all_final_recoilers(reduced_process, excluded=()):
+# We consider only the two initial state of the reduced process as recoilers,
+# assuming that the initial state numbers of the lower multiplicity process
+# are identical to those of the final state numbers.
+def get_initial_state_recoilers(reduced_process, excluded=()):
 
     model = reduced_process.get('model')
     return sub.SubtractionLegSet([
         leg for leg in reduced_process.get('legs') if all([
-            leg['state'] == leg.FINAL,
+            leg['state'] == leg.INITIAL,
             leg['number'] not in excluded
         ])
     ])
 
 divide_by_jacobian = False
 
-get_recoilers = get_all_final_recoilers
+get_recoilers = get_initial_state_recoilers
 
 # Initial collinear configuration
 initial_coll_variables = currents.Q_initial_coll_variables
@@ -49,13 +51,13 @@ soft_mapping = mappings.SoftVsInitialMapping
 # Final collinear configuration
 # WARNING: This is *not* the same final-collinear mapping as in colorful, where one has 'FinalRescalingOneMapping' instead.
 # The __init__.py of colorful_pp will make sure to overwrite this mapping choice for the final collinear imported from
-# coloful. Notice then that the final_coll quantity specified here apply only then to the *NNLO* final collinear.
-# For the NLO ones, as explained above, these properties will be overwritten appropriately irrespectively of what is below.
-final_coll_mapping = mappings.FinalLorentzOneMapping
+# coloful. For colorful_pp we need even final state collinears to recoil against initial states.
+final_coll_mapping = mappings.FinalCollinearVsInitialMapping
 final_coll_factor = factors_and_cuts.no_factor
 final_coll_cut = factors_and_cuts.cut_coll
+final_coll_variables = currents.Q_final_coll_mapping_recoiling_against_initial_state
 
-# Final soft-collinear configuration
+# Final soft-collinear configuration (not strictly speaking necessary)
 final_soft_coll_variables = currents.compute_energy_fractions
 final_soft_coll_mapping = mappings.SoftCollinearVsFinalMapping(
     soft_mapping=soft_mapping, collinear_mapping=final_coll_mapping)

@@ -59,6 +59,70 @@ def alpha_jacobian(**opts):
 # Current variables
 #=========================================================================================
 
+#=========================================================================================
+# Final collinear variables as in Gabor's note, suited for a mapping of final-state
+# collinears recoiling against the INITIAL states.
+# See Eq. 2.9-2.11 of Gabor's notes.
+#=========================================================================================
+def Q_final_coll_mapping_recoiling_against_initial_state(higher_PS_point, qC, children, **opts):
+    """ Variables for the *pure final state* collinear recoiling exclusively against the initial state."""
+
+    all_p_fs = [higher_PS_point[child] for child in children]
+    Q = opts['Q']
+    alpha = opts['alpha']
+
+    # Loop over all final state momenta to obtain the corresponding variables
+    zs = []
+    for p_fs in all_p_fs:
+        zs.append(p_fs.dot(Q))
+    normalisation = sum(zs)
+    for i in range(len(zs)):
+        zs[i] /= normalisation
+
+    # Add additional ss's
+    ss_i_j = {}
+    for i_fs in range(len(all_p_fs)):
+        for j_fs in range(i_fs+1,len(all_p_fs)):
+            ss_i_j[(i_fs,j_fs)] = 2.*all_p_fs[i_fs].dot(all_p_fs[j_fs])
+    ss_i_j_tot = sum(ss_i_j.values())
+    for k,v in ss_i_j.items():
+        ss_i_j[(k[1],k[0])] = v
+
+    ss_i_others = []
+    for i_fs in range(len(all_p_fs)):
+        p_other = vectors.LorentzVector()
+        for j_fs in range(i_fs+1,len(all_p_fs)):
+            if j_fs==i_fs: continue
+            p_other += all_p_fs[i_fs]
+        ss_i_others.append(2.*all_p_fs[i_fs].dot(p_other))
+
+    ss_i_tot = sum(ss_i_others)
+
+    xis = [(z-ss_i_others[i]/(alpha*ss_i_tot)) for i, z in enumerate(zs)]
+
+    if len(all_p_fs)==3:
+        # WARNING function below is *not* symmetric in r and s.
+        def bigZ(i,r,s):
+            return (ss_i_j[(i,r)] - ss_i_j[(r,s)] - 2.*zs[r]*ss_i_j_tot)/(alpha*2.*qC.dot(Q))
+    elif len(all_p_fs)==2:
+        def bigZ(i,r):
+            return (ss_i_j[(i,r)]*(zs[r]-zs[i]))/(alpha*2.*qC.dot(Q))
+    else:
+        raise NotImplementedError
+
+    kTs = {}
+    for i in range(len(all_p_fs)):
+        kT = vectors.LorentzVector()
+        other_indices = [k for k in range(len(all_p_fs)) if k!=i]
+        for j in other_indices:
+            kT += xis[i]*all_p_fs[j]
+            kT -= xis[j]*all_p_fs[i]
+        kT += bigZ(i,*other_indices)
+        kTs[(i,tuple(other_indices))] = kT
+
+    # NOTE: all indices start at zero here
+    return tuple(zs), kTs, ss_i_j, ss_i_others
+
 def n_final_coll_variables(PS_point, parent_momentum, children, **opts):
 
     na, nb = mappings.FinalCollinearVariables.collinear_and_reference(parent_momentum)
@@ -577,7 +641,9 @@ class QCDLocalCollinearCurrent(QCDLocalCurrent):
 
         # Evaluate kernel
         # First construct variables necessary for its evaluation
-        kernel_arguments = self.variables(higher_PS_point, qC, children, Q=Q)
+        # pass the mapping variables to the variables function, except for Q which is provided externally
+        mapping_vars.pop('Q',None)
+        kernel_arguments = self.variables(higher_PS_point, qC, children, Q=Q, **mapping_vars)
 
         evaluation = utils.SubtractionCurrentEvaluation({
             'spin_correlations': [ None, ],

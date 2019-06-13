@@ -55,7 +55,7 @@ soft_mapping = mappings.SoftVsInitialMapping
 final_coll_mapping = mappings.FinalCollinearVsInitialMapping
 final_coll_factor = factors_and_cuts.no_factor
 final_coll_cut = factors_and_cuts.cut_coll
-final_coll_variables = currents.Q_final_coll_mapping_recoiling_against_initial_state
+final_coll_variables = currents.Q_final_coll_variables_recoiling_against_initial_state
 
 # Final soft-collinear configuration (not strictly speaking necessary)
 final_soft_coll_variables = currents.compute_energy_fractions

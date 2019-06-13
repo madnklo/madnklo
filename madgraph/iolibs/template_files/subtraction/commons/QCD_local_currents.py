@@ -64,7 +64,7 @@ def alpha_jacobian(**opts):
 # collinears recoiling against the INITIAL states.
 # See Eq. 2.9-2.11 of Gabor's notes.
 #=========================================================================================
-def Q_final_coll_mapping_recoiling_against_initial_state(higher_PS_point, qC, children, **opts):
+def Q_final_coll_variables_recoiling_against_initial_state(higher_PS_point, qC, children, **opts):
     """ Variables for the *pure final state* collinear recoiling exclusively against the initial state."""
 
     all_p_fs = [higher_PS_point[child] for child in children]

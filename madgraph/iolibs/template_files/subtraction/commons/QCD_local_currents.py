@@ -91,14 +91,12 @@ def Q_final_coll_variables_recoiling_against_initial_state(higher_PS_point, qC, 
     ss_i_others = []
     for i_fs in range(len(all_p_fs)):
         p_other = vectors.LorentzVector()
-        for j_fs in range(i_fs+1,len(all_p_fs)):
+        for j_fs in range(len(all_p_fs)):
             if j_fs==i_fs: continue
-            p_other += all_p_fs[i_fs]
+            p_other += all_p_fs[j_fs]
         ss_i_others.append(2.*all_p_fs[i_fs].dot(p_other))
 
-    ss_i_tot = sum(ss_i_others)
-
-    xis = [(z-ss_i_others[i]/(alpha*ss_i_tot)) for i, z in enumerate(zs)]
+    xis = [(z-ss_i_others[i]/(alpha*(2.*sum(all_p_fs).dot(Q)))) for i, z in enumerate(zs)]
 
     if len(all_p_fs)==3:
         # WARNING function below is *not* symmetric in r and s.
@@ -117,7 +115,8 @@ def Q_final_coll_variables_recoiling_against_initial_state(higher_PS_point, qC, 
         for j in other_indices:
             kT += xis[i]*all_p_fs[j]
             kT -= xis[j]*all_p_fs[i]
-        kT += bigZ(i,*other_indices)
+
+        kT += bigZ(i,*other_indices)*qC
         kTs[(i,tuple(other_indices))] = kT
 
     # NOTE: all indices start at zero here
@@ -607,6 +606,7 @@ class QCDLocalCollinearCurrent(QCDLocalCurrent):
 
         # Perform mapping
         self.mapping_singular_structure.legs = self.get_recoilers( reduced_process, excluded=(parent, ) )
+
         lower_PS_point, mapping_vars = self.mapping.map_to_lower_multiplicity(
             higher_PS_point, self.mapping_singular_structure, momenta_dict,
             compute_jacobian=self.divide_by_jacobian)

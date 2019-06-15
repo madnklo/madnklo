@@ -606,6 +606,167 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
         
         return self.get_flatWeights(E_cm, self.n_final)
 
+try:
+    import madnklo
+    RUST_SUPPORT = True
+except ImportError:
+    RUST_SUPPORT = False
+
+class RustFlatInvertiblePhasespace(FlatInvertiblePhasespace):
+    def __init__(self, *args, **opts):
+        if not RUST_SUPPORT:
+            raise PhaseSpaceGeneratorError("Rust module is not available")
+
+        super(RustFlatInvertiblePhasespace, self).__init__(*args, **opts)
+        self.generator =  madnklo.FlatPhaseSpaceGenerator(self.masses)
+
+    def setInitialStateMomenta(self, output_momenta, E_cm):
+        """Generate the initial state momenta and prepend them to `output_momenta`"""
+
+        if self.n_initial not in [1,2]:
+            raise InvalidCmd(
+               "This PS generator only supports 1 or 2 initial states")
+
+        if self.n_initial == 1:
+            if self.initial_masses[0]==0.:
+                raise PhaseSpaceGeneratorError(
+                    "Cannot generate the decay phase-space of a massless particle.")
+            if self.E_cm != self.initial_masses[0]:
+                raise PhaseSpaceGeneratorError(
+                    "Can only generate the decay phase-space of a particle at rest.")
+
+        if self.n_initial == 1:
+            output_momenta.insert(0, LorentzVector([self.initial_masses[0] , 0., 0., 0.]))
+            return
+
+        elif self.n_initial == 2:
+            if self.initial_masses[0] == 0. or self.initial_masses[1] == 0.:
+                output_momenta.insert(0, LorentzVector([E_cm/2.0 , 0., 0., +E_cm/2.0]))
+                output_momenta.insert(1, LorentzVector([E_cm/2.0 , 0., 0., -E_cm/2.0]))
+            else:
+                M1sq = self.initial_masses[0]**2
+                M2sq = self.initial_masses[1]**2
+                E1 = (E_cm**2+M1sq-M2sq)/ E_cm
+                E2 = (E_cm**2-M1sq+M2sq)/ E_cm
+                Z = math.sqrt(E_cm**4 - 2*E_cm**2*M1sq - 2*E_cm**2*M2sq + M1sq**2 - 2*M1sq*M2sq + M2sq**2) / E_cm
+                output_momenta.insert(0, LorentzVector([E1/2.0 , 0., 0., +Z/2.0]))
+                output_momenta.insert(1, LorentzVector([E2/2.0 , 0., 0., -Z/2.0]))
+        return
+
+    def get_PS_point(self, random_variables):
+        """Generate a complete PS point, including Bjorken x's,
+        dictating a specific choice of incoming particle's momenta.
+        """
+
+        # if random_variables are not defined, than just throw a completely random point
+        if random_variables is None:
+            random_variables = self.dimensions.random_sample()
+
+        # Check the sensitivity of te inputs from the integrator
+        if any(math.isnan(r) for r in random_variables):
+            logger.warning('Some input variables from the integrator are malformed: %s'%
+                ( ', '.join( '%s=%s'%( name, random_variables[pos]) for name, pos in
+                                                     self.dim_name_to_position.items() ) ))
+            logger.warning('The PS generator will yield None, triggering the point to be skipped.')
+            return None, 0.0, (0., 0.), (0., 0.)
+
+        # Phase-space point weight to return
+        wgt = 1.0
+
+        #if any(math.isnan(r) for r in random_variables):
+        #    misc.sprint(random_variables)
+
+        # Avoid extrema since the phase-space generation algorithm doesn't like it
+        random_variables = [min(max(rv,self.epsilon_border),1.-self.epsilon_border) for rv in random_variables]
+
+        # Assign variables to their meaning.
+        if 'ycms' in self.dim_name_to_position:
+            PDF_ycm = random_variables[self.dim_name_to_position['ycms']]
+        else:
+            PDF_ycm = None
+        if 'tau' in self.dim_name_to_position:
+            PDF_tau = random_variables[self.dim_name_to_position['tau']]
+        else:
+            PDF_tau = None
+        PS_random_variables  = [rv for i, rv in enumerate(random_variables) if self.position_to_dim_name[i].startswith('x_') ]
+
+        # Also generate the ISR collinear factorization convolutoin variables xi<i> if
+        # necessary. In order for the + distributions of the PDF counterterms and integrated
+        # collinear ISR counterterms to hit the PDF only (and not the matrix elements or
+        # observables functions), a change of variable is necessary: xb_1' = xb_1 * xi1
+        if self.correlated_beam_convolution:
+            # Both xi1 and xi2 must be set equal then
+            xi1 = random_variables[self.dim_name_to_position['xi']]
+            xi2 = random_variables[self.dim_name_to_position['xi']]
+        else:
+            if self.is_beam_factorization_active[0]:
+                xi1 = random_variables[self.dim_name_to_position['xi1']]
+            else:
+                xi1 = None
+            if self.is_beam_factorization_active[1]:
+                xi2 = random_variables[self.dim_name_to_position['xi2']]
+            else:
+                xi2 = None
+
+        # Now take care of the Phase-space generation:
+        # Set some defaults for the variables to be set further
+        xb_1 = 1.
+        xb_2 = 1.
+        E_cm = self.collider_energy
+
+        # We generate the PDF from two variables \tau = x1*x2 and ycm = 1/2 * log(x1/x2), so that:
+        #  x_1 = sqrt(tau) * exp(+ycm)
+        #  x_2 = sqrt(tau) * exp(-ycm)
+        # The jacobian of this transformation is 1.
+        if abs(self.beam_types[0])==abs(self.beam_types[1])==1:
+
+            tot_final_state_masses = sum(self.masses)
+            if tot_final_state_masses > self.collider_energy:
+                raise PhaseSpaceGeneratorError("Collider energy is not large enough, there is no phase-space left.")
+
+            # Keep a hard cut at 1 GeV, which is the default for absolute_Ecm_min
+            tau_min = (max(tot_final_state_masses, self.absolute_Ecm_min)/self.collider_energy)**2
+            tau_max = 1.0
+
+            if self.n_initial == 2 and self.n_final == 1:
+                # Here tau is fixed by the \delta(xb_1*xb_2*s - m_h**2) which sets tau to
+                PDF_tau = tau_min
+                # Account for the \delta(xb_1*xb_2*s - m_h**2) and corresponding y_cm matching to unit volume
+                wgt *= (1./self.collider_energy**2)
+            else:
+                # Rescale tau appropriately
+                PDF_tau = tau_min+(tau_max-tau_min)*PDF_tau
+                # Including the corresponding Jacobian
+                wgt *= (tau_max-tau_min)
+
+            # And we can now rescale ycm appropriately
+            ycm_min = 0.5 * math.log(PDF_tau)
+            ycm_max = -ycm_min
+            PDF_ycm = ycm_min + (ycm_max - ycm_min)*PDF_ycm
+            # and account for the corresponding Jacobian
+            wgt *= (ycm_max - ycm_min)
+
+            xb_1 = math.sqrt(PDF_tau) * math.exp(PDF_ycm)
+            xb_2 = math.sqrt(PDF_tau) * math.exp(-PDF_ycm)
+            # /!\ The mass of initial state momenta is neglected here.
+            E_cm = math.sqrt(xb_1*xb_2)*self.collider_energy
+
+        elif self.beam_types[0]==self.beam_types[1]==0:
+            xb_1 = 1.
+            xb_2 = 1.
+            E_cm = self.collider_energy
+        else:
+            raise InvalidCmd("This basic PS generator does not yet support collider mode (%d,%d)."%self.beam_types)
+
+        # Now generate a PS point
+        PS_point, PS_weight = self.generator.generate(E_cm, random_variables)
+        self.setInitialStateMomenta(PS_point, E_cm)
+
+        # Apply the phase-space weight
+        wgt *= PS_weight
+
+        return LorentzVectorList(PS_point), wgt, (xb_1, xi1) , (xb_2, xi2)
+
 #=========================================================================================
 # Standalone main for debugging / standalone trials
 #=========================================================================================
@@ -624,6 +785,13 @@ if __name__ == '__main__':
     random_variables = [random.random() for _ in range(my_PS_generator.nDimPhaseSpace())]
 
     momenta, wgt = my_PS_generator.generateKinematics(E_cm, random_variables)
+
+    if RUST_SUPPORT:
+        rust_PS_generator = RustFlatInvertiblePhasespace([0.]*2, [100. + 10.*i for i in range(8)],
+                                            beam_Es =(E_cm/2.,E_cm/2.), beam_types=(0,0))
+        rust_momenta, rust_wgt, x1, x2 = rust_PS_generator.get_PS_point(random_variables)
+        print "Rust momenta:\n%s" % rust_momenta
+        print "Rust phase-space weight : %.16e\n"%wgt
    
     print "\n ========================="
     print " ||    PS generation    ||"

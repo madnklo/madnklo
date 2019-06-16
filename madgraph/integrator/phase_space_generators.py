@@ -657,7 +657,6 @@ class RustFlatInvertiblePhasespace(FlatInvertiblePhasespace):
         """Generate a complete PS point, including Bjorken x's,
         dictating a specific choice of incoming particle's momenta.
         """
-
         # if random_variables are not defined, than just throw a completely random point
         if random_variables is None:
             random_variables = self.dimensions.random_sample()

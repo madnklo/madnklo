@@ -1,0 +1,19 @@
+[package]
+name = "madnklo"
+version = "0.1.0"
+authors = ["Ben Ruijl <benruyl@gmail.com>"]
+edition = "2018"
+
+[lib]
+name = "madnklo"
+crate-type = ["cdylib", "lib"]
+
+[dependencies.cpython]
+version = "0.2"
+default-features = false
+features = ["python27-sys"]
+
+[dependencies]
+vector = { path = "../vector" }
+rand = "*"
+lazy_static = "1.3.0"

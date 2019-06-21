@@ -145,7 +145,7 @@ class QCD_soft_0_kX(currents.QCDLocalCurrent):
 
     is_cut = staticmethod(colorful_pp_config.soft_cut)
     factor = staticmethod(colorful_pp_config.soft_factor)
-    get_recoilers = staticmethod(colorful_pp_config.get_initial_state_recoilers)
+    get_recoilers = staticmethod(colorful_pp_config.get_final_state_recoilers)
 
     squared_orders = {'QCD': 4}
     n_loops = 0
@@ -429,12 +429,12 @@ class QCD_initial_soft_collinear_0_qqpqp(QCD_initial_soft_collinear_0_kX):
         res['color_charge'] = color_charge
         return res
 
-    def kernel(self, evaluation, parent, xs, kTs, ss):
+    def kernel(self, evaluation, parent, variables):
 
         # Retrieve the collinear variable x
-        x_a, x_r, x_s = xs
-        kT_a, kT_r, kT_s = kTs
-        s_ar, s_as, s_rs = ss[(0,1)], ss[(0,2)], ss[(1,2)]
+        x_a, x_r, x_s = variables['xs']
+        kT_a, kT_r, kT_s = variables['kTs']
+        s_ar, s_as, s_rs = variables['ss'][(0,1)], variables['ss'][(0,2)], variables['ss'][(1,2)]
         s_a_rs = s_ar + s_as
 
         kernel = 2. * ( 1. / (x_r + x_s) - (((s_ar * x_s - s_as * x_r) ** 2) / (s_a_rs * s_rs * ((x_r + x_s) ** 2))) )

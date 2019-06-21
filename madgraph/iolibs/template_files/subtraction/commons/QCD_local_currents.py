@@ -889,9 +889,9 @@ class GeneralQCDLocalCurrent(QCDLocalCurrent):
 
         # Evaluate kernel
         evaluation = utils.SubtractionCurrentEvaluation({
-            'spin_correlations': [ None, ],
+            'spin_correlations' : [ None, ],
             'color_correlations': [ None, ],
-            'reduced_kinematics': [ reduced_kinematics ],
+            'reduced_kinematics': [ reduced_kinematics, ],
             'values': { }
         })
 

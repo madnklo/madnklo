@@ -19,12 +19,14 @@ import math
 import madgraph.integrator.vectors as vectors
 import madgraph.core.subtraction as sub
 import madgraph.integrator.mappings as mappings
+from bidict import bidict
 
 import commons.utils as utils
 from commons.universal_kernels import AltarelliParisiKernels, SoftKernels
 
 import commons.QCD_local_currents as currents
 import colorful_pp_config
+import variables as kernel_variables
 
 from madgraph.core.base_objects import EpsilonExpansion
 
@@ -32,123 +34,9 @@ import madgraph.various.misc as misc
 
 CurrentImplementationError = utils.CurrentImplementationError
 
-#=========================================================================================================
-# Variable functions for accessing initial and final (soft)-collinear variables with s_(a,r,s) invariants
-#=========================================================================================================
-
-def colorful_pp_initial_coll_variables(PS_point, parent_momentum, children, **opts):
-    """ Initial state collinear variables as specified in Gabors Colorful ISR NNLO note."""
-    
-    p_a = PS_point[children[0]]
-    p_fs = [PS_point[child] for child in children[1:]]
-    Q = opts['Q']
-    pa_dot_pb = Q.square()/2.
-
-    # Loop over all final state momenta to obtain the corresponding variables
-    xs = []
-    kTs = []
-    ss = {}
-    for i_fs in range(len(p_fs)):
-        p_r = p_fs[i_fs]
-        p_s = sum(p_fs[i_fs_prime] for i_fs_prime in range(len(p_fs)) if i_fs_prime!=i_fs)
-        xs.append(
-            (p_r.dot(Q)/pa_dot_pb) - (p_r.dot(p_s)/pa_dot_pb)*(p_a.dot(p_r)/p_a.dot(p_r+p_s))
-        )
-        kTs.append(
-            p_r - ((p_r.dot(Q)-2.*p_a.dot(p_r))/pa_dot_pb)*p_a - (p_a.dot(p_r)/pa_dot_pb)*Q
-        )
-        ss[(0,i_fs+1)] = 2.*p_a.dot(p_r)
-
-    # Finally add the x and kT corresponding to the initial state leg
-    #xs.insert(0, 1.0-sum(xs))
-    xs.insert(0, 1.0 - (((p_fs[0]+p_fs[1]).dot(Q)-p_fs[0].dot(p_fs[1]))/pa_dot_pb) )
-    kTs.insert(0, -sum(kTs))
-
-    # Alternative way of getting these variables using Simone's mappings function
-#    na = parent_momentum
-#    nb = opts['Q']
-#    kin_variables = dict()
-    # The lone initial state child is always placed first thanks to the implementation
-    # of the function get_sorted_children() in the current.
-#    mappings.InitialCollinearVariables.get(
-#        PS_point, children[1:], children[0], na, nb, kin_variables)
-#    xs = tuple(kin_variables['z%d' % i] for i in children)
-#    kTs = tuple(kin_variables['kt%d' % i] for i in children)
-
-    # Add additional ss's
-    for i_fs in range(len(p_fs)):
-        for j_fs in range(i_fs+1,len(p_fs)):
-            ss[(i_fs+1,j_fs+1)] = 2.*p_fs[i_fs].dot(p_fs[j_fs])
-
-    return tuple(xs), tuple(kTs), ss
-
-
-def colorful_pp_initial_soft_coll_variables(PS_point, parent_momentum, children, **opts):
-    """ Initial state soft-collinear variables as specified in Gabors Colorful ISR NNLO note."""
-
-    p_a_tilde = parent_momentum
-    p_fs = [PS_point[child] for child in children[1:]]
-    Q = opts['Q']
-
-    # Loop over all final state momenta to obtain the corresponding variables
-    xs = []
-    kTs = []
-    ss = {}
-    for i_fs in range(len(p_fs)):
-        p_r = p_fs[i_fs]
-        xs.append( p_r.dot(Q) / p_a_tilde.dot(Q) )
-        # KTs not needed for now, will be filled in if needed.
-        kTs.append(None)
-        ss[(0, i_fs + 1)] = 2. * p_a_tilde.dot(p_r)
-
-    # Finally add the x and kT corresponding to the initial state leg
-    # xs.insert(0, 1.0-sum(xs))
-    xs.insert(0, 1.0-sum(xs))
-    #kTs.insert(0, -sum(kTs))
-    kTs.insert(0, None)
-
-    # Alternative way of getting these variables using Simone's mappings function
-    #    na = parent_momentum
-    #    nb = opts['Q']
-    #    kin_variables = dict()
-    # The lone initial state child is always placed first thanks to the implementation
-    # of the function get_sorted_children() in the current.
-    #    mappings.InitialCollinearVariables.get(
-    #        PS_point, children[1:], children[0], na, nb, kin_variables)
-    #    xs = tuple(kin_variables['z%d' % i] for i in children)
-    #    kTs = tuple(kin_variables['kt%d' % i] for i in children)
-
-    # Add additional ss's
-    for i_fs in range(len(p_fs)):
-        for j_fs in range(i_fs + 1, len(p_fs)):
-            ss[(i_fs + 1, j_fs + 1)] = 2. * p_fs[i_fs].dot(p_fs[j_fs])
-
-    return tuple(xs), tuple(kTs), ss
-
-def colorful_pp_final_coll_variables(PS_point, parent_momentum, children, **opts):
-    """ For now this is identical as Q_final_coll_variables"""
-
-    na = parent_momentum
-    nb = opts['Q']
-    kin_variables = dict()
-    mappings.FinalCollinearVariables.get(
-        PS_point, children, na, nb, kin_variables)
-    zs  = tuple(kin_variables['z%d'  % i] for i in children)
-    kTs = tuple(kin_variables['kt%d' % i] for i in children)
-
-    p_fs = [PS_point[child] for child in children]
-    ss = {}
-    # Add additional ss's
-    for i_fs in range(len(p_fs)):
-        for j_fs in range(i_fs+1,len(p_fs)):
-            ss[(i_fs+1,j_fs+1)] = 2.*p_fs[i_fs].dot(p_fs[j_fs])
-
-    return zs, kTs, ss
-
 #=========================================================================================
 # NNLO initial-collinear currents
 #=========================================================================================
-
 class QCD_initial_collinear_0_XXX(currents.QCDLocalCollinearCurrent):
     """Triple collinear initial-final-final tree-level current."""
 
@@ -157,9 +45,9 @@ class QCD_initial_collinear_0_XXX(currents.QCDLocalCollinearCurrent):
 
     is_cut = staticmethod(colorful_pp_config.initial_coll_cut)
     factor = staticmethod(colorful_pp_config.initial_coll_factor)
-    get_recoilers = staticmethod(colorful_pp_config.get_recoilers)
+    get_recoilers = staticmethod(colorful_pp_config.get_final_state_recoilers)
     mapping = colorful_pp_config.initial_coll_mapping
-    variables = staticmethod(colorful_pp_initial_coll_variables)
+    variables = staticmethod(kernel_variables.colorful_pp_IFn_variables)
     divide_by_jacobian = colorful_pp_config.divide_by_jacobian
 
 class QCD_initial_collinear_0_qqpqp(QCD_initial_collinear_0_XXX):
@@ -174,12 +62,12 @@ class QCD_initial_collinear_0_qqpqp(QCD_initial_collinear_0_XXX):
         )),
     ]
 
-    def kernel(self, evaluation, parent, xs, kTs, ss):
+    def kernel(self, evaluation, parent, variables):
 
         # Retrieve the collinear variable x
-        x_a, x_r, x_s = xs
-        kT_a, kT_r, kT_s = kTs
-        s_ar, s_as, s_rs = ss[(0,1)], ss[(0,2)], ss[(1,2)]
+        x_a, x_r, x_s = variables['xs']
+        kT_a, kT_r, kT_s = variables['kTs']
+        s_ar, s_as, s_rs = variables['ss'][(0,1)], variables['ss'][(0,2)], variables['ss'][(1,2)]
 
         # The factor 'x' that should be part of the initial_state_crossing_factor cancels
         # against the extra prefactor 1/x in the collinear factorization formula
@@ -213,9 +101,9 @@ class QCD_final_collinear_0_XXX(currents.QCDLocalCollinearCurrent):
 
     is_cut = staticmethod(colorful_pp_config.final_coll_cut)
     factor = staticmethod(colorful_pp_config.final_coll_factor)
-    get_recoilers = staticmethod(colorful_pp_config.get_recoilers)
+    get_recoilers = staticmethod(colorful_pp_config.get_initial_state_recoilers)
     mapping = colorful_pp_config.final_coll_mapping
-    variables = staticmethod(colorful_pp_final_coll_variables)
+    variables = staticmethod(kernel_variables.colorful_pp_FFn_variables)
     divide_by_jacobian = colorful_pp_config.divide_by_jacobian
 
 class QCD_final_collinear_0_qqpqp(QCD_final_collinear_0_XXX):
@@ -230,12 +118,12 @@ class QCD_final_collinear_0_qqpqp(QCD_final_collinear_0_XXX):
         )),
     ]
 
-    def kernel(self, evaluation, parent, zs, kTs, ss):
+    def kernel(self, evaluation, parent, variables):
 
         # Retrieve the collinear variable x
-        z_i, z_r, z_s = zs
-        kT_i, kT_r, kT_s = kTs
-        s_ir, s_is, s_rs = ss[(1,2)], ss[(1,3)], ss[(2,3)]
+        z_i, z_r, z_s = variables['zs']
+        kT_i, kT_r, kT_s = variables['kTs']
+        s_ir, s_is, s_rs = variables['ss'][(0,1)], variables['ss'][(0,2)], variables['ss'][(1,2)]
 
         for spin_correlation_vector, weight in AltarelliParisiKernels.P_qqpqp(self,
                 z_i, z_r, z_s, s_ir, s_is, s_rs, kT_i, kT_r, kT_s
@@ -257,7 +145,7 @@ class QCD_soft_0_kX(currents.QCDLocalCurrent):
 
     is_cut = staticmethod(colorful_pp_config.soft_cut)
     factor = staticmethod(colorful_pp_config.soft_factor)
-    get_recoilers = staticmethod(colorful_pp_config.get_recoilers)
+    get_recoilers = staticmethod(colorful_pp_config.get_initial_state_recoilers)
 
     squared_orders = {'QCD': 4}
     n_loops = 0
@@ -380,11 +268,11 @@ class QCD_initial_soft_collinear_0_kX(currents.QCDLocalCurrent):
 
     is_cut = staticmethod(colorful_pp_config.soft_cut)
     factor = staticmethod(colorful_pp_config.soft_factor)
-    get_recoilers = staticmethod(colorful_pp_config.get_recoilers)
+    get_recoilers = staticmethod(colorful_pp_config.get_final_state_recoilers)
     mapping = colorful_pp_config.initial_soft_coll_mapping
     divide_by_jacobian = colorful_pp_config.divide_by_jacobian
 
-    variables = staticmethod(colorful_pp_initial_soft_coll_variables)
+    variables = staticmethod(kernel_variables.colorful_pp_IFF_softFF_variables)
 
     def evaluate_subtraction_current(
         self, current,
@@ -552,4 +440,107 @@ class QCD_initial_soft_collinear_0_qqpqp(QCD_initial_soft_collinear_0_kX):
         kernel = 2. * ( 1. / (x_r + x_s) - (((s_ar * x_s - s_as * x_r) ** 2) / (s_a_rs * s_rs * ((x_r + x_s) ** 2))) )
 
         evaluation['values'][(0, 0, 0)] = {'finite': self.color_charge * self.TR * kernel }
+        return evaluation
+
+
+
+#=========================================================================================
+#
+# Nested currents
+#
+# These are more advanced currents that require dedicated implementations of the cuts,
+# variables and class attributes
+#
+#=========================================================================================
+
+class QCD_FqFqx_IqpFqFqx(currents.GeneralQCDLocalCurrent):
+    """ Nested FF (q_qx) collinear within IFF (q_q'q'x)."""
+
+    squared_orders = {'QCD': 4}
+    n_loops = 0
+    divide_by_jacobian = colorful_pp_config.divide_by_jacobian
+
+    # We should not need global variables for this current
+    variables = None
+
+    # Now define the matching singular structures
+    sub_coll_structure = sub.CollStructure(
+        substructures=tuple([]),
+        legs=(
+            sub.SubtractionLeg(10, +2, sub.SubtractionLeg.FINAL),
+            sub.SubtractionLeg(11, -2, sub.SubtractionLeg.FINAL),
+        )
+    )
+    # This counterterm will be used if any of the structures of the list below matches
+    structure = [
+        # Match both the case of the initial state being a quark and/or antiquark
+        sub.SingularStructure(substructures=(sub.CollStructure(
+            substructures=(sub_coll_structure,),
+            legs=(sub.SubtractionLeg(1, +1, sub.SubtractionLeg.INITIAL),)
+        ),)),
+    ]
+
+    # An now the mapping rules
+    mapping_rules = [
+        {
+            'singular_structure'    : sub.SingularStructure(substructures=(sub.CollStructure(
+                substructures=tuple([]),
+                legs=(
+                    sub.SubtractionLeg(10, +2, sub.SubtractionLeg.FINAL),
+                    sub.SubtractionLeg(11, -2, sub.SubtractionLeg.FINAL),
+                )
+            ),)),
+            'mapping'               : colorful_pp_config.final_coll_mapping,
+            # Intermediate legs should be strictly superior to a 1000
+            'momenta_dict'          : bidict({1001:frozenset((10,11))}),
+            'variables'             : currents.CompoundVariables(kernel_variables.colorful_pp_FFn_variables),
+            'is_cut'                : colorful_pp_config.generalised_cuts,
+            'reduced_recoilers'     : colorful_pp_config.get_initial_state_recoilers,
+            'additional_recoilers'  : sub.SubtractionLegSet([sub.SubtractionLeg(1, +1, sub.SubtractionLeg.INITIAL)]),
+        },
+        {
+            'singular_structure': sub.SingularStructure(substructures=(sub.CollStructure(
+                substructures=tuple([]),
+                legs=(
+                    sub.SubtractionLeg(1, +1, sub.SubtractionLeg.INITIAL),
+                    sub.SubtractionLeg(1001, +1, sub.SubtractionLeg.FINAL),
+                )
+            ),)),
+            'mapping'               : colorful_pp_config.initial_coll_mapping,
+            # -1 indicates that this ID should be replaced by the first overall parent connecting to the ME
+            'momenta_dict'          : bidict({-1: frozenset((1001, 1))}),
+            'variables'             : currents.CompoundVariables(kernel_variables.colorful_pp_IFn_variables),
+            'is_cut'                : colorful_pp_config.generalised_cuts,
+            'reduced_recoilers'     : colorful_pp_config.get_final_state_recoilers,
+            'additional_recoilers'  : sub.SubtractionLegSet([]),
+        },
+    ]
+
+    def kernel(self, evaluation, parents, steps_and_bundles_variables, global_variables):
+        """ Evaluate this I(FF) counterterm given the supplied variables. """
+
+        kT_FF = steps_and_bundles_variables[0][0]['kTs'][(0,(1,))]
+        z_FF  = steps_and_bundles_variables[0][0]['zs'][0]
+        s_rs  = steps_and_bundles_variables[1][0]['ss'][(0,1)]
+
+        kT_IF = steps_and_bundles_variables[1][0]['kTs'][0]
+        x_IF  = steps_and_bundles_variables[1][0]['xs'][0]
+        s_a_rs = steps_and_bundles_variables[1][0]['ss'][(0,1)]
+
+        p_a_hat = steps_and_bundles_variables[1][0]['p_children'][0]
+
+        parent = parents[0]
+
+        # We must include here propagator factors, but no correction for symmetry
+        # or averaging factor is necessary in this particular pure-quark kernel
+        initial_state_crossing = 1.0
+        prefactor = initial_state_crossing*(1./(s_rs*s_a_rs))
+        for spin_correlation_vector, weight in AltarelliParisiKernels.P_q_qpqp(self, z_FF, 1./x_IF, kT_FF, s_a_rs, -p_a_hat):
+            complete_weight = weight * prefactor
+            if spin_correlation_vector is None:
+                evaluation['values'][(0, 0, 0)] = {'finite': complete_weight[0]}
+            else:
+                evaluation['spin_correlations'].append((parent, spin_correlation_vector))
+                evaluation['values'][(len(evaluation['spin_correlations']) - 1, 0, 0)] = {'finite': complete_weight[0]}
+
         return evaluation

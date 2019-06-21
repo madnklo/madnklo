@@ -70,14 +70,12 @@ class QCD_beam_factorization_F0(currents.QCDBeamFactorizationCurrent):
             factorization_structure = ss
         elif len(ss.substructures)==1 and len(ss.substructures[0].substructures)==0:
             factorization_structure = ss.substructures[0]
-        else:      
+        else:
             return None
-        
         if factorization_structure.name() != 'F':
             return None
         if len(factorization_structure.legs) != 1:
             return None
-        
         # Make sure the one leg of the F structure is initial-state
         if not cls.is_initial(factorization_structure.legs[0]): 
             return None

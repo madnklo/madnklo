@@ -125,14 +125,16 @@ def load():
 
     # For now we are only trying an elementary IFF q > q q' q' collinear
     all_subtraction_current_classes.extend([
-        # Initial collinears
+        # IF
         NNLO_local_currents.QCD_initial_collinear_0_qqpqp,
-        # Final collinears
+        # FF
         NNLO_local_currents.QCD_final_collinear_0_qqpqp,
-        # Softs
+        # S(FF)
         NNLO_local_currents.QCD_soft_0_qqp,
-        # Initial soft-collinears
-        NNLO_local_currents.QCD_initial_soft_collinear_0_qqpqp
+        # IS(FF)
+        NNLO_local_currents.QCD_initial_soft_collinear_0_qqpqp,
+        # IC(FF)
+        NNLO_local_currents.QCD_FqFqx_IqpFqFqx
     ])
 
     # Finally register the subtraction current classes loaded

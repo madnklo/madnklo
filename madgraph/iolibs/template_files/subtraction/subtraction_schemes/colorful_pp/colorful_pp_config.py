@@ -9,13 +9,14 @@ import madgraph.integrator.mappings as mappings
 import commons.utils as utils
 import commons.QCD_local_currents as currents
 import commons.factors_and_cuts as factors_and_cuts
+import madgraph.various.misc as misc
 
 #=========================================================================================
-# Variables, mappings, jacobians, factors and cuts
+# mappings, jacobians, factors and cuts
 #=========================================================================================
-# Note that variables, factors and cuts will be class members by design
+# Note that factors and cuts will be class members by design
 # so they can easily be overridden by subclasses.
-# They will be taken from the following variables
+# They will be taken from the entities below
 # so we can quickly switch them coherently across the entire subtraction scheme.
 
 import madgraph.integrator.mappings as mappings
@@ -33,12 +34,18 @@ def get_initial_state_recoilers(reduced_process, excluded=()):
         ])
     ])
 
+def get_final_state_recoilers(reduced_process, excluded=()):
+    model = reduced_process.get('model')
+    return sub.SubtractionLegSet([
+        leg for leg in reduced_process.get('legs') if all([
+            leg['state'] == leg.FINAL,
+            leg['number'] not in excluded
+        ])
+    ])
+
 divide_by_jacobian = False
 
-get_recoilers = get_initial_state_recoilers
-
 # Initial collinear configuration
-initial_coll_variables = currents.Q_initial_coll_variables
 initial_coll_factor = factors_and_cuts.no_factor
 initial_coll_cut = factors_and_cuts.cut_initial_coll
 initial_coll_mapping = mappings.InitialLorentzOneMapping
@@ -50,16 +57,26 @@ soft_mapping = mappings.SoftVsInitialMapping
 
 # Final collinear configuration
 # WARNING: This is *not* the same final-collinear mapping as in colorful, where one has 'FinalRescalingOneMapping' instead.
-# The __init__.py of colorful_pp will make sure to overwrite this mapping choice for the final collinear imported from
-# coloful. For colorful_pp we need even final state collinears to recoil against initial states.
 final_coll_mapping = mappings.FinalCollinearVsInitialMapping
 final_coll_factor = factors_and_cuts.no_factor
 final_coll_cut = factors_and_cuts.cut_coll
-final_coll_variables = currents.Q_final_coll_variables_recoiling_against_initial_state
 
 # Final soft-collinear configuration (not strictly speaking necessary)
-final_soft_coll_variables = currents.compute_energy_fractions
 final_soft_coll_mapping = mappings.SoftCollinearVsFinalMapping(
     soft_mapping=soft_mapping, collinear_mapping=final_coll_mapping)
 initial_soft_coll_mapping = mappings.SoftCollinearVsFinalMapping(
     soft_mapping=soft_mapping, collinear_mapping=initial_coll_mapping)
+
+def generalised_cuts(bundles_cut_info,Q):
+    """ Function applying the correct cut for each bundles depending on the variables passed for each which can be:
+        {'pA': ..., 'pC': ....} for the initial-state momenta -pA (if any, otherwise absent) and the final-state ones pC for collines
+        {'pS': ...} for the soft
+    """
+    misc.sprint(bundles_cut_info)
+    for bundle_cut_info in bundles_cut_info:
+        if 'pS' in bundle_cut_info:
+            return soft_cut(pS=bundle_cut_info['pS'], Q=Q)
+        elif 'pA' in bundle_cut_info:
+            return initial_coll_cut(pA=bundle_cut_info['pA'], pR=bundle_cut_info['pC'], Q=Q)
+        else:
+            return final_coll_cut(pC=bundle_cut_info['pC'], Q=Q)

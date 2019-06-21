@@ -24,6 +24,7 @@ import commons.QCD_local_currents as currents
 import commons.factors_and_cuts as factors_and_cuts
 
 import colorful_pp_config
+import variables as kernel_variables
 
 import madgraph.various.misc as misc
 
@@ -45,11 +46,11 @@ class QCD_final_collinear_0_XX(currents.QCDLocalCollinearCurrent):
     # IMPORTANT: the mapping employed for final collinears here recoils against initial state.
     mapping = colorful_pp_config.final_coll_mapping
     # Force the use of Gabor's variable for the full final collinear
-    variables = staticmethod(colorful_pp_config.final_coll_variables)
+    variables = staticmethod(kernel_variables.colorful_pp_FFn_variables)
     # Never divide by the jacobian in Gabor's case.
     divide_by_jacobian = False
     # Specify only initial states as recoilers.
-    get_recoilers = staticmethod(colorful_pp_config.get_recoilers)
+    get_recoilers = staticmethod(colorful_pp_config.get_initial_state_recoilers)
 
 
 class QCD_final_collinear_0_qqx(QCD_final_collinear_0_XX):
@@ -59,11 +60,11 @@ class QCD_final_collinear_0_qqx(QCD_final_collinear_0_XX):
         sub.SubtractionLeg(0, +1, sub.SubtractionLeg.FINAL),
         sub.SubtractionLeg(1, -1, sub.SubtractionLeg.FINAL), ))
 
-    def kernel(self, evaluation, parent, zs, kTs, ss_i_j, ss_i):
+    def kernel(self, evaluation, parent, variables):
 
         # Retrieve the collinear variables
-        z = zs[0]
-        kT = kTs[0,(1,)]
+        z = variables['zs'][0]
+        kT = variables['kTs'][0,(1,)]
         # Instantiate the structure of the result
         evaluation['spin_correlations'] = [None, ((parent, (kT,)),), ]
 
@@ -86,10 +87,10 @@ class QCD_final_collinear_0_gq(QCD_final_collinear_0_XX):
         sub.SubtractionLeg(0, 21, sub.SubtractionLeg.FINAL),
         sub.SubtractionLeg(1, +1, sub.SubtractionLeg.FINAL), ))
 
-    def kernel(self, evaluation, parent, zs, kTs, ss_i_j, ss_i):
+    def kernel(self, evaluation, parent, variables):
 
         # Retrieve the collinear variables
-        z = zs[0]
+        z = variables['zs'][0]
 
         # Compute the kernel
         evaluation['values'][(0, 0, 0)] = { 'finite' : \
@@ -105,11 +106,11 @@ class QCD_final_collinear_0_gg(QCD_final_collinear_0_XX):
         sub.SubtractionLeg(0, 21, sub.SubtractionLeg.FINAL),
         sub.SubtractionLeg(1, 21, sub.SubtractionLeg.FINAL), ))
 
-    def kernel(self, evaluation, parent, zs, kTs, ss_i_j, ss_i):
+    def kernel(self, evaluation, parent, variables):
 
         # Retrieve the collinear variables
-        z = zs[0]
-        kT = kTs[(0,(1,))]
+        z = variables['zs'][0]
+        kT = variables['kTs'][(0,(1,))]
 
         # Instantiate the structure of the result
         evaluation['spin_correlations'] = [None, ((parent, (kT,)),), ]
@@ -139,7 +140,7 @@ class QCD_soft_0_g(currents.QCDLocalCurrent):
 
     is_cut = staticmethod(colorful_pp_config.soft_cut)
     factor = staticmethod(colorful_pp_config.soft_factor)
-    get_recoilers = staticmethod(colorful_pp_config.get_recoilers)
+    get_recoilers = staticmethod(colorful_pp_config.get_initial_state_recoilers)
 
     squared_orders = {'QCD': 2}
     n_loops = 0
@@ -274,12 +275,13 @@ class QCD_soft_0_g(currents.QCDLocalCurrent):
 #=========================================================================================
 
 class QCD_final_softcollinear_0_gX(currents.QCDLocalCurrent):
-    """NLO tree-level (final) soft-collinear currents. The momenta used in this current are the mapped momenta from the soft mapping."""
+    """NLO tree-level (final) soft-collinear currents. The momenta used in this current are the
+    mapped momenta from the soft mapping."""
 
     is_cut = staticmethod(colorful_pp_config.soft_cut)
     factor = staticmethod(colorful_pp_config.soft_factor)
-    get_recoilers = staticmethod(colorful_pp_config.get_recoilers)
-    variables = staticmethod(colorful_pp_config.final_soft_coll_variables)
+    get_recoilers = staticmethod(colorful_pp_config.get_initial_state_recoilers)
+    variables = staticmethod(kernel_variables.colorful_pp_FFF_softFF_variables)
 
     squared_orders = {'QCD': 2}
     n_loops = 0
@@ -401,8 +403,8 @@ class QCD_final_softcollinear_0_gX(currents.QCDLocalCurrent):
         })
 
         # Evaluate kernel
-        zs = self.variables([pS,pCtilde],Q)
-        z = zs[0]
+        variables = self.variables(higher_PS_point, pCtilde, children,Q=Q)
+        z = variables[0]['zs'][1]
         evaluation['values'][(0, 0, 0)]['finite'] = self.color_charge * 2.*(1.-z) / z
 
         # Add the normalization factors
@@ -432,9 +434,9 @@ class QCD_initial_collinear_0_XX(currents.QCDLocalCollinearCurrent):
 
     is_cut = staticmethod(colorful_pp_config.initial_coll_cut)
     factor = staticmethod(colorful_pp_config.initial_coll_factor)
-    get_recoilers = staticmethod(colorful_pp_config.get_recoilers)
+    get_recoilers = staticmethod(colorful_pp_config.get_final_state_recoilers)
     mapping = colorful_pp_config.initial_coll_mapping
-    variables = staticmethod(colorful_pp_config.initial_coll_variables)
+    variables = staticmethod(kernel_variables.colorful_pp_IFn_variables)
     divide_by_jacobian = colorful_pp_config.divide_by_jacobian
 
 class QCD_initial_collinear_0_qg(QCD_initial_collinear_0_XX):
@@ -450,9 +452,9 @@ class QCD_initial_collinear_0_qg(QCD_initial_collinear_0_XX):
             sub.SubtractionLeg(1, 21, sub.SubtractionLeg.FINAL), )),
     ]
 
-    def kernel(self, evaluation, parent, xs, kTs):
+    def kernel(self, evaluation, parent, variables):
         # Retrieve the collinear variable x
-        x = xs[0]
+        x = variables['xs'][0]
 
         # The factor 'x' that should be part of the initial_state_crossing_factor cancels
         # against the extra prefactor 1/x in the collinear factorization formula
@@ -483,11 +485,11 @@ class QCD_initial_collinear_0_gq(QCD_initial_collinear_0_XX):
             sub.SubtractionLeg(1, -1, sub.SubtractionLeg.FINAL), )),
     ]
 
-    def kernel(self, evaluation, parent, xs, kTs):
+    def kernel(self, evaluation, parent, variables):
 
         # Retrieve the collinear variable x
-        x = xs[0]
-        kT = kTs[0]
+        x = variables['xs'][0]
+        kT = variables['kTs'][0]
 
         # Set spin correlations
         evaluation['spin_correlations'] = [None, ((parent, (kT,)),), ]
@@ -533,10 +535,10 @@ class QCD_initial_collinear_0_qq(QCD_initial_collinear_0_XX):
 #        import pdb
 #        pdb.set_trace()
 
-    def kernel(self, evaluation, parent, xs, kTs):
+    def kernel(self, evaluation, parent, variables):
 
         # Retrieve the collinear variable x
-        x = xs[0]
+        x = variables['xs'][0]
 
         # The factor 'x' that should be part of the initial_state_crossing_factor cancels
         # against the extra prefactor 1/x in the collinear factorization formula
@@ -563,11 +565,11 @@ class QCD_initial_collinear_0_gg(QCD_initial_collinear_0_XX):
         sub.SubtractionLeg(0, 21, sub.SubtractionLeg.INITIAL),
         sub.SubtractionLeg(1, 21, sub.SubtractionLeg.FINAL), )),
 
-    def kernel(self, evaluation, parent, xs, kTs):
+    def kernel(self, evaluation, parent, variables):
 
         # Retrieve the collinear variable x
-        x = xs[0]
-        kT = kTs[0]
+        x = variables['xs'][0]
+        kT = variables['kTs'][0]
 
         # Set spin correlations
         evaluation['spin_correlations'] = [None, ((parent, (kT,)),), ]
@@ -605,7 +607,7 @@ class QCD_initial_softcollinear_0_Xg(currents.QCDLocalCurrent):
 
     is_cut = staticmethod(colorful_pp_config.soft_cut)
     factor = staticmethod(colorful_pp_config.soft_factor)
-    get_recoilers = staticmethod(colorful_pp_config.get_recoilers)
+    get_recoilers = staticmethod(colorful_pp_config.get_final_state_recoilers)
 
     squared_orders = {'QCD': 2}
     n_loops = 0
@@ -624,7 +626,7 @@ class QCD_initial_softcollinear_0_Xg(currents.QCDLocalCurrent):
     mapping = colorful_pp_config.initial_soft_coll_mapping
     divide_by_jacobian = colorful_pp_config.divide_by_jacobian
 
-    variables = staticmethod(colorful_pp_config.initial_coll_variables)
+    variables =  staticmethod(kernel_variables.colorful_pp_IFF_softFF_variables)
 
     def __init__(self, *args, **opts):
 
@@ -722,8 +724,8 @@ class QCD_initial_softcollinear_0_Xg(currents.QCDLocalCurrent):
         })
 
         # Evaluate kernel
-        xs, kTs = self.variables(higher_PS_point, pC_tilde, children, Q=Q)
-        x = xs[0]
+        variables = self.variables(higher_PS_point, pC_tilde, children, Q=Q)
+        x = variables[0]['xs'][0]
         # See Eq. (4.17) of NNLO compatible NLO scheme publication arXiv:0903.1218v2
 
         # There is no need for the ratio of color-averaging factor between the real ME

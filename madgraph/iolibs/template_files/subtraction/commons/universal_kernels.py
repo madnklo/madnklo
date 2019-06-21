@@ -10,6 +10,13 @@ class AltarelliParisiKernels:
     any object with the float attributes CF, CA, etc... to access color factors."""
 
     @staticmethod
+    def P_qg_averaged(color_factors,z):
+        return EpsilonExpansion({
+            0: color_factors.CF*((1.+z**2)/(1.-z)),
+            1: color_factors.CF*(-(1-z))
+        })
+
+    @staticmethod
     def P_qqpqp(color_factors, z_i, z_r, z_s, s_ir, s_is, s_rs, kT_i, kT_r, kT_s):
         """ Kernel for the q -> q qp' qp' splitting. The return value is not a float but a list of tuples:
                 ( spin_correlation_vectors_with_parent, weight )
@@ -32,6 +39,21 @@ class AltarelliParisiKernels:
                 })*prefactor
             )
         ]
+
+    @staticmethod
+    def P_q_qpqp(color_factors, z_rs, z_i_rs, kT_rs, s_i_rs, p_i):
+        """ Kernel for the q -> q (qp' qp') strongly ordered splitting. The return value is not a float but a list of tuples:
+                ( spin_correlation_vectors_with_parent, weight )
+            where spin_correlation_vector_with_parent can be None if None is required.
+        """
+
+        # Overall prefactor
+        result = ( AltarelliParisiKernels.P_qg_averaged(color_factors,z_i_rs) +
+                   EpsilonExpansion({0:
+                        -2.*color_factors.CF*z_rs*(1.-z_rs)*(1-z_i_rs-((2.*kT_rs.dot(p_i))**2)/(kT_rs.square()*s_i_rs))
+                    }))*color_factors.TR
+
+        return [ ( None, result ) ]
 
 #=========================================================================================
 # Class listing soft kernels

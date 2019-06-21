@@ -1874,7 +1874,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # Now finally return the total weight for this contribution
         if __debug__: logger.debug(misc.bcolors.GREEN + "Final weight returned: %.5e"%total_wgt + misc.bcolors.ENDC)
         if __debug__: logger.debug("="*80)
-        
+
         return total_wgt
     
     def generate_matrix_element_event(self, PS_point, process_key, process, all_flavor_configurations, 

@@ -516,21 +516,25 @@ class QCD_C_FqFqx_C_IqpFqFqx(currents.GeneralQCDLocalCurrent):
         },
     ]
 
-    def kernel(self, evaluation, parents, steps_and_bundles_variables, global_variables):
+    def kernel(self, evaluation, all_steps_info, global_variables):
         """ Evaluate this I(FF) counterterm given the supplied variables. """
 
-        kT_FF = steps_and_bundles_variables[0][0]['kTs'][(0,(1,))]
-        z_FF  = steps_and_bundles_variables[0][0]['zs'][0]
-        s_rs  = steps_and_bundles_variables[0][0]['ss'][(0,1)]
+        kT_FF = all_steps_info[0]['variables'][0]['kTs'][(0,(1,))]
+        z_FF  = all_steps_info[0]['variables'][0]['zs'][0]
+        s_rs  = all_steps_info[0]['variables'][0]['ss'][(0,1)]
 
-        kT_IF = steps_and_bundles_variables[1][0]['kTs'][0]
-        x_IF  = steps_and_bundles_variables[1][0]['xs'][0]
-        s_a_rs = steps_and_bundles_variables[1][0]['ss'][(0,1)]
+        kT_IF = all_steps_info[1]['variables'][0]['kTs'][0]
+        x_IF  = all_steps_info[1]['variables'][0]['xs'][0]
+        s_a_rs = all_steps_info[1]['variables'][0]['ss'][(0,1)]
 
-        p_a_hat = steps_and_bundles_variables[1][0]['p_children'][0]
-        p_rs_hat = steps_and_bundles_variables[1][0]['p_children'][1]
+        p_a_hat = all_steps_info[1]['higher_PS_point'][
+            all_steps_info[1]['bundles_info'][0]['initial_state_children'][0]
+        ]
+        p_rs_hat = all_steps_info[1]['higher_PS_point'][
+            all_steps_info[1]['bundles_info'][0]['final_state_children'][0]
+        ]
 
-        parent = parents[0]
+        parent = all_steps_info[1]['bundles_info'][0]['parent']
 
         #misc.sprint(s_rs, s_a_rs)
         #misc.sprint(z_FF, x_IF)
@@ -605,7 +609,7 @@ class QCD_S_FqFqx_C_FqFqx(currents.GeneralQCDLocalCurrent):
             ),)),
             'mapping'               : colorful_pp_config.soft_mapping,
             # -1 indicates that this ID should be replaced by the first overall parent connecting to the ME
-            'momenta_dict'          : bidict({-1: frozenset((1001, 1))}),
+            'momenta_dict'          : bidict({}),
             'variables'             : None,
             'is_cut'                : colorful_pp_config.generalised_cuts,
             'reduced_recoilers'     : colorful_pp_config.get_final_state_recoilers,
@@ -613,13 +617,14 @@ class QCD_S_FqFqx_C_FqFqx(currents.GeneralQCDLocalCurrent):
         },
     ]
 
-    def kernel(self, evaluation, parents, steps_and_bundles_variables, global_variables):
+    def kernel(self, evaluation, all_steps_info, global_variables):
         """ Evaluate this I(FF) counterterm given the supplied variables. """
 
-        kT_FF = steps_and_bundles_variables[0][0]['kTs'][(0,(1,))]
-        z_FF  = steps_and_bundles_variables[0][0]['zs'][0]
-        s_rs  = steps_and_bundles_variables[0][0]['ss'][(0,1)]
-        parent = parents[0]
+        kT_FF = all_steps_info[0]['variables'][0]['kTs'][(0,(1,))]
+        z_FF  = all_steps_info[0]['variables'][0]['zs'][0]
+        s_rs  = all_steps_info[0]['variables'][0]['ss'][(0,1)]
+
+        parent = all_steps_info[0]['bundles_info'][0]['parent']
 
         prefactor = 1./s_rs
         for spin_correlation_vector, weight in AltarelliParisiKernels.P_qqx(self, z_FF, kT_FF):
@@ -645,9 +650,11 @@ class QCD_S_FqFqx_C_FqFqx(currents.GeneralQCDLocalCurrent):
         })
 
         overall_lower_PS_point = all_steps_info[-1]['lower_PS_point']
-        pr = all_steps_info[-1]['higher_PS_point'][all_steps_info[-1]['final_state_children'][0]]
-        for i, a in enumerate(colored_partons):
-            for b in colored_partons[i:]:
+        soft_leg_number = all_steps_info[-1]['bundles_info'][0]['final_state_children'][0]
+        pr = all_steps_info[-1]['higher_PS_point'][soft_leg_number]
+        colored_parton_numbers = sorted(colored_partons.keys())
+        for i, a in enumerate(colored_parton_numbers):
+            for b in colored_parton_numbers[i:]:
                 # Write the eikonal for that pair
                 if a!=b:
                     mult_factor = 2.
@@ -658,10 +665,16 @@ class QCD_S_FqFqx_C_FqFqx(currents.GeneralQCDLocalCurrent):
                 pk = overall_lower_PS_point[b]
                 composite_weight = EpsilonExpansion({'finite': 0.})
                 for (sc, cc, rk), coll_weight in evaluation['values'].items():
-                    composite_weight += SoftKernels.eikonal_g(self, pi, pk, pr,
-                                            spin_corr_vector=evaluation['spin_correlations'][sc])
+                    if evaluation['spin_correlations'][sc] is None:
+                        composite_weight += SoftKernels.eikonal_g(self, pi, pk, pr, spin_corr_vector=None)
+                    else:
+                        parent_number, spin_corr_vec = evaluation['spin_correlations'][sc]
+                        # Normally the collinear current should have built spin-correlations with the leg number corresponding
+                        # to the soft one in the context of this soft current
+                        assert soft_leg_number==parent_number
+                        composite_weight += SoftKernels.eikonal_g(self, pi, pk, pr, spin_corr_vector=spin_corr_vec)
                 new_evaluation['color_correlations'].append( ((a, b), ) )
-                new_evaluation['values'][(0,len(new_evaluation['color_correlations'])-1,0)] = composite_weight
+                new_evaluation['values'][(0,len(new_evaluation['color_correlations'])-1,0)] = composite_weight*mult_factor
 
         return new_evaluation
 
@@ -689,7 +702,7 @@ class QCD_S_FqFqx_C_FqFqx_C_IqpFqFqx(currents.GeneralQCDLocalCurrent):
     )
     # This counterterm will be used if any of the structures of the list below matches
     structure = [
-        # Match both the case of the initial state being a quark and/or antiquark
+        # Match the case of the initial state being a quark and/or antiquark
         sub.SingularStructure(substructures=(sub.CollStructure(
             substructures=(soft_structure,),
             legs=(sub.SubtractionLeg(1, +1, sub.SubtractionLeg.INITIAL),)
@@ -731,44 +744,28 @@ class QCD_S_FqFqx_C_FqFqx_C_IqpFqFqx(currents.GeneralQCDLocalCurrent):
         },
     ]
 
-    def kernel(self, evaluation, parents, steps_and_bundles_variables, global_variables):
+    def kernel(self, evaluation, all_steps_info, global_variables):
         """ Evaluate this I(FF) counterterm given the supplied variables. """
 
-        kT_FF = steps_and_bundles_variables[0][0]['kTs'][(0,(1,))]
-        z_FF  = steps_and_bundles_variables[0][0]['zs'][0]
-        s_rs  = steps_and_bundles_variables[0][0]['ss'][(0,1)]
+        kT_FF = all_steps_info[0]['variables'][0]['kTs'][(0,(1,))]
+        z_FF  = all_steps_info[0]['variables'][0]['zs'][0]
+        s_rs  = all_steps_info[0]['variables'][0]['ss'][(0,1)]
 
-        return evaluation
+        kT_IF = all_steps_info[1]['variables'][0]['kTs'][0]
+        x_IF  = all_steps_info[1]['variables'][0]['xs'][0]
+        s_a_rs = all_steps_info[1]['variables'][0]['ss'][(0,1)]
 
-    def soft_kernel(self, evaluation, colored_partons, all_steps_info, global_variables):
-        """Evaluate a collinear type of splitting kernel, which *does* need to know about the reduced process
-        Should be specialised by the daughter class if not dummy
-        """
+        p_a_tilde = all_steps_info[1]['lower_PS_point'][
+            all_steps_info[1]['bundles_info'][0]['parent']
+        ]
 
-        new_evaluation = utils.SubtractionCurrentEvaluation({
-            'spin_correlations' : [ None, ],
-            'color_correlations': [ ],
-            'reduced_kinematics': evaluation['reduced_kinematics'],
-            'values': { }
+        p_rs_hat = all_steps_info[1]['higher_PS_point'][
+            all_steps_info[1]['bundles_info'][0]['final_state_children'][0]
+        ]
+
+        evaluation['values'][(0,0,0)] = EpsilonExpansion({'finite':
+            (2./(s_rs*s_a_rs))*self.TR*self.CF*(
+                1./x_IF + z_FF * (1. - z_FF) * (2.*(p_a_tilde.dot(kT_FF))**2)/(kT_FF.square()*(2.*p_a_tilde.dot(p_rs_hat)))
+            )
         })
-
-        overall_lower_PS_point = all_steps_info[-1]['lower_PS_point']
-        pr = all_steps_info[-1]['higher_PS_point'][all_steps_info[-1]['final_state_children'][0]]
-        for i, a in enumerate(colored_partons):
-            for b in colored_partons[i:]:
-                # Write the eikonal for that pair
-                if a!=b:
-                    mult_factor = 2.
-                else:
-                    mult_factor = 1.
-
-                pi = overall_lower_PS_point[a]
-                pk = overall_lower_PS_point[b]
-                composite_weight = EpsilonExpansion({'finite': 0.})
-                for (sc, cc, rk), coll_weight in evaluation['values'].items():
-                    composite_weight += SoftKernels.eikonal_g(self, pi, pk, pr,
-                                            spin_corr_vector=evaluation['spin_correlations'][sc])
-                new_evaluation['color_correlations'].append( ((a, b), ) )
-                new_evaluation['values'][(0,len(new_evaluation['color_correlations'])-1,0)] = composite_weight
-
-        return new_evaluation
+        return evaluation

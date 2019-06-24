@@ -1321,6 +1321,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
                     limit_pattern = limit_pattern.replace('(', '\(').replace(')', '\)')
                     limit_pattern = limit_pattern.replace('[', '\[').replace(']', '\]')
                     new_list_limit_pattern.append(limit_pattern)
+
                 limit_pattern_re = re.compile(r'^(%s)$'%(
                     '|'.join(limit_pattern for limit_pattern in new_list_limit_pattern) ))    
 

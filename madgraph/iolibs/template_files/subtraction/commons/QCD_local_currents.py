@@ -897,6 +897,11 @@ class GeneralQCDLocalCurrent(QCDLocalCurrent):
                     current=current, hel_config=hel_config,
                     reduced_kinematics=('IS_CUT', overall_lower_PS_point))
 
+        # Cut inputs can now be removed
+        for step_info in all_steps:
+            for bundle_info in step_info['bundles_info']:
+                del bundle_info['cut_inputs']
+
         # Build global variables if necessary
         if self.variables is not None:
             global_variables = self.variables(all_steps, Q=Q)
@@ -911,12 +916,11 @@ class GeneralQCDLocalCurrent(QCDLocalCurrent):
             'values': { }
         })
 
-        local_variables = [step['variables'] for step in all_steps]
         # Apply collinear kernel (can be dummy)
-        evaluation = self.kernel(evaluation, overall_parents, local_variables, global_variables)
+        evaluation = self.kernel(evaluation, all_steps, global_variables)
 
         # Apply soft kernel (can be dummy), which also knows about the reduced process
-        evaluation = self.soft_kernel(evaluation, reduced_process, all_steps, global_variables)
+        evaluation = self.call_soft_kernel(evaluation, reduced_process, all_steps, global_variables)
 
         # Add the normalization factors
         # WARNING! In this implementation the propagator denominators must be included in the kernel evaluation.

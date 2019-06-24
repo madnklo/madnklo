@@ -65,6 +65,27 @@ def t(i, j, k, zs, kTs, s_ij=None, s_ik=None, s_jk=None):
     if not s_jk: s_jk = sij(j, k, zs, kTs)
     return tijk(zs[i-1],zs[j-1],s_ij,s_ik,s_jk)
 
+def get_intermediate_PS_point(self, higher_PS_point, children):
+
+    recoilers = tuple(
+        i for i in higher_PS_point.keys()
+        if i not in (1, 2, children[0], children[1]) )
+    def dummy_leg(i):
+        return subtraction.SubtractionLeg(i, 21, subtraction.SubtractionLeg.FINAL)
+    structure = subtraction.SingularStructure(
+        substructures=[subtraction.CollStructure(
+            legs=(dummy_leg(children[0]), dummy_leg(children[1])) ), ],
+        legs=(dummy_leg(r) for r in recoilers) )
+    leg_numbers_map = subtraction.bidict({
+        i: frozenset({i,})
+        for i in higher_PS_point.keys()
+        if i not in (children[0], children[1])})
+    leg_numbers_map[1000] = frozenset({children[0], children[1]})
+    mapping = mappings.FinalRescalingOneMapping
+    intermediate_ps_point, mapping_vars = mapping.map_to_lower_multiplicity(
+        higher_PS_point, structure, leg_numbers_map, compute_jacobian=True)
+    return intermediate_ps_point, mapping_vars
+
 def n_final_coll_variables_triple(higher_PS_point, qC, children,**opts):
     """Obtain the n_final_coll_variables definition of z and kT and also provide the pair-wise invariants from the higher_PS_point.
 
@@ -136,27 +157,66 @@ class QCD_final_collinear_0_QQxq(QCD_final_collinear_0_XX):
         sqrbrk += z1 + z2 - s12/s123
         return 1./2.*self.CF*self.TR*s123*sqrbrk / (s12)
 
+    def C123C12_kernel(self, higher_PS_point, parent_momentum, children, **opts):
+
+        # Rebuild the two-stage mapping
+        interm_PS_point, interm_mapping_vars = self.get_intermediate_PS_point(
+            higher_PS_point, children )
+        final__PS_point, final__mapping_vars = self.get_final_PS_point(
+            interm_PS_point, children )
+
+        # Retrieve momenta
+        p1 = higher_PS_point[children[0]]
+        p2 = higher_PS_point[children[1]]
+        p3 = higher_PS_point[children[2]]
+        p12 = p1 + p2
+        p123 = p12 + p3
+        p12hat = interm_PS_point[1000]
+        p3hat = interm_PS_point[children[2]]
+        p123hat = p12hat + p3hat
+        p123tilde = final__PS_point[2000]
+        Q = interm_mapping_vars['Q']
+
+        # Compute momentum fractions and transverse momenta
+        zs_interm, kTs_interm = self.variables(
+            higher_PS_point, p12hat, children[:2], Q=Q)
+        zs_final_, kTs_final_ = self.variables(
+            interm_PS_point, p123tilde, (1000, children[2]), Q=Q)
+        z1 = zs_interm[0]
+        k1perp = kTs_interm[0]
+        z12 = zs_final_[0]
+        k12perp = kTs_final_[0]
+
+        # Build scalar products
+        s12 = p12.square()
+        s12hat_3hat = 2*p3hat.dot(p12hat)
+        k1perp2 = k1perp.square()
+        k12perp2 = k12perp.square()
+        kperpSP = 2*k1perp.dot(k12perp)
+
+        # Construct the iterated current C(C(1,2),3)
+        perpterm = ((1-z12)/z12) * (kperpSP**2)/(k1perp2*k12perp2)
+        pqg = (1+(1-z12)**2) / z12
+        brk = z12 + perpterm
+        C123C12_current = 4*(pqg - 2*z1*(1-z1)*brk) / (s12hat_3hat*s12)
+
+        # If jacobians are active, correct the one-step jacobian to the two-step one
+        # and correct current factors altogether
+        try:
+            jacobian = opts['jacobian']
+            jacobian /= (final__mapping_vars['jacobian']*interm_mapping_vars['jacobian'])
+        except KeyError:
+            jacobian = 1
+        # Correct current factors if they are active
+        factor_interm = self.factor(Q=Q, pC=p12, qC=p12hat)
+        factor_final_ = self.factor(Q=Q, pC=p123hat, qC=p123tilde)
+        factor_direct = self.factor(Q=Q, pC=p123, qC=p123tilde)
+        factor = factor_interm * factor_final_ / factor_direct
+
+        return factor*C123C12_current*jacobian
+
 
     def kernel(self, evaluation, parent, zs, kTs , sijs):
         ker = self.C123_Qqqx_kernel(zs[0],zs[1],zs[2], sijs[0], sijs[1], sijs[2], sum(sijs))
         evaluation['values'][(0, 0, 0)] = {'finite' : ker}
         return evaluation
-
-    #     # Instantiate the structure of the result
-    #     evaluation = utils.SubtractionCurrentEvaluation({
-    #         'spin_correlations': [None, ((parent, (kT,)),), ],
-    #         'color_correlations': [None],
-    #         'reduced_kinematics': [reduced_kinematics],
-    #         'values': {(0, 0, 0): {'finite': None},
-    #                    (1, 0, 0): {'finite': None}, }
-    #     })
-    #     # Compute the kernel
-    #     # The line below implements the g_{\mu\nu} part of the splitting kernel.
-    #     # Notice that the extra longitudinal terms included in the spin-correlation 'None'
-    #     # from the relation:
-    #     #    \sum_\lambda \epsilon_\lambda^\mu \epsilon_\lambda^{\star\nu}
-    #     #    = g^{\mu\nu} + longitudinal terms
-    #     # are irrelevant because Ward identities evaluate them to zero anyway.
-    #     evaluation['values'][(0, 0, 0)]['finite'] = self.TR
-    #     evaluation['values'][(1, 0, 0)]['finite'] = 4 * self.TR * z * (1-z) / kT.square()
-    #     return evaluation

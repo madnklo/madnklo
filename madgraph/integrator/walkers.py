@@ -276,6 +276,8 @@ class FinalLorentzOneWalker(FinalCollinearOneWalker):
 # FinalNLOWalker
 #=========================================================================================
 
+
+
 class FinalNLOWalker(OneNodeWalker):
 
     collinear_map = None
@@ -367,6 +369,17 @@ class NLOWalker(OneNodeWalker):
 class LorentzNLOWalker(NLOWalker):
 
     f_collinear_map = mappings.FinalLorentzOneMapping()
+    i_collinear_map = mappings.InitialLorentzOneMapping()
+    soft_map = mappings.SoftVsFinalPureRescalingMapping()
+    f_soft_collinear_map = mappings.SoftCollinearVsFinalMapping(soft_map, f_collinear_map)
+    i_soft_collinear_map = mappings.SoftCollinearVsFinalMapping(soft_map, i_collinear_map)
+    # The integrated counterterms are only correct when recoiling against *all* final states
+    # Take care that the soft mapping only works for massless particles instead
+    only_colored_recoilers = False
+
+class ColorfulWalker(NLOWalker):
+
+    f_collinear_map = mappings.FinalRescalingOneMapping()
     i_collinear_map = mappings.InitialLorentzOneMapping()
     soft_map = mappings.SoftVsFinalPureRescalingMapping()
     f_soft_collinear_map = mappings.SoftCollinearVsFinalMapping(soft_map, f_collinear_map)

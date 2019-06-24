@@ -33,10 +33,17 @@ pjoin = os.path.join
 
 CurrentImplementationError = utils.CurrentImplementationError
 
+def fixed_alpha_virtuality_upper_bound(parent_momentum, Q, *args, **opts):
+    """ Static function or getting the virtuality bound for the integrated counterterms.
+    For mapping independent integrated CT, this must be computed dynamically. """
+    return factors_and_cuts.alpha_0
+
 # Mother function grouping functionalities common to all integrated FF NLO QCD currents
 class integrated_NLO_FF_QCD_current(utils.IntegratedCurrent, currents.QCDCurrent):
     """ Just a template class for all Final-Final NLO QCD local subtraction current."""
-    
+
+    get_alpha_virtuality_upper_bound = staticmethod(fixed_alpha_virtuality_upper_bound)
+
     @classmethod
     def common_does_implement_this_current(cls, current, QCD_squared_order=None, n_loops=None):
         """ General class of checks common to all currents inheriting from this class."""
@@ -180,7 +187,7 @@ class integrated_NLO_FF_QCD_collinear_qqx(integrated_NLO_FF_QCD_current):
         )
 
         # Virtuality cut in the integration
-        alpha_0 = factors_and_cuts.alpha_0
+        alpha_0 = self.get_alpha_virtuality_upper_bound(p12,Q)
         finite_part = HE.CqqFF_Finite_Gabor_DIVJAC_NOD0(alpha_0, y12)
 
         value = EpsilonExpansion({0: finite_part, -1: (-2. / 3.), -2: 0.})
@@ -302,7 +309,7 @@ class integrated_NLO_FF_QCD_collinear_gq(integrated_NLO_FF_QCD_current):
         )
 
         # Virtuality cut in the integration
-        alpha_0 = factors_and_cuts.alpha_0
+        alpha_0 = self.get_alpha_virtuality_upper_bound(p12,Q)
         finite_part = HE.CqgFF_Finite_Gabor_DIVJAC_NOD0(alpha_0, y12)
 
         value = EpsilonExpansion(
@@ -431,7 +438,7 @@ class integrated_NLO_FF_QCD_collinear_gg(integrated_NLO_FF_QCD_current):
         )
 
         # Virtuality cut in the integration
-        alpha_0 = factors_and_cuts.alpha_0
+        alpha_0 = self.get_alpha_virtuality_upper_bound(p12,Q)
         finite_part = HE.CggFF_Finite_Gabor_DIVJAC_NOD0(alpha_0, y12)
 
         value = EpsilonExpansion(

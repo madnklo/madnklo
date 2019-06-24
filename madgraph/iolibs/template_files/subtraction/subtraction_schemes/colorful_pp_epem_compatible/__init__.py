@@ -39,7 +39,6 @@ def load():
     import colorful_pp_config
     import NLO.local_currents as NLO_local_currents
     import NLO.integrated_currents as NLO_integrated_currents
-    import NNLO.local_currents as NNLO_local_currents
 
     # Imports from the colorful scheme
     import subtraction_schemes.colorful.NLO.local_currents as colorful_NLO_local_currents
@@ -51,7 +50,7 @@ def load():
     # Note: specifying below which resources are needed is optional
     loaded_attributes['exporter'] = GenericCurrentsExporter(relative_resource_paths=[
         'subtraction_schemes/colorful',
-        'subtraction_schemes/colorful_pp'
+        'subtraction_schemes/colorful_pp_epem_compatible'
     ])
 
     all_subtraction_current_classes = []
@@ -89,13 +88,32 @@ def load():
         NLO_local_currents.QCD_initial_softcollinear_0_Xg,
     ])
 
-    NLO_final_collinears = [
-        NLO_local_currents.QCD_final_collinear_0_qqx,
-        NLO_local_currents.QCD_final_collinear_0_gq,
-        NLO_local_currents.QCD_final_collinear_0_gg,
+    final_collinears_from_colorful = [
+        colorful_NLO_local_currents.QCD_final_collinear_0_qqx,
+        colorful_NLO_local_currents.QCD_final_collinear_0_gq,
+        colorful_NLO_local_currents.QCD_final_collinear_0_gg,
     ]
+
+    # We must modify the mapping employed by the colorful final collinear CT which is 'FinalRescalingOneMapping'
+    # in colorful and must now be colorful_pp_config.final_coll_mapping (which is 'mappings.FinalLorentzOneMapping')
+    # Also we must then allow massive recoilers, as their mass can be kept intact then.
+    # Finally we must also change their variables and cut so as to make sure that Gabor's integrated CT originally
+    # designed for the rescaling mapping still apply.
+    for final_collinear_current_class in final_collinears_from_colorful:
+        final_collinear_current_class.mapping = colorful_pp_config.final_coll_mapping
+        final_collinear_current_class.get_recoilers = staticmethod(colorful_pp_config.get_recoilers)
+        # Cuts are applicable now, and the corresponding alpha_0 will be used as a max upper bound for the dynamically
+        # computed virtuality in the corresponding integrated CT
+        final_collinear_current_class.is_cut = staticmethod(factors_and_cuts.cut_coll)
+        # The mapping independent integrated counterterm coded up correspond to *no* overall factor to the local CT.
+        final_collinear_current_class.factor = staticmethod(factors_and_cuts.no_factor)
+        # Finally the variables used for these currents must be ones specially designed for mapping independence
+        final_collinear_current_class.variables = staticmethod(NLO_local_currents.Q_final_coll_mapping_independent_variables)
+        # One must of course divide by the Jacobian of the mapping to insure mapping independence as well
+        final_collinear_current_class.divide_by_jacobian = True
+
     # final-final collinears
-    all_subtraction_current_classes.extend(NLO_final_collinears)
+    all_subtraction_current_classes.extend(final_collinears_from_colorful)
 
     # Add NLO integrated counterterms
     # ===============================
@@ -117,24 +135,6 @@ def load():
         # soft and soft-collinear
         NLO_integrated_currents.integrated_NLO_QCD_soft_gluon,
         NLO_integrated_currents.integrated_NLO_FF_QCD_softcollinear_gq
-    ])
-
-    ###########
-    # NNLO
-    ###########
-
-    # For now we are only trying an elementary IFF q > q q' q' collinear
-    all_subtraction_current_classes.extend([
-        # IF
-        NNLO_local_currents.QCD_initial_collinear_0_qqpqp,
-        # FF
-        NNLO_local_currents.QCD_final_collinear_0_qqpqp,
-        # S(FF)
-        NNLO_local_currents.QCD_soft_0_qqp,
-        # IS(FF)
-        NNLO_local_currents.QCD_initial_soft_collinear_0_qqpqp,
-        # C(I,C(FF))
-        NNLO_local_currents.QCD_C_FqFqx_C_IqpFqFqx
     ])
 
     # Finally register the subtraction current classes loaded

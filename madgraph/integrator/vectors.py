@@ -559,7 +559,31 @@ class LorentzVectorList(list):
         """Return a copy of this LorentzVectorList as a LorentzVectorDict."""
 
         return LorentzVectorDict( (i+1, v) for i, v in enumerate(self) )
-        
+
+    def boost_from_com_to_lab_frame(self, x1, x2, ebeam1, ebeam2):
+        """ Boost this kinematic configuration from the center of mass frame to the lab frame
+        given specified Bjorken x's x1 and x2.
+        This function needs to be cleaned up and built in a smarter way as the boost vector can be written
+        down explicitly as a function of x1, x2 and the beam energies.
+        """
+
+        if x1 is None: x1 = 1.
+        if x2 is None: x2 = 1.
+
+        target_initial_momenta = []
+        for i, (x, ebeam) in enumerate(zip([x1, x2],[ebeam1, ebeam2])):
+            target_initial_momenta.append(LorentzVector([x*ebeam, 0., 0., math.copysign(x*ebeam, self[i][3])]))
+        target_summed = sum(target_initial_momenta)
+        source_summed = LorentzVector([2.*math.sqrt(x1*x2*ebeam1*ebeam2),0.,0.,0.])
+
+        # We want to send the source to the target
+        for vec in self:
+            vec.boost_from_to(source_summed, target_summed)
+            #boost_vec = LorentzVector.boost_vector_from_to(source_summed, target_summed)
+            #import madgraph.various.misc as misc
+            #misc.sprint(boost_vec)
+            #vec.boost(boost_vec)
+
     def boost_to_com(self, initial_leg_numbers):
         """ Boost this kinematic configuration back to its c.o.m. frame given the
         initial leg numbers. This is not meant to be generic and here we *want* to crash

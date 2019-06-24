@@ -572,10 +572,13 @@ class SingularStructure(object):
         """ Return the set of all the beam factorization legs involved in this singular
         structure. Note that beam factorization structures should always be at the top level
         and never nested."""
-        return set(sum([
-            [ l.n for l in struct.get_all_legs() ]
-            for struct in self.substructures if isinstance(struct, BeamStructure)
-        ], []))
+        res = set([])
+        for struct in self.substructures:
+            if isinstance(struct, BeamStructure):
+                res |= set([l.n for l in struct.get_all_legs() ])
+            else:
+                res |=  struct.get_beam_factorization_legs()
+        return res
 
     def annihilate(self):
         """When an elementary structure cannot be nested within this structure,

@@ -1226,9 +1226,14 @@ class ME7Integrand(integrands.VirtualIntegrand):
             'out_pdgs' : ( (out_pgs1), (out_pdgs2), ...) 
             'n_loops'  : n_loops }"""
         
-        def pdg_list_match(target_list, selection_list):
+        def pdg_list_match(target_list, selection_list, exact=False):
             if len(target_list) != len(selection_list):
                 return False
+            if exact:
+                for target_pdg, selected_pdgs in zip(target_list, selection_list):
+                    if target_pdg not in selected_pdgs:
+                        return False
+                return True
             targets = dict( (k, target_list.count(k)) for k in set(target_list) )
             found_it = False
             for sel in itertools.product(*selection_list):
@@ -1243,8 +1248,9 @@ class ME7Integrand(integrands.VirtualIntegrand):
     
         for process in process_list:
 
+            # Ask for exact match for the initial states
             if (not selection['in_pdgs'] is None) and \
-               (not pdg_list_match(process.get_initial_ids(), selection['in_pdgs'])):
+               (not pdg_list_match(process.get_initial_ids(), selection['in_pdgs'], exact=True)):
                 continue
 
             if (not selection['out_pdgs'] is None) and \
@@ -1338,7 +1344,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
                 self.pass_flavor_sensitive_cuts(PS_point, flavors, 
                     xb_1 = xb_1, xb_2 = xb_2 )
 
-    def pass_flavor_blind_cuts(self, PS_point, process_pdgs, 
+    def pass_flavor_blind_cuts(self, PS_point, process_pdgs,
                           n_jets_allowed_to_be_clustered = None, xb_1 = None, xb_2 = None):
         """ Implementation of a minimal set of isolation cuts. This can be made much nicer in the future and 
         will probably be taken outside of this class so as to ease user-specific cuts, fastjet, etc...
@@ -1357,13 +1363,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # return True
 
         from madgraph.integrator.vectors import LorentzVectorDict, LorentzVectorList, LorentzVector
-        
-        # If the cuts depend on the boost to the lab frame in case of hadronic collision
-        # then the quantity below can be used:
-#        boost_vector_to_lab_frame = None
-#        if (xb_1 is not None) and (xb_2 is not None) and (xb_1, xb_2)!=(1.,1.):
-#            boost_vector_to_lab_frame = PS_point.get_boost_vector_to_lab_frame(xb_1, xb_2)
-        
+
         # These cuts are not allowed to resolve flavour, but only whether a particle is a jet or not
         def is_a_jet(pdg):
             return abs(pdg) in range(1,self.run_card['maxjetflavor']+1)+[21]
@@ -1388,7 +1388,17 @@ class ME7Integrand(integrands.VirtualIntegrand):
         if isinstance(PS_point, LorentzVectorDict):
             PS_point = PS_point.to_list()
         elif not isinstance(PS_point, LorentzVectorList):
-            PS_point = LorentzVectorList(LorentzVector(v) for v in PS_point)    
+            PS_point = LorentzVectorList(LorentzVector(v) for v in PS_point)
+
+        # If the cuts depend on the boost to the lab frame in case of hadronic collision
+        # then the boost below can be used. Notice that the jet cuts is typically formulated in terms of
+        # *pseudo* rapidities and not rapidities, so that when jets are clustered into a massive combined
+        # momentum, this makes it important to boost to the lab frame. We therefore turn on this boost here
+        # by default.
+        if (xb_1 is not None) and (xb_2 is not None) and (xb_1, xb_2) != (1., 1.):
+            # Prevent border effects
+            PS_point = PS_point.get_copy()
+            PS_point.boost_from_com_to_lab_frame(xb_1, xb_2, self.run_card['ebeam1'], self.run_card['ebeam2'])
 
         for i, p in enumerate(PS_point[self.n_initial:]):
             if is_a_photon(process_pdgs[1][i]):
@@ -1568,12 +1578,6 @@ class ME7Integrand(integrands.VirtualIntegrand):
         elif self.flavor_cut_function.lower() != 'hardcoded':
             raise MadEvent7Error("Flavor cut function '%s' not reckognized."%self.flavor_cut_function)
 
-        # If the cuts depend on the boost to the lab frame in case of hadronic collision
-        # then the quantity below can be used:
-#        boost_vector_to_lab_frame = None
-#        if (xb_1 is not None) and (xb_2 is not None) and (xb_1, xb_2)!=(1.,1.):
-#            boost_vector_to_lab_frame = PS_point.get_boost_vector_to_lab_frame(xb_1, xb_2)
-
         debug_cuts = False
         from madgraph.integrator.vectors import LorentzVectorDict, LorentzVectorList, LorentzVector
 
@@ -1582,7 +1586,17 @@ class ME7Integrand(integrands.VirtualIntegrand):
         if isinstance(PS_point, LorentzVectorDict):
             PS_point = PS_point.to_list()
         elif not isinstance(PS_point, LorentzVectorList):
-            PS_point = LorentzVectorList(LorentzVector(v) for v in PS_point)   
+            PS_point = LorentzVectorList(LorentzVector(v) for v in PS_point)
+
+        # If the cuts depend on the boost to the lab frame in case of hadronic collision
+        # then the boost below can be used. Notice that the jet cuts is typically formulated in terms of
+        # *pseudo* rapidities and not rapidities, so that when jets are clustered into a massive combined
+        # momentum, this makes it important to boost to the lab frame. We therefore turn on this boost here
+        # by default.
+        if (xb_1 is not None) and (xb_2 is not None) and (xb_1, xb_2) != (1., 1.):
+            # Prevent border effects
+            PS_point = PS_point.get_copy()
+            PS_point.boost_from_com_to_lab_frame(xb_1, xb_2, self.run_card['ebeam1'], self.run_card['ebeam2'])
 
         if debug_cuts: logger.debug( "Processing flavor-sensitive cuts for flavors %s and PS point:\n%s"%(
             str(flavors), LorentzVectorList(PS_point).__str__(n_initial=self.phase_space_generator.n_initial) ))
@@ -1678,7 +1692,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
                                           for name in self.phase_space_generator.dim_ordered_names ]
 
         if self.sectors is None:
-            return self.evaluate(PS_random_variables, integrator_jacobian, selected_process_key=None, sector_info=None)
+            return self.evaluate(PS_random_variables, integrator_jacobian, observables_lock,
+                                                                            selected_process_key=None, sector_info=None)
         else:
             total_weight = 0.
             for process_key, (process, mapped_processes) in self.processes_map.items():
@@ -1690,10 +1705,10 @@ class ME7Integrand(integrands.VirtualIntegrand):
                     if (sector_info is not None) and (self.is_sector_selected is not None) and \
                                                     not self.is_sector_selected(process, sector_info['sector']):
                         continue
-                    total_weight += self.evaluate(PS_random_variables, integrator_jacobian,
+                    total_weight += self.evaluate(PS_random_variables, integrator_jacobian, observables_lock,
                                                   selected_process_key=process_key, sector_info=sector_info)
 
-    def evaluate(self,PS_random_variables, integrator_jacobian, selected_process_key=None, sector_info=None):
+    def evaluate(self,PS_random_variables, integrator_jacobian, observables_lock, selected_process_key=None, sector_info=None):
         """ Evaluate this integrand given the PS generating random variables and
         possibily for a particular defining process and sector. If no process_key is specified, this funcion will
         loop over and aggregate all of them"""
@@ -1859,7 +1874,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # Now finally return the total weight for this contribution
         if __debug__: logger.debug(misc.bcolors.GREEN + "Final weight returned: %.5e"%total_wgt + misc.bcolors.ENDC)
         if __debug__: logger.debug("="*80)
-        
+
         return total_wgt
     
     def generate_matrix_element_event(self, PS_point, process_key, process, all_flavor_configurations, 
@@ -1875,8 +1890,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         event_weight = base_objects.EpsilonExpansion(ME_evaluation) * base_weight
 
         sector_info = opts.get('sector_info', None)
-
-        if sector_info['sector'] is not None:
+        if sector_info is not None and sector_info['sector'] is not None:
             event_weight *= sector_info['sector'](PS_point,all_flavor_configurations[0],
                                                   counterterm_index=-1, input_mapping_index=-1)
 
@@ -2114,6 +2128,9 @@ class ME7Integrand_V(ME7Integrand):
         g > d d~ must be "attached" to all final-state gluons of the virtual process definition).
         """
 
+        # Make sure no helicity configuration is specified since this is not supported yet.
+        assert ((hel_config is None))
+
         # Access the various characteristics of the integrated counterterm passed to this
         # function.
         counterterm = integrated_CT_characteristics['integrated_counterterm']
@@ -2217,16 +2234,13 @@ class ME7Integrand_V(ME7Integrand):
         xi1, xi2 = [xi1, xi2][input_mapping[0]], [xi1, xi2][input_mapping[1]]
         xb_1, xb_2 = [xb_1, xb_2][input_mapping[0]], [xb_1, xb_2][input_mapping[1]]
 
-        # Retrieve some possibly relevant model parameters
-        alpha_s = self.model.get('parameter_dict')['aS']
-        mu_r = self.model.get('parameter_dict')['MU_R']
-
         # Now compute the reduced quantities which will be necessary for evaluating the
         # integrated current
         reduced_PS = counterterm.get_reduced_kinematics(mapped_PS_point)
 
-        # Make sure no helicity configuration is specified since this is not supported yet.
-        assert ((hel_config is None))
+        # Retrieve some possibly relevant model parameters
+        alpha_s = self.model.get('parameter_dict')['aS']
+        mu_r = self.model.get('parameter_dict')['MU_R']
 
         # Compute the 4-vector Q characterizing this PS point, defined as the sum of all
         # initial_state momenta, before any mapping is applied.
@@ -2283,21 +2297,21 @@ class ME7Integrand_V(ME7Integrand):
 
             # If there is no necessary ME call left, it is likely because the xi upper bound of the
             # Bjorken x's convolution were not respected. We must now abort the event.
-            if len(all_necessary_ME_calls) == 0:
-                return None
+            if len(necessary_ME_calls) == 0:
+                continue
 
             if sector[0] is not None:
-                base_weight *= sector[0](reduced_PS, all_mapped_flavors[0],
+                this_base_weight *= sector[0](reduced_PS, all_mapped_flavors[0],
                                          counterterm_index=sector[1], input_mapping_index=sector[2])
 
             # Finally treat the call to the reduced connected matrix elements
             alpha_s = self.model.get('parameter_dict')['aS']
             mu_r = self.model.get('parameter_dict')['MU_R']
 
-            event_PS = reduced_PS.to_list(ordered_keys=[l.get('number') for l in counterterm.process.get('legs')])
+            #event_PS = reduced_PS.to_list(ordered_keys=[l.get('number') for l in counterterm.process.get('legs')])
 
             template_event = ME7Event(
-                event_PS,
+                mapped_PS_point,
                 {fc: base_objects.EpsilonExpansion({0: cut_weight * this_base_weight}) for fc in all_mapped_flavors},
                 requires_mirroring=is_reduced_process_mirrored,
                 host_contribution_definition=self.contribution_definition,
@@ -3415,6 +3429,7 @@ class ME7Integrand_R(ME7Integrand):
                 counterterm_structure=(counterterm, all_resolved_flavors, reduced_kinematics_identifier),
                 Bjorken_xs=(xb_1, xb_2)
             )
+
             CT_event = ME7Integrand_R.generate_event_for_counterterm(
                 template_event,
                 disconnected_currents_weight,
@@ -3680,7 +3695,13 @@ The missing process is: %s"""%ME_process.nice_string())
         # Loop over processes
         all_evaluations = {}
         for process_key, (defining_process, mapped_processes) in self.processes_map.items():
-            logger.info("Considering %s"%defining_process.nice_string())
+
+            # Make sure that the selected process satisfies the selection requirements
+            if not self.is_part_of_process_selection(
+                    [defining_process, ] + mapped_processes,
+                    selection=test_options['process']):
+                continue
+            logger.info("Considering %s" % defining_process.nice_string())
 
             if self.sectors is None or self.sectors[process_key] is None:
                 all_sectors = [None, ]
@@ -3691,15 +3712,8 @@ The missing process is: %s"""%ME_process.nice_string())
                 if (sector_info is not None) and (self.is_sector_selected is not None) and \
                                     not self.is_sector_selected(defining_process, sector_info['sector']):
                     continue
-
                 if sector_info is not None:
                     logger.info("Considering sector: %s" %str(sector_info['sector']))
-
-                # Make sure that the selected process satisfies the selection requirements
-                if not self.is_part_of_process_selection(
-                    [defining_process, ]+mapped_processes,
-                    selection=test_options['process'] ):
-                    continue
 
                 all_processes = [defining_process,]+mapped_processes
                 all_flavor_configurations = []
@@ -3834,7 +3848,7 @@ The missing process is: %s"""%ME_process.nice_string())
         # Also scale the xi initial-state convolution parameters if the limit
         # specifies a beam factorization structure for that initial state:
         beam_factorization_legs = limit.get_beam_factorization_legs()
-        
+
         # Notice that if we wanted a particular overall scaling of the counterterms,
         # we would need to correctly adjust the power of the multiplying scaling parameter.
         if 1 in beam_factorization_legs:
@@ -3903,6 +3917,7 @@ The missing process is: %s"""%ME_process.nice_string())
         max_value = test_options['max_scaling_variable']
         base = (min_value/max_value) ** (1./n_steps)
         for step in range(n_steps+1):
+
             # Determine the new configuration
             scaling_parameter = max_value * (base ** step)
             scaled_real_PS_point, scaled_xi1, scaled_xi2 = self.scale_configuration(
@@ -3918,7 +3933,7 @@ The missing process is: %s"""%ME_process.nice_string())
                     logger.warning(str(scaled_real_PS_point))
                     break
 
-            # misc.sprint('Scaled PS point: %s'%str(scaled_real_PS_point))
+            misc.sprint('Scaled PS point: %s'%str(scaled_real_PS_point))
             # misc.sprint('Scaled Bjorken rescalings: %s %s'%(scaled_xi1, scaled_xi2))
             mu_r, mu_f1, mu_f2 = self.get_scales(scaled_real_PS_point)
 
@@ -3993,8 +4008,8 @@ The missing process is: %s"""%ME_process.nice_string())
             if test_options['apply_lower_multiplicity_cuts']:
                 events.filter_flavor_configurations(self.pass_flavor_sensitive_cuts)
     
-            #misc.sprint('Events generated after post-processing:')
-            #misc.sprint(events)
+            # misc.sprint('Events generated after post-processing:')
+            # misc.sprint(events)
             
             # Now store the results to be returned which will eventually be passed to 
             # the IR test analyzer.
@@ -4017,10 +4032,12 @@ The missing process is: %s"""%ME_process.nice_string())
                     event_str = event.counterterm_structure_short_string()
                     if test_options['minimal_label']:
                         event_str = event_str.split('@')[0]
-                    this_eval[event_str] = event_wgt
+                    if event_str in this_eval:
+                        this_eval[event_str] += event_wgt
+                    else:
+                        this_eval[event_str] = event_wgt
 
-            logger.debug('For scaling variable %.3e, weight from ME = %.16e' %(
-                                                        scaling_parameter, this_eval['ME'] ))
+            logger.debug('For scaling variable %.3e, weight from ME = %.16e' %( scaling_parameter, this_eval['ME'] ))
             total_CTs_wgt = 0.0
             total_absCTs_wgt = 0.0            
             for CT_str, CT_weight in this_eval.items():
@@ -4048,7 +4065,7 @@ The missing process is: %s"""%ME_process.nice_string())
                         , test_result, misc.bcolors.ENDC))
                 else:
                     test_result = total_CTs_wgt
-                    printout_func('Ratio sum(CTs): %s%.16e%s'%(
+                    printout_func('sum(CTs): %s%.16e%s'%(
                         misc.bcolors.RED if abs(test_result) > test_options['acceptance_threshold'] else misc.bcolors.GREEN
                         , test_result, misc.bcolors.ENDC))
             limit_evaluations[scaling_parameter] = this_eval

@@ -699,10 +699,15 @@ class integrated_NLO_QCD_soft_gluon(integrated_NLO_FF_QCD_current):
         
         # Now find all colored leg numbers in the reduced process
         all_colored_parton_numbers = []
+        colored_initial_parton_numbers = []
+        all_initial_numbers = [l.get('number') for l in reduced_process.get_initial_legs()]
         for leg in reduced_process.get('legs'):
+            leg_number = leg.get('number')
             if self.model.get_particle(leg.get('id')).get('color')==1:
                 continue
-            all_colored_parton_numbers.append(leg.get('number'))
+            all_colored_parton_numbers.append(leg_number)
+            if leg_number in all_initial_numbers:
+                colored_initial_parton_numbers.append(leg_number)
 
         # Now instantiate what the result will be
         evaluation = utils.SubtractionCurrentEvaluation({
@@ -729,22 +734,57 @@ class integrated_NLO_QCD_soft_gluon(integrated_NLO_FF_QCD_current):
         for i, a in enumerate(all_colored_parton_numbers):
             # Use the symmetry of the color correlation and soft current (a,b) <-> (b,a)
             for b in all_colored_parton_numbers[i+1:]:
-                evaluation['color_correlations'].append( ((a, b), ) )
-                # We multiply by a factor 2. because we symmetrized the sum below
-                value = prefactor*2.
-                pa = PS_point[a]
-                pb = PS_point[b]
-                Y = (pa.dot(pb) * Q_square) / (2. * Q.dot(pa) * Q.dot(pb))
-                finite_part = HE.SoftFF_Finite_Gabor_DIVJAC_NOD0(y_0,Y)
-                value *= EpsilonExpansion({
-                    0   : finite_part,
-                    -1  : math.log(Y),
-                    -2  : 0.
-                })
-                # Truncate expansion so as to keep only relevant terms
-                value.truncate(min_power=-2, max_power=0)
-                evaluation['values'][(0,color_correlation_index)] = value.to_human_readable_dict()
-                color_correlation_index += 1
+                # Assign the type of dipole
+                # dipole_type = [bool_a, bool_b] tags the dipole tag, with True indicating initial state and False final
+                dipole_type = [a in colored_initial_parton_numbers, b in colored_initial_parton_numbers]
+
+                # Initial-state dipole
+                if all(dipole_type):
+                    evaluation['color_correlations'].append( ((a, b), ) )
+                    # Soft + SC = 0 for initial state dipoles
+                    value = EpsilonExpansion({0:0.})
+                    # Truncate expansion so as to keep only relevant terms
+                    value.truncate(min_power=-2, max_power=0)
+                    evaluation['values'][(0,color_correlation_index)] = value.to_human_readable_dict()
+                    color_correlation_index += 1
+
+                # Initial-final dipole
+                elif any(dipole_type):
+                    evaluation['color_correlations'].append( ((a, b), ) )
+                    # We multiply by a factor 2. because we symmetrized the sum below
+                    value = prefactor*2.
+                    pa = PS_point[a]
+                    pb = PS_point[b]
+                    Y = (pa.dot(pb) * Q_square) / (2. * Q.dot(pa) * Q.dot(pb))
+                    finite_part = HE.SoftIF_Finite_Gabor_DIVJAC_NOD0(y_0,Y)
+                    value *= EpsilonExpansion({
+                        0   : finite_part,
+                        -1  : math.log(Y),
+                        -2  : 0.
+                    })
+                    # Truncate expansion so as to keep only relevant terms
+                    value.truncate(min_power=-2, max_power=0)
+                    evaluation['values'][(0,color_correlation_index)] = value.to_human_readable_dict()
+                    color_correlation_index += 1
+
+                # Final-state dipole
+                else:
+                    evaluation['color_correlations'].append( ((a, b), ) )
+                    # We multiply by a factor 2. because we symmetrized the sum below
+                    value = prefactor*2.
+                    pa = PS_point[a]
+                    pb = PS_point[b]
+                    Y = (pa.dot(pb) * Q_square) / (2. * Q.dot(pa) * Q.dot(pb))
+                    finite_part = HE.SoftFF_Finite_Gabor_DIVJAC_NOD0(y_0,Y)
+                    value *= EpsilonExpansion({
+                        0   : finite_part,
+                        -1  : math.log(Y),
+                        -2  : 0.
+                    })
+                    # Truncate expansion so as to keep only relevant terms
+                    value.truncate(min_power=-2, max_power=0)
+                    evaluation['values'][(0,color_correlation_index)] = value.to_human_readable_dict()
+                    color_correlation_index += 1
         
         result.add_result(
             evaluation,

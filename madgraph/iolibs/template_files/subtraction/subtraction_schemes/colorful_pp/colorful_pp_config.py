@@ -72,7 +72,6 @@ def generalised_cuts(bundles_cut_info,Q):
         {'pA': ..., 'pC': ....} for the initial-state momenta -pA (if any, otherwise absent) and the final-state ones pC for collines
         {'pS': ...} for the soft
     """
-    misc.sprint(bundles_cut_info)
     for bundle_cut_info in bundles_cut_info:
         if 'pS' in bundle_cut_info:
             return soft_cut(pS=bundle_cut_info['pS'], Q=Q)

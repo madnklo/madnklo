@@ -82,7 +82,7 @@ def colorful_pp_FFn_variables(higher_PS_point, qC, children, **opts):
         kT += bigZ(i,*other_indices)*qC
         kTs[(i,tuple(other_indices))] = kT
 
-    return [{'zs':tuple(zs), 'kTs':kTs, 'ss_i_j':ss_i_j, 'ss_i_others':ss_i_others, 'p_children':all_p_fs,},]
+    return [{'zs':tuple(zs), 'kTs':kTs, 'ss':ss_i_j, 'ss_i_others':ss_i_others, 'p_children':all_p_fs,},]
 
 def colorful_pp_IFn_variables(PS_point, parent_momentum, children, **opts):
     """ Variables for 'n' initial-state collinear recoiling exclusively against the initial state."""

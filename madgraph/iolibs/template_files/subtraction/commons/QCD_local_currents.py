@@ -628,12 +628,15 @@ class CompoundVariables(object):
 
         all_variables = []
         for bundle_info, variables_generator in zip(bundles_info,self.variables_generators):
-            all_variables.append(variables_generator(
-                higher_PS_point,
-                lower_PS_point[bundle_info['parent']],
-                tuple(list(bundle_info['initial_state_children'])+list(bundle_info['final_state_children'])),
-                **opts)[0]
-            )
+            if variables_generator is not None:
+                all_variables.append(variables_generator(
+                    higher_PS_point,
+                    lower_PS_point[bundle_info['parent']],
+                    tuple(list(bundle_info['initial_state_children'])+list(bundle_info['final_state_children'])),
+                    **opts)[0]
+                )
+            else:
+                all_variables.append({})
         return all_variables
 
 class GeneralQCDLocalCurrent(QCDLocalCurrent):
@@ -861,10 +864,12 @@ class GeneralQCDLocalCurrent(QCDLocalCurrent):
             all_steps[-1]['bundles_info'] = bundles_info
 
             # Get all variables for this level
-            all_steps[-1]['variables'] = mapping_information['variables'](
-                all_steps[-1]['higher_PS_point'], all_steps[-1]['lower_PS_point'],
-                bundles_info, Q=Q, **mapping_vars
-            )
+            if mapping_information['variables'] is not None:
+                all_steps[-1]['variables'] = mapping_information['variables'](
+                    all_steps[-1]['higher_PS_point'], all_steps[-1]['lower_PS_point'],
+                    bundles_info, Q=Q, **mapping_vars)
+            else:
+                all_steps[-1]['variables'] = {}
 
             # Add the next higher PS point for the next level if necessary
             if i_step<(len(self.mapping_rules)-1):
@@ -895,8 +900,9 @@ class GeneralQCDLocalCurrent(QCDLocalCurrent):
             'values': { }
         })
 
+        local_variables = [step['variables'] for step in all_steps]
         # Apply collinear kernel (can be dummy)
-        evaluation = self.kernel(evaluation, overall_parents, [step['variables'] for step in all_steps], global_variables)
+        evaluation = self.kernel(evaluation, overall_parents, local_variables, global_variables)
 
         # Apply soft kernel (can be dummy), which also knows about the reduced process
         evaluation = self.soft_kernel(evaluation, reduced_process, all_steps, global_variables)

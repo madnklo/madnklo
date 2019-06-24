@@ -17,6 +17,17 @@ class AltarelliParisiKernels:
         })
 
     @staticmethod
+    def P_qqx(color_factors, z, kT):
+        return [
+            ( None, EpsilonExpansion({
+                    0: color_factors.TR,
+            })),
+            ( kT, EpsilonExpansion({
+                0: color_factors.TR * (4.*z*(1.-z)*(1./kT.square())),
+            })),
+        ]
+
+    @staticmethod
     def P_qqpqp(color_factors, z_i, z_r, z_s, s_ir, s_is, s_rs, kT_i, kT_r, kT_s):
         """ Kernel for the q -> q qp' qp' splitting. The return value is not a float but a list of tuples:
                 ( spin_correlation_vectors_with_parent, weight )
@@ -41,7 +52,7 @@ class AltarelliParisiKernels:
         ]
 
     @staticmethod
-    def P_q_qpqp(color_factors, z_rs, z_i_rs, kT_rs, s_i_rs, p_i):
+    def P_q_qpqp(color_factors, z_rs, z_i_rs, kT_rs, pi_hat, p_rs_hat):
         """ Kernel for the q -> q (qp' qp') strongly ordered splitting. The return value is not a float but a list of tuples:
                 ( spin_correlation_vectors_with_parent, weight )
             where spin_correlation_vector_with_parent can be None if None is required.
@@ -50,7 +61,7 @@ class AltarelliParisiKernels:
         # Overall prefactor
         result = ( AltarelliParisiKernels.P_qg_averaged(color_factors,z_i_rs) +
                    EpsilonExpansion({0:
-                        -2.*color_factors.CF*z_rs*(1.-z_rs)*(1-z_i_rs-((2.*kT_rs.dot(p_i))**2)/(kT_rs.square()*s_i_rs))
+                        -2.*color_factors.CF*z_rs*(1.-z_rs)*(1-z_i_rs-((2.*kT_rs.dot(pi_hat))**2)/(kT_rs.square()*(2.*pi_hat.dot(p_rs_hat))))
                     }))*color_factors.TR
 
         return [ ( None, result ) ]
@@ -61,6 +72,18 @@ class AltarelliParisiKernels:
 
 class SoftKernels:
     """ Implementation of the universal soft kernels."""
+
+    @staticmethod
+    def eikonal_g(color_factors, pi, pk, pr, spin_corr_vector=None):
+        """ Gluon eikonal, with p_i^\mu p_i^\nu in the numerator, dotted into each other if spin_corr_vector=None
+        otherwise dotted with the spin_corr_vector."""
+
+        s_ir = pi.dot(pr)
+        s_ik = pi.dot(pk)
+        numerator = pk.dot(pr) if spin_corr_vector is None else pi.dot(spin_corr_vector)*pk.dot(spin_corr_vector)
+
+
+        return EpsilonExpansion({'finite': numerator/(s_ir*s_ik)})
 
     @staticmethod
     def eikonal_qqx(color_factors, pi, pk, pr, ps):

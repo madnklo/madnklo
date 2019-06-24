@@ -3429,6 +3429,7 @@ class ME7Integrand_R(ME7Integrand):
                 counterterm_structure=(counterterm, all_resolved_flavors, reduced_kinematics_identifier),
                 Bjorken_xs=(xb_1, xb_2)
             )
+
             CT_event = ME7Integrand_R.generate_event_for_counterterm(
                 template_event,
                 disconnected_currents_weight,

@@ -743,7 +743,12 @@ class GeneralQCDLocalCurrent(QCDLocalCurrent):
         return evaluation
 
     def map_leg_number(self, leg_number, parents):
-        """ Map a leg number to its true ID. Rules are as follows:
+        """
+        Map a leg number to its true ID in a specific process.
+        Inputs:
+            - leg_number: ID of the leg within the singular structure
+            - parents: list of process-specific parent momentum in the top-level reduced process. They
+        Rules are as follows:
             leg_number < 0 : Should be replaced by the overall parent #abs(leg_number) of the substructure considered.
             leg_number >= 0 : Should be replaced according to self.leg_numbers_map
             leg_number > 1000: Should be left as is given that this is an intermediate leg number
@@ -756,7 +761,11 @@ class GeneralQCDLocalCurrent(QCDLocalCurrent):
             return self.leg_numbers_map[leg_number]
 
     def map_leg_numbers_in_singular_structure(self, singular_structure, parents):
-        """ Recursively walk through the singular structure and map subtraction leg numbers."""
+        """ Recursively walk through the singular structure and map the generic subtraction leg numbers to either:
+        - the explicit indices of the resovled process
+        - the explicit indices of the unresolved process
+        - dummy intermediate indices
+        """
 
         new_subtraction_legs = []
         for leg in singular_structure.legs:
@@ -792,8 +801,10 @@ class GeneralQCDLocalCurrent(QCDLocalCurrent):
         mu_r = model_param_dict['MU_R']
 
         # Retrieve leg numbers
-        overall_children = []
-        overall_parents = []
+        overall_children = [] # the legs becoming unresolved in the resolved process (momenta in the real-emission ME)
+        overall_parents = [] # the parent legs in the top-level reduced process (momenta in the mapped ME of this CT)
+        # We take one defining structure (self.structure[0]). Its top-level substructures are the independent bundles
+        # eg (C(1,2),C(4,5),S(6)).
         # Using structure[0] as the defining structure is fine for the purpose below since they should
         # all use the same leg numbers
         for bundle in self.structure[0].substructures:

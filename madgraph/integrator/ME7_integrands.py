@@ -515,11 +515,9 @@ class ME7Event(object):
                 representative_resolved_PDGs = all_resolved_PDGs[0]
             str_ct_struct = str(ct_struct)
             # Clean-up of the embedding overall parenthesis for the short string
-            while str_ct_struct.startswith("(") or str_ct_struct.endswith(",)"):
-                if str_ct_struct.startswith("("):
-                    str_ct_struct = str_ct_struct[1:]
-                if str_ct_struct.endswith(",)"):
-                    str_ct_struct = str_ct_struct[:-2]
+            while str_ct_struct.startswith("(") and str_ct_struct.endswith(",)"):
+                str_ct_struct = str_ct_struct[1:]
+                str_ct_struct = str_ct_struct[:-2]
             event_str_elems.append('%s%s@%s'%(str_ct_struct,
                 '' if kinematics_identifier is None else '|%s' % kinematics_identifier,
                 str(representative_resolved_PDGs).replace(' ','')))
@@ -4303,11 +4301,9 @@ The missing process is: %s"""%ME_process.nice_string())
             for (limit, limit_evaluations) in process_evaluations.items():
                 # Clean-up of the embedding overall parenthesis for the title label
                 limit_str = limit
-                while limit_str.startswith("(") or limit_str.endswith(",)"):
-                    if limit_str.startswith("("):
-                        limit_str = limit_str[1:]
-                    if limit_str.endswith(",)"):
-                        limit_str = limit_str[:-2]
+                while limit_str.startswith("(") and limit_str.endswith(",)"):
+                    limit_str = limit_str[1:]
+                    limit_str = limit_str[:-2]
                 proc, loops = process.split("@")
                 title = "$" + proc + "$"
                 initial_state, final_state = proc.split('>')

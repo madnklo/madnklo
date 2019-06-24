@@ -17,7 +17,7 @@ class AltarelliParisiKernels:
         })
 
     @staticmethod
-    def P_qqx(color_factors, z, kT):
+    def P_qq(color_factors, z, kT):
         return [
             ( None, EpsilonExpansion({
                     0: color_factors.TR,
@@ -79,11 +79,10 @@ class SoftKernels:
         otherwise dotted with the spin_corr_vector."""
 
         s_ir = pi.dot(pr)
-        s_ik = pi.dot(pk)
-        numerator = pk.dot(pr) if spin_corr_vector is None else pi.dot(spin_corr_vector)*pk.dot(spin_corr_vector)
+        s_kr = pk.dot(pr)
+        numerator = pi.dot(pk) if spin_corr_vector is None else pi.dot(spin_corr_vector)*pk.dot(spin_corr_vector)
 
-
-        return EpsilonExpansion({'finite': numerator/(s_ir*s_ik)})
+        return EpsilonExpansion({'finite': numerator/(s_ir*s_kr)})
 
     @staticmethod
     def eikonal_qqx(color_factors, pi, pk, pr, ps):

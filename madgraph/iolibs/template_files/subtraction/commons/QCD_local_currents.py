@@ -774,6 +774,51 @@ class GeneralQCDLocalCurrent(QCDLocalCurrent):
         for ss in singular_structure.substructures:
             self.map_leg_numbers_in_singular_structure(ss,parents)
 
+    @classmethod
+    def get_parent(cls, children_set, momenta_dict):
+        """ retrieves parent index according to the momenta_dict supplied given set of children.
+        Returns None if it has no parent. This is very similar to the functiong get_ancestor of the
+        Counterm class, except that this function follows relabelling rules if present."""
+
+        if len(children_set)==1:
+            if children_set in momenta_dict.inv:
+                # Follow relabelling rule(s)
+                return cls.get_parent(frozenset([ momenta_dict.inv[children_set], ]),momenta_dict)
+            else:
+                return list(children_set)[0]
+
+        if children_set in momenta_dict.inv:
+            # Follow relabelling rule(s)
+            return cls.get_parent(frozenset([ momenta_dict.inv[children_set], ]), momenta_dict)
+
+        new_children_set = frozenset(children_set)
+        for key in momenta_dict.inv.keys():
+            if len(key)==1 or key.isdisjoint(new_children_set):
+                continue
+            if key.issubset(new_children_set):
+                new_children_set = new_children_set.difference(key)
+                new_children_set = new_children_set.union(frozenset([ momenta_dict.inv[key], ]))
+        if new_children_set!=children_set:
+            return cls.get_parent(new_children_set, momenta_dict)
+        else:
+            raise CurrentImplementationError("Could not determine the parents of children %s"%str(children_set)+
+                                             " from the momenta_dict supplied: %s"%str(momenta_dict))
+
+
+    @classmethod
+    def has_parent(cls, singular_structure_bundle, n_children):
+        """ Tests whether the singular structure of a bundle has a parent and raises an error if it
+        should have more than one. """
+
+        n_parents = n_children - singular_structure_bundle.count_unresolved()
+        if n_parents==0:
+            return False
+        elif n_parents==1:
+            return True
+        else:
+            raise CurrentImplementationError("A bundle singular structure should have one or zero parents, but"+
+                                             " %s has %d."%(str(singular_structure_bundle), n_parents))
+
     def evaluate_subtraction_current(
         self, current,
         higher_PS_point=None, momenta_dict=None, reduced_process=None,
@@ -809,7 +854,10 @@ class GeneralQCDLocalCurrent(QCDLocalCurrent):
         # all use the same leg numbers
         for bundle in self.structure[0].substructures:
             overall_children.append(tuple(self.leg_numbers_map[l.n] for l in bundle.get_all_legs()))
-            overall_parents.append(sub.Counterterm.get_ancestor(frozenset(overall_children[-1]), momenta_dict))
+            if self.has_parent(bundle, len(overall_children[-1])):
+                overall_parents.append(self.get_parent(frozenset(overall_children[-1]), momenta_dict))
+            else:
+                overall_parents.append(None)
 
         all_steps = [{'higher_PS_point': higher_PS_point},]
         overall_jacobian = 1.
@@ -833,6 +881,8 @@ class GeneralQCDLocalCurrent(QCDLocalCurrent):
             lower_PS_point, mapping_vars = mapping_information['mapping'].map_to_lower_multiplicity(
                 all_steps[-1]['higher_PS_point'], mapping_singular_structure, this_momenta_dict,
                 compute_jacobian=self.divide_by_jacobian)
+            if mappings.RelabellingMapping.needs_relabelling(this_momenta_dict):
+                lower_PS_point = mappings.RelabellingMapping.map_to_lower_multiplicity(lower_PS_point, None, this_momenta_dict)
 
             all_steps[-1]['lower_PS_point'] = lower_PS_point
             # Q is provided externally
@@ -851,7 +901,10 @@ class GeneralQCDLocalCurrent(QCDLocalCurrent):
                 all_final_legs = sorted([l for l in all_legs if l.state==l.FINAL], key = lambda l: l.n)
                 bundles_info[-1]['initial_state_children'] = tuple(l.n for l in all_initial_legs)
                 bundles_info[-1]['final_state_children'] = tuple(l.n for l in all_final_legs)
-                bundles_info[-1]['parent'] = sub.Counterterm.get_ancestor(frozenset(l.n for l in all_legs),this_momenta_dict)
+                if self.has_parent(bundle, len(all_legs)):
+                    bundles_info[-1]['parent'] = self.get_parent(frozenset(l.n for l in all_legs),this_momenta_dict)
+                else:
+                    bundles_info[-1]['parent'] = None
 
                 # Retrieve kinematics
                 bundles_info[-1]['cut_inputs'] = {}
@@ -902,9 +955,19 @@ class GeneralQCDLocalCurrent(QCDLocalCurrent):
             for bundle_info in step_info['bundles_info']:
                 del bundle_info['cut_inputs']
 
+#        for i_step, step_info in enumerate(all_steps):
+#            misc.sprint("Higher PS point at step #%d: %s"%(i_step, str(step_info['higher_PS_point'])))
+#            misc.sprint("Lower PS point at step  #%d: %s"%(i_step, str(step_info['lower_PS_point'])))
+
         # Build global variables if necessary
         if self.variables is not None:
-            global_variables = self.variables(all_steps, Q=Q)
+            global_info = {
+                'overall_children': overall_children,
+                'overall_parents' : overall_parents,
+                'leg_numbers_map' : self.leg_numbers_map,
+                'Q' : Q,
+            }
+            global_variables = self.variables(all_steps, global_info)
         else:
             global_variables = {}
 
@@ -924,9 +987,7 @@ class GeneralQCDLocalCurrent(QCDLocalCurrent):
 
         # Add the normalization factors
         # WARNING! In this implementation the propagator denominators must be included in the kernel evaluation.
-        norm = (8. * math.pi * alpha_s) ** (
-                sum(len(children) for children in overall_children) - len(overall_parents)
-        )
+        norm = (8. * math.pi * alpha_s) ** (self.squared_orders['QCD']/2)
         norm /= overall_jacobian
         for k in evaluation['values']:
             for term in evaluation['values'][k]:

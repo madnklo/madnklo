@@ -2614,7 +2614,6 @@ class SoftVsInitialMapping(ElementaryMappingSoft):
 
         return new_PS_point, mapping_variables
 
-
 #=========================================================================================
 # Soft-collinear mappings
 #=========================================================================================
@@ -2762,3 +2761,43 @@ class SoftCollinearVsFinalMapping(SoftCollinearMapping):
     def good_soft_recoiler(cls, recoiler_leg):
 
         return recoiler_leg.state == recoiler_leg.FINAL
+
+class RelabellingMapping(VirtualMapping):
+    """ Mapping that does nothing but relabel momenta."""
+
+    @classmethod
+    def is_valid_structure(cls, singular_structure):
+        """Check if the mapping can be applied to a given singular structure."""
+
+        raise True
+
+    @classmethod
+    def needs_relabelling(cls, momenta_dict):
+        """ Verfies if specified momenta_dict contains relabelling instructions."""
+        return any(len(v)==1 for v in momenta_dict.values())
+
+    @classmethod
+    def map_to_lower_multiplicity(
+            cls, PS_point, singular_structure, momenta_dict, **opts):
+        """ Apply relabelling specified from momenta_dict with values containing a single entry. """
+
+        out_PS_point = PS_point.get_copy()
+        for mapped_to, mapped_from in momenta_dict.items():
+            if len(mapped_from)==1:
+                mapped_from = list(mapped_from)[0]
+                out_PS_point[mapped_to] = out_PS_point[mapped_from]
+                del out_PS_point[mapped_from]
+        return out_PS_point
+
+    @classmethod
+    def map_to_higher_multiplicity(
+            cls, PS_point, singular_structure, momenta_dict, **opts):
+        """ Apply relabelling specified from momenta_dict with values containing a single entry. """
+
+        out_PS_point = PS_point.get_copy()
+        for mapped_to, mapped_from in momenta_dict.items():
+            if len(mapped_from)==1:
+                mapped_from = list(mapped_from)[0]
+                out_PS_point[mapped_from] = out_PS_point[mapped_to]
+                del out_PS_point[mapped_to]
+        return out_PS_point

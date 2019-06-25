@@ -11,6 +11,8 @@ import commons.QCD_local_currents as currents
 import commons.factors_and_cuts as factors_and_cuts
 import madgraph.various.misc as misc
 
+CurrentImplementationError = utils.CurrentImplementationError
+
 #=========================================================================================
 # mappings, jacobians, factors and cuts
 #=========================================================================================
@@ -43,11 +45,13 @@ def get_final_state_recoilers(reduced_process, excluded=()):
         ])
     ])
 
+#TODO cuts are disabled for now because they need to be rethought for double unresolved limits
 divide_by_jacobian = False
 
 # Initial collinear configuration
 initial_coll_factor = factors_and_cuts.no_factor
-initial_coll_cut = factors_and_cuts.cut_initial_coll
+#initial_coll_cut = factors_and_cuts.cut_initial_coll
+initial_coll_cut = factors_and_cuts.no_cut
 initial_coll_mapping = mappings.InitialLorentzOneMapping
 
 # Soft configuration
@@ -59,7 +63,8 @@ soft_mapping = mappings.SoftVsInitialMapping
 # WARNING: This is *not* the same final-collinear mapping as in colorful, where one has 'FinalRescalingOneMapping' instead.
 final_coll_mapping = mappings.FinalCollinearVsInitialMapping
 final_coll_factor = factors_and_cuts.no_factor
-final_coll_cut = factors_and_cuts.cut_coll
+#final_coll_cut = factors_and_cuts.cut_coll
+final_coll_cut = factors_and_cuts.no_cut
 
 # Final soft-collinear configuration (not strictly speaking necessary)
 final_soft_coll_mapping = mappings.SoftCollinearVsFinalMapping(
@@ -67,15 +72,25 @@ final_soft_coll_mapping = mappings.SoftCollinearVsFinalMapping(
 initial_soft_coll_mapping = mappings.SoftCollinearVsFinalMapping(
     soft_mapping=soft_mapping, collinear_mapping=initial_coll_mapping)
 
-def generalised_cuts(bundles_cut_info,Q):
+def generalised_cuts(cut_inputs, global_variables):
     """ Function applying the correct cut for each bundles depending on the variables passed for each which can be:
         {'pA': ..., 'pC': ....} for the initial-state momenta -pA (if any, otherwise absent) and the final-state ones pC for collines
         {'pS': ...} for the soft
     """
-    for bundle_cut_info in bundles_cut_info:
+    Q = global_variables['Q']
+
+    for bundle_info in cut_inputs['bundles_info']:
+        bundle_cut_info = bundle_info['cut_inputs']
         if 'pS' in bundle_cut_info:
-            return soft_cut(pS=bundle_cut_info['pS'], Q=Q)
+            if soft_cut(pS=bundle_cut_info['pS'], Q=Q):
+                return True
         elif 'pA' in bundle_cut_info:
-            return initial_coll_cut(pA=bundle_cut_info['pA'], pR=bundle_cut_info['pC'], Q=Q)
+            if initial_coll_cut(pA=bundle_cut_info['pA'], pR=bundle_cut_info['pC'], Q=Q):
+                return True
+        elif 'pC' in bundle_cut_info:
+            if final_coll_cut(pC=bundle_cut_info['pC'], Q=Q):
+                return True
         else:
-            return final_coll_cut(pC=bundle_cut_info['pC'], Q=Q)
+            raise CurrentImplementationError("The generalised_cuts function is only applicable for mapping structure "+
+                                                                                              " are collinear or soft.")
+    return False

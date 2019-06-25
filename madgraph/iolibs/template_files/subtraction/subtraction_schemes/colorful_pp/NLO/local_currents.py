@@ -66,7 +66,7 @@ class QCD_final_collinear_0_qqx(QCD_final_collinear_0_XX):
         z = variables['zs'][0]
         kT = variables['kTs'][0,(1,)]
         # Instantiate the structure of the result
-        evaluation['spin_correlations'] = [None, ((parent, (kT,)),), ]
+        evaluation['spin_correlations'] = [None, ((parent, (kT,)),) ]
 
         # Compute the kernel
         # The line below implements the g_{\mu\nu} part of the splitting kernel.

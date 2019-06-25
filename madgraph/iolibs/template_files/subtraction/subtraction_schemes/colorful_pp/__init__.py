@@ -134,7 +134,11 @@ def load():
         # IS(FF)
         NNLO_local_currents.QCD_initial_soft_collinear_0_qqpqp,
         # C(I,C(FF))
-        NNLO_local_currents.QCD_C_FqFqx_C_IqpFqFqx
+        NNLO_local_currents.QCD_C_FqFqx_C_IqpFqFqx,
+        # S(C(FF))
+        NNLO_local_currents.QCD_S_FqFqx_C_FqFqx,
+        # C(S(C(FF)),I)
+        NNLO_local_currents.QCD_S_FqFqx_C_FqFqx_C_IqpFqFqx
     ])
 
     # Finally register the subtraction current classes loaded

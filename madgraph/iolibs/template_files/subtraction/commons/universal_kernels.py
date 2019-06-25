@@ -88,7 +88,7 @@ class SoftKernels:
         """Partial-fractionned eikonal for soft momentum p_soft, reference momental p_ref and p_coll, such that only
         the C(p_soft,p_coll) limit is divergent.
         """
-        return EpsilonExpansion({'finite': -gp_coll.dot(p_ref)/(p_soft.dot(p_coll)*p_soft.dot(p_coll+p_ref))})
+        return EpsilonExpansion({'finite': -p_coll.dot(p_ref)/(p_soft.dot(p_coll)*p_soft.dot(p_coll+p_ref))})
 
 
     @staticmethod

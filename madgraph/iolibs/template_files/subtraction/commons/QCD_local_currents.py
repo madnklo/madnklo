@@ -37,12 +37,12 @@ import madgraph.core.subtraction as sub
 # Cuts and factors functions
 #=========================================================================================
 
-def no_cut(**opts):
+def no_cut(*args,**opts):
 
     # The default behavior is to include counterterms everywhere in phase space
     return False
 
-def no_factor(**opts):
+def no_factor(*args,**opts):
 
     # The default behavior is that basic currents include all necessary factors
     return 1
@@ -69,7 +69,13 @@ def n_final_coll_variables(PS_point, parent_momentum, children, **opts):
         PS_point, children, na, nb, kin_variables)
     zs  = tuple(kin_variables['z%d'  % i] for i in children)
     kTs = tuple(kin_variables['kt%d' % i] for i in children)
-    return zs, kTs
+    ss = []
+    for i in range(len(children)):
+        pi = PS_point[children[i]]
+        for j in range(i+1,len(children)):
+            pj = PS_point[children[j]]
+            ss.append(2.*pi.dot(pj))
+    return [{'zs':zs, 'kTs':kTs, 'ss': tuple(ss)}]#TODO ss for N particles #TODO keep a legacy version without dict
 
 def Q_final_coll_variables(PS_point, parent_momentum, children, **opts):
 
@@ -625,7 +631,6 @@ class CompoundVariables(object):
         """ Calls in sequence the variables for each bundles, and return the aggregated list."""
 
         assert(len(bundles_info)==len(self.variables_generators))
-
         all_variables = []
         for bundle_info, variables_generator in zip(bundles_info,self.variables_generators):
             if variables_generator is not None:
@@ -950,9 +955,9 @@ class GeneralQCDLocalCurrent(QCDLocalCurrent):
                     current=current, hel_config=hel_config,
                     reduced_kinematics=('IS_CUT', overall_lower_PS_point))
 
-#        for i_step, step_info in enumerate(all_steps):
-#            misc.sprint("Higher PS point at step #%d: %s"%(i_step, str(step_info['higher_PS_point'])))
-#            misc.sprint("Lower PS point at step  #%d: %s"%(i_step, str(step_info['lower_PS_point'])))
+        # for i_step, step_info in enumerate(all_steps):
+        #     misc.sprint("Higher PS point at step #%d: %s"%(i_step, str(step_info['higher_PS_point'])))
+        #     misc.sprint("Lower PS point at step  #%d: %s"%(i_step, str(step_info['lower_PS_point'])))
 
         # Evaluate kernel
         evaluation = utils.SubtractionCurrentEvaluation({
@@ -961,7 +966,6 @@ class GeneralQCDLocalCurrent(QCDLocalCurrent):
             'reduced_kinematics': [ reduced_kinematics, ],
             'values': { }
         })
-
         # Apply collinear kernel (can be dummy)
         evaluation = self.kernel(evaluation, all_steps, global_variables)
 

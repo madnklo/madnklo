@@ -82,7 +82,14 @@ class SoftKernels:
         s_kr = pk.dot(pr)
         numerator = pi.dot(pk) if spin_corr_vector is None else pi.dot(spin_corr_vector)*pk.dot(spin_corr_vector)
 
-        return EpsilonExpansion({'finite': numerator/(s_ir*s_kr)})
+        return EpsilonExpansion({'finite': numerator/(s_ir*s_ik)})
+    @staticmethod
+    def partial_fractionned_eikonal_g(p_soft,p_coll,p_ref):
+        """Partial-fractionned eikonal for soft momentum p_soft, reference momental p_ref and p_coll, such that only
+        the C(p_soft,p_coll) limit is divergent.
+        """
+        return EpsilonExpansion({'finite': -gp_coll.dot(p_ref)/(p_soft.dot(p_coll)*p_soft.dot(p_coll+p_ref))})
+
 
     @staticmethod
     def eikonal_qqx(color_factors, pi, pk, pr, ps):
@@ -100,6 +107,34 @@ class SoftKernels:
         return EpsilonExpansion({'finite':
            color_factors.TR*(((s_ir*s_ks + s_is*s_kr - s_ik*s_rs)/(s_i_rs*s_k_rs)) - ((s_ir*s_is)/(s_i_rs**2)) - ((s_kr*s_ks)/(s_k_rs**2)))
         })
+
+    @staticmethod
+    def single_soft_gluon(color_factors, colored_partons_momenta, soft_momenta, all_colored_parton_numbers):
+        """ Computes the soft current for a singlue gluon going soft"""
+        # A list of 2-tuple of the form (color_correlator, epsilon_expansion_weight)
+        result = []
+        # Now loop over the colored parton number pairs (a,b)
+        # and add the corresponding contributions to this current
+        for i, a in enumerate(all_colored_parton_numbers):
+            # Use the symmetry of the color correlation and soft current (a,b) <-> (b,a)
+            for b in all_colored_parton_numbers[i:]:
+                # Write the eikonal for that pair
+                if a != b:
+                    mult_factor = 2.
+                else:
+                    mult_factor = 1.
+                    # For massless partons we can simply skip this entry
+                    continue
+                pa, pb = colored_partons_momenta[a], colored_partons_momenta[b]
+                eikonal = SoftKernels.eikonal_g(color_factors, pa, pb, soft_momenta[0])
+                result.append( (
+                        ((a, b), ),
+                        eikonal*mult_factor
+                    )
+                )
+
+        return result
+
 
     @staticmethod
     def qqx(color_factors, colored_partons_momenta, soft_momenta, all_colored_parton_numbers):

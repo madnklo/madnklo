@@ -73,6 +73,21 @@ def load():
     #     NLO_local_currents.NoSoftCollinear,
     # ])
 
+    # Add local NLO counterterms TODO TMP RE-ADD A FEW
+    # ==========================
+    all_subtraction_current_classes.extend([
+        # final-final collinears
+        #NLO_local_currents.QCD_final_collinear_0_qqx,
+        NLO_local_currents.QCD_final_collinear_0_gq_soft_distrib,
+        #NLO_local_currents.QCD_final_collinear_0_gg,
+        # initial-final collinears
+        #       This scheme does *not* support ISR and the DefaultCurrent
+        #       implementation will be used for them with an appropriate warning.
+        # soft and soft-collinears
+        NLO_local_currents.NoSoft,
+        NLO_local_currents.NoSoftCollinear,
+    ])
+
     # Add local NNLO counterterms
     all_subtraction_current_classes.extend([
          # final triple collinears

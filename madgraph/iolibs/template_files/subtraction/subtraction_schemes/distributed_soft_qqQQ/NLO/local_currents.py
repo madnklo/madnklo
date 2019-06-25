@@ -129,8 +129,81 @@ class QCD_final_collinear_0_gq_soft_distrib(QCD_final_collinear_0_XX_soft_distri
         return evaluation
 
 
+class QCD_final_collinear_0_qqx(QCD_final_collinear_0_XX_soft_distrib):
+    """q q~ collinear tree-level current."""
+    structure = [sub.SingularStructure(sub.CollStructure(
+        sub.SubtractionLeg(0, +1, sub.SubtractionLeg.FINAL),
+        sub.SubtractionLeg(1, -1, sub.SubtractionLeg.FINAL), ))]
+    mapping_rules = QCD_final_collinear_0_XX_soft_distrib.mapping_rules
+    mapping_rules[0]['singular_structure']=structure[0]
+
+    def kernel(self, evaluation, all_steps_info, global_variables):
+        # Retrieve the collinear variables
+        z = all_steps_info[0]['variables'][0]['zs'][0]
+        s = all_steps_info[0]['variables'][0]['ss'][0]
+        kT = all_steps_info[0]['variables'][0]['kT'][0]
+        # Compute the kernel using
+        # f9d0839fc58905d67367e3e67efabee05ee390f9:madgraph/iolibs/template_files/OLD_subtraction/cataniseymour/NLO/local_currents.py:146
+        evaluation['values'][(0, 0, 0)] = {'finite':self.TR/s}
+        evaluation['values'][(1, 0, 0)] = {'finite':4 * self.TR * z * (1-z) / kT.square()/s}
+        return evaluation
 
 
+class QCD_final_collinear_0_gg(QCD_final_collinear_with_soft):
+    """g g collinear tree-level current."""
+
+    structure = sub.SingularStructure(sub.CollStructure(
+        sub.SubtractionLeg(0, 21, sub.SubtractionLeg.FINAL),
+        sub.SubtractionLeg(1, 21, sub.SubtractionLeg.FINAL), ))
+
+    def kernel(self, evaluation, all_steps_info, global_variables):
+        # Retrieve the collinear variables
+        z = all_steps_info[0]['variables'][0]['zs'][0]
+        s = all_steps_info[0]['variables'][0]['ss'][0]
+        kT = all_steps_info[0]['variables'][0]['kT'][0]
+        # Compute the kernel
+        # The line below implements the g_{\mu\nu} part of the splitting kernel.
+        # Notice that the extra longitudinal terms included in the spin-correlation 'None'
+        # from the relation:
+        #    \sum_\lambda \epsilon_\lambda^\mu \epsilon_\lambda^{\star\nu}
+        #    = g^{\mu\nu} + longitudinal terms
+        # are irrelevant because Ward identities evaluate them to zero anyway.
+        evaluation['values'][(0, 0, 0)] = {'finite:': 0.}
+        evaluation['values'][(1, 0, 0)] = { 'finite':
+            -2. * self.CA * 2. * z * (1. - z) / kT.square()/s}
+        return evaluation
+
+    def soft_kernel(self, evaluation, colored_parton_numbers, all_steps_info, global_variables):
+        # Retrieve the first gluon momentum pg
+        # there is only one step and one bundle
+        g1_ID = all_steps_info[0]['bundles_info'][0]['final_state_children'][0]
+        p1 = all_steps_info[0]['higher_PS_point'][gluon_ID]
+
+        # Retrieve the seconde gluon momentum pg
+        # there is only one step and one bundle
+        g2_ID = all_steps_info[0]['bundles_info'][0]['final_state_children'][1]
+        p2 = all_steps_info[0]['higher_PS_point'][quark_ID]
+
+        parent_ID = all_steps_info[0]['bundles_info'][0]['parent']
+        # Loop over the dipoles (quark,j). Only the gluon can be soft
+        color_correlation_index = 1
+        for j in colored_parton_numbers:
+            if j == parent_ID:
+                # The emission and reabsorption by the parent quark does not contribute in the massless quark
+                continue
+            else:
+                pj=all_steps_info[0]['lower_PS_point'][j]
+                # We add the color correlation (q,j) to the list of color correlations
+                evaluation['color_correlations'].append(((parent_ID, j),))
+                # color_correlation_index now points to that color correlation in the list
+                evaluation['values'][(0, color_correlation_index, 0)] = {'finite': # Sum over p1/p2 soft from (2/1,j)
+                                                        SoftKernels.partial_fractionned_eikonal_g(p1,p2,pj)[0]
+                                                      + SoftKernels.partial_fractionned_eikonal_g(p2,p1,pj)[0]
+                                                                         }
+                # color_correlation_index now points to the next possible color correlation
+                color_correlation_index += 1
+
+        return evaluation
 
 ##TODO OLD
 # class QCD_final_collinear_with_soft(QCD_final_collinear_0_XX):

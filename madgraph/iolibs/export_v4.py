@@ -2009,10 +2009,6 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         ff.write(text)
         ff.close()
         
-        
-        
-        
-            
 
     def create_MA5_cards(self,*args,**opts):
         """ Overload the function of the mother so as to bypass this in StandAlone."""
@@ -2125,6 +2121,14 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         self.write_ngraphs_file(writers.FortranWriter(filename),
                            len(matrix_element.get_all_amplitudes()))
 
+        #if len(matrix_element.get('processes')[0].get('split_orders'))>0:
+        filename = pjoin(dirpath, 'C_bindings.f')
+        context = self.get_tree_context()
+        context['loop_ME'] = False
+        c_bindings_replace_dict = {}
+        c_bindings_replace_dict['output_name'] = matrix_element.get('processes')[0].nice_string()
+        self.write_c_bindings(writers.FortranWriter(filename), c_bindings_replace_dict, context)
+
         # Generate diagrams
         filename = pjoin(dirpath, "matrix.ps")
         plot = draw.MultiEpsDiagramDrawer(matrix_element.get('base_amplitude').\
@@ -2148,6 +2152,17 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         if not calls:
             calls = 0
         return calls
+
+    def write_c_bindings(self, writer, replace_dict, context):
+        """ Write the C-binding fo interfacing this Matrix element. matrix_element is passed only so as to generate
+        entries such as n_external."""
+
+        this_replace_dict = {'binding_prefix': '','proc_prefix': ''}
+        this_replace_dict.update(replace_dict)
+
+        writer.writelines(open(pjoin(_file_path, 'iolibs', 'template_files', 'C_bindings.f')).read(),
+                          context=context,
+                          replace_dictionary=this_replace_dict)
 
     def add_check_sa_color_correlation_code(self, color_connections, proc_prefix, return_dict):
         """ Fills in the placeholders in return_dict for the monitoring of 
@@ -3301,7 +3316,7 @@ class ProcessExporterFortranMW(ProcessExporterFortran):
         including the necessary matrix.f and nexternal.inc files"""
 
         cwd = os.getcwd()
-        misc.sprint(type(matrix_element))
+
         # Create the directory PN_xx_xxxxx in the specified path
         dirpath = os.path.join(self.dir_path, 'SubProcesses', \
                        "P%s" % matrix_element.get('processes')[0].shell_string())

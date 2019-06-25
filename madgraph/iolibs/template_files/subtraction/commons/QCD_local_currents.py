@@ -914,16 +914,6 @@ class GeneralQCDLocalCurrent(QCDLocalCurrent):
                     bundles_info[-1]['cut_inputs']['pC'] = sum(all_steps[-1]['higher_PS_point'][l.n] for l in all_final_legs)
                 elif bundle.name() == 'S':
                     bundles_info[-1]['cut_inputs']['pS'] = sum(all_steps[-1]['higher_PS_point'][l.n] for l in all_final_legs)
-                else:
-                    # Then it is unclear what the cut function would want as variable, then pass all.
-                    bundles_info[-1]['cut_inputs'] = {
-                        'higher_PS_point' : all_steps[-1]['higher_PS_point'],
-                        'lower_PS_point'  : all_steps[-1]['lower_PS_point'],
-                        'initial_state_children' : bundles_info[-1]['initial_state_children'],
-                        'final_state_children' : bundles_info[-1]['final_state_children'],
-                        'parent': bundles_info[-1]['parent'],
-                        'Q': Q
-                    }
 
             all_steps[-1]['bundles_info'] = bundles_info
 
@@ -942,34 +932,27 @@ class GeneralQCDLocalCurrent(QCDLocalCurrent):
         overall_lower_PS_point = all_steps[-1]['lower_PS_point']
         reduced_kinematics = (None, overall_lower_PS_point)
 
-        # Apply cuts: include the counterterm only in a part of the phase-space
-        for i_step, step_rule in enumerate(self.mapping_rules):
-            step_info = all_steps[i_step]
-            if step_rule['is_cut']([bundle_info['cut_inputs'] for bundle_info in step_info['bundles_info']],Q):
-                return utils.SubtractionCurrentResult.zero(
-                    current=current, hel_config=hel_config,
-                    reduced_kinematics=('IS_CUT', overall_lower_PS_point))
-
-        # Cut inputs can now be removed
-        for step_info in all_steps:
-            for bundle_info in step_info['bundles_info']:
-                del bundle_info['cut_inputs']
-
-#        for i_step, step_info in enumerate(all_steps):
-#            misc.sprint("Higher PS point at step #%d: %s"%(i_step, str(step_info['higher_PS_point'])))
-#            misc.sprint("Lower PS point at step  #%d: %s"%(i_step, str(step_info['lower_PS_point'])))
-
-        # Build global variables if necessary
-        if self.variables is not None:
-            global_info = {
+        global_variables = {
                 'overall_children': overall_children,
                 'overall_parents' : overall_parents,
                 'leg_numbers_map' : self.leg_numbers_map,
                 'Q' : Q,
-            }
-            global_variables = self.variables(all_steps, global_info)
-        else:
-            global_variables = {}
+        }
+        # Build global variables if necessary
+        if self.variables is not None:
+            global_variables.update(self.variables(all_steps, global_variables))
+
+        # Apply cuts: include the counterterm only in a part of the phase-space
+        for i_step, step_info in enumerate(all_steps):
+            cut_inputs = dict(step_info)
+            if self.mapping_rules[i_step]['is_cut'](cut_inputs, global_variables):
+                return utils.SubtractionCurrentResult.zero(
+                    current=current, hel_config=hel_config,
+                    reduced_kinematics=('IS_CUT', overall_lower_PS_point))
+
+#        for i_step, step_info in enumerate(all_steps):
+#            misc.sprint("Higher PS point at step #%d: %s"%(i_step, str(step_info['higher_PS_point'])))
+#            misc.sprint("Lower PS point at step  #%d: %s"%(i_step, str(step_info['lower_PS_point'])))
 
         # Evaluate kernel
         evaluation = utils.SubtractionCurrentEvaluation({

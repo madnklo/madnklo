@@ -792,9 +792,15 @@ class QCD_S_FqFqx_C_FqFqx_C_IqpFqFqx(currents.GeneralQCDLocalCurrent):
             all_steps_info[0]['bundles_info'][0]['parent']
         ]
 
+#        misc.sprint(s_rs,s_a_rs)
+#        misc.sprint(p_a_tilde,p_rs_hat,p_a_tilde.dot(p_rs_hat))
+#        misc.sprint(p_a_tilde,kT_FF,p_a_tilde.dot(kT_FF))
+#        misc.sprint(kT_FF, kT_FF.square())
+#        misc.sprint(x_IF)
+#        misc.sprint(z_FF,(1.-z_FF))
         evaluation['values'][(0,0,0)] = EpsilonExpansion({'finite':
             (2./(s_rs*s_a_rs))*self.TR*self.CF*(
-                1./x_IF + z_FF * (1. - z_FF) * ((2.*p_a_tilde.dot(kT_FF))**2)/(kT_FF.square()*(2.*p_a_tilde.dot(p_rs_hat)))
+                1./(1.-x_IF) + z_FF * (1. - z_FF) * ((2.*p_a_tilde.dot(kT_FF))**2)/(kT_FF.square()*(2.*p_a_tilde.dot(p_rs_hat)))
             )
         })
         return evaluation

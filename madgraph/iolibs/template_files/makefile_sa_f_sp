@@ -6,7 +6,10 @@ PROG_SPLITORDERS = check_sa_born_splitOrders
 LINKLIBS =  -L../../lib/ -ldhelas -lmodel
 LIBS = $(LIBDIR)libdhelas.$(libext) $(LIBDIR)libmodel.$(libext)
 PROCESS=  matrix.o
-C_BINDINGS = $(PROCESS) C_bindings.o
+# Import the DHELAS symbols too in the matrix_element.a library
+# so that one does not have to link against libdhelas.a explicitly when using it
+include ../../Source/DHELAS/aloha_file.inc
+C_BINDINGS = $(PROCESS) C_bindings.o $(addprefix ../../Source/DHELAS/, $(ALOHARoutine))
 CHECK_SA=  check_sa.o
 CHECK_SA_SPLITORDERS=  check_sa_born_splitOrders.o
  

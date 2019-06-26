@@ -36,6 +36,7 @@ import madgraph.iolibs.files as files
 import madgraph.iolibs.file_writers as writers
 import madgraph.iolibs.template_files as template_files
 import madgraph.iolibs.export_v4 as export_v4
+import madgraph.iolibs.export_rust as export_rust
 import madgraph.iolibs.save_load_object as save_load_object
 import madgraph.various.banner as banner_mod
 from madgraph import MadGraph5Error, InvalidCmd, MG5DIR
@@ -721,13 +722,26 @@ class ME7Exporter(object):
                 scale=run_card['scale'], 
                 complex_mass_scheme=self.options['complex_mass_scheme'])
 
+        rust_exporter = export_rust.RustExporter(self.cmd_interface, self.export_options)
+        # First have the rust exporter write out global resources, mostly related to accessing
+        # building blocks of the computation such as the Matrix Elements and the subtraction currents
+        rust_exporter.export_global_resources(all_MEAccessors)
+
         ME7_options = dict(self.options)
         ME7_options['me_dir'] = self.export_dir
+        # Then collect all integrands and export them one at a time.
+        integrand_ID = 0
         for contrib in self.contributions:
-            all_integrands.extend(
-                contrib.get_integrands(
-                    modelReader_instance, run_card, all_MEAccessors, ME7_options ) )
-   
+            for integrand in contrib.get_integrands( modelReader_instance, run_card, all_MEAccessors, ME7_options ):
+                integrand_ID += 1
+                integrand.ID = integrand_ID
+                rust_exporter.export(integrand)
+                all_integrands.append(integrand)
+
+        # Finally perform the last rust export duties that are also global and may require knowledge of the
+        # overall list of accessors and integrands
+        rust_exporter.finalize(all_MEAccessors, all_integrands)
+
         # And finally dump ME7 output information so that all relevant objects
         # can be reconstructed for a future launch with ME7Interface.
         # Normally all the relevant information should simply be encoded in only:

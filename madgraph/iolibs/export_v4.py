@@ -1967,7 +1967,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
            generation proc_card_mg5.dat
            generate a global makefile
            """
-            
+        
         compiler =  {'fortran': mg5options['fortran_compiler'],
                      'cpp': mg5options['cpp_compiler'],
                      'f2py': mg5options['f2py_compiler']}

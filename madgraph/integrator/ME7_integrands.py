@@ -731,7 +731,11 @@ class ME7Integrand(integrands.VirtualIntegrand):
                                            'sectors': sectors
                                         }
                                     }
-        
+
+        # The unique successive integer identifier of this integrand will be set later by the ME7 exporter as it
+        # requires the overall perspective of the list of all integrands. The default value is then set to 0.
+        self.ID = 0
+
         # The original ContributionDefinition instance at the origin this integrand 
         self.contribution_definition    = contribution_definition
 
@@ -840,7 +844,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         BLUE = '\033[94m'
         GREEN = '\033[92m'
         ENDC = '\033[0m'
-        res = ['< %s%s%s >'%(BLUE,self.get_short_name(),ENDC)]
+        res = ['< %s%s%s ID: %d >'%(BLUE,self.get_short_name(),ENDC, self.ID)]
         res.append('%-30s:   %s'%('ME7Integrand_type',type(self)))
         res.extend([self.contribution_definition.nice_string()])
         if not self.topologies_to_processes is None:

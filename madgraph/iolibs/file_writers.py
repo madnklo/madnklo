@@ -931,3 +931,11 @@ class MakefileWriter(FileWriter):
         nicely formatted code"""
         
         self.write(lines)
+
+#===============================================================================
+# RustWriter
+#===============================================================================
+class RustWriter(CPPWriter):
+    """ Rust Writer class should be very similar than the C++ one, but if there
+    is the need for small modifications they can be specialised here."""
+    pass

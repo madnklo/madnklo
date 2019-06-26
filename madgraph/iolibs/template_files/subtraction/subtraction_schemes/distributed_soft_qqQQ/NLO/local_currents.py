@@ -19,18 +19,18 @@ import math
 import madgraph.core.subtraction as sub
 import madgraph.integrator.mappings as mappings
 
-# from commons.universal_kernels import AltarelliParisiKernels, SoftKernels #TODO DEV
-from madgraph.iolibs.template_files.subtraction.commons.universal_kernels import AltarelliParisiKernels, SoftKernels #TODO DEV
-# import commons.utils as utils TODO DEV
-import madgraph.iolibs.template_files.subtraction.commons.utils as utils #TODO DEV
-# import commons.QCD_local_currents as currents TODO DEV
-import madgraph.iolibs.template_files.subtraction.commons.QCD_local_currents as currents #TODO DEV
-# import commons.factors_and_cuts as factors_and_cuts
+from commons.universal_kernels import AltarelliParisiKernels, SoftKernels #TODO DEV
+#from madgraph.iolibs.template_files.subtraction.commons.universal_kernels import AltarelliParisiKernels, SoftKernels #TODO DEV
+import commons.utils as utils# TODO DEV
+#import madgraph.iolibs.template_files.subtraction.commons.utils as utils #TODO DEV
+import commons.QCD_local_currents as currents #TODO DEV
+#import madgraph.iolibs.template_files.subtraction.commons.QCD_local_currents as currents #TODO DEV
+import commons.factors_and_cuts as factors_and_cuts #TODO DEV
 
 from bidict import bidict
 
-import madgraph.iolibs.template_files.subtraction.subtraction_schemes.distributed_soft_qqQQ.distributed_soft_qqQQ_config as scheme_config # TODO DEV
-# import distributed_soft_qqQQ_config as scheme_config TODO DEV
+#import madgraph.iolibs.template_files.subtraction.subtraction_schemes.distributed_soft_qqQQ.distributed_soft_qqQQ_config as scheme_config # TODO DEV
+import distributed_soft_qqQQ_config as scheme_config #TODO DEV
 
 import madgraph.various.misc as misc
 
@@ -85,7 +85,7 @@ class QCD_final_collinear_0_gq_soft_distrib(QCD_final_collinear_0_XX_soft_distri
         sub.SubtractionLeg(1, +1, sub.SubtractionLeg.FINAL), ))]
 
     mapping_rules = QCD_final_collinear_0_XX_soft_distrib.mapping_rules
-    mapping_rules[0]['singular_structure']=structure[0]
+    mapping_rules[0]['singular_structure'] = structure[0]
 
 
     def kernel(self, evaluation, all_steps_info, global_variables):
@@ -129,38 +129,50 @@ class QCD_final_collinear_0_gq_soft_distrib(QCD_final_collinear_0_XX_soft_distri
         return evaluation
 
 
-class QCD_final_collinear_0_qqx(QCD_final_collinear_0_XX_soft_distrib):
+class QCD_final_collinear_0_qqx_soft_distrib(QCD_final_collinear_0_XX_soft_distrib):
     """q q~ collinear tree-level current."""
+
     structure = [sub.SingularStructure(sub.CollStructure(
         sub.SubtractionLeg(0, +1, sub.SubtractionLeg.FINAL),
         sub.SubtractionLeg(1, -1, sub.SubtractionLeg.FINAL), ))]
+
     mapping_rules = QCD_final_collinear_0_XX_soft_distrib.mapping_rules
-    mapping_rules[0]['singular_structure']=structure[0]
+    mapping_rules[0]['singular_structure'] = structure[0]
 
     def kernel(self, evaluation, all_steps_info, global_variables):
         # Retrieve the collinear variables
         z = all_steps_info[0]['variables'][0]['zs'][0]
         s = all_steps_info[0]['variables'][0]['ss'][0]
-        kT = all_steps_info[0]['variables'][0]['kT'][0]
+        kT = all_steps_info[0]['variables'][0]['kTs'][0]
+        parent = all_steps_info[0]['bundles_info'][0]['parent']
         # Compute the kernel using
         # f9d0839fc58905d67367e3e67efabee05ee390f9:madgraph/iolibs/template_files/OLD_subtraction/cataniseymour/NLO/local_currents.py:146
+        # Fill in the factor of g_munu
         evaluation['values'][(0, 0, 0)] = {'finite':self.TR/s}
-        evaluation['values'][(1, 0, 0)] = {'finite':4 * self.TR * z * (1-z) / kT.square()/s}
+        # Declare kT_mu kT_nu as a tensor
+        evaluation['spin_correlations'].append(((parent, (kT,)),))
+        evaluation['values'][(1, 0, 0)] = {'finite':4 * self.TR * z * (1-z)/ kT.square()/s}#
         return evaluation
 
 
-class QCD_final_collinear_0_gg(QCD_final_collinear_with_soft):
+class QCD_final_collinear_0_gg_soft_distrib(QCD_final_collinear_0_XX_soft_distrib):
     """g g collinear tree-level current."""
 
-    structure = sub.SingularStructure(sub.CollStructure(
+    structure = [sub.SingularStructure(sub.CollStructure(
         sub.SubtractionLeg(0, 21, sub.SubtractionLeg.FINAL),
-        sub.SubtractionLeg(1, 21, sub.SubtractionLeg.FINAL), ))
+        sub.SubtractionLeg(1, 21, sub.SubtractionLeg.FINAL), ))]
+
+    mapping_rules = QCD_final_collinear_0_XX_soft_distrib.mapping_rules
+    mapping_rules[0]['singular_structure'] = structure[0]
 
     def kernel(self, evaluation, all_steps_info, global_variables):
         # Retrieve the collinear variables
         z = all_steps_info[0]['variables'][0]['zs'][0]
         s = all_steps_info[0]['variables'][0]['ss'][0]
-        kT = all_steps_info[0]['variables'][0]['kT'][0]
+        kT = all_steps_info[0]['variables'][0]['kTs'][0]
+        parent = all_steps_info[0]['bundles_info'][0]['parent']
+        # Compute the kernel using
+
         # Compute the kernel
         # The line below implements the g_{\mu\nu} part of the splitting kernel.
         # Notice that the extra longitudinal terms included in the spin-correlation 'None'
@@ -168,7 +180,11 @@ class QCD_final_collinear_0_gg(QCD_final_collinear_with_soft):
         #    \sum_\lambda \epsilon_\lambda^\mu \epsilon_\lambda^{\star\nu}
         #    = g^{\mu\nu} + longitudinal terms
         # are irrelevant because Ward identities evaluate them to zero anyway.
+
+        # Fill in the factor of g_munu
         evaluation['values'][(0, 0, 0)] = {'finite:': 0.}
+        # Declare kT_mu kT_nu as a tensor
+        evaluation['spin_correlations'].append(((parent, (kT,)),))
         evaluation['values'][(1, 0, 0)] = { 'finite':
             -2. * self.CA * 2. * z * (1. - z) / kT.square()/s}
         return evaluation
@@ -177,12 +193,12 @@ class QCD_final_collinear_0_gg(QCD_final_collinear_with_soft):
         # Retrieve the first gluon momentum pg
         # there is only one step and one bundle
         g1_ID = all_steps_info[0]['bundles_info'][0]['final_state_children'][0]
-        p1 = all_steps_info[0]['higher_PS_point'][gluon_ID]
+        p1 = all_steps_info[0]['higher_PS_point'][g1_ID]
 
         # Retrieve the seconde gluon momentum pg
         # there is only one step and one bundle
         g2_ID = all_steps_info[0]['bundles_info'][0]['final_state_children'][1]
-        p2 = all_steps_info[0]['higher_PS_point'][quark_ID]
+        p2 = all_steps_info[0]['higher_PS_point'][g2_ID]
 
         parent_ID = all_steps_info[0]['bundles_info'][0]['parent']
         # Loop over the dipoles (quark,j). Only the gluon can be soft
@@ -443,7 +459,6 @@ class NoSoft(currents.QCDLocalCurrent):
         self, current,
         higher_PS_point=None, momenta_dict=None, reduced_process=None,
         hel_config=None, **opts ):
-
         # Just return 0
         result = utils.SubtractionCurrentResult()
         result.add_result(

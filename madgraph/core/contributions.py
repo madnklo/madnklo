@@ -1773,7 +1773,7 @@ The resulting output must therefore be used for debugging only as it will not yi
                     for current in counterterm.get_all_currents():
                         accessor, _ = all_ME_accessors[current.get_key(track_leg_numbers=self.track_leg_numbers)]
                         if accessor.subtraction_current_instance.is_zero:
-                            # misc.sprint("Zero current found in CT %s" % str(counterterm))
+                            misc.sprint("Zero current found in CT %s" % str(counterterm))
                             counterterms.remove(counterterm)
                             break
 

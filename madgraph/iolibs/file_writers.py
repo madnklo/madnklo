@@ -103,6 +103,7 @@ class FileWriter(file):
 
         if len(context)>0:
             splitlines = self.preprocess_template(splitlines,context=context)
+        from madgraph.various import misc
 
         if replace_dictionary:
             # Apply replacement now
@@ -935,7 +936,11 @@ class MakefileWriter(FileWriter):
 #===============================================================================
 # RustWriter
 #===============================================================================
-class RustWriter(CPPWriter):
+class RustWriter(FileWriter):
     """ Rust Writer class should be very similar than the C++ one, but if there
     is the need for small modifications they can be specialised here."""
-    pass
+
+    def write_line(self, line):
+        """Specify here some special formatting of the line. But this will be mostly
+        done by cargo format."""
+        return [line,]

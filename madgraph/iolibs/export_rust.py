@@ -91,7 +91,7 @@ class RustExporter(object):
 
         # The rust exporter currently only support LO integrands
         if integrand.contribution_definition.overall_correction_order.count('N')>0:
-            pass
+            return
 
         integrand_short_name = '%s_%d'%(integrand.get_short_name(),integrand.ID)
         integrand_export_path = pjoin(self.export_dir,'rust','integrands',integrand_short_name)

@@ -723,6 +723,7 @@ class ME7Exporter(object):
                 complex_mass_scheme=self.options['complex_mass_scheme'])
 
         rust_exporter = export_rust.RustExporter(self.cmd_interface, self.export_options)
+
         # First have the rust exporter write out global resources, mostly related to accessing
         # building blocks of the computation such as the Matrix Elements and the subtraction currents
         rust_exporter.export_global_resources(all_MEAccessors)

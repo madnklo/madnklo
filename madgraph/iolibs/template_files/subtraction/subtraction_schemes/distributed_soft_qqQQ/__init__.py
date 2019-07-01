@@ -50,28 +50,7 @@ def load():
 
     all_subtraction_current_classes = []
 
-    # Add NLO beam factorization counterterms (BF terms) TODO REMOVED FOR TESTING
-    # ==================================================
-    # all_subtraction_current_classes.extend([
-    #     BF.QCD_beam_factorization_F0,
-    #     BF.QCD_beam_factorization_single_collinear,
-    #     BF.QCD_beam_factorization_single_softcollinear
-    # ])
 
-    # Add local NLO counterterms
-    # ========================== TODO REMOVED FOR TESTING
-    # all_subtraction_current_classes.extend([
-    #     # final-final collinears
-    #     NLO_local_currents.QCD_final_collinear_0_qqx,
-    #     NLO_local_currents.QCD_final_collinear_0_gq,
-    #     NLO_local_currents.QCD_final_collinear_0_gg,
-    #     # initial-final collinears
-    #     #       This scheme does *not* support ISR and the DefaultCurrent
-    #     #       implementation will be used for them with an appropriate warning.
-    #     # soft and soft-collinears
-    #     NLO_local_currents.NoSoft,
-    #     NLO_local_currents.NoSoftCollinear,
-    # ])
 
     # Add local NLO counterterms TODO TMP RE-ADD A FEW
     # ==========================
@@ -91,7 +70,12 @@ def load():
     # Add local NNLO counterterms
     all_subtraction_current_classes.extend([
          # final triple collinears
-         NNLO_local_currents.QCD_final_collinear_0_QQxq,
+        NNLO_local_currents.QCD_final_triple_collinear_qqxQ,
+        NNLO_local_currents.NoFinalDoubleSoftCollinearinTripleCollinear,
+        NNLO_local_currents.NoFinalDoubleSoftinTripleCollinear,
+        NNLO_local_currents.NoFinalNestedCollinear,
+        NNLO_local_currents.NoFinalDoubleSoft,
+        NNLO_local_currents.NoFinalDoubleSoftCollinear,
      ])
 
     # # Add NLO integrated counterterms

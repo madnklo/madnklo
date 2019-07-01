@@ -2,11 +2,11 @@
 #
 # Copyright (c) 2009 The MadGraph5_aMC@NLO Development team and Contributors
 #
-# This file is a part of the MadGraph5_aMC@NLO project, an application which 
+# This file is a part of the MadGraph5_aMC@NLO project, an application which
 # automatically generates Feynman diagrams and matrix elements for arbitrary
 # high-energy processes in the Standard Model and beyond.
 #
-# It is subject to the MadGraph5_aMC@NLO license which should accompany this 
+# It is subject to the MadGraph5_aMC@NLO license which should accompany this
 # distribution.
 #
 # For more information, visit madgraph.phys.ucl.ac.be and amcatnlo.web.cern.ch
@@ -16,207 +16,206 @@
 
 import math
 
+
 import madgraph.core.subtraction as sub
 import madgraph.integrator.mappings as mappings
 
-import commons.utils as utils
-import commons.QCD_local_currents as currents
-# import commons.factors_and_cuts as factors_and_cuts
+#from commons.universal_kernels import AltarelliParisiKernels, SoftKernels #TODO DEV
+from madgraph.iolibs.template_files.subtraction.commons.universal_kernels import AltarelliParisiKernels, SoftKernels #TODO DEV
+
+#import commons.utils as utils# TODO DEV
+import madgraph.iolibs.template_files.subtraction.commons.utils as utils #TODO DEV
+
+#import commons.QCD_local_currents as currents #TODO DEV
+import madgraph.iolibs.template_files.subtraction.commons.QCD_local_currents as currents #TODO DEV
+
+#import commons.factors_and_cuts as factors_and_cuts #TODO DEV
+import madgraph.iolibs.template_files.subtraction.commons.factors_and_cuts as factors_and_cuts #TODO DEV
+
+from bidict import bidict
+
+import madgraph.iolibs.template_files.subtraction.subtraction_schemes.distributed_soft_qqQQ.distributed_soft_qqQQ_config as scheme_config # TODO DEV
+#import distributed_soft_qqQQ_config as scheme_config #TODO DEV
+
+import madgraph.iolibs.template_files.subtraction.subtraction_schemes.distributed_soft_qqQQ.NNLO.QQqq_kernels as kernels # TODO DEV
+#import distributed_soft_qqQQ.NNLO.QQqq_kernels as kernels # TODO DEV
 
 import madgraph.various.misc as misc
 
 CurrentImplementationError = utils.CurrentImplementationError
-#=========================================================================================
-# Helper functions
-#=========================================================================================
 
-def get_recoilers(reduced_process, excluded=()):
+#==================================================================
+# NNLO final collinear mother class
+#==================================================================
 
-    model = reduced_process.get('model')
-    return sub.SubtractionLegSet([
-        leg for leg in reduced_process.get('legs') if all([
-            model.get_particle(leg['id']).get('mass').upper() == 'ZERO',
-            leg['state'] == leg.FINAL,
-            leg['number'] not in excluded
-        ])
-    ])
-
-def kTdiff(i, j, zs, kTs):
-    """Compute the difference vector (kTi/zi - kTj/zj)."""
-
-    return kTs[i-1]/zs[i-1] - kTs[j-1]/zs[j-1]
-
-def sij(i, j, zs, kTs, kTdiffij=None):
-    """Compute the invariant mass sij from zs and kTs."""
-
-    if kTdiffij: kTdiffij2 = kTdiffij.square()
-    else: kTdiffij2 = kTdiff(i, j, zs, kTs).square()
-    return -zs[i-1]*zs[j-1]*kTdiffij2
-
-def tijk(zi, zj, sij, sik, sjk):
-
-    return (2*(zi*sjk-zj*sik)+(zi-zj)*sij)/(zi+zj)
-
-def t(i, j, k, zs, kTs, s_ij=None, s_ik=None, s_jk=None):
-    """Compute the invariant t_{ij,k} from zs and kTs."""
-
-    if not s_ij: s_ij = sij(i, j, zs, kTs)
-    if not s_ik: s_ik = sij(i, k, zs, kTs)
-    if not s_jk: s_jk = sij(j, k, zs, kTs)
-    return tijk(zs[i-1],zs[j-1],s_ij,s_ik,s_jk)
-
-def get_intermediate_PS_point(self, higher_PS_point, children):
-
-    recoilers = tuple(
-        i for i in higher_PS_point.keys()
-        if i not in (1, 2, children[0], children[1]) )
-    def dummy_leg(i):
-        return subtraction.SubtractionLeg(i, 21, subtraction.SubtractionLeg.FINAL)
-    structure = subtraction.SingularStructure(
-        substructures=[subtraction.CollStructure(
-            legs=(dummy_leg(children[0]), dummy_leg(children[1])) ), ],
-        legs=(dummy_leg(r) for r in recoilers) )
-    leg_numbers_map = subtraction.bidict({
-        i: frozenset({i,})
-        for i in higher_PS_point.keys()
-        if i not in (children[0], children[1])})
-    leg_numbers_map[1000] = frozenset({children[0], children[1]})
-    mapping = mappings.FinalRescalingOneMapping
-    intermediate_ps_point, mapping_vars = mapping.map_to_lower_multiplicity(
-        higher_PS_point, structure, leg_numbers_map, compute_jacobian=True)
-    return intermediate_ps_point, mapping_vars
-
-def n_final_coll_variables_triple(higher_PS_point, qC, children,**opts):
-    """Obtain the n_final_coll_variables definition of z and kT and also provide the pair-wise invariants from the higher_PS_point.
-
-    This is redundant information but screens possible issues when using the freedom to redefine kT in a way that would break the relationship used in the function sij above.
-
-    In the spirit of future low-level hardcoded structures, we hardcode the expectation that there are three relevant invariants
-    """
-    return currents.n_final_coll_variables(higher_PS_point, qC, children,**opts)+((
-        2. * higher_PS_point[children[0]].dot(higher_PS_point[children[1]]),
-        2. * higher_PS_point[children[0]].dot(higher_PS_point[children[2]]),
-        2. * higher_PS_point[children[1]].dot(higher_PS_point[children[2]])
-    ),)
-
-#=========================================================================================
-# Variables, mappings, jacobians, factors and cuts
-#=========================================================================================
-# Note that variables, factors and cuts will be class members by design
-# so they can easily be overridden by subclasses.
-# They will be taken from the following variables
-# so we can quickly switch them coherently across the entire subtraction scheme.
-
-variables = n_final_coll_variables_triple
-#currents.n_final_coll_variables
-mapping = mappings.FinalGroupingMapping
-# soft_mapping = mappings.SoftVsFinalPureRescalingMapping
-# soft_coll_mapping = mappings.SoftCollinearVsFinalMapping(
-#    soft_mapping=soft_mapping, collinear_mapping=coll_mapping)
-divide_by_jacobian = True
-# factor_coll = factors_and_cuts.factor_coll
-# factor_soft = factors_and_cuts.factor_soft
-# is_cut_coll = factors_and_cuts.cut_coll
-# is_cut_soft = factors_and_cuts.cut_soft
-no_cut = currents.no_cut
-no_factor = currents.no_factor
-
-#=========================================================================================
-# NNLO final-collinear currents
-#=========================================================================================
-
-class QCD_final_collinear_0_XX(currents.QCDLocalCollinearCurrent):
+class QCD_final_collinear_0_XXX_soft_distrib(currents.GeneralQCDLocalCurrent):
     """Two-collinear tree-level current."""
+
     squared_orders = {'QCD': 4}
     n_loops = 0
 
-    is_cut = staticmethod(no_cut)
-    factor = staticmethod(no_factor)
-    mapping = mapping
-    variables = staticmethod(variables)
-    divide_by_jacobian = divide_by_jacobian
-    get_recoilers = staticmethod(get_recoilers)
+    is_cut = scheme_config.final_coll_cut
+    factor = scheme_config.final_coll_factor
+    mapping = scheme_config.final_coll_mapping
+    variables = staticmethod(scheme_config.global_final_coll_variables)
+    divide_by_jacobian = scheme_config.divide_by_jacobian
+    get_recoilers = scheme_config.get_recoilers
 
-class QCD_final_collinear_0_QQxq(QCD_final_collinear_0_XX):
-    """q Q Q~ triple-collinear tree-level current."""
+    mapping_rules = [
+        {
+            'singular_structure': None,
+            'mapping': mapping,
+            # Intermediate legs should be strictly superior to a 1000
+            'momenta_dict': bidict({1001: frozenset((0, 1))}),
+            'variables': currents.CompoundVariables(scheme_config.final_coll_variables),
+            'is_cut': is_cut,
+            'reduced_recoilers': get_recoilers,
+            'additional_recoilers': sub.SubtractionLegSet([sub.SubtractionLeg(2, +2, sub.SubtractionLeg.FINAL)]),
+        },
+        {
+            'singular_structure': None,
+            'mapping': mapping,
+            # Intermediate legs should be strictly superior to a 1000
+            'momenta_dict': bidict({-1: frozenset((1001, 2))}),
+            'variables': currents.CompoundVariables(scheme_config.final_coll_variables),
+            'is_cut': is_cut,
+            'reduced_recoilers': get_recoilers,
+            'additional_recoilers': sub.SubtractionLegSet([]),
+        }
+    ]
 
-    structure = sub.SingularStructure(sub.CollStructure(
+
+
+
+
+class QCD_final_triple_collinear_qqxQ(QCD_final_collinear_0_XXX_soft_distrib):
+    structure = [sub.SingularStructure(sub.CollStructure(
         sub.SubtractionLeg(0, +1, sub.SubtractionLeg.FINAL),
         sub.SubtractionLeg(1, -1, sub.SubtractionLeg.FINAL),
-        sub.SubtractionLeg(2, +2, sub.SubtractionLeg.FINAL), ))
+        sub.SubtractionLeg(2, +2, sub.SubtractionLeg.FINAL), ))]
 
-#    def __init__(self,*args,**kwargs):
-        # TODO THIS SHOULD NOT BE USED YET
-#        raise NotImplementedError
+    mapping_rules = QCD_final_collinear_0_XXX_soft_distrib.mapping_rules[:]
+    mapping_rules[0]['singular_structure'] = sub.SingularStructure(sub.CollStructure(
+        sub.SubtractionLeg(0, +1, sub.SubtractionLeg.FINAL),
+        sub.SubtractionLeg(1, -1, sub.SubtractionLeg.FINAL),),)
+    mapping_rules[1]['singular_structure'] = sub.SingularStructure(sub.CollStructure(
+        sub.SubtractionLeg(1001, 21, sub.SubtractionLeg.FINAL),
+        sub.SubtractionLeg(2, +2, sub.SubtractionLeg.FINAL),),)
 
-    def C123_Qqqx_kernel(self, z1, z2, z3, s12, s13, s23, s123):
-        """Triple collinear splitting kernel"""
-        t123 = tijk(z1, z2, s12, s13, s23)
-        sqrbrk  = -(t123 ** 2)/(s12*s123)
-        sqrbrk += (4*z3 + (z1-z2)**2) / (z1+z2)
-        sqrbrk += z1 + z2 - s12/s123
-        return 1./2.*self.CF*self.TR*s123*sqrbrk / (s12)
+    def kernel(self, evaluation, all_steps, global_variables):
+        """Combining the whole qbar-q-Q forest
+        The implementation is not memory-cautious at all but aims at readability
+        """
+        # Variables of the triple splitting (Q->Q q qbar)
 
-    def C123C12_kernel(self, higher_PS_point, parent_momentum, children, **opts):
+        (z1,z2,z3)=global_variables['zs']
+        (s12,s13,s23)=global_variables['ss']
+        # TODO DEV Variables used in the nested currents not used as long as we keep things separated
+        # (k1perp, k2perp, k3perp) = global_variables['kTs']
+        #
+        # # Variables of the nested double splitting (g->q qbar)
+        # (z1_qq,z2_qq) = all_steps[0]['variables'][0]['zs']
+        # (k1perp_qq,k2perp_qq) = all_steps[0]['variables'][0]['kTs']
+        # (s12_qq,) = all_steps[0]['variables'][0]['ss'] #This is the same as s12 above
+        #
+        # # Variables of the mapped double splitting (Q->Qg)
+        # (z3hat,z12hat) = all_steps[1]['variables'][0]['zs']
+        # (k3perphat,k12perphat) = all_steps[1]['variables'][0]['kTs']
+        # (s_12hat_3hat,) = all_steps[1]['variables'][0]['ss']
 
-        # Rebuild the two-stage mapping
-        interm_PS_point, interm_mapping_vars = self.get_intermediate_PS_point(
-            higher_PS_point, children )
-        final__PS_point, final__mapping_vars = self.get_final_PS_point(
-            interm_PS_point, children )
-
-        # Retrieve momenta
-        p1 = higher_PS_point[children[0]]
-        p2 = higher_PS_point[children[1]]
-        p3 = higher_PS_point[children[2]]
-        p12 = p1 + p2
-        p123 = p12 + p3
-        p12hat = interm_PS_point[1000]
-        p3hat = interm_PS_point[children[2]]
-        p123hat = p12hat + p3hat
-        p123tilde = final__PS_point[2000]
-        Q = interm_mapping_vars['Q']
-
-        # Compute momentum fractions and transverse momenta
-        zs_interm, kTs_interm = self.variables(
-            higher_PS_point, p12hat, children[:2], Q=Q)
-        zs_final_, kTs_final_ = self.variables(
-            interm_PS_point, p123tilde, (1000, children[2]), Q=Q)
-        z1 = zs_interm[0]
-        k1perp = kTs_interm[0]
-        z12 = zs_final_[0]
-        k12perp = kTs_final_[0]
-
-        # Build scalar products
-        s12 = p12.square()
-        s12hat_3hat = 2*p3hat.dot(p12hat)
-        k1perp2 = k1perp.square()
-        k12perp2 = k12perp.square()
-        kperpSP = 2*k1perp.dot(k12perp)
-
-        # Construct the iterated current C(C(1,2),3)
-        perpterm = ((1-z12)/z12) * (kperpSP**2)/(k1perp2*k12perp2)
-        pqg = (1+(1-z12)**2) / z12
-        brk = z12 + perpterm
-        C123C12_current = 4*(pqg - 2*z1*(1-z1)*brk) / (s12hat_3hat*s12)
-
-        # If jacobians are active, correct the one-step jacobian to the two-step one
-        # and correct current factors altogether
-        try:
-            jacobian = opts['jacobian']
-            jacobian /= (final__mapping_vars['jacobian']*interm_mapping_vars['jacobian'])
-        except KeyError:
-            jacobian = 1
-        # Correct current factors if they are active
-        factor_interm = self.factor(Q=Q, pC=p12, qC=p12hat)
-        factor_final_ = self.factor(Q=Q, pC=p123hat, qC=p123tilde)
-        factor_direct = self.factor(Q=Q, pC=p123, qC=p123tilde)
-        factor = factor_interm * factor_final_ / factor_direct
-
-        return factor*C123C12_current*jacobian
-
-
-    def kernel(self, evaluation, parent, zs, kTs , sijs):
-        ker = self.C123_Qqqx_kernel(zs[0],zs[1],zs[2], sijs[0], sijs[1], sijs[2], sum(sijs))
-        evaluation['values'][(0, 0, 0)] = {'finite' : ker}
+        # Triple-collinear kernel
+        result = kernels.C123_Qqqx_kernel(z1,z2,z3,s12,s13,s23)
+        result *=  self.CF * self.TR
+        evaluation['values'][(0,0,0)] = {'finite':result}
         return evaluation
+
+class NoFinalNestedCollinear(QCD_final_collinear_0_XXX_soft_distrib):
+    structure = [sub.SingularStructure(sub.CollStructure(
+            sub.CollStructure(
+                sub.SubtractionLeg(0, +1, sub.SubtractionLeg.FINAL),
+                sub.SubtractionLeg(1, -1, sub.SubtractionLeg.FINAL),),
+            sub.SubtractionLeg(2, +2, sub.SubtractionLeg.FINAL), ))]
+
+    # mapping_rules = QCD_final_collinear_0_XXX_soft_distrib.mapping_rules[:]
+    # mapping_rules[0]['singular_structure'] = structure[0]
+
+    mapping_rules = QCD_final_collinear_0_XXX_soft_distrib.mapping_rules[:]
+    mapping_rules[0]['singular_structure'] = sub.SingularStructure(sub.CollStructure(
+        sub.SubtractionLeg(0, +1, sub.SubtractionLeg.FINAL),
+        sub.SubtractionLeg(1, -1, sub.SubtractionLeg.FINAL),),)
+    mapping_rules[1]['singular_structure'] = sub.SingularStructure(sub.CollStructure(
+        sub.SubtractionLeg(1001, 21, sub.SubtractionLeg.FINAL),
+        sub.SubtractionLeg(2, +2, sub.SubtractionLeg.FINAL),),)
+
+    def kernel(self, evaluation, all_steps, global_variables):
+        """TODO DEV COMBINE ABOVE AFTER DEBUG Combining the whole qbar-q-Q forest
+        The implementation is not memory-cautious at all but aims at readability
+        """
+        # Variables of the triple splitting (Q->Q q qbar)
+        (z1,z2,z3)=global_variables['zs']
+        (s12,s13,s23)=global_variables['ss']
+        (k1perp, k2perp, k3perp) = global_variables['kTs']
+
+        # Variables of the nested double splitting (g->q qbar)
+        (z1_qq,z2_qq) = all_steps[0]['variables'][0]['zs']
+        (k1perp_qq,k2perp_qq) = all_steps[0]['variables'][0]['kTs']
+        (s12_qq,) = all_steps[0]['variables'][0]['ss'] #This is the same as s12 above
+
+        # Variables of the mapped double splitting (Q->Qg)
+        (z3hat,z12hat) = all_steps[1]['variables'][0]['zs']
+        (k3perphat,k12perphat) = all_steps[1]['variables'][0]['kTs']
+        (s_12hat_3hat,) = all_steps[1]['variables'][0]['ss']
+
+        # Triple-collinear kernel
+        result = 0.25*kernels.C123C12_Qqqx_kernel(z1_qq, z12hat, k1perp_qq, k12perphat, s12, s_12hat_3hat,s12+s13+s23) # TODO TIDY UP THESE FACTORS OF 2
+        result *=  self.CF * self.TR
+        evaluation['values'][(0,0,0)] = {'finite':result}
+        return evaluation
+
+
+class NoFinalDoubleSoftinTripleCollinear(QCD_final_collinear_0_XXX_soft_distrib):
+    structure = [sub.SingularStructure(sub.CollStructure(
+            sub.SoftStructure(
+                sub.SubtractionLeg(0, +1, sub.SubtractionLeg.FINAL),
+                sub.SubtractionLeg(1, -1, sub.SubtractionLeg.FINAL),),
+            sub.SubtractionLeg(2, +2, sub.SubtractionLeg.FINAL), ))]
+
+    # mapping_rules = QCD_final_collinear_0_XXX_soft_distrib.mapping_rules[:]
+    # mapping_rules[0]['singular_structure'] = structure[0]
+
+    is_zero = True
+
+class NoFinalDoubleSoftCollinearinTripleCollinear(QCD_final_collinear_0_XXX_soft_distrib):
+    structure = [sub.SingularStructure(sub.CollStructure(
+            sub.SoftStructure(sub.CollStructure(
+                sub.SubtractionLeg(0, +1, sub.SubtractionLeg.FINAL),
+                sub.SubtractionLeg(1, -1, sub.SubtractionLeg.FINAL),),),
+            sub.SubtractionLeg(2, +2, sub.SubtractionLeg.FINAL), ))]
+
+    # mapping_rules = QCD_final_collinear_0_XXX_soft_distrib.mapping_rules[:]
+    # mapping_rules[0]['singular_structure'] = structure[0]
+
+    is_zero = True
+
+class NoFinalDoubleSoft(QCD_final_collinear_0_XXX_soft_distrib):
+    structure = [sub.SingularStructure(
+            sub.SoftStructure(
+                sub.SubtractionLeg(0, +1, sub.SubtractionLeg.FINAL),
+                sub.SubtractionLeg(1, -1, sub.SubtractionLeg.FINAL),
+            ),)]
+
+    # mapping_rules = QCD_final_collinear_0_XXX_soft_distrib.mapping_rules[:]
+    # mapping_rules[0]['singular_structure'] = structure[0]
+
+    is_zero = True
+
+class NoFinalDoubleSoftCollinear(QCD_final_collinear_0_XXX_soft_distrib):
+    structure = [sub.SingularStructure(
+            sub.SoftStructure(sub.CollStructure(
+                sub.SubtractionLeg(0, +1, sub.SubtractionLeg.FINAL),
+                sub.SubtractionLeg(1, -1, sub.SubtractionLeg.FINAL),),),)]
+
+    # mapping_rules = QCD_final_collinear_0_XXX_soft_distrib.mapping_rules[:]
+    # mapping_rules[0]['singular_structure'] = structure[0]
+
+    is_zero = True

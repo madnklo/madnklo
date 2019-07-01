@@ -2,12 +2,16 @@
 extern crate cpython;
 #[macro_use]
 extern crate lazy_static;
+extern crate cuba;
 pub extern crate vector;
 
 use cpython::PyResult;
 use vector::LorentzVector;
+use std::cell::RefCell;
 
+pub mod matrix_element_evaluator;
 pub mod phase_space_generator;
+pub mod matrix_elements; // generated matrix elements
 
 py_module_initializer!(madnklo, initmadnklo, PyInit_madnklo, |py, m| {
     m.add(py, "__doc__", "MadNkLO")?;
@@ -16,16 +20,16 @@ py_module_initializer!(madnklo, initmadnklo, PyInit_madnklo, |py, m| {
 });
 
 py_class!(class FlatPhaseSpaceGenerator |py| {
-    data gen: phase_space_generator::FlatPhaseSpaceGenerator;
+    data gen: RefCell<phase_space_generator::FlatPhaseSpaceGenerator>;
 
     def __new__(_cls, masses: Vec<f64>) -> PyResult<FlatPhaseSpaceGenerator> {
         let gen = phase_space_generator::FlatPhaseSpaceGenerator::new(masses);
-        FlatPhaseSpaceGenerator::create_instance(py, gen)
+        FlatPhaseSpaceGenerator::create_instance(py, RefCell::new(gen))
     }
 
     def generate(&self, e_cm: f64, r: Vec<f64>) -> PyResult<(Vec<Vec<f64>>, f64)> {
         // TODO: remove allocations
-        let g = self.gen(py);
+        let mut g = self.gen(py).borrow_mut();
         let mut ps = vec![LorentzVector::default(); (r.len() + 4) / 3];
         let weight = g.generate(e_cm, &r, &mut ps);
 

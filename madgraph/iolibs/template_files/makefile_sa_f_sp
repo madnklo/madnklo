@@ -9,7 +9,7 @@ PROCESS=  matrix.o
 # Import the DHELAS symbols too in the matrix_element.a library
 # so that one does not have to link against libdhelas.a explicitly when using it
 include ../../Source/DHELAS/aloha_file.inc
-C_BINDINGS = $(PROCESS) C_bindings.o $(addprefix ../../Source/DHELAS/, $(ALOHARoutine))
+C_BINDINGS = $(PROCESS) C_bindings.o $(addprefix ../../Source/DHELAS/, $(ALOHARoutine) aloha_functions.o)
 CHECK_SA=  check_sa.o
 CHECK_SA_SPLITORDERS=  check_sa_born_splitOrders.o
  
@@ -22,7 +22,13 @@ $(PROG_SPLITORDERS): $(PROCESS) $(CHECK_SA_SPLITORDERS) makefile $(LIBS)
 driver.f: nexternal.inc pmass.inc ngraphs.inc coupl.inc
 
 # Library for linking with C
-matrix_element.$(libext): $(C_BINDINGS)
+ifeq ($(origin MENAME),undefined)
+  MENAME=
+endif
+ifeq ($(origin MEDIR),undefined)
+  MEDIR=
+endif
+$(MEDIR)libmatrix_element$(MENAME).$(libext): $(C_BINDINGS)
 	$(call CREATELIB, $@, $^)
 
 # Useful command to have make print-VARNAME printout the value of VARNAME in this makefile

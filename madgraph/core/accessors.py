@@ -1100,12 +1100,20 @@ class F2PYMEAccessor(VirtualMEAccessor):
             misc.compile(arg=['../lib/libdhelas.a',], cwd=source_dir)
             misc.compile(arg=['../lib/libmodel.a',], cwd=source_dir)
             misc.compile(arg=['matrix_%s_py.so'%self.proc_name, 'MENUM=_%s_'%self.proc_name], cwd=Pdir)
-        
+
         if not os.path.isfile(pjoin(Pdir, 'matrix_%s_py.so'%self.proc_name)):
             raise InvalidCmd("The f2py compilation of SubProcess '%s' failed.\n"%Pdir+
                 "Try running 'MENUM=_%s_ make matrix_%s_py.so' by hand in this directory."\
                                                           %(self.proc_name,self.proc_name))
 
+        ME_name = 'libmatrix_element_%s__%s.a'%(self.proc_dir, self.proc_name)
+        lib_dir = pjoin(self.root_path,'lib','matrix_elements')
+        if not os.path.isfile(pjoin(lib_dir,ME_name)):
+            misc.compile(arg=[pjoin(lib_dir,ME_name),'MEDIR=%s/'%lib_dir, 'MENAME=_%s__%s'%(self.proc_dir, self.proc_name)], cwd=Pdir)
+        if not os.path.isfile(pjoin(lib_dir,ME_name)):
+            raise InvalidCmd("The compilation of the matrix element static library in SubProcess '%s' failed.\n"%Pdir+
+                "Try running 'MEDIR=%s/ MENAME=_%s__%s make %s/%s' by hand in this directory."%(
+                                                            lib_dir,self.proc_dir, self.proc_name,lib_dir,ME_name))
         if not os.path.isfile(pjoin(root_dir, 'matrix_%s_py.so'%self.proc_name)):
             # Refresh the soft link
             ln( pjoin(Pdir, 'matrix_%s_py.so'%self.proc_name), starting_dir = root_dir )

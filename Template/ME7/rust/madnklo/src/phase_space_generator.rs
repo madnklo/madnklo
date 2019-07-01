@@ -5,11 +5,13 @@ use vector::LorentzVector;
 pub struct FlatPhaseSpaceGenerator {
     volume_factors: Vec<f64>,
     masses: Vec<f64>,
+    r: Vec<f64>, // rescaled input
 }
 
 impl FlatPhaseSpaceGenerator {
     const MAX_EXTERNAL: usize = 20;
     const PRECISION: f64 = 1e-15;
+    const EPSILON_BORDER: f64 = 1e-10;
     const MAXIMUM_DERIVATIVE: [f64; FlatPhaseSpaceGenerator::MAX_EXTERNAL] = [
         0., 0., 0.5, 0.7, 0.75, 0.8, 0.805, 0.81, 0.82, 0.83, 0.85, 0.86, 0.87, 0.88, 0.89, 0.9,
         0.9, 0.9, 0.9, 0.9,
@@ -27,9 +29,12 @@ impl FlatPhaseSpaceGenerator {
             volume_factors.push(FRAC_PI_2.powi(n as i32 - 1) / f.powi(2) / (n - 1) as f64);
         }
 
+        let r = vec![0f64; masses.len() * 3 - 4];
+
         FlatPhaseSpaceGenerator {
             volume_factors,
             masses,
+            r
         }
     }
 
@@ -68,7 +73,7 @@ impl FlatPhaseSpaceGenerator {
         x
     }
 
-    pub fn generate(&self, e_cm: f64, r: &[f64], ps: &mut [LorentzVector<f64>]) -> f64 {
+    pub fn generate(&mut self, e_cm: f64, x: &[f64], ps: &mut [LorentzVector<f64>]) -> f64 {
         let mut q = LorentzVector::from_args(e_cm, 0., 0., 0.);
         let mut mass_sum = self.masses.iter().sum::<f64>();
         let mut m = q.square().sqrt() - mass_sum;
@@ -76,6 +81,10 @@ impl FlatPhaseSpaceGenerator {
         debug_assert!(n < FlatPhaseSpaceGenerator::MAX_EXTERNAL);
         let mut weight = self.volume_factors[n] * m.powi(2 * n as i32 - 4);
 
+        for (rr, xr) in self.r.iter_mut().zip(x) {
+            *rr = xr.max(FlatPhaseSpaceGenerator::EPSILON_BORDER).min(1. - FlatPhaseSpaceGenerator::EPSILON_BORDER);
+        }
+        
         for i in 0..n - 1 {
             let mi = m + mass_sum; // compute the intermediate mass
 
@@ -86,7 +95,7 @@ impl FlatPhaseSpaceGenerator {
                 0.
             } else {
                 // TODO: change index convention to i*3
-                FlatPhaseSpaceGenerator::get_u(n - i - 1, r[i]).sqrt()
+                FlatPhaseSpaceGenerator::get_u(n - i - 1, self.r[i]).sqrt()
             };
 
             let rho =
@@ -103,9 +112,9 @@ impl FlatPhaseSpaceGenerator {
 
             m *= u;
 
-            let cos_theta = 2. * r[n - 2 + 2 * i] - 1.;
+            let cos_theta = 2. * self.r[n - 2 + 2 * i] - 1.;
             let sin_theta = (1. - cos_theta * cos_theta).sqrt();
-            let phi = 2. * PI * r[n - 1 + 2 * i];
+            let phi = 2. * PI * self.r[n - 1 + 2 * i];
             let (sin_phi, cos_phi) = phi.sin_cos();
 
             ps[i] = LorentzVector::from_args(

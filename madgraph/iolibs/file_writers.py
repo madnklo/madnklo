@@ -943,4 +943,4 @@ class RustWriter(FileWriter):
     def write_line(self, line):
         """Specify here some special formatting of the line. But this will be mostly
         done by cargo format."""
-        return [line,]
+        return [line+'\n',]

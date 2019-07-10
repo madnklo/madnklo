@@ -12,6 +12,7 @@ class Sector(generic_sectors.GenericSector):
     def __init__(self, leg_numbers, **opts):
         super(Sector, self).__init__(**opts)
         self.leg_numbers = leg_numbers
+        self.identifier = '_'.join('%d'%n for n in leg_numbers)
 
     def __call__(self, PS_point, PDGs, counterterm_index=-1, input_mapping_index=-1):
         """ Given a kinematic configuration (PS_point is a *dict* here) and flavors of external states, returns the sector weight (float)

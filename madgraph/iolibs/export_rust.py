@@ -24,6 +24,9 @@ import madgraph.iolibs.file_writers as writers
 
 import madgraph.various.misc as misc
 from madgraph import MadGraph5Error, InvalidCmd, MG5DIR
+import madgraph.core.accessors as accessors
+import madgraph.various.banner as banner_mod
+
 from madgraph.iolibs.files import cp, ln, mv
 
 import madgraph.various.misc as misc
@@ -106,11 +109,13 @@ class RustExporter(object):
 
         for (process_key, (me_accessor, pdg_map)) in all_MEAccessors.items():
 
-            ME_rs_template = open(pjoin(self.dynamic_template_path,'matrix_element.rs'),'r').read()
-            repl_dict = {}
-            repl_dict['matrix_element_id'] = '%s__%s'%(me_accessor.proc_dir, me_accessor.proc_name)
-            repl_dict['matrix_element_lib'] = 'matrix_element_%s'%repl_dict['matrix_element_id']
-            rust_writer.writelines(ME_rs_template, context={}, replace_dictionary=repl_dict)
+            # For we only support exporting matrix element accessors
+            if isinstance(me_accessor, accessors.F2PYMEAccessor):
+                ME_rs_template = open(pjoin(self.dynamic_template_path,'matrix_element.rs'),'r').read()
+                repl_dict = {}
+                repl_dict['matrix_element_id'] = '%s__%s'%(me_accessor.proc_dir, me_accessor.proc_name)
+                repl_dict['matrix_element_lib'] = 'matrix_element_%s'%repl_dict['matrix_element_id']
+                rust_writer.writelines(ME_rs_template, context={}, replace_dictionary=repl_dict)
         
         rust_writer.close()
 
@@ -132,6 +137,47 @@ class RustExporter(object):
         # Create a directory specifically for this integrand
         os.makedirs(integrand_export_path)
 
+        # Write down there an example of a yaml-formatted run card
+        open(pjoin(integrand_export_path,'run_card_yaml_example.yaml'),'w').write(
+            banner_mod.RunCardME7(pjoin(self.export_dir, 'Cards', 'run_card.dat')).export(
+                pjoin(self.export_dir, 'Cards', 'run_card.dat'), format='yaml'))
+
+        shutil.copy(
+            pjoin(self.dynamic_template_path, 'integrand.rs'),
+            pjoin(integrand_export_path, 'integrand_%s.rs' % (integrand_short_name))
+        )
+
+        return
+
+        # ==========================================
+        # BELOW IS JUST AN EXAMPLE OF DYNAMIC EXPORT
+        # ==========================================
+
+        # Template content:
+
+        # /*
+        # * This is the rust implementation of the integrand % (integrand_name)s
+        # */
+        #
+        # ## if (my_conditional_variable > 3) {
+        # println!("A");
+        # ## } else {
+        # println!("B");
+        # ## if (my_nested_conditional_boolean) {
+        # println!("B1");
+        # ## } else {
+        # println!("B2");
+        # ## }
+        # ## }
+        #
+        # println!("This is inconditional");
+        #
+        # ## if (any(var=='PrintTHIS' for var in myContextList)) {
+        # println!("Some statement dynamically assigned:")
+        # % (a_dynamical_statement)
+        # s
+        # ## }
+
         # Create in their the dynamically generate rust source code
         my_context = {
             'my_conditional_variable': 4,
@@ -146,7 +192,7 @@ class RustExporter(object):
         rust_writer = writers.RustWriter(pjoin(
             integrand_export_path, 'integrand_%s.rs' % (integrand_short_name)), opt='w')
         rust_writer.writelines(
-            open(pjoin(self.dynamic_template_path, 'integrand_B.rs')).read(),
+            open(pjoin(self.dynamic_template_path, 'integrand.rs')).read(),
             context=my_context, replace_dictionary=my_replacement_dict
         )
 

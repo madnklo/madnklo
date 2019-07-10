@@ -584,7 +584,7 @@ class Banner(dict):
     #convenient alias
     get = get_detail
     
-    def set(self, card, *args):
+    def set(self, tag, *args):
         """modify one of the cards"""
 
         if tag == 'param_card':
@@ -599,11 +599,11 @@ class Banner(dict):
         elif tag == 'model':
             tag = 'mg5proccard' 
             attr_tag = 'proc_card'
-            arg = ('model',)
+            args = ('model',)
         elif tag == 'generate':
             tag = 'mg5proccard' 
             attr_tag = 'proc_card'
-            arg = ('generate',)
+            args = ('generate',)
         elif tag == 'shower_card':
             tag = 'mgshowercard'
             attr_tag = 'shower_card'
@@ -1757,7 +1757,7 @@ class PY8Card(ConfigFile):
             elif '\n' in template:
                 tmpl = StringIO.StringIO(template)
             else:
-                raise Exception, "File input '%s' not found." % file_input     
+                raise Exception, "File input '%s' not found." % template
         elif template is None:
             # Then use a dummy empty StringIO, hence skipping the reading
             tmpl = StringIO.StringIO()
@@ -1956,7 +1956,7 @@ class PY8Card(ConfigFile):
             finput = file_input
         else:
             raise MadGraph5Error("Incorrect type for argument 'file_input': %s"%
-                                                    file_inp .__class__.__name__)
+                                                    file_input.__class__.__name__)
 
         # Read the template
         last_pos = finput.tell()
@@ -2260,7 +2260,7 @@ class RunCard(ConfigFile):
         """for retro compatibility"""
         
         logger.debug("please use f77_formatting instead of format")
-        return self.f77_formatting(value, formatv=formatv)
+        return RunCard.f77_formatting(value, formatv=formatv)
     
     @staticmethod
     def f77_formatting(value, formatv=None):
@@ -2931,6 +2931,8 @@ class RunCardME7(RunCardLO):
 
     _available_integrators = ['VEGAS3','NAIVE']
 
+    _supported_export_format = ['yaml',]
+
     def enforce_ME7_restrictions(self):
         """ Applies the resctrictions of run_card parameter values related to the fact
         that ME7 as limited support of ME6 features."""
@@ -2960,6 +2962,68 @@ class RunCardME7(RunCardLO):
         # Cuts that must be set to particular values
         for option, required_value, in self._ME7_limitations:
             self[option] = required_value
+
+    def export(self, template=None, format='yaml'):
+        """ Export this card in a given format to a string returned.
+        The template can be used to limit what are the parameters that need to be exported.
+        """
+
+        if format not in self._supported_export_format:
+            raise MadGraph5Error("The card of type %s cannot be exported in format '%s'."%(self.__class__.__name__, format))
+
+        try:
+            import yaml
+            from yaml import Loader, Dumper
+            noalias_dumper = Dumper
+            noalias_dumper.ignore_aliases = lambda self, data: True
+        except ImportError:
+            raise MadGraph5Error("The pyYAML python dependency is necessary for exporting %s in the '%s' format."%(
+                                                                                       self.__class__.__name__, format))
+
+        if template is None:
+            dict_to_export = dict(self)
+        else:
+            dict_to_export = {}
+            for line in file(template, 'r'):
+                nline = line.split('#')[0]
+                nline = nline.split('!')[0]
+                nline = nline.split('=')
+                if len(nline) != 2:
+                    continue
+                name = nline[1].strip().lower()
+                if name in self:
+                    dict_to_export[name] = self[name]
+                else:
+                    logger.info("Missing parameter %s specitied in template '%s'. Using specied value: %s",(name, template))
+                    dict_to_export[name] = eval(nline[1])
+
+        return yaml.dump(dict_to_export, Dumper=noalias_dumper, default_flow_style=False)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     def default_setup(self, *args, **opts):
         
@@ -3177,7 +3241,7 @@ class MadAnalysis5Card(dict):
                     try:
                         reconstructions = eval(value)
                         if not isinstance(reconstructions, list):
-                            raise
+                            raise MadGraph5Error("Reconstructions should be a list.")
                     except:
                         raise InvalidMadAnalysis5Card("List of reconstructions"+\
                          " '%s' could not be parsed in MadAnalysis5 card."%value)

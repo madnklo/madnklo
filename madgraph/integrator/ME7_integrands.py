@@ -772,7 +772,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
         # Store a flavor cut definition, which the ME7 interface can overwrite. This will be used
         # by the function pass_flavor_sensitive cut and it is always None by default.
-        self.flavor_cut_function = None 
+        self.flavor_cut_function = None
 
     def has_integrated_counterterms(self):
         """ A property of the class, indicating whether it can contain integrated counterterms."""
@@ -1696,25 +1696,36 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
         if self.sectors is None:
             return self.evaluate(PS_random_variables, integrator_jacobian, observables_lock,
-                                                                            selected_process_key=None, sector_info=None)
+                                                                                selected_process_keys_for_sector=None)
         else:
-            total_weight = 0.
-            for process_key, (process, mapped_processes) in self.processes_map.items():
-                if self.sectors is None or self.sectors[process_key] is None:
-                    all_sectors = [None, ]
-                else:
-                    all_sectors = self.sectors[process_key]
-                for sector_info in all_sectors:
-                    if (sector_info is not None) and (self.is_sector_selected is not None) and \
-                                                    not self.is_sector_selected(process, sector_info['sector']):
-                        continue
-                    total_weight += self.evaluate(PS_random_variables, integrator_jacobian, observables_lock,
-                                                  selected_process_key=process_key, sector_info=sector_info)
 
-    def evaluate(self,PS_random_variables, integrator_jacobian, observables_lock, selected_process_key=None, sector_info=None):
+            # First group all process keys relevant to a particular sector
+            process_keys_per_sector = {}
+
+            for process_key, (process, mapped_processes) in self.processes_map.items():
+
+                identifier = None if self.sectors[process_key] is None else self.sectors[process_key]['sector'].identifier
+                if identifier is not None and (self.is_sector_selected is not None) and \
+                                              not self.is_sector_selected(process, self.sectors[process_key]['sector']):
+                    # We must skip this sector
+                    continue
+
+                if identifier in process_keys_per_sector:
+                    process_keys_per_sector[identifier][process_key] = self.sectors[process_key]
+                else:
+                    process_keys_per_sector[identifier] = { process_key : self.sectors[process_key] }
+
+            # Now issue a call for each sector
+            total_weight = 0.
+            for sector_identifier, selected_process_keys_for_sector in process_keys_per_sector.items():
+                total_weight += self.evaluate(PS_random_variables, integrator_jacobian, observables_lock,
+                                              selected_process_keys_for_sector=selected_process_keys_for_sector)
+
+
+    def evaluate(self,PS_random_variables, integrator_jacobian, observables_lock, selected_process_keys_for_sector=None):
         """ Evaluate this integrand given the PS generating random variables and
-        possibily for a particular defining process and sector. If no process_key is specified, this funcion will
-        loop over and aggregate all of them"""
+        possibily for a particular set of defining processes and corresponging sector information (as a dictionary).
+        If no selected_process_keys_for_sector is specified, this funcion will loop over and aggregate all of them"""
 
         # A unique float must be returned
         wgt = 1.0
@@ -1790,7 +1801,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         for process_key, (process, mapped_processes) in self.processes_map.items():
 
             # Make sure to skip processes that should not be considered if the process_key is specified
-            if selected_process_key is not None and selected_process_key != process_key:
+            if selected_process_keys_for_sector is not None and process_key not in selected_process_keys_for_sector:
                 continue
 
             # If one wishes to integrate only one particular subprocess, it can be done by uncommenting
@@ -1817,7 +1828,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
             events = self.sigma(
                 PS_point.to_dict(), process_key, process, all_flavor_configurations, 
-                wgt, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, sector_info)
+                wgt, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, selected_process_keys_for_sector[process_key])
             
             if events is None or len(events)==0:
                 continue
@@ -2042,8 +2053,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
 ##########################################################################################
 class ME7Integrand_B(ME7Integrand):
     """ME7Integrand for the computation of a Born type of contribution."""
-    
-    def sigma(self, PS_point, process_key, process, all_flavor_configurations, 
+
+    def sigma(self, PS_point, process_key, process, all_flavor_configurations,
                                             base_weight, mu_r, mu_f1, mu_f2, *args, **opts):
         return super(ME7Integrand_B, self).sigma(
             PS_point, process_key, process, all_flavor_configurations, base_weight,

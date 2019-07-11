@@ -5,7 +5,7 @@ extern crate rand;
 use cuba::{CubaIntegrator, CubaVerbosity};
 
 use madnklo::matrix_element_evaluator::{MatrixElementEvaluator, MatrixElement};
-use madnklo::phase_space_generator::FlatPhaseSpaceGenerator;
+use madnklo::phase_space_generator::{FlatPhaseSpaceGenerator, PhaseSpaceGenerator};
 use rand::Rng;
 use libc::{c_char, c_double, c_int, c_longlong, c_void};
 

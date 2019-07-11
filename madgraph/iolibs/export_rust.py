@@ -142,10 +142,10 @@ class RustExporter(object):
             banner_mod.RunCardME7(pjoin(self.export_dir, 'Cards', 'run_card.dat')).export(
                 pjoin(self.export_dir, 'Cards', 'run_card.dat'), format='yaml'))
 
-        shutil.copy(
-            pjoin(self.dynamic_template_path, 'integrand.rs'),
-            pjoin(integrand_export_path, 'integrand_%s.rs' % (integrand_short_name))
-        )
+        #shutil.copy(
+        #    pjoin(self.dynamic_template_path, 'integrand.rs'),
+        #    pjoin(integrand_export_path, 'integrand_%s.rs' % (integrand_short_name))
+        #)
 
         return
 

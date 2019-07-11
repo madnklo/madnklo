@@ -2,6 +2,10 @@
 use std::f64::consts::{FRAC_PI_2, PI};
 use vector::LorentzVector;
 
+pub trait PhaseSpaceGenerator {
+    fn generate(&mut self, e_cm: f64, x: &[f64], ps: &mut [LorentzVector<f64>]) -> f64;
+}
+
 pub struct FlatPhaseSpaceGenerator {
     volume_factors: Vec<f64>,
     masses: Vec<f64>,
@@ -72,8 +76,10 @@ impl FlatPhaseSpaceGenerator {
         debug_assert!(x >= 0. && x <= 1.0);
         x
     }
+}
 
-    pub fn generate(&mut self, e_cm: f64, x: &[f64], ps: &mut [LorentzVector<f64>]) -> f64 {
+impl PhaseSpaceGenerator for FlatPhaseSpaceGenerator {
+    fn generate(&mut self, e_cm: f64, x: &[f64], ps: &mut [LorentzVector<f64>]) -> f64 {
         let mut q = LorentzVector::from_args(e_cm, 0., 0., 0.);
         let mut mass_sum = self.masses.iter().sum::<f64>();
         let mut m = q.square().sqrt() - mass_sum;

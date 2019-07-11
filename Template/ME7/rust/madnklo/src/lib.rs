@@ -12,6 +12,10 @@ use std::cell::RefCell;
 pub mod matrix_element_evaluator;
 pub mod phase_space_generator;
 pub mod matrix_elements; // generated matrix elements
+pub mod integrand;
+pub mod runcard;
+
+use crate::phase_space_generator::PhaseSpaceGenerator;
 
 py_module_initializer!(madnklo, initmadnklo, PyInit_madnklo, |py, m| {
     m.add(py, "__doc__", "MadNkLO")?;

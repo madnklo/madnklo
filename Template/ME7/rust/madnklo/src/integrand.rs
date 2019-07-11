@@ -1,86 +1,108 @@
+use std::collections::HashMap;
+use std::ffi::CString;
+use crate::phase_space_generator::{FlatPhaseSpaceGenerator, PhaseSpaceGenerator};
+use crate::runcard::RunCard;
 
-struct Integrand:
+mod LHAPDF {
+    use libc::{c_char, c_double, c_int, c_longlong, c_void};
+
+    #[link(name = "LHAPDF")]
+    extern "C" {
+        pub fn initpdfsetbyname(p: *const c_char);
+        pub fn initpdf(index: c_int);
+    }
+}
+
+struct Sector {
+    identifier: String,
+    n_legs: usize,
+}
+
+
+struct Integrand {
 
     // Process map. Simplified version since most of the corresponding information
     // extracted from the abstract process instance will be hard-coded here.
-    int n_processes = %(n_processes)d,
-    // Hard-coded information obtained for each process_id
-    // TO BE HARD-CODED
-    all_flavor_configurations = { process_id : [(initial_PDGs, final_PDGs), ...] }
+    n_processes: usize,
+    // Information obtained for each process_id
+    all_flavor_configurations: HashMap<usize, Vec<(Vec<isize>, Vec<isize>)>>,
 
     // List of sector IDs for each process (may change between runs)
     // It is important that this can be modified upon instantiation of the sectors.
-    processes_per_sector = Option < [ { process_id : Sector }, ] >
-    selected_sectors = None
+    processes_per_sector: Vec<HashMap<usize, Option<Sector>>>,
+    selected_sectors: Vec<usize>,
 
     // One may want to chose different PS generators, so ideally also set upon
     // instantiation but it can be hardcoded for now
-    n_initial = %(n_initial)d;
-    n_final = %(n_final)d
-    masses = []
-    phase_space_generator = None
+    n_initial: usize,
+    n_final: usize,
+    masses: Vec<f64>,
+    phase_space_generator: Box<PhaseSpaceGenerator>,
 
-    // PDF object given by LHPADF. Will be None for e+ e-.
-    pdf = None
-
-    // Run card storing run information, Go through yaml maybe?
-    run_card = RunCard()
+    // Run card storing run information
+    run_card: RunCard,
+}
 
 impl Integrand {
 
-    fn new(
-        &self,
-        processes_per_sector: Option < [ { process_id : Sector }, ] >,
-        selected_sectors : Option< [sector_ids,] >,
-        phase_space_generator: Option <PSGenerator>,
-        ) {
-            match processes_per_sector {
-                Some(sectors_specifier) => {self.processes_per_sector = sectors_specifier};
-                _ => {
-                    self.processes_per_sector = [ { id : None for id in [1..(n_processes+1)]}];
-                },
-            };
+    fn new(n_processes: usize, all_flavor_configurations: HashMap<usize, Vec<(Vec<isize>, Vec<isize>)>>,
+        n_initial: usize, n_final: usize, masses: Vec<f64>, run_card: RunCard) -> Integrand {
 
-            match phase_space_generator {
-                Some(phase_space_generator) => {self.phase_space_generator = phase_space_generator};
-                _ => {
-                    // instantiate here a default flat PS generator
-                    self.phase_space_generator = FlatPSGenerate(...),
-                },
-            };
-
-            self.selected_sectors = selected_sectors
-
-            // Instantiate a run_card struct being the rust equivalent of run_card.dat
-            self.run_card = ...
-
-            // Get here a PDF instance from LHAPDF (use run_card to know which one to use).
-            self.pdf = ...
-
+        // initialise the PDF, hardcoded for now
+        unsafe {
+            let name = CString::new("PDF4LHC15_nlo_30").unwrap();
+            LHAPDF::initpdfsetbyname(name.as_ptr());
+            LHAPDF::initpdf(0);
         }
 
-    impl call(&self, random_variables: f64[ %(n_random_variables)d], integrator_weight: Option < f64 > ) -> f64:
+        Integrand {
+            n_processes,
+            all_flavor_configurations,
+            n_initial,
+            n_final,
+            masses: masses.clone(),
+            run_card,
+            phase_space_generator: Box::new(FlatPhaseSpaceGenerator::new(masses)),
+            processes_per_sector: vec![(0..n_processes).map(|id| (id, None)).collect()],
+            selected_sectors: vec![],
+        }
+    }
 
-        integrator_jacobian = 1.
-        match integrator_weight {
-            Some(wgt) => {integrator_jacobian = wgt};
-            _ => {},
+    fn set_sectors(&mut self, processes_per_sector: Vec<HashMap<usize, Option<Sector>>>, selected_sectors : Vec<usize>) {
+        self.processes_per_sector = processes_per_sector;
+        self.selected_sectors = selected_sectors;
+    }
+
+    fn set_ps_generator(&mut self, phase_space_generator: Box<PhaseSpaceGenerator>) {
+        self.phase_space_generator = phase_space_generator;
+    }
+
+    fn call(&self, random_variables: &[f64], integrator_weight: Option<f64>) -> f64 {
+        let integrator_jacobian = match integrator_weight {
+            Some(wgt) => wgt,
+            _ => 1.,
         };
 
-        final_weight = 0.
-        if let Some(selected_sectors):
-            final_weight += self.evaluate(random_variables, integrator_jacobian, None)
-        else:
-            for i_sector in self.selected_sectors:
-                final_weight += self.evaluate(random_variables, integrator_jacobian, processes_per_sector[i_sector])
+        let mut final_weight = 0.;
+        if  self.selected_sectors.is_empty() {
+            final_weight = self.evaluate(random_variables, integrator_jacobian, None);
+        } else {
+            for i_sector in &self.selected_sectors {
+                final_weight += self.evaluate(random_variables, integrator_jacobian, Some(*i_sector));
+            }
+        }
+        
+        final_weight
+    }
 
 
-    impl evaluate(
-        random_variables: f64[ %(n_random_variables)d],
+    fn evaluate(
+        &self,
+        random_variables: &[f64],
         integrator_weight: f64,
-        selected_process_ids_for_sector: Option < { process_id : Sector } >,
-    ) -> f64:
-
+        selected_process_ids_for_sector: Option<usize>,
+    ) -> f64 {
+        /*
         // A unique float must be returned
         wgt = 1.0
         // And the conversion from GeV^-2 to picobarns
@@ -178,8 +200,8 @@ impl Integrand {
 
         // Useful to be able to debug final weight returned for this contribution
         // if __debug__: logger.debug(misc.bcolors.GREEN + "Final weight returned: %.5e"%total_wgt + misc.bcolors.ENDC)
-
-        return total_wgt
+        //total_wgt
+        */
+        0.
+    }
 }
-
-

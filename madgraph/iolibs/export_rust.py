@@ -20,6 +20,9 @@ import logging
 import os
 import re
 import shutil
+import subprocess
+
+
 import madgraph.iolibs.file_writers as writers
 
 import madgraph.various.misc as misc
@@ -79,7 +82,21 @@ class RustExporter(object):
         # Create an empty integrands directory for hosting integrand implementation here
         # (an empty directory cannot be placed in the static_template_path because it cannot be tracked by git).
         os.makedirs(pjoin(rust_export_path, 'Cards'))
+        os.makedirs(pjoin(rust_export_path, 'madnklo', 'src', 'integrands'))
         os.makedirs(pjoin(self.export_dir,'lib','matrix_elements'))
+
+    def write_param_card_rust_implementation(self, rust_writer, model):
+        """ Write a param_card.rs rust implementation that holds all particle masses and width, as well as alpha_s and mu_r."""
+
+        replacement_dict = {}
+        all_parameter_lines = []
+        for param_name in model.get('parameter_dict'):
+            all_parameter_lines.append('%s : %s,'%(param_name, 'f64'))
+
+        replacement_dict['model_parameters'] = '\n'.join(all_parameter_lines)
+        rust_writer.writelines(
+            open(pjoin(self.dynamic_template_path, 'param_card.rs'), 'r').read(),
+            context={}, replace_dictionary=replacement_dict)
 
     def export_global_resources(self, all_MEAccessors, repl_dict):
         """ Export global resources independent of any integrand or accessor, basically the base skeleton of the rust
@@ -92,10 +109,11 @@ class RustExporter(object):
         repl_dict['output_name'] = os.path.basename(self.export_dir)
 
         # Also set here what is the prefix of the C_bindings matrix element routines
-        repl_dict['C_binding_prefix'] = 'C_'
+        repl_dict['C_binding_prefix'] = 'c_'
 
         # Setup the placeholder that will contain the code for instantiating integrands
         repl_dict['instantiate_integrands'] = ''
+        repl_dict['instantiate_integrands_header'] = ''
 
         # Copy the build.rs with the path to the model file
         rust_writer = writers.RustWriter(
@@ -106,6 +124,12 @@ class RustExporter(object):
         rust_writer.writelines(
             open(pjoin(self.dynamic_template_path, 'build.rs')).read(),
             context={}, replace_dictionary=repl_dict
+        )
+
+        # Write the model card param_card.rs
+        self.write_param_card_rust_implementation(
+            writers.RustWriter(pjoin(self.export_dir, 'rust', 'madnklo', 'src', 'param_card.rs'), opt='w'),
+            self.model
         )
 
         # Below one should perform the export steps relating to rendering all entries of the
@@ -148,7 +172,7 @@ class RustExporter(object):
                     ','.join('%d => %s'%(k, translate_argument(v)) for k, v in sorted(arg[1].items(), key=lambda k: k[0]))
                 )
             elif isinstance(arg, list):
-                return 'Vec![%s]'%(','.join(translate_argument(element) for element in arg))
+                return 'vec![%s]'%(','.join(translate_argument(element) for element in arg))
             else:
                 return str(arg)
 
@@ -188,14 +212,7 @@ class RustExporter(object):
         integrand_short_name = '%s_%d' % (
             integrand.get_short_name(), integrand.ID)
         integrand_export_path = pjoin(
-            self.export_dir, 'rust', 'madnklo', 'src', 'integrands', integrand_short_name)
-        # Create a directory specifically for this integrand
-        os.makedirs(integrand_export_path)
-
-        #shutil.copy(
-        #    pjoin(self.dynamic_template_path, 'integrand.rs'),
-        #    pjoin(integrand_export_path, 'integrand_%s.rs' % (integrand_short_name))
-        #)
+            self.export_dir, 'rust', 'madnklo', 'src', 'integrands')
 
         # Make sure to first disable accessor caches
         accessors.deactivate_cache()
@@ -243,32 +260,43 @@ class RustExporter(object):
         # We must now hard-code the collected low-level code into the dynamic rust templates
         # ==================================================================================
 
+        # TODO Refactorise the generation of the instantiator and integrand evaluators below into two functions
+
         # First output the code for instantiating this particular integrand in the AllIntegrands struct
         integrand_instantiation = []
+        integrand_instantiation_header = []
         integrand_instantiation.append("// Now instantiating integrand '%s'"%integrand_short_name)
-        integrand_instantiation.append('all_integrands.all_integrands.insert(%d, Integrand('%integrand.ID)
+        integrand_instantiation.append('all_integrands.insert(%d, Integrand('%integrand.ID)
         instantiation_repl_dict = {}
         instantiation_repl_dict['n_processes'] = len(integrand.processes_map)
         instantiation_repl_dict['n_initial'] = len(integrand.masses[0])
         instantiation_repl_dict['n_final'] = len(integrand.masses[1])
-        instantiation_repl_dict['masses'] = "(Vec![%s],Vec![%s])"%(
-            ','.join('%s'%m for m in integrand.masses[0]),','.join('%s'%m for m in integrand.masses[1]))
+        representative_process = integrand.processes_map.values()[0][0]
+        masses_symbols = [
+            tuple('param_card.%s'%self.model.get_particle(pdg_code).get('mass') for pdg_code in representative_process.get_initial_ids()),
+            tuple('param_card.%s'%self.model.get_particle(pdg_code).get('mass') for pdg_code in representative_process.get_final_ids()),
+        ]
+        instantiation_repl_dict['masses'] = "(vec![%s],vec![%s])"%(
+            ','.join('%s'%m for m in masses_symbols[0]),','.join('%s'%m for m in masses_symbols[1]))
         instantiation_repl_dict['all_flavor_configurations'] = "hashmap![%s]"%(','.join('%d => %s'%
-            (i_process, "Vec![%s]"%(','.join('(Vec![%s],Vec![%s])'%(
+            (i_process, "vec![%s]"%(','.join('(vec![%s],vec![%s])'%(
                 ','.join('%d'%pdg for pdg in flavor_config[0]),
                 ','.join('%d'%pdg for pdg in flavor_config[1])) for flavor_config in flavor_configs)))
             for i_process, flavor_configs in sorted(all_flavor_configurations_per_process.items(), key=lambda k:k[0])))
-        instantiation_repl_dict['run_card'] = "RunCard('Cards/run_card.yaml')"
+        instantiation_repl_dict['integrand_evaluator'] = "Box::new(IntegrandEvaluator_%s::new())"%integrand_short_name
 
         integrand_instantiation.append(
             ('%(n_processes)d, %(all_flavor_configurations)s, '+
-            '%(n_initial)d, %(n_final)d, %(masses)s, %(run_card)s')%instantiation_repl_dict)
+            '%(n_initial)d, %(n_final)d, %(masses)s, run_card, param_card, settings_card, %(integrand_evaluator)s')%instantiation_repl_dict)
+        integrand_instantiation_header.append('use crate::IntegrandEvaluator::IntegrandEvaluator_%s'%integrand_short_name)
         integrand_instantiation.append(')')
         repl_dict['instantiate_integrands'] += '\n'.join(integrand_instantiation) + '\n'
+        repl_dict['instantiate_integrands_header'] += '\n'.join(integrand_instantiation_header) + '\n'
 
         # Now we must write out the corresponding integrand evaluator
         integrand_evaluator_repl_dict = {}
         integrand_evaluator_repl_dict['integrand_ID'] = integrand.ID
+        integrand_evaluator_repl_dict['integrand_short_name'] = integrand_short_name
         ME_calls_lines = []
         evaluator_header = []
         for call_key, low_level_code in sorted(ME_calls_instructions.items(), lambda k: k[0]):
@@ -353,11 +381,36 @@ class RustExporter(object):
         #     context=my_context, replace_dictionary=my_replacement_dict
         # )
 
-    def compile(self):
+    @staticmethod
+    def compile(root_path):
         """ Compile the rust backend."""
         # TODO Note: this should be done as much as possible using makefile targets so that one can easily recompile
         # the entire distribution manually.
         return
+
+    @staticmethod
+    def write_rust_settings_card(root_path, options):
+        """ Write the rust settings card from MG5aMC options and the process root path."""
+
+        try:
+            import yaml
+            from yaml import Loader, Dumper
+            noalias_dumper = Dumper
+            noalias_dumper.ignore_aliases = lambda self, data: True
+        except ImportError:
+            raise MadGraph5Error("The pyYAML python dependency is necessary for exporting %s in the '%s' format."%(
+                                                                                       self.__class__.__name__, format))
+
+        settings = {'root_path' : root_path}
+
+        try:
+            lhapdf_libdir = subprocess.Popen([options['lhapdf'], '--libdir'], stdout=subprocess.PIPE).stdout.read().strip()
+        except:
+            raise InvalidCmd("Could not determine the location of the LHAPDF library. Verify the value of the 'lhapdf' option of MG5aMC.")
+
+        settings['lhapdf_library_path'] = os.path.abspath(pjoin(lhapdf_libdir,'libLHAPDF.a'))
+
+        return yaml.dump(settings, Dumper=noalias_dumper, default_flow_style=False)
 
     def finalize(self, all_MEAccessors, all_integrands, repl_dict):
         """Distribute and organize the finalization export of all accessors and integrands. """
@@ -372,8 +425,18 @@ class RustExporter(object):
             context={}, replace_dictionary=repl_dict)
         rust_writer.close()
 
-        # Also write the yaml equivalent of the run_card
-        # Write down there an example of a yaml-formatted run card
+        # Also write the yaml equivalent of the cards, note that these will always be kept in sync before
+        # launching in the ME7 command-line interface
+
+        # The yaml-formatted param card
+        open(pjoin(self.export_dir, 'rust','Cards','param_card.yaml'),'w').write(
+            self.model.write_yaml_parameters_card())
+
+        # The yaml-formatted run card
         open(pjoin(self.export_dir, 'rust','Cards','run_card.yaml'),'w').write(
             banner_mod.RunCardME7(pjoin(self.export_dir, 'Cards', 'run_card.dat')).export(
                 pjoin(self.export_dir, 'Cards', 'run_card.dat'), format='yaml'))
+
+        # The yaml-formatted settings card
+        open(pjoin(self.export_dir, 'rust','Cards','settings.yaml'),'w').write(
+            RustExporter.write_rust_settings_card(self.export_dir, self.options))

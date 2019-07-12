@@ -1571,7 +1571,7 @@ class RestrictModel(model_reader.ModelReader):
         super(RestrictModel, self).default_setup()
         self.rule_card = check_param_card.ParamCardRule()
         self.restrict_card = None
-     
+
     def restrict_model(self, param_card, rm_parameter=True, keep_external=False,
                                                       complex_mass_scheme=None):
         """apply the model restriction following param_card.
@@ -2092,7 +2092,23 @@ class RestrictModel(model_reader.ModelReader):
             data.remove(param_info[param]['obj'])
 
                 
+    def write_yaml_parameters_card(self):
+        """ Function returning a string representation of the yaml parameters. """
 
+        all_params = {}
+        for param_name, value in sorted(self.get('parameter_dict').items(), key=lambda k: k[0]):
+            all_params[param_name] = value.real
+
+        try:
+            import yaml
+            from yaml import Loader, Dumper
+            noalias_dumper = Dumper
+            noalias_dumper.ignore_aliases = lambda self, data: True
+        except ImportError:
+            raise MadGraph5Error("The pyYAML python dependency is necessary for exporting %s in the '%s' format."%(
+                                                                                       self.__class__.__name__, format))
+
+        return yaml.dump(all_params, Dumper=noalias_dumper, default_flow_style=False)
 
 
                 

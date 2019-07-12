@@ -13,6 +13,11 @@ mod LHAPDF {
     }
 }
 
+pub trait IntegrandEvaluator {
+    fn call_ME_for_key(&mut self, p : &HashMap<usize , LorentzVector<f64>>, alpha_s : f64, mu_r : f64, i_process: usize, i_CT: usize, i_call: usize) -> EpsilonExpansion<u13,n6>
+}
+
+
 struct Sector {
     identifier: String,
     n_legs: usize,
@@ -39,14 +44,21 @@ struct Integrand {
     masses: Vec<f64>,
     phase_space_generator: Box<PhaseSpaceGenerator>,
 
-    // Run card storing run information
+    // Cards storing run, model and settings information
     run_card: RunCard,
+    param_card: ParamCard,
+    settings_card: SettingsCard,
+
+    // Integrand evaluator containing all the hardcoded information
+    integrand_evaluator: Box<IntegrandEvaluator>,
 }
 
 impl Integrand {
 
     fn new(n_processes: usize, all_flavor_configurations: HashMap<usize, Vec<(Vec<isize>, Vec<isize>)>>,
-        n_initial: usize, n_final: usize, masses: Vec<f64>, run_card: RunCard) -> Integrand {
+        n_initial: usize, n_final: usize, masses: Vec<f64>, run_card: RunCard, param_card: ParamCard,
+        settings_card: SettingsCard, integrand_evaluator: Box<IntegrandEvaluator>
+    ) -> Integrand {
 
         // initialise the PDF, hardcoded for now
         unsafe {
@@ -65,6 +77,7 @@ impl Integrand {
             phase_space_generator: Box::new(FlatPhaseSpaceGenerator::new(masses)),
             processes_per_sector: vec![(0..n_processes).map(|id| (id, None)).collect()],
             selected_sectors: vec![],
+            integrand_evaluator
         }
     }
 

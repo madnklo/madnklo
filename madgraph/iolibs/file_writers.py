@@ -18,6 +18,7 @@ Fortran, C++, etc."""
 
 
 import re
+import os
 import collections
 
 class FileWriter(file):
@@ -43,8 +44,29 @@ class FileWriter(file):
 
     def __init__(self, name, opt = 'w'):
         """Initialize file to write to"""
+        if name is not None:
+            file.__init__(self, name, opt)
+            self.stream = None
+        else:
+            file.__init__(self, os.devnull, 'w')
+            self.stream = ''
 
-        return file.__init__(self, name, opt)
+    def write(self, *args, **opts):
+        """ Write to the stream if we are not writing into a file."""
+
+        if self.stream is None:
+            super(FileWriter,self).write(*args, **opts)
+        else:
+            self.stream += args[0]
+
+    def pop_content(self):
+        """ If we were writing to a stream, we can retrieve it from here. """
+        if self.stream is None:
+            return None
+        else:
+            content = self.stream
+            self.stream = ''
+            return content
 
     def write_line(self, line):
         """Write a line with proper indent and splitting of long lines

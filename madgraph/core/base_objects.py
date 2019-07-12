@@ -3483,13 +3483,19 @@ class Process(PhysicsObject):
 
         return squared_orders
 
-    def format_PS_point_for_ME_call(self, PS_point):
+    def format_PS_point_for_ME_call(self, PS_point, low_level_code_generation=False):
         """ From a dictionary formatted PS point and a process, returns the PS point as a flat list, ordered as
-        the legs in the process."""
-        
-        return np.array(
-            [ PS_point[leg_number] for sublist in  self.get_cached_initial_final_numbers() 
-                                                  for leg_number in sublist ], dtype=DTYPE)
+        the legs in the process.
+        If this function is called for the purpose of generating a low-level code representation of a
+        call to a Matrix Element or a subtraction current, then the PS point must be mapped symbolically.
+        """
+
+        mapped_PS_point = [ PS_point[leg_number] for sublist in  self.get_cached_initial_final_numbers()
+                                                                                    for leg_number in sublist ]
+        if not low_level_code_generation:
+            return np.array(mapped_PS_point, dtype=DTYPE)
+        else:
+            return mapped_PS_point
 
     def get_initial_final_ids(self):
         """return a tuple of two tuple containing the id of the initial/final

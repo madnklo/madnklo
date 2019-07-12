@@ -726,7 +726,9 @@ class ME7Exporter(object):
 
         # First have the rust exporter write out global resources, mostly related to accessing
         # building blocks of the computation such as the Matrix Elements and the subtraction currents
-        rust_exporter.export_global_resources(all_MEAccessors)
+        # The rust replacement dictionary will be progressively filled in as we move along the export procedure.
+        rust_repl_dict = {}
+        rust_exporter.export_global_resources(all_MEAccessors, rust_repl_dict)
 
         ME7_options = dict(self.options)
         ME7_options['me_dir'] = self.export_dir
@@ -736,12 +738,12 @@ class ME7Exporter(object):
             for integrand in contrib.get_integrands( modelReader_instance, run_card, all_MEAccessors, ME7_options ):
                 integrand_ID += 1
                 integrand.ID = integrand_ID
-                rust_exporter.export(integrand)
+                rust_exporter.export(integrand, rust_repl_dict)
                 all_integrands.append(integrand)
 
         # Finally perform the last rust export duties that are also global and may require knowledge of the
         # overall list of accessors and integrands
-        rust_exporter.finalize(all_MEAccessors, all_integrands)
+        rust_exporter.finalize(all_MEAccessors, all_integrands, rust_repl_dict)
 
         # And finally dump ME7 output information so that all relevant objects
         # can be reconstructed for a future launch with ME7Interface.

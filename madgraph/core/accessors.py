@@ -338,6 +338,14 @@ class VirtualMEAccessor(object):
         """ Activates the caching of results during __call___ """
         cls.cache_active = False
 
+    def get_id(self):
+        """ Returns a unique string identifier for this accessor. To be defined by the daughter classes."""
+        raise NotImplementedError
+
+    def get_library_name(self):
+        """ Get the library name (without suffix) which will encode this accessor."""
+        raise NotImplementedError
+
     def generate_dump(self, **opts):
         """ Generate a serializable dump of self, which can later be used, along with some more 
         information, in initialize_from_dump in order to regenerate the object. 
@@ -1077,7 +1085,15 @@ class F2PYMEAccessor(VirtualMEAccessor):
                 "Check the sanity of the proc_prefix value.")
             
         self.synchronize(from_init=True)
-    
+
+    def get_id(self):
+        """ Returns a unique string identifier for this matrix element accessor."""
+        return '%s__%s' % (self.proc_dir, self.proc_name)
+
+    def get_library_name(self):
+        """ Get the library name (without suffix) which will encode this accessor/matrix_element."""
+        return 'matrix_element_%s'%self.get_id()
+
     def compile(self,mode='auto'):
         """ Compiles the source code associated with this MatrixElement accessor."""
         
@@ -1314,83 +1330,118 @@ class F2PYMEAccessor(VirtualMEAccessor):
         
         return new_opts
         
-    def clean_ME_settings(self, opts):
+    def clean_ME_settings(self, opts, low_level_code_generation=False):
         """ Clean up possible Matrix Elements setting for a particular call."""
-        
+        if low_level_code_generation:
+            low_level_code = []
+
         if opts['spin_correlation'] and self.spin_correlations:
             # By default, do no compute any spin correlators
-            self.get_function('reset_spin_correlation_vectors')()
+            if low_level_code_generation:
+                self.get_function('reset_spin_correlation_vectors')()
+            else:
+                low_level_code.append('call','%(ME_library)s.%(function_prefix)sreset_spin_correlation_vectors',tuple([]))
         
         if opts['color_correlation'] and self.color_correlations:
             # By default, do no compute any color correlators
-            self.get_function('set_color_correlators_to_consider')(0,0)
+            if low_level_code_generation:
+                self.get_function('set_color_correlators_to_consider')(0,0)
+            else:
+                low_level_code.append('call','%(ME_library)s.%(function_prefix)sset_color_correlators_to_consider',(0,0))
+
+        if low_level_code_generation:
+            return low_level_code
         
-    def setup_ME(self, opts):
+    def setup_ME(self, opts, low_level_code_generation=False):
         """ Setup some MatrixElement steering variables according to user-defined options."""
-        
+
+        if low_level_code_generation:
+            low_level_code = []
+
         if opts['spin_correlation']:
             for (legID, spin_correlation_vectors) in opts['spin_correlation']:
                 sc_vectors = [[0.0,0.0,0.0,0.0]]*self.max_spin_corr_vectors
                 for i, sc_vector in enumerate(spin_correlation_vectors):
                     sc_vectors[i] = list(sc_vector)
-                self.get_function('set_spin_correlation_vectors')(legID, len(spin_correlation_vectors), sc_vectors)
+                if not low_level_code_generation:
+                    self.get_function('set_spin_correlation_vectors')(legID, len(spin_correlation_vectors), sc_vectors)
+                else:
+                    low_level_code.append( ( 'call', '%(ME_library)s.%(function_prefix)sset_spin_correlation_vectors',
+                                             (legID, len(spin_correlation_vectors), sc_vectors) ) )
 
         if opts['color_correlation']:
             # If one is using shortcuts with -1 entries to indicate all sums over a particular leg,
             # then use 'set_color_correlators_to_consider' otherwise use 'add_color_correlators_to_consider'
             if len(opts['color_correlation'])==1:
-                self.get_function('set_color_correlators_to_consider')\
+                if not low_level_code_generation:
+                    self.get_function('set_color_correlators_to_consider')\
                                     (opts['color_correlation'][0][0],opts['color_correlation'][0][1])
+                else:
+                    low_level_code.append( ( 'call', '%(ME_library)s.%(function_prefix)sset_color_correlators_to_consider',
+                                             (opts['color_correlation'][0][0], opts['color_correlation'][0][1]) ) )
             else:
                 for color_correlator in opts['color_correlation']:
-                    self.get_function('add_color_correlators_to_consider')(color_correlator[0],color_correlator[1])
-        
-    
+                    if not low_level_code_generation:
+                        self.get_function('add_color_correlators_to_consider')(color_correlator[0],color_correlator[1])
+                    else:
+                        low_level_code.append(('call', '%(ME_library)s.%(function_prefix)sadd_color_correlators_to_consider',
+                                                                            (color_correlator[0],color_correlator[1]) ))
+        if low_level_code_generation:
+            return low_level_code
+
     def call_tree_ME(self, func, *args, **opts):
         """ Wrapper around the actual call of the tree-level matrix element, so as to be
         able to easily time it with a profiler."""
 
         return func(*args, **opts)
     
-    def __call__(self, PS_point, alpha_s, mu_r=91.188, return_all_res=False, **opts):
+    def __call__(self, PS_point, alpha_s, mu_r=91.188, return_all_res=False, low_level_code_generation=False, **opts):
         """ Actually performs the f2py call. """
- 
+
         permutation = opts['permutation']
 
         # The mother class takes care of applying the permutations for the generic options
         PS_point, opts = VirtualMEAccessor.__call__(self, PS_point, **opts)
-        
-        is_cache_active = opts.get('cache_active', self.cache_active)
 
-        PS_point = self.format_momenta_for_f2py(PS_point)
-    
+        is_cache_active = (not low_level_code_generation) and opts.get('cache_active', self.cache_active)
+
+        if not low_level_code_generation:
+            PS_point = self.format_momenta_for_f2py(PS_point)
+        else:
+            # Instantiate here the list which will contain the low-level instructions
+            low_level_code = [
+                ('use', 'ME_library', self.get_library_name()),
+                ('set', 'PS_point', PS_point),
+            ]
+
         new_opts = self.check_inputs_validity(opts)
-        
-        # tuple(tuple(p) for p in PS_point)
-        # Make the numpy array hashable
-        PS_point.flags.writeable = False
-        this_call_key = { 'PS_point' : hash(PS_point.data),
-                          'alpha_s'  : alpha_s }
 
-        # We can only recycle results where color correlations are either not specified or only one is specified.    
-        no_multiple_color_connections = \
-            new_opts['color_correlation'] is None or len(new_opts['color_correlation'])==1 and \
-                                       all(cc>0 for cc in new_opts['color_correlation'][0]) 
-        # always return all results if more than one color connection asked for
-        return_all_res = return_all_res or not no_multiple_color_connections
-        
-        if is_cache_active and no_multiple_color_connections:
-            result_key = dict(new_opts)
-            result_key['color_correlation'] = None if not new_opts['color_correlation'] else new_opts['color_correlation'][0]
-            
-            recycled_call = self.cache.get_result(**this_call_key)
-            recycled_result = recycled_call.get_result(**result_key)
-            if recycled_result:
-                if return_all_res:
-                    return MEEvaluation(recycled_result), recycled_call.get_inverse_permuted_copy(
-                            permutation, id_to_color_connection = self.id_to_color_connection)
-                else:
-                    return MEEvaluation(recycled_result), None
+        if not low_level_code_generation:
+            # tuple(tuple(p) for p in PS_point)
+            # Make the numpy array hashable
+            PS_point.flags.writeable = False
+            this_call_key = { 'PS_point' : hash(PS_point.data),
+                              'alpha_s'  : alpha_s }
+
+            # We can only recycle results where color correlations are either not specified or only one is specified.
+            no_multiple_color_connections = \
+                new_opts['color_correlation'] is None or len(new_opts['color_correlation'])==1 and \
+                                           all(cc>0 for cc in new_opts['color_correlation'][0])
+            # always return all results if more than one color connection asked for
+            return_all_res = return_all_res or not no_multiple_color_connections
+
+            if is_cache_active and no_multiple_color_connections:
+                result_key = dict(new_opts)
+                result_key['color_correlation'] = None if not new_opts['color_correlation'] else new_opts['color_correlation'][0]
+
+                recycled_call = self.cache.get_result(**this_call_key)
+                recycled_result = recycled_call.get_result(**result_key)
+                if recycled_result:
+                    if return_all_res:
+                        return MEEvaluation(recycled_result), recycled_call.get_inverse_permuted_copy(
+                                permutation, id_to_color_connection = self.id_to_color_connection)
+                    else:
+                        return MEEvaluation(recycled_result), None
 
         # If/When grouping several processes in the same f2py module (so as to reuse the model for example),
         # we will be able to use the information of self.process_pdgs to determine which one to call.
@@ -1398,22 +1449,38 @@ class F2PYMEAccessor(VirtualMEAccessor):
         if not self.module_initialized:
             self.get_function('initialise')(pjoin(self.root_path, self.slha_card_path))
             self.module_initialized = True
-        
+
         # Setup Matrix Element code variables for the user-defined options
-        self.setup_ME(new_opts)
+        if not low_level_code_generation:
+            self.setup_ME(new_opts)
+        else:
+            low_level_code.extend(self.setup_ME(new_opts, True))
 
         # Actual call to the matrix element
-        main_output = self.call_tree_ME(
-            self.get_function('me_accessor_hook'),
-            PS_point,
-            (-1 if not new_opts['hel_config'] else self.helicity_configurations[new_opts['hel_config']]),
-            alpha_s)
+        hel_config_ID = (-1 if not new_opts['hel_config'] else self.helicity_configurations[new_opts['hel_config']])
+        if not low_level_code_generation:
+            main_output = self.call_tree_ME(
+                self.get_function('me_accessor_hook'),
+                PS_point, hel_config_ID, alpha_s)
+        else:
+            low_level_code.append(
+                ('call_and_set', 'ME_result', '%(ME_library)s.%(function_prefix)sme_accessor_hook', ('PS_point',hel_config_ID,alpha_s ) )
+            )
 
-        # Gather additional newly generated output_data to be returned and placed in the cache.
-        output_datas = self.gather_output_datas(main_output, new_opts, return_all_res)
+        # Build the key to the main result we are after in this call
+        if low_level_code_generation:
+            low_level_code.extend(self.get_low_level_code_for_retrieving_specified_result('ME_result', new_opts))
+        else:
+            # Gather additional newly generated output_data to be returned and placed in the cache.
+            output_datas = self.gather_output_datas(main_output, new_opts, return_all_res)
 
        # Make sure to clean up specification of various properties for that particular call
-        self.clean_ME_settings(new_opts)
+        if not low_level_code_generation:
+            self.clean_ME_settings(new_opts)
+        else:
+            low_level_code.extend(self.clean_ME_settings(new_opts, True))
+            # We are now done for the generation of the low-level code corresponding to this call. We can now return.
+            return low_level_code
 
         if is_cache_active:
             ME_result = self.cache.add_result(**this_call_key)
@@ -1437,11 +1504,14 @@ class F2PYMEAccessor(VirtualMEAccessor):
             main_result_key['color_correlation'] = None
 
         main_result = MEEvaluation(ME_result.get_result(**main_result_key))
-        
-        # Now return a dictionary containing the expected result anticipated by the user given the specified options,
-        # along with a copy of the ME_result dictionary storing all information available at this point for this call_key
-        return main_result, ME_result.get_inverse_permuted_copy(permutation,
-                                      id_to_color_connection = self.id_to_color_connection)
+
+        if not low_level_code_generation:
+            # Now return a dictionary containing the expected result anticipated by the user given the specified options,
+            # along with a copy of the ME_result dictionary storing all information available at this point for this call_key
+            return main_result, ME_result.get_inverse_permuted_copy(permutation,
+                                          id_to_color_connection = self.id_to_color_connection)
+        else:
+            return low_level_code
 
     def is_color_correlation_selected(self, color_correlator, color_correlation_specified):
         """ Check if a particular spin_correlator is among those specified by the user."""
@@ -1451,6 +1521,24 @@ class F2PYMEAccessor(VirtualMEAccessor):
             return True
         
         return False
+
+    def get_low_level_code_for_retrieving_specified_result(self, ME_result_variable_name, user_opts):
+        """ Returns the necessary function call to retrieve the evaluation specified by the user through user_opts. """
+
+        low_level_code = []
+
+        if user_opts['squared_orders'] is None:
+            i_sqso = 0
+        else:
+            i_sqso = self.squared_orders[user_opts['squared_orders']]
+
+        if user_opts['color_correlation'] is None:
+            low_level_code.append(('return', ('EpsilonExpansion',{0:'%s[%d]'%(ME_result_variable_name,i_sqso)})))
+        else:
+            low_level_code.append(('call_and_set', 'color_correlated_ME_results', '%(ME_library)s.%(function_prefix)sget_color_correlated_me', tuple([])))
+            low_level_code.append(('return', ('EpsilonExpansion',{ 0 :'color_correlated_ME_results[%d][%d]'%(
+                                              self.color_correlations[user_opts['color_correlation'][0]] - 1, i_sqso)})))
+        return low_level_code
 
     def gather_output_datas(self, main_output, user_opts, return_all_res):
         """ Gather additional newly generated output_data to be returned and placed in the cache.
@@ -1996,6 +2084,11 @@ class MEAccessorDict(dict):
         out which permutation to apply and which flavours to specify.
         """
 
+        low_level_code_generation = opts.get('low_level_code_generation',False)
+
+        if MEAccessorDict.cache_active:
+            raise MadGraph5Error("When using the MEAccessorDict to generate a low-level code representation the caching system must be disabled.")
+
         # We must check whether we must track leg numbers when getting the subtraction current key for the specified
         # current in args[0]
         track_leg_numbers = opts.pop('track_leg_numbers',False)
@@ -2011,10 +2104,10 @@ class MEAccessorDict(dict):
                 if 'spin_correlations' not in opts or opts['spin_correlations'] is None:                
                     try:
                         accessor, call_options = args[0].accessor[tuple(sorted(opts.items()))]
-                        # Remove the process isntance
+                        # Remove the process instance
                         call_args = list(args[1:])
                         # Format PS point
-                        call_args[0] = args[0].format_PS_point_for_ME_call(call_args[0])
+                        call_args[0] = args[0].format_PS_point_for_ME_call(call_args[0],low_level_code_generation)
                         return accessor(*call_args, **call_options)
                     except KeyError:
                         pass
@@ -2037,7 +2130,8 @@ class MEAccessorDict(dict):
             if not pdgs_specified:
                 desired_pdgs_order = specified_process_instance.get_cached_initial_final_pdgs()
 
-        ME_accessor, call_key = self.get_MEAccessor(me_accessor_key, pdgs=desired_pdgs_order, track_leg_numbers=track_leg_numbers)
+        ME_accessor, call_key = self.get_MEAccessor(
+                            me_accessor_key, pdgs=desired_pdgs_order, track_leg_numbers=track_leg_numbers)
         call_options.update(call_key)
 
         # Now for subtraction current accessors, we must pass the current as first argument
@@ -2053,7 +2147,7 @@ class MEAccessorDict(dict):
             # so we must transform it here into a flatlist:
             PS_point = call_args[0]
             if specified_process_instance and isinstance(PS_point, dict):
-                call_args[0] = specified_process_instance.format_PS_point_for_ME_call(PS_point)
+                call_args[0] = specified_process_instance.format_PS_point_for_ME_call(PS_point, low_level_code_generation)
             # Also, if spin and color correlation are specified, we must change their ordering
             # according to the leg numbers
 

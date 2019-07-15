@@ -4,16 +4,30 @@ extern crate cpython;
 extern crate lazy_static;
 extern crate cuba;
 pub extern crate vector;
+pub extern crate epsilon_expansion;
 
 use cpython::PyResult;
 use vector::LorentzVector;
 use std::cell::RefCell;
 
+
+macro_rules! hashmap {
+    ($( $key: expr => $val: expr ),*) => {{
+         let mut map = ::std::collections::HashMap::new();
+         $( map.insert($key, $val); )*
+         map
+    }}
+}
+
 pub mod matrix_element_evaluator;
 pub mod phase_space_generator;
 pub mod matrix_elements; // generated matrix elements
 pub mod integrand;
-pub mod runcard;
+pub mod run_card;
+pub mod param_card;
+pub mod settings_card;
+pub mod all_integrands;
+pub mod integrands;
 
 use crate::phase_space_generator::PhaseSpaceGenerator;
 

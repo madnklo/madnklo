@@ -5,7 +5,7 @@ use serde_yaml;
 
 #[derive(Deserialize)]
 pub struct ParamCard {
-    %(model_parameters)s
+%(model_parameters)s
 }
 
 impl ParamCard {

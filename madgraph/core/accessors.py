@@ -1410,7 +1410,7 @@ class F2PYMEAccessor(VirtualMEAccessor):
         else:
             # Instantiate here the list which will contain the low-level instructions
             low_level_code = [
-                ('use', 'ME_library', self.get_library_name()),
+                ('use', 'ME_library', self.get_library_name()[15:] + 'MatrixElement'), # strip the header
                 ('set', 'PS_point', PS_point),
             ]
 
@@ -1464,7 +1464,7 @@ class F2PYMEAccessor(VirtualMEAccessor):
                 PS_point, hel_config_ID, alpha_s)
         else:
             low_level_code.append(
-                ('call_and_set', 'ME_result', '%(ME_library)s.%(function_prefix)sme_accessor_hook', ('PS_point',hel_config_ID,alpha_s ) )
+                ('call_and_set', 'ME_result', 'self.%(ME_library)s_evaluator.evaluate', ('&PS_point',hel_config_ID,alpha_s ) )
             )
 
         # Build the key to the main result we are after in this call
@@ -1533,7 +1533,8 @@ class F2PYMEAccessor(VirtualMEAccessor):
             i_sqso = self.squared_orders[user_opts['squared_orders']]
 
         if user_opts['color_correlation'] is None:
-            low_level_code.append(('return', ('EpsilonExpansion',{0:'%s[%d]'%(ME_result_variable_name,i_sqso)})))
+            assert(i_sqso == 0) # at the moment we return a float instead of an epsilon expansion
+            low_level_code.append(('return', ('EpsilonExpansion',{0:'%s'%(ME_result_variable_name)})))
         else:
             low_level_code.append(('call_and_set', 'color_correlated_ME_results', '%(ME_library)s.%(function_prefix)sget_color_correlated_me', tuple([])))
             low_level_code.append(('return', ('EpsilonExpansion',{ 0 :'color_correlated_ME_results[%d][%d]'%(

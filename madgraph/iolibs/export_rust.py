@@ -91,7 +91,7 @@ class RustExporter(object):
         replacement_dict = {}
         all_parameter_lines = []
         for param_name in model.get('parameter_dict'):
-            all_parameter_lines.append('%s : %s,'%(param_name, 'f64'))
+            all_parameter_lines.append('\tpub %s : %s,'%(param_name, 'f64'))
 
         replacement_dict['model_parameters'] = '\n'.join(all_parameter_lines)
         rust_writer.writelines(
@@ -114,6 +114,7 @@ class RustExporter(object):
         # Setup the placeholder that will contain the code for instantiating integrands
         repl_dict['instantiate_integrands'] = ''
         repl_dict['instantiate_integrands_header'] = ''
+        repl_dict['integrands_include'] = ''
 
         # Copy the build.rs with the path to the model file
         rust_writer = writers.RustWriter(
@@ -168,11 +169,11 @@ class RustExporter(object):
 
         def translate_argument(arg):
             if isinstance(arg, tuple) and arg[0]=='EpsilonExpansion':
-                return "epsilonexpansion![%s]"%(
-                    ','.join('%d => %s'%(k, translate_argument(v)) for k, v in sorted(arg[1].items(), key=lambda k: k[0]))
+                return "EpsilonExpansion::from_slice(&[%s])"%(
+                    ','.join('(%d, %s)'%(k, translate_argument(v)) for k, v in sorted(arg[1].items(), key=lambda k: k[0]))
                 )
             elif isinstance(arg, list):
-                return 'vec![%s]'%(','.join(translate_argument(element) for element in arg))
+                return '[%s]'%(','.join(translate_argument(element) for element in arg))
             else:
                 return str(arg)
 
@@ -187,7 +188,7 @@ class RustExporter(object):
             if instruction[0] == 'use':
                 replacement_dict[instruction[1]] = instruction[2]
                 if instruction[1] == 'ME_library':
-                    necessary_imports.append('use crate::MatrixElements::%s;'%instruction[2])
+                    necessary_imports.append(instruction[2])
             elif instruction[0] == 'set':
                 # Assume immutable for now
                 rust_code.append('let %s = %s;'%(instruction[1], translate_argument(instruction[2])))
@@ -245,9 +246,9 @@ class RustExporter(object):
             # We can now use the all_flavor_configurations built here to hard-code it in the rust template.
             PS_point = {}
             for i_leg, leg in enumerate(process.get_initial_legs()):
-                PS_point[leg.get('number')] = 'p[%d]'%leg.get('number')
+                PS_point[leg.get('number')] = 'p[&%d]'%leg.get('number')
             for i_leg, leg in enumerate(process.get_final_legs()):
-                PS_point[leg.get('number')] = 'p[%d]'%leg.get('number')
+                PS_point[leg.get('number')] = 'p[&%d]'%leg.get('number')
             alpha_s = "alpha_s"
             mu_r = "mu_r"
 
@@ -266,7 +267,7 @@ class RustExporter(object):
         integrand_instantiation = []
         integrand_instantiation_header = []
         integrand_instantiation.append("// Now instantiating integrand '%s'"%integrand_short_name)
-        integrand_instantiation.append('all_integrands.insert(%d, Integrand('%integrand.ID)
+        integrand_instantiation.append('all_integrands.insert(%d, Integrand::new('%integrand.ID)
         instantiation_repl_dict = {}
         instantiation_repl_dict['n_processes'] = len(integrand.processes_map)
         instantiation_repl_dict['n_initial'] = len(integrand.masses[0])
@@ -283,26 +284,34 @@ class RustExporter(object):
                 ','.join('%d'%pdg for pdg in flavor_config[0]),
                 ','.join('%d'%pdg for pdg in flavor_config[1])) for flavor_config in flavor_configs)))
             for i_process, flavor_configs in sorted(all_flavor_configurations_per_process.items(), key=lambda k:k[0])))
-        instantiation_repl_dict['integrand_evaluator'] = "Box::new(IntegrandEvaluator_%s::new())"%integrand_short_name
+        instantiation_repl_dict['integrand_evaluator'] = "Box::new(IntegrandEvaluator_%s::new(&param_card_path))"%integrand_short_name
 
         integrand_instantiation.append(
             ('%(n_processes)d, %(all_flavor_configurations)s, '+
             '%(n_initial)d, %(n_final)d, %(masses)s, run_card, param_card, settings_card, %(integrand_evaluator)s')%instantiation_repl_dict)
-        integrand_instantiation_header.append('use crate::IntegrandEvaluator::IntegrandEvaluator_%s'%integrand_short_name)
+        integrand_instantiation_header.append('use crate::integrands::integrand_evaluator_%s::IntegrandEvaluator_%s;'%(integrand_short_name,integrand_short_name))
         integrand_instantiation.append(')')
-        repl_dict['instantiate_integrands'] += '\n'.join(integrand_instantiation) + '\n'
+        repl_dict['instantiate_integrands'] += '\n'.join(integrand_instantiation) + ');' + '\n'
         repl_dict['instantiate_integrands_header'] += '\n'.join(integrand_instantiation_header) + '\n'
+        repl_dict['integrands_include'] += 'pub mod integrand_evaluator_%s;\n' % integrand_short_name
 
         # Now we must write out the corresponding integrand evaluator
         integrand_evaluator_repl_dict = {}
         integrand_evaluator_repl_dict['integrand_ID'] = integrand.ID
         integrand_evaluator_repl_dict['integrand_short_name'] = integrand_short_name
+        integrand_evaluator_repl_dict['integrand_evaluator_definition'] = ''
+        integrand_evaluator_repl_dict['integrand_evaluator_construction'] = ''
         ME_calls_lines = []
         evaluator_header = []
+        evaluator_definition = []
+        evaluator_construction = []
         for call_key, low_level_code in sorted(ME_calls_instructions.items(), lambda k: k[0]):
             ME_calls_lines.append('(%d, %d, %d) => {'%call_key)
-            rust_code, headers = self.translate_low_level_code(low_level_code, function_prefix=repl_dict['C_binding_prefix'])
-            evaluator_header.extend(headers)
+            rust_code, needed_matrix_elements = self.translate_low_level_code(low_level_code, function_prefix=repl_dict['C_binding_prefix'])
+            for mat in needed_matrix_elements:
+                evaluator_header.append('use crate::matrix_elements::%s;' % mat)
+                evaluator_definition.append('%s_evaluator: MatrixElementEvaluator<%s>,' % (mat, mat))
+                evaluator_construction.append('%s_evaluator: MatrixElementEvaluator::new(card_filename, %s {}),' % (mat, mat))
             ME_calls_lines.extend(rust_code)
             ME_calls_lines.append('},')
         integrand_evaluator_repl_dict['ME_calls'] = '\n'.join(ME_calls_lines)
@@ -310,6 +319,8 @@ class RustExporter(object):
         rust_writer = writers.RustWriter(pjoin(integrand_export_path,'integrand_evaluator_%s.rs'%integrand_short_name),opt='w')
         integrand_evaluator_context = {}
         integrand_evaluator_repl_dict['header'] = '\n'.join(evaluator_header)
+        integrand_evaluator_repl_dict['integrand_evaluator_definition'] = '\n'.join(evaluator_definition)
+        integrand_evaluator_repl_dict['integrand_evaluator_construction'] = '\n'.join(evaluator_construction)
         rust_writer.writelines(
             open(pjoin(self.dynamic_template_path, 'integrand_evaluator.rs'), 'r').read(),
             context=integrand_evaluator_context, replace_dictionary=integrand_evaluator_repl_dict)
@@ -404,7 +415,7 @@ class RustExporter(object):
         settings = {'root_path' : root_path}
 
         try:
-            lhapdf_libdir = subprocess.Popen([options['lhapdf'], '--libdir'], stdout=subprocess.PIPE).stdout.read().strip()
+            lhapdf_libdir = options['lhapdf'] # subprocess.Popen([options['lhapdf'], '--libdir'], stdout=subprocess.PIPE).stdout.read().strip()
         except:
             raise InvalidCmd("Could not determine the location of the LHAPDF library. Verify the value of the 'lhapdf' option of MG5aMC.")
 
@@ -422,6 +433,13 @@ class RustExporter(object):
         rust_writer = writers.RustWriter(pjoin(rust_export_path, 'all_integrands.rs'), opt='w')
         rust_writer.writelines(
             open(pjoin(self.dynamic_template_path, 'integrand_instantiator.rs'), 'r').read(),
+            context={}, replace_dictionary=repl_dict)
+        rust_writer.close()
+
+        # write the module inclusion for all the integrands
+        rust_writer = writers.RustWriter(pjoin(rust_export_path, 'integrands', 'mod.rs'), opt='w')
+        rust_writer.writelines(
+            r"%(integrands_include)s",
             context={}, replace_dictionary=repl_dict)
         rust_writer.close()
 

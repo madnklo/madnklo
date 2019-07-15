@@ -16,6 +16,8 @@ features = ["python27-sys"]
 
 [dependencies]
 vector = { path = "../vector" }
+epsilon_expansion = { path = "../epsilon_expansion" }
+typenum = "*"
 rand = "*"
 lazy_static = "1.3.0"
 libc = "*"

@@ -1,7 +1,12 @@
 use std::collections::HashMap;
 use std::ffi::CString;
+use epsilon_expansion::EpsilonExpansion;
+use typenum::{U13,N6};
 use crate::phase_space_generator::{FlatPhaseSpaceGenerator, PhaseSpaceGenerator};
-use crate::runcard::RunCard;
+use crate::run_card::RunCard;
+use crate::param_card::ParamCard;
+use crate::settings_card::SettingsCard;
+use vector::LorentzVector;
 
 mod LHAPDF {
     use libc::{c_char, c_double, c_int, c_longlong, c_void};
@@ -14,17 +19,17 @@ mod LHAPDF {
 }
 
 pub trait IntegrandEvaluator {
-    fn call_ME_for_key(&mut self, p : &HashMap<usize , LorentzVector<f64>>, alpha_s : f64, mu_r : f64, i_process: usize, i_CT: usize, i_call: usize) -> EpsilonExpansion<u13,n6>
+    fn call_ME_for_key(&mut self, p : &HashMap<usize , LorentzVector<f64>>, alpha_s : f64, mu_r : f64, i_process: usize, i_CT: usize, i_call: usize) -> EpsilonExpansion<U13,N6>;
 }
 
 
-struct Sector {
+pub struct Sector {
     identifier: String,
     n_legs: usize,
 }
 
 
-struct Integrand {
+pub struct Integrand {
 
     // Process map. Simplified version since most of the corresponding information
     // extracted from the abstract process instance will be hard-coded here.
@@ -41,7 +46,7 @@ struct Integrand {
     // instantiation but it can be hardcoded for now
     n_initial: usize,
     n_final: usize,
-    masses: Vec<f64>,
+    masses: (Vec<f64>, Vec<f64>),
     phase_space_generator: Box<PhaseSpaceGenerator>,
 
     // Cards storing run, model and settings information
@@ -55,8 +60,8 @@ struct Integrand {
 
 impl Integrand {
 
-    fn new(n_processes: usize, all_flavor_configurations: HashMap<usize, Vec<(Vec<isize>, Vec<isize>)>>,
-        n_initial: usize, n_final: usize, masses: Vec<f64>, run_card: RunCard, param_card: ParamCard,
+    pub fn new(n_processes: usize, all_flavor_configurations: HashMap<usize, Vec<(Vec<isize>, Vec<isize>)>>,
+        n_initial: usize, n_final: usize, masses: (Vec<f64>, Vec<f64>), run_card: RunCard, param_card: ParamCard,
         settings_card: SettingsCard, integrand_evaluator: Box<IntegrandEvaluator>
     ) -> Integrand {
 
@@ -74,23 +79,25 @@ impl Integrand {
             n_final,
             masses: masses.clone(),
             run_card,
-            phase_space_generator: Box::new(FlatPhaseSpaceGenerator::new(masses)),
+            param_card,
+            settings_card,
+            phase_space_generator: Box::new(FlatPhaseSpaceGenerator::new(masses.1)),
             processes_per_sector: vec![(0..n_processes).map(|id| (id, None)).collect()],
             selected_sectors: vec![],
             integrand_evaluator
         }
     }
 
-    fn set_sectors(&mut self, processes_per_sector: Vec<HashMap<usize, Option<Sector>>>, selected_sectors : Vec<usize>) {
+    pub fn set_sectors(&mut self, processes_per_sector: Vec<HashMap<usize, Option<Sector>>>, selected_sectors : Vec<usize>) {
         self.processes_per_sector = processes_per_sector;
         self.selected_sectors = selected_sectors;
     }
 
-    fn set_ps_generator(&mut self, phase_space_generator: Box<PhaseSpaceGenerator>) {
+    pub fn set_ps_generator(&mut self, phase_space_generator: Box<PhaseSpaceGenerator>) {
         self.phase_space_generator = phase_space_generator;
     }
 
-    fn call(&self, random_variables: &[f64], integrator_weight: Option<f64>) -> f64 {
+    pub fn call(&self, random_variables: &[f64], integrator_weight: Option<f64>) -> f64 {
         let integrator_jacobian = match integrator_weight {
             Some(wgt) => wgt,
             _ => 1.,
@@ -109,7 +116,7 @@ impl Integrand {
     }
 
 
-    fn evaluate(
+    pub fn evaluate(
         &self,
         random_variables: &[f64],
         integrator_weight: f64,

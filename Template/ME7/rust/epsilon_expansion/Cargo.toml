@@ -1,0 +1,12 @@
+[package]
+name = "epsilon_expansion"
+version = "0.1.0"
+authors = ["Ben Ruijl <benruyl@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+bit-array = "*"
+typenum ="*"
+generic-array = "0.13.2"
+generic-array-legacy = { version =  "0.3.2", package = "generic-array" }
+derivative = "*"

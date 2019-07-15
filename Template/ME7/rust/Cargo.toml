@@ -1,6 +1,7 @@
 [workspace]
 members = [
 	"vector",
+	"epsilon_expansion",
 	"madnklo",
 ]
 

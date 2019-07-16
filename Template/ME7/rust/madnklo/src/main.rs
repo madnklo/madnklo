@@ -4,17 +4,18 @@ extern crate rand;
 
 use cuba::{CubaIntegrator, CubaVerbosity};
 
-use madnklo::matrix_element_evaluator::{MatrixElementEvaluator, MatrixElement};
+use libc::{c_char, c_double, c_int, c_longlong, c_void};
+use madnklo::matrix_element_evaluator::{MatrixElement, MatrixElementEvaluator};
 use madnklo::phase_space_generator::{FlatPhaseSpaceGenerator, PhaseSpaceGenerator};
 use rand::Rng;
-use libc::{c_char, c_double, c_int, c_longlong, c_void};
 
 use madnklo::matrix_elements::LO_epem_ddxzz_1__1_epem_ddxzz_no_ememhzwpwpMatrixElement;
 
 use std::f64::consts::PI;
 use vector::LorentzVector;
 struct Process {
-    matrix_element: MatrixElementEvaluator<LO_epem_ddxzz_1__1_epem_ddxzz_no_ememhzwpwpMatrixElement>,
+    matrix_element:
+        MatrixElementEvaluator<LO_epem_ddxzz_1__1_epem_ddxzz_no_ememhzwpwpMatrixElement>,
     phase_space_generator: FlatPhaseSpaceGenerator,
     external_momenta: Vec<LorentzVector<f64>>,
     e_cm: f64,
@@ -67,9 +68,18 @@ fn main() {
 
     // hardcode e+ e- -> d d~ z z
     let e_cm = 1000.;
-    let matrix_element =
-        MatrixElementEvaluator::new("../Cards/param_card.dat", LO_epem_ddxzz_1__1_epem_ddxzz_no_ememhzwpwpMatrixElement {} );
-    let fpsg = FlatPhaseSpaceGenerator::new(vec![0., 0., 91.188, 91.188]);
+    let matrix_element = MatrixElementEvaluator::new(
+        "../Cards/param_card.dat",
+        LO_epem_ddxzz_1__1_epem_ddxzz_no_ememhzwpwpMatrixElement {},
+    );
+    let fpsg = FlatPhaseSpaceGenerator::new(
+        2,
+        (vec![0., 0.], vec![0., 0., 91.188, 91.188]),
+        e_cm,
+        (0, 0),
+        false,
+        (false, false),
+    );
     let mut external_momenta = vec![LorentzVector::default(); 6]; // 2 incoming + 4 external
     external_momenta[0] = LorentzVector::from_args(e_cm / 2., 0., 0., e_cm / 2.);
     external_momenta[1] = LorentzVector::from_args(e_cm / 2., 0., 0., -e_cm / 2.);

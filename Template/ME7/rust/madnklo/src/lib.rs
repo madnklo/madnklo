@@ -41,7 +41,8 @@ py_class!(class FlatPhaseSpaceGenerator |py| {
     data gen: RefCell<phase_space_generator::FlatPhaseSpaceGenerator>;
 
     def __new__(_cls, masses: Vec<f64>) -> PyResult<FlatPhaseSpaceGenerator> {
-        let gen = phase_space_generator::FlatPhaseSpaceGenerator::new(masses);
+        // FIXME: we need to expose more parameters
+        let gen = phase_space_generator::FlatPhaseSpaceGenerator::new(2, (vec![0., 0.,], masses), 0., (0, 0), false, (false, false));
         FlatPhaseSpaceGenerator::create_instance(py, RefCell::new(gen))
     }
 

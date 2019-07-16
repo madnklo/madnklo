@@ -2,7 +2,7 @@ use bit_array::BitArray;
 use generic_array::{ArrayLength, GenericArray};
 use generic_array_legacy::ArrayLength as ArrayLengthLegacy;
 use std::fmt;
-use std::ops::{Add, Div, Mul, Neg, Sub};
+use std::ops::{Add, Div, Index, IndexMut, Mul, Neg, Sub};
 use typenum::{Integer, NonZero, Unsigned, B1, U32};
 
 #[macro_use]
@@ -91,6 +91,44 @@ where
     }
 
     #[inline]
+    /// Get the `ε^pow`th coefficient. This function
+    /// checks if `pow` is in range.
+    pub fn get(&self, pow: isize) -> &f64 {
+        if pow < M::to_isize() {
+            panic!("Out of range: {} vs {}", pow, M::to_isize());
+        }
+        let i = (pow - M::to_isize()) as usize;
+        if i >= self.coeffs.len() {
+            panic!(
+                "Out of range: {} vs {}",
+                pow,
+                self.coeffs.len() as isize + M::to_isize()
+            );
+        }
+
+        &self.coeffs[i]
+    }
+
+    #[inline]
+    /// Get the `ε^pow`th coefficient mutably. This function
+    /// checks if `pow` is in range.
+    pub fn get_mut(&mut self, pow: isize) -> &mut f64 {
+        if pow < M::to_isize() {
+            panic!("Out of range: {} vs {}", pow, M::to_isize());
+        }
+        let i = (pow - M::to_isize()) as usize;
+        if i >= self.coeffs.len() {
+            panic!(
+                "Out of range: {} vs {}",
+                pow,
+                self.coeffs.len() as isize + M::to_isize()
+            );
+        }
+
+        &mut self.coeffs[i]
+    }
+
+    #[inline]
     /// Add `coeff` to the `ε^pow`th coefficient This function
     /// checks if `pow` is in range.
     pub fn add_coeff(&mut self, pow: isize, coeff: f64) {
@@ -154,6 +192,34 @@ where
             }
         }
         write!(f, "")
+    }
+}
+
+impl<U: Unsigned + NonZero, M: Integer> Index<isize> for EpsilonExpansion<U, M>
+where
+    U: ArrayLength<f64>,
+    U: Add<U32>,
+    <U as Add<U32>>::Output: Sub<B1>,
+    <<U as Add<U32>>::Output as Sub<B1>>::Output: Div<U32>,
+    <<<U as Add<U32>>::Output as Sub<B1>>::Output as Div<U32>>::Output: ArrayLengthLegacy<u32>,
+{
+    type Output = f64;
+
+    fn index(&self, i: isize) -> &Self::Output {
+        self.get(i)
+    }
+}
+
+impl<U: Unsigned + NonZero, M: Integer> IndexMut<isize> for EpsilonExpansion<U, M>
+where
+    U: ArrayLength<f64>,
+    U: Add<U32>,
+    <U as Add<U32>>::Output: Sub<B1>,
+    <<U as Add<U32>>::Output as Sub<B1>>::Output: Div<U32>,
+    <<<U as Add<U32>>::Output as Sub<B1>>::Output as Div<U32>>::Output: ArrayLengthLegacy<u32>,
+{
+    fn index_mut(&mut self, i: isize) -> &mut f64 {
+        self.get_mut(i)
     }
 }
 

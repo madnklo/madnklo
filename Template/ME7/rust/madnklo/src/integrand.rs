@@ -228,10 +228,6 @@ impl Integrand {
         // Return a weight in picobarns (from GeV^-2)
         let mut wgt = 0.389379304e9;
 
-        // Below needs to expand the applicability of the PS generator and export the beam
-        // information as well.
-        // WARNING: We must generate here a PS_point which is a dictionary with integer IDs
-        // TODO: add the integer ids later
         let (PS_weight, x1s, x2s) = self
             .phase_space_generator
             .get_PS_point(random_variables, &mut self.external_momenta);
@@ -290,9 +286,6 @@ impl Integrand {
                 sector_info = self.process_ids_for_sector[process_id];
             }*/
 
-            // This sigma function for Born will mostly have to do with finding a way to
-            // hardcode the call to the ME
-            // IMPORTANT to build an Event rust equivalent
             let events = self.sigma(
                 process_id,
                 wgt,

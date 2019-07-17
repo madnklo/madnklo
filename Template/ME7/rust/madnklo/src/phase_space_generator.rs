@@ -28,6 +28,11 @@ impl FlatPhaseSpaceGenerator {
         0.9, 0.9, 0.9, 0.9,
     ];
 
+    // The lowest value that the center of mass energy can take.
+    // We take here 1 GeV, as anyway below this non-perturbative effects dominate
+    // and factorization does not make sense anymore
+    const ABSOLUTE_E_CM_MIN: f64 = 1.;
+
     pub fn new(
         n_initial: usize,
         masses: (Vec<f64>, Vec<f64>),
@@ -99,19 +104,13 @@ impl FlatPhaseSpaceGenerator {
         x
     }
 
-    pub fn generate(&mut self, e_cm: f64, x: &[f64], ps: &mut [LorentzVector<f64>]) -> f64 {
+    pub fn generate(&self, e_cm: f64, x: &[f64], ps: &mut [LorentzVector<f64>]) -> f64 {
         let mut q = LorentzVector::from_args(e_cm, 0., 0., 0.);
         let mut mass_sum = self.masses.1.iter().sum::<f64>();
         let mut m = q.square().sqrt() - mass_sum;
         let n = ps.len();
         debug_assert!(n < FlatPhaseSpaceGenerator::MAX_EXTERNAL);
         let mut weight = self.volume_factors[n] * m.powi(2 * n as i32 - 4);
-
-        for (rr, xr) in self.r.iter_mut().zip(x) {
-            *rr = xr
-                .max(FlatPhaseSpaceGenerator::EPSILON_BORDER)
-                .min(1. - FlatPhaseSpaceGenerator::EPSILON_BORDER);
-        }
 
         for i in 0..n - 1 {
             let mi = m + mass_sum; // compute the intermediate mass
@@ -123,7 +122,7 @@ impl FlatPhaseSpaceGenerator {
                 0.
             } else {
                 // TODO: change index convention to i*3
-                FlatPhaseSpaceGenerator::get_u(n - i - 1, self.r[i]).sqrt()
+                FlatPhaseSpaceGenerator::get_u(n - i - 1, x[i]).sqrt()
             };
 
             let rho = FlatPhaseSpaceGenerator::rho(
@@ -144,9 +143,9 @@ impl FlatPhaseSpaceGenerator {
 
             m *= u;
 
-            let cos_theta = 2. * self.r[n - 2 + 2 * i] - 1.;
+            let cos_theta = 2. * x[n - 2 + 2 * i] - 1.;
             let sin_theta = (1. - cos_theta * cos_theta).sqrt();
-            let phi = 2. * PI * self.r[n - 1 + 2 * i];
+            let phi = 2. * PI * x[n - 1 + 2 * i];
             let (sin_phi, cos_phi) = phi.sin_cos();
 
             ps[i] = LorentzVector::from_args(
@@ -173,16 +172,113 @@ impl PhaseSpaceGenerator for FlatPhaseSpaceGenerator {
         x: &[f64],
         ps: &mut [LorentzVector<f64>],
     ) -> (f64, (f64, f64), (f64, f64)) {
-        if self.correlated_beam_convolution
-            || self.beam_type != (0, 0)
-            || self.is_beam_factorization_active != (false, false)
-        {
-            unimplemented!("The phase space generator does not support this beam type yet.");
+        // check if we got provided the right number of random variables
+        debug_assert_eq!(
+            x.len(),
+            self.masses.1.len() * 3 - 4
+                + if self.correlated_beam_convolution {
+                    1
+                } else {
+                    0
+                }
+                + if self.is_beam_factorization_active.0 {
+                    1
+                } else {
+                    0
+                }
+                + if self.is_beam_factorization_active.1 {
+                    1
+                } else {
+                    0
+                }
+                + if self.beam_type == (0, 0) {
+                    0
+                } else {
+                    if self.masses.0.len() == 2 && self.masses.1.len() == 1 {
+                        1
+                    } else {
+                        2
+                    }
+                }
+        );
+        debug_assert_eq!(ps.len(), self.masses.0.len() + self.masses.1.len());
+        debug_assert_eq!(self.masses.0.len(), 2); // we only support 2 -> n
+
+        // move away from the border points
+        for (rr, xr) in self.r.iter_mut().zip(x) {
+            *rr = xr
+                .max(FlatPhaseSpaceGenerator::EPSILON_BORDER)
+                .min(1. - FlatPhaseSpaceGenerator::EPSILON_BORDER);
         }
 
-        let E_cm = self.collider_energy;
+        // Generate the ISR collinear factorization convolution variables xi<i> if
+        // necessary. In order for the + distributions of the PDF counterterms and integrated
+        // collinear ISR counterterms to hit the PDF only (and not the matrix elements or
+        // observables functions), a change of variable is necessary: xb_1' = xb_1 * xi1
+        let end_index = x.len() - (self.masses.1.len() * 3 - 4) - 1;
+        let (xi1, xi2) = if self.correlated_beam_convolution {
+            // Both xi1 and xi2 must be set equal then
+            (self.r[end_index], self.r[end_index])
+        } else {
+            match self.is_beam_factorization_active {
+                (true, true) => (self.r[end_index - 1], self.r[end_index]),
+                (false, true) => (0., self.r[end_index]),
+                (true, false) => (self.r[end_index], 0.),
+                (false, false) => (0., 0.),
+            }
+        };
 
-        let wgt = self.generate(E_cm, x, &mut ps[2..]);
+        let mut wgt = 1.;
+        let (E_cm, xb_1, xb_2) = match self.beam_type {
+            (0, 0) => (self.collider_energy, 1., 1.),
+            (1, 1) | (-1, 1) | (1, -1) | (-1, -1) => {
+                let mut PDF_ycm = self.r[0];
+
+                // We generate the PDF from two variables \tau = x1*x2 and ycm = 1/2 * log(x1/x2), so that:
+                //  x_1 = sqrt(tau) * exp(+ycm)
+                //  x_2 = sqrt(tau) * exp(-ycm)
+                // The jacobian of this transformation is 1.
+                let tot_final_state_masses = self.masses.1.iter().sum::<f64>();
+                if tot_final_state_masses > self.collider_energy {
+                    panic!("Collider energy is not large enough, there is no phase-space left.");
+                }
+
+                // Keep a hard cut at 1 GeV, which is the default for absolute_Ecm_min
+                let tau_min = (tot_final_state_masses
+                    .max(FlatPhaseSpaceGenerator::ABSOLUTE_E_CM_MIN)
+                    / self.collider_energy)
+                    .powi(2);
+                let tau_max = 1.0;
+
+                let PDF_tau = if self.masses.0.len() == 2 && self.masses.1.len() == 1 {
+                    // Account for the \delta(xb_1*xb_2*s - m_h**2) and corresponding y_cm matching to unit volume
+                    wgt /= self.collider_energy.powi(2);
+                    // Here tau is fixed by the \delta(xb_1*xb_2*s - m_h**2) which sets tau to
+                    tau_min
+                } else {
+                    // Including the corresponding Jacobian
+                    wgt *= (tau_max - tau_min);
+                    // Rescale tau appropriately
+                    tau_min + (tau_max - tau_min) * self.r[1]
+                };
+
+                // And we can now rescale ycm appropriately
+                let ycm_min = 0.5 * PDF_tau.ln();
+                let ycm_max = -ycm_min;
+                PDF_ycm = ycm_min + (ycm_max - ycm_min) * PDF_ycm;
+                // and account for the corresponding Jacobian
+                wgt *= (ycm_max - ycm_min);
+
+                let xb_1 = PDF_tau.sqrt() * PDF_ycm.exp();
+                let xb_2 = PDF_tau.sqrt() * -PDF_ycm.exp();
+                // /!\ The mass of initial state momenta is neglected here.
+                let E_cm = (xb_1 * xb_2).sqrt() * self.collider_energy;
+                (E_cm, xb_1, xb_2)
+            }
+            _ => unimplemented!("Unknown beam configuration"),
+        };
+
+        wgt *= self.generate(E_cm, &self.r[end_index + 1..], &mut ps[2..]);
 
         // set the initial state
         // TODO: only do once?
@@ -204,6 +300,6 @@ impl PhaseSpaceGenerator for FlatPhaseSpaceGenerator {
             ps[1] = LorentzVector::from_args(E2 / 2.0, 0., 0., -Z / 2.0);
         }
 
-        (wgt, (1., 0.), (1., 0.))
+        (wgt, (xb_1, xi1), (xb_2, xi2))
     }
 }

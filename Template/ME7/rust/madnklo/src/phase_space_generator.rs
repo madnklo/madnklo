@@ -11,7 +11,7 @@ pub trait PhaseSpaceGenerator {
 
 pub struct FlatPhaseSpaceGenerator {
     volume_factors: Vec<f64>,
-    masses: (Vec<f64>, Vec<f64>),
+    pub masses: (Vec<f64>, Vec<f64>),
     r: Vec<f64>, // rescaled input
     collider_energy: f64,
     beam_type: (isize, isize),
@@ -215,15 +215,15 @@ impl PhaseSpaceGenerator for FlatPhaseSpaceGenerator {
         // necessary. In order for the + distributions of the PDF counterterms and integrated
         // collinear ISR counterterms to hit the PDF only (and not the matrix elements or
         // observables functions), a change of variable is necessary: xb_1' = xb_1 * xi1
-        let end_index = x.len() - (self.masses.1.len() * 3 - 4) - 1;
+        let ext_start_index = x.len() - (self.masses.1.len() * 3 - 4);
         let (xi1, xi2) = if self.correlated_beam_convolution {
             // Both xi1 and xi2 must be set equal then
-            (self.r[end_index], self.r[end_index])
+            (self.r[ext_start_index - 1], self.r[ext_start_index - 1])
         } else {
             match self.is_beam_factorization_active {
-                (true, true) => (self.r[end_index - 1], self.r[end_index]),
-                (false, true) => (0., self.r[end_index]),
-                (true, false) => (self.r[end_index], 0.),
+                (true, true) => (self.r[ext_start_index - 2], self.r[ext_start_index - 1]),
+                (false, true) => (0., self.r[ext_start_index - 1]),
+                (true, false) => (self.r[ext_start_index - 1], 0.),
                 (false, false) => (0., 0.),
             }
         };
@@ -278,7 +278,7 @@ impl PhaseSpaceGenerator for FlatPhaseSpaceGenerator {
             _ => unimplemented!("Unknown beam configuration"),
         };
 
-        wgt *= self.generate(E_cm, &self.r[end_index + 1..], &mut ps[2..]);
+        wgt *= self.generate(E_cm, &self.r[ext_start_index..], &mut ps[2..]);
 
         // set the initial state
         // TODO: only do once?

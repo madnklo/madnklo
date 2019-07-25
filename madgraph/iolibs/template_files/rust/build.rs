@@ -11,4 +11,5 @@ fn main() {
     println!("cargo:rustc-link-lib=gfortran");
 
     println!("cargo:rustc-link-search=/home/ben/Sync/Research/madnklo/HEPTools/lhapdf6/lib"); // TODO: make dynamic
+    println!("cargo:rustc-link-lib=stdc++");
 }

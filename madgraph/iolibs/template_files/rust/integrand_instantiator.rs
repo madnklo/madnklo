@@ -15,9 +15,9 @@ pub struct AllIntegrands_%(output_name)s {
 impl AllIntegrands_%(output_name)s {
     pub fn new() -> AllIntegrands_%(output_name)s {
 
-        let settings_card = SettingsCard::new(&(env::var("PROC_ROOT").unwrap().to_owned()+"/Cards/settings.yaml"));
-        let run_card = RunCard::new(&(settings_card.root_path.clone() + "/Cards/run_card.yaml"));
-        let param_card = ParamCard::new(&(settings_card.root_path.clone() + "/Cards/param_card.yaml"));
+        let settings_card = SettingsCard::new(&(env::var("PROC_ROOT").unwrap().to_owned()+"/rust/Cards/settings.yaml"));
+        let run_card = RunCard::new(&(settings_card.root_path.clone() + "/rust/Cards/run_card.yaml"));
+        let param_card = ParamCard::new(&(settings_card.root_path.clone() + "/rust/Cards/param_card.yaml"));
 
         let param_card_path = settings_card.root_path.clone() + "/Cards/param_card.dat";
 

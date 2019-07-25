@@ -1727,6 +1727,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
         possibily for a particular set of defining processes and corresponging sector information (as a dictionary).
         If no selected_process_keys_for_sector is specified, this funcion will loop over and aggregate all of them"""
 
+        misc.sprint(PS_random_variables)
+
         # A unique float must be returned
         wgt = 1.0
         # And the conversion from GeV^-2 to picobarns
@@ -1737,6 +1739,9 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # improved and for the sector, the parametrisation of the unresolved degrees of freedom could be chosen
         # accordingly to the singularities present in this sector.)
         PS_point, PS_weight, x1s, x2s = self.phase_space_generator.get_PS_point(PS_random_variables)
+
+        misc.sprint(PS_point)
+        misc.sprint(PS_weight)
 
         # Unpack the initial momenta rescalings (if present) so as to access both Bjorken
         # rescalings xb_<i> and the ISR factorization convolution rescalings xi<i>.
@@ -1884,7 +1889,6 @@ class ME7Integrand(integrands.VirtualIntegrand):
                 if self.apply_observables:
                     events.apply_observables(self.observable_list, integrator_jacobian)
 
-
         # Now finally return the total weight for this contribution
         if __debug__: logger.debug(misc.bcolors.GREEN + "Final weight returned: %.5e"%total_wgt + misc.bcolors.ENDC)
         if __debug__: logger.debug("="*80)
@@ -1956,7 +1960,10 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
         ME_evaluation, all_results = self.all_MEAccessors(
                         process, PS_point, alpha_s, mu_r, pdgs=all_flavor_configurations[0])
+
         
+        misc.sprint(ME_evaluation['finite'])
+
         ## Some code to test the color correlated MEs
         ##color_correlation_to_consider = ( ((3, -2, 3), (-2, -2, -1)), ((3, -1, 3), (-1, -1, -2)) )
         ##color_correlation_to_consider = ( -1, ((3, -1, 3), (-1, -1, -2)) )

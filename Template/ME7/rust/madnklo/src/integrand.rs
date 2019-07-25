@@ -3,6 +3,7 @@ use crate::phase_space_generator::{FlatPhaseSpaceGenerator, PhaseSpaceGenerator}
 use crate::run_card::RunCard;
 use crate::settings_card::SettingsCard;
 use epsilon_expansion::EpsilonExpansion;
+use libc::{c_double, c_int};
 use std::collections::HashMap;
 use std::f64::consts::PI;
 use std::ffi::CString;
@@ -13,11 +14,11 @@ use vector::LorentzVector;
 mod LHAPDF {
     use libc::{c_char, c_double, c_int, c_longlong, c_void};
 
-    #[link(name = "LHAPDF")]
+    #[link(name = "LHAPDF", kind = "static")]
     extern "C" {
-        pub fn initpdfsetbyname(p: *const c_char);
-        pub fn initpdf(index: c_int);
-        pub fn alphasQ(scale: f64) -> f64;
+        pub fn initpdfsetbyname_(setname: *const c_char, setnamelength: c_int);
+        pub fn initpdf_(index: *const c_int);
+        pub fn alphaspdf_(scale: *const c_double) -> f64;
     }
 }
 
@@ -94,9 +95,11 @@ impl Integrand {
     ) -> Integrand {
         // initialise the PDF, hardcoded for now
         unsafe {
+            // note that if the file does not exist, lhapdf will crash without a clear error
             let name = CString::new("PDF4LHC15_nlo_30").unwrap();
-            LHAPDF::initpdfsetbyname(name.as_ptr());
-            LHAPDF::initpdf(0);
+            LHAPDF::initpdfsetbyname_(name.as_ptr(), name.to_bytes().len() as c_int);
+            let v = 0 as c_int;
+            LHAPDF::initpdf_(&v as *const c_int);
         }
 
         let collider_energy = run_card.ebeam1 + run_card.ebeam2;
@@ -203,6 +206,7 @@ impl Integrand {
             0,
         );
         sigma_wgt *= ME_evaluation[0];
+        println!("sigma={:e}", ME_evaluation[0]);
 
         // Return the lone LO event
         vec![Event {
@@ -234,9 +238,12 @@ impl Integrand {
 
         for (i, x) in self.external_momenta.iter().enumerate() {
             self.external_momenta_map.insert(i + 1, *x);
+            println!("PS_points {}={:e}", i + 1, x);
         }
 
         wgt *= PS_weight;
+
+        println!("PS_weight={:e}", PS_weight);
 
         let (xb_1, xi1) = x1s;
         let (xb_2, xi2) = x2s;
@@ -267,7 +274,8 @@ impl Integrand {
             self.run_card.dsqrt_q2fact2,
         );
 
-        let alpha_s = unsafe { LHAPDF::alphasQ(mu_r) };
+        let alpha_s = unsafe { LHAPDF::alphaspdf_(&mu_r as *const c_double) };
+        println!("alpha_s = {}", alpha_s);
 
         // overwrite the parameters
         self.param_card.aS = alpha_s;
@@ -275,7 +283,7 @@ impl Integrand {
 
         // Now loop over processes
         let mut total_wgt = 0.;
-        for process_id in 1..=self.n_processes {
+        for process_id in 0..self.n_processes {
             // Make sure to skip processes that should not be considered if the process_key is specified
             // FIXME: this part is not clear to me.
             let mut sector_info = None;

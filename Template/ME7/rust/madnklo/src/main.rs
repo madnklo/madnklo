@@ -11,6 +11,8 @@ use rand::Rng;
 
 use madnklo::matrix_elements::LO_epem_ddxzz_1__1_epem_ddxzz_no_ememhzwpwpMatrixElement;
 
+use madnklo::all_integrands;
+
 use std::f64::consts::PI;
 use vector::LorentzVector;
 struct Process {
@@ -80,6 +82,39 @@ fn main() {
         false,
         (false, false),
     );
+
+    let mut integrands = all_integrands::AllIntegrands_RUSTTEST::new();
+    integrands.all_integrands.get_mut(&1).unwrap().evaluate(
+        &[
+            0.8072168371449964,
+            0.09703446753764455,
+            0.3807885551627419,
+            0.15528816294348846,
+            0.43059185758737006,
+            0.09805328339852282,
+            0.8104023752957474,
+            0.7673972319392628,
+        ],
+        1.0,
+        None,
+    );
+
+    integrands.all_integrands.get_mut(&1).unwrap().evaluate(
+        &[
+            0.5078178077029998,
+            0.7861861126143361,
+            0.1830110046211958,
+            0.9629787226544925,
+            0.003683355541845512,
+            0.24911371478768107,
+            0.6216002567286699,
+            0.2602448561130817,
+        ],
+        1.0,
+        None,
+    );
+    return;
+
     let mut external_momenta = vec![LorentzVector::default(); 6]; // 2 incoming + 4 external
     external_momenta[0] = LorentzVector::from_args(e_cm / 2., 0., 0., e_cm / 2.);
     external_momenta[1] = LorentzVector::from_args(e_cm / 2., 0., 0., -e_cm / 2.);

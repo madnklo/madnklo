@@ -196,31 +196,38 @@ class QCD_final_collinear_0_gg_soft_distrib(QCD_final_collinear_0_XX_soft_distri
         return evaluation
 
     def soft_kernel(self, evaluation, colored_parton_numbers, all_steps_info, global_variables):
-        # Retrieve the first gluon momentum pg
+        # Retrieve the first gluon momentum p1
         # there is only one step and one bundle
         g1_ID = all_steps_info[0]['bundles_info'][0]['final_state_children'][0]
         p1 = all_steps_info[0]['higher_PS_point'][g1_ID]
 
-        # Retrieve the seconde gluon momentum pg
+        # Retrieve the seconde gluon momentum p2
         # there is only one step and one bundle
         g2_ID = all_steps_info[0]['bundles_info'][0]['final_state_children'][1]
         p2 = all_steps_info[0]['higher_PS_point'][g2_ID]
 
+        # ID of the gluon parent in the g->gg splitting
         parent_ID = all_steps_info[0]['bundles_info'][0]['parent']
-        # Loop over the dipoles (quark,j). Only the gluon can be soft
+        # momentum of the gluon parent
+        p_gg_tilde = all_steps_info[0]['lower_PS_point'][parent_ID]
+        # Loop over the dipoles
         color_correlation_index = 1
         for j in colored_parton_numbers:
             if j == parent_ID:
                 # The emission and reabsorption by the parent quark does not contribute in the massless quark
                 continue
             else:
-                pj=all_steps_info[0]['lower_PS_point'][j]
+                pj=all_steps_info[0]['higher_PS_point'][j]
+                pjtilde=all_steps_info[0]['lower_PS_point'][j]
+                # Ratio of invariants that turns invariants involving the non-collinear dipole leg
+                # into a momentum fraction multiplying an invariant of the lower-multiplicity phase space point.
+                correction_ratio = p_gg_tilde.dot(pjtilde)/(p1+p2).dot(pj)
                 # We add the color correlation (q,j) to the list of color correlations
                 evaluation['color_correlations'].append(((parent_ID, j),))
                 # color_correlation_index now points to that color correlation in the list
                 evaluation['values'][(0, color_correlation_index, 0)] = {'finite': # Sum over p1/p2 soft from (2/1,j)
-                                                        SoftKernels.partial_fractionned_eikonal_g(p1,p2,pj)[0]
-                                                      + SoftKernels.partial_fractionned_eikonal_g(p2,p1,pj)[0]
+                                                        SoftKernels.partial_fractionned_eikonal_g(p1,p2,pj*correction_ratio)[0]
+                                                      + SoftKernels.partial_fractionned_eikonal_g(p2,p1,pj*correction_ratio)[0]
                                                                          }
                 # color_correlation_index now points to the next possible color correlation
                 color_correlation_index += 1

@@ -106,7 +106,11 @@ class QCD_final_collinear_0_gq_soft_distrib(QCD_final_collinear_0_XX_soft_distri
         quark_ID = all_steps_info[0]['bundles_info'][0]['final_state_children'][1]
         pq = all_steps_info[0]['higher_PS_point'][quark_ID]
 
+        # ID of the quark parent for the q->qg splitting
         parent_ID = all_steps_info[0]['bundles_info'][0]['parent']
+        # Mapped momentum of the quark parent
+        p_qg_tilde = all_steps_info[0]['lower_PS_point'][parent_ID]
+
         # Loop over the dipoles (quark,j). Only the gluon can be soft
         color_correlation_index = 1
         for j in colored_parton_numbers:
@@ -114,11 +118,17 @@ class QCD_final_collinear_0_gq_soft_distrib(QCD_final_collinear_0_XX_soft_distri
                 # The emission and reabsorption by the parent quark does not contribute in the massless quark
                 continue
             else:
-                pj=all_steps_info[0]['lower_PS_point'][j]
+                pj=all_steps_info[0]['higher_PS_point'][j]
+                pjtilde = all_steps_info[0]['lower_PS_point'][j]
+
+                # Ratio of invariants that turns invariants involving the non-collinear dipole leg
+                # into a momentum fraction multiplying an invariant of the lower-multiplicity phase space point.
+                correction_ratio = p_qg_tilde.dot(pjtilde)/(pq+pg).dot(pj)
+
                 # We add the color correlation (q,j) to the list of color correlations
                 evaluation['color_correlations'].append(((parent_ID, j),))
                 # color_correlation_index now points to that color correlation in the list
-                evaluation['values'][(0, color_correlation_index, 0)] = {'finite': SoftKernels.partial_fractionned_eikonal_g(pg,pq,pj)[0]}
+                evaluation['values'][(0, color_correlation_index, 0)] = {'finite': SoftKernels.partial_fractionned_eikonal_g(pg,pq,pj*correction_ratio)[0]}
                 # color_correlation_index now points to the next possible color correlation
                 color_correlation_index += 1
 

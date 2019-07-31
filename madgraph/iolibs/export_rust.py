@@ -272,6 +272,7 @@ class RustExporter(object):
         instantiation_repl_dict['n_processes'] = len(integrand.processes_map)
         instantiation_repl_dict['n_initial'] = len(integrand.masses[0])
         instantiation_repl_dict['n_final'] = len(integrand.masses[1])
+        instantiation_repl_dict['n_unresolved_particles'] = integrand.contribution_definition.n_unresolved_particles
         representative_process = integrand.processes_map.values()[0][0]
         masses_symbols = [
             tuple('param_card.%s'%self.model.get_particle(pdg_code).get('mass') for pdg_code in representative_process.get_initial_ids()),
@@ -288,7 +289,7 @@ class RustExporter(object):
 
         integrand_instantiation.append(
             ('%(n_processes)d, %(all_flavor_configurations)s, '+
-            '%(n_initial)d, %(n_final)d, %(masses)s, run_card, param_card, settings_card, %(integrand_evaluator)s')%instantiation_repl_dict)
+            '%(n_initial)d, %(n_final)d, %(n_unresolved_particles)d, %(masses)s, run_card, param_card, settings_card, %(integrand_evaluator)s')%instantiation_repl_dict)
         integrand_instantiation_header.append('use crate::integrands::integrand_evaluator_%s::IntegrandEvaluator_%s;'%(integrand_short_name,integrand_short_name))
         integrand_instantiation.append(')')
         repl_dict['instantiate_integrands'] += '\n'.join(integrand_instantiation) + ');' + '\n'

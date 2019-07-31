@@ -798,6 +798,55 @@ impl<T: Float + Field> LorentzVector<T> {
             boost_vector.z.mul_add(factor, self.z),
         )
     }
+
+    /// Compute transverse momentum.
+    #[inline]
+    pub fn pt(&self) -> T {
+        (self.x * self.x + self.y * self.y).sqrt()
+    }
+
+    /// Compute pseudorapidity.
+    #[inline]
+    pub fn pseudoRap(&self) -> T {
+        let pt = self.pt();
+        if pt < T::epsilon() && self.z.abs() < T::epsilon() {
+            if self.z > T::zero() {
+                return T::max_value();
+            } else {
+                return T::min_value();
+            }
+        }
+        let th = pt.atan2(self.z);
+        -(th / (T::one() + T::one())).tan().ln()
+    }
+
+    /// Compute the phi-angle separation with p2.
+    pub fn getdelphi(&self, p2: &LorentzVector<T>) -> T {
+        let pt1 = self.pt();
+        let pt2 = p2.pt();
+        if pt1 == T::zero() || pt2 == T::zero() {
+            return T::max_value();
+        }
+
+        let mut tmp = self.x * p2.x + self.y * p2.y;
+        tmp = tmp / (pt1 * pt2);
+        if tmp.abs() > T::one() + T::epsilon() {
+            panic!("Cosine larger than 1. in phase-space cuts.")
+        }
+        if tmp.abs() > T::one() {
+            (tmp / tmp.abs()).acos()
+        } else {
+            tmp.acos()
+        }
+    }
+
+    /// Compute the deltaR separation with momentum p2.
+    #[inline]
+    pub fn deltaR(&self, p2: &LorentzVector<T>) -> T {
+        let delta_eta = self.pseudoRap() - p2.pseudoRap();
+        let delta_phi = self.getdelphi(p2);
+        (delta_eta * delta_eta + delta_phi * delta_phi).sqrt()
+    }
 }
 
 impl<T: RealNumberLike> LorentzVector<T> {

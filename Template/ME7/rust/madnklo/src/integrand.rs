@@ -12,13 +12,37 @@ use typenum::{N6, U13};
 use vector::LorentzVector;
 
 mod LHAPDF {
-    use libc::{c_char, c_double, c_int, c_longlong, c_void};
+    use libc::{c_char, c_double, c_int, c_void};
 
     #[link(name = "LHAPDF", kind = "static")]
     extern "C" {
         pub fn initpdfsetbyname_(setname: *const c_char, setnamelength: c_int);
         pub fn initpdf_(index: *const c_int);
         pub fn alphaspdf_(scale: *const c_double) -> f64;
+    }
+}
+
+mod FJCORE {
+    use libc::{c_char, c_double, c_int, c_void};
+
+    #[link(name = "fjcore", kind = "static")]
+    extern "C" {
+        pub fn fjcoreppgenkt_(
+            p: *const c_double,
+            npart: *const c_int,
+            R: *const c_double,
+            palg: *const c_double,
+            jets: *mut c_double,
+            njets: *mut c_int,
+        );
+        pub fn fjcoreeegenkt_(
+            p: *const c_double,
+            npart: *const c_int,
+            R: *const c_double,
+            palg: *const c_double,
+            jets: *mut c_double,
+            njets: *mut c_int,
+        );
     }
 }
 
@@ -61,10 +85,9 @@ pub struct Integrand {
     processes_per_sector: Vec<HashMap<usize, Option<Sector>>>,
     selected_sectors: Vec<usize>,
 
-    // One may want to chose different PS generators, so ideally also set upon
-    // instantiation but it can be hardcoded for now
     n_initial: usize,
     n_final: usize,
+    n_unresolved_particles: usize,
     masses: (Vec<f64>, Vec<f64>),
     phase_space_generator: Box<PhaseSpaceGenerator>,
     external_momenta: Vec<LorentzVector<f64>>,
@@ -87,6 +110,7 @@ impl Integrand {
         all_flavor_configurations: HashMap<usize, Vec<(Vec<isize>, Vec<isize>)>>,
         n_initial: usize,
         n_final: usize,
+        n_unresolved_particles: usize, // TODO: introduce full contribution_definition
         masses: (Vec<f64>, Vec<f64>),
         run_card: RunCard,
         param_card: ParamCard,
@@ -109,6 +133,7 @@ impl Integrand {
             all_flavor_configurations,
             n_initial,
             n_final,
+            n_unresolved_particles,
             masses: masses.clone(),
             run_card,
             param_card,
@@ -144,6 +169,234 @@ impl Integrand {
 
     pub fn set_ps_generator(&mut self, phase_space_generator: Box<PhaseSpaceGenerator>) {
         self.phase_space_generator = phase_space_generator;
+    }
+
+    ///    Implementation of a minimal set of isolation cuts. This can be made much nicer in the future and
+    ///    will probably be taken outside of this class so as to ease user-specific cuts, fastjet, etc...
+    ///    We consider here a two-level cuts system, this first one of which is flavour blind.
+    ///    The 'n_jets_allowed_to_be_clustered' is an option that allows to overwrite the
+    ///    maximum number of jets that can be clustered and which is by default taken to be:
+    ///        self.contribution_definition.n_unresolved_particles
+    ///    This is useful when using this function to apply cuts to the reduced PS of the CTs.
+    ///    Finally, the options 'xb_1' and 'xb_2' allow to specify the boost bringing
+    ///    the PS point back from the c.o.m. to the lab frame, necessary if some cuts are not
+    ///    invariant under a boost along the beam axis.
+    pub fn pass_flavor_blind_cuts(
+        &self,
+        PS_point: &[LorentzVector<f64>],
+        process_pdg_final: &[isize],
+        n_jets_allowed_to_be_clustered: usize,
+        xb_1: Option<f64>,
+        xb_2: Option<f64>,
+    ) -> bool {
+        // These cuts are not allowed to resolve flavour, but only whether a particle is a jet or not
+        let is_a_jet = |pdg: isize| {
+            let pdga = pdg.abs() as usize;
+            pdga == 21 || (pdga >= 1 && pdga <= self.run_card.maxjetflavor)
+        };
+
+        fn is_a_lepton(pdg: isize) -> bool {
+            let pdga = pdg.abs();
+            pdga == 11 || pdga == 13 || pdga == 15
+        }
+
+        fn is_a_neutrino(pdg: isize) -> bool {
+            let pdga = pdg.abs();
+            pdga == 12 || pdga == 14 || pdga == 16
+        }
+
+        fn is_a_photon(pdg: isize) -> bool {
+            pdg == 22
+        }
+
+        // If the cuts depend on the boost to the lab frame in case of hadronic collision
+        // then the boost below can be used. Notice that the jet cuts is typically formulated in terms of
+        // *pseudo* rapidities and not rapidities, so that when jets are clustered into a massive combined
+        // momentum, this makes it important to boost to the lab frame. We therefore turn on this boost here
+        // by default.
+        if (xb_1 != None) && (xb_2 != None) && (xb_1, xb_2) != (Some(1.), Some(1.)) {
+            panic!("Boosting to lab frame not supported yet");
+            // Prevent border effects
+            //PS_point = PS_point.get_copy()
+            //PS_point.boost_from_com_to_lab_frame(xb_1, xb_2, self.run_card['ebeam1'], self.run_card['ebeam2'])
+        }
+
+        for (i, p) in PS_point[self.n_initial..].iter().enumerate() {
+            if is_a_photon(process_pdg_final[i]) {
+                if p.pt() < 100.0 {
+                    return false;;
+                }
+            }
+        }
+
+        for (i, p) in PS_point[self.n_initial..].iter().enumerate() {
+            if is_a_photon(process_pdg_final[i]) {
+                for (j, p2) in PS_point[self.n_initial..].iter().enumerate() {
+                    if j != i && process_pdg_final[j] != 21 {
+                        if p.deltaR(p2) < 0.4 {
+                            return false;
+                        }
+                    }
+                }
+            }
+        }
+
+        // JET CLUSTERING AND CUTS
+
+        let ptj_cut = self.run_card.ptj;
+        let drjj_cut = self.run_card.drjj;
+        let etaj_cut = self.run_card.etaj;
+
+        if ptj_cut <= 0. && drjj_cut <= 0. && etaj_cut <= 0. {
+            return true;
+        }
+
+        let mut all_jets;
+        if drjj_cut > 0. {
+            // First identify all partonic jets
+            let mut jets_list = vec![];
+            for (i, p) in PS_point[self.n_initial..].iter().enumerate() {
+                if is_a_jet(process_pdg_final[i]) {
+                    jets_list.extend(&[p.t, p.x, p.y, p.z]);
+                }
+            }
+            // Count partonic jets
+            let starting_n_jets = jets_list.len();
+
+            // Cluster them with fastjet
+            let mut jets_flat = vec![0.; jets_list.len()];
+            all_jets = Vec::with_capacity(jets_list.len() / 4);
+            let mut actual_len: c_int = 0;
+            let len: c_int = (jets_list.len() / 4) as c_int;
+            let palg = -1.0;
+
+            unsafe {
+                FJCORE::fjcoreeegenkt_(
+                    &jets_list[0] as *const c_double,
+                    &len as *const c_int,
+                    &drjj_cut as *const c_double,
+                    &palg as *const c_double,
+                    &mut jets_flat[0] as *mut c_double,
+                    &mut actual_len as *mut c_int,
+                );
+            }
+
+            let mut jet_count = 0;
+            for i in 0..actual_len as usize {
+                let jet = LorentzVector::from_slice(&jets_flat[i * 4..(i + 1) * 4]);
+                // Remove jets whose pT is below the user defined cut
+                if ptj_cut <= 0. || jet.pt() >= ptj_cut {
+                    all_jets.push(jet);
+                }
+            }
+
+            // Make sure that the number of clustered jets is at least larger or equal to the
+            // starting list of jets minus the number of particles that are allowed to go
+            // unresolved in this contribution.
+            if all_jets.len() < starting_n_jets - n_jets_allowed_to_be_clustered {
+                return false;
+            }
+        } else {
+            all_jets = PS_point[self.n_initial..]
+                .iter()
+                .enumerate()
+                .filter_map(|(i, p)| {
+                    if is_a_jet(process_pdg_final[i]) {
+                        Some(*p)
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            if ptj_cut > 0. {
+                // Apply the Ptj cut first
+                for p in &all_jets {
+                    if p.pt() < ptj_cut {
+                        return false;
+                    }
+                }
+            }
+
+            if drjj_cut > 0. {
+                // And then the drjj cut
+                for (i, p1) in all_jets.iter().enumerate() {
+                    for p2 in &all_jets[i + 1..] {
+                        if p1.deltaR(p2) < drjj_cut {
+                            return false;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Now handle all other cuts
+        if etaj_cut > 0. {
+            for p_jet in &all_jets {
+                if p_jet.pseudoRap().abs() > etaj_cut {
+                    return false;
+                }
+            }
+        }
+
+        // LEPTON AND PHOTON CUTS
+
+        for (i, p) in PS_point[self.n_initial..].iter().enumerate() {
+            // photons
+            if is_a_photon(process_pdg_final[i]) {
+                if self.run_card.pta > 0.0 && p.pt() < self.run_card.pta {
+                    return false;
+                }
+                if self.run_card.etaa > 0.0 && p.pseudoRap().abs() > self.run_card.etaa {
+                    return false;
+                }
+                for (j, p2) in PS_point[self.n_initial..].iter().enumerate() {
+                    if j > i && is_a_photon(process_pdg_final[j]) {
+                        if self.run_card.draa > 0.0 && p.deltaR(p2) < self.run_card.draa {
+                            return false;
+                        }
+                    }
+                    if is_a_lepton(process_pdg_final[j]) {
+                        if self.run_card.dral > 0.0 && p.deltaR(p2) < self.run_card.dral {
+                            return false;
+                        }
+                    }
+                }
+                for (j, p_jet) in all_jets.iter().enumerate() {
+                    if self.run_card.draj > 0.0 && p.deltaR(p_jet) < self.run_card.draj {
+                        return false;
+                    }
+                }
+            }
+
+            // leptons
+            if is_a_lepton(process_pdg_final[i]) {
+                if self.run_card.ptl > 0.0 && p.pt() < self.run_card.ptl {
+                    return false;
+                }
+                if self.run_card.etal > 0.0 && p.pseudoRap().abs() > self.run_card.etal {
+                    return false;
+                }
+                for (j, p2) in PS_point[self.n_initial..].iter().enumerate() {
+                    if j <= i {
+                        continue;
+                    }
+                    if is_a_lepton(process_pdg_final[j]) {
+                        if self.run_card.drll > 0.0 && p.deltaR(p2) < self.run_card.drll {
+                            return false;
+                        }
+                    }
+                }
+                for (j, p_jet) in all_jets.iter().enumerate() {
+                    if self.run_card.drjl > 0.0 && p.deltaR(p_jet) < self.run_card.drjl {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        // All cuts pass, therefore return true
+        true
     }
 
     pub fn call(&mut self, random_variables: &[f64], integrator_weight: Option<f64>) -> f64 {
@@ -192,10 +445,15 @@ impl Integrand {
         let all_flavor_configurations = &self.all_flavor_configurations[&process_id];
 
         // Apply flavor blind cuts
-        //if not self.pass_flavor_blind_cuts(PS_point, all_flavor_configurations[0]):
-        //    if __debug__: logger.debug('Event failed the flavour_blind generation-level cuts.')
-        //    if __debug__: logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)
-        //    return None
+        if !self.pass_flavor_blind_cuts(
+            &self.external_momenta,
+            &all_flavor_configurations[0].1,
+            self.n_unresolved_particles,
+            None,
+            None,
+        ) {
+            return vec![];
+        }
 
         let ME_evaluation = self.integrand_evaluator.call_ME_for_key(
             &self.external_momenta_map,
@@ -294,7 +552,7 @@ impl Integrand {
                 sector_info = self.process_ids_for_sector[process_id];
             }*/
 
-            let events = self.sigma(
+            let mut events = self.sigma(
                 process_id,
                 wgt,
                 mu_r,
@@ -316,16 +574,22 @@ impl Integrand {
             // state momenta
             //events.generate_mirrored_events()
 
-            // For things that we don't want to immediatly handle, we should just put placeholders
             // Apply flavor blind cuts
-            // TODO implement flavour cuts
-            /*
-            if not events.filter_with_flavor_blind_cuts(self.pass_flavor_blind_cuts, process_pdgs,
-                n_jets_allowed_to_be_clustered  = self.contribution_definition.n_unresolved_particles):
-                if __debug__: logger.debug('All events failed the flavour_blind generation-level cuts.')
-                if __debug__: logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)
-                continue
-            */
+            let mut filtered_events = Vec::with_capacity(events.len());
+            for e in events {
+                // TODO: which index to take here for all_flavor_configurations?
+                // the cut is flavour blind, so it doesn't matter?
+                if self.pass_flavor_blind_cuts(
+                    &self.external_momenta,
+                    &self.all_flavor_configurations[&process_id][0].1,
+                    self.n_unresolved_particles,
+                    None,
+                    None,
+                ) {
+                    filtered_events.push(e);
+                }
+            }
+            events = filtered_events;
 
             // And epsilon-expansion
             // Select particular terms of the EpsilonExpansion terms stored as weights

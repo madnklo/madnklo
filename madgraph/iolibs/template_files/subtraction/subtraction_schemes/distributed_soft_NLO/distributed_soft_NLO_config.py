@@ -39,7 +39,7 @@ def triple_collinear_global_variables(all_steps, global_info):
     pC = all_steps[1]['lower_PS_point'][parent]
     return low_level_coll_variables(PS_point,pC,children)[0]
 
-divide_by_jacobian = False
+divide_by_jacobian = True
 
 # Final collinear configuration
 # NB: There are only collinear CTs in this scheme

@@ -1,10 +1,10 @@
-//FJSTARTHEADER
-// $Id: fjcorefortran.cc 4355 2018-04-22 15:38:54Z salam $
+//STARTHEADER
+// $Id: fastjetfortran.cc 2577 2011-09-13 15:11:38Z salam $
 //
-// Copyright (c) 2005-2018, Matteo Cacciari, Gavin P. Salam and Gregory Soyez
+// Copyright (c) 2005-2011, Matteo Cacciari, Gavin P. Salam and Gregory Soyez
 //
 //----------------------------------------------------------------------
-// This file is part of FastJet (fjcore).
+// This file is part of FastJet.
 //
 //  FastJet is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -12,11 +12,9 @@
 //  (at your option) any later version.
 //
 //  The algorithms that underlie FastJet have required considerable
-//  development. They are described in the original FastJet paper,
-//  hep-ph/0512210 and in the manual, arXiv:1111.6097. If you use
+//  development and are described in hep-ph/0512210. If you use
 //  FastJet as part of work towards a scientific publication, please
-//  quote the version you use and include a citation to the manual and
-//  optionally also to hep-ph/0512210.
+//  include a citation to the FastJet paper.
 //
 //  FastJet is distributed in the hope that it will be useful,
 //  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -26,7 +24,7 @@
 //  You should have received a copy of the GNU General Public License
 //  along with FastJet. If not, see <http://www.gnu.org/licenses/>.
 //----------------------------------------------------------------------
-//FJENDHEADER
+//ENDHEADER
 
 #include <iostream>
 #include "fjcore.hh"
@@ -34,36 +32,41 @@
 using namespace std;
 using namespace fjcore;
 
-FJCORE_BEGIN_NAMESPACE      // defined in fjcore.hh
+FJCORE_BEGIN_NAMESPACE  
 
 /// a namespace for the fortran-wrapper which contains commonly-used
 /// structures and means to transfer fortran <-> C++
 namespace fwrapper {
   vector<PseudoJet> input_particles, jets;
-  SharedPtr<JetDefinition::Plugin> plugin;
+  auto_ptr<JetDefinition::Plugin> plugin;
   JetDefinition jet_def;
-  SharedPtr<ClusterSequence> cs;
+  auto_ptr<ClusterSequence> cs;
 
   /// helper routine to transfer fortran input particles into 
-  void transfer_input_particles(const double * p, const int & npart) {
+  void madnklo_transfer_input_particles(const double * p, const int & npart) {
     input_particles.resize(0);
     input_particles.reserve(npart);
     for (int i=0; i<npart; i++) {
       valarray<double> mom(4); // mom[0..3]
       for (int j=0;j<=3; j++) {
-         mom[j] = *(p++);
+      //   mom[j] = *(p++);
+      // RF-MZ: reorder the arguments because in madfks energy goes first; in fastjet last.
+         mom[(j+3) % 4] = *(p++);
       }
       PseudoJet psjet(mom);
+      psjet.set_user_index(i);
       input_particles.push_back(psjet);    
     }
   }
 
   /// helper routine to help transfer jets -> f77jets[4*ijet+0..3]
-  void transfer_jets(double * f77jets, int & njets) {
+  void madnklo_transfer_jets(double * f77jets, int & njets) {
     njets = jets.size();
     for (int i=0; i<njets; i++) {
       for (int j=0;j<=3; j++) {
-        *f77jets = jets[i][j];
+      // *f77jets = jets[i][j];
+      // RF-MZ: reorder the arguments because in madfks energy goes first; in fastjet last.
+        *f77jets = jets[i][(j+3) % 4];
         f77jets++;
       } 
     }
@@ -71,22 +74,41 @@ namespace fwrapper {
   
   /// helper routine packaging the transfers, the clustering
   /// and the extraction of the jets
-  void transfer_cluster_transfer(const double * p, const int & npart, 
+  void madnklo_transfer_cluster_transfer(const double * p, const int & npart, 
                                  const JetDefinition & jet_def,
-				 double * f77jets, int & njets) {
+                                 const double & ptmin, const double & etamax,
+				 double * f77jets, int & njets, int * whichjet) {
 
     // transfer p[4*ipart+0..3] -> input_particles[i]
-    transfer_input_particles(p, npart);
+    madnklo_transfer_input_particles(p, npart);
 
+    // perform the clustering
     // cluster without areas
     cs.reset(new ClusterSequence(input_particles,jet_def));
 
     // extract jets (pt-ordered)
-    jets = sorted_by_pt(cs->inclusive_jets());
-    
+    jets = sorted_by_pt(cs->inclusive_jets(ptmin));
+
+    //apply the eta selector if etamax >0
+    Selector select_eta = SelectorAbsEtaMax(etamax);
+    if (etamax > 0.) {
+        jets = select_eta(jets);
+    }
+
     // transfer jets -> f77jets[4*ijet+0..3]
-    transfer_jets(f77jets, njets);
+    madnklo_transfer_jets(f77jets, njets);
  
+    // Determine which parton/particle ended-up in which jet
+    // set all jet entrie to zero first
+    for(unsigned int ii=0; ii<npart; ++ii) whichjet[ii]=0;       
+
+    // Loop over jets and find constituents
+    for (unsigned int kk=0; kk<njets; ++kk) {   
+      vector<PseudoJet> constit = cs->constituents(jets[kk]);
+      for(unsigned int ll=0; ll<constit.size(); ++ll)
+             whichjet[constit[ll].user_index()]=kk+1;
+    }
+    
   }
 
 }
@@ -97,7 +119,6 @@ using namespace fjcore::fwrapper;
 
 extern "C" {   
 
-
 /// f77 interface to the pp generalised-kt (sequential recombination)
 /// algorithms, as defined in arXiv.org:0802.1189, which includes
 /// kt, Cambridge/Aachen and anti-kt as special cases.
@@ -105,9 +126,9 @@ extern "C" {
 // Corresponds to the following Fortran subroutine
 // interface structure:
 //
-//   SUBROUTINE FJCOREPPGENKT(P,NPART,R,PALG,F77JETS,NJETS)
+//   SUBROUTINE FASTJETPPGENKT(P,NPART,R,PALG,F77JETS,NJETS,WHICHJET)
 //   DOUBLE PRECISION P(4,*), R, PALG, F, F77JETS(4,*)
-//   INTEGER          NPART, NJETS
+//   INTEGER          NPART, NJETS, WHICHJET(*)
 // 
 // where on input
 //
@@ -122,22 +143,25 @@ extern "C" {
 //   F77JETS  the output jet momenta (whose second dim should be >= NPART)
 //            sorted in order of decreasing p_t.
 //   NJETS    the number of output jets 
+//   WHICHJET(i) the jet of parton/particle 'i'
 //
 // For the values of PALG that correspond to "standard" cases (1.0=kt,
 // 0.0=C/A, -1.0 = anti-kt) this routine actually calls the direct
 // implementation of those algorithms, whereas for other values of
 // PALG it calls the generalised kt implementation.
 //
-// NOTE: if you are interfacing fjcore to Pythia 6, Pythia stores its
+// NOTE: if you are interfacing fastjet to Pythia 6, Pythia stores its
 // momenta as a matrix of the form P(4000,5), whereas this fortran
-// interface to fjcore expects them as P(4,NPART), i.e. you must take
+// interface to fastjet expects them as P(4,NPART), i.e. you must take
 // the transpose of the Pythia array and drop the fifth component
 // (particle mass).
 //
-void fjcoreppgenkt_(const double * p, const int & npart,                   
-                    const double & R, const double & palg,
-                    double * f77jets, int & njets) {
-    
+void madnklo_fastjetppgenkt_etamax_(const double * p, const int & npart,                   
+                     const double & R, const double & ptjetmin,
+                     const double & etamax,
+                     const double & palg,
+                     double * f77jets, int & njets, int * whichjet) {
+
     // prepare jet def
     if (palg == 1.0) {
       jet_def = JetDefinition(kt_algorithm, R);
@@ -150,25 +174,20 @@ void fjcoreppgenkt_(const double * p, const int & npart,
     }
 
     // do everything
-    transfer_cluster_transfer(p,npart,jet_def,f77jets,njets);
-}
-
-/// a routine that provides similar f77 functionality to fjcoreppgenkt_, 
-/// but for the e+e- algorithms instead of the pp ones; note this 
-/// only gives the "inclusive" algorithms. The algorithms are as
-/// defined in the FastJet manual.
-void fjcoreeegenkt_(const double * p, const int & npart,                   
-                    const double & R, const double & palg,
-                    double * f77jets, int & njets) {
-    
-  // prepare jet def
-  jet_def = JetDefinition(ee_genkt_algorithm, R, palg);
-  
-  // do everything
-  transfer_cluster_transfer(p,npart,jet_def,f77jets,njets);
+    madnklo_transfer_cluster_transfer(p,npart,jet_def,ptjetmin,etamax,f77jets,njets,whichjet);
 }
 
 
+void madnklo_fastjetppgenkt_(const double * p, const int & npart,                   
+                     const double & R, const double & ptjetmin,
+                     const double & palg,
+                     double * f77jets, int & njets, int * whichjet) {
+
+    // jsut call amacatnlo_fastjetppgenkt_etamax passing etamax=-1.
+    double etamax = -1.;
+    madnklo_fastjetppgenkt_etamax_(p,npart,R,ptjetmin,etamax,palg,
+                                    f77jets,njets,whichjet);
+}
 
 
 
@@ -184,13 +203,13 @@ void fjcoreeegenkt_(const double * p, const int & npart,
 // Corresponds to the following Fortran subroutine
 // interface structure:
 //
-//   SUBROUTINE FJCORECONSTITUENTS(IJET,CONSTITUENT_INDICES,NCONSTITUENTS)
+//   SUBROUTINE FASTJETCONSTITUENTS(IJET,CONSTITUENT_INDICES,NCONSTITUENTS)
 //   INTEGER    IJET
 //   INTEGER    CONSTITUENT_INDICES(*)
 //   INTEGER    nconstituents
 //
-void fjcoreconstituents_(const int & ijet, 
-   	                 int * constituent_indices, int & nconstituents) {
+void fastjetconstituents_(const int & ijet, 
+   	                  int * constituent_indices, int & nconstituents) {
   assert(cs.get() != 0);
   assert(ijet > 0 && ijet <= jets.size());
 
@@ -203,16 +222,18 @@ void fjcoreconstituents_(const int & ijet,
 }
 
 
+
+
 /// return the dmin corresponding to the recombination that went from
 /// n+1 to n jets (sometimes known as d_{n n+1}).
 //
 // Corresponds to the following Fortran interface
 // 
-//   FUNCTION FJCOREDMERGE(N)
-//   DOUBLE PRECISION FJCOREDMERGE
+//   FUNCTION FASTJETDMERGE(N)
+//   DOUBLE PRECISION FASTJETDMERGE
 //   INTEGER N
 //   
-double fjcoredmerge_(const int & n) {
+double madnklo_fastjetdmerge_(const int & n) {
   assert(cs.get() != 0);
   return cs->exclusive_dmerge(n);
 }
@@ -225,14 +246,18 @@ double fjcoredmerge_(const int & n) {
 //
 // Corresponds to the following Fortran interface
 // 
-//   FUNCTION FJCOREDMERGEMAX(N)
-//   DOUBLE PRECISION FJCOREDMERGEMAX
+//   FUNCTION FASTJETDMERGEMAX(N)
+//   DOUBLE PRECISION FASTJETDMERGEMAX
 //   INTEGER N
 //   
-double fjcoredmergemax_(const int & n) {
+double madnklo_fastjetdmergemax_(const int & n) {
   assert(cs.get() != 0);
   return cs->exclusive_dmerge_max(n);
 }
+
+
+
+
 
 
 }

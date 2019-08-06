@@ -17,4 +17,5 @@ fn main() {
     println!("cargo:rustc-link-search={}/vendor/fjcore", madnklo_root);
     println!("cargo:rustc-link-search={}/HEPTools/lhapdf6/lib", madnklo_root);
     println!("cargo:rustc-link-lib=stdc++");
+    println!("cargo:rustc-link-lib=gcc");
 }

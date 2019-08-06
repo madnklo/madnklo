@@ -4,8 +4,8 @@ CXXFLAGS=-O2 -fPIC
 
 all: libfjcore
 
-libfjcore: fjcorefortran.o fjcore.o
-	ar cru libfjcore.a fjcorefortran.o  fjcore.o
+libfjcore: fjcore.o fastjetfortran_madnklo_core.o
+	ar cru libfjcore.a  fjcore.o fastjetfortran_madnklo_core.o
 
 clean:
 	rm -vf libfjcore.a

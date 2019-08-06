@@ -1,4 +1,4 @@
-// fjcore -- extracted from FastJet v3.3.2 (http://fastjet.fr)
+// fjcore -- extracted from FastJet v3.1.3 (http://fastjet.fr)
 //
 // fjcore constitutes a digest of the main FastJet functionality.
 // The files fjcore.hh and fjcore.cc are meant to provide easy access to these 
@@ -8,9 +8,6 @@
 //     g++ main.cc fjcore.cc
 // 
 // with main.cc including fjcore.hh.
-//
-// A fortran interface, fjcorefortran.cc, is also provided. See the example 
-// and the Makefile for instructions.
 //
 // The results are expected to be identical to those obtained by linking to
 // the full FastJet distribution.
@@ -51,13 +48,10 @@
 //   EPJC72(2012)1896 [arXiv:1111.6097] (FastJet User Manual)
 //   and, optionally, Phys.Lett.B641 (2006) 57 [arXiv:hep-ph/0512210]
 //
-//FJSTARTHEADER
-// $Id$
-//
-// Copyright (c) 2005-2018, Matteo Cacciari, Gavin P. Salam and Gregory Soyez
+// Copyright (c) 2005-2014, Matteo Cacciari, Gavin P. Salam and Gregory Soyez
 //
 //----------------------------------------------------------------------
-// This file is part of FastJet (fjcore).
+// This file is part of FastJet.
 //
 //  FastJet is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -65,11 +59,9 @@
 //  (at your option) any later version.
 //
 //  The algorithms that underlie FastJet have required considerable
-//  development. They are described in the original FastJet paper,
-//  hep-ph/0512210 and in the manual, arXiv:1111.6097. If you use
+//  development and are described in hep-ph/0512210. If you use
 //  FastJet as part of work towards a scientific publication, please
-//  quote the version you use and include a citation to the manual and
-//  optionally also to hep-ph/0512210.
+//  include a citation to the FastJet paper.
 //
 //  FastJet is distributed in the hope that it will be useful,
 //  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -79,7 +71,7 @@
 //  You should have received a copy of the GNU General Public License
 //  along with FastJet. If not, see <http://www.gnu.org/licenses/>.
 //----------------------------------------------------------------------
-//FJENDHEADER
+//
 #include "fjcore.hh"
 #ifndef __FJCORE_VERSION_HH__
 #define __FJCORE_VERSION_HH__
@@ -675,7 +667,7 @@ FJCORE_BEGIN_NAMESPACE      // defined in fastjet/internal/base.hh
 class Coord2D {
 public:
   double x, y;
-  Coord2D() : x(0.0), y(0.0) {};
+  Coord2D() {};
   Coord2D(double a, double b): x(a), y(b) {};
   Coord2D operator-(const Coord2D & other) const {
     return Coord2D(x - other.x,  y - other.y);};
@@ -778,8 +770,8 @@ private:
   typedef SearchTree<Shuffle>     Tree;
   typedef Tree::circulator        circulator;
   typedef Tree::const_circulator  const_circulator;
-  triplet<SharedPtr<Tree> >  _trees;
-  SharedPtr<MinHeap>     _heap;
+  triplet<std::auto_ptr<Tree> >  _trees;
+  std::auto_ptr<MinHeap> _heap;
   std::vector<Point>     _points;
   std::stack<Point *>    _available_points;
   std::vector<Point *>   _points_under_review;
@@ -1151,7 +1143,6 @@ FJCORE_BEGIN_NAMESPACE      // defined in fastjet/internal/base.hh
 class TilingExtent {
 public:
   TilingExtent(ClusterSequence & cs);
-  TilingExtent(const std::vector<PseudoJet> &particles);
   double minrap() const {return _minrap;}
   double maxrap() const {return _maxrap;}
   double sum_of_binned_squared_multiplicity() const {return _cumul2;}
@@ -1220,7 +1211,7 @@ void ClosestPair2D::_initialize(const std::vector<Coord2D> & positions,
 	shuffles[i] += rel_shift; }
     }
     sort(shuffles.begin(), shuffles.end());
-    _trees[ishift] = SharedPtr<Tree>(new Tree(shuffles, max_size));
+    _trees[ishift] = auto_ptr<Tree>(new Tree(shuffles, max_size));
     circulator circ = _trees[ishift]->somewhere(), start=circ;
     unsigned int CP_range = min(_cp_search_range, n_positions-1);
     do {
@@ -1240,7 +1231,7 @@ void ClosestPair2D::_initialize(const std::vector<Coord2D> & positions,
   vector<double> mindists2(n_positions);
   for (unsigned int i = 0; i < n_positions; i++) {
     mindists2[i] = _points[i].neighbour_dist2;}
-  _heap = SharedPtr<MinHeap>(new MinHeap(mindists2, max_size));
+  _heap = auto_ptr<MinHeap>(new MinHeap(mindists2, max_size));
 }
 void ClosestPair2D::closest_pair(unsigned int & ID1, unsigned int & ID2, 
 				 double & distance2) const {
@@ -1410,8 +1401,8 @@ FJCORE_BEGIN_NAMESPACE      // defined in fastjet/internal/base.hh
 using namespace std;
 std::ostream * ClusterSequence::_fastjet_banner_ostr = &cout;
 ClusterSequence::~ClusterSequence () {
-  if (_structure_shared_ptr){
-    ClusterSequenceStructure* csi = dynamic_cast<ClusterSequenceStructure*>(_structure_shared_ptr.get()); 
+  if (_structure_shared_ptr()){
+    ClusterSequenceStructure* csi = dynamic_cast<ClusterSequenceStructure*>(_structure_shared_ptr()); 
     assert(csi != NULL);
     csi->set_associated_cs(NULL);
     if (_deletes_self_when_unused) {
@@ -1766,15 +1757,9 @@ Strategy ClusterSequence::_best_strategy() const {
       }
     }
   }
-  assert(0 && "Code should never reach here");
+  bool code_should_never_reach_here = false;
+  assert(code_should_never_reach_here); 
   return N2MHTLazy9;
-}
-ClusterSequence & ClusterSequence::operator=(const ClusterSequence & cs) {
-  if (&cs != this) {
-    _deletes_self_when_unused = false;
-    transfer_from_sequence(cs);
-  }
-  return *this;
 }
 void ClusterSequence::transfer_from_sequence(const ClusterSequence & from_seq,
 					     const FunctionOfPseudoJet<PseudoJet> * action_on_jets){
@@ -1795,9 +1780,9 @@ void ClusterSequence::transfer_from_sequence(const ClusterSequence & from_seq,
     _jets     = from_seq._jets;
   _history  = from_seq._history;
   _extras   = from_seq._extras;
-  if (_structure_shared_ptr) {
+  if (_structure_shared_ptr()) {
     if (_deletes_self_when_unused) throw Error("transfer_from_sequence cannot be used for a cluster sequence that deletes self when unused");
-    ClusterSequenceStructure* csi = dynamic_cast<ClusterSequenceStructure*>(_structure_shared_ptr.get()); 
+    ClusterSequenceStructure* csi = dynamic_cast<ClusterSequenceStructure*>(_structure_shared_ptr()); 
     assert(csi != NULL);
     csi->set_associated_cs(NULL);
   }
@@ -2132,7 +2117,7 @@ void ClusterSequence::add_constituents (
   }
 }
 void ClusterSequence::_add_step_to_history (
-               const int parent1, 
+	       const int step_number, const int parent1, 
 	       const int parent2, const int jetp_index,
 	       const double dij) {
   history_element element;
@@ -2144,6 +2129,7 @@ void ClusterSequence::_add_step_to_history (
   element.max_dij_so_far = max(dij,_history[_history.size()-1].max_dij_so_far);
   _history.push_back(element);
   int local_step = _history.size()-1;
+  assert(local_step == step_number);
   assert(parent1 >= 0);
   if (_history[parent1].child != Invalid){
     throw InternalError("trying to recomine an object that has previsously been recombined");
@@ -2252,12 +2238,13 @@ void ClusterSequence::_do_ij_recombination_step(
   _jets[newjet_k].set_cluster_hist_index(newstep_k);
   int hist_i = _jets[jet_i].cluster_hist_index();
   int hist_j = _jets[jet_j].cluster_hist_index();
-  _add_step_to_history(min(hist_i, hist_j), max(hist_i,hist_j),
+  _add_step_to_history(newstep_k, min(hist_i, hist_j), max(hist_i,hist_j),
 		       newjet_k, dij);
 }
 void ClusterSequence::_do_iB_recombination_step(
 				  const int jet_i, const double diB) {
-  _add_step_to_history(_jets[jet_i].cluster_hist_index(),BeamJet,
+  int newstep_k = _history.size();
+  _add_step_to_history(newstep_k,_jets[jet_i].cluster_hist_index(),BeamJet,
 		       Invalid, diB);
 }
 LimitedWarning ClusterSequence::_changed_strategy_warning;
@@ -2287,8 +2274,8 @@ namespace Private {
   class MirrorInfo{
   public:
     int orig, mirror;
-    MirrorInfo(int a, int b) : orig(a), mirror(b) {}
-    MirrorInfo() : orig(0), mirror(0) {} // set dummy values to keep static code checkers happy
+    MirrorInfo(int a, int b) : orig(a), mirror(b) {};
+    MirrorInfo() {};
   };
   bool make_mirror(Coord2D & point, double Dlim) {
     if (point.y < Dlim)       {point.y += twopi; return true;}
@@ -2467,8 +2454,8 @@ void ClusterSequence::_delaunay_cluster () {
     points[i] = EtaPhi(_jets[i].rap(),_jets[i].phi_02pi());
     points[i].sanitize(); // make sure things are in the right range
   }
-  SharedPtr<DynamicNearestNeighbours> DNN;
-  const bool verbose = false;
+  auto_ptr<DynamicNearestNeighbours> DNN;
+  bool verbose = false;
 #ifndef __FJCORE_DROP_CGAL // strategy = NlnN* are not supported if we drop CGAL...
   bool ignore_nearest_is_mirror = (_Rparam < twopi);
   if (_strategy == NlnN4pi) {
@@ -3356,8 +3343,8 @@ using namespace std;
 const double JetDefinition::max_allowable_R = 1000.0;
 JetDefinition::JetDefinition(JetAlgorithm jet_algorithm_in, 
 			     double R_in, 
-			     RecombinationScheme recomb_scheme_in,
 			     Strategy strategy_in,
+			     RecombinationScheme recomb_scheme_in,
                              int nparameters) :
   _jet_algorithm(jet_algorithm_in), _Rparam(R_in), _strategy(strategy_in) {
   if (_jet_algorithm == ee_kt_algorithm) {
@@ -3453,7 +3440,7 @@ unsigned int JetDefinition::n_parameters_for_algorithm(const JetAlgorithm jet_al
 void JetDefinition::set_recombination_scheme(
                                RecombinationScheme recomb_scheme) {
   _default_recombiner = JetDefinition::DefaultRecombiner(recomb_scheme);
-  if (_shared_recombiner) _shared_recombiner.reset();
+  if (_shared_recombiner()) _shared_recombiner.reset();
   _recombiner = 0;
 }
 void JetDefinition::set_recombiner(const JetDefinition &other_jet_def){
@@ -3830,34 +3817,30 @@ PseudoJet operator* (const PseudoJet & jet, double coeff) {
 PseudoJet operator/ (const PseudoJet & jet, double coeff) {
   return (1.0/coeff)*jet;
 } 
-PseudoJet & PseudoJet::operator*=(double coeff) {
+void PseudoJet::operator*=(double coeff) {
   _ensure_valid_rap_phi(); 
   _px *= coeff;
   _py *= coeff;
   _pz *= coeff;
   _E  *= coeff;
   _kt2*= coeff*coeff;
-  return *this;
 }
-PseudoJet & PseudoJet::operator/=(double coeff) {
+void PseudoJet::operator/=(double coeff) {
   (*this) *= 1.0/coeff;
-  return *this;
 }
-PseudoJet & PseudoJet::operator+=(const PseudoJet & other_jet) {
+void PseudoJet::operator+=(const PseudoJet & other_jet) {
   _px += other_jet._px;
   _py += other_jet._py;
   _pz += other_jet._pz;
   _E  += other_jet._E ;
   _finish_init(); // we need to recalculate phi,rap,kt2
-  return *this;
 }
-PseudoJet & PseudoJet::operator-=(const PseudoJet & other_jet) {
+void PseudoJet::operator-=(const PseudoJet & other_jet) {
   _px -= other_jet._px;
   _py -= other_jet._py;
   _pz -= other_jet._pz;
   _E  -= other_jet._E ;
   _finish_init(); // we need to recalculate phi,rap,kt2
-  return *this;
 }
 bool operator==(const PseudoJet & a, const PseudoJet & b) {
   if (a.px() != b.px()) return false;
@@ -3961,19 +3944,19 @@ double PseudoJet::delta_phi_to(const PseudoJet & other) const {
   return dphi;
 }
 string PseudoJet::description() const{
-  if (!_structure)
+  if (!_structure())
     return "standard PseudoJet (with no associated clustering information)";
-  return _structure->description();
+  return _structure()->description();
 }
 bool PseudoJet::has_associated_cluster_sequence() const{
-  return (_structure) && (_structure->has_associated_cluster_sequence());
+  return (_structure()) && (_structure->has_associated_cluster_sequence());
 }
 const ClusterSequence* PseudoJet::associated_cluster_sequence() const{
   if (! has_associated_cluster_sequence()) return NULL;
   return _structure->associated_cluster_sequence();
 }
 bool PseudoJet::has_valid_cluster_sequence() const{
-  return (_structure) && (_structure->has_valid_cluster_sequence());
+  return (_structure()) && (_structure->has_valid_cluster_sequence());
 }
 const ClusterSequence * PseudoJet::validated_cs() const {
   return validated_structure_ptr()->validated_cs();
@@ -3982,18 +3965,20 @@ void PseudoJet::set_structure_shared_ptr(const SharedPtr<PseudoJetStructureBase>
   _structure = structure_in;
 }
 bool PseudoJet::has_structure() const{
-  return bool(_structure);
+  return _structure();
 }
 const PseudoJetStructureBase* PseudoJet::structure_ptr() const {
-  return _structure.get();
+  if (!_structure()) return NULL;
+  return _structure();
 }
 PseudoJetStructureBase* PseudoJet::structure_non_const_ptr(){
-  return _structure.get();
+  if (!_structure()) return NULL;
+  return _structure();
 }
 const PseudoJetStructureBase* PseudoJet::validated_structure_ptr() const {
-  if (!_structure) 
+  if (!_structure()) 
     throw Error("Trying to access the structure of a PseudoJet which has no associated structure");
-  return _structure.get();
+  return _structure();
 }
 const SharedPtr<PseudoJetStructureBase> & PseudoJet::structure_shared_ptr() const {
   return _structure;
@@ -4014,13 +3999,13 @@ bool PseudoJet::is_inside(const PseudoJet &jet) const{
   return validated_structure_ptr()->object_in_jet(*this, jet);
 }
 bool PseudoJet::has_constituents() const{
-  return (_structure) && (_structure->has_constituents());
+  return (_structure()) && (_structure->has_constituents());
 }
 vector<PseudoJet> PseudoJet::constituents() const{
   return validated_structure_ptr()->constituents(*this);
 }
 bool PseudoJet::has_exclusive_subjets() const{
-  return (_structure) && (_structure->has_exclusive_subjets());
+  return (_structure()) && (_structure->has_exclusive_subjets());
 }
 std::vector<PseudoJet> PseudoJet::exclusive_subjets (const double dcut) const {
   return validated_structure_ptr()->exclusive_subjets(*this, dcut);
@@ -4048,7 +4033,7 @@ double PseudoJet::exclusive_subdmerge_max(int nsub) const {
   return validated_structure_ptr()->exclusive_subdmerge_max(*this, nsub);
 }
 bool PseudoJet::has_pieces() const{
-  return ((_structure) && (_structure->has_pieces(*this)));
+  return ((_structure()) && (_structure->has_pieces(*this)));
 }
 std::vector<PseudoJet> PseudoJet::pieces() const{
   return validated_structure_ptr()->pieces(*this);
@@ -4059,6 +4044,19 @@ void sort_indices(vector<int> & indices,
 			 const vector<double> & values) {
   IndexedSortHelper index_sort_helper(&values);
   sort(indices.begin(), indices.end(), index_sort_helper);
+}
+template<class T> vector<T>  objects_sorted_by_values(
+                       const vector<T> & objects, 
+		       const vector<double> & values) {
+  assert(objects.size() == values.size());
+  vector<int> indices(values.size());
+  for (size_t i = 0; i < indices.size(); i++) {indices[i] = i;}
+  sort_indices(indices, values);
+  vector<T> objects_sorted(objects.size());
+  for (size_t i = 0; i < indices.size(); i++) {
+    objects_sorted[i] = objects[indices[i]];
+  }
+  return objects_sorted;
 }
 vector<PseudoJet> sorted_by_pt(const vector<PseudoJet> & jets) {
   vector<double> minus_kt2(jets.size());
@@ -4967,7 +4965,7 @@ void LazyTiling25::_initialise_tiles() {
   _tile_size_eta = default_size;
   _n_tiles_phi   = max(5,int(floor(twopi/default_size)));
   _tile_size_phi = twopi / _n_tiles_phi; // >= _Rparam and fits in 2pi
-#define _FJCORE_TILING25_USE_TILING_ANALYSIS_
+#define _FASTJET_TILING25_USE_TILING_ANALYSIS_
 #ifdef  _FASTJET_TILING25_USE_TILING_ANALYSIS_
   TilingExtent tiling_analysis(_cs);
   _tiles_eta_min = tiling_analysis.minrap();
@@ -4984,8 +4982,8 @@ void LazyTiling25::_initialise_tiles() {
     }
   }
 #endif // _FASTJET_TILING25_USE_TILING_ANALYSIS_
-# define FJCORE_LAZY25_MIN3TILESY
-#ifdef FJCORE_LAZY25_MIN3TILESY
+#define FASTJET_LAZY25_MIN3TILESY
+#ifdef FASTJET_LAZY25_MIN3TILESY
    if (_tiles_eta_max - _tiles_eta_min < 3*_tile_size_eta) {
      _tile_size_eta = (_tiles_eta_max - _tiles_eta_min)/3;
      _tiles_ieta_min = 0;
@@ -4997,7 +4995,7 @@ void LazyTiling25::_initialise_tiles() {
     _tiles_ieta_max = int(floor( _tiles_eta_max/_tile_size_eta));
     _tiles_eta_min = _tiles_ieta_min * _tile_size_eta;
     _tiles_eta_max = _tiles_ieta_max * _tile_size_eta;
-#ifdef FJCORE_LAZY25_MIN3TILESY
+#ifdef FASTJET_LAZY25_MIN3TILESY
    }
 #endif
   _tile_half_size_eta = _tile_size_eta * 0.5;
@@ -5357,7 +5355,7 @@ FJCORE_END_NAMESPACE
 #include <limits>
 #include <cmath>
 using namespace std;
-#define _FJCORE_TILING2_USE_TILING_ANALYSIS_
+#define _FASTJET_TILING2_USE_TILING_ANALYSIS_
 FJCORE_BEGIN_NAMESPACE      // defined in fastjet/internal/base.hh
 LazyTiling9::LazyTiling9(ClusterSequence & cs) :
   _cs(cs), _jets(cs.jets())
@@ -5376,7 +5374,7 @@ void LazyTiling9::_initialise_tiles() {
   _tile_size_eta = default_size;
   _n_tiles_phi   = max(3,int(floor(twopi/default_size)));
   _tile_size_phi = twopi / _n_tiles_phi; // >= _Rparam and fits in 2pi
-#ifdef _FJCORE_TILING2_USE_TILING_ANALYSIS_
+#ifdef _FASTJET_TILING2_USE_TILING_ANALYSIS_
   TilingExtent tiling_analysis(_cs);
   _tiles_eta_min = tiling_analysis.minrap();
   _tiles_eta_max = tiling_analysis.maxrap();
@@ -5392,8 +5390,8 @@ void LazyTiling9::_initialise_tiles() {
     }
   }
 #endif
-# define FJCORE_LAZY9_MIN2TILESY
-#ifdef FJCORE_LAZY9_MIN2TILESY
+#define FASTJET_LAZY9_MIN2TILESY
+#ifdef FASTJET_LAZY9_MIN2TILESY
    if (_tiles_eta_max - _tiles_eta_min < 2*_tile_size_eta) {
      _tile_size_eta = (_tiles_eta_max - _tiles_eta_min)/2;
      _tiles_ieta_min = 0;
@@ -5405,7 +5403,7 @@ void LazyTiling9::_initialise_tiles() {
   _tiles_ieta_max = int(floor( _tiles_eta_max/_tile_size_eta));
   _tiles_eta_min = _tiles_ieta_min * _tile_size_eta;
   _tiles_eta_max = _tiles_ieta_max * _tile_size_eta;
-#ifdef FJCORE_LAZY9_MIN2TILESY
+#ifdef FASTJET_LAZY9_MIN2TILESY
    }
 #endif
   _tile_half_size_eta = _tile_size_eta * 0.5;
@@ -6117,9 +6115,6 @@ using namespace std;
 FJCORE_BEGIN_NAMESPACE      // defined in fastjet/internal/base.hh
 TilingExtent::TilingExtent(ClusterSequence & cs) {
   _determine_rapidity_extent(cs.jets());
-}
-TilingExtent::TilingExtent(const vector<PseudoJet> &particles) {
-  _determine_rapidity_extent(particles);
 }
 void TilingExtent::_determine_rapidity_extent(const vector<PseudoJet> & particles) {
   int nrap = 20; 

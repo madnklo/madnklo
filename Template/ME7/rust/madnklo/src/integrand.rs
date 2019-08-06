@@ -14,7 +14,7 @@ use vector::LorentzVector;
 mod LHAPDF {
     use libc::{c_char, c_double, c_int, c_void};
 
-    #[link(name = "LHAPDF", kind = "static")]
+    #[link(name = "LHAPDF", kind = "dylib")]
     extern "C" {
         pub fn initpdfsetbyname_(setname: *const c_char, setnamelength: c_int);
         pub fn initpdf_(index: *const c_int);
@@ -35,21 +35,15 @@ mod FJCORE {
 
     #[link(name = "fjcore", kind = "static")]
     extern "C" {
-        pub fn fjcoreppgenkt_(
+        pub fn madnklo_fastjetppgenkt_(
             p: *const c_double,
             npart: *const c_int,
             R: *const c_double,
+            ptjet_min: *const c_double,
             palg: *const c_double,
             jets: *mut c_double,
             njets: *mut c_int,
-        );
-        pub fn fjcoreeegenkt_(
-            p: *const c_double,
-            npart: *const c_int,
-            R: *const c_double,
-            palg: *const c_double,
-            jets: *mut c_double,
-            njets: *mut c_int,
+            whichjets: *mut c_int,
         );
     }
 }
@@ -356,19 +350,23 @@ impl Integrand {
 
             // Cluster them with fastjet
             let mut jets_flat = vec![0.; jets_list.len()];
+            let mut whichjet = vec![0; jets_list.len()];
             all_jets = Vec::with_capacity(jets_list.len() / 4);
             let mut actual_len: c_int = 0;
             let len: c_int = (jets_list.len() / 4) as c_int;
             let palg = -1.0;
+            let clustering_ptjet_min = ptj_cut; // Possibly set to 0. if problematic
 
             unsafe {
-                FJCORE::fjcoreeegenkt_(
+                FJCORE::madnklo_fastjetppgenkt_(
                     &jets_list[0] as *const c_double,
                     &len as *const c_int,
                     &drjj_cut as *const c_double,
+                    &clustering_ptjet_min as *const c_double,
                     &palg as *const c_double,
                     &mut jets_flat[0] as *mut c_double,
                     &mut actual_len as *mut c_int,
+                    &mut whichjet[0] as *mut c_int,
                 );
             }
 

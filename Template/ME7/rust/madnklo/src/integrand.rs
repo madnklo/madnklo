@@ -19,6 +19,14 @@ mod LHAPDF {
         pub fn initpdfsetbyname_(setname: *const c_char, setnamelength: c_int);
         pub fn initpdf_(index: *const c_int);
         pub fn alphaspdf_(scale: *const c_double) -> f64;
+        pub fn evolvepdf_(x: *const c_double, q: *const c_double, f: *mut c_double) -> f64;
+        pub fn evolvepdfphoton_(
+            x: *const c_double,
+            q: *const c_double,
+            f: *mut c_double,
+            photon: *mut c_double,
+        ) -> f64;
+        pub fn has_photon_() -> bool;
     }
 }
 
@@ -69,8 +77,79 @@ pub struct Event {
     host_contribution_definition: String,
     requires_mirroring: bool,
     bjorken_xs: (f64, f64),
-    bjorken_x_rescalings: (f64, f64),
+    bjorken_x_rescalings: (Option<f64>, Option<f64>),
     is_a_mirrored_event: bool,
+}
+
+impl Event {
+    /// Convolute the weights_per_flavor_configurations.
+    fn apply_PDF_convolution(&mut self, mu_f: (f64, f64)) {
+        // In order for the + distributions of the PDF counterterms and integrated
+        // collinear ISR counterterms to hit the PDF only (and not the matrix elements or
+        // observables functions), a change of variable is necessary: xb_1' = xb_1 * xi1
+        // In this case, the xi1 to factor to apply is given by the Bjorken_x_rescalings
+        // factor, which must be used both for rescaling the argument of the PDF as well
+        // as bringing a factor 1/xi for the jacobian of the change of variable.
+        for (flavors, flavour_weight) in self.weights_per_flavor_configurations.iter_mut() {
+            let mut PDFs = 1.;
+
+            PDFs *= Event::get_pdfQ(
+                flavors.0[0],
+                self.bjorken_xs.0 * self.bjorken_x_rescalings.0.unwrap(),
+                mu_f.0,
+            );
+            PDFs *= self.bjorken_x_rescalings.0.unwrap();
+
+            if flavors.0.len() == 2 {
+                PDFs *= Event::get_pdfQ(
+                    flavors.0[1],
+                    self.bjorken_xs.1 * self.bjorken_x_rescalings.1.unwrap(),
+                    mu_f.1,
+                );
+                PDFs *= self.bjorken_x_rescalings.1.unwrap();
+            }
+
+            *flavour_weight *= PDFs;
+        }
+    }
+
+    /// Call the PDF and return the corresponding density.
+    fn get_pdfQ(pdg: isize, x: f64, scale: f64) -> f64 {
+        if pdg != 21 && pdg != 22 && (pdg == 0 || pdg.abs() > 6) {
+            return 1.;
+        }
+
+        let mut f: [f64; 13] = [0.; 13]; // TODO: cache for all flavours
+        unsafe {
+            let pdf_weight = if LHAPDF::has_photon_() {
+                let mut photon: f64 = 0.;
+                LHAPDF::evolvepdfphoton_(
+                    &x as *const c_double,
+                    &scale as *const c_double,
+                    &mut f[0] as *mut c_double,
+                    &mut photon as *mut c_double,
+                );
+                match pdg {
+                    22 => photon,
+                    21 => f[6],
+                    a => f[(a + 6) as usize],
+                }
+            } else {
+                LHAPDF::evolvepdf_(
+                    &x as *const c_double,
+                    &scale as *const c_double,
+                    &mut f[0] as *mut c_double,
+                );
+                match pdg {
+                    22 => unreachable!("Selected pdf set does not include a photon"),
+                    21 => f[6],
+                    a => f[(a + 6) as usize],
+                }
+            };
+
+            pdf_weight / x
+        }
+    }
 }
 
 pub struct Integrand {
@@ -102,6 +181,9 @@ pub struct Integrand {
 
     // Integrand evaluator containing all the hardcoded information
     integrand_evaluator: Box<IntegrandEvaluator>,
+
+    // level of debug info
+    verbosity: usize,
 }
 
 impl Integrand {
@@ -155,7 +237,16 @@ impl Integrand {
             processes_per_sector: vec![(0..n_processes).map(|id| (id, None)).collect()],
             selected_sectors: vec![],
             integrand_evaluator,
+            verbosity: 0,
         }
+    }
+
+    pub fn set_verbosity(&mut self, verbosity: usize) {
+        self.verbosity = verbosity;
+    }
+
+    pub fn get_dimensions(&self) -> usize {
+        self.phase_space_generator.get_dimensions()
     }
 
     pub fn set_sectors(
@@ -435,8 +526,8 @@ impl Integrand {
         mu_f2: f64,
         xb_1: f64,
         xb_2: f64,
-        x1: f64,
-        x2: f64,
+        x1: Option<f64>,
+        x2: Option<f64>,
         sector_info: Option<Sector>,
     ) -> Vec<Event> {
         let mut sigma_wgt = base_weight;
@@ -464,7 +555,10 @@ impl Integrand {
             0,
         );
         sigma_wgt *= ME_evaluation[0];
-        println!("sigma={:e}", ME_evaluation[0]);
+
+        if self.verbosity > 0 {
+            println!("sigma={:e}", ME_evaluation[0]);
+        }
 
         // Return the lone LO event
         vec![Event {
@@ -476,7 +570,7 @@ impl Integrand {
                 .collect(),
             requires_mirroring: false, // FIXME: hardcoding to false
             bjorken_xs: (xb_1, xb_2),
-            bjorken_x_rescalings: (xb_1, xb_2), // FIXME: what to do here?
+            bjorken_x_rescalings: (x1, x2),
             is_a_mirrored_event: false,
         }]
     }
@@ -496,12 +590,17 @@ impl Integrand {
 
         for (i, x) in self.external_momenta.iter().enumerate() {
             self.external_momenta_map.insert(i + 1, *x);
-            println!("PS_points {}={:e}", i + 1, x);
+
+            if self.verbosity > 0 {
+                println!("PS_points {}={:e}", i + 1, x);
+            }
         }
 
         wgt *= PS_weight;
 
-        println!("PS_weight={:e}", PS_weight);
+        if self.verbosity > 0 {
+            println!("PS_weight={:e}", PS_weight);
+        }
 
         let (xb_1, xi1) = x1s;
         let (xb_2, xi2) = x2s;
@@ -533,7 +632,9 @@ impl Integrand {
         );
 
         let alpha_s = unsafe { LHAPDF::alphaspdf_(&mu_r as *const c_double) };
-        println!("alpha_s = {}", alpha_s);
+        if self.verbosity > 0 {
+            println!("alpha_s = {}", alpha_s);
+        }
 
         // overwrite the parameters
         self.param_card.aS = alpha_s;
@@ -591,41 +692,35 @@ impl Integrand {
             }
             events = filtered_events;
 
-            // And epsilon-expansion
-            // Select particular terms of the EpsilonExpansion terms stored as weights
-            //events.select_epsilon_expansion_term('finite')
+            for event in &mut events {
+                // And epsilon-expansion
+                // Select particular terms of the EpsilonExpansion terms stored as weights
+                //event.select_epsilon_expansion_term('finite')
 
-            // Apply PDF convolution
-            // For this one must use the LHPADF library whose location is given by MG5aMC options
-            // and for this you must also use the "run_card" Rust run_card object
-            //if self.run_card.lpp1 == self.run_card.lpp2 && self.run_card.lpp1 == 1:
-            //    events.apply_PDF_convolution( self.get_pdfQ2, (self.pdf, self.pdf), (mu_f1**2, mu_f2**2) )
+                // Apply PDF convolution
+                if self.run_card.lpp1 == self.run_card.lpp2 && self.run_card.lpp1 == 1 {
+                    event.apply_PDF_convolution((mu_f1, mu_f2));
+                }
 
-            // Make sure Bjorken-x rescalings don't matter anymore
-            // Simple safety feature to add
-            //for event in &mut events {
-            //    event.set_Bjorken_rescalings(None, None)
-            //}
+                // Make sure Bjorken-x rescalings don't matter anymore
+                event.bjorken_x_rescalings = (None, None);
 
-            // Apply flavor sensitive cuts
-            // if not events.filter_flavor_configurations(self.pass_flavor_sensitive_cuts):
-            //    if __debug__: logger.debug('Events failed the flavour-sensitive generation-level cuts.')
-            //    if __debug__: logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)
-            //    continue
+                // Apply flavor sensitive cuts
+                // if not events.filter_flavor_configurations(self.pass_flavor_sensitive_cuts):
+                //    if __debug__: logger.debug('Events failed the flavour-sensitive generation-level cuts.')
+                //    if __debug__: logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)
+                //    continue
 
-            // Aggregate the total weight to be returned to the integrator
-            total_wgt += events
-                .iter()
-                .map(|e| e.weights_per_flavor_configurations.values().sum::<f64>())
-                .sum::<f64>();
+                // Aggregate the total weight to be returned to the integrator
+                total_wgt += event
+                    .weights_per_flavor_configurations
+                    .values()
+                    .sum::<f64>();
+            }
 
             // Select a unique flavor configuration for each event
             // Not so important, can be skipped.
             //events.select_a_flavor_configuration()
-
-            // For debugging it would be useful to have the possibility of monitoring all events
-            // generated
-            //if __debug__: logger.debug('Short-distance events for this subprocess:\n%s\n'%str(events))
 
             // Finally apply observables in a thread-safe manner. The only really safe way will
             // probabaly be to write to different files that are later recombined and not use locks

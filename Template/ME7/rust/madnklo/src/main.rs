@@ -5,22 +5,17 @@ extern crate rand;
 use cuba::{CubaIntegrator, CubaVerbosity};
 
 use libc::{c_char, c_double, c_int, c_longlong, c_void};
+use madnklo::integrand::Integrand;
 use madnklo::matrix_element_evaluator::{MatrixElement, MatrixElementEvaluator};
 use madnklo::phase_space_generator::{FlatPhaseSpaceGenerator, PhaseSpaceGenerator};
 use rand::Rng;
-
-use madnklo::matrix_elements::LO_epem_ddxzz_1__1_epem_ddxzz_no_ememhzwpwpMatrixElement;
 
 use madnklo::all_integrands;
 
 use std::f64::consts::PI;
 use vector::LorentzVector;
-struct Process {
-    matrix_element:
-        MatrixElementEvaluator<LO_epem_ddxzz_1__1_epem_ddxzz_no_ememhzwpwpMatrixElement>,
-    phase_space_generator: FlatPhaseSpaceGenerator,
-    external_momenta: Vec<LorentzVector<f64>>,
-    e_cm: f64,
+struct Process<'a> {
+    integrand: &'a mut Integrand,
 }
 
 #[inline(always)]
@@ -31,30 +26,13 @@ fn integrand(
     nvec: usize,
     _core: i32,
 ) -> Result<(), &'static str> {
-    let weight =
-        process
-            .phase_space_generator
-            .generate(process.e_cm, x, &mut process.external_momenta[2..]);
-
-    let res = process
-        .matrix_element
-        .evaluate(&process.external_momenta, -1, 0.118);
+    let res = process.integrand.evaluate(x, 1.0, None);
 
     if !res.is_finite() {
         println!("nan at x={:?}", x);
-        for p in &process.external_momenta {
-            println!("p={}, mass={:e}", p, p.square().abs().sqrt());
-        }
     }
 
-    f[0] = res * weight;
-
-    // TODO: do after integration
-    // multiply conversion factor to picobarns
-    f[0] *= 0.389379304e9;
-
-    // multiply the flux factor (with hardcoded 0 masses)
-    f[0] /= (2. * process.e_cm * process.e_cm) * (2. * PI).powi(x.len() as i32);
+    f[0] = res;
 
     Ok(())
 }
@@ -68,64 +46,54 @@ fn main() {
         .set_seed(1)
         .set_cores(0, 1000);
 
-    // hardcode e+ e- -> d d~ z z
-    let e_cm = 1000.;
-    let matrix_element = MatrixElementEvaluator::new(
-        "../Cards/param_card.dat",
-        LO_epem_ddxzz_1__1_epem_ddxzz_no_ememhzwpwpMatrixElement {},
-    );
-    let fpsg = FlatPhaseSpaceGenerator::new(
-        2,
-        (vec![0., 0.], vec![0., 0., 91.188, 91.188]),
-        e_cm,
-        (0, 0),
-        false,
-        (false, false),
-    );
-
     let mut integrands = all_integrands::AllIntegrands_RUSTTEST::new();
-    integrands.all_integrands.get_mut(&1).unwrap().evaluate(
-        &[
-            0.8072168371449964,
-            0.09703446753764455,
-            0.3807885551627419,
-            0.15528816294348846,
-            0.43059185758737006,
-            0.09805328339852282,
-            0.8104023752957474,
-            0.7673972319392628,
-        ],
-        1.0,
-        None,
+    let integrand = integrands.all_integrands.get_mut(&1).unwrap();
+    integrand.set_verbosity(1);
+
+    // for testing
+    println!(
+        "Sample point #1: {}",
+        integrand.evaluate(
+            &[
+                0.8072168371449964,
+                0.09703446753764455,
+                0.3807885551627419,
+                0.15528816294348846,
+                0.43059185758737006,
+                0.09805328339852282,
+                0.8104023752957474,
+                0.7673972319392628,
+            ],
+            1.0,
+            None,
+        )
     );
 
-    integrands.all_integrands.get_mut(&1).unwrap().evaluate(
-        &[
-            0.5078178077029998,
-            0.7861861126143361,
-            0.1830110046211958,
-            0.9629787226544925,
-            0.003683355541845512,
-            0.24911371478768107,
-            0.6216002567286699,
-            0.2602448561130817,
-        ],
-        1.0,
-        None,
+    println!(
+        "Sample point #2: {}",
+        integrand.evaluate(
+            &[
+                0.5078178077029998,
+                0.7861861126143361,
+                0.1830110046211958,
+                0.9629787226544925,
+                0.003683355541845512,
+                0.24911371478768107,
+                0.6216002567286699,
+                0.2602448561130817,
+            ],
+            1.0,
+            None,
+        )
     );
-    return;
 
-    let mut external_momenta = vec![LorentzVector::default(); 6]; // 2 incoming + 4 external
-    external_momenta[0] = LorentzVector::from_args(e_cm / 2., 0., 0., e_cm / 2.);
-    external_momenta[1] = LorentzVector::from_args(e_cm / 2., 0., 0., -e_cm / 2.);
+    integrand.set_verbosity(0);
+    let dims = integrand.get_dimensions();
 
     let data = Process {
-        matrix_element,
-        phase_space_generator: fpsg,
-        external_momenta,
-        e_cm,
+        integrand: integrand,
     };
-    let r = ci.vegas(8, 1, 1, CubaVerbosity::Progress, 0, data);
+    let r = ci.vegas(dims, 1, 1, CubaVerbosity::Progress, 0, data);
 
     println!("{:#?}", r);
 }

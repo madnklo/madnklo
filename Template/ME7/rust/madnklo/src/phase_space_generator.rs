@@ -6,7 +6,9 @@ pub trait PhaseSpaceGenerator {
         &mut self,
         x: &[f64],
         ps: &mut [LorentzVector<f64>],
-    ) -> (f64, (f64, f64), (f64, f64));
+    ) -> (f64, (f64, Option<f64>), (f64, Option<f64>));
+
+    fn get_dimensions(&self) -> usize;
 }
 
 pub struct FlatPhaseSpaceGenerator {
@@ -167,40 +169,42 @@ impl FlatPhaseSpaceGenerator {
 }
 
 impl PhaseSpaceGenerator for FlatPhaseSpaceGenerator {
+    #[inline]
+    fn get_dimensions(&self) -> usize {
+        self.masses.1.len() * 3 - 4
+            + if self.correlated_beam_convolution {
+                1
+            } else {
+                0
+            }
+            + if self.is_beam_factorization_active.0 {
+                1
+            } else {
+                0
+            }
+            + if self.is_beam_factorization_active.1 {
+                1
+            } else {
+                0
+            }
+            + if self.beam_type == (0, 0) {
+                0
+            } else {
+                if self.masses.0.len() == 2 && self.masses.1.len() == 1 {
+                    1
+                } else {
+                    2
+                }
+            }
+    }
+
     fn get_PS_point(
         &mut self,
         x: &[f64],
         ps: &mut [LorentzVector<f64>],
-    ) -> (f64, (f64, f64), (f64, f64)) {
+    ) -> (f64, (f64, Option<f64>), (f64, Option<f64>)) {
         // check if we got provided the right number of random variables
-        debug_assert_eq!(
-            x.len(),
-            self.masses.1.len() * 3 - 4
-                + if self.correlated_beam_convolution {
-                    1
-                } else {
-                    0
-                }
-                + if self.is_beam_factorization_active.0 {
-                    1
-                } else {
-                    0
-                }
-                + if self.is_beam_factorization_active.1 {
-                    1
-                } else {
-                    0
-                }
-                + if self.beam_type == (0, 0) {
-                    0
-                } else {
-                    if self.masses.0.len() == 2 && self.masses.1.len() == 1 {
-                        1
-                    } else {
-                        2
-                    }
-                }
-        );
+        debug_assert_eq!(x.len(), self.get_dimensions());
         debug_assert_eq!(ps.len(), self.masses.0.len() + self.masses.1.len());
         debug_assert_eq!(self.masses.0.len(), 2); // we only support 2 -> n
 
@@ -218,13 +222,19 @@ impl PhaseSpaceGenerator for FlatPhaseSpaceGenerator {
         let ext_start_index = x.len() - (self.masses.1.len() * 3 - 4);
         let (xi1, xi2) = if self.correlated_beam_convolution {
             // Both xi1 and xi2 must be set equal then
-            (self.r[ext_start_index - 1], self.r[ext_start_index - 1])
+            (
+                Some(self.r[ext_start_index - 1]),
+                Some(self.r[ext_start_index - 1]),
+            )
         } else {
             match self.is_beam_factorization_active {
-                (true, true) => (self.r[ext_start_index - 2], self.r[ext_start_index - 1]),
-                (false, true) => (0., self.r[ext_start_index - 1]),
-                (true, false) => (self.r[ext_start_index - 1], 0.),
-                (false, false) => (0., 0.),
+                (true, true) => (
+                    Some(self.r[ext_start_index - 2]),
+                    Some(self.r[ext_start_index - 1]),
+                ),
+                (false, true) => (None, Some(self.r[ext_start_index - 1])),
+                (true, false) => (Some(self.r[ext_start_index - 1]), None),
+                (false, false) => (None, None),
             }
         };
 

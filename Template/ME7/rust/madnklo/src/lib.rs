@@ -3,13 +3,12 @@ extern crate cpython;
 #[macro_use]
 extern crate lazy_static;
 extern crate cuba;
-pub extern crate vector;
 pub extern crate epsilon_expansion;
+pub extern crate vector;
 
 use cpython::PyResult;
-use vector::LorentzVector;
 use std::cell::RefCell;
-
+use vector::LorentzVector;
 
 macro_rules! hashmap {
     ($( $key: expr => $val: expr ),*) => {{
@@ -19,15 +18,15 @@ macro_rules! hashmap {
     }}
 }
 
-pub mod matrix_element_evaluator;
-pub mod phase_space_generator;
-pub mod matrix_elements; // generated matrix elements
-pub mod integrand;
-pub mod run_card;
-pub mod param_card;
-pub mod settings_card;
 pub mod all_integrands;
+pub mod integrand;
 pub mod integrands;
+pub mod matrix_element_evaluator;
+pub mod matrix_elements; // generated matrix elements
+pub mod param_card;
+pub mod phase_space_generator;
+pub mod run_card;
+pub mod settings_card;
 
 use crate::phase_space_generator::PhaseSpaceGenerator;
 
@@ -61,7 +60,7 @@ py_class!(class FlatPhaseSpaceGenerator |py| {
         Ok((psc, weight))
     }
 
-    def get_PS_point(&self, x: Vec<f64>) -> PyResult<(Vec<Vec<f64>>, f64, (f64, f64), (f64, f64))> {
+    def get_PS_point(&self, x: Vec<f64>) -> PyResult<(Vec<Vec<f64>>, f64, (f64, Option<f64>), (f64, Option<f64>))> {
         // TODO: remove allocations
         let mut g = self.gen(py).borrow_mut();
         let mut ps = vec![LorentzVector::default(); g.masses.0.len() + g.masses.1.len()];

@@ -146,7 +146,11 @@ class RustExporter(object):
                                                     me_accessor.generate_dump(), self.export_dir, self.model),pdg_map)
         all_MEAccessors.synchronize()
 
+        exported_matrix_element_ids = set()
         for (process_key, (me_accessor, pdg_map)) in all_MEAccessors.items():
+            if me_accessor.get_id() in exported_matrix_element_ids:
+                continue
+            exported_matrix_element_ids.add(me_accessor.get_id())
 
             # For we only support exporting matrix element accessors
             if isinstance(me_accessor, accessors.F2PYMEAccessor):
@@ -306,7 +310,7 @@ class RustExporter(object):
         evaluator_header = []
         evaluator_definition = []
         evaluator_construction = []
-        for call_key, low_level_code in sorted(ME_calls_instructions.items(), lambda k: k[0]):
+        for call_key, low_level_code in sorted(ME_calls_instructions.items(), key=lambda k: k[0]):
             ME_calls_lines.append('(%d, %d, %d) => {'%call_key)
             rust_code, needed_matrix_elements = self.translate_low_level_code(low_level_code, function_prefix=repl_dict['C_binding_prefix'])
             for mat in needed_matrix_elements:

@@ -346,7 +346,7 @@ impl Integrand {
                 }
             }
             // Count partonic jets
-            let starting_n_jets = jets_list.len();
+            let starting_n_jets = jets_list.len() / 4;
 
             // Cluster them with fastjet
             let mut jets_flat = vec![0.; jets_list.len()];

@@ -71,7 +71,7 @@ pub struct Event {
     host_contribution_definition: String,
     requires_mirroring: bool,
     bjorken_xs: (f64, f64),
-    bjorken_x_rescalings: (Option<f64>, Option<f64>),
+    bjorken_x_rescalings: (f64, f64),
     is_a_mirrored_event: bool,
 }
 
@@ -89,18 +89,18 @@ impl Event {
 
             PDFs *= Event::get_pdfQ(
                 flavors.0[0],
-                self.bjorken_xs.0 * self.bjorken_x_rescalings.0.unwrap(),
+                self.bjorken_xs.0 * self.bjorken_x_rescalings.0,
                 mu_f.0,
             );
-            PDFs *= self.bjorken_x_rescalings.0.unwrap();
+            PDFs *= self.bjorken_x_rescalings.0;
 
             if flavors.0.len() == 2 {
                 PDFs *= Event::get_pdfQ(
                     flavors.0[1],
-                    self.bjorken_xs.1 * self.bjorken_x_rescalings.1.unwrap(),
+                    self.bjorken_xs.1 * self.bjorken_x_rescalings.1,
                     mu_f.1,
                 );
-                PDFs *= self.bjorken_x_rescalings.1.unwrap();
+                PDFs *= self.bjorken_x_rescalings.1;
             }
 
             *flavour_weight *= PDFs;
@@ -568,7 +568,7 @@ impl Integrand {
                 .collect(),
             requires_mirroring: false, // FIXME: hardcoding to false
             bjorken_xs: (xb_1, xb_2),
-            bjorken_x_rescalings: (x1, x2),
+            bjorken_x_rescalings: (x1.unwrap_or(1.0), x2.unwrap_or(1.0)),
             is_a_mirrored_event: false,
         }]
     }
@@ -699,9 +699,6 @@ impl Integrand {
                 if self.run_card.lpp1 == self.run_card.lpp2 && self.run_card.lpp1 == 1 {
                     event.apply_PDF_convolution((mu_f1, mu_f2));
                 }
-
-                // Make sure Bjorken-x rescalings don't matter anymore
-                event.bjorken_x_rescalings = (None, None);
 
                 // Apply flavor sensitive cuts
                 // if not events.filter_flavor_configurations(self.pass_flavor_sensitive_cuts):

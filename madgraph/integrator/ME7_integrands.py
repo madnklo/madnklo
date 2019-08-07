@@ -1403,18 +1403,6 @@ class ME7Integrand(integrands.VirtualIntegrand):
             PS_point = PS_point.get_copy()
             PS_point.boost_from_com_to_lab_frame(xb_1, xb_2, self.run_card['ebeam1'], self.run_card['ebeam2'])
 
-        for i, p in enumerate(PS_point[self.n_initial:]):
-            if is_a_photon(process_pdgs[1][i]):
-                if p.pt() < 100.0:
-                    return False
-
-        for i, p in enumerate(PS_point[self.n_initial:]):
-            if is_a_photon(process_pdgs[1][i]):
-                for j, p2 in enumerate(PS_point[self.n_initial:]):
-                    if (j != i) and process_pdgs[1][j]!=21:
-                        if p.deltaR(p2) < 0.4:
-                            return False
-
         ###################################################################################
         # JET CLUSTERING AND CUTS
         ###################################################################################
@@ -1422,12 +1410,9 @@ class ME7Integrand(integrands.VirtualIntegrand):
         ptj_cut = self.run_card['ptj']
         drjj_cut = self.run_card['drjj']
         etaj_cut = self.run_card['etaj']
-        
-        if ptj_cut <= 0. and    \
-           drjj_cut <= 0. and   \
-           etaj_cut <= 0. :
-            return True
-        else:
+
+        all_jet_cuts_disabled = (ptj_cut <= 0. and drjj_cut <= 0. and etaj_cut <= 0.)
+        if not all_jet_cuts_disabled:
             # If fastjet is needed but not found, make sure to stop
             if (not PYJET_AVAILABLE) and n_jets_allowed_to_be_clustered>0:
                 raise MadEvent7Error("Fast-jet python bindings are necessary for integrating"+
@@ -1704,16 +1689,24 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
             for process_key, (process, mapped_processes) in self.processes_map.items():
 
-                identifier = None if self.sectors[process_key] is None else self.sectors[process_key]['sector'].identifier
-                if identifier is not None and (self.is_sector_selected is not None) and \
-                                              not self.is_sector_selected(process, self.sectors[process_key]['sector']):
-                    # We must skip this sector
-                    continue
-
-                if identifier in process_keys_per_sector:
-                    process_keys_per_sector[identifier][process_key] = self.sectors[process_key]
+                if self.sectors is None or self.sectors[process_key] is None:
+                    all_sectors = [None, ]
                 else:
-                    process_keys_per_sector[identifier] = { process_key : self.sectors[process_key] }
+                    all_sectors = self.sectors[process_key]
+
+                for sector_info in all_sectors:
+
+                    identifier = None if sector_info is None else sector_info['sector'].identifier
+
+                    if identifier is not None and (self.is_sector_selected is not None) and \
+                                                  not self.is_sector_selected(process, sector_info['sector']):
+                        # We must skip this sector
+                        continue
+
+                    if identifier in process_keys_per_sector:
+                        process_keys_per_sector[identifier][process_key] = sector_info
+                    else:
+                        process_keys_per_sector[identifier] = { process_key : sector_info }
 
             # Now issue a call for each sector
             total_weight = 0.
@@ -1727,8 +1720,6 @@ class ME7Integrand(integrands.VirtualIntegrand):
         possibily for a particular set of defining processes and corresponging sector information (as a dictionary).
         If no selected_process_keys_for_sector is specified, this funcion will loop over and aggregate all of them"""
 
-        misc.sprint(PS_random_variables)
-
         # A unique float must be returned
         wgt = 1.0
         # And the conversion from GeV^-2 to picobarns
@@ -1739,9 +1730,6 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # improved and for the sector, the parametrisation of the unresolved degrees of freedom could be chosen
         # accordingly to the singularities present in this sector.)
         PS_point, PS_weight, x1s, x2s = self.phase_space_generator.get_PS_point(PS_random_variables)
-
-        misc.sprint(PS_point)
-        misc.sprint(PS_weight)
 
         # Unpack the initial momenta rescalings (if present) so as to access both Bjorken
         # rescalings xb_<i> and the ISR factorization convolution rescalings xi<i>.
@@ -1830,10 +1818,10 @@ class ME7Integrand(integrands.VirtualIntegrand):
             # Compute the short distance cross-section. The 'events' returned is an instance
             # of EventList, specifying all the contributing kinematic configurations, 
             # and for each all the weights of the potentially contributing flavors.
-
+            sector_info = None if selected_process_keys_for_sector is None else selected_process_keys_for_sector[process_key]
             events = self.sigma(
                 PS_point.to_dict(), process_key, process, all_flavor_configurations, 
-                wgt, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, selected_process_keys_for_sector[process_key])
+                wgt, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, sector_info=sector_info)
             
             if events is None or len(events)==0:
                 continue
@@ -1960,9 +1948,6 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
         ME_evaluation, all_results = self.all_MEAccessors(
                         process, PS_point, alpha_s, mu_r, pdgs=all_flavor_configurations[0])
-
-        
-        misc.sprint(ME_evaluation['finite'])
 
         ## Some code to test the color correlated MEs
         ##color_correlation_to_consider = ( ((3, -2, 3), (-2, -2, -1)), ((3, -1, 3), (-1, -1, -2)) )
@@ -2436,7 +2421,7 @@ class ME7Integrand_V(ME7Integrand):
             else:
                 all_sectors = self.sectors[process_key]
 
-            for i_sector, sector_info in enumerate(all_sectors):
+            for sector_info in all_sectors:
                 if (sector_info is not None) and (self.is_sector_selected is not None) and \
                                     not self.is_sector_selected(defining_process, sector_info['sector']):
                     continue
@@ -2484,7 +2469,7 @@ class ME7Integrand_V(ME7Integrand):
                         test_options, defining_process, process_key, all_flavor_configurations,
                         a_virtual_PS_point, a_xi1, a_xi2, a_xb_1, a_xb_2, sector_info=sector_info )
 
-                all_evaluations[(process_key, -1 if sector_info is None else i_sector)] = process_evaluation
+                all_evaluations[(process_key, -1 if sector_info is None else sector_info['sector'].identifier)] = process_evaluation
 
         # Now produce a nice output of the evaluations and assess whether this test passed or not.
         return self.analyze_IR_poles_check(all_evaluations, test_options['acceptance_threshold'])    

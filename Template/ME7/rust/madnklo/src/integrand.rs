@@ -203,6 +203,7 @@ impl Integrand {
         }
 
         let collider_energy = run_card.ebeam1 + run_card.ebeam2;
+        let beam_type = (run_card.lpp1, run_card.lpp2);
 
         Integrand {
             n_processes,
@@ -220,7 +221,7 @@ impl Integrand {
                 n_initial,
                 masses,
                 collider_energy,
-                (0, 0),
+                beam_type,
                 false,
                 (false, false),
             )),

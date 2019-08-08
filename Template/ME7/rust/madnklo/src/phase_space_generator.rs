@@ -58,7 +58,22 @@ impl FlatPhaseSpaceGenerator {
             volume_factors.push(FRAC_PI_2.powi(n as i32 - 1) / f.powi(2) / (n - 1) as f64);
         }
 
-        let r = vec![0f64; masses.1.len() * 3 - 4];
+        let r = vec![
+            0f64;
+            masses.1.len() * 3 - 4
+                + if correlated_beam_convolution { 1 } else { 0 }
+                + if is_beam_factorization_active.0 { 1 } else { 0 }
+                + if is_beam_factorization_active.1 { 1 } else { 0 }
+                + if beam_type == (0, 0) {
+                    0
+                } else {
+                    if masses.0.len() == 2 && masses.1.len() == 1 {
+                        1
+                    } else {
+                        2
+                    }
+                }
+        ];
 
         FlatPhaseSpaceGenerator {
             volume_factors,
@@ -277,10 +292,11 @@ impl PhaseSpaceGenerator for FlatPhaseSpaceGenerator {
                 let ycm_max = -ycm_min;
                 PDF_ycm = ycm_min + (ycm_max - ycm_min) * PDF_ycm;
                 // and account for the corresponding Jacobian
-                wgt *= (ycm_max - ycm_min);
+                wgt *= ycm_max - ycm_min;
 
                 let xb_1 = PDF_tau.sqrt() * PDF_ycm.exp();
-                let xb_2 = PDF_tau.sqrt() * -PDF_ycm.exp();
+                let xb_2 = PDF_tau.sqrt() * (-PDF_ycm).exp();
+
                 // /!\ The mass of initial state momenta is neglected here.
                 let E_cm = (xb_1 * xb_2).sqrt() * self.collider_energy;
                 (E_cm, xb_1, xb_2)

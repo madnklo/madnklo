@@ -4366,51 +4366,55 @@ class EpsilonExpansion(dict):
         
     __truediv__ = __div__
     
-    def __radd__(self, other):
-        # The check below is useful for this overloaded __radd__ to work with the Python
-        # intrinsic sum() function.
-        if other==0:
-            return
-        misc.sprint(other)
-        for k, v in other.items():
-            try:
-                self[k] += v
-            except KeyError:
-                self[k] = v
+    # def __iadd__(self, other):
+    #     # The check below is useful for this overloaded __radd__ to work with the Python
+    #     # intrinsic sum() function.
+    #     if other==0:
+    #         return
+    #     misc.sprint(other)
+    #     for k, v in other.items():
+    #         try:
+    #             self[k] += v
+    #         except KeyError:
+    #             self[k] = v
+    #
+    # def __isub__(self, other):
+    #     for k, v in other.items():
+    #         try:
+    #             self[k] -= v
+    #         except KeyError:
+    #             self[k] = -v
     
-    def __rsub__(self, other):
-        for k, v in other.items():
-            try:
-                self[k] -= v
-            except KeyError:
-                self[k] = -v   
-    
-    def __rmul__(self, other):
-        if not isinstance(other, EpsilonExpansion):
-            for k in self.keys():
-                self[k] *= other
-        else:
-            res = EpsilonExpansion()
-            for k1, v1 in self.items():
-                for k2, v2 in other.items():
-                    k, v = k1+k2, v1*v2
-                    try:
-                        res[k] += v
-                    except KeyError:
-                        res[k] = v
-            self.clear()
-            for k, v in res.items():
-                self[k] = v
-
-    def __rdiv__(self, other):
-        if not isinstance(other, EpsilonExpansion):
-            for k in self.keys():
-                self[k] /= other
-        else:
-            # Will implement it if ever needed
-            raise NotImplementedError
+    # def __imul__(self, other):
+    #     if not isinstance(other, EpsilonExpansion):
+    #         for k in self.keys():
+    #             self[k] *= other
+    #     else:
+    #         # TODO DEV remove this debug before pushing
+    #         import ipdb
+    #         ipdb.set_trace()
+    #         # TODO DEV end of debug statement
+    #         res = EpsilonExpansion()
+    #         for k1, v1 in self.items():
+    #             for k2, v2 in other.items():
+    #                 k, v = k1+k2, v1*v2
+    #                 try:
+    #                     res[k] += v
+    #                 except KeyError:
+    #                     res[k] = v
+    #         self.clear()
+    #         for k, v in res.items():
+    #             self[k] = v
+    #
+    # def __idiv__(self, other):
+    #     if not isinstance(other, EpsilonExpansion):
+    #         for k in self.keys():
+    #             self[k] /= other
+    #     else:
+    #         # Will implement it if ever needed
+    #         raise NotImplementedError
         
-    __rtruediv__ = __rdiv__
+ #   __rtruediv__ = __rdiv__
 
     def get_term(self, term_specifier):
         """ Get on particular term of the expansion, specified either by a string or by

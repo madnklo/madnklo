@@ -26,7 +26,7 @@ import madgraph.various.misc as misc
 import commons.utils as utils
 import commons.QCD_local_currents as currents
 
-from integrated_current_expressions import HE
+# from integrated_current_expressions import HE
 
 pjoin = os.path.join
 
@@ -172,16 +172,17 @@ class integrated_NLO_FF_QCD_collinear_qqx(integrated_NLO_FF_QCD_current):
         evaluation = utils.SubtractionCurrentEvaluation({
             'spin_correlations': [None],
             'color_correlations': [None],
-            'values': {(0, 0): {}
+            'reduced_kinematics': [(None, None)],
+            'values': {(0, 0, 0): {} #TODO DEV ATTEMPT AT MODERNIZING
                        }
         }
         )
 
         # Virtuality cut in the integration
-        alpha_0 = currents.SomogyiChoices.alpha_0
-        finite_part = HE.CqqFF_Finite_Gabor_DIVJAC_NOD0(alpha_0, y12)
+        #alpha_0 = currents.SomogyiChoices.alpha_0
+        # finite_part = HE.CqqFF_Finite_Gabor_DIVJAC_NOD0(alpha_0, y12)
 
-        value = EpsilonExpansion({0: finite_part, -1: (-2. / 3.), -2: 0.})
+        value = EpsilonExpansion({0: 0., -1: (-4. / 3.), -2: 0.})
 
         logMuQ = math.log(mu_r ** 2 / Q_square)
         prefactor = EpsilonExpansion({0: 1., 1: logMuQ, 2: 0.5 * logMuQ ** 2})
@@ -193,7 +194,7 @@ class integrated_NLO_FF_QCD_collinear_qqx(integrated_NLO_FF_QCD_current):
         value.truncate(min_power=-2, max_power=0)
 
         # Now register the value in the evaluation
-        evaluation['values'][(0, 0)] = value.to_human_readable_dict()
+        evaluation['values'][(0, 0, 0)] = value.to_human_readable_dict() #TODO DEV ATTEMPT AT MODERNIZING
 
         # And add it to the results
         result.add_result(
@@ -293,20 +294,20 @@ class integrated_NLO_FF_QCD_collinear_gq(integrated_NLO_FF_QCD_current):
         evaluation = utils.SubtractionCurrentEvaluation({
             'spin_correlations': [None],
             'color_correlations': [None],
-            'values': {(0, 0): {}
+            'reduced_kinematics': [(None, None)],
+            'values': {(0, 0, 0): {}
                        }
         }
         )
 
         # Virtuality cut in the integration
-        alpha_0 = currents.SomogyiChoices.alpha_0
-        finite_part = HE.CqgFF_Finite_Gabor_DIVJAC_NOD0(alpha_0, y12)
+        #alpha_0 = currents.SomogyiChoices.alpha_0
+        # finite_part = HE.CqgFF_Finite_Gabor_DIVJAC_NOD0(alpha_0, y12)
 
         value = EpsilonExpansion(
-            {0: finite_part, -1: (3. / 2. - 2. * math.log(y12)), -2: 1.})
+            {0: 0., -1: -1./2., -2:0. })
 
         logMuQ = math.log(mu_r ** 2 / Q_square)
-
         prefactor = EpsilonExpansion({0: 1., 1: logMuQ, 2: 0.5 * logMuQ ** 2})
         prefactor *= self.SEpsilon
 
@@ -316,7 +317,7 @@ class integrated_NLO_FF_QCD_collinear_gq(integrated_NLO_FF_QCD_current):
         value.truncate(min_power=-2, max_power=0)
 
         # Now register the value in the evaluation
-        evaluation['values'][(0, 0)] = value.to_human_readable_dict()
+        evaluation['values'][(0, 0, 0)] = value.to_human_readable_dict()
 
         # And add it to the results
         result.add_result(
@@ -421,17 +422,18 @@ class integrated_NLO_FF_QCD_collinear_gg(integrated_NLO_FF_QCD_current):
         evaluation = utils.SubtractionCurrentEvaluation({
             'spin_correlations': [None],
             'color_correlations': [None],
-            'values': {(0, 0): {}
+            'reduced_kinematics': [(None, None)],
+            'values': {(0, 0, 0): {}
                        }
         }
         )
 
         # Virtuality cut in the integration
-        alpha_0 = currents.SomogyiChoices.alpha_0
-        finite_part = HE.CggFF_Finite_Gabor_DIVJAC_NOD0(alpha_0, y12)
+        #alpha_0 = currents.SomogyiChoices.alpha_0
+        # finite_part = HE.CggFF_Finite_Gabor_DIVJAC_NOD0(alpha_0, y12)
 
         value = EpsilonExpansion(
-            {0: finite_part, -1: (11. / 3. - 4. * math.log(y12)), -2: 2.})
+            {0: 0., -1: 1./3., -2: 0.})
 
         logMuQ = math.log(mu_r ** 2 / Q_square)
 
@@ -444,7 +446,7 @@ class integrated_NLO_FF_QCD_collinear_gg(integrated_NLO_FF_QCD_current):
         value.truncate(min_power=-2, max_power=0)
 
         # Now register the value in the evaluation
-        evaluation['values'][(0, 0)] = value.to_human_readable_dict()
+        evaluation['values'][(0, 0, 0)] = value.to_human_readable_dict()
 
         # And add it to the results
         result.add_result(
@@ -554,20 +556,18 @@ class integrated_NLO_QCD_soft_gluon(integrated_NLO_FF_QCD_current):
         evaluation = utils.SubtractionCurrentEvaluation({
             'spin_correlations'   : [ None ],
             'color_correlations'  : [ ],
+            'reduced_kinematics': [(None, None)],
             'values'              : { }
           })
         
-        logMuQ = math.log(mu_r**2/Q_square)
+        #logMuQ = math.log(mu_r**2/Q_square)
         
-        prefactor = EpsilonExpansion({ 0 : 1., 1 : logMuQ, 2 : 0.5*logMuQ**2 })
-        prefactor *= self.SEpsilon
+        #prefactor = EpsilonExpansion({ 0 : 1., 1 : logMuQ, 2 : 0.5*logMuQ**2 })
+        prefactor = self.SEpsilon
         
         # Now add the normalization factors
         prefactor *= (alpha_s / (2.*math.pi))
         prefactor.truncate(min_power=-2, max_power=2)
-
-        #Virtuality cut in the integration
-        y_0=0.5
 
         color_correlation_index = 0
         # Now loop over the colored parton number pairs (a,b)
@@ -576,20 +576,28 @@ class integrated_NLO_QCD_soft_gluon(integrated_NLO_FF_QCD_current):
             # Use the symmetry of the color correlation and soft current (a,b) <-> (b,a)
             for b in all_colored_parton_numbers[i+1:]:
                 evaluation['color_correlations'].append( ((a, b), ) )
-                # We multiply by a factor 2. because we symmetrized the sum below
+                # We multiply by a factor 2. because we un-symmetrized the sum below
                 value = prefactor*2.
                 pa = PS_point[a]
                 pb = PS_point[b]
-                Y = (pa.dot(pb) * Q_square) / (2. * Q.dot(pa) * Q.dot(pb))
-                finite_part = HE.SoftFF_Finite_Gabor_DIVJAC_NOD0(y_0,Y)
+                stilde = 2.*pa.dot(pb)
+                mu2_div_stilde_pow_eps = EpsilonExpansion(
+                    {
+                        0: 1.,
+                        1: math.log(mu_r**2/stilde),
+                        2: 0.5*math.log(mu_r**2/stilde)**2
+                    }
+                )
+
+                value*=mu2_div_stilde_pow_eps
                 value *= EpsilonExpansion({
-                    0   : finite_part,
-                    -1  : math.log(Y),
-                    -2  : 0.
+                    0   : 0.,
+                    -1  : -2.,
+                    -2  : -1.
                 })
                 # Truncate expansion so as to keep only relevant terms
                 value.truncate(min_power=-2, max_power=0)
-                evaluation['values'][(0,color_correlation_index)] = value.to_human_readable_dict()
+                evaluation['values'][(0,color_correlation_index,0)] = value.to_human_readable_dict()
                 color_correlation_index += 1
         
         result.add_result(
@@ -735,6 +743,7 @@ class integrated_NLO_FF_QCD_softcollinear_gq(integrated_NLO_FF_QCD_current):
         evaluation = utils.SubtractionCurrentEvaluation({
             'spin_correlations'   : [ None ],
             'color_correlations'  : [ None ],
+            'reduced_kinematics': [(None, None)],
             'values'              : { (0,0): { } }
           }
         )

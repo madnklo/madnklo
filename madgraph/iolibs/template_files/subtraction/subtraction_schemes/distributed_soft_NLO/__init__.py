@@ -67,17 +67,17 @@ def load():
     ])
 
 
-    # # Add NLO integrated counterterms
-    # # ===============================
-    # all_subtraction_current_classes.extend([
-    #     # final-final collinears
-    #     NLO_integrated_currents.integrated_NLO_FF_QCD_collinear_qqx,
-    #     NLO_integrated_currents.integrated_NLO_FF_QCD_collinear_gq,
-    #     NLO_integrated_currents.integrated_NLO_FF_QCD_collinear_gg,
-    #     # soft and soft-collinear
-    #     NLO_integrated_currents.integrated_NLO_QCD_soft_gluon,
-    #     NLO_integrated_currents.integrated_NLO_FF_QCD_softcollinear_gq
-    # ])
+    # Add NLO integrated counterterms
+    # ===============================
+    all_subtraction_current_classes.extend([
+        # final-final collinears
+        NLO_integrated_currents.integrated_NLO_FF_QCD_collinear_qqx,
+        NLO_integrated_currents.integrated_NLO_FF_QCD_collinear_gq,
+        NLO_integrated_currents.integrated_NLO_FF_QCD_collinear_gg,
+        # soft and soft-collinear
+        NLO_integrated_currents.integrated_NLO_QCD_soft_gluon,
+        NLO_integrated_currents.integrated_NLO_FF_QCD_softcollinear_gq
+    ])
 
     # Finally register the subtraction current classes loaded
     loaded_attributes['all_subtraction_current_classes'] = all_subtraction_current_classes

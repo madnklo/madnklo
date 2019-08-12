@@ -27,6 +27,7 @@ import importlib
 import os
 import shutil
 import collections
+import re
 pjoin = os.path.join
 
 import madgraph.core.base_objects as base_objects
@@ -438,46 +439,48 @@ class Contribution(object):
         matrix_elements = self.all_matrix_elements.get_matrix_elements()
         calls=0
         cpu_time_start = time.time()
-        
+
         if self.output_type == 'madloop':
             for me in matrix_elements:
                 # Choose the group number to be the unique id so that the output prefix
                 # is nicely P<proc_id>_<unique_id>_
+                proc_id = me.get('processes')[0].get('uid')
                 calls = calls + self.exporter.generate_loop_subprocess(me, 
                     self.helas_model,
-                    group_number = me.get('processes')[0].get('uid'),
+                    group_number = proc_id,
                     proc_id = None,
                     config_map=None,
-                    unique_id=me.get('processes')[0].get('uid'))
+                    unique_id=proc_id)
     
             # If all ME's do not share the same maximum loop vertex rank and the
             # same loop maximum wavefunction size, we need to set the maximum
             # in coef_specs.inc of the HELAS Source. The SubProcesses/P* directory
             # all link this file, so it should be properly propagated
             if self.options['loop_optimized_output'] and len(matrix_elements)>1:
-                max_lwfspins = [m.get_max_loop_particle_spin() for m in \
-                                                                matrix_elements]
-                max_loop_vert_ranks = [me.get_max_loop_vertex_rank() for me in \
-                                                                matrix_elements]
+                max_lwfspins = [m.get_max_loop_particle_spin() for m in matrix_elements]
+                max_loop_vert_ranks = [me.get_max_loop_vertex_rank() for me in matrix_elements]
                 if len(set(max_lwfspins))>1 or len(set(max_loop_vert_ranks))>1:
-                    self.exporter.fix_coef_specs(max(max_lwfspins),\
-                                                       max(max_loop_vert_ranks))
+                    self.exporter.fix_coef_specs(max(max_lwfspins),max(max_loop_vert_ranks))
         else:
-            if isinstance(self.all_matrix_elements, group_subprocs.SubProcessGroupList) and \
-                                                                                    self.exporter.grouped_mode:
+            if isinstance(self.all_matrix_elements, group_subprocs.SubProcessGroupList) and self.exporter.grouped_mode:
                 modified, self.all_matrix_elements = self.exporter.modify_grouping(self.all_matrix_elements)
                 for me_number, me in enumerate(self.all_matrix_elements):
+                    proc_id = me.get('processes')[0].get('uid')
+                    # Force a prefixing of the routines in that standalone output
+                    me.proc_prefix = 'MG5_%d_%d_'%(proc_id,me_number)
                     calls = calls + self.exporter.generate_subprocess_directory(me, self.helas_model, me_number)
-    
+
             else: # Non-grouped mode
                 for nb, me in enumerate(matrix_elements[:]):
+                    proc_id = me.get('processes')[0].get('uid')
+                    me.proc_prefix = 'MG5_%d_%d_'%(proc_id,nb)
                     new_calls = self.exporter.generate_subprocess_directory(me, self.helas_model, nb)
                     if isinstance(new_calls, int):
                         if new_calls ==0:
                             matrix_elements.remove(me)
                         else:
                             calls = calls + new_calls
-        
+
         return calls, time.time() - cpu_time_start
 
     def get_maximum_order(self, order):
@@ -903,7 +906,29 @@ class Contribution(object):
         finalize_options['ME7_output'] = True
         self.exporter.finalize(
             self.all_matrix_elements, interface_history, finalize_options, flaglist)
-        
+
+        # We can now apply a global renaming on the HELAS subroutine resources and on the fortran code of the matrix
+        # elements that calls it
+        file_paths_with_subroutine_and_commons_to_prefix = []
+        file_paths_with_subroutine_and_commons_to_prefix += misc.glob(pjoin(self.export_dir, 'Source', 'DHELAS', '*.f'))
+        file_paths_with_subroutine_and_commons_to_prefix += misc.glob(pjoin(self.export_dir, 'Source', 'DHELAS', '*.inc'))
+        file_paths_with_subroutine_and_commons_to_prefix += misc.glob(pjoin(self.export_dir, 'SubProcesses', '*.f'))
+        file_paths_with_subroutine_and_commons_to_prefix += misc.glob(pjoin(self.export_dir, 'SubProcesses', '*.inc'))
+
+        all_files_paths_possibly_containing_subroutines_to_prefix = list(file_paths_with_subroutine_and_commons_to_prefix)
+        all_files_paths_possibly_containing_subroutines_to_prefix += misc.glob(pjoin(self.export_dir, 'SubProcesses', 'P*', '*.f'))
+        all_files_paths_possibly_containing_subroutines_to_prefix += misc.glob(pjoin(self.export_dir, 'SubProcesses', 'P*', '*.inc'))
+
+        # Now prefix all symbols of the DHELAS library so that they can be linked together
+        proc_id =  self.amplitudes[0].get('process').get('uid')
+        misc.prefix_symbols(
+            'MG5_%d_'%proc_id, file_paths_with_subroutine_and_commons_to_prefix,
+            all_files_paths_possibly_containing_subroutines_to_prefix,
+            vetoed_names=[ re.compile(r"^ML5_\d*_.*"), re.compile(r"^C_ML5_\d*_.*"),
+                           re.compile(r"^MG5_\d*_.*"), re.compile(r"^C_MG5_\d*_.*") ],
+            keep_backup=False, restore=False, backup_suffix='__BackUp'
+        )
+
         return global_wanted_couplings
 
     def link_global_ME7_resources(self, global_ME7_dir):

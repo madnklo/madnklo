@@ -1108,13 +1108,14 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         # Wrap the call in a propice environment for the run
         # WARNING: Test that `accessor_optimization` is safe to be turned on before setting it to True.
         # TODO This must be test again since the counterterm refactoring!
+        t_before = time.time()
         with ME7RunEnvironment( silence = False, accessor_optimization = False, loggers = logger_level ):
             xsec, error = self.integrator.integrate()
-
+        integration_time = time.time()-t_before
         logger.info("="*100)
-        logger.info('{:^100}'.format("Cross-section of %s@%s with integrator '%s':"%(
+        logger.info('{:^100}'.format("Cross-section of %s@%s with integrator '%s' [duration: %s]"%(
             os.path.basename(pjoin(self.me_dir)), '+'.join(itg.get_short_name() for itg in integrands_to_consider),
-                                            self.integrator.get_name())),'$MG:color:GREEN')
+                        self.integrator.get_name(),misc.format_time(integration_time))),'$MG:color:GREEN')
         logger.info('{:^100}'.format("%.5e +/- %.2e [pb]"%(xsec, error)),'$MG:color:BLUE')
         logger.info("="*100)
 

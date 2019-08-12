@@ -1,0 +1,63 @@
+ifeq ($(origin PROC_ROOT),undefined)
+  PROC_ROOT = ..
+endif
+ifeq ($(origin MADNKLO_ROOT),undefined)
+  MADNKLO_ROOT = ../..
+endif
+
+RUST_SOURCES = $(wildcard $(PROC_ROOT)/rust/madnklo/src/*.rs ) \
+			   $(wildcard $(PROC_ROOT)/rust/madnklo/src/*/*.rs ) \
+			   $(wildcard $(PROC_ROOT)/rust/epsilon_expansion/src/*.rs ) \
+			   $(wildcard $(PROC_ROOT)/rust/vector/src/*.rs ) 
+
+MODEL_LIBRARY = $(PROC_ROOT)/lib/libmodel.a
+HELAS_LIBRARIES = %(helas_libraries)s
+MATRIX_ELEMENT_LIBRARIES = %(matrix_element_libraries)s
+
+ALL: madnklo_release
+
+release: madnklo_release
+debug : madnklo_debug
+
+madnklo_release: clean_log dependencies $(RUST_SOURCES)
+	echo "Formatting Rust code ..."
+	cargo fmt
+	echo "Compiling Rust sources in release mode ..."	
+	PROC_ROOT=$(PROC_ROOT) MADNKLO_ROOT=$(MADNKLO_ROOT) cargo build --release
+	cp $(MADNKLO_ROOT)/rust_target/release/madnklo $(PROC_ROOT)/rust/madnklo_release
+
+madnklo_debug: clean_log dependencies $(RUST_SOURCES)
+	echo "Formatting Rust code ..."	
+	cargo fmt
+	echo "Compiling Rust sources in debug mode ..."	
+	PROC_ROOT=$(PROC_ROOT) MADNKLO_ROOT=$(MADNKLO_ROOT) cargo build --debug
+	cp $(MADNKLO_ROOT)/rust_target/debug/madnklo $(PROC_ROOT)/rust/madnklo_debug
+
+dependencies: $(MODEL_LIBRARY) $(HELAS_LIBRARIES) $(MATRIX_ELEMENT_LIBRARIES)
+
+model: clean_log $(MODEL_LIBRARY)
+helas: clean_log $(HELAS_LIBRARIES)
+matrix_elements: clean_log $(MATRIX_ELEMENT_LIBRARIES)
+
+$(PROC_ROOT)/lib/libmodel.a: $(PROC_ROOT)/Source/MODEL
+	echo "Compiling Source/MODEL ..."
+	cd $(PROC_ROOT)/Source/MODEL && make ../../lib/libmodel.a >> ../../rust/rust_compilation.log
+
+%(helas_targets)s
+
+%(matrix_element_targets)s
+
+clean_log:
+	rm -f $(PROC_ROOT)/rust/rust_compilation.log
+
+clean_model:
+	rm -f $(PROC_ROOT)/lib/libmodel.a; cd $(PROC_ROOT)/Source/MODEL && make clean
+
+clean_helas:
+%(clean_helas)s
+
+clean_matrix_elements:
+%(clean_matrix_elements)s
+
+clean: clean_log clean_model clean_helas clean_matrix_elements
+	rm -f madnklo_release madnklo_debug

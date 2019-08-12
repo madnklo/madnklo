@@ -11,6 +11,7 @@ fn main() {
 
     println!("cargo:rustc-link-search={}/lib", proc_root);
     println!("cargo:rustc-link-search={}/lib/matrix_elements", proc_root);
+    println!("cargo:rustc-link-search={}/lib/helas", proc_root);    
     println!("cargo:rustc-link-lib=static=model");
     println!("cargo:rustc-link-lib=gfortran");
 

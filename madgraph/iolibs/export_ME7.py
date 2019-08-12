@@ -728,7 +728,7 @@ class ME7Exporter(object):
         # building blocks of the computation such as the Matrix Elements and the subtraction currents
         # The rust replacement dictionary will be progressively filled in as we move along the export procedure.
         rust_repl_dict = {}
-        rust_exporter.export_global_resources(all_MEAccessors, rust_repl_dict)
+        rust_exporter.export_global_resources(self.contributions, all_MEAccessors, rust_repl_dict)
 
         ME7_options = dict(self.options)
         ME7_options['me_dir'] = self.export_dir

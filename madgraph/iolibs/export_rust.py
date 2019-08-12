@@ -15,7 +15,6 @@
 
 """Methods and classes to export a list of contributions in the ME7_format."""
 
-import glob
 import logging
 import os
 import re
@@ -69,6 +68,13 @@ class RustExporter(object):
         self.model = cmd_interface._curr_model
         self.export_options = export_options
 
+        # This dictionary will contain the various information for each library to be built and linked
+        self.build_info = {
+            'helas' : [], # entries of list are '{'lib_name' : ... , 'source_dir' : ... ,
+                          #                       'makefile_env_variables' : {}, 'makefile_target' : }
+            'matrix_elements' : [] # same as above,
+        }
+
     def copy_template(self):
         """ Copy the template directories."""
 
@@ -84,6 +90,7 @@ class RustExporter(object):
         os.makedirs(pjoin(rust_export_path, 'Cards'))
         os.makedirs(pjoin(rust_export_path, 'madnklo', 'src', 'integrands'))
         os.makedirs(pjoin(self.export_dir,'lib','matrix_elements'))
+        os.makedirs(pjoin(self.export_dir,'lib','helas'))
 
     def write_param_card_rust_implementation(self, rust_writer, model):
         """ Write a param_card.rs rust implementation that holds all particle masses and width, as well as alpha_s and mu_r."""
@@ -98,12 +105,25 @@ class RustExporter(object):
             open(pjoin(self.dynamic_template_path, 'param_card.rs'), 'r').read(),
             context={}, replace_dictionary=replacement_dict)
 
-    def export_global_resources(self, all_MEAccessors, repl_dict):
+    def export_global_resources(self, all_contributions, all_MEAccessors, repl_dict):
         """ Export global resources independent of any integrand or accessor, basically the base skeleton of the rust
-        implementation. """
+        implementation. The big list of all_contributions is mostly passed so that we can list the necessary
+        library libdhelas to be linked."""
 
         # Copy the some static rust template files
         self.copy_template()
+
+        # Fill in the information necessary for building the makefile of rust resources
+        for contrib in all_contributions:
+            export_base_dir = os.path.basename(contrib.export_dir)
+            self.build_info['helas'].append({
+                'lib_name' : 'helas_%s'%export_base_dir,
+                'source_dir' : '$(PROC_ROOT)/%s/Source/DHELAS'%export_base_dir,
+                'makefile_env_variables' : {
+                    'LIBDIR':'../../../lib/helas/',
+                    'LIBRARY': 'lib%s.a'%export_base_dir},
+                'makefile_target' : '../../../lib/helas/lib%s.a'%export_base_dir
+            })
 
         # Save the process output name placeholder
         repl_dict['output_name'] = os.path.basename(self.export_dir)
@@ -138,6 +158,15 @@ class RustExporter(object):
         rust_writer = writers.RustWriter(
             pjoin(self.export_dir, 'rust', 'madnklo', 'src', 'matrix_elements.rs'), opt='a')
 
+        # First add the HELAS linking
+        helas_linking_header = []
+        for contrib in all_contributions:
+            helas_linking_header.append('\n'.join([
+                '#[link(name = "%s", kind = "static")]'%os.path.basename(contrib.export_dir),
+                'extern "C" {}'
+            ]))
+        rust_writer.write('\n%s\n'%('\n'.join(helas_linking_header)))
+
         # We must then make sure that all accessor are correctly initialised and the underlying resources
         # (such as f2py bindings for example) are compiled. (we may need them to access for instance the list
         # of available
@@ -158,6 +187,17 @@ class RustExporter(object):
                 repl_dict = {}
                 repl_dict['matrix_element_id']  = me_accessor.get_id()
                 repl_dict['matrix_element_lib'] = me_accessor.get_library_name()
+                repl_dict['prefix'] = open( pjoin(self.export_dir, '%s/SubProcesses/P%s/proc_prefix.txt'%(
+                                                    me_accessor.proc_dir, me_accessor.proc_name)),'r').read().lower()
+                self.build_info['matrix_elements'].append({
+                    'lib_name': me_accessor.get_library_name(),
+                    'source_dir': '$(PROC_ROOT)/%s/SubProcesses/P%s/' % (me_accessor.proc_dir, me_accessor.proc_name),
+                    'makefile_env_variables': {
+                        'MEDIR': '../../../lib/matrix_elements/',
+                        'MENAME': '_%s__%s'%(me_accessor.proc_dir, me_accessor.proc_name)
+                    },
+                    'makefile_target': '../../../lib/matrix_elements/lib%s.a' % me_accessor.get_library_name()
+                })
                 rust_writer.writelines(ME_rs_template, context={}, replace_dictionary=repl_dict)
         
         rust_writer.close()
@@ -350,59 +390,13 @@ class RustExporter(object):
 
         return
 
-        # ==========================================
-        # BELOW IS JUST AN EXAMPLE OF DYNAMIC EXPORT
-        # ==========================================
-
-        # Template content:
-
-        # /*
-        # * This is the rust implementation of the integrand % (integrand_name)s
-        # */
-        #
-        # ## if (my_conditional_variable > 3) {
-        # println!("A");
-        # ## } else {
-        # println!("B");
-        # ## if (my_nested_conditional_boolean) {
-        # println!("B1");
-        # ## } else {
-        # println!("B2");
-        # ## }
-        # ## }
-        #
-        # println!("This is inconditional");
-        #
-        # ## if (any(var=='PrintTHIS' for var in myContextList)) {
-        # println!("Some statement dynamically assigned:")
-        # % (a_dynamical_statement)
-        # s
-        # ## }
-
-        # # Create in their the dynamically generate rust source code
-        # my_context = {
-        #     'my_conditional_variable': 4,
-        #     'my_nested_conditional_boolean': True,
-        #     'myContextList': ["A sheep", "A tulip", "PrintTHIS"],
-        # }
-        # my_replacement_dict = {
-        #     'integrand_name': integrand_short_name,
-        #     'matrix_element_lib': pjoin(self.export_dir, "test"),
-        #     'a_dynamical_statement': 'println!("MadNkLO ftw!");'
-        # }
-        # rust_writer = writers.RustWriter(pjoin(
-        #     integrand_export_path, 'integrand_%s.rs' % (integrand_short_name)), opt='w')
-        # rust_writer.writelines(
-        #     open(pjoin(self.dynamic_template_path, 'integrand.rs')).read(),
-        #     context=my_context, replace_dictionary=my_replacement_dict
-        # )
-
     @staticmethod
     def compile(root_path):
         """ Compile the rust backend."""
-        # TODO Note: this should be done as much as possible using makefile targets so that one can easily recompile
+        # Note: this should be done as much as possible using makefile targets so that one can easily recompile
         # the entire distribution manually.
-        return
+        # So for now we can directly use the cmd 'make' from within the rust directory.
+        return misc.compile(cwd=pjoin(root_path, 'rust'))
 
     @staticmethod
     def write_rust_settings_card(root_path, options):
@@ -427,6 +421,53 @@ class RustExporter(object):
         settings['lhapdf_library_path'] = os.path.abspath(pjoin(lhapdf_libdir,'libLHAPDF.a'))
 
         return yaml.dump(settings, Dumper=noalias_dumper, default_flow_style=False)
+
+    def write_rust_makefile(self):
+        """ Write the makefile for steering the compilation of all resources necessary to rust as well as the rust
+        executable."""
+
+        makefile_repl_dict = {}
+
+        makefile_repl_dict['helas_libraries'] = '\\\n '.join(
+            '$(PROC_ROOT)/lib/helas/lib%s.a'%info['lib_name'] for info in self.build_info['helas'])
+        makefile_repl_dict['matrix_element_libraries'] = '\\\n '.join(
+            '$(PROC_ROOT)/lib/matrix_elements/lib%s.a'%info['lib_name'] for info in self.build_info['matrix_elements'])
+
+
+        helas_targets = []
+        for info in self.build_info['helas']:
+            helas_targets.append('$(PROC_ROOT)/lib/helas/lib%s.a: %s'%(info['lib_name'],info['source_dir']))
+            helas_targets.append('\techo "Compiling %s ..."'%(info['source_dir'].replace('$(PROC_ROOT)','')))
+            helas_targets.append('\tcd %s && %s make %s >>  ../../../rust/rust_compilation.log;'%(
+                info['source_dir'], ' '.join('%s=%s'%(k,v) for k,v in info['makefile_env_variables'].items()),
+                info['makefile_target']
+            ))
+        makefile_repl_dict['helas_targets'] = '\n'.join(helas_targets)
+
+        matrix_element_targets = []
+        for info in self.build_info['matrix_elements']:
+            matrix_element_targets.append('$(PROC_ROOT)/lib/matrix_elements/lib%s.a: %s'%(info['lib_name'],info['source_dir']))
+            matrix_element_targets.append('\techo "Compiling %s ..."'%(info['source_dir'].replace('$(PROC_ROOT)','')))
+            matrix_element_targets.append('\tcd %s && %s make %s >>  ../../../rust/rust_compilation.log;'%(
+                info['source_dir'], ' '.join('%s=%s'%(k,v) for k,v in info['makefile_env_variables'].items()),
+                info['makefile_target']
+            ))
+        makefile_repl_dict['matrix_element_targets'] = '\n'.join(matrix_element_targets)
+
+        clean_helas = []
+        for info in self.build_info['helas']:
+            clean_helas.append('\trm -f $(PROC_ROOT)/lib/helas/lib%s.a'%info['lib_name'])
+            clean_helas.append('\tcd %s && make clean'%info['source_dir'])
+        makefile_repl_dict['clean_helas'] = '\n'.join(clean_helas)
+
+        clean_matrix_elements = []
+        for info in self.build_info['matrix_elements']:
+            clean_matrix_elements.append('\trm -f $(PROC_ROOT)/lib/matrix_elements/lib%s.a' % info['lib_name'])
+            clean_matrix_elements.append('\tcd %s && make clean' % info['source_dir'])
+        makefile_repl_dict['clean_matrix_elements'] = '\n'.join(clean_matrix_elements)
+
+        template = open(pjoin(self.dynamic_template_path, 'Makefile.template'),'r').read()
+        return template%makefile_repl_dict
 
     def finalize(self, all_MEAccessors, all_integrands, repl_dict):
         """Distribute and organize the finalization export of all accessors and integrands. """
@@ -463,3 +504,6 @@ class RustExporter(object):
         # The yaml-formatted settings card
         open(pjoin(self.export_dir, 'rust','Cards','settings.yaml'),'w').write(
             RustExporter.write_rust_settings_card(self.export_dir, self.options))
+
+        # Now write the rust makefile for building the rust exectuable using cargo
+        open(pjoin(self.export_dir, 'rust','Makefile'),'w').write(self.write_rust_makefile())

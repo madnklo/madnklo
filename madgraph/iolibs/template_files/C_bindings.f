@@ -16,7 +16,7 @@ C get_split_order_names
 C get_squared_orders_for_soindex
 C
 
-      SUBROUTINE C_%(binding_prefix)sME_ACCESSOR_HOOK(P,HEL,USER_ALPHAS,ANS) bind(c)
+      SUBROUTINE %(binding_prefix)s%(proc_prefix)sME_ACCESSOR_HOOK(P,HEL,USER_ALPHAS,ANS) bind(c)
         USE iso_c_binding, ONLY: c_int, c_double
         INCLUDE 'nexternal.inc'
         INCLUDE 'nsqso_born.inc'
@@ -26,21 +26,21 @@ C
         real(c_double), intent(in)  :: USER_ALPHAS
         real(c_double), intent(out) :: ANS(0:NSQSO_BORN)
 
-        CALL ME_ACCESSOR_HOOK(P,HEL,USER_ALPHAS,ANS)
-      ENDSUBROUTINE C_%(binding_prefix)sME_ACCESSOR_HOOK
+        CALL %(proc_prefix)sME_ACCESSOR_HOOK(P,HEL,USER_ALPHAS,ANS)
+      ENDSUBROUTINE %(binding_prefix)s%(proc_prefix)sME_ACCESSOR_HOOK
 
-      SUBROUTINE C_%(proc_prefix)sINITIALISE(PATH) bind(c)
+      SUBROUTINE %(binding_prefix)s%(proc_prefix)sINITIALISE(PATH) bind(c)
         USE iso_c_binding
         CHARACTER(c_char) :: PATH(512)
         CHARACTER(512) :: PATH_IN
         DO i=1,512
           PATH_IN(i:i) = PATH(i)
         ENDDO
-        CALL INITIALISE(PATH_IN)
-      ENDSUBROUTINE C_%(binding_prefix)sINITIALISE
+        CALL %(proc_prefix)sINITIALISE(PATH_IN)
+      ENDSUBROUTINE %(binding_prefix)s%(proc_prefix)sINITIALISE
 
 ## if (spin_correlation) {
-      SUBROUTINE C_%(binding_prefix)sSET_SPIN_CORRELATION_VECTORS(LEG_INDEX, N_VECTORS, VECTORS) bind(c)
+      SUBROUTINE %(binding_prefix)s%(proc_prefix)sSET_SPIN_CORRELATION_VECTORS(LEG_INDEX, N_VECTORS, VECTORS) bind(c)
         USE iso_c_binding, ONLY: c_int, c_double
 
         INCLUDE 'spin_correlations.inc'
@@ -51,31 +51,31 @@ C
 
         CALL %(proc_prefix)sSET_SPIN_CORRELATION_VECTORS(LEG_INDEX, N_VECTORS, VECTORS)
 
-      END SUBROUTINE C_%(binding_prefix)sSET_SPIN_CORRELATION_VECTORS
+      END SUBROUTINE %(binding_prefix)s%(proc_prefix)sSET_SPIN_CORRELATION_VECTORS
 
-      SUBROUTINE C_%(binding_prefix)sRESET_SPIN_CORRELATION_VECTORS() bind(c)
+      SUBROUTINE %(binding_prefix)s%(proc_prefix)sRESET_SPIN_CORRELATION_VECTORS() bind(c)
 
         CALL %(proc_prefix)sRESET_SPIN_CORRELATION_VECTORS()
 
-      END SUBROUTINE C_%(binding_prefix)sSET_SPIN_CORRELATION_VECTORS
+      END SUBROUTINE %(binding_prefix)s%(proc_prefix)sSET_SPIN_CORRELATION_VECTORS
 ## }
 
 ## if (color_correlation) {
-      SUBROUTINE C_%(binding_prefix)sSET_COLOR_CORRELATORS_TO_CONSIDER(FIRST_CONNECTION, SECOND_CONNECTION) bind(c)
+      SUBROUTINE %(binding_prefix)s%(proc_prefix)sSET_COLOR_CORRELATORS_TO_CONSIDER(FIRST_CONNECTION, SECOND_CONNECTION) bind(c)
         USE iso_c_binding, ONLY: c_int
         integer(c_int), intent(in)  :: FIRST_CONNECTION
         integer(c_int), intent(in)  :: SECOND_CONNECTION
 
         CALL %(proc_prefix)sSET_COLOR_CORRELATORS_TO_CONSIDER(FIRST_CONNECTION, SECOND_CONNECTION)
 
-      END SUBROUTINE C_%(binding_prefix)sSET_COLOR_CORRELATORS_TO_CONSIDER
+      END SUBROUTINE %(binding_prefix)s%(proc_prefix)sSET_COLOR_CORRELATORS_TO_CONSIDER
 
-      SUBROUTINE C_%(binding_prefix)sADD_COLOR_CORRELATORS_TO_CONSIDER(FIRST_CONNECTION, SECOND_CONNECTION) bind(c)
+      SUBROUTINE %(binding_prefix)s%(proc_prefix)sADD_COLOR_CORRELATORS_TO_CONSIDER(FIRST_CONNECTION, SECOND_CONNECTION) bind(c)
         USE iso_c_binding, ONLY: c_int
         integer(c_int), intent(in)  :: FIRST_CONNECTION
         integer(c_int), intent(in)  :: SECOND_CONNECTION
 
         CALL %(proc_prefix)sADD_COLOR_CORRELATORS_TO_CONSIDER(FIRST_CONNECTION, SECOND_CONNECTION)
 
-      END SUBROUTINE C_%(binding_prefix)sADD_COLOR_CORRELATORS_TO_CONSIDER
+      END SUBROUTINE %(binding_prefix)s%(proc_prefix)sADD_COLOR_CORRELATORS_TO_CONSIDER
 ## }

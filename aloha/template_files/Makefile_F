@@ -13,8 +13,12 @@
 
 include ../make_opts
 
-LIBRARY	= libdhelas.$(libext)
-LIBDIR  = ../../lib/
+ifeq ($(origin LIBRARY),undefined)
+  LIBRARY  = libdhelas.$(libext)
+endif
+ifeq ($(origin LIBDIR),undefined)
+  LIBDIR  = ../../lib/
+endif
 
 BASIC_OBJS = aloha_functions.o
 

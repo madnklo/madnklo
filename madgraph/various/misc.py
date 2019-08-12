@@ -2025,6 +2025,159 @@ def import_python_lhapdf(lhapdfconfig):
         python_lhapdf = None
     return python_lhapdf
 
+def prefix_symbols(
+        prefix,
+        file_paths_with_subroutine_and_commons_to_prefix,
+        all_files_paths_possibly_containing_subroutines_to_prefix,
+        vetoed_names=[re.compile(r"^ML5_\d*_.*"), ],
+        keep_backup=True,
+        restore=False,
+        backup_suffix = '__BackUp'
+):
+    """This function first scans all file paths indicated in 'processed_file_paths_with_subroutine_and_commons_to_prefix'
+    in order to obtain all subroutine and common block names for which none of the regular expressions in vetoed names applies.
+    It will already prefix those subroutines definition as well as any common block that may be contained there.
+    Then it scans all files in all_files_paths_possibly_containing_subroutines_to_prefix and applies the prefix specified
+    to the call of the subroutines identified in the previous step.
+    If keep_backup is set to True, then a copy of each modified file suffixed with backup_suffix will be kept.
+    If restore is set to True, then nothing is done except reverting the renaming using backup files.
+    """
+
+    backup_suffix = '__BackUp'
+
+    # Process specified files
+    processed_file_paths_with_subroutine_and_commons_to_prefix = []
+    for afile in file_paths_with_subroutine_and_commons_to_prefix:
+        if os.path.islink(afile) or backup_suffix in os.path.basename(afile):
+            continue
+        BackUp_path = pjoin(os.path.dirname(afile),'%s%s'%(os.path.basename(afile),backup_suffix))
+        if not os.path.isfile(BackUp_path):
+            shutil.copy(afile,BackUp_path)
+        processed_file_paths_with_subroutine_and_commons_to_prefix.append((afile,BackUp_path))
+
+    # Process specified files in which to prefix calls to subroutines.
+    processed_all_files_paths_possibly_containing_subroutines_to_prefix = []
+    for afile in all_files_paths_possibly_containing_subroutines_to_prefix:
+        if os.path.islink(afile) or backup_suffix in os.path.basename(afile):
+            continue
+        BackUp_path = pjoin(os.path.dirname(afile),'%s%s'%(os.path.basename(afile),backup_suffix))
+        if not os.path.isfile(BackUp_path):
+            shutil.copy(afile,BackUp_path)
+        processed_all_files_paths_possibly_containing_subroutines_to_prefix.append((afile,BackUp_path))
+
+    if restore:
+        for afile, backup_file in processed_file_paths_with_subroutine_and_commons_to_prefix+\
+                                                    processed_all_files_paths_possibly_containing_subroutines_to_prefix:
+            sprint(BackUp_path, afile)
+            shutil.copy(BackUp_path,afile)
+        return
+
+    # First scan subroutines and substitute common blocks
+    identified_subroutines = []
+
+    sub_identifier_re = re.compile(r"^(?P<routine_before>\s*subroutine\s+)(?P<routine_name>\w+)\((?P<rest_of_line>.*)",re.IGNORECASE)
+    sub_suspicious_re = re.compile(r"^(?P<routine_before>\s*subroutine\s+).*",re.IGNORECASE)
+    common_identifier_re = re.compile(r"^(?P<common_before>\s*common\s*/\s*)(?P<common_name>\w+)\s*/(?P<rest_of_line>.*)",re.IGNORECASE)
+    common_suspicious_re = re.compile(r"^(?P<common_before>\s*common\s*/\s*).*",re.IGNORECASE)
+    for targetFile, sourceFile in processed_file_paths_with_subroutine_and_commons_to_prefix:
+
+        new_lines = []
+        for line in open(sourceFile,'r').readlines():
+            sub_identifier = re.match(sub_identifier_re,line)
+            common_identifier = re.match(common_identifier_re,line)
+            if not sub_identifier is None:
+                # Make sure it was not already prefixed with one of the vetoed prefix
+                sub_name = sub_identifier.group('routine_name')
+                if any(re.match(name_veto,sub_name) is not None for name_veto in vetoed_names):
+                    new_lines.append(line)
+                    continue
+                if sub_name.lower() in identified_subroutines:
+                    raise MadGraph5Error("The subroutine '%s' was found to be defined for a second time in file '%s'. "%(
+                        sub_name, sourceFile))
+
+                identified_subroutines.append(sub_name.lower())
+                new_lines.append('%s%s%s(%s\n'%(sub_identifier.group('routine_before'),
+                                         prefix,
+                                         sub_name,
+                                         sub_identifier.group('rest_of_line')))
+            elif not common_identifier is None:
+                # Make sure it was not already prefixed with ML5_
+                common_name = common_identifier.group('common_name')
+                if any(re.match(name_veto,common_name) is not None for name_veto in vetoed_names):
+                    new_lines.append(line)
+                    continue
+                # Renaming those in check_sa is problematic.
+                # It doesn't matter anyway since they aren't exported symbols in any library
+                if common_name.upper() in ['RASET1','RASET2']:
+                    new_lines.append(line)
+                    continue
+                new_lines.append('%s%s%s/%s\n'%(common_identifier.group('common_before'),
+                                         prefix,
+                                         common_name,
+                                         common_identifier.group('rest_of_line')))
+            else:
+                if re.match(sub_suspicious_re,line) or re.match(common_suspicious_re,line):
+                    logger.warning("Warning: Suspicious subroutine/common definition without delimiter! Probably a line break.")
+                    logger.warning("Found in file '%s', line is:\n%s"%(targetFile,line))
+                    raise MadGraph5Error("Suspicious hit found during prefixing of fortran subroutines and commons. Aborting now for safety.")
+                new_lines.append(line)
+        open(targetFile,'w').writelines(new_lines)
+
+    # Now we can also substitute the corresponding matching 'CALL'
+    call_identifier_re = re.compile(r"^(?P<call_before>\s*\d*\s*call\s+)(?P<routine_name>\w+)\((?P<rest_of_line>.*)",
+                                    re.IGNORECASE)
+    call_suspicious_re = re.compile(r"^(?P<call_before>\s*\d*\s*call\s+).*", re.IGNORECASE)
+    endSub_identifier_re = re.compile(r"^(?P<endSub_before>\s*end\s+subroutine\s+)(?P<routine_name>\w+)", re.IGNORECASE)
+
+    for targetFile, sourceFile in processed_all_files_paths_possibly_containing_subroutines_to_prefix:
+        new_lines = []
+
+        for line in open(targetFile, 'r').readlines():
+            call_identifier = re.match(call_identifier_re, line)
+            endSub_identifier = re.match(endSub_identifier_re, line)
+
+            if not call_identifier is None:
+                # Make sure it was not already prefixed with ML5_
+                routine_name = call_identifier.group('routine_name')
+                if any(re.match(name_veto, routine_name) is not None for name_veto in vetoed_names):
+                    new_lines.append(line)
+                    continue
+                if routine_name.lower() not in identified_subroutines:
+                    #logger.info("Skipping subroutine call to '%s' since apparently not taken from here." % routine_name)
+                    new_lines.append(line)
+                    continue
+                new_lines.append('%s%s%s(%s\n' % (call_identifier.group('call_before'),
+                                                  prefix,
+                                                  routine_name,
+                                                  call_identifier.group('rest_of_line')))
+            elif not endSub_identifier is None:
+                # Make sure it was not already prefixed with ML5_
+                routine_name = endSub_identifier.group('routine_name')
+                if not any(re.match(name_veto, routine_name) is not None for name_veto in vetoed_names):
+                    new_lines.append(line)
+                    continue
+                if routine_name.lower() not in identified_subroutines:
+                    #logger.info("Skipping subroutine call to '%s' since apparently not taken from here." % routine_name)
+                    new_lines.append(line)
+                    continue
+                new_lines.append('%s%s%s\n' % (endSub_identifier.group('endSub_before'),
+                                               prefix,
+                                               routine_name))
+            else:
+                if re.match(call_suspicious_re, line):
+                    logger.warning("Warning: Suspicious subroutine call without delimiter! Probably a line break.")
+                    logger.warning("Found in file '%s', line is:\n%s" % (targetFile, line))
+                    raise MadGraph5Error("Suspicious hit found during prefixing of fortran subroutines and commons. Aborting now for safety.")
+                new_lines.append(line)
+        open(targetFile, 'w').writelines(new_lines)
+
+    # Remove backup file if specified to not keep them.
+    if not keep_backup:
+        for _, backup_file in processed_file_paths_with_subroutine_and_commons_to_prefix+\
+                                                        processed_all_files_paths_possibly_containing_subroutines_to_prefix:
+            if os.path.isfile(backup_file):
+                os.remove(backup_file)
+
 ############################### TRACQER FOR OPEN FILE
 #openfiles = set()
 #oldfile = __builtin__.file

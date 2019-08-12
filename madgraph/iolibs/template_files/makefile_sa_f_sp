@@ -9,7 +9,9 @@ PROCESS=  matrix.o
 # Import the DHELAS symbols too in the matrix_element.a library
 # so that one does not have to link against libdhelas.a explicitly when using it
 include ../../Source/DHELAS/aloha_file.inc
-C_BINDINGS = $(PROCESS) C_bindings.o $(addprefix ../../Source/DHELAS/, $(ALOHARoutine) aloha_functions.o)
+# Uncomment the line below to absorb DHELAS symbols directly in the matrix element library
+#C_BINDINGS = $(PROCESS) C_bindings.o $(addprefix ../../Source/DHELAS/, $(ALOHARoutine) aloha_functions.o)
+C_BINDINGS = $(PROCESS) C_bindings.o
 CHECK_SA=  check_sa.o
 CHECK_SA_SPLITORDERS=  check_sa_born_splitOrders.o
  

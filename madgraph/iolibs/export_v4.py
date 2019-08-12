@@ -2023,8 +2023,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
     #===========================================================================
     # generate_subprocess_directory
     #===========================================================================
-    def generate_subprocess_directory(self, matrix_element,
-                                         fortran_model, number):
+    def generate_subprocess_directory(self, matrix_element, fortran_model, number):
         """Generate the Pxxxxx directory for a subprocess in MG4 standalone,
         including the necessary matrix.f and nexternal.inc files"""
 
@@ -2067,6 +2066,13 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         except os.error as error:
             logger.warning(error.strerror + " " + dirpath)
 
+        if hasattr(matrix_element, 'proc_prefix'):
+            proc_prefix = matrix_element.proc_prefix
+        else:
+            proc_prefix = ''
+        # Specify the proc_prefix in the file proc_prefix.txt (can be used by the accessor to figure out the prefix)
+        open(pjoin(dirpath, 'proc_prefix.txt'),'w').write(proc_prefix)
+
         #try:
         #    os.chdir(dirpath)
         #except os.error:
@@ -2086,7 +2092,8 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         calls = self.write_matrix_element_v4(
             writers.FortranWriter(filename),
             matrix_element,
-            fortran_model)
+            fortran_model
+        )
 
         if self.opt['export_format'] == 'standalone_msP':
             filename =  pjoin(dirpath,'configs_production.inc')
@@ -2127,7 +2134,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         context['loop_ME'] = False
         c_bindings_replace_dict = {}
         c_bindings_replace_dict['output_name'] = matrix_element.get('processes')[0].nice_string()
-        self.write_c_bindings(writers.FortranWriter(filename), c_bindings_replace_dict, context)
+        self.write_c_bindings(writers.FortranWriter(filename), c_bindings_replace_dict, context, proc_prefix = proc_prefix)
 
         # Generate diagrams
         filename = pjoin(dirpath, "matrix.ps")
@@ -2153,11 +2160,11 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             calls = 0
         return calls
 
-    def write_c_bindings(self, writer, replace_dict, context):
+    def write_c_bindings(self, writer, replace_dict, context, proc_prefix = ''):
         """ Write the C-binding fo interfacing this Matrix element. matrix_element is passed only so as to generate
         entries such as n_external."""
 
-        this_replace_dict = {'binding_prefix': '','proc_prefix': ''}
+        this_replace_dict = {'binding_prefix': 'C_','proc_prefix': proc_prefix}
         this_replace_dict.update(replace_dict)
 
         writer.writelines(open(pjoin(_file_path, 'iolibs', 'template_files', 'C_bindings.f')).read(),
@@ -2645,7 +2652,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
     # write_matrix_element_v4
     #===========================================================================
     def write_matrix_element_v4(self, writer, matrix_element, fortran_model,
-                                write=True, proc_prefix=''):
+                                                                        write=True):
         """Export a matrix element to a matrix.f file in MG4 standalone format
         if write is on False, just return the replace_dict and not write anything."""
 
@@ -2667,7 +2674,10 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         if not self.opt.has_key('sa_symmetry'):
             self.opt['sa_symmetry']=False
 
-
+        if hasattr(matrix_element, 'proc_prefix'):
+            proc_prefix = matrix_element.proc_prefix
+        else:
+            proc_prefix = ''
 
         # The proc_id is for MadEvent grouping which is never used in SA.
         replace_dict = {'global_variable':'', 'amp2_lines':'',
@@ -4290,8 +4300,7 @@ class ProcessExporterFortranME(ProcessExporterFortran):
         replace_dict = {'proc_prefix':''}
 
         # Extract helas calls
-        helas_calls = fortran_model.get_matrix_element_calls(\
-                    matrix_element)
+        helas_calls = fortran_model.get_matrix_element_calls(matrix_element)
 
         replace_dict['helas_calls'] = "\n".join(helas_calls)
 

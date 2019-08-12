@@ -5,20 +5,13 @@ extern crate rand;
 
 use cuba::{CubaIntegrator, CubaVerbosity};
 
-use libc::{c_char, c_double, c_int, c_longlong, c_void};
+use madnklo::all_integrands;
 use madnklo::integrand::Integrand;
-use madnklo::matrix_element_evaluator::{MatrixElement, MatrixElementEvaluator};
-use madnklo::phase_space_generator::{FlatPhaseSpaceGenerator, PhaseSpaceGenerator};
 
 use clap::{App, Arg, ArgMatches, SubCommand};
 use rand::prelude::*;
 use std::str::FromStr;
 use std::time::Instant;
-
-use madnklo::all_integrands;
-
-use std::f64::consts::PI;
-use vector::LorentzVector;
 
 #[derive(Debug, Clone)]
 pub struct IntegratorSettings {
@@ -103,7 +96,7 @@ fn integrand_fn(
     x: &[f64],
     f: &mut [f64],
     process: &mut Process,
-    nvec: usize,
+    _nvec: usize,
     _core: i32,
 ) -> Result<(), &'static str> {
     let res = process.integrand.evaluate(x, 1.0, None);
@@ -137,7 +130,7 @@ fn bench(integrand: &mut Integrand, settings: &IntegratorSettings) {
 }
 
 /// Inspect a single point.
-fn inspect<'a>(integrand: &mut Integrand, settings: &IntegratorSettings, matches: &ArgMatches<'a>) {
+fn inspect<'a>(integrand: &mut Integrand, _settings: &IntegratorSettings, matches: &ArgMatches<'a>) {
     let x: Vec<_> = matches
         .values_of("point")
         .unwrap()

@@ -282,7 +282,7 @@ impl PhaseSpaceGenerator for FlatPhaseSpaceGenerator {
                     tau_min
                 } else {
                     // Including the corresponding Jacobian
-                    wgt *= (tau_max - tau_min);
+                    wgt *= tau_max - tau_min;
                     // Rescale tau appropriately
                     tau_min + (tau_max - tau_min) * self.r[1]
                 };

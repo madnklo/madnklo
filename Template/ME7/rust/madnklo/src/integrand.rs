@@ -2,6 +2,7 @@ use crate::param_card::ParamCard;
 use crate::phase_space_generator::{FlatPhaseSpaceGenerator, PhaseSpaceGenerator};
 use crate::run_card::RunCard;
 use crate::settings_card::SettingsCard;
+use crate::HashableFloat;
 use epsilon_expansion::EpsilonExpansion;
 use libc::{c_double, c_int};
 use std::collections::HashMap;
@@ -12,7 +13,7 @@ use typenum::{N6, U13};
 use vector::LorentzVector;
 
 mod LHAPDF {
-    use libc::{c_char, c_double, c_int, c_void};
+    use libc::{c_char, c_double, c_int};
 
     #[link(name = "LHAPDF", kind = "dylib")]
     extern "C" {
@@ -31,7 +32,7 @@ mod LHAPDF {
 }
 
 mod FJCORE {
-    use libc::{c_char, c_double, c_int, c_void};
+    use libc::{c_double, c_int};
 
     #[link(name = "fjcore", kind = "static")]
     extern "C" {
@@ -77,7 +78,11 @@ pub struct Event {
 
 impl Event {
     /// Convolute the weights_per_flavor_configurations.
-    fn apply_PDF_convolution(&mut self, mu_f: (f64, f64)) {
+    fn apply_PDF_convolution(
+        &mut self,
+        mu_f: (f64, f64),
+        pdf_cache: &mut HashMap<(HashableFloat, HashableFloat), [f64; 14]>,
+    ) {
         // In order for the + distributions of the PDF counterterms and integrated
         // collinear ISR counterterms to hit the PDF only (and not the matrix elements or
         // observables functions), a change of variable is necessary: xb_1' = xb_1 * xi1
@@ -91,6 +96,7 @@ impl Event {
                 flavors.0[0],
                 self.bjorken_xs.0 * self.bjorken_x_rescalings.0,
                 mu_f.0,
+                pdf_cache,
             );
             PDFs *= self.bjorken_x_rescalings.0;
 
@@ -99,6 +105,7 @@ impl Event {
                     flavors.0[1],
                     self.bjorken_xs.1 * self.bjorken_x_rescalings.1,
                     mu_f.1,
+                    pdf_cache,
                 );
                 PDFs *= self.bjorken_x_rescalings.1;
             }
@@ -108,41 +115,49 @@ impl Event {
     }
 
     /// Call the PDF and return the corresponding density.
-    fn get_pdfQ(pdg: isize, x: f64, scale: f64) -> f64 {
+    fn get_pdfQ(
+        pdg: isize,
+        x: f64,
+        scale: f64,
+        pdf_cache: &mut HashMap<(HashableFloat, HashableFloat), [f64; 14]>,
+    ) -> f64 {
         if pdg != 21 && pdg != 22 && (pdg == 0 || pdg.abs() > 6) {
             return 1.;
         }
 
-        let mut f: [f64; 13] = [0.; 13]; // TODO: cache for all flavours
-        unsafe {
-            let pdf_weight = if LHAPDF::has_photon_() {
-                let mut photon: f64 = 0.;
-                LHAPDF::evolvepdfphoton_(
-                    &x as *const c_double,
-                    &scale as *const c_double,
-                    &mut f[0] as *mut c_double,
-                    &mut photon as *mut c_double,
-                );
-                match pdg {
-                    22 => photon,
-                    21 => f[6],
-                    a => f[(a + 6) as usize],
+        // update the cache
+        let f = pdf_cache
+            .entry((HashableFloat(x), HashableFloat(scale)))
+            .or_insert_with(|| {
+                let mut f: [f64; 14] = [0.; 14];
+                let mut photon: f64 = -1000.;
+                unsafe {
+                    if LHAPDF::has_photon_() {
+                        LHAPDF::evolvepdfphoton_(
+                            &x as *const c_double,
+                            &scale as *const c_double,
+                            &mut f[0] as *mut c_double,
+                            &mut photon as *mut c_double,
+                        );
+                    } else {
+                        LHAPDF::evolvepdf_(
+                            &x as *const c_double,
+                            &scale as *const c_double,
+                            &mut f[0] as *mut c_double,
+                        );
+                    };
+                    f[13] = photon;
                 }
-            } else {
-                LHAPDF::evolvepdf_(
-                    &x as *const c_double,
-                    &scale as *const c_double,
-                    &mut f[0] as *mut c_double,
-                );
-                match pdg {
-                    22 => unreachable!("Selected pdf set does not include a photon"),
-                    21 => f[6],
-                    a => f[(a + 6) as usize],
-                }
-            };
+                f
+            });
 
-            pdf_weight / x
-        }
+        let pdf_weight = match pdg {
+            22 => f[13],
+            21 => f[6],
+            a => f[(a + 6) as usize],
+        };
+
+        pdf_weight / x
     }
 }
 
@@ -165,6 +180,7 @@ pub struct Integrand {
     phase_space_generator: Box<PhaseSpaceGenerator>,
     external_momenta: Vec<LorentzVector<f64>>,
     external_momenta_map: HashMap<usize, LorentzVector<f64>>,
+    pdf_cache: HashMap<(HashableFloat, HashableFloat), [f64; 14]>,
 
     collider_energy: f64,
 
@@ -233,6 +249,7 @@ impl Integrand {
             selected_sectors: vec![],
             integrand_evaluator,
             verbosity: 0,
+            pdf_cache: HashMap::new(),
         }
     }
 
@@ -371,7 +388,6 @@ impl Integrand {
                 );
             }
 
-            let mut jet_count = 0;
             for i in 0..actual_len as usize {
                 let jet = LorentzVector::from_slice(&jets_flat[i * 4..(i + 1) * 4]);
                 // Remove jets whose pT is below the user defined cut
@@ -580,6 +596,8 @@ impl Integrand {
         integrator_weight: f64,
         selected_process_ids_for_sector: Option<usize>,
     ) -> f64 {
+        self.pdf_cache.clear();
+
         // Return a weight in picobarns (from GeV^-2)
         let mut wgt = 0.389379304e9;
 
@@ -698,7 +716,7 @@ impl Integrand {
 
                 // Apply PDF convolution
                 if self.run_card.lpp1 == self.run_card.lpp2 && self.run_card.lpp1 == 1 {
-                    event.apply_PDF_convolution((mu_f1, mu_f2));
+                    event.apply_PDF_convolution((mu_f1, mu_f2), &mut self.pdf_cache);
                 }
 
                 // Apply flavor sensitive cuts

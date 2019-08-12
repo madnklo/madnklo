@@ -1,13 +1,16 @@
+#![allow(non_snake_case)]
+#![allow(non_camel_case_types)]
+
 #[macro_use]
 extern crate cpython;
-#[macro_use]
-extern crate lazy_static;
 extern crate cuba;
 pub extern crate epsilon_expansion;
 pub extern crate vector;
 
 use cpython::PyResult;
 use std::cell::RefCell;
+use std::hash;
+use std::mem;
 use vector::LorentzVector;
 
 macro_rules! hashmap {
@@ -17,6 +20,32 @@ macro_rules! hashmap {
          map
     }}
 }
+
+#[derive(Debug, Copy, Clone)]
+struct HashableFloat(f64);
+
+impl HashableFloat {
+    fn key(&self) -> u64 {
+        unsafe { mem::transmute(self.0) }
+    }
+}
+
+impl hash::Hash for HashableFloat {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: hash::Hasher,
+    {
+        self.key().hash(state)
+    }
+}
+
+impl PartialEq for HashableFloat {
+    fn eq(&self, other: &HashableFloat) -> bool {
+        self.key() == other.key()
+    }
+}
+
+impl Eq for HashableFloat {}
 
 pub mod all_integrands;
 pub mod integrand;
@@ -52,7 +81,7 @@ py_class!(class FlatPhaseSpaceGenerator |py| {
 
     def generate(&self, e_cm: f64, r: Vec<f64>) -> PyResult<(Vec<Vec<f64>>, f64)> {
         // TODO: remove allocations
-        let mut g = self.gen(py).borrow_mut();
+        let g = self.gen(py).borrow_mut();
         let mut ps = vec![LorentzVector::default(); (r.len() + 4) / 3];
         let weight = g.generate(e_cm, &r, &mut ps);
 

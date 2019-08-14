@@ -8,6 +8,7 @@ use libc::{c_double, c_int};
 use std::collections::HashMap;
 use std::f64::consts::PI;
 use std::ffi::CString;
+use std::fmt;
 use std::mem;
 use typenum::{N6, U13};
 use vector::LorentzVector;
@@ -66,14 +67,76 @@ pub struct Sector {
     n_legs: usize,
 }
 
+pub struct ProcessInfo {
+    n_unresolved_particles: usize,
+    has_mirrored_process: bool,
+}
+
+impl ProcessInfo {
+    pub fn new(n_unresolved_particles: usize, has_mirrored_process: bool) -> ProcessInfo {
+        ProcessInfo {
+            n_unresolved_particles,
+            has_mirrored_process,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct Event {
-    ps_point: HashMap<usize, LorentzVector<f64>>,
+    ps_point: Vec<LorentzVector<f64>>,
     weights_per_flavor_configurations: HashMap<(Vec<isize>, Vec<isize>), f64>, // FIXME: a terrible type!
     host_contribution_definition: String,
     requires_mirroring: bool,
     bjorken_xs: (f64, f64),
     bjorken_x_rescalings: (f64, f64),
     is_a_mirrored_event: bool,
+}
+
+impl fmt::Display for Event {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "Kinematic configuration:\n")?;
+
+        writeln!(f, " #     E                        p_x                      p_y                      p_z                       M")?;
+        writeln!(f, " --------------------------------------------------------------------------------------------------------------------------------------")?;
+
+        for (i, p) in self.ps_point.iter().enumerate() {
+            writeln!(
+                f,
+                " {}{:25.16e}{:25.16e}{:25.16e}{:25.16e}",
+                i + 1,
+                p.t,
+                p.x,
+                p.y,
+                p.z
+            )?;
+        }
+        writeln!(f, " --------------------------------------------------------------------------------------------------------------------------------------")?;
+        //writeln!(f, "Sum") TODO
+
+        writeln!(
+            f,
+            " Bjorken x's scalings: {:.16e}, {:.16e}",
+            self.bjorken_x_rescalings.0, self.bjorken_x_rescalings.1
+        )?;
+        writeln!(
+            f,
+            " Bjorken x's         : {:.16e}, {:.16e}",
+            self.bjorken_xs.0, self.bjorken_xs.1
+        )?;
+
+        writeln!(f, "Flavors configurations:")?;
+        for (flavours, weight) in self.weights_per_flavor_configurations.iter() {
+            for x in &flavours.0 {
+                write!(f, " {} ", x)?;
+            }
+            write!(f, "-> ")?;
+            for x in &flavours.1 {
+                write!(f, "{} ", x)?;
+            }
+            writeln!(f, "\t|\t{:.16e}", weight)?;
+        }
+        writeln!(f, "")
+    }
 }
 
 impl Event {
@@ -159,6 +222,65 @@ impl Event {
 
         pdf_weight / x
     }
+
+    /// Creates a mirror event of self if necessary
+    fn generate_mirrored_event(&mut self) -> Option<Event> {
+        if !self.requires_mirroring || self.weights_per_flavor_configurations.is_empty() {
+            return None;
+        }
+
+        self.requires_mirroring = false;
+
+        let mut mirrored_event = self.clone(); // FIXME: expensive
+        mirrored_event.is_a_mirrored_event = true;
+
+        // First swap initial state flavors
+        mirrored_event.weights_per_flavor_configurations.clear();
+        for (flavor_config, wgt) in self.weights_per_flavor_configurations.iter() {
+            let swapped_flavor_config = (
+                vec![flavor_config.0[1], flavor_config.0[0]],
+                flavor_config.1.clone(),
+            );
+            mirrored_event
+                .weights_per_flavor_configurations
+                .insert(swapped_flavor_config, *wgt);
+        }
+
+        // Then swap the kinematic configurations:
+        // a) Initial-state momenta must be swapped
+        // b) Final-state momenta must have their z-component swapped (for this to be correct
+        // however, first make sure that initial momenta are indeed on the z-axis in the c.o.m frame)
+        // Normally all events generated should be in the c.o.m frame already, but it may be
+        // that in test_IR_limits, for debugging purposes only, the option 'boost_back_to_com' was
+        // set to False, in which case we must here first *temporarily boost* it back to the c.o.m.
+
+        // If initial states are back to back we can directly proceed with a simple swap of the
+        // z-axis, otherwise we must first boost to the c.o.m
+        let sqrt_s = (self.ps_point[0] + self.ps_point[1]).square().sqrt();
+
+        if ((self.ps_point[0].z + self.ps_point[1].z) / sqrt_s).abs() > 1.0e-9 {
+            let boost_vector = (mirrored_event.ps_point[0] + mirrored_event.ps_point[1])
+                / (mirrored_event.ps_point[0].t + mirrored_event.ps_point[1].t);
+            for vector in &mut mirrored_event.ps_point {
+                *vector = vector.boost(&(-boost_vector));
+            }
+
+            mirrored_event.ps_point.swap(0, 1);
+
+            for vector in &mut mirrored_event.ps_point {
+                *vector = vector.boost(&boost_vector);
+            }
+        } else {
+            mirrored_event.ps_point.swap(0, 1);
+        }
+
+        // Then swap Bjorken x's and rescaling.
+        mirrored_event.bjorken_x_rescalings =
+            (self.bjorken_x_rescalings.1, self.bjorken_x_rescalings.0);
+        mirrored_event.bjorken_xs = (self.bjorken_xs.1, self.bjorken_xs.0);
+
+        Some(mirrored_event)
+    }
 }
 
 pub struct Integrand {
@@ -167,6 +289,7 @@ pub struct Integrand {
     n_processes: usize,
     // Information obtained for each process_id
     all_flavor_configurations: HashMap<usize, Vec<(Vec<isize>, Vec<isize>)>>,
+    process_info: Vec<ProcessInfo>,
 
     // List of sector IDs for each process (may change between runs)
     // It is important that this can be modified upon instantiation of the sectors.
@@ -200,9 +323,9 @@ impl Integrand {
     pub fn new(
         n_processes: usize,
         all_flavor_configurations: HashMap<usize, Vec<(Vec<isize>, Vec<isize>)>>,
+        process_info: Vec<ProcessInfo>,
         n_initial: usize,
         n_final: usize,
-        n_unresolved_particles: usize, // TODO: introduce full contribution_definition
         masses: (Vec<f64>, Vec<f64>),
         run_card: RunCard,
         param_card: ParamCard,
@@ -220,10 +343,12 @@ impl Integrand {
 
         let collider_energy = run_card.ebeam1 + run_card.ebeam2;
         let beam_type = (run_card.lpp1, run_card.lpp2);
+        let n_unresolved_particles = process_info[0].n_unresolved_particles;
 
         Integrand {
             n_processes,
             all_flavor_configurations,
+            process_info,
             n_initial,
             n_final,
             n_unresolved_particles,
@@ -552,7 +677,7 @@ impl Integrand {
 
         // Apply flavor blind cuts
         if !self.pass_flavor_blind_cuts(
-            &self.external_momenta,
+            &self.external_momenta, // TODO: use the map?
             &all_flavor_configurations[0].1,
             self.n_unresolved_particles,
             None,
@@ -575,15 +700,23 @@ impl Integrand {
             println!("sigma={:e}", ME_evaluation[0]);
         }
 
+        // convert to list
+        let mut sorted_keys: Vec<usize> = self.external_momenta_map.keys().cloned().collect();
+        sorted_keys.sort();
+        let external_momenta: Vec<LorentzVector<f64>> = sorted_keys
+            .iter()
+            .map(|x| self.external_momenta_map[x].clone())
+            .collect();
+
         // Return the lone LO event
         vec![Event {
-            ps_point: self.external_momenta_map.clone(),
+            ps_point: external_momenta,
             host_contribution_definition: "N/A".to_owned(),
             weights_per_flavor_configurations: all_flavor_configurations
                 .iter()
                 .map(|f| (f.clone(), sigma_wgt))
                 .collect(),
-            requires_mirroring: false, // FIXME: hardcoding to false
+            requires_mirroring: self.process_info[process_id].has_mirrored_process,
             bjorken_xs: (xb_1, xb_2),
             bjorken_x_rescalings: (x1.unwrap_or(1.0), x2.unwrap_or(1.0)),
             is_a_mirrored_event: false,
@@ -686,11 +819,24 @@ impl Integrand {
             if events.is_empty() {
                 continue;
             }
+
             // Now handle the process mirroring, by adding, for each ME7Event defined with
             // requires_mirroring = True, a new mirrored event with the initial states swapped,
             // as well as the Bjorken x's and rescalings and with p_z -> -p_z on all final
             // state momenta
-            //events.generate_mirrored_events()
+            let n_events = events.len();
+            for e in 0..n_events {
+                if let Some(mirror) = events[e].generate_mirrored_event() {
+                    events.push(mirror);
+                }
+            }
+
+            if self.verbosity > 0 {
+                println!("Events before filtering:");
+                for e in &events {
+                    println!("{}", e);
+                }
+            }
 
             // Apply flavor blind cuts
             let mut filtered_events = Vec::with_capacity(events.len());

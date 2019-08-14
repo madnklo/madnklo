@@ -234,10 +234,10 @@ class ME7Event(object):
         # Normally all events generated should be in the c.o.m frame already, but it may be
         # that in test_IR_limits, for debugging purposes only, the option 'boost_back_to_com' was
         # set to False, in which case we must here first *temporarily boost* it back to the c.o.m.
+        sqrts = math.sqrt((self.PS_point[0]+self.PS_point[1]).square())
         if __debug__:
             # Two initial states
             assert(len(self.weights_per_flavor_configurations.keys()[0][0])==2)
-            sqrts = math.sqrt((self.PS_point[0]+self.PS_point[1]).square())
             # Assert initial states along the z axis
             assert(abs(self.PS_point[0][1]/sqrts)<1.0e-9)
             assert(abs(self.PS_point[1][1]/sqrts)<1.0e-9)

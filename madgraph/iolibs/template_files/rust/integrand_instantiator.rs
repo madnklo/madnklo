@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::env;
 
-use crate::integrand::Integrand;
+use crate::integrand::{Integrand, ProcessInfo};
 use crate::run_card::RunCard;
 use crate::param_card::ParamCard;
 use crate::settings_card::SettingsCard;

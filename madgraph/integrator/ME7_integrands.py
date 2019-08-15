@@ -1338,8 +1338,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
         return returned_counterterms
 
-    def pass_all_cuts(self, PS_point, flavors, 
-                          n_jets_allowed_to_be_clustered = None, xb_1 = None, xb_2 = None):
+    def pass_all_cuts(self, PS_point, flavors, xb_1, xb_2,
+                          n_jets_allowed_to_be_clustered = None):
         """ Calls both the flavor-blind and flavor-sensitive cuts."""
         return self.pass_flavor_blind_cuts(PS_point, flavors, 
                     n_jets_allowed_to_be_clustered = n_jets_allowed_to_be_clustered, 
@@ -1347,8 +1347,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
                 self.pass_flavor_sensitive_cuts(PS_point, flavors, 
                     xb_1 = xb_1, xb_2 = xb_2 )
 
-    def pass_flavor_blind_cuts(self, PS_point, process_pdgs,
-                          n_jets_allowed_to_be_clustered = None, xb_1 = None, xb_2 = None):
+    def pass_flavor_blind_cuts(self, PS_point, process_pdgs, xb_1, xb_2,
+                          n_jets_allowed_to_be_clustered = None):
         """ Implementation of a minimal set of isolation cuts. This can be made much nicer in the future and 
         will probably be taken outside of this class so as to ease user-specific cuts, fastjet, etc...
         We consider here a two-level cuts system, this first one of which is flavour blind.
@@ -1493,7 +1493,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
                              i+1, j+1, p1.deltaR(p2)))
                         if p1.deltaR(p2) < drjj_cut:
                             return False
-    
+
         # Now handle all other cuts
         if etaj_cut > 0.:
             for i, p_jet in enumerate(all_jets):
@@ -1941,7 +1941,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
 
         # Apply flavor blind cuts
-        if not self.pass_flavor_blind_cuts(PS_point, all_flavor_configurations[0]):
+        if not self.pass_flavor_blind_cuts(PS_point, all_flavor_configurations[0], xb_1=xb_1, xb_2=xb_2):
             if __debug__: logger.debug('Event failed the flavour_blind generation-level cuts.')
             if __debug__: logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)            
             return None

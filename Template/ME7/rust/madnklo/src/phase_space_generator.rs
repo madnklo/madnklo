@@ -1,7 +1,7 @@
 use std::f64::consts::{FRAC_PI_2, PI};
 use vector::LorentzVector;
 
-pub trait PhaseSpaceGenerator {
+pub trait PhaseSpaceGenerator: Send + Sync {
     fn get_PS_point(
         &mut self,
         x: &[f64],

@@ -313,7 +313,7 @@ class RustExporter(object):
         integrand_instantiation = []
         integrand_instantiation_header = []
         integrand_instantiation.append("// Now instantiating integrand '%s'"%integrand_short_name)
-        integrand_instantiation.append('all_integrands.insert(%d, Integrand::new('%integrand.ID)
+        integrand_instantiation.append('integrands.insert(%d, Integrand::new('%integrand.ID)
         instantiation_repl_dict = {}
         instantiation_repl_dict['n_processes'] = len(integrand.processes_map)
         instantiation_repl_dict['n_initial'] = len(integrand.masses[0])

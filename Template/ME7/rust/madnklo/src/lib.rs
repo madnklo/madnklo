@@ -62,7 +62,22 @@ use crate::phase_space_generator::PhaseSpaceGenerator;
 py_module_initializer!(madnklo, initmadnklo, PyInit_madnklo, |py, m| {
     m.add(py, "__doc__", "MadNkLO")?;
     m.add_class::<FlatPhaseSpaceGenerator>(py)?;
+    m.add_class::<Integrand>(py)?;
     Ok(())
+});
+
+py_class!(class Integrand |py| {
+    data integrands: RefCell<all_integrands::AllIntegrands>;
+
+    def __new__(_cls) -> PyResult<Integrand> {
+        let mut integrands = all_integrands::AllIntegrands::new();
+        Integrand::create_instance(py, RefCell::new(integrands))
+    }
+
+    def evaluate(&self, id: usize, x: Vec<f64>) -> PyResult<f64> {
+        let mut integrands = self.integrands(py).borrow_mut();
+        Ok(integrands.integrands.get_mut(&id).unwrap().evaluate(&x, 1.0, None))
+    }
 });
 
 py_class!(class FlatPhaseSpaceGenerator |py| {

@@ -1158,6 +1158,43 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
             self.output_run_results(
                 run_output_path, xsec, error, self.integrator.integrands, existing_results)
 
+    def do_test_rust(self, line, *args, **opt):
+        try:
+            sys.path.append(self.me_dir + '/lib')
+            import madnklo
+        except:
+            raise AssertionError("Could not load madnklo library")
+
+        args = self.split_arg(line)
+        new_args, launch_options = self.parse_launch(args)
+
+        # In principle we want to start by recompiling the process output
+        # to make sure that everything is up to date.
+        self.synchronize(**launch_options)
+
+        # Construct Python integrands
+        integrands_to_consider = ME7_integrands.ME7IntegrandList([
+            itg for itg in self.all_integrands
+            if all(filter(itg) for filter in launch_options['integrands']) ])
+
+        # Construct Rust integrands
+        rust_integrands = madnklo.Integrand()
+
+        # Get the number of samples. The default is 1
+        if '-s' in new_args:
+            arg_pos = new_args.index('-s') + 1
+            samples = int(new_args[arg_pos])
+        else:
+            samples = 1
+
+        for x in range(samples):
+            PS_random_variables = [random.random() for _ in range(len(integrands_to_consider[0].get_dimensions()))]
+
+            python_eval = integrands_to_consider[0].evaluate(PS_random_variables, 1.0, misc.dummy_lock())
+            rust_eval = rust_integrands.evaluate(1, PS_random_variables)
+
+            if (rust_eval == 0. and python_eval != 0.) or (rust_eval != 0. and abs(python_eval - rust_eval) / abs(rust_eval) > 0.01):
+                print("Mismatch between Python and rust: x=%s python=%s, rust=%s" % (PS_random_variables, python_eval, rust_eval))
 
     def do_test_IR_limits(self, line, *args, **opt):
         """This function test that local subtraction counterterms match

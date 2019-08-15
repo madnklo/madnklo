@@ -25,6 +25,7 @@ madnklo_release: clean_log dependencies $(RUST_SOURCES)
 	echo "Compiling Rust sources in release mode ..."	
 	PROC_ROOT=$(PROC_ROOT) MADNKLO_ROOT=$(MADNKLO_ROOT) cargo build --release
 	cp $(MADNKLO_ROOT)/rust_target/release/madnklo $(PROC_ROOT)/rust/madnklo_release
+	cp $(MADNKLO_ROOT)/rust_target/release/libmadnklo.so $(PROC_ROOT)/lib/madnklo.so
 
 madnklo_debug: clean_log dependencies $(RUST_SOURCES)
 	echo "Formatting Rust code ..."	
@@ -32,6 +33,7 @@ madnklo_debug: clean_log dependencies $(RUST_SOURCES)
 	echo "Compiling Rust sources in debug mode ..."	
 	PROC_ROOT=$(PROC_ROOT) MADNKLO_ROOT=$(MADNKLO_ROOT) cargo build --debug
 	cp $(MADNKLO_ROOT)/rust_target/debug/madnklo $(PROC_ROOT)/rust/madnklo_debug
+	cp $(MADNKLO_ROOT)/rust_target/debug/libmadnklo.so $(PROC_ROOT)/lib/madnklo.so
 
 dependencies: $(MODEL_LIBRARY) $(HELAS_LIBRARIES) $(MATRIX_ELEMENT_LIBRARIES)
 
@@ -60,4 +62,4 @@ clean_matrix_elements:
 %(clean_matrix_elements)s
 
 clean: clean_log clean_model clean_helas clean_matrix_elements
-	rm -f madnklo_release madnklo_debug
+	rm -f madnklo_release madnklo_debug $(PROC_ROOT)/lib/madnklo.so

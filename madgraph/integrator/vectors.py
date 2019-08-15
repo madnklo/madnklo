@@ -397,7 +397,7 @@ class LorentzVector(Vector):
         p_vec = p.space()
         q_vec = q.space()
         if almost_equal(p_vec, q_vec, rel_tol=eps):
-            return Vector([0 for _ in p_vec])
+            return Vector([0 for _ in p])
         n_vec = (q_vec - p_vec).normalize()
         na = LorentzVector([1, ] + list(+n_vec))
         nb = LorentzVector([1, ] + list(-n_vec))

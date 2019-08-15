@@ -847,6 +847,88 @@ impl<T: Float + Field> LorentzVector<T> {
         let delta_phi = self.getdelphi(p2);
         (delta_eta * delta_eta + delta_phi * delta_phi).sqrt()
     }
+
+    /// Apply a pure boost that sends p into q to this `LorentzVector`.
+    /// For details, see appendix A.2.2 of Simone Lionetti's PhD thesis.
+    ///
+    /// * `p` - Starting Lorentz vector to define the boost.
+    /// * `q` - Target Lorentz vector to define the boost.
+    pub fn boost_from_to(&self, p: &LorentzVector<T>, q: &LorentzVector<T>) -> LorentzVector<T> {
+        let eps = T::epsilon() + T::epsilon();
+        let p_abs = p.euclidean_distance();
+        let q_abs = q.euclidean_distance();
+
+        if (p - q).spatial_distance() < eps * eps {
+            return LorentzVector::new();
+        }
+
+        let mut n_vec = q - p;
+        n_vec = n_vec / n_vec.spatial_distance();
+
+        let na = LorentzVector::from_args(T::one(), n_vec.x, n_vec.y, n_vec.z);
+        let nb = LorentzVector::from_args(T::one(), -n_vec.x, -n_vec.y, -n_vec.z);
+
+        let p_plus = p.dot(&nb);
+        let p_minus = p.dot(&na);
+        let q_plus = q.dot(&nb);
+        let q_minus = q.dot(&na);
+        let ratioa;
+        let ratiob;
+        if p_minus / p_abs < eps && q_minus / q_abs < eps {
+            if p_plus / p_abs < eps && q_plus / q_abs < eps {
+                ratioa = T::one();
+                ratiob = T::one();
+            } else {
+                ratiob = q_plus / p_plus;
+                ratioa = T::one() / ratiob;
+            }
+        } else {
+            if p_plus / p_abs < eps && q_plus / q_abs < eps {
+                ratioa = q_minus / p_minus;
+                ratiob = T::one() / ratioa;
+            } else {
+                ratioa = q_minus / p_minus;
+                ratiob = q_plus / p_plus;
+            }
+        }
+
+        let plus = self.dot(&nb);
+        let minus = self.dot(&na);
+
+        self + na * (ratiob - T::one()) / (T::one() + T::one()) * plus
+            + nb * (ratioa - T::one()) / (T::one() + T::one()) * minus
+    }
+}
+
+impl LorentzVector<f64> {
+    /// Boost this kinematic configuration from the center of mass frame to the lab frame
+    /// given specified Bjorken x's x1 and x2.
+    /// This function needs to be cleaned up and built in a smarter way as the boost vector can be written
+    /// down explicitly as a function of x1, x2 and the beam energies.
+    pub fn boost_from_com_to_lab_frame(
+        momenta: &mut [LorentzVector<f64>],
+        x1: f64,
+        x2: f64,
+        ebeam1: f64,
+        ebeam2: f64,
+    ) {
+        let target_summed =
+            LorentzVector::from_args(x1 * ebeam1, 0., 0., (x1 * ebeam1).copysign(momenta[0].z))
+                + LorentzVector::from_args(
+                    x2 * ebeam2,
+                    0.,
+                    0.,
+                    (x2 * ebeam2).copysign(momenta[1].z),
+                );
+
+        let source_summed =
+            LorentzVector::from_args(2. * (x1 * x2 * ebeam1 * ebeam2).sqrt(), 0., 0., 0.);
+
+        // We want to send the source to the target
+        for vec in momenta {
+            *vec = vec.boost_from_to(&source_summed, &target_summed);
+        }
+    }
 }
 
 impl<T: RealNumberLike> LorentzVector<T> {

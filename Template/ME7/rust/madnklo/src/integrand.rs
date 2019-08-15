@@ -5,6 +5,7 @@ use crate::settings_card::SettingsCard;
 use crate::HashableFloat;
 use epsilon_expansion::EpsilonExpansion;
 use libc::{c_double, c_int};
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::f64::consts::PI;
 use std::ffi::CString;
@@ -50,7 +51,7 @@ mod FJCORE {
     }
 }
 
-pub trait IntegrandEvaluator {
+pub trait IntegrandEvaluator: Send + Sync {
     fn call_ME_for_key(
         &mut self,
         p: &HashMap<usize, LorentzVector<f64>>,
@@ -442,12 +443,23 @@ impl Integrand {
         // *pseudo* rapidities and not rapidities, so that when jets are clustered into a massive combined
         // momentum, this makes it important to boost to the lab frame. We therefore turn on this boost here
         // by default.
-        if (xb_1 != None) && (xb_2 != None) && (xb_1, xb_2) != (Some(1.), Some(1.)) {
-            panic!("Boosting to lab frame not supported yet");
+        let PS_point = if (xb_1 != None) && (xb_2 != None) && (xb_1, xb_2) != (Some(1.), Some(1.)) {
             // Prevent border effects
-            //PS_point = PS_point.get_copy()
-            //PS_point.boost_from_com_to_lab_frame(xb_1, xb_2, self.run_card['ebeam1'], self.run_card['ebeam2'])
-        }
+
+            let mut new_momenta = PS_point.to_owned();
+
+            LorentzVector::boost_from_com_to_lab_frame(
+                &mut new_momenta,
+                xb_1.unwrap_or(1.),
+                xb_2.unwrap_or(1.),
+                self.run_card.ebeam1,
+                self.run_card.ebeam2,
+            );
+
+            Cow::from(new_momenta)
+        } else {
+            Cow::from(PS_point)
+        };
 
         for (i, p) in PS_point[self.n_initial..].iter().enumerate() {
             if is_a_photon(process_pdg_final[i]) {
@@ -675,13 +687,13 @@ impl Integrand {
         let alpha_s = self.param_card.aS;
         let all_flavor_configurations = &self.all_flavor_configurations[&process_id];
 
-        // Apply flavor blind cuts
+        // Apply flavor blind cuts to potentially save on an expensive matrix element evaluation
         if !self.pass_flavor_blind_cuts(
             &self.external_momenta, // TODO: use the map?
             &all_flavor_configurations[0].1,
             self.n_unresolved_particles,
-            None,
-            None,
+            if xb_1 == 1.0 { None } else { Some(xb_1) },
+            if xb_2 == 1.0 { None } else { Some(xb_2) },
         ) {
             return vec![];
         }
@@ -847,8 +859,8 @@ impl Integrand {
                     &self.external_momenta,
                     &self.all_flavor_configurations[&process_id][0].1,
                     self.n_unresolved_particles,
-                    None,
-                    None,
+                    if xb_1 == 1.0 { None } else { Some(xb_1) },
+                    if xb_2 == 1.0 { None } else { Some(xb_2) },
                 ) {
                     filtered_events.push(e);
                 }

@@ -130,7 +130,11 @@ fn bench(integrand: &mut Integrand, settings: &IntegratorSettings) {
 }
 
 /// Inspect a single point.
-fn inspect<'a>(integrand: &mut Integrand, _settings: &IntegratorSettings, matches: &ArgMatches<'a>) {
+fn inspect<'a>(
+    integrand: &mut Integrand,
+    _settings: &IntegratorSettings,
+    matches: &ArgMatches<'a>,
+) {
     let x: Vec<_> = matches
         .values_of("point")
         .unwrap()
@@ -216,8 +220,8 @@ fn main() {
         settings.n_increase = usize::from_str(x).unwrap();
     }
 
-    let mut integrands = all_integrands::AllIntegrands_RUSTTEST::new();
-    let integrand = integrands.all_integrands.get_mut(&1).unwrap();
+    let mut integrands = all_integrands::AllIntegrands::new();
+    let integrand = integrands.integrands.get_mut(&1).unwrap();
     let dims = integrand.get_dimensions();
 
     if let Some(_) = matches.subcommand_matches("bench") {

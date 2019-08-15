@@ -26,7 +26,7 @@ import madgraph.various.misc as misc
 import commons.utils as utils
 import commons.QCD_local_currents as currents
 
-# from integrated_current_expressions import HE
+from integrated_current_expressions import Soft_FF_distributed_modified_eikonal
 
 pjoin = os.path.join
 
@@ -182,7 +182,7 @@ class integrated_NLO_FF_QCD_collinear_qqx(integrated_NLO_FF_QCD_current):
         #alpha_0 = currents.SomogyiChoices.alpha_0
         # finite_part = HE.CqqFF_Finite_Gabor_DIVJAC_NOD0(alpha_0, y12)
 
-        value = EpsilonExpansion({0: 0., -1: (-4. / 3.), -2: 0.})
+        value = EpsilonExpansion({0: 0., -1: (-2. / 3.), -2: 0.})
 
         logMuQ = math.log(mu_r ** 2 / Q_square)
         prefactor = EpsilonExpansion({0: 1., 1: logMuQ, 2: 0.5 * logMuQ ** 2})
@@ -305,7 +305,7 @@ class integrated_NLO_FF_QCD_collinear_gq(integrated_NLO_FF_QCD_current):
         # finite_part = HE.CqgFF_Finite_Gabor_DIVJAC_NOD0(alpha_0, y12)
 
         value = EpsilonExpansion(
-            {0: 0., -1: -1./2., -2:0. })
+            {0: -1., -1: -1./2., -2:0. })
 
         logMuQ = math.log(mu_r ** 2 / Q_square)
         prefactor = EpsilonExpansion({0: 1., 1: logMuQ, 2: 0.5 * logMuQ ** 2})
@@ -433,7 +433,7 @@ class integrated_NLO_FF_QCD_collinear_gg(integrated_NLO_FF_QCD_current):
         # finite_part = HE.CggFF_Finite_Gabor_DIVJAC_NOD0(alpha_0, y12)
 
         value = EpsilonExpansion(
-            {0: 0., -1: 1./3., -2: 0.})
+            {0: 0., -1: -1./3, -2: 0.})
 
         logMuQ = math.log(mu_r ** 2 / Q_square)
 
@@ -581,6 +581,8 @@ class integrated_NLO_QCD_soft_gluon(integrated_NLO_FF_QCD_current):
                 pa = PS_point[a]
                 pb = PS_point[b]
                 stilde = 2.*pa.dot(pb)
+                # For now we set the upper bound without a cut so s0 = Q^2
+                y0 = Q_square/stilde
                 mu2_div_stilde_pow_eps = EpsilonExpansion(
                     {
                         0: 1.,
@@ -591,7 +593,7 @@ class integrated_NLO_QCD_soft_gluon(integrated_NLO_FF_QCD_current):
 
                 value*=mu2_div_stilde_pow_eps
                 value *= EpsilonExpansion({
-                    0   : 0.,
+                    0   : Soft_FF_distributed_modified_eikonal(y0),
                     -1  : -2.,
                     -2  : -1.
                 })

@@ -1,11 +1,15 @@
-# =============================================
-#               MPL CLASS
-# =============================================
-import ctypes
+'''Explicit expressions for the integrals of the modified partial-fractionned soft scheme at NLO
+Computations performed in ND's
+research/Active/Subtractions/Cbars/NLO_cbars/
+    integrated_hard_coll_DS.nb
+    integrated_modified_DS.nb
+TODO put this in some common place
+'''
 import logging
 import math
 from madgraph import MG5DIR
 from madgraph.various import misc
+from madgraph.core.base_objects import EpsilonExpansion
 
 
 logger=logging.getLogger("SubtractionCurrents")
@@ -13,131 +17,20 @@ logger=logging.getLogger("SubtractionCurrents")
 import madgraph.various.math_tools.mpl as MPL
 
 # =============================================
-#          Harcoded Expression Class (HE)
+#          Harcoded Expressions
 # =============================================
 
-class HE(object):
-    """
-    This is a class whose static methods are the hardcoded expressions for the integrated currents
-    """
-    @staticmethod
-    def CqqFF_Finite_Gabor_EEJJ(a0,y12in):
-        '''Final-final collinear integrated counterterm for qq for m=2'''
-        if abs(y12in-1.) < 1e-6:
-            y12 = 1-1e-6
-        else:
-            y12 = y12in
-        #misc.sprint("In CqqFF")
-        #misc.sprint("y12 = " + str(y12))
-        return (-10/9 - (8*a0)/(3*(a0*(-2 + y12) - y12)*(-2 + y12)**2*(-1 + y12)) +
-   (4*a0*y12)/((a0*(-2 + y12) - y12)*(-2 + y12)**2*(-1 + y12)) - 
-   (4*a0*y12**2)/(3*(a0*(-2 + y12) - y12)*(-2 + y12)**2*(-1 + y12)) + (2*MPL.G([0], a0))/3 + (2*MPL.G([0], y12))/3 + 
-   (2*y12*MPL.G([y12/(a0*(-2 + y12))], 1))/(3*(-2 + y12)**2) - (16*a0*MPL.G([y12/(a0*(-1 + y12))], 1))/
-    (3*(a0*(-2 + y12) - y12)*(-2 + y12)**2*(-1 + y12)) - (8*y12*MPL.G([y12/(a0*(-1 + y12))], 1))/
-    (3*(a0*(-2 + y12) - y12)*(-2 + y12)**2*(-1 + y12)) + (8*a0*y12*MPL.G([y12/(a0*(-1 + y12))], 1))/
-    ((a0*(-2 + y12) - y12)*(-2 + y12)**2*(-1 + y12)) + (8*y12**2*MPL.G([y12/(a0*(-1 + y12))], 1))/
-    (3*(a0*(-2 + y12) - y12)*(-2 + y12)**2*(-1 + y12)) - (4*a0*y12**2*MPL.G([y12/(a0*(-1 + y12))], 1))/
-    ((a0*(-2 + y12) - y12)*(-2 + y12)**2*(-1 + y12)) - (2*y12**3*MPL.G([y12/(a0*(-1 + y12))], 1))/
-    (3*(a0*(-2 + y12) - y12)*(-2 + y12)**2*(-1 + y12)) + (2*a0*y12**3*MPL.G([y12/(a0*(-1 + y12))], 1))/
-    (3*(a0*(-2 + y12) - y12)*(-2 + y12)**2*(-1 + y12)))
+def Soft_FF_distributed_modified_eikonal(y0):
+    '''Integral of the modified partial fractionned eikonal divided by the overall normalization of
+    $(\mu^2/\tilde{s})^(\epsilon)$ (included in the `evaluate_integrated_current` function)
 
-    @staticmethod
-    def CggFF_Finite_Gabor_EEJJ(a0,y12in):
-        '''Final-final collinear integrated counterterm for gg for m=2'''
-        if abs(y12in-1.) < 1e-6:
-            y12 = 1-1e-6
-        else:
-            y12 = y12in
-        #misc.sprint("In CggFF")
-        #misc.sprint("y12 = " + str(y12))
-        return (100/9 - (2*math.pi**2)/3 + (40 - 42*y12 + 13*y12**2)/(3*(-2 + y12)**2*(-1 + y12)) -
-   (y12*(4 - 84*a0 - 46*y12 + 126*a0*y12 + 42*y12**2 - 64*a0*y12**2 - 11*y12**3 + 11*a0*y12**3))/
-    (3*(-2 + y12)**2*(-1 + y12)*(-2*a0 - y12 + a0*y12)) - (11*MPL.G([0], a0))/3 - (11*MPL.G([0], y12))/3 + 
-   2*MPL.G([0], a0)*MPL.G([0], y12) + 2*MPL.G([0], a0)*MPL.G([-a0], y12) - 2*MPL.G([0], y12)*MPL.G([-y12], a0) - 
-   (2*y12*(2 + y12)*MPL.G([y12/(-2 + y12)], a0))/(3*a0*(-2 + y12)**3) + 
-   (2*y12*(2 - a0*(-2 + y12) + y12)*MPL.G([y12/(-2 + y12)], a0))/(3*a0*(-2 + y12)**3) - 
-   (11*y12*MPL.G([y12/(-1 + y12)], a0))/(3*a0*(-1 + y12)**2) + (11*(a0 + y12 - a0*y12)*MPL.G([y12/(-1 + y12)], a0))/
-    (3*a0*(-1 + y12)**2) - (4*MPL.G([0], y12)*MPL.G([y12/(-1 + y12)], a0))/(-1 + y12) + 2*MPL.G([0, 0], a0) + 
-   2*MPL.G([0, 0], y12) - 4*MPL.G([0, -y12], a0) - (4*MPL.G([0, y12/(-1 + y12)], a0))/(-1 + y12) + 
-   (4*y12*MPL.G([0, y12/(-1 + y12)], a0))/(-1 + y12) + 2*MPL.G([-a0, 0], y12) - 2*MPL.G([-y12, 0], a0) + 
-   (4*MPL.G([y12/(-1 + y12), 0], a0))/(-1 + y12) - (4*MPL.G([y12/(-1 + y12), y12/(-1 + y12)], a0))/(-1 + y12))
-
-    @staticmethod
-    def CqgFF_Finite_Gabor_EEJJ(a0,y12in):
-        '''Final-final collinear integrated counterterm for qg for m=2'''
-        if abs(y12in-1.) < 1e-6:
-            y12 = 1-1e-6
-        else:
-            y12 = y12in
-        #misc.sprint("In CqgFF")
-        #misc.sprint("y12 = " + str(y12))
-        #misc.sprint("a0 = " + str(a0))
-        return (5 - math.pi**2/3 + 3/(2*(-1 + y12)) - (3*y12)/(2*(-1 + y12)) - (3*MPL.G([0], a0))/2 - (3*MPL.G([0], y12))/2 +
-   MPL.G([0], a0)*MPL.G([0], y12) + MPL.G([0], a0)*MPL.G([-a0], y12) - MPL.G([0], y12)*MPL.G([-y12], a0) + 
-   (3*(a0 + y12 - a0*y12)*MPL.G([y12/(-1 + y12)], a0))/(2*a0*(-1 + y12)**2) - 
-   ((3*y12 - 4*a0*MPL.G([0], y12) + 4*a0*y12*MPL.G([0], y12))*MPL.G([y12/(-1 + y12)], a0))/(2*a0*(-1 + y12)**2) + 
-   MPL.G([0, 0], a0) + MPL.G([0, 0], y12) - 2*MPL.G([0, -y12], a0) - (2*MPL.G([0, y12/(-1 + y12)], a0))/(-1 + y12) + 
-   (2*y12*MPL.G([0, y12/(-1 + y12)], a0))/(-1 + y12) + MPL.G([-a0, 0], y12) - MPL.G([-y12, 0], a0) + 
-   (2*MPL.G([y12/(-1 + y12), 0], a0))/(-1 + y12) - (2*MPL.G([y12/(-1 + y12), y12/(-1 + y12)], a0))/(-1 + y12))
-
-
-    @staticmethod
-    def SoftFF_Finite_Gabor_EEJJ(y0,Yin):
-        '''Final-final soft+soft-colinear integrated counterterm for qg for m=2'''
-        if abs(Yin-1.) < 1e-6:
-            Y = 1-1e-6
-        else:
-            Y = Yin
-        return (-math.pi**2/6 + 2*(y0 + MPL.G([0], Y)*(y0 - MPL.G([0], y0))) - MPL.G([0, 0], Y) + MPL.G([1, 0], Y))
-
-
-    @staticmethod
-    def CqqFF_Finite_Gabor_DIVJAC_NOD0(a0,y12in):
-        '''Final-final collinear integrated counterterm for qq canonically normalized for the rescaling mapping'''
-        if abs(y12in-1.) < 1e-6:
-            y12 = 1-1e-6
-        else:
-            y12 = y12in                
-        return ((10*(-2 + y12)*y12 - 2*a0*(20 - 17*y12 + 5*y12**2))/(9*(a0*(-2 + y12) - y12)*(-2 + y12)) + 
-   (4*(-1 + y12)*MPL.G([0], 2))/(3*(-2 + y12)**2) + (4*(3 - 3*y12 + y12**2)*MPL.G([0], a0))/(3*(-2 + y12)**2) - 
-   (4*(-1 + y12)*MPL.G([0], y12))/(3*(-2 + y12)**2) + (2*MPL.G([a0/(-1 + a0)], y12))/3 + 
-   (4*(-1 + y12)*MPL.G([(2*a0)/(-1 + a0)], y12))/(3*(-2 + y12)**2))
-
-    @staticmethod
-    def CggFF_Finite_Gabor_DIVJAC_NOD0(a0,y12in):
-        '''Final-final collinear integrated counterterm for gg canonically normalized for the rescaling mapping'''
-        if abs(y12in-1.) < 1e-6:
-            y12 = 1-1e-6
-        else:
-            y12 = y12in        
-        return (((-67 + 9*math.pi**2)*(-2 + y12)*y12 + a0*(268 - 9*math.pi**2*(-2 + y12)**2 - 262*y12 + 67*y12**2))/
-    (9*(a0*(-2 + y12) - y12)*(-2 + y12)) - (4*(-1 + y12)*MPL.G([0], 2))/(3*(-2 + y12)**2) + 6*MPL.G([0], y12)**2 + 
-   MPL.G([0], a0)*((-2*(42 - 42*y12 + 11*y12**2))/(3*(-2 + y12)**2) + (8*(-2 + y12)*MPL.G([1], y12))/y12) + 
-   MPL.G([0], y12)*((4*(-1 + y12))/(3*(-2 + y12)**2) - 2*MPL.G([-a0], y12) - 4*MPL.G([a0/(-1 + a0)], y12)) - 
-   (11*MPL.G([a0/(-1 + a0)], y12))/3 - (4*(-1 + y12)*MPL.G([(2*a0)/(-1 + a0)], y12))/(3*(-2 + y12)**2) - 
-   4*MPL.G([0, 0], y12) + 2*MPL.G([0, -a0], y12) + 4*MPL.G([0, a0/(-1 + a0)], y12) + (-8 + 16/y12)*MPL.G([1, 0], y12) + 
-   (8*(-2 + y12)*MPL.G([1, a0/(-1 + a0)], y12))/y12 + 2*MPL.G([-a0, 0], y12) + 4*MPL.G([a0/(-1 + a0), 0], y12) - 
-   4*MPL.G([a0/(-1 + a0), a0/(-1 + a0)], y12))
-
-    @staticmethod
-    def CqgFF_Finite_Gabor_DIVJAC_NOD0(a0,y12in):
-        '''Final-final collinear integrated counterterm for qg canonically normalized for the rescaling mapping'''
-        if abs(y12in-1.) < 1e-6:
-            y12 = 1-1e-6
-        else:
-            y12 = y12in        
-        return ((7 - math.pi**2)/2 + 3*MPL.G([0], y12)**2 + MPL.G([0], a0)*(-3 + (4 - 8/y12)*MPL.G([1], y12)) + 
-   MPL.G([0], y12)*(-MPL.G([-a0], y12) - 2*MPL.G([a0/(-1 + a0)], y12)) - (3*MPL.G([a0/(-1 + a0)], y12))/2 - 
-   2*MPL.G([0, 0], y12) + MPL.G([0, -a0], y12) + 2*MPL.G([0, a0/(-1 + a0)], y12) + (-4 + 8/y12)*MPL.G([1, 0], y12) + 
-   (4 - 8/y12)*MPL.G([1, a0/(-1 + a0)], y12) + MPL.G([-a0, 0], y12) + 2*MPL.G([a0/(-1 + a0), 0], y12) - 
-   2*MPL.G([a0/(-1 + a0), a0/(-1 + a0)], y12))
-
-    @staticmethod
-    def SoftFF_Finite_Gabor_DIVJAC_NOD0(y0,Yin):
-        '''Final-final soft+soft-colinear integrated counterterm canonically normalized for the soft rescaling mapping'''
-        if abs(Yin-1.) < 1e-6:
-            Y = 1-1e-6
-        else:
-            Y = Yin        
-        return (-math.pi**2/6 + 2*(y0 + MPL.G([0], Y)*(y0 - MPL.G([0], y0))) - MPL.G([0, 0], Y) + MPL.G([1, 0], Y))
+    :param y0: y0*stilde is the upper value of the invariant mass of the collinear pair,
+    where stilde is the invariant mass of the reduced emitting dipole
+    :type y0: float
+    :return: numerical value of the finite part of the integral
+    :rtype: EpsilonExpansion
+    '''
+    return -2*(2. - math.pi**2/4. + MPL.G([0,-1],y0) - math.log(y0) - \
+    y0*math.log(y0) - math.log(y0)**2/2. + math.log(1 + y0) + \
+    y0*math.log(1 + y0))
 

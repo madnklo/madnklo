@@ -89,9 +89,11 @@ class QCD_final_collinear_0_gq_soft_distrib(QCD_final_collinear_0_XX_soft_distri
         # Retrieve the collinear variables
         z = all_steps_info[0]['variables'][0]['zs'][0]
         s = all_steps_info[0]['variables'][0]['ss'][0]
+        Q = all_steps_info[0]['higher_PS_point'][1]+all_steps_info[0]['higher_PS_point'][2]
+        Q2 = Q.square()
         # Compute the kernel using
         # f9d0839fc58905d67367e3e67efabee05ee390f9:madgraph/iolibs/template_files/OLD_subtraction/cataniseymour/NLO/local_currents.py:146
-        evaluation['values'][(0, 0, 0)] = {'finite':self.CF*z/s}
+        evaluation['values'][(0, 0, 0)] = {'finite':z*s/Q2}
         return evaluation
 
 
@@ -110,6 +112,8 @@ class QCD_final_collinear_0_gq_soft_distrib(QCD_final_collinear_0_XX_soft_distri
         parent_ID = all_steps_info[0]['bundles_info'][0]['parent']
         # Mapped momentum of the quark parent
         p_qg_tilde = all_steps_info[0]['lower_PS_point'][parent_ID]
+        Q = all_steps_info[0]['higher_PS_point'][1]+all_steps_info[0]['higher_PS_point'][2]
+        Q2 = Q.square()
 
         # Loop over the dipoles (quark,j). Only the gluon can be soft
         color_correlation_index = 1
@@ -128,7 +132,7 @@ class QCD_final_collinear_0_gq_soft_distrib(QCD_final_collinear_0_XX_soft_distri
                 # We add the color correlation (q,j) to the list of color correlations
                 evaluation['color_correlations'].append(((parent_ID, j),))
                 # color_correlation_index now points to that color correlation in the list
-                evaluation['values'][(0, color_correlation_index, 0)] = {'finite': SoftKernels.partial_fractionned_eikonal_g(pg,pq,pj*correction_ratio)[0]}
+                evaluation['values'][(0, color_correlation_index, 0)] = {'finite': 0.*(2.*pq.dot(pg)/Q2)*(pg.dot(pj)/(pq+pg).dot(pj))/Q2}
                 # color_correlation_index now points to the next possible color correlation
                 color_correlation_index += 1
 

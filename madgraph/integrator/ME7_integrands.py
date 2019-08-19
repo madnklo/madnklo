@@ -2700,11 +2700,10 @@ class ME7Integrand_V(ME7Integrand):
         # Some contributions might have not physical contributions and overloaded the above
         # so as to return None
         if matrix_element_event is not None:
+            pass # DEBUG!!!
             all_events_generated.append(matrix_element_event)
-        
         # Now loop over all integrated counterterms
         for i_ct, counterterm_characteristics in enumerate(self.integrated_counterterms[process_key]):
-
             # Skip integrated counterterms that do not belong to this sector
             selected_input_mappings = None
             if (sector_info is not None) and (sector_info['integrated_counterterms'] is not None):
@@ -2713,9 +2712,9 @@ class ME7Integrand_V(ME7Integrand):
                 selected_input_mappings = sector_info['integrated_counterterms'][i_ct]
 
             # Example of a hack below to include only soft integrated CT. Uncomment to enable.
-            #if counterterm_characteristics['integrated_counterterm'].reconstruct_complete_singular_structure()\
-            #                                         .substructures[0].substructures[0].name()!='S':
-            #    continue
+            if counterterm_characteristics['integrated_counterterm'].reconstruct_complete_singular_structure()\
+                                                    .substructures[0].substructures[0].substructures[0].name()!='S':
+                continue
 
             # And over all the ways in which this current PS point must be remapped to
             # account for all contributions of the integrated CT. (e.g. the integrated
@@ -3611,7 +3610,7 @@ The missing process is: %s"""%ME_process.nice_string())
 
         # Some contributions might have not physical contributions and overloaded the above
         # so as to return None
-        if matrix_element_event is not None:
+        if False: #matrix_element_event is not None: DEBUG
             all_events_generated.append(matrix_element_event)
 
         for i_ct, counterterm in enumerate(self.counterterms[process_key]):

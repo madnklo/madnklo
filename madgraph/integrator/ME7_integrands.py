@@ -2699,8 +2699,7 @@ class ME7Integrand_V(ME7Integrand):
 
         # Some contributions might have not physical contributions and overloaded the above
         # so as to return None
-        if matrix_element_event is not None:
-            pass # DEBUG!!!
+        if False: #matrix_element_event is not None: DEBUG
             all_events_generated.append(matrix_element_event)
         # Now loop over all integrated counterterms
         for i_ct, counterterm_characteristics in enumerate(self.integrated_counterterms[process_key]):

@@ -93,7 +93,7 @@ class QCD_final_collinear_0_gq_soft_distrib(QCD_final_collinear_0_XX_soft_distri
         Q2 = Q.square()
         # Compute the kernel using
         # f9d0839fc58905d67367e3e67efabee05ee390f9:madgraph/iolibs/template_files/OLD_subtraction/cataniseymour/NLO/local_currents.py:146
-        evaluation['values'][(0, 0, 0)] = {'finite':z*s/Q2}
+        evaluation['values'][(0, 0, 0)] = {'finite':0.*z*s/Q2}
         return evaluation
 
 
@@ -132,7 +132,7 @@ class QCD_final_collinear_0_gq_soft_distrib(QCD_final_collinear_0_XX_soft_distri
                 # We add the color correlation (q,j) to the list of color correlations
                 evaluation['color_correlations'].append(((parent_ID, j),))
                 # color_correlation_index now points to that color correlation in the list
-                evaluation['values'][(0, color_correlation_index, 0)] = {'finite': 0.*(2.*pq.dot(pg)/Q2)*(pg.dot(pj)/(pq+pg).dot(pj))/Q2}
+                evaluation['values'][(0, color_correlation_index, 0)] = {'finite': (2.*pq.dot(pg)/Q2)*(pg.dot(pj)/(pq+pg).dot(pj))/Q2}
                 # color_correlation_index now points to the next possible color correlation
                 color_correlation_index += 1
 

@@ -859,16 +859,16 @@ own and set the path to its library in the MG5aMC option '%(p)s'.""" % {'p': key
         # hack for multiprocess:
         if myprocdef.has_multiparticle_label():
             # split it in a loop
-            succes, failed = 0, 0
+            success, failed = 0, 0
             for base_proc in myprocdef:
                 try:
                     self.exec_cmd("add process %s" % base_proc.nice_string(prefix=False, print_weighted=True))
-                    succes += 1
+                    success += 1
                 except Exception:
                     failed +=1
-            logger.info("%s/%s processes succeeded" % (succes, failed+succes))
-            if succes == 0:
-                raise
+            logger.info("%s/%s processes succeeded" % (success, failed+success))
+            if success == 0:
+                raise BaseException("Could not add process.")
             else:
                 return
              

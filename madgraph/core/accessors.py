@@ -813,10 +813,22 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
         # Instantiate the subtraction_current_instance with the specified model
         self.model = model
         self.subtraction_current_instance = None
-        self.synchronize(model=model) 
+        self.synchronize(model=model)
+
+        # Assign a unique ID for each subtraction current accessor (assigned after generation
+        self.id = None
+
+    def get_id(self):
+        """ Returns a unique string identifier for this accessor. To be defined by the daughter classes."""
+
+        if self.id:
+            return self.id
+        else:
+            raise NotImplementedError
 
     def synchronize(self, model=None, **opts):
         """ Synchronizes this accessor with the possibly updated model and value."""
+
         if not model is None:
             self.model = model
             self.subtraction_current_instance = \
@@ -856,7 +868,8 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
     def nice_string(self):
         """ Summary of the details of this Subtraction current accessor."""
         res = []
-        res.append("%s: %s @ '%s'"%(self.__class__.__name__,self.subtraction_scheme_name, self.current_class_identifier))
+        res.append("%s: %s @ '%s' %s"%(self.__class__.__name__,self.subtraction_scheme_name,
+                                            self.current_class_identifier, '#%d'%self.id if self.id else ''))
         res.append('Defining subtraction current: %s'%str(self.defining_current))
         return '\n'.join(res)
 
@@ -1337,14 +1350,14 @@ class F2PYMEAccessor(VirtualMEAccessor):
 
         if opts['spin_correlation'] and self.spin_correlations:
             # By default, do no compute any spin correlators
-            if low_level_code_generation:
+            if not low_level_code_generation:
                 self.get_function('reset_spin_correlation_vectors')()
             else:
                 low_level_code.append('call','%(ME_library)s.%(function_prefix)sreset_spin_correlation_vectors',tuple([]))
         
         if opts['color_correlation'] and self.color_correlations:
             # By default, do no compute any color correlators
-            if low_level_code_generation:
+            if not low_level_code_generation:
                 self.get_function('set_color_correlators_to_consider')(0,0)
             else:
                 low_level_code.append('call','%(ME_library)s.%(function_prefix)sset_color_correlators_to_consider',(0,0))

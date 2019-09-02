@@ -962,6 +962,9 @@ class GeneralQCDLocalCurrent(QCDLocalCurrent):
             'values': { }
         })
 
+        #import pdb
+        #pdb.set_trace()
+
         # Apply collinear kernel (can be dummy)
         evaluation = self.kernel(evaluation, all_steps, global_variables)
 

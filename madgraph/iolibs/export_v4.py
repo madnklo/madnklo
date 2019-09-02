@@ -2652,7 +2652,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
     # write_matrix_element_v4
     #===========================================================================
     def write_matrix_element_v4(self, writer, matrix_element, fortran_model,
-                                                                        write=True):
+                                                    write=True, proc_prefix=''):
         """Export a matrix element to a matrix.f file in MG4 standalone format
         if write is on False, just return the replace_dict and not write anything."""
 
@@ -2674,10 +2674,12 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         if not self.opt.has_key('sa_symmetry'):
             self.opt['sa_symmetry']=False
 
-        if hasattr(matrix_element, 'proc_prefix'):
-            proc_prefix = matrix_element.proc_prefix
-        else:
-            proc_prefix = ''
+        if proc_prefix=='':
+            # Try if the proc prefix was specified through the matrix element
+            if hasattr(matrix_element, 'proc_prefix'):
+                proc_prefix = matrix_element.proc_prefix
+            else:
+                proc_prefix = ''
 
         # The proc_id is for MadEvent grouping which is never used in SA.
         replace_dict = {'global_variable':'', 'amp2_lines':'',

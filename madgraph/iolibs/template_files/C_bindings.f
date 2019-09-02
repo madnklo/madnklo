@@ -43,6 +43,7 @@ C
       SUBROUTINE %(binding_prefix)s%(proc_prefix)sSET_SPIN_CORRELATION_VECTORS(LEG_INDEX, N_VECTORS, VECTORS) bind(c)
         USE iso_c_binding, ONLY: c_int, c_double
 
+        INCLUDE 'nexternal.inc'
         INCLUDE 'spin_correlations.inc'
 
         integer(c_int), intent(in)    :: LEG_INDEX
@@ -57,7 +58,7 @@ C
 
         CALL %(proc_prefix)sRESET_SPIN_CORRELATION_VECTORS()
 
-      END SUBROUTINE %(binding_prefix)s%(proc_prefix)sSET_SPIN_CORRELATION_VECTORS
+      END SUBROUTINE %(binding_prefix)s%(proc_prefix)sRESET_SPIN_CORRELATION_VECTORS
 ## }
 
 ## if (color_correlation) {

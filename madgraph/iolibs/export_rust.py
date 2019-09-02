@@ -176,12 +176,20 @@ class RustExporter(object):
         all_MEAccessors.synchronize()
 
         exported_matrix_element_ids = set()
+        subtraction_current_accessor_id = 0
         for (process_key, (me_accessor, pdg_map)) in all_MEAccessors.items():
+
+            # For the rust low-level output each subtraction current accessor needs a unique ID.
+            # This unique ID is automatically generated for Matrix element accessors, but we need to issue it here
+            # for subtraction accessor.
+            if isinstance(me_accessor, accessors.SubtractionCurrentAccessor):
+                subtraction_current_accessor_id += 1
+                me_accessor.id = subtraction_current_accessor_id
             if me_accessor.get_id() in exported_matrix_element_ids:
                 continue
             exported_matrix_element_ids.add(me_accessor.get_id())
 
-            # For we only support exporting matrix element accessors
+            # Logic for rust export of low level matrix element interfaces
             if isinstance(me_accessor, accessors.F2PYMEAccessor):
                 ME_rs_template = open(pjoin(self.dynamic_template_path,'matrix_element.rs'),'r').read()
                 repl_dict = {}
@@ -199,7 +207,12 @@ class RustExporter(object):
                     'makefile_target': '../../../lib/matrix_elements/lib%s.a' % me_accessor.get_library_name()
                 })
                 rust_writer.writelines(ME_rs_template, context={}, replace_dictionary=repl_dict)
-        
+
+            # Logic for rust export of low level subtraction currents
+            if isinstance(me_accessor, accessors.SubtractionCurrentAccessor):
+                # No pre-processing per subtraction counterterm to be performed at this stage
+                pass
+
         rust_writer.close()
 
         return
@@ -303,6 +316,7 @@ class RustExporter(object):
                 process, PS_point, alpha_s, mu_r, pdgs=all_flavor_configurations[0], low_level_code_generation=True)
 
             ME_calls_instructions[call_key] = low_level_calling_code
+
 
         # We must now hard-code the collected low-level code into the dynamic rust templates
         # ==================================================================================

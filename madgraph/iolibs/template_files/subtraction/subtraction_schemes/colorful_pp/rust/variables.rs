@@ -1,59 +1,89 @@
+struct Variables {
+    zs: Vec<f64>,
+    kTs: Vec<LorentzVector<f64>>,
+    ss: Vec<Vec<f64>>,
+    ss_i_others: Vec<Vec<f64>>,
+}
 
+/// Variables for 'n' *pure final state* collinear recoiling exclusively against the initial state.
+fn colorful_pp_FFn_variables(higher_PS_point: HashMap<usize, LorentzVector<f64>>, 
+    qC: LorentzVector<f64>, children: &[usize], Q: LorentzVector<f64>, alpha: f64) -> Variables {
 
-def colorful_pp_FFn_variables(higher_PS_point, qC, children, **opts):
-    """ Variables for 'n' *pure final state* collinear recoiling exclusively against the initial state."""
+    let all_p_fs: Vec<_> = children.iter().map(|child| &higher_PS_point[*child]).collect();
 
-    all_p_fs = [higher_PS_point[child] for child in children]
-    Q = opts['Q']
-    alpha = opts['alpha']
+    let pC = all_p_fs.iter().sum();
+    let Q_square = Q.square();
+    let pa_dot_pb = Q_square/2.;
+    let alpha = 0.5*( pC.dot(Q)/pa_dot_pb - (pC.dot(Q)/pa_dot_pb)**2 - 4.* (pC.square()/Q_square) ).sqrt() ) ;
 
-    # Loop over all final state momenta to obtain the corresponding variables
-    zs = []
-    for p_fs in all_p_fs:
-        zs.append(p_fs.dot(Q))
-    normalisation = sum(zs)
-    for i in range(len(zs)):
-        zs[i] /= normalisation
+    // Loop over all final state momenta to obtain the corresponding variables
+    let mut zs = Vec::with_capacity(all_p_fs.len());
+    for p_fs in all_p_fs {
+        zs.push(p_fs.dot(Q));
+    }
 
-    # Add additional ss's
-    ss_i_j = {}
-    for i_fs in range(len(all_p_fs)):
-        for j_fs in range(i_fs+1,len(all_p_fs)):
-            ss_i_j[(i_fs,j_fs)] = 2.*all_p_fs[i_fs].dot(all_p_fs[j_fs])
-    ss_i_j_tot = sum(ss_i_j.values())
-    for k,v in ss_i_j.items():
-        ss_i_j[(k[1],k[0])] = v
+    let normalisation = zs.sum();
+    for zsi in &mut zs {
+        *zsi /= normalisation;
+    }
 
-    ss_i_others = []
-    for i_fs in range(len(all_p_fs)):
-        p_other = vectors.LorentzVector()
-        for j_fs in range(len(all_p_fs)):
-            if j_fs==i_fs: continue
-            p_other += all_p_fs[j_fs]
-        ss_i_others.append(2.*all_p_fs[i_fs].dot(p_other))
+    // Add additional ss's
+    let mut ss_i_j = vec![vec![0.; all_p_fs.len()]; all_p_fs.len()];
+    let mut ss_i_j_tot = 0.;
+    for i_fs, p_fs_i in all_p_fs.iter().enumerate() {
+        for j_fs in i_fs+1..all_p_fs.len() {
+            ss_i_j[i_fs][j_fs] = 2.*p_fs_i.dot(all_p_fs[j_fs]);
+            ss_i_j_tot += ss_i_j[i_fs][j_fs];
+            ss_i_j[j_fs][i_fs] = ss_i_j[i_fs][j_fs];
+        }
+    }
 
-    xis = [(z-ss_i_others[i]/(alpha*(2.*sum(all_p_fs).dot(Q)))) for i, z in enumerate(zs)]
+    let ss_i_others = all_p_fs.iter().map(|p| 2*(pC - p).dot(p)).collect();
 
-    if len(all_p_fs)==3:
-        # WARNING function below is *not* symmetric in r and s.
+    let xis = zs.iter().zip(ss_i_others).map(|z, so| (z-so/(alpha*(2.*pC.dot(&Q))))).collect();
+
+    if len(all_p_fs)==3 {
+        // WARNING function below is *not* symmetric in r and s.
         def bigZ(i,r,s):
             return (ss_i_j[(i,r)] - ss_i_j[(r,s)] - 2.*zs[r]*ss_i_j_tot)/(alpha*2.*qC.dot(Q))
-    elif len(all_p_fs)==2:
+    }
+    else len(all_p_fs)==2 {
         def bigZ(i,r):
-            return (ss_i_j[(i,r)]*(zs[r]-zs[i]))/(alpha*2.*qC.dot(Q))
+            return (ss_i_j[(i,r)]*(zs[r]-zs[i]))/(alpha*2.*qC.dot(&Q))
+    }
     else:
-        raise NotImplementedError
+        notimplemented()
 
-    kTs = {}
-    for i in range(len(all_p_fs)):
-        kT = vectors.LorentzVector()
-        other_indices = [k for k in range(len(all_p_fs)) if k!=i]
-        for j in other_indices:
-            kT += xis[i]*all_p_fs[j]
-            kT -= xis[j]*all_p_fs[i]
+    kTs = Vec::with_capacity(all_p_fs.len());
+    for (i, p_fs_i) in all_p_fs.iter().enumerate() {
+        let mut kT = LorentzVector::default();
 
-        kT += bigZ(i,*other_indices)*qC
-        kTs[(i,tuple(other_indices))] = kT
+        for j, p_fs_j in all_p_fs.iter().enumerate() {
+            kT += xis[i]*p_fs_j - xis[j] * p_fs_i;
+        }
 
-    return [{'zs':tuple(zs), 'kTs':kTs, 'ss':ss_i_j, 'ss_i_others':ss_i_others },]
+        match all_p_fs.len() {
+            2 => {
+                let r = 1 if i == 0 else 0;
+                kT += (ss_i_j[i][r]*(zs[r]-zs[i]))/(alpha*2.*qC.dot(&Q)) * qC;
+            }
+            3 => {
+                // WARNING function below is *not* symmetric in r and s.
+                let r = 1 if i == 0 else 0;
+                let s = 1 if i == 2 else 2;
+                let Z = (ss_i_j[i][r] - ss_i_j[r][s] - 2.*zs[r]*ss_i_j_tot)/(alpha*2.*qC.dot(&Q));
+                kT += Z * qC;
+            }
+            x => notimplemented!("Case {} is not supported", x)
+        }
 
+        kTs[i] = kT;
+    }
+
+    Variables {
+        zs,
+        kTs,
+        ss,
+        ss_i_others
+    }
+}

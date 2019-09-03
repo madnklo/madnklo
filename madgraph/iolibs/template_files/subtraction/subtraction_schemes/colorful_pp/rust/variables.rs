@@ -14,7 +14,7 @@ fn colorful_pp_FFn_variables(higher_PS_point: HashMap<usize, LorentzVector<f64>>
     let pC = all_p_fs.iter().sum();
     let Q_square = Q.square();
     let pa_dot_pb = Q_square/2.;
-    let alpha = 0.5*( pC.dot(Q)/pa_dot_pb - (pC.dot(Q)/pa_dot_pb)**2 - 4.* (pC.square()/Q_square) ).sqrt() ) ;
+    let alpha = 0.5*( pC.dot(Q)/pa_dot_pb - (pC.dot(Q)/pa_dot_pb).powi(2) - 4.* (pC.square()/Q_square) ).sqrt() ) ;
 
     // Loop over all final state momenta to obtain the corresponding variables
     let mut zs = Vec::with_capacity(all_p_fs.len());

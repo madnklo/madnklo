@@ -4,6 +4,33 @@ use std::f64::consts::PI;
 use std::fmt;
 use vector::LorentzVector;
 
+#[derive(Debug)]
+enum SubtractionLegState {
+    Initial,
+    Final
+}
+
+#[derive(Debug)]
+struct SubtractionLeg {
+    leg_id: usize,
+    pdg_id: isize,
+    state: SubtractionLegState,
+}
+
+#[derive(Debug)]
+enum SingularStuctureType {
+    Soft,
+    Collinear,
+    Beam,
+}
+
+#[derive(Debug)]
+struct SingularStructure {
+    type: SingularStuctureType,
+    singular_substructure: Vec<SingularStructure>,
+    legs: Vec<SubtractionLeg>,
+}
+
 pub trait SubtractionCurrentEvaluator: Send + Sync {
     fn evaluate(
         &mut self,

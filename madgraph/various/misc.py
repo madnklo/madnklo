@@ -2074,6 +2074,7 @@ def prefix_symbols(
 
     # First scan subroutines and substitute common blocks
     identified_subroutines = []
+    identified_commons = []
 
     sub_identifier_re = re.compile(r"^(?P<routine_before>\s*subroutine\s+)(?P<routine_name>\w+)\((?P<rest_of_line>.*)",re.IGNORECASE)
     sub_suspicious_re = re.compile(r"^(?P<routine_before>\s*subroutine\s+).*",re.IGNORECASE)
@@ -2111,6 +2112,7 @@ def prefix_symbols(
                 if common_name.upper() in ['RASET1','RASET2']:
                     new_lines.append(line)
                     continue
+                identified_commons.append(common_name.lower())
                 new_lines.append('%s%s%s/%s\n'%(common_identifier.group('common_before'),
                                          prefix,
                                          common_name,
@@ -2135,7 +2137,7 @@ def prefix_symbols(
         for line in open(targetFile, 'r').readlines():
             call_identifier = re.match(call_identifier_re, line)
             endSub_identifier = re.match(endSub_identifier_re, line)
-
+            common_identifier = re.match(common_identifier_re,line)
             if not call_identifier is None:
                 # Make sure it was not already prefixed with ML5_
                 routine_name = call_identifier.group('routine_name')
@@ -2163,6 +2165,26 @@ def prefix_symbols(
                 new_lines.append('%s%s%s\n' % (endSub_identifier.group('endSub_before'),
                                                prefix,
                                                routine_name))
+            elif not common_identifier is None:
+                # Make sure it was not already prefixed with ML5_
+                common_name = common_identifier.group('common_name')
+                if any(re.match(name_veto,common_name) is not None for name_veto in vetoed_names):
+                    new_lines.append(line)
+                    continue
+                # Renaming those in check_sa is problematic.
+                # It doesn't matter anyway since they aren't exported symbols in any library
+                if common_name.upper() in ['RASET1','RASET2']:
+                    new_lines.append(line)
+                    continue
+                # Make sure it is a common block that has already been prefixed from the former source code
+                if common_name.lower() not in identified_commons:
+                    new_lines.append(line)
+                    continue
+                new_lines.append('%s%s%s/%s\n'%(common_identifier.group('common_before'),
+                                         prefix,
+                                         common_name,
+                                         common_identifier.group('rest_of_line')))
+
             else:
                 if re.match(call_suspicious_re, line):
                     logger.warning("Warning: Suspicious subroutine call without delimiter! Probably a line break.")

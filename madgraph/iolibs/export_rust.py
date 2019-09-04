@@ -57,7 +57,7 @@ class RustExporter(object):
     dynamic_template_path = pjoin(
         _file_path, os.pardir, 'madgraph', 'iolibs', 'template_files', 'rust')
 
-    def __init__(self, cmd_interface, export_options={}):
+    def __init__(self, cmd_interface, subtraction_module, export_options={}):
         """Initialize an Rust exporter with an instance of the main command line interface as well as additional
          export options which provide an access to all necessary information about how the rust backend should
          be exported, together with the list of MadNkLO integrands that must be exported."""
@@ -66,6 +66,7 @@ class RustExporter(object):
         self.export_dir = cmd_interface._export_dir
         self.options = cmd_interface.options
         self.model = cmd_interface._curr_model
+        self.subtraction_module = subtraction_module
         self.export_options = export_options
 
         # This dictionary will contain the various information for each library to be built and linked
@@ -255,75 +256,149 @@ class RustExporter(object):
                 rust_code.append('let %s = %s;'%(instruction[1], translate_function_call(instruction[2],instruction[3])))
             elif instruction[0] == 'return':
                 rust_code.append('%s'%translate_argument(instruction[1]))
+            elif instruction[0] == 'print':
+                rust_code.append('println!(%s);'%translate_argument(instruction[1]))
 
         return rust_code, necessary_imports
 
-    def export(self, integrand, repl_dict):
-        """ Export one particular integrand. """
-        #import pdb
-        #pdb.set_trace()
+    def write_rust_counterterm(self, integrand, runtime_symbolic_inputs, i_process, process_key, i_CT, CT,
+            counterterm_evaluators_rust_writer, current_evaluators_rust_writer, i_input_mapping=None, CT_input_mapping=None):
+        """
+        Returns
+                headers, instantiation
+        Where "headers" is a list of include statement necessary for that particular instantiation while
+        "instantiation" is a block of code instantiating the specified local counterterm together with
+        its evaluators.
 
-        # The rust exporter currently only support LO integrands
-        if integrand.contribution_definition.overall_correction_order.count('N')>0:
-            return
+        Given the two rust writer specified, this function writes the implementation of the evaluator
+        for the counterterm specified as well as of all the evaluator of all the currents it contains.
 
-        integrand_short_name = '%s_%d' % (
-            integrand.get_short_name(), integrand.ID)
-        integrand_export_path = pjoin(
-            self.export_dir, 'rust', 'madnklo', 'src', 'integrands')
+        The options i_input_mapping and CT_input_mapping refer to the input mappings of the integrated counterterms
+        and they are set to None for local counterterms.
+        """
 
-        # Make sure to first disable accessor caches
-        accessors.deactivate_cache()
+        counterterm_short_name = None
+        if i_input_mapping is not None:
+            counterterm_short_name += '%s_P%d_ICT%d_m%d' % (
+                    self.get_integrand_short_name(integrand), i_process, i_CT,i_input_mapping)
+        else:
+            counterterm_short_name = '%s_P%d_CT%d' % (self.get_integrand_short_name(integrand), i_process, i_CT)
 
-        # Store here all low-level instructions for performing Matrix Element calls
-        ME_calls_instructions = {}
-        all_flavor_configurations_per_process = {}
-        process_info = []
+        counterterm_evaluator_context = {}
+        counterterm_evaluator_repl_dict = {
+            'counterterm_short_name' : counterterm_short_name,
+            'integrand_id' : integrand.ID,
+            'process_id' : i_process,
+            'counterterm_id' : i_CT,
+            'mapping_id' : 0 if i_input_mapping is None else i_input_mapping,
+            'ME_imports' : None,
+            'ME_calls' : None,
+            'counterterm_evaluator_definition' : None,
+            'counterterm_evaluator_construction': None,
+        }
 
-        for i_process, (process_key, (process, mapped_processes)) in enumerate(sorted(integrand.processes_map.items())):
+        counterterm_instantiation_includes = []
+        counterterm_instantiation = [
+            'Counterterm::new(%(integrand_id)d, %(process_id)d, %(CT_id)d, %(CT_mapping_id)d,'%(
+                integrand.ID, i_process, i_CT, -1 if i_input_mapping is None else i_input_mapping
+            ),
+            '&param_card_path','run_card', 'param_card', 'settings_card',
+            'integrands:%sCountertermEvaluator(&param_card_path)'%counterterm_short_name,
+        ]
+        if i_input_mapping is None:
+            header_lines_for_subtraction_currents, subtraction_currents_instantiation, \
+            counterterm_evaluation_code, ME_calls_code =  integrand.evaluate_local_counterterm(
+                CT, runtime_symbolic_inputs[i_process]['PS_point'],
+                runtime_symbolic_inputs[i_process]['base_weight'],
+                runtime_symbolic_inputs[i_process]['mu_r'],
+                runtime_symbolic_inputs[i_process]['mu_f1'],
+                runtime_symbolic_inputs[i_process]['mu_f2'],
+                runtime_symbolic_inputs[i_process]['xb_1'],
+                runtime_symbolic_inputs[i_process]['xb_2'],
+                runtime_symbolic_inputs[i_process]['xi1'],
+                runtime_symbolic_inputs[i_process]['xi2'],
+                integrand.processes_map[process_key][0].get('has_mirror_process'),
+                runtime_symbolic_inputs[i_process]['all_flavor_configurations'][0],
+                hel_config=None, # MC over helicities not supported yet.
+                # The following options will remain as arguments of the function
+                sector='sector',
+                apply_flavour_blind_cuts='apply_flavour_blind_cuts',
+                boost_back_to_com='boost_back_to_com',
+                always_generate_event='always_generate_event',
+                low_level_generation=True,
+                current_evaluators_writer=current_evaluators_rust_writer
+            )
+        else:
+            # notice that in this case 'CT' is and 'integrated_CT_characteristics' dictionary
+            header_lines_for_subtraction_currents, subtraction_currents_instantiation, \
+            counterterm_evaluation_code, ME_calls_code = integrand.evaluate_integrated_counterterm(
+                CT, runtime_symbolic_inputs[i_process]['PS_point'],
+                runtime_symbolic_inputs[i_process]['base_weight'],
+                runtime_symbolic_inputs[i_process]['mu_r'],
+                runtime_symbolic_inputs[i_process]['mu_f1'],
+                runtime_symbolic_inputs[i_process]['mu_f2'],
+                runtime_symbolic_inputs[i_process]['xb_1'],
+                runtime_symbolic_inputs[i_process]['xb_2'],
+                runtime_symbolic_inputs[i_process]['xi1'],
+                runtime_symbolic_inputs[i_process]['xi2'],
+                runtime_symbolic_inputs[i_process]['xi2'],
+                CT['input_mappings'][i_input_mapping],
+                runtime_symbolic_inputs[i_process]['all_flavor_configurations'][0],
+                # The following options will remain as arguments of the function
+                sector='sector',
+                hel_config=None,
+                compute_poles='compute_poles',
+                low_level_generation=True,
+                current_evaluators_writer=current_evaluators_rust_writer
+            )
+        counterterm_evaluator_repl_dict['counterterm_evaluation_code'] = counterterm_evaluation_code
 
-            # First construct the list of
-            process_pdgs = process.get_cached_initial_final_pdgs()
-            all_processes = [process,]+mapped_processes
-            all_flavor_configurations = []
-            # The process mirroring is accounted for at the very end only
-            for proc in all_processes:
-                initial_final_pdgs = proc.get_cached_initial_final_pdgs()
-                all_flavor_configurations.append(initial_final_pdgs)
-            all_flavor_configurations_per_process[i_process] = all_flavor_configurations
-            process_info.append((integrand.contribution_definition.n_unresolved_particles, process.get('has_mirror_process')))
-
-            # The counterterm counter starts at zero for the "physical contribution" (i.e. ME)
-            i_CT = 0
-            # The i_CT=0 contribution of course then involves only a single call to the ME
-            i_call = 0
-            assert(not hasattr(integrand, 'counterterms'))
-            assert(not hasattr(integrand, 'integrated_counterterms'))
-
-            call_key = (i_process, i_CT, i_call)
-
-            # We can now use the all_flavor_configurations built here to hard-code it in the rust template.
-            PS_point = {}
-            for i_leg, leg in enumerate(process.get_initial_legs()):
-                PS_point[leg.get('number')] = 'p[&%d]'%leg.get('number')
-            for i_leg, leg in enumerate(process.get_final_legs()):
-                PS_point[leg.get('number')] = 'p[&%d]'%leg.get('number')
-            alpha_s = "alpha_s"
-            mu_r = "mu_r"
-
-            # We can now reconstruct what are the necessary ME calls in this sigma call so as to be able to hardcode them
-            low_level_calling_code = integrand.all_MEAccessors(
-                process, PS_point, alpha_s, mu_r, pdgs=all_flavor_configurations[0], low_level_code_generation=True)
-
-            ME_calls_instructions[call_key] = low_level_calling_code
+        counterterm_instantiation.append(subtraction_currents_instantiation)
+        counterterm_instantiation_includes.extend(header_lines_for_subtraction_currents)
 
 
-        # We must now hard-code the collected low-level code into the dynamic rust templates
-        # ==================================================================================
+        # Now build the ME_calls placeholder from the instruction set returned by the evaluate_counterterm function
+        ME_calls_low_level_code_for_CT_evaluator = []
+        ME_imports_for_CT_evaluator = []
+        ME_evaluators_definition = []
+        ME_evaluators_construction = []
+        for (i_call, matrix_element_name), call_instructions in ME_calls_code.items():
+            ME_calls_low_level_code_for_CT_evaluator.append('(%d, %d, %d, %d) => {'%(
+                i_process, i_CT, -1 if i_input_mapping is None else i_input_mapping, i_call)
+            )
+            rust_code, necessary_imports = self.translate_low_level_code(call_instructions)
+            ME_calls_low_level_code_for_CT_evaluator.extend(rust_code)
+            ME_imports_for_CT_evaluator.extend(necessary_imports)
+            ME_evaluators_definition.append(
+                '%(MEname)sMatrixElement_evaluator: MatrixElementEvaluator<%(MEname)sMatrixElement>'%{
+                    'MEname' : matrix_element_name
+                }
+            )
+            ME_evaluators_construction.append(
+                '%(MEname)sMatrixElement_evaluator: MatrixElementEvaluator::new(card_filename, %(MEname)sMatrixElement {})'%{
+                    'MEname': matrix_element_name
+                }
+            )
 
-        # TODO Refactorise the generation of the instantiator and integrand evaluators below into two functions
+        counterterm_evaluator_repl_dict['ME_imports'] = '\n'.join(ME_imports_for_CT_evaluator)
+        counterterm_evaluator_repl_dict['ME_calls'] = '\n'.join(ME_calls_low_level_code_for_CT_evaluator)
+        counterterm_evaluator_repl_dict['counterterm_evaluator_definition'] = ',\n'.join(ME_evaluators_definition)
+        counterterm_evaluator_repl_dict['counterterm_evaluator_construction'] = ',\n'.join(ME_evaluators_construction)
 
-        # First output the code for instantiating this particular integrand in the AllIntegrands struct
+
+        counterterm_evaluators_rust_writer.writelines(
+            open(pjoin(self.dynamic_template_path, 'counterterm_evaluator.rs'), 'r').read(),
+            context=counterterm_evaluator_context, replace_dictionary=counterterm_evaluator_repl_dict
+        )
+
+        return counterterm_instantiation_includes, ','.join(counterterm_instantiation)
+
+    def write_integrand_instantiator(self, integrand, runtime_symbolic_inputs, repl_dict):
+        """ Export the integrand_instantiator.rs code for the particular integrand in argument."""
+
+        integrand_short_name = self.get_integrand_short_name(integrand)
+        integrand_export_path = pjoin(self.export_dir, 'rust', 'madnklo', 'src', 'integrands', integrand_short_name)
+
         integrand_instantiation = []
         integrand_instantiation_header = []
         integrand_instantiation.append("// Now instantiating integrand '%s'"%integrand_short_name)
@@ -332,7 +407,6 @@ class RustExporter(object):
         instantiation_repl_dict['n_processes'] = len(integrand.processes_map)
         instantiation_repl_dict['n_initial'] = len(integrand.masses[0])
         instantiation_repl_dict['n_final'] = len(integrand.masses[1])
-        instantiation_repl_dict['process_info'] = 'vec![' + ','.join('ProcessInfo::new(%d,%s)'%(info[0], 'true' if info[1] else 'false') for info in process_info ) + ']'
         representative_process = integrand.processes_map.values()[0][0]
         masses_symbols = [
             tuple('param_card.%s'%self.model.get_particle(pdg_code).get('mass') for pdg_code in representative_process.get_initial_ids()),
@@ -343,31 +417,159 @@ class RustExporter(object):
         instantiation_repl_dict['all_flavor_configurations'] = "hashmap![%s]"%(','.join('%d => %s'%
             (i_process, "vec![%s]"%(','.join('(vec![%s],vec![%s])'%(
                 ','.join('%d'%pdg for pdg in flavor_config[0]),
-                ','.join('%d'%pdg for pdg in flavor_config[1])) for flavor_config in flavor_configs)))
-            for i_process, flavor_configs in sorted(all_flavor_configurations_per_process.items(), key=lambda k:k[0])))
+                ','.join('%d'%pdg for pdg in flavor_config[1])) for flavor_config in symbolic_inputs['all_flavor_configurations'])))
+            for i_process, symbolic_inputs in enumerate(runtime_symbolic_inputs)))
         instantiation_repl_dict['integrand_evaluator'] = "Box::new(IntegrandEvaluator_%s::new(&param_card_path))"%integrand_short_name
 
+        all_local_CT_headers = []
+        all_integrated_CT_headers = []
+        instantiation_repl_dict['local_counterterms'] = 'vec!['
+        instantiation_repl_dict['integrated_counterterms'] = 'vec!['
+
+        # Now open the files that will be used for the evaluators of the counterterms and its subtraction currents.
+
+        local_counterterm_evaluators_rust_writer = writers.RustWriter(
+                                           pjoin(integrand_export_path, 'all_local_counterterm_evaluators.rs'), opt='w')
+        local_counterterm_evaluators_rust_writer.writelines(
+                                    open(pjoin(self.dynamic_template_path, 'all_counterterm_evaluators.rs'), 'r').read())
+        integrated_counterterm_evaluators_rust_writer = writers.RustWriter(
+                                           pjoin(integrand_export_path, 'all_integrated_counterterm_evaluators.rs'), opt='w')
+        integrated_counterterm_evaluators_rust_writer.writelines(
+                                    open(pjoin(self.dynamic_template_path, 'all_counterterm_evaluators.rs'), 'r').read())
+
+        local_current_evaluators_rust_writer = writers.RustWriter(
+                                            pjoin(integrand_export_path, 'all_local_subtraction_current_evaluators.rs'), opt='w')
+        local_current_evaluators_rust_writer.write(
+                                    self.subtraction_module.rust_template_files['all_subtraction_current_evaluators.rs'])
+        integrated_current_evaluators_rust_writer = writers.RustWriter(
+                                            pjoin(integrand_export_path, 'all_integrated_subtraction_counterterm_evaluators.rs'), opt='w')
+        integrated_current_evaluators_rust_writer.write(
+                                    self.subtraction_module.rust_template_files['all_subtraction_current_evaluators.rs'])
+
+
+        # list of dictionary of process information that must be stored for each process contributing to that integrand
+        process_info = []
+        for i_process, (process_key, (process, mapped_processes)) in enumerate(sorted(integrand.processes_map.items())):
+
+            # Save process information
+            process_info.append({
+                'n_unresolved_particles' : integrand.contribution_definition.n_unresolved_particles,
+                'has_mirror_process' : process.get('has_mirror_process')
+            })
+
+            # Extract the call for the physical matrix element event
+
+            # Now write local counterterms
+            instantiation_repl_dict['local_counterterms'] += 'vec!['
+            if integrand.has_local_counterterms():
+                instantiation_repl_dict['local_counterterms'] += '\n\\ Local counterterms'
+                local_counterterms_instantiation = []
+                for i_CT, local_CT in enumerate(integrand.local_counterterms[process_key]):
+                    # Write the source code for the evaluator of the local_CT and that of all its contributing subtraction current.
+                    local_CT_headers, local_CT_instantiation = self.write_rust_counterterm(
+                        integrand, runtime_symbolic_inputs, i_process, process_key, i_CT, local_CT,
+                        local_counterterm_evaluators_rust_writer,
+                        local_current_evaluators_rust_writer
+                    )
+                    all_local_CT_headers.extend(local_CT_headers)
+                    local_counterterms_instantiation.append(local_CT_instantiation)
+
+                instantiation_repl_dict['local_counterterms'] += ',\n'.join(local_counterterms_instantiation)
+            else:
+                instantiation_repl_dict['local_counterterms'] += 'vec![],'
+            instantiation_repl_dict['local_counterterms'] += '],'
+
+            # And integrated ones
+            instantiation_repl_dict['integrated_counterterms'] = 'vec!['
+            if integrand.has_integrated_counterterms():
+                instantiation_repl_dict['integrated_counterterms'] += '\n\\ Integrated counterterms'
+                instantiation_repl_dict['integrated_counterterms'] = 'vec!['
+                for i_CT, counterterm_characteristics in enumerate(integrand.integrated_counterterms[process_key]):
+                    integrated_counterterms_instantiation = []
+                    for i_mapping, input_mapping in enumerate(counterterm_characteristics['input_mappings']):
+                        integrated_CT_headers, integrated_CT_instantiation = self.write_rust_counterterm(
+                            integrand, runtime_symbolic_inputs, i_process, process_key, i_CT, counterterm_characteristics,
+                            integrated_counterterm_evaluators_rust_writer,
+                            integrated_current_evaluators_rust_writer,
+                            i_input_mapping = i_mapping, CT_input_mapping = input_mapping
+                        )
+                        integrated_counterterms_instantiation.append(integrated_CT_instantiation)
+                        all_integrated_CT_headers.extend(integrated_CT_headers)
+                    instantiation_repl_dict['integrated_counterterms'] += ',\n'.join(integrated_counterterms_instantiation)
+                instantiation_repl_dict['integrated_counterterms'] += '],'
+            else:
+                instantiation_repl_dict['integrated_counterterms'] = 'vec![vec![]],'
+            instantiation_repl_dict['integrated_counterterms'] += '],'
+
+        # Close streams in which counterterms and subtraction current evaluators are written.
+        local_counterterm_evaluators_rust_writer.close()
+        integrated_counterterm_evaluators_rust_writer.close()
+        local_current_evaluators_rust_writer.close()
+        integrated_current_evaluators_rust_writer.close()
+
+        instantiation_repl_dict['process_info'] = 'vec![' + ','.join('ProcessInfo::new(%d,%s)'%(
+                        info['n_unresolved_particles'], 'true' if info['has_mirror_process'] else 'false'
+                                                                                    ) for info in process_info ) + ']'
         integrand_instantiation.append(
-            ('%(n_processes)d, %(all_flavor_configurations)s, '+
-            '%(process_info)s, %(n_initial)d, %(n_final)d, %(masses)s, run_card, param_card, settings_card, %(integrand_evaluator)s')%instantiation_repl_dict)
-        integrand_instantiation_header.append('use crate::integrands::integrand_evaluator_%s::IntegrandEvaluator_%s;'%(integrand_short_name,integrand_short_name))
+            (   '%(n_processes)d, %(all_flavor_configurations)s, '+
+                '%(process_info)s, %(n_initial)d, %(n_final)d, %(masses)s, '+
+                'run_card, param_card, settings_card, %(integrand_evaluator)s,'+
+                '\n%(local_counterterms)s,'+
+                '\n%(integrated_counterterms)s'
+            )%instantiation_repl_dict
+        )
+
         integrand_instantiation.append(')')
+
+        integrand_instantiation_header.append('// Integrand evaluator')
+        integrand_instantiation_header.append('use crate::integrands::integrand_evaluator_%s::IntegrandEvaluator_%s;'%(integrand_short_name,integrand_short_name))
+        integrand_instantiation_header.append('// Local counterterm evaluators')
+        integrand_instantiation_header.extend(all_local_CT_headers)
+        integrand_instantiation_header.append('// Integrated counterterm evaluator')
+        integrand_instantiation_header.extend(all_integrated_CT_headers)
+
+        # Now update the place holder
         repl_dict['instantiate_integrands'] += '\n'.join(integrand_instantiation) + ');' + '\n'
         repl_dict['instantiate_integrands_header'] += '\n'.join(integrand_instantiation_header) + '\n'
+
         repl_dict['integrands_include'] += 'pub mod integrand_evaluator_%s;\n' % integrand_short_name
 
-        # Now we must write out the corresponding integrand evaluator
+
+    def write_integrand_evaluator(self, integrand, runtime_symbolic_inputs, repl_dict):
+        """ Export the integrand evaluator code in in integrands/integrand_evaluator_B_1.rs"""
+
+        integrand_short_name = self.get_integrand_short_name(integrand)
+        integrand_export_path = pjoin(self.export_dir, 'rust', 'madnklo', 'src', 'integrands',integrand_short_name)
+
         integrand_evaluator_repl_dict = {}
         integrand_evaluator_repl_dict['integrand_ID'] = integrand.ID
         integrand_evaluator_repl_dict['integrand_short_name'] = integrand_short_name
         integrand_evaluator_repl_dict['integrand_evaluator_definition'] = ''
         integrand_evaluator_repl_dict['integrand_evaluator_construction'] = ''
+
+        ME_calls_instructions = {}
+        for i_process, (process_key, (process, mapped_processes)) in enumerate(sorted(integrand.processes_map.items())):
+
+            call_key = (i_process,)
+
+            # Extract the call for the physical matrix element event
+            # Reconstruct what are the necessary ME calls in this sigma call so as to be able to hardcode them
+            low_level_calling_code = integrand.all_MEAccessors(
+                process,
+                runtime_symbolic_inputs[i_process]['PS_point'],
+                runtime_symbolic_inputs[i_process]['alpha_s'],
+                runtime_symbolic_inputs[i_process]['mu_r'],
+                pdgs=runtime_symbolic_inputs[i_process]['all_flavor_configurations'][0],
+                low_level_code_generation=True)
+
+            ME_calls_instructions[call_key] = low_level_calling_code
+
         ME_calls_lines = []
         evaluator_header = []
         evaluator_definition = []
         evaluator_construction = []
         for call_key, low_level_code in sorted(ME_calls_instructions.items(), key=lambda k: k[0]):
-            ME_calls_lines.append('(%d, %d, %d) => {'%call_key)
+            ME_calls_lines.append('(%d,) => {'%call_key)
             rust_code, needed_matrix_elements = self.translate_low_level_code(low_level_code, function_prefix=repl_dict['C_binding_prefix'])
             for mat in needed_matrix_elements:
                 evaluator_header.append('use crate::matrix_elements::%s;' % mat)
@@ -387,22 +589,72 @@ class RustExporter(object):
             context=integrand_evaluator_context, replace_dictionary=integrand_evaluator_repl_dict)
         rust_writer.close()
 
-        # The code below would be an example of how to aggregated all integrand evaluators into a single rust file
-        # rust_writer = writers.RustWriter(None)
-        # integrand_evaluator_context = {}
-        # Headers will be added together in finalize
-        # integrand_evaluator_repl_dict['header'] = ''
-        # rust_writer.writelines(
-        #     open(pjoin(self.dynamic_template_path, 'integrand_evaluator.rs'), 'r').read(),
-        #     context=integrand_evaluator_context, replace_dictionary=integrand_evaluator_repl_dict)
-        # if 'integrand_evaluators_header' in repl_dict:
-        #     repl_dict['integrand_evaluators_header'] += '\n'.join(evaluator_header) + '\n'
-        # else:
-        #     repl_dict['integrand_evaluators_header'] = '\n'.join(evaluator_header) + '\n'
-        # if 'integrand_evaluators_body' in repl_dict:
-        #     repl_dict['integrand_evaluators_body'] += rust_writer.pop_content() + '\n'
-        # else:
-        #     repl_dict['integrand_evaluators_body'] = rust_writer.pop_content() + '\n'
+    def get_integrand_short_name(self, integrand):
+        """ Helper function to centralise the choice of the integrand short name."""
+        return '%s_%d' % (integrand.get_short_name(), integrand.ID)
+
+    def export(self, integrand, repl_dict):
+        """ Export one particular integrand. """
+        #import pdb
+        #pdb.set_trace()
+
+        # The rust exporter currently only support LO integrands
+        if integrand.contribution_definition.overall_correction_order.count('N')>0:
+            return
+
+        # Build the directory that will contain all rust resources pertaining to that integrand
+        integrand_short_name = self.get_integrand_short_name(integrand)
+        integrand_export_path = pjoin(self.export_dir, 'rust', 'madnklo', 'src', 'integrands',integrand_short_name)
+        os.makedirs(integrand_export_path)
+
+        # Make sure to first disable accessor caches
+        accessors.deactivate_cache()
+
+        # Build symbolic inputs to use when going through the low-level generation
+        runtime_symbolic_inputs = {}
+        runtime_symbolic_inputs_common_to_all_i_process = {
+            'alpha_s'       : 'alpha_s',
+            'mu_r'          : 'mu_r',
+            'base_weight'   : 'base_weight',
+            'mu_r'          : 'mu_r',
+            'mu_f1'         : 'mu_f1',
+            'mu_f2'         : 'mu_f2',
+            'xb_1'          : 'xb_1',
+            'xb_2'          : 'xb_2',
+            'xi1'           : 'xi1',
+            'xi2'           : 'xi2',
+        }
+        for i_process, (process_key, (process, mapped_processes)) in enumerate(sorted(integrand.processes_map.items())):
+
+            # Build an empty dictionary for the symbolic inputs of the i_process
+            runtime_symbolic_inputs[i_process] = dict(runtime_symbolic_inputs_common_to_all_i_process)
+
+            # First construct the list of
+            process_pdgs = process.get_cached_initial_final_pdgs()
+            all_processes = [process,]+mapped_processes
+            all_flavor_configurations = []
+            # The process mirroring is accounted for at the very end only
+            for proc in all_processes:
+                initial_final_pdgs = proc.get_cached_initial_final_pdgs()
+                all_flavor_configurations.append(initial_final_pdgs)
+            runtime_symbolic_inputs[i_process]['all_flavor_configurations'] = all_flavor_configurations
+
+            # We can now use the all_flavor_configurations built here to hard-code it in the rust template.
+            PS_point = {}
+            for i_leg, leg in enumerate(process.get_initial_legs()):
+                PS_point[leg.get('number')] = 'p[&%d]'%leg.get('number')
+            for i_leg, leg in enumerate(process.get_final_legs()):
+                PS_point[leg.get('number')] = 'p[&%d]'%leg.get('number')
+            runtime_symbolic_inputs[i_process]['PS_point'] = PS_point
+
+        # We must now hard-code the collected low-level code into the dynamic rust templates
+        # ==================================================================================
+
+        # First output the code for instantiating this particular integrand in the AllIntegrands struct
+        self.write_integrand_instantiator(integrand, runtime_symbolic_inputs, repl_dict)
+
+        # Now we must write out the corresponding integrand evaluator
+        self.write_integrand_evaluator(integrand, runtime_symbolic_inputs, repl_dict)
 
         return
 

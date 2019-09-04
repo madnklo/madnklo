@@ -922,7 +922,7 @@ class Contribution(object):
         # Now prefix all symbols of the DHELAS library so that they can be linked together
         proc_id =  self.amplitudes[0].get('process').get('uid')
         misc.prefix_symbols(
-            'MG5_%d_'%proc_id, file_paths_with_subroutine_and_commons_to_prefix,
+            'MG5_%s_%d_'%(self.short_name(),proc_id), file_paths_with_subroutine_and_commons_to_prefix,
             all_files_paths_possibly_containing_subroutines_to_prefix,
             vetoed_names=[ re.compile(r"^ML5_\d*_.*"), re.compile(r"^C_ML5_\d*_.*"),
                            re.compile(r"^MG5_\d*_.*"), re.compile(r"^C_MG5_\d*_.*") ],
@@ -1304,6 +1304,7 @@ class Contribution(object):
         # First check if the amplitude was not already generated
         if self.amplitudes and not force:
             return
+
 
         myproc = self.MultiProcessClass(self.contribution_definition.process_definition,
                     collect_mirror_procs = self.collect_mirror_procs,

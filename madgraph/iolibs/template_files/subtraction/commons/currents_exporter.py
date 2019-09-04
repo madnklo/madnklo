@@ -35,6 +35,21 @@ class GenericCurrentsExporter(object):
                 if mandatory_resource not in self.relative_resource_paths:
                     self.relative_resource_paths.append(mandatory_resource)
 
+        # Now specify rust-specific paths
+        self.rust_template_files = {
+            'all_subtraction_current_evaluators.rs' : pjoin('commons','rust','all_subtraction_current_evaluators.rs'),
+            'subtraction_current_evaluator.rs': pjoin('commons', 'rust', 'subtraction_current_evaluator.rs'),
+            'subtraction_current.rs': pjoin('commons', 'rust', 'subtraction_current.rs'),
+        }
+
+    def export_rust(self, output_directory):
+        """ Exports rust *common* resources. The ones for each subtraction current will be implemented via
+        dynamic meta-coding."""
+
+        for file_name in ['subtraction_current.rs']:
+            shutil.copy(self.rust_template_files[file_name],pjoin(output_directory,file_name))
+
+
     def export(self, destination_root_path, mapped_currents_to_export=None, **opts):
         """ Copy all resources to their destination path. """
         

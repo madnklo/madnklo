@@ -22,7 +22,8 @@
       logical UseQPIntegrandForNinja, UseQPIntegrandForCutTools
 	  logical COLLIERUseCacheForPoles,COLLIERUseInternalStabilityTest
 
-      common /MADLOOP/CTModeInit,CTModeRun,NRotations_DP,NRotations_QP,
+      common /MADLOOP/CTModeInit,CTModeRun,NRotations_DP,
+     &NRotations_QP,
      &COLLIERMode,COLLIERGlobalCache,
      &ImprovePSPoint,CheckCycle, MaxAttempts,UseLoopFilter,MLStabThres,
      &COLLIERRequiredAccuracy,

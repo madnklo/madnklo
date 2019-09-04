@@ -68,6 +68,9 @@ class ME7Exporter(object):
         self.options            = cmd_interface.options
         self.model              = cmd_interface._curr_model
         self.export_options     = export_options
+
+        if 'export_rust' not in self.export_options:
+            self.export_options['export_rust'] = True
         # Set some options to default if absent
         if 'ignore_contributions' not in self.export_options:
             self.export_options['ignore_contributions'] = []
@@ -722,28 +725,37 @@ class ME7Exporter(object):
                 scale=run_card['scale'], 
                 complex_mass_scheme=self.options['complex_mass_scheme'])
 
-        rust_exporter = export_rust.RustExporter(self.cmd_interface, self.export_options)
+        if self.export_options['export_rust']:
 
-        # First have the rust exporter write out global resources, mostly related to accessing
-        # building blocks of the computation such as the Matrix Elements and the subtraction currents
-        # The rust replacement dictionary will be progressively filled in as we move along the export procedure.
-        rust_repl_dict = {}
-        rust_exporter.export_global_resources(self.contributions, all_MEAccessors, rust_repl_dict)
+            # Make sure that the subtraction scheme supports the rust output if there is one active
+            if self.subtraction_scheme_module is None and (
+                        not hasattr(self.subtraction_scheme_module, 'supports_rust_export') or \
+                                                                not self.subtraction_scheme_module.supports_rust_export):
+                logger.warning('Exporting of low-level rust code will be skipped for this output since the active'+
+                               " subtraction scheme '%s' does not support rust output."%self.options['subtraction_scheme'])
+            else:
+                rust_exporter = export_rust.RustExporter(self.cmd_interface, self.subtraction_scheme_module, self.export_options)
 
-        ME7_options = dict(self.options)
-        ME7_options['me_dir'] = self.export_dir
-        # Then collect all integrands and export them one at a time.
-        integrand_ID = 0
-        for contrib in self.contributions:
-            for integrand in contrib.get_integrands( modelReader_instance, run_card, all_MEAccessors, ME7_options ):
-                integrand_ID += 1
-                integrand.ID = integrand_ID
-                rust_exporter.export(integrand, rust_repl_dict)
-                all_integrands.append(integrand)
+                # First have the rust exporter write out global resources, mostly related to accessing
+                # building blocks of the computation such as the Matrix Elements and the subtraction currents
+                # The rust replacement dictionary will be progressively filled in as we move along the export procedure.
+                rust_repl_dict = {}
+                rust_exporter.export_global_resources(self.contributions, all_MEAccessors, rust_repl_dict)
 
-        # Finally perform the last rust export duties that are also global and may require knowledge of the
-        # overall list of accessors and integrands
-        rust_exporter.finalize(all_MEAccessors, all_integrands, rust_repl_dict)
+                ME7_options = dict(self.options)
+                ME7_options['me_dir'] = self.export_dir
+                # Then collect all integrands and export them one at a time.
+                integrand_ID = 0
+                for contrib in self.contributions:
+                    for integrand in contrib.get_integrands( modelReader_instance, run_card, all_MEAccessors, ME7_options ):
+                        integrand_ID += 1
+                        integrand.ID = integrand_ID
+                        rust_exporter.export(integrand, rust_repl_dict)
+                        all_integrands.append(integrand)
+
+                # Finally perform the last rust export duties that are also global and may require knowledge of the
+                # overall list of accessors and integrands
+                rust_exporter.finalize(all_MEAccessors, all_integrands, rust_repl_dict)
 
         # And finally dump ME7 output information so that all relevant objects
         # can be reconstructed for a future launch with ME7Interface.

@@ -2764,7 +2764,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             replace_dict['nSqAmpSplitOrders']=len(squared_orders)
             replace_dict['nSplitOrders']=len(split_orders)
             replace_dict['split_order_str_list']=str(split_orders)
-            replace_dict['split_order_name_definitions'] = '\n'.join("SONAMES(%d)='%s'"%
+            replace_dict['split_order_name_definitions'] = '\n'.join("SONAMES(%d,:)='%s'"%
                                (i+1,so_name) for i, so_name in enumerate(split_orders) )
             amp_so = self.get_split_orders_lines(
                     [amp_order[0] for amp_order in amp_orders],'AMPSPLITORDERS')
@@ -4402,7 +4402,7 @@ class ProcessExporterFortranME(ProcessExporterFortran):
         replace_dict['nAmpSplitOrders']=len(amp_orders)
         replace_dict['nSqAmpSplitOrders']=len(squared_orders)
         replace_dict['split_order_str_list']=str(split_orders)
-        replace_dict['split_order_name_definitions'] = '\n'.join("SONAMES(%d)='%s'"%
+        replace_dict['split_order_name_definitions'] = '\n'.join("SONAMES(%d,:)='%s'"%
                                (i+1,so_name) for i, so_name in enumerate(split_orders) )
         replace_dict['nSplitOrders']=max(len(split_orders),1)
         amp_so = self.get_split_orders_lines(

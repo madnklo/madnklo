@@ -316,6 +316,10 @@ pub struct Integrand {
     // Integrand evaluator containing all the hardcoded information
     integrand_evaluator: Box<IntegrandEvaluator>,
 
+    // Counterterms 
+    local_counterterms: Vec<Vec<Counterterm>>,
+    integrated_counterterms: Vec<Vec<Counterterm>>,
+
     // level of debug info
     verbosity: usize,
 }
@@ -332,6 +336,8 @@ impl Integrand {
         param_card: ParamCard,
         settings_card: SettingsCard,
         integrand_evaluator: Box<IntegrandEvaluator>,
+        local_counterterms: Vec<Vec<Counterterm>>,
+        integrated_counterterms: Vec<Vec<Counterterm>>,
     ) -> Integrand {
         // initialise the PDF, hardcoded for now
         unsafe {
@@ -374,6 +380,8 @@ impl Integrand {
             processes_per_sector: vec![(0..n_processes).map(|id| (id, None)).collect()],
             selected_sectors: vec![],
             integrand_evaluator,
+            local_counterterms,
+            integrated_counterterms,
             verbosity: 0,
             pdf_cache: HashMap::new(),
         }
@@ -703,8 +711,6 @@ impl Integrand {
             alpha_s,
             mu_r,
             process_id,
-            0,
-            0,
         );
         sigma_wgt *= ME_evaluation[0];
 
@@ -720,8 +726,8 @@ impl Integrand {
             .map(|x| self.external_momenta_map[x].clone())
             .collect();
 
-        // Return the lone LO event
-        vec![Event {
+        // Add the matrix element event
+        let mut all_events = vec![Event {
             ps_point: external_momenta,
             host_contribution_definition: "N/A".to_owned(),
             weights_per_flavor_configurations: all_flavor_configurations
@@ -733,6 +739,21 @@ impl Integrand {
             bjorken_x_rescalings: (x1.unwrap_or(1.0), x2.unwrap_or(1.0)),
             is_a_mirrored_event: false,
         }]
+
+        // Add local counterterm events
+        for local_CT in self.local_counterterms[process_id]:
+            let local_CT_events = local_CT.evaluate()
+            if local_CT_events is not None:
+                all_events.extend(local_CT_events)
+
+        // Add integrated counterterm events
+        for integrated_CT in self.integrated_counterterms[process_id]:
+            let integrated_CT_events = integrated_CT.evaluate()
+            if integrated_CT_events is not None:
+                all_events.extend(integrated_CT_events)
+
+        all_events
+
     }
 
     pub fn evaluate(

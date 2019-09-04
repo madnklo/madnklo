@@ -73,9 +73,7 @@ C     GLOBAL VARIABLES
 C     
 C     This is from ML code for the list of split orders selected by
 C     the process definition
-C     
-      INTEGER NLOOPCHOSEN
-      CHARACTER*20 CHOSEN_LOOP_SO_INDICES(NSQUAREDSO)
+C
       LOGICAL CHOSEN_LOOP_SO_CONFIGS(NSQUAREDSO)
       COMMON/%(proc_prefix)sCHOSEN_LOOP_SQSO/CHOSEN_LOOP_SO_CONFIGS
 C     
@@ -87,16 +85,6 @@ C
       CALL %(proc_prefix)sGET_NSQSO_LOOP(NSQUAREDSO_LOOP)
       ALLOCATE(PREC_FOUND(0:NSQUAREDSO_LOOP))
       INCLUDE 'pmass.inc'
-
-C     Start by initializing what is the squared split orders indices
-C      chosen
-      NLOOPCHOSEN=0
-      DO I=1,NSQUAREDSO
-        IF (CHOSEN_LOOP_SO_CONFIGS(I)) THEN
-          NLOOPCHOSEN=NLOOPCHOSEN+1
-          WRITE(CHOSEN_LOOP_SO_INDICES(NLOOPCHOSEN),'(I3,A2)') I,'L)'
-        ENDIF
-      ENDDO
 
 C       Update the couplings with the new ALPHAS
         CALL UPDATE_AS_PARAM2(SCALE2, ALPHAS)

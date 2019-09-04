@@ -607,10 +607,10 @@ C     arrays since these are not the most optimized sorting algorithms.
       INTEGER MAXNREF_EVALS
       PARAMETER (MAXNREF_EVALS=100)
       INTEGER, DIMENSION(MAXNREF_EVALS), INTENT(IN) :: x
-      INTEGER, INTENT(IN)							  :: mStart, mEnd
-      INTEGER										  :: Minimum
-      INTEGER										  :: Location
-      INTEGER										  :: i
+      INTEGER, INTENT(IN) :: mStart, mEnd
+      INTEGER :: Minimum
+      INTEGER :: Location
+      INTEGER :: i
 
       Minimum  = x(mStart)           ! assume the first is the min
       Location = mStart              ! record its position
@@ -621,10 +621,10 @@ C     arrays since these are not the most optimized sorting algorithms.
          END IF
       END DO
       FindMinimum = Location         ! return the position
-      END FUNCTION  FindMinimum
+      END
 
 ! --------------------------------------------------------------------
-! SUBROUTINE  Swap():
+! SUBROUTINE Swap():
 !    This subroutine swaps the values of its two formal arguments.
 ! --------------------------------------------------------------------
 
@@ -636,10 +636,10 @@ C     arrays since these are not the most optimized sorting algorithms.
       Temp = a
       a    = b
       b    = Temp
-      END SUBROUTINE  Swap
+      END 
 
 ! --------------------------------------------------------------------
-! SUBROUTINE  Sort():
+! SUBROUTINE Sort():
 !    This subroutine receives an array x() and sorts it into ascending
 ! order.
 ! --------------------------------------------------------------------
@@ -657,7 +657,7 @@ C     arrays since these are not the most optimized sorting algorithms.
          Location = FindMinimum(x, i, mSize)     ! find min from this to last
          CALL  Swap(x(i), x(Location))           ! swap this and the minimum
       END DO
-      END SUBROUTINE  Sort
+      END
 
 ! --------------------------------------------------------------------
 ! REAL*8 FUNCTION  Median() :
@@ -666,7 +666,7 @@ C     arrays since these are not the most optimized sorting algorithms.
 !    The returned value is of REAL type.
 ! --------------------------------------------------------------------
 
-      REAL*8 FUNCTION  Median(X, N)
+      REAL*8 FUNCTION Median(X, N)
       IMPLICIT  NONE
       INTEGER MAXNREF_EVALS
       PARAMETER (MAXNREF_EVALS=100)
@@ -684,7 +684,7 @@ C     arrays since these are not the most optimized sorting algorithms.
       ELSE
          Median = Temp(N/2+1)
       END IF
-      END FUNCTION  Median
+      END
 
 
       SUBROUTINE PRINT_MADLOOP_BANNER()

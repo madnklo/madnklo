@@ -2124,15 +2124,54 @@ class ME7Integrand_V(ME7Integrand):
         return res
 
     def evaluate_integrated_counterterm(self, integrated_CT_characteristics, PS_point,
-                                            base_weight, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, input_mapping,
-                                            all_virtual_ME_flavor_configurations, hel_config=None, compute_poles=True,
-                                            sector=(None, -1, -1), **opts):
+                                        base_weight, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, input_mapping,
+                                        all_virtual_ME_flavor_configurations, hel_config=None, compute_poles=True,
+                                        sector=(None, -1, -1),low_level_generation=False, current_evaluators_writer=None, **opts):
         """ Evaluates the specified integrated counterterm, provided along with its other
         characteristics, like for example the list of flavors assignments that the resolved
         process it corresponds to can take. This function returns an ME7Event specifying the
         counterevent for the specified input_mapping considered (i.e. an integrated CT like
         g > d d~ must be "attached" to all final-state gluons of the virtual process definition).
+
+        If low_level_generation is set to True, then a 'current_evaluators_writer' must be specified
+        so that the code for evaluating the subtraction currents here can be written on the flight.
+        Also, for low_level_generation=True, this function does not return a set of ME7Events but instead
+        return the following four values:
+
+            header_lines_for_subtraction_currents   :   List of include lines that are necessary resources
+                                                        for the code instantiating subtraction currents
+            type: list of strings
+
+            subtraction_currents_instantiation      :   String block instructing how to instantiate the subtraction
+                                                        currents that are attributes of the counterterm evaluators
+            type: multi-line string
+
+
+            counterterm_evaluation_code             :   List of abstracted instructions to perform in
+                                                        order to evaluate this counterterm.
+            type: list of abstract instructions
+
+
+            ME_calls_code                           :   List of abstracted intructions to perform all the ME calls
+                                                        which are necessary for evaluating this counterterm.
+            type: dict with key being the call signature
+                  of the ME call and values which are list
+                  of the corresponding abstract instructions
+                  to perform the ME calls
         """
+
+        if low_level_generation:
+            # TODO this is for now just a placeholder.
+            header_lines_for_subtraction_currents = [
+                'use crate::integrands::all_subtraction_current_evaluators',
+                'use crate::subtraction_current'
+            ]
+            subtraction_currents_instantiation = 'vec![SubtractionCurrent:new(...),]'
+            counterterm_evaluation_code = [('print', '"Meta-generated code for evaluating this counterterm!"'),]
+            # The keys are the matrix element call number and values are list of abstract instructions
+            ME_calls_code = { 1 : [('print', '"Code for evaluating this counterterm!"'),]}
+            return header_lines_for_subtraction_currents, subtraction_currents_instantiation, \
+                   counterterm_evaluation_code, ME_calls_code
 
         # Make sure no helicity configuration is specified since this is not supported yet.
         assert ((hel_config is None))
@@ -3271,12 +3310,55 @@ class ME7Integrand_R(ME7Integrand):
         xb_1, xb_2, xi1, xi2,
         is_process_mirrored, all_resolved_flavors,
         hel_config=None, apply_flavour_blind_cuts=True,
-        boost_back_to_com=True, always_generate_event=False, sector=(None,-1), **opts ):
+        boost_back_to_com=True, always_generate_event=False, sector=(None,-1),
+        low_level_generation=False, current_evaluators_writer=None, **opts ):
         """Evaluate a counterterm for a given PS point and flavors.
         The option 'boost_back_to_com' allows to prevent this function to boost back the
         PS point of the Event generated to the c.o.m frame. This would yields *incorrect* 
         distributions but it is useful for diagnostic purposes when called from within
-        test_IR_limits. It however *must* be kept to True by default."""
+        test_IR_limits. It however *must* be kept to True by default.
+
+        If low_level_generation is set to True, then a 'current_evaluators_writer' must be specified
+        so that the code for evaluating the subtraction currents here can be written on the flight.
+        Also, for low_level_generation=True, this function does not return a set of ME7Events but instead
+        return the following four values:
+
+            header_lines_for_subtraction_currents   :   List of include lines that are necessary resources
+                                                        for the code instantiating subtraction currents
+            type: list of strings
+
+            subtraction_currents_instantiation      :   String block instructing how to instantiate the subtraction
+                                                        currents that are attributes of the counterterm evaluators
+            type: multi-line string
+
+            counterterm_evaluation_code             :   List of abstracted instructions to perform in
+                                                        order to evaluate this counterterm.
+            type: list of abstract instructions
+
+
+            ME_calls_code                           :   List of abstracted intructions to perform all the ME calls
+                                                        which are necessary for evaluating this counterterm.
+            type: dict with key being the call signature
+                  of the ME call and values which are list
+                  of the corresponding abstract instructions
+                  to perform the ME calls
+        """
+
+        if low_level_generation:
+            # TODO this is for now just a placeholder.
+            header_lines_for_subtraction_currents = [
+                'use crate::integrands::all_subtraction_current_evaluators',
+                'use crate::subtraction_current'
+            ]
+            subtraction_currents_instantiation = 'vec![SubtractionCurrent[...]]'
+            counterterm_evaluation_code = [('print', '"Code for evaluating this counterterm!"'),]
+            # The keys are the matrix element call number and values are list of abstract instructions
+            ME_calls_code = {
+                (1, 'LO_epem_gguuxz_1__1_epem_dddxdxz_no_ememzwpwph') :
+                    [('print', '"Code for evaluating this counterterm!"'),]
+            }
+            return header_lines_for_subtraction_currents, subtraction_currents_instantiation, \
+                   counterterm_evaluation_code, ME_calls_code
 
         # Note that the code below can become more complicated when tracking helicities,
         # but let's forget this for now.

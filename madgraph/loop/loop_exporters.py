@@ -2093,7 +2093,7 @@ COMMON/%sSPIN_CORRELATION_DATA/SPIN_CORR_VECTORS, SYSTEM_SPIN_CORR_VECTORS, N_SP
         # well, in which case the following place-holders must be defined too.
         split_orders=matrix_element.get('processes')[0].get('split_orders')
         replace_dict['nSplitOrders']=len(split_orders)
-        replace_dict['split_order_name_definitions'] = '\n'.join("SONAMES(%d)='%s'"%
+        replace_dict['split_order_name_definitions'] = '\n'.join("SONAMES(%d,:)='%s'"%
                                (i+1,so_name) for i, so_name in enumerate(split_orders) )
         writer.writelines(file,
             context=self.get_context(matrix_element),

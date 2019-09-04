@@ -3629,8 +3629,6 @@ This implies that with decay chains:
         and the target_squared_orders as constraints applying to the NNLO contributions.
         So, if the user specified QCD^2==2 at LO, these NNLO target_squared_orders would become QCD^2 in [2-6]"""
 
-        logger.warning('At NNLO, MadEvent7 can only generate the RR contributions for now.')
-        
         # Shortcut accessor to quantities stores in generation_options
         all_perturbed_orders = generation_options['all_perturbed_orders']
         orders_to_perturbed_quantities = generation_options['orders_to_perturbed_quantities']
@@ -3687,6 +3685,129 @@ This implies that with decay chains:
                 loop_filter            = generation_options['loop_filter']
             )
             self._curr_contribs.append(double_real_emission_contribution)
+
+
+        # Add the real-virtual contribution
+        # ----------------------------
+        if 'RV' in generation_options['ignore_contributions']:
+            logger.warning("User explicitly asked to remove contribution 'RV'."+
+                                          " This can potentially yield incorrect results.")
+        else:
+            # Overwrite the process definition by the one specified by the user if necessary
+            if 'RV' in generation_options['process_definitions']:
+                procdef = generation_options['process_definitions']['RV'].get_copy()
+                # We need to port some aspect of the template_Born_proc_def onto the
+                # one specified by the user, in all cases (we can change this later if necessary).
+                new_split_orders = list(NNLO_template_procdef.get('split_orders'))
+                for so in procdef.get('split_orders'):
+                    if so not in new_split_orders:
+                        new_split_orders.append(so)
+                procdef.set('split_orders', new_split_orders)
+                logger.info("Forcing the process definition for contribution 'RV' to "+
+                                                            "be:\n%s"%procdef.nice_string())
+            else:
+                procdef = NNLO_template_procdef.get_copy()
+                if generation_options['loop_induced']:
+                    logger.warning('There is currently no solution for including the two-loop'+
+                    ' virtual contribution of NLO loop-induced computations.\n'+
+                    'In the future, UFO multi-loop form factors will offer a solution.\n'+
+                    'For now, one-loop Born matrix elements will be used instead.')
+                # Here setting the perturbation_couplings is enough to guarantee that 
+                # the relevant diagrams for these coupling orders will be generated
+                procdef.set('perturbation_couplings', generation_options['NNLO'])
+                procdef.set('NLO_mode', 'virt')
+
+                # Now add the corresponding MultiLeg to the final state
+                procdef['legs'].append(base_objects.MultiLeg({'ids':
+                    sum([orders_to_perturbed_quantities[order]['real_emission_ids'] 
+                         for order in generation_options['NNLO']],[]), 'state': True}))
+            
+            # Make sure to set the corresponding number of loops to 1. This *must* always
+            # be the case as it is necessary for the MadNkLO construction to hold.
+            # So even for a loop-induced process which would in this case contain 2 loops,
+            # we should set this attribute 'n_loops' to 1.
+            procdef.set('n_loops',1)
+            # Update process id
+            procdef.set('id', generation_options['proc_id'])
+#            generation_options['proc_id'] += 1
+
+            self._curr_contribs.append(
+                contributions.Contribution(
+                    base_objects.ContributionDefinition(
+                        procdef,
+                        n_loops                    = 1,
+                        n_unresolved_particles     = 1,
+                        correction_order           = 'NNLO',
+                        correction_couplings       = generation_options['NNLO'],
+                        squared_orders_constraints = dict(target_squared_orders),
+                        overall_correction_order   = generation_options['overall_correction_order'],
+                        beam_types                 = generation_options['beam_types'] ),
+                    self,
+                    loop_filter                = generation_options['loop_filter'],
+                )
+            )
+
+        # Add the real-virtual contribution
+        # ----------------------------
+        if 'VV' in generation_options['ignore_contributions']:
+            logger.warning("User explicitly asked to remove contribution 'VV'."+
+                                          " This can potentially yield incorrect results.")
+        else:
+            # Overwrite the process definition by the one specified by the user if necessary
+            if 'VV' in generation_options['process_definitions']:
+                procdef = generation_options['process_definitions']['VV'].get_copy()
+                # We need to port some aspect of the template_Born_proc_def onto the
+                # one specified by the user, in all cases (we can change this later if necessary).
+                new_split_orders = list(NNLO_template_procdef.get('split_orders'))
+                for so in procdef.get('split_orders'):
+                    if so not in new_split_orders:
+                        new_split_orders.append(so)
+                procdef.set('split_orders', new_split_orders)
+                logger.info("Forcing the process definition for contribution 'RV' to "+
+                                                            "be:\n%s"%procdef.nice_string())
+            else:
+                procdef = NNLO_template_procdef.get_copy()
+                if generation_options['loop_induced']:
+                    logger.warning('There is currently no solution for including the two-loop'+
+                    ' virtual contribution of NLO loop-induced computations.\n'+
+                    'In the future, UFO multi-loop form factors will offer a solution.\n'+
+                    'For now, one-loop Born matrix elements will be used instead.')
+                # Here setting the perturbation_couplings is enough to guarantee that 
+                # the relevant diagrams for these coupling orders will be generated
+                procdef.set('perturbation_couplings', generation_options['NNLO'])
+                procdef.set('NLO_mode', 'virt')
+
+
+            # Born + I2 emulation
+            # TODO: add true VV contribution
+            #target_squared_orders['QCD'] = [0, 0]
+            n_loops = 2
+            
+            # Make sure to set the corresponding number of loops to 2. This *must* always
+            # be the case as it is necessary for the MadNkLO construction to hold.
+            # So even for a loop-induced process which would in this case contain 3 loops,
+            # we should set this attribute 'n_loops' to 2.
+            procdef.set('n_loops', n_loops)
+            # Update process id
+            procdef.set('id', generation_options['proc_id'])
+#            generation_options['proc_id'] += 1
+
+            self._curr_contribs.append(
+                contributions.Contribution(
+                    base_objects.ContributionDefinition(
+                        procdef,
+                        n_loops                    = n_loops,
+                        n_unresolved_particles     = 0,
+                        correction_order           = 'NNLO',
+                        correction_couplings       = generation_options['NNLO'],
+                        squared_orders_constraints = dict(target_squared_orders),
+                        overall_correction_order   = generation_options['overall_correction_order'],
+                        beam_types                 = generation_options['beam_types'] ),
+                    self,
+                    loop_filter                = generation_options['loop_filter'],
+                )
+            )
+
 
     def add_NNNLO_contributions(self, NNNLO_template_procdef, generation_options, target_squared_orders):
         """ Add all regular NNNLO contributions, using the process defintion in argument as template
@@ -3927,7 +4048,7 @@ This implies that with decay chains:
             # First assign the target squared coupling orders.
             NLO_template_procdef = template_procdef.get_copy()
             # Set the target squared order couplings, incremented since this is the NLO contribution
-            NLO_global_orders = dict(LO_global_orders)
+            NLO_global_orders = copy.deepcopy(LO_global_orders)
             for order in generation_options['NLO']:
                 if order in NLO_global_orders:
                     NLO_global_orders[order][-1] += 2
@@ -3951,7 +4072,7 @@ This implies that with decay chains:
             # First assign the target squared coupling orders.
             NNLO_template_procdef = template_procdef.get_copy()
             # Set the target squared order couplings, incremented since this is the NNLO contribution
-            NNLO_global_orders = dict(LO_global_orders)
+            NNLO_global_orders = copy.deepcopy(LO_global_orders)
             for order in generation_options['NNLO']:
                 if order in NNLO_global_orders:
                     NNLO_global_orders[order][-1] += 4
@@ -3973,7 +4094,7 @@ This implies that with decay chains:
             # First assign the target squared coupling orders.
             NNNLO_template_procdef = template_procdef.get_copy()
             # Set the target squared order couplings, incremented since this is the NNLO contribution
-            NNNLO_global_orders = dict(LO_global_orders)
+            NNNLO_global_orders = copy.deepcopy(LO_global_orders)
             for order in generation_options['NNNLO']:
                 if order in NNNLO_global_orders:
                     NNNLO_global_orders[order][-1] += 6

@@ -726,7 +726,6 @@ class ME7Exporter(object):
                 complex_mass_scheme=self.options['complex_mass_scheme'])
 
         if self.export_options['export_rust']:
-
             # Make sure that the subtraction scheme supports the rust output if there is one active
             if self.subtraction_scheme_module is None and (
                         not hasattr(self.subtraction_scheme_module, 'supports_rust_export') or \

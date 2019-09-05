@@ -70,6 +70,9 @@ OLP_PROCESS= MadLoopParamReader.o MadLoopCommons.o \
  $(patsubst $(DOTF),$(DOTO),$(wildcard $(LOOP_PREFIX)*/compute_color_flows.f)) \
  $(patsubst $(DOTF),$(DOTO),$(wildcard $(LOOP_PREFIX)*/user_access_subroutines.f))
 
+C_BINDINGS = $(OLP_PROCESS) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard $(LOOP_PREFIX)*/C_bindings.f))
+
 F2PY_RESOURCES = $(wildcard f2py_wrapper.f) \
  $(wildcard born_matrix.f) \
  $(wildcard $(LOOP_PREFIX)*/born_matrix.f) \
@@ -132,6 +135,17 @@ endif
 matrix$(MENUM)py.so: ../$(OLP)_static $(F2PY_RESOURCES) 
 	touch __init__.py
 	$(F2PY) $(MADLOOP_LIB) -m matrix$(MENUM)py -c $(F2PY_RESOURCES) --fcompiler=$(FC)   -L../../lib/ -ldhelas -lmodel $(LINK_LOOP_LIBS) $(STDLIB)
+
+# Library for linking with C
+ifeq ($(origin MENAME),undefined)
+  MENAME=
+endif
+ifeq ($(origin MEDIR),undefined)
+  MEDIR=
+endif
+$(MEDIR)libmatrix_element$(MENAME).$(libext): $(C_BINDINGS)
+	$(call CREATELIB, $@, $^)
+	rm -f *polynomial_constants.mod $(LOOP_PREFIX)*/polynomial.o $(LOOP_PREFIX)*/*polynomial_constants.mod
 
 clean:
 	@rm -f *.o *.so *.$(libext) *.$(dylibext)

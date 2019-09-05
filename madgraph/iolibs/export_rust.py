@@ -117,6 +117,10 @@ class RustExporter(object):
         # Fill in the information necessary for building the makefile of rust resources
         for contrib in all_contributions:
             export_base_dir = os.path.basename(contrib.export_dir)
+            # Contributions like BF, BS and similar do no correspond to a ME output directory
+            # and therefore do no need their helas library to be output
+            if export_base_dir in [None,'None']:
+                continue
             self.build_info['helas'].append({
                 'lib_name' : 'helas_%s'%export_base_dir,
                 'source_dir' : '$(PROC_ROOT)/%s/Source/DHELAS'%export_base_dir,
@@ -162,6 +166,9 @@ class RustExporter(object):
         # First add the HELAS linking
         helas_linking_header = []
         for contrib in all_contributions:
+            # Ignore contributiosn with no HELAS directories like BFi or BS ones.
+            if contrib.export_dir in [None, 'None']:
+                continue
             helas_linking_header.append('\n'.join([
                 '#[link(name = "%s", kind = "static")]'%os.path.basename(contrib.export_dir),
                 'extern "C" {}'
@@ -191,6 +198,7 @@ class RustExporter(object):
             exported_matrix_element_ids.add(me_accessor.get_id())
 
             # Logic for rust export of low level matrix element interfaces
+            lib_names_to_be_exported = set([])
             if isinstance(me_accessor, accessors.F2PYMEAccessor):
                 ME_rs_template = open(pjoin(self.dynamic_template_path,'matrix_element.rs'),'r').read()
                 repl_dict = {}
@@ -198,15 +206,31 @@ class RustExporter(object):
                 repl_dict['matrix_element_lib'] = me_accessor.get_library_name()
                 repl_dict['prefix'] = open( pjoin(self.export_dir, '%s/SubProcesses/P%s/proc_prefix.txt'%(
                                                     me_accessor.proc_dir, me_accessor.proc_name)),'r').read().lower()
-                self.build_info['matrix_elements'].append({
-                    'lib_name': me_accessor.get_library_name(),
-                    'source_dir': '$(PROC_ROOT)/%s/SubProcesses/P%s/' % (me_accessor.proc_dir, me_accessor.proc_name),
-                    'makefile_env_variables': {
-                        'MEDIR': '../../../lib/matrix_elements/',
-                        'MENAME': '_%s__%s'%(me_accessor.proc_dir, me_accessor.proc_name)
-                    },
-                    'makefile_target': '../../../lib/matrix_elements/lib%s.a' % me_accessor.get_library_name()
-                })
+                if not (me_accessor.get_library_name() in lib_names_to_be_exported):
+                    lib_names_to_be_exported.add(me_accessor.get_library_name())
+
+                    # The relative path fo the loop directory is different for the tree-level and MadLoop accessors
+                    # Also all SubProcesses of directory are combined within one single directory in the case of
+                    # MadLoop output.
+                    if isinstance(me_accessor, accessors.F2PYMEAccessorMadLoop):
+                        relative_position_of_root_process_dir = '../..'
+                        ME_name = '_%s'%me_accessor.proc_dir
+                        source_dir = '$(PROC_ROOT)/%s/SubProcesses/' % me_accessor.proc_dir
+                    else:
+                        relative_position_of_root_process_dir = '../../..'
+                        ME_name = '_%s__%s'%(me_accessor.proc_dir, me_accessor.proc_name)
+                        source_dir = '$(PROC_ROOT)/%s/SubProcesses/P%s/' % (me_accessor.proc_dir, me_accessor.proc_name)
+                    self.build_info['matrix_elements'].append({
+                        'lib_name': me_accessor.get_library_name(),
+                        'source_dir': source_dir,
+                        'relative_position_of_root_process_dir' : relative_position_of_root_process_dir,
+                        'makefile_env_variables': {
+                            'MEDIR': '%s/lib/matrix_elements/'%relative_position_of_root_process_dir,
+                            'MENAME': ME_name
+                        },
+                        'makefile_target': '%s/lib/matrix_elements/lib%s.a' % ( relative_position_of_root_process_dir,
+                                                                                        me_accessor.get_library_name() )
+                    })
                 rust_writer.writelines(ME_rs_template, context={}, replace_dictionary=repl_dict)
 
             # Logic for rust export of low level subtraction currents
@@ -299,9 +323,12 @@ class RustExporter(object):
 
         counterterm_instantiation_includes = []
         counterterm_instantiation = [
-            'Counterterm::new(%(integrand_id)d, %(process_id)d, %(CT_id)d, %(CT_mapping_id)d,'%(
-                integrand.ID, i_process, i_CT, -1 if i_input_mapping is None else i_input_mapping
-            ),
+            'Counterterm::new(%(integrand_id)d, %(process_id)d, %(CT_id)d, %(CT_mapping_id)d,'%{
+                'integrand_id' : integrand.ID,
+                'process_id' : i_process,
+                'CT_id' : i_CT,
+                'CT_mapping_id' : -1 if i_input_mapping is None else i_input_mapping
+            },
             '&param_card_path','run_card', 'param_card', 'settings_card',
             'integrands:%sCountertermEvaluator(&param_card_path)'%counterterm_short_name,
         ]
@@ -418,7 +445,7 @@ class RustExporter(object):
             (i_process, "vec![%s]"%(','.join('(vec![%s],vec![%s])'%(
                 ','.join('%d'%pdg for pdg in flavor_config[0]),
                 ','.join('%d'%pdg for pdg in flavor_config[1])) for flavor_config in symbolic_inputs['all_flavor_configurations'])))
-            for i_process, symbolic_inputs in enumerate(runtime_symbolic_inputs)))
+            for i_process, symbolic_inputs in sorted(runtime_symbolic_inputs.items(), key = lambda el: el[0]) ) )
         instantiation_repl_dict['integrand_evaluator'] = "Box::new(IntegrandEvaluator_%s::new(&param_card_path))"%integrand_short_name
 
         all_local_CT_headers = []
@@ -440,11 +467,11 @@ class RustExporter(object):
         local_current_evaluators_rust_writer = writers.RustWriter(
                                             pjoin(integrand_export_path, 'all_local_subtraction_current_evaluators.rs'), opt='w')
         local_current_evaluators_rust_writer.write(
-                                    self.subtraction_module.rust_template_files['all_subtraction_current_evaluators.rs'])
+                        self.subtraction_module.exporter.rust_template_files['all_subtraction_current_evaluators.rs'])
         integrated_current_evaluators_rust_writer = writers.RustWriter(
                                             pjoin(integrand_export_path, 'all_integrated_subtraction_counterterm_evaluators.rs'), opt='w')
         integrated_current_evaluators_rust_writer.write(
-                                    self.subtraction_module.rust_template_files['all_subtraction_current_evaluators.rs'])
+                        self.subtraction_module.exporter.rust_template_files['all_subtraction_current_evaluators.rs'])
 
 
         # list of dictionary of process information that must be stored for each process contributing to that integrand
@@ -464,7 +491,7 @@ class RustExporter(object):
             if integrand.has_local_counterterms():
                 instantiation_repl_dict['local_counterterms'] += '\n\\ Local counterterms'
                 local_counterterms_instantiation = []
-                for i_CT, local_CT in enumerate(integrand.local_counterterms[process_key]):
+                for i_CT, local_CT in enumerate(integrand.counterterms[process_key]):
                     # Write the source code for the evaluator of the local_CT and that of all its contributing subtraction current.
                     local_CT_headers, local_CT_instantiation = self.write_rust_counterterm(
                         integrand, runtime_symbolic_inputs, i_process, process_key, i_CT, local_CT,
@@ -568,11 +595,12 @@ class RustExporter(object):
         evaluator_header = []
         evaluator_definition = []
         evaluator_construction = []
+        matrix_element_imports = []
         for call_key, low_level_code in sorted(ME_calls_instructions.items(), key=lambda k: k[0]):
             ME_calls_lines.append('(%d,) => {'%call_key)
             rust_code, needed_matrix_elements = self.translate_low_level_code(low_level_code, function_prefix=repl_dict['C_binding_prefix'])
             for mat in needed_matrix_elements:
-                evaluator_header.append('use crate::matrix_elements::%s;' % mat)
+                matrix_element_imports.append('use crate::matrix_elements::%s;' % mat)
                 evaluator_definition.append('%s_evaluator: MatrixElementEvaluator<%s>,' % (mat, mat))
                 evaluator_construction.append('%s_evaluator: MatrixElementEvaluator::new(card_filename, %s {}),' % (mat, mat))
             ME_calls_lines.extend(rust_code)
@@ -582,6 +610,7 @@ class RustExporter(object):
         rust_writer = writers.RustWriter(pjoin(integrand_export_path,'integrand_evaluator_%s.rs'%integrand_short_name),opt='w')
         integrand_evaluator_context = {}
         integrand_evaluator_repl_dict['header'] = '\n'.join(evaluator_header)
+        integrand_evaluator_repl_dict['ME_imports'] = '\n'.join(matrix_element_imports)
         integrand_evaluator_repl_dict['integrand_evaluator_definition'] = '\n'.join(evaluator_definition)
         integrand_evaluator_repl_dict['integrand_evaluator_construction'] = '\n'.join(evaluator_construction)
         rust_writer.writelines(
@@ -597,10 +626,6 @@ class RustExporter(object):
         """ Export one particular integrand. """
         #import pdb
         #pdb.set_trace()
-
-        # The rust exporter currently only support LO integrands
-        if integrand.contribution_definition.overall_correction_order.count('N')>0:
-            return
 
         # Build the directory that will contain all rust resources pertaining to that integrand
         integrand_short_name = self.get_integrand_short_name(integrand)
@@ -716,9 +741,9 @@ class RustExporter(object):
         for info in self.build_info['matrix_elements']:
             matrix_element_targets.append('$(PROC_ROOT)/lib/matrix_elements/lib%s.a: %s'%(info['lib_name'],info['source_dir']))
             matrix_element_targets.append('\techo "Compiling %s ..."'%(info['source_dir'].replace('$(PROC_ROOT)','')))
-            matrix_element_targets.append('\tcd %s && %s make %s >>  ../../../rust/rust_compilation.log;'%(
+            matrix_element_targets.append('\tcd %s && %s make %s >>  %s/rust/rust_compilation.log;'%(
                 info['source_dir'], ' '.join('%s=%s'%(k,v) for k,v in info['makefile_env_variables'].items()),
-                info['makefile_target']
+                info['makefile_target'], info['relative_position_of_root_process_dir']
             ))
         makefile_repl_dict['matrix_element_targets'] = '\n'.join(matrix_element_targets)
 

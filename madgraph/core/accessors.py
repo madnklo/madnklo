@@ -1109,7 +1109,7 @@ class F2PYMEAccessor(VirtualMEAccessor):
 
     def compile(self,mode='auto'):
         """ Compiles the source code associated with this MatrixElement accessor."""
-        
+
         root_dir = pjoin(self.root_path, self.proc_dir)
         source_dir = pjoin(root_dir, 'Source')
         Pdir = pjoin(root_dir, 'SubProcesses','P%s'%self.proc_name)
@@ -1135,17 +1135,27 @@ class F2PYMEAccessor(VirtualMEAccessor):
                 "Try running 'MENUM=_%s_ make matrix_%s_py.so' by hand in this directory."\
                                                           %(self.proc_name,self.proc_name))
 
+        if not os.path.isfile(pjoin(root_dir, 'matrix_%s_py.so'%self.proc_name)):
+            # Refresh the soft link
+            ln( pjoin(Pdir, 'matrix_%s_py.so'%self.proc_name), starting_dir = root_dir )
+
+        self.compile_static_library(mode)
+
+    def compile_static_library(self, mode='auto'):
+        """ Compiles the static library related to this accessor."""
+
+        root_dir = pjoin(self.root_path, self.proc_dir)
+        Pdir = pjoin(root_dir, 'SubProcesses','P%s'%self.proc_name)
+
         ME_name = 'libmatrix_element_%s__%s.a'%(self.proc_dir, self.proc_name)
         lib_dir = pjoin(self.root_path,'lib','matrix_elements')
+
         if not os.path.isfile(pjoin(lib_dir,ME_name)):
             misc.compile(arg=[pjoin(lib_dir,ME_name),'MEDIR=%s/'%lib_dir, 'MENAME=_%s__%s'%(self.proc_dir, self.proc_name)], cwd=Pdir)
         if not os.path.isfile(pjoin(lib_dir,ME_name)):
             raise InvalidCmd("The compilation of the matrix element static library in SubProcess '%s' failed.\n"%Pdir+
                 "Try running 'MEDIR=%s/ MENAME=_%s__%s make %s/%s' by hand in this directory."%(
                                                             lib_dir,self.proc_dir, self.proc_name,lib_dir,ME_name))
-        if not os.path.isfile(pjoin(root_dir, 'matrix_%s_py.so'%self.proc_name)):
-            # Refresh the soft link
-            ln( pjoin(Pdir, 'matrix_%s_py.so'%self.proc_name), starting_dir = root_dir )
 
     def synchronize(self, ME7_options = None, from_init=False, compile='auto', **opts):
         """ Synchronizes this accessor with the possibly updated value of parameter cards and ME source code.
@@ -1718,6 +1728,29 @@ class F2PYMEAccessorMadLoop(F2PYMEAccessor):
             # as it could be the case if refresh_filters is set to 'always'.
             proc_dirs_initialized.append(Pdir)
         return ret_value
+
+    def compile_static_library(self, mode='auto'):
+        """ Compiles the static library related to this accessor."""
+
+        root_dir = pjoin(self.root_path, self.proc_dir)
+        Pdir = pjoin(root_dir, 'SubProcesses')
+
+        ME_name = 'libmatrix_element_%s.a'%self.proc_dir
+        lib_dir = pjoin(self.root_path,'lib','matrix_elements')
+
+        if not os.path.isfile(pjoin(lib_dir,ME_name)):
+            misc.compile(arg=[pjoin(lib_dir,ME_name),'MEDIR=%s/'%lib_dir, 'MENAME=_%s'%self.proc_dir], cwd=Pdir)
+        if not os.path.isfile(pjoin(lib_dir,ME_name)):
+            raise InvalidCmd("The compilation of the matrix element static library in SubProcess '%s' failed.\n"%Pdir+
+                "Try running 'MEDIR=%s/ MENAME=_%s make %s/%s' by hand in this directory."%(
+                                                                                lib_dir,self.proc_dir,lib_dir,ME_name))
+
+    def get_library_name(self):
+        """ Get the library name (without suffix) which will encode this accessor/matrix_element.
+        Note that for loops, the code for all loop matrix elements within a single directory are combined into a single
+        library, so we do not use the process identifier in the library name.
+        """
+        return 'matrix_element_%s'%self.proc_dir
 
     def nice_string(self):
         """ Additional details for this loop MEaccessor."""

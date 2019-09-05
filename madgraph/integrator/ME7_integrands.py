@@ -2169,7 +2169,7 @@ class ME7Integrand_V(ME7Integrand):
             subtraction_currents_instantiation = 'vec![SubtractionCurrent:new(...),]'
             counterterm_evaluation_code = [('print', '"Meta-generated code for evaluating this counterterm!"'),]
             # The keys are the matrix element call number and values are list of abstract instructions
-            ME_calls_code = { 1 : [('print', '"Code for evaluating this counterterm!"'),]}
+            ME_calls_code = { (1, 'LO_epem_gguuxz_1__1_epem_dddxdxz_no_ememzwpwph') : [('print', '"Code for evaluating this counterterm!"'),]}
             return header_lines_for_subtraction_currents, subtraction_currents_instantiation, \
                    counterterm_evaluation_code, ME_calls_code
 

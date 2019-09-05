@@ -303,7 +303,7 @@ class RustExporter(object):
 
         counterterm_short_name = None
         if i_input_mapping is not None:
-            counterterm_short_name += '%s_P%d_ICT%d_m%d' % (
+            counterterm_short_name = '%s_P%d_ICT%d_m%d' % (
                     self.get_integrand_short_name(integrand), i_process, i_CT,i_input_mapping)
         else:
             counterterm_short_name = '%s_P%d_CT%d' % (self.get_integrand_short_name(integrand), i_process, i_CT)
@@ -361,13 +361,11 @@ class RustExporter(object):
             counterterm_evaluation_code, ME_calls_code = integrand.evaluate_integrated_counterterm(
                 CT, runtime_symbolic_inputs[i_process]['PS_point'],
                 runtime_symbolic_inputs[i_process]['base_weight'],
-                runtime_symbolic_inputs[i_process]['mu_r'],
                 runtime_symbolic_inputs[i_process]['mu_f1'],
                 runtime_symbolic_inputs[i_process]['mu_f2'],
                 runtime_symbolic_inputs[i_process]['xb_1'],
                 runtime_symbolic_inputs[i_process]['xb_2'],
                 runtime_symbolic_inputs[i_process]['xi1'],
-                runtime_symbolic_inputs[i_process]['xi2'],
                 runtime_symbolic_inputs[i_process]['xi2'],
                 CT['input_mappings'][i_input_mapping],
                 runtime_symbolic_inputs[i_process]['all_flavor_configurations'][0],
@@ -378,6 +376,7 @@ class RustExporter(object):
                 low_level_generation=True,
                 current_evaluators_writer=current_evaluators_rust_writer
             )
+
         counterterm_evaluator_repl_dict['counterterm_evaluation_code'] = counterterm_evaluation_code
 
         counterterm_instantiation.append(subtraction_currents_instantiation)

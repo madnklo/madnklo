@@ -1802,6 +1802,11 @@ class F2PYMEAccessorMadLoop(F2PYMEAccessor):
         """ Actually performs the f2py call.
         """
 
+        low_level_code_generation = opts.get('low_level_code_generation', False)
+        if low_level_code_generation:
+            return [('print', '"Low-level loop ME call yet to be implemented!"')]
+
+
         permutation = opts['permutation']
                 
         # The mother class takes care of applying the permutations for the generic options

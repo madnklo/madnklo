@@ -27,6 +27,7 @@ import importlib
 import shutil
 import copy
 import traceback
+from itertools import permutations, product
 
 if __name__ == '__main__':
     sys.path.append(os.path.join(os.path.dirname(
@@ -397,73 +398,6 @@ class SubtractionLegSet(tuple):
             rest = SubtractionLegSet(difference(rest, union(pos, neg)))
         return legs_by_pdg, pdg_counts, rest
 
-    def map_leg_numbers(self, target, equivalent_pdg_sets=()):
-        """Find a correspondence between this SubtractionLegSet and another
-        that only differs by leg numbers.
-        The optional argument equivalent_pdg_sets allows to consider some particle species
-        to be interchangeable in this matching. This is designed to identify processes
-        where legs have the same quantum numbers up to some details which are irrelevant
-        for subtraction. Typically this is the case of massless quarks, where one only
-        keeps track of which quarks have the same flavor or are antiparticles.
-        For instance
-            (1, 1=d, F), (2, -1=d~, F)
-        should match
-            (7, 3=s, F), (5, -3=s~, F)    or    (4, -1=d~, F), (1, 1=d,    F),
-        but not
-            (4, 3=s, F), (5, -1=d~, F)    or    (7, 24=W+, F), (2, -24=W-, F).
-
-        :param target: the target SubtractionLegSet
-        :param equivalent_pdg_sets: a list of lists pdgs that should be considered
-            equivalent in the matching (note that particles and antiparticles
-            for these values will also be considered equivalent)
-        :return: a dictionary of leg numbers that sends this set into the target one,
-            if any; None otherwise.
-        """
-
-        if len(self) != len(target):
-            return None
-
-        s_rest = self
-        t_rest = target
-        leg_numbers_map = dict()
-
-        for pdgs in equivalent_pdg_sets:
-            for state in (SubtractionLeg.INITIAL, SubtractionLeg.FINAL):
-                s_legs_by_pdgs, s_pdg_counts, s_rest = s_rest.split_by_pdg_abs(pdgs, state)
-                t_legs_by_pdgs, t_pdg_counts, t_rest = t_rest.split_by_pdg_abs(pdgs, state)
-                for count in s_pdg_counts.keys():
-                    for i in range(len(s_pdg_counts[count])):
-                        s_pdg = s_pdg_counts[count][i]
-                        try:
-                            t_pdg = t_pdg_counts[count][i]
-                        except (KeyError, IndexError):
-                            return None
-                        s_list_1, s_list_2 = s_legs_by_pdgs[s_pdg]
-                        t_list_1, t_list_2 = t_legs_by_pdgs[t_pdg]
-                        if len(s_list_1) != len(t_list_1) or len(s_list_2) != len(t_list_2):
-                            raise MadGraph5Error(
-                                "Inconsistent lists in SubtractionLegSet.map_leg_numbers, "
-                                "SubtractionLegSet.split_by_pdg_abs is bugged.")
-                        leg_numbers_map.update(zip(
-                            [leg.n for leg in s_list_1],
-                            [leg.n for leg in t_list_1] ))
-                        leg_numbers_map.update(zip(
-                            [leg.n for leg in s_list_2],
-                            [leg.n for leg in t_list_2] ))
-
-        for s_leg in s_rest:
-            try:
-                t_leg = next(leg for leg in t_rest
-                             if leg.state == s_leg.state and leg.pdg == s_leg.pdg)
-                leg_numbers_map[s_leg.n] = t_leg.n
-                t_rest = SubtractionLegSet(difference(t_rest, (t_leg, )))
-            except StopIteration:
-                return None
-
-        assert(not t_rest)
-        return leg_numbers_map
-
-
 #=========================================================================================
 # SingularStructure
 #=========================================================================================
@@ -497,6 +431,8 @@ class SingularStructure(object):
             else:
                 raise MadGraph5Error(
                     "Invalid argument in SingularStructure.__init__: %s" % str(arg) )
+
+        self.equivalent_graphs = []
 
     def get_copy(self):
         """Provide a modifiable copy of this singular structure."""
@@ -826,6 +762,23 @@ class SingularStructure(object):
         return singular_structures_name_dictionary[name](
             substructures=substructures, legs=legs)
 
+    def build_equivalent_graphs(self):
+        """Build all possible graphs from a singular structure that are equivalent. This function
+        has to be called again when the graph has changed."""
+        self.equivalent_graphs = []
+
+        all_subgraphs = [subg.build_equivalent_graphs() for subg in self.substructures]
+
+        for sub_structure_options in permutations(all_subgraphs):
+            for sub_structure_option in product(*sub_structure_options):
+                for legs in permutations(self.legs):
+                    new_graph = copy.copy(self)
+                    new_graph.legs = legs
+                    new_graph.substructures = sub_structure_option
+                    self.equivalent_graphs.append(new_graph)
+
+        return self.equivalent_graphs
+
     def map_leg_numbers(self, target, equivalent_pdg_sets=()):
         """Find a correspondence between this SingularStructure and another
         that only differs by leg numbers.
@@ -849,32 +802,69 @@ class SingularStructure(object):
             into the target one, if any; None otherwise.
         """
 
+        # build the graphs to compare the target to
+        if len(self.equivalent_graphs) == 0:
+            self.build_equivalent_graphs()
 
-        # 1) Match type
+        for eq_graph in self.equivalent_graphs:
+            d, d1 = {}, {}
+            res = eq_graph.map_leg_numbers_walker(target, equivalent_pdg_sets, d, d1)
+            if res is not None:
+                # we return on any match
+                return d1
+        return None
+
+    def map_leg_numbers_walker(self, target, equivalent_pdg_sets, d, d1):
+        """ Walk through the graph and update the match dictionaries. Return `None` on an inconsistency."""
+
+        # Match type
         if self.name() != target.name():
             return None
 
-        # 2) Match legs
-        leg_number_dict = self.legs.map_leg_numbers(target.legs, equivalent_pdg_sets)
-        if leg_number_dict is None:
+        if len(self.legs) != len(target.legs) or len(self.substructures) != len(target.substructures):
             return None
 
-        # 3) Match substructures
-        if len(self.substructures) != len(target.substructures):
-            return None
-        target_subs = [target_sub for target_sub in target.substructures]
-        for sub in self.substructures:
-            matching = None
-            for i in range(len(target_subs)):
-                sub_dict = sub.map_leg_numbers(target_subs[i], equivalent_pdg_sets)
-                if sub_dict is not None:
-                    matching = target_subs.pop(i)
-                    leg_number_dict.update(sub_dict)
-                    break
-            if matching is None:
+        for gl1, gl2 in zip(self.legs, target.legs):
+            # we cannot mix initial and final
+            if gl1.state != gl2.state:
                 return None
 
-        return leg_number_dict
+            # check if the pdgs are in the same equivalance class
+            # only then are we allowed to merge
+            for x in equivalent_pdg_sets:
+                if gl1.pdg in x:
+                    if gl2.pdg not in x:
+                        return None
+                    else:
+                        break
+            else:
+                # the pdg does not appear in the equivalence set,
+                # so then the match is only allowed if it matches to itself
+                if gl1.pdg != gl2.pdg:
+                    return None
+
+            # are we already mapping to another number?
+            if gl1.pdg in d:
+                if d[gl1.pdg] != gl2.pdg:
+                    return None
+                else:
+                    d1[gl1.n] = gl2.n
+                    continue
+
+            # check if we map to different numbers 1 -> 2, then 3 -> 2 is bad!
+            if gl2.pdg in d.values():
+                return None
+
+            d1[gl1.n] = gl2.n
+
+            d[gl1.pdg] = gl2.pdg
+            d[-gl1.pdg] = -gl2.pdg
+
+        for gs1, gs2 in zip(self.substructures, target.substructures):
+            if gs1.map_leg_numbers_walker(gs2, equivalent_pdg_sets, d, d1) is None:
+                return None
+
+        return d1
 
 class SoftStructure(SingularStructure):
 

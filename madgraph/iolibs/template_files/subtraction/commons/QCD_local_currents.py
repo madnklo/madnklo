@@ -268,6 +268,13 @@ class QCDLocalCurrent(QCDCurrent):
                 "The current " + cls.__name__ + " called check_current_properties " +
                 "without setting " + str(ke) + ", please review your implementation")
 
+    @classmethod
+    def build_equivalency_sets(cls, model):
+        """ By default, the equivalency class is such that light quarks and antiquarks will be
+        matched indiscriminatory. In the case of electroweak theory you may
+        not want to put the quarks and antiquarks in the same equivalency class. For QCD
+        you do."""
+        return [set(range(1, model.get_nflav()+1)) | set(range(-model.get_nflav(), 0))]
 
     @classmethod
     def does_implement_this_current(cls, current, model):
@@ -283,7 +290,7 @@ class QCDLocalCurrent(QCDCurrent):
         for template_structure in all_template_structures:
             try:
                 leg_numbers_map = template_structure.map_leg_numbers(
-                    current.get('singular_structure'), [range(1, model.get_nflav()+1)])
+                    current.get('singular_structure'), cls.build_equivalency_sets(model))
             except AttributeError:
                 continue
             if leg_numbers_map is None:

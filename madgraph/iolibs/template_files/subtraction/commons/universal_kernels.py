@@ -51,6 +51,61 @@ class AltarelliParisiKernels:
             )
         ]
 
+#TZaddition
+    @staticmethod
+    def P_qqq(color_factors, z_i, z_r, z_s, s_ir, s_is, s_rs, kT_i, kT_r, kT_s):
+        """ Kernel for the q -> q q q splitting. The return value is not a float but a list of tuples:
+                ( spin_correlation_vectors_with_parent, weight )
+            where spin_correlation_vector_with_parent can be None if None is required.
+        """
+
+        # Compute handy term and variables
+        s_irs = s_ir+s_is+s_rs
+        t_rs_i = 2.*(z_r*s_is-z_s*s_ir)/(z_r+z_s) + ((z_r-z_s)/(z_r+z_s))*s_rs
+        t_ir_s = 2.*(z_r*s_is-z_i*s_rs)/(z_r+z_i) + ((z_r-z_i)/(z_r+z_i))*s_ir
+        dimensional_term_1 = z_r + z_s - s_rs/s_irs
+        dimensional_term_2 = z_r + z_i - s_ir/s_irs
+
+        fac1 = s_irs/s_rs
+        fac2 = s_irs/s_ir
+        fac3 = s_irs**2/s_rs/s_ir
+
+
+        P1 = EpsilonExpansion({
+                    0 : -(t_rs_i**2/(s_rs*s_irs)) + (4.*z_i + (z_r - z_s)**2)/(z_r+z_s) + dimensional_term_1,
+                    1 : -2.*dimensional_term_1
+                })
+
+        P2 = EpsilonExpansion({
+                    0 : -(t_ir_s**2/(s_ir*s_irs)) + (4.*z_s + (z_r - z_i)**2)/(z_r+z_i) + dimensional_term_2,
+                    1 : -2.*dimensional_term_2
+                })
+
+
+        P1id = EpsilonExpansion({
+                    0 : 2.*s_is/s_rs + fac1*( (1.+z_r**2)/(1.-z_s) - 2.*z_s/(1.-z_i) ) - fac3*z_r/2.*( (1.+z_r**2)/(1.-z_s)/(1.-z_i) ),
+                    1 : -1. - 2.*s_is/s_rs - fac1*( (1.-z_i)**2/(1.-z_s) + 1. + z_r - 2.*z_s/(1.-z_i) ) + fac3*z_r/2.*(1.+2.*(1.-z_s)/(1.-z_i)),
+                    2 : 1. - fac1*(1.-z_i) + fac3*z_r/2.
+                })
+
+        P2id = EpsilonExpansion({
+                    0 : 2.*s_is/s_ir + fac2*( (1.+z_r**2)/(1.-z_i) - 2.*z_i/(1.-z_s) ) - fac3*z_r/2.*( (1.+z_r**2)/(1.-z_i)/(1.-z_s) ),
+                    1 : -1. - 2.*s_is/s_ir - fac2*( (1.-z_s)**2/(1.-z_i) + 1. + z_r - 2.*z_i/(1.-z_s) ) + fac3*z_r/2.*(1.+2.*(1.-z_i)/(1.-z_s)),
+                    2 : 1. - fac2*(1.-z_s) + fac3*z_r/2.
+                })
+
+
+        # Prefactors
+        prefactor_nid = (1./2.)*color_factors.CF*color_factors.TR
+        prefactor_id = color_factors.CF*(color_factors.CF - (1./2.)*color_factors.CA)
+
+        return [
+            ( None,
+                (P1*s_irs/s_rs + P2*s_irs/s_ir)*prefactor_nid + (P1id + P2id)*prefactor_id
+            )
+        ]
+
+
     @staticmethod
     def P_q_qpqp(color_factors, z_rs, z_i_rs, kT_rs, pi_hat, p_rs_hat):
         """ Kernel for the q -> q (qp' qp') strongly ordered splitting. The return value is not a float but a list of tuples:

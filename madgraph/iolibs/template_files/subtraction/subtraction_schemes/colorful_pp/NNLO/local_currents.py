@@ -89,6 +89,87 @@ class QCD_initial_collinear_0_qqpqp(QCD_initial_collinear_0_XXX):
 
         return evaluation
 
+#TZaddition
+class QCD_initial_collinear_0_qqq(QCD_initial_collinear_0_XXX):
+    """qg collinear ISR tree-level current. q(initial) > q(initial_after_emission) q(final) qbar (final) """
+
+    # Make sure to have the initial particle with the lowest index
+    structure = [
+        sub.SingularStructure(sub.CollStructure(
+            sub.SubtractionLeg(0, +1, sub.SubtractionLeg.INITIAL),
+            sub.SubtractionLeg(1, +1, sub.SubtractionLeg.FINAL),
+            sub.SubtractionLeg(2, -1, sub.SubtractionLeg.FINAL),
+        )),
+    ]
+
+    def kernel(self, evaluation, parent, variables):
+
+        # Retrieve the collinear variable x
+        x_a, x_r, x_s = variables['xs']
+        kT_a, kT_r, kT_s = variables['kTs']
+        s_ar, s_as, s_rs = variables['ss'][(0,1)], variables['ss'][(0,2)], variables['ss'][(1,2)]
+
+        # The factor 'x' that should be part of the initial_state_crossing_factor cancels
+        # against the extra prefactor 1/x in the collinear factorization formula
+        # (see Eq. (8) of NNLO compatible NLO scheme publication arXiv:0903.1218v2)
+        initial_state_crossing_factor = 1.
+        # Correct for the ratio of color-averaging factor between the real ME
+        # initial state flavor (quark) and the one of the reduced Born ME (quark)
+        initial_state_crossing_factor *= 1.
+
+        for spin_correlation_vector, weight in AltarelliParisiKernels.P_qqq(self,
+                1./x_a, -x_r/x_a, -x_s/x_a, -s_ar, -s_as, s_rs, kT_a, kT_r, kT_s
+            ):
+            complete_weight = weight*initial_state_crossing_factor
+            if spin_correlation_vector is None:
+                evaluation['values'][(0, 0, 0)] = {'finite': complete_weight[0]}
+            else:
+                evaluation['spin_correlations'].append((parent, spin_correlation_vector))
+                evaluation['values'][(len(evaluation['spin_correlations'])-1, 0, 0)] = {'finite': complete_weight[0]}
+
+        return evaluation
+
+#TZaddition
+class QCD_initial_collinear_0_qgg(QCD_initial_collinear_0_XXX):
+    """qg collinear ISR tree-level current. q(initial) > q(initial_after_emission) g(final) g(final) """
+
+    # Make sure to have the initial particle with the lowest index
+    structure = [
+        sub.SingularStructure(sub.CollStructure(
+            sub.SubtractionLeg(0, +1, sub.SubtractionLeg.INITIAL),
+            sub.SubtractionLeg(1, 21, sub.SubtractionLeg.FINAL),
+            sub.SubtractionLeg(2, 21, sub.SubtractionLeg.FINAL),
+        )),
+    ]
+
+    def kernel(self, evaluation, parent, variables):
+
+        # Retrieve the collinear variable x
+        x_a, x_r, x_s = variables['xs']
+        kT_a, kT_r, kT_s = variables['kTs']
+        s_ar, s_as, s_rs = variables['ss'][(0,1)], variables['ss'][(0,2)], variables['ss'][(1,2)]
+
+        # The factor 'x' that should be part of the initial_state_crossing_factor cancels
+        # against the extra prefactor 1/x in the collinear factorization formula
+        # (see Eq. (8) of NNLO compatible NLO scheme publication arXiv:0903.1218v2)
+        initial_state_crossing_factor = 1.
+        # Correct for the ratio of color-averaging factor between the real ME
+        # initial state flavor (quark) and the one of the reduced Born ME (quark)
+        initial_state_crossing_factor *= 1.
+
+        for spin_correlation_vector, weight in AltarelliParisiKernels.P_qgg(self,
+                1./x_a, -x_r/x_a, -x_s/x_a, -s_ar, -s_as, s_rs, kT_a, kT_r, kT_s
+            ):
+            complete_weight = weight*initial_state_crossing_factor
+            if spin_correlation_vector is None:
+                evaluation['values'][(0, 0, 0)] = {'finite': complete_weight[0]}
+            else:
+                evaluation['spin_correlations'].append((parent, spin_correlation_vector))
+                evaluation['values'][(len(evaluation['spin_correlations'])-1, 0, 0)] = {'finite': complete_weight[0]}
+
+        return evaluation
+
+
 #=========================================================================================
 # NNLO final-collinear currents
 #=========================================================================================
@@ -136,6 +217,71 @@ class QCD_final_collinear_0_qqpqp(QCD_final_collinear_0_XXX):
                 evaluation['values'][(len(evaluation['spin_correlations'])-1, 0, 0)] = {'finite': complete_weight[0]}
 
         return evaluation
+
+#TZaddition
+class QCD_final_collinear_0_qqq(QCD_final_collinear_0_XXX):
+    """qg collinear FSR tree-level current. q(final) > q(final) q(final) qbar(final) """
+
+    # Make sure to have the initial particle with the lowest index
+    structure = [
+        sub.SingularStructure(sub.CollStructure(
+            sub.SubtractionLeg(0, +1, sub.SubtractionLeg.FINAL),
+            sub.SubtractionLeg(1, +1, sub.SubtractionLeg.FINAL),
+            sub.SubtractionLeg(2, -1, sub.SubtractionLeg.FINAL),
+        )),
+    ]
+
+    def kernel(self, evaluation, parent, variables):
+
+        # Retrieve the collinear variable x
+        z_i, z_r, z_s = variables['zs']
+        kT_i, kT_r, kT_s = variables['kTs']
+        s_ir, s_is, s_rs = variables['ss'][(0,1)], variables['ss'][(0,2)], variables['ss'][(1,2)]
+
+        for spin_correlation_vector, weight in AltarelliParisiKernels.P_qqq(self,
+                z_i, z_r, z_s, s_ir, s_is, s_rs, kT_i, kT_r, kT_s
+            ):
+            complete_weight = weight
+            if spin_correlation_vector is None:
+                evaluation['values'][(0, 0, 0)] = {'finite': complete_weight[0]}
+            else:
+                evaluation['spin_correlations'].append((parent, spin_correlation_vector))
+                evaluation['values'][(len(evaluation['spin_correlations'])-1, 0, 0)] = {'finite': complete_weight[0]}
+
+        return evaluation
+
+#TZaddition
+class QCD_final_collinear_0_qgg(QCD_final_collinear_0_XXX):
+    """qg collinear FSR tree-level current. q(final) > q(final) g(final) g(final) """
+
+    # Make sure to have the initial particle with the lowest index
+    structure = [
+        sub.SingularStructure(sub.CollStructure(
+            sub.SubtractionLeg(0, +1, sub.SubtractionLeg.FINAL),
+            sub.SubtractionLeg(1, 21, sub.SubtractionLeg.FINAL),
+            sub.SubtractionLeg(2, 21, sub.SubtractionLeg.FINAL),
+        )),
+    ]
+
+    def kernel(self, evaluation, parent, variables):
+
+        # Retrieve the collinear variable x
+        z_i, z_r, z_s = variables['zs']
+        kT_i, kT_r, kT_s = variables['kTs']
+        s_ir, s_is, s_rs = variables['ss'][(0,1)], variables['ss'][(0,2)], variables['ss'][(1,2)]
+
+        for spin_correlation_vector, weight in AltarelliParisiKernels.P_qgg(self,
+                z_i, z_r, z_s, s_ir, s_is, s_rs, kT_i, kT_r, kT_s
+            ):
+            complete_weight = weight
+            if spin_correlation_vector is None:
+                evaluation['values'][(0, 0, 0)] = {'finite': complete_weight[0]}
+            else:
+                evaluation['spin_correlations'].append((parent, spin_correlation_vector))
+                evaluation['values'][(len(evaluation['spin_correlations'])-1, 0, 0)] = {'finite': complete_weight[0]}
+
+        return evaluation
+
 
 # =========================================================================================
 # NNLO soft currents

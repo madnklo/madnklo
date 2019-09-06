@@ -61,26 +61,10 @@ class AltarelliParisiKernels:
 
         # Compute handy term and variables
         s_irs = s_ir+s_is+s_rs
-        t_rs_i = 2.*(z_r*s_is-z_s*s_ir)/(z_r+z_s) + ((z_r-z_s)/(z_r+z_s))*s_rs
-        t_ir_s = 2.*(z_r*s_is-z_i*s_rs)/(z_r+z_i) + ((z_r-z_i)/(z_r+z_i))*s_ir
-        dimensional_term_1 = z_r + z_s - s_rs/s_irs
-        dimensional_term_2 = z_r + z_i - s_ir/s_irs
 
         fac1 = s_irs/s_rs
         fac2 = s_irs/s_ir
         fac3 = s_irs**2/s_rs/s_ir
-
-
-        P1 = EpsilonExpansion({
-                    0 : -(t_rs_i**2/(s_rs*s_irs)) + (4.*z_i + (z_r - z_s)**2)/(z_r+z_s) + dimensional_term_1,
-                    1 : -2.*dimensional_term_1
-                })
-
-        P2 = EpsilonExpansion({
-                    0 : -(t_ir_s**2/(s_ir*s_irs)) + (4.*z_s + (z_r - z_i)**2)/(z_r+z_i) + dimensional_term_2,
-                    1 : -2.*dimensional_term_2
-                })
-
 
         P1id = EpsilonExpansion({
                     0 : 2.*s_is/s_rs + fac1*( (1.+z_r**2)/(1.-z_s) - 2.*z_s/(1.-z_i) ) - fac3*z_r/2.*( (1.+z_r**2)/(1.-z_s)/(1.-z_i) ),
@@ -95,13 +79,15 @@ class AltarelliParisiKernels:
                 })
 
 
-        # Prefactors
-        prefactor_nid = (1./2.)*color_factors.CF*color_factors.TR
+        # Prefactor for the id term
         prefactor_id = color_factors.CF*(color_factors.CF - (1./2.)*color_factors.CA)
+
+        pqqpqp1=AltarelliParisiKernels.P_qqpqp(color_factors, z_i, z_r, z_s, s_ir, s_is, s_rs, kT_i, kT_r, kT_s)[0][1]
+        pqqpqp2=AltarelliParisiKernels.P_qqpqp(color_factors, z_s, z_r, z_i, s_rs, s_is, s_ir, kT_s, kT_r, kT_i)[0][1]
 
         return [
             ( None,
-                (P1*s_irs/s_rs + P2*s_irs/s_ir)*prefactor_nid + (P1id + P2id)*prefactor_id
+                pqqpqp1 + pqqpqp2 +(P1id + P2id)*prefactor_id
             )
         ]
 

@@ -87,7 +87,7 @@ class VirtualPhaseSpaceGenerator(object):
 
         raise NotImplementedError
     
-    def get_PS_point(self, random_variables):
+    def get_PS_point(self, random_variables, **opts):
         """Generate a complete PS point, including Bjorken x's,
         dictating a specific choice of incoming particle's momenta."""
 
@@ -172,7 +172,7 @@ class MultiChannelPhasespace(VirtualPhaseSpaceGenerator):
                     'beam_Es': self.beam_Es, 'beam_types': self.beam_types, 'model': self.model}
             self.channels.append(SingleChannelPhasespace(topology=topology,**opts))
     
-    def get_PS_point(self, random_variables, adaptive_wgts=None,channel_nr = None):
+    def get_PS_point(self, random_variables, adaptive_wgts=None,channel_nr=None, **opts):
         """Provides a momentum configuration according to the right phase space parameterization
         and the multi-channel weight (the Jacobians from all channels with their channel weights (alpha)). """
         """ adaptive_wgts = channel wgts (alpha) """
@@ -1243,7 +1243,7 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
                 output_momenta[1] = LorentzVector([E2/2.0 , 0., 0., -Z/2.0])
         return
 
-    def get_PS_point(self, random_variables):
+    def get_PS_point(self, random_variables, **opts):
         """Generate a complete PS point, including Bjorken x's,
         dictating a specific choice of incoming particle's momenta.
         """
@@ -1586,7 +1586,7 @@ class RustFlatInvertiblePhasespace(FlatInvertiblePhasespace):
                 output_momenta.insert(1, LorentzVector([E2/2.0 , 0., 0., -Z/2.0]))
         return
 
-    def get_PS_point(self, random_variables):
+    def get_PS_point(self, random_variables, **opts):
         """Generate a complete PS point, including Bjorken x's,
         dictating a specific choice of incoming particle's momenta.
         """

@@ -1058,21 +1058,63 @@ class ME7Integrand(integrands.VirtualIntegrand):
            not (self.run_card['lpp1']==self.run_card['lpp2']==0):
             raise InvalidCmd("MadEvent7 does not support the following collider mode yet (%d,%d)."%\
                                                             (self.run_card['lpp1'], self.run_card['lpp2']))
-        
+
         # Always initialize the basic flat PS generator. It can be overwritten later if necessary.
         simplified_beam_types = (
             0 if self.contribution_definition.beam_factorization['beam_one'] is None else 1,
             0 if self.contribution_definition.beam_factorization['beam_two'] is None else 1,
         )
-        self.phase_space_generator = phase_space_generators.FlatInvertiblePhasespace(
-            self.masses[0], self.masses[1],
-            beam_Es             = (self.run_card['ebeam1'], self.run_card['ebeam2']),
-            beam_types          = simplified_beam_types,
-            is_beam_factorization_active = 
-                        ( self.contribution_definition.is_beam_active('beam_one'),
-                          self.contribution_definition.is_beam_active('beam_two') ),
-            correlated_beam_convolution = self.contribution_definition.correlated_beam_convolution
-        )
+        
+	   # now choose the right PS_generator according to specified option
+        if 'PS_generator' not in ME7_configuration.keys() or ME7_configuration['PS_generator'] is None:
+            # If nothing is specified, we use FLATPS by default
+            selected_PS_generator = "FLATPS"
+        else:
+            selected_PS_generator = ME7_configuration['PS_generator']
+        
+        PS_generator_args    = [self.masses[0], self.masses[1]]
+        PS_generator_options = {
+            'beam_Es' : (self.run_card['ebeam1'], self.run_card['ebeam2']),
+            'beam_types' : simplified_beam_types,
+            'is_beam_factorization_active' : ( self.contribution_definition.is_beam_active('beam_one'),
+                                               self.contribution_definition.is_beam_active('beam_two') ),
+            'correlated_beam_convolution' : self.contribution_definition.correlated_beam_convolution
+        }
+        
+        if selected_PS_generator.startswith('SCPS'):
+            if '@' in ME7_configuration['PS_generator']:
+                topology_number = int(ME7_configuration['PS_generator'].split('@')[1])-1
+            else:
+                topology_number = 0
+            if topology_number >= len(self.topologies_to_processes):
+                raise InvalidCmd('This process only has %d topologies. You cannot choose the #%dth one.'%(
+                    len(self.topologies_to_processes), topology_number+1))
+            chosen_key = sorted(self.topologies_to_processes.keys())[topology_number]
+            a_topology = self.topologies_to_processes[chosen_key]['s_and_t_channels']
+            PS_generator_options['model'] = self.model
+            PS_generator_options['topology'] = a_topology
+            self.phase_space_generator = phase_space_generators.SingleChannelPhasespace(
+                                                         *PS_generator_args, **PS_generator_options)
+            logger.debug('Integrand %s is using PS_generator=SCPS, with topology #%d/%d:%s'%(
+                self.get_short_name(),
+                topology_number+1, len(self.topologies_to_processes),
+                self.phase_space_generator.get_topology_string(a_topology,
+                                                     path_to_print=self.phase_space_generator.path)
+            ))
+        elif selected_PS_generator == 'MCPS':
+            all_topologies = [None] * len(self.topologies_to_processes.keys())
+            for a_key in self.topologies_to_processes.keys():
+                all_topologies[a_key[1]] = self.topologies_to_processes[a_key]['s_and_t_channels']
+            PS_generator_options['model'] = self.model
+            PS_generator_options['topologies'] = all_topologies
+            self.phase_space_generator = phase_space_generators.MultiChannelPhasespace(
+                                                        *PS_generator_args, **PS_generator_options)
+        elif selected_PS_generator == 'FLATPS':
+            self.phase_space_generator = phase_space_generators.FlatInvertiblePhasespace(
+                                                        *PS_generator_args, **PS_generator_options)
+            #logger.info('Using PS_generator=FLATPS')
+        else:
+            raise MadGraph5Error('Specified phase-space generator not reckognized: %s'%selected_PS_generator)
 
         # Add a copy of the PS generator dimensions here.
         # Notice however that we could add more dimensions pertaining to this integrand only, and PS generation.
@@ -1656,7 +1698,16 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
     def __call__(self, continuous_inputs, discrete_inputs, **opts):
         """ Main function of the integrand, returning the weight to be passed to the integrator."""
-        
+       
+        if 'adaptive_wgts' in opts:
+            adaptive_wgts = opts.pop('adaptive_wgts')
+        else:
+            adaptive_wgts = None
+        if 'channel_nr' in opts:
+            channel_nr = opts.pop('channel_nr')
+        else:
+            channel_nr = None
+
         # Check if an integrator_jacobian is specified in the options to be applied to 
         # the weight when registering observables (i.e. filling observables)
         if 'integrator_jacobian' in opts:
@@ -1692,7 +1743,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
 
         if self.sectors is None:
             return self.evaluate(PS_random_variables, integrator_jacobian, observables_lock,
-                                                                            selected_process_key=None, sector_info=None)
+                        selected_process_key=None, sector_info=None, adaptive_wgts=adaptive_wgts, channel_nr=channel_nr)
         else:
             total_weight = 0.
             for process_key, (process, mapped_processes) in self.processes_map.items():
@@ -1705,9 +1756,10 @@ class ME7Integrand(integrands.VirtualIntegrand):
                                                     not self.is_sector_selected(process, sector_info['sector']):
                         continue
                     total_weight += self.evaluate(PS_random_variables, integrator_jacobian, observables_lock,
-                                                  selected_process_key=process_key, sector_info=sector_info)
+                        selected_process_key=process_key, sector_info=sector_info, adaptive_wgts=adaptive_wgts, channel_nr=channel_nr)
 
-    def evaluate(self,PS_random_variables, integrator_jacobian, observables_lock, selected_process_key=None, sector_info=None):
+    def evaluate(self,PS_random_variables, integrator_jacobian, observables_lock, 
+                                selected_process_key=None, sector_info=None, adaptive_wgts=None, channel_nr=None):
         """ Evaluate this integrand given the PS generating random variables and
         possibily for a particular defining process and sector. If no process_key is specified, this funcion will
         loop over and aggregate all of them"""
@@ -1721,7 +1773,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # PS generator for those (i.e. g g > X is mapped with d d~ > X but the bjorken x's pre-sampling could be
         # improved and for the sector, the parametrisation of the unresolved degrees of freedom could be chosen
         # accordingly to the singularities present in this sector.)
-        PS_point, PS_weight, x1s, x2s = self.phase_space_generator.get_PS_point(PS_random_variables)
+        PS_point, PS_weight, x1s, x2s = self.phase_space_generator.get_PS_point(PS_random_variables,
+                                                                adaptive_wgts=adaptive_wgts,channel_nr=channel_nr)
 
         # Unpack the initial momenta rescalings (if present) so as to access both Bjorken
         # rescalings xb_<i> and the ISR factorization convolution rescalings xi<i>.
@@ -3331,6 +3384,8 @@ class ME7Integrand_R(ME7Integrand):
             # gain, after it is checked to be safe).
             # And now boost it back in the c.o.m frame.
             if boost_back_to_com:
+                misc.sprint(counterterm.nice_string())
+                misc.sprint(reduced_kinematics)
                 reduced_kinematics.boost_to_com(tuple([l.get('number') for l in counterterm.process.get_initial_legs()]))
 
             # Generate what is the kinematics (reduced_PS) returned as a list

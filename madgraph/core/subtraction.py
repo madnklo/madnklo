@@ -1017,6 +1017,7 @@ class Current(base_objects.Process):
         """Given the defining flavors dictionary specifying the flavors of some leg numbers,
         add entries corresponding to the subtraction legs in this node and using the function
         get_parent_PDGs from the subtraction module."""
+
         get_particle = IR_subtraction_module.model.get_particle
         
         def get_parent(PDGs, is_initial):
@@ -1034,17 +1035,13 @@ class Current(base_objects.Process):
 
         # Go through the current's singular structure to find the disjoint unresolved sets
         ss = self.get('singular_structure')
-        # The singular structure has a trivial nesting of variable depth
-        # eg: local C(1,2) is (C(1,2),) while integrated C(1,2) is ((C(1,2),),)
-        # We recursively go through until we have all the actual disjoint current directly accessible
-        # i.e. something like ss = (C(1,2),C(3,4))
-        above_disjoint = False
-        while not above_disjoint:
-            sub_ss = ss.substructures[0]
-            if len(sub_ss.legs) != 0:
-                above_disjoint = True
-            else:
-                ss = sub_ss
+
+        # In order to simplify the computation of the reduced flavours we unpack multiple nestings
+        # like (C(1,2),C(3,4))  (used for local counterterms) ((C(1,2),C(3,4)),) (used for integrated CT)
+        # into a structure that has a single embedding singular structure.
+        while len(ss.substructures)>0 and ss.substructures[0].name()=='':
+            ss = ss.substructures[0]
+
         for sub_ss in ss.substructures:
             all_legs = sub_ss.get_all_legs()
 
@@ -1381,6 +1378,7 @@ class CountertermNode(object):
         """Given the defining flavors dictionary specifying the flavors of some leg numbers,
         add entries corresponding to the subtraction legs in this node and using the function
         get_parent_PDGs from the subtraction module."""
+
         for node in self.nodes:
             node.get_reduced_flavors(defining_flavors, IR_subtraction_module, routing_dict)  
 
@@ -1835,6 +1833,7 @@ class Counterterm(CountertermNode):
                 node.get_reduced_flavors(
                                  number_to_flavors_map, IR_subtraction, self.momenta_dict)
             reduced_process_leg_numbers = self.process.get_cached_initial_final_numbers()
+
             reduced_flavors = (
                 tuple( number_to_flavors_map[n] for n in reduced_process_leg_numbers[0] ),
                 tuple( number_to_flavors_map[n] for n in reduced_process_leg_numbers[1] )
@@ -2490,7 +2489,7 @@ class IRSubtraction(object):
                 # Adding the parent
                 structure_leg_ns.append(subparent.n)
                 # Removing the children
-                for n in [leg.n for leg in substructure.legs]:
+                for n in [leg.n for leg in substructure.get_all_legs()]:
                     structure_leg_ns.remove(n)
         if structure.name() == "":
             return None

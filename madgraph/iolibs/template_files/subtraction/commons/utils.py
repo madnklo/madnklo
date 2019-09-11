@@ -462,7 +462,11 @@ class DefaultCurrentImplementation(VirtualCurrentImplementation):
 
     # Include these counterterms even if they are zero,
     # uncomment the following line to discard them instead
-    # is_zero = True
+    # They must typically be discarded otherwise their lack of default mapping
+    # will trigger a crash in test_IR_limits.
+    # Coming up with a default mapping could be possible though so left as a todo
+    # TODO: implement a default generic mapping
+    is_zero = True
     
     def __init__(self, *args, **opts):
 

@@ -282,6 +282,8 @@ class QCDLocalCurrent(QCDCurrent):
         if not cls.check_current_properties(current):
             return None
 
+#TZdebugger gets past this point
+
         all_template_structures = cls.structure
         if isinstance(all_template_structures, sub.SingularStructure):
             all_template_structures = [cls.structure, ]
@@ -299,6 +301,11 @@ class QCDLocalCurrent(QCDCurrent):
                 break
 
         if leg_numbers_map is None:
+#TZ debugger stuck here
+#            if len(current["singular_structure"].substructures[0].substructures)>0:
+#                if len(current["singular_structure"].substructures[0].substructures[0].legs)==2:
+#                    import ipdb
+#                    ipdb.set_trace()
             return None
 
         mapping_singular_structure = current.get('singular_structure').get_copy()
@@ -711,7 +718,13 @@ class GeneralQCDLocalCurrent(QCDLocalCurrent):
     @classmethod
     def does_implement_this_current(cls, current, model):
         """ Add information about whether or not this local collinear current contains initial states."""
+
         res = super(GeneralQCDLocalCurrent, cls).does_implement_this_current(current, model)
+#TZdebugger, checked
+#        if len(current["singular_structure"].substructures[0].substructures)>0:
+#            if len(current["singular_structure"].substructures[0].substructures[0].legs)==2:
+#                import ipdb
+#                ipdb.set_trace()
 
         if res is not None:
             res['has_initial_state'] = current.get('singular_structure').get_all_legs().has_initial_state_leg()

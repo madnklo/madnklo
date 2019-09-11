@@ -701,6 +701,219 @@ class QCD_C_FqFqx_C_IqpFqFqx(currents.GeneralQCDLocalCurrent):
 
         return evaluation
 
+#TZaddition
+#should be joined with the class above since the subtraction is same for qpqqx and qqqx
+class QCD_C_FqFqx_C_IqFqFqx(currents.GeneralQCDLocalCurrent):
+    """ Nested FF (q_qx) collinear within IFF (q_qqx)."""
+
+    squared_orders = {'QCD': 4}
+    n_loops = 0
+    divide_by_jacobian = colorful_pp_config.divide_by_jacobian
+
+    # We should not need global variables for this current
+    variables = None
+
+    # Now define the matching singular structures
+    sub_coll_structure = sub.CollStructure(
+        substructures=tuple([]),
+        legs=(
+            sub.SubtractionLeg(10, +1, sub.SubtractionLeg.FINAL),
+            sub.SubtractionLeg(11, -1, sub.SubtractionLeg.FINAL),
+        )
+    )
+    # This counterterm will be used if any of the structures of the list below matches
+    structure = [
+        # Match both the case of the initial state being a quark and/or antiquark
+        sub.SingularStructure(substructures=(sub.CollStructure(
+            substructures=(sub_coll_structure,),
+            legs=(sub.SubtractionLeg(1, +1, sub.SubtractionLeg.INITIAL),)
+        ),)),
+    ]
+
+    # An now the mapping rules
+    mapping_rules = [
+        {
+            'singular_structure'    : sub.SingularStructure(substructures=(sub.CollStructure(
+                substructures=tuple([]),
+                legs=(
+                    sub.SubtractionLeg(10, +1, sub.SubtractionLeg.FINAL),
+                    sub.SubtractionLeg(11, -1, sub.SubtractionLeg.FINAL),
+                )
+            ),)),
+            'mapping'               : colorful_pp_config.final_coll_mapping,
+            # Intermediate legs should be strictly superior to a 1000
+            'momenta_dict'          : bidict({1001:frozenset((10,11))}),
+            'variables'             : currents.CompoundVariables(kernel_variables.colorful_pp_FFn_variables),
+            'is_cut'                : colorful_pp_config.generalised_cuts,
+            'reduced_recoilers'     : colorful_pp_config.get_initial_state_recoilers,
+            'additional_recoilers'  : sub.SubtractionLegSet([sub.SubtractionLeg(1, +1, sub.SubtractionLeg.INITIAL)]),
+        },
+        {
+            'singular_structure': sub.SingularStructure(substructures=(sub.CollStructure(
+                substructures=tuple([]),
+                legs=(
+                    sub.SubtractionLeg(1, +1, sub.SubtractionLeg.INITIAL),
+                    sub.SubtractionLeg(1001, 21, sub.SubtractionLeg.FINAL),
+                )
+            ),)),
+            'mapping'               : colorful_pp_config.initial_coll_mapping,
+            # -1 indicates that this ID should be replaced by the first overall parent connecting to the ME
+            'momenta_dict'          : bidict({-1: frozenset((1001, 1))}),
+            'variables'             : currents.CompoundVariables(kernel_variables.colorful_pp_IFn_variables),
+            'is_cut'                : colorful_pp_config.generalised_cuts,
+            'reduced_recoilers'     : colorful_pp_config.get_final_state_recoilers,
+            'additional_recoilers'  : sub.SubtractionLegSet([]),
+        },
+    ]
+
+    def kernel(self, evaluation, all_steps_info, global_variables):
+        """ Evaluate this I(FF) counterterm given the supplied variables. """
+
+        kT_FF = all_steps_info[0]['variables'][0]['kTs'][(0,(1,))]
+        z_FF  = all_steps_info[0]['variables'][0]['zs'][0]
+        s_rs  = all_steps_info[0]['variables'][0]['ss'][(0,1)]
+
+        kT_IF = all_steps_info[1]['variables'][0]['kTs'][0]
+        x_IF  = all_steps_info[1]['variables'][0]['xs'][0]
+        s_a_rs = all_steps_info[1]['variables'][0]['ss'][(0,1)]
+
+        p_a_hat = all_steps_info[1]['higher_PS_point'][
+            all_steps_info[1]['bundles_info'][0]['initial_state_children'][0]
+        ]
+        p_rs_hat = all_steps_info[1]['higher_PS_point'][
+            all_steps_info[1]['bundles_info'][0]['final_state_children'][0]
+        ]
+
+        parent = all_steps_info[1]['bundles_info'][0]['parent']
+
+        #misc.sprint(s_rs, s_a_rs)
+        #misc.sprint(z_FF, x_IF)
+        #misc.sprint(kT_FF, kT_IF)
+        #misc.sprint(p_a_hat, parent)
+
+        # We must include here propagator factors, but no correction for symmetry
+        # or averaging factor is necessary in this particular pure-quark kernel
+        initial_state_crossing = -1.0
+        prefactor = initial_state_crossing*(1./(s_rs*s_a_rs))
+        for spin_correlation_vector, weight in AltarelliParisiKernels.P_q_qpqp(self, z_FF, 1./x_IF, kT_FF, -p_a_hat, p_rs_hat):
+            complete_weight = weight * prefactor
+            if spin_correlation_vector is None:
+                evaluation['values'][(0, 0, 0)] = {'finite': complete_weight[0]}
+            else:
+                evaluation['spin_correlations'].append((parent, spin_correlation_vector))
+                evaluation['values'][(len(evaluation['spin_correlations']) - 1, 0, 0)] = {'finite': complete_weight[0]}
+
+        return evaluation
+
+#TZaddition
+class QCD_C_IqFqx_C_IqFqFqx(currents.GeneralQCDLocalCurrent):
+    """ Nested IF (q_qx) collinear within IFF (q_qqx)."""
+
+    squared_orders = {'QCD': 4}
+    n_loops = 0
+    divide_by_jacobian = colorful_pp_config.divide_by_jacobian
+
+    # We should not need global variables for this current
+    variables = None
+
+    # Now define the matching singular structures
+    sub_coll_structure = sub.CollStructure(
+        substructures=tuple([]),
+        legs=(
+            sub.SubtractionLeg(10, +1, sub.SubtractionLeg.INITIAL),
+            sub.SubtractionLeg(11, +1, sub.SubtractionLeg.FINAL),
+        )
+    )
+    # This counterterm will be used if any of the structures of the list below matches
+    structure = [
+        # Match both the case of the initial state being a quark and/or antiquark
+        sub.SingularStructure(substructures=(sub.CollStructure(
+            substructures=(sub_coll_structure,),
+            legs=(sub.SubtractionLeg(1, -1, sub.SubtractionLeg.FINAL),)
+        ),)),
+        sub.SingularStructure(substructures=(sub.CollStructure(
+            substructures=(sub_coll_structure,),
+            legs=(sub.SubtractionLeg(1, +1, sub.SubtractionLeg.FINAL),)
+        ),)),
+    ]
+
+    # An now the mapping rules
+    mapping_rules = [
+        {
+            'singular_structure'    : sub.SingularStructure(substructures=(sub.CollStructure(
+                substructures=tuple([]),
+                legs=(
+                    sub.SubtractionLeg(10, +1, sub.SubtractionLeg.INITIAL),
+                    sub.SubtractionLeg(11, -1, sub.SubtractionLeg.FINAL),
+                )
+            ),)),
+            'mapping'               : colorful_pp_config.initial_coll_mapping,
+            # Intermediate legs should be strictly superior to a 1000
+            'momenta_dict'          : bidict({1001:frozenset((10,11))}),
+            'variables'             : currents.CompoundVariables(kernel_variables.colorful_pp_FFn_variables),
+            'is_cut'                : colorful_pp_config.generalised_cuts,
+            'reduced_recoilers'     : colorful_pp_config.get_initial_state_recoilers,
+            'additional_recoilers'  : sub.SubtractionLegSet([sub.SubtractionLeg(1, +1, sub.SubtractionLeg.INITIAL)]),
+        },
+        {
+            'singular_structure': sub.SingularStructure(substructures=(sub.CollStructure(
+                substructures=tuple([]),
+                legs=(
+                    sub.SubtractionLeg(1001, 21, sub.SubtractionLeg.INITIAL),
+                    sub.SubtractionLeg(1, +1, sub.SubtractionLeg.FINAL),
+                )
+            ),)),
+            'mapping'               : colorful_pp_config.final_coll_mapping,
+            # -1 indicates that this ID should be replaced by the first overall parent connecting to the ME
+            'momenta_dict'          : bidict({-1: frozenset((1001, 1))}),
+            'variables'             : currents.CompoundVariables(kernel_variables.colorful_pp_IFn_variables),
+            'is_cut'                : colorful_pp_config.generalised_cuts,
+            'reduced_recoilers'     : colorful_pp_config.get_final_state_recoilers,
+            'additional_recoilers'  : sub.SubtractionLegSet([]),
+        },
+    ]
+
+    def kernel(self, evaluation, all_steps_info, global_variables):
+        """ Evaluate this I(FF) counterterm given the supplied variables. """
+
+        kT_as  = all_steps_info[0]['variables'][0]['kTs'][(0,(1,))]
+        x_a    = all_steps_info[0]['variables'][0]['xs'][0]
+        s_as   = all_steps_info[0]['variables'][0]['ss'][(0,1)]
+
+        kT_rH  = all_steps_info[1]['variables'][0]['kTs'][0]
+        x_aH   = all_steps_info[1]['variables'][0]['xs'][0]
+        s_r_as = all_steps_info[1]['variables'][0]['ss'][(0,1)]
+
+        p_as_hat = all_steps_info[1]['higher_PS_point'][
+            all_steps_info[1]['bundles_info'][0]['initial_state_children'][0]
+        ]
+        p_r_hat = all_steps_info[1]['higher_PS_point'][
+            all_steps_info[1]['bundles_info'][0]['final_state_children'][0]
+        ]
+
+        parent = all_steps_info[1]['bundles_info'][0]['parent']
+
+        #misc.sprint(s_rs, s_a_rs)
+        #misc.sprint(z_FF, x_IF)
+        #misc.sprint(kT_FF, kT_IF)
+        #misc.sprint(p_a_hat, parent)
+
+        # We must include here propagator factors, but no correction for symmetry
+        # or averaging factor is necessary in this particular pure-quark kernel
+        initial_state_crossing = 1.0
+        prefactor = initial_state_crossing*(1./(s_as*s_r_as))
+        for spin_correlation_vector, weight in AltarelliParisiKernels.P_q_qpqp(self, 1./x, 1./x_IF, kT_as, p_r_hat, -p_as_hat):
+            complete_weight = weight * prefactor
+            if spin_correlation_vector is None:
+                evaluation['values'][(0, 0, 0)] = {'finite': complete_weight[0]}
+            else:
+                evaluation['spin_correlations'].append((parent, spin_correlation_vector))
+                evaluation['values'][(len(evaluation['spin_correlations']) - 1, 0, 0)] = {'finite': complete_weight[0]}
+
+        return evaluation
+
+
+
 class QCD_S_FqFqx_C_FqFqx(currents.GeneralQCDLocalCurrent):
     """ Nested soft FF (q_qx) limit within collinear FF (q_qx) limit."""
 
@@ -950,3 +1163,107 @@ class QCD_S_FqFqx_C_FqFqx_C_IqpFqFqx(currents.GeneralQCDLocalCurrent):
             )
         })
         return evaluation
+
+#TZaddition
+#inherits everything from the different-flavor class
+#structure and mapping_rules redefined to match same-flavor case
+class QCD_S_FqFqx_C_FqFqx_C_IqFqFqx(currents.GeneralQCDLocalCurrent):
+    """ Nested soft FF (q_qx) limit within collinear FF (q_qx) limit with collinear limit IFF (q' q_qx)."""
+
+    squared_orders = {'QCD': 4}
+    n_loops = 0
+    divide_by_jacobian = colorful_pp_config.divide_by_jacobian
+
+    # In order to build the IF variables using the initial parent momentum which is absent from any mapping
+    # structure, we use the global variables
+    variables = staticmethod(QCD_S_FqFqx_C_FqFqx_C_IqpFqFqx_global_IFF_softFF_variables)
+
+    # Now define the matching singular structures
+    sub_coll_structure = sub.CollStructure(
+        substructures=tuple([]),
+        legs=(
+            sub.SubtractionLeg(10, +1, sub.SubtractionLeg.FINAL),
+            sub.SubtractionLeg(11, -1, sub.SubtractionLeg.FINAL),
+        )
+    )
+    soft_structure = sub.SoftStructure(
+            substructures=(sub_coll_structure,),
+            legs=tuple([])
+    )
+    # This counterterm will be used if any of the structures of the list below matches
+    structure = [
+        # Match the case of the initial state being a quark and/or antiquark
+        sub.SingularStructure(substructures=(sub.CollStructure(
+            substructures=(soft_structure,),
+            legs=(sub.SubtractionLeg(1, +1, sub.SubtractionLeg.INITIAL),)
+        ),)),
+    ]
+
+    # An now the mapping rules
+    mapping_rules = [
+        {
+            'singular_structure'    : sub.SingularStructure(substructures=(sub.CollStructure(
+                substructures=tuple([]),
+                legs=(
+                    sub.SubtractionLeg(10, +1, sub.SubtractionLeg.FINAL),
+                    sub.SubtractionLeg(11, -1, sub.SubtractionLeg.FINAL),
+                )
+            ),)),
+            'mapping'               : colorful_pp_config.final_coll_mapping,
+            # Intermediate legs should be strictly superior to a 1000
+            'momenta_dict'          : bidict({1001:frozenset((10,11))}),
+            'variables'             : currents.CompoundVariables(kernel_variables.colorful_pp_FFn_variables),
+            'is_cut'                : colorful_pp_config.generalised_cuts,
+            'reduced_recoilers'     : colorful_pp_config.get_initial_state_recoilers,
+            'additional_recoilers'  : sub.SubtractionLegSet([sub.SubtractionLeg(1, +1, sub.SubtractionLeg.INITIAL),]),
+        },
+        {
+            'singular_structure': sub.SingularStructure(substructures=(sub.SoftStructure(
+                substructures=tuple([]),
+                legs=(
+                    sub.SubtractionLeg(1001, 21, sub.SubtractionLeg.FINAL),
+                )
+            ),)),
+            'mapping'               : colorful_pp_config.soft_mapping,
+            # -1 indicates that this ID should be replaced by the first overall parent connecting to the ME
+            # The momenta dictionary below is irrelevant for the soft_mapping used above will make sure that
+            # it applies the necessary relabelling of the final-state leg 33 to the parent -1 which will be
+            # used by the reduced ME called with it.
+            'momenta_dict'          : bidict({-1: frozenset((1,))}),
+            'variables'             : None,
+            'is_cut'                : colorful_pp_config.generalised_cuts,
+            'reduced_recoilers'     : colorful_pp_config.get_final_state_recoilers,
+            'additional_recoilers'  : sub.SubtractionLegSet([]),
+        },
+    ]
+
+    def kernel(self, evaluation, all_steps_info, global_variables):
+        """ Evaluate this I(FF) counterterm given the supplied variables. """
+
+        kT_FF = all_steps_info[0]['variables'][0]['kTs'][(0,(1,))]
+        z_FF  = all_steps_info[0]['variables'][0]['zs'][0]
+        s_rs  = all_steps_info[0]['variables'][0]['ss'][(0,1)]
+
+        kT_IF = global_variables['kTs'][0]
+        x_IF  = global_variables['xs'][0]
+        s_a_rs = global_variables['ss'][(0,1)]
+
+        p_a_tilde = global_variables['p_a_tilde']
+
+        p_rs_hat = all_steps_info[0]['lower_PS_point'][
+            all_steps_info[0]['bundles_info'][0]['parent']
+        ]
+
+#        misc.sprint(s_rs,s_a_rs)
+#        misc.sprint(p_a_tilde,p_rs_hat,p_a_tilde.dot(p_rs_hat))
+#        misc.sprint(p_a_tilde,kT_FF,p_a_tilde.dot(kT_FF))
+#        misc.sprint(kT_FF, kT_FF.square())
+#        misc.sprint(x_IF)
+#        misc.sprint(z_FF,(1.-z_FF))
+        evaluation['values'][(0,0,0)] = EpsilonExpansion({'finite':
+            (2./(s_rs*s_a_rs))*self.TR*self.CF*(
+                1./(1.-x_IF) + z_FF * (1. - z_FF) * ((2.*p_a_tilde.dot(kT_FF))**2)/(kT_FF.square()*(2.*p_a_tilde.dot(p_rs_hat)))
+            )
+        })
+        return evaluation
+

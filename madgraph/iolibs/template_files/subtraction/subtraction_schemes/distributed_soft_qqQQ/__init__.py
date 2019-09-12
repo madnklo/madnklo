@@ -1,6 +1,6 @@
 ###########################################################
 #
-# distributed soft subtraction scheme
+# Distributed soft subtraction scheme
 #
 ###########################################################
 

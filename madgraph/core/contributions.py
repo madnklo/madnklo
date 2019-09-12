@@ -100,7 +100,11 @@ class Contribution(object):
             elif n_loops == 0 and n_unresolved_particles == 2:
                 target_type = 'DoubleReals'
             elif n_loops == 0 and n_unresolved_particles == 3:
-                target_type = 'TripleReals'                
+                target_type = 'TripleReals'
+            elif n_loops == 1 and n_unresolved_particles == 1:
+                target_type = 'RealVirtual'
+            elif n_loops == 2 and n_unresolved_particles == 0:
+                target_type = "VirtualVirtual"
             else:
                 raise MadGraph5Error("Some %s type of contributions are not implemented yet."%
                                                   contribution_definition.correction_order)
@@ -2386,6 +2390,41 @@ class Contribution_V(Contribution):
         # Let the ME7 exporter that we could successfully host this integrated counterterm
         return True
 
+class Contribution_VV(Contribution_V):
+    def __init__(self, *args, **opts):
+        logger.critical("VV contributions are not yet supported. Emulating it with the Born + I2")
+        super(Contribution_VV, self).__init__(*args, **opts)
+
+    def generate_amplitudes(self, force=False):
+        """ Generates the relevant amplitudes for this contribution and the construction
+        of the instances of currents for the beam factorization terms."""
+
+        # First check if the amplitude was not already generated
+        if self.amplitudes and not force:
+            return
+
+        # Override the process definition to spoof the two-loop matrix elements as the tree matrix
+        # elements
+        process_definition = copy.copy(self.contribution_definition.process_definition)
+        process_definition['n_loops'] = 0
+        process_definition['NLO_mode'] = 'tree'
+        process_definition['perturbation_couplings'] = []
+        process_definition['squared_orders'] = {}
+
+        myproc = diagram_generation.MultiProcess(process_definition,
+                    collect_mirror_procs = self.collect_mirror_procs,
+                    ignore_six_quark_processes = self.ignore_six_quark_processes,
+                    optimize=self.optimize, diagram_filter=self.diagram_filter,
+                    loop_filter=self.loop_filter)
+
+        for amp in myproc.get('amplitudes'):
+            if amp not in self.amplitudes:
+                self.amplitudes.append(amp)
+            else:
+                logger.warning('Duplicate process found in contribution '+
+                               '%s. Sanity check needed.'%str(type(self)))
+
+
 class Contribution_RV(Contribution_R, Contribution_V):
     """ Implements the general handling of contribution with arbitrary number of reals, virtuals
     and beam factorization contributions."""
@@ -2555,7 +2594,7 @@ class ContributionList(base_objects.PhysicsObjectList):
     contributions_natural_order = [
         ('LO',    (Contribution_B,) ),
         ('NLO',   (Contribution_R, Contribution_V, Contribution_RV) ),
-        ('NNLO',  (Contribution_RR, Contribution_RV) ),
+        ('NNLO',  (Contribution_RR, Contribution_RV, Contribution_VV) ),
         ('NNNLO', (Contribution_RRR, Contribution_RV) )
     ]
     
@@ -2675,6 +2714,7 @@ Contribution_classes_map = {'Born': Contribution_B,
                             'SingleReals': Contribution_R,
                             'RealVirtual': Contribution_RV,
                             'DoubleReals': Contribution_RR,
+                            'VirtualVirtual': Contribution_VV,
                             'TripleReals': Contribution_RRR,
                             'BeamSoft': Contribution_BS,
                             'Unknown': None}

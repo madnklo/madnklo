@@ -850,23 +850,24 @@ class QCD_C_IqFqx_C_IqFqFqx(currents.GeneralQCDLocalCurrent):
             'mapping'               : colorful_pp_config.initial_coll_mapping,
             # Intermediate legs should be strictly superior to a 1000
             'momenta_dict'          : bidict({1001:frozenset((10,11))}),
-            'variables'             : currents.CompoundVariables(kernel_variables.colorful_pp_FFn_variables),
+            'variables'             : currents.CompoundVariables(kernel_variables.colorful_pp_IFn_variables),
             'is_cut'                : colorful_pp_config.generalised_cuts,
-            'reduced_recoilers'     : colorful_pp_config.get_initial_state_recoilers,
-            'additional_recoilers'  : sub.SubtractionLegSet([sub.SubtractionLeg(1, +1, sub.SubtractionLeg.INITIAL)]),
+            'reduced_recoilers'     : colorful_pp_config.get_final_state_recoilers,
+            'additional_recoilers'  : sub.SubtractionLegSet([sub.SubtractionLeg(1, -1, sub.SubtractionLeg.FINAL)]),
         },
         {
             'singular_structure': sub.SingularStructure(substructures=(sub.CollStructure(
                 substructures=tuple([]),
                 legs=(
                     sub.SubtractionLeg(1001, 21, sub.SubtractionLeg.INITIAL),
-                    sub.SubtractionLeg(1, +1, sub.SubtractionLeg.FINAL),
+                    sub.SubtractionLeg(1, -1, sub.SubtractionLeg.FINAL),
                 )
             ),)),
-            'mapping'               : colorful_pp_config.final_coll_mapping,
+            'mapping'               : colorful_pp_config.initial_coll_mapping,
             # -1 indicates that this ID should be replaced by the first overall parent connecting to the ME
             'momenta_dict'          : bidict({-1: frozenset((1001, 1))}),
-            'variables'             : currents.CompoundVariables(kernel_variables.colorful_pp_IFn_variables),
+            # needs special set of variables where the xs are produced using Q_hat (which is p_a_hat + p_b_hat = p_a_hat + p_b in this case)
+            'variables'             : currents.CompoundVariables(kernel_variables.colorful_pp_IF1_variables),
             'is_cut'                : colorful_pp_config.generalised_cuts,
             'reduced_recoilers'     : colorful_pp_config.get_final_state_recoilers,
             'additional_recoilers'  : sub.SubtractionLegSet([]),
@@ -876,12 +877,12 @@ class QCD_C_IqFqx_C_IqFqFqx(currents.GeneralQCDLocalCurrent):
     def kernel(self, evaluation, all_steps_info, global_variables):
         """ Evaluate this I(FF) counterterm given the supplied variables. """
 
-        kT_as  = all_steps_info[0]['variables'][0]['kTs'][(0,(1,))]
+        kT_s  = all_steps_info[0]['variables'][0]['kTs'][1]
         x_a    = all_steps_info[0]['variables'][0]['xs'][0]
         s_as   = all_steps_info[0]['variables'][0]['ss'][(0,1)]
 
         kT_rH  = all_steps_info[1]['variables'][0]['kTs'][0]
-        x_aH   = all_steps_info[1]['variables'][0]['xs'][0]
+        #x_aH   = all_steps_info[1]['variables'][0]['xs'][0]
         s_r_as = all_steps_info[1]['variables'][0]['ss'][(0,1)]
 
         p_as_hat = all_steps_info[1]['higher_PS_point'][
@@ -890,6 +891,10 @@ class QCD_C_IqFqx_C_IqFqFqx(currents.GeneralQCDLocalCurrent):
         p_r_hat = all_steps_info[1]['higher_PS_point'][
             all_steps_info[1]['bundles_info'][0]['final_state_children'][0]
         ]
+
+        p_b = global_variables['Q'] + all_steps_info[0]['bundles_info'][0]['cut_inputs']['pA']
+        QH = p_as_hat + p_b
+        x_aH = 1. - p_r_hat.dot(QH)/p_as_hat.dot(QH)
 
         parent = all_steps_info[1]['bundles_info'][0]['parent']
 
@@ -902,7 +907,7 @@ class QCD_C_IqFqx_C_IqFqFqx(currents.GeneralQCDLocalCurrent):
         # or averaging factor is necessary in this particular pure-quark kernel
         initial_state_crossing = 1.0
         prefactor = initial_state_crossing*(1./(s_as*s_r_as))
-        for spin_correlation_vector, weight in AltarelliParisiKernels.P_q_qpqp(self, 1./x, 1./x_IF, kT_as, p_r_hat, -p_as_hat):
+        for spin_correlation_vector, weight in AltarelliParisiKernels.P_q_qpqp(self, 1./x_a, -(1.-x_aH)/x_aH, kT_s, p_r_hat, -p_as_hat):
             complete_weight = weight * prefactor
             if spin_correlation_vector is None:
                 evaluation['values'][(0, 0, 0)] = {'finite': complete_weight[0]}

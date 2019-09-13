@@ -133,6 +133,60 @@ def colorful_pp_IFn_variables(PS_point, parent_momentum, children, **opts):
 
     return [{'xs':tuple(xs), 'kTs':tuple(kTs), 'ss':ss },]
 
+
+#TZaddition
+def colorful_pp_IF1_variables(PS_point, parent_momentum, children, **opts):
+    """ Variables for 'n' initial-state collinear recoiling exclusively against the initial state."""
+
+    p_a = PS_point[children[0]]
+    p_fs = [PS_point[child] for child in children[1:]]
+    Q = opts['Q']
+    p_b = PS_point[2]
+    QH = p_a + p_b
+    pa_dot_pb = Q.square()/2.
+
+    # Loop over all final state momenta to obtain the corresponding variables
+    xs = []
+    kTs = []
+    ss = {}
+    for i_fs in range(len(p_fs)):
+        p_r = p_fs[i_fs]
+        if len(p_fs)>1:
+            p_s = sum(p_fs[i_fs_prime] for i_fs_prime in range(len(p_fs)) if i_fs_prime!=i_fs)
+        else:
+            p_s = vectors.LorentzVector()
+        xs.append(
+            (p_r.dot(QH)/p_a.dot(QH))
+        )
+        kTs.append(
+            p_r - ((p_r.dot(Q)-2.*p_a.dot(p_r))/pa_dot_pb)*p_a - (p_a.dot(p_r)/pa_dot_pb)*Q
+        )
+        ss[(0,i_fs+1)] = 2.*p_a.dot(p_r)
+
+    # Finally add the x and kT corresponding to the initial state leg
+    xs.insert(0, 1.0-sum(xs))
+    #xs.insert(0, 1.0 - (((p_fs[0]+p_fs[1]).dot(Q)-p_fs[0].dot(p_fs[1]))/pa_dot_pb) )
+    kTs.insert(0, -sum(kTs))
+
+    # Alternative way of getting these variables using Simone's mappings function
+#    na = parent_momentum
+#    nb = opts['Q']
+#    kin_variables = dict()
+    # The lone initial state child is always placed first thanks to the implementation
+    # of the function get_sorted_children() in the current.
+#    mappings.InitialCollinearVariables.get(
+#        PS_point, children[1:], children[0], na, nb, kin_variables)
+#    xs = tuple(kin_variables['z%d' % i] for i in children)
+#    kTs = tuple(kin_variables['kt%d' % i] for i in children)
+
+    # Add additional ss's
+    for i_fs in range(len(p_fs)):
+        for j_fs in range(i_fs+1,len(p_fs)):
+            ss[(i_fs+1,j_fs+1)] = 2.*p_fs[i_fs].dot(p_fs[j_fs])
+
+    return [{'xs':tuple(xs), 'kTs':tuple(kTs), 'ss':ss },]
+
+
 def colorful_pp_FFF_softFF_variables(higher_PS_point, qC, children, **opts):
     """ Variables for the *pure final state* collinear recoiling exclusively against the initial state,
     with a nest soft-structure
@@ -166,6 +220,7 @@ def colorful_pp_FFF_softFF_variables(higher_PS_point, qC, children, **opts):
             ss[(i_fs + 1, j_fs + 1)] = 2. * p_fs[i_fs].dot(p_fs[j_fs])
 
     return [{'xs':tuple(zs), 'kTs':tuple(kTs), 'ss':ss},]
+
 
 def colorful_pp_IFF_softFF_variables(PS_point, parent_momentum, children, **opts):
     """ Variables for the initial-state collinear recoiling exclusively against the initial state,

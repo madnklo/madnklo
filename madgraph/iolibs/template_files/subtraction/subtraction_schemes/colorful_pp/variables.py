@@ -136,13 +136,12 @@ def colorful_pp_IFn_variables(PS_point, parent_momentum, children, **opts):
 
 #TZaddition
 def colorful_pp_IF1_variables(PS_point, parent_momentum, children, **opts):
-    """ Variables for 'n' initial-state collinear recoiling exclusively against the initial state."""
+    """ Variables for 1 initial-state collinear recoiling exclusively against the initial state."""
 
     p_a = PS_point[children[0]]
     p_fs = [PS_point[child] for child in children[1:]]
     Q = opts['Q']
-    p_b = PS_point[2]
-    QH = p_a + p_b
+    Q_hat = opts['Q_hat']
     pa_dot_pb = Q.square()/2.
 
     # Loop over all final state momenta to obtain the corresponding variables
@@ -156,28 +155,16 @@ def colorful_pp_IF1_variables(PS_point, parent_momentum, children, **opts):
         else:
             p_s = vectors.LorentzVector()
         xs.append(
-            (p_r.dot(QH)/p_a.dot(QH))
+            (p_r.dot(Q_hat)/p_a.dot(Q_hat))
         )
         kTs.append(
-            p_r - ((p_r.dot(Q)-2.*p_a.dot(p_r))/pa_dot_pb)*p_a - (p_a.dot(p_r)/pa_dot_pb)*Q
+            p_r - ((p_r.dot(Q_hat)-2.*p_a.dot(p_r))/pa_dot_pb)*p_a - (p_a.dot(p_r)/pa_dot_pb)*Q_hat
         )
         ss[(0,i_fs+1)] = 2.*p_a.dot(p_r)
 
     # Finally add the x and kT corresponding to the initial state leg
     xs.insert(0, 1.0-sum(xs))
-    #xs.insert(0, 1.0 - (((p_fs[0]+p_fs[1]).dot(Q)-p_fs[0].dot(p_fs[1]))/pa_dot_pb) )
     kTs.insert(0, -sum(kTs))
-
-    # Alternative way of getting these variables using Simone's mappings function
-#    na = parent_momentum
-#    nb = opts['Q']
-#    kin_variables = dict()
-    # The lone initial state child is always placed first thanks to the implementation
-    # of the function get_sorted_children() in the current.
-#    mappings.InitialCollinearVariables.get(
-#        PS_point, children[1:], children[0], na, nb, kin_variables)
-#    xs = tuple(kin_variables['z%d' % i] for i in children)
-#    kTs = tuple(kin_variables['kt%d' % i] for i in children)
 
     # Add additional ss's
     for i_fs in range(len(p_fs)):

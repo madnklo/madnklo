@@ -702,7 +702,7 @@ class QCD_C_FqFqx_C_IqpFqFqx(currents.GeneralQCDLocalCurrent):
         return evaluation
 
 #TZaddition
-#should be joined with the class above since the subtraction is same for qpqqx and qqqx
+#should be joined with the class above since the subtraction is same for qpqqx and qqqx, unable to do so because of additional_recoilers in mapping_rules
 class QCD_C_FqFqx_C_IqFqFqx(currents.GeneralQCDLocalCurrent):
     """ Nested FF (q_qx) collinear within IFF (q_qqx)."""
 
@@ -806,6 +806,33 @@ class QCD_C_FqFqx_C_IqFqFqx(currents.GeneralQCDLocalCurrent):
         return evaluation
 
 #TZaddition
+#needed for QCD_C_IqFqx_C_IqFqFqx where the hatted xs use Q_hat
+def QCD_C_IqFqx_C_IqFqFqx_global_IFF_collinearIF_variables(all_steps, global_info):
+    """ Calls the IF variables by forcing the parent momentum for the IF variable computation to be the
+    overall parent momentum of the C(C(IF),F) structure."""
+
+    Q_original = global_info['Q']
+    p_a = all_steps[0]['higher_PS_point'][ 
+            all_steps[0]['bundles_info'][0]['initial_state_children'][0]
+          ]
+    p_b = Q_original - p_a
+    p_a_hat = all_steps[1]['higher_PS_point'][ 
+            all_steps[1]['bundles_info'][0]['initial_state_children'][0]
+          ]
+    p_a_tilde = all_steps[1]['lower_PS_point'][ global_info['overall_parents'][0] ]
+    IF_variables = kernel_variables.colorful_pp_IF1_variables(
+        all_steps[1]['higher_PS_point'],
+        p_a_tilde,
+        tuple( list(all_steps[1]['bundles_info'][0]['initial_state_children']) +
+               list(all_steps[1]['bundles_info'][0]['final_state_children']) ),
+        Q = Q_original,
+        Q_hat = p_a_hat + p_b
+    )[0]
+
+    return IF_variables
+
+
+#TZaddition
 class QCD_C_IqFqx_C_IqFqFqx(currents.GeneralQCDLocalCurrent):
     """ Nested IF (q_qx) collinear within IFF (q_qqx)."""
 
@@ -814,7 +841,7 @@ class QCD_C_IqFqx_C_IqFqFqx(currents.GeneralQCDLocalCurrent):
     divide_by_jacobian = colorful_pp_config.divide_by_jacobian
 
     # We should not need global variables for this current
-    variables = None
+    variables = staticmethod(QCD_C_IqFqx_C_IqFqFqx_global_IFF_collinearIF_variables)
 
     # Now define the matching singular structures
     sub_coll_structure = sub.CollStructure(
@@ -837,7 +864,7 @@ class QCD_C_IqFqx_C_IqFqFqx(currents.GeneralQCDLocalCurrent):
         ),)),
     ]
 
-    # An now the mapping rules
+    # And now the mapping rules
     mapping_rules = [
         {
             'singular_structure'    : sub.SingularStructure(substructures=(sub.CollStructure(
@@ -866,8 +893,8 @@ class QCD_C_IqFqx_C_IqFqFqx(currents.GeneralQCDLocalCurrent):
             'mapping'               : colorful_pp_config.initial_coll_mapping,
             # -1 indicates that this ID should be replaced by the first overall parent connecting to the ME
             'momenta_dict'          : bidict({-1: frozenset((1001, 1))}),
-            # needs special set of variables where the xs are produced using Q_hat (which is p_a_hat + p_b_hat = p_a_hat + p_b in this case)
-            'variables'             : currents.CompoundVariables(kernel_variables.colorful_pp_IF1_variables),
+            # needs special set of variables where the xs are produced using Q_hat (which is p_a_hat + p_b in this case)
+            'variables'             : None,
             'is_cut'                : colorful_pp_config.generalised_cuts,
             'reduced_recoilers'     : colorful_pp_config.get_final_state_recoilers,
             'additional_recoilers'  : sub.SubtractionLegSet([]),
@@ -881,9 +908,10 @@ class QCD_C_IqFqx_C_IqFqFqx(currents.GeneralQCDLocalCurrent):
         x_a    = all_steps_info[0]['variables'][0]['xs'][0]
         s_as   = all_steps_info[0]['variables'][0]['ss'][(0,1)]
 
-        kT_rH  = all_steps_info[1]['variables'][0]['kTs'][0]
-        #x_aH   = all_steps_info[1]['variables'][0]['xs'][0]
-        s_r_as = all_steps_info[1]['variables'][0]['ss'][(0,1)]
+        kT_rH  = global_variables['kTs'][0]
+        x_aH   = global_variables['xs'][0]
+        x_rH   = global_variables['xs'][1]
+        s_r_as = global_variables['ss'][(0,1)]
 
         p_as_hat = all_steps_info[1]['higher_PS_point'][
             all_steps_info[1]['bundles_info'][0]['initial_state_children'][0]
@@ -892,22 +920,21 @@ class QCD_C_IqFqx_C_IqFqFqx(currents.GeneralQCDLocalCurrent):
             all_steps_info[1]['bundles_info'][0]['final_state_children'][0]
         ]
 
-        p_b = global_variables['Q'] + all_steps_info[0]['bundles_info'][0]['cut_inputs']['pA']
-        QH = p_as_hat + p_b
-        x_aH = 1. - p_r_hat.dot(QH)/p_as_hat.dot(QH)
+        #kT_rH  = all_steps_info[1]['variables'][0]['kTs'][0]
+        #x_aH   = all_steps_info[1]['variables'][0]['xs'][0]
+        #x_rH   = 1.-x_aH
+        #s_r_as = all_steps_info[1]['variables'][0]['ss'][(0,1)]
+        #p_b = global_variables['Q'] + all_steps_info[0]['bundles_info'][0]['cut_inputs']['pA']
+        #QH = p_as_hat + p_b
+        #x_aH = 1. - p_r_hat.dot(QH)/p_as_hat.dot(QH)
 
         parent = all_steps_info[1]['bundles_info'][0]['parent']
-
-        #misc.sprint(s_rs, s_a_rs)
-        #misc.sprint(z_FF, x_IF)
-        #misc.sprint(kT_FF, kT_IF)
-        #misc.sprint(p_a_hat, parent)
 
         # We must include here propagator factors, but no correction for symmetry
         # or averaging factor is necessary in this particular pure-quark kernel
         initial_state_crossing = 1.0
         prefactor = initial_state_crossing*(1./(s_as*s_r_as))
-        for spin_correlation_vector, weight in AltarelliParisiKernels.P_q_qpqp(self, 1./x_a, -(1.-x_aH)/x_aH, kT_s, p_r_hat, -p_as_hat):
+        for spin_correlation_vector, weight in AltarelliParisiKernels.P_q_qpqp(self, 1./x_a, -x_rH/x_aH, kT_s, p_r_hat, -p_as_hat):
             complete_weight = weight * prefactor
             if spin_correlation_vector is None:
                 evaluation['values'][(0, 0, 0)] = {'finite': complete_weight[0]}
@@ -1259,12 +1286,6 @@ class QCD_S_FqFqx_C_FqFqx_C_IqFqFqx(currents.GeneralQCDLocalCurrent):
             all_steps_info[0]['bundles_info'][0]['parent']
         ]
 
-#        misc.sprint(s_rs,s_a_rs)
-#        misc.sprint(p_a_tilde,p_rs_hat,p_a_tilde.dot(p_rs_hat))
-#        misc.sprint(p_a_tilde,kT_FF,p_a_tilde.dot(kT_FF))
-#        misc.sprint(kT_FF, kT_FF.square())
-#        misc.sprint(x_IF)
-#        misc.sprint(z_FF,(1.-z_FF))
         evaluation['values'][(0,0,0)] = EpsilonExpansion({'finite':
             (2./(s_rs*s_a_rs))*self.TR*self.CF*(
                 1./(1.-x_IF) + z_FF * (1. - z_FF) * ((2.*p_a_tilde.dot(kT_FF))**2)/(kT_FF.square()*(2.*p_a_tilde.dot(p_rs_hat)))

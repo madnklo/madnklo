@@ -104,10 +104,13 @@ class Contribution(object):
             elif n_loops == 1 and n_unresolved_particles == 1:
                 target_type = 'RealVirtual'
             elif n_loops == 2 and n_unresolved_particles == 0:
-                target_type = "VirtualVirtual"
+                if 'DUMMY' not in contribution_definition.process_definition.get('NLO_mode'):
+                    target_type = "VirtualVirtual"
+                elif contribution_definition.process_definition.get('NLO_mode'):
+                    target_type = "DummyVirtualVirtual"
             else:
                 raise MadGraph5Error("Some %s type of contributions are not implemented yet."%
-                                                  contribution_definition.correction_order)
+                                                                            contribution_definition.correction_order)
 
             target_class = Contribution_classes_map[target_type]
             if not target_class:
@@ -242,7 +245,8 @@ class Contribution(object):
         
         # Decide whether a MadLoop output is required based on the process definition
         # underlying this contribution.
-        if (self.contribution_definition.process_definition.get('NLO_mode') in ['virt','sqrvirt']):
+        if any(self.contribution_definition.process_definition.get('NLO_mode').startswith(marker)
+                                                                for marker in ['virt','sqrvirt']):
             return 'madloop'
         else:
             return 'default'
@@ -734,7 +738,8 @@ class Contribution(object):
                 madloop_resources_path = pjoin(self.export_dir,'SubProcesses','MadLoop5_resources')
             else:
                 madloop_resources_path = ''
-                
+
+
             MEAccessors.append(accessors.VirtualMEAccessor(
                 defining_process, 
                 f2py_load_path,
@@ -745,7 +750,6 @@ class Contribution(object):
                 compile_if_necessary=False,
             ) )
 
-        # Only allow overwriting accessors if processes were not grouped
         all_MEAccessors.add_MEAccessors(
             MEAccessors, allow_overwrite=(not self.group_subprocesses) )
 
@@ -1214,11 +1218,15 @@ class Contribution(object):
             for factorization_order_beam_one in range(beam_factorization_order+1):
                 if factorization_order_beam_one > 0 and not beam_factorization_configuration[0]:
                     break
+                if factorization_order_beam_one == 0 and beam_factorization_configuration[0]:
+                    continue
                 for factorization_order_beam_two in range(beam_factorization_order-factorization_order_beam_one+1):
-                    if factorization_order_beam_one == factorization_order_beam_two == 0:
+                    if (factorization_order_beam_one + factorization_order_beam_two) != beam_factorization_order:
                         continue
                     if factorization_order_beam_two > 0 and not beam_factorization_configuration[1]:
                         break
+                    if factorization_order_beam_two == 0 and beam_factorization_configuration[1]:
+                        continue
                     initial_legs = { l.get('number'): l for l in defining_process.get_initial_legs() }
                     all_beam_currents.append({
                         'beam_one' : None if factorization_order_beam_one == 0 else
@@ -1289,14 +1297,15 @@ class Contribution(object):
                     ignore_six_quark_processes = self.ignore_six_quark_processes,
                     optimize=self.optimize, diagram_filter=self.diagram_filter,
                     loop_filter=self.loop_filter)
-    
+
+
         for amp in myproc.get('amplitudes'):
             if amp not in self.amplitudes:
                 self.amplitudes.append(amp)
             else:
                 logger.warning('Duplicate process found in contribution '+
                                '%s. Sanity check needed.'%str(type(self)))
- 
+
 class Contribution_B(Contribution):
     """ Implements the handling of a Born-type of contribution."""
     
@@ -1384,6 +1393,7 @@ The resulting output must therefore be used for debugging only as it will not yi
 
             # Set the reduced flavor map of all the counterterms
             for CT in integrated_counterterms:
+                misc.sprint(CT.nice_string())
                 CT.set_reduced_flavors_map(defining_process, mapped_processes, self.IR_subtraction)
             for CT in local_counterterms:
                 CT.set_reduced_flavors_map(defining_process, mapped_processes, self.IR_subtraction)
@@ -2219,13 +2229,6 @@ class Contribution_V(Contribution):
         # for all processes in this contribution with the value being the corresponding
         # defining process key
         inverse_processes_map = self.get_inverse_processes_map()
-        
-        # Make sure the dictionary self.integrated_counterterms is initialized
-        # with one key for each mapped process
-        if len(self.integrated_counterterms)==0:
-            processes_map = self.get_processes_map()
-            for key in processes_map.keys():
-                self.integrated_counterterms[key] = []
 
         # Obtain the ProcessKey of the reduced process of the integrated counterterm
         # Use ordered PDGs since this is what is used in the inverse_processes_map
@@ -2391,9 +2394,19 @@ class Contribution_V(Contribution):
         return True
 
 class Contribution_VV(Contribution_V):
+    """ TODO: Genuine implementation of the double virtual using for example UFO form factors """
     def __init__(self, *args, **opts):
-        logger.critical("VV contributions are not yet supported. Emulating it with the Born + I2")
+        logger.critical("The implementation of exact multi-loop matrix elements is not available "+
+                        "within MaNkLO at this time. Specify dummy ones instead.")
+        raise NotImplementedError
         super(Contribution_VV, self).__init__(*args, **opts)
+
+class DummyContribution_VV(Contribution_V):
+    """ Dummy double-virtual obtained by running the Born and the double virtual."""
+
+    def __init__(self, *args, **opts):
+        logger.critical("VV contributions are not yet supported. Emulating it with the Born and I-operator.")
+        super(DummyContribution_VV, self).__init__(*args, **opts)
 
     def generate_amplitudes(self, force=False):
         """ Generates the relevant amplitudes for this contribution and the construction
@@ -2406,8 +2419,6 @@ class Contribution_VV(Contribution_V):
         # Override the process definition to spoof the two-loop matrix elements as the tree matrix
         # elements
         process_definition = copy.copy(self.contribution_definition.process_definition)
-        process_definition['n_loops'] = 0
-        process_definition['NLO_mode'] = 'tree'
         process_definition['perturbation_couplings'] = []
         process_definition['squared_orders'] = {}
 
@@ -2715,6 +2726,7 @@ Contribution_classes_map = {'Born': Contribution_B,
                             'RealVirtual': Contribution_RV,
                             'DoubleReals': Contribution_RR,
                             'VirtualVirtual': Contribution_VV,
+                            'DummyVirtualVirtual': DummyContribution_VV,
                             'TripleReals': Contribution_RRR,
                             'BeamSoft': Contribution_BS,
                             'Unknown': None}

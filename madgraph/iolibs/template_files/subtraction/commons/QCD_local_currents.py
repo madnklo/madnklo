@@ -280,6 +280,7 @@ class QCDLocalCurrent(QCDCurrent):
             all_template_structures = [cls.structure, ]
 
         leg_numbers_map = None
+
         for template_structure in all_template_structures:
             try:
                 leg_numbers_map = template_structure.map_leg_numbers(

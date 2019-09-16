@@ -390,9 +390,10 @@ class QCD_initial_soft_collinear_0_qqpqp(QCD_initial_soft_collinear_0_kX):
             sub.SubtractionLeg(11, -1, sub.SubtractionLeg.FINAL),
         )
     )
+
     soft_coll_structure_q = sub.CollStructure(
         substructures=(soft_structure, ),
-        legs=(sub.SubtractionLeg(0,  1, sub.SubtractionLeg.INITIAL), ) )
+        legs=(sub.SubtractionLeg(0,  +1, sub.SubtractionLeg.INITIAL), ) )
     soft_coll_structure_g = sub.CollStructure(
         substructures=(soft_structure, ),
         legs=(sub.SubtractionLeg(0, 21, sub.SubtractionLeg.INITIAL), ) )

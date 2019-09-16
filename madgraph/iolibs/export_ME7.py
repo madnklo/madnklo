@@ -1,4 +1,4 @@
-################################################################################
+[]################################################################################
 #
 # Copyright (c) 2009 The MadGraph5_aMC@NLO Development team and Contributors
 #
@@ -388,7 +388,14 @@ class ME7Exporter(object):
         coming from the specified contribution (presumably some real-emission type of
         contributions) and assign them to the correct contribution
         (typically of virtual origin)."""
-                
+
+        # First make sure that any contribution that can host integrated counterterms
+        # has a container instantiated with one empty list per process key
+        for contribution in self.contributions:
+            if hasattr(contribution, 'integrated_counterterms') and len(contribution.integrated_counterterms) == 0:
+                for key in contribution.get_processes_map().keys():
+                    contribution.integrated_counterterms[key] = []
+
         # Gather which contribution will receive the integrated counterterm for a given
         # number of loops and unresolved legs, and of course a given process_defining_ID
         # so that contributions from different 'add process' commands don't get mangled.

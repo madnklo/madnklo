@@ -1039,7 +1039,8 @@ class Current(base_objects.Process):
         # In order to simplify the computation of the reduced flavours we unpack multiple nestings
         # like (C(1,2),C(3,4))  (used for local counterterms) ((C(1,2),C(3,4)),) (used for integrated CT)
         # into a structure that has a single embedding singular structure.
-        while len(ss.substructures)>0 and ss.substructures[0].name()=='':
+        while len(ss.substructures)>0 and ss.substructures[0].name()=='' and \
+                                                                    len(ss.substructures)==1:
             ss = ss.substructures[0]
 
         for sub_ss in ss.substructures:
@@ -1817,7 +1818,7 @@ class Counterterm(CountertermNode):
         """Given the defining and mapped processes subject to this counterterm, 
         this function sets the instance attribute 'reduced_flavor_map' which can be 
         used later to easily access the corresponding reduced flavor."""
-        
+
         if self.count_unresolved() > 1 and any(
             any(substruct.name()=='S' for substruct in current['singular_structure'].substructures)
                 for current in self.get_all_currents() if isinstance(current,(
@@ -1838,6 +1839,7 @@ class Counterterm(CountertermNode):
                 tuple( number_to_flavors_map[n] for n in reduced_process_leg_numbers[0] ),
                 tuple( number_to_flavors_map[n] for n in reduced_process_leg_numbers[1] )
             )
+
             self.reduced_flavors_map[process.get_cached_initial_final_pdgs()] = reduced_flavors
             # Also add a None key for the default reduced flavors corresponding to the 
             # resolved ones of the defining process.
@@ -1937,6 +1939,8 @@ class IntegratedCounterterm(Counterterm):
            Note that whenever 'correlated_convolution' is not set to None, the other beam_currents
            will be None.
         """
+
+        misc.sprint(self.nice_string())
         
         beam_currents = [dict(bf) for bf in self.current['beam_factorization']]
 

@@ -678,16 +678,17 @@ class ME7Integrand(integrands.VirtualIntegrand):
             elif n_loops == 0 and n_unresolved_particles == 0:
                 target_type = 'Born'
             elif n_loops == 1 and n_unresolved_particles == 0:
-                if correction_order < 1:
-                    target_type = 'LoopInduced_Born'
-                else:
-                    target_type = 'Virtual'
+                target_type = 'Virtual'
+            elif n_loops == 2 and n_unresolved_particles == 0:
+                target_type = 'DoubleVirtual'
             elif n_loops == 0 and n_unresolved_particles == 1:
                 target_type = 'SingleReals'
             elif n_loops == 0 and n_unresolved_particles == 2:
                 target_type = 'DoubleReals'
             elif n_loops == 0 and n_unresolved_particles == 3:
-                target_type = 'TripleReals'                
+                target_type = 'TripleReals'
+            elif n_loops > 0 and n_unresolved_particles > 0:
+                target_type = 'RealVirtual'
             else:
                 raise MadGraph5Error("Some %s type of ME7Integrands are not implemented yet."%
                                                   contribution_definition.correction_order)
@@ -4602,6 +4603,7 @@ class ME7IntegrandList(base_objects.PhysicsObjectList):
 # Notice that this must be placed after all the Integrand daughter classes in this module have been declared.
 ME7Integrand_classes_map = {'Born': ME7Integrand_B,
                             'Virtual': ME7Integrand_V,
+                            'DoubleVirtual': ME7Integrand_V,
                             'SingleReals': ME7Integrand_R,
                             'RealVirtual': ME7Integrand_RV,
                             'BeamSoft': ME7Integrand_BS,

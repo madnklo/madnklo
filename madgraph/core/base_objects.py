@@ -3127,7 +3127,7 @@ class Process(PhysicsObject):
         mystr = mystr[:-1]
         
         if self['n_loops']>1:
-            mystr += " @%d-loops"%self['n_loops']
+            mystr += " | %d-loops"%self['n_loops']
 
         if self.get('id') or self.get('overall_orders'):
             mystr += " @%d" % self.get('id')

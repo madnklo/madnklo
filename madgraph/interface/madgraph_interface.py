@@ -2812,7 +2812,10 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
                     'gauge',
                     'EWscheme',
                     'max_npoint_for_channel']
-    _valid_nlo_modes = ['all','real','virt','sqrvirt','tree','noborn','LOonly']
+    _valid_nlo_modes = ['all','real','virt','sqrvirt','tree','noborn','LOonly',
+                        'tree_DUMMY2LOOP','tree_DUMMY3LOOP','tree_2LOOP','tree_3LOOP',
+                        'sqrvirt_DUMMY2LOOP', 'sqrvirt_DUMMY3LOOP', 'sqrvirt_2LOOP', 'sqrvirt_3LOOP',
+                        ]
     _valid_sqso_types = ['==','<=','=','>']
     _valid_amp_so_types = ['=','<=', '==', '>']
     _OLP_supported = ['MadLoop', 'GoSam']
@@ -3016,6 +3019,7 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
                        # ME7_definition is a tag informing whether the user asks for the new ME7 output.
                        'ME7_definition'       : False,
                        'ignore_contributions' : [],
+                       'use_dummy_multiloops' : True,
                        'beam_types'           : ['auto', 'auto'],
                        # A dictionary with keys 'B', 'V', 'VV', 'RRRVV' etc... allowing the user to
                        # possibly overwrite what the process definition for that particular contribution
@@ -3151,7 +3155,16 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
                         add_options['beam_types'][i] = None
                     else:
                         add_options['beam_types'][i] = parse_beam_type(beam_type)
-                    
+
+
+            elif key=='use_dummy_multiloops':
+                if value is None:
+                    add_options['use_dummy_multiloops'] = True
+                else:
+                    if value.upper() == ['FALSE','F','OFF']:
+                        add_options['use_dummy_multiloops'] = False
+                    else:
+                        add_options['use_dummy_multiloops'] = False
             elif key=='ignore_contributions':
                 try:
                     ignored_contribs = eval(value)
@@ -3753,6 +3766,7 @@ This implies that with decay chains:
             logger.warning("User explicitly asked to remove contribution 'VV'."+
                                           " This can potentially yield incorrect results.")
         else:
+            n_loops = 2
             # Overwrite the process definition by the one specified by the user if necessary
             if 'VV' in generation_options['process_definitions']:
                 procdef = generation_options['process_definitions']['VV'].get_copy()
@@ -3762,27 +3776,39 @@ This implies that with decay chains:
                 for so in procdef.get('split_orders'):
                     if so not in new_split_orders:
                         new_split_orders.append(so)
+
+                # TODO: add true VV contribution
                 procdef.set('split_orders', new_split_orders)
-                logger.info("Forcing the process definition for contribution 'RV' to "+
+                logger.info("Forcing the process definition for contribution 'VV' to "+
                                                             "be:\n%s"%procdef.nice_string())
             else:
                 procdef = NNLO_template_procdef.get_copy()
                 if generation_options['loop_induced']:
-                    logger.warning('There is currently no solution for including the two-loop'+
+                    logger.warning('There is currently no solution for including the three-loop'+
                     ' virtual contribution of NLO loop-induced computations.\n'+
                     'In the future, UFO multi-loop form factors will offer a solution.\n'+
-                    'For now, one-loop Born matrix elements will be used instead.')
-                # Here setting the perturbation_couplings is enough to guarantee that 
-                # the relevant diagrams for these coupling orders will be generated
-                procdef.set('perturbation_couplings', generation_options['NNLO'])
-                procdef.set('NLO_mode', 'virt')
+                    'For now, one-loop matrix elements will be used instead.')
+                    # Here setting the perturbation_couplings is enough to guarantee that
+                    # the relevant diagrams for these coupling orders will be generated
+                    procdef.set('perturbation_couplings', generation_options['NNLO'])
+                    # Add the I-operator emulation in a dummy accessor.
+                    procdef.set('NLO_mode', 'sqrvirt_%s%dLOOP'%(
+                        'DUMMY' if generation_options['use_dummy_multiloops'] else '', n_loops))
 
+                else:
+                    logger.warning('There is currently no solution for including the two-loop'+
+                    ' contribution of NNLO computations.\n'+
+                    'In the future, UFO multi-loop form factors will offer a solution \n'+
+                    'or alternatively hooking up an external code for their computation.'+
+                    'For now, born matrix elements will be used instead.'
+                    )
+                    # Here setting the perturbation_couplings is enough to guarantee that
+                    # the relevant diagrams for these coupling orders will be generated
+                    procdef.set('perturbation_couplings', generation_options['NNLO'])
+                    # Born + I2 emulation
+                    procdef.set('NLO_mode', 'tree_%s%dLOOP'%(
+                        'DUMMY' if generation_options['use_dummy_multiloops'] else '', n_loops))
 
-            # Born + I2 emulation
-            # TODO: add true VV contribution
-            #target_squared_orders['QCD'] = [0, 0]
-            n_loops = 2
-            
             # Make sure to set the corresponding number of loops to 2. This *must* always
             # be the case as it is necessary for the MadNkLO construction to hold.
             # So even for a loop-induced process which would in this case contain 3 loops,
@@ -3790,7 +3816,6 @@ This implies that with decay chains:
             procdef.set('n_loops', n_loops)
             # Update process id
             procdef.set('id', generation_options['proc_id'])
-#            generation_options['proc_id'] += 1
 
             self._curr_contribs.append(
                 contributions.Contribution(

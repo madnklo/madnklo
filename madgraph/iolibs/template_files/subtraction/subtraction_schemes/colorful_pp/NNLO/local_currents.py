@@ -536,16 +536,20 @@ class QCD_initial_soft_collinear_0_qqpqp(QCD_initial_soft_collinear_0_kX):
             sub.SubtractionLeg(11, -1, sub.SubtractionLeg.FINAL),
         )
     )
-    soft_coll_structure_q = sub.CollStructure(
+    soft_coll_structure_q1 = sub.CollStructure(
         substructures=(soft_structure, ),
-        legs=(sub.SubtractionLeg(0,  1, sub.SubtractionLeg.INITIAL), ) )
+        legs=(sub.SubtractionLeg(0, +1, sub.SubtractionLeg.INITIAL), ) )
+    soft_coll_structure_q2 = sub.CollStructure(
+        substructures=(soft_structure, ),
+        legs=(sub.SubtractionLeg(0, +2, sub.SubtractionLeg.INITIAL), ) )
     soft_coll_structure_g = sub.CollStructure(
         substructures=(soft_structure, ),
         legs=(sub.SubtractionLeg(0, 21, sub.SubtractionLeg.INITIAL), ) )
-    structure_q = sub.SingularStructure(substructures=(soft_coll_structure_q, ))
+    structure_q1 = sub.SingularStructure(substructures=(soft_coll_structure_q1, ))
+    structure_q2 = sub.SingularStructure(substructures=(soft_coll_structure_q2, ))
     structure_g = sub.SingularStructure(substructures=(soft_coll_structure_g, ))
 
-    structure = [structure_q, structure_g]
+    structure = [structure_q1,structure_q2, structure_g]
 
     expected_init_opts = tuple(list(QCD_initial_soft_collinear_0_kX.expected_init_opts)+['color_charge',])
 
@@ -564,14 +568,18 @@ class QCD_initial_soft_collinear_0_qqpqp(QCD_initial_soft_collinear_0_kX):
             return None
 
         color_charge = 'CF'
-        leg_numbers_map = cls.structure_q.map_leg_numbers(
-            current.get('singular_structure'), [range(1, model.get_nflav()+1)])
+        leg_numbers_map = cls.structure_q1.map_leg_numbers(
+            current.get('singular_structure'), cls.build_equivalency_sets(model))
         if leg_numbers_map is None:
-            color_charge = 'CA'
-            leg_numbers_map = cls.structure_g.map_leg_numbers(
-                current.get('singular_structure'), [range(1, model.get_nflav()+1)])
+            leg_numbers_map = cls.structure_q2.map_leg_numbers(
+                current.get('singular_structure'), cls.build_equivalency_sets(model))
             if leg_numbers_map is None:
-                return None
+                color_charge = 'CA'
+                leg_numbers_map = cls.structure_g.map_leg_numbers(
+                    current.get('singular_structure'), cls.build_equivalency_sets(model))
+                if leg_numbers_map is None:
+                    return None
+                #TZnote :: rewrite it as exception
         res['color_charge'] = color_charge
         return res
 

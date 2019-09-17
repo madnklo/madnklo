@@ -91,6 +91,99 @@ class AltarelliParisiKernels:
             )
         ]
 
+    #TZaddition
+    @staticmethod
+    def P_qgg_ab(color_factors, z_i, z_r, z_s, s_ir, s_is, s_rs, kT_i, kT_r, kT_s):
+        """ Abelian part of the kernel for the q -> q g g splitting. The return value is not a float but a list of tuples:
+                ( spin_correlation_vectors_with_parent, weight )
+            where spin_correlation_vector_with_parent can be None if None is required.
+        """
+
+        # Compute handy term and variables
+        s_irs = s_ir+s_is+s_rs
+        fac_1 = s_irs**2/2./s_ir/s_is*z_i
+        fac_2 = s_irs/s_ir
+        fac_3 = s_is/s_ir
+
+        return [
+            ( None,
+                EpsilonExpansion({
+                    0 : fac_1*(1.+z_i**2)/z_r/z_s
+                        + fac_2*(z_i*(1.-z_r)+(1.-z_s)**3)/z_r/z_s
+                        - fac_3,
+                    1 : - fac_1*( (z_r**2+z_s**2)/z_r/z_s + 1. )
+                        - fac_2*(z_r**2+z_r*z_s+z_s**2)*(1.-z_s)
+                                /z_r/z_s
+                        + 1. + 2.*fac_3,
+                    2 : - fac_1 + fac_2*(1.+z_i) - 1. - fac_3
+                })
+            )
+        ]
+
+    #TZaddition
+    @staticmethod
+    def P_qgg_nab(color_factors, z_i, z_r, z_s, s_ir, s_is, s_rs, kT_i, kT_r, kT_s):
+        """ Non-abelian part of the kernel for the q -> q g g splitting. The return value is not a float but a list of tuples:
+                ( spin_correlation_vectors_with_parent, weight )
+            where spin_correlation_vector_with_parent can be None if None is required.
+        """
+
+        # Compute handy term and variables
+        s_irs = s_ir+s_is+s_rs
+        t_rs_i = 2.*(z_r*s_is-z_s*s_ir)/(z_r+z_s) + ((z_r-z_s)/(z_r+z_s))*s_rs
+        fac_1 = s_irs**2/2./s_rs/s_ir
+        fac_2 = s_irs**2/4./s_ir/s_is*z_i
+        fac_3 = s_irs/2./s_rs
+        fac_4 = s_irs/2./s_ir
+
+        long_term_1 = ( z_r*(2.-2.*z_r+z_r**2) - z_s*(6.-6.*z_s+z_s**2) )/z_s/(1.-z_i)
+        long_term_2 = ((1.-z_s)**3+z_i**2-z_s)/z_s/(1.-z_i)
+
+
+        return [
+            ( None,
+                EpsilonExpansion({
+                    0 : t_rs_i**2/4./s_rs**2 + 1./4.
+                        + fac_1*( ((1.-z_i)**2 + 2.*z_i)/z_s 
+                                + (z_s**2 + 2.*(1.-z_s))/(1.-z_i) )
+                        - fac_2*( ((1.-z_i)**2 + 2.*z_i)/z_r/z_s  )
+                        + fac_3*long_term_1
+                        + fac_4*( long_term_2 - (z_i*(1.-z_r)+(1.-z_s)**3)/z_r/z_s ),
+                    1 : - t_rs_i**2/4./s_rs**2 - 1./4. - 1./2.
+                        + fac_1*( -(1.-z_i)**2/z_s - z_s**2/(1.-z_i) )
+                        - fac_2*( -(1.-z_i)**2/z_r/z_s + 1. )
+                        + fac_3*( -long_term_1 + 2.*(z_i*(z_r-2.*z_s)-z_s)/z_s/(1.-z_i) )
+                        + fac_4*( -long_term_2 - 2.*(1.-z_s)*(z_s-z_i)/z_s/(1.-z_i) + z_r - z_s + (1.-z_s)*(z_r**2+z_s**2)/z_r/z_s ),
+                    2 : 1./2. + fac_2 - fac_4*(1.-z_s)
+                })
+            )
+        ]
+
+    #TZaddition
+    @staticmethod
+    def P_qgg(color_factors, z_i, z_r, z_s, s_ir, s_is, s_rs, kT_i, kT_r, kT_s):
+        """ Kernel for the q -> q g g splitting. The return value is not a float but a list of tuples:
+                ( spin_correlation_vectors_with_parent, weight )
+            where spin_correlation_vector_with_parent can be None if None is required.
+        """
+
+        # Compute handy term and variables
+        prefactor_ab  = color_factors.CF**2
+        prefactor_nab = color_factors.CF * color_factors.CA
+
+        pqgg_ab_1 = AltarelliParisiKernels.P_qgg_ab(color_factors, z_i, z_r, z_s, s_ir, s_is, s_rs, kT_i, kT_r, kT_s)[0][1]
+        pqgg_ab_2 = AltarelliParisiKernels.P_qgg_ab(color_factors, z_i, z_s, z_r, s_is, s_ir, s_rs, kT_i, kT_s, kT_r)[0][1]
+
+        pqgg_nab_1 = AltarelliParisiKernels.P_qgg_nab(color_factors, z_i, z_r, z_s, s_ir, s_is, s_rs, kT_i, kT_r, kT_s)[0][1]
+        pqgg_nab_2 = AltarelliParisiKernels.P_qgg_nab(color_factors, z_i, z_s, z_r, s_is, s_ir, s_rs, kT_i, kT_s, kT_r)[0][1]
+
+        return [
+            ( None,
+                ( pqgg_ab_1 + pqgg_ab_2 )*prefactor_ab
+                + ( pqgg_nab_1 + pqgg_nab_2 )*prefactor_nab
+            )
+        ]
+
 
     @staticmethod
     def P_q_qpqp(color_factors, z_rs, z_i_rs, kT_rs, pi_hat, p_rs_hat):

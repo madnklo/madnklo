@@ -578,8 +578,8 @@ class QCD_initial_soft_collinear_0_qqpqp(QCD_initial_soft_collinear_0_kX):
                 leg_numbers_map = cls.structure_g.map_leg_numbers(
                     current.get('singular_structure'), cls.build_equivalency_sets(model))
                 if leg_numbers_map is None:
+                    #This case should not occur so it might be better to rewrite this part
                     return None
-                #TZnote :: rewrite it as exception
         res['color_charge'] = color_charge
         return res
 

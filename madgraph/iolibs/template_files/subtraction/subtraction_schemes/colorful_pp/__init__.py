@@ -127,24 +127,26 @@ def load():
     all_subtraction_current_classes.extend([
         # IF
         NNLO_local_currents.QCD_initial_collinear_0_qqpqp,
-        NNLO_local_currents.QCD_initial_collinear_0_qqq, #<<added
+        NNLO_local_currents.QCD_initial_collinear_0_qqq,
+        NNLO_local_currents.QCD_initial_collinear_0_qgg, #QQ>GG
         # FF
         NNLO_local_currents.QCD_final_collinear_0_qqpqp,
-        NNLO_local_currents.QCD_final_collinear_0_qqq, #<<added
+        NNLO_local_currents.QCD_final_collinear_0_qqq,
+        NNLO_local_currents.QCD_final_collinear_0_qgg, #<<added
         # S(FF)
         NNLO_local_currents.QCD_soft_0_qqp,
         # IS(FF)
         NNLO_local_currents.QCD_initial_soft_collinear_0_qqpqp,
         # C(I,C(FF))
         NNLO_local_currents.QCD_C_FqFqx_C_IqpFqFqx,
-        NNLO_local_currents.QCD_C_FqFqx_C_IqFqFqx, #<<added
+        NNLO_local_currents.QCD_C_FqFqx_C_IqFqFqx,
         # C(F,C(IF))
-        NNLO_local_currents.QCD_C_IqFqx_C_IqFqFqx, #<<added
+        NNLO_local_currents.QCD_C_IqFqx_C_IqFqFqx,
         # S(C(FF))
         NNLO_local_currents.QCD_S_FqFqx_C_FqFqx,
         # C(S(C(FF)),I)
         NNLO_local_currents.QCD_S_FqFqx_C_FqFqx_C_IqpFqFqx,
-        NNLO_local_currents.QCD_S_FqFqx_C_FqFqx_C_IqFqFqx #<<added
+        NNLO_local_currents.QCD_S_FqFqx_C_FqFqx_C_IqFqFqx
     ])
 
     # Finally register the subtraction current classes loaded

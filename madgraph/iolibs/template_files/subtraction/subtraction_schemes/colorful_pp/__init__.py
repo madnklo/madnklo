@@ -29,6 +29,22 @@ def load():
     sys.path.insert(0,os.path.abspath(os.path.join(root_path, os.path.pardir, os.path.pardir)))
 
     from commons.currents_exporter import GenericCurrentsExporter
+
+    class ColorfulPPExporter(GenericCurrentsExporter):
+
+        def does_require_correlated_beam_convolution(self, singular_structure):
+            """ The subtraction scheme module must also specify which type of singular structure yield integrated
+            counterterm that require a correlated convolution with both beams.
+            For the colorful_pp scheme this is necessary whenever a soft limit or a collinear limit of only final state
+            partons is involved.
+            """
+
+            requires_correlated_beam_convolution = any(any(
+                    (c.name() == 'S' or all(l.state == l.FINAL for l in c.legs))
+                for c in sub_ss.decompose() ) for sub_ss in singular_structure.substructures)
+
+            return requires_correlated_beam_convolution
+
     import commons.factors_and_cuts as factors_and_cuts
 
     # From common resources
@@ -49,7 +65,7 @@ def load():
     loaded_attributes['sector_generator'] = None
 
     # Note: specifying below which resources are needed is optional
-    loaded_attributes['exporter'] = GenericCurrentsExporter(relative_resource_paths=[
+    loaded_attributes['exporter'] = ColorfulPPExporter(relative_resource_paths=[
         'subtraction_schemes/colorful',
         'subtraction_schemes/colorful_pp'
     ])

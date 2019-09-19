@@ -466,7 +466,7 @@ class DefaultCurrentImplementation(VirtualCurrentImplementation):
     # will trigger a crash in test_IR_limits.
     # Coming up with a default mapping could be possible though so left as a todo
     # TODO: implement a default generic mapping
-    is_zero = True
+    is_zero = False
     
     def __init__(self, *args, **opts):
 

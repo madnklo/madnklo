@@ -3174,7 +3174,7 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
                 except:
                     add_options[key].extend([v.strip() for v in value.split(',')])
                 for contrib in add_options[key]:
-                    if not re.match(r'^(B|BS|R*V*)(F1)?(F2)?$',contrib):
+                    if not re.match(r'^(B|BS|R*V*)(F1)?(F2)?(F1F2)?$',contrib):
                         raise InvalidCmd("Ignored contribs must be specified with syntax 'B', 'BS'"+
                                          " or 'RRR(...)VVV(...)(F1)?(F2)?'.")
             else:
@@ -3261,7 +3261,7 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
                 except:
                     output_options[key].extend([v.strip() for v in value.split(',')])
                 for contrib in output_options[key]:
-                    if not re.match(r'^(B|BS|R*V*)(F1)?(F2)?$',contrib):
+                    if not re.match(r'^(B|BS|R*V*)(F1)?(F2)?(F1F2)?$',contrib):
                         raise InvalidCmd("Ignored contribs must be specified with syntax 'B', 'BS'"+
                                          " or 'RRR(...)VVV(...)(F1)?(F2)?'.")
 
@@ -3277,9 +3277,9 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
                     list_to_ignore = [v.strip() for v in value.split(',')]
                     
                 for to_ignore in list_to_ignore:
-                    if to_ignore!='all' and not re.match(r'^(R*V*)(F1)?(F2)?$',to_ignore):
+                    if to_ignore!='all' and not re.match(r'^(B|BS|R*V*)(F1)?(F2)?(F1F2)?$',to_ignore):
                         raise InvalidCmd("Ignored integrated counterterms must be specified"+
-                        " each with syntax 'all' or 'RRR(...)VVV(...)(F1)?(F2)?', not '%s'."%to_ignore)
+                        " each with syntax 'all' or 'B?RRR(...)VVV(...)(F1)?(F2)?', not '%s'."%to_ignore)
                 output_options[key] = list_to_ignore
             else:
                 raise InvalidCmd("Unrecognized option for command output: %s"%key)

@@ -1393,7 +1393,6 @@ The resulting output must therefore be used for debugging only as it will not yi
 
             # Set the reduced flavor map of all the counterterms
             for CT in integrated_counterterms:
-                misc.sprint(CT.nice_string())
                 CT.set_reduced_flavors_map(defining_process, mapped_processes, self.IR_subtraction)
             for CT in local_counterterms:
                 CT.set_reduced_flavors_map(defining_process, mapped_processes, self.IR_subtraction)
@@ -2182,6 +2181,7 @@ class Contribution_V(Contribution):
                     raise MadGraph5Error('Combination of integrated initial-state collinear '+
                                                                     'counterterms not implemented yet')
                 else:
+
                     # Since in this case we don't combine different initial state integrated
                     # collinear counterterms that differ only by the backward evolved flavor,
                     # we must restrict each one to the particular backward evolved flavor they
@@ -2190,6 +2190,7 @@ class Contribution_V(Contribution):
                     if integrated_counterterm.does_require_correlated_beam_convolution():
                         # In this case the beam currents has a diagonal flavor matrix anyway
                         continue
+
                     beam_number_map = {'beam_one': 0, 'beam_two': 1}
                     beam_currents = integrated_counterterm.get_beam_currents()
                     active_beams = set([])
@@ -2232,14 +2233,21 @@ class Contribution_V(Contribution):
 
         # Obtain the ProcessKey of the reduced process of the integrated counterterm
         # Use ordered PDGs since this is what is used in the inverse_processes_map
+
         # Also overwrite some of the process properties to make it match the 
-        # loop process definitions in this contribution
-        n_loops_of_reduced_process = self.contribution_definition.n_loops - \
-            integrated_counterterm.get_n_loops_in_beam_factorization_of_host_contribution()
-        
-        counterterm_reduced_process_key = ProcessKey(integrated_counterterm.process,
-            sort_PDGs   = sort_PDGs,
-            n_loops     = n_loops_of_reduced_process).get_canonical_key()
+        # loop process definitions in this contribution.
+        # In particular for contributions without any beam factorisation convolutions
+        # (so the "original" contributions R, RV, VV, RVV, etc...) then we must overwrite
+        # the loop count of the reduced process for the purpose of matching their process
+        # definitions with those contained in such contributions.
+
+        if not self.contribution_definition.has_beam_factorization():
+            counterterm_reduced_process_key = ProcessKey(integrated_counterterm.process,
+                sort_PDGs   = sort_PDGs,
+                n_loops     = self.contribution_definition.n_loops).get_canonical_key()
+        else:
+            counterterm_reduced_process_key = ProcessKey(integrated_counterterm.process,
+                sort_PDGs   = sort_PDGs).get_canonical_key()
         
         # misc.sprint(inverse_processes_map.keys(), len(inverse_processes_map.keys()))
         # misc.sprint(counterterm_reduced_process_key)

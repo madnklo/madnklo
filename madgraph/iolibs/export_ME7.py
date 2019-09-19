@@ -474,6 +474,27 @@ class ME7Exporter(object):
             # Decide whether this counterterm need to be hosted in a contribution with
             # beam factorization
             necessary_beam_convolutions = counterterm.get_necessary_beam_convolutions()
+
+            # Checks whether this integrated counterterm requires a host contribution featuring
+            # correlated convolution of the beams (i.e. 'BS', 'VS', etc... contributions).
+            # This is the case only for integrated counterterms with pure-soft *BeamCurrent* that originated
+            # from a colorful subtraction currents scheme with mappings such as ppToOneWalker that
+            # recoils the soft momentum equally against both initial-state beams.
+            correlated_beam_convolution = False
+            if counterterm.does_require_correlated_beam_convolution():
+                # Notice that for compound integrated counterterms like [ C(F,F) , F(2) ]
+                # these become non-factorisable BF1F2 contributions, not S ones anymore
+                # Similarly if the integrated current structure involves initial states legs
+                # then it will need to be a non-factorisable contribution and not an S one.
+                #TODO generalise this by having it coded in the subtraction scheme. For now this is hardcoded for C(C(F,F),I)
+                is_non_factorisable = (
+                    any(l.state==l.INITIAL for l in counterterm.nodes[0].current['singular_structure'].get_all_legs()) and
+                    any(ss.name()=='C' and len([1 for leg in ss.legs if leg.state == leg.FINAL ])>=2 for ss in
+                            counterterm.nodes[0].current['singular_structure'].substructures[0].substructures )
+                )
+                if len(counterterm.nodes)==1 and not is_non_factorisable:
+                    correlated_beam_convolution = True
+
             beam_one_convolution = 'beam_one' in necessary_beam_convolutions
             beam_two_convolution = 'beam_two' in necessary_beam_convolutions
             n_active_beams = 0
@@ -490,9 +511,9 @@ class ME7Exporter(object):
             #   > the integrated *single-unresolved* counterterms of RR belong in RV, etc...
             #
             # And beam factorization terms like BornME * F^{(0)}_1 * F^{(0)}_2 are hosted
-            # in contributions with n_unresolved = 0 and n_loops = 2 (since they are akin 
+            # in contributions with n_unresolved = 0 and n_loops = 2 (since they are akin
             # to VV)
-            n_loops = counterterm.n_loops_in_host_contribution()
+            n_loops = counterterm.n_loops_in_host_contribution(correlated_beam_convolution)
 
             # Then the number of unresolved particle of the contribution that receives
             # this counterterm should be the number of unresolved emission of the
@@ -500,13 +521,6 @@ class ME7Exporter(object):
             # current.
             n_unresolved = contribution_origin.contribution_definition.n_unresolved_particles - \
                                                              counterterm.count_unresolved()
-
-            # Checks whether this integrated counterterm requires a host contribution featuring
-            # correlated convolution of the beams (i.e. 'BS', 'VS', etc... contributions).
-            # This is the case only for integrated counterterms with pure-soft *BeamCurrent* that originated
-            # from a colorful subtraction currents scheme with mappings such as ppToOneWalker that
-            # recoils the soft momentum equally against both initial-state beams.
-            correlated_beam_convolution = counterterm.does_require_correlated_beam_convolution()
 
             if not self.group_subprocesses:
                 key = ( proc_def_ID, n_loops, n_unresolved, 
@@ -531,9 +545,10 @@ class ME7Exporter(object):
                 msg = ("Could not find a contribution with key '%s'"%key_string(key)+" to host the"+
                     " integrated counterterm:\n%s\n with key:\n%s"%(counterterm.nice_string(),key_string(key))+
                     "\nIt will therefore be skipped making the ensuing results unphysical and wrong.\n"+
-                    "Available keys are:\n%s"%('\n'.join(key_string(k) for k in routing_map)))
+                    "Available keys are:\n%s"%('\n'.join('%s in [%s]'%(key_string(k),', '.join(
+                            contrib.short_name() for contrib in contribs)) for k, contribs in routing_map.items())))
                 if __debug__:
-                    if not warned:
+                    if not warned or True:
                         logger.critical(msg)
                         warned = True
                         logger.critical("Further occurrences of this warning will now be suppressed.")

@@ -54,3 +54,12 @@ class GenericCurrentsExporter(object):
         for path in self.relative_resource_paths:
             copy_while_creating_directories(pjoin(root_path, path),
                                             pjoin(destination_root_path, path) )
+
+
+    def does_require_correlated_beam_convolution(self, singular_structure):
+        """ The subtraction scheme module must also specify which type of singular structure yield integrated
+        counterterm that require a correlated convolution with both beams.
+        Typically soft limits in colorful do require that, but not necessarily.
+        So the default behaviour here is to never invoke such corrrelated convolutions.
+        """
+        return False

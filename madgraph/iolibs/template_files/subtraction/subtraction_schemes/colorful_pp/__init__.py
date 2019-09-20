@@ -123,7 +123,7 @@ def load():
     # NNLO
     ###########
 
-    # We are trying an elementary IFF q > q q' q' and q > q q q collinear
+    # q q > q' q' and q q > q q built, working on q q > g g subractions
     all_subtraction_current_classes.extend([
         # IF
         NNLO_local_currents.QCD_initial_collinear_0_qqpqp,
@@ -135,6 +135,7 @@ def load():
         NNLO_local_currents.QCD_final_collinear_0_qgg, #<<added
         # S(FF)
         NNLO_local_currents.QCD_soft_0_qqp,
+        NNLO_local_currents.QCD_S_FgFg, #QQ>GG
         # IS(FF)
         NNLO_local_currents.QCD_initial_soft_collinear_0_qqpqp,
         # C(I,C(FF))

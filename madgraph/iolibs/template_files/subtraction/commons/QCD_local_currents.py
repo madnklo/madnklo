@@ -733,7 +733,8 @@ class GeneralQCDLocalCurrent(QCDLocalCurrent):
 
     # Dummy soft-kernel, it can be specialised by the daughter class if it should not be dummy
 
-    def kernel(self, evaluation, parents, steps_and_bundles_variables, global_variables):
+    #removed "parent" argument that was just after "evaluation"
+    def kernel(self, evaluation, steps_and_bundles_variables, global_variables):
         """Evaluate a collinear type of splitting kernel, which does *not* need to know about the reduced process
         Should be specialised by the daughter class if not dummy
         """

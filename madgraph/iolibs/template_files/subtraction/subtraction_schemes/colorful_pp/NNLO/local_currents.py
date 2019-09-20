@@ -402,6 +402,125 @@ class QCD_soft_0_qqp(QCD_soft_0_kX):
 
     soft_kernel = staticmethod(SoftKernels.qqx)
 
+#TZaddition
+class QCD_S_FgFg(currents.GeneralQCDLocalCurrent):
+    """ Nested soft FF (g_g) limit."""
+
+    squared_orders = {'QCD': 4}
+    n_loops = 0
+    divide_by_jacobian = colorful_pp_config.divide_by_jacobian
+
+    # We should not need global variables for this current
+    variables = None
+
+    # Now define the matching singular structures
+    # This counterterm will be used if any of the structures of the list below matches
+    structure = [
+        sub.SingularStructure(substructures=(sub.SoftStructure(
+            legs=(
+                sub.SubtractionLeg(10, 21, sub.SubtractionLeg.FINAL),
+                sub.SubtractionLeg(11, 21, sub.SubtractionLeg.FINAL),
+            )
+        ),)),
+    ]
+
+    # An now the mapping rules
+    mapping_rules = [
+        {
+            'singular_structure': sub.SingularStructure(substructures=(sub.SoftStructure(
+                #substructures=tuple([]), ???
+                legs=(
+                    sub.SubtractionLeg(10, 21, sub.SubtractionLeg.FINAL),
+                    sub.SubtractionLeg(11, 21, sub.SubtractionLeg.FINAL),
+                )
+            ),)),
+            'mapping'               : colorful_pp_config.soft_mapping,
+            'momenta_dict'          : bidict({}),
+            'variables'             : None,
+            #'variables'             : currents.CompoundVariables(kernel_variables.colorful_pp_FFn_variables), ??
+            'is_cut'                : colorful_pp_config.generalised_cuts,
+            'reduced_recoilers'     : colorful_pp_config.get_final_state_recoilers,
+            'additional_recoilers'  : sub.SubtractionLegSet([]),
+        },
+    ]
+
+    def soft_kernel(self, evaluation, colored_partons, all_steps_info, global_variables):
+        """
+        Should be specialised by the daughter class if not dummy
+        """
+
+        new_evaluation = utils.SubtractionCurrentEvaluation({
+            'spin_correlations' : [ None, ],
+            'color_correlations': [ ],
+            'reduced_kinematics': evaluation['reduced_kinematics'],
+            'values': { }
+        })
+
+        overall_lower_PS_point = all_steps_info[-1]['lower_PS_point']
+        soft_leg_number_1 = all_steps_info[-1]['bundles_info'][0]['final_state_children'][0]
+        soft_leg_number_2 = all_steps_info[-1]['bundles_info'][0]['final_state_children'][1]
+        pr = all_steps_info[-1]['higher_PS_point'][soft_leg_number_1]
+        ps = all_steps_info[-1]['higher_PS_point'][soft_leg_number_2]
+        colored_parton_numbers = sorted(colored_partons.keys())
+
+        #term with the single sum
+        #the factor CA/4 is absorbed into SofKernels.eikonal_2g()
+        #stimmt
+        for i, a in enumerate(colored_parton_numbers):
+            for b in colored_parton_numbers[i:]:
+                if a!=b:
+                    mult_factor = 2.
+                else:
+                    mult_factor = 1.
+
+                pi = overall_lower_PS_point[a]
+                pk = overall_lower_PS_point[b]
+                the_weight = SoftKernels.eikonal_2g(self, pi, pk, pr, ps)*(-1.)
+                #new_evaluation['color_correlations'].append( ((a, b), ) )
+                new_evaluation['color_correlations'].append(  (
+                         ( ( (a,-1,a), ), ( (b,-1,b), ) ),
+                        )  )
+                new_evaluation['values'][(0,len(new_evaluation['color_correlations'])-1,0)] = the_weight*mult_factor
+
+        #term with the double sum
+        for i, a in enumerate(colored_parton_numbers):
+            for b in colored_parton_numbers[i:]:
+                # Write the eikonal for that pair
+                if a!=b:
+                    mult_factor_1 = 2.
+                else:
+                    mult_factor_1 = 1.
+
+                pi = overall_lower_PS_point[a]
+                pk = overall_lower_PS_point[b]
+                lvl1_weight = SoftKernels.eikonal_g(self, pi, pk, pr, spin_corr_vector=None)
+
+                for j, c in enumerate(colored_parton_numbers):
+                    for d in colored_parton_numbers[j:]:
+                        if c!=d:
+                            mult_factor_2 = 2.
+                        else:
+                            mult_factor_2 = 1.
+                        pj = overall_lower_PS_point[c]
+                        pl = overall_lower_PS_point[d]
+                        lvl2_weight = SoftKernels.eikonal_g(self, pj, pl, ps, spin_corr_vector=None)
+                        #new_evaluation['color_correlations'].append( ((a, b),(c, d), ) )
+                        new_evaluation['color_correlations'].append(  ( 
+                            ( ( (a,-1,a), (c,-2,c) ), ( (b,-1,b), (d,-2,d) ) ),
+                            #( ( (a,-1,a), (b,-1,b) ), ( (c,-2,c), (d,-2,d) ) ),
+                                )  )
+                        new_evaluation['values'][(0,len(new_evaluation['color_correlations'])-1,0)] = lvl1_weight*lvl2_weight*mult_factor_1*mult_factor_2/8.
+                        new_evaluation['color_correlations'].append(  ( 
+                            ( ( (c,-1,c), (a,-2,a) ), ( (d,-1,d), (b,-2,b) ) ),
+                            #( ( (c,-1,c), (d,-1,d) ), ( (a,-2,a), (b,-2,b) ) ),
+                                )  )
+                        new_evaluation['values'][(0,len(new_evaluation['color_correlations'])-1,0)] = lvl1_weight*lvl2_weight*mult_factor_1*mult_factor_2/8.
+
+
+        return new_evaluation
+
+
+
 # =========================================================================================
 # NNLO soft-collinear currents
 # =========================================================================================

@@ -264,3 +264,28 @@ class SoftKernels:
                 )
 
         return result
+
+    #TZaddition
+    @staticmethod
+    def eikonal_2g(color_factors, pi, pk, pr, ps):
+        """two-gluon eikonal"""
+
+        strongly_ordered = SoftKernels.eikonal_g(color_factors, pi, pk, ps, spin_corr_vector=None) * (
+                    SoftKernels.eikonal_g(color_factors, pi, ps, pr, spin_corr_vector=None) +
+                    SoftKernels.eikonal_g(color_factors, pk, ps, pr, spin_corr_vector=None) -
+                    SoftKernels.eikonal_g(color_factors, pi, pk, pr, spin_corr_vector=None)
+                )
+
+        S_ik_rs = SoftKernels.eikonal_g(color_factors, pi, pk, pr + ps, spin_corr_vector=None)
+
+        s_ir = 2.*pi.dot(pr)
+        s_is = 2.*pi.dot(ps)
+        s_kr = 2.*pk.dot(pr)
+        s_ks = 2.*pk.dot(ps)
+        s_rs = 2.*pr.dot(ps)
+        s_i_rs = s_ir + s_is
+        s_k_rs = s_kr + s_ks
+
+        psrsm2 = EpsilonExpansion({ 0 : 1./s_rs**2, 1 : -1./s_rs**2 })
+
+        return (strongly_ordered + (psrsm2 - strongly_ordered/8.)*4.*(s_ir*s_ks+s_is*s_kr)/s_i_rs/s_k_rs - S_ik_rs*4./s_rs)*color_factors.CA/4.

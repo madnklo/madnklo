@@ -486,13 +486,7 @@ class ME7Exporter(object):
                 # these become non-factorisable BF1F2 contributions, not S ones anymore
                 # Similarly if the integrated current structure involves initial states legs
                 # then it will need to be a non-factorisable contribution and not an S one.
-                #TODO generalise this by having it coded in the subtraction scheme. For now this is hardcoded for C(C(F,F),I)
-                is_non_factorisable = (
-                    any(l.state==l.INITIAL for l in counterterm.nodes[0].current['singular_structure'].get_all_legs()) and
-                    any(ss.name()=='C' and len([1 for leg in ss.legs if leg.state == leg.FINAL ])>=2 for ss in
-                            counterterm.nodes[0].current['singular_structure'].substructures[0].substructures )
-                )
-                if len(counterterm.nodes)==1 and not is_non_factorisable:
+                if counterterm.get_n_non_factorisable_double_sided_convolution()==0:
                     correlated_beam_convolution = True
 
             beam_one_convolution = 'beam_one' in necessary_beam_convolutions
@@ -513,14 +507,17 @@ class ME7Exporter(object):
             # And beam factorization terms like BornME * F^{(0)}_1 * F^{(0)}_2 are hosted
             # in contributions with n_unresolved = 0 and n_loops = 2 (since they are akin
             # to VV)
-            n_loops = counterterm.n_loops_in_host_contribution(correlated_beam_convolution)
+
+            #n_loops = counterterm.n_loops_in_host_contribution(correlated_beam_convolution)
+            n_loops = counterterm.n_loops_in_host_contribution(
+                                                        correlated_beam_convolution, necessary_beam_convolutions)
 
             # Then the number of unresolved particle of the contribution that receives
             # this counterterm should be the number of unresolved emission of the
             # originating contributions minus the number of unresolved legs in the integrated
             # current.
             n_unresolved = contribution_origin.contribution_definition.n_unresolved_particles - \
-                                                             counterterm.count_unresolved()
+                                                                            counterterm.count_unresolved()
 
             if not self.group_subprocesses:
                 key = ( proc_def_ID, n_loops, n_unresolved, 
@@ -555,6 +552,7 @@ class ME7Exporter(object):
                     continue
                 else:
                     raise MadGraph5Error(msg)
+
 #            misc.sprint("Contribution candidates: %s"%str([c.nice_string() for c in routing_map[key]]))
             found_contribution_host = False
             for contribution_candidate in routing_map[key]:

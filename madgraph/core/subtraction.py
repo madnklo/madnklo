@@ -601,6 +601,15 @@ class SingularStructure(object):
             total_unresolved += substructure.count_unresolved()
         return total_unresolved
 
+    def unpack(self):
+        """ Unpacks this nested singular structure (like     ((C(1,2),C(3,4)),)      ) into one that features only
+        a single embedding singular structure (e.g. (C(1,2),C(3,4)) in that example) """
+
+        ss = self
+        while len(ss.substructures)>0 and ss.substructures[0].name()=='' and len(ss.substructures)==1:
+            ss = ss.substructures[0]
+        return ss
+
     def count_couplings(self):
         """Count the number of couplings covered by this structure."""
 
@@ -914,7 +923,7 @@ class CollStructure(SingularStructure):
 
 class BeamStructure(SingularStructure):
 
-    # TODO this only works at NLO...
+    # TODO this may only works at NLO...
     def count_couplings(self):
         return 1
 
@@ -1027,9 +1036,7 @@ class Current(base_objects.Process):
         # In order to simplify the computation of the reduced flavours we unpack multiple nestings
         # like (C(1,2),C(3,4))  (used for local counterterms) ((C(1,2),C(3,4)),) (used for integrated CT)
         # into a structure that has a single embedding singular structure.
-        while len(ss.substructures)>0 and ss.substructures[0].name()=='' and \
-                                                                    len(ss.substructures)==1:
-            ss = ss.substructures[0]
+        ss = ss.unpack()
 
         for sub_ss in ss.substructures:
             all_legs = sub_ss.get_all_legs()
@@ -1584,6 +1591,14 @@ class Counterterm(CountertermNode):
             if process_n_loops != 1:
                 tmp_str += "s"
         tmp_str += "\n"
+        if self.requires_correlated_beam_convolution is not None:
+            if self.requires_correlated_beam_convolution:
+                n_non_factorisable_double_sided_convolution = self.get_n_non_factorisable_double_sided_convolution()
+                if n_non_factorisable_double_sided_convolution:
+                    tmp_str += lead + "( supported by a non-factorisable double-sided beam convolution "+\
+                                                    "(%d convolutions) )\n"%n_non_factorisable_double_sided_convolution
+                else:
+                    tmp_str += lead + "( supported by a correlated beam convolution )\n"
         for node in self.nodes:
             tmp_str += node.__str__(lead + tab, tab)
         tmp_str += lead + "Pseudoparticles: {"
@@ -1593,6 +1608,7 @@ class Counterterm(CountertermNode):
             for key in self.momenta_dict
         )
         tmp_str += "}"
+
         return tmp_str
 
     def get_copy(self, copied_attributes=()):
@@ -1716,6 +1732,20 @@ class Counterterm(CountertermNode):
                 " before this information can be accessed.")
 
         return self.requires_correlated_beam_convolution
+
+    def get_n_non_factorisable_double_sided_convolution(self):
+        """ Test if this counterterm involves a non-factorisable double-sided convolution which appears when one has
+        a combination of a correlated convolution with single-sided ones (like for IF integrated collinear CT or PDF
+        counterterms). For now it returns always 2 convolutions if non-factorisable; it may need to be extended for N^3LO."""
+
+        #TODO maybe move this as a scheme-dependent function
+
+        all_legs_states = [leg.state for node in self.nodes for leg in node.current['singular_structure'].get_all_legs()]
+
+        return (    2 if (  self.does_require_correlated_beam_convolution() and
+                            all_legs_states.count(SubtractionLeg.INITIAL)>0 and
+                            (self.count_unresolved()-all_legs_states.count(SubtractionLeg.FINAL))>0 )
+                    else 0 )
 
     def reconstruct_complete_singular_structure(self):
         """Reconstruct the complete singular structure for this counterterm."""
@@ -2092,7 +2122,7 @@ class IntegratedCounterterm(Counterterm):
         
         # Check if this integrated counterterm necessitate a soft-recoil that demands
         # a correlated convolution of both beams
-        if self.does_require_correlated_beam_convolution():
+        if self.does_require_correlated_beam_convolution() or self.get_n_non_factorisable_double_sided_convolution()>=2:
             return set(['beam_one','beam_two'])
         
         # Now get all legs of its singular structure
@@ -2136,78 +2166,46 @@ class IntegratedCounterterm(Counterterm):
         return reduced_PS
 
 
-    def n_loops_in_host_contribution(self, host_will_have_correlated_beam_convolution):
+    def n_loops_in_host_contribution(self, host_will_have_correlated_beam_convolution, beams_with_convolutions):
         """ Returns the number of loops that the contribution hosting this integrated counterterm
         is supposed to have. Factorization contributions render this quantity more subtle than
         the naive n_loops() call to self.
         host_will_have_correlated_beam_convolution indicates if this counterterm will be hosted
         in a contribution of type BS, VS, etc...
         """
-        
+
         # First account for all the loops of the building blocks
         host_contrib_n_loops  = self.n_loops()
         host_contrib_n_loops += self.current.get_n_loops_in_beam_factorization()
-        
+
         # We must then add one loop for each unresolved parton of this integrated CT.
         host_contrib_n_loops += self.count_unresolved()
-        
-        
-        # We must now adjust the number of loops expected in the host contributions because
-        # some integrated counterterms don't yield loops in the host contributions, but instead
-        # beam factorization convolutions.
-        beam_numbers_for_which_n_loops_is_already_decremented = []
 
-        # All the soft structures appearing as 'BeamCurrents' come from the colorful currents scheme
-        # when a mapping is chosen that recoils equally against both beams.
-        # In this case, the corresponding integrated soft CT is placed in dedicated contributions
-        # such as 'BS', 'VS' etc... which are defined without an increment on n_loops corresponding
-        # to the unresolved soft particle or purely final-state collinear legs, so it must be decremented here.
-        # This also holds true for purely final collinear structures if their mapped kinematics involves a symmetric
-        # recoil against the initial states.
-        # Note however that if such symmetric recoil needs to be combined with a beam PDF CT (a situation we identify
-        # by reckognising that there is more than one node in this integrated counterterm, then it is directly treated
-        # as a non-factorisable F1F2 term.
-        if host_will_have_correlated_beam_convolution:
-            for node in self.nodes:
-                if type(node.current)==BeamCurrent:
-                    host_contrib_n_loops -= 1
-            return host_contrib_n_loops
-
-        for current in self.get_all_currents():
-            if not type(current)==BeamCurrent:
-                continue
-
-            # Finally the ISR beamCurrent contributions do have a non-zero number of unresolved contributions
-            # which increased the loop count before. However, given that those must be placed
-            # together with the beam factorization currents, we should not account for these loops.
-            beam_numbers_in_currents = set(sum([[l.n for l in ss.get_all_legs() if l.n in [1, 2]]
-                for ss in current['singular_structure'].substructures[0].substructures if ss.name() == 'C'], []))
-            for beam_number in beam_numbers_in_currents:
-                if beam_number not in beam_numbers_for_which_n_loops_is_already_decremented:
-                    beam_numbers_for_which_n_loops_is_already_decremented.append(beam_number)
-                    host_contrib_n_loops -= 1
-
-        # Similarly, the *integrated* beamCurrent F terms have zero number of unresolved legs
+        # Similarly, the beamCurrent F terms have zero number of unresolved legs
         # but they must be placed together with the virtuals which have a loop count. We must
         # therefore increase the loop count by *at most* one for each of the two beams that has
         # at least one integratedBeamCurrent F structure attached
-        beam_numbers_for_which_n_loops_is_already_incremented = []
-
-        for current in self.get_all_currents():
-            if not type(current)==IntegratedBeamCurrent:
-                continue
-            
+        beam_numbers_for_which_n_loops_is_already_incremented = set([])
+        beam_currents = [ self.current['beam_factorization'][0][beam_name] for beam_name in ['beam_one', 'beam_two'] if
+                          (self.current['beam_factorization'][0][beam_name] is not None) ]
+        for current in (self.get_all_currents() + beam_currents):
             # We don't need to look recursively inside the singular structures since the beam
             # factorization ones are supposed to be at the top level since they factorize
-            beam_numbers_in_currents = set( sum( [ [ l.n for l in ss.legs ] for ss in
-                current['singular_structure'].substructures[0].substructures if ss.name()=='F' ],[] ) )
+            decomposed_singular_structure = current['singular_structure'].decompose()
+            beam_numbers_in_currents = set(
+                sum([[l.n for l in ss.legs] for ss in decomposed_singular_structure if ss.name() == 'F'], []))
             for beam_number in beam_numbers_in_currents:
-                assert (beam_number in [1,2]), "Inconsistent beam number found."
+                assert (beam_number in [1, 2]), "Inconsistent beam number found."
                 if beam_number not in beam_numbers_for_which_n_loops_is_already_incremented:
-                    beam_numbers_for_which_n_loops_is_already_incremented.append(beam_number)
+                    beam_numbers_for_which_n_loops_is_already_incremented.add(beam_number)
                     host_contrib_n_loops += 1
 
-        return host_contrib_n_loops
+        # Finally we should remove one loop count for *S contributions and 2 for double-sided non-correlated
+        # beam convolutions.
+        if host_will_have_correlated_beam_convolution:
+            return host_contrib_n_loops-1
+        else:
+            return host_contrib_n_loops-len(beams_with_convolutions)
 
 #=========================================================================================
 # IRSubtraction
@@ -2869,17 +2867,18 @@ class IRSubtraction(object):
         combinations = self.get_all_combinations(
             elementary_structures, max_unresolved + extra_unresolved_in_combination)
 
+        target_n_loops = process['n_loops'] + process.get_n_loops_in_beam_factorization()
+
         all_counterterms = []
         all_integrated_counterterms = []
         for combination in combinations:
             template_counterterm = self.get_counterterm(combination, process)
             if not ignore_integrated_counterterms:
-                template_integrated_counterterms = \
-                                       self.get_integrated_counterterm(template_counterterm)
+                template_integrated_counterterms = self.get_integrated_counterterm(template_counterterm)
             else:
                 template_integrated_counterterms = []
 
-            counterterms_with_loops = template_counterterm.distribute_loops(process['n_loops'])
+            counterterms_with_loops = template_counterterm.distribute_loops(target_n_loops)
             # TODO
             # For the time being, distribute_orders is given None instead of the squared orders
             # because they should be retrieved from the process by looking at individual
@@ -2891,8 +2890,7 @@ class IRSubtraction(object):
 
             # Now also distribute the template integrated counterterms
             for template_integrated_counterterm in template_integrated_counterterms:
-                integrated_counterterms_with_loops = template_integrated_counterterm.distribute_loops(
-                    process['n_loops'] )
+                integrated_counterterms_with_loops = template_integrated_counterterm.distribute_loops(target_n_loops)
                 for integrated_counterterm_with_loops in integrated_counterterms_with_loops:
                     all_integrated_counterterms.extend(
                         integrated_counterterm_with_loops.distribute_orders(None) )

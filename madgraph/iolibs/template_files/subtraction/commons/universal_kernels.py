@@ -288,4 +288,4 @@ class SoftKernels:
 
         psrsm2 = EpsilonExpansion({ 0 : 1./s_rs**2, 1 : -1./s_rs**2 })
 
-        return (strongly_ordered + (psrsm2 - strongly_ordered/8.)*4.*(s_ir*s_ks+s_is*s_kr)/s_i_rs/s_k_rs - S_ik_rs*4./s_rs)*color_factors.CA/4.
+        return (strongly_ordered + (psrsm2 - strongly_ordered/8.)*4.*(s_ir*s_ks+s_is*s_kr)/s_i_rs/s_k_rs - S_ik_rs*4./s_rs)#*color_factors.CA/4.

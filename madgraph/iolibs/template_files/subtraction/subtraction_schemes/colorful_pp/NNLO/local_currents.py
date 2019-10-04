@@ -444,6 +444,40 @@ class QCD_S_FgFg(currents.GeneralQCDLocalCurrent):
         },
     ]
 
+    #copied from Valentine's S_FgFg template
+    def create_CataniGrazzini_correlator(self, (i,j),(k,l)):
+        """ Returns the correlator of Catani-Grazzini (Eq.113 of hep-ph/9908523v1)
+                <M| ( T^-1_i \dot T^-1_j ) * ( T^-1_k \dot T^-1_l ) | M > 
+                
+            converted into MadGraph's conventions:
+            
+              ( (a,-1,a),(b,-2,b) ) , ( (c,-1,c),(d,-2,d) ) --> T^-1_a T^-2_b T^-1_c T^-2_d
+            """
+
+        # It is important to never commute two color operators acting on the same index, so we 
+	# must choose carefully which index we pick to carry the gluon index '-2' of the first 
+	# connection. This can be either 'k' or 'l'.
+        if j!=k and j!=l:
+            # If all indices are different, we can pick either k or l, it is irrelevant
+            index1, index2, index3, index4 = i, k, j, l
+        elif j==k and j!=l:
+            # If j is equal to k, we must pick l
+            index1, index2, index3, index4 = i, l, j, k
+        elif j==l and j!=k:
+            # If j is equal to l, we must pick k
+            index1, index2, index3, index4 = i, k, j, l
+        elif j==l and j==k:
+            # If j is equal to both l and k, then agin it doesn't matter and we can pick k
+            index1, index2, index3, index4 = i, k, j, l
+
+        # The sorting according to the first index of each tuple of each of the two convention 
+	# is to match Madgraph's convention for sorting color connection in the color correlators 
+	# definition
+        return (
+            tuple(sorted([ (index1,-1,index1), (index2,-2,index2) ], key = lambda el: el[0], reverse=True)),
+            tuple(sorted([ (index3,-1,index3), (index4,-2,index4) ], key = lambda el: el[0], reverse=True))
+        )
+
     def soft_kernel(self, evaluation, colored_partons, all_steps_info, global_variables):
         """
         Should be specialised by the daughter class if not dummy
@@ -463,29 +497,11 @@ class QCD_S_FgFg(currents.GeneralQCDLocalCurrent):
         ps = all_steps_info[-1]['higher_PS_point'][soft_leg_number_2]
         colored_parton_numbers = sorted(colored_partons.keys())
 
-        #term with the single sum
-        #the factor CA/4 is absorbed into SofKernels.eikonal_2g()
-        #stimmt
+	color_correlators_added = {}
+	color_correlation_max_index = 0
+
         for i, a in enumerate(colored_parton_numbers):
             for b in colored_parton_numbers[i:]:
-                if a!=b:
-                    mult_factor = 2.
-                else:
-                    mult_factor = 1.
-
-                pi = overall_lower_PS_point[a]
-                pk = overall_lower_PS_point[b]
-                the_weight = SoftKernels.eikonal_2g(self, pi, pk, pr, ps)*(-1.)
-                #new_evaluation['color_correlations'].append( ((a, b), ) )
-                new_evaluation['color_correlations'].append(  (
-                         ( ( (a,-1,a), ), ( (b,-1,b), ) ),
-                        )  )
-                new_evaluation['values'][(0,len(new_evaluation['color_correlations'])-1,0)] = the_weight*mult_factor
-
-        #term with the double sum
-        for i, a in enumerate(colored_parton_numbers):
-            for b in colored_parton_numbers[i:]:
-                # Write the eikonal for that pair
                 if a!=b:
                     mult_factor_1 = 2.
                 else:
@@ -494,6 +510,22 @@ class QCD_S_FgFg(currents.GeneralQCDLocalCurrent):
                 pi = overall_lower_PS_point[a]
                 pk = overall_lower_PS_point[b]
                 lvl1_weight = SoftKernels.eikonal_g(self, pi, pk, pr, spin_corr_vector=None)
+		#Implement the non-abelian piece
+		non_abelian_correlator = (
+                         ( ( (a,-1,a), ), ( (b,-1,b), ) ),
+                        )
+                non_abelian_kernel = SoftKernels.eikonal_2g(self, pi, pk, pr, ps)*(-self.CA/4.)*mult_factor_1
+                if non_abelian_correlator in color_correlators_added:
+                    color_correlation_index = color_correlators_added[non_abelian_correlator]
+                    new_evaluation['values'][(0, color_correlation_index,0)]['finite'] += non_abelian_kernel[0]
+                else:
+                    new_evaluation['color_correlations'].append(non_abelian_correlator)
+                    color_correlation_index = color_correlation_max_index
+                    color_correlators_added[non_abelian_correlator] = color_correlation_max_index
+                    color_correlation_max_index += 1
+                    new_evaluation['values'][(0, color_correlation_index,0)] = {
+								'finite': non_abelian_kernel[0]
+								}
 
                 for j, c in enumerate(colored_parton_numbers):
                     for d in colored_parton_numbers[j:]:
@@ -504,18 +536,23 @@ class QCD_S_FgFg(currents.GeneralQCDLocalCurrent):
                         pj = overall_lower_PS_point[c]
                         pl = overall_lower_PS_point[d]
                         lvl2_weight = SoftKernels.eikonal_g(self, pj, pl, ps, spin_corr_vector=None)
-                        #new_evaluation['color_correlations'].append( ((a, b),(c, d), ) )
-                        new_evaluation['color_correlations'].append(  ( 
-                            ( ( (a,-1,a), (c,-2,c) ), ( (b,-1,b), (d,-2,d) ) ),
-                            #( ( (a,-1,a), (b,-1,b) ), ( (c,-2,c), (d,-2,d) ) ),
-                                )  )
-                        new_evaluation['values'][(0,len(new_evaluation['color_correlations'])-1,0)] = lvl1_weight*lvl2_weight*mult_factor_1*mult_factor_2/8.
-                        new_evaluation['color_correlations'].append(  ( 
-                            ( ( (c,-1,c), (a,-2,a) ), ( (d,-1,d), (b,-2,b) ) ),
-                            #( ( (c,-1,c), (d,-1,d) ), ( (a,-2,a), (b,-2,b) ) ),
-                                )  )
-                        new_evaluation['values'][(0,len(new_evaluation['color_correlations'])-1,0)] = lvl1_weight*lvl2_weight*mult_factor_1*mult_factor_2/8.
+			# Implement the abelian piece
+                        abelian_correlator_A = ( self.create_CataniGrazzini_correlator((a,b),(c,d)), )
+                        abelian_correlator_B = ( self.create_CataniGrazzini_correlator((c,d),(a,b)), )
+			abelian_kernel = lvl1_weight*lvl2_weight*mult_factor_1*mult_factor_2/8.
 
+                        for correlator in [abelian_correlator_A, abelian_correlator_B]:
+                            if correlator in color_correlators_added:
+                                color_correlation_index = color_correlators_added[correlator]
+                                new_evaluation['values'][(0, color_correlation_index,0)]['finite'] += abelian_kernel[0]
+                            else:
+                                new_evaluation['color_correlations'].append(correlator)
+                                color_correlation_index = color_correlation_max_index
+                                color_correlators_added[correlator] = color_correlation_max_index
+                                color_correlation_max_index += 1
+                                new_evaluation['values'][(0, color_correlation_index,0)] = {
+								'finite': abelian_kernel[0]
+								}
 
         return new_evaluation
 

@@ -937,6 +937,44 @@ class BeamStructure(SingularStructure):
         return False
 
 #=========================================================================================
+# Currents
+#=========================================================================================
+class CurrentsBlock(tuple):
+    """ This class implements the concept of a tuple of Currents which must be implemented
+    at once in a single subtraction current class of the subtraction scheme because it
+    corresponds to a non-factorisable combination of currents."""
+
+    def __init__(self, *args, **opts):
+        super(CurrentsBlock, self).__init__(*args, **opts)
+
+    def to_single_current(self):
+
+        if len(self)!=1:
+            raise MadGraph5Error("A CurrentsBlock instance cannot be cast into a simple "+
+                                 " current if it contains more than one current.")
+        return self[0]
+
+    def get_squared_orders(self):
+        """ Return the aggregated squared orders for this currents block."""
+
+        aggregated_squared_orders = {}
+        for crt in self:
+            for order, value in crt.get('squared_orders').items():
+                if order in aggregated_squared_orders:
+                    aggregated_squared_orders[order] += value
+                else:
+                    aggregated_squared_orders[order] = value
+        return aggregated_squared_orders
+
+    def __str__(self, *args, **opts):
+        return '(%s)'%(', '.join('%s'%crt.__str__(*args, **opts) for crt in self))
+
+    def get_key(self, *args, **opts):
+
+        from madgraph.core.accessors import CompoundProcessKey
+        return CompoundProcessKey(crt.get_key(*args, **opts) for crt in self)
+
+#=========================================================================================
 # Current
 #=========================================================================================
 class Current(base_objects.Process):
@@ -960,6 +998,17 @@ class Current(base_objects.Process):
         # default to None?
         self['resolve_mother_spin_and_color'] = False
         self['singular_structure'] = SingularStructure()
+
+        self['model'] = None
+
+    def set(self,name,value, **opts):
+
+        # There is no need to store a model for this class, so allow None
+        if name=='model':
+            base_objects.PhysicsObject.set(self, 'model', None, force=True)
+        else:
+            return super(Current, self).set(name, value, **opts)
+
 
     def count_unresolved(self):
         """Count the number of unresolved particles covered by this current."""
@@ -1127,6 +1176,12 @@ class Current(base_objects.Process):
             copied_current['singular_structure'] = self['singular_structure'].get_copy()
 
         return copied_current
+
+    @classmethod
+    def get_type(cls):
+        """ Return the type of current implemented by this instance."""
+
+        return cls.__name__
 
     def get_number_of_couplings(self):
         """ Return a naive count of the number of couplings involved in this current."""
@@ -1830,6 +1885,28 @@ class Counterterm(CountertermNode):
         for node in self.nodes:
             currents += node.get_all_currents()
         return currents
+
+    def get_currents_blocks(self):
+        """ Return the list of (possible combination of) currents that are to be called at once when evaluating this
+         counterterm. For example C(F,F) would yield just a list one element being a tuple of length one containing
+         the current C(F,F) only. So -> [ ( C(F,F), ) ]
+         Then (S(F), F1) in colorful would still return a list of a single element but this time being a tuple of length
+         two containing the two currents S(F) and F1. So -> [ ( S(F), F1 ) ]
+         Finally something the factorisable counterterm (F1, F2) would yield a list of two elements being the two
+         length-one tuples [ ( F1, ), ( F2, ) ].
+         """
+
+        currents_blocks = []
+        if self.get_n_non_factorisable_double_sided_convolution() >= 2:
+            # In that case make sure that there is no nesting within this counterterm as this is not supported
+            # for non-factorisable currents
+            assert all(len(node.nodes)==0 for node in self.nodes)
+            # This counterterm is non-factorisable, so we must aggregated the node into a single entity to export
+            currents_blocks.append( CurrentsBlock(node.current for node in self.nodes) )
+        else:
+            currents_blocks.extend([ CurrentsBlock([current,]) for current in self.get_all_currents() ])
+
+        return currents_blocks
 
     def get_beam_currents(self):
         """ Returns a list of dictionaries of the form
@@ -2845,15 +2922,15 @@ class IRSubtraction(object):
         return integrated_CTs
 
     @staticmethod
-    def get_all_currents(counterterms,track_leg_numbers=False):
+    def get_all_currents_blocks(counterterms,track_leg_numbers=False):
         """Deduce the list of currents needed to compute all counterterms given."""
-        all_currents = []
+        all_currents_blocks = []
         for counterterm in counterterms:
-            for current in counterterm.get_all_currents():
+            for currents_block in counterterm.get_currents_blocks():
                 # Remove duplicates already at this level
-                if track_leg_numbers or current not in all_currents:
-                    all_currents.append(current)
-        return all_currents
+                if track_leg_numbers or currents_block not in all_currents_blocks:
+                    all_currents_blocks.append(currents_block)
+        return all_currents_blocks
 
     def get_all_counterterms(
         self, process, max_unresolved,
@@ -2981,22 +3058,23 @@ class SubtractionCurrentExporter(object):
 
         # Sanity check that all these currents class implementations are valid
         for current_class in subtraction_scheme_module.all_subtraction_current_classes:
-            if not (inspect.isclass(current_class) and hasattr(current_class, 'does_implement_this_current') ):
-                raise MadGraph5Error("The current '%s' does not implement the mandatory function 'does_implement_this_current'."%
+            if not (inspect.isclass(current_class) and hasattr(current_class, 'does_implement_these_currents') ):
+                raise MadGraph5Error("The current '%s' does not implement the mandatory function 'does_implement_these_currents'."%
                                                                                                 (current_class.__name__))
 
         # Add an attribute to the module which is a dictionary mapping a subtraction current unique identifier to the
         # class implementing it
-        if not hasattr(subtraction_scheme_module, 'ordered_current_identifiers'):
-            subtraction_scheme_module.ordered_current_identifiers = [
+        if not hasattr(subtraction_scheme_module, 'ordered_currents_identifiers'):
+            subtraction_scheme_module.ordered_currents_identifiers = [
                 current_class.__name__ for current_class in subtraction_scheme_module.all_subtraction_current_classes ]
+
         if not hasattr(subtraction_scheme_module, 'currents'):
             subtraction_scheme_module.currents = dict(
                 (current_class.__name__, current_class)
                     for current_class in subtraction_scheme_module.all_subtraction_current_classes)
 
         # Add a default implementation for the currents used for debugging
-        if 'DefaultCurrentImplementation' not in subtraction_scheme_module.ordered_current_identifiers:
+        if 'DefaultCurrentImplementation' not in subtraction_scheme_module.ordered_currents_identifiers:
             # If there is a "default current" in the utils class,
             # presumably used for debugging only, then add this one at the very end of all_classes so that
             # it will be selected only if no other class matches.
@@ -3004,8 +3082,8 @@ class SubtractionCurrentExporter(object):
                 default_implementation_class = getattr( subtraction_utils, 'DefaultCurrentImplementation' )
 
                 if (inspect.isclass(default_implementation_class) and
-                    hasattr(default_implementation_class, 'does_implement_this_current')):
-                    subtraction_scheme_module.ordered_current_identifiers.append('DefaultCurrentImplementation')
+                    hasattr(default_implementation_class, 'does_implement_these_currents')):
+                    subtraction_scheme_module.ordered_currents_identifiers.append('DefaultCurrentImplementation')
                     subtraction_scheme_module.currents['DefaultCurrentImplementation'] = default_implementation_class
 
         return subtraction_scheme_module
@@ -3022,7 +3100,7 @@ class SubtractionCurrentExporter(object):
         self.export_dir  = export_dir
         self.subtraction_scheme = subtraction_scheme
 
-    def export(self, currents):
+    def export(self, all_defining_currents_blocks):
         """Export the specified list of currents and return a list of accessors
         which contain the mapping information.
         """
@@ -3032,65 +3110,64 @@ class SubtractionCurrentExporter(object):
         # Group all currents according to mapping rules.
         # The mapped currents is a dictionary of the form
         #         { (subtraction_scheme_name, current_identifier, instantiation_options_index),
-        #                {'defining_current': <...>,
+        #                {'defining_currents': <...>,
         #                 'mapped_process_keys': [<...>],
         #                 'instantiation_options': instantiation_options
         #         }
-        mapped_currents = {}
+        mapped_currents_blocks = {}
         
         # Look in all current implementation classes found
         # and find which one implements each current
         all_instantiation_options = []
         currents_with_default_implementation = []
-        for current in currents:
+        for currents_block in all_defining_currents_blocks:
             found_current_class = None
-            for current_identifier in subtraction_scheme_module.ordered_current_identifiers:
-                implementation_class = subtraction_scheme_module.currents[current_identifier]
+            for currents_identifier in subtraction_scheme_module.ordered_currents_identifiers:
+                implementation_class = subtraction_scheme_module.currents[currents_identifier]
 
-                #misc.sprint('Testing class %s for current: %s'%(current_identifier, str(current)))
-                instantiation_options = implementation_class.does_implement_this_current(
-                    current, self.model )
+                #misc.sprint('Testing class %s for current: %s'%(currents_identifier, str(currents_block)))
+                instantiation_options = implementation_class.does_implement_these_currents(currents_block, self.model )
                 #misc.sprint('Result: %s'%str(instantiation_options))
                 if instantiation_options is None:
                     continue
                 if found_current_class is not None:
-                    if current_identifier == 'DefaultCurrentImplementation':
+                    if currents_identifier == 'DefaultCurrentImplementation':
                         continue
                     logger.critical(
-                        "%s found, %s already found" % (current_identifier, found_current_class))
-                    raise MadGraph5Error(
-                        "Multiple implementations found for current %s." % str(current) )
+                        "%s found, %s already found" % (currents_identifier, found_current_class))
+                    raise MadGraph5Error("Multiple implementations found for current %s." %currents_block)
                 try:
-                    instantiation_options_index = all_instantiation_options.index(
-                        instantiation_options )
+                    instantiation_options_index = all_instantiation_options.index( instantiation_options )
                 except ValueError:
                     all_instantiation_options.append(instantiation_options)
                     instantiation_options_index = len(all_instantiation_options)-1
 
-                key = ( self.subtraction_scheme, current_identifier, instantiation_options_index )
+                key = ( self.subtraction_scheme, currents_identifier, instantiation_options_index )
 
-                if key in mapped_currents:
-                    mapped_currents[key]['mapped_process_keys'].append(current.get_key(track_leg_numbers=track_leg_numbers))
+                if key in mapped_currents_blocks:
+                    mapped_currents_blocks[key]['mapped_process_keys'].append(
+                                                    currents_block.get_key(track_leg_numbers=track_leg_numbers) )
                 else:
 
-                    mapped_currents[key] = {
-                        'defining_current': current,
-                        'mapped_process_keys': [current.get_key(track_leg_numbers=track_leg_numbers)],
+                    mapped_currents_blocks[key] = {
+                        'defining_currents_block': currents_block,
+                        'mapped_process_keys': [ currents_block.get_key(track_leg_numbers=track_leg_numbers), ],
                         'instantiation_options': instantiation_options }
-                if current_identifier == 'DefaultCurrentImplementation':
-                    currents_with_default_implementation.append(current)
-                found_current_class = current_identifier
+
+                if currents_identifier == 'DefaultCurrentImplementation':
+                    currents_with_default_implementation.append(currents_block)
+                found_current_class = currents_identifier
 
             if found_current_class is None:
                 raise MadGraph5Error(
-                    "No implementation was found for current %s." % str(current) )
+                    "No implementation was found for current %s."%str(currents_block) )
 
         # Warn the user whenever DefaultCurrentImplementation is used
         # (it should never be used in production)
         if currents_with_default_implementation:
             currents_str = '\n'.join(
-                ' > %s (type: %s)' % (str(crt), type(crt) )
-                for crt in currents_with_default_implementation )
+                ' > (%s) (type: (%s) )' % (', '.join(str(crt) for crt in crts), ', '.join(crt.get_type() for crt in crts) )
+                for crts in currents_with_default_implementation )
             msg = """No implementation was found for the following subtraction currents:
 %s
 The class 'DefaultCurrentImplementation' will therefore be used for it
@@ -3103,9 +3180,9 @@ and should be used for debugging only.""" % currents_str
 
         # Export all the relevant resources to the specified export directory (process output)
         if self.export_dir is not None:
-            subtraction_scheme_module.exporter.export(pjoin(self.export_dir, self.main_module_name), mapped_currents)
+            subtraction_scheme_module.exporter.export(pjoin(self.export_dir, self.main_module_name), mapped_currents_blocks)
 
-        return mapped_currents
+        return mapped_currents_blocks
         
 #=========================================================================================
 # Standalone main for debugging / standalone trials

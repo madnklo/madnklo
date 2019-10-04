@@ -640,7 +640,7 @@ class CompoundVariables(object):
                 all_variables.append({})
         return all_variables
 
-class GeneralQCDLocalCurrent(QCDLocalCurrent):
+class GeneralCurrent(QCDLocalCurrent):
     """Common functions for QCD local collinear currents."""
 
     expected_init_opts = ('leg_numbers_map', 'mapping_singular_structure', 'has_initial_state')
@@ -705,7 +705,7 @@ class GeneralQCDLocalCurrent(QCDLocalCurrent):
     @classmethod
     def does_implement_this_current(cls, current, model):
         """ Add information about whether or not this local collinear current contains initial states."""
-        res = super(GeneralQCDLocalCurrent, cls).does_implement_this_current(current, model)
+        res = super(GeneralCurrent, cls).does_implement_this_current(current, model)
 
         if res is not None:
             res['has_initial_state'] = current.get('singular_structure').get_all_legs().has_initial_state_leg()

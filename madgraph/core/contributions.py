@@ -753,55 +753,54 @@ class Contribution(object):
         all_MEAccessors.add_MEAccessors(
             MEAccessors, allow_overwrite=(not self.group_subprocesses) )
 
-    def add_current_accessors(
-        self, model, all_MEAccessors, root_path, current_set, currents_to_consider, CT_type='local'):
+    def add_currents_block_accessors(
+        self, model, all_MEAccessors, root_path, current_set, currents_blocks_to_consider, CT_type='local'):
         """Generate and add all subtraction current accessors to the MEAccessorDict.
         The optioin CT_type is only present in order to give a more precise printout
         """
 
         # Generate the computer code and export it on disk for the remaining new currents
         current_exporter = subtraction.SubtractionCurrentExporter(model, root_path, current_set)
-        mapped_currents = current_exporter.export(currents_to_consider)
+        mapped_currents_blocks = current_exporter.export(currents_blocks_to_consider)
         # Print to the debug log which currents were exported
         log_string = "The following subtraction %s current implementations are exported "%CT_type+\
                      "in contribution '%s':\n"%self.short_name()
         default_implementation_string = ''
         already_listed = []
-        for (module_path, class_name, _), current_properties in mapped_currents.items():
+        for (module_path, class_name, _), currents_block_properties in mapped_currents_blocks.items():
             if class_name != 'DefaultCurrentImplementation':
                 if class_name not in already_listed:
                     already_listed.append(class_name)
                     quote_class_name = "'%s'" % class_name
-                    defining_current_str = str(current_properties['defining_current'])
+                    defining_current_str = str(currents_block_properties['defining_currents'])
                     line_pars = (quote_class_name, defining_current_str)
                     log_string += " > %-35s for representative current '%s'\n" % line_pars
             else:
                 quote_default_name = "'DefaultCurrentImplementation'"
-                number_of_currents = len(current_properties['mapped_process_keys'])
+                number_of_currents = len(currents_block_properties['mapped_process_keys'])
                 line_pars = (quote_default_name, number_of_currents)
                 default_implementation_string = " > %-35s for a total of %d currents.\n" % line_pars
 
         log_string +=default_implementation_string
-        if len(mapped_currents)>0:
+        if len(mapped_currents_blocks)>0:
             logger.debug(log_string)
         # Instantiate the CurrentAccessors corresponding
         # to all current implementations identified and needed
-        all_current_accessors = []
+        all_currents_block_accessors = []
 
-        for (subtraction_scheme, class_identifier, _), current_properties in mapped_currents.items():
-            all_current_accessors.append(accessors.VirtualMEAccessor(
-                current_properties['defining_current'],
+        for (subtraction_scheme, class_identifier, _), currents_block_properties in mapped_currents_blocks.items():
+            all_currents_block_accessors.append(accessors.VirtualMEAccessor(
+                currents_block_properties['defining_currents_block'],
                 subtraction_scheme,
                 class_identifier,
                 '%s.commons.utils'%current_exporter.main_module_name,
-                current_properties['instantiation_options'],
-                mapped_process_keys=current_properties['mapped_process_keys'],
+                currents_block_properties['instantiation_options'],
+                mapped_process_keys=currents_block_properties['mapped_process_keys'],
                 root_path=root_path,
                 model=model
             ))
         # Add MEAccessors
-        all_MEAccessors.add_MEAccessors(all_current_accessors,)
-        return mapped_currents
+        all_MEAccessors.add_MEAccessors(all_currents_block_accessors,)
 
     def can_processes_be_integrated_together(self, processA, processB):
         """ Investigates whether processA and processB can be integrated together for this contribution."""
@@ -1717,37 +1716,36 @@ The resulting output must therefore be used for debugging only as it will not yi
         
         return ret_value
 
-    def get_all_necessary_local_currents(self, all_MEAccessors):
+    def get_all_necessary_local_currents_blocks(self, all_MEAccessors):
         """ Given the counterterms in place and the currents already accessible in the 
         all_MEAccessors, return what local currents are needed."""
 
-        all_currents = []
+        all_currents_blocks = []
         for process_key, counterterms in self.counterterms.items():
-            for current in subtraction.IRSubtraction.get_all_currents(counterterms,track_leg_numbers=self.track_leg_numbers):
+            for currents_block in subtraction.IRSubtraction.get_all_currents_blocks(counterterms,track_leg_numbers=self.track_leg_numbers):
                 # Retain only a single copy of each needed current.
-                copied_current = current.get_copy(('squared_orders','singular_structure'))
-                if copied_current not in all_currents or self.track_leg_numbers:
-                    all_currents.append(copied_current)
+                copied_currents_block = subtraction.CurrentsBlock(current.get_copy(('squared_orders','singular_structure')) for current in currents_block)
+                if copied_currents_block not in all_currents_blocks or self.track_leg_numbers:
+                    all_currents_blocks.append(copied_currents_block)
 
         # Also add the beam_factorization currents from process itself if it has any
         for process_key, (defining_process, mapped_processes) in self.get_processes_map().items():
             for beam_factorization_currents in defining_process['beam_factorization']:
                 for bfc in beam_factorization_currents.values():
                     if bfc is not None:
-                        all_currents.append(bfc)
+                        all_currents_blocks.append(subtraction.CurrentsBlock([bfc,]))
 
         # Now further remove currents that are already in all_MEAccessors
 
-
         # We can remove the leg information only if for the subtraction scheme considered it is irrelevant
         # for the selection of the hard-coded current implementation to consider.
-        all_necessary_currents = {}
-        for current in all_currents:
-            current_key = current.get_key(track_leg_numbers=self.track_leg_numbers).get_canonical_key()
-            if current_key not in all_MEAccessors and current_key not in all_necessary_currents:
-                all_necessary_currents[current_key] = current
+        all_necessary_currents_blocks = {}
+        for currents_block in all_currents_blocks:
+            currents_block_key = currents_block.get_key(track_leg_numbers=self.track_leg_numbers).get_canonical_key()
+            if currents_block_key not in all_MEAccessors and currents_block_key not in all_necessary_currents_blocks:
+                all_necessary_currents_blocks[currents_block_key] = currents_block
 
-        return all_necessary_currents.values()
+        return all_necessary_currents_blocks.values()
 
     def add_ME_accessors(self, all_MEAccessors, root_path):
         """ Adds all MEAccessors for the matrix elements and currents generated as part of this contribution."""
@@ -1771,10 +1769,10 @@ The resulting output must therefore be used for debugging only as it will not yi
         # Obtain all necessary currents
         current_set = self.options['subtraction_scheme']
 
-        currents_to_consider = self.get_all_necessary_local_currents(all_MEAccessors)
+        currents_blocks_to_consider = self.get_all_necessary_local_currents_blocks(all_MEAccessors)
 
-        self.add_current_accessors(
-            self.model, all_MEAccessors, root_path, current_set, currents_to_consider, CT_type='local' )
+        self.add_currents_block_accessors(
+            self.model, all_MEAccessors, root_path, current_set, currents_blocks_to_consider, CT_type='local' )
         
     def remove_local_counterterms_set_to_zero(self, all_ME_accessors):
         """ Remove all local counterterms involving currents whose implementation has set
@@ -1783,8 +1781,8 @@ The resulting output must therefore be used for debugging only as it will not yi
             for counterterm in list(counterterms):
                 # misc.sprint("Considering CT %s" % str(counterterm))
                 if counterterm.is_singular():
-                    for current in counterterm.get_all_currents():
-                        accessor, _ = all_ME_accessors[current.get_key(track_leg_numbers=self.track_leg_numbers)]
+                    for currents_block in counterterm.get_currents_blocks():
+                        accessor, _ = all_ME_accessors[currents_block.get_key(track_leg_numbers=self.track_leg_numbers)]
                         if accessor.subtraction_current_instance.is_zero:
                             # misc.sprint("Zero current found in CT %s" % str(counterterm))
                             counterterms.remove(counterterm)
@@ -1883,31 +1881,36 @@ class Contribution_V(Contribution):
 
         return res
 
-    def get_all_necessary_integrated_currents(self, all_MEAccessors):
+    def get_all_necessary_integrated_currents_blocks(self, all_MEAccessors):
         """ Given the list of currents already available encoded in the all_MEAccessors,
         generate all the integrated currents that must be exported."""
         
-        all_currents = []
+        all_currents_blocks = []
         for CT_properties in sum(self.integrated_counterterms.values(),[]):
             counterterm = CT_properties['integrated_counterterm']
-            integrated_current = counterterm.get_integrated_current()
-            
-            # Retain only a single copy of each needed current.
+
+            currents_blocks = counterterm.get_currents_blocks()
+
+            # Retain only a single copy of each needed currents block.
             # We must remove the leg information since this is information is irrelevant
             # for the selection of the hard-coded current implementation to consider.
-            copied_current = integrated_current.get_copy(('squared_orders','singular_structure'))
-            if copied_current not in all_currents or self.track_leg_numbers:
-                all_currents.append(copied_current)
+
+            for currents_block in currents_blocks:
+                copied_currents_block = subtraction.CurrentsBlock(
+                               current.get_copy(('squared_orders','singular_structure')) for current in currents_block )
+
+                if copied_currents_block not in all_currents_blocks or self.track_leg_numbers:
+                    all_currents_blocks.append(copied_currents_block)
 
         # We can remove the leg information only if for the subtraction scheme considered it is irrelevant
         # for the selection of the hard-coded current implementation to consider.
-        all_necessary_currents = {}
-        for current in all_currents:
-            current_key = current.get_key(track_leg_numbers=self.track_leg_numbers).get_canonical_key()
-            if current_key not in all_MEAccessors and current_key not in all_necessary_currents:
-                all_necessary_currents[current_key] = current
+        all_necessary_currents_blocks = {}
+        for currents_block in all_currents_blocks:
+            current_block_key = currents_block.get_key(track_leg_numbers=self.track_leg_numbers).get_canonical_key()
+            if current_block_key not in all_MEAccessors and current_block_key not in all_necessary_currents_blocks:
+                all_necessary_currents_blocks[current_block_key] = currents_block
 
-        return all_necessary_currents.values()
+        return all_necessary_currents_blocks.values()
 
     @classmethod
     def remove_counterterms_with_no_reduced_process(cls, all_MEAccessors, counterterms):
@@ -1926,8 +1929,8 @@ class Contribution_V(Contribution):
                 integrated_counterterm = integrated_counterterm_properties['integrated_counterterm']
                 # misc.sprint("Considering integrated CT %s" % str(integrated_counterterm))
                 if integrated_counterterm.is_singular():
-                    for current in integrated_counterterm.get_all_currents():
-                        accessor, _ = all_ME_accessors[current.get_key(track_leg_numbers=self.track_leg_numbers)]
+                    for currents_block in integrated_counterterm.get_currents_blocks():
+                        accessor, _ = all_ME_accessors[currents_block.get_key(track_leg_numbers=self.track_leg_numbers)]
                         if accessor.subtraction_current_instance.is_zero:
                             # misc.sprint("Zero current found in integrated CT %s" % str(integrated_counterterm))
                             logger.debug("Zero current found in integrated CT %s, removing it now."%str(integrated_counterterm))
@@ -1988,9 +1991,9 @@ class Contribution_V(Contribution):
         
         # Obtain all necessary currents
         current_set = self.options['subtraction_scheme']
-        currents_to_consider = self.get_all_necessary_integrated_currents(all_MEAccessors)
-        self.add_current_accessors(
-            self.model, all_MEAccessors, root_path, current_set, currents_to_consider, CT_type='integrated' )
+        currents_blocks_to_consider = self.get_all_necessary_integrated_currents_blocks(all_MEAccessors)
+        self.add_currents_block_accessors(
+            self.model, all_MEAccessors, root_path, current_set, currents_blocks_to_consider, CT_type='integrated' )
 
     @classmethod
     def get_basic_permutation(cls, origin_pdg_orders, destination_pdg_orders):

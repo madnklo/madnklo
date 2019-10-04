@@ -51,12 +51,13 @@ class SubtractionCurrentEvaluation(dict):
     
     # values will list the weight from this current for each particular pairing
     # of the spin_correlations and color_correlations
-    main_layer_result_order  = ['spin_correlations','color_correlations','reduced_kinematics','values']
+    main_layer_result_order  = ['spin_correlations','color_correlations',
+                                'Bjorken_rescalings','reduced_kinematics','values']
     sub_layer_result_order   = ['finite','return_code','accuracy','eps'] 
     result_order = main_layer_result_order+sub_layer_result_order
 
     main_layer_result_format = {'spin_correlations':'%s','color_correlations':'%s',
-                                'reduced_kinematics':'%s','values':'%s'}
+                                'Bjorken_rescalings':'%s','reduced_kinematics':'%s','values':'%s'}
     sub_layer_result_format  = {'finite':'%.15e','eps':'%.15e',
                                 'return_code':'%d','accuracy': '%.2g'}
 
@@ -146,13 +147,14 @@ class SubtractionCurrentEvaluation(dict):
         return self.nice_string()
 
     @classmethod
-    def zero(cls, spin_correlations=None, color_correlations=None, reduced_kinematics=None):
+    def zero(cls, spin_correlations=None, color_correlations=None, Bjorken_rescalings=(None,None), reduced_kinematics=None):
 
         return SubtractionCurrentEvaluation({
-            'spin_correlations'   : [ spin_correlations ],
-            'color_correlations'  : [ color_correlations ],
-            'reduced_kinematics'  : [ reduced_kinematics ],
-            'values'              : {(0,0,0): { 'finite' : 0.0 }}
+            'spin_correlations'   : [ spin_correlations, ],
+            'color_correlations'  : [ color_correlations, ],
+            'Bjorken_rescalings'  : [ Bjorken_rescalings, ],
+            'reduced_kinematics'  : [ reduced_kinematics, ],
+            'values'              : {(0,0,0,0): { 'finite' : 0.0 }}
         })
 
 class BeamFactorizationCurrentEvaluation(SubtractionCurrentEvaluation):
@@ -161,8 +163,9 @@ class BeamFactorizationCurrentEvaluation(SubtractionCurrentEvaluation):
     attribute 'values' of this class are themselves dictionaries representing the flavor
     matrix."""
 
-    main_layer_result_order  = ['spin_correlations','color_correlations','values']
-    main_layer_result_format = {'spin_correlations':'%s','color_correlations':'%s', 'values':'%s'}
+    main_layer_result_order  = ['spin_correlations','color_correlations','Bjorken_rescalings','reduced_kinematics','values']
+    main_layer_result_format = {'spin_correlations':'%s','color_correlations':'%s',
+                                'Bjorken_rescalings':'%s', 'reduced_kinematics':'%s', 'values':'%s'}
 
     def subresult_lines(self, subresult, subtemplate):
         """ Returns the string line describing the subresult in argument corresponding to 
@@ -200,15 +203,17 @@ class BeamFactorizationCurrentEvaluation(SubtractionCurrentEvaluation):
         super(SubtractionCurrentEvaluation, self).__init__(*args, **opts)      
 
     @classmethod
-    def zero(cls):
+    def zero(cls, spin_correlations=None, color_correlations=None, Bjorken_rescalings=(None,None), reduced_kinematics=None):
         
         # None for reduced_IS_flavor_PDG and resolved_IS_flavor_PDGs means purely diagonal
         return SubtractionCurrentEvaluation({
-            'spin_correlations'      : [ None ],
-            'color_correlations'     : [ None ],
-            'values'                 : { (0,0,0): {
-                    None : {
-                        None : { 'finite' : 0.0 }
+            'spin_correlations'      : [ spin_correlations, ],
+            'color_correlations'     : [ color_correlations, ],
+            'Bjorken_rescalings'     : [ Bjorken_rescalings, ],
+            'reduced_kinematics'     : [ reduced_kinematics, ],
+            'values'                 : { (0,0,0,0): {
+                    None : { # reduced_IS_flavor_PDG
+                        None : { 'finite' : 0.0 } #resolved_IS_flavor_PDGs
                     }
                 }
             }
@@ -296,6 +301,7 @@ class SubtractionCurrentResult(dict):
 
 class CurrentImplementationError(Exception):
     """Exception raised if an exception is triggered in implementation of the currents.""" 
+    pass
 
 #=========================================================================================
 # VirtualCurrentImplementation
@@ -323,7 +329,7 @@ class VirtualCurrentImplementation(object):
         return "Subtraction current implementation " + cls.__name__
 
     @classmethod
-    def does_implement_this_current(cls, current, model):
+    def does_implement_these_currents(cls, currents, model):
         """Return None/a_dictionary depending on whether this particular current is
         part of what this particular current class implements.
         When returning a dictionary, it specifies potential options that must be passed
@@ -331,12 +337,10 @@ class VirtualCurrentImplementation(object):
         """
         
         # This virtual class of course does not implement any current.
-        return None 
+        raise NotImplementedError("The function 'does_implement_these_currents' must be implemented in class %s"%(cls.name()))
 
     def get_cache_and_result_key(
-        self, current,
-        higher_PS_point=None,
-        leg_numbers_map=None, reduced_process=None, hel_config=None, ):
+        self, currents_block, higher_PS_point=None, reduced_process=None, hel_config=None, **opts ):
         """Generate a key for the cache dictionary.
         Make sure that everything that can lead to a different evaluation of the current
         ends up in the key so that two evaluations that lead to different results
@@ -348,9 +352,20 @@ class VirtualCurrentImplementation(object):
         of the SubtractionCurrentResult.
         """
 
-        singular_structure_str = current['singular_structure'].__str__(
-            print_n=True, print_pdg=True, print_state=True)
-        squared_orders = tuple(sorted(current.get('squared_orders').items()))
+        # The caching system is computationally heavy and is not so useful since we now
+        # anticipate having a rust backend. We therefore disable it in
+        # Also, for now do not differentiate squared orders.
+        squared_orders = tuple(sorted(currents_block.get_squared_orders().items()))
+        result_key = {'hel_config': hel_config, 'squared_orders': squared_orders}
+
+
+        # Returning None for the cache key effectively disables the cache system.
+        # A particular implementation of the subtraction scheme is free to modify this
+        # if it wants to recover a proper cache (for example as done below).
+        return None, result_key
+
+        singular_structure_str = tuple(crt['singular_structure'].__str__(
+            print_n=True, print_pdg=True, print_state=True) for crt in currents_block)
         higher_PS_point_tuple = tuple(sorted([
             (k, tuple(value)) for (k, value) in higher_PS_point.items() ]))
         if reduced_process:
@@ -367,86 +382,9 @@ class VirtualCurrentImplementation(object):
             'singular_structure': singular_structure_str,
             'reduced_process': reduced_process_hash
         }
-        result_key = {'hel_config': hel_config, 'squared_orders': squared_orders}
 
         return cache_key, result_key
-        # Alternatively, use: 
-        #return None, result_key 
-        # to disable the caching system
 
-    def evaluate_subtraction_current(
-        self, current,
-        higher_PS_point=None,
-        leg_numbers_map=None, reduced_process=None, hel_config=None,
-        **opts ):
-        """Returns an instance of SubtractionCurrentResult,
-        with SubtractionCurrentEvaluation as keys which store
-        various output of this evaluation of the subtraction current,
-        most importantly its finite part and other coefficients of its epsilon expansion.
-        The model provides quantum numbers of legs in the reduced process (useful for soft currents).
-        The value of alpha_s and mu_r can be retrieved from the model.
-        See the documentation of the class method 'apply_permutations'
-        of VirtualMEAccessor in the module madgraph.core.contributions
-        for the specification of the syntax of spin_correlations and color_correlations.
-        Mapping variables can be passed.
-        """
-        ## Example:
-        #
-        # subtraction_current_result = SubtractionCurrentResult()
-        #
-        # one_eval_for_QCD_splitting = SubtractionCurrentEvaluation({
-        #   'spin_correlations'   : [ 
-        #                             [ (3,[(1.1,1.2,1.3,1.4),(2.1,2.2,2.3,2.4)]),
-        #                               (4,[(1.1,1.2,1.3,1.4),(2.1,2.2,2.3,2.4)]) ],
-        #                             [ (3,[(5.1,5.2,5.3,5.4),(6.1,6.2,6.3,6.4)]),
-        #                               (4,[(8.1,8.2,8.3,8.4),(7.1,7.2,7.3,7.4)]) ],
-        #                           ]
-        #   'color_correlations'  : [ (2,4),
-        #                             (2,5)
-        #                           ],
-        #   'values'              : { (0,0): { 'finite' : 32.33,
-        #                                      'eps^-1' : 21.2,
-        #                                      'eps^-2' : 42.6,
-        #                                    },
-        #                             (1,0): { 'finite' : 52.33,
-        #                                      'eps^-1' : 71.2,
-        #                                      'eps^-2' : 82.6,
-        #                                    },
-        #                             (1,1): { 'finite' : 32.33,
-        #                                      'eps^-1' : 21.2,
-        #                                      'eps^-2' : 42.6,
-        #                                    }
-        #                           }
-        #   })
-        #
-        ##  In the example above there was no contribution from the first spin correlation paired with the second
-        ##  color correlations, i.e. the key (0,1). We stress that most of the time the structure will be significantly
-        ##  simple from the example above (i.e. in principle elementary current only have either spin or color correlations,
-        ##  not both.)
-        #
-        # subtraction_current_result.add_result(one_eval_for_QCD_squared_order, hel_config=hel_config, squared_orders={'QCD':2,'QED':0})
-        #
-        # another_eval_for_EW_splitting = SubtractionCurrentEvaluation({
-        #   'spin_correlations'   = [etc...] 
-        #   })
-        # subtraction_current_result.add_result(another_eval_for_EW_splitting, hel_config=hel_config, squared_orders={'QCD':0,'QED':2})
-        #
-        # return subtraction_current_result
-
-        raise NotImplemented
-
-#=========================================================================================
-# IntegratedCurrentImplementation
-#=========================================================================================
-class IntegratedCurrent(object):
-    """ This class is only for specific aspects of integrated currents, such as forwarding
-    the higher_PS_point to just a single PS point."""
-
-    def evaluate_subtraction_current(self, current,
-        higher_PS_point=None,
-        **opts ):
-
-        return self.evaluate_integrated_current(current, higher_PS_point, **opts)
 
 #=========================================================================================
 # DefaultCurrentImplementation
@@ -474,7 +412,7 @@ class DefaultCurrentImplementation(VirtualCurrentImplementation):
         self.supports_helicity_assignment = True
 
     @classmethod
-    def does_implement_this_current(cls, current, model):
+    def does_implement_these_currents(cls, currents, model):
         """For production, it is preferable to turn off this default implementation
         by simply returning None below instead of {}."""
         
@@ -482,10 +420,9 @@ class DefaultCurrentImplementation(VirtualCurrentImplementation):
         # return None
         return {}
     
-    def evaluate_subtraction_current(
-        self, current,
-        higher_PS_point=None,
-        leg_numbers_map=None, reduced_process=None, hel_config=None, **opts):
+    def evaluate_subtraction_current(self, current,
+        higher_PS_point=None, momenta_dict=None, reduced_process=None,
+        hel_config=None, xis=None, Q=None, **opts):
         """Simply return 0 for this current default implementation."""
         
         return SubtractionCurrentResult.zero(current=current, hel_config=hel_config)

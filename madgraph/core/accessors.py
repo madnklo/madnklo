@@ -37,6 +37,17 @@ from madgraph.iolibs.files import cp, ln, mv
 
 logger = logging.getLogger('madevent7')
 
+class CompoundProcessKey(tuple):
+    """ A compound process key typically used to identify a CurrentsBlock access key. """
+
+    def get_canonical_key(self, *args, **opts):
+        """ Simply uses self.key_dict to return a hashable canonical representation of this object. """
+
+        return tuple( process_key.get_canonical_key(*args, **opts) for process_key in self )
+
+    def get_key_dict(self):
+        return tuple( process_key.key_dict for key_dict in process_key)
+
 ##########################################################################################
 # ProcessKey, to be used as keys in the MEAccessorDict and the processes_map of contributions
 ##########################################################################################
@@ -243,6 +254,9 @@ class ProcessKey(object):
         if hasattr(self, 'canonical_key'):
             self.canonical_key = None
 
+    def get_key_dict(self):
+        return self.key_dict
+
     def get_canonical_key(self, force=False):
         """ Simply uses self.key_dict to return a hashable canonical representation of this object."""
         if not force and self.canonical_key:
@@ -268,7 +282,7 @@ class VirtualMEAccessor(object):
         """
         if cls is VirtualMEAccessor:
             # Use possibly customized CurrentAccessors for the access to subtraction currents
-            if isinstance(args[0], subtraction.Current):
+            if isinstance(args[0], subtraction.Current) or isinstance(args[0], subtraction.CurrentsBlock):
                 target_type = 'CurrentAccessor'
             # Check if the input match what is needed for a PythonAccessor namely that the first
             # two are ProcessInstance, (f2py_module_path, f2py_module_name)
@@ -746,9 +760,11 @@ class SubtractionCurrentAccessorCache(MEAccessorCache):
 class SubtractionCurrentAccessor(VirtualMEAccessor):
     """ A class wrapping the access to a particular set of mapped subtraction currents."""
 
+    # Note that most subtraction scheme implementations any return None for the cache_key which would in effect
+    # disable the cache.
     cache_active = False
 
-    def __init__(self, defining_current,
+    def __init__(self, defining_currents_block,
                        subtraction_scheme_name,
                        current_class_identifier,
                        relative_generic_module_path, 
@@ -766,7 +782,7 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
         # a the dump. root_path should not be saved since this will be updated whenever the
         # instance is reconstructed from a dump.
         self.initialization_inputs = {'args':[], 'opts':{}}
-        self.initialization_inputs['args'].append(defining_current)
+        self.initialization_inputs['args'].append(defining_currents_block)
         self.initialization_inputs['args'].append(subtraction_scheme_name)
         self.initialization_inputs['args'].append(current_class_identifier)
         self.initialization_inputs['args'].append(relative_generic_module_path)
@@ -777,7 +793,7 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
         self.initialization_inputs['opts'].update(opts)
                 
         # Now define the attributes for this particular subtraction current accessor.
-        self.defining_current = defining_current
+        self.defining_currents_block = defining_currents_block
         self.mapped_current_keys  = mapped_process_keys
         self.subtraction_scheme_name = subtraction_scheme_name
         self.relative_generic_module_path = relative_generic_module_path
@@ -849,7 +865,7 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
         """ Summary of the details of this Subtraction current accessor."""
         res = []
         res.append("%s: %s @ '%s'"%(self.__class__.__name__,self.subtraction_scheme_name, self.current_class_identifier))
-        res.append('Defining subtraction current: %s'%str(self.defining_current))
+        res.append('Defining subtraction currents block: (%s)'%(', '.join(str(crt) for crt in self.defining_currents_block)))
         return '\n'.join(res)
 
     def get_canonical_key_value_pairs(self):
@@ -865,7 +881,7 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
 
         return key_value_pairs
     
-    def check_inputs_validity(self, opts, current):
+    def check_inputs_validity(self, opts, currents_block):
         """ Check the validity of the inputs of the call to this current accessor."""
         
         # Work on a copy of the option dictionary, filtered from irrelevant keys
@@ -892,7 +908,7 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
             if squared_orders:
                 # This information must be passed via the 'squared_orders' attribute of the current,
                 # so we simply make sure that it is identical if specified and then remove it
-                if squared_orders != tuple(sorted(current.get('squared_orders').items())):
+                if squared_orders != tuple(sorted(currents_block.get_squared_orders().items())):
                     raise MadGraph5Error("The following subtraction current accessor:"+\
                         "\n%s\ncannot provide squared orders %s."%(
                             self.nice_string(), str(squared_orders)))
@@ -905,8 +921,15 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
 
         return self.subtraction_current_instance.evaluate_subtraction_current(*args, **opts)
 
-    def __call__(self, current, **opts):
+    def __call__(self, currents_block, **opts):
         """Evaluate the subtraction current."""
+
+        # Make sure that the currents_block passed is indeed a currents_block and not a single current instance
+        if not isinstance(currents_block, subtraction.CurrentsBlock) and isinstance(currents_block, subtraction.Current):
+            currents_block = subtraction.CurrentsBlock([currents_block,])
+        else:
+            raise MadGraph5Error("An instance of a SubtractionCurrentAccessor must be called with an instance of "+
+                                 "a subtraction current or current block as first argument.")
 
         instance = self.subtraction_current_instance
         
@@ -916,13 +939,12 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
                 "\nhas not been properly initialized." )
         
         # Parse options and check their validity
-        call_opts = self.check_inputs_validity(opts, current)
+        call_opts = self.check_inputs_validity(opts, currents_block)
 
         is_cache_active = opts.get('cache_active', self.cache_active)
         if is_cache_active:
             # Now obtain the cache key directly from the current implementation
-            cache_key, result_key = instance.get_cache_and_result_key(
-                current, **call_opts)
+            cache_key, result_key = instance.get_cache_and_result_key(currents_block, **call_opts)
         else:
             cache_key, result_key = None, None
     
@@ -935,7 +957,7 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
                 result = self.result_class(recycled_call)
                 return evaluation, result
 
-        all_evaluations = self.call_subtraction_current(current, **call_opts)
+        all_evaluations = self.call_subtraction_current(currents_block, **call_opts)
         
         if len(all_evaluations) == 1:
             return all_evaluations.values()[0], all_evaluations
@@ -943,8 +965,7 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
         # If there are several evaluations we need the result_key even in the absence
         # of caching, in which case it must be recomputed here.
         if result_key is None:
-            cache_key, result_key = instance.get_cache_and_result_key(
-                current, **call_opts)
+            cache_key, result_key = instance.get_cache_and_result_key(currents_block, **call_opts)
         
         evaluation_asked_for = all_evaluations.get_result(**result_key)
         if not evaluation_asked_for:
@@ -1660,7 +1681,7 @@ class F2PYMEAccessorMadLoop(F2PYMEAccessor):
         """
 
         permutation = opts['permutation']
-                
+
         # The mother class takes care of applying the permutations for the generic options
         PS_point, opts = VirtualMEAccessor.__call__(self, PS_point, **opts)
         new_opts = self.check_inputs_validity(opts)
@@ -1885,21 +1906,22 @@ class MEAccessorDict(dict):
            {'permutation': [1,0,2,3], 'process_pdgs': 'c c~ > g g'}
         """
 
-        if isinstance(key, subtraction.Current):
+        if isinstance(key, subtraction.Current) or isinstance(key, subtraction.CurrentsBlock):
             # Automatically convert the current to a ProcessKey
             accessor_key = key.get_key(track_leg_numbers=track_leg_numbers)
         elif isinstance(key, base_objects.Process):
             # Automatically convert the process to a ProcessKey
             accessor_key = ProcessKey(process=key, PDGs=pdgs if pdgs else [])
-        elif isinstance(key, ProcessKey):
+        elif isinstance(key, (ProcessKey, CompoundProcessKey)):
             accessor_key = key
         else:
-            raise MadGraph5Error("Key passed to get_MEAccessor should always be of type ProcessKey or base_objects.Process")
+            raise MadGraph5Error("Key passed to get_MEAccessor should always be of type ProcessKey or "+
+                                 "base_objects.Process, not %s"%(key.__class__.__name__))
 
         try:
             (ME_accessor, defining_pdgs_order) = super(MEAccessorDict, self).__getitem__(accessor_key.get_canonical_key())
         except KeyError:
-            raise MadGraph5Error("This collection of matrix elements does not contain process %s."%str(accessor_key.key_dict))
+            raise MadGraph5Error("This collection of matrix elements does not contain process %s."%str(accessor_key.get_key_dict()))
         
         if pdgs is None:
             # None indicates that no permutation will be necessary to apply
@@ -1992,12 +2014,27 @@ class MEAccessorDict(dict):
         # current in args[0]
         track_leg_numbers = opts.pop('track_leg_numbers',False)
 
-        assert (len(args)>0 and isinstance(args[0], (ProcessKey, base_objects.Process, subtraction.Current))), "When using the shortcut "+\
+        # The MEAccessor dict can be called in three different fashion:
+        # "accessor_key": an accessor key is directly supplied
+        # "process" : a process instance is given in argument
+        # "current" : a single current is given in arrgument
+        # "currents_block": a currents block is given in argument
+        call_type = None
+        if isinstance(args[0], ProcessKey):
+            call_type = 'accessor_key'
+        elif isinstance(args[0], subtraction.Current):
+            call_type = 'current'
+        elif isinstance(args[0], subtraction.CurrentsBlock):
+            call_type = 'currents_block'
+        elif isinstance(args[0], base_objects.Process):
+            call_type = 'process'
+        else:
+            raise MadGraph5Error("When using the shortcut "+\
             "__call__ method of MEAccessorDict, the first argument should be an instance of a ProcessKey or base_objects.Process or"+\
-            " subtraction.Current."
+            " subtraction.Current.")
 
         if self.cache_active and hasattr(args[0], 'accessor'):
-            if isinstance(args[0], subtraction.Current):
+            if call_type in ['current', 'currents_block'] :
                 return args[0].accessor(*args, **opts)
             elif isinstance(args[0], base_objects.Process):
                 if 'spin_correlations' not in opts or opts['spin_correlations'] is None:                
@@ -2022,7 +2059,7 @@ class MEAccessorDict(dict):
             desired_pdgs_order = call_options.pop('pdgs')
         
         specified_process_instance = None
-        if not isinstance(args[0], subtraction.Current) and isinstance(args[0], base_objects.Process):
+        if call_type=='process':
             # The user called this MEAccessorDictionary with a specific instance of a Process (not current), therefore
             # we must enforce the pdgs ordering specified in it (if not overwritten by the user).
             specified_process_instance = args[0]
@@ -2035,7 +2072,7 @@ class MEAccessorDict(dict):
         # Now for subtraction current accessors, we must pass the current as first argument
         call_args = list(args)
         if isinstance(ME_accessor, SubtractionCurrentAccessor):
-            if not isinstance(call_args[0], subtraction.Current):
+            if call_type not in ['current', 'currents_block']:
                 raise MadGraph5Error("SubtractionCurrentAccessors must be called from the accessor dictionary with "+
                                      "an instance of a current as first argument.")
         else:

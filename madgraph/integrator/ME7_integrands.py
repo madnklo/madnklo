@@ -24,6 +24,7 @@ import random
 import re
 import math
 import itertools
+from pprint import pformat
 
 import stat
 import subprocess
@@ -320,6 +321,78 @@ class ME7Event(object):
             else:
                 self.weights_per_flavor_configurations[flavors] = weight.get_term(term_name)
 
+    def convolve_initial_states(self, flavor_matrix):
+        """ Convolves the flavor matrix in argument (of the form:
+            {   start_flavor_a :  {  end_flavors_1 : wgt_x,
+                                     end_flavors_2 : wgt_y,
+                                     [...]
+                                 },
+                start_flavor_b :  {  end_flavors_1 : wgt_z,
+                                     end_flavors_2 : wgt_w,
+                                     [...]
+                                 },
+                [...]
+            }
+            where 'wgt_x' can be EpsilonExpansion instances.
+            and modifies self.weights_per_flavor_configurations with the convolved result.
+            leg index specifies which leg must be convolved.
+               (e.g. beam #1 corresponds to leg_index=0 and initial_state = True.
+            Note that end_flavors is a tuple of flavor with identical matrix elements (such as in q -> q g, which is flavor independent)
+
+            Finally each element of these flavor configurations is a 2-tuple indicating the flavor of each of the two beams,
+            however the flavor can also remain unspecified and set to None.
+
+            Example:
+            {   (21, None) :     {  ( (2, None),(-2, None),(1, None),(-1, None) ): wgt_x,
+                                    ( (21, None),) : wgt_y,
+                                    [...]
+                                 },
+                (21,2)     :     {  ( (2, 21),(-2, 21),(1, 21),(-1, 21) ) : wgt_z,
+                                     [...]
+                                 },
+                [...]
+            }
+        """
+
+        def substitute_initial_state_flavors(flavor_config_to_subsitute, new_flavors):
+            """ Substitute in the flavor config the convoluted flavor with the one in
+            argument and returns the corresponding new flavor configuration as a two tuples,
+            for the initial and final states respectively."""
+            return (
+                tuple([
+                    flavor_config_to_subsitute[0] if new_flavors[0] is None else new_flavors[0],
+                    flavor_config_to_subsitute[1] if new_flavors[1] is None else new_flavors[1],
+                ]),
+                flavor_config_to_subsitute[1]
+            )
+
+        if len(flavor_matrix) == 0:
+            # shortcut in case an empty convolutional flavor matrix is specified which can happen
+            # if the beam currents are zero but don't have the attribute is_zero = True
+            self.weights_per_flavor_configurations = {}
+            return
+
+        all_new_flavor_configurations = {}
+        for flavor_config, wgt in self.weights_per_flavor_configurations.items():
+            start_flavors = flavor_config[0]
+            for matrix_start_flavors, matrix_all_end_flavors in flavor_matrix.items():
+                if (matrix_start_flavors[0] in (None, start_flavors[0])) and (matrix_start_flavors[1] in (None, start_flavors[1])):
+                    new_flavor_configs = []
+                    for end_flavors, matrix_wgt in matrix_all_end_flavors.items():
+                        new_flavor_configs.extend([
+                            ( substitute_initial_state_flavors( flavor_config, (end_flavor_beam_one, end_flavor_beam_two) ),
+                              base_objects.EpsilonExpansion(matrix_wgt) * wgt )
+                            for end_flavor_beam_one, end_flavor_beam_two in  end_flavors ])
+
+                    for new_flavor_config, new_wgt in new_flavor_configs:
+                        try:
+                            all_new_flavor_configurations[new_flavor_config] += new_wgt
+                        except KeyError:
+                            all_new_flavor_configurations[new_flavor_config] = new_wgt
+
+        # Now assign the newly create flavor configurations
+        self.weights_per_flavor_configurations = all_new_flavor_configurations
+
     def convolve_flavors(self, flavor_matrix, leg_index, initial_state=True):
         """ Convolves the flavor matrix in argument (of the form: 
             {   start_flavor_a :  {  end_flavors_1 : wgt_x,
@@ -337,6 +410,7 @@ class ME7Event(object):
             leg index specifies which leg must be convolved.
                (e.g. beam #1 correpsonds to leg_index=0 and initial_state = True.
             Note that end_flavors is a tuple of flavor with identical matrix elements (such as in q -> q g, which is flavor independent)
+
         """
             
         def substitute_flavor(flavor_config, new_flavor):
@@ -1904,7 +1978,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
                 Bjorken_xs = (xb_1, xb_2)
         )
         convolved_event = self.convolve_event_with_beam_factorization_currents(event_to_convolve, 
-            process['beam_factorization'], PS_point, process, mu_r, mu_f1, mu_f2, xi1, xi2 )
+            process['beam_factorization'], PS_point, process, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2 )
         
         return convolved_event
     
@@ -1973,7 +2047,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         ])
 
     def convolve_event_with_beam_factorization_currents(self, input_event_to_convolve, 
-            beam_factorization_currents, PS_point, process, mu_r, mu_f1, mu_f2, xi1, xi2):
+            beam_factorization_currents, PS_point, process, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2):
         """ Calls the currents specified in the 'beam_factorization_currents' argument, of the form:
             [{ 'beam_one': <BeamCurrent>,
                'beam_two': <BeamCurrent> }]
@@ -1982,6 +2056,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
         class because it is useful both in ME7_integrand_R and ME7_integrand_V."""
 
         # Adjust the format of the input:
+        assert('correlated_convolution' not in beam_factorization_currents)
+        assert('non_factorisable_convolution' not in beam_factorization_currents)
         beam_factorization_currents = [
             (  bc['beam_one'],  bc['beam_two'] ) for bc in beam_factorization_currents ]
 
@@ -1991,46 +2067,60 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # BeamFactorization currents.
         Q = sum(p for i, p in enumerate(PS_point.to_list()) if i<self.n_initial)
 
+        xis = (xi1, xi2)
+        mu_fs = (mu_f1, mu_f2)
         convolved_event = None
-        for bc1, bc2 in beam_factorization_currents:
+        Bjorken_scalings = [None, None]
+        for bcs in beam_factorization_currents:
             event_to_convolve = input_event_to_convolve.get_copy()
-            if bc1 is not None:
-                assert(isinstance(bc1, subtraction.BeamCurrent) and bc1['distribution_type']=='bulk')
+            for bc in bcs:
+                if bc is None:
+                    continue
+                # This should be a physical contribution with therefore no distribution
+                assert(isinstance(bc, subtraction.BeamCurrent) and bc['distribution_type']=='bulk')
                 current_evaluation, all_current_results = self.all_MEAccessors(
-                    bc1, track_leg_numbers=self.accessor_tracks_leg_numbers,
-                    lower_PS_point=PS_point, reduced_process=process, xi=xi1, mu_r=mu_r, mu_f=mu_f1, Q=Q)
+                    bc, track_leg_numbers=self.accessor_tracks_leg_numbers, lower_PS_point=PS_point, reduced_process=process,
+                    xis=xis, mu_r=mu_r, mu_fs=mu_fs, Q=Q, allowed_backward_evolved_flavors='ALL' )
                 assert(current_evaluation['spin_correlations']==[None,])
                 assert(current_evaluation['color_correlations']==[None,])
-                event_to_convolve.convolve_flavors(
-                    base_objects.EpsilonExpansion(current_evaluation['values'][(0,0)]), leg_index=0 )
-            if bc2 is not None:
-                assert(isinstance(bc2, subtraction.BeamCurrent) and bc2['distribution_type']=='bulk')
-                current_evaluation, all_current_results = self.all_MEAccessors(
-                    bc2, track_leg_numbers=self.accessor_tracks_leg_numbers,
-                    lower_PS_point=PS_point, reduced_process=process, xi=xi2, mu_r=mu_r, mu_f=mu_f2, Q=Q)
-                assert(current_evaluation['spin_correlations']==[None,])
-                assert(current_evaluation['color_correlations']==[None,])
-                event_to_convolve.convolve_flavors(
-                       base_objects.EpsilonExpansion(current_evaluation['values'][(0,0)]), leg_index=1 )
-            # Check if the flavor matrix that multiplied this event was zero
+                if current_evaluation['values'].keys()!=[(0,0,0,0),]:
+                    raise MadGraph5Error("The beam factorisation currents attached to the physical 'matrix element' event"+
+                        " of a contribution must only involve a single value under key (0,0,0,0) in the evaluation they return.")
+                event_to_convolve.convolve_flavors( current_evaluation['values'][(0,0,0,0)] )
+                for beam_id in [0,1]:
+                    if current_evaluation['Bjorken_rescalings'][beam_id] is not None:
+                        if Bjorken_scalings[beam_id] is not None:
+                            if abs(Bjorken_scalings[beam_id]-current_evaluation['Bjorken_rescalings'][beam_id])\
+                                                                                /abs(Bjorken_scalings[beam_id]) > 1.0e-10:
+                                raise MadGraph5Error("MadNkLO does not support the combination of multiple different "+
+                                                                                                "beam Bjorken x's rescalings.")
+                        Bjorken_scalings[beam_id] = current_evaluation['Bjorken_rescalings'][beam_id]
+
+                # Check if the flavor matrix that multiplied this event was zero
+                if event_to_convolve.is_empty():
+                    break
             if event_to_convolve.is_empty():
-                return None
-            if convolved_event is None:
+                continue
+
+            if convolved_event:
                 convolved_event = event_to_convolve
             else:
                 # Combine the weights and flavor of the event obtained from this convolution
                 # with the ones obtained from the previous convolutions in this loop.
                 convolved_event += event_to_convolve
-        
-        # Determine Bjorken scalings.
-        assert( all(bc[0] is None for bc in beam_factorization_currents) or
-                all(bc[0] is not None for bc in beam_factorization_currents) )
-        Bjorken_scaling_beam_one = 1. if beam_factorization_currents[0][0] is None else 1./xi1
-        assert( all(bc[1] is None for bc in beam_factorization_currents) or
-                all(bc[1] is not None for bc in beam_factorization_currents) )
-        Bjorken_scaling_beam_two = 1. if beam_factorization_currents[0][1] is None else 1./xi2
+
+        if convolved_event is None or convolved_event.is_empty():
+            return None
+
+        Bjorken_scalings = [ (1. if bs is None else 1./bs) for bs in Bjorken_scalings]
+
+        # Now apply the bounds on the xb_i convolution due to the change of variable
+        if ((xb_1 is not None) and xb_1 > xi1) or ((xb_2 is not None) and xb_2 > xi2):
+            return None
+
         # Assign the Bjorken scaling found
-        convolved_event.set_Bjorken_rescalings(Bjorken_scaling_beam_one, Bjorken_scaling_beam_two)
+        convolved_event.set_Bjorken_rescalings(Bjorken_scalings[0], Bjorken_scalings[1])
+
         return convolved_event
 
 ##########################################################################################
@@ -2246,9 +2336,9 @@ class ME7Integrand_V(ME7Integrand):
         # initial_state momenta, before any mapping is applied.
         # Notice that the initial state momenta in mapped_PS_point include *both* the
         # Bjorken x's rescalings *and* the xi rescalings. However, what is factorised in the
-        # initial-state PS factorization is the sum of initial-state moment *without* the
+        # initial-state PS factorization is the sum of initial-state momenta *without* the
         # xi rescalings (see Eq.5.20 of https://arxiv.org/pdf/0903.1218.pdf),
-        # So we must divide here each momentum by the xi rescalings.
+        # So we must divide here each momenta by the corresponding xi rescalings.
         rescalings = (
             1. if xi1 is None else 1. / xi1,
             1. if xi2 is None else 1. / xi2,
@@ -2269,7 +2359,8 @@ class ME7Integrand_V(ME7Integrand):
         all_necessary_ME_calls, disconnected_currents_weight = ME7Integrand_R.generate_all_necessary_ME_calls(
             non_beam_factorization_currents, counterterm.process, reduced_PS,
             self.all_MEAccessors, self.accessor_tracks_leg_numbers,
-            compute_poles=compute_poles, leg_numbers_map = counterterm.momenta_dict, Q=total_incoming_momentum)
+            compute_poles=compute_poles, leg_numbers_map = counterterm.momenta_dict,
+            xis=(xi1, xi2), mu_fs=(mu_f1, mu_f2), mu_r=mu_r, Q=total_incoming_momentum)
 
         # For now integrated counterterms are supposed to return a single reduced kinematics with Non as identifier
         assert(len(all_necessary_ME_calls)==1)
@@ -2278,83 +2369,95 @@ class ME7Integrand_V(ME7Integrand):
 
         # We can now loop over the reduced kinematics produced by the currents:
         all_events = ME7EventList()
-        for reduced_kinematics_identifier, (reduced_kinematics, necessary_ME_calls) in all_necessary_ME_calls.items():
 
-            this_base_weight = base_weight
-            cut_weight = 1.0
+        for beam_currents in counterterm.get_beam_currents():
 
-            # Then evaluate the beam factorization currents
-            necessary_ME_calls = ME7Integrand_R.process_beam_factorization_currents(
-                necessary_ME_calls, counterterm.get_beam_currents(), self.all_MEAccessors,
-                self.accessor_tracks_leg_numbers,
-                reduced_PS, counterterm.process, xb_1, xb_2, xi1, xi2, mu_r, mu_f1, mu_f2, total_incoming_momentum,
-                allowed_backward_evolved_flavors1=allowed_backward_evolved_flavors1,
-                allowed_backward_evolved_flavors2=allowed_backward_evolved_flavors2)
-
-            # Now perform the combination of the list of spin- and color- correlators to be merged
-            # for each necessary ME call identified
-            necessary_ME_calls = ME7Integrand_R.merge_correlators_in_necessary_ME_calls(necessary_ME_calls)
-
-            # If there is no necessary ME call left, it is likely because the xi upper bound of the
-            # Bjorken x's convolution were not respected. We must now abort the event.
-            if len(necessary_ME_calls) == 0:
-                continue
-
-            if sector[0] is not None:
-                this_base_weight *= sector[0](reduced_PS, all_mapped_flavors[0],
-                                         counterterm_index=sector[1], input_mapping_index=sector[2])
-
-            # Finally treat the call to the reduced connected matrix elements
-            alpha_s = self.model.get('parameter_dict')['aS']
-            mu_r = self.model.get('parameter_dict')['MU_R']
-
-            #event_PS = reduced_PS.to_list(ordered_keys=[l.get('number') for l in counterterm.process.get('legs')])
-
-            template_event = ME7Event(
-                mapped_PS_point,
-                {fc: base_objects.EpsilonExpansion({0: cut_weight * this_base_weight}) for fc in all_mapped_flavors},
-                requires_mirroring=is_reduced_process_mirrored,
-                host_contribution_definition=self.contribution_definition,
-                counterterm_structure=(counterterm, resolved_flavors, reduced_kinematics_identifier),
-                Bjorken_xs=(xb_1, xb_2)
+            # Then evaluate the beam factorization currents this must be done for each reduced kinematics configuration
+            # so that it is important that whatever that can be cached in these currents is cached.
+            all_necessary_ME_calls_for_these_beam_currents = ME7Integrand_R.process_beam_factorization_currents(
+                all_necessary_ME_calls, counterterm.get_beam_currents(), self.all_MEAccessors,
+                self.accessor_tracks_leg_numbers, reduced_PS, counterterm.process, xb_1, xb_2,
+                xi1, xi2, mu_r, mu_f1, mu_f2, total_incoming_momentum,
+                allowed_backward_evolved_flavors1='ALL',
+                allowed_backward_evolved_flavors2='ALL'
             )
 
-            integrated_CT_event = ME7Integrand_R.generate_event_for_counterterm(
-                template_event,
-                disconnected_currents_weight,
-                counterterm.prefactor,
-                necessary_ME_calls,
-                counterterm.process,
-                reduced_PS,
-                alpha_s, mu_r,
-                self.all_MEAccessors
-            )
+            for reduced_kinematics_identifier, (reduced_kinematics, necessary_ME_calls) in \
+                                                            all_necessary_ME_calls_for_these_beam_currents.items():
 
-            # Immediately return the integrated CTevent if it is None (which can happen during the flavor
-            # convolution for instance:
-            if integrated_CT_event is None:
-                continue
+                this_base_weight = base_weight
+                cut_weight = 1.0
 
-            # Finally account for the integrated counterterm multiplicity
-            new_weights_per_flavor_configurations = {}
-            for fc, wgt in integrated_CT_event.weights_per_flavor_configurations.items():
-                # Account for both the overall symmetry factors S_t and the flavor symmetry factor
-                # identified when the contribution class built this counterterm
-                if fc in reduced_flavors_with_resolved_initial_states:
-                    # See comments at the beginning of this function as to how it may be that this
-                    # flavor configuration is not part of the 'reduced_flavors_with_resolved_initial_states'
-                    # and why it should then not be included.
-                    new_weights_per_flavor_configurations[fc] = \
-                        wgt * float(symmetry_factor) * reduced_flavors_with_resolved_initial_states[fc]
-            integrated_CT_event.weights_per_flavor_configurations = new_weights_per_flavor_configurations
-            # Make sure to crash if the Event is now empty since the lines above are not
-            # supposed to kill all flavor contributions of the event.
-            if integrated_CT_event.is_empty():
-                raise MadEvent7Error(
-                    "The post-flavor-convolution masking step disabled all flavor configuration for the " +
-                    " following integrated counterterm event. This should never happen.\n%s" % str(integrated_CT_event))
+                # Now perform the combination of the list of spin- and color- correlators to be merged
+                # for each necessary ME call identified
+                necessary_ME_calls = ME7Integrand_R.merge_correlators_in_necessary_ME_calls(necessary_ME_calls)
 
-            all_events.append(integrated_CT_event)
+                # If there is no necessary ME call left, it is likely because the xi upper bound of the
+                # Bjorken x's convolution were not respected. We must now abort the event.
+                if len(necessary_ME_calls) == 0:
+                    continue
+
+                # Immediately skip this contribution if it does not pass the boundary check
+                # This comes from the change of variable xb_i' = xb_i * xi_i
+                if ((xb_1 is not None) and xb_1 > 1./necessary_ME_calls['Bjorken_rescaling_beam_one']) or \
+                   ((xb_2 is not None) and xb_2 > 1./necessary_ME_calls['Bjorken_rescaling_beam_two']):
+                    continue
+
+                if sector[0] is not None:
+                    this_base_weight *= sector[0](reduced_PS, all_mapped_flavors[0],
+                                             counterterm_index=sector[1], input_mapping_index=sector[2])
+
+                # Finally treat the call to the reduced connected matrix elements
+                alpha_s = self.model.get('parameter_dict')['aS']
+                mu_r = self.model.get('parameter_dict')['MU_R']
+
+                #event_PS = reduced_PS.to_list(ordered_keys=[l.get('number') for l in counterterm.process.get('legs')])
+
+                template_event = ME7Event(
+                    mapped_PS_point,
+                    {fc: base_objects.EpsilonExpansion({0: cut_weight * this_base_weight}) for fc in all_mapped_flavors},
+                    requires_mirroring=is_reduced_process_mirrored,
+                    host_contribution_definition=self.contribution_definition,
+                    counterterm_structure=(counterterm, resolved_flavors, reduced_kinematics_identifier),
+                    Bjorken_xs=(xb_1, xb_2)
+                )
+
+                integrated_CT_event = ME7Integrand_R.generate_event_for_counterterm(
+                    template_event,
+                    disconnected_currents_weight,
+                    counterterm.prefactor,
+                    necessary_ME_calls,
+                    counterterm.process,
+                    reduced_PS,
+                    alpha_s, mu_r,
+                    self.all_MEAccessors
+                )
+
+                # Immediately return the integrated CTevent if it is None (which can happen during the flavor
+                # convolution for instance:
+                if integrated_CT_event is None:
+                    continue
+
+                # Finally account for the integrated counterterm multiplicity
+                new_weights_per_flavor_configurations = {}
+                for fc, wgt in integrated_CT_event.weights_per_flavor_configurations.items():
+                    # Account for both the overall symmetry factors S_t and the flavor symmetry factor
+                    # identified when the contribution class built this counterterm
+                    if fc in reduced_flavors_with_resolved_initial_states:
+                        # See comments at the beginning of this function as to how it may be that this
+                        # flavor configuration is not part of the 'reduced_flavors_with_resolved_initial_states'
+                        # and why it should then not be included.
+                        new_weights_per_flavor_configurations[fc] = \
+                            wgt * float(symmetry_factor) * reduced_flavors_with_resolved_initial_states[fc]
+                integrated_CT_event.weights_per_flavor_configurations = new_weights_per_flavor_configurations
+                # Make sure to crash if the Event is now empty since the lines above are not
+                # supposed to kill all flavor contributions of the event.
+                if integrated_CT_event.is_empty():
+                    raise MadEvent7Error(
+                        "The post-flavor-convolution masking step disabled all flavor configuration for the " +
+                        " following integrated counterterm event. This should never happen.\n%s" % str(integrated_CT_event))
+
+                all_events.append(integrated_CT_event)
 
         return all_events
         
@@ -3052,6 +3155,46 @@ class ME7Integrand_R(ME7Integrand):
         return tuple(combined)
 
     @classmethod
+    def flavor_matrices_sanity_check(cls, flavor_matrix):
+        """ Sanity check of a single flavor matrix to be applied. """
+
+        beam_one_active = False
+        beam_two_active = False
+        msg = None
+
+        for start_flavors, all_end_flavors in flavor_matrix.items():
+            beam_one_active = beam_one_active or (start_flavors[0] is not None)
+            beam_two_active = beam_two_active or (start_flavors[1] is not None)
+            for beam_id in [0,1]:
+                if ((start_flavors[beam_id] is None) and (not all( end_flavors[beam_id] is None for end_flavors in all_end_flavors.keys() ))) or \
+                   ((start_flavors[beam_id] is not None) and (not all( end_flavors[beam_id] is not None for end_flavors in all_end_flavors.keys() ))):
+                    return beam_one_active, beam_two_active, "Inconsistent flavor matrix: %s"%pformat(flavor_matrix)
+
+        return beam_one_active, beam_two_active, msg
+
+    @classmethod
+    def flavor_matrices_sanity_check(cls, flavor_matrices):
+        """ Sanity check of multiple flavor matrices to be combined. """
+
+        # Combining more than 2 flavor matrices should never make sense
+        if len(flavor_matrices)>2:
+            return 'MadNkLO does not support the combination of more than two beam convolution flavor matrices.'
+
+        # First assess the sanity of each matrix
+        found_beam_one_active = False
+        found_beam_two_active = False
+        for flavor_matrix in flavor_matrices:
+            beam_one_active, beam_two_active, msg = cls.flavor_matrix_sanity_check(flavor_matrix)
+            if msg is not None:
+                return msg
+            if (found_beam_one_active and beam_one_active) or (found_beam_two_active and beam_two_active):
+                return 'MadNkLO does not support the iterative application of flavor matrices affecting the same beam.'
+            found_beam_one_active = found_beam_one_active or beam_one_active
+            found_beam_two_active = found_beam_one_active or beam_two_active
+
+        return None
+
+    @classmethod
     def merge_correlators_in_necessary_ME_calls(cls, all_necessary_ME_calls):
         """ Merges the correlators defined the list of inputs to provide to the various calls
         to the reduced matrix elements specified by the argument all_necessary_ME_calls. """
@@ -3063,26 +3206,29 @@ class ME7Integrand_R(ME7Integrand):
             combined_color_correlators, multipliers = cls.combine_color_correlators(ME_call['color_correlations'])
 
             combined_weight = reduce(lambda x,y: x*y, ME_call['main_weights'])
-            flavor_matrices_beam_one = [fv for fv in ME_call['flavor_matrices_beam_one'] if fv is not None]
-            flavor_matrices_beam_two = [fv for fv in ME_call['flavor_matrices_beam_two'] if fv is not None]
-            if len(flavor_matrices_beam_one)>1 or len(flavor_matrices_beam_two)>1:
-                raise MadGraph5Error("MadNkLO currently does not support the combination of multiple beam convolution flavor matrices.")
-            flavor_matrix_beam_one = flavor_matrices_beam_one[0] if len(flavor_matrices_beam_one)==1 else None
-            flavor_matrix_beam_two = flavor_matrices_beam_two[0] if len(flavor_matrices_beam_two)==1 else None
+            flavor_matrices = [fv for fv in ME_call['flavor_matrix'] if fv is not None]
+            # Now perform a sanity check of the flavor matrices
+            msg = cls.flavor_matrices_sanity_check(flavor_matrices)
+            if msg is not None:
+                raise MadGraph5Error(msg)
             Bjorken_rescalings_beam_one = [br for br in ME_call['Bjorken_rescalings_beam_one'] if br is not None]
             Bjorken_rescalings_beam_two = [br for br in ME_call['Bjorken_rescalings_beam_two'] if br is not None]
-            if len(Bjorken_rescalings_beam_one)>1 or len(Bjorken_rescalings_beam_two)>1:
-                raise MadGraph5Error("MadNkLO currently does not support the combination of multiple beam Bjorken x's rescalings.")
-            Bjorken_rescaling_beam_one = Bjorken_rescalings_beam_one[0] if len(Bjorken_rescalings_beam_one)==1 else 1.0
-            Bjorken_rescaling_beam_two = Bjorken_rescalings_beam_two[0] if len(Bjorken_rescalings_beam_two)==1 else 1.0
+            # Make sure beam rescalings are either unique or equal.
+            for beam_rescalings in [Bjorken_rescalings_beam_one, Bjorken_rescalings_beam_two]:
+                if len(beam_rescalings)>1:
+                    if not all( (abs(rescaling-beam_rescalings[0])/abs(beam_rescalings[0])) < 1.0e-10 for rescaling in beam_rescalings ):
+                        raise MadGraph5Error("MadNkLO does not support the combination of multiple different "+
+                                                                                            "beam Bjorken x's rescalings.")
+            Bjorken_rescaling_beam_one = Bjorken_rescalings_beam_one[0] if len(Bjorken_rescalings_beam_one)>=1 else 1.0
+            Bjorken_rescaling_beam_two = Bjorken_rescalings_beam_two[0] if len(Bjorken_rescalings_beam_two)>=1 else 1.0
+
             for combined_color_correlator, multiplier in zip(combined_color_correlators,multipliers):
                 # Finally add the processed combination as a new ME call
                 new_all_necessary_ME_calls.append(
                     {   'spin_correlation'            : combined_spin_correlator,
                         'color_correlation'           : combined_color_correlator,
                         'main_weight'                 : combined_weight*multiplier,
-                        'flavor_matrix_beam_one'      : flavor_matrix_beam_one,
-                        'flavor_matrix_beam_two'      : flavor_matrix_beam_two,
+                        'flavor_matrices'             : flavor_matrices,
                         'Bjorken_rescaling_beam_one'  : Bjorken_rescaling_beam_one,
                         'Bjorken_rescaling_beam_two'  : Bjorken_rescaling_beam_two,
                     },
@@ -3092,8 +3238,7 @@ class ME7Integrand_R(ME7Integrand):
 
     @classmethod
     def update_all_necessary_ME_calls_for_specific_reduced_kinematics(cls,
-            necessary_ME_calls_fixed_kinematics, new_evaluation_fixed_kinematics, weight_type='main_weight',
-            Bjorken_rescaling_beam_one=None, Bjorken_rescaling_beam_two=None):
+            necessary_ME_calls_fixed_kinematics, new_evaluation_fixed_kinematics, weight_type='main_weight'):
         """ Combined previous current evaluation with the new one in argument so as to setup
         the input of the matrix elements to be computed. The current type can be either:
             'main_weight', 'flavor_matrices_beam_one', 'flavor_matrices_beam_two'
@@ -3103,10 +3248,12 @@ class ME7Integrand_R(ME7Integrand):
         """
 
         new_necessary_ME_calls = []
-        for ((spin_index, color_index), current_wgt) in new_evaluation_fixed_kinematics['values'].items():
+        for ((spin_index, color_index, bjorken_rescalings_index), current_wgt) in new_evaluation_fixed_kinematics['values'].items():
             # Now combine the correlators necessary for this current
             # with those already specified in 'all_necessary_ME_calls'
             for ME_call in necessary_ME_calls_fixed_kinematics:
+                rescaling_one = new_evaluation_fixed_kinematics['Bjorken_rescalings'][bjorken_rescalings_index][0]
+                rescaling_two = new_evaluation_fixed_kinematics['Bjorken_rescalings'][bjorken_rescalings_index][1]
                 new_necessary_ME_calls.append({
                     # Append this spin correlation to those already present for that call
                     'spin_correlations': ME_call['spin_correlations'] + [new_evaluation_fixed_kinematics['spin_correlations'][spin_index], ],
@@ -3114,15 +3261,13 @@ class ME7Integrand_R(ME7Integrand):
                     'color_correlations': ME_call['color_correlations'] + [
                         new_evaluation_fixed_kinematics['color_correlations'][color_index], ],
                     # Append this weight to those already present for that call
-                    'main_weights': ME_call['main_weights'] + [base_objects.EpsilonExpansion(current_wgt) if
-                                                               weight_type == 'main_weight' else base_objects.EpsilonExpansion(
-                        {'finite': 1.0})],
-                    'flavor_matrices_beam_one': ME_call['flavor_matrices_beam_one'] + [
-                        current_wgt if weight_type == 'flavor_matrix_beam_one' else None],
-                    'flavor_matrices_beam_two': ME_call['flavor_matrices_beam_two'] + [
-                        current_wgt if weight_type == 'flavor_matrix_beam_two' else None],
-                    'Bjorken_rescalings_beam_one': ME_call['Bjorken_rescalings_beam_one'] + [Bjorken_rescaling_beam_one, ],
-                    'Bjorken_rescalings_beam_two': ME_call['Bjorken_rescalings_beam_two'] + [Bjorken_rescaling_beam_two, ],
+                    'main_weights': ME_call['main_weights'] + [ base_objects.EpsilonExpansion(current_wgt) if
+                            weight_type == 'main_weight' else base_objects.EpsilonExpansion({'finite': 1.0}) ],
+                    'flavor_matrix': ME_call['flavor_matrix'] + [ current_wgt if weight_type == 'flavor_matrix' else None ],
+                    'Bjorken_rescaling_beam_one' : ME_call['Bjorken_rescaling_beam_one'] + [
+                                None if rescaling_one is None else 1./rescaling_one,],
+                    'Bjorken_rescaling_beam_two' : ME_call['Bjorken_rescaling_beam_two'] + [
+                                None if rescaling_two is None else 1. / rescaling_two,],
                 })
         return new_necessary_ME_calls
 
@@ -3136,14 +3281,15 @@ class ME7Integrand_R(ME7Integrand):
         This combination is done across all specified reduced kinematics.
         """
 
-        # Firs breakdown the current evaluation into chunks for each different reduced kinematics
+        # First breakdown the current evaluation into chunks for each different reduced kinematics
         current_evaluation_per_reduced_kinematics = {}
-        for ((spin_index, color_index, reduced_kinematics_index), current_wgt) in new_evaluation['values'].items():
+        for ((spin_index, color_index, bjorken_rescalings_index,reduced_kinematics_index), current_wgt) in new_evaluation['values'].items():
             if reduced_kinematics_index not in current_evaluation_per_reduced_kinematics:
                 current_evaluation_per_reduced_kinematics[reduced_kinematics_index] = dict(new_evaluation)
                 # We want to overwrite the values as the reduced_kinematics index is treated externally
                 current_evaluation_per_reduced_kinematics[reduced_kinematics_index]['values'] = {}
-            current_evaluation_per_reduced_kinematics[reduced_kinematics_index]['values'][(spin_index, color_index)] = current_wgt
+            current_evaluation_per_reduced_kinematics[reduced_kinematics_index]['values']\
+                                                [(spin_index, color_index, bjorken_rescalings_index)] = current_wgt
 
         # Now make sure that we will not be combining reduced kinematics from different currents
         # This check is redundant with he one done below
@@ -3164,10 +3310,12 @@ class ME7Integrand_R(ME7Integrand):
                     new_reduced_kinematics_identifier = new_evaluation['reduced_kinematics'][reduced_kinematics_index][0]
                     new_reduced_kinematics = new_evaluation['reduced_kinematics'][reduced_kinematics_index][1]
                 else:
-                    raise MadEvent7Error("MadNkLO cannot combine several subtraction currents that each return mapped kinematics.")
+                    # Note: in subtraction scheme where one may want to combine the rescalings
+                    raise MadEvent7Error(
+                        "MadNkLO cannot combine several subtraction currents evaluation that each different return mapped kinematics.")
 
                 new_necessary_ME_calls = cls.update_all_necessary_ME_calls_for_specific_reduced_kinematics(
-                                                                        necessary_ME_calls , current_evaluation, **opts)
+                                                                    necessary_ME_calls , current_evaluation, **opts)
 
                 new_all_necessary_ME_calls[new_reduced_kinematics_identifier] = (new_reduced_kinematics, new_necessary_ME_calls)
 
@@ -3175,88 +3323,68 @@ class ME7Integrand_R(ME7Integrand):
         return new_all_necessary_ME_calls
 
     @classmethod
-    def process_beam_factorization_currents(cls, all_necessary_ME_calls, all_beam_currents, 
+    def process_beam_factorization_currents(cls, all_necessary_ME_calls, beam_currents,
                      all_MEAccessors, track_leg_numbers, PS_point, process, xb_1, xb_2, xi1, xi2, mu_r, mu_f1, mu_f2, Q,
                      allowed_backward_evolved_flavors1='ALL',
                      allowed_backward_evolved_flavors2='ALL'):
         """ Calls the beam currents specified in the argument all_beam_currents with format:
               [{       'beam_one': <BeamCurrent>,
                        'beam_two': <BeamCurrent>,
-           <optional>  'correlated_convolution' : <beam_current>
+           <optional>  'correlated_convolution'       : <beam_current>,
+           <optional>  'non_factorisable_convolution' : <beam_current>
                }]
         and combine their evaluation with the list of already existing inputs provided in
         the list of all_necessary_ME_calls. The two options allowed_backward_evolved_flavors<i>
         allow to specify to the BeamCurrents a mask to apply, selecting only particular
         flavors that the current can backward evolve onto."""
 
-        new_all_necessary_ME_calls = []
-        for beam_currents in all_beam_currents:
-            new_necessary_ME_calls = list(all_necessary_ME_calls)
-            if beam_currents['beam_one'] is not None:
-                if isinstance(beam_currents['beam_one'], subtraction.BeamCurrent) and \
-                                    beam_currents['beam_one']['distribution_type']=='bulk':
-                    rescaling = 1./xi1
-                    # Additionally, when convoluting a 'bulk' distribution,
-                    # which is devoid of delta function, we must make sure to enforce the boundaries
-                    # of the Bjorken x's convolution to be xi1 (because of the change of variable xi1' = xb_1*xi1)
-                    # (for the 'counterterm' type of distribution, their delta puts this boundary to one).
-                    if xb_1 > xi1:
-                        # Skip this convolution current
-                        continue
-                else:
-                    rescaling = 1.
-                current_evaluation, all_current_results = all_MEAccessors(beam_currents['beam_one'],
-                    track_leg_numbers=track_leg_numbers, lower_PS_point=PS_point, reduced_process=process, xi=xi1,
-                    mu_r=mu_r, mu_f=mu_f1, Q=Q, allowed_backward_evolved_flavors = allowed_backward_evolved_flavors1)
+        xis = (xi1, xi2)
+        mu_fs = (mu_f1, mu_f2)
+        allowed_backward_evolved_flavors = (allowed_backward_evolved_flavors1, allowed_backward_evolved_flavors2)
 
-                new_necessary_ME_calls = ME7Integrand_R.update_all_necessary_ME_calls_for_specific_reduced_kinematics(
-                    new_necessary_ME_calls, current_evaluation,
-                    weight_type='flavor_matrix_beam_one', Bjorken_rescaling_beam_one = rescaling)
-            if beam_currents['beam_two'] is not None:
-                if isinstance(beam_currents['beam_two'], subtraction.BeamCurrent) and \
-                                    beam_currents['beam_two']['distribution_type']=='bulk':
-                    rescaling = 1./xi2
-                    # Apply boundary conditions of bulk counterterms
-                    if xb_2 > xi2:
-                        # Skip this convolution current
-                        continue
-                else:
-                    rescaling = 1.
-                current_evaluation, all_current_results = all_MEAccessors(beam_currents['beam_two'],
-                    track_leg_numbers=track_leg_numbers, lower_PS_point=PS_point, reduced_process=process, xi=xi2,
-                    mu_r=mu_r, mu_f=mu_f2, Q=Q, allowed_backward_evolved_flavors = allowed_backward_evolved_flavors2)
-                new_necessary_ME_calls = ME7Integrand_R.update_all_necessary_ME_calls_for_specific_reduced_kinematics(
-                    new_necessary_ME_calls, current_evaluation,  
-                    weight_type='flavor_matrix_beam_two', Bjorken_rescaling_beam_two = rescaling)
-            if 'correlated_convolution' in beam_currents and beam_currents['correlated_convolution'] is not None:
-                if beam_currents['beam_one'] is not None or beam_currents['beam_two'] is not None:
-                    raise MadGraph5Error('MadNkLO does not support the specification of both a current'+
-                        ' requiring correlated beam convolution with one-sided convolution currents.')
-                if (not isinstance(beam_currents['correlated_convolution'], 
-                            subtraction.IntegratedBeamCurrent)) and (xi1 != xi2 or xi1 is None):
-                    raise MadGraph5Error('Currents requiring correlated beam convolutions must be'
-                        ' evaluated within a contribution in which xi1 == xi2 and different than None.')
-                # By convention we pass here the factorization scale mu_f1 and not mu_f2, but that should be irrelevant 
-                # since such counterterms are in no way related to the PDF evolution or ISR factorization in general
-                current_evaluation, all_current_results = all_MEAccessors(beam_currents['correlated_convolution'],
-                    track_leg_numbers=track_leg_numbers, lower_PS_point=PS_point, reduced_process=process, xi=xi1,
-                    mu_r=mu_r, mu_f=mu_f1, Q=Q)
-                if isinstance(beam_currents['correlated_convolution'], subtraction.BeamCurrent) and \
-                                beam_currents['correlated_convolution']['distribution_type']=='bulk':
-                    rescaling = 1./xi1
-                    # Apply boundary conditions of bulk counterterms
-                    if xb_1 > xi1 or xb_2 > xi2:
-                        # Skip this convolution current
-                        continue
-                else:
-                    rescaling = 1.
-                new_necessary_ME_calls = ME7Integrand_R.update_all_necessary_ME_calls_for_specific_reduced_kinematics(
-                    new_necessary_ME_calls, current_evaluation,  
-                    weight_type='main_weight', 
-                    Bjorken_rescaling_beam_one = rescaling,
-                    Bjorken_rescaling_beam_two = rescaling)
-                
-            new_all_necessary_ME_calls.extend(new_necessary_ME_calls)
+        new_all_necessary_ME_calls = dict(all_necessary_ME_calls)
+
+        beam_currents_to_call = []
+
+        if beam_currents['beam_one'] is not None:
+            beam_currents_to_call.append(beam_currents['beam_one'])
+
+        if beam_currents['beam_two'] is not None:
+            beam_currents_to_call.append(beam_currents['beam_two'])
+
+        if 'correlated_convolution' in beam_currents and beam_currents['correlated_convolution'] is not None:
+
+            if beam_currents['beam_one'] is not None or beam_currents['beam_two'] is not None:
+                raise MadGraph5Error('MadNkLO does not support the specification of both a current'+
+                    ' requiring correlated beam convolution with one-sided convolution currents.')
+
+            if (not isinstance(beam_currents['correlated_convolution'],
+                        subtraction.IntegratedBeamCurrent)) and (xi1 != xi2 or xi1 is None):
+                raise MadGraph5Error('Currents requiring correlated beam convolutions must be'
+                    ' evaluated within a contribution in which xi1 == xi2 and different than None.')
+
+            beam_currents_to_call.append(beam_currents['correlated_convolution'])
+
+        if 'non_factorisable_convolution' in beam_currents and beam_currents['non_factorisable_convolution'] is not None:
+
+            if beam_currents['beam_one'] is not None or beam_currents['beam_two'] is not None:
+                raise MadGraph5Error('MadNkLO does not support the specification of both a current'+
+                    ' requiring a non-factorisable beam convolution with one-sided convolution currents.')
+
+            beam_currents_to_call.append(beam_currents['non_factorisable_convolution'])
+
+        for beam_current in beam_currents_to_call:
+
+            current_evaluation, all_current_results = all_MEAccessors(beam_current,
+                track_leg_numbers=track_leg_numbers, higher_PS_point=PS_point, reduced_process=process,
+                mu_r=mu_r, mu_fs=mu_fs, xis=xis, Q=Q,
+                allowed_backward_evolved_flavors = allowed_backward_evolved_flavors)
+
+            # Now veto values if it does not pas
+
+            new_all_necessary_ME_calls = ME7Integrand_R.update_all_necessary_ME_calls(
+                                    new_all_necessary_ME_calls, current_evaluation, weight_type='flavor_matrix' )
+
         return new_all_necessary_ME_calls
 
     def evaluate_local_counterterm(
@@ -3305,144 +3433,152 @@ class ME7Integrand_R(ME7Integrand):
         all_necessary_ME_calls, disconnected_currents_weight = ME7Integrand_R.generate_all_necessary_ME_calls(
             non_beam_factorization_currents, ME_process, PS_point,
             self.all_MEAccessors, self.accessor_tracks_leg_numbers,
-            momenta_dict = counterterm.momenta_dict, Q=total_incoming_momentum)
+            momenta_dict = counterterm.momenta_dict,
+            xis=(xi1, xi2), mu_fs=(mu_f1, mu_f2), mu_r=mu_r, Q=total_incoming_momentum)
 
         n_unresolved_left = self.contribution_definition.n_unresolved_particles
         n_unresolved_left -= counterterm.count_unresolved()
 
         # We can now loop over the reduced kinematics produced by the currents:
         all_events = ME7EventList()
-        for reduced_kinematics_identifier, (reduced_kinematics, necessary_ME_calls) in all_necessary_ME_calls.items():
 
-            # Make sure to skip this configuration if zero because counterterm is cut, unless one must always generate
-            # an event
-            if reduced_kinematics_identifier=='IS_CUT':
-                if not always_generate_event:
-                    continue
-                else:
-                    reduced_kinematics_identifier = None
-
-            this_base_weight = base_weight
-
-            # Now that all currents have been evaluated using the PS points with initial-state
-            # momenta that can be boosted because of initial-collinear mappings, we must boost
-            # back in the c.o.m frame the PS point that will be used for generating the
-            # ME7Event as well as for calling the reduced ME.
-            # First avoid possible border effects by making a copy (should be removed for performance
-            # gain, after it is checked to be safe).
-            # And now boost it back in the c.o.m frame.
-            if boost_back_to_com:
-                reduced_kinematics.boost_to_com(tuple([l.get('number') for l in counterterm.process.get_initial_legs()]))
-
-            # Generate what is the kinematics (reduced_PS) returned as a list
-            # and the reduced_flavors for this counterterm by using the default reduced flavors
-            # originating from the defining process and the real-emission kinematics dictionary
-            reduced_kinematics_as_list, reduced_flavors = counterterm.get_reduced_quantities(reduced_kinematics, defining_flavors=None)
-
-            cut_weight = 1.
-            if apply_flavour_blind_cuts and not self.pass_flavor_blind_cuts(
-                    reduced_kinematics_as_list, reduced_flavors, xb_1=xb_1, xb_2=xb_2,
-                    n_jets_allowed_to_be_clustered=n_unresolved_left):
-                # this configuration must be skipped
-                if not always_generate_event:
-                    continue
-                else:
-                    cut_weight = 0.
-
-            # Now apply the sectoring function if specified
-            if sector[0] is not None:
-                this_base_weight *= sector[0](reduced_PS, reduced_flavors,
-                                              counterterm_index=sector[1], input_mapping_index=-1)
+        for beam_currents in counterterm.get_beam_currents():
 
             # Then evaluate the beam factorization currents this must be done for each reduced kinematics configuration
             # so that it is important that whatever that can be cached in these currents is cached.
-            necessary_ME_calls = ME7Integrand_R.process_beam_factorization_currents(
-                necessary_ME_calls, counterterm.get_beam_currents(), self.all_MEAccessors,
-                self.accessor_tracks_leg_numbers,
-                reduced_kinematics, ME_process, xb_1, xb_2, xi1, xi2, mu_r, mu_f1, mu_f2, total_incoming_momentum)
+            all_necessary_ME_calls_for_these_beam_currents = ME7Integrand_R.process_beam_factorization_currents(
+                all_necessary_ME_calls, counterterm.get_beam_currents(), self.all_MEAccessors,
+                self.accessor_tracks_leg_numbers, reduced_kinematics, ME_process, xb_1, xb_2,
+                xi1, xi2, mu_r, mu_f1, mu_f2, total_incoming_momentum)
 
-            # If there is no necessary ME call left, it is likely because the xi upper bound of the
-            # Bjorken x's convolution were not respected. We must now abort the event.
-            if len(necessary_ME_calls) == 0:
-                if not always_generate_event:
-                    return None
-                else:
-                    cut_weight = 0.
+            for reduced_kinematics_identifier, (reduced_kinematics, necessary_ME_calls) in \
+                                                            all_necessary_ME_calls_for_these_beam_currents.items():
 
-            # Now perform the combination of the list of spin- and color- correlators to be merged
-            # for each necessary ME call identified
-            necessary_ME_calls = ME7Integrand_R.merge_correlators_in_necessary_ME_calls(necessary_ME_calls)
+                cut_weight = 1.
 
-            # Finally treat the call to the reduced connected matrix elements
-            #            misc.sprint('I got for %s:'%str(counterterm.nice_string()))
-            alpha_s = self.model.get('parameter_dict')['aS']
-            mu_r = self.model.get('parameter_dict')['MU_R']
+                # Now perform the combination of the list of spin- and color- correlators to be merged
+                # for each necessary ME call identified
+                necessary_ME_calls = ME7Integrand_R.merge_correlators_in_necessary_ME_calls(necessary_ME_calls)
 
-            # Compute all the reduced flavor configurations for this counterterm
-            all_reduced_flavors = [counterterm.get_reduced_flavors(resolved_flavors)
-                                   for resolved_flavors in all_resolved_flavors]
+                if len(necessary_ME_calls) == 0:
+                    reduced_kinematics_identifier = 'IS_CUT'
 
-            # VERY IMPORTANT: We must convolve the counter-event with the initial state PDFs
-            # corresponding to the *RESOLVED* flavors, and the flavour_sensitive_cuts also
-            # applied on the resolved flavors (since for the initial-state the cuts are basically
-            # use to select particular PDF components). The correct thing to do is to overwrite
-            # the initial states flavors to *always* match their resolve counterpart.
-            # The counterpart of this is that the integrated collinear initial-state counterterms
-            # will get their initial state flavor backward evolved to also match the initial
-            # states of this local counterterm, so that the cancellation between local and integrated
-            # collinear counterterm is maintained. Of coure this plays no role for purely final-state
-            # counterterms.
-            all_reduced_flavored_with_initial_states_substituted = []
-            for i_config, reduced_flavors in enumerate(all_reduced_flavors):
-                all_reduced_flavored_with_initial_states_substituted.append(
-                    (all_resolved_flavors[i_config][0], reduced_flavors[1]))
+                # Immediately skip this contribution if it does not pass the boundary check
+                # This comes from the change of variable xb_i' = xb_i * xi_i
+                if ((xb_1 is not None) and xb_1 > 1./necessary_ME_calls['Bjorken_rescaling_beam_one']) or \
+                   ((xb_2 is not None) and xb_2 > 1./necessary_ME_calls['Bjorken_rescaling_beam_two']):
+                    reduced_kinematics_identifier = 'IS_CUT'
+
+                # Make sure to skip this configuration if zero because counterterm is cut, unless one must always generate
+                # an event
+                if reduced_kinematics_identifier=='IS_CUT':
+                    if not always_generate_event:
+                        continue
+                    else:
+                        # Force the even to have zero weight then but still generate it
+                        cut_weight = 0.
+                        reduced_kinematics_identifier = None
+
+                this_base_weight = base_weight
+
+                # Now that all currents have been evaluated using the PS points with initial-state
+                # momenta that can be boosted because of initial-collinear mappings, we must boost
+                # back in the c.o.m frame the PS point that will be used for generating the
+                # ME7Event as well as for calling the reduced ME.
+                # First avoid possible border effects by making a copy (should be removed for performance
+                # gain, after it is checked to be safe).
+                # And now boost it back in the c.o.m frame.
+                if boost_back_to_com:
+                    reduced_kinematics.boost_to_com(tuple([l.get('number') for l in counterterm.process.get_initial_legs()]))
+
+                # Generate what is the kinematics (reduced_PS) returned as a list
+                # and the reduced_flavors for this counterterm by using the default reduced flavors
+                # originating from the defining process and the real-emission kinematics dictionary
+                reduced_kinematics_as_list, reduced_flavors = counterterm.get_reduced_quantities(reduced_kinematics, defining_flavors=None)
+
+                if apply_flavour_blind_cuts and not self.pass_flavor_blind_cuts(
+                        reduced_kinematics_as_list, reduced_flavors, xb_1=xb_1, xb_2=xb_2,
+                        n_jets_allowed_to_be_clustered=n_unresolved_left):
+                    # this configuration must be skipped
+                    if not always_generate_event:
+                        continue
+                    else:
+                        cut_weight = 0.
+
+                # Now apply the sectoring function if specified
+                if sector[0] is not None:
+                    this_base_weight *= sector[0](reduced_kinematics, reduced_flavors, counterterm_index=sector[1], input_mapping_index=-1)
+
+                # Finally treat the call to the reduced connected matrix elements
+                #            misc.sprint('I got for %s:'%str(counterterm.nice_string()))
+                alpha_s = self.model.get('parameter_dict')['aS']
+                mu_r = self.model.get('parameter_dict')['MU_R']
+
+                # Compute all the reduced flavor configurations for this counterterm
+                all_reduced_flavors = [counterterm.get_reduced_flavors(resolved_flavors)
+                                       for resolved_flavors in all_resolved_flavors]
+
+                # VERY IMPORTANT: We must convolve the counter-event with the initial state PDFs
+                # corresponding to the *RESOLVED* flavors, and the flavour_sensitive_cuts also
+                # applied on the resolved flavors (since for the initial-state the cuts are basically
+                # use to select particular PDF components). The correct thing to do is to overwrite
+                # the initial states flavors to *always* match their resolve counterpart.
+                # The counterpart of this is that the integrated collinear initial-state counterterms
+                # will get their initial state flavor backward evolved to also match the initial
+                # states of this local counterterm, so that the cancellation between local and integrated
+                # collinear counterterm is maintained. Of coure this plays no role for purely final-state
+                # counterterms.
+                all_reduced_flavored_with_initial_states_substituted = []
+                for i_config, reduced_flavors in enumerate(all_reduced_flavors):
+                    all_reduced_flavored_with_initial_states_substituted.append(
+                        (all_resolved_flavors[i_config][0], reduced_flavors[1]))
 
 
-            # Certain identical reduced flavor combinations can arise multiple times from different resolved ones,
-            # for instance the process e+ e- > u d u~ d~ has four mapped configurations:
-            #    -11 11 -> 2 1 -2 -1
-            #    -11 11 -> 2 3 -2 -3
-            #    -11 11 -> 4 1 -4 -1
-            #    -11 11 -> 4 3 -4 -3
-            # Which however yields only two mapped flavour configurations, each appearing twice:
-            #    -11 11 -> 1 -1 21
-            #    -11 11 -> 3 -3 21
-            # It is important then to keep this multiplicity factor
-            all_unique_reduced_flavored_with_initial_states_substituted = {}
-            for fc in all_reduced_flavored_with_initial_states_substituted:
-                if fc in all_unique_reduced_flavored_with_initial_states_substituted:
-                    all_unique_reduced_flavored_with_initial_states_substituted[fc] += 1.0
-                else:
-                    all_unique_reduced_flavored_with_initial_states_substituted[fc] = 1.0
+                # Certain identical reduced flavor combinations can arise multiple times from different resolved ones,
+                # for instance the process e+ e- > u d u~ d~ has four mapped configurations:
+                #    -11 11 -> 2 1 -2 -1
+                #    -11 11 -> 2 3 -2 -3
+                #    -11 11 -> 4 1 -4 -1
+                #    -11 11 -> 4 3 -4 -3
+                # Which however yields only two mapped flavour configurations, each appearing twice:
+                #    -11 11 -> 1 -1 21
+                #    -11 11 -> 3 -3 21
+                # It is important then to keep this multiplicity factor
+                all_unique_reduced_flavored_with_initial_states_substituted = {}
+                for fc in all_reduced_flavored_with_initial_states_substituted:
+                    if fc in all_unique_reduced_flavored_with_initial_states_substituted:
+                        all_unique_reduced_flavored_with_initial_states_substituted[fc] += 1.0
+                    else:
+                        all_unique_reduced_flavored_with_initial_states_substituted[fc] = 1.0
 
-            # Now the phase-space point stored in the event generated is not a dictionary but
-            # a LorentzVectorList which must be ordered exactly like the flavor configurations
-            # in it are.
-            event_PS = reduced_kinematics.to_list(ordered_keys=[l.get('number') for l in counterterm.process.get('legs')])
+                # Now the phase-space point stored in the event generated is not a dictionary but
+                # a LorentzVectorList which must be ordered exactly like the flavor configurations
+                # in it are.
+                event_PS = reduced_kinematics.to_list(ordered_keys=[l.get('number') for l in counterterm.process.get('legs')])
 
-            template_event = ME7Event(
-                event_PS,
-                {fc: cut_weight * this_base_weight * multiplicity
-                 for fc, multiplicity in all_unique_reduced_flavored_with_initial_states_substituted.items()},
-                requires_mirroring=is_process_mirrored,
-                host_contribution_definition=self.contribution_definition,
-                counterterm_structure=(counterterm, all_resolved_flavors, reduced_kinematics_identifier),
-                Bjorken_xs=(xb_1, xb_2)
-            )
+                template_event = ME7Event(
+                    event_PS,
+                    {fc: cut_weight * this_base_weight * multiplicity
+                     for fc, multiplicity in all_unique_reduced_flavored_with_initial_states_substituted.items()},
+                    requires_mirroring=is_process_mirrored,
+                    host_contribution_definition=self.contribution_definition,
+                    counterterm_structure=(counterterm, all_resolved_flavors, reduced_kinematics_identifier),
+                    Bjorken_xs=(xb_1, xb_2)
+                )
 
-            CT_event = ME7Integrand_R.generate_event_for_counterterm(
-                template_event,
-                disconnected_currents_weight,
-                counterterm.prefactor,
-                necessary_ME_calls,
-                ME_process,
-                reduced_kinematics_as_list,
-                alpha_s, mu_r,
-                self.all_MEAccessors,
-                always_generate_event = always_generate_event
-            )
-            if CT_event is not None:
-                all_events.append(CT_event)
+                CT_event = ME7Integrand_R.generate_event_for_counterterm(
+                    template_event,
+                    disconnected_currents_weight,
+                    counterterm.prefactor,
+                    necessary_ME_calls,
+                    ME_process,
+                    reduced_kinematics_as_list,
+                    alpha_s, mu_r,
+                    self.all_MEAccessors,
+                    always_generate_event = always_generate_event
+                )
+                if CT_event is not None:
+                    all_events.append(CT_event)
 
         return all_events
 
@@ -3572,10 +3708,8 @@ The missing process is: %s"""%ME_process.nice_string())
                                                      ME_call['Bjorken_rescaling_beam_two'] )
 
             # And convolve if necessary
-            if ME_call['flavor_matrix_beam_one'] is not None:
-                event_to_convolve.convolve_flavors( ME_call['flavor_matrix_beam_one'], leg_index=0 )
-            if ME_call['flavor_matrix_beam_two'] is not None:
-                event_to_convolve.convolve_flavors( ME_call['flavor_matrix_beam_two'], leg_index=1 )
+            for flavor_matrix_convolution in ME_call['flavor_matrices']:
+                event_to_convolve.convolve_initial_states( flavor_matrix_convolution )
 
             # If the convolution is with a zero flavor matrix, this event does not contribute
             if event_to_convolve.is_empty():
@@ -3601,14 +3735,10 @@ The missing process is: %s"""%ME_process.nice_string())
 
         all_events_generated = ME7EventList()
         sector_info = opts.get('sector_info', None)
-        # When beam convolutions are active, we must remember that both the Bjorken x's *and*
-        # the convolution variable xi are integrated between zero and one.
-        if ((xi1 is not None) and xb_1 > xi1) or ((xi2 is not None) and xb_2 > xi2):
-            matrix_element_event = None
-        else:
-            matrix_element_event = self.generate_matrix_element_event(
-                PS_point, process_key, process, all_flavor_configurations,
-                base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts)
+
+        matrix_element_event = self.generate_matrix_element_event(
+            PS_point, process_key, process, all_flavor_configurations,
+            base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts)
 
         # Some contributions might have not physical contributions and overloaded the above
         # so as to return None

@@ -236,6 +236,7 @@ class SoftKernels:
            color_factors.TR*(((s_ir*s_ks + s_is*s_kr - s_ik*s_rs)/(s_i_rs*s_k_rs)) - ((s_ir*s_is)/(s_i_rs**2)) - ((s_kr*s_ks)/(s_k_rs**2)))
         })
 
+    #no longer used in the double soft subtractions
     @staticmethod
     def qqx(color_factors, colored_partons_momenta, soft_momenta, all_colored_parton_numbers):
         """ Computes the soft current for a quark-antiquark pair."""

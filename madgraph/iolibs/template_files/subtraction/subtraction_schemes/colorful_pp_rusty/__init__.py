@@ -1,6 +1,6 @@
 ###########################################################
 #
-# colorful_pp subtraction scheme
+# colorful_pp subtraction scheme with updated mother class
 #
 ###########################################################
 
@@ -45,13 +45,13 @@ def load():
     import subtraction_schemes.colorful.NLO.local_currents as colorful_NLO_local_currents
     import subtraction_schemes.colorful.NLO.integrated_currents as colorful_NLO_integrated_currents
 
-    # Colorful_pp does not use sectors
+    # Colorful_pp_rusty does not use sectors
     loaded_attributes['sector_generator'] = None
 
     # Note: specifying below which resources are needed is optional
     loaded_attributes['exporter'] = GenericCurrentsExporter(relative_resource_paths=[
         'subtraction_schemes/colorful',
-        'subtraction_schemes/colorful_pp'
+        'subtraction_schemes/colorful_pp_rusty'
     ])
 
     all_subtraction_current_classes = []
@@ -134,7 +134,7 @@ def load():
         NNLO_local_currents.QCD_final_collinear_0_qqq,
         NNLO_local_currents.QCD_final_collinear_0_qgg, #<<added
         # S(FF)
-        NNLO_local_currents.QCD_soft_0_qqp, #based on the old mother class
+	NNLO_local_currents.QCD_S_FqFqx, #<<added
         NNLO_local_currents.QCD_S_FgFg, #QQ>GG
         # IS(FF)
         NNLO_local_currents.QCD_initial_soft_collinear_0_qqpqp,

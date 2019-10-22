@@ -216,7 +216,7 @@ class QCDCurrent(utils.VirtualCurrentImplementation):
     is_cut = staticmethod(no_cut)
     factor = staticmethod(no_factor)
 
-    # TODO This is mantained for backward compatibility, DEPRECATED
+    # TODO This is maintained for backward compatibility, DEPRECATED
     @classmethod
     def common_does_implement_this_current(
         cls, current, QCD_squared_order=None, n_loops=None):
@@ -301,11 +301,6 @@ class QCDLocalCurrent(QCDCurrent):
                 break
 
         if leg_numbers_map is None:
-#TZ debugger stuck here
-#            if len(current["singular_structure"].substructures[0].substructures)>0:
-#                if len(current["singular_structure"].substructures[0].substructures[0].legs)==2:
-#                    import ipdb
-#                    ipdb.set_trace()
             return None
 
         mapping_singular_structure = current.get('singular_structure').get_copy()
@@ -720,11 +715,6 @@ class GeneralQCDLocalCurrent(QCDLocalCurrent):
         """ Add information about whether or not this local collinear current contains initial states."""
 
         res = super(GeneralQCDLocalCurrent, cls).does_implement_this_current(current, model)
-#TZdebugger, checked
-#        if len(current["singular_structure"].substructures[0].substructures)>0:
-#            if len(current["singular_structure"].substructures[0].substructures[0].legs)==2:
-#                import ipdb
-#                ipdb.set_trace()
 
         if res is not None:
             res['has_initial_state'] = current.get('singular_structure').get_all_legs().has_initial_state_leg()

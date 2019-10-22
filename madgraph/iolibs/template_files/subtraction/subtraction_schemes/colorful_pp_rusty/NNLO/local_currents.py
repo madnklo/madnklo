@@ -37,21 +37,13 @@ CurrentImplementationError = utils.CurrentImplementationError
 #=========================================================================================
 # NNLO initial-collinear currents
 #=========================================================================================
-class QCD_initial_collinear_0_XXX(currents.QCDLocalCollinearCurrent):
-    """Triple collinear initial-final-final tree-level current."""
+
+class QCD_initial_collinear_0_qqpqp(currents.GeneralQCDLocalCurrent):
+    """qg collinear FSR tree-level current. q(final) > q(final) q'(final) qbar'(final) """
 
     squared_orders = {'QCD': 4}
     n_loops = 0
-
-    is_cut = staticmethod(colorful_pp_config.initial_coll_cut)
-    factor = staticmethod(colorful_pp_config.initial_coll_factor)
-    get_recoilers = staticmethod(colorful_pp_config.get_final_state_recoilers)
-    mapping = colorful_pp_config.initial_coll_mapping
-    variables = staticmethod(kernel_variables.colorful_pp_IFn_variables)
     divide_by_jacobian = colorful_pp_config.divide_by_jacobian
-
-class QCD_initial_collinear_0_qqpqp(QCD_initial_collinear_0_XXX):
-    """qg collinear ISR tree-level current. q(initial) > q(initial_after_emission) q'(final) qbar' (final) """
 
     # Make sure to have the initial particle with the lowest index
     structure = [
@@ -62,25 +54,48 @@ class QCD_initial_collinear_0_qqpqp(QCD_initial_collinear_0_XXX):
         )),
     ]
 
-    def kernel(self, evaluation, parent, variables):
+    # And now the mapping rules
+    mapping_rules = [
+        {
+            'singular_structure': sub.SingularStructure(substructures=(sub.CollStructure(
+                #substructures=tuple([]), ???
+                legs=(
+	            sub.SubtractionLeg(0, +1, sub.SubtractionLeg.INITIAL),
+        	    sub.SubtractionLeg(1, +2, sub.SubtractionLeg.FINAL),
+     	 	    sub.SubtractionLeg(2, -2, sub.SubtractionLeg.FINAL),
+                )
+            ),)),
+            'mapping'               : colorful_pp_config.initial_coll_mapping,
+            'momenta_dict'          : bidict({-1:frozenset((0,1,2))}),
+            'variables'             : currents.CompoundVariables(kernel_variables.colorful_pp_IFn_variables),
+            'is_cut'                : colorful_pp_config.initial_coll_cut,
+            'reduced_recoilers'     : colorful_pp_config.get_final_state_recoilers,
+            'additional_recoilers'  : sub.SubtractionLegSet([]),
+        },
+    ]
 
-        # Retrieve the collinear variable x
-        x_a, x_r, x_s = variables['xs']
-        kT_a, kT_r, kT_s = variables['kTs']
-        s_ar, s_as, s_rs = variables['ss'][(0,1)], variables['ss'][(0,2)], variables['ss'][(1,2)]
 
-        # The factor 'x' that should be part of the initial_state_crossing_factor cancels
-        # against the extra prefactor 1/x in the collinear factorization formula
-        # (see Eq. (8) of NNLO compatible NLO scheme publication arXiv:0903.1218v2)
-        initial_state_crossing_factor = 1.
-        # Correct for the ratio of color-averaging factor between the real ME
-        # initial state flavor (quark) and the one of the reduced Born ME (quark)
-        initial_state_crossing_factor *= 1.
+    def kernel(self, evaluation, all_steps_info, global_variables):
 
+        kT_a = all_steps_info[0]['variables'][0]['kTs'][0]
+        kT_r = all_steps_info[0]['variables'][0]['kTs'][1]
+        kT_s = all_steps_info[0]['variables'][0]['kTs'][2]
+
+        x_a = all_steps_info[0]['variables'][0]['xs'][0]
+        x_r = all_steps_info[0]['variables'][0]['xs'][1]
+        x_s = all_steps_info[0]['variables'][0]['xs'][2]
+
+        s_ar = all_steps_info[0]['variables'][0]['ss'][(0,1)]
+        s_as = all_steps_info[0]['variables'][0]['ss'][(0,2)]
+        s_rs = all_steps_info[0]['variables'][0]['ss'][(1,2)]
+
+        parent = all_steps_info[0]['bundles_info'][0]['parent']
+
+        prefactor = 1./(s_rs - s_ar - s_as)**2
         for spin_correlation_vector, weight in AltarelliParisiKernels.P_qqpqp(self,
                 1./x_a, -x_r/x_a, -x_s/x_a, -s_ar, -s_as, s_rs, kT_a, kT_r, kT_s
             ):
-            complete_weight = weight*initial_state_crossing_factor
+            complete_weight = weight*prefactor
             if spin_correlation_vector is None:
                 evaluation['values'][(0, 0, 0)] = {'finite': complete_weight[0]}
             else:
@@ -89,9 +104,13 @@ class QCD_initial_collinear_0_qqpqp(QCD_initial_collinear_0_XXX):
 
         return evaluation
 
-#TZaddition
-class QCD_initial_collinear_0_qqq(QCD_initial_collinear_0_XXX):
-    """qg collinear ISR tree-level current. q(initial) > q(initial_after_emission) q(final) qbar (final) """
+
+class QCD_initial_collinear_0_qqq(currents.GeneralQCDLocalCurrent):
+    """qg collinear FSR tree-level current. q(final) > q(final) q(final) qbar(final) """
+
+    squared_orders = {'QCD': 4}
+    n_loops = 0
+    divide_by_jacobian = colorful_pp_config.divide_by_jacobian
 
     # Make sure to have the initial particle with the lowest index
     structure = [
@@ -102,25 +121,48 @@ class QCD_initial_collinear_0_qqq(QCD_initial_collinear_0_XXX):
         )),
     ]
 
-    def kernel(self, evaluation, parent, variables):
+    # And now the mapping rules
+    mapping_rules = [
+        {
+            'singular_structure': sub.SingularStructure(substructures=(sub.CollStructure(
+                #substructures=tuple([]), ???
+                legs=(
+	            sub.SubtractionLeg(0, +1, sub.SubtractionLeg.INITIAL),
+        	    sub.SubtractionLeg(1, +1, sub.SubtractionLeg.FINAL),
+     	 	    sub.SubtractionLeg(2, -1, sub.SubtractionLeg.FINAL),
+                )
+            ),)),
+            'mapping'               : colorful_pp_config.initial_coll_mapping,
+            'momenta_dict'          : bidict({-1:frozenset((0,1,2))}),
+            'variables'             : currents.CompoundVariables(kernel_variables.colorful_pp_IFn_variables),
+            'is_cut'                : colorful_pp_config.initial_coll_cut,
+            'reduced_recoilers'     : colorful_pp_config.get_final_state_recoilers,
+            'additional_recoilers'  : sub.SubtractionLegSet([]),
+        },
+    ]
 
-        # Retrieve the collinear variable x
-        x_a, x_r, x_s = variables['xs']
-        kT_a, kT_r, kT_s = variables['kTs']
-        s_ar, s_as, s_rs = variables['ss'][(0,1)], variables['ss'][(0,2)], variables['ss'][(1,2)]
 
-        # The factor 'x' that should be part of the initial_state_crossing_factor cancels
-        # against the extra prefactor 1/x in the collinear factorization formula
-        # (see Eq. (8) of NNLO compatible NLO scheme publication arXiv:0903.1218v2)
-        initial_state_crossing_factor = 1.
-        # Correct for the ratio of color-averaging factor between the real ME
-        # initial state flavor (quark) and the one of the reduced Born ME (quark)
-        initial_state_crossing_factor *= 1.
+    def kernel(self, evaluation, all_steps_info, global_variables):
 
+        kT_a = all_steps_info[0]['variables'][0]['kTs'][0]
+        kT_r = all_steps_info[0]['variables'][0]['kTs'][1]
+        kT_s = all_steps_info[0]['variables'][0]['kTs'][2]
+
+        x_a = all_steps_info[0]['variables'][0]['xs'][0]
+        x_r = all_steps_info[0]['variables'][0]['xs'][1]
+        x_s = all_steps_info[0]['variables'][0]['xs'][2]
+
+        s_ar = all_steps_info[0]['variables'][0]['ss'][(0,1)]
+        s_as = all_steps_info[0]['variables'][0]['ss'][(0,2)]
+        s_rs = all_steps_info[0]['variables'][0]['ss'][(1,2)]
+
+        parent = all_steps_info[0]['bundles_info'][0]['parent']
+
+        prefactor = 1./(s_rs - s_ar - s_as)**2
         for spin_correlation_vector, weight in AltarelliParisiKernels.P_qqq(self,
                 1./x_a, -x_r/x_a, -x_s/x_a, -s_ar, -s_as, s_rs, kT_a, kT_r, kT_s
             ):
-            complete_weight = weight*initial_state_crossing_factor
+            complete_weight = weight*prefactor
             if spin_correlation_vector is None:
                 evaluation['values'][(0, 0, 0)] = {'finite': complete_weight[0]}
             else:
@@ -129,9 +171,13 @@ class QCD_initial_collinear_0_qqq(QCD_initial_collinear_0_XXX):
 
         return evaluation
 
-#TZaddition
-class QCD_initial_collinear_0_qgg(QCD_initial_collinear_0_XXX):
-    """qg collinear ISR tree-level current. q(initial) > q(initial_after_emission) g(final) g(final) """
+
+class QCD_initial_collinear_0_qgg(currents.GeneralQCDLocalCurrent):
+    """qg collinear FSR tree-level current. q(final) > q(final) g(final) g(final) """
+
+    squared_orders = {'QCD': 4}
+    n_loops = 0
+    divide_by_jacobian = colorful_pp_config.divide_by_jacobian
 
     # Make sure to have the initial particle with the lowest index
     structure = [
@@ -142,25 +188,48 @@ class QCD_initial_collinear_0_qgg(QCD_initial_collinear_0_XXX):
         )),
     ]
 
-    def kernel(self, evaluation, parent, variables):
+    # And now the mapping rules
+    mapping_rules = [
+        {
+            'singular_structure': sub.SingularStructure(substructures=(sub.CollStructure(
+                #substructures=tuple([]), ???
+                legs=(
+	            sub.SubtractionLeg(0, +1, sub.SubtractionLeg.INITIAL),
+        	    sub.SubtractionLeg(1, 21, sub.SubtractionLeg.FINAL),
+     	 	    sub.SubtractionLeg(2, 21, sub.SubtractionLeg.FINAL),
+                )
+            ),)),
+            'mapping'               : colorful_pp_config.initial_coll_mapping,
+            'momenta_dict'          : bidict({-1:frozenset((0,1,2))}),
+            'variables'             : currents.CompoundVariables(kernel_variables.colorful_pp_IFn_variables),
+            'is_cut'                : colorful_pp_config.initial_coll_cut,
+            'reduced_recoilers'     : colorful_pp_config.get_final_state_recoilers,
+            'additional_recoilers'  : sub.SubtractionLegSet([]),
+        },
+    ]
 
-        # Retrieve the collinear variable x
-        x_a, x_r, x_s = variables['xs']
-        kT_a, kT_r, kT_s = variables['kTs']
-        s_ar, s_as, s_rs = variables['ss'][(0,1)], variables['ss'][(0,2)], variables['ss'][(1,2)]
 
-        # The factor 'x' that should be part of the initial_state_crossing_factor cancels
-        # against the extra prefactor 1/x in the collinear factorization formula
-        # (see Eq. (8) of NNLO compatible NLO scheme publication arXiv:0903.1218v2)
-        initial_state_crossing_factor = 1.
-        # Correct for the ratio of color-averaging factor between the real ME
-        # initial state flavor (quark) and the one of the reduced Born ME (quark)
-        initial_state_crossing_factor *= 1.
+    def kernel(self, evaluation, all_steps_info, global_variables):
 
+        kT_a = all_steps_info[0]['variables'][0]['kTs'][0]
+        kT_r = all_steps_info[0]['variables'][0]['kTs'][1]
+        kT_s = all_steps_info[0]['variables'][0]['kTs'][2]
+
+        x_a = all_steps_info[0]['variables'][0]['xs'][0]
+        x_r = all_steps_info[0]['variables'][0]['xs'][1]
+        x_s = all_steps_info[0]['variables'][0]['xs'][2]
+
+        s_ar = all_steps_info[0]['variables'][0]['ss'][(0,1)]
+        s_as = all_steps_info[0]['variables'][0]['ss'][(0,2)]
+        s_rs = all_steps_info[0]['variables'][0]['ss'][(1,2)]
+
+        parent = all_steps_info[0]['bundles_info'][0]['parent']
+
+        prefactor = 1./(s_rs - s_ar - s_as)**2
         for spin_correlation_vector, weight in AltarelliParisiKernels.P_qgg(self,
                 1./x_a, -x_r/x_a, -x_s/x_a, -s_ar, -s_as, s_rs, kT_a, kT_r, kT_s
             ):
-            complete_weight = weight*initial_state_crossing_factor
+            complete_weight = weight*prefactor
             if spin_correlation_vector is None:
                 evaluation['values'][(0, 0, 0)] = {'finite': complete_weight[0]}
             else:
@@ -173,22 +242,12 @@ class QCD_initial_collinear_0_qgg(QCD_initial_collinear_0_XXX):
 #=========================================================================================
 # NNLO final-collinear currents
 #=========================================================================================
-
-class QCD_final_collinear_0_XXX(currents.QCDLocalCollinearCurrent):
-    """Triple collinear initial-final-final tree-level current."""
+class QCD_final_collinear_0_qqpqp(currents.GeneralQCDLocalCurrent):
+    """qg collinear FSR tree-level current. q(final) > q(final) q'(final) qbar'(final) """
 
     squared_orders = {'QCD': 4}
     n_loops = 0
-
-    is_cut = staticmethod(colorful_pp_config.final_coll_cut)
-    factor = staticmethod(colorful_pp_config.final_coll_factor)
-    get_recoilers = staticmethod(colorful_pp_config.get_initial_state_recoilers)
-    mapping = colorful_pp_config.final_coll_mapping
-    variables = staticmethod(kernel_variables.colorful_pp_FFn_variables)
     divide_by_jacobian = colorful_pp_config.divide_by_jacobian
-
-class QCD_final_collinear_0_qqpqp(QCD_final_collinear_0_XXX):
-    """qg collinear FSR tree-level current. q(final) > q(final) q'(final) qbar' (final) """
 
     # Make sure to have the initial particle with the lowest index
     structure = [
@@ -199,17 +258,48 @@ class QCD_final_collinear_0_qqpqp(QCD_final_collinear_0_XXX):
         )),
     ]
 
-    def kernel(self, evaluation, parent, variables):
+    # And now the mapping rules
+    mapping_rules = [
+        {
+            'singular_structure': sub.SingularStructure(substructures=(sub.CollStructure(
+                #substructures=tuple([]), ???
+                legs=(
+	            sub.SubtractionLeg(0, +1, sub.SubtractionLeg.FINAL),
+        	    sub.SubtractionLeg(1, +2, sub.SubtractionLeg.FINAL),
+     	 	    sub.SubtractionLeg(2, -2, sub.SubtractionLeg.FINAL),
+                )
+            ),)),
+            'mapping'               : colorful_pp_config.final_coll_mapping,
+            'momenta_dict'          : bidict({-1:frozenset((0,1,2))}),
+            'variables'             : currents.CompoundVariables(kernel_variables.colorful_pp_FFn_variables),
+            'is_cut'                : colorful_pp_config.final_coll_cut,
+            'reduced_recoilers'     : colorful_pp_config.get_initial_state_recoilers,
+            'additional_recoilers'  : sub.SubtractionLegSet([]),
+        },
+    ]
 
-        # Retrieve the collinear variable x
-        z_i, z_r, z_s = variables['zs']
-        kT_i, kT_r, kT_s = variables['kTs']
-        s_ir, s_is, s_rs = variables['ss'][(0,1)], variables['ss'][(0,2)], variables['ss'][(1,2)]
 
+    def kernel(self, evaluation, all_steps_info, global_variables):
+
+        kT_i = all_steps_info[0]['variables'][0]['kTs'][(0,(1,2))]
+        kT_r = all_steps_info[0]['variables'][0]['kTs'][(1,(0,2))]
+        kT_s = all_steps_info[0]['variables'][0]['kTs'][(2,(0,1))]
+
+        z_i = all_steps_info[0]['variables'][0]['zs'][0]
+        z_r = all_steps_info[0]['variables'][0]['zs'][1]
+        z_s = all_steps_info[0]['variables'][0]['zs'][2]
+
+        s_ir = all_steps_info[0]['variables'][0]['ss'][(0,1)]
+        s_is = all_steps_info[0]['variables'][0]['ss'][(0,2)]
+        s_rs = all_steps_info[0]['variables'][0]['ss'][(1,2)]
+
+        parent = all_steps_info[0]['bundles_info'][0]['parent']
+
+        prefactor = 1./(s_ir + s_is + s_rs)**2
         for spin_correlation_vector, weight in AltarelliParisiKernels.P_qqpqp(self,
                 z_i, z_r, z_s, s_ir, s_is, s_rs, kT_i, kT_r, kT_s
             ):
-            complete_weight = weight
+            complete_weight = weight*prefactor
             if spin_correlation_vector is None:
                 evaluation['values'][(0, 0, 0)] = {'finite': complete_weight[0]}
             else:
@@ -218,9 +308,13 @@ class QCD_final_collinear_0_qqpqp(QCD_final_collinear_0_XXX):
 
         return evaluation
 
-#TZaddition
-class QCD_final_collinear_0_qqq(QCD_final_collinear_0_XXX):
+
+class QCD_final_collinear_0_qqq(currents.GeneralQCDLocalCurrent):
     """qg collinear FSR tree-level current. q(final) > q(final) q(final) qbar(final) """
+
+    squared_orders = {'QCD': 4}
+    n_loops = 0
+    divide_by_jacobian = colorful_pp_config.divide_by_jacobian
 
     # Make sure to have the initial particle with the lowest index
     structure = [
@@ -231,17 +325,48 @@ class QCD_final_collinear_0_qqq(QCD_final_collinear_0_XXX):
         )),
     ]
 
-    def kernel(self, evaluation, parent, variables):
+    # And now the mapping rules
+    mapping_rules = [
+        {
+            'singular_structure': sub.SingularStructure(substructures=(sub.CollStructure(
+                #substructures=tuple([]), ???
+                legs=(
+	            sub.SubtractionLeg(0, +1, sub.SubtractionLeg.FINAL),
+        	    sub.SubtractionLeg(1, +1, sub.SubtractionLeg.FINAL),
+     	 	    sub.SubtractionLeg(2, -1, sub.SubtractionLeg.FINAL),
+                )
+            ),)),
+            'mapping'               : colorful_pp_config.final_coll_mapping,
+            'momenta_dict'          : bidict({-1:frozenset((0,1,2))}),
+            'variables'             : currents.CompoundVariables(kernel_variables.colorful_pp_FFn_variables),
+            'is_cut'                : colorful_pp_config.final_coll_cut,
+            'reduced_recoilers'     : colorful_pp_config.get_initial_state_recoilers,
+            'additional_recoilers'  : sub.SubtractionLegSet([]),
+        },
+    ]
 
-        # Retrieve the collinear variable x
-        z_i, z_r, z_s = variables['zs']
-        kT_i, kT_r, kT_s = variables['kTs']
-        s_ir, s_is, s_rs = variables['ss'][(0,1)], variables['ss'][(0,2)], variables['ss'][(1,2)]
 
+    def kernel(self, evaluation, all_steps_info, global_variables):
+
+        kT_i = all_steps_info[0]['variables'][0]['kTs'][(0,(1,2))]
+        kT_r = all_steps_info[0]['variables'][0]['kTs'][(1,(0,2))]
+        kT_s = all_steps_info[0]['variables'][0]['kTs'][(2,(0,1))]
+
+        z_i = all_steps_info[0]['variables'][0]['zs'][0]
+        z_r = all_steps_info[0]['variables'][0]['zs'][1]
+        z_s = all_steps_info[0]['variables'][0]['zs'][2]
+
+        s_ir = all_steps_info[0]['variables'][0]['ss'][(0,1)]
+        s_is = all_steps_info[0]['variables'][0]['ss'][(0,2)]
+        s_rs = all_steps_info[0]['variables'][0]['ss'][(1,2)]
+
+        parent = all_steps_info[0]['bundles_info'][0]['parent']
+
+        prefactor = 1./(s_ir + s_is + s_rs)**2
         for spin_correlation_vector, weight in AltarelliParisiKernels.P_qqq(self,
                 z_i, z_r, z_s, s_ir, s_is, s_rs, kT_i, kT_r, kT_s
             ):
-            complete_weight = weight
+            complete_weight = weight*prefactor
             if spin_correlation_vector is None:
                 evaluation['values'][(0, 0, 0)] = {'finite': complete_weight[0]}
             else:
@@ -250,9 +375,13 @@ class QCD_final_collinear_0_qqq(QCD_final_collinear_0_XXX):
 
         return evaluation
 
-#TZaddition
-class QCD_final_collinear_0_qgg(QCD_final_collinear_0_XXX):
+
+class QCD_final_collinear_0_qgg(currents.GeneralQCDLocalCurrent):
     """qg collinear FSR tree-level current. q(final) > q(final) g(final) g(final) """
+
+    squared_orders = {'QCD': 4}
+    n_loops = 0
+    divide_by_jacobian = colorful_pp_config.divide_by_jacobian
 
     # Make sure to have the initial particle with the lowest index
     structure = [
@@ -263,20 +392,48 @@ class QCD_final_collinear_0_qgg(QCD_final_collinear_0_XXX):
         )),
     ]
 
-    def kernel(self, evaluation, parent, variables):
+    # And now the mapping rules
+    mapping_rules = [
+        {
+            'singular_structure': sub.SingularStructure(substructures=(sub.CollStructure(
+                #substructures=tuple([]), ???
+                legs=(
+	            sub.SubtractionLeg(0, +1, sub.SubtractionLeg.FINAL),
+        	    sub.SubtractionLeg(1, 21, sub.SubtractionLeg.FINAL),
+     	 	    sub.SubtractionLeg(2, 21, sub.SubtractionLeg.FINAL),
+                )
+            ),)),
+            'mapping'               : colorful_pp_config.final_coll_mapping,
+            'momenta_dict'          : bidict({-1:frozenset((0,1,2))}),
+            'variables'             : currents.CompoundVariables(kernel_variables.colorful_pp_FFn_variables),
+            'is_cut'                : colorful_pp_config.final_coll_cut,
+            'reduced_recoilers'     : colorful_pp_config.get_initial_state_recoilers,
+            'additional_recoilers'  : sub.SubtractionLegSet([]),
+        },
+    ]
 
-        # Retrieve the collinear variable x
-        z_i, z_r, z_s = variables['zs']
-        kT_i, kT_r, kT_s = variables['kTs']
-        s_ir, s_is, s_rs = variables['ss'][(0,1)], variables['ss'][(0,2)], variables['ss'][(1,2)]
 
-        import ipdb
-	ipdb.set_trace()
+    def kernel(self, evaluation, all_steps_info, global_variables):
 
+        kT_i = all_steps_info[0]['variables'][0]['kTs'][(0,(1,2))]
+        kT_r = all_steps_info[0]['variables'][0]['kTs'][(1,(0,2))]
+        kT_s = all_steps_info[0]['variables'][0]['kTs'][(2,(0,1))]
+
+        z_i = all_steps_info[0]['variables'][0]['zs'][0]
+        z_r = all_steps_info[0]['variables'][0]['zs'][1]
+        z_s = all_steps_info[0]['variables'][0]['zs'][2]
+
+        s_ir = all_steps_info[0]['variables'][0]['ss'][(0,1)]
+        s_is = all_steps_info[0]['variables'][0]['ss'][(0,2)]
+        s_rs = all_steps_info[0]['variables'][0]['ss'][(1,2)]
+
+        parent = all_steps_info[0]['bundles_info'][0]['parent']
+
+        prefactor = 1./(s_ir + s_is + s_rs)**2
         for spin_correlation_vector, weight in AltarelliParisiKernels.P_qgg(self,
                 z_i, z_r, z_s, s_ir, s_is, s_rs, kT_i, kT_r, kT_s
             ):
-            complete_weight = weight
+            complete_weight = weight*prefactor
             if spin_correlation_vector is None:
                 evaluation['values'][(0, 0, 0)] = {'finite': complete_weight[0]}
             else:
@@ -289,123 +446,6 @@ class QCD_final_collinear_0_qgg(QCD_final_collinear_0_XXX):
 # =========================================================================================
 # NNLO soft currents
 # =========================================================================================
-class QCD_soft_0_kX(currents.QCDLocalCurrent):
-    #NNLO soft currents.
-
-    is_cut = staticmethod(colorful_pp_config.soft_cut)
-    factor = staticmethod(colorful_pp_config.soft_factor)
-    get_recoilers = staticmethod(colorful_pp_config.get_final_state_recoilers)
-
-    squared_orders = {'QCD': 4}
-    n_loops = 0
-
-    mapping = colorful_pp_config.soft_mapping
-    divide_by_jacobian = colorful_pp_config.divide_by_jacobian
-
-    # Must be specified by daughter classes
-    soft_kernel = None
-
-    def evaluate_subtraction_current(
-            self, current,
-            higher_PS_point=None, momenta_dict=None, reduced_process=None,
-            hel_config=None, Q=None, **opts):
-
-        if higher_PS_point is None:
-            raise CurrentImplementationError(
-                self.name() + " needs the phase-space points before and after mapping.")
-        if momenta_dict is None:
-            raise CurrentImplementationError(
-                self.name() + " requires a momentum routing dictionary.")
-        if reduced_process is None:
-            raise CurrentImplementationError(
-                self.name() + " requires a reduced_process.")
-        if not hel_config is None:
-            raise CurrentImplementationError(
-                self.name() + " does not support helicity assignment.")
-        if Q is None:
-            raise CurrentImplementationError(
-                self.name() + " requires the total mapping momentum Q.")
-
-        # Retrieve alpha_s and mu_r
-        model_param_dict = self.model.get('parameter_dict')
-        alpha_s = model_param_dict['aS']
-        mu_r = model_param_dict['MU_R']
-
-        # Now find all colored leg numbers in the reduced process
-        all_colored_parton_numbers = []
-        for leg in reduced_process.get('legs'):
-            if self.model.get_particle(leg.get('id')).get('color') == 1:
-                continue
-            all_colored_parton_numbers.append(leg.get('number'))
-        soft_momenta = [ higher_PS_point[self.leg_numbers_map[soft_leg_number]] for soft_leg_number in
-                                                                             self.leg_numbers_map if soft_leg_number>9 ]
-        pS = sum(soft_momenta)
-
-        # Perform mapping
-        this_mapping_singular_structure = self.mapping_singular_structure.get_copy()
-        this_mapping_singular_structure.legs = self.get_recoilers(reduced_process)
-        lower_PS_point, mapping_vars = self.mapping.map_to_lower_multiplicity(
-            higher_PS_point, this_mapping_singular_structure, momenta_dict,
-            compute_jacobian=self.divide_by_jacobian)
-        reduced_kinematics = (None, lower_PS_point)
-        jacobian = mapping_vars.get('jacobian', 1.)
-
-        # Include the counterterm only in a part of the phase space
-        if self.is_cut(Q=Q, pS=pS):
-            return utils.SubtractionCurrentResult.zero(
-                current=current, hel_config=hel_config, reduced_kinematics=('IS_CUT', lower_PS_point))
-
-        # Now instantiate what the result will be
-        evaluation = utils.SubtractionCurrentEvaluation({
-            'spin_correlations': [None],
-            'color_correlations': [],
-            'reduced_kinematics': [reduced_kinematics, ],
-            'values': {}
-        })
-
-        # Normalization factors
-        norm = (8. * math.pi * alpha_s)**(len(soft_momenta))*(1./pS.square()**2)
-        norm *= self.factor(Q=Q, pS=pS)
-        if self.divide_by_jacobian:
-            norm /= jacobian
-
-        colored_partons_momenta = vectors.LorentzVectorDict()
-        for colored_parton_number in all_colored_parton_numbers:
-            # We want to used the reduced kinematics for our soft current
-            colored_partons_momenta[colored_parton_number] = lower_PS_point[colored_parton_number]
-            # Alternatively, the expression below would have given us the resolved one
-            #colored_partons_momenta[colored_parton_number] = sum(higher_PS_point[child] for child in momenta_dict[colored_parton_number])
-
-        color_correlation_index = 0
-        for color_correlator, weight in self.soft_kernel(
-                self, colored_partons_momenta, soft_momenta, all_colored_parton_numbers):
-            evaluation['color_correlations'].append(color_correlator)
-            complete_weight = weight*norm
-            evaluation['values'][(0, color_correlation_index, 0)] = {'finite': complete_weight[0]}
-            color_correlation_index += 1
-
-        result = utils.SubtractionCurrentResult()
-        result.add_result(
-            evaluation,
-            hel_config=hel_config,
-            squared_orders=tuple(sorted(current.get('squared_orders').items())))
-        return result
-
-class QCD_soft_0_qqp(QCD_soft_0_kX):
-    #Soft quark-anti quark pair.
-
-    structure = sub.SingularStructure(substructures=(sub.SoftStructure(
-            legs=(
-                sub.SubtractionLeg(10, +1, sub.SubtractionLeg.FINAL),
-                sub.SubtractionLeg(11, -1, sub.SubtractionLeg.FINAL),
-            )
-        ),)
-    )
-
-    soft_kernel = staticmethod(SoftKernels.qqx)
-
-
-#TZaddition
 class QCD_S_FqFqx(currents.GeneralQCDLocalCurrent):
     """
     quark-antiquark double soft
@@ -498,7 +538,6 @@ class QCD_S_FqFqx(currents.GeneralQCDLocalCurrent):
         return new_evaluation
 
 
-#TZaddition
 class QCD_S_FgFg(currents.GeneralQCDLocalCurrent):
     """ Nested soft FF (g_g) limit."""
 
@@ -886,7 +925,7 @@ class QCD_C_FqFqx_C_IqpFqFqx(currents.GeneralQCDLocalCurrent):
         ),)),
     ]
 
-    # An now the mapping rules
+    # And now the mapping rules
     mapping_rules = [
         {
             'singular_structure'    : sub.SingularStructure(substructures=(sub.CollStructure(
@@ -942,11 +981,6 @@ class QCD_C_FqFqx_C_IqpFqFqx(currents.GeneralQCDLocalCurrent):
 
         parent = all_steps_info[1]['bundles_info'][0]['parent']
 
-        #misc.sprint(s_rs, s_a_rs)
-        #misc.sprint(z_FF, x_IF)
-        #misc.sprint(kT_FF, kT_IF)
-        #misc.sprint(p_a_hat, parent)
-
         # We must include here propagator factors, but no correction for symmetry
         # or averaging factor is necessary in this particular pure-quark kernel
         initial_state_crossing = -1.0
@@ -962,7 +996,7 @@ class QCD_C_FqFqx_C_IqpFqFqx(currents.GeneralQCDLocalCurrent):
         return evaluation
 
 #TZaddition
-#should be joined with the class above since the subtraction is same for qpqqx and qqqx, unable to do so because of additional_recoilers in mapping_rules
+#Should be joined with the class above since the subtraction is same for qpqqx and qqqx. Unable to do so because of additional_recoilers in mapping_rules.
 class QCD_C_FqFqx_C_IqFqFqx(currents.GeneralQCDLocalCurrent):
     """ Nested FF (q_qx) collinear within IFF (q_qqx)."""
 
@@ -1045,11 +1079,6 @@ class QCD_C_FqFqx_C_IqFqFqx(currents.GeneralQCDLocalCurrent):
         ]
 
         parent = all_steps_info[1]['bundles_info'][0]['parent']
-
-        #misc.sprint(s_rs, s_a_rs)
-        #misc.sprint(z_FF, x_IF)
-        #misc.sprint(kT_FF, kT_IF)
-        #misc.sprint(p_a_hat, parent)
 
         # We must include here propagator factors, but no correction for symmetry
         # or averaging factor is necessary in this particular pure-quark kernel
@@ -1457,8 +1486,7 @@ class QCD_S_FqFqx_C_FqFqx_C_IqpFqFqx(currents.GeneralQCDLocalCurrent):
         return evaluation
 
 #TZaddition
-#inherits everything from the different-flavor class
-#structure and mapping_rules redefined to match same-flavor case
+#Inherits everything from the different-flavor class. Structure and mapping_rules redefined to match same-flavor case.
 class QCD_S_FqFqx_C_FqFqx_C_IqFqFqx(currents.GeneralQCDLocalCurrent):
     """ Nested soft FF (q_qx) limit within collinear FF (q_qx) limit with collinear limit IFF (q' q_qx)."""
 

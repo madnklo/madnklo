@@ -79,5 +79,5 @@ def factor_soft(**opts):
 def no_factor(**opts):
     return 1.0
 
-def no_cut(**opts):
+def no_cut(*args,**opts):
     return False

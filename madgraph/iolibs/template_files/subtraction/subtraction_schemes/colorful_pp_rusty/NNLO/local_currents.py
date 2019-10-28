@@ -692,133 +692,70 @@ class QCD_S_FgFg(currents.GeneralQCDLocalCurrent):
         return new_evaluation
 
 
-
 # =========================================================================================
 # NNLO soft-collinear currents
 # =========================================================================================
-
-class QCD_initial_soft_collinear_0_kX(currents.QCDLocalCurrent):
-    """ triple soft-collinear with initial state """
+#Three implementations differing only in singular structure and color charge. These were unified in the colorful_pp implementation and they should be merged once again.
+class QCD_initial_soft_collinear_0_qqpqp(currents.GeneralQCDLocalCurrent):
+    """q' qbar' soft collinear ISR tree-level current. q(initial) > q(initial_after_emission) Soft(q'(final) qbar' (final)) """
 
     squared_orders = {'QCD': 4}
     n_loops = 0
-
-    is_cut = staticmethod(colorful_pp_config.soft_cut)
-    factor = staticmethod(colorful_pp_config.soft_factor)
-    get_recoilers = staticmethod(colorful_pp_config.get_final_state_recoilers)
-    mapping = colorful_pp_config.initial_soft_coll_mapping
     divide_by_jacobian = colorful_pp_config.divide_by_jacobian
 
-    variables = staticmethod(kernel_variables.colorful_pp_IFF_softFF_variables)
 
-    def evaluate_subtraction_current(
-        self, current,
-        higher_PS_point=None, momenta_dict=None, reduced_process=None,
-        hel_config=None, Q=None, **opts ):
+    soft_structure = sub.SoftStructure(
+        legs=(
+            sub.SubtractionLeg(10, +1, sub.SubtractionLeg.FINAL),
+            sub.SubtractionLeg(11, -1, sub.SubtractionLeg.FINAL),
+        )
+    )
+    soft_coll_structure_q2 = sub.CollStructure(
+        substructures=(soft_structure, ),
+        legs=(sub.SubtractionLeg(0, +2, sub.SubtractionLeg.INITIAL), ) )
+    structure_q2 = sub.SingularStructure(substructures=(soft_coll_structure_q2, ))
 
-        if higher_PS_point is None:
-            raise CurrentImplementationError(
-                self.name() + " needs the phase-space points before mapping." )
-        if momenta_dict is None:
-            raise CurrentImplementationError(
-                self.name() + " requires a momentum routing dictionary." )
-        if not hel_config is None:
-            raise CurrentImplementationError(
-                self.name() + " does not support helicity assignment." )
-        if Q is None:
-            raise CurrentImplementationError(
-                self.name() + " requires the total mapping momentum Q." )
+    structure = [structure_q2]
 
 
-        """Important note about the IF CS:
-        - in this scheme we want to use "tilded" momenta for the dipole legs in eikonals. This is explicitly implemented in the soft local current
-        - this implies that the correct form for the local C(ir)S(r) taken as the collinear limit of the eikonals is 
-        1/ (p_r + p_i_tilde)^2 (1-z_r)/z_r where z_r = p_r.Q/(p_r+p_i_tilde).Q
-        - Specializing to the case where the collinear partner of the soft particle is an initial state particle (i = a ), we have 
-        p_a_tilde = xi p_a and 2p_a.Q = Q^2 so that the soft-collinear takes the form
-        1/(p_r+xi p_a)^2 * xi/y_rQ where y_rQ is the usual Hungarian variable
-        this simplifies to 
-        1/(p_r+p_a)^2 * 1/y_rQ which is exactly the soft collinear as computed *without* tilded variables (i.e. exactly eq.5.29 of 0903.1218)
+    mapping_rules = [
+        {
+            'singular_structure'    : structure_q2,
+            'mapping'               : colorful_pp_config.initial_soft_coll_mapping,
+            'momenta_dict'          : bidict({-1:frozenset((0,10,11))}),
+            'variables'             : currents.CompoundVariables(kernel_variables.colorful_pp_IFF_softFF_variables), 
+            'is_cut'                : colorful_pp_config.soft_cut,
+            'reduced_recoilers'     : colorful_pp_config.get_final_state_recoilers,
+            'additional_recoilers'  : sub.SubtractionLegSet([]),
+        },
+    ]
 
-        As a result we use exactly the same way of evaluating the counterterms as in honest-to-god colorful.
-        """
+    def kernel(self, evaluation, all_steps_info, global_variables):
+        kT_a = all_steps_info[0]['variables'][0]['kTs'][0]
+        kT_r = all_steps_info[0]['variables'][0]['kTs'][1]
+        kT_s = all_steps_info[0]['variables'][0]['kTs'][2]
 
-        # Retrieve alpha_s and mu_r
-        model_param_dict = self.model.get('parameter_dict')
-        alpha_s = model_param_dict['aS']
-        mu_r = model_param_dict['MU_R']
+        x_a = all_steps_info[0]['variables'][0]['xs'][0]
+        x_r = all_steps_info[0]['variables'][0]['xs'][1]
+        x_s = all_steps_info[0]['variables'][0]['xs'][2]
 
-        children = tuple(self.leg_numbers_map[i]
-                         for i in sorted(self.leg_numbers_map.keys()))
-        parent = momenta_dict.inv[frozenset(children)]
+        s_ar = all_steps_info[0]['variables'][0]['ss'][(0,1)]
+        s_as = all_steps_info[0]['variables'][0]['ss'][(0,2)]
+        s_rs = all_steps_info[0]['variables'][0]['ss'][(1,2)]
+        s_a_rs = s_ar + s_as
 
-        # Perform mapping
-        this_mapping_singular_structure = self.mapping_singular_structure.get_copy()
-        this_mapping_singular_structure.legs = self.get_recoilers(reduced_process, excluded=(parent, ))
-        lower_PS_point, mapping_vars = self.mapping.map_to_lower_multiplicity(
-            higher_PS_point, this_mapping_singular_structure, momenta_dict,
-            compute_jacobian=self.divide_by_jacobian )
-        reduced_kinematics = (None, lower_PS_point)
-        jacobian = mapping_vars.get('jacobian', 1.)
+        kernel = 2./s_a_rs/s_rs * ( 1. / (x_r + x_s) - (((s_ar * x_s - s_as * x_r) ** 2) / (s_a_rs * s_rs * ((x_r + x_s) ** 2))) )
 
-        # Include the counterterm only in a part of the phase space
-        # children are the the set of particles that are going unresolved.
-        # Here we have C and S going collinear with S soft.
-        # The parent is the mapped C with a soft mapping, usually refered to as Ctilde.
-        # S is just removed in a soft mapping.
-        # Here S is a single particle but we obtain it as a list soft_children\
-        # to illustrate how multiple softs would be obtained
-        pCtilde = lower_PS_point[parent]
-        soft_children = [ self.leg_numbers_map[soft_leg_number] for soft_leg_number in self.leg_numbers_map if soft_leg_number>9 ]
-        pS = sum(higher_PS_point[child] for child in soft_children)
-        collinear_final_children = [ self.leg_numbers_map[soft_leg_number] for soft_leg_number in self.leg_numbers_map if
-                                                                                                0 < soft_leg_number <= 9 ]
-        if len(collinear_final_children)>0:
-            pCfinal = sum(higher_PS_point[child] for child in collinear_final_children)
-        else:
-            pCfinal = vectors.LorentzVector()
-        pCinitial = higher_PS_point[self.leg_numbers_map[0]]
-        pCmother = pCinitial - pCfinal - pS
-        if self.is_cut(Q=Q, pC=pCmother, pS=pS):
-            return utils.SubtractionCurrentResult.zero(
-                current=current, hel_config=hel_config, reduced_kinematics=('IS_CUT', lower_PS_point))
-
-        # Now instantiate what the result will be
-        evaluation = utils.SubtractionCurrentEvaluation({
-            'spin_correlations': [None],
-            'color_correlations': [None],
-            'reduced_kinematics': [reduced_kinematics],
-            'values': { }
-        })
-
-        # Evaluate kernel
-        kernel_arguments = self.variables(higher_PS_point, pCtilde, children, Q=Q)
-#        kernel_arguments = self.variables(higher_PS_point, pCinitial, children, Q=Q)
-
-        # There is no need for the ratio of color-averaging factor between the real ME
-        # initial state flavor and the one of the reduced Born ME as they are either both
-        # gluons or both quarks
-        evaluation = self.kernel(evaluation, parent, *kernel_arguments)
-
-        # Add the normalization factors
-        norm = (8. * math.pi * alpha_s)**(len(soft_children)+len(collinear_final_children)) / ((2.*pCtilde.dot(pS))*pS.square())
-        norm *= self.factor(Q=Q, pC=pCmother, pS=pS)
-        if self.divide_by_jacobian:
-            norm /= jacobian
-        for k in evaluation['values']:
-            evaluation['values'][k]['finite'] *= norm
-
-        # Construct and return result
-        result = utils.SubtractionCurrentResult()
-        result.add_result(
-            evaluation,
-            hel_config=hel_config,
-            squared_orders=tuple(sorted(current.get('squared_orders').items())))
-        return result
+        evaluation['values'][(0, 0, 0)] = {'finite': self.CF * self.TR * kernel }
+        return evaluation
 
 
-class QCD_initial_soft_collinear_0_qqpqp(QCD_initial_soft_collinear_0_kX):
+class QCD_initial_soft_collinear_0_qqq(currents.GeneralQCDLocalCurrent):
     """q' qbar' soft collinear ISR tree-level current. q(initial) > q(initial_after_emission) Soft(q'(final) qbar' (final)) """
+
+    squared_orders = {'QCD': 4}
+    n_loops = 0
+    divide_by_jacobian = colorful_pp_config.divide_by_jacobian
 
 
     soft_structure = sub.SoftStructure(
@@ -830,63 +767,95 @@ class QCD_initial_soft_collinear_0_qqpqp(QCD_initial_soft_collinear_0_kX):
     soft_coll_structure_q1 = sub.CollStructure(
         substructures=(soft_structure, ),
         legs=(sub.SubtractionLeg(0, +1, sub.SubtractionLeg.INITIAL), ) )
-    soft_coll_structure_q2 = sub.CollStructure(
-        substructures=(soft_structure, ),
-        legs=(sub.SubtractionLeg(0, +2, sub.SubtractionLeg.INITIAL), ) )
+    structure_q1 = sub.SingularStructure(substructures=(soft_coll_structure_q1, ))
+
+    structure = [structure_q1]
+
+
+    mapping_rules = [
+        {
+            'singular_structure'    : structure_q1,
+            'mapping'               : colorful_pp_config.initial_soft_coll_mapping,
+            'momenta_dict'          : bidict({-1:frozenset((0,10,11))}),
+            'variables'             : currents.CompoundVariables(kernel_variables.colorful_pp_IFF_softFF_variables), 
+            'is_cut'                : colorful_pp_config.soft_cut,
+            'reduced_recoilers'     : colorful_pp_config.get_final_state_recoilers,
+            'additional_recoilers'  : sub.SubtractionLegSet([]),
+        },
+    ]
+
+    def kernel(self, evaluation, all_steps_info, global_variables):
+        kT_a = all_steps_info[0]['variables'][0]['kTs'][0]
+        kT_r = all_steps_info[0]['variables'][0]['kTs'][1]
+        kT_s = all_steps_info[0]['variables'][0]['kTs'][2]
+
+        x_a = all_steps_info[0]['variables'][0]['xs'][0]
+        x_r = all_steps_info[0]['variables'][0]['xs'][1]
+        x_s = all_steps_info[0]['variables'][0]['xs'][2]
+
+        s_ar = all_steps_info[0]['variables'][0]['ss'][(0,1)]
+        s_as = all_steps_info[0]['variables'][0]['ss'][(0,2)]
+        s_rs = all_steps_info[0]['variables'][0]['ss'][(1,2)]
+        s_a_rs = s_ar + s_as
+
+        kernel = 2./s_a_rs/s_rs * ( 1. / (x_r + x_s) - (((s_ar * x_s - s_as * x_r) ** 2) / (s_a_rs * s_rs * ((x_r + x_s) ** 2))) )
+
+        evaluation['values'][(0, 0, 0)] = {'finite': self.CF * self.TR * kernel }
+        return evaluation
+
+
+class QCD_initial_soft_collinear_0_gqq(currents.GeneralQCDLocalCurrent):
+    """q' qbar' soft collinear ISR tree-level current. g(initial) > g(initial_after_emission) Soft(q'(final) qbar' (final)) """
+
+    squared_orders = {'QCD': 4}
+    n_loops = 0
+    divide_by_jacobian = colorful_pp_config.divide_by_jacobian
+
+
+    soft_structure = sub.SoftStructure(
+        legs=(
+            sub.SubtractionLeg(10, +1, sub.SubtractionLeg.FINAL),
+            sub.SubtractionLeg(11, -1, sub.SubtractionLeg.FINAL),
+        )
+    )
     soft_coll_structure_g = sub.CollStructure(
         substructures=(soft_structure, ),
         legs=(sub.SubtractionLeg(0, 21, sub.SubtractionLeg.INITIAL), ) )
-    structure_q1 = sub.SingularStructure(substructures=(soft_coll_structure_q1, ))
-    structure_q2 = sub.SingularStructure(substructures=(soft_coll_structure_q2, ))
     structure_g = sub.SingularStructure(substructures=(soft_coll_structure_g, ))
 
-    structure = [structure_q1,structure_q2, structure_g]
+    structure = [structure_g]
 
-    expected_init_opts = tuple(list(QCD_initial_soft_collinear_0_kX.expected_init_opts)+['color_charge',])
 
-    def __init__(self, *args, **opts):
-        """ Specialise constructor so as to assign value to the specified color charge. """
-        super(QCD_initial_soft_collinear_0_qqpqp, self).__init__(*args, **opts)
-        # Turn 'CA' into the actual numerical value self.CA for instance
-        self.color_charge = getattr(self, self.color_charge)
+    mapping_rules = [
+        {
+            'singular_structure'    : structure_g,
+            'mapping'               : colorful_pp_config.initial_soft_coll_mapping,
+            'momenta_dict'          : bidict({-1:frozenset((0,10,11))}),
+            'variables'             : currents.CompoundVariables(kernel_variables.colorful_pp_IFF_softFF_variables), 
+            'is_cut'                : colorful_pp_config.soft_cut,
+            'reduced_recoilers'     : colorful_pp_config.get_final_state_recoilers,
+            'additional_recoilers'  : sub.SubtractionLegSet([]),
+        },
+    ]
 
-    @classmethod
-    def does_implement_this_current(cls, current, model):
-        """ Overwrite this function so as to be able to specify the color-factor to consider."""
+    def kernel(self, evaluation, all_steps_info, global_variables):
+        kT_a = all_steps_info[0]['variables'][0]['kTs'][0]
+        kT_r = all_steps_info[0]['variables'][0]['kTs'][1]
+        kT_s = all_steps_info[0]['variables'][0]['kTs'][2]
 
-        res = super(QCD_initial_soft_collinear_0_qqpqp, cls).does_implement_this_current(current, model)
-        if res is None:
-            return None
+        x_a = all_steps_info[0]['variables'][0]['xs'][0]
+        x_r = all_steps_info[0]['variables'][0]['xs'][1]
+        x_s = all_steps_info[0]['variables'][0]['xs'][2]
 
-        color_charge = 'CF'
-        leg_numbers_map = cls.structure_q1.map_leg_numbers(
-            current.get('singular_structure'), cls.build_equivalency_sets(model))
-        if leg_numbers_map is None:
-            leg_numbers_map = cls.structure_q2.map_leg_numbers(
-                current.get('singular_structure'), cls.build_equivalency_sets(model))
-            if leg_numbers_map is None:
-                color_charge = 'CA'
-                leg_numbers_map = cls.structure_g.map_leg_numbers(
-                    current.get('singular_structure'), cls.build_equivalency_sets(model))
-                if leg_numbers_map is None:
-                    #This case should not occur so it might be better to rewrite this part
-                    return None
-        res['color_charge'] = color_charge
-        return res
-
-    def kernel(self, evaluation, parent, variables):
-
-        # Retrieve the collinear variable x
-        x_a, x_r, x_s = variables['xs']
-        kT_a, kT_r, kT_s = variables['kTs']
-        s_ar, s_as, s_rs = variables['ss'][(0,1)], variables['ss'][(0,2)], variables['ss'][(1,2)]
+        s_ar = all_steps_info[0]['variables'][0]['ss'][(0,1)]
+        s_as = all_steps_info[0]['variables'][0]['ss'][(0,2)]
+        s_rs = all_steps_info[0]['variables'][0]['ss'][(1,2)]
         s_a_rs = s_ar + s_as
 
-        kernel = 2. * ( 1. / (x_r + x_s) - (((s_ar * x_s - s_as * x_r) ** 2) / (s_a_rs * s_rs * ((x_r + x_s) ** 2))) )
+        kernel = 2./s_a_rs/s_rs * ( 1. / (x_r + x_s) - (((s_ar * x_s - s_as * x_r) ** 2) / (s_a_rs * s_rs * ((x_r + x_s) ** 2))) )
 
-        evaluation['values'][(0, 0, 0)] = {'finite': self.color_charge * self.TR * kernel }
+        evaluation['values'][(0, 0, 0)] = {'finite': self.CA * self.TR * kernel }
         return evaluation
-
 
 
 #=========================================================================================
@@ -995,7 +964,6 @@ class QCD_C_FqFqx_C_IqpFqFqx(currents.GeneralQCDLocalCurrent):
 
         return evaluation
 
-#TZaddition
 #Should be joined with the class above since the subtraction is same for qpqqx and qqqx. Unable to do so because of additional_recoilers in mapping_rules.
 class QCD_C_FqFqx_C_IqFqFqx(currents.GeneralQCDLocalCurrent):
     """ Nested FF (q_qx) collinear within IFF (q_qqx)."""
@@ -1094,8 +1062,7 @@ class QCD_C_FqFqx_C_IqFqFqx(currents.GeneralQCDLocalCurrent):
 
         return evaluation
 
-#TZaddition
-#needed for QCD_C_IqFqx_C_IqFqFqx where the hatted xs use Q_hat
+#Needed for QCD_C_IqFqx_C_IqFqFqx where the hatted xs use Q_hat
 def QCD_C_IqFqx_C_IqFqFqx_global_IFF_collinearIF_variables(all_steps, global_info):
     """ Calls the IF variables by forcing the parent momentum for the IF variable computation to be the
     overall parent momentum of the C(C(IF),F) structure."""
@@ -1121,7 +1088,6 @@ def QCD_C_IqFqx_C_IqFqFqx_global_IFF_collinearIF_variables(all_steps, global_inf
     return IF_variables
 
 
-#TZaddition
 class QCD_C_IqFqx_C_IqFqFqx(currents.GeneralQCDLocalCurrent):
     """ Nested IF (q_qx) collinear within IFF (q_qqx)."""
 
@@ -1485,7 +1451,6 @@ class QCD_S_FqFqx_C_FqFqx_C_IqpFqFqx(currents.GeneralQCDLocalCurrent):
         })
         return evaluation
 
-#TZaddition
 #Inherits everything from the different-flavor class. Structure and mapping_rules redefined to match same-flavor case.
 class QCD_S_FqFqx_C_FqFqx_C_IqFqFqx(currents.GeneralQCDLocalCurrent):
     """ Nested soft FF (q_qx) limit within collinear FF (q_qx) limit with collinear limit IFF (q' q_qx)."""

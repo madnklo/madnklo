@@ -134,10 +134,12 @@ def load():
         NNLO_local_currents.QCD_final_collinear_0_qqq,
         NNLO_local_currents.QCD_final_collinear_0_qgg, #<<added
         # S(FF)
-	NNLO_local_currents.QCD_S_FqFqx, #<<added
+	NNLO_local_currents.QCD_S_FqFqx,
         NNLO_local_currents.QCD_S_FgFg, #QQ>GG
         # IS(FF)
         NNLO_local_currents.QCD_initial_soft_collinear_0_qqpqp,
+        NNLO_local_currents.QCD_initial_soft_collinear_0_qqq, #Should be merged with qqpqp
+        NNLO_local_currents.QCD_initial_soft_collinear_0_gqq, #Should bemergged with qqpqp
         # C(I,C(FF))
         NNLO_local_currents.QCD_C_FqFqx_C_IqpFqFqx,
         NNLO_local_currents.QCD_C_FqFqx_C_IqFqFqx,

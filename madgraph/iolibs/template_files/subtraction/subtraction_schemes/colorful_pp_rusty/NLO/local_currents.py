@@ -18,11 +18,13 @@ import math
 
 import madgraph.core.subtraction as sub
 import madgraph.integrator.mappings as mappings
+from bidict import bidict
 
 import commons.utils as utils
-import commons.QCD_local_currents as currents
+from commons.universal_kernels import AltarelliParisiKernels, SoftKernels
 import commons.factors_and_cuts as factors_and_cuts
 
+import commons.QCD_local_currents as currents
 import colorful_pp_config
 import variables as kernel_variables
 
@@ -33,99 +35,165 @@ CurrentImplementationError = utils.CurrentImplementationError
 #=========================================================================================
 # NLO final collinears
 #=========================================================================================
-class QCD_final_collinear_0_XX(currents.QCDLocalCollinearCurrent):
-    """Two-collinear tree-level current."""
+class QCD_final_collinear_0_qqx(currents.GeneralQCDLocalCurrent):
+    """qg collinear FSR tree-level current. g(final) > q(final) qbar(final) """
 
     squared_orders = {'QCD': 2}
     n_loops = 0
+    divide_by_jacobian = colorful_pp_config.divide_by_jacobian
 
-    # Cuts are applicable now, and the corresponding alpha_0 will be used as a max upper bound for the dynamically
-    # computed virtuality in the corresponding integrated CT
-    is_cut = staticmethod(factors_and_cuts.cut_coll)
-    factor = staticmethod(factors_and_cuts.no_factor)
-    # IMPORTANT: the mapping employed for final collinears here recoils against initial state.
-    mapping = colorful_pp_config.final_coll_mapping
-    # Force the use of Gabor's variable for the full final collinear
-    variables = staticmethod(kernel_variables.colorful_pp_FFn_variables)
-    # Never divide by the jacobian in Gabor's case.
-    divide_by_jacobian = False
-    # Specify only initial states as recoilers.
-    get_recoilers = staticmethod(colorful_pp_config.get_initial_state_recoilers)
+    # Make sure to have the initial particle with the lowest index
+    structure = [
+	sub.SingularStructure(sub.CollStructure(
+        	sub.SubtractionLeg(0, +1, sub.SubtractionLeg.FINAL),
+        	sub.SubtractionLeg(1, -1, sub.SubtractionLeg.FINAL), 
+	)),
+    ]
 
+    # And now the mapping rules
+    mapping_rules = [
+        {
+            'singular_structure': sub.SingularStructure(substructures=(sub.CollStructure(
+                legs=(
+	            sub.SubtractionLeg(0, +1, sub.SubtractionLeg.FINAL),
+        	    sub.SubtractionLeg(1, -1, sub.SubtractionLeg.FINAL),
+                )
+            ),)),
+            'mapping'               : colorful_pp_config.final_coll_mapping,
+            'momenta_dict'          : bidict({-1:frozenset((0,1))}),
+            'variables'             : currents.CompoundVariables(kernel_variables.colorful_pp_FFn_variables),
+            'is_cut'                : colorful_pp_config.final_coll_cut,
+            'reduced_recoilers'     : colorful_pp_config.get_initial_state_recoilers,
+            'additional_recoilers'  : sub.SubtractionLegSet([]),
+        },
+    ]
 
-class QCD_final_collinear_0_qqx(QCD_final_collinear_0_XX):
-    """q q~ collinear tree-level current."""
+    def kernel(self, evaluation, all_steps_info, global_variables):
 
-    structure = sub.SingularStructure(sub.CollStructure(
-        sub.SubtractionLeg(0, +1, sub.SubtractionLeg.FINAL),
-        sub.SubtractionLeg(1, -1, sub.SubtractionLeg.FINAL), ))
+        kT = all_steps_info[0]['variables'][0]['kTs'][(0,(1,))]
+        z  = all_steps_info[0]['variables'][0]['zs'][0]
+        s_ir = all_steps_info[0]['variables'][0]['ss'][(0,1)]
 
-    def kernel(self, evaluation, parent, variables):
+        parent = all_steps_info[0]['bundles_info'][0]['parent']
 
-        # Retrieve the collinear variables
-        z = variables['zs'][0]
-        kT = variables['kTs'][0,(1,)]
-        # Instantiate the structure of the result
-        evaluation['spin_correlations'] = [None, ((parent, (kT,)),) ]
+        prefactor = 1./s_ir
 
-        # Compute the kernel
-        # The line below implements the g_{\mu\nu} part of the splitting kernel.
-        # Notice that the extra longitudinal terms included in the spin-correlation 'None'
-        # from the relation:
-        #    \sum_\lambda \epsilon_\lambda^\mu \epsilon_\lambda^{\star\nu}
-        #    = g^{\mu\nu} + longitudinal terms
-        # are irrelevant because Ward identities evaluate them to zero anyway.
-        evaluation['values'][(0, 0, 0)] = { 'finite' : self.TR }
-        evaluation['values'][(1, 0, 0)] = { 'finite' : 4 * self.TR * z * (1-z) / kT.square() }
-        return evaluation
-
-
-class QCD_final_collinear_0_gq(QCD_final_collinear_0_XX):
-    """g q collinear tree-level current."""
-
-    structure = sub.SingularStructure(sub.CollStructure(
-        sub.SubtractionLeg(0, 21, sub.SubtractionLeg.FINAL),
-        sub.SubtractionLeg(1, +1, sub.SubtractionLeg.FINAL), ))
-
-    def kernel(self, evaluation, parent, variables):
-
-        # Retrieve the collinear variables
-        z = variables['zs'][0]
-
-        # Compute the kernel
-        evaluation['values'][(0, 0, 0)] = { 'finite' : \
-            self.CF * (1 + (1-z)**2) / z }
+        for spin_correlation_vector, weight in AltarelliParisiKernels.P_qq(self, z, kT):
+            complete_weight = weight * prefactor
+            if spin_correlation_vector is None:
+                evaluation['values'][(0, 0, 0)] = {'finite': complete_weight[0]}
+            else:
+                evaluation['spin_correlations'].append( ( (parent, (spin_correlation_vector,) ), ) )
+                evaluation['values'][(len(evaluation['spin_correlations'])-1, 0, 0)] = {'finite': complete_weight[0]}
 
         return evaluation
 
 
-class QCD_final_collinear_0_gg(QCD_final_collinear_0_XX):
-    """g g collinear tree-level current."""
+class QCD_final_collinear_0_gq(currents.GeneralQCDLocalCurrent):
+    """gq collinear FSR tree-level current. q(final) > g(final) q(final) """
 
-    structure = sub.SingularStructure(sub.CollStructure(
-        sub.SubtractionLeg(0, 21, sub.SubtractionLeg.FINAL),
-        sub.SubtractionLeg(1, 21, sub.SubtractionLeg.FINAL), ))
+    squared_orders = {'QCD': 2}
+    n_loops = 0
+    divide_by_jacobian = colorful_pp_config.divide_by_jacobian
 
-    def kernel(self, evaluation, parent, variables):
+    # Make sure to have the initial particle with the lowest index
+    structure = [
+	sub.SingularStructure(sub.CollStructure(
+        	sub.SubtractionLeg(0, 21, sub.SubtractionLeg.FINAL),
+        	sub.SubtractionLeg(1, +1, sub.SubtractionLeg.FINAL), 
+	)),
+    ]
 
-        # Retrieve the collinear variables
-        z = variables['zs'][0]
-        kT = variables['kTs'][(0,(1,))]
+    # And now the mapping rules
+    mapping_rules = [
+        {
+            'singular_structure': sub.SingularStructure(substructures=(sub.CollStructure(
+                legs=(
+	            sub.SubtractionLeg(0, 21, sub.SubtractionLeg.FINAL),
+        	    sub.SubtractionLeg(1, +1, sub.SubtractionLeg.FINAL),
+                )
+            ),)),
+            'mapping'               : colorful_pp_config.final_coll_mapping,
+            'momenta_dict'          : bidict({-1:frozenset((0,1))}),
+            'variables'             : currents.CompoundVariables(kernel_variables.colorful_pp_FFn_variables),
+            'is_cut'                : colorful_pp_config.final_coll_cut,
+            'reduced_recoilers'     : colorful_pp_config.get_initial_state_recoilers,
+            'additional_recoilers'  : sub.SubtractionLegSet([]),
+        },
+    ]
 
-        # Instantiate the structure of the result
-        evaluation['spin_correlations'] = [None, ((parent, (kT,)),), ]
+    def kernel(self, evaluation, all_steps_info, global_variables):
 
-        # Compute the kernel
-        # The line below implements the g_{\mu\nu} part of the splitting kernel.
-        # Notice that the extra longitudinal terms included in the spin-correlation 'None'
-        # from the relation:
-        #    \sum_\lambda \epsilon_\lambda^\mu \epsilon_\lambda^{\star\nu}
-        #    = g^{\mu\nu} + longitudinal terms
-        # are irrelevant because Ward identities evaluate them to zero anyway.
-        evaluation['values'][(0, 0, 0)] = { 'finite' : \
-            +2 * self.CA * (z/(1-z) + (1-z)/z) }
-        evaluation['values'][(1, 0, 0)] = { 'finite' : \
-            -2 * self.CA * 2 * z * (1-z) / kT.square() }
+        kT = all_steps_info[0]['variables'][0]['kTs'][(0,(1,))]
+        z  = all_steps_info[0]['variables'][0]['zs'][0]
+        s_ir = all_steps_info[0]['variables'][0]['ss'][(0,1)]
+
+        parent = all_steps_info[0]['bundles_info'][0]['parent']
+
+        prefactor = 1./s_ir
+
+        for spin_correlation_vector, weight in AltarelliParisiKernels.P_qg(self, z, kT):
+            complete_weight = weight * prefactor
+            if spin_correlation_vector is None:
+                evaluation['values'][(0, 0, 0)] = {'finite': complete_weight[0]}
+            else:
+                evaluation['spin_correlations'].append( ( (parent, (spin_correlation_vector,) ), ) )
+                evaluation['values'][(len(evaluation['spin_correlations'])-1, 0, 0)] = {'finite': complete_weight[0]}
+
+        return evaluation
+
+
+class QCD_final_collinear_0_gg(currents.GeneralQCDLocalCurrent):
+    """gg collinear FSR tree-level current. g(final) > g(final) g(final) """
+
+    squared_orders = {'QCD': 2}
+    n_loops = 0
+    divide_by_jacobian = colorful_pp_config.divide_by_jacobian
+
+    # Make sure to have the initial particle with the lowest index
+    structure = [
+	sub.SingularStructure(sub.CollStructure(
+        	sub.SubtractionLeg(0, 21, sub.SubtractionLeg.FINAL),
+        	sub.SubtractionLeg(1, 21, sub.SubtractionLeg.FINAL), 
+	)),
+    ]
+
+    # And now the mapping rules
+    mapping_rules = [
+        {
+            'singular_structure': sub.SingularStructure(substructures=(sub.CollStructure(
+                legs=(
+	            sub.SubtractionLeg(0, 21, sub.SubtractionLeg.FINAL),
+        	    sub.SubtractionLeg(1, 21, sub.SubtractionLeg.FINAL),
+                )
+            ),)),
+            'mapping'               : colorful_pp_config.final_coll_mapping,
+            'momenta_dict'          : bidict({-1:frozenset((0,1))}),
+            'variables'             : currents.CompoundVariables(kernel_variables.colorful_pp_FFn_variables),
+            'is_cut'                : colorful_pp_config.final_coll_cut,
+            'reduced_recoilers'     : colorful_pp_config.get_initial_state_recoilers,
+            'additional_recoilers'  : sub.SubtractionLegSet([]),
+        },
+    ]
+
+    def kernel(self, evaluation, all_steps_info, global_variables):
+
+        kT = all_steps_info[0]['variables'][0]['kTs'][(0,(1,))]
+        z  = all_steps_info[0]['variables'][0]['zs'][0]
+        s_ir = all_steps_info[0]['variables'][0]['ss'][(0,1)]
+
+        parent = all_steps_info[0]['bundles_info'][0]['parent']
+
+        prefactor = 1./s_ir
+
+        for spin_correlation_vector, weight in AltarelliParisiKernels.P_gg(self, z, kT):
+            complete_weight = weight * prefactor
+            if spin_correlation_vector is None:
+                evaluation['values'][(0, 0, 0)] = {'finite': complete_weight[0]}
+            else:
+                evaluation['spin_correlations'].append( ( (parent, (spin_correlation_vector,) ), ) )
+                evaluation['values'][(len(evaluation['spin_correlations'])-1, 0, 0)] = {'finite': complete_weight[0]}
+
         return evaluation
 
 

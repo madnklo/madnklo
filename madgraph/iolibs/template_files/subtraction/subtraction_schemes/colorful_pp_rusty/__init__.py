@@ -90,7 +90,7 @@ def load():
     ])
 
     NLO_final_collinears = [
-        NLO_local_currents.QCD_final_collinear_0_qqx,
+        NLO_local_currents.QCD_final_collinear_0_qqx, #<<new stuff
         NLO_local_currents.QCD_final_collinear_0_gq,
         NLO_local_currents.QCD_final_collinear_0_gg,
     ]
@@ -139,7 +139,7 @@ def load():
         # IS(FF)
         NNLO_local_currents.QCD_initial_soft_collinear_0_qqpqp,
         NNLO_local_currents.QCD_initial_soft_collinear_0_qqq, #Should be merged with qqpqp
-        NNLO_local_currents.QCD_initial_soft_collinear_0_gqq, #Should bemergged with qqpqp
+        NNLO_local_currents.QCD_initial_soft_collinear_0_gqq, #Should be merged with qqpqp
         # C(I,C(FF))
         NNLO_local_currents.QCD_C_FqFqx_C_IqpFqFqx,
         NNLO_local_currents.QCD_C_FqFqx_C_IqFqFqx,

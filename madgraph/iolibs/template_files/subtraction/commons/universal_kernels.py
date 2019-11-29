@@ -17,6 +17,17 @@ class AltarelliParisiKernels:
         })
 
     @staticmethod
+    def P_qg(color_factors, z, kT):
+        return [
+	    ( None,
+	       EpsilonExpansion({
+                0: color_factors.CF*((1.+z**2)/(1.-z)),
+                1: color_factors.CF*(-(1-z))
+               })
+	    )
+	]
+
+    @staticmethod
     def P_qq(color_factors, z, kT):
         return [
             ( None, EpsilonExpansion({
@@ -26,6 +37,18 @@ class AltarelliParisiKernels:
                 0: color_factors.TR * (4.*z*(1.-z)*(1./kT.square())),
             })),
         ]
+
+    @staticmethod
+    def P_gg(color_factors, z, kT):
+        return [
+            ( None, EpsilonExpansion({
+                    0: 2. * color_factors.CA * (z/(1.-z) + (1.-z)/z),
+            })),
+            ( kT, EpsilonExpansion({
+                0: -2. * color_factors.CA * 2. * z * (1.-z) / kT.square(),
+            })),
+        ]
+
 
     @staticmethod
     def P_qqpqp(color_factors, z_i, z_r, z_s, s_ir, s_is, s_rs, kT_i, kT_r, kT_s):
@@ -120,7 +143,8 @@ class AltarelliParisiKernels:
             )
         ]
 
-    #TZaddition
+
+#TZaddition
     @staticmethod
     def P_qgg_nab(color_factors, z_i, z_r, z_s, s_ir, s_is, s_rs, kT_i, kT_r, kT_s):
         """ Non-abelian part of the kernel for the q -> q g g splitting. The return value is not a float but a list of tuples:
@@ -128,7 +152,7 @@ class AltarelliParisiKernels:
             where spin_correlation_vector_with_parent can be None if None is required.
         """
 
-        # Compute handy term and variables
+        # Compute handy terms and variables
         s_irs = s_ir+s_is+s_rs
         t_rs_i = 2.*(z_r*s_is-z_s*s_ir)/(z_r+z_s) + ((z_r-z_s)/(z_r+z_s))*s_rs
         fac_1 = s_irs**2/2./s_rs/s_ir
@@ -159,7 +183,8 @@ class AltarelliParisiKernels:
             )
         ]
 
-    #TZaddition
+
+#TZaddition
     @staticmethod
     def P_qgg(color_factors, z_i, z_r, z_s, s_ir, s_is, s_rs, kT_i, kT_r, kT_s):
         """ Kernel for the q -> q g g splitting. The return value is not a float but a list of tuples:

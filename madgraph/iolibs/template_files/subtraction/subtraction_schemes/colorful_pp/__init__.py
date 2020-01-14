@@ -4,7 +4,9 @@
 #
 ###########################################################
 
-__authors__ = ["valentin.hirschi@gmail.com", "simone.lionetti@gmail.com", "nicoldeu@phys.ethz.ch"]
+import os
+
+__authors__ = ["valentin.hirschi@gmail.com", "nicoldeu@phys.ethz.ch"]
 
 # Mandatory variables of each subtraction module
 
@@ -27,6 +29,7 @@ def load():
     root_path = os.path.dirname(os.path.realpath( __file__ ))
     sys.path.insert(0,root_path)
     sys.path.insert(0,os.path.abspath(os.path.join(root_path, os.path.pardir, os.path.pardir)))
+    subtraction_scheme_name = os.path.split(os.path.dirname(os.path.realpath(__file__)))[-1]
 
     from commons.currents_exporter import GenericCurrentsExporter
 
@@ -62,7 +65,7 @@ def load():
 
     # Note: specifying below which resources are needed is optional
     loaded_attributes['exporter'] = ColorfulPPExporter(relative_resource_paths=[
-        'subtraction_schemes/new_format_colorful_pp'
+        'subtraction_schemes/%s'%subtraction_scheme_name
     ])
 
     all_subtraction_current_classes = []
@@ -90,7 +93,12 @@ def load():
     ])
 
     NLO_final_collinears = [
-
+        NLO_local_currents.QCD_C_FqFqx,
+        NLO_local_currents.QCD_C_FgFg,
+        NLO_local_currents.QCD_C_FqFg,
+        NLO_local_currents.QCD_S_g,
+        NLO_local_currents.QCD_CS_FgFg,
+        NLO_local_currents.QCD_CS_FgFq,
     ]
     # final-final collinears
     all_subtraction_current_classes.extend(NLO_final_collinears)

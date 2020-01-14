@@ -102,7 +102,6 @@ class ProcessKey(object):
                 # if he so wants. Remember however that only attributes with *hashable* values are allowed
                 # to be specified here.,
                 **opts):
-        
 
         # Try to use the dynamically created caching system for the ProcessKey
         # which is a bit time consuming to generate
@@ -143,7 +142,6 @@ class ProcessKey(object):
             else: # The final state still needs to be sorted
                 self.key_dict['PDGs'] = ( self.key_dict['PDGs'][0], tuple(sorted(self.key_dict['PDGs'][1])))
 
-        
         # Now make sure to instantiate a default process if the user didn't select one
         if not process:
             process = base_objects.Process()
@@ -925,11 +923,12 @@ class SubtractionCurrentAccessor(VirtualMEAccessor):
         """Evaluate the subtraction current."""
 
         # Make sure that the currents_block passed is indeed a currents_block and not a single current instance
-        if not isinstance(currents_block, subtraction.CurrentsBlock) and isinstance(currents_block, subtraction.Current):
-            currents_block = subtraction.CurrentsBlock([currents_block,])
-        else:
-            raise MadGraph5Error("An instance of a SubtractionCurrentAccessor must be called with an instance of "+
-                                 "a subtraction current or current block as first argument.")
+        if not isinstance(currents_block, subtraction.CurrentsBlock):
+            if isinstance(currents_block, subtraction.Current):
+                currents_block = subtraction.CurrentsBlock([currents_block,])
+            else:
+                raise MadGraph5Error("An instance of a SubtractionCurrentAccessor must be called with an instance of "+
+                                     "a subtraction current or current block as first argument.")
 
         instance = self.subtraction_current_instance
         
@@ -1921,6 +1920,11 @@ class MEAccessorDict(dict):
         try:
             (ME_accessor, defining_pdgs_order) = super(MEAccessorDict, self).__getitem__(accessor_key.get_canonical_key())
         except KeyError:
+            #from pprint import pformat
+            #misc.sprint("Accessible current keys:\n%s"%pformat(
+            #    [k for k in self.keys() if isinstance(k[0][0],tuple) ]
+            #))
+            #misc.sprint(pformat(accessor_key.get_canonical_key()))
             raise MadGraph5Error("This collection of matrix elements does not contain process %s."%str(accessor_key.get_key_dict()))
         
         if pdgs is None:

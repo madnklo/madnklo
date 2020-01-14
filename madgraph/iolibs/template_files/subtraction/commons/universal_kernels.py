@@ -22,9 +22,35 @@ class AltarelliParisiKernels:
             ( None, EpsilonExpansion({
                     0: color_factors.TR,
             })),
-            ( kT, EpsilonExpansion({
+            ( (kT,) , EpsilonExpansion({
                 0: color_factors.TR * (4.*z*(1.-z)*(1./kT.square())),
             })),
+        ]
+
+    @staticmethod
+    def P_gg(color_factors, z, kT):
+
+        return [
+            ( None, EpsilonExpansion({
+                0: 2 * color_factors.CA * (z/(1-z) + (1-z)/z) ,
+            })),
+            ( (kT,) , EpsilonExpansion({
+                0: -2 * color_factors.CA * 2 * z * (1-z) / kT.square(),
+            })),
+        ]
+
+    @staticmethod
+    def P_qg(color_factors, z, kT):
+
+        return [
+            ( None, AltarelliParisiKernels.P_qg_averaged(color_factors, z) ),
+        ]
+
+    @staticmethod
+    def P_gq(color_factors, z, kT):
+
+        return [
+            ( None, AltarelliParisiKernels.P_qg_averaged(color_factors, 1.-z) ),
         ]
 
     @staticmethod
@@ -72,6 +98,17 @@ class AltarelliParisiKernels:
 
 class SoftKernels:
     """ Implementation of the universal soft kernels."""
+
+    @staticmethod
+    def eikonal_dipole(pi, pj, ps):
+        """Eikonal factor for soft particle with momentum ps
+        emitted from the dipole with momenta pi and pj.
+        """
+
+        pipj = pi.dot(pj)
+        pips = pi.dot(ps)
+        pjps = pj.dot(ps)
+        return pipj / (pips * pjps)
 
     @staticmethod
     def eikonal_g(color_factors, pi, pk, pr, spin_corr_vector=None):

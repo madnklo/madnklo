@@ -766,20 +766,30 @@ class Contribution(object):
         log_string = "The following subtraction %s current implementations are exported "%CT_type+\
                      "in contribution '%s':\n"%self.short_name()
         default_implementation_string = ''
+
+        # Count how many CTs apply to each class recognized
+        n_CTs_per_class = {}
+        for (module_path, class_name, _), currents_block_properties in mapped_currents_blocks.items():
+            if class_name in n_CTs_per_class:
+                n_CTs_per_class[class_name] += len(currents_block_properties['mapped_process_keys'])
+            else:
+                n_CTs_per_class[class_name] = len(currents_block_properties['mapped_process_keys'])
+
         already_listed = []
         for (module_path, class_name, _), currents_block_properties in mapped_currents_blocks.items():
             if class_name != 'DefaultCurrentImplementation':
                 if class_name not in already_listed:
                     already_listed.append(class_name)
                     quote_class_name = "'%s'" % class_name
-                    defining_current_str = str(currents_block_properties['defining_currents'])
-                    line_pars = (quote_class_name, defining_current_str)
-                    log_string += " > %-35s for representative current '%s'\n" % line_pars
+                    defining_current_str = str(currents_block_properties['defining_currents_block'])
+                    line_pars = '%-20s : %s'%(quote_class_name, defining_current_str)
+                    log_string += " > %-35s for %d current blocks, with representative %s\n" % (
+                                                        class_name, n_CTs_per_class[class_name] , line_pars )
             else:
                 quote_default_name = "'DefaultCurrentImplementation'"
                 number_of_currents = len(currents_block_properties['mapped_process_keys'])
                 line_pars = (quote_default_name, number_of_currents)
-                default_implementation_string = " > %-35s for a total of %d currents.\n" % line_pars
+                default_implementation_string = " > %-35s for a total of %d current blocks.\n" % line_pars
 
         log_string +=default_implementation_string
         if len(mapped_currents_blocks)>0:

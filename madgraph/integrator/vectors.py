@@ -502,6 +502,7 @@ class LorentzVectorDict(dict):
             if __debug__:
                 sqrts = math.sqrt((self[initial_leg_numbers[0]]+self[initial_leg_numbers[1]]).square())
                 # Assert initial states along the z axis
+                import madgraph.various.misc as misc
                 assert(abs(self[initial_leg_numbers[0]][1]/sqrts)<1.0e-9)
                 assert(abs(self[initial_leg_numbers[1]][1]/sqrts)<1.0e-9)
                 assert(abs(self[initial_leg_numbers[0]][2]/sqrts)<1.0e-9)

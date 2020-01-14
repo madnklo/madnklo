@@ -954,6 +954,9 @@ class CurrentsBlock(tuple):
                                  " current if it contains more than one current.")
         return self[0]
 
+    def does_resolve_mother_spin_and_color(self):
+        return any(c['resolve_mother_spin_and_color'] for c in self)
+
     def get_squared_orders(self):
         """ Return the aggregated squared orders for this currents block."""
 
@@ -1001,6 +1004,9 @@ class Current(base_objects.Process):
 
         self['model'] = None
 
+    def does_resolve_mother_spin_and_color(self):
+        return self['resolve_mother_spin_and_color']
+
     def set(self,name,value, **opts):
 
         # There is no need to store a model for this class, so allow None
@@ -1008,7 +1014,6 @@ class Current(base_objects.Process):
             base_objects.PhysicsObject.set(self, 'model', None, force=True)
         else:
             return super(Current, self).set(name, value, **opts)
-
 
     def count_unresolved(self):
         """Count the number of unresolved particles covered by this current."""
@@ -1114,6 +1119,10 @@ class Current(base_objects.Process):
                                      'Defining flavors:\n%s\n'%str(defining_flavors)+
                                      'routing dict:\n%s\n'%str(routing_dict)+
                                      'Exception encountered:\n%s'%traceback.format_exc())
+
+    def get_squared_orders(self):
+        """ Necessary for common API with CurrentsBlock"""
+        return self.get('squared_orders')
 
     def get_key(self, track_leg_numbers=False):
         """Return the ProcessKey associated to this current."""
@@ -2138,6 +2147,7 @@ class IntegratedCounterterm(Counterterm):
               {   'beam_one' : beam_current_1 # None for no convolution
                   'beam_two' : beam_current_2 # None for no convolution
       <optional>  'correlated_convolution' : beam_current # None for not correlated convolution
+      <optional>  'non_factorisable_convolution' : <beam_current> # None for not correlated convolution
               }
            Note that whenever 'correlated_convolution' is not set to None, the other beam_currents
            will be None.
@@ -2159,6 +2169,15 @@ class IntegratedCounterterm(Counterterm):
         ' process should all be None if the integrated counterterm necessitates a correlated'+
         ' beam convolution.')
                 bcs['correlated_convolution'] = integrated_current
+            return beam_currents
+
+        if self.get_n_non_factorisable_double_sided_convolution()>=2:
+            for bcs in beam_currents:
+                if bcs['beam_one'] is not None or bcs['beam_two'] is not None:
+                    raise MadGraph5Error('The beam factorization currents from the reduced' +
+                                         ' process should all be None if the integrated counterterm necessitates a non-factorizable' +
+                                         ' beam convolution.')
+                bcs['non_factorisable_convolution'] = integrated_current
             return beam_currents
 
         # Now get all legs of its singular structure
@@ -3148,7 +3167,6 @@ class SubtractionCurrentExporter(object):
                     mapped_currents_blocks[key]['mapped_process_keys'].append(
                                                     currents_block.get_key(track_leg_numbers=track_leg_numbers) )
                 else:
-
                     mapped_currents_blocks[key] = {
                         'defining_currents_block': currents_block,
                         'mapped_process_keys': [ currents_block.get_key(track_leg_numbers=track_leg_numbers), ],

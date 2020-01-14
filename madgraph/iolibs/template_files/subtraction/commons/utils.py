@@ -286,7 +286,7 @@ class SubtractionCurrentResult(dict):
         """Return a 'zero' result."""
 
         if squared_orders is None and current is not None:
-            sqo = tuple(sorted(current.get('squared_orders').items()))
+            sqo = tuple(sorted(current.get_squared_orders().items()))
         else:
             sqo = squared_orders
         subtraction_current_result = SubtractionCurrentResult()
@@ -420,9 +420,13 @@ class DefaultCurrentImplementation(VirtualCurrentImplementation):
         # return None
         return {}
     
-    def evaluate_subtraction_current(self, current,
+    def evaluate_subtraction_current(self, currents_block,
         higher_PS_point=None, momenta_dict=None, reduced_process=None,
         hel_config=None, xis=None, Q=None, **opts):
         """Simply return 0 for this current default implementation."""
-        
-        return SubtractionCurrentResult.zero(current=current, hel_config=hel_config)
+
+        misc.sprint("WARNING: The default subtraction current implementation is used for the currents block:\n%s"%currents_block+
+            "This will typically result in a crash of the evaluation of the integrand at run-time since no reduced kinematics are defined.\n"
+            "Please specify an actual implementation for this current in the subtraction scheme.")
+
+        return SubtractionCurrentResult.zero(current=currents_block, hel_config=hel_config)

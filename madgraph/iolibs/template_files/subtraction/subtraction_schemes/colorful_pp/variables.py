@@ -165,7 +165,7 @@ def colorful_pp_FFF_softFF_variables(higher_PS_point, qC, children, **opts):
         for j_fs in range(i_fs + 1, len(p_fs)):
             ss[(i_fs + 1, j_fs + 1)] = 2. * p_fs[i_fs].dot(p_fs[j_fs])
 
-    return [{'xs':tuple(zs), 'kTs':tuple(kTs), 'ss':ss},]
+    return [{'zs':tuple(zs), 'kTs':tuple(kTs), 'ss':ss},]
 
 def colorful_pp_IFF_softFF_variables(PS_point, parent_momentum, children, **opts):
     """ Variables for the initial-state collinear recoiling exclusively against the initial state,

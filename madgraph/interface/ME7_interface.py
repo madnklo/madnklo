@@ -82,8 +82,6 @@ import models.import_ufo as import_ufo
 from madgraph.iolibs.files import ln
 from madgraph import InvalidCmd, MadGraph5Error, MG5DIR, ReadWrite, MPI_RANK, MPI_SIZE, MPI_ACTIVE
 
-
-
 class MadEvent7Error(Exception):
     pass
 
@@ -423,7 +421,7 @@ class ParseCmdArguments(object):
                     raise InvalidCmd("'%s' is not a valid option for '%s'. It must be 'finite', 'sum_all' or of the form 'eps^<i>'."%(value, key))
                 testlimits_options['epsilon_expansion_term'] = value
             elif key in ['--verbosity','--v']:
-                modes = {'none':0, 'minimal':1, 'all':2}
+                modes = {'none':0, 'minimal':1, 'all':2,'0':0,'1':1,'2':2}
                 testlimits_options['verbosity'] = modes[value.lower()]
             elif key in ['--acceptance_threshold','--thres']:
                 try:

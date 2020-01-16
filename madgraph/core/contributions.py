@@ -783,7 +783,7 @@ class Contribution(object):
                     quote_class_name = "'%s'" % class_name
                     defining_current_str = str(currents_block_properties['defining_currents_block'])
                     line_pars = '%-20s : %s'%(quote_class_name, defining_current_str)
-                    log_string += " > %-35s for %d current blocks, with representative %s\n" % (
+                    log_string += " > %-35s for %-3d current blocks, with representative %s\n" % (
                                                         class_name, n_CTs_per_class[class_name] , line_pars )
             else:
                 quote_default_name = "'DefaultCurrentImplementation'"

@@ -496,8 +496,6 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
         hel_config=None, mu_r = None, mu_fs=(None,None), xis=(None,None), Q=None,
         track_leg_numbers = True, allowed_backward_evolved_flavors=('ALL','ALL'), **opts ):
 
-
-
         if higher_PS_point is None:
             raise CurrentImplementationError(
                 self.name() + " needs the higher phase-space point.")
@@ -543,7 +541,6 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
         # eg (C(1,2),C(4,5),S(6)).
         defining_structure = self.defining_currents[0][0].get('singular_structure').unpack()
 
-
         # Make sure a lower_PS_point is generated even if no mapping rule was necessary (as it is for instance the case
         # for integrated counterterms).
         all_steps = [{'higher_PS_point': higher_PS_point},]
@@ -558,7 +555,6 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
             # identical to the higher PS point.
             all_steps[0]['lower_PS_point'] = all_steps[0]['higher_PS_point']
 
-        # When some mapping is necessary, it
         for bundle in defining_structure.substructures:
             overall_children.append(tuple(leg_numbers_map[l.n] for l in bundle.get_all_legs()))
             if self.has_parent(bundle, len(overall_children[-1])):

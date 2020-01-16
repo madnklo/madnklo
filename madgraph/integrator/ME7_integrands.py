@@ -4149,8 +4149,6 @@ The missing process is: %s"""%ME_process.nice_string())
                 events.apply_PDF_convolution( self.get_pdfQ2, (pdf, pdf), (mu_f1**2, mu_f2**2) )
             # Make sure Bjorken-x rescalings xi_i don't matter anymore
 
-            misc.sprint(events)
-
             for event in events:
                 event.set_Bjorken_rescalings(None, None)
             # Apply flavor sensitive cuts

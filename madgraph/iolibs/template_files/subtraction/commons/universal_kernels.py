@@ -31,6 +31,12 @@ class AltarelliParisiKernels:
     def P_gg(color_factors, z, kT):
 
         return [
+            # The line below implements the -g_{\mu\nu} part of the splitting kernel.
+            # Notice that the extra longitudinal terms included in the spin-correlation 'None'
+            # from the relation:
+            #    \sum_\lambda \epsilon_\lambda^\mu \epsilon_\lambda^{\star\nu}
+            #    = g^{\mu\nu} + longitudinal terms
+            # are irrelevant because Ward identities evaluate them to zero anyway.
             ( None, EpsilonExpansion({
                 0: 2 * color_factors.CA * (z/(1-z) + (1-z)/z) ,
             })),

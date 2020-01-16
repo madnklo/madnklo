@@ -86,22 +86,22 @@ def load():
     # Add local NLO counterterms
     # ==========================
     all_subtraction_current_classes.extend([
-        # initial-final collinears
-
-        # soft and soft-collinears
-
-    ])
-
-    NLO_final_collinears = [
+        # final-final collinears
         NLO_local_currents.QCD_C_FqFqx,
         NLO_local_currents.QCD_C_FgFg,
         NLO_local_currents.QCD_C_FqFg,
+        # initial-final collinears
+        NLO_local_currents.QCD_C_IgFq,
+        NLO_local_currents.QCD_C_IqFg,
+        NLO_local_currents.QCD_C_IqFq,
+        NLO_local_currents.QCD_C_IgFg,
+        # soft and soft-collinears
         NLO_local_currents.QCD_S_g,
         NLO_local_currents.QCD_CS_FgFg,
         NLO_local_currents.QCD_CS_FgFq,
-    ]
-    # final-final collinears
-    all_subtraction_current_classes.extend(NLO_final_collinears)
+        NLO_local_currents.QCD_CS_IgFg,
+        NLO_local_currents.QCD_CS_IqFg,
+    ])
 
     # Add NLO integrated counterterms
     # ===============================

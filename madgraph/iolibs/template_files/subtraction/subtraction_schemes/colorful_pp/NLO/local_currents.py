@@ -523,8 +523,475 @@ class QCD_CS_FgFq(QCD_CS_FgFg):
 # NLO initial-collinear currents
 #=========================================================================================
 
+class QCD_C_IgFq(general_current.GeneralCurrent):
+    """gq collinear ISR tree-level current. q(initial) > g(initial_after_emission) q(final)"""
+
+    # Enable the flag below to debug this current
+    DEBUG = False
+
+    divide_by_jacobian = colorful_pp_config.divide_by_jacobian
+
+    # We should not need global variables for this current
+    variables = None
+
+    # Make sure to have the initial particle with the lowest index
+    # This will match both a quark or an antiquark
+    coll_structure_gq = sub.CollStructure(
+        substructures=tuple([]),
+        legs=(
+            sub.SubtractionLeg(10, +1, sub.SubtractionLeg.INITIAL),
+            sub.SubtractionLeg(11, +1, sub.SubtractionLeg.FINAL), )
+    )
+
+    # This counterterm will be used if any of the current of the list below matches
+    currents = [
+        sub.Current({
+            'resolve_mother_spin_and_color'     : True,
+            'n_loops'                           : 0,
+            'squared_orders'                    : {'QCD': 2},
+            'singular_structure'                : sub.SingularStructure(substructures=(coll_structure_gq,)),
+        }),
+    ]
+
+    # Te defining currents correspond to a currents block composed of several lists of template currents
+    # for matching each currents of the target currents block (in an unordered fashion)
+    defining_currents = [ currents, ]
+
+    # An now the mapping rules
+    mapping_rules = [
+        {
+            'singular_structure'    : sub.SingularStructure(substructures=(sub.CollStructure(
+                substructures=tuple([]),
+                legs=(
+                    sub.SubtractionLeg(10, +1, sub.SubtractionLeg.INITIAL),
+                    sub.SubtractionLeg(11, +1, sub.SubtractionLeg.FINAL),
+                )
+            ),)),
+            'mapping'               : colorful_pp_config.initial_coll_mapping,
+            # Intermediate legs should be strictly superior to a 1000
+            'momenta_dict'          : bidict({-1:frozenset((10,11))}),
+            'variables'             : general_current.CompoundVariables(kernel_variables.colorful_pp_IFn_variables),
+            'is_cut'                : colorful_pp_config.generalised_cuts,
+            'reduced_recoilers'     : colorful_pp_config.get_final_state_recoilers,
+            'additional_recoilers'  : sub.SubtractionLegSet([]),
+        },
+    ]
+
+    def kernel(self, evaluation, all_steps_info, global_variables):
+        """ Evaluate this counterterm given the variables provided. """
+
+        kT = all_steps_info[0]['variables'][0]['kTs'][0]
+        x  = all_steps_info[0]['variables'][0]['xs'][0]
+        s_rs  = all_steps_info[0]['variables'][0]['ss'][(0,1)]
+        parent = all_steps_info[0]['bundles_info'][0]['parent']
+
+        # The factor 'x' that should be part of the initial_state_crossing_factor cancels
+        # against the extra prefactor 1/x in the collinear factorization formula
+        # (see Eq. (8) of NNLO compatible NLO scheme publication arXiv:0903.1218v2)
+        initial_state_crossing_factor = -1.
+        # Correct for the ratio of color-averaging factor between the real ME
+        # initial state flavor (quark) and the one of the reduced Born ME (gluon)
+        initial_state_crossing_factor *= (self.NC ** 2 - 1) / float(self.NC)
+
+        z = 1. / x
+
+        # We must include here propagator factors
+        #  (p_initial_state_child - sum(p_final_state_children)).square() = -s_rs
+        prefactor = initial_state_crossing_factor / (-s_rs)
+        for spin_correlation_vector, weight in AltarelliParisiKernels.P_qq(self, z, kT):
+            complete_weight = weight * prefactor
+            if spin_correlation_vector is None:
+                evaluation['values'][(0, 0, 0, 0)] = {'finite': complete_weight[0]}
+            else:
+                evaluation['spin_correlations'].append( ((parent, spin_correlation_vector),) )
+                evaluation['values'][(len(evaluation['spin_correlations']) - 1, 0, 0, 0)] = {'finite': complete_weight[0]}
+
+        return evaluation
+
+class QCD_C_IqFg(general_current.GeneralCurrent):
+    """qg collinear ISR tree-level current. q(initial) > q(initial_after_emission) g(final)"""
+
+    # Enable the flag below to debug this current
+    DEBUG = False
+
+    divide_by_jacobian = colorful_pp_config.divide_by_jacobian
+
+    # We should not need global variables for this current
+    variables = None
+
+    # Make sure to have the initial particle with the lowest index
+    # This will match both a quark or an antiquark
+    coll_structure_qg = sub.CollStructure(
+        substructures=tuple([]),
+        legs=(
+            sub.SubtractionLeg(10, +1, sub.SubtractionLeg.INITIAL),
+            sub.SubtractionLeg(11, 21, sub.SubtractionLeg.FINAL),)
+    )
+
+    # This counterterm will be used if any of the current of the list below matches
+    currents = [
+        sub.Current({
+            'resolve_mother_spin_and_color': True,
+            'n_loops': 0,
+            'squared_orders': {'QCD': 2},
+            'singular_structure': sub.SingularStructure(substructures=(coll_structure_qg,)),
+        }),
+    ]
+
+    # Te defining currents correspond to a currents block composed of several lists of template currents
+    # for matching each currents of the target currents block (in an unordered fashion)
+    defining_currents = [currents, ]
+
+    # An now the mapping rules
+    mapping_rules = [
+        {
+            'singular_structure': sub.SingularStructure(substructures=(sub.CollStructure(
+                substructures=tuple([]),
+                legs=(
+                    sub.SubtractionLeg(10, +1, sub.SubtractionLeg.INITIAL),
+                    sub.SubtractionLeg(11, 21, sub.SubtractionLeg.FINAL),
+                )
+            ),)),
+            'mapping': colorful_pp_config.initial_coll_mapping,
+            # Intermediate legs should be strictly superior to a 1000
+            'momenta_dict': bidict({-1: frozenset((10, 11))}),
+            'variables': general_current.CompoundVariables(kernel_variables.colorful_pp_IFn_variables),
+            'is_cut': colorful_pp_config.generalised_cuts,
+            'reduced_recoilers': colorful_pp_config.get_final_state_recoilers,
+            'additional_recoilers': sub.SubtractionLegSet([]),
+        },
+    ]
+
+    def kernel(self, evaluation, all_steps_info, global_variables):
+        """ Evaluate this counterterm given the variables provided. """
+
+        kT = all_steps_info[0]['variables'][0]['kTs'][0]
+        x = all_steps_info[0]['variables'][0]['xs'][0]
+        s_rs = all_steps_info[0]['variables'][0]['ss'][(0, 1)]
+
+        parent = all_steps_info[0]['bundles_info'][0]['parent']
+
+        # The factor 'x' that should be part of the initial_state_crossing_factor cancels
+        # against the extra prefactor 1/x in the collinear factorization formula
+        # (see Eq. (8) of NNLO compatible NLO scheme publication arXiv:0903.1218v2)
+        initial_state_crossing_factor = 1.
+        # Correct for the ratio of color-averaging factor between the real ME
+        # initial state flavor (quark) and the one of the reduced Born ME (quark)
+        initial_state_crossing_factor *= 1.
+
+        z = 1. / x
+
+        # We must include here propagator factors
+        #  (p_initial_state_child - sum(p_final_state_children)).square() = - s_rs
+        prefactor = initial_state_crossing_factor / (-s_rs)
+        for spin_correlation_vector, weight in AltarelliParisiKernels.P_qg(self, z, kT):
+            complete_weight = weight * prefactor
+            if spin_correlation_vector is None:
+                evaluation['values'][(0, 0, 0, 0)] = {'finite': complete_weight[0]}
+            else:
+                evaluation['spin_correlations'].append(((parent, spin_correlation_vector),))
+                evaluation['values'][(len(evaluation['spin_correlations']) - 1, 0, 0, 0)] = {
+                    'finite': complete_weight[0]}
+
+        return evaluation
+
+class QCD_C_IqFq(general_current.GeneralCurrent):
+    """qq collinear ISR tree-level current. g(initial) > q(initial_after_emission) qx(final)"""
+
+    # Enable the flag below to debug this current
+    DEBUG = False
+
+    divide_by_jacobian = colorful_pp_config.divide_by_jacobian
+
+    # We should not need global variables for this current
+    variables = None
+
+    # Make sure to have the initial particle with the lowest index
+    # This will match both a quark or an antiquark
+    coll_structure_qq = sub.CollStructure(
+        substructures=tuple([]),
+        legs=(
+            sub.SubtractionLeg(10, 21, sub.SubtractionLeg.INITIAL),
+            sub.SubtractionLeg(11, +1, sub.SubtractionLeg.FINAL),)
+    )
+
+    # This counterterm will be used if any of the current of the list below matches
+    currents = [
+        sub.Current({
+            'resolve_mother_spin_and_color': True,
+            'n_loops': 0,
+            'squared_orders': {'QCD': 2},
+            'singular_structure': sub.SingularStructure(substructures=(coll_structure_qq,)),
+        }),
+    ]
+
+    # Te defining currents correspond to a currents block composed of several lists of template currents
+    # for matching each currents of the target currents block (in an unordered fashion)
+    defining_currents = [currents, ]
+
+    # An now the mapping rules
+    mapping_rules = [
+        {
+            'singular_structure': sub.SingularStructure(substructures=(sub.CollStructure(
+                substructures=tuple([]),
+                legs=(
+                    sub.SubtractionLeg(10, 21, sub.SubtractionLeg.INITIAL),
+                    sub.SubtractionLeg(11, +1, sub.SubtractionLeg.FINAL),
+                )
+            ),)),
+            'mapping': colorful_pp_config.initial_coll_mapping,
+            # Intermediate legs should be strictly superior to a 1000
+            'momenta_dict': bidict({-1: frozenset((10, 11))}),
+            'variables': general_current.CompoundVariables(kernel_variables.colorful_pp_IFn_variables),
+            'is_cut': colorful_pp_config.generalised_cuts,
+            'reduced_recoilers': colorful_pp_config.get_final_state_recoilers,
+            'additional_recoilers': sub.SubtractionLegSet([]),
+        },
+    ]
+
+    def kernel(self, evaluation, all_steps_info, global_variables):
+        """ Evaluate this counterterm given the variables provided. """
+
+        kT = all_steps_info[0]['variables'][0]['kTs'][0]
+        x = all_steps_info[0]['variables'][0]['xs'][0]
+        s_rs = all_steps_info[0]['variables'][0]['ss'][(0, 1)]
+
+        parent = all_steps_info[0]['bundles_info'][0]['parent']
+
+        # The factor 'x' that should be part of the initial_state_crossing_factor cancels
+        # against the extra prefactor 1/x in the collinear factorization formula
+        # (see Eq. (8) of NNLO compatible NLO scheme publication arXiv:0903.1218v2)
+        initial_state_crossing_factor = -1.
+        # Correct for the ratio of color-averaging factor between the real ME
+        # initial state flavor (gluon) and the one of the reduced Born ME (quark)
+        initial_state_crossing_factor *= (self.NC / float(self.NC ** 2 - 1))
+
+        z = 1. / x
+
+        # We must include here propagator factors
+        #  (p_initial_state_child - sum(p_final_state_children)).square() = - s_rs
+        prefactor = initial_state_crossing_factor / (-s_rs)
+        for spin_correlation_vector, weight in AltarelliParisiKernels.P_gq(self, z, kT):
+            complete_weight = weight * prefactor
+            if spin_correlation_vector is None:
+                evaluation['values'][(0, 0, 0, 0)] = {'finite': complete_weight[0]}
+            else:
+                evaluation['spin_correlations'].append(((parent, spin_correlation_vector),))
+                evaluation['values'][(len(evaluation['spin_correlations']) - 1, 0, 0, 0)] = {
+                    'finite': complete_weight[0]}
+
+        return evaluation
+
+class QCD_C_IgFg(general_current.GeneralCurrent):
+    """gg collinear ISR tree-level current. g(initial) > g(initial_after_emission) g(final)"""
+
+    # Enable the flag below to debug this current
+    DEBUG = False
+
+    divide_by_jacobian = colorful_pp_config.divide_by_jacobian
+
+    # We should not need global variables for this current
+    variables = None
+
+    # Make sure to have the initial particle with the lowest index
+    # This will match both a quark or an antiquark
+    coll_structure_qq = sub.CollStructure(
+        substructures=tuple([]),
+        legs=(
+            sub.SubtractionLeg(10, 21, sub.SubtractionLeg.INITIAL),
+            sub.SubtractionLeg(11, 21, sub.SubtractionLeg.FINAL),)
+    )
+
+    # This counterterm will be used if any of the current of the list below matches
+    currents = [
+        sub.Current({
+            'resolve_mother_spin_and_color': True,
+            'n_loops': 0,
+            'squared_orders': {'QCD': 2},
+            'singular_structure': sub.SingularStructure(substructures=(coll_structure_qq,)),
+        }),
+    ]
+
+    # Te defining currents correspond to a currents block composed of several lists of template currents
+    # for matching each currents of the target currents block (in an unordered fashion)
+    defining_currents = [currents, ]
+
+    # An now the mapping rules
+    mapping_rules = [
+        {
+            'singular_structure': sub.SingularStructure(substructures=(sub.CollStructure(
+                substructures=tuple([]),
+                legs=(
+                    sub.SubtractionLeg(10, 21, sub.SubtractionLeg.INITIAL),
+                    sub.SubtractionLeg(11, 21, sub.SubtractionLeg.FINAL),
+                )
+            ),)),
+            'mapping': colorful_pp_config.initial_coll_mapping,
+            # Intermediate legs should be strictly superior to a 1000
+            'momenta_dict': bidict({-1: frozenset((10, 11))}),
+            'variables': general_current.CompoundVariables(kernel_variables.colorful_pp_IFn_variables),
+            'is_cut': colorful_pp_config.generalised_cuts,
+            'reduced_recoilers': colorful_pp_config.get_final_state_recoilers,
+            'additional_recoilers': sub.SubtractionLegSet([]),
+        },
+    ]
+
+    def kernel(self, evaluation, all_steps_info, global_variables):
+        """ Evaluate this counterterm given the variables provided. """
+
+        kT = all_steps_info[0]['variables'][0]['kTs'][0]
+        x = all_steps_info[0]['variables'][0]['xs'][0]
+        s_rs = all_steps_info[0]['variables'][0]['ss'][(0, 1)]
+
+        parent = all_steps_info[0]['bundles_info'][0]['parent']
+
+        # The factor 'x' that should be part of the initial_state_crossing_factor cancels
+        # against the extra prefactor 1/x in the collinear factorization formula
+        # (see Eq. (8) of NNLO compatible NLO scheme publication arXiv:0903.1218v2)
+        initial_state_crossing_factor = 1.
+        # Correct for the ratio of color-averaging factor between the real ME
+        # initial state flavor (gluon) and the one of the reduced Born ME (gluon)
+        initial_state_crossing_factor *= 1.
+
+        z = 1. / x
+
+        # We must include here propagator factors, which is:
+        #  (p_initial_state_child - sum(p_final_state_children)).square() = - s_rs
+        prefactor = initial_state_crossing_factor / (-s_rs)
+        for spin_correlation_vector, weight in AltarelliParisiKernels.P_gg(self, z, kT):
+            complete_weight = weight * prefactor
+            if spin_correlation_vector is None:
+                evaluation['values'][(0, 0, 0, 0)] = {'finite': complete_weight[0]}
+            else:
+                evaluation['spin_correlations'].append(((parent, spin_correlation_vector),))
+                evaluation['values'][(len(evaluation['spin_correlations']) - 1, 0, 0, 0)] = {
+                    'finite': complete_weight[0]}
+
+        return evaluation
 
 #=========================================================================================
 # NLO soft initial-collinear currents
 #=========================================================================================
+class QCD_CS_IgFg(general_current.GeneralCurrent):
+    """NLO tree-level (initial) soft-collinear currents.
+    gg soft-collinear ISR tree-level current. g(initial) > g(initial_after_emission) g(final)
+    The momenta used in this current are the mapped momenta from the soft mapping."""
 
+    # Make sure to have the initial particle with the lowest index
+    soft_structure = sub.SoftStructure(
+        legs=(sub.SubtractionLeg(11, 21, sub.SubtractionLeg.FINAL), ) )
+    soft_coll_structure_g = sub.CollStructure(
+        substructures=(soft_structure, ),
+        legs=(sub.SubtractionLeg(10, 21, sub.SubtractionLeg.INITIAL), ) )
+
+
+    # This counterterm will be used if any of the current of the list below matches
+    currents = [
+        sub.Current({
+            'resolve_mother_spin_and_color'     : True,
+            'n_loops'                           : 0,
+            'squared_orders'                    : {'QCD': 2},
+            'singular_structure'                : sub.SingularStructure(substructures=(soft_coll_structure_g,)),
+        }),
+    ]
+
+    # Te defining currents correspond to a currents block composed of several lists of template currents
+    # for matching each currents of the target currents block (in an unordered fashion)
+    defining_currents = [ currents, ]
+
+    # For the gg soft-collinear the color prefactor is CA
+    color_factor = "CA"
+
+    # An now the mapping rules
+    mapping_rules = [
+        {
+            'singular_structure'    : sub.SingularStructure(substructures=(sub.SoftStructure(
+                substructures=tuple([]),
+                legs=(
+                    sub.SubtractionLeg(11, 21, sub.SubtractionLeg.FINAL),
+                )
+            ),)),
+            'mapping'               : colorful_pp_config.soft_mapping,
+            # -1 indicates that this ID should be replaced by the first overall parent connecting to the ME
+            # The momenta dictionary below is irrelevant for the soft_mapping used above, but it will make sure that
+            # it applies the necessary relabelling of the final-state leg 11 to the parent -1 which will be
+            # used by the reduced ME called with it.
+            'momenta_dict'          : bidict({-1: frozenset((10,))}),
+            'variables'             : None,
+            'is_cut'                : colorful_pp_config.generalised_cuts,
+            # Note that even though the soft mapping recoils against the final state, it still needs to
+            # receive the list of *final state* as the recoilers, because those are the ones which will absorb
+            # the transverse momentum recoil.
+            'reduced_recoilers'     : colorful_pp_config.get_final_state_recoilers,
+            'additional_recoilers'  : sub.SubtractionLegSet([]),
+        },
+    ]
+
+    def kernel(self, evaluation, all_steps_info, global_variables):
+        """ Evaluate this counterterm given the variables provided. """
+
+        soft_leg_number = all_steps_info[0]['bundles_info'][0]['final_state_children'][0]
+        p_soft = all_steps_info[0]['higher_PS_point'][soft_leg_number]
+
+        # We could use a custom "global_variables" functional instead of computing the variable directly here
+        # but this would be overkill in this case, we choose instead to directly reconstruct them here.
+        Q = global_variables['Q']
+
+        collinear_child = global_variables['overall_children'][0][0]
+        pC = all_steps_info[0]['higher_PS_point'][collinear_child]
+
+        collinear_parent = global_variables['overall_parents'][0]
+        p_rs_hat = all_steps_info[0]['lower_PS_point'][collinear_parent]
+
+        x = 1. - (p_soft.dot(Q) / p_rs_hat.dot(Q))
+
+        # See Eq. (4.17) of NNLO compatible NLO scheme publication arXiv:0903.1218v2
+
+        # There is no need for the ratio of color-averaging factor between the real ME
+        # initial state flavor and the one of the reduced Born ME as they are either both
+        # gluons or both quarks
+
+        # We must include here propagator factors
+        # Must normalise with (pC_tilde (i.e. p_rs_hat) +pS).square() given the above definition of the x.
+
+        #prefactor = 1./ (2.*pC.dot(p_soft))
+        prefactor = 1. / (2. *p_rs_hat.dot(p_soft))
+
+        # For now, we hard-code the soft-collinear current here and do not fetch it from universal kernels
+        # as this is a sub limit
+        color_factor = getattr(self, self.color_factor)
+        evaluation['values'][(0, 0, 0, 0)] = { 'finite' : prefactor * color_factor * (2. / (1. - x)) }
+
+        return evaluation
+
+class QCD_CS_IqFg(QCD_CS_IgFg):
+    """NLO tree-level (initial) soft-collinear currents.
+    gg soft-collinear ISR tree-level current. q(initial) > q(initial_after_emission) g(final)
+    The momenta used in this current are the mapped momenta from the soft mapping."""
+
+    # Make sure to have the initial particle with the lowest index
+    soft_structure = sub.SoftStructure(
+        legs=(sub.SubtractionLeg(11, 21, sub.SubtractionLeg.FINAL), ) )
+    soft_coll_structure_q = sub.CollStructure(
+        substructures=(soft_structure, ),
+        legs=(sub.SubtractionLeg(10, +1, sub.SubtractionLeg.INITIAL), ) )
+
+    # This counterterm will be used if any of the current of the list below matches
+    currents = [
+        sub.Current({
+            'resolve_mother_spin_and_color'     : True,
+            'n_loops'                           : 0,
+            'squared_orders'                    : {'QCD': 2},
+            'singular_structure'                : sub.SingularStructure(substructures=(soft_coll_structure_q,)),
+        }),
+    ]
+
+    # Te defining currents correspond to a currents block composed of several lists of template currents
+    # for matching each currents of the target currents block (in an unordered fashion)
+    defining_currents = [ currents, ]
+
+    # For the gg soft-collinear the color prefactor is CA
+    color_factor = "CF"
+
+    # The rest of the class is identical to that of the g g initial state soft-collinear so we do not
+    # need to specify anything further.

@@ -461,7 +461,10 @@ class QCD_CS_FgFg(general_current.GeneralCurrent):
             # receive the list of *final state* as the recoilers, because those are the ones which will absorb
             # the transverse momentum recoil.
             'reduced_recoilers'     : colorful_pp_config.get_final_state_recoilers,
-            'additional_recoilers'  : sub.SubtractionLegSet([]),
+            # In this case the soft mapping must also recoil against the final state collinear particle which
+            # is however *not* part of the reduced process and must therefore be specified here as an additional
+            # recoiler.
+            'additional_recoilers'  : sub.SubtractionLegSet([sub.SubtractionLeg(11, 21, sub.SubtractionLeg.FINAL),])
         },
     ]
 
@@ -470,6 +473,8 @@ class QCD_CS_FgFg(general_current.GeneralCurrent):
 
         soft_leg_number = all_steps_info[0]['bundles_info'][0]['final_state_children'][0]
         p_soft = all_steps_info[0]['higher_PS_point'][soft_leg_number]
+        # collinear_child_number = global_variables['overall_children'][0][1]
+        # p_collinear_child = all_steps_info[0]['higher_PS_point'][collinear_child_number]
 
         # We could use a custom "global_variables" functional instead of computing the variable directly here
         # but this would be overkill in this case, we choose instead to directly reconstruct them here.
@@ -477,7 +482,7 @@ class QCD_CS_FgFg(general_current.GeneralCurrent):
         Q = global_variables['Q']
         p_rs_hat = all_steps_info[0]['lower_PS_point'][collinear_parent]
 
-        z = p_soft.dot(Q) / p_rs_hat.dot(Q)
+        z = p_soft.dot(Q) / (p_rs_hat+p_soft).dot(Q)
 
         # We must include here propagator factors
         prefactor = 1./(p_rs_hat+p_soft).square()

@@ -335,8 +335,7 @@ class ME7Event(object):
             }
             where 'wgt_x' can be EpsilonExpansion instances.
             and modifies self.weights_per_flavor_configurations with the convolved result.
-            leg index specifies which leg must be convolved.
-               (e.g. beam #1 corresponds to leg_index=0 and initial_state = True.
+
             Note that end_flavors is a tuple of flavor with identical matrix elements (such as in q -> q g, which is flavor independent)
 
             Finally each element of these flavor configurations is a 2-tuple indicating the flavor of each of the two beams,
@@ -354,16 +353,16 @@ class ME7Event(object):
             }
         """
 
-        def substitute_initial_state_flavors(flavor_config_to_subsitute, new_flavors):
+        def substitute_initial_state_flavors(flavor_config_to_substitute, new_flavors):
             """ Substitute in the flavor config the convoluted flavor with the one in
             argument and returns the corresponding new flavor configuration as a two tuples,
             for the initial and final states respectively."""
             return (
                 tuple([
-                    flavor_config_to_subsitute[0] if new_flavors[0] is None else new_flavors[0],
-                    flavor_config_to_subsitute[1] if new_flavors[1] is None else new_flavors[1],
+                    flavor_config_to_substitute[0][0] if new_flavors[0] is None else new_flavors[0],
+                    flavor_config_to_substitute[0][1] if new_flavors[1] is None else new_flavors[1],
                 ]),
-                flavor_config_to_subsitute[1]
+                flavor_config_to_substitute[1]
             )
 
         if len(flavor_matrix) == 0:
@@ -378,11 +377,11 @@ class ME7Event(object):
             for matrix_start_flavors, matrix_all_end_flavors in flavor_matrix.items():
                 if (matrix_start_flavors[0] in (None, start_flavors[0])) and (matrix_start_flavors[1] in (None, start_flavors[1])):
                     new_flavor_configs = []
-                    for end_flavors, matrix_wgt in matrix_all_end_flavors.items():
+                    for end_flavors_groups, matrix_wgt in matrix_all_end_flavors.items():
                         new_flavor_configs.extend([
                             ( substitute_initial_state_flavors( flavor_config, (end_flavor_beam_one, end_flavor_beam_two) ),
                               base_objects.EpsilonExpansion(matrix_wgt) * wgt )
-                            for end_flavor_beam_one, end_flavor_beam_two in  end_flavors ])
+                            for (end_flavor_beam_one, end_flavor_beam_two) in end_flavors_groups ])
 
                     for new_flavor_config, new_wgt in new_flavor_configs:
                         try:
@@ -2080,22 +2079,24 @@ class ME7Integrand(integrands.VirtualIntegrand):
                 # This should be a physical contribution with therefore no distribution
                 assert(isinstance(bc, subtraction.BeamCurrent) and bc['distribution_type']=='bulk')
                 current_evaluation, all_current_results = self.all_MEAccessors(
-                    bc, track_leg_numbers=self.accessor_tracks_leg_numbers, lower_PS_point=PS_point, reduced_process=process,
-                    xis=xis, mu_r=mu_r, mu_fs=mu_fs, Q=Q, allowed_backward_evolved_flavors='ALL' )
+                    bc, track_leg_numbers=self.accessor_tracks_leg_numbers,
+                    higher_PS_point=PS_point, reduced_process=process,
+                    xis=xis, mu_r=mu_r, mu_fs=mu_fs, Q=Q, allowed_backward_evolved_flavors=('ALL','ALL') )
                 assert(current_evaluation['spin_correlations']==[None,])
                 assert(current_evaluation['color_correlations']==[None,])
+                assert(len(current_evaluation['Bjorken_rescalings'])==1)
                 if current_evaluation['values'].keys()!=[(0,0,0,0),]:
                     raise MadGraph5Error("The beam factorisation currents attached to the physical 'matrix element' event"+
                         " of a contribution must only involve a single value under key (0,0,0,0) in the evaluation they return.")
-                event_to_convolve.convolve_flavors( current_evaluation['values'][(0,0,0,0)] )
+                event_to_convolve.convolve_initial_states( current_evaluation['values'][(0,0,0,0)] )
                 for beam_id in [0,1]:
-                    if current_evaluation['Bjorken_rescalings'][beam_id] is not None:
+                    if current_evaluation['Bjorken_rescalings'][0][beam_id] is not None:
                         if Bjorken_scalings[beam_id] is not None:
-                            if abs(Bjorken_scalings[beam_id]-current_evaluation['Bjorken_rescalings'][beam_id])\
+                            if abs(Bjorken_scalings[beam_id]-current_evaluation['Bjorken_rescalings'][0][beam_id])\
                                                                                 /abs(Bjorken_scalings[beam_id]) > 1.0e-10:
                                 raise MadGraph5Error("MadNkLO does not support the combination of multiple different "+
                                                                                                 "beam Bjorken x's rescalings.")
-                        Bjorken_scalings[beam_id] = current_evaluation['Bjorken_rescalings'][beam_id]
+                        Bjorken_scalings[beam_id] = current_evaluation['Bjorken_rescalings'][0][beam_id]
 
                 # Check if the flavor matrix that multiplied this event was zero
                 if event_to_convolve.is_empty():
@@ -2380,8 +2381,8 @@ class ME7Integrand_V(ME7Integrand):
                 all_necessary_ME_calls, beam_currents, self.all_MEAccessors,
                 self.accessor_tracks_leg_numbers, reduced_PS, counterterm.process, xb_1, xb_2,
                 xi1, xi2, mu_r, mu_f1, mu_f2, total_incoming_momentum,
-                allowed_backward_evolved_flavors1='ALL',
-                allowed_backward_evolved_flavors2='ALL'
+                allowed_backward_evolved_flavors1=allowed_backward_evolved_flavors1,
+                allowed_backward_evolved_flavors2=allowed_backward_evolved_flavors2
             )
 
             for reduced_kinematics_identifier, (reduced_kinematics, necessary_ME_calls) in \
@@ -2397,12 +2398,6 @@ class ME7Integrand_V(ME7Integrand):
                 # If there is no necessary ME call left, it is likely because the xi upper bound of the
                 # Bjorken x's convolution were not respected. We must now abort the event.
                 if len(necessary_ME_calls) == 0:
-                    continue
-
-                # Immediately skip this contribution if it does not pass the boundary check
-                # This comes from the change of variable xb_i' = xb_i * xi_i
-                if ((xb_1 is not None) and xb_1 > 1./necessary_ME_calls['Bjorken_rescaling_beam_one']) or \
-                   ((xb_2 is not None) and xb_2 > 1./necessary_ME_calls['Bjorken_rescaling_beam_two']):
                     continue
 
                 if sector[0] is not None:
@@ -2451,6 +2446,7 @@ class ME7Integrand_V(ME7Integrand):
                         # and why it should then not be included.
                         new_weights_per_flavor_configurations[fc] = \
                             wgt * float(symmetry_factor) * reduced_flavors_with_resolved_initial_states[fc]
+
                 integrated_CT_event.weights_per_flavor_configurations = new_weights_per_flavor_configurations
                 # Make sure to crash if the Event is now empty since the lines above are not
                 # supposed to kill all flavor contributions of the event.
@@ -3157,19 +3153,22 @@ class ME7Integrand_R(ME7Integrand):
         return tuple(combined)
 
     @classmethod
-    def flavor_matrices_sanity_check(cls, flavor_matrix):
+    def flavor_matrix_sanity_check(cls, flavor_matrix):
         """ Sanity check of a single flavor matrix to be applied. """
 
         beam_one_active = False
         beam_two_active = False
         msg = None
-
-        for start_flavors, all_end_flavors in flavor_matrix.items():
+        for start_flavors, all_end_flavors_groups in flavor_matrix.items():
             beam_one_active = beam_one_active or (start_flavors[0] is not None)
             beam_two_active = beam_two_active or (start_flavors[1] is not None)
             for beam_id in [0,1]:
-                if ((start_flavors[beam_id] is None) and (not all( end_flavors[beam_id] is None for end_flavors in all_end_flavors.keys() ))) or \
-                   ((start_flavors[beam_id] is not None) and (not all( end_flavors[beam_id] is not None for end_flavors in all_end_flavors.keys() ))):
+                if ((start_flavors[beam_id] is None) and (not all(
+                        all(end_flavors[beam_id] is None for end_flavors in end_flavors_group)
+                        for end_flavors_group in all_end_flavors_groups.keys() ))) or \
+                    ((start_flavors[beam_id] is not None) and (not all(
+                        all(end_flavors[beam_id] is not None for end_flavors in end_flavors_group)
+                        for end_flavors_group in all_end_flavors_groups.keys() ))):
                     return beam_one_active, beam_two_active, "Inconsistent flavor matrix: %s"%pformat(flavor_matrix)
 
         return beam_one_active, beam_two_active, msg
@@ -3382,8 +3381,11 @@ class ME7Integrand_R(ME7Integrand):
                 mu_r=mu_r, mu_fs=mu_fs, xis=xis, Q=Q,
                 allowed_backward_evolved_flavors = allowed_backward_evolved_flavors)
 
+            # weight_type is a class attribute of the current_evaluation which is an instance of either the class
+            # utils.SubtractionCurrentEvaluation or utils.BeamFactorizationCurrentEvaluation
+            # and will be 'main_weight' in the former case and 'flavor_matrix' in the latter
             new_all_necessary_ME_calls = ME7Integrand_R.update_all_necessary_ME_calls(
-                                    new_all_necessary_ME_calls, current_evaluation, weight_type='flavor_matrix' )
+                        new_all_necessary_ME_calls, current_evaluation, weight_type=current_evaluation.weight_type )
 
         return new_all_necessary_ME_calls
 

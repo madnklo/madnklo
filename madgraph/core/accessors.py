@@ -25,6 +25,8 @@ import collections
 import numpy as np
 pjoin = os.path.join
 
+from pprint import pformat
+
 import madgraph.core.base_objects as base_objects
 import madgraph.integrator.phase_space_generators as PS_utils
 from madgraph.interface.madevent_interface import MadLoopInitializer
@@ -46,7 +48,7 @@ class CompoundProcessKey(tuple):
         return tuple( process_key.get_canonical_key(*args, **opts) for process_key in self )
 
     def get_key_dict(self):
-        return tuple( process_key.key_dict for key_dict in process_key)
+        return tuple( process_key.key_dict for process_key in self)
 
 ##########################################################################################
 # ProcessKey, to be used as keys in the MEAccessorDict and the processes_map of contributions
@@ -1905,8 +1907,13 @@ class MEAccessorDict(dict):
            {'permutation': [1,0,2,3], 'process_pdgs': 'c c~ > g g'}
         """
 
-        if isinstance(key, subtraction.Current) or isinstance(key, subtraction.CurrentsBlock):
-            # Automatically convert the current to a ProcessKey
+        if isinstance(key, subtraction.Current):
+            # With the new standard, all currents stored in the MEAccesor dictionary should be CurrentsBlock, even
+            # if they contain only one current.
+            # Automatically convert the current to a CurrentsBlock and then to a process key
+            accessor_key = subtraction.CurrentsBlock([key,]).get_key(track_leg_numbers=track_leg_numbers)
+        elif isinstance(key, subtraction.CurrentsBlock):
+            # Automatically convert a current block to a ProcessKey
             accessor_key = key.get_key(track_leg_numbers=track_leg_numbers)
         elif isinstance(key, base_objects.Process):
             # Automatically convert the process to a ProcessKey
@@ -1920,12 +1927,11 @@ class MEAccessorDict(dict):
         try:
             (ME_accessor, defining_pdgs_order) = super(MEAccessorDict, self).__getitem__(accessor_key.get_canonical_key())
         except KeyError:
-            #from pprint import pformat
             #misc.sprint("Accessible current keys:\n%s"%pformat(
             #    [k for k in self.keys() if isinstance(k[0][0],tuple) ]
             #))
-            #misc.sprint(pformat(accessor_key.get_canonical_key()))
-            raise MadGraph5Error("This collection of matrix elements does not contain process %s."%str(accessor_key.get_key_dict()))
+            #misc.sprint("target:\n%s"%pformat(accessor_key.get_canonical_key()))
+            raise MadGraph5Error("This collection of matrix elements does not contain process %s."%pformat(accessor_key.get_key_dict()))
         
         if pdgs is None:
             # None indicates that no permutation will be necessary to apply

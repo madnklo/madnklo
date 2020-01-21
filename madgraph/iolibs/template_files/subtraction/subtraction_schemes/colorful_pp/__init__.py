@@ -76,7 +76,21 @@ def load():
 
     # Add NLO beam factorization counterterms (BF terms)
     # ==================================================
-    all_subtraction_current_classes.extend([ ])
+    all_subtraction_current_classes.extend([
+        # PDF counterterms
+        NLO_integrated_currents.QCD_F0,
+        # collinear IF counterterms
+        NLO_integrated_currents.QCD_integrated_C_IF,
+        # collinear FF counterterms
+        NLO_integrated_currents.QCD_integrated_C_FqFq,
+        NLO_integrated_currents.QCD_integrated_C_FqFg,
+        NLO_integrated_currents.QCD_integrated_C_FgFg,
+        # soft F counterterms
+        NLO_integrated_currents.QCD_integrated_S_Fg,
+        # soft-collinear counterterms
+        NLO_integrated_currents.QCD_integrated_CS_IF,
+        NLO_integrated_currents.QCD_integrated_CS_FF,
+    ])
 
     # Add NLO beam factorization counterterms of soft origin
     # recoiling symmetrically against the initial state (BS)
@@ -107,7 +121,8 @@ def load():
     # ===============================
 
     all_subtraction_current_classes.extend([
-        # soft and soft-collinear
+        # There are None in this scheme since *all* local counterterms
+        # recoil against the initial states.
     ])
 
     ###########

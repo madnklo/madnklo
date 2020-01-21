@@ -63,6 +63,11 @@ class SubtractionCurrentEvaluation(dict):
 
     result_format = dict(it for it in main_layer_result_format.items()+sub_layer_result_format.items())
 
+    # MadNkLO needs to know the type of weights returned as it will need to perform different
+    # operation if this is only a multiplicative weight, with weight_type='main_weight', like in this class,
+    # or a convolution in flavor space, i.e. weight_type='flavor_matrix' like in class BeamFactorizationCurrentEvaluation.
+    weight_type = 'main_weight'
+
     def __init__(self, *args, **opts):
         super(SubtractionCurrentEvaluation, self).__init__(*args, **opts)      
 
@@ -167,6 +172,11 @@ class BeamFactorizationCurrentEvaluation(SubtractionCurrentEvaluation):
     main_layer_result_format = {'spin_correlations':'%s','color_correlations':'%s',
                                 'Bjorken_rescalings':'%s', 'reduced_kinematics':'%s', 'values':'%s'}
 
+    # MadNkLO needs to know the type of weights returned as it will need to perform different
+    # operation if this is only a multiplicative weight (with weight_type='main_weight', like for the class
+    # SubtractionCurrentEvaluation ) or a convolution in flavor space, i.e. weight_type='flavor_matrix', like here.
+    weight_type = 'flavor_matrix'
+
     def subresult_lines(self, subresult, subtemplate):
         """ Returns the string line describing the subresult in argument corresponding to 
         a paricular combination of color and Lorentz structure. The subtemplate specified
@@ -218,6 +228,31 @@ class BeamFactorizationCurrentEvaluation(SubtractionCurrentEvaluation):
                 }
             }
         })
+
+    def promote_to_two_sided_convolution(self, beam_number):
+        """
+        Format the flavour matrix so that it specifies *both* initial state flavours, which is necessary
+        as we must support non-factorisable double-sided convolutions
+        This is essentially sending entries like this one
+               21 -> (1, -1, 2, -2, ...)
+        to
+               (21, None) -> ( (1, None), (-1, None), (2, None), (-2, None), ...)
+        If this simple one-sided convolution regards beam_number=1, otherwise:
+               (None, 21) -> ( (None, 1), (None, -1), (None, 2), (None, -2), ...)
+        if it regards beam_number=2. None means that the flavor content is not affected.
+        """
+        for key in self['values']:
+            self['values'][key] = dict(
+                (
+                    ( (start_flavor, None) if beam_number==1 else (None, start_flavor),
+                    dict(
+                        ( tuple([(end_flavor, None) if beam_number==1 else (None, end_flavor)
+                            for end_flavor in end_flavors]), wgt )
+                        for end_flavors, wgt in all_end_flavors.items()),
+                    )
+                )
+                for start_flavor, all_end_flavors in self['values'][key].items()
+            )
 
 class SubtractionCurrentResult(dict):
     """A class to store the different results of current evaluation call

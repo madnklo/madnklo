@@ -27,10 +27,8 @@ import madgraph.various.misc as misc
 import madgraph.various.math_tools.mpl as MPL
 
 import commons.utils as utils
-import commons.QCD_local_currents as currents
 import commons.factors_and_cuts as factors_and_cuts
 
-from integrated_current_expressions import HE
 import commons.general_current as general_current
 import madgraph.core.subtraction as sub
 
@@ -857,6 +855,8 @@ class QCD_integrated_C_FqFq(general_current.GeneralCurrent):
 
         PS_point = all_steps_info[-1]['lower_PS_point']
 
+        pij_tilde = PS_point[global_variables['overall_parents'][0]]
+
         # TODO
         evaluation['values'][(0,0,0,0)] = EpsilonExpansion({ 0 : 1.}).truncate(max_power=0)
 
@@ -941,6 +941,8 @@ class QCD_integrated_C_FqFg(general_current.GeneralCurrent):
 
         PS_point = all_steps_info[-1]['lower_PS_point']
 
+        pij_tilde = PS_point[global_variables['overall_parents'][0]]
+
         # TODO
         evaluation['values'][(0,0,0,0)] = EpsilonExpansion({ 0 : 1.}).truncate(max_power=0)
 
@@ -1024,6 +1026,8 @@ class QCD_integrated_C_FgFg(general_current.GeneralCurrent):
         Q = global_variables['Q']
 
         PS_point = all_steps_info[-1]['lower_PS_point']
+
+        pij_tilde = PS_point[global_variables['overall_parents'][0]]
 
         # TODO
         evaluation['values'][(0,0,0,0)] = EpsilonExpansion({ 0 : 1.}).truncate(max_power=0)

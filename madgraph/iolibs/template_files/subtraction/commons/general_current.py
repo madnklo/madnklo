@@ -492,10 +492,12 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
 
         if len(children_set)==1:
             if children_set in momenta_dict.inv:
-                # Follow relabelling rule(s)
+                # Follow relabelling rule(s) unless it points to self
+                if momenta_dict.inv[children_set] == iter(children_set).next():
+                    return iter(children_set).next()
                 return cls.get_parent(frozenset([ momenta_dict.inv[children_set], ]),momenta_dict)
             else:
-                return list(children_set)[0]
+                return iter(children_set).next()
 
         if children_set in momenta_dict.inv:
             # Follow relabelling rule(s)

@@ -2362,7 +2362,7 @@ class ME7Integrand_V(ME7Integrand):
             non_beam_factorization_currents, counterterm.process, reduced_PS,
             self.all_MEAccessors, self.accessor_tracks_leg_numbers,
             compute_poles=compute_poles, leg_numbers_map = counterterm.momenta_dict,
-            xis=(xi1, xi2), mu_fs=(mu_f1, mu_f2), mu_r=mu_r, Q=total_incoming_momentum)
+            xis=(xi1, xi2), mu_fs=(mu_f1, mu_f2), mu_r=mu_r, Q=total_incoming_momentum, sector_info=sector)
 
         # For now integrated counterterms are supposed to return a single reduced kinematics with None as identifier
         assert(len(all_necessary_ME_calls)==1)
@@ -2381,7 +2381,8 @@ class ME7Integrand_V(ME7Integrand):
                 self.accessor_tracks_leg_numbers, reduced_PS, counterterm.process, xb_1, xb_2,
                 xi1, xi2, mu_r, mu_f1, mu_f2, total_incoming_momentum,
                 allowed_backward_evolved_flavors1=allowed_backward_evolved_flavors1,
-                allowed_backward_evolved_flavors2=allowed_backward_evolved_flavors2
+                allowed_backward_evolved_flavors2=allowed_backward_evolved_flavors2,
+                sector_info = sector
             )
 
             for reduced_kinematics_identifier, (reduced_kinematics, necessary_ME_calls) in \
@@ -3326,7 +3327,7 @@ class ME7Integrand_R(ME7Integrand):
     def process_beam_factorization_currents(cls, all_necessary_ME_calls, beam_currents,
                      all_MEAccessors, track_leg_numbers, PS_point, process, xb_1, xb_2, xi1, xi2, mu_r, mu_f1, mu_f2, Q,
                      allowed_backward_evolved_flavors1='ALL',
-                     allowed_backward_evolved_flavors2='ALL'):
+                     allowed_backward_evolved_flavors2='ALL', **opts):
         """ Calls the beam currents specified in the argument all_beam_currents with format:
               [{       'beam_one': <BeamCurrent>,
                        'beam_two': <BeamCurrent>,
@@ -3378,7 +3379,7 @@ class ME7Integrand_R(ME7Integrand):
             current_evaluation, all_current_results = all_MEAccessors(beam_current,
                 track_leg_numbers=track_leg_numbers, higher_PS_point=PS_point, reduced_process=process,
                 mu_r=mu_r, mu_fs=mu_fs, xis=xis, Q=Q,
-                allowed_backward_evolved_flavors = allowed_backward_evolved_flavors)
+                allowed_backward_evolved_flavors = allowed_backward_evolved_flavors, **opts)
 
             # weight_type is a class attribute of the current_evaluation which is an instance of either the class
             # utils.SubtractionCurrentEvaluation or utils.BeamFactorizationCurrentEvaluation
@@ -3438,7 +3439,9 @@ class ME7Integrand_R(ME7Integrand):
             non_beam_factorization_currents, ME_process, PS_point,
             self.all_MEAccessors, self.accessor_tracks_leg_numbers,
             momenta_dict = counterterm.momenta_dict,
-            xis=(xi1, xi2), mu_fs=(mu_f1, mu_f2), mu_r=mu_r, Q=total_incoming_momentum)
+            xis=(xi1, xi2), mu_fs=(mu_f1, mu_f2), mu_r=mu_r, Q=total_incoming_momentum,
+            sector_info = sector
+        )
 
         # We can now loop over the reduced kinematics produced by the currents:
         all_events = ME7EventList()
@@ -3459,7 +3462,7 @@ class ME7Integrand_R(ME7Integrand):
                 all_necessary_ME_calls_for_these_beam_currents = ME7Integrand_R.process_beam_factorization_currents(
                     all_necessary_ME_calls_for_this_reduced_kinematics, beam_currents, self.all_MEAccessors,
                     self.accessor_tracks_leg_numbers, reduced_kinematics, ME_process, xb_1, xb_2,
-                    xi1, xi2, mu_r, mu_f1, mu_f2, total_incoming_momentum)
+                    xi1, xi2, mu_r, mu_f1, mu_f2, total_incoming_momentum, sector_info = sector)
 
                 for reduced_kinematics_identifier, (reduced_kinematics, necessary_ME_calls) in \
                                                                 all_necessary_ME_calls_for_these_beam_currents.items():
@@ -3511,7 +3514,8 @@ class ME7Integrand_R(ME7Integrand):
 
                     # Now apply the sectoring function if specified
                     if sector[0] is not None:
-                        this_base_weight *= sector[0](reduced_kinematics, reduced_flavors, counterterm_index=sector[1], input_mapping_index=-1)
+                        this_base_weight *= sector[0](PS_point, all_resolved_flavors[0],
+                                                      counterterm_index=sector[1], input_mapping_index=-1)
 
                     # Finally treat the call to the reduced connected matrix elements
                     #            misc.sprint('I got for %s:'%str(counterterm.nice_string()))

@@ -1929,7 +1929,7 @@ class Counterterm(CountertermNode):
 
         # First fetch all currents making up this counterterm
         for current in self.get_all_currents():        
-            if type(current) not in [BeamCurrent]:
+            if type(current) not in [BeamCurrent,]:
                 continue
 
             # Now get all legs of its singular structure
@@ -2189,12 +2189,21 @@ class IntegratedCounterterm(Counterterm):
                     raise MadGraph5Error('The beam factorization currents from the reduced'+
             ' process and the ones in the integrated CT must never apply to the same beam (#1).')
                 bcs['beam_one'] = integrated_current
-        if any(l.n==2 for l in all_legs):
+        elif any(l.n==2 for l in all_legs):
             for bcs in beam_currents:
                 if bcs['beam_two'] is not None:
                     raise MadGraph5Error('The beam factorization currents from the reduced'+
             ' process and the ones in the integrated CT must never apply to the same beam (#2).')
                 bcs['beam_two'] = integrated_current
+        else:
+            # If it does not contain any initial state then it must be the endpoint of an IntegratedBeamCounterterm
+            # that has only final states but recoils against initial states in that particular subtraction scheme
+            # The endpoint part of the distribution C(F,F) in colorful_pp would be an example of such integratedBeamCounterm
+            # and we classify it here as a 'correlated_convolution' even though the rescaling xi variables supplied
+            # would anyway be None. Note that we could also have decided to classify it as a 'non_factorisable_convolution',
+            # it would have made no difference.
+            for bcs in beam_currents:
+                bcs['correlated_convolution'] = integrated_current
 
         return beam_currents
 

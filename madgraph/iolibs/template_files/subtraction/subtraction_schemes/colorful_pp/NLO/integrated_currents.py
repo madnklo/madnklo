@@ -763,7 +763,7 @@ class QCD_integrated_S_Fg(general_current.GeneralCurrent):
                     #     raise CurrentImplementationError("Distribution type '%s' not supported."
                     #                                                     %distribution_type)
 
-                evaluation['values'][(0, color_correlation_index, 0, 0)] = kernel*prefactor
+                evaluation['values'][(0, color_correlation_index, 0, 0)] = (kernel*prefactor).truncate(max_power=0)
                 color_correlation_index += 1
 
         return evaluation
@@ -858,6 +858,9 @@ class QCD_integrated_C_FqFq(general_current.GeneralCurrent):
         PS_point = all_steps_info[-1]['lower_PS_point']
 
         # TODO
+        evaluation['values'][(0,0,0,0)] = EpsilonExpansion({ 0 : 1.}).truncate(max_power=0)
+
+        return evaluation
 
 class QCD_integrated_C_FqFg(general_current.GeneralCurrent):
 
@@ -939,6 +942,9 @@ class QCD_integrated_C_FqFg(general_current.GeneralCurrent):
         PS_point = all_steps_info[-1]['lower_PS_point']
 
         # TODO
+        evaluation['values'][(0,0,0,0)] = EpsilonExpansion({ 0 : 1.}).truncate(max_power=0)
+
+        return evaluation
 
 class QCD_integrated_C_FgFg(general_current.GeneralCurrent):
 
@@ -1020,6 +1026,9 @@ class QCD_integrated_C_FgFg(general_current.GeneralCurrent):
         PS_point = all_steps_info[-1]['lower_PS_point']
 
         # TODO
+        evaluation['values'][(0,0,0,0)] = EpsilonExpansion({ 0 : 1.}).truncate(max_power=0)
+
+        return evaluation
 
 #=========================================================================================
 # Integrated IF and FF soft-collinear counterterm

@@ -2350,14 +2350,13 @@ class ME7Integrand_V(ME7Integrand):
         for i, p in enumerate(mapped_PS_point.to_list()[:self.n_initial]):
             total_incoming_momentum += p * rescalings[i]
 
-
         # With the current design we only consider and support the case where there is only
         # *one* regular (i.e. non-beam) "mapping currents" in the counterterm.
         # Notice that exactly *one* of such currents must return a specific reduced kinematics
         # as it does not make sense to be combine several together
         non_beam_factorization_currents = [
-            c for c in counterterm.get_all_currents()
-            if type(c) not in (subtraction.BeamCurrent, subtraction.IntegratedBeamCurrent)]
+            block for block in counterterm.get_currents_blocks()
+            if not any(type(c) in (subtraction.BeamCurrent, subtraction.IntegratedBeamCurrent) for c in block) ]
 
         all_necessary_ME_calls, disconnected_currents_weight = ME7Integrand_R.generate_all_necessary_ME_calls(
             non_beam_factorization_currents, counterterm.process, reduced_PS,

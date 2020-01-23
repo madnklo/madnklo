@@ -322,13 +322,13 @@ class QCD_final_softcollinear_0_gX(currents.QCDLocalCurrent):
         if not cls.check_current_properties(current): return None
 
         leg_numbers_map = cls.structure_q.map_leg_numbers(
-            current.get('singular_structure'), [range(1, model.get_nflav() + 1)])
+            current.get('singular_structure'), [set(range(1, model.get_nflav()+1)) | set(range(-model.get_nflav(), 0))])
 
         if leg_numbers_map is not None:
             color_charge = 'CF'
         else:
             leg_numbers_map = cls.structure_g.map_leg_numbers(
-                current.get('singular_structure'), [range(1, model.get_nflav() + 1)])
+                current.get('singular_structure'), [set(range(1, model.get_nflav()+1)) | set(range(-model.get_nflav(), 0))])
             if leg_numbers_map is not None:
                 color_charge = 'CA'
 
@@ -650,13 +650,13 @@ class QCD_initial_softcollinear_0_Xg(currents.QCDLocalCurrent):
         if not cls.check_current_properties(current): return None
 
         leg_numbers_map = cls.structure_q.map_leg_numbers(
-            current.get('singular_structure'), [range(1, model.get_nflav() + 1)])
+            current.get('singular_structure'), [set(range(1, model.get_nflav()+1)) | set(range(-model.get_nflav(), 0))])
 
         if leg_numbers_map is not None:
             color_charge = 'CF'
         else:
             leg_numbers_map = cls.structure_g.map_leg_numbers(
-                current.get('singular_structure'), [range(1, model.get_nflav() + 1)])
+                current.get('singular_structure'), [set(range(1, model.get_nflav()+1)) | set(range(-model.get_nflav(), 0))])
             if leg_numbers_map is not None:
                 color_charge = 'CA'
 

@@ -3384,8 +3384,6 @@ class ME7Integrand_R(ME7Integrand):
             # gain, after it is checked to be safe).
             # And now boost it back in the c.o.m frame.
             if boost_back_to_com:
-                misc.sprint(counterterm.nice_string())
-                misc.sprint(reduced_kinematics)
                 reduced_kinematics.boost_to_com(tuple([l.get('number') for l in counterterm.process.get_initial_legs()]))
 
             # Generate what is the kinematics (reduced_PS) returned as a list

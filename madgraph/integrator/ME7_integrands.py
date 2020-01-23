@@ -1708,6 +1708,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # line below
         #return 1./x
 
+        misc.sprint(pdf, x, pdg)
         if pdf is None:
             return 1.
        
@@ -1719,6 +1720,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
         
         # Call to lhapdf API
         f = pdf.xfxQ2(pdg, x, scale2)/x
+
+        misc.sprint(f, pdg, x)
 
         # Update the PDF cache
         self.PDF_cache[(pdf, pdg,x,scale2)] = f
@@ -1801,7 +1804,21 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # rescalings xb_<i> and the ISR factorization convolution rescalings xi<i>.
         xb_1, xi1 = x1s
         xb_2, xi2 = x2s
-        
+
+        # For e+ e- type of collisions with not PDF but counterterms rescaling against the initial states, we must
+        # enforce the "PDF" delta(x-1) which amounts to setting xb_1 to 1 when xi1 is None and to xi1 when it is not None.
+        # (this is because of the change of variables we do which is x' = x * xi
+        if self.run_card['lpp1']==0:
+            if xi1 is None:
+                xb_1 = 1.0
+            else:
+                xb_1 = xi1
+        if self.run_card['lpp2']==0:
+            if xi2 is None:
+                xb_2 = 1.0
+            else:
+                xb_2 = xi2
+
         if xb_1 > 1. or xb_2 > 1. or math.isnan(xb_1) or math.isnan(xb_2):
             raise MadEvent7Error('Unphysical configuration: x1, x2 = %.5e, %.5e'%(xb_1, xb_2))
             #logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)

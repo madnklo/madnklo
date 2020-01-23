@@ -12,7 +12,6 @@
 # For more information, visit madgraph.phys.ucl.ac.be and amcatnlo.web.cern.ch
 #
 ##########################################################################################
-from __builtin__ import classmethod
 """All virtual mother classes to IR-subtraction related hard-coded implementations"""
 
 import math
@@ -159,7 +158,7 @@ class SubtractionCurrentEvaluation(dict):
             'color_correlations'  : [ color_correlations, ],
             'Bjorken_rescalings'  : [ Bjorken_rescalings, ],
             'reduced_kinematics'  : [ reduced_kinematics, ],
-            'values'              : {(0,0,0,0): { 'finite' : 0.0 }}
+            'values'              : {(0,0,0,0): EpsilonExpansion({ 'finite' : 0.0 })}
         })
 
 class BeamFactorizationCurrentEvaluation(SubtractionCurrentEvaluation):
@@ -222,8 +221,8 @@ class BeamFactorizationCurrentEvaluation(SubtractionCurrentEvaluation):
             'Bjorken_rescalings'     : [ Bjorken_rescalings, ],
             'reduced_kinematics'     : [ reduced_kinematics, ],
             'values'                 : { (0,0,0,0): {
-                    None : { # reduced_IS_flavor_PDG
-                        None : { 'finite' : 0.0 } #resolved_IS_flavor_PDGs
+                (None,None) : { # reduced_IS_flavor_PDG for both beams
+                    ( (None,None),) : EpsilonExpansion({ 'finite' : 0.0 }) # resolved_IS_flavor_PDGs for both beams
                     }
                 }
             }

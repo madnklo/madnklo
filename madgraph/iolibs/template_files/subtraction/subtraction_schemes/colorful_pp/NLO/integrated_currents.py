@@ -235,6 +235,90 @@ class QCD_F0(general_current.GeneralCurrent):
         return evaluation
 
 #=========================================================================================
+# NLO PDF Counterterm
+#=========================================================================================
+
+class QCD_F0_lepton(general_current.GeneralCurrent):
+    """Implements the dummy PDF counterterm of type F(xi) for when doing lepton collision with colorful pp."""
+
+    # Enable the flag below to debug this current
+    DEBUG = False
+
+    # Define which leptons we want to allow
+    lepton_abs_PDGs = [11,12,13]
+
+    # Store the result for beam factorisation currents in a container that supports flavor matrices.
+    subtraction_current_evaluation_class = utils.BeamFactorizationCurrentEvaluation
+
+    divide_by_jacobian = colorful_pp_config.divide_by_jacobian
+
+    # We should not need global variables for this current
+    variables = None
+
+    # Now define the matching singular structures
+    beam_structure_lepton = sub.SingularStructure(
+        substructures=(sub.BeamStructure(
+            substructures=tuple([]),
+            legs=(
+                # Set the leg PDG to +11 which belongs to the lepton equivalency set defined below
+                # in the function build_equivalency_sets.
+                sub.SubtractionLeg(10, +11, sub.SubtractionLeg.INITIAL),
+            )
+        ),)
+    )
+
+    # This counterterm will be used if any of the current of the list below matches
+    template_currents = []
+
+    current_properties = {
+        'resolve_mother_spin_and_color': True,
+        'n_loops': 0,
+        'squared_orders': {'QCD': 2},
+        'beam_type' : 'lepton',
+        'beam_PDGs' :
+            [ tuple(sorted([pdg, -pdg])) for pdg in lepton_abs_PDGs ] +
+            [ tuple([pdg, ]) for pdg in lepton_abs_PDGs ] +
+            [ tuple([-pdg, ]) for pdg in lepton_abs_PDGs ]
+    }
+
+    # Now add endpoint IntegratedBeamCurrent...
+    current_properties['singular_structure'] = beam_structure_lepton
+    # ... for an initial-state lepton
+    template_currents.append(sub.IntegratedBeamCurrent( current_properties ))
+
+    # Now add plus distributions as BeamCurrent...
+    # Specifying the distribution type as both 'bulk' and 'counterterm' means that both values
+    # are acceptable when matching a target current_blocks element to this template current.
+    current_properties['distribution_type'] = ['bulk', 'counterterm']
+    # ... for an initial-state lepton
+    current_properties['singular_structure'] = beam_structure_lepton
+    template_currents.append(sub.BeamCurrent( current_properties ))
+
+    # Te defining currents correspond to a currents block composed of several lists of template currents
+    # for matching each currents of the target currents block (in an unordered fashion)
+    defining_currents = [template_currents, ]
+
+    # An now the mapping rules, which are not necessary in this context.
+    mapping_rules = [ ]
+
+    # Structurally, we cannot remove at the generation level such current, so we keep it active but
+    # instead simply chose to have its current return 0.
+    is_zero = False
+
+    @classmethod
+    def build_equivalency_sets(cls, model):
+        """ Force the PDG +1 of the template """
+        return [(set([pdg for pdg in cls.lepton_abs_PDGs])|set([-pdg for pdg in cls.lepton_abs_PDGs])),]
+
+    def kernel(self, evaluation, all_steps_info, global_variables):
+        """ Evaluate this counterterm given the variables provided. """
+
+        # Set this contribution to zero as we are considering here QCD corrections
+        evaluation['values'] = self.subtraction_current_evaluation_class.zero()['values']
+
+        return evaluation
+
+#=========================================================================================
 # Integrated IF collinear counterterm
 #=========================================================================================
 

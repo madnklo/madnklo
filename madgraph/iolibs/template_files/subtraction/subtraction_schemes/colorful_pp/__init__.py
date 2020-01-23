@@ -75,6 +75,8 @@ def load():
     all_subtraction_current_classes.extend([
         # PDF counterterms
         NLO_integrated_currents.QCD_F0,
+        # Add zero PDF counterterms for supporting lepton collisions with this scheme too
+        NLO_integrated_currents.QCD_F0_lepton,
         # collinear IF counterterms
         NLO_integrated_currents.QCD_integrated_C_IF,
         # collinear FF counterterms

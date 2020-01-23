@@ -2,7 +2,7 @@
 The evaluation is based on the mpmath implementation"""
 
 from mpmath import polylog
-from math import log
+from math import log, pi
 import logging
 
 logger=logging.getLogger(__name__)
@@ -23,7 +23,10 @@ def mpl_dilog(entries,x):
     elif a == 0.:
         return -Rli2(x/b)
     elif b == 0.:
-        return log(x)*log(1-x/a)+Rli2(x/a)
+        if x==1.0 and a==1:
+            return pi**2/6.
+        else:
+            return log(x)*log(1-x/a)+Rli2(x/a)
     else:
         # When this point is reached, the reality condition is already verified so we know that the final answer
         # *has to be* real. The individual Li2 can be imaginary, so can log((x-a)/(b-a)). The reality condition on the

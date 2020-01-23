@@ -4218,7 +4218,7 @@ This implies that with decay chains:
                         ' '.join(self._curr_model.get_particle(pdg).get_name() for pdg in missing_pdgs)))
             selected_beam_type = beam_type_guessed
         else:
-            if beam_type_guessed not in [user_beam_type, 'UNKNOWN']:
+            if beam_type_guessed not in [user_beam_type, 'UNKNOWN', None]:
                 logger.warning("Note that the specified beam %d type '%s' does not match MadNkLO guess: '%s'"%
                                             (beam_id+1, user_beam_type, beam_type_guessed))
             selected_beam_type = user_beam_type

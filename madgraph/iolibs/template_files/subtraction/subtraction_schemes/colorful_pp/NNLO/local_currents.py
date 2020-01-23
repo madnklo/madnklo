@@ -76,15 +76,13 @@ class QCD_C_FqFqx_C_IqpFqFqx(general_current.GeneralCurrent):
             sub.SubtractionLeg(11, -2, sub.SubtractionLeg.FINAL),
         )
     )
-    # This counterterm will be used if any of the structures of the list below matches
-    structure = [
-        # Match both the case of the initial state being a quark and/or antiquark
-        sub.SingularStructure(substructures=(sub.CollStructure(
+    # Match both the case of the initial state being a quark and/or antiquark
+    structure = sub.SingularStructure(substructures=(sub.CollStructure(
             substructures=(sub_coll_structure,),
             legs=(sub.SubtractionLeg(1, +1, sub.SubtractionLeg.INITIAL),)
-        ),)),
-    ]
+        ),))
 
+    # This counterterm will be used if any of the currents_block of the list below matches
     defining_currents = [
         (
             sub.Current({
@@ -188,14 +186,13 @@ class QCD_S_FqFqx_C_FqFqx(general_current.GeneralCurrent):
         )
     )
     # This counterterm will be used if any of the structures of the list below matches
-    structure = [
-        # Match both the case of the initial state being a quark and/or antiquark
-        sub.SingularStructure(substructures=(sub.SoftStructure(
+    # Match both the case of the initial state being a quark and/or antiquark
+    structure = sub.SingularStructure(substructures=(sub.SoftStructure(
             substructures=(sub_coll_structure,),
             legs=tuple([])
-        ),)),
-    ]
+        ),))
 
+    # This counterterm will be used if any of the currents_block of the list below matches
     defining_currents = [
         (
             sub.Current({
@@ -352,14 +349,13 @@ class QCD_S_FqFqx_C_FqFqx_C_IqpFqFqx(general_current.GeneralCurrent):
             legs=tuple([])
     )
     # This counterterm will be used if any of the structures of the list below matches
-    structure = [
-        # Match the case of the initial state being a quark and/or antiquark
-        sub.SingularStructure(substructures=(sub.CollStructure(
+    # Match the case of the initial state being a quark and/or antiquark
+    structure = sub.SingularStructure(substructures=(sub.CollStructure(
             substructures=(soft_structure,),
             legs=(sub.SubtractionLeg(1, +1, sub.SubtractionLeg.INITIAL),)
-        ),)),
-    ]
+        ),))
 
+    # This counterterm will be used if any of the currents_block of the list below matches
     defining_currents = [
         (
             sub.Current({

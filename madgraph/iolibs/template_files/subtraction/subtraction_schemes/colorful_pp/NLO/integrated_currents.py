@@ -301,9 +301,8 @@ class QCD_F0_lepton(general_current.GeneralCurrent):
     # An now the mapping rules, which are not necessary in this context.
     mapping_rules = [ ]
 
-    # Structurally, we cannot remove at the generation level such current, so we keep it active but
-    # instead simply chose to have its current return 0.
-    is_zero = False
+    # Remove this contribution at the generation level already by setting its "is_zero" flag to True.
+    is_zero = True
 
     @classmethod
     def build_equivalency_sets(cls, model):

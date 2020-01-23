@@ -27,7 +27,7 @@ import madgraph.various.misc as misc
 import madgraph.various.math_tools.mpl as MPL
 
 import commons.utils as utils
-import commons.factors_and_cuts as factors_and_cuts
+import factors_and_cuts as factors_and_cuts
 
 import commons.general_current as general_current
 import madgraph.core.subtraction as sub

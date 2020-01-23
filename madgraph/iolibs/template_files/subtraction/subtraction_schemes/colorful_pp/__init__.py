@@ -48,11 +48,7 @@ def load():
 
             return requires_correlated_beam_convolution
 
-    import commons.factors_and_cuts as factors_and_cuts
-
-    # From common resources
-    import commons.beam_factorization_BF as BF
-    import commons.beam_factorization_BS as BS
+    import factors_and_cuts as factors_and_cuts
 
     # Specific to the colorful_pp scheme
     import colorful_pp_config

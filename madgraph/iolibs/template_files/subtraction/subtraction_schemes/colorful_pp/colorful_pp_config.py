@@ -7,7 +7,6 @@
 import madgraph.core.subtraction as sub
 import madgraph.integrator.mappings as mappings
 import commons.utils as utils
-import commons.QCD_local_currents as currents
 import factors_and_cuts
 import madgraph.various.misc as misc
 

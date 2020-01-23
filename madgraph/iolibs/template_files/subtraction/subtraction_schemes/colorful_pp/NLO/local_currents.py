@@ -22,7 +22,7 @@ import madgraph.integrator.mappings as mappings
 
 import commons.utils as utils
 import commons.general_current as general_current
-import commons.factors_and_cuts as factors_and_cuts
+import factors_and_cuts as factors_and_cuts
 
 import colorful_pp_config
 import variables as kernel_variables

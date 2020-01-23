@@ -654,7 +654,7 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
                 bundles_info[-1]['cut_inputs'] = {}
                 if bundle.name() == 'C':
                     if len(all_initial_legs)>0:
-                        bundles_info[-1]['cut_inputs']['pA'] = -sum(all_steps[-1]['higher_PS_point'][l.n] for l in all_initial_legs)
+                        bundles_info[-1]['cut_inputs']['pA'] = sum(all_steps[-1]['higher_PS_point'][l.n] for l in all_initial_legs)
                     bundles_info[-1]['cut_inputs']['pC'] = sum(all_steps[-1]['higher_PS_point'][l.n] for l in all_final_legs)
                 elif bundle.name() == 'S':
                     bundles_info[-1]['cut_inputs']['pS'] = sum(all_steps[-1]['higher_PS_point'][l.n] for l in all_final_legs)

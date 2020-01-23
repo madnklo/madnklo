@@ -49,12 +49,12 @@ divide_by_jacobian = False
 
 # Initial collinear configuration
 initial_coll_factor = factors_and_cuts.no_factor
-#initial_coll_cut = factors_and_cuts.cut_initial_coll
-initial_coll_cut = factors_and_cuts.no_cut
+initial_coll_cut = factors_and_cuts.cut_initial_coll
 initial_coll_mapping = mappings.InitialLorentzOneMapping
 
 # Soft configuration
 soft_factor = factors_and_cuts.no_factor
+# The soft counterterm must not have cuts as we did not implement the soft integrated counterterm with cuts
 soft_cut = factors_and_cuts.no_cut
 soft_mapping = mappings.SoftVsInitialMapping
 
@@ -62,7 +62,8 @@ soft_mapping = mappings.SoftVsInitialMapping
 # WARNING: This is *not* the same final-collinear mapping as in colorful, where one has 'FinalRescalingOneMapping' instead.
 final_coll_mapping = mappings.FinalCollinearVsInitialMapping
 final_coll_factor = factors_and_cuts.no_factor
-#final_coll_cut = factors_and_cuts.cut_coll
+# A cut on the final-final would make little sense since we integrate numerically over the symmetric rescaling of the initial
+# momenta, so thhis is the same story as for the soft.
 final_coll_cut = factors_and_cuts.no_cut
 
 # Final soft-collinear configuration (not strictly speaking necessary)

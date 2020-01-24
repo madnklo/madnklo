@@ -62,4 +62,12 @@ class GenericCurrentsExporter(object):
         Typically soft limits in colorful do require that, but not necessarily.
         So the default behaviour here is to never invoke such corrrelated convolutions.
         """
+        # By default, the scheme never requires correlated beam convolutions
         return False
+
+    def get_n_non_factorisable_double_sided_convolution(self, counterterm):
+        """ Test if this counterterm involves a non-factorisable double-sided convolution which appears when one has
+        a combination of a correlated convolution with single-sided ones (like for IF integrated collinear CT or PDF
+        counterterms). For now it can only return 2 convolutions if non-factorisable; it may need to be extended for N^3LO."""
+        # By default, the scheme never requires non factorisable beam convolutions
+        return 0

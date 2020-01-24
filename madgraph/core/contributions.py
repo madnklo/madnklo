@@ -1700,7 +1700,7 @@ The resulting output must therefore be used for debugging only as it will not yi
 #                    misc.sprint(pprint.pformat(key))
 #                misc.sprint('-'*50)
                 counterterms.remove(counterterm_info)
-        
+
         return all_removed
 
     def subtract(self, ignore_integrated_counterterms=False, **opts):

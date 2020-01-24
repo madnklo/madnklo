@@ -1462,6 +1462,7 @@ class CountertermNode(object):
     def distribute_loops(self, n_loops):
         """Split a counterterm in several ones according to the individual
         loop orders of its currents.
+        Also, never reset the 'n_loops' attribute of a current that does not have it set to -1.
         """
         
         assert isinstance(n_loops, int)
@@ -1477,9 +1478,14 @@ class CountertermNode(object):
             # Initialize node_combinations with the first node
             # at any loop number between 0 and n_loops
             first_without_loops = self.nodes[0]
-            for loop_n in range(n_loops + 1):
-                for first_with_loops in first_without_loops.distribute_loops(loop_n):
-                    node_combinations += [[first_with_loops, ], ]
+            # Do not modify loop count of currents with n_loops = -1
+            if self.nodes[0].current['n_loops'] != -1:
+                node_combinations += [[self.nodes[0], ], ]
+            else:
+                for loop_n in range(n_loops + 1):
+                    for first_with_loops in first_without_loops.distribute_loops(loop_n):
+                        node_combinations += [[first_with_loops, ], ]
+
             # Add the other nodes one by one recursively,
             # taking care of never exceeding n_loops
             n_nodes = len(self.nodes)
@@ -1493,8 +1499,7 @@ class CountertermNode(object):
                         # in all possible ways within the current itself
                         # (recursion step)
                         for ith_node in self.nodes[i_current].distribute_loops(new_loop_n):
-                            new_node_combinations.append(
-                                combination + [ith_node, ] )
+                            new_node_combinations.append(combination + [ith_node, ] )
                 node_combinations = new_node_combinations
                 i_current += 1
 
@@ -1597,6 +1602,8 @@ class Counterterm(CountertermNode):
 
         # Local counterterms never require corelated beam convolutions
         self.requires_correlated_beam_convolution = False
+        # Neither to they require non-factorisable ones
+        self.n_non_factorisable_double_sided_convolution = 0
 
     @classmethod
     def get_ancestor(cls, particles, momentum_dict):
@@ -1623,9 +1630,18 @@ class Counterterm(CountertermNode):
                     "Could not find leg numbers " + str(particles) +
                     "in this momentum routing dictionary:\n" + str(momentum_dict) )
 
-    def __str__(self, print_n=True, print_pdg=False, print_state=False):
+    def __str__(self, print_n=True, print_pdg=False, print_state=False, print_n_loops=True):
+
+        suffix = ''
+        n_loops_in_kernel = self.n_loops() - self.current.get('n_loops')
+        n_loops_in_process = self.current.get('n_loops')
+        if print_n_loops:
+            if n_loops_in_kernel > 0 or n_loops_in_process > 0:
+                suffix += ' @ %d+%d loop%s' % (
+                    n_loops_in_kernel, n_loops_in_process, 's' if n_loops_in_kernel + n_loops_in_process > 1 else '')
+
         return self.reconstruct_complete_singular_structure().__str__(
-            print_n=print_n, print_pdg=print_pdg, print_state=print_state )
+            print_n=print_n, print_pdg=print_pdg, print_state=print_state )+suffix
 
     def nice_string(self, lead="    ", tab="    "):
         
@@ -1691,6 +1707,7 @@ class Counterterm(CountertermNode):
         # Also forward the value of 'requires_correlated_beam_convolution' if it
         # was already set.
         CT_copy.requires_correlated_beam_convolution = self.requires_correlated_beam_convolution
+        CT_copy.n_non_factorisable_double_sided_convolution = self.n_non_factorisable_double_sided_convolution
 
         return CT_copy
 
@@ -1797,19 +1814,27 @@ class Counterterm(CountertermNode):
 
         return self.requires_correlated_beam_convolution
 
-    def get_n_non_factorisable_double_sided_convolution(self):
+    def set_n_non_factorisable_double_sided_convolution(self, subtraction_scheme_module):
         """ Test if this counterterm involves a non-factorisable double-sided convolution which appears when one has
         a combination of a correlated convolution with single-sided ones (like for IF integrated collinear CT or PDF
-        counterterms). For now it returns always 2 convolutions if non-factorisable; it may need to be extended for N^3LO."""
+        counterterms). For now it can only return 2 convolutions if non-factorisable; it may need to be extended for N^3LO."""
 
-        #TODO maybe move this as a scheme-dependent function
+        # Fetch all integrated currents making up this integrated counterterm
+        # In the current implementation, there can only be one for now.
+        self.n_non_factorisable_double_sided_convolution = \
+                            subtraction_scheme_module.exporter.get_n_non_factorisable_double_sided_convolution(self)
 
-        all_legs_states = [leg.state for node in self.nodes for leg in node.current['singular_structure'].get_all_legs()]
+    def get_n_non_factorisable_double_sided_convolution(self):
+        """ Counts how many non-factorisable beam convolutions this singular structure.
+        At NNLO this can only be 0 or 2. For example ((C(2,4),S(5),),) will yield 2 but
+        ((C(2,4),C(1,3)),) or ((S(2),C(4,5)),) would yield 0."""
 
-        return (    2 if (  self.does_require_correlated_beam_convolution() and
-                            all_legs_states.count(SubtractionLeg.INITIAL)>0 and
-                            (self.count_unresolved()-all_legs_states.count(SubtractionLeg.FINAL))>0 )
-                    else 0 )
+        if self.n_non_factorisable_double_sided_convolution is None:
+            raise MadGraph5Error("The attribute 'n_non_factorisable_double_sided_convolution' of the counterterm:\n%s\n"%str(self)+
+                "must be set using the IR subtraction scheme module with the function 'set_n_non_factorisable_double_sided_convolution'"+
+                " before this information can be accessed.")
+
+        return self.n_non_factorisable_double_sided_convolution
 
     def reconstruct_complete_singular_structure(self):
         """Reconstruct the complete singular structure for this counterterm."""
@@ -2024,6 +2049,22 @@ class Counterterm(CountertermNode):
         
         return reduced_PS, reduced_flavors
 
+    def distribute_loops(self, n_loops):
+        """Split a counterterm in several ones according to the individual
+        loop orders of its currents.
+        Also, never reset the 'n_loops' attribute of a current that does not have it set to -1.
+        """
+
+        result = super(Counterterm,self).distribute_loops(n_loops)
+
+        # Set the 'NLO_mode' and 'perturbation_couplings' to 'tree' and '[]' if n_loops=0
+        for CT in result:
+            if CT.process.get('n_loops') == 0:
+                CT.process.set('NLO_mode', 'tree')
+                CT.process.set('perturbation_couplings', [])
+
+        return result
+
 #=========================================================================================
 # IntegratedCounterterm
 #=========================================================================================
@@ -2043,12 +2084,23 @@ class IntegratedCounterterm(Counterterm):
             # Then this information cannot be constructed a priori and it will need to be set
             # later by calling the function set_
             self.requires_correlated_beam_convolution = None
+            # Similarly for n_non_factorisable_double_sided_convolution
+            self.n_non_factorisable_double_sided_convolution = None
         else:
             self.set_requires_correlated_beam_convolution(subtraction_scheme_module)
+            self.set_n_non_factorisable_double_sided_convolution(subtraction_scheme_module)
 
-    def __str__(self, print_n=True, print_pdg=False, print_state=False):
+    def __str__(self, print_n=True, print_pdg=False, print_state=False, print_n_loops = True):
         """ A nice short string for the structure of this integrated CT."""
-        
+
+        suffix = ''
+        n_loops_in_kernel = self.n_loops() - self.current.get('n_loops')
+        n_loops_in_process = self.current.get('n_loops')
+        if print_n_loops:
+            if n_loops_in_kernel > 0 or  n_loops_in_process > 0:
+                suffix += ' @ %d+%d loop%s' % (
+                    n_loops_in_kernel, n_loops_in_process, 's' if n_loops_in_kernel + n_loops_in_process > 1 else '')
+
         reconstructed_ss = self.reconstruct_complete_singular_structure()
         
         # We deconstruct the reconstructed ss so as to be able to render the information about
@@ -2060,7 +2112,7 @@ class IntegratedCounterterm(Counterterm):
             else:
                 template = '%s,'
             res.append(template%(reconstructed_ss.substructures[i].__str__(
-                                 print_n=print_n, print_pdg=print_pdg, print_state=print_state )))
+                                 print_n=print_n, print_pdg=print_pdg, print_state=print_state ))+suffix)
 
         return '[%s]'%(''.join(res))
 
@@ -2738,8 +2790,7 @@ class IRSubtraction(object):
         beam_structures = [s for s in substructures if s.name() == 'F']
         other_structures = [s for s in substructures if s.name() != 'F']
         other_structures = SingularStructure(substructures=other_structures)
-        # Build the nodes
-        nodes = []
+
         # Initialize a trivial momenta_dict
         momenta_dict = IRSubtraction.create_momenta_dict(process)
         # Get a modifiable copy of the reduced process
@@ -2752,45 +2803,84 @@ class IRSubtraction(object):
         reduced_process['legs_with_decays'][:] = []
         # The n_loops will be distributed later
         reduced_process.set('n_loops', -1)
-        # TODO If resetting n_loops, what about orders?
+        # TODO squared orders should also be reset and then adjusted later. Not done yet and optional for pure QCD corrections.
+        all_bcf_combinations = {}
+        # Split the reduced processes so that they have a fixed loop count in each of the two beam currents
+        for bcf in process['beam_factorization']:
+            key = ( None if bcf['beam_one'] is None else bcf['beam_one'].get('n_loops'),
+                    None if bcf['beam_two'] is None else bcf['beam_two'].get('n_loops') )
+            if key in all_bcf_combinations:
+                all_bcf_combinations[key].append(bcf)
+            else:
+                all_bcf_combinations[key] = [bcf,]
 
-        # Add a node for each beam structure
-        for beam_structure in beam_structures:
-            # The beam factorization singular structure always have a single leg
-            # with a number matching the beam number
-            beam_number = beam_structure.legs[0].n
-            assert (beam_number in [1, 2]), \
-                "BeamStructure is expected to have a single leg with number in [1, 2]."
-            current = BeamCurrent({
-                'beam_type': self.beam_types[beam_number - 1][0],
-                'beam_PDGs': self.beam_types[beam_number - 1][1],
-                'distribution_type': 'counterterm',
-                'singular_structure': SingularStructure(substructures=[beam_structure,])})
-            nodes.append(CountertermNode(current=current))
-            # Modify the reduced process so as to remove the beam factorisation currents
-            # like :F: which are now counterterm, i.e. [F]
-            self.reduce_process(beam_structure, reduced_process, momenta_dict)
+        all_reduced_processes = {}
+        for key, bcfs in all_bcf_combinations.items():
+            # Get a modifiable copy of the reduced process
+            reduced_process = process.get_copy(
+                ['legs', 'n_loops', 'legs_with_decays', 'beam_factorization'])
+            # We need a deep copy of the beam_factorization here
+            reduced_process['beam_factorization'] = copy.deepcopy(bcfs)
+            # Empty legs_with_decays: it will be regenerated automatically when asked for
+            reduced_process['legs_with_decays'][:] = []
+            # The n_loops will be distributed later
+            reduced_process.set('n_loops', -1)
+            all_reduced_processes[key] = reduced_process
 
-        # Add a single node for all other singular structures
-        if other_structures != SingularStructure():
-            current = Current({'singular_structure': other_structures})
-            nodes.append(CountertermNode(current=current))
+        all_local_CT_generated = []
 
-        # Determine reduced_process and momenta_dict
-        self.reduce_process(other_structures, reduced_process, momenta_dict)
+        for beams_loop_count, reduced_process in all_reduced_processes.items():
 
-        # Set resolve_mother_spin_and_color to True for backward compatibility
-        for subnode in nodes:
-            subnode.current['resolve_mother_spin_and_color'] = True
+            # Build the nodes
+            nodes = []
 
-        # Assemble the counterterm object and return it
-        return Counterterm(
-            process=reduced_process,
-            nodes=nodes,
-            momenta_dict=momenta_dict,
-            resolved_process=process,
-            complete_singular_structure=structure
-        )
+            # Add a node for each beam structure
+            for beam_structure in beam_structures:
+                # The beam factorization singular structure always have a single leg
+                # with a number matching the beam number
+                beam_number = beam_structure.legs[0].n
+                assert (beam_number in [1, 2]), \
+                    "BeamStructure is expected to have a single leg with number in [1, 2]."
+                assert (beams_loop_count[beam_number-1] is not None), \
+                    "There cannot be a PDF counterterm related to a process which has no beam factorisation current."
+                current = BeamCurrent({
+                    'beam_type': self.beam_types[beam_number - 1][0],
+                    'beam_PDGs': self.beam_types[beam_number - 1][1],
+                    'distribution_type': 'counterterm',
+                    'singular_structure': SingularStructure(substructures=[beam_structure,]),
+                    # loop counts have already been distributed when building the beam factorisation CTs
+                    # so we should not distribute them again in the F(...) counterterms and therefore
+                    # we do set it below to the correct value. Since this value won't be -1 when distributing loop, then
+                    # the loop distribution process will keep the loop count of this current fixed.
+                    'n_loops' : beams_loop_count[beam_number-1]
+                })
+                nodes.append(CountertermNode(current=current))
+                # Modify the reduced process so as to remove the beam factorisation currents
+                # like :F: which are now counterterm, i.e. [F]
+                self.reduce_process(beam_structure, reduced_process, momenta_dict)
+
+            # Add a single node for all other singular structures
+            if other_structures != SingularStructure():
+                current = Current({'singular_structure': other_structures})
+                nodes.append(CountertermNode(current=current))
+
+            # Determine reduced_process and momenta_dict
+            self.reduce_process(other_structures, reduced_process, momenta_dict)
+
+            # Set resolve_mother_spin_and_color to True for backward compatibility
+            for subnode in nodes:
+                subnode.current['resolve_mother_spin_and_color'] = True
+
+            # Assemble the counterterm object and add it to the list of local CTs generated to return
+            all_local_CT_generated.append( Counterterm(
+                process=reduced_process,
+                nodes=nodes,
+                momenta_dict=momenta_dict,
+                resolved_process=process,
+                complete_singular_structure=structure
+            ) )
+
+        return all_local_CT_generated
 
     def get_integrated_counterterm(self, local_counterterm):
         """Given a local subtraction counterterm, return the corresponding integrated one.
@@ -2977,32 +3067,35 @@ class IRSubtraction(object):
         all_counterterms = []
         all_integrated_counterterms = []
         for combination in combinations:
-            template_counterterm = self.get_counterterm(combination, process)
-            if not ignore_integrated_counterterms:
-                template_integrated_counterterms = self.get_integrated_counterterm(template_counterterm)
-            else:
-                template_integrated_counterterms = []
+            for template_counterterm in self.get_counterterm(combination, process):
+                if not ignore_integrated_counterterms:
+                    template_integrated_counterterms = self.get_integrated_counterterm(template_counterterm)
+                else:
+                    template_integrated_counterterms = []
 
-            counterterms_with_loops = template_counterterm.distribute_loops(target_n_loops)
-            # TODO
-            # For the time being, distribute_orders is given None instead of the squared orders
-            # because they should be retrieved from the process by looking at individual
-            # matrix elements
-            # That is, every process has a list of possible coupling orders assignations
-            # so we should loop over them
-            for counterterm_with_loops in counterterms_with_loops:
-                all_counterterms.extend( counterterm_with_loops.distribute_orders(None) )
+                counterterms_with_loops = template_counterterm.distribute_loops(target_n_loops)
 
-            # Now also distribute the template integrated counterterms
-            for template_integrated_counterterm in template_integrated_counterterms:
-                integrated_counterterms_with_loops = template_integrated_counterterm.distribute_loops(target_n_loops)
-                for integrated_counterterm_with_loops in integrated_counterterms_with_loops:
-                    all_integrated_counterterms.extend(
-                        integrated_counterterm_with_loops.distribute_orders(None) )
+                # TODO
+                # For the time being, distribute_orders is given None instead of the squared orders
+                # because they should be retrieved from the process by looking at individual
+                # matrix elements
+                # That is, every process has a list of possible coupling orders assignations
+                # so we should loop over them
+                for counterterm_with_loops in counterterms_with_loops:
+                    all_counterterms.extend( counterterm_with_loops.distribute_orders(None) )
+
+                # Now also distribute the template integrated counterterms
+                for template_integrated_counterterm in template_integrated_counterterms:
+                    integrated_counterterms_with_loops = template_integrated_counterterm.distribute_loops(target_n_loops)
+
+                    for integrated_counterterm_with_loops in integrated_counterterms_with_loops:
+                        all_integrated_counterterms.extend(
+                            integrated_counterterm_with_loops.distribute_orders(None) )
 
         # Now for each integrated counterterm generated, set the attribute 'requires_correlated_beam_convolution.'
         for integrated_CT in all_integrated_counterterms:
             integrated_CT.set_requires_correlated_beam_convolution(self.subtraction_scheme_module)
+            integrated_CT.set_n_non_factorisable_double_sided_convolution(self.subtraction_scheme_module)
 
         # Finally, if this integrated counterterm implies multiple convolutions in the *same* convolution parameter
         # then one of them will be performed analytically, thus inducing a new building-block counterterm implementing

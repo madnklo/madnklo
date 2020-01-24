@@ -1411,6 +1411,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
     def pass_all_cuts(self, PS_point, flavors, 
                           n_jets_allowed_to_be_clustered = None, xb_1 = None, xb_2 = None):
         """ Calls both the flavor-blind and flavor-sensitive cuts."""
+
         return self.pass_flavor_blind_cuts(PS_point, flavors, 
                     n_jets_allowed_to_be_clustered = n_jets_allowed_to_be_clustered, 
                     xb_1 = xb_1, xb_2 = xb_2 ) and \
@@ -2207,15 +2208,15 @@ class ME7Integrand_V(ME7Integrand):
             for i_CT, CT_properties in enumerate(self.integrated_counterterms[process_key]):
                 CT = CT_properties['integrated_counterterm']
                 if format==2:
-                    long_res.append( '   | %d : %s'%(i_CT, CT.__str__(
+                    long_res.append( '   | I%d : %s'%(i_CT, CT.__str__(
                                         print_n=True, print_pdg=False, print_state=False )  ) )
                 elif format==3:
-                    long_res.append( '   | %d : %s'%(i_CT, CT.__str__(
+                    long_res.append( '   | I%d : %s'%(i_CT, CT.__str__(
                                         print_n=True, print_pdg=True, print_state=True )  ) )
                 elif format==4:
-                    long_res.append( '   | %d : %s'%(i_CT, str(CT)))
+                    long_res.append( '   | I%d : %s'%(i_CT, str(CT)))
                 elif format>4:
-                    long_res.append( '   | %d : %s'%(i_CT, str(CT)))
+                    long_res.append( '   | I%d : %s'%(i_CT, str(CT)))
                     for key, value in CT_properties.items():
                         if not key in ['integrated_counterterm', 'matching_process_key']:
                             long_res.append( '     + %s : %s'%(key, str(value)))
@@ -2241,6 +2242,7 @@ class ME7Integrand_V(ME7Integrand):
         # Access the various characteristics of the integrated counterterm passed to this
         # function.
         counterterm = integrated_CT_characteristics['integrated_counterterm']
+
         # The resolved flavor configurations dictionary (mapping resolved to reduced) is
         # typically no longer useful here.
         resolved_flavors = integrated_CT_characteristics['resolved_flavors_combinations']
@@ -2929,13 +2931,13 @@ class ME7Integrand_R(ME7Integrand):
             for i_CT, CT in enumerate(self.counterterms[process_key]):
                 if CT.is_singular():
                     if format==2:
-                        long_res.append( '   | %d : %s'%(i_CT, CT.__str__(
+                        long_res.append( '   | L%d : %s'%(i_CT, CT.__str__(
                             print_n=True, print_pdg=False, print_state=False )  ))
                     elif format==3:
-                        long_res.append( '   | %d : %s'%(i_CT, CT.__str__(
+                        long_res.append( '   | L%d : %s'%(i_CT, CT.__str__(
                             print_n=True, print_pdg=True, print_state=True )  ))
                     elif format>3:
-                        long_res.append( '   | %d : %s'%(i_CT, str(CT)))
+                        long_res.append( '   | L%d : %s'%(i_CT, str(CT)))
             res += '\n'.join(long_res)
 
         return res
@@ -3682,8 +3684,8 @@ class ME7Integrand_R(ME7Integrand):
             xb_1 = template_MEEvent.Bjorken_xs[0]
             xb_2 = template_MEEvent.Bjorken_xs[1]
 
-            if ((xb_1 is not None) and xb_1 > 1. / ME_call['Bjorken_rescaling_beam_one']) or \
-                ((xb_2 is not None) and xb_2 > 1. / ME_call['Bjorken_rescaling_beam_two']):
+            if ((xb_1 is not None) and xb_1 > ME_call['Bjorken_rescaling_beam_one']) or \
+                ((xb_2 is not None) and xb_2 > ME_call['Bjorken_rescaling_beam_two']):
                 if not always_generate_event:
                     continue
                 else:
@@ -4672,25 +4674,10 @@ class ME7Integrand_BS(ME7Integrand_RV):
         # Leave the PS point untouched.
         scaled_real_PS_point = real_emission_PS_point.get_copy()
 
-        # Also scale the xi initial-state convolution parameters if the limit
-        # specifies a beam factorization structure for that initial state:
-        # Notice that it should always be True in this case.
-        if limit.does_require_correlated_beam_convolution():
-            scaled_xi1 = 1.-(1.-xi1)*scaling_parameter
-            scaled_xi2 = 1.-(1.-xi2)*scaling_parameter
-        else:   
-            beam_factorization_legs = limit.get_beam_factorization_legs()
-            # Notice that if we wanted a particular overall scaling of the counterterms,
-            # we would need to correctly adjust the power of the multiplying scaling parameter.
-            if 1 in beam_factorization_legs:
-                scaled_xi1 = 1.-(1.-xi1)*scaling_parameter
-            else:
-                scaled_xi1 = xi1
-            if 2 in beam_factorization_legs:
-                scaled_xi2 = 1.-(1.-xi2)*scaling_parameter
-            else:
-                scaled_xi2 = xi2
-        
+        # For BS convolutions the limit always involve rescaling both initial state symetrically.
+        scaled_xi1 = 1.-(1.-xi1)*scaling_parameter
+        scaled_xi2 = 1.-(1.-xi2)*scaling_parameter
+
         return scaled_real_PS_point, scaled_xi1, scaled_xi2
 
 

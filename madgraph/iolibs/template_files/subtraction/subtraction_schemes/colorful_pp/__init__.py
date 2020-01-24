@@ -5,6 +5,7 @@
 ###########################################################
 
 import os
+import madgraph.various.misc as misc
 
 __authors__ = ["valentin.hirschi@gmail.com", "nicoldeu@phys.ethz.ch"]
 
@@ -32,6 +33,7 @@ def load():
     subtraction_scheme_name = os.path.split(os.path.dirname(os.path.realpath(__file__)))[-1]
 
     from commons.currents_exporter import GenericCurrentsExporter
+    from madgraph.core.subtraction import SubtractionLeg
 
     class ColorfulPPExporter(GenericCurrentsExporter):
 
@@ -47,6 +49,35 @@ def load():
                 for c in sub_ss.decompose() ) for sub_ss in singular_structure.substructures)
 
             return requires_correlated_beam_convolution
+
+        def get_n_non_factorisable_double_sided_convolution(self, counterterm):
+            """ Test if this counterterm involves a non-factorisable double-sided convolution which appears when one has
+            a combination of a correlated convolution with single-sided ones (like for IF integrated collinear CT or PDF
+            counterterms). For now it can only return 2 convolutions if non-factorisable; it may need to be extended for N^3LO."""
+
+            all_legs_states = [leg.state for node in counterterm.nodes for leg in node.current['singular_structure'].get_all_legs()]
+
+            n_non_factorisable_double_sided_convolution = (    2 if (
+                    counterterm.does_require_correlated_beam_convolution() and
+                    all_legs_states.count(SubtractionLeg.INITIAL)>0 and
+                    # The CT ((C(2,4),S(5),),) requires a non-factorisable beam convolution.
+                    # but the soft-collinear CT ((C(S((5, 21, f)),(2, 21, i)),),) requires a one-sided one.
+                    # We therefore need the condition below
+                    ( (counterterm.count_unresolved()-all_legs_states.count(SubtractionLeg.FINAL))>0 or
+                      any(
+                          any(len(ss.substructures)>1 for ss in node.current['singular_structure'].substructures)
+                          for node in counterterm.nodes
+                         )
+                      )
+                    )
+            else 0 )
+            #misc.sprint(counterterm.does_require_correlated_beam_convolution())
+            #misc.sprint(all_legs_states.count(SubtractionLeg.INITIAL))
+            #misc.sprint(counterterm.count_unresolved())
+            #misc.sprint(all_legs_states.count(SubtractionLeg.FINAL))
+            #misc.sprint([[len(ss.substructures) for ss in node.current['singular_structure'].substructures] for node in counterterm.nodes])
+            #misc.sprint(str(counterterm),n_non_factorisable_double_sided_convolution)
+            return n_non_factorisable_double_sided_convolution
 
     import factors_and_cuts as factors_and_cuts
 

@@ -604,9 +604,22 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
             else:
                 overall_parents.append(None)
 
+        global_variables = {
+                'overall_children': overall_children,
+                'overall_parents' : overall_parents,
+                'leg_numbers_map' : leg_numbers_map,
+                'Q' : Q,
+                'mu_r': mu_r,
+                'allowed_backward_evolved_flavors': allowed_backward_evolved_flavors,
+                'xis' : xis,
+                'mu_fs' : mu_fs,
+                'sector_info' : sector_info
+        }
+
         for i_step, mapping_information in enumerate(self.mapping_rules):
             # Now obtain recoilers
-            reduced_recoilers = mapping_information['reduced_recoilers'](reduced_process, excluded=tuple(overall_parents))
+            reduced_recoilers = mapping_information['reduced_recoilers'](
+                                reduced_process, excluded=tuple(overall_parents), global_variables=global_variables)
             additional_recoilers = sub.SubtractionLegSet( SubtractionLeg(
                         self.map_leg_number(leg_numbers_map, l.n, overall_parents),l.pdg,l.state)
                                                                     for l in mapping_information['additional_recoilers'] )
@@ -675,17 +688,6 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
 
         overall_lower_PS_point = all_steps[-1]['lower_PS_point']
 
-        global_variables = {
-                'overall_children': overall_children,
-                'overall_parents' : overall_parents,
-                'leg_numbers_map' : leg_numbers_map,
-                'Q' : Q,
-                'mu_r': mu_r,
-                'allowed_backward_evolved_flavors': allowed_backward_evolved_flavors,
-                'xis' : xis,
-                'mu_fs' : mu_fs,
-                'sector_info' : sector_info
-        }
         # Build global variables if necessary
         if self.variables is not None:
             global_variables.update(self.variables(reduced_process, all_steps, global_variables))

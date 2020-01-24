@@ -25,7 +25,7 @@ import madgraph.integrator.mappings as mappings
 # We consider only the two initial state of the reduced process as recoilers,
 # assuming that the initial state numbers of the lower multiplicity process
 # are identical to those of the final state numbers.
-def get_initial_state_recoilers(reduced_process, excluded=()):
+def get_initial_state_recoilers(reduced_process, excluded=(), **opts):
 
     model = reduced_process.get('model')
     return sub.SubtractionLegSet([
@@ -35,7 +35,8 @@ def get_initial_state_recoilers(reduced_process, excluded=()):
         ])
     ])
 
-def get_final_state_recoilers(reduced_process, excluded=()):
+def get_final_state_recoilers(reduced_process, excluded=(), **opts):
+
     model = reduced_process.get('model')
     return sub.SubtractionLegSet([
         leg for leg in reduced_process.get('legs') if all([

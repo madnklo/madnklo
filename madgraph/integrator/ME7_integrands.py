@@ -1708,7 +1708,6 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # line below
         #return 1./x
 
-        misc.sprint(pdf, x, pdg)
         if pdf is None:
             return 1.
        
@@ -1720,8 +1719,6 @@ class ME7Integrand(integrands.VirtualIntegrand):
         
         # Call to lhapdf API
         f = pdf.xfxQ2(pdg, x, scale2)/x
-
-        misc.sprint(f, pdg, x)
 
         # Update the PDF cache
         self.PDF_cache[(pdf, pdg,x,scale2)] = f

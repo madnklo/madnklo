@@ -1803,20 +1803,6 @@ class ME7Integrand(integrands.VirtualIntegrand):
         xb_1, xi1 = x1s
         xb_2, xi2 = x2s
 
-        # For e+ e- type of collisions with not PDF but counterterms rescaling against the initial states, we must
-        # enforce the "PDF" delta(x-1) which amounts to setting xb_1 to 1 when xi1 is None and to xi1 when it is not None.
-        # (this is because of the change of variables we do which is x' = x * xi
-        if self.run_card['lpp1']==0:
-            if xi1 is None:
-                xb_1 = 1.0
-            else:
-                xb_1 = xi1
-        if self.run_card['lpp2']==0:
-            if xi2 is None:
-                xb_2 = 1.0
-            else:
-                xb_2 = xi2
-
         if xb_1 > 1. or xb_2 > 1. or math.isnan(xb_1) or math.isnan(xb_2):
             raise MadEvent7Error('Unphysical configuration: x1, x2 = %.5e, %.5e'%(xb_1, xb_2))
             #logger.debug(misc.bcolors.GREEN + 'Returning a weight of 0. for this integrand evaluation.' + misc.bcolors.ENDC)
@@ -1964,18 +1950,28 @@ class ME7Integrand(integrands.VirtualIntegrand):
         if __debug__: logger.debug("="*80)
 
         return total_wgt
-    
-    def generate_matrix_element_event(self, PS_point, process_key, process, all_flavor_configurations, 
+
+    def compute_matrix_element_event_weight(self,PS_point, process_key, process, all_flavor_configurations,
                   base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts):
-        """ Generates one event which corresponds to the physical contribution (i.e. not the
-        counterterms) hosted by this contribution."""
-    
+        """ Returns the weight for the matrix element event, which may need further processing in daughter classes, for
+          example in the virtual where one may use a dummy dressed with the I operator."""
+
         alpha_s = self.model.get('parameter_dict')['aS']
 
         ME_evaluation, all_results = self.all_MEAccessors(
                         process, PS_point, alpha_s, mu_r, pdgs=all_flavor_configurations[0])
 
-        event_weight = base_objects.EpsilonExpansion(ME_evaluation) * base_weight
+        return base_objects.EpsilonExpansion(ME_evaluation) * base_weight
+
+
+    def generate_matrix_element_event(self, PS_point, process_key, process, all_flavor_configurations, 
+                  base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts):
+        """ Generates one event which corresponds to the physical contribution (i.e. not the
+        counterterms) hosted by this contribution."""
+
+        event_weight = self.compute_matrix_element_event_weight(
+            PS_point, process_key, process, all_flavor_configurations,
+                  base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts)
 
         sector_info = opts.get('sector_info', None)
         if sector_info is not None and sector_info['sector'] is not None:
@@ -2154,9 +2150,9 @@ class ME7Integrand_B(ME7Integrand):
             PS_point, process_key, process, all_flavor_configurations, base_weight,
             mu_r, mu_f1, mu_f2, *args, **opts
         )
-        
+
 class ME7Integrand_V(ME7Integrand):
-    """ ME7Integrand for the computation of a one-loop virtual type of contribution."""
+    """ ME7Integrand for the computation of a virtual type of contribution."""
     
     def __init__(self, *args, **opts):
         """Initialize a virtual type of integrand, adding additional relevant attributes."""
@@ -2224,6 +2220,51 @@ class ME7Integrand_V(ME7Integrand):
             res += '\n'.join(long_res)
 
         return res
+
+    def compute_matrix_element_event_weight_with_I_operator(self,
+            PS_point, process_key, process, all_flavor_configurations, base_weight,
+                                        mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts):
+        """ Computes the virtual matrix element weight as a DUMMY with correct poles (but not finite part of course)
+        using Catani's I operator."""
+
+        # Now this function below is for now a copy of the `generate_matrix_element_event` function of the
+        # base class but it should be modified in order to include the I1^(0) operator
+
+        is_loop_induced = self.contribution_definition.process_definition.get('NLO_mode').startswith('sqrvirt')
+
+        #TODO
+
+        alpha_s = self.model.get('parameter_dict')['aS']
+
+
+        ME_evaluation, all_results = self.all_MEAccessors(
+            process, PS_point, alpha_s, mu_r, pdgs=all_flavor_configurations[0])
+
+        event_weight = base_objects.EpsilonExpansion(ME_evaluation) * base_weight
+
+        # As a test for now, set the poles to 2 and 3
+        event_weight[-1] = 2.0
+        event_weight[-2] = 3.0
+
+        return event_weight
+
+    def compute_matrix_element_event_weight(self,PS_point, process_key, process, all_flavor_configurations,
+                  base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts):
+        """ Returns the weight for the matrix element event, which may need further processing in daughter classes, for
+          example in the virtual where one may use a dummy dressed with the I operator."""
+
+        # NLO_mode for the virtuals can be of the form 'tree_DUMMY%dLOOP' with %d being the loop count.
+        # It can also be sqrtvirt_DUMMY%dLOOP for multi-loop-induced virtual.
+        NLO_modes = self.contribution_definition.process_definition.get('NLO_mode').split('_')
+
+        if len(NLO_modes)==2 and NLO_modes[1].startswith('DUMMY'):
+            return self.compute_matrix_element_event_weight_with_I_operator(
+                            PS_point, process_key, process, all_flavor_configurations,
+                                      base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts)
+        else:
+            return super(ME7Integrand_V, self).compute_matrix_element_event_weight(
+                            PS_point, process_key, process, all_flavor_configurations,
+                                      base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts)
 
     def evaluate_integrated_counterterm(self, integrated_CT_characteristics, PS_point,
                                             base_weight, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, input_mapping,
@@ -4681,19 +4722,55 @@ class ME7Integrand_BS(ME7Integrand_RV):
         return scaled_real_PS_point, scaled_xi1, scaled_xi2
 
 
+class ME7Integrand_VV(ME7Integrand_V):
+    """ ME7Integrand for the computation of a double virtual type of contribution."""
+
+    def compute_matrix_element_event_weight_with_I_operator(self,
+            PS_point, process_key, process, all_flavor_configurations, base_weight,
+                                        mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts):
+        """ Computes the virtual matrix element weight as a DUMMY with correct poles (but not finite part of course)
+        using Catani's I operator."""
+
+        # We do not yet support the implementation of the I2 operator for loop-induced as this would
+        # necessitate two-loop matrix elements.
+        if self.contribution_definition.process_definition.get('NLO_mode').startswith('sqrvirt'):
+            return ME7Integrand.compute_matrix_element_event_weight(self,
+                            PS_point, process_key, process, all_flavor_configurations,
+                                      base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts)
+
+        # Now this function below is for now a copy of the `generate_matrix_element_event` function of the
+        # base class but it should be modified in order to include the I2^(0), I2^(1) and I1**2 operators
+
+        #TODO
+
+        alpha_s = self.model.get('parameter_dict')['aS']
+
+        ME_evaluation, all_results = self.all_MEAccessors(
+            process, PS_point, alpha_s, mu_r, pdgs=all_flavor_configurations[0])
+
+        event_weight = base_objects.EpsilonExpansion(ME_evaluation) * base_weight
+
+        # As a test for now, set the poles to 2 to 5
+        event_weight[-1] = 2.0
+        event_weight[-2] = 3.0
+        event_weight[-3] = 4.0
+        event_weight[-4] = 5.0
+
+        return event_weight
+
 class ME7Integrand_RR(ME7Integrand_R):
     """ ME7Integrand for the computation of a double real-emission type of contribution."""
-    def sigma(self, PS_point, process_key, process, all_flavor_configurations, base_weight, mu_r,
-                                                mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts):
-        return super(ME7Integrand_RR, self).sigma(PS_point, process_key, process,
-            all_flavor_configurations, base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts)
+    def sigma(self, PS_point, process_key, process, all_flavor_configurations,
+                                base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, *args, **opts):
+        return super(ME7Integrand_RR, self).sigma(PS_point, process_key, process, all_flavor_configurations,
+                                base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, *args, **opts)
 
 class ME7Integrand_RRR(ME7Integrand_R):
     """ ME7Integrand for the computation of a double real-emission type of contribution."""
-    def sigma(self, PS_point, process_key, process, all_flavor_configurations, base_weight,
-                                          mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts):
-        return super(ME7Integrand_RRR, self).sigma(PS_point, process_key, process,
-            all_flavor_configurations, base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts)
+    def sigma(self, PS_point, process_key, process, all_flavor_configurations,
+                                base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, *args, **opts):
+        return super(ME7Integrand_RR, self).sigma(PS_point, process_key, process, all_flavor_configurations,
+                                base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, *args, **opts)
 
 #===============================================================================
 # ME7IntegrandList
@@ -4731,8 +4808,7 @@ class ME7IntegrandList(base_objects.PhysicsObjectList):
     def nice_string(self, format=0):
         """ A nice representation of a list of contributions. 
         We can reuse the function from ContributionDefinitions."""
-        return base_objects.ContributionDefinitionList.contrib_list_string(self, 
-                                                                            format=format)
+        return base_objects.ContributionDefinitionList.contrib_list_string(self, format=format)
 
     def sort_integrands(self):
         """ Sort integrands according to the order dictated by the class attribute
@@ -4757,7 +4833,7 @@ class ME7IntegrandList(base_objects.PhysicsObjectList):
 # Notice that this must be placed after all the Integrand daughter classes in this module have been declared.
 ME7Integrand_classes_map = {'Born': ME7Integrand_B,
                             'Virtual': ME7Integrand_V,
-                            'DoubleVirtual': ME7Integrand_V,
+                            'DoubleVirtual': ME7Integrand_VV,
                             'SingleReals': ME7Integrand_R,
                             'RealVirtual': ME7Integrand_RV,
                             'BeamSoft': ME7Integrand_BS,

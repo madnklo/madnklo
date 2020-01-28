@@ -3019,7 +3019,7 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
                        # ME7_definition is a tag informing whether the user asks for the new ME7 output.
                        'ME7_definition'       : False,
                        'ignore_contributions' : [],
-                       'use_dummy_multiloops' : True,
+                       'use_dummy_loops'      : ['VV','VVV'],
                        'beam_types'           : ['auto', 'auto'],
                        # A dictionary with keys 'B', 'V', 'VV', 'RRRVV' etc... allowing the user to
                        # possibly overwrite what the process definition for that particular contribution
@@ -3155,16 +3155,17 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
                         add_options['beam_types'][i] = None
                     else:
                         add_options['beam_types'][i] = parse_beam_type(beam_type)
-
-
-            elif key=='use_dummy_multiloops':
-                if value is None:
-                    add_options['use_dummy_multiloops'] = True
-                else:
-                    if value.upper() == ['FALSE','F','OFF']:
-                        add_options['use_dummy_multiloops'] = False
-                    else:
-                        add_options['use_dummy_multiloops'] = False
+            elif key=='use_dummy_loops':
+                try:
+                    n_virtuals = eval(value)
+                    if not isinstance(n_virtuals, list):
+                        raise InvalidCmd("Use_dummy_loops should be specified as a list")
+                    add_options[key] = n_virtuals
+                except:
+                    add_options[key].extend([v.strip() for v in value.split(',')])
+                for contrib in add_options[key]:
+                    if not re.match(r'^(V*)$',contrib):
+                        raise InvalidCmd("Use_dummy_loops elements must only be of the form 'V', 'VV', 'VVV', etc...")
             elif key=='ignore_contributions':
                 try:
                     ignored_contribs = eval(value)
@@ -3534,6 +3535,11 @@ This implies that with decay chains:
             logger.warning("User explicitly asked to remove contribution 'V'."+
                                           " This can potentially yield incorrect results.")
         else:
+            # Make sure to set the corresponding number of loops to 1. This *must* always
+            # be the case as it is necessary for the MadNkLO construction to hold.
+            # So even for a loop-induced process which would in this case contain 2 loops,
+            # we should set this attribute 'n_loops' to 1.
+            n_loops = 1
             # Overwrite the process definition by the one specified by the user if necessary
             if 'V' in generation_options['process_definitions']:
                 procdef = generation_options['process_definitions']['V'].get_copy()
@@ -3548,21 +3554,31 @@ This implies that with decay chains:
                                                             "be:\n%s"%procdef.nice_string())
             else:
                 procdef = NLO_template_procdef.get_copy()
+                procdef.set('perturbation_couplings', generation_options['NLO'])
                 if generation_options['loop_induced']:
                     logger.warning('There is currently no solution for including the two-loop'+
                     ' virtual contribution of NLO loop-induced computations.\n'+
                     'In the future, UFO multi-loop form factors will offer a solution.\n'+
                     'For now, one-loop Born matrix elements will be used instead.')
-                # Here setting the perturbation_couplings is enough to guarantee that 
-                # the relevant diagrams for these coupling orders will be generated
-                procdef.set('perturbation_couplings', generation_options['NLO'])
-                procdef.set('NLO_mode', 'virt')
-            
-            # Make sure to set the corresponding number of loops to 1. This *must* always
-            # be the case as it is necessary for the MadNkLO construction to hold.
-            # So even for a loop-induced process which would in this case contain 2 loops,
-            # we should set this attribute 'n_loops' to 1.
-            procdef.set('n_loops',1)
+                    # Here setting the perturbation_couplings is enough to guarantee that
+                    # the relevant diagrams for these coupling orders will be generated
+                    procdef.set('perturbation_couplings', generation_options['NLO'])
+                    # Add the I-operator emulation in a dummy accessor.
+                    procdef.set('NLO_mode', 'sqrvirt_%s%dLOOP'%(
+                        'DUMMY' if ('V' in generation_options['use_dummy_loops']) else '', n_loops), force=True)
+                else:
+                    if 'V' in generation_options['use_dummy_loops']:
+                        logger.warning('The user requested the one-loop virtual to be emulated by a'+
+                        ' dummy implementation including the I operator. Results will not be correct\n'+
+                        ' since the finite part of the virtual will be missing.')
+                        # Here setting the perturbation_couplings is enough to guarantee that
+                        # the relevant diagrams for these coupling orders will be generated
+                        # Born + I1 emulation
+                        procdef.set('NLO_mode', 'tree_DUMMY%dLOOP'%n_loops, force=True)
+                    else:
+                        procdef.set('NLO_mode', 'virt')
+
+            procdef.set('n_loops',n_loops)
             # Update process id
             procdef.set('id', generation_options['proc_id'])
 #            generation_options['proc_id'] += 1
@@ -3793,7 +3809,7 @@ This implies that with decay chains:
                     procdef.set('perturbation_couplings', generation_options['NNLO'])
                     # Add the I-operator emulation in a dummy accessor.
                     procdef.set('NLO_mode', 'sqrvirt_%s%dLOOP'%(
-                        'DUMMY' if generation_options['use_dummy_multiloops'] else '', n_loops))
+                        'DUMMY' if ('VV' in generation_options['use_dummy_loops']) else '', n_loops), force=True)
 
                 else:
                     logger.warning('There is currently no solution for including the two-loop'+
@@ -3807,7 +3823,7 @@ This implies that with decay chains:
                     procdef.set('perturbation_couplings', generation_options['NNLO'])
                     # Born + I2 emulation
                     procdef.set('NLO_mode', 'tree_%s%dLOOP'%(
-                        'DUMMY' if generation_options['use_dummy_multiloops'] else '', n_loops))
+                        'DUMMY' if ('VV' in generation_options['use_dummy_loops']) else '', n_loops), force=True)
 
             # Make sure to set the corresponding number of loops to 2. This *must* always
             # be the case as it is necessary for the MadNkLO construction to hold.

@@ -91,10 +91,10 @@ class Contribution(object):
             elif n_loops == 0 and n_unresolved_particles == 0:
                 target_type = 'Born'
             elif n_loops == 1 and n_unresolved_particles == 0:
-                if correction_order < 1:
-                    target_type = 'LoopInduced_Born'
-                else:
+                if 'DUMMY' not in contribution_definition.process_definition.get('NLO_mode'):
                     target_type = 'Virtual'
+                elif contribution_definition.process_definition.get('NLO_mode'):
+                    target_type = 'DummyVirtual'
             elif n_loops == 0 and n_unresolved_particles == 1:
                 target_type = 'SingleReals'
             elif n_loops == 0 and n_unresolved_particles == 2:
@@ -2422,12 +2422,12 @@ class Contribution_VV(Contribution_V):
         raise NotImplementedError
         super(Contribution_VV, self).__init__(*args, **opts)
 
-class DummyContribution_VV(Contribution_V):
+class DummyContribution_V(Contribution_V):
     """ Dummy double-virtual obtained by running the Born and the double virtual."""
 
     def __init__(self, *args, **opts):
-        logger.critical("VV contributions are not yet supported. Emulating it with the Born and I-operator.")
-        super(DummyContribution_VV, self).__init__(*args, **opts)
+        logger.critical("As per user request, emulating virtual contribution with a dummy Born dressed with the I-operator.")
+        super(DummyContribution_V, self).__init__(*args, **opts)
 
     def generate_amplitudes(self, force=False):
         """ Generates the relevant amplitudes for this contribution and the construction
@@ -2440,7 +2440,8 @@ class DummyContribution_VV(Contribution_V):
         # Override the process definition to spoof the two-loop matrix elements as the tree matrix
         # elements
         process_definition = copy.copy(self.contribution_definition.process_definition)
-        process_definition['perturbation_couplings'] = []
+        if process_definition.get('NLO_mode').startswith('tree'):
+            process_definition['perturbation_couplings'] = []
         process_definition['squared_orders'] = {}
 
         myproc = diagram_generation.MultiProcess(process_definition,
@@ -2456,6 +2457,12 @@ class DummyContribution_VV(Contribution_V):
                 logger.warning('Duplicate process found in contribution '+
                                '%s. Sanity check needed.'%str(type(self)))
 
+class DummyContribution_VV(DummyContribution_V):
+    """ Dummy double-virtual obtained by running the Born and the double virtual."""
+
+    def __init__(self, *args, **opts):
+        logger.critical("VV contributions are not yet supported. Emulating it with the Born and I-operator.")
+        Contribution_V.__init__(self,*args, **opts)
 
 class Contribution_RV(Contribution_R, Contribution_V):
     """ Implements the general handling of contribution with arbitrary number of reals, virtuals
@@ -2743,6 +2750,7 @@ class ContributionList(base_objects.PhysicsObjectList):
 # Notice that this Contribution must be placed after all the Contribution daughter classes have been declared.
 Contribution_classes_map = {'Born': Contribution_B,
                             'Virtual': Contribution_V,
+                            'DummyVirtual': DummyContribution_V,
                             'SingleReals': Contribution_R,
                             'RealVirtual': Contribution_RV,
                             'DoubleReals': Contribution_RR,

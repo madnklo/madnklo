@@ -2959,7 +2959,7 @@ class Process(PhysicsObject):
         
         return False
 
-    def set(self, name, value):
+    def set(self, name, value, **opts):
         """Special set for forbidden particles - set to abs value."""
 
         if name == 'forbidden_particles':
@@ -2974,7 +2974,7 @@ class Process(PhysicsObject):
                not isinstance(value[0], list):
                 value = [value]
 
-        return super(Process, self).set(name, value) # call the mother routine
+        return super(Process, self).set(name, value, **opts) # call the mother routine
 
     def get_squared_order_type(self, order):
         """ Return what kind of squared order constraint was specified for the

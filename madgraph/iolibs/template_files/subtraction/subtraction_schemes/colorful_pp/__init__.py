@@ -163,13 +163,29 @@ def load():
         # IF
         # FF
         # S(FF)
-        # IS(FF)
-        # C(I,C(FF))
-        NNLO_local_currents.QCD_C_FqFqx_C_IqpFqFqx,
+        NNLO_local_currents.QCD_S_FqFqx,
+        NNLO_local_currents.QCD_S_FgFg,
+        # C(IFF)
+        NNLO_local_currents.QCD_C_IqFqpFqpx,
+        NNLO_local_currents.QCD_C_IqFqFqx,
+        NNLO_local_currents.QCD_C_IqFgFg,
+        # C(FFF)
+        NNLO_local_currents.QCD_C_FqFqpFqpx,
+        NNLO_local_currents.QCD_C_FqFqFqx,
+        NNLO_local_currents.QCD_C_FqFgFg,
+        # C(I,S(FF))
+        NNLO_local_currents.QCD_S_FqFqx_C_IgFqFqx,
+        NNLO_local_currents.QCD_S_FqFqx_C_IqFqFqx,
         # S(C(FF))
         NNLO_local_currents.QCD_S_FqFqx_C_FqFqx,
+        # C(I,C(FF))
+        NNLO_local_currents.QCD_C_FqFqx_C_IqpFqFqx,
+        NNLO_local_currents.QCD_C_FqFqx_C_IqFqFqx,
+        # C(C(IF),F)
+        NNLO_local_currents.QCD_C_IqFqx_C_IqFqFqx,
         # C(S(C(FF)),I)
-        NNLO_local_currents.QCD_S_FqFqx_C_FqFqx_C_IqpFqFqx
+        NNLO_local_currents.QCD_S_FqFqx_C_FqFqx_C_IqpFqFqx,
+        NNLO_local_currents.QCD_S_FqFqx_C_FqFqx_C_IqFqFqx,
     ])
 
     # Finally register the subtraction current classes loaded

@@ -351,7 +351,7 @@ class SubtractionLegSet(tuple):
                 (leg.n, leg.pdg, leg.state) for leg in self
             )
 
-    def split_by_pdg_abs(self, pdgs, state):
+    def split_by_pdg_abs(self, pdgs, already_matched_PDGs):
         """Restructure the information about the SubtractionLegSet,
         grouping legs by absolute value of their pdg and their state.
         For each pdg abs, generate two sets of legs with opposite pdg sign,
@@ -386,18 +386,27 @@ class SubtractionLegSet(tuple):
         pdg_counts = dict()
         rest = SubtractionLegSet(self)
         for pdg in set(map(abs, pdgs)):
-            pos = SubtractionLegSet(leg for leg in self
-                                    if leg.pdg ==  pdg and leg.state == state)
-            neg = SubtractionLegSet(leg for leg in self
-                                    if leg.pdg == -pdg and leg.state == state)
-            legs_by_pdg[pdg] = sorted((pos, neg), key=len)
+            # Ignore PDGs that have already been matched
+            if pdg in already_matched_PDGs:
+                continue
+            pos_initial = SubtractionLegSet(leg for leg in self
+                                    if leg.pdg ==  pdg and leg.state == leg.INITIAL)
+            pos_final = SubtractionLegSet(leg for leg in self
+                                    if leg.pdg ==  pdg and leg.state == leg.FINAL)
+            neg_initial = SubtractionLegSet(leg for leg in self
+                                    if leg.pdg == -pdg and leg.state == leg.INITIAL)
+            neg_final = SubtractionLegSet(leg for leg in self
+                                    if leg.pdg == -pdg and leg.state == leg.FINAL)
+            legs_by_pdg[pdg] = sorted((pos_initial,neg_initial), key=len)+\
+                                sorted((pos_final,neg_final), key=len)
             count_key = tuple(map(len, legs_by_pdg[pdg]))
             pdg_counts.setdefault(count_key, [])
             pdg_counts[count_key].append(pdg)
-            rest = SubtractionLegSet(difference(rest, union(pos, neg)))
+            rest = SubtractionLegSet(difference(rest, union(pos_initial, pos_final,neg_initial,neg_final)))
         return legs_by_pdg, pdg_counts, rest
 
-    def map_leg_numbers(self, target, equivalent_pdg_sets=()):
+
+    def map_leg_numbers(self, target, already_matched_PDGs, equivalent_pdg_sets=()):
         """Find a correspondence between this SubtractionLegSet and another
         that only differs by leg numbers.
         The optional argument equivalent_pdg_sets allows to consider some particle species
@@ -427,40 +436,49 @@ class SubtractionLegSet(tuple):
         t_rest = target
         leg_numbers_map = dict()
 
+        new_already_matched_PDGs = dict(already_matched_PDGs)
+
         for pdgs in equivalent_pdg_sets:
-            for state in (SubtractionLeg.INITIAL, SubtractionLeg.FINAL):
-                s_legs_by_pdgs, s_pdg_counts, s_rest = s_rest.split_by_pdg_abs(pdgs, state)
-                t_legs_by_pdgs, t_pdg_counts, t_rest = t_rest.split_by_pdg_abs(pdgs, state)
-                for count in s_pdg_counts.keys():
-                    for i in range(len(s_pdg_counts[count])):
-                        s_pdg = s_pdg_counts[count][i]
-                        try:
-                            t_pdg = t_pdg_counts[count][i]
-                        except (KeyError, IndexError):
-                            return None
-                        s_list_1, s_list_2 = s_legs_by_pdgs[s_pdg]
-                        t_list_1, t_list_2 = t_legs_by_pdgs[t_pdg]
-                        if len(s_list_1) != len(t_list_1) or len(s_list_2) != len(t_list_2):
-                            raise MadGraph5Error(
-                                "Inconsistent lists in SubtractionLegSet.map_leg_numbers, "
-                                "SubtractionLegSet.split_by_pdg_abs is bugged.")
+
+            s_legs_by_pdgs, s_pdg_counts, s_rest = s_rest.split_by_pdg_abs(pdgs, already_matched_PDGs.keys())
+            t_legs_by_pdgs, t_pdg_counts, t_rest = t_rest.split_by_pdg_abs(pdgs, already_matched_PDGs.values())
+            for count in s_pdg_counts.keys():
+                for i in range(len(s_pdg_counts[count])):
+                    s_pdg = s_pdg_counts[count][i]
+                    try:
+                        t_pdg = t_pdg_counts[count][i]
+                    except (KeyError, IndexError):
+                        return None
+                    if any(len(l1)!=len(l2) for l1,l2 in zip(s_legs_by_pdgs[s_pdg],t_legs_by_pdgs[t_pdg])):
+                        raise MadGraph5Error(
+                            "Inconsistent lists in SubtractionLegSet.map_leg_numbers, "
+                            "SubtractionLegSet.split_by_pdg_abs is bugged.")
+                    for l1, l2 in zip(s_legs_by_pdgs[s_pdg], t_legs_by_pdgs[t_pdg]):
                         leg_numbers_map.update(zip(
-                            [leg.n for leg in s_list_1],
-                            [leg.n for leg in t_list_1] ))
-                        leg_numbers_map.update(zip(
-                            [leg.n for leg in s_list_2],
-                            [leg.n for leg in t_list_2] ))
+                            [leg.n for leg in l1],
+                            [leg.n for leg in l2] ))
+                        # Specify that now this matching leg pdgs (both positive and negative) are assigned
+                        new_already_matched_PDGs.update(zip(
+                            [leg.pdg for leg in l1],
+                            [leg.pdg for leg in l2] ))
+                        new_already_matched_PDGs.update(zip(
+                            [-leg.pdg for leg in l1],
+                            [-leg.pdg for leg in l2] ))
 
         for s_leg in s_rest:
             try:
-                t_leg = next(leg for leg in t_rest
-                             if leg.state == s_leg.state and leg.pdg == s_leg.pdg)
+                t_leg = next(leg for leg in t_rest if leg.state == s_leg.state and ( leg.pdg == s_leg.pdg if
+                                s_leg.pdg not in already_matched_PDGs else already_matched_PDGs[s_leg.pdg]==leg.pdg) )
                 leg_numbers_map[s_leg.n] = t_leg.n
                 t_rest = SubtractionLegSet(difference(t_rest, (t_leg, )))
             except StopIteration:
                 return None
 
         assert(not t_rest)
+
+        # Now specify which template PDGs have now been assigned to particular PDG values
+        already_matched_PDGs.update(new_already_matched_PDGs)
+
         return leg_numbers_map
 
 
@@ -823,7 +841,7 @@ class SingularStructure(object):
         return singular_structures_name_dictionary[name](
             substructures=substructures, legs=legs)
 
-    def map_leg_numbers(self, target, equivalent_pdg_sets=()):
+    def map_leg_numbers(self, target, equivalent_pdg_sets=(), already_matched_PDGs=None):
         """Find a correspondence between this SingularStructure and another
         that only differs by leg numbers.
         The optional argument equivalent_pdg_sets allows to consider some particle species
@@ -846,24 +864,28 @@ class SingularStructure(object):
             into the target one, if any; None otherwise.
         """
 
+        # Set the map of already matched PDG if not already done:
+        if not already_matched_PDGs:
+            already_matched_PDGs = {}
 
         # 1) Match type
         if self.name() != target.name():
             return None
 
         # 2) Match legs
-        leg_number_dict = self.legs.map_leg_numbers(target.legs, equivalent_pdg_sets)
+        leg_number_dict = self.legs.map_leg_numbers(target.legs, already_matched_PDGs, equivalent_pdg_sets)
         if leg_number_dict is None:
             return None
 
         # 3) Match substructures
         if len(self.substructures) != len(target.substructures):
             return None
+
         target_subs = [target_sub for target_sub in target.substructures]
         for sub in self.substructures:
             matching = None
             for i in range(len(target_subs)):
-                sub_dict = sub.map_leg_numbers(target_subs[i], equivalent_pdg_sets)
+                sub_dict = sub.map_leg_numbers(target_subs[i], equivalent_pdg_sets, already_matched_PDGs=already_matched_PDGs)
                 if sub_dict is not None:
                     matching = target_subs.pop(i)
                     leg_number_dict.update(sub_dict)

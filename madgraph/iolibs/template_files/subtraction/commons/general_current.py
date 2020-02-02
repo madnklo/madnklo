@@ -614,7 +614,8 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
                 'allowed_backward_evolved_flavors': allowed_backward_evolved_flavors,
                 'xis' : xis,
                 'mu_fs' : mu_fs,
-                'sector_info' : sector_info
+                'sector_info' : sector_info,
+                'n_initial_legs': n_initial_legs
         }
 
         for i_step, mapping_information in enumerate(self.mapping_rules):

@@ -806,6 +806,13 @@ class QCD_integrated_S_Fg(general_current.GeneralCurrent):
                     # The integrated counterterms are evaluated in terms of
                     # dipole_invariant = 1-cos(angle between the dipole momenta)
                     dipole_invariant = 0.5*pa.dot(pb)*Q.square()/(pa.dot(Q)*pb.dot(Q))
+                    if dipole_invariant > 1. +1.e-5:
+                        raise ValueError(
+                            "dipole_invariant = 0.5*pa.dot(pb)*Q.square()/(pa.dot(Q)*pb.dot(Q)) "
+                            "= {dipole_invariant} > 1. something is wrong".format(
+                                dipole_invariant=dipole_invariant))
+                    elif dipole_type > 1.:
+                        dipole_type = 1.
                     if distribution_type == 'bulk':
                         #The factor xi^2 below corrects the flux factor used in the bulk BS which has a 1/xi^2 too many
                         #A more permanent change is warranted after testing.
@@ -1020,14 +1027,78 @@ class QCD_integrated_C_FqFg(general_current.GeneralCurrent):
         if distribution_type == 'counterterm':
             evaluation['Bjorken_rescalings'] = [(1.0, 1.0),]
 
-        Q = global_variables['Q']
-
+        # This is a NLO integrated counterterm
+        # it inherits from real countertems so it has
+        # an `all_steps_info` with only one step
+        # and the lower and higher PS points are the same since
+        # there's no mapping applied. the '-1' and 'lower_PS_point' are therefore
+        # not meaningful choices at this point.
         PS_point = all_steps_info[-1]['lower_PS_point']
 
-        pij_tilde = PS_point[global_variables['overall_parents'][0]]
+        # Q is handled a little weirdly at the moment, we will therefore reconstruct it from PS_point,
+        # which is **exactly what goes into the Matrix Element of the term at hand**.
+        # We are using Gabor/colorful notation and therefore Q refers to the total initial momentum
+        # of the real matrix element which was regulated by the local version of this counterterm
+        #
+        # i.e. :
+        #
+        # * delta: M(pa_tilde+pb_tilde-> p1_tilde, ...)*delta(alpha) where
+        # pa_tilde = (1-alpha) pa, pb_tilde = (1-alpha) pb. i.e. Q = sum(PS_point[initial_legs])
+        #
+        # * bulk:  M(pa_tilde+pb_tilde-> p1_tilde, ...) for any alpha where
+        # pa_tilde = (1-alpha) pa, pb_tilde = (1-alpha) pb. i.e. Q = sum(PS_point[initial_legs])/(1-alpha)
+        #
+        # * counterterm: M(pa_tilde+pb_tilde-> p1_tilde, ...)|_{alpha=0} where
+        # pa_tilde = (1-alpha) pa, pb_tilde = (1-alpha) pb. i.e. Q = sum(PS_point[initial_legs])
 
-        # TODO
-        evaluation['values'][(0,0,0,0)] = EpsilonExpansion({ 0 : 1.}).truncate(max_power=0)
+        n_initial_legs = global_variables['n_initial_legs']
+        Qhat = sum(PS_point.to_list()[:n_initial_legs])
+        if distribution_type == 'bulk':
+            fact = 1. / xi
+        else:
+            fact = 1.
+        Q = fact * Qhat
+        Q_square = Q.square()
+
+        color_factor = self.CF
+        logMuQ = log(mu_r ** 2 / Q_square)
+        prefactor = EpsilonExpansion({0: 1., 1: logMuQ, 2: 0.5 * logMuQ ** 2})
+        prefactor *= self.SEpsilon * (1. / (16 * pi ** 2))
+
+        pij_tilde = PS_point[global_variables['overall_parents'][0]]
+        # c.o.m. energy fraction of the mapped parent
+        xir = 2. * pij_tilde.dot(Q) / Q_square
+        # Protection for back-to-back systems
+        if xir > 1. + 1.e-5:
+            raise ValueError("xir = 2.*pij_tilde.dot(Q)/Q_square = {xir} > 1. something is wrong".format(xir=xir))
+        if xir > 1.:
+            xir = 1.
+
+        # xi = 1-alpha
+        if xi is not None:
+            alpha = 1 - xi
+
+        # dispatch depending on which part of the counterterm we want
+        if distribution_type == "endpoint":
+            kernel = EpsilonExpansion({
+                -2: 1.,
+                -1: 1.5 - 2.*log(xir) ,
+                0: 2.5 - pi**2/2. + 11/(2.*xir) - (11*log(xir))/2. + (2*log(xir))/xir + log(xir)**2
+            })
+
+        elif distribution_type == "bulk":
+            kernel = EpsilonExpansion({
+                0: ((-1 + alpha)**2*(-3*xir + 4*(2*alpha + xir)*log((alpha + xir)/alpha)))/(2.*alpha*(alpha + xir))
+            })
+
+        elif distribution_type == "counterterm":
+            kernel = EpsilonExpansion({
+                0: (7*alpha - 3*xir + 6*alpha*xir + (-4*xir + alpha*(-4 + 8*xir))*log(alpha) + 4*(alpha + xir - 2*alpha*xir)*log(xir))/(2.*alpha*xir)
+            })
+        else:
+            raise CurrentImplementationError("Distribution type '%s' not supported." % distribution_type)
+
+        evaluation['values'][(0, 0, 0, 0)] = (color_factor * prefactor * kernel).truncate(max_power=0)
 
         return evaluation
 

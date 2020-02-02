@@ -534,7 +534,8 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
     def evaluate_subtraction_current( self,
         current, higher_PS_point=None, momenta_dict=None, reduced_process=None,
         hel_config=None, mu_r = None, mu_fs=(None,None), xis=(None,None), Q=None,
-        track_leg_numbers = True, allowed_backward_evolved_flavors=('ALL','ALL'), sector_info=None, **opts ):
+        track_leg_numbers = True, allowed_backward_evolved_flavors=('ALL','ALL'),
+        n_initial_legs=None, sector_info=None, **opts ):
 
         if higher_PS_point is None:
             raise CurrentImplementationError(

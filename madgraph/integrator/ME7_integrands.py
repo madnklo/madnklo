@@ -2424,7 +2424,9 @@ class ME7Integrand_V(ME7Integrand):
             non_beam_factorization_currents, counterterm.process, reduced_PS,
             self.all_MEAccessors, self.accessor_tracks_leg_numbers,
             compute_poles=compute_poles, momenta_dict=counterterm.momenta_dict,
-            xis=(xi1, xi2), mu_fs=(mu_f1, mu_f2), mu_r=mu_r, Q=total_incoming_momentum, sector_info=sector)
+            xis=(xi1, xi2), mu_fs=(mu_f1, mu_f2), mu_r=mu_r, Q=total_incoming_momentum, sector_info=sector,
+            n_initial_legs = self.n_initial
+        )
 
         # For now integrated counterterms are supposed to return a single reduced kinematics with None as identifier
         assert(len(all_necessary_ME_calls)==1)
@@ -2444,7 +2446,8 @@ class ME7Integrand_V(ME7Integrand):
                 xi1, xi2, mu_r, mu_f1, mu_f2, total_incoming_momentum,
                 allowed_backward_evolved_flavors1=allowed_backward_evolved_flavors1,
                 allowed_backward_evolved_flavors2=allowed_backward_evolved_flavors2,
-                momenta_dict=counterterm.momenta_dict, sector_info = sector
+                momenta_dict=counterterm.momenta_dict, sector_info = sector,
+                n_initial_legs = self.n_initial
             )
 
             for reduced_kinematics_identifier, (reduced_kinematics, necessary_ME_calls) in \
@@ -3507,7 +3510,8 @@ class ME7Integrand_R(ME7Integrand):
             self.all_MEAccessors, self.accessor_tracks_leg_numbers,
             momenta_dict = counterterm.momenta_dict,
             xis=(xi1, xi2), mu_fs=(mu_f1, mu_f2), mu_r=mu_r, Q=total_incoming_momentum,
-            sector_info = sector
+            sector_info = sector,
+            n_initial_legs = self.n_initial
         )
 
         # We can now loop over the reduced kinematics produced by the currents:
@@ -3530,7 +3534,7 @@ class ME7Integrand_R(ME7Integrand):
                     all_necessary_ME_calls_for_this_reduced_kinematics, beam_currents, self.all_MEAccessors,
                     self.accessor_tracks_leg_numbers, reduced_kinematics, ME_process, xb_1, xb_2,
                     xi1, xi2, mu_r, mu_f1, mu_f2, total_incoming_momentum, momenta_dict = counterterm.momenta_dict,
-                    sector_info = sector)
+                    sector_info = sector, n_initial_legs = self.n_initial)
 
                 for reduced_kinematics_identifier, (reduced_kinematics, necessary_ME_calls) in \
                                                                 all_necessary_ME_calls_for_these_beam_currents.items():

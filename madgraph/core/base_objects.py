@@ -4365,51 +4365,26 @@ class EpsilonExpansion(dict):
         return res
         
     __truediv__ = __div__
-    
+
     def __radd__(self, other):
-        # The check below is useful for this overloaded __radd__ to work with the Python
-        # intrinsic sum() function.
-        if other==0:
-            return
-        misc.sprint(other)
-        for k, v in other.items():
-            try:
-                self[k] += v
-            except KeyError:
-                self[k] = v
-    
-    def __rsub__(self, other):
-        for k, v in other.items():
-            try:
-                self[k] -= v
-            except KeyError:
-                self[k] = -v   
-    
+        return self + other
+
     def __rmul__(self, other):
-        if not isinstance(other, EpsilonExpansion):
-            for k in self.keys():
-                self[k] *= other
-        else:
-            res = EpsilonExpansion()
-            for k1, v1 in self.items():
-                for k2, v2 in other.items():
-                    k, v = k1+k2, v1*v2
-                    try:
-                        res[k] += v
-                    except KeyError:
-                        res[k] = v
-            self.clear()
-            for k, v in res.items():
-                self[k] = v
+        return self * (other)
+
+    def __rsub__(self, other):
+        return self * (-1.) + other
 
     def __rdiv__(self, other):
-        if not isinstance(other, EpsilonExpansion):
-            for k in self.keys():
-                self[k] /= other
-        else:
-            # Will implement it if ever needed
-            raise NotImplementedError
-        
+        """Raises a NotImplementedError by design.
+        Dividing *by* an epsilon expansion which is not a monomial leads to an infinite series.
+        EpsilonExpansion is meant to host only finite linear combinations of powers of epsilons and
+        allowing the division operator to truncate this series is dangerous.
+        If such a division is needed, it should be implemented by the user, who should ensure a
+        truncation suited to their purpose."""
+
+        raise NotImplementedError("Division by an EpsilonExpansion not implemented. Expand the ratio analytically.")
+
     __rtruediv__ = __rdiv__
 
     def get_term(self, term_specifier):

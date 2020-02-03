@@ -811,8 +811,8 @@ class QCD_integrated_S_Fg(general_current.GeneralCurrent):
                             "dipole_invariant = 0.5*pa.dot(pb)*Q.square()/(pa.dot(Q)*pb.dot(Q)) "
                             "= {dipole_invariant} > 1. something is wrong".format(
                                 dipole_invariant=dipole_invariant))
-                    elif dipole_type > 1.:
-                        dipole_type = 1.
+                    elif dipole_invariant > 1.:
+                        dipole_invariant = 1.
                     if distribution_type == 'bulk':
                         #The factor xi^2 below corrects the flux factor used in the bulk BS which has a 1/xi^2 too many
                         #A more permanent change is warranted after testing.

@@ -74,7 +74,8 @@ def mpl_dilog_conditions(entries,x):
         if x/b <= 1. and (a/x <= 0. or a/x >= 1.):
             return True
 
-    logger.warning("Trying to evaluate a weight 2 polylog outside of the reality condition. Something is most likely wrong")
+    logger.warning("Trying to evaluate a weight 2 polylog outside of the reality condition. Something is most likely wrong\n"
+                   "G([{a},{b}],{x})".format(a=a,b=b,x=x))
     return False
 
 

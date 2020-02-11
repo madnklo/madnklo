@@ -32,6 +32,12 @@ import factors_and_cuts as factors_and_cuts
 import commons.general_current as general_current
 import madgraph.core.subtraction as sub
 
+import logging
+logger = logging.getLogger("madgraph.integrated_currents")
+# Change this to DEBUG to see the debug info
+# They are quite verbose so we override the default mode
+logger.setLevel(logging.INFO)
+
 log = math.log
 pi = math.pi
 
@@ -929,7 +935,7 @@ class QCD_integrated_C_FqFq(general_current.GeneralCurrent):
         allowed_backward_evolved_flavors = global_variables['allowed_backward_evolved_flavors']
         if allowed_backward_evolved_flavors != ('ALL','ALL'):
             raise CurrentImplementationError('The current %s must always be called with ' % self.__class__.__name__ +
-                                             "allowed_backward_evolved_flavors=('ALL','ALL') not %s" % str(
+                                             "allowed_backward_evolved_flavors=('ALL','ALL'), not %s" % str(
                 allowed_backward_evolved_flavors))
 
         distribution_type = self.currents_properties[0]['distribution_type']
@@ -941,14 +947,103 @@ class QCD_integrated_C_FqFq(general_current.GeneralCurrent):
         if distribution_type == 'counterterm':
             evaluation['Bjorken_rescalings'] = [(1.0, 1.0),]
 
-        Q = global_variables['Q']
-
+        # This is a NLO integrated counterterm
+        # it inherits from real countertems so it has
+        # an `all_steps_info` with only one step
+        # and the lower and higher PS points are the same since
+        # there's no mapping applied. the '-1' and 'lower_PS_point' are therefore
+        # not meaningful choices at this point.
         PS_point = all_steps_info[-1]['lower_PS_point']
 
-        pij_tilde = PS_point[global_variables['overall_parents'][0]]
+        # Q is handled a little weirdly at the moment, we will therefore reconstruct it from PS_point,
+        # which is **exactly what goes into the Matrix Element of the term at hand**.
+        # We are using Gabor/colorful notation and therefore Q refers to the total initial momentum
+        # of the real matrix element which was regulated by the local version of this counterterm
+        #
+        # i.e. :
+        #
+        # * delta: M(pa_tilde+pb_tilde-> p1_tilde, ...)*delta(alpha) where
+        # pa_tilde = (1-alpha) pa, pb_tilde = (1-alpha) pb. i.e. Q = sum(PS_point[initial_legs])
+        #
+        # * bulk:  M(pa_tilde+pb_tilde-> p1_tilde, ...) for any alpha where
+        # pa_tilde = (1-alpha) pa, pb_tilde = (1-alpha) pb. i.e. Q = sum(PS_point[initial_legs])/(1-alpha)
+        #
+        # * counterterm: M(pa_tilde+pb_tilde-> p1_tilde, ...)|_{alpha=0} where
+        # pa_tilde = (1-alpha) pa, pb_tilde = (1-alpha) pb. i.e. Q = sum(PS_point[initial_legs])
 
-        # TODO
-        evaluation['values'][(0,0,0,0)] = EpsilonExpansion({ 0 : 1.}).truncate(max_power=0)
+        n_initial_legs = global_variables['n_initial_legs']
+        Qhat = sum(PS_point.to_list()[:n_initial_legs])
+        if distribution_type == 'bulk':
+            fact = 1. / xi
+        else:
+            fact = 1.
+        Q = fact * Qhat
+        Q_square = Q.square()
+
+        color_factor = self.TR
+        logMuQ = log(mu_r ** 2 / Q_square)
+        prefactor = EpsilonExpansion({0: 1., 1: logMuQ, 2: 0.5 * logMuQ ** 2})
+        prefactor *= self.SEpsilon * (1. / (16 * pi ** 2))
+
+        pij_tilde = PS_point[global_variables['overall_parents'][0]]
+        # c.o.m. energy fraction of the mapped parent
+        xir = 2. * pij_tilde.dot(Q) / Q_square
+        # Protection for back-to-back systems
+        if xir > 1. + 1.e-5:
+            raise ValueError("xir = 2.*pij_tilde.dot(Q)/Q_square = {xir} > 1. something is wrong".format(xir=xir))
+        if xir > 1.:
+            xir = 1.
+
+        # xi = 1-alpha
+        if xi is not None:
+            alpha = 1 - xi
+
+        # The upper bound on the alpha integral is 1 - sum_of_masses/Q
+        try:
+            masses = [math.sqrt(p.square()) for p in PS_point.to_list()[n_initial_legs:]]
+        except ValueError:
+            # For massless particles, it happens often that the squared mass is actually a small negative
+            # number. While this exception is handled without stopping here, we throw a warning
+            # if you see this warning pop up a lot, investigate whether this might not be an issue related
+            # to improper use of mappings (which could generate actual negative masses)
+            mass_data = []
+            for p in PS_point.to_list()[n_initial_legs:]:
+
+                assert p.square()>0 or abs(p.square())/p[0] < 1.e-8, "A negative mass particle was encountered: {}".format(p)
+                mass_data.append((p.square(),abs(p.square())/p[0]))
+            # This warning is suppressed by the logger level setting at the top of this file.
+            # If you have doubts about negative mass issues, you can restore the level to include
+            # debug statements.
+            logger.debug("Encountered negative mass particles. \
+            They were all nearly light-like so we assume it is a numerics issue")
+            logger.debug(mass_data)
+
+            masses = [math.sqrt(max(0,p.square())) for p in PS_point.to_list()[n_initial_legs:]]
+
+        alpha0 = 1. - sum(masses)/math.sqrt(Q_square)
+
+        # dispatch depending on which part of the counterterm we want
+        if distribution_type == "endpoint":
+
+            kernel = EpsilonExpansion({
+                -1: -2./3.,
+                0: (2*(-5 + 3*log(alpha0) + 3*log(xir)))/9.
+                #-10./9. + (2*log(xir))/3.
+            })
+
+        elif distribution_type == "bulk":
+            kernel = EpsilonExpansion({
+                0: (2*(-1 + alpha)**2*xir*(3*alpha**2 + 3*alpha*xir + xir**2))/(3.*alpha*(alpha + xir)*(2*alpha + xir)**2) if alpha<alpha0 else 0
+            })
+
+        elif distribution_type == "counterterm":
+            kernel = EpsilonExpansion({
+                0: 2./(3.*alpha) if alpha<alpha0 else 0
+            })
+        else:
+            raise CurrentImplementationError("Distribution type '%s' not supported." % distribution_type)
+
+        evaluation['values'][(0, 0, 0, 0)] = (color_factor * prefactor * kernel).truncate(max_power=0)
 
         return evaluation
 
@@ -1078,22 +1173,51 @@ class QCD_integrated_C_FqFg(general_current.GeneralCurrent):
         if xi is not None:
             alpha = 1 - xi
 
+        # The upper bound on the alpha integral is 1 - sum_of_masses/Q
+        try:
+            masses = [math.sqrt(p.square()) for p in PS_point.to_list()[n_initial_legs:]]
+        except ValueError:
+            # For massless particles, it happens often that the squared mass is actually a small negative
+            # number. While this exception is handled without stopping here, we throw a warning
+            # if you see this warning pop up a lot, investigate whether this might not be an issue related
+            # to improper use of mappings (which could generate actual negative masses)
+            mass_data = []
+            for p in PS_point.to_list()[n_initial_legs:]:
+
+                assert p.square()>0 or abs(p.square())/p[0] < 1.e-8, "A negative mass particle was encountered: {}".format(p)
+                mass_data.append((p.square(),abs(p.square())/p[0]))
+            # This warning is suppressed by the logger level setting at the top of this file.
+            # If you have doubts about negative mass issues, you can restore the level to include
+            # debug statements.
+            logger.debug("Encountered negative mass particles. \
+            They were all nearly light-like so we assume it is a numerics issue")
+            logger.debug(mass_data)
+
+            masses = [math.sqrt(max(0,p.square())) for p in PS_point.to_list()[n_initial_legs:]]
+
+        alpha0 = 1. - sum(masses)/math.sqrt(Q_square)
+
         # dispatch depending on which part of the counterterm we want
         if distribution_type == "endpoint":
+
+
             kernel = EpsilonExpansion({
                 -2: 1.,
                 -1: 1.5 - 2.*log(xir) ,
-                0: 2.5 - pi**2/2. + 11/(2.*xir) - (11*log(xir))/2. + (2*log(xir))/xir + log(xir)**2
+                0: 3.5 - alpha0 - pi**2/2. + (11*alpha0)/(2.*xir) - (3*log(alpha0))/2. + 4*alpha0*log(alpha0) - (2*alpha0*log(alpha0))/xir - log(alpha0)**2 - (3*log(xir))/2. - 4*alpha0*log(xir) + (2*alpha0*log(xir))/xir + 2*log(alpha0)*log(xir) + log(xir)**2
+                #2.5 - pi**2/2. + 11/(2.*xir) - (11*log(xir))/2. + (2*log(xir))/xir + log(xir)**2
             })
 
         elif distribution_type == "bulk":
             kernel = EpsilonExpansion({
                 0: ((-1 + alpha)**2*(-3*xir + 4*(2*alpha + xir)*log((alpha + xir)/alpha)))/(2.*alpha*(alpha + xir))
+                    if alpha<alpha0 else 0
             })
 
         elif distribution_type == "counterterm":
             kernel = EpsilonExpansion({
                 0: (7*alpha - 3*xir + 6*alpha*xir + (-4*xir + alpha*(-4 + 8*xir))*log(alpha) + 4*(alpha + xir - 2*alpha*xir)*log(xir))/(2.*alpha*xir)
+                    if alpha<alpha0 else 0
             })
         else:
             raise CurrentImplementationError("Distribution type '%s' not supported." % distribution_type)
@@ -1177,14 +1301,106 @@ class QCD_integrated_C_FgFg(general_current.GeneralCurrent):
         if distribution_type == 'counterterm':
             evaluation['Bjorken_rescalings'] = [(1.0, 1.0),]
 
-        Q = global_variables['Q']
-
+        # This is a NLO integrated counterterm
+        # it inherits from real countertems so it has
+        # an `all_steps_info` with only one step
+        # and the lower and higher PS points are the same since
+        # there's no mapping applied. the '-1' and 'lower_PS_point' are therefore
+        # not meaningful choices at this point.
         PS_point = all_steps_info[-1]['lower_PS_point']
 
-        pij_tilde = PS_point[global_variables['overall_parents'][0]]
+        # Q is handled a little weirdly at the moment, we will therefore reconstruct it from PS_point,
+        # which is **exactly what goes into the Matrix Element of the term at hand**.
+        # We are using Gabor/colorful notation and therefore Q refers to the total initial momentum
+        # of the real matrix element which was regulated by the local version of this counterterm
+        #
+        # i.e. :
+        #
+        # * delta: M(pa_tilde+pb_tilde-> p1_tilde, ...)*delta(alpha) where
+        # pa_tilde = (1-alpha) pa, pb_tilde = (1-alpha) pb. i.e. Q = sum(PS_point[initial_legs])
+        #
+        # * bulk:  M(pa_tilde+pb_tilde-> p1_tilde, ...) for any alpha where
+        # pa_tilde = (1-alpha) pa, pb_tilde = (1-alpha) pb. i.e. Q = sum(PS_point[initial_legs])/(1-alpha)
+        #
+        # * counterterm: M(pa_tilde+pb_tilde-> p1_tilde, ...)|_{alpha=0} where
+        # pa_tilde = (1-alpha) pa, pb_tilde = (1-alpha) pb. i.e. Q = sum(PS_point[initial_legs])
 
-        # TODO
-        evaluation['values'][(0,0,0,0)] = EpsilonExpansion({ 0 : 1.}).truncate(max_power=0)
+        n_initial_legs = global_variables['n_initial_legs']
+        Qhat = sum(PS_point.to_list()[:n_initial_legs])
+        if distribution_type == 'bulk':
+            fact = 1. / xi
+        else:
+            fact = 1.
+        Q = fact * Qhat
+        Q_square = Q.square()
+
+        color_factor = self.CA
+        logMuQ = log(mu_r ** 2 / Q_square)
+        prefactor = EpsilonExpansion({0: 1., 1: logMuQ, 2: 0.5 * logMuQ ** 2})
+        prefactor *= self.SEpsilon * (1. / (16 * pi ** 2))
+
+        pij_tilde = PS_point[global_variables['overall_parents'][0]]
+        # c.o.m. energy fraction of the mapped parent
+        xir = 2. * pij_tilde.dot(Q) / Q_square
+        # Protection for back-to-back systems
+        if xir > 1. + 1.e-5:
+            raise ValueError("xir = 2.*pij_tilde.dot(Q)/Q_square = {xir} > 1. something is wrong".format(xir=xir))
+        if xir > 1.:
+            xir = 1.
+
+        # xi = 1-alpha
+        if xi is not None:
+            alpha = 1 - xi
+
+        # The upper bound on the alpha integral is 1 - sum_of_masses/Q
+        try:
+            masses = [math.sqrt(p.square()) for p in PS_point.to_list()[n_initial_legs:]]
+        except ValueError:
+            # For massless particles, it happens often that the squared mass is actually a small negative
+            # number. While this exception is handled without stopping here, we throw a warning
+            # if you see this warning pop up a lot, investigate whether this might not be an issue related
+            # to improper use of mappings (which could generate actual negative masses)
+            mass_data = []
+            for p in PS_point.to_list()[n_initial_legs:]:
+
+                assert p.square()>0 or abs(p.square())/p[0] < 1.e-8, "A negative mass particle was encountered: {}".format(p)
+                mass_data.append((p.square(),abs(p.square())/p[0]))
+            # This warning is suppressed by the logger level setting at the top of this file.
+            # If you have doubts about negative mass issues, you can restore the level to include
+            # debug statements.
+            logger.debug("Encountered negative mass particles. \
+            They were all nearly light-like so we assume it is a numerics issue")
+            logger.debug(mass_data)
+
+            masses = [math.sqrt(max(0,p.square())) for p in PS_point.to_list()[n_initial_legs:]]
+
+        alpha0 = 1. - sum(masses)/math.sqrt(Q_square)
+
+        # dispatch depending on which part of the counterterm we want
+        if distribution_type == "endpoint":
+            kernel = EpsilonExpansion({
+                -2: 2.,
+                -1: 11./3. - 4.*log(xir) ,
+                0: 7.444444444444445 - (2*alpha0)/3. - pi**2 + (37*alpha0)/(3.*xir) - (11*log(alpha0/xir))/3. + 8*alpha0*log(alpha0/xir) -  (4*alpha0*log(alpha0/xir))/xir - 2*log(alpha0/xir)**2 - (22*log(xir))/3. + 4*log(xir)**2
+                    #7.444444444444445 - pi**2 - (11*log(xir))/3. + 2*log(xir)**2
+            })
+
+        elif distribution_type == "bulk":
+            kernel = EpsilonExpansion({
+                0: -((-1 + alpha)**2*xir*(42*alpha**2 + 42*alpha*xir + 11*xir**2))/(3.*alpha*(alpha + xir)*(2*alpha + xir)**2) \
+                + (-4*(-1 + alpha)**2*(2*alpha + xir)*log(alpha/(alpha + xir)))/(alpha*(alpha + xir))
+                if alpha<alpha0 else 0.
+            })
+
+        elif distribution_type == "counterterm":
+            kernel = EpsilonExpansion({
+                0: (-11*xir + alpha*(25 + 22*xir) + 12*(-xir + alpha*(-1 + 2*xir))*log(alpha/xir))/(3.*alpha*xir)
+                if alpha < alpha0 else 0.
+            })
+        else:
+            raise CurrentImplementationError("Distribution type '%s' not supported." % distribution_type)
+
+        evaluation['values'][(0, 0, 0, 0)] = (color_factor * prefactor * kernel).truncate(max_power=0)
 
         return evaluation
 

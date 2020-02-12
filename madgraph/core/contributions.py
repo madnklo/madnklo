@@ -2444,6 +2444,23 @@ class DummyContribution_V(Contribution_V):
             process_definition['perturbation_couplings'] = []
         process_definition['squared_orders'] = {}
 
+        # The exporter options for the order of the color and spin correlator needs to be set to NLO
+        # These options are otherwise set in madgraph.core.contributions.Contribution.__init__
+        # where the 'order' of the correlator is given by the difference between the overall correction order
+        # and the contribution's correction order. For a V in an NLO, this yields a 'correlation order' of 'LO'
+        # meaning no correlation is needed. This dummy correlation, however is supposed to be I1.B, which effectively
+        # has the structure of an integrated counterterm.
+        # NB: the V probably only ever needs LO correlations as it is the defining ME of its
+        # contribution but is actually generating N^(k)LO correlations at the moment. For consistency we set
+        # the correlation order to N^(k+1)LO.
+
+        # We need 'NLO' if the option was not set in madgraph.core.contributions.Contribution.__init__ (i.e. it was None)
+        self.additional_exporter_options['color_correlators'] = 'N' + (self.additional_exporter_options['color_correlators'] or 'LO')
+        self.additional_exporter_options['spin_correlators'] = 'N' + (self.additional_exporter_options['spin_correlators'] or 'LO')
+
+        # Needed to allow color correlators, see madgraph.core.contributions.Contribution.__init__
+        self.additional_exporter_options['loop_color_flows'] = True
+
         myproc = diagram_generation.MultiProcess(process_definition,
                     collect_mirror_procs = self.collect_mirror_procs,
                     ignore_six_quark_processes = self.ignore_six_quark_processes,

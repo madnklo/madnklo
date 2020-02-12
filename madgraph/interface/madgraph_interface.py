@@ -2812,7 +2812,7 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
                     'gauge',
                     'EWscheme',
                     'max_npoint_for_channel']
-    _valid_nlo_modes = ['all','real','virt','sqrvirt','tree','noborn','LOonly',
+    _valid_nlo_modes = ['all','real','virt','sqrvirt','tree','noborn','LOonly','tree_DUMMY1LOOP',
                         'tree_DUMMY2LOOP','tree_DUMMY3LOOP','tree_2LOOP','tree_3LOOP',
                         'sqrvirt_DUMMY2LOOP', 'sqrvirt_DUMMY3LOOP', 'sqrvirt_2LOOP', 'sqrvirt_3LOOP',
                         ]

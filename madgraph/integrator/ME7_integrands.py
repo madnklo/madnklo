@@ -80,6 +80,8 @@ import models.check_param_card as check_param_card
 import models.model_reader as model_reader
 import models.import_ufo as import_ufo
 
+from madgraph.various.math_tools.su_n_group_constants import SU3
+
 from madgraph.iolibs.files import ln    
 from madgraph import InvalidCmd, MadGraph5Error, MG5DIR, ReadWrite
 
@@ -2237,19 +2239,117 @@ class ME7Integrand_V(ME7Integrand):
 
         is_loop_induced = self.contribution_definition.process_definition.get('NLO_mode').startswith('sqrvirt')
 
-        #TODO
+        #TODO DEV NICO
 
-        alpha_s = self.model.get('parameter_dict')['aS']
+        model = process.get('model')
+
+        # Prepare the overall result
+        evaluation = base_objects.EpsilonExpansion({0:0})
+
+        # Prepare the overall prefactor
+        ## Retrieve alpha_s and mu_r
+        model_param_dict = model.get('parameter_dict')
+        alpha_s = model_param_dict['aS']
+
+        mu_r = model_param_dict['MU_R']
+        # ## Build the total momentum
+        # Q_square = (
+        #     sum([PS_point[l['number']] for l in process.get_initial_legs()])
+        # ).square()
+
+        ## The prefactor is alpha_s/(2pi) * (mu_r^2/Q^2)^epsilon* (4pi)^epsilon/Gamma(1-epsilon) )
+
+        prefactor = base_objects.EpsilonExpansion({0:- alpha_s / (2 * math.pi)})
+
+        # ### We build the expansion of (mu_r^2/Q^2)^epsilon
+        # logMuQ = math.log(mu_r ** 2 / Q_square)
+        # prefactor *= base_objects.EpsilonExpansion({0: 1., 1: logMuQ, 2: 0.5 * logMuQ ** 2})
+
+        ## we divide by an overall Sepsilon = (4pi)^epsilon exp(-epsilon EulerGamma) which cancels the
+        ## factor (4pi)^epsilon/Gamma(1-epsilon) up to order epsilon^2. Here's the ratio
+        prefactor *= base_objects.EpsilonExpansion({0:1. , 1:0. , 2:math.pi**2/12.})
 
 
+        # Get the squared matrix element without color correlations:
         ME_evaluation, all_results = self.all_MEAccessors(
             process, PS_point, alpha_s, mu_r, pdgs=all_flavor_configurations[0])
 
-        event_weight = base_objects.EpsilonExpansion(ME_evaluation) * base_weight
+        ME_diagonal = base_objects.EpsilonExpansion(ME_evaluation)
+        diagonal_terms = 0
 
-        # As a test for now, set the poles to 2 and 3
-        event_weight[-1] = 2.0
-        event_weight[-2] = 3.0
+        # Obtain the number of light flavors
+        Nf = model.get_nflav()
+
+        anomalous_dimension = {
+            3 : 1.5*SU3.CF,
+           -3 : 1.5*SU3.CF,
+            8 : 11./6.*SU3.CA - 2./3.*SU3.TR*Nf
+        }
+        # Get the list of colored particles in the process
+        colored_legs = process.get_legs_with_color()
+        # Build color correlators and call each color-correlated matrix element
+        for i, a in enumerate(colored_legs):
+            # Collect info about parton a
+            part_a = model.get_particle(a.get('id'))
+            pa = PS_point[a.get('number')]
+
+            # Build the diagonal part of the Catani operator
+            # 0908.4272 eq B.2 line 1
+            if part_a.get('mass') == 'ZERO':
+                term = base_objects.EpsilonExpansion({
+                    -2: SU3.casimir(part_a.get('color')),
+                    -1: anomalous_dimension[part_a.get('color')]
+
+                })
+            else:
+                term = base_objects.EpsilonExpansion({
+                    -1: SU3.casimir(part_a.get('color'))
+                })
+            diagonal_terms += term
+
+            # Build the dipole part, using the symmetry (a,b) <-> (b,a)
+            for b in colored_legs[i+1:]:
+                # collect info about b
+                part_b = model.get_particle(a.get('id'))
+                pb = PS_point[b.get('number')]
+
+
+                factor_ab = base_objects.EpsilonExpansion(0)
+                # 0908.4272 eq B.2 line 2: massless a, any b
+                if part_a.get('mass') == 'ZERO':
+                    factor_ab += base_objects.EpsilonExpansion({
+                        -1: math.log(2.*pa.dot(pb)/mu_r**2)
+                    })
+                # 0908.4272 eq B.2 line 3: massive a, massive b
+                elif part_b.get('mass') != 'ZERO':
+                    vkl = math.sqrt(
+                        1 - pa.square()*pb.square()/ (pa.dot(pb))**2
+                    )
+                    factor_ab += base_objects.EpsilonExpansion({
+                        -1 : 0.5/vkl * math.log( (1+vkl)/(1-vkl) )
+                    })
+                # 0908.4272 eq B.2 line 3: massive a, massless b
+                else:
+                    m_a = model_param_dict[part_a.get('mass')]
+                    factor_ab += base_objects.EpsilonExpansion({
+                        -1: -0.5 * math.log(m_a)
+                    })
+
+
+                correlator = [tuple([a.get('number'),b.get('number')])]
+                ME_evaluation, all_results = self.all_MEAccessors(
+                    process, PS_point, alpha_s, mu_r, pdgs=all_flavor_configurations[0],
+                    color_correlation=correlator)
+                ME_ab = base_objects.EpsilonExpansion(ME_evaluation)
+                evaluation+= 2.*ME_ab*factor_ab
+
+
+        evaluation += diagonal_terms * ME_diagonal
+
+        evaluation *= prefactor
+        evaluation.truncate(-2,0)
+
+        event_weight = evaluation * base_weight
 
         return event_weight
 

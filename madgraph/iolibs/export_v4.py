@@ -6996,7 +6996,7 @@ def ExportV4Factory(cmd, noclean, output_type='default', group_subprocesses=True
     # Make sure the additional options 'color_correlators' and 'spin_correlators' are defined.
     for mandatory_option in ['color_correlators','spin_correlators']:
         if mandatory_option not in opt:
-            opt['mandatory_option'] = None
+            opt[mandatory_option] = None
 
     # Consistency check on inputs. If either curr_amps_input or export_dir_input is
     # specified, it should be a stanalone type of output and _fks_multi_proc should

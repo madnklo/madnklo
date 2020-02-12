@@ -28,6 +28,8 @@ from madgraph import MadGraph5Error, MG5DIR, InvalidCmd, DTYPE
 import madgraph.various.misc as misc 
 import numpy as np
 
+from numbers import Number
+
 
 logger = logging.getLogger('madgraph.base_objects')
 pjoin = os.path.join
@@ -3675,6 +3677,15 @@ for that coupling to be this maximal one. '''%(k,self.get('sqorders_types')[k],
             else:
                 orders[k] = v
 
+    def get_legs_with_color(self):
+        """Look up which legs in the process have color according to the model"""
+        all_colored_parton_numbers = []
+        for leg in self.get('legs'):
+            if self.get('model').get_particle(leg.get('id')).get('color') == 1:
+                continue
+            all_colored_parton_numbers.append(leg)
+        return all_colored_parton_numbers
+
     def __eq__(self, other):
         """Overloading the equality operator, so that only comparison
         of process id and legs is being done, using compare_for_sort."""
@@ -4300,11 +4311,24 @@ class EpsilonExpansion(dict):
     """ A simple class for manipulating epsilon expansion. """
 
     def __init__(self, *args, **opts):
-        """ Initialize the expansion with possibly a dictionary."""
+        """ Initialize the expansion with a dictionary or a numeric class
+        The first argument is either a dictionary or a numeric object. Other arguments and options are passed
+        to the constructor of the parent class (dict).
+        The dictionary must have keys that are either
+        - int
+        - the string 'finite'
+        - a string with the pattern 'eps^X' where 'X' is a string that can be converted to an int
+        The numeric object n must pass isinstance(n,numbers.Number) and yields the same result
+        as passing {0:n}.
+        """
         
-        if len(args)>=1 and isinstance(args[0],dict):
-            dict_specifier = args[0]
-            args = args[1:]
+        if len(args)>=1:
+            if isinstance(args[0],dict):
+                dict_specifier = args[0]
+                args = args[1:]
+            elif isinstance(args[0],Number):
+                dict_specifier = {0:args[0]}
+                args = args[1:]
         else:
             dict_specifier = None
 
@@ -4330,12 +4354,14 @@ class EpsilonExpansion(dict):
         return res
     
     def __sub__(self, other):
+        """self - other"""
         res = EpsilonExpansion(self)
-        for k, v in other.items():
+        eps_other = EpsilonExpansion(other)
+        for k, v in eps_other.items():
             try:
                 res[k] -= v
             except KeyError:
-                res[k] = -v        
+                res[k] = -v
         return res
     
     def __mul__(self, other):
@@ -4360,8 +4386,7 @@ class EpsilonExpansion(dict):
             for k in res.keys():
                 res[k] /= other
         else:
-            # Will implement it if ever needed
-            raise NotImplementedError
+            raise NotImplementedError("Division by an EpsilonExpansion not implemented. Expand the ratio analytically.")
         return res
         
     __truediv__ = __div__

@@ -433,6 +433,7 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
         by from the reduced process.
         """
 
+        # Build a dictionary of the form {leg_number : (color_representation, state [in/outgoing])}
         colored_parton_numbers = {}
         for leg in reduced_process.get('legs'):
             leg_color_quantum_number = self.model.get_particle(leg.get('id')).get('color')

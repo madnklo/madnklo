@@ -762,6 +762,7 @@ class Contribution(object):
         # Generate the computer code and export it on disk for the remaining new currents
         current_exporter = subtraction.SubtractionCurrentExporter(model, root_path, current_set)
         mapped_currents_blocks = current_exporter.export(currents_blocks_to_consider)
+
         # Print to the debug log which currents were exported
         log_string = "The following subtraction %s current implementations are exported "%CT_type+\
                      "in contribution '%s':\n"%self.short_name()
@@ -794,6 +795,10 @@ class Contribution(object):
         log_string +=default_implementation_string
         if len(mapped_currents_blocks)>0:
             logger.debug(log_string)
+        else:
+            logger.debug("All subtraction %s currents already available at the time of exporting contribution %s"%(
+                                                                                            CT_type, self.short_name()))
+
         # Instantiate the CurrentAccessors corresponding
         # to all current implementations identified and needed
         all_currents_block_accessors = []

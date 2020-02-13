@@ -83,9 +83,17 @@ def load():
 
     # Specific to the colorful_pp scheme
     import colorful_pp_config
+    # NLO local
     import NLO.local_currents as NLO_local_currents
+    # NLO integrated
     import NLO.integrated_currents as NLO_integrated_currents
+    # NNLO local
     import NNLO.local_currents as NNLO_local_currents
+    import NNLO.local_one_loop_currents as NNLO_local_one_loop_currents
+    # NNLO integrated
+    import NNLO.integrated_currents as NNLO_integrated_currents
+    import NNLO.integrated_one_loop_currents as NNLO_integrated_one_loop_currents
+    # N3LO local
     import NNNLO.local_currents as NNNLO_local_currents
 
     # Colorful_pp does not use sectors
@@ -159,6 +167,46 @@ def load():
     # NNLO
     ###########
 
+    # Add beam currents which are also integrated counterterpart of all local counterterms recoiling against the
+    # intiial states
+    # First the integrated counterterms featuring one-loop currents
+    all_subtraction_current_classes.extend([
+        # PDF counterterms
+        NNLO_integrated_one_loop_currents.TODO_QCD_1_F0,
+        # Add zero PDF counterterms for supporting lepton collisions with this scheme too
+        NNLO_integrated_one_loop_currents.QCD_1_F0_lepton,
+        # collinear IF counterterms
+        NNLO_integrated_one_loop_currents.TODO_QCD_1_integrated_C_IF,
+        # collinear FF counterterms
+        NNLO_integrated_one_loop_currents.TODO_QCD_1_integrated_C_FqFq,
+        NNLO_integrated_one_loop_currents.TODO_QCD_1_integrated_C_FqFg,
+        NNLO_integrated_one_loop_currents.TODO_QCD_1_integrated_C_FgFg,
+        # soft F counterterms
+        NNLO_integrated_one_loop_currents.TODO_QCD_1_integrated_S_Fg,
+        # soft-collinear counterterms
+        NNLO_integrated_one_loop_currents.QCD_1_integrated_CS_IF,
+        NNLO_integrated_one_loop_currents.QCD_1_integrated_CS_FF,
+    ])
+
+    # Then the integrated counterterms of doubly unresolved limits
+    all_subtraction_current_classes.extend([
+        # Triple collinear limits
+        NNLO_integrated_currents.TODO_QCD_integrated_C_IqFqpFqpx,
+        NNLO_integrated_currents.TODO_QCD_integrated_C_IqFqFqx,
+        # Nested collinear limits
+        NNLO_integrated_currents.TODO_QCD_integrated_C_FqFqx_C_IqpFqFqx,
+        NNLO_integrated_currents.TODO_QCD_integrated_C_FqFqx_C_IqFqFqx,
+        # Soft limit (containing also all soft-collinear overlaps)
+        NNLO_integrated_currents.TODO_QCD_integrated_S_FqFqx,
+        # Soft-collinear integrated kernels that are zero since already all contained in the integrated soft
+        NNLO_integrated_currents.QCD_integrated_S_FqFqx_C_IgFqFqx,
+        NNLO_integrated_currents.QCD_integrated_S_FqFqx_C_IqFqFqx,
+        NNLO_integrated_currents.QCD_integrated_S_FqFqx_C_FqFqx,
+        NNLO_integrated_currents.QCD_integrated_S_FqFqx_C_FqFqx_C_IqpFqFqx,
+        NNLO_integrated_currents.QCD_integrated_S_FqFqx_C_FqFqx_C_IqFqFqx,
+    ])
+
+    # Double-unresolved local counterterms
     # For now we are only trying an elementary IFF q > q q' q' collinear
     all_subtraction_current_classes.extend([
         # S(FF)
@@ -185,6 +233,31 @@ def load():
         # C(S(C(FF)),I)
         NNLO_local_currents.QCD_S_FqFqx_C_FqFqx_C_IqpFqFqx,
         NNLO_local_currents.QCD_S_FqFqx_C_FqFqx_C_IqFqFqx,
+    ])
+
+    # One-loop singly unresolved local counterterms
+    all_subtraction_current_classes.extend([
+        # final-final collinears
+        NNLO_local_one_loop_currents.TODO_QCD_1_C_FqFqx,
+        NNLO_local_one_loop_currents.TODO_QCD_1_C_FgFg,
+        NNLO_local_one_loop_currents.TODO_QCD_1_C_FqFg,
+        # initial-final collinears
+        NNLO_local_one_loop_currents.TODO_QCD_1_C_IgFq,
+        NNLO_local_one_loop_currents.TODO_QCD_1_C_IqFg,
+        NNLO_local_one_loop_currents.TODO_QCD_1_C_IqFq,
+        NNLO_local_one_loop_currents.TODO_QCD_1_C_IgFg,
+        # soft and soft-collinears
+        NNLO_local_one_loop_currents.TODO_QCD_1_S_g,
+        NNLO_local_one_loop_currents.TODO_QCD_1_CS_FgFg,
+        NNLO_local_one_loop_currents.TODO_QCD_1_CS_FgFq,
+        NNLO_local_one_loop_currents.TODO_QCD_1_CS_IgFg,
+        NNLO_local_one_loop_currents.TODO_QCD_1_CS_IqFg,
+    ])
+
+    # Add NNLO integrated counterterms
+    all_subtraction_current_classes.extend([
+        # There are None in this scheme since *all* local counterterms
+        # recoil against the initial states.
     ])
 
     ###########

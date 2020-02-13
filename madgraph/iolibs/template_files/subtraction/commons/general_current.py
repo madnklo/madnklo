@@ -197,6 +197,39 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
                 raise CurrentImplementationError(
                     "__init__ of " + self.__class__.__name__ + " requires " + opt_name)
 
+
+    # Helper function to implement the "allowed_backward_evolved_flavors" masking
+    @staticmethod
+    def apply_flavor_mask(flavor_matrix,allowed_backward_evolved_flavors):
+        """
+        Given a flavor matrix and a list of permitted flavors that can be the end point of the backward evolution
+        (the flavor mask), generate a filtered flavor matrix.
+
+        :param flavor_matrix: sparse matrix implemented as a dict of dict
+                (see madgraph.integrator.ME7_integrands.ME7Event#convolve_flavors)
+        :param allowed_backward_evolved_flavors: tuple of PDG ids
+        :return: filtered_flavor_matrix, with the same structure as flavor_matrix
+        """
+        # If no mask do nothing
+        if allowed_backward_evolved_flavors == 'ALL':
+            return flavor_matrix
+        else:
+            # We will loop over a matrix M[i][j] = wgt_ij where i is the starting PDG and j a tuple of ending PDGs.
+            # We filter the elements in j.
+            filtered_flavor_matrix = {}
+            # Loop over matrix lines i
+            for reduced_flavor in flavor_matrix:
+                # Each column is a dict {(PDG1.1, PDG1.2, PDG1.3) : wgt1,...} where
+                # the tuple j=(PDG1.1, PDG1.2, PDG1.3) is the label of a column  and wgt the entry ij of the matrix
+                for end_flavors, wgt in  flavor_matrix[reduced_flavor].items():
+                    #Apply the filter on the elements of the tuple
+                    allowed_end_flavors = tuple([fl for fl in end_flavors if fl in allowed_backward_evolved_flavors])
+                    #If a column was entirely filtered out, do not include it
+                    if allowed_end_flavors:
+                        filtered_flavor_matrix[reduced_flavor] = {allowed_end_flavors:wgt}
+
+            return filtered_flavor_matrix
+
     @classmethod
     def check_current_properties(cls, current):
         try:

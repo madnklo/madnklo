@@ -1628,29 +1628,43 @@ class Counterterm(CountertermNode):
         self.n_non_factorisable_double_sided_convolution = 0
 
     @classmethod
-    def get_ancestor(cls, particles, momentum_dict):
+    def get_ancestor(cls, particles, momentum_dict, stop_if_none_found=True):
         """Recursively explore the momentum dictionary to find an ancestor
         of the given particle set (i.e. these are leg numbers here).
         """
-    
+
         try:
             return momentum_dict.inv[particles]
         except KeyError:
-            new_particles = frozenset(particles)
+            # Find all keys that allow to to reduce the set of particles to find the ancestor for
+            selected_keys = []
             for key in momentum_dict.inv.keys():
-                if len(key) == 1 or key.isdisjoint(new_particles):
+                if len(key) == 1 or key.isdisjoint(particles):
                     continue
-                if key.issubset(new_particles):
-                    new_particles = new_particles.difference(key)
-                    new_particles = new_particles.union({momentum_dict.inv[key], })
-            if len(new_particles) == 1:
-                return tuple(new_particles)[0]
-            elif new_particles != particles:
-                return cls.get_ancestor(new_particles, momentum_dict)
-            else:
+                if key.issubset(particles):
+                    selected_keys.append(key)
+
+            for key in selected_keys:
+                particles_for_next_step = particles.difference(key)
+                particles_for_next_step = particles_for_next_step.union({momentum_dict.inv[key], })
+
+                if len(particles_for_next_step) == 1:
+                    if particles_for_next_step in momentum_dict.inv.keys():
+                        return momentum_dict.inv[particles_for_next_step]
+                    else:
+                        return tuple(particles_for_next_step)[0]
+
+                elif particles_for_next_step != particles:
+                    outcome_for_this_branch = cls.get_ancestor(particles_for_next_step, momentum_dict, stop_if_none_found=False)
+                    if outcome_for_this_branch is not None:
+                        return outcome_for_this_branch
+
+            if stop_if_none_found:
                 raise KeyError(
                     "Could not find leg numbers " + str(particles) +
                     "in this momentum routing dictionary:\n" + str(momentum_dict) )
+            else:
+                return None
 
     def __str__(self, print_n=True, print_pdg=False, print_state=False, print_n_loops=True):
 
@@ -3090,6 +3104,13 @@ class IRSubtraction(object):
         all_integrated_counterterms = []
         for combination in combinations:
             for template_counterterm in self.get_counterterm(combination, process):
+#                if any(
+#                        (
+#                            any(s.name()=='S' for s in c.get('singular_structure').decompose()) and
+#                            any(s.name()=='C' for s in c.get('singular_structure').decompose())
+#                        ) for c in template_counterterm.get_all_currents()
+#                ):
+#                    continue
                 if not ignore_integrated_counterterms:
                     template_integrated_counterterms = self.get_integrated_counterterm(template_counterterm)
                 else:

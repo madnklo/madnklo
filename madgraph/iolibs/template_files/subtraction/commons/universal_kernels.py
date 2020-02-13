@@ -240,6 +240,28 @@ class AltarelliParisiKernels:
 
         return [ ( None, result ) ]
 
+    @staticmethod
+    def P_qqqpqp(color_factors, zs, s_invariants, kTs):
+        """ Kernel for the g -> q q~ q' q'~ splitting. The return value is not a float but a list of tuples:
+                ( spin_correlation_vectors_with_parent, weight )
+            where spin_correlation_vector_with_parent can be None if None is required.
+            The variables given in argument follow the conventions of what is returned by the colorful_pp_FFn_variables function.
+        """
+
+        # TODO
+        return [ ( None, EpsilonExpansion({0: 1.0}) ), ]
+
+    @staticmethod
+    def P_gggg(color_factors, zs, s_invariants, kTs):
+        """ Kernel for the g -> g g g g splitting. The return value is not a float but a list of tuples:
+                ( spin_correlation_vectors_with_parent, weight )
+            where spin_correlation_vector_with_parent can be None if None is required.
+            The variables given in argument follow the conventions of what is returned by the colorful_pp_FFn_variables function.
+        """
+
+        # TODO
+        return [ ( None, EpsilonExpansion({0: 1.0}) ), ]
+
 #=========================================================================================
 # Class listing soft kernels
 #=========================================================================================

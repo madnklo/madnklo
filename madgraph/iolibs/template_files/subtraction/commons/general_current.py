@@ -349,7 +349,8 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
                                     current['singular_structure'], a_template_current['singular_structure'], model)
             if leg_numbers_map is None:
                 if debug: misc.sprint("Singular structure mismatch: template=%s vs target=%s" % (
-                                        a_template_current['singular_structure'], current['singular_structure']))
+                                        a_template_current['singular_structure'].__str__(print_n=True, print_pdg=True, print_state=True),
+                                        current['singular_structure'].__str__(print_n=True, print_pdg=True, print_state=True)))
                 continue
             else:
                 matching_current_properties['leg_numbers_map'] = leg_numbers_map
@@ -409,13 +410,14 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
                     break
             else:
                 # We found no match for this defining current, this class can therefore not support these currents
-                if debug_currents_matching_procedure: misc.sprint( "Did not match currents block %s to class %s" % (
-                    currents_block, cls.__name__ ) )
+                if debug_currents_matching_procedure: misc.sprint(
+                    "Did not match target currents block %s to template currents block %s of class %s " % (
+                    currents_block, cls.defining_currents, cls.__name__ ) )
                 return None
 
-        if debug_currents_matching_procedure: misc.sprint(
-            "Successful matching of currents block %s to class %s, with the following initialisation dict:\n%s" % (
-                currents_block, cls.__name__, pformat(init_dict) ))
+        if debug_currents_matching_procedure:
+            misc.sprint("Successful matching of currents block %s to class %s, with the following initialisation dict:\n%s" % (
+                                                                        currents_block, cls.__name__, pformat(init_dict)))
 
         return init_dict
 
@@ -698,7 +700,7 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
         # Apply cuts: include the counterterm only in a part of the phase-space
         for i_step, mapping_rule in enumerate(self.mapping_rules):
             cut_inputs = dict(all_steps[i_step])
-            if mapping_rule['is_cut'](cut_inputs, global_variables):
+            if mapping_rule['is_cut'] is not None and mapping_rule['is_cut'](cut_inputs, global_variables):
                 return utils.SubtractionCurrentResult.zero(
                     current=current, hel_config=hel_config,
                     reduced_kinematics=('IS_CUT', (overall_lower_PS_point, xis[:2]) ))

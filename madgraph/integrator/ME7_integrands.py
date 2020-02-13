@@ -4896,7 +4896,7 @@ class ME7Integrand_RRR(ME7Integrand_R):
     """ ME7Integrand for the computation of a double real-emission type of contribution."""
     def sigma(self, PS_point, process_key, process, all_flavor_configurations,
                                 base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, *args, **opts):
-        return super(ME7Integrand_RR, self).sigma(PS_point, process_key, process, all_flavor_configurations,
+        return super(ME7Integrand_RRR, self).sigma(PS_point, process_key, process, all_flavor_configurations,
                                 base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, *args, **opts)
 
 #===============================================================================

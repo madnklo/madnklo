@@ -816,33 +816,23 @@ class QCD_S_FqFqx_C_IqFqFqx(QCD_S_FqFqx_C_IgFqFqx):
         )
     )
 
-    # This counterterm will be used if any of the currents_block of the list below matches
-    defining_currents = [ ]
-
-    # This counterterm will be used if any of the currents_block of the list below matches
-    # First the case of of an initial-state quark of the same flavor
-    defining_currents.append(
+    defining_currents = [
+        # The tuple below indicates that any of the two currents can be matched to.
         tuple([
             sub.Current({
-                'resolve_mother_spin_and_color'     : True,
-                'n_loops'                           : 0,
-                'squared_orders'                    : {'QCD': 4},
-                'singular_structure'                : sub.SingularStructure(substructures=(coll_structure_q,))
+                'resolve_mother_spin_and_color' : True,
+                'n_loops'                       : 0,
+                'squared_orders'                : {'QCD': 4},
+                'singular_structure'            : sub.SingularStructure(substructures=(coll_structure_q,))
             }),
-        ])
-    )
-
-    # Then the case of of an initial-state quark of a different flavor
-    defining_currents.append(
-        tuple([
             sub.Current({
-                'resolve_mother_spin_and_color'     : True,
-                'n_loops'                           : 0,
-                'squared_orders'                    : {'QCD': 4},
-                'singular_structure'                : sub.SingularStructure(substructures=(coll_structure_qp,))
+                'resolve_mother_spin_and_color' : True,
+                'n_loops'                       : 0,
+                'squared_orders'                : {'QCD': 4},
+                'singular_structure'            : sub.SingularStructure(substructures=(coll_structure_qp,))
             }),
-        ])
-    )
+        ]),
+    ]
 
     # The q > q q q soft-collinear configuration factorizes the color factor CF
     color_charge = 'CF'

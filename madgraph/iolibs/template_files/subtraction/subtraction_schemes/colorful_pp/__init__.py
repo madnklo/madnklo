@@ -86,6 +86,7 @@ def load():
     import NLO.local_currents as NLO_local_currents
     import NLO.integrated_currents as NLO_integrated_currents
     import NNLO.local_currents as NNLO_local_currents
+    import NNNLO.local_currents as NNNLO_local_currents
 
     # Colorful_pp does not use sectors
     loaded_attributes['sector_generator'] = None
@@ -160,8 +161,6 @@ def load():
 
     # For now we are only trying an elementary IFF q > q q' q' collinear
     all_subtraction_current_classes.extend([
-        # IF
-        # FF
         # S(FF)
         NNLO_local_currents.QCD_S_FqFqx,
         NNLO_local_currents.QCD_S_FgFg,
@@ -187,6 +186,19 @@ def load():
         NNLO_local_currents.QCD_S_FqFqx_C_FqFqx_C_IqpFqFqx,
         NNLO_local_currents.QCD_S_FqFqx_C_FqFqx_C_IqFqFqx,
     ])
+
+    ###########
+    # NNNLO
+    ###########
+
+    all_subtraction_current_classes.extend([
+        # S(FFF)
+        NNNLO_local_currents.QCD_S_FgFgFg,
+        # C(FFFF)
+        NNNLO_local_currents.QCD_C_FqFqxFqpFqpx,
+        NNNLO_local_currents.QCD_C_FgFgFgFg,
+    ])
+
 
     # Finally register the subtraction current classes loaded
     loaded_attributes['all_subtraction_current_classes'] = all_subtraction_current_classes

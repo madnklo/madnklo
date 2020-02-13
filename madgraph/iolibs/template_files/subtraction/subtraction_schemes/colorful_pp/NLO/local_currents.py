@@ -149,7 +149,7 @@ class QCD_C_FgFg(general_current.GeneralCurrent):
     ]
 
     # Te defining currents correspond to a currents block composed of several lists of template currents
-    # for matching each currents of the target currents block (in an unordered fashion
+    # for matching each currents of the target currents block (in an unordered fashion)
     defining_currents = [ currents, ]
 
     # An now the mapping rules

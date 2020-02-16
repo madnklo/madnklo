@@ -45,16 +45,6 @@ pjoin = os.path.join
 
 CurrentImplementationError = utils.CurrentImplementationError
 
-# In principle we support them all, but these are the meaningful ones to consider
-beam_PDGs_supported = [
-    tuple(sorted([1, -1, 2, -2, 3, -3, 4, -4, 5, -5, 6, -6, 21])),
-    tuple(sorted([1, -1, 2, -2, 3, -3, 4, -4, 5, -5, 21])),
-    tuple(sorted([1, -1, 2, -2, 3, -3, 4, -4, 21])),
-    tuple(sorted([1, -1, 2, -2, 3, -3, 21])),
-    tuple(sorted([1, -1, 2, -2, 21])),
-    tuple(sorted([1, -1, 21]))
-]
-
 #=========================================================================================
 # NLO PDF Counterterm
 #=========================================================================================
@@ -99,7 +89,7 @@ class QCD_F0(general_current.GeneralCurrent):
         'n_loops': 0,
         'squared_orders': {'QCD': 2},
         'beam_type' : 'proton',
-        'beam_PDGs' : beam_PDGs_supported
+        'beam_PDGs' : colorful_pp_config.beam_PDGs_supported
     }
     # Now add endpoint IntegratedBeamCurrent...
     current_properties['singular_structure'] = beam_structure_q

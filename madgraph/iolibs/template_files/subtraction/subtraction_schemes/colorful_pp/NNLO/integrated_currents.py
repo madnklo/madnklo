@@ -1190,3 +1190,520 @@ class QCD_integrated_S_FqFqx_C_FqFqx_C_IqFqFqx(general_current.GeneralCurrent):
     # An now the mapping rules, which are not necessary in this context.
     mapping_rules = [ ]
 
+# Compound kernels
+
+class QCD_disable_single_block_compound_PDF_counterterms(utils.VirtualCurrentImplementation):
+    """ Disable integrated counterterms of the form of currents block with a *single* IntegratedBeamCurrent
+    which is composed of two pieces including one PDF counterterms, for example:
+       > ([((F((2, 1, i)),),(S((4, 21, f)),),) @ 0 loops]) (type: (IntegratedBeamCurrent) )
+    because in colorful_pp, those are already accounted for in these pieces:
+       > ([((S((4, 21, f)),),) @ 0 loops], :(F((1, 1, i)),) @ 0 loops:)
+    """
+
+    is_zero = True
+
+    @classmethod
+    def does_implement_these_currents(cls, currents_block, model):
+        """ Overload the mother function so as to easily capture the pattern of all such
+        single_block_compound_PDF_counterterms to disable."""
+
+        # A single current block
+        if (len(currents_block) == 1 and
+            # Composed of a single integrated counterterm of type IntegratedBeamCurrent
+            type(currents_block[0]) is sub.IntegratedBeamCurrent and
+            # Composed of a top-level singular structure featuring more that one substructure
+            len(currents_block[0]['singular_structure'].substructures)>1 and
+            # with at least one that *is* a PDF counterterm *and* one that *is not* a PDF counterterm
+            any( (len(ss.substructures)>0 and any(sub_ss.name()=='F' for sub_ss in ss.substructures))
+                for ss in currents_block[0]['singular_structure'].substructures) and
+            any((len(ss.substructures)>0 and any(sub_ss.name() != 'F' for sub_ss in ss.substructures))
+                for ss in currents_block[0]['singular_structure'].substructures)
+            ):
+            # This will disable the counterterm since is_zero is True
+            return {}
+
+        return None
+
+class TOTEST_QCD_integrated_Fx_Fx(general_current.GeneralCurrent):
+    """Implements the endpoint QCD PDF counterterm for both the left and right beam.
+    In this case it can be implemented simply as a direct orthogonal product of the
+    flavour endpoint convolution matrices of each of the two PDF counterterms.
+    """
+
+    # Enable the flag below to debug this current
+    DEBUG = False
+
+    # Store the result for beam factorisation currents in a container that supports flavor matrices.
+    subtraction_current_evaluation_class = utils.BeamFactorizationCurrentEvaluation
+
+    divide_by_jacobian = colorful_pp_config.divide_by_jacobian
+
+    # We should not need global variables for this current
+    variables = None
+
+    structure_qA = sub.SingularStructure(substructures=(sub.BeamStructure(
+        substructures=tuple([]),
+        legs=(
+            sub.SubtractionLeg(10, +1, sub.SubtractionLeg.INITIAL),
+        )
+    ),))
+    structure_gA = sub.SingularStructure(substructures=(sub.BeamStructure(
+        substructures=tuple([]),
+        legs=(
+            sub.SubtractionLeg(10, 21, sub.SubtractionLeg.INITIAL),
+        )
+    ),))
+    structure_qB = sub.SingularStructure(substructures=(sub.BeamStructure(
+        substructures=tuple([]),
+        legs=(
+            sub.SubtractionLeg(11, +1, sub.SubtractionLeg.INITIAL),
+        )
+    ),))
+    structure_gB = sub.SingularStructure(substructures=(sub.BeamStructure(
+        substructures=tuple([]),
+        legs=(
+            sub.SubtractionLeg(11, 21, sub.SubtractionLeg.INITIAL),
+        )
+    ),))
+
+    # Now define the matching singular structures
+    beam_structure_qq = sub.SingularStructure(
+        substructures=(structure_qA,structure_qB)
+    )
+    beam_structure_qg = sub.SingularStructure(
+        substructures=(structure_qA,structure_gB),
+    )
+    beam_structure_gq = sub.SingularStructure(
+        substructures=(structure_gA,structure_qB)
+    )
+    beam_structure_gg = sub.SingularStructure(
+        substructures=(structure_gA,structure_gB),
+    )
+
+    # This counterterm will be used if any of the current of the list below matches
+    template_currents = []
+
+    current_properties = {
+        'resolve_mother_spin_and_color': True,
+        'n_loops': 0,
+        'squared_orders': {'QCD': 4},
+        'beam_type' : 'proton',
+        'beam_PDGs' : colorful_pp_config.beam_PDGs_supported
+    }
+    # Now add endpoint IntegratedBeamCurrent...
+    current_properties['singular_structure'] = beam_structure_qq
+    template_currents.append(sub.IntegratedBeamCurrent( current_properties ))
+    current_properties['singular_structure'] = beam_structure_qg
+    template_currents.append(sub.IntegratedBeamCurrent( current_properties ))
+    current_properties['singular_structure'] = beam_structure_gq
+    template_currents.append(sub.IntegratedBeamCurrent( current_properties ))
+    current_properties['singular_structure'] = beam_structure_gg
+    template_currents.append(sub.IntegratedBeamCurrent( current_properties ))
+
+    # The factorisation of the left and right PDF is manifest for the counterterm and bulk
+    # pieces and does therefore not need to be specified here
+
+    # Te defining currents correspond to a currents block composed of several lists of template currents
+    # for matching each currents of the target currents block (in an unordered fashion)
+    defining_currents = [template_currents, ]
+
+    # An now the mapping rules, which are not necessary in this context.
+    mapping_rules = [ ]
+
+    def kernel(self, evaluation, all_steps_info, global_variables):
+        """ Evaluate this counterterm given the variables provided. """
+
+        xis = global_variables['xis']
+        mu_fs = global_variables['mu_fs']
+        mu_r = global_variables['mu_r']
+
+        allowed_backward_evolved_flavors = global_variables['allowed_backward_evolved_flavors']
+        if allowed_backward_evolved_flavors != ('ALL','ALL'):
+            raise CurrentImplementationError('The current %s must always be called with' % self.__class__.__name__ +
+                                             "allowed_backward_evolved_flavors=('ALL','ALL'), not %s" % str(
+                allowed_backward_evolved_flavors))
+
+        NF = self.currents_properties[0]['NF']
+
+        # Only the order epsilon of the scales pre-factor matters here.
+        prefactorA = EpsilonExpansion({
+            0: 1.,
+            1: log(mu_r ** 2 / mu_fs[0] ** 2)
+        })
+        prefactorB = EpsilonExpansion({
+            0: 1.,
+            1: log(mu_r ** 2 / mu_fs[1] ** 2)
+        })
+        prefactor = prefactorA * prefactorB * EpsilonExpansion({-2: 1.}) * (self.SEpsilon * (1. / (16 * pi**2) ))**2
+
+        # Define the NLO QCD PDF counterterms kernels
+        kernel_gg = prefactor * (11. / 6. * self.CA - 2. / 3. * NF * self.TR)**2
+
+        # Now assign the flavor matrix to the result
+        evaluation['values'][(0,0,0,0)] = {
+            (21, 21) : { ( (21, 21 ), )  : kernel_gg.truncate(max_power=0)}
+        }
+
+        return evaluation
+
+class QCD_integrated_CS_X_F(general_current.GeneralCurrent):
+    """Implements the NLO QCD soft-collinear integrated counterterms together with a PDF counterterm.
+    These are all set to zero as they are included in the soft counterterms
+    """
+
+    # As mentioned before these are all zero as they are already included in the soft counterterm.
+    is_zero = True
+
+    # Enable the flag below to debug this current
+    DEBUG = False
+
+    # Store the result for beam factorisation currents in a container that supports flavor matrices.
+    subtraction_current_evaluation_class = utils.SubtractionCurrentEvaluation
+
+    divide_by_jacobian = colorful_pp_config.divide_by_jacobian
+
+    # We should not need global variables for this current
+    variables = None
+
+    # Now define all the matching singular structures.
+    soft_structure_g = sub.SoftStructure(
+        substructures=tuple([]),
+        legs=(
+            sub.SubtractionLeg(11, 21, sub.SubtractionLeg.FINAL),
+        )
+    )
+    soft_coll_structure_gg_final = sub.SingularStructure(
+        substructures=(sub.CollStructure(
+            substructures=(soft_structure_g,),
+            legs=(
+                sub.SubtractionLeg(10, 21, sub.SubtractionLeg.FINAL),)
+        ),)
+    )
+    soft_coll_structure_qg_final = sub.SingularStructure(
+        substructures=(sub.CollStructure(
+            substructures=(soft_structure_g,),
+            legs=(
+                sub.SubtractionLeg(10, +1, sub.SubtractionLeg.FINAL),)
+        ),)
+    )
+    soft_coll_structure_gg_initial = sub.SingularStructure(
+        substructures=(sub.CollStructure(
+            substructures=(soft_structure_g,),
+            legs=(
+                sub.SubtractionLeg(10, 21, sub.SubtractionLeg.INITIAL),)
+        ),)
+    )
+    soft_coll_structure_qg_initial = sub.SingularStructure(
+        substructures=(sub.CollStructure(
+            substructures=(soft_structure_g,),
+            legs=(
+                sub.SubtractionLeg(10, +1, sub.SubtractionLeg.INITIAL),)
+        ),)
+    )
+
+    # This counterterm will be used if any of the current of the list below matches
+    template_currents_soft_collinear = []
+
+    current_properties = {
+        'resolve_mother_spin_and_color': True,
+        'n_loops': 0,
+        'squared_orders': {'QCD': 2},
+        'beam_type' : None, # These integrated counterterm do no refer to particular beam type or PDGs.
+        'beam_PDGs' : None
+    }
+    # Now add endpoint IntegratedBeamCurrent...
+    # ... g(initial) > g(initial_after_emission) g(final)
+    current_properties['singular_structure'] = soft_coll_structure_gg_initial
+    template_currents_soft_collinear.append(sub.IntegratedBeamCurrent( current_properties ))
+    current_properties['singular_structure'] = soft_coll_structure_gg_final
+    template_currents_soft_collinear.append(sub.IntegratedBeamCurrent( current_properties ))
+    # ... q(initial) > q(initial_after_emission) g(final)
+    current_properties['singular_structure'] = soft_coll_structure_qg_initial
+    template_currents_soft_collinear.append(sub.IntegratedBeamCurrent( current_properties ))
+    current_properties['singular_structure'] = soft_coll_structure_qg_final
+    template_currents_soft_collinear.append(sub.IntegratedBeamCurrent( current_properties ))
+
+    # Now add plus distributions as BeamCurrent...
+    # Specifying the distribution type as both 'bulk' and 'counterterm' means that both values
+    # are acceptable when matching a target current_blocks element to this template current.
+    current_properties['distribution_type'] = ['bulk', 'counterterm']
+    # ... q(initial) > q(initial_after_emission) g(final)
+    current_properties['singular_structure'] = soft_coll_structure_gg_initial
+    template_currents_soft_collinear.append(sub.BeamCurrent( current_properties ))
+    current_properties['singular_structure'] = soft_coll_structure_gg_final
+    template_currents_soft_collinear.append(sub.BeamCurrent( current_properties ))
+    # ... q(initial) > q(initial_after_emission) g(final)
+    current_properties['singular_structure'] = soft_coll_structure_qg_initial
+    template_currents_soft_collinear.append(sub.BeamCurrent( current_properties ))
+    current_properties['singular_structure'] = soft_coll_structure_qg_final
+    template_currents_soft_collinear.append(sub.BeamCurrent( current_properties ))
+
+    # Now add the PDF counterterm part of this compound current
+    # The second piece of the compound current which is the PDF counterterm piece will be used if any of the current
+    # of the list below matches
+    template_currents_PDF = []
+
+    beam_structure_q = sub.SingularStructure(
+        substructures=(sub.BeamStructure(
+            substructures=tuple([]),
+            legs=(
+                sub.SubtractionLeg(10, +1, sub.SubtractionLeg.INITIAL),
+            )
+        ),)
+    )
+    beam_structure_g = sub.SingularStructure(
+        substructures=(sub.BeamStructure(
+            substructures=tuple([]),
+            legs=(
+                sub.SubtractionLeg(10, 21, sub.SubtractionLeg.INITIAL),
+            )
+        ),),
+    )
+
+    current_properties = {
+        'resolve_mother_spin_and_color': True,
+        'n_loops': 0,
+        'squared_orders': {'QCD': 2},
+        'beam_type' : 'proton',
+        'beam_PDGs' : colorful_pp_config.beam_PDGs_supported
+    }
+
+    # This compound current will always contain only the bulk PDF counterterm
+    current_properties['distribution_type'] = ['bulk', ]
+    # ... for an initial-state quark
+    current_properties['singular_structure'] = beam_structure_q
+    template_currents_PDF.append(sub.BeamCurrent( current_properties ))
+    # ... for an initial-state gluon
+    current_properties['singular_structure'] = beam_structure_g
+    template_currents_PDF.append(sub.BeamCurrent( current_properties ))
+
+    # The defining currents correspond to a currents block composed of several lists of template currents
+    # for matching each currents of the target currents block (in an unordered fashion)
+    defining_currents = [template_currents_soft_collinear, template_currents_PDF]
+
+    # An now the mapping rules, which are not necessary in this context.
+    mapping_rules = [ ]
+
+class TODO_QCD_integrated_S_Fg_F(general_current.GeneralCurrent):
+    """Implements the NLO QCD soft integrated counterterms together with a PDF counterterm.
+    Notice that this soft counterterm also includes the integrated soft-collinear.
+    """
+
+    # Enable the flag below to debug this current
+    DEBUG = False
+
+    # Store the result for beam factorisation currents in a container that supports flavor matrices.
+    subtraction_current_evaluation_class = utils.BeamFactorizationCurrentEvaluation
+
+    divide_by_jacobian = colorful_pp_config.divide_by_jacobian
+
+    # We should not need global variables for this current
+    variables = None
+
+    # Now define the matching singular structures
+    soft_structure = sub.SoftStructure(
+        substructures=tuple([]),
+        legs=(
+            sub.SubtractionLeg(11, 21, sub.SubtractionLeg.FINAL),
+        )
+    )
+    structure = sub.SingularStructure(substructures=(soft_structure,))
+
+    # This first piece of the compound current will be used if any of the current of the list below matches
+    template_currents_soft = []
+
+    current_properties = {
+        'resolve_mother_spin_and_color': True,
+        'n_loops': 0,
+        'squared_orders': {'QCD': 2},
+        'beam_type' : None, # These integrated counterterm do no refer to particular beam type or PDGs.
+        'beam_PDGs' : None
+    }
+
+    # Now add endpoint IntegratedBeamCurrent...
+    current_properties['singular_structure'] = structure
+    template_currents_soft.append(sub.IntegratedBeamCurrent( current_properties ))
+
+    # Now add plus distributions as BeamCurrent...
+    # Specifying the distribution type as both 'bulk' and 'counterterm' means that both values
+    # are acceptable when matching a target current_blocks element to this template current.
+    current_properties['distribution_type'] = ['bulk', 'counterterm']
+    current_properties['singular_structure'] = structure
+    template_currents_soft.append(sub.BeamCurrent( current_properties ))
+
+    # Now add the PDF counterterm part of this compound current
+    # The second piece of the compound current which is the PDF counterterm piece will be used if any of the current
+    # of the list below matches
+    template_currents_PDF = []
+
+    beam_structure_q = sub.SingularStructure(
+        substructures=(sub.BeamStructure(
+            substructures=tuple([]),
+            legs=(
+                sub.SubtractionLeg(10, +1, sub.SubtractionLeg.INITIAL),
+            )
+        ),)
+    )
+    beam_structure_g = sub.SingularStructure(
+        substructures=(sub.BeamStructure(
+            substructures=tuple([]),
+            legs=(
+                sub.SubtractionLeg(10, 21, sub.SubtractionLeg.INITIAL),
+            )
+        ),),
+    )
+
+    current_properties = {
+        'resolve_mother_spin_and_color': True,
+        'n_loops': 0,
+        'squared_orders': {'QCD': 2},
+        'beam_type' : 'proton',
+        'beam_PDGs' : colorful_pp_config.beam_PDGs_supported
+    }
+
+    # This compound current will always contain only the bulk PDF counterterm
+    current_properties['distribution_type'] = ['bulk', ]
+    # ... for an initial-state quark
+    current_properties['singular_structure'] = beam_structure_q
+    template_currents_PDF.append(sub.BeamCurrent( current_properties ))
+    # ... for an initial-state gluon
+    current_properties['singular_structure'] = beam_structure_g
+    template_currents_PDF.append(sub.BeamCurrent( current_properties ))
+
+    # The defining currents correspond to a currents block composed of several lists of template currents
+    # for matching each currents of the target currents block (in an unordered fashion)
+    defining_currents = [template_currents_soft, template_currents_PDF]
+
+    # An now the mapping rules, which are not necessary in this context.
+    mapping_rules = [ ]
+
+
+    def kernel(self, evaluation, all_steps_info, global_variables):
+        """ Evaluate this counterterm given the variables provided. """
+
+        # Retrieve variables
+        beam_number = self.currents_properties[1]['leg_numbers_map'][10]
+
+        if beam_number not in [1,2]:
+            raise CurrentImplementationError(
+                "The current %s must always be called for current for which the external" % self.__class__.__name__ +
+                " leg number of the beam structure is 1 or 2, not %d."%beam_number)
+
+        # Offset by one so as to have python list access conventions
+        beam_number -= 1
+
+        xi = global_variables['xis'][beam_number]
+        mu_f = global_variables['mu_fs'][beam_number]
+        mu_r = global_variables['mu_r']
+
+        allowed_backward_evolved_flavors = global_variables['allowed_backward_evolved_flavors']
+        if allowed_backward_evolved_flavors != ('ALL','ALL'):
+            raise CurrentImplementationError('The current %s must always be called with' % self.__class__.__name__ +
+                                             "allowed_backward_evolved_flavors=('ALL','ALL'), not %s" % str(
+                allowed_backward_evolved_flavors))
+
+        # Extract the distribution type from the soft template piece of this compound current
+        distribution_type = self.currents_properties[0]['distribution_type']
+        # Then extract the beam PDGs and NF quantity from the PDF counterterm piece of this compound current
+        NF = self.currents_properties[1]['NF']
+        beam_PDGs = self.currents_properties[1]['beam_PDGs']
+
+        # Apply the Dirac delta on the convolution parameters by setting their value to the solution of the delta.
+        # For these simple NLO integrated current, the delta simply sets them to one if the distribution type is
+        # 'counterterm' and leaves them unchanged if the distribution type is 'bulk' (or 'endpoint' in which case
+        # the convolution parameter is None anyway.)
+        if distribution_type == 'counterterm':
+            xis = list(global_variables['xis'])
+            #TODO This compound current requires a change of variable which should be specified here!
+            xis[beam_number] = 1.0
+            evaluation['Bjorken_rescalings'] = [tuple(xis),]
+
+        # Only the order epsilon of the scales pre-factor matters here.
+        prefactor = EpsilonExpansion({
+            0: 1.,
+            1: log(mu_r ** 2 / mu_f ** 2)
+        })
+        prefactor *= EpsilonExpansion({-1: 1.}) * self.SEpsilon * (1. / (16 * pi**2) )
+
+        # Assign a fake xi for now if the distribution type is 'endpoint'
+        # This is not optimal, eventually we should put each of these three pieces in
+        # separate currents, this will be optimal however in the low-level implementation
+        if distribution_type == 'endpoint':
+            xi = 0.5
+
+        # Define the NLO QCD PDF counterterms kernels
+        kernel_gg = {
+            'bulk': prefactor * (
+                1.0 #TODO
+            ),
+            'counterterm': prefactor * (
+                1.0 #TODO
+            ),
+            'endpoint': prefactor * (
+                1.0 #TODO
+            )
+        }
+
+        kernel_gq = {
+            'bulk': prefactor * (
+                1.0  # TODO
+            ),
+            'counterterm': None,
+            'endpoint': None
+        }
+
+        kernel_qg = {
+            'bulk': prefactor * (
+                1.0 # TODO
+            ),
+            'counterterm': None,
+            'endpoint': None
+        }
+
+        kernel_qq = {
+            'bulk': prefactor * (
+                1.0  # TODO
+            ),
+            'counterterm': prefactor * (
+                1.0  # TODO
+            ),
+            'endpoint': None
+        }
+
+        active_quark_PDGs = self.currents_properties[0]['active_fermions']
+
+        # Build the NLO flavor matrix
+        flavor_matrix = {}
+        for reduced_flavor in beam_PDGs:
+            # Gluon backward evolution
+            if reduced_flavor == 21:
+                gluon_dict = {}
+                if kernel_gg[distribution_type] is not None:
+                    gluon_dict[(21,)] = kernel_gg[distribution_type]
+                if active_quark_PDGs and kernel_gq[distribution_type] is not None:
+                    gluon_dict[active_quark_PDGs] = kernel_gq[distribution_type]
+                if gluon_dict:
+                    flavor_matrix[21] = gluon_dict
+
+            # Quark backward evolution
+            if reduced_flavor in active_quark_PDGs:
+                quark_dict = {}
+                if kernel_qg[distribution_type] is not None:
+                    quark_dict[(21,)] = kernel_qg[distribution_type]
+                if kernel_qq[distribution_type] is not None:
+                    quark_dict[(reduced_flavor,)] = kernel_qq[distribution_type]
+                if quark_dict:
+                    flavor_matrix[reduced_flavor] = quark_dict
+
+        # Truncate all entries of the flavor matrix so as to remove irrelevant O(\eps) terms
+        for flav_in, flav_outs in flavor_matrix.items():
+            for flav_out, eps_expansion in flav_outs.items():
+                eps_expansion.truncate(max_power=0)
+
+        # Now assign the flavor matrix to the result
+        evaluation['values'][(0,0,0,0)] = flavor_matrix
+
+        # Promote the format of the flavor matrix to be that of a generalised two-sided convolution
+        evaluation.promote_to_two_sided_convolution(beam_number+1)
+
+        return evaluation

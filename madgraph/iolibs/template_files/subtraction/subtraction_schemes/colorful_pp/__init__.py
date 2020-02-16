@@ -48,6 +48,8 @@ def load():
                     (c.name() == 'S' or all(l.state == l.FINAL for l in c.legs))
                 for c in sub_ss.decompose() ) for sub_ss in singular_structure.substructures)
 
+            #misc.sprint([[str(c) for c in sub_ss.decompose()] for sub_ss in singular_structure.substructures])
+            #misc.sprint(requires_correlated_beam_convolution)
             return requires_correlated_beam_convolution
 
         def get_n_non_factorisable_double_sided_convolution(self, counterterm):
@@ -55,22 +57,35 @@ def load():
             a combination of a correlated convolution with single-sided ones (like for IF integrated collinear CT or PDF
             counterterms). For now it can only return 2 convolutions if non-factorisable; it may need to be extended for N^3LO."""
 
+            #misc.sprint("doing %s"%str(counterterm))
+            #misc.sprint(str(counterterm.get_integrated_current()))
+            #misc.sprint(type(counterterm.get_integrated_current()),counterterm.get_integrated_current().__class__.__name__)
+            #misc.sprint(str(counterterm.get_integrated_current().get('singular_structure')))
+            #misc.sprint(self.does_require_correlated_beam_convolution(counterterm.get_integrated_current().get('singular_structure')))
+
+            #misc.sprint([leg.n for node in counterterm.nodes for leg in node.current['singular_structure'].get_all_legs()])
             all_legs_states = [leg.state for node in counterterm.nodes for leg in node.current['singular_structure'].get_all_legs()]
+            #misc.sprint(all_legs_states)
 
             n_non_factorisable_double_sided_convolution = (    2 if (
-                    counterterm.does_require_correlated_beam_convolution() and
+                    # DO NOT substitute the line below by 'counterterm.does_require_correlated_beam_convolution()'
+                    # since this would then be incorrect as it would force to False for IntegratedBeamCurrents
+                    self.does_require_correlated_beam_convolution(
+                                    counterterm.get_integrated_current().get('singular_structure')) and
                     all_legs_states.count(SubtractionLeg.INITIAL)>0 and
                     # The CT ((C(2,4),S(5),),) requires a non-factorisable beam convolution.
                     # but the soft-collinear CT ((C(S((5, 21, f)),(2, 21, i)),),) requires a one-sided one.
                     # We therefore need the condition below
-                    ( (counterterm.count_unresolved()-all_legs_states.count(SubtractionLeg.FINAL))>0 or
-                      any(
-                          any(len(ss.substructures)>1 for ss in node.current['singular_structure'].substructures)
-                          for node in counterterm.nodes
-                         )
-                      )
-                    )
-            else 0 )
+                    #( (counterterm.count_unresolved()-all_legs_states.count(SubtractionLeg.FINAL))>0 or
+                    #  any(
+                    #      any(len(ss.substructures)>1 for ss in node.current['singular_structure'].substructures)
+                    #      for node in counterterm.nodes
+                    #     )
+                    #  )
+                    #)
+                    len(counterterm.nodes)>1 or any(
+                        len(node.current['singular_structure'].substructures)>1 for node in counterterm.nodes)
+            ) else 0 )
             #misc.sprint(counterterm.does_require_correlated_beam_convolution())
             #misc.sprint(all_legs_states.count(SubtractionLeg.INITIAL))
             #misc.sprint(counterterm.count_unresolved())
@@ -186,6 +201,20 @@ def load():
         # soft-collinear counterterms
         NNLO_integrated_one_loop_currents.QCD_1_integrated_CS_IF,
         NNLO_integrated_one_loop_currents.QCD_1_integrated_CS_FF,
+    ])
+
+    # Add compound kernels
+    all_subtraction_current_classes.extend([
+        # Disable counterterms of the form ([((F,X,)]) (type: (IntegratedBeamCurrent) ) since they are already accounted
+        # for in colorful_pp by counterterms of the form: ([((X,))], :(F,):)
+        NNLO_integrated_currents.QCD_disable_single_block_compound_PDF_counterterms,
+        # Combined endpoint convolution of the NLO PDF counterterms of both beams
+        NNLO_integrated_currents.TOTEST_QCD_integrated_Fx_Fx,
+        # Single soft integrated together with a PDF counterterm
+        NNLO_integrated_currents.TODO_QCD_integrated_S_Fg_F,
+        # Single soft-collinear integrated together with a PDF counterterm, they are all zero since already accounted
+        # for in the current above
+        NNLO_integrated_currents.QCD_integrated_CS_X_F
     ])
 
     # Then the integrated counterterms of doubly unresolved limits

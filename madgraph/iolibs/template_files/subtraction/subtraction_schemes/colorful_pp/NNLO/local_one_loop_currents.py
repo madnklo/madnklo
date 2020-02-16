@@ -813,7 +813,7 @@ class TODO_QCD_1_C_IgFg(general_current.GeneralCurrent):
     currents = [
         sub.Current({
             'resolve_mother_spin_and_color': True,
-            'n_loops': 0,
+            'n_loops': 1,
             'squared_orders': {'QCD': 2},
             'singular_structure': sub.SingularStructure(substructures=(coll_structure_qq,)),
         }),

@@ -197,7 +197,6 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
                 raise CurrentImplementationError(
                     "__init__ of " + self.__class__.__name__ + " requires " + opt_name)
 
-
     # Helper function to implement the "allowed_backward_evolved_flavors" masking
     @staticmethod
     def apply_flavor_mask(flavor_matrix,allowed_backward_evolved_flavors):
@@ -308,9 +307,19 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
                 if debug: misc.sprint("Current type mismatch: template=%s vs target=%s"%(a_template_current.get_type(),current_type))
                 continue
 
-            # Match basic characteristics that all currents must match
+            # Match squared orders, assuming an order absent implies zero.
+            if a_template_current['squared_orders'] is not None:
+                if any(
+                    current['squared_orders'].get(order, 0)!=a_template_current['squared_orders'].get(order, 0) for
+                    order in set(current['squared_orders'].keys())|set(a_template_current['squared_orders'].keys())
+                ):
+                    if debug: misc.sprint("squared_orders mismatch: template=%s vs target=%s" % (
+                                                    a_template_current['squared_orders'], current['squared_orders']))
+                    continue
+
             found_a_mismatch = False
-            for basic_property in ['squared_orders', 'n_loops', 'resolve_mother_spin_and_color']:
+            # Match basic characteristics that all currents must match
+            for basic_property in ['n_loops', 'resolve_mother_spin_and_color']:
                 if a_template_current[basic_property] not in [None, current[basic_property]]:
                     if debug: misc.sprint("%s mismatch: template=%s vs target=%s" % (
                                         basic_property, a_template_current[basic_property], current[basic_property]))
@@ -403,8 +412,14 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
 
         # By default, do not debug any currents block
         return False
+#        return len(currents_block)==2 and \
+#            type(currents_block[0]) in [sub.IntegratedBeamCurrent, sub.BeamCurrent] and \
+#            len(currents_block[0]['singular_structure'].substructures)==1 and \
+#            currents_block[0]['singular_structure'].substructures[0].substructures[0].name()=='S' and \
+#            len(currents_block[0]['singular_structure'].substructures[0].substructures[0].substructures) == 0 and \
+#            len(currents_block[0]['singular_structure'].substructures[0].substructures[0].legs)==1
 
-        # The expression below is an example of how to select the particular NLO FF currents block
+            # The expression below is an example of how to select the particular NLO FF currents block
         return len(currents_block)==1 and \
             len(currents_block[0]['singular_structure'].substructures)==1 and \
             currents_block[0]['singular_structure'].substructures[0].name()=='C' and \
@@ -447,6 +462,21 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
                     "Did not match target currents block %s to template currents block %s of class %s " % (
                     currents_block, cls.defining_currents, cls.__name__ ) )
                 return None
+
+        # In order to allow differentiating C(1,4) , F(1) from C(2,4), F(1) for example we add the rule that any leg
+        # numbers in the template currents *that is 1 or 2* must matched to the *same* leg number in all currents block.
+        if len(currents_block)>1:
+            for reserved_matching_number in [1,2]:
+                assigned_number = None
+                for current_properties in init_dict['currents_properties']:
+                    if reserved_matching_number in current_properties['leg_numbers_map']:
+                        if assigned_number is None:
+                            assigned_number = current_properties['leg_numbers_map'][reserved_matching_number]
+                        elif assigned_number != current_properties['leg_numbers_map'][reserved_matching_number]:
+                            if debug_currents_matching_procedure: misc.sprint(
+                                "Reserved matching leg number %d inconsistent across leg numbers maps of currents matched: %d vs %d" % (
+                                    reserved_matching_number, assigned_number, current_properties['leg_numbers_map'][reserved_matching_number]))
+                            return None
 
         if debug_currents_matching_procedure:
             misc.sprint("Successful matching of currents block %s to class %s, with the following initialisation dict:\n%s" % (

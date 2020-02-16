@@ -294,7 +294,7 @@ class QCD_C_FqFg(general_current.GeneralCurrent):
 #=========================================================================================
 
 class QCD_S_g(general_current.GeneralCurrent):
-    """ F S(q_g)"""
+    """ F S(g)"""
 
     # Enable the flag below to debug this current
     DEBUG = False

@@ -60,7 +60,9 @@ beam_PDGs_supported = [
 #=========================================================================================
 
 class TODO_QCD_1_F0(general_current.GeneralCurrent):
-    """Implements the one-loop NLO QCD PDF counterterm of type F(xi)"""
+    """Implements the one-loop NLO QCD PDF counterterm of type F(xi)
+    Notice that this must *also* include the *square* of the tree-level PDF counterterms off one beam.
+    """
 
     # Enable the flag below to debug this current
     DEBUG = False

@@ -1675,7 +1675,7 @@ class Counterterm(CountertermNode):
         n_loops_in_process = self.current.get('n_loops')
         if print_n_loops:
             if n_loops_in_kernel > 0 or n_loops_in_process > 0:
-                suffix += ' @ %d (kernel) + %d (ME) loop%s' % (
+                suffix += ' @ %d(kernel)+%d(ME) loop%s' % (
                     n_loops_in_kernel, n_loops_in_process, 's' if n_loops_in_kernel + n_loops_in_process > 1 else '')
 
         return self.reconstruct_complete_singular_structure().__str__(
@@ -1690,6 +1690,8 @@ class Counterterm(CountertermNode):
             CT_type = '[integrated] '
 
         tmp_str  = lead + CT_type + self.process.nice_string(0, True, False)
+        # From now on, only keep the : in the lead prefix
+        lead = ':'.join(' '*len(s) for s in lead.split(':'))
         tmp_str += " ("
         tmp_str += " ".join(
             str(leg['number'])
@@ -2136,7 +2138,7 @@ class IntegratedCounterterm(Counterterm):
         n_loops_in_process = self.current.get('n_loops')
         if print_n_loops:
             if n_loops_in_kernel > 0 or  n_loops_in_process > 0:
-                suffix += ' @ %d (kernel) + %d (ME)loop%s' % (
+                suffix += ' @ %d(kernel)+%d(ME) loop%s' % (
                     n_loops_in_kernel, n_loops_in_process, 's' if n_loops_in_kernel + n_loops_in_process > 1 else '')
 
         reconstructed_ss = self.reconstruct_complete_singular_structure()

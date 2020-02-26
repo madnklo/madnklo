@@ -83,10 +83,10 @@ class IdentifyMETag(diagram_generation.DiagramTag):
         if not identical_particle_factor:
             identical_particle_factor = process.identical_particle_factor()
         if process.get('perturbation_couplings') and \
-                process.get('NLO_mode') not in ['virt', 'loop','noborn']:
+                not any([process.get('NLO_mode').startswith(mode) for mode in ['virt', 'loop','noborn']]):
             sorted_tags = sorted([IdentifyMETagFKS(d, model, ninitial) for d in \
                                       amplitude.get('diagrams')])
-        elif process.get('NLO_mode') in ['virt','noborn']:
+        elif any([process.get('NLO_mode').startswith(mode) for mode in ['virt','noborn']]):
             # For loop processes, make sure to create the Tag based on
             # the contracted diagram
             sorted_tags = sorted([cls(d.get_contracted_loop_diagram(model,

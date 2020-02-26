@@ -2815,6 +2815,7 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
     _valid_nlo_modes = ['all','real','virt','sqrvirt','tree','noborn','LOonly','tree_DUMMY1LOOP',
                         'tree_DUMMY2LOOP','tree_DUMMY3LOOP','tree_2LOOP','tree_3LOOP',
                         'sqrvirt_DUMMY2LOOP', 'sqrvirt_DUMMY3LOOP', 'sqrvirt_2LOOP', 'sqrvirt_3LOOP',
+                        'virt_DUMMY2LOOP'
                         ]
     _valid_sqso_types = ['==','<=','=','>']
     _valid_amp_so_types = ['=','<=', '==', '>']
@@ -3822,7 +3823,7 @@ This implies that with decay chains:
                     # the relevant diagrams for these coupling orders will be generated
                     procdef.set('perturbation_couplings', generation_options['NNLO'])
                     # Born + I2 emulation
-                    procdef.set('NLO_mode', 'tree_%s%dLOOP'%(
+                    procdef.set('NLO_mode', 'virt_%s%dLOOP'%(
                         'DUMMY' if ('VV' in generation_options['use_dummy_loops']) else '', n_loops), force=True)
 
             # Make sure to set the corresponding number of loops to 2. This *must* always

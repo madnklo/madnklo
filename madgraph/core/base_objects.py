@@ -3079,7 +3079,7 @@ class Process(PhysicsObject):
         if self['perturbation_couplings']:
             mystr = mystr + '[ '
             if self['NLO_mode']!='tree':
-                if self['NLO_mode']=='virt' and not self['has_born']:
+                if self['NLO_mode'].startswith('virt') and not self['has_born']:
                     mystr = mystr + 'sqrvirt = '
                 else:
                     mystr = mystr + self['NLO_mode'] + ' = '
@@ -3965,7 +3965,7 @@ class ProcessDefinition(Process):
         if self['perturbation_couplings']:
             mystr = mystr + '[ '
             if self['NLO_mode']!='tree':
-                if self['NLO_mode']=='virt' and not self['has_born']:
+                if self['NLO_mode'].startswith('virt') and not self['has_born']:
                     mystr = mystr + 'sqrvirt = '
                 else:
                     mystr = mystr + self['NLO_mode'] + ' = '
@@ -4219,7 +4219,7 @@ class ContributionDefinition(object):
         mode of the process definition, but later we'll also have to investigate the 
         coupling orders (to see if any is 'NLOOP') as (multi-)loops in Matrix Element can also 
         be obtained with UFO form factors."""
-        n_process_loops = 1 if (self.process_definition.get('NLO_mode') in ['virt','sqrvirt']) else 0
+        n_process_loops = 1 if any([self.process_definition.get('NLO_mode').startswith(mode) for mode in ['virt','sqrvirt']]) else 0
         return ((n_process_loops - self.n_loops) > 0)
 
     def nice_string(self):

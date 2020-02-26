@@ -2442,7 +2442,7 @@ class DummyContribution_V(Contribution_V):
         process_definition = copy.copy(self.contribution_definition.process_definition)
         if process_definition.get('NLO_mode').startswith('tree'):
             process_definition['perturbation_couplings'] = []
-        process_definition['squared_orders'] = {}
+        #process_definition['squared_orders'] = {}
 
         # The exporter options for the order of the color and spin correlator needs to be set to NLO
         # These options are otherwise set in madgraph.core.contributions.Contribution.__init__
@@ -2461,7 +2461,7 @@ class DummyContribution_V(Contribution_V):
         # Needed to allow color correlators, see madgraph.core.contributions.Contribution.__init__
         self.additional_exporter_options['loop_color_flows'] = True
 
-        myproc = diagram_generation.MultiProcess(process_definition,
+        myproc = self.MultiProcessClass(process_definition,
                     collect_mirror_procs = self.collect_mirror_procs,
                     ignore_six_quark_processes = self.ignore_six_quark_processes,
                     optimize=self.optimize, diagram_filter=self.diagram_filter,
@@ -2474,12 +2474,68 @@ class DummyContribution_V(Contribution_V):
                 logger.warning('Duplicate process found in contribution '+
                                '%s. Sanity check needed.'%str(type(self)))
 
+    def get_multi_process_class(self):
+        """The dummy contribution_V class generates tree amplitudes"""
+        return diagram_generation.MultiProcess
+
 class DummyContribution_VV(DummyContribution_V):
     """ Dummy double-virtual obtained by running the Born and the double virtual."""
 
     def __init__(self, *args, **opts):
         logger.critical("VV contributions are not yet supported. Emulating it with the Born and I-operator.")
         Contribution_V.__init__(self,*args, **opts)
+
+    def get_multi_process_class(self):
+        """The dummy contribution_V class generates one-loop amplitudes"""
+
+        return loop_diagram_generation.LoopMultiProcess
+
+    def generate_amplitudes(self, force=False):
+        """ Generates the relevant amplitudes for this contribution and the construction
+        of the instances of currents for the beam factorization terms."""
+
+        # First check if the amplitude was not already generated
+        if self.amplitudes and not force:
+            return
+
+        # TODO DEV this below should not be used for the VV 1l as the dummy vv is already set to be
+        # TODO DEV with a virt_XXXX which generates a one loop
+        # # Override the process definition to spoof the two-loop matrix elements as the tree matrix
+        # # elements
+        process_definition = copy.copy(self.contribution_definition.process_definition)
+        # if process_definition.get('NLO_mode').startswith('virt'):
+        #     process_definition['perturbation_couplings'] = []
+        # process_definition['squared_orders'] = {}
+
+        # The exporter options for the order of the color and spin correlator needs to be set to NLO
+        # These options are otherwise set in madgraph.core.contributions.Contribution.__init__
+        # where the 'order' of the correlator is given by the difference between the overall correction order
+        # and the contribution's correction order. For a V in an NLO, this yields a 'correlation order' of 'LO'
+        # meaning no correlation is needed. This dummy correlation, however is supposed to be I1.B, which effectively
+        # has the structure of an integrated counterterm.
+        # NB: the V probably only ever needs LO correlations as it is the defining ME of its
+        # contribution but is actually generating N^(k)LO correlations at the moment. For consistency we set
+        # the correlation order to N^(k+1)LO.
+
+        # We need 'NLO' if the option was not set in madgraph.core.contributions.Contribution.__init__ (i.e. it was None)
+        self.additional_exporter_options['color_correlators'] = 'NN' + (self.additional_exporter_options['color_correlators'] or 'LO')
+        self.additional_exporter_options['spin_correlators'] = 'NN' + (self.additional_exporter_options['spin_correlators'] or 'LO')
+
+        # Needed to allow color correlators, see madgraph.core.contributions.Contribution.__init__
+        self.additional_exporter_options['loop_color_flows'] = True
+
+        myproc = self.MultiProcessClass(process_definition,
+                    collect_mirror_procs = self.collect_mirror_procs,
+                    ignore_six_quark_processes = self.ignore_six_quark_processes,
+                    optimize=self.optimize, diagram_filter=self.diagram_filter,
+                    loop_filter=self.loop_filter)
+
+        for amp in myproc.get('amplitudes'):
+            if amp not in self.amplitudes:
+                self.amplitudes.append(amp)
+            else:
+                logger.warning('Duplicate process found in contribution '+
+                               '%s. Sanity check needed.'%str(type(self)))
 
 class Contribution_RV(Contribution_R, Contribution_V):
     """ Implements the general handling of contribution with arbitrary number of reals, virtuals

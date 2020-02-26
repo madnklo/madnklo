@@ -80,7 +80,7 @@ import models.check_param_card as check_param_card
 import models.model_reader as model_reader
 import models.import_ufo as import_ufo
 
-from madgraph.various.math_tools.su_n_group_constants import SU3
+from madgraph.various.math_tools.gauge_theory_constants import SU3
 
 from madgraph.iolibs.files import ln    
 from madgraph import InvalidCmd, MadGraph5Error, MG5DIR, ReadWrite

@@ -1902,7 +1902,7 @@ class MultiProcess(base_objects.PhysicsObject):
         # If there are already couplings defined, return
         if process_definition.get('orders') or \
                 process_definition.get('overall_orders') or \
-                process_definition.get('NLO_mode')=='virt':
+                process_definition.get('NLO_mode').startswith('virt'):
             return process_definition.get('orders')
 
         # If this is a decay process (and not a decay chain), return

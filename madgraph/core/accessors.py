@@ -1019,7 +1019,7 @@ class F2PYMEAccessor(VirtualMEAccessor):
 
         if cls is F2PYMEAccessor:
             target_class = None
-            if process.get('perturbation_couplings') and process.get('NLO_mode') in ['virt','sqrvirt']:
+            if process.get('perturbation_couplings') and any([process.get('NLO_mode').startswith(mode) for mode in ['virt','sqrvirt']]):
                 target_class = F2PYMEAccessorMadLoop
             else:
                 target_class = F2PYMEAccessor

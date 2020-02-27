@@ -45,12 +45,24 @@ pjoin = os.path.join
 
 CurrentImplementationError = utils.CurrentImplementationError
 
+# In principle we support them all, but these are the meaningful ones to consider
+beam_PDGs_supported = [
+    tuple(sorted([1, -1, 2, -2, 3, -3, 4, -4, 5, -5, 6, -6, 21])),
+    tuple(sorted([1, -1, 2, -2, 3, -3, 4, -4, 5, -5, 21])),
+    tuple(sorted([1, -1, 2, -2, 3, -3, 4, -4, 21])),
+    tuple(sorted([1, -1, 2, -2, 3, -3, 21])),
+    tuple(sorted([1, -1, 2, -2, 21])),
+    tuple(sorted([1, -1, 21]))
+]
+
 #=========================================================================================
 # NLO PDF Counterterm
 #=========================================================================================
 
-class QCD_F0(general_current.GeneralCurrent):
-    """Implements the NLO QCD PDF counterterm of type F(xi)"""
+class TODO_QCD_1_F0(general_current.GeneralCurrent):
+    """Implements the one-loop NLO QCD PDF counterterm of type F(xi)
+    Notice that this must *also* include the *square* of the tree-level PDF counterterms off one beam.
+    """
 
     # Enable the flag below to debug this current
     DEBUG = False
@@ -86,10 +98,10 @@ class QCD_F0(general_current.GeneralCurrent):
 
     current_properties = {
         'resolve_mother_spin_and_color': True,
-        'n_loops': 0,
-        'squared_orders': {'QCD': 2},
+        'n_loops': 1,
+        'squared_orders': {'QCD': 4},
         'beam_type' : 'proton',
-        'beam_PDGs' : colorful_pp_config.beam_PDGs_supported
+        'beam_PDGs' : beam_PDGs_supported
     }
     # Now add endpoint IntegratedBeamCurrent...
     current_properties['singular_structure'] = beam_structure_q
@@ -165,6 +177,8 @@ class QCD_F0(general_current.GeneralCurrent):
         if distribution_type == 'endpoint':
             xi = 0.5
 
+        # TODO Modify behaviour below to correspond to the one-loop kernel
+
         # Define the NLO QCD PDF counterterms kernels
         kernel_gg = {
             'bulk': prefactor * (
@@ -230,12 +244,8 @@ class QCD_F0(general_current.GeneralCurrent):
 
         return evaluation
 
-#=========================================================================================
-# NLO PDF Counterterm
-#=========================================================================================
-
-class QCD_F0_lepton(general_current.GeneralCurrent):
-    """Implements the dummy PDF counterterm of type F(xi) for when doing lepton collision with colorful pp."""
+class QCD_1_F0_lepton(general_current.GeneralCurrent):
+    """Implements the dummy one-loop PDF counterterm of type F(xi) for when doing lepton collision with colorful pp."""
 
     # Enable the flag below to debug this current
     DEBUG = False
@@ -268,8 +278,8 @@ class QCD_F0_lepton(general_current.GeneralCurrent):
 
     current_properties = {
         'resolve_mother_spin_and_color': True,
-        'n_loops': 0,
-        'squared_orders': {'QCD': 2},
+        'n_loops': 1,
+        'squared_orders': {'QCD': 4},
         'beam_type' : 'lepton',
         'beam_PDGs' :
             [ tuple(sorted([pdg, -pdg])) for pdg in lepton_abs_PDGs ] +
@@ -317,8 +327,8 @@ class QCD_F0_lepton(general_current.GeneralCurrent):
 # Integrated IF collinear counterterm
 #=========================================================================================
 
-class QCD_integrated_C_IF(general_current.GeneralCurrent):
-    """Implements the NLO QCD initial-state single collinear integrated counterterm of type C(g,x)(x_i)"""
+class TODO_QCD_1_integrated_C_IF(general_current.GeneralCurrent):
+    """Implements the one-loop NLO QCD initial-state single collinear integrated counterterm of type C(g,x)(x_i)"""
 
     # Enable the flag below to debug this current
     DEBUG = False
@@ -373,8 +383,8 @@ class QCD_integrated_C_IF(general_current.GeneralCurrent):
 
     current_properties = {
         'resolve_mother_spin_and_color': True,
-        'n_loops': 0,
-        'squared_orders': {'QCD': 2},
+        'n_loops': 1,
+        'squared_orders': {'QCD': 4},
         'beam_type' : None, # These integrated counterterm do no refer to particular beam type or PDGs.
         'beam_PDGs' : None
     }
@@ -416,6 +426,39 @@ class QCD_integrated_C_IF(general_current.GeneralCurrent):
 
     # An now the mapping rules, which are not necessary in this context.
     mapping_rules = [ ]
+
+
+    # Helper function to implement the "allowed_backward_evolved_flavors" masking
+    @staticmethod
+    def apply_flavor_mask(flavor_matrix,allowed_backward_evolved_flavors):
+        """
+        Given a flavor matrix and a list of permitted flavors that can be the end point of the backward evolution
+        (the flavor mask), generate a filtered flavor matrix.
+
+        :param flavor_matrix: sparse matrix implemented as a dict of dict
+                (see madgraph.integrator.ME7_integrands.ME7Event#convolve_flavors)
+        :param allowed_backward_evolved_flavors: tuple of PDG ids
+        :return: filtered_flavor_matrix, with the same structure as flavor_matrix
+        """
+        # If no mask do nothing
+        if allowed_backward_evolved_flavors == 'ALL':
+            return flavor_matrix
+        else:
+            # We will loop over a matrix M[i][j] = wgt_ij where i is the starting PDG and j a tuple of ending PDGs.
+            # We filter the elements in j.
+            filtered_flavor_matrix = {}
+            # Loop over matrix lines i
+            for reduced_flavor in flavor_matrix:
+                # Each column is a dict {(PDG1.1, PDG1.2, PDG1.3) : wgt1,...} where
+                # the tuple j=(PDG1.1, PDG1.2, PDG1.3) is the label of a column  and wgt the entry ij of the matrix
+                for end_flavors, wgt in  flavor_matrix[reduced_flavor].items():
+                    #Apply the filter on the elements of the tuple
+                    allowed_end_flavors = tuple([fl for fl in end_flavors if fl in allowed_backward_evolved_flavors])
+                    #If a column was entirely filtered out, do not include it
+                    if allowed_end_flavors:
+                        filtered_flavor_matrix[reduced_flavor] = {allowed_end_flavors:wgt}
+
+            return filtered_flavor_matrix
 
     def kernel(self, evaluation, all_steps_info, global_variables):
         """ Evaluate this counterterm given the variables provided. """
@@ -491,6 +534,8 @@ class QCD_integrated_C_IF(general_current.GeneralCurrent):
         # Heaviside
         theta_x_1my0 = 1. if (x - (1 - y_0)) >= 0. else 0.
         theta_1my0_x = 1. if ((1 - y_0) - x) >= 0. else 0.
+
+        # TODO Modify behaviour below to correspond to the one-loop kernel
 
         # Define the NLO QCD integrate initial-state single collinear counterterms kernels
         color_factor = self.CA
@@ -597,8 +642,8 @@ class QCD_integrated_C_IF(general_current.GeneralCurrent):
 # This therefore yields a correlated convolution against initial-state beams
 #=========================================================================================
 
-class QCD_integrated_S_Fg(general_current.GeneralCurrent):
-    """Implements the NLO QCD initial-state single collinear integrated counterterm of type C(g,x)(x_i)"""
+class TODO_QCD_1_integrated_S_Fg(general_current.GeneralCurrent):
+    """Implements the one-loop NLO QCD initial-state single collinear integrated counterterm of type C(g,x)(x_i)"""
 
     # Enable the flag below to debug this current
     DEBUG = False
@@ -626,8 +671,8 @@ class QCD_integrated_S_Fg(general_current.GeneralCurrent):
 
     current_properties = {
         'resolve_mother_spin_and_color': True,
-        'n_loops': 0,
-        'squared_orders': {'QCD': 2},
+        'n_loops': 1,
+        'squared_orders': {'QCD': 4},
         'beam_type' : None, # These integrated counterterm do no refer to particular beam type or PDGs.
         'beam_PDGs' : None
     }
@@ -776,6 +821,9 @@ class QCD_integrated_S_Fg(general_current.GeneralCurrent):
                                 dipole_invariant=dipole_invariant))
                     elif dipole_invariant > 1.:
                         dipole_invariant = 1.
+
+                    # TODO Modify behaviour below to correspond to the one-loop kernel
+
                     if distribution_type == 'bulk':
                         #The factor xi^2 below corrects the flux factor used in the bulk BS which has a 1/xi^2 too many
                         #A more permanent change is warranted after testing.
@@ -825,8 +873,8 @@ class QCD_integrated_S_Fg(general_current.GeneralCurrent):
 # convolution against initial-state beams.
 #=========================================================================================
 
-class QCD_integrated_C_FqFq(general_current.GeneralCurrent):
-    """ Integrated collinear F(q) F(q~) current. """
+class TODO_QCD_1_integrated_C_FqFq(general_current.GeneralCurrent):
+    """ Integrated one-loop F(q)F(q~) collinear current"""
 
     # Enable the flag below to debug this current
     DEBUG = False
@@ -854,8 +902,8 @@ class QCD_integrated_C_FqFq(general_current.GeneralCurrent):
 
     current_properties = {
         'resolve_mother_spin_and_color': True,
-        'n_loops': 0,
-        'squared_orders': {'QCD': 2},
+        'n_loops': 1,
+        'squared_orders': {'QCD': 4},
         'beam_type' : None, # These integrated counterterm do no refer to particular beam type or PDGs.
         'beam_PDGs' : None
     }
@@ -976,6 +1024,8 @@ class QCD_integrated_C_FqFq(general_current.GeneralCurrent):
 
         alpha0 = 1. - sum(masses)/math.sqrt(Q_square)
 
+        # TODO Modify behaviour below to correspond to the one-loop kernel
+
         # dispatch depending on which part of the counterterm we want
         if distribution_type == "endpoint":
 
@@ -1001,7 +1051,8 @@ class QCD_integrated_C_FqFq(general_current.GeneralCurrent):
 
         return evaluation
 
-class QCD_integrated_C_FqFg(general_current.GeneralCurrent):
+class TODO_QCD_1_integrated_C_FqFg(general_current.GeneralCurrent):
+    """ Integrated one-loop F(q)F(g) collinear current"""
 
     # Enable the flag below to debug this current
     DEBUG = False
@@ -1029,8 +1080,8 @@ class QCD_integrated_C_FqFg(general_current.GeneralCurrent):
 
     current_properties = {
         'resolve_mother_spin_and_color': True,
-        'n_loops': 0,
-        'squared_orders': {'QCD': 2},
+        'n_loops': 1,
+        'squared_orders': {'QCD': 4},
         'beam_type' : None, # These integrated counterterm do no refer to particular beam type or PDGs.
         'beam_PDGs' : None
     }
@@ -1151,14 +1202,16 @@ class QCD_integrated_C_FqFg(general_current.GeneralCurrent):
 
         alpha0 = 1. - sum(masses)/math.sqrt(Q_square)
 
+        # TODO Modify behaviour below to correspond to the one-loop kernel
+
         # dispatch depending on which part of the counterterm we want
         if distribution_type == "endpoint":
-
-
             kernel = EpsilonExpansion({
                 -2: 1.,
                 -1: 1.5 - 2.*log(xir) ,
-                0: 3.5 - alpha0 - pi**2/2. + (11*alpha0)/(2.*xir) - (3*log(alpha0))/2. + 4*alpha0*log(alpha0) - (2*alpha0*log(alpha0))/xir - log(alpha0)**2 - (3*log(xir))/2. - 4*alpha0*log(xir) + (2*alpha0*log(xir))/xir + 2*log(alpha0)*log(xir) + log(xir)**2
+                0: 3.5 - alpha0 - pi**2/2. + (11*alpha0)/(2.*xir) - (3*log(alpha0))/2. +
+                    4*alpha0*log(alpha0) - (2*alpha0*log(alpha0))/xir - log(alpha0)**2 - (3*log(xir))/2.
+                   - 4*alpha0*log(xir) + (2*alpha0*log(xir))/xir + 2*log(alpha0)*log(xir) + log(xir)**2
                 #2.5 - pi**2/2. + 11/(2.*xir) - (11*log(xir))/2. + (2*log(xir))/xir + log(xir)**2
             })
 
@@ -1170,7 +1223,8 @@ class QCD_integrated_C_FqFg(general_current.GeneralCurrent):
 
         elif distribution_type == "counterterm":
             kernel = EpsilonExpansion({
-                0: (7*alpha - 3*xir + 6*alpha*xir + (-4*xir + alpha*(-4 + 8*xir))*log(alpha) + 4*(alpha + xir - 2*alpha*xir)*log(xir))/(2.*alpha*xir)
+                0: (7*alpha - 3*xir + 6*alpha*xir + (-4*xir + alpha*(-4 + 8*xir))*log(alpha) +
+                    4*(alpha + xir - 2*alpha*xir)*log(xir))/(2.*alpha*xir)
                     if alpha<alpha0 else 0
             })
         else:
@@ -1180,7 +1234,8 @@ class QCD_integrated_C_FqFg(general_current.GeneralCurrent):
 
         return evaluation
 
-class QCD_integrated_C_FgFg(general_current.GeneralCurrent):
+class TODO_QCD_1_integrated_C_FgFg(general_current.GeneralCurrent):
+    """ Integrated one-loop F(g)F(g) collinear current"""
 
     # Enable the flag below to debug this current
     DEBUG = False
@@ -1208,8 +1263,8 @@ class QCD_integrated_C_FgFg(general_current.GeneralCurrent):
 
     current_properties = {
         'resolve_mother_spin_and_color': True,
-        'n_loops': 0,
-        'squared_orders': {'QCD': 2},
+        'n_loops': 1,
+        'squared_orders': {'QCD': 4},
         'beam_type' : None, # These integrated counterterm do no refer to particular beam type or PDGs.
         'beam_PDGs' : None
     }
@@ -1330,14 +1385,16 @@ class QCD_integrated_C_FgFg(general_current.GeneralCurrent):
 
         alpha0 = 1. - sum(masses)/math.sqrt(Q_square)
 
+        # TODO Modify behaviour below to correspond to the one-loop kernel
+
         # dispatch depending on which part of the counterterm we want
         if distribution_type == "endpoint":
             kernel = EpsilonExpansion({
                 -2: 2.,
                 -1: 11./3. - 4.*log(xir) ,
-                0: 67./9. - (2*alpha0)/3. - pi**2 + (37*alpha0)/(3.*xir) - (11*log(alpha0/xir))/3.
-                   + 8*alpha0*log(alpha0/xir) -  (4*alpha0*log(alpha0/xir))/xir - 2*log(alpha0/xir)**2
-                   - (22*log(xir))/3. + 4*log(xir)**2
+                0: 67./9. - (2*alpha0)/3. - pi**2 + (37*alpha0)/(3.*xir) - (11*log(alpha0/xir))/3. +
+                   8*alpha0*log(alpha0/xir) -  (4*alpha0*log(alpha0/xir))/xir - 2*log(alpha0/xir)**2 -
+                   (22*log(xir))/3. + 4*log(xir)**2
                     #7.444444444444445 - pi**2 - (11*log(xir))/3. + 2*log(xir)**2
             })
 
@@ -1364,8 +1421,8 @@ class QCD_integrated_C_FgFg(general_current.GeneralCurrent):
 # Integrated IF and FF soft-collinear counterterm
 #=========================================================================================
 
-class QCD_integrated_CS_IF(general_current.GeneralCurrent):
-    """Implements the NLO QCD initial-state single soft-collinear integrated counterterm of type C(S(g),x)(x_i)
+class QCD_1_integrated_CS_IF(general_current.GeneralCurrent):
+    """Implements the one-loop NLO QCD initial-state single soft-collinear integrated counterterm of type C(S(g),x)(x_i)
     This is zero in this scheme as it was included directly together with the soft contribution.
     """
 
@@ -1411,8 +1468,8 @@ class QCD_integrated_CS_IF(general_current.GeneralCurrent):
 
     current_properties = {
         'resolve_mother_spin_and_color': True,
-        'n_loops': 0,
-        'squared_orders': {'QCD': 2},
+        'n_loops': 1,
+        'squared_orders': {'QCD': 4},
         'beam_type' : None, # These integrated counterterm do no refer to particular beam type or PDGs.
         'beam_PDGs' : None
     }
@@ -1443,8 +1500,8 @@ class QCD_integrated_CS_IF(general_current.GeneralCurrent):
     # An now the mapping rules, which are not necessary in this context.
     mapping_rules = [ ]
 
-class QCD_integrated_CS_FF(general_current.GeneralCurrent):
-    """Implements the NLO QCD initial-state single soft-collinear integrated counterterm of type C(S(g),x)(x_i)
+class QCD_1_integrated_CS_FF(general_current.GeneralCurrent):
+    """Implements the one-loop NLO QCD initial-state single soft-collinear integrated counterterm of type C(S(g),x)(x_i)
     This is zero in this scheme as it was included directly together with the soft contribution.
     """
 
@@ -1490,8 +1547,8 @@ class QCD_integrated_CS_FF(general_current.GeneralCurrent):
 
     current_properties = {
         'resolve_mother_spin_and_color': True,
-        'n_loops': 0,
-        'squared_orders': {'QCD': 2},
+        'n_loops': 1,
+        'squared_orders': {'QCD': 4},
         'beam_type' : None, # These integrated counterterm do no refer to particular beam type or PDGs.
         'beam_PDGs' : None
     }
@@ -1521,5 +1578,3 @@ class QCD_integrated_CS_FF(general_current.GeneralCurrent):
 
     # An now the mapping rules, which are not necessary in this context.
     mapping_rules = [ ]
-
-

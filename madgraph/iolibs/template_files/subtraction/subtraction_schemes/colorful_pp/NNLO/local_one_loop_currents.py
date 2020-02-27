@@ -2,11 +2,11 @@
 #
 # Copyright (c) 2009 The MadGraph5_aMC@NLO Development team and Contributors
 #
-# This file is a part of the MadGraph5_aMC@NLO project, an application which 
+# This file is a part of the MadGraph5_aMC@NLO project, an application which
 # automatically generates Feynman diagrams and matrix elements for arbitrary
 # high-energy processes in the Standard Model and beyond.
 #
-# It is subject to the MadGraph5_aMC@NLO license which should accompany this 
+# It is subject to the MadGraph5_aMC@NLO license which should accompany this
 # distribution.
 #
 # For more information, visit madgraph.phys.ucl.ac.be and amcatnlo.web.cern.ch
@@ -37,8 +37,8 @@ CurrentImplementationError = utils.CurrentImplementationError
 # NLO final collinears
 #=========================================================================================
 
-class QCD_C_FqFqx(general_current.GeneralCurrent):
-    """ FF C(q_qx)"""
+class TODO_QCD_1_C_FqFqx(general_current.GeneralCurrent):
+    """ One-loop FF C(q_qx)"""
 
     # Enable the flag below to debug this current
     DEBUG = False
@@ -61,8 +61,8 @@ class QCD_C_FqFqx(general_current.GeneralCurrent):
     currents = [
         sub.Current({
             'resolve_mother_spin_and_color'     : True,
-            'n_loops'                           : 0,
-            'squared_orders'                    : {'QCD': 2},
+            'n_loops'                           : 1,
+            'squared_orders'                    : {'QCD': 4},
             'singular_structure'                : sub.SingularStructure(substructures=(coll_structure,)),
         }),
     ]
@@ -101,12 +101,8 @@ class QCD_C_FqFqx(general_current.GeneralCurrent):
         parent = all_steps_info[0]['bundles_info'][0]['parent']
         p_rs_hat = all_steps_info[0]['lower_PS_point'][parent]
 
-        #misc.sprint(s_rs,)
-        #misc.sprint(z_FF)
-        #misc.sprint(kT_FF)
-        #misc.sprint(p_rs_hat, parent)
-
         # We must include here propagator factors
+        # TODO Modify behaviour below to correspond to the one-loop kernel
         prefactor = 1./s_rs
         for spin_correlation_vector, weight in AltarelliParisiKernels.P_qq(self, z_FF, kT_FF):
             complete_weight = weight * prefactor
@@ -118,8 +114,8 @@ class QCD_C_FqFqx(general_current.GeneralCurrent):
 
         return evaluation
 
-class QCD_C_FgFg(general_current.GeneralCurrent):
-    """ FF C(g_g)"""
+class TODO_QCD_1_C_FgFg(general_current.GeneralCurrent):
+    """ One-loop FF C(g_g)"""
 
     # Enable the flag below to debug this current
     DEBUG = False
@@ -142,8 +138,8 @@ class QCD_C_FgFg(general_current.GeneralCurrent):
     currents = [
         sub.Current({
             'resolve_mother_spin_and_color'     : True,
-            'n_loops'                           : 0,
-            'squared_orders'                    : {'QCD': 2},
+            'n_loops'                           : 1,
+            'squared_orders'                    : {'QCD': 4},
             'singular_structure'                : sub.SingularStructure(substructures=(coll_structure,)),
         }),
     ]
@@ -182,6 +178,7 @@ class QCD_C_FgFg(general_current.GeneralCurrent):
         parent = all_steps_info[0]['bundles_info'][0]['parent']
         p_rs_hat = all_steps_info[0]['lower_PS_point'][parent]
 
+        # TODO Modify behaviour below to correspond to the one-loop kernel
         # We must include here propagator factors
         prefactor = 1./s_rs
         for spin_correlation_vector, weight in AltarelliParisiKernels.P_gg(self, z_FF, kT_FF):
@@ -194,8 +191,8 @@ class QCD_C_FgFg(general_current.GeneralCurrent):
 
         return evaluation
 
-class QCD_C_FqFg(general_current.GeneralCurrent):
-    """ FF C(q_g)"""
+class TODO_QCD_1_C_FqFg(general_current.GeneralCurrent):
+    """ One-loop FF C(q_g)"""
 
     # Enable the flag below to debug this current
     DEBUG = False
@@ -225,14 +222,14 @@ class QCD_C_FqFg(general_current.GeneralCurrent):
     currents = [
         sub.Current({
             'resolve_mother_spin_and_color'     : True,
-            'n_loops'                           : 0,
-            'squared_orders'                    : {'QCD': 2},
+            'n_loops'                           : 1,
+            'squared_orders'                    : {'QCD': 4},
             'singular_structure'                : sub.SingularStructure(substructures=(coll_structure_q,)),
         }),
         sub.Current({
             'resolve_mother_spin_and_color'     : True,
-            'n_loops'                           : 0,
-            'squared_orders'                    : {'QCD': 2},
+            'n_loops'                           : 1,
+            'squared_orders'                    : {'QCD': 4},
             'singular_structure'                : sub.SingularStructure(substructures=(coll_structure_qx,)),
         }),
     ]
@@ -271,11 +268,7 @@ class QCD_C_FqFg(general_current.GeneralCurrent):
         parent = all_steps_info[0]['bundles_info'][0]['parent']
         p_rs_hat = all_steps_info[0]['lower_PS_point'][parent]
 
-        #misc.sprint(s_rs,)
-        #misc.sprint(z_FF)
-        #misc.sprint(kT_FF)
-        #misc.sprint(p_rs_hat, parent)
-
+        # TODO Modify behaviour below to correspond to the one-loop kernel
         # We must include here propagator factors
         prefactor = 1./s_rs
         # The P_gq kernel is the one that matches the z definitions above.
@@ -293,8 +286,8 @@ class QCD_C_FqFg(general_current.GeneralCurrent):
 # NLO soft current
 #=========================================================================================
 
-class QCD_S_g(general_current.GeneralCurrent):
-    """ F S(g)"""
+class TODO_QCD_1_S_g(general_current.GeneralCurrent):
+    """ One-loop F S(q_g)"""
 
     # Enable the flag below to debug this current
     DEBUG = False
@@ -316,8 +309,8 @@ class QCD_S_g(general_current.GeneralCurrent):
     currents = [
         sub.Current({
             'resolve_mother_spin_and_color'     : True,
-            'n_loops'                           : 0,
-            'squared_orders'                    : {'QCD': 2},
+            'n_loops'                           : 1,
+            'squared_orders'                    : {'QCD': 4},
             'singular_structure'                : sub.SingularStructure(substructures=(soft_structure,)),
         }),
     ]
@@ -385,6 +378,7 @@ class QCD_S_g(general_current.GeneralCurrent):
         # the default value None from the list of color correlations
         evaluation['color_correlations'] = []
 
+        # TODO Modify behaviour below to correspond to the one-loop kernel
         color_correlation_index = 0
         # Now loop over the colored parton number pairs (a,b)
         # and add the corresponding contributions to this current
@@ -410,8 +404,8 @@ class QCD_S_g(general_current.GeneralCurrent):
 # NLO final soft-collinear currents
 #=========================================================================================
 
-class QCD_CS_FgFg(general_current.GeneralCurrent):
-    """ FF C(S(g),g)
+class TODO_QCD_1_CS_FgFg(general_current.GeneralCurrent):
+    """ One-loop FF C(S(g),g)
     NLO tree-level (final) soft-collinear currents. The momenta used in this current are the
     mapped momenta from the soft mapping."""
 
@@ -427,8 +421,8 @@ class QCD_CS_FgFg(general_current.GeneralCurrent):
     currents = [
         sub.Current({
             'resolve_mother_spin_and_color'     : True,
-            'n_loops'                           : 0,
-            'squared_orders'                    : {'QCD': 2},
+            'n_loops'                           : 1,
+            'squared_orders'                    : {'QCD': 4},
             'singular_structure'                : sub.SingularStructure(substructures=(soft_coll_structure_g,)),
         }),
     ]
@@ -487,6 +481,8 @@ class QCD_CS_FgFg(general_current.GeneralCurrent):
         # We must include here propagator factors
         prefactor = 1./(p_rs_hat+p_soft).square()
 
+        # TODO Modify behaviour below to correspond to the one-loop kernel
+
         # For now, we hard-code the soft-collinear current here and do not fetch it from universal kernels
         # as this is a sub limit
         color_factor = getattr(self, self.color_factor)
@@ -494,8 +490,8 @@ class QCD_CS_FgFg(general_current.GeneralCurrent):
 
         return evaluation
 
-class QCD_CS_FgFq(QCD_CS_FgFg):
-    """ FF C(S(g),q)
+class TODO_QCD_1_CS_FgFq(TODO_QCD_1_CS_FgFg):
+    """ One-loop FF C(S(g),q)
     NLO tree-level (final) soft-collinear currents. The momenta used in this current are the
     mapped momenta from the soft mapping."""
 
@@ -509,8 +505,8 @@ class QCD_CS_FgFq(QCD_CS_FgFg):
     currents = [
         sub.Current({
             'resolve_mother_spin_and_color'     : True,
-            'n_loops'                           : 0,
-            'squared_orders'                    : {'QCD': 2},
+            'n_loops'                           : 1,
+            'squared_orders'                    : {'QCD': 4},
             'singular_structure'                : sub.SingularStructure(substructures=(soft_coll_structure_q,)),
         }),
     ]
@@ -522,14 +518,16 @@ class QCD_CS_FgFq(QCD_CS_FgFg):
     # For the qg soft-collinear the color prefactor is CF
     color_factor = "CF"
 
+    # TODO Modify behaviour below to correspond to the one-loop kernel
+
     # The rest of the class is identical to that of the g g soft-collinear so we do not need to specify anything further.
 
 #=========================================================================================
 # NLO initial-collinear currents
 #=========================================================================================
 
-class QCD_C_IgFq(general_current.GeneralCurrent):
-    """gq collinear ISR tree-level current. q(initial) > g(initial_after_emission) q(final)"""
+class TODO_QCD_1_C_IgFq(general_current.GeneralCurrent):
+    """One-loop gq collinear ISR tree-level current. q(initial) > g(initial_after_emission) q(final)"""
 
     # Enable the flag below to debug this current
     DEBUG = False
@@ -552,8 +550,8 @@ class QCD_C_IgFq(general_current.GeneralCurrent):
     currents = [
         sub.Current({
             'resolve_mother_spin_and_color'     : True,
-            'n_loops'                           : 0,
-            'squared_orders'                    : {'QCD': 2},
+            'n_loops'                           : 1,
+            'squared_orders'                    : {'QCD': 4},
             'singular_structure'                : sub.SingularStructure(substructures=(coll_structure_gq,)),
         }),
     ]
@@ -600,6 +598,8 @@ class QCD_C_IgFq(general_current.GeneralCurrent):
 
         z = 1. / x
 
+        # TODO Modify behaviour below to correspond to the one-loop kernel
+
         # We must include here propagator factors
         #  (p_initial_state_child - sum(p_final_state_children)).square() = -s_rs
         prefactor = initial_state_crossing_factor / (-s_rs)
@@ -613,8 +613,8 @@ class QCD_C_IgFq(general_current.GeneralCurrent):
 
         return evaluation
 
-class QCD_C_IqFg(general_current.GeneralCurrent):
-    """qg collinear ISR tree-level current. q(initial) > q(initial_after_emission) g(final)"""
+class TODO_QCD_1_C_IqFg(general_current.GeneralCurrent):
+    """One-loop qg collinear ISR tree-level current. q(initial) > q(initial_after_emission) g(final)"""
 
     # Enable the flag below to debug this current
     DEBUG = False
@@ -637,8 +637,8 @@ class QCD_C_IqFg(general_current.GeneralCurrent):
     currents = [
         sub.Current({
             'resolve_mother_spin_and_color': True,
-            'n_loops': 0,
-            'squared_orders': {'QCD': 2},
+            'n_loops': 1,
+            'squared_orders': {'QCD': 4},
             'singular_structure': sub.SingularStructure(substructures=(coll_structure_qg,)),
         }),
     ]
@@ -700,8 +700,8 @@ class QCD_C_IqFg(general_current.GeneralCurrent):
 
         return evaluation
 
-class QCD_C_IqFq(general_current.GeneralCurrent):
-    """qq collinear ISR tree-level current. g(initial) > q(initial_after_emission) qx(final)"""
+class TODO_QCD_1_C_IqFq(general_current.GeneralCurrent):
+    """One-loop qq collinear ISR tree-level current. g(initial) > q(initial_after_emission) qx(final)"""
 
     # Enable the flag below to debug this current
     DEBUG = False
@@ -724,8 +724,8 @@ class QCD_C_IqFq(general_current.GeneralCurrent):
     currents = [
         sub.Current({
             'resolve_mother_spin_and_color': True,
-            'n_loops': 0,
-            'squared_orders': {'QCD': 2},
+            'n_loops': 1,
+            'squared_orders': {'QCD': 4},
             'singular_structure': sub.SingularStructure(substructures=(coll_structure_qq,)),
         }),
     ]
@@ -773,6 +773,8 @@ class QCD_C_IqFq(general_current.GeneralCurrent):
 
         z = 1. / x
 
+        # TODO Modify behaviour below to correspond to the one-loop kernel
+
         # We must include here propagator factors
         #  (p_initial_state_child - sum(p_final_state_children)).square() = - s_rs
         prefactor = initial_state_crossing_factor / (-s_rs)
@@ -787,8 +789,8 @@ class QCD_C_IqFq(general_current.GeneralCurrent):
 
         return evaluation
 
-class QCD_C_IgFg(general_current.GeneralCurrent):
-    """gg collinear ISR tree-level current. g(initial) > g(initial_after_emission) g(final)"""
+class TODO_QCD_1_C_IgFg(general_current.GeneralCurrent):
+    """One-loop gg collinear ISR tree-level current. g(initial) > g(initial_after_emission) g(final)"""
 
     # Enable the flag below to debug this current
     DEBUG = False
@@ -811,7 +813,7 @@ class QCD_C_IgFg(general_current.GeneralCurrent):
     currents = [
         sub.Current({
             'resolve_mother_spin_and_color': True,
-            'n_loops': 0,
+            'n_loops': 1,
             'squared_orders': {'QCD': 2},
             'singular_structure': sub.SingularStructure(substructures=(coll_structure_qq,)),
         }),
@@ -860,6 +862,8 @@ class QCD_C_IgFg(general_current.GeneralCurrent):
 
         z = 1. / x
 
+        # TODO Modify behaviour below to correspond to the one-loop kernel
+
         # We must include here propagator factors, which is:
         #  (p_initial_state_child - sum(p_final_state_children)).square() = - s_rs
         prefactor = initial_state_crossing_factor / (-s_rs)
@@ -877,8 +881,9 @@ class QCD_C_IgFg(general_current.GeneralCurrent):
 #=========================================================================================
 # NLO soft initial-collinear currents
 #=========================================================================================
-class QCD_CS_IgFg(general_current.GeneralCurrent):
-    """NLO tree-level (initial) soft-collinear currents.
+
+class TODO_QCD_1_CS_IgFg(general_current.GeneralCurrent):
+    """One-loop NLO tree-level (initial) soft-collinear currents.
     gg soft-collinear ISR tree-level current. g(initial) > g(initial_after_emission) g(final)
     The momenta used in this current are the mapped momenta from the soft mapping."""
 
@@ -894,8 +899,8 @@ class QCD_CS_IgFg(general_current.GeneralCurrent):
     currents = [
         sub.Current({
             'resolve_mother_spin_and_color'     : True,
-            'n_loops'                           : 0,
-            'squared_orders'                    : {'QCD': 2},
+            'n_loops'                           : 1,
+            'squared_orders'                    : {'QCD': 4},
             'singular_structure'                : sub.SingularStructure(substructures=(soft_coll_structure_g,)),
         }),
     ]
@@ -959,6 +964,8 @@ class QCD_CS_IgFg(general_current.GeneralCurrent):
         # We must include here propagator factors
         # Must normalise with (pC_tilde (i.e. p_rs_hat) +pS).square() given the above definition of the x.
 
+        # TODO Modify behaviour below to correspond to the one-loop kernel
+
         #prefactor = 1./ (2.*pC.dot(p_soft))
         prefactor = 1. / (2. *p_rs_hat.dot(p_soft))
 
@@ -969,8 +976,8 @@ class QCD_CS_IgFg(general_current.GeneralCurrent):
 
         return evaluation
 
-class QCD_CS_IqFg(QCD_CS_IgFg):
-    """NLO tree-level (initial) soft-collinear currents.
+class TODO_QCD_1_CS_IqFg(TODO_QCD_1_CS_IgFg):
+    """One-loop NLO tree-level (initial) soft-collinear currents.
     gg soft-collinear ISR tree-level current. q(initial) > q(initial_after_emission) g(final)
     The momenta used in this current are the mapped momenta from the soft mapping."""
 
@@ -985,8 +992,8 @@ class QCD_CS_IqFg(QCD_CS_IgFg):
     currents = [
         sub.Current({
             'resolve_mother_spin_and_color'     : True,
-            'n_loops'                           : 0,
-            'squared_orders'                    : {'QCD': 2},
+            'n_loops'                           : 1,
+            'squared_orders'                    : {'QCD': 4},
             'singular_structure'                : sub.SingularStructure(substructures=(soft_coll_structure_q,)),
         }),
     ]
@@ -1000,3 +1007,5 @@ class QCD_CS_IqFg(QCD_CS_IgFg):
 
     # The rest of the class is identical to that of the g g initial state soft-collinear so we do not
     # need to specify anything further.
+
+    # TODO Modify behaviour below to correspond to the one-loop kernel

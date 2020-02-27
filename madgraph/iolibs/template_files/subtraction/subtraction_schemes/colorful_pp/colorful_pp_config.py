@@ -12,6 +12,16 @@ import madgraph.various.misc as misc
 
 CurrentImplementationError = utils.CurrentImplementationError
 
+# In principle we support them all, but these are the meaningful ones to consider
+beam_PDGs_supported= [
+    tuple(sorted([1, -1, 2, -2, 3, -3, 4, -4, 5, -5, 6, -6, 21])),
+    tuple(sorted([1, -1, 2, -2, 3, -3, 4, -4, 5, -5, 21])),
+    tuple(sorted([1, -1, 2, -2, 3, -3, 4, -4, 21])),
+    tuple(sorted([1, -1, 2, -2, 3, -3, 21])),
+    tuple(sorted([1, -1, 2, -2, 21])),
+    tuple(sorted([1, -1, 21]))
+]
+
 #=========================================================================================
 # mappings, jacobians, factors and cuts
 #=========================================================================================

@@ -1292,6 +1292,8 @@ class BeamCurrent(Current):
         # Denote "bulk" contributions embedded within colons ':%s:'
         if self['distribution_type']=='bulk':
             return ':%s:'%base_str
+        elif self['distribution_type']=='counterterm':
+            return '{%s}'%base_str
         return base_str
 
 #=========================================================================================
@@ -1500,7 +1502,7 @@ class CountertermNode(object):
             # Initialize node_combinations with the first node
             # at any loop number between 0 and n_loops
             first_without_loops = self.nodes[0]
-            # Do not modify loop count of currents with n_loops = -1
+            # Do not modify loop count of currents with n_loops != -1
             if self.nodes[0].current['n_loops'] != -1:
                 node_combinations += [[self.nodes[0], ], ]
             else:
@@ -1628,29 +1630,43 @@ class Counterterm(CountertermNode):
         self.n_non_factorisable_double_sided_convolution = 0
 
     @classmethod
-    def get_ancestor(cls, particles, momentum_dict):
+    def get_ancestor(cls, particles, momentum_dict, stop_if_none_found=True):
         """Recursively explore the momentum dictionary to find an ancestor
         of the given particle set (i.e. these are leg numbers here).
         """
-    
+
         try:
             return momentum_dict.inv[particles]
         except KeyError:
-            new_particles = frozenset(particles)
+            # Find all keys that allow to to reduce the set of particles to find the ancestor for
+            selected_keys = []
             for key in momentum_dict.inv.keys():
-                if len(key) == 1 or key.isdisjoint(new_particles):
+                if len(key) == 1 or key.isdisjoint(particles):
                     continue
-                if key.issubset(new_particles):
-                    new_particles = new_particles.difference(key)
-                    new_particles = new_particles.union({momentum_dict.inv[key], })
-            if len(new_particles) == 1:
-                return tuple(new_particles)[0]
-            elif new_particles != particles:
-                return cls.get_ancestor(new_particles, momentum_dict)
-            else:
+                if key.issubset(particles):
+                    selected_keys.append(key)
+
+            for key in selected_keys:
+                particles_for_next_step = particles.difference(key)
+                particles_for_next_step = particles_for_next_step.union({momentum_dict.inv[key], })
+
+                if len(particles_for_next_step) == 1:
+                    if particles_for_next_step in momentum_dict.inv.keys():
+                        return momentum_dict.inv[particles_for_next_step]
+                    else:
+                        return tuple(particles_for_next_step)[0]
+
+                elif particles_for_next_step != particles:
+                    outcome_for_this_branch = cls.get_ancestor(particles_for_next_step, momentum_dict, stop_if_none_found=False)
+                    if outcome_for_this_branch is not None:
+                        return outcome_for_this_branch
+
+            if stop_if_none_found:
                 raise KeyError(
                     "Could not find leg numbers " + str(particles) +
                     "in this momentum routing dictionary:\n" + str(momentum_dict) )
+            else:
+                return None
 
     def __str__(self, print_n=True, print_pdg=False, print_state=False, print_n_loops=True):
 
@@ -1659,7 +1675,7 @@ class Counterterm(CountertermNode):
         n_loops_in_process = self.current.get('n_loops')
         if print_n_loops:
             if n_loops_in_kernel > 0 or n_loops_in_process > 0:
-                suffix += ' @ %d+%d loop%s' % (
+                suffix += ' @ %d(kernel)+%d(ME) loop%s' % (
                     n_loops_in_kernel, n_loops_in_process, 's' if n_loops_in_kernel + n_loops_in_process > 1 else '')
 
         return self.reconstruct_complete_singular_structure().__str__(
@@ -1674,6 +1690,8 @@ class Counterterm(CountertermNode):
             CT_type = '[integrated] '
 
         tmp_str  = lead + CT_type + self.process.nice_string(0, True, False)
+        # From now on, only keep the : in the lead prefix
+        lead = ':'.join(' '*len(s) for s in lead.split(':'))
         tmp_str += " ("
         tmp_str += " ".join(
             str(leg['number'])
@@ -2120,7 +2138,7 @@ class IntegratedCounterterm(Counterterm):
         n_loops_in_process = self.current.get('n_loops')
         if print_n_loops:
             if n_loops_in_kernel > 0 or  n_loops_in_process > 0:
-                suffix += ' @ %d+%d loop%s' % (
+                suffix += ' @ %d(kernel)+%d(ME) loop%s' % (
                     n_loops_in_kernel, n_loops_in_process, 's' if n_loops_in_kernel + n_loops_in_process > 1 else '')
 
         reconstructed_ss = self.reconstruct_complete_singular_structure()
@@ -2156,7 +2174,7 @@ class IntegratedCounterterm(Counterterm):
                 counterterms that consists of single current encompassing the full
                 singular structure that must be analytically integrated over, not:\n%s"""%str(self))
 
-    def merge_convolutions(self):
+    def merge_convolutions(self, subtraction_scheme_module):
         """ If this integrated counterterm implies multiple convolutions in the *same* convolution parameter
         then one of them will be performed analytically, thus inducing a new building-block counterterm implementing
         that composite object. Example:
@@ -2181,7 +2199,8 @@ class IntegratedCounterterm(Counterterm):
         all_legs = integrated_current['singular_structure'].get_all_legs()
         beams_convolved_by_integrated_current = [
             beam_name for i_beam, beam_name in enumerate(['beam_one', 'beam_two']) if (
-                self.does_require_correlated_beam_convolution() or \
+                integrated_current['singular_structure'].does_require_correlated_beam_convolution(subtraction_scheme_module) or
+                self.get_n_non_factorisable_double_sided_convolution() or
                 any(l.n == i_beam+1 for l in all_legs)
             )
         ]
@@ -2296,7 +2315,7 @@ class IntegratedCounterterm(Counterterm):
         # Then fetch all integrated currents making up this integrated counterterm
         # In the current implementation, there can only be one for now.
         integrated_current = self.get_integrated_current()
-        if type(integrated_current) not in [BeamCurrent ]:
+        if type(integrated_current) not in [ BeamCurrent, ]:
             return necessary_beam_convolutions
         
         # Check if this integrated counterterm necessitate a soft-recoil that demands
@@ -2936,27 +2955,17 @@ class IRSubtraction(object):
                 raise MadGraph5Error(
                     "Function squared_orders() of CountertermNode not working properly. "
                     "It should have at least the reduced process squared orders in it." )
+        # filter zeros
+        squared_orders = {order: value for order, value in squared_orders.items() if value!=0}
 
-        ########
-        # TODO
-        #
-        # Modify the reduced process leg numbers so as to follow the order of appearance in the list of legs
-        # (because this is how the PS point will be provided in the virtual contribution).
-        #
-        # Modify the bi-dictionary so as to match the modification of the leg numbers above in the reduced process.
-        # What leg numbers are chosen for the unresolved legs is irrelevant, as long as I can deduce the parent leg
-        # number from the singular structure and the bidictionary momentum map
-        #
-        ########
-        
         ########
         #
         # TODO handle the mixed final-initial local counterterm case. This issue is more general, however and pertains
-        # to the definition of the integrated countertem(S?) of any set of disjoint local counterterms. 
+        # to the definition of the integrated countertem(S?) of any set of disjoint local counterterms.
         # For now only the case of a single initial state collinear local CT is supported.
         #
         ########
-        
+
         # First tackle the special case of single initial-state collinear structure
         initial_state_legs = [leg for leg in complete_singular_structure.substructures[0].substructures[0].legs if
                                                                                 leg.state == SubtractionLeg.INITIAL]
@@ -3090,29 +3099,41 @@ class IRSubtraction(object):
         all_integrated_counterterms = []
         for combination in combinations:
             for template_counterterm in self.get_counterterm(combination, process):
-                if not ignore_integrated_counterterms:
-                    template_integrated_counterterms = self.get_integrated_counterterm(template_counterterm)
-                else:
-                    template_integrated_counterterms = []
+
+#               Uncomment the code below to remove all counterterms that have both soft and col
+#                if any(
+#                        (
+#                            any(s.name()=='S' for s in c.get('singular_structure').decompose()) and
+#                            any(s.name()=='C' for s in c.get('singular_structure').decompose())
+#                        ) for c in template_counterterm.get_all_currents()
+#                ):
+#                    continue
+
+#               Uncomment the code below to retain remove pure collinear counterterms
+#                if any(
+#                        (
+#                            any(s.name()=='C' for s in c.get('singular_structure').decompose()) and True
+#                            not (any(s.name()=='S' for s in c.get('singular_structure').decompose()))
+#                        ) for c in template_counterterm.get_all_currents()
+#                ):
+#                    continue
 
                 counterterms_with_loops = template_counterterm.distribute_loops(target_n_loops)
 
-                # TODO
-                # For the time being, distribute_orders is given None instead of the squared orders
-                # because they should be retrieved from the process by looking at individual
-                # matrix elements
-                # That is, every process has a list of possible coupling orders assignations
-                # so we should loop over them
+
                 for counterterm_with_loops in counterterms_with_loops:
-                    all_counterterms.extend( counterterm_with_loops.distribute_orders(None) )
-
-                # Now also distribute the template integrated counterterms
-                for template_integrated_counterterm in template_integrated_counterterms:
-                    integrated_counterterms_with_loops = template_integrated_counterterm.distribute_loops(target_n_loops)
-
-                    for integrated_counterterm_with_loops in integrated_counterterms_with_loops:
-                        all_integrated_counterterms.extend(
-                            integrated_counterterm_with_loops.distribute_orders(None) )
+                    # TODO
+                    # For the time being, distribute_orders is given None instead of the squared orders
+                    # because they should be retrieved from the process by looking at individual
+                    # matrix elements
+                    # That is, every process has a list of possible coupling orders assignations
+                    # so we should loop over them
+                    counterterm_with_loops_and_orders = counterterm_with_loops.distribute_orders(None)
+                    for local_CT in counterterm_with_loops_and_orders:
+                        all_counterterms.append(local_CT)
+                        if not ignore_integrated_counterterms:
+                            integrated_counterterms = self.get_integrated_counterterm(local_CT)
+                            all_integrated_counterterms.extend(integrated_counterterms)
 
         # Now for each integrated counterterm generated, set the attribute 'requires_correlated_beam_convolution.'
         for integrated_CT in all_integrated_counterterms:
@@ -3133,7 +3154,13 @@ class IRSubtraction(object):
         #     :[(C(1,4),F(1)^(1)]: with reduced process B x :F(2)^(0):
         all_merged_integrated_counterterms = []
         for integrated_CT in all_integrated_counterterms:
-            all_merged_integrated_counterterms.extend(integrated_CT.merge_convolutions())
+            merged_integrated_counterterms = integrated_CT.merge_convolutions(self.subtraction_scheme_module)
+            # We must refresh the attributes correlated beam and non factorisable convolutions.
+            for merged_integrated_counterterm in merged_integrated_counterterms:
+                merged_integrated_counterterm.set_requires_correlated_beam_convolution(self.subtraction_scheme_module)
+                merged_integrated_counterterm.set_n_non_factorisable_double_sided_convolution(self.subtraction_scheme_module)
+            all_merged_integrated_counterterms.extend(merged_integrated_counterterms)
+
 
         return all_counterterms, all_merged_integrated_counterterms
 

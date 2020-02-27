@@ -2207,23 +2207,24 @@ class ME7Integrand_V(ME7Integrand):
                 res += ' | 0 integrated counterterm'
                 
         else:
-            long_res = [' | with the following integrated counterterms:']
+            if len(self.integrated_counterterms[process_key]) > 0:
+                long_res = [' | with the following integrated counterterms:']
+            else:
+                long_res = [' | with no integrated counterterm']
             for i_CT, CT_properties in enumerate(self.integrated_counterterms[process_key]):
                 CT = CT_properties['integrated_counterterm']
                 if format==2:
-                    long_res.append( '   | I%d : %s'%(i_CT, CT.__str__(
-                                        print_n=True, print_pdg=False, print_state=False )  ) )
+                    long_res.append( '   | I%d : %s' % (i_CT, str(CT)))
                 elif format==3:
-                    long_res.append( '   | I%d : %s'%(i_CT, CT.__str__(
-                                        print_n=True, print_pdg=True, print_state=True )  ) )
+                    long_res.append( '   | I%d : %s' % (i_CT, CT.__str__(
+                        print_n=True, print_pdg=True, print_state=True )))
                 elif format==4:
-                    long_res.append( '   | I%d : %s'%(i_CT, str(CT)))
+                    long_res.append(CT.nice_string("   | I%-3d : "%i_CT))
                 elif format>4:
-                    long_res.append( '   | I%d : %s'%(i_CT, str(CT)))
+                    long_res.append(CT.nice_string("   | I%-3d : "%i_CT))
                     for key, value in CT_properties.items():
                         if not key in ['integrated_counterterm', 'matching_process_key']:
                             long_res.append( '     + %s : %s'%(key, str(value)))
-
             res += '\n'.join(long_res)
 
         return res
@@ -3081,17 +3082,19 @@ class ME7Integrand_R(ME7Integrand):
                 res += ' | 0 local counterterm'
                 
         else:
-            long_res = [' | with the following local counterterms:']
+            if len(self.counterterms[process_key])>0:
+                long_res = [' | with the following local counterterms:']
+            else:
+                long_res = [' | with no local counterterm']
             for i_CT, CT in enumerate(self.counterterms[process_key]):
                 if CT.is_singular():
                     if format==2:
-                        long_res.append( '   | L%d : %s'%(i_CT, CT.__str__(
-                            print_n=True, print_pdg=False, print_state=False )  ))
+                        long_res.append( '   | L%d : %s' % (i_CT, str(CT)))
                     elif format==3:
-                        long_res.append( '   | L%d : %s'%(i_CT, CT.__str__(
-                            print_n=True, print_pdg=True, print_state=True )  ))
+                        long_res.append( '   | L%d : %s' % (i_CT, CT.__str__(
+                            print_n=True, print_pdg=True, print_state=True ) ))
                     elif format>3:
-                        long_res.append( '   | L%d : %s'%(i_CT, str(CT)))
+                        long_res.append(CT.nice_string("   | L%-3d : "%i_CT))
             res += '\n'.join(long_res)
 
         return res
@@ -4715,27 +4718,30 @@ class ME7Integrand_RV(ME7Integrand_R, ME7Integrand_V):
             else:
                 res += ' and 0 integrated counterterm'
         else:
-            long_res = [' | with the following local and integrated counterterms:']
+            if len(self.counterterms[process_key])+len(self.integrated_counterterms[process_key])>0:
+                long_res = [' | with the following local and integrated counterterms:']
+            else:
+                long_res = [' | with no local or integrated counterterm']
             for i_CT, CT in enumerate(self.counterterms[process_key]):
                 if CT.is_singular():
                     if format==2:
-                        long_res.append( '   | %d : %s' % (i_CT, str(CT)))
+                        long_res.append( '   | L%d : %s' % (i_CT, str(CT)))
                     elif format==3:
-                        long_res.append( '   | %d : %s' % (i_CT, CT.__str__(
+                        long_res.append( '   | L%d : %s' % (i_CT, CT.__str__(
                             print_n=True, print_pdg=True, print_state=True ) ))
                     elif format>3:
-                        long_res.append(CT.nice_string("   | "))
+                        long_res.append(CT.nice_string("   | L%-3d : "%i_CT))
             for i_CT, CT_properties in enumerate(self.integrated_counterterms[process_key]):
                 CT = CT_properties['integrated_counterterm']
                 if format==2:
-                    long_res.append( '   | %d : %s' % (i_CT, str(CT)))
+                    long_res.append( '   | I%d : %s' % (i_CT, str(CT)))
                 elif format==3:
-                    long_res.append( '   | %d : %s' % (i_CT, CT.__str__(
+                    long_res.append( '   | I%d : %s' % (i_CT, CT.__str__(
                         print_n=True, print_pdg=True, print_state=True )))
                 elif format==4:
-                    long_res.append(CT.nice_string("   | %d : "%i_CT))
+                    long_res.append(CT.nice_string("   | I%-3d : "%i_CT))
                 elif format>4:
-                    long_res.append(CT.nice_string("   | %d : "%i_CT))
+                    long_res.append(CT.nice_string("   | I%-3d : "%i_CT))
                     for key, value in CT_properties.items():
                         if not key in ['integrated_counterterm', 'matching_process_key']:
                             long_res.append( '     + %s : %s'%(key, str(value)))
@@ -4896,7 +4902,7 @@ class ME7Integrand_RRR(ME7Integrand_R):
     """ ME7Integrand for the computation of a double real-emission type of contribution."""
     def sigma(self, PS_point, process_key, process, all_flavor_configurations,
                                 base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, *args, **opts):
-        return super(ME7Integrand_RR, self).sigma(PS_point, process_key, process, all_flavor_configurations,
+        return super(ME7Integrand_RRR, self).sigma(PS_point, process_key, process, all_flavor_configurations,
                                 base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, *args, **opts)
 
 #===============================================================================

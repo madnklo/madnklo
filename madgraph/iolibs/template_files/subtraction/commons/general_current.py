@@ -197,6 +197,38 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
                 raise CurrentImplementationError(
                     "__init__ of " + self.__class__.__name__ + " requires " + opt_name)
 
+    # Helper function to implement the "allowed_backward_evolved_flavors" masking
+    @staticmethod
+    def apply_flavor_mask(flavor_matrix,allowed_backward_evolved_flavors):
+        """
+        Given a flavor matrix and a list of permitted flavors that can be the end point of the backward evolution
+        (the flavor mask), generate a filtered flavor matrix.
+
+        :param flavor_matrix: sparse matrix implemented as a dict of dict
+                (see madgraph.integrator.ME7_integrands.ME7Event#convolve_flavors)
+        :param allowed_backward_evolved_flavors: tuple of PDG ids
+        :return: filtered_flavor_matrix, with the same structure as flavor_matrix
+        """
+        # If no mask do nothing
+        if allowed_backward_evolved_flavors == 'ALL':
+            return flavor_matrix
+        else:
+            # We will loop over a matrix M[i][j] = wgt_ij where i is the starting PDG and j a tuple of ending PDGs.
+            # We filter the elements in j.
+            filtered_flavor_matrix = {}
+            # Loop over matrix lines i
+            for reduced_flavor in flavor_matrix:
+                # Each column is a dict {(PDG1.1, PDG1.2, PDG1.3) : wgt1,...} where
+                # the tuple j=(PDG1.1, PDG1.2, PDG1.3) is the label of a column  and wgt the entry ij of the matrix
+                for end_flavors, wgt in  flavor_matrix[reduced_flavor].items():
+                    #Apply the filter on the elements of the tuple
+                    allowed_end_flavors = tuple([fl for fl in end_flavors if fl in allowed_backward_evolved_flavors])
+                    #If a column was entirely filtered out, do not include it
+                    if allowed_end_flavors:
+                        filtered_flavor_matrix[reduced_flavor] = {allowed_end_flavors:wgt}
+
+            return filtered_flavor_matrix
+
     @classmethod
     def check_current_properties(cls, current):
         try:
@@ -268,16 +300,29 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
                 'distribution_type': None,  # if not a distribution else value in ['bulk', 'counterterm', 'endpoint']
                 'active_fermions': None, # if not relevant for this current, otherwise the list of PDGs of the active fermions
                 'NF': None,  # if not relevant for this current, otherwise the number of active massless fermions
-                'has_initial_state' : False # Simple flag indicating if that particular current involve initial states
+                'has_initial_state' : False, # Simple flag indicating if that particular current involve initial states
+                'squared_orders': None, # Perturbative order of the squared splitting sub-diagram
             }
 
             if current_type != a_template_current.get_type():
                 if debug: misc.sprint("Current type mismatch: template=%s vs target=%s"%(a_template_current.get_type(),current_type))
                 continue
 
-            # Match basic characteristics that all currents must match
+            # Match squared orders, assuming an order absent implies zero.
+            if a_template_current['squared_orders'] is not None:
+                if any(
+                    current['squared_orders'].get(order, 0)!=a_template_current['squared_orders'].get(order, 0) for
+                    order in set(current['squared_orders'].keys())|set(a_template_current['squared_orders'].keys())
+                ):
+                    if debug: misc.sprint("squared_orders mismatch: template=%s vs target=%s" % (
+                                                    a_template_current['squared_orders'], current['squared_orders']))
+                    continue
+                else:
+                    matching_current_properties['squared_orders'] = current['squared_orders']
+
             found_a_mismatch = False
-            for basic_property in ['squared_orders', 'n_loops', 'resolve_mother_spin_and_color']:
+            # Match basic characteristics that all currents must match
+            for basic_property in ['n_loops', 'resolve_mother_spin_and_color']:
                 if a_template_current[basic_property] not in [None, current[basic_property]]:
                     if debug: misc.sprint("%s mismatch: template=%s vs target=%s" % (
                                         basic_property, a_template_current[basic_property], current[basic_property]))
@@ -349,7 +394,8 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
                                     current['singular_structure'], a_template_current['singular_structure'], model)
             if leg_numbers_map is None:
                 if debug: misc.sprint("Singular structure mismatch: template=%s vs target=%s" % (
-                                        a_template_current['singular_structure'], current['singular_structure']))
+                                        a_template_current['singular_structure'].__str__(print_n=True, print_pdg=True, print_state=True),
+                                        current['singular_structure'].__str__(print_n=True, print_pdg=True, print_state=True)))
                 continue
             else:
                 matching_current_properties['leg_numbers_map'] = leg_numbers_map
@@ -369,8 +415,14 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
 
         # By default, do not debug any currents block
         return False
+#        return len(currents_block)==2 and \
+#            type(currents_block[0]) in [sub.IntegratedBeamCurrent, sub.BeamCurrent] and \
+#            len(currents_block[0]['singular_structure'].substructures)==1 and \
+#            currents_block[0]['singular_structure'].substructures[0].substructures[0].name()=='S' and \
+#            len(currents_block[0]['singular_structure'].substructures[0].substructures[0].substructures) == 0 and \
+#            len(currents_block[0]['singular_structure'].substructures[0].substructures[0].legs)==1
 
-        # The expression below is an example of how to select the particular NLO FF currents block
+            # The expression below is an example of how to select the particular NLO FF currents block
         return len(currents_block)==1 and \
             len(currents_block[0]['singular_structure'].substructures)==1 and \
             currents_block[0]['singular_structure'].substructures[0].name()=='C' and \
@@ -409,13 +461,29 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
                     break
             else:
                 # We found no match for this defining current, this class can therefore not support these currents
-                if debug_currents_matching_procedure: misc.sprint( "Did not match currents block %s to class %s" % (
-                    currents_block, cls.__name__ ) )
+                if debug_currents_matching_procedure: misc.sprint(
+                    "Did not match target currents block %s to template currents block %s of class %s " % (
+                    currents_block, cls.defining_currents, cls.__name__ ) )
                 return None
 
-        if debug_currents_matching_procedure: misc.sprint(
-            "Successful matching of currents block %s to class %s, with the following initialisation dict:\n%s" % (
-                currents_block, cls.__name__, pformat(init_dict) ))
+        # In order to allow differentiating C(1,4) , F(1) from C(2,4), F(1) for example we add the rule that any leg
+        # numbers in the template currents *that is 1 or 2* must matched to the *same* leg number in all currents block.
+        if len(currents_block)>1:
+            for reserved_matching_number in [1,2]:
+                assigned_number = None
+                for current_properties in init_dict['currents_properties']:
+                    if reserved_matching_number in current_properties['leg_numbers_map']:
+                        if assigned_number is None:
+                            assigned_number = current_properties['leg_numbers_map'][reserved_matching_number]
+                        elif assigned_number != current_properties['leg_numbers_map'][reserved_matching_number]:
+                            if debug_currents_matching_procedure: misc.sprint(
+                                "Reserved matching leg number %d inconsistent across leg numbers maps of currents matched: %d vs %d" % (
+                                    reserved_matching_number, assigned_number, current_properties['leg_numbers_map'][reserved_matching_number]))
+                            return None
+
+        if debug_currents_matching_procedure:
+            misc.sprint("Successful matching of currents block %s to class %s, with the following initialisation dict:\n%s" % (
+                                                                        currents_block, cls.__name__, pformat(init_dict)))
 
         return init_dict
 
@@ -698,7 +766,7 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
         # Apply cuts: include the counterterm only in a part of the phase-space
         for i_step, mapping_rule in enumerate(self.mapping_rules):
             cut_inputs = dict(all_steps[i_step])
-            if mapping_rule['is_cut'](cut_inputs, global_variables):
+            if mapping_rule['is_cut'] is not None and mapping_rule['is_cut'](cut_inputs, global_variables):
                 return utils.SubtractionCurrentResult.zero(
                     current=current, hel_config=hel_config,
                     reduced_kinematics=('IS_CUT', (overall_lower_PS_point, xis[:2]) ))

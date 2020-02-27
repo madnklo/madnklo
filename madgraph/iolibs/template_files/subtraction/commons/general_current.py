@@ -300,7 +300,8 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
                 'distribution_type': None,  # if not a distribution else value in ['bulk', 'counterterm', 'endpoint']
                 'active_fermions': None, # if not relevant for this current, otherwise the list of PDGs of the active fermions
                 'NF': None,  # if not relevant for this current, otherwise the number of active massless fermions
-                'has_initial_state' : False # Simple flag indicating if that particular current involve initial states
+                'has_initial_state' : False, # Simple flag indicating if that particular current involve initial states
+                'squared_orders': None, # Perturbative order of the squared splitting sub-diagram
             }
 
             if current_type != a_template_current.get_type():
@@ -316,6 +317,8 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
                     if debug: misc.sprint("squared_orders mismatch: template=%s vs target=%s" % (
                                                     a_template_current['squared_orders'], current['squared_orders']))
                     continue
+                else:
+                    matching_current_properties['squared_orders'] = current['squared_orders']
 
             found_a_mismatch = False
             # Match basic characteristics that all currents must match

@@ -1676,7 +1676,6 @@ The resulting output must therefore be used for debugging only as it will not yi
     def remove_counterterms_with_no_reduced_process(cls, all_MEAccessors, counterterms):
         """Given the list of available reduced processes encoded in the MEAccessorDict 'all_MEAccessors'
         given in argument, remove all the counterterms whose underlying reduced process does not exist."""
-        return False
         all_removed = True
         for counterterm_info in list(counterterms):
             # Integrated counterterm come as dictionaries with additional metadata

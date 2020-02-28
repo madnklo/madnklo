@@ -197,6 +197,48 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
                 raise CurrentImplementationError(
                     "__init__ of " + self.__class__.__name__ + " requires " + opt_name)
 
+    ####################################################################################################################
+    # START OF FUNCTIONS TO BE OVERLOADED BY DAUGHTER CLASSES TO MODIFY THE BEHAVIOUR OF GENERAL CURRENTS
+    ####################################################################################################################
+
+    def get_recoiler_combinations(self, reduced_process, global_variables, *args, **opts):
+        """ This function returns a list of tuples of the following format:
+             ( reduced_kinematic_identifier, (
+                                        recoilers_subtraction_leg_set_for_step_1,
+                                        recoilers_subtraction_leg_set_for_step_2,
+                                        ...
+                                        )
+            )
+            By default this returns ( None, []) and the list of recoiler legs from the entries 'reduced_recoilers'
+            and 'additional_recoilers' of the mapping rules.
+            Note that the leg numbers of these set of recoilers specified should be already mapped, i.e correspond
+            to the leg numbers of the actual PS point and process supplied at the time this current is called.
+
+            For Catani-Seymour dipole subtraction for example, you would use a different mapping for each dipole, so one
+            could return a list of entries like the following for the dipole with legs (1,2):
+            (   (1,2),   [  SubtractionLegSet(SubtractionLeg(number=2)), ]  )
+        """
+
+        overall_parents = global_variables['overall_parents']
+        leg_numbers_map = global_variables['leg_numbers_map']
+
+        recoilers_per_step = []
+        for i_step, mapping_information in enumerate(self.mapping_rules):
+            # Now obtain recoilers
+            reduced_recoilers = mapping_information['reduced_recoilers'](
+                    reduced_process, excluded=tuple(overall_parents), global_variables=global_variables)
+            additional_recoilers = sub.SubtractionLegSet( SubtractionLeg(
+                        self.map_leg_number(leg_numbers_map, l.n, overall_parents),l.pdg,l.state)
+                                                                    for l in mapping_information['additional_recoilers'] )
+            recoilers_per_step.append( sub.SubtractionLegSet( list(reduced_recoilers)+list(additional_recoilers)) )
+
+        return [ (None, tuple(recoilers_per_step)), ]
+
+
+    ####################################################################################################################
+    # END OF FUNCTIONS TO BE OVERLOADED BY DAUGHTER CLASSES TO MODIFY THE BEHAVIOUR OF GENERAL CURRENTS
+    ####################################################################################################################
+
     # Helper function to implement the "allowed_backward_evolved_flavors" masking
     @staticmethod
     def apply_flavor_mask(flavor_matrix,allowed_backward_evolved_flavors):
@@ -318,7 +360,7 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
                                                     a_template_current['squared_orders'], current['squared_orders']))
                     continue
                 else:
-                    matching_current_properties['squared_orders'] = current['squared_orders']
+                    matching_current_properties['squared_orders'] = a_template_current['squared_orders']
 
             found_a_mismatch = False
             # Match basic characteristics that all currents must match
@@ -495,10 +537,12 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
 
         return evaluation
 
-    def call_soft_kernel(self, evaluation, reduced_process, *args):
-        """Evaluate a collinear type of splitting kernel, which *does* need to know about the reduced process
-        Should be specialised by the daughter class if more info than just the colored partons must be extracted
-        by from the reduced process.
+    def get_colored_leg_numbers(self, reduced_process):
+        """ Returns a dictionary of the form:
+             { leg_number : ( SU3_representation, leg_state)  }
+           where leg_state is either SubtractionLeg.INITIAL or SubtractionLeg.FINAL and SU3_representation
+           is 3 for a triplet, -3 for an antitriplet, 8 for an octet... etc. (legs not present in this dictionary are
+           colorless by construction).
         """
 
         # Build a dictionary of the form {leg_number : (color_representation, state [in/outgoing])}
@@ -509,7 +553,15 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
                 continue
             colored_parton_numbers[leg.get('number')] = (leg_color_quantum_number, leg.get('state'))
 
-        return self.soft_kernel(evaluation,colored_parton_numbers,*args)
+        return colored_parton_numbers
+
+    def call_soft_kernel(self, evaluation, reduced_process, *args):
+        """Evaluate a collinear type of splitting kernel, which *does* need to know about the reduced process
+        Should be specialised by the daughter class if more info than just the colored partons must be extracted
+        by from the reduced process.
+        """
+
+        return self.soft_kernel(evaluation, self.get_colored_leg_numbers(reduced_process), *args)
 
     def soft_kernel(self, evaluation, colored_partons, all_steps_info, global_variables):
         """Evaluate a soft type of splitting kernel, which *does* need to know about the reduced process
@@ -653,19 +705,9 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
         # eg (C(1,2),C(4,5),S(6)).
         defining_structure = self.defining_currents[0][0].get('singular_structure').unpack()
 
-        # Make sure a lower_PS_point is generated even if no mapping rule was necessary (as it is for instance the case
-        # for integrated counterterms).
-        all_steps = [{'higher_PS_point': higher_PS_point},]
-        overall_jacobian = 1.
-
         # Retrieve leg numbers
         overall_children = [] # the legs becoming unresolved in the resolved process (momenta in the real-emission ME)
         overall_parents = [] # the parent legs in the top-level reduced process (momenta in the mapped ME of this CT)
-
-        if len(self.mapping_rules) == 0:
-            # When no mapping is necessary, we must still define a default lower_PS_point for the first step that is
-            # identical to the higher PS point.
-            all_steps[0]['lower_PS_point'] = all_steps[0]['higher_PS_point']
 
         for bundle in defining_structure.substructures:
             overall_children.append(tuple(leg_numbers_map[l.n] for l in bundle.get_all_legs()))
@@ -687,102 +729,130 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
                 'n_initial_legs': n_initial_legs
         }
 
-        for i_step, mapping_information in enumerate(self.mapping_rules):
-            # Now obtain recoilers
-            reduced_recoilers = mapping_information['reduced_recoilers'](
-                                reduced_process, excluded=tuple(overall_parents), global_variables=global_variables)
-            additional_recoilers = sub.SubtractionLegSet( SubtractionLeg(
-                        self.map_leg_number(leg_numbers_map, l.n, overall_parents),l.pdg,l.state)
-                                                                    for l in mapping_information['additional_recoilers'] )
-            all_recoilers = sub.SubtractionLegSet( list(reduced_recoilers)+list(additional_recoilers))
+        all_recoilers_for_each_step = self.get_recoiler_combinations(reduced_process,global_variables)
 
-            # Now recursively apply leg numbers mappings
-            mapping_singular_structure = mapping_information['singular_structure'].get_copy()
-            self.map_leg_numbers_in_singular_structure(leg_numbers_map, mapping_singular_structure, overall_parents)
-            # Now assign the recoilers (whose leg numbers have already been mapped)
-            mapping_singular_structure.legs = all_recoilers
+        all_steps = {}
 
-            # Build the momenta_dict by also substituting leg numbers
-            this_momenta_dict = bidict({self.map_leg_number(leg_numbers_map, k,overall_parents):frozenset([
-                self.map_leg_number(leg_numbers_map, n, overall_parents) for n in v]) for k,v in mapping_information['momenta_dict'].items()})
+        for kinematic_identifier, recoilers_for_each_step in all_recoilers_for_each_step:
 
-            lower_PS_point, mapping_vars = mapping_information['mapping'].map_to_lower_multiplicity(
-                all_steps[-1]['higher_PS_point'], mapping_singular_structure, this_momenta_dict,
-                compute_jacobian=self.divide_by_jacobian)
-            if mappings.RelabellingMapping.needs_relabelling(this_momenta_dict):
-                lower_PS_point = mappings.RelabellingMapping.map_to_lower_multiplicity(lower_PS_point, None, this_momenta_dict)
+            # Make sure a lower_PS_point is generated even if no mapping rule was necessary (as it is for instance the case
+            # for integrated counterterms).
+            all_steps = {kinematic_identifier: [{'higher_PS_point': higher_PS_point}, ]}
 
-            all_steps[-1]['lower_PS_point'] = lower_PS_point
-            # Q is provided externally
-            mapping_vars.pop('Q', None)
-            all_steps[-1]['mapping_vars'] = mapping_vars
+            if len(self.mapping_rules) == 0:
+                # When no mapping is necessary, we must still define a default lower_PS_point for the first step that is
+                # identical to the higher PS point.
+                all_steps[kinematic_identifier][0]['lower_PS_point'] = all_steps[kinematic_identifier][0]['higher_PS_point']
 
-            overall_jacobian *= mapping_vars.get('jacobian', 1.)
+            for i_step, mapping_information in enumerate(self.mapping_rules):
 
-            bundles_info = []
-            for bundle in mapping_singular_structure.substructures:
-                bundles_info.append({})
-                all_legs = bundle.get_all_legs()
-                # This sorting is important so that the variables generated can be related to the legs specified
-                # in the mapping singular structures of the mapping rules
-                all_initial_legs = sorted([l for l in all_legs if l.state==l.INITIAL], key = lambda l: l.n)
-                all_final_legs = sorted([l for l in all_legs if l.state==l.FINAL], key = lambda l: l.n)
-                bundles_info[-1]['initial_state_children'] = tuple(l.n for l in all_initial_legs)
-                bundles_info[-1]['final_state_children'] = tuple(l.n for l in all_final_legs)
-                if self.has_parent(bundle, len(all_legs)):
-                    bundles_info[-1]['parent'] = self.get_parent(frozenset(l.n for l in all_legs),this_momenta_dict)
+                all_recoilers = recoilers_for_each_step[i_step]
+
+                # Now recursively apply leg numbers mappings
+                mapping_singular_structure = mapping_information['singular_structure'].get_copy()
+                self.map_leg_numbers_in_singular_structure(leg_numbers_map, mapping_singular_structure, overall_parents)
+                # Now assign the recoilers (whose leg numbers have already been mapped)
+                mapping_singular_structure.legs = all_recoilers
+
+                # Build the momenta_dict by also substituting leg numbers
+                this_momenta_dict = bidict({self.map_leg_number(leg_numbers_map, k,overall_parents):frozenset([
+                    self.map_leg_number(leg_numbers_map, n, overall_parents) for n in v]) for k,v in mapping_information['momenta_dict'].items()})
+
+                lower_PS_point, mapping_vars = mapping_information['mapping'].map_to_lower_multiplicity(
+                    all_steps[kinematic_identifier][-1]['higher_PS_point'], mapping_singular_structure, this_momenta_dict,
+                    compute_jacobian=self.divide_by_jacobian)
+                if mappings.RelabellingMapping.needs_relabelling(this_momenta_dict):
+                    lower_PS_point = mappings.RelabellingMapping.map_to_lower_multiplicity(lower_PS_point, None, this_momenta_dict)
+
+                all_steps[kinematic_identifier][-1]['lower_PS_point'] = lower_PS_point
+                # Q is provided externally
+                mapping_vars.pop('Q', None)
+                all_steps[kinematic_identifier][-1]['mapping_vars'] = mapping_vars
+
+                # Add the mapping jacobian information for this step
+                all_steps[kinematic_identifier][-1]['jacobian'] = mapping_vars.get('jacobian', 1.)
+
+                bundles_info = []
+                for bundle in mapping_singular_structure.substructures:
+                    bundles_info.append({})
+                    all_legs = bundle.get_all_legs()
+                    # This sorting is important so that the variables generated can be related to the legs specified
+                    # in the mapping singular structures of the mapping rules
+                    all_initial_legs = sorted([l for l in all_legs if l.state==l.INITIAL], key = lambda l: l.n)
+                    all_final_legs = sorted([l for l in all_legs if l.state==l.FINAL], key = lambda l: l.n)
+                    bundles_info[-1]['initial_state_children'] = tuple(l.n for l in all_initial_legs)
+                    bundles_info[-1]['final_state_children'] = tuple(l.n for l in all_final_legs)
+                    if self.has_parent(bundle, len(all_legs)):
+                        bundles_info[-1]['parent'] = self.get_parent(frozenset(l.n for l in all_legs),this_momenta_dict)
+                    else:
+                        bundles_info[-1]['parent'] = None
+
+                    # Retrieve kinematics
+                    bundles_info[-1]['cut_inputs'] = {}
+                    if bundle.name() == 'C':
+                        if len(all_initial_legs)>0:
+                            bundles_info[-1]['cut_inputs']['pA'] = sum(all_steps[kinematic_identifier][-1]['higher_PS_point'][l.n] for l in all_initial_legs)
+                        bundles_info[-1]['cut_inputs']['pC'] = sum(all_steps[kinematic_identifier][-1]['higher_PS_point'][l.n] for l in all_final_legs)
+                    elif bundle.name() == 'S':
+                        bundles_info[-1]['cut_inputs']['pS'] = sum(all_steps[kinematic_identifier][-1]['higher_PS_point'][l.n] for l in all_final_legs)
+
+                all_steps[kinematic_identifier][-1]['bundles_info'] = bundles_info
+
+                # Get all variables for this level
+                if mapping_information['variables'] is not None:
+                    all_steps[kinematic_identifier][-1]['variables'] = mapping_information['variables'](
+                        all_steps[kinematic_identifier][-1]['higher_PS_point'], all_steps[kinematic_identifier][-1]['lower_PS_point'],
+                        bundles_info, Q=Q, **mapping_vars)
                 else:
-                    bundles_info[-1]['parent'] = None
+                    all_steps[kinematic_identifier][-1]['variables'] = {}
 
-                # Retrieve kinematics
-                bundles_info[-1]['cut_inputs'] = {}
-                if bundle.name() == 'C':
-                    if len(all_initial_legs)>0:
-                        bundles_info[-1]['cut_inputs']['pA'] = sum(all_steps[-1]['higher_PS_point'][l.n] for l in all_initial_legs)
-                    bundles_info[-1]['cut_inputs']['pC'] = sum(all_steps[-1]['higher_PS_point'][l.n] for l in all_final_legs)
-                elif bundle.name() == 'S':
-                    bundles_info[-1]['cut_inputs']['pS'] = sum(all_steps[-1]['higher_PS_point'][l.n] for l in all_final_legs)
-
-            all_steps[-1]['bundles_info'] = bundles_info
-
-            # Get all variables for this level
-            if mapping_information['variables'] is not None:
-                all_steps[-1]['variables'] = mapping_information['variables'](
-                    all_steps[-1]['higher_PS_point'], all_steps[-1]['lower_PS_point'],
-                    bundles_info, Q=Q, **mapping_vars)
-            else:
-                all_steps[-1]['variables'] = {}
-
-            # Add the next higher PS point for the next level if necessary
-            if i_step<(len(self.mapping_rules)-1):
-                all_steps.append({'higher_PS_point':lower_PS_point})
-
-        overall_lower_PS_point = all_steps[-1]['lower_PS_point']
+                # Add the next higher PS point for the next level if necessary
+                if i_step<(len(self.mapping_rules)-1):
+                    all_steps[kinematic_identifier].append({'higher_PS_point':lower_PS_point})
 
         # Build global variables if necessary
         if self.variables is not None:
             global_variables.update(self.variables(reduced_process, all_steps, global_variables))
 
         # Apply cuts: include the counterterm only in a part of the phase-space
-        for i_step, mapping_rule in enumerate(self.mapping_rules):
-            cut_inputs = dict(all_steps[i_step])
-            if mapping_rule['is_cut'] is not None and mapping_rule['is_cut'](cut_inputs, global_variables):
-                return utils.SubtractionCurrentResult.zero(
-                    current=current, hel_config=hel_config,
-                    reduced_kinematics=('IS_CUT', (overall_lower_PS_point, xis[:2]) ))
+        are_all_reduced_kinematics_cut = (len(self.mapping_rules) > 0)
+        a_cut_reduced_kinematics = None
+        for kinematic_identifier, recoilers_for_each_step in all_recoilers_for_each_step:
+            overall_lower_PS_point = all_steps[kinematic_identifier][-1]['lower_PS_point']
+            for i_step, mapping_rule in enumerate(self.mapping_rules):
+                cut_inputs = dict(all_steps[kinematic_identifier][i_step])
+                if mapping_rule['is_cut'] is not None and mapping_rule['is_cut'](cut_inputs, global_variables):
+                    # This reduced kinematics is cut, we should therefore remove it from the list of all_steps
+                    # and also keep a reference to this reduced kinematics that is cut if we need to return immediately
+                    del all_steps[kinematic_identifier]
+                    a_cut_reduced_kinematics = overall_lower_PS_point
+                else:
+                    are_all_reduced_kinematics_cut = False
 
-#        for i_step, step_info in enumerate(all_steps):
-#            misc.sprint("Higher PS point at step #%d: %s"%(i_step, str(step_info['higher_PS_point'])))
-#            misc.sprint("Lower PS point at step  #%d: %s"%(i_step, str(step_info['lower_PS_point'])))
+        # If no reduced kinematics passes the cut we can now return immediately
+        if are_all_reduced_kinematics_cut:
+            cut_result = utils.SubtractionCurrentResult()
+            cut_result.add_result(
+                self.subtraction_current_evaluation_class.zero( reduced_kinematics=('IS_CUT', a_cut_reduced_kinematics) ),
+                hel_config=hel_config,
+                squared_orders=tuple(sorted(squared_orders.items()))
+            )
+            return cut_result
 
-        # Evaluate kernel
         evaluation = self.subtraction_current_evaluation_class({
             'spin_correlations' : [ None, ],
             'color_correlations': [ None, ],
             'Bjorken_rescalings': [ (xis[0], xis[1]), ],
-            'reduced_kinematics': [ (None, overall_lower_PS_point), ],
+            'reduced_kinematics': [ ],
             'values': { }
         })
+        # We can now simplify the structure of all_steps if it contains just one entry with a kinematic identifier
+        # set to None:
+        # And we can already pre-fill the reduced kinematics
+        if all_steps.keys()==[None,]:
+            # We can prefill the kinematics in this case
+            all_steps = all_steps[None]
+            evaluation['reduced_kinematics'] = [ (None, all_steps[-1]['lower_PS_point']), ]
 
         # Apply collinear kernel (can be dummy)
         evaluation = self.kernel(evaluation, all_steps, global_variables)
@@ -793,7 +863,9 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
         # Add the normalization factors
         # WARNING! In this implementation the propagator denominators must be included in the kernel evaluation.
         norm = (8. * math.pi * alpha_s) ** (squared_orders['QCD']/2)
-        norm /= overall_jacobian
+
+        # Notice that if one must divide by the jacobian of the mapping,
+        # then this must be done at the level of the current.
         for k in evaluation['values']:
             for term in evaluation['values'][k]:
                 if isinstance(evaluation['values'][k][term], dict):
@@ -804,6 +876,7 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
 
         # Construct and return result
         result = utils.SubtractionCurrentResult()
+
         result.add_result(
             evaluation,
             hel_config=hel_config,

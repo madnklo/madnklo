@@ -119,6 +119,16 @@ class SubtractionCurrentEvaluation(dict):
                         line in self.subresult_lines(res[spin_lorentz_pair],'%-10s=%s')])
             return '\n'.join(formatted_res)
 
+        if key=='reduced_kinematics':
+            if len(res)==0:
+                return 'N/A'
+            formatted_res = ['']
+            for kinematic_identifier, reduced_kinematics in res:
+                formatted_res.append(misc.bcolors.BLUE+'     %s:'%str(kinematic_identifier)+misc.bcolors.ENDC)
+                str_kinematics = str(reduced_kinematics)
+                formatted_res.extend(['       -> %s'%line for line in str_kinematics.split('\n')])
+            return '\n'.join(formatted_res)
+
         if res is None or key=='accuracy' and res < 0.:
             return 'N/A'
         if isinstance(key, int):
@@ -192,8 +202,14 @@ class BeamFactorizationCurrentEvaluation(SubtractionCurrentEvaluation):
             if reduced_IS_flavor_PDG is None and resolved_IS_flavor_PDGs is None:
                 lines.append('Diagonal flavor configuration')
             else:
-                lines.append('Flavor configuration: %d -> (%s)'%( reduced_IS_flavor_PDG,
-                    ','.join('%d'%pdg for pdg in resolved_IS_flavor_PDGs) +
+                lines.append('Flavor configuration: (%s,%s) -> (%s)'%(
+                    '%d'%reduced_IS_flavor_PDG[0] if reduced_IS_flavor_PDG[0] else '*',
+                    '%d'%reduced_IS_flavor_PDG[1] if reduced_IS_flavor_PDG[1] else '*',
+                    ','.join('(%s,%s)'%(
+                        '%d'%pdg[0] if pdg[0] else '*',
+                        '%d'%pdg[1] if pdg[1] else '*',
+                    )
+                    for pdg in resolved_IS_flavor_PDGs) +
                     (',' if len(resolved_IS_flavor_PDGs)==1 else '') ))
 
             values = subresult[reduced_IS_flavor_PDG][resolved_IS_flavor_PDGs]

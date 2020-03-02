@@ -201,38 +201,73 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
     # START OF FUNCTIONS TO BE OVERLOADED BY DAUGHTER CLASSES TO MODIFY THE BEHAVIOUR OF GENERAL CURRENTS
     ####################################################################################################################
 
-    def get_recoiler_combinations(self, reduced_process, global_variables, *args, **opts):
+    def get_mapping_info_for_all_steps(self, reduced_process, global_variables, *args, **opts):
         """ This function returns a list of tuples of the following format:
              ( reduced_kinematic_identifier, (
-                                        recoilers_subtraction_leg_set_for_step_1,
-                                        recoilers_subtraction_leg_set_for_step_2,
+                                        mapping_info_for_step_1,
+                                        mapping_info_for_step_2,
                                         ...
                                         )
             )
-            By default this returns ( None, []) and the list of recoiler legs from the entries 'reduced_recoilers'
-            and 'additional_recoilers' of the mapping rules.
+            By default this returns ( None, []) and the list of mapping information from the entries 'reduced_recoilers',
+            'mapping_class' and 'additional_recoilers' of the mapping rules.
             Note that the leg numbers of these set of recoilers specified should be already mapped, i.e correspond
             to the leg numbers of the actual PS point and process supplied at the time this current is called.
 
+            The mapping_info specified above are dictionaries of the following form:
+
+                {
+                    'mapping_class' : <class_that_implements_the_mapping>,
+                    'mapping_singular_structure' : <singular_structure_specifying_the_input_to_the_mapping_and_recoilers>,
+                    'mapping_momenta_dict: <bidictionary_indicating_the_momenta_label_routing_that_the_mapping_must_adopt>
+                }
+
             For Catani-Seymour dipole subtraction for example, you would use a different mapping for each dipole, so one
             could return a list of entries like the following for the dipole with legs (1,2):
-            (   (1,2),   [  SubtractionLegSet(SubtractionLeg(number=2)), ]  )
+            (   (1,2),   [
+                    'mapping_class': mapping.FinalLorentzOneMapping,
+                    'mapping_singular_structure': sub.SingularStrcuture(
+                        substructure=sub.CollStructure(legs=SubtractionLegSet(SubtractionLeg(number=1))),
+                        legs=SubtractionLegSet(SubtractionLeg(number=2)
+                    ),
+                    'mapping_momenta_dict' : bidict({frozenset(1,2):3})
+                ]
+            )
         """
 
         overall_parents = global_variables['overall_parents']
         leg_numbers_map = global_variables['leg_numbers_map']
 
-        recoilers_per_step = []
+        mapping_information_per_step = []
         for i_step, mapping_information in enumerate(self.mapping_rules):
+
+            # Now recursively apply leg numbers mappings
+            mapping_singular_structure = mapping_information['singular_structure'].get_copy()
+            self.map_leg_numbers_in_singular_structure(leg_numbers_map, mapping_singular_structure, overall_parents)
+
             # Now obtain recoilers
             reduced_recoilers = mapping_information['reduced_recoilers'](
                     reduced_process, excluded=tuple(overall_parents), global_variables=global_variables)
             additional_recoilers = sub.SubtractionLegSet( SubtractionLeg(
                         self.map_leg_number(leg_numbers_map, l.n, overall_parents),l.pdg,l.state)
                                                                     for l in mapping_information['additional_recoilers'] )
-            recoilers_per_step.append( sub.SubtractionLegSet( list(reduced_recoilers)+list(additional_recoilers)) )
 
-        return [ (None, tuple(recoilers_per_step)), ]
+            # Now assign the recoilers (whose leg numbers have already been mapped)
+            mapping_singular_structure.legs = sub.SubtractionLegSet( list(reduced_recoilers)+list(additional_recoilers))
+
+            # Build the momenta_dict by also substituting leg numbers
+            this_momenta_dict = bidict({self.map_leg_number(leg_numbers_map, k, overall_parents): frozenset([
+                self.map_leg_number(leg_numbers_map, n, overall_parents) for n in v]) for k, v in
+                mapping_information['momenta_dict'].items()})
+
+            mapping_information_per_step.append({
+                'mapping_class' : mapping_information['mapping'],
+                'mapping_singular_structure' : mapping_singular_structure,
+                'mapping_momenta_dict' : this_momenta_dict
+            })
+
+
+        return [ ( None, tuple(mapping_information_per_step) ), ]
 
 
     ####################################################################################################################
@@ -729,11 +764,11 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
                 'n_initial_legs': n_initial_legs
         }
 
-        all_recoilers_for_each_step = self.get_recoiler_combinations(reduced_process,global_variables)
+        mapping_info_for_all_steps = self.get_mapping_info_for_all_steps(reduced_process,global_variables)
 
         all_steps = {}
 
-        for kinematic_identifier, recoilers_for_each_step in all_recoilers_for_each_step:
+        for kinematic_identifier, mapping_info_for_each_step in mapping_info_for_all_steps:
 
             # Make sure a lower_PS_point is generated even if no mapping rule was necessary (as it is for instance the case
             # for integrated counterterms).
@@ -746,19 +781,12 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
 
             for i_step, mapping_information in enumerate(self.mapping_rules):
 
-                all_recoilers = recoilers_for_each_step[i_step]
+                mapping_info = mapping_info_for_each_step[i_step]
+                mapping_class = mapping_info['mapping_class']
+                mapping_singular_structure = mapping_info['mapping_singular_structure']
+                this_momenta_dict = mapping_info['mapping_momenta_dict']
 
-                # Now recursively apply leg numbers mappings
-                mapping_singular_structure = mapping_information['singular_structure'].get_copy()
-                self.map_leg_numbers_in_singular_structure(leg_numbers_map, mapping_singular_structure, overall_parents)
-                # Now assign the recoilers (whose leg numbers have already been mapped)
-                mapping_singular_structure.legs = all_recoilers
-
-                # Build the momenta_dict by also substituting leg numbers
-                this_momenta_dict = bidict({self.map_leg_number(leg_numbers_map, k,overall_parents):frozenset([
-                    self.map_leg_number(leg_numbers_map, n, overall_parents) for n in v]) for k,v in mapping_information['momenta_dict'].items()})
-
-                lower_PS_point, mapping_vars = mapping_information['mapping'].map_to_lower_multiplicity(
+                lower_PS_point, mapping_vars = mapping_class.map_to_lower_multiplicity(
                     all_steps[kinematic_identifier][-1]['higher_PS_point'], mapping_singular_structure, this_momenta_dict,
                     compute_jacobian=self.divide_by_jacobian)
                 if mappings.RelabellingMapping.needs_relabelling(this_momenta_dict):
@@ -817,7 +845,7 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
         # Apply cuts: include the counterterm only in a part of the phase-space
         are_all_reduced_kinematics_cut = (len(self.mapping_rules) > 0)
         a_cut_reduced_kinematics = None
-        for kinematic_identifier, recoilers_for_each_step in all_recoilers_for_each_step:
+        for kinematic_identifier, _ in mapping_info_for_all_steps:
             overall_lower_PS_point = all_steps[kinematic_identifier][-1]['lower_PS_point']
             for i_step, mapping_rule in enumerate(self.mapping_rules):
                 cut_inputs = dict(all_steps[kinematic_identifier][i_step])

@@ -1785,8 +1785,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
                         continue
                     total_weight += self.evaluate(PS_random_variables, integrator_jacobian, observables_lock,
                                                   selected_process_key=process_key, sector_info=sector_info)
-
             return total_weight
+
 
     def evaluate(self,PS_random_variables, integrator_jacobian, observables_lock, selected_process_key=None, sector_info=None):
         """ Evaluate this integrand given the PS generating random variables and
@@ -1892,8 +1892,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
             # of EventList, specifying all the contributing kinematic configurations, 
             # and for each all the weights of the potentially contributing flavors.
             events = self.sigma(
-                PS_point.to_dict(), process_key, process, all_flavor_configurations, 
-                wgt, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, sector_info)
+                PS_point.to_dict(), process_key, process, all_flavor_configurations,
+                wgt, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, sector_info=sector_info)
             
             if events is None or len(events)==0:
                 continue

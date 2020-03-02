@@ -2,8 +2,30 @@
 # Generic classes for the sector implementation in subtraction schemes
 #
 
+import copy
+
+
 import commons.generic_sectors as generic_sectors
 import madgraph.various.misc as misc
+import madgraph.core.diagram_generation as diagram_generation
+import madgraph.fks.fks_common as fks_common
+import madgraph.integrator.vectors as vectors
+
+
+def get_sector_wgt(q, p_sector):
+    """ the sector function sigma_ij of the Torino paper (eq. 2.13-2.14)
+     without the normalisation.
+     - q is the total momentum of the incoming particles
+     - p_sector is a list of the momenta of the particles defining the sector
+    """
+    s = q.square()
+    s_ij = 2 * p_sector[0].dot(p_sector[1])
+    s_qi = 2 * p_sector[0].dot(q)
+    s_qj = 2 * p_sector[1].dot(q)
+    e_i = s_qi / s
+    w_ij = s * s_ij / s_qi / s_qj
+
+    return 1 / e_i / w_ij
 
 class Sector(generic_sectors.GenericSector):
     """ Class implementing a particular sector, with attributes identifying it and methods 
@@ -25,21 +47,20 @@ class Sector(generic_sectors.GenericSector):
         mapping index if an integrated counterterm is considered.
         """
 
-        # Below is a hard-coded sector implementation for the real-emission process e+(1) e-(2) > g(3) d(4) d~(5)
+        q = PS_point[1] + PS_point[2]
 
-        # No sectoring necessary for the reduced NLO singly-unresolved kinematics
-        if len(PDGs[1])==2:
-            return 1.0
+        p_sector = [PS_point[l] for l in self.leg_numbers]
 
-        # Then simply use the partial-fractioning facotors s(3,4) / ( s(3,4) + s(3,5) )
-        if self.leg_numbers==(3,4):
-            sector_weight = (PS_point[3]+PS_point[5]).square()
-        else:
-            sector_weight = (PS_point[3]+PS_point[4]).square()
+        sector_weight = get_sector_wgt(q, p_sector)
 
-        sector_weight /= ((PS_point[3]+PS_point[4]).square() + (PS_point[3]+PS_point[5]).square())
+        # now normalise it
+        norm = 0.
+        for (ii, jj) in self.all_sector_list:
+            p_ii = PS_point[ii]
+            p_jj = PS_point[jj]
+            norm += get_sector_wgt(q, [p_ii, p_jj])
 
-        return sector_weight
+        return sector_weight / norm
 
     def __str__(self):
         """ String representation of this sector. """
@@ -70,50 +91,104 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             }
 
         """
-        
+
+        # reeturn None if there are zero unresolved particles (virtual)
+
+        if contrib_definition.n_unresolved_particles == 0:
+            return None
+
         model = defining_process.get('model')
         initial_state_PDGs, final_state_PDGs = defining_process.get_cached_initial_final_pdgs()
+        all_PDGs = initial_state_PDGs, final_state_PDGs
 
-        # Hardcoding to FKS-like sectors for e+(1) e-(2) > g(3) d(4) d~(5)
-        if initial_state_PDGs != (-11,11) or final_state_PDGs != (21, 1, -1):
-            return None
+        leglist = defining_process.get('legs')
 
         all_sectors = []
 
-        for sector_legs in [(3,4), (3,5)]:
+        pert_dict = fks_common.find_pert_particles_interactions(model)
+        # the following is adapted from the very old FKS_from_real implementation
+        # in the FKS formalism, i_fks is the parton associated with the soft singularities
+        # however, the sector_weight function is agnostic on which parton
+        # generates soft singularities
+        fks_j_from_i = {}
+        for i in leglist:
+            fks_j_from_i[i.get('number')] = [] # not strictly needed
+            if not i.get('state'):
+                continue
+            for j in leglist:
+                if j.get('number') == i.get('number') :
+                    continue
+                # if i is not a gluon, then j must not be a final state gluon
+                if i['id'] != 21 and j['id'] == 21 and j['state']:
+                    continue
+                # if j and i are quarks and antiquark in the final state, let i be the quark
+                if i['id'] != 21 and j['id'] !=21 and j['state']:
+                    if i['id'] < 0:
+                        continue
 
-            a_sector = {
-                'sector' : None,
-                'counterterms' : None,
-                'integrated_counterterms' : None
-            }
+                ijlist = fks_common.combine_ij(fks_common.to_fks_leg(i, model),
+                                               fks_common.to_fks_leg(j, model),
+                                               model, pert_dict)
+                for ij in ijlist:
+                    # copy the defining process, remove i and j
+                    # and replace them by ij.
+                    new_process = copy.copy(defining_process)
+                    # this is a temporary hack waiting that squared_orders for
+                    #  defining_process are correctly passed
+                    ##if set(new_process['squared_orders'].values()) == set([0,]):
+                    # MZ this may not be optimal, but keep for the moment
+                    new_process['squared_orders'] = {}
 
-            a_sector['sector'] = Sector(leg_numbers=sector_legs)
+                    new_leglist = copy.copy(leglist)
+                    new_leglist[min([leglist.index(i), leglist.index(j)])] = ij
+                    new_leglist.pop(max([leglist.index(i), leglist.index(j)]))
+                    new_process['legs'] = new_leglist
+                    if diagram_generation.Amplitude(new_process).get('diagrams'):
+                        fks_j_from_i[i.get('number')].append(j.get('number'))
+                        a_sector = {
+                            'sector': None,
+                            'counterterms': None,
+                            'integrated_counterterms': None
+                        }
+                        a_sector['sector'] = Sector(leg_numbers=(i.get('number'), j.get('number')))
+                        # keep track of the masses
+                        a_sector['sector'].masses = (model.get('particle_dict')[i.get('id')]['mass'],
+                                                     model.get('particle_dict')[j.get('id')]['mass'])
+                        all_sectors.append(a_sector)
+                        print 'SECTOR FOUND',a_sector['sector'].leg_numbers
+
+        # up to here we have identified all the sectors.
+        #  Now for each sector we need to find the corresponding counterterms
+        #  We also need to add the variable all_sector_list to each of
+        #  them, containing the list of all sectors (needed to normalise
+        #  the weight function
+        all_sector_list = [s['sector'].leg_numbers for s in all_sectors]
+        all_sector_mass_list = [s['sector'].masses for s in all_sectors]
+
+        for s in all_sectors:
+            s['sector'].all_sector_list = all_sector_list
+            s['sector'].all_sector_mass_list = all_sector_mass_list
+
             if counterterms is not None:
-                a_sector['counterterms'] = []
+                s['counterterms'] = []
                 for i_ct, ct in enumerate(counterterms):
                     current = ct.nodes[0].current
                     singular_structure = current.get('singular_structure').substructures[0]
                     all_legs = singular_structure.get_all_legs()
                     if singular_structure.name()=='S':
-                        if all_legs[0].n == sector_legs[0]:
-                            a_sector['counterterms'].append(i_ct)
+                        if all_legs[0].n == s['sector'].leg_numbers[0]: # should match to "i"
+                            s['counterterms'].append(i_ct)
                     if singular_structure.name()=='C':
-                        if sorted([l.n for l in all_legs]) == sorted(sector_legs):
-                            a_sector['counterterms'].append(i_ct)
-
-                # Uncomment below for enabling all counterterms
-                # a_sector['counterterms'] = range(len(counterterms))
+                        if sorted([l.n for l in all_legs]) == sorted(s['sector'].leg_numbers):
+                            s['counterterms'].append(i_ct)
 
             # Irrelevant if this NLO example, but let me specify all of them explicitly so as to make the strucuture clear.
             if integrated_counterterms is not None:
-                a_sector['integrated_counterterms'] = {}
+                s['integrated_counterterms'] = {}
                 for i_ct, ct in enumerate(integrated_counterterms):
                     # For now enable all integrated counterterms. Notice that the value None in this dictionary
                     # is interpreted as all input mappings contributing, but for the sake of example here
                     # we list explicitly each index.
-                    a_sector['integrated_counterterms'][i_ct] = range(len(ct['input_mappings']))
-
-            all_sectors.append(a_sector)
+                    s['integrated_counterterms'][i_ct] = range(len(ct['input_mappings']))
 
         return all_sectors

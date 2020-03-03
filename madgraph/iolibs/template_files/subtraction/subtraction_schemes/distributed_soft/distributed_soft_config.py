@@ -75,7 +75,7 @@ soft_mapping = mappings.SoftVsInitialMapping
 
 # Final collinear configuration
 # WARNING: This is *not* the same final-collinear mapping as in colorful, where one has 'FinalRescalingOneMapping' instead.
-final_coll_mapping = mappings.FinalCollinearVsInitialMapping
+final_coll_mapping = mappings.FinalGroupingMapping
 final_coll_factor = no_factor
 # A cut on the final-final would make little sense since we integrate numerically over the symmetric rescaling of the initial
 # momenta, so thhis is the same story as for the soft.

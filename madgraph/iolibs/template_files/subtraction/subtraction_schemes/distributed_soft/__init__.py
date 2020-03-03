@@ -54,7 +54,6 @@ def load():
             return False
 
     # Specific to the colorful_pp scheme
-    import colorful_pp_config
     # NLO local
     import NLO.local_currents as NLO_local_currents
     # NLO integrated
@@ -88,12 +87,12 @@ def load():
     # ==========================
     all_subtraction_current_classes.extend([
         # final-final collinears
+        NLO_local_currents.QCD_C_FqFg,
 #TODO        NLO_local_currents.QCD_C_FqFqx,
 #TODO        NLO_local_currents.QCD_C_FgFg,
-#TODO        NLO_local_currents.QCD_C_FqFg,
         # initial-final collinears
         # soft and soft-collinears
-#TODO        NLO_local_currents.QCD_S_g,
+        NLO_local_currents.QCD_S_g,
 #TODO        NLO_local_currents.QCD_CS_FgFg,
 #TODO        NLO_local_currents.QCD_CS_FgFq,
 #TODO        NLO_local_currents.QCD_CS_IgFg,

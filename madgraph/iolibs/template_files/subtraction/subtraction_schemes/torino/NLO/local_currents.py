@@ -111,8 +111,6 @@ class QCD_TRN_C_FgFq(general_current.GeneralCurrent):
 
     def kernel(self, evaluation, all_steps_info, global_variables):
         """ Evaluate this counterterm given the variables provided. """
-        import pdb
-        pdb.set_trace()
 
         kT_FF = all_steps_info[0]['variables'][0]['kTs'][(0,(1,))]
         z_FF  = all_steps_info[0]['variables'][0]['zs'][0]
@@ -198,9 +196,6 @@ class QCD_TRN_S_g(dipole_current.DipoleCurrent):
         Should be specialised by the daughter class if not dummy
         """
 
-        import pdb
-        pdb.set_trace()
-
         # The colored_partons argument gives a dictionary with keys being leg numbers and values being
         # their color representation. At NLO, all we care about is what are the colored leg numbers.
         colored_partons = sorted(colored_partons.keys())
@@ -218,28 +213,39 @@ class QCD_TRN_S_g(dipole_current.DipoleCurrent):
         for i, a in enumerate(colored_partons):
             # Use the symmetry of the color correlation and soft current (a,b) <-> (b,a)
             for b in colored_partons[i:]:
-                # Retrieve the reduced kinematics as well as the soft momentum
-                lower_PS_point = all_steps_info[(a, b)][0]['lower_PS_point']
-                higher_PS_point = all_steps_info[(a, b)][0]['higher_PS_point']
-
-                pS = higher_PS_point[all_steps_info[(a, b)][0]['bundles_info'][0]['final_state_children'][0]]
-
                 # Write the eikonal for that pair
                 if a != b:
                     mult_factor = 2.
                 else:
+                    continue # MZ as long as we just care for massless partons, this is irrelevant.
+                    # note that this has to be taken care of for the case of massive one, in
+                    # particular how to identify the extra recoiler for the momentum mapping
                     mult_factor = 1.
+
+                # Retrieve the reduced kinematics as well as the soft momentum
+                lower_PS_point = all_steps_info[(a, b)][0]['lower_PS_point']
+                higher_PS_point = all_steps_info[(a, b)][0]['higher_PS_point']
+
+                ###pS = higher_PS_point[all_steps_info[(a, b)][0]['bundles_info'][0]['final_state_children'][0]]
+                # the above expression cannot be used any more since we use a mapping structure of collinear
+                #  type also for this current
+                pS = higher_PS_point[ self.map_leg_number(
+                                    global_variables['leg_numbers_map'],
+                                    self.soft_structure.legs[0].n,
+                                    global_variables['overall_parents'])]
+
                 pa = higher_PS_point[a]
                 pb = higher_PS_point[b]
                 # some special behaviour may be needed in the case
                 # either a or b are one of the particles defining
-                # the FKS sector, in particular for the SC limit.
+                # the sector, in particular for the SC limit.
 
                 # At the moment, we do not implement anything special
                 eikonal = SoftKernels.eikonal_dipole(pa, pb, pS)
                 evaluation['color_correlations'].append(((a, b),))
                 evaluation['values'][(0, color_correlation_index, 0, 0)] = {
                     'finite': norm * mult_factor * eikonal}
+                evaluation['reduced_kinematics'].append(('Dip %d-%d' % (a, b), lower_PS_point))
                 color_correlation_index += 1
 
         return evaluation

@@ -772,7 +772,7 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
 
             # Make sure a lower_PS_point is generated even if no mapping rule was necessary (as it is for instance the case
             # for integrated counterterms).
-            all_steps = {kinematic_identifier: [{'higher_PS_point': higher_PS_point}, ]}
+            all_steps[kinematic_identifier] = [{'higher_PS_point': higher_PS_point}, ]
 
             if len(self.mapping_rules) == 0:
                 # When no mapping is necessary, we must still define a default lower_PS_point for the first step that is

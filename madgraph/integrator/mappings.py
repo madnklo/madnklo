@@ -2803,3 +2803,290 @@ class RelabellingMapping(VirtualMapping):
                 out_PS_point[mapped_from] = out_PS_point[mapped_to]
                 del out_PS_point[mapped_to]
         return out_PS_point
+
+
+
+class FinalFKSMapping(VirtualMapping):
+    """The FKS mapping, as defined in https://arxiv.org/pdf/0709.2092.pdf, sect 5.2.
+    """
+
+    @classmethod
+    def is_valid_structure(cls, singular_structure):
+
+        if len(singular_structure.substructures) != 1:
+            return False
+
+        assert isinstance(singular_structure, sub.SingularStructure)
+        # Valid only for sets of final-state particles going collinear,
+        # with no recursive substructure
+        for substructure in singular_structure.substructures:
+            ##if not substructure.name() == "C":
+            ##    return False
+            if substructure.substructures:
+                # in this case, make sure it is a soft-collinear one
+                if len(substructure.substructures) != 1 and \
+                   substructure.name() != 'C' and \
+                   substructure.substructures[0].name() != 'S':
+                    return False
+            if substructure.get_all_legs().has_initial_state_leg():
+                return False
+        return True
+
+    @classmethod
+    def map_to_lower_multiplicity(
+            cls, PS_point, singular_structure, momenta_dict, squared_masses=None,
+            kinematic_variables=None, compute_jacobian=False ):
+
+        # Consistency checks
+        assert isinstance(momenta_dict, sub.bidict)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                str(singular_structure), cls.__name__))
+
+        # Precompute sets and numbers
+        substructure = singular_structure.substructures[0]
+        parent, children, _ = get_structure_numbers(substructure, momenta_dict)
+        children_legs = substructure.legs
+
+        assert (squared_masses is None) or (squared_masses['m2' + str(parent)] == 0)
+
+        recoilers = tuple(leg.n for leg in singular_structure.legs)
+        # Build collective momenta
+        pC = LorentzVector()
+        for j in children:
+            pC += PS_point[j]
+        pR = LorentzVector()
+        for leg in singular_structure.legs:
+            pR += PS_point[leg.n]
+        q = PS_point[1] + PS_point[2]
+        q2  = q.square()
+        k = q - pR
+
+        # let us compute here the jacobian (eq
+
+        beta = (q2 - (pR[0] + pR.rho())**2) / (q2 + (pR[0] + pR.rho())**2)
+        boost_vect = pR.space() / pR.rho() * beta
+        # check that the boost does what it is supposed to do (eq. 5.25)
+        assert (q - pR.copy().boost(boost_vect) ).square_almost_zero()
+
+        # Create new PS point
+        new_PS_point = PS_point.get_copy()
+        # boost all the recoilers
+        done_boost = []
+        for leg in singular_structure.legs:
+            new_PS_point[leg.n].boost(boost_vect)
+            done_boost.append(leg.n)
+        # delete the children legs
+        for j in children:
+            if j != parent: # Bypass degenerate case of 1->1 splitting
+                del new_PS_point[j]
+
+        # now, two cases, in which we will also identify i/j fks:
+        if len(children) == 1 and parent == None: # one children and no parents (soft singularity)
+            assert (len(set(new_PS_point.keys()) - set(done_boost + [1, 2])) == 1)
+            new_parent = list(set(new_PS_point.keys()) - set(done_boost + [1, 2]))[0]
+
+            # assign i/j for the jacobian
+            assert(children_legs[0].pdg == 21)
+            i_fks = children_legs[0].n
+            j_fks = new_parent
+
+        else: # collinear singularity
+            new_parent = parent
+
+            # assign i/j for the jacobian
+            if 21 in [l.pdg for l in children_legs]:
+                i_fks = children_legs[[l.pdg for l in children_legs].index(21)].n
+                j_fks = children_legs[1 - [l.pdg for l in children_legs].index(21)].n
+            else: # in fks/sectors.py, we decided that i is the quark
+                for l in children_legs:
+                    if l.pdg > 0:
+                        i_fks = l.n
+                    else:
+                        j_fks = l.n
+
+        new_PS_point[new_parent] = q - pR.boost(boost_vect)
+
+        if not compute_jacobian:
+            return new_PS_point, {'Q': q}
+
+        xi = 2 * PS_point[i_fks] / q[0]
+        fourpi = 4 * math.pi
+        jacobian = q2 * xi / fourpi * PS_point[j_fks].rho2() / \
+                            new_PS_point[new_parent].rho() / \
+                    (PS_point[j_fks].rho() - k.square() / 2. / q[0])
+        # Return characteristic variables
+        return new_PS_point, {'jacobian': jacobian, 'Q': q}
+
+    @classmethod
+    def map_to_higher_multiplicity(
+            cls, PS_point, singular_structure, momenta_dict, kinematic_variables,
+            compute_jacobian=False ):
+
+        print 'SHOULD NOT BE USED'
+        # Consistency checks
+        assert isinstance(momenta_dict, sub.bidict)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                str(singular_structure), cls.__name__))
+        needed_variables = set(
+            cls.get_kinematic_variables_names(singular_structure, momenta_dict) )
+        assert needed_variables.issubset(kinematic_variables.keys())
+
+        # Precompute sets and numbers
+        substructure = singular_structure.substructures[0]
+        parent, children, _ = get_structure_numbers(substructure, momenta_dict)
+        recoilers = tuple(leg.n for leg in singular_structure.legs)
+        # Build collective momenta
+        qC = PS_point[parent]
+        qR = LorentzVector()
+        for recoiler in recoilers:
+            qR += PS_point[recoiler]
+        Q = qR + qC
+        # Compute scalar products
+        pC2 = kinematic_variables['s' + str(parent)]
+        # Compute parameters
+        assert qC.square_almost_zero()
+        Q2  = Q.square()
+        qR2 = qR.square()
+        qC_perp = qC - ((Q2-qR2)/(2*Q2)) * Q
+        kaellen = Kaellen(Q2, qR2, pC2)
+        if kaellen < 0:
+            raise FailedMapping
+        alpham1 = kaellen ** 0.5 / (Q2-qR2)
+        # Compute reverse-mapped momentum
+        pC = alpham1*qC_perp + ((Q2+pC2-qR2)/(2*Q2))*Q
+        pR = Q - pC
+        # Create new PS point
+        new_PS_point = PS_point.get_copy()
+        new_PS_point[parent] = pC
+        # Map recoil momenta
+        for recoiler in singular_structure.legs:
+            new_PS_point[recoiler.n].rotoboost(qR, pR)
+            # new_PS_point[recoiler.n].boost_from_to(qR, pR)
+        # Set children momenta
+        na, nb = FinalCollinearVariables.collinear_and_reference(qC)
+        FinalCollinearVariables.set(
+            new_PS_point, parent, children, na, nb, kinematic_variables)
+        if not compute_jacobian:
+            return new_PS_point, {'Q': Q}
+        # Return characteristic variables
+        return new_PS_point, {'jacobian': alpham1, 'Q': Q}
+
+    @classmethod
+    def can_map_to_higher_multiplicity(
+            cls, PS_point, singular_structure, momenta_dict, kinematic_variables, ):
+
+        # Consistency checks
+        assert isinstance(momenta_dict, sub.bidict)
+        if not cls.is_valid_structure(singular_structure):
+            raise MappingError("Singular structure '%s' is not supported by mapping '%s'"%(
+                str(singular_structure), cls.__name__))
+        needed_variables = set(
+            cls.get_kinematic_variables_names(singular_structure, momenta_dict) )
+        assert needed_variables.issubset(kinematic_variables.keys())
+
+        # Precompute sets and numbers
+        substructure = singular_structure.substructures[0]
+        parent, children, _ = get_structure_numbers(substructure, momenta_dict)
+        recoilers = tuple(leg.n for leg in singular_structure.legs)
+        # Build collective momenta
+        qC = PS_point[parent]
+        qR = LorentzVector()
+        for recoiler in recoilers:
+            qR += PS_point[recoiler]
+        Q = qR + qC
+        # Compute scalar products
+        pC2 = kinematic_variables['s'+str(parent)]
+        # Compute parameters
+        assert qC.square_almost_zero()
+        Q2  = Q.square()
+        qR2 = qR.square()
+        kaellen = Kaellen(Q2, qR2, pC2)
+        return kaellen >= 0
+
+# Final-collinear grouping mapping
+#=========================================================================================
+
+
+
+class FinalTRNMapping(VirtualMapping):
+    """The mapping for the Torino subtraction, as defined in
+    https://arxiv.org/pdf/1806.09570.pdf, eq 2.33
+    """
+
+    @classmethod
+    def is_valid_structure(cls, singular_structure):
+        """the singular structure should be either
+        in the form (C(a,b),c) or (C(S(a),b),c)
+        """
+
+        is_valid = len(singular_structure.substructures) == 1 and \
+            len(singular_structure.legs) == 1 and \
+            singular_structure.substructures[0].name == 'C'
+
+        coll_sub = singular_structure.substructures[0]
+
+        is_valid = is_valid and \
+                   ((len(coll_sub.substructures) == 0 and len(coll_sub.legs)==2) or \
+                    (len(coll_sub.substructures) == 1 and len(coll_sub.legs) == 1))
+
+        return is_valid
+
+    @classmethod
+    def map_to_lower_multiplicity(cls, PS_point, singular_structure,
+                                  momenta_dict, squared_masses=None,
+                                  kinematic_variables=None, compute_jacobian=False ):
+        """the singular structure should be either
+        in the form (C(a,b),c) or (C(S(a),b),c)
+        """
+
+        substructure = singular_structure.substructures[0]
+        parent, children, _ = get_structure_numbers(substructure, momenta_dict)
+
+        # identify the legs
+        #  soft child -> a
+        #  1st recoiler -> b
+        #  2nd recoiler -> c
+        ic = singular_structure.legs[0].n
+        coll_sub= singular_structure.substructures[0]
+        if coll_sub.substructures: # this should be the case for (C(S(a),b),c)
+            ia = coll_sub.substructures[0].legs[0].n
+            ib = coll_sub.legs[0].n
+        else: # this should be the case for (C(a,b),c)
+            ia = coll_sub.legs[0].n
+            ib = coll_sub.legs[1].n
+
+        pa = PS_point[ia]
+        pb = PS_point[ib]
+        pc = PS_point[ic]
+
+        Q = pa + pb + pc
+
+        sab = (pa + pb).square()
+        sbc = (pb + pc).square()
+        sac = (pa + pc).square()
+
+        sabc = sab + sac + sbc
+
+        # copy the momenta
+        new_PS_point = PS_point.get_copy()
+
+        # remove a
+        del new_PS_point[ia]
+        # this is for b
+        new_PS_point[ib] = pa + pb - pc * sab / (sac + sbc)
+        new_PS_point[parent] = pa + pb - pc * sab / (sac + sbc)
+        # and this is for c
+        new_PS_point[ic] = pc * sabc / (sac + sbc)
+
+        # the jacobian should be 1
+        jacobian = 1.
+
+        return new_PS_point, {'jacobian': jacobian, 'Q': Q}
+
+
+
+
+
+

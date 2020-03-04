@@ -62,17 +62,17 @@ initial_coll_mapping = mappings.FinalRescalingOneMapping
 # Soft configuration
 soft_factor = factors_and_cuts.no_factor
 soft_cut = factors_and_cuts.no_cut
-soft_mapping = mappings.FinalRescalingOneMapping
+soft_mapping = mappings.FinalTRNMapping
 
 # Final collinear configuration
 # WARNING: This is *not* the same final-collinear mapping as in FKS, where one has 'FinalRescalingOneMapping' instead.
-final_coll_mapping = mappings.FinalRescalingOneMapping
+final_coll_mapping = mappings.FinalTRNMapping
 final_coll_factor = factors_and_cuts.no_factor
 #final_coll_cut = factors_and_cuts.cut_coll
 final_coll_cut = factors_and_cuts.no_cut
 
 # Final soft-collinear configuration (not strictly speaking necessary)
-final_soft_coll_mapping = mappings.FinalRescalingOneMapping()
+final_soft_coll_mapping = mappings.FinalTRNMapping()
 initial_soft_coll_mapping = mappings.SoftCollinearVsFinalMapping(
     soft_mapping=soft_mapping, collinear_mapping=initial_coll_mapping)
 

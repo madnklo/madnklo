@@ -70,18 +70,19 @@ class DipoleCurrent(general_current.GeneralCurrent):
                 for ib, legb in self.get_colored_legs(reduced_process).items():
                     if ia == ib:
                         continue
-                    # check that we have only one among ia and ib in sector_legs
-                    assert(ia in sector_legs or ib in sector_legs)
-                    assert(not (ia in sector_legs and ib in sector_legs))
 
                     # identify the leg that belongs to the sector
                     # and the one that does not
                     if ia in sector_legs:
                         sec_leg = lega
                         oth_leg = legb
-                    else:
+                    elif ib in sector_legs:
                         sec_leg = legb
                         oth_leg = lega
+                    else:
+                        # in this case, the leg assignment is arbitrary.
+                        sec_leg = lega
+                        oth_leg = legb
 
                     if singular_structure.name() == 'C':
                         # collinear structure: one among ia and ib is already

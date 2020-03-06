@@ -243,7 +243,7 @@ class QCD_TRN_S_g(dipole_current.DipoleCurrent):
                 # At the moment, we do not implement anything special
                 eikonal = SoftKernels.eikonal_dipole(pa, pb, pS)
                 evaluation['color_correlations'].append(((a, b),))
-                evaluation['values'][(0, color_correlation_index, 0, 0)] = {
+                evaluation['values'][(0, color_correlation_index, 0, color_correlation_index)] = {
                     'finite': norm * mult_factor * eikonal}
                 evaluation['reduced_kinematics'].append(('Dip %d-%d' % (a, b), lower_PS_point))
                 color_correlation_index += 1

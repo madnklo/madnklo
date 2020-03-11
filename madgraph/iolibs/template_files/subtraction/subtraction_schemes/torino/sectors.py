@@ -1,7 +1,6 @@
 #
 # Generic classes for the sector implementation in subtraction schemes
 #
-
 import copy
 
 
@@ -106,29 +105,37 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         all_sectors = []
 
         pert_dict = fks_common.find_pert_particles_interactions(model)
+        colorlist = [model['particle_dict'][l['id']]['color'] for l in leglist]
         # the following is adapted from the very old FKS_from_real implementation
         # in the FKS formalism, i_fks is the parton associated with the soft singularities
         # however, the sector_weight function is agnostic on which parton
         # generates soft singularities
         fks_j_from_i = {}
-        for i in leglist:
-            fks_j_from_i[i.get('number')] = [] # not strictly needed
+        for i, col_i in zip(leglist, colorlist):
+            if col_i == 1:
+                continue
             if not i.get('state'):
                 continue
-            for j in leglist:
+            fks_j_from_i[i.get('number')] = [] # not strictly needed
+
+            for j, col_j in zip(leglist, colorlist):
+                if col_j == 1:
+                    continue
                 if j.get('number') == i.get('number') :
                     continue
                 # if i is not a gluon, then j must not be a final state gluon
                 if i['id'] != 21 and j['id'] == 21 and j['state']:
                     continue
-                # if j and i are quarks and antiquark in the final state, let i be the quark
-                if i['id'] != 21 and j['id'] !=21 and j['state']:
-                    if i['id'] < 0:
+                # if j and i are quarks and antiquark in the final state, let j be the quark
+                #   this is needed in order to comply with the fct combine_ij inside fks_common
+                if i['id'] == -j['id'] and j['state']:
+                    if j['id'] < 0:
                         continue
 
                 ijlist = fks_common.combine_ij(fks_common.to_fks_leg(i, model),
                                                fks_common.to_fks_leg(j, model),
                                                model, pert_dict)
+
                 for ij in ijlist:
                     # copy the defining process, remove i and j
                     # and replace them by ij.
@@ -156,6 +163,9 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                                                      model.get('particle_dict')[j.get('id')]['mass'])
                         all_sectors.append(a_sector)
                         print 'SECTOR FOUND',a_sector['sector'].leg_numbers
+
+        if not all_sectors:
+            print 'WARNING, no sectors found for %s' % defining_process.nice_string()
 
         # up to here we have identified all the sectors.
         #  Now for each sector we need to find the corresponding counterterms

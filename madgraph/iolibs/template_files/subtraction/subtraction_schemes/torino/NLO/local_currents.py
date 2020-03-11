@@ -18,6 +18,7 @@ import math
 from bidict import bidict
 
 import madgraph.core.subtraction as sub
+from madgraph.core.base_objects import EpsilonExpansion
 import madgraph.integrator.mappings as mappings
 
 import commons.utils as utils
@@ -39,6 +40,168 @@ CurrentImplementationError = utils.CurrentImplementationError
 #=========================================================================================
 # NLO final collinears
 #=========================================================================================
+
+
+class QCD_TRN_C_FgFg(general_current.GeneralCurrent):
+    """ FF C(g_g)"""
+
+    # Enable the flag below to debug this current
+    DEBUG = True
+
+    divide_by_jacobian = torino_config.divide_by_jacobian
+
+    # We should not need global variables for this current
+    variables = None
+
+    # Now define the matching singular structures, we want to match both a quark or an antiquark
+    coll_structure = sub.CollStructure(
+        substructures=tuple([]),
+        legs=(
+            sub.SubtractionLeg(10, 21, sub.SubtractionLeg.FINAL),
+            sub.SubtractionLeg(11, 21, sub.SubtractionLeg.FINAL),
+        )
+    )
+
+    # This counterterm will be used if any of the current of the list below matches
+    currents = [
+        sub.Current({
+            'resolve_mother_spin_and_color'     : True,
+            'n_loops'                           : 0,
+            'squared_orders'                    : {'QCD': 2},
+            'singular_structure'                : sub.SingularStructure(substructures=(coll_structure,)),
+        }),
+    ]
+
+    # Te defining currents correspond to a currents block composed of several lists of template currents
+    # for matching each currents of the target currents block (in an unordered fashion)
+    defining_currents = [ currents, ]
+
+    # An now the mapping rules
+    mapping_rules = [
+        {
+            'singular_structure'    : sub.SingularStructure(substructures=(sub.CollStructure(
+                substructures=tuple([]),
+                legs=(
+                    sub.SubtractionLeg(10, 21, sub.SubtractionLeg.FINAL),
+                    sub.SubtractionLeg(11, 21, sub.SubtractionLeg.FINAL),
+                )
+            ),)),
+            'mapping'               : torino_config.final_coll_mapping,
+            # Intermediate legs should be strictly superior to a 1000
+            'momenta_dict'          : bidict({-1:frozenset((10,11))}),
+            'variables'             : general_current.CompoundVariables(kernel_variables.TRN_FFn_variables),
+            'is_cut'                : torino_config.generalised_cuts,
+            'reduced_recoilers'     : torino_config.get_final_state_recoilers,
+            'additional_recoilers'  : sub.SubtractionLegSet([]),
+        },
+    ]
+
+    def kernel(self, evaluation, all_steps_info, global_variables):
+        """ Evaluate this counterterm given the variables provided. """
+
+        kT_FF = all_steps_info[0]['variables'][0]['kTs'][1]
+        # MZMZ Warning! for some reason to be understood, the order of x's (and kts also)
+        # is the opposite (quark, gluon) as one would expect from the legs (gluon, quark)
+        x_FF  = all_steps_info[0]['variables'][0]['xs'][0]
+        x_oth = all_steps_info[0]['variables'][0]['xs'][1]
+        s_rs  = all_steps_info[0]['variables'][0]['ss'][(0,1)]
+        parent = all_steps_info[0]['bundles_info'][0]['parent']
+
+        prefactor = 1./s_rs #
+        # include the soft_collinear counterterm here, as in the torino paper
+        # (see the definition of 'hard-collinear' splitting function there)
+        soft_col = EpsilonExpansion({0: self.CA * 2 * (x_FF / x_oth + x_oth / x_FF), 1: 0.})
+        for spin_correlation_vector, weight in AltarelliParisiKernels.P_gg(self, x_FF, kT_FF):
+            complete_weight = weight * prefactor
+            if spin_correlation_vector is None:
+                complete_weight += soft_col * (- prefactor)
+                evaluation['values'][(0, 0, 0, 0)] = {'finite': complete_weight[0]}
+            else:
+                evaluation['spin_correlations'].append( ((parent, spin_correlation_vector),) )
+                evaluation['values'][(len(evaluation['spin_correlations']) - 1, 0, 0, 0)] = {'finite': complete_weight[0]}
+
+        return evaluation
+
+
+class QCD_TRN_C_FqFqx(general_current.GeneralCurrent):
+    """ FF C(q_qx)"""
+
+    # Enable the flag below to debug this current
+    DEBUG = True
+
+    divide_by_jacobian = torino_config.divide_by_jacobian
+
+    # We should not need global variables for this current
+    variables = None
+
+    # Now define the matching singular structures, we want to match both a quark or an antiquark
+    coll_structure = sub.CollStructure(
+        substructures=tuple([]),
+        legs=(
+            sub.SubtractionLeg(10, +1, sub.SubtractionLeg.FINAL),
+            sub.SubtractionLeg(11, -1, sub.SubtractionLeg.FINAL),
+        )
+    )
+
+    # This counterterm will be used if any of the current of the list below matches
+    currents = [
+        sub.Current({
+            'resolve_mother_spin_and_color'     : True,
+            'n_loops'                           : 0,
+            'squared_orders'                    : {'QCD': 2},
+            'singular_structure'                : sub.SingularStructure(substructures=(coll_structure,)),
+        }),
+    ]
+
+    # Te defining currents correspond to a currents block composed of several lists of template currents
+    # for matching each currents of the target currents block (in an unordered fashion)
+    defining_currents = [ currents, ]
+
+    # An now the mapping rules
+    mapping_rules = [
+        {
+            'singular_structure'    : sub.SingularStructure(substructures=(sub.CollStructure(
+                substructures=tuple([]),
+                legs=(
+                    sub.SubtractionLeg(10, +1, sub.SubtractionLeg.FINAL),
+                    sub.SubtractionLeg(11, -1, sub.SubtractionLeg.FINAL),
+                )
+            ),)),
+            'mapping'               : torino_config.final_coll_mapping,
+            # Intermediate legs should be strictly superior to a 1000
+            'momenta_dict'          : bidict({-1:frozenset((10,11))}),
+            'variables'             : general_current.CompoundVariables(kernel_variables.TRN_FFn_variables),
+            'is_cut'                : torino_config.generalised_cuts,
+            'reduced_recoilers'     : torino_config.get_final_state_recoilers,
+            'additional_recoilers'  : sub.SubtractionLegSet([]),
+        },
+    ]
+
+    def kernel(self, evaluation, all_steps_info, global_variables):
+        """ Evaluate this counterterm given the variables provided. """
+
+        kT_FF = all_steps_info[0]['variables'][0]['kTs'][1]
+        # MZMZ Warning! for some reason to be understood, the order of x's (and kts also)
+        # is the opposite (quark, gluon) as one would expect from the legs (gluon, quark)
+        x_FF  = all_steps_info[0]['variables'][0]['xs'][0]
+        x_oth = all_steps_info[0]['variables'][0]['xs'][1]
+        s_rs  = all_steps_info[0]['variables'][0]['ss'][(0,1)]
+        parent = all_steps_info[0]['bundles_info'][0]['parent']
+
+        prefactor = 1./s_rs #
+        # include the soft_collinear counterterm here, as in the torino paper
+        # (see the definition of 'hard-collinear' splitting function there)
+        soft_col = 0.
+        for spin_correlation_vector, weight in AltarelliParisiKernels.P_qq(self, x_FF, kT_FF):
+            complete_weight = weight * prefactor
+            if spin_correlation_vector is None:
+                complete_weight += soft_col * (- prefactor)
+                evaluation['values'][(0, 0, 0, 0)] = {'finite': complete_weight[0]}
+            else:
+                evaluation['spin_correlations'].append( ((parent, spin_correlation_vector),) )
+                evaluation['values'][(len(evaluation['spin_correlations']) - 1, 0, 0, 0)] = {'finite': complete_weight[0]}
+
+        return evaluation
 
 
 
@@ -112,19 +275,22 @@ class QCD_TRN_C_FgFq(general_current.GeneralCurrent):
     def kernel(self, evaluation, all_steps_info, global_variables):
         """ Evaluate this counterterm given the variables provided. """
 
-        kT_FF = all_steps_info[0]['variables'][0]['kTs'][(0,(1,))]
-        z_FF  = all_steps_info[0]['variables'][0]['zs'][0]
+        kT_FF = all_steps_info[0]['variables'][0]['kTs'][1]
+        # MZMZ Warning! for some reason to be understood, the order of x's (and kts also)
+        # is the opposite (quark, gluon) as one would expect from the legs (gluon, quark)
+        x_FF  = all_steps_info[0]['variables'][0]['xs'][0]
+        x_oth = all_steps_info[0]['variables'][0]['xs'][1]
         s_rs  = all_steps_info[0]['variables'][0]['ss'][(0,1)]
+        parent = all_steps_info[0]['bundles_info'][0]['parent']
 
-        # inside variables we assume always i > j, but we filled (i,j), not (j,i);
-        # in the mapping rules, the quark(j) comes second, the gluon first(i)
-        z_ji = all_steps_info[0]['variables'][0]['fks_z'][(1,0)]
-
-        prefactor = 1./s_rs # this comes putting together 5.16 and 5.18 of the madfks paper
-        # The P_gq kernel is the one that matches the z definitions above.
-        for spin_correlation_vector, weight in AltarelliParisiKernels.P_gq(self, z_ji, kT_FF):
+        prefactor = 1./s_rs #
+        # include the soft_collinear counterterm here, as in the torino paper
+        # (see the definition of 'hard-collinear' splitting function there)
+        soft_col = EpsilonExpansion({0: self.CF * 2 * x_FF / x_oth, 1: 0.})
+        for spin_correlation_vector, weight in AltarelliParisiKernels.P_qg(self, x_FF, kT_FF):
             complete_weight = weight * prefactor
             if spin_correlation_vector is None:
+                complete_weight += soft_col * (- prefactor)
                 evaluation['values'][(0, 0, 0, 0)] = {'finite': complete_weight[0]}
             else:
                 evaluation['spin_correlations'].append( ((parent, spin_correlation_vector),) )
@@ -255,16 +421,18 @@ class QCD_TRN_S_g(dipole_current.DipoleCurrent):
 #=========================================================================================
 
 
-class QCD_FKS_CS_FgFq(general_current.GeneralCurrent):
+class QCD_TRN_CS_FgFq(general_current.GeneralCurrent):
     """ FF C(S(g),q)
-    NLO tree-level (final) soft-collinear currents. Uses a collinear kernel,
-    however wrt C_FqFg the order of q/g is exchanged"""
+    NLO tree-level (final) soft-collinear currents. Returns zero, since we have already subtracted the
+    soft-col singularity inside the splitting functions"""
 
     soft_structure = sub.SoftStructure(
         legs=(sub.SubtractionLeg(10, 21, sub.SubtractionLeg.FINAL), ) )
     soft_coll_structure_q = sub.CollStructure(
         substructures=(soft_structure, ),
         legs=(sub.SubtractionLeg(11,  +1, sub.SubtractionLeg.FINAL), ) )
+
+    is_zero = True
 
     # This counterterm will be used if any of the current of the list below matches
     currents = [
@@ -298,40 +466,54 @@ class QCD_FKS_CS_FgFq(general_current.GeneralCurrent):
         },
     ]
 
-    # For the qg soft-collinear the color prefactor is CF
-    color_factor = "CF"
 
-    def kernel(self, evaluation, all_steps_info, global_variables):
-        """ Evaluate this counterterm given the variables provided. """
 
-        kT_FF = all_steps_info[0]['variables'][0]['kTs'][(0,(1,))]
-        z_FF  = all_steps_info[0]['variables'][0]['zs'][0]
-        s_rs  = all_steps_info[0]['variables'][0]['ss'][(0,1)]
+class QCD_TRN_CS_FgFg(general_current.GeneralCurrent):
+    """ FF C(S(g),g)
+    NLO tree-level (final) soft-collinear currents. Returns zero, since we have already subtracted the
+    soft-col singularity inside the splitting functions"""
 
-        # inside variables we assume always i > j, but we filled (i,j), not (j,i);
-        # in the mapping rules, the gluon(i) comes first, then the quark(j)
-        z_ji = all_steps_info[0]['variables'][0]['fks_z'][(1,0)]
-        y_ij = all_steps_info[0]['variables'][0]['fks_y'][(1,0)]
-        xi_i = all_steps_info[0]['variables'][0]['fks_xi'][1] #<-- why 1?? it should be 0
-        ### CHECK!
-        shat = 2 * all_steps_info[0]['higher_PS_point'][1].dot( \
-            all_steps_info[0]['higher_PS_point'][2])
+    soft_structure = sub.SoftStructure(
+        legs=(sub.SubtractionLeg(10, 21, sub.SubtractionLeg.FINAL), ) )
+    soft_coll_structure_q = sub.CollStructure(
+        substructures=(soft_structure, ),
+        legs=(sub.SubtractionLeg(11, 21, sub.SubtractionLeg.FINAL), ) )
 
-        prefactor = 2./shat/xi_i**2/(1-y_ij)
-        # this comes from 5.19 of the madfks paper in the zij->1 limit
-        # the extra (1-z) is from the definition of the barred kernels
+    is_zero = True
 
-        # The P_gq kernel is the one that matches the z definitions above.
-        evaluation['values'][(0, 0, 0, 0)] = {'finite': prefactor * 2 * self.CF}
-        ##for spin_correlation_vector, weight in AltarelliParisiKernels.P_gq(self, z_ji, kT_FF):
-        ##    complete_weight = weight * prefactor
-        ##    if spin_correlation_vector is None:
-        ##        evaluation['values'][(0, 0, 0, 0)] = {'finite': complete_weight[0]}
-        ##    else:
-        ##        evaluation['spin_correlations'].append( ((parent, spin_correlation_vector),) )
-        ##        evaluation['values'][(len(evaluation['spin_correlations']) - 1, 0, 0, 0)] = {'finite': complete_weight[0]}
+    # This counterterm will be used if any of the current of the list below matches
+    currents = [
+        sub.Current({
+            'resolve_mother_spin_and_color'     : True,
+            'n_loops'                           : 0,
+            'squared_orders'                    : {'QCD': 2},
+            'singular_structure'                : sub.SingularStructure(substructures=(soft_coll_structure_q,)),
+        }),
+    ]
 
-        return evaluation
+    # Te defining currents correspond to a currents block composed of several lists of template currents
+    # for matching each currents of the target currents block (in an unordered fashion)
+    defining_currents = [ currents, ]
+
+    # An now the mapping rules
+    mapping_rules = [
+        {
+            'singular_structure'    : sub.SingularStructure(substructures=(sub.CollStructure(
+                substructures=[sub.SoftStructure(
+                    legs=(sub.SubtractionLeg(10, 21, sub.SubtractionLeg.FINAL), ) )],
+                legs=(sub.SubtractionLeg(11, 21, sub.SubtractionLeg.FINAL),)
+            ),)),
+            'mapping'               : torino_config.final_coll_mapping,
+            # Intermediate legs should be strictly superior to a 1000
+            'momenta_dict'          : bidict({-1:frozenset((10,11))}),
+            'variables'             : None, #general_current.CompoundVariables(kernel_variables.fks_FFn_variables),
+            'is_cut'                : torino_config.generalised_cuts,
+            'reduced_recoilers'     : torino_config.get_final_state_recoilers,
+            'additional_recoilers'  : sub.SubtractionLegSet([]),
+        },
+    ]
+
+
 
 
 #=========================================================================================

@@ -3083,7 +3083,7 @@ class FinalTRNMapping(VirtualMapping):
         # the jacobian should be 1
         jacobian = 1.
 
-        return new_PS_point, {'jacobian': jacobian, 'Q': Q}
+        return new_PS_point, {'jacobian': jacobian, 'Q': Q, 'ids': {'a': ia, 'b': ib, 'c': ic}}
 
 
 

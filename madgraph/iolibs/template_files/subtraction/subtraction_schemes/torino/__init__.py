@@ -94,9 +94,12 @@ def load():
 
     NLO_final_collinears = [
         NLO_local_currents.QCD_TRN_C_FgFq,
+        NLO_local_currents.QCD_TRN_C_FqFqx,
+        NLO_local_currents.QCD_TRN_C_FgFg,
         NLO_local_currents.QCD_TRN_S_g,
+        NLO_local_currents.QCD_TRN_CS_FgFq,
+        NLO_local_currents.QCD_TRN_CS_FgFg,
     ]
-    ##        NLO_local_currents.QCD_TRN_CS_FgFq,
     ##        NLO_integrated_currents.QCD_integrated_FKS_C_FqFg,
 ##        NLO_integrated_currents.QCD_integrated_FKS_S_g,
 ##        NLO_integrated_currents.QCD_integrated_FKS_CS_FgFq

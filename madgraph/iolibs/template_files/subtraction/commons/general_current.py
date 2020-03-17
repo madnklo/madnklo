@@ -722,6 +722,7 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
         # The determining leg_numbers_map for the application of the mapping rules is by design the one of the
         # *first* defining current
         leg_numbers_map = self.currents_properties[0]['leg_numbers_map']
+        inv_leg_numbers_map = {v: k for k, v in leg_numbers_map.items()}
 
         # For squared orders we consider the aggregate of squared orders in all currents
         squared_orders = {}
@@ -745,7 +746,7 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
         overall_parents = [] # the parent legs in the top-level reduced process (momenta in the mapped ME of this CT)
 
         for bundle in defining_structure.substructures:
-            overall_children.append(tuple(leg_numbers_map[l.n] for l in bundle.get_all_legs()))
+            overall_children.append(tuple(sorted([leg_numbers_map[l.n] for l in bundle.get_all_legs()], key = lambda l: l.n )))
             if self.has_parent(bundle, len(overall_children[-1])):
                 overall_parents.append(self.get_parent(frozenset(overall_children[-1]), momenta_dict))
             else:
@@ -805,9 +806,12 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
                     bundles_info.append({})
                     all_legs = bundle.get_all_legs()
                     # This sorting is important so that the variables generated can be related to the legs specified
-                    # in the mapping singular structures of the mapping rules
-                    all_initial_legs = sorted([l for l in all_legs if l.state==l.INITIAL], key = lambda l: l.n)
-                    all_final_legs = sorted([l for l in all_legs if l.state==l.FINAL], key = lambda l: l.n)
+                    # in the mapping singular structures of the mapping rules.
+                    # However it may be that not all legs are in the inv_leg_numbers_map because intermediate
+                    # leg (with numbers > 1000) would of course not appear. We decide here to leave them as is,
+                    # (hence the .get(l.n, l.n) so that they will always appear *after* genuine external state children.
+                    all_initial_legs = sorted([l for l in all_legs if l.state==l.INITIAL], key = lambda l: inv_leg_numbers_map.get(l.n,l.n))
+                    all_final_legs = sorted([l for l in all_legs if l.state==l.FINAL], key = lambda l: inv_leg_numbers_map.get(l.n,l.n))
                     bundles_info[-1]['initial_state_children'] = tuple(l.n for l in all_initial_legs)
                     bundles_info[-1]['final_state_children'] = tuple(l.n for l in all_final_legs)
                     if self.has_parent(bundle, len(all_legs)):

@@ -12,7 +12,9 @@
 # For more information, visit madgraph.phys.ucl.ac.be and amcatnlo.web.cern.ch
 #
 ##########################################################################################
-"""Implementation of NLO fks local currents."""
+"""Implementation of NLO local currents for the Torino subtraction scheme
+https://arxiv.org/abs/1806.09570
+"""
 
 import math
 from bidict import bidict
@@ -276,11 +278,9 @@ class QCD_TRN_C_FgFq(general_current.GeneralCurrent):
     def kernel(self, evaluation, all_steps_info, global_variables):
         """ Evaluate this counterterm given the variables provided. """
 
-        kT_FF = all_steps_info[0]['variables'][0]['kTs'][1]
-        # MZMZ Warning! for some reason to be understood, the order of x's (and kts also)
-        # is the opposite (quark, gluon) as one would expect from the legs (gluon, quark)
-        x_FF  = all_steps_info[0]['variables'][0]['xs'][0]
-        x_oth = all_steps_info[0]['variables'][0]['xs'][1]
+        kT_FF = all_steps_info[0]['variables'][0]['kTs'][0]
+        x_FF  = all_steps_info[0]['variables'][0]['xs'][1]
+        x_oth = all_steps_info[0]['variables'][0]['xs'][0]
         s_rs  = all_steps_info[0]['variables'][0]['ss'][(0,1)]
         parent = all_steps_info[0]['bundles_info'][0]['parent']
 
@@ -517,14 +517,14 @@ class QCD_TRN_CS_FgFg(general_current.GeneralCurrent):
 
         # MZMZ Warning! for some reason to be understood, the order of x's (and kts also)
         # is the opposite (quark, gluon) as one would expect from the legs (gluon, quark)
-        x_FF  = all_steps_info[0]['variables'][0]['xs'][0]
+        x_soft  = all_steps_info[0]['variables'][0]['xs'][0]
         x_oth = all_steps_info[0]['variables'][0]['xs'][1]
         s_rs  = all_steps_info[0]['variables'][0]['ss'][(0,1)]
 
         prefactor = 1./s_rs #
         # include the soft_collinear counterterm here, as in the torino paper
         # (see the definition of 'hard-collinear' splitting function there)
-        soft_col = EpsilonExpansion({0: self.CA * 2 * x_FF / x_oth, 1: 0.})
+        soft_col = EpsilonExpansion({0: self.CA * 2 * x_oth / x_soft, 1: 0.})
         complete_weight = soft_col * prefactor
         evaluation['values'][(0, 0, 0, 0)] = {'finite': complete_weight[0]}
 

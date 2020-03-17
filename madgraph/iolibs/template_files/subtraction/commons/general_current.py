@@ -746,7 +746,7 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
         overall_parents = [] # the parent legs in the top-level reduced process (momenta in the mapped ME of this CT)
 
         for bundle in defining_structure.substructures:
-            overall_children.append(tuple(sorted([leg_numbers_map[l.n] for l in bundle.get_all_legs()], key = lambda l: l.n )))
+            overall_children.append(tuple(sorted([leg_numbers_map[l.n] for l in bundle.get_all_legs()])))
             if self.has_parent(bundle, len(overall_children[-1])):
                 overall_parents.append(self.get_parent(frozenset(overall_children[-1]), momenta_dict))
             else:

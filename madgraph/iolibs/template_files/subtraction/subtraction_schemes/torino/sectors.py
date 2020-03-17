@@ -189,8 +189,16 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                         if all_legs[0].n == s['sector'].leg_numbers[0]: # should match to "i"
                             s['counterterms'].append(i_ct)
                     if singular_structure.name()=='C':
-                        if sorted([l.n for l in all_legs]) == sorted(s['sector'].leg_numbers):
-                            s['counterterms'].append(i_ct)
+                        if not singular_structure.substructures:
+                            # pure-collinear CT: include if the legs match those of the sector
+                            if sorted([l.n for l in all_legs]) == sorted(s['sector'].leg_numbers):
+                                s['counterterms'].append(i_ct)
+                        else:
+                            #soft-collinear CT: include only if, on top of the previous condition,
+                            #  the soft leg matches the first sector leg
+                            if sorted([l.n for l in all_legs]) == sorted(s['sector'].leg_numbers) and \
+                               singular_structure.substructures[0].legs[0].n == s['sector'].leg_numbers[0]:
+                                s['counterterms'].append(i_ct)
 
             # Irrelevant if this NLO example, but let me specify all of them explicitly so as to make the strucuture clear.
             if integrated_counterterms is not None:

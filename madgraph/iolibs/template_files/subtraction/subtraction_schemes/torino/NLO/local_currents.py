@@ -110,11 +110,12 @@ class QCD_TRN_C_FgFg(general_current.GeneralCurrent):
         prefactor = 1./s_rs #
         # include the soft_collinear counterterm here, as in the torino paper
         # (see the definition of 'hard-collinear' splitting function there)
-        soft_col = EpsilonExpansion({0: self.CA * 2 * (x_FF / x_oth + x_oth / x_FF), 1: 0.})
+        # MZMZMZ  one should better use a separate SC counterterm, otherwise it will not work with sectors
+        soft_col = 0. #EpsilonExpansion({0: self.CA * 2 * (x_FF / x_oth + x_oth / x_FF), 1: 0.})
         for spin_correlation_vector, weight in AltarelliParisiKernels.P_gg(self, x_FF, kT_FF):
             complete_weight = weight * prefactor
             if spin_correlation_vector is None:
-                complete_weight += soft_col * (- prefactor)
+                ##complete_weight += soft_col * (- prefactor)
                 evaluation['values'][(0, 0, 0, 0)] = {'finite': complete_weight[0]}
             else:
                 evaluation['spin_correlations'].append( ((parent, spin_correlation_vector),) )
@@ -470,16 +471,13 @@ class QCD_TRN_CS_FgFq(general_current.GeneralCurrent):
 
 class QCD_TRN_CS_FgFg(general_current.GeneralCurrent):
     """ FF C(S(g),g)
-    NLO tree-level (final) soft-collinear currents. Returns zero, since we have already subtracted the
-    soft-col singularity inside the splitting functions"""
+    NLO tree-level (final) soft-collinear currents. """
 
     soft_structure = sub.SoftStructure(
         legs=(sub.SubtractionLeg(10, 21, sub.SubtractionLeg.FINAL), ) )
     soft_coll_structure_q = sub.CollStructure(
         substructures=(soft_structure, ),
         legs=(sub.SubtractionLeg(11, 21, sub.SubtractionLeg.FINAL), ) )
-
-    is_zero = True
 
     # This counterterm will be used if any of the current of the list below matches
     currents = [
@@ -506,7 +504,7 @@ class QCD_TRN_CS_FgFg(general_current.GeneralCurrent):
             'mapping'               : torino_config.final_coll_mapping,
             # Intermediate legs should be strictly superior to a 1000
             'momenta_dict'          : bidict({-1:frozenset((10,11))}),
-            'variables'             : None, #general_current.CompoundVariables(kernel_variables.fks_FFn_variables),
+            'variables'             : general_current.CompoundVariables(kernel_variables.TRN_FFn_variables),
             'is_cut'                : torino_config.generalised_cuts,
             'reduced_recoilers'     : torino_config.get_final_state_recoilers,
             'additional_recoilers'  : sub.SubtractionLegSet([]),
@@ -514,6 +512,23 @@ class QCD_TRN_CS_FgFg(general_current.GeneralCurrent):
     ]
 
 
+    def kernel(self, evaluation, all_steps_info, global_variables):
+        """ Evaluate this counterterm given the variables provided. """
+
+        # MZMZ Warning! for some reason to be understood, the order of x's (and kts also)
+        # is the opposite (quark, gluon) as one would expect from the legs (gluon, quark)
+        x_FF  = all_steps_info[0]['variables'][0]['xs'][0]
+        x_oth = all_steps_info[0]['variables'][0]['xs'][1]
+        s_rs  = all_steps_info[0]['variables'][0]['ss'][(0,1)]
+
+        prefactor = 1./s_rs #
+        # include the soft_collinear counterterm here, as in the torino paper
+        # (see the definition of 'hard-collinear' splitting function there)
+        soft_col = EpsilonExpansion({0: self.CA * 2 * x_FF / x_oth, 1: 0.})
+        complete_weight = soft_col * prefactor
+        evaluation['values'][(0, 0, 0, 0)] = {'finite': complete_weight[0]}
+
+        return evaluation
 
 
 #=========================================================================================

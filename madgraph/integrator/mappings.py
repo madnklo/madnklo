@@ -421,7 +421,6 @@ class VirtualMapping(object):
     """Base class for elementary mapping implementations."""
 
     # TODO Add a method is_valid_recoiler?
-
     @classmethod
     def is_valid_structure(cls, singular_structure):
         """Check if the mapping can be applied to a given singular structure."""
@@ -443,7 +442,8 @@ class VirtualMapping(object):
         specified in singular_structure.
 
         :param PS_point: higher-multiplicity phase-space point,
-        as a dictionary that associates integers to Lorentz vectors;
+        as a dictionary that associates integers to Lorentz vectors;nn
+
         this will not be modified
         :type PS_point: LorentzVectorDict
 
@@ -608,6 +608,9 @@ class FinalZeroMassesMapping(VirtualMapping):
         cls, PS_point, singular_structure, momenta_dict, squared_masses=None,
         kinematic_variables=None, compute_jacobian=False ):
 
+        #import ipdb
+        #ipdb.set_trace()
+
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
         if not cls.is_valid_structure(singular_structure):
@@ -686,6 +689,7 @@ class FinalZeroMassesMapping(VirtualMapping):
         else:
             # Solve the equation for alpha numerically
             from scipy.optimize import newton
+
             func = lambda a: sum(((a*beta[j])**2 + mu2[j]) ** 0.5 for j in js) - 1.
             alpha = newton(func, 1.)
             # misc.sprint(alpha)
@@ -1142,6 +1146,8 @@ class FinalGroupingMapping(FinalCollinearMapping):
     def map_to_lower_multiplicity(
         cls, PS_point, singular_structure, momenta_dict, squared_masses=None,
         kinematic_variables=None, compute_jacobian=False ):
+        #import ipdb
+        #ipdb.set_trace()
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
@@ -1190,6 +1196,8 @@ class FinalGroupingMapping(FinalCollinearMapping):
     def map_to_higher_multiplicity(
         cls, PS_point, singular_structure, momenta_dict, kinematic_variables,
         compute_jacobian=False ):
+        #import ipdb
+        #ipdb.set_trace()
 
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)

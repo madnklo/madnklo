@@ -1410,7 +1410,7 @@ class Cmd(CheckCmd, HelpCmd, CompleteCmd, BasicCmd):
 
     def onecmd(self, line, **opt):
         """catch all error and stop properly command accordingly"""
-           
+
         try:
             return self.onecmd_orig(line, **opt)
         except BaseException, error: 

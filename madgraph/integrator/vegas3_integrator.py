@@ -23,6 +23,13 @@ from multiprocessing import Process
 if __name__ == '__main__':
     sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.pardir, os.path.pardir))
 
+import matplotlib
+# If possible use Agg as it allows display-less systems to use pyplot (i.e. work over ssh)
+try:
+    matplotlib.use('Agg')
+except ValueError:
+    pass
+
 try:
     import vegas 
 except ImportError:

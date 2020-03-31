@@ -1159,6 +1159,8 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
     def do_test_IR_limits(self, line, *args, **opt):
         """This function test that local subtraction counterterms match
         with the actual matrix element in the IR limit."""
+        #import ipdb
+        #ipdb.set_trace()
     
         args = self.split_arg(line)
         args, testlimits_options = self.parse_test_IR_options(args, mode='limits')

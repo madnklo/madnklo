@@ -34,15 +34,17 @@ import madgraph.integrator.mappings as mappings
 # We consider only the two initial state of the reduced process as recoilers,
 # assuming that the initial state numbers of the lower multiplicity process
 # are identical to those of the final state numbers.
-def get_initial_state_recoilers(reduced_process, excluded=(), **opts):
 
-    model = reduced_process.get('model')
-    return sub.SubtractionLegSet([
-        leg for leg in reduced_process.get('legs') if all([
-            leg['state'] == leg.INITIAL,
-            leg['number'] not in excluded
-        ])
-    ])
+# No initial state recoilers
+# def get_initial_state_recoilers(reduced_process, excluded=(), **opts):
+#
+#     model = reduced_process.get('model')
+#     return sub.SubtractionLegSet([
+#         leg for leg in reduced_process.get('legs') if all([
+#             leg['state'] == leg.INITIAL,
+#             leg['number'] not in excluded
+#         ])
+#     ])
 
 def get_final_state_recoilers(reduced_process, excluded=(), **opts):
 
@@ -54,32 +56,32 @@ def get_final_state_recoilers(reduced_process, excluded=(), **opts):
         ])
     ])
 
-def no_factor(**opts):
+def no_factor(**opts): #same as no factor and no cut in factors and cuts for colourful
     return 1.0
 
 def no_cut(**opts):
     return False
 
-divide_by_jacobian = False
+divide_by_jacobian = False # What does this do?
 
 # Initial collinear configuration
 initial_coll_factor = no_factor
-initial_coll_cut = no_cut
+initial_coll_cut = no_cut # = False # Different from colourful
 initial_coll_mapping = mappings.InitialLorentzOneMapping
 
 # Soft configuration
 soft_factor = no_factor
 # The soft counterterm must not have cuts as we did not implement the soft integrated counterterm with cuts
-soft_cut = no_cut
+soft_cut = no_cut # = False
 soft_mapping = mappings.SoftVsInitialMapping
 
 # Final collinear configuration
 # WARNING: This is *not* the same final-collinear mapping as in colorful, where one has 'FinalRescalingOneMapping' instead.
-final_coll_mapping = mappings.FinalGroupingMapping
-final_coll_factor = no_factor
+final_coll_mapping = mappings.FinalGroupingMapping #Different from colourful
+final_coll_factor = no_factor # = 1.0
 # A cut on the final-final would make little sense since we integrate numerically over the symmetric rescaling of the initial
 # momenta, so thhis is the same story as for the soft.
-final_coll_cut = no_cut
+final_coll_cut = no_cut # = False
 
 # Final soft-collinear configuration (not strictly speaking necessary)
 final_soft_coll_mapping = mappings.SoftCollinearVsFinalMapping(

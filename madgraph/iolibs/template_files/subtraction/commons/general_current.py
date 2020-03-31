@@ -693,6 +693,9 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
         track_leg_numbers = True, allowed_backward_evolved_flavors=('ALL','ALL'),
         n_initial_legs=None, sector_info=None, **opts ):
 
+        #import ipdb
+        #ipdb.set_trace()
+
         if higher_PS_point is None:
             raise CurrentImplementationError(
                 self.name() + " needs the higher phase-space point.")
@@ -749,6 +752,7 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
             if self.has_parent(bundle, len(overall_children[-1])):
                 overall_parents.append(self.get_parent(frozenset(overall_children[-1]), momenta_dict))
             else:
+
                 overall_parents.append(None)
 
         global_variables = {
@@ -785,6 +789,9 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
                 mapping_class = mapping_info['mapping_class']
                 mapping_singular_structure = mapping_info['mapping_singular_structure']
                 this_momenta_dict = mapping_info['mapping_momenta_dict']
+
+                #import ipdb
+                #ipdb.set_trace()
 
                 lower_PS_point, mapping_vars = mapping_class.map_to_lower_multiplicity(
                     all_steps[kinematic_identifier][-1]['higher_PS_point'], mapping_singular_structure, this_momenta_dict,
@@ -823,6 +830,9 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
                         bundles_info[-1]['cut_inputs']['pC'] = sum(all_steps[kinematic_identifier][-1]['higher_PS_point'][l.n] for l in all_final_legs)
                     elif bundle.name() == 'S':
                         bundles_info[-1]['cut_inputs']['pS'] = sum(all_steps[kinematic_identifier][-1]['higher_PS_point'][l.n] for l in all_final_legs)
+
+                #import ipdb
+                #ipdb.set_trace()
 
                 all_steps[kinematic_identifier][-1]['bundles_info'] = bundles_info
 
@@ -884,6 +894,9 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
 
         # Apply collinear kernel (can be dummy)
         evaluation = self.kernel(evaluation, all_steps, global_variables)
+
+        #import ipdb
+        #ipdb.set_trace()
 
         # Apply soft kernel (can be dummy), which also knows about the reduced process
         evaluation = self.call_soft_kernel(evaluation, reduced_process, all_steps, global_variables)

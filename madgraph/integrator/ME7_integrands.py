@@ -3987,6 +3987,8 @@ The missing process is: %s"""%ME_process.nice_string())
 
     def test_IR_limits(self, test_options):
         """Test how well local counterterms approximate a real-emission matrix element."""
+        #import ipdb
+        #ipdb.set_trace()
 
         # Apply the passed options
         seed = test_options['seed']
@@ -4134,6 +4136,8 @@ The missing process is: %s"""%ME_process.nice_string())
                 logger.debug('Reconstructed complete singular structure: \n'+'\n'.join(
                     str(ss) for ss in selected_singular_structures ))
 
+                #ipdb.set_trace()
+
                 # Loop over approached limits
                 process_evaluations = {}
                 for limit in selected_singular_structures:
@@ -4201,6 +4205,9 @@ The missing process is: %s"""%ME_process.nice_string())
         its corresponding convolution variables xi1/2, perform the IR limit test that 
         consists in approaching the limit and computing both the real-emission matrix 
         element and all counterterms that should subtract its singularities."""
+
+        #import ipdb
+        #ipdb.set_trace()
                 
         logger.info("Approaching limit %s " % str(limit) )
         
@@ -4430,10 +4437,10 @@ The missing process is: %s"""%ME_process.nice_string())
         
         import matplotlib
         # If possible use Agg as it allows display-less systems to use pyplot (i.e. work over ssh)
-        #try:
-        #    matplotlib.use('Agg')
-        #except ValueError:
-        #    pass
+        try:
+            matplotlib.use('Agg')
+        except ValueError:
+            pass
         import matplotlib.pyplot as plt
 
         plot_title = True
@@ -4609,6 +4616,10 @@ The missing process is: %s"""%ME_process.nice_string())
             wgt_total = [abs(x_values[i] * total[i]) for i in range(len(x_values))]
             plt.plot(x_values, wgt_total, color=TOTAL_color, label='TOTAL')
         plt.legend()
+
+        import ipdb
+        ipdb.set_trace()
+
         if display_mode == 'figure' and filename:
             plt.savefig(filename + '_weighted' + plot_extension)
 

@@ -1,20 +1,20 @@
 ###########################################################
 #
-# colorful_pp subtraction scheme
+# distributed softs subtraction scheme
 #
 ###########################################################
 
 import os
 import madgraph.various.misc as misc
 
-__authors__ = ["valentin.hirschi@gmail.com", "hainzc@phys.ethz.ch"]
+__authors__ = ["valentin.hirschi@gmail.com", "hainzc@student.ethz.ch"]
 
 # Mandatory variables of each subtraction module
 
 # General properties
 # ==================
 
-# In the colorful_pp implementation softs do actually recoil against initial states
+# Here there is no recoil against the initial states
 requires_soft_beam_factorization = False
 
 # This scheme belongs to a family of scheme using leg number information to instantiates its currents
@@ -53,7 +53,7 @@ def load():
 
             return False
 
-    # Specific to the colorful_pp scheme
+    # Specific to the distibuted softs scheme
     # NLO local
     import NLO.local_currents as NLO_local_currents
     # NLO integrated
@@ -88,15 +88,15 @@ def load():
     all_subtraction_current_classes.extend([
         # final-final collinears
         NLO_local_currents.QCD_C_FqFg,
-#TODO        NLO_local_currents.QCD_C_FqFqx,
-#TODO        NLO_local_currents.QCD_C_FgFg,
+        NLO_local_currents.QCD_C_FqFqx,
+        NLO_local_currents.QCD_C_FgFg,
         # initial-final collinears
         # soft and soft-collinears
         NLO_local_currents.QCD_S_g,
-#TODO        NLO_local_currents.QCD_CS_FgFg,
-#TODO        NLO_local_currents.QCD_CS_FgFq,
-#TODO        NLO_local_currents.QCD_CS_IgFg,
-#TODO        NLO_local_currents.QCD_CS_IqFg,
+        NLO_local_currents.QCD_CS_FgFg,
+        NLO_local_currents.QCD_CS_FgFq,
+        #NLO_local_currents.QCD_CS_IgFg, # Are these inital state currents?
+        #NLO_local_currents.QCD_CS_IqFg,
     ])
 
     # Add NLO integrated counterterms
@@ -104,6 +104,11 @@ def load():
 
     all_subtraction_current_classes.extend([
         # TODO Place here integrated counterterms
+        NLO_integrated_currents.QCD_integrated_C_FqFq,
+        NLO_integrated_currents.QCD_integrated_C_FqFg,
+        NLO_integrated_currents.QCD_integrated_C_FgFg,
+        NLO_integrated_currents.QCD_integrated_CS_FF,
+        #Need soft term
     ])
 
     ###########

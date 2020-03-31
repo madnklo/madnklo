@@ -27,16 +27,18 @@ CurrentImplementationError = utils.CurrentImplementationError
 # Variables as in Gabor's note, suited for a mapping of final-state collinears
 # recoiling against the INITIAL states. See Gabor's notes.
 #=========================================================================================
-def colorful_pp_FFn_variables(higher_PS_point, qC, children, **opts):
-    """ Variables for 'n' *pure final state* collinear recoiling exclusively against the initial state."""
+def distributed_soft_FFn_variables(higher_PS_point, qC, children, **opts):
+    """ Variables for 'n' *pure final state* collinear recoiling exclusively against the initial state.""" #final state recoilers problem??
+    #import ipdb
+    #ipdb.set_trace()
 
-    all_p_fs = [higher_PS_point[child] for child in children]
+    all_p_fs = [higher_PS_point[child] for child in children] # read out momenta of the children
     Q = opts['Q']
     # TODO SET ALPHA CORRECTLY
     alpha = 1.0
-
+    
     # Loop over all final state momenta to obtain the corresponding variables
-    zs = []
+    zs = [] # Energy fractions of the children :: looks good
     for p_fs in all_p_fs:
         zs.append(p_fs.dot(Q))
     normalisation = sum(zs)
@@ -44,6 +46,7 @@ def colorful_pp_FFn_variables(higher_PS_point, qC, children, **opts):
         zs[i] /= normalisation
 
     # Add additional ss's
+    # 2 * the product of the momenta of the children no doubles and masses
     ss_i_j = {}
     for i_fs in range(len(all_p_fs)):
         for j_fs in range(i_fs+1,len(all_p_fs)):
@@ -52,6 +55,8 @@ def colorful_pp_FFn_variables(higher_PS_point, qC, children, **opts):
     for k,v in ss_i_j.items():
         ss_i_j[(k[1],k[0])] = v
 
+    # product of the momenta of the children with the sum of the moment of all other children times 2
+    # ss_i_others[i] = S_{i(1, ..., i-1, i+1, ..., n)}
     ss_i_others = []
     for i_fs in range(len(all_p_fs)):
         p_other = vectors.LorentzVector()
@@ -75,7 +80,7 @@ def colorful_pp_FFn_variables(higher_PS_point, qC, children, **opts):
     kTs = {}
     for i in range(len(all_p_fs)):
         kT = vectors.LorentzVector()
-        other_indices = [k for k in range(len(all_p_fs)) if k!=i]
+        other_indices = [k for k in range(len(all_p_fs)) if k!=i] # all colinear momenta exept i
         for j in other_indices:
             kT += xis[i]*all_p_fs[j]
             kT -= xis[j]*all_p_fs[i]

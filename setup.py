@@ -104,5 +104,5 @@ setup(
     cmdclass = {
         'compile' : MG5aMCCompile,
         'clean'   : MG5aMCClean
-    }
+    }, requires=['scipy', 'matplotlib', 'numpy']
 )

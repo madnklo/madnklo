@@ -3028,7 +3028,7 @@ class FinalTRNMapping(VirtualMapping):
         coll_sub = singular_structure.substructures[0]
 
         is_valid = is_valid and \
-                   ((len(coll_sub.substructures) == 0 and len(coll_sub.legs)==2) or \
+                   ((len(coll_sub.substructures) == 0 and len(coll_sub.legs) == 2) or \
                     (len(coll_sub.substructures) == 1 and len(coll_sub.legs) == 1))
 
         return is_valid

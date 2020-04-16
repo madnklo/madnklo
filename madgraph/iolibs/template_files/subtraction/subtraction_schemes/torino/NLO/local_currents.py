@@ -74,7 +74,7 @@ class QCD_TRN_C_FgFg(general_current.GeneralCurrent):
         }),
     ]
 
-    # Te defining currents correspond to a currents block composed of several lists of template currents
+    # The defining currents correspond to a currents block composed of several lists of template currents
     # for matching each currents of the target currents block (in an unordered fashion)
     defining_currents = [ currents, ]
 
@@ -156,7 +156,7 @@ class QCD_TRN_C_FqFqx(general_current.GeneralCurrent):
         }),
     ]
 
-    # Te defining currents correspond to a currents block composed of several lists of template currents
+    # The defining currents correspond to a currents block composed of several lists of template currents
     # for matching each currents of the target currents block (in an unordered fashion)
     defining_currents = [ currents, ]
 
@@ -251,7 +251,7 @@ class QCD_TRN_C_FgFq(general_current.GeneralCurrent):
         }),
     ]
 
-    # Te defining currents correspond to a currents block composed of several lists of template currents
+    # The defining currents correspond to a currents block composed of several lists of template currents
     # for matching each currents of the target currents block (in an unordered fashion)
     defining_currents = [ currents, ]
 
@@ -332,7 +332,7 @@ class QCD_TRN_S_g(dipole_current.DipoleCurrent):
         }),
     ]
 
-    # Te defining currents correspond to a currents block composed of several lists of template currents
+    # The defining currents correspond to a currents block composed of several lists of template currents
     # for matching each currents of the target currents block (in an unordered fashion)
     defining_currents = [ currents, ]
 
@@ -445,7 +445,7 @@ class QCD_TRN_CS_FgFq(general_current.GeneralCurrent):
         }),
     ]
 
-    # Te defining currents correspond to a currents block composed of several lists of template currents
+    # The defining currents correspond to a currents block composed of several lists of template currents
     # for matching each currents of the target currents block (in an unordered fashion)
     defining_currents = [ currents, ]
 
@@ -489,7 +489,7 @@ class QCD_TRN_CS_FgFg(general_current.GeneralCurrent):
         }),
     ]
 
-    # Te defining currents correspond to a currents block composed of several lists of template currents
+    # The defining currents correspond to a currents block composed of several lists of template currents
     # for matching each currents of the target currents block (in an unordered fashion)
     defining_currents = [ currents, ]
 

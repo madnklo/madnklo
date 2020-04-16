@@ -38,15 +38,30 @@ def get_initial_state_recoilers(reduced_process, excluded=(), global_variables={
 
 def get_final_state_recoilers(reduced_process, excluded=(), global_variables={}):
     """in the Torino Subtraction scheme, a single recoiler has to be choosen
-    At the moment we simply pick the first available"""
-    ##model = reduced_process.get('model')
-    sector_legs = global_variables['sector_info'][0].leg_numbers
+    At the moment we simply pick it among massless, final-state legs which
+    do not belong to the sector leg. By convention, we pick the one with smallest
+    PDG id """
+    model = reduced_process.get('model')
+    try:
+        sector_legs = global_variables['sector_info'][0].leg_numbers
+    except AttributeError:
+        # this is in the case of the integrated CT's
+        sector_legs = ()
+
     recoilers = [
         leg for leg in reduced_process.get('legs') if all([
             leg['state'] == leg.FINAL,
             leg['number'] not in excluded,
-            leg['number'] not in sector_legs])
+            leg['number'] not in sector_legs,
+             model.get_particle(leg['id'])['mass'].lower() == 'zero'])
                 ]
+
+    # check that recoilers exist
+    if not recoilers :
+        raise CurrentImplementationError("Recoilers cannot be found for process %s" % reduced_process.nice_string())
+
+    # sort the recoilers according to their id, and return the first one
+    recoilers.sort(key = lambda l: l['id'])
     return sub.SubtractionLegSet([recoilers[0]])
 
 #TODO cuts are disabled for now because they need to be rethought for double unresolved limits

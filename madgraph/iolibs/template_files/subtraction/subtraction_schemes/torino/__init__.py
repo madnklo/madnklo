@@ -4,7 +4,6 @@
 #
 ###########################################################
 
-import os
 
 __authors__ = ["valentin.hirschi@gmail.com", "nicoldeu@phys.ethz.ch"]
 
@@ -54,10 +53,10 @@ def load():
     import commons.beam_factorization_BF as BF
     import commons.beam_factorization_BS as BS
 
-    # Specific to the colorful_pp scheme
+    # Specific to the Torino scheme
     import torino_config
     import NLO.local_currents as NLO_local_currents
-##    import NLO.integrated_currents as NLO_integrated_currents
+    import NLO.integrated_currents as NLO_integrated_currents
     ##import NNLO.local_currents as NNLO_local_currents
 
     import sectors as sectors
@@ -74,24 +73,6 @@ def load():
     # NLO
     ###########
 
-    # Add NLO beam factorization counterterms (BF terms)
-    # ==================================================
-    all_subtraction_current_classes.extend([ ])
-
-    # Add NLO beam factorization counterterms of soft origin
-    # recoiling symmetrically against the initial state (BS)
-    # ======================================================
-    all_subtraction_current_classes.extend([ ])
-
-    # Add local NLO counterterms
-    # ==========================
-    all_subtraction_current_classes.extend([
-        # initial-final collinears
-
-        # soft and soft-collinears
-
-    ])
-
     NLO_final_collinears = [
         NLO_local_currents.QCD_TRN_C_FgFq,
         NLO_local_currents.QCD_TRN_C_FqFqx,
@@ -100,22 +81,18 @@ def load():
         NLO_local_currents.QCD_TRN_CS_FgFq,
         NLO_local_currents.QCD_TRN_CS_FgFg,
     ]
-    ##        NLO_integrated_currents.QCD_integrated_FKS_C_FqFg,
-##        NLO_integrated_currents.QCD_integrated_FKS_S_g,
-##        NLO_integrated_currents.QCD_integrated_FKS_CS_FgFq
-#        NLO_local_currents.QCD_FKS_C_FqFqx,
-#        NLO_local_currents.QCD_FKS_C_FgFg,
-#        NLO_local_currents.QCD_FKS_S_g,
-#        NLO_local_currents.QCD_FKS_CS_FgFg,
-#        NLO_local_currents.QCD_FKS_CS_FgFq,
     # final-final collinears
     all_subtraction_current_classes.extend(NLO_final_collinears)
 
     # Add NLO integrated counterterms
     # ===============================
-
     all_subtraction_current_classes.extend([
-        # soft and soft-collinear
+                NLO_integrated_currents.QCD_integrated_TRN_C_FgFq,
+                NLO_integrated_currents.QCD_integrated_TRN_C_FqFqx,
+                NLO_integrated_currents.QCD_integrated_TRN_C_FgFg,
+                NLO_integrated_currents.QCD_integrated_TRN_S_g,
+                NLO_integrated_currents.QCD_integrated_TRN_CS_FgFq,
+                NLO_integrated_currents.QCD_integrated_TRN_CS_FgFg
     ])
 
     # Finally register the subtraction current classes loaded

@@ -50,6 +50,9 @@ CurrentImplementationError = utils.CurrentImplementationError
 def torino_to_madnk_epsexp(torinopoles, mu2os):
     """a function to convert an epsilon-expansion with the conventions
     of the Torino paper to the conventions used in this code
+    Note that, besides the log(mu^2/s), there is also a term coming from
+    the alpha_s renormalisation convention leading to an extra factor
+    exp(epsilon EluerGamma) / Gamma(1-eps)
     """
     try:
         double = torinopoles[-2]
@@ -71,7 +74,7 @@ def torino_to_madnk_epsexp(torinopoles, mu2os):
     return EpsilonExpansion({-2: double,
                              -1: single + double * lmu2os,
                               0: finite + single * lmu2os +
-                                  double * lmu2os**2 / 2.})
+                                  double * (lmu2os**2 / 2. + math.pi**2 / 12.)})
 
 
 def variables_for_integrated_currents_FF(cls, reduced_process, all_steps, global_variables):

@@ -26,15 +26,50 @@ def get_sector_wgt(q, p_sector):
 
     return 1 / e_i / w_ij
 
+
+def get_sector_wgt_S(q, p_sector):
+    """ the soft sector function sigma_ij of the Torino paper (eq. 2.15left)
+     without the normalisation.
+     - q is the total momentum of the incoming particles
+     - p_sector is a list of the momenta of the particles defining the sector
+    """
+    s = q.square()
+    s_ij = 2 * p_sector[0].dot(p_sector[1])
+    s_qi = 2 * p_sector[0].dot(q)
+    s_qj = 2 * p_sector[1].dot(q)
+    w_ij = s * s_ij / s_qi / s_qj
+
+    return 1 / w_ij
+
+
+def get_sector_wgt_C(q, p_sector):
+    """ the collinear sector function sigma_ij of the Torino paper (eq. 2.15right)
+     without the normalisation.
+     - q is the total momentum of the incoming particles
+     - p_sector is a list of the momenta of the particles defining the sector
+    """
+    s = q.square()
+    s_ij = 2 * p_sector[0].dot(p_sector[1])
+    s_qi = 2 * p_sector[0].dot(q)
+    s_qj = 2 * p_sector[1].dot(q)
+    e_i = s_qi / s
+    e_j = s_qj / s
+
+    return 1. # instead of implementing 2.15 right, simply return 1 when summing i,j + j,i
+    ##return e_j / (e_i + e_j)
+
+
 class Sector(generic_sectors.GenericSector):
     """ Class implementing a particular sector, with attributes identifying it and methods 
     for its evaluation."""
+
 
     def __init__(self, leg_numbers, **opts):
         super(Sector, self).__init__(**opts)
         self.leg_numbers = leg_numbers
 
-    def __call__(self, PS_point, PDGs, counterterm_index=-1, input_mapping_index=-1):
+
+    def __call__(self, PS_point, PDGs, counterterm_index=-1, input_mapping_index=-1, sector_type=0):
         """ Given a kinematic configuration (PS_point is a *dict* here) and flavors of external states, returns the sector weight (float)
         from this sector function.
         Notice that the sectoring function will be called for both the real(s) event and *also* with the reduced
@@ -44,27 +79,52 @@ class Sector(generic_sectors.GenericSector):
         the sector generator function. -1 for the counterterm_index implies no counterterm.
         The flavor mapping is set to None if a local counterterm is considered, and to the corresponding input
         mapping index if an integrated counterterm is considered.
+        The sector_type variable determines if the standard (0) / soft (1) / collinear (2) sector function is called
         """
 
         q = PS_point[1] + PS_point[2]
 
         p_sector = [PS_point[l] for l in self.leg_numbers]
 
-        sector_weight = get_sector_wgt(q, p_sector)
+        if sector_type == 0:
+            # standard sector function
+            sector_weight = get_sector_wgt(q, p_sector)
 
-        # now normalise it
-        norm = 0.
-        for (ii, jj) in self.all_sector_list:
-            p_ii = PS_point[ii]
-            p_jj = PS_point[jj]
-            norm += get_sector_wgt(q, [p_ii, p_jj])
+            # now normalise it
+            norm = 0.
+            for (ii, jj) in self.all_sector_list:
+                p_ii = PS_point[ii]
+                p_jj = PS_point[jj]
+                norm += get_sector_wgt(q, [p_ii, p_jj])
+
+        elif sector_type == 1:
+            # soft sector function
+            sector_weight = get_sector_wgt_S(q, p_sector)
+            # now normalise it
+            norm = 0.
+            for (ii, jj) in self.all_sector_list:
+                # the sum runs only on the sectors with the first leg
+                # equal to the one at hand
+                if ii != self.leg_numbers[0]:
+                    continue
+                p_ii = PS_point[ii]
+                p_jj = PS_point[jj]
+                norm += get_sector_wgt_S(q, [p_ii, p_jj])
+
+        elif sector_type == 2:
+            # collinear sector function
+            sector_weight = get_sector_wgt_C(q, p_sector)
+            # it is already with the correct normalisation
+            norm = 1.
 
         return sector_weight / norm
+
 
     def __str__(self):
         """ String representation of this sector. """
 
         return "(%s)"%(','.join('%d'%ln for ln in self.leg_numbers))
+
 
 class SectorGenerator(generic_sectors.GenericSectorGenerator):
     """ Class responsible for generating the correct list of sectors to consider for specific processes."""

@@ -39,6 +39,15 @@ import madgraph.various.misc as misc
 
 CurrentImplementationError = utils.CurrentImplementationError
 
+
+def compensate_sector_wgt(PS_point, global_variables, CT_type):
+    """returns W_ab^X / W_ab, where X=S,C for CT_type = 1,2.
+     This is done in order to have the correct sector function together with the CT
+     """
+    return global_variables['sector_info'][0](PS_point, [], sector_type=CT_type) / \
+            global_variables['sector_info'][0](PS_point, [])
+
+
 #=========================================================================================
 # NLO final collinears
 #=========================================================================================
@@ -102,22 +111,16 @@ class QCD_TRN_C_FgFg(general_current.GeneralCurrent):
         """ Evaluate this counterterm given the variables provided. """
 
         kT_FF = all_steps_info[0]['variables'][0]['kTs'][1]
-        # MZMZ Warning! for some reason to be understood, the order of x's (and kts also)
-        # is the opposite (quark, gluon) as one would expect from the legs (gluon, quark)
         x_FF  = all_steps_info[0]['variables'][0]['xs'][0]
         x_oth = all_steps_info[0]['variables'][0]['xs'][1]
         s_rs  = all_steps_info[0]['variables'][0]['ss'][(0,1)]
         parent = all_steps_info[0]['bundles_info'][0]['parent']
 
         prefactor = 1./s_rs #
-        # include the soft_collinear counterterm here, as in the torino paper
-        # (see the definition of 'hard-collinear' splitting function there)
-        # MZMZMZ  one should better use a separate SC counterterm, otherwise it will not work with sectors
-        soft_col = 0. #EpsilonExpansion({0: self.CA * 2 * (x_FF / x_oth + x_oth / x_FF), 1: 0.})
+        prefactor *= compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 2)
         for spin_correlation_vector, weight in AltarelliParisiKernels.P_gg(self, x_FF, kT_FF):
             complete_weight = weight * prefactor
             if spin_correlation_vector is None:
-                ##complete_weight += soft_col * (- prefactor)
                 evaluation['values'][(0, 0, 0, 0)] = {'finite': complete_weight[0]}
             else:
                 evaluation['spin_correlations'].append( ((parent, spin_correlation_vector),) )
@@ -184,14 +187,13 @@ class QCD_TRN_C_FqFqx(general_current.GeneralCurrent):
         """ Evaluate this counterterm given the variables provided. """
 
         kT_FF = all_steps_info[0]['variables'][0]['kTs'][1]
-        # MZMZ Warning! for some reason to be understood, the order of x's (and kts also)
-        # is the opposite (quark, gluon) as one would expect from the legs (gluon, quark)
         x_FF  = all_steps_info[0]['variables'][0]['xs'][0]
         x_oth = all_steps_info[0]['variables'][0]['xs'][1]
         s_rs  = all_steps_info[0]['variables'][0]['ss'][(0,1)]
         parent = all_steps_info[0]['bundles_info'][0]['parent']
 
         prefactor = 1./s_rs #
+        prefactor *= compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 2)
         # include the soft_collinear counterterm here, as in the torino paper
         # (see the definition of 'hard-collinear' splitting function there)
         soft_col = 0.
@@ -285,6 +287,7 @@ class QCD_TRN_C_FgFq(general_current.GeneralCurrent):
         parent = all_steps_info[0]['bundles_info'][0]['parent']
 
         prefactor = 1./s_rs #
+        prefactor *= compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 2)
         # include the soft_collinear counterterm here, as in the torino paper
         # (see the definition of 'hard-collinear' splitting function there)
         soft_col = EpsilonExpansion({0: self.CF * 2 * x_FF / x_oth, 1: 0.})
@@ -375,6 +378,7 @@ class QCD_TRN_S_g(dipole_current.DipoleCurrent):
         evaluation['color_correlations'] = []
 
         color_correlation_index = 0
+
         # Now loop over the colored parton number pairs (a,b)
         # and add the corresponding contributions to this current
         for i, a in enumerate(colored_partons):
@@ -392,6 +396,8 @@ class QCD_TRN_S_g(dipole_current.DipoleCurrent):
                 # Retrieve the reduced kinematics as well as the soft momentum
                 lower_PS_point = all_steps_info[(a, b)][0]['lower_PS_point']
                 higher_PS_point = all_steps_info[(a, b)][0]['higher_PS_point']
+
+                sector_prefactor = compensate_sector_wgt(higher_PS_point, global_variables, 1)
 
                 ###pS = higher_PS_point[all_steps_info[(a, b)][0]['bundles_info'][0]['final_state_children'][0]]
                 # the above expression cannot be used any more since we use a mapping structure of collinear
@@ -411,7 +417,7 @@ class QCD_TRN_S_g(dipole_current.DipoleCurrent):
                 eikonal = SoftKernels.eikonal_dipole(pa, pb, pS)
                 evaluation['color_correlations'].append(((a, b),))
                 evaluation['values'][(0, color_correlation_index, 0, color_correlation_index)] = {
-                    'finite': norm * mult_factor * eikonal}
+                    'finite': norm * mult_factor * eikonal * sector_prefactor}
                 evaluation['reduced_kinematics'].append(('Dip %d-%d' % (a, b), lower_PS_point))
                 color_correlation_index += 1
 
@@ -515,13 +521,12 @@ class QCD_TRN_CS_FgFg(general_current.GeneralCurrent):
     def kernel(self, evaluation, all_steps_info, global_variables):
         """ Evaluate this counterterm given the variables provided. """
 
-        # MZMZ Warning! for some reason to be understood, the order of x's (and kts also)
-        # is the opposite (quark, gluon) as one would expect from the legs (gluon, quark)
         x_soft  = all_steps_info[0]['variables'][0]['xs'][0]
         x_oth = all_steps_info[0]['variables'][0]['xs'][1]
         s_rs  = all_steps_info[0]['variables'][0]['ss'][(0,1)]
 
         prefactor = 1./s_rs #
+        prefactor *= compensate_sector_wgt(all_steps_info, global_variables, 2)
         # include the soft_collinear counterterm here, as in the torino paper
         # (see the definition of 'hard-collinear' splitting function there)
         soft_col = EpsilonExpansion({0: self.CA * 2 * x_oth / x_soft, 1: 0.})

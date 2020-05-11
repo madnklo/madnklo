@@ -2047,7 +2047,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
             process['beam_factorization'], PS_point, process, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2 )
 
         # Log the abort status in the event
-        convolved_event.abort = abort_status
+        if convolved_event is not None:
+            convolved_event.abort = abort_status
 
         return convolved_event
     

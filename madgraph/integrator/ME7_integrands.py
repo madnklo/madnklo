@@ -1722,18 +1722,22 @@ class ME7Integrand(integrands.VirtualIntegrand):
         
         return self.run_card['scale'], self.run_card['dsqrt_q2fact1'], self.run_card['dsqrt_q2fact2'] 
 
-    def get_pdfQ2(self, pdf, pdg, x, scale2):
+    def get_pdfQ2(self, pdf, pdg, x, scale2,nonQCD_cutoff=0.1):
         """ Call the PDF and return the corresponding density."""
 
         # For testing, one can easily substitute PDFs with a 1./x distribution by uncommenting the 
         # line below
-        #return 1./x
+        #return 1/x
 
         if pdf is None:
             return 1.
 
         if pdg not in [21,22] and abs(pdg) not in range(1,7):
-            return 1.
+            # This should be called only when debugging as long as we have no QED corrections:
+            # non-partonic beam that has a "beam type" set to 1 in the run_card
+            # typical use case: colorful_pp scheme tests with e+ e- initial states
+            return 1. if x > nonQCD_cutoff else 0.
+
                 
         if (pdf, pdg, x, scale2) in self.PDF_cache:
             return self.PDF_cache[(pdf, pdg, x, scale2)]

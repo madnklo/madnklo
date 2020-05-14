@@ -9,6 +9,10 @@ import madgraph.various.misc as misc
 import madgraph.core.diagram_generation as diagram_generation
 import madgraph.fks.fks_common as fks_common
 import madgraph.integrator.vectors as vectors
+import logging
+
+
+logger = logging.getLogger('madgraph')
 
 
 def get_sector_wgt(q, p_sector):
@@ -222,10 +226,10 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                         a_sector['sector'].masses = (model.get('particle_dict')[i.get('id')]['mass'],
                                                      model.get('particle_dict')[j.get('id')]['mass'])
                         all_sectors.append(a_sector)
-                        print 'SECTOR FOUND',a_sector['sector'].leg_numbers
+                        logger.info('NLO sector found, legs %d, %d' % a_sector['sector'].leg_numbers)
 
         if not all_sectors:
-            print 'WARNING, no sectors found for %s' % defining_process.nice_string()
+            logger.critical('WARNING, no sectors found for %s' % defining_process.nice_string())
 
         # up to here we have identified all the sectors.
         #  Now for each sector we need to find the corresponding counterterms

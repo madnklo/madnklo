@@ -116,7 +116,7 @@ class QCD_integrated_TRN_C_FgFg(general_current.GeneralCurrent):
 
     # This counterterm will be used if any of the current of the list below matches
     currents = [
-        sub.Current({
+        sub.IntegratedCurrent({
             'resolve_mother_spin_and_color'     : True,
             'n_loops'                           : 0,
             'squared_orders'                    : {'QCD': 2},
@@ -158,10 +158,12 @@ class QCD_integrated_TRN_C_FgFg(general_current.GeneralCurrent):
         single += overall * 2
         finite += overall * (6 - 7. / 2. * zeta2)
 
+        # the extra factor 2 below is because the Torino expressions are already symmetrised
+        # for the two gluons, while MadNkLO applies a symmetry factor afterwards
         evaluation['values'][(0, 0, 0, 0)] = torino_to_madnk_epsexp(
                                             EpsilonExpansion({-2: double,
                                                               -1: single,
-                                                               0: finite}) * self.SEpsilon * (1. / (16 * math.pi**2)),
+                                                               0: finite}) * 2 * self.SEpsilon * (1. / (16 * math.pi**2)),
                                                                   mu2os)
 
         return evaluation
@@ -190,7 +192,7 @@ class QCD_integrated_TRN_C_FqFqx(general_current.GeneralCurrent):
 
     # This counterterm will be used if any of the current of the list below matches
     currents = [
-        sub.Current({
+        sub.IntegratedCurrent({
             'resolve_mother_spin_and_color'     : True,
             'n_loops'                           : 0,
             'squared_orders'                    : {'QCD': 2},

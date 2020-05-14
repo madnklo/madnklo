@@ -526,7 +526,7 @@ class QCD_TRN_CS_FgFg(general_current.GeneralCurrent):
         s_rs  = all_steps_info[0]['variables'][0]['ss'][(0,1)]
 
         prefactor = 1./s_rs #
-        prefactor *= compensate_sector_wgt(all_steps_info, global_variables, 2)
+        prefactor *= compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 2)
         # include the soft_collinear counterterm here, as in the torino paper
         # (see the definition of 'hard-collinear' splitting function there)
         soft_col = EpsilonExpansion({0: self.CA * 2 * x_oth / x_soft, 1: 0.})

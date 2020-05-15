@@ -59,8 +59,17 @@ def get_sector_wgt_C(q, p_sector):
     e_i = s_qi / s
     e_j = s_qj / s
 
-    return 1. # instead of implementing 2.15 right, simply return 1 when summing i,j + j,i
-    ##return e_j / (e_i + e_j)
+    return e_j
+
+
+def get_sector_wgt_CS(q, p_sector):
+    """ the soft-collinear sector function sigma_ij of the Torino paper (eq. 2.15right)
+     without the normalisation.
+     - q is the total momentum of the incoming particles
+     - p_sector is a list of the momenta of the particles defining the sector
+     This function just returns 1
+    """
+    return 1
 
 
 class Sector(generic_sectors.GenericSector):
@@ -83,7 +92,8 @@ class Sector(generic_sectors.GenericSector):
         the sector generator function. -1 for the counterterm_index implies no counterterm.
         The flavor mapping is set to None if a local counterterm is considered, and to the corresponding input
         mapping index if an integrated counterterm is considered.
-        The sector_type variable determines if the standard (0) / soft (1) / collinear (2) sector function is called
+        The sector_type variable determines if the standard (0) / soft (1) / collinear (2) / soft-collinear(3)
+        sector function is called
         """
 
         q = PS_point[1] + PS_point[2]
@@ -118,6 +128,20 @@ class Sector(generic_sectors.GenericSector):
         elif sector_type == 2:
             # collinear sector function
             sector_weight = get_sector_wgt_C(q, p_sector)
+            # now normalise it
+            norm = 0.
+            for (ii, jj) in self.all_sector_list:
+                # the sum runs only on the sectors with the two legs
+                # equal to the ones at hand
+                if not (ii in self.leg_numbers and jj in self.leg_numbers):
+                    continue
+                p_ii = PS_point[ii]
+                p_jj = PS_point[jj]
+                norm += get_sector_wgt_C(q, [p_ii, p_jj])
+
+        elif sector_type == 3:
+            # soft-collinear sector function
+            sector_weight = get_sector_wgt_CS(q, p_sector)
             # it is already with the correct normalisation
             norm = 1.
 

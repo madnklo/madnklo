@@ -75,12 +75,24 @@ class SoftKernels_soft:
     def eikonal_dipole_soft(pi, pj, ps): # in Lionetti's thesis (pi = p_j, pj = p_k, ps = p_i)
         """Eikonal factor for soft particle with momentum ps
         emitted from the dipole with momenta pi and pj.
-        Modified for the subtraction scheme distributed softs.
+        Modified for the subtraction scheme distributed soft.
         """
         pipj = pi.dot(pj)
         pips = pi.dot(ps)
         p_ij = pi + pj
-        return pipj / pips * (1.0/ps.dot(p_ij))
+        return (pipj / pips) * (1.0/ps.dot(p_ij))
+
+    @staticmethod
+    def eikonal_dipole_soft_mod(pi, pj, ps, s_tilde): # in Lionetti's thesis (pi = p_j, pj = p_k, ps = p_i)
+        """Eikonal factor for soft particle with momentum ps
+        emitted from the dipole with momenta pi and pj.
+        Modified for the subtraction scheme distributed soft.
+        With term (s_tilde/s_ijk) for easier integration
+        """
+        pipj = pi.dot(pj)
+        s_ijk = 2.0 * pj.dot(pi + ps)
+        pips = pi.dot(ps)
+        return (pipj / pips) * (1.0/(ps.dot(pi)+ps.dot(pj) * (s_tilde/s_ijk))) * (s_tilde/s_ijk)
 
 
 

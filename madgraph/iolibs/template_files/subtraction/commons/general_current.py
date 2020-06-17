@@ -905,6 +905,8 @@ class GeneralCurrent(utils.VirtualCurrentImplementation):
         # WARNING! In this implementation the propagator denominators must be included in the kernel evaluation.
         norm = (8. * math.pi * alpha_s) ** (squared_orders['QCD']/2)
 
+        # print(alpha_s)
+
         # Notice that if one must divide by the jacobian of the mapping,
         # then this must be done at the level of the current.
         for k in evaluation['values']:

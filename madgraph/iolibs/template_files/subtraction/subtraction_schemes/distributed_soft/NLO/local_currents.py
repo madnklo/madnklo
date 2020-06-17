@@ -19,7 +19,7 @@ import madgraph.various.misc as misc
 
 #Different Splitting kernels
 
-
+subtract_colinear = False # Set to True to subtract the pure colinear counterterms
 
 
 #=========================================================================================
@@ -32,7 +32,7 @@ class QCD_C_FqFg(general_current.GeneralCurrent):
     # Enable the flag below to debug this current
     DEBUG = False
 
-    divide_by_jacobian = config.divide_by_jacobian # = False
+    divide_by_jacobian = config.divide_by_jacobian_local # = False
 
     # We should not need global variables for this current
     variables = None
@@ -97,29 +97,55 @@ class QCD_C_FqFg(general_current.GeneralCurrent):
     def kernel(self, evaluation, all_steps_info, global_variables):
         """ Evaluate this counterterm given the variables provided. """
 
+        # print("local kernel qg")
+
         kT_FF = all_steps_info[0]['variables'][0]['kTs'][(0,(1,))] # reads out the information from all_steps_info
         z_FF  = all_steps_info[0]['variables'][0]['zs'][0]
         s_rs  = all_steps_info[0]['variables'][0]['ss'][(0,1)]
 
         parent = all_steps_info[0]['bundles_info'][0]['parent']
-        p_rs_hat = all_steps_info[0]['lower_PS_point'][parent]
+        # p_rs_hat = all_steps_info[0]['lower_PS_point'][parent]
 
-        #misc.sprint(s_rs,)
-        #misc.sprint(z_FF)
-        #misc.sprint(kT_FF)
-        #misc.sprint(p_rs_hat, parent)
+        gluon = global_variables['leg_numbers_map'][11]  # leg number of the gluon
 
         # We must include here propagator factors
-        prefactor = 1./s_rs
+        prefactor = 1./(s_rs * config.Jacobian_determinant(all_steps_info, global_variables, all_mapped_masses_are_zero=True))
 
-        # The P_gq kernel is the one that matches the z definitions above.
-        for spin_correlation_vector, weight in AltarelliParisiKernels_soft.P_gq(self, z_FF, kT_FF): # Spin correlation vectoror = None, kt
-            complete_weight = weight * prefactor
-            if spin_correlation_vector is None:
-                evaluation['values'][(0, 0, 0, 0)] = {'finite': complete_weight[0]}
-            else:
-                evaluation['spin_correlations'].append( ((parent, spin_correlation_vector),) )
-                evaluation['values'][(len(evaluation['spin_correlations']) - 1, 0, 0, 0)] = {'finite': complete_weight[0]}
+        if all_steps_info[0]['bundles_info'][0]['final_state_children'][0] == gluon:  # first is the gluon
+            # The P_gq kernel is the one that matches the z definitions above.
+            for spin_correlation_vector, weight in AltarelliParisiKernels_soft.P_gq(self, z_FF, kT_FF): # Spin correlation vectoror = None, kt
+                complete_weight = weight * prefactor
+                if spin_correlation_vector is None:
+                    evaluation['values'][(0, 0, 0, 0)] = {'finite': complete_weight[0]}
+                else:
+                    evaluation['spin_correlations'].append( ((parent, spin_correlation_vector),) )
+                    evaluation['values'][(len(evaluation['spin_correlations']) - 1, 0, 0, 0)] = {'finite': complete_weight[0]}
+
+            if subtract_colinear:
+                for spin_correlation_vector, weight in AltarelliParisiKernels.P_gq(self, z_FF,kT_FF):  # Spin correlation vectoror = None, kt
+                    complete_weight = weight * prefactor
+                    if spin_correlation_vector is None:
+                        evaluation['values'][(0, 0, 0, 0)]['finite'] -= complete_weight[0]
+                    else:
+                        evaluation['values'][(len(evaluation['spin_correlations']) - 1, 0, 0, 0)]['finite'] -= complete_weight[0]
+
+        if all_steps_info[0]['bundles_info'][0]['final_state_children'][1] == gluon:  # second is the gluon
+            # The P_gq kernel is the one that matches the z definitions above.
+            for spin_correlation_vector, weight in AltarelliParisiKernels_soft.P_qg(self, z_FF, kT_FF): # Spin correlation vectoror = None, kt
+                complete_weight = weight * prefactor
+                if spin_correlation_vector is None:
+                    evaluation['values'][(0, 0, 0, 0)] = {'finite': complete_weight[0]}
+                else:
+                    evaluation['spin_correlations'].append( ((parent, spin_correlation_vector),) )
+                    evaluation['values'][(len(evaluation['spin_correlations']) - 1, 0, 0, 0)] = {'finite': complete_weight[0]}
+
+            if subtract_colinear:
+                for spin_correlation_vector, weight in AltarelliParisiKernels.P_qg(self, z_FF,kT_FF):  # Spin correlation vectoror = None, kt
+                    complete_weight = weight * prefactor
+                    if spin_correlation_vector is None:
+                        evaluation['values'][(0, 0, 0, 0)]['finite'] -= complete_weight[0]
+                    else:
+                        evaluation['values'][(len(evaluation['spin_correlations']) - 1, 0, 0, 0)]['finite'] -= complete_weight[0]
 
         return evaluation
 
@@ -143,6 +169,8 @@ class QCD_C_FqFg(general_current.GeneralCurrent):
         As a result we use exactly the same way of evaluating the counterterms as in honest-to-god colorful.
         """
 
+        # print("local soft kernel qg")
+
         # The colored_partons argument gives a dictionary with keys being leg numbers and values being
         # their color representation. At NLO, all we care about is what are the colored leg numbers.
         colored_partons = sorted(colored_partons.keys())
@@ -157,7 +185,7 @@ class QCD_C_FqFg(general_current.GeneralCurrent):
         pS_1 = higher_PS_point[all_steps_info[0]['bundles_info'][0]['final_state_children'][1]] #second final state children
 
         # Normalization factors
-        norm = -1. # change this ??
+        norm = -1./config.Jacobian_determinant(all_steps_info, global_variables, all_mapped_masses_are_zero=True) # change this ??
 
         # All contributions from the soft counterterms are color correlated so we should remove
         # the default value None from the list of color correlations
@@ -172,14 +200,16 @@ class QCD_C_FqFg(general_current.GeneralCurrent):
         for i, a in enumerate(colored_partons): # i is unused
             if a == colinear_parent_leg:
                 continue
-            pa = lower_PS_point[a]
+            pa = lower_PS_point[a] # mapped momentum :: should be higher PS point??
+            s_tilde = 2.0 * pa.dot(lower_PS_point[colinear_parent_leg])
+            # pa = higher_PS_point[a]
             if all_steps_info[0]['bundles_info'][0]['final_state_children'][0] == gluon: #first is the gluon
-                eikonal = SoftKernels_soft.eikonal_dipole_soft(pS_1, pa, pS_0) # changed to the eikonal for distributed softs
+                eikonal = SoftKernels_soft.eikonal_dipole_soft_mod(pS_1, pa, pS_0, s_tilde) # changed to the eikonal for distributed softs
                 # in Lionetti's thesis (pS_1 = p_j, pa = p_k, pS_0 = p_i)
                 # p_i soft momentum
 
             if all_steps_info[0]['bundles_info'][0]['final_state_children'][1] == gluon:  # second is the gluon
-                eikonal = SoftKernels_soft.eikonal_dipole_soft(pS_0, pa,pS_1)  # changed to the eikonal for distributed softs
+                eikonal = SoftKernels_soft.eikonal_dipole_soft_mod(pS_0, pa,pS_1,s_tilde)  # changed to the eikonal for distributed softs
                 # in Lionetti's thesis (pS_0 = p_j, pa = p_k, pS_1 = p_i)
                 # p_i soft momentum
 
@@ -189,14 +219,13 @@ class QCD_C_FqFg(general_current.GeneralCurrent):
 
         return evaluation
 
-
 class QCD_C_FqFqx(general_current.GeneralCurrent):
     """ FF C(q_qx)"""
 
     # Enable the flag below to debug this current
     DEBUG = False
 
-    divide_by_jacobian = config.divide_by_jacobian # = False
+    divide_by_jacobian = config.divide_by_jacobian_local # = False
 
     # We should not need global variables for this current
     variables = None
@@ -247,20 +276,17 @@ class QCD_C_FqFqx(general_current.GeneralCurrent):
     def kernel(self, evaluation, all_steps_info, global_variables): # fine
         """ Evaluate this counterterm given the variables provided. """
 
+        # print("local kernel qqx")
+
         kT_FF = all_steps_info[0]['variables'][0]['kTs'][(0,(1,))]
         z_FF  = all_steps_info[0]['variables'][0]['zs'][0]
         s_rs  = all_steps_info[0]['variables'][0]['ss'][(0,1)]
 
         parent = all_steps_info[0]['bundles_info'][0]['parent']
-        p_rs_hat = all_steps_info[0]['lower_PS_point'][parent]
-
-        #misc.sprint(s_rs,)
-        #misc.sprint(z_FF)
-        #misc.sprint(kT_FF)
-        #misc.sprint(p_rs_hat, parent)
+        # p_rs_hat = all_steps_info[0]['lower_PS_point'][parent]
 
         # We must include here propagator factors
-        prefactor = 1./s_rs
+        prefactor = 1./(s_rs * config.Jacobian_determinant(all_steps_info, global_variables, all_mapped_masses_are_zero=True))
 
         for spin_correlation_vector, weight in AltarelliParisiKernels_soft.P_qq(self, z_FF, kT_FF):
             complete_weight = weight * prefactor
@@ -269,6 +295,14 @@ class QCD_C_FqFqx(general_current.GeneralCurrent):
             else:
                 evaluation['spin_correlations'].append( ((parent, spin_correlation_vector),) )
                 evaluation['values'][(len(evaluation['spin_correlations']) - 1, 0, 0, 0)] = {'finite': complete_weight[0]}
+
+        if subtract_colinear:
+            for spin_correlation_vector, weight in AltarelliParisiKernels.P_qq(self, z_FF, kT_FF):
+                complete_weight = weight * prefactor
+                if spin_correlation_vector is None:
+                    evaluation['values'][(0, 0, 0, 0)]['finite'] -= complete_weight[0]
+                else:
+                    evaluation['values'][(len(evaluation['spin_correlations']) - 1, 0, 0, 0)]['finite'] -= complete_weight[0]
 
         return evaluation
 
@@ -279,7 +313,7 @@ class QCD_C_FgFg(general_current.GeneralCurrent):
     # Enable the flag below to debug this current
     DEBUG = False
 
-    divide_by_jacobian = config.divide_by_jacobian # = False
+    divide_by_jacobian = config.divide_by_jacobian_local # = False
 
     # We should not need global variables for this current
     variables = None
@@ -330,15 +364,17 @@ class QCD_C_FgFg(general_current.GeneralCurrent):
     def kernel(self, evaluation, all_steps_info, global_variables):
         """ Evaluate this counterterm given the variables provided. """
 
+        # print("local kernel gg")
+
         kT_FF = all_steps_info[0]['variables'][0]['kTs'][(0,(1,))]
         z_FF  = all_steps_info[0]['variables'][0]['zs'][0]
         s_rs  = all_steps_info[0]['variables'][0]['ss'][(0,1)]
 
         parent = all_steps_info[0]['bundles_info'][0]['parent']
-        p_rs_hat = all_steps_info[0]['lower_PS_point'][parent]
+        # p_rs_hat = all_steps_info[0]['lower_PS_point'][parent]
 
         # We must include here propagator factors
-        prefactor = 1./s_rs # divergent behavior of the counterterm
+        prefactor = 1./(s_rs * config.Jacobian_determinant(all_steps_info, global_variables, all_mapped_masses_are_zero=True)) # divergent behavior of the counterterm
 
         for spin_correlation_vector, weight in AltarelliParisiKernels_soft.P_gg(self, z_FF, kT_FF):
             complete_weight = weight * prefactor
@@ -347,6 +383,14 @@ class QCD_C_FgFg(general_current.GeneralCurrent):
             else:
                 evaluation['spin_correlations'].append( ((parent, spin_correlation_vector),) )
                 evaluation['values'][(len(evaluation['spin_correlations']) - 1, 0, 0, 0)] = {'finite': complete_weight[0]}
+
+        if subtract_colinear:
+            for spin_correlation_vector, weight in AltarelliParisiKernels.P_gg(self, z_FF, kT_FF):
+                complete_weight = weight * prefactor
+                if spin_correlation_vector is None:
+                    evaluation['values'][(0, 0, 0, 0)]['finite'] -= complete_weight[0]
+                else:
+                    evaluation['values'][(len(evaluation['spin_correlations']) - 1, 0, 0, 0)]['finite'] -= complete_weight[0]
 
         return evaluation
 
@@ -369,6 +413,9 @@ class QCD_C_FgFg(general_current.GeneralCurrent):
 
         As a result we use exactly the same way of evaluating the counterterms as in honest-to-god colorful.
         """
+
+        # print("local soft kernel gg")
+
         # The colored_partons argument gives a dictionary with keys being leg numbers and values being
         # their color representation. At NLO, all we care about is what are the colored leg numbers.
         colored_partons = sorted(colored_partons.keys())
@@ -382,7 +429,7 @@ class QCD_C_FgFg(general_current.GeneralCurrent):
         # here both colinears are gluons
 
         # Normalization factors
-        norm = -1.
+        norm = -1./config.Jacobian_determinant(all_steps_info, global_variables, all_mapped_masses_are_zero=True)
 
         colinear_parent_leg = all_steps_info[0]['bundles_info'][0]['parent']
 
@@ -391,11 +438,13 @@ class QCD_C_FgFg(general_current.GeneralCurrent):
         for i, a in enumerate(colored_partons):
             if a == colinear_parent_leg:
                 continue
-            pa = lower_PS_point[a]
-            eikonal_0 = SoftKernels_soft.eikonal_dipole_soft(pS_1, pa, pS_0) # changed to the eikonal for distributed softs
+            pa = lower_PS_point[a] # mapped momentum :: should be higher PS point??
+            s_tilde = 2.0 * pa.dot(lower_PS_point[colinear_parent_leg])
+            # pa = higher_PS_point[a]
+            eikonal_0 = SoftKernels_soft.eikonal_dipole_soft_mod(pS_1, pa, pS_0,s_tilde) # changed to the eikonal for distributed softs
             # in Lionetti's thesis (pS_1 = p_j, pa = p_k, pS_0 = p_i)
             # p_i soft momentum
-            eikonal_1 = SoftKernels_soft.eikonal_dipole_soft(pS_0, pa,pS_1)  # changed to the eikonal for distributed softs
+            eikonal_1 = SoftKernels_soft.eikonal_dipole_soft_mod(pS_0, pa,pS_1,s_tilde)  # changed to the eikonal for distributed softs
             # in Lionetti's thesis (pS_0 = p_j, pa = p_k, pS_1 = p_i)
             # p_i soft momentum
 
@@ -416,7 +465,7 @@ class QCD_S_g(general_current.GeneralCurrent):
     # Enable the flag below to debug this current
     DEBUG = False
 
-    divide_by_jacobian = config.divide_by_jacobian
+    divide_by_jacobian = config.divide_by_jacobian_local
 
     # We should not need global variables for this current
     variables = None
@@ -462,7 +511,7 @@ class QCD_CS_FgFq(general_current.GeneralCurrent): # changed to general current
     # Enable the flag below to debug this current
     DEBUG = False
 
-    divide_by_jacobian = config.divide_by_jacobian  # = False; Do not need this since False is default
+    divide_by_jacobian = config.divide_by_jacobian_local  # = False; Do not need this since False is default
 
     # We should not need global variables for this current
     variables = None # Default value
@@ -497,6 +546,8 @@ class QCD_CS_FgFg(general_current.GeneralCurrent):
     """ FF C(S(g),g)
     NLO tree-level (final) soft-collinear currents. The momenta used in this current are the
     mapped momenta from the soft mapping."""
+
+    divide_by_jacobian = config.divide_by_jacobian_local
 
     soft_structure = sub.SoftStructure(
         legs=(sub.SubtractionLeg(10, 21, sub.SubtractionLeg.FINAL), ) )

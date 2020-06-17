@@ -1496,6 +1496,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
         ptj_cut = self.run_card['ptj']
         drjj_cut = self.run_card['drjj']
         etaj_cut = self.run_card['etaj']
+
+        # print("cuts: ptj = "+str(ptj_cut)+"; drjj = "+str(drjj_cut)+"; etaj = "+str(etaj_cut))
         
         if ptj_cut <= 0. and    \
            drjj_cut <= 0. and   \

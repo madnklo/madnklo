@@ -108,7 +108,7 @@ def load():
         NLO_integrated_currents.QCD_integrated_C_FqFg,
         NLO_integrated_currents.QCD_integrated_C_FgFg,
         NLO_integrated_currents.QCD_integrated_CS_FF,
-        NLO_integrated_currents.QCD_integrated_S_Fg,#Need soft term
+        #Need soft term
     ])
 
     ###########
@@ -122,3 +122,4 @@ def load():
 
     # Finally register the subtraction current classes loaded
     loaded_attributes['all_subtraction_current_classes'] = all_subtraction_current_classes
+

@@ -325,6 +325,7 @@ class ParseCmdArguments(object):
             'minimal_label'           : True,
             'set_PDFs_to_unity'       : True,
             'boost_back_to_com'       : True,
+            'PS_generator'            : None,            
             'epsilon_expansion_term'  : 'sum_all',
             'selected_sectors'        : None,
             'verbosity': 1,
@@ -646,6 +647,7 @@ class ParseCmdArguments(object):
                           'refresh_filters'     : 'auto',
                           'compile'             : 'auto',
                           'seed'                : None,
+                          'PS_generator'        : None,
                           # Here we store a list of lambda function to apply as filters
                           # to the integrand we must consider
                           'integrands'          : [lambda integrand: True],
@@ -687,10 +689,18 @@ class ParseCmdArguments(object):
             elif key in ['--veto_integrands', '--veto_itg']:
                 launch_options['integrands'].extend(self.get_integrand_filters(value, 'reject'))
 
+            elif key == '--PS_generator':
+                launch_options['PS_generator'] = value
+
             elif key=='--run_name':
                 launch_options['run_name'] = value
             else:
                 raise InvalidCmd("Option '%s' for the launch command not recognized."%key)
+
+        # Automatically adjust the default value of the PS_generator depending on the selected integrator
+        if launch_options['PS_generator'] is None:
+            if launch_options['integrator'] == 'MC_VEGAS3':
+                launch_options['PS_generator'] = 'MCPS'
 
         return new_args, launch_options
 
@@ -809,6 +819,11 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
     # parameter controllable by user commands, eventually.
     integrator_verbosity = 1 if logger.level > logging.DEBUG else 2
     _integrators = {
+
+       'MC_VEGAS3' : (vegas3_integrator.MultiChannelVegas3Integrator, 
+                  { 'n_iterations'            : 10,
+                    'n_points'                : 1000                  } ),
+
        'NAIVE' : (integrators.SimpleMonteCarloIntegrator, 
                   { 'n_iterations'            : 10,
                     'n_points_per_iterations' : 100,
@@ -957,6 +972,8 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
             param_card = pjoin(self.me_dir,'Cards','param_card.dat'), 
             scale=self.run_card['scale'], 
             complex_mass_scheme=self.complex_mass_scheme)
+
+        self.options['PS_generator'] = opts['PS_generator']
 
         for integrand in self.all_integrands:
             integrand.synchronize(self.model, self.run_card, self.options)

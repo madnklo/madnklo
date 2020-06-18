@@ -264,6 +264,8 @@ class QCD_C_FqFg(general_current.GeneralCurrent):
     def kernel(self, evaluation, all_steps_info, global_variables):
         """ Evaluate this counterterm given the variables provided. """
 
+        # We use the particle ordering index 0 (...['variables'][0]...),
+        # which means the fermion due to the singular structure defined above
         kT_FF = all_steps_info[0]['variables'][0]['kTs'][(0,(1,))]
         z_FF  = all_steps_info[0]['variables'][0]['zs'][0]
         s_rs  = all_steps_info[0]['variables'][0]['ss'][(0,1)]
@@ -278,8 +280,9 @@ class QCD_C_FqFg(general_current.GeneralCurrent):
 
         # We must include here propagator factors
         prefactor = 1./s_rs
-        # The P_gq kernel is the one that matches the z definitions above.
-        for spin_correlation_vector, weight in AltarelliParisiKernels.P_gq(self, z_FF, kT_FF):
+        # The P_qg kernel is the one that matches the z definitions above.
+        # P_qg takes the z of the *quark* as input
+        for spin_correlation_vector, weight in AltarelliParisiKernels.P_qg(self, z_FF, kT_FF):
             complete_weight = weight * prefactor
             if spin_correlation_vector is None:
                 evaluation['values'][(0, 0, 0, 0)] = {'finite': complete_weight[0]}

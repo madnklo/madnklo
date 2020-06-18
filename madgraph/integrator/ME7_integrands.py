@@ -145,12 +145,18 @@ class ME7Event(object):
         # This entry specifies which flavor has been selected for this event.
         # None implies that it has not been selected yet.
         self.selected_flavors = None
+
+        # This entry specifies whether the evaluation associated to this event should
+        # be aborted. E.g.: point too close to some kinematic limit for numerical stability, etc.
+        # For now this is a boolean, the goal is to have it be some report of what caused the abort
+        # i.e. False if all is good and some object that has a __bool__=True value and extra information
+        self.abort = False
         
     def get_copy(self):
         """ Returns a shallow copy of self, except for the 
         'weights_per_flavor_configurations' attribute. """
         
-        return ME7Event(
+        event = ME7Event(
             self.PS_point, dict(self.weights_per_flavor_configurations), 
             requires_mirroring           = self.requires_mirroring,
             host_contribution_definition = self.host_contribution_definition,
@@ -160,7 +166,9 @@ class ME7Event(object):
             is_a_mirrored_event          = self.is_a_mirrored_event,
             additional_information       = copy.deepcopy(self.additional_information)
         )
-        
+        event.abort = self.abort
+        return event
+
     def set_Bjorken_rescalings(self, *args):
         """ Assigns the specified Bjorken x rescaling to this event."""
         self.Bjorken_x_rescalings = tuple(args)
@@ -476,6 +484,11 @@ class ME7Event(object):
                 self.weights_per_flavor_configurations[flavor_configuration] += wgt
             except KeyError:
                 self.weights_per_flavor_configurations[flavor_configuration] = wgt
+
+        # If either event being added has an abort flag
+        # The sum also has an abort flag
+        self.abort = self.abort or other.abort
+
         return self
 
     def __mul__(self, multiplier):
@@ -500,6 +513,7 @@ class ME7Event(object):
         """ Returns a nice and short string representation of this event."""
         BLUE = misc.bcolors.BLUE
         GREEN = misc.bcolors.GREEN
+        RED = misc.bcolors.RED
         ENDC = misc.bcolors.ENDC
         res = []
         if self.counterterm_structure is None:
@@ -564,6 +578,9 @@ class ME7Event(object):
             res.append('%s  Additional information:%s'%(BLUE,  ENDC))            
             for key, value in self.additional_information.items():
                 res.append('    %s : %s'%(str(key), str(value)))
+
+        if self.abort:
+            res.append('%s Event aborted%s'%(RED,  ENDC))
 
         return '\n'.join(res)
 
@@ -1707,18 +1724,22 @@ class ME7Integrand(integrands.VirtualIntegrand):
         
         return self.run_card['scale'], self.run_card['dsqrt_q2fact1'], self.run_card['dsqrt_q2fact2'] 
 
-    def get_pdfQ2(self, pdf, pdg, x, scale2):
+    def get_pdfQ2(self, pdf, pdg, x, scale2,nonQCD_cutoff=0.1):
         """ Call the PDF and return the corresponding density."""
 
         # For testing, one can easily substitute PDFs with a 1./x distribution by uncommenting the 
         # line below
-        #return 1./x
+        #return 1/x
 
         if pdf is None:
             return 1.
 
         if pdg not in [21,22] and abs(pdg) not in range(1,7):
-            return 1.
+            # This should be called only when debugging as long as we have no QED corrections:
+            # non-partonic beam that has a "beam type" set to 1 in the run_card
+            # typical use case: colorful_pp scheme tests with e+ e- initial states
+            return 1. if x > nonQCD_cutoff else 0.
+
                 
         if (pdf, pdg, x, scale2) in self.PDF_cache:
             return self.PDF_cache[(pdf, pdg, x, scale2)]
@@ -1903,6 +1924,27 @@ class ME7Integrand(integrands.VirtualIntegrand):
             # requires_mirroring = True, a new mirrored event with the initial states swapped,
             # as well as the Bjorken x's and rescalings and with p_z -> -p_z on all final
             # state momenta
+
+            # We need to check that no event had the abort flag set to True
+            # If any was set, we are either
+            # 1. too close to a IRC limit (not implemented yet)
+            # 2. at an instable point (checked by rotation tests) (not implemented yet)
+            # 3. some instability generated NaNs - TODO DEV implementing now
+            abort_signal = False
+            for event in events:
+                if event.abort:
+                    # A single abort signal is enough to shut the whole thing down
+                    abort_signal = True
+                    continue
+            if abort_signal:
+                # TODO make the abort report more informative
+                misc.sprint("ABORT! The following PS Point raised an abort flag")
+                misc.sprint(PS_point)
+                misc.sprint(mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2)
+                misc.sprint("In integrand")
+                misc.sprint(self)
+                continue
+
             events.generate_mirrored_events()
 
             # misc.sprint(events)
@@ -1985,6 +2027,14 @@ class ME7Integrand(integrands.VirtualIntegrand):
             PS_point, process_key, process, all_flavor_configurations,
                   base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts)
 
+        # Check that all values are valid
+        # Otherwise raise the abort flag
+        abort_status = False
+        for weight in event_weight.values():
+            if math.isnan(weight) or math.isinf(weight):
+                abort_status = True
+                break
+
         sector_info = opts.get('sector_info', None)
         if sector_info is not None and sector_info['sector'] is not None:
             event_weight *= sector_info['sector'](PS_point,all_flavor_configurations[0],
@@ -2001,6 +2051,10 @@ class ME7Integrand(integrands.VirtualIntegrand):
         )
         convolved_event = self.convolve_event_with_beam_factorization_currents(event_to_convolve,
             process['beam_factorization'], PS_point, process, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2 )
+
+        # Log the abort status in the event
+        if convolved_event is not None:
+            convolved_event.abort = abort_status
 
         return convolved_event
     
@@ -3901,6 +3955,16 @@ The missing process is: %s"""%ME_process.nice_string())
             event_to_convolve  = template_MEEvent.get_copy()
 
             event_to_convolve *= event_weight
+
+            # Check that the generated event weight is a valid number
+            # TODO: the abort signal should encapsulate the relevant information
+            abort_status = False
+            for weight in event_weight.values():
+                if math.isnan(weight) or math.isinf(weight):
+                    abort_status = True
+                    break
+
+            event_to_convolve.abort = abort_status
 
             # The PDF Bjorken x's arguments will need a 1/z rescaling due to the change
             # of variable making the + distribution act on the PDF only and on the boundary of 

@@ -11,6 +11,9 @@ class AltarelliParisiKernels:
 
     @staticmethod
     def P_qg_averaged(color_factors,z):
+        """Return the d-dimensional spin-averaged AP kernel Pqg
+        The variable z is the momentum fraction of the *quark*
+        """
         return EpsilonExpansion({
             0: color_factors.CF*((1.+z**2)/(1.-z)),
             1: color_factors.CF*(-(1-z))
@@ -18,13 +21,19 @@ class AltarelliParisiKernels:
 
     @staticmethod
     def P_qg(color_factors, z, kT):
-
+        """Return the d-dimensional AP kernel Pqg as a spin correlation 2-tuple
+        The variable z is the momentum fraction of the *quark*
+        """
         return [
             ( None, AltarelliParisiKernels.P_qg_averaged(color_factors, z) ),
         ]
 
     @staticmethod
     def P_qq(color_factors, z, kT):
+        """Return the d-dimensional AP kernel Pgq as a spin correlation 2-tuple
+         The expression is symmetric under the q-qbar exchange so z and kT can be
+         any momentum fraction and transverse momentum
+         """
         return [
             ( None, EpsilonExpansion({
                     0: color_factors.TR,
@@ -36,7 +45,9 @@ class AltarelliParisiKernels:
 
     @staticmethod
     def P_gg(color_factors, z, kT):
-
+        """Return the d-dimensional AP kernel Pgq as a spin correlation 2-tuple
+         The expression is symmetric under the gg exchange so z and kT can be
+         any momentum fraction and transverse momentum"""
         return [
             # The line below implements the -g_{\mu\nu} part of the splitting kernel.
             # Notice that the extra longitudinal terms included in the spin-correlation 'None'
@@ -54,7 +65,12 @@ class AltarelliParisiKernels:
 
     @staticmethod
     def P_gq(color_factors, z, kT):
-
+        """Return the d-dimensional AP kernel Pgq as a spin correlation 2-tuple
+         The variable z is the momentum fraction of the *gluon*
+         """
+        # /!\ Danger! Pay attention
+        # P_qg_averaged uses the variable z of the *quark* while here we give that
+        # of the gluon so we invert the variable
         return [
             ( None, AltarelliParisiKernels.P_qg_averaged(color_factors, 1.-z) ),
         ]

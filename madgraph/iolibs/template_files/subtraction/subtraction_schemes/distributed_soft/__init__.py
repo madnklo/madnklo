@@ -108,7 +108,7 @@ def load():
         NLO_integrated_currents.QCD_integrated_C_FqFg,
         NLO_integrated_currents.QCD_integrated_C_FgFg,
         NLO_integrated_currents.QCD_integrated_CS_FF,
-        #Need soft term
+        NLO_integrated_currents.QCD_integrated_S_Fg,
     ])
 
     ###########

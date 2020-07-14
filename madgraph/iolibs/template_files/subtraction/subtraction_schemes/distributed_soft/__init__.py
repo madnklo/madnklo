@@ -58,6 +58,10 @@ def load():
     import NLO.local_currents as NLO_local_currents
     # NLO integrated
     import NLO.integrated_currents as NLO_integrated_currents
+    # NNLO local
+    import NNLO.local_currents as NNLO_local_currents
+    # NNLO integrated
+    import NNLO.integrated_currents as NNLO_integrated_currents
 
     # Colorful_pp does not use sectors
     loaded_attributes['sector_generator'] = None
@@ -103,7 +107,6 @@ def load():
     # ===============================
 
     all_subtraction_current_classes.extend([
-        # TODO Place here integrated counterterms
         NLO_integrated_currents.QCD_integrated_C_FqFq,
         NLO_integrated_currents.QCD_integrated_C_FqFg,
         NLO_integrated_currents.QCD_integrated_C_FgFg,
@@ -114,6 +117,32 @@ def load():
     ###########
     # NNLO
     ###########
+
+    # Add local NNLO counterterms
+    # ==========================
+    all_subtraction_current_classes.extend([
+        # final final colinears
+        NNLO_local_currents.QCD_C_FqFqpFqpx,
+        NNLO_local_currents.QCD_C_FqFgFg,
+        # NNLO_local_currents.QCD_C_FqFqx_C_FqFqx,
+        # colinear colinear
+        NNLO_local_currents.QCD_C_FqFqx_C_FpFqpFqpx,
+        # soft couterterms set to zero
+        NNLO_local_currents.QCD_S_FqFqx,
+        NNLO_local_currents.QCD_S_FgFg,
+        # soft colinear counterterms set to zero
+        NNLO_local_currents.QCD_S_FqFqx_C_FqFqx,
+        NNLO_local_currents.QCD_S_FqFqx_C_FqFqpFqpx,
+        NNLO_local_currents.QCD_S_FqFqx_C_FgFqFqx,
+        NNLO_local_currents.QCD_S_FqFqx_C_FqFqx_C_FqFqpFqpx,
+    ])
+
+    # Add NNLO integrated counterterms
+    # ===============================
+
+    all_subtraction_current_classes.extend([
+
+    ])
 
     ###########
     # NNNLO

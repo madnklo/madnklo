@@ -139,85 +139,93 @@ def Jacobian_determinant (all_steps_info, global_variables, all_mapped_masses_ar
     # print(Q)
 
     n_initial_legs = global_variables['n_initial_legs']
+    n_iteration = len(all_steps_info) # number of iterations of the mapping
+    # print(n_iteration)
+    # determinant = list() # determinant of the iteration
+    determinant = 1.0
 
-    lower_PS_point = all_steps_info[0]['lower_PS_point']
-    higher_PS_point = all_steps_info[0]['higher_PS_point']
-    # print (lower_PS_point)
-    # print (higher_PS_point)
+    for iteration in range(n_iteration):
+        lower_PS_point = all_steps_info[iteration]['lower_PS_point']
+        higher_PS_point = all_steps_info[iteration]['higher_PS_point']
+        # print (lower_PS_point)
+        # print (higher_PS_point)
 
-    parent = all_steps_info[0]['bundles_info'][0]['parent']
+        parent = all_steps_info[iteration]['bundles_info'][0]['parent']
 
-    m = len(lower_PS_point) - n_initial_legs # number of resolved final state particles
+        m = len(lower_PS_point) - n_initial_legs # number of resolved final state particles
 
-    d = 4 # dimension of space time
+        d = 4 # dimension of space time
 
-    kappa = 0.0
-    a = 1.0
-    b = 0.0
-    c = 0.0
+        kappa = 0.0
+        a = 1.0
+        b = 0.0
+        c = 0.0
 
-    final_state = dict()
-    parent_added = False # only for one parent
+        final_state = vec.LorentzVectorDict() # dict()
+        parent_added = False # only for one parent
 
-    for i, particle in enumerate (higher_PS_point):
-        if particle <= n_initial_legs:
-            continue
-
-        if particle in all_steps_info[0]['bundles_info'][0]['final_state_children']:
-            if parent_added:
+        for i, particle in enumerate (higher_PS_point):
+            if particle <= n_initial_legs:
                 continue
-            final_state.update({parent : sum(higher_PS_point[u] for u in all_steps_info[0]['bundles_info'][0]['final_state_children'])})
-            parent_added = True
-            continue
 
-        final_state.update({particle : higher_PS_point[particle]})
+            if particle in all_steps_info[iteration]['bundles_info'][0]['final_state_children']:
+                if parent_added:
+                    continue
+                final_state.update({parent : sum(higher_PS_point[u] for u in all_steps_info[iteration]['bundles_info'][0]['final_state_children'])})
+                parent_added = True
+                continue
 
-    mapped_final_state = dict()
-    for i, particle in enumerate (lower_PS_point):
-        # print(i)
-        # print(particle)
-        if particle <= n_initial_legs:
-            continue
+            final_state.update({particle : higher_PS_point[particle]})
 
-        mapped_final_state.update({particle : lower_PS_point[particle]})
+        mapped_final_state = vec.LorentzVectorDict() # dict()
+        for i, particle in enumerate (lower_PS_point):
+            # print(i)
+            # print(particle)
+            if particle <= n_initial_legs:
+                continue
 
-    # print (final_state)
-    # print (mapped_final_state)
+            mapped_final_state.update({particle : lower_PS_point[particle]})
 
-    for i in final_state:
-        # print (a)
-        a *= (mapped_final_state[i].dot(Q))/(final_state[i].dot(Q))
-        # print(b)
-        b += (((mapped_final_state[i].dot(Q))**2)/Q2 - mapped_final_state[i].square())/(mapped_final_state[i].dot(Q))
-        # print(c)
-        c += (((mapped_final_state[i].dot(Q))**2)/Q2 - mapped_final_state[i].square())/(final_state[i].dot(Q))
+        # print (final_state)
+        # print (mapped_final_state)
 
-    factor = a * (b / c)
-
-    if all_mapped_masses_are_zero:
         for i in final_state:
-            # print(kappa)
-            kappa += math.sqrt(((final_state[i].dot(Q))**2)/Q2 - final_state[i].square())
-        kappa /= math.sqrt(Q2)
-    else: # solve numerically :: check sign of \vec{pi}^2
+            # print (a)
+            a *= (mapped_final_state[i].dot(Q))/(final_state[i].dot(Q))
+            # print(b)
+            b += (((mapped_final_state[i].dot(Q))**2)/Q2 - mapped_final_state[i].square())/(mapped_final_state[i].dot(Q))
+            # print(c)
+            c += (((mapped_final_state[i].dot(Q))**2)/Q2 - mapped_final_state[i].square())/(final_state[i].dot(Q))
 
-        # if m == 2:
-        #     kappa = 1.0
-        #
-        # else:
-        kappa_0 = 1.0 # starting point for numerical solution
-        from scipy.optimize import newton
+        factor = a * (b / c)
 
-        def func(k):
-            return sum (math.sqrt((final_state[i].square() - ((final_state[i].dot(Q))**2)/Q2)/k**2 + mapped_final_state[i].square()) for i in final_state) - math.sqrt(Q2)
+        if all_mapped_masses_are_zero:
+            for i in final_state:
+                # print(kappa)
+                kappa += math.sqrt(((final_state[i].dot(Q))**2)/Q2 - final_state[i].square())
+            kappa /= math.sqrt(Q2)
+        else: # solve numerically :: check sign of \vec{pi}^2
 
-        def df(k):
-            return sum ((((final_state[i].square() - ((final_state[i].dot(Q))**2)/Q2) * (-2.0))/k**3)/math.sqrt((final_state[i].square() - ((final_state[i].dot(Q))**2)/Q2)/k**2 + mapped_final_state[i].square()) for i in final_state)
-        kappa = newton(func,x_0=kappa_0,fprime=df)
-        # print("not all masses zero mapping Jacobian not implemented")
+            # if m == 2:
+            #     kappa = 1.0
+            #
+            # else:
+            kappa_0 = 1.0 # starting point for numerical solution
+            from scipy.optimize import newton
 
-    determinant = kappa ** (d*(m-1)-(m+1)) * factor
-    # print(determinant)
+            def func(k):
+                return sum (math.sqrt((final_state[i].square() - ((final_state[i].dot(Q))**2)/Q2)/k**2 + mapped_final_state[i].square()) for i in final_state) - math.sqrt(Q2)
+
+            def df(k):
+                return sum ((((final_state[i].square() - ((final_state[i].dot(Q))**2)/Q2) * (-2.0))/k**3)/math.sqrt((final_state[i].square() - ((final_state[i].dot(Q))**2)/Q2)/k**2 + mapped_final_state[i].square()) for i in final_state)
+            kappa = newton(func,x_0=kappa_0,fprime=df)
+            # print("not all masses zero mapping Jacobian not implemented")
+
+        # determinant.append(kappa ** (d*(m-1)-(m+1)) * factor)
+        determinant *= kappa ** (d*(m-1)-(m+1)) * factor
+        # print (kappa, a, b, c)
+        # print(determinant)
+
 
     return determinant
 

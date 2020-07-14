@@ -222,6 +222,8 @@ class QCD_C_FqFg(general_current.GeneralCurrent):
 class QCD_C_FqFqx(general_current.GeneralCurrent):
     """ FF C(q_qx)"""
 
+    # is_zero = True # remove later
+
     # Enable the flag below to debug this current
     DEBUG = False
 
@@ -276,7 +278,8 @@ class QCD_C_FqFqx(general_current.GeneralCurrent):
     def kernel(self, evaluation, all_steps_info, global_variables): # fine
         """ Evaluate this counterterm given the variables provided. """
 
-        # print("local kernel qqx")
+        print("local kernel qqx")
+        print(all_steps_info[0]['bundles_info'][0]['final_state_children'])
 
         kT_FF = all_steps_info[0]['variables'][0]['kTs'][(0,(1,))]
         z_FF  = all_steps_info[0]['variables'][0]['zs'][0]

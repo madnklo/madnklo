@@ -4494,9 +4494,9 @@ The missing process is: %s"""%ME_process.nice_string())
         
         import matplotlib
         # If possible use Agg as it allows display-less systems to use pyplot (i.e. work over ssh)
-        #try:
+        # try:
         #    matplotlib.use('Agg')
-        #except ValueError:
+        # except ValueError:
         #    pass
         import matplotlib.pyplot as plt
 
@@ -4614,6 +4614,10 @@ The missing process is: %s"""%ME_process.nice_string())
         else:
             plt.ylabel('Ratio to ME')
         plt.legend()
+
+        import ipdb
+        ipdb.set_trace()
+
         if display_mode == 'figure' and filename:
             plt.savefig(filename + '_ratios' + plot_extension)
 

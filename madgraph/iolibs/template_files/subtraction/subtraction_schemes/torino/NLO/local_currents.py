@@ -26,7 +26,6 @@ import madgraph.integrator.mappings as mappings
 import commons.utils as utils
 import commons.general_current as general_current
 import dipole_current as dipole_current
-import commons.factors_and_cuts as factors_and_cuts
 import madgraph.integrator.vectors as vectors
 
 

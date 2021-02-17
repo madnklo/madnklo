@@ -7,8 +7,7 @@
 import madgraph.core.subtraction as sub
 import madgraph.integrator.mappings as mappings
 import commons.utils as utils
-import commons.QCD_local_currents as currents
-import commons.factors_and_cuts as factors_and_cuts
+import factors_and_cuts as factors_and_cuts
 import madgraph.various.misc as misc
 
 CurrentImplementationError = utils.CurrentImplementationError

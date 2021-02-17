@@ -24,8 +24,6 @@ from madgraph.core.base_objects import EpsilonExpansion
 import madgraph.various.misc as misc
 
 import commons.utils as utils
-import commons.QCD_local_currents as currents
-import commons.factors_and_cuts as factors_and_cuts
 
 from bidict import bidict
 

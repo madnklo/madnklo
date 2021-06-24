@@ -19,7 +19,8 @@ import copy
 import numpy as np
 
 logger = logging.getLogger('madgraph.PhaseSpaceGenerator')
-
+# Ez
+logger1 = logging.getLogger('madgraph')
 
 class InvalidOperation(Exception):
     pass
@@ -499,6 +500,9 @@ class LorentzVectorDict(dict):
         """
     
         if len(initial_leg_numbers)==2:
+# Ez
+#            logger1.info("vectors.py:boost_to_com leg0: " + str(self[initial_leg_numbers[0]]))
+#            logger1.info("vectors.py:boost_to_com leg1: " + str(self[initial_leg_numbers[1]]))
             if __debug__:
                 sqrts = math.sqrt((self[initial_leg_numbers[0]]+self[initial_leg_numbers[1]]).square())
                 # Assert initial states along the z axis
@@ -510,6 +514,10 @@ class LorentzVectorDict(dict):
             # Now send the self back into its c.o.m frame, if necessary
             initial_momenta_summed = self[initial_leg_numbers[0]]+self[initial_leg_numbers[1]]
             sqrts = math.sqrt((initial_momenta_summed).square())
+# Ez
+#            logger1.info("In LorentzVectorDict.boost_to_com")
+#            logger1.info(str(self))
+
             if abs(initial_momenta_summed[3]/sqrts)>1.0e-9:
                 boost_vector = (initial_momenta_summed).boostVector()
                 for vec in self.values():
@@ -601,6 +609,10 @@ class LorentzVectorList(list):
                 assert(abs(self[initial_leg_numbers[1]][1]/sqrts)<1.0e-9)
                 assert(abs(self[initial_leg_numbers[0]][2]/sqrts)<1.0e-9)
                 assert(abs(self[initial_leg_numbers[1]][2]/sqrts)<1.0e-9)
+# Ez
+            logger1.info("In LorentzVectorList.boost_to_com")
+            logger1.info(str(self))
+
             # Now send the self back into its c.o.m frame, if necessary
             initial_momenta_summed = self[initial_leg_numbers[0]]+self[initial_leg_numbers[1]]
             sqrts = math.sqrt((initial_momenta_summed).square())

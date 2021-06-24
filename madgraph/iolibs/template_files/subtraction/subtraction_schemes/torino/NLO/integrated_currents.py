@@ -485,3 +485,100 @@ class QCD_integrated_TRN_CS_FgFg(general_current.GeneralCurrent):
 
     is_zero = True
 
+#=========================================================================================
+# NLO initial-collinear currents
+#=========================================================================================
+
+
+def variables_for_integrated_currents_IF(cls, reduced_process, all_steps, global_variables):
+    """ the variables function for the integrated counterterms.
+    It returns the recoiler number, needed in the integrated counterterms.
+    It uses the get_initial_state_recoilers function of torino_config
+    """
+
+    recoilers = torino_config.get_initial_state_recoilers(
+        reduced_process,
+        excluded = global_variables['overall_parents'],
+        global_variables = global_variables)
+
+    return {'recoiler' : recoilers[0].n}
+
+
+class QCD_integrated_TRN_C_IgFg(general_current.GeneralCurrent):
+    """This CT corresponds to the hard-collinear integrated CT for the gg splitting
+     (Eq. 2.50 in the torino paper, with p=g, keeping only the CA-proportional term),
+       plus the soft-collinear contribution
+     (the first line of eq 2.54 in the torino paper, with CA as prefactor)"""
+
+    # Enable the flag below to debug this current
+    DEBUG = True
+
+    divide_by_jacobian = torino_config.divide_by_jacobian
+
+    # variables should be updated
+    variables = variables_for_integrated_currents_IF
+
+    # Now define the matching singular structures, we want to match both a quark or an antiquark
+    coll_structure = sub.CollStructure(
+        substructures=tuple([]),
+        legs=(
+            sub.SubtractionLeg(10, 21, sub.SubtractionLeg.INITIAL),
+            sub.SubtractionLeg(11, 21, sub.SubtractionLeg.FINAL),
+        )
+    )
+
+    # This counterterm will be used if any of the current of the list below matches
+    currents = [
+        sub.IntegratedCurrent({
+            'resolve_mother_spin_and_color'     : True,
+            'n_loops'                           : 0,
+            'squared_orders'                    : {'QCD': 2},
+            'singular_structure'                : sub.SingularStructure(substructures=(coll_structure,)),
+        }),
+    ]
+
+    # The defining currents correspond to a currents block composed of several lists of template currents
+    # for matching each currents of the target currents block (in an unordered fashion)
+    defining_currents = [ currents, ]
+
+    # An now the mapping rules
+    mapping_rules = []
+
+
+    def kernel(self, evaluation, all_steps_info, global_variables):
+        """ Evaluate this counterterm given the variables provided.
+        """
+
+        shat = 2 * all_steps_info[0]['lower_PS_point'][1].dot( \
+            all_steps_info[0]['lower_PS_point'][2])
+        mu_r = global_variables['mu_r']
+        mu2os = mu_r**2 / shat
+
+        p_p = all_steps_info[0]['lower_PS_point'][global_variables['overall_parents'][0]]
+        p_r = all_steps_info[0]['lower_PS_point'][global_variables['recoiler']]
+        etapr = (p_p + p_r).square() / shat
+
+        # hard collinear part
+        overall = -self.CA / 6.
+        double = 0.
+        single = overall
+        finite = overall * (8. / 3. - math.log(etapr))
+
+        # soft collinear part
+        overall = self.CA
+        zeta2 = math.pi ** 2 / 6.
+        double += overall
+        single += overall * 2
+        finite += overall * (6 - 7. / 2. * zeta2)
+
+        # the extra factor 2 below is because the Torino expressions are already symmetrised
+        # for the two gluons, while MadNkLO applies a symmetry factor afterwards
+        evaluation['values'][(0, 0, 0, 0)] = torino_to_madnk_epsexp(
+                                            EpsilonExpansion({-2: double,
+                                                              -1: single,
+                                                               0: finite}) * 2 * self.SEpsilon * (1. / (16 * math.pi**2)),
+                                                                  mu2os)
+
+        return evaluation
+
+

@@ -35,9 +35,10 @@ from madgraph.integrator.vectors import Vector, LorentzVector
 from madgraph.integrator.vectors import LorentzVectorDict, LorentzVectorList
 
 logger = logging.getLogger('madgraph.PhaseSpaceGenerator')
+logger1 = logging.getLogger('madgraph')
 
 class MappingError(Exception):
-    """Exception raised if an exception is triggered in implementation of the currents.""" 
+    """Exception raised if an exception is triggered in implementation of the currents."""
     pass
 
 #=========================================================================================
@@ -1601,7 +1602,7 @@ class InitialLorentzOneMapping(InitialCollinearMapping):
         jacobian = 1.
         
 
-        # WARNING: for ISR counterterms, the quantity Q below may *not* match with 
+        # WARNING: for ISR counterterms, the quantity Q below may *not* match with
         # PS_point[1] + PS_point[2]. So it should be used only for what it actually is!
         Q = pAmpR
         
@@ -2117,7 +2118,7 @@ class SoftVsFinalRescaleThenBoostMapping(ElementaryMappingSoft):
 
         # Valid only if there are at least two recoilers (assumed in the final state)
         if len(singular_structure.legs) < 2: return False
-        mysuper = super(SoftVsFinalRescaleThenBoostMapping, cls) 
+        mysuper = super(SoftVsFinalRescaleThenBoostMapping, cls)
         return mysuper.is_valid_structure(singular_structure)
 
     @classmethod
@@ -2477,7 +2478,7 @@ class SoftVsInitialMapping(ElementaryMappingSoft):
         cls, PS_point, singular_structure, momenta_dict, squared_masses=None,
         kinematic_variables=None, compute_jacobian=False ):
         """Map the resolved momenta of a real emission process to on-shell kinematics by recoling against the initial state partons.
-        This function applies the transformation described in equation 5.44 of Vittorio's notes. 
+        This function applies the transformation described in equation 5.44 of Vittorio's notes.
         This is also described in Simone Lionetti's thesis at 5.3.3 but the notation here is aligned with Vittorio's notes.
 
         :param PS_point: dictionary of Real kinematics
@@ -3005,6 +3006,7 @@ class FinalFKSMapping(VirtualMapping):
         kaellen = Kaellen(Q2, qR2, pC2)
         return kaellen >= 0
 
+# TRN
 # Final-collinear grouping mapping
 #=========================================================================================
 
@@ -3041,8 +3043,13 @@ class FinalTRNMapping(VirtualMapping):
         in the form (C(a,b),c) or (C(S(a),b),c)
         """
 
+#        logger1.info('Entering FinalTRNMapping, singular structure = ' + str(singular_structure))
+
         substructure = singular_structure.substructures[0]
         parent, children, _ = get_structure_numbers(substructure, momenta_dict)
+
+        #for i_fs in range(1,len(PS_point)+1):
+        #    logger.info('mappings.py: Momenta PS_point' + '= ' + str(i_fs) + str(PS_point[i_fs]))
 
         # identify the legs
         #  soft child -> a
@@ -3057,9 +3064,18 @@ class FinalTRNMapping(VirtualMapping):
             ia = coll_sub.legs[0].n
             ib = coll_sub.legs[1].n
 
-        pa = PS_point[ia]
-        pb = PS_point[ib]
-        pc = PS_point[ic]
+
+        #logger1.info('coll_sub: ' + str(singular_structure.substructures[0]))
+        #logger1.info('soft child: ' + str(ia))
+        #logger1.info('1st recoiler: ' + str(ib))
+        #logger1.info('2nd recoiler: ' + str(singular_structure.legs[0].n))
+
+        # copy the momenta
+        new_PS_point = PS_point.get_copy()
+
+        pa = new_PS_point[ia]
+        pb = new_PS_point[ib]
+        pc = new_PS_point[ic]
 
         Q = pa + pb + pc
 
@@ -3069,9 +3085,6 @@ class FinalTRNMapping(VirtualMapping):
 
         sabc = sab + sac + sbc
 
-        # copy the momenta
-        new_PS_point = PS_point.get_copy()
-
         # remove a
         del new_PS_point[ia]
         # this is for b
@@ -3080,6 +3093,27 @@ class FinalTRNMapping(VirtualMapping):
         # and this is for c
         new_PS_point[ic] = pc * sabc / (sac + sbc)
 
+
+    #logger1.info('Remapped momenta:')
+    #logger1.info(str(ib) + str(new_PS_point[ib]))
+    #logger1.info(str(ic) + str(new_PS_point[ic]))
+
+        #check
+        sum_PS_point = 0
+        sum_new_PS_point = 0
+        for i_fs in range(1,len(PS_point)+1):
+            if i_fs > 2:
+                sum_PS_point -= PS_point[i_fs]
+            else:
+                sum_PS_point += PS_point[i_fs]
+
+        for i_ff in range(1,len(new_PS_point)+1):
+            if  i_ff != ia:
+                if i_ff > 2:
+                    sum_new_PS_point -= new_PS_point[i_ff]
+                else:
+                    sum_new_PS_point += new_PS_point[i_ff]
+
         # the jacobian should be 1
         jacobian = 1.
 
@@ -3087,6 +3121,742 @@ class FinalTRNMapping(VirtualMapping):
 
 
 
+class InitialTRNMapping(VirtualMapping):
+    """The mapping for the Torino subtraction, as defined in
+       nlo_v4.pdf, eq 1.38 with b <--> c.
+    """
+
+    @classmethod
+    def is_valid_structure(cls, singular_structure):
+        """the singular structure should be either
+        in the form (C(a,b),c) or (C(S(a),b),c)
+        """
+
+        is_valid = len(singular_structure.substructures) == 1 and \
+            len(singular_structure.legs) == 1 and \
+            singular_structure.substructures[0].name == 'C'
+
+        coll_sub = singular_structure.substructures[0]
+
+        is_valid = is_valid and \
+                   ((len(coll_sub.substructures) == 0 and len(coll_sub.legs) == 2) or \
+                    (len(coll_sub.substructures) == 1 and len(coll_sub.legs) == 1))
+
+        return is_valid
+
+    @classmethod
+    def map_to_lower_multiplicity(cls, PS_point, singular_structure,
+                                  momenta_dict, squared_masses=None,
+                                  kinematic_variables=None, compute_jacobian=False ):
+        """the singular structure should be either
+        in the form (C(a,b),c) or (C(S(a),b),c)
+        """
+#        logger1.info('Entering InitialTRNMapping, singular structure = ' + str(singular_structure))
+#    logger1.info('Name = ' + str(singular_structure.substructures[0].name))
+
+        substructure = singular_structure.substructures[0]
+        parent, children, _ = get_structure_numbers(substructure, momenta_dict)
+
+        for i_fs in range(1,len(PS_point)+1):
+            logger.info('Momenta PS_point' + '= ' + str(i_fs) + str(PS_point[i_fs]))
+
+        # identify the legs
+        #  soft child -> a
+        #  1st recoiler -> b  initial
+        #  2nd recoiler -> c
+        ic = singular_structure.legs[0].n
+        coll_sub= singular_structure.substructures[0]
+        if coll_sub.substructures: # this should be the case for (C(S(a),b),c)
+            ia = coll_sub.substructures[0].legs[0].n
+            ib = coll_sub.legs[0].n
+        else: # this should be the case for (C(a,b),c)
+            if coll_sub.legs[0].n > 2:
+                ia = coll_sub.legs[0].n
+                ib = coll_sub.legs[1].n
+            else:
+                ia = coll_sub.legs[1].n
+                ib = coll_sub.legs[0].n
+
+#        logger1.info('coll_sub: ' + str(singular_structure.substructures[0]))
+#        logger1.info('soft child: ' + str(ia))
+#        logger1.info('1st recoiler: ' + str(ib))
+#        logger1.info('2nd recoiler: ' + str(singular_structure.legs[0].n))
+
+        # copy the momenta
+        new_PS_point = PS_point.get_copy()
+
+        pa = new_PS_point[ia]
+        pb = new_PS_point[ib]
+        pc = new_PS_point[ic]
+
+        Q = pa - pb + pc
+
+        sab = (pa + pb).square()
+        sbc = (pb + pc).square()
+        sac = (pa + pc).square()
+
+        sabc = sab + sbc
+        x = 1 - sac/sabc
+        z = sab/sabc
+
+        # remove a
+        del new_PS_point[ia]
+        # this is for b
+        new_PS_point[ib] = pb * x
+        new_PS_point[parent] =  pb * x
+        # and this is for c
+        new_PS_point[ic] = pa + pc - pb * (1 - x)
+
+#        logger1.info('Remapped momenta:')
+#        logger1.info(str(ib) + str(new_PS_point[ib]))
+#        logger1.info(str(ic) + str(new_PS_point[ic]))
+
+        # the jacobian should be 1
+        jacobian = 1.
+
+        return new_PS_point, {'jacobian': jacobian, 'Q': Q, 'ids': {'a': ia, 'b': ib, 'c': ic}}
 
 
+class Initial_C_TRNMapping(VirtualMapping):
+    """The mapping for the Torino subtraction, as defined in
+       nlo_v4.pdf, eq 1.38 with b <--> c.
+    """
+
+    @classmethod
+    def is_valid_structure(cls, singular_structure):
+        """the singular structure should be either
+        in the form (C(a,b),c) or (C(S(a),b),c)
+        """
+
+        is_valid = len(singular_structure.substructures) == 1 and \
+            len(singular_structure.legs) == 1 and \
+            singular_structure.substructures[0].name == 'C'
+
+        coll_sub = singular_structure.substructures[0]
+
+        is_valid = is_valid and \
+                   ((len(coll_sub.substructures) == 0 and len(coll_sub.legs) == 2) or \
+                    (len(coll_sub.substructures) == 1 and len(coll_sub.legs) == 1))
+
+        return is_valid
+
+    @classmethod
+    def map_to_lower_multiplicity(cls, PS_point, singular_structure,
+                                  momenta_dict, squared_masses=None,
+                                  kinematic_variables=None, compute_jacobian=False ):
+        """the singular structure should be either
+        in the form (C(a,b),c) or (C(S(a),b),c)
+        """
+
+#        logger1.info('Entering Initial_C_TRNMapping, singular structure = ' + str(singular_structure))
+#        logger1.info('PS_point initial')
+#        logger1.info(str(PS_point))
+
+        substructure = singular_structure.substructures[0]
+        parent, children, _ = get_structure_numbers(substructure, momenta_dict)
+
+        # identify the legs
+        #  soft child -> a
+        #  1st recoiler -> b  initial
+        #  2nd recoiler -> c  initial
+        ic = singular_structure.legs[0].n
+        coll_sub= singular_structure.substructures[0]
+        if coll_sub.substructures: # this should be the case for (C(S(a),b),c)
+            ia = coll_sub.substructures[0].legs[0].n
+            ib = coll_sub.legs[0].n
+        else: # this should be the case for (C(a,b),c)
+            if coll_sub.legs[0].n > 2:
+                ia = coll_sub.legs[0].n
+                ib = coll_sub.legs[1].n
+            else:
+                ia = coll_sub.legs[1].n
+                ib = coll_sub.legs[0].n
+
+#        logger1.info('coll_sub: ' + str(singular_structure.substructures[0]))
+#        logger1.info('soft child: ' + str(ia))
+#        logger1.info('1st recoiler: ' + str(ib))
+#        logger1.info('2nd recoiler: ' + str(ic))
+#        logger1.info('parent      : ' + str(parent))
+
+        # copy the momenta
+        new_PS_point = PS_point.get_copy()
+
+#        logger1.info('new_PS_point before remapping'+  'type:'+str(type(new_PS_point)))
+#        logger1.info(str(new_PS_point))
+
+        pa = new_PS_point[ia]
+        pb = new_PS_point[ib]
+        pc = new_PS_point[ic]
+
+        Q = pc + pb
+
+        sab = (pa + pb).square()
+        sbc = (pb + pc).square()
+        sac = (pa + pc).square()
+
+        x = 1 - (sab + sac) / sbc
+        v = sab / (sab + sac)
+
+#        x1 = 1 - sac / (sbc - sab)
+#        x2 = (sbc - sab) / sbc
+
+
+        # remove a
+        del new_PS_point[ia]
+        # this is for b
+        new_PS_point[ib] = pb * x
+        new_PS_point[parent] =  pb * x
+        # and this is for c
+        new_PS_point[ic] = pc
+
+
+
+        # All recoilers are boosted by a Lorentz transform lambda(K,Ktilde)
+        K = pb + pc - pa
+        Kbar = new_PS_point[ib] + new_PS_point[ic]
+
+        for i_fs in range(1,len(PS_point)+1):
+            if i_fs > 2 and i_fs != ia:
+                new_PS_point[i_fs] = new_PS_point[i_fs].rotoboost(K, Kbar)
+
+
+#        logger1.info('new_PS_point after remapping')
+#        logger1.info(str(new_PS_point))
+
+    #check momenta conservation
+        sum_PS_point = 0
+        sum_new_PS_point = 0
+        for i_fs in range(1,len(PS_point)+1):
+            if i_fs > 2:
+                sum_PS_point -= PS_point[i_fs]
+            else:
+                sum_PS_point += PS_point[i_fs]
+
+        for i_ff in range(1,len(new_PS_point)+1):
+            if  i_ff != ia:
+                if i_ff > 2:
+                    sum_new_PS_point -= new_PS_point[i_ff]
+                else:
+                    sum_new_PS_point += new_PS_point[i_ff]
+
+#        logger1.info('Momenta conservation check = ' + str(sum_PS_point) + str(sum_new_PS_point))
+
+
+        # the jacobian should be 1
+        jacobian = 1.
+
+        return new_PS_point, {'jacobian': jacobian, 'Q': Q, 'ids': {'a': ia, 'b': ib, 'c': ic}}
+
+class Initial_I_TRNMapping(VirtualMapping):
+    """The mapping for the Torino subtraction, as defined in
+       nlo_v4.pdf, eq 1.38 with b <--> c.
+    """
+
+    @classmethod
+    def is_valid_structure(cls, singular_structure):
+        """the singular structure should be either
+        in the form (C(a,b),c) or (C(S(a),b),c)
+        """
+
+        is_valid = len(singular_structure.substructures) == 1 and \
+            len(singular_structure.legs) == 1 and \
+            singular_structure.substructures[0].name == 'C'
+
+        coll_sub = singular_structure.substructures[0]
+
+        is_valid = is_valid and \
+                   ((len(coll_sub.substructures) == 0 and len(coll_sub.legs) == 2) or \
+                    (len(coll_sub.substructures) == 1 and len(coll_sub.legs) == 1))
+
+        return is_valid
+
+    @classmethod
+    def map_to_lower_multiplicity(cls, PS_point, singular_structure,
+                                  momenta_dict, squared_masses=None,
+                                  kinematic_variables=None, compute_jacobian=False ):
+        """the singular structure should be either
+        in the form (C(a,b),c) or (C(S(a),b),c)
+        """
+
+        logger1.info('Entering Initial_I_TRNMapping, singular structure = ' + str(singular_structure))
+
+        substructure = singular_structure.substructures[0]
+        parent, children, _ = get_structure_numbers(substructure, momenta_dict)
+
+        # identify the legs
+        #  soft child -> a
+        #  1st recoiler -> b  initial
+        #  2nd recoiler -> c  initial
+        ic = singular_structure.legs[0].n
+        coll_sub= singular_structure.substructures[0]
+        if coll_sub.substructures: # this should be the case for (C(S(a),b),c)
+            ia = coll_sub.substructures[0].legs[0].n
+            ib = coll_sub.legs[0].n
+        else: # this should be the case for (C(a,b),c)
+            if coll_sub.legs[0].n > 2:
+                ia = coll_sub.legs[0].n
+                ib = coll_sub.legs[1].n
+            else:
+                ia = coll_sub.legs[1].n
+                ib = coll_sub.legs[0].n
+
+#        logger1.info('coll_sub: ' + str(singular_structure.substructures[0]))
+#        logger1.info('soft child: ' + str(ia))
+#        logger1.info('1st recoiler: ' + str(ib))
+#        logger1.info('2nd recoiler: ' + str(singular_structure.legs[0].n))
+
+        # copy the momenta
+        new_PS_point = PS_point.get_copy()
+
+        #for i_fs in range(1,len(new_PS_point)+1):
+        #    logger1.info('mappings.py: Momenta PS_point' + '= ' + str(i_fs) + str(new_PS_point[i_fs]))
+
+        pa = new_PS_point[ia]
+        pb = new_PS_point[ib]
+        pc = new_PS_point[ic]
+
+        Q = pc + pb
+
+        sab = (pa + pb).square()
+        sbc = (pb + pc).square()
+        sac = (pa + pc).square()
+
+        x = 1 - (sab + sac) / sbc
+        v = sab / (sab + sac)
+
+        x1 = 1 - sac / (sbc - sab)
+        x2 = (sbc - sab) / sbc
+
+
+        # remove a
+        del new_PS_point[ia]
+        # this is for b
+        new_PS_point[ib] = pb * x1
+        new_PS_point[parent] =  pb * x1
+        # and this is for c
+        new_PS_point[ic] = pc * x2
+
+
+        # All recoilers are boosted by a Lorentz transform lambda(K,Ktilde)
+        K = pb + pc - pa
+        Kbar = new_PS_point[ib] + new_PS_point[ic]
+
+        for i_fs in range(1,len(PS_point)+1):
+            if i_fs > 2 and i_fs != ia:
+                new_PS_point[i_fs] = new_PS_point[i_fs].rotoboost(K, Kbar)
+
+
+        #for i_fs in range(1,len(new_PS_point)+1):
+        #    if  i_fs != ia:
+        #        logger1.info('Remapped momenta' + '= ' + str(i_fs) + str(new_PS_point[i_fs]))
+
+    #check momenta conservation
+        sum_PS_point = 0
+        sum_new_PS_point = 0
+        for i_fs in range(1,len(PS_point)+1):
+            if i_fs > 2:
+                sum_PS_point -= PS_point[i_fs]
+            else:
+                sum_PS_point += PS_point[i_fs]
+
+        for i_ff in range(1,len(new_PS_point)+1):
+            if  i_ff != ia:
+                if i_ff > 2:
+                    sum_new_PS_point -= new_PS_point[i_ff]
+                else:
+                    sum_new_PS_point += new_PS_point[i_ff]
+
+    #logger1.info('Momenta conservation check = ' + str(sum_PS_point) + str(sum_new_PS_point))
+
+        # the jacobian should be 1
+        jacobian = 1.
+
+        return new_PS_point, {'jacobian': jacobian, 'Q': Q, 'ids': {'a': ia, 'b': ib, 'c': ic}}
+
+
+
+class SoftTRNMapping(VirtualMapping):
+    """The mapping for the Torino subtraction, as defined in
+       nlo_v4.pdf, eq 1.38 with b <--> c.
+    """
+
+    @classmethod
+    def is_valid_structure(cls, singular_structure):
+        """the singular structure should be either
+        in the form (C(a,b),c) or (C(S(a),b),c)
+        """
+
+        is_valid = len(singular_structure.substructures) == 1 and \
+            len(singular_structure.legs) == 1 and \
+            singular_structure.substructures[0].name == 'C'
+
+        coll_sub = singular_structure.substructures[0]
+
+        is_valid = is_valid and \
+                   ((len(coll_sub.substructures) == 0 and len(coll_sub.legs) == 2) or \
+                    (len(coll_sub.substructures) == 1 and len(coll_sub.legs) == 1))
+
+        return is_valid
+
+    @classmethod
+    def map_to_lower_multiplicity(cls, PS_point, singular_structure,
+                                  momenta_dict, squared_masses=None,
+                                  kinematic_variables=None, compute_jacobian=False ):
+        """the singular structure should be either
+        in the form (C(a,b),c) or (C(S(a),b),c)
+        """
+
+#        logger1.info('Entering SoftTRNMapping, singular structure = ' + str(singular_structure))
+
+        substructure = singular_structure.substructures[0]
+        parent, children, _ = get_structure_numbers(substructure, momenta_dict)
+
+        # identify the legs
+        #  soft child -> a
+        #  1st recoiler -> b  initial
+        #  2nd recoiler -> c  initial
+        ic = singular_structure.legs[0].n
+        coll_sub= singular_structure.substructures[0]
+        if coll_sub.substructures: # this should be the case for (C(S(a),b),c)
+            ia = coll_sub.substructures[0].legs[0].n
+            ib = coll_sub.legs[0].n
+        else: # this should be the case for (C(a,b),c)
+            if coll_sub.legs[0].n > 2:
+                ia = coll_sub.legs[0].n
+                ib = coll_sub.legs[1].n
+            else:
+                ia = coll_sub.legs[1].n
+                ib = coll_sub.legs[0].n
+
+#        logger1.info('coll_sub: ' + str(singular_structure.substructures[0]))
+#        logger1.info('soft child: ' + str(ia))
+#        logger1.info('1st recoiler: ' + str(ib))
+#        logger1.info('2nd recoiler: ' + str(singular_structure.legs[0].n))
+
+        # copy the momenta
+        new_PS_point = PS_point.get_copy()
+
+        pa = new_PS_point[ia]
+        pb = new_PS_point[ib]
+        pc = new_PS_point[ic]
+
+        sab = (pa + pb).square()
+        sbc = (pb + pc).square()
+        sac = (pa + pc).square()
+
+
+        #Check the entering PS_point momenta
+
+        #for i_fs in range(1,len(PS_point)+1):
+        #    logger1.info('mappings.py: Momenta PS_point' + '= ' + str(i_fs) + str(PS_point[i_fs]))
+
+
+        #emitter Final, recoiler Final
+        if ib > 2 and ic > 2:
+
+        #logger1.info('Final Emitter - Final Recoiler')
+            Q = pa + pb + pc
+            sabc = sab + sac + sbc
+
+            # remove a
+            del new_PS_point[ia]
+            # this is for b
+            new_PS_point[ib] = pa + pb - pc * sab / (sac + sbc)
+            new_PS_point[parent] = pa + pb - pc * sab / (sac + sbc)
+            # and this is for c
+            new_PS_point[ic] = pc * sabc / (sac + sbc)
+
+    #emitter Final, recoiler Initial
+        elif ib > 2 and ic <= 2:
+
+            #logger1.info('Final Emitter - Initial Recoiler')
+            Q = pa + pb - pc
+            sabc = sac + sbc
+            x = 1 - sab/sabc
+            z = sac/sabc
+
+            # copy the momenta
+            new_PS_point = PS_point.get_copy()
+
+            # remove a
+            del new_PS_point[ia]
+            # this is for b
+            new_PS_point[ib] = pa + pb - pc * (1 - x)
+            new_PS_point[parent] = pa + pb - pc * (1 - x)
+            # and this is for c
+            new_PS_point[ic] = pc * x
+
+
+    #emitter Initial, recoiler Final
+        elif ib <= 2 and ic > 2:
+
+        #logger1.info('Initial Emitter - Final Recoiler')
+            Q = pa - pb + pc
+            sabc = sab + sbc
+            x = 1 - sac/sabc
+            z = sab/sabc
+
+            # copy the momenta
+            new_PS_point = PS_point.get_copy()
+
+            # remove a
+            del new_PS_point[ia]
+            # this is for b
+            new_PS_point[ib] = pb * x
+            new_PS_point[parent] =  pb * x
+            # and this is for c
+            new_PS_point[ic] = pa + pc - pb * (1 - x)
+
+
+    #emitter Initial, recoiler Initial
+        elif ib <= 2 and ic <= 2:
+
+        #logger1.info('Initial Emitter - Initial Recoiler')
+            Q = pc + pb
+            x1 = 1 - sac / (sbc - sab)
+            x2 = (sbc - sab) / sbc
+
+            # copy the momenta
+            new_PS_point = PS_point.get_copy()
+
+        #for i_fs in range(1,len(new_PS_point)+1):
+        #    logger1.info('mappings.py: Momenta PS_point' + '= ' + str(i_fs) + str(new_PS_point[i_fs]))
+
+            # remove a
+            del new_PS_point[ia]
+            # this is for b
+            new_PS_point[ib] = pb * x1
+            new_PS_point[parent] =  pb * x1
+            # and this is for c
+            new_PS_point[ic] = pc * x2
+
+            # All recoilers are boosted by a Lorentz transform lambda(K,Ktilde)
+            K = pb + pc - pa
+            Kbar = new_PS_point[ib] + new_PS_point[ic]
+
+            for i_fs in range(1,len(PS_point)+1):
+                if i_fs > 2 and i_fs != ia:
+                    new_PS_point[i_fs] = new_PS_point[i_fs].rotoboost(K, Kbar)
+
+
+
+        #Check mapping output
+
+        #for i_fs in range(1,len(new_PS_point)+1):
+        #    if  i_fs != ia:
+        #        logger1.info('Remapped momenta' + '= ' + str(i_fs) + str(new_PS_point[i_fs]))
+
+        #check momenta conservation
+        sum_PS_point = 0
+        sum_new_PS_point = 0
+        for i_fs in range(1,len(PS_point)+1):
+            if i_fs > 2:
+                sum_PS_point -= PS_point[i_fs]
+            else:
+                sum_PS_point += PS_point[i_fs]
+
+        for i_ff in range(1,len(new_PS_point)+1):
+            if  i_ff != ia:
+                if i_ff > 2:
+                    sum_new_PS_point -= new_PS_point[i_ff]
+                else:
+                    sum_new_PS_point += new_PS_point[i_ff]
+
+        #logger1.info('Momenta conservation check = ' + str(sum_PS_point) + str(sum_new_PS_point))
+
+        # the jacobian should be 1
+        jacobian = 1.
+
+        return new_PS_point, {'jacobian': jacobian, 'Q': Q, 'ids': {'a': ia, 'b': ib, 'c': ic}}
+
+
+
+class CollinearTRNMapping(VirtualMapping):
+    """The mapping for the Torino subtraction, as defined in
+       nlo_v4.pdf, eq 1.38 with b <--> c.
+    """
+
+    @classmethod
+    def is_valid_structure(cls, singular_structure):
+        """the singular structure should be either
+        in the form (C(a,b),c) or (C(S(a),b),c)
+        """
+
+        is_valid = len(singular_structure.substructures) == 1 and \
+            len(singular_structure.legs) == 1 and \
+            singular_structure.substructures[0].name == 'C'
+
+        coll_sub = singular_structure.substructures[0]
+
+        is_valid = is_valid and \
+                   ((len(coll_sub.substructures) == 0 and len(coll_sub.legs) == 2) or \
+                    (len(coll_sub.substructures) == 1 and len(coll_sub.legs) == 1))
+
+        return is_valid
+
+    @classmethod
+    def map_to_lower_multiplicity(cls, PS_point, singular_structure,
+                                  momenta_dict, squared_masses=None,
+                                  kinematic_variables=None, compute_jacobian=False ):
+        """the singular structure should be either
+        in the form (C(a,b),c) or (C(S(a),b),c)
+        """
+
+        #logger1.info('Entering CollinearTRNMapping, singular structure = ' + str(singular_structure))
+
+        substructure = singular_structure.substructures[0]
+        parent, children, _ = get_structure_numbers(substructure, momenta_dict)
+
+        # identify the legs
+        #  soft child -> a
+        #  1st recoiler -> b  initial
+        #  2nd recoiler -> c  initial
+        ic = singular_structure.legs[0].n
+        coll_sub= singular_structure.substructures[0]
+        if coll_sub.substructures: # this should be the case for (C(S(a),b),c)
+            ia = coll_sub.substructures[0].legs[0].n
+            ib = coll_sub.legs[0].n
+        else: # this should be the case for (C(a,b),c)
+            if coll_sub.legs[0].n > 2:
+                ia = coll_sub.legs[0].n
+                ib = coll_sub.legs[1].n
+            else:
+                ia = coll_sub.legs[1].n
+                ib = coll_sub.legs[0].n
+
+        # copy the momenta
+        new_PS_point = PS_point.get_copy()
+
+        pa = new_PS_point[ia]
+        pb = new_PS_point[ib]
+        pc = new_PS_point[ic]
+
+
+        sab = (pa + pb).square()
+        sbc = (pb + pc).square()
+        sac = (pa + pc).square()
+
+
+        #Check the entering PS_point momenta
+
+        #for i_fs in range(1,len(PS_point)+1):
+        #    logger1.info('mappings.py: Momenta PS_point' + '= ' + str(i_fs) + str(PS_point[i_fs]))
+
+
+        #emitter Final, recoiler Final
+        if ib > 2 and ic > 2:
+
+            #logger1.info('Final Emitter - Final Recoiler')
+            Q = pa + pb + pc
+            sabc = sab + sac + sbc
+
+            # remove a
+            del new_PS_point[ia]
+            # this is for b
+            new_PS_point[ib] = pa + pb - pc * sab / (sac + sbc)
+            new_PS_point[parent] = pa + pb - pc * sab / (sac + sbc)
+            # and this is for c
+            new_PS_point[ic] = pc * sabc / (sac + sbc)
+
+        #emitter Final, recoiler Initial
+        elif ib > 2 and ic <= 2:
+
+            #logger1.info('Final Emitter - Initial Recoiler')
+            Q = pa + pb - pc
+            sabc = sac + sbc
+            x = 1 - sab/sabc
+            z = sac/sabc
+
+            # copy the momenta
+            new_PS_point = PS_point.get_copy()
+
+            # remove a
+            del new_PS_point[ia]
+            # this is for b
+            new_PS_point[ib] = pa + pb - pc * (1 - x)
+            new_PS_point[parent] = pa + pb - pc * (1 - x)
+            # and this is for c
+            new_PS_point[ic] = pc * x
+
+
+        #emitter Initial, recoiler Final
+        elif ib <= 2 and ic > 2:
+
+            #logger1.info('Initial Emitter - Final Recoiler')
+            Q = pa - pb + pc
+            sabc = sab + sbc
+            x = 1 - sac/sabc
+            z = sab/sabc
+
+            # copy the momenta
+            new_PS_point = PS_point.get_copy()
+
+            # remove a
+            del new_PS_point[ia]
+            # this is for b
+            new_PS_point[ib] = pb * x
+            new_PS_point[parent] =  pb * x
+            # and this is for c
+            new_PS_point[ic] = pa + pc - pb * (1 - x)
+
+
+        #emitter Initial, recoiler Initial
+        elif ib <= 2 and ic <= 2:
+
+            #logger1.info('Initial Emitter - Initial Recoiler')
+
+            Q = pc + pb
+            x = 1 - (sab + sac) / sbc
+            v = sab / (sab + sac)
+
+            # copy the momenta
+            new_PS_point = PS_point.get_copy()
+
+
+            # remove a
+            del new_PS_point[ia]
+            # this is for b
+            new_PS_point[ib] = pb * x
+            new_PS_point[parent] =  pb * x
+            # and this is for c
+            new_PS_point[ic] = pc
+
+            # All recoilers are boosted by a Lorentz transform lambda(K,Ktilde)
+            K = pb + pc - pa
+            Kbar = new_PS_point[ib] + new_PS_point[ic]
+
+            for i_fs in range(1,len(PS_point)+1):
+                if i_fs > 2 and i_fs != ia:
+                    new_PS_point[i_fs] = new_PS_point[i_fs].rotoboost(K, Kbar)
+
+
+
+        #Check mapping output
+
+        #for i_fs in range(1,len(new_PS_point)+1):
+        #    if  i_fs != ia:
+        #        logger1.info('Remapped momenta' + '= ' + str(i_fs) + str(new_PS_point[i_fs]))
+
+        #check momenta conservation
+            sum_PS_point = 0
+            sum_new_PS_point = 0
+            for i_fs in range(1,len(PS_point)+1):
+                if i_fs > 2:
+                    sum_PS_point -= PS_point[i_fs]
+                else:
+                    sum_PS_point += PS_point[i_fs]
+
+            for i_ff in range(1,len(new_PS_point)+1):
+                if  i_ff != ia:
+                    if i_ff > 2:
+                        sum_new_PS_point -= new_PS_point[i_ff]
+                    else:
+                        sum_new_PS_point += new_PS_point[i_ff]
+
+        #logger1.info('Momenta conservation check = ' + str(sum_PS_point) + str(sum_new_PS_point))
+
+        # the jacobian should be 1
+        jacobian = 1.
+
+        return new_PS_point, {'jacobian': jacobian, 'Q': Q, 'ids': {'a': ia, 'b': ib, 'c': ic}}
 

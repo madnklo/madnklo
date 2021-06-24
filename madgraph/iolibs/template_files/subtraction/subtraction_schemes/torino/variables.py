@@ -21,10 +21,16 @@ import madgraph.various.misc as misc
 
 import commons.utils as utils
 
+import logging
+
+
+logger1 = logging.getLogger('madgraph')
+
+
 CurrentImplementationError = utils.CurrentImplementationError
 
 
-def get_sudakov_decomp(ki, kj, kr):
+def get_sudakov_decomp_FF(ki, kj, kr):
     """returns the sudakov decomposition (x and kt) of ki and kj, with kr being the other
     reference momentum.
     Follows eq 2.24-2.27 of the torino paper"""
@@ -66,7 +72,60 @@ def TRN_FFn_variables(higher_PS_point, qC, children, **opts):
         ss_i_j[(k[1],k[0])] = v
 
     # now x's and kts
-    xi, xj, kitil, kjtil = get_sudakov_decomp(all_p_fs[0], all_p_fs[1], p_rec)
+    xi, xj, kitil, kjtil = get_sudakov_decomp_FF(all_p_fs[0], all_p_fs[1], p_rec)
+
+    xis = (xi, xj)
+    kTs = (kitil, kjtil)
+
+    return [{'xs':xis, 'kTs':kTs, 'ss':ss_i_j},]
+
+def get_sudakov_decomp_IF(ki, kj, kr):
+    """returns the sudakov decomposition (x and kt) of ki and kj, with kr being the other
+    reference momentum for the IF case. ki=initial, kj=final
+    Follows eq 1.18-1.2 of the nlo_v4 note"""
+
+    sij = ki.dot(kj)
+    sir = ki.dot(kr)
+    sjr = kj.dot(kr)
+
+    xi = (sir - sjr)/sir
+    xj = sjr/sir
+
+    kjtil = kj - ki * xj  - kr * (sij / sir)
+    kitil = - kjtil
+    
+    return xi, xj, kitil, kjtil
+
+def TRN_IFn_variables(higher_PS_point, qC, children, **opts):
+    """
+    returns variables for the torino subtraction scheme, in particular x's and
+    ktil as returned from get_sudakov_decomp_IF
+
+    """
+#    logger1.info('children: '+str(children))
+
+    all_p_fs = [higher_PS_point[child] for child in children]
+    Q = opts['Q']
+    # the recoiler
+    p_rec = higher_PS_point[opts['ids']['c']]
+
+# Ez
+#    logger1.info('p_rec: '+str(p_rec))
+#    logger1.info('Momenta')
+#    for i_fs in range(len(all_p_fs)):
+#        logger1.info(str(i_fs)+"  "+str(all_p_fs[i_fs]))
+
+    # Add additional ss's
+    ss_i_j = {}
+    for i_fs in range(len(all_p_fs)):
+        for j_fs in range(i_fs+1,len(all_p_fs)):
+            ss_i_j[(i_fs,j_fs)] = 2.*all_p_fs[i_fs].dot(all_p_fs[j_fs])
+    ss_i_j_tot = sum(ss_i_j.values())
+    for k,v in ss_i_j.items():
+        ss_i_j[(k[1],k[0])] = v
+
+    # now x's and kts
+    xi, xj, kitil, kjtil = get_sudakov_decomp_IF(all_p_fs[0], all_p_fs[1], p_rec)
 
     xis = (xi, xj)
     kTs = (kitil, kjtil)

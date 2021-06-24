@@ -25,6 +25,11 @@ def load():
 
     import os
     import sys
+#Ez
+    import logging
+
+    logger1 = logging.getLogger('madgraph')
+
     root_path = os.path.dirname(os.path.realpath( __file__ ))
     sys.path.insert(0,root_path)
     sys.path.insert(0,os.path.abspath(os.path.join(root_path, os.path.pardir, os.path.pardir)))
@@ -61,6 +66,8 @@ def load():
 
     import sectors as sectors
     loaded_attributes['sector_generator'] = sectors.SectorGenerator()
+#Ez Doesn't work
+#    logger1.info("Sectors: "+str(list(loaded_attributes['sector_generator'])))
 
     # Note: specifying below which resources are needed is optional
     loaded_attributes['exporter'] = ColorfulPPExporter(relative_resource_paths=[
@@ -72,7 +79,7 @@ def load():
     ###########
     # NLO
     ###########
-
+    # Soft included in final part. Includes initial case.
     NLO_final_collinears = [
         NLO_local_currents.QCD_TRN_C_FgFq,
         NLO_local_currents.QCD_TRN_C_FqFqx,
@@ -83,6 +90,17 @@ def load():
     ]
     # final-final collinears
     all_subtraction_current_classes.extend(NLO_final_collinears)
+
+    NLO_initial_collinears = [
+        NLO_local_currents.QCD_TRN_C_IgFq,
+        NLO_local_currents.QCD_TRN_C_IqFg,
+        NLO_local_currents.QCD_TRN_C_IqFq,
+        NLO_local_currents.QCD_TRN_C_IgFg,
+        NLO_local_currents.QCD_TRN_CS_IqFg,
+        NLO_local_currents.QCD_TRN_CS_IgFg,
+    ]
+    # initial-final collinears
+    all_subtraction_current_classes.extend(NLO_initial_collinears)
 
     # Add NLO integrated counterterms
     # ===============================

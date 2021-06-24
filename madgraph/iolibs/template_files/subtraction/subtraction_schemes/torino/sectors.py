@@ -179,7 +179,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
         """
 
-        # reeturn None if there are zero unresolved particles (virtual)
+        # return None if there are zero unresolved particles (virtual)
 
         if contrib_definition.n_unresolved_particles == 0:
             return None
@@ -194,6 +194,12 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
         pert_dict = fks_common.find_pert_particles_interactions(model)
         colorlist = [model['particle_dict'][l['id']]['color'] for l in leglist]
+
+# Ez
+        logger.info("sectors.py: SectorGenerator,__call__")
+        for i,col_i in zip(leglist,colorlist):
+            logger.info("leg: "+str(i)+"\n"+str(col_i))
+
         # the following is adapted from the very old FKS_from_real implementation
         # in the FKS formalism, i_fks is the parton associated with the soft singularities
         # however, the sector_weight function is agnostic on which parton
@@ -296,5 +302,4 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     # is interpreted as all input mappings contributing, but for the sake of example here
                     # we list explicitly each index.
                     s['integrated_counterterms'][i_ct] = range(len(ct['input_mappings']))
-
         return all_sectors

@@ -26,6 +26,7 @@ class AltarelliParisiKernels:
     @staticmethod
     def P_qq(color_factors, z, kT):
         return [
+            # Term proportional to Epsilon in Q_{\mu\nu} are not needed. No 1/Epsilon around.
             ( None, EpsilonExpansion({
                     0: color_factors.TR,
             })),
@@ -44,6 +45,7 @@ class AltarelliParisiKernels:
             #    \sum_\lambda \epsilon_\lambda^\mu \epsilon_\lambda^{\star\nu}
             #    = g^{\mu\nu} + longitudinal terms
             # are irrelevant because Ward identities evaluate them to zero anyway.
+            # Term proportional to Epsilon in Q_{\mu\nu} are not needed. No 1/Epsilon around.
             ( None, EpsilonExpansion({
                 0: 2 * color_factors.CA * (z/(1-z) + (1-z)/z) ,
             })),

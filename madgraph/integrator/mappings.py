@@ -3575,9 +3575,6 @@ class SoftTRNMapping(VirtualMapping):
             x = 1 - sab/sabc
             z = sac/sabc
 
-            # copy the momenta
-            new_PS_point = PS_point.get_copy()
-
             # remove a
             del new_PS_point[ia]
             # this is for b
@@ -3615,9 +3612,6 @@ class SoftTRNMapping(VirtualMapping):
             Q = pc + pb
             x1 = 1 - sac / (sbc - sab)
             x2 = (sbc - sab) / sbc
-
-            # copy the momenta
-            new_PS_point = PS_point.get_copy()
 
         #for i_fs in range(1,len(new_PS_point)+1):
         #    logger1.info('mappings.py: Momenta PS_point' + '= ' + str(i_fs) + str(new_PS_point[i_fs]))
@@ -3767,9 +3761,6 @@ class CollinearTRNMapping(VirtualMapping):
             x = 1 - sab/sabc
             z = sac/sabc
 
-            # copy the momenta
-            new_PS_point = PS_point.get_copy()
-
             # remove a
             del new_PS_point[ia]
             # this is for b
@@ -3788,9 +3779,6 @@ class CollinearTRNMapping(VirtualMapping):
             x = 1 - sac/sabc
             z = sab/sabc
 
-            # copy the momenta
-            new_PS_point = PS_point.get_copy()
-
             # remove a
             del new_PS_point[ia]
             # this is for b
@@ -3808,10 +3796,6 @@ class CollinearTRNMapping(VirtualMapping):
             Q = pc + pb
             x = 1 - (sab + sac) / sbc
             v = sab / (sab + sac)
-
-            # copy the momenta
-            new_PS_point = PS_point.get_copy()
-
 
             # remove a
             del new_PS_point[ia]

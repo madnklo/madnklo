@@ -784,7 +784,7 @@ class QCD_TRN_C_IgFq(general_current.GeneralCurrent):
             'singular_structure'    : sub.SingularStructure(substructures=(sub.CollStructure(
                 substructures=tuple([]),
                 legs=(
-                    sub.SubtractionLeg(10, +1, sub.SubtractionLeg.INITIAL),
+                    sub.SubtractionLeg(10, 21, sub.SubtractionLeg.INITIAL),
                     sub.SubtractionLeg(11, +1, sub.SubtractionLeg.FINAL),
                 )
             ),)),

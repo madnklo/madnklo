@@ -221,12 +221,24 @@ class LorentzVector(Vector):
                 for i in range(len(self)):
                     self[i] = q[i]
             else:
-                logger.critical("Error in vectors.rotoboost: missing formula")
-                logger.critical("Boosting %s (%.9e)" % (str(self), self.square()))
-                logger.critical("p = %s (%.9e)" % (str(p), p2))
-                logger.critical("q = %s (%.9e)" % (str(q), q2))
-                logger.critical("Eq. (4.14) of arXiv:0706.0017v2, p. 26 not implemented")
-                raise NotImplementedError
+                # Compute scalar products
+                n = [self[0]/2,0,0,self[0]/2]
+                n_perp = [1/self[0],0,0,1/self[0]]
+                pn = p.dot(n)
+                pn_perp = p.dot(n_perp)
+                qn = q.dot(n)
+                qn_perp = q.dot(n_perp)
+                n_s = self.dot(n)
+                n_perp_s = self.dot(n_perp)
+                # Assemble vector
+                self.__iadd__(((pn/qn)-1) * n_s * n_perp_s + ((qn/pn)-1) * n_s * n_perp_s)
+                
+                #logger.critical("Error in vectors.rotoboost: missing formula")
+                #logger.critical("Boosting %s (%.9e)" % (str(self), self.square()))
+                #logger.critical("p = %s (%.9e)" % (str(p), p2))
+                #logger.critical("q = %s (%.9e)" % (str(q), q2))
+                #logger.critical("Eq. (4.14) of arXiv:0706.0017v2, p. 26 not implemented")
+                #raise NotImplementedError
             return self
         else:
             # Check that the two invariants are close,
@@ -500,24 +512,23 @@ class LorentzVectorDict(dict):
         """
     
         if len(initial_leg_numbers)==2:
-# Ez
-#            logger1.info("vectors.py:boost_to_com leg0: " + str(self[initial_leg_numbers[0]]))
-#            logger1.info("vectors.py:boost_to_com leg1: " + str(self[initial_leg_numbers[1]]))
+#            logger.critical(str(initial_leg_numbers[0]))
+#            logger.critical(str(initial_leg_numbers[1]))
+#            logger1.info("LorentzVectorDiz: boost_to_com")
+#            logger1.info("leg0" + str(self[initial_leg_numbers[0]]))
+#            logger1.info("leg1" + str(self[initial_leg_numbers[1]]))
+#            logger.critical(str(initial_leg_numbers[1]))
             if __debug__:
                 sqrts = math.sqrt((self[initial_leg_numbers[0]]+self[initial_leg_numbers[1]]).square())
                 # Assert initial states along the z axis
                 import madgraph.various.misc as misc
-                assert(abs(self[initial_leg_numbers[0]][1]/sqrts)<1.0e-9)
-                assert(abs(self[initial_leg_numbers[1]][1]/sqrts)<1.0e-9)
-                assert(abs(self[initial_leg_numbers[0]][2]/sqrts)<1.0e-9)
-                assert(abs(self[initial_leg_numbers[1]][2]/sqrts)<1.0e-9)
+#                assert(abs(self[initial_leg_numbers[0]][1]/sqrts)<1.0e-9)
+#                assert(abs(self[initial_leg_numbers[1]][1]/sqrts)<1.0e-9)
+#                assert(abs(self[initial_leg_numbers[0]][2]/sqrts)<1.0e-9)
+#                assert(abs(self[initial_leg_numbers[1]][2]/sqrts)<1.0e-9)
             # Now send the self back into its c.o.m frame, if necessary
             initial_momenta_summed = self[initial_leg_numbers[0]]+self[initial_leg_numbers[1]]
             sqrts = math.sqrt((initial_momenta_summed).square())
-# Ez
-#            logger1.info("In LorentzVectorDict.boost_to_com")
-#            logger1.info(str(self))
-
             if abs(initial_momenta_summed[3]/sqrts)>1.0e-9:
                 boost_vector = (initial_momenta_summed).boostVector()
                 for vec in self.values():
@@ -609,10 +620,6 @@ class LorentzVectorList(list):
                 assert(abs(self[initial_leg_numbers[1]][1]/sqrts)<1.0e-9)
                 assert(abs(self[initial_leg_numbers[0]][2]/sqrts)<1.0e-9)
                 assert(abs(self[initial_leg_numbers[1]][2]/sqrts)<1.0e-9)
-# Ez
-            logger1.info("In LorentzVectorList.boost_to_com")
-            logger1.info(str(self))
-
             # Now send the self back into its c.o.m frame, if necessary
             initial_momenta_summed = self[initial_leg_numbers[0]]+self[initial_leg_numbers[1]]
             sqrts = math.sqrt((initial_momenta_summed).square())

@@ -3572,7 +3572,7 @@ class SoftTRNMapping(VirtualMapping):
             #logger1.info('Final Emitter - Initial Recoiler')
             Q = pa + pb - pc
             sabc = sac + sbc
-            x = 1 - sab/sabc
+            x = 1. - sab/sabc
             z = sac/sabc
 
             # remove a
@@ -3590,7 +3590,7 @@ class SoftTRNMapping(VirtualMapping):
         #logger1.info('Initial Emitter - Final Recoiler')
             Q = pa - pb + pc
             sabc = sab + sbc
-            x = 1 - sac/sabc
+            x = 1. - sac/sabc
             z = sab/sabc
 
             # copy the momenta
@@ -3602,7 +3602,7 @@ class SoftTRNMapping(VirtualMapping):
             new_PS_point[ib] = pb * x
             new_PS_point[parent] =  pb * x
             # and this is for c
-            new_PS_point[ic] = pa + pc - pb * (1 - x)
+            new_PS_point[ic] = pa + pc - pb * (1. - x)
 
 
     #emitter Initial, recoiler Initial
@@ -3610,7 +3610,7 @@ class SoftTRNMapping(VirtualMapping):
 
         #logger1.info('Initial Emitter - Initial Recoiler')
             Q = pc + pb
-            x1 = 1 - sac / (sbc - sab)
+            x1 = 1. - sac / (sbc - sab)
             x2 = (sbc - sab) / sbc
 
         #for i_fs in range(1,len(new_PS_point)+1):
@@ -3758,14 +3758,14 @@ class CollinearTRNMapping(VirtualMapping):
             #logger1.info('Final Emitter - Initial Recoiler')
             Q = pa + pb - pc
             sabc = sac + sbc
-            x = 1 - sab/sabc
+            x = 1. - sab/sabc
             z = sac/sabc
 
             # remove a
             del new_PS_point[ia]
             # this is for b
-            new_PS_point[ib] = pa + pb - pc * (1 - x)
-            new_PS_point[parent] = pa + pb - pc * (1 - x)
+            new_PS_point[ib] = pa + pb - pc * (1. - x)
+            new_PS_point[parent] = pa + pb - pc * (1. - x)
             # and this is for c
             new_PS_point[ic] = pc * x
 
@@ -3776,7 +3776,7 @@ class CollinearTRNMapping(VirtualMapping):
             #logger1.info('Initial Emitter - Final Recoiler')
             Q = pa - pb + pc
             sabc = sab + sbc
-            x = 1 - sac/sabc
+            x = 1. - sac/sabc
             z = sab/sabc
 
             # remove a
@@ -3785,7 +3785,7 @@ class CollinearTRNMapping(VirtualMapping):
             new_PS_point[ib] = pb * x
             new_PS_point[parent] =  pb * x
             # and this is for c
-            new_PS_point[ic] = pa + pc - pb * (1 - x)
+            new_PS_point[ic] = pa + pc - pb * (1. - x)
 
 
         #emitter Initial, recoiler Initial
@@ -3794,7 +3794,7 @@ class CollinearTRNMapping(VirtualMapping):
             #logger1.info('Initial Emitter - Initial Recoiler')
 
             Q = pc + pb
-            x = 1 - (sab + sac) / sbc
+            x = 1. - (sab + sac) / sbc
             v = sab / (sab + sac)
 
             # remove a

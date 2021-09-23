@@ -13,7 +13,7 @@ class AltarelliParisiKernels:
     def P_qg_averaged(color_factors,z):
         return EpsilonExpansion({
             0: color_factors.CF*((1.+z**2)/(1.-z)),
-            1: color_factors.CF*(-(1-z))
+            1: color_factors.CF*(-(1.-z))
         })
 
     @staticmethod
@@ -47,10 +47,10 @@ class AltarelliParisiKernels:
             # are irrelevant because Ward identities evaluate them to zero anyway.
             # Term proportional to Epsilon in Q_{\mu\nu} are not needed. No 1/Epsilon around.
             ( None, EpsilonExpansion({
-                0: 2 * color_factors.CA * (z/(1-z) + (1-z)/z) ,
+                0: 2 * color_factors.CA * (z/(1.-z) + (1.-z)/z) ,
             })),
             ( (kT,) , EpsilonExpansion({
-                0: -2 * color_factors.CA * 2 * z * (1-z) / kT.square(),
+                0: -2 * color_factors.CA * 2 * z * (1.-z) / kT.square(),
             })),
         ]
 

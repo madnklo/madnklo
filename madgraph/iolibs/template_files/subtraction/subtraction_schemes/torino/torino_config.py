@@ -184,7 +184,27 @@ def get_initial_state_recoilers(reduced_process, excluded=(), global_variables={
             leg['number'] not in sector_legs])
                 ]
 
-    #logger.info('Sector Legs= ' + str(sector_legs))
+    # for integrated currents
+    if len(sector_legs) == 0:
+        if len(global_variables['overall_children'][0]) == 1:
+            return sub.SubtractionLegSet([final_recoilers[0]])
+        elif global_variables['overall_children'][0][0] > 2 and global_variables['overall_children'][0][1] > 2:
+            if len(final_recoilers) > 0:
+                # sort the recoilers according to their id, and return the first one
+                final_recoilers.sort(key = lambda l: l['id'])
+                return sub.SubtractionLegSet([final_recoilers[0]])
+            else: 
+                return sub.SubtractionLegSet([initial_recoilers[0]])
+        elif global_variables['overall_children'][0][0] <= 2 or global_variables['overall_children'][0][1] <= 2:
+            if len(initial_recoilers) > 0:
+                return sub.SubtractionLegSet([initial_recoilers[0]])
+            else: 
+                # sort the recoilers according to their id, and return the first one
+                final_recoilers.sort(key = lambda l: l['id'])
+                return sub.SubtractionLegSet([final_recoilers[0]])
+
+
+    # for local currents
     if sector_legs[0] > 2 and sector_legs[1] > 2:
         if len(final_recoilers) > 0:
             # sort the recoilers according to their id, and return the first one
@@ -232,7 +252,27 @@ def get_final_state_recoilers(reduced_process, excluded=(), global_variables={})
             leg['number'] not in sector_legs])
                 ]
 
-    #logger.info('Sector Legs= ' + str(sector_legs))
+    # for integrated currents
+    if len(sector_legs) == 0:
+        if len(global_variables['overall_children'][0]) == 1:
+            return sub.SubtractionLegSet([final_recoilers[0]])
+        elif global_variables['overall_children'][0][0] > 2 and global_variables['overall_children'][0][1] > 2:
+            if len(final_recoilers) > 0:
+                # sort the recoilers according to their id, and return the first one
+                final_recoilers.sort(key = lambda l: l['id'])
+                return sub.SubtractionLegSet([final_recoilers[0]])
+            else: 
+                return sub.SubtractionLegSet([initial_recoilers[0]])
+        elif global_variables['overall_children'][0][0] <= 2 or global_variables['overall_children'][0][1] <= 2:
+            if len(initial_recoilers) > 0:
+                return sub.SubtractionLegSet([initial_recoilers[0]])
+            else: 
+                # sort the recoilers according to their id, and return the first one
+                final_recoilers.sort(key = lambda l: l['id'])
+                return sub.SubtractionLegSet([final_recoilers[0]])
+
+
+    # for local currents
     if sector_legs[0] > 2 and sector_legs[1] > 2:
         if len(final_recoilers) > 0:
             # sort the recoilers according to their id, and return the first one

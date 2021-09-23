@@ -3983,9 +3983,6 @@ The missing process is: %s"""%ME_process.nice_string())
             if not counterterm.is_singular():
                 continue
 
-            # Ez Locating loop over CT's
-            #logger.debug("ENTERING SIGMA. i_ct: " + str(i_ct)+"  "+str(counterterm))
-
             # Select a particular counterterm as follows for debugging:
             #singular_structure = counterterm.reconstruct_complete_singular_structure().substructures[0].substructures[0]
             #if not (singular_structure.name() == 'C' and len(singular_structure.substructures) == 0):
@@ -4027,6 +4024,9 @@ The missing process is: %s"""%ME_process.nice_string())
 
         walker_name = test_options['walker']
         walker = walkers.VirtualWalker(walker_name)
+
+#Gl
+        logger1.info("walker name = " + str(walker))
 
         # First generate an underlying Born
         # Specifying None forces to use uniformly random generating variables.
@@ -4283,14 +4283,24 @@ The missing process is: %s"""%ME_process.nice_string())
         
         # Now progressively approach the limit, using a log scale
         limit_evaluations = {}
-        n_steps = test_options['n_steps']
-        min_value = test_options['min_scaling_variable']
-        max_value = test_options['max_scaling_variable']
+        #n_steps = test_options['n_steps']
+        #min_value = test_options['min_scaling_variable']
+        #max_value = test_options['max_scaling_variable']
+#gl
+        n_steps = 10
+        min_value = 1.e-10
+        max_value = 1
         base = (min_value/max_value) ** (1./n_steps)
+
+        ME_step_array = []  
+        CTs_step_array = []
+
         for step in range(n_steps+1):
 
             # Determine the new configuration
-            scaling_parameter = max_value * (base ** step)
+            #scaling_parameter = max_value * (base ** step)
+#gl            
+            scaling_parameter = min_value * 10**(n_steps - step)
             scaled_real_PS_point, scaled_xi1, scaled_xi2 = self.scale_configuration(
                 a_xi1, a_xi2, a_real_emission_PS_point, limit, scaling_parameter,
                 defining_process, walker, test_options['boost_back_to_com'])
@@ -4332,10 +4342,6 @@ The missing process is: %s"""%ME_process.nice_string())
                             del input_sector_info['integrated_counterterms'][i_ct]
 
             try:
-# Ez
-#                logger.debug("calling sigma in test_IR_limits_for_limit_and_process")
-#                logger.debug("scaled_real_PS_point.to_dict()")
-#                logger.debug(str(scaled_real_PS_point.to_dict()))
                 # Now call sigma in order to gather all events
                 events = self.sigma(
                     scaled_real_PS_point.to_dict(), process_key, defining_process, all_flavor_configurations,
@@ -4426,23 +4432,36 @@ The missing process is: %s"""%ME_process.nice_string())
                 if this_eval['ME'] != 0.:
                     logger.debug('Ratio: %.16f'%( CT_weight/float(this_eval['ME']) ))
 
+#gl
+            CTs_step_array.append(total_CTs_wgt)
+            ME_step_array.append(this_eval['ME'])
+#gl
+            if step > 0:
+                if CTs_step_array[step -1] != 0.0:
+                    logger.debug('CTs_n/CTs_n-1: %.16f'%( CTs_step_array[step] / CTs_step_array[step-1] ))
+                if ME_step_array[step -1] != 0.0:
+                    logger.debug('ME_n/ME_n-1: %.16f'%( ME_step_array[step] / ME_step_array[step-1] ))
+
             if step==n_steps:
                 printout_func = logger.info
             else:
                 printout_func = logger.debug
             if this_eval['ME'] != 0.:
                 test_result = total_CTs_wgt/float(this_eval['ME'])
+                logger.debug('total_CTs_wgt: %.16f'%( total_CTs_wgt )) #gl
                 printout_func('%sRatio sum(CTs)/ME: %.16e%s'%(
                     misc.bcolors.RED if abs(test_result+1.0) > test_options['acceptance_threshold'] else misc.bcolors.GREEN
                     , test_result,misc.bcolors.ENDC) )
             else:
                 if total_absCTs_wgt != 0.:
                     test_result = total_CTs_wgt/total_absCTs_wgt
+                    logger.debug('total_CTs_wgt: %.16f'%( total_CTs_wgt )) #gl
                     printout_func('Ratio sum(CTs)/sum(absCTs): %s%.16e%s'%(
                         misc.bcolors.RED if abs(test_result) > test_options['acceptance_threshold'] else misc.bcolors.GREEN
                         , test_result, misc.bcolors.ENDC))
                 else:
                     test_result = total_CTs_wgt
+                    logger.debug('total_CTs_wgt: %.16f'%( total_CTs_wgt )) #gl
                     printout_func('sum(CTs): %s%.16e%s'%(
                         misc.bcolors.RED if abs(test_result) > test_options['acceptance_threshold'] else misc.bcolors.GREEN
                         , test_result, misc.bcolors.ENDC))

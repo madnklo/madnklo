@@ -113,5 +113,16 @@ def load():
                 NLO_integrated_currents.QCD_integrated_TRN_CS_FgFg
     ])
 
+    NLO_integrated_initial_collinears = [
+        NLO_integrated_currents.QCD_integrated_TRN_C_IgFq,
+        NLO_integrated_currents.QCD_integrated_TRN_C_IqFg,
+        NLO_integrated_currents.QCD_integrated_TRN_C_IqFq,
+        NLO_integrated_currents.QCD_integrated_TRN_C_IgFg,
+        NLO_integrated_currents.QCD_integrated_TRN_CS_IqFg,
+        NLO_integrated_currents.QCD_integrated_TRN_CS_IgFg,
+    ]
+    # initial-final collinears
+    all_subtraction_current_classes.extend(NLO_integrated_initial_collinears)
+
     # Finally register the subtraction current classes loaded
     loaded_attributes['all_subtraction_current_classes'] = all_subtraction_current_classes

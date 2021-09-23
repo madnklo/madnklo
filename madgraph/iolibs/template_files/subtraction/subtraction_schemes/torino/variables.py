@@ -18,13 +18,17 @@ import math
 
 import madgraph.integrator.vectors as vectors
 import madgraph.various.misc as misc
+import madgraph.integrator.mappings as mappings
+
+from madgraph.integrator.vectors import Vector, LorentzVector
 
 import commons.utils as utils
 
 import logging
 
 
-logger1 = logging.getLogger('madgraph')
+
+logger = logging.getLogger('madgraph')
 
 
 CurrentImplementationError = utils.CurrentImplementationError
@@ -43,7 +47,8 @@ def get_sudakov_decomp_FF(ki, kj, kr):
     kbar = k - sij / (sir + sjr) * kr
 
     xi = sir / (sir + sjr)
-    xj = sjr / (sir + sjr)
+    #xj = sjr / (sir + sjr)
+    xj = 1. - xi 
 
     kitil = ki - k * xi  - kr * (k.dot(ki) / k.square() - xi) * k.square() / k.dot(kr)
     kjtil = kj - k * xj  - kr * (k.dot(kj) / k.square() - xj) * k.square() / k.dot(kr)
@@ -88,12 +93,61 @@ def get_sudakov_decomp_IF(ki, kj, kr):
     sir = ki.dot(kr)
     sjr = kj.dot(kr)
 
-    xi = (sir - sjr)/sir
-    xj = sjr/sir
+    #xi_old = (sir - sjr)/sir
+    #xj = 1. - xi
 
-    kjtil = kj - ki * xj  - kr * (sij / sir)
-    kitil = - kjtil
-    
+
+    na, nb = mappings.InitialCollinearVariables.collinear_and_reference(ki)
+
+    pa = ki
+    # Compute the sum of momenta
+    pA = LorentzVector(pa)
+    pA -= kj
+    # Pre-compute variables
+    napA = na.dot(pA)
+    nbpA = nb.dot(pA)
+    nanb = na.dot(nb)
+    nbpa = nb.dot(pa)
+    zA = nbpA / nbpa
+    ktA = pA - (nbpA * na + napA * nb) / nanb
+    # ptA = pA - (nbpA * na + napA * nb) / nanb
+    # ktA = ptA / zA
+    # Initialize variables for sum rules check
+    zsum = 0
+    ktsum = LorentzVector()
+    ktabssum = LorentzVector()
+    # Fill in A data, using child number improperly
+    zsum += zA
+    ktsum += ktA
+    for j in range(len(ktA)):
+        ktabssum[j] += abs(ktA[j])
+    # Compute all kinematic variables
+    pi = kj
+    napi = na.dot(pi)
+    nbpi = nb.dot(pi)
+    zi = nbpi / nbpa
+    kti = pi - (nbpi*na+napi*nb) / nanb
+    # pti = pi - (nbpi*na+napi*nb) / nanb
+    # kti = pti - zi * ktA
+    zsum += zi
+    ktsum += kti
+    for j in range(len(kti)):
+        ktabssum[j] += abs(kti[j])
+
+    #logger.info("kti_new = " + str(ktA))
+    #logger.info("ktj_new = " + str(kti))
+
+    #kjtil_old = kj - ki * (1. - xi_old)  - kr * (sij / sir)
+
+    #logger.info("kjtil_old = " + str(kjtil_old))
+    #logger.info("xi_old = " + str(xi_old))
+    #logger.info("xi_new = " + str(zA))
+
+    xi = zA
+    xj = zi
+    kitil = ktA
+    kjtil = kti
+
     return xi, xj, kitil, kjtil
 
 def TRN_IFn_variables(higher_PS_point, qC, children, **opts):
@@ -109,11 +163,6 @@ def TRN_IFn_variables(higher_PS_point, qC, children, **opts):
     # the recoiler
     p_rec = higher_PS_point[opts['ids']['c']]
 
-# Ez
-#    logger1.info('p_rec: '+str(p_rec))
-#    logger1.info('Momenta')
-#    for i_fs in range(len(all_p_fs)):
-#        logger1.info(str(i_fs)+"  "+str(all_p_fs[i_fs]))
 
     # Add additional ss's
     ss_i_j = {}
@@ -124,10 +173,11 @@ def TRN_IFn_variables(higher_PS_point, qC, children, **opts):
     for k,v in ss_i_j.items():
         ss_i_j[(k[1],k[0])] = v
 
-    # now x's and kts
+    # now x's and kts where all_p_fs[0] = IN , all_p_fs[1] = F
     xi, xj, kitil, kjtil = get_sudakov_decomp_IF(all_p_fs[0], all_p_fs[1], p_rec)
 
     xis = (xi, xj)
     kTs = (kitil, kjtil)
 
-    return [{'xs':xis, 'kTs':kTs, 'ss':ss_i_j},]
+
+    return [{'xs':xis, 'kTs':kTs, 'ss':ss_i_j,},]

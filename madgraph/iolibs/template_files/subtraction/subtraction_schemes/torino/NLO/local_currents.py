@@ -112,7 +112,7 @@ class QCD_TRN_C_FgFg(general_current.GeneralCurrent):
     def kernel(self, evaluation, all_steps_info, global_variables):
         """ Evaluate this counterterm given the variables provided. """
 
-        kT_FF = all_steps_info[0]['variables'][0]['kTs'][1]
+        kT_FF = all_steps_info[0]['variables'][0]['kTs'][0]
         x_FF  = all_steps_info[0]['variables'][0]['xs'][0]
         x_oth = all_steps_info[0]['variables'][0]['xs'][1]
         s_rs  = all_steps_info[0]['variables'][0]['ss'][(0,1)]
@@ -418,6 +418,31 @@ class QCD_TRN_S_g(dipole_current.DipoleCurrent):
 
                 # At the moment, we do not implement anything special
                 eikonal = SoftKernels.eikonal_dipole(pa, pb, pS)
+                #logger1.info("eikonal = " + str(eikonal))
+
+#gl
+                #damping factors
+                alpha = 0.0
+
+                if a > 2 and b > 2:
+
+                    eikonal *= ( pa.dot(pb) / (pa.dot(pb) + pa.dot(pS) + pb.dot(pS)))**(alpha)
+
+                elif a > 2 and b <= 2:
+
+                    eikonal *= ( (1. - pa.dot(pS) / (pb.dot(pS)+pb.dot(pa)) ) * (1. - pb.dot(pS) / (pb.dot(pS)+pb.dot(pa)) ) )**(alpha)
+
+                elif a <= 2 and b > 2:
+
+                    eikonal *= ( (1. - pb.dot(pS) / (pa.dot(pS)+pa.dot(pb)) ) * (1. - pa.dot(pS) / (pa.dot(pS)+pa.dot(pb)) ) )**(alpha)
+
+                elif a <= 2 and b <= 2:
+
+                    eikonal *= ( (pa.dot(pb) - pa.dot(pS) - pb.dot(pS)) / pa.dot(pb) )**(alpha)
+
+
+                #logger1.info("eikonal_dumped = " + str(eikonal))
+
                 evaluation['color_correlations'].append(((a, b),))
                 evaluation['values'][(0, color_correlation_index, 0, color_correlation_index)] = {
                     'finite': norm * mult_factor * eikonal * sector_prefactor}
@@ -620,15 +645,16 @@ class QCD_TRN_C_IgFg(general_current.GeneralCurrent):
     def kernel(self, evaluation, all_steps_info, global_variables):
         """ Evaluate this counterterm given the variables provided. """
 
-        kT_FF = all_steps_info[0]['variables'][0]['kTs'][1]
+        kT_FF = all_steps_info[0]['variables'][0]['kTs'][0]
         x_FF  = all_steps_info[0]['variables'][0]['xs'][0]
         x_oth = all_steps_info[0]['variables'][0]['xs'][1]
         s_rs  = all_steps_info[0]['variables'][0]['ss'][(0,1)]
         parent = all_steps_info[0]['bundles_info'][0]['parent']
 
-        prefactor = 1./s_rs/x_FF #
+
+        prefactor = - 1./s_rs #
         prefactor *= compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 2)
-        for spin_correlation_vector, weight in AltarelliParisiKernels.P_gg(self, x_FF, kT_FF):
+        for spin_correlation_vector, weight in AltarelliParisiKernels.P_gg(self, 1./x_FF, kT_FF):
             complete_weight = weight * prefactor
             if spin_correlation_vector is None:
                 evaluation['values'][(0, 0, 0, 0)] = {'finite': complete_weight[0]}
@@ -709,18 +735,19 @@ class QCD_TRN_C_IqFq(general_current.GeneralCurrent):
     def kernel(self, evaluation, all_steps_info, global_variables):
         """ Evaluate this counterterm given the variables provided. """
 
-        kT_FF = all_steps_info[0]['variables'][0]['kTs'][1]
+        kT_FF = all_steps_info[0]['variables'][0]['kTs'][0]
         x_FF  = all_steps_info[0]['variables'][0]['xs'][0]
         x_oth = all_steps_info[0]['variables'][0]['xs'][1]
         s_rs  = all_steps_info[0]['variables'][0]['ss'][(0,1)]
         parent = all_steps_info[0]['bundles_info'][0]['parent']
 
-        prefactor = 1./s_rs/x_FF #
+
+        prefactor =((self.NC ** 2 - 1) / float(self.NC)) / s_rs #
         prefactor *= compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 2)
         # include the soft_collinear counterterm here, as in the torino paper
         # (see the definition of 'hard-collinear' splitting function there)
         soft_col = 0.
-        for spin_correlation_vector, weight in AltarelliParisiKernels.P_gq(self, x_FF, kT_FF):
+        for spin_correlation_vector, weight in AltarelliParisiKernels.P_qq(self,1./x_FF, kT_FF):
             complete_weight = weight * prefactor
             if spin_correlation_vector is None:
                 complete_weight += soft_col * (- prefactor)
@@ -807,13 +834,14 @@ class QCD_TRN_C_IgFq(general_current.GeneralCurrent):
         s_rs  = all_steps_info[0]['variables'][0]['ss'][(0,1)]
         parent = all_steps_info[0]['bundles_info'][0]['parent']
 
-        prefactor = 1./s_rs/x_FF #
+
+        prefactor = (self.NC / float(self.NC ** 2 - 1.)) /s_rs  #
         prefactor *= compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 2)
         # include the soft_collinear counterterm here, as in the torino paper
         # (see the definition of 'hard-collinear' splitting function there)
 #        soft_col = EpsilonExpansion({0: self.CF * 2 * x_FF / x_oth, 1: 0.})
         soft_col = 0.
-        for spin_correlation_vector, weight in AltarelliParisiKernels.P_qq(self, x_FF, kT_FF):
+        for spin_correlation_vector, weight in AltarelliParisiKernels.P_gq(self, 1./x_FF , kT_FF):
             complete_weight = weight * prefactor
             if spin_correlation_vector is None:
                 complete_weight += soft_col * (- prefactor)
@@ -895,20 +923,11 @@ class QCD_TRN_C_IqFg(general_current.GeneralCurrent):
         """ Evaluate this counterterm given the variables provided. """
 
         kT_FF = all_steps_info[0]['variables'][0]['kTs'][0]
-# Ez
-#        x_FF  = all_steps_info[0]['variables'][0]['xs'][1]
-#        x_oth = all_steps_info[0]['variables'][0]['xs'][0]
         x_FF  = all_steps_info[0]['variables'][0]['xs'][0]
         x_oth = all_steps_info[0]['variables'][0]['xs'][1]
         s_rs  = all_steps_info[0]['variables'][0]['ss'][(0,1)]
         parent = all_steps_info[0]['bundles_info'][0]['parent']
 
-# Ez
-#        logger1.info("")
-#        logger1.info("local_currents.QCD_TRN_C_IqFg.kernel")
-#        logger1.info("x_FF: "+str(x_FF))
-#        logger1.info("x_oth: "+str(x_oth)+"   1-x_FF: "+str(1-x_FF))
-#        logger1.info("all_steps_info:\n"+str(all_steps_info))
 
         prefactor = 1./s_rs/x_FF #
         prefactor *= compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 2)
@@ -925,10 +944,6 @@ class QCD_TRN_C_IqFg(general_current.GeneralCurrent):
                 evaluation['spin_correlations'].append( ((parent, spin_correlation_vector),) )
                 evaluation['values'][(len(evaluation['spin_correlations']) - 1, 0, 0, 0)] = {'finite': complete_weight[0]}
 
-        # Ez
-        #logger1.info("QCD_TRN_C_IqFg.kernel")
-        #logger1.info("prefactor: " + str(prefactor) + "  x_FF: " + str(x_FF) + "  x_oth: " + str(x_oth))
-        #logger1.info("complete_weight[0]: " + str(prefactor * self.CF * 2 * x_FF / x_oth))
 
         return evaluation
 
@@ -1005,10 +1020,6 @@ class QCD_TRN_CS_IqFg(general_current.GeneralCurrent):
         complete_weight = soft_col * prefactor
         evaluation['values'][(0, 0, 0, 0)] = {'finite': complete_weight[0]}
 
-# Ez
-        #logger1.info("QCD_TRN_CS_IqFg.kernel")
-        #logger1.info("prefactor: "+str(prefactor)+"  x_oth: "+str(x_oth)+"  x_soft: "+str(x_soft))
-        #logger1.info("complete_weight[0]: "+str(complete_weight[0]))
 
         return evaluation
 

@@ -500,30 +500,34 @@ class QCD_integrated_TRN_C_IqFg(general_current.GeneralCurrent):
         prefactor_plus = EpsilonExpansion({0: 1., 1: logMuQ_plus, 2: 0.5 * logMuQ_plus ** 2})
         prefactor_plus *= self.SEpsilon * (1. / (16 * pi**2) )
 
-        log1mx = log(1. - x)
-
-        # Heaviside
-        #theta_x_1my0 = 1. if (x - (1 - y_0)) >= 0. else 0.
-        #theta_1my0_x = 1. if ((1 - y_0) - x) >= 0. else 0.
-
-        # Define the NLO QCD integrate initial-state single collinear counterterms kernels
-
-        #if recoiler > 2:
-        #    logger.info('final recoiler')
-        #elif recoiler <= 2:
-
-
 
         color_factor = self.CF
-        kernel_qg = {
+        kernel_qq = {
             'bulk': prefactor * color_factor * (EpsilonExpansion({
                 -1: -(self.TR / self.CF) * (x ** 2 + (1. - x) ** 2),
                 0: (self.TR / self.CF) * ((x ** 2 + (1. - x) ** 2)  + 2. * x * (1. - x))
             })),
-            'counterterm': None,
-            'endpoint': None
+            'counterterm': None ,
+            'endpoint': None 
         }
 
+
+        kernel_gg = {
+            'bulk': None ,
+            'counterterm': None ,
+            'endpoint': None
+        }
+        kernel_gq = {
+            'bulk': None ,
+            'counterterm': None ,
+            'endpoint': None
+        }
+        kernel_qg = {
+            'bulk': None ,
+            'counterterm': None ,
+            'endpoint': None
+        }
+ 
 
         active_quark_PDGs = self.currents_properties[0]['active_fermions']
 
@@ -531,24 +535,24 @@ class QCD_integrated_TRN_C_IqFg(general_current.GeneralCurrent):
         flavor_matrix = {}
         for reduced_flavor in beam_PDGs:
             # Gluon backward evolution
-#            if reduced_flavor == 21:
-#                gluon_dict = {}
-#                if kernel_gg[distribution_type] is not None:
-#                    gluon_dict[(21,)] = kernel_gg[distribution_type]
-#                if active_quark_PDGs and kernel_gq[distribution_type] is not None:
-#                    gluon_dict[active_quark_PDGs] = kernel_gq[distribution_type]
-#                if gluon_dict:
-#                    flavor_matrix[21] = gluon_dict
+            if reduced_flavor == 21:
+                gluon_dict = {}
+                if active_quark_PDGs and kernel_gq[distribution_type] is not None:
+                    gluon_dict[active_quark_PDGs] = kernel_gq[distribution_type]
+                if gluon_dict:
+                    flavor_matrix[21] = gluon_dict
 
             # Quark backward evolution
             if reduced_flavor in active_quark_PDGs:
                 quark_dict = {}
                 if kernel_qg[distribution_type] is not None:
                     quark_dict[(21,)] = kernel_qg[distribution_type]
-#                if kernel_qq[distribution_type] is not None:
-#                    quark_dict[(reduced_flavor,)] = kernel_qq[distribution_type]
+                if kernel_qq[distribution_type] is not None:
+                    quark_dict[(reduced_flavor,)] = kernel_qq[distribution_type]
                 if quark_dict:
                     flavor_matrix[reduced_flavor] = quark_dict
+
+        logger.info('flavor_matrix : ' + str(flavor_matrix))
 
         # Truncate all entries of the flavor matrix so as to remove irrelevant O(\eps) terms
         for flav_in, flav_outs in flavor_matrix.items():
@@ -685,9 +689,7 @@ class QCD_integrated_TRN_C_IgFq(general_current.GeneralCurrent):
         # of variable necessary to bring them in the form where the plus distribution
         # only acts on the PDF. So it makes sense to keep it completely factorised.
 
-        # Input variables
-        #y_0 = factors_and_cuts.y_0_prime
-        #logy0 = log(y_0)
+
         # Assign a fake x for now if the distribution type is 'endpoint'
         # TODO: this is not optimal, eventually we should put each of these three pieces in
         # separate currents
@@ -719,15 +721,31 @@ class QCD_integrated_TRN_C_IgFq(general_current.GeneralCurrent):
 
 
         color_factor = self.CA
-        kernel_gq = {
+        kernel_qg = {
             'bulk': prefactor * color_factor * (EpsilonExpansion({
                 -1: -(self.CF / self.CA) * (1. + (1. - x) ** 2) / x,
                 0: (self.CF / self.CA) 
             })),
-            'counterterm': None,
+            'counterterm': None ,
             'endpoint': None
         }
 
+        kernel_gg = {
+            'bulk': None ,
+            'counterterm': None ,
+            'endpoint': None
+        }
+        kernel_gq = {
+            'bulk': None ,
+            'counterterm': None ,
+            'endpoint': None
+        }
+        kernel_qq = {
+            'bulk': None ,
+            'counterterm': None ,
+            'endpoint': None
+        }
+ 
 
         active_quark_PDGs = self.currents_properties[0]['active_fermions']
 
@@ -742,15 +760,17 @@ class QCD_integrated_TRN_C_IgFq(general_current.GeneralCurrent):
                 if gluon_dict:
                     flavor_matrix[21] = gluon_dict
 
-#            # Quark backward evolution
-#            if reduced_flavor in active_quark_PDGs:
-#                quark_dict = {}
-#                if kernel_qg[distribution_type] is not None:
-#                    quark_dict[(21,)] = kernel_qg[distribution_type]
-#                if kernel_qq[distribution_type] is not None:
-#                    quark_dict[(reduced_flavor,)] = kernel_qq[distribution_type]
-#                if quark_dict:
-#                    flavor_matrix[reduced_flavor] = quark_dict
+            # Quark backward evolution
+            if reduced_flavor in active_quark_PDGs:
+                quark_dict = {}
+                if kernel_qg[distribution_type] is not None:
+                    quark_dict[(21,)] = kernel_qg[distribution_type]
+                if kernel_qq[distribution_type] is not None:
+                    quark_dict[(reduced_flavor,)] = kernel_qq[distribution_type]
+                if quark_dict:
+                    flavor_matrix[reduced_flavor] = quark_dict
+
+        logger.info('flavor_matrix : ' + str(flavor_matrix))
 
         # Truncate all entries of the flavor matrix so as to remove irrelevant O(\eps) terms
         for flav_in, flav_outs in flavor_matrix.items():
@@ -918,7 +938,7 @@ class QCD_integrated_TRN_C_IqFq(general_current.GeneralCurrent):
 
 
         color_factor = self.CF
-        kernel_qq = {
+        kernel_gq = {
             'bulk': prefactor * color_factor * (EpsilonExpansion({
                 -1: -((1. + x ** 2) / (1. - x)),
                 0: (2. * log1mx / (1. - x))  
@@ -940,22 +960,22 @@ class QCD_integrated_TRN_C_IqFq(general_current.GeneralCurrent):
         flavor_matrix = {}
         for reduced_flavor in beam_PDGs:
             # Gluon backward evolution
-#            if reduced_flavor == 21:
-#                gluon_dict = {}
+            if reduced_flavor == 21:
+                gluon_dict = {}
 #                if kernel_gg[distribution_type] is not None:
 #                    gluon_dict[(21,)] = kernel_gg[distribution_type]
-#                if active_quark_PDGs and kernel_gq[distribution_type] is not None:
-#                    gluon_dict[active_quark_PDGs] = kernel_gq[distribution_type]
-#                if gluon_dict:
-#                    flavor_matrix[21] = gluon_dict
+                if active_quark_PDGs and kernel_gq[distribution_type] is not None:
+                    gluon_dict[active_quark_PDGs] = kernel_gq[distribution_type]
+                if gluon_dict:
+                    flavor_matrix[21] = gluon_dict
 
-            # Quark backward evolution
-            if reduced_flavor in active_quark_PDGs:
-                quark_dict = {}
-                if kernel_qq[distribution_type] is not None:
-                    quark_dict[(reduced_flavor,)] = kernel_qq[distribution_type]
-                if quark_dict:
-                    flavor_matrix[reduced_flavor] = quark_dict
+#            # Quark backward evolution
+#            if reduced_flavor in active_quark_PDGs:
+#                quark_dict = {}
+#                if kernel_qq[distribution_type] is not None:
+#                    quark_dict[(reduced_flavor,)] = kernel_qq[distribution_type]
+#                if quark_dict:
+#                    flavor_matrix[reduced_flavor] = quark_dict
 
         # Truncate all entries of the flavor matrix so as to remove irrelevant O(\eps) terms
         for flav_in, flav_outs in flavor_matrix.items():
@@ -1685,12 +1705,6 @@ class QCD_integrated_TRN_S_g(general_current.GeneralCurrent):
         xi = global_variables['xis'][0]
         mu_r = global_variables['mu_r']
 
-#        PS_point = all_steps_info[-1]['lower_PS_point']
-#
-#        # Represent the colored parton info dictionary as a sorted list
-#        colored_partons = sorted([
-#            (leg_number, info) for leg_number, info in colored_partons.items() ], key=lambda el: el[0]
-#        )
 
         # The colored_partons argument gives a dictionary with keys being leg numbers and values being
         # their color representation. At NLO, all we care about is what are the colored leg numbers.
@@ -1718,26 +1732,9 @@ class QCD_integrated_TRN_S_g(general_current.GeneralCurrent):
         if distribution_type == 'counterterm':
             evaluation['Bjorken_rescalings'] = [(1.0, 1.0),]
 
-#        Q = global_variables['Q']
-
-#        # Obtain Q_square.
-#        Q_square = Q.square()
-
-#        # Only up to the order epsilon^2 of the scales prefactor matters here.
-#        logMuQ = log(mu_r**2/Q_square)
-#        # Correction for the counterterm: in BS (bulk+counterterm), the variable Q_square corresponds to that
-#        # of the real event. However the counterterm corresponds to the residue of the bulk at xi=1.
-#        # This is effectively obtained by multiplying by xi: Q_residue = Q_real * xi.
-#        # Note for future dumb-me: log(mu_r**2/(Q_square*xi**2)) = logMuQ - log(xi**2)
-#        if distribution_type == 'counterterm':
-#            logMuQ-=log(xi**2)
-#        prefactor = EpsilonExpansion({ 0 : 1., 1 : logMuQ, 2 : 0.5*logMuQ**2 })
-#        prefactor *= self.SEpsilon * (1. / (16 * pi**2) )
-
 
         shat = 2 * all_steps_info[0]['lower_PS_point'][1].dot( \
             all_steps_info[0]['lower_PS_point'][2])
-        mu_r = global_variables['mu_r']
         mu2os = mu_r**2 / shat
 
 
@@ -1751,17 +1748,6 @@ class QCD_integrated_TRN_S_g(general_current.GeneralCurrent):
         evaluation['color_correlations'] = []
 
         color_correlation_index = 0
-#        # Now loop over the colored parton number pairs (a,b)
-#        # and add the corresponding contributions to this current
-#        for i, (a, leg_info_a) in enumerate(colored_partons):
-#            # Use the symmetry of the color correlation and soft current (a,b) <-> (b,a)
-#            for (b, leg_info_b) in colored_partons[i+1:]:
-#                # Write the integrated eikonal for that pair
-
-#                evaluation['color_correlations'].append( ((a, b), ) )
-
-#                pa = PS_point[a]
-#                pb = PS_point[b]
 
         for i, a in enumerate(colored_partons):
             # Use the symmetry of the color correlation and soft current (a,b) <-> (b,a)
@@ -1778,10 +1764,10 @@ class QCD_integrated_TRN_S_g(general_current.GeneralCurrent):
 
                 if a > 2 and b > 2:
                     kernel = {
-                        'bulk': None ,
-                        'counterterm': None ,
+                        'bulk': 0. ,
+                        'counterterm': 0. ,
                         'endpoint': EpsilonExpansion({
-                            -2: - 1.,
+                            -2: - 1. ,
                             -1: - 2. * fc.A2(fc.alpha) ,
                             0: - (math.pi**2 / 12.) - 2. * (fc.A2(fc.alpha))**2 + 4. * fc.polygamma(fc.alpha) 
                         })
@@ -1789,23 +1775,47 @@ class QCD_integrated_TRN_S_g(general_current.GeneralCurrent):
 
                 if a > 2 and b <= 2:
                     kernel = {
-                        'bulk': None ,
-                        'counterterm': None ,
-                        'endpoint': None ,
+                        'bulk': EpsilonExpansion({
+                            -2: 0. ,
+                            -1: x **(1. + fc.alpha) / (1. - x) ,
+                            0: ( x **(1. + fc.alpha) / (1. - x) ) * fc.A2(fc.alpha) - ( log(1.-x) * x **(1. + fc.alpha) / (1. - x)) 
+                        }) ,
+                        'counterterm': EpsilonExpansion({
+                            -2: 0. ,
+                            -1: - ( x **(1. + fc.alpha) / (1. - x) ) ,
+                            0: - ( x **(1. + fc.alpha) / (1. - x) ) * fc.A2(fc.alpha) + ( log(1.-x) * x **(1. + fc.alpha) / (1. - x)) 
+                        }) ,
+                        'endpoint': EpsilonExpansion({
+                            -2: - 1. ,
+                            -1: - 2. * fc.A2(fc.alpha) ,
+                            0: - (math.pi**2 / 12.) - 2. * (fc.A2(fc.alpha))**2 + 2. * fc.polygamma(fc.alpha) 
+                        })                    
                     }
 
                 if a <= 2 and b > 2:
                     kernel = {
-                        'bulk': None ,
-                        'counterterm': None ,
-                        'endpoint': None ,
+                        'bulk': EpsilonExpansion({
+                            -2: 0. ,
+                            -1: x **(1. + fc.alpha) / (1. - x) ,
+                            0: ( x **(1. + fc.alpha) / (1. - x) ) * fc.A2(fc.alpha) - ( log(1.-x) * x **(1. + fc.alpha) / (1. - x)) 
+                        }) ,
+                        'counterterm': EpsilonExpansion({
+                            -2: 0. ,
+                            -1: - ( x **(1. + fc.alpha) / (1. - x) ) ,
+                            0: - ( x **(1. + fc.alpha) / (1. - x) ) * fc.A2(fc.alpha) + ( log(1.-x) * x **(1. + fc.alpha) / (1. - x)) 
+                        }) ,
+                        'endpoint': EpsilonExpansion({
+                            -2: - 1. ,
+                            -1: - 2. * fc.A2(fc.alpha) ,
+                            0: - (math.pi**2 / 12.) - 2. * (fc.A2(fc.alpha))**2 + 2. * fc.polygamma(fc.alpha) 
+                        })                    
                     }
 
                 if a <= 2 and b <= 2:
                     kernel = {
-                        'bulk': None ,
-                        'counterterm': None ,
-                        'endpoint': None ,
+                        'bulk': 0. ,
+                        'counterterm': 0. ,
+                        'endpoint': 0. ,
                     }
 
 
@@ -1821,7 +1831,6 @@ class QCD_integrated_TRN_S_g(general_current.GeneralCurrent):
 #=========================================================================================
 # Integrated FF collinear counterterm
 #=========================================================================================
-
 
 class QCD_integrated_TRN_C_FqFg(general_current.GeneralCurrent):
 
@@ -1899,27 +1908,6 @@ class QCD_integrated_TRN_C_FqFg(general_current.GeneralCurrent):
         if distribution_type == 'counterterm':
             evaluation['Bjorken_rescalings'] = [(1.0, 1.0),]
 
-#        # This is a NLO integrated counterterm
-#        # it inherits from real countertems so it has
-#        # an `all_steps_info` with only one step
-#        # and the lower and higher PS points are the same since
-#        # there's no mapping applied. the '-1' and 'lower_PS_point' are therefore
-#        # not meaningful choices at this point.
-#        PS_point = all_steps_info[-1]['lower_PS_point']
-
-
-#        n_initial_legs = global_variables['n_initial_legs']
-#        Qhat = sum(PS_point.to_list()[:n_initial_legs])
-#        if distribution_type == 'bulk':
-#            fact = 1. / xi
-#        else:
-#            fact = 1.
-#        Q = fact * Qhat
-#        Q_square = Q.square()
-
-#        logMuQ = log(mu_r ** 2 / Q_square)
-#        prefactor = EpsilonExpansion({0: 1., 1: logMuQ, 2: 0.5 * logMuQ ** 2})
-#        prefactor *= self.SEpsilon * (1. / (16 * pi ** 2))
 
         shat = 2 * all_steps_info[0]['lower_PS_point'][1].dot( \
             all_steps_info[0]['lower_PS_point'][2])
@@ -1938,28 +1926,40 @@ class QCD_integrated_TRN_C_FqFg(general_current.GeneralCurrent):
         logger.info('recoiler : ' + str(recoiler))
 
         color_factor = self.CF
-        overall = - 1. / 2.
+        overall = 1. / 2.
 
         if recoiler > 2:
             kernel = {
                 'bulk': 0. ,
                 'counterterm': 0. ,
-                'endpoint': EpsilonExpansion({
+                'endpoint': color_factor * overall * EpsilonExpansion({
                     -2: 0.,
-                    -1: 1.,
-                    0: fc.A2(fc.alpha) 
+                    -1: - 1.,
+                    0: - (1. + fc.A2(fc.beta_FF))
                 })
             }
 
         elif recoiler <=2:
             kernel = {
-                'bulk': 0. ,
-                'counterterm': 0. ,
-                'endpoint': None
+                'bulk': color_factor * overall * EpsilonExpansion({
+                    -2: 0. ,
+                    -1: 0. ,
+                    0: (x**(1. + fc.beta_FI) / (1. - x)) 
+                }),
+                'counterterm': color_factor * overall * EpsilonExpansion({
+                    -2: 0. ,
+                    -1: 0. ,
+                    0: - (x**(1. + fc.beta_FI) / (1. - x)) 
+                }),
+                'endpoint': color_factor * overall * EpsilonExpansion({
+                    -2: 0.,
+                    -1: - 1.,
+                    0: - (1. + fc.A2(fc.beta_FI))
+                })            
             }
 
 
-        kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * color_factor * overall * prefactor , mu2os)
+        kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os)
 
         evaluation['values'][(0, 0, 0, 0)] = (kernel_eval).truncate(max_power=0)
 
@@ -2044,80 +2044,15 @@ class QCD_integrated_TRN_C_FqFqx(general_current.GeneralCurrent):
         if distribution_type == 'counterterm':
             evaluation['Bjorken_rescalings'] = [(1.0, 1.0),]
 
-        # This is a NLO integrated counterterm
-        # it inherits from real countertems so it has
-        # an `all_steps_info` with only one step
-        # and the lower and higher PS points are the same since
-        # there's no mapping applied. the '-1' and 'lower_PS_point' are therefore
-        # not meaningful choices at this point.
-        PS_point = all_steps_info[-1]['lower_PS_point']
+        shat = 2 * all_steps_info[0]['lower_PS_point'][1].dot( \
+            all_steps_info[0]['lower_PS_point'][2])
+        mu_r = global_variables['mu_r']
+        mu2os = mu_r**2 / shat
 
-        # Q is handled a little weirdly at the moment, we will therefore reconstruct it from PS_point,
-        # which is **exactly what goes into the Matrix Element of the term at hand**.
-        # We are using Gabor/colorful notation and therefore Q refers to the total initial momentum
-        # of the real matrix element which was regulated by the local version of this counterterm
-        #
-        # i.e. :
-        #
-        # * delta: M(pa_tilde+pb_tilde-> p1_tilde, ...)*delta(alpha) where
-        # pa_tilde = (1-alpha) pa, pb_tilde = (1-alpha) pb. i.e. Q = sum(PS_point[initial_legs])
-        #
-        # * bulk:  M(pa_tilde+pb_tilde-> p1_tilde, ...) for any alpha where
-        # pa_tilde = (1-alpha) pa, pb_tilde = (1-alpha) pb. i.e. Q = sum(PS_point[initial_legs])/(1-alpha)
-        #
-        # * counterterm: M(pa_tilde+pb_tilde-> p1_tilde, ...)|_{alpha=0} where
-        # pa_tilde = (1-alpha) pa, pb_tilde = (1-alpha) pb. i.e. Q = sum(PS_point[initial_legs])
-
-        n_initial_legs = global_variables['n_initial_legs']
-        Qhat = sum(PS_point.to_list()[:n_initial_legs])
-        if distribution_type == 'bulk':
-            fact = 1. / xi
-        else:
-            fact = 1.
-        Q = fact * Qhat
-        Q_square = Q.square()
-
-        color_factor = self.CF
-        logMuQ = log(mu_r ** 2 / Q_square)
-        prefactor = EpsilonExpansion({0: 1., 1: logMuQ, 2: 0.5 * logMuQ ** 2})
-        prefactor *= self.SEpsilon * (1. / (16 * pi ** 2))
-
-        pij_tilde = PS_point[global_variables['overall_parents'][0]]
-        # c.o.m. energy fraction of the mapped parent
-        xir = 2. * pij_tilde.dot(Q) / Q_square
-        # Protection for back-to-back systems
-        if xir > 1. + 1.e-5:
-            raise ValueError("xir = 2.*pij_tilde.dot(Q)/Q_square = {xir} > 1. something is wrong".format(xir=xir))
-        if xir > 1.:
-            xir = 1.
-
-        # xi = 1-alpha
-        if xi is not None:
-            alpha = 1 - xi
-
-        # The upper bound on the alpha integral is 1 - sum_of_masses/Q
-        try:
-            masses = [math.sqrt(p.square()) for p in PS_point.to_list()[n_initial_legs:]]
-        except ValueError:
-            # For massless particles, it happens often that the squared mass is actually a small negative
-            # number. While this exception is handled without stopping here, we throw a warning
-            # if you see this warning pop up a lot, investigate whether this might not be an issue related
-            # to improper use of mappings (which could generate actual negative masses)
-            mass_data = []
-            for p in PS_point.to_list()[n_initial_legs:]:
-
-                assert p.square()>0 or abs(p.square())/p[0] < 1.e-8, "A negative mass particle was encountered: {}".format(p)
-                mass_data.append((p.square(),abs(p.square())/p[0]))
-            # This warning is suppressed by the logger level setting at the top of this file.
-            # If you have doubts about negative mass issues, you can restore the level to include
-            # debug statements.
-            logger.debug("Encountered negative mass particles. \
-            They were all nearly light-like so we assume it is a numerics issue")
-            logger.debug(mass_data)
-
-            masses = [math.sqrt(max(0,p.square())) for p in PS_point.to_list()[n_initial_legs:]]
-
-        alpha0 = 1. - sum(masses)/math.sqrt(Q_square)
+        p_p = all_steps_info[0]['lower_PS_point'][global_variables['overall_parents'][0]]
+        p_r = all_steps_info[0]['lower_PS_point'][global_variables['recoiler']]
+        etapr = (p_p + p_r).square() / shat
+        prefactor = self.SEpsilon * (1. / (16 * pi ** 2))
 
         recoiler = global_variables['recoiler']
 
@@ -2125,30 +2060,42 @@ class QCD_integrated_TRN_C_FqFqx(general_current.GeneralCurrent):
         logger.info('global_variables : ' + str(global_variables))
         logger.info('recoiler : ' + str(recoiler))
 
-        # dispatch depending on which part of the counterterm we want
-        if distribution_type == "endpoint":
-            kernel = EpsilonExpansion({
-                -2: 1.,
-                -1: 1.5 - 2.*log(xir) ,
-                0: 3.5 - alpha0 - pi**2/2. + (11*alpha0)/(2.*xir) - (3*log(alpha0))/2. + 4*alpha0*log(alpha0) - (2*alpha0*log(alpha0))/xir - log(alpha0)**2 - (3*log(xir))/2. - 4*alpha0*log(xir) + (2*alpha0*log(xir))/xir + 2*log(alpha0)*log(xir) + log(xir)**2
-                #2.5 - pi**2/2. + 11/(2.*xir) - (11*log(xir))/2. + (2*log(xir))/xir + log(xir)**2
-            })
+        color_factor = self.TR
+        overall = 2. / 3.
 
-        elif distribution_type == "bulk":
-            kernel = EpsilonExpansion({
-                0: ((-1 + alpha)**2*(-3*xir + 4*(2*alpha + xir)*log((alpha + xir)/alpha)))/(2.*alpha*(alpha + xir))
-                    if alpha<alpha0 else 0
-            })
+        if recoiler > 2:
+            kernel = {
+                'bulk': 0. ,
+                'counterterm': 0. ,
+                'endpoint': color_factor * overall * EpsilonExpansion({
+                    -2: 0.,
+                    -1: - 1.,
+                    0: - (5./3. + fc.A2(fc.beta_FF) )
+                })
+            }
 
-        elif distribution_type == "counterterm":
-            kernel = EpsilonExpansion({
-                0: (7*alpha - 3*xir + 6*alpha*xir + (-4*xir + alpha*(-4 + 8*xir))*log(alpha) + 4*(alpha + xir - 2*alpha*xir)*log(xir))/(2.*alpha*xir)
-                    if alpha<alpha0 else 0
-            })
-        else:
-            raise CurrentImplementationError("Distribution type '%s' not supported." % distribution_type)
+        elif recoiler <=2:
+            kernel = {
+                'bulk': color_factor * overall * EpsilonExpansion({
+                    -2: 0. ,
+                    -1: 0. ,
+                    0: (x**(1. + fc.beta_FI) / (1. - x)) 
+                }),
+                'counterterm': color_factor * overall * EpsilonExpansion({
+                    -2: 0. ,
+                    -1: 0. ,
+                    0: - (x**(1. + fc.beta_FI) / (1. - x)) 
+                }),
+                'endpoint': color_factor * overall * EpsilonExpansion({
+                    -2: 0.,
+                    -1: - 1.,
+                    0: - (5./3. + fc.A2(fc.beta_FI) ) 
+                })            
+            }
 
-        evaluation['values'][(0, 0, 0, 0)] = (color_factor * prefactor * kernel).truncate(max_power=0)
+
+        kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os)
+        evaluation['values'][(0, 0, 0, 0)] = (kernel_eval).truncate(max_power=0)
 
         return evaluation
 
@@ -2230,80 +2177,15 @@ class QCD_integrated_TRN_C_FgFg(general_current.GeneralCurrent):
         if distribution_type == 'counterterm':
             evaluation['Bjorken_rescalings'] = [(1.0, 1.0),]
 
-        # This is a NLO integrated counterterm
-        # it inherits from real countertems so it has
-        # an `all_steps_info` with only one step
-        # and the lower and higher PS points are the same since
-        # there's no mapping applied. the '-1' and 'lower_PS_point' are therefore
-        # not meaningful choices at this point.
-        PS_point = all_steps_info[-1]['lower_PS_point']
+        shat = 2 * all_steps_info[0]['lower_PS_point'][1].dot( \
+            all_steps_info[0]['lower_PS_point'][2])
+        mu_r = global_variables['mu_r']
+        mu2os = mu_r**2 / shat
 
-        # Q is handled a little weirdly at the moment, we will therefore reconstruct it from PS_point,
-        # which is **exactly what goes into the Matrix Element of the term at hand**.
-        # We are using Gabor/colorful notation and therefore Q refers to the total initial momentum
-        # of the real matrix element which was regulated by the local version of this counterterm
-        #
-        # i.e. :
-        #
-        # * delta: M(pa_tilde+pb_tilde-> p1_tilde, ...)*delta(alpha) where
-        # pa_tilde = (1-alpha) pa, pb_tilde = (1-alpha) pb. i.e. Q = sum(PS_point[initial_legs])
-        #
-        # * bulk:  M(pa_tilde+pb_tilde-> p1_tilde, ...) for any alpha where
-        # pa_tilde = (1-alpha) pa, pb_tilde = (1-alpha) pb. i.e. Q = sum(PS_point[initial_legs])/(1-alpha)
-        #
-        # * counterterm: M(pa_tilde+pb_tilde-> p1_tilde, ...)|_{alpha=0} where
-        # pa_tilde = (1-alpha) pa, pb_tilde = (1-alpha) pb. i.e. Q = sum(PS_point[initial_legs])
-
-        n_initial_legs = global_variables['n_initial_legs']
-        Qhat = sum(PS_point.to_list()[:n_initial_legs])
-        if distribution_type == 'bulk':
-            fact = 1. / xi
-        else:
-            fact = 1.
-        Q = fact * Qhat
-        Q_square = Q.square()
-
-        color_factor = self.CF
-        logMuQ = log(mu_r ** 2 / Q_square)
-        prefactor = EpsilonExpansion({0: 1., 1: logMuQ, 2: 0.5 * logMuQ ** 2})
-        prefactor *= self.SEpsilon * (1. / (16 * pi ** 2))
-
-        pij_tilde = PS_point[global_variables['overall_parents'][0]]
-        # c.o.m. energy fraction of the mapped parent
-        xir = 2. * pij_tilde.dot(Q) / Q_square
-        # Protection for back-to-back systems
-        if xir > 1. + 1.e-5:
-            raise ValueError("xir = 2.*pij_tilde.dot(Q)/Q_square = {xir} > 1. something is wrong".format(xir=xir))
-        if xir > 1.:
-            xir = 1.
-
-        # xi = 1-alpha
-        if xi is not None:
-            alpha = 1 - xi
-
-        # The upper bound on the alpha integral is 1 - sum_of_masses/Q
-        try:
-            masses = [math.sqrt(p.square()) for p in PS_point.to_list()[n_initial_legs:]]
-        except ValueError:
-            # For massless particles, it happens often that the squared mass is actually a small negative
-            # number. While this exception is handled without stopping here, we throw a warning
-            # if you see this warning pop up a lot, investigate whether this might not be an issue related
-            # to improper use of mappings (which could generate actual negative masses)
-            mass_data = []
-            for p in PS_point.to_list()[n_initial_legs:]:
-
-                assert p.square()>0 or abs(p.square())/p[0] < 1.e-8, "A negative mass particle was encountered: {}".format(p)
-                mass_data.append((p.square(),abs(p.square())/p[0]))
-            # This warning is suppressed by the logger level setting at the top of this file.
-            # If you have doubts about negative mass issues, you can restore the level to include
-            # debug statements.
-            logger.debug("Encountered negative mass particles. \
-            They were all nearly light-like so we assume it is a numerics issue")
-            logger.debug(mass_data)
-
-            masses = [math.sqrt(max(0,p.square())) for p in PS_point.to_list()[n_initial_legs:]]
-
-        alpha0 = 1. - sum(masses)/math.sqrt(Q_square)
+        p_p = all_steps_info[0]['lower_PS_point'][global_variables['overall_parents'][0]]
+        p_r = all_steps_info[0]['lower_PS_point'][global_variables['recoiler']]
+        etapr = (p_p + p_r).square() / shat
+        prefactor = self.SEpsilon * (1. / (16 * pi ** 2))
 
         recoiler = global_variables['recoiler']
 
@@ -2311,32 +2193,42 @@ class QCD_integrated_TRN_C_FgFg(general_current.GeneralCurrent):
         logger.info('global_variables : ' + str(global_variables))
         logger.info('recoiler : ' + str(recoiler))
 
-        # dispatch depending on which part of the counterterm we want
-        if distribution_type == "endpoint":
+        color_factor = self.CA
+        overall = 1./6.
+
+        if recoiler > 2:
+            kernel = {
+                'bulk': 0. ,
+                'counterterm': 0. ,
+                'endpoint': color_factor * overall * EpsilonExpansion({
+                    -2: 0.,
+                    -1: - 1.,
+                    0: - (5./3. + fc.A2(fc.beta_FF) )
+                })
+            }
+
+        elif recoiler <=2:
+            kernel = {
+                'bulk': color_factor * overall * EpsilonExpansion({
+                    -2: 0. ,
+                    -1: 0. ,
+                    0: (x**(1. + fc.beta_FI) / (1. - x)) 
+                }),
+                'counterterm': color_factor * overall * EpsilonExpansion({
+                    -2: 0. ,
+                    -1: 0. ,
+                    0: - (x**(1. + fc.beta_FI) / (1. - x)) 
+                }),
+                'endpoint': color_factor * overall * EpsilonExpansion({
+                    -2: 0.,
+                    -1: - 1.,
+                    0: - (5./3. + fc.A2(fc.beta_FI) ) 
+                })            
+            }
 
 
-            kernel = EpsilonExpansion({
-                -2: 1.,
-                -1: 1.5 - 2.*log(xir) ,
-                0: 3.5 - alpha0 - pi**2/2. + (11*alpha0)/(2.*xir) - (3*log(alpha0))/2. + 4*alpha0*log(alpha0) - (2*alpha0*log(alpha0))/xir - log(alpha0)**2 - (3*log(xir))/2. - 4*alpha0*log(xir) + (2*alpha0*log(xir))/xir + 2*log(alpha0)*log(xir) + log(xir)**2
-                #2.5 - pi**2/2. + 11/(2.*xir) - (11*log(xir))/2. + (2*log(xir))/xir + log(xir)**2
-            })
-
-        elif distribution_type == "bulk":
-            kernel = EpsilonExpansion({
-                0: ((-1 + alpha)**2*(-3*xir + 4*(2*alpha + xir)*log((alpha + xir)/alpha)))/(2.*alpha*(alpha + xir))
-                    if alpha<alpha0 else 0
-            })
-
-        elif distribution_type == "counterterm":
-            kernel = EpsilonExpansion({
-                0: (7*alpha - 3*xir + 6*alpha*xir + (-4*xir + alpha*(-4 + 8*xir))*log(alpha) + 4*(alpha + xir - 2*alpha*xir)*log(xir))/(2.*alpha*xir)
-                    if alpha<alpha0 else 0
-            })
-        else:
-            raise CurrentImplementationError("Distribution type '%s' not supported." % distribution_type)
-
-        evaluation['values'][(0, 0, 0, 0)] = (color_factor * prefactor * kernel).truncate(max_power=0)
+        kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os)
+        evaluation['values'][(0, 0, 0, 0)] = (kernel_eval).truncate(max_power=0)
 
         return evaluation
 
@@ -2409,7 +2301,6 @@ class QCD_integrated_TRN_CS_FqFg(general_current.GeneralCurrent):
 
         logger.info('CS_FqFg')
 
-
         xi = global_variables['xis'][0]
         mu_r = global_variables['mu_r']
 
@@ -2428,27 +2319,6 @@ class QCD_integrated_TRN_CS_FqFg(general_current.GeneralCurrent):
         if distribution_type == 'counterterm':
             evaluation['Bjorken_rescalings'] = [(1.0, 1.0),]
 
-#        # This is a NLO integrated counterterm
-#        # it inherits from real countertems so it has
-#        # an `all_steps_info` with only one step
-#        # and the lower and higher PS points are the same since
-#        # there's no mapping applied. the '-1' and 'lower_PS_point' are therefore
-#        # not meaningful choices at this point.
-#        PS_point = all_steps_info[-1]['lower_PS_point']
-
-
-#        n_initial_legs = global_variables['n_initial_legs']
-#        Qhat = sum(PS_point.to_list()[:n_initial_legs])
-#        if distribution_type == 'bulk':
-#            fact = 1. / xi
-#        else:
-#            fact = 1.
-#        Q = fact * Qhat
-#        Q_square = Q.square()
-
-#        logMuQ = log(mu_r ** 2 / Q_square)
-#        prefactor = EpsilonExpansion({0: 1., 1: logMuQ, 2: 0.5 * logMuQ ** 2})
-#        prefactor *= self.SEpsilon * (1. / (16 * pi ** 2))
 
         shat = 2 * all_steps_info[0]['lower_PS_point'][1].dot( \
             all_steps_info[0]['lower_PS_point'][2])
@@ -2473,23 +2343,34 @@ class QCD_integrated_TRN_CS_FqFg(general_current.GeneralCurrent):
             kernel = {
                 'bulk': 0. ,
                 'counterterm': 0. ,
-                'endpoint': EpsilonExpansion({
+                'endpoint': color_factor * overall * EpsilonExpansion({
                     -2: 0.,
                     -1: 1. - fc.A2(fc.alpha) ,
-                    0: 2.  - (pi**2 / 4.) + fc.A2(fc.beta_FF) * (1. - fc.A2(fc.alpha)) - (fc.A2(fc.alpha))**2 / 2. + (3./2.) * fc.polygamma(fc.alpha) 
+                    0: 2. - (pi**2 / 4.) + fc.A2(fc.beta_FF) * (1. - fc.A2(fc.alpha)) - (fc.A2(fc.alpha))**2 / 2. + (3./2.) * fc.polygamma(fc.alpha)
                 })
             }
 
         elif recoiler <=2:
             kernel = {
-                'bulk': 0. ,
-                'counterterm': 0. ,
-                'endpoint': 0.
+                'bulk': color_factor * overall * EpsilonExpansion({
+                    -2: 0. ,
+                    -1: 0. ,
+                    0: (x**(1. + fc.beta_FI) / (1. - x)) * (- 1. + fc.A2(fc.alpha)) 
+                }),
+                'counterterm': color_factor * overall * EpsilonExpansion({
+                    -2: 0. ,
+                    -1: 0. ,
+                    0: - (x**(1. + fc.beta_FI) / (1. - x)) * (- 1. + fc.A2(fc.alpha))
+                }),
+                'endpoint': color_factor * overall * EpsilonExpansion({
+                    -2: 0.,
+                    -1: 1. - fc.A2(fc.alpha) ,
+                    0: 2. - (pi**2 / 4.) + fc.A2(fc.beta_FI) * (1. - fc.A2(fc.alpha)) - (fc.A2(fc.alpha))**2 / 2. + (3./2.) * fc.polygamma(fc.alpha)
+                })            
             }
 
 
-        kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * color_factor * overall * prefactor , mu2os)
-
+        kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os)
         evaluation['values'][(0, 0, 0, 0)] = (kernel_eval).truncate(max_power=0)
 
         return evaluation
@@ -2603,19 +2484,31 @@ class QCD_integrated_TRN_CS_FgFg(general_current.GeneralCurrent):
                 'endpoint': EpsilonExpansion({
                     -2: 0.,
                     -1: 1. - fc.A2(fc.alpha) ,
-                    0: 2.  - (pi**2 / 4.) + fc.A2(fc.beta_FF) * (1. - fc.A2(fc.alpha)) - (fc.A2(fc.alpha))**2 / 2. + (3./2.) * fc.polygamma(fc.alpha) 
+                    0: 2. - (pi**2 / 4.) + fc.A2(fc.beta_FF) * (1. - fc.A2(fc.alpha)) - (fc.A2(fc.alpha))**2 / 2. + (3./2.) * fc.polygamma(fc.alpha) 
                 })
             }
 
         elif recoiler <=2:
             kernel = {
-                'bulk': 0. ,
-                'counterterm': 0. ,
-                'endpoint': 0.
+                'bulk': color_factor * overall * EpsilonExpansion({
+                    -2: 0. ,
+                    -1: 0. ,
+                    0: (x**(1. + fc.beta_FI) / (1. - x)) * (- 1. + fc.A2(fc.alpha)) 
+                }),
+                'counterterm': color_factor * overall * EpsilonExpansion({
+                    -2: 0. ,
+                    -1: 0. ,
+                    0: - (x**(1. + fc.beta_FI) / (1. - x)) * (- 1. + fc.A2(fc.alpha))
+                }),
+                'endpoint': color_factor * overall * EpsilonExpansion({
+                    -2: 0.,
+                    -1: 1. - fc.A2(fc.alpha) ,
+                    0: 2. - (pi**2 / 4.) + fc.A2(fc.beta_FI) * (1. - fc.A2(fc.alpha)) - (fc.A2(fc.alpha))**2 / 2. + (3./2.) * fc.polygamma(fc.alpha)
+                })            
             }
 
 
-        kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * color_factor * overall * prefactor , mu2os)
+        kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os)
 
         evaluation['values'][(0, 0, 0, 0)] = (kernel_eval).truncate(max_power=0)
         return evaluation

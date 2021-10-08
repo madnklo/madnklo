@@ -4294,6 +4294,7 @@ The missing process is: %s"""%ME_process.nice_string())
 
         ME_step_array = []  
         CTs_step_array = []
+        ratio_CTs_array = []
 
         for step in range(n_steps+1):
 
@@ -4438,6 +4439,7 @@ The missing process is: %s"""%ME_process.nice_string())
 #gl
             if step > 0:
                 if CTs_step_array[step -1] != 0.0:
+                    ratio_CTs_array.append(CTs_step_array[step] / CTs_step_array[step-1])
                     logger.debug('CTs_n/CTs_n-1: %.16f'%( CTs_step_array[step] / CTs_step_array[step-1] ))
                 if ME_step_array[step -1] != 0.0:
                     logger.debug('ME_n/ME_n-1: %.16f'%( ME_step_array[step] / ME_step_array[step-1] ))
@@ -4466,6 +4468,9 @@ The missing process is: %s"""%ME_process.nice_string())
                         misc.bcolors.RED if abs(test_result) > test_options['acceptance_threshold'] else misc.bcolors.GREEN
                         , test_result, misc.bcolors.ENDC))
             limit_evaluations[scaling_parameter] = this_eval
+
+#gl
+#        logger.info('CTs/CTs :' + str(ratio_CTs_array))
         
         # Pad missing evaluations (typically counterterms that were evaluated outside of their active range)
         # by zeros so that it can be uniformly treated by analyze_IR_limits

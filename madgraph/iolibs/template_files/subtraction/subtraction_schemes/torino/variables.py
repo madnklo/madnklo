@@ -53,7 +53,10 @@ def get_sudakov_decomp_FF(ki, kj, kr):
     kitil = ki - k * xi  - kr * (k.dot(ki) / k.square() - xi) * k.square() / k.dot(kr)
     kjtil = kj - k * xj  - kr * (k.dot(kj) / k.square() - xj) * k.square() / k.dot(kr)
 
-    return xi, xj, kitil, kjtil
+    y = sij / (sij + sir + sjr)    #for final kr
+    x = 1. - sij / (sir + sjr)     #for initial kr
+
+    return xi, xj, kitil, kjtil, y, x
 
 def TRN_FFn_variables(higher_PS_point, qC, children, **opts):
     """
@@ -77,12 +80,12 @@ def TRN_FFn_variables(higher_PS_point, qC, children, **opts):
         ss_i_j[(k[1],k[0])] = v
 
     # now x's and kts
-    xi, xj, kitil, kjtil = get_sudakov_decomp_FF(all_p_fs[0], all_p_fs[1], p_rec)
+    xi, xj, kitil, kjtil, y, x = get_sudakov_decomp_FF(all_p_fs[0], all_p_fs[1], p_rec)
 
     xis = (xi, xj)
     kTs = (kitil, kjtil)
 
-    return [{'xs':xis, 'kTs':kTs, 'ss':ss_i_j},]
+    return [{'xs':xis, 'kTs':kTs, 'ss':ss_i_j, 'y':y, 'x':x},]
 
 def get_sudakov_decomp_IF(ki, kj, kr):
     """returns the sudakov decomposition (x and kt) of ki and kj, with kr being the other
@@ -148,7 +151,14 @@ def get_sudakov_decomp_IF(ki, kj, kr):
     kitil = ktA
     kjtil = kti
 
-    return xi, xj, kitil, kjtil
+
+    z_v = sij / (sij + sir)    #for final kr and initial collinear case
+    x_r_final = 1. - sjr  / (sij + sir)
+    x_r_initial = 1. - (sij + sjr) / sir
+    x1 = 1. - sjr / (sir - sij)    #for soft initial case
+    
+
+    return xi, xj, kitil, kjtil, x_r_final, x_r_initial, z_v, x1
 
 def TRN_IFn_variables(higher_PS_point, qC, children, **opts):
     """
@@ -156,7 +166,6 @@ def TRN_IFn_variables(higher_PS_point, qC, children, **opts):
     ktil as returned from get_sudakov_decomp_IF
 
     """
-#    logger1.info('children: '+str(children))
 
     all_p_fs = [higher_PS_point[child] for child in children]
     Q = opts['Q']
@@ -174,10 +183,11 @@ def TRN_IFn_variables(higher_PS_point, qC, children, **opts):
         ss_i_j[(k[1],k[0])] = v
 
     # now x's and kts where all_p_fs[0] = IN , all_p_fs[1] = F
-    xi, xj, kitil, kjtil = get_sudakov_decomp_IF(all_p_fs[0], all_p_fs[1], p_rec)
+    xi, xj, kitil, kjtil, x_r_final, x_r_initial, z_v, x1 = get_sudakov_decomp_IF(all_p_fs[0], all_p_fs[1], p_rec)
 
     xis = (xi, xj)
     kTs = (kitil, kjtil)
+    x_mapping = (x_r_final, x_r_initial)
 
 
-    return [{'xs':xis, 'kTs':kTs, 'ss':ss_i_j,},]
+    return [{'xs':xis, 'kTs':kTs, 'ss':ss_i_j, 'x_mapping':x_mapping, 'z_v':z_v, 'x1':x1},]

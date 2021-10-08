@@ -13,7 +13,7 @@ __authors__ = ["valentin.hirschi@gmail.com", "nicoldeu@phys.ethz.ch"]
 # ==================
 
 # In the Torino implementation softs do not recoil against initial states
-requires_soft_beam_factorization = False
+requires_soft_beam_factorization = True
 
 # This scheme belongs to a family of scheme using leg number information to instantiates its currents
 are_current_instances_for_specific_leg_numbers = True
@@ -105,15 +105,17 @@ def load():
     # Add NLO integrated counterterms
     # ===============================
     all_subtraction_current_classes.extend([
-                NLO_integrated_currents.QCD_integrated_TRN_C_FgFq,
+                NLO_integrated_currents.QCD_integrated_TRN_C_FqFg,
                 NLO_integrated_currents.QCD_integrated_TRN_C_FqFqx,
                 NLO_integrated_currents.QCD_integrated_TRN_C_FgFg,
                 NLO_integrated_currents.QCD_integrated_TRN_S_g,
-                NLO_integrated_currents.QCD_integrated_TRN_CS_FgFq,
+                NLO_integrated_currents.QCD_integrated_TRN_CS_FqFg,
                 NLO_integrated_currents.QCD_integrated_TRN_CS_FgFg
     ])
 
     NLO_integrated_initial_collinears = [
+        NLO_integrated_currents.QCD_F0,
+        NLO_integrated_currents.QCD_F0_lepton,
         NLO_integrated_currents.QCD_integrated_TRN_C_IgFq,
         NLO_integrated_currents.QCD_integrated_TRN_C_IqFg,
         NLO_integrated_currents.QCD_integrated_TRN_C_IqFq,

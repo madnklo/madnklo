@@ -15,6 +15,17 @@ logger = logging.getLogger('madgraph')
 
 CurrentImplementationError = utils.CurrentImplementationError
 
+#gl
+# In principle we support them all, but these are the meaningful ones to consider
+beam_PDGs_supported= [
+    tuple(sorted([1, -1, 2, -2, 3, -3, 4, -4, 5, -5, 6, -6, 21])),
+    tuple(sorted([1, -1, 2, -2, 3, -3, 4, -4, 5, -5, 21])),
+    tuple(sorted([1, -1, 2, -2, 3, -3, 4, -4, 21])),
+    tuple(sorted([1, -1, 2, -2, 3, -3, 21])),
+    tuple(sorted([1, -1, 2, -2, 21])),
+    tuple(sorted([1, -1, 21]))
+]
+
 #=========================================================================================
 # mappings, jacobians, factors and cuts
 #=========================================================================================
@@ -155,7 +166,6 @@ def pause_get_final_state_recoilers(reduced_process, excluded=(), global_variabl
 # - specific for partonic recoilers.
 
 def get_initial_state_recoilers(reduced_process, excluded=(), global_variables={}):
-# We prefere to choose initial state recoiler over final state recoilers when possible
 
     model = reduced_process.get('model')
     try:
@@ -223,7 +233,6 @@ def get_initial_state_recoilers(reduced_process, excluded=(), global_variables={
 
 
 def get_final_state_recoilers(reduced_process, excluded=(), global_variables={}):
-# We prefere to choose initial state recoiler over final state recoilers when possible
 
     model = reduced_process.get('model')
     try:
@@ -254,16 +263,17 @@ def get_final_state_recoilers(reduced_process, excluded=(), global_variables={})
 
     # for integrated currents
     if len(sector_legs) == 0:
-        if len(global_variables['overall_children'][0]) == 1:
-            return sub.SubtractionLegSet([final_recoilers[0]])
-        elif global_variables['overall_children'][0][0] > 2 and global_variables['overall_children'][0][1] > 2:
+        #logger.info('global.var.config : ' + str(global_variables))
+        #if len(global_variables['overall_children'][0]) == 1:
+        #    return sub.SubtractionLegSet([initial_recoilers[0]])
+        if global_variables['overall_children'][0][0] > 2 and global_variables['overall_children'][0][1] > 2:
             if len(final_recoilers) > 0:
                 # sort the recoilers according to their id, and return the first one
                 final_recoilers.sort(key = lambda l: l['id'])
                 return sub.SubtractionLegSet([final_recoilers[0]])
             else: 
                 return sub.SubtractionLegSet([initial_recoilers[0]])
-        elif global_variables['overall_children'][0][0] <= 2 or global_variables['overall_children'][0][1] <= 2:
+        if global_variables['overall_children'][0][0] <= 2 or global_variables['overall_children'][0][1] <= 2:
             if len(initial_recoilers) > 0:
                 return sub.SubtractionLegSet([initial_recoilers[0]])
             else: 

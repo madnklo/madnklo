@@ -30,6 +30,7 @@ import commons.utils as utils
 import commons.general_current as general_current
 import dipole_current as dipole_current
 import madgraph.integrator.vectors as vectors
+import factors_and_cuts as factors_and_cuts
 
 
 import torino_config
@@ -48,6 +49,9 @@ def compensate_sector_wgt(PS_point, global_variables, CT_type):
      """
     return global_variables['sector_info'][0](PS_point, [], sector_type=CT_type) / \
             global_variables['sector_info'][0](PS_point, [])
+
+
+#damping_factors = [alpha_soft, beta_FF, beta_FI, beta_IF, beta_II]  ~ beta_jr
 
 
 #=========================================================================================
@@ -120,6 +124,16 @@ class QCD_TRN_C_FgFg(general_current.GeneralCurrent):
 
         prefactor = 1./s_rs #
         prefactor *= compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 2)
+
+#gl
+        #damping factors
+        recoiler = all_steps_info[0]['mapping_vars']['ids']['c']
+
+        if recoiler > 2:
+            prefactor *= (1. - all_steps_info[0]['variables'][0]['y'])**(factors_and_cuts.damping_factors[1])
+        else:
+            prefactor *= all_steps_info[0]['variables'][0]['x'] **(factors_and_cuts.damping_factors[2])
+
         for spin_correlation_vector, weight in AltarelliParisiKernels.P_gg(self, x_FF, kT_FF):
             complete_weight = weight * prefactor
             if spin_correlation_vector is None:
@@ -196,6 +210,16 @@ class QCD_TRN_C_FqFqx(general_current.GeneralCurrent):
 
         prefactor = 1./s_rs #
         prefactor *= compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 2)
+
+#gl
+        #damping factors
+        recoiler = all_steps_info[0]['mapping_vars']['ids']['c']
+
+        if recoiler > 2:
+            prefactor *= (1. - all_steps_info[0]['variables'][0]['y'])**(factors_and_cuts.damping_factors[1])
+        else:
+            prefactor *= all_steps_info[0]['variables'][0]['x'] **(factors_and_cuts.damping_factors[2])
+
         # include the soft_collinear counterterm here, as in the torino paper
         # (see the definition of 'hard-collinear' splitting function there)
         soft_col = 0.
@@ -290,6 +314,16 @@ class QCD_TRN_C_FgFq(general_current.GeneralCurrent):
 
         prefactor = 1./s_rs #
         prefactor *= compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 2)
+
+#gl
+        #damping factors
+        recoiler = all_steps_info[0]['mapping_vars']['ids']['c']
+
+        if recoiler > 2:
+            prefactor *= (1. - all_steps_info[0]['variables'][0]['y'])**(factors_and_cuts.damping_factors[1])
+        else:
+            prefactor *= all_steps_info[0]['variables'][0]['x'] **(factors_and_cuts.damping_factors[2])
+
         # include the soft_collinear counterterm here, as in the torino paper
         # (see the definition of 'hard-collinear' splitting function there)
 #        soft_col = EpsilonExpansion({0: self.CF * 2 * x_FF / x_oth, 1: 0.})
@@ -422,23 +456,21 @@ class QCD_TRN_S_g(dipole_current.DipoleCurrent):
 
 #gl
                 #damping factors
-                alpha = 0.0
-
                 if a > 2 and b > 2:
 
-                    eikonal *= ( pa.dot(pb) / (pa.dot(pb) + pa.dot(pS) + pb.dot(pS)))**(alpha)
+                    eikonal *= ( pa.dot(pb) / (pa.dot(pb) + pa.dot(pS) + pb.dot(pS)))**(factors_and_cuts.damping_factors[0])
 
                 elif a > 2 and b <= 2:
 
-                    eikonal *= ( (1. - pa.dot(pS) / (pb.dot(pS)+pb.dot(pa)) ) * (1. - pb.dot(pS) / (pb.dot(pS)+pb.dot(pa)) ) )**(alpha)
+                    eikonal *= ( (1. - pa.dot(pS) / (pb.dot(pS)+pb.dot(pa)) ) * (1. - pb.dot(pS) / (pb.dot(pS)+pb.dot(pa)) ) )**(factors_and_cuts.damping_factors[0])
 
                 elif a <= 2 and b > 2:
 
-                    eikonal *= ( (1. - pb.dot(pS) / (pa.dot(pS)+pa.dot(pb)) ) * (1. - pa.dot(pS) / (pa.dot(pS)+pa.dot(pb)) ) )**(alpha)
+                    eikonal *= ( (1. - pb.dot(pS) / (pa.dot(pS)+pa.dot(pb)) ) * (1. - pa.dot(pS) / (pa.dot(pS)+pa.dot(pb)) ) )**(factors_and_cuts.damping_factors[0])
 
                 elif a <= 2 and b <= 2:
 
-                    eikonal *= ( (pa.dot(pb) - pa.dot(pS) - pb.dot(pS)) / pa.dot(pb) )**(alpha)
+                    eikonal *= ( (pa.dot(pb) - pa.dot(pS) - pb.dot(pS)) / pa.dot(pb) )**(factors_and_cuts.damping_factors[0])
 
 
                 #logger1.info("eikonal_dumped = " + str(eikonal))
@@ -514,6 +546,18 @@ class QCD_TRN_CS_FgFq(general_current.GeneralCurrent):
 
         prefactor = 1./s_rs #
         prefactor *= compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 3)
+
+#gl
+        #damping factors
+        recoiler = all_steps_info[0]['mapping_vars']['ids']['c']
+
+        if recoiler > 2:
+            prefactor *= (1. - all_steps_info[0]['variables'][0]['y'])**(factors_and_cuts.damping_factors[1])
+            prefactor *= (x_oth)**(factors_and_cuts.damping_factors[0])
+        else:
+            prefactor *= all_steps_info[0]['variables'][0]['x'] **(factors_and_cuts.damping_factors[2])
+            prefactor *= (x_oth)**(factors_and_cuts.damping_factors[0])
+
         # include the soft_collinear counterterm here, as in the torino paper
         # (see the definition of 'hard-collinear' splitting function there)
         soft_col = EpsilonExpansion({0: self.CF * 2 * x_oth / x_soft, 1: 0.})
@@ -575,6 +619,18 @@ class QCD_TRN_CS_FgFg(general_current.GeneralCurrent):
 
         prefactor = 1./s_rs #
         prefactor *= compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 3)
+
+#gl
+        #damping factors
+        recoiler = all_steps_info[0]['mapping_vars']['ids']['c']
+
+        if recoiler > 2:
+            prefactor *= (1. - all_steps_info[0]['variables'][0]['y'])**(factors_and_cuts.damping_factors[1])
+            prefactor *= (x_oth)**(factors_and_cuts.damping_factors[0])
+        else:
+            prefactor *= all_steps_info[0]['variables'][0]['x'] **(factors_and_cuts.damping_factors[2])
+            prefactor *= (x_oth)**(factors_and_cuts.damping_factors[0])
+
         # include the soft_collinear counterterm here, as in the torino paper
         # (see the definition of 'hard-collinear' splitting function there)
         soft_col = EpsilonExpansion({0: self.CA * 2 * x_oth / x_soft, 1: 0.})
@@ -654,6 +710,16 @@ class QCD_TRN_C_IgFg(general_current.GeneralCurrent):
 
         prefactor = - 1./s_rs #
         prefactor *= compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 2)
+
+#gl
+        #damping factors
+        recoiler = all_steps_info[0]['mapping_vars']['ids']['c']
+
+        if recoiler > 2:
+            prefactor *= (1. - all_steps_info[0]['variables'][0]['z_v'])**(factors_and_cuts.damping_factors[3])
+        else:
+            prefactor *= (1. - all_steps_info[0]['variables'][0]['z_v'])**(factors_and_cuts.damping_factors[4])
+
         for spin_correlation_vector, weight in AltarelliParisiKernels.P_gg(self, 1./x_FF, kT_FF):
             complete_weight = weight * prefactor
             if spin_correlation_vector is None:
@@ -744,6 +810,16 @@ class QCD_TRN_C_IqFq(general_current.GeneralCurrent):
 
         prefactor =((self.NC ** 2 - 1) / float(self.NC)) / s_rs #
         prefactor *= compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 2)
+
+#gl
+        #damping factors
+        recoiler = all_steps_info[0]['mapping_vars']['ids']['c']
+
+        if recoiler > 2:
+            prefactor *= (1. - all_steps_info[0]['variables'][0]['z_v'])**(factors_and_cuts.damping_factors[3])
+        else:
+            prefactor *= (1. - all_steps_info[0]['variables'][0]['z_v'])**(factors_and_cuts.damping_factors[4])
+
         # include the soft_collinear counterterm here, as in the torino paper
         # (see the definition of 'hard-collinear' splitting function there)
         soft_col = 0.
@@ -837,6 +913,16 @@ class QCD_TRN_C_IgFq(general_current.GeneralCurrent):
 
         prefactor = (self.NC / float(self.NC ** 2 - 1.)) /s_rs  #
         prefactor *= compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 2)
+
+#gl
+        #damping factors
+        recoiler = all_steps_info[0]['mapping_vars']['ids']['c']
+
+        if recoiler > 2:
+            prefactor *= (1. - all_steps_info[0]['variables'][0]['z_v'])**(factors_and_cuts.damping_factors[3])
+        else:
+            prefactor *= (1. - all_steps_info[0]['variables'][0]['z_v'])**(factors_and_cuts.damping_factors[4])
+
         # include the soft_collinear counterterm here, as in the torino paper
         # (see the definition of 'hard-collinear' splitting function there)
 #        soft_col = EpsilonExpansion({0: self.CF * 2 * x_FF / x_oth, 1: 0.})
@@ -931,6 +1017,16 @@ class QCD_TRN_C_IqFg(general_current.GeneralCurrent):
 
         prefactor = 1./s_rs/x_FF #
         prefactor *= compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 2)
+
+#gl
+        #damping factors
+        recoiler = all_steps_info[0]['mapping_vars']['ids']['c']
+
+        if recoiler > 2:
+            prefactor *= (1. - all_steps_info[0]['variables'][0]['z_v'])**(factors_and_cuts.damping_factors[3])
+        else:
+            prefactor *= (1. - all_steps_info[0]['variables'][0]['z_v'])**(factors_and_cuts.damping_factors[4])
+
         # include the soft_collinear counterterm here, as in the torino paper
         # (see the definition of 'hard-collinear' splitting function there)
 #        soft_col = EpsilonExpansion({0: self.CF * 2 * x_FF / x_oth, 1: 0.})
@@ -1014,6 +1110,18 @@ class QCD_TRN_CS_IqFg(general_current.GeneralCurrent):
 
         prefactor = 1./s_rs/x_oth #
         prefactor *= compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 3)
+
+#gl
+        #damping factors
+        recoiler = all_steps_info[0]['mapping_vars']['ids']['c']
+
+        if recoiler > 2:
+            prefactor *= (1. - all_steps_info[0]['variables'][0]['z_v'])**(factors_and_cuts.damping_factors[3])
+            prefactor *= (all_steps_info[0]['variables'][0]['x_mapping'][0])**(factors_and_cuts.damping_factors[0])
+        else:
+            prefactor *= (1. - all_steps_info[0]['variables'][0]['z_v'])**(factors_and_cuts.damping_factors[4])
+            prefactor *= (all_steps_info[0]['variables'][0]['x_mapping'][1])**(factors_and_cuts.damping_factors[0])
+
         # include the soft_collinear counterterm here, as in the torino paper
         # (see the definition of 'hard-collinear' splitting function there)
         soft_col = EpsilonExpansion({0: self.CF * 2 * x_oth / x_soft, 1: 0.})
@@ -1077,6 +1185,18 @@ class QCD_TRN_CS_IgFg(general_current.GeneralCurrent):
 
         prefactor = 1./s_rs/x_oth #
         prefactor *= compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 3)
+
+#gl
+        #damping factors
+        recoiler = all_steps_info[0]['mapping_vars']['ids']['c']
+
+        if recoiler > 2:
+            prefactor *= (1. - all_steps_info[0]['variables'][0]['z_v'])**(factors_and_cuts.damping_factors[3])
+            prefactor *= (all_steps_info[0]['variables'][0]['x_mapping'][0])**(factors_and_cuts.damping_factors[0])
+        else:
+            prefactor *= (1. - all_steps_info[0]['variables'][0]['z_v'])**(factors_and_cuts.damping_factors[4])
+            prefactor *= (all_steps_info[0]['variables'][0]['x_mapping'][1])**(factors_and_cuts.damping_factors[0])
+
         # include the soft_collinear counterterm here, as in the torino paper
         # (see the definition of 'hard-collinear' splitting function there)
         soft_col = EpsilonExpansion({0: self.CA * 2 * x_oth / x_soft, 1: 0.})

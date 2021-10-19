@@ -173,6 +173,8 @@ class QCD_F0(general_current.GeneralCurrent):
     def kernel(self, evaluation, all_steps_info, global_variables):
         """ Evaluate this counterterm given the variables provided. """
 
+        logger.info('PDF F0')
+
         # Retrieve variables
         beam_number = global_variables['overall_children'][0][0]
         if beam_number not in [1,2]:
@@ -194,6 +196,7 @@ class QCD_F0(general_current.GeneralCurrent):
 
         distribution_type = self.currents_properties[0]['distribution_type']
         NF = self.currents_properties[0]['NF']
+        logger.info('NF : ' + str(NF))
         beam_PDGs = self.currents_properties[0]['beam_PDGs']
 
         # Apply the Dirac delta on the convolution parameters by setting their value to the solution of the delta.
@@ -205,18 +208,25 @@ class QCD_F0(general_current.GeneralCurrent):
             xis[beam_number] = 1.0
             evaluation['Bjorken_rescalings'] = [tuple(xis),]
 
+#        # Only the order epsilon of the scales pre-factor matters here.
+#        prefactor = EpsilonExpansion({
+#            0: 1.,
+#            1: log(mu_r ** 2 / mu_f ** 2)
+#        })
+#        prefactor *= EpsilonExpansion({-1: 1.}) * self.SEpsilon * (1. / (16 * pi**2) )
+
         # Only the order epsilon of the scales pre-factor matters here.
-        prefactor = EpsilonExpansion({
-            0: 1.,
-            1: log(mu_r ** 2 / mu_f ** 2)
-        })
-        prefactor *= EpsilonExpansion({-1: 1.}) * self.SEpsilon * (1. / (16 * pi**2) )
+        mu2os = mu_r ** 2 / mu_f ** 2
+        prefactor = EpsilonExpansion({-1: 1.}) * self.SEpsilon * (1. / (16 * pi**2) )
+
 
         # Assign a fake xi for now if the distribution type is 'endpoint'
         # This is not optimal, eventually we should put each of these three pieces in
         # separate currents, this will be optimal however in the low-level implementation
         if distribution_type == 'endpoint':
             xi = 0.5
+
+        logger.info('distribution_type : ' + str(distribution_type))
 
         # Define the NLO QCD PDF counterterms kernels
         kernel_gg = {
@@ -245,6 +255,20 @@ class QCD_F0(general_current.GeneralCurrent):
             'endpoint': None
         }
 
+        if kernel_qq[distribution_type] is not None:
+            kernel_qq[distribution_type] = torino_to_madnk_epsexp(kernel_qq[distribution_type], mu2os)
+        elif kernel_qg[distribution_type] is not None:
+            kernel_qg[distribution_type] = torino_to_madnk_epsexp(kernel_qg[distribution_type], mu2os)
+        elif kernel_gq[distribution_type] is not None:
+            kernel_gq[distribution_type] = torino_to_madnk_epsexp(kernel_gq[distribution_type], mu2os)
+        elif kernel_gg[distribution_type] is not None:
+            kernel_gg[distribution_type] = torino_to_madnk_epsexp(kernel_gg[distribution_type], mu2os)
+
+        logger.info('kernel_gg[distribution_type] :' + str(kernel_gg[distribution_type]))
+        logger.info('kernel_gq[distribution_type] :' + str(kernel_gq[distribution_type]))
+        logger.info('kernel_qg[distribution_type] :' + str(kernel_qg[distribution_type]))
+        logger.info('kernel_qq[distribution_type] :' + str(kernel_qq[distribution_type]))
+
         active_quark_PDGs = self.currents_properties[0]['active_fermions']
 
         # Build the NLO flavor matrix
@@ -270,6 +294,7 @@ class QCD_F0(general_current.GeneralCurrent):
                 if quark_dict:
                     flavor_matrix[reduced_flavor] = quark_dict
 
+
         # Truncate all entries of the flavor matrix so as to remove irrelevant O(\eps) terms
         for flav_in, flav_outs in flavor_matrix.items():
             for flav_out, eps_expansion in flav_outs.items():
@@ -287,10 +312,10 @@ class QCD_F0_lepton(general_current.GeneralCurrent):
     """Implements the dummy PDF counterterm of type F(xi) for when doing lepton collision with colorful pp."""
 
     # Enable the flag below to debug this current
-    DEBUG = False
+    DEBUG = True
 
     # Define which leptons we want to allow
-    lepton_abs_PDGs = [11,12,13]
+#    lepton_abs_PDGs = [11,12,13]
 
     # Store the result for beam factorisation currents in a container that supports flavor matrices.
     subtraction_current_evaluation_class = utils.BeamFactorizationCurrentEvaluation
@@ -307,7 +332,7 @@ class QCD_F0_lepton(general_current.GeneralCurrent):
             legs=(
                 # Set the leg PDG to +11 which belongs to the lepton equivalency set defined below
                 # in the function build_equivalency_sets.
-                sub.SubtractionLeg(10, +11, sub.SubtractionLeg.INITIAL),
+                sub.SubtractionLeg(10, 11, sub.SubtractionLeg.INITIAL),
             )
         ),)
     )
@@ -320,10 +345,10 @@ class QCD_F0_lepton(general_current.GeneralCurrent):
         'n_loops': 0,
         'squared_orders': {'QCD': 2},
         'beam_type' : 'lepton',
-        'beam_PDGs' :
-            [ tuple(sorted([pdg, -pdg])) for pdg in lepton_abs_PDGs ] +
-            [ tuple([pdg, ]) for pdg in lepton_abs_PDGs ] +
-            [ tuple([-pdg, ]) for pdg in lepton_abs_PDGs ]
+        'beam_PDGs' : torino_config.lepton_abs_PDGs
+#            [ tuple(sorted([pdg, -pdg])) for pdg in lepton_abs_PDGs ] +
+#            [ tuple([pdg, ]) for pdg in lepton_abs_PDGs ] +
+#            [ tuple([-pdg, ]) for pdg in lepton_abs_PDGs ]
     }
 
     # Now add endpoint IntegratedBeamCurrent...
@@ -347,15 +372,18 @@ class QCD_F0_lepton(general_current.GeneralCurrent):
     mapping_rules = [ ]
 
     # Remove this contribution at the generation level already by setting its "is_zero" flag to True.
-    is_zero = True
+    is_zero = False
 
-    @classmethod
-    def build_equivalency_sets(cls, model):
-        """ Force the PDG +1 of the template """
-        return [(set([pdg for pdg in cls.lepton_abs_PDGs])|set([-pdg for pdg in cls.lepton_abs_PDGs])),]
+#    @classmethod
+#    def build_equivalency_sets(cls, model):
+#        """ Force the PDG +1 of the template """
+#        return [(set([pdg for pdg in cls.lepton_abs_PDGs])|set([-pdg for pdg in cls.lepton_abs_PDGs])),]
 
     def kernel(self, evaluation, all_steps_info, global_variables):
         """ Evaluate this counterterm given the variables provided. """
+
+        logger.info('PDF F0_lepton')
+
 
         # Set this contribution to zero as we are considering here QCD corrections
         evaluation['values'] = self.subtraction_current_evaluation_class.zero()['values']
@@ -452,11 +480,7 @@ class QCD_integrated_TRN_C_IqFg(general_current.GeneralCurrent):
         beam_PDGs = self.currents_properties[0]['beam_PDGs']
         recoiler = global_variables['recoiler']
 
-        logger.info('distribution : ' + str(distribution_type))
-        logger.info('beam_PDGs : ' + str(beam_PDGs))
-        logger.info('global_variables : ' + str(global_variables))
-        logger.info('recoiler : ' + str(recoiler))
-
+        logger.info('distribution_type : ' + str(distribution_type))
 
         # Apply the Dirac delta on the convolution parameters by setting their value to the solution of the delta.
         # For these simple NLO integrated current, the delta simply sets them to one if the distribution type is
@@ -472,10 +496,32 @@ class QCD_integrated_TRN_C_IqFg(general_current.GeneralCurrent):
         # Obtain Q_square.
         Q_square = Q.square()
 
+#        # Only up to the order epsilon^2 of the scales prefactor matters here.
+#        logMuQ = log(mu_r ** 2 / Q_square)
+#        prefactor = EpsilonExpansion({0: 1., 1: logMuQ, 2: 0.5 * logMuQ ** 2})
+#        prefactor *= self.SEpsilon * (1. / (16 * pi**2) )
+
+
+#        logger.info('all_step_info :' + str(all_steps_info))
+
+#        logger.info('all_step_info[] :' + str(2*all_steps_info[0]['lower_PS_point'][1]*all_steps_info[0]['lower_PS_point'][6]))
+#        shat = 2 * all_steps_info[0]['lower_PS_point'][1].dot( \
+#            all_steps_info[0]['lower_PS_point'][2])
+#        mu_r = global_variables['mu_r']
+#        mu2os = mu_r**2 / Q_square
+
+
+        p_p = all_steps_info[0]['lower_PS_point'][global_variables['overall_parents'][0]]
+        p_r = all_steps_info[0]['lower_PS_point'][global_variables['recoiler']]
+#        etapr = (p_p + p_r).square() / Q
+        prefactor = self.SEpsilon * (1. / (16 * pi ** 2))
+        mu2os = mu_r**2 / (p_p + p_r).square()
+
         # Only up to the order epsilon^2 of the scales prefactor matters here.
-        logMuQ = log(mu_r ** 2 / Q_square)
-        prefactor = EpsilonExpansion({0: 1., 1: logMuQ, 2: 0.5 * logMuQ ** 2})
-        prefactor *= self.SEpsilon * (1. / (16 * pi**2) )
+#        logMuQ = log(mu_r ** 2 / (p_p + p_r).square())
+#        prefactor = EpsilonExpansion({0: 1., 1: logMuQ, 2: 0.5 * logMuQ ** 2})
+#        prefactor *= self.SEpsilon * (1. / (16 * pi**2) )
+
 
         # The additional 1/x part of the prefactor is included later during the PDF
         # convolution of the event (using its 'Bjorken rescaling' attribute) because
@@ -496,20 +542,45 @@ class QCD_integrated_TRN_C_IqFg(general_current.GeneralCurrent):
         # (Q^2)^\eps in Eq. 5.21 of https://arxiv.org/pdf/0903.1218.pdf actually reads
         # (Q^2/(xi1*xi2))^\eps and the '+' distributions also act on it, which we realize
         # by simply multiplying the Q^2 provided by the xi factor that must be set to one.
-        logMuQ_plus = log(mu_r ** 2 / (Q_square * x))
-        prefactor_plus = EpsilonExpansion({0: 1., 1: logMuQ_plus, 2: 0.5 * logMuQ_plus ** 2})
-        prefactor_plus *= self.SEpsilon * (1. / (16 * pi**2) )
+#        logMuQ_plus = log(mu_r ** 2 / (Q_square * x))
+#        prefactor_plus = EpsilonExpansion({0: 1., 1: logMuQ_plus, 2: 0.5 * logMuQ_plus ** 2})
+#        prefactor_plus *= self.SEpsilon * (1. / (16 * pi**2) )
 
+        logger.info('recoiler :' + str(recoiler))
 
         color_factor = self.CF
-        kernel_qq = {
-            'bulk': prefactor * color_factor * (EpsilonExpansion({
-                -1: -(self.TR / self.CF) * (x ** 2 + (1. - x) ** 2),
-                0: (self.TR / self.CF) * ((x ** 2 + (1. - x) ** 2)  + 2. * x * (1. - x))
-            })),
-            'counterterm': None ,
-            'endpoint': None 
-        }
+        overall = 1.
+        if recoiler > 2:
+            kernel_qq = {
+                'bulk': color_factor * overall * EpsilonExpansion({
+                    -1: - (1 + x**2) / (1. - x) ,
+                    0: (1. - x) * (log(1. - x) - fc.A1(fc.beta_IF))
+                }) ,
+                'counterterm': color_factor * overall * EpsilonExpansion({
+                    -1: - (1 + x**2) / (1. - x) ,
+                    0: 0.
+                }) ,
+                'endpoint': color_factor * overall * EpsilonExpansion({
+                    -1: - 1./ 2. ,
+                    0: 0.
+                })
+            }
+
+        elif recoiler <=2:
+            kernel_qq = {
+                'bulk': color_factor * overall * EpsilonExpansion({
+                    -1: - (1 + x**2) / (1. - x) ,
+                    0: (1. - x) * (2. * log(1. - x) - fc.A1(fc.beta_II))
+                }) ,
+                'counterterm': color_factor * overall * EpsilonExpansion({
+                    -1: - (1 + x**2) / (1. - x) ,
+                    0: 0.
+                }) ,
+                'endpoint': color_factor * overall * EpsilonExpansion({
+                    -1: - 1./ 2. ,
+                    0: 0.
+                })
+            }
 
 
         kernel_gg = {
@@ -528,6 +599,11 @@ class QCD_integrated_TRN_C_IqFg(general_current.GeneralCurrent):
             'endpoint': None
         }
  
+        if kernel_qq[distribution_type] is not None and distribution_type == 'counterterm':
+            kernel_qq[distribution_type] = torino_to_madnk_epsexp(kernel_qq[distribution_type] * prefactor, mu2os / x)
+        elif kernel_qq[distribution_type] is not None:
+            kernel_qq[distribution_type] = torino_to_madnk_epsexp(kernel_qq[distribution_type] * prefactor, mu2os)
+
 
         active_quark_PDGs = self.currents_properties[0]['active_fermions']
 
@@ -537,6 +613,8 @@ class QCD_integrated_TRN_C_IqFg(general_current.GeneralCurrent):
             # Gluon backward evolution
             if reduced_flavor == 21:
                 gluon_dict = {}
+                if kernel_gg[distribution_type] is not None:
+                    gluon_dict[(21,)] = kernel_gg[distribution_type]
                 if active_quark_PDGs and kernel_gq[distribution_type] is not None:
                     gluon_dict[active_quark_PDGs] = kernel_gq[distribution_type]
                 if gluon_dict:
@@ -552,7 +630,6 @@ class QCD_integrated_TRN_C_IqFg(general_current.GeneralCurrent):
                 if quark_dict:
                     flavor_matrix[reduced_flavor] = quark_dict
 
-        logger.info('flavor_matrix : ' + str(flavor_matrix))
 
         # Truncate all entries of the flavor matrix so as to remove irrelevant O(\eps) terms
         for flav_in, flav_outs in flavor_matrix.items():
@@ -657,11 +734,6 @@ class QCD_integrated_TRN_C_IgFq(general_current.GeneralCurrent):
         beam_PDGs = self.currents_properties[0]['beam_PDGs']
         recoiler = global_variables['recoiler']
 
-        logger.info('distribution : ' + str(distribution_type))
-        logger.info('beam_PDGs : ' + str(beam_PDGs))
-        logger.info('global_variables : ' + str(global_variables))
-        logger.info('recoiler : ' + str(recoiler))
-
 
         # Apply the Dirac delta on the convolution parameters by setting their value to the solution of the delta.
         # For these simple NLO integrated current, the delta simply sets them to one if the distribution type is
@@ -677,10 +749,18 @@ class QCD_integrated_TRN_C_IgFq(general_current.GeneralCurrent):
         # Obtain Q_square.
         Q_square = Q.square()
 
-        # Only up to the order epsilon^2 of the scales prefactor matters here.
-        logMuQ = log(mu_r ** 2 / Q_square)
-        prefactor = EpsilonExpansion({0: 1., 1: logMuQ, 2: 0.5 * logMuQ ** 2})
-        prefactor *= self.SEpsilon * (1. / (16 * pi**2) )
+#        # Only up to the order epsilon^2 of the scales prefactor matters here.
+#        logMuQ = log(mu_r ** 2 / Q_square)
+#        prefactor = EpsilonExpansion({0: 1., 1: logMuQ, 2: 0.5 * logMuQ ** 2})
+#        prefactor *= self.SEpsilon * (1. / (16 * pi**2) )
+
+        p_p = all_steps_info[0]['lower_PS_point'][global_variables['overall_parents'][0]]
+        p_r = all_steps_info[0]['lower_PS_point'][global_variables['recoiler']]
+#        etapr = (p_p + p_r).square() / Q
+        prefactor = self.SEpsilon * (1. / (16 * pi ** 2))
+        mu2os = mu_r**2 / (p_p + p_r).square()
+
+        logger.info('distribution_type :' + str(distribution_type))
 
         # The additional 1/x part of the prefactor is included later during the PDF
         # convolution of the event (using its 'Bjorken rescaling' attribute) because
@@ -702,33 +782,32 @@ class QCD_integrated_TRN_C_IgFq(general_current.GeneralCurrent):
         # (Q^2)^\eps in Eq. 5.21 of https://arxiv.org/pdf/0903.1218.pdf actually reads
         # (Q^2/(xi1*xi2))^\eps and the '+' distributions also act on it, which we realize
         # by simply multiplying the Q^2 provided by the xi factor that must be set to one.
-        logMuQ_plus = log(mu_r ** 2 / (Q_square * x))
-        prefactor_plus = EpsilonExpansion({0: 1., 1: logMuQ_plus, 2: 0.5 * logMuQ_plus ** 2})
-        prefactor_plus *= self.SEpsilon * (1. / (16 * pi**2) )
-
-        log1mx = log(1. - x)
-
-        # Heaviside
-        #theta_x_1my0 = 1. if (x - (1 - y_0)) >= 0. else 0.
-        #theta_1my0_x = 1. if ((1 - y_0) - x) >= 0. else 0.
-
-        # Define the NLO QCD integrate initial-state single collinear counterterms kernels
-
-        #if recoiler > 2:
-        #    logger.info('final recoiler')
-        #elif recoiler <= 2:
-        #    logger.info('initial recoiler')
+#        logMuQ_plus = log(mu_r ** 2 / (Q_square * x))
+#        prefactor_plus = EpsilonExpansion({0: 1., 1: logMuQ_plus, 2: 0.5 * logMuQ_plus ** 2})
+#        prefactor_plus *= self.SEpsilon * (1. / (16 * pi**2) )
 
 
-        color_factor = self.CA
-        kernel_qg = {
-            'bulk': prefactor * color_factor * (EpsilonExpansion({
-                -1: -(self.CF / self.CA) * (1. + (1. - x) ** 2) / x,
-                0: (self.CF / self.CA) 
-            })),
-            'counterterm': None ,
-            'endpoint': None
-        }
+        color_factor = self.TR
+        overall = 1. 
+        if recoiler > 2:
+            kernel_qg = {
+                'bulk': color_factor * overall * EpsilonExpansion({
+                    -1: - (x**2 + (1. - x)**2),
+                    0: (x**2 + (1. - x)**2) *( log(1. - x) - fc.A1(fc.beta_IF) )
+                }) ,
+                'counterterm': None ,
+                'endpoint': None
+            }
+
+        elif recoiler <=2:
+            kernel_qg = {
+                'bulk': color_factor * overall * EpsilonExpansion({
+                    -1: - (x**2 + (1. - x)**2),
+                    0: (x**2 + (1. - x)**2) * ( 2. * log(1. - x) - fc.A1(fc.beta_II) )
+                }),
+                'counterterm': None ,
+                'endpoint': None
+            }
 
         kernel_gg = {
             'bulk': None ,
@@ -746,6 +825,11 @@ class QCD_integrated_TRN_C_IgFq(general_current.GeneralCurrent):
             'endpoint': None
         }
  
+        if kernel_qg[distribution_type] is not None and distribution_type == 'counterterm':
+            kernel_qg[distribution_type] = torino_to_madnk_epsexp(kernel_qg[distribution_type] * prefactor, mu2os / x)
+        elif kernel_qg[distribution_type] is not None:
+            kernel_qg[distribution_type] = torino_to_madnk_epsexp(kernel_qg[distribution_type] * prefactor, mu2os)
+
 
         active_quark_PDGs = self.currents_properties[0]['active_fermions']
 
@@ -755,6 +839,8 @@ class QCD_integrated_TRN_C_IgFq(general_current.GeneralCurrent):
             # Gluon backward evolution
             if reduced_flavor == 21:
                 gluon_dict = {}
+                if kernel_gg[distribution_type] is not None:
+                    gluon_dict[(21,)] = kernel_gg[distribution_type]
                 if active_quark_PDGs and kernel_gq[distribution_type] is not None:
                     gluon_dict[active_quark_PDGs] = kernel_gq[distribution_type]
                 if gluon_dict:
@@ -769,8 +855,6 @@ class QCD_integrated_TRN_C_IgFq(general_current.GeneralCurrent):
                     quark_dict[(reduced_flavor,)] = kernel_qq[distribution_type]
                 if quark_dict:
                     flavor_matrix[reduced_flavor] = quark_dict
-
-        logger.info('flavor_matrix : ' + str(flavor_matrix))
 
         # Truncate all entries of the flavor matrix so as to remove irrelevant O(\eps) terms
         for flav_in, flav_outs in flavor_matrix.items():
@@ -872,10 +956,10 @@ class QCD_integrated_TRN_C_IqFq(general_current.GeneralCurrent):
         beam_PDGs = self.currents_properties[0]['beam_PDGs']
         recoiler = global_variables['recoiler']
 
-        logger.info('distribution : ' + str(distribution_type))
-        logger.info('beam_PDGs : ' + str(beam_PDGs))
-        logger.info('global_variables : ' + str(global_variables))
-        logger.info('recoiler : ' + str(recoiler))
+#        logger.info('distribution : ' + str(distribution_type))
+#        logger.info('beam_PDGs : ' + str(beam_PDGs))
+#        logger.info('global_variables : ' + str(global_variables))
+#        logger.info('recoiler : ' + str(recoiler))
 
 
         # Apply the Dirac delta on the convolution parameters by setting their value to the solution of the delta.
@@ -893,9 +977,9 @@ class QCD_integrated_TRN_C_IqFq(general_current.GeneralCurrent):
         Q_square = Q.square()
 
         # Only up to the order epsilon^2 of the scales prefactor matters here.
-        logMuQ = log(mu_r ** 2 / Q_square)
-        prefactor = EpsilonExpansion({0: 1., 1: logMuQ, 2: 0.5 * logMuQ ** 2})
-        prefactor *= self.SEpsilon * (1. / (16 * pi**2) )
+#        logMuQ = log(mu_r ** 2 / Q_square)
+#        prefactor = EpsilonExpansion({0: 1., 1: logMuQ, 2: 0.5 * logMuQ ** 2})
+#        prefactor *= self.SEpsilon * (1. / (16 * pi**2) )
 
         # The additional 1/x part of the prefactor is included later during the PDF
         # convolution of the event (using its 'Bjorken rescaling' attribute) because
@@ -904,9 +988,6 @@ class QCD_integrated_TRN_C_IqFq(general_current.GeneralCurrent):
         # of variable necessary to bring them in the form where the plus distribution
         # only acts on the PDF. So it makes sense to keep it completely factorised.
 
-        # Input variables
-        #y_0 = factors_and_cuts.y_0_prime
-        #logy0 = log(y_0)
         # Assign a fake x for now if the distribution type is 'endpoint'
         # TODO: this is not optimal, eventually we should put each of these three pieces in
         # separate currents
@@ -915,44 +996,73 @@ class QCD_integrated_TRN_C_IqFq(general_current.GeneralCurrent):
         else:
             x = xi
 
-        # In MadNkLO, we use the change of variable xb' = xb*xi so that the factor
-        # (Q^2)^\eps in Eq. 5.21 of https://arxiv.org/pdf/0903.1218.pdf actually reads
-        # (Q^2/(xi1*xi2))^\eps and the '+' distributions also act on it, which we realize
-        # by simply multiplying the Q^2 provided by the xi factor that must be set to one.
-        logMuQ_plus = log(mu_r ** 2 / (Q_square * x))
-        prefactor_plus = EpsilonExpansion({0: 1., 1: logMuQ_plus, 2: 0.5 * logMuQ_plus ** 2})
-        prefactor_plus *= self.SEpsilon * (1. / (16 * pi**2) )
-
-        log1mx = log(1. - x)
-
-        # Heaviside
-        #theta_x_1my0 = 1. if (x - (1 - y_0)) >= 0. else 0.
-        #theta_1my0_x = 1. if ((1 - y_0) - x) >= 0. else 0.
-
-        # Define the NLO QCD integrate initial-state single collinear counterterms kernels
-
-        #if recoiler > 2:
-        #    logger.info('final recoiler')
-        #elif recoiler <= 2:
-        #    logger.info('initial recoiler')
+#        # In MadNkLO, we use the change of variable xb' = xb*xi so that the factor
+#        # (Q^2)^\eps in Eq. 5.21 of https://arxiv.org/pdf/0903.1218.pdf actually reads
+#        # (Q^2/(xi1*xi2))^\eps and the '+' distributions also act on it, which we realize
+#        # by simply multiplying the Q^2 provided by the xi factor that must be set to one.
+#        logMuQ_plus = log(mu_r ** 2 / (Q_square * x))
+#        prefactor_plus = EpsilonExpansion({0: 1., 1: logMuQ_plus, 2: 0.5 * logMuQ_plus ** 2})
+#        prefactor_plus *= self.SEpsilon * (1. / (16 * pi**2) )
 
 
+        p_p = all_steps_info[0]['lower_PS_point'][global_variables['overall_parents'][0]]
+        p_r = all_steps_info[0]['lower_PS_point'][global_variables['recoiler']]
+#        etapr = (p_p + p_r).square() / Q
+        prefactor = self.SEpsilon * (1. / (16 * pi ** 2))
+        mu2os = mu_r**2 / (p_p + p_r).square()
+
+        logger.info('parent :' + str(global_variables['overall_children'][0]))
+        logger.info('recoiler :' + str(recoiler))
+#        logger.info('distribution_type :' + str(distribution_type))
+#        logger.info('p_r * p_p : :' + str((p_p + p_r).square()))
+
+
+#da aggiornare
         color_factor = self.CF
-        kernel_gq = {
-            'bulk': prefactor * color_factor * (EpsilonExpansion({
-                -1: -((1. + x ** 2) / (1. - x)),
-                0: (2. * log1mx / (1. - x))  
-            })),
-            'counterterm': prefactor_plus * color_factor * (EpsilonExpansion({
-                -1: -((1. + x ** 2) / (1. - x)),
-                0: (2. * log1mx / (1. - x)) ,
-            })),
-            'endpoint': prefactor * color_factor * (EpsilonExpansion({
-                -2: 1.,
-                -1: 3. / 2.,
-                0: -(math.pi ** 2 / 6.) 
-            }))
+        overall = 1.
+        if recoiler > 2:
+            kernel_gq = {
+                'bulk': color_factor * overall * EpsilonExpansion({
+                    -1: - ( 1. + ( 1. - x)**2 ) / x ,
+                    0: (( 1. + ( 1. - x)**2 ) / x) * (log(1. - x)  - fc.A1(fc.beta_IF) )
+                }) ,
+                'counterterm': None ,
+                'endpoint': None
+            }
+
+        elif recoiler <= 2:
+            kernel_gq = {
+                'bulk': color_factor * overall * EpsilonExpansion({
+                    -1: - (( 1. + ( 1. - x)**2 ) / x),
+                    0: (( 1. + ( 1. - x)**2 ) / x) * ( 2. * log(1. - x) - fc.A1(fc.beta_II) )
+                }) ,
+                'counterterm': None ,
+                'endpoint': None
+            }
+
+
+        kernel_gg = {
+            'bulk': None ,
+            'counterterm': None ,
+            'endpoint': None
         }
+        kernel_qg = {
+            'bulk': None ,
+            'counterterm': None ,
+            'endpoint': None
+        }
+        kernel_qq = {
+            'bulk': None ,
+            'counterterm': None ,
+            'endpoint': None
+        }
+ 
+        if kernel_gq[distribution_type] is not None and distribution_type == 'counterterm':
+            kernel_gq[distribution_type] = torino_to_madnk_epsexp(kernel_gq[distribution_type] * prefactor, mu2os / x)
+        elif kernel_gq[distribution_type] is not None:
+            kernel_gq[distribution_type] = torino_to_madnk_epsexp(kernel_gq[distribution_type] * prefactor, mu2os)
+
+        logger.info('kernel_gq[distribution_type] :' + str(kernel_gq[distribution_type]))
 
         active_quark_PDGs = self.currents_properties[0]['active_fermions']
 
@@ -962,20 +1072,22 @@ class QCD_integrated_TRN_C_IqFq(general_current.GeneralCurrent):
             # Gluon backward evolution
             if reduced_flavor == 21:
                 gluon_dict = {}
-#                if kernel_gg[distribution_type] is not None:
-#                    gluon_dict[(21,)] = kernel_gg[distribution_type]
+                if kernel_gg[distribution_type] is not None:
+                    gluon_dict[(21,)] = kernel_gg[distribution_type]
                 if active_quark_PDGs and kernel_gq[distribution_type] is not None:
                     gluon_dict[active_quark_PDGs] = kernel_gq[distribution_type]
                 if gluon_dict:
                     flavor_matrix[21] = gluon_dict
 
-#            # Quark backward evolution
-#            if reduced_flavor in active_quark_PDGs:
-#                quark_dict = {}
-#                if kernel_qq[distribution_type] is not None:
-#                    quark_dict[(reduced_flavor,)] = kernel_qq[distribution_type]
-#                if quark_dict:
-#                    flavor_matrix[reduced_flavor] = quark_dict
+            # Quark backward evolution
+            if reduced_flavor in active_quark_PDGs:
+                quark_dict = {}
+                if kernel_qg[distribution_type] is not None:
+                    quark_dict[(21,)] = kernel_qg[distribution_type]
+                if kernel_qq[distribution_type] is not None:
+                    quark_dict[(reduced_flavor,)] = kernel_qq[distribution_type]
+                if quark_dict:
+                    flavor_matrix[reduced_flavor] = quark_dict
 
         # Truncate all entries of the flavor matrix so as to remove irrelevant O(\eps) terms
         for flav_in, flav_outs in flavor_matrix.items():
@@ -1068,6 +1180,7 @@ class QCD_integrated_TRN_C_IgFg(general_current.GeneralCurrent):
 
         xi = global_variables['xis'][beam_number]
         mu_r = global_variables['mu_r']
+        NF = self.currents_properties[0]['NF']
 
         allowed_backward_evolved_flavors = global_variables['allowed_backward_evolved_flavors']
         if allowed_backward_evolved_flavors[(beam_number+1)%2] != 'ALL':
@@ -1079,10 +1192,10 @@ class QCD_integrated_TRN_C_IgFg(general_current.GeneralCurrent):
         beam_PDGs = self.currents_properties[0]['beam_PDGs']
         recoiler = global_variables['recoiler']
 
-        logger.info('distribution : ' + str(distribution_type))
-        logger.info('beam_PDGs : ' + str(beam_PDGs))
-        logger.info('global_variables : ' + str(global_variables))
-        logger.info('recoiler : ' + str(recoiler))
+#        logger.info('distribution : ' + str(distribution_type))
+#        logger.info('beam_PDGs : ' + str(beam_PDGs))
+#        logger.info('global_variables : ' + str(global_variables))
+#        logger.info('recoiler : ' + str(recoiler))
 
 
         # Apply the Dirac delta on the convolution parameters by setting their value to the solution of the delta.
@@ -1099,10 +1212,17 @@ class QCD_integrated_TRN_C_IgFg(general_current.GeneralCurrent):
         # Obtain Q_square.
         Q_square = Q.square()
 
-        # Only up to the order epsilon^2 of the scales prefactor matters here.
-        logMuQ = log(mu_r ** 2 / Q_square)
-        prefactor = EpsilonExpansion({0: 1., 1: logMuQ, 2: 0.5 * logMuQ ** 2})
-        prefactor *= self.SEpsilon * (1. / (16 * pi**2) )
+#        # Only up to the order epsilon^2 of the scales prefactor matters here.
+#        logMuQ = log(mu_r ** 2 / Q_square)
+#        prefactor = EpsilonExpansion({0: 1., 1: logMuQ, 2: 0.5 * logMuQ ** 2})
+#        prefactor *= self.SEpsilon * (1. / (16 * pi**2) )
+
+        p_p = all_steps_info[0]['lower_PS_point'][global_variables['overall_parents'][0]]
+        p_r = all_steps_info[0]['lower_PS_point'][global_variables['recoiler']]
+        mu2os = mu_r**2 / (p_p + p_r).square()
+        prefactor = self.SEpsilon * (1. / (16 * pi ** 2))
+        logger.info('p_p * p_r : ' + str((p_p + p_r).square()))
+
 
         # The additional 1/x part of the prefactor is included later during the PDF
         # convolution of the event (using its 'Bjorken rescaling' attribute) because
@@ -1122,46 +1242,80 @@ class QCD_integrated_TRN_C_IgFg(general_current.GeneralCurrent):
         else:
             x = xi
 
-        # In MadNkLO, we use the change of variable xb' = xb*xi so that the factor
-        # (Q^2)^\eps in Eq. 5.21 of https://arxiv.org/pdf/0903.1218.pdf actually reads
-        # (Q^2/(xi1*xi2))^\eps and the '+' distributions also act on it, which we realize
-        # by simply multiplying the Q^2 provided by the xi factor that must be set to one.
-        logMuQ_plus = log(mu_r ** 2 / (Q_square * x))
-        prefactor_plus = EpsilonExpansion({0: 1., 1: logMuQ_plus, 2: 0.5 * logMuQ_plus ** 2})
-        prefactor_plus *= self.SEpsilon * (1. / (16 * pi**2) )
+#        # In MadNkLO, we use the change of variable xb' = xb*xi so that the factor
+#        # (Q^2)^\eps in Eq. 5.21 of https://arxiv.org/pdf/0903.1218.pdf actually reads
+#        # (Q^2/(xi1*xi2))^\eps and the '+' distributions also act on it, which we realize
+#        # by simply multiplying the Q^2 provided by the xi factor that must be set to one.
+#        logMuQ_plus = log(mu_r ** 2 / (Q_square * x))
+#        prefactor_plus = EpsilonExpansion({0: 1., 1: logMuQ_plus, 2: 0.5 * logMuQ_plus ** 2})
+#        prefactor_plus *= self.SEpsilon * (1. / (16 * pi**2) )
 
-        log1mx = log(1. - x)
-
-        # Heaviside
-        #theta_x_1my0 = 1. if (x - (1 - y_0)) >= 0. else 0.
-        #theta_1my0_x = 1. if ((1 - y_0) - x) >= 0. else 0.
 
         # Define the NLO QCD integrate initial-state single collinear counterterms kernels
+        logger.info('parent :' + str(global_variables['overall_children'][0]))
+        logger.info('recoiler :' + str(recoiler))
+#        logger.info('distribution_type :' + str(distribution_type))
+
+
         color_factor = self.CA
+        overall = 2.
+        if recoiler > 2:
+            kernel_gg = {
+                'bulk': color_factor * overall * EpsilonExpansion({
+                    -1: - ( (1. / (1. - x) ) + (1. - x)/x - 1. + x*(1. - x) ),
+                    0: ((1. / (1. -x) ) + (1. -x) * x) * (log(1. - x) - fc.A1(fc.beta_IF))
+                }) ,
+                'counterterm': color_factor * overall * EpsilonExpansion({
+                    -1: - (1. / (1. - x) ),
+                    0: 0.
+                }) ,
+                'endpoint': EpsilonExpansion({
+#                    -1: - (2. * self.CA + NF * self.TR * 4. / 6.) ,
+                    -1: - (2. * self.CA ) ,
+                    0: 0.
+                })
+            }
 
-        #if recoiler > 2:
-        #    logger.info('final recoiler')
-        #elif recoiler <= 2:
-        #    logger.info('initial recoiler')
+        elif recoiler <= 2:
+            kernel_gg = {
+                'bulk': color_factor * overall * EpsilonExpansion({
+                    -1: - ( (1. / (1. -x) ) + (1. -x)/x - 1. + x*(1. - x) ),
+                    0: ((1. / (1. -x) ) + (1. -x) * x) * (2. * log(1. - x) - fc.A1(fc.beta_II))
+                }) ,
+                'counterterm': color_factor * overall * EpsilonExpansion({
+                    -1: - (1. / (1. -x) ),
+                    0: 0.
+                }) ,
+                'endpoint': EpsilonExpansion({
+#                    -1: - (2. * self.CA + NF * self.TR * 4. / 6.) ,
+                    -1: - (2. * self.CA ) ,
+                    0: 0.
+                })
+            }
 
 
-        kernel_gg = {
-            'bulk': prefactor * color_factor * (EpsilonExpansion({
-                -1: -2. * (1. / (1. - x) + (1. - x) / x - 1 + x * (1 - x)),
-                0: (2. * log1mx / (1. - x)) 
-                   + 2. * (((1. - x) / x) - 1. + x * (1. - x))
-            })),
-            'counterterm': prefactor_plus * color_factor * (EpsilonExpansion({
-                -1: -2. * (1. / (1. - x)),
-                0: (2. * log1mx / (1. - x)) ,
-            })),
-            'endpoint': prefactor * color_factor * (EpsilonExpansion({
-                -2: 1.,
-                -1: 0.,
-                0: -(math.pi ** 2 / 6.) 
-            }))
+        kernel_qg = {
+            'bulk': None ,
+            'counterterm': None ,
+            'endpoint': None
         }
+        kernel_gq = {
+            'bulk': None ,
+            'counterterm': None ,
+            'endpoint': None
+        }
+        kernel_qq = {
+            'bulk': None ,
+            'counterterm': None ,
+            'endpoint': None
+        }
+ 
+        if kernel_gg[distribution_type] is not None and distribution_type == 'counterterm':
+            kernel_gg[distribution_type] = torino_to_madnk_epsexp(kernel_gg[distribution_type] * prefactor, mu2os / x)
+        elif kernel_gg[distribution_type] is not None:
+            kernel_gg[distribution_type] = torino_to_madnk_epsexp(kernel_gg[distribution_type] * prefactor, mu2os)
 
+        logger.info('kernel_gg[distribution_type] :' + str(kernel_gg[distribution_type]))
 
         active_quark_PDGs = self.currents_properties[0]['active_fermions']
 
@@ -1173,20 +1327,20 @@ class QCD_integrated_TRN_C_IgFg(general_current.GeneralCurrent):
                 gluon_dict = {}
                 if kernel_gg[distribution_type] is not None:
                     gluon_dict[(21,)] = kernel_gg[distribution_type]
-#                if active_quark_PDGs and kernel_gq[distribution_type] is not None:
-#                    gluon_dict[active_quark_PDGs] = kernel_gq[distribution_type]
+                if active_quark_PDGs and kernel_gq[distribution_type] is not None:
+                    gluon_dict[active_quark_PDGs] = kernel_gq[distribution_type]
                 if gluon_dict:
                     flavor_matrix[21] = gluon_dict
 
             # Quark backward evolution
-#            if reduced_flavor in active_quark_PDGs:
-#                quark_dict = {}
-#                if kernel_qg[distribution_type] is not None:
-#                    quark_dict[(21,)] = kernel_qg[distribution_type]
-#                if kernel_qq[distribution_type] is not None:
-#                    quark_dict[(reduced_flavor,)] = kernel_qq[distribution_type]
-#                if quark_dict:
-#                    flavor_matrix[reduced_flavor] = quark_dict
+            if reduced_flavor in active_quark_PDGs:
+                quark_dict = {}
+                if kernel_qg[distribution_type] is not None:
+                    quark_dict[(21,)] = kernel_qg[distribution_type]
+                if kernel_qq[distribution_type] is not None:
+                    quark_dict[(reduced_flavor,)] = kernel_qq[distribution_type]
+                if quark_dict:
+                    flavor_matrix[reduced_flavor] = quark_dict
 
         # Truncate all entries of the flavor matrix so as to remove irrelevant O(\eps) terms
         for flav_in, flav_outs in flavor_matrix.items():
@@ -1215,7 +1369,7 @@ class QCD_integrated_TRN_CS_IqFg(general_current.GeneralCurrent):
     DEBUG = True
 
     # Store the result for beam factorisation currents in a container that supports flavor matrices.
-    subtraction_current_evaluation_class = utils.BeamFactorizationCurrentEvaluation
+    subtraction_current_evaluation_class = utils.SubtractionCurrentEvaluation
 
     divide_by_jacobian = torino_config.divide_by_jacobian
 
@@ -1298,30 +1452,33 @@ class QCD_integrated_TRN_CS_IqFg(general_current.GeneralCurrent):
         beam_PDGs = self.currents_properties[0]['beam_PDGs']
         recoiler = global_variables['recoiler']
 
-        logger.info('distribution : ' + str(distribution_type))
-        logger.info('beam_PDGs : ' + str(beam_PDGs))
-        logger.info('global_variables : ' + str(global_variables))
-        logger.info('recoiler : ' + str(recoiler))
-
 
         # Apply the Dirac delta on the convolution parameters by setting their value to the solution of the delta.
         # For these simple NLO integrated current, the delta simply sets them to one if the distribution type is
         # 'counterterm' and leaves them unchanged if the distribution type is 'bulk' (or 'endpoint' in which case
         # the convolution parameter is None anyway.)
+#        if distribution_type == 'counterterm':
+#            xis = list(global_variables['xis'])
+#            xis[beam_number] = 1.0
+#            evaluation['Bjorken_rescalings'] = [tuple(xis),]
         if distribution_type == 'counterterm':
-            xis = list(global_variables['xis'])
-            xis[beam_number] = 1.0
-            evaluation['Bjorken_rescalings'] = [tuple(xis),]
+            evaluation['Bjorken_rescalings'] = [(1.0, 1.0),]
+
 
         Q = global_variables['Q']
 
         # Obtain Q_square.
         Q_square = Q.square()
 
-        # Only up to the order epsilon^2 of the scales prefactor matters here.
-        logMuQ = log(mu_r ** 2 / Q_square)
-        prefactor = EpsilonExpansion({0: 1., 1: logMuQ, 2: 0.5 * logMuQ ** 2})
-        prefactor *= self.SEpsilon * (1. / (16 * pi**2) )
+#        # Only up to the order epsilon^2 of the scales prefactor matters here.
+#        logMuQ = log(mu_r ** 2 / Q_square)
+#        prefactor = EpsilonExpansion({0: 1., 1: logMuQ, 2: 0.5 * logMuQ ** 2})
+#        prefactor *= self.SEpsilon * (1. / (16 * pi**2) )
+
+        p_p = all_steps_info[0]['lower_PS_point'][global_variables['overall_parents'][0]]
+        p_r = all_steps_info[0]['lower_PS_point'][global_variables['recoiler']]
+        prefactor = self.SEpsilon * (1. / (16 * pi ** 2))
+        mu2os = mu_r**2 / (p_p + p_r).square()
 
         # The additional 1/x part of the prefactor is included later during the PDF
         # convolution of the event (using its 'Bjorken rescaling' attribute) because
@@ -1345,73 +1502,56 @@ class QCD_integrated_TRN_CS_IqFg(general_current.GeneralCurrent):
         # (Q^2)^\eps in Eq. 5.21 of https://arxiv.org/pdf/0903.1218.pdf actually reads
         # (Q^2/(xi1*xi2))^\eps and the '+' distributions also act on it, which we realize
         # by simply multiplying the Q^2 provided by the xi factor that must be set to one.
-        logMuQ_plus = log(mu_r ** 2 / (Q_square * x))
-        prefactor_plus = EpsilonExpansion({0: 1., 1: logMuQ_plus, 2: 0.5 * logMuQ_plus ** 2})
-        prefactor_plus *= self.SEpsilon * (1. / (16 * pi**2) )
+#        logMuQ_plus = log(mu_r ** 2 / (Q_square * x))
+#        prefactor_plus = EpsilonExpansion({0: 1., 1: logMuQ_plus, 2: 0.5 * logMuQ_plus ** 2})
+#        prefactor_plus *= self.SEpsilon * (1. / (16 * pi**2) )
 
-        log1mx = log(1. - x)
-
-        # Heaviside
-        #theta_x_1my0 = 1. if (x - (1 - y_0)) >= 0. else 0.
-        #theta_1my0_x = 1. if ((1 - y_0) - x) >= 0. else 0.
 
         # Define the NLO QCD integrate initial-state single collinear counterterms kernels
 
-        #if recoiler > 2:
-        #    logger.info('final recoiler')
-        #elif recoiler <= 2:
-        #    logger.info('initial recoiler')
-
 
         color_factor = self.CF
-        kernel_qg = {
-            'bulk': prefactor * color_factor * (EpsilonExpansion({
-                -1: -(self.TR / self.CF) * (x ** 2 + (1. - x) ** 2),
-                0: (self.TR / self.CF) * ((x ** 2 + (1. - x) ** 2)  + 2. * x * (1. - x))
-            })),
-            'counterterm': None,
-            'endpoint': None
-        }
+        overall = - 2.
+        if recoiler > 2:
+            kernel = {
+                'bulk': color_factor * overall * EpsilonExpansion({
+                    -1: x**(1. + fc.alpha) / (1. - x)  ,
+                    0: - fc.A1(fc.beta_IF) * (  x / (1. - x) - x**(1. + fc.alpha) / (1. - x) ) + ( x * log(1. - x)) / (1. - x) - ( x**(1. + fc.alpha) * log(1. - x)) / (1. - x)
+                }) ,
+                'counterterm': color_factor * overall * EpsilonExpansion({
+                    -1: x**(1. + fc.alpha) / (1. - x) ,
+                    0: - fc.A1(fc.beta_IF) * (  x / (1. - x) - x**(1. + fc.alpha) / (1. - x) ) + ( x * log(1. - x)) / (1. - x) - ( x**(1. + fc.alpha) * log(1. - x)) / (1. - x)
+                }) ,
+                'endpoint': color_factor * overall * EpsilonExpansion({
+                    -1: 1. - fc.A2(fc.alpha) ,
+                    0: 1. - (pi**2 / 12.) + fc.A1(fc.beta_IF) * (1. - fc.A2(fc.alpha)) - (fc.A2(fc.alpha))**2/ 2. + fc.polygamma(fc.alpha) / 2.
+                })
+            }
 
+        elif recoiler <= 2:
+            kernel = {
+                'bulk': color_factor * overall * EpsilonExpansion({
+                    -1: x**(1. + fc.alpha) / (1. - x) ,
+                    0: - fc.A1(fc.beta_II) * (  x / (1. - x) - x**(1. + fc.alpha) / (1. - x) ) + 2. * ( x * log(1. - x)) / (1. - x) - 2. * ( x**(1. + fc.alpha) * log(1. - x)) / (1. - x)
+                }) ,
+                'counterterm': color_factor * overall * EpsilonExpansion({
+                    -1: x**(1. + fc.alpha) / (1. - x) ,
+                    0: - fc.A1(fc.beta_II) * (  x / (1. - x) - x**(1. + fc.alpha) / (1. - x) ) + ( x * log(1. - x)) / (1. - x) - ( x**(1. + fc.alpha) * log(1. - x)) / (1. - x)
+                }) ,
+                'endpoint': color_factor * overall * EpsilonExpansion({
+                    -1: 1. - fc.A2(fc.alpha) ,
+                    0: 2. - (pi**2 / 6.) + fc.A1(fc.beta_II) * (1. - fc.A2(fc.alpha)) - (fc.A2(fc.alpha))**2 + fc.polygamma(fc.alpha)
+                })
+            }
 
-        active_quark_PDGs = self.currents_properties[0]['active_fermions']
+        if distribution_type == 'counterterm':
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor, mu2os / xi)
+        else:
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor, mu2os)
 
-#        # Build the NLO flavor matrix
-        flavor_matrix = {}
-#        for reduced_flavor in beam_PDGs:
-#            # Gluon backward evolution
-##            if reduced_flavor == 21:
-##                gluon_dict = {}
-##                if kernel_gg[distribution_type] is not None:
-##                    gluon_dict[(21,)] = kernel_gg[distribution_type]
-##                if active_quark_PDGs and kernel_gq[distribution_type] is not None:
-##                    gluon_dict[active_quark_PDGs] = kernel_gq[distribution_type]
-##                if gluon_dict:
-##                    flavor_matrix[21] = gluon_dict
+        logger.info('kernel_eval :' + str(kernel_eval))
 
-#            # Quark backward evolution
-#            if reduced_flavor in active_quark_PDGs:
-#                quark_dict = {}
-#                if kernel_qg[distribution_type] is not None:
-#                    quark_dict[(21,)] = kernel_qg[distribution_type]
-##                if kernel_qq[distribution_type] is not None:
-##                    quark_dict[(reduced_flavor,)] = kernel_qq[distribution_type]
-#                if quark_dict:
-#                    flavor_matrix[reduced_flavor] = quark_dict
-
-        # Truncate all entries of the flavor matrix so as to remove irrelevant O(\eps) terms
-        for flav_in, flav_outs in flavor_matrix.items():
-            for flav_out, eps_expansion in flav_outs.items():
-                eps_expansion.truncate(max_power=0)
-
-        # Now apply the mask 'allowed_backward_evolved_flavors' if not set to 'ALL'
-        filtered_flavor_matrix = self.apply_flavor_mask(flavor_matrix, allowed_backward_evolved_flavors[beam_number])
-
-        # Now assign the flavor matrix to the result
-        evaluation['values'][(0,0,0,0)] = filtered_flavor_matrix
-
-        # Promote the format of the flavor matrix to be that of a generalised two-sided convolution
-        evaluation.promote_to_two_sided_convolution(beam_number+1)
+        evaluation['values'][(0, 0, 0, 0)] = (kernel_eval).truncate(max_power=0)
 
         return evaluation
 
@@ -1424,7 +1564,7 @@ class QCD_integrated_TRN_CS_IgFg(general_current.GeneralCurrent):
     DEBUG = True
 
     # Store the result for beam factorisation currents in a container that supports flavor matrices.
-    subtraction_current_evaluation_class = utils.BeamFactorizationCurrentEvaluation
+    subtraction_current_evaluation_class = utils.SubtractionCurrentEvaluation
 
     divide_by_jacobian = torino_config.divide_by_jacobian
 
@@ -1509,30 +1649,59 @@ class QCD_integrated_TRN_CS_IgFg(general_current.GeneralCurrent):
         beam_PDGs = self.currents_properties[0]['beam_PDGs']
         recoiler = global_variables['recoiler']
 
-        logger.info('distribution : ' + str(distribution_type))
-        logger.info('beam_PDGs : ' + str(beam_PDGs))
-        logger.info('global_variables : ' + str(global_variables))
-        logger.info('recoiler : ' + str(recoiler))
-
 
         # Apply the Dirac delta on the convolution parameters by setting their value to the solution of the delta.
         # For these simple NLO integrated current, the delta simply sets them to one if the distribution type is
         # 'counterterm' and leaves them unchanged if the distribution type is 'bulk' (or 'endpoint' in which case
         # the convolution parameter is None anyway.)
+#        if distribution_type == 'counterterm':
+#            xis = list(global_variables['xis'])
+#            xis[beam_number] = 1.0
+#            evaluation['Bjorken_rescalings'] = [tuple(xis),]
         if distribution_type == 'counterterm':
-            xis = list(global_variables['xis'])
-            xis[beam_number] = 1.0
-            evaluation['Bjorken_rescalings'] = [tuple(xis),]
+            evaluation['Bjorken_rescalings'] = [(1.0, 1.0),]
+
 
         Q = global_variables['Q']
 
         # Obtain Q_square.
         Q_square = Q.square()
 
-        # Only up to the order epsilon^2 of the scales prefactor matters here.
-        logMuQ = log(mu_r ** 2 / Q_square)
-        prefactor = EpsilonExpansion({0: 1., 1: logMuQ, 2: 0.5 * logMuQ ** 2})
-        prefactor *= self.SEpsilon * (1. / (16 * pi**2) )
+#        # Only up to the order epsilon^2 of the scales prefactor matters here.
+#        logMuQ = log(mu_r ** 2 / Q_square)
+#        prefactor = EpsilonExpansion({0: 1., 1: logMuQ, 2: 0.5 * logMuQ ** 2})
+#        prefactor *= self.SEpsilon * (1. / (16 * pi**2) )
+
+        # The additional 1/x part of the prefactor is included later during the PDF
+        # convolution of the event (using its 'Bjorken rescaling' attribute) because
+        # we must make sure that the plus distribution hits on it.
+        # Also, the same 1/x appears in the PDF counterterms as a result of the change
+        # of variable necessary to bring them in the form where the plus distribution
+        # only acts on the PDF. So it makes sense to keep it completely factorised.
+
+        # Input variables
+        #y_0 = factors_and_cuts.y_0_prime
+        #logy0 = log(y_0)
+        # Assign a fake x for now if the distribution type is 'endpoint'
+        # TODO: this is not optimal, eventually we should put each of these three pieces in
+        # separate currents
+        if distribution_type == 'endpoint':
+            x = 0.5
+        else:
+            x = xi
+
+#        # In MadNkLO, we use the change of variable xb' = xb*xi so that the factor
+#        # (Q^2)^\eps in Eq. 5.21 of https://arxiv.org/pdf/0903.1218.pdf actually reads
+#        # (Q^2/(xi1*xi2))^\eps and the '+' distributions also act on it, which we realize
+#        # by simply multiplying the Q^2 provided by the xi factor that must be set to one.
+#        logMuQ_plus = log(mu_r ** 2 / (Q_square * x))
+#        prefactor_plus = EpsilonExpansion({0: 1., 1: logMuQ_plus, 2: 0.5 * logMuQ_plus ** 2})
+#        prefactor_plus *= self.SEpsilon * (1. / (16 * pi**2) )
+
+        p_p = all_steps_info[0]['lower_PS_point'][global_variables['overall_parents'][0]]
+        p_r = all_steps_info[0]['lower_PS_point'][global_variables['recoiler']]
+        prefactor = self.SEpsilon * (1. / (16 * pi ** 2))
+        mu2os = mu_r**2 / (p_p + p_r).square()
 
         # The additional 1/x part of the prefactor is included later during the PDF
         # convolution of the event (using its 'Bjorken rescaling' attribute) because
@@ -1556,81 +1725,57 @@ class QCD_integrated_TRN_CS_IgFg(general_current.GeneralCurrent):
         # (Q^2)^\eps in Eq. 5.21 of https://arxiv.org/pdf/0903.1218.pdf actually reads
         # (Q^2/(xi1*xi2))^\eps and the '+' distributions also act on it, which we realize
         # by simply multiplying the Q^2 provided by the xi factor that must be set to one.
-        logMuQ_plus = log(mu_r ** 2 / (Q_square * x))
-        prefactor_plus = EpsilonExpansion({0: 1., 1: logMuQ_plus, 2: 0.5 * logMuQ_plus ** 2})
-        prefactor_plus *= self.SEpsilon * (1. / (16 * pi**2) )
+#        logMuQ_plus = log(mu_r ** 2 / (Q_square * x))
+#        prefactor_plus = EpsilonExpansion({0: 1., 1: logMuQ_plus, 2: 0.5 * logMuQ_plus ** 2})
+#        prefactor_plus *= self.SEpsilon * (1. / (16 * pi**2) )
 
-        log1mx = log(1. - x)
-
-        # Heaviside
-        #theta_x_1my0 = 1. if (x - (1 - y_0)) >= 0. else 0.
-        #theta_1my0_x = 1. if ((1 - y_0) - x) >= 0. else 0.
 
         # Define the NLO QCD integrate initial-state single collinear counterterms kernels
+
+
         color_factor = self.CA
+        overall = - 2.
+        if recoiler > 2:
+            kernel = {
+                'bulk': color_factor * overall * EpsilonExpansion({
+                    -1: x**(1. + fc.alpha) / (1. - x) ,
+                    0: - fc.A1(fc.beta_IF) * (  x / (1. - x) - x**(1. + fc.alpha) / (1. - x) ) + ( x * log(1. - x)) / (1. - x) - ( x**(1. + fc.alpha) * log(1. - x)) / (1. - x)
+                }) ,
+                'counterterm': color_factor * overall * EpsilonExpansion({
+                    -1: x**(1. + fc.alpha) / (1. - x)  ,
+                    0: - fc.A1(fc.beta_IF) * (  x / (1. - x) - x**(1. + fc.alpha) / (1. - x) ) + ( x * log(1. - x)) / (1. - x) - ( x**(1. + fc.alpha) * log(1. - x)) / (1. - x)
+                }) ,
+                'endpoint': color_factor * overall * EpsilonExpansion({
+                    -1: 1. - fc.A2(fc.alpha) ,
+                    0: 1. - (pi**2 / 12.) + fc.A1(fc.beta_IF) * (1. - fc.A2(fc.alpha)) - (fc.A2(fc.alpha))**2/ 2. + fc.polygamma(fc.alpha) / 2.
+                })
+            }
 
-        #if recoiler > 2:
-        #    logger.info('final recoiler')
-        #elif recoiler <= 2:
-        #    logger.info('initial recoiler')
+        elif recoiler <= 2:
+            kernel = {
+                'bulk': color_factor * overall * EpsilonExpansion({
+                    -1: x**(1. + fc.alpha) / (1. - x) ,
+                    0: - fc.A1(fc.beta_II) * (  x / (1. - x) - x**(1. + fc.alpha) / (1. - x) ) + 2. * ( x * log(1. - x)) / (1. - x) - 2. * ( x**(1. + fc.alpha) * log(1. - x)) / (1. - x)
+                }) ,
+                'counterterm': color_factor * overall * EpsilonExpansion({
+                    -1: x**(1. + fc.alpha) / (1. - x)  ,
+                    0: - fc.A1(fc.beta_II) * (  x / (1. - x) - x**(1. + fc.alpha) / (1. - x) ) + ( x * log(1. - x)) / (1. - x) - ( x**(1. + fc.alpha) * log(1. - x)) / (1. - x)
+                }) ,
+                'endpoint': color_factor * overall * EpsilonExpansion({
+                    -1: 1. - fc.A2(fc.alpha) ,
+                    0: 2. - (pi**2 / 6.) + fc.A1(fc.beta_II) * (1. - fc.A2(fc.alpha)) - (fc.A2(fc.alpha))**2 + fc.polygamma(fc.alpha)
+                })
+            }
 
+        if distribution_type == 'counterterm':
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor, mu2os / xi)
+        else:
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor, mu2os)
 
-        kernel_gg = {
-            'bulk': prefactor * color_factor * (EpsilonExpansion({
-                -1: -2. * (1. / (1. - x) + (1. - x) / x - 1 + x * (1 - x)),
-                0: (2. * log1mx / (1. - x)) 
-                   + 2. * (((1. - x) / x) - 1. + x * (1. - x))
-            })),
-            'counterterm': prefactor_plus * color_factor * (EpsilonExpansion({
-                -1: -2. * (1. / (1. - x)),
-                0: (2. * log1mx / (1. - x)) ,
-            })),
-            'endpoint': prefactor * color_factor * (EpsilonExpansion({
-                -2: 1.,
-                -1: 0.,
-                0: -(math.pi ** 2 / 6.) 
-            }))
-        }
+        logger.info('kernel_eval :' + str(kernel_eval))
 
+        evaluation['values'][(0, 0, 0, 0)] = (kernel_eval).truncate(max_power=0)
 
-        active_quark_PDGs = self.currents_properties[0]['active_fermions']
-
-#        # Build the NLO flavor matrix
-        flavor_matrix = {}
-#        for reduced_flavor in beam_PDGs:
-#            # Gluon backward evolution
-#            if reduced_flavor == 21:
-#                gluon_dict = {}
-#                if kernel_gg[distribution_type] is not None:
-#                    gluon_dict[(21,)] = kernel_gg[distribution_type]
-##                if active_quark_PDGs and kernel_gq[distribution_type] is not None:
-##                    gluon_dict[active_quark_PDGs] = kernel_gq[distribution_type]
-#                if gluon_dict:
-#                    flavor_matrix[21] = gluon_dict
-
-#            # Quark backward evolution
-##            if reduced_flavor in active_quark_PDGs:
-##                quark_dict = {}
-##                if kernel_qg[distribution_type] is not None:
-##                    quark_dict[(21,)] = kernel_qg[distribution_type]
-##                if kernel_qq[distribution_type] is not None:
-##                    quark_dict[(reduced_flavor,)] = kernel_qq[distribution_type]
-##                if quark_dict:
-##                    flavor_matrix[reduced_flavor] = quark_dict
-
-        # Truncate all entries of the flavor matrix so as to remove irrelevant O(\eps) terms
-        for flav_in, flav_outs in flavor_matrix.items():
-            for flav_out, eps_expansion in flav_outs.items():
-                eps_expansion.truncate(max_power=0)
-
-        # Now apply the mask 'allowed_backward_evolved_flavors' if not set to 'ALL'
-        filtered_flavor_matrix = self.apply_flavor_mask(flavor_matrix, allowed_backward_evolved_flavors[beam_number])
-
-        # Now assign the flavor matrix to the result
-        evaluation['values'][(0,0,0,0)] = filtered_flavor_matrix
-
-        # Promote the format of the flavor matrix to be that of a generalised two-sided convolution
-        evaluation.promote_to_two_sided_convolution(beam_number+1)
 
         return evaluation
 
@@ -1703,8 +1848,10 @@ class QCD_integrated_TRN_S_g(general_current.GeneralCurrent):
 
 
         xi = global_variables['xis'][0]
+        xi2 = global_variables['xis'][1]
         mu_r = global_variables['mu_r']
 
+        logger.info('xis : ' + str(global_variables['xis']))
 
         # The colored_partons argument gives a dictionary with keys being leg numbers and values being
         # their color representation. At NLO, all we care about is what are the colored leg numbers.
@@ -1713,6 +1860,8 @@ class QCD_integrated_TRN_S_g(general_current.GeneralCurrent):
         # Retrieve the reduced kinematics as well as the soft momentum
         lower_PS_point = all_steps_info[0]['lower_PS_point']
         higher_PS_point = all_steps_info[0]['higher_PS_point']
+#        logger.info('all_steps_info :' + str(all_steps_info[0]))
+#        logger.info('all_steps_info :' + str(all_steps_info[-1]))
 
         # Normalization factors
         norm = -1./2.
@@ -1732,24 +1881,41 @@ class QCD_integrated_TRN_S_g(general_current.GeneralCurrent):
         if distribution_type == 'counterterm':
             evaluation['Bjorken_rescalings'] = [(1.0, 1.0),]
 
+        if distribution_type == 'endpoint':
+            xi = 0.5
 
-        shat = 2 * all_steps_info[0]['lower_PS_point'][1].dot( \
-            all_steps_info[0]['lower_PS_point'][2])
-        mu2os = mu_r**2 / shat
+#        shat = 2 * all_steps_info[0]['lower_PS_point'][1].dot( \
+#            all_steps_info[0]['lower_PS_point'][2])
+#        mu2os = mu_r**2 / shat
+
+#        logger.info('shat : ' + str(shat))
+
+        Q = global_variables['Q']
+
+        # Obtain Q_square.
+        Q_square = Q.square()
+
+        # Only up to the order epsilon^2 of the scales prefactor matters here.
+#        logMuQ = log(mu_r ** 2 / Q_square)
+#        prefactor = EpsilonExpansion({0: 1., 1: logMuQ, 2: 0.5 * logMuQ ** 2})
+#        prefactor *= self.SEpsilon * (1. / (16 * pi**2) )
 
 
         color_correlation_index = 0
         # Now loop over the colored parton number pairs (a,b)
         # and add the corresponding contributions to this current
-        prefactor = self.SEpsilon * (1. / (16 * math.pi ** 2))
+#        prefactor = self.SEpsilon * (1. / (16 * math.pi ** 2))
 
         # All contributions from the soft counterterms are color correlated so we should remove
         # the default value None from the list of color correlations
         evaluation['color_correlations'] = []
 
         color_correlation_index = 0
+#        logger.info('enumerate(colored_partons) :' + str(colored_partons))
+
 
         for i, a in enumerate(colored_partons):
+            logger.info('i :' + str(i))
             # Use the symmetry of the color correlation and soft current (a,b) <-> (b,a)
             for b in colored_partons[i:]:
                 # Write the eikonal for that pair
@@ -1759,14 +1925,46 @@ class QCD_integrated_TRN_S_g(general_current.GeneralCurrent):
                     continue
                     mult_factor = 1.
 
+                logger.info('a :' + str(a))
+                logger.info('b :' + str(b))
+                logger.info('mult_factor :' + str(mult_factor))
+
+
                 pa = lower_PS_point[a]
                 pb = lower_PS_point[b]
+#                shat = 2 * all_steps_info[0]['lower_PS_point'][1].dot( \
+#                    all_steps_info[0]['lower_PS_point'][2])
+#                mu2os = mu_r**2 / shat
+                etapr = (pa + pb).square() / shat
+                mu2os = mu_r**2 / (pa + pb).square()
+                #logger.info('colored partons : ' + str(all_steps_info))
+
+
+                #logMuQ_plus = log(1. / etapr)
+                #prefactor_plus = EpsilonExpansion({0: 1., 1: logMuQ_plus, 2: 0.5 * logMuQ_plus ** 2})
+                #prefactor_plus *= self.SEpsilon * (1. / (16 * pi**2) )
+                prefactor = self.SEpsilon * (1. / (16 * pi**2) )
+
+#                logger.info('p_a * p_b : ' + str((pa + pb).square()))
+                logger.info('distribution_type : ' + str(distribution_type))
+
+
+                x = xi
 
                 if a > 2 and b > 2:
+                    logger.info('soft caso A')
                     kernel = {
-                        'bulk': 0. ,
-                        'counterterm': 0. ,
-                        'endpoint': EpsilonExpansion({
+                        'bulk': EpsilonExpansion({
+                            -2: 0. ,
+                            -1: 0. ,
+                            0: 0. 
+                        }) ,
+                        'counterterm': EpsilonExpansion({
+                            -2: 0. ,
+                            -1: 0. ,
+                            0: 0. 
+                        }) ,
+                        'endpoint': prefactor * EpsilonExpansion({
                             -2: - 1. ,
                             -1: - 2. * fc.A2(fc.alpha) ,
                             0: - (math.pi**2 / 12.) - 2. * (fc.A2(fc.alpha))**2 + 4. * fc.polygamma(fc.alpha) 
@@ -1774,18 +1972,19 @@ class QCD_integrated_TRN_S_g(general_current.GeneralCurrent):
                     }
 
                 if a > 2 and b <= 2:
+                    logger.info('soft caso B')
                     kernel = {
-                        'bulk': EpsilonExpansion({
+                        'bulk': prefactor * EpsilonExpansion({
                             -2: 0. ,
-                            -1: x **(1. + fc.alpha) / (1. - x) ,
-                            0: ( x **(1. + fc.alpha) / (1. - x) ) * fc.A2(fc.alpha) - ( log(1.-x) * x **(1. + fc.alpha) / (1. - x)) 
+                            -1: x**(1. + fc.alpha) / (1. - x)  ,
+                            0: ( x **(1. + fc.alpha) / (1. - x) ) * fc.A2(fc.alpha) - ( log(1.-x) * x **(1. + fc.alpha) ) / (1. - x)
                         }) ,
-                        'counterterm': EpsilonExpansion({
+                        'counterterm': prefactor * EpsilonExpansion({
                             -2: 0. ,
-                            -1: - ( x **(1. + fc.alpha) / (1. - x) ) ,
-                            0: - ( x **(1. + fc.alpha) / (1. - x) ) * fc.A2(fc.alpha) + ( log(1.-x) * x **(1. + fc.alpha) / (1. - x)) 
+                            -1: x**(1. + fc.alpha) / (1. - x) ,
+                            0: ( x **(1. + fc.alpha) / (1. - x) ) * fc.A2(fc.alpha) - ( log(1.-x) * x **(1. + fc.alpha) ) / (1. - x) 
                         }) ,
-                        'endpoint': EpsilonExpansion({
+                        'endpoint': prefactor * EpsilonExpansion({
                             -2: - 1. ,
                             -1: - 2. * fc.A2(fc.alpha) ,
                             0: - (math.pi**2 / 12.) - 2. * (fc.A2(fc.alpha))**2 + 2. * fc.polygamma(fc.alpha) 
@@ -1793,18 +1992,19 @@ class QCD_integrated_TRN_S_g(general_current.GeneralCurrent):
                     }
 
                 if a <= 2 and b > 2:
+                    logger.info('soft caso C')
                     kernel = {
-                        'bulk': EpsilonExpansion({
+                        'bulk': prefactor * EpsilonExpansion({
+                            -2: 0. ,
+                            -1: x **(1. + fc.alpha) / (1. - x)  ,
+                            0: ( x **(1. + fc.alpha) / (1. - x) ) * fc.A2(fc.alpha) - ( log(1.-x) * x **(1. + fc.alpha) ) / (1. - x)
+                        }) ,
+                        'counterterm': prefactor * EpsilonExpansion({
                             -2: 0. ,
                             -1: x **(1. + fc.alpha) / (1. - x) ,
-                            0: ( x **(1. + fc.alpha) / (1. - x) ) * fc.A2(fc.alpha) - ( log(1.-x) * x **(1. + fc.alpha) / (1. - x)) 
+                            0: ( x **(1. + fc.alpha) / (1. - x) ) * fc.A2(fc.alpha) - ( log(1.-x) * x **(1. + fc.alpha) ) / (1. - x) 
                         }) ,
-                        'counterterm': EpsilonExpansion({
-                            -2: 0. ,
-                            -1: - ( x **(1. + fc.alpha) / (1. - x) ) ,
-                            0: - ( x **(1. + fc.alpha) / (1. - x) ) * fc.A2(fc.alpha) + ( log(1.-x) * x **(1. + fc.alpha) / (1. - x)) 
-                        }) ,
-                        'endpoint': EpsilonExpansion({
+                        'endpoint': prefactor * EpsilonExpansion({
                             -2: - 1. ,
                             -1: - 2. * fc.A2(fc.alpha) ,
                             0: - (math.pi**2 / 12.) - 2. * (fc.A2(fc.alpha))**2 + 2. * fc.polygamma(fc.alpha) 
@@ -1812,14 +2012,35 @@ class QCD_integrated_TRN_S_g(general_current.GeneralCurrent):
                     }
 
                 if a <= 2 and b <= 2:
+                    logger.info('soft caso D')
+                #manca parte finita con integrazione su entrambe le x
                     kernel = {
-                        'bulk': 0. ,
-                        'counterterm': 0. ,
-                        'endpoint': 0. ,
+                        'bulk': prefactor * EpsilonExpansion({
+                            -2: 0. ,
+                            -1: 2. * x**(1. + fc.alpha) / (1. - x) ,
+                            0: 2. * fc.A2(fc.alpha) * (x **(1. + fc.alpha) / (1. - x)) - 2. * ( ( log(1.-x) * x **(1. + fc.alpha) ) / (1. - x)) - ( log(x) * x **(1. + fc.alpha) ) / (1. - x)
+                        }) ,
+                        'counterterm': prefactor * EpsilonExpansion({
+                            -2: 0. ,
+                            -1: 2. * x**(1. + fc.alpha) / (1. - x) ,
+                            0: 2. * fc.A2(fc.alpha) * (x **(1. + fc.alpha) / (1. - x)) - 2. * ( ( log(1.-x) * x **(1. + fc.alpha) ) / (1. - x))
+                        }) ,
+                        'endpoint': prefactor * EpsilonExpansion({
+                            -2: - 1. ,
+                            -1: - 2. * fc.A2(fc.alpha) ,
+                            0: - (math.pi**2 / 12.) - 2. * fc.A2(fc.alpha) + fc.polygamma(fc.alpha)
+                        })                    
                     }
 
 
-                kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor * mult_factor , mu2os)
+                if kernel[distribution_type] is not None and distribution_type == 'counterterm':
+                    kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * mult_factor, mu2os / x)
+                elif kernel[distribution_type] is not None:
+                    kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * mult_factor, mu2os)
+                elif kernel[distribution_type] is None:
+                    kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * mult_factor, mu2os)
+
+                logger.info('kernel_eval :' + str(kernel_eval))
 
                 evaluation['color_correlations'].append(((a, b),))
                 evaluation['values'][(0, color_correlation_index, 0, 0)] = (kernel_eval).truncate(max_power=0)
@@ -1908,58 +2129,84 @@ class QCD_integrated_TRN_C_FqFg(general_current.GeneralCurrent):
         if distribution_type == 'counterterm':
             evaluation['Bjorken_rescalings'] = [(1.0, 1.0),]
 
+        if distribution_type == 'endpoint':
+            xi = 0.5
 
-        shat = 2 * all_steps_info[0]['lower_PS_point'][1].dot( \
-            all_steps_info[0]['lower_PS_point'][2])
-        mu_r = global_variables['mu_r']
-        mu2os = mu_r**2 / shat
+#        shat = 2 * all_steps_info[0]['lower_PS_point'][1].dot( \
+#            all_steps_info[0]['lower_PS_point'][2])
+
 
         p_p = all_steps_info[0]['lower_PS_point'][global_variables['overall_parents'][0]]
         p_r = all_steps_info[0]['lower_PS_point'][global_variables['recoiler']]
-        etapr = (p_p + p_r).square() / shat
+#        etapr = (p_p + p_r).square() / shat
+        mu2os = mu_r**2 / (p_p + p_r).square()
+
         prefactor = self.SEpsilon * (1. / (16 * pi ** 2))
+
+#        logMuQ_plus = log(1. / etapr)
+#        prefactor_plus = EpsilonExpansion({0: 1., 1: logMuQ_plus, 2: 0.5 * logMuQ_plus ** 2})
+#        prefactor_plus *= self.SEpsilon * (1. / (16 * pi**2) )
+
+
+#        logger.info('Q_square : ' + str(global_variables['Q'].square()))
+#        logger.info('shat : ' + str(shat))
 
         recoiler = global_variables['recoiler']
 
-        logger.info('distribution : ' + str(distribution_type))
-        logger.info('global_variables : ' + str(global_variables))
+#        logger.info('distribution : ' + str(distribution_type))
+#        logger.info('global_variables : ' + str(global_variables))
+        logger.info('parent :' + str(global_variables['overall_children'][0]))
         logger.info('recoiler : ' + str(recoiler))
 
         color_factor = self.CF
         overall = 1. / 2.
 
         if recoiler > 2:
-            kernel = {
-                'bulk': 0. ,
-                'counterterm': 0. ,
-                'endpoint': color_factor * overall * EpsilonExpansion({
+
+            if distribution_type == "endpoint":
+                kernel = color_factor * overall * EpsilonExpansion({
                     -2: 0.,
                     -1: - 1.,
                     0: - (1. + fc.A2(fc.beta_FF))
                 })
-            }
+            elif distribution_type == "bulk":
+                kernel = 0.
+            elif distribution_type == "counterterm":
+                kernel = 0. 
+            else:
+                raise CurrentImplementationError("Distribution type '%s' not supported." % distribution_type)
 
-        elif recoiler <=2:
-            kernel = {
-                'bulk': color_factor * overall * EpsilonExpansion({
-                    -2: 0. ,
-                    -1: 0. ,
-                    0: (x**(1. + fc.beta_FI) / (1. - x)) 
-                }),
-                'counterterm': color_factor * overall * EpsilonExpansion({
-                    -2: 0. ,
-                    -1: 0. ,
-                    0: - (x**(1. + fc.beta_FI) / (1. - x)) 
-                }),
-                'endpoint': color_factor * overall * EpsilonExpansion({
+
+        elif recoiler <= 2:
+
+            if distribution_type == "endpoint":
+                kernel = color_factor * overall * EpsilonExpansion({
                     -2: 0.,
-                    -1: - 1.,
+                    -1: - 1. ,
                     0: - (1. + fc.A2(fc.beta_FI))
-                })            
-            }
+                })
+            elif distribution_type == "bulk":
+                kernel = color_factor * overall * EpsilonExpansion({
+                    -2: 0. ,
+                    -1: 0. ,
+                    0: xi **(1. + fc.beta_FI) / (1. - xi) 
+                })
+            elif distribution_type == "counterterm":
+                kernel = color_factor * overall * EpsilonExpansion({
+                    -2: 0. ,
+                    -1: 0. ,
+                    0: xi **(1. + fc.beta_FI) / (1. - xi)
+                }) 
+            else:
+                raise CurrentImplementationError("Distribution type '%s' not supported." % distribution_type)
 
 
-        kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os)
+        if distribution_type == 'counterterm':
+            kernel_eval = torino_to_madnk_epsexp(kernel * prefactor, mu2os / xi)
+        else:
+            kernel_eval = torino_to_madnk_epsexp(kernel * prefactor, mu2os)
+
+        logger.info('kernel_eval :' + str(kernel_eval))
 
         evaluation['values'][(0, 0, 0, 0)] = (kernel_eval).truncate(max_power=0)
 
@@ -2044,22 +2291,23 @@ class QCD_integrated_TRN_C_FqFqx(general_current.GeneralCurrent):
         if distribution_type == 'counterterm':
             evaluation['Bjorken_rescalings'] = [(1.0, 1.0),]
 
-        shat = 2 * all_steps_info[0]['lower_PS_point'][1].dot( \
-            all_steps_info[0]['lower_PS_point'][2])
-        mu_r = global_variables['mu_r']
-        mu2os = mu_r**2 / shat
+#        shat = 2 * all_steps_info[0]['lower_PS_point'][1].dot( \
+#            all_steps_info[0]['lower_PS_point'][2])
+#        mu_r = global_variables['mu_r']
+#        mu2os = mu_r**2 / shat
 
         p_p = all_steps_info[0]['lower_PS_point'][global_variables['overall_parents'][0]]
         p_r = all_steps_info[0]['lower_PS_point'][global_variables['recoiler']]
-        etapr = (p_p + p_r).square() / shat
+        mu2os = mu_r**2 / (p_p + p_r).square() 
         prefactor = self.SEpsilon * (1. / (16 * pi ** 2))
 
         recoiler = global_variables['recoiler']
 
-        logger.info('distribution : ' + str(distribution_type))
-        logger.info('global_variables : ' + str(global_variables))
+#        logger.info('distribution : ' + str(distribution_type))
+#        logger.info('global_variables : ' + str(global_variables))
         logger.info('recoiler : ' + str(recoiler))
 
+#        logger.info('NF : ' + str(NF))
         color_factor = self.TR
         overall = 2. / 3.
 
@@ -2070,7 +2318,7 @@ class QCD_integrated_TRN_C_FqFqx(general_current.GeneralCurrent):
                 'endpoint': color_factor * overall * EpsilonExpansion({
                     -2: 0.,
                     -1: - 1.,
-                    0: - (5./3. + fc.A2(fc.beta_FF) )
+                    0: - (5./3. + fc.A2(fc.beta_FF))
                 })
             }
 
@@ -2079,22 +2327,27 @@ class QCD_integrated_TRN_C_FqFqx(general_current.GeneralCurrent):
                 'bulk': color_factor * overall * EpsilonExpansion({
                     -2: 0. ,
                     -1: 0. ,
-                    0: (x**(1. + fc.beta_FI) / (1. - x)) 
+                    0: x**(1. + fc.beta_FI) / (1. - x)
                 }),
                 'counterterm': color_factor * overall * EpsilonExpansion({
                     -2: 0. ,
                     -1: 0. ,
-                    0: - (x**(1. + fc.beta_FI) / (1. - x)) 
+                    0: x**(1. + fc.beta_FI) / (1. - x)
                 }),
                 'endpoint': color_factor * overall * EpsilonExpansion({
                     -2: 0.,
                     -1: - 1.,
-                    0: - (5./3. + fc.A2(fc.beta_FI) ) 
+                    0: - (5./3. + fc.A2(fc.beta_FI)) 
                 })            
             }
 
+        if distribution_type == 'counterterm':
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os / xi)
+        else:
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os)
 
-        kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os)
+        logger.info('kernel_eval :' + str(kernel_eval))
+
         evaluation['values'][(0, 0, 0, 0)] = (kernel_eval).truncate(max_power=0)
 
         return evaluation
@@ -2177,20 +2430,21 @@ class QCD_integrated_TRN_C_FgFg(general_current.GeneralCurrent):
         if distribution_type == 'counterterm':
             evaluation['Bjorken_rescalings'] = [(1.0, 1.0),]
 
-        shat = 2 * all_steps_info[0]['lower_PS_point'][1].dot( \
-            all_steps_info[0]['lower_PS_point'][2])
-        mu_r = global_variables['mu_r']
-        mu2os = mu_r**2 / shat
+#        shat = 2 * all_steps_info[0]['lower_PS_point'][1].dot( \
+#            all_steps_info[0]['lower_PS_point'][2])
+#        mu2os = mu_r**2 / shat
 
         p_p = all_steps_info[0]['lower_PS_point'][global_variables['overall_parents'][0]]
         p_r = all_steps_info[0]['lower_PS_point'][global_variables['recoiler']]
-        etapr = (p_p + p_r).square() / shat
+#        etapr = (p_p + p_r).square() / shat
         prefactor = self.SEpsilon * (1. / (16 * pi ** 2))
+        mu2os = mu_r**2 / (p_p + p_r).square()
 
         recoiler = global_variables['recoiler']
 
-        logger.info('distribution : ' + str(distribution_type))
-        logger.info('global_variables : ' + str(global_variables))
+#        logger.info('distribution : ' + str(distribution_type))
+#        logger.info('p_p * p_r : ' + str((p_p + p_r).square()))
+        logger.info('parent :' + str(global_variables['overall_children'][0]))
         logger.info('recoiler : ' + str(recoiler))
 
         color_factor = self.CA
@@ -2200,34 +2454,38 @@ class QCD_integrated_TRN_C_FgFg(general_current.GeneralCurrent):
             kernel = {
                 'bulk': 0. ,
                 'counterterm': 0. ,
-                'endpoint': color_factor * overall * EpsilonExpansion({
-                    -2: 0.,
-                    -1: - 1.,
-                    0: - (5./3. + fc.A2(fc.beta_FF) )
+                'endpoint': color_factor * EpsilonExpansion({
+                    -2: 0. ,
+                    -1: - overall ,
+                    0: - overall * (5./3. + fc.A2(fc.beta_FF))
                 })
             }
+
 
         elif recoiler <=2:
             kernel = {
                 'bulk': color_factor * overall * EpsilonExpansion({
                     -2: 0. ,
                     -1: 0. ,
-                    0: (x**(1. + fc.beta_FI) / (1. - x)) 
+                    0: x**(1. + fc.beta_FI) / (1. - x) 
                 }),
                 'counterterm': color_factor * overall * EpsilonExpansion({
                     -2: 0. ,
                     -1: 0. ,
-                    0: - (x**(1. + fc.beta_FI) / (1. - x)) 
+                    0: x**(1. + fc.beta_FI) / (1. - x)
                 }),
-                'endpoint': color_factor * overall * EpsilonExpansion({
-                    -2: 0.,
-                    -1: - 1.,
-                    0: - (5./3. + fc.A2(fc.beta_FI) ) 
-                })            
+                'endpoint':  color_factor * EpsilonExpansion({
+                    -2: 0. ,
+                    -1: - overall ,
+                    0: - overall * (5./3. + fc.A2(fc.beta_FF) )
+                })
             }
 
+        if distribution_type == 'counterterm':
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor * 2., mu2os / xi)
+        else:
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor * 2. , mu2os)
 
-        kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os)
         evaluation['values'][(0, 0, 0, 0)] = (kernel_eval).truncate(max_power=0)
 
         return evaluation
@@ -2316,25 +2574,32 @@ class QCD_integrated_TRN_CS_FqFg(general_current.GeneralCurrent):
         # For these simple NLO integrated current, the delta simply sets them to one if the distribution type is
         # 'counterterm' and leaves them unchanged if the distribution type is 'bulk' (or 'endpoint' in which case
         # the convolution parameter is None anyway.)
+
         if distribution_type == 'counterterm':
             evaluation['Bjorken_rescalings'] = [(1.0, 1.0),]
 
+        if distribution_type == 'endpoint':
+            xi = 0.5
 
-        shat = 2 * all_steps_info[0]['lower_PS_point'][1].dot( \
-            all_steps_info[0]['lower_PS_point'][2])
-        mu_r = global_variables['mu_r']
-        mu2os = mu_r**2 / shat
+
+
+#        shat = 2 * all_steps_info[0]['lower_PS_point'][1].dot( \
+#            all_steps_info[0]['lower_PS_point'][2])
+#        mu_r = global_variables['mu_r']
+#        mu2os = mu_r**2 / shat
 
         p_p = all_steps_info[0]['lower_PS_point'][global_variables['overall_parents'][0]]
         p_r = all_steps_info[0]['lower_PS_point'][global_variables['recoiler']]
-        etapr = (p_p + p_r).square() / shat
+        mu2os = mu_r**2 / (p_p + p_r).square()
+#        etapr = (p_p + p_r).square() / shat
         prefactor = self.SEpsilon * (1. / (16 * pi ** 2))
 
         recoiler = global_variables['recoiler']
 
-        logger.info('distribution : ' + str(distribution_type))
-        logger.info('global_variables : ' + str(global_variables))
-        logger.info('recoiler : ' + str(recoiler))
+#        logger.info('shat : ' + str(shat))
+#        logger.info('global_variables : ' + str(global_variables))
+#        logger.info('recoiler : ' + str(recoiler))
+        logger.info('distribution_type :' + str(distribution_type))
 
         color_factor = self.CF
         overall = - 2.
@@ -2350,17 +2615,18 @@ class QCD_integrated_TRN_CS_FqFg(general_current.GeneralCurrent):
                 })
             }
 
+
         elif recoiler <=2:
             kernel = {
                 'bulk': color_factor * overall * EpsilonExpansion({
                     -2: 0. ,
                     -1: 0. ,
-                    0: (x**(1. + fc.beta_FI) / (1. - x)) * (- 1. + fc.A2(fc.alpha)) 
+                    0: (xi **(1. + fc.beta_FI) / (1. - xi)) * (- 1. + fc.A2(fc.alpha)) 
                 }),
                 'counterterm': color_factor * overall * EpsilonExpansion({
                     -2: 0. ,
                     -1: 0. ,
-                    0: - (x**(1. + fc.beta_FI) / (1. - x)) * (- 1. + fc.A2(fc.alpha))
+                    0: (xi **(1. + fc.beta_FI) / (1. - xi)) * (- 1. + fc.A2(fc.alpha))
                 }),
                 'endpoint': color_factor * overall * EpsilonExpansion({
                     -2: 0.,
@@ -2369,8 +2635,13 @@ class QCD_integrated_TRN_CS_FqFg(general_current.GeneralCurrent):
                 })            
             }
 
+        if distribution_type == 'counterterm':
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor, mu2os / xi)
+        else:
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor, mu2os)
 
-        kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os)
+        logger.info('kernel_eval :' + str(kernel_eval))
+
         evaluation['values'][(0, 0, 0, 0)] = (kernel_eval).truncate(max_power=0)
 
         return evaluation
@@ -2459,29 +2730,38 @@ class QCD_integrated_TRN_CS_FgFg(general_current.GeneralCurrent):
         if distribution_type == 'counterterm':
             evaluation['Bjorken_rescalings'] = [(1.0, 1.0),]
 
-        shat = 2 * all_steps_info[0]['lower_PS_point'][1].dot( \
-            all_steps_info[0]['lower_PS_point'][2])
-        mu2os = mu_r**2 / shat
+#        shat = 2 * all_steps_info[0]['lower_PS_point'][1].dot( \
+#            all_steps_info[0]['lower_PS_point'][2])
+#        mu2os = mu_r**2 / shat
 
         p_p = all_steps_info[0]['lower_PS_point'][global_variables['overall_parents'][0]]
         p_r = all_steps_info[0]['lower_PS_point'][global_variables['recoiler']]
-        etapr = (p_p + p_r).square() / shat
+#        etapr = (p_p + p_r).square() / shat
+        mu2os = mu_r**2 / (p_p + p_r).square()
         prefactor = self.SEpsilon * (1. / (16 * pi ** 2))
 
         recoiler = global_variables['recoiler']
 
         logger.info('distribution : ' + str(distribution_type))
-        logger.info('global_variables : ' + str(global_variables))
-        logger.info('recoiler : ' + str(recoiler))
+#        logger.info('global_variables : ' + str(global_variables))
+#        logger.info('recoiler : ' + str(recoiler))
 
         color_factor = self.CA
         overall = - 2.
 
         if recoiler > 2:
             kernel = {
-                'bulk': 0. ,
-                'counterterm': 0. ,
-                'endpoint': EpsilonExpansion({
+                'bulk': color_factor * overall * EpsilonExpansion({
+                    -2: 0. ,
+                    -1: 0. ,
+                    0: 0. 
+                }) ,
+                'counterterm': color_factor * overall * EpsilonExpansion({
+                    -2: 0. ,
+                    -1: 0. ,
+                    0: 0. 
+                }) ,
+                'endpoint': color_factor * overall * EpsilonExpansion({
                     -2: 0.,
                     -1: 1. - fc.A2(fc.alpha) ,
                     0: 2. - (pi**2 / 4.) + fc.A2(fc.beta_FF) * (1. - fc.A2(fc.alpha)) - (fc.A2(fc.alpha))**2 / 2. + (3./2.) * fc.polygamma(fc.alpha) 
@@ -2498,7 +2778,7 @@ class QCD_integrated_TRN_CS_FgFg(general_current.GeneralCurrent):
                 'counterterm': color_factor * overall * EpsilonExpansion({
                     -2: 0. ,
                     -1: 0. ,
-                    0: - (x**(1. + fc.beta_FI) / (1. - x)) * (- 1. + fc.A2(fc.alpha))
+                    0: (x**(1. + fc.beta_FI) / (1. - x)) * (- 1. + fc.A2(fc.alpha))
                 }),
                 'endpoint': color_factor * overall * EpsilonExpansion({
                     -2: 0.,
@@ -2508,7 +2788,12 @@ class QCD_integrated_TRN_CS_FgFg(general_current.GeneralCurrent):
             }
 
 
-        kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os)
+        if distribution_type == 'counterterm':
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor, mu2os / xi)
+        else:
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor, mu2os)
+
+        logger.info('kernel_eval :' + str(kernel_eval))
 
         evaluation['values'][(0, 0, 0, 0)] = (kernel_eval).truncate(max_power=0)
         return evaluation

@@ -35,6 +35,9 @@ def polygamma(self):
 
     return special.polygamma(1, 2 +  self)
 
+def A1(self):
+
+    return Eulergamma + special.psi(1 + self)
 
 def A2(self):
 

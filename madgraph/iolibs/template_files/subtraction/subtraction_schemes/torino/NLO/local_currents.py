@@ -51,6 +51,7 @@ def compensate_sector_wgt(PS_point, global_variables, CT_type):
             global_variables['sector_info'][0](PS_point, [])
 
 
+
 #damping_factors = [alpha_soft, beta_FF, beta_FI, beta_IF, beta_II]  ~ beta_jr
 
 
@@ -314,6 +315,7 @@ class QCD_TRN_C_FgFq(general_current.GeneralCurrent):
 
         prefactor = 1./s_rs #
         prefactor *= compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 2)
+        #prefactor *= 1. / all_steps_info[0]['jacobian']
 
 #gl
         #damping factors
@@ -362,6 +364,7 @@ class QCD_TRN_S_g(dipole_current.DipoleCurrent):
         )
     )
 
+
     # This counterterm will be used if any of the current of the list below matches
     currents = [
         sub.Current({
@@ -393,22 +396,24 @@ class QCD_TRN_S_g(dipole_current.DipoleCurrent):
             # Note that even though the soft mapping recoils against the final state, it still needs to
             # receive the list of *final state* as the recoilers, because those are the ones which will absorb
             # the transverse momentum recoil.
-            'reduced_recoilers'     : torino_config.get_final_state_recoilers,
+            'reduced_recoilers'     : torino_config.get_soft_recoilers,
             'additional_recoilers'  : sub.SubtractionLegSet([]),
         },
     ]
+
 
     def soft_kernel(self, evaluation, colored_partons, all_steps_info, global_variables):
         """Evaluate a soft type of splitting kernel, which *does* need to know about the reduced process.
         Should be specialised by the daughter class if not dummy
         """
-
+        #logger1.info('Soft kernel')
         # The colored_partons argument gives a dictionary with keys being leg numbers and values being
         # their color representation. At NLO, all we care about is what are the colored leg numbers.
         colored_partons = sorted(colored_partons.keys())
+        #logger1.info('global_variables :' + str(global_variables))
 
         # Normalization factors
-        norm = -1./2.
+        norm = - 1./2.
 
         # All contributions from the soft counterterms are color correlated so we should remove
         # the default value None from the list of color correlations
@@ -420,9 +425,14 @@ class QCD_TRN_S_g(dipole_current.DipoleCurrent):
         # and add the corresponding contributions to this current
         for i, a in enumerate(colored_partons):
             # Use the symmetry of the color correlation and soft current (a,b) <-> (b,a)
-            for b in colored_partons[i:]:
+            for k, b in enumerate(colored_partons):
+#            for b in colored_partons[i:]:
+                #logger1.info('b :' + str(b))
+
+
                 # Write the eikonal for that pair
                 if a != b:
+                #if a > b:
                     mult_factor = 2.
                 else:
                     continue # MZ as long as we just care for massless partons, this is irrelevant.
@@ -449,39 +459,63 @@ class QCD_TRN_S_g(dipole_current.DipoleCurrent):
                 # some special behaviour may be needed in the case
                 # either a or b are one of the particles defining
                 # the sector, in particular for the SC limit.
+                #logger1.info('i =' + str(i))
+                #logger1.info('a =' + str(a))
+                #logger1.info('b =' + str(b))
 
                 # At the moment, we do not implement anything special
                 eikonal = SoftKernels.eikonal_dipole(pa, pb, pS)
-                #logger1.info("eikonal = " + str(eikonal))
 
 #gl
-                #damping factors
-                if a > 2 and b > 2:
+                #damping factors to update
+                if a > 2 and b < a:
 
                     eikonal *= ( pa.dot(pb) / (pa.dot(pb) + pa.dot(pS) + pb.dot(pS)))**(factors_and_cuts.damping_factors[0])
 
-                elif a > 2 and b <= 2:
+                # this case never occurs
+#                elif a > 2 and b <= 2: 
 
-                    eikonal *= ( (1. - pa.dot(pS) / (pb.dot(pS)+pb.dot(pa)) ) * (1. - pb.dot(pS) / (pb.dot(pS)+pb.dot(pa)) ) )**(factors_and_cuts.damping_factors[0])
+#                    eikonal *= ( (1. - pa.dot(pS) / (pb.dot(pS)+pb.dot(pa)) ) * (1. - pb.dot(pS) / (pb.dot(pS)+pb.dot(pa)) ) )**(factors_and_cuts.damping_factors[0])
 
-                elif a <= 2 and b > 2:
+                elif b <= 2 and a > 2:
 
                     eikonal *= ( (1. - pb.dot(pS) / (pa.dot(pS)+pa.dot(pb)) ) * (1. - pa.dot(pS) / (pa.dot(pS)+pa.dot(pb)) ) )**(factors_and_cuts.damping_factors[0])
 
-                elif a <= 2 and b <= 2:
+                elif b <= 2 and b < a:
 
                     eikonal *= ( (pa.dot(pb) - pa.dot(pS) - pb.dot(pS)) / pa.dot(pb) )**(factors_and_cuts.damping_factors[0])
+   
+#                else:
+#                    eikonal *= 0.
 
+#                #damping factors
+#                if a > 2 and b > 2:
 
-                #logger1.info("eikonal_dumped = " + str(eikonal))
+#                    eikonal *= ( pa.dot(pb) / (pa.dot(pb) + pa.dot(pS) + pb.dot(pS)))**(factors_and_cuts.damping_factors[0])
+
+#                # this case never occurs
+##                elif a > 2 and b <= 2: 
+
+##                    eikonal *= ( (1. - pa.dot(pS) / (pb.dot(pS)+pb.dot(pa)) ) * (1. - pb.dot(pS) / (pb.dot(pS)+pb.dot(pa)) ) )**(factors_and_cuts.damping_factors[0])
+
+#                elif a <= 2 and b > 2:
+
+#                    eikonal *= ( (1. - pb.dot(pS) / (pa.dot(pS)+pa.dot(pb)) ) * (1. - pa.dot(pS) / (pa.dot(pS)+pa.dot(pb)) ) )**(factors_and_cuts.damping_factors[0])
+
+#                elif a <= 2 and b <= 2:
+
+#                    eikonal *= ( (pa.dot(pb) - pa.dot(pS) - pb.dot(pS)) / pa.dot(pb) )**(factors_and_cuts.damping_factors[0])
 
                 evaluation['color_correlations'].append(((a, b),))
                 evaluation['values'][(0, color_correlation_index, 0, color_correlation_index)] = {
-                    'finite': norm * mult_factor * eikonal * sector_prefactor}
+                    'finite': norm * mult_factor/2. * eikonal * sector_prefactor}
                 evaluation['reduced_kinematics'].append(('Dip %d-%d' % (a, b), lower_PS_point))
                 color_correlation_index += 1
 
+        #logger1.info('evaluation :' + str(evaluation))
         return evaluation
+
+
 
 #=========================================================================================
 # NLO final soft-collinear currents
@@ -716,13 +750,31 @@ class QCD_TRN_C_IgFg(general_current.GeneralCurrent):
         recoiler = all_steps_info[0]['mapping_vars']['ids']['c']
 
         if recoiler > 2:
-            prefactor *= (1. - all_steps_info[0]['variables'][0]['z_v'])**(factors_and_cuts.damping_factors[3])
+            prefactor *= (1. - all_steps_info[0]['variables'][0]['z'])**(factors_and_cuts.damping_factors[3])
         else:
-            prefactor *= (1. - all_steps_info[0]['variables'][0]['z_v'])**(factors_and_cuts.damping_factors[4])
+            prefactor *= (1. - all_steps_info[0]['variables'][0]['z'])**(factors_and_cuts.damping_factors[4])
+
+
+        CS_prefactor = 1./s_rs/x_FF #
+        CS_prefactor *= compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 3)
+#gl
+        #damping factors
+        if recoiler > 2:
+            CS_prefactor *= (1. - all_steps_info[0]['variables'][0]['z'])**(factors_and_cuts.damping_factors[3])
+            CS_prefactor *= (all_steps_info[0]['variables'][0]['x_mapping'][0])**(factors_and_cuts.damping_factors[0])
+        else:
+            CS_prefactor *= (1. - all_steps_info[0]['variables'][0]['v'])**(factors_and_cuts.damping_factors[4])
+            CS_prefactor *= (all_steps_info[0]['variables'][0]['x_mapping'][1])**(factors_and_cuts.damping_factors[0])
+
+        # include the soft_collinear counterterm here, as in the torino paper
+        # (see the definition of 'hard-collinear' splitting function there)
+        soft_col = EpsilonExpansion({0: self.CA * 2 * x_FF / x_oth, 1: 0.})
+
 
         for spin_correlation_vector, weight in AltarelliParisiKernels.P_gg(self, 1./x_FF, kT_FF):
             complete_weight = weight * prefactor
             if spin_correlation_vector is None:
+                complete_weight += soft_col * (- CS_prefactor)
                 evaluation['values'][(0, 0, 0, 0)] = {'finite': complete_weight[0]}
             else:
                 evaluation['spin_correlations'].append( ((parent, spin_correlation_vector),) )
@@ -816,9 +868,9 @@ class QCD_TRN_C_IqFq(general_current.GeneralCurrent):
         recoiler = all_steps_info[0]['mapping_vars']['ids']['c']
 
         if recoiler > 2:
-            prefactor *= (1. - all_steps_info[0]['variables'][0]['z_v'])**(factors_and_cuts.damping_factors[3])
+            prefactor *= (1. - all_steps_info[0]['variables'][0]['z'])**(factors_and_cuts.damping_factors[3])
         else:
-            prefactor *= (1. - all_steps_info[0]['variables'][0]['z_v'])**(factors_and_cuts.damping_factors[4])
+            prefactor *= (1. - all_steps_info[0]['variables'][0]['z'])**(factors_and_cuts.damping_factors[4])
 
         # include the soft_collinear counterterm here, as in the torino paper
         # (see the definition of 'hard-collinear' splitting function there)
@@ -919,9 +971,9 @@ class QCD_TRN_C_IgFq(general_current.GeneralCurrent):
         recoiler = all_steps_info[0]['mapping_vars']['ids']['c']
 
         if recoiler > 2:
-            prefactor *= (1. - all_steps_info[0]['variables'][0]['z_v'])**(factors_and_cuts.damping_factors[3])
+            prefactor *= (1. - all_steps_info[0]['variables'][0]['z'])**(factors_and_cuts.damping_factors[3])
         else:
-            prefactor *= (1. - all_steps_info[0]['variables'][0]['z_v'])**(factors_and_cuts.damping_factors[4])
+            prefactor *= (1. - all_steps_info[0]['variables'][0]['z'])**(factors_and_cuts.damping_factors[4])
 
         # include the soft_collinear counterterm here, as in the torino paper
         # (see the definition of 'hard-collinear' splitting function there)
@@ -1023,18 +1075,32 @@ class QCD_TRN_C_IqFg(general_current.GeneralCurrent):
         recoiler = all_steps_info[0]['mapping_vars']['ids']['c']
 
         if recoiler > 2:
-            prefactor *= (1. - all_steps_info[0]['variables'][0]['z_v'])**(factors_and_cuts.damping_factors[3])
+            prefactor *= (1. - all_steps_info[0]['variables'][0]['z'])**(factors_and_cuts.damping_factors[3])
         else:
-            prefactor *= (1. - all_steps_info[0]['variables'][0]['z_v'])**(factors_and_cuts.damping_factors[4])
+            prefactor *= (1. - all_steps_info[0]['variables'][0]['z'])**(factors_and_cuts.damping_factors[4])
+
+
+        CS_prefactor = 1./s_rs/x_FF #
+        CS_prefactor *= compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 3)
+
+#gl
+        #damping factors
+        if recoiler > 2:
+            CS_prefactor *= (1. - all_steps_info[0]['variables'][0]['z'])**(factors_and_cuts.damping_factors[3])
+            CS_prefactor *= (all_steps_info[0]['variables'][0]['x_mapping'][0])**(factors_and_cuts.damping_factors[0])
+        else:
+            CS_prefactor *= (1. - all_steps_info[0]['variables'][0]['v'])**(factors_and_cuts.damping_factors[4])
+            CS_prefactor *= (all_steps_info[0]['variables'][0]['x_mapping'][1])**(factors_and_cuts.damping_factors[0])
 
         # include the soft_collinear counterterm here, as in the torino paper
         # (see the definition of 'hard-collinear' splitting function there)
-#        soft_col = EpsilonExpansion({0: self.CF * 2 * x_FF / x_oth, 1: 0.})
-        soft_col = 0.
+        soft_col = EpsilonExpansion({0: self.CF * 2 * x_FF / x_oth, 1: 0.})
+        complete_weight = soft_col * CS_prefactor
+
         for spin_correlation_vector, weight in AltarelliParisiKernels.P_qg(self, x_FF, kT_FF):
             complete_weight = weight * prefactor
             if spin_correlation_vector is None:
-                complete_weight += soft_col * (- prefactor)
+                complete_weight += soft_col * (- CS_prefactor)
                 evaluation['values'][(0, 0, 0, 0)] = {'finite': complete_weight[0]}
             else:
                 evaluation['spin_correlations'].append( ((parent, spin_correlation_vector),) )
@@ -1047,16 +1113,20 @@ class QCD_TRN_C_IqFg(general_current.GeneralCurrent):
 # NLO soft initial-collinear currents
 #=========================================================================================
 
-class QCD_TRN_CS_IqFg(general_current.GeneralCurrent):
+class QCD_TRN_CS_IqFg(dipole_current.DipoleCurrent):
     """ FI C(S(g),q)
     NLO tree-level (final) soft-collinear currents. Returns zero, since we have already subtracted the
     soft-col singularity inside the splitting functions"""
 
+    divide_by_jacobian = torino_config.divide_by_jacobian
+
+    variables = None
+
     soft_structure = sub.SoftStructure(
-        legs=(sub.SubtractionLeg(10, 21, sub.SubtractionLeg.FINAL), ) )
+        legs=(sub.SubtractionLeg(11, 21, sub.SubtractionLeg.FINAL), ) )
     soft_coll_structure_q = sub.CollStructure(
         substructures=(soft_structure, ),
-        legs=(sub.SubtractionLeg(11,  +1, sub.SubtractionLeg.INITIAL), ) )
+        legs=(sub.SubtractionLeg(10,  +1, sub.SubtractionLeg.INITIAL), ) )
 #    soft_coll_structure_qx = sub.CollStructure(
 #        substructures=(soft_structure, ),
 #        legs=(sub.SubtractionLeg(11,  -1, sub.SubtractionLeg.INITIAL), ) )
@@ -1088,60 +1158,115 @@ class QCD_TRN_CS_IqFg(general_current.GeneralCurrent):
         {
             'singular_structure'    : sub.SingularStructure(substructures=(sub.CollStructure(
                 substructures=[sub.SoftStructure(
-                               legs=(sub.SubtractionLeg(10, 21, sub.SubtractionLeg.FINAL), ) )],
-                legs=(sub.SubtractionLeg(11, +1, sub.SubtractionLeg.INITIAL),)
+                               legs=(sub.SubtractionLeg(11, 21, sub.SubtractionLeg.FINAL), ) )],
+                legs=(sub.SubtractionLeg(10, +1, sub.SubtractionLeg.INITIAL),)
             ),)),
-            'mapping'               : torino_config.initial_coll_mapping,
+            'mapping'               : torino_config.soft_mapping, 
             # Intermediate legs should be strictly superior to a 1000
-            'momenta_dict'          : bidict({-1:frozenset((10,11))}),
-            'variables'             : general_current.CompoundVariables(kernel_variables.TRN_IFn_variables),
+            'momenta_dict'          : bidict({-1:frozenset((10,11))}),   
+            'variables'             : None, #general_current.CompoundVariables(kernel_variables.TRN_IFn_variables),
             'is_cut'                : torino_config.generalised_cuts,
-            'reduced_recoilers'     : torino_config.get_initial_state_recoilers,
-            'additional_recoilers'  : sub.SubtractionLegSet([]),
+            'reduced_recoilers'     : torino_config.get_soft_recoilers,
+            'additional_recoilers'  : sub.SubtractionLegSet([]), 
         },
     ]
 
-    def kernel(self, evaluation, all_steps_info, global_variables):
-        """ Evaluate this counterterm given the variables provided. """
 
-        x_soft  = all_steps_info[0]['variables'][0]['xs'][1]
-        x_oth = all_steps_info[0]['variables'][0]['xs'][0]
-        s_rs  = all_steps_info[0]['variables'][0]['ss'][(0,1)]
+    def soft_kernel(self, evaluation, colored_partons, all_steps_info, global_variables):
+        """Evaluate a soft type of splitting kernel, which *does* need to know about the reduced process.
+        Should be specialised by the daughter class if not dummy
+        """
+        #logger1.info('Soft kernel CS')
 
-        prefactor = 1./s_rs/x_oth #
-        prefactor *= compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 3)
-
-#gl
-        #damping factors
-        recoiler = all_steps_info[0]['mapping_vars']['ids']['c']
-
-        if recoiler > 2:
-            prefactor *= (1. - all_steps_info[0]['variables'][0]['z_v'])**(factors_and_cuts.damping_factors[3])
-            prefactor *= (all_steps_info[0]['variables'][0]['x_mapping'][0])**(factors_and_cuts.damping_factors[0])
+        if global_variables['overall_children'][0][0] != 1:
+            logger1.info('global_variables[overall_children][0][0] : ' + str(global_variables['overall_children'][0][0]))
+            is_zero = True
         else:
-            prefactor *= (1. - all_steps_info[0]['variables'][0]['z_v'])**(factors_and_cuts.damping_factors[4])
-            prefactor *= (all_steps_info[0]['variables'][0]['x_mapping'][1])**(factors_and_cuts.damping_factors[0])
+            # The colored_partons argument gives a dictionary with keys being leg numbers and values being
+            # their color representation. At NLO, all we care about is what are the colored leg numbers.
+            colored_partons = sorted(colored_partons.keys())
 
-        # include the soft_collinear counterterm here, as in the torino paper
-        # (see the definition of 'hard-collinear' splitting function there)
-        soft_col = EpsilonExpansion({0: self.CF * 2 * x_oth / x_soft, 1: 0.})
-        complete_weight = soft_col * prefactor
-        evaluation['values'][(0, 0, 0, 0)] = {'finite': complete_weight[0]}
+            # Normalization factors
+            norm = - 1./2.
+
+            # All contributions from the soft counterterms are color correlated so we should remove
+            # the default value None from the list of color correlations
+            evaluation['color_correlations'] = []
+
+            color_correlation_index = 0
+
+            # Now loop over the colored parton number pairs (a,b)
+            # and add the corresponding contributions to this current
+            for i, a in enumerate(colored_partons):
+                # Use the symmetry of the color correlation and soft current (a,b) <-> (b,a)
+                for k, b in enumerate(colored_partons):
+
+                    # Write the eikonal for that pair
+                    if a != b and (a+b) == 3:
+                        mult_factor = 2.
+                    else:
+                        continue # MZ as long as we just care for massless partons, this is irrelevant.
+                        # note that this has to be taken care of for the case of massive one, in
+                        # particular how to identify the extra recoiler for the momentum mapping
+                        mult_factor = 1.
 
 
+                    # Retrieve the reduced kinematics as well as the soft momentum
+                    lower_PS_point = all_steps_info[(a, b)][0]['lower_PS_point']
+                    higher_PS_point = all_steps_info[(a, b)][0]['higher_PS_point']
+
+                    sector_prefactor = compensate_sector_wgt(higher_PS_point, global_variables, 3)
+
+                    ###pS = higher_PS_point[all_steps_info[(a, b)][0]['bundles_info'][0]['final_state_children'][0]]
+                    # the above expression cannot be used any more since we use a mapping structure of collinear
+                    #  type also for this current
+                    pS = higher_PS_point[ self.map_leg_number(
+                                        global_variables['leg_numbers_map'],
+                                        self.soft_structure.legs[0].n,
+                                        global_variables['overall_parents'])]
+
+                    pa = higher_PS_point[a]
+                    pb = higher_PS_point[b]
+                    # some special behaviour may be needed in the case
+                    # either a or b are one of the particles defining
+                    # the sector, in particular for the SC limit.
+                    #logger1.info('i =' + str(i))
+#                    logger1.info('a =' + str(a))
+#                    logger1.info('b =' + str(b))
+                     
+
+                    # At the moment, we do not implement anything special
+                    eikonal = (-1.)**(1. + a) * self.CF * SoftKernels.eikonal_dipole(pa, pb, pS)
+
+
+
+                    evaluation['color_correlations'].append(((a, b),))
+                    evaluation['values'][(0, color_correlation_index, 0, color_correlation_index)] = {
+                        'finite': norm * mult_factor/2. * eikonal * sector_prefactor}
+                    evaluation['reduced_kinematics'].append(('Dip %d-%d' % (a, b), lower_PS_point))
+                    color_correlation_index += 1
+
+        #logger1.info('evaluation :' + str(evaluation))
         return evaluation
 
 
 
-class QCD_TRN_CS_IgFg(general_current.GeneralCurrent):
-    """ FI C(S(g),g)
-    NLO tree-level (final) soft-collinear currents. """
+class QCD_TRN_CS_IgFg(dipole_current.DipoleCurrent):
+    """ FI C(S(g),q)
+    NLO tree-level (final) soft-collinear currents. Returns zero, since we have already subtracted the
+    soft-col singularity inside the splitting functions"""
+
+    divide_by_jacobian = torino_config.divide_by_jacobian
+
+    variables = None
 
     soft_structure = sub.SoftStructure(
-        legs=(sub.SubtractionLeg(10, 21, sub.SubtractionLeg.FINAL), ) )
-    soft_coll_structure_q = sub.CollStructure(
+        legs=(sub.SubtractionLeg(11, 21, sub.SubtractionLeg.FINAL), ) )
+    soft_coll_structure_g = sub.CollStructure(
         substructures=(soft_structure, ),
-        legs=(sub.SubtractionLeg(11, 21, sub.SubtractionLeg.INITIAL), ) )
+        legs=(sub.SubtractionLeg(10,  21, sub.SubtractionLeg.INITIAL), ) )
+
+#    is_zero = True
 
     # This counterterm will be used if any of the current of the list below matches
     currents = [
@@ -1149,7 +1274,7 @@ class QCD_TRN_CS_IgFg(general_current.GeneralCurrent):
             'resolve_mother_spin_and_color'     : True,
             'n_loops'                           : 0,
             'squared_orders'                    : {'QCD': 2},
-            'singular_structure'                : sub.SingularStructure(substructures=(soft_coll_structure_q,)),
+            'singular_structure'                : sub.SingularStructure(substructures=(soft_coll_structure_g,)),
         }),
     ]
 
@@ -1162,47 +1287,98 @@ class QCD_TRN_CS_IgFg(general_current.GeneralCurrent):
         {
             'singular_structure'    : sub.SingularStructure(substructures=(sub.CollStructure(
                 substructures=[sub.SoftStructure(
-                    legs=(sub.SubtractionLeg(10, 21, sub.SubtractionLeg.FINAL), ) )],
-                legs=(sub.SubtractionLeg(11, 21, sub.SubtractionLeg.INITIAL),)
+                               legs=(sub.SubtractionLeg(11, 21, sub.SubtractionLeg.FINAL), ) )],
+                legs=(sub.SubtractionLeg(10, 21, sub.SubtractionLeg.INITIAL),)
             ),)),
-            'mapping'               : torino_config.initial_coll_mapping,
+            'mapping'               : torino_config.soft_mapping, 
             # Intermediate legs should be strictly superior to a 1000
-            'momenta_dict'          : bidict({-1:frozenset((10,11))}),
-            'variables'             : general_current.CompoundVariables(kernel_variables.TRN_IFn_variables),
+            'momenta_dict'          : bidict({-1:frozenset((10,11))}),   
+            'variables'             : None, #general_current.CompoundVariables(kernel_variables.TRN_IFn_variables),
             'is_cut'                : torino_config.generalised_cuts,
-            'reduced_recoilers'     : torino_config.get_initial_state_recoilers,
-            'additional_recoilers'  : sub.SubtractionLegSet([]),
+            'reduced_recoilers'     : torino_config.get_soft_recoilers,
+            'additional_recoilers'  : sub.SubtractionLegSet([]), 
         },
     ]
 
 
-    def kernel(self, evaluation, all_steps_info, global_variables):
-        """ Evaluate this counterterm given the variables provided. """
+    def soft_kernel(self, evaluation, colored_partons, all_steps_info, global_variables):
+        """Evaluate a soft type of splitting kernel, which *does* need to know about the reduced process.
+        Should be specialised by the daughter class if not dummy
+        """
+        #logger1.info('Soft kernel CS')
 
-        x_soft  = all_steps_info[0]['variables'][0]['xs'][1]
-        x_oth = all_steps_info[0]['variables'][0]['xs'][0]
-        s_rs  = all_steps_info[0]['variables'][0]['ss'][(0,1)]
-
-        prefactor = 1./s_rs/x_oth #
-        prefactor *= compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 3)
-
-#gl
-        #damping factors
-        recoiler = all_steps_info[0]['mapping_vars']['ids']['c']
-
-        if recoiler > 2:
-            prefactor *= (1. - all_steps_info[0]['variables'][0]['z_v'])**(factors_and_cuts.damping_factors[3])
-            prefactor *= (all_steps_info[0]['variables'][0]['x_mapping'][0])**(factors_and_cuts.damping_factors[0])
+        if global_variables['overall_children'][0][0] != 1:
+            logger1.info('global_variables[overall_children][0][0] : ' + str(global_variables['overall_children'][0][0]))
+            is_zero = True
         else:
-            prefactor *= (1. - all_steps_info[0]['variables'][0]['z_v'])**(factors_and_cuts.damping_factors[4])
-            prefactor *= (all_steps_info[0]['variables'][0]['x_mapping'][1])**(factors_and_cuts.damping_factors[0])
+            # The colored_partons argument gives a dictionary with keys being leg numbers and values being
+            # their color representation. At NLO, all we care about is what are the colored leg numbers.
+            colored_partons = sorted(colored_partons.keys())
 
-        # include the soft_collinear counterterm here, as in the torino paper
-        # (see the definition of 'hard-collinear' splitting function there)
-        soft_col = EpsilonExpansion({0: self.CA * 2 * x_oth / x_soft, 1: 0.})
-        complete_weight = soft_col * prefactor
-        evaluation['values'][(0, 0, 0, 0)] = {'finite': complete_weight[0]}
+            # Normalization factors
+            norm = - 1./2.
 
+            # All contributions from the soft counterterms are color correlated so we should remove
+            # the default value None from the list of color correlations
+            evaluation['color_correlations'] = []
+
+            color_correlation_index = 0
+
+            # Now loop over the colored parton number pairs (a,b)
+            # and add the corresponding contributions to this current
+            for i, a in enumerate(colored_partons):
+                # Use the symmetry of the color correlation and soft current (a,b) <-> (b,a)
+                for k, b in enumerate(colored_partons):
+
+                    # Write the eikonal for that pair
+                    if a != b and (a+b) == 3:
+                        mult_factor = 2.
+                    else:
+                        continue # MZ as long as we just care for massless partons, this is irrelevant.
+                        # note that this has to be taken care of for the case of massive one, in
+                        # particular how to identify the extra recoiler for the momentum mapping
+                        mult_factor = 1.
+
+
+                    # Retrieve the reduced kinematics as well as the soft momentum
+                    lower_PS_point = all_steps_info[(a, b)][0]['lower_PS_point']
+                    higher_PS_point = all_steps_info[(a, b)][0]['higher_PS_point']
+
+                    sector_prefactor = compensate_sector_wgt(higher_PS_point, global_variables, 3)
+
+                    ###pS = higher_PS_point[all_steps_info[(a, b)][0]['bundles_info'][0]['final_state_children'][0]]
+                    # the above expression cannot be used any more since we use a mapping structure of collinear
+                    #  type also for this current
+                    pS = higher_PS_point[ self.map_leg_number(
+                                        global_variables['leg_numbers_map'],
+                                        self.soft_structure.legs[0].n,
+                                        global_variables['overall_parents'])]
+
+                    pa = higher_PS_point[a]
+                    pb = higher_PS_point[b]
+                    # some special behaviour may be needed in the case
+                    # either a or b are one of the particles defining
+                    # the sector, in particular for the SC limit.
+                    #logger1.info('i =' + str(i))
+#                    logger1.info('a =' + str(a))
+#                    logger1.info('b =' + str(b))
+                     
+
+                    # At the moment, we do not implement anything special
+                    eikonal = (-1.)**(1. + a) * self.CF * SoftKernels.eikonal_dipole(pa, pb, pS)
+
+
+                    evaluation['color_correlations'].append(((a, b),))
+                    evaluation['values'][(0, color_correlation_index, 0, color_correlation_index)] = {
+                        'finite': norm * mult_factor/2. * eikonal * sector_prefactor}
+                    evaluation['reduced_kinematics'].append(('Dip %d-%d' % (a, b), lower_PS_point))
+                    color_correlation_index += 1
+
+        #logger1.info('evaluation :' + str(evaluation))
         return evaluation
+
+
+
+
 
 

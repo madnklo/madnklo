@@ -296,6 +296,19 @@ def get_final_state_recoilers(reduced_process, excluded=(), global_variables={})
             return sub.SubtractionLegSet([final_recoilers[0]])
 
 
+def get_soft_recoilers(reduced_process, excluded=(), **opts):
+
+    model = reduced_process.get('model')
+    logger.info('Soft_recoilers : ' + str([
+        leg for leg in reduced_process.get('legs') if all([
+            leg['number'] not in excluded
+        ])
+    ]))
+    return sub.SubtractionLegSet([
+        leg for leg in reduced_process.get('legs') if all([
+            leg['number'] not in excluded
+        ])
+    ]) 
 
 
 
@@ -324,9 +337,9 @@ final_coll_factor = factors_and_cuts.no_factor
 final_coll_cut = factors_and_cuts.no_cut
 
 # Final soft-collinear configuration (not strictly speaking necessary)
-final_soft_coll_mapping = mappings.FinalTRNMapping()
-initial_soft_coll_mapping = mappings.SoftCollinearVsFinalMapping(
-    soft_mapping=soft_mapping, collinear_mapping=initial_coll_mapping)
+#final_soft_coll_mapping = mappings.FinalTRNMapping()
+#initial_soft_coll_mapping = mappings.SoftCollinearVsFinalMapping(
+#    soft_mapping=soft_mapping, collinear_mapping=initial_coll_mapping)
 
 def generalised_cuts(cut_inputs, global_variables):
     """ Function applying the correct cut for each bundles depending on the variables passed for each which can be:

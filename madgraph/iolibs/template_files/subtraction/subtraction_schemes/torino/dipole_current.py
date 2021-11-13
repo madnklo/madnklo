@@ -9,7 +9,11 @@ import madgraph.integrator.mappings as mappings
 import madgraph.core.subtraction as sub
 import bidict
 import torino_config as TRN_config
+import factors_and_cuts as fc
 
+
+import logging
+logger1 = logging.getLogger('madgraph')
 
 
 class DipoleCurrent(general_current.GeneralCurrent):
@@ -58,6 +62,12 @@ class DipoleCurrent(general_current.GeneralCurrent):
         overall_parents = global_variables['overall_parents']
         leg_numbers_map = global_variables['leg_numbers_map']
 
+#        logger1.info('sector_legs : ' + str(sector_legs))
+#        logger1.info('overall_parents : ' + str(overall_parents))
+#        logger1.info('leg_numbers_map : ' + str(leg_numbers_map))
+
+        #logger1.info('reduced_process : ' + str(global_variables))
+
         for i_step, mapping_information in enumerate(self.mapping_rules):
 
             # Now recursively apply leg numbers mappings
@@ -73,27 +83,66 @@ class DipoleCurrent(general_current.GeneralCurrent):
 
                     # identify the leg that belongs to the sector
                     # and the one that does not
-                    if ia in sector_legs:
-                        sec_leg = lega
-                        oth_leg = legb
-                    elif ib in sector_legs:
-                        sec_leg = legb
-                        oth_leg = lega
-                    else:
-                        # in this case, the leg assignment is arbitrary.
-                        sec_leg = lega
-                        oth_leg = legb
+                    sec_leg = lega
+                    oth_leg = legb
+#                    if ia in sector_legs:
+#                        sec_leg = lega
+#                        oth_leg = legb
+#                    elif ib in sector_legs:
+#                        sec_leg = legb
+#                        oth_leg = lega
+#                    else:
+#                        # in this case, the leg assignment is arbitrary.
+#                        sec_leg = lega
+#                        oth_leg = legb
 
-                    if singular_structure.name() == 'C':
+#                    logger1.info('singular_structure name : ' + str(singular_structure.name()))
+#                    logger1.info('ia : ' + str(lega))
+#                    logger1.info('ib : ' + str(legb))
+
+
+#                    if singular_structure.name() == 'C' and singular_structure.substructures[0].name() == 'S':
+#                        logger1.info('Here we are: ' + str(singular_structure))
+
+#                        mapping_structure = sub.SingularStructure(substructures=(singular_structure, ), \
+#                                                        legs=sub.SubtractionLegSet((oth_leg,)))
+#                        logger1.info('Legs : ' + str(sec_leg) + ',' + str(oth_leg)) 
+#                        logger1.info('self.map_leg_number(leg_numbers_map, k, overall_parents) : ' + str(mapping_information['momenta_dict'].items())) 
+
+#                        mapping_dict = bidict({self.map_leg_number(leg_numbers_map, k, overall_parents): frozenset([
+#                            self.map_leg_number(leg_numbers_map, n, overall_parents) for n in v]) for k, v in
+#                            mapping_information['momenta_dict'].items()})
+
+
+#                    elif singular_structure.name() == 'C' and singular_structure.substructures[0].name() != 'S':
+                    if singular_structure.name() == 'C' and ia == 1 and ib == 2:
                         # collinear structure: one among ia and ib is already
                         # in the singular_structure. Add the other
                         mapping_structure = sub.SingularStructure(substructures=(singular_structure, ), \
                                                         legs=sub.SubtractionLegSet((oth_leg,)))
 
                         # Build the momenta_dict by also substituting leg numbers
-                        mapping_dict = bidict({self.map_leg_number(leg_numbers_map, k, overall_parents): frozenset([
+#                        mapping_dict = bidict.bidict({self.map_leg_number(leg_numbers_map, k, overall_parents): frozenset([
+#                            self.map_leg_number(leg_numbers_map, 11, overall_parents), ia]) for k, v in
+#                            mapping_information['momenta_dict'].items()})
+                     
+
+                        mapping_dict = bidict.bidict({self.map_leg_number(leg_numbers_map, k, overall_parents): frozenset([
                             self.map_leg_number(leg_numbers_map, n, overall_parents) for n in v]) for k, v in
                             mapping_information['momenta_dict'].items()})
+
+                    elif singular_structure.name() == 'C' and ia == 2 and ib == 1:
+                        # collinear structure: one among ia and ib is already
+                        # in the singular_structure. Add the other
+                        mapping_structure = sub.SingularStructure(substructures=(singular_structure, ), \
+                                                        legs=sub.SubtractionLegSet((oth_leg,)))
+
+                        # Build the momenta_dict by also substituting leg numbers
+                        mapping_dict = bidict.bidict({self.map_leg_number(leg_numbers_map, k, overall_parents): frozenset([
+                            self.map_leg_number(leg_numbers_map, n, overall_parents) for n in v]) for k, v in
+                            mapping_information['momenta_dict'].items()})
+
+
                     elif singular_structure.name() == 'S':
                         # soft structure. Build first a collinear structure
                         # with sec_leg, then add oth_leg
@@ -102,13 +151,34 @@ class DipoleCurrent(general_current.GeneralCurrent):
                                                                 legs=sub.SubtractionLegSet((sec_leg, ))
                                                                 ), ), \
                         legs=sub.SubtractionLegSet((oth_leg, )))
-                        mapping_dict = bidict.bidict({-1: frozenset([singular_structure.legs[0].n, sec_leg.n])})
+                        if overall_parents[0] != None:
+
+                            mapping_dict = bidict.bidict({overall_parents[0]: frozenset([singular_structure.legs[0].n, ia])})
+#                            mapping_info_list.append(\
+#                                ((ia,ib), [{'mapping_class': mapping_information['mapping'],
+#                                            'mapping_singular_structure': mapping_structure,
+#                                            'mapping_momenta_dict': mapping_dict}])\
+#                                )
+
+                        elif ia != ib:
+#                        elif ia > ib:
+                            mapping_dict = bidict.bidict({-1: frozenset([singular_structure.legs[0].n, sec_leg.n])})
+#                            mapping_info_list.append(\
+#                                ((ia,ib), [{'mapping_class': mapping_information['mapping'],
+#                                            'mapping_singular_structure': mapping_structure,
+#                                            'mapping_momenta_dict': mapping_dict}])\
+#                                )
+                        else:
+                            continue
+                    else:
+                        continue
 
                     mapping_info_list.append(\
                         ((ia,ib), [{'mapping_class': mapping_information['mapping'],
                                     'mapping_singular_structure': mapping_structure,
                                     'mapping_momenta_dict': mapping_dict}])\
                         )
+#        logger1.info('From DipoleCurrent : ' + str(mapping_info_list))
         return mapping_info_list
 
 
@@ -117,10 +187,86 @@ class DipoleCurrent(general_current.GeneralCurrent):
          with only colored legs in it"""
 
         c_legs_numbers = self.get_colored_leg_numbers(reduced_process).keys()
+#        logger1.info('c_legs_numbers_start : ' + str(c_legs_numbers))
+        for i in range(0,len(c_legs_numbers)):
+            for j in range(0,len(c_legs_numbers)):
+                if c_legs_numbers[i] == 2 and c_legs_numbers[j] == 6:
+                    c_legs_numbers[j] = 1
+                elif c_legs_numbers[i] == 1 and c_legs_numbers[j] == 6:
+                    c_legs_numbers[j] = 2
+                elif c_legs_numbers[i] == 6 and c_legs_numbers[j] == 2:
+                    c_legs_numbers[i] = 1
+                elif c_legs_numbers[i] == 6 and c_legs_numbers[j] == 1:
+                    c_legs_numbers[i] = 2
+                else:
+                    continue
+
+#        logger1.info('c_legs_numbers_end : ' + str(c_legs_numbers))
+
         c_legs = {}
+        reduced_process_legs = []
+        for l in reduced_process.get('legs'):
+            reduced_process_legs.append(l)
+#        logger1.info('reduced_process_legs : ' + str(reduced_process_legs))
+
+        if reduced_process_legs[0]['number'] == 6:
+            reduced_process_legs[0]['number'] = 1
+        elif reduced_process_legs[1]['number'] == 6:
+            reduced_process_legs[1]['number'] = 2
+
         for l in reduced_process.get('legs'):
             if l['number'] in c_legs_numbers:
+
                 c_legs[l['number']] = sub.SubtractionLeg(l)
+
+####
+#        c_legs_numbers = self.get_colored_leg_numbers(reduced_process).keys()
+#        if c_legs_numbers[0] == 6 and c_legs_numbers[1] == 1:
+#            c_legs_numbers[0] = 2
+#        elif c_legs_numbers[0] == 6 and c_legs_numbers[1] == 2:
+#            c_legs_numbers[0] = 1
+#        elif c_legs_numbers[0] == 1 and c_legs_numbers[1] == 6:
+#            c_legs_numbers[1] = 2
+#        elif c_legs_numbers[0] == 2 and c_legs_numbers[1] == 6:
+#            c_legs_numbers[1] = 1
+##        logger1.info('c_legs_numbers : ' + str(reduced_process_legs))
+
+#        c_legs = {}
+#        reduced_process_legs = []
+#        for l in reduced_process.get('legs'):
+#            reduced_process_legs.append(l)
+##        logger1.info('c_legs_numbers : ' + str(reduced_process_legs[0]))
+
+
+#        if reduced_process_legs[0]['number'] == 6:
+#            reduced_process_legs[0]['number'] = 1
+#        elif reduced_process_legs[1]['number'] == 6:
+#            reduced_process_legs[1]['number'] = 2
+
+#        for k in reduced_process_legs:
+#            if k['number'] in c_legs_numbers:
+#                #logger1.info('l number :' + str(l['number']))
+##                if l['number'] == 6:
+##                    l['number'] = 1
+
+#                c_legs[k['number']] = sub.SubtractionLeg(k)
+
+####
+
+##        c_legs = {}
+#        for l in reduced_process.get('legs'):
+##            if l['number'] == 6:
+##                l['number'] = 1
+#            if l['number'] in c_legs_numbers:
+#                #logger1.info('l number :' + str(l['number']))
+##                if l['number'] == 6:
+##                    l['number'] = 1
+
+#                c_legs[l['number']] = sub.SubtractionLeg(l)
+
+
+ 
+#        logger1.info('clegs :' + str(c_legs))
 
         return c_legs
 

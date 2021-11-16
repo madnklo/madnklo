@@ -1865,23 +1865,22 @@ class QCD_integrated_TRN_S_g(general_current.GeneralCurrent):
 
                 if a <= 2 and b <= 2:
 #                    logger.info('soft caso D')
-                    #manca parte finita con integrazione su entrambe le x
+
                     kernel = {
                         'bulk': prefactor * EpsilonExpansion({
                             -2: 0. ,
                             -1: 2. * x**(1. + fc.alpha) / (1. - x) ,
-                            0: 2. * fc.A2(fc.alpha) * (x **(1. + fc.alpha) / (1. - x)) \
-                               - 2. * ( ( log(1.-x) * x **(1. + fc.alpha) ) / (1. - x)) - ( log(x) * x **(1. + fc.alpha) ) / (1. - x)
+                            0: - 4. * ( log(x) * x **(1. + fc.alpha) ) / (1. - x)
                         }) ,
                         'counterterm': prefactor * EpsilonExpansion({
                             -2: 0. ,
                             -1: 2. * x**(1. + fc.alpha) / (1. - x) ,
-                            0: 2. * fc.A2(fc.alpha) * (x **(1. + fc.alpha) / (1. - x)) - 2. * ( ( log(1.-x) * x **(1. + fc.alpha) ) / (1. - x))
+                            0: - 4. * ( log(x) * x **(1. + fc.alpha) ) / (1. - x)
                         }) ,
                         'endpoint': prefactor * EpsilonExpansion({
                             -2: - 1. ,
                             -1: - 2. * fc.A2(fc.alpha) ,
-                            0: - (math.pi**2 / 12.) - 2. * fc.A2(fc.alpha) + fc.polygamma(fc.alpha)
+                            0: - (math.pi**2 / 12.) - 2. * fc.A2(fc.alpha) + 2. * fc.polygamma(fc.alpha)
                         })                    
                     }
 

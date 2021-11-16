@@ -76,8 +76,8 @@ class DipoleCurrent(general_current.GeneralCurrent):
             singular_structure = mapping_singular_structure.substructures[0]
             singular_legs = singular_structure.legs
 
-            for ia, lega in self.get_colored_legs(reduced_process).items():
-                for ib, legb in self.get_colored_legs(reduced_process).items():
+            for ia, lega in self.get_colored_legs(reduced_process,global_variables).items():
+                for ib, legb in self.get_colored_legs(reduced_process,global_variables).items():
                     if ia == ib:
                         continue
 
@@ -97,8 +97,8 @@ class DipoleCurrent(general_current.GeneralCurrent):
 #                        oth_leg = legb
 
 #                    logger1.info('singular_structure name : ' + str(singular_structure.name()))
-#                    logger1.info('ia : ' + str(lega))
-#                    logger1.info('ib : ' + str(legb))
+                    #logger1.info('ia : ' + str(lega))
+                    #logger1.info('ib : ' + str(legb))
 
 
 #                    if singular_structure.name() == 'C' and singular_structure.substructures[0].name() == 'S':
@@ -160,8 +160,8 @@ class DipoleCurrent(general_current.GeneralCurrent):
 #                                            'mapping_momenta_dict': mapping_dict}])\
 #                                )
 
-                        elif ia != ib:
-#                        elif ia > ib:
+#                        elif ia != ib:
+                        elif ia > ib:
                             mapping_dict = bidict.bidict({-1: frozenset([singular_structure.legs[0].n, sec_leg.n])})
 #                            mapping_info_list.append(\
 #                                ((ia,ib), [{'mapping_class': mapping_information['mapping'],
@@ -178,30 +178,51 @@ class DipoleCurrent(general_current.GeneralCurrent):
                                     'mapping_singular_structure': mapping_structure,
                                     'mapping_momenta_dict': mapping_dict}])\
                         )
-#        logger1.info('From DipoleCurrent : ' + str(mapping_info_list))
+        logger1.info('From DipoleCurrent : ' + str(mapping_info_list))
         return mapping_info_list
 
 
-    def get_colored_legs(self, reduced_process):
+    def get_colored_legs(self, reduced_process, global_variables):
         """ returns a dictionary {leg_number : leg}
          with only colored legs in it"""
 
+        c_legs_numbers = []
+        #logger1.info('c_legs_numbers_pre_start : ' + str(c_legs_numbers))
         c_legs_numbers = self.get_colored_leg_numbers(reduced_process).keys()
-#        logger1.info('c_legs_numbers_start : ' + str(c_legs_numbers))
+        #logger1.info('c_legs_numbers_start : ' + str(c_legs_numbers))
+        overall_parents = global_variables['overall_parents']
+        #logger1.info('overall_parents : ' + str(overall_parents[0]))
+        #logger1.info('c_legs_numbers_start_post : ' + str(c_legs_numbers))
+
+
+        tmp_c_legs_numbers = c_legs_numbers
         for i in range(0,len(c_legs_numbers)):
             for j in range(0,len(c_legs_numbers)):
-                if c_legs_numbers[i] == 2 and c_legs_numbers[j] == 6:
-                    c_legs_numbers[j] = 1
-                elif c_legs_numbers[i] == 1 and c_legs_numbers[j] == 6:
-                    c_legs_numbers[j] = 2
-                elif c_legs_numbers[i] == 6 and c_legs_numbers[j] == 2:
-                    c_legs_numbers[i] = 1
-                elif c_legs_numbers[i] == 6 and c_legs_numbers[j] == 1:
-                    c_legs_numbers[i] = 2
+                if c_legs_numbers[i] == 2 and c_legs_numbers[j] == overall_parents[0]:
+                    tmp_c_legs_numbers[j] = 1
+                elif c_legs_numbers[i] == 1 and c_legs_numbers[j] == overall_parents[0]:
+                    tmp_c_legs_numbers[j] = 2
+                elif c_legs_numbers[i] == overall_parents[0] and c_legs_numbers[j] == 2:
+                    tmp_c_legs_numbers[i] = 1
+                elif c_legs_numbers[i] == overall_parents[0] and c_legs_numbers[j] == 1:
+                    tmp_c_legs_numbers[i] = 2
                 else:
                     continue
 
-#        logger1.info('c_legs_numbers_end : ' + str(c_legs_numbers))
+#        for i in range(0,len(c_legs_numbers)):
+#            for j in range(0,len(c_legs_numbers)):
+#                if c_legs_numbers[i] == 2 and c_legs_numbers[j] == overall_parents[0]:
+#                    c_legs_numbers[j] = 1
+#                elif c_legs_numbers[i] == 1 and c_legs_numbers[j] == overall_parents[0]:
+#                    c_legs_numbers[j] = 2
+#                elif c_legs_numbers[i] == overall_parents[0] and c_legs_numbers[j] == 2:
+#                    c_legs_numbers[i] = 1
+#                elif c_legs_numbers[i] == overall_parents[0] and c_legs_numbers[j] == 1:
+#                    c_legs_numbers[i] = 2
+#                else:
+#                    continue
+        #logger1.info('c_legs_numbers_end : ' + str(c_legs_numbers))
+        #logger1.info('tmp_c_legs_numbers_end : ' + str(tmp_c_legs_numbers))
 
         c_legs = {}
         reduced_process_legs = []
@@ -209,13 +230,13 @@ class DipoleCurrent(general_current.GeneralCurrent):
             reduced_process_legs.append(l)
 #        logger1.info('reduced_process_legs : ' + str(reduced_process_legs))
 
-        if reduced_process_legs[0]['number'] == 6:
+        if reduced_process_legs[0]['number'] == overall_parents[0]:
             reduced_process_legs[0]['number'] = 1
-        elif reduced_process_legs[1]['number'] == 6:
+        elif reduced_process_legs[1]['number'] == overall_parents[0]:
             reduced_process_legs[1]['number'] = 2
 
         for l in reduced_process.get('legs'):
-            if l['number'] in c_legs_numbers:
+            if l['number'] in tmp_c_legs_numbers:
 
                 c_legs[l['number']] = sub.SubtractionLeg(l)
 

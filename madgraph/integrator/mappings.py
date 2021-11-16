@@ -3515,9 +3515,9 @@ class SoftTRNMapping(VirtualMapping):
 
         substructure = singular_structure.substructures[0]
         parent, children, _ = get_structure_numbers(substructure, momenta_dict)
-#        logger1.info('parent :' + str(parent))
-#        logger1.info('children :' + str(children))
-#        logger1.info('momenta dict :' + str(momenta_dict))
+        logger1.info('parent :' + str(parent))
+        logger1.info('children :' + str(children))
+        logger1.info('momenta dict :' + str(momenta_dict))
 
 
         # identify the legs
@@ -3531,37 +3531,28 @@ class SoftTRNMapping(VirtualMapping):
         leg_1 = singular_structure.substructures[0].legs[0].n
         leg_2 = singular_structure.legs[0].n
         coll_sub= singular_structure.substructures[0]
-#        if leg_1 == 6 and leg_2 == 1:
-#            leg_1 = 2
-#        elif leg_1 == 6 and leg_2 == 2:
-#            leg_1 = 1
-#        elif leg_1 == 1 and leg_2 == 6:
-#            leg_2 = 2
-#        elif leg_1 == 2 and leg_2 == 6:
-#            leg_2 = 1
-
 
         if coll_sub.substructures: # this should be the case for (C(S(a),b),c)
             ia = coll_sub.substructures[0].legs[0].n
             # ordering of the indices for (abc) mapping choice such that b>c always
             if leg_1 > leg_2:
-                #logger1.info('leg_1 > leg_2 ')
+                logger1.info('leg_1 > leg_2 ')
                 ib = leg_1
                 ic = leg_2
             elif leg_1 == leg_2 and leg_1 == 1:
-                #logger1.info('leg_1 < leg_2 :' + str(leg_1) +','+ str(leg_2))
+                logger1.info('leg_1 < leg_2 :' + str(leg_1) +','+ str(leg_2))
 #                ib = leg_2
 #                ic = leg_1
                 ib = leg_1
                 ic = leg_2 + 1. 
             elif leg_1 == leg_2 and leg_1 == 2:
-                #logger1.info('leg_1 = leg_2 :' + str(leg_1) +','+ str(leg_2))
+                logger1.info('leg_1 = leg_2 :' + str(leg_1) +','+ str(leg_2))
 #                ib = leg_2
 #                ic = leg_1
                 ib = leg_1
                 ic = leg_2 - 1. 
             else:
-                #logger1.info('leg_1 = leg_2 :' + str(leg_1) +','+ str(leg_2))
+                logger1.info('leg_1 = leg_2 :' + str(leg_1) +','+ str(leg_2))
 #                ib = leg_2
 #                ic = leg_1
                 ib = leg_1
@@ -3596,10 +3587,10 @@ class SoftTRNMapping(VirtualMapping):
 
         #Check the entering PS_point momenta
 
-#        for i_fs in range(1,len(PS_point)+1):
-#            logger1.info('mappings.py: Momenta PS_point' + '= ' + str(i_fs) + str(PS_point[i_fs]))
-#        for i_fs in range(1,len(PS_point)+1):
-#            logger1.info('mappings.py: Momenta pre-mapping new_PS_point' + '= ' + str(i_fs) + str(new_PS_point[i_fs]))
+        for i_fs in range(1,len(PS_point)+1):
+            logger1.info('mappings.py: Momenta PS_point' + '= ' + str(i_fs) + str(PS_point[i_fs]))
+        for i_fs in range(1,len(PS_point)+1):
+            logger1.info('mappings.py: Momenta pre-mapping new_PS_point' + '= ' + str(i_fs) + str(new_PS_point[i_fs]))
 
 
         #emitter Final, recoiler Final
@@ -3634,8 +3625,8 @@ class SoftTRNMapping(VirtualMapping):
             # remove a
             del new_PS_point[ia]
             # this is for b
-            new_PS_point[ib] = pa + pb - pc * (1 - x)
-            new_PS_point[parent] = pa + pb - pc * (1 - x)
+            new_PS_point[ib] = pa + pb - pc * (1. - x)
+            new_PS_point[parent] = pa + pb - pc * (1. - x)
             # and this is for c
             new_PS_point[ic] = pc * x
 
@@ -3719,9 +3710,9 @@ class SoftTRNMapping(VirtualMapping):
 
         #Check mapping output
 
-#        for i_fs in range(1,len(new_PS_point)+1):
-#            if  i_fs != ia:
-#                logger1.info('Remapped momenta' + '= ' + str(i_fs) + str(new_PS_point[i_fs]))
+        for i_fs in range(1,len(new_PS_point)+1):
+            if  i_fs != ia:
+                logger1.info('Remapped momenta' + '= ' + str(i_fs) + str(new_PS_point[i_fs]))
 
         #check momenta conservation
         sum_PS_point = 0

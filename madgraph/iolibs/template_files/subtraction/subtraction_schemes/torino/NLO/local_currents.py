@@ -431,8 +431,8 @@ class QCD_TRN_S_g(dipole_current.DipoleCurrent):
 
 
                 # Write the eikonal for that pair
-                if a != b:
-                #if a > b:
+#                if a != b:
+                if a > b:
                     mult_factor = 2.
                 else:
                     continue # MZ as long as we just care for massless partons, this is irrelevant.
@@ -508,7 +508,10 @@ class QCD_TRN_S_g(dipole_current.DipoleCurrent):
 
                 evaluation['color_correlations'].append(((a, b),))
                 evaluation['values'][(0, color_correlation_index, 0, color_correlation_index)] = {
-                    'finite': norm * mult_factor/2. * eikonal * sector_prefactor}
+                    'finite': norm * mult_factor * eikonal * sector_prefactor}
+
+#                evaluation['values'][(0, color_correlation_index, 0, color_correlation_index)] = {
+#                    'finite': norm * mult_factor/2. * eikonal * sector_prefactor}
                 evaluation['reduced_kinematics'].append(('Dip %d-%d' % (a, b), lower_PS_point))
                 color_correlation_index += 1
 
@@ -748,6 +751,8 @@ class QCD_TRN_C_IgFg(general_current.GeneralCurrent):
 #gl
         #damping factors
         recoiler = all_steps_info[0]['mapping_vars']['ids']['c']
+        logger1.info('recoiler : ' + str(recoiler))
+
 
         if recoiler > 2:
             prefactor *= (1. - all_steps_info[0]['variables'][0]['z'])**(factors_and_cuts.damping_factors[3])
@@ -866,6 +871,8 @@ class QCD_TRN_C_IqFq(general_current.GeneralCurrent):
 #gl
         #damping factors
         recoiler = all_steps_info[0]['mapping_vars']['ids']['c']
+        logger1.info('recoiler : ' + str(recoiler))
+
 
         if recoiler > 2:
             prefactor *= (1. - all_steps_info[0]['variables'][0]['z'])**(factors_and_cuts.damping_factors[3])
@@ -969,6 +976,8 @@ class QCD_TRN_C_IgFq(general_current.GeneralCurrent):
 #gl
         #damping factors
         recoiler = all_steps_info[0]['mapping_vars']['ids']['c']
+        logger1.info('recoiler : ' + str(recoiler))
+
 
         if recoiler > 2:
             prefactor *= (1. - all_steps_info[0]['variables'][0]['z'])**(factors_and_cuts.damping_factors[3])
@@ -1073,6 +1082,7 @@ class QCD_TRN_C_IqFg(general_current.GeneralCurrent):
 #gl
         #damping factors
         recoiler = all_steps_info[0]['mapping_vars']['ids']['c']
+        logger1.info('recoiler : ' + str(recoiler))
 
         if recoiler > 2:
             prefactor *= (1. - all_steps_info[0]['variables'][0]['z'])**(factors_and_cuts.damping_factors[3])
@@ -1131,7 +1141,7 @@ class QCD_TRN_CS_IqFg(dipole_current.DipoleCurrent):
 #        substructures=(soft_structure, ),
 #        legs=(sub.SubtractionLeg(11,  -1, sub.SubtractionLeg.INITIAL), ) )
 
-#    is_zero = True
+    is_zero = True
 
     # This counterterm will be used if any of the current of the list below matches
     currents = [
@@ -1238,6 +1248,13 @@ class QCD_TRN_CS_IqFg(dipole_current.DipoleCurrent):
                     # At the moment, we do not implement anything special
                     eikonal = (-1.)**(1. + a) * self.CF * SoftKernels.eikonal_dipole(pa, pb, pS)
 
+#gl
+                    #damping factors
+                    v = pa.dot(pS) / (pa.dot(pS) + pb.dot(pS))
+                    x = 1. - (pa.dot(pS) + pb.dot(pS)) / pa.dot(pb) 
+
+                    eikonal *= (1. - v)**(factors_and_cuts.damping_factors[4])
+                    eikonal *= (x)**(factors_and_cuts.damping_factors[0])
 
 
                     evaluation['color_correlations'].append(((a, b),))
@@ -1266,7 +1283,7 @@ class QCD_TRN_CS_IgFg(dipole_current.DipoleCurrent):
         substructures=(soft_structure, ),
         legs=(sub.SubtractionLeg(10,  21, sub.SubtractionLeg.INITIAL), ) )
 
-#    is_zero = True
+    is_zero = True
 
     # This counterterm will be used if any of the current of the list below matches
     currents = [
@@ -1365,7 +1382,15 @@ class QCD_TRN_CS_IgFg(dipole_current.DipoleCurrent):
                      
 
                     # At the moment, we do not implement anything special
-                    eikonal = (-1.)**(1. + a) * self.CF * SoftKernels.eikonal_dipole(pa, pb, pS)
+                    eikonal = (-1.)**(1. + a) * self.CA * SoftKernels.eikonal_dipole(pa, pb, pS)
+
+#gl
+                    #damping factors
+                    v = pa.dot(pS) / (pa.dot(pS) + pb.dot(pS))
+                    x = 1. - (pa.dot(pS) + pb.dot(pS)) / pa.dot(pb) 
+
+                    eikonal *= (1. - v)**(factors_and_cuts.damping_factors[4])
+                    eikonal *= (x)**(factors_and_cuts.damping_factors[0])
 
 
                     evaluation['color_correlations'].append(((a, b),))

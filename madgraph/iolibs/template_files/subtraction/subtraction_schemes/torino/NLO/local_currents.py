@@ -466,29 +466,8 @@ class QCD_TRN_S_g(dipole_current.DipoleCurrent):
                 # At the moment, we do not implement anything special
                 eikonal = SoftKernels.eikonal_dipole(pa, pb, pS)
 
-#gl
-                #damping factors to update
-                if a > 2 and b < a:
-
-                    eikonal *= ( pa.dot(pb) / (pa.dot(pb) + pa.dot(pS) + pb.dot(pS)))**(factors_and_cuts.damping_factors[0])
-
-                # this case never occurs
-#                elif a > 2 and b <= 2: 
-
-#                    eikonal *= ( (1. - pa.dot(pS) / (pb.dot(pS)+pb.dot(pa)) ) * (1. - pb.dot(pS) / (pb.dot(pS)+pb.dot(pa)) ) )**(factors_and_cuts.damping_factors[0])
-
-                elif b <= 2 and a > 2:
-
-                    eikonal *= ( (1. - pb.dot(pS) / (pa.dot(pS)+pa.dot(pb)) ) * (1. - pa.dot(pS) / (pa.dot(pS)+pa.dot(pb)) ) )**(factors_and_cuts.damping_factors[0])
-
-                elif b <= 2 and b < a:
-
-                    eikonal *= ( (pa.dot(pb) - pa.dot(pS) - pb.dot(pS)) / pa.dot(pb) )**(factors_and_cuts.damping_factors[0])
-   
-#                else:
-#                    eikonal *= 0.
-
-#                #damping factors
+##gl
+#                #damping factors to update
 #                if a > 2 and b > 2:
 
 #                    eikonal *= ( pa.dot(pb) / (pa.dot(pb) + pa.dot(pS) + pb.dot(pS)))**(factors_and_cuts.damping_factors[0])
@@ -498,13 +477,34 @@ class QCD_TRN_S_g(dipole_current.DipoleCurrent):
 
 ##                    eikonal *= ( (1. - pa.dot(pS) / (pb.dot(pS)+pb.dot(pa)) ) * (1. - pb.dot(pS) / (pb.dot(pS)+pb.dot(pa)) ) )**(factors_and_cuts.damping_factors[0])
 
+#                elif b <= 2 and a > 2:
+
+#                    eikonal *= ( (1. - pb.dot(pS) / (pa.dot(pS)+pa.dot(pb)) ) * (1. - pa.dot(pS) / (pa.dot(pS)+pa.dot(pb)) ) )**(factors_and_cuts.damping_factors[0])
+
+#                elif b <= 2 and a <= 2:
+
+#                    eikonal *= ( (pa.dot(pb) - pa.dot(pS) - pb.dot(pS)) / pa.dot(pb) )**(factors_and_cuts.damping_factors[0])
+#   
+##                else:
+##                    eikonal *= 0.
+
+                #damping factors
+                if a > 2 and b > 2:
+
+                    eikonal *= ( pa.dot(pb) / (pa.dot(pb) + pa.dot(pS) + pb.dot(pS)))**(factors_and_cuts.damping_factors[0])
+
+                # this case never occurs
+                elif a > 2 and b <= 2: 
+
+                    eikonal *= ( (1. - pa.dot(pS) / (pb.dot(pS)+pb.dot(pa)) ) * (1. - pb.dot(pS) / (pb.dot(pS)+pb.dot(pa)) ) )**(factors_and_cuts.damping_factors[0])
+
 #                elif a <= 2 and b > 2:
 
 #                    eikonal *= ( (1. - pb.dot(pS) / (pa.dot(pS)+pa.dot(pb)) ) * (1. - pa.dot(pS) / (pa.dot(pS)+pa.dot(pb)) ) )**(factors_and_cuts.damping_factors[0])
 
-#                elif a <= 2 and b <= 2:
+                elif a <= 2 and b <= 2:
 
-#                    eikonal *= ( (pa.dot(pb) - pa.dot(pS) - pb.dot(pS)) / pa.dot(pb) )**(factors_and_cuts.damping_factors[0])
+                    eikonal *= ( (pa.dot(pb) - pa.dot(pS) - pb.dot(pS)) / pa.dot(pb) )**(factors_and_cuts.damping_factors[0])
 
                 evaluation['color_correlations'].append(((a, b),))
                 evaluation['values'][(0, color_correlation_index, 0, color_correlation_index)] = {
@@ -757,7 +757,7 @@ class QCD_TRN_C_IgFg(general_current.GeneralCurrent):
         if recoiler > 2:
             prefactor *= (1. - all_steps_info[0]['variables'][0]['z'])**(factors_and_cuts.damping_factors[3])
         else:
-            prefactor *= (1. - all_steps_info[0]['variables'][0]['z'])**(factors_and_cuts.damping_factors[4])
+            prefactor *= (1. - all_steps_info[0]['variables'][0]['v'])**(factors_and_cuts.damping_factors[4])
 
 
         CS_prefactor = 1./s_rs/x_FF #
@@ -877,7 +877,7 @@ class QCD_TRN_C_IqFq(general_current.GeneralCurrent):
         if recoiler > 2:
             prefactor *= (1. - all_steps_info[0]['variables'][0]['z'])**(factors_and_cuts.damping_factors[3])
         else:
-            prefactor *= (1. - all_steps_info[0]['variables'][0]['z'])**(factors_and_cuts.damping_factors[4])
+            prefactor *= (1. - all_steps_info[0]['variables'][0]['v'])**(factors_and_cuts.damping_factors[4])
 
         # include the soft_collinear counterterm here, as in the torino paper
         # (see the definition of 'hard-collinear' splitting function there)
@@ -982,7 +982,7 @@ class QCD_TRN_C_IgFq(general_current.GeneralCurrent):
         if recoiler > 2:
             prefactor *= (1. - all_steps_info[0]['variables'][0]['z'])**(factors_and_cuts.damping_factors[3])
         else:
-            prefactor *= (1. - all_steps_info[0]['variables'][0]['z'])**(factors_and_cuts.damping_factors[4])
+            prefactor *= (1. - all_steps_info[0]['variables'][0]['v'])**(factors_and_cuts.damping_factors[4])
 
         # include the soft_collinear counterterm here, as in the torino paper
         # (see the definition of 'hard-collinear' splitting function there)
@@ -1087,7 +1087,7 @@ class QCD_TRN_C_IqFg(general_current.GeneralCurrent):
         if recoiler > 2:
             prefactor *= (1. - all_steps_info[0]['variables'][0]['z'])**(factors_and_cuts.damping_factors[3])
         else:
-            prefactor *= (1. - all_steps_info[0]['variables'][0]['z'])**(factors_and_cuts.damping_factors[4])
+            prefactor *= (1. - all_steps_info[0]['variables'][0]['v'])**(factors_and_cuts.damping_factors[4])
 
 
         CS_prefactor = 1./s_rs/x_FF #
@@ -1099,13 +1099,13 @@ class QCD_TRN_C_IqFg(general_current.GeneralCurrent):
             CS_prefactor *= (1. - all_steps_info[0]['variables'][0]['z'])**(factors_and_cuts.damping_factors[3])
             CS_prefactor *= (all_steps_info[0]['variables'][0]['x_mapping'][0])**(factors_and_cuts.damping_factors[0])
         else:
-            CS_prefactor *= (1. - all_steps_info[0]['variables'][0]['v'])**(factors_and_cuts.damping_factors[4])
-            CS_prefactor *= (all_steps_info[0]['variables'][0]['x_mapping'][1])**(factors_and_cuts.damping_factors[0])
+            CS_prefactor *=  (1. - all_steps_info[0]['variables'][0]['v'])**(factors_and_cuts.damping_factors[4])
+            CS_prefactor *=  (all_steps_info[0]['variables'][0]['x_mapping'][1])**(factors_and_cuts.damping_factors[0])
+
 
         # include the soft_collinear counterterm here, as in the torino paper
         # (see the definition of 'hard-collinear' splitting function there)
         soft_col = EpsilonExpansion({0: self.CF * 2 * x_FF / x_oth, 1: 0.})
-        complete_weight = soft_col * CS_prefactor
 
         for spin_correlation_vector, weight in AltarelliParisiKernels.P_qg(self, x_FF, kT_FF):
             complete_weight = weight * prefactor

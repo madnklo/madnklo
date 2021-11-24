@@ -142,6 +142,18 @@ class DipoleCurrent(general_current.GeneralCurrent):
                             self.map_leg_number(leg_numbers_map, n, overall_parents) for n in v]) for k, v in
                             mapping_information['momenta_dict'].items()})
 
+                    elif singular_structure.name() == 'C':
+                        logger1.info('Extra collinear in dipole current')
+                        # collinear structure: one among ia and ib is already
+                        # in the singular_structure. Add the other
+                        mapping_structure = sub.SingularStructure(substructures=(singular_structure, ), \
+                                                        legs=sub.SubtractionLegSet((oth_leg,)))
+
+                        # Build the momenta_dict by also substituting leg numbers
+                        mapping_dict = bidict.bidict({self.map_leg_number(leg_numbers_map, k, overall_parents): frozenset([
+                            self.map_leg_number(leg_numbers_map, n, overall_parents) for n in v]) for k, v in
+                            mapping_information['momenta_dict'].items()})
+
 
                     elif singular_structure.name() == 'S':
                         # soft structure. Build first a collinear structure
@@ -160,8 +172,8 @@ class DipoleCurrent(general_current.GeneralCurrent):
 #                                            'mapping_momenta_dict': mapping_dict}])\
 #                                )
 
-#                        elif ia != ib:
-                        elif ia > ib:
+                        elif ia != ib:
+#                        elif ia > ib:
                             mapping_dict = bidict.bidict({-1: frozenset([singular_structure.legs[0].n, sec_leg.n])})
 #                            mapping_info_list.append(\
 #                                ((ia,ib), [{'mapping_class': mapping_information['mapping'],
@@ -178,7 +190,7 @@ class DipoleCurrent(general_current.GeneralCurrent):
                                     'mapping_singular_structure': mapping_structure,
                                     'mapping_momenta_dict': mapping_dict}])\
                         )
-        logger1.info('From DipoleCurrent : ' + str(mapping_info_list))
+        #logger1.info('From DipoleCurrent : ' + str(mapping_info_list))
         return mapping_info_list
 
 
@@ -194,7 +206,7 @@ class DipoleCurrent(general_current.GeneralCurrent):
         #logger1.info('overall_parents : ' + str(overall_parents[0]))
         #logger1.info('c_legs_numbers_start_post : ' + str(c_legs_numbers))
 
-
+        # necessary step since evaluating SC extra we have [a b c parent] as legs_number and not the initial-state child
         tmp_c_legs_numbers = c_legs_numbers
         for i in range(0,len(c_legs_numbers)):
             for j in range(0,len(c_legs_numbers)):
@@ -228,12 +240,14 @@ class DipoleCurrent(general_current.GeneralCurrent):
         reduced_process_legs = []
         for l in reduced_process.get('legs'):
             reduced_process_legs.append(l)
-#        logger1.info('reduced_process_legs : ' + str(reduced_process_legs))
+        #logger1.info('reduced_process_legs : ' + str(reduced_process_legs))
 
         if reduced_process_legs[0]['number'] == overall_parents[0]:
             reduced_process_legs[0]['number'] = 1
         elif reduced_process_legs[1]['number'] == overall_parents[0]:
             reduced_process_legs[1]['number'] = 2
+        #logger1.info('reduced_process_legs_post : ' + str(reduced_process_legs))
+
 
         for l in reduced_process.get('legs'):
             if l['number'] in tmp_c_legs_numbers:
@@ -287,7 +301,7 @@ class DipoleCurrent(general_current.GeneralCurrent):
 
 
  
-#        logger1.info('clegs :' + str(c_legs))
+        #logger1.info('clegs :' + str(c_legs))
 
         return c_legs
 

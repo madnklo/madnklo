@@ -45,7 +45,7 @@ try:
     import pyjet
     PYJET_AVAILABLE = True
 except:
-    PYJET_AVAILABLE = False
+    PYJET_AVAILABLE = False    
 
 # useful shortcut
 pjoin = os.path.join
@@ -99,7 +99,7 @@ class ME7Event(object):
     """ A class to store a particular configuration produced by the integrands
     when evaluated and which has undefinite flavor configuration to begin with."""
     
-    def __init__(self, PS_point, weights_per_flavor_configurations,
+    def __init__(self, PS_point, weights_per_flavor_configurations, 
                  requires_mirroring           = False,
                  host_contribution_definition = 'N/A',
                  # This entry is mostly for debugging purposes, but it is useful to be able
@@ -553,8 +553,8 @@ class ME7Event(object):
             wgt = self.weights_per_flavor_configurations[flavors]
             res.append('%s  |  %s'%('%-25s'%('     %s -> %s'%(
                 ' '.join('%s'%pdg for pdg in flavors[0]),
-                ' '.join('%s'%pdg for pdg in flavors[1]))),
-                wgt.__str__(format='.16e') if isinstance(wgt,base_objects.EpsilonExpansion)
+                ' '.join('%s'%pdg for pdg in flavors[1]))), 
+                wgt.__str__(format='.16e') if isinstance(wgt,base_objects.EpsilonExpansion) 
                                                                          else '%.16e'%wgt ))
         if not self.selected_flavors is None:
             res.append('%s  Selected flavors configuration : %s%s -> %s'%(BLUE,  ENDC,
@@ -1462,7 +1462,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
             n_jets_allowed_to_be_clustered = self.contribution_definition.n_unresolved_particles
 
         # The PS point in input is sometimes provided as a dictionary or a flat list, but
-#GL        # we need it as a flat list here, so we force the conversion
+        # we need it as a flat list here, so we force the conversion
         if isinstance(PS_point, LorentzVectorDict):
             PS_point = PS_point.to_list()
         elif not isinstance(PS_point, LorentzVectorList):
@@ -3064,7 +3064,7 @@ class ME7Integrand_R(ME7Integrand):
         return res
         
     def get_nice_string_process_line(self, process_key, defining_process, format=0):
-        """ Return a nicely formatted process line for the function nice_string of this
+        """ Return a nicely formated process line for the function nice_string of this 
         integrand."""
         
         GREEN = '\033[92m'
@@ -3408,6 +3408,7 @@ class ME7Integrand_R(ME7Integrand):
                         'Bjorken_rescaling_beam_two'  : Bjorken_rescaling_beam_two,
                     },
                 )
+
         return new_all_necessary_ME_calls
 
 
@@ -3602,6 +3603,7 @@ class ME7Integrand_R(ME7Integrand):
         for i, p in enumerate(PS_point.to_list()[:self.n_initial]):
             total_incoming_momentum += p * rescalings[i]
 
+        logger1.info('rescalings : ' + str(rescalings))
 # Gl
         #In the following we'll work with a copy of PS_point in order to preserve the original one from any border effects
 
@@ -3624,6 +3626,8 @@ class ME7Integrand_R(ME7Integrand):
 
         n_unresolved_left = self.contribution_definition.n_unresolved_particles
         n_unresolved_left -= counterterm.count_unresolved()
+
+        logger1.info('xb_1 : ' + str(xb_1) + '; ' + 'xb_2 : ' + str(xb_2))
 
         all_necessary_ME_calls, disconnected_currents_weight = ME7Integrand_R.generate_all_necessary_ME_calls(
             non_beam_factorization_currents, ME_process, PS_point,
@@ -3681,8 +3685,7 @@ class ME7Integrand_R(ME7Integrand):
                     this_base_weight = base_weight
 
 # Gl
-                    #logger1.info('reduced_kinematics_1= ' + str(reduced_kinematics))
-                    #logger1.info('AFTER REDUCING_1: PS_point evaluate= ' + str(PS_point))
+                    logger1.info('reduced_kinematics_1= ' + str(reduced_kinematics))
 
 
                     # Now that all currents have been evaluated using the PS points with initial-state
@@ -3696,17 +3699,28 @@ class ME7Integrand_R(ME7Integrand):
                         reduced_kinematics.boost_to_com(tuple([l.get('number') for l in counterterm.process.get_initial_legs()]))
 
 # Gl
-                    #logger1.info('reduced_kinematics_2= ' + str(reduced_kinematics))
-                    #logger1.info('AFTER REDUCING_2: PS_point evaluate= ' + str(PS_point))
+                    logger1.info('reduced_kinematics_2= ' + str(reduced_kinematics))
                     #logger1.info('AFTER REDUCING_2: PS_point evaluate= ' + str(PS_point))
 
 
                     # Generate what is the kinematics (reduced_PS) returned as a list
                     # and the reduced_flavors for this counterterm by using the default reduced flavors
                     # originating from the defining process and the real-emission kinematics dictionary
+
                     reduced_kinematics_as_list, reduced_flavors = counterterm.get_reduced_quantities(reduced_kinematics, defining_flavors=None)
+                    logger1.info('reduced_flavors= ' + str(reduced_flavors))
+                    logger1.info('Pre reduced kin= ' + str(reduced_kinematics_as_list))
+
+                    if reduced_kinematics_as_list[0][3] < 1.:
+                        reduced_kinematics_as_list[0][3] = - reduced_kinematics_as_list[0][3]
+                        reduced_kinematics_as_list[1][3] = - reduced_kinematics_as_list[1][3]
+                        #reduced_kinematics_as_list[0] = tmp_2
+                        #reduced_kinematics_as_list[1] = tmp_1
+                        #logger1.info('AFTER REDUCING_2: PS_point evaluate= ' + str(tmp_1))
+                    logger1.info('Post reduced kin= ' + str(reduced_kinematics_as_list))
 
 
+ 
                     if apply_flavour_blind_cuts and not self.pass_flavor_blind_cuts(
                             reduced_kinematics_as_list, reduced_flavors, xb_1=xb_1, xb_2=xb_2,
                             n_jets_allowed_to_be_clustered=n_unresolved_left):
@@ -3722,7 +3736,7 @@ class ME7Integrand_R(ME7Integrand):
                                                       counterterm_index=sector[1], input_mapping_index=-1)
 
                     # Finally treat the call to the reduced connected matrix elements
-                    #            misc.sprint('I got for %s:'%str(counterterm.nice_string()))
+                    #misc.sprint('I got for %s:'%str(counterterm.nice_string()))
                     alpha_s = self.model.get('parameter_dict')['aS']
                     mu_r = self.model.get('parameter_dict')['MU_R']
 
@@ -3791,9 +3805,7 @@ class ME7Integrand_R(ME7Integrand):
                     )
                     if CT_event is not None:
                         all_events.append(CT_event)
-
-
-
+        #logger1.info('all events: ' + str(all_events))
         return all_events
 
     @classmethod
@@ -3855,12 +3867,14 @@ class ME7Integrand_R(ME7Integrand):
         if None in all_necessary_ME_calls and all_necessary_ME_calls[None][0] is None:
             all_necessary_ME_calls[None] = (PS_point , all_necessary_ME_calls[None][1])
 
+
         return all_necessary_ME_calls, disconnected_currents_weight
 
     @classmethod
     def generate_event_for_counterterm(cls, template_MEEvent, disconnected_currents_weight,
             overall_prefactor, all_necessary_ME_calls, ME_process, ME_PS, alpha_s, mu_r, all_MEAccessors,
             always_generate_event=False):
+
 
         # Initialize the placeholder which stores the event that we will progressively build
         # below.
@@ -3885,8 +3899,8 @@ class ME7Integrand_R(ME7Integrand):
             color_correlators = tuple(ME_call['color_correlation']) if ME_call['color_correlation'] else None
             spin_correlators = tuple(ME_call['spin_correlation']) if ME_call['spin_correlation'] else None
             connected_currents_weight = ME_call['main_weight']
-            # misc.sprint(ME_PS, ME_process.nice_string())
-            # misc.sprint(ME_process.get_cached_initial_final_numbers())
+            #misc.sprint(ME_PS, ME_process.nice_string())
+            misc.sprint(ME_process.get_cached_initial_final_numbers())
             try:
                 ME_evaluation, all_ME_results = all_MEAccessors(
                     ME_process, ME_PS, alpha_s, mu_r,
@@ -3914,12 +3928,12 @@ The missing process is: %s"""%ME_process.nice_string())
             event_weight *= disconnected_currents_weight
             event_weight *= connected_currents_weight
             event_weight *= overall_prefactor
-            # misc.sprint("")
-            # misc.sprint(spin_correlators, color_correlators)
-            # misc.sprint(base_objects.EpsilonExpansion(ME_evaluation))
-            # misc.sprint(disconnected_currents_weight)
-            # misc.sprint(connected_currents_weight)
-            # misc.sprint(event_weight)
+            misc.sprint("")
+            misc.sprint(spin_correlators, color_correlators)
+            misc.sprint(base_objects.EpsilonExpansion(ME_evaluation))
+            misc.sprint(disconnected_currents_weight)
+            misc.sprint(connected_currents_weight)
+            misc.sprint(event_weight)
 
             # Skip an event with no contribution (some dipoles of the eikonal for example)
             if not always_generate_event and event_weight.norm() == 0.:
@@ -3953,6 +3967,7 @@ The missing process is: %s"""%ME_process.nice_string())
         # Finally return the ME7 event constructed for this counterterm
         # Notice that this can be None if all terms were zero (for example during the flavor
         # convolution).
+        #logger1.info('ME7_event_to_return : ' + str(ME7_event_to_return))
         return ME7_event_to_return
     
     def sigma(self, PS_point, process_key, process, all_flavor_configurations,
@@ -4360,10 +4375,11 @@ The missing process is: %s"""%ME_process.nice_string())
                 # Forward the exception while not resetting the stack trace.
                 raise
 
-            #misc.sprint('Events generated before post-processing.')
-            #misc.sprint(events)
+            # misc.sprint('Events generated before post-processing.')
+            # misc.sprint(events)
             
             # Now post-process the events as done in __call__ of the integrand.
+            
             # Now handle the process mirroring, by adding, for each ME7Event defined with
             # requires_mirroring = True, a new mirrored event with the initial states swapped,
             # as well as the Bjorken x's and rescalings and with p_z -> -p_z on all final
@@ -5046,3 +5062,4 @@ ME7Integrand_classes_map = {'Born': ME7Integrand_B,
                             'DoubleReals': ME7Integrand_RR,
                             'TripleReals': ME7Integrand_RRR,
                             'Unknown': None}
+

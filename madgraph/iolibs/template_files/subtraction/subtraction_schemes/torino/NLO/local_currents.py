@@ -462,6 +462,10 @@ class QCD_TRN_S_g(dipole_current.DipoleCurrent):
                 #logger1.info('i =' + str(i))
                 #logger1.info('a =' + str(a))
                 #logger1.info('b =' + str(b))
+                #logger1.info('pS =' + str(pS))
+                #logger1.info('pa =' + str(pa))
+                #logger1.info('pb =' + str(pb))
+
 
                 # At the moment, we do not implement anything special
                 eikonal = SoftKernels.eikonal_dipole(pa, pb, pS)
@@ -498,9 +502,9 @@ class QCD_TRN_S_g(dipole_current.DipoleCurrent):
 
                     eikonal *= ( (1. - pa.dot(pS) / (pb.dot(pS)+pb.dot(pa)) ) * (1. - pb.dot(pS) / (pb.dot(pS)+pb.dot(pa)) ) )**(factors_and_cuts.damping_factors[0])
 
-#                elif a <= 2 and b > 2:
+                elif a <= 2 and b > 2:
 
-#                    eikonal *= ( (1. - pb.dot(pS) / (pa.dot(pS)+pa.dot(pb)) ) * (1. - pa.dot(pS) / (pa.dot(pS)+pa.dot(pb)) ) )**(factors_and_cuts.damping_factors[0])
+                    eikonal *= ( (1. - pb.dot(pS) / (pa.dot(pS)+pa.dot(pb)) ) * (1. - pa.dot(pS) / (pa.dot(pS)+pa.dot(pb)) ) )**(factors_and_cuts.damping_factors[0])
 
                 elif a <= 2 and b <= 2:
 
@@ -981,8 +985,12 @@ class QCD_TRN_C_IgFq(general_current.GeneralCurrent):
 
         if recoiler > 2:
             prefactor *= (1. - all_steps_info[0]['variables'][0]['z'])**(factors_and_cuts.damping_factors[3])
+            logger1.info('variable : ' + str(all_steps_info[0]['variables'][0]['z']))
+
         else:
             prefactor *= (1. - all_steps_info[0]['variables'][0]['v'])**(factors_and_cuts.damping_factors[4])
+            logger1.info('variable : ' + str(all_steps_info[0]['variables'][0]['v']))
+
 
         # include the soft_collinear counterterm here, as in the torino paper
         # (see the definition of 'hard-collinear' splitting function there)
@@ -1141,7 +1149,7 @@ class QCD_TRN_CS_IqFg(dipole_current.DipoleCurrent):
 #        substructures=(soft_structure, ),
 #        legs=(sub.SubtractionLeg(11,  -1, sub.SubtractionLeg.INITIAL), ) )
 
-    is_zero = True
+#    is_zero = True
 
     # This counterterm will be used if any of the current of the list below matches
     currents = [
@@ -1240,9 +1248,9 @@ class QCD_TRN_CS_IqFg(dipole_current.DipoleCurrent):
                     # some special behaviour may be needed in the case
                     # either a or b are one of the particles defining
                     # the sector, in particular for the SC limit.
-                    #logger1.info('i =' + str(i))
-#                    logger1.info('a =' + str(a))
-#                    logger1.info('b =' + str(b))
+                    #logger1.info('pS =' + str(pS))
+                    #logger1.info('pa =' + str(pa))
+                    #logger1.info('pb =' + str(pb))
                      
 
                     # At the moment, we do not implement anything special
@@ -1250,8 +1258,16 @@ class QCD_TRN_CS_IqFg(dipole_current.DipoleCurrent):
 
 #gl
                     #damping factors
-                    v = pa.dot(pS) / (pa.dot(pS) + pb.dot(pS))
-                    x = 1. - (pa.dot(pS) + pb.dot(pS)) / pa.dot(pb) 
+                    if a == 1 :
+                        v = pa.dot(pS) / (pa.dot(pS) + pb.dot(pS))
+                        x = 1. - (pa.dot(pS) + pb.dot(pS)) / pa.dot(pb) 
+
+                    elif a == 2:
+                        v = pb.dot(pS) / (pb.dot(pS) + pa.dot(pS))
+                        x = 1. - (pa.dot(pS) + pb.dot(pS)) / pa.dot(pb) 
+                    #logger1.info('v =' + str(v))
+                    #logger1.info('x =' + str(x))
+
 
                     eikonal *= (1. - v)**(factors_and_cuts.damping_factors[4])
                     eikonal *= (x)**(factors_and_cuts.damping_factors[0])
@@ -1283,7 +1299,7 @@ class QCD_TRN_CS_IgFg(dipole_current.DipoleCurrent):
         substructures=(soft_structure, ),
         legs=(sub.SubtractionLeg(10,  21, sub.SubtractionLeg.INITIAL), ) )
 
-    is_zero = True
+#    is_zero = True
 
     # This counterterm will be used if any of the current of the list below matches
     currents = [
@@ -1386,8 +1402,15 @@ class QCD_TRN_CS_IgFg(dipole_current.DipoleCurrent):
 
 #gl
                     #damping factors
-                    v = pa.dot(pS) / (pa.dot(pS) + pb.dot(pS))
-                    x = 1. - (pa.dot(pS) + pb.dot(pS)) / pa.dot(pb) 
+                    if a == 1 :
+                        v = pa.dot(pS) / (pa.dot(pS) + pb.dot(pS))
+                        x = 1. - (pa.dot(pS) + pb.dot(pS)) / pa.dot(pb) 
+
+                    elif a == 2:
+                        v = pb.dot(pS) / (pb.dot(pS) + pa.dot(pS))
+                        x = 1. - (pa.dot(pS) + pb.dot(pS)) / pa.dot(pb) 
+                    #logger1.info('v =' + str(v))
+                    #logger1.info('x =' + str(x))
 
                     eikonal *= (1. - v)**(factors_and_cuts.damping_factors[4])
                     eikonal *= (x)**(factors_and_cuts.damping_factors[0])

@@ -173,7 +173,7 @@ class QCD_F0(general_current.GeneralCurrent):
     def kernel(self, evaluation, all_steps_info, global_variables):
         """ Evaluate this counterterm given the variables provided. """
 
-        logger.info('PDF F0')
+        #logger.info('PDF F0')
 
         # Retrieve variables
         beam_number = global_variables['overall_children'][0][0]
@@ -196,7 +196,7 @@ class QCD_F0(general_current.GeneralCurrent):
 
         distribution_type = self.currents_properties[0]['distribution_type']
         NF = self.currents_properties[0]['NF']
-        logger.info('NF : ' + str(NF))
+        #logger.info('NF : ' + str(NF))
         beam_PDGs = self.currents_properties[0]['beam_PDGs']
 
         # Apply the Dirac delta on the convolution parameters by setting their value to the solution of the delta.
@@ -212,15 +212,19 @@ class QCD_F0(general_current.GeneralCurrent):
         # Only the order epsilon of the scales pre-factor matters here.
         mu2os = mu_r ** 2 / mu_f ** 2
         prefactor = EpsilonExpansion({-1: 1.}) * self.SEpsilon * (1. / (16 * pi**2) )
-
+        prefactor = torino_to_madnk_epsexp(prefactor, mu2os)
+#        prefactor = EpsilonExpansion({
+#            0: 1.,
+#            1: log(mu_r ** 2 / mu_f ** 2)
+#        })
+#        prefactor *= EpsilonExpansion({-1: 1.}) * self.SEpsilon * (1. / (16 * pi**2) )
+        #logger.info('prefactor : ' + str(prefactor))
 
         # Assign a fake xi for now if the distribution type is 'endpoint'
         # This is not optimal, eventually we should put each of these three pieces in
         # separate currents, this will be optimal however in the low-level implementation
         if distribution_type == 'endpoint':
             xi = 0.5
-
-        logger.info('distribution_type : ' + str(distribution_type))
 
         # Define the NLO QCD PDF counterterms kernels
         kernel_gg = {
@@ -249,19 +253,11 @@ class QCD_F0(general_current.GeneralCurrent):
             'endpoint': None
         }
 
-        if kernel_qq[distribution_type] is not None:
-            kernel_qq[distribution_type] = torino_to_madnk_epsexp(kernel_qq[distribution_type], mu2os)
-        elif kernel_qg[distribution_type] is not None:
-            kernel_qg[distribution_type] = torino_to_madnk_epsexp(kernel_qg[distribution_type], mu2os)
-        elif kernel_gq[distribution_type] is not None:
-            kernel_gq[distribution_type] = torino_to_madnk_epsexp(kernel_gq[distribution_type], mu2os)
-        elif kernel_gg[distribution_type] is not None:
-            kernel_gg[distribution_type] = torino_to_madnk_epsexp(kernel_gg[distribution_type], mu2os)
 
-#        logger.info('kernel_gg[distribution_type] :' + str(kernel_gg[distribution_type]))
-#        logger.info('kernel_gq[distribution_type] :' + str(kernel_gq[distribution_type]))
-#        logger.info('kernel_qg[distribution_type] :' + str(kernel_qg[distribution_type]))
-#        logger.info('kernel_qq[distribution_type] :' + str(kernel_qq[distribution_type]))
+#        logger.info('distribution_type :' + str(distribution_type) + '; ' + 'kernel_qg : ' + str(kernel_qg[distribution_type]))
+#        logger.info('distribution_type :' + str(distribution_type) + '; ' + 'kernel_gg : ' + str(kernel_gg[distribution_type]))
+#        logger.info('distribution_type :' + str(distribution_type) + '; ' + 'kernel_qq : ' + str(kernel_qq[distribution_type]))
+#        logger.info('distribution_type :' + str(distribution_type) + '; ' + 'kernel_gq : ' + str(kernel_gq[distribution_type]))
 
         active_quark_PDGs = self.currents_properties[0]['active_fermions']
 
@@ -376,7 +372,7 @@ class QCD_F0_lepton(general_current.GeneralCurrent):
     def kernel(self, evaluation, all_steps_info, global_variables):
         """ Evaluate this counterterm given the variables provided. """
 
-        logger.info('PDF F0_lepton')
+        #logger.info('PDF F0_lepton')
 
 
         # Set this contribution to zero as we are considering here QCD corrections
@@ -450,7 +446,7 @@ class QCD_integrated_TRN_C_IqFg(general_current.GeneralCurrent):
     def kernel(self, evaluation, all_steps_info, global_variables):
         """ Evaluate this counterterm given the variables provided. """
 
-        logger.info('C_IqFg')
+        #logger.info('C_IqFg')
 
         # Retrieve variables
         beam_number = global_variables['overall_children'][0][0]
@@ -473,8 +469,9 @@ class QCD_integrated_TRN_C_IqFg(general_current.GeneralCurrent):
         distribution_type = self.currents_properties[0]['distribution_type']
         beam_PDGs = self.currents_properties[0]['beam_PDGs']
         recoiler = global_variables['recoiler']
+        Q = global_variables['Q']
 
-        logger.info('distribution_type : ' + str(distribution_type))
+        #logger.info('global_variables : ' + str(global_variables))
 
         # Apply the Dirac delta on the convolution parameters by setting their value to the solution of the delta.
         # For these simple NLO integrated current, the delta simply sets them to one if the distribution type is
@@ -491,7 +488,13 @@ class QCD_integrated_TRN_C_IqFg(general_current.GeneralCurrent):
         # where ( bar s_ij ) is the com energy of that particular singular configuration
         p_p = all_steps_info[0]['lower_PS_point'][global_variables['overall_parents'][0]]
         p_r = all_steps_info[0]['lower_PS_point'][global_variables['recoiler']]
+#        logger.info('p_r :' + str(p_r))
+#        logger.info('p_p :' + str(p_p))
+
         mu2os = mu_r**2 / (p_p + p_r).square()
+
+        mu2oQ2 = mu_r**2 / Q.square()
+
 
 
         # The additional 1/x part of the prefactor is included later during the PDF
@@ -502,6 +505,11 @@ class QCD_integrated_TRN_C_IqFg(general_current.GeneralCurrent):
         # only acts on the PDF. So it makes sense to keep it completely factorised.
         prefactor = self.SEpsilon * (1. / (16 * pi ** 2))
 
+#        partial_prefactor = self.SEpsilon * (1. / (16 * pi ** 2))
+#        prefactor = torino_to_madnk_epsexp(partial_prefactor, mu2oQ2)
+#        logger.info('partial_prefactor : ' + str(partial_prefactor) + '; ' + ' prefactor : ' + str(prefactor))
+
+
 
         # Assign a fake x for now if the distribution type is 'endpoint'
         # TODO: this is not optimal, eventually we should put each of these three pieces in
@@ -510,6 +518,15 @@ class QCD_integrated_TRN_C_IqFg(general_current.GeneralCurrent):
             x = 0.5
         else:
             x = xi
+
+#        logger.info('global_variables : ' + str(global_variables))
+
+#        logger.info('global_variables : ' + str(all_steps_info[0]['lower_PS_point']))
+
+#        logger.info('x : ' + str(x))
+
+        #logger.info('pp : ' + str((p_r + p_p).square()) + '; ' + 'pp / x : ' + str((p_r + p_p).square() / x) + '; ' + 'Q2 : ' + str(global_variables['Q'].square()))
+
 
         # In MadNkLO, we use the change of variable xb' = xb*xi so that the factor
         # (Q^2)^\eps in Eq. 5.21 of https://arxiv.org/pdf/0903.1218.pdf actually reads
@@ -576,10 +593,14 @@ class QCD_integrated_TRN_C_IqFg(general_current.GeneralCurrent):
  
         # We want the '+' distributions also act on (1/x) for 'counterterm' contribution
         if kernel_qq[distribution_type] is not None and distribution_type == 'counterterm':
-            kernel_qq[distribution_type] = torino_to_madnk_epsexp(kernel_qq[distribution_type] * prefactor, mu2os / x)
+            kernel_qq[distribution_type] = torino_to_madnk_epsexp(kernel_qq[distribution_type] * prefactor , mu2os)
+#            kernel_qq[distribution_type] = torino_to_madnk_epsexp(kernel_qq[distribution_type] * prefactor, mu2os / x)
+        elif kernel_qq[distribution_type] is not None and distribution_type == 'bulk':
+            kernel_qq[distribution_type] = torino_to_madnk_epsexp(kernel_qq[distribution_type] * prefactor , mu2os)
         elif kernel_qq[distribution_type] is not None:
             kernel_qq[distribution_type] = torino_to_madnk_epsexp(kernel_qq[distribution_type] * prefactor, mu2os)
 
+        #logger.info('distribution_type :' + str(distribution_type) + '; ' + 'kernel_qq : ' + str(kernel_qq[distribution_type]))
 
         active_quark_PDGs = self.currents_properties[0]['active_fermions']
 
@@ -686,7 +707,7 @@ class QCD_integrated_TRN_C_IgFq(general_current.GeneralCurrent):
     def kernel(self, evaluation, all_steps_info, global_variables):
         """ Evaluate this counterterm given the variables provided. """
 
-        logger.info('C_IgFq')
+        #logger.info('C_IgFq')
 
         # Retrieve variables
         beam_number = global_variables['overall_children'][0][0]
@@ -709,6 +730,8 @@ class QCD_integrated_TRN_C_IgFq(general_current.GeneralCurrent):
         distribution_type = self.currents_properties[0]['distribution_type']
         beam_PDGs = self.currents_properties[0]['beam_PDGs']
         recoiler = global_variables['recoiler']
+        Q = global_variables['Q']
+        #logger.info('Q : ' + str(Q))
 
 
         # Apply the Dirac delta on the convolution parameters by setting their value to the solution of the delta.
@@ -726,9 +749,14 @@ class QCD_integrated_TRN_C_IgFq(general_current.GeneralCurrent):
         # where ( bar s_ij ) is the com energy of that particular singular configuration
         p_p = all_steps_info[0]['lower_PS_point'][global_variables['overall_parents'][0]]
         p_r = all_steps_info[0]['lower_PS_point'][global_variables['recoiler']]
-        mu2os = mu_r**2 / (p_p + p_r).square()
+#        logger.info('p_r :' + str(p_r))
+#        logger.info('p_p :' + str(p_p))
 
-        logger.info('distribution_type :' + str(distribution_type))
+        mu2os = mu_r**2 / (p_p + p_r).square()
+        mu2oQ2 = mu_r**2 / Q.square()
+
+
+        #logger.info('distribution_type :' + str(distribution_type))
 
         # The additional 1/x part of the prefactor is included later during the PDF
         # convolution of the event (using its 'Bjorken rescaling' attribute) because
@@ -737,6 +765,14 @@ class QCD_integrated_TRN_C_IgFq(general_current.GeneralCurrent):
         # of variable necessary to bring them in the form where the plus distribution
         # only acts on the PDF. So it makes sense to keep it completely factorised.
         prefactor = self.SEpsilon * (1. / (16 * pi ** 2))
+        logMuQ = log(mu_r ** 2 / Q.square())
+        prefactor_1 = EpsilonExpansion({0: 1., 1: log(mu2os), 2: 0.5 * log(mu2os) ** 2 })
+        prefactor_1 *= self.SEpsilon * (1. / (16 * pi**2) )
+
+#        partial_prefactor = self.SEpsilon * (1. / (16 * pi ** 2))
+#        prefactor_1 = torino_to_madnk_epsexp(partial_prefactor, mu2os)
+#        logger.info('prefactor: ' + str(prefactor) + '; ' + 'partial_prefactor : ' + str(partial_prefactor) + '; ' + ' prefactor : ' + str(prefactor_1))
+
 
 
         # Assign a fake x for now if the distribution type is 'endpoint'
@@ -747,6 +783,15 @@ class QCD_integrated_TRN_C_IgFq(general_current.GeneralCurrent):
         else:
             x = xi
 
+#        logger.info('global_variables : ' + str(global_variables))
+
+#        logger.info('global_variables : ' + str(all_steps_info[0]['lower_PS_point']))
+
+#        logger.info('x : ' + str(x))
+
+#        logger.info('pp : ' + str((p_r + p_p).square()) + '; ' + 'pp / x : ' + str((p_r + p_p).square() / x) + '; ' + 'Q2 : ' + str(global_variables['Q'].square()) + '; ' + 'Q2 * x : ' + str(global_variables['Q'].square() * x))
+
+
         # In MadNkLO, we use the change of variable xb' = xb*xi so that the factor
         # (Q^2)^\eps in Eq. 5.21 of https://arxiv.org/pdf/0903.1218.pdf actually reads
         # (Q^2/(xi1*xi2))^\eps and the '+' distributions also act on it, which we realize
@@ -756,10 +801,12 @@ class QCD_integrated_TRN_C_IgFq(general_current.GeneralCurrent):
 #        prefactor_plus *= self.SEpsilon * (1. / (16 * pi**2) )
 
 
+
         color_factor = self.TR
         overall = 1.
  
         if recoiler > 2:
+
             kernel_qg = {
                 'bulk': color_factor * overall * EpsilonExpansion({
                     -1: - (x**2 + (1. - x)**2),
@@ -795,13 +842,19 @@ class QCD_integrated_TRN_C_IgFq(general_current.GeneralCurrent):
             'endpoint': None
         }
 
+        #if kernel_qg[distribution_type] is not None:
+            #logger.info('distribution_type :' + str(distribution_type) + '; ' + 'kernel_qg_1 : ' + str(kernel_qg[distribution_type]*prefactor_1))
 
         # We want the '+' distributions also act on (1/x) for 'counterterm' contribution 
         if kernel_qg[distribution_type] is not None and distribution_type == 'counterterm':
-            kernel_qg[distribution_type] = torino_to_madnk_epsexp(kernel_qg[distribution_type] * prefactor, mu2os / x)
+            kernel_qg[distribution_type] = torino_to_madnk_epsexp(kernel_qg[distribution_type] * prefactor , mu2os )
+#            kernel_qg[distribution_type] = torino_to_madnk_epsexp(kernel_qg[distribution_type] * prefactor, mu2os / x)
+        elif kernel_qg[distribution_type] is not None and distribution_type == 'bulk':
+            kernel_qg[distribution_type] = torino_to_madnk_epsexp(kernel_qg[distribution_type] * prefactor , mu2os )
         elif kernel_qg[distribution_type] is not None:
-            kernel_qg[distribution_type] = torino_to_madnk_epsexp(kernel_qg[distribution_type] * prefactor, mu2os)
+            kernel_qg[distribution_type] = torino_to_madnk_epsexp(kernel_qg[distribution_type] * prefactor, mu2os )
 
+        #logger.info('distribution_type :' + str(distribution_type) + '; ' + 'kernel_qg : ' + str(kernel_qg[distribution_type]))
 
         active_quark_PDGs = self.currents_properties[0]['active_fermions']
 
@@ -827,6 +880,7 @@ class QCD_integrated_TRN_C_IgFq(general_current.GeneralCurrent):
                     quark_dict[(reduced_flavor,)] = kernel_qq[distribution_type]
                 if quark_dict:
                     flavor_matrix[reduced_flavor] = quark_dict
+
 
         # Truncate all entries of the flavor matrix so as to remove irrelevant O(\eps) terms
         for flav_in, flav_outs in flavor_matrix.items():
@@ -904,7 +958,7 @@ class QCD_integrated_TRN_C_IqFq(general_current.GeneralCurrent):
     def kernel(self, evaluation, all_steps_info, global_variables):
         """ Evaluate this counterterm given the variables provided. """
 
-        logger.info('C_IqFq')
+        #logger.info('C_IqFq')
 
         # Retrieve variables
         beam_number = global_variables['overall_children'][0][0]
@@ -927,6 +981,7 @@ class QCD_integrated_TRN_C_IqFq(general_current.GeneralCurrent):
         distribution_type = self.currents_properties[0]['distribution_type']
         beam_PDGs = self.currents_properties[0]['beam_PDGs']
         recoiler = global_variables['recoiler']
+        Q = global_variables['Q']
 
 
         # Apply the Dirac delta on the convolution parameters by setting their value to the solution of the delta.
@@ -944,7 +999,12 @@ class QCD_integrated_TRN_C_IqFq(general_current.GeneralCurrent):
         # where ( bar s_ij ) is the com energy of that particular singular configuration
         p_p = all_steps_info[0]['lower_PS_point'][global_variables['overall_parents'][0]]
         p_r = all_steps_info[0]['lower_PS_point'][global_variables['recoiler']]
+#        logger.info('p_r :' + str(p_r))
+#        logger.info('p_p :' + str(p_p))
+
         mu2os = mu_r**2 / (p_p + p_r).square()
+        mu2oQ2 = mu_r**2 / Q.square()
+
 
         # The additional 1/x part of the prefactor is included later during the PDF
         # convolution of the event (using its 'Bjorken rescaling' attribute) because
@@ -953,6 +1013,10 @@ class QCD_integrated_TRN_C_IqFq(general_current.GeneralCurrent):
         # of variable necessary to bring them in the form where the plus distribution
         # only acts on the PDF. So it makes sense to keep it completely factorised.
         prefactor = self.SEpsilon * (1. / (16 * pi ** 2))
+#        partial_prefactor = self.SEpsilon * (1. / (16 * pi ** 2))
+#        prefactor = torino_to_madnk_epsexp(partial_prefactor, mu2oQ2)
+
+        
 
 
         # Assign a fake x for now if the distribution type is 'endpoint'
@@ -963,8 +1027,13 @@ class QCD_integrated_TRN_C_IqFq(general_current.GeneralCurrent):
         else:
             x = xi
 
-#        logger.info('recoiler :' + str(recoiler))
-#        logger.info('distribution_type :' + str(distribution_type))
+#        logger.info('global_variables : ' + str(global_variables))
+
+#        logger.info('global_variables : ' + str(all_steps_info[0]['lower_PS_point']))
+
+#        logger.info('x : ' + str(x))
+
+#        logger.info('pp : ' + str((p_r + p_p).square()) + '; ' + 'pp / x : ' + str((p_r + p_p).square() / x) + '; ' + 'Q2 : ' + str(global_variables['Q'].square()))
 
         color_factor = self.CF
         overall = 1.
@@ -1009,11 +1078,14 @@ class QCD_integrated_TRN_C_IqFq(general_current.GeneralCurrent):
 
         # We want the '+' distributions also act on (1/x) for 'counterterm' contribution 
         if kernel_gq[distribution_type] is not None and distribution_type == 'counterterm':
-            kernel_gq[distribution_type] = torino_to_madnk_epsexp(kernel_gq[distribution_type] * prefactor, mu2os / x)
+            kernel_gq[distribution_type] = torino_to_madnk_epsexp(kernel_gq[distribution_type] * prefactor , mu2os)
+#            kernel_gq[distribution_type] = torino_to_madnk_epsexp(kernel_gq[distribution_type] * prefactor, mu2os / x)
+        elif kernel_gq[distribution_type] is not None and distribution_type == 'bulk':
+            kernel_gq[distribution_type] = torino_to_madnk_epsexp(kernel_gq[distribution_type] * prefactor , mu2os)
         elif kernel_gq[distribution_type] is not None:
             kernel_gq[distribution_type] = torino_to_madnk_epsexp(kernel_gq[distribution_type] * prefactor, mu2os)
 
-#        logger.info('kernel_gq[distribution_type] :' + str(kernel_gq[distribution_type]))
+        #logger.info('distribution_type :' + str(distribution_type) + '; ' + 'kernel_gq : ' + str(kernel_gq[distribution_type]))
 
         active_quark_PDGs = self.currents_properties[0]['active_fermions']
 
@@ -1118,7 +1190,7 @@ class QCD_integrated_TRN_C_IgFg(general_current.GeneralCurrent):
     def kernel(self, evaluation, all_steps_info, global_variables):
         """ Evaluate this counterterm given the variables provided. """
 
-        logger.info('C_IgFg')
+        #logger.info('C_IgFg')
 
         # Retrieve variables
         beam_number = global_variables['overall_children'][0][0]
@@ -1141,6 +1213,7 @@ class QCD_integrated_TRN_C_IgFg(general_current.GeneralCurrent):
         distribution_type = self.currents_properties[0]['distribution_type']
         beam_PDGs = self.currents_properties[0]['beam_PDGs']
         recoiler = global_variables['recoiler']
+        Q = global_variables['Q']
 
 #        logger.info('distribution : ' + str(distribution_type))
 #        logger.info('recoiler : ' + str(recoiler))
@@ -1160,7 +1233,12 @@ class QCD_integrated_TRN_C_IgFg(general_current.GeneralCurrent):
         # where ( bar s_ij ) is the com energy of that particular singular configuration
         p_p = all_steps_info[0]['lower_PS_point'][global_variables['overall_parents'][0]]
         p_r = all_steps_info[0]['lower_PS_point'][global_variables['recoiler']]
+#        logger.info('p_r :' + str(p_r))
+#        logger.info('p_p :' + str(p_p))
+
         mu2os = mu_r**2 / (p_p + p_r).square()
+        mu2os = mu_r**2 / Q.square()
+
 
 
         # The additional 1/x part of the prefactor is included later during the PDF
@@ -1170,6 +1248,9 @@ class QCD_integrated_TRN_C_IgFg(general_current.GeneralCurrent):
         # of variable necessary to bring them in the form where the plus distribution
         # only acts on the PDF. So it makes sense to keep it completely factorised.
         prefactor = self.SEpsilon * (1. / (16 * pi ** 2))
+#        partial_prefactor = self.SEpsilon * (1. / (16 * pi ** 2))
+#        prefactor = torino_to_madnk_epsexp(partial_prefactor, mu2oQ2)
+
 
 
         # Assign a fake x for now if the distribution type is 'endpoint'
@@ -1179,6 +1260,15 @@ class QCD_integrated_TRN_C_IgFg(general_current.GeneralCurrent):
             x = 0.5
         else:
             x = xi
+
+#        logger.info('global_variables : ' + str(global_variables))
+
+#        logger.info('global_variables : ' + str(all_steps_info[0]['lower_PS_point']))
+
+#        logger.info('x : ' + str(x))
+
+#        logger.info('pp : ' + str((p_r + p_p).square()) + '; ' + 'pp / x : ' + str((p_r + p_p).square() / x) + '; ' + 'Q2 : ' + str(global_variables['Q'].square()))
+
 
 #        # In MadNkLO, we use the change of variable xb' = xb*xi so that the factor
 #        # (Q^2)^\eps in Eq. 5.21 of https://arxiv.org/pdf/0903.1218.pdf actually reads
@@ -1244,11 +1334,14 @@ class QCD_integrated_TRN_C_IgFg(general_current.GeneralCurrent):
 
         # We want the '+' distributions also act on (1/x) for 'counterterm' contribution 
         if kernel_gg[distribution_type] is not None and distribution_type == 'counterterm':
-            kernel_gg[distribution_type] = torino_to_madnk_epsexp(kernel_gg[distribution_type] * prefactor, mu2os / x)
+            kernel_gg[distribution_type] = torino_to_madnk_epsexp(kernel_gg[distribution_type] * prefactor , mu2os)
+#            kernel_gg[distribution_type] = torino_to_madnk_epsexp(kernel_gg[distribution_type] * prefactor, mu2os / x)
+        elif kernel_gg[distribution_type] is not None and distribution_type == 'bulk':
+            kernel_gg[distribution_type] = torino_to_madnk_epsexp(kernel_gg[distribution_type] * prefactor , mu2os)
         elif kernel_gg[distribution_type] is not None:
             kernel_gg[distribution_type] = torino_to_madnk_epsexp(kernel_gg[distribution_type] * prefactor, mu2os)
 
-#        logger.info('kernel_gg[distribution_type] :' + str(kernel_gg[distribution_type]))
+        #logger.info('distribution_type :' + str(distribution_type) + '; ' + 'kernel_gg : ' + str(kernel_gg[distribution_type]))
 
         active_quark_PDGs = self.currents_properties[0]['active_fermions']
 
@@ -1308,6 +1401,8 @@ class QCD_integrated_TRN_CS_IqFg(general_current.GeneralCurrent):
 
     # We should not need global variables for this current
     variables = variables_for_integrated_currents_FF
+
+    #is_zero = True
 
     # Now define all the matching singular structures. We can combine in this class *all* integrated
     # initial-final counterterm thanks to the fact that *allowed_backward_evolved_flavors* is provided at
@@ -1384,6 +1479,8 @@ class QCD_integrated_TRN_CS_IqFg(general_current.GeneralCurrent):
         distribution_type = self.currents_properties[0]['distribution_type']
         beam_PDGs = self.currents_properties[0]['beam_PDGs']
         recoiler = global_variables['recoiler']
+        Q = global_variables['Q']
+        #logger.info('Q : ' + str(Q))
 
 
         # Apply the Dirac delta on the convolution parameters by setting their value to the solution of the delta.
@@ -1397,9 +1494,15 @@ class QCD_integrated_TRN_CS_IqFg(general_current.GeneralCurrent):
         # Define the the mu2os term to apply the torino expansion function.
         # mu2os = mu_r**2 / ( bar s_ij )
         # where ( bar s_ij ) is the com energy of that particular singular configuration
+#        import pdb
+#        pdb.set_trace()
         p_p = all_steps_info[0]['lower_PS_point'][global_variables['overall_parents'][0]]
         p_r = all_steps_info[0]['lower_PS_point'][global_variables['recoiler']]
+#        logger.info('p_r :' + str(p_r))
+#        logger.info('p_p :' + str(p_p))
+
         mu2os = mu_r**2 / (p_p + p_r).square()
+        mu2oQ2 = mu_r**2 / Q.square()
 
 
         # The additional 1/x part of the prefactor is included later during the PDF
@@ -1409,6 +1512,9 @@ class QCD_integrated_TRN_CS_IqFg(general_current.GeneralCurrent):
         # of variable necessary to bring them in the form where the plus distribution
         # only acts on the PDF. So it makes sense to keep it completely factorised.
         prefactor = self.SEpsilon * (1. / (16 * pi ** 2))
+#        partial_prefactor = self.SEpsilon * (1. / (16 * pi ** 2))
+#        prefactor = torino_to_madnk_epsexp(partial_prefactor, mu2oQ2)
+
 
 
         # Assign a fake x for now if the distribution type is 'endpoint'
@@ -1418,6 +1524,16 @@ class QCD_integrated_TRN_CS_IqFg(general_current.GeneralCurrent):
             x = 0.5
         else:
             x = xi
+
+#        logger.info('global_variables : ' + str(global_variables))
+
+#        logger.info('global_variables : ' + str(all_steps_info[0]['lower_PS_point']))
+
+#        logger.info('x : ' + str(x))
+
+#        logger.info('pp : ' + str((p_r + p_p).square()) + '; ' + 'pp / x : ' + str((p_r + p_p).square() / x) + '; ' + 'Q2 : ' + str(global_variables['Q'].square()))
+#        logger.info('pp : ' + str((p_r + p_p).square()) + '; ' + 'pp / x : ' + str((p_r + p_p).square() / x) + '; ' + 'Q2 : ' + str(global_variables['Q'].square()) + '; ' + 'Q2*x**2 : ' + str(global_variables['Q'].square() * x**2))
+
 
         # In MadNkLO, we use the change of variable xb' = xb*xi so that the factor
         # (Q^2)^\eps in Eq. 5.21 of https://arxiv.org/pdf/0903.1218.pdf actually reads
@@ -1471,11 +1587,14 @@ class QCD_integrated_TRN_CS_IqFg(general_current.GeneralCurrent):
 
         # We want the '+' distributions also act on (1/x) for 'counterterm' contribution 
         if distribution_type == 'counterterm':
-            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor, mu2os / x)
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os)
+#            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor, mu2os / x)
+        elif distribution_type == 'bulk':
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os)
         else:
             kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor, mu2os)
 
-#        logger.info('kernel_eval :' + str(kernel_eval))
+        #logger.info('distribution_type :' + str(distribution_type) + '; ' + 'kernel : ' + str(kernel_eval))
 
         evaluation['values'][(0, 0, 0, 0)] = (kernel_eval).truncate(max_power=0)
 
@@ -1550,7 +1669,7 @@ class QCD_integrated_TRN_CS_IgFg(general_current.GeneralCurrent):
     def kernel(self, evaluation, all_steps_info, global_variables):
         """ Evaluate this counterterm given the variables provided. """
 
-        logger.info('CS_IgFg')
+        #logger.info('CS_IgFg')
 
 
         # Retrieve variables
@@ -1574,6 +1693,7 @@ class QCD_integrated_TRN_CS_IgFg(general_current.GeneralCurrent):
         distribution_type = self.currents_properties[0]['distribution_type']
         beam_PDGs = self.currents_properties[0]['beam_PDGs']
         recoiler = global_variables['recoiler']
+        Q = global_variables['Q']
 
 
         # Apply the Dirac delta on the convolution parameters by setting their value to the solution of the delta.
@@ -1589,7 +1709,11 @@ class QCD_integrated_TRN_CS_IgFg(general_current.GeneralCurrent):
         # where ( bar s_ij ) is the com energy of that particular singular configuration
         p_p = all_steps_info[0]['lower_PS_point'][global_variables['overall_parents'][0]]
         p_r = all_steps_info[0]['lower_PS_point'][global_variables['recoiler']]
+        #logger.info('p_r :' + str(p_r))
+        #logger.info('p_p :' + str(p_p))
+
         mu2os = mu_r**2 / (p_p + p_r).square()
+        mu2oQ2 = mu_r**2 / Q.square()
 
 
         # The additional 1/x part of the prefactor is included later during the PDF
@@ -1599,6 +1723,9 @@ class QCD_integrated_TRN_CS_IgFg(general_current.GeneralCurrent):
         # of variable necessary to bring them in the form where the plus distribution
         # only acts on the PDF. So it makes sense to keep it completely factorised.
         prefactor = self.SEpsilon * (1. / (16 * pi ** 2))
+#        partial_prefactor = self.SEpsilon * (1. / (16 * pi ** 2))
+#        prefactor = torino_to_madnk_epsexp(partial_prefactor, mu2oQ2)
+
 
 
         # Assign a fake x for now if the distribution type is 'endpoint'
@@ -1609,6 +1736,14 @@ class QCD_integrated_TRN_CS_IgFg(general_current.GeneralCurrent):
         else:
             x = xi
 
+#        logger.info('global_variables : ' + str(global_variables))
+
+#        logger.info('global_variables : ' + str(all_steps_info[0]['lower_PS_point']))
+
+#        logger.info('x : ' + str(x))
+
+#        logger.info('pp : ' + str((p_r + p_p).square()) + '; ' + 'pp / x : ' + str((p_r + p_p).square() / x) + '; ' + 'Q2 : ' + str(global_variables['Q'].square()) + '; ' + 'Q2*x**2 : ' + str(global_variables['Q'].square() * x**2))
+
 
         # We add a minus sign since this CS is subtracted from S + C 
         # while the our damped CS counterterms come with a plus
@@ -1616,6 +1751,9 @@ class QCD_integrated_TRN_CS_IgFg(general_current.GeneralCurrent):
         overall = - 2.
 
         if recoiler > 2:
+
+            mu2oQ2 = mu_r**2 / (p_p + p_r).square()
+
             kernel = {
                 'bulk': color_factor * overall * EpsilonExpansion({
                     -1: x**(1. + fc.alpha) / (1. - x) ,
@@ -1654,11 +1792,14 @@ class QCD_integrated_TRN_CS_IgFg(general_current.GeneralCurrent):
 
         # We want the '+' distributions also act on (1/x) for 'counterterm' contribution 
         if distribution_type == 'counterterm':
-            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor, mu2os / xi)
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os)
+#            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor, mu2os / xi)
+        elif distribution_type == 'bulk':
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os)
         else:
             kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor, mu2os)
 
-#        logger.info('kernel_eval :' + str(kernel_eval))
+#        logger.info('distribution_type :' + str(distribution_type))
 
         evaluation['values'][(0, 0, 0, 0)] = (kernel_eval).truncate(max_power=0)
 
@@ -1696,6 +1837,7 @@ class QCD_integrated_TRN_S_g(general_current.GeneralCurrent):
         ),)
     )
 
+
     # This counterterm will be used if any of the current of the list below matches
     template_currents = []
 
@@ -1730,13 +1872,16 @@ class QCD_integrated_TRN_S_g(general_current.GeneralCurrent):
     def soft_kernel(self, evaluation, colored_partons, all_steps_info, global_variables):
         """ Evaluate this counterterm given the variables provided. """
 
-        logger.info('S_g')
+        #logger.info('S_g')
 
         xi = global_variables['xis'][0]
         xi2 = global_variables['xis'][1]
         mu_r = global_variables['mu_r']
+        Q = global_variables['Q']
+        #logger.info('Q : ' + str(Q))
 
-#        logger.info('xis : ' + str(global_variables['xis']))
+
+#        logger.info('global_variables : ' + str(global_variables))
 
         # The colored_partons argument gives a dictionary with keys being leg numbers and values being
         # their color representation. At NLO, all we care about is what are the colored leg numbers.
@@ -1797,11 +1942,28 @@ class QCD_integrated_TRN_S_g(general_current.GeneralCurrent):
                 # where ( bar s_ij ) is the com energy of that particular singular configuration
                 pa = lower_PS_point[a]
                 pb = lower_PS_point[b]
-                mu2os = mu_r**2 / (pa + pb).square()
+#                logger.info('pa :' + str(pa))
+#                logger.info('pb :' + str(pb))
 
-#                logger.info('distribution_type : ' + str(distribution_type))
+                mu2os = mu_r**2 / (pa + pb).square()
+                mu2oQ2 = mu_r**2 / Q.square()
+
+                prefactor_1 = EpsilonExpansion({0: 1., 1: log(mu2oQ2), 2: 0.5 * log(mu2oQ2) ** 2 + math.pi**2 / 12.})
+                #prefactor_1 *= self.SEpsilon * (1. / (16 * pi**2) )
+
+
+#                partial_prefactor = self.SEpsilon * (1. / (16 * pi ** 2))
+#                prefactor = torino_to_madnk_epsexp(partial_prefactor, mu2os)
+
+#                logger.info('x : ' + str(xi))
 
                 x = xi
+
+#                logger.info('global_variables : ' + str(all_steps_info[0]['higher_PS_point']))
+
+
+#                logger.info('pp : ' + str((pa + pb).square()) + '; ' + 'pp / x : ' + str((pa + pb).square() / x) + '; ' + 'Q2 : ' + str(global_variables['Q'].square()) + '; ' + 'Q2 * x^2 : ' + str(global_variables['Q'].square() * x**2))
+
 
                 if a > 2 and b > 2:
 #                    logger.info('soft caso A')
@@ -1845,6 +2007,7 @@ class QCD_integrated_TRN_S_g(general_current.GeneralCurrent):
 
                 if a <= 2 and b > 2:
 #                    logger.info('soft caso C')
+
                     kernel = {
                         'bulk': prefactor * EpsilonExpansion({
                             -2: 0. ,
@@ -1870,12 +2033,12 @@ class QCD_integrated_TRN_S_g(general_current.GeneralCurrent):
                         'bulk': prefactor * EpsilonExpansion({
                             -2: 0. ,
                             -1: 2. * x**(1. + fc.alpha) / (1. - x) ,
-                            0: - 4. * ( log(x) * x **(1. + fc.alpha) ) / (1. - x)
+                            0: - 4. * ( log(1. - x) * x **(1. + fc.alpha) ) / (1. - x)
                         }) ,
                         'counterterm': prefactor * EpsilonExpansion({
                             -2: 0. ,
                             -1: 2. * x**(1. + fc.alpha) / (1. - x) ,
-                            0: - 4. * ( log(x) * x **(1. + fc.alpha) ) / (1. - x)
+                            0: - 4. * ( log(1. - x) * x **(1. + fc.alpha) ) / (1. - x)
                         }) ,
                         'endpoint': prefactor * EpsilonExpansion({
                             -2: - 1. ,
@@ -1887,11 +2050,16 @@ class QCD_integrated_TRN_S_g(general_current.GeneralCurrent):
 
                 # We want the '+' distributions also act on (1/x) for 'counterterm' contribution 
                 if kernel[distribution_type] is not None and distribution_type == 'counterterm':
-                    kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * mult_factor, mu2os / x)
+                    kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * mult_factor, mu2os )
+#                    kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * mult_factor, mu2os / x)
+                elif kernel[distribution_type] is not None and distribution_type == 'bulk':
+                    kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * mult_factor, mu2os)
                 elif kernel[distribution_type] is not None:
                     kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * mult_factor, mu2os)
 
-#                logger.info('kernel_eval :' + str(kernel_eval))
+                #logger.info('distribution_type :' + str(distribution_type) + '; ' + 'kernel_1 : ' + str(kernel[distribution_type] * mult_factor * prefactor_1))
+
+                logger.info('distribution_type :' + str(distribution_type) + '; ' + 'kernel : ' + str(kernel_eval))
 
                 evaluation['color_correlations'].append(((a, b),))
                 evaluation['values'][(0, color_correlation_index, 0, 0)] = (kernel_eval).truncate(max_power=0)
@@ -1909,8 +2077,8 @@ class QCD_integrated_TRN_C_FqFg(general_current.GeneralCurrent):
     # Enable the flag below to debug this current
     DEBUG = True
 
-    # Store the result for beam factorisation currents in a container that supports flavor matrices.
-    subtraction_current_evaluation_class = utils.SubtractionCurrentEvaluation
+#    # Store the result for beam factorisation currents in a container that supports flavor matrices.
+#    subtraction_current_evaluation_class = utils.SubtractionCurrentEvaluation
 
     divide_by_jacobian = torino_config.divide_by_jacobian
 
@@ -1960,10 +2128,11 @@ class QCD_integrated_TRN_C_FqFg(general_current.GeneralCurrent):
     def kernel(self, evaluation, all_steps_info, global_variables):
         """ Evaluate this counterterm given the variables provided. """
 
-        logger.info('C_FqFg')
+#        logger.info('C_FqFg')
 
         xi = global_variables['xis'][0]
         mu_r = global_variables['mu_r']
+
 
         allowed_backward_evolved_flavors = global_variables['allowed_backward_evolved_flavors']
         if allowed_backward_evolved_flavors != ('ALL','ALL'):
@@ -1989,6 +2158,14 @@ class QCD_integrated_TRN_C_FqFg(general_current.GeneralCurrent):
         p_p = all_steps_info[0]['lower_PS_point'][global_variables['overall_parents'][0]]
         p_r = all_steps_info[0]['lower_PS_point'][global_variables['recoiler']]
         mu2os = mu_r**2 / (p_p + p_r).square()
+
+        Q = global_variables['Q']
+
+        mu2oQ2 = mu_r**2 / Q.square()
+        #logger.info('prefactor madnklo : ' + str(self.SEpsilon * (1. / (16 * pi ** 2))))
+
+        #logger.info('pp : ' + str((p_r + p_p).square()) + '; ' + 'pp / x : ' + str((p_r + p_p).square() / xi) + '; ' + 'Q2 : ' + str(global_variables['Q'].square()))
+
 
 
         prefactor = self.SEpsilon * (1. / (16 * pi ** 2))
@@ -2033,11 +2210,14 @@ class QCD_integrated_TRN_C_FqFg(general_current.GeneralCurrent):
 
         # We want the '+' distributions also act on (1/x) for 'counterterm' contribution 
         if distribution_type == 'counterterm':
-            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor, mu2os / xi)
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os)
+#            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor, mu2os / xi)
+        elif distribution_type == 'bulk':
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os)
         else:
             kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor, mu2os)
 
-#        logger.info('kernel_eval :' + str(kernel_eval))
+#        logger.info('distribution_type :' + str(distribution_type))
 
         evaluation['values'][(0, 0, 0, 0)] = (kernel_eval).truncate(max_power=0)
 
@@ -2049,8 +2229,8 @@ class QCD_integrated_TRN_C_FqFqx(general_current.GeneralCurrent):
     # Enable the flag below to debug this current
     DEBUG = True
 
-    # Store the result for beam factorisation currents in a container that supports flavor matrices.
-    subtraction_current_evaluation_class = utils.SubtractionCurrentEvaluation
+#    # Store the result for beam factorisation currents in a container that supports flavor matrices.
+#    subtraction_current_evaluation_class = utils.SubtractionCurrentEvaluation
 
     divide_by_jacobian = torino_config.divide_by_jacobian
 
@@ -2101,7 +2281,7 @@ class QCD_integrated_TRN_C_FqFqx(general_current.GeneralCurrent):
     def kernel(self, evaluation, all_steps_info, global_variables):
         """ Evaluate this counterterm given the variables provided. """
 
-        logger.info('C_FqFqx')
+#        logger.info('C_FqFqx')
 
         xi = global_variables['xis'][0]
         mu_r = global_variables['mu_r']
@@ -2136,6 +2316,14 @@ class QCD_integrated_TRN_C_FqFqx(general_current.GeneralCurrent):
 #        logger.info('distribution : ' + str(distribution_type))
 #        logger.info('recoiler : ' + str(recoiler))
 
+        Q = global_variables['Q']
+
+        mu2oQ2 = mu_r**2 / Q.square()
+#        logger.info('x : ' + str(xi))
+
+#        logger.info('pp : ' + str((p_r + p_p).square()) + '; ' + 'pp / x : ' + str((p_r + p_p).square() / xi) + '; ' + 'Q2 : ' + str(global_variables['Q'].square()))
+
+
         color_factor = self.TR
         overall = 2. / 3.
 
@@ -2151,6 +2339,9 @@ class QCD_integrated_TRN_C_FqFqx(general_current.GeneralCurrent):
             }
 
         elif recoiler <=2:
+
+            mu2os = mu_r**2 / (p_p + p_r).square()
+
             kernel = {
                 'bulk': color_factor * overall * EpsilonExpansion({
                     -2: 0. ,
@@ -2172,11 +2363,14 @@ class QCD_integrated_TRN_C_FqFqx(general_current.GeneralCurrent):
 
         # We want the '+' distributions also act on (1/x) for 'counterterm' contribution 
         if distribution_type == 'counterterm':
-            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os / xi)
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os)
+#            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os / xi)
+        elif distribution_type == 'bulk':
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os)
         else:
             kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os)
 
-#        logger.info('kernel_eval :' + str(kernel_eval))
+#        logger.info('distribution_type :' + str(distribution_type))
 
         evaluation['values'][(0, 0, 0, 0)] = (kernel_eval).truncate(max_power=0)
 
@@ -2188,8 +2382,8 @@ class QCD_integrated_TRN_C_FgFg(general_current.GeneralCurrent):
     # Enable the flag below to debug this current
     DEBUG = True
 
-    # Store the result for beam factorisation currents in a container that supports flavor matrices.
-    subtraction_current_evaluation_class = utils.SubtractionCurrentEvaluation
+#    # Store the result for beam factorisation currents in a container that supports flavor matrices.
+#    subtraction_current_evaluation_class = utils.SubtractionCurrentEvaluation
 
     divide_by_jacobian = torino_config.divide_by_jacobian
 
@@ -2205,6 +2399,8 @@ class QCD_integrated_TRN_C_FgFg(general_current.GeneralCurrent):
                 sub.SubtractionLeg(11, 21, sub.SubtractionLeg.FINAL),)
         ),)
     )
+
+
 
     # This counterterm will be used if any of the current of the list below matches
     template_currents = []
@@ -2240,7 +2436,7 @@ class QCD_integrated_TRN_C_FgFg(general_current.GeneralCurrent):
     def kernel(self, evaluation, all_steps_info, global_variables):
         """ Evaluate this counterterm given the variables provided. """
 
-        logger.info('C_FgFg')
+#        logger.info('C_FgFg')
 
         xi = global_variables['xis'][0]
         mu_r = global_variables['mu_r']
@@ -2267,6 +2463,14 @@ class QCD_integrated_TRN_C_FgFg(general_current.GeneralCurrent):
         p_p = all_steps_info[0]['lower_PS_point'][global_variables['overall_parents'][0]]
         p_r = all_steps_info[0]['lower_PS_point'][global_variables['recoiler']]
         mu2os = mu_r**2 / (p_p + p_r).square()
+
+        Q = global_variables['Q']
+
+        mu2oQ2 = mu_r**2 / Q.square()
+#        logger.info('x : ' + str(xi))
+
+#        logger.info('pp : ' + str((p_r + p_p).square()) + '; ' + 'pp / x : ' + str((p_r + p_p).square() / xi) + '; ' + 'Q2 : ' + str(global_variables['Q'].square()))
+
 
         prefactor = self.SEpsilon * (1. / (16 * pi ** 2))
 
@@ -2290,6 +2494,9 @@ class QCD_integrated_TRN_C_FgFg(general_current.GeneralCurrent):
             }
 
         elif recoiler <=2:
+
+            mu2os = mu_r**2 / (p_p + p_r).square()
+
             kernel = {
                 'bulk': color_factor * overall * EpsilonExpansion({
                     -2: 0. ,
@@ -2310,11 +2517,14 @@ class QCD_integrated_TRN_C_FgFg(general_current.GeneralCurrent):
 
         # Note the extra factor (* 2.) for gluon (introduced by Marco)
         if distribution_type == 'counterterm':
-            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor * 2., mu2os / xi)
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor * 2. , mu2os)
+#            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor * 2., mu2os / xi)
+        elif distribution_type == 'bulk':
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor * 2., mu2os)
         else:
             kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor * 2. , mu2os)
 
-#        logger.info('kernel_eval :' + str(kernel_eval))
+#        logger.info('distribution_type :' + str(distribution_type))
 
         evaluation['values'][(0, 0, 0, 0)] = (kernel_eval).truncate(max_power=0)
 
@@ -2330,8 +2540,8 @@ class QCD_integrated_TRN_CS_FqFg(general_current.GeneralCurrent):
     # Enable the flag below to debug this current
     DEBUG = True
 
-    # Store the result for beam factorisation currents in a container that supports flavor matrices.
-    subtraction_current_evaluation_class = utils.SubtractionCurrentEvaluation
+#    # Store the result for beam factorisation currents in a container that supports flavor matrices.
+#    subtraction_current_evaluation_class = utils.SubtractionCurrentEvaluation
 
     divide_by_jacobian = torino_config.divide_by_jacobian
 
@@ -2352,6 +2562,8 @@ class QCD_integrated_TRN_CS_FqFg(general_current.GeneralCurrent):
                 sub.SubtractionLeg(10, +1, sub.SubtractionLeg.FINAL),)
         ),)
     )
+
+
 
     # This counterterm will be used if any of the current of the list below matches
     template_currents = []
@@ -2387,7 +2599,7 @@ class QCD_integrated_TRN_CS_FqFg(general_current.GeneralCurrent):
     def kernel(self, evaluation, all_steps_info, global_variables):
         """ Evaluate this counterterm given the variables provided. """
 
-        logger.info('CS_FqFg')
+#        logger.info('CS_FqFg')
 
         xi = global_variables['xis'][0]
         mu_r = global_variables['mu_r']
@@ -2417,6 +2629,14 @@ class QCD_integrated_TRN_CS_FqFg(general_current.GeneralCurrent):
         p_p = all_steps_info[0]['lower_PS_point'][global_variables['overall_parents'][0]]
         p_r = all_steps_info[0]['lower_PS_point'][global_variables['recoiler']]
         mu2os = mu_r**2 / (p_p + p_r).square()
+
+        Q = global_variables['Q']
+
+        mu2oQ2 = mu_r**2 / Q.square()
+#        logger.info('x : ' + str(xi))
+
+#        logger.info('pp : ' + str((p_r + p_p).square()) + '; ' + 'pp / x : ' + str((p_r + p_p).square() / xi) + '; ' + 'Q2 : ' + str(global_variables['Q'].square()))
+
 
         prefactor = self.SEpsilon * (1. / (16 * pi ** 2))
 
@@ -2441,6 +2661,9 @@ class QCD_integrated_TRN_CS_FqFg(general_current.GeneralCurrent):
             }
 
         elif recoiler <=2:
+
+            mu2os = mu_r**2 / (p_p + p_r).square()
+
             kernel = {
                 'bulk': color_factor * overall * EpsilonExpansion({
                     -2: 0. ,
@@ -2462,11 +2685,14 @@ class QCD_integrated_TRN_CS_FqFg(general_current.GeneralCurrent):
 
 
         if distribution_type == 'counterterm':
-            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor, mu2os / xi)
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os)
+#            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor, mu2os / xi)
+        elif distribution_type == 'bulk':
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os)
         else:
             kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor, mu2os)
 
-#        logger.info('kernel_eval :' + str(kernel_eval))
+#        logger.info('distribution_type :' + str(distribution_type))
 
         evaluation['values'][(0, 0, 0, 0)] = (kernel_eval).truncate(max_power=0)
 
@@ -2478,8 +2704,8 @@ class QCD_integrated_TRN_CS_FgFg(general_current.GeneralCurrent):
     # Enable the flag below to debug this current
     DEBUG = True
 
-    # Store the result for beam factorisation currents in a container that supports flavor matrices.
-    subtraction_current_evaluation_class = utils.SubtractionCurrentEvaluation
+#    # Store the result for beam factorisation currents in a container that supports flavor matrices.
+#    subtraction_current_evaluation_class = utils.SubtractionCurrentEvaluation
 
     divide_by_jacobian = torino_config.divide_by_jacobian
 
@@ -2500,6 +2726,7 @@ class QCD_integrated_TRN_CS_FgFg(general_current.GeneralCurrent):
                 sub.SubtractionLeg(10, 21, sub.SubtractionLeg.FINAL),)
         ),)
     )
+
 
     # This counterterm will be used if any of the current of the list below matches
     template_currents = []
@@ -2534,7 +2761,7 @@ class QCD_integrated_TRN_CS_FgFg(general_current.GeneralCurrent):
 
     def kernel(self, evaluation, all_steps_info, global_variables):
 
-        logger.info('CS_FgFg')
+#        logger.info('CS_FgFg')
 
         """ Evaluate this counterterm given the variables provided. """
 
@@ -2566,6 +2793,14 @@ class QCD_integrated_TRN_CS_FgFg(general_current.GeneralCurrent):
         p_p = all_steps_info[0]['lower_PS_point'][global_variables['overall_parents'][0]]
         p_r = all_steps_info[0]['lower_PS_point'][global_variables['recoiler']]
         mu2os = mu_r**2 / (p_p + p_r).square()
+
+        Q = global_variables['Q']
+
+        mu2oQ2 = mu_r**2 / Q.square()
+#        logger.info('x : ' + str(xi))
+
+#        logger.info('pp : ' + str((p_r + p_p).square()) + '; ' + 'pp / x : ' + str((p_r + p_p).square() / xi) + '; ' + 'Q2 : ' + str(global_variables['Q'].square()))
+
 
         prefactor = self.SEpsilon * (1. / (16 * pi ** 2))
 
@@ -2598,6 +2833,7 @@ class QCD_integrated_TRN_CS_FgFg(general_current.GeneralCurrent):
             }
 
         elif recoiler <=2:
+
             kernel = {
                 'bulk': color_factor * overall * EpsilonExpansion({
                     -2: 0. ,
@@ -2619,11 +2855,14 @@ class QCD_integrated_TRN_CS_FgFg(general_current.GeneralCurrent):
 
 
         if distribution_type == 'counterterm':
-            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor, mu2os / xi)
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os)
+#            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor, mu2os / xi)
+        elif distribution_type == 'bulk':
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os)
         else:
             kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor, mu2os)
 
-#        logger.info('kernel_eval :' + str(kernel_eval))
+#        logger.info('distribution_type :' + str(distribution_type))
 
         evaluation['values'][(0, 0, 0, 0)] = (kernel_eval).truncate(max_power=0)
         return evaluation

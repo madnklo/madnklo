@@ -586,7 +586,7 @@ class QCD_integrated_TRN_C_IqFg(general_current.GeneralCurrent):
         # We want the '+' distributions also act on (1/x) for 'counterterm' contribution
         if kernel_qq[distribution_type] is not None and distribution_type == 'counterterm':
             kernel_qq[distribution_type] = torino_to_madnk_epsexp(kernel_qq[distribution_type] * prefactor , mu2os)
-         elif kernel_qq[distribution_type] is not None and distribution_type == 'bulk':
+        elif kernel_qq[distribution_type] is not None and distribution_type == 'bulk':
             kernel_qq[distribution_type] = torino_to_madnk_epsexp(kernel_qq[distribution_type] * prefactor , mu2os)
         elif kernel_qq[distribution_type] is not None:
             kernel_qq[distribution_type] = torino_to_madnk_epsexp(kernel_qq[distribution_type] * prefactor, mu2os)

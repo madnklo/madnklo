@@ -143,7 +143,7 @@ class DipoleCurrent(general_current.GeneralCurrent):
                             mapping_information['momenta_dict'].items()})
 
                     elif singular_structure.name() == 'C':
-                        logger1.info('Extra collinear in dipole current')
+                        #logger1.info('Extra collinear in dipole current')
                         # collinear structure: one among ia and ib is already
                         # in the singular_structure. Add the other
                         mapping_structure = sub.SingularStructure(substructures=(singular_structure, ), \

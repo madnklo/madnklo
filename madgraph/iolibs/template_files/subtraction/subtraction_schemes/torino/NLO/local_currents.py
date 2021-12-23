@@ -47,6 +47,8 @@ def compensate_sector_wgt(PS_point, global_variables, CT_type):
     """returns W_ab^X / W_ab, where X=S,C,SC for CT_type = 1,2,3.
      This is done in order to have the correct sector function together with the CT
      """
+    #logger1.info('a : ' + str(global_variables['sector_info'][0](PS_point, [], sector_type=CT_type)) + '; ' + 'B : ' + str(
+    #        global_variables['sector_info'][0](PS_point, [])))
     return global_variables['sector_info'][0](PS_point, [], sector_type=CT_type) / \
             global_variables['sector_info'][0](PS_point, [])
 
@@ -211,6 +213,7 @@ class QCD_TRN_C_FqFqx(general_current.GeneralCurrent):
 
         prefactor = 1./s_rs #
         prefactor *= compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 2)
+        #logger1.info('sector weight C_FqxFq : ' + str(compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 2)))
 
 #gl
         #damping factors
@@ -315,7 +318,7 @@ class QCD_TRN_C_FgFq(general_current.GeneralCurrent):
 
         prefactor = 1./s_rs #
         prefactor *= compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 2)
-        #prefactor *= 1. / all_steps_info[0]['jacobian']
+        #logger1.info('sector weight C_FgFq : ' + str(compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 2)))
 
 #gl
         #damping factors
@@ -323,6 +326,7 @@ class QCD_TRN_C_FgFq(general_current.GeneralCurrent):
 
         if recoiler > 2:
             prefactor *= (1. - all_steps_info[0]['variables'][0]['y'])**(factors_and_cuts.damping_factors[1])
+
         else:
             prefactor *= all_steps_info[0]['variables'][0]['x'] **(factors_and_cuts.damping_factors[2])
 
@@ -349,7 +353,7 @@ class QCD_TRN_S_g(dipole_current.DipoleCurrent):
     """ F S(q_g)"""
 
     # Enable the flag below to debug this current
-    DEBUG = False
+    DEBUG = True
 
     divide_by_jacobian = torino_config.divide_by_jacobian
 
@@ -410,7 +414,6 @@ class QCD_TRN_S_g(dipole_current.DipoleCurrent):
         # The colored_partons argument gives a dictionary with keys being leg numbers and values being
         # their color representation. At NLO, all we care about is what are the colored leg numbers.
         colored_partons = sorted(colored_partons.keys())
-        #logger1.info('global_variables :' + str(global_variables))
 
         # Normalization factors
         norm = - 1./2.
@@ -426,7 +429,7 @@ class QCD_TRN_S_g(dipole_current.DipoleCurrent):
         for i, a in enumerate(colored_partons):
             # Use the symmetry of the color correlation and soft current (a,b) <-> (b,a)
             for k, b in enumerate(colored_partons):
-#            for b in colored_partons[i:]:
+            #for b in colored_partons[i:]:
                 #logger1.info('b :' + str(b))
 
 
@@ -443,8 +446,14 @@ class QCD_TRN_S_g(dipole_current.DipoleCurrent):
                 # Retrieve the reduced kinematics as well as the soft momentum
                 lower_PS_point = all_steps_info[(a, b)][0]['lower_PS_point']
                 higher_PS_point = all_steps_info[(a, b)][0]['higher_PS_point']
+#                jacobian = all_steps_info[(a, b)][0]['jacobian']
+                #logger1.info('soft jacobian :' + str(all_steps_info[(a, b)][0]))
+
+
 
                 sector_prefactor = compensate_sector_wgt(higher_PS_point, global_variables, 1)
+                #sector_prefactor *= jacobian
+
 
                 ###pS = higher_PS_point[all_steps_info[(a, b)][0]['bundles_info'][0]['final_state_children'][0]]
                 # the above expression cannot be used any more since we use a mapping structure of collinear
@@ -495,7 +504,8 @@ class QCD_TRN_S_g(dipole_current.DipoleCurrent):
                 #damping factors
                 if a > 2 and b > 2:
 
-                    eikonal *= ( pa.dot(pb) / (pa.dot(pb) + pa.dot(pS) + pb.dot(pS)))**(factors_and_cuts.damping_factors[0])
+                    eikonal *= (1. - pa.dot(pS) / (pa.dot(pb) + pa.dot(pS) + pb.dot(pS)))**(factors_and_cuts.damping_factors[0]) * ( pa.dot(pb) / (pb.dot(pS) + pa.dot(pb)))**(factors_and_cuts.damping_factors[0])
+                    #logger1.info('(1-y) in soft : ' + str(1. - pa.dot(pS) / (pa.dot(pb) + pa.dot(pS) + pb.dot(pS))))
 
                 # this case never occurs
                 elif a > 2 and b <= 2: 
@@ -533,6 +543,15 @@ class QCD_TRN_CS_FgFq(general_current.GeneralCurrent):
     """ FF C(S(g),q)
     NLO tree-level (final) soft-collinear currents. Returns zero, since we have already subtracted the
     soft-col singularity inside the splitting functions"""
+
+    # Enable the flag below to debug this current
+    DEBUG = True
+
+    divide_by_jacobian = torino_config.divide_by_jacobian
+
+    # We should not need global variables for this current
+    #variables = None
+
 
     soft_structure = sub.SoftStructure(
         legs=(sub.SubtractionLeg(10, 21, sub.SubtractionLeg.FINAL), ) )
@@ -611,6 +630,15 @@ class QCD_TRN_CS_FgFq(general_current.GeneralCurrent):
 class QCD_TRN_CS_FgFg(general_current.GeneralCurrent):
     """ FF C(S(g),g)
     NLO tree-level (final) soft-collinear currents. """
+
+    # Enable the flag below to debug this current
+    DEBUG = True
+
+    divide_by_jacobian = torino_config.divide_by_jacobian
+
+    # We should not need global variables for this current
+    #variables = None
+
 
     soft_structure = sub.SoftStructure(
         legs=(sub.SubtractionLeg(10, 21, sub.SubtractionLeg.FINAL), ) )
@@ -751,11 +779,13 @@ class QCD_TRN_C_IgFg(general_current.GeneralCurrent):
 
         prefactor = - 1./s_rs #
         prefactor *= compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 2)
+        #logger1.info('sector weight C_IgFg : ' + str(compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 2)))
+
 
 #gl
         #damping factors
         recoiler = all_steps_info[0]['mapping_vars']['ids']['c']
-        logger1.info('recoiler : ' + str(recoiler))
+        #logger1.info('recoiler : ' + str(recoiler))
 
 
         if recoiler > 2:
@@ -871,11 +901,12 @@ class QCD_TRN_C_IqFq(general_current.GeneralCurrent):
 
         prefactor =((self.NC ** 2 - 1) / float(self.NC)) / s_rs #
         prefactor *= compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 2)
+        #logger1.info('sector weight C_IqFq : ' + str(compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 2)))
 
 #gl
         #damping factors
         recoiler = all_steps_info[0]['mapping_vars']['ids']['c']
-        logger1.info('recoiler : ' + str(recoiler))
+        #logger1.info('recoiler : ' + str(recoiler))
 
 
         if recoiler > 2:
@@ -967,6 +998,9 @@ class QCD_TRN_C_IgFq(general_current.GeneralCurrent):
     def kernel(self, evaluation, all_steps_info, global_variables):
         """ Evaluate this counterterm given the variables provided. """
 
+        #logger1.info('Entering Kernel C_IgFq')
+
+
         kT_FF = all_steps_info[0]['variables'][0]['kTs'][0]
         x_FF  = all_steps_info[0]['variables'][0]['xs'][0]
         x_oth = all_steps_info[0]['variables'][0]['xs'][1]
@@ -975,31 +1009,33 @@ class QCD_TRN_C_IgFq(general_current.GeneralCurrent):
 
 
         prefactor = (self.NC / float(self.NC ** 2 - 1.)) /s_rs  #
+        x = 1. / x_FF
         prefactor *= compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 2)
+        #logger1.info('sector weight C_IgFq : ' + str(compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 2)))
 
 #gl
         #damping factors
         recoiler = all_steps_info[0]['mapping_vars']['ids']['c']
-        logger1.info('recoiler : ' + str(recoiler))
+        #logger1.info('recoiler : ' + str(recoiler))
 
 
         if recoiler > 2:
             prefactor *= (1. - all_steps_info[0]['variables'][0]['z'])**(factors_and_cuts.damping_factors[3])
-            logger1.info('variable : ' + str(all_steps_info[0]['variables'][0]['z']))
+            #logger1.info('variable : ' + str(all_steps_info[0]['variables'][0]['z']))
 
         else:
             prefactor *= (1. - all_steps_info[0]['variables'][0]['v'])**(factors_and_cuts.damping_factors[4])
-            logger1.info('variable : ' + str(all_steps_info[0]['variables'][0]['v']))
+            #logger1.info('variable : ' + str(all_steps_info[0]['variables'][0]['v']))
 
 
         # include the soft_collinear counterterm here, as in the torino paper
         # (see the definition of 'hard-collinear' splitting function there)
 #        soft_col = EpsilonExpansion({0: self.CF * 2 * x_FF / x_oth, 1: 0.})
-        soft_col = 0.
-        for spin_correlation_vector, weight in AltarelliParisiKernels.P_gq(self, 1./x_FF , kT_FF):
+        #soft_col = 0.
+        for spin_correlation_vector, weight in AltarelliParisiKernels.P_gq(self, x , kT_FF):
             complete_weight = weight * prefactor
             if spin_correlation_vector is None:
-                complete_weight += soft_col * (- prefactor)
+                #complete_weight += soft_col * (- prefactor)
                 evaluation['values'][(0, 0, 0, 0)] = {'finite': complete_weight[0]}
             else:
                 evaluation['spin_correlations'].append( ((parent, spin_correlation_vector),) )
@@ -1077,6 +1113,8 @@ class QCD_TRN_C_IqFg(general_current.GeneralCurrent):
     def kernel(self, evaluation, all_steps_info, global_variables):
         """ Evaluate this counterterm given the variables provided. """
 
+        #logger1.info('Entering Kernel C_IqFg')
+
         kT_FF = all_steps_info[0]['variables'][0]['kTs'][0]
         x_FF  = all_steps_info[0]['variables'][0]['xs'][0]
         x_oth = all_steps_info[0]['variables'][0]['xs'][1]
@@ -1086,11 +1124,12 @@ class QCD_TRN_C_IqFg(general_current.GeneralCurrent):
 
         prefactor = 1./s_rs/x_FF #
         prefactor *= compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 2)
+        #logger1.info('sector weight C_IqFg : ' + str(compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 2)))
 
 #gl
         #damping factors
         recoiler = all_steps_info[0]['mapping_vars']['ids']['c']
-        logger1.info('recoiler : ' + str(recoiler))
+        #logger1.info('recoiler : ' + str(recoiler))
 
         if recoiler > 2:
             prefactor *= (1. - all_steps_info[0]['variables'][0]['z'])**(factors_and_cuts.damping_factors[3])
@@ -1149,7 +1188,7 @@ class QCD_TRN_CS_IqFg(dipole_current.DipoleCurrent):
 #        substructures=(soft_structure, ),
 #        legs=(sub.SubtractionLeg(11,  -1, sub.SubtractionLeg.INITIAL), ) )
 
-#    is_zero = True
+    is_zero = True
 
     # This counterterm will be used if any of the current of the list below matches
     currents = [
@@ -1194,10 +1233,10 @@ class QCD_TRN_CS_IqFg(dipole_current.DipoleCurrent):
         """Evaluate a soft type of splitting kernel, which *does* need to know about the reduced process.
         Should be specialised by the daughter class if not dummy
         """
-        #logger1.info('Soft kernel CS')
+        #logger1.info('Entering Kernel CS')
 
         if global_variables['overall_children'][0][0] != 1:
-            logger1.info('global_variables[overall_children][0][0] : ' + str(global_variables['overall_children'][0][0]))
+            #logger1.info('global_variables[overall_children][0][0] : ' + str(global_variables['overall_children'][0][0]))
             is_zero = True
         else:
             # The colored_partons argument gives a dictionary with keys being leg numbers and values being
@@ -1205,7 +1244,7 @@ class QCD_TRN_CS_IqFg(dipole_current.DipoleCurrent):
             colored_partons = sorted(colored_partons.keys())
 
             # Normalization factors
-            norm = - 1./2.
+            norm = 1./2.
 
             # All contributions from the soft counterterms are color correlated so we should remove
             # the default value None from the list of color correlations
@@ -1248,9 +1287,9 @@ class QCD_TRN_CS_IqFg(dipole_current.DipoleCurrent):
                     # some special behaviour may be needed in the case
                     # either a or b are one of the particles defining
                     # the sector, in particular for the SC limit.
-                    #logger1.info('pS =' + str(pS))
-                    #logger1.info('pa =' + str(pa))
-                    #logger1.info('pb =' + str(pb))
+                    # logger1.info('pS =' + str(pS))
+                    # logger1.info('pa =' + str(pa))
+                    # logger1.info('pb =' + str(pb))
                      
 
                     # At the moment, we do not implement anything special
@@ -1275,7 +1314,7 @@ class QCD_TRN_CS_IqFg(dipole_current.DipoleCurrent):
 
                     evaluation['color_correlations'].append(((a, b),))
                     evaluation['values'][(0, color_correlation_index, 0, color_correlation_index)] = {
-                        'finite': norm * mult_factor/2. * eikonal * sector_prefactor}
+                        'finite': norm * mult_factor * eikonal * sector_prefactor}
                     evaluation['reduced_kinematics'].append(('Dip %d-%d' % (a, b), lower_PS_point))
                     color_correlation_index += 1
 
@@ -1299,7 +1338,7 @@ class QCD_TRN_CS_IgFg(dipole_current.DipoleCurrent):
         substructures=(soft_structure, ),
         legs=(sub.SubtractionLeg(10,  21, sub.SubtractionLeg.INITIAL), ) )
 
-#    is_zero = True
+    is_zero = True
 
     # This counterterm will be used if any of the current of the list below matches
     currents = [
@@ -1341,7 +1380,7 @@ class QCD_TRN_CS_IgFg(dipole_current.DipoleCurrent):
         #logger1.info('Soft kernel CS')
 
         if global_variables['overall_children'][0][0] != 1:
-            logger1.info('global_variables[overall_children][0][0] : ' + str(global_variables['overall_children'][0][0]))
+            #logger1.info('global_variables[overall_children][0][0] : ' + str(global_variables['overall_children'][0][0]))
             is_zero = True
         else:
             # The colored_partons argument gives a dictionary with keys being leg numbers and values being
@@ -1349,7 +1388,7 @@ class QCD_TRN_CS_IgFg(dipole_current.DipoleCurrent):
             colored_partons = sorted(colored_partons.keys())
 
             # Normalization factors
-            norm = - 1./2.
+            norm = 1./2.
 
             # All contributions from the soft counterterms are color correlated so we should remove
             # the default value None from the list of color correlations
@@ -1418,7 +1457,7 @@ class QCD_TRN_CS_IgFg(dipole_current.DipoleCurrent):
 
                     evaluation['color_correlations'].append(((a, b),))
                     evaluation['values'][(0, color_correlation_index, 0, color_correlation_index)] = {
-                        'finite': norm * mult_factor/2. * eikonal * sector_prefactor}
+                        'finite': norm * mult_factor * eikonal * sector_prefactor}
                     evaluation['reduced_kinematics'].append(('Dip %d-%d' % (a, b), lower_PS_point))
                     color_correlation_index += 1
 

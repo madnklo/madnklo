@@ -2383,6 +2383,7 @@ class ME7Integrand_V(ME7Integrand):
         counterevent for the specified input_mapping considered (i.e. an integrated CT like
         g > d d~ must be "attached" to all final-state gluons of the virtual process definition).
         """
+        #logger.info('Entering evaluate_integrated_counterterm') 
 
         # Make sure no helicity configuration is specified since this is not supported yet.
         assert ((hel_config is None))
@@ -2490,10 +2491,14 @@ class ME7Integrand_V(ME7Integrand):
         # We must also map the Bjorken x's and the xi rescalings
         xi1, xi2 = [xi1, xi2][input_mapping[0]], [xi1, xi2][input_mapping[1]]
         xb_1, xb_2 = [xb_1, xb_2][input_mapping[0]], [xb_1, xb_2][input_mapping[1]]
+        #logger.info('xi1 : ' + str(xi1) + ', ' + 'xi2 : ' + str(xi2) + ', ' + 'xb_1 : ' + str(xb_1) + ', ' + 'xb_2 : ' + str(xb_2))
 
         # Now compute the reduced quantities which will be necessary for evaluating the
         # integrated current
         reduced_PS = counterterm.get_reduced_kinematics(mapped_PS_point)
+        # logger.info('mapped_PS_point : ' + str(mapped_PS_point) )
+        # logger.info('reduced_PS : ' + str(reduced_PS) )
+
 
         # Retrieve some possibly relevant model parameters
         alpha_s = self.model.get('parameter_dict')['aS']
@@ -2510,9 +2515,14 @@ class ME7Integrand_V(ME7Integrand):
             1. if xi1 is None else 1. / xi1,
             1. if xi2 is None else 1. / xi2,
         )
+
+        #logger.info('rescalings : ' + str(rescalings))
+        #logger.info('mapped_PS_point : ' + str(mapped_PS_point))
         total_incoming_momentum = vectors.LorentzVector()
         for i, p in enumerate(mapped_PS_point.to_list()[:self.n_initial]):
             total_incoming_momentum += p * rescalings[i]
+            #logger.info('total_incoming_momentum : ' + str(total_incoming_momentum))
+
 
         # With the current design we only consider and support the case where there is only
         # *one* regular (i.e. non-beam) "mapping currents" in the counterterm.
@@ -2623,7 +2633,7 @@ class ME7Integrand_V(ME7Integrand):
                         " following integrated counterterm event. This should never happen.\n%s" % str(integrated_CT_event))
 
                 all_events.append(integrated_CT_event)
-
+        #logger.info('all_events : ' + str(all_events))
         return all_events
         
     def test_IR_poles(self, test_options):
@@ -3582,11 +3592,11 @@ class ME7Integrand_R(ME7Integrand):
         assert ((hel_config is None))
 
         # Ez
-        #logger.debug("Beginning of evaluate_local_counterterm")
-        #logger.debug("counterterm: " + str(counterterm))
-        #logger.debug("boost_back_to_com: " + str(boost_back_to_com))
-        #logger.debug(str(PS_point))
-        #logger.debug("+" * 100)
+        # logger.debug("Beginning of evaluate_local_counterterm")
+        # logger.debug("counterterm: " + str(counterterm))
+        # logger.debug("boost_back_to_com: " + str(boost_back_to_com))
+        # logger.debug(str(PS_point))
+        # logger.debug("+" * 100)
 
         # Compute the 4-vector Q characterizing this PS point, defined as the sum of all
         # initial_state momenta, before any mapping is applied.
@@ -3603,7 +3613,9 @@ class ME7Integrand_R(ME7Integrand):
         for i, p in enumerate(PS_point.to_list()[:self.n_initial]):
             total_incoming_momentum += p * rescalings[i]
 
-        logger1.info('rescalings : ' + str(rescalings))
+        #logger1.info('rescalings : ' + str(rescalings))
+
+        #logger1.info('options : ' + str(opts))
 # Gl
         #In the following we'll work with a copy of PS_point in order to preserve the original one from any border effects
 
@@ -3626,8 +3638,6 @@ class ME7Integrand_R(ME7Integrand):
 
         n_unresolved_left = self.contribution_definition.n_unresolved_particles
         n_unresolved_left -= counterterm.count_unresolved()
-
-        logger1.info('xb_1 : ' + str(xb_1) + '; ' + 'xb_2 : ' + str(xb_2))
 
         all_necessary_ME_calls, disconnected_currents_weight = ME7Integrand_R.generate_all_necessary_ME_calls(
             non_beam_factorization_currents, ME_process, PS_point,
@@ -3659,6 +3669,7 @@ class ME7Integrand_R(ME7Integrand):
                     self.accessor_tracks_leg_numbers, reduced_kinematics, ME_process, xb_1, xb_2,
                     xi1, xi2, mu_r, mu_f1, mu_f2, total_incoming_momentum, momenta_dict = counterterm.momenta_dict,
                     sector_info = sector, n_initial_legs = self.n_initial)
+                #logger1.info('all_necessary_ME_calls_for_these_beam_currents : ' + str(all_necessary_ME_calls_for_these_beam_currents))    
 
                 for reduced_kinematics_identifier, (reduced_kinematics, necessary_ME_calls) in \
                                                                 all_necessary_ME_calls_for_these_beam_currents.items():
@@ -3685,7 +3696,7 @@ class ME7Integrand_R(ME7Integrand):
                     this_base_weight = base_weight
 
 # Gl
-                    logger1.info('reduced_kinematics_1= ' + str(reduced_kinematics))
+                    #logger1.info('reduced_kinematics_1= ' + str(reduced_kinematics))
 
 
                     # Now that all currents have been evaluated using the PS points with initial-state
@@ -3699,7 +3710,7 @@ class ME7Integrand_R(ME7Integrand):
                         reduced_kinematics.boost_to_com(tuple([l.get('number') for l in counterterm.process.get_initial_legs()]))
 
 # Gl
-                    logger1.info('reduced_kinematics_2= ' + str(reduced_kinematics))
+                    #logger1.info('reduced_kinematics_2= ' + str(reduced_kinematics))
                     #logger1.info('AFTER REDUCING_2: PS_point evaluate= ' + str(PS_point))
 
 
@@ -3708,16 +3719,20 @@ class ME7Integrand_R(ME7Integrand):
                     # originating from the defining process and the real-emission kinematics dictionary
 
                     reduced_kinematics_as_list, reduced_flavors = counterterm.get_reduced_quantities(reduced_kinematics, defining_flavors=None)
-                    logger1.info('reduced_flavors= ' + str(reduced_flavors))
-                    logger1.info('Pre reduced kin= ' + str(reduced_kinematics_as_list))
-
-                    if reduced_kinematics_as_list[0][3] < 1.:
+                    #logger1.info('reduced_flavors= ' + str(reduced_flavors))
+                    #logger1.info('Pre reduced kin= ' + str(reduced_kinematics_as_list))
+#gl 
+                    # # #special function for extra term in SC
+                    if reduced_kinematics_as_list[0][3] < 0.:
+                        #logger1.info('Entering special function for SC extra kinematics')
+                        #logger1.info('Pre reduced_kinematics_as_list : ' + str(reduced_kinematics_as_list))
                         reduced_kinematics_as_list[0][3] = - reduced_kinematics_as_list[0][3]
-                        reduced_kinematics_as_list[1][3] = - reduced_kinematics_as_list[1][3]
+                        #reduced_kinematics_as_list[1][3] = - reduced_kinematics_as_list[1][3]
                         #reduced_kinematics_as_list[0] = tmp_2
                         #reduced_kinematics_as_list[1] = tmp_1
                         #logger1.info('AFTER REDUCING_2: PS_point evaluate= ' + str(tmp_1))
-                    logger1.info('Post reduced kin= ' + str(reduced_kinematics_as_list))
+                    #logger1.info('Post reduced kin= ' + str(reduced_kinematics_as_list))
+                    #logger1.info('passata dopo reduced_kin= ' + str(reduced_kinematics))
 
 
  
@@ -3781,6 +3796,7 @@ class ME7Integrand_R(ME7Integrand):
                     # a LorentzVectorList which must be ordered exactly like the flavor configurations
                     # in it are.
                     event_PS = reduced_kinematics.to_list(ordered_keys=[l.get('number') for l in counterterm.process.get('legs')])
+                    #logger1.info('event_PS ordered according flavour configuration : ' + str(event_PS))
 
                     template_event = ME7Event(
                         event_PS,
@@ -3900,7 +3916,7 @@ class ME7Integrand_R(ME7Integrand):
             spin_correlators = tuple(ME_call['spin_correlation']) if ME_call['spin_correlation'] else None
             connected_currents_weight = ME_call['main_weight']
             #misc.sprint(ME_PS, ME_process.nice_string())
-            misc.sprint(ME_process.get_cached_initial_final_numbers())
+            #misc.sprint(ME_process.get_cached_initial_final_numbers())
             try:
                 ME_evaluation, all_ME_results = all_MEAccessors(
                     ME_process, ME_PS, alpha_s, mu_r,
@@ -3928,12 +3944,12 @@ The missing process is: %s"""%ME_process.nice_string())
             event_weight *= disconnected_currents_weight
             event_weight *= connected_currents_weight
             event_weight *= overall_prefactor
-            misc.sprint("")
-            misc.sprint(spin_correlators, color_correlators)
-            misc.sprint(base_objects.EpsilonExpansion(ME_evaluation))
-            misc.sprint(disconnected_currents_weight)
-            misc.sprint(connected_currents_weight)
-            misc.sprint(event_weight)
+            #misc.sprint("")
+            #misc.sprint(spin_correlators, color_correlators)
+            #misc.sprint(base_objects.EpsilonExpansion(ME_evaluation))
+            #misc.sprint(disconnected_currents_weight)
+            #misc.sprint(connected_currents_weight)
+            #misc.sprint(event_weight)
 
             # Skip an event with no contribution (some dipoles of the eikonal for example)
             if not always_generate_event and event_weight.norm() == 0.:
@@ -4041,7 +4057,7 @@ The missing process is: %s"""%ME_process.nice_string())
         walker = walkers.VirtualWalker(walker_name)
 
 #Gl
-        logger1.info("walker name = " + str(walker))
+        #logger1.info("walker name = " + str(walker))
 
         # First generate an underlying Born
         # Specifying None forces to use uniformly random generating variables.
@@ -4490,7 +4506,7 @@ The missing process is: %s"""%ME_process.nice_string())
             limit_evaluations[scaling_parameter] = this_eval
 
 #gl
-#        logger.info('ME/CTs :' + str(ratio_ME_CTs_array))
+        #logger.info('ME/CTs :' + str(ratio_ME_CTs_array))
         
         # Pad missing evaluations (typically counterterms that were evaluated outside of their active range)
         # by zeros so that it can be uniformly treated by analyze_IR_limits

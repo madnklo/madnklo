@@ -211,13 +211,13 @@ class QCD_F0(general_current.GeneralCurrent):
 
         # Only the order epsilon of the scales pre-factor matters here.
         mur2omuf = mu_r ** 2 / mu_f ** 2
-        prefactor = EpsilonExpansion({-1: 1.}) * self.SEpsilon * (1. / (16 * pi**2) )
-        prefactor = torino_to_madnk_epsexp(prefactor, mur2omuf)
-#        prefactor = EpsilonExpansion({
-#            0: 1.,
-#            1: log(mu_r ** 2 / mu_f ** 2)
-#        })
-#        prefactor *= EpsilonExpansion({-1: 1.}) * self.SEpsilon * (1. / (16 * pi**2) )
+        #prefactor_1 = EpsilonExpansion({-1: 1.}) * self.SEpsilon * (1. / (16 * pi**2) )
+        #prefactor = torino_to_madnk_epsexp(prefactor_1, mur2omuf)
+        prefactor = EpsilonExpansion({
+            0: 1.,
+            1: log(mu_r ** 2 / mu_f ** 2)
+        })
+        prefactor *= EpsilonExpansion({-1: 1.}) * self.SEpsilon * (1. / (16 * pi**2) )
         #logger.info('prefactor : ' + str(prefactor))
 
         # Assign a fake xi for now if the distribution type is 'endpoint'
@@ -585,7 +585,7 @@ class QCD_integrated_TRN_C_IqFg(general_current.GeneralCurrent):
  
         # We want the '+' distributions also act on (1/x) for 'counterterm' contribution
         if kernel_qq[distribution_type] is not None and distribution_type == 'counterterm':
-            kernel_qq[distribution_type] = torino_to_madnk_epsexp(kernel_qq[distribution_type] * prefactor , mu2os)
+            kernel_qq[distribution_type] = torino_to_madnk_epsexp(kernel_qq[distribution_type] * prefactor , mu2os / x)
         elif kernel_qq[distribution_type] is not None and distribution_type == 'bulk':
             kernel_qq[distribution_type] = torino_to_madnk_epsexp(kernel_qq[distribution_type] * prefactor , mu2os)
         elif kernel_qq[distribution_type] is not None:
@@ -756,9 +756,12 @@ class QCD_integrated_TRN_C_IgFq(general_current.GeneralCurrent):
         # of variable necessary to bring them in the form where the plus distribution
         # only acts on the PDF. So it makes sense to keep it completely factorised.
         prefactor = self.SEpsilon * (1. / (16 * pi ** 2))
-#        logMuQ = log(mu_r ** 2 / Q.square())
-#        prefactor_1 = EpsilonExpansion({0: 1., 1: log(mu2os), 2: 0.5 * log(mu2os) ** 2 })
-#        prefactor_1 *= self.SEpsilon * (1. / (16 * pi**2) )
+        # Q_square = Q.square()
+        # logMuQ = log(mu_r ** 2 / Q_square)
+        # prefactor = EpsilonExpansion({0: 1., 1: logMuQ, 2: 0.5 * logMuQ ** 2})
+        # prefactor *= self.SEpsilon * (1. / (16 * pi**2) )
+
+
 
 #        partial_prefactor = self.SEpsilon * (1. / (16 * pi ** 2))
 #        prefactor_1 = torino_to_madnk_epsexp(partial_prefactor, mu2os)
@@ -835,7 +838,7 @@ class QCD_integrated_TRN_C_IgFq(general_current.GeneralCurrent):
 
         # We want the '+' distributions also act on (1/x) for 'counterterm' contribution 
         if kernel_qg[distribution_type] is not None and distribution_type == 'counterterm':
-            kernel_qg[distribution_type] = torino_to_madnk_epsexp(kernel_qg[distribution_type] * prefactor , mu2os )
+            kernel_qg[distribution_type] = torino_to_madnk_epsexp(kernel_qg[distribution_type] * prefactor , mu2os / x)
         elif kernel_qg[distribution_type] is not None and distribution_type == 'bulk':
             kernel_qg[distribution_type] = torino_to_madnk_epsexp(kernel_qg[distribution_type] * prefactor , mu2os )
         elif kernel_qg[distribution_type] is not None:
@@ -1063,7 +1066,7 @@ class QCD_integrated_TRN_C_IqFq(general_current.GeneralCurrent):
 
         # We want the '+' distributions also act on (1/x) for 'counterterm' contribution 
         if kernel_gq[distribution_type] is not None and distribution_type == 'counterterm':
-            kernel_gq[distribution_type] = torino_to_madnk_epsexp(kernel_gq[distribution_type] * prefactor , mu2os)
+            kernel_gq[distribution_type] = torino_to_madnk_epsexp(kernel_gq[distribution_type] * prefactor , mu2os / x)
         elif kernel_gq[distribution_type] is not None and distribution_type == 'bulk':
             kernel_gq[distribution_type] = torino_to_madnk_epsexp(kernel_gq[distribution_type] * prefactor , mu2os)
         elif kernel_gq[distribution_type] is not None:
@@ -1311,7 +1314,7 @@ class QCD_integrated_TRN_C_IgFg(general_current.GeneralCurrent):
 
         # We want the '+' distributions also act on (1/x) for 'counterterm' contribution 
         if kernel_gg[distribution_type] is not None and distribution_type == 'counterterm':
-            kernel_gg[distribution_type] = torino_to_madnk_epsexp(kernel_gg[distribution_type] * prefactor , mu2os)
+            kernel_gg[distribution_type] = torino_to_madnk_epsexp(kernel_gg[distribution_type] * prefactor , mu2os / x)
         elif kernel_gg[distribution_type] is not None and distribution_type == 'bulk':
             kernel_gg[distribution_type] = torino_to_madnk_epsexp(kernel_gg[distribution_type] * prefactor , mu2os)
         elif kernel_gg[distribution_type] is not None:
@@ -1572,7 +1575,7 @@ class QCD_integrated_TRN_CS_IqFg(general_current.GeneralCurrent):
 
         # We want the '+' distributions also act on (1/x) for 'counterterm' contribution 
         if distribution_type == 'counterterm':
-            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os)
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os / x)
         elif distribution_type == 'bulk':
             kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os)
         else:
@@ -1783,7 +1786,7 @@ class QCD_integrated_TRN_CS_IgFg(general_current.GeneralCurrent):
 
         # We want the '+' distributions also act on (1/x) for 'counterterm' contribution 
         if distribution_type == 'counterterm':
-            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os)
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os / x)
         elif distribution_type == 'bulk':
             kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os)
         else:
@@ -1911,9 +1914,12 @@ class QCD_integrated_TRN_S_g(general_current.GeneralCurrent):
         # Now we loop over parton (a,b)
         for i, a in enumerate(colored_partons):
             # Use the symmetry of the color correlation and soft current (a,b) <-> (b,a)
-            for b in colored_partons[i:]:
+            #for b in colored_partons[i:]:
+            for k, b in enumerate(colored_partons):
+
                 # Write the eikonal for that pair
-                if a != b:
+                #if a != b:
+                if a > b:
                     mult_factor = 2.
                 else:
                     continue
@@ -2044,7 +2050,7 @@ class QCD_integrated_TRN_S_g(general_current.GeneralCurrent):
 
                 # We want the '+' distributions also act on (1/x) for 'counterterm' contribution 
                 if kernel[distribution_type] is not None and distribution_type == 'counterterm':
-                    kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * mult_factor, mu2os )
+                    kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * mult_factor, mu2os / x)
                 elif kernel[distribution_type] is not None and distribution_type == 'bulk':
                     kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * mult_factor, mu2os)
                 elif kernel[distribution_type] is not None:
@@ -2198,7 +2204,7 @@ class QCD_integrated_TRN_C_FqFg(general_current.GeneralCurrent):
 
         # We want the '+' distributions also act on (1/x) for 'counterterm' contribution 
         if distribution_type == 'counterterm':
-            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os)
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os / x)
         elif distribution_type == 'bulk':
             kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os)
         else:
@@ -2346,7 +2352,7 @@ class QCD_integrated_TRN_C_FqFqx(general_current.GeneralCurrent):
 
         # We want the '+' distributions also act on (1/x) for 'counterterm' contribution 
         if distribution_type == 'counterterm':
-            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os)
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os / x)
         elif distribution_type == 'bulk':
             kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os)
         else:
@@ -2491,7 +2497,7 @@ class QCD_integrated_TRN_C_FgFg(general_current.GeneralCurrent):
 
         # Note the extra factor (* 2.) for gluon (introduced by Marco)
         if distribution_type == 'counterterm':
-            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor * 2. , mu2os)
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor * 2. , mu2os / x)
         elif distribution_type == 'bulk':
             kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor * 2., mu2os)
         else:
@@ -2653,7 +2659,7 @@ class QCD_integrated_TRN_CS_FqFg(general_current.GeneralCurrent):
 
 
         if distribution_type == 'counterterm':
-            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os)
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os / x)
         elif distribution_type == 'bulk':
             kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os)
         else:
@@ -2819,7 +2825,7 @@ class QCD_integrated_TRN_CS_FgFg(general_current.GeneralCurrent):
 
 
         if distribution_type == 'counterterm':
-            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os)
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os / x)
         elif distribution_type == 'bulk':
             kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os)
         else:
@@ -2829,5 +2835,4 @@ class QCD_integrated_TRN_CS_FgFg(general_current.GeneralCurrent):
 
         evaluation['values'][(0, 0, 0, 0)] = (kernel_eval).truncate(max_power=0)
         return evaluation
-
 

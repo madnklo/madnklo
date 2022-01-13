@@ -2521,8 +2521,6 @@ class ME7Integrand_V(ME7Integrand):
         total_incoming_momentum = vectors.LorentzVector()
         for i, p in enumerate(mapped_PS_point.to_list()[:self.n_initial]):
             total_incoming_momentum += p * rescalings[i]
-            #logger.info('total_incoming_momentum : ' + str(total_incoming_momentum))
-
 
         # With the current design we only consider and support the case where there is only
         # *one* regular (i.e. non-beam) "mapping currents" in the counterterm.
@@ -3721,19 +3719,6 @@ class ME7Integrand_R(ME7Integrand):
                     reduced_kinematics_as_list, reduced_flavors = counterterm.get_reduced_quantities(reduced_kinematics, defining_flavors=None)
                     #logger1.info('reduced_flavors= ' + str(reduced_flavors))
                     #logger1.info('Pre reduced kin= ' + str(reduced_kinematics_as_list))
-#gl 
-                    # # #special function for extra term in SC
-                    if reduced_kinematics_as_list[0][3] < 0.:
-                        #logger1.info('Entering special function for SC extra kinematics')
-                        #logger1.info('Pre reduced_kinematics_as_list : ' + str(reduced_kinematics_as_list))
-                        reduced_kinematics_as_list[0][3] = - reduced_kinematics_as_list[0][3]
-                        #reduced_kinematics_as_list[1][3] = - reduced_kinematics_as_list[1][3]
-                        #reduced_kinematics_as_list[0] = tmp_2
-                        #reduced_kinematics_as_list[1] = tmp_1
-                        #logger1.info('AFTER REDUCING_2: PS_point evaluate= ' + str(tmp_1))
-                    #logger1.info('Post reduced kin= ' + str(reduced_kinematics_as_list))
-                    #logger1.info('passata dopo reduced_kin= ' + str(reduced_kinematics))
-
 
  
                     if apply_flavour_blind_cuts and not self.pass_flavor_blind_cuts(
@@ -3759,6 +3744,7 @@ class ME7Integrand_R(ME7Integrand):
                     all_reduced_flavors = [counterterm.get_reduced_flavors(resolved_flavors)
                                            for resolved_flavors in all_resolved_flavors]
 
+                    #logger1.info('1) all_reduced_flavors= ' + str(all_reduced_flavors))
                     # VERY IMPORTANT: We must convolve the counter-event with the initial state PDFs
                     # corresponding to the *RESOLVED* flavors, and the flavour_sensitive_cuts also
                     # applied on the resolved flavors (since for the initial-state the cuts are basically

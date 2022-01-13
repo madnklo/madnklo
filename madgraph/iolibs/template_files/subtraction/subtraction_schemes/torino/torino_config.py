@@ -299,11 +299,11 @@ def get_final_state_recoilers(reduced_process, excluded=(), global_variables={})
 def get_soft_recoilers(reduced_process, excluded=(), **opts):
 
     model = reduced_process.get('model')
-    logger.info('Soft_recoilers : ' + str([
-        leg for leg in reduced_process.get('legs') if all([
-            leg['number'] not in excluded
-        ])
-    ]))
+    # logger.info('Soft_recoilers : ' + str([
+    #     leg for leg in reduced_process.get('legs') if all([
+    #         leg['number'] not in excluded
+    #     ])
+    # ]))
     return sub.SubtractionLegSet([
         leg for leg in reduced_process.get('legs') if all([
             leg['number'] not in excluded

@@ -19,6 +19,7 @@ import math
 import madgraph.integrator.vectors as vectors
 import madgraph.various.misc as misc
 import madgraph.integrator.mappings as mappings
+import factors_and_cuts as fc
 
 from madgraph.integrator.vectors import Vector, LorentzVector
 
@@ -143,8 +144,8 @@ def get_sudakov_decomp_IF(ki, kj, kr):
     #kjtil_old = kj - ki * (1. - xi_old)  - kr * (sij / sir)
 
     #logger.info("kjtil_old = " + str(kjtil_old))
-    #logger.info("xi_old = " + str(xi_old))
-    #logger.info("xi_new = " + str(zA))
+    #logger.info("xi = " + str(zA))
+    #logger.info("xj = " + str(zi))
 
     xi = zA
     xj = zi
@@ -152,13 +153,14 @@ def get_sudakov_decomp_IF(ki, kj, kr):
     kjtil = kti
 
 
-    z_v = sij / (sij + sir)    #for final kr and initial collinear case
+    z = sij / (sij + sir)    #for final kr and initial collinear case
+    v = sij / (sij + sjr)
     x_r_final = 1. - sjr  / (sij + sir)
     x_r_initial = 1. - (sij + sjr) / sir
     x1 = 1. - sjr / (sir - sij)    #for soft initial case
     
 
-    return xi, xj, kitil, kjtil, x_r_final, x_r_initial, z_v, x1
+    return xi, xj, kitil, kjtil, x_r_final, x_r_initial, z, v, x1
 
 def TRN_IFn_variables(higher_PS_point, qC, children, **opts):
     """
@@ -183,11 +185,11 @@ def TRN_IFn_variables(higher_PS_point, qC, children, **opts):
         ss_i_j[(k[1],k[0])] = v
 
     # now x's and kts where all_p_fs[0] = IN , all_p_fs[1] = F
-    xi, xj, kitil, kjtil, x_r_final, x_r_initial, z_v, x1 = get_sudakov_decomp_IF(all_p_fs[0], all_p_fs[1], p_rec)
+    xi, xj, kitil, kjtil, x_r_final, x_r_initial, z, v, x1 = get_sudakov_decomp_IF(all_p_fs[0], all_p_fs[1], p_rec)
 
     xis = (xi, xj)
     kTs = (kitil, kjtil)
     x_mapping = (x_r_final, x_r_initial)
 
 
-    return [{'xs':xis, 'kTs':kTs, 'ss':ss_i_j, 'x_mapping':x_mapping, 'z_v':z_v, 'x1':x1},]
+    return [{'xs':xis, 'kTs':kTs, 'ss':ss_i_j, 'x_mapping':x_mapping, 'z':z, 'v':v, 'x1':x1},]

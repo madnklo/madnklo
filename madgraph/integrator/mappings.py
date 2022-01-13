@@ -3810,64 +3810,32 @@ class SoftTRNMapping(VirtualMapping):
         #  1st recoiler -> b  initial
         #  2nd recoiler -> c  initial
 
-#        logger1.info('leg_1 : ' + str(singular_structure.substructures[0].legs[0].n))
-#        logger1.info('leg_2 : ' + str(singular_structure.legs[0].n))
 
-        leg_1 = singular_structure.substructures[0].legs[0].n
-        leg_2 = singular_structure.legs[0].n
+        ic = singular_structure.legs[0].n
         coll_sub= singular_structure.substructures[0]
-
         if coll_sub.substructures: # this should be the case for (C(S(a),b),c)
             ia = coll_sub.substructures[0].legs[0].n
-            # ordering of the indices for (abc) mapping choice such that b>c always
-            if leg_1 > leg_2:
-                #logger1.info('leg_1 > leg_2 ')
-                ib = leg_1
-                ic = leg_2
-            elif leg_1 == leg_2 and leg_1 == 1:
-                #logger1.info('leg_1 < leg_2 :' + str(leg_1) +','+ str(leg_2))
-#                ib = leg_2
-#                ic = leg_1
-                ib = leg_1 + 1.
-                ic = leg_2  
-            elif leg_1 == leg_2 and leg_1 == 2:
-                #logger1.info('leg_1 = leg_2 :' + str(leg_1) +','+ str(leg_2))
-#                ib = leg_2
-#                ic = leg_1
-                ib = leg_1
-                ic = leg_2 - 1. 
+            ib = coll_sub.legs[0].n
+        else: # this should be the case for (C(a,b),c)
+            if coll_sub.legs[0].n > 2:
+                ia = coll_sub.legs[0].n
+                ib = coll_sub.legs[1].n
             else:
-                #logger1.info('leg_1 = leg_2 :' + str(leg_1) +','+ str(leg_2))
-#                ib = leg_2
-#                ic = leg_1
-                ib = leg_1
-                ic = leg_2
+                ia = coll_sub.legs[1].n
+                ib = coll_sub.legs[0].n
 
-        else:
-            logger1.info('leg_3 : ' + str(singular_structure.legs[1].n))
-            ia = singular_structure.substructures[0].legs[0].n
-            ib = singular_structure.legs[0].n
-            ic = singular_structure.legs[1].n
-
+        # logger1.info('soft particle : ' + str(ia))
+        # logger1.info('leg_1 : ' + str(ib))
+        # logger1.info('leg_2 : ' + str(ic))
+        # logger1.info('substructure : ' + str(substructure))
 
         # copy the momenta
         new_PS_point = PS_point.get_copy()
 
-        # if leg_1 == leg_2:
-        #     new_PS_point[ib] = PS_point[ic]
-        #     new_PS_point[ic] = PS_point[ib]
-
-        #     pa = new_PS_point[ia]
-        #     pb = new_PS_point[ib]
-        #     pc = new_PS_point[ic]
-        # else:
-        #     pa = new_PS_point[ia]
-        #     pb = new_PS_point[ib]
-        #     pc = new_PS_point[ic]
-
         pa = new_PS_point[ia]
         pb = new_PS_point[ib]
         pc = new_PS_point[ic]
+
 
         sab = (pa + pb).square()
         sbc = (pb + pc).square()
@@ -3967,33 +3935,6 @@ class SoftTRNMapping(VirtualMapping):
             for i_fs in range(1,len(PS_point)+1):
                 if i_fs > 2 and i_fs != ia:
                     new_PS_point[i_fs] = new_PS_point[i_fs].rotoboost(K, Kbar)
-
-#    Double initial-state mapping - #emitter Initial, recoiler Initial
-#        elif ib <= 2 and ic <= 2:
-
-#            logger1.info('Initial Emitter - Initial Recoiler')
-#            Q = pc + pb
-#            x1 = 1. - sac / (sbc - sab)
-#            x2 = (sbc - sab) / sbc
-
-#        #for i_fs in range(1,len(new_PS_point)+1):
-#        #    logger1.info('mappings.py: Momenta PS_point' + '= ' + str(i_fs) + str(new_PS_point[i_fs]))
-
-#            # remove a
-#            del new_PS_point[ia]
-#            # this is for b
-#            new_PS_point[ib] = pb * x1
-#            new_PS_point[parent] =  pb * x1
-#            # and this is for c
-#            new_PS_point[ic] = pc * x2
-
-#            # All recoilers are boosted by a Lorentz transform lambda(K,Ktilde)
-#            K = pb + pc - pa
-#            Kbar = new_PS_point[ib] + new_PS_point[ic]
-
-#            for i_fs in range(1,len(PS_point)+1):
-#                if i_fs > 2 and i_fs != ia:
-#                    new_PS_point[i_fs] = new_PS_point[i_fs].rotoboost(K, Kbar)
 
 
 

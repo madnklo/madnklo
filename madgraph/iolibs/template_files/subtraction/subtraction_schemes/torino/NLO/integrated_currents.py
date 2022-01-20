@@ -2000,7 +2000,7 @@ class QCD_integrated_TRN_S_g(general_current.GeneralCurrent):
                 elif kernel[distribution_type] is not None and distribution_type == 'bulk':
                     kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * mult_factor, mu2oQ2 )
                 elif kernel[distribution_type] is not None:
-                    kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * mult_factor, mu2oQ2 )
+                    kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * mult_factor, mu2os )
 
                 #logger.info('distribution_type :' + str(distribution_type) + '; ' + 'kernel : ' + str(kernel_eval))
 
@@ -2021,7 +2021,7 @@ class QCD_integrated_TRN_C_FqFg(general_current.GeneralCurrent):
     DEBUG = True
 
 #    # Store the result for beam factorisation currents in a container that supports flavor matrices.
-#    subtraction_current_evaluation_class = utils.SubtractionCurrentEvaluation
+    subtraction_current_evaluation_class = utils.SubtractionCurrentEvaluation
 
     divide_by_jacobian = torino_config.divide_by_jacobian
 
@@ -2109,7 +2109,7 @@ class QCD_integrated_TRN_C_FqFg(general_current.GeneralCurrent):
         prefactor = self.SEpsilon * (1. / (16 * pi ** 2))
         recoiler = global_variables['recoiler']
 
-#        logger.info('recoiler : ' + str(recoiler))
+        #logger.info('(p_p + p_r).square() : ' + str((p_p + p_r).square()) + '; ' + 'Q.square() : ' + str(Q.square()))
 
         color_factor = self.CF
         overall = 1. / 2.
@@ -2118,11 +2118,11 @@ class QCD_integrated_TRN_C_FqFg(general_current.GeneralCurrent):
             kernel = {
                 'bulk': 0. ,
                 'counterterm': 0. ,
-                'endpoint': color_factor * overall * EpsilonExpansion({
+                'endpoint': color_factor * overall * (EpsilonExpansion({
                     -2: 0.,
                     -1: - 1.,
                     0: - (1. + fc.A2(fc.beta_FF))
-                })
+                }))
             }
 
         elif recoiler <= 2:
@@ -2151,7 +2151,7 @@ class QCD_integrated_TRN_C_FqFg(general_current.GeneralCurrent):
         elif distribution_type == 'bulk':
             kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2oQ2 )
         else:
-            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor, mu2oQ2 )
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor, mu2os )
 
 #        logger.info('distribution_type :' + str(distribution_type))
 
@@ -2166,7 +2166,7 @@ class QCD_integrated_TRN_C_FqFqx(general_current.GeneralCurrent):
     DEBUG = True
 
 #    # Store the result for beam factorisation currents in a container that supports flavor matrices.
-#    subtraction_current_evaluation_class = utils.SubtractionCurrentEvaluation
+    subtraction_current_evaluation_class = utils.SubtractionCurrentEvaluation
 
     divide_by_jacobian = torino_config.divide_by_jacobian
 
@@ -2261,11 +2261,11 @@ class QCD_integrated_TRN_C_FqFqx(general_current.GeneralCurrent):
             kernel = {
                 'bulk': 0. ,
                 'counterterm': 0. ,
-                'endpoint': color_factor * overall * EpsilonExpansion({
+                'endpoint': color_factor * overall * (EpsilonExpansion({
                     -2: 0.,
                     -1: - 1.,
                     0: - (5./3. + fc.A2(fc.beta_FF))
-                })
+                }))
             }
 
         elif recoiler <=2:
@@ -2294,7 +2294,7 @@ class QCD_integrated_TRN_C_FqFqx(general_current.GeneralCurrent):
         elif distribution_type == 'bulk':
             kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2oQ2 )
         else:
-            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2oQ2 )
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2os )
 
 #        logger.info('distribution_type :' + str(distribution_type))
 
@@ -2405,30 +2405,30 @@ class QCD_integrated_TRN_C_FgFg(general_current.GeneralCurrent):
             kernel = {
                 'bulk': 0. ,
                 'counterterm': 0. ,
-                'endpoint': color_factor * EpsilonExpansion({
+                'endpoint': color_factor * (EpsilonExpansion({
                     -2: 0. ,
                     -1: - overall ,
                     0: - overall * (5./3. + fc.A2(fc.beta_FF))
-                })
+                }))
             }
 
         elif recoiler <=2:
             kernel = {
-                'bulk': color_factor * overall * EpsilonExpansion({
+                'bulk': color_factor * overall * (EpsilonExpansion({
                     -2: 0. ,
                     -1: 0. ,
                     0: xi**(1. + fc.beta_FI) / (1. - xi) 
-                }),
-                'counterterm': color_factor * overall * EpsilonExpansion({
+                })) ,
+                'counterterm': color_factor * overall * (EpsilonExpansion({
                     -2: 0. ,
                     -1: 0. ,
                     0: xi**(1. + fc.beta_FI) / (1. - xi)
-                }),
-                'endpoint':  color_factor * EpsilonExpansion({
+                })) ,
+                'endpoint':  color_factor * (EpsilonExpansion({
                     -2: 0. ,
                     -1: - overall ,
                     0: - overall * (5./3. + fc.A2(fc.beta_FI) )
-                })
+                }))
             }
 
         # Note the extra factor (* 2.) for gluon (introduced by Marco)
@@ -2437,7 +2437,7 @@ class QCD_integrated_TRN_C_FgFg(general_current.GeneralCurrent):
         elif distribution_type == 'bulk':
             kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor * 2., mu2oQ2 )
         else:
-            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor * 2. , mu2oQ2 )
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor * 2. , mu2os )
 
 #        logger.info('distribution_type :' + str(distribution_type))
 
@@ -2593,7 +2593,7 @@ class QCD_integrated_TRN_CS_FqFg(general_current.GeneralCurrent):
         elif distribution_type == 'bulk':
             kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2oQ2 )
         else:
-            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor, mu2oQ2 )
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor, mu2os )
 
 #        logger.info('distribution_type :' + str(distribution_type))
 
@@ -2715,22 +2715,22 @@ class QCD_integrated_TRN_CS_FgFg(general_current.GeneralCurrent):
 
         if recoiler > 2:
             kernel = {
-                'bulk': color_factor * overall * EpsilonExpansion({
+                'bulk': color_factor * overall * (EpsilonExpansion({
                     -2: 0. ,
                     -1: 0. ,
                     0: 0. 
-                }) ,
-                'counterterm': color_factor * overall * EpsilonExpansion({
+                })) ,
+                'counterterm': color_factor * overall * (EpsilonExpansion({
                     -2: 0. ,
                     -1: 0. ,
                     0: 0. 
-                }) ,
-                'endpoint': color_factor * overall * EpsilonExpansion({
+                })) ,
+                'endpoint': color_factor * overall * (EpsilonExpansion({
                     -2: 0.,
                     -1: 1. - fc.A2(fc.alpha) ,
                     0: 2. - (pi**2 / 4.) + fc.A2(fc.beta_FF) * (1. - fc.A2(fc.alpha)) \
                           - (fc.A2(fc.alpha))**2 / 2. + (3./2.) * fc.polygamma(fc.alpha) 
-                })
+                }))
             }
 
         elif recoiler <=2:
@@ -2759,7 +2759,7 @@ class QCD_integrated_TRN_CS_FgFg(general_current.GeneralCurrent):
         elif distribution_type == 'bulk':
             kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2oQ2 )
         else:
-            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor, mu2oQ2 )
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor, mu2os )
 
 #        logger.info('distribution_type :' + str(distribution_type))
 

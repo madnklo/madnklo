@@ -4043,16 +4043,16 @@ class CollinearTRNMapping(VirtualMapping):
         sac = (pa + pc).square()
 
 
-#        logger1.info('coll_sub: ' + str(singular_structure))
-#        logger1.info('child_1: ' + str(ia))
-#        logger1.info('child_2: ' + str(ib))
-#        logger1.info('Recoiler: ' + str(ic))
+        # logger1.info('coll_sub: ' + str(singular_structure))
+        # logger1.info('child_1: ' + str(ia))
+        # logger1.info('child_2: ' + str(ib))
+        # logger1.info('Recoiler: ' + str(ic))
+        # logger1.info('intial sbc: ' + str(sbc))
 
+        # #Check the entering PS_point momenta
 
-        #Check the entering PS_point momenta
-
-#        for i_fs in range(1,len(PS_point)+1):
-#            logger1.info('mappings.py: Momenta PS_point' + '= ' + str(i_fs) + str(PS_point[i_fs]))
+        # for i_fs in range(1,len(PS_point)+1):
+        #     logger1.info('mappings.py: Momenta PS_point' + '= ' + str(i_fs) + str(PS_point[i_fs]))
 
 
         #emitter Final, recoiler Final
@@ -4122,12 +4122,15 @@ class CollinearTRNMapping(VirtualMapping):
             Q = pc + pb
             x = 1. - (sab + sac) / sbc
             v = sab / (sab + sac)
+            #logger1.info('x : ' + str(x))
 
             # remove a
             del new_PS_point[ia]
             # this is for b
             new_PS_point[ib] = pb * x
             new_PS_point[parent] =  pb * x
+            # print('MAPPING : x = ' + str(x))
+            # print('MAPPING : xp = ' + str(new_PS_point[parent]))
             # and this is for c
             new_PS_point[ic] = pc
 
@@ -4143,25 +4146,27 @@ class CollinearTRNMapping(VirtualMapping):
 
         #Check mapping output
 
-#        for i_fs in range(1,len(new_PS_point)+1):
-#            if  i_fs != ia:
-#                logger1.info('Remapped momenta' + '= ' + str(i_fs) + str(new_PS_point[i_fs]))
+        # for i_fs in range(1,len(new_PS_point)+1):
+        #     if  i_fs != ia:
+        #         logger1.info('Remapped momenta' + '= ' + str(i_fs) + str(new_PS_point[i_fs]))
+
+        # logger1.info('final sbc: ' + str( (new_PS_point[ic] + new_PS_point[ib]).square()))
 
         #check momenta conservation
-            sum_PS_point = 0
-            sum_new_PS_point = 0
-            for i_fs in range(1,len(PS_point)+1):
-                if i_fs > 2:
-                    sum_PS_point -= PS_point[i_fs]
-                else:
-                    sum_PS_point += PS_point[i_fs]
+        sum_PS_point = 0
+        sum_new_PS_point = 0
+        for i_fs in range(1,len(PS_point)+1):
+            if i_fs > 2:
+                sum_PS_point -= PS_point[i_fs]
+            else:
+                sum_PS_point += PS_point[i_fs]
 
-            for i_ff in range(1,len(new_PS_point)+1):
-                if  i_ff != ia:
-                    if i_ff > 2:
-                        sum_new_PS_point -= new_PS_point[i_ff]
-                    else:
-                        sum_new_PS_point += new_PS_point[i_ff]
+        for i_ff in range(1,len(new_PS_point)+1):
+            if  i_ff != ia:
+                if i_ff > 2:
+                    sum_new_PS_point -= new_PS_point[i_ff]
+                else:
+                    sum_new_PS_point += new_PS_point[i_ff]
 
         #logger1.info('Momenta conservation check = ' + str(sum_PS_point) + str(sum_new_PS_point))
 

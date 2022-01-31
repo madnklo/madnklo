@@ -88,79 +88,68 @@ def TRN_FFn_variables(higher_PS_point, qC, children, **opts):
 
     return [{'xs':xis, 'kTs':kTs, 'ss':ss_i_j, 'y':y, 'x':x},]
 
-def get_sudakov_decomp_IF(ki, kj, kr):
+def get_sudakov_decomp_IF(kj, ki, kr, kr_leg_number):
     """returns the sudakov decomposition (x and kt) of ki and kj, with kr being the other
-    reference momentum for the IF case. ki=initial, kj=final
+    reference momentum for the IF case. kj=initial, ki=final 
     Follows eq 1.18-1.2 of the nlo_v4 note"""
 
     sij = ki.dot(kj)
     sir = ki.dot(kr)
     sjr = kj.dot(kr)
 
-    #xi_old = (sir - sjr)/sir
-    #xj = 1. - xi
-
-
-    na, nb = mappings.InitialCollinearVariables.collinear_and_reference(ki)
-
-    pa = ki
-    # Compute the sum of momenta
+    na, nb = mappings.InitialCollinearVariables.collinear_and_reference(kj)
+    pa = kj
+        # Compute the sum of momenta
     pA = LorentzVector(pa)
-    pA -= kj
+    pA -= ki
     # Pre-compute variables
     napA = na.dot(pA)
     nbpA = nb.dot(pA)
     nanb = na.dot(nb)
     nbpa = nb.dot(pa)
-    zA = nbpA / nbpa
+    # zA = nbpA / nbpa
     ktA = pA - (nbpA * na + napA * nb) / nanb
-    # ptA = pA - (nbpA * na + napA * nb) / nanb
-    # ktA = ptA / zA
-    # Initialize variables for sum rules check
-    zsum = 0
-    ktsum = LorentzVector()
-    ktabssum = LorentzVector()
-    # Fill in A data, using child number improperly
-    zsum += zA
-    ktsum += ktA
-    for j in range(len(ktA)):
-        ktabssum[j] += abs(ktA[j])
     # Compute all kinematic variables
-    pi = kj
+    pi = ki
     napi = na.dot(pi)
     nbpi = nb.dot(pi)
-    zi = nbpi / nbpa
+    # zi = nbpi / nbpa
     kti = pi - (nbpi*na+napi*nb) / nanb
-    # pti = pi - (nbpi*na+napi*nb) / nanb
-    # kti = pti - zi * ktA
-    zsum += zi
-    ktsum += kti
-    for j in range(len(kti)):
-        ktabssum[j] += abs(kti[j])
+    # kts
+    kjtil = ktA
+    kitil = kti
 
-    #logger.info("kti_new = " + str(ktA))
-    #logger.info("ktj_new = " + str(kti))
+    if kr_leg_number > 2:
+        xj = 1. - sir / (sij+sjr)
+        xi = 1. - xj
+    else:
+        xj = 1. - ((sij + sir) / sjr)
+        xi = 1. - xj
 
-    #kjtil_old = kj - ki * (1. - xi_old)  - kr * (sij / sir)
+    # print('VAR - xj : ' + str(xj))
+    # print('VAR - xi : ' + str(xi))
 
-    #logger.info("kjtil_old = " + str(kjtil_old))
-    #logger.info("xi = " + str(zA))
-    #logger.info("xj = " + str(zi))
-
-    xi = zA
-    xj = zi
-    kitil = ktA
-    kjtil = kti
+    # Test on kt
+    # print('VAR - kjtil     : ' + str(kjtil))
+    # print('VAR - test kt   : ' + str(ki-kj*(sir/sjr)-kr*(sij/sjr)))
+    # print('VAR - test kt 2 : ' + str(kjtil.dot(kr)))
+    # print('VAR - test kt 3 : ' + str(kjtil.dot(kj)))
 
 
-    z = sij / (sij + sir)    #for final kr and initial collinear case
-    v = sij / (sij + sjr)
-    x_r_final = 1. - sjr  / (sij + sir)
-    x_r_initial = 1. - (sij + sjr) / sir
-    x1 = 1. - sjr / (sir - sij)    #for soft initial case
+    # Variable for initial splitting - final rec
+    z = sij / (sij + sjr)
+    # Variables for initial splitting - initial rec
+    v = sij / (sij + sir)
+
+    # x_r_final = 1. - (sjr / (sij + sir))
+    # x_r_initial = 1. - ((sij + sjr) / sir)
+    # #x1 = 1. - (sjr / (sir - sij))    #for soft initial case
+    # x1 = 1. - ((sij + sjr) / sir)    #for soft initial case
+
     
+    return xj, xi, kjtil, kitil, z, v
 
-    return xi, xj, kitil, kjtil, x_r_final, x_r_initial, z, v, x1
+    # return xj, xi, kjtil, kitil, x_r_final, x_r_initial, z, v, x1
 
 def TRN_IFn_variables(higher_PS_point, qC, children, **opts):
     """
@@ -173,7 +162,11 @@ def TRN_IFn_variables(higher_PS_point, qC, children, **opts):
     Q = opts['Q']
     # the recoiler
     p_rec = higher_PS_point[opts['ids']['c']]
+    p_rec_leg_number = opts['ids']['c']
 
+    # print('VAR : all_p_fs : ' + str(all_p_fs))
+    # print('VAR : Q        : ' + str(Q))
+    # print('VAR : p_rec    : ' + str(p_rec))
 
     # Add additional ss's
     ss_i_j = {}
@@ -181,15 +174,20 @@ def TRN_IFn_variables(higher_PS_point, qC, children, **opts):
         for j_fs in range(i_fs+1,len(all_p_fs)):
             ss_i_j[(i_fs,j_fs)] = 2.*all_p_fs[i_fs].dot(all_p_fs[j_fs])
     ss_i_j_tot = sum(ss_i_j.values())
-    for k,v in ss_i_j.items():
-        ss_i_j[(k[1],k[0])] = v
+    for k,vv in ss_i_j.items():
+        ss_i_j[(k[1],k[0])] = vv
 
     # now x's and kts where all_p_fs[0] = IN , all_p_fs[1] = F
-    xi, xj, kitil, kjtil, x_r_final, x_r_initial, z, v, x1 = get_sudakov_decomp_IF(all_p_fs[0], all_p_fs[1], p_rec)
+    # xi, xj, kitil, kjtil, x_r_final, x_r_initial, z, v, x1 = get_sudakov_decomp_IF(all_p_fs[0], all_p_fs[1], p_rec, p_rec_leg_number)
 
-    xis = (xi, xj)
-    kTs = (kitil, kjtil)
-    x_mapping = (x_r_final, x_r_initial)
+    # xis = (xi, xj)
+    # kTs = (kitil, kjtil)
+    # x_mapping = (x_r_final, x_r_initial)
+    # return [{'xs':xis, 'kTs':kTs, 'ss':ss_i_j, 'x_mapping':x_mapping, 'z':z, 'v':v, 'x1':x1},]
 
+    xj, xi, kjtil, kitil, z, v = get_sudakov_decomp_IF(all_p_fs[0], all_p_fs[1], p_rec, p_rec_leg_number)
 
-    return [{'xs':xis, 'kTs':kTs, 'ss':ss_i_j, 'x_mapping':x_mapping, 'z':z, 'v':v, 'x1':x1},]
+    xis = (xj, xi)
+    kTs = (kjtil, kitil)
+ 
+    return [{'xs':xis, 'kTs':kTs, 'ss':ss_i_j, 'z':z, 'v':v},]

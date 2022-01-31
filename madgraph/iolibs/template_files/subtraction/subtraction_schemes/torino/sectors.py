@@ -12,6 +12,11 @@ import madgraph.integrator.vectors as vectors
 import logging
 
 
+
+class MadEvent7Error(Exception):
+    pass
+
+
 logger = logging.getLogger('madgraph')
 
 
@@ -27,7 +32,13 @@ def get_sector_wgt(q, p_sector):
     s_qj = 2 * p_sector[1].dot(q)
     e_i = s_qi / s
     w_ij = s * s_ij / s_qi / s_qj
-
+    # logger.info('s : ' + str(s) + '; ' + 'q : ' + str(q))
+    # logger.info('BBB - s_ij : ' + str(s_ij))
+    # logger.info('BBB - s_qi : ' + str(s_qi))
+    # logger.info('BBB - s_qj : ' + str(s_qj))
+    # logger.info('BBB - e_i : ' + str(e_i))
+    # logger.info('BBB - w_ij : ' + str(w_ij))
+    
     return 1 / e_i / w_ij
 
 
@@ -42,7 +53,10 @@ def get_sector_wgt_S(q, p_sector):
     s_qi = 2 * p_sector[0].dot(q)
     s_qj = 2 * p_sector[1].dot(q)
     w_ij = s * s_ij / s_qi / s_qj
-
+    # logger.info('BBB - S s_ij : ' + str(s_ij))
+    # logger.info('BBB - S s_qi : ' + str(s_qi))
+    # logger.info('BBB - S s_qj : ' + str(s_qj))
+    # logger.info('BBB - S w_ij : ' + str(w_ij))
     return 1 / w_ij
 
 
@@ -53,13 +67,17 @@ def get_sector_wgt_C(q, p_sector):
      - p_sector is a list of the momenta of the particles defining the sector
     """
     s = q.square()
-    s_ij = 2 * p_sector[0].dot(p_sector[1])
+    # s_ij = 2 * p_sector[0].dot(p_sector[1])
+    # s_qj = 2 * p_sector[1].dot(q)
     s_qi = 2 * p_sector[0].dot(q)
-    s_qj = 2 * p_sector[1].dot(q)
     e_i = s_qi / s
-    e_j = s_qj / s
-
-    return e_j
+    # e_j = s_qj / s
+    # logger.info('BBB - C s_ij : ' + str(s_ij))
+    # logger.info('BBB - C s_qj : ' + str(s_qj))
+    # logger.info('BBB - C e_j : ' + str(e_j))
+    # logger.info('BBB - C s_qi : ' + str(s_qi))
+    # logger.info('BBB - C e_i : ' + str(e_i))
+    return 1. / e_i
 
 
 def get_sector_wgt_CS(q, p_sector):
@@ -100,16 +118,30 @@ class Sector(generic_sectors.GenericSector):
 
         p_sector = [PS_point[l] for l in self.leg_numbers]
 
+        #logger.info("sectors.py:  " + str(all_sector_list))
+
         if sector_type == 0:
             # standard sector function
             sector_weight = get_sector_wgt(q, p_sector)
-
+            #print('AAA - all_sector_list : ' + str(self.all_sector_list))
             # now normalise it
             norm = 0.
             for (ii, jj) in self.all_sector_list:
+                # print('AAA - ii : ' + str(ii) + '; ' + 'jj : ' + str(jj))
+                # ii runs over final state particles only
+                if ii <=2:
+                    raise MadEvent7Error('WARNING, sector index ii cannot be %s' % ii)
                 p_ii = PS_point[ii]
                 p_jj = PS_point[jj]
+                # logger.info('AAA - p_ii : ' + str(ii) + '; ' + str(p_ii))
+                # logger.info('AAA - p_jj : ' + str(jj) + '; ' + str(p_jj))
+                # logger.info('AAA - get_sector_weight : ' + str(get_sector_wgt(q, [p_ii, p_jj])))
                 norm += get_sector_wgt(q, [p_ii, p_jj])
+            # print('AAA - sector_weight : ' + str(sector_weight))
+            # print('AAA - norm : ' + str(norm))
+            # logger.info('AAA - norm : ' + str(norm))
+            # logger.info('AAA - sector_weight : ' + str(sector_weight))
+            # logger.info('AAA - norm : ' + str(norm))
 
         elif sector_type == 1:
             # soft sector function
@@ -121,23 +153,49 @@ class Sector(generic_sectors.GenericSector):
                 # equal to the one at hand
                 if ii != self.leg_numbers[0]:
                     continue
+                # ii runs over final state particles only
+                if ii <=2:
+                    raise MadEvent7Error('WARNING, sector index ii cannot be %s' % ii)
                 p_ii = PS_point[ii]
                 p_jj = PS_point[jj]
+                # logger.info('AAA - S p_ii : ' + str(ii) + '; ' + str(p_ii))
+                # logger.info('AAA - S p_jj : ' + str(jj) + '; ' + str(p_jj))
+                # logger.info('AAA - S get_sector_weight_S : ' + str(get_sector_wgt_S(q, [p_ii, p_jj])))
                 norm += get_sector_wgt_S(q, [p_ii, p_jj])
+            # logger.info('AAA - S sector_weight : ' + str(sector_weight))
+            # logger.info('AAA - S norm : ' + str(norm))
 
         elif sector_type == 2:
             # collinear sector function
             sector_weight = get_sector_wgt_C(q, p_sector)
+
             # now normalise it
             norm = 0.
             for (ii, jj) in self.all_sector_list:
                 # the sum runs only on the sectors with the two legs
                 # equal to the ones at hand
+                # logger.info('AAA - C self.all_sector_list : ' + str(self.all_sector_list))
+                # logger.info('AAA - C self.leg_numbers : ' + str(self.leg_numbers))
+                # logger.info('AAA - jj : ' + str(jj))
                 if not (ii in self.leg_numbers and jj in self.leg_numbers):
                     continue
+                # ii runs over final state particles only
+                if ii <=2:
+                    raise MadEvent7Error('WARNING, sector index ii cannot be %s' % ii)
                 p_ii = PS_point[ii]
                 p_jj = PS_point[jj]
-                norm += get_sector_wgt_C(q, [p_ii, p_jj])
+                # logger.info('AAA - C p_ii : ' + str(ii) + '; ' + str(p_ii))
+                # logger.info('AAA - C p_jj : ' + str(jj) + '; ' + str(p_jj))
+                # norm += get_sector_wgt_C(q, [p_ii, p_jj])
+                # logger.info('AAA - C norm dentro circuito : ' + str(norm) )
+                if jj <= 2:
+                    #logger.info('AAA - C jj : ' + str(jj))
+                    norm = sector_weight
+                else:
+                    norm += get_sector_wgt_C(q, [p_ii, p_jj])
+            # logger.info('AAA - C sector_weight : ' + str(sector_weight))
+            # logger.info('AAA - C norm : ' + str(norm))
+            # logger.info('AAA - C result : ' + str(sector_weight/norm))
 
         elif sector_type == 3:
             # soft-collinear sector function
@@ -145,6 +203,8 @@ class Sector(generic_sectors.GenericSector):
             # it is already with the correct normalisation
             norm = 1.
 
+            # logger.info('AAA - SC sector_weight : ' + str(sector_weight))
+            # logger.info('AAA - SC norm : ' + str(norm))
         return sector_weight / norm
 
 

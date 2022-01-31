@@ -300,10 +300,10 @@ class QCD_F0_lepton(general_current.GeneralCurrent):
     """Implements the dummy PDF counterterm of type F(xi) for when doing lepton collision with colorful pp."""
 
     # Enable the flag below to debug this current
-    DEBUG = True
+    DEBUG = False
 
     # Define which leptons we want to allow
-#    lepton_abs_PDGs = [11,12,13]
+    lepton_abs_PDGs = [11,12,13]
 
     # Store the result for beam factorisation currents in a container that supports flavor matrices.
     subtraction_current_evaluation_class = utils.BeamFactorizationCurrentEvaluation
@@ -320,7 +320,7 @@ class QCD_F0_lepton(general_current.GeneralCurrent):
             legs=(
                 # Set the leg PDG to +11 which belongs to the lepton equivalency set defined below
                 # in the function build_equivalency_sets.
-                sub.SubtractionLeg(10, 11, sub.SubtractionLeg.INITIAL),
+                sub.SubtractionLeg(10, +11, sub.SubtractionLeg.INITIAL),
             )
         ),)
     )
@@ -333,10 +333,10 @@ class QCD_F0_lepton(general_current.GeneralCurrent):
         'n_loops': 0,
         'squared_orders': {'QCD': 2},
         'beam_type' : 'lepton',
-        'beam_PDGs' : torino_config.lepton_abs_PDGs
-#            [ tuple(sorted([pdg, -pdg])) for pdg in lepton_abs_PDGs ] +
-#            [ tuple([pdg, ]) for pdg in lepton_abs_PDGs ] +
-#            [ tuple([-pdg, ]) for pdg in lepton_abs_PDGs ]
+        'beam_PDGs' :
+            [ tuple(sorted([pdg, -pdg])) for pdg in lepton_abs_PDGs ] +
+            [ tuple([pdg, ]) for pdg in lepton_abs_PDGs ] +
+            [ tuple([-pdg, ]) for pdg in lepton_abs_PDGs ]
     }
 
     # Now add endpoint IntegratedBeamCurrent...
@@ -360,18 +360,15 @@ class QCD_F0_lepton(general_current.GeneralCurrent):
     mapping_rules = [ ]
 
     # Remove this contribution at the generation level already by setting its "is_zero" flag to True.
-    is_zero = False
+    is_zero = True
 
-#    @classmethod
-#    def build_equivalency_sets(cls, model):
-#        """ Force the PDG +1 of the template """
-#        return [(set([pdg for pdg in cls.lepton_abs_PDGs])|set([-pdg for pdg in cls.lepton_abs_PDGs])),]
+    @classmethod
+    def build_equivalency_sets(cls, model):
+        """ Force the PDG +1 of the template """
+        return [(set([pdg for pdg in cls.lepton_abs_PDGs])|set([-pdg for pdg in cls.lepton_abs_PDGs])),]
 
     def kernel(self, evaluation, all_steps_info, global_variables):
         """ Evaluate this counterterm given the variables provided. """
-
-        #logger.info('PDF F0_lepton')
-
 
         # Set this contribution to zero as we are considering here QCD corrections
         evaluation['values'] = self.subtraction_current_evaluation_class.zero()['values']
@@ -485,8 +482,17 @@ class QCD_integrated_TRN_C_IqFg(general_current.GeneralCurrent):
         # where ( bar s_ij ) is the com energy of that particular singular configuration
         p_p = all_steps_info[0]['lower_PS_point'][global_variables['overall_parents'][0]]
         p_r = all_steps_info[0]['lower_PS_point'][global_variables['recoiler']]
-        #logger.info('(p_p + p_r).square() :' + str((p_p + p_r).square()))
-        #logger.info('Q.square() :' + str(Q.square()))
+        # print('all_step_info : ' + str(all_steps_info))
+        # print('xs : ' + str(global_variables['xis']))
+        # print('recoiler : ' + str(recoiler) + '; ' + 'parent : ' + str(global_variables['overall_parents'][0]))
+        # print('Q   : ' + str(Q))
+        # print('p_p : ' + str(p_p))
+        # print('p_r : ' + str(p_r)) 
+        # print('(p_p + p_r).square() :' + str((p_p + p_r).square()))
+        # print('Q.square()           :' + str(Q.square()))
+        # #logger.info('(p_p + p_r).square() :' + str((p_p + p_r).square()))
+        # #logger.info('Q.square() :' + str(Q.square()))
+        # print('global_variables : ' + str(global_variables))
 
         mu2os = mu_r**2 / (p_p + p_r).square()
         mu2oQ2 = mu_r**2 / Q.square()
@@ -530,7 +536,8 @@ class QCD_integrated_TRN_C_IqFg(general_current.GeneralCurrent):
             kernel_qq = {
                 'bulk': color_factor * overall * (EpsilonExpansion({
                     -1: - (1 + x**2) / (1. - x) ,
-                    0: (1. - x) * (log(1. - x) - fc.A1(fc.beta_IF))
+                    0: (1. - x) * (log(1. - x) + 1. - fc.A1(fc.beta_IF))
+                    # 0: (1. - x) * (log(1. - x)  - fc.A1(fc.beta_IF))
                 })) ,
                 'counterterm': color_factor * overall * (EpsilonExpansion({
                     -1: - (1 + x**2) / (1. - x) ,
@@ -545,12 +552,13 @@ class QCD_integrated_TRN_C_IqFg(general_current.GeneralCurrent):
         elif recoiler <=2:
             kernel_qq = {
                 'bulk': color_factor * overall * (EpsilonExpansion({
-                    -1: - ((1 + x**2) / (1. - x)) ,
-                    0: (1. - x) * (2. * log(1. - x) - fc.A1(fc.beta_II)) - 2.*fc.A1(fc.beta_II)*((x/(1-x)) - (x**(1+fc.alpha)/(1-x))) + 4. * (( x * log(1. - x)) / (1. - x)) 
+                    -1: - ((1. + x**2) / (1. - x)) ,
+                    0: (1. - x) * (2. * log(1. - x) + 1. - fc.A1(fc.beta_II)) - 2.*fc.A1(fc.beta_II)*((x/(1.-x)) - (x**(1.+fc.alpha)/(1.-x))) + 4. * (( x * log(1. - x)) / (1. - x)) 
+                    # 0: (1. - x) * (2. * log(1. - x) - fc.A1(fc.beta_II)) - 2.*fc.A1(fc.beta_II)*((x/(1-x)) - (x**(1+fc.alpha)/(1-x))) + 4. * (( x * log(1. - x)) / (1. - x)) 
                 })) ,
                 'counterterm': color_factor * overall * (EpsilonExpansion({
-                    -1: - ((1 + x**2) / (1. - x)) ,
-                    0: - 2.*fc.A1(fc.beta_II)*((x/(1-x)) - (x**(1+fc.alpha)/(1-x))) + 4. * (( x * log(1. - x)) / (1. - x))
+                    -1: - ((1. + x**2) / (1. - x)) ,
+                    0: - 2.*fc.A1(fc.beta_II)*((x/(1.-x)) - (x**(1.+fc.alpha)/(1.-x))) + 4. * (( x * log(1. - x)) / (1. - x))
                 })) ,
                 'endpoint': color_factor * overall * (EpsilonExpansion({
                     -1: - (1./ 2.) ,
@@ -580,7 +588,7 @@ class QCD_integrated_TRN_C_IqFg(general_current.GeneralCurrent):
         elif kernel_qq[distribution_type] is not None and distribution_type == 'bulk':
             kernel_qq[distribution_type] = torino_to_madnk_epsexp(kernel_qq[distribution_type] * prefactor , mu2oQ2 )
         elif kernel_qq[distribution_type] is not None:
-            kernel_qq[distribution_type] = torino_to_madnk_epsexp(kernel_qq[distribution_type] * prefactor, mu2oQ2 )
+            kernel_qq[distribution_type] = torino_to_madnk_epsexp(kernel_qq[distribution_type] * prefactor, mu2os )
 
 
         active_quark_PDGs = self.currents_properties[0]['active_fermions']
@@ -774,7 +782,8 @@ class QCD_integrated_TRN_C_IgFq(general_current.GeneralCurrent):
             kernel_qg = {
                 'bulk': color_factor * overall * (EpsilonExpansion({
                     -1: - (x**2 + (1. - x)**2),
-                    0: (x**2 + (1. - x)**2) *( log(1. - x) - fc.A1(fc.beta_IF) )
+                    0: (x**2 + (1. - x)**2) *( log(1. - x) - fc.A1(fc.beta_IF) ) + 2. * x * (1.-x)
+                    # 0: (x**2 + (1. - x)**2) *( log(1. - x) - fc.A1(fc.beta_IF) ) 
                 }) ),
                 'counterterm': None ,
                 'endpoint': None
@@ -784,7 +793,8 @@ class QCD_integrated_TRN_C_IgFq(general_current.GeneralCurrent):
             kernel_qg = {
                 'bulk': color_factor * overall * (EpsilonExpansion({
                     -1: - (x**2 + (1. - x)**2),
-                    0: (x**2 + (1. - x)**2) * ( 2. * log(1. - x) - fc.A1(fc.beta_II) )
+                    0: (2. * log(1. - x) - fc.A1(fc.beta_II) ) * (x**2 + (1. - x)**2) + 2. * x * (1.-x)
+                    # 0: (x**2 + (1. - x)**2) * ( 2. * log(1. - x) - fc.A1(fc.beta_II) )
                 })),
                 'counterterm': None ,
                 'endpoint': None
@@ -813,7 +823,7 @@ class QCD_integrated_TRN_C_IgFq(general_current.GeneralCurrent):
         elif kernel_qg[distribution_type] is not None and distribution_type == 'bulk':
             kernel_qg[distribution_type] = torino_to_madnk_epsexp(kernel_qg[distribution_type] * prefactor , mu2oQ2 )
         elif kernel_qg[distribution_type] is not None:
-            kernel_qg[distribution_type] = torino_to_madnk_epsexp(kernel_qg[distribution_type] * prefactor , mu2oQ2 )
+            kernel_qg[distribution_type] = torino_to_madnk_epsexp(kernel_qg[distribution_type] * prefactor , mu2os )
 
 
         active_quark_PDGs = self.currents_properties[0]['active_fermions']
@@ -995,7 +1005,8 @@ class QCD_integrated_TRN_C_IqFq(general_current.GeneralCurrent):
             kernel_gq = {
                 'bulk': color_factor * overall * (EpsilonExpansion({
                     -1: - (( 1. + ( 1. - x)**2 ) / x ),
-                    0: (( 1. + ( 1. - x)**2 ) / x) * (log(1. - x)  - fc.A1(fc.beta_IF) )
+                    0: (( 1. + ( 1. - x)**2 ) / x) * (log(1. - x)  - fc.A1(fc.beta_IF) ) + x
+                    # 0: (( 1. + ( 1. - x)**2 ) / x) * (log(1. - x)  - fc.A1(fc.beta_IF) )
                 })) ,
                 'counterterm': None ,
                 'endpoint': None
@@ -1005,7 +1016,8 @@ class QCD_integrated_TRN_C_IqFq(general_current.GeneralCurrent):
             kernel_gq = {
                 'bulk': color_factor * overall * (EpsilonExpansion({
                     -1: - (( 1. + ( 1. - x)**2 ) / x),
-                    0: (( 1. + ( 1. - x)**2 ) / x) * ( 2. * log(1. - x) - fc.A1(fc.beta_II) )
+                    0: (( 1. + ( 1. - x)**2 ) / x) * ( 2. * log(1. - x) - fc.A1(fc.beta_II) ) + x
+                    # 0: (( 1. + ( 1. - x)**2 ) / x) * ( 2. * log(1. - x) - fc.A1(fc.beta_II) ) 
                 })) ,
                 'counterterm': None ,
                 'endpoint': None
@@ -1035,7 +1047,7 @@ class QCD_integrated_TRN_C_IqFq(general_current.GeneralCurrent):
         elif kernel_gq[distribution_type] is not None and distribution_type == 'bulk':
             kernel_gq[distribution_type] = torino_to_madnk_epsexp(kernel_gq[distribution_type] * prefactor , mu2oQ2 )
         elif kernel_gq[distribution_type] is not None:
-            kernel_gq[distribution_type] = torino_to_madnk_epsexp(kernel_gq[distribution_type] * prefactor, mu2oQ2 )
+            kernel_gq[distribution_type] = torino_to_madnk_epsexp(kernel_gq[distribution_type] * prefactor, mu2os )
 
         #logger.info('distribution_type :' + str(distribution_type) + '; ' + 'kernel_gq : ' + str(kernel_gq[distribution_type]))
 
@@ -1240,13 +1252,12 @@ class QCD_integrated_TRN_C_IgFg(general_current.GeneralCurrent):
         elif recoiler <= 2:
             kernel_gg = {
                 'bulk': color_factor * overall * (EpsilonExpansion({
-                    -1: - ( (1. / (1. -x) ) + (1. -x)/x - 1. + x*(1. - x) ),
-                    0: (((1. -x)/ x ) + (1. -x) * x) * (2. * log(1. - x) - fc.A1(fc.beta_II)) - 2.*fc.A1(fc.beta_II)*(x/(1-x) - x**(1+fc.alpha)/(1-x)) + 4. * ( x * log(1. - x)) / (1. - x)
+                    -1: - ( (1. / (1. -x) ) + ((1. -x)/x) - 1. + x*(1. - x) ),
+                    0: (((1. -x)/ x ) + (1. -x) * x) * (2. * log(1. - x) - fc.A1(fc.beta_II)) - 2.*fc.A1(fc.beta_II)*( (x/(1.-x)) - (x**(1+fc.alpha)/(1.-x))) + (4. * ( x * log(1. - x)) / (1. - x))
                 })) ,
                 'counterterm': color_factor * overall * (EpsilonExpansion({
                     -1: - (1. / (1. -x) ),
-                    0: - 2.*fc.A1(fc.beta_II)*(x/(1-x) - x**(1+fc.alpha)/(1-x)) /
-                       + 4. * ( x * log(1. - x)) / (1. - x)
+                    0: - 2.*fc.A1(fc.beta_II)*( (x/(1.-x)) - (x**(1+fc.alpha)/(1.-x)) ) + 4. * (( x * log(1. - x)) / (1. - x))
                 })) ,
                 'endpoint': color_factor * overall * (EpsilonExpansion({
                     -1: - 1. ,
@@ -1278,7 +1289,7 @@ class QCD_integrated_TRN_C_IgFg(general_current.GeneralCurrent):
         elif kernel_gg[distribution_type] is not None and distribution_type == 'bulk':
             kernel_gg[distribution_type] = torino_to_madnk_epsexp(kernel_gg[distribution_type] * prefactor , mu2oQ2 )
         elif kernel_gg[distribution_type] is not None:
-            kernel_gg[distribution_type] = torino_to_madnk_epsexp(kernel_gg[distribution_type] * prefactor, mu2oQ2 )
+            kernel_gg[distribution_type] = torino_to_madnk_epsexp(kernel_gg[distribution_type] * prefactor, mu2os )
 
         #logger.info('distribution_type :' + str(distribution_type) + '; ' + 'kernel_gg : ' + str(kernel_gg[distribution_type]))
 
@@ -1531,7 +1542,7 @@ class QCD_integrated_TRN_CS_IqFg(general_current.GeneralCurrent):
         elif distribution_type == 'bulk':
             kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2oQ2 )
         else:
-            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor, mu2oQ2 )
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor, mu2os )
 
         evaluation['values'][(0, 0, 0, 0)] = (kernel_eval).truncate(max_power=0)
 
@@ -1690,7 +1701,7 @@ class QCD_integrated_TRN_CS_IgFg(general_current.GeneralCurrent):
                 }) ,
                 'endpoint': color_factor * overall * EpsilonExpansion({
                     -1: 1. - fc.A2(fc.alpha) ,
-                    0: 1. - (pi**2 / 12.) + fc.A1(fc.beta_IF) * (1. - fc.A2(fc.alpha)) - (fc.A2(fc.alpha))**2/ 2. + fc.polygamma(fc.alpha) / 2.
+                    0: 1. - (pi**2 / 12.) + fc.A1(fc.beta_IF) * (1. - fc.A2(fc.alpha)) - ((fc.A2(fc.alpha))**2 / 2. ) + (fc.polygamma(fc.alpha) / 2.)
                 })
             }
 
@@ -1735,7 +1746,7 @@ class QCD_integrated_TRN_CS_IgFg(general_current.GeneralCurrent):
         elif distribution_type == 'bulk':
             kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2oQ2 )
         else:
-            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor, mu2oQ2 )
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor, mu2os )
 
 #        logger.info('distribution_type :' + str(distribution_type))
 
@@ -1913,7 +1924,7 @@ class QCD_integrated_TRN_S_g(general_current.GeneralCurrent):
                     }
 
                 if a > 2 and b <= 2:
-                    logger.info('soft caso B')
+                    #logger.info('soft caso B')
                     kernel = {
                         'bulk': prefactor * EpsilonExpansion({
                             -2: 0. ,
@@ -1995,6 +2006,7 @@ class QCD_integrated_TRN_S_g(general_current.GeneralCurrent):
                 #logger.info('distribution_type :' + str(distribution_type) + '; ' + 'kernel : ' + str(kernel[distribution_type]))
 
                 # We want the '+' distributions also act on (1/x) for 'counterterm' contribution 
+
                 if kernel[distribution_type] is not None and distribution_type == 'counterterm':
                     kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * mult_factor, mu2oQ2 / x )
                 elif kernel[distribution_type] is not None and distribution_type == 'bulk':
@@ -2127,27 +2139,27 @@ class QCD_integrated_TRN_C_FqFg(general_current.GeneralCurrent):
 
         elif recoiler <= 2:
             kernel = {
-                'bulk': color_factor * overall * EpsilonExpansion({
+                'bulk': color_factor * overall * (EpsilonExpansion({
                     -2: 0. ,
                     -1: 0. ,
                     0: xi **(1. + fc.beta_FI) / (1. - xi) 
-                }) ,
-                'counterterm': color_factor * overall * EpsilonExpansion({
+                })) ,
+                'counterterm': color_factor * overall * (EpsilonExpansion({
                     -2: 0. ,
                     -1: 0. ,
                     0: xi **(1. + fc.beta_FI) / (1. - xi)
-                }) ,
-                'endpoint': color_factor * overall * EpsilonExpansion({
+                })) ,
+                'endpoint': color_factor * overall * (EpsilonExpansion({
                     -2: 0. ,
                     -1: - 1. ,
                     0: - (1. + fc.A2(fc.beta_FI))
-                })
+                }))
             }
 
 
         # We want the '+' distributions also act on (1/x) for 'counterterm' contribution 
         if distribution_type == 'counterterm':
-            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2oQ2 / x )
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2oQ2 / xi )
         elif distribution_type == 'bulk':
             kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2oQ2 )
         else:
@@ -2589,7 +2601,7 @@ class QCD_integrated_TRN_CS_FqFg(general_current.GeneralCurrent):
 
 
         if distribution_type == 'counterterm':
-            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2oQ2 / x )
+            kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2oQ2 / xi )
         elif distribution_type == 'bulk':
             kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2oQ2 )
         else:

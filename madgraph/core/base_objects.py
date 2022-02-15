@@ -4107,7 +4107,8 @@ class ContributionDefinition(object):
                  beam_factorization_active  = (False, False),
                  # Correlated beam convolutions means that both beams are convoluted with
                  # the same variable xi
-                 correlated_beam_convolution = False
+                 correlated_beam_convolution = False,
+                 torino_sub_BS = False  #gl
                 ):
         """ Instantiate a contribution definition with all necessary information
         to generate the actual contribution. """
@@ -4139,6 +4140,8 @@ class ContributionDefinition(object):
             raise MadGraph5Error("The beam convolution can be specified to be correlated only if"+
                                  " both beams are convoluted.")
         self.correlated_beam_convolution = correlated_beam_convolution
+        #gl
+        self.torino_sub_BS = torino_sub_BS
 
         # Extract n_loops from the one in the process definition. However these need *not*
         # be the same, for example a Loop-Induced contribution 'RV' would have a process 
@@ -4186,7 +4189,8 @@ class ContributionDefinition(object):
                 n_loops                     = self.n_loops,
                 squared_orders_constraints  = dict(self.squared_orders_constraints),
                 beam_factorization          = copy.deepcopy(self.beam_factorization),
-                correlated_beam_convolution = self.correlated_beam_convolution
+                correlated_beam_convolution = self.correlated_beam_convolution,
+                torino_sub_BS               = self.torino_sub_BS    #gl
             )
     
     def get_beam_types(self):

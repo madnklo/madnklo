@@ -203,7 +203,8 @@ class ME7Exporter(object):
             'beam_types'                  : beam_types,
             'n_unresolved_particles'      : n_unresolved_particles,
             'beam_factorization_active'   : (False, False),
-            'correlated_beam_convolution' : False
+            'correlated_beam_convolution' : False,
+            'torino_sub_BS'               : False   #gl
         }
 
         # When constructing the beam factorization contributions, we will assign 
@@ -256,7 +257,8 @@ class ME7Exporter(object):
                                                 self.subtraction_scheme_module.requires_soft_beam_factorization:
             contrib_def_options['beam_factorization_active']   = (True, True)
             contrib_def_options['n_loops']                     = correction_order-n_unresolved_particles-1
-            contrib_def_options['correlated_beam_convolution'] = True            
+            contrib_def_options['correlated_beam_convolution'] = True
+            contrib_def_options['torino_sub_BS'] = True  #gl          
             dummy_process_definition = base_objects.ProcessDefinition({
                 'model'     : template_contribution.contribution_definition.process_definition.get('model'),
                 'id'        : process_ID,
@@ -421,10 +423,10 @@ class ME7Exporter(object):
             """ Return a nice string of the routing key in this function."""
             if self.group_subprocesses:
                 return ("(proc_ID=%d, n_loops=%d, n_unresolved=%d, n_beams_active=%s, "+
-                        "correlated_beam_convolution=%s)")%key
+                        "correlated_beam_convolution=%s, torino_sub_BS=%s)")%key
             else:
                 return ("(proc_ID=%d, n_loops=%d, n_unresolved=%d, beam_one_active=%s, "+
-                        "beam_two_active=%s, correlated_beam_convolution=%s)")%key
+                        "beam_two_active=%s, correlated_beam_convolution=%s, torino_sub_BS=%s)")%key
             
         routing_map = {}
         for contribution in self.contributions:
@@ -440,7 +442,8 @@ class ME7Exporter(object):
                     contribution.contribution_definition.n_unresolved_particles,
                     contribution.contribution_definition.is_beam_active('beam_one'),
                     contribution.contribution_definition.is_beam_active('beam_two'),
-                    contribution.contribution_definition.correlated_beam_convolution
+                    contribution.contribution_definition.correlated_beam_convolution,
+                    contribution.contribution_definition.torino_sub_BS    #gl
                 )
             else:
                 key = (
@@ -448,7 +451,8 @@ class ME7Exporter(object):
                     contribution.contribution_definition.n_loops,
                     contribution.contribution_definition.n_unresolved_particles,
                     n_active_beams,
-                    contribution.contribution_definition.correlated_beam_convolution
+                    contribution.contribution_definition.correlated_beam_convolution,
+                    contribution.contribution_definition.torino_sub_BS    #gl
                 )
             if key in routing_map:
                 # Only trigger the warning if not grouping subprocesses, otherwise it is
@@ -469,11 +473,13 @@ class ME7Exporter(object):
         for integrated_CT_properties in integrated_counterterms:
             # Extract quantities from integrated_counterterm_properties
             counterterm = integrated_CT_properties['integrated_counterterm']
+            #print('Counterterm : ' + str(counterterm))
             proc_def_ID = counterterm.process.get('id')
-            
+            #print('proc_def_ID : ' + str(proc_def_ID))
             # Decide whether this counterterm need to be hosted in a contribution with
             # beam factorization
             necessary_beam_convolutions = counterterm.get_necessary_beam_convolutions()
+            #print('necessary_beam_convolutions : ' + str(necessary_beam_convolutions))
 
             # Checks whether this integrated counterterm requires a host contribution featuring
             # correlated convolution of the beams (i.e. 'BS', 'VS', etc... contributions).
@@ -481,6 +487,8 @@ class ME7Exporter(object):
             # from a colorful subtraction currents scheme with mappings such as ppToOneWalker that
             # recoils the soft momentum equally against both initial-state beams.
             correlated_beam_convolution = False
+            #gl
+            torino_sub_BS = False
             if counterterm.does_require_correlated_beam_convolution():
                 # Notice that for compound integrated counterterms like [ C(F,F) , F(2) ]
                 # these become non-factorisable BF1F2 contributions, not S ones anymore
@@ -488,6 +496,11 @@ class ME7Exporter(object):
                 # then it will need to be a non-factorisable contribution and not an S one.
                 if counterterm.get_n_non_factorisable_double_sided_convolution()==0:
                     correlated_beam_convolution = True
+                #gl
+                if counterterm.does_require_torino_sub_BS():
+                    torino_sub_BS = True
+            #print('export_ME - correlated_beam_convolution : ' + str(correlated_beam_convolution))
+            #print('export_ME - torino_sub_BS : ' + str(torino_sub_BS))
 
             beam_one_convolution = 'beam_one' in necessary_beam_convolutions
             beam_two_convolution = 'beam_two' in necessary_beam_convolutions
@@ -521,12 +534,13 @@ class ME7Exporter(object):
 
             if not self.group_subprocesses:
                 key = ( proc_def_ID, n_loops, n_unresolved, 
-                        beam_one_convolution, beam_two_convolution, correlated_beam_convolution)
+                        beam_one_convolution, beam_two_convolution, correlated_beam_convolution, torino_sub_BS) #gl
+                #print('exportME7 - key : ' + str(key))
             else:
                 # As explained before, we must always engineer BF1 and BF2 (similarly at higher orders)
                 # as potential matches when grouping subprocesses (with mirroring), so in this case
                 # we build the routing key only based off the number of active beam factorization.
-                key = ( proc_def_ID, n_loops, n_unresolved, n_active_beams, correlated_beam_convolution)
+                key = ( proc_def_ID, n_loops, n_unresolved, n_active_beams, correlated_beam_convolution, torino_sub_BS) #gl
                 
             # This missing contribution can happen if for example the user explicitly 
             # disabled some contributions, typically the virtual.

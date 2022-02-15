@@ -15,6 +15,9 @@ __authors__ = ["valentin.hirschi@gmail.com", "nicoldeu@phys.ethz.ch"]
 # In the Torino implementation softs do not recoil against initial states
 requires_soft_beam_factorization = True
 
+#gl
+torino_sub_BS = True
+
 # This scheme belongs to a family of scheme using leg number information to instantiates its currents
 are_current_instances_for_specific_leg_numbers = True
 
@@ -49,8 +52,17 @@ def load():
             requires_correlated_beam_convolution = any(any(
                     (c.name() == 'S' or all(l.state == l.FINAL for l in c.legs))
                 for c in sub_ss.decompose() ) for sub_ss in singular_structure.substructures)
+            #print('__initi__.py - requires_correlated_beam_convolution : ' + str(requires_correlated_beam_convolution))    
 
             return requires_correlated_beam_convolution
+
+#gl
+        def does_require_torino_sub_BS(self, singular_structure):
+
+            requires_torino_sub_BS = torino_sub_BS
+            #print('__initi__.py - requires_torino_sub_BS : ' + str(requires_torino_sub_BS))
+            return requires_torino_sub_BS
+
 
     import factors_and_cuts as factors_and_cuts
 

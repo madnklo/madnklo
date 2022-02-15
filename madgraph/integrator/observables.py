@@ -98,6 +98,27 @@ class ObservableFunctions(object):
             pt+=p.pt()
         return ((pt, 1), )
 
+    @staticmethod
+    def pt_boson(data_for_observables,*args,**kwargs):
+        """ pt boson in singlet production """
+        PS_point = data_for_observables['PS_point'].to_list()
+        flavors = data_for_observables['flavors']
+        pt = 0
+        p = PS_point[2]
+        pt = p.pt()
+        return ((pt, 1), )
+
+    @staticmethod
+    def y_boson(data_for_observables,*args,**kwargs):
+        """ y boson in singlet production """
+        PS_point = data_for_observables['PS_point'].to_list()
+        flavors = data_for_observables['flavors']
+        y = - 10
+        p = PS_point[2]
+        y = p.rap()
+        return ((y, 1), )
+
+
 class HwUObservable(VirtualObservable,ObservableFunctions):
     """Class that creates and fills in a HwU histogram
     for an observable given as a function.

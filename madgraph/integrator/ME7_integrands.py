@@ -181,12 +181,34 @@ class ME7Event(object):
         # The 1/xi from the jacobian of this change of variable will typically be applied right after
         # this call to apply_PDF_convolution, because this must be done independently of
         # the user selection for the beam type (i.e. lpp in the run card).
+#gl
         for flavors in self.weights_per_flavor_configurations:
             PDFs = 1.
             for i, flavor in enumerate(flavors[0]):
-                PDFs *= pdf_accessor(all_pdf[i], flavor,
-                     self.Bjorken_xs[i]*self.Bjorken_x_rescalings[i], all_mu_f_squared[i])
+                if self.Bjorken_x_rescalings[0] != 1.0 and self.Bjorken_x_rescalings[1] != 1.0:
+                    Bjorken_x_rescalings_temp = (self.Bjorken_x_rescalings[0], 1.0)
+                    PDFs *= pdf_accessor(all_pdf[i], flavor,
+                         self.Bjorken_xs[i]*Bjorken_x_rescalings_temp[i], all_mu_f_squared[i])
+                else:
+                    PDFs *= pdf_accessor(all_pdf[i], flavor,
+                         self.Bjorken_xs[i]*self.Bjorken_x_rescalings[i], all_mu_f_squared[i])
             self.weights_per_flavor_configurations[flavors] *= PDFs
+
+            #     if self.Bjorken_x_rescalings[0] != 1.0 and self.Bjorken_x_rescalings[1] != 1.0:
+            #         Bjorken_x_rescalings_temp = (1.0, self.Bjorken_x_rescalings[1])
+            #         PDFs *= pdf_accessor(all_pdf[i], flavor,
+            #              self.Bjorken_xs[i]*Bjorken_x_rescalings_temp[i], all_mu_f_squared[i])
+            #     else:
+            #         PDFs *= pdf_accessor(all_pdf[i], flavor,
+            #              self.Bjorken_xs[i]*self.Bjorken_x_rescalings[i], all_mu_f_squared[i])
+            # self.weights_per_flavor_configurations[flavors] *= PDFs
+
+        # for flavors in self.weights_per_flavor_configurations:
+        #     PDFs = 1.
+        #     for i, flavor in enumerate(flavors[0]):
+        #         PDFs *= pdf_accessor(all_pdf[i], flavor,
+        #              self.Bjorken_xs[i]*self.Bjorken_x_rescalings[i], all_mu_f_squared[i])
+        #     self.weights_per_flavor_configurations[flavors] *= PDFs
 
     def store_information(self, key, value):
         """ This function registers a new additional information that will be attached to this
@@ -749,6 +771,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
             # accept integrated ISR ones.
             if beam_factorization_count > 0:
                 if contribution_definition.correlated_beam_convolution:
+                    # print('ME7Integrands.py - correlated_beam_convolution : ' + str(contribution_definition.correlated_beam_convolution))
+                    # print('ME7Integrands.py - torino_sub_BS : ' + str(contribution_definition.torino_sub_BS))
                     target_type = 'BeamSoft'
                 else:
                     target_type = 'RealVirtual'
@@ -1149,7 +1173,8 @@ class ME7Integrand(integrands.VirtualIntegrand):
             is_beam_factorization_active =
                         ( self.contribution_definition.is_beam_active('beam_one'),
                           self.contribution_definition.is_beam_active('beam_two') ),
-            correlated_beam_convolution = self.contribution_definition.correlated_beam_convolution
+            correlated_beam_convolution = self.contribution_definition.correlated_beam_convolution,
+            torino_sub_BS = self.contribution_definition.torino_sub_BS  #gl
         )
 
         # Add a copy of the PS generator dimensions here.
@@ -1497,6 +1522,12 @@ class ME7Integrand(integrands.VirtualIntegrand):
         ptj_cut = self.run_card['ptj']
         drjj_cut = self.run_card['drjj']
         etaj_cut = self.run_card['etaj']
+
+        # #gl
+        # p = PS_point[2]
+        # #print('ME7 - p : ' + str(p))
+        # if p[1]**2 + p[2]**2 < 10**2:
+        #     return False
         
         if ptj_cut <= 0. and    \
            drjj_cut <= 0. and   \
@@ -1721,9 +1752,12 @@ class ME7Integrand(integrands.VirtualIntegrand):
                 
         if (pdf, pdg, x, scale2) in self.PDF_cache:
             return self.PDF_cache[(pdf, pdg, x, scale2)]
-        
+
         # Call to lhapdf API
         f = pdf.xfxQ2(pdg, x, scale2)/x
+#gl
+        # if pdg == 21:
+        #     f *=10000.
 
         # Update the PDF cache
         self.PDF_cache[(pdf, pdg,x,scale2)] = f
@@ -1921,8 +1955,15 @@ class ME7Integrand(integrands.VirtualIntegrand):
                                                (self.pdf, self.pdf), (mu_f1**2, mu_f2**2) )
             # Apply the 1/xi**2 factor from the change of variable xi -> xi' / xi
             # Remember that the Bjorken rescalings are defined as 1/xi at this stage
+#gl
             for event in events:
-                event *= event.Bjorken_x_rescalings[0]*event.Bjorken_x_rescalings[1]
+                if self.contribution_definition.torino_sub_BS:
+                    event *= event.Bjorken_x_rescalings[0]*1.0
+                else:
+                    event *= event.Bjorken_x_rescalings[0]*event.Bjorken_x_rescalings[1]
+
+            # for event in events:
+                # event *= event.Bjorken_x_rescalings[0]*event.Bjorken_x_rescalings[1]
 
             # Make sure Bjorken-x rescalings don't matter anymore
             for event in events:
@@ -2491,13 +2532,13 @@ class ME7Integrand_V(ME7Integrand):
         # We must also map the Bjorken x's and the xi rescalings
         xi1, xi2 = [xi1, xi2][input_mapping[0]], [xi1, xi2][input_mapping[1]]
         xb_1, xb_2 = [xb_1, xb_2][input_mapping[0]], [xb_1, xb_2][input_mapping[1]]
-        #logger.info('xi1 : ' + str(xi1) + ', ' + 'xi2 : ' + str(xi2) + ', ' + 'xb_1 : ' + str(xb_1) + ', ' + 'xb_2 : ' + str(xb_2))
+        # print('xi1 : ' + str(xi1) + ', ' + 'xi2 : ' + str(xi2) + ', ' + 'xb_1 : ' + str(xb_1) + ', ' + 'xb_2 : ' + str(xb_2))
 
         # Now compute the reduced quantities which will be necessary for evaluating the
         # integrated current
         reduced_PS = counterterm.get_reduced_kinematics(mapped_PS_point)
-        # logger.info('mapped_PS_point : ' + str(mapped_PS_point) )
-        # logger.info('reduced_PS : ' + str(reduced_PS) )
+        # print('mapped_PS_point : ' + str(mapped_PS_point))
+        # print('reduced_PS : ' + str(reduced_PS))
 
 
         # Retrieve some possibly relevant model parameters
@@ -2515,12 +2556,25 @@ class ME7Integrand_V(ME7Integrand):
             1. if xi1 is None else 1. / xi1,
             1. if xi2 is None else 1. / xi2,
         )
-
-        #logger.info('rescalings : ' + str(rescalings))
-        #logger.info('mapped_PS_point : ' + str(mapped_PS_point))
+#gl
         total_incoming_momentum = vectors.LorentzVector()
-        for i, p in enumerate(mapped_PS_point.to_list()[:self.n_initial]):
-            total_incoming_momentum += p * rescalings[i]
+        for i, p in enumerate(PS_point.to_list()[:self.n_initial]):
+            if xi1 != None and xi2 != None:
+                rescalings_temp = (
+                    1. / xi1,
+                    1. ,
+                )
+                total_incoming_momentum += p * rescalings_temp[i]
+            else:
+                total_incoming_momentum += p * rescalings[i]
+
+        # # print('mapped_PS_point : ' + str(mapped_PS_point))
+        # # print('ME7 - rescalings : ' + str(rescalings))
+        # total_incoming_momentum = vectors.LorentzVector()
+        # for i, p in enumerate(mapped_PS_point.to_list()[:self.n_initial]):
+        #     total_incoming_momentum += p * rescalings[i]
+        #     # print('p * rescalings[i] : ' + str(p * rescalings[i]))
+        # print('total incoming momunetum : ' + str(total_incoming_momentum))
 
         # With the current design we only consider and support the case where there is only
         # *one* regular (i.e. non-beam) "mapping currents" in the counterterm.
@@ -2631,7 +2685,7 @@ class ME7Integrand_V(ME7Integrand):
                         " following integrated counterterm event. This should never happen.\n%s" % str(integrated_CT_event))
 
                 all_events.append(integrated_CT_event)
-        #logger.info('all_events : ' + str(all_events))
+        #print('all_events : ' + str(all_events))
         return all_events
         
     def test_IR_poles(self, test_options):
@@ -2848,8 +2902,14 @@ class ME7Integrand_V(ME7Integrand):
             events.apply_PDF_convolution( self.get_pdfQ2, (pdf, pdf), (mu_f1**2, mu_f2**2) )
         # Apply the 1/xi**2 factor from the change of variable xi -> xi' / xi
         # Remember that the Bjorken rescalings are defined as 1/xi at this stage
+#gl
         for event in events:
-            event *= event.Bjorken_x_rescalings[0] * event.Bjorken_x_rescalings[1]
+            if self.contribution_definition.torino_sub_BS:
+                event *= event.Bjorken_x_rescalings[0]*1.0
+            else:
+                event *= event.Bjorken_x_rescalings[0]*event.Bjorken_x_rescalings[1]
+        # for event in events:
+        #     event *= event.Bjorken_x_rescalings[0] * event.Bjorken_x_rescalings[1]
 
         # Make sure Bjorken-x rescalings xi_i don't matter anymore
         for event in events:
@@ -3416,7 +3476,7 @@ class ME7Integrand_R(ME7Integrand):
                         'Bjorken_rescaling_beam_two'  : Bjorken_rescaling_beam_two,
                     },
                 )
-
+            # print('LINEA 3392 - combined_weight : ' + str(combined_weight))
         return new_all_necessary_ME_calls
 
 
@@ -3544,8 +3604,18 @@ class ME7Integrand_R(ME7Integrand):
 
             if (not isinstance(beam_currents['correlated_convolution'],
                         subtraction.IntegratedBeamCurrent)) and (xi1 != xi2 or xi1 is None):
-                raise MadGraph5Error('Currents requiring correlated beam convolutions must be'
-                    ' evaluated within a contribution in which xi1 == xi2 and different than None.')
+                if 'torino_sub_BS' in beam_currents:    #gl
+                    # print('PASSING')
+                    pass
+                else:
+                    raise MadGraph5Error('Currents requiring correlated beam convolutions must be'
+                        ' evaluated within a contribution in which xi1 == xi2 and different than None.')
+
+            # if (not isinstance(beam_currents['correlated_convolution'],
+            #         subtraction.IntegratedBeamCurrent)) and (xi1 != xi2 or xi1 is None):
+                
+            #     raise MadGraph5Error('Currents requiring correlated beam convolutions must be'
+            #         ' evaluated within a contribution in which xi1 == xi2 and different than None.')
 
             beam_currents_to_call.append(beam_currents['correlated_convolution'])
 
@@ -3611,7 +3681,6 @@ class ME7Integrand_R(ME7Integrand):
         for i, p in enumerate(PS_point.to_list()[:self.n_initial]):
             total_incoming_momentum += p * rescalings[i]
 
-        #logger1.info('rescalings : ' + str(rescalings))
 
         #logger1.info('options : ' + str(opts))
 # Gl
@@ -3694,7 +3763,7 @@ class ME7Integrand_R(ME7Integrand):
                     this_base_weight = base_weight
 
 # Gl
-                    #logger1.info('reduced_kinematics_1= ' + str(reduced_kinematics))
+                    # logger1.info('reduced_kinematics_1= ' + str(reduced_kinematics))
 
 
                     # Now that all currents have been evaluated using the PS points with initial-state
@@ -3708,7 +3777,7 @@ class ME7Integrand_R(ME7Integrand):
                         reduced_kinematics.boost_to_com(tuple([l.get('number') for l in counterterm.process.get_initial_legs()]))
 
 # Gl
-                    #logger1.info('reduced_kinematics_2= ' + str(reduced_kinematics))
+                    # logger1.info('reduced_kinematics_2= ' + str(reduced_kinematics))
                     #logger1.info('AFTER REDUCING_2: PS_point evaluate= ' + str(PS_point))
 
 
@@ -3718,7 +3787,7 @@ class ME7Integrand_R(ME7Integrand):
 
                     reduced_kinematics_as_list, reduced_flavors = counterterm.get_reduced_quantities(reduced_kinematics, defining_flavors=None)
                     #logger1.info('reduced_flavors= ' + str(reduced_flavors))
-                    #logger1.info('Pre reduced kin= ' + str(reduced_kinematics_as_list))
+                    #logger1.info('post boost sbc = ' + str((reduced_kinematics_as_list[1]+reduced_kinematics_as_list[2])))
 
  
                     if apply_flavour_blind_cuts and not self.pass_flavor_blind_cuts(
@@ -3732,6 +3801,7 @@ class ME7Integrand_R(ME7Integrand):
 
                     # Now apply the sectoring function if specified
                     if sector[0] is not None:
+                        #print('ME7Int. - sector : ' + str(sector[0](PS_point, all_resolved_flavors[0],counterterm_index=sector[1], input_mapping_index=-1)))
                         this_base_weight *= sector[0](PS_point, all_resolved_flavors[0],
                                                       counterterm_index=sector[1], input_mapping_index=-1)
 
@@ -3807,7 +3877,7 @@ class ME7Integrand_R(ME7Integrand):
                     )
                     if CT_event is not None:
                         all_events.append(CT_event)
-        #logger1.info('all events: ' + str(all_events))
+        # print('ME7 - all events: ' + str(all_events))
         return all_events
 
     @classmethod
@@ -3884,6 +3954,7 @@ class ME7Integrand_R(ME7Integrand):
         
         for ME_call in all_necessary_ME_calls:
 
+            # print('ME_call : ' + str(ME_call))
             # Immediately skip this contribution if it does not pass the boundary check
             # This comes from the change of variable xb_i' = xb_i * xi_i
             # Remember that Bjorken_rescaling_beam_X stored in ME_call refers to 1/xi_i
@@ -3930,12 +4001,12 @@ The missing process is: %s"""%ME_process.nice_string())
             event_weight *= disconnected_currents_weight
             event_weight *= connected_currents_weight
             event_weight *= overall_prefactor
-            #misc.sprint("")
-            #misc.sprint(spin_correlators, color_correlators)
-            #misc.sprint(base_objects.EpsilonExpansion(ME_evaluation))
-            #misc.sprint(disconnected_currents_weight)
-            #misc.sprint(connected_currents_weight)
-            #misc.sprint(event_weight)
+            # misc.sprint("")
+            # misc.sprint(spin_correlators, color_correlators)
+            # misc.sprint(base_objects.EpsilonExpansion(ME_evaluation))
+            # misc.sprint(disconnected_currents_weight)
+            # misc.sprint(connected_currents_weight)
+            # misc.sprint(event_weight)
 
             # Skip an event with no contribution (some dipoles of the eikonal for example)
             if not always_generate_event and event_weight.norm() == 0.:
@@ -3969,7 +4040,7 @@ The missing process is: %s"""%ME_process.nice_string())
         # Finally return the ME7 event constructed for this counterterm
         # Notice that this can be None if all terms were zero (for example during the flavor
         # convolution).
-        #logger1.info('ME7_event_to_return : ' + str(ME7_event_to_return))
+        # logger1.info('ME7_event_to_return : ' + str(ME7_event_to_return))
         return ME7_event_to_return
     
     def sigma(self, PS_point, process_key, process, all_flavor_configurations,
@@ -3985,6 +4056,7 @@ The missing process is: %s"""%ME_process.nice_string())
         matrix_element_event = self.generate_matrix_element_event(
             PS_point, process_key, process, all_flavor_configurations,
             base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts)
+        #print('ME7 - SIGMA - matrix_element_event : ' + str(matrix_element_event))
 
         # Some contributions might have not physical contributions and overloaded the above
         # so as to return None
@@ -4402,8 +4474,15 @@ The missing process is: %s"""%ME_process.nice_string())
                 events.apply_PDF_convolution( self.get_pdfQ2, (pdf, pdf), (mu_f1**2, mu_f2**2) )
             # Apply the 1/xi**2 factor from the change of variable xi -> xi' / xi
             # Remember that the Bjorken rescalings are defined as 1/xi at this stage
+#gl
             for event in events:
-                event *= event.Bjorken_x_rescalings[0] * event.Bjorken_x_rescalings[1]
+                if self.contribution_definition.torino_sub_BS:
+                    event *= event.Bjorken_x_rescalings[0]*1.0
+                else:
+                    event *= event.Bjorken_x_rescalings[0]*event.Bjorken_x_rescalings[1]
+
+            # for event in events:
+            #     event *= event.Bjorken_x_rescalings[0] * event.Bjorken_x_rescalings[1]
 
             # Make sure Bjorken-x rescalings xi_i don't matter anymore
             for event in events:

@@ -553,6 +553,15 @@ class SingularStructure(object):
 
         return subtraction_scheme_module.exporter.does_require_correlated_beam_convolution(self)
 
+#gl
+    def does_require_torino_sub_BS(self, subtraction_scheme_module):
+        """ Checks whether this integrated counterterm requires a host contribution featuring
+        correlated convolution of the beams (i.e. 'BS', 'VS', etc... contributions).
+        Whether a correlated beam convolution is needed or not depends on the subtraction scheme
+        module and this is why this decision is made through one of its functions."""
+
+        return subtraction_scheme_module.exporter.does_require_torino_sub_BS(self)
+
     def get_subtraction_prefactor(self):
         """Determine the prefactor due to the nested subtraction technique."""
         
@@ -1086,6 +1095,18 @@ class Current(base_objects.Process):
         # For basic currents, this is never the case
         return False
 
+#gl
+    def does_require_torino_sub_BS(self, *args, **opts):
+        """ Checks whether this integrated counterterm requires a host contribution featuring
+        correlated convolution of the beams (i.e. 'BS', 'VS', etc... contributions).
+        This is the case only for integrated counterterms with disjoint structures having each
+        at least one soft *BeamCurrents* that originated from a colorful subtraction currents 
+        scheme with mappings such as ppToOneWalker that recoils the soft momentum equally 
+        against both initial-state beams."""
+
+        # For basic currents, this is never the case
+        return False
+
     def get_reduced_flavors(self, defining_flavors, IR_subtraction_module, routing_dict):
         """Given the defining flavors dictionary specifying the flavors of some leg numbers,
         add entries corresponding to the subtraction legs in this node and using the function
@@ -1269,6 +1290,18 @@ class BeamCurrent(Current):
         of the subbtraction scheme, this decision is made through a function of the subtraction scheme."""
 
         return self['singular_structure'].does_require_correlated_beam_convolution(subtraction_scheme_module)
+
+#gl
+    def does_require_torino_sub_BS(self, subtraction_scheme_module):
+        """ Checks whether this integrated counterterm requires a host contribution featuring
+        correlated convolution of the beams (i.e. 'BS', 'VS', etc... contributions).
+        This is the case only for integrated counterterms with disjoint structures having each
+        at least one soft *BeamCurrents* that originated from a colorful subtraction currents
+        scheme with mappings such as ppToOneWalker that recoils the soft momentum equally
+        against both initial-state beams. Given the dependency on the details of the implementation
+        of the subbtraction scheme, this decision is made through a function of the subtraction scheme."""
+
+        return self['singular_structure'].does_require_torino_sub_BS(subtraction_scheme_module)
 
     def get_key(self, track_leg_numbers=False):
         """Return the ProcessKey associated to this current."""
@@ -1628,6 +1661,8 @@ class Counterterm(CountertermNode):
         self.requires_correlated_beam_convolution = False
         # Neither to they require non-factorisable ones
         self.n_non_factorisable_double_sided_convolution = 0
+        #gl Local counterterms never require torino_sub_BS
+        self.requires_torino_sub_BS = False
 
     @classmethod
     def get_ancestor(cls, particles, momentum_dict, stop_if_none_found=True):
@@ -1748,6 +1783,8 @@ class Counterterm(CountertermNode):
         # was already set.
         CT_copy.requires_correlated_beam_convolution = self.requires_correlated_beam_convolution
         CT_copy.n_non_factorisable_double_sided_convolution = self.n_non_factorisable_double_sided_convolution
+        #gl
+        CT_copy.requires_torino_sub_BS = self.requires_torino_sub_BS
 
         return CT_copy
 
@@ -1853,6 +1890,24 @@ class Counterterm(CountertermNode):
                 " before this information can be accessed.")
 
         return self.requires_correlated_beam_convolution
+
+#gl
+    def set_requires_torino_sub_BS(self, subtraction_scheme_module):
+
+        # Fetch all integrated currents making up this integrated counterterm
+        # In the current implementation, there can only be one for now.
+        self.requires_torino_sub_BS = \
+            self.get_integrated_current().does_require_torino_sub_BS(subtraction_scheme_module)
+
+    def does_require_torino_sub_BS(self):
+        """ Protected access to the variable requires_correlated_beam_convolution which must first be initialised."""
+
+        if self.requires_torino_sub_BS is None:
+            raise MadGraph5Error("The attribute 'requires_torino_sub_BS' of the counterterm:\n%s\n"%str(self)+
+                "must be set using the IR subtraction scheme module with the function 'set_requires_torino_sub_BS'"+
+                " before this information can be accessed.")
+
+        return self.requires_torino_sub_BS
 
     def set_n_non_factorisable_double_sided_convolution(self, subtraction_scheme_module):
         """ Test if this counterterm involves a non-factorisable double-sided convolution which appears when one has
@@ -2126,9 +2181,13 @@ class IntegratedCounterterm(Counterterm):
             self.requires_correlated_beam_convolution = None
             # Similarly for n_non_factorisable_double_sided_convolution
             self.n_non_factorisable_double_sided_convolution = None
+            #gl
+            self.requires_torino_sub_BS = None
         else:
             self.set_requires_correlated_beam_convolution(subtraction_scheme_module)
             self.set_n_non_factorisable_double_sided_convolution(subtraction_scheme_module)
+            #gl
+            self.set_requires_torino_sub_BS(subtraction_scheme_module)
 
     def __str__(self, print_n=True, print_pdg=False, print_state=False, print_n_loops = True):
         """ A nice short string for the structure of this integrated CT."""
@@ -2262,6 +2321,7 @@ class IntegratedCounterterm(Counterterm):
         ' process should all be None if the integrated counterterm necessitates a correlated'+
         ' beam convolution.')
                 bcs['correlated_convolution'] = integrated_current
+                bcs['torino_sub_BS'] = integrated_current   #gl
             return beam_currents
 
         if self.get_n_non_factorisable_double_sided_convolution()>=2:
@@ -2297,6 +2357,7 @@ class IntegratedCounterterm(Counterterm):
             # it would have made no difference.
             for bcs in beam_currents:
                 bcs['correlated_convolution'] = integrated_current
+                bcs['torino_sub_BS'] = integrated_current   #gl
 
         return beam_currents
 
@@ -2321,15 +2382,19 @@ class IntegratedCounterterm(Counterterm):
         # Check if this integrated counterterm necessitate a soft-recoil that demands
         # a correlated convolution of both beams
         if self.does_require_correlated_beam_convolution() or self.get_n_non_factorisable_double_sided_convolution()>=2:
+            #print('subtraction.py -  does_require_correlated_beam_convolution : ' + str(self.does_require_correlated_beam_convolution()))
+            #print('subtraction.py -  does_require_torino_sub_BS : ' + str(self.does_require_torino_sub_BS()))
             return set(['beam_one','beam_two'])
         
         # Now get all legs of its singular structure
         all_legs = integrated_current['singular_structure'].get_all_legs()
-        
+        # print('all_legs : ' + str(all_legs))
+
         if any(l.n==1 for l in all_legs):
             necessary_beam_convolutions.add('beam_one')
         if any(l.n==2 for l in all_legs):
             necessary_beam_convolutions.add('beam_two')
+        # print('necessary_beam_convolutions : ' + str(necessary_beam_convolutions))
         return necessary_beam_convolutions
 
     def get_reduced_kinematics(self, input_reduced_PS):
@@ -2995,6 +3060,19 @@ class IRSubtraction(object):
                 beam_type = self.beam_types[beam_number-1][0] if self.beam_types[beam_number-1] else None
                 beam_PDGs = self.beam_types[beam_number-1][1] if self.beam_types[beam_number-1] else None
 
+            # if has_soft_symmetric_ISR_recoil:
+            #     # In the case of soft recoiling against initial states, the beam_type should not matter.
+            #     #gl
+            #     beam_type = None
+            #     beam_PDGs = None
+            # else:  
+            #     beam_number = initial_state_legs[0].n
+            #     beam_names = {1:'beam_one', 2:'beam_two'}
+                        
+            #     assert (beam_number in [1,2]), "MadNkLO only supports initial state legs with number in [1,2]."
+            #     beam_type = self.beam_types[beam_number-1][0] if self.beam_types[beam_number-1] else None
+            #     beam_PDGs = self.beam_types[beam_number-1][1] if self.beam_types[beam_number-1] else None
+
             beam_current_options = {
                     'beam_type'     :   beam_type,
                     'beam_PDGs'     :   beam_PDGs,
@@ -3002,6 +3080,7 @@ class IRSubtraction(object):
                     'squared_orders':   squared_orders,
                     'singular_structure': complete_singular_structure
                 }
+            # print('beam_current_options : ' + str(beam_current_options))
 
             # For now there will be no additional CT node, but for NNLO there may be because
             # the integrated ISR has to be combined with local FSR counterterms
@@ -3009,6 +3088,7 @@ class IRSubtraction(object):
 
             # Handle the specific case of NLO single beam factorization counterterm
             ss_name = complete_singular_structure.substructures[0].substructures[0].name()
+            # print('ss name : ' + str(ss_name))
             if ss_name == 'F':
 
                 integrated_CTs.append(IntegratedCounterterm(
@@ -3139,6 +3219,8 @@ class IRSubtraction(object):
         for integrated_CT in all_integrated_counterterms:
             integrated_CT.set_requires_correlated_beam_convolution(self.subtraction_scheme_module)
             integrated_CT.set_n_non_factorisable_double_sided_convolution(self.subtraction_scheme_module)
+            #gl
+            integrated_CT.set_requires_torino_sub_BS(self.subtraction_scheme_module)
 
         # Finally, if this integrated counterterm implies multiple convolutions in the *same* convolution parameter
         # then one of them will be performed analytically, thus inducing a new building-block counterterm implementing
@@ -3159,6 +3241,8 @@ class IRSubtraction(object):
             for merged_integrated_counterterm in merged_integrated_counterterms:
                 merged_integrated_counterterm.set_requires_correlated_beam_convolution(self.subtraction_scheme_module)
                 merged_integrated_counterterm.set_n_non_factorisable_double_sided_convolution(self.subtraction_scheme_module)
+                #gl
+                merged_integrated_counterterm.set_requires_torino_sub_BS(self.subtraction_scheme_module)
             all_merged_integrated_counterterms.extend(merged_integrated_counterterms)
 
 

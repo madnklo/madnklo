@@ -355,8 +355,8 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
         # collinear ISR counterterms to hit the PDF only (and not the matrix elements or
         # observables functions), a change of variable is necessary: xb_1' = xb_1 * xi1
         if self.correlated_beam_convolution:
-            #print('AAAAAAAAAAA - correlated_beam_convolution : ' + str(self.correlated_beam_convolution))
-            #print('AAAAAAAAAAA - torino sub : ' + str(self.torino_sub_BS))
+            #print('PS - correlated_beam_convolution : ' + str(self.correlated_beam_convolution))
+            #print('PS - torino sub : ' + str(self.torino_sub_BS))
             # Both xi1 and xi2 must be set equal then
             # xi1 = random_variables[self.dim_name_to_position['xi']]
             # xi2 = random_variables[self.dim_name_to_position['xi']]

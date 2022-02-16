@@ -98,7 +98,7 @@ class ObservableFunctions(object):
             pt+=p.pt()
         return ((pt, 1), )
 
-    @staticmethod
+    @staticmethod   #gl
     def pt_boson(data_for_observables,*args,**kwargs):
         """ pt boson in singlet production """
         PS_point = data_for_observables['PS_point'].to_list()
@@ -108,7 +108,7 @@ class ObservableFunctions(object):
         pt = p.pt()
         return ((pt, 1), )
 
-    @staticmethod
+    @staticmethod   #gl
     def y_boson(data_for_observables,*args,**kwargs):
         """ y boson in singlet production """
         PS_point = data_for_observables['PS_point'].to_list()

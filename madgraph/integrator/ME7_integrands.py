@@ -181,18 +181,18 @@ class ME7Event(object):
         # The 1/xi from the jacobian of this change of variable will typically be applied right after
         # this call to apply_PDF_convolution, because this must be done independently of
         # the user selection for the beam type (i.e. lpp in the run card).
-#gl
-        for flavors in self.weights_per_flavor_configurations:
-            PDFs = 1.
-            for i, flavor in enumerate(flavors[0]):
-                if self.Bjorken_x_rescalings[0] != 1.0 and self.Bjorken_x_rescalings[1] != 1.0:
-                    Bjorken_x_rescalings_temp = (self.Bjorken_x_rescalings[0], 1.0)
-                    PDFs *= pdf_accessor(all_pdf[i], flavor,
-                         self.Bjorken_xs[i]*Bjorken_x_rescalings_temp[i], all_mu_f_squared[i])
-                else:
-                    PDFs *= pdf_accessor(all_pdf[i], flavor,
-                         self.Bjorken_xs[i]*self.Bjorken_x_rescalings[i], all_mu_f_squared[i])
-            self.weights_per_flavor_configurations[flavors] *= PDFs
+# #gl
+#         for flavors in self.weights_per_flavor_configurations:
+#             PDFs = 1.
+#             for i, flavor in enumerate(flavors[0]):
+#                 if self.Bjorken_x_rescalings[0] != 1.0 and self.Bjorken_x_rescalings[1] != 1.0:
+#                     Bjorken_x_rescalings_temp = (self.Bjorken_x_rescalings[0], 1.0)
+#                     PDFs *= pdf_accessor(all_pdf[i], flavor,
+#                          self.Bjorken_xs[i]*Bjorken_x_rescalings_temp[i], all_mu_f_squared[i])
+#                 else:
+#                     PDFs *= pdf_accessor(all_pdf[i], flavor,
+#                          self.Bjorken_xs[i]*self.Bjorken_x_rescalings[i], all_mu_f_squared[i])
+#             self.weights_per_flavor_configurations[flavors] *= PDFs
 
             #     if self.Bjorken_x_rescalings[0] != 1.0 and self.Bjorken_x_rescalings[1] != 1.0:
             #         Bjorken_x_rescalings_temp = (1.0, self.Bjorken_x_rescalings[1])
@@ -203,12 +203,12 @@ class ME7Event(object):
             #              self.Bjorken_xs[i]*self.Bjorken_x_rescalings[i], all_mu_f_squared[i])
             # self.weights_per_flavor_configurations[flavors] *= PDFs
 
-        # for flavors in self.weights_per_flavor_configurations:
-        #     PDFs = 1.
-        #     for i, flavor in enumerate(flavors[0]):
-        #         PDFs *= pdf_accessor(all_pdf[i], flavor,
-        #              self.Bjorken_xs[i]*self.Bjorken_x_rescalings[i], all_mu_f_squared[i])
-        #     self.weights_per_flavor_configurations[flavors] *= PDFs
+        for flavors in self.weights_per_flavor_configurations:
+            PDFs = 1.
+            for i, flavor in enumerate(flavors[0]):
+                PDFs *= pdf_accessor(all_pdf[i], flavor,
+                     self.Bjorken_xs[i]*self.Bjorken_x_rescalings[i], all_mu_f_squared[i])
+            self.weights_per_flavor_configurations[flavors] *= PDFs
 
     def store_information(self, key, value):
         """ This function registers a new additional information that will be attached to this
@@ -1955,15 +1955,15 @@ class ME7Integrand(integrands.VirtualIntegrand):
                                                (self.pdf, self.pdf), (mu_f1**2, mu_f2**2) )
             # Apply the 1/xi**2 factor from the change of variable xi -> xi' / xi
             # Remember that the Bjorken rescalings are defined as 1/xi at this stage
-#gl
-            for event in events:
-                if self.contribution_definition.torino_sub_BS:
-                    event *= event.Bjorken_x_rescalings[0]*1.0
-                else:
-                    event *= event.Bjorken_x_rescalings[0]*event.Bjorken_x_rescalings[1]
+# #gl
+#             for event in events:
+#                 if self.contribution_definition.torino_sub_BS:
+#                     event *= event.Bjorken_x_rescalings[0]*1.0
+#                 else:
+#                     event *= event.Bjorken_x_rescalings[0]*event.Bjorken_x_rescalings[1]
 
-            # for event in events:
-                # event *= event.Bjorken_x_rescalings[0]*event.Bjorken_x_rescalings[1]
+            for event in events:
+                event *= event.Bjorken_x_rescalings[0]*event.Bjorken_x_rescalings[1]
 
             # Make sure Bjorken-x rescalings don't matter anymore
             for event in events:
@@ -2556,25 +2556,24 @@ class ME7Integrand_V(ME7Integrand):
             1. if xi1 is None else 1. / xi1,
             1. if xi2 is None else 1. / xi2,
         )
-#gl
-        total_incoming_momentum = vectors.LorentzVector()
-        for i, p in enumerate(PS_point.to_list()[:self.n_initial]):
-            if xi1 != None and xi2 != None:
-                rescalings_temp = (
-                    1. / xi1,
-                    1. ,
-                )
-                total_incoming_momentum += p * rescalings_temp[i]
-            else:
-                total_incoming_momentum += p * rescalings[i]
+# #gl
+#         total_incoming_momentum = vectors.LorentzVector()
+#         for i, p in enumerate(PS_point.to_list()[:self.n_initial]):
+#             if xi1 != None and xi2 != None:
+#                 rescalings_temp = (
+#                     1. / xi1,
+#                     1. ,
+#                 )
+#                 total_incoming_momentum += p * rescalings_temp[i]
+#             else:
+#                 total_incoming_momentum += p * rescalings[i]
 
-        # # print('mapped_PS_point : ' + str(mapped_PS_point))
-        # # print('ME7 - rescalings : ' + str(rescalings))
-        # total_incoming_momentum = vectors.LorentzVector()
-        # for i, p in enumerate(mapped_PS_point.to_list()[:self.n_initial]):
-        #     total_incoming_momentum += p * rescalings[i]
-        #     # print('p * rescalings[i] : ' + str(p * rescalings[i]))
-        # print('total incoming momunetum : ' + str(total_incoming_momentum))
+        # print('mapped_PS_point : ' + str(mapped_PS_point))
+        # print('ME7 - rescalings : ' + str(rescalings))
+        total_incoming_momentum = vectors.LorentzVector()
+        for i, p in enumerate(mapped_PS_point.to_list()[:self.n_initial]):
+            total_incoming_momentum += p * rescalings[i]
+            # print('p * rescalings[i] : ' + str(p * rescalings[i]))
 
         # With the current design we only consider and support the case where there is only
         # *one* regular (i.e. non-beam) "mapping currents" in the counterterm.
@@ -2902,14 +2901,14 @@ class ME7Integrand_V(ME7Integrand):
             events.apply_PDF_convolution( self.get_pdfQ2, (pdf, pdf), (mu_f1**2, mu_f2**2) )
         # Apply the 1/xi**2 factor from the change of variable xi -> xi' / xi
         # Remember that the Bjorken rescalings are defined as 1/xi at this stage
-#gl
+# #gl
+#         for event in events:
+#             if self.contribution_definition.torino_sub_BS:
+#                 event *= event.Bjorken_x_rescalings[0]*1.0
+#             else:
+#                 event *= event.Bjorken_x_rescalings[0]*event.Bjorken_x_rescalings[1]
         for event in events:
-            if self.contribution_definition.torino_sub_BS:
-                event *= event.Bjorken_x_rescalings[0]*1.0
-            else:
-                event *= event.Bjorken_x_rescalings[0]*event.Bjorken_x_rescalings[1]
-        # for event in events:
-        #     event *= event.Bjorken_x_rescalings[0] * event.Bjorken_x_rescalings[1]
+            event *= event.Bjorken_x_rescalings[0] * event.Bjorken_x_rescalings[1]
 
         # Make sure Bjorken-x rescalings xi_i don't matter anymore
         for event in events:
@@ -4474,15 +4473,15 @@ The missing process is: %s"""%ME_process.nice_string())
                 events.apply_PDF_convolution( self.get_pdfQ2, (pdf, pdf), (mu_f1**2, mu_f2**2) )
             # Apply the 1/xi**2 factor from the change of variable xi -> xi' / xi
             # Remember that the Bjorken rescalings are defined as 1/xi at this stage
-#gl
-            for event in events:
-                if self.contribution_definition.torino_sub_BS:
-                    event *= event.Bjorken_x_rescalings[0]*1.0
-                else:
-                    event *= event.Bjorken_x_rescalings[0]*event.Bjorken_x_rescalings[1]
+# #gl
+#             for event in events:
+#                 if self.contribution_definition.torino_sub_BS:
+#                     event *= event.Bjorken_x_rescalings[0]*1.0
+#                 else:
+#                     event *= event.Bjorken_x_rescalings[0]*event.Bjorken_x_rescalings[1]
 
-            # for event in events:
-            #     event *= event.Bjorken_x_rescalings[0] * event.Bjorken_x_rescalings[1]
+            for event in events:
+                event *= event.Bjorken_x_rescalings[0] * event.Bjorken_x_rescalings[1]
 
             # Make sure Bjorken-x rescalings xi_i don't matter anymore
             for event in events:

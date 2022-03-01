@@ -582,7 +582,7 @@ class QCD_integrated_TRN_C_IqFg(general_current.GeneralCurrent):
             elif kernel_qq[distribution_type] is not None and distribution_type == 'bulk':
                 kernel_qq[distribution_type] = torino_to_madnk_epsexp(kernel_qq[distribution_type] * prefactor , mu2oQ2 )
             elif kernel_qq[distribution_type] is not None:
-                kernel_qq[distribution_type] = torino_to_madnk_epsexp(kernel_qq[distribution_type] * prefactor, mu2os )
+                kernel_qq[distribution_type] = torino_to_madnk_epsexp(kernel_qq[distribution_type] * prefactor, mu2os ) #for II splitting s = Q2 for endpoint
 
         kernel_gg = {
             'bulk': None ,
@@ -2958,7 +2958,7 @@ class QCD_integrated_TRN_CS_FgFg(general_current.GeneralCurrent):
             }
 
             if distribution_type == 'counterterm':
-                kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2oQ2 / x )
+                kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2oQ2 / xi )
             elif distribution_type == 'bulk':
                 kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2oQ2 )
             elif distribution_type == 'endpoint':

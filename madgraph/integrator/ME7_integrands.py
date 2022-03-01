@@ -194,14 +194,6 @@ class ME7Event(object):
 #                          self.Bjorken_xs[i]*self.Bjorken_x_rescalings[i], all_mu_f_squared[i])
 #             self.weights_per_flavor_configurations[flavors] *= PDFs
 
-            #     if self.Bjorken_x_rescalings[0] != 1.0 and self.Bjorken_x_rescalings[1] != 1.0:
-            #         Bjorken_x_rescalings_temp = (1.0, self.Bjorken_x_rescalings[1])
-            #         PDFs *= pdf_accessor(all_pdf[i], flavor,
-            #              self.Bjorken_xs[i]*Bjorken_x_rescalings_temp[i], all_mu_f_squared[i])
-            #     else:
-            #         PDFs *= pdf_accessor(all_pdf[i], flavor,
-            #              self.Bjorken_xs[i]*self.Bjorken_x_rescalings[i], all_mu_f_squared[i])
-            # self.weights_per_flavor_configurations[flavors] *= PDFs
 
         for flavors in self.weights_per_flavor_configurations:
             PDFs = 1.
@@ -704,7 +696,20 @@ class ME7EventList(list):
         """ Applies the observable list to the entire set of events of this list."""
 
         for event in self:
-            observable_list.apply_observables(event, integrator_weight)
+#            observable_list.apply_observables(event, integrator_weight)
+#gl
+            # print('ME7 - pre observable_list')
+            # print('ME7 - observable_list : ' +str(observable_list))
+            # print('ME7 - ps point : ' +str(event.PS_point))
+            # print('ME7 - event : ' +str(event))
+            # print('ME7 - xb1 : ' +str(event.Bjorken_xs[0]))
+            # print('ME7 - xb2 : ' +str(event.Bjorken_xs[1]))
+            #print('ME7 - y : ' + str(.5*math.log((event.Bjorken_xs[0] - event.Bjorken_xs[1])/(event.Bjorken_xs[0] + event.Bjorken_xs[1]))))
+            #print('ME7 - PS_point : ' +str(PS_point))
+            PS_point_had = event.PS_point.get_copy()
+            PS_point_had.boost_from_com_to_lab_frame(event.Bjorken_xs[0], event.Bjorken_xs[1], 6500.0, 6500.0)
+            #print('ME7 - boosted ps point : ' +str(PS_point_had))
+            observable_list.apply_observables(integrator_weight, event)
 
     def generate_mirrored_events(self):
         """ Creates the mirror configurations if necessary."""
@@ -1772,6 +1777,7 @@ class ME7Integrand(integrands.VirtualIntegrand):
         
         # Check if an integrator_jacobian is specified in the options to be applied to
         # the weight when registering observables (i.e. filling observables)
+        # print('ME7 - opts : ' + str(opts))
         if 'integrator_jacobian' in opts:
             integrator_jacobian = opts['integrator_jacobian']
         else:
@@ -4281,15 +4287,15 @@ The missing process is: %s"""%ME_process.nice_string())
 
         # Now produce a nice matplotlib of the evaluations
         # and assess whether this test passed or not
-        return self.analyze_IR_limits_test(
-            all_evaluations,
-            test_options['acceptance_threshold'],
-            seed               = seed,
-            show               = test_options['show_plots'],
-            save_plots         = test_options['save_plots'],
-            save_results_path  = test_options['save_results_to_path'],
-            plots_suffix       = test_options['plots_suffix'],
-        )
+        # return self.analyze_IR_limits_test(
+        #     all_evaluations,
+        #     test_options['acceptance_threshold'],
+        #     seed               = seed,
+        #     show               = test_options['show_plots'],
+        #     save_plots         = test_options['save_plots'],
+        #     save_results_path  = test_options['save_results_to_path'],
+        #     plots_suffix       = test_options['plots_suffix'],
+        # )
 
     def scale_configuration(self, xi1, xi2, real_emission_PS_point, limit,
                           scaling_parameter, defining_process, walker, boost_back_to_com):
@@ -4599,10 +4605,10 @@ The missing process is: %s"""%ME_process.nice_string())
         
         import matplotlib
         # If possible use Agg as it allows display-less systems to use pyplot (i.e. work over ssh)
-        #try:
-        #    matplotlib.use('Agg')
-        #except ValueError:
-        #    pass
+        try:
+            matplotlib.use('Agg')
+        except ValueError:
+            pass
         import matplotlib.pyplot as plt
 
         plot_title = True

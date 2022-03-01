@@ -270,18 +270,34 @@ class LorentzVector(Vector):
         """Compute pseudorapidity."""
 
         pt = self.pt()
+        # print('eta - self : ' + str(self))
+        # print('eta - pt : ' + str(pt))
+        # print('eta - eps : ' + str(self.eps))
         if pt < self.eps and abs(self[3]) < self.eps:
+            #print('eta - entering : ' + str(entering))
             return self.huge()*(self[3]/abs(self[3]))
         th = math.atan2(pt, self[3])
+        # print('eta - th : ' + str(th))
         return -math.log(math.tan(th/2.))
 
     def rap(self):
         """Compute rapidity in the lab frame. (needs checking)"""
+#gl
+        parameter = 10**(-8)
+        xplus = self[0] + self[3]
+        xminus = self[0] - self[3]
+        if xplus >= parameter and xminus >= parameter:
+            if (xplus/xminus) >= parameter and (xminus/xplus) >= parameter:
+                return .5*math.log( xplus/xminus )
+            else:
+                return  sign(1/self[3])/parameter
+        else:
+            return  sign(1/self[3])/parameter
 
-        if self.pt() < self.eps and abs(self[3]) < self.eps:
-            return self.huge()*(self[3]/abs(self[3]))
+        # if self.pt() < self.eps and abs(self[3]) < self.eps:
+        #     return self.huge()*(self[3]/abs(self[3]))
 
-        return .5*math.log((self[0]+self[3])/(self[0]-self[3]))
+        # return .5*math.log((self[0]+self[3])/(self[0]-self[3]))
 
     def getdelphi(self, p2):
         """Compute the phi-angle separation with p2."""

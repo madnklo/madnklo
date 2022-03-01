@@ -16,6 +16,7 @@
 from __future__ import division
 import os
 import logging
+import math
 
 try:
     import madgraph
@@ -38,7 +39,11 @@ else:
     import madgraph.various.histograms as histograms
 
 logger = logging.getLogger('madgraph.integrator')
+logger1 = logging.getLogger('madgraph')
 pjoin = os.path.join
+
+#gl
+import madgraph.integrator.vectors as vectors
 
 class VirtualObservable(object):
     """Base class for observables."""
@@ -67,6 +72,7 @@ class ObservableList(list):
         """Apply all observables of this list."""
 
         for obs in self:
+            #print(type(obs))
             obs(wgt, *args, **opts)
 
     def append(self, arg, **opts):
@@ -86,37 +92,68 @@ class ObservableFunctions(object):
     @staticmethod
     def inclusive_xsec(*args,**kwargs):
         """Total cross section. No need to bin data by kinematics"""
-        return ((1, 1), )
+        return ((1, 2), )
 
     @staticmethod
     def scalar_pt_sum(data_for_observables,*args,**kwargs):
         """Sum of the transverse momentum of all particles in the final state """
-        PS_point = data_for_observables['PS_point'].to_list()
-        flavors = data_for_observables['flavors']
+        PS_point = data_for_observables.PS_point.to_list()
+        flavors = data_for_observables.selected_flavors
+        Bjorken_xs = data_for_observables.Bjorken_xs
+        PS_point_had = PS_point.get_copy()
+        PS_point_had.boost_from_com_to_lab_frame(Bjorken_xs[0], Bjorken_xs[1], 6500.0, 6500.0)  #ebeam1, ebeam2
         pt = 0
-        for p in PS_point[len(flavors[0]):]:
+        for p in PS_point_had[len(flavors[0]):]:
             pt+=p.pt()
         return ((pt, 1), )
 
     @staticmethod   #gl
     def pt_boson(data_for_observables,*args,**kwargs):
         """ pt boson in singlet production """
-        PS_point = data_for_observables['PS_point'].to_list()
-        flavors = data_for_observables['flavors']
+        #logger1.info('obs.py - data_for_observables : ' + str(data_for_observables))
+        # PS_point = data_for_observables['PS_point'].to_list()
+        PS_point = data_for_observables.PS_point.to_list()
+        flavors = data_for_observables.selected_flavors
+        Bjorken_xs = data_for_observables.Bjorken_xs
+        PS_point_had = PS_point.get_copy()
+        PS_point_had.boost_from_com_to_lab_frame(Bjorken_xs[0], Bjorken_xs[1], 6500.0, 6500.0)  #ebeam1, ebeam2
         pt = 0
-        p = PS_point[2]
+        p = PS_point_had[2]
         pt = p.pt()
-        return ((pt, 1), )
+        return ((pt, data_for_observables.get_total_weight()), )
 
     @staticmethod   #gl
     def y_boson(data_for_observables,*args,**kwargs):
         """ y boson in singlet production """
-        PS_point = data_for_observables['PS_point'].to_list()
-        flavors = data_for_observables['flavors']
+        #print('Data : ' + str(data_for_observables))
+        #import pdb; pdb.set_trace()
+        PS_point = data_for_observables.PS_point.to_list()
+        flavors = data_for_observables.selected_flavors
+        Bjorken_xs = data_for_observables.Bjorken_xs
+        PS_point_had = PS_point.get_copy()
+        PS_point_had.boost_from_com_to_lab_frame(Bjorken_xs[0], Bjorken_xs[1], 6500.0, 6500.0)  #ebeam1, ebeam2
+        # print('obs.py - ps_point_had : ' + str(PS_point_had))
         y = - 10
-        p = PS_point[2]
+        p = PS_point_had[2]
         y = p.rap()
-        return ((y, 1), )
+        # y = .5*math.log(Bjorken_xs[0]/Bjorken_xs[1])
+        # print('obs.py - y : ' + str(y))
+        # y = p.rap()
+        return ((y, data_for_observables.get_total_weight()), )
+
+    @staticmethod   #gl
+    def eta_boson(data_for_observables,*args,**kwargs):
+        """ y boson in singlet production """
+        PS_point = data_for_observables.PS_point.to_list()
+        flavors = data_for_observables.selected_flavors
+        Bjorken_xs = data_for_observables.Bjorken_xs
+        PS_point_had = PS_point.get_copy()
+        PS_point_had.boost_from_com_to_lab_frame(Bjorken_xs[0], Bjorken_xs[1], 6500.0, 6500.0)  #ebeam1, ebeam2
+        # print('obs.py - ps_point_had : ' + str(PS_point_had))
+        eta = 0
+        p = PS_point_had[2]
+        eta = p.pseudoRap()
+        return ((eta, 1), )
 
 
 class HwUObservable(VirtualObservable,ObservableFunctions):

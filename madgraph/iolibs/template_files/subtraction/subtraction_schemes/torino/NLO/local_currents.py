@@ -625,9 +625,11 @@ class QCD_TRN_CS_FgFq(general_current.GeneralCurrent):
         if recoiler > 2:
             prefactor *= (1. - all_steps_info[0]['variables'][0]['y'])**(factors_and_cuts.damping_factors[1])
             prefactor *= (x_oth)**(factors_and_cuts.damping_factors[0])
+            # x_oth = 1-z = sir/(sir+sjr)
         else:
             prefactor *= all_steps_info[0]['variables'][0]['x'] **(factors_and_cuts.damping_factors[2])
             prefactor *= (x_oth)**(factors_and_cuts.damping_factors[0])
+            # x_oth = 1-z = sir/(sir+sjr)
 
         # include the soft_collinear counterterm here, as in the torino paper
         # (see the definition of 'hard-collinear' splitting function there)
@@ -707,9 +709,11 @@ class QCD_TRN_CS_FgFg(general_current.GeneralCurrent):
         if recoiler > 2:
             prefactor *= (1. - all_steps_info[0]['variables'][0]['y'])**(factors_and_cuts.damping_factors[1])
             prefactor *= (x_oth)**(factors_and_cuts.damping_factors[0])
+            # x_oth = 1-z = sir/(sir+sjr)
         else:
             prefactor *= all_steps_info[0]['variables'][0]['x'] **(factors_and_cuts.damping_factors[2])
             prefactor *= (x_oth)**(factors_and_cuts.damping_factors[0])
+            # x_oth = 1-z = sir/(sir+sjr)
 
         # include the soft_collinear counterterm here, as in the torino paper
         # (see the definition of 'hard-collinear' splitting function there)

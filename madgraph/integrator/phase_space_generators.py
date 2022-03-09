@@ -15,6 +15,7 @@
 
 import sys
 import os
+import random
 
 if __name__ == '__main__':
     sys.path.append(os.path.join(
@@ -362,8 +363,16 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
             # xi2 = random_variables[self.dim_name_to_position['xi']]
 
             if self.torino_sub_BS:  #gl
-                xi1 = random_variables[self.dim_name_to_position['xi']]
-                xi2 = 1.0
+                x = random_variables[self.dim_name_to_position['xi']]
+                x_rand = random.random()
+                if x_rand < 0.5:
+                    xi1 = x
+                    xi2 = 1.0
+                else:
+                    xi1 = 1.0
+                    xi2 = x
+                # xi1 = random_variables[self.dim_name_to_position['xi']]
+                # xi2 = 1.0
             else:
                 # Both xi1 and xi2 must be set equal then
                 xi1 = random_variables[self.dim_name_to_position['xi']]

@@ -1488,7 +1488,14 @@ class QCD_integrated_TRN_CS_IqFg(general_current.GeneralCurrent):
 
         # xi = global_variables['xis'][beam_number]
         # for torino_sub_BS xis = ( * , 1.0)
-        xi = global_variables['xis'][0]
+        # xi = global_variables['xis'][0]
+        # print('CS_IqFg')
+        # print('x_beamnumber :' + str(global_variables['xis'][beam_number]))
+        # print('others : ' + str(global_variables['xis']))
+        if global_variables['xis'][0] > global_variables['xis'][1]:
+            xi = global_variables['xis'][1]
+        else:
+            xi = global_variables['xis'][0]
         mu_r = global_variables['mu_r']
 
         allowed_backward_evolved_flavors = global_variables['allowed_backward_evolved_flavors']
@@ -1731,7 +1738,11 @@ class QCD_integrated_TRN_CS_IgFg(general_current.GeneralCurrent):
 
         # xi = global_variables['xis'][beam_number]
         # for torino_sub_BS xis = ( * , 1.0)
-        xi = global_variables['xis'][0]
+        # xi = global_variables['xis'][0]
+        if global_variables['xis'][0] > global_variables['xis'][1]:
+            xi = global_variables['xis'][1]
+        else:
+            xi = global_variables['xis'][0]
         mu_r = global_variables['mu_r']
 
         allowed_backward_evolved_flavors = global_variables['allowed_backward_evolved_flavors']
@@ -1941,8 +1952,13 @@ class QCD_integrated_TRN_S_g(general_current.GeneralCurrent):
         #logger.info('S_g')
 
         # for torino_sub_BS = True we have xis = ( *, 1.0) for BS contribution
-        xi = global_variables['xis'][0]
-        xi2 = global_variables['xis'][1]
+        # xi = global_variables['xis'][0]
+        # xi2 = global_variables['xis'][1]
+        #print('xis :' + str(global_variables['xis']))
+        if global_variables['xis'][0] > global_variables['xis'][1]:
+            xi = global_variables['xis'][1]
+        else:
+            xi = global_variables['xis'][0]
         mu_r = global_variables['mu_r']
         Q = global_variables['Q']
 
@@ -2233,7 +2249,11 @@ class QCD_integrated_TRN_C_FqFg(general_current.GeneralCurrent):
 
 #        logger.info('C_FqFg')
 
-        xi = global_variables['xis'][0]
+        #xi = global_variables['xis'][0]
+        if global_variables['xis'][0] > global_variables['xis'][1]:
+            xi = global_variables['xis'][1]
+        else:
+            xi = global_variables['xis'][0]
         mu_r = global_variables['mu_r']
 
 
@@ -2404,7 +2424,11 @@ class QCD_integrated_TRN_C_FqFqx(general_current.GeneralCurrent):
 
 #        logger.info('C_FqFqx')
 
-        xi = global_variables['xis'][0]
+        # xi = global_variables['xis'][0]
+        if global_variables['xis'][0] > global_variables['xis'][1]:
+            xi = global_variables['xis'][1]
+        else:
+            xi = global_variables['xis'][0]
         mu_r = global_variables['mu_r']
 
         allowed_backward_evolved_flavors = global_variables['allowed_backward_evolved_flavors']
@@ -2565,7 +2589,11 @@ class QCD_integrated_TRN_C_FgFg(general_current.GeneralCurrent):
 
 #        logger.info('C_FgFg')
 
-        xi = global_variables['xis'][0]
+        #xi = global_variables['xis'][0]
+        if global_variables['xis'][0] > global_variables['xis'][1]:
+            xi = global_variables['xis'][1]
+        else:
+            xi = global_variables['xis'][0]
         mu_r = global_variables['mu_r']
 
         allowed_backward_evolved_flavors = global_variables['allowed_backward_evolved_flavors']
@@ -2734,7 +2762,11 @@ class QCD_integrated_TRN_CS_FqFg(general_current.GeneralCurrent):
 
 #        logger.info('CS_FqFg')
 
-        xi = global_variables['xis'][0]
+        #xi = global_variables['xis'][0]
+        if global_variables['xis'][0] > global_variables['xis'][1]:
+            xi = global_variables['xis'][1]
+        else:
+            xi = global_variables['xis'][0]
         mu_r = global_variables['mu_r']
 
         allowed_backward_evolved_flavors = global_variables['allowed_backward_evolved_flavors']
@@ -2899,7 +2931,11 @@ class QCD_integrated_TRN_CS_FgFg(general_current.GeneralCurrent):
 
         """ Evaluate this counterterm given the variables provided. """
 
-        xi = global_variables['xis'][0]
+        # xi = global_variables['xis'][0]
+        if global_variables['xis'][0] > global_variables['xis'][1]:
+            xi = global_variables['xis'][1]
+        else:
+            xi = global_variables['xis'][0]
         mu_r = global_variables['mu_r']
 
         allowed_backward_evolved_flavors = global_variables['allowed_backward_evolved_flavors']

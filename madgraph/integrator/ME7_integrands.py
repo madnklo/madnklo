@@ -1526,12 +1526,12 @@ class ME7Integrand(integrands.VirtualIntegrand):
         
         ptj_cut = self.run_card['ptj']
         drjj_cut = self.run_card['drjj']
-        etaj_cut = self.run_card['etaj']
+        etaj_cut = self.run_card['etaj'] 
 
         # #gl
         # p = PS_point[2]
         # #print('ME7 - p : ' + str(p))
-        # if p[1]**2 + p[2]**2 < 10**2:
+        # if p[1]**2 + p[2]**2 < 0.1**2:
         #     return False
         
         if ptj_cut <= 0. and    \
@@ -3686,6 +3686,16 @@ class ME7Integrand_R(ME7Integrand):
         for i, p in enumerate(PS_point.to_list()[:self.n_initial]):
             total_incoming_momentum += p * rescalings[i]
 
+        # #gl
+        # p = PS_point[3]
+        # #print('ME7 - pS_point : ' + str(PS_point))
+        # print('ME7 - p : ' + str(p))
+        # s_CM = (PS_point[1] + PS_point[2]).square()
+        # print('ME7 - s_CM : ' + str(s_CM))
+        # print('ME7 - p[2] : ' + str(p[2]))
+        # print('ME7 - pt : ' + str((p[2]**2 + p[3]**2)/s_CM))
+        # if (p[1]**2 + p[2]**2)/s_CM < 0.1**2:
+        #     base_weight = 0
 
         #logger1.info('options : ' + str(opts))
 # Gl
@@ -4058,6 +4068,18 @@ The missing process is: %s"""%ME_process.nice_string())
         all_events_generated = ME7EventList()
         sector_info = opts.get('sector_info', None)
 
+        #gl
+        # print('ME7 - base_weight : ' + str(base_weight))
+        # p = PS_point[3]
+        # print('ME7 - pS_point : ' + str(PS_point))
+        # print('ME7 - p : ' + str(p))
+        # s_CM = (PS_point[1] + PS_point[2]).square()
+        # print('ME7 - s_CM : ' + str(s_CM))
+        # print('ME7 - p[2] : ' + str(p[1]**2 + p[2]**2))
+        # print('ME7 - pt : ' + str((p[2]**2 + p[3]**2)/s_CM))
+        # if (p[1]**2 + p[2]**2) < 10**2:
+        #     base_weight = 0
+
         matrix_element_event = self.generate_matrix_element_event(
             PS_point, process_key, process, all_flavor_configurations,
             base_weight, mu_r, mu_f1, mu_f2, xb_1, xb_2, xi1, xi2, *args, **opts)
@@ -4099,6 +4121,7 @@ The missing process is: %s"""%ME_process.nice_string())
         # optimization that we can easily implement when proven needed.
         # all_events_generated.combine_events_with_identical_kinematics()
         # (PS: the function above is a place-holder and is not implemented yet.
+        # print('ME7 - all_events_generated : ' + str(all_events_generated))
         return all_events_generated
 
     def counterterms_to_consider(self, process_key, test_options):

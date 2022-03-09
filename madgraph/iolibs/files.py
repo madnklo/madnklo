@@ -19,7 +19,7 @@ import logging
 import os
 import shutil
 
-
+logging.basicConfig()
 logger = logging.getLogger('madgraph.files')
 
 #===============================================================================

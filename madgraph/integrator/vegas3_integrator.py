@@ -18,7 +18,9 @@ import time
 import os
 import logging
 import random
+import matplotlib
 from multiprocessing import Process
+matplotlib.use('Agg')
 
 if __name__ == '__main__':
     sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.pardir, os.path.pardir))

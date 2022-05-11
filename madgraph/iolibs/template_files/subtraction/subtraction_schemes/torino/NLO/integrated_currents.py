@@ -216,7 +216,7 @@ class QCD_F0(general_current.GeneralCurrent):
             1: log(mu_r ** 2 / mu_f ** 2)
         })
         prefactor *= EpsilonExpansion({-1: 1.}) * self.SEpsilon * (1. / (16 * pi**2) )
-        #logger.info('prefactor : ' + str(prefactor))
+        # logger.info('prefactor : ' + str(prefactor))
 
         # Assign a fake xi for now if the distribution type is 'endpoint'
         # This is not optimal, eventually we should put each of these three pieces in
@@ -303,7 +303,7 @@ class QCD_F0_lepton(general_current.GeneralCurrent):
     DEBUG = False
 
     # Define which leptons we want to allow
-    lepton_abs_PDGs = [11,12,13]
+    lepton_abs_PDGs = [11,12,13,-11,-12,-13]
 
     # Store the result for beam factorisation currents in a container that supports flavor matrices.
     subtraction_current_evaluation_class = utils.BeamFactorizationCurrentEvaluation
@@ -2479,7 +2479,7 @@ class QCD_integrated_TRN_C_FqFqx(general_current.GeneralCurrent):
 
             # We want the '+' distributions also act on (1/x) for 'counterterm' contribution 
             if distribution_type == 'counterterm':
-                kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2oQ2 / x )
+                kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2oQ2 / xi )
             elif distribution_type == 'bulk':
                 kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor , mu2oQ2 )
             elif distribution_type == 'endpoint':
@@ -2643,7 +2643,7 @@ class QCD_integrated_TRN_C_FgFg(general_current.GeneralCurrent):
 
             # Note the extra factor (* 2.) for gluon (introduced by Marco)
             if distribution_type == 'counterterm':
-                kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor * 2. , mu2oQ2 / x )
+                kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor * 2. , mu2oQ2 / xi )
             elif distribution_type == 'bulk':
                 kernel_eval = torino_to_madnk_epsexp(kernel[distribution_type] * prefactor * 2., mu2oQ2 )
             elif distribution_type == 'endpoint':

@@ -31,6 +31,7 @@ def get_sector_wgt(q, p_sector):
     s_qi = 2 * p_sector[0].dot(q)
     s_qj = 2 * p_sector[1].dot(q)
     e_i = s_qi / s
+    e_j = s_qj / s
     w_ij = s * s_ij / s_qi / s_qj
     # logger.info('s : ' + str(s) + '; ' + 'q : ' + str(q))
     # logger.info('BBB - s_ij : ' + str(s_ij))
@@ -38,7 +39,7 @@ def get_sector_wgt(q, p_sector):
     # logger.info('BBB - s_qj : ' + str(s_qj))
     # logger.info('BBB - e_i : ' + str(e_i))
     # logger.info('BBB - w_ij : ' + str(w_ij))
-    
+
     return 1 / e_i / w_ij
 
 
@@ -117,13 +118,16 @@ class Sector(generic_sectors.GenericSector):
         q = PS_point[1] + PS_point[2]
 
         p_sector = [PS_point[l] for l in self.leg_numbers]
+        p_sector_ids = self.all_sector_id_list
+        # print('p_sector identities : ' + str(self.all_sector_id_list))
 
-        #logger.info("sectors.py:  " + str(all_sector_list))
 
         if sector_type == 0:
             # standard sector function
+            # sigma_ij
             sector_weight = get_sector_wgt(q, p_sector)
-            #print('AAA - all_sector_list : ' + str(self.all_sector_list))
+            # add sigma_ji
+            sector_weight += get_sector_wgt(q, [p_sector[1],p_sector[0]])
             # now normalise it
             norm = 0.
             for (ii, jj) in self.all_sector_list:
@@ -136,38 +140,71 @@ class Sector(generic_sectors.GenericSector):
                 # logger.info('AAA - p_ii : ' + str(ii) + '; ' + str(p_ii))
                 # logger.info('AAA - p_jj : ' + str(jj) + '; ' + str(p_jj))
                 # logger.info('AAA - get_sector_weight : ' + str(get_sector_wgt(q, [p_ii, p_jj])))
-                norm += get_sector_wgt(q, [p_ii, p_jj])
+                #print('Sector functions : ' + str(get_sector_wgt(q, [p_ii, p_jj]) + get_sector_wgt(q, [p_jj, p_ii])))
+                norm += get_sector_wgt(q, [p_ii, p_jj]) + get_sector_wgt(q, [p_jj, p_ii])
+                #print('Norm : ' + str(norm))
             # print('AAA - sector_weight : ' + str(sector_weight))
             # print('AAA - norm : ' + str(norm))
             # logger.info('AAA - norm : ' + str(norm))
             # logger.info('AAA - sector_weight : ' + str(sector_weight))
             # logger.info('AAA - norm : ' + str(norm))
 
-        elif sector_type == 1:
-            # soft sector function
+        elif sector_type == 11:
+            # soft sector function sigma_ij_s
+            #sector_weight = get_sector_wgt(q, p_sector)
             sector_weight = get_sector_wgt_S(q, p_sector)
             # now normalise it
             norm = 0.
+            # norm_2 = 0.
             for (ii, jj) in self.all_sector_list:
+                # print('BBB1 - ii : ' + str(ii) + '; ' + 'jj : ' + str(jj))
                 # the sum runs only on the sectors with the first leg
                 # equal to the one at hand
-                if ii != self.leg_numbers[0]:
+                #print('leg numbers : ' + str(self.leg_numbers[1].get('id')))
+                if ii != self.leg_numbers[0] and jj != self.leg_numbers[0]:
                     continue
                 # ii runs over final state particles only
                 if ii <=2:
                     raise MadEvent7Error('WARNING, sector index ii cannot be %s' % ii)
                 p_ii = PS_point[ii]
                 p_jj = PS_point[jj]
-                # logger.info('AAA - S p_ii : ' + str(ii) + '; ' + str(p_ii))
+                #logger.info('AAA - S p_ii : ' + str(ii) + '; ' + str(p_ii))
                 # logger.info('AAA - S p_jj : ' + str(jj) + '; ' + str(p_jj))
-                # logger.info('AAA - S get_sector_weight_S : ' + str(get_sector_wgt_S(q, [p_ii, p_jj])))
+                # logger.info('BBB1 - S get_sector_weight_S : ' + str(get_sector_wgt_S(q, [p_ii, p_jj])))
+                # norm += get_sector_wgt(q, [p_ii, p_jj]) + get_sector_wgt(q, [p_jj, p_ii])
                 norm += get_sector_wgt_S(q, [p_ii, p_jj])
-            # logger.info('AAA - S sector_weight : ' + str(sector_weight))
-            # logger.info('AAA - S norm : ' + str(norm))
+
+
+        elif sector_type == 12:
+            # soft sector function sigma_ji_s
+            # sector_weight = get_sector_wgt(q, [p_sector[1],p_sector[0]])
+            sector_weight = get_sector_wgt_S(q, [p_sector[1],p_sector[0]])
+            # now normalise it
+            norm = 0.
+            for (ii, jj) in self.all_sector_list:
+                # print('BBB2 - ii : ' + str(ii) + '; ' + 'jj : ' + str(jj))
+                # the sum runs only on the sectors with the first leg
+                # equal to the one at hand
+                #print('leg numbers : ' + str(self.leg_numbers[1].get('id')))
+                if ii != self.leg_numbers[1] and jj != self.leg_numbers[1]:
+                    continue
+                # ii runs over final state particles only
+                if ii <=2:
+                    raise MadEvent7Error('WARNING, sector index ii cannot be %s' % ii)
+                p_ii = PS_point[ii]
+                p_jj = PS_point[jj]
+                #logger.info('AAA - S p_ii : ' + str(ii) + '; ' + str(p_ii))
+                # logger.info('AAA - S p_jj : ' + str(jj) + '; ' + str(p_jj))
+                #logger.info('BBB2 - S get_sector_weight_S : ' + str(get_sector_wgt_S(q, [p_ii, p_jj])))
+                # norm += get_sector_wgt(q, [p_jj, p_ii]) + get_sector_wgt(q, [p_ii, p_jj])
+                norm += get_sector_wgt_S(q, [p_jj, p_ii]) 
+
 
         elif sector_type == 2:
-            # collinear sector function
+            # collinear sector function sigma_ij_c
             sector_weight = get_sector_wgt_C(q, p_sector)
+            # add sigma_ji_c
+            sector_weight += get_sector_wgt_C(q, [p_sector[1],p_sector[0]])
 
             # now normalise it
             norm = 0.
@@ -192,7 +229,7 @@ class Sector(generic_sectors.GenericSector):
                     #logger.info('AAA - C jj : ' + str(jj))
                     norm = sector_weight
                 else:
-                    norm += get_sector_wgt_C(q, [p_ii, p_jj])
+                    norm += get_sector_wgt_C(q, [p_ii, p_jj]) + get_sector_wgt_C(q, [p_jj, p_ii])
             # logger.info('AAA - C sector_weight : ' + str(sector_weight))
             # logger.info('AAA - C norm : ' + str(norm))
             # logger.info('AAA - C result : ' + str(sector_weight/norm))
@@ -249,6 +286,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         all_PDGs = initial_state_PDGs, final_state_PDGs
 
         leglist = defining_process.get('legs')
+        # print('leglist : ' + str(leglist))
 
         all_sectors = []
 
@@ -280,6 +318,12 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                 # if i is not a gluon, then j must not be a final state gluon
                 if i['id'] != 21 and j['id'] == 21 and j['state']:
                     continue
+# gl
+                # if both i and j are gluons, then keep just the case in which i (number) < j (number)
+                if i['id'] == 21 and j['id'] == 21 and j['state']:
+                    if j.get('number') < i.get('number') :
+                        continue
+
                 # if j and i are quarks and antiquark in the final state, let j be the quark
                 #   this is needed in order to comply with the fct combine_ij inside fks_common
                 if i['id'] == -j['id'] and j['state']:
@@ -312,9 +356,16 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                             'integrated_counterterms': None
                         }
                         a_sector['sector'] = Sector(leg_numbers=(i.get('number'), j.get('number')))
+                        print('Leg number : ' + str(a_sector['sector']))
                         # keep track of the masses
                         a_sector['sector'].masses = (model.get('particle_dict')[i.get('id')]['mass'],
                                                      model.get('particle_dict')[j.get('id')]['mass'])
+                        print('Masses : ' + str(a_sector['sector'].masses))
+# gl
+                        # keep track of the particles' identity
+                        a_sector['sector'].id = (i.get('id'), j.get('id'))
+                        print('Identities : ' + str(a_sector['sector'].id))
+
                         all_sectors.append(a_sector)
                         logger.info('NLO sector found, legs %d, %d' % a_sector['sector'].leg_numbers)
 
@@ -328,10 +379,14 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         #  the weight function
         all_sector_list = [s['sector'].leg_numbers for s in all_sectors]
         all_sector_mass_list = [s['sector'].masses for s in all_sectors]
+        # gl
+        all_sector_id_list = [s['sector'].id for s in all_sectors]
 
         for s in all_sectors:
             s['sector'].all_sector_list = all_sector_list
             s['sector'].all_sector_mass_list = all_sector_mass_list
+            # gl
+            s['sector'].all_sector_id_list = all_sector_id_list
 
             if counterterms is not None:
                 s['counterterms'] = []
@@ -342,6 +397,10 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     if singular_structure.name()=='S':
                         if all_legs[0].n == s['sector'].leg_numbers[0]: # should match to "i"
                             s['counterterms'].append(i_ct)
+# # gl
+                        if all_legs[0].n == s['sector'].leg_numbers[1]: # should match to "i"
+                            s['counterterms'].append(i_ct)
+
                     if singular_structure.name()=='C':
                         if not singular_structure.substructures:
                             # pure-collinear CT: include if the legs match those of the sector
@@ -352,6 +411,10 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                             #  the soft leg matches the first sector leg
                             if sorted([l.n for l in all_legs]) == sorted(s['sector'].leg_numbers) and \
                                singular_structure.substructures[0].legs[0].n == s['sector'].leg_numbers[0]:
+                                s['counterterms'].append(i_ct)
+# gl
+                            if sorted([l.n for l in all_legs]) == sorted(s['sector'].leg_numbers) and \
+                               singular_structure.substructures[0].legs[0].n == s['sector'].leg_numbers[1]:
                                 s['counterterms'].append(i_ct)
 
             # Irrelevant if this NLO example, but let me specify all of them explicitly so as to make the strucuture clear.

@@ -459,10 +459,28 @@ class QCD_TRN_S_g(dipole_current.DipoleCurrent):
                 lower_PS_point = all_steps_info[(a, b)][0]['lower_PS_point']
                 higher_PS_point = all_steps_info[(a, b)][0]['higher_PS_point']
 
+# gl
+                # extract soft leg number
+                soft_leg_number = self.map_leg_number(
+                                    global_variables['leg_numbers_map'],
+                                    self.soft_structure.legs[0].n,
+                                    global_variables['overall_parents'])
+                # print('soft_leg_number : ' + str(soft_leg_number))
+                # extract sector legs numbers
+                sector_legs =  [l for l in global_variables['sector_info'][0].leg_numbers]
+                # print('Sector : ' + str(sector_legs))
+                # for (i,j)=(g,g) case, apply the respective sector function W_ij_s for Si and  W_ji_s for Sj
+                if soft_leg_number == sector_legs[0] : 
+                    sector_prefactor = compensate_sector_wgt(higher_PS_point, global_variables, 11)
+                    # logger1.info('Soft factor sector_11 : ' + str(sector_prefactor))
+                elif soft_leg_number == sector_legs[1] :
+                    sector_prefactor = compensate_sector_wgt(higher_PS_point, global_variables, 12)
+                    # logger1.info('Soft factor sector_12 : ' + str(sector_prefactor))
 
-                sector_prefactor = compensate_sector_wgt(higher_PS_point, global_variables, 1)
-                #sector_prefactor *= jacobian
-                #logger1.info('Soft factor sector : ' + str(sector_prefactor))
+                # previous sector function implementation
+                # sector_prefactor = compensate_sector_wgt(higher_PS_point, global_variables, 1)
+                # #sector_prefactor *= jacobian
+                # #logger1.info('Soft factor sector : ' + str(sector_prefactor))
 
 
                 ###pS = higher_PS_point[all_steps_info[(a, b)][0]['bundles_info'][0]['final_state_children'][0]]
@@ -488,28 +506,6 @@ class QCD_TRN_S_g(dipole_current.DipoleCurrent):
 
                 # At the moment, we do not implement anything special
                 eikonal = SoftKernels.eikonal_dipole(pa, pb, pS)
-
-##gl
-#                #damping factors to update
-#                if a > 2 and b > 2:
-
-#                    eikonal *= ( pa.dot(pb) / (pa.dot(pb) + pa.dot(pS) + pb.dot(pS)))**(factors_and_cuts.damping_factors[0])
-
-#                # this case never occurs
-##                elif a > 2 and b <= 2: 
-
-##                    eikonal *= ( (1. - pa.dot(pS) / (pb.dot(pS)+pb.dot(pa)) ) * (1. - pb.dot(pS) / (pb.dot(pS)+pb.dot(pa)) ) )**(factors_and_cuts.damping_factors[0])
-
-#                elif b <= 2 and a > 2:
-
-#                    eikonal *= ( (1. - pb.dot(pS) / (pa.dot(pS)+pa.dot(pb)) ) * (1. - pa.dot(pS) / (pa.dot(pS)+pa.dot(pb)) ) )**(factors_and_cuts.damping_factors[0])
-
-#                elif b <= 2 and a <= 2:
-
-#                    eikonal *= ( (pa.dot(pb) - pa.dot(pS) - pb.dot(pS)) / pa.dot(pb) )**(factors_and_cuts.damping_factors[0])
-#   
-##                else:
-##                    eikonal *= 0.
 
                 #damping factors
                 if a > 2 and b > 2:
@@ -826,7 +822,8 @@ class QCD_TRN_C_IgFg(general_current.GeneralCurrent):
         # (see the definition of 'hard-collinear' splitting function there)
         soft_col = EpsilonExpansion({0: self.CA * 2 * x_FF / x_oth, 1: 0.})
 
-
+        #gl_test
+        #for spin_correlation_vector, weight in AltarelliParisiKernels.P_gg_test(self, x_FF, kT_FF):
         for spin_correlation_vector, weight in AltarelliParisiKernels.P_gg(self, 1./x_FF, kT_FF):
             complete_weight = weight * prefactor
             if spin_correlation_vector is None:
@@ -934,6 +931,8 @@ class QCD_TRN_C_IqFq(general_current.GeneralCurrent):
         # include the soft_collinear counterterm here, as in the torino paper
         # (see the definition of 'hard-collinear' splitting function there)
         soft_col = 0.
+        #gl_test
+        #for spin_correlation_vector, weight in AltarelliParisiKernels.P_qq_test(self, x_FF, kT_FF):
         for spin_correlation_vector, weight in AltarelliParisiKernels.P_qq(self,1./x_FF, kT_FF):
             complete_weight = weight * prefactor
             if spin_correlation_vector is None:

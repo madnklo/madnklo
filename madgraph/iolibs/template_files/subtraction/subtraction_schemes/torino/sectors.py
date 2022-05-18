@@ -118,7 +118,7 @@ class Sector(generic_sectors.GenericSector):
         q = PS_point[1] + PS_point[2]
 
         p_sector = [PS_point[l] for l in self.leg_numbers]
-        p_sector_ids = self.all_sector_id_list
+        # p_sector_ids = self.all_sector_id_list
         # print('p_sector identities : ' + str(self.all_sector_id_list))
 
 

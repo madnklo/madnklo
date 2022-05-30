@@ -96,6 +96,12 @@ class DipoleCurrent(general_current.GeneralCurrent):
                     elif singular_structure.name() == 'S':
                         # soft structure. Build first a collinear structure
                         # with sec_leg, then add oth_leg
+                        # gl 
+                        # the mapping_list for the soft kernel must have all possible (a,b) couple and 
+                        # the respective mapping (i,a,b), among which the ct chooses the right one
+                        sec_leg = lega
+                        oth_leg = legb
+
                         mapping_structure = sub.SingularStructure(substructures=(
                                               sub.CollStructure(substructures=(singular_structure, ), \
                                                                 legs=sub.SubtractionLegSet((sec_leg, ))

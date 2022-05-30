@@ -118,8 +118,8 @@ class Sector(generic_sectors.GenericSector):
         q = PS_point[1] + PS_point[2]
 
         p_sector = [PS_point[l] for l in self.leg_numbers]
-        #print('p_sector : ' + str(self.all_sector_list))
-
+        # print('p_sector : ' + str(self.leg_numbers))
+        # print('Sector list : ' + str(self.all_sector_list))
 
         if sector_type == 0:
             # standard sector function
@@ -156,7 +156,10 @@ class Sector(generic_sectors.GenericSector):
                 # the sum runs only on the sectors with the first leg
                 # equal to the one at hand
                 if ii != self.leg_numbers[0] and jj != self.leg_numbers[0]:
+                # if ii != self.leg_numbers[0]:
+                    # print('Continuing case')
                     continue
+                # print('BBB1 passed - ii : ' + str(ii) + '; ' + 'jj : ' + str(jj))
                 # ii runs over final state particles only
                 if ii <=2:
                     raise MadEvent7Error('WARNING, sector index ii cannot be %s' % ii)
@@ -165,6 +168,7 @@ class Sector(generic_sectors.GenericSector):
                 #logger.info('AAA - S p_ii : ' + str(ii) + '; ' + str(p_ii))
                 # logger.info('AAA - S p_jj : ' + str(jj) + '; ' + str(p_jj))
                 norm += get_sector_wgt_S(q, [p_ii, p_jj])
+                # print('Norm : ' + str(norm))
 
 
         elif sector_type == 12:
@@ -177,6 +181,7 @@ class Sector(generic_sectors.GenericSector):
                 # the sum runs only on the sectors with the first leg
                 # equal to the one at hand
                 if ii != self.leg_numbers[1] and jj != self.leg_numbers[1]:
+                # if jj != self.leg_numbers[1]:
                     continue
                 # ii runs over final state particles only
                 if ii <=2:
@@ -372,6 +377,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             if counterterms is not None:
                 s['counterterms'] = []
                 for i_ct, ct in enumerate(counterterms):
+                    # print('i_ct + ct : ' + str(i_ct) + ' and ' + str(ct))
                     current = ct.nodes[0].current
                     singular_structure = current.get('singular_structure').substructures[0]
                     all_legs = singular_structure.get_all_legs()
@@ -398,6 +404,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                                 if sorted([l.n for l in all_legs]) == sorted(s['sector'].leg_numbers) and \
                                     singular_structure.substructures[0].legs[0].n == s['sector'].leg_numbers[1]:
                                     s['counterterms'].append(i_ct)
+                print('s counterterms : ' + str(s['counterterms']))
 
             # Irrelevant if this NLO example, but let me specify all of them explicitly so as to make the strucuture clear.
             if integrated_counterterms is not None:

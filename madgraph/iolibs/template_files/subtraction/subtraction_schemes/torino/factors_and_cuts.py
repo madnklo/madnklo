@@ -28,20 +28,19 @@ beta_II = 0.0
 damping_factors = [alpha, beta_FF, beta_FI, beta_IF, beta_II]
 
 
-
 Eulergamma = 0.57721566490153286061
 
 def polygamma(self):
 
-    return special.polygamma(1, 2 +  self)
+    return special.polygamma(1, 2. +  self)
 
 def A1(self):
 
-    return Eulergamma + special.psi(1 + self)
+    return Eulergamma + special.psi(1. + self)
 
 def A2(self):
 
-    return Eulergamma + special.psi(2 + self)
+    return Eulergamma + special.psi(2. + self)
 
 
 def no_factor(**opts):

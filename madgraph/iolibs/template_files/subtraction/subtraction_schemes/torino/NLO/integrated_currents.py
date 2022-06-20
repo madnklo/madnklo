@@ -2534,7 +2534,7 @@ class QCD_integrated_TRN_C_FgFg(general_current.GeneralCurrent):
     DEBUG = True
 
 #    # Store the result for beam factorisation currents in a container that supports flavor matrices.
-#    subtraction_current_evaluation_class = utils.SubtractionCurrentEvaluation
+    subtraction_current_evaluation_class = utils.SubtractionCurrentEvaluation
 
     divide_by_jacobian = torino_config.divide_by_jacobian
 

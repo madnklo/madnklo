@@ -137,6 +137,7 @@ class QCD_TRN_C_FgFg(general_current.GeneralCurrent):
         s_rs  = all_steps_info[0]['variables'][0]['ss'][(0,1)]
         parent = all_steps_info[0]['bundles_info'][0]['parent']
 
+
         prefactor = 1./s_rs #
         prefactor *= compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 2)
 
@@ -149,15 +150,63 @@ class QCD_TRN_C_FgFg(general_current.GeneralCurrent):
         else:
             prefactor *= all_steps_info[0]['variables'][0]['x'] **(factors_and_cuts.damping_factors[2])
 
+        CS_prefactor = 1./s_rs #
+        CS_prefactor *= compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 3)
+
+        if recoiler > 2:
+            CS_prefactor *= (1. - all_steps_info[0]['variables'][0]['y'])**(factors_and_cuts.damping_factors[1])
+            CS_prefactor_ij = CS_prefactor * (x_oth)**(factors_and_cuts.damping_factors[0])
+            CS_prefactor_ji = CS_prefactor * (x_FF)**(factors_and_cuts.damping_factors[0])
+            # x_oth = 1-z = sir/(sir+sjr)
+        else:
+            CS_prefactor *= all_steps_info[0]['variables'][0]['x'] **(factors_and_cuts.damping_factors[2])
+            CS_prefactor_ij = CS_prefactor * (x_oth)**(factors_and_cuts.damping_factors[0])
+            CS_prefactor_ji = CS_prefactor * (x_FF)**(factors_and_cuts.damping_factors[0])
+            # x_oth = 1-z = sir/(sir+sjr)
+
+        soft_col_ij = EpsilonExpansion({0: self.CA * 2. * x_oth / x_FF, 1: 0.})
+        soft_col_ji = EpsilonExpansion({0: self.CA * 2. * x_FF / x_oth , 1: 0.})
         for spin_correlation_vector, weight in AltarelliParisiKernels.P_gg(self, x_FF, kT_FF):
             complete_weight = weight * prefactor
             if spin_correlation_vector is None:
+                complete_weight += (soft_col_ij * (- CS_prefactor_ij)) + (soft_col_ji * (- CS_prefactor_ji))
                 evaluation['values'][(0, 0, 0, 0)] = {'finite': complete_weight[0]}
             else:
                 evaluation['spin_correlations'].append( ((parent, spin_correlation_vector),) )
                 evaluation['values'][(len(evaluation['spin_correlations']) - 1, 0, 0, 0)] = {'finite': complete_weight[0]}
 
         return evaluation
+
+#     def kernel(self, evaluation, all_steps_info, global_variables):
+#         """ Evaluate this counterterm given the variables provided. """
+
+#         kT_FF = all_steps_info[0]['variables'][0]['kTs'][0]
+#         x_FF  = all_steps_info[0]['variables'][0]['xs'][0]
+#         x_oth = all_steps_info[0]['variables'][0]['xs'][1]
+#         s_rs  = all_steps_info[0]['variables'][0]['ss'][(0,1)]
+#         parent = all_steps_info[0]['bundles_info'][0]['parent']
+
+#         prefactor = 1./s_rs #
+#         prefactor *= compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 2)
+
+# #gl
+#         #damping factors
+#         recoiler = all_steps_info[0]['mapping_vars']['ids']['c']
+
+#         if recoiler > 2:
+#             prefactor *= (1. - all_steps_info[0]['variables'][0]['y'])**(factors_and_cuts.damping_factors[1])
+#         else:
+#             prefactor *= all_steps_info[0]['variables'][0]['x'] **(factors_and_cuts.damping_factors[2])
+
+#         for spin_correlation_vector, weight in AltarelliParisiKernels.P_gg(self, x_FF, kT_FF):
+#             complete_weight = weight * prefactor
+#             if spin_correlation_vector is None:
+#                 evaluation['values'][(0, 0, 0, 0)] = {'finite': complete_weight[0]}
+#             else:
+#                 evaluation['spin_correlations'].append( ((parent, spin_correlation_vector),) )
+#                 evaluation['values'][(len(evaluation['spin_correlations']) - 1, 0, 0, 0)] = {'finite': complete_weight[0]}
+
+#         return evaluation
 
 
 class QCD_TRN_C_FqFqx(general_current.GeneralCurrent):
@@ -323,14 +372,16 @@ class QCD_TRN_C_FgFq(general_current.GeneralCurrent):
         """ Evaluate this counterterm given the variables provided. """
 
         kT_FF = all_steps_info[0]['variables'][0]['kTs'][0]
+        # quark mom. fraction
         x_FF  = all_steps_info[0]['variables'][0]['xs'][1]
+        # gluon mom. fraction
         x_oth = all_steps_info[0]['variables'][0]['xs'][0]
         s_rs  = all_steps_info[0]['variables'][0]['ss'][(0,1)]
         parent = all_steps_info[0]['bundles_info'][0]['parent']
 
+
         prefactor = 1./s_rs #
         prefactor *= compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 2)
-        #logger1.info('sector weight C_FgFq : ' + str(compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 2)))
 
 #gl
         #damping factors
@@ -342,20 +393,71 @@ class QCD_TRN_C_FgFq(general_current.GeneralCurrent):
         else:
             prefactor *= all_steps_info[0]['variables'][0]['x'] **(factors_and_cuts.damping_factors[2])
 
+        CS_prefactor = 1./s_rs #
+        CS_prefactor *= compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 3)
+
+#gl
+        if recoiler > 2:
+            CS_prefactor *= (1. - all_steps_info[0]['variables'][0]['y'])**(factors_and_cuts.damping_factors[1])
+            CS_prefactor *= (x_FF)**(factors_and_cuts.damping_factors[0])
+            # x_oth = 1-z = sir/(sir+sjr)
+        else:
+            CS_prefactor *= all_steps_info[0]['variables'][0]['x'] **(factors_and_cuts.damping_factors[2])
+            CS_prefactor *= (x_FF)**(factors_and_cuts.damping_factors[0])
+            # x_oth = 1-z = sir/(sir+sjr)
+
         # include the soft_collinear counterterm here, as in the torino paper
         # (see the definition of 'hard-collinear' splitting function there)
-#        soft_col = EpsilonExpansion({0: self.CF * 2 * x_FF / x_oth, 1: 0.})
-        soft_col = 0.
+        soft_col = EpsilonExpansion({0: self.CF * 2. * x_FF / x_oth, 1: 0.})
+        # soft_col = 0.
         for spin_correlation_vector, weight in AltarelliParisiKernels.P_qg(self, x_FF, kT_FF):
             complete_weight = weight * prefactor
             if spin_correlation_vector is None:
-                complete_weight += soft_col * (- prefactor)
+                complete_weight += soft_col * (- CS_prefactor)
                 evaluation['values'][(0, 0, 0, 0)] = {'finite': complete_weight[0]}
             else:
                 evaluation['spin_correlations'].append( ((parent, spin_correlation_vector),) )
                 evaluation['values'][(len(evaluation['spin_correlations']) - 1, 0, 0, 0)] = {'finite': complete_weight[0]}
 
         return evaluation
+
+#     def kernel(self, evaluation, all_steps_info, global_variables):
+#         """ Evaluate this counterterm given the variables provided. """
+
+#         kT_FF = all_steps_info[0]['variables'][0]['kTs'][0]
+#         x_FF  = all_steps_info[0]['variables'][0]['xs'][1]
+#         x_oth = all_steps_info[0]['variables'][0]['xs'][0]
+#         s_rs  = all_steps_info[0]['variables'][0]['ss'][(0,1)]
+#         parent = all_steps_info[0]['bundles_info'][0]['parent']
+
+#         prefactor = 1./s_rs #
+#         prefactor *= compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 2)
+#         #logger1.info('sector weight C_FgFq : ' + str(compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 2)))
+
+# #gl
+#         #damping factors
+#         recoiler = all_steps_info[0]['mapping_vars']['ids']['c']
+
+#         if recoiler > 2:
+#             prefactor *= (1. - all_steps_info[0]['variables'][0]['y'])**(factors_and_cuts.damping_factors[1])
+
+#         else:
+#             prefactor *= all_steps_info[0]['variables'][0]['x'] **(factors_and_cuts.damping_factors[2])
+
+#         # include the soft_collinear counterterm here, as in the torino paper
+#         # (see the definition of 'hard-collinear' splitting function there)
+# #        soft_col = EpsilonExpansion({0: self.CF * 2 * x_FF / x_oth, 1: 0.})
+#         soft_col = 0.
+#         for spin_correlation_vector, weight in AltarelliParisiKernels.P_qg(self, x_FF, kT_FF):
+#             complete_weight = weight * prefactor
+#             if spin_correlation_vector is None:
+#                 complete_weight += soft_col * (- prefactor)
+#                 evaluation['values'][(0, 0, 0, 0)] = {'finite': complete_weight[0]}
+#             else:
+#                 evaluation['spin_correlations'].append( ((parent, spin_correlation_vector),) )
+#                 evaluation['values'][(len(evaluation['spin_correlations']) - 1, 0, 0, 0)] = {'finite': complete_weight[0]}
+
+#         return evaluation
 
 #=========================================================================================
 # NLO soft current
@@ -570,7 +672,7 @@ class QCD_TRN_CS_FgFq(general_current.GeneralCurrent):
 #        legs=(sub.SubtractionLeg(11,  -1, sub.SubtractionLeg.FINAL), ) )
 
 
-#    is_zero = True
+    is_zero = True
 
     # This counterterm will be used if any of the current of the list below matches
     currents = [
@@ -604,36 +706,36 @@ class QCD_TRN_CS_FgFq(general_current.GeneralCurrent):
         },
     ]
 
-    def kernel(self, evaluation, all_steps_info, global_variables):
-        """ Evaluate this counterterm given the variables provided. """
+#     def kernel(self, evaluation, all_steps_info, global_variables):
+#         """ Evaluate this counterterm given the variables provided. """
 
-        x_soft  = all_steps_info[0]['variables'][0]['xs'][0]
-        x_oth = all_steps_info[0]['variables'][0]['xs'][1]
-        s_rs  = all_steps_info[0]['variables'][0]['ss'][(0,1)]
+#         x_soft  = all_steps_info[0]['variables'][0]['xs'][0]
+#         x_oth = all_steps_info[0]['variables'][0]['xs'][1]
+#         s_rs  = all_steps_info[0]['variables'][0]['ss'][(0,1)]
 
-        prefactor = 1./s_rs #
-        prefactor *= compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 3)
+#         prefactor = 1./s_rs #
+#         prefactor *= compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 3)
 
-#gl
-        #damping factors
-        recoiler = all_steps_info[0]['mapping_vars']['ids']['c']
+# #gl
+#         #damping factors
+#         recoiler = all_steps_info[0]['mapping_vars']['ids']['c']
 
-        if recoiler > 2:
-            prefactor *= (1. - all_steps_info[0]['variables'][0]['y'])**(factors_and_cuts.damping_factors[1])
-            prefactor *= (x_oth)**(factors_and_cuts.damping_factors[0])
-            # x_oth = 1-z = sir/(sir+sjr)
-        else:
-            prefactor *= all_steps_info[0]['variables'][0]['x'] **(factors_and_cuts.damping_factors[2])
-            prefactor *= (x_oth)**(factors_and_cuts.damping_factors[0])
-            # x_oth = 1-z = sir/(sir+sjr)
+#         if recoiler > 2:
+#             prefactor *= (1. - all_steps_info[0]['variables'][0]['y'])**(factors_and_cuts.damping_factors[1])
+#             prefactor *= (x_oth)**(factors_and_cuts.damping_factors[0])
+#             # x_oth = 1-z = sir/(sir+sjr)
+#         else:
+#             prefactor *= all_steps_info[0]['variables'][0]['x'] **(factors_and_cuts.damping_factors[2])
+#             prefactor *= (x_oth)**(factors_and_cuts.damping_factors[0])
+#             # x_oth = 1-z = sir/(sir+sjr)
 
-        # include the soft_collinear counterterm here, as in the torino paper
-        # (see the definition of 'hard-collinear' splitting function there)
-        soft_col = EpsilonExpansion({0: self.CF * 2 * x_oth / x_soft, 1: 0.})
-        complete_weight = soft_col * prefactor
-        evaluation['values'][(0, 0, 0, 0)] = {'finite': complete_weight[0]}
+#         # include the soft_collinear counterterm here, as in the torino paper
+#         # (see the definition of 'hard-collinear' splitting function there)
+#         soft_col = EpsilonExpansion({0: self.CF * 2 * x_oth / x_soft, 1: 0.})
+#         complete_weight = soft_col * prefactor
+#         evaluation['values'][(0, 0, 0, 0)] = {'finite': complete_weight[0]}
 
-        return evaluation
+#         return evaluation
 
 
 class QCD_TRN_CS_FgFg(general_current.GeneralCurrent):
@@ -654,6 +756,8 @@ class QCD_TRN_CS_FgFg(general_current.GeneralCurrent):
     soft_coll_structure_g = sub.CollStructure(
         substructures=(soft_structure, ),
         legs=(sub.SubtractionLeg(11, 21, sub.SubtractionLeg.FINAL), ) )
+
+    is_zero = True
 
     # This counterterm will be used if any of the current of the list below matches
     currents = [
@@ -688,36 +792,36 @@ class QCD_TRN_CS_FgFg(general_current.GeneralCurrent):
     ]
 
 
-    def kernel(self, evaluation, all_steps_info, global_variables):
-        """ Evaluate this counterterm given the variables provided. """
+#     def kernel(self, evaluation, all_steps_info, global_variables):
+#         """ Evaluate this counterterm given the variables provided. """
 
-        x_soft  = all_steps_info[0]['variables'][0]['xs'][0]
-        x_oth = all_steps_info[0]['variables'][0]['xs'][1]
-        s_rs  = all_steps_info[0]['variables'][0]['ss'][(0,1)]
+#         x_soft  = all_steps_info[0]['variables'][0]['xs'][0]
+#         x_oth = all_steps_info[0]['variables'][0]['xs'][1]
+#         s_rs  = all_steps_info[0]['variables'][0]['ss'][(0,1)]
 
-        prefactor = 1./s_rs #
-        prefactor *= compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 3)
+#         prefactor = 1./s_rs #
+#         prefactor *= compensate_sector_wgt(all_steps_info[0]['higher_PS_point'], global_variables, 3)
 
-#gl
-        #damping factors
-        recoiler = all_steps_info[0]['mapping_vars']['ids']['c']
+# #gl
+#         #damping factors
+#         recoiler = all_steps_info[0]['mapping_vars']['ids']['c']
 
-        if recoiler > 2:
-            prefactor *= (1. - all_steps_info[0]['variables'][0]['y'])**(factors_and_cuts.damping_factors[1])
-            prefactor *= (x_oth)**(factors_and_cuts.damping_factors[0])
-            # x_oth = 1-z = sir/(sir+sjr)
-        else:
-            prefactor *= all_steps_info[0]['variables'][0]['x'] **(factors_and_cuts.damping_factors[2])
-            prefactor *= (x_oth)**(factors_and_cuts.damping_factors[0])
-            # x_oth = 1-z = sir/(sir+sjr)
+#         if recoiler > 2:
+#             prefactor *= (1. - all_steps_info[0]['variables'][0]['y'])**(factors_and_cuts.damping_factors[1])
+#             prefactor *= (x_oth)**(factors_and_cuts.damping_factors[0])
+#             # x_oth = 1-z = sir/(sir+sjr)
+#         else:
+#             prefactor *= all_steps_info[0]['variables'][0]['x'] **(factors_and_cuts.damping_factors[2])
+#             prefactor *= (x_oth)**(factors_and_cuts.damping_factors[0])
+#             # x_oth = 1-z = sir/(sir+sjr)
 
-        # include the soft_collinear counterterm here, as in the torino paper
-        # (see the definition of 'hard-collinear' splitting function there)
-        soft_col = EpsilonExpansion({0: self.CA * 2 * x_oth / x_soft, 1: 0.})
-        complete_weight = soft_col * prefactor
-        evaluation['values'][(0, 0, 0, 0)] = {'finite': complete_weight[0]}
+#         # include the soft_collinear counterterm here, as in the torino paper
+#         # (see the definition of 'hard-collinear' splitting function there)
+#         soft_col = EpsilonExpansion({0: self.CA * 2 * x_oth / x_soft, 1: 0.})
+#         complete_weight = soft_col * prefactor
+#         evaluation['values'][(0, 0, 0, 0)] = {'finite': complete_weight[0]}
 
-        return evaluation
+#         return evaluation
 
 
 #=========================================================================================

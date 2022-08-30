@@ -163,7 +163,7 @@ def pause_get_final_state_recoilers(reduced_process, excluded=(), global_variabl
 
 #CHOOSEN METHOD
 #The following two function are the same:
-# - for final-state collinear singularity they look for final-state rec over initial-state one when possible;
+# - for final-state collinear singularity they look for initial-state rec over final-state one when possible;
 # - for initial-state collinear singularity they look for initial-state rec over final-state one when possible.
 # - specific for partonic recoilers.
 
@@ -176,6 +176,7 @@ def get_initial_state_recoilers(reduced_process, excluded=(), global_variables={
         # this is in the case of the integrated CT's
         sector_legs = ()
 
+    #logger.info('get_initial_state_rec')
     #logger.info('Sector Legs= ' + str(sector_legs))
 
     partons_id = [1, -1, 2, -2, 3, -3, 4, -4, 5, -5, 6, -6, 21]
@@ -198,14 +199,20 @@ def get_initial_state_recoilers(reduced_process, excluded=(), global_variables={
 
     # for integrated currents
     if len(sector_legs) == 0:
-        if global_variables['overall_children'][0][0] > 2 and global_variables['overall_children'][0][1] > 2:
-            if len(final_recoilers) > 0:
+        if global_variables['overall_children'][0][0] > 2 and global_variables['overall_children'][0][1] > 2:   # final splitting
+            if len(initial_recoilers) > 0:
+                return sub.SubtractionLegSet([initial_recoilers[0]])
+            else: 
                 # sort the recoilers according to their id, and return the first one
                 final_recoilers.sort(key = lambda l: l['id'])
                 return sub.SubtractionLegSet([final_recoilers[0]])
-            else: 
-                return sub.SubtractionLegSet([initial_recoilers[0]])
-        if global_variables['overall_children'][0][0] <= 2 or global_variables['overall_children'][0][1] <= 2:
+#            if len(final_recoilers) > 0:
+#                # sort the recoilers according to their id, and return the first one
+#                final_recoilers.sort(key = lambda l: l['id'])
+#                return sub.SubtractionLegSet([final_recoilers[0]])
+#            else: 
+#                return sub.SubtractionLegSet([initial_recoilers[0]])
+        if global_variables['overall_children'][0][0] <= 2 or global_variables['overall_children'][0][1] <= 2:  # initial splitting
             if len(initial_recoilers) > 0:
                 return sub.SubtractionLegSet([initial_recoilers[0]])
             else: 
@@ -215,19 +222,29 @@ def get_initial_state_recoilers(reduced_process, excluded=(), global_variables={
 
 
     # for local currents
-    if sector_legs[0] > 2 and sector_legs[1] > 2:
-        if len(final_recoilers) > 0:
-            # sort the recoilers according to their id, and return the first one
-            final_recoilers.sort(key = lambda l: l['id'])
-            return sub.SubtractionLegSet([final_recoilers[0]])
-        else:
-            return sub.SubtractionLegSet([initial_recoilers[0]])
-    elif sector_legs[0] <= 2 or sector_legs[1] <= 2:
+    if sector_legs[0] > 2 and sector_legs[1] > 2:   # final splitting
         if len(initial_recoilers) > 0:
+            #print('caso F rec I : ' + str(sub.SubtractionLegSet([initial_recoilers[0]])))
             return sub.SubtractionLegSet([initial_recoilers[0]])
         else:
             # sort the recoilers according to their id, and return the first one
             final_recoilers.sort(key = lambda l: l['id'])
+            #print('caso F rec F : ' + str(sub.SubtractionLegSet([final_recoilers[0]])))
+            return sub.SubtractionLegSet([final_recoilers[0]])
+#        if len(final_recoilers) > 0:
+#            # sort the recoilers according to their id, and return the first one
+#            final_recoilers.sort(key = lambda l: l['id'])
+#            return sub.SubtractionLegSet([final_recoilers[0]])
+#        else:
+#            return sub.SubtractionLegSet([initial_recoilers[0]])
+    elif sector_legs[0] <= 2 or sector_legs[1] <= 2:    # initial splitting
+        if len(initial_recoilers) > 0:
+            #print('caso I rec I : ' + str(sub.SubtractionLegSet([initial_recoilers[0]])))
+            return sub.SubtractionLegSet([initial_recoilers[0]])
+        else:
+            # sort the recoilers according to their id, and return the first one
+            final_recoilers.sort(key = lambda l: l['id'])
+            #print('caso I rec F : ' + str(sub.SubtractionLegSet([final_recoilers[0]])))
             return sub.SubtractionLegSet([final_recoilers[0]])
 
 
@@ -241,6 +258,7 @@ def get_final_state_recoilers(reduced_process, excluded=(), global_variables={})
         # this is in the case of the integrated CT's
         sector_legs = ()
 
+    #logger.info('get_final_state_rec')
     #logger.info('Sector Legs= ' + str(sector_legs))
 
     partons_id = [1, -1, 2, -2, 3, -3, 4, -4, 5, -5, 6, -6, 21]
@@ -263,36 +281,57 @@ def get_final_state_recoilers(reduced_process, excluded=(), global_variables={})
 
     # for integrated currents
     if len(sector_legs) == 0:
-        if global_variables['overall_children'][0][0] > 2 and global_variables['overall_children'][0][1] > 2:
-            if len(final_recoilers) > 0:
+        if global_variables['overall_children'][0][0] > 2 and global_variables['overall_children'][0][1] > 2:   # final splitting
+            if len(initial_recoilers) > 0:
+                #print('caso F rec I : ' + str(sub.SubtractionLegSet([initial_recoilers[0]])))
+                return sub.SubtractionLegSet([initial_recoilers[0]])
+            else: 
                 # sort the recoilers according to their id, and return the first one
                 final_recoilers.sort(key = lambda l: l['id'])
                 return sub.SubtractionLegSet([final_recoilers[0]])
-            else: 
-                return sub.SubtractionLegSet([initial_recoilers[0]])
-        if global_variables['overall_children'][0][0] <= 2 or global_variables['overall_children'][0][1] <= 2:
+#            if len(final_recoilers) > 0:
+#                # sort the recoilers according to their id, and return the first one
+#                final_recoilers.sort(key = lambda l: l['id'])
+#                #print('caso 1 : ' + str(sub.SubtractionLegSet([final_recoilers[0]])))
+#                return sub.SubtractionLegSet([final_recoilers[0]])
+#            else: 
+#                #print('caso 2 : ' + str(sub.SubtractionLegSet([initial_recoilers[0]])))
+#                return sub.SubtractionLegSet([initial_recoilers[0]])
+        if global_variables['overall_children'][0][0] <= 2 or global_variables['overall_children'][0][1] <= 2:  # initial splitting
             if len(initial_recoilers) > 0:
+                #print('caso I rec I : ' + str(sub.SubtractionLegSet([initial_recoilers[0]])))
                 return sub.SubtractionLegSet([initial_recoilers[0]])
             else: 
                 # sort the recoilers according to their id, and return the first one
                 final_recoilers.sort(key = lambda l: l['id'])
+                #print('caso I rec F : ' + str(sub.SubtractionLegSet([final_recoilers[0]])))
                 return sub.SubtractionLegSet([final_recoilers[0]])
 
 
     # for local currents
-    if sector_legs[0] > 2 and sector_legs[1] > 2:
-        if len(final_recoilers) > 0:
-            # sort the recoilers according to their id, and return the first one
-            final_recoilers.sort(key = lambda l: l['id'])
-            return sub.SubtractionLegSet([final_recoilers[0]])
-        else:
-            return sub.SubtractionLegSet([initial_recoilers[0]])
-    elif sector_legs[0] <= 2 or sector_legs[1] <= 2:
+    if sector_legs[0] > 2 and sector_legs[1] > 2:   # final splitting
         if len(initial_recoilers) > 0:
+            #print('caso F rec I : ' + str(sub.SubtractionLegSet([initial_recoilers[0]])))
             return sub.SubtractionLegSet([initial_recoilers[0]])
         else:
             # sort the recoilers according to their id, and return the first one
             final_recoilers.sort(key = lambda l: l['id'])
+            #print('caso F rec F : ' + str(sub.SubtractionLegSet([final_recoilers[0]])))
+            return sub.SubtractionLegSet([final_recoilers[0]])
+#        if len(final_recoilers) > 0:
+#            # sort the recoilers according to their id, and return the first one
+#            final_recoilers.sort(key = lambda l: l['id'])
+#            return sub.SubtractionLegSet([final_recoilers[0]])
+#        else:
+#            return sub.SubtractionLegSet([initial_recoilers[0]])
+    elif sector_legs[0] <= 2 or sector_legs[1] <= 2:    # initial splitting
+        if len(initial_recoilers) > 0:
+            #print('caso I rec I : ' + str(sub.SubtractionLegSet([initial_recoilers[0]])))
+            return sub.SubtractionLegSet([initial_recoilers[0]])
+        else:
+            # sort the recoilers according to their id, and return the first one
+            final_recoilers.sort(key = lambda l: l['id'])
+            #print('caso I rec F : ' + str(sub.SubtractionLegSet([final_recoilers[0]])))
             return sub.SubtractionLegSet([final_recoilers[0]])
 
 

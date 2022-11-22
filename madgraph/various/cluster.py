@@ -25,9 +25,9 @@ logger = logging.getLogger('madgraph.cluster')
 try:
     from madgraph import MadGraph5Error
     import madgraph.various.misc as misc
-except Exception, error:
+except Exception as error:
     if __debug__:
-        print  str(error)
+        print(str(error))
     from internal import MadGraph5Error
     import internal.misc as misc
 
@@ -107,7 +107,7 @@ class Cluster(object):
         else:
             self.temp_dir = None
         self.options = {'cluster_status_update': (600, 30)}
-        for key,value in opts.items():
+        for key,value in list(opts.items()):
             self.options[key] = value
         self.nb_retry = opts['cluster_nb_retry'] if 'cluster_nb_retry' in opts else 0
         self.cluster_retry_wait = float(opts['cluster_retry_wait']) if 'cluster_retry_wait' in opts else 300
@@ -120,7 +120,7 @@ class Cluster(object):
     def submit(self, prog, argument=[], cwd=None, stdout=None, stderr=None, 
                log=None, required_output=[], nb_submit=0):
         """How to make one submission. Return status id on the cluster."""
-        raise NotImplemented, 'No implementation of how to submit a job to cluster \'%s\'' % self.name
+        raise NotImplemented('No implementation of how to submit a job to cluster \'%s\'' % self.name)
 
 
     @store_input()
@@ -224,7 +224,7 @@ class Cluster(object):
     def control(self, me_dir=None):
         """Check the status of job associated to directory me_dir. return (idle, run, finish, fail)"""
         if not self.submitted_ids:
-            raise NotImplemented, 'No implementation of how to control the job status to cluster \'%s\'' % self.name
+            raise NotImplemented('No implementation of how to control the job status to cluster \'%s\'' % self.name)
         idle, run, fail = 0, 0, 0
         for pid in self.submitted_ids[:]:
             status = self.control_one_job(id)
@@ -242,7 +242,7 @@ class Cluster(object):
 
     def control_one_job(self, pid):
         """ control the status of a single job with it's cluster id """
-        raise NotImplemented, 'No implementation of how to control the job status to cluster \'%s\'' % self.name
+        raise NotImplemented('No implementation of how to control the job status to cluster \'%s\'' % self.name)
 
     def get_jobs_identifier(self, path, second_path=None):
         """get a unique run_name for all the jobs helps to identify the runs 
@@ -427,7 +427,7 @@ Press ctrl-C to force the update.''' % self.options['cluster_status_update'][0])
             logger.critical('''Fail to run correctly job %s.
             with option: %s
             file missing: %s''' % (job_id, args, path))
-            raw_input('press enter to continue.')
+            input('press enter to continue.')
         elif self.nb_retry == 0:
             logger.critical('''Fail to run correctly job %s.
             with option: %s
@@ -542,9 +542,9 @@ class Packet(object):
     """
 
     def __init__(self, name, fct, args, opts={}):
-        import Queue
+        import queue
         import threading
-        self.queue = Queue.Queue()
+        self.queue = queue.Queue()
         self.tag = name
         self.fct = fct
         self.args = args
@@ -572,12 +572,12 @@ class MultiCore(Cluster):
         
         super(MultiCore, self).__init__(self, *args, **opt)
         
-        import Queue
+        import queue
         import threading
-        import thread
-        self.queue = Queue.Queue() # list of job to do
-        self.done = Queue.Queue()  # list of job finisned
-        self.submitted = Queue.Queue() # one entry by job submitted
+        import _thread
+        self.queue = queue.Queue() # list of job to do
+        self.done = queue.Queue()  # list of job finisned
+        self.submitted = queue.Queue() # one entry by job submitted
         self.stoprequest = threading.Event() #flag to ensure everything to close
         self.demons = []
         self.nb_done =0
@@ -590,9 +590,9 @@ class MultiCore(Cluster):
         self.update_fct = None
         
         self.lock = threading.Event() # allow nice lock of the main thread
-        self.pids = Queue.Queue() # allow to clean jobs submit via subprocess
+        self.pids = queue.Queue() # allow to clean jobs submit via subprocess
         self.done_pid = []  # list of job finisned
-        self.done_pid_queue = Queue.Queue()
+        self.done_pid_queue = queue.Queue()
         self.fail_msg = None
 
         # starting the worker node
@@ -609,8 +609,8 @@ class MultiCore(Cluster):
 
 
     def worker(self):
-        import Queue
-        import thread
+        import queue
+        import _thread
         while not self.stoprequest.isSet():
             try:
                 args = self.queue.get()
@@ -648,14 +648,14 @@ class MultiCore(Cluster):
                             logger.warning("fct %s does not return 0. Stopping the code in a clean way. The error was:\n%s", exe, returncode)
                             self.stoprequest.set()
                             self.remove("fct %s does not return 0:\n %s" % (exe, returncode))
-                except Exception,error:
+                except Exception as error:
                     self.fail_msg = sys.exc_info()
                     logger.warning(str(error))
                     self.stoprequest.set()
                     self.remove(error)
                     
                     if __debug__:
-                        raise self.fail_msg[0], self.fail_msg[1],self.fail_msg[2]
+                        raise self.fail_msg[0](self.fail_msg[1]).with_traceback(self.fail_msg[2])
 
                 self.queue.task_done()
                 self.done.put(tag)
@@ -663,9 +663,9 @@ class MultiCore(Cluster):
                 #release the mother to print the status on the screen
                 try:
                     self.lock.set()
-                except thread.error:
+                except _thread.error:
                     continue
-            except Queue.Empty:
+            except queue.Empty:
                 continue
             
             
@@ -729,7 +729,7 @@ class MultiCore(Cluster):
         """Waiting that all the jobs are done. This function also control that
         the submission by packet are handle correctly (i.e. submit the function)"""
 
-        import Queue
+        import queue
         import threading
 
         try: # to catch KeyBoardInterupt to see which kind of error to display 
@@ -745,7 +745,7 @@ class MultiCore(Cluster):
                 while self.done.qsize():
                     try:
                         tag = self.done.get(True, 1)
-                    except Queue.Empty:
+                    except queue.Empty:
                         pass
                     else:
                         if self.id_to_packet and tuple(tag) in self.id_to_packet:
@@ -806,21 +806,21 @@ class MultiCore(Cluster):
                 if isinstance(self.fail_msg, Exception):
                     raise self.fail_msg
                 elif isinstance(self.fail_msg, str):
-                    raise Exception, self.fail_msg
+                    raise Exception(self.fail_msg)
                 else:
                     misc.sprint(self.fail_msg)
-                    raise self.fail_msg[0], self.fail_msg[1], self.fail_msg[2]
+                    raise self.fail_msg[0](self.fail_msg[1]).with_traceback(self.fail_msg[2])
             # reset variable for next submission
             try:
                 self.lock.clear()
             except Exception:
                 pass
-            self.done = Queue.Queue()
+            self.done = queue.Queue()
             self.done_pid = []
-            self.done_pid_queue = Queue.Queue()
+            self.done_pid_queue = queue.Queue()
             self.nb_done = 0
-            self.submitted = Queue.Queue()
-            self.pids = Queue.Queue()
+            self.submitted = queue.Queue()
+            self.pids = queue.Queue()
             self.stoprequest.clear()
 
         except KeyboardInterrupt:
@@ -828,9 +828,9 @@ class MultiCore(Cluster):
             if isinstance(self.fail_msg, Exception):
                 raise self.fail_msg
             elif isinstance(self.fail_msg, str):
-                raise Exception, self.fail_msg
+                raise Exception(self.fail_msg)
             elif self.fail_msg:
-                raise self.fail_msg[0], self.fail_msg[1], self.fail_msg[2]
+                raise self.fail_msg[0](self.fail_msg[1]).with_traceback(self.fail_msg[2])
             # else return orignal error
             raise 
 
@@ -898,8 +898,8 @@ class CondorCluster(Cluster):
         try:
             id = pat.search(output).groups()[0]
         except:
-            raise ClusterManagmentError, 'fail to submit to the cluster: \n%s' \
-                                                                        % output 
+            raise ClusterManagmentError('fail to submit to the cluster: \n%s' \
+                                                                        % output) 
         self.submitted += 1
         self.submitted_ids.append(id)
         return id
@@ -985,8 +985,8 @@ class CondorCluster(Cluster):
         try:
             id = pat.search(output).groups()[0]
         except:
-            raise ClusterManagmentError, 'fail to submit to the cluster: \n%s' \
-                                                                        % output 
+            raise ClusterManagmentError('fail to submit to the cluster: \n%s' \
+                                                                        % output) 
         self.submitted += 1
         self.submitted_ids.append(id)
         return id
@@ -1004,7 +1004,7 @@ class CondorCluster(Cluster):
         
         error = status.stderr.read()
         if status.returncode or error:
-            raise ClusterManagmentError, 'condor_q returns error: %s' % error
+            raise ClusterManagmentError('condor_q returns error: %s' % error)
 
         return status.stdout.readline().strip()
     
@@ -1030,7 +1030,7 @@ class CondorCluster(Cluster):
                                                              stderr=subprocess.PIPE)
             error = status.stderr.read()
             if status.returncode or error:
-                raise ClusterManagmentError, 'condor_q returns error: %s' % error
+                raise ClusterManagmentError('condor_q returns error: %s' % error)
                 
             for line in status.stdout:
                 id, status = line.strip().split()
@@ -1123,8 +1123,8 @@ class PBSCluster(Cluster):
         output = a.communicate(text)[0]
         id = output.split('.')[0]
         if not id.isdigit() or a.returncode !=0:
-            raise ClusterManagmentError, 'fail to submit to the cluster: \n%s' \
-                                                                        % output
+            raise ClusterManagmentError('fail to submit to the cluster: \n%s' \
+                                                                        % output)
             
         self.submitted += 1
         self.submitted_ids.append(id)
@@ -1140,7 +1140,7 @@ class PBSCluster(Cluster):
         for line in status.stdout:
             line = line.strip()
             if 'cannot connect to server' in line or 'cannot read reply' in line:
-                raise ClusterManagmentError, 'server disconnected'
+                raise ClusterManagmentError('server disconnected')
             if 'Unknown' in line:
                 return 'F'
             elif line.startswith(str(id)):
@@ -1149,7 +1149,7 @@ class PBSCluster(Cluster):
                 jobstatus=""
                         
         if status.returncode != 0 and status.returncode is not None:
-            raise ClusterManagmentError, 'server fails in someway (errorcode %s)' % status.returncode
+            raise ClusterManagmentError('server fails in someway (errorcode %s)' % status.returncode)
         if jobstatus in self.idle_tag:
             return 'I' 
         elif jobstatus in self.running_tag:                
@@ -1170,7 +1170,7 @@ class PBSCluster(Cluster):
         idle, run, fail = 0, 0, 0
         for line in status.stdout:
             if 'cannot connect to server' in line or 'cannot read reply' in line:
-                raise ClusterManagmentError, 'server disconnected'
+                raise ClusterManagmentError('server disconnected')
             if me_dir in line:
                 ongoing.append(line.split()[0].split('.')[0])
                 status2 = line.split()[4]
@@ -1185,7 +1185,7 @@ class PBSCluster(Cluster):
                     fail += 1
 
         if status.returncode != 0 and status.returncode is not None:
-            raise ClusterManagmentError, 'server fails in someway (errorcode %s)' % status.returncode
+            raise ClusterManagmentError('server fails in someway (errorcode %s)' % status.returncode)
 
         for id in list(self.submitted_ids):
             if id not in ongoing:
@@ -1286,8 +1286,8 @@ class SGECluster(Cluster):
         output = a.communicate(text)[0]
         id = output.split(' ')[2]
         if not id.isdigit():
-            raise ClusterManagmentError, 'fail to submit to the cluster: \n%s' \
-                                                                        % output 
+            raise ClusterManagmentError('fail to submit to the cluster: \n%s' \
+                                                                        % output) 
         self.submitted += 1
         self.submitted_ids.append(id)
         logger.debug(output)
@@ -1404,11 +1404,11 @@ class LSFCluster(Cluster):
         try:
             id = output.split('>',1)[0].split('<')[1]
         except:
-            raise ClusterManagmentError, 'fail to submit to the cluster: \n%s' \
-                                                                        % output 
+            raise ClusterManagmentError('fail to submit to the cluster: \n%s' \
+                                                                        % output) 
         if not id.isdigit():
-            raise ClusterManagmentError, 'fail to submit to the cluster: \n%s' \
-                                                                        % output 
+            raise ClusterManagmentError('fail to submit to the cluster: \n%s' \
+                                                                        % output) 
         self.submitted += 1
         self.submitted_ids.append(id)
         return id        
@@ -1535,8 +1535,8 @@ class GECluster(Cluster):
         try:
             id = pat.search(output).groups()[0]
         except:
-            raise ClusterManagmentError, 'fail to submit to the cluster: \n%s' \
-                                                                        % output 
+            raise ClusterManagmentError('fail to submit to the cluster: \n%s' \
+                                                                        % output) 
         self.submitted += 1
         self.submitted_ids.append(id)
         return id
@@ -1558,7 +1558,7 @@ class GECluster(Cluster):
             try:
                 groups = pat.search(line).groups()
             except:
-                raise ClusterManagmentError, 'bad syntax for stat: \n\"%s\"' % line
+                raise ClusterManagmentError('bad syntax for stat: \n\"%s\"' % line)
             if groups[0] != id: continue
             stat = groups[1]
         if not stat:
@@ -1670,8 +1670,8 @@ class SLURMCluster(Cluster):
         id = output_arr[3].rstrip()
 
         if not id.isdigit():
-            raise ClusterManagmentError, 'fail to submit to the cluster: \n%s' \
-                    % (output[0] + '\n' + output[1])
+            raise ClusterManagmentError('fail to submit to the cluster: \n%s' \
+                    % (output[0] + '\n' + output[1]))
 
         self.submitted += 1
         self.submitted_ids.append(id)
@@ -1771,7 +1771,7 @@ class HTCaaSCluster(Cluster):
         cwd_cp = cwd.rsplit("/",2)
 
         if not stdout is None:
-            print "stdout: %s" % stdout
+            print("stdout: %s" % stdout)
 
         if not os.path.exists(prog):
             prog = os.path.join(cwd, prog)
@@ -1820,15 +1820,15 @@ class HTCaaSCluster(Cluster):
         nb_try=0
         nb_limit=5
         if not id.isdigit() :
-                print "[ID is not digit]:" + id
+                print("[ID is not digit]:" + id)
 
         while not id.isdigit() :
             nb_try+=1
-            print "[fail_retry]:"+ nb_try
+            print("[fail_retry]:"+ nb_try)
             a=misc.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE, cwd=cwd)
             id = a.stdout.read().strip()
             if nb_try > nb_limit :
-                raise ClusterManagementError, 'fail to submit to the HTCaaS cluster: \n %s' % id
+                raise ClusterManagementError('fail to submit to the HTCaaS cluster: \n %s' % id)
                 break
 
         self.submitted += 1
@@ -1848,7 +1848,7 @@ class HTCaaSCluster(Cluster):
                                                          stderr=subprocess.PIPE)
             error = status.stderr.read()
             if status.returncode or error:
-                raise ClusterManagmentError, 'htcaas-job-submit returns error: %s' % error
+                raise ClusterManagmentError('htcaas-job-submit returns error: %s' % error)
             status_out= status.stdout.read().strip()
             status_out= status_out.split(":",1)[1]
             if status_out == 'waiting':
@@ -2047,7 +2047,7 @@ class HTCaaS2Cluster(Cluster):
                                                          stderr=subprocess.PIPE)
             error = status.stderr.read()
             if status.returncode or error:
-                raise ClusterManagmentError, 'htcaas-job-status returns error: %s' % error
+                raise ClusterManagmentError('htcaas-job-status returns error: %s' % error)
             status_out= status.stdout.read().strip()
             status_out= status_out.split(":",1)[1]
             logger.debug("[["+str(id)+"]]"+status_out)
@@ -2141,7 +2141,7 @@ class MPICluster(Cluster):
     def submit(self, prog, argument=[], cwd=None, stdout=None, stderr=None, 
                log=None, required_output=[], nb_submit=0):
         """How to make one submission. Return status id on the cluster."""
-        raise NotImplemented, 'No implementation of submit in cluster type \'%s\'' % self.name
+        raise NotImplemented('No implementation of submit in cluster type \'%s\'' % self.name)
 
 
     #@store_input()
@@ -2150,7 +2150,7 @@ class MPICluster(Cluster):
                 nb_submit=0):
         """How to make one submission. Return status id on the cluster.
         NO SHARE DISK"""  
-        raise NotImplemented, 'No implementation of submit2 in cluster type \'%s\'' % self.name
+        raise NotImplemented('No implementation of submit2 in cluster type \'%s\'' % self.name)
 
 
     def cluster_submit(self, prog, argument=[], cwd=None, stdout=None, stderr=None, 
@@ -2158,21 +2158,21 @@ class MPICluster(Cluster):
                 nb_submit=0, packet_member=None):
             """This function wrap the cluster submition with cluster independant
                method should not be overwritten (but for DAG type submission)"""
-            raise NotImplemented, 'No implementation of cluster_submit in cluster type \'%s\'' % self.name 
+            raise NotImplemented('No implementation of cluster_submit in cluster type \'%s\'' % self.name) 
                 
     def control(self, me_dir=None):
         """Check the status of job associated to directory me_dir. return (idle, run, finish, fail)"""
-        raise NotImplemented, 'No implementation of control in cluster type \'%s\'' % self.name 
+        raise NotImplemented('No implementation of control in cluster type \'%s\'' % self.name) 
         
     def control_one_job(self, pid):
         """ control the status of a single job with it's cluster id """
-        raise NotImplemented, 'No implementation of control_one_job in cluster type \'%s\'' % self.name
+        raise NotImplemented('No implementation of control_one_job in cluster type \'%s\'' % self.name)
 
     def get_jobs_identifier(self, path, second_path=None):
         """get a unique run_name for all the jobs helps to identify the runs 
         in the controller for some cluster."""
         
-        raise NotImplemented, 'No implementation of get_jobs_identifier in cluster type \'%s\'' % self.name
+        raise NotImplemented('No implementation of get_jobs_identifier in cluster type \'%s\'' % self.name)
 
 
     #@check_interupt()
@@ -2180,12 +2180,12 @@ class MPICluster(Cluster):
         """Wait that all job are finish.
         if minimal_job set, then return if idle + run is lower than that number"""
         
-        raise NotImplemented, 'No implementation of wait in cluster type \'%s\'' % self.name
+        raise NotImplemented('No implementation of wait in cluster type \'%s\'' % self.name)
 
     def check_termination(self, job_id):
         """Check the termination of the jobs with job_id and relaunch it if needed."""
         
-        raise NotImplemented, 'No implementation of check_termination in cluster type \'%s\'' % self.name
+        raise NotImplemented('No implementation of check_termination in cluster type \'%s\'' % self.name)
                     
     #@check_interupt()
     def launch_and_wait(self, prog, argument=[], cwd=None, stdout=None, 
@@ -2193,15 +2193,15 @@ class MPICluster(Cluster):
                         input_files=[], output_files=[]):
         """launch one job on the cluster and wait for it"""
         
-        raise NotImplemented, 'No implementation of launch_and_wait in cluster type \'%s\'' % self.name
+        raise NotImplemented('No implementation of launch_and_wait in cluster type \'%s\'' % self.name)
 
     def remove(self, *args, **opts):
         """ """
-        raise NotImplemented, 'No implementation of remove in cluster type \'%s\'' % self.name
+        raise NotImplemented('No implementation of remove in cluster type \'%s\'' % self.name)
 
     #@store_input()
     def metasubmit(self, me_dir):
-        raise NotImplemented, 'No implementation of metasubmit in cluster type \'%s\'' % self.name
+        raise NotImplemented('No implementation of metasubmit in cluster type \'%s\'' % self.name)
 
 
 

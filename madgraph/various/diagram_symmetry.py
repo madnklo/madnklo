@@ -16,7 +16,7 @@
 """Module for calculation of symmetries between diagrams, by
 evaluating amp2 values for permutations of momenta."""
 
-from __future__ import division
+
 
 import array
 import copy
@@ -114,7 +114,7 @@ def find_symmetry(matrix_element):
     
     for diag in diagrams:
         diagram_numbers.append(diag.get('number'))
-        permutations.append(range(nexternal))
+        permutations.append(list(range(nexternal)))
         if diag.get_vertex_leg_numbers()!=[] and \
                                   max(diag.get_vertex_leg_numbers()) > min_vert:
             # Ignore any diagrams with 4-particle vertices
@@ -126,7 +126,7 @@ def find_symmetry(matrix_element):
     if matrix_element.get("identical_particle_factor") == 1:
         return symmetry, \
                permutations,\
-               [range(nexternal)]
+               [list(range(nexternal))]
 
     logger.info("Finding symmetric diagrams for process %s" % \
                  matrix_element.get('processes')[0].nice_string().\
@@ -218,8 +218,8 @@ def find_symmetry_by_evaluation(matrix_element, evaluator, max_time = 600):
     # Check for matrix elements with no identical particles
     if matrix_element.get("identical_particle_factor") == 1:
         return symmetry, \
-               [range(nexternal)]*len(symmetry),\
-               [range(nexternal)]
+               [list(range(nexternal))]*len(symmetry),\
+               [list(range(nexternal))]
 
     logger.info("Finding symmetric diagrams for process %s" % \
                  matrix_element.get('processes')[0].nice_string().\
@@ -249,7 +249,7 @@ def find_symmetry_by_evaluation(matrix_element, evaluator, max_time = 600):
     signal.signal(signal.SIGALRM, handle_alarm)
     signal.alarm(max_time)
     try:
-        for perm in itertools.permutations(range(ninitial, nexternal)):
+        for perm in itertools.permutations(list(range(ninitial, nexternal))):
             if [equivalent_process.get('legs')[i].get('id') for i in perm] != \
                final_states:
                 # Non-identical particles permutated
@@ -280,7 +280,7 @@ def find_symmetry_by_evaluation(matrix_element, evaluator, max_time = 600):
                 # Store initial amplitudes
                 amp2start = amp2
                 # Initialize list of permutations
-                perms = [range(nexternal) for i in range(len(amp2))]
+                perms = [list(range(nexternal)) for i in range(len(amp2))]
                 continue
 
             for i, val in enumerate(amp2):
@@ -380,7 +380,7 @@ def find_symmetry_subproc_group(subproc_group):
 
     for idiag,diag in enumerate(diagrams):
         diagram_numbers.append(idiag+1)
-        permutations.append(range(nexternal))
+        permutations.append(list(range(nexternal)))
         if diag.get_vertex_leg_numbers()!=[] and \
                                   max(diag.get_vertex_leg_numbers()) > min_vert:
             # Ignore any diagrams with 4-particle vertices
@@ -462,7 +462,7 @@ def old_find_symmetry_subproc_group(subproc_group):
                sym_config < 0 and diagram_config_map[-sym_config-1] not in \
                me_config_dict[me_number]:
                 symmetry[isym] = 1
-                perms[isym]=range(nexternal)
+                perms[isym]=list(range(nexternal))
                 if sym_config < 0 and diagram_config_map[-sym_config-1] in \
                        me_config_dict[me_number]:
                     symmetry[-sym_config-1] -= 1
@@ -483,7 +483,7 @@ def old_find_symmetry_subproc_group(subproc_group):
     # Fill up all_symmetry and all_perms also for configs that have no symmetry
     for iconf in range(len(subproc_group.get('mapping_diagrams'))):
         all_symmetry.setdefault(iconf+1, 1)
-        all_perms.setdefault(iconf+1, range(nexternal))
+        all_perms.setdefault(iconf+1, list(range(nexternal)))
         # Since we don't want to multiply by symmetry factor here, set to 1
         if all_symmetry[iconf+1] > 1:
             all_symmetry[iconf+1] = 1

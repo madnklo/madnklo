@@ -93,8 +93,7 @@ class IdentifyConfigTag(diagram_generation.DiagramTag):
             # We go from next-to-last link to last link - remove propagator info
             return (old_vertex[0],)
         # We should not get here
-        raise diagram_generation.DiagramTag.DiagramTagError, \
-              "Error in IdentifyConfigTag, wrong setup of vertices in link."
+        raise diagram_generation.DiagramTag.DiagramTagError("Error in IdentifyConfigTag, wrong setup of vertices in link.")
         
 #===============================================================================
 # SubProcessGroup
@@ -122,38 +121,30 @@ class SubProcessGroup(base_objects.PhysicsObject):
 
         if name == 'number':
             if not isinstance(value, int):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid int object" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid int object" % str(value))
         if name == 'name':
             if not isinstance(value, str):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid str object" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid str object" % str(value))
         if name == 'amplitudes':
             if not isinstance(value, diagram_generation.AmplitudeList):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid amplitudelist" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid amplitudelist" % str(value))
         if name in ['mapping_diagrams', 'diagrams_for_configs']:
             if not isinstance(value, list):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid list" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid list" % str(value))
         if name == 'diagram_maps':
             if not isinstance(value, dict):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid dict" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid dict" % str(value))
         if name == 'matrix_elements':
             if not isinstance(value, helas_objects.HelasMatrixElementList):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid HelasMatrixElementList" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid HelasMatrixElementList" % str(value))
 
         if name == 'amplitude_map':
             if not isinstance(value, dict):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid dict object" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid dict object" % str(value))
 
         if name == 'matrix_element_opts':
             if not isinstance(value, dict):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid dictionary object" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid dictionary object" % str(value))
 
         return True
 
@@ -197,8 +188,7 @@ class SubProcessGroup(base_objects.PhysicsObject):
         in self"""
 
         if not self.get('amplitudes'):
-            raise self.PhysicsObjectError, \
-                  "Need amplitudes to generate matrix_elements"
+            raise self.PhysicsObjectError("Need amplitudes to generate matrix_elements")
 
         amplitudes = copy.copy(self.get('amplitudes'))
 
@@ -403,7 +393,7 @@ class SubProcessGroup(base_objects.PhysicsObject):
         ret_list = SubProcessGroupList()
         process_class_numbers = sorted(list(set(process_classes.values())))
         for num in process_class_numbers:
-            amp_nums = [key for (key, val) in process_classes.items() if \
+            amp_nums = [key for (key, val) in list(process_classes.items()) if \
                           val == num]
             group = SubProcessGroup({'matrix_element_opts':matrix_elements_opts})
             group.set('amplitudes',
@@ -548,16 +538,13 @@ class DecayChainSubProcessGroup(SubProcessGroup):
 
         if name == 'core_groups':
             if not isinstance(value, SubProcessGroupList):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid core_groups" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid core_groups" % str(value))
         if name == 'decay_groups':
             if not isinstance(value, DecayChainSubProcessGroupList):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid decay_groups" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid decay_groups" % str(value))
         if name == 'decay_chain_amplitudes':
             if not isinstance(value, diagram_generation.DecayChainAmplitudeList):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid DecayChainAmplitudeList" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid DecayChainAmplitudeList" % str(value))
         return True
 
     def get_sorted_keys(self):

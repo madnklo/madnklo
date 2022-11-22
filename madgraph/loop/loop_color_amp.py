@@ -67,11 +67,10 @@ class LoopColorBasis(color_amp.ColorBasis):
               [color_algebra.Tr(lcut_numbers[1],lcut_numbers[0])],
               fractions.Fraction(2, 1))
         else:
-            raise color_amp.ColorBasis.ColorBasisError, \
-        "L-cut particle has an unsupported color representation %s" % lcut_charge
+            raise color_amp.ColorBasis.ColorBasisError("L-cut particle has an unsupported color representation %s" % lcut_charge)
 
         # Append it to all color strings for this diagram.
-        for CS in colorize_dict.values():
+        for CS in list(colorize_dict.values()):
             # The double full_simplify() below brings significantly slowdown
             # so that it should be used only when loop_Nc_power is actuall used.
             if self.compute_loop_nc:
@@ -110,8 +109,7 @@ class LoopColorBasis(color_amp.ColorBasis):
         list_color_dict = []
         
         if not isinstance(amplitude,loop_diagram_generation.LoopAmplitude):
-            raise color_amp.ColorBasis.ColorBasisError, \
-              'LoopColorBasis is used with an amplitude which is not a LoopAmplitude'
+            raise color_amp.ColorBasis.ColorBasisError('LoopColorBasis is used with an amplitude which is not a LoopAmplitude')
         for diagram in amplitude.get('loop_diagrams'):
 
             colorize_dict = self.colorize(diagram,
@@ -147,8 +145,7 @@ class LoopColorBasis(color_amp.ColorBasis):
         list_color_dict = []
 
         if not isinstance(amplitude,loop_diagram_generation.LoopAmplitude):
-            raise color_amp.ColorBasis.ColorBasisError, \
-              'LoopColorBasis is used with an amplitude which is not a LoopAmplitude'
+            raise color_amp.ColorBasis.ColorBasisError('LoopColorBasis is used with an amplitude which is not a LoopAmplitude')
 
         for diagram in amplitude.get('born_diagrams'):
             colorize_dict = self.colorize(diagram,

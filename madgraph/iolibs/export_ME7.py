@@ -173,7 +173,7 @@ class ME7Exporter(object):
         # Now generate the beam factorization contributions independently for each group
         # of contributions with one particular process ID.
         beam_factorization_contributions_added = []
-        for process_ID, template_contributions in candidates_per_process_IDs.items():
+        for process_ID, template_contributions in list(candidates_per_process_IDs.items()):
             beam_factorization_contributions_added.extend(
                 self.generate_beam_factorization_contributions_for_correction_order_and_process_ID(
                     correction_order, n_unresolved_particles, process_ID, template_contributions[0]))
@@ -395,7 +395,7 @@ class ME7Exporter(object):
         # has a container instantiated with one empty list per process key
         for contribution in self.contributions:
             if hasattr(contribution, 'integrated_counterterms') and len(contribution.integrated_counterterms) == 0:
-                for key in contribution.get_processes_map().keys():
+                for key in list(contribution.get_processes_map().keys()):
                     contribution.integrated_counterterms[key] = []
 
         # Gather which contribution will receive the integrated counterterm for a given
@@ -557,7 +557,7 @@ class ME7Exporter(object):
                     " integrated counterterm:\n%s\n with key:\n%s"%(counterterm.nice_string(),key_string(key))+
                     "\nIt will therefore be skipped making the ensuing results unphysical and wrong.\n"+
                     "Available keys are:\n%s"%('\n'.join('%s in [%s]'%(key_string(k),', '.join(
-                            contrib.short_name() for contrib in contribs)) for k, contribs in routing_map.items())))
+                            contrib.short_name() for contrib in contribs)) for k, contribs in list(routing_map.items()))))
                 if __debug__:
                     if not warned or True:
                         logger.critical(msg)
@@ -606,7 +606,7 @@ class ME7Exporter(object):
         It is mostly all contained in all_MEAccessors and all_integrands."""
         
         # Simply retrieve this information from one process of the first contribution.
-        n_initial = self.contributions[0].get_processes_map().values()[0][0].get_ninitial()
+        n_initial = list(self.contributions[0].get_processes_map().values())[0][0].get_ninitial()
         
         # For now the db is a rude pickle file, but we might improve this to an actual DB eventually
         integrand_dumps = [integrand.generate_dump() for integrand in all_integrands]
@@ -631,11 +631,11 @@ class ME7Exporter(object):
         run_card = banner_mod.RunCardME7()
 
         history = ''
-        processes = [[v[0] for v in contrib.get_processes_map().values()] for contrib in self.contributions]
+        processes = [[v[0] for v in list(contrib.get_processes_map().values())] for contrib in self.contributions]
         proc_characteristic = {
             'ninitial':processes[0][0].get_ninitial(), 
             'loop_induced': len(self.contributions.get_loop_induced_contributions()), 
-            'colored_pdgs': range(1,7)+[21]}
+            'colored_pdgs': list(range(1,7))+[21]}
 
         run_card.create_default_for_process(proc_characteristic, history, processes)
 

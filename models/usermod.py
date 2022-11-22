@@ -55,16 +55,16 @@ class UFOModel(object):
         model = ufomodels.load_model(modelpath)
         # Check the validity of the model. Too old UFO (before UFO 1.0)
         if not hasattr(model, 'all_orders'):
-            raise USRMODERROR, 'Base Model doesn\'t follows UFO convention (no couplings_order information)\n' +\
-                               'MG5 is able to load such model but NOT to the add model feature.'
-        if isinstance(model.all_particles[0].mass, basestring):
-            raise USRMODERROR, 'Base Model doesn\'t follows UFO convention (Mass/Width of particles are string name, not object)\n' +\
-                               'MG5 is able to load such model but NOT to the add model feature.' 
+            raise USRMODERROR('Base Model doesn\'t follows UFO convention (no couplings_order information)\n' +\
+                               'MG5 is able to load such model but NOT to the add model feature.')
+        if isinstance(model.all_particles[0].mass, str):
+            raise USRMODERROR('Base Model doesn\'t follows UFO convention (Mass/Width of particles are string name, not object)\n' +\
+                               'MG5 is able to load such model but NOT to the add model feature.') 
                                  
         old_particles = [id(p) for p in model.all_particles]
         self.particles = [copy.copy(p) for p in model.all_particles]
         if any(hasattr(p, 'loop_particles') for p in self.particles):
-            raise USRMODERROR, 'Base Model doesn\'t follows UFO convention '
+            raise USRMODERROR('Base Model doesn\'t follows UFO convention ')
         self.vertices = list(model.all_vertices)
         # ensure that the particles are correctly listed
         for v in self.vertices:
@@ -194,12 +194,12 @@ class UFOModel(object):
         """convert param to string in order to have it written correctly for the 
         UFO file"""
 
-        if isinstance(param, basestring): 
+        if isinstance(param, str): 
             return "'%s'" % param.replace('\'', '\\\'').replace('\"', '\\\"')
         elif isinstance(param, int) or isinstance(param, float) or \
                                                        isinstance(param, complex):
             return "%s" % param
-        elif isinstance(param, long):
+        elif isinstance(param, int):
             return ("%s" % param).replace('L','')
         elif isinstance(param, list):
             return '[%s]' % ', '.join(self.format_param(p) for p in param)
@@ -209,7 +209,7 @@ class UFOModel(object):
             else:
                 return '(%s)' % ','.join([self.format_param(p) for p in param])
         elif isinstance(param, dict):
-            return '{%s}' % ','.join(['%s: %s' % (self.format_param(key), self.format_param(value)) for key, value in param.items()])
+            return '{%s}' % ','.join(['%s: %s' % (self.format_param(key), self.format_param(value)) for key, value in list(param.items())])
         elif param.__class__.__name__ == 'Parameter':
             return 'Param.%s' % repr(param)
         elif param.__class__.__name__ == 'Coupling':
@@ -221,7 +221,7 @@ class UFOModel(object):
         elif param is None:
             return 'None'
         else:
-            raise Exception, '%s unknow type for writing UFO' % param.__class__.__name__
+            raise Exception('%s unknow type for writing UFO' % param.__class__.__name__)
 
 
 
@@ -268,10 +268,10 @@ class UFOModel(object):
             nb_space += add_space
 
         if hasattr(obj, 'get_all'):
-            other_attr = [name for name in obj.get_all().keys() 
+            other_attr = [name for name in list(obj.get_all().keys()) 
                                                   if name not in args]
         else:
-            other_attr = obj.__dict__.keys()
+            other_attr = list(obj.__dict__.keys())
         
         other_attr.sort()
         if other_attr == ['GhostNumber', 'LeptonNumber', 'Y', 'partial_widths', 'selfconjugate']:
@@ -495,7 +495,7 @@ from object_library import all_propagators, Propagator
             if part.name == name:
                 return part
         
-        raise USRMODERROR, 'no particle %s in the model' % name
+        raise USRMODERROR('no particle %s in the model' % name)
 
     def add_parameter(self, parameter, identify_pid={}):
         """wrapper to call the correct function"""
@@ -531,9 +531,9 @@ from object_library import all_propagators, Propagator
                 return self.check_mass_width_of_particle(old_part, particle)
             elif identify:
                 if particle.spin != old_part.spin:
-                    raise USRMODERROR, "identify particles should have the same spin"
+                    raise USRMODERROR("identify particles should have the same spin")
                 elif particle.color != old_part.color:
-                    raise USRMODERROR, "identify particles should have the same color"
+                    raise USRMODERROR("identify particles should have the same color")
                 particle.replace = old_part
                 return self.check_mass_width_of_particle(old_part, particle)
             else:
@@ -543,7 +543,7 @@ from object_library import all_propagators, Propagator
                 self.particles.append(particle)
                 return
         elif identify:
-            raise USRMODERROR, "Particle %s is not in the model" % identify
+            raise USRMODERROR("Particle %s is not in the model" % identify)
 
         pdg = particle.pdg_code
         if pdg in self.particle_dict:
@@ -561,28 +561,28 @@ from object_library import all_propagators, Propagator
             #different name but actually  the same
             if p_plugin.mass.name in self.old_new:
                 if self.old_new[p_plugin.mass.name] != p_base.mass.name:
-                    raise USRMODERROR, 'Some inconsistency in the mass assignment in the model: equivalent of %s is %s != %s ' % ( p_plugin.mass.name, self.old_new[p_plugin.mass.name], p_base.mass.name)
+                    raise USRMODERROR('Some inconsistency in the mass assignment in the model: equivalent of %s is %s != %s ' % ( p_plugin.mass.name, self.old_new[p_plugin.mass.name], p_base.mass.name))
             elif  p_base.mass.name.lower() == 'zero':
                 p_base.mass = p_plugin.mass
             elif  p_plugin.mass.name.lower() == 'zero':
                 pass
             else:
-                raise USRMODERROR, 'Some inconsistency in the mass assignment in the model\n' + \
+                raise USRMODERROR('Some inconsistency in the mass assignment in the model\n' + \
              '     Mass: %s and %s\n' %(p_base.mass.name, p_plugin.mass.name) + \
              '     conflict name %s\n' % self.old_new + \
-             '     pdg_code: %s %s' % (p_base.pdg_code, p_plugin.pdg_code)
+             '     pdg_code: %s %s' % (p_base.pdg_code, p_plugin.pdg_code))
         # Check the width
         if p_base.width.name != p_plugin.width.name:
             #different name but actually  the same
             if p_plugin.width.name in self.old_new:
                 if self.old_new[p_plugin.width.name] != p_base.width.name:
-                    raise USRMODERROR, 'Some inconsistency in the mass assignment in the model'
+                    raise USRMODERROR('Some inconsistency in the mass assignment in the model')
             elif  p_base.width.name.lower() == 'zero':
                 p_base.width = p_plugin.width
             elif  p_plugin.width.name.lower() == 'zero':
                 pass
             else:
-                raise USRMODERROR, 'Some inconsistency in the mass assignment in the model'        
+                raise USRMODERROR('Some inconsistency in the mass assignment in the model')        
         
         return
 
@@ -628,7 +628,7 @@ from object_library import all_propagators, Propagator
             logger.info('The two model defines the block \'%s\' with id \'%s\' with different parameter name \'%s\', \'%s\'\n'\
                       %  (old_param.lhablock, old_param.lhacode, parameter.name, old_param.name) + \
             '     We will merge those two parameters in a single one')
-            if parameter.name in self.old_new.values():
+            if parameter.name in list(self.old_new.values()):
                 key = [k for k in self.old_new if self.old_new[k] == parameter.name][0]
                 self.old_new[key] = old_param.name
                 self.old_new[parameter.name] = old_param.name
@@ -652,7 +652,7 @@ from object_library import all_propagators, Propagator
                 return #Nothing to do!
             else:
                 if self.old_new:
-                    pattern = re.compile(r'\b(%s)\b' % '|'.join(self.old_new.keys()))
+                    pattern = re.compile(r'\b(%s)\b' % '|'.join(list(self.old_new.keys())))
                     def replace(matchobj):
                         return self.old_new[matchobj.group(0)]
                     parameter.value = pattern.sub(replace, parameter.value)
@@ -664,7 +664,7 @@ from object_library import all_propagators, Propagator
         
         # No name conflict:
         if self.old_new:
-            pattern = re.compile(r'\b(%s)\b' % '|'.join(self.old_new.keys()))
+            pattern = re.compile(r'\b(%s)\b' % '|'.join(list(self.old_new.keys())))
             def replace(matchobj):
                 return self.old_new[matchobj.group(0)]
             parameter.value = pattern.sub(replace, parameter.value)
@@ -684,7 +684,7 @@ from object_library import all_propagators, Propagator
             coupling.name = '%s%s' % (coupling.name, self.addon)
         
         if self.old_new:  
-            pattern = re.compile(r'\b(%s)\b' % '|'.join(self.old_new.keys()))
+            pattern = re.compile(r'\b(%s)\b' % '|'.join(list(self.old_new.keys())))
             def replace(matchobj):
                 return self.old_new[matchobj.group(0)]
             coupling.value = pattern.sub(replace, coupling.value)
@@ -730,7 +730,7 @@ from object_library import all_propagators, Propagator
             lorentz.name = '%s%s' % (lorentz.name, self.addon)
         
         if self.old_new:     
-            pattern = re.compile(r'\b(%s)\b' % '|'.join(self.old_new.keys()))
+            pattern = re.compile(r'\b(%s)\b' % '|'.join(list(self.old_new.keys())))
             def replace(matchobj):
                 return self.old_new[matchobj.group(0)]
             lorentz.structure = pattern.sub(replace, lorentz.structure)
@@ -769,7 +769,7 @@ from object_library import all_propagators, Propagator
 
         #3. check the couplings
         couplings = [(key, c.replace) if hasattr(c, 'replace') else (key, c)
-                     for key, c in interaction.couplings.items()]
+                     for key, c in list(interaction.couplings.items())]
         interaction.couplings = dict(couplings)
         
         #4. Try to avoid duplication of interaction:
@@ -780,7 +780,7 @@ from object_library import all_propagators, Propagator
         iden_vertex = [v for v in self.vertices if get_pdg(v) == id_part]
         iden = False
         nb_coupling = len(interaction.couplings)
-        keys = interaction.couplings.keys() # to have a fixed order!
+        keys = list(interaction.couplings.keys()) # to have a fixed order!
         
         get_lor_and_color =  lambda i: (interaction.lorentz[keys[i][1]].structure,
                        interaction.color[keys[i][0]])
@@ -788,7 +788,7 @@ from object_library import all_propagators, Propagator
             if len(v.couplings) != nb_coupling:
                 continue
             found = []
-            for ((i,j), coup) in v.couplings.items():
+            for ((i,j), coup) in list(v.couplings.items()):
                 new_lorentz = v.lorentz[j].structure
                 new_color = v.color[i]
                 k=0
@@ -849,7 +849,7 @@ from object_library import all_propagators, Propagator
 
         #3. check the couplings
         couplings = [(key, c.replace) if hasattr(c, 'replace') else (key, c)
-                     for key, c in interaction.couplings.items()]
+                     for key, c in list(interaction.couplings.items())]
         interaction.couplings = dict(couplings)
         
 
@@ -869,20 +869,20 @@ from object_library import all_propagators, Propagator
             model = ufomodels.load_model(path) 
                 
         if not model:
-            raise USRMODERROR, 'Need a valid Model'
+            raise USRMODERROR('Need a valid Model')
         else:
             path = model.__path__[0]
         # Check the validity of the model. Too old UFO (before UFO 1.0)
         if not hasattr(model, 'all_orders'):
-            raise USRMODERROR, 'Add-on Model doesn\'t follows UFO convention (no couplings_order information)\n' +\
-                               'MG5 is able to load such model but NOT to the add model feature.'
-        if isinstance(model.all_particles[0].mass, basestring):
-            raise USRMODERROR, 'Add-on Model doesn\'t follows UFO convention (Mass/Width of particles are string name, not object)\n' +\
-                               'MG5 is able to load such model but NOT to the add model feature.' 
+            raise USRMODERROR('Add-on Model doesn\'t follows UFO convention (no couplings_order information)\n' +\
+                               'MG5 is able to load such model but NOT to the add model feature.')
+        if isinstance(model.all_particles[0].mass, str):
+            raise USRMODERROR('Add-on Model doesn\'t follows UFO convention (Mass/Width of particles are string name, not object)\n' +\
+                               'MG5 is able to load such model but NOT to the add model feature.') 
     
         for order in model.all_orders:
             if hasattr(order, 'perturbative_expansion') and order.perturbative_expansion:
-                raise USRMODERROR, 'Add-on model can not be loop model.' 
+                raise USRMODERROR('Add-on model can not be loop model.') 
                               
         for order in model.all_orders:
             self.add_coupling_order(order)
@@ -891,7 +891,7 @@ from object_library import all_propagators, Propagator
         # + define identify_pid which keep tracks of the pdg_code identified
         identify_pid = {}
         if identify_particles:
-            for new, old in identify_particles.items():
+            for new, old in list(identify_particles.items()):
                 new_part = next((p for p in model.all_particles if p.name==new), None)
                 old_part = next((p for p in self.particles if p.name==old), None)
                 # secure agqinst lower/upper case problem
@@ -917,7 +917,7 @@ from object_library import all_propagators, Propagator
                     # last possibility is that the model do not follow MG5 convention
                     # but that "old" does
                         defaultname = base_objects.Model.load_default_name() # id->name
-                        for pdg, value in defaultname.items():
+                        for pdg, value in list(defaultname.items()):
                             if value == old:
                                 old_part = self.particle_dict[pdg]
                                 identify_particles[new] = old_part.name
@@ -926,14 +926,14 @@ from object_library import all_propagators, Propagator
                 # end for the case security
                 identify_pid[new_part.pdg_code] = old_part.pdg_code   
                 if new_part is None:
-                    raise USRMODERROR, "particle %s not in added model" % new
+                    raise USRMODERROR("particle %s not in added model" % new)
                 if old_part is None:
-                    raise USRMODERROR, "particle %s not in original model" % old
+                    raise USRMODERROR("particle %s not in original model" % old)
                 if new_part.antiname not in identify_particles:
                     new_anti = new_part.antiname
                     old_anti = old_part.antiname
                     if old_anti == old:
-                        raise USRMODERROR, "failed identification (one particle is self-conjugate and not the other)"
+                        raise USRMODERROR("failed identification (one particle is self-conjugate and not the other)")
                     logger.info("adding identification for anti-particle: %s=%s" % (new_anti, old_anti))
                     identify_particles[new_anti] = old_anti
                     

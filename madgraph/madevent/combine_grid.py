@@ -1,4 +1,4 @@
-from __future__ import division
+
 import collections
 import math
 import os
@@ -60,7 +60,7 @@ class grid_information(object):
         elif isinstance(path, file):
             finput=path
         else:
-            raise Exception, "path should be a path or a file descriptor"
+            raise Exception("path should be a path or a file descriptor")
         
         line = finput.readline()
         if self.nonzero == 0:
@@ -79,7 +79,7 @@ class grid_information(object):
                 self.oneFail = True
                 return
             elif len(info) !=3:
-                raise Exception, "wrong formatting of %s"% finput.name
+                raise Exception("wrong formatting of %s"% finput.name)
             
             nonzero, ng, maxinvar = info
             self.nonzero+=nonzero
@@ -153,7 +153,7 @@ class grid_information(object):
             finput=path
             fname = finput.name
         else:
-            raise Exception, "path should be a path or a file descriptor"
+            raise Exception("path should be a path or a file descriptor")
          
         
         return self.results.add_results(fname,finput)
@@ -227,7 +227,7 @@ class grid_information(object):
         # At this stage we chose the small_contrib_threshold and damping power
         # parameter of the discrete grids depending on the mode currently being
         # run.
-        for  dimension in self.discrete_grid.values():
+        for  dimension in list(self.discrete_grid.values()):
             if mode=='survey':
                 # For the survey, we use the conservative 3% with the third root
                 dimension.small_contrib_threshold = 0.03
@@ -253,8 +253,8 @@ class grid_information(object):
         th_maxwgt = [R.th_maxwgt for R in self.results]
         th_nunwgt = [R.th_nunwgt for R in self.results]
         nb_data = len(th_nunwgt)
-        total_sum = sum(th_maxwgt[i] * th_nunwgt[i] for i in xrange(nb_data))
-        info = sorted([ (th_maxwgt[i], th_nunwgt[i]) for i in xrange(nb_data) 
+        total_sum = sum(th_maxwgt[i] * th_nunwgt[i] for i in range(nb_data))
+        info = sorted([ (th_maxwgt[i], th_nunwgt[i]) for i in range(nb_data) 
                                                           if th_nunwgt[i] > 0],
                       reverse=True)
 
@@ -547,7 +547,7 @@ class DiscreteSampler(dict):
             
         while 1:
             try:
-                line = fsock.next()
+                line = next(fsock)
             except StopIteration:
                 break
             line = line.lower()
@@ -580,7 +580,7 @@ class DiscreteSampler(dict):
   
         
         def next_line(fsock):
-            line = fsock.next()
+            line = next(fsock)
             if '#' in line:
                 line = line.split('#',1)[0]
             line = line.strip()
@@ -631,7 +631,7 @@ class DiscreteSampler(dict):
         else:
             fsock = path
         
-        for  dimension in self.values():
+        for  dimension in list(self.values()):
             if dimension.grid_type != 1: #1 is for the reference grid
                 continue
             dimension.update(self[(dimension.name, 2)]) #2 is for the run grid
@@ -669,15 +669,15 @@ class DiscreteSamplerDimension(dict):
             #need to check if running_grid has enough entry bin per bin
             # if this is the case take that value
             # otherwise use the ref one (but rescaled)
-            sum_ref = sum(w.abs_weight for w in self.values())
-            sum_run =  sum(w.abs_weight for w in running_grid.values())
+            sum_ref = sum(w.abs_weight for w in list(self.values()))
+            sum_run =  sum(w.abs_weight for w in list(running_grid.values()))
             ratio = sum_run / sum_ref
-            sum_ref_sqr = sum(w.weight_sqr for w in self.values())
-            sum_run_sqr =  sum(w.weight_sqr for w in running_grid.values())            
+            sum_ref_sqr = sum(w.weight_sqr for w in list(self.values()))
+            sum_run_sqr =  sum(w.weight_sqr for w in list(running_grid.values()))            
             ratio_sqr = sum_run_sqr / sum_ref_sqr
             
             self.min_bin_probing_points = 80
-            for bin_id, bin_info in running_grid.items():
+            for bin_id, bin_info in list(running_grid.items()):
                 if bin_info.n_entries > self.min_bin_probing_points:
                     bin_ref = self[bin_id]
                     self[bin_id] = bin_info
@@ -692,7 +692,7 @@ class DiscreteSamplerDimension(dict):
                     bin_ref.n_entries = self.min_bin_probing_points                 
 
         #remove bin if entry if zero
-        for key in self.keys():
+        for key in list(self.keys()):
             if not self[key].abs_weight:
                 del self[key]
     
@@ -709,7 +709,7 @@ class DiscreteSamplerDimension(dict):
     def __iadd__(self, grid):
         """adding the entry of the second inside this grid"""
 
-        for bin_id, bin_info in grid.items():
+        for bin_id, bin_info in list(grid.items()):
             if bin_id in self:
                 self[bin_id] += bin_info
             else:
@@ -737,7 +737,7 @@ class DiscreteSamplerDimension(dict):
 """
         
         #order the bin from higest contribution to lowest
-        bins = [o for o in self.items()]
+        bins = [o for o in list(self.items())]
         def compare(x,y):
             if x[1].weight - y[1].weight <0:
                 return 1

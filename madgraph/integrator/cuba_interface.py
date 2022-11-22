@@ -3,7 +3,7 @@
 # pyMultiNest. It is rather un-elegant and will need to be improved upon later.
 ###########################################################################################
 
-from __future__ import absolute_import, unicode_literals, print_function
+
 import os
 import ctypes
 from ctypes import POINTER, c_int, c_double, c_void_p, byref

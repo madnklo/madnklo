@@ -84,7 +84,7 @@ class VirtualPhaseSpaceGenerator(object):
         self.dim_ordered_names = [d.name for d in self.dimensions]
 
         self.dim_name_to_position = dict((d.name,i) for i, d in enumerate(self.dimensions))
-        self.position_to_dim_name = dict((v,k) for (k,v) in self.dim_name_to_position.items())
+        self.position_to_dim_name = dict((v,k) for (k,v) in list(self.dim_name_to_position.items()))
         
     def generateKinematics(self, E_cm, random_variables):
         """Generate a phase-space point with fixed center of mass energy."""
@@ -327,7 +327,7 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
         if any(math.isnan(r) for r in random_variables):
             logger.warning('Some input variables from the integrator are malformed: %s'%
                 ( ', '.join( '%s=%s'%( name, random_variables[pos]) for name, pos in 
-                                                     self.dim_name_to_position.items() ) ))
+                                                     list(self.dim_name_to_position.items()) ) ))
             logger.warning('The PS generator will yield None, triggering the point to be skipped.')
             return None, 0.0, (0., 0.), (0., 0.)
         
@@ -687,7 +687,7 @@ class RustFlatInvertiblePhasespace(FlatInvertiblePhasespace):
         if any(math.isnan(r) for r in random_variables):
             logger.warning('Some input variables from the integrator are malformed: %s'%
                 ( ', '.join( '%s=%s'%( name, random_variables[pos]) for name, pos in
-                                                     self.dim_name_to_position.items() ) ))
+                                                     list(self.dim_name_to_position.items()) ) ))
             logger.warning('The PS generator will yield None, triggering the point to be skipped.')
             return None, 0.0, (0., 0.), (0., 0.)
 
@@ -811,38 +811,38 @@ if __name__ == '__main__':
         rust_PS_generator = RustFlatInvertiblePhasespace([0.]*2, [100. + 10.*i for i in range(8)],
                                             beam_Es =(E_cm/2.,E_cm/2.), beam_types=(0,0))
         rust_momenta, rust_wgt, x1, x2 = rust_PS_generator.get_PS_point(random_variables)
-        print "Rust momenta:\n%s" % rust_momenta
-        print "Rust phase-space weight : %.16e\n"%wgt
+        print("Rust momenta:\n%s" % rust_momenta)
+        print("Rust phase-space weight : %.16e\n"%wgt)
    
-    print "\n ========================="
-    print " ||    PS generation    ||"
-    print " ========================="
+    print("\n =========================")
+    print(" ||    PS generation    ||")
+    print(" =========================")
 
-    print "\nRandom variables :\n",random_variables
-    print "\n%s\n"%momenta.__str__(n_initial=my_PS_generator.n_initial)
-    print "Phase-space weight : %.16e\n"%wgt,
+    print("\nRandom variables :\n",random_variables)
+    print("\n%s\n"%momenta.__str__(n_initial=my_PS_generator.n_initial))
+    print("Phase-space weight : %.16e\n"%wgt, end=' ')
 
     variables_reconstructed, wgt_reconstructed = \
                                          my_PS_generator.invertKinematics(E_cm, momenta)
 
-    print "\n ========================="
-    print " || Kinematic inversion ||"
-    print " ========================="
-    print "\nReconstructed random variables :\n",variables_reconstructed
+    print("\n =========================")
+    print(" || Kinematic inversion ||")
+    print(" =========================")
+    print("\nReconstructed random variables :\n",variables_reconstructed)
     differences = [
         abs(variables_reconstructed[i]-random_variables[i])
         for i in range(len(variables_reconstructed))
     ]
-    print "Reconstructed weight = %.16e"%wgt_reconstructed
+    print("Reconstructed weight = %.16e"%wgt_reconstructed)
     if differences:
-        print "\nMax. relative diff. in reconstructed variables = %.3e"%\
-            max(differences[i]/random_variables[i] for i in range(len(differences)))
-    print "Rel. diff. in PS weight = %.3e\n"%((wgt_reconstructed-wgt)/wgt)
+        print("\nMax. relative diff. in reconstructed variables = %.3e"%\
+            max(differences[i]/random_variables[i] for i in range(len(differences))))
+    print("Rel. diff. in PS weight = %.3e\n"%((wgt_reconstructed-wgt)/wgt))
 
 
-    print('-'*100)
+    print(('-'*100))
     print('SIDE EXPERIMENT, TO REMOVE LATER')
-    print('-'*100)
+    print(('-'*100))
     import copy    
 
     my_PS_generator = FlatInvertiblePhasespace([0.]*2, [100. + 10.*i for i in range(2)],
@@ -856,7 +856,7 @@ if __name__ == '__main__':
 
 
     print("original momenta")
-    print(str(momenta))
+    print((str(momenta)))
     print("computing boost vector to lab frame with x1=0.25 and x2=0.6")
     boost_vector_to_lab_frame = None
     xb_1, xb_2 = 0.25, 0.6
@@ -878,35 +878,35 @@ if __name__ == '__main__':
     test_momenta = copy.deepcopy(momenta_boosted_to_com)
 
     print("Final PS point should be in c.o.m:")
-    print(str(momenta_boosted_to_com))
+    print((str(momenta_boosted_to_com)))
     print("\nFinal check\n")
     print("Initial state momenta obtained from simple rescaling:")
-    print("1: %s"%str(momenta_boosted_to_com[0]*xb_1*xi1))
-    print("2: %s"%str(momenta_boosted_to_com[1]*xb_2*xi2))
+    print(("1: %s"%str(momenta_boosted_to_com[0]*xb_1*xi1)))
+    print(("2: %s"%str(momenta_boosted_to_com[1]*xb_2*xi2)))
 
     print("\n Initial state momenta obtained with xi boost:")
-    print("xi_boost=",str(xi_boost))
+    print(("xi_boost=",str(xi_boost)))
     test_momenta[0].boost(xi_boost)
     test_momenta[1].boost(xi_boost)
-    print("1: %s"%str(test_momenta[0]))
-    print("2: %s"%str(test_momenta[1]))
+    print(("1: %s"%str(test_momenta[0])))
+    print(("2: %s"%str(test_momenta[1])))
     print(".vs.")
-    print("1: %s"%str(momenta[0]))
-    print("2: %s"%str(momenta[1]))
+    print(("1: %s"%str(momenta[0])))
+    print(("2: %s"%str(momenta[1])))
 
     print("\n Initial state momenta obtained with subsequent bjorken boost:")
     test_momenta[0].boost(-ref_lab.boostVector())
     test_momenta[1].boost(-ref_lab.boostVector())
-    print("1: %s"%str(test_momenta[0]))
-    print("2: %s"%str(test_momenta[1]))
+    print(("1: %s"%str(test_momenta[0])))
+    print(("2: %s"%str(test_momenta[1])))
     print(".vs.")
-    print("1: %s"%str(momenta[0]*xb_1))
-    print("2: %s"%str(momenta[1]*xb_2))
+    print(("1: %s"%str(momenta[0]*xb_1)))
+    print(("2: %s"%str(momenta[1]*xb_2)))
 
     print("\n Initial state momenta obtained with overall boost:")
     momenta[0].boost(boost_vector_to_lab_frame)
     momenta[1].boost(boost_vector_to_lab_frame)
-    print("1: %s"%str(momenta[0]))
-    print("2: %s"%str(momenta[1]))
+    print(("1: %s"%str(momenta[0])))
+    print(("2: %s"%str(momenta[1])))
 
 

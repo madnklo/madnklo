@@ -14,6 +14,9 @@
 ################################################################################
 """A set of functions performing routine administrative I/O tasks."""
 
+
+
+import collections
 import contextlib
 import itertools
 import logging
@@ -22,18 +25,26 @@ import re
 import signal
 import subprocess
 import sys
-import StringIO
-import sys
 import optparse
 import time
 import shutil
+import stat
 import traceback
 import gzip as ziplib
-
+from distutils.version import LooseVersion, StrictVersion
+import six
+from six.moves import zip_longest
+from six.moves import range
+from six.moves import zip
+from six.moves import input
+StringIO = six
+if six.PY3:
+    import io
+    file = io.IOBase
 try:
     # Use in MadGraph
     import madgraph
-except Exception, error:
+except Exception as error:
     # Use in MadEvent
     import internal
     from internal import MadGraph5Error, InvalidCmd
@@ -91,7 +102,7 @@ def parse_info_str(fsock):
         if m is not None:
             info_dict[m.group('name')] = m.group('value')
         else:
-            raise IOError, "String %s is not a valid info string" % entry
+            raise IOError("String %s is not a valid info string" % entry)
 
     return info_dict
 
@@ -194,7 +205,7 @@ class Silence:
         # save previous stdout/stderr
         self.saved_streams = saved_streams = sys.__stdout__, sys.__stderr__
         self.fds = fds = [s.fileno() for s in saved_streams]
-        self.saved_fds = map(os.dup, fds)
+        self.saved_fds = list(map(os.dup, fds))
         # flush any pending output
         for s in saved_streams: s.flush()
 
@@ -203,14 +214,14 @@ class Silence:
             null_streams = [open(self.outfiles[0], self.mode, 0)] * 2
             if self.outfiles[0] != os.devnull:
                 # disable buffering so output is merged immediately
-                sys.stdout, sys.stderr = map(os.fdopen, fds, ['w']*2, [0]*2)
+                sys.stdout, sys.stderr = list(map(os.fdopen, fds, ['w']*2, [0]*2))
         else:
             null_streams = [open(f, self.mode, 0) for f in self.outfiles]
         self.null_fds = null_fds = [s.fileno() for s in null_streams]
         self.null_streams = null_streams
         
         # overwrite file objects and low-level file descriptors
-        map(os.dup2, null_fds, fds)
+        list(map(os.dup2, null_fds, fds))
 
     def __exit__(self, *args):
         if not self.active: return
@@ -218,7 +229,7 @@ class Silence:
         # flush any pending output
         for s in self.saved_streams: s.flush()
         # restore original streams and file descriptors
-        map(os.dup2, self.saved_fds, self.fds)
+        list(map(os.dup2, self.saved_fds, self.fds))
         sys.stdout, sys.stderr = self.saved_streams
         # clean up
         for s in self.null_streams: s.close()
@@ -267,7 +278,7 @@ def get_pkg_info(info_str=None):
     global PACKAGE_INFO
 
     if info_str:
-        info_dict = parse_info_str(StringIO.StringIO(info_str))
+        info_dict = parse_info_str(io.StringIO(info_str))
 
     elif MADEVENT:
         info_dict ={}
@@ -403,7 +414,7 @@ def deactivate_dependence(dependency, cmd=None, log = None):
     
     def tell(msg):
         if log == 'stdout':
-            print msg
+            print(msg)
         elif callable(log):
             log(msg)
     
@@ -419,7 +430,7 @@ def activate_dependence(dependency, cmd=None, log = None, MG5dir=None):
     
     def tell(msg):
         if log == 'stdout':
-            print msg
+            print(msg)
         elif callable(log):
             log(msg)
 
@@ -441,7 +452,7 @@ def activate_dependence(dependency, cmd=None, log = None, MG5dir=None):
             cmd.do_install('Golem95')
     
     if dependency=='samurai':
-        raise MadGraph5Error, 'Samurai cannot yet be automatically installed.' 
+        raise MadGraph5Error('Samurai cannot yet be automatically installed.') 
 
     if dependency=='ninja':
         if cmd.options['ninja'] in ['None',None,''] or\
@@ -490,11 +501,11 @@ def nice_representation(var, nb_space=0):
     #check which data to put:
     info = [('type',type(var)),('str', var)]
     if hasattr(var, 'func_doc'):
-        info.append( ('DOC', var.func_doc) )
+        info.append( ('DOC', var.__doc__) )
     if hasattr(var, '__doc__'):
         info.append( ('DOC', var.__doc__) )
     if hasattr(var, '__dict__'):
-        info.append( ('ATTRIBUTE', var.__dict__.keys() ))
+        info.append( ('ATTRIBUTE', list(var.__dict__.keys()) ))
     
     spaces = ' ' * nb_space
 
@@ -517,7 +528,7 @@ def multiple_try(nb_try=5, sleep=20):
                     return f(*args, **opt)
                 except KeyboardInterrupt:
                     raise
-                except Exception, error:
+                except Exception as error:
                     global wait_once
                     if not wait_once:
                         text = """Start waiting for update. (more info in debug mode)"""
@@ -531,7 +542,7 @@ def multiple_try(nb_try=5, sleep=20):
 
             if __debug__:
                 raise
-            raise error.__class__, '[Fail %i times] \n %s ' % (i+1, error)
+            raise error.__class__('[Fail %i times] \n %s ' % (i+1, error))
         return deco_f_retry
     return deco_retry
 
@@ -588,9 +599,9 @@ def compile(arg=[], cwd=None, mode='fortran', job_specs = True, nb_core=1 ,**opt
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, 
                              stderr=subprocess.STDOUT, cwd=cwd, **opt)
         (out, err) = p.communicate()
-    except OSError, error:
+    except OSError as error:
         if cwd and not os.path.exists(cwd):
-            raise OSError, 'Directory %s doesn\'t exists. Impossible to run make' % cwd
+            raise OSError('Directory %s doesn\'t exists. Impossible to run make' % cwd)
         else:
             error_text = "Impossible to compile %s directory\n" % cwd
             error_text += "Trying to launch make command returns:\n"
@@ -599,7 +610,7 @@ def compile(arg=[], cwd=None, mode='fortran', job_specs = True, nb_core=1 ,**opt
             if sys.platform == "darwin":
                 error_text += "Note that MacOSX doesn\'t have gmake/gfortan install by default.\n"
                 error_text += "Xcode3 contains those required programs"
-            raise MadGraph5Error, error_text
+            raise MadGraph5Error(error_text)
 
     if p.returncode:
         # Check that makefile exists
@@ -607,24 +618,24 @@ def compile(arg=[], cwd=None, mode='fortran', job_specs = True, nb_core=1 ,**opt
             cwd = os.getcwd()
         all_file = [f.lower() for f in os.listdir(cwd)]
         if 'makefile' not in all_file and '-f' not in arg:
-            raise OSError, 'no makefile present in %s' % os.path.realpath(cwd)
+            raise OSError('no makefile present in %s' % os.path.realpath(cwd))
 
         if mode == 'fortran' and  not (which('g77') or which('gfortran')):
             error_msg = 'A fortran compiler (g77 or gfortran) is required to create this output.\n'
             error_msg += 'Please install g77 or gfortran on your computer and retry.'
-            raise MadGraph5Error, error_msg
+            raise MadGraph5Error(error_msg)
         elif mode == 'cpp' and not which('g++'):            
             error_msg ='A C++ compiler (g++) is required to create this output.\n'
             error_msg += 'Please install g++ (which is part of the gcc package)  on your computer and retry.'
-            raise MadGraph5Error, error_msg
+            raise MadGraph5Error(error_msg)
 
         # Check if this is due to the need of gfortran 4.6 for quadruple precision
         if any(tag.upper() in out.upper() for tag in ['real(kind=16)','real*16',
             'complex*32']) and mode == 'fortran' and not \
                              ''.join(get_gfortran_version().split('.')) >= '46':
             if not which('gfortran'):
-                raise MadGraph5Error, 'The fortran compiler gfortran v4.6 or later '+\
-                  'is required to compile %s.\nPlease install it and retry.'%cwd
+                raise MadGraph5Error('The fortran compiler gfortran v4.6 or later '+\
+                  'is required to compile %s.\nPlease install it and retry.'%cwd)
             else:
                 logger_stderr.error('ERROR, you could not compile %s because'%cwd+\
              ' your version of gfortran is older than 4.6. MadGraph5_aMC@NLO will carry on,'+\
@@ -639,7 +650,7 @@ def compile(arg=[], cwd=None, mode='fortran', job_specs = True, nb_core=1 ,**opt
         error_text += 'Please try to fix this compilations issue and retry.\n'
         error_text += 'Help might be found at https://answers.launchpad.net/mg5amcnlo.\n'
         error_text += 'If you think that this is a bug, you can report this at https://bugs.launchpad.net/mg5amcnlo'
-        raise MadGraph5Error, error_text
+        raise MadGraph5Error(error_text)
     return p.returncode
 
 def get_gfortran_version(compiler='gfortran'):
@@ -743,7 +754,7 @@ class MuteLogger(object):
         for logname in lognames:
             try:
                 os.remove(path)
-            except Exception, error:
+            except Exception as error:
                 pass
             my_logger = logging.getLogger(logname)
             hdlr = logging.FileHandler(path)            
@@ -768,7 +779,7 @@ class MuteLogger(object):
             if path:
                 try:
                     os.remove(path)
-                except Exception, error:
+                except Exception as error:
                     pass
             my_logger = logging.getLogger(logname)
             if logname in self.logger_saved_info:
@@ -819,9 +830,7 @@ def get_open_fds():
     pid = os.getpid()
     procs = subprocess.check_output( 
         [ "lsof", '-w', '-Ff', "-p", str( pid ) ] )
-    nprocs = filter( 
-            lambda s: s and s[ 0 ] == 'f' and s[1: ].isdigit(),
-            procs.split( '\n' ) )
+    nprocs = [s for s in procs.split( '\n' ) if s and s[ 0 ] == 'f' and s[1: ].isdigit()]
         
     return nprocs
 
@@ -832,10 +841,10 @@ def detect_if_cpp_compiler_is_clang(cpp_compiler):
         p = Popen([cpp_compiler, '--version'], stdout=subprocess.PIPE, 
                     stderr=subprocess.PIPE)
         output, error = p.communicate()
-    except Exception, error:
+    except Exception as error:
         # Cannot probe the compiler, assume not clang then
         return False
-    return 'LLVM' in output
+    return 'LLVM' in output or 'clang' in output
 
 def detect_cpp_std_lib_dependence(cpp_compiler):
     """ Detects if the specified c++ compiler will normally link against the C++
@@ -949,7 +958,7 @@ def check_system_error(value=1):
         def deco_f(arg, *args, **opt):
             try:
                 return f(arg, *args, **opt)
-            except OSError, error:
+            except OSError as error:
                 logger.debug('try to recover from %s' % error)
                 if isinstance(arg, list):
                     prog =  arg[0]
@@ -967,8 +976,8 @@ def check_system_error(value=1):
                 # NO such file or directory
                 elif error.errno == 2:
                     # raise a more meaningfull error message
-                    raise Exception, '%s fails with no such file or directory' \
-                                                                           % arg            
+                    raise Exception('%s fails with no such file or directory' \
+                                                                           % arg)            
                 else:
                     raise
         return deco_f
@@ -1083,7 +1092,7 @@ the file and returns last line in an internal buffer."""
         if not self.data[-1]:
           self.data.pop()
         
-    def next(self):
+    def __next__(self):
         line = self.readline()
         if line:
             return line
@@ -1103,8 +1112,8 @@ def write_PS_input(filePath, PS):
                                                              for p in PS])+'\n')
         PSfile.close()
     except Exception:
-        raise MadGraph5Error, 'Could not write out the PS point to file %s.'\
-                                                                  %str(filePath)
+        raise MadGraph5Error('Could not write out the PS point to file %s.'\
+                                                                  %str(filePath))
 
 def format_timer(running_time):
     """ return a nicely string representing the time elapsed."""
@@ -1191,8 +1200,8 @@ def gunzip(path, keep=False, stdout=None):
         if os.path.exists("%s.gz" % path):
             path = "%s.gz" % path
         else:
-            raise Exception, "%(path)s does not finish by .gz and the file %(path)s.gz does not exists" %\
-                              {"path": path}         
+            raise Exception("%(path)s does not finish by .gz and the file %(path)s.gz does not exists" %\
+                              {"path": path})         
 
     
     #for large file (>1G) it is faster and safer to use a separate thread
@@ -1329,7 +1338,7 @@ class open_file(object):
                         cls.text_editor = configuration[key]
                         continue
                 #Need to find a valid default
-                if os.environ.has_key('EDITOR'):
+                if 'EDITOR' in os.environ:
                     cls.text_editor = os.environ['EDITOR']
                 else:
                     cls.text_editor = cls.find_valid(
@@ -1376,8 +1385,8 @@ class open_file(object):
             if not background:
                 subprocess.call(arguments)
             else:
-                import thread
-                thread.start_new_thread(subprocess.call,(arguments,))
+                import _thread
+                _thread.start_new_thread(subprocess.call,(arguments,))
         else:
             logger.warning('Not able to open file %s since no program configured.' % file_path + \
                                 'Please set one in ./input/mg5_configuration.txt')
@@ -1442,7 +1451,7 @@ class OptionParser(optparse.OptionParser):
     
     def exit(self, status=0, msg=None):
         if msg:
-            raise InvalidCmd, msg
+            raise InvalidCmd(msg)
         else:
             raise InvalidCmd
 
@@ -1454,14 +1463,14 @@ def sprint(*args, **opt):
     
     use_print = False
     import inspect
-    if opt.has_key('cond') and not opt['cond']:
+    if 'cond' in opt and not opt['cond']:
         return
     
-    if opt.has_key('log'):
+    if 'log' in opt:
         log = opt['log']
     else:
         log = logging.getLogger('madgraph')
-    if opt.has_key('level'):
+    if 'level' in opt:
         level = opt['level']
     else:
         level = logging.getLogger('madgraph').level
@@ -1471,7 +1480,7 @@ def sprint(*args, **opt):
         #if level == 20:
         #    level = 10 #avoid info level
         #print "use", level
-    if opt.has_key('wait'):
+    if 'wait' in opt:
         wait = bool(opt['wait'])
     else:
         wait = False
@@ -1504,11 +1513,11 @@ def sprint(*args, **opt):
         log.log(level, ' '.join([intro]+[str(a) for a in args]) + \
                    ' \033[1;30m[%s at line %s]\033[0m' % (os.path.basename(filename), lineno))
     else:
-        print ' '.join([intro]+[str(a) for a in args]) + \
-                   ' \033[1;30m[%s at line %s]\033[0m' % (os.path.basename(filename), lineno)
+        print(' '.join([intro]+[str(a) for a in args]) + \
+                   ' \033[1;30m[%s at line %s]\033[0m' % (os.path.basename(filename), lineno))
 
     if wait:
-        raw_input('press_enter to continue')
+        eval(input('press_enter to continue'))
 
     return 
 
@@ -1562,8 +1571,8 @@ def timeout(func, args=(), kwargs={}, timeout_duration=1, default=None):
         def run(self):
             try:
                 self.result = func(*args, **kwargs)
-            except Exception,error:
-                print error
+            except Exception as error:
+                print(error)
                 self.result = default
     it = InterruptableThread()
     it.start()
@@ -1798,7 +1807,7 @@ class EasterEgg(object):
                 self.call_apple(msg)
             else:
                 self.call_linux(msg)
-        except Exception, error:
+        except Exception as error:
             sprint(error)
             pass
     
@@ -1867,8 +1876,8 @@ def get_older_version(v1, v2):
         return v1 if v2 is not in 1.2.3.4.5 format
         return v2 if v1 is not in 1.2.3.4.5 format
     """
-    from itertools import izip_longest
-    for a1, a2 in izip_longest(v1, v2, fillvalue=0):
+    from itertools import zip_longest
+    for a1, a2 in zip_longest(v1, v2, fillvalue=0):
         try:
             a1= int(a1)
         except:
@@ -2012,7 +2021,7 @@ def import_python_lhapdf(lhapdfconfig):
                 import lhapdf
                 use_lhapdf=True
             except ImportError:
-                print 'fail'
+                print('fail')
                 logger.warning("Failed to access python version of LHAPDF: "\
                                    "If the python interface to LHAPDF is available on your system, try "\
                                    "adding its location to the PYTHONPATH environment variable and the"\
@@ -2025,6 +2034,204 @@ def import_python_lhapdf(lhapdfconfig):
         python_lhapdf = None
     return python_lhapdf
 
+def wget(http, path, *args, **opt):
+    """a wget function for both unix and mac"""
+
+    if sys.platform == "darwin":
+        return call(['curl', '-L', http, '-o%s' % path], *args, **opt)
+    else:
+        return call(['wget', http, '--output-document=%s'% path], *args, **opt)
+
+
+def make_unique(input, keepordering=None):
+    "remove duplicate in a list "
+
+    if keepordering is None:
+        if MADEVENT:
+            keepordering = False
+        else:
+            keepordering = madgraph.ordering
+    if not keepordering:
+        return list(set(input))
+    else:
+        return list(dict.fromkeys(input)) 
+
+if six.PY3:
+    try:
+        from collections import MutableSet
+    except ImportError: # this is for python3.10
+        from collections.abc import  MutableSet
+    
+    class OrderedSet(collections.OrderedDict, MutableSet):
+
+        def __init__(self, arg=None):
+            super( OrderedSet, self).__init__()
+            if arg:
+                self.update(arg)
+
+        def update(self, *args, **kwargs):
+            if kwargs:
+                raise TypeError("update() takes no keyword arguments")
+
+            for s in args:
+                for e in s:
+                    self.add(e)
+
+        def add(self, elem):
+            self[elem] = None
+
+        def discard(self, elem):
+            self.pop(elem, None)
+
+        def pop(self, *args):
+            if args:
+                return super().pop(*args)
+            else:
+                key = next(iter(self))
+                return super().pop(key, None)
+                
+        def __le__(self, other):
+            return all(e in other for e in self)
+
+        def __lt__(self, other):
+            return self <= other and self != other
+
+        def __ge__(self, other):
+            return all(e in self for e in other)
+
+        def __gt__(self, other):
+            return self >= other and self != other
+
+        def __repr__(self):
+            return 'OrderedSet([%s])' % (', '.join(map(repr, self.keys())))
+
+        def __str__(self):
+            return '{%s}' % (', '.join(map(repr, self.keys())))
+
+        def __eq__(self, other):
+            try:
+                return set(self) == set(other)
+            except TypeError:
+                return False
+        difference = property(lambda self: self.__sub__)
+        difference_update = property(lambda self: self.__isub__)
+        intersection = property(lambda self: self.__and__)
+        intersection_update = property(lambda self: self.__iand__)
+        issubset = property(lambda self: self.__le__)
+        issuperset = property(lambda self: self.__ge__)
+        symmetric_difference = property(lambda self: self.__xor__)
+        symmetric_difference_update = property(lambda self: self.__ixor__)
+        union = property(lambda self: self.__or__)
+else:
+    OrderedSet = set
+
+
+def cmp_to_key(mycmp):
+    'Convert a cmp= function into a key= function (for using python2 type of sort)'
+
+    class K:
+        def __init__(self, obj, *args):
+            self.obj = obj
+        def __lt__(self, other):
+            return mycmp(self.obj, other.obj) < 0
+        def __gt__(self, other):
+            return mycmp(self.obj, other.obj) > 0
+        def __eq__(self, other):
+            return mycmp(self.obj, other.obj) == 0
+        def __le__(self, other):
+            return mycmp(self.obj, other.obj) <= 0
+        def __ge__(self, other):
+            return mycmp(self.obj, other.obj) >= 0
+        def __ne__(self, other):
+            return mycmp(self.obj, other.obj) != 0
+    return K
+
+def smallest_diff_key(A, B):
+    """return the smallest key adiff in A such that adiff not in B or A[adiff] != B[bdiff]"""
+    diff_keys = [k for k in A if k not in B or A[k] != B[k]]
+    return min(diff_keys)
+
+def dict_cmp(A, B, level=1):
+    if len(A) != len(B):
+        return (len(A) > len(B)) - (len(A) < len(B))
+    try:
+        adiff = smallest_diff_key(A, B)
+    except ValueError:
+        # No difference.
+        return 0
+    bdiff = smallest_diff_key(B, A)
+    if adiff != bdiff:
+        a = adiff
+        b = bdiff
+        return (a > b) - (a < b)        
+    a = A[adiff]
+    b = B[bdiff]
+    if isinstance(a, dict):
+        return dict_cmp(a,b,level=level+1)
+    else:
+        return (a > b) - (a < b)
+        #return cmp(A[adiff], B[bdiff])
+
+if six.PY3:
+    import io
+    file = io.FileIO
+        
+class BackRead(file):
+    """read a file returning the lines in reverse order for each call of readline()
+This actually just reads blocks (4096 bytes by default) of data from the end of
+the file and returns last line in an internal buffer."""
+
+
+    def readline(self):
+        """ readline in a backward way """
+
+        while len(self.data) == 1 and ((self.blkcount * self.blksize) < self.size):
+          self.blkcount = self.blkcount + 1
+          line = self.data[0]
+          try:
+            self.seek(-self.blksize * self.blkcount, 2) # read from end of file
+            self.data = (self.read(self.blksize).decode() + line).split('\n')
+          except IOError:  # can't seek before the beginning of the file
+            self.seek(0)
+            data = self.read(self.size - (self.blksize * (self.blkcount-1))).decode() + line
+            self.data = data.split('\n')
+
+        if len(self.data) == 0:
+          return ""
+
+        line = self.data.pop()
+        return line + '\n'
+
+    def __init__(self, filepos, blksize=4096):
+        """initialize the internal structures"""
+
+        # get the file size
+        self.size = os.stat(filepos)[6]
+        # how big of a block to read from the file...
+        self.blksize = blksize
+        # how many blocks we've read
+        self.blkcount = 1
+        file.__init__(self, filepos, 'rb')
+        # if the file is smaller than the blocksize, read a block,
+        # otherwise, read the whole thing...
+        if self.size > self.blksize:
+          self.seek(-self.blksize * self.blkcount, 2) # read from end of file
+        self.data = self.read(self.blksize).decode().split('\n')
+        # strip the last item if it's empty...  a byproduct of the last line having
+        # a newline at the end of it
+        if not self.data[-1]:
+          self.data.pop()
+
+    def next(self):
+        line = self.readline()
+        if line:
+            return line
+        else:
+            raise StopIteration
+def tqdm(iterator, **opts):
+    return iterator
+
+        
 ############################### TRACQER FOR OPEN FILE
 #openfiles = set()
 #oldfile = __builtin__.file

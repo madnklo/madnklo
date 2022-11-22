@@ -40,7 +40,7 @@ This file contains 4 class:
         S-channel is going from level to the next, then this S-channel should be
         horizontal."""
 
-from __future__ import division
+
 
 import math
 
@@ -65,7 +65,7 @@ class FeynmanLine(object):
         # Add this attribute by default to have some tests with a hard-coded
         # dictionary for initialization passing.
         self.loop_line = False
-        for key, value in init_dict.items():
+        for key, value in list(init_dict.items()):
             setattr(self, key, value)
         self.begin = 0
         self.end = 0
@@ -412,8 +412,8 @@ class FeynmanLine(object):
             self.begin.pos_x
             self.end.pos_y
         except Exception:
-            raise self.FeynmanLineError, 'No vertex in begin-end position ' + \
-                        ' or no position attach at one of those vertex '
+            raise self.FeynmanLineError('No vertex in begin-end position ' + \
+                        ' or no position attach at one of those vertex ')
         return True
 
     def has_ordinate(self, x):
@@ -431,10 +431,10 @@ class FeynmanLine(object):
                 min, max = max, min
 
             if min == max:
-                raise self.FeynmanLineError, 'Vertical line: no unique solution'
+                raise self.FeynmanLineError('Vertical line: no unique solution')
             if(not(min <= x <= max)):
-                raise self.FeynmanLineError, 'point outside interval invalid ' + \
-                    'invalid order {0:3}<={1:3}<={2:3}'.format(min, x, max)
+                raise self.FeynmanLineError('point outside interval invalid ' + \
+                    'invalid order {0:3}<={1:3}<={2:3}'.format(min, x, max))
 
         return self._has_ordinate(x)
 
@@ -479,7 +479,7 @@ class VertexPoint(object):
         assert(isinstance(vertex, base_objects.Vertex))
 
         # Copy data and add new entry                    
-        for key, value in vertex.items():
+        for key, value in list(vertex.items()):
             setattr(self, key, value)
         self.lines = []
         self.level = None
@@ -548,8 +548,8 @@ class VertexPoint(object):
                 del self.lines[i]
                 return # only one data to remove!
 
-        raise self.VertexPointError, 'trying to remove in a ' + \
-                            'Vertex_Point a non present Feynman_Line'
+        raise self.VertexPointError('trying to remove in a ' + \
+                            'Vertex_Point a non present Feynman_Line')
 
 
     def def_level(self, level):
@@ -1060,9 +1060,8 @@ class FeynmanDiagram(object):
             # Associate position to level 2 and following (auto-recursive fct)
             self.find_vertex_position_at_level([init_line.end], 2)
         else:
-            raise self.FeynamDiagramError, \
-                                'only for one or two initial particles not %s' \
-                                % (len(self.initial_vertex))
+            raise self.FeynamDiagramError('only for one or two initial particles not %s' \
+                                % (len(self.initial_vertex)))
 
 
     def find_vertex_position_tchannel(self):
@@ -1642,7 +1641,7 @@ class DiagramDrawer(object):
         #No need to test Diagram class, it will be tested before using it anyway
         try:
             assert(not model or isinstance(model, base_objects.Model))
-            assert(not filename or isinstance(filename, basestring))
+            assert(not filename or isinstance(filename, str))
         except AssertionError:
             raise self.DrawDiagramError('No valid model provide to convert ' + \
                                         'diagram in appropriate format')
@@ -1937,8 +1936,8 @@ class DiagramDrawer(object):
         straight is an example and can be replace by other type of line as 
         dashed, wavy, curly, ..."""
 
-        raise self.DrawDiagramError, 'DrawDiagram.draw_straight should be ' + \
-                'overwritten by Inherited Class'
+        raise self.DrawDiagramError('DrawDiagram.draw_straight should be ' + \
+                'overwritten by Inherited Class')
 
     draw_curved_straight = draw_straight
 
@@ -1980,7 +1979,7 @@ class DrawOption(object):
         self.contract_non_propagating = True
 
         if isinstance(opt, dict):
-            for key, value in opt.items():
+            for key, value in list(opt.items()):
                 self.set(key, value)
         else:    
             for value in ['external','add_gap','horizontal','max_size',
@@ -2258,7 +2257,7 @@ class LoopFeynmanDiagram(FeynmanDiagram):
 
                 
             for line in vertex['legs'][:-1]:
-                if binding_side.has_key(line.get('number')):
+                if line.get('number') in binding_side:
                     pass
                 binding_side[line.get('number')] = left_direction
         
@@ -2282,7 +2281,7 @@ class LoopFeynmanDiagram(FeynmanDiagram):
                         continue # connecting to initial particles
                     #compute the number of vertex in the structure
                     nb_vertex = len(self.fdstructures[structure_id].get('vertices'))
-                    if not binding_side.has_key(leg.get('number')):
+                    if leg.get('number') not in binding_side:
                         continue
                         
                     if  binding_side[leg.get('number')]:

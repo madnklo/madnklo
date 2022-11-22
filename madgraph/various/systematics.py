@@ -12,7 +12,7 @@
 # For more information, visit madgraph.phys.ucl.ac.be and amcatnlo.web.cern.ch
 #
 ################################################################################
-from __future__ import division
+
 if __name__ == "__main__":
     import sys
     import os
@@ -22,17 +22,17 @@ if __name__ == "__main__":
     else:
         sys.path.append(os.path.dirname(os.path.dirname(root)))
         
-import lhe_parser
-import banner
-import banner as banner_mod
+from . import lhe_parser
+from . import banner
+from . import banner as banner_mod
 import itertools
-import misc
+from . import misc
 import math
 import os 
 import re
 import sys
 import time
-import StringIO
+import io
 
 pjoin = os.path.join
 
@@ -42,7 +42,7 @@ class SystematicsError(Exception):
 class Systematics(object):
     
     def __init__(self, input_file, output_file,
-                 start_event=0, stop_event=sys.maxint, write_banner=False,
+                 start_event=0, stop_event=sys.maxsize, write_banner=False,
                  mur=[0.5,1,2],
                  muf=[0.5,1,2],
                  alps=[1],
@@ -97,11 +97,11 @@ class Systematics(object):
         if isinstance(self.banner.run_card, banner_mod.RunCardLO):
             self.is_lo = True
             if not self.banner.run_card['use_syst']:
-                raise SystematicsError, 'The events have not been generated with use_syst=True. Cannot evaluate systematics error on these events.'
+                raise SystematicsError('The events have not been generated with use_syst=True. Cannot evaluate systematics error on these events.')
         else:
             self.is_lo = False
             if not self.banner.run_card['store_rwgt_info']:
-                raise SystematicsError, 'The events have not been generated with store_rwgt_info=True. Cannot evaluate systematics error on these events.'
+                raise SystematicsError('The events have not been generated with store_rwgt_info=True. Cannot evaluate systematics error on these events.')
 
         # MUR/MUF/ALPS PARSING
         if isinstance(mur, str):
@@ -130,7 +130,7 @@ class Systematics(object):
         self.stop_event=int(stop_event)
         if start_event != 0:
             self.log( "#starting from event #%s" % start_event)
-        if stop_event != sys.maxint:
+        if stop_event != sys.maxsize:
             self.log( "#stopping at event #%s" % stop_event)
         
         # LHAPDF set 
@@ -163,7 +163,7 @@ class Systematics(object):
                         try:
                             self.pdf.append(lhapdf.mkPDF(int(name)+int(arg)))
                         except:
-                            raise Exception, 'Individual error sets need to be called with LHAPDF NAME not with LHAGLUE NUMBER'
+                            raise Exception('Individual error sets need to be called with LHAPDF NAME not with LHAGLUE NUMBER')
                     else:
                         self.pdf.append(lhapdf.mkPDF(name, int(arg)))
                 else:
@@ -257,15 +257,15 @@ class Systematics(object):
                 wgts = [self.get_nlo_wgt(event, *arg) for arg in self.args]
             
             if wgts[0] == 0:
-                print wgts
-                print event
+                print(wgts)
+                print(event)
                 raise Exception
             
             wgt = [event.wgt*wgts[i]/wgts[0] for i in range(1,len(wgts))]
             all_cross = [(all_cross[j] + event.wgt*wgts[j]/wgts[0]) for j in range(len(wgts))]
             
             rwgt_data = event.parse_reweight()
-            rwgt_data.update(zip(ids, wgt))
+            rwgt_data.update(list(zip(ids, wgt)))
             event.reweight_order += ids
             # order the 
             self.output.write(str(event))
@@ -287,9 +287,9 @@ class Systematics(object):
         #print "normalisation is ", norm
         #print "nb_event is ", nb_event
     
-        max_scale, min_scale = 0,sys.maxint
-        max_alps, min_alps = 0, sys.maxint
-        max_dyn, min_dyn = 0,sys.maxint
+        max_scale, min_scale = 0,sys.maxsize
+        max_alps, min_alps = 0, sys.maxsize
+        max_dyn, min_dyn = 0,sys.maxsize
         pdfs = {}
         dyns = {} # dyn : {'max': , 'min':}
 
@@ -327,14 +327,14 @@ class Systematics(object):
             if pdf == self.orig_pdf and (alps!=1 or mur!=1 or muf!=1) and \
                                                 (dyn!=self.orig_dyn or dyn!=-1):
                 if dyn not in dyns:
-                    dyns[dyn] = {'max':0, 'min':sys.maxint,'central':0}
+                    dyns[dyn] = {'max':0, 'min':sys.maxsize,'central':0}
                 curr = dyns[dyn]
                 curr['max'] = max(curr['max'],all_cross[i])
                 curr['min'] = min(curr['min'],all_cross[i])
             if pdf == self.orig_pdf and (alps==1 and mur==1 and muf==1) and \
                                                 (dyn!=self.orig_dyn or dyn!=-1):
                 if dyn not in dyns:
-                    dyns[dyn] = {'max':0, 'min':sys.maxint,'central':all_cross[i]}
+                    dyns[dyn] = {'max':0, 'min':sys.maxsize,'central':all_cross[i]}
                 else:
                     dyns[dyn]['central'] = all_cross[i]          
                 
@@ -349,7 +349,7 @@ class Systematics(object):
   
         stdout.write('\n') 
                 
-        resume = StringIO.StringIO()
+        resume = io.StringIO()
                 
         resume.write( '#***************************************************************************\n')
         resume.write( "#\n")
@@ -368,7 +368,7 @@ class Systematics(object):
             resume.write( '# PDF variation: +%2.3g%% -%2.3g%%\n' % (pdferr.errplus*100/all_cross[0], pdferr.errminus*100/all_cross[0]))       
         # report error/central not directly linked to the central
         resume.write( "#\n")        
-        for lhapdfid,values in pdfs.items():
+        for lhapdfid,values in list(pdfs.items()):
             if lhapdfid == self.orig_pdf.lhapdfID:
                 continue
             if len(values) == 1 :
@@ -384,7 +384,7 @@ class Systematics(object):
             resume.write( '#PDF %s: %g +%2.3g%% -%2.3g%%\n' % (pdfset.name, pdferr.central,pdferr.errplus*100/all_cross[0], pdferr.errminus*100/all_cross[0]))
 
         dyn_name = {1: '\sum ET', 2:'\sum\sqrt{m^2+pt^2}', 3:'0.5 \sum\sqrt{m^2+pt^2}',4:'\sqrt{\hat s}' }
-        for key, curr in dyns.items():
+        for key, curr in list(dyns.items()):
             if key ==-1:
                 continue
             central, maxvalue, minvalue = curr['central'], curr['max'], curr['min']
@@ -439,7 +439,7 @@ class Systematics(object):
             
             if mur == muf == 1 and dyn==-1 and alps ==1:
                 if pdf.lhapdfID < 0:
-                    for central,sets in self.pdfsets.items():
+                    for central,sets in list(self.pdfsets.items()):
                         if pdf in sets.set():
                             misc.sprint(central)
                 
@@ -721,7 +721,7 @@ class Systematics(object):
                         misc.sprint(onewgt)
                         misc.sprint(cevent)
                         misc.sprint(mur2,muf2)
-                        raise Exception, 'not enough agreement between stored value and computed one'
+                        raise Exception('not enough agreement between stored value and computed one')
                 
                 
         return wgt
@@ -758,7 +758,7 @@ def call_systematics(args, result=sys.stdout, running=True,
                 else:
                     opts[key] = values
         else:
-            raise SystematicsError, "unknow argument %s" % arg
+            raise SystematicsError("unknow argument %s" % arg)
 
     #load run_card and extract parameter if needed.
     if 'from_card' in opts:
@@ -769,8 +769,8 @@ def call_systematics(args, result=sys.stdout, running=True,
                 try:
                     lhe = lhe_parser.EventFile(input)
                     break
-                except OSError,error:
-                    print error
+                except OSError as error:
+                    print(error)
                     time.sleep(15*(i+1))
             else:
                 raise

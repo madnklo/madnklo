@@ -47,7 +47,7 @@ class FKSMultiProcess(diagram_generation.MultiProcess): #test written
         self['real_amplitudes'] = diagram_generation.AmplitudeList()
         self['pdgs'] = []
         self['born_processes'] = FKSProcessList()
-        if not 'OLP' in self.keys():
+        if not 'OLP' in list(self.keys()):
             self['OLP'] = 'MadLoop'
             self['ncores_for_proc_gen'] = 0
     
@@ -63,28 +63,23 @@ class FKSMultiProcess(diagram_generation.MultiProcess): #test written
 
         if name == 'born_processes':
             if not isinstance(value, FKSProcessList):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid list for born_processes " % str(value)                             
+                raise self.PhysicsObjectError("%s is not a valid list for born_processes " % str(value))                             
 
         if name == 'real_amplitudes':
             if not isinstance(value, diagram_generation.AmplitudeList):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid list for real_amplitudes " % str(value)
+                raise self.PhysicsObjectError("%s is not a valid list for real_amplitudes " % str(value))
                                                   
         if name == 'real_pdgs':
             if not isinstance(value, list):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid list for real_amplitudes " % str(value)
+                raise self.PhysicsObjectError("%s is not a valid list for real_amplitudes " % str(value))
         
         if name == 'OLP':
             if not isinstance(value,str):
-                raise self.PhysicsObjectError, \
-                    "%s is not a valid string for OLP " % str(value)
+                raise self.PhysicsObjectError("%s is not a valid string for OLP " % str(value))
 
         if name == 'ncores_for_proc_gen':
             if not isinstance(value,int):
-                raise self.PhysicsObjectError, \
-                    "%s is not a valid value for ncores_for_proc_gen " % str(value)
+                raise self.PhysicsObjectError("%s is not a valid value for ncores_for_proc_gen " % str(value))
                                                      
         return super(FKSMultiProcess,self).filter(name, value)
     
@@ -104,7 +99,7 @@ class FKSMultiProcess(diagram_generation.MultiProcess): #test written
         
         # OLP option
         olp='MadLoop'
-        if 'OLP' in options.keys():
+        if 'OLP' in list(options.keys()):
             olp = options['OLP']
             del options['OLP']
 
@@ -113,7 +108,7 @@ class FKSMultiProcess(diagram_generation.MultiProcess): #test written
         #   0 : do things the old way
         #   > 0 use ncores_for_proc_gen
         #   -1 : use all cores
-        if 'ncores_for_proc_gen' in options.keys():
+        if 'ncores_for_proc_gen' in list(options.keys()):
             ncores_for_proc_gen = options['ncores_for_proc_gen']
             del options['ncores_for_proc_gen']
 
@@ -123,12 +118,12 @@ class FKSMultiProcess(diagram_generation.MultiProcess): #test written
 
         except diagram_generation.NoDiagramException as error:
             # If no born, then this process most likely does not have any.
-            raise NoBornException, "Born diagrams could not be generated for the "+\
+            raise NoBornException("Born diagrams could not be generated for the "+\
                self['process_definitions'][0].nice_string().replace('Process',\
                'process')+". Notice that aMC@NLO does not handle loop-induced"+\
                " processes yet, but you can still use MadLoop if you want to "+\
                "only generate them."+\
-               " For this, use the 'virt=' mode, without multiparticle labels."
+               " For this, use the 'virt=' mode, without multiparticle labels.")
 
         self['OLP'] = olp
         self['ncores_for_proc_gen'] = ncores_for_proc_gen
@@ -260,7 +255,7 @@ class FKSMultiProcess(diagram_generation.MultiProcess): #test written
         # determine the orders to be used to generate the loop
         loop_orders = {}
         for  born in self['born_processes']:
-            for coup, val in fks_common.find_orders(born.born_amp).items():
+            for coup, val in list(fks_common.find_orders(born.born_amp).items()):
                 try:
                     loop_orders[coup] = max([loop_orders[coup], val])
                 except KeyError:
@@ -315,7 +310,7 @@ class FKSRealProcess(object):
         # compute the weighted order if not present
         if not 'WEIGHTED' in orders:
             orders['WEIGHTED'] = sum([v * born_proc.get('model').get('order_hierarchy')[o] \
-                        for o, v in orders.items()])
+                        for o, v in list(orders.items())])
 
         for order in perturbed_orders:
             try:
@@ -570,7 +565,7 @@ class FKSProcess(object):
 
     def find_reals(self, pert_order):
         """finds the FKS real configurations for a given process"""
-        if range(len(self.leglist)) != [l['number']-1 for l in self.leglist]:
+        if list(range(len(self.leglist))) != [l['number']-1 for l in self.leglist]:
             raise fks_common.FKSProcessError('Disordered numbers of leglist')
 
         if [ i['state'] for i in self.leglist].count(False) == 1:
@@ -621,13 +616,13 @@ class FKSProcess(object):
                         and \
                         real_m.get_leg_j()['id'] == real_n.get_leg_i()['id']):
                         if i_m > i_n:
-                            print real_m.get_leg_i()['id'], real_m.get_leg_j()['id']
+                            print(real_m.get_leg_i()['id'], real_m.get_leg_j()['id'])
                             if real_m.get_leg_i()['id'] == -real_m.get_leg_j()['id']:
                                 self.real_amps[m].is_to_integrate = False
                             else:
                                 self.real_amps[n].is_to_integrate = False
                         elif i_m == i_n and j_m > j_n:
-                            print real_m.get_leg_i()['id'], real_m.get_leg_j()['id']
+                            print(real_m.get_leg_i()['id'], real_m.get_leg_j()['id'])
                             if real_m.get_leg_i()['id'] == -real_m.get_leg_j()['id']:
                                 self.real_amps[m].is_to_integrate = False
                             else:

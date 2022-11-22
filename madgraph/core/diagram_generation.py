@@ -262,7 +262,7 @@ class DiagramTag(object):
         """Reorder a permutation with respect to start_perm. Note that
         both need to start from 1."""
         if perm == start_perm:
-            return range(len(perm))
+            return list(range(len(perm)))
         order = [i for (p,i) in \
                  sorted([(p,i) for (i,p) in enumerate(perm)])]
         return [start_perm[i]-1 for i in order]
@@ -441,16 +441,13 @@ class Amplitude(base_objects.PhysicsObject):
 
         if name == 'process':
             if not isinstance(value, base_objects.Process):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid Process object" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid Process object" % str(value))
         if name == 'diagrams':
             if not isinstance(value, base_objects.DiagramList):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid DiagramList object" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid DiagramList object" % str(value))
         if name == 'has_mirror_process':
             if not isinstance(value, bool):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid boolean" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid boolean" % str(value))
         return True
 
     def get(self, name):
@@ -549,7 +546,7 @@ class Amplitude(base_objects.PhysicsObject):
         model = process.get('model')
         legs = process.get('legs')
         # Make sure orders is the minimum of orders and overall_orders
-        for key in process.get('overall_orders').keys():
+        for key in list(process.get('overall_orders').keys()):
             try:
                 process.get('orders')[key] = \
                                  min(process.get('orders')[key],
@@ -566,22 +563,22 @@ class Amplitude(base_objects.PhysicsObject):
 
         res = base_objects.DiagramList()
         # First check that the number of fermions is even
-        if len(filter(lambda leg: model.get('particle_dict')[\
-                        leg.get('id')].is_fermion(), legs)) % 2 == 1:
+        if len([leg for leg in legs if model.get('particle_dict')[\
+                        leg.get('id')].is_fermion()]) % 2 == 1:
             if not returndiag:
                 self['diagrams'] = res
-                raise InvalidCmd, 'The number of fermion is odd'
+                raise InvalidCmd('The number of fermion is odd')
             else:
                 return False, res
 
         # Then check same number of incoming and outgoing fermions (if
         # no Majorana particles in model)
         if not model.get('got_majoranas') and \
-           len(filter(lambda leg: leg.is_incoming_fermion(model), legs)) != \
-           len(filter(lambda leg: leg.is_outgoing_fermion(model), legs)):
+           len([leg for leg in legs if leg.is_incoming_fermion(model)]) != \
+           len([leg for leg in legs if leg.is_outgoing_fermion(model)]):
             if not returndiag:
                 self['diagrams'] = res
-                raise InvalidCmd, 'The number of of incoming/outcoming fermions are different'
+                raise InvalidCmd('The number of of incoming/outcoming fermions are different')
             else:
                 return False, res
 
@@ -607,10 +604,10 @@ class Amplitude(base_objects.PhysicsObject):
             if abs(total) > 1e-10:
                 if not returndiag:
                     self['diagrams'] = res
-                    raise InvalidCmd, 'No %s conservation for this process ' % charge
+                    raise InvalidCmd('No %s conservation for this process ' % charge)
                     return res
                 else:
-                    raise InvalidCmd, 'No %s conservation for this process ' % charge
+                    raise InvalidCmd('No %s conservation for this process ' % charge)
                     return res, res
 
         if not returndiag:
@@ -643,7 +640,7 @@ class Amplitude(base_objects.PhysicsObject):
         # Calculate the maximal multiplicity of n-1>1 configurations
         # to restrict possible leg combinations
         max_multi_to1 = max([len(key) for key in \
-                             model.get('ref_dict_to1').keys()])
+                             list(model.get('ref_dict_to1').keys())])
 
 
         # Reduce the leg list and return the corresponding
@@ -702,19 +699,17 @@ class Amplitude(base_objects.PhysicsObject):
             # extra vertex corresponding to particle 1=1, so we need
             # to exclude the two last vertexes.
             if is_decay_proc: lastvx = -2
-            ninitial = len(filter(lambda leg: leg.get('state') == False,
-                                  process.get('legs')))
+            ninitial = len([leg for leg in process.get('legs') if leg.get('state') == False])
             # Check required s-channels for each list in required_s_channels
             old_res = res
             res = base_objects.DiagramList()
             for id_list in process.get('required_s_channels'):
-                res_diags = filter(lambda diagram: \
-                          all([req_s_channel in \
+                res_diags = [diagram for diagram in old_res if all([req_s_channel in \
                                [vertex.get_s_channel_id(\
                                process.get('model'), ninitial) \
                                for vertex in diagram.get('vertices')[:lastvx]] \
                                for req_s_channel in \
-                               id_list]), old_res)
+                               id_list])]
                 # Add diagrams only if not already in res
                 res.extend([diag for diag in res_diags if diag not in res])
 
@@ -723,16 +718,13 @@ class Amplitude(base_objects.PhysicsObject):
         # Note that we shouldn't look at the last vertex in each
         # diagram, since that is the n->0 vertex
         if process.get('forbidden_s_channels'):
-            ninitial = len(filter(lambda leg: leg.get('state') == False,
-                                  process.get('legs')))
+            ninitial = len([leg for leg in process.get('legs') if leg.get('state') == False])
             if ninitial == 2:
                 res = base_objects.DiagramList(\
-                filter(lambda diagram: \
-                       not any([vertex.get_s_channel_id(\
+                [diagram for diagram in res if not any([vertex.get_s_channel_id(\
                            process.get('model'), ninitial) \
                                 in process.get('forbidden_s_channels')
-                                for vertex in diagram.get('vertices')[:-1]]),
-                       res))
+                                for vertex in diagram.get('vertices')[:-1]])])
             else:
                 # split since we need to avoid that the initial particle is forbidden 
                 # as well. 
@@ -745,7 +737,7 @@ class Amplitude(base_objects.PhysicsObject):
                     vertex =  diagram.get('vertices')[-1]
                     if any([l['number'] ==1 for l in vertex.get('legs')]):
                         leg1 = [l['number'] for l in vertex.get('legs') if l['number'] !=1][0]
-                    to_loop = range(len(diagram.get('vertices'))-1)
+                    to_loop = list(range(len(diagram.get('vertices'))-1))
                     if leg1 >1:   
                         to_loop.reverse()
                     for i in to_loop:
@@ -765,8 +757,7 @@ class Amplitude(base_objects.PhysicsObject):
         # Mark forbidden (onshell) s-channel propagators, to forbid onshell
         # generation.
         if process.get('forbidden_onsh_s_channels'):
-            ninitial = len(filter(lambda leg: leg.get('state') == False,
-                              process.get('legs')))
+            ninitial = len([leg for leg in process.get('legs') if leg.get('state') == False])
             
             verts = base_objects.VertexList(sum([[vertex for vertex \
                                                   in diagram.get('vertices')[:-1]
@@ -811,8 +802,7 @@ class Amplitude(base_objects.PhysicsObject):
                     nexttolastvertex = copy.copy(vertices.pop())
                     legs = copy.copy(nexttolastvertex.get('legs'))
                     ntlnumber = legs[-1].get('number')
-                    lastleg = filter(lambda leg: leg.get('number') != ntlnumber,
-                                     lastvx.get('legs'))[0]
+                    lastleg = [leg for leg in lastvx.get('legs') if leg.get('number') != ntlnumber][0]
                     # Reset onshell in case we have forbidden s-channels
                     if lastleg.get('onshell') == False:
                         lastleg.set('onshell', None)
@@ -849,7 +839,7 @@ class Amplitude(base_objects.PhysicsObject):
         
         # Apply the filtering  on constrained amplitude (== and >)
         # No need to iterate on this one
-        for name, (value, operator) in self['process'].get('constrained_orders').items():
+        for name, (value, operator) in list(self['process'].get('constrained_orders').items()):
             res.filter_constrained_orders(name, value, operator)
             
         # Iterate the filtering since the applying the constraint on one
@@ -872,7 +862,7 @@ class Amplitude(base_objects.PhysicsObject):
 
         # Now treat the negative squared order constraint (at most one)
         neg_orders = [(order, value) for order, value in \
-                       self['process'].get('squared_orders').items() if value<0]
+                       list(self['process'].get('squared_orders').items()) if value<0]
         if len(neg_orders)==1:
             neg_order, neg_value = neg_orders[0]
             # Now check any negative order constraint
@@ -897,7 +887,7 @@ class Amplitude(base_objects.PhysicsObject):
             try:
                 from PLUGIN.user_filter import remove_diag
             except ImportError:
-                raise MadGraph5Error, 'user filter required to be defined in PLUGIN/user_filter.py with the function remove_diag(ONEDIAG) which returns True if the daigram has to be removed'
+                raise MadGraph5Error('user filter required to be defined in PLUGIN/user_filter.py with the function remove_diag(ONEDIAG) which returns True if the daigram has to be removed')
         else:
             #example and simple tests
             def remove_diag(diag):
@@ -1052,7 +1042,7 @@ class Amplitude(base_objects.PhysicsObject):
             if not id:
                 continue
             inter = model.get("interaction_dict")[id]
-            for coupling in inter.get('orders').keys():
+            for coupling in list(inter.get('orders').keys()):
                 # Note that we don't consider a missing coupling as a
                 # constraint
                 if coupling in present_couplings and \
@@ -1067,7 +1057,7 @@ class Amplitude(base_objects.PhysicsObject):
             if 'WEIGHTED' in present_couplings and \
                                                present_couplings['WEIGHTED']>=0:
                 weight = sum([model.get('order_hierarchy')[c]*n for \
-                              (c,n) in inter.get('orders').items()])
+                              (c,n) in list(inter.get('orders').items())])
                 present_couplings['WEIGHTED'] -= weight
                 if present_couplings['WEIGHTED'] < 0:
                         # Total coupling weight too large
@@ -1179,8 +1169,7 @@ class Amplitude(base_objects.PhysicsObject):
                     number = min([leg.get('number') for leg in entry])
                     # 3) state is final, unless there is exactly one initial 
                     # state particle involved in the combination -> t-channel
-                    if len(filter(lambda leg: leg.get('state') == False,
-                                  entry)) == 1:
+                    if len([leg for leg in entry if leg.get('state') == False]) == 1:
                         state = False
                     else:
                         state = True
@@ -1365,15 +1354,13 @@ class DecayChainAmplitude(Amplitude):
 
             for process in argument.get('decay_chains'):
                 if process.get('perturbation_couplings'):
-                    raise MadGraph5Error,\
-                          "Decay processes can not be perturbed"
+                    raise MadGraph5Error("Decay processes can not be perturbed")
                 process.set('overall_orders', argument.get('overall_orders'))
                 if not process.get('is_decay_chain'):
                     process.set('is_decay_chain',True)
                 if not process.get_ninitial() == 1:
-                    raise InvalidCmd,\
-                          "Decay chain process must have exactly one" + \
-                          " incoming particle"
+                    raise InvalidCmd("Decay chain process must have exactly one" + \
+                          " incoming particle")
                 self['decay_chains'].append(\
                     DecayChainAmplitude(process, collect_mirror_procs,
                                         ignore_six_quark_processes))
@@ -1445,13 +1432,11 @@ class DecayChainAmplitude(Amplitude):
 
         if name == 'amplitudes':
             if not isinstance(value, AmplitudeList):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid AmplitudeList" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid AmplitudeList" % str(value))
         if name == 'decay_chains':
             if not isinstance(value, DecayChainAmplitudeList):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid DecayChainAmplitudeList object" % \
-                        str(value)
+                raise self.PhysicsObjectError("%s is not a valid DecayChainAmplitudeList object" % \
+                        str(value))
         return True
 
     def get_sorted_keys(self):
@@ -1602,23 +1587,19 @@ class MultiProcess(base_objects.PhysicsObject):
 
         if name == 'process_definitions':
             if not isinstance(value, base_objects.ProcessDefinitionList):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid ProcessDefinitionList object" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid ProcessDefinitionList object" % str(value))
 
         if name == 'amplitudes':
             if not isinstance(value, AmplitudeList):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid AmplitudeList object" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid AmplitudeList object" % str(value))
 
         if name in ['collect_mirror_procs']:
             if not isinstance(value, bool):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid boolean" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid boolean" % str(value))
 
         if name == 'ignore_six_quark_processes':
             if not isinstance(value, list):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid list" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid list" % str(value))
 
         return True
 
@@ -1839,9 +1820,8 @@ class MultiProcess(base_objects.PhysicsObject):
             if len(failed_procs) == 1 and 'error' in locals():
                 raise error
             else:
-                raise NoDiagramException, \
-            "No amplitudes generated from process %s. Please enter a valid process" % \
-                  process_definition.nice_string()
+                raise NoDiagramException("No amplitudes generated from process %s. Please enter a valid process" % \
+                  process_definition.nice_string())
         
 
         # Return the produced amplitudes
@@ -1922,9 +1902,9 @@ class MultiProcess(base_objects.PhysicsObject):
         
         # Extract the initial and final leg ids
         isids = [leg['ids'] for leg in \
-                 filter(lambda leg: leg['state'] == False, process_definition['legs'])]
+                 [leg for leg in process_definition['legs'] if leg['state'] == False]]
         fsids = [leg['ids'] for leg in \
-                 filter(lambda leg: leg['state'] == True, process_definition['legs'])]
+                 [leg for leg in process_definition['legs'] if leg['state'] == True]]
 
         max_WEIGHTED_order = \
                         (len(fsids + isids) - 2)*int(model.get_max_WEIGHTED())
@@ -1932,9 +1912,9 @@ class MultiProcess(base_objects.PhysicsObject):
         # get the definition of the WEIGHTED
         hierarchydef = process_definition['model'].get('order_hierarchy')
         tmp = []
-        hierarchy = hierarchydef.items()
+        hierarchy = list(hierarchydef.items())
         hierarchy.sort()
-        for key, value in hierarchydef.items():
+        for key, value in list(hierarchydef.items()):
             if value>1:
                 tmp.append('%s*%s' % (value,key))
             else:
@@ -1953,7 +1933,7 @@ class MultiProcess(base_objects.PhysicsObject):
             failed_procs = []
             
             # Generate all combinations for the initial state        
-            for prod in apply(itertools.product, isids):
+            for prod in itertools.product(*isids):
                 islegs = [ base_objects.Leg({'id':id, 'state': False}) \
                         for id in prod]
 
@@ -1962,7 +1942,7 @@ class MultiProcess(base_objects.PhysicsObject):
 
                 red_fsidlist = []
 
-                for prod in apply(itertools.product, fsids):
+                for prod in itertools.product(*fsids):
 
                     # Remove double counting between final states
                     if tuple(sorted(prod)) in red_fsidlist:
@@ -2052,7 +2032,7 @@ class MultiProcess(base_objects.PhysicsObject):
     def cross_amplitude(amplitude, process, org_perm, new_perm):
         """Return the amplitude crossed with the permutation new_perm"""
         # Create dict from original leg numbers to new leg numbers
-        perm_map = dict(zip(org_perm, new_perm))
+        perm_map = dict(list(zip(org_perm, new_perm)))
         # Initiate new amplitude
         new_amp = copy.copy(amplitude)
         # Number legs
@@ -2093,7 +2073,7 @@ def expand_list(mylist):
         else:
             tmplist.append([item])
 
-    for item in apply(itertools.product, tmplist):
+    for item in itertools.product(*tmplist):
         res.append(list(item))
 
     return res

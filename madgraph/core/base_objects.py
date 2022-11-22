@@ -22,13 +22,14 @@ import math
 import numbers
 import os
 import re
-import StringIO
+import io
 import madgraph.core.color_algebra as color
 from madgraph import MadGraph5Error, MG5DIR, InvalidCmd, DTYPE
 import madgraph.various.misc as misc 
 import numpy as np
 
 from numbers import Number
+from functools import reduce
 
 
 logger = logging.getLogger('madgraph.base_objects')
@@ -56,7 +57,7 @@ class PhysicsObject(dict):
                             "Argument %s is not a dictionary" % repr(init_dict)
 
 
-        for item in init_dict.keys():
+        for item in list(init_dict.keys()):
             self.set(item, init_dict[item])
             
         
@@ -84,10 +85,9 @@ class PhysicsObject(dict):
         assert isinstance(name, str), \
                                  "Property name %s is not a string" % repr(name)
 
-        if name not in self.keys():
-            raise self.PhysicsObjectError, \
-                        """%s is not a valid property for this object: %s\n
-    Valid property are %s""" % (name,self.__class__.__name__, self.keys())
+        if name not in list(self.keys()):
+            raise self.PhysicsObjectError("""%s is not a valid property for this object: %s\n
+    Valid property are %s""" % (name,self.__class__.__name__, list(self.keys())))
         return True
 
     def get(self, name):
@@ -108,7 +108,7 @@ class PhysicsObject(dict):
                 self.filter(name, value)
                 self[name] = value
                 return True
-            except self.PhysicsObjectError, why:
+            except self.PhysicsObjectError as why:
                 logger.warning("Property " + name + " cannot be changed:" + \
                                 str(why))
                 return False
@@ -123,7 +123,7 @@ class PhysicsObject(dict):
         """Returns the object keys sorted in a certain way. By default,
         alphabetical."""
 
-        return self.keys().sort()
+        return list(self.keys()).sort()
 
     def get_copy(self, copied_attributes=()):
         """Perform a copy of all attributes specified by copied_attributes."""
@@ -134,7 +134,7 @@ class PhysicsObject(dict):
                     key,
                     value if key not in copied_attributes else copy.copy(value)
                 )
-                for key, value in self.items()
+                for key, value in list(self.items())
             )
         )
 
@@ -289,100 +289,77 @@ class Particle(PhysicsObject):
             # Forbid special character but +-~_
             p=re.compile('''^[\w\-\+~_]+$''')
             if not p.match(value):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid particle name" % value
+                raise self.PhysicsObjectError("%s is not a valid particle name" % value)
 
         if name is 'ghost':
             if not isinstance(value,bool):
-                raise self.PhysicsObjectError, \
-                 "%s is not a valid bool for the 'ghost' attribute" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid bool for the 'ghost' attribute" % str(value))
     
         if name is 'counterterm':
             if not isinstance(value,dict):
-                raise self.PhysicsObjectError, \
-                    "counterterm %s is not a valid dictionary" % repr(value)
-            for key, val in value.items():
+                raise self.PhysicsObjectError("counterterm %s is not a valid dictionary" % repr(value))
+            for key, val in list(value.items()):
                 if not isinstance(key,tuple):
-                    raise self.PhysicsObjectError, \
-                        "key %s is not a valid tuple for counterterm key" % repr(key)
+                    raise self.PhysicsObjectError("key %s is not a valid tuple for counterterm key" % repr(key))
                 if not isinstance(key[0],str):
-                    raise self.PhysicsObjectError, \
-                        "%s is not a valid string" % repr(key[0])
+                    raise self.PhysicsObjectError("%s is not a valid string" % repr(key[0]))
                 if not isinstance(key[1],tuple):
-                    raise self.PhysicsObjectError, \
-                        "%s is not a valid list" % repr(key[1])
+                    raise self.PhysicsObjectError("%s is not a valid list" % repr(key[1]))
                 for elem in key[1]:
                     if not isinstance(elem,tuple):
-                        raise self.PhysicsObjectError, \
-                            "%s is not a valid list" % repr(elem)
+                        raise self.PhysicsObjectError("%s is not a valid list" % repr(elem))
                     for partPDG in elem:
                         if not isinstance(partPDG,int):
-                            raise self.PhysicsObjectError, \
-                                "%s is not a valid integer for PDG" % repr(partPDG)
+                            raise self.PhysicsObjectError("%s is not a valid integer for PDG" % repr(partPDG))
                         if partPDG<=0:
-                            raise self.PhysicsObjectError, \
-                                "%s is not a valid positive PDG" % repr(partPDG)
+                            raise self.PhysicsObjectError("%s is not a valid positive PDG" % repr(partPDG))
                 if not isinstance(val,dict):
-                    raise self.PhysicsObjectError, \
-                        "value %s is not a valid dictionary for counterterm value" % repr(val)
-                for vkey, vvalue in val.items():
+                    raise self.PhysicsObjectError("value %s is not a valid dictionary for counterterm value" % repr(val))
+                for vkey, vvalue in list(val.items()):
                     if vkey not in [0,-1,-2]:
-                        raise self.PhysicsObjectError, \
-                            "Key %s is not a valid laurent serie order" % repr(vkey)
+                        raise self.PhysicsObjectError("Key %s is not a valid laurent serie order" % repr(vkey))
                     if not isinstance(vvalue,str):
-                        raise self.PhysicsObjectError, \
-                            "Coupling %s is not a valid string" % repr(vvalue)
+                        raise self.PhysicsObjectError("Coupling %s is not a valid string" % repr(vvalue))
         if name is 'spin':
             if not isinstance(value, int):
-                raise self.PhysicsObjectError, \
-                    "Spin %s is not an integer" % repr(value)
+                raise self.PhysicsObjectError("Spin %s is not an integer" % repr(value))
             if (value < 1 or value > 5) and value != 99:
-                raise self.PhysicsObjectError, \
-                   "Spin %i not valid" % value
+                raise self.PhysicsObjectError("Spin %i not valid" % value)
 
         if name is 'color':
             if not isinstance(value, int):
-                raise self.PhysicsObjectError, \
-                    "Color %s is not an integer" % repr(value)
+                raise self.PhysicsObjectError("Color %s is not an integer" % repr(value))
             if value not in [1, 3, 6, 8]:
-                raise self.PhysicsObjectError, \
-                   "Color %i is not valid" % value
+                raise self.PhysicsObjectError("Color %i is not valid" % value)
 
         if name in ['mass', 'width']:
             # Must start with a letter, followed by letters, digits or _
             p = re.compile('\A[a-zA-Z]+[\w\_]*\Z')
             if not p.match(value):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid name for mass/width variable" % \
-                        value
+                raise self.PhysicsObjectError("%s is not a valid name for mass/width variable" % \
+                        value)
 
         if name is 'pdg_code':
             if not isinstance(value, int):
-                raise self.PhysicsObjectError, \
-                    "PDG code %s is not an integer" % repr(value)
+                raise self.PhysicsObjectError("PDG code %s is not an integer" % repr(value))
 
         if name is 'line':
             if not isinstance(value, str):
-                raise self.PhysicsObjectError, \
-                    "Line type %s is not a string" % repr(value)
+                raise self.PhysicsObjectError("Line type %s is not a string" % repr(value))
             if value not in ['None','dashed', 'straight', 'wavy', 'curly', 'double','swavy','scurly','dotted']:
-                raise self.PhysicsObjectError, \
-                   "Line type %s is unknown" % value
+                raise self.PhysicsObjectError("Line type %s is unknown" % value)
 
         if name is 'charge':
             if not isinstance(value, float):
-                raise self.PhysicsObjectError, \
-                    "Charge %s is not a float" % repr(value)
+                raise self.PhysicsObjectError("Charge %s is not a float" % repr(value))
 
         if name is 'propagating':
             if not isinstance(value, bool):
-                raise self.PhysicsObjectError, \
-                    "Propagating tag %s is not a boolean" % repr(value)
+                raise self.PhysicsObjectError("Propagating tag %s is not a boolean" % repr(value))
 
         if name in ['is_part', 'self_antipart']:
             if not isinstance(value, bool):
-                raise self.PhysicsObjectError, \
-                    "%s tag %s is not a boolean" % (name, repr(value))
+                raise self.PhysicsObjectError("%s tag %s is not a boolean" % (name, repr(value)))
 
         return True
 
@@ -408,7 +385,7 @@ class Particle(PhysicsObject):
             # type "QCD".
             if len(int.get('orders'))>1:
                 continue
-            if order in int.get('orders').keys() and self.get('pdg_code') in \
+            if order in list(int.get('orders').keys()) and self.get('pdg_code') in \
               [part.get('pdg_code') for part in int.get('particles')]:
                 return True
             
@@ -503,8 +480,7 @@ class Particle(PhysicsObject):
             # Massive tensor
             res = [-2, -1, 0, 1, 2]
         else:
-            raise self.PhysicsObjectError, \
-              "No helicity state assignment for spin %d particles" % spin
+            raise self.PhysicsObjectError("No helicity state assignment for spin %d particles" % spin)
                   
         if allow_reverse and not self.get('is_part'):
             res.reverse()
@@ -706,91 +682,73 @@ class Interaction(PhysicsObject):
         if name == 'id':
             #Should be an integer
             if not isinstance(value, int):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid integer" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid integer" % str(value))
 
         if name == 'particles':
             #Should be a list of valid particle names
             if not isinstance(value, ParticleList):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid list of particles" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid list of particles" % str(value))
 
         if name == 'perturbation_type':
             if value!=None and not isinstance(value, str):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid string" % str(value)            
+                raise self.PhysicsObjectError("%s is not a valid string" % str(value))            
 
         if name == 'type':
             #Should be a string
             if not isinstance(value, str):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid string" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid string" % str(value))
         if name == 'loop_particles':
             if isinstance(value,list):
                 for l in value:
                     if isinstance(l,list):
                         for part in l:
                             if not isinstance(part,int):
-                                raise self.PhysicsObjectError, \
-                                    "%s is not a valid integer" % str(part)
+                                raise self.PhysicsObjectError("%s is not a valid integer" % str(part))
                             if part<0:
-                                raise self.PhysicsObjectError, \
-                                    "%s is not a valid positive integer" % str(part)
+                                raise self.PhysicsObjectError("%s is not a valid positive integer" % str(part))
 
         if name == 'orders':
             #Should be a dict with valid order names ask keys and int as values
             if not isinstance(value, dict):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid dict for coupling orders" % \
-                                                                    str(value)
-            for order in value.keys():
+                raise self.PhysicsObjectError("%s is not a valid dict for coupling orders" % \
+                                                                    str(value))
+            for order in list(value.keys()):
                 if not isinstance(order, str):
-                    raise self.PhysicsObjectError, \
-                        "%s is not a valid string" % str(order)
+                    raise self.PhysicsObjectError("%s is not a valid string" % str(order))
                 if not isinstance(value[order], int):
-                    raise self.PhysicsObjectError, \
-                        "%s is not a valid integer" % str(value[order])
+                    raise self.PhysicsObjectError("%s is not a valid integer" % str(value[order]))
 
         if name in ['color']:
             #Should be a list of list strings
             if not isinstance(value, list):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid list of Color Strings" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid list of Color Strings" % str(value))
             for mycolstring in value:
                 if not isinstance(mycolstring, color.ColorString):
-                    raise self.PhysicsObjectError, \
-                            "%s is not a valid list of Color Strings" % str(value)
+                    raise self.PhysicsObjectError("%s is not a valid list of Color Strings" % str(value))
 
         if name in ['lorentz']:
             #Should be a list of list strings
             if not isinstance(value, list):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid list of strings" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid list of strings" % str(value))
             for mystr in value:
                 if not isinstance(mystr, str):
-                    raise self.PhysicsObjectError, \
-                        "%s is not a valid string" % str(mystr)
+                    raise self.PhysicsObjectError("%s is not a valid string" % str(mystr))
 
         if name == 'couplings':
             #Should be a dictionary of strings with (i,j) keys
             if not isinstance(value, dict):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid dictionary for couplings" % \
-                                                                str(value)
+                raise self.PhysicsObjectError("%s is not a valid dictionary for couplings" % \
+                                                                str(value))
 
-            for key in value.keys():
+            for key in list(value.keys()):
                 if not isinstance(key, tuple):
-                    raise self.PhysicsObjectError, \
-                        "%s is not a valid tuple" % str(key)
+                    raise self.PhysicsObjectError("%s is not a valid tuple" % str(key))
                 if len(key) != 2:
-                    raise self.PhysicsObjectError, \
-                        "%s is not a valid tuple with 2 elements" % str(key)
+                    raise self.PhysicsObjectError("%s is not a valid tuple with 2 elements" % str(key))
                 if not isinstance(key[0], int) or not isinstance(key[1], int):
-                    raise self.PhysicsObjectError, \
-                        "%s is not a valid tuple of integer" % str(key)
+                    raise self.PhysicsObjectError("%s is not a valid tuple of integer" % str(key))
                 if not isinstance(value[key], str):
-                    raise self.PhysicsObjectError, \
-                        "%s is not a valid string" % value[key]
+                    raise self.PhysicsObjectError("%s is not a valid string" % value[key])
 
         return True
 
@@ -813,7 +771,7 @@ class Interaction(PhysicsObject):
 
         # Precaution only useful because some tests have a predefined model
         # bypassing the default_setup and for which type was not defined.
-        if 'type' in self.keys():
+        if 'type' in list(self.keys()):
             return (len(self['type'])>=2 and self['type'][:2]=='R2')
         else:
             return False
@@ -823,7 +781,7 @@ class Interaction(PhysicsObject):
 
         # Precaution only useful because some tests have a predefined model
         # bypassing the default_setup and for which type was not defined.
-        if 'type' in self.keys():
+        if 'type' in list(self.keys()):
             return (len(self['type'])>=2 and self['type'][:2]=='UV')
         else:
             return False
@@ -833,7 +791,7 @@ class Interaction(PhysicsObject):
 
         # Precaution only useful because some tests have a predefined model
         # bypassing the default_setup and for which type was not defined.
-        if 'type' in self.keys():
+        if 'type' in list(self.keys()):
             return (len(self['type'])>=6 and self['type'][:6]=='UVmass')
         else:
             return False
@@ -843,7 +801,7 @@ class Interaction(PhysicsObject):
 
         # Precaution only useful because some tests have a predefined model
         # bypassing the default_setup and for which type was not defined.
-        if 'type' in self.keys():
+        if 'type' in list(self.keys()):
             return (len(self['type'])>=6 and self['type'][:6]=='UVloop')
         else:
             return False
@@ -853,7 +811,7 @@ class Interaction(PhysicsObject):
 
         # Precaution only useful because some tests have a predefined model
         # bypassing the default_setup and for which type was not defined.
-        if 'type' in self.keys():
+        if 'type' in list(self.keys()):
             return (len(self['type'])>=6 and self['type'][:6]=='UVtree')
         else:
             return False
@@ -866,7 +824,7 @@ class Interaction(PhysicsObject):
 
         # Precaution only useful because some tests have a predefined model
         # bypassing the default_setup and for which type was not defined.
-        if 'UVCT_SPECIAL' in self['orders'].keys():
+        if 'UVCT_SPECIAL' in list(self['orders'].keys()):
             return True
         else:
             return False
@@ -875,7 +833,7 @@ class Interaction(PhysicsObject):
         """ Returns 0 if this interaction contributes to the finite part of the
         amplitude and 1 (2) is it contributes to its single (double) pole """
         
-        if 'type' in self.keys():
+        if 'type' in list(self.keys()):
             if '1eps' in self['type']:
                 return 1
             elif '2eps' in self['type']:
@@ -893,7 +851,7 @@ class Interaction(PhysicsObject):
         # We are interested in the unordered list, so use sorted()
 
         pdg_tuple = tuple(sorted([p.get_pdg_code() for p in self['particles']]))
-        if pdg_tuple not in ref_dict_to0.keys():
+        if pdg_tuple not in list(ref_dict_to0.keys()):
             ref_dict_to0[pdg_tuple] = [self['id']]
         else:
             ref_dict_to0[pdg_tuple].append(self['id'])
@@ -911,7 +869,7 @@ class Interaction(PhysicsObject):
                                       enumerate(self['particles']) if \
                                       i != self['particles'].index(part)]))
             pdg_part = part.get_anti_pdg_code()
-            if pdg_tuple in ref_dict_to1.keys():
+            if pdg_tuple in list(ref_dict_to1.keys()):
                 if (pdg_part, self['id']) not in  ref_dict_to1[pdg_tuple]:
                     ref_dict_to1[pdg_tuple].append((pdg_part, self['id']))
             else:
@@ -1071,73 +1029,59 @@ class Model(PhysicsObject):
 
         if name in ['name']:
             if not isinstance(value, str):
-                raise self.PhysicsObjectError, \
-                    "Object of type %s is not a string" %type(value)
+                raise self.PhysicsObjectError("Object of type %s is not a string" %type(value))
 
         elif name == 'particles':
             if not isinstance(value, ParticleList):
-                raise self.PhysicsObjectError, \
-                    "Object of type %s is not a ParticleList object" % \
-                                                            type(value)
+                raise self.PhysicsObjectError("Object of type %s is not a ParticleList object" % \
+                                                            type(value))
         elif name == 'interactions':
             if not isinstance(value, InteractionList):
-                raise self.PhysicsObjectError, \
-                    "Object of type %s is not a InteractionList object" % \
-                                                            type(value)
+                raise self.PhysicsObjectError("Object of type %s is not a InteractionList object" % \
+                                                            type(value))
         elif name == 'particle_dict':
             if not isinstance(value, dict):
-                raise self.PhysicsObjectError, \
-                    "Object of type %s is not a dictionary" % \
-                                                        type(value)
+                raise self.PhysicsObjectError("Object of type %s is not a dictionary" % \
+                                                        type(value))
         elif name == 'interaction_dict':
             if not isinstance(value, dict):
-                raise self.PhysicsObjectError, \
-                    "Object of type %s is not a dictionary" % type(value)
+                raise self.PhysicsObjectError("Object of type %s is not a dictionary" % type(value))
 
         elif name == 'ref_dict_to0':
             if not isinstance(value, dict):
-                raise self.PhysicsObjectError, \
-                    "Object of type %s is not a dictionary" % type(value)
+                raise self.PhysicsObjectError("Object of type %s is not a dictionary" % type(value))
                     
         elif name == 'ref_dict_to1':
             if not isinstance(value, dict):
-                raise self.PhysicsObjectError, \
-                    "Object of type %s is not a dictionary" % type(value)
+                raise self.PhysicsObjectError("Object of type %s is not a dictionary" % type(value))
 
         elif name == 'got_majoranas':
             if not (isinstance(value, bool) or value == None):
-                raise self.PhysicsObjectError, \
-                    "Object of type %s is not a boolean" % type(value)
+                raise self.PhysicsObjectError("Object of type %s is not a boolean" % type(value))
 
         elif name == 'conserved_charge':
             if not (isinstance(value, set)):
-                raise self.PhysicsObjectError, \
-                    "Object of type %s is not a set" % type(value)
+                raise self.PhysicsObjectError("Object of type %s is not a set" % type(value))
 
         elif name == 'version_tag':
             if not (isinstance(value, str)):
-                raise self.PhysicsObjectError, \
-                    "Object of type %s is not a string" % type(value)
+                raise self.PhysicsObjectError("Object of type %s is not a string" % type(value))
 
         elif name == 'order_hierarchy':
             if not isinstance(value, dict):
-                raise self.PhysicsObjectError, \
-                    "Object of type %s is not a dictionary" % \
-                                                            type(value)
-            for key in value.keys():
+                raise self.PhysicsObjectError("Object of type %s is not a dictionary" % \
+                                                            type(value))
+            for key in list(value.keys()):
                 if not isinstance(value[key],int):
-                    raise self.PhysicsObjectError, \
-                        "Object of type %s is not an integer" % \
-                                                            type(value[key])
+                    raise self.PhysicsObjectError("Object of type %s is not an integer" % \
+                                                            type(value[key]))
         elif name == 'gauge':
             if not (isinstance(value, list)):
-                raise self.PhysicsObjectError, \
-                    "Object of type %s is not a list" % type(value)
+                raise self.PhysicsObjectError("Object of type %s is not a list" % type(value))
 
         elif name == 'case_sensitive':
             if not value in [True ,False]:
-                raise self.PhysicsObjectError, \
-                    "Object of type %s is not a boolean" % type(value)
+                raise self.PhysicsObjectError("Object of type %s is not a boolean" % type(value))
             
 
         return True
@@ -1165,7 +1109,7 @@ class Model(PhysicsObject):
                 modeldir = os.path.expanduser(modeldir)
                 return modeldir
             else:
-                raise Exception, "path %s not valid anymore." % modeldir
+                raise Exception("path %s not valid anymore." % modeldir)
             #modeldir = os.path.join(os.path.dirname(modeldir),
             #                        os.path.basename(modeldir).rsplit("-",1)[0])
             #if os.path.exists(modeldir):
@@ -1175,7 +1119,7 @@ class Model(PhysicsObject):
             modeldir = self.get('version_tag').rsplit('##',1)[0]
             modelname = self['name']            
             if not  os.path.exists(modeldir):
-                raise Exception, "path %s not valid anymore" % modeldir
+                raise Exception("path %s not valid anymore" % modeldir)
             modeldir = os.path.dirname(modeldir)
             modeldir = pjoin(modeldir, modelname)
             modeldir = os.path.expanduser(modeldir)
@@ -1275,7 +1219,7 @@ class Model(PhysicsObject):
             if isinstance(id, int):
                 try:
                     return self.get("particle_dict")[id]
-                except Exception, error:
+                except Exception as error:
                     return None
             else:
                 if not hasattr(self, 'name2part'):
@@ -1289,7 +1233,7 @@ class Model(PhysicsObject):
         """create a dictionary name 2 part"""
         
         self.name2part = {}
-        for part in self.get("particle_dict").values():
+        for part in list(self.get("particle_dict").values()):
             self.name2part[part.get('name')] = part
             self.name2part[part.get('antiname')] = part
             
@@ -1332,14 +1276,14 @@ class Model(PhysicsObject):
             
         # Else first build the dictionary
         self.parameters_dict = {}
-        for data in self['parameters'].values():
+        for data in list(self['parameters'].values()):
             [self.parameters_dict.__setitem__(p.name,p) for p in data]
         
         return self.parameters_dict[name]
 
     def get_coupling_orders(self):
         """Determine the coupling orders of the model"""
-        return set(sum([i.get('orders').keys() for i in \
+        return set(sum([list(i.get('orders').keys()) for i in \
                         self.get('interactions')], []))
 
     def get_order_hierarchy(self):
@@ -1382,7 +1326,7 @@ class Model(PhysicsObject):
         orders = []
         for value in hierarchy:
             orders.append([ k for (k, v) in \
-                            self.get('order_hierarchy').items() if \
+                            list(self.get('order_hierarchy').items()) if \
                             v == value ])
 
         # Extract the interaction that correspond to the different
@@ -1398,7 +1342,7 @@ class Model(PhysicsObject):
             interactions.append([i for i in self.get('interactions') if \
                                  not i in sum_interactions and \
                                  not any([k not in sum_orders for k in \
-                                          i.get('orders').keys()])])
+                                          list(i.get('orders').keys())])])
             # Append the corresponding particles, excluding the
             # particles that have already been added
             particles.append(set(sum([[p.get_pdg_code() for p in \
@@ -1469,12 +1413,12 @@ class Model(PhysicsObject):
                 'to use the particles name defined in the model and not the ' + \
                 'MadGraph5_aMC@NLO convention'
                 
-                raise MadGraph5Error, error_text % \
-                                     (part.get_name(), part.get_pdg_code(), pdg)                
+                raise MadGraph5Error(error_text % \
+                                     (part.get_name(), part.get_pdg_code(), pdg))                
 
         default = self.load_default_name()
 
-        for pdg in default.keys():
+        for pdg in list(default.keys()):
             part = self.get_particle(pdg)
             if not part:
                 continue
@@ -1507,7 +1451,7 @@ class Model(PhysicsObject):
 
         lower_dict={}
         duplicate = set()
-        keys = self.get('parameters').keys()
+        keys = list(self.get('parameters').keys())
         for key in keys:
             for param in self['parameters'][key]:
                 lower_name = param.name.lower()
@@ -1559,7 +1503,7 @@ class Model(PhysicsObject):
         
         if 'parameter_dict' in self:
             new_dict = dict( (change[name] if (name in change) else name, value) for
-                             name, value in self['parameter_dict'].items())
+                             name, value in list(self['parameter_dict'].items()))
             self['parameter_dict'] = new_dict
     
         if hasattr(self,'map_CTcoup_CTparam'):
@@ -1567,7 +1511,7 @@ class Model(PhysicsObject):
             # been defined, we must apply the renaming there as well. 
             self.map_CTcoup_CTparam = dict( (coup_name, 
             [change[name] if (name in change) else name for name in params]) 
-                  for coup_name, params in self.map_CTcoup_CTparam.items() )
+                  for coup_name, params in list(self.map_CTcoup_CTparam.items()) )
 
         i=0
         while i*1000 <= len(to_change): 
@@ -1582,7 +1526,7 @@ class Model(PhysicsObject):
                 for param in self['parameters'][key]:
                     param.expr = rep_pattern.sub(replace, param.expr)
             # change couplings
-            for key in self['couplings'].keys():
+            for key in list(self['couplings'].keys()):
                 for coup in self['couplings'][key]:
                     coup.expr = rep_pattern.sub(replace, coup.expr)
                     
@@ -1593,7 +1537,7 @@ class Model(PhysicsObject):
                 if str(part.get('width')) in one_change:
                     part.set('width', rep_pattern.sub(replace, str(part.get('width'))))  
                 if  hasattr(part, 'partial_widths'):
-                    for key, value in part.partial_widths.items():    
+                    for key, value in list(part.partial_widths.items()):    
                         part.partial_widths[key] = rep_pattern.sub(replace, value)
                 
         #ensure that the particle_dict is up-to-date
@@ -1605,7 +1549,7 @@ class Model(PhysicsObject):
     def get_first_non_pdg(self):
         """Return the first positive number that is not a valid PDG code"""
         return [c for c in range(1, len(self.get('particles')) + 1) if \
-                c not in self.get('particle_dict').keys()][0]
+                c not in list(self.get('particle_dict').keys())][0]
                 
 
     def write_param_card(self, filepath=None):
@@ -1613,7 +1557,7 @@ class Model(PhysicsObject):
         
         import models.write_param_card as writer
         if not filepath:
-            out = StringIO.StringIO() # it's suppose to be written in a file
+            out = io.StringIO() # it's suppose to be written in a file
         else:
             out = filepath
         param = writer.ParamCardWriter(self, filepath=out)
@@ -1857,14 +1801,14 @@ class Model(PhysicsObject):
         # So at this stage we still need to modify all parameters depending of
         # particle's mass. In addition all parameter (but mass/width/external 
         # parameter) should be pass in complex mode.
-        pat = '|'.join(to_change.keys())
+        pat = '|'.join(list(to_change.keys()))
         pat = r'(%s)\b' % pat
         pat = re.compile(pat)
         def replace(match):
             return to_change[match.group()]
         
         # Modify the parameters
-        for dep, list_param in self['parameters'].items():
+        for dep, list_param in list(self['parameters'].items()):
             for param in list_param:
                 if param.name.startswith('CMASS_') or param.name in mass_widths or\
                               isinstance(param, ParamCardVariable):
@@ -1875,7 +1819,7 @@ class Model(PhysicsObject):
                 param.expr = pat.sub(replace, param.expr)
         
         # Modify the couplings        
-        for dep, list_coup in self['couplings'].items():
+        for dep, list_coup in list(self['couplings'].items()):
             for coup in list_coup:                
                 coup.expr = pat.sub(replace, coup.expr)
                 
@@ -1972,32 +1916,27 @@ class Leg(PhysicsObject):
 
         if name in ['id', 'number']:
             if not isinstance(value, int):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid integer for leg id" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid integer for leg id" % str(value))
 
         if name == 'state':
             if not isinstance(value, bool):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid leg state (True|False)" % \
-                                                                    str(value)
+                raise self.PhysicsObjectError("%s is not a valid leg state (True|False)" % \
+                                                                    str(value))
 
         if name == 'from_group':
             if not isinstance(value, bool) and value != None:
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid boolean for leg flag from_group" % \
-                                                                    str(value)
+                raise self.PhysicsObjectError("%s is not a valid boolean for leg flag from_group" % \
+                                                                    str(value))
 
         if name == 'loop_line':
             if not isinstance(value, bool) and value != None:
-                raise self.PhysicsObjectError, \
-                    "%s is not a valid boolean for leg flag loop_line" % \
-                                                                    str(value)
+                raise self.PhysicsObjectError("%s is not a valid boolean for leg flag loop_line" % \
+                                                                    str(value))
 
         if name == 'onshell':
             if not isinstance(value, bool) and value != None:
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid boolean for leg flag onshell" % \
-                                                                    str(value)
+                raise self.PhysicsObjectError("%s is not a valid boolean for leg flag onshell" % \
+                                                                    str(value))
         return True
 
     def get_sorted_keys(self):
@@ -2083,7 +2022,7 @@ class LegList(PhysicsObjectList):
     def from_group_elements(self):
         """Return all elements which have 'from_group' True"""
 
-        return filter(lambda leg: leg.get('from_group'), self)
+        return [leg for leg in self if leg.get('from_group')]
 
     def minimum_one_from_group(self):
         """Return True if at least one element has 'from_group' True"""
@@ -2099,7 +2038,7 @@ class LegList(PhysicsObjectList):
         """If has at least one 'from_group' True and in ref_dict_to1,
            return the return list from ref_dict_to1, otherwise return False"""
         if self.minimum_one_from_group():
-            return ref_dict_to1.has_key(tuple(sorted([leg.get('id') for leg in self])))
+            return tuple(sorted([leg.get('id') for leg in self])) in ref_dict_to1
         else:
             return False
 
@@ -2118,11 +2057,11 @@ class LegList(PhysicsObjectList):
             # unclustered, since we want this to stay until the very
             # end.
             return any(leg.get('from_group') == None for leg in self) and \
-                   ref_dict_to0.has_key(tuple(sorted([leg.get('id') \
-                                                      for leg in self])))
+                   tuple(sorted([leg.get('id') \
+                                                      for leg in self])) in ref_dict_to0
 
         if self.minimum_two_from_group():
-            return ref_dict_to0.has_key(tuple(sorted([leg.get('id') for leg in self])))
+            return tuple(sorted([leg.get('id') for leg in self])) in ref_dict_to0
         else:
             return False
 
@@ -2146,7 +2085,7 @@ class LegList(PhysicsObjectList):
     def sort(self,*args, **opts):
         """Match with FKSLegList"""
         Opts=copy.copy(opts)
-        if 'pert' in Opts.keys():
+        if 'pert' in list(Opts.keys()):
             del Opts['pert']
         return super(LegList,self).sort(*args, **Opts)
 
@@ -2169,18 +2108,15 @@ class MultiLeg(PhysicsObject):
 
         if name == 'ids':
             if not isinstance(value, list):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid list" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid list" % str(value))
             for i in value:
                 if not isinstance(i, int):
-                    raise self.PhysicsObjectError, \
-                          "%s is not a valid list of integers" % str(value)
+                    raise self.PhysicsObjectError("%s is not a valid list of integers" % str(value))
 
         if name == 'state':
             if not isinstance(value, bool):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid leg state (initial|final)" % \
-                                                                    str(value)
+                raise self.PhysicsObjectError("%s is not a valid leg state (initial|final)" % \
+                                                                    str(value))
 
         return True
 
@@ -2248,13 +2184,11 @@ class Vertex(PhysicsObject):
 
         if name == 'id':
             if not isinstance(value, int):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid integer for vertex id" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid integer for vertex id" % str(value))
 
         if name == 'legs':
             if not isinstance(value, LegList):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid LegList object" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid LegList object" % str(value))
 
         return True
 
@@ -2371,20 +2305,16 @@ class ContractedVertex(Vertex):
             if isinstance(value, list):
                 for elem in value:
                     if not isinstance(elem,int):
-                        raise self.PhysicsObjectError, \
-                            "%s is not a valid integer for leg PDG" % str(elem)
+                        raise self.PhysicsObjectError("%s is not a valid integer for leg PDG" % str(elem))
             else:
-                raise self.PhysicsObjectError, \
-                  "%s is not a valid list for contracted vertex PDGs"%str(value)                
+                raise self.PhysicsObjectError("%s is not a valid list for contracted vertex PDGs"%str(value))                
         if name == 'loop_tag':
             if isinstance(value, tuple):
                 for elem in value:
                     if not (isinstance(elem,int) or isinstance(elem,tuple)):
-                        raise self.PhysicsObjectError, \
-                          "%s is not a valid int or tuple for loop tag element"%str(elem)
+                        raise self.PhysicsObjectError("%s is not a valid int or tuple for loop tag element"%str(elem))
             else:
-                raise self.PhysicsObjectError, \
-                  "%s is not a valid tuple for a contracted vertex loop_tag."%str(value)
+                raise self.PhysicsObjectError("%s is not a valid tuple for a contracted vertex loop_tag."%str(value))
         if name == 'loop_orders':
             Interaction.filter(Interaction(), 'orders', value)
         else:
@@ -2415,8 +2345,7 @@ class Diagram(PhysicsObject):
 
         if name == 'vertices':
             if not isinstance(value, VertexList):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid VertexList object" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid VertexList object" % str(value))
 
         if name == 'orders':
             Interaction.filter(Interaction(), 'orders', value)
@@ -2455,7 +2384,7 @@ class Diagram(PhysicsObject):
                                      for key in sorted(self['orders'].keys())]))
             
             if not pass_sanity:
-                raise Exception, "invalid diagram: %s. vert_id: %s" % (mystr, responsible) 
+                raise Exception("invalid diagram: %s. vert_id: %s" % (mystr, responsible)) 
                 
             return mystr
         else:
@@ -2478,7 +2407,7 @@ class Diagram(PhysicsObject):
             for coupling in couplings:
                 coupling_orders[coupling] += couplings[coupling]
             weight += sum([model.get('order_hierarchy')[c]*n for \
-                              (c,n) in couplings.items()])
+                              (c,n) in list(couplings.items())])
         coupling_orders['WEIGHTED'] = weight
         self.set('orders', coupling_orders)
 
@@ -2490,7 +2419,7 @@ class Diagram(PhysicsObject):
         values are the relational operator used to define the constraint of the
         order in key)."""
         
-        for order, value in squared_orders.items():
+        for order, value in list(squared_orders.items()):
             if value<0:
                 continue
             combined_order = self.get_order(order) + \
@@ -2625,7 +2554,7 @@ class Diagram(PhysicsObject):
             security =0
             while not vcurrent.is_external():
                 if security > 1000:
-                    raise Exception, 'wrong diagram'
+                    raise Exception('wrong diagram')
                 next_l = [l for l in vcurrent.lines if l is not l_last and l.is_fermion()][0]
                 next_v = next_l.end
                 if next_v == vcurrent:
@@ -2666,7 +2595,7 @@ class DiagramList(PhysicsObjectList):
         max_order=-1
 
         for diag in self:
-            if order in diag['orders'].keys():
+            if order in list(diag['orders'].keys()):
                 if max_order==-1 or diag['orders'][order] > max_order:
                     max_order = diag['orders'][order]
 
@@ -2727,7 +2656,7 @@ class DiagramList(PhysicsObjectList):
         order for the coupling specified """
         min_order=-1
         for diag in self:
-            if order in diag['orders'].keys():
+            if order in list(diag['orders'].keys()):
                 if min_order==-1 or diag['orders'][order] < min_order:
                     min_order = diag['orders'][order]
             else:
@@ -2741,7 +2670,7 @@ class DiagramList(PhysicsObjectList):
 
         values=set([])
         for diag in self:
-            if order in diag['orders'].keys():
+            if order in list(diag['orders'].keys()):
                 values.add(diag['orders'][order])
             else:
                 values.add(0)  
@@ -2830,129 +2759,102 @@ class Process(PhysicsObject):
 
         if name in ['legs', 'legs_with_decays'] :
             if not isinstance(value, LegList):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid LegList object" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid LegList object" % str(value))
 
         if name in ['orders', 'overall_orders', 'squared_orders']:
             Interaction.filter(Interaction(), 'orders', value)
 
         if name == 'constrained_orders':
             if not isinstance(value, dict):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid dictionary" % str(value)            
+                raise self.PhysicsObjectError("%s is not a valid dictionary" % str(value))            
 
         if name == 'sqorders_types':
             if not isinstance(value, dict):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid dictionary" % str(value)
-            for order in value.keys()+value.values():
+                raise self.PhysicsObjectError("%s is not a valid dictionary" % str(value))
+            for order in list(value.keys())+list(value.values()):
                 if not isinstance(order, str):
-                    raise self.PhysicsObjectError, \
-                          "%s is not a valid string" % str(value)
+                    raise self.PhysicsObjectError("%s is not a valid string" % str(value))
 
         if name == 'beam_factorization':
             if not isinstance(value, list):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid list" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid list" % str(value))
             for bf in value:
                 if not isinstance(bf, dict) or \
                    not set(bf.keys())==set(['beam_one','beam_two']):
-                    raise self.PhysicsObjectError, \
-                        "%s is not a valid list of dictionary with keys ['beam_one','beam_two']" % str(bf)
+                    raise self.PhysicsObjectError("%s is not a valid list of dictionary with keys ['beam_one','beam_two']" % str(bf))
                 from madgraph.core.subtraction import BeamCurrent
                 for key in ['beam_one','beam_two']:
                     if (not bf[key] is None) and (not isinstance(bf[key],BeamCurrent)):
-                        raise self.PhysicsObjectError, \
-                        "%s is not None or a valid instance of a BeamCurrent" % str(bf[key])
+                        raise self.PhysicsObjectError("%s is not None or a valid instance of a BeamCurrent" % str(bf[key]))
 
         if name == 'split_orders':
             if not isinstance(value, list):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid list" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid list" % str(value))
             for order in value:
                 if not isinstance(order, str):
-                    raise self.PhysicsObjectError, \
-                          "%s is not a valid string" % str(value)
+                    raise self.PhysicsObjectError("%s is not a valid string" % str(value))
 
         if name == 'model':
             if not isinstance(value, Model):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid Model object" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid Model object" % str(value))
 
         if name in ['id', 'uid', 'n_loops']:
             if not isinstance(value, int):
-                raise self.PhysicsObjectError, \
-                    "Process %s %s is not an integer" % (name, repr(value))
+                raise self.PhysicsObjectError("Process %s %s is not an integer" % (name, repr(value)))
 
         if name == 'required_s_channels':
             if not isinstance(value, list):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid list" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid list" % str(value))
             for l in value:
                 if not isinstance(l, list):
-                    raise self.PhysicsObjectError, \
-                          "%s is not a valid list of lists" % str(value)
+                    raise self.PhysicsObjectError("%s is not a valid list of lists" % str(value))
                 for i in l:
                     if not isinstance(i, int):
-                        raise self.PhysicsObjectError, \
-                              "%s is not a valid list of integers" % str(l)
+                        raise self.PhysicsObjectError("%s is not a valid list of integers" % str(l))
                     if i == 0:
-                        raise self.PhysicsObjectError, \
-                          "Not valid PDG code %d for s-channel particle" % i
+                        raise self.PhysicsObjectError("Not valid PDG code %d for s-channel particle" % i)
 
         if name in ['forbidden_onsh_s_channels', 'forbidden_s_channels']:
             if not isinstance(value, list):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid list" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid list" % str(value))
             for i in value:
                 if not isinstance(i, int):
-                    raise self.PhysicsObjectError, \
-                          "%s is not a valid list of integers" % str(value)
+                    raise self.PhysicsObjectError("%s is not a valid list of integers" % str(value))
                 if i == 0:
-                    raise self.PhysicsObjectError, \
-                      "Not valid PDG code %d for s-channel particle" % str(value)
+                    raise self.PhysicsObjectError("Not valid PDG code %d for s-channel particle" % str(value))
 
         if name == 'forbidden_particles':
             if not isinstance(value, list):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid list" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid list" % str(value))
             for i in value:
                 if not isinstance(i, int):
-                    raise self.PhysicsObjectError, \
-                          "%s is not a valid list of integers" % str(value)
+                    raise self.PhysicsObjectError("%s is not a valid list of integers" % str(value))
                 if i <= 0:
-                    raise self.PhysicsObjectError, \
-                      "Forbidden particles should have a positive PDG code" % str(value)
+                    raise self.PhysicsObjectError("Forbidden particles should have a positive PDG code" % str(value))
 
         if name == 'perturbation_couplings':
             if not isinstance(value, list):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid list" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid list" % str(value))
             for order in value:
                 if not isinstance(order, str):
-                    raise self.PhysicsObjectError, \
-                          "%s is not a valid string" % str(value)
+                    raise self.PhysicsObjectError("%s is not a valid string" % str(value))
 
         if name == 'is_decay_chain':
             if not isinstance(value, bool):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid bool" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid bool" % str(value))
 
         if name in ['has_born', 'has_mirror_process']:
             if not isinstance(value, bool):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid bool" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid bool" % str(value))
 
         if name == 'decay_chains':
             if not isinstance(value, ProcessList):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid ProcessList" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid ProcessList" % str(value))
 
         if name == 'NLO_mode':
             import madgraph.interface.madgraph_interface as mg
             if value not in mg.MadGraphCmd._valid_nlo_modes:
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid NLO_mode" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid NLO_mode" % str(value))
         return True
 
     def has_multiparticle_label(self):
@@ -2982,7 +2884,7 @@ class Process(PhysicsObject):
         """ Return what kind of squared order constraint was specified for the
         order 'order'."""
 
-        if order in self['sqorders_types'].keys():
+        if order in list(self['sqorders_types'].keys()):
             return self['sqorders_types'][order]
         else:
             # Default behavior '=' is interpreted as upper bound '<='
@@ -2996,7 +2898,7 @@ class Process(PhysicsObject):
 
         if name == 'sqorders_types':
             # We must make sure that there is a type for each sqorder defined
-            for order in self['squared_orders'].keys():
+            for order in list(self['squared_orders'].keys()):
                 if order not in self['sqorders_types']:
                     # Then assign its type to the default '='
                     self['sqorders_types'][order]='='
@@ -3388,8 +3290,8 @@ class Process(PhysicsObject):
         """ Check iteratively that no coupling order constraint include negative
         values."""
 
-        if any(val<0 for val in self.get('orders').values()+\
-                                           self.get('squared_orders').values()):
+        if any(val<0 for val in list(self.get('orders').values())+\
+                                           list(self.get('squared_orders').values())):
             return True
         
         for procdef in self['decay_chains']:
@@ -3417,22 +3319,19 @@ class Process(PhysicsObject):
     def get_ninitial(self):
         """Gives number of initial state particles"""
 
-        return len(filter(lambda leg: leg.get('state') == False,
-                           self.get('legs')))
+        return len([leg for leg in self.get('legs') if leg.get('state') == False])
 
     def get_initial_ids(self):
         """Gives the pdg codes for initial state particles"""
 
         return [leg.get('id') for leg in \
-                filter(lambda leg: leg.get('state') == False,
-                       self.get('legs'))]
+                [leg for leg in self.get('legs') if leg.get('state') == False]]
 
     def get_initial_pdg(self, number):
         """Return the pdg codes for initial state particles for beam number"""
 
-        return filter(lambda leg: leg.get('state') == False and\
-                       leg.get('number') == number,
-                       self.get('legs'))[0].get('id')
+        return [leg for leg in self.get('legs') if leg.get('state') == False and\
+                       leg.get('number') == number][0].get('id')
 
     def get_cached_initial_final_numbers(self):
         """ Return the initial and final numbers using a cache."""
@@ -3477,7 +3376,7 @@ class Process(PhysicsObject):
         
         for beam_name in ['beam_one','beam_two']:        
             if not bft[beam_name] is None:
-                for squared_order, value in bft[beam_name]['squared_orders'].items():
+                for squared_order, value in list(bft[beam_name]['squared_orders'].items()):
                     if squared_order in squared_orders:
                         squared_orders[squared_order] += value
                     else:
@@ -3538,14 +3437,12 @@ class Process(PhysicsObject):
     def get_final_legs(self):
         """Gives the final state legs"""
 
-        return filter(lambda leg: leg.get('state') == True,
-                       self.get('legs'))
+        return [leg for leg in self.get('legs') if leg.get('state') == True]
 
     def get_initial_legs(self):
         """Gives the final state legs"""
 
-        return filter(lambda leg: leg.get('state') == False,
-                       self.get('legs'))
+        return [leg for leg in self.get('legs') if leg.get('state') == False]
     
     def get_final_ids(self):
         """Gives the pdg codes for final state particles"""
@@ -3633,8 +3530,7 @@ class Process(PhysicsObject):
         """Calculate the denominator factor for identical final state particles
         """
         
-        final_legs = filter(lambda leg: leg.get('state') == True, \
-                              self.get_legs_with_decays())
+        final_legs = [leg for leg in self.get_legs_with_decays() if leg.get('state') == True]
 
         identical_indices = {}
         for leg in final_legs:
@@ -3645,7 +3541,7 @@ class Process(PhysicsObject):
                 identical_indices[leg.get('id')] = 1
 
         return reduce(lambda x, y: x * y, [ math.factorial(val) for val in \
-                        identical_indices.values() ], 1)
+                        list(identical_indices.values()) ], 1)
 
     def check_expansion_orders(self):
         """Ensure that maximum expansion orders from the model are
@@ -3656,11 +3552,11 @@ class Process(PhysicsObject):
         orders = self.get('orders')
         sq_orders = self.get('squared_orders')
         
-        tmp = [(k,v) for (k,v) in expansion_orders.items() if 0 < v < 99]
+        tmp = [(k,v) for (k,v) in list(expansion_orders.items()) if 0 < v < 99]
         for (k,v) in tmp:  
             if k in orders:
                 if v < orders[k]:
-                    if k in sq_orders.keys() and \
+                    if k in list(sq_orders.keys()) and \
                                              (sq_orders[k]>v or sq_orders[k]<0):
                         logger.warning(
 '''The process with the squared coupling order (%s^2%s%s) specified can potentially 
@@ -3770,12 +3666,10 @@ class ProcessDefinition(Process):
 
         if name == 'legs':
             if not isinstance(value, MultiLegList):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid MultiLegList object" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid MultiLegList object" % str(value))
         elif name == 'decay_chains':
             if not isinstance(value, ProcessDefinitionList):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid ProcessDefinitionList" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid ProcessDefinitionList" % str(value))
         else:
             return super(ProcessDefinition, self).filter(name, value)
 
@@ -3959,7 +3853,7 @@ class ProcessDefinition(Process):
         if self['constrained_orders']:
             mystr = mystr + " ".join('%s%s%d' % (key, operator, value) for 
                                      (key,(value, operator)) 
-                                   in self['constrained_orders'].items()) + ' '
+                                   in list(self['constrained_orders'].items())) + ' '
 
         # Add perturbation_couplings
         if self['perturbation_couplings']:
@@ -3976,7 +3870,7 @@ class ProcessDefinition(Process):
         if self['squared_orders']:
             mystr = mystr + " ".join([key + '^2%s%d'%\
                 (self.get_squared_order_type(key),self['squared_orders'][key]) \
-              for key in self['squared_orders'].keys() \
+              for key in list(self['squared_orders'].keys()) \
                                     if print_weighted or key!='WEIGHTED']) + ' '
 
         # Remove last space
@@ -4339,7 +4233,7 @@ class EpsilonExpansion(dict):
         super(EpsilonExpansion,self).__init__(*args, **opts)
         
         if dict_specifier:
-            for key, value in dict_specifier.items():
+            for key, value in list(dict_specifier.items()):
                 try:
                     self[int(key)] = value
                 except ValueError:
@@ -4350,7 +4244,7 @@ class EpsilonExpansion(dict):
     
     def __add__(self, other):
         res = EpsilonExpansion(other)
-        for k, v in self.items():
+        for k, v in list(self.items()):
             try:
                 res[k] += v
             except KeyError:
@@ -4361,7 +4255,7 @@ class EpsilonExpansion(dict):
         """self - other"""
         res = EpsilonExpansion(self)
         eps_other = EpsilonExpansion(other)
-        for k, v in eps_other.items():
+        for k, v in list(eps_other.items()):
             try:
                 res[k] -= v
             except KeyError:
@@ -4371,12 +4265,12 @@ class EpsilonExpansion(dict):
     def __mul__(self, other):
         if not isinstance(other, EpsilonExpansion):
             res = EpsilonExpansion(self)
-            for k in res.keys():
+            for k in list(res.keys()):
                 res[k] *= other
         else:
             res = EpsilonExpansion()
-            for k1, v1 in self.items():
-                for k2, v2 in other.items():
+            for k1, v1 in list(self.items()):
+                for k2, v2 in list(other.items()):
                     k, v = k1+k2, v1*v2
                     try:
                         res[k] += v
@@ -4387,7 +4281,7 @@ class EpsilonExpansion(dict):
     def __div__(self, other):
         if not isinstance(other, EpsilonExpansion):
             res = EpsilonExpansion(self)
-            for k in res.keys():
+            for k in list(res.keys()):
                 res[k] /= other
         else:
             raise NotImplementedError("Division by an EpsilonExpansion not implemented. Expand the ratio analytically.")
@@ -4423,7 +4317,7 @@ class EpsilonExpansion(dict):
         if isinstance(term_specifier, str):
             term_specifier = term_specifier.lower()
             if term_specifier == 'sum_all':
-                return sum(v for k,v in self.items() if isinstance(k, int))
+                return sum(v for k,v in list(self.items()) if isinstance(k, int))
             if term_specifier == 'finite':
                 dict_key = 0
             elif term_specifier.startswith('eps^'):
@@ -4442,7 +4336,7 @@ class EpsilonExpansion(dict):
         # The 'finite' key is mandatory
         res = {'finite' : 0. }
 
-        for k, v in self.items():
+        for k, v in list(self.items()):
             if k==0:
                 res['finite'] += v
             res['eps^%d'%k] = v
@@ -4453,7 +4347,7 @@ class EpsilonExpansion(dict):
         """ Computes the relative difference with the other series, term by term,"""
         
         res = EpsilonExpansion()
-        for k in set(self.keys()+other.keys()):
+        for k in set(list(self.keys())+list(other.keys())):
             v = self.get(k, 0.)
             other_v = other.get(k, 0.)
             sum = abs(v + other_v)
@@ -4467,7 +4361,7 @@ class EpsilonExpansion(dict):
         """ Simply returns the sum of the absolute value of each term."""
         
         res = 0.
-        for v in self.values():
+        for v in list(self.values()):
             res += abs(v)
         return res
     
@@ -4475,7 +4369,7 @@ class EpsilonExpansion(dict):
         """ Returns the maximum power of epsilon whose coefficient is not zero."""
         
         min = None
-        for k, v in self.items():
+        for k, v in list(self.items()):
             if v==0.:
                 continue
             if min is None or k<min:
@@ -4489,7 +4383,7 @@ class EpsilonExpansion(dict):
         """ Returns the maximum power of epsilon whose coefficient is not zero."""
         
         min = None
-        for k, v in self.items():
+        for k, v in list(self.items()):
             if v==0.:
                 continue
             if max is None or k>max:
@@ -4503,7 +4397,7 @@ class EpsilonExpansion(dict):
         """ Remove poles deeper than min_power, if specified, or higher than max_power, if
         specified."""
         
-        for key in self.keys():
+        for key in list(self.keys()):
             if ( (not min_power is None) and key < min_power ) or \
                ( (not max_power is None) and key > max_power ):
                 del self[key]
@@ -4516,33 +4410,33 @@ class EpsilonExpansion(dict):
     def __str__(self, format=None):
         
         utf8_exp_chars = {
-            '1' : u'\u00b9',
-            '2' : u'\u00b2',
-            '3' : u'\u00b3',
-            '4' : u'\u2074',
-            '5' : u'\u2075',
-            '6' : u'\u2076',
-            '7' : u'\u2077',
-            '8' : u'\u2078',
-            '9' : u'\u2079',
-            '0' : u'\u2070',
-            '-' : u'\u207B',
+            '1' : '\u00b9',
+            '2' : '\u00b2',
+            '3' : '\u00b3',
+            '4' : '\u2074',
+            '5' : '\u2075',
+            '6' : '\u2076',
+            '7' : '\u2077',
+            '8' : '\u2078',
+            '9' : '\u2079',
+            '0' : '\u2070',
+            '-' : '\u207B',
             }
         
         if format is None:
             format = '.16g'
 
-        res = u''
+        res = ''
         for k in sorted(self.keys()):
             if k==0:
-                identifier=u''
+                identifier=''
             else:
-                identifier=u'\u03B5'
+                identifier='\u03B5'
             if k not in [0,1]:
                 for char in str(k):
                     identifier+=utf8_exp_chars[char]
              
-            res += (u'%%s %%%s %%s '%format)%(
+            res += ('%%s %%%s %%s '%format)%(
                 '+' if self[k]>=0. else '-',
                 abs(self[k]),
                 identifier

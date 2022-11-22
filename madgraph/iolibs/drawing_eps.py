@@ -37,7 +37,7 @@ DrawDiagramsEPS:
     This contains all the routines to represent a set of diagrams in Encapsuled 
     PostScript (EPS)."""
 
-from __future__ import division
+
 
 import os
 import math
@@ -146,7 +146,7 @@ class EpsDiagramDrawer(draw.DiagramDrawer):
         interaction = self.model.get_interaction(vertex.id)
         if interaction:
             order = interaction.get('orders')
-            order = [key for key in order.keys() if order[key] and \
+            order = [key for key in list(order.keys()) if order[key] and \
                                                      key not in bypass]
 
             if order:
@@ -774,7 +774,7 @@ class MultiEpsDiagramDrawer(EpsDiagramDrawer):
         self.curr_page += 1
         self.block_in_page = 0
         if self.curr_page == self.lower_scale:
-            for key, value in self.second_scale.items():
+            for key, value in list(self.second_scale.items()):
                 setattr(self, key, value)
         
         

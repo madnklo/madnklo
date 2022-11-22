@@ -14,15 +14,18 @@
 ################################################################################
 """ How to import a UFO model to the MG5 format """
 
-
+from __future__ import absolute_import
+import collections
 import fractions
 import logging
+import math
 import os
 import re
 import sys
 import time
+import collections
 
-
+import madgraph
 from madgraph import MadGraph5Error, MG5DIR, ReadWrite
 import madgraph.core.base_objects as base_objects
 import madgraph.loop.loop_base_objects as loop_base_objects
@@ -39,6 +42,9 @@ import aloha.aloha_fct as aloha_fct
 
 import models as ufomodels
 import models.model_reader as model_reader
+import six
+from six.moves import range
+from six.moves import zip
 logger = logging.getLogger('madgraph.model')
 logger_mod = logging.getLogger('madgraph.model')
 
@@ -46,7 +52,7 @@ root_path = os.path.dirname(os.path.realpath( __file__ ))
 sys.path.append(root_path)
 
 sys.path.append(os.path.join(root_path, os.path.pardir, 'Template', 'bin', 'internal'))
-import check_param_card 
+from . import check_param_card 
 
 pjoin = os.path.join
 
@@ -60,13 +66,13 @@ class InvalidModel(MadGraph5Error):
     """ a class for invalid Model """
 
 last_model_path =''
-def find_ufo_path(model_name):
+def find_ufo_path(model_name, web_search=True):
     """ find the path to a model """
 
     global last_model_path
 
     # Check for a valid directory
-    if model_name.startswith('./') and os.path.isdir(model_name):
+    if model_name.startswith(('./','../')) and os.path.isdir(model_name):
         return model_name
     elif os.path.isdir(os.path.join(MG5DIR, 'models', model_name)):
         return os.path.join(MG5DIR, 'models', model_name)
@@ -78,29 +84,137 @@ def find_ufo_path(model_name):
                     last_model_path = os.path.join(MG5DIR, p, model_name)
                 return os.path.join(MG5DIR, p, model_name)
     if os.path.isdir(model_name):
-        if last_model_path != os.path.join(MG5DIR, model_name):
-            logger.info("model loaded from: %s", os.path.join(os.getcwd(), model_name))
-            last_model_path = os.path.join(MG5DIR, model_name)
-        return model_name   
+        logger.warning('No model %s found in default path. Did you mean \'import model ./%s\'',
+                       model_name, model_name)
+        if os.path.sep in model_name:
+            raise UFOImportError("Path %s is not a valid pathname" % model_name)    
+    elif web_search and '-' not in model_name:
+        found = import_model_from_db(model_name)
+        if found:
+            return find_ufo_path(model_name, web_search=False)
+        else:
+            raise UFOImportError("Path %s is not a valid pathname" % model_name)    
     else:
         raise UFOImportError("Path %s is not a valid pathname" % model_name)    
     
-
+    raise UFOImportError("Path %s is not a valid pathname" % model_name)
     return
 
-def import_model(model_name, decay=False, restrict=True, prefix='mdl_',
-                                                    complex_mass_scheme = None):
-    """ a practical and efficient way to import a model"""
+
+def get_model_db():
+    """return the file with the online model database"""
+
+    data_path = ['http://madgraph.phys.ucl.ac.be/models_db.dat',
+                     'http://madgraph.physics.illinois.edu/models_db.dat']
+    import random
+    import six.moves.urllib.request, six.moves.urllib.parse, six.moves.urllib.error
+    r = random.randint(0,1)
+    r = [r, (1-r)]
+
+    if 'MG5aMC_WWW' in os.environ and os.environ['MG5aMC_WWW']:
+        data_path.append(os.environ['MG5aMC_WWW']+'/models_db.dat')
+        r.insert(0, 2)
+
+
+    for index in r:
+        cluster_path = data_path[index]
+        try:
+            data = six.moves.urllib.request.urlopen(cluster_path)
+        except Exception:
+            continue
+        if data.getcode() != 200:
+            continue
+        break
+    else:
+        raise MadGraph5Error('''Model not found locally and Impossible to connect any of us servers.
+        Please check your internet connection or retry later''')
+
+    return data
+
+def import_model_from_db(model_name, local_dir=False):
+    """ import the model with a given name """
+
+    if os.path.sep in model_name and os.path.exists(os.path.dirname(model_name)):
+        target = os.path.dirname(model_name)
+        model_name = os.path.basename(model_name)
+    else:
+        target = None
+    data =get_model_db()
+    link = None
+    for line in data:
+        split = line.decode().split()
+        if model_name == split[0]:
+            link = split[1]
+            break
+    else:
+        logger.debug('no model with that name (%s) found online', model_name)
+        return False
     
+    #get target directory
+    # 1. PYTHONPATH containing UFO --only for omattelaer user
+    # 2. models directory
+    
+    username = ''
+    if not target:
+        try:
+            import pwd
+            username =pwd.getpwuid( os.getuid() )[ 0 ]  
+        except Exception as error:
+            misc.sprint(str(error))
+            username = ''
+    if username in ['omatt', 'mattelaer', 'olivier', 'omattelaer'] and target is None and \
+                                    'PYTHONPATH' in os.environ and not local_dir:
+        for directory in os.environ['PYTHONPATH'].split(':'):
+            #condition only for my setup --ATLAS did not like it
+            if 'UFOMODEL' == os.path.basename(directory) and os.path.exists(directory) and\
+                misc.glob('*/couplings.py', path=directory) and 'matt' in directory:
+                target= directory
+                   
+    if target is None:
+        target = pjoin(MG5DIR, 'models')    
+    try:
+        os.remove(pjoin(target, 'tmp.tgz'))
+    except Exception:
+        pass
+    logger.info("download model from %s to the following directory: %s", link, target, '$MG:color:BLACK')
+    misc.wget(link, 'tmp.tgz', cwd=target)
+
+    #untar the file.
+    # .tgz
+    if link.endswith(('.tgz','.tar.gz','.tar')):
+        try:
+            proc = misc.call('tar -xzpvf tmp.tgz', shell=True, cwd=target)#, stdout=devnull, stderr=devnull)
+            if proc: raise Exception
+        except:
+            proc = misc.call('tar -xpvf tmp.tgz', shell=True, cwd=target)#, stdout=devnull, stderr=devnull)
+    # .zip
+    if link.endswith(('.zip')):
+        try:
+            proc = misc.call('unzip tmp.tgz', shell=True, cwd=target)#, stdout=devnull, stderr=devnull)
+            if proc: raise Exception
+        except:
+            proc = misc.call('tar -xzpvf tmp.tgz', shell=True, cwd=target)#, stdout=devnull, stderr=devnull)
+    if proc:
+        raise Exception("Impossible to unpack the model. Please install it manually")
+    return True
+
+def get_path_restrict(model_name, restrict=True):
     # check if this is a valid path or if this include restriction file       
     try:
         model_path = find_ufo_path(model_name)
     except UFOImportError:
         if '-' not in model_name:
+            if model_name == "mssm":
+                logger.error("mssm model has been replaced by MSSM_SLHA2 model.\n The new model require SLHA2 format. You can use the \"update to_slha2\" command to convert your slha1 param_card.\n That option is available at the time of the edition of the cards.")
             raise
         split = model_name.split('-')
         model_name = '-'.join([text for text in split[:-1]])
-        model_path = find_ufo_path(model_name)
+        try:
+            model_path = find_ufo_path(model_name)
+        except UFOImportError:
+            if model_name == "mssm":
+                logger.error("mssm model has been replaced by MSSM_SLHA2 model.\n The new model require SLHA2 format. You can use the \"update to_slha2\" command to convert your slha1 param_card.\n That option is available at the time of the edition of the cards.")
+            raise
         restrict_name = split[-1]
          
         restrict_file = os.path.join(model_path, 'restrict_%s.dat'% restrict_name)
@@ -122,7 +236,15 @@ def import_model(model_name, decay=False, restrict=True, prefix='mdl_',
             elif os.path.exists(restrict):
                 restrict_file = restrict
             else:
-                raise Exception, "%s is not a valid path for restrict file" % restrict
+                raise Exception("%s is not a valid path for restrict file" % restrict)
+
+    return model_path, restrict_file, restrict_name
+
+def import_model(model_name, decay=False, restrict=True, prefix='mdl_',
+                                                    complex_mass_scheme = None):
+    """ a practical and efficient way to import a model"""
+    
+    model_path, restrict_file, restrict_name = get_path_restrict(model_name, restrict)
     
     #import the FULL model
     model = import_full_model(model_path, decay, prefix)
@@ -215,8 +337,8 @@ def import_full_model(model_path, decay=False, prefix=''):
         filepath = os.path.join(model_path, filename)
         if not os.path.isfile(filepath):
             if filename not in ['propagators.py', 'decays.py', 'coupling_orders.py']:
-                raise UFOImportError,  "%s directory is not a valid UFO model: \n %s is missing" % \
-                                                         (model_path, filename)
+                raise UFOImportError("%s directory is not a valid UFO model: \n %s is missing" % \
+                                                         (model_path, filename))
         files_list.append(filepath)
     # use pickle files if defined and up-to-date
     if aloha.unitary_gauge: 
@@ -225,6 +347,8 @@ def import_full_model(model_path, decay=False, prefix=''):
         pickle_name = 'model_Feynman.pkl'
     if decay:
         pickle_name = 'dec_%s' % pickle_name
+    if six.PY3:
+        pickle_name = 'py3_%s' % pickle_name
     
     allow_reload = False
     if files.is_uptodate(os.path.join(model_path, pickle_name), files_list):
@@ -232,11 +356,11 @@ def import_full_model(model_path, decay=False, prefix=''):
         try:
             model = save_load_object.load_from_file( \
                                           os.path.join(model_path, pickle_name))
-        except Exception, error:
+        except Exception as error:
             logger.info('failed to load model from pickle file. Try importing UFO from File')
         else:
             # We don't care about the restrict_card for this comparison
-            if model.has_key('version_tag') and not model.get('version_tag') is None and \
+            if 'version_tag' in model and not model.get('version_tag') is None and \
                 model.get('version_tag').startswith(os.path.realpath(model_path)) and \
                 model.get('version_tag').endswith('##' + str(misc.get_pkg_info())):
                 #check if the prefix is correct one.
@@ -266,7 +390,7 @@ def import_full_model(model_path, decay=False, prefix=''):
                 logger.info('reload from .py file')
 
     if (model_path, aloha.unitary_gauge, prefix, decay) in _import_once and not allow_reload:
-        raise MadGraph5Error, 'This model %s is modified on disk. To reload it you need to quit/relaunch MG5_aMC ' % model_path
+        raise MadGraph5Error('This model %s is modified on disk. To reload it you need to quit/relaunch MG5_aMC ' % model_path)
      
     # Load basic information
     ufo_model = ufomodels.load_model(model_path, decay)
@@ -311,9 +435,9 @@ def import_full_model(model_path, decay=False, prefix=''):
     model.set('version_tag', os.path.realpath(path) +'##'+ str(misc.get_pkg_info()))
     
     # save in a pickle files to fasten future usage
-    if ReadWrite:
+    if ReadWrite and model['allow_pickle']:
         save_load_object.save_to_file(os.path.join(model_path, pickle_name),
-                                   model, log=False)
+                                   model, log=False, allow_fail=True)
 
     #if default and os.path.exists(os.path.join(model_path, 'restrict_default.dat')):
     #    restrict_file = os.path.join(model_path, 'restrict_default.dat') 
@@ -340,12 +464,12 @@ class UFOMG5Converter(object):
             for order in model.all_orders:
                 if(order.perturbative_expansion>0):
                     self.perturbation_couplings[order.name]=order.perturbative_expansion
-        except AttributeError,error:
+        except AttributeError as error:
             pass
 
         if self.perturbation_couplings!={}:
             self.model = loop_base_objects.LoopModel({'perturbation_couplings':\
-                                                self.perturbation_couplings.keys()})
+                                                list(self.perturbation_couplings.keys())})
         else:
             self.model = base_objects.Model()                        
         self.model.set('particles', self.particles)
@@ -367,11 +491,11 @@ class UFOMG5Converter(object):
         for param in self.ufomodel.all_parameters:
             if param.nature == "external":
                 if len(param.lhablock.split())>1:
-                    raise InvalidModel, '''LHABlock should be single word which is not the case for
-    \'%s\' parameter with lhablock \'%s\' ''' % (param.name, param.lhablock)
+                    raise InvalidModel('''LHABlock should be single word which is not the case for
+    \'%s\' parameter with lhablock \'%s\' ''' % (param.name, param.lhablock))
             if param.name in def_name:
-                raise InvalidModel, "name %s define multiple time. Please correct the UFO model!" \
-                                                                  % (param.name)
+                raise InvalidModel("name %s define multiple time. Please correct the UFO model!" \
+                                                                  % (param.name))
             else:
                 def_name.append(param.name)
                                                                   
@@ -383,8 +507,8 @@ class UFOMG5Converter(object):
                     if CTparam.pole(pole)!='ZERO':
                         new_param_name = '%s_%s_'%(CTparam.name,pole_dict[pole])
                         if new_param_name in def_name:
-                            raise InvalidModel, "CT name %s"% (new_param_name)+\
-                                           " the model. Please change its name."
+                            raise InvalidModel("CT name %s"% (new_param_name)+\
+                                           " the model. Please change its name.")
 
         if hasattr(self.ufomodel, 'gauge'):    
             self.model.set('gauge', self.ufomodel.gauge)
@@ -434,7 +558,7 @@ class UFOMG5Converter(object):
         if self.perturbation_couplings:
             try:
                 self.ufomodel.add_NLO()
-            except Exception, error:
+            except Exception as error:
                 pass 
 
             for interaction_info in self.ufomodel.all_CTvertices:
@@ -450,7 +574,7 @@ class UFOMG5Converter(object):
             all_orders = self.ufomodel.all_orders
         except AttributeError:
             if self.perturbation_couplings:
-                raise MadGraph5Error, "The loop model MG5 attemps to import does not specify the attribute 'all_order'." 
+                raise MadGraph5Error("The loop model MG5 attemps to import does not specify the attribute 'all_order'.") 
             else:
                 pass            
 
@@ -460,7 +584,7 @@ class UFOMG5Converter(object):
                 hierarchy[order.name]=order.hierarchy
         except AttributeError:
             if self.perturbation_couplings:
-                raise MadGraph5Error, 'The loop model MG5 attemps to import does not specify an order hierarchy.' 
+                raise MadGraph5Error('The loop model MG5 attemps to import does not specify an order hierarchy.') 
             else:
                 pass
         else:
@@ -476,7 +600,7 @@ class UFOMG5Converter(object):
                 coupling_order_counterterms[order.name]=order.expansion_order                
         except AttributeError:
             if self.perturbation_couplings:
-                raise MadGraph5Error, 'The loop model MG5 attemps to import does not specify an expansion_order for all coupling orders.' 
+                raise MadGraph5Error('The loop model MG5 attemps to import does not specify an expansion_order for all coupling orders.') 
             else:
                 pass
         else:
@@ -525,7 +649,7 @@ class UFOMG5Converter(object):
         
         nb_property = 0   #basic check that the UFO information is complete
         # Loop over the element defining the UFO particles
-        for key,value in particle_info.__dict__.items():
+        for key,value in list(particle_info.__dict__.items()):
             # Check if we use it in the MG5 definition of a particles
             if key in base_objects.Particle.sorted_keys and not key=='counterterm':
                 nb_property +=1
@@ -600,7 +724,7 @@ class UFOMG5Converter(object):
         # two a dictionary with format 
         # ('ORDER_OF_COUNTERTERM',((Particle_list_PDG))):{laurent_order:CTCouplingName}
         particle_counterterms = {}
-        for key, counterterm in counterterms.items():
+        for key, counterterm in list(counterterms.items()):
             # Makes sure this counterterm contributes at one-loop.
             if len([1 for k in key[:-1] if k==1])==1 and \
                not any(k>1 for k in key[:-1]):
@@ -687,8 +811,7 @@ class UFOMG5Converter(object):
                 return None
             start = expr.rfind('(',0,end+1)
             if start ==-1:
-                raise InvalidModel,\
-                               'Parenthesis of expression %s are malformed'%expr
+                raise InvalidModel('Parenthesis of expression %s are malformed'%expr)
             return [expr[:start],expr[start+1:end],expr[end+1:]]
         
         start_parenthesis = re.compile(r".*\s*[\+\-\*\/\)\(]\s*$")
@@ -728,7 +851,7 @@ class UFOMG5Converter(object):
             """
 
             if isinstance(CTCoupling.value,dict):
-                if -pole in CTCoupling.value.keys():
+                if -pole in list(CTCoupling.value.keys()):
                     return CTCoupling.value[-pole], [], 0
                 else:
                     return 'ZERO', [], 0              
@@ -736,7 +859,7 @@ class UFOMG5Converter(object):
             new_expression           = CTCoupling.value
             CTparamNames = []
             n_CTparams   = 0
-            for paramname, value in CTparameter_patterns.items():
+            for paramname, value in list(CTparameter_patterns.items()):
                 pattern = value[0]
                 # Keep track of which CT parameters enter in the definition of
                 # which coupling.
@@ -809,8 +932,8 @@ class UFOMG5Converter(object):
         
         intType=''
         if interaction_info.type not in ['UV','UVloop','UVtree','UVmass','R2']:
-            raise MadGraph5Error, 'MG5 only supports the following types of'+\
-              ' vertices, R2, UV and UVmass. %s is not in this list.'%interaction_info.type
+            raise MadGraph5Error('MG5 only supports the following types of'+\
+              ' vertices, R2, UV and UVmass. %s is not in this list.'%interaction_info.type)
         else:
             intType=interaction_info.type
             # If not specified and simply set to UV, guess the appropriate type
@@ -838,7 +961,7 @@ class UFOMG5Converter(object):
         #               range(0,max(1,len(interaction_info.loop_particles)))]
         # So sort all entries in the couplings dictionary to put them a the
         # correct place in new_couplings.
-        for key, couplings in interaction_info.couplings.items():
+        for key, couplings in list(interaction_info.couplings.items()):
             if not isinstance(couplings, list):
                 couplings = [couplings]
             for coupling in couplings:
@@ -855,12 +978,12 @@ class UFOMG5Converter(object):
                     expression = coupling.pole(poleOrder)
                     if expression!='ZERO':
                         if poleOrder==2:
-                            raise InvalidModel, """
+                            raise InvalidModel("""
     The CT coupling %s was found with a contribution to the double pole. 
     This is either an error in the model or a parsing error in the function 'is_value_zero'.
     The expression of the non-zero double pole coupling is:
     %s
-    """%(coupling.name,str(coupling.value))
+    """%(coupling.name,str(coupling.value)))
                         # It is actually safer that the new coupling associated to
                         # the interaction added is not a reference to an original 
                         # coupling in the ufo model. So copy.copy is right here.   
@@ -877,7 +1000,7 @@ class UFOMG5Converter(object):
                         #    delattr(newCoupling,"CTparam_dependence")
                         new_couplings[key[2]][poleOrder][(key[0],key[1])] = newCoupling  
             
-        for new_couplings in order_to_interactions.values():
+        for new_couplings in list(order_to_interactions.values()):
             # Now we can add an interaction for each.         
             for i, all_couplings in enumerate(new_couplings):
                 loop_particles=[[]]
@@ -978,16 +1101,16 @@ class UFOMG5Converter(object):
             # Check/assign for the color particle
             if color.pdg_code in output: 
                 if output[color.pdg_code] == -3:
-                    raise InvalidModel, 'Particles %s is sometimes in the 3 and sometimes in the 3bar representations' \
-                                    % color.name
+                    raise InvalidModel('Particles %s is sometimes in the 3 and sometimes in the 3bar representations' \
+                                    % color.name)
             else:
                 output[color.pdg_code] = 3
             
             # Check/assign for the anticolor particle
             if anticolor.pdg_code in output: 
                 if output[anticolor.pdg_code] == 3:
-                    raise InvalidModel, 'Particles %s is sometimes set as in the 3 and sometimes in the 3bar representations' \
-                                    % anticolor.name
+                    raise InvalidModel('Particles %s is sometimes set as in the 3 and sometimes in the 3bar representations' \
+                                    % anticolor.name)
             else:
                 output[anticolor.pdg_code] = -3
         
@@ -1003,12 +1126,12 @@ class UFOMG5Converter(object):
             # check if the interaction meet requirements:
             pdg = [p.pdg_code for p in interaction_info.particles if p.spin in [2,4]]
             if len(pdg) % 2:
-                raise InvalidModel, 'Odd number of fermion in vertex: %s' % [p.pdg_code for p in interaction_info.particles]
+                raise InvalidModel('Odd number of fermion in vertex: %s' % [p.pdg_code for p in interaction_info.particles])
             for i in range(0, len(pdg),2):
                 if pdg[i] == - pdg[i+1]:
                     if pdg[i] in self.outcoming:
-                        raise InvalidModel, '%s has not coherent incoming/outcoming status between interactions' %\
-                            [p for p in interaction_info.particles if p.spin in [2,4]][i].name
+                        raise InvalidModel('%s has not coherent incoming/outcoming status between interactions' %\
+                            [p for p in interaction_info.particles if p.spin in [2,4]][i].name)
                             
                     elif not pdg[i] in self.incoming:
                         self.incoming.append(pdg[i])
@@ -1040,12 +1163,12 @@ class UFOMG5Converter(object):
             elif nb_fermion:
                 if any(p.selfconjugate for p in interaction_info.particles if p.spin % 2 == 0):
                     text = "Majorana can not be dealt in 4/6/... fermion interactions"
-                    raise InvalidModel, text
-        except aloha_fct.WrongFermionFlow, error:
+                    raise InvalidModel(text)
+        except aloha_fct.WrongFermionFlow as error:
             text = 'Fermion Flow error for interactions %s: %s: %s\n %s' % \
              (', '.join([p.name for p in interaction_info.particles]), 
                                              helas.name, helas.structure, error)
-            raise InvalidModel, text
+            raise InvalidModel(text)
         
         
         
@@ -1058,7 +1181,7 @@ class UFOMG5Converter(object):
         
         order_to_int={}
 
-        for key, couplings in interaction_info.couplings.items():
+        for key, couplings in list(interaction_info.couplings.items()):
             if not isinstance(couplings, list):
                 couplings = [couplings]
             if interaction_info.lorentz[key[1]].name not in lorentz:
@@ -1073,9 +1196,9 @@ class UFOMG5Converter(object):
             for coupling in couplings:
                 order = tuple(coupling.order.items())
                 if '1' in order:
-                    raise InvalidModel, '''Some couplings have \'1\' order. 
+                    raise InvalidModel('''Some couplings have \'1\' order. 
                     This is not allowed in MG. 
-                    Please defines an additional coupling to your model''' 
+                    Please defines an additional coupling to your model''') 
                 if order in order_to_int:
                     order_to_int[order].get('couplings')[key] = '%s%s' % \
                                                (coupling_sign,coupling.name)
@@ -1185,14 +1308,14 @@ class UFOMG5Converter(object):
                     error_msg = 'UFO model have inconsistency in the format:\n'
                     error_msg += 'interactions for  particles %s has color information %s\n'
                     error_msg += ' but both fermion are in the same representation %s'
-                    raise InvalidModel, error_msg % (', '.join([p.name for p in interaction_info.particles]),data_string, particle.color)
+                    raise InvalidModel(error_msg % (', '.join([p.name for p in interaction_info.particles]),data_string, particle.color))
                 if particle.color == particle2.color and particle.color in [-3, 3]:
                     if particle.pdg_code in color_info and particle2.pdg_code in color_info:
                       if color_info[particle.pdg_code] == color_info[particle2.pdg_code]:
                         error_msg = 'UFO model have inconsistency in the format:\n'
                         error_msg += 'interactions for  particles %s has color information %s\n'
                         error_msg += ' but both fermion are in the same representation %s'
-                        raise InvalidModel, error_msg % (', '.join([p.name for p in interaction_info.particles]),data_string, particle.color)
+                        raise InvalidModel(error_msg % (', '.join([p.name for p in interaction_info.particles]),data_string, particle.color))
                     elif particle.pdg_code in color_info:
                         color_info[particle2.pdg_code] = -particle.pdg_code
                     elif particle2.pdg_code in color_info:
@@ -1201,7 +1324,7 @@ class UFOMG5Converter(object):
                         error_msg = 'UFO model have inconsistency in the format:\n'
                         error_msg += 'interactions for  particles %s has color information %s\n'
                         error_msg += ' but both fermion are in the same representation %s'
-                        raise InvalidModel, error_msg % (', '.join([p.name for p in interaction_info.particles]),data_string, particle.color)
+                        raise InvalidModel(error_msg % (', '.join([p.name for p in interaction_info.particles]),data_string, particle.color))
                 
                 
                 if particle.color == 6:
@@ -1236,9 +1359,8 @@ class UFOMG5Converter(object):
                     elif color_info[particle.pdg_code] == -3:
                         output.append(self._pat_id.sub('color.T(\g<first>,\g<second>)', term))
                 else:
-                    raise MadGraph5Error, \
-                          "Unknown use of Identity for particle with color %d" \
-                          % particle.color
+                    raise MadGraph5Error("Unknown use of Identity for particle with color %d" \
+                          % particle.color)
             else:
                 output.append(term)
         data_string = '*'.join(output)
@@ -1634,7 +1756,7 @@ class RestrictModel(model_reader.ModelReader):
         # change value of default parameter if they have special value:
         # 9.999999e-1 -> 1.0
         # 0.000001e-99 -> 0 Those value are used to avoid restriction
-        for name, value in self['parameter_dict'].items():
+        for name, value in list(self['parameter_dict'].items()):
             if value == 9.999999e-1:
                 self['parameter_dict'][name] = 1
             elif value == 0.000001e-99:
@@ -1646,7 +1768,7 @@ class RestrictModel(model_reader.ModelReader):
         
         self.coupling_pos = {}
         for vertex in self['interactions']:
-            for key, coupling in vertex['couplings'].items():
+            for key, coupling in list(vertex['couplings'].items()):
                 if coupling in self.coupling_pos:
                     if vertex not in self.coupling_pos[coupling]:
                         self.coupling_pos[coupling].append(vertex)
@@ -1654,8 +1776,8 @@ class RestrictModel(model_reader.ModelReader):
                     self.coupling_pos[coupling] = [vertex]
         
         for particle in self['particles']:
-            for key, coupling_dict in particle['counterterm'].items():
-                for LaurentOrder, coupling in coupling_dict.items():
+            for key, coupling_dict in list(particle['counterterm'].items()):
+                for LaurentOrder, coupling in list(coupling_dict.items()):
                     if coupling in self.coupling_pos:
                         if (particle,key) not in self.coupling_pos[coupling]:
                             self.coupling_pos[coupling].append((particle,key))
@@ -1672,7 +1794,7 @@ class RestrictModel(model_reader.ModelReader):
         zero_coupling = []
         iden_coupling = []
         
-        for name, value in self['coupling_dict'].items():
+        for name, value in list(self['coupling_dict'].items()):
             if value == 0:
                 zero_coupling.append(name)
                 continue
@@ -1701,7 +1823,7 @@ class RestrictModel(model_reader.ModelReader):
         
         null_parameters = []
         one_parameters = []
-        for name, value in self['parameter_dict'].items():
+        for name, value in list(self['parameter_dict'].items()):
             if value == 0 and name != 'ZERO':
                 null_parameters.append(name)
             elif value == 1:
@@ -1742,7 +1864,7 @@ class RestrictModel(model_reader.ModelReader):
         
         start_param = time.time()
         if 'parameters' in objects:
-            for dependences, param_list in self['parameters'].items():
+            for dependences, param_list in list(self['parameters'].items()):
                 if 'external' in dependences:
                     continue
                 for param in param_list:
@@ -1753,7 +1875,7 @@ class RestrictModel(model_reader.ModelReader):
         end_param = time.time()
   
         if 'couplings' in objects:         
-            for dependences, coupl_list in self['couplings'].items():
+            for dependences, coupl_list in list(self['couplings'].items()):
                 for coupl in coupl_list:
                     new_expr, n_changes = ifparser.parse(coupl.expr)
                     if n_changes > 0:
@@ -1829,7 +1951,7 @@ class RestrictModel(model_reader.ModelReader):
             vertices = [ vert for vert in self.coupling_pos[coupling] if 
                          isinstance(vert, base_objects.Interaction)]
             for vertex in vertices:
-                for key, value in vertex['couplings'].items():
+                for key, value in list(vertex['couplings'].items()):
                     if value == coupling:
                         vertex['couplings'][key] = main
 
@@ -1837,7 +1959,7 @@ class RestrictModel(model_reader.ModelReader):
             particles_ct = [ pct for pct in self.coupling_pos[coupling] if 
                          isinstance(pct, tuple)]
             for pct in particles_ct:
-                for key, value in pct[0]['counterterm'][pct[1]].items():
+                for key, value in list(pct[0]['counterterm'][pct[1]].items()):
                     if value == coupling:
                         pct[0]['counterterm'][pct[1]][key] = main
 
@@ -1895,7 +2017,7 @@ class RestrictModel(model_reader.ModelReader):
             else:
                 arg = 'width'
             change_name = [p.name for (p,f) in parameters[1:]]
-            [p.set(arg, new_name) for p in self['particle_dict'].values() 
+            [p.set(arg, new_name) for p in list(self['particle_dict'].values()) 
                                                        if p[arg] in change_name]
             
     def remove_interactions(self, zero_couplings):
@@ -1916,7 +2038,7 @@ class RestrictModel(model_reader.ModelReader):
                          isinstance(vert, base_objects.Interaction) ]
             for vertex in vertices:
                 modify = False
-                for key, coupling in vertex['couplings'].items():
+                for key, coupling in list(vertex['couplings'].items()):
                     if coupling in zero_couplings:
                         modify=True
                         del vertex['couplings'][key]
@@ -1934,7 +2056,7 @@ class RestrictModel(model_reader.ModelReader):
                          isinstance(pct, tuple)]
             for pct in particles_ct:
                 modify = False
-                for key, coupling in pct[0]['counterterm'][pct[1]].items():
+                for key, coupling in list(pct[0]['counterterm'][pct[1]].items()):
                     if coupling in zero_couplings:
                         modify=True
                         del pct[0]['counterterm'][pct[1]][key]
@@ -1944,7 +2066,7 @@ class RestrictModel(model_reader.ModelReader):
         # print useful log and clean the empty interaction
         for vertex in mod_vertex:
             part_name = [part['name'] for part in vertex['particles']]
-            orders = ['%s=%s' % (order,value) for order,value in vertex['orders'].items()]
+            orders = ['%s=%s' % (order,value) for order,value in list(vertex['orders'].items())]
                                         
             if not vertex['couplings']:
                 logger_mod.debug('remove interactions: %s at order: %s' % \
@@ -1976,7 +2098,7 @@ class RestrictModel(model_reader.ModelReader):
                 
     def remove_couplings(self, couplings):               
         #clean the coupling list:
-        for name, data in self['couplings'].items():
+        for name, data in list(self['couplings'].items()):
             for coupling in data[:]:
                 if coupling.name in couplings:
                     data.remove(coupling)
@@ -1997,7 +2119,7 @@ class RestrictModel(model_reader.ModelReader):
             if particle['width'] in one_parameters:
                 one_parameters.remove(particle['width'])                
                 
-        for pdg, particle in self['particle_dict'].items():
+        for pdg, particle in list(self['particle_dict'].items()):
             if particle['mass'] in zero_parameters:
                 particle['mass'] = 'ZERO'
             if particle['width'] in zero_parameters:
@@ -2031,7 +2153,7 @@ class RestrictModel(model_reader.ModelReader):
             for expr in re_str:
                 re_pat = re.compile(r'''\b(%s)\b''' % expr)
                 # check in coupling
-                for name, coupling_list in self['couplings'].items():
+                for name, coupling_list in list(self['couplings'].items()):
                     for coupling in coupling_list:
                         for use in  re_pat.findall(coupling.expr):
                             used.add(use)
@@ -2051,7 +2173,7 @@ class RestrictModel(model_reader.ModelReader):
                
             param_info = {}
             # check in parameters
-            for dep, param_list in self['parameters'].items():
+            for dep, param_list in list(self['parameters'].items()):
                 for tag, parameter in enumerate(param_list):
                     # update information concerning zero/one parameters
                     if parameter.name in special_parameters:

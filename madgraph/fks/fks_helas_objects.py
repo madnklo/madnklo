@@ -32,7 +32,7 @@ import array
 import multiprocessing
 import signal
 import tempfile
-import cPickle
+import pickle
 import itertools
 import os
 
@@ -72,7 +72,7 @@ def async_generate_real(args):
     outdata = [amplitude,helasreal]
 
     output = tempfile.NamedTemporaryFile(delete = False)   
-    cPickle.dump(outdata,output,protocol=2)
+    pickle.dump(outdata,output,protocol=2)
     output.close()
     
     return [output.name,helasreal.get_num_configs(),helasreal.get_nexternal_ninitial()[0]]
@@ -97,7 +97,7 @@ def async_generate_born(args):
         idx = pdg_list.index(amp.pdgs)
         infilename = realmapout[idx]
         infile = open(infilename,'rb')
-        realdata = cPickle.load(infile)
+        realdata = pickle.load(infile)
         infile.close()
         amp.amplitude = realdata[0]
         helasreal_list.append(realdata[1])
@@ -131,7 +131,7 @@ def async_generate_born(args):
     outdata = helasfull
     
     output = tempfile.NamedTemporaryFile(delete = False)   
-    cPickle.dump(outdata,output,protocol=2)
+    pickle.dump(outdata,output,protocol=2)
     output.close()
     
     return [output.name,metag,has_loops,processes]
@@ -144,7 +144,7 @@ def async_finalize_matrix_elements(args):
     duplist = args[2]
     
     infile = open(mefile,'rb')
-    me = cPickle.load(infile)
+    me = pickle.load(infile)
     infile.close()    
 
     #set unique id based on position in unique me list
@@ -166,7 +166,7 @@ def async_finalize_matrix_elements(args):
     
     for iother,othermefile in enumerate(duplist):
         infileother = open(othermefile,'rb')
-        otherme = cPickle.load(infileother)
+        otherme = pickle.load(infileother)
         infileother.close()
         me.add_process(otherme)
         
@@ -187,7 +187,7 @@ def async_finalize_matrix_elements(args):
     outdata = me
 
     output = tempfile.NamedTemporaryFile(delete = False)   
-    cPickle.dump(outdata,output,protocol=2)
+    pickle.dump(outdata,output,protocol=2)
     output.close()
     
     #data to be returned to parent process (filename plus small objects only)
@@ -209,8 +209,7 @@ class FKSHelasMultiProcess(helas_objects.HelasMultiProcess):
 
         if name == 'real_matrix_elements':
             if not isinstance(value, helas_objects.HelasMultiProcess):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid list for real_matrix_element " % str(value)                             
+                raise self.PhysicsObjectError("%s is not a valid list for real_matrix_element " % str(value))                             
     
     def __init__(self, fksmulti, loop_optimized = False, gen_color =True, decay_ids =[]):
         """Initialization from a FKSMultiProcess"""
@@ -255,7 +254,7 @@ class FKSHelasMultiProcess(helas_objects.HelasMultiProcess):
             for born in born_procs ]
             loop_orders = {}
             for  born in born_procs:
-                for coup, val in fks_common.find_orders(born.born_amp).items():
+                for coup, val in list(fks_common.find_orders(born.born_amp).items()):
                     try:
                         loop_orders[coup] = max([loop_orders[coup], val])
                     except KeyError:
@@ -619,7 +618,7 @@ class FKSHelasProcess(object):
             # combine for example u u~ > t t~ and d d~ > t t~
             if fksproc.ncores_for_proc_gen:
                 # new NLO (multicore) generation mode 
-                for real_me, proc in itertools.izip(real_me_list,fksproc.real_amps):
+                for real_me, proc in zip(real_me_list,fksproc.real_amps):
                     fksreal_me = FKSHelasRealProcess(proc, real_me, **opts)
                     try:
                         other = self.real_processes[self.real_processes.index(fksreal_me)]

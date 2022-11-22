@@ -1,4 +1,4 @@
-from __future__ import division 
+ 
 import math
 from math import sqrt, pow
 from itertools import product
@@ -335,7 +335,7 @@ def txxxxx(p, tmass, nhel, nst):
                 ft[(i,j)] = sqh*( em[i]*e0[j] + e0[i]*em[j] )
 
     else:
-        raise Exception, 'invalid helicity TXXXXXX' 
+        raise Exception('invalid helicity TXXXXXX') 
 
 
 
@@ -557,11 +557,11 @@ def irxxxx(p, mass, nhel, nsr):
     
     # spin-3/2 fermion wavefunction
     if nhel == 3:
-        for i,j in product(range(4), range(4)):
+        for i,j in product(list(range(4)), list(range(4))):
             rc[(i, j)] = ep[i] *fip[j]
     
     elif nhel == 1:
-        for i,j in product(range(4), range(4)):
+        for i,j in product(list(range(4)), list(range(4))):
             if cond1:
                 rc[(i,j)] = sq2/sq3*e0[i]*fip[j] +1/sq3*ep[i]*fim[j]
             elif cond2:
@@ -570,7 +570,7 @@ def irxxxx(p, mass, nhel, nsr):
                 rc[(i,j)] = sq2/sq3*e0[i]*fip[j] + \
                                    1/sq3*ep[i]*fim[j] *complex(p[1],nsr*p[2])/pt  
     elif nhel == -1:
-        for i,j in product(range(4), range(4)):
+        for i,j in product(list(range(4)), list(range(4))):
             if cond1:
                 rc[(i,j)] = 1/sq3*em[i]*fip[j] +sq2/sq3*e0[i]*fim[j]
             elif cond2:
@@ -579,7 +579,7 @@ def irxxxx(p, mass, nhel, nsr):
                 rc[(i,j)] = 1/sq3*em[i]*fip[j] + \
                                 sq2/sq3*e0[i]*fim[j] *complex(p[1],nsr*p[2])/pt  
     else:
-        for i,j in product(range(4), range(4)):
+        for i,j in product(list(range(4)), list(range(4))):
             if cond1:
                 rc[(i, j)] = em[i] *fim[j]
             elif cond2:
@@ -820,12 +820,12 @@ def orxxxx(p, mass, nhel, nsr):
    
     # spin-3/2 fermion wavefunction
     if nhel == 3:
-        for i,j in product(range(4), range(4)):
+        for i,j in product(list(range(4)), list(range(4))):
             rc[(i, j)] = ep[i] *fop[j]  
     
 
     elif nhel == 1:
-        for i,j in product(range(4), range(4)):
+        for i,j in product(list(range(4)), list(range(4))):
             if cond1:
                 rc[(i,j)] = sq2/sq3*e0[i]*fop[j] + 1/sq3*ep[i]*fom[j]
             elif cond2:
@@ -835,7 +835,7 @@ def orxxxx(p, mass, nhel, nsr):
                                                       complex(p[1],-nsr*p[2])/pt  
                 
     elif nhel == -1:
-        for i,j in product(range(4), range(4)):
+        for i,j in product(list(range(4)), list(range(4))):
             if cond1:
                 rc[(i,j)] = 1/sq3*em[i]*fop[j]+sq2/sq3*e0[i]*fom[j]
             elif cond2:
@@ -844,7 +844,7 @@ def orxxxx(p, mass, nhel, nsr):
                 rc[(i,j)] =  1/sq3*em[i]*fop[j] + sq2/sq3*e0[i]*fom[j] *\
                                                       complex(p[1],-nsr*p[2])/pt              
     else:
-        for i,j in product(range(4), range(4)):
+        for i,j in product(list(range(4)), list(range(4))):
             if cond1:
                 rc[(i,j)] = em[i] * fom[j]
             elif cond2:

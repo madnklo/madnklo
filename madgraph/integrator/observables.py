@@ -13,7 +13,7 @@
 #
 ################################################################################
 
-from __future__ import division
+
 import os
 import logging
 import math

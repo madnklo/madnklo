@@ -24,7 +24,7 @@ import glob
 import math
 import xml.sax.handler
 import shutil
-from cStringIO import StringIO
+from io import StringIO
 
 if __name__ == '__main__':
     import sys
@@ -52,7 +52,7 @@ try:
     import madgraph.various.banner as banner
     import madgraph.iolibs.files as files
     MADEVENT = False
-except ImportError, error:
+except ImportError as error:
     logger.debug(error)
     from internal import InvalidCmd, MadGraph5Error
     import internal.extended_cmd as cmd
@@ -112,7 +112,7 @@ class CmdExtended(cmd.Cmd):
         # and date, from the VERSION text file
         info = misc.get_pkg_info()
         info_line = ""
-        if info and info.has_key('version') and  info.has_key('date'):
+        if info and 'version' in info and  'date' in info:
             len_version = len(info['version'])
             len_date = len(info['date'])
             if len_version + len_date < 30:
@@ -278,7 +278,7 @@ class MadWeightCmd(CmdExtended, HelpToCmd, CompleteForCmd, common_run.CommonRunC
                                 '$MG:color:BLACK')
                 self.exec_cmd('set cluster_temp_path /tmp --no_save')
             elif self.options['cluster_type'] != 'condor':
-                raise Exception, 'cluster_temp_path needs to be define for MW. Please retry.'
+                raise Exception('cluster_temp_path needs to be define for MW. Please retry.')
         
     def do_define_transfer_fct(self, line):
         """MadWeight Function:Define the current transfer function"""
@@ -294,7 +294,7 @@ class MadWeightCmd(CmdExtended, HelpToCmd, CompleteForCmd, common_run.CommonRunC
                          if (content.startswith('TF') and content.endswith('dat'))]
             for i, tfname in enumerate(possibilities):
                 question += ' %s / %s\n' % (i, tfname)
-            possibilities += range(len(possibilities))
+            possibilities += list(range(len(possibilities)))
             
             if args and args[0] in possibilities:
                 tfname = args[0]
@@ -341,9 +341,9 @@ class MadWeightCmd(CmdExtended, HelpToCmd, CompleteForCmd, common_run.CommonRunC
 #
 #       here check validity of some parameters
         if self.MWparam['mw_run']['integrator']=='m' and  self.MWparam['mw_run']['montecarlo_perm']=='t':
-           raise Exception, 'Cannot use mint if monte carlo over permutations'
+           raise Exception('Cannot use mint if monte carlo over permutations')
         if self.MWparam['mw_run']['integrator']=='m' and  self.MWparam['mw_run']['use_sobol']=='t':
-           raise Exception, 'sobol generator with mint not implemented'
+           raise Exception('sobol generator with mint not implemented')
  
 
         
@@ -356,7 +356,7 @@ class MadWeightCmd(CmdExtended, HelpToCmd, CompleteForCmd, common_run.CommonRunC
                 os.remove(pjoin(pdir, 'comp_madweight'))
             misc.compile(cwd=pdir)
             if not os.path.exists(pjoin(pdir, 'comp_madweight')):
-                raise Exception, 'compilation fails'
+                raise Exception('compilation fails')
         logger.info('MadWeight code has been compiled.')
         
     
@@ -494,11 +494,11 @@ class MadWeightCmd(CmdExtended, HelpToCmd, CompleteForCmd, common_run.CommonRunC
         cwd = pjoin(self.me_dir, 'SubProcesses', dirname, name)
         # Ensure that the code is working ONLY if TEMP_CLUSTER_PATH is define
         if self.options['run_mode'] == 0:
-            raise Exception , 'need to check the validity'
+            raise Exception('need to check the validity')
         else:
             # ensure that this is running with NO central disk !!!
             if not self.options['cluster_temp_path'] and not self.options['cluster_type'] == 'condor':
-                raise self.ConfigurationError, 'MadWeight requires temp_cluster_path options to be define'
+                raise self.ConfigurationError('MadWeight requires temp_cluster_path options to be define')
             self.cluster.submit2(exe, args, cwd, input_files=input_files, output_files=output_file)
 
 
@@ -508,13 +508,13 @@ class MadWeightCmd(CmdExtended, HelpToCmd, CompleteForCmd, common_run.CommonRunC
         
         if len(args) >1:
             self.help_collect()
-            raise self.InvalidCmd, 'Invalid Command format'
+            raise self.InvalidCmd('Invalid Command format')
         elif len(args) == 1:
             if args not in ['-refine', '--refine']:
                 args[0] = '-refine'
             else:
                 self.help_collect()
-                raise self.InvalidCmd, 'Invalid Command format'
+                raise self.InvalidCmd('Invalid Command format')
 
     def do_collect(self, line):
         """MadWeight Function: making the collect of the results"""
@@ -685,12 +685,12 @@ class MadWeightCmd(CmdExtended, HelpToCmd, CompleteForCmd, common_run.CommonRunC
         if ans == 'y':
             try:
                 shutil.rmtree(pjoin(self.me_dir, 'Events', name))
-            except Exception, error:
+            except Exception as error:
                 logger.warning(error)
         for Pdir in self.MWparam.MW_listdir:
             try:
                 shutil.rmtree(pjoin(self.me_dir, 'SubProcesses', Pdir, name))
-            except Exception, error:
+            except Exception as error:
                 logger.warning(error)            
     
     def ask_edit_cards(self, cards, *arg, **opts):
@@ -854,7 +854,7 @@ class MadWeightCmd(CmdExtended, HelpToCmd, CompleteForCmd, common_run.CommonRunC
     def resubmit(self, M_path, to_refine, event_to_file):
         """resubmit various jobs"""
 
-        for card, event_list in to_refine.items():
+        for card, event_list in list(to_refine.items()):
             packets = {}
             for event in event_list:
                 evt_nb_file = event_to_file[event]
@@ -867,7 +867,7 @@ class MadWeightCmd(CmdExtended, HelpToCmd, CompleteForCmd, common_run.CommonRunC
 #        open(restrict_path, 'w').write(' '.join(map(str, restrict_evt)))   
 
             max_evts = self.MWparam['mw_run']['nb_event_by_node']
-            for evt_nb, evt_list in packets.items():
+            for evt_nb, evt_list in list(packets.items()):
                 restrict_path = pjoin(self.me_dir, 'SubProcesses', M_path, self.MWparam.name, 
                                                   'restrict%i_%i.dat' % (card,evt_nb_file))
                 open(restrict_path, 'w').write(' '.join(map(str, evt_list)))  
@@ -894,12 +894,12 @@ class CollectObj(dict):
     #2 #############################################################################  
     def refine(self, other):
         
-        for card, CardDATA in other.items():
+        for card, CardDATA in list(other.items()):
             if card not in self:
                 self[card] = other[card]
                 continue
             
-            for event, obj2 in CardDATA.items():
+            for event, obj2 in list(CardDATA.items()):
                 self[card][event] = obj2
 
         
@@ -910,7 +910,7 @@ class CollectObj(dict):
         fsock.write('<subprocess id=\'%s\'>\n' % MWdir)
         for card in self:
             fsock.write('<card id=\'%s\'>\n' % card)
-            for event in self[card].values():
+            for event in list(self[card].values()):
                 event.write(fsock)
             fsock.write('</card>\n')
         
@@ -1007,7 +1007,7 @@ class MWParserXML(xml.sax.handler.ContentHandler):
         elif name in ['log','subprocess','br']:           
             pass
         else:
-            raise Exception, name
+            raise Exception(name)
         if name != 'br':
             self.text = StringIO()
         

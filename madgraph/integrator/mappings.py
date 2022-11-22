@@ -741,7 +741,7 @@ class FinalMassesMapping(FinalZeroMassesMapping):
         fake_kinematic_variables = None
         if squared_masses is not None:
             fake_kinematic_variables = {
-                's'+key[2:]: value for (key, value) in squared_masses.items()}
+                's'+key[2:]: value for (key, value) in list(squared_masses.items())}
         mass_PS_point, mass_vars = FinalZeroMassesMapping.map_to_higher_multiplicity(
             zero_PS_point, singular_structure, momenta_dict, fake_kinematic_variables,
             compute_jacobian=compute_jacobian )
@@ -757,7 +757,7 @@ class FinalMassesMapping(FinalZeroMassesMapping):
 
         fake_squared_masses = {
             'm2' + key[1:]: value
-            for (key, value) in kinematic_variables.items()
+            for (key, value) in list(kinematic_variables.items())
             if key.startswith('s') }
         mapped_PS_point, vars = cls.map_to_lower_multiplicity(
             PS_point, singular_structure, momenta_dict, fake_squared_masses,
@@ -818,7 +818,7 @@ class FinalCollinearMapping(VirtualMapping):
                                                     str(singular_structure), cls.__name__))
         needed_variables = set(
             cls.get_kinematic_variables_names(singular_structure, momenta_dict))
-        assert needed_variables.issubset(kinematic_variables.keys())
+        assert needed_variables.issubset(list(kinematic_variables.keys()))
 
         # Precompute sets and numbers
         substructure = singular_structure.substructures[0]
@@ -928,7 +928,7 @@ class FinalRescalingOneMapping(FinalCollinearMapping):
                                                     str(singular_structure), cls.__name__))
         needed_variables = set(
             cls.get_kinematic_variables_names(singular_structure, momenta_dict) )
-        assert needed_variables.issubset(kinematic_variables.keys())
+        assert needed_variables.issubset(list(kinematic_variables.keys()))
 
         # Precompute sets and numbers
         substructure = singular_structure.substructures[0]
@@ -1060,7 +1060,7 @@ class FinalLorentzOneMapping(FinalCollinearMapping):
                                                     str(singular_structure), cls.__name__))
         needed_variables = set(
             cls.get_kinematic_variables_names(singular_structure, momenta_dict) )
-        assert needed_variables.issubset(kinematic_variables.keys())
+        assert needed_variables.issubset(list(kinematic_variables.keys()))
 
         # Precompute sets and numbers
         substructure = singular_structure.substructures[0]
@@ -1113,7 +1113,7 @@ class FinalLorentzOneMapping(FinalCollinearMapping):
                                                     str(singular_structure), cls.__name__))
         needed_variables = set(
             cls.get_kinematic_variables_names(singular_structure, momenta_dict) )
-        assert needed_variables.issubset(kinematic_variables.keys())
+        assert needed_variables.issubset(list(kinematic_variables.keys()))
 
         # Precompute sets and numbers
         substructure = singular_structure.substructures[0]
@@ -1202,7 +1202,7 @@ class FinalGroupingMapping(FinalCollinearMapping):
                                                     str(singular_structure), cls.__name__))
         needed_variables = set(
             cls.get_kinematic_variables_names(singular_structure, momenta_dict) )
-        assert needed_variables.issubset(kinematic_variables.keys())
+        assert needed_variables.issubset(list(kinematic_variables.keys()))
 
         # Build reduced PS point, singular structure & masses to call FinalMassesMapping
         reduced_singular_structure = sub.SingularStructure()
@@ -1269,7 +1269,7 @@ class FinalLorentzMapping(FinalCollinearMapping):
             parents.append(parent)
             if kinematic_variables is not None:
                 kinematic_variables['s' + str(parent)] = reduced_PS_point[parent].square()
-        mass_sum = sum(s ** 0.5 for s in reduced_squared_masses.values())
+        mass_sum = sum(s ** 0.5 for s in list(reduced_squared_masses.values()))
         # Then treat recoilers collectively if any
         recoilers = [leg.n for leg in singular_structure.legs]
         R = None
@@ -1335,7 +1335,7 @@ class FinalLorentzMapping(FinalCollinearMapping):
                                                     str(singular_structure), cls.__name__))
         needed_variables = set(
             cls.get_kinematic_variables_names(singular_structure, momenta_dict) )
-        assert needed_variables.issubset(kinematic_variables.keys())
+        assert needed_variables.issubset(list(kinematic_variables.keys()))
 
         # Build reduced PS point, singular structure & masses to call FinalMassesMapping
         reduced_PS_point = PS_point.get_copy()
@@ -1354,7 +1354,7 @@ class FinalLorentzMapping(FinalCollinearMapping):
             Q += PS_point[parent]
         # Then treat recoilers collectively if any
         recoilers = [leg.n for leg in singular_structure.legs]
-        mass_sum = sum(s ** 0.5 for s in reduced_kinematic_variables.values())
+        mass_sum = sum(s ** 0.5 for s in list(reduced_kinematic_variables.values()))
         R = None
         qR = None
         s_R = 0.
@@ -1411,7 +1411,7 @@ class FinalLorentzMapping(FinalCollinearMapping):
                                                     str(singular_structure), cls.__name__))
         needed_variables = set(
             cls.get_kinematic_variables_names(singular_structure, momenta_dict) )
-        assert needed_variables.issubset(kinematic_variables.keys())
+        assert needed_variables.issubset(list(kinematic_variables.keys()))
 
         Q = LorentzVector()
         mass_sum = 0.
@@ -1515,7 +1515,7 @@ class InitialCollinearMapping(VirtualMapping):
                                                     str(singular_structure), cls.__name__))
         needed_variables = set(
             cls.get_kinematic_variables_names(singular_structure, momenta_dict))
-        assert needed_variables.issubset(kinematic_variables.keys())
+        assert needed_variables.issubset(list(kinematic_variables.keys()))
 
         # Precompute sets and numbers
         substructure = singular_structure.substructures[0]
@@ -1630,7 +1630,7 @@ class InitialLorentzOneMapping(InitialCollinearMapping):
                                                     str(singular_structure), cls.__name__))
         needed_variables = set(
             cls.get_kinematic_variables_names(singular_structure, momenta_dict))
-        assert needed_variables.issubset(kinematic_variables.keys())
+        assert needed_variables.issubset(list(kinematic_variables.keys()))
 
         # Precompute sets and numbers
         substructure = singular_structure.substructures[0]
@@ -1747,7 +1747,7 @@ class ElementaryMappingSoft(VirtualMapping):
                                                     str(singular_structure), cls.__name__))
         needed_variables = set(
             cls.get_kinematic_variables_names(singular_structure, momenta_dict))
-        assert needed_variables.issubset(kinematic_variables.keys())
+        assert needed_variables.issubset(list(kinematic_variables.keys()))
 
         # Precompute sets and numbers
         base = scaling_parameter ** (1. / len(singular_structure.substructures))
@@ -2074,7 +2074,7 @@ class SoftVsFinalPureRescalingMapping(ElementaryMappingSoft):
                                                     str(singular_structure), cls.__name__))
         needed_variables = set(
             cls.get_kinematic_variables_names(singular_structure, momenta_dict ) )
-        assert needed_variables.issubset(kinematic_variables.keys())
+        assert needed_variables.issubset(list(kinematic_variables.keys()))
 
         # Build the total soft momentum,
         # get the soft momenta from kinematic_variables
@@ -2302,7 +2302,7 @@ class SoftVsFinalBoostThenRescaleMapping(ElementaryMappingSoft):
                 % (str(singular_structure), cls.__name__) )
         needed_variables = set(
             cls.get_kinematic_variables_names(singular_structure, momenta_dict ) )
-        assert needed_variables.issubset(kinematic_variables.keys())
+        assert needed_variables.issubset(list(kinematic_variables.keys()))
 
         # Build the total soft momentum,
         # get the soft momenta from kinematic_variables
@@ -2570,7 +2570,7 @@ class SoftVsInitialMapping(ElementaryMappingSoft):
         # Do we have all the input we need?
         needed_variables = set(
             cls.get_kinematic_variables_names(singular_structure, momenta_dict ) )
-        assert needed_variables.issubset(kinematic_variables.keys())
+        assert needed_variables.issubset(list(kinematic_variables.keys()))
 
         # Construct a new phase space point
         new_PS_point = PS_point.get_copy()
@@ -2782,7 +2782,7 @@ class RelabellingMapping(VirtualMapping):
     @classmethod
     def needs_relabelling(cls, momenta_dict):
         """ Verfies if specified momenta_dict contains relabelling instructions."""
-        return any(len(v)==1 for v in momenta_dict.values())
+        return any(len(v)==1 for v in list(momenta_dict.values()))
 
     @classmethod
     def map_to_lower_multiplicity(
@@ -2790,7 +2790,7 @@ class RelabellingMapping(VirtualMapping):
         """ Apply relabelling specified from momenta_dict with values containing a single entry. """
 
         out_PS_point = PS_point.get_copy()
-        for mapped_to, mapped_from in momenta_dict.items():
+        for mapped_to, mapped_from in list(momenta_dict.items()):
             if len(mapped_from)==1:
                 mapped_from = list(mapped_from)[0]
                 out_PS_point[mapped_to] = out_PS_point[mapped_from]
@@ -2803,7 +2803,7 @@ class RelabellingMapping(VirtualMapping):
         """ Apply relabelling specified from momenta_dict with values containing a single entry. """
 
         out_PS_point = PS_point.get_copy()
-        for mapped_to, mapped_from in momenta_dict.items():
+        for mapped_to, mapped_from in list(momenta_dict.items()):
             if len(mapped_from)==1:
                 mapped_from = list(mapped_from)[0]
                 out_PS_point[mapped_from] = out_PS_point[mapped_to]
@@ -2929,7 +2929,7 @@ class FinalFKSMapping(VirtualMapping):
             cls, PS_point, singular_structure, momenta_dict, kinematic_variables,
             compute_jacobian=False ):
 
-        print 'SHOULD NOT BE USED'
+        print('SHOULD NOT BE USED')
         # Consistency checks
         assert isinstance(momenta_dict, sub.bidict)
         if not cls.is_valid_structure(singular_structure):
@@ -2937,7 +2937,7 @@ class FinalFKSMapping(VirtualMapping):
                 str(singular_structure), cls.__name__))
         needed_variables = set(
             cls.get_kinematic_variables_names(singular_structure, momenta_dict) )
-        assert needed_variables.issubset(kinematic_variables.keys())
+        assert needed_variables.issubset(list(kinematic_variables.keys()))
 
         # Precompute sets and numbers
         substructure = singular_structure.substructures[0]
@@ -2990,7 +2990,7 @@ class FinalFKSMapping(VirtualMapping):
                 str(singular_structure), cls.__name__))
         needed_variables = set(
             cls.get_kinematic_variables_names(singular_structure, momenta_dict) )
-        assert needed_variables.issubset(kinematic_variables.keys())
+        assert needed_variables.issubset(list(kinematic_variables.keys()))
 
         # Precompute sets and numbers
         substructure = singular_structure.substructures[0]

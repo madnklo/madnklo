@@ -78,22 +78,18 @@ class LoopHelasUVCTAmplitude(helas_objects.HelasAmplitude):
 
         if name=='UVCT_couplings':
             if not isinstance(value, list):
-                raise self.PhysicsObjectError, \
-                  "%s is not a valid list for UVCT_couplings" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid list for UVCT_couplings" % str(value))
             for id in value:
                 if not isinstance(id, str) and not isinstance(id, int):
-                    raise self.PhysicsObjectError, \
-                      "%s is not a valid string or integer for UVCT_couplings" % str(value)
+                    raise self.PhysicsObjectError("%s is not a valid string or integer for UVCT_couplings" % str(value))
                       
         if name == 'UVCT_orders':
             if not isinstance(value, dict):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid dictionary" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid dictionary" % str(value))
 
         if name == 'type':
             if not isinstance(value, str):
-                raise self.PhysicsObjectError, \
-                        "%s is not a valid string" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid string" % str(value))
 
         else:
             return super(LoopHelasUVCTAmplitude,self).filter(name, value)
@@ -278,22 +274,18 @@ class LoopHelasAmplitude(helas_objects.HelasAmplitude):
 
         if name=='wavefunctions':
             if not isinstance(value, helas_objects.HelasWavefunctionList):
-                raise self.PhysicsObjectError, \
-                  "%s is not a valid list of HelasWaveFunctions" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid list of HelasWaveFunctions" % str(value))
             for wf in value:
                 if not wf['is_loop']:
-                    raise self.PhysicsObjectError, \
-                      "Wavefunctions from a LoopHelasAmplitude must be from a loop."
+                    raise self.PhysicsObjectError("Wavefunctions from a LoopHelasAmplitude must be from a loop.")
         
         elif name=='amplitudes':
             if not isinstance(value, helas_objects.HelasAmplitudeList):
-                raise self.PhysicsObjectError, \
-                  "%s is not a valid list of HelasAmplitudes" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid list of HelasAmplitudes" % str(value))
 
         elif name in ['type','loop_group_id','multiplier','loopsymmetryfactor']:
             if not isinstance(value, int):
-                raise self.PhysicsObjectError, \
-                  "%s is not a valid integer for the attribute '%s'" %(str(value),name)
+                raise self.PhysicsObjectError("%s is not a valid integer for the attribute '%s'" %(str(value),name))
 
         else:
             return super(LoopHelasAmplitude,self).filter(name, value)
@@ -331,9 +323,9 @@ class LoopHelasAmplitude(helas_objects.HelasAmplitude):
         final_lwf=[lwf for lwf in self.get('amplitudes')[0].get('mothers') if \
                    lwf.get('mothers')]
         if len(final_lwf)!=1:
-            raise MadGraph5Error, 'The helas amplitude building the helas loop'+\
+            raise MadGraph5Error('The helas amplitude building the helas loop'+\
                 ' amplitude should be made of exactly one loop wavefunctions'+\
-                ' with mothers.'
+                ' with mothers.')
         return final_lwf[0]
 
     def get_base_diagram(self, wf_dict, vx_list = [], optimization = 1):
@@ -505,7 +497,7 @@ class LoopHelasAmplitude(helas_objects.HelasAmplitude):
             coupling_orders = {}
             last_wf = self.get_final_loop_wavefunction()
             while last_wf.get_loop_mother()!=None:
-                for order in last_wf.get('orders').keys():
+                for order in list(last_wf.get('orders').keys()):
                     try:
                         coupling_orders[order] += last_wf.get('orders')[order]
                     except Exception:
@@ -627,19 +619,15 @@ class LoopHelasMatrixElement(helas_objects.HelasMatrixElement):
         
         if name=='born_color_basis' or name=='loop_color_basis':
             if not isinstance(value,color_amp.ColorBasis):
-                raise self.PhysicsObjectError, \
-                  "%s is not a valid color basis" % str(value)
+                raise self.PhysicsObjectError("%s is not a valid color basis" % str(value))
         elif name=='loop_groups':
             if not isinstance(value,list):
-                raise self.PhysicsObjectError, \
-                  "%s is not a valid list"%str(value)
+                raise self.PhysicsObjectError("%s is not a valid list"%str(value))
             for (dkey, dvalue) in value:
                 if not isinstance(dvalue,helas_objects.HelasAmplitudeList):
-                    raise self.PhysicsObjectError, \
-                      "%s is not a valid HelasAmplitudeList."%str(dvalue)
+                    raise self.PhysicsObjectError("%s is not a valid HelasAmplitudeList."%str(dvalue))
                 if not isinstance(dkey,tuple):
-                    raise self.PhysicsObjectError, \
-                      "%s is not a valid tuple."%str(dkey)
+                    raise self.PhysicsObjectError("%s is not a valid tuple."%str(dkey))
         else:
             return super(LoopHelasMatrixElement,self).filter(name, value)
 
@@ -823,7 +811,7 @@ class LoopHelasMatrixElement(helas_objects.HelasMatrixElement):
 
         # For initial state bosons, need to flip part-antipart
         # since all bosons should be treated as outgoing
-        for key in external_wavefunctions.keys():
+        for key in list(external_wavefunctions.keys()):
             wf = external_wavefunctions[key]
             if wf.is_boson() and wf.get('state') == 'initial' and \
                not wf.get('self_antipart'):
@@ -831,7 +819,7 @@ class LoopHelasMatrixElement(helas_objects.HelasMatrixElement):
 
         # For initial state particles, need to flip PDG code (if has
         # antipart)
-        for key in external_wavefunctions.keys():
+        for key in list(external_wavefunctions.keys()):
             wf = external_wavefunctions[key]
             if wf.get('leg_state') == False and \
                not wf.get('self_antipart'):
@@ -1005,7 +993,7 @@ class LoopHelasMatrixElement(helas_objects.HelasMatrixElement):
                 done_color = {}
                 for i, coupl_key in enumerate(keys):
                     color = coupl_key[0]
-                    if inter and color in done_color.keys():
+                    if inter and color in list(done_color.keys()):
                         amp = done_color[color]
                         amp.get('coupling').append(inter.get('couplings')[coupl_key])
                         amp.get('lorentz').append(inter.get('lorentz')[coupl_key[1]])
@@ -1197,7 +1185,7 @@ class LoopHelasMatrixElement(helas_objects.HelasMatrixElement):
             ###for wf in bridge_wfs:
             ###    print "    bridge =",wf['number_external'],"("+str(wf.get_pdg_code())+") number=",wf['number']
             
-            return zip(bridge_wfs, color_lists), wfNumber
+            return list(zip(bridge_wfs, color_lists)), wfNumber
         
         def getloopmothers(loopWfsIn, structIDs, color_list, diag_wfs, wfNumber):
             """From the incoming loop leg(s) and the list of structures IDs 
@@ -1453,9 +1441,8 @@ class LoopHelasMatrixElement(helas_objects.HelasMatrixElement):
                 for last_loop_wf, color_list in zip(last_loop_wfs,color_lists):
                     # Now generate HelasAmplitudes from the last vertex.
                     if lastvx.get('id')!=-1:
-                        raise self.PhysicsObjectError, \
-                          "The amplitude vertex of a loop diagram must be a "+\
-                          "two point vertex with id=-1" 
+                        raise self.PhysicsObjectError("The amplitude vertex of a loop diagram must be a "+\
+                          "two point vertex with id=-1") 
                     # skip the boson and Dirac fermions
                     # adjust the fermion flow of external majorana loop wfs
                     if other_external_loop_wf.is_majorana():
@@ -1531,21 +1518,18 @@ class LoopHelasMatrixElement(helas_objects.HelasMatrixElement):
                 if lcut_wf1.is_boson():
                     if lcut_wf1.get('state')!='final' or\
                             lcut_wf2.get('state')!='final':
-                        raise MadGraph5Error,\
-                            "Inconsistent flow in L-cut bosons."
+                        raise MadGraph5Error("Inconsistent flow in L-cut bosons.")
                 elif not lcut_wf1.is_majorana():
                     for lcut_wf in [lcut_wf1,lcut_wf2]:
                         if not ((lcut_wf.get('is_part') and \
                                      lcut_wf.get('state')=='outgoing') or\
                                     (not lcut_wf.get('is_part') and\
                                          lcut_wf.get('state')=='incoming')):
-                            raise MadGraph5Error,\
-                                "Inconsistent flow in L-cut Dirac fermions."
+                            raise MadGraph5Error("Inconsistent flow in L-cut Dirac fermions.")
                 elif lcut_wf1.is_majorana():
                     if (lcut_wf1.get('state'), lcut_wf2.get('state')) not in \
                             [('incoming','outgoing'),('outgoing','incoming')]:
-                        raise MadGraph5Error,\
-                            "Inconsistent flow in L-cut Majorana fermions."
+                        raise MadGraph5Error("Inconsistent flow in L-cut Majorana fermions.")
                             
             def fix_lcut_majorana_fermion_flow(last_loop_wf,\
                                                other_external_loop_wf):
@@ -1603,7 +1587,7 @@ class LoopHelasMatrixElement(helas_objects.HelasMatrixElement):
                         done_color = {}
                         for i, coupl_key in enumerate(keys):
                             color = coupl_key[0]
-                            if color in done_color.keys():
+                            if color in list(done_color.keys()):
                                 amp = done_color[color]
                                 amp.get('coupling').append(inter.get('couplings')[coupl_key])
                                 amp.get('lorentz').append(inter.get('lorentz')[coupl_key[1]])
@@ -1716,7 +1700,7 @@ class LoopHelasMatrixElement(helas_objects.HelasMatrixElement):
             # LooopHelasUVCTAmplitude
             for lamp in loopHelDiag.get_loop_UVCTamplitudes():
                 new_orders = copy.copy(lamp.get('orders'))
-                for order, value in lamp.get('UVCT_orders').items():
+                for order, value in list(lamp.get('UVCT_orders').items()):
                     try:
                         new_orders[order] = new_orders[order] + value
                     except KeyError:
@@ -1873,7 +1857,7 @@ class LoopHelasMatrixElement(helas_objects.HelasMatrixElement):
         # We must now turn it back to a list
         amps_orders['loop_amp_orders'] = [
             (key, tuple(sorted(amps_orders['loop_amp_orders'][key]))) 
-                               for key in amps_orders['loop_amp_orders'].keys()]         
+                               for key in list(amps_orders['loop_amp_orders'].keys())]         
         # and re-sort it to make sure it follows an increasing WEIGHT order.
         order_hierarchy = self.get('processes')[0]\
                                             .get('model').get('order_hierarchy')
@@ -1958,7 +1942,7 @@ class LoopHelasMatrixElement(helas_objects.HelasMatrixElement):
         #     (max_uvct_amp_number, max_ct_amp_number,
         #      max_loop_amp_number, max_loop_id) )
         squared_orders = [(sqso[0],tuple(sqso[1])) for sqso in \
-                                                         squared_orders.items()]
+                                                         list(squared_orders.items())]
         # Sort the squared orders if the hierarchy defines them all.
         order_hierarchy = self.get('processes')[0].get('model').get('order_hierarchy')
         if set(order_hierarchy.keys()).union(set(split_orders))==\
@@ -2211,15 +2195,12 @@ class LoopHelasMatrixElement(helas_objects.HelasMatrixElement):
         """Gives (number or external particles, number of
         incoming particles)"""
 
-        external_wfs = filter(lambda wf: 
-                    not wf.get('mothers') and not wf.get('is_loop'),
-                                                   self.get_all_wavefunctions())
+        external_wfs = [wf for wf in self.get_all_wavefunctions() if not wf.get('mothers') and not wf.get('is_loop')]
 
         return (len(set([wf.get('number_external') for wf in \
                          external_wfs])),
                 len(set([wf.get('number_external') for wf in \
-                         filter(lambda wf: wf.get('leg_state') == False,
-                                external_wfs)])))
+                         [wf for wf in external_wfs if wf.get('leg_state') == False]])))
 
     def get_number_of_amplitudes(self):
         """Gives the total number of amplitudes for this ME, including the loop
@@ -2371,8 +2352,7 @@ class LoopHelasMatrixElement(helas_objects.HelasMatrixElement):
         """ Just to forbid the usage of this generic function in a
         LoopHelasMatrixElement"""
 
-        raise self.PhysicsObjectError, \
-            "Usage of get_color_amplitudes is not allowed in a LoopHelasMatrixElement"
+        raise self.PhysicsObjectError("Usage of get_color_amplitudes is not allowed in a LoopHelasMatrixElement")
 
     def get_born_color_amplitudes(self):
         """Return a list of (coefficient, amplitude number) lists,
@@ -2435,16 +2415,13 @@ class LoopHelasMatrixElement(helas_objects.HelasMatrixElement):
             col_amp = []
 #            print "color_basis[col_basis_elem]=",color_basis[col_basis_elem]
             for diag_tuple in color_basis[col_basis_elem]:
-                res_amps = filter(lambda amp: \
-                          tuple(amp.get('color_indices')) == diag_tuple[1],
-                          LoopDiagramsHelasAmplitudeList[diag_tuple[0]])
+                res_amps = [amp for amp in LoopDiagramsHelasAmplitudeList[diag_tuple[0]] if tuple(amp.get('color_indices')) == diag_tuple[1]]
                 if not res_amps:
-                    raise self.PhysicsObjectError, \
-                          """No amplitude found for color structure
+                    raise self.PhysicsObjectError("""No amplitude found for color structure
                             %s and color index chain (%s) (diagram %i)""" % \
                             (col_basis_elem,
                              str(diag_tuple[1]),
-                             diag_tuple[0])
+                             diag_tuple[0]))
 
                 for res_amp in res_amps:
                     col_amp.append(((res_amp.get('fermionfactor'),
@@ -2487,7 +2464,7 @@ class LoopHelasMatrixElement(helas_objects.HelasMatrixElement):
                       helas_objects.HelasAmplitudeList([ctamp])
             # To have a canonical order of the CT diagrams, we sort them according
             # to their interaction_id value.
-            keys=ctIDs.keys()
+            keys=list(ctIDs.keys())
             keys.sort()
             for key in keys:
                 amplitudes_loop_diagrams.append(ctIDs[key])
@@ -2506,8 +2483,7 @@ class LoopHelasMatrixElement(helas_objects.HelasMatrixElement):
         # before this can be used for those!
 
         optimization = 1
-        if len(filter(lambda wf: wf.get('number') == 1,
-                      self.get_all_wavefunctions())) > 1:
+        if len([wf for wf in self.get_all_wavefunctions() if wf.get('number') == 1]) > 1:
             optimization = 0
 
         model = self.get('processes')[0].get('model')

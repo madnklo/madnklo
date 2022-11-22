@@ -1,2 +1,2 @@
-import mg4_proc_card
+from . import mg4_proc_card
 

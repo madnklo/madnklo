@@ -15,7 +15,7 @@
 """A user friendly command line interface to access MadGraph5_aMC@NLO features at LO.
    Uses the cmd package for command interpretation and tab completion.
 """
-from __future__ import division
+
 
 import atexit
 import re
@@ -33,12 +33,14 @@ import subprocess
 import copy
 import sys
 import shutil
-import StringIO
 import traceback
 import time
 import inspect
-import urllib
+import six.moves.urllib.request, six.moves.urllib.parse, six.moves.urllib.error
 import random
+import six
+StringIO = six
+from six.moves import range
 
 
 #useful shortcut
@@ -124,7 +126,7 @@ logger_tuto_madloop = logging.getLogger('tutorial_MadLoop') # -> stdout for MadL
 if MPI_ACTIVE and MPI_RANK>0:
     logging.basicConfig(level=logging.CRITICAL,
             format='MPI RANK {} :: %(levelname)-8s %(message)s'.format(MPI_RANK))
-    for logger_name, logger in logging.Logger.manager.loggerDict.items():
+    for logger_name, logger in list(logging.Logger.manager.loggerDict.items()):
         logging.getLogger(logger_name).setLevel(logging.CRITICAL)
 
 #===============================================================================
@@ -199,7 +201,7 @@ class CmdExtended(cmd.Cmd):
         info = misc.get_pkg_info()
         info_line = ""
 
-        if info.has_key('version') and  info.has_key('date'):
+        if 'version' in info and  'date' in info:
             len_version = len(info['version'])
             len_date = len(info['date'])
             if len_version + len_date < 30:
@@ -794,6 +796,7 @@ class HelpToCmd(cmd.HelpCmd):
 #        logger.info(" > appropriate choice which is to sometimes pick box loops")
 #        logger.info(" > but never higher n-points ones.")
 
+        logger.info("auto_convert_model <value>",'$MG:color:GREEN')   
 #===============================================================================
 # CheckValidForCmd
 #===============================================================================
@@ -856,10 +859,10 @@ class CheckValidForCmd(cmd.CheckCmd):
 
         if len(args) < 1:
             self.help_display()
-            raise self.InvalidCmd, 'display requires an argument specifying what to display'
+            raise self.InvalidCmd('display requires an argument specifying what to display')
         if args[0] not in self._display_opts:
             self.help_display()
-            raise self.InvalidCmd, 'Invalid arguments for display command: %s' % args[0]
+            raise self.InvalidCmd('Invalid arguments for display command: %s' % args[0])
 
         if not self._curr_model:
             raise self.InvalidCmd("No model currently active, please import a model!")
@@ -993,7 +996,7 @@ class CheckValidForCmd(cmd.CheckCmd):
                 parsed = arg.split('=')
                 key, value = parsed[0],'='.join(parsed[1:])
                 if key not in user_options:
-                    raise self.InvalidCmd, "unknown option %s" % key
+                    raise self.InvalidCmd("unknown option %s" % key)
                 user_options[key] = value
                 args.remove(arg)
 
@@ -1005,7 +1008,7 @@ class CheckValidForCmd(cmd.CheckCmd):
             
             self.check_process_format(" ".join(args[1:]))
 
-        for option, value in user_options.items():
+        for option, value in list(user_options.items()):
             args.append('%s=%s'%(option,value))
 
         return param_card
@@ -1226,8 +1229,7 @@ This will take effect only in a NEW terminal
                     args.append(self._done_export[1])
                     args.append(self._done_export[0])
                 else:
-                    raise self.InvalidCmd, \
-                          '%s not valid directory for launch' % self._done_export[0]
+                    raise self.InvalidCmd('%s not valid directory for launch' % self._done_export[0])
                 return
             else:
                 logger.warning('output command missing, run it automatically (with default argument)')
@@ -1247,7 +1249,7 @@ This will take effect only in a NEW terminal
         elif  MG4DIR and os.path.isdir(pjoin(MG4DIR,args[0])):
             path = pjoin(MG4DIR,args[0])
         else:
-            raise self.InvalidCmd, '%s is not a valid directory' % args[0]
+            raise self.InvalidCmd('%s is not a valid directory' % args[0])
 
         mode = self.find_output_type(path)
 
@@ -1310,7 +1312,7 @@ This will take effect only in a NEW terminal
         elif os.path.isfile(pjoin(path,'MadEvent7.db')):
             return 'madevent7'
         elif not os.path.isdir(os.path.join(path, 'SubProcesses')):
-            raise self.InvalidCmd, '%s : Not a valid directory' % path
+            raise self.InvalidCmd('%s : Not a valid directory' % path)
 
         if os.path.isdir(src_path):
             return 'standalone_cpp'
@@ -1323,7 +1325,7 @@ This will take effect only in a NEW terminal
         elif os.path.isdir(card_path):
             return 'standalone'
 
-        raise self.InvalidCmd, '%s : Not a valid directory' % path
+        raise self.InvalidCmd('%s : Not a valid directory' % path)
 
     def check_load(self, args):
         """ check the validity of the line"""
@@ -1380,7 +1382,7 @@ This will take effect only in a NEW terminal
                 elif arg.startswith('--'):
                     raise self.InvalidCmd('unknow command for \'save options\'')
                 elif arg == 'global':
-                    if os.environ.has_key('HOME'):
+                    if 'HOME' in os.environ:
                         args.remove('global')
                         args.insert(1,pjoin(os.environ['HOME'],'.mg5','mg5_configuration.txt'))
                         has_path = True
@@ -1440,7 +1442,7 @@ This will take effect only in a NEW terminal
                 raise self.InvalidCmd('%s needs argument False, True or Auto' % \
                                       args[0])
         if args[0] in ['ignore_six_quark_processes']:
-            if args[1] not in self._multiparticles.keys() and args[1] != 'False':
+            if args[1] not in list(self._multiparticles.keys()) and args[1] != 'False':
                 raise self.InvalidCmd('ignore_six_quark_processes needs ' + \
                                       'a multiparticle name as argument')
 
@@ -1542,7 +1544,7 @@ This will take effect only in a NEW terminal
                     if os.path.exists(pjoin(plugpath, plug, '__init__.py')):
                         try:
                             __import__('%s.%s' % (plugindirname,plug))
-                        except Exception, error:
+                        except Exception as error:
                             logger.warning("error detected in plugin: %s.", plug)
                             logger.warning("%s", error)
                             continue
@@ -1610,7 +1612,7 @@ This will take effect only in a NEW terminal
             elif path != 'auto':
                 if path in ['HELAS', 'tests', 'MadSpin', 'madgraph', 'mg5decay', 'vendor']:
                     if os.getcwd() == MG5DIR:
-                        raise self.InvalidCmd, "This name correspond to a builtin MG5 directory. Please choose another name"
+                        raise self.InvalidCmd("This name correspond to a builtin MG5 directory. Please choose another name")
                 self._export_dir = path
             elif path == 'auto':
                 if self.options['pythia8_path']:
@@ -1739,7 +1741,7 @@ This will take effect only in a NEW terminal
             elif self.stdin != sys.stdin:
                 #Check for position defined by the input files
                 input_path = os.path.realpath(self.stdin.name).split(os.path.sep)
-                print "Not standard stdin, use input path"
+                print("Not standard stdin, use input path")
                 if input_path[-2] == 'Cards':
                     self._export_dir = os.path.sep.join(input_path[:-2])
                     if 'TemplateVersion.txt' in self._export_dir:
@@ -1849,7 +1851,7 @@ class CheckValidForCmdWeb(CheckValidForCmd):
         No Path authorize for the Web"""
 
         if not args:
-            raise self.WebRestriction, 'import requires at least one option'
+            raise self.WebRestriction('import requires at least one option')
 
         if args[0] not in self._import_formats:
             args[:] = ['command', './proc_card_mg5.dat']
@@ -1900,7 +1902,7 @@ class CheckValidForCmdWeb(CheckValidForCmd):
         self._export_dir = os.path.realpath(os.getcwd())
         # Check that we output madevent
         if 'madevent' != self._export_format:
-                raise self.WebRestriction, 'only available output format is madevent (at current stage)'
+                raise self.WebRestriction('only available output format is madevent (at current stage)')
 
 #===============================================================================
 # CompleteForCmd
@@ -2001,7 +2003,7 @@ class CompleteForCmd(cmd.CompleteCmd):
             pert_couplings_allowed = pert_couplings_allowed + ['QCD']
 
         # Remove possible identical names
-        particles = list(set(self._particle_names + self._multiparticles.keys()))
+        particles = list(set(self._particle_names + list(self._multiparticles.keys())))
         n_part_entered = len([1 for a in args if a in particles])
 
         # Force '>' if two initial particles.
@@ -2044,8 +2046,8 @@ class CompleteForCmd(cmd.CompleteCmd):
             if poss_particles != []: possibilities['Particles']=poss_particles
             if poss_syntax != []: possibilities['Syntax']=poss_syntax
             if poss_couplings != []: possibilities['Coupling orders']=poss_couplings
-            if len(possibilities.keys())==1:
-                return self.list_completion(text, possibilities.values()[0])
+            if len(list(possibilities.keys()))==1:
+                return self.list_completion(text, list(possibilities.values())[0])
             else:
                 return self.deal_multiple_categories(possibilities, formatting)
 
@@ -2077,7 +2079,7 @@ class CompleteForCmd(cmd.CompleteCmd):
         try:
             return self.model_completion(text, ' '.join(args[1:]),line, formatting)
         except Exception as error:
-            print error
+            print(error)
 
         #if len(args) > 1 and args[-1] != '>':
         #    couplings = ['>']
@@ -2201,7 +2203,7 @@ class CompleteForCmd(cmd.CompleteCmd):
 ['my_default_run.pkl',
 'default_run.pkl,increased_widths.pkl(Increased_widths),logs_modified.pkl(Inverted_logs),seed_668.pkl(Different_seed)']
                     }
-                for name, example in examples.items():
+                for name, example in list(examples.items()):
                     if  args[-1].startswith(name):
                         return self.deal_multiple_categories(
           {"Examples of completion for option '%s'"%args[-1].split('=')[0]:
@@ -2432,8 +2434,8 @@ class CompleteForCmd(cmd.CompleteCmd):
             if len(args) > 1 and args[1] == 'aloha':
                 try:
                     return self.aloha_complete_output(text, line, begidx, endidx)
-                except Exception, error:
-                    print error
+                except Exception as error:
+                    print(error)
             # Directory continuation
             if args[-1].endswith(os.path.sep):
                 return [name for name in self.path_completion(text,
@@ -2505,7 +2507,7 @@ class CompleteForCmd(cmd.CompleteCmd):
 
         # Format
         if len(args) == 1:
-            opts = list(set(self.options.keys() + self._set_options))
+            opts = list(set(list(self.options.keys()) + self._set_options))
             return self.list_completion(text, opts)
 
         if len(args) == 2:
@@ -2514,7 +2516,7 @@ class CompleteForCmd(cmd.CompleteCmd):
                            'low_mem_multicore_nlo_generation']:
                 return self.list_completion(text, ['False', 'True', 'default'])
             elif args[1] in ['ignore_six_quark_processes']:
-                return self.list_completion(text, self._multiparticles.keys())
+                return self.list_completion(text, list(self._multiparticles.keys()))
             elif args[1].lower() == 'ewscheme':
                 return self.list_completion(text, ["external"])
             elif args[1].lower() == 'subtraction_scheme':
@@ -2538,7 +2540,7 @@ class CompleteForCmd(cmd.CompleteCmd):
             elif args[1] == 'run_mode':
                 return self.list_completion(text, [str(i) for i in range(3)] + ['default'])
             elif args[1] == 'cluster_type':
-                return self.list_completion(text, cluster.from_name.keys() + ['default'])
+                return self.list_completion(text, list(cluster.from_name.keys()) + ['default'])
             elif args[1] == 'cluster_queue':
                 return []
             elif args[1] == 'automatic_html_opening':
@@ -2863,7 +2865,8 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
         'cluster_nb_retry':1,
         'cluster_retry_wait':300,
         'cluster_size':100,
-        'output_dependencies':'external'
+        'output_dependencies':'external',
+        'auto_convert_model': False,
     }
 
     options_madgraph= {
@@ -2985,7 +2988,7 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
         value = super(MadGraphCmd, self).do_quit(line)
         if madgraph.ReadWrite: #prevent to run on Read Only disk
             self.do_install('update --mode=mg5_end')
-        print
+        print()
 
         misc.EasterEgg('quit')
         
@@ -3405,8 +3408,8 @@ This implies that with decay chains:
             
             # Negative coupling order contraints can be given on at most one
             # coupling order (and either in squared orders or orders, not both)
-            if len([1 for val in myprocdef.get('orders').values()+\
-                          myprocdef.get('squared_orders').values() if val<0])>1:
+            if len([1 for val in list(myprocdef.get('orders').values())+\
+                          list(myprocdef.get('squared_orders').values()) if val<0])>1:
                 raise MadGraph5Error("Negative coupling order constraints"+\
                   " can only be given on one type of coupling and either on"+\
                                " squared orders or amplitude orders, not both.")
@@ -3448,8 +3451,8 @@ This implies that with decay chains:
                 if amp not in self._curr_amps:
                     self._curr_amps.append(amp)
                 elif warning_duplicate:
-                    raise self.InvalidCmd, "Duplicate process %s found. Please check your processes." % \
-                                                amp.nice_string_processes()
+                    raise self.InvalidCmd("Duplicate process %s found. Please check your processes." % \
+                                                amp.nice_string_processes())
 
             # Reset _done_export, since we have new process
             self._done_export = False
@@ -3968,7 +3971,7 @@ This implies that with decay chains:
             (order, fks_common.find_pert_particles_interactions(self._curr_model, pert_order = order))
              for order in all_perturbed_orders)
         # List the ids to consider for the extra real-emission MultiLeg for each perturbed order
-        for order, infos in orders_to_perturbed_quantities.items():
+        for order, infos in list(orders_to_perturbed_quantities.items()):
             # We typically ignore HBR (Heavy-Boson-Radiation) which are anyway separately finite and therefore
             # limit ourselves to including massless particles in the real-emission contributions
             orders_to_perturbed_quantities[order]['real_emission_ids'] = infos['soft_particles']
@@ -4047,7 +4050,7 @@ This implies that with decay chains:
                 continue
             template_procdef['split_orders'].append(order)
             
-        for value in input_procdef['squared_orders'].values():
+        for value in list(input_procdef['squared_orders'].values()):
             if order < 0:
                 raise InvalidCmd('MadEvent7 does not support negative squared order constraints.')
 
@@ -4062,7 +4065,7 @@ This implies that with decay chains:
         # Promote the squared order constraints to global properties
         # which will then be applied by the integrator. This is because if the users asks for QCD^2==4
         # this means the same constraint at LO but at NLO it would mean to keep QCD^2 orders between [4,6]
-        for order, value in input_procdef['squared_orders'].items():
+        for order, value in list(input_procdef['squared_orders'].items()):
             LO_global_orders[order] = \
                      [value,value] if input_procdef['sqorders_types'][order]=='==' else [0,value]
         for order in all_perturbed_orders:            
@@ -4073,7 +4076,7 @@ This implies that with decay chains:
 
         # Check that the initial state of the process either contains none of the soft perturbed particles
         # or all of them.
-        all_perturbed_ids = set(sum([infos['soft_particles'] for infos in orders_to_perturbed_quantities.values()],[]))
+        all_perturbed_ids = set(sum([infos['soft_particles'] for infos in list(orders_to_perturbed_quantities.values())],[]))
         for initial_states in [leg for leg in template_procdef['legs'] if not leg['state']]:
             if not all_perturbed_ids.difference(set(initial_states['ids']))==set([]) and \
                not all_perturbed_ids.difference(set(initial_states['ids']))==all_perturbed_ids:
@@ -4094,9 +4097,9 @@ This implies that with decay chains:
                 if order in NLO_global_orders:
                     NLO_global_orders[order][-1] += 2
             NLO_template_procdef.set('squared_orders', 
-                dict((order, value[-1]) for order, value in NLO_global_orders.items() ) )
+                dict((order, value[-1]) for order, value in list(NLO_global_orders.items()) ) )
             NLO_template_procdef.set('sqorders_types',
-                dict((order, '<=') for order in NLO_global_orders.keys() ) )
+                dict((order, '<=') for order in list(NLO_global_orders.keys()) ) )
   
             # Adding here regular NLO contributions
             if not generation_options['loop_induced']:
@@ -4118,9 +4121,9 @@ This implies that with decay chains:
                 if order in NNLO_global_orders:
                     NNLO_global_orders[order][-1] += 4
             NNLO_template_procdef.set('squared_orders', 
-                dict((order, value[-1]) for order, value in NNLO_global_orders.items() ) )                
+                dict((order, value[-1]) for order, value in list(NNLO_global_orders.items()) ) )                
             NNLO_template_procdef.set('sqorders_types',
-                dict((order, '<=') for order in NNLO_global_orders.keys() ) )
+                dict((order, '<=') for order in list(NNLO_global_orders.keys()) ) )
   
             # Adding here regular NLO contributions
             if not generation_options['loop_induced']:
@@ -4140,9 +4143,9 @@ This implies that with decay chains:
                 if order in NNNLO_global_orders:
                     NNNLO_global_orders[order][-1] += 6
             NNNLO_template_procdef.set('squared_orders', 
-                dict((order, value[-1]) for order, value in NNNLO_global_orders.items() ) )                
+                dict((order, value[-1]) for order, value in list(NNNLO_global_orders.items()) ) )                
             NNNLO_template_procdef.set('sqorders_types',
-                dict((order, '<=') for order in NNNLO_global_orders.keys() ) )
+                dict((order, '<=') for order in list(NNNLO_global_orders.keys()) ) )
   
             # Adding here regular NLO contributions
             if not generation_options['loop_induced']:
@@ -4275,7 +4278,7 @@ This implies that with decay chains:
                 try:
                     self.exec_cmd('import model %s' % new_model_name, errorhandling=False, 
                               printcmd=False, precmd=True, postcmd=True)
-                except Exception, error:
+                except Exception as error:
                     logger.debug('fail to load model %s with error:\n %s' % (output_dir, error))
                     logger.warning('Fail to load the model. Restore previous model')
                     self.exec_cmd('import model %s' % oldmodel, errorhandling=False, 
@@ -4307,6 +4310,54 @@ This implies that with decay chains:
         self.exec_cmd('import model %s %s' % (new_model_name, opts), errorhandling=False, 
                               printcmd=False, precmd=True, postcmd=True)         
         
+    
+    def do_convert(self, line):
+        """convert model FULLPATH
+           modify (in place) the UFO model to make it compatible with both python2 and python3
+        """
+        
+        args = self.split_arg(line)
+        if hasattr(self, 'do_convert_%s' % args[0]):
+            getattr(self, 'do_convert_%s' % args[0])(args[1:])
+            
+    def do_convert_model(self, args):
+        "Not in help: shortcut for convert model"
+        
+        if not os.path.isdir(args[0]):
+            raise Exception( 'model to convert need to provide a full path')
+        model_dir = args[0]
+        
+        
+        if not ('-f' not in args or self.options['auto_convert_model']): 
+            answer = self.ask('model conversion to support both py2 and py3 are done in place.\n They are NO guarantee of success.\n It can make the model to stop working under PY2 as well.\n Do you want to proceed?',
+                     'y', ['y','n'])
+            if answer != 'y':
+                return 
+        
+        #Object_library 
+        text = open(pjoin(model_dir, 'object_library.py')).read()
+        #(.iteritems() -> .items())
+        text = text.replace('.iteritems()', '.items()')
+        # raise UFOError, "" -> raise UFOError()
+        text = re.sub('raise (\w+)\s*,\s*["\']([^"]+)["\']',
+                      'raise \g<1>("\g<2>")', text)
+        text = open(pjoin(model_dir, 'object_library.py'),'w').write(text)
+        
+        # write_param_card.dat -> copy the one of the sm model
+        files.cp(pjoin(MG5DIR, 'models','sm','write_param_card.py'),
+                 pjoin(model_dir, 'write_param_card.py'))
+        
+        # __init__.py check that function_library and object_library are imported
+        text = open(pjoin(model_dir, '__init__.py')).read()
+        mod = False
+        to_check =  ['object_library', 'function_library']
+        for lib in to_check:
+            if 'import %s' % lib in text:
+                continue
+            mod = True
+            text = "import %s \n" % lib + text  
+        if mod:
+            open(pjoin(model_dir, '__init__.py'),'w').write(text)
         
     # Define a multiparticle label
     def do_define(self, line, log=True):
@@ -4367,21 +4418,21 @@ This implies that with decay chains:
                 else:
                     nb_unpropagating += 1
 
-            print "Current model contains %i particles:" % \
-                    len(propagating_particle)
+            print("Current model contains %i particles:" % \
+                    len(propagating_particle))
             part_antipart = [part for part in propagating_particle \
                              if not part['self_antipart']]
             part_self = [part for part in propagating_particle \
                              if part['self_antipart']]
             for part in part_antipart:
-                print part['name'] + '/' + part['antiname'],
-            print ''
+                print(part['name'] + '/' + part['antiname'], end=' ')
+            print('')
             for part in part_self:
-                print part['name'],
-            print ''
+                print(part['name'], end=' ')
+            print('')
             if nb_unpropagating:
-                print 'In addition of %s un-physical particle mediating new interactions.' \
-                                     % nb_unpropagating
+                print('In addition of %s un-physical particle mediating new interactions.' \
+                                     % nb_unpropagating)
 
         elif args[0] == 'particles':
             for arg in args[1:]:
@@ -4390,10 +4441,10 @@ This implies that with decay chains:
                 else:
                     particle = self._curr_model['particles'].find_name(arg)
                 if not particle:
-                    raise self.InvalidCmd, 'no particle %s in current model' % arg
+                    raise self.InvalidCmd('no particle %s in current model' % arg)
 
-                print "Particle %s has the following properties:" % particle.get_name()
-                print str(particle)
+                print("Particle %s has the following properties:" % particle.get_name())
+                print(str(particle))
 
         elif args[0] == 'interactions' and len(args) == 1:
             text = "Current model contains %i interactions\n" % \
@@ -4414,12 +4465,12 @@ This implies that with decay chains:
         elif args[0] == 'interactions' and len(args)==2 and args[1].isdigit():
             for arg in args[1:]:
                 if int(arg) > len(self._curr_model['interactions']):
-                    raise self.InvalidCmd, 'no interaction %s in current model' % arg
+                    raise self.InvalidCmd('no interaction %s in current model' % arg)
                 if int(arg) == 0:
-                    print 'Special interactions which identify two particles'
+                    print('Special interactions which identify two particles')
                 else:
-                    print "Interactions %s has the following property:" % arg
-                    print self._curr_model['interactions'][int(arg)-1]
+                    print("Interactions %s has the following property:" % arg)
+                    print(self._curr_model['interactions'][int(arg)-1])
 
         elif args[0] == 'interactions':
             request_part = args[1:]
@@ -4451,7 +4502,7 @@ This implies that with decay chains:
                 text += str(self._curr_model['interactions'][i])
 
                 text += '\n'
-                print name
+                print(name)
             if text =='':
                 text += 'No matching for any interactions'
             pydoc.pager(text)
@@ -4460,8 +4511,8 @@ This implies that with decay chains:
         elif args[0] == 'parameters' and len(args) == 1:
             text = "Current model contains %i parameters\n" % \
                     sum([len(part) for part in
-                                       self._curr_model['parameters'].values()])
-            keys = self._curr_model['parameters'].keys()
+                                       list(self._curr_model['parameters'].values())])
+            keys = list(self._curr_model['parameters'].keys())
             def key_sort(x, y):
                 if ('external',) == x:
                     return -1
@@ -4490,7 +4541,7 @@ This implies that with decay chains:
 
         elif args[0] == 'processes':
             for amp in self._curr_amps:
-                print amp.nice_string_processes()
+                print(amp.nice_string_processes())
 
         elif args[0] == 'contributions':
             self._curr_contribs.sort_contributions()
@@ -4505,19 +4556,19 @@ This implies that with decay chains:
                     format_value = {'default':0, 'long':1, 'very_long':2}[format]
             else:
                 format_value = 0
-            print self._curr_contribs.nice_string(format=format_value)
+            print(self._curr_contribs.nice_string(format=format_value))
 
         elif args[0] == 'diagrams_text':
             text = "\n".join([amp.nice_string() for amp in self._curr_amps])
             pydoc.pager(text)
 
         elif args[0] == 'multiparticles':
-            print 'Multiparticle labels:'
+            print('Multiparticle labels:')
             for key in self._multiparticles:
-                print self.multiparticle_string(key)
+                print(self.multiparticle_string(key))
 
         elif args[0] == 'coupling_order':
-            hierarchy = self._curr_model['order_hierarchy'].items()
+            hierarchy = list(self._curr_model['order_hierarchy'].items())
             #self._curr_model.get_order_hierarchy().items()
             def order(first, second):
                 if first[1] < second[1]:
@@ -4526,17 +4577,17 @@ This implies that with decay chains:
                     return 1
             hierarchy.sort(order)
             for order in hierarchy:
-                print ' %s : weight = %s' % order
+                print(' %s : weight = %s' % order)
 
         elif args[0] == 'couplings' and len(args) == 1:
             if self._model_v4_path:
-                print 'No couplings information available in V4 model'
+                print('No couplings information available in V4 model')
                 return
             text = ''
             text = "Current model contains %i couplings\n" % \
                     sum([len(part) for part in
-                                        self._curr_model['couplings'].values()])
-            keys = self._curr_model['couplings'].keys()
+                                        list(self._curr_model['couplings'].values())])
+            keys = list(self._curr_model['couplings'].keys())
             def key_sort(x, y):
                 if ('external',) == x:
                     return -1
@@ -4560,31 +4611,30 @@ This implies that with decay chains:
 
         elif args[0] == 'couplings':
             if self._model_v4_path:
-                print 'No couplings information available in V4 model'
+                print('No couplings information available in V4 model')
                 return
 
             try:
                 ufomodel = ufomodels.load_model(self._curr_model.get('name'))
-                print 'Note that this is the UFO informations.'
-                print ' "display couplings" present the actual definition'
-                print 'prints the current states of mode'
-                print eval('ufomodel.couplings.%s.nice_string()'%args[1])
+                print('Note that this is the UFO informations.')
+                print(' "display couplings" present the actual definition')
+                print('prints the current states of mode')
+                print(eval('ufomodel.couplings.%s.nice_string()'%args[1]))
             except Exception:
-                raise self.InvalidCmd, 'no couplings %s in current model' % args[1]
+                raise self.InvalidCmd('no couplings %s in current model' % args[1])
 
         elif args[0] == 'lorentz':
             if self._model_v4_path:
-                print 'No lorentz information available in V4 model'
+                print('No lorentz information available in V4 model')
                 return
             elif len(args) == 1:
-                raise self.InvalidCmd,\
-                     'display lorentz require an argument: the name of the lorentz structure.'
+                raise self.InvalidCmd('display lorentz require an argument: the name of the lorentz structure.')
                 return
             try:
                 ufomodel = ufomodels.load_model(self._curr_model.get('name'))
-                print eval('ufomodel.lorentz.%s.nice_string()'%args[1])
+                print(eval('ufomodel.lorentz.%s.nice_string()'%args[1]))
             except Exception:
-                raise self.InvalidCmd, 'no lorentz %s in current model' % args[1]
+                raise self.InvalidCmd('no lorentz %s in current model' % args[1])
 
         elif args[0] == 'checks':
             outstr = ''
@@ -4639,7 +4689,7 @@ This implies that with decay chains:
 
             outstr = "                          MadGraph5_aMC@NLO Options    \n"
             outstr += "                          ----------------    \n"
-            keys = self.options_madgraph.keys()
+            keys = list(self.options_madgraph.keys())
             keys.sort()
             for key in keys:
                 if not to_print(key):
@@ -4653,7 +4703,7 @@ This implies that with decay chains:
             outstr += "\n"
             outstr += "                         MadEvent Options    \n"
             outstr += "                          ----------------    \n"
-            keys = self.options_madevent.keys()
+            keys = list(self.options_madevent.keys())
             keys.sort()
             for key in keys:
                 if not to_print(key):
@@ -4667,7 +4717,7 @@ This implies that with decay chains:
             outstr += "\n"
             outstr += "                      Configuration Options    \n"
             outstr += "                      ---------------------    \n"
-            keys = self.options_configuration.keys()
+            keys = list(self.options_configuration.keys())
             keys.sort()
             for key in keys:
                 if not to_print(key):
@@ -4708,7 +4758,7 @@ This implies that with decay chains:
                      'MadLoop': logger_tuto_madloop}
         try:
             tutorials[args[0]].setLevel(logging.INFO)
-            for mode in [m for m in tutorials.keys() if m != args[0]]:
+            for mode in [m for m in list(tutorials.keys()) if m != args[0]]:
                 tutorials[mode].setLevel(logging.ERROR)
         except KeyError:
             logger_tuto.info("\n\tThanks for using the tutorial!")
@@ -5091,7 +5141,7 @@ This implies that with decay chains:
             logger_check.info("Options for the command 'check' are:")
             logger_check.info("{:<20}     {}".format('  name','default value'))
             logger_check.info("-"*40)
-            for key, value in options.items():
+            for key, value in list(options.items()):
                 logger_check.info("{:<20} =   {}".format('--%s'%key,str(value)))
             return
 
@@ -5100,7 +5150,7 @@ This implies that with decay chains:
             logger_check.info("Special options for the command 'check cms' are:")
             logger_check.info("{:<20}     {}".format('  name','default value'))
             logger_check.info("-"*40)
-            for key, value in CMS_options.items():
+            for key, value in list(CMS_options.items()):
                 logger_check.info("{:<20} =   {}".format('--%s'%key,str(value)))
             return        
         
@@ -5349,14 +5399,14 @@ This implies that with decay chains:
             cms_original_setup = self.options['complex_mass_scheme']
             process_line = " ".join(args[1:])
             # Merge in the CMS_options to the options
-            for key, value in CMS_options.items():
+            for key, value in list(CMS_options.items()):
                 if key=='tweak':
                     continue
                 if key not in options:
                     options[key] = value
                 else:
-                    raise MadGraph5Error,"Option '%s' is both in the option"%key+\
-                                                   " and CMS_option dictionary." 
+                    raise MadGraph5Error("Option '%s' is both in the option"%key+\
+                                                   " and CMS_option dictionary.") 
             
             if options['analyze']=='None':
                 cms_results = []
@@ -5578,8 +5628,8 @@ This implies that with decay chains:
                     elif option=='noborn':
                         HasBorn=False
                 else:
-                    raise self.InvalidCmd, "NLO mode %s is not valid. "%option+\
-                       "Valid modes are %s. "%str(self._valid_nlo_modes)
+                    raise self.InvalidCmd("NLO mode %s is not valid. "%option+\
+                       "Valid modes are %s. "%str(self._valid_nlo_modes))
             else:
                 LoopOption='all'
 
@@ -5603,8 +5653,8 @@ This implies that with decay chains:
             type = order_re.group('type')
             if order_re.group('name').endswith('^2'):
                 if type not in self._valid_sqso_types:
-                    raise self.InvalidCmd, "Type of squared order "+\
-                                 "constraint '%s'"% type+" is not supported."
+                    raise self.InvalidCmd("Type of squared order "+\
+                                 "constraint '%s'"% type+" is not supported.")
                 if type == '=':
                     name =  order_re.group('name')
                     value = order_re.group('value')
@@ -5615,9 +5665,8 @@ This implies that with decay chains:
                                          (int(order_re.group('value')),type)
             else:
                 if type not in self._valid_amp_so_types:
-                    raise self.InvalidCmd, \
-                      "Amplitude order constraints can only be of type %s"%\
-                    (', '.join(self._valid_amp_so_types))+", not '%s'."%type
+                    raise self.InvalidCmd("Amplitude order constraints can only be of type %s"%\
+                    (', '.join(self._valid_amp_so_types))+", not '%s'."%type)
                 name = order_re.group('name')
                 value = int(order_re.group('value'))
                 if type in ['=', '<=']:
@@ -5642,9 +5691,8 @@ This implies that with decay chains:
             
         #only allow amplitue restrctions >/ == for LO/tree level
         if constrained_orders and LoopOption != 'tree':
-            raise self.InvalidCmd, \
-                          "Amplitude order constraints (for not LO processes) can only be of type %s"%\
-                        (', '.join(['<=']))+", not '%s'."%type
+            raise self.InvalidCmd("Amplitude order constraints (for not LO processes) can only be of type %s"%\
+                        (', '.join(['<=']))+", not '%s'."%type)
 
         # If the squared orders are defined but not the orders, assume 
         # orders=sq_orders. In case the squared order has a negative value or is
@@ -5652,7 +5700,7 @@ This implies that with decay chains:
         # be maximal (99) since there is no way to know, during generation, if 
         # the amplitude being contstructed will be leading or not.
         if orders=={} and squared_orders!={}:
-            for order in squared_orders.keys():
+            for order in list(squared_orders.keys()):
                 if squared_orders[order][0]>=0 and squared_orders[order][1]!='>':
                     orders[order]=squared_orders[order][0]
                 else:
@@ -5708,23 +5756,21 @@ This implies that with decay chains:
         for part_name in args:
             if part_name == '>':
                 if not myleglist:
-                    raise self.InvalidCmd, "No final state particles"
+                    raise self.InvalidCmd("No final state particles")
                 state = True
                 continue
 
             mylegids = []
             if part_name in self._multiparticles:
                 if isinstance(self._multiparticles[part_name][0], list):
-                    raise self.InvalidCmd,\
-                          "Multiparticle %s is or-multiparticle" % part_name + \
-                          " which can be used only for required s-channels"
+                    raise self.InvalidCmd("Multiparticle %s is or-multiparticle" % part_name + \
+                          " which can be used only for required s-channels")
                 mylegids.extend(self._multiparticles[part_name])
             elif part_name.isdigit() or part_name.startswith('-') and part_name[1:].isdigit():
                 if int(part_name) in self._curr_model.get('particle_dict'):
                     mylegids.append(int(part_name))
                 else:
-                    raise self.InvalidCmd, \
-                      "No pdg_code %s in model" % part_name
+                    raise self.InvalidCmd("No pdg_code %s in model" % part_name)
             else:
                 mypart = self._curr_model['particles'].get_copy(part_name)
                 if mypart:
@@ -5734,13 +5780,13 @@ This implies that with decay chains:
                 myleglist.append(base_objects.MultiLeg({'ids':mylegids,
                                                         'state':state}))
             else:
-                raise self.InvalidCmd, "No particle %s in model" % part_name
+                raise self.InvalidCmd("No particle %s in model" % part_name)
 
         # Apply the keyword 'all' for perturbed coupling orders.
         if perturbation_couplings.lower()=='all':
             perturbation_couplings=' '.join(self._curr_model['perturbation_couplings'])
 
-        if filter(lambda leg: leg.get('state') == True, myleglist):
+        if [leg for leg in myleglist if leg.get('state') == True]:
             # We have a valid process
             # Extract perturbation orders
             perturbation_couplings_list = perturbation_couplings.split()
@@ -5748,16 +5794,16 @@ This implies that with decay chains:
                 perturbation_couplings_list=[]
             # Correspondingly set 'split_order' from the squared orders and the
             # perturbation couplings list
-            split_orders=list(set(perturbation_couplings_list+squared_orders.keys()))
+            split_orders=list(set(perturbation_couplings_list+list(squared_orders.keys())))
             try:
                 split_orders.sort(key=lambda elem: 0 if elem=='WEIGHTED' else
                                        self._curr_model['order_hierarchy']
                                        [elem if not elem.endswith('.sqrt') else elem[:-5]])
             except KeyError:
-                raise self.InvalidCmd, "The loaded model does not defined a "+\
+                raise self.InvalidCmd("The loaded model does not defined a "+\
                     " coupling order hierarchy for these couplings: %s"%\
                       str([so for so in split_orders if so!='WEIGHTED' and so not 
-                                 in self._curr_model['order_hierarchy'].keys()])
+                                 in list(self._curr_model['order_hierarchy'].keys())]))
 
             # If the loopOption is 'tree' then the user used the syntax 
             # [tree= Orders] for the sole purpose of setting split_orders. We
@@ -5796,26 +5842,24 @@ This implies that with decay chains:
                               self.extract_particle_ids(forbidden_schannels)
             if forbidden_onsh_schannel_ids and \
                isinstance(forbidden_onsh_schannel_ids[0], list):
-                raise self.InvalidCmd,\
-                      "Multiparticle %s is or-multiparticle" % part_name + \
-                      " which can be used only for required s-channels"
+                raise self.InvalidCmd("Multiparticle %s is or-multiparticle" % part_name + \
+                      " which can be used only for required s-channels")
             if forbidden_schannel_ids and \
                isinstance(forbidden_schannel_ids[0], list):
-                raise self.InvalidCmd,\
-                      "Multiparticle %s is or-multiparticle" % part_name + \
-                      " which can be used only for required s-channels"
+                raise self.InvalidCmd("Multiparticle %s is or-multiparticle" % part_name + \
+                      " which can be used only for required s-channels")
             required_schannel_ids = \
                                self.extract_particle_ids(required_schannels)
             if required_schannel_ids and not \
                    isinstance(required_schannel_ids[0], list):
                 required_schannel_ids = [required_schannel_ids]
             
-            sqorders_values = dict([(k,v[0]) for k, v in squared_orders.items()])
-            if len([1 for sqo_v in sqorders_values.values() if sqo_v<0])>1:
+            sqorders_values = dict([(k,v[0]) for k, v in list(squared_orders.items())])
+            if len([1 for sqo_v in list(sqorders_values.values()) if sqo_v<0])>1:
                 raise self.InvalidCmd(
                   "At most one negative squared order constraint can be specified.")
             
-            sqorders_types = dict([(k,v[1]) for k, v in squared_orders.items()]) 
+            sqorders_types = dict([(k,v[1]) for k, v in list(squared_orders.items())]) 
                         
             
             out = base_objects.ProcessDefinition({'legs': myleglist,
@@ -5888,8 +5932,8 @@ This implies that with decay chains:
             
         # Negative coupling order contraints can be given on at most one
         # coupling order (and either in squared orders or orders, not both)
-        if len([1 for val in myprocdef.get('orders').values()+\
-                      myprocdef.get('squared_orders').values() if val<0])>1:
+        if len([1 for val in list(myprocdef.get('orders').values())+\
+                      list(myprocdef.get('squared_orders').values()) if val<0])>1:
             raise MadGraph5Error("Negative coupling order constraints"+\
               " can only be given on one type of coupling and either on"+\
                            " squared orders or amplitude orders, not both.")
@@ -5919,8 +5963,8 @@ This implies that with decay chains:
                 if amp['has_born']:
                     raise Exception
             elif warning_duplicate:
-                raise self.InvalidCmd, "Duplicate process %s found. Please check your processes." % \
-                                            amp.nice_string_processes()
+                raise self.InvalidCmd("Duplicate process %s found. Please check your processes." % \
+                                            amp.nice_string_processes())
 
         # Reset _done_export, since we have new process
         self._done_export = False
@@ -6038,7 +6082,7 @@ This implies that with decay chains:
                 elif first in self._multiparticles:
                     pid = set(self._multiparticles[first])
                 else:
-                    raise Exception, 'invalid particle name: %s. ' % first
+                    raise Exception('invalid particle name: %s. ' % first)
                 core_final.difference_update(pid)
                 core_final.update(self.get_final_part(one_decay))
 
@@ -6062,7 +6106,7 @@ This implies that with decay chains:
         allow multiple required s-channel propagators to be specified
         (e.g. Z/gamma)."""
 
-        if isinstance(args, basestring):
+        if isinstance(args, str):
             args.replace("|", " | ")
             args = self.split_arg(args)
         all_ids = []
@@ -6190,8 +6234,7 @@ This implies that with decay chains:
 
             if level_down:
                 if index_par == -1:
-                    raise self.InvalidCmd, \
-                      "Missing ending parenthesis for decay process"
+                    raise self.InvalidCmd("Missing ending parenthesis for decay process")
 
                 if index_par < index_comma:
                     line = line[index_par + 1:]
@@ -6201,8 +6244,7 @@ This implies that with decay chains:
         if level_down:
             index_par = line.find(')')
             if index_par == -1:
-                raise self.InvalidCmd, \
-                      "Missing ending parenthesis for decay process"
+                raise self.InvalidCmd("Missing ending parenthesis for decay process")
             line = line[index_par + 1:]
 
         # Return the core process (ends recursion when there are no
@@ -6246,14 +6288,28 @@ This implies that with decay chains:
                 try:
                     self._curr_model = import_ufo.import_model(args[1], prefix=prefix,
                         complex_mass_scheme=self.options['complex_mass_scheme'])
-                except import_ufo.UFOImportError, error:
-                    if 'not a valid UFO model' in str(error):
-                        logger_stderr.warning('WARNING: %s' % error)
-                        logger_stderr.warning('Try to recover by running '+\
-                         'automatically `import model_v4 %s` instead.'% args[1])
-                    self.exec_cmd('import model_v4 %s ' % args[1], precmd=True)
-                    return
-                if self.options['gauge']=='unitary':
+                except ufomodels.UFOError as err:
+                    model_path, _,_ = import_ufo.get_path_restrict(args[1])
+                    if six.PY3 and self.options['auto_convert_model']:
+                        logger.info("fail to load model but auto_convert_model is on True. Trying to convert the model")
+                        
+                        self.exec_cmd('convert model %s' % model_path, errorhandling=False, printcmd=True, precmd=False, postcmd=False)
+                        logger.info('retry the load of the model')
+                        tmp_opt = dict(self.options)
+                        tmp_opt['auto_convert_model'] = False
+                        with misc.TMP_variable(self, 'options', tmp_opt):
+                            try:
+                                self.exec_cmd('import %s' % line, errorhandling=False, printcmd=True, precmd=False, postcmd=False)
+                            except Exception:
+                                raise err
+                    elif six.PY3:
+                        raise self.InvalidCmd('UFO model not python3 compatible. You can convert it via the command \nconvert model %s\nYou can also type \"set auto_convert_model T\" to automatically convert all python2 module to be python3 compatible in the future.' % model_path)
+                    else:
+                        raise
+                if os.path.sep in args[1] and "import" in self.history[-1]:
+                    self.history[-1] = 'import model %s' % self._curr_model.get('modelpath+restriction')
+
+                if self.options['gauge'] in ['unitary', 'axial']:
                     if not force and isinstance(self._curr_model,\
                                               loop_base_objects.LoopModel) and \
                          self._curr_model.get('perturbation_couplings') not in \
@@ -6308,7 +6364,7 @@ This implies that with decay chains:
         elif args[0] == 'banner':
             type = madevent_interface.MadEventCmd.detect_card_type(args[1])
             if type != 'banner':
-                raise self.InvalidCmd, 'The File should be a valid banner'
+                raise self.InvalidCmd('The File should be a valid banner')
             ban = banner_module.Banner(args[1])
             # Check that this is MG5 banner
             if 'mg5proccard' in ban:
@@ -6317,7 +6373,7 @@ This implies that with decay chains:
                         continue
                     self.exec_cmd(line)
             else:
-                raise self.InvalidCmd, 'Only MG5 banner are supported'
+                raise self.InvalidCmd('Only MG5 banner are supported')
 
             if not self._done_export:
                 self.exec_cmd('output . -f')
@@ -6375,7 +6431,7 @@ This implies that with decay chains:
                 child.sort()
                 child.insert(0, len(child))
                 #check if the decay is present or not:
-                if tuple(child) not in decay_table.keys():
+                if tuple(child) not in list(decay_table.keys()):
                     to_remove.append(amp)
 
         def remove_amp(amps):
@@ -6404,7 +6460,7 @@ This implies that with decay chains:
                  [p.get('antiname') for p in self._curr_model.get('particles') \
                                                     if p.get('propagating')]
 
-        self._couplings = list(set(sum([i.get('orders').keys() for i in \
+        self._couplings = list(set(sum([list(i.get('orders').keys()) for i in \
                                         self._curr_model.get('interactions')], [])))
 
         self.add_default_multiparticles()
@@ -6443,12 +6499,12 @@ This implies that with decay chains:
         """ add default particle from file interface.multiparticles_default.txt
         """
 
-        defined_multiparticles = self._multiparticles.keys()
+        defined_multiparticles = list(self._multiparticles.keys())
         removed_multiparticles = []
         # First check if the defined multiparticles are allowed in the
         # new model
         
-        for key in self._multiparticles.keys():
+        for key in list(self._multiparticles.keys()):
             try:
                 for part in self._multiparticles[key]:
                     self._curr_model.get('particle_dict')[part]
@@ -6470,7 +6526,7 @@ This implies that with decay chains:
                 if multipart_name not in self._multiparticles:
                     #self.do_define(line)
                     self.exec_cmd('define %s' % line, printcmd=False, precmd=True)
-            except self.InvalidCmd, why:
+            except self.InvalidCmd as why:
                 logger_stderr.warning('impossible to set default multiparticles %s because %s' %
                                         (line.split()[0],why))
                 if self.history[-1] == 'define %s' % line.strip():
@@ -6503,7 +6559,7 @@ This implies that with decay chains:
                 if container in defined_multiparticles:
                     defined_multiparticles.remove(container)
             self.history.append("define p = %s # pass to %s flavors" % \
-                                (' ' .join([`i` for i in self._multiparticles['p']]), 
+                                (' ' .join([repr(i) for i in self._multiparticles['p']]), 
                                  scheme) 
                                )
             self.history.append("define j = p")
@@ -6545,9 +6601,9 @@ This implies that with decay chains:
         # Always refresh the installer if already present
         if not os.path.isdir(pjoin(MG5DIR,'HEPTools','HEPToolsInstallers')):
             if HepToolsInstaller_web_address is None:
-                raise MadGraph5Error, "The option 'HepToolsInstaller_web_address'"+\
+                raise MadGraph5Error("The option 'HepToolsInstaller_web_address'"+\
                              " must be specified in function advanced_install"+\
-                                " if the installers are not already downloaded."
+                                " if the installers are not already downloaded.")
             if not os.path.isdir(pjoin(MG5DIR,'HEPTools')):
                 os.mkdir(pjoin(MG5DIR,'HEPTools'))
         elif not HepToolsInstaller_web_address is None:
@@ -6900,7 +6956,7 @@ MG5aMC that supports quadruple precision (typically g++ based on gcc 4.6+).""")
             logger.info("   You are installing '%s', please cite ref(s): \033[92m%s\033[0m. " % (args[0], ', '.join(advertisements[args[0]])), '$MG:color:BLACK')
 
         # Load file with path of the different program:
-        import urllib
+        import urllib.request, urllib.parse, urllib.error
         if paths:
             path = paths
         else:
@@ -6930,13 +6986,13 @@ MG5aMC that supports quadruple precision (typically g++ based on gcc 4.6+).""")
             for index in r:
                 cluster_path = data_path[index]
                 try:
-                    data = urllib.urlopen(cluster_path)
+                    data = urllib.request.urlopen(cluster_path)
                 except Exception:
                     continue
                 break
             else:
-                raise MadGraph5Error, '''Impossible to connect any of us servers.
-                Please check your internet connection or retry later'''
+                raise MadGraph5Error('''Impossible to connect any of us servers.
+                Please check your internet connection or retry later''')
             for line in data:
                 split = line.split()
                 path[split[0]] = split[1]
@@ -7023,7 +7079,7 @@ MG5aMC that supports quadruple precision (typically g++ based on gcc 4.6+).""")
                                      stdout=open(os.devnull, 'w'))
 
         if returncode:
-            raise MadGraph5Error, 'Fail to download correctly the File. Stop'
+            raise MadGraph5Error('Fail to download correctly the File. Stop')
 
 
         # Check that the directory has the correct name
@@ -7031,7 +7087,7 @@ MG5aMC that supports quadruple precision (typically g++ based on gcc 4.6+).""")
             created_name = [n for n in os.listdir(MG5DIR) if n.lower().startswith(
                                          name.lower()) and not n.endswith('gz')]
             if not created_name:
-                raise MadGraph5Error, 'The file was not loaded correctly. Stop'
+                raise MadGraph5Error('The file was not loaded correctly. Stop')
             else:
                 created_name = created_name[0]
             files.mv(pjoin(MG5DIR, created_name), pjoin(MG5DIR, name))
@@ -7149,10 +7205,10 @@ MG5aMC that supports quadruple precision (typically g++ based on gcc 4.6+).""")
                 latest_validated_version = plugin.latest_validated_version
                 minimal_mg5amcnlo_version = plugin.minimal_mg5amcnlo_version
                 maximal_mg5amcnlo_version = plugin.maximal_mg5amcnlo_version
-            except Exception, error:
-                raise Exception, 'Plugin %s fail to be loaded. Please contact the author of the PLUGIN\n Error %s' % (name, error)
+            except Exception as error:
+                raise Exception('Plugin %s fail to be loaded. Please contact the author of the PLUGIN\n Error %s' % (name, error))
                 
-            logger.info('Plugin %s correctly interfaced. Latest official validition for MG5aMC version %s.' % (name, '.'.join(`i` for i in latest_validated_version)))
+            logger.info('Plugin %s correctly interfaced. Latest official validition for MG5aMC version %s.' % (name, '.'.join(repr(i) for i in latest_validated_version)))
             if new_interface:
                 ff = open(pjoin(MG5DIR, 'bin', '%s.py' % name) , 'w') 
                 if __debug__:
@@ -7236,8 +7292,8 @@ os.system('%s  -O -W ignore::DeprecationWarning %s %s --mode={0}' %(sys.executab
             try:
                 os.system('rm -rf td')
                 os.mkdir(pjoin(MG5DIR, 'td'))
-            except Exception, error:
-                print error
+            except Exception as error:
+                print(error)
                 pass
 
             if sys.platform == "darwin":
@@ -7259,7 +7315,7 @@ os.system('%s  -O -W ignore::DeprecationWarning %s %s --mode={0}' %(sys.executab
                     logger.info('Downloading TD for Linux 32 bit')
                     target = 'http://madgraph.phys.ucl.ac.be/Downloads/td'
                 misc.call(['wget', target], cwd=pjoin(MG5DIR,'td'))
-            os.chmod(pjoin(MG5DIR,'td','td'), 0775)
+            os.chmod(pjoin(MG5DIR,'td','td'), 0o775)
             self.options['td_path'] = pjoin(MG5DIR,'td')
 
             if not misc.which('gs'):
@@ -7334,7 +7390,7 @@ os.system('%s  -O -W ignore::DeprecationWarning %s %s --mode={0}' %(sys.executab
             pattern = re.compile(r'''=== renamed file \'(?P<orig>[^\']*)\' => \'(?P<new>[^\']*)\'''')
             #=== renamed file 'Template/SubProcesses/addmothers.f' => 'madgraph/iolibs/template_files/addmothers.f'
             for orig, new in pattern.findall(text):
-                print 'move %s to %s' % (orig, new)
+                print('move %s to %s' % (orig, new))
                 try:
                     files.cp(pjoin(MG5DIR, orig), pjoin(MG5DIR, new), error=True)
                 except IOError:
@@ -7350,7 +7406,7 @@ os.system('%s  -O -W ignore::DeprecationWarning %s %s --mode={0}' %(sys.executab
             #pattern = re.compile(r'''=== removed file \'(?P<new>[^\']*)\'''')
             #all_rm = pattern.findall(text)
             pattern=re.compile(r'''=== removed file \'(?P<new>[^\']*)\'(?=.*=== added file \'(?P=new)\')''',re.S)
-            print 'this step can take a few minuts. please be patient'
+            print('this step can take a few minuts. please be patient')
             all_rm_add = pattern.findall(text)
             #=== added file 'tests/input_files/full_sm/interactions.dat'
             for new in all_add:
@@ -7389,7 +7445,7 @@ os.system('%s  -O -W ignore::DeprecationWarning %s %s --mode={0}' %(sys.executab
                         for i in range(1,len(split)):
                             path = '/'.join(split[:i])
                             if not os.path.exists(path):
-                                print 'mkdir', path
+                                print('mkdir', path)
                                 os.mkdir(path)
                     files.cp(old,new)
             #=== renamed file 'Template/bin/internal/run_delphes' => 'Template/Common/bin/internal/run_delphes'
@@ -7435,10 +7491,10 @@ os.system('%s  -O -W ignore::DeprecationWarning %s %s --mode={0}' %(sys.executab
                     for i in range(1,len(split)+1):
                         path = '/'.join(split[:i])
                         if path and not os.path.exists(path):
-                            print 'mkdir', path
+                            print('mkdir', path)
                             os.mkdir(path)
                 if match[0] == 'file':
-                    print 'touch ', pjoin(MG5DIR, match[1])
+                    print('touch ', pjoin(MG5DIR, match[1]))
                     misc.call(['touch', pjoin(MG5DIR, match[1])])
             # add new symlink
             pattern=re.compile('''^=== link file \'(?P<new>[^\']*)\' \'(?P<old>[^\']*)\'''', re.M)
@@ -7550,12 +7606,12 @@ os.system('%s  -O -W ignore::DeprecationWarning %s %s --mode={0}' %(sys.executab
         signal.alarm(timeout)
         to_update = 0
         try:
-            filetext = urllib.urlopen('http://madgraph.phys.ucl.ac.be/mg5amc_build_nb')
+            filetext = urllib.request.urlopen('http://madgraph.phys.ucl.ac.be/mg5amc_build_nb')
             signal.alarm(0)
             web_version = int(filetext.read().strip())
         except (TimeOutError, ValueError, IOError):
             signal.alarm(0)
-            print 'failed to connect server'
+            print('failed to connect server')
             if mode == 'mg5_end':
                 # wait 24h before next check
                 fsock = open(os.path.join(MG5DIR,'input','.autoupdate'),'w')
@@ -7593,10 +7649,10 @@ os.system('%s  -O -W ignore::DeprecationWarning %s %s --mode={0}' %(sys.executab
             fail = 0
             for i in range(data['version_nb'], web_version):
                 try:
-                    filetext = urllib.urlopen('http://madgraph.phys.ucl.ac.be/patch/build%s.patch' %(i+1))
+                    filetext = urllib.request.urlopen('http://madgraph.phys.ucl.ac.be/patch/build%s.patch' %(i+1))
 #                    filetext = urllib.urlopen('http://madgraph.phys.ucl.ac.be/patch_test/build%s.patch' %(i+1))
                 except Exception:
-                    print 'fail to load patch to build #%s' % (i+1)
+                    print('fail to load patch to build #%s' % (i+1))
                     fail = i
                     break
                 need_binary = apply_patch(filetext)
@@ -7623,7 +7679,7 @@ os.system('%s  -O -W ignore::DeprecationWarning %s %s --mode={0}' %(sys.executab
             logger.info('Checking current version. (type ctrl-c to bypass the check)')
             subprocess.call([os.path.join('tests','test_manager.py')],
                                                                   cwd=MG5DIR)            
-            print 'new version installed, please relaunch mg5'
+            print('new version installed, please relaunch mg5')
             try:
                 os.remove(pjoin(MG5DIR, 'Template','LO','Source','make_opts'))
                 shutil.copy(pjoin(MG5DIR, 'Template','LO','Source','.make_opts'),
@@ -7662,7 +7718,7 @@ os.system('%s  -O -W ignore::DeprecationWarning %s %s --mode={0}' %(sys.executab
             self.options.update(self.options_madevent)
 
         if not config_path:
-            if os.environ.has_key('MADGRAPH_BASE'):
+            if 'MADGRAPH_BASE' in os.environ:
                 config_path = pjoin(os.environ['MADGRAPH_BASE'],'mg5_configuration.txt')
                 self.set_configuration(config_path, final=False)
             if 'HOME' in os.environ:
@@ -7798,8 +7854,8 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
                 # Default: try to set parameter
                 try:
                     self.do_set("%s %s --no_save" % (key, self.options[key]), log=False)
-                except MadGraph5Error, error:
-                    print error
+                except MadGraph5Error as error:
+                    print(error)
                     logger.warning("Option %s from config file not understood" \
                                    % key)
                 else:
@@ -7934,13 +7990,13 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
                                                  options=self.options,**options)            
         else:
             os.chdir(start_cwd) #ensure to go to the initial path
-            raise self.InvalidCmd , '%s cannot be run from MG5 interface' % args[0]
+            raise self.InvalidCmd('%s cannot be run from MG5 interface' % args[0])
 
 
         ext_program.run()
         os.chdir(start_cwd) #ensure to go to the initial path
         # ensure that MG options are not changed!
-        for key, value in current_options.items():
+        for key, value in list(current_options.items()):
             self.options[key] = value
 
     def do_load(self, line):
@@ -8015,7 +8071,7 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
         self._curr_model = import_ufo.import_model(model_path, restrict=False)
 
         #1) create the full param_card
-        out_path = StringIO.StringIO()
+        out_path = io.StringIO()
         param_writer.ParamCardWriter(self._curr_model, out_path)
         # and load it to a python object
         param_card = check_param_card.ParamCard(out_path.getvalue().split('\n'))
@@ -8066,7 +8122,7 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
 
         # if some need to put on one
         if put_to_one:
-            out_path = StringIO.StringIO()
+            out_path = io.StringIO()
             param_writer.ParamCardWriter(self._curr_model, out_path)
             # and load it to a python object
             param_card = check_param_card.ParamCard(out_path.getvalue().split('\n'))
@@ -8121,12 +8177,12 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
                     to_define[key] = self.options[key] 
             else:
                 # First look at options which should be put in MG5DIR/input
-                for key, default in self.options_configuration.items():
+                for key, default in list(self.options_configuration.items()):
                     if self.options_configuration[key] != self.options[key] and not self.options_configuration[key] is None:
                         to_define[key] = self.options[key]
     
                 if not '--auto' in args:
-                    for key, default in self.options_madevent.items():
+                    for key, default in list(self.options_madevent.items()):
                         if self.options_madevent[key] != self.options[key] != None:
                             if '_path' in key and os.path.basename(self.options[key]) == 'None':
                                 continue
@@ -8135,12 +8191,12 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
                             to_define[key] = self.options[key]
     
                 if '--all' in args:
-                    for key, default in self.options_madgraph.items():
+                    for key, default in list(self.options_madgraph.items()):
                         if self.options_madgraph[key] != self.options[key] != None and \
                           key != 'stdout_level':
                             to_define[key] = self.options[key]
                 elif not '--auto' in args:
-                    for key, default in self.options_madgraph.items():
+                    for key, default in list(self.options_madgraph.items()):
                         if self.options_madgraph[key] != self.options[key] != None and  key != 'stdout_level':
                             logger.info('The option %s is modified [%s] but will not be written in the configuration files.' \
                                         % (key,self.options_madgraph[key]) )
@@ -8349,6 +8405,7 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
                 p = subprocess.Popen([args[1], '--version'], stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE)
                 output, error = p.communicate()
+                output = output.decode()
                 res = 0
             except Exception:
                 res = 1
@@ -8578,7 +8635,7 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
                 self._export_dir = pjoin(self._export_dir, 'Pythia8_proc_%i' %i)
                 logger.info('Create output in %s' % self._export_dir)
             elif not args[0] in ['.', '-f']:
-                raise self.InvalidCmd, 'Wrong path directory to create in local directory use \'.\''
+                raise self.InvalidCmd('Wrong path directory to create in local directory use \'.\'')
         elif not noclean and os.path.isdir(self._export_dir) and options['check']:
             if not force:
                 # Don't ask if user already specified force or noclean
@@ -9102,7 +9159,7 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
                 data = model.set_parameters_and_couplings(opts['path'], scale= mass)
                 total = 0
     
-                for mode, expr in particle.partial_widths.items():
+                for mode, expr in list(particle.partial_widths.items()):
                     tmp_mass = mass
                     for p in mode:
                         try:
@@ -9124,8 +9181,8 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
                                        (particle.get('name'), ' '.join([p.get('name') for p in mode]), value))
                         value = 0
                     elif value < 0:
-                        raise Exception, 'Partial width for %s > %s negative: %s' % \
-                                       (particle.get('name'), ' '.join([p.get('name') for p in mode]), value)
+                        raise Exception('Partial width for %s > %s negative: %s' % \
+                                       (particle.get('name'), ' '.join([p.get('name') for p in mode]), value))
                     elif 0 < value < 0.1 and particle['color'] !=1:
                         logger.warning("partial width of particle %s lower than QCD scale:%s. Set it to zero. (%s)" \
                                    % (particle.get('name'), value, decay_to))
@@ -9144,9 +9201,9 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
         #
         # add info from decay module
         #
-        self.do_decay_diagram('%s %s' % (' '.join([`id` for id in particles]),
+        self.do_decay_diagram('%s %s' % (' '.join([repr(id) for id in particles]),
                                          ' '.join('--%s=%s' % (key,value)
-                                                  for key,value in opts.items()
+                                                  for key,value in list(opts.items())
                                                   if key not in ['precision_channel'])
                                          ), skip_2body=skip_2body, model=decaymodel)
 
@@ -9259,7 +9316,7 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
             currmodel = model
 
         if not os.path.exists(pjoin(model_path, 'SMWidth')):
-            raise self.InvalidCmd, "Model %s is not valid for computing NLO width with SMWidth"%model_name
+            raise self.InvalidCmd("Model %s is not valid for computing NLO width with SMWidth"%model_name)
 
         # determine the EW scheme
         externparam = [(param.lhablock.lower(),param.name.lower()) for param \
@@ -9272,7 +9329,7 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
             # Gmu scheme
             arg2 = "2"
         else:
-            raise Exception, "Do not know the EW scheme in the model %s"%model_name
+            raise Exception("Do not know the EW scheme in the model %s"%model_name)
 
         #compile the code
         if not os.path.exists(pjoin(model_path, 'SMWidth','smwidth')):
@@ -9299,7 +9356,7 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
                                   stdin=subprocess.PIPE,
                                   cwd=pjoin(model_path, 'SMWidth')).communicate()
         pattern = re.compile(r'''  decay\s+(\+?\-?\d+)\s+(\+?\-?\d+\.\d+E\+?\-?\d+)''',re.I)
-        width_list = pattern.findall(output)
+        width_list = pattern.findall(output.decode())
         width_dict = {}
         for pid,width in width_list:
             width_dict[int(pid)] = float(width)
@@ -9559,7 +9616,7 @@ class AskforCustomize(cmd.SmartQuestion):
         args = line.split()
         if args[0] not in self.name2options:
             logger.warning('Invalid set command. %s not recognize options. Valid options are: \n  %s' %
-                           (args[0], ', '.join(self.name2options.keys()) ))
+                           (args[0], ', '.join(list(self.name2options.keys())) ))
             return
         elif len(args) != 2:
             logger.warning('Invalid set command. Not correct number of argument')
@@ -9607,27 +9664,27 @@ class AskforCustomize(cmd.SmartQuestion):
     def do_help(self, line):
         '''help message'''
 
-        print 'This allows you to optimize your model to your needs.'
-        print 'Enter the number associate to the possible restriction/add-on'
-        print ' to change the status of this restriction/add-on.'
-        print ''
-        print 'In order to allow scripting of this function you can use the '
-        print 'function \'set\'. This function takes two argument:'
-        print 'set NAME VALUE'
-        print '   NAME is the description of the option where you remove all spaces'
-        print '   VALUE is either True or False'
-        print ' Example: For the question'
-        print '''     sm customization:
+        print('This allows you to optimize your model to your needs.')
+        print('Enter the number associate to the possible restriction/add-on')
+        print(' to change the status of this restriction/add-on.')
+        print('')
+        print('In order to allow scripting of this function you can use the ')
+        print('function \'set\'. This function takes two argument:')
+        print('set NAME VALUE')
+        print('   NAME is the description of the option where you remove all spaces')
+        print('   VALUE is either True or False')
+        print(' Example: For the question')
+        print('''     sm customization:
         1: diagonal ckm [True]
         2: c mass = 0 [True]
         3: b mass = 0 [False]
         4: tau mass = 0 [False]
         5: muon mass = 0 [True]
         6: electron mass = 0 [True]
-    Enter a number to change it's status or press enter to validate.'''
-        print ''' you can answer by'''
-        print '   set diagonalckm False'
-        print '   set taumass=0 True'
+    Enter a number to change it's status or press enter to validate.''')
+        print(''' you can answer by''')
+        print('   set diagonalckm False')
+        print('   set taumass=0 True')
 
     def cmdloop(self, intro=None):
         cmd.SmartQuestion.cmdloop(self, intro)

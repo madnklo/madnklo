@@ -94,7 +94,7 @@ class CheckLoop(mg_interface.CheckValidForCmd):
         mg_interface.MadGraphCmd.check_output(self,args, default=default)
 
         if self._export_format not in self.supported_ML_format:
-            raise self.InvalidCmd, "not supported format %s" % self._export_format
+            raise self.InvalidCmd("not supported format %s" % self._export_format)
 
         
     def check_launch(self, args, options):
@@ -295,7 +295,7 @@ class CommonLoopInterface(mg_interface.MadGraphCmd):
 
         if coupling_type!= ['QCD'] and loop_type not in ['virtual','noborn']:
             c = ' '.join(coupling_type)
-            raise self.InvalidCmd, 'MG5aMC can only handle QCD at NLO accuracy.\n We can however compute loop with [virt=%s].\n We can also compute cross-section for loop-induced processes with [noborn=%s]' % (c,c)
+            raise self.InvalidCmd('MG5aMC can only handle QCD at NLO accuracy.\n We can however compute loop with [virt=%s].\n We can also compute cross-section for loop-induced processes with [noborn=%s]' % (c,c))
         
 
         if not isinstance(self._curr_model,loop_base_objects.LoopModel) or \
@@ -525,7 +525,7 @@ class LoopInterface(CheckLoop, CompleteLoop, HelpLoop, CommonLoopInterface):
                               path_msg=' ')
         
 
-        for key, value in to_install.items():
+        for key, value in list(to_install.items()):
             if key in ['cuttools', 'iregi']:
                 if os.path.sep not in value:
                     continue
@@ -930,11 +930,11 @@ class AskLoopInstaller(cmd.OneLinePathCompletion):
     
     def __init__(self, question, *args, **opts):
 
-        import urllib2
+        import urllib.request, urllib.error, urllib.parse
         try:
-            response=urllib2.urlopen('http://madgraph.phys.ucl.ac.be/F1.html', timeout=3)
+            response=urllib.request.urlopen('http://madgraph.phys.ucl.ac.be/F1.html', timeout=3)
             self.online=True
-        except urllib2.URLError as err: 
+        except urllib.error.URLError as err: 
             self.online=False        
         
         self.code = {'ninja': 'install',

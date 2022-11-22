@@ -17,7 +17,7 @@
 different languages/frameworks (Fortran and Pythia8). Uses the PLY 3.3
 Lex + Yacc framework"""
 
-from __future__ import division
+
 
 import logging
 import numbers
@@ -29,8 +29,8 @@ import sys
 root_path = os.path.split(os.path.dirname(os.path.realpath( __file__ )))[0]
 sys.path.append(os.path.join(root_path))
 
-import aloha_lib
-from aloha_object import *
+from . import aloha_lib
+from .aloha_object import *
 import vendor.ply.lex as lex
 import vendor.ply.yacc as yacc
 from aloha.aloha_lib import KERNEL
@@ -193,7 +193,7 @@ class UFOExpressionParser(object):
 
     def p_error(self, p):
         if p:
-            print p[:]
+            print(p[:])
             raise Exception("Syntax error at '%s' in '%s'" % (p.value, self.f))
         else:
             logger.error("Syntax error at EOF")
@@ -350,7 +350,7 @@ if __name__ == '__main__':
     calc = ALOHAExpressionParser()
     while 1:
         try:
-            s = raw_input('calc > ')
+            s = input('calc > ')
         except EOFError:
             break
         if not s: continue

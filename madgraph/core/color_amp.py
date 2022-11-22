@@ -30,6 +30,7 @@ import madgraph.core.base_objects as base_objects
 from madgraph import MadGraph5Error
 import madgraph.various.misc as misc
 import madgraph.various.progressbar as pbar
+from functools import reduce
 
 #===============================================================================
 # ColorBasis
@@ -74,7 +75,7 @@ class ColorBasis(dict):
         # if the process has no QCD particles
         # Return a list filled with ColorOne if all entries are empty ColorString()
         empty_colorstring = color_algebra.ColorString()
-        if all(cs == empty_colorstring for cs in res_dict.values()):
+        if all(cs == empty_colorstring for cs in list(res_dict.values())):
             res_dict = dict((key, color_algebra.ColorString(
                                [color_algebra.ColorOne()])) for key in res_dict)
                     
@@ -176,13 +177,13 @@ class ColorBasis(dict):
         # If more than one, create different entries
         inter_color = model.get_interaction(vertex['id'])['color']
         inter_indices = [i for (i,j) in \
-                        model.get_interaction(vertex['id'])['couplings'].keys()]
+                        list(model.get_interaction(vertex['id'])['couplings'].keys())]
         
         # For colorless vertices, return a copy of res_dict
         # Where one 0 has been added to each color index chain key
         if not inter_color:
             new_dict = {}
-            for k, v in res_dict.items():
+            for k, v in list(res_dict.items()):
                 new_key = tuple(list(k) + [0])
                 new_dict[new_key] = v
             # If there is no result until now, create an empty CS...
@@ -224,7 +225,7 @@ class ColorBasis(dict):
             #... otherwise, loop over existing elements and multiply
             # the color strings
             else:
-                for ind_chain, col_str_chain in res_dict.items():
+                for ind_chain, col_str_chain in list(res_dict.items()):
                     new_col_str_chain = col_str_chain.create_copy()
                     new_col_str_chain.product(mod_col_str)
                     new_res_dict[tuple(list(ind_chain) + [i])] = \
@@ -240,7 +241,7 @@ class ColorBasis(dict):
         results for maximal optimization."""
         import madgraph.various.misc as misc
         # loop over possible color chains
-        for col_chain, col_str in colorize_dict.items():
+        for col_chain, col_str in list(colorize_dict.items()):
             # Create a canonical immutable representation of the the string
             canonical_rep, rep_dict = col_str.to_canonical()
             try:
@@ -353,7 +354,7 @@ class ColorBasis(dict):
         """Returns a nicely formatted string for display"""
 
         my_str = ""
-        for k, v in self.items():
+        for k, v in list(self.items()):
             for name, indices in k:
                 my_str = my_str + name + str(indices)
             my_str = my_str + ': '
@@ -370,7 +371,7 @@ class ColorBasis(dict):
     def _invert_dict(self, mydict):
         """Helper method to invert dictionary dict"""
 
-        return dict([v, k] for k, v in mydict.items())
+        return dict([v, k] for k, v in list(mydict.items()))
 
     @staticmethod
     def get_color_flow_string(my_color_string, octet_indices):
@@ -417,8 +418,7 @@ class ColorBasis(dict):
         # If more than one string at leading N...
         if len(res_cs) > 1 and any([not cs.near_equivalent(res_cs[0]) \
                                     for cs in res_cs]):
-            raise ColorBasis.ColorBasisError, \
-             "More than one color string with leading N coeff: %s" % str(res_cs)
+            raise ColorBasis.ColorBasisError("More than one color string with leading N coeff: %s" % str(res_cs))
 
         res_cs = res_cs[0]
 
@@ -427,13 +427,11 @@ class ColorBasis(dict):
         for col_obj in res_cs:
             if not isinstance(col_obj, color_algebra.T) and \
                    not col_obj.__class__.__name__.startswith('Epsilon'):
-                raise ColorBasis.ColorBasisError, \
-                  "Color flow decomposition %s contains non T/Epsilon elements" % \
-                                                                    str(res_cs)
+                raise ColorBasis.ColorBasisError("Color flow decomposition %s contains non T/Epsilon elements" % \
+                                                                    str(res_cs))
             if isinstance(col_obj, color_algebra.T) and len(col_obj) != 2:
-                raise ColorBasis.ColorBasisError, \
-                  "Color flow decomposition %s contains T's w/o 2 indices" % \
-                                                                    str(res_cs)
+                raise ColorBasis.ColorBasisError("Color flow decomposition %s contains T's w/o 2 indices" % \
+                                                                    str(res_cs))
 
         return res_cs
 
@@ -461,14 +459,13 @@ class ColorBasis(dict):
             # Rebuild a color string from a CB entry
             col_str = color_algebra.ColorString()
             col_str.from_immutable(col_basis_entry)
-            for (leg_num, leg_repr) in repr_dict.items():
+            for (leg_num, leg_repr) in list(repr_dict.items()):
                 # By default, assign a (0,0) color flow
                 res_dict[leg_num] = [0, 0]
 
                 # Raise an error if external legs contain non supported repr
                 if abs(leg_repr) not in [1, 3, 6, 8]:
-                    raise ColorBasis.ColorBasisError, \
-        "Particle ID=%i has an unsupported color representation" % leg_repr
+                    raise ColorBasis.ColorBasisError("Particle ID=%i has an unsupported color representation" % leg_repr)
 
                 # Build the fake indices replacements for octets
                 if abs(leg_repr) == 8:
@@ -519,7 +516,7 @@ class ColorBasis(dict):
             # Reverse ordering for initial state to stick to the (weird)
             # les houches convention
 
-            for key in res_dict.keys():
+            for key in list(res_dict.keys()):
                 if key <= ninitial:
                     res_dict[key].reverse()
 
@@ -955,7 +952,7 @@ class ColorMatrix(dict):
             # We will add an additional helper entry in the intermediate_step records which
             # is the list of emitted numbers that must still be used (initialized to [-1,-2]
             # for NNLO for instance)
-            connections_intermediate_list[0]['emitted_numbers_pool'] = range(-1,-curr_order-1,-1)
+            connections_intermediate_list[0]['emitted_numbers_pool'] = list(range(-1,-curr_order-1,-1))
             for i_emission in range(curr_order):
                 next_connections_list = []
                 # Append an emission to all previously generated connections
@@ -1023,7 +1020,7 @@ class ColorMatrix(dict):
                         # held to the number of copies associated to the matching connection.
                         filtered_connections[connection['tuple_representation']]['n_representatives'] += connection['n_representatives']
                 
-                connections_intermediate_list = filtered_connections.values()
+                connections_intermediate_list = list(filtered_connections.values())
 
             # Remove the temporary entry 'emitted_numbers_pool' to the generated connections
             # and register them in the main dictionary color_connections
@@ -1057,25 +1054,25 @@ class ColorMatrix(dict):
         ##    print('Doing 11 vs 16: %s vs %s'%(color_connection_Q1['tuple_representation'],color_connection_Q2['tuple_representation']))
         ##    debug = True
 
-        if debug: print("\n>>>>>Now doing '%s' vs '%s'"%(
+        if debug: print(("\n>>>>>Now doing '%s' vs '%s'"%(
             str(color_connection_Q1['tuple_representation']),
             str(color_connection_Q2['tuple_representation']),
-            ))
-        if debug: print('color_string_Q1=',color_connection_Q1['color_string_Q1'])
-        if debug: print('color_string_Q2=',color_connection_Q2['color_string_Q2'])
-        if debug: print('replace_indices_Q1=',color_connection_Q1['replace_indices_Q1'])
-        if debug: print('replace_indices_Q2=',color_connection_Q2['replace_indices_Q2'])
+            )))
+        if debug: print(('color_string_Q1=',color_connection_Q1['color_string_Q1']))
+        if debug: print(('color_string_Q2=',color_connection_Q2['color_string_Q2']))
+        if debug: print(('replace_indices_Q1=',color_connection_Q1['replace_indices_Q1']))
+        if debug: print(('replace_indices_Q2=',color_connection_Q2['replace_indices_Q2']))
 
         # Check if the two correlators can be squared, it might not be the case
         # when in presence of g > q q~ splittings
-        if debug:print('open_indices_Q1=',sorted(color_connection_Q1['open_indices']))
-        if debug:print('open_indices_Q2=',sorted(color_connection_Q2['open_indices']))
+        if debug:print(('open_indices_Q1=',sorted(color_connection_Q1['open_indices'])))
+        if debug:print(('open_indices_Q2=',sorted(color_connection_Q2['open_indices'])))
         # The radiated q and q~ from Q2 must be considered with opposite quantum numbers
         # because they are linked to those of Q1 which are not complex conjugated.
         open_indices_Q2 = sorted((ind, -1*repr if
             (abs(repr)==3 and (ind<0 or (ind>0 and repr!=color_connection_Q2['reduced_indices'][ind]))) else repr)
                                                             for ind, repr in color_connection_Q2['open_indices'])
-        if debug:print('open_indices_Q2 post_processed=',open_indices_Q2)
+        if debug:print(('open_indices_Q2 post_processed=',open_indices_Q2))
         if sorted(color_connection_Q1['open_indices']) != open_indices_Q2:
             if debug: print('Incompatible quantum numbers for this correlator.')
             # The two representations are incompatible, set the color matrix to zero
@@ -1091,21 +1088,21 @@ class ColorMatrix(dict):
             for j, CB_right in enumerate(sorted(self._col_basis2.keys())):
                 if self.is_symmetric and j < i:
                     continue
-                if debug: print('='*80)
+                if debug: print(('='*80))
                 # First fix negative indices that could be repeated on both sides
                 CB_right = ColorMatrix.fix_summed_indices(CB_left, CB_right)
                 # Convert the immutable representations to color strings, and apply
                 # complex conjugation.
-                if debug: print('CB_right=',CB_right)
+                if debug: print(('CB_right=',CB_right))
                 CB_right_CS = from_immutable(CB_right).complex_conjugate()
-                if debug: print('CB_right_CS=',CB_right_CS)
+                if debug: print(('CB_right_CS=',CB_right_CS))
                 # Replace the color indices of the conjugated matrix elements by their
                 # double prime image
                 CB_right_CS.replace_indices( all_colored_indices_replacement )
                 # We can now multiply the left Color Structure by the first connection and
                 # replace all indices in CB_left_CS that are not part of the color_connection_Q1
                 CB_left_CS = from_immutable(CB_left)
-                if debug: print('CB_left_CS=',CB_left_CS)
+                if debug: print(('CB_left_CS=',CB_left_CS))
                 CB_left_CS.replace_indices(color_connection_Q1['replace_indices_Q1'])
                 # We must create a local copy of color_string_Q1, otherwise the next 
                 # replacement of indices will induce border effects.
@@ -1122,7 +1119,7 @@ class ColorMatrix(dict):
                 # Build a canonical representation of the computation to be carried in the
                 # hope of recycling its result later
                 canonical_entry, _ = final_color_string.to_canonical()
-                if debug: print('canonical_entry=',canonical_entry,' with repl=',_)
+                if debug: print(('canonical_entry=',canonical_entry,' with repl=',_))
                 try:
                     # If this has already been calculated, use the result
                     result, result_fixed_Nc = cache[canonical_entry]
@@ -1135,7 +1132,7 @@ class ColorMatrix(dict):
                     col_fact = color_algebra.ColorFactor([final_color_string])
                     if debug: print(col_fact)                        
                     result = col_fact.full_simplify()
-                    if debug: print('result:',result)
+                    if debug: print(('result:',result))
 
                     # Keep only terms with Nc_max >= Nc power >= Nc_min
                     if Nc_power_min is not None:
@@ -1145,7 +1142,7 @@ class ColorMatrix(dict):
                     
                     # Set Nc to a numerical value
                     result_fixed_Nc = result.set_Nc(Nc)
-                    if debug: print('result_fixed_Nc:',result_fixed_Nc)
+                    if debug: print(('result_fixed_Nc:',result_fixed_Nc))
 
                     if result_fixed_Nc[1] != 0:
                         raise MadGraph5Error("The elements of the color correlated matrices should always be real."+
@@ -1155,9 +1152,9 @@ class ColorMatrix(dict):
                    
                     # Store result
                     cache[canonical_entry] = (result, result_fixed_Nc)
-                    if debug: print '<%d| %s | %s |%d> = %s = %s' % (
+                    if debug: print('<%d| %s | %s |%d> = %s = %s' % (
                         i, color_connection_Q1['tuple_representation'],
-                        color_connection_Q2['tuple_representation'], j, 'computed!', result_fixed_Nc)
+                        color_connection_Q2['tuple_representation'], j, 'computed!', result_fixed_Nc))
                 
                 # Now that we have recovered our result_fixed_Nc, we can store it in the matrix
                 # Store the full result.
@@ -1213,7 +1210,7 @@ class ColorMatrix(dict):
                                 self.DOUBLE_PRIME_POSITIVE_INDICES_OFFSET+leg.get('number')
 
 
-        len_color_correlators = sum(len(v)**2 for v in color_connections.values())
+        len_color_correlators = sum(len(v)**2 for v in list(color_connections.values()))
         # Decide if a progressbar is warranted. Simply set progress_bar to None if you want it disabled.
         if __debug__ and len_color_correlators > 500:
             proc_str = []
@@ -1334,7 +1331,7 @@ class ColorMatrix(dict):
                 if is_symmetric:
                     self.col_matrix_fixed_Nc[(i2, i1)] = result_fixed_Nc
                 # and update the inverted dict
-                if result_fixed_Nc in self.inverted_col_matrix.keys():
+                if result_fixed_Nc in list(self.inverted_col_matrix.keys()):
                     self.inverted_col_matrix[result_fixed_Nc].append((i1, i2))
                     if is_symmetric:
                         self.inverted_col_matrix[result_fixed_Nc].append((i2, i1))

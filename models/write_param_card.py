@@ -67,11 +67,11 @@ class ParamCardWriter(object):
         """ return {'name': parameterObject}"""
         
         out = {}
-        for key, params in self.model['parameters'].items():
+        for key, params in list(self.model['parameters'].items()):
             for param in params:
                 out[param.name] = param
                 
-        if 'ZERO' not in out.keys():
+        if 'ZERO' not in list(out.keys()):
             zero = base_objects.ModelVariable('ZERO', '0', 'real')
             out['ZERO'] = zero
         return out
@@ -217,7 +217,7 @@ class ParamCardWriter(object):
             info = info[4:]
     
         if param.value.imag != 0:
-            raise ParamCardWriterError, 'All External Parameter should be real (not the case for %s)'%param.name
+            raise ParamCardWriterError('All External Parameter should be real (not the case for %s)'%param.name)
     
 
         # avoid to keep special value used to avoid restriction
@@ -262,7 +262,7 @@ class ParamCardWriter(object):
             if part["type"] == "ghost":
                 continue
             if self.model['parameter_dict'][param.name].imag:
-                raise ParamCardWriterError, 'All Mass/Width Parameter should be real (not the case for %s)'%param.name
+                raise ParamCardWriterError('All Mass/Width Parameter should be real (not the case for %s)'%param.name)
             value = complex(self.model['parameter_dict'][param.name]).real
             text += """%s %s %f # %s : %s \n""" %(prefix, part["pdg_code"], 
                         value, part["name"], param.expr.replace('mdl_',''))  
@@ -277,7 +277,7 @@ class ParamCardWriter(object):
     
         for part, param in data:
             if self.model['parameter_dict'][param.name].imag:
-                raise ParamCardWriterError, 'All Mass/Width Parameter should be real'
+                raise ParamCardWriterError('All Mass/Width Parameter should be real')
             value = complex(self.model['parameter_dict'][param.name]).real
             text += """%s %s %f # %s : %s \n""" %(prefix, part["pdg_code"], 
                         value, part["name"], part[name].replace('mdl_',''))
@@ -333,5 +333,5 @@ class ParamCardWriter(object):
             
 if '__main__' == __name__:
     ParamCardWriter('./param_card.dat', generic=True)
-    print 'write ./param_card.dat'
+    print('write ./param_card.dat')
     

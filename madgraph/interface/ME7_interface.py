@@ -31,7 +31,7 @@ import sys
 import time
 from datetime import datetime
 import tarfile
-import StringIO
+import io
 import shutil
 import copy
 import json
@@ -214,7 +214,7 @@ class CmdExtended(common_run.CommonRunCmd):
         # and date, from the VERSION text file
         info = misc.get_pkg_info()
         info_line = ""
-        if info and info.has_key('version') and  info.has_key('date'):
+        if info and 'version' in info and  'date' in info:
             len_version = len(info['version'])
             len_date = len(info['date'])
             if len_version + len_date < 30:
@@ -978,7 +978,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         try:
             object_to_display = self.split_arg(line)[0]
             display_function = getattr(self,'display_%s'%object_to_display)
-        except IndexError, AttributeError:
+        except IndexError as AttributeError:
             return super(MadEvent7Cmd, self).do_display(line, *args, **opts)
         
         display_function(line, *args, **opts)
@@ -990,7 +990,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         display_options = self.parse_display_integrands(args[1:])
         
         integrands_to_consider = ME7_integrands.ME7IntegrandList([ itg for itg in self.all_integrands if
-                           all(filter(itg) for filter in display_options['integrands']) ])
+                           all(list(filter(itg)) for filter in display_options['integrands']) ])
 
         logger.info('\n'+integrands_to_consider.nice_string(format=display_options['format']))
 
@@ -1005,7 +1005,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
                                          'argument in the command set_integrator_option.')
         elif new_args[0] not in self._integrators:
             raise InvalidCmd("The specified integrator '%s' is not in the list of supported ones (%s)."%(
-                                                      new_args[0], str(self._integrators.keys())))            
+                                                      new_args[0], str(list(self._integrators.keys()))))            
 
         self._integrators[new_args[0]][1].update(integrator_options)
 
@@ -1037,7 +1037,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
 
         integrands_to_consider = ME7_integrands.ME7IntegrandList([
             itg for itg in self.all_integrands
-            if all(filter(itg) for filter in launch_options['integrands']) ])
+            if all(list(filter(itg)) for filter in launch_options['integrands']) ])
         self.integrator = self._integrators[integrator_name][0](
             integrands_to_consider, **integrator_options)
         
@@ -1139,7 +1139,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         if len(plot_collector) > 0:
             # Eventually the plot collector module will handle the histograms dependencies itself.
             from madgraph.various.histograms import HwUList
-            final_hwu_list = HwUList(plot_collector.values())
+            final_hwu_list = HwUList(list(plot_collector.values()))
             HwU_plots_path = pjoin(run_output_path,'%s_plots'%self.run_card['fo_analysis'])
             logger.info("Plots from the fixed-order analysis '%s' written out to '%s.gnuplot'."%
                                              (self.run_card['fo_analysis'],HwU_plots_path))
@@ -1181,7 +1181,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         n_integrands_run = 0
         for integrand in self.all_integrands:
             if not hasattr(integrand, 'test_IR_limits') or \
-                not all(filter(integrand) for filter in testlimits_options['integrands']):
+                not all(list(filter(integrand)) for filter in testlimits_options['integrands']):
                     continue
             n_integrands_run += 1
             logger.debug(
@@ -1223,7 +1223,7 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
         n_integrands_run = 0
         for integrand in self.all_integrands:
             if not hasattr(integrand, 'test_IR_poles') or \
-               not all(filter(integrand) for filter in testpoles_options['integrands']):
+               not all(list(filter(integrand)) for filter in testpoles_options['integrands']):
                 continue
             n_integrands_run += 1
             logger.debug('Now testing IR poles of the following integrand:\n%s'%(integrand.nice_string()))

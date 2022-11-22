@@ -38,7 +38,7 @@ class FOAnalyseCard(dict):
         """ if testing, card is the content"""
         self.testing = testing
         dict.__init__(self)
-        self.keylist = self.keys()
+        self.keylist = list(self.keys())
             
         if card:
             self.read_card(card)

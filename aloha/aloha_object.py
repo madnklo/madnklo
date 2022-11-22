@@ -29,7 +29,7 @@
 ##    list <--- LorentzObjectRepresentation <-- ConstantObject
 ##
 ################################################################################
-from __future__ import division
+
 import aloha.aloha_lib as aloha_lib
 import aloha
 import cmath

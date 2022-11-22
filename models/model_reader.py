@@ -15,7 +15,7 @@
 """Module to allow reading a param_card and setting all parameters and
 couplings for a model"""
 
-from __future__ import division
+
 
 import array
 import cmath
@@ -76,10 +76,10 @@ class ModelReader(loop_base_objects.LoopModel):
                     parameter_dict[param.lhablock.lower()] = dictionary
                 dictionary[tuple(param.lhacode)] = param
                 
-            if isinstance(param_card, basestring):
+            if isinstance(param_card, str):
                 # Check that param_card exists
                 if not os.path.isfile(param_card):
-                    raise MadGraph5Error, "No such file %s" % param_card
+                    raise MadGraph5Error("No such file %s" % param_card)
                 param_card = card_reader.ParamCard(param_card)
 #            misc.sprint(type(param_card), card_reader.ParamCard,  isinstance(param_card, card_reader.ParamCard))
 #            assert isinstance(param_card, card_reader.ParamCard),'%s is not a ParamCard: %s' % (type(param_card),  isinstance(param_card, card_reader.ParamCard))    
@@ -91,10 +91,10 @@ class ModelReader(loop_base_objects.LoopModel):
                 if complex_mass_scheme:
                     param_card.convert_to_complex_mass_scheme()
     
-            key = [k for k in param_card.keys() if not k.startswith('qnumbers ')
+            key = [k for k in list(param_card.keys()) if not k.startswith('qnumbers ')
                                             and not k.startswith('decay_table')
                                             and 'info' not in k]
-            param_key = [k for k in parameter_dict.keys() if 'info' not in k]
+            param_key = [k for k in list(parameter_dict.keys()) if 'info' not in k]
             
             if set(key) != set(parameter_dict.keys()):
                 # the two card are different. check if this critical
@@ -123,15 +123,15 @@ class ModelReader(loop_base_objects.LoopModel):
                             param_card = param_card.input_path
                             param_card = card_reader.convert_to_mg5card(param_card,
                                                                          writting=False)
-                            key = [k for k in param_card.keys() if not k.startswith('qnumbers ')
+                            key = [k for k in list(param_card.keys()) if not k.startswith('qnumbers ')
                                                     and not k.startswith('decay_table')]
                             if not set(parameter_dict.keys()).difference(set(key)):
                                 fail = False
                         except Exception:
-                            raise MadGraph5Error, msg
+                            raise MadGraph5Error(msg)
                 
                 if fail:
-                    raise MadGraph5Error, msg
+                    raise MadGraph5Error(msg)
 
             for block in key:
                 if block not in parameter_dict:
@@ -140,7 +140,7 @@ class ModelReader(loop_base_objects.LoopModel):
                     try:
                         value = param_card[block].get(id).value
                     except:
-                        raise MadGraph5Error, '%s %s not define' % (block, id)
+                        raise MadGraph5Error('%s %s not define' % (block, id))
                     else:
                         if isinstance(value, str) and value.lower() == 'auto':
                             value = '0.0' 
@@ -176,7 +176,7 @@ class ModelReader(loop_base_objects.LoopModel):
     
         # Extract derived parameters
         derived_parameters = []
-        keys = [key for key in self['parameters'].keys() if \
+        keys = [key for key in list(self['parameters'].keys()) if \
                 key != ('external',)]
         keys.sort(key=len)
         for key in keys:
@@ -188,7 +188,7 @@ class ModelReader(loop_base_objects.LoopModel):
                 exec("locals()[\'%s\'] = %s" % (param.name, param.expr))
             except Exception as error:
                 msg = 'Unable to evaluate %s = %s: raise error: %s' % (param.name,param.expr, error)
-                raise MadGraph5Error, msg
+                raise MadGraph5Error(msg)
             param.value = complex(eval(param.name))
             if not eval(param.name) and eval(param.name) != 0:
                 logger.warning("%s has no expression: %s" % (param.name,
@@ -204,7 +204,7 @@ class ModelReader(loop_base_objects.LoopModel):
                      {'width': particle.get('width')})
 
         # Extract couplings
-        couplings = sum(self['couplings'].values(), [])
+        couplings = sum(list(self['couplings'].values()), [])
         # Now calculate all couplings
         for coup in couplings:
             #print "I execute %s = %s"%(coup.name, coup.expr)

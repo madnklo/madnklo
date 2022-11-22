@@ -42,7 +42,7 @@
 ################################################################################
 
 
-from __future__ import division
+
 from array import array
 import collections
 from fractions import Fraction
@@ -142,13 +142,13 @@ class Computation(dict):
             if isinstance(expression, (MultLorentz, AddVariable, LorentzObject)):
                 try:
                     expr = expression.expand().get_rep([0])
-                except KeyError, error:
+                except KeyError as error:
                     if error.args != ((0,),):
                         raise
                     else:
-                        raise aloha.ALOHAERROR, '''Error in input format. 
+                        raise aloha.ALOHAERROR('''Error in input format. 
     Argument of function (or denominator) should be scalar.
-    We found %s''' % expression
+    We found %s''' % expression)
                 new = expr.simplify()
                 if not isinstance(new, numbers.Number):
                     new = new.factorize()
@@ -169,10 +169,10 @@ class Computation(dict):
             else:
                 module = 'cmath.'
             try:
-                return str(eval("%s%s(%s)" % (module,fct_tag, ','.join(`x` for x in argument))))
-            except Exception, error:
-                print error
-                print "cmath.%s(%s)" % (fct_tag, ','.join(`x` for x in argument))
+                return str(eval("%s%s(%s)" % (module,fct_tag, ','.join(repr(x) for x in argument))))
+            except Exception as error:
+                print(error)
+                print("cmath.%s(%s)" % (fct_tag, ','.join(repr(x) for x in argument)))
         if str(fct_tag)+str(argument) in self.inverted_fct:
             tag = self.inverted_fct[str(fct_tag)+str(argument)]
             v = tag.split('(')[1][:-1]
@@ -220,7 +220,7 @@ class AddVariable(list):
             if not hasattr(term, 'vartype'):
                 if isinstance(term, dict):
                     # allow term of type{(0,):x}
-                    assert term.values() == [0]
+                    assert list(term.values()) == [0]
                     term = term[(0,)]
                 constant += term
                 del self[pos]
@@ -249,7 +249,7 @@ class AddVariable(list):
             else:
                 nbminus += 1  
              
-        for var in items.values():
+        for var in list(items.values()):
             if var.prefactor == 0:
                 self.remove(var)
             else:
@@ -262,7 +262,7 @@ class AddVariable(list):
                 else:
                     nbminus += 1
         if countprefact and max(countprefact.values()) >1:
-            fact_prefactor = sorted(countprefact.items(), key=lambda x: x[1], reverse=True)[0][0]
+            fact_prefactor = sorted(list(countprefact.items()), key=lambda x: x[1], reverse=True)[0][0]
         else:
             fact_prefactor = 1
         if nbplus < nbminus:
@@ -298,7 +298,7 @@ class AddVariable(list):
 
         out = defaultdict(int)
         for obj in self:
-            for key, value in obj.split(variables_id).items():
+            for key, value in list(obj.split(variables_id).items()):
                 out[key] += self.prefactor * value
         return out
     
@@ -491,7 +491,7 @@ class AddVariable(list):
                     correlation[val1][val2] += 1
 
         maxnb = max(count.values()) if count else 0
-        possibility = [v for v,val in count.items() if val == maxnb]
+        possibility = [v for v,val in list(count.items()) if val == maxnb]
         if maxnb == 1:
             return 1, None
         elif len(possibility) == 1:
@@ -502,7 +502,7 @@ class AddVariable(list):
             #return maxnb, possibility[0]
         max_wgt, maxvar = 0, None
         for var in possibility:
-            wgt = sum(w**2 for w in correlation[var].values())/len(correlation[var])
+            wgt = sum(w**2 for w in list(correlation[var].values()))/len(correlation[var])
             if wgt > max_wgt:
                 maxvar = var
                 max_wgt = wgt
@@ -550,7 +550,7 @@ class AddVariable(list):
                 else:
                     nbminus += 1
     
-            newadd.prefactor = sorted(countprefact.items(), key=lambda x: x[1], reverse=True)[0][0]
+            newadd.prefactor = sorted(list(countprefact.items()), key=lambda x: x[1], reverse=True)[0][0]
             if nbplus < nbminus:
                 newadd.prefactor *= -1
             if newadd.prefactor != 1:
@@ -611,7 +611,7 @@ class MultVariable(array):
         """ initialization of the object with default value """        
         #array.__init__(self, 'i', old) <- done already in new !!
         self.prefactor = prefactor
-        assert isinstance(self.prefactor, (float,int,long,complex))
+        assert isinstance(self.prefactor, (float,int,complex))
     
     def get_id(self):
         assert len(self) == 1
@@ -674,7 +674,7 @@ class MultVariable(array):
 #                    self.append(new_id)
 #            return self
         else:
-            raise Exception, 'Cann\'t replace a Variable by %s' % type(expression)
+            raise Exception('Cann\'t replace a Variable by %s' % type(expression))
         
     
     def get_all_var_names(self):
@@ -1327,7 +1327,7 @@ class LorentzObjectRepresentation(dict):
 
     def factorize(self):
         """Try to factorize each component"""
-        for ind, fact in self.items(): 
+        for ind, fact in list(self.items()): 
             if fact:
                 self.set_rep(ind, fact.factorize())
                 
@@ -1338,7 +1338,7 @@ class LorentzObjectRepresentation(dict):
         """Check if we can simplify the object (check for non treated Sum)"""
         
         #Look for internal simplification
-        for ind, term in self.items():
+        for ind, term in list(self.items()):
             if hasattr(term, 'vartype'):
                 self[ind] = term.simplify()
         #no additional simplification    
@@ -1416,7 +1416,7 @@ class LorentzObjectRepresentation(dict):
                     out[tuple([0]*len(variables_id))][tuple(ind)] += self.get_rep(ind)
                 continue
 
-            for key, value in self.get_rep(ind).split(variables_id).items():
+            for key, value in list(self.get_rep(ind).split(variables_id).items()):
                 if key in out:
                     out[key][tuple(ind)] += value
                 else:
@@ -1452,7 +1452,7 @@ class IndicesIterator:
     def __iter__(self):
         return self
 
-    def next(self):
+    def __next__(self):
         for i in range(self.len):
             if self.data[i] < 3:
                 self.data[i] += 1
@@ -1485,6 +1485,6 @@ if '__main__' ==__name__:
     import cProfile
     def create():
         for i in range(10000):
-            LorentzObjectRepresentation.compare_indices(range(i%10),[4,3,5])       
+            LorentzObjectRepresentation.compare_indices(list(range(i%10)),[4,3,5])       
         
     cProfile.run('create()')

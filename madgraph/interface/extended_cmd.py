@@ -23,6 +23,13 @@ import signal
 import subprocess
 import sys
 import traceback
+import six
+if six.PY3:
+    import io
+    file = io.IOBase
+from six.moves import map
+from six.moves import range
+from six.moves import input
 try:
     import readline
     GNU_SPLITTING = ('GNU' in readline.__doc__)
@@ -38,7 +45,7 @@ try:
     import madgraph.various.misc as misc
     from madgraph import MG5DIR
     MADEVENT = False
-except ImportError, error:
+except ImportError as error:
     try:
         import internal.misc as misc
     except:
@@ -62,7 +69,7 @@ def debug(debug_only=True):
         def deco_f(*args, **opt):
             try:
                 return f(*args, **opt)
-            except Exception, error:
+            except Exception as error:
                 logger.error(error)
                 logger.error(traceback.print_exc(file=sys.stdout))
                 return
@@ -151,7 +158,7 @@ class OriginalCmd(object):
                 else:
                     if self.use_rawinput:
                         try:
-                            line = raw_input(self.prompt)
+                            line = input(self.prompt)
                         except EOFError:
                             line = 'EOF'
                     else:
@@ -365,7 +372,7 @@ class OriginalCmd(object):
                         cmds_undoc.append(cmd)
             self.stdout.write("%s\n"%str(self.doc_leader))
             self.print_topics(self.doc_header,   cmds_doc,   15,80)
-            self.print_topics(self.misc_header,  help.keys(),15,80)
+            self.print_topics(self.misc_header,  list(help.keys()),15,80)
             self.print_topics(self.undoc_header, cmds_undoc, 15,80)
 
     def print_topics(self, header, cmds, cmdlen, maxcol):
@@ -388,7 +395,7 @@ class OriginalCmd(object):
         nonstrings = [i for i in range(len(list))
                         if not isinstance(list[i], str)]
         if nonstrings:
-            raise TypeError, ("list[i] not a string for i in %s" %
+            raise TypeError("list[i] not a string for i in %s" %
                               ", ".join(map(str, nonstrings)))
         size = len(list)
         if size == 1:
@@ -464,13 +471,13 @@ class BasicCmd(OriginalCmd):
         if 'libedit' in readline.__doc__:
             # No parser in this case, just send all the valid options
             out = []
-            for name, opt in dico.items():
+            for name, opt in list(dico.items()):
                 out += opt
             return out
 
         # check if more than one categories but only one value:
-        if not forceCategory and all(len(s) <= 1 for s in dico.values() ):
-            values = set((s[0] for s in dico.values() if len(s)==1))
+        if not forceCategory and all(len(s) <= 1 for s in list(dico.values()) ):
+            values = set((s[0] for s in list(dico.values()) if len(s)==1))
             if len(values) == 1:
                 return values
                 
@@ -478,7 +485,7 @@ class BasicCmd(OriginalCmd):
         out = []
         valid=0
         # if the key starts with number order the key with that number.
-        for name, opt in dico.items():
+        for name, opt in list(dico.items()):
             if not opt:
                 continue
             name = name.replace(' ', '_')
@@ -538,7 +545,7 @@ class BasicCmd(OriginalCmd):
     
             self.stdout.write(self.prompt+readline.get_line_buffer())
             self.stdout.flush()
-        except Exception, error:
+        except Exception as error:
             if __debug__:
                 logger.error(error)
             
@@ -593,9 +600,9 @@ class BasicCmd(OriginalCmd):
                 else:
                     try:
                         compfunc = getattr(self, 'complete_' + cmd)
-                    except AttributeError, error:
+                    except AttributeError as error:
                         compfunc = self.completedefault
-                    except Exception, error:
+                    except Exception as error:
                         misc.sprint(error)
             else:
                 compfunc = self.completenames
@@ -620,8 +627,8 @@ class BasicCmd(OriginalCmd):
                 data = compfunc(Ntext, line, Nbegidx, endidx)
                 self.completion_matches = [p[to_rm:] for p in data 
                                               if len(p)>to_rm]
-             except Exception, error:
-                 print error                
+             except Exception as error:
+                 print(error)                
             else:
                 self.completion_prefix = ''
                 self.completion_matches = compfunc(text, line, begidx, endidx)
@@ -632,7 +639,7 @@ class BasicCmd(OriginalCmd):
         
         try:
             return self.completion_matches[state]
-        except IndexError, error:
+        except IndexError as error:
             # if __debug__:
             #    logger.error('\n Completion ERROR:')
             #    logger.error( error)
@@ -751,13 +758,13 @@ class CheckCmd(object):
         
         if len(args) > 2:
             self.help_save()
-            raise self.InvalidCmd, 'too many arguments for save command.'
+            raise self.InvalidCmd('too many arguments for save command.')
         
         if len(args) == 2:
             if args[0] != 'options':
                 self.help_save()
-                raise self.InvalidCmd, '\'%s\' is not recognized as first argument.' % \
-                                                args[0]
+                raise self.InvalidCmd('\'%s\' is not recognized as first argument.' % \
+                                                args[0])
             else:
                 args.pop(0)           
 
@@ -919,7 +926,7 @@ class Cmd(CheckCmd, HelpCmd, CompleteCmd, BasicCmd):
         if intro is not None:
             self.intro = intro
         if self.intro:
-            print self.intro
+            print(self.intro)
         stop = None
         while not stop:
             if self.cmdqueue:
@@ -928,7 +935,7 @@ class Cmd(CheckCmd, HelpCmd, CompleteCmd, BasicCmd):
             else:
                 if self.use_rawinput:
                     try:
-                        line = raw_input(self.prompt)
+                        line = input(self.prompt)
                     except EOFError:
                         line = 'EOF'
                 else:
@@ -942,7 +949,7 @@ class Cmd(CheckCmd, HelpCmd, CompleteCmd, BasicCmd):
             try:
                 line = self.precmd(line)
                 stop = self.onecmd(line)
-            except BaseException, error:
+            except BaseException as error:
                 self.error_handling(error, line)
                 if isinstance(error, KeyboardInterrupt):
                     stop = True
@@ -1081,7 +1088,7 @@ class Cmd(CheckCmd, HelpCmd, CompleteCmd, BasicCmd):
             obj = SmartQuestion
 
         if alias:
-            choices += alias.keys()
+            choices += list(alias.keys())
         
         question_instance = obj(question, allow_arg=choices, default=default, 
                                                    mother_interface=self, **opt)
@@ -1160,7 +1167,7 @@ class Cmd(CheckCmd, HelpCmd, CompleteCmd, BasicCmd):
         # line define if a previous answer was not answer correctly 
         if not line:
             try:
-                line = self.inputfile.next()
+                line = next(self.inputfile)
             except StopIteration:
                 if self.haspiping:
                     logger.debug('piping')
@@ -1243,7 +1250,7 @@ class Cmd(CheckCmd, HelpCmd, CompleteCmd, BasicCmd):
             os.remove(self.debug_output)
         try:
             super(Cmd,self).onecmd('history %s' % self.debug_output.replace(' ', '\ '))
-        except Exception, error:
+        except Exception as error:
             logger.error(error)
 
         debug_file = open(self.debug_output, 'a')
@@ -1267,7 +1274,7 @@ class Cmd(CheckCmd, HelpCmd, CompleteCmd, BasicCmd):
         # Add options status to the debug file
         try:
             self.do_display('options', debug_file)
-        except Exception, error:
+        except Exception as error:
             debug_file.write('Fail to write options with error %s' % error)
         
         #add the cards:
@@ -1328,7 +1335,7 @@ class Cmd(CheckCmd, HelpCmd, CompleteCmd, BasicCmd):
         # Add options status to the debug file
         try:
             self.do_display('options', debug_file)
-        except Exception, error:
+        except Exception as error:
             debug_file.write('Fail to write options with error %s' % error)
         #stop the execution if on a non interactive mode                                
         if self.use_rawinput == False:
@@ -1347,7 +1354,7 @@ class Cmd(CheckCmd, HelpCmd, CompleteCmd, BasicCmd):
         
         This allow to pass extra argument for internal call.
         """
-        if '~/' in line and os.environ.has_key('HOME'):
+        if '~/' in line and 'HOME' in os.environ:
             line = line.replace('~/', '%s/' % os.environ['HOME'])
         if '#' in line:
             line = line.split('#')[0]
@@ -1413,7 +1420,7 @@ class Cmd(CheckCmd, HelpCmd, CompleteCmd, BasicCmd):
            
         try:
             return self.onecmd_orig(line, **opt)
-        except BaseException, error: 
+        except BaseException as error: 
             self.error_handling(error, line)
             
     
@@ -1707,7 +1714,7 @@ class Cmd(CheckCmd, HelpCmd, CompleteCmd, BasicCmd):
                 continue
             header = "%s (type help <topic>):" % tag
             self.print_topics(header, cmds[tag],   15,80)
-        for name, item in cmds.items():
+        for name, item in list(cmds.items()):
             if name in self.helporder:
                 continue
             if name == "Not in help":
@@ -1723,7 +1730,7 @@ class Cmd(CheckCmd, HelpCmd, CompleteCmd, BasicCmd):
             last_action_2 = last_action = 'none'
         
         pos = 0
-        authorize = self.next_possibility.keys() 
+        authorize = list(self.next_possibility.keys()) 
         while last_action_2  not in authorize and last_action not in authorize:
             pos += 1
             if pos > len(self.history):
@@ -1758,11 +1765,11 @@ class Cmd(CheckCmd, HelpCmd, CompleteCmd, BasicCmd):
         
         if len(args) == 0:
             self.help_display()
-            raise self.InvalidCmd, 'display require at least one argument'
+            raise self.InvalidCmd('display require at least one argument')
         
         if args[0] == "options":
             outstr = "Value of current Options:\n" 
-            for key, value in self.options.items():
+            for key, value in list(self.options.items()):
                 outstr += '%25s \t:\t%s\n' %(key,value)
             output.write(outstr)
             
@@ -1791,7 +1798,7 @@ class Cmd(CheckCmd, HelpCmd, CompleteCmd, BasicCmd):
                 except ImportError:
                     try:
                         var = eval(args[1])
-                    except Exception, error:
+                    except Exception as error:
                         outstr += 'EXTERNAL:\nVariable %s is not a external variable\n' % args[1]
                         break
                     else:
@@ -1848,7 +1855,7 @@ class Cmd(CheckCmd, HelpCmd, CompleteCmd, BasicCmd):
         # keep track of all key that we need to write.
 
         logger.info('save configuration file to %s' % filepath)
-        to_write = to_keep.keys()
+        to_write = list(to_keep.keys())
         text = ""
         has_mg5_path = False
         # Use local configuration => Need to update the path
@@ -1978,7 +1985,7 @@ class SmartQuestion(BasicCmd):
         for key,value in opts:
             setattr(self, key, value)
         if reprint_opt:
-            print question
+            print(question)
         return self.cmdloop()
         
 
@@ -1995,8 +2002,8 @@ class SmartQuestion(BasicCmd):
             out[' Recognized command'] = BasicCmd.completenames(self, text)
             
             return self.deal_multiple_categories(out)
-        except Exception, error:
-            print error
+        except Exception as error:
+            print(error)
     
     completedefault = completenames
 
@@ -2016,7 +2023,7 @@ class SmartQuestion(BasicCmd):
         This allow to pass extra argument for internal call.
         """
         try:
-            if '~/' in line and os.environ.has_key('HOME'):
+            if '~/' in line and 'HOME' in os.environ:
                 line = line.replace('~/', '%s/' % os.environ['HOME'])
             line = os.path.expandvars(line)
             cmd, arg, line = self.parseline(line)
@@ -2047,12 +2054,12 @@ class SmartQuestion(BasicCmd):
                 timeout = int(pat.search(self.question).groups()[0])
             else:
                 timeout=20
-            print
+            print()
             signal.alarm(timeout)
         if reprint_opt:
             if not prev_timer:
                 self.question = pat.sub('',self.question)
-            print self.question
+            print(self.question)
             
         if self.mother_interface:
             answer = self.mother_interface.check_answer_in_input_file(self, 'EOF', 
@@ -2131,7 +2138,7 @@ class SmartQuestion(BasicCmd):
                     raise Exception
             else: 
                 raise Exception
-        except Exception,error:
+        except Exception as error:
             if self.wrong_answer < 100:
                 self.wrong_answer += 1
                 logger.warning("""%s not valid argument. Valid argument are in (%s).""" \
@@ -2148,7 +2155,7 @@ class SmartQuestion(BasicCmd):
     
 # a function helper
 def smart_input(input_text, allow_arg=[], default=None):
-    print input_text
+    print(input_text)
     obj = SmartQuestion(allow_arg=allow_arg, default=default)
     return obj.cmdloop()
 
@@ -2176,8 +2183,8 @@ class OneLinePathCompletion(SmartQuestion):
             out[' Recognized command'] = BasicCmd.completenames(self, text)
             
             return self.deal_multiple_categories(out, formatting)
-        except Exception, error:
-            print error
+        except Exception as error:
+            print(error)
             
     def precmd(self, *args):
         """ """
@@ -2194,8 +2201,8 @@ class OneLinePathCompletion(SmartQuestion):
             self.stdout.flush()
         try:
             args = Cmd.split_arg(line[0:begidx])
-        except Exception, error:
-            print error
+        except Exception as error:
+            print(error)
 
         # Directory continuation                 
         if args[-1].endswith(os.path.sep):
@@ -2222,10 +2229,10 @@ class OneLinePathCompletion(SmartQuestion):
                 reprint_opt = True         
             else:
                 raise Exception
-        except Exception, error:            
-            print """not valid argument. Valid argument are file path or value in (%s).""" \
-                          % ','.join(self.allow_arg)
-            print 'please retry'
+        except Exception as error:            
+            print("""not valid argument. Valid argument are file path or value in (%s).""" \
+                          % ','.join(self.allow_arg))
+            print('please retry')
             reprint_opt = False 
 
         if line != 'EOF':
@@ -2234,7 +2241,7 @@ class OneLinePathCompletion(SmartQuestion):
             
 # a function helper
 def raw_path_input(input_text, allow_arg=[], default=None):
-    print input_text
+    print(input_text)
     obj = OneLinePathCompletion(allow_arg=allow_arg, default=default )
     return obj.cmdloop()
 

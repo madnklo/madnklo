@@ -28,18 +28,18 @@ if __name__ == '__main__':
 try:
     import vegas 
 except ImportError:
-    print "WARNING :: Vegas 3 could not be found, install it if needed."
+    print("WARNING :: Vegas 3 could not be found, install it if needed.")
 
 try:
     import numpy as np
 except ImportError:
-    print "ERROR :: Vegas 3 requires numpy, install it first."
+    print("ERROR :: Vegas 3 requires numpy, install it first.")
     sys.exit(1)
 
 try:
     import gvar as gv
 except ImportError:
-    print "WARNING :: Vegas 3 requires gvar (gaussian variable handling package), install it if needed."
+    print("WARNING :: Vegas 3 requires gvar (gaussian variable handling package), install it if needed.")
 
 import madgraph.various.misc as misc
 import madgraph.iolibs.files as files
@@ -646,7 +646,7 @@ if __name__ == '__main__':
     for name in chosen_integrators:
         res = my_integrators[name].integrate()
         # Finally integrate
-        print '\n'+'='*70
-        print '%-30s = %.4e +/- %.2e'%('%s :: Final result'%name, res[0], res[1])
-        print '='*70
+        print('\n'+'='*70)
+        print('%-30s = %.4e +/- %.2e'%('%s :: Final result'%name, res[0], res[1]))
+        print('='*70)
 

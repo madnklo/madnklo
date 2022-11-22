@@ -3,7 +3,7 @@ import logging
 # '$MG:color:BLACK'
 
 
-BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
+BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = list(range(8))
 
 COLORS = {
     'WARNING'  : BLUE,
@@ -60,7 +60,7 @@ class ColorFormatter(logging.Formatter):
         message   = logging.Formatter.format(self, record)
         if not message.endswith('$RESET'):
             message +=  '$RESET'
-        for k,v in COLORS.items():
+        for k,v in list(COLORS.items()):
             color_flag = COLOR_SEQ % (v+30)
             message = message.replace("$" + k, color_flag)\
                          .replace("$BG" + k,  COLOR_SEQ % (v+40))\

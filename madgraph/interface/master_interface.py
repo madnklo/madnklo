@@ -65,7 +65,7 @@ class Switcher(object):
                       'MadLoop':('MG5_aMC',LoopCmd.LoopInterface),
                       'aMC@NLO':('MG5_aMC',amcatnloCmd.aMCatNLOInterface)}
 
-    _switch_opts = interface_names.keys()
+    _switch_opts = list(interface_names.keys())
     current_interface = None
    
     # Helper functions
@@ -88,7 +88,7 @@ class Switcher(object):
         # by do_xxxx, help_xxx, check_xxxx or complete_xxx 
         overwritable = []        
         # list of item overwritten by the MasterClass
-        self.to_preserve = [key for key,method in Switcher.__dict__.items() if
+        self.to_preserve = [key for key,method in list(Switcher.__dict__.items()) if
                        hasattr(method, '__call__') ]
         self.to_preserve += ['do_shell', 'help_shell', 'complete_shell']
 
@@ -153,7 +153,7 @@ class Switcher(object):
                     correct = False                    
                     
         if not correct:
-            raise Exception, 'The Cmd interface has dangerous features. Please see previous warnings and correct those.' 
+            raise Exception('The Cmd interface has dangerous features. Please see previous warnings and correct those.') 
 
     
 
@@ -608,12 +608,12 @@ class MasterCmd(Switcher, LoopCmd.LoopInterface, amcatnloCmd.aMCatNLOInterface, 
     def __init__(self, main='MadGraph', *args, **opt):
             
         # define the interface
-        if main in self.interface_names.keys():
+        if main in list(self.interface_names.keys()):
             self.prompt= self.interface_names[main][0]+'>'
             self.cmd= self.interface_names[main][1]
             self.current_interface=main
         else:
-            raise MadGraph5Error, 'Type of interface not valid: %s' % main  
+            raise MadGraph5Error('Type of interface not valid: %s' % main) 
         self.cmd.__init__(self, *args, **opt)     
         self.current_interface = main  
     
@@ -625,21 +625,21 @@ class MasterCmd(Switcher, LoopCmd.LoopInterface, amcatnloCmd.aMCatNLOInterface, 
         """Not in help: Allow to switch to any given interface from command line """
 
         args = cmd.Cmd.split_arg(line)
-        if len(args)==1 and args[0] in self.interface_names.keys():
+        if len(args)==1 and args[0] in list(self.interface_names.keys()):
             self.change_principal_cmd(args[0])
         else:
             raise self.InvalidCmd("Invalid switch command or non existing interface %s."\
                             %args[0]+" Valid interfaces are %s"\
-                            %','.join(interface_quick_name.keys()))
+                            %','.join(list(interface_quick_name.keys())))
         
     def change_principal_cmd(self, name):
         old_cmd=self.current_interface
-        if name in self.interface_names.keys():
+        if name in list(self.interface_names.keys()):
             self.prompt= self.interface_names[name][0]+'>'
             self.cmd= self.interface_names[name][1]
             self.current_interface=name
         else:
-            raise MadGraph5Error, 'Type of interface not valid: %s' % name  
+            raise MadGraph5Error('Type of interface not valid: %s' % name) 
         
         if self.interface_names[old_cmd][0]!=self.interface_names[name][0]:
             logger.info("Switching from interface %s to %s"\
@@ -656,7 +656,7 @@ class MasterCmdWeb(MGcmd.MadGraphCmdWeb, Switcher, LoopCmd.LoopInterfaceWeb):
    
     def __init__(self, *arg, **opt):
     
-        if os.environ.has_key('_CONDOR_SCRATCH_DIR'):
+        if '_CONDOR_SCRATCH_DIR' in os.environ:
             self.writing_dir = pjoin(os.environ['_CONDOR_SCRATCH_DIR'], \
                                                                  os.path.pardir)
         else:
@@ -675,7 +675,7 @@ class MasterCmdWeb(MGcmd.MadGraphCmdWeb, Switcher, LoopCmd.LoopInterfaceWeb):
         elif name == 'Loop':
             self.cmd = LoopCmd.LoopInterfaceWeb
         else:
-            raise MadGraph5Error, 'Type of interface not valid'  
+            raise MadGraph5Error('Type of interface not valid')  
         
         if __debug__:
             self.debug_link_to_command() 

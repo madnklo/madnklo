@@ -247,9 +247,9 @@ class LorentzVector(Vector):
                 logger.critical("Error in vectors.rotoboost: nonzero, unequal squares")
                 logger.critical("p = %s (%.9e)" % (str(p), p2))
                 logger.critical("q = %s (%.9e)" % (str(q), q2))
-                print "Error in vectors.rotoboost: nonzero, unequal squares"
-                print "p = %s (%.9e)" % (str(p), p2)
-                print "q = %s (%.9e)" % (str(q), q2)
+                print("Error in vectors.rotoboost: nonzero, unequal squares")
+                print("p = %s (%.9e)" % (str(p), p2))
+                print("q = %s (%.9e)" % (str(q), q2))
                 raise InvalidOperation
             # Compute scalar products
             pq = p + q
@@ -547,7 +547,7 @@ class LorentzVectorDict(dict):
             sqrts = math.sqrt((initial_momenta_summed).square())
             if abs(initial_momenta_summed[3]/sqrts)>1.0e-9:
                 boost_vector = (initial_momenta_summed).boostVector()
-                for vec in self.values():
+                for vec in list(self.values()):
                     vec.boost(-boost_vector)
             if __debug__:
                 assert(abs((self[initial_leg_numbers[0]]+self[initial_leg_numbers[1]])[3]/sqrts)<=1.0e-9)
@@ -565,7 +565,7 @@ class LorentzVectorDict(dict):
         without changing the current instance.
         """
 
-        return type(self)((i,LorentzVector(k)) for i,k in self.items())
+        return type(self)((i,LorentzVector(k)) for i,k in list(self.items()))
 
 #=========================================================================================
 # LorentzVectorList

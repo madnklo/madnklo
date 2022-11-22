@@ -98,7 +98,7 @@ class VirtualWalker(object):
             if walker is None:
                 raise MadGraph5Error(
                     "VirtualWalker called without a walker name.")
-            if not walker_classes_map.has_key(walker):
+            if walker not in walker_classes_map:
                 raise MadGraph5Error(
                     "Unknown mapping walker of type '%s'." % walker )
             target_class = walker_classes_map[walker]
@@ -200,7 +200,7 @@ class VirtualWalker(object):
                 low_PS_point, new_ss, mom_dict, kin_variables )
             #misc.sprint('Mapped up PS point:\n',str(closer_PS_point))
             #misc.sprint('kin_variables=',kin_variables)
-            if parent_index in mom_dict.keys():
+            if parent_index in list(mom_dict.keys()):
                 del mom_dict[parent_index]
         return closer_PS_point
 

@@ -49,8 +49,8 @@ def import_model(model_path, mgme_dir = MG4DIR, absolute=True):
     for filepath in files_list:
         if not os.path.isfile(filepath):
             if not absolute:
-                raise InvalidCmd,  "%s directory is not a valid v4 model" % \
-                                                                    (model_path)
+                raise InvalidCmd("%s directory is not a valid v4 model" % \
+                                                                    (model_path))
             else:
                 return import_model(model_path_old, mgme_dir, False)
                                                                 
@@ -58,7 +58,7 @@ def import_model(model_path, mgme_dir = MG4DIR, absolute=True):
     if files.is_uptodate(os.path.join(model_path, 'model.pkl'), files_list):
         model = save_load_object.load_from_file( \
                                           os.path.join(model_path, 'model.pkl'))
-        if model.has_key('version_tag') and model.get('version_tag') == os.path.realpath(model_path) + str(misc.get_pkg_info()):
+        if 'version_tag' in model and model.get('version_tag') == os.path.realpath(model_path) + str(misc.get_pkg_info()):
             return model, model_path
 
     model = base_objects.Model()    
@@ -151,8 +151,7 @@ def read_particles_v4(fsock):
             values = line.split()
             if len(values) != 9:
                 # Not the right number tags on the line
-                raise ValueError, \
-                    "Unvalid initialization string:" + line
+                raise ValueError("Unvalid initialization string:" + line)
             else:
                 try:
                     mypart.set('name', values[0].lower())
@@ -161,29 +160,27 @@ def read_particles_v4(fsock):
                     if mypart['name'] == mypart['antiname']:
                         mypart['self_antipart'] = True
 
-                    if values[2].lower() in spin_equiv.keys():
+                    if values[2].lower() in list(spin_equiv.keys()):
                         mypart.set('spin',
                                    spin_equiv[values[2].lower()])
                     else:
-                        raise ValueError, "Invalid spin %s" % \
-                                values[2]
+                        raise ValueError("Invalid spin %s" % \
+                                values[2])
 
-                    if values[3].lower() in line_equiv.keys():
+                    if values[3].lower() in list(line_equiv.keys()):
                         mypart.set('line',
                                    line_equiv[values[3].lower()])
                     else:
-                        raise ValueError, \
-                                "Invalid line type %s" % values[3]
+                        raise ValueError("Invalid line type %s" % values[3])
 
                     mypart.set("mass", values[4])
                     mypart.set("width", values[5])
 
-                    if values[6].lower() in color_equiv.keys():
+                    if values[6].lower() in list(color_equiv.keys()):
                         mypart.set('color',
                                    color_equiv[values[6].lower()])
                     else:
-                        raise ValueError, \
-                            "Invalid color rep %s" % values[6]
+                        raise ValueError("Invalid color rep %s" % values[6])
 
                     #mypart.set("texname", values[7])
                     mypart.set("pdg_code", int(values[8]))
@@ -191,7 +188,7 @@ def read_particles_v4(fsock):
                     mypart.set('charge', 0.)
                     #mypart.set('antitexname', mypart.get('texname'))
 
-                except (Particle.PhysicsObjectError, ValueError), why:
+                except (Particle.PhysicsObjectError, ValueError) as why:
                     logger.warning("Warning: %s, particle ignored" % why)
                 else:
                     mypartlist.append(mypart)
@@ -210,8 +207,7 @@ def read_interactions_v4(fsock, ref_part_list):
     myinterlist = InteractionList()
 
     if not isinstance(ref_part_list, ParticleList):
-        raise ValueError, \
-            "Object %s is not a valid ParticleList" % repr(ref_part_list)
+        raise ValueError("Object %s is not a valid ParticleList" % repr(ref_part_list))
 
     for line in fsock:
         myinter = Interaction()
@@ -238,8 +234,7 @@ def read_interactions_v4(fsock, ref_part_list):
                     else: break
 
                 if len(part_list) < 3:
-                    raise Interaction.PhysicsObjectError, \
-                        "Vertex with less than 3 known particles found."
+                    raise Interaction.PhysicsObjectError("Vertex with less than 3 known particles found.")
 
                 # Flip part/antipart of first part for FFV, FFS, FFT vertices
                 # according to v4 convention
@@ -417,7 +412,7 @@ def read_interactions_v4(fsock, ref_part_list):
 
                 myinterlist.append(myinter)
 
-            except Interaction.PhysicsObjectError, why:
+            except Interaction.PhysicsObjectError as why:
                 logger.error("Interaction ignored: %s" % why)
 
     return myinterlist
@@ -579,7 +574,7 @@ class ProcCardv4Reader(object):
 
         # add in self.couplings_name the couplings name of the model
         for interaction in model['interactions']:
-            for coupling in interaction['orders'].keys():
+            for coupling in list(interaction['orders'].keys()):
                 self.couplings_name.add(coupling)
 
     
@@ -794,7 +789,7 @@ class ProcessInfo(object):
 
         out = ''
         for coupling in model_coupling:
-            if self.couplings.has_key(coupling):
+            if coupling in self.couplings:
                 # Need coupling for all cases, since might be decay chain
                 out += '%s=%s ' % (coupling, self.couplings[coupling])
             else:

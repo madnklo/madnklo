@@ -12,7 +12,7 @@
 # For more information, visit madgraph.phys.ucl.ac.be and amcatnlo.web.cern.ch
 #
 ################################################################################
-from __future__ import division
+
 import os
 import math
 import logging
@@ -67,7 +67,7 @@ class RunStatistics(dict):
                                     # discarded due to abnormal weight.
           }
         
-        for key, value in madloop_statistics.items():
+        for key, value in list(madloop_statistics.items()):
             self[key] = value
 
         super(dict,self).__init__(*args, **opts)
@@ -79,9 +79,9 @@ class RunStatistics(dict):
             new_stats = [new_stats, ]
         elif isinstance(new_stats,list):
             if any(not isinstance(_,RunStatistics) for _ in new_stats):
-                raise MadGraph5Error, "The 'new_stats' argument of the function "+\
+                raise MadGraph5Error("The 'new_stats' argument of the function "+\
                         "'updtate_statistics' must be a (possibly list of) "+\
-                                                       "RunStatistics instance."
+                                                       "RunStatistics instance.")
  
         keys = set([])
         for stat in [self,]+new_stats:
@@ -280,7 +280,7 @@ class OneResult(object):
         elif isinstance(filepath, file):
             finput = filepath
         else:
-            raise Exception, "filepath should be a path or a file descriptor"
+            raise Exception("filepath should be a path or a file descriptor")
         
         i=0
         found_xsec_line = False
@@ -351,7 +351,7 @@ class OneResult(object):
         if statistics_node:
             try:
                 self.run_statistics.load_statistics(statistics_node[0])
-            except ValueError, IndexError:
+            except ValueError as IndexError:
                 logger.warning('Fail to read run statistics from results.dat')
 
     def set_mfactor(self, value):
@@ -572,7 +572,7 @@ class Combine_results(list, OneResult):
     
             tables_line += self.table_line_template % dico
         
-        for P_name, cross in P_grouping.items():
+        for P_name, cross in list(P_grouping.items()):
             dico = {'P_title': '%s sum' % P_name,
                     'P_link': './results.html',
                     'mod_P_link':'',
@@ -696,7 +696,7 @@ def collect_result(cmd, folder_names, jobs=None):
                             dir = folder.replace('*', '_G' + name)
                         P_comb.add_results(dir, pjoin(P_path,dir,'results.dat'), mfactor)
             if jobs:
-                for job in filter(lambda j: j['p_dir'] == Pdir, jobs):
+                for job in [j for j in jobs if j['p_dir'] == Pdir]:
                     P_comb.add_results(os.path.basename(job['dirname']),\
                                        pjoin(job['dirname'],'results.dat'))
         except IOError:

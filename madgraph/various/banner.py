@@ -14,6 +14,7 @@
 ################################################################################
 
 from __future__ import division
+from __future__ import absolute_import
 import collections
 import copy
 import logging
@@ -22,8 +23,15 @@ import os
 import sys
 import re
 import math
-import StringIO
-from __builtin__ import True
+import six
+StringIO = six
+from six.moves import range
+if six.PY3:
+    import io
+    file = io.IOBase
+import itertools
+import time
+
 
 pjoin = os.path.join
 
@@ -180,14 +188,14 @@ class Banner(dict):
         if version < 3:
             version = 1
         elif version > 3:
-            raise Exception, "Not Supported version"
+            raise Exception("Not Supported version")
         self.lhe_version = version
     
     def get_cross(self, witherror=False):
         """return the cross-section of the file"""
 
         if "init" not in self:
-            misc.sprint(self.keys())
+            misc.sprint(list(self.keys()))
             raise Exception
         
         text = self["init"].split('\n')
@@ -272,7 +280,7 @@ class Banner(dict):
         proc_card argument is present to avoid the overwrite of proc_card 
         information"""
 
-        for tag, text in self.items():
+        for tag, text in list(self.items()):
             if tag == 'mgversion':
                 continue
             if not proc_card and tag in ['mg5proccard','mgproccard']:
@@ -299,34 +307,34 @@ class Banner(dict):
             block = self.param_card.get(tag)
             for data in block:
                 pid = data.lhacode[0]
-                if pid not in pid2label.keys(): 
+                if pid not in list(pid2label.keys()): 
                     block.remove((pid,))
 
     def get_lha_strategy(self):
         """get the lha_strategy: how the weight have to be handle by the shower"""
         
         if not self["init"]:
-            raise Exception, "No init block define"
+            raise Exception("No init block define")
         
         data = self["init"].split('\n')[0].split()
         if len(data) != 10:
             misc.sprint(len(data), self['init'])
-            raise Exception, "init block has a wrong format"
+            raise Exception("init block has a wrong format")
         return int(float(data[-2]))
         
     def set_lha_strategy(self, value):
         """set the lha_strategy: how the weight have to be handle by the shower"""
         
         if not (-4 <= int(value) <= 4):
-            raise Exception, "wrong value for lha_strategy", value
+            raise Exception("wrong value for lha_strategy").with_traceback(value)
         if not self["init"]:
-            raise Exception, "No init block define"
+            raise Exception("No init block define")
         
         all_lines = self["init"].split('\n')
         data = all_lines[0].split()
         if len(data) != 10:
             misc.sprint(len(data), self['init'])
-            raise Exception, "init block has a wrong format"
+            raise Exception("init block has a wrong format")
         data[-2] = '%s' % value
         all_lines[0] = ' '.join(data)
         self['init'] = '\n'.join(all_lines)
@@ -383,13 +391,13 @@ class Banner(dict):
         ff.write(header % { 'version':float(self.lhe_version)})
 
 
-        for tag in [t for t in self.ordered_items if t in self.keys()]:
+        for tag in [t for t in self.ordered_items if t in list(self.keys())]:
             if tag in exclude: 
                 continue
             capitalized_tag = self.capitalized_items[tag] if tag in self.capitalized_items else tag
             ff.write('<%(tag)s>\n%(text)s\n</%(tag)s>\n' % \
                      {'tag':capitalized_tag, 'text':self[tag].strip()})
-        for tag in [t for t in self.keys() if t not in self.ordered_items]:
+        for tag in [t for t in list(self.keys()) if t not in self.ordered_items]:
             if tag in ['init'] or tag in exclude:
                 continue
             capitalized_tag = self.capitalized_items[tag] if tag in self.capitalized_items else tag
@@ -449,7 +457,7 @@ class Banner(dict):
             elif 'madanalysis5_hadron_card' in card_name:
                 tag='MA5Card_hadron'
             else:
-                raise Exception, 'Impossible to know the type of the card'
+                raise Exception('Impossible to know the type of the card')
 
             self.add_text(tag.lower(), open(path).read())
 
@@ -556,7 +564,7 @@ class Banner(dict):
             if tag == 'mg5proccard':
                 try:
                     return card.get(arg[0])
-                except KeyError, error:
+                except KeyError as error:
                     if 'default' in opt:
                         return opt['default']
                     else:
@@ -579,7 +587,7 @@ class Banner(dict):
         elif len(arg) == 0:
             return card
         else:
-            raise Exception, "Unknow command"
+            raise Exception("Unknow command")
     
     #convenient alias
     get = get_detail
@@ -675,7 +683,7 @@ def recover_banner(results_object, level, run=None, tag=None):
     if not tag:
         try:    
             _tag = results_object[run].tags[-1] 
-        except Exception,error:
+        except Exception as error:
             return Banner()      
     else:
         _tag = tag
@@ -773,7 +781,7 @@ class ProcCard(list):
                 self.append(tmp.strip())
                 store_line = ""
         if store_line:
-            raise Exception, "WRONG CARD FORMAT"
+            raise Exception("WRONG CARD FORMAT")
         
         
     def move_to_last(self, cmd):
@@ -924,7 +932,7 @@ class ConfigFile(dict):
         
         if isinstance(finput, self.__class__):
             dict.__init__(self, finput)
-            assert finput.__dict__.keys()
+            assert list(finput.__dict__.keys())
             for key in finput.__dict__:
                 setattr(self, key, copy.copy(getattr(finput, key)) )
             return
@@ -944,7 +952,7 @@ class ConfigFile(dict):
         
 
         # if input is define read that input
-        if isinstance(finput, (file, str, StringIO.StringIO)):
+        if isinstance(finput, (file, str, io.StringIO)):
             self.read(finput, **opt)
 
     def default_setup(self):
@@ -958,13 +966,13 @@ class ConfigFile(dict):
         assert isinstance(other, dict)
         base = self.__class__(self)
         #base = copy.copy(self)
-        base.update((key.lower(),value) for key, value in other.items())
+        base.update((key.lower(),value) for key, value in list(other.items()))
         return base
 
     def __radd__(self, other):
         """define the sum"""
         new = copy.copy(other)
-        new.update((key, value) for key, value in self.items())
+        new.update((key, value) for key, value in list(self.items()))
         return new
     
     def __contains__(self, key):
@@ -1026,7 +1034,7 @@ class ConfigFile(dict):
                 new_value = []
                 i = 0
                 while len(data) > i:
-                    current = filter(None, re.split(r'(?:(?<!\\)\s)|,', data[i], re.VERBOSE))
+                    current = [_f for _f in re.split(r'(?:(?<!\\)\s)|,', data[i], re.VERBOSE) if _f]
                     i+=1
                     if len(data) > i+1:
                         if current:
@@ -1043,7 +1051,7 @@ class ConfigFile(dict):
             elif not hasattr(value, '__iter__'):
                 value = [value]
             elif isinstance(value, dict):
-                raise Exception, "not being able to handle dictionary in card entry"
+                raise Exception("not being able to handle dictionary in card entry")
             #format each entry    
             values =[self.format_variable(v, targettype, name=name) 
                                                                  for v in value]
@@ -1097,7 +1105,7 @@ class ConfigFile(dict):
                 else:
                     dict.__getitem__(self, lower_name).update(value)
             else:
-                raise Exception, '%s should be of dict type'% lower_name
+                raise Exception('%s should be of dict type'% lower_name)
             if change_userdefine:
                 self.user_set.add(lower_name)
             return
@@ -1106,7 +1114,7 @@ class ConfigFile(dict):
         else:
             logger.debug('Trying to add argument %s in %s. ' % (name, self.__class__.__name__) +\
               'This argument is not defined by default. Please consider adding it.')
-            suggestions = [k for k in self.keys() if k.startswith(name[0].lower())]
+            suggestions = [k for k in list(self.keys()) if k.startswith(name[0].lower())]
             if len(suggestions)>0:
                 logger.debug("Did you mean one of the following: %s"%suggestions)
             self.add_param(lower_name, self.format_variable(UnknownType(value), 
@@ -1133,12 +1141,12 @@ class ConfigFile(dict):
         self.lower_to_case[lower_name] = name
         if isinstance(value, list):
             if any([type(value[0]) != type(v) for v in value]):
-                raise Exception, "All entry should have the same type"
+                raise Exception("All entry should have the same type")
             self.list_parameter.add(lower_name)
         elif isinstance(value, dict):
-            allvalues = value.values()
+            allvalues = list(value.values())
             if any([type(allvalues[0]) != type(v) for v in allvalues]):
-                raise Exception, "All entry should have the same type"   
+                raise Exception("All entry should have the same type")   
             self.dict_parameter[lower_name] = type(allvalues[0])  
             if '__type__' in value:
                 del value['__type__']
@@ -1185,11 +1193,11 @@ class ConfigFile(dict):
                 if new_value == value:
                     value = new_value
                 else:
-                    raise Exception, "Wrong input type for %s found %s and expecting %s for value %s" %\
-                        (name, type(value), targettype, value)
+                    raise Exception("Wrong input type for %s found %s and expecting %s for value %s" %\
+                        (name, type(value), targettype, value))
             else:
-                raise Exception, "Wrong input type for %s found %s and expecting %s for value %s" %\
-                        (name, type(value), targettype, value)                
+                raise Exception("Wrong input type for %s found %s and expecting %s for value %s" %\
+                        (name, type(value), targettype, value))                
         else:
             # We have a string we have to format the attribute from the string
             if targettype == UnknownType:
@@ -1202,7 +1210,7 @@ class ConfigFile(dict):
                 elif value.lower() in ['1', '.true.', 't', 'true', 'on']:
                     value = True
                 else:
-                    raise Exception, "%s can not be mapped to True/False for %s" % (repr(value),name)
+                    raise Exception("%s can not be mapped to True/False for %s" % (repr(value),name))
             elif targettype == str:
                 value = value.strip()
                 if value.startswith('\'') and value.endswith('\''):
@@ -1218,16 +1226,16 @@ class ConfigFile(dict):
                     try:
                         value = float(value.replace('d','e'))
                     except ValueError:
-                        raise Exception, "%s can not be mapped to an integer" % value                    
+                        raise Exception("%s can not be mapped to an integer" % value)                    
                     try:
                         new_value = int(value)
                     except ValueError:
-                        raise Exception, "%s can not be mapped to an integer" % value
+                        raise Exception("%s can not be mapped to an integer" % value)
                     else:
                         if value == new_value:
                             value = new_value
                         else:
-                            raise Exception, "incorect input: %s need an integer for %s" % (value,name)
+                            raise Exception("incorect input: %s need an integer for %s" % (value,name))
             elif targettype == float:
                 value = value.replace('d','e') # pass from Fortran formatting
                 try:
@@ -1243,11 +1251,11 @@ class ConfigFile(dict):
                                 v /=  float(split[2*i+2])
                     except:
                         v=0
-                        raise Exception, "%s can not be mapped to a float" % value
+                        raise Exception("%s can not be mapped to a float" % value)
                     finally:
                         value = v
             else:
-                raise Exception, "type %s is not handle by the card" % targettype
+                raise Exception("type %s is not handle by the card" % targettype)
             
         return value
             
@@ -1259,8 +1267,8 @@ class ConfigFile(dict):
         if __debug__:
             if lower_name not in self:
                 if lower_name in [key.lower() for key in self] :
-                    raise Exception, "Some key are not lower case %s. Invalid use of the class!"\
-                                     % [key for key in self if key.lower() != key]
+                    raise Exception("Some key are not lower case %s. Invalid use of the class!"\
+                                     % [key for key in self if key.lower() != key])
         
         if lower_name in self.auto_set:
             return 'auto'
@@ -1315,7 +1323,7 @@ class ProcCharacteristic(ConfigFile):
             elif os.path.isfile(finput):
                 finput = open(finput)
             else:
-                raise Exception, "No such file %s" % finput
+                raise Exception("No such file %s" % finput)
             
         for line in finput:
             if '#' in line:
@@ -1336,7 +1344,7 @@ class ProcCharacteristic(ConfigFile):
         fsock = open(outputpath, 'w')
         fsock.write(template)
         
-        for key, value in self.items():
+        for key, value in list(self.items()):
             fsock.write(" %s = %s \n" % (key, value))
         
         fsock.close()   
@@ -1365,7 +1373,7 @@ class GridpackCard(ConfigFile):
             elif os.path.isfile(finput):
                 finput = open(finput)
             else:
-                raise Exception, "No such file %s" % finput
+                raise Exception("No such file %s" % finput)
         
         for line in finput:
             line = line.split('#')[0]
@@ -1585,12 +1593,12 @@ class PY8Card(ConfigFile):
         """Add a subrun to this PY8 Card."""
         assert(isinstance(py8_subrun,PY8SubRun))
         if py8_subrun['Main:subrun']==-1:
-            raise MadGraph5Error, "Make sure to correctly set the subrun ID"+\
-                            " 'Main:subrun' *before* adding it to the PY8 Card."
+            raise MadGraph5Error("Make sure to correctly set the subrun ID"+\
+                            " 'Main:subrun' *before* adding it to the PY8 Card.")
         if py8_subrun['Main:subrun'] in self.subruns:
-            raise MadGraph5Error, "A subrun with ID '%s'"%py8_subrun['Main:subrun']+\
+            raise MadGraph5Error("A subrun with ID '%s'"%py8_subrun['Main:subrun']+\
                 " is already present in this PY8 card. Remove it first, or "+\
-                                                          " access it directly."
+                                                          " access it directly.")
         self.subruns[py8_subrun['Main:subrun']] = py8_subrun
         if not 'LHEFInputs:nSubruns' in self.user_set:
             self['LHEFInputs:nSubruns'] = max(self.subruns.keys())
@@ -1734,7 +1742,7 @@ class PY8Card(ConfigFile):
                     groups[':'.join(p.split(':')[:-1])].append(p)
                 except KeyError:
                     groups[':'.join(p.split(':')[:-1])] = [p,]
-            res =  sum(groups.values(),[])
+            res =  sum(list(groups.values()),[])
             # Make sure 'Main:subrun' appears first
             if 'Main:subrun' in res:
                 res.insert(0,res.pop(res.index('Main:subrun')))
@@ -1748,20 +1756,20 @@ class PY8Card(ConfigFile):
 
         # First dump in a temporary_output (might need to have a second pass
         # at the very end to update 'LHEFInputs:nSubruns')
-        output = StringIO.StringIO()
+        output = io.StringIO()
             
         # Setup template from which to read
         if isinstance(template, str):
             if os.path.isfile(template):
                 tmpl = open(template, 'r')
             elif '\n' in template:
-                tmpl = StringIO.StringIO(template)
+                tmpl = io.StringIO(template)
             else:
-                raise Exception, "File input '%s' not found." % file_input     
+                raise Exception("File input '%s' not found." % file_input)     
         elif template is None:
             # Then use a dummy empty StringIO, hence skipping the reading
-            tmpl = StringIO.StringIO()
-        elif isinstance(template, (StringIO.StringIO, file)):
+            tmpl = io.StringIO()
+        elif isinstance(template, (io.StringIO, file)):
             tmpl = template
         else:
             raise MadGraph5Error("Incorrect type for argument 'template': %s"%
@@ -1786,8 +1794,8 @@ class PY8Card(ConfigFile):
                 value = value_entry.strip()
             except ValueError:
                 line = line.replace('\n','')
-                raise MadGraph5Error, "Could not read line '%s' of Pythia8 card."%\
-                                                                            line
+                raise MadGraph5Error("Could not read line '%s' of Pythia8 card."%\
+                                                                            line)
             # Read a subrun if detected:
             if param=='Main:subrun':
                 if read_subrun:
@@ -1801,7 +1809,7 @@ class PY8Card(ConfigFile):
                 else:
                     # Start the reading of this subrun
                     tmpl.seek(last_pos)
-                    subruns_to_write[int(value)] = StringIO.StringIO()
+                    subruns_to_write[int(value)] = io.StringIO()
                     if int(value) in subruns:
                         self.subruns[int(value)].write(subruns_to_write[int(value)],
                                                       tmpl,read_subrun=True)
@@ -1912,7 +1920,7 @@ class PY8Card(ConfigFile):
 
         # Now add subruns not present in the template
         for subrunID in subruns:
-            new_subrun = StringIO.StringIO()
+            new_subrun = io.StringIO()
             self.subruns[subrunID].write(new_subrun,None,read_subrun=True)
             subruns_to_write[subrunID] = new_subrun
 
@@ -1928,7 +1936,7 @@ class PY8Card(ConfigFile):
             logger.info("Updating PY8 parameter 'LHEFInputs:nSubruns' to "+
           "%d so as to cover all defined subruns."%max(subruns_to_write.keys()))
             self['LHEFInputs:nSubruns'] = max(subruns_to_write.keys())
-            output = StringIO.StringIO()
+            output = io.StringIO()
             self.write(output,template,print_only_visible=print_only_visible)
 
         # Write output
@@ -1947,12 +1955,12 @@ class PY8Card(ConfigFile):
              'default' or 'user' or 'system'"""
         if isinstance(file_input, str):
             if "\n" in file_input:
-                finput = StringIO.StringIO(file_input)
+                finput = io.StringIO(file_input)
             elif os.path.isfile(file_input):
                 finput = open(file_input)
             else:
-                raise Exception, "File input '%s' not found." % file_input
-        elif isinstance(file_input, (StringIO.StringIO, file)):
+                raise Exception("File input '%s' not found." % file_input)
+        elif isinstance(file_input, (io.StringIO, file)):
             finput = file_input
         else:
             raise MadGraph5Error("Incorrect type for argument 'file_input': %s"%
@@ -1976,8 +1984,8 @@ class PY8Card(ConfigFile):
                 value = value.strip()
             except ValueError:
                 line = line.replace('\n','')
-                raise MadGraph5Error, "Could not read line '%s' of Pythia8 card."%\
-                                                                          line
+                raise MadGraph5Error("Could not read line '%s' of Pythia8 card."%\
+                                                                          line)
             # Read a subrun if detected:
             if param=='Main:subrun':
                 if read_subrun:
@@ -2046,7 +2054,7 @@ class PY8SubRun(PY8Card):
         # Add all default PY8Card parameters
         super(PY8SubRun, self).default_setup()
         # Make sure they are all hidden
-        self.hidden_param = [k.lower() for k in self.keys()]
+        self.hidden_param = [k.lower() for k in list(self.keys())]
         self.hidden_params_to_always_write = set()
         self.visible_params_to_always_write = set()
 
@@ -2144,7 +2152,7 @@ class RunCard(ConfigFile):
             elif os.path.isfile(finput):
                 finput = open(finput)
             else:
-                raise Exception, "No such file %s" % finput
+                raise Exception("No such file %s" % finput)
         
         for line in finput:
             line = line.split('#')[0]
@@ -2163,7 +2171,7 @@ class RunCard(ConfigFile):
         if consistency:
                 try:
                     self.check_validity()
-                except InvalidRunCard, error:
+                except InvalidRunCard as error:
                     if consistency == 'warning':
                         logger.warning(str(error))
                     else:
@@ -2316,7 +2324,7 @@ class RunCard(ConfigFile):
     def check_validity(self):
         """check that parameter missing in the card are set to the expected value"""
 
-        for name, value in self.system_default.items():
+        for name, value in list(self.system_default.items()):
                 self.set(name, value, changeifuserset=False)
 
     default_include_file = 'run_card.inc'
@@ -2364,7 +2372,7 @@ class RunCard(ConfigFile):
                         line = '%s(%s) = %s \n' % (fortran_name, i+1, self.f77_formatting(v))
                         fsock.writelines(line)
                 elif isinstance(value, dict):
-                    for fortran_name, onevalue in value.items():
+                    for fortran_name, onevalue in list(value.items()):
                         line = '%s = %s \n' % (fortran_name, self.f77_formatting(onevalue))
                         fsock.writelines(line)                       
                 else:
@@ -2631,16 +2639,16 @@ class RunCardLO(RunCard):
         #1 (MC over hel with importance sampling). In particular, it can
         #no longer be > 1.
         if 'nhel' not in self.user_set:
-            raise InvalidRunCard, "Parameter nhel is not defined in the run_card."
+            raise InvalidRunCard("Parameter nhel is not defined in the run_card.")
         if self['nhel'] not in [1,0]:
-            raise InvalidRunCard, "Parameter nhel can only be '0' or '1', "+\
-                                                          "not %s." % self['nhel']
+            raise InvalidRunCard("Parameter nhel can only be '0' or '1', "+\
+                                                          "not %s." % self['nhel'])
         if int(self['maxjetflavor']) > 6:
-            raise InvalidRunCard, 'maxjetflavor should be lower than 5! (6 is partly supported)'
+            raise InvalidRunCard('maxjetflavor should be lower than 5! (6 is partly supported)')
   
         if len(self['pdgs_for_merging_cut']) > 1000:
-            raise InvalidRunCard, "The number of elements in "+\
-                               "'pdgs_for_merging_cut' should not exceed 1000."
+            raise InvalidRunCard("The number of elements in "+\
+                               "'pdgs_for_merging_cut' should not exceed 1000.")
   
         # some cut need to be deactivated in presence of isolation
         if self['ptgmin'] > 0:
@@ -2668,14 +2676,14 @@ class RunCardLO(RunCard):
                 import madgraph.interface.extended_cmd as basic_cmd
                 answer = basic_cmd.smart_input('Do you really want to continue', allow_arg=['y','n'], default='n')
                 if answer !='y':
-                    raise InvalidRunCard, 'ickkw>1 is still in alpha'
+                    raise InvalidRunCard('ickkw>1 is still in alpha')
             if self['use_syst']:
                 # some additional parameter need to be fixed for Syscalc + matching
                 if self['alpsfact'] != 1.0:
                     logger.warning('Since use_syst=T, We change the value of \'alpsfact\' to 1')
                     self['alpsfact'] =1.0
             if self['maxjetflavor'] == 6:
-                raise InvalidRunCard, 'maxjetflavor at 6 is NOT supported for matching!'
+                raise InvalidRunCard('maxjetflavor at 6 is NOT supported for matching!')
             if self['ickkw'] == 2:
                 # add warning if ckkw selected but the associate parameter are empty
                 self.get_default('highestmult', log_level=20)                   
@@ -2707,7 +2715,7 @@ class RunCardLO(RunCard):
                         
     
         if self['pdlabel'] not in possible_set:
-            raise InvalidRunCard, 'Invalid PDF set (argument of pdlabel): %s. Possible choice are:\n %s' % (self['pdlabel'], ', '.join(possible_set))
+            raise InvalidRunCard('Invalid PDF set (argument of pdlabel): %s. Possible choice are:\n %s' % (self['pdlabel'], ', '.join(possible_set)))
         if self['pdlabel'] == 'lhapdf':
             #add warning if lhaid not define
             self.get_default('lhaid', log_level=20)
@@ -3088,7 +3096,7 @@ class MadAnalysis5Card(dict):
     def __init__(self, finput=None,mode=None):
         if isinstance(finput, self.__class__):
             dict.__init__(self, finput)
-            assert finput.__dict__.keys()
+            assert list(finput.__dict__.keys())
             for key in finput.__dict__:
                 setattr(self, key, copy.copy(getattr(finput, key)) )
             return
@@ -3101,7 +3109,7 @@ class MadAnalysis5Card(dict):
             self['mode']=mode
 
         # if input is define read that input
-        if isinstance(finput, (file, str, StringIO.StringIO)):
+        if isinstance(finput, (file, str, io.StringIO)):
             self.read(finput, mode=mode)
     
     def read(self, input, mode=None):
@@ -3112,7 +3120,7 @@ class MadAnalysis5Card(dict):
                                                          "'parton' or 'hadron'")
         card_mode = mode
         
-        if isinstance(input, (file, StringIO.StringIO)):
+        if isinstance(input, (file, io.StringIO)):
             input_stream = input
         elif isinstance(input, str):
             if not os.path.isfile(input):
@@ -3258,7 +3266,7 @@ class MadAnalysis5Card(dict):
         # Make sure at least one reconstruction is specified for each hadron
         # level analysis and that it exists.
         if self['mode']=='hadron':
-            for analysis_name, analysis in self['analyses'].items():
+            for analysis_name, analysis in list(self['analyses'].items()):
                 if len(analysis['reconstructions'])==0:
                     raise InvalidMadAnalysis5Card('Hadron-level analysis '+\
                       "'%s' is not specified any reconstruction(s)."%analysis_name)
@@ -3270,7 +3278,7 @@ class MadAnalysis5Card(dict):
     def write(self, output):
         """ Write an MA5 card."""
 
-        if isinstance(output, (file, StringIO.StringIO)):
+        if isinstance(output, (file, io.StringIO)):
             output_stream = output
         elif isinstance(output, str):
             output_stream = open(output,'w')
@@ -3587,7 +3595,7 @@ class RunCardNLO(RunCard):
         # check that the pdf is set correctly
         possible_set = ['lhapdf','mrs02nl','mrs02nn', 'mrs0119','mrs0117','mrs0121','mrs01_j', 'mrs99_1','mrs99_2','mrs99_3','mrs99_4','mrs99_5','mrs99_6', 'mrs99_7','mrs99_8','mrs99_9','mrs9910','mrs9911','mrs9912', 'mrs98z1','mrs98z2','mrs98z3','mrs98z4','mrs98z5','mrs98ht', 'mrs98l1','mrs98l2','mrs98l3','mrs98l4','mrs98l5', 'cteq3_m','cteq3_l','cteq3_d', 'cteq4_m','cteq4_d','cteq4_l','cteq4a1','cteq4a2', 'cteq4a3','cteq4a4','cteq4a5','cteq4hj','cteq4lq', 'cteq5_m','cteq5_d','cteq5_l','cteq5hj','cteq5hq', 'cteq5f3','cteq5f4','cteq5m1','ctq5hq1','cteq5l1', 'cteq6_m','cteq6_d','cteq6_l','cteq6l1', 'nn23lo','nn23lo1','nn23nlo']
         if self['pdlabel'] not in possible_set:
-            raise InvalidRunCard, 'Invalid PDF set (argument of pdlabel) possible choice are:\n %s' % ','.join(possible_set)
+            raise InvalidRunCard('Invalid PDF set (argument of pdlabel) possible choice are:\n %s' % ','.join(possible_set))
 
         # Hidden values check
         if self['qes_ref_fixed'] == -1.0:
@@ -3618,7 +3626,7 @@ class RunCardNLO(RunCard):
         if any(self['reweight_pdf']):
             # check that we use lhapdf if reweighting is ON
             if self['pdlabel'] != "lhapdf":
-                raise InvalidRunCard, 'Reweight PDF option requires to use pdf sets associated to lhapdf. Please either change the pdlabel to use LHAPDF or set reweight_pdf to False.'
+                raise InvalidRunCard('Reweight PDF option requires to use pdf sets associated to lhapdf. Please either change the pdlabel to use LHAPDF or set reweight_pdf to False.')
 
         # make sure set have reweight_pdf and lhaid of length 1 when not including lhapdf
         if self['pdlabel'] != "lhapdf":
@@ -3642,23 +3650,23 @@ class RunCardNLO(RunCard):
 
         # Check that there are no identical elements in lhaid or dynamical_scale_choice
         if len(self['lhaid']) != len(set(self['lhaid'])):
-                raise InvalidRunCard, "'lhaid' has two or more identical entries. They have to be all different for the code to work correctly."
+                raise InvalidRunCard("'lhaid' has two or more identical entries. They have to be all different for the code to work correctly.")
         if len(self['dynamical_scale_choice']) != len(set(self['dynamical_scale_choice'])):
-                raise InvalidRunCard, "'dynamical_scale_choice' has two or more identical entries. They have to be all different for the code to work correctly."
+                raise InvalidRunCard("'dynamical_scale_choice' has two or more identical entries. They have to be all different for the code to work correctly.")
             
         # Check that lenght of lists are consistent
         if len(self['reweight_pdf']) != len(self['lhaid']):
-            raise InvalidRunCard, "'reweight_pdf' and 'lhaid' lists should have the same length"
+            raise InvalidRunCard("'reweight_pdf' and 'lhaid' lists should have the same length")
         if len(self['reweight_scale']) != len(self['dynamical_scale_choice']):
-            raise InvalidRunCard, "'reweight_scale' and 'dynamical_scale_choice' lists should have the same length"
+            raise InvalidRunCard("'reweight_scale' and 'dynamical_scale_choice' lists should have the same length")
         if len(self['dynamical_scale_choice']) > 10 :
-            raise InvalidRunCard, "Length of list for 'dynamical_scale_choice' too long: max is 10."
+            raise InvalidRunCard("Length of list for 'dynamical_scale_choice' too long: max is 10.")
         if len(self['lhaid']) > 25 :
-            raise InvalidRunCard, "Length of list for 'lhaid' too long: max is 25."
+            raise InvalidRunCard("Length of list for 'lhaid' too long: max is 25.")
         if len(self['rw_rscale']) > 9 :
-            raise InvalidRunCard, "Length of list for 'rw_rscale' too long: max is 9."
+            raise InvalidRunCard("Length of list for 'rw_rscale' too long: max is 9.")
         if len(self['rw_fscale']) > 9 :
-            raise InvalidRunCard, "Length of list for 'rw_fscale' too long: max is 9."
+            raise InvalidRunCard("Length of list for 'rw_fscale' too long: max is 9.")
     # make sure that the first element of rw_rscale and rw_fscale is the 1.0
         if 1.0 not in self['rw_rscale']:
             logger.warning("'1.0' has to be part of 'rw_rscale', adding it")
@@ -3674,9 +3682,9 @@ class RunCardNLO(RunCard):
             self['rw_fscale'][0],self['rw_fscale'][a]=self['rw_fscale'][a],self['rw_fscale'][0]
     # check that all elements of rw_rscale and rw_fscale are diffent.
         if len(self['rw_rscale']) != len(set(self['rw_rscale'])):
-                raise InvalidRunCard, "'rw_rscale' has two or more identical entries. They have to be all different for the code to work correctly."
+                raise InvalidRunCard("'rw_rscale' has two or more identical entries. They have to be all different for the code to work correctly.")
         if len(self['rw_fscale']) != len(set(self['rw_fscale'])):
-                raise InvalidRunCard, "'rw_fscale' has two or more identical entries. They have to be all different for the code to work correctly."
+                raise InvalidRunCard("'rw_fscale' has two or more identical entries. They have to be all different for the code to work correctly.")
 
 
     def write(self, output_file, template=None, python_template=False):
@@ -3785,7 +3793,7 @@ class MadLoopParam(ConfigFile):
             elif os.path.isfile(finput):
                 finput = open(finput)
             else:
-                raise Exception, "No such file %s" % input
+                raise Exception("No such file %s" % input)
         
         previous_line= ''
         for line in finput:
@@ -3828,7 +3836,7 @@ class MadLoopParam(ConfigFile):
             elif isinstance(value, str):
                 return value
             else:
-                raise Exception, "Can not format input %s" % type(value)
+                raise Exception("Can not format input %s" % type(value))
             
         name = ''
         done = set()

@@ -81,8 +81,7 @@ class ProcessExporterPython(object):
         self.helas_call_writer = python_helas_call_writer
 
         if not isinstance(self.helas_call_writer, helas_call_writers.PythonUFOHelasCallWriter):
-            raise Exception, \
-                "helas_call_writer not PythonUFOHelasCallWriter"
+            raise Exception("helas_call_writer not PythonUFOHelasCallWriter")
 
         self.matrix_methods = {}
 
@@ -291,7 +290,7 @@ class ProcessExporterPython(object):
             # identical propagator properties.  Note that we need to use
             # AMP2 number corresponding to the first diagram number used
             # for that AMP2.
-            for config in config_to_diag_dict.keys():
+            for config in list(config_to_diag_dict.keys()):
 
                 line = "self.amp2[%d]+=" % (config_to_diag_dict[config][0])
 
@@ -327,7 +326,7 @@ class ProcessExporterPython(object):
 
         info = misc.get_pkg_info()
         info_lines = ""
-        if info and info.has_key('version') and  info.has_key('date'):
+        if info and 'version' in info and  'date' in info:
             info_lines = "#  MadGraph5_aMC@NLO v. %s, %s\n" % \
                          (info['version'], info['date'])
             info_lines = info_lines + \

@@ -17,7 +17,7 @@ permutation tests, gauge invariance tests, lorentz invariance
 tests. Also class for evaluation of Python matrix elements,
 MatrixElementEvaluator."""
 
-from __future__ import division
+
 
 import array
 import copy
@@ -73,7 +73,7 @@ from madgraph import MG5DIR, InvalidCmd, MadGraph5Error
 
 from madgraph.iolibs.files import cp
 
-import StringIO
+import io
 import models.model_reader as model_reader
 import aloha.template_files.wavefunctions as wavefunctions
 from aloha.template_files.wavefunctions import \
@@ -273,7 +273,7 @@ class MatrixElementEvaluator(object):
 
         # Write out the routines in Python
         aloha_routines = []
-        for routine in aloha_model.values():
+        for routine in list(aloha_model.values()):
             aloha_routines.append(routine.write(output_dir = None, 
                                                 mode='mg5',
                                                 language = 'Python'))
@@ -285,7 +285,7 @@ class MatrixElementEvaluator(object):
         previous_globals = list(globals().keys())
         for routine in aloha_routines:
             exec(routine, globals())
-        for key in globals().keys():
+        for key in list(globals().keys()):
             if key not in previous_globals:
                 ADDED_GLOBAL.append(key)
 
@@ -298,7 +298,7 @@ class MatrixElementEvaluator(object):
             matrix_methods = exporter.get_python_matrix_methods(\
                 gauge_check=gauge_check)
 #            print "I got matrix_methods=",str(matrix_methods.items()[0][1])
-        except helas_call_writers.HelasWriterError, error:
+        except helas_call_writers.HelasWriterError as error:
             logger.info(error)
             return None
         # If one wants to output the python code generated for the computation
@@ -379,7 +379,7 @@ class MatrixElementEvaluator(object):
             
         if not (isinstance(process, base_objects.Process) and \
                 isinstance(energy, (float,int))):
-            raise rambo.RAMBOError, "Not correct type for arguments to get_momenta"
+            raise rambo.RAMBOError("Not correct type for arguments to get_momenta")
 
 
         sorted_legs = sorted(process.get('legs'), lambda l1, l2:\
@@ -397,15 +397,15 @@ class MatrixElementEvaluator(object):
             while self.event_file.get_next_event() != 'no_event':
                 event = self.event_file.particle
                 #check if the event is compatible
-                event_ids = [p['pid'] for p in event.values()]
+                event_ids = [p['pid'] for p in list(event.values())]
                 if event_ids == ids:
                     skip += 1
                     if skip > to_skip:
                         break
             else:
-                raise MadGraph5Error, 'No compatible events for %s' % ids
+                raise MadGraph5Error('No compatible events for %s' % ids)
             p = []
-            for part in event.values():
+            for part in list(event.values()):
                 m = part['momentum']
                 p.append([m.E, m.px, m.py, m.pz])
             return p, 1
@@ -423,8 +423,8 @@ class MatrixElementEvaluator(object):
                 if isinstance(special_mass, float):
                     mass.append(special_mass)
                 else:
-                    raise Exception, "A 'special_mass' option must be specified"+\
-                 " in get_momenta when a leg with id=-10 is present (for CMS check)"
+                    raise Exception("A 'special_mass' option must be specified"+\
+                 " in get_momenta when a leg with id=-10 is present (for CMS check)")
         #mass = [math.sqrt(m.real) for m in mass]
 
 
@@ -547,7 +547,7 @@ class LoopMatrixElementEvaluator(MatrixElementEvaluator):
         process = matrix_element.get('processes')[0]
         model = process.get('model')
         
-        if options and 'split_orders' in options.keys():
+        if options and 'split_orders' in list(options.keys()):
             split_orders = options['split_orders']
         else:
             split_orders = -1
@@ -680,7 +680,7 @@ class LoopMatrixElementEvaluator(MatrixElementEvaluator):
         else:
             mode = mp
 
-        for key, value in MLOptions.items():
+        for key, value in list(MLOptions.items()):
             if key == "MLReductionLib":
                 if isinstance(value, int):
                     ml_reds = str(value)
@@ -694,9 +694,9 @@ class LoopMatrixElementEvaluator(MatrixElementEvaluator):
                 elif isinstance(value, int):
                     ml_reds = str(value)
                 else:
-                    raise MadGraph5Error, 'The argument %s '%str(value)+\
+                    raise MadGraph5Error('The argument %s '%str(value)+\
                       ' in fix_MadLoopParamCard must be a string, integer'+\
-                      ' or a list.'
+                      ' or a list.')
                 MLCard.set("MLReductionLib",ml_reds)      
             elif key == 'ImprovePS':
                 MLCard.set('ImprovePSPoint',2 if value else -1)
@@ -705,9 +705,9 @@ class LoopMatrixElementEvaluator(MatrixElementEvaluator):
             elif key in MLCard:
                 MLCard.set(key,value)
             else:
-                raise Exception, 'The MadLoop options %s specified in function'%key+\
+                raise Exception('The MadLoop options %s specified in function'%key+\
                   ' fix_MadLoopParamCard does not correspond to an option defined'+\
-                  ' MadLoop nor is it specially handled in this function.'
+                  ' MadLoop nor is it specially handled in this function.')
         if not mode is None:
             MLCard.set('CTModeRun',mode)
             MLCard.set('CTModeInit',mode)
@@ -816,8 +816,8 @@ class LoopMatrixElementEvaluator(MatrixElementEvaluator):
         elif isinstance(output,str):
             text=output.split('\n')
         else:
-            raise MadGraph5Error, 'Type for argument output not supported in'+\
-                                                          ' parse_check_output.'
+            raise MadGraph5Error('Type for argument output not supported in'+\
+                                                          ' parse_check_output.')
         for line in text:
             splitline=line.split()
             if len(splitline)==0:
@@ -884,14 +884,14 @@ class LoopMatrixElementEvaluator(MatrixElementEvaluator):
         if directories and os.path.isdir(directories[0]):
             exe_path = directories[0]
         else:
-            raise MadGraph5Error, 'Could not find a process executable '+\
-                                                      'directory in %s'%proc_dir
+            raise MadGraph5Error('Could not find a process executable '+\
+                                                      'directory in %s'%proc_dir)
         bu_path = pjoin(model_path, 'model_functions.f__backUp__')
         
         if mode=='default':
             # Restore the default source file model_function.f
             if not os.path.isfile(bu_path):
-                raise MadGraph5Error, 'Back up file %s could not be found.'%bu_path
+                raise MadGraph5Error('Back up file %s could not be found.'%bu_path)
             shutil.move(bu_path, pjoin(model_path, 'model_functions.f'))
             return
 
@@ -1002,7 +1002,7 @@ class LoopMatrixElementEvaluator(MatrixElementEvaluator):
                                                               file_names[ind])):
             ind += 1
         if ind==len(file_names):
-            raise Exception, "No helas calls output file found."
+            raise Exception("No helas calls output file found.")
         
         helas_file_name=pjoin(dir_name,file_names[ind])
         file = open(pjoin(dir_name,helas_file_name), 'r')
@@ -1065,7 +1065,7 @@ class LoopMatrixElementTimer(LoopMatrixElementEvaluator):
         string to write in the card."""
         
         MLcard = bannermod.MadLoopParam(MLCardPath)
-        for key,value in params.items():
+        for key,value in list(params.items()):
             MLcard.set(key, value, changeifuserset=False)
         MLcard.write(MLCardPath, commentdefault=True)
 
@@ -1225,7 +1225,7 @@ class LoopMatrixElementTimer(LoopMatrixElementEvaluator):
         # unpolarized PS point 
         make_it_quick=False
 
-        if options and 'split_orders' in options.keys():
+        if options and 'split_orders' in list(options.keys()):
             split_orders = options['split_orders']
         else:
             split_orders = -1
@@ -1746,7 +1746,7 @@ class LoopMatrixElementTimer(LoopMatrixElementEvaluator):
                 except KeyboardInterrupt:
                     interrupted = True
                     break
-                except IOError, e:
+                except IOError as e:
                     if e.errno == errno.EINTR:
                         if retry==100:
                             logger.error("Failed hundred times consecutively because"+
@@ -1843,9 +1843,8 @@ class LoopMatrixElementTimer(LoopMatrixElementEvaluator):
                     if output != '':
                         last_non_empty = output
                     error = StabChecker.stderr.readline()
-                    raise MadGraph5Error, \
- "The MadLoop stability checker crashed with return code = %d, and last output:\n\nstdout: %s\nstderr: %s\n"%\
-                                               (ret_code, last_non_empty, error)
+                    raise MadGraph5Error("The MadLoop stability checker crashed with return code = %d, and last output:\n\nstdout: %s\nstderr: %s\n"%\
+                                               (ret_code, last_non_empty, error))
                     
             res = ""
             while True:
@@ -1862,9 +1861,8 @@ class LoopMatrixElementTimer(LoopMatrixElementEvaluator):
                     if output != '':
                         last_non_empty = output
                     error = StabChecker.stderr.readline()
-                    raise MadGraph5Error, \
- "The MadLoop stability checker crashed with return code = %d, and last output:\n\nstdout: %s\nstderr: %s\n"%\
-                                               (ret_code, last_non_empty, error)
+                    raise MadGraph5Error("The MadLoop stability checker crashed with return code = %d, and last output:\n\nstdout: %s\nstderr: %s\n"%\
+                                               (ret_code, last_non_empty, error))
 
             return cls.parse_check_output(res,format='tuple')[0][0]
         except IOError as e:
@@ -1933,8 +1931,8 @@ def run_multiprocs_no_crossings(function, multiprocess, stored_quantities,
         id_anti_id_dict[model.get_particle(id).get_anti_pdg_code()] = id        
     sorted_ids = []
     results = []
-    for is_prod in apply(itertools.product, isids):
-        for fs_prod in apply(itertools.product, fsids):
+    for is_prod in itertools.product(*isids):
+        for fs_prod in itertools.product(*fsids):
 
             # Check if we have already checked the process
             if check_already_checked(is_prod, fs_prod, sorted_ids,
@@ -2125,7 +2123,7 @@ def check_profile(process_definition, param_card = None,cuttools="",tir={},
         return None, None
 
     # The timing info is made of the merged two dictionaries
-    timing = dict(timing1.items()+timing2.items())
+    timing = dict(list(timing1.items())+list(timing2.items()))
     stability = myProfiler.check_matrix_element_stability(matrix_element,                                            
                             options=options, infos_IN=timing,param_card=param_card,
                                                       keep_folder = keep_folder,
@@ -2256,7 +2254,7 @@ def check_timing(process_definition, param_card= None, cuttools="",tir={},
         return None
     else:    
         # Return the merged two dictionaries
-        res = dict(timing1.items()+timing2.items())
+        res = dict(list(timing1.items())+list(timing2.items()))
         res['loop_optimized_output']=myTimer.loop_optimized_output
         res['reduction_tool'] = MLoptions['MLReductionLib'][0]
         return res
@@ -2373,7 +2371,7 @@ def check_process(process, evaluator, quick, options):
     # each position
     if quick:
         leg_positions = [[] for leg in process.get('legs')]
-        quick = range(1,len(process.get('legs')) + 1)
+        quick = list(range(1,len(process.get('legs')) + 1))
 
     values = []
 
@@ -2404,7 +2402,7 @@ def check_process(process, evaluator, quick, options):
 
         legs = base_objects.LegList(legs)
 
-        if order != range(1,len(legs) + 1):
+        if order != list(range(1,len(legs) + 1)):
             logger.info("Testing permutation: %s" % \
                         order)
         
@@ -2433,7 +2431,7 @@ def check_process(process, evaluator, quick, options):
                          process.nice_string().replace('Process', 'process'))
             break
 
-        if order == range(1,len(legs) + 1):
+        if order == list(range(1,len(legs) + 1)):
             # Generate phase space point to use
             p, w_rambo = evaluator.get_momenta(process, options)
 
@@ -2570,7 +2568,7 @@ def output_stability(stability, output_path, reusing=False):
         for eval in eval_list:
             loop_dir_evals = [eval['CTModeA'],eval['CTModeB']]
             # CTModeA is the reference so we keep it in too
-            other_evals = [eval[key] for key in eval.keys() if key not in \
+            other_evals = [eval[key] for key in list(eval.keys()) if key not in \
                                                          ['CTModeB','Accuracy']]
             if accuracy(other_evals)!=0.0 and accuracy(loop_dir_evals)!=0.0:
                 powers.append(accuracy(loop_dir_evals)/accuracy(other_evals))
@@ -2594,9 +2592,9 @@ def output_stability(stability, output_path, reusing=False):
         The tuple returned is (log(median(C)),log(min(C)),log(max(C)))"""
         consistencies = []
         for dp_eval, qp_eval in zip(dp_eval_list,qp_eval_list):
-            dp_evals = [dp_eval[key] for key in dp_eval.keys() \
+            dp_evals = [dp_eval[key] for key in list(dp_eval.keys()) \
                                                              if key!='Accuracy']
-            qp_evals = [qp_eval[key] for key in qp_eval.keys() \
+            qp_evals = [qp_eval[key] for key in list(qp_eval.keys()) \
                                                              if key!='Accuracy']
             if (abs(best_estimate(qp_evals)-best_estimate(dp_evals)))!=0.0 and \
                accuracy(dp_evals)!=0.0:
@@ -2640,15 +2638,15 @@ def output_stability(stability, output_path, reusing=False):
     max_acc=0.0
     min_acc=1.0
     if stability['Stability']:
-        toolnames= stability['Stability'].keys()
+        toolnames= list(stability['Stability'].keys())
         toolnamestr="     |     ".join(tn+
                                 ''.join([' ']*(10-len(tn))) for tn in toolnames)
         DP_stability = [[eval['Accuracy'] for eval in stab['DP_stability']] \
-                        for key,stab in stability['Stability'].items()]
+                        for key,stab in list(stability['Stability'].items())]
         med_dp_stab_str="     |     ".join([f(median(dp_stab),'%.2e  ') for dp_stab in  DP_stability])
         min_dp_stab_str="     |     ".join([f(min(dp_stab),'%.2e  ') for dp_stab in  DP_stability])
         max_dp_stab_str="     |     ".join([f(max(dp_stab),'%.2e  ') for dp_stab in  DP_stability])
-        UPS = [stab['Unstable_PS_points'] for key,stab in stability['Stability'].items()]
+        UPS = [stab['Unstable_PS_points'] for key,stab in list(stability['Stability'].items())]
         res_str_i  = "\n= Tool (DoublePrec for CT).......   %s\n"%toolnamestr
         len_PS=["%i"%len(evals)+\
              ''.join([' ']*(10-len("%i"%len(evals)))) for evals in DP_stability]
@@ -2659,7 +2657,7 @@ def output_stability(stability, output_path, reusing=False):
         res_str_i += "|= Min accuracy..................   %s\n"%max_dp_stab_str
         pmedminlist=[]
         pfraclist=[]
-        for key,stab in stability['Stability'].items():
+        for key,stab in list(stability['Stability'].items()):
             (pmed,pmin,pfrac)=loop_direction_test_power(stab['DP_stability'])
             ldtest_str = "%s,%s"%(f(pmed,'%.1f'),f(pmin,'%.1f'))
             pfrac_str = f(pfrac,'%.2e')
@@ -2685,7 +2683,7 @@ The loop direction test power P is computed as follow:
   So a consistent test would have log(C) as close to zero as possible.
   The tuple printed out is (log(median(C)),log(min(C)),log(max(C)))\n"""
         res_str+=res_str_i
-    for key in stability['Stability'].keys():
+    for key in list(stability['Stability'].keys()):
         toolname=key
         stab=stability['Stability'][key]
         DP_stability = [eval['Accuracy'] for eval in stab['DP_stability']]
@@ -3709,7 +3707,7 @@ def check_complex_mass_scheme(process_line, param_card=None, cuttools="",tir={},
     # Add useful entries
     run_options['param_card'] = param_card
     if isinstance(cmd, FakeInterface):
-        raise MadGraph5Error, "Check CMS cannot be run with a FakeInterface."
+        raise MadGraph5Error("Check CMS cannot be run with a FakeInterface.")
     run_options['cmd']        = cmd
     run_options['MLOptions']  = MLOptions
     if output_path:
@@ -3843,7 +3841,7 @@ def check_complex_mass_scheme(process_line, param_card=None, cuttools="",tir={},
     result['recompute_width'] = options['recompute_width']
     result['has_FRdecay']     = has_FRdecay
     result['widths_computed'] = []
-    cached_widths = sorted(options['cached_widths'].items(), key=lambda el: \
+    cached_widths = sorted(list(options['cached_widths'].items()), key=lambda el: \
                                                                   abs(el[0][0]))
     for (pdg, lambda_value), width in cached_widths:
         if lambda_value != 1.0:
@@ -3921,8 +3919,8 @@ def check_complex_mass_scheme_process(process, evaluator, opt = [],
                                 new_resonance['FSMothersNumbers'].extend(
                                             replacement_dict[leg.get('number')])
                             except KeyError:
-                                raise Exception, 'The following diagram '+\
-                                              'is malformed:'+diag.nice_string()
+                                raise Exception('The following diagram '+\
+                                              'is malformed:'+diag.nice_string())
                                                
                     replacement_dict[s_channel.get('legs')[-1].get('number')] = \
                                                new_resonance['FSMothersNumbers']
@@ -4181,7 +4179,7 @@ def check_complex_mass_scheme_process(process, evaluator, opt = [],
             if options['offshellness']<0.0:
                 err_msg +='Try with a positive offshellness instead (or a '+\
                                        'negative one of smaller absolute value)'
-            raise InvalidCmd, err_msg
+            raise InvalidCmd(err_msg)
         else:
 #            misc.sprint('PS point found in %s trials.'%N_trials)
 #            misc.sprint(PS_point_found)
@@ -4285,9 +4283,9 @@ def check_complex_mass_scheme_process(process, evaluator, opt = [],
         else:
             # Crash if we are doing CMS and the width was not found and recycled above
             if aloha.complex_mass:
-                raise MadGraph5Error, "The width for particle with PDG %d and"%PDG+\
+                raise MadGraph5Error("The width for particle with PDG %d and"%PDG+\
                   " lambdaCMS=%f should have already been "%lambdaCMS+\
-                  "computed during the NWA run."
+                  "computed during the NWA run.")
 
         # Use MadWith
         if options['recompute_width'] in ['always','first_time']:
@@ -4318,8 +4316,8 @@ def check_complex_mass_scheme_process(process, evaluator, opt = [],
                 try:
                     tmp_param_card = check_param_card.ParamCard(pjoin(path,'tmp.dat'))
                 except:
-                    raise MadGraph5Error, 'Error occured during width '+\
-                       'computation with command:\n   compute_widths %s'%command                   
+                    raise MadGraph5Error('Error occured during width '+\
+                       'computation with command:\n   compute_widths %s'%command)                   
                 width = tmp_param_card['decay'].get(PDG).value
 #                misc.sprint('lambdaCMS checked is', lambdaCMS,
 #                                                   'for particle',particle_name)
@@ -4363,7 +4361,7 @@ def check_complex_mass_scheme_process(process, evaluator, opt = [],
             try:
                 new_seed = int(tweak[4:])
             except ValueError:
-                raise MadGraph5Error, "Seed '%s' is not of the right format 'seed<int>'."%tweak
+                raise MadGraph5Error("Seed '%s' is not of the right format 'seed<int>'."%tweak)
             random.seed(new_seed)
                 
     mode = 'CMS' if aloha.complex_mass else 'NWA'
@@ -4455,8 +4453,8 @@ def check_complex_mass_scheme_process(process, evaluator, opt = [],
                 retcode = subprocess.call(['make','check'],
                                    cwd=dir, stdout=devnull, stderr=devnull)                     
             if retcode != 0:
-                raise MadGraph5Error, "Compilation error with "+\
-                                                        "'make check' in %s"%dir
+                raise MadGraph5Error("Compilation error with "+\
+                                                        "'make check' in %s"%dir)
 
         # Now find all the resonances of the ME, if not saved from a previous run
         pkl_path = pjoin(proc_dir,'resonance_specs.pkl')
@@ -4539,7 +4537,7 @@ def check_complex_mass_scheme_process(process, evaluator, opt = [],
                                        pjoin(proc_dir,'Cards','param_card.dat'))
         else:
             param_card = check_param_card.ParamCard(
-                     StringIO.StringIO(evaluator.full_model.write_param_card()))
+                     io.StringIO(evaluator.full_model.write_param_card()))
         options['cached_param_card'][mode][0] = param_card
         name2block, _ = param_card.analyze_param_card()
         options['cached_param_card'][mode][1] = name2block
@@ -4550,8 +4548,8 @@ def check_complex_mass_scheme_process(process, evaluator, opt = [],
 
     # Already add the coupling order for this sqaured ME.
     if loop_order != -1 and (loop_order+born_order)%2 != 0:
-        raise MadGraph5Error, 'The summed squared matrix element '+\
-                              " order '%d' is not even."%(loop_order+born_order)
+        raise MadGraph5Error('The summed squared matrix element '+\
+                              " order '%d' is not even."%(loop_order+born_order))
     result = {'born_order':born_order, 
               'loop_order': (-1 if loop_order==-1 else (loop_order+born_order)/2),
               'resonances_result':[]}
@@ -4573,14 +4571,14 @@ def check_complex_mass_scheme_process(process, evaluator, opt = [],
             try:
                 logstart, logend = tweak.split('->')
             except:
-                raise Madgraph5Error, "Tweak '%s' not reckognized."%tweak
+                raise Madgraph5Error("Tweak '%s' not reckognized."%tweak)
             if logstart in ['logp','logm', 'log'] and \
                logend in ['logp','logm', 'log']:
                 if NLO:
                     evaluator.apply_log_tweak(proc_dir, [logstart, logend])
                     had_log_tweaks = True
             else:
-                raise Madgraph5Error, "Tweak '%s' not reckognized."%tweak
+                raise Madgraph5Error("Tweak '%s' not reckognized."%tweak)
         if had_log_tweaks:
             evaluator.apply_log_tweak(proc_dir, 'recompile')
 
@@ -4626,7 +4624,7 @@ def check_complex_mass_scheme_process(process, evaluator, opt = [],
             # The copy constructor below creates a deep copy
             new_param_card = check_param_card.ParamCard(param_card)
             # Change all specified parameters
-            for param, replacement in options['expansion_parameters'].items():
+            for param, replacement in list(options['expansion_parameters'].items()):
                 # Replace the temporary prefix used for evaluation of the 
                 # substitution expression 
                 orig_param = param.replace('__tmpprefix__','')
@@ -4651,7 +4649,7 @@ def check_complex_mass_scheme_process(process, evaluator, opt = [],
             evaluator.full_model.set_parameters_and_couplings(
                                                       param_card=new_param_card)
             # Now compute or recyle all widths
-            for decay in new_param_card['decay'].keys():
+            for decay in list(new_param_card['decay'].keys()):
                 if mode=='CMS':
                     new_width = get_width(abs(decay[0]), lambdaCMS, 
                                                                  new_param_card)
@@ -4679,7 +4677,7 @@ def check_complex_mass_scheme_process(process, evaluator, opt = [],
                 tmp_param_card = check_param_card.ParamCard(new_param_card)
                 # We don't use the result here, it is just so that it is put
                 # in the cache and reused in the CMS run that follows.
-                for decay in new_param_card['decay'].keys():
+                for decay in list(new_param_card['decay'].keys()):
                     particle_name = evaluator.full_model.get_particle(\
                                                        abs(decay[0])).get_name()
                     new_width = get_width(abs(decay[0]),lambdaCMS,new_param_card)
@@ -4697,14 +4695,14 @@ def check_complex_mass_scheme_process(process, evaluator, opt = [],
                                     'Cards','param_card.dat_recomputed_widths'))
             
             # Apply the params tweaks
-            for param, replacement in options['tweak']['params'].items():
+            for param, replacement in list(options['tweak']['params'].items()):
                # Replace the temporary prefix used for evaluation of the 
                # substitution expression 
                orig_param = param.replace('__tmpprefix__','')
                # Treat the special keyword 'allwidths'
                if orig_param.lower() == 'allwidths':
                     # Apply the rule to all widhts
-                    for decay in new_param_card['decay'].keys():
+                    for decay in list(new_param_card['decay'].keys()):
                         orig_value = float(new_param_card['decay'].get(decay).value)
                         new_value = eval(replacement,
                                        {param:orig_value,'lambdacms':lambdaCMS})
@@ -5708,15 +5706,15 @@ minimum value of lambda to be considered in the CMS check."""\
             nwa_born=nwa_res['born']
             if len(cms_born) != len(lambdaCMS_list) or\
                  len(nwa_born) != len(lambdaCMS_list):
-                raise MadGraph5Error, 'Inconsistent list of results w.r.t. the'+\
-                                ' lambdaCMS values specified for process %s'%process
+                raise MadGraph5Error('Inconsistent list of results w.r.t. the'+\
+                                ' lambdaCMS values specified for process %s'%process)
             if pert_orders:
                 cms_finite=cms_res['finite'] 
                 nwa_finite=nwa_res['finite']
                 if len(cms_finite) != len(lambdaCMS_list) or\
                     len(nwa_finite) != len(lambdaCMS_list):
-                    raise MadGraph5Error, 'Inconsistent list of results w.r.t. the'+\
-                                ' lambdaCMS values specified for process %s'%process
+                    raise MadGraph5Error('Inconsistent list of results w.r.t. the'+\
+                                ' lambdaCMS values specified for process %s'%process)
         
             bpower = guess_lambdaorder(nwa_born,lambdaCMS_list,
                     expected=proc_res['born_order'], proc=process, res=resonance)
@@ -5931,8 +5929,8 @@ minimum value of lambda to be considered in the CMS check."""\
             general_error = "\n= Could not produce the cms check plot because of "+\
                                                     "the following error: %s"%str(e)
             try:
-                import Tkinter
-                if isinstance(e, Tkinter.TclError):
+                import tkinter
+                if isinstance(e, tkinter.TclError):
                     res_str += "\n= Plots are not generated because your system"+\
                                           " does not support graphical display."
                 else:

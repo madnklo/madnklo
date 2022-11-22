@@ -96,7 +96,7 @@ class SimpleMonteCarloIntegrator(VirtualIntegrator):
         sum_int            = 0.0
         sum_squared        = 0.0
         n_points           = 0
-        error_estimate     = sys.maxint
+        error_estimate     = sys.maxsize
         integral_estimate  = 0.0
         
         phase_space_volumes = [integrand.get_dimensions().volume() for integrand in self.integrands]
@@ -125,7 +125,7 @@ class SimpleMonteCarloIntegrator(VirtualIntegrator):
                 '%d'%self.n_iterations if self.n_iterations else 'inf' ,n_points, 
                 integral_estimate, error_estimate)
             if self.verbosity > 0:
-                print msg
+                print(msg)
 
         return integral_estimate, error_estimate
             
@@ -153,4 +153,4 @@ if __name__ == "__main__":
         n_iterations=50, n_points_per_iterations=10000, accuracy_target=None)
     
     # Finally integrate
-    print '\nFinal result: %.4e +/- %.2e'%my_integrator.integrate()
+    print('\nFinal result: %.4e +/- %.2e'%my_integrator.integrate())

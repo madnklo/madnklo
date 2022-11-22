@@ -17,15 +17,19 @@
 different languages/frameworks (Fortran and Pythia8). Uses the PLY 3.3
 Lex + Yacc framework"""
 
+from __future__ import absolute_import
+from __future__ import print_function
 import logging
 import os
 import re
 import sys
 import copy
+from six.moves import input
 
 root_path = os.path.split(os.path.dirname(os.path.realpath( __file__ )))[0]
 sys.path.append(os.path.join(root_path, os.path.pardir))
 
+import madgraph
 import madgraph.various.misc as misc
 
 from madgraph import MadGraph5Error
@@ -34,6 +38,8 @@ import vendor.ply.yacc as yacc
 import models.check_param_card as check_param_card
 
 logger = logging.getLogger('madgraph.ufo_parsers')
+if madgraph.ordering:
+    set	= misc.OrderedSet
 
 # PLY lexer class
 
@@ -632,19 +638,19 @@ class UFOExpressionParserPythonIF(UFOExpressionParser):
                 try:
                     self.defined_variables = eval(args[0])
                 except:
-                    raise ModelError, 'The expression "%s"'%str(args[0])+\
+                    raise ModelError('The expression "%s"'%str(args[0])+\
                       " given as defined variables for the UFOExpressionParserPythonIF"+\
-                      " does not have a correct syntax."
+                      " does not have a correct syntax.")
                 if not isinstance(self.defined_variables, dict):
-                    raise ModelError, 'The argument "%s"'%str(args[0])+\
+                    raise ModelError('The argument "%s"'%str(args[0])+\
                       " given as defined variables for the UFOExpressionParserPythonIF"+\
-                      " is not a dictionary."
+                      " is not a dictionary.")
             else:
-                raise ModelError, "The argument %s"%str(args[0])+\
+                raise ModelError("The argument %s"%str(args[0])+\
                       " given as defined variables for the UFOExpressionParserPythonIF"+\
-                      " must be either a dictionary or a string."
+                      " must be either a dictionary or a string.")
             args = args[1:]
-            for key, value in self.defined_variables.items():
+            for key, value in list(self.defined_variables.items()):
                 if not isinstance(key,str) or \
                       not any(isinstance(value,t) for t in [float,complex,int]):
                     # This is not a valid environment variable for the parser
@@ -757,7 +763,7 @@ class UFOExpressionParserPythonIF(UFOExpressionParser):
 if __name__ == '__main__':
     
     if len(sys.argv) == 1:
-        print "Please specify a parser: fortran, mpfortran or c++"
+        print("Please specify a parser: fortran, mpfortran or c++")
         exit()
     if sys.argv[1] == "fortran":
         calc = UFOExpressionParserFortran()
@@ -773,17 +779,17 @@ if __name__ == '__main__':
         else:
             calc = UFOExpressionParserPythonIF()
     else:
-        print "Please specify a parser: fortran, mpfortran, c++ or pythonif"
-        print "You gave", sys.argv[1]
+        print("Please specify a parser: fortran, mpfortran, c++ or pythonif")
+        print("You gave", sys.argv[1])
         if len(sys.argv) > 2:
-            print "with the second argument",sys.argv[2]
+            print("with the second argument",sys.argv[2])
         exit()
 
     while 1:
         try:
-            s = raw_input('calc > ')
+            s = input('calc > ')
         except EOFError:
             break
         if not s: continue
-        print calc.parse(s)
+        print(calc.parse(s))
     

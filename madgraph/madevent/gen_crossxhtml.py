@@ -307,7 +307,7 @@ class AllResults(dict):
         
         self.path = main_path
         
-        for key,run in self.items():
+        for key,run in list(self.items()):
             if key == 'web':
                 continue
             for i,subrun in enumerate(run):
@@ -421,7 +421,7 @@ class AllResults(dict):
                             'tag_name': self.current['tag'],
                             'unit': self[self.current['run_name']].info['unit']}
             # add the run_mode_string for amcatnlo_run
-            if 'run_mode' in self.current.keys():
+            if 'run_mode' in list(self.current.keys()):
                 run_mode_string = {'aMC@NLO': '(aMC@NLO)',
                                    'aMC@LO': '(aMC@LO)',
                                    'noshower': '(aMC@NLO)',
@@ -597,7 +597,7 @@ class RunResults(list):
             # return last entry
             return self[-1]
         
-        raise Exception, '%s is not a valid tag' % name
+        raise Exception('%s is not a valid tag' % name)
     
     def recreate(self, banner):
         """Fully recreate the information due to a hard removal of the db
@@ -1412,7 +1412,7 @@ class OneTagResults(dict):
             local_dico = {'type': ttype, 'run': self['run_name'], 'syst': '',
                           'tag': self['tag']}
 
-            if 'run_mode' in self.keys():
+            if 'run_mode' in list(self.keys()):
                 local_dico['run_mode'] = self['run_mode']
             else:
                 local_dico['run_mode'] = ""
@@ -1550,7 +1550,7 @@ class OneTagResults(dict):
                                   
         if self.debug is KeyboardInterrupt:
             debug = '<br><font color=red>Interrupted</font>'
-        elif isinstance(self.debug, basestring):
+        elif isinstance(self.debug, str):
             if not os.path.isabs(self.debug) and not self.debug.startswith('./'):
                 self.debug = './' + self.debug
             elif os.path.isabs(self.debug):

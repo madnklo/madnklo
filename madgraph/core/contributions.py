@@ -32,7 +32,7 @@ pjoin = os.path.join
 import madgraph.core.base_objects as base_objects
 import madgraph.core.diagram_generation as diagram_generation
 import madgraph.core.accessors as accessors
-from accessors import ProcessKey
+from .accessors import ProcessKey
 import madgraph.loop.loop_diagram_generation as loop_diagram_generation
 import madgraph.integrator.phase_space_generators as PS_utils
 import madgraph.interface.madevent_interface as madevent_interface
@@ -657,7 +657,7 @@ class Contribution(object):
                 # Each diagram_map_for_that_ME is then a list of length of the number of diagrams in the 
                 # I^th matrix element, which contains, for each diagram, the configuration ID; that is 
                 # the position that this diagram corresponds to in 'mapping diagrams' (with index starting at 1)
-                for me_number, diagram_numbers in diagrams_maps.items():
+                for me_number, diagram_numbers in list(diagrams_maps.items()):
                     matrix_element = matrix_elements[me_number]
                     process_key = ProcessKey(matrix_element.get('processes')[0],sort_PDGs=False).get_canonical_key()
                     processes_to_topologies[process_key]['diagrams_topology'] = [ 
@@ -719,7 +719,7 @@ class Contribution(object):
         if self.has_beam_factorization():
             return MEAccessors
 
-        for process_key, (defining_process, mapped_processes) in self.get_processes_map().items():
+        for process_key, (defining_process, mapped_processes) in list(self.get_processes_map().items()):
             # The PDGs of the hashed representations correspond to entry [0][0]
             mapped_process_pdgs = [ (proc.get_initial_ids(), proc.get_final_ids()) for proc in mapped_processes ]
             proc_dir = pjoin(self.export_dir, 'SubProcesses', 'P%s' % self.process_dir_name(defining_process) )
@@ -770,14 +770,14 @@ class Contribution(object):
 
         # Count how many CTs apply to each class recognized
         n_CTs_per_class = {}
-        for (module_path, class_name, _), currents_block_properties in mapped_currents_blocks.items():
+        for (module_path, class_name, _), currents_block_properties in list(mapped_currents_blocks.items()):
             if class_name in n_CTs_per_class:
                 n_CTs_per_class[class_name] += len(currents_block_properties['mapped_process_keys'])
             else:
                 n_CTs_per_class[class_name] = len(currents_block_properties['mapped_process_keys'])
 
         already_listed = []
-        for (module_path, class_name, _), currents_block_properties in mapped_currents_blocks.items():
+        for (module_path, class_name, _), currents_block_properties in list(mapped_currents_blocks.items()):
             if class_name != 'DefaultCurrentImplementation':
                 if class_name not in already_listed:
                     already_listed.append(class_name)
@@ -803,7 +803,7 @@ class Contribution(object):
         # to all current implementations identified and needed
         all_currents_block_accessors = []
 
-        for (subtraction_scheme, class_identifier, _), currents_block_properties in mapped_currents_blocks.items():
+        for (subtraction_scheme, class_identifier, _), currents_block_properties in list(mapped_currents_blocks.items()):
             all_currents_block_accessors.append(accessors.VirtualMEAccessor(
                 currents_block_properties['defining_currents_block'],
                 subtraction_scheme,
@@ -849,11 +849,11 @@ class Contribution(object):
 
         # Regroup the general process map into smaller sub-process maps where one is guaranteed
         # that all processes in these submaps can be integrated together. 
-        for process_key, (defining_process, mapped_processes) in self.get_processes_map().items():
+        for process_key, (defining_process, mapped_processes) in list(self.get_processes_map().items()):
             found_partner = False
             for integrand_process_map in integrand_process_maps:
                 if all(self.can_processes_be_integrated_together(defining_process,
-                                         proc[0]) for proc in integrand_process_map.values()):
+                                         proc[0]) for proc in list(integrand_process_map.values())):
                     integrand_process_map[process_key] = (defining_process, mapped_processes)
                     found_partner = True
                     break
@@ -972,7 +972,7 @@ class Contribution(object):
             
         process_map = self.get_processes_map(force=force)
         inverse_map = {}
-        for process_key, (defining_process, mapped_processes) in process_map.items():
+        for process_key, (defining_process, mapped_processes) in list(process_map.items()):
             defining_process_key = ProcessKey(defining_process,sort_PDGs=sort_PDGs).get_canonical_key()
             if defining_process_key in inverse_map:
                 raise MadGraph5Error("The following process key appears twice in "+
@@ -1028,7 +1028,7 @@ class Contribution(object):
             all_procs_pdgs = dict((ProcessKey(proc,sort_PDGs=False).get_canonical_key(), proc) 
                                                                 for proc in me.get('processes'))
             # Add the attribute 'has_mirror_process' to these processes instance
-            for proc in all_procs_pdgs.values():
+            for proc in list(all_procs_pdgs.values()):
                 proc.set('has_mirror_process', me.get('has_mirror_process'))
             # Look through all the processes identified in the amplitudes
             for proc in all_defining_procs:
@@ -1042,7 +1042,7 @@ class Contribution(object):
                                             if p!=proc and p not in all_defining_procs[proc][1]])
 
         # Insure that all processes have leg numbers that are consecutive
-        for process_key, (defining_process, mapped_processes) in all_defining_procs.items():
+        for process_key, (defining_process, mapped_processes) in list(all_defining_procs.items()):
             for p in [defining_process,]+mapped_processes:
                 for i, leg in enumerate(p.get('legs')):
                     leg.set('number', i+1)
@@ -1074,12 +1074,12 @@ class Contribution(object):
         
         processes_map = self.get_processes_map()
         i_process=0
-        for process_key, (defining_process, mapped_processes) in processes_map.items():
+        for process_key, (defining_process, mapped_processes) in list(processes_map.items()):
             i_process += 1
             name = self.process_dir_name(defining_process)
             Pdir = pjoin(self.export_dir, 'SubProcesses', 'P%s'%name)
             logger.debug("[%d/%d] Compiling %s in '%s'..."%(
-                        i_process, len(processes_map.keys()),
+                        i_process, len(list(processes_map.keys())),
                         defining_process.nice_string().replace('Process','process'),
                         os.path.basename(Pdir) ))
             if not os.path.isdir(Pdir):
@@ -1117,7 +1117,7 @@ class Contribution(object):
         res.extend([self.contribution_definition.nice_string()])
         if not self.topologies_to_processes is None:
             res.append('%-30s:   %d'%('Number of topologies', 
-                                                    len(self.topologies_to_processes.keys())))
+                                                    len(list(self.topologies_to_processes.keys()))))
         res.extend(self.get_additional_nice_string_printout_lines())
         if self.amplitudes and not self.all_matrix_elements.get_matrix_elements():
             if format < 1:
@@ -1133,14 +1133,14 @@ class Contribution(object):
             processes_map = self.get_processes_map()
             if format < 1:
                 res.append('Generated and mapped processes for this contribution: %d (+%d mapped)'%
-                           ( len(processes_map.keys()),
-                             len(sum([v[1] for v in processes_map.values()],[])) ) )
+                           ( len(list(processes_map.keys())),
+                             len(sum([v[1] for v in list(processes_map.values())],[])) ) )
             else:
                 res.append('Generated and mapped processes for this contribution:')
-                for process_key, (defining_process, mapped_processes) in processes_map.items():
+                for process_key, (defining_process, mapped_processes) in list(processes_map.items()):
                     res.append(self.get_nice_string_process_line(process_key, defining_process, format=format))                
                     for mapped_process in mapped_processes:
-                        res.append(BLUE+u'   \u21b3  '+mapped_process.nice_string(print_weighted=False)\
+                        res.append(BLUE+'   \u21b3  '+mapped_process.nice_string(print_weighted=False)\
                                                                             .replace('Process: ','')+ENDC)
         else:
             res.append(BLUE+'No amplitudes generated yet.'+ENDC)
@@ -1174,7 +1174,7 @@ class Contribution(object):
         # directly from the Born
         self.processes_to_topologies[process_key] = contrib.processes_to_topologies[process_key]
         
-        for (topology_key, processes) in contrib.topologies_to_processes.items():
+        for (topology_key, processes) in list(contrib.topologies_to_processes.items()):
                 self.topologies_to_processes[topology_key] = processes
 
     def add_beam_factorization_processes_from_contribution(self, contrib, beam_factorization_order):
@@ -1208,7 +1208,7 @@ class Contribution(object):
         processes_map = self.processes_map[1]
         # To the new contribution instances, also assign references to the generated attributes
         # of the original contributions (no deep copy necessary here)
-        for process_key, (defining_process, mapped_processes) in source_processes_map.items():
+        for process_key, (defining_process, mapped_processes) in list(source_processes_map.items()):
             
             # First add this process to the current processes map
             if process_key in processes_map:
@@ -1346,7 +1346,7 @@ class Contribution_R(Contribution):
         res = []
         if self.counterterms:
             res.append('%-30s:   %d'%('Number of local counterterms', 
-               len([1 for CT in sum(self.counterterms.values(),[]) if CT.is_singular()]) ))
+               len([1 for CT in sum(list(self.counterterms.values()),[]) if CT.is_singular()]) ))
         return res
         
     def get_nice_string_process_line(self, process_key, defining_process, format=0):
@@ -1388,7 +1388,7 @@ class Contribution_R(Contribution):
 
         all_integrated_counterterms = []
 
-        for process_key, (defining_process, mapped_processes) in self.get_processes_map().items():
+        for process_key, (defining_process, mapped_processes) in list(self.get_processes_map().items()):
 
             local_counterterms, integrated_counterterms =  self.IR_subtraction.get_all_counterterms(
                 defining_process, self.contribution_definition.n_unresolved_particles,
@@ -1498,7 +1498,7 @@ The resulting output must therefore be used for debugging only as it will not yi
             # On the other hand the repetition would have been only 1 for the topology
             # of the form  C(C(3,4),6) (i.e. no soft) since C(C(4,3),6) is not generated.
             repetitions_for_topology = {}
-            for integrated_current_topology, integrated_counterterms in integrated_current_topologies.items():
+            for integrated_current_topology, integrated_counterterms in list(integrated_current_topologies.items()):
                 repetitions={}
                 for integrated_counterterm in integrated_counterterms:
                     # Gather what are the singular leg numbers for each singular structure involved
@@ -1520,11 +1520,11 @@ The resulting output must therefore be used for debugging only as it will not yi
 "All the following integrated counterterms share the same topology:\n"+
 '\n'.join(str(CT) for CT in integrated_counterterms)+'\n'+
 'But the repetition numbers derived from them is not identical in each group of singular legs:\n'+
-'\n'.join('%s -> %d'%(str(k), v) for k,v in repetitions.items())+'\n'+
+'\n'.join('%s -> %d'%(str(k), v) for k,v in list(repetitions.items()))+'\n'+
 'This is not expected to happen.')
-                repetitions_for_topology[integrated_current_topology] = repetitions.values()[0]
+                repetitions_for_topology[integrated_current_topology] = list(repetitions.values())[0]
 
-            for integrated_current_topology, integrated_counterterms in integrated_current_topologies.items():
+            for integrated_current_topology, integrated_counterterms in list(integrated_current_topologies.items()):
                 # We only include the first integrated counterterm matching this topology
                 # The others are included effectively by the fact that this countertm will
                 # be distributed in all possible permutations of the virtual process flavors
@@ -1655,9 +1655,9 @@ The resulting output must therefore be used for debugging only as it will not yi
                 if len(set(symmetry_factors.values()))!=1:
                     raise MadGraph5Error(
 "For the counterterm %s with the following resolved and reduced flavors:\n"%str(integrated_counterterm)+
-'\n'.join('%s => %s'%(str(k),str(v)) for k, v in resolved_flavors_combinations.items())+'\n'+
+'\n'.join('%s => %s'%(str(k),str(v)) for k, v in list(resolved_flavors_combinations.items()))+'\n'+
 "The list of overall symmetry factors computed contains the following different values:\n"+
-'\n'.join('%s => %f'%(str(k),v) for k, v in symmetry_factors.items())+'\n'+
+'\n'.join('%s => %f'%(str(k),v) for k, v in list(symmetry_factors.items()))+'\n'+
 "This is thought never to happen.")
 
                 all_integrated_counterterms.append({
@@ -1666,7 +1666,7 @@ The resulting output must therefore be used for debugging only as it will not yi
                     'reduced_flavors_combinations'       :   reduced_flavors_combinations,
                     'reduced_flavors_with_resolved_initial_states_combinations' :
                                         reduced_flavors_with_resolved_initial_states_combinations,
-                    'symmetry_factor'                    :   symmetry_factors.values()[0],
+                    'symmetry_factor'                    :   list(symmetry_factors.values())[0],
                     'multiplicity'                       :   len(integrated_counterterms)
                 })
 
@@ -1736,7 +1736,7 @@ The resulting output must therefore be used for debugging only as it will not yi
         all_MEAccessors, return what local currents are needed."""
 
         all_currents_blocks = []
-        for process_key, counterterms in self.counterterms.items():
+        for process_key, counterterms in list(self.counterterms.items()):
             for currents_block in subtraction.IRSubtraction.get_all_currents_blocks(counterterms,track_leg_numbers=self.track_leg_numbers):
                 # Retain only a single copy of each needed current.
                 copied_currents_block = subtraction.CurrentsBlock(current.get_copy(('squared_orders','singular_structure')) for current in currents_block)
@@ -1744,9 +1744,9 @@ The resulting output must therefore be used for debugging only as it will not yi
                     all_currents_blocks.append(copied_currents_block)
 
         # Also add the beam_factorization currents from process itself if it has any
-        for process_key, (defining_process, mapped_processes) in self.get_processes_map().items():
+        for process_key, (defining_process, mapped_processes) in list(self.get_processes_map().items()):
             for beam_factorization_currents in defining_process['beam_factorization']:
-                for bfc in beam_factorization_currents.values():
+                for bfc in list(beam_factorization_currents.values()):
                     if bfc is not None:
                         all_currents_blocks.append(subtraction.CurrentsBlock([bfc,]))
 
@@ -1760,7 +1760,7 @@ The resulting output must therefore be used for debugging only as it will not yi
             if currents_block_key not in all_MEAccessors and currents_block_key not in all_necessary_currents_blocks:
                 all_necessary_currents_blocks[currents_block_key] = currents_block
 
-        return all_necessary_currents_blocks.values()
+        return list(all_necessary_currents_blocks.values())
 
     def add_ME_accessors(self, all_MEAccessors, root_path):
         """ Adds all MEAccessors for the matrix elements and currents generated as part of this contribution."""
@@ -1769,8 +1769,8 @@ The resulting output must therefore be used for debugging only as it will not yi
         super(Contribution_R, self).add_ME_accessors(all_MEAccessors, root_path)
 
         # Only initialize all_counterterms_removed to True if there is CT to removed to begin with
-        all_counterterms_removed = any(len(CTs)>0 for CTs in self.counterterms.values())    
-        for process_key, counterterms in self.counterterms.items():
+        all_counterterms_removed = any(len(CTs)>0 for CTs in list(self.counterterms.values()))    
+        for process_key, counterterms in list(self.counterterms.items()):
             # Remove counterterms with non-existing underlying Born processes
             if not self.remove_counterterms_with_no_reduced_process(all_MEAccessors, counterterms):
                 all_counterterms_removed = False
@@ -1792,7 +1792,7 @@ The resulting output must therefore be used for debugging only as it will not yi
     def remove_local_counterterms_set_to_zero(self, all_ME_accessors):
         """ Remove all local counterterms involving currents whose implementation has set
         them to zero."""
-        for process_key, counterterms in self.counterterms.items():
+        for process_key, counterterms in list(self.counterterms.items()):
             for counterterm in list(counterterms):
                 # misc.sprint("Considering CT %s" % str(counterterm))
                 if counterterm.is_singular():
@@ -1855,7 +1855,7 @@ class Contribution_V(Contribution):
         res = []
         if self.integrated_counterterms:
             res.append('%-30s:   %d'%('Nb. of integrated counterterms', 
-                                      len(sum(self.integrated_counterterms.values(),[]))))
+                                      len(sum(list(self.integrated_counterterms.values()),[]))))
         return res
     
     def get_nice_string_process_line(self, process_key, defining_process, format=0):
@@ -1888,7 +1888,7 @@ class Contribution_V(Contribution):
                     long_res.append(CT.nice_string("   | "))
                 elif format>4:
                     long_res.append(CT.nice_string("   | "))
-                    for key, value in CT_properties.items():
+                    for key, value in list(CT_properties.items()):
                         if not key in ['integrated_counterterm', 'matching_process_key']:
                             long_res.append( '     + %s : %s'%(key, str(value)))
 
@@ -1901,7 +1901,7 @@ class Contribution_V(Contribution):
         generate all the integrated currents that must be exported."""
         
         all_currents_blocks = []
-        for CT_properties in sum(self.integrated_counterterms.values(),[]):
+        for CT_properties in sum(list(self.integrated_counterterms.values()),[]):
             counterterm = CT_properties['integrated_counterterm']
 
             currents_blocks = counterterm.get_currents_blocks()
@@ -1925,7 +1925,7 @@ class Contribution_V(Contribution):
             if current_block_key not in all_MEAccessors and current_block_key not in all_necessary_currents_blocks:
                 all_necessary_currents_blocks[current_block_key] = currents_block
 
-        return all_necessary_currents_blocks.values()
+        return list(all_necessary_currents_blocks.values())
 
     @classmethod
     def remove_counterterms_with_no_reduced_process(cls, all_MEAccessors, counterterms):
@@ -1939,7 +1939,7 @@ class Contribution_V(Contribution):
         """ Remove all integrated counterterms involving currents whose implementation has set
         them to zero."""
 
-        for process_key, counterterms in self.integrated_counterterms.items():
+        for process_key, counterterms in list(self.integrated_counterterms.items()):
             for integrated_counterterm_properties in list(counterterms):
                 integrated_counterterm = integrated_counterterm_properties['integrated_counterterm']
                 # misc.sprint("Considering integrated CT %s" % str(integrated_counterterm))
@@ -1991,8 +1991,8 @@ class Contribution_V(Contribution):
         super(Contribution_V, self).add_ME_accessors(all_MEAccessors, root_path)
 
         # Only initialize all_counterterms_removed to True if there is CT to removed to begin with
-        all_counterterms_removed = any(len(CTs)>0 for CTs in self.integrated_counterterms.values())
-        for process_key, CT_properties in self.integrated_counterterms.items():
+        all_counterterms_removed = any(len(CTs)>0 for CTs in list(self.integrated_counterterms.values()))
+        for process_key, CT_properties in list(self.integrated_counterterms.items()):
             # Remove integrated counterterms with non-existing underlying Born processes
             if not self.remove_counterterms_with_no_reduced_process(all_MEAccessors, CT_properties):
                 all_counterterms_removed = False
@@ -2092,7 +2092,7 @@ class Contribution_V(Contribution):
         #  (3,4,5), (3,5,4), (4,3,5), (4,5,3), (5,3,4), (5,4,3)
         # We do this for initial and final states separately
         initial_mappings = [{}]
-        for flavor, parent_positions in initial_state_parent_flavors.items():
+        for flavor, parent_positions in list(initial_state_parent_flavors.items()):
             picks = list( itertools.permutations(initial_flavor_positions[flavor], len(parent_positions)) )
             initial_mappings_for_this_flavor = []
             for pick in picks:
@@ -2121,7 +2121,7 @@ class Contribution_V(Contribution):
             initial_mappings = new_initial_mappings
         
         final_mappings = [{}]
-        for flavor, parent_positions in final_state_parent_flavors.items():
+        for flavor, parent_positions in list(final_state_parent_flavors.items()):
             picks = list( itertools.permutations(final_flavor_positions[flavor], len(parent_positions)) )
             final_mappings_for_this_flavor = []
             for pick in picks:
@@ -2179,7 +2179,7 @@ class Contribution_V(Contribution):
         drop this construction altogether.
         """
 
-        for process_key, (process, mapped_processes) in self.get_processes_map().items():
+        for process_key, (process, mapped_processes) in list(self.get_processes_map().items()):
             # It may be that a particular process does not have any counterterms (typically when
             # considering forcing a beam-type by hand at generation time for debugging purposes, for 
             # example:
@@ -2334,7 +2334,7 @@ class Contribution_V(Contribution):
         #     of this integrated CT *does* match the factorized beam number of this contribution
         active_beams = {k:self.contribution_definition.is_beam_active(k) for k in ['beam_one','beam_two'] }
         integrated_CT_active_beams = integrated_counterterm.get_necessary_beam_convolutions()
-        if active_beams.values().count(True)==1 and len(integrated_CT_active_beams)==1:
+        if list(active_beams.values()).count(True)==1 and len(integrated_CT_active_beams)==1:
             require_initial_state_swapping = ( basic_permutation[0] == 1 and 
                                                basic_permutation[1] == 0 )
             integrated_CT_active_beam = list(integrated_CT_active_beams)[0]
@@ -2381,7 +2381,7 @@ class Contribution_V(Contribution):
         # list of permutations to consider
         for flavor_permutation in flavor_permutations:
             combined_permuation = {}
-            for index in basic_permutation.keys():
+            for index in list(basic_permutation.keys()):
                 combined_permuation[index] = basic_permutation[flavor_permutation.get(index, index)]
             permutations.append(combined_permuation)
 
@@ -2408,7 +2408,7 @@ class Contribution_V(Contribution):
 " does not match when computed from symmetry factors (%f) and from CT multiplicity (%f=%d/%d)."
 %(symmetry_factor,reproduced_symmetry_factor,integrated_counterterm_properties['multiplicity'],len(permutations))+
 "\nFlavors assignments are:\n"+'\n'.join('%s => %s'%(str(k),str(v)) for k, v in 
-               integrated_counterterm_properties['resolved_flavors_combinations'].items()))
+               list(integrated_counterterm_properties['resolved_flavors_combinations'].items())))
 
         # For safety in case the statement above is commented, force the symmetry factor
         # to be the one recomputed here
@@ -2579,7 +2579,7 @@ class Contribution_RV(Contribution_R, Contribution_V):
                     long_res.append(CT.nice_string("   | "))
                 elif format>4:
                     long_res.append(CT.nice_string("   | "))
-                    for key, value in CT_properties.items():
+                    for key, value in list(CT_properties.items()):
                         if not key in ['integrated_counterterm', 'matching_process_key']:
                             long_res.append( '     + %s : %s'%(key, str(value)))
             res += '\n'.join(long_res)
@@ -2623,7 +2623,7 @@ class Contribution_BS(Contribution_RV):
         processes_map = self.processes_map[1]
         # To the new contribution instances, also assign references to the generated attributes
         # of the original contributions (no deep copy necessary here)
-        for process_key, (defining_process, mapped_processes) in source_processes_map.items():
+        for process_key, (defining_process, mapped_processes) in list(source_processes_map.items()):
             
             # First add this process to the current processes map
             if process_key in processes_map:
@@ -2644,7 +2644,7 @@ class Contribution_BS(Contribution_RV):
         and is only a place-holder to receive the integrated soft counterterms. Therefore nothing needs to be
         done a this stage here. """
     
-        for process_key, (defining_process, mapped_processes) in self.get_processes_map().items():
+        for process_key, (defining_process, mapped_processes) in list(self.get_processes_map().items()):
             self.counterterms[process_key] = []
         all_integrated_counterterms = []
         return all_integrated_counterterms

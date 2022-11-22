@@ -35,7 +35,7 @@ import madgraph.integrator.cuba_interface as pycuba
 try:
     import numpy as np
 except ImportError:
-    print "ERROR :: The pyCubaIntegrator requires the numpy python module. Install it first."
+    print("ERROR :: The pyCubaIntegrator requires the numpy python module. Install it first.")
     sys.exit(1);
 
 
@@ -799,7 +799,7 @@ if __name__ == '__main__':
     for name in chosen_integrators:
         res = my_integrators[name].integrate()
         # Finally integrate
-        print '\n'+'='*70
-        print '%-30s = %.4e +/- %.2e'%('%s :: Final result'%name, res[0], res[1])
-        print '='*70
+        print('\n'+'='*70)
+        print('%-30s = %.4e +/- %.2e'%('%s :: Final result'%name, res[0], res[1]))
+        print('='*70)
 

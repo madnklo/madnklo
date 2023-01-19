@@ -16,6 +16,28 @@ CCCCCCCCCCCCC Fortran Functions for implementing universal_kernels.py CCCCCCCCCC
 
 
 CCCCCCCCCCCCC Splitting kernels CCCCCCCC
+
+      
+      subroutine Pqg(zz,res)
+      implicit none
+      real * 8 zz,res(2)
+      
+      call Pqgav(zz,res) 
+      
+      end
+
+
+      subroutine Pgq(zz,res)
+      implicit none
+      real * 8 zz,res(2)
+      real * 8 tmp
+
+      tmp = 1d0-zz
+      
+      call Pqgav(tmp,res) 
+      
+      end
+
       
       
       subroutine Pgg(z,kt,res)
@@ -60,29 +82,6 @@ CCCCCCCCCCCCC Splitting kernels CCCCCCCC
       
       end
 
-
-
-      subroutine Pqg(zz,res)
-      implicit none
-      real * 8 zz,res(2)
-      
-      call Pqgav(zz,res) 
-      
-      end
-
-
-      subroutine Pgq(zz,res)
-      implicit none
-      real * 8 zz,res(2)
-      real * 8 tmp
-
-      tmp = 1d0-zz
-      
-      call Pqgav(tmp,res) 
-      
-      end
-
-      
 
       subroutine Pqgav(z,res)
 !     This subroutine fills the variable res with the coefficients

@@ -1,0 +1,18 @@
+CCCCCCCCCCCCC Fortran Functions for implementing universal_kernels.py CCCCCCCCCC
+      double precision function(pi,pj,ps) result(res)
+      implicit none
+      real * 8 pi(0:3), pj(0:3), ps(0:3)
+      real * 8 pipj, pips, pjps
+      real * 8 dot
+      real * 8 res
+
+      pipj = dot(pi,pj)
+      pips = dot(pi,ps)
+      pjps = dot(pj,ps)
+
+      res = pipj/(pips * pjps)
+
+      end
+
+
+      

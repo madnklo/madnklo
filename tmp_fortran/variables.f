@@ -9,7 +9,8 @@
       real * 8 xis(2),kts(0:3,2)
       real * 8 prec(0:3)
       real * 8 dot
-
+      integer rec_legnumber
+      
       ss_ijtot=0d0
 
       !!!!!! This only works for NLO computation with 3 particles 
@@ -21,7 +22,7 @@
       enddo
 
 !     TODO
-!     call get_recoiler(...,prec)
+!     call get_recoiler(...,prec,rec_legnumber)
 
 
 
@@ -34,6 +35,54 @@
 
       call GET_SUDAKOV_DECOMP_FF(allpfs(:,1),allpfs(:,2),prec,xi,xj,
      $     kitil,kjtil,y,x)
+      
+      xis = [xi,xj]
+      kts(:,1) = kitil
+      kts(:,2) = kjtil
+      
+      
+      end
+
+
+
+
+      subroutine trn_ifn_variables(pp,children,xis,kts,ss_ij,z,v)
+      implicit none
+      include 'nexternal.inc'
+      integer i,j
+      real * 8 pp(0:3,NEXTERNAL),allpfs(0:3,2)
+      integer children(2)
+      real * 8 ss_ij(1),ss_ijtot
+      real * 8 xi,xj,kitil(0:3),kjtil(0:3),z,v
+      real * 8 xis(2),kts(0:3,2)
+      real * 8 prec(0:3)
+      integer rec_legnumber
+      real * 8 dot
+
+      ss_ijtot=0d0
+
+      !!!!!! This only works for NLO computation with 3 particles 
+      !!!!!! in the final state.
+      
+      
+      do i=1,2
+         allpfs(:,i) = pp(:,children(i))
+      enddo
+
+!     TODO
+!     call get_recoiler(...,prec,rec_legnumber)
+
+
+
+      ss_ij(1) = 2d0*dot(allpfs(:,1),allpfs(:,2))
+      
+      do i=1,1 !!!!! TO BE GENERALIZED LATER
+         ss_ijtot = ss_ijtot + ss_ij(i)
+      enddo
+
+
+      call GET_SUDAKOV_DECOMP_IF(allpfs(:,1),allpfs(:,2),prec,
+     $     rec_legnumber,xi,xj,kitil,kjtil,y,x)
       
       xis = [xi,xj]
       kts(:,1) = kitil

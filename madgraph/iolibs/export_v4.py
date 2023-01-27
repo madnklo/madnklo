@@ -705,11 +705,13 @@ param_card.inc: ../Cards/param_card.dat\n\t../bin/madevent treatcards param\n'''
         replace_dict['nexternal'] = nexternal
         replace_dict['ninitial'] = ninitial
 
+        #gl
         file = """ \
           integer    nexternal
           parameter (nexternal=%(nexternal)d)
           integer    nincoming
-          parameter (nincoming=%(ninitial)d)""" % replace_dict
+          parameter (nincoming=%(ninitial)d)
+          integer, parameter :: (npartNLO=nexternal, npartLO=npartNLO-1)""" % replace_dict
 
         # Write the file
         if writer:

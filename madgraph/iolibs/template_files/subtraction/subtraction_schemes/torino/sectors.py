@@ -510,7 +510,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
             replace_dict_ct['str_M2'] = str_M2
             #str(str_M2).replace('[','').replace(']','').replace("'","")
-            print(str_M2)
+            #print(str_M2)
 
 
 
@@ -518,7 +518,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
 
             filename = pjoin(dirpath, 'NLO_K_%d_%d.f' % (int(isec), int(jsec)))
-            file = open("/home/gloria/Desktop/madnklo/tmp_fortran/template_files/NLO_K_template.f").read()
+            file = open("/home/gloria/Desktop/madnklo/tmp_fortran/tmp_files/NLO_K_template.f").read()
             file = file % replace_dict_ct
             writer(filename).writelines(file)
 

@@ -12,6 +12,13 @@ import madgraph.integrator.vectors as vectors
 import logging
 
 
+#gl
+import madgraph.interface.madgraph_interface as interface
+import madgraph.iolibs.export_v4 as export
+import madgraph.iolibs.file_writers as writers
+import os
+pjoin = os.path.join
+
 
 class MadEvent7Error(Exception):
     pass
@@ -269,17 +276,32 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         all_PDGs = initial_state_PDGs, final_state_PDGs
 
         leglist = defining_process.get('legs')
-        # print('leglist : ' + str(leglist))
+        #gl
+        #print(export.ProcessExporterFortranSA().__init__())
+        #print('leglist : ' + str(leglist))
+        #print(defining_process.shell_string())
+        #print(contrib_definition.get_shell_name())
+        #print(contrib_definition.process_definition.get('id'))
+
+        # Set writer
+        writer = writers.FortranWriter
+
+        # TODO: point to the right process directory
+        dirpath = pjoin("/home/gloria/Desktop/madnklo/bin/test/NLO_R_x_R_epem_guux_1")
+        dirpath = pjoin(dirpath, 'SubProcesses', \
+                       "P%s" % defining_process.shell_string())
 
         all_sectors = []
+        all_sector_legs = []
+        all_sector_id_legs = []
 
         pert_dict = fks_common.find_pert_particles_interactions(model)
         colorlist = [model['particle_dict'][l['id']]['color'] for l in leglist]
 
-# Ez
-        logger.info("sectors.py: SectorGenerator,__call__")
-        for i,col_i in zip(leglist,colorlist):
-            logger.info("leg: "+str(i)+"\n"+str(col_i))
+## Ez
+#        logger.info("sectors.py: SectorGenerator,__call__")
+#        for i,col_i in zip(leglist,colorlist):
+#            logger.info("leg: "+str(i)+"\n"+str(col_i))
 
         # the following is adapted from the very old FKS_from_real implementation
         # in the FKS formalism, i_fks is the parton associated with the soft singularities
@@ -339,15 +361,20 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                             'integrated_counterterms': None
                         }
                         a_sector['sector'] = Sector(leg_numbers=(i.get('number'), j.get('number')))
-                        print('Leg number : ' + str(a_sector['sector']))
+                        #print('Leg number : ' + str(a_sector['sector']))
+                        #gl
+                        all_sector_legs.append(i.get('number'))
+                        all_sector_legs.append(j.get('number'))
                         # keep track of the masses
                         a_sector['sector'].masses = (model.get('particle_dict')[i.get('id')]['mass'],
                                                      model.get('particle_dict')[j.get('id')]['mass'])
-                        print('Masses : ' + str(a_sector['sector'].masses))
+                        #print('Masses : ' + str(a_sector['sector'].masses))
 # gl
                         # keep track of the particles' identity
                         a_sector['sector'].id = (i.get('id'), j.get('id'))
-                        print('Identities : ' + str(a_sector['sector'].id))
+                        all_sector_id_legs.append(i.get('id'))
+                        all_sector_id_legs.append(j.get('id'))
+                        #print('Identities : ' + str(a_sector['sector'].id))
 
                         all_sectors.append(a_sector)
                         logger.info('NLO sector found, legs %d, %d' % a_sector['sector'].leg_numbers)
@@ -365,46 +392,70 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         # gl
         all_sector_id_list = [s['sector'].id for s in all_sectors]
 
+        #gl
+        all_local_counterterms_list = []
+        necessary_ct_list = [0] * (5*len(all_sectors))
+        i = 0
         for s in all_sectors:
-            print('s in sectors : ' + str(s))
+            i = i * 5
+            #print('s in sectors : ' + str(s))
             s['sector'].all_sector_list = all_sector_list
             s['sector'].all_sector_mass_list = all_sector_mass_list
             # gl
             s['sector'].all_sector_id_list = all_sector_id_list
-            print('s all_sector_list : ' + str(all_sector_list))
-            print('s all_sector_id_list : ' + str(all_sector_id_list))
+            #print('s all_sector_list : ' + str(all_sector_list))
+            #print('s all_sector_id_list : ' + str(all_sector_id_list))
 
             if counterterms is not None:
                 s['counterterms'] = []
                 for i_ct, ct in enumerate(counterterms):
-                    # print('i_ct + ct : ' + str(i_ct) + ' and ' + str(ct))
+                    #print('i_ct + ct : ' + str(i_ct) + ' and ' + str(ct))
                     current = ct.nodes[0].current
                     singular_structure = current.get('singular_structure').substructures[0]
                     all_legs = singular_structure.get_all_legs()
                     if singular_structure.name()=='S':
                         if all_legs[0].n == s['sector'].leg_numbers[0]: # should match to "i"
                             s['counterterms'].append(i_ct)
+                            necessary_ct_list[i] = 1
+                        #else :
+                        #    necessary_ct_list.append(0)
 # # # gl                        
                         if s['sector'].id[0] == 21 and s['sector'].id[1] == 21 and all_legs[0].n == s['sector'].leg_numbers[1]: # should match to "j"
                             s['counterterms'].append(i_ct)
+                            necessary_ct_list[i+1] = 1
+                        #else :
+                        #    necessary_ct_list.append(0)
 
                     if singular_structure.name()=='C':
                         if not singular_structure.substructures:
                             # pure-collinear CT: include if the legs match those of the sector
                             if sorted([l.n for l in all_legs]) == sorted(s['sector'].leg_numbers):
                                 s['counterterms'].append(i_ct)
+                                necessary_ct_list[i+2] = 1
+                            #else : 
+                            #    necessary_ct_list.append(0)
                         else:
                             #soft-collinear CT: include only if, on top of the previous condition,
                             #  the soft leg matches the first sector leg
                             if sorted([l.n for l in all_legs]) == sorted(s['sector'].leg_numbers) and \
                                singular_structure.substructures[0].legs[0].n == s['sector'].leg_numbers[0]:
                                 s['counterterms'].append(i_ct)
+                                necessary_ct_list[i+3] = 1
+                            #else :
+                            #    necessary_ct_list.append(0)
 # # gl
                             if s['sector'].id[0] == 21 and s['sector'].id[1] == 21:
                                 if sorted([l.n for l in all_legs]) == sorted(s['sector'].leg_numbers) and \
                                     singular_structure.substructures[0].legs[0].n == s['sector'].leg_numbers[1]:
                                     s['counterterms'].append(i_ct)
-                print('s counterterms : ' + str(s['counterterms']))
+                                    necessary_ct_list[i+4] = 1
+                                #else :
+                                #    necessary_ct_list.append(0)
+
+                all_local_counterterms_list.append(s['counterterms'])
+
+            # index of necessary_ct_list    
+            i = i + 1
 
             # Irrelevant if this NLO example, but let me specify all of them explicitly so as to make the strucuture clear.
             if integrated_counterterms is not None:
@@ -414,4 +465,78 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     # is interpreted as all input mappings contributing, but for the sake of example here
                     # we list explicitly each index.
                     s['integrated_counterterms'][i_ct] = range(len(ct['input_mappings']))
+
+
+#        # Set replace_dict for sector.inc
+#        replace_dict = {}
+#        replace_dict['singular_sec'] = len(all_sector_list)
+#        replace_dict['all_sector_legs'] = str(all_sector_legs).replace('[','').replace(']','').replace(' ','')
+#        replace_dict['all_sector_id_legs'] = str(all_sector_id_legs).replace('[','').replace(']','').replace(' ','')
+#        replace_dict['necessary_ct_list'] = str(necessary_ct_list).replace('[','').replace(']','').replace(' ','')
+
+#        filename = pjoin(dirpath, 'sector_test.inc')
+#        file = open("/home/gloria/Desktop/madnklo/tmp_fortran/template_files/sector.inc").read()
+#        file = file % replace_dict
+#        writer(filename).writelines(file)
+
+        # Set replace_dict for NLO_K_isec_jsec.f
+        replace_dict_ct = {}
+        #print(necessary_ct_list)
+        for i in range(0,len(all_sector_list)):
+            list_M2 = []
+            isec = str(all_sector_legs).replace('[','').replace(']','').replace(' ','').replace(',','')[i*2]
+            jsec = str(all_sector_legs).replace('[','').replace(']','').replace(' ','').replace(',','')[i*2+1]
+
+            replace_dict_ct['isec'] = int(isec)
+            replace_dict_ct['jsec'] = int(jsec)
+            str_cts = str(necessary_ct_list).replace('[','').replace(']','').replace(' ','')
+            #print(str_cts)
+
+            if int(str_cts[i*10]) == 1:
+                list_M2.append('KS=KS+M2_S(isec,xs,xp,wgt,WsumSi,xj,nitR,1d0,ierr)\n')
+                list_M2.append('\n')
+            if int(str_cts[i*10+2]) == 1:
+                list_M2.append('KS=KS+M2_S(jsec,xs,xp,wgt,WsumSj,xj,nitR,1d0,ierr)\n')
+                list_M2.append('\n')
+            if int(str_cts[i*10+4]) == 1:
+                list_M2.append('KHC=KHC+M2_H_C(isec,jsec,iref(isec,jsec),xs,xp,xsb,xpb,wgt,xj,nitR,1d0,ierr)\n')
+                list_M2.append('\n')
+            #if str_cts[i*10+6] == 1:
+            #    str_M2.append('')
+            #if str_cts[i*10+8] == 1:
+            #    str_M2.append('')
+
+            str_M2 = " ".join(list_M2)
+
+            replace_dict_ct['str_M2'] = str_M2
+            #str(str_M2).replace('[','').replace(']','').replace("'","")
+            print(str_M2)
+
+
+
+            #replace_dict_ct['necessary_ct_list'] = str(necessary_ct_list).replace('[','').replace(']','').replace(' ','')[i*10:i*10+9]
+
+
+            filename = pjoin(dirpath, 'NLO_K_%d_%d.f' % (int(isec), int(jsec)))
+            file = open("/home/gloria/Desktop/madnklo/tmp_fortran/template_files/NLO_K_template.f").read()
+            file = file % replace_dict_ct
+            writer(filename).writelines(file)
+
+
+        #gl
+        """# Wrote sector_template file
+        writer = writers.FortranWriter
+        dirpath = "/home/gloria/Desktop/madnklo/tmp_fortran/template_files"
+        filename = pjoin(dirpath, 'sector.inc')
+
+        replace_dict = {}
+        replace_dict['all_sector_list'] = all_sector_list
+        replace_dict['all_sector_id_list'] = all_sector_id_list
+        replace_dict['all_local_counterterms_list'] = all_local_counterterms_list
+
+        file = open("/home/gloria/Desktop/madnklo/tmp_fortran/template_files/sector_template.inc").read()
+        file = file % replace_dict
+        writer(filename).writelines(file)"""
+
+
         return all_sectors

@@ -1,0 +1,5 @@
+set subtraction_scheme torino
+import model loop_sm
+generate e+ e- > j j --NLO
+!rm -rf test
+output test

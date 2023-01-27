@@ -53,7 +53,7 @@
       real * 8 pp(0:3,NEXTERNAL),allpfs(0:3,2)
       integer children(2)
       real * 8 ss_ij(1),ss_ijtot
-      real * 8 xi,xj,kitil(0:3),kjtil(0:3),z,v
+      real * 8 xi,xj,kitil(0:3),kjtil(0:3),z,v,y,x
       real * 8 xis(2),kts(0:3,2)
       real * 8 prec(0:3)
       integer rec_legnumber

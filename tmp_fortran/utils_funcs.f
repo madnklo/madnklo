@@ -8,3 +8,10 @@ C****************************************************************************
       double precision p1(0:3),p2(0:3)
       dot = p1(0)*p2(0)-p1(1)*p2(1)-p1(2)*p2(2)-p1(3)*p2(3)
       end
+
+      double precision function momsq(p)
+      implicit none
+      real * 8 p(0:3)
+      real * 8 dot
+      momsq = dot(p,p)
+      end

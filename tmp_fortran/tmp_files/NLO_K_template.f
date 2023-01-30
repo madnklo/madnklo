@@ -7,10 +7,10 @@ c     TODO: pass nitR information
 c
       include 'nexternal.inc'
       integer isec,jsec,ierr
-      double precision xs(npartNLO,npartNLO)
-      double precision xp(0:3,npartNLO)
-      double precision xsb(npartLO,npartLO)
-      double precision xpb(0:3,npartLO)
+      double precision xs(nexternal,nexternal)
+      double precision xp(0:3,nexternal)
+      double precision xsb(nexternal-1,nexternal-1)
+      double precision xpb(0:3,nexternal-1)
       double precision wgt,WsumSi,WsumSj,xj
       double precision M2_S,M2_H_C,KS,KHC,KNLO
 c

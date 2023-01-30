@@ -16,6 +16,9 @@ import logging
 import madgraph.interface.madgraph_interface as interface
 import madgraph.iolibs.export_v4 as export
 import madgraph.iolibs.file_writers as writers
+import torino_config
+import factors_and_cuts
+import recoiler_function
 import os
 pjoin = os.path.join
 
@@ -277,19 +280,9 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
         leglist = defining_process.get('legs')
         #gl
-        #print(export.ProcessExporterFortranSA().__init__())
-        #print('leglist : ' + str(leglist))
         #print(defining_process.shell_string())
         #print(contrib_definition.get_shell_name())
         #print(contrib_definition.process_definition.get('id'))
-
-        # Set writer
-        writer = writers.FortranWriter
-
-        # TODO: point to the right process directory
-        dirpath = pjoin("/home/gloria/Desktop/madnklo/bin/test/NLO_R_x_R_epem_guux_1")
-        dirpath = pjoin(dirpath, 'SubProcesses', \
-                       "P%s" % defining_process.shell_string())
 
         all_sectors = []
         all_sector_legs = []
@@ -467,6 +460,101 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     s['integrated_counterterms'][i_ct] = range(len(ct['input_mappings']))
 
 
+######################################### Write fortran template files #############################################  
+
+        # Set writer
+        writer = writers.FortranWriter
+
+        # TODO: point to the right process directory
+        dirpath = pjoin("/home/gloria/Desktop/madnklo/bin/test/NLO_R_x_R_epem_guux_1")
+        dirpath = pjoin(dirpath, 'SubProcesses', \
+                       "P%s" % defining_process.shell_string())
+                       
+######### Write NLO_K_isec_jsec.f
+
+        # Set replace_dict for NLO_K_isec_jsec.f
+        replace_dict_ct = {}
+        for i in range(0,len(all_sector_list)):
+            list_M2 = []
+            isec = all_sector_list[i][0]
+            jsec = all_sector_list[i][1]
+            #isec = str(all_sector_legs).replace('[','').replace(']','').replace(' ','').replace(',','')[i*2]
+            #jsec = str(all_sector_legs).replace('[','').replace(']','').replace(' ','').replace(',','')[i*2+1]
+            id_isec = all_sector_id_list[i][0]
+            id_jsec = all_sector_id_list[i][1]
+
+            replace_dict_ct['isec'] = isec
+            replace_dict_ct['jsec'] = jsec
+ 
+            str_cts = str(necessary_ct_list).replace('[','').replace(']','').replace(' ','')
+
+            if int(str_cts[i*10]) == 1:
+                list_M2.append('KS=KS+M2_S(isec,xs,xp,wgt,WsumSi,xj,nitR,1d0,ierr)\n')
+                list_M2.append('#\n')
+            if int(str_cts[i*10+2]) == 1:
+                list_M2.append('KS=KS+M2_S(jsec,xs,xp,wgt,WsumSj,xj,nitR,1d0,ierr)\n')
+                list_M2.append('#\n')
+            if int(str_cts[i*10+4]) == 1:
+                # Loop over sectors with final state particles only
+                if isec > 2 and jsec > 2:
+                    # Extract the reference particle leg from recoiler_function.py
+                    iref_leg = recoiler_function.get_recoiler(defining_process,(isec,jsec))
+                    iref = iref_leg.get('number')
+                    replace_dict_ct['iref'] = iref
+                    # Write an identified M2_H_C_F*F* for each (**) flavour couple 
+                    if id_isec == 21 and id_jsec == 21:
+                        list_M2.append('KHC=KHC+M2_H_C_FgFg(isec,jsec,%d,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,ierr)' % iref)
+                    elif id_isec == 21 or id_jsec == 21:
+                        list_M2.append('KHC=KHC+M2_H_C_FgFq(isec,jsec,%d,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,ierr)' % iref)
+                    else:
+                        list_M2.append('KHC=KHC+M2_H_C_FqFqx(isec,jsec,%(iref)d,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,ierr)' % iref)
+                # Loop over sectors with at least one initial state particle
+                if isec <= 2 or jsec <= 2:
+                    continue
+
+            # soft-collinear kernels
+            #if str_cts[i*10+6] == 1:
+            #    str_M2.append('')
+            #if str_cts[i*10+8] == 1:
+            #    str_M2.append('')
+
+                str_M2 = " ".join(list_M2)
+                replace_dict_ct['str_M2'] = str_M2
+
+            filename = pjoin(dirpath, 'NLO_K_%d_%d.f' % (isec, jsec))
+            file = open("/home/gloria/Desktop/madnklo/tmp_fortran/tmp_files/NLO_K_template.f").read()
+            file = file % replace_dict_ct
+            writer(filename).writelines(file)
+
+
+######### Write damping_factors.inc
+
+        # Set replace_dict 
+        replace_dict = {}
+        dfactors = factors_and_cuts.damping_factors
+        replace_dict['alpha'] = dfactors[0]
+        replace_dict['beta_FF'] = dfactors[1]
+        replace_dict['beta_FI'] = dfactors[2]
+        replace_dict['beta_IF'] = dfactors[3]
+        replace_dict['beta_II'] = dfactors[4]
+
+        file = """ \
+          double precision alpha, beta_FF, beta_FI, beta_IF, beta_II
+          parameter (alpha = %(alpha)d)
+          parameter (beta_FF = %(beta_FF)d)
+          parameter (beta_FI = %(beta_FI)d)
+          parameter (beta_IF = %(beta_IF)d)
+          parameter (beta_II = %(beta_II)d)""" % replace_dict
+
+        filename = pjoin(dirpath, 'damping_factors.inc')
+        writer(filename).writelines(file)
+
+
+
+
+
+
+
 #        # Set replace_dict for sector.inc
 #        replace_dict = {}
 #        replace_dict['singular_sec'] = len(all_sector_list)
@@ -478,50 +566,6 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 #        file = open("/home/gloria/Desktop/madnklo/tmp_fortran/template_files/sector.inc").read()
 #        file = file % replace_dict
 #        writer(filename).writelines(file)
-
-        # Set replace_dict for NLO_K_isec_jsec.f
-        replace_dict_ct = {}
-        #print(necessary_ct_list)
-        for i in range(0,len(all_sector_list)):
-            list_M2 = []
-            isec = str(all_sector_legs).replace('[','').replace(']','').replace(' ','').replace(',','')[i*2]
-            jsec = str(all_sector_legs).replace('[','').replace(']','').replace(' ','').replace(',','')[i*2+1]
-
-            replace_dict_ct['isec'] = int(isec)
-            replace_dict_ct['jsec'] = int(jsec)
-            str_cts = str(necessary_ct_list).replace('[','').replace(']','').replace(' ','')
-            #print(str_cts)
-
-            if int(str_cts[i*10]) == 1:
-                list_M2.append('KS=KS+M2_S(isec,xs,xp,wgt,WsumSi,xj,nitR,1d0,ierr)\n')
-                list_M2.append('\n')
-            if int(str_cts[i*10+2]) == 1:
-                list_M2.append('KS=KS+M2_S(jsec,xs,xp,wgt,WsumSj,xj,nitR,1d0,ierr)\n')
-                list_M2.append('\n')
-            if int(str_cts[i*10+4]) == 1:
-                list_M2.append('KHC=KHC+M2_H_C(isec,jsec,iref(isec,jsec),xs,xp,xsb,xpb,wgt,xj,nitR,1d0,ierr)\n')
-                list_M2.append('\n')
-            #if str_cts[i*10+6] == 1:
-            #    str_M2.append('')
-            #if str_cts[i*10+8] == 1:
-            #    str_M2.append('')
-
-            str_M2 = " ".join(list_M2)
-
-            replace_dict_ct['str_M2'] = str_M2
-            #str(str_M2).replace('[','').replace(']','').replace("'","")
-            #print(str_M2)
-
-
-
-            #replace_dict_ct['necessary_ct_list'] = str(necessary_ct_list).replace('[','').replace(']','').replace(' ','')[i*10:i*10+9]
-
-
-            filename = pjoin(dirpath, 'NLO_K_%d_%d.f' % (int(isec), int(jsec)))
-            file = open("/home/gloria/Desktop/madnklo/tmp_fortran/tmp_files/NLO_K_template.f").read()
-            file = file % replace_dict_ct
-            writer(filename).writelines(file)
-
 
         #gl
         """# Wrote sector_template file

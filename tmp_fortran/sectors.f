@@ -12,7 +12,7 @@ c      integer npsec
       real * 8 s,sqi,sqj,sij,ei,ej,wij
       real * 8 dot,momsq
       real * 8 wgt
-
+!      real * 8 getsecinv
 
       call getsecinv(q, p_sec,s,sqi,sqj,sij)
       
@@ -31,7 +31,7 @@ c      integer npsec
       real * 8 q(0:3),p_sec(0:3,2)
       real * 8 wgt
       real * 8 s,sij,sqi,sqj,wij
-
+!      real * 8 getsecinv
 
       call getsecinv(q, p_sec,s,sqi,sqj,sij)
       
@@ -41,6 +41,21 @@ c      integer npsec
       
       end
 
+      subroutine getsecwgtC(q,p_sec,wgt)
+      implicit none
+      real * 8 q(0:3),p_sec(0:3,2)
+      real * 8 wgt
+      real * 8 s,sij,sqi,sqj,wij,ei
+!      real * 8 getsecinv
+
+      call getsecinv(q, p_sec,s,sqi,sqj,sij)
+      
+      ei = sqi/s
+      
+      wgt = 1d0/ei
+      
+      
+      end
 
       subroutine getsecinv(q, p_sec,s,sqi,sqj,sij)
       implicit none

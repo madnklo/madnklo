@@ -2,9 +2,9 @@
 c     single-soft limit S_(i) * Wsoft
 c     it returns 0 if i is not a gluon
       implicit none
-c      include 'setup.inc'
       include 'nexternal.inc'
       include 'damping_factors.inc'
+      include 'colored_partons.inc'
       integer i,l,m,lb,mb,ierr,nit
       double precision M2_S,pref,M2tmp,wgt,wgtpl,Wsoft,xj,xjCS
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
@@ -19,26 +19,28 @@ c     initialise
       M2tmp=0d0
       ierr=0
 c
-c     soft limit only for gluons
-      if(.not.isgNLO(i))return
-c
 c     overall kernel prefix
 c     TODO: read pi*alphas
       pref=-8d0*pi*alphas
 c
 c     eikonal double sum
-c     TODO: multiply mult_factors = 2d0
-c     TODO: m and l have to run on a list
-c           of colored partons of the process
-      do m=1,nexternal
+      do m=1,nexternal-1
+         if(.not.isNLOQCDparton(m))cycle
          if(m.eq.i)cycle
-         do l=1,m-1
+         do l=m+1,nexternal
+            if(.not.isNLOQCDparton(l))cycle
             if(l.eq.i)cycle
 c
 c     determine indices in the n-1 body kinematics
 c     TODO: write include file for imap labels
             lb=imap(l,i,l,0,0,npartNLO)
             mb=imap(m,i,l,0,0,npartNLO)
+c     TODO: add isLOQCDparton
+c     check on LO color labels 
+            if(.not.(isLOQCDparton(lb).and.isLOQCDparton(mb)))then
+               write(*,*)'Wrong LO indices in soft kernel',lb,mb
+               stop
+            endif
 c
 c     phase-space mapping according to l and m, at fixed radiation
 c     phase-space point: the singular kernel is in the same point
@@ -58,8 +60,6 @@ c     invariant quantities
             sil=xs(i,l)
             sim=xs(i,m)
             slm=xs(l,m)
-            y=sil/(sil+sim+slm)
-            z=sim/(sim+slm)
 c     TODO: add other variables for damping
 c
 c     safety check
@@ -74,9 +74,11 @@ c     TODO: look at cc_Born_LO()
             if(ierr.eq.1)goto 999
 c
 c     eikonal
+            M2tmp=ccBLO(lb,mb)*2d0*slm/(sil*sim)
             if(m.ge.2.and.l.ge.2)then
-               M2tmp=ccBLO(lb,mb)*2d0*slm/(sil*sim)
-     &            *((1d0-y)*(1d0-z))**alpha
+               y=sil/(sil+sim+slm)
+               z=sim/(sim+slm)
+               M2tmp=M2tmp*((1d0-y)*(1d0-z))**alpha
             elseif(m.ge.2.and.l.le.2)then
 c              M2tmp=... ()()**alpha
             elseif(m.le.2.and.l.le.2)then
@@ -125,14 +127,6 @@ c     initialise
       M2tmp=0d0
       ierr=0
 c
-c     input check
-c     TODO: check only first time
-      if(ia.eq.ib.or.ia.eq.ir.or.ib.eq.ir)then
-         write(*,*)'Wrong input indices in M2_H_C'
-         write(*,*)ia,ib,ir
-         stop
-      endif
-c
 c     possible cuts
       if(docut(xpb,nexternal-1))return
 c
@@ -168,18 +162,15 @@ c     TODO: this was get_eps()
       call get_kt(ia,ib,ir,xp,xpb,nexternal,wa,wb,wr,pkt,ktkt)
       call Born_LO_kp(xsb,pkt,ktkt,BLOkp,ierr)
       if(ierr.eq.1)goto 999
+      M2tmp=CA*2d0*(2d0/sab*BLOkp+
+     &             x/(1d0-x)*(1d0-x**alpha)*BLO+
+     &             (1d0-x)/x*(1d0-(1d0-x)**alpha)*BLO)
 c     account for different damping factors according to
-c     recoiler position (ir)
+c     recoiler position (ir) 
       if(ir.ge.2)then
-         M2tmp=CA*2d0*(2d0/sab*BLOkp+
-     &                x/(1d0-x)*(1d0-x**alpha)*BLO+
-     &                (1d0-x)/x*(1d0-(1d0-x)**alpha)*BLO)
-     &           *(1d0-y)**beta_FF
+         M2tmp=M2tmp*(1d0-y)**beta_FF
       else
-         M2tmp=CA*2d0*(2d0/sab*BLOkp+
-     &                x/(1d0-x)*(1d0-x**alpha)*BLO+
-     &                (1d0-x)/x*(1d0-(1d0-x)**alpha)*BLO)
-     &           *xinit**beta_FI
+         M2tmp=M2tmp*xinit**beta_FI
       endif
 c
       M2_H_C=M2tmp*pref/sab*extra
@@ -222,16 +213,6 @@ c     initialise
       M2tmp=0d0
       ierr=0
 c
-c     input check
-c     TODO: check only first time
-      if(ia.eq.ib.or.ia.eq.ir.or.ib.eq.ir)then
-         write(*,*)'Wrong input indices in M2_H_C'
-         write(*,*)ia,ib,ir
-         stop
-      endif
-c
-c     possible cuts
-c     TODO 
       if(docut(xpb,nexternal-1))return
 c
 c     overall kernel prefix
@@ -256,16 +237,14 @@ c     TODO: look at Born_LO()
       call Born_LO(xsb,BLO,ierr)
       if(ierr.eq.1)goto 999
 c
-c     TODO: split the various flavours (without if)
-c     q -> gq case
+      M2tmp=BLO*CF*((1d0-x)+
+     &              2d0*x/(1d0-x)*(1d0-x**alpha))
+c     account for different damping factors according to
+c     recoiler position (ir)
       if(ir.ge.2)then
-         M2tmp=BLO*CF*((1d0-x)+
-     &                 2d0*x/(1d0-x)*(1d0-x**alpha))
-     &            *(1d0-y)**beta_FF
+         M2tmp=M2tmp*(1d0-y)**beta_FF
       else
-         M2tmp=BLO*CF*((1d0-x)+
-     &                 2d0*x/(1d0-x)*(1d0-x**alpha))
-     &            *xinit**beta_FI
+         M2tmp=M2tmp*xinit**beta_FI
 c
       M2_H_C=M2tmp*pref/sab*extra
 c
@@ -308,14 +287,6 @@ c     initialise
       M2tmp=0d0
       ierr=0
 c
-c     input check
-c     TODO: check only first time
-      if(ia.eq.ib.or.ia.eq.ir.or.ib.eq.ir)then
-         write(*,*)'Wrong input indices in M2_H_C'
-         write(*,*)ia,ib,ir
-         stop
-      endif
-c
 c     possible cuts
       if(docut(xpb,nexternal-1))return
 c
@@ -351,10 +322,14 @@ c     g -> qq case
       call get_kt(ia,ib,ir,xp,xpb,nexternal,wa,wb,wr,pkt,ktkt)
       call Born_LO_kp(xsb,pkt,ktkt,BLOkp,ierr)
       if(ierr.eq.1)goto 999
+c
+      M2tmp=TR*(BLO-4d0/sab*BLOkp)
+c     account for different damping factors according to
+c     recoiler position (ir)
       if(ir.ge.2)then
-         M2tmp=TR*(BLO-4d0/sab*BLOkp)*(1d0-y)**beta_FF
+         M2tmp=M2tmp*(1d0-y)**beta_FF
       else
-         M2tmp=TR*(BLO-4d0/sab*BLOkp)*xinit**beta_FI
+         M2tmp=M2tmp*xinit**beta_FI
       endif
 c
       M2_H_C=M2tmp*pref/sab*extra

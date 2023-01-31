@@ -16,9 +16,11 @@ import logging
 import madgraph.interface.madgraph_interface as interface
 import madgraph.iolibs.export_v4 as export
 import madgraph.iolibs.file_writers as writers
+import dipole_current
 import torino_config
 import factors_and_cuts
 import recoiler_function
+import colored_partons
 import os
 pjoin = os.path.join
 
@@ -410,14 +412,10 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                         if all_legs[0].n == s['sector'].leg_numbers[0]: # should match to "i"
                             s['counterterms'].append(i_ct)
                             necessary_ct_list[i] = 1
-                        #else :
-                        #    necessary_ct_list.append(0)
 # # # gl                        
                         if s['sector'].id[0] == 21 and s['sector'].id[1] == 21 and all_legs[0].n == s['sector'].leg_numbers[1]: # should match to "j"
                             s['counterterms'].append(i_ct)
                             necessary_ct_list[i+1] = 1
-                        #else :
-                        #    necessary_ct_list.append(0)
 
                     if singular_structure.name()=='C':
                         if not singular_structure.substructures:
@@ -425,8 +423,6 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                             if sorted([l.n for l in all_legs]) == sorted(s['sector'].leg_numbers):
                                 s['counterterms'].append(i_ct)
                                 necessary_ct_list[i+2] = 1
-                            #else : 
-                            #    necessary_ct_list.append(0)
                         else:
                             #soft-collinear CT: include only if, on top of the previous condition,
                             #  the soft leg matches the first sector leg
@@ -434,16 +430,12 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                                singular_structure.substructures[0].legs[0].n == s['sector'].leg_numbers[0]:
                                 s['counterterms'].append(i_ct)
                                 necessary_ct_list[i+3] = 1
-                            #else :
-                            #    necessary_ct_list.append(0)
 # # gl
                             if s['sector'].id[0] == 21 and s['sector'].id[1] == 21:
                                 if sorted([l.n for l in all_legs]) == sorted(s['sector'].leg_numbers) and \
                                     singular_structure.substructures[0].legs[0].n == s['sector'].leg_numbers[1]:
                                     s['counterterms'].append(i_ct)
                                     necessary_ct_list[i+4] = 1
-                                #else :
-                                #    necessary_ct_list.append(0)
 
                 all_local_counterterms_list.append(s['counterterms'])
 
@@ -480,14 +472,21 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             jsec = all_sector_list[i][1]
             id_isec = all_sector_id_list[i][0]
             id_jsec = all_sector_id_list[i][1]
+            #check isec != jsec
+            if isec == jsec:
+                raise MadEvent7Error('Wrong sector indices %d,%d!' % (isec,jsec))
 
             replace_dict_ct['isec'] = isec
             replace_dict_ct['jsec'] = jsec
  
             if necessary_ct_list[i*5] == 1:
+                if id_isec != 21:
+                    raise MadEvent7Error('%d is not a gluon!' % isec)
                 list_M2.append('KS=KS+M2_S(isec,xs,xp,wgt,WsumSi,xj,nitR,1d0,ierr)\n')
                 list_M2.append('#\n')
             if necessary_ct_list[i*5+1] == 1:
+                if id_jsec != 21:
+                    raise MadEvent7Error('%d is not a gluon!' % jsec)
                 list_M2.append('KS=KS+M2_S(jsec,xs,xp,wgt,WsumSj,xj,nitR,1d0,ierr)\n')
                 list_M2.append('#\n')
             if necessary_ct_list[i*5+2] == 1:
@@ -497,6 +496,10 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     iref_leg = recoiler_function.get_recoiler(defining_process,(isec,jsec))
                     iref = iref_leg.get('number')
                     replace_dict_ct['iref'] = iref
+                    # Check function
+                    if (isec == iref) or (jsec == iref):
+                        raise MadEvent7Error('Wrong recoiler %d,%d,%d!' % (isec,jsec,iref))
+
                     # Write an identified M2_H_C_F*F* for each (**) flavour couple 
                     if id_isec == 21 and id_jsec == 21:
                         list_M2.append('KHC=KHC+M2_H_C_FgFg(isec,jsec,%d,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,ierr)' % iref)
@@ -545,6 +548,26 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         filename = pjoin(dirpath, 'damping_factors.inc')
         writer(filename).writelines(file)
 
+
+######### Write colored_partons.inc
+
+        # Set replace_dict 
+        replace_dict = {}
+        colored_legs = list(colored_partons.get_colored_legs(defining_process).values())
+        list_colored_legs = []
+        isNLOQCDparton = ['.false.'] * (len(leglist))
+        for i in range(0,len(colored_legs)):
+            list_colored_legs.append(colored_legs[i][0])
+            isNLOQCDparton[colored_legs[i][0]-1] = '.true.'
+        replace_dict['len_leglist'] = len(leglist)
+        replace_dict['isNLOQCDparton'] = str(isNLOQCDparton).replace('[','').replace(']','').replace(' ','').replace("'","")
+
+        file = """ \
+          logical isNLOQCDparton(%(len_leglist)d)
+          data isNLOQCDparton/%(isNLOQCDparton)s/""" % replace_dict
+
+        filename = pjoin(dirpath, 'colored_partons.inc')
+        writer(filename).writelines(file)
 
 
 

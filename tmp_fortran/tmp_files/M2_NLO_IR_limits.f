@@ -265,7 +265,7 @@ c     q -> gq case
       else
          M2tmp=BLO*CF*((1d0-x)+
      &                 2d0*x/(1d0-x)*(1d0-x**alpha))
-     &            *xinit**beta_FF
+     &            *xinit**beta_FI
 c
       M2_H_C=M2tmp*pref/sab*extra
 c

@@ -472,7 +472,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             jsec = all_sector_list[i][1]
             id_isec = all_sector_id_list[i][0]
             id_jsec = all_sector_id_list[i][1]
-            #check isec != jsec
+            # Check isec != jsec
             if isec == jsec:
                 raise MadEvent7Error('Wrong sector indices %d,%d!' % (isec,jsec))
 
@@ -496,10 +496,9 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     iref_leg = recoiler_function.get_recoiler(defining_process,(isec,jsec))
                     iref = iref_leg.get('number')
                     replace_dict_ct['iref'] = iref
-                    # Check function
+                    # Check irec validity
                     if (isec == iref) or (jsec == iref):
                         raise MadEvent7Error('Wrong recoiler %d,%d,%d!' % (isec,jsec,iref))
-
                     # Write an identified M2_H_C_F*F* for each (**) flavour couple 
                     if id_isec == 21 and id_jsec == 21:
                         list_M2.append('KHC=KHC+M2_H_C_FgFg(isec,jsec,%d,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,ierr)' % iref)

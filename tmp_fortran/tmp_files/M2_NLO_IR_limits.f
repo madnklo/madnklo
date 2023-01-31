@@ -88,7 +88,8 @@ c              M2tmp=... ()()**alpha
 c
 c     plot
             wgtpl=-pref*M2tmp*Wsoft*extra*xj*wgt/nit
-            if(doplot)call histo_fill(xpb,xsb,npartLO,wgtpl)
+c           TODO: look at histo_fill()
+            if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
          enddo
       enddo
@@ -177,7 +178,7 @@ c
 c
 c     plot
       wgtpl=-M2_H_C*xj*wgt/nit
-      if(doplot)call histo_fill(xpb,xsb,npartLO,wgtpl)
+      if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
 c     sanity check
       if(abs(M2_H_C).ge.huge(1d0).or.isnan(M2_H_C))then

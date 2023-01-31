@@ -478,23 +478,19 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             list_M2 = []
             isec = all_sector_list[i][0]
             jsec = all_sector_list[i][1]
-            #isec = str(all_sector_legs).replace('[','').replace(']','').replace(' ','').replace(',','')[i*2]
-            #jsec = str(all_sector_legs).replace('[','').replace(']','').replace(' ','').replace(',','')[i*2+1]
             id_isec = all_sector_id_list[i][0]
             id_jsec = all_sector_id_list[i][1]
 
             replace_dict_ct['isec'] = isec
             replace_dict_ct['jsec'] = jsec
  
-            str_cts = str(necessary_ct_list).replace('[','').replace(']','').replace(' ','')
-
-            if int(str_cts[i*10]) == 1:
+            if necessary_ct_list[i*5] == 1:
                 list_M2.append('KS=KS+M2_S(isec,xs,xp,wgt,WsumSi,xj,nitR,1d0,ierr)\n')
                 list_M2.append('#\n')
-            if int(str_cts[i*10+2]) == 1:
+            if necessary_ct_list[i*5+1] == 1:
                 list_M2.append('KS=KS+M2_S(jsec,xs,xp,wgt,WsumSj,xj,nitR,1d0,ierr)\n')
                 list_M2.append('#\n')
-            if int(str_cts[i*10+4]) == 1:
+            if necessary_ct_list[i*5+2] == 1:
                 # Loop over sectors with final state particles only
                 if isec > 2 and jsec > 2:
                     # Extract the reference particle leg from recoiler_function.py
@@ -504,10 +500,10 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     # Write an identified M2_H_C_F*F* for each (**) flavour couple 
                     if id_isec == 21 and id_jsec == 21:
                         list_M2.append('KHC=KHC+M2_H_C_FgFg(isec,jsec,%d,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,ierr)' % iref)
-                    elif id_isec == 21 or id_jsec == 21:
+                    elif id_isec == 21 and id_jsec != 21: # if there is a gluon in sector, it is always in the first position
                         list_M2.append('KHC=KHC+M2_H_C_FgFq(isec,jsec,%d,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,ierr)' % iref)
                     else:
-                        list_M2.append('KHC=KHC+M2_H_C_FqFqx(isec,jsec,%(iref)d,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,ierr)' % iref)
+                        list_M2.append('KHC=KHC+M2_H_C_FqFqx(isec,jsec,%d,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,ierr)' % iref)
                 # Loop over sectors with at least one initial state particle
                 if isec <= 2 or jsec <= 2:
                     continue

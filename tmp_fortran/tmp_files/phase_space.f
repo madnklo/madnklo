@@ -3,13 +3,14 @@ c     Build n+1 momenta p from n momenta pbar
 c     iU is the unresolved parton associated
 c     with the soft singularity
       implicit none
+      include 'math.inc'
       double precision xx(3)
+      integer i,j,iU,iS,iB,iA,npart,ierr
       double precision p(0:3,npart),pbar(0:3,npart-1),xjac
       double precision zCS,yCS,phCS
       double precision cosphi,sinphi,cosphiA,sinphiA
       double precision cosphiU,sinphiU,costhUB,sinthUB
       double precision Eu,pmod,pAtmod,G
-      integer i,j,iU,iS,iB,iA,npart,ierr
       double precision nB(0:3),pbB(0:3),pbBsave(0:3)
       double precision pbS(0:3),pA(0:3),pboost(0:3)
       double precision pAr(0:3),pUr(0:3)
@@ -137,9 +138,10 @@ c     Build n momenta pbar from n+1 momenta p
 c     iU is the unresolved parton associated
 c     with the soft singularity
       implicit none
+      include 'math.inc'
+      integer i,j,iU,iS,iB,npart
       double precision p(0:3,npart),pbar(0:3,npart-1)
       double precision yCS,xjac,G,Qsq,dot
-      integer i,j,iU,iS,iB,npart
 c
 c     initialise
       xjac=0d0
@@ -151,7 +153,7 @@ c     auxiliary quantities
 c
 c     construct pbar from p
 c     TODO: look at imap()
-c     TODO: add mappings fr initial state
+c     TODO: add mappings for initial state
       pbar(:,imap(iB,iS,iU,0,0,npart))=p(:,iB)/(1-yCS)
       pbar(:,imap(iS,iS,iU,0,0,npart))=p(:,iU)+p(:,iS)-p(:,iB)*yCS/(1-yCS)
       do j=1,npart
@@ -168,7 +170,6 @@ c     consistency check
       enddo
 c
 c     construct xjac
-c     TODO: pass pi parameter
       G=1d0/16d0/pi**3
       xjac=G*Qsq*pi*(1-yCS)
 c
@@ -179,11 +180,13 @@ c
 
       subroutine phase_space_n(x,shat,p,xjac)
       implicit none
-      include 'dims.inc'
-      include 'setup.inc'
-      include 'mxdim.inc'
+c      include 'dims.inc'
+c      include 'setup.inc'
+c      include 'mxdim.inc'
+      include 'math.inc'
+      include 'nexternal.inc'
       double precision x(1),shat
-      double precision p(0:3,-2:2),xjac
+      double precision p(0:3,nexternal),xjac
 c
 c     local variables
       double precision app,pmod,costh,sinth,ph,ran2
@@ -206,6 +209,7 @@ c     app is modulus squared of three-momentum
       ph=RAN2(idum)*twopi
 c
 c     final-state momenta
+c     TODO: needed xmsq()
       p(0,1)=sqrt(pmod*pmod+xmsq(1))
       p(1,1)=pmod*sinth*cos(ph)
       p(2,1)=pmod*sinth*sin(ph)
@@ -233,11 +237,13 @@ c
       subroutine phase_space_npo(x,shat,iU,iS,iB,iA,p,pbar,xjac,xjacB)
 c     iU is the unresolved parton associated with the soft singularity
       implicit none
-      include 'dims.inc'
-      include 'setup.inc'
-      include 'mxdim.inc'
+c      include 'dims.inc'
+c      include 'setup.inc'
+c      include 'mxdim.inc'
+      include 'math.inc'
+      include 'nexternal.inc'
       double precision x(4),shat
-      double precision p(0:3,-2:3),pbar(0:3,-2:2)
+      double precision p(0:3,nexternal),pbar(0:3,nexternal-1)
       double precision xjac,xjacB,xjacCS
       integer i,j,iU,iS,iB,iA
 c
@@ -254,7 +260,7 @@ c     labels are assigned so to have (iU1 iS1 iB1)
 c     as an n+1 -> n mapping
 c
 c     call radiation phase space
-      call phase_space_CS(x(1),iU,iS,iB,iA,p,pbar,npartNLO,xjacCS)
+      call phase_space_CS(x(1),iU,iS,iB,iA,p,pbar,nexternal,xjacCS)
 c
 c     total jacobian
       xjac=xjacB*xjacCS
@@ -267,6 +273,7 @@ c
 c     iU1 and iU2 are the unresolved partons associated with the soft singularity
 c     iU2, iS2, and iB2 are outputs
       implicit none
+c     TODO: modify to nexternal convention
       include 'dims.inc'
       include 'setup.inc'
       include 'mxdim.inc'

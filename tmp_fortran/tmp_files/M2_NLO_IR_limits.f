@@ -3,6 +3,7 @@ c     single-soft limit S_(i) * Wsoft
 c     it returns 0 if i is not a gluon
       implicit none
       include 'nexternal.inc'
+      include 'math.inc'
       include 'damping_factors.inc'
       include 'colored_partons.inc'
       integer i,l,m,lb,mb,ierr,nit
@@ -10,7 +11,7 @@ c     it returns 0 if i is not a gluon
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision BLO,ccBLO(nexternal-1,nexternal-1),extra
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
-      double precision sil,sim,slm,y,z
+      double precision sil,sim,slm,y,z,x,damp
       logical doplot
       common/cdoplot/doplot
 c
@@ -18,9 +19,12 @@ c     initialise
       M2_S=0d0
       M2tmp=0d0
       ierr=0
+      damp=0d0
 c
 c     overall kernel prefix
-c     TODO: read pi*alphas
+c     TODO: needed call to alphaQCD() for alphas
+c     TODO: read muR from input file
+c      alphas=alpha_QCD(asMZ,nloop,muR)
       pref=-8d0*pi*alphas
 c
 c     eikonal double sum
@@ -60,7 +64,6 @@ c     invariant quantities
             sil=xs(i,l)
             sim=xs(i,m)
             slm=xs(l,m)
-c     TODO: add other variables for damping
 c
 c     safety check
             if(sil*sim.le.0d0)then
@@ -78,12 +81,16 @@ c     eikonal
             if(m.ge.2.and.l.ge.2)then
                y=sil/(sil+sim+slm)
                z=sim/(sim+slm)
-               M2tmp=M2tmp*((1d0-y)*(1d0-z))**alpha
+               damp=((1d0-y)*(1d0-z))**alpha
             elseif(m.ge.2.and.l.le.2)then
-c              M2tmp=... ()()**alpha
+               z=sim/(sim+slm)
+               x=1d0 - sil/(sim+slm)
+               damp=((1d0-z)*x)**alpha
             elseif(m.le.2.and.l.le.2)then
-c              M2tmp=... ()()**alpha
+               x=1d0 - (sil+sim)/slm
+               damp=x**alpha
             endif
+            M2_tmp=M2_tmp*damp
             M2_S=M2_S+pref*M2tmp*Wsoft*extra
 c
 c     plot
@@ -118,7 +125,7 @@ c     for sectors (ia,ib)+(ib,ia)
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision BLO,BLOkp,pkt(nexternal-1)
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1),ktkt
-      double precision sab,sar,sbr,x,y,xinit
+      double precision sab,sar,sbr,x,y,xinit,damp
       double precision wa,wb,wr
       logical doplot
       common/cdoplot/doplot
@@ -127,6 +134,7 @@ c     initialise
       M2_H_C=0d0
       M2tmp=0d0
       ierr=0
+      damp=0d0
 c
 c     possible cuts
       if(docut(xpb,nexternal-1))return
@@ -169,11 +177,11 @@ c     TODO: this was get_eps()
 c     account for different damping factors according to
 c     recoiler position (ir) 
       if(ir.ge.2)then
-         M2tmp=M2tmp*(1d0-y)**beta_FF
+         damp=(1d0-y)**beta_FF
       else
-         M2tmp=M2tmp*xinit**beta_FI
+         damp=xinit**beta_FI
       endif
-c
+      M2tmp=M2tmp*damp
       M2_H_C=M2tmp*pref/sab*extra
 c
 c     plot
@@ -204,7 +212,7 @@ c     for sectors (ia,ib)+(ib,ia)
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision BLO
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
-      double precision sab,sar,sbr,x,y,xinit
+      double precision sab,sar,sbr,x,y,xinit,damp
       double precision wa,wb,wr
       logical doplot
       common/cdoplot/doplot
@@ -213,6 +221,7 @@ c     initialise
       M2_H_C=0d0
       M2tmp=0d0
       ierr=0
+      damp=0d0
 c
       if(docut(xpb,nexternal-1))return
 c
@@ -243,10 +252,11 @@ c
 c     account for different damping factors according to
 c     recoiler position (ir)
       if(ir.ge.2)then
-         M2tmp=M2tmp*(1d0-y)**beta_FF
+         damp=(1d0-y)**beta_FF
       else
-         M2tmp=M2tmp*xinit**beta_FI
-c
+         damp=xinit**beta_FI
+      endif
+      M2tmp=M2tmp*damp
       M2_H_C=M2tmp*pref/sab*extra
 c
 c     plot
@@ -278,7 +288,7 @@ c     for sectors (ia,ib)+(ib,ia)
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision BLO,BLOkp,pkt(nexternal-1)
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1),ktkt
-      double precision sab,sar,sbr,x,y,xinit
+      double precision sab,sar,sbr,x,y,xinit,damp
       double precision wa,wb,wr
       logical doplot
       common/cdoplot/doplot
@@ -287,6 +297,7 @@ c     initialise
       M2_H_C=0d0
       M2tmp=0d0
       ierr=0
+      damp=0d0
 c
 c     possible cuts
       if(docut(xpb,nexternal-1))return
@@ -319,7 +330,6 @@ c     TODO: look at Born_LO()
       call Born_LO(xsb,BLO,ierr)
       if(ierr.eq.1)goto 999
 c
-c     g -> qq case
       call get_kt(ia,ib,ir,xp,xpb,nexternal,wa,wb,wr,pkt,ktkt)
       call Born_LO_kp(xsb,pkt,ktkt,BLOkp,ierr)
       if(ierr.eq.1)goto 999
@@ -328,11 +338,11 @@ c
 c     account for different damping factors according to
 c     recoiler position (ir)
       if(ir.ge.2)then
-         M2tmp=M2tmp*(1d0-y)**beta_FF
+         damp=(1d0-y)**beta_FF
       else
-         M2tmp=M2tmp*xinit**beta_FI
+         damp=xinit**beta_FI
       endif
-c
+      M2tmp=M2tmp*damp
       M2_H_C=M2tmp*pref/sab*extra
 c
 c     plot

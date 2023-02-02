@@ -12,6 +12,7 @@ c     it returns 0 if i is not a gluon
       double precision BLO,ccBLO(nexternal-1,nexternal-1),extra
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision sil,sim,slm,y,z,x,damp
+      integer mapped_labels(nexternal)
       logical doplot
       common/cdoplot/doplot
 c
@@ -37,8 +38,13 @@ c     eikonal double sum
 c
 c     determine indices in the n-1 body kinematics
 c     TODO: write include file for imap labels
+            call get_mapped_labels(i,l,m,nexternal,mapped_labels)
+            lb=mapped_labels(l)
+            mb=mapped_labels(m)
+            write(*,*) 'Our mapping labels',lb,mb
             lb=imap(l,i,l,0,0,npartNLO)
             mb=imap(m,i,l,0,0,npartNLO)
+            write(*,*) 'Paolo mapping labels',lb,mb
 c     TODO: add isLOQCDparton
 c     check on LO color labels 
             if(.not.(isLOQCDparton(lb).and.isLOQCDparton(mb)))then
@@ -72,7 +78,7 @@ c     safety check
             endif
 c
 c     call colour-connected Born
-c     TODO: look at cc_Born_LO()
+c     TODO: generalise cc_Born_LO()
             call cc_Born_LO(xsb,ccBLO,ierr)
             if(ierr.eq.1)goto 999
 c

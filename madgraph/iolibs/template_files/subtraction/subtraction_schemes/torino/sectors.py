@@ -458,7 +458,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         writer = writers.FortranWriter
 
         # TODO: point to the right process directory
-        dirpath = pjoin("/Users/giovannilimatola/Desktop/Fisica/Lavori/madnklo/eejj/NLO_R_x_R_epem_guux_1")
+        dirpath = pjoin("/home/gloria/Desktop/madnklo/bin/test/NLO_R_x_R_epem_guux_1")
         dirpath = pjoin(dirpath, 'SubProcesses', \
                        "P%s" % defining_process.shell_string())
 
@@ -521,11 +521,11 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                 replace_dict_ct['str_M2'] = str_M2
 
             filename = pjoin(dirpath, 'NLO_K_%d_%d.f' % (isec, jsec))
-            file = open("/Users/giovannilimatola/Desktop/Fisica/Lavori/madnklo/tmp_fortran/tmp_files/NLO_K_template.f").read()
+            file = open("/home/gloria/Desktop/madnklo/tmp_fortran/tmp_files/NLO_K_template.f").read()
             file = file % replace_dict_ct
             writer(filename).writelines(file)
 
-######## Write masses.inc ########
+######## Write model.inc ########
         replace_dict={}
         scale = model.get('parameter_dict')['MU_R']
         mz = model.get('parameter_dict')['mdl_MZ']
@@ -538,7 +538,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         mta = model.get('parameter_dict')['mdl_MTA']
         replace_dict['MU_R'] = scale
         replace_dict['mdl_MZ'] = mz
- #       replace_dict['mdl_MZ'] = mw
+ #       replace_dict['mdl_MW'] = mw
         replace_dict['mdl_MT'] = mt
         replace_dict['mdl_MC'] = mc
         replace_dict['mdl_MB'] = mb
@@ -606,35 +606,6 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
 
 
-
-
-
-#        # Set replace_dict for sector.inc
-#        replace_dict = {}
-#        replace_dict['singular_sec'] = len(all_sector_list)
-#        replace_dict['all_sector_legs'] = str(all_sector_legs).replace('[','').replace(']','').replace(' ','')
-#        replace_dict['all_sector_id_legs'] = str(all_sector_id_legs).replace('[','').replace(']','').replace(' ','')
-#        replace_dict['necessary_ct_list'] = str(necessary_ct_list).replace('[','').replace(']','').replace(' ','')
-
-#        filename = pjoin(dirpath, 'sector_test.inc')
-#        file = open("/home/gloria/Desktop/madnklo/tmp_fortran/template_files/sector.inc").read()
-#        file = file % replace_dict
-#        writer(filename).writelines(file)
-
-        #gl
-        """# Wrote sector_template file
-        writer = writers.FortranWriter
-        dirpath = "/Users/giovannilimatola/Desktop/Fisica/Lavori/madnklo/tmp_fortran/template_files"
-        filename = pjoin(dirpath, 'sector.inc')
-
-        replace_dict = {}
-        replace_dict['all_sector_list'] = all_sector_list
-        replace_dict['all_sector_id_list'] = all_sector_id_list
-        replace_dict['all_local_counterterms_list'] = all_local_counterterms_list
-
-        file = open("/Users/giovannilimatola/Desktop/Fisica/Lavori/madnklo/tmp_fortran/template_files/sector_template.inc").read()
-        file = file % replace_dict
-        writer(filename).writelines(file)"""
 
 
         return all_sectors

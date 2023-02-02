@@ -530,6 +530,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         replace_dict={}
         scale = model.get('parameter_dict')['MU_R']
         mz = model.get('parameter_dict')['mdl_MZ']
+#        mw = model.get('parameter_dict')['mdl_MW']
         mt = model.get('parameter_dict')['mdl_MT']
         mc = model.get('parameter_dict')['mdl_MC']
         mb = model.get('parameter_dict')['mdl_MB']
@@ -538,6 +539,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         mta = model.get('parameter_dict')['mdl_MTA']
         replace_dict['MU_R'] = scale
         replace_dict['mdl_MZ'] = mz
+ #       replace_dict['mdl_MZ'] = mw
         replace_dict['mdl_MT'] = mt
         replace_dict['mdl_MC'] = mc
         replace_dict['mdl_MB'] = mb
@@ -554,9 +556,9 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
           parameter (me = %(mdl_Me)lfd0, mmu = %(mdl_MM)lfd0, mta = %(mdl_MTA)lfd0)
           parameter (mc = %(mdl_MC)lfd0, mt = %(mdl_MT)lfd0, mb = %(mdl_MB)lfd0)
           parameter (mur = %(MU_R)lfd0)
-          common/model/me,mmu,mta,mc,mt,mb,mz,mw""" % replace_dict
+          common/model/mmu,me,mta,mc,mt,mb,mz,mw""" % replace_dict
 
-        filename = pjoin(dirpath, 'masses_factors.inc')
+        filename = pjoin(dirpath, 'model.inc')
         writer(filename).writelines(file)
 
         

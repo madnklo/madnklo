@@ -277,6 +277,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             return None
 
         model = defining_process.get('model')
+        #print(model.get('parameter_dict')['MU_R'])
         initial_state_PDGs, final_state_PDGs = defining_process.get_cached_initial_final_pdgs()
         all_PDGs = initial_state_PDGs, final_state_PDGs
 
@@ -538,11 +539,11 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
         file = """ \
           double precision alpha, beta_FF, beta_FI, beta_IF, beta_II
-          parameter (alpha = %(alpha)d)
-          parameter (beta_FF = %(beta_FF)d)
-          parameter (beta_FI = %(beta_FI)d)
-          parameter (beta_IF = %(beta_IF)d)
-          parameter (beta_II = %(beta_II)d)""" % replace_dict
+          parameter (alpha = %(alpha)dd0)
+          parameter (beta_FF = %(beta_FF)dd0)
+          parameter (beta_FI = %(beta_FI)dd0)
+          parameter (beta_IF = %(beta_IF)dd0)
+          parameter (beta_II = %(beta_II)dd0)""" % replace_dict
 
         filename = pjoin(dirpath, 'damping_factors.inc')
         writer(filename).writelines(file)

@@ -277,7 +277,6 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             return None
 
         model = defining_process.get('model')
-        #print(model.get('parameter_dict')['MU_R'])
         initial_state_PDGs, final_state_PDGs = defining_process.get_cached_initial_final_pdgs()
         all_PDGs = initial_state_PDGs, final_state_PDGs
 
@@ -459,10 +458,11 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         writer = writers.FortranWriter
 
         # TODO: point to the right process directory
-        dirpath = pjoin("/home/gloria/Desktop/madnklo/bin/test/NLO_R_x_R_epem_guux_1")
+        dirpath = pjoin("/Users/giovannilimatola/Desktop/Fisica/Lavori/madnklo/eejj/NLO_R_x_R_epem_guux_1")
         dirpath = pjoin(dirpath, 'SubProcesses', \
                        "P%s" % defining_process.shell_string())
-                       
+
+        
 ######### Write NLO_K_isec_jsec.f
 
         # Set replace_dict for NLO_K_isec_jsec.f
@@ -521,11 +521,46 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                 replace_dict_ct['str_M2'] = str_M2
 
             filename = pjoin(dirpath, 'NLO_K_%d_%d.f' % (isec, jsec))
-            file = open("/home/gloria/Desktop/madnklo/tmp_fortran/tmp_files/NLO_K_template.f").read()
+            file = open("/Users/giovannilimatola/Desktop/Fisica/Lavori/madnklo/tmp_fortran/tmp_files/NLO_K_template.f").read()
             file = file % replace_dict_ct
             writer(filename).writelines(file)
 
+######## Write masses.inc ########
+        replace_dict={}
+        scale = model.get('parameter_dict')['MU_R']
+        mz = model.get('parameter_dict')['mdl_MZ']
+#        mw = model.get('parameter_dict')['mdl_MW']
+        mt = model.get('parameter_dict')['mdl_MT']
+        mc = model.get('parameter_dict')['mdl_MC']
+        mb = model.get('parameter_dict')['mdl_MB']
+        me = model.get('parameter_dict')['mdl_Me']
+        mmu = model.get('parameter_dict')['mdl_MM']
+        mta = model.get('parameter_dict')['mdl_MTA']
+        replace_dict['MU_R'] = scale
+        replace_dict['mdl_MZ'] = mz
+ #       replace_dict['mdl_MZ'] = mw
+        replace_dict['mdl_MT'] = mt
+        replace_dict['mdl_MC'] = mc
+        replace_dict['mdl_MB'] = mb
+        replace_dict['mdl_Me'] = me
+        replace_dict['mdl_MM'] = mmu
+        replace_dict['mdl_MTA'] = mta
+        
+        file = """ \
+          double precision mur
+          double precision me,mmu,mta
+          double precision mc,mt,mb
+          double precision mz,mw
+          parameter (mz = %(mdl_MZ)lfd0)
+          parameter (me = %(mdl_Me)lfd0, mmu = %(mdl_MM)lfd0, mta = %(mdl_MTA)lfd0)
+          parameter (mc = %(mdl_MC)lfd0, mt = %(mdl_MT)lfd0, mb = %(mdl_MB)lfd0)
+          parameter (mur = %(MU_R)lfd0)
+          common/model/mmu,me,mta,mc,mt,mb,mz,mw""" % replace_dict
 
+        filename = pjoin(dirpath, 'model.inc')
+        writer(filename).writelines(file)
+
+        
 ######### Write damping_factors.inc
 
         # Set replace_dict 
@@ -589,7 +624,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         #gl
         """# Wrote sector_template file
         writer = writers.FortranWriter
-        dirpath = "/home/gloria/Desktop/madnklo/tmp_fortran/template_files"
+        dirpath = "/Users/giovannilimatola/Desktop/Fisica/Lavori/madnklo/tmp_fortran/template_files"
         filename = pjoin(dirpath, 'sector.inc')
 
         replace_dict = {}
@@ -597,7 +632,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         replace_dict['all_sector_id_list'] = all_sector_id_list
         replace_dict['all_local_counterterms_list'] = all_local_counterterms_list
 
-        file = open("/home/gloria/Desktop/madnklo/tmp_fortran/template_files/sector_template.inc").read()
+        file = open("/Users/giovannilimatola/Desktop/Fisica/Lavori/madnklo/tmp_fortran/template_files/sector_template.inc").read()
         file = file % replace_dict
         writer(filename).writelines(file)"""
 

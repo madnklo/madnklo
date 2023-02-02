@@ -458,7 +458,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         writer = writers.FortranWriter
 
         # TODO: point to the right process directory
-        dirpath = pjoin("/home/gloria/Desktop/madnklo/bin/test/NLO_R_x_R_epem_guux_1")
+        dirmadnklo=os.getcwd()
+        dirpath = pjoin(dirmadnklo,"eejj/NLO_R_x_R_epem_guux_1")
         dirpath = pjoin(dirpath, 'SubProcesses', \
                        "P%s" % defining_process.shell_string())
 
@@ -521,7 +522,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                 replace_dict_ct['str_M2'] = str_M2
 
             filename = pjoin(dirpath, 'NLO_K_%d_%d.f' % (isec, jsec))
-            file = open("/home/gloria/Desktop/madnklo/tmp_fortran/tmp_files/NLO_K_template.f").read()
+#            dirtmp=pjoin(dirmadnklo,"tmp_fortran/tmp_files/NLO_K_template.f")
+            file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NLO_K_template.f")).read()
             file = file % replace_dict_ct
             writer(filename).writelines(file)
 

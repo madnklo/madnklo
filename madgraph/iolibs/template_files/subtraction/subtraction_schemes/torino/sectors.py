@@ -576,11 +576,11 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
         file = """ \
           double precision alpha, beta_FF, beta_FI, beta_IF, beta_II
-          parameter (alpha = %(alpha)dd0)
-          parameter (beta_FF = %(beta_FF)dd0)
-          parameter (beta_FI = %(beta_FI)dd0)
-          parameter (beta_IF = %(beta_IF)dd0)
-          parameter (beta_II = %(beta_II)dd0)""" % replace_dict
+          parameter (alpha = %(alpha)fd0)
+          parameter (beta_FF = %(beta_FF)fd0)
+          parameter (beta_FI = %(beta_FI)fd0)
+          parameter (beta_IF = %(beta_IF)fd0)
+          parameter (beta_II = %(beta_II)fd0)""" % replace_dict
 
         filename = pjoin(dirpath, 'damping_factors.inc')
         writer(filename).writelines(file)

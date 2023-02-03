@@ -51,7 +51,7 @@ c     TODO: check new get_mapped_labels()
             write(*,*) 'Our mapping labels',lb,mb
             lb=imap(l,i,l,0,0,npartNLO)
             mb=imap(m,i,l,0,0,npartNLO)
-            write(*,*) 'Paolo mapping labels',lb,mb
+            write(*,*) 'Old mapping labels',lb,mb
 c     TODO: add isLOQCDparton
 c     check on LO color labels 
             if(.not.(isLOQCDparton(lb).and.isLOQCDparton(mb)))then
@@ -89,12 +89,13 @@ c     TODO: generalise cc_Born_LO()
             if(ierr.eq.1)goto 999
 c
 c     eikonal
+c     TODO: check for dis
             M2tmp=ccBLO(lb,mb)*2d0*slm/(sil*sim)
-            if(m.ge.2.and.l.ge.2)then
+            if(m.gt.2.and.l.gt.2)then
                y=sil/(sil+sim+slm)
                z=sim/(sim+slm)
                damp=((1d0-y)*(1d0-z))**alpha
-            elseif(m.ge.2.and.l.le.2)then
+            elseif(m.gt.2.and.l.le.2)then
                z=sim/(sim+slm)
                x=1d0 - sil/(sim+slm)
                damp=((1d0-z)*x)**alpha
@@ -192,6 +193,7 @@ c     TODO: look at Born_LO()
       if(ierr.eq.1)goto 999
 c
 c     TODO: this was get_eps()
+c     TODO: include wa,wb,wr in get_kt()
       call get_kt(ia,ib,ir,xp,xpb,nexternal,wa,wb,wr,pkt,ktkt)
       call Born_LO_kp(xsb,pkt,ktkt,BLOkp,ierr)
       if(ierr.eq.1)goto 999

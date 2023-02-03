@@ -5,11 +5,6 @@
 c     nparticles is the number of (inital+final)-state particles
       integer i,j,ii,ierr
       double precision p(0:3,nparticles)
-c     xs(-2,j) = 2 * p_in(2)  * p_out(j)
-c     xs(-1,j) = 2 * p_in(1)  * p_out(j)
-c     xs(0,j)  = 2 * p_CM     * p_out(j)
-c     xs(i,j)  = 2 * p_out(i) * p_out(j)
-c     with i,j = 1,2,3,...
       double precision xs(nparticles,nparticles)
       double precision xstmp(nparticles),xstmpsum
       double precision xsq(3:nparticles)

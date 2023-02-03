@@ -15,8 +15,15 @@ c     it returns 0 if i is not a gluon
       double precision sil,sim,slm,y,z,x,damp
       integer mapped_labels(nexternal)
 c     set logical doplot
-      logical doplot
+      logical, save :: doplot=.false.
       common/cdoplot/doplot
+      logical, save :: ini=.false.
+c
+c
+c      if(ini)then
+c         doplot=.true.
+c         ini=.false.
+c      endif
 c
 c     initialise
       M2_S=0d0
@@ -25,8 +32,7 @@ c     initialise
       damp=0d0
 c
 c     overall kernel prefix
-c     TODO: call to alphaQCD() for alphas
-c      alphas=alpha_QCD(asMZ,nloop,muR)
+      alphas=alpha_QCD(asMZ,nloop,muR)
       pref=-8d0*pi*alphas
 c
 c     eikonal double sum
@@ -59,9 +65,9 @@ c     as the single-real, ensuring numerical stability, while the
 c     underlying Born configuration is remapped
             call phase_space_CS_inv(i,l,m,xp,xpb,nexternal,xjCS)
             if(xjCS.eq.0d0)goto 999
+c     TODO: read input in invariants_from_p()
             call invariants_from_p(xpb,nexternal-1,xsb,ierr)
             if(ierr.eq.1)goto 999
-c     TODO: invariants_from_p()
 c
 c     possible cuts
             if(docut(xpb,nexternal-1))cycle
@@ -135,8 +141,16 @@ c     for sectors (ia,ib)+(ib,ia)
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1),ktkt
       double precision sab,sar,sbr,x,y,xinit,damp
       double precision wa,wb,wr
-      logical doplot
+c     set logical doplot
+      logical, save :: doplot=.false.
       common/cdoplot/doplot
+      logical, save :: ini=.false.
+c
+c
+c      if(ini)then
+c         doplot=.true.
+c         ini=.false.
+c      endif
 c
 c     initialise
       M2_H_C=0d0
@@ -148,8 +162,7 @@ c     possible cuts
       if(docut(xpb,nexternal-1))return
 c
 c     overall kernel prefix
-c     TODO: call alphaQCD() for alphas
-c      alphas=alpha_QCD(asMZ,nloop,muR)
+      alphas=alpha_QCD(asMZ,nloop,muR)
       pref=8d0*pi*alphas
 c
 c     invariant quantities
@@ -228,8 +241,16 @@ c     for sectors (ia,ib)+(ib,ia)
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision sab,sar,sbr,x,y,xinit,damp
       double precision wa,wb,wr
-      logical doplot
+c     set logical doplot
+      logical, save :: doplot=.false.
       common/cdoplot/doplot
+      logical, save :: ini=.false.
+c
+c
+c      if(ini)then
+c         doplot=.true.
+c         ini=.false.
+c      endif
 c
 c     initialise
       M2_H_C=0d0
@@ -240,8 +261,7 @@ c
       if(docut(xpb,nexternal-1))return
 c
 c     overall kernel prefix
-c     TODO: call alphaQCD() for alphas
-c      alphas=alpha_QCD(asMZ,nloop,muR)
+      alphas=alpha_QCD(asMZ,nloop,muR)
       pref=8d0*pi*alphas
 c
 c     invariant quantities
@@ -307,8 +327,16 @@ c     for sectors (ia,ib)+(ib,ia)
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1),ktkt
       double precision sab,sar,sbr,x,y,xinit,damp
       double precision wa,wb,wr
-      logical doplot
+c     set logical doplot
+      logical, save :: doplot=.false.
       common/cdoplot/doplot
+      logical, save :: ini=.false.
+c
+c
+c      if(ini)then
+c         doplot=.true.
+c         ini=.false.
+c      endif
 c
 c     initialise
       M2_H_C=0d0
@@ -320,8 +348,7 @@ c     possible cuts
       if(docut(xpb,nexternal-1))return
 c
 c     overall kernel prefix
-c     TODO: call alphaQCD() for alphas
-c      alphas=alpha_QCD(asMZ,nloop,muR)
+      alphas=alpha_QCD(asMZ,nloop,muR)
       pref=8d0*pi*alphas
 c
 c     invariant quantities

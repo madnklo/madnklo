@@ -12,7 +12,11 @@ c     xs(i,j)  = 2 * p_out(i) * p_out(j)
 c     with i,j = 1,2,3,...
       double precision xs(nparticles,nparticles)
       double precision xstmp(nparticles),xstmpsum
+      double precision xsq(3:nparticles)
       double precision dot
+c     TODO: set input value q()=(sqrt(s),0,0,0)
+c     TODO: read sCM value 
+      double precision q(0:3)
       logical do_checks
       parameter(do_checks=.true.)
 c     
@@ -20,15 +24,21 @@ c     initialise
       xs=0d0
       xstmp=0d0
       xstmpsum=0d0
+      xsq=0d0
       ierr=0
 c
+      sCM=q(0)**2
+c
 c     build invariants from p
-c     TODO: why p(0,j), and not p(:,j)?
       do i=1,nparticles-1
          do j=i+1,nparticles
             xs(i,j)=2d0*dot(p(0,i),p(0,j))
             xs(j,i)=xs(i,j)
          enddo
+      enddo
+c
+      do i=3,nparticles
+         xsq(i)=2d0*dot(q(0),p(0,j))
       enddo
 c
 c     output checks
@@ -41,33 +51,32 @@ c     output checks
                endif
             enddo
          enddo
-         do i=1,nparticles
-            do j=1,nparticles
+         do i=3,nparticles
+            do j=3,nparticles
                xstmp(i)=xstmp(i)+xs(i,j)
             enddo
-            if(abs(xs(0,i)-xstmp(i))/abs(xs(0,i)).gt.tiny1)then
+            if(abs(xsq(i)-xstmp(i))/abs(xsq(i)).gt.tiny1)then
                write(77,*)'Inaccuracy 2 in invariants_from_p',
-     &         i,abs(xs(0,i)-xstmp(i))/abs(xs(0,i)),xs(0,i),xstmp(i)
+     &         i,abs(xsq(i)-xstmp(i))/abs(xsq(i)),xsq(i),xstmp(i)
                goto 999
             endif
          enddo
-         do i=1,nparticles
-            if(abs(xs(0,i)-xs(-1,i)-xs(-2,i))/abs(xs(0,i)).gt.tiny1)then
+         do i=3,nparticles
+            if(abs(xsq(i)-xs(1,i)-xs(2,i))/abs(xsq(i)).gt.tiny1)then
                write(77,*)'Inaccuracy 3 in invariants_from_p',
-     &         i,abs(xs(0,i)-xs(-1,i)-xs(-2,i))/abs(xs(0,i)),xs(0,i),xs(-1,i),xs(-2,i)
+     &         i,abs(xsq(i)-xs(1,i)-xs(2,i))/abs(xsq(i)),xsq(i),xs(1,i),xs(2,i)
                goto 999
             endif
          enddo
-         do i=1,nparticles
-            xstmpsum=xstmpsum+xs(0,i)/2d0
+         do i=3,nparticles
+            xstmpsum=xstmpsum+xsq(i)/2d0
          enddo
          if(abs(xstmpsum-sCM)/sCM.gt.tiny1)then
             write(77,*)'Inaccuracy 4 in invariants_from_p',
      &      abs(xstmpsum-sCM)/sCM,xstmpsum,sCM
             goto 999
          endif
-         do i=-2,nparticles
-            if(i.eq.0)cycle
+         do i=1,nparticles
             if(xs(i,i).ne.0d0)then
                write(*,*)'Error 1 in invariants_from_p',i,xs(i,i)
                stop

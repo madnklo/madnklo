@@ -149,7 +149,7 @@ c
 c
 c     initialise
       xjac=0d0
-      mapped_labels(:) = 0
+      mapped_labels = 0
 c
 c     auxiliary quantities
       Qsq=2d0*(dot(p(0,iU),p(0,iS))+dot(p(0,iU),p(0,iB))+

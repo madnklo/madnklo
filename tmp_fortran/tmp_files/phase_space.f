@@ -137,14 +137,19 @@ c
 c     Build n momenta pbar from n+1 momenta p
 c     iU is the unresolved parton associated
 c     with the soft singularity
+c
+c     TODO: add mappings for initial state
+c
       implicit none
       include 'math.inc'
       integer i,j,iU,iS,iB,npart
       double precision p(0:3,npart),pbar(0:3,npart-1)
       double precision yCS,xjac,G,Qsq,dot
+      integer mapped_labels(npart)
 c
 c     initialise
       xjac=0d0
+      mapped_labels(:) = 0
 c
 c     auxiliary quantities
       Qsq=2d0*(dot(p(0,iU),p(0,iS))+dot(p(0,iU),p(0,iB))+
@@ -152,14 +157,20 @@ c     auxiliary quantities
       yCS=2d0*dot(p(0,iU),p(0,iS))/Qsq
 c
 c     construct pbar from p
-c     TODO: look at imap()
-c     TODO: add mappings for initial state
-      pbar(:,imap(iB,iS,iU,0,0,npart))=p(:,iB)/(1-yCS)
-      pbar(:,imap(iS,iS,iU,0,0,npart))=p(:,iU)+p(:,iS)-p(:,iB)*yCS/(1-yCS)
+      call get_mapped_labels(iU,iS,iB,npart,mapped_labels)
+c
+      pbar(:,mapped_labels(iB))=p(:,iB)/(1-yCS)
+      pbar(:,mapped_labels(iS))=p(:,iU)+p(:,iS)-p(:,iB)*yCS/(1-yCS)
       do j=1,npart
          if(j.eq.iU.or.j.eq.iB.or.j.eq.iS)cycle
-         pbar(:,imap(j,iS,iU,0,0,npart))=p(:,j)
+         pbar(:,mapped_labels(j))=p(:,j)
       enddo
+c      pbar(:,imap(iB,iS,iU,0,0,npart))=p(:,iB)/(1-yCS)
+c      pbar(:,imap(iS,iS,iU,0,0,npart))=p(:,iU)+p(:,iS)-p(:,iB)*yCS/(1-yCS)
+c      do j=1,npart
+c         if(j.eq.iU.or.j.eq.iB.or.j.eq.iS)cycle
+c         pbar(:,imap(j,iS,iU,0,0,npart))=p(:,j)
+c      enddo
 c
 c     consistency check
       do i=1,npart-1

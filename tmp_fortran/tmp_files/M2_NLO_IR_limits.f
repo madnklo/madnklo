@@ -4,6 +4,7 @@ c     it returns 0 if i is not a gluon
       implicit none
       include 'nexternal.inc'
       include 'math.inc'
+      include 'model.inc'
       include 'damping_factors.inc'
       include 'colored_partons.inc'
       integer i,l,m,lb,mb,ierr,nit
@@ -13,6 +14,7 @@ c     it returns 0 if i is not a gluon
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision sil,sim,slm,y,z,x,damp
       integer mapped_labels(nexternal)
+c     set logical doplot
       logical doplot
       common/cdoplot/doplot
 c
@@ -23,8 +25,7 @@ c     initialise
       damp=0d0
 c
 c     overall kernel prefix
-c     TODO: needed call to alphaQCD() for alphas
-c     TODO: read muR from input file
+c     TODO: call to alphaQCD() for alphas
 c      alphas=alpha_QCD(asMZ,nloop,muR)
       pref=-8d0*pi*alphas
 c
@@ -37,7 +38,7 @@ c     eikonal double sum
             if(l.eq.i)cycle
 c
 c     determine indices in the n-1 body kinematics
-c     TODO: write include file for imap labels
+c     TODO: check new get_mapped_labels()
             call get_mapped_labels(i,l,m,nexternal,mapped_labels)
             lb=mapped_labels(l)
             mb=mapped_labels(m)
@@ -60,10 +61,9 @@ c     underlying Born configuration is remapped
             if(xjCS.eq.0d0)goto 999
             call invariants_from_p(xpb,nexternal-1,xsb,ierr)
             if(ierr.eq.1)goto 999
-c     TODO: look at phase_space_CS_inv(), invariants_from_p()
+c     TODO: invariants_from_p()
 c
 c     possible cuts
-c     TODO: look at docut()
             if(docut(xpb,nexternal-1))cycle
 c
 c     invariant quantities
@@ -125,6 +125,8 @@ c     this is meant to represent the full hard-collinear
 c     for sectors (ia,ib)+(ib,ia)
       implicit none
       include 'nexternal.inc'
+      include 'math.inc'
+      include 'model.inc'
       include 'damping_factors.inc'
       integer ia,ib,ir,ierr,nit
       double precision M2_H_C,pref,M2tmp,wgt,wgtpl,xj,extra
@@ -146,6 +148,8 @@ c     possible cuts
       if(docut(xpb,nexternal-1))return
 c
 c     overall kernel prefix
+c     TODO: call alphaQCD() for alphas
+c      alphas=alpha_QCD(asMZ,nloop,muR)
       pref=8d0*pi*alphas
 c
 c     invariant quantities
@@ -157,7 +161,8 @@ c     invariant quantities
       xinit = 1d0 - sab/(sar+sbr)
 c
 c     coefficients of kt
-c     kt = wa pa + wb pb + wr pr 
+c     kt = wa pa + wb pb + wr pr
+c     TODO: check formula 
       wa=x
       wb=-(1d0-x)
       wr=(1d0-2d0*x)*sab/(sar+sbr)
@@ -192,6 +197,7 @@ c     recoiler position (ir)
 c
 c     plot
       wgtpl=-M2_H_C*xj*wgt/nit
+c     TODO: set doplot and look at histo_fill()
       if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
 c     sanity check
@@ -212,6 +218,8 @@ c     this is meant to represent the full hard-collinear
 c     for sectors (ia,ib)+(ib,ia)
       implicit none
       include 'nexternal.inc'
+      include 'math.inc'
+      include 'model.inc'
       include 'damping_factors.inc'
       integer ia,ib,ir,ierr,nit
       double precision M2_H_C,pref,M2tmp,wgt,wgtpl,xj,extra
@@ -232,6 +240,8 @@ c
       if(docut(xpb,nexternal-1))return
 c
 c     overall kernel prefix
+c     TODO: call alphaQCD() for alphas
+c      alphas=alpha_QCD(asMZ,nloop,muR)
       pref=8d0*pi*alphas
 c
 c     invariant quantities
@@ -249,7 +259,6 @@ c     safety check
       endif
 c
 c     call Born
-c     TODO: look at Born_LO()
       call Born_LO(xsb,BLO,ierr)
       if(ierr.eq.1)goto 999
 c
@@ -267,7 +276,7 @@ c     recoiler position (ir)
 c
 c     plot
       wgtpl=-M2_H_C*xj*wgt/nit
-c     TODO: look at histo_fill()
+c     TODO: set doplot and look at histo_fill()
       if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
 c     sanity check
@@ -288,6 +297,8 @@ c     this is meant to represent the full hard-collinear
 c     for sectors (ia,ib)+(ib,ia)
       implicit none
       include 'nexternal.inc'
+      include 'math.inc'
+      include 'model.inc'
       include 'damping_factors.inc'
       integer ia,ib,ir,ierr,nit
       double precision M2_H_C,pref,M2tmp,wgt,wgtpl,xj,extra
@@ -309,6 +320,8 @@ c     possible cuts
       if(docut(xpb,nexternal-1))return
 c
 c     overall kernel prefix
+c     TODO: call alphaQCD() for alphas
+c      alphas=alpha_QCD(asMZ,nloop,muR)
       pref=8d0*pi*alphas
 c
 c     invariant quantities
@@ -321,6 +334,7 @@ c     invariant quantities
 c
 c     coefficients of kt
 c     kt = wa pa + wb pb + wr pr 
+c     TODO: check formula
       wa=x
       wb=-(1d0-x)
       wr=(1d0-2d0*x)*sab/(sar+sbr)
@@ -332,7 +346,6 @@ c     safety check
       endif
 c
 c     call Born
-c     TODO: look at Born_LO()
       call Born_LO(xsb,BLO,ierr)
       if(ierr.eq.1)goto 999
 c
@@ -353,6 +366,7 @@ c     recoiler position (ir)
 c
 c     plot
       wgtpl=-M2_H_C*xj*wgt/nit
+c     TODO: set doplot and look at histo_fill()
       if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
 c     sanity check

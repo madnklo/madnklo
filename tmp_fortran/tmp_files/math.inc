@@ -7,8 +7,8 @@ c
       real * 8 tiny0,tiny1,tiny2
       real * 8 asMZ,nloop,alphaEM
 c     number of colors	
-      integer nc
-      parameter (CF=4d0/3d0, CA=3d0, TR=1d0/2d0, nc=3)
+      integer Nc
+      parameter (CF=4d0/3d0, CA=3d0, TR=1d0/2d0, Nc=3)
 c
 c     From parameters.f in local code
 c     couplings (read muR from input file in driver)

@@ -392,7 +392,6 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         necessary_ct_list = [0] * (5*len(all_sectors))
         i = 0
         for s in all_sectors:
-            i = i * 5
             #print('s in sectors : ' + str(s))
             s['sector'].all_sector_list = all_sector_list
             s['sector'].all_sector_mass_list = all_sector_mass_list
@@ -440,7 +439,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                 all_local_counterterms_list.append(s['counterterms'])
 
             # index of necessary_ct_list    
-            i = i + 1
+            i += 5 
 
             # Irrelevant if this NLO example, but let me specify all of them explicitly so as to make the strucuture clear.
             if integrated_counterterms is not None:

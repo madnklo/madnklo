@@ -266,7 +266,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             sector_<i> = {
                 'sector'    :   sector_instance_or_identifier (exact format is up to the subtraction_scheme but must be callable)
                 'counterterms' : [list of counterterm indices (as per the ordering in self.counterterms of the integrand) to be considered],
-                'integrated_counterterms' : [list of tuples (counterterm indices, input_mapping_index) for integrated CT to be considered]
+                'integrated_counterterms' : [list of tuples (counterterm indices, input_mapping_index) for integrated CT to be considered],
+                'recoiler' : [recoiler leg]
             }
 
         """
@@ -289,6 +290,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         all_sectors = []
         all_sector_legs = []
         all_sector_id_legs = []
+        all_sector_recoilers = []
 
         pert_dict = fks_common.find_pert_particles_interactions(model)
         colorlist = [model['particle_dict'][l['id']]['color'] for l in leglist]
@@ -353,9 +355,12 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                         a_sector = {
                             'sector': None,
                             'counterterms': None,
-                            'integrated_counterterms': None
+                            'integrated_counterterms': None,
+                            'recoiler' : None
                         }
                         a_sector['sector'] = Sector(leg_numbers=(i.get('number'), j.get('number')))
+                        a_sector['recoiler'] = recoiler_function.get_recoiler(defining_process,(i.get('number'),j.get('number')))
+                        all_sector_recoilers.append(a_sector['recoiler'].get('number'))
                         #print('Leg number : ' + str(a_sector['sector']))
                         #gl
                         all_sector_legs.append(i.get('number'))
@@ -450,6 +455,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     # we list explicitly each index.
                     s['integrated_counterterms'][i_ct] = range(len(ct['input_mappings']))
 
+        
 
 ######################################### Write fortran template files #############################################  
 
@@ -459,6 +465,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         # TODO: point to the right process directory
         dirmadnklo=os.getcwd()
         dirpath = pjoin(dirmadnklo,"eejj/NLO_R_x_R_epem_guux_1")
+        #dirpath = pjoin(dirmadnklo,"eejj/NLO_R_x_R_epem_guux_1")
         dirpath = pjoin(dirpath, 'SubProcesses', \
                        "P%s" % defining_process.shell_string())
 
@@ -494,19 +501,20 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                 # Loop over sectors with final state particles only
                 if isec > 2 and jsec > 2:
                     # Extract the reference particle leg from recoiler_function.py
-                    iref_leg = recoiler_function.get_recoiler(defining_process,(isec,jsec))
-                    iref = iref_leg.get('number')
+                    #iref_leg = recoiler_function.get_recoiler(defining_process,(isec,jsec))
+                    #iref = iref_leg.get('number')
+                    iref = all_sector_recoilers[i]
                     replace_dict_ct['iref'] = iref
                     # Check irec validity
                     if (isec == iref) or (jsec == iref):
                         raise MadEvent7Error('Wrong recoiler %d,%d,%d!' % (isec,jsec,iref))
                     # Write an identified M2_H_C_F*F* for each (**) flavour couple 
                     if id_isec == 21 and id_jsec == 21:
-                        list_M2.append('KHC=KHC+M2_H_C_FgFg(isec,jsec,%d,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,ierr)' % iref)
+                        list_M2.append('KHC=KHC+M2_H_C_FgFg(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,ierr)')
                     elif id_isec == 21 and id_jsec != 21: # if there is a gluon in sector, it is always in the first position
-                        list_M2.append('KHC=KHC+M2_H_C_FgFq(isec,jsec,%d,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,ierr)' % iref)
+                        list_M2.append('KHC=KHC+M2_H_C_FgFq(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,ierr)')
                     else:
-                        list_M2.append('KHC=KHC+M2_H_C_FqFqx(isec,jsec,%d,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,ierr)' % iref)
+                        list_M2.append('KHC=KHC+M2_H_C_FqFqx(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,ierr)')
                 # Loop over sectors with at least one initial state particle
                 if isec <= 2 or jsec <= 2:
                     continue
@@ -526,40 +534,40 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             file = file % replace_dict_ct
             writer(filename).writelines(file)
 
-######## Write model.inc ########
-        replace_dict={}
-        scale = model.get('parameter_dict')['MU_R']
-        mz = model.get('parameter_dict')['mdl_MZ']
-#        mw = model.get('parameter_dict')['mdl_MW']
-        mt = model.get('parameter_dict')['mdl_MT']
-        mc = model.get('parameter_dict')['mdl_MC']
-        mb = model.get('parameter_dict')['mdl_MB']
-        me = model.get('parameter_dict')['mdl_Me']
-        mmu = model.get('parameter_dict')['mdl_MM']
-        mta = model.get('parameter_dict')['mdl_MTA']
-        replace_dict['MU_R'] = scale
-        replace_dict['mdl_MZ'] = mz
- #       replace_dict['mdl_MW'] = mw
-        replace_dict['mdl_MT'] = mt
-        replace_dict['mdl_MC'] = mc
-        replace_dict['mdl_MB'] = mb
-        replace_dict['mdl_Me'] = me
-        replace_dict['mdl_MM'] = mmu
-        replace_dict['mdl_MTA'] = mta
+# ######## Write model.inc ########
+#         replace_dict={}
+#         scale = model.get('parameter_dict')['MU_R']
+#         mz = model.get('parameter_dict')['mdl_MZ']
+# #        mw = model.get('parameter_dict')['mdl_MW']
+#         mt = model.get('parameter_dict')['mdl_MT']
+#         mc = model.get('parameter_dict')['mdl_MC']
+#         mb = model.get('parameter_dict')['mdl_MB']
+#         me = model.get('parameter_dict')['mdl_Me']
+#         mmu = model.get('parameter_dict')['mdl_MM']
+#         mta = model.get('parameter_dict')['mdl_MTA']
+#         replace_dict['MU_R'] = scale
+#         replace_dict['mdl_MZ'] = mz
+#  #       replace_dict['mdl_MW'] = mw
+#         replace_dict['mdl_MT'] = mt
+#         replace_dict['mdl_MC'] = mc
+#         replace_dict['mdl_MB'] = mb
+#         replace_dict['mdl_Me'] = me
+#         replace_dict['mdl_MM'] = mmu
+#         replace_dict['mdl_MTA'] = mta
         
-        file = """ \
-          double precision mur
-          double precision me,mmu,mta
-          double precision mc,mt,mb
-          double precision mz,mw
-          parameter (mz = %(mdl_MZ)lfd0)
-          parameter (me = %(mdl_Me)lfd0, mmu = %(mdl_MM)lfd0, mta = %(mdl_MTA)lfd0)
-          parameter (mc = %(mdl_MC)lfd0, mt = %(mdl_MT)lfd0, mb = %(mdl_MB)lfd0)
-          parameter (mur = %(MU_R)lfd0)
-          common/model/mmu,me,mta,mc,mt,mb,mz,mw""" % replace_dict
+#         file = """ \
+#           double precision mur
+#           double precision me,mmu,mta
+#           double precision mc,mt,mb
+#           double precision mz,mw
+#           parameter (mz = %(mdl_MZ)lfd0)
+#           parameter (me = %(mdl_Me)lfd0, mmu = %(mdl_MM)lfd0, mta = %(mdl_MTA)lfd0)
+#           parameter (mc = %(mdl_MC)lfd0, mt = %(mdl_MT)lfd0, mb = %(mdl_MB)lfd0)
+#           parameter (mur = %(MU_R)lfd0)
+#           common/model/mmu,me,mta,mc,mt,mb,mz,mw""" % replace_dict
 
-        filename = pjoin(dirpath, 'model.inc')
-        writer(filename).writelines(file)
+#         filename = pjoin(dirpath, 'model.inc')
+#         writer(filename).writelines(file)
 
         
 ######### Write damping_factors.inc
@@ -606,6 +614,25 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         writer(filename).writelines(file)
 
 
+######### Write leg_PDGs.inc
+
+        # Set replace_dict 
+        replace_dict = {}
+        leg_PDGs = []
+        leg_PDGs.append(all_PDGs[0][0])
+        leg_PDGs.append(all_PDGs[0][1])
+        for i in range(0,len(final_state_PDGs)):
+            leg_PDGs.append(all_PDGs[1][i])
+
+        replace_dict['len_legPDGs'] = len(leg_PDGs)
+        replace_dict['leg_PDGs'] = str(leg_PDGs).replace('[','').replace(']','').replace(' ','').replace("'","")
+
+        file = """ \
+          integer leg_PDGs(%(len_legPDGs)d)
+          data leg_PDGs/%(leg_PDGs)s/""" % replace_dict
+
+        filename = pjoin(dirpath, 'leg_PDGs.inc')
+        writer(filename).writelines(file)
 
 
 

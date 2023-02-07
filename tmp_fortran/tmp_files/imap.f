@@ -6,6 +6,8 @@ c
 c     initialise
       j = 0
 c
+c     check on (a,b,c) PDGs
+c
 c     check mapping structure
       if(a.le.2)then
          write(*,*) 'The first particle must be in the final state!'
@@ -38,6 +40,8 @@ c     initialise
       min_ab = 0
       max_ab = 0
       j = 0
+c
+c     check on (a,b,c) PDGs
 c
 c     check mapping structure
       if(a.le.2)then

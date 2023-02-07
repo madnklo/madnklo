@@ -6,7 +6,7 @@ c
 c     TODO: pass nitR information
 c
       include 'nexternal.inc'
-      integer isec,jsec,ierr
+      integer isec,jsec,iref,ierr
       double precision xs(nexternal,nexternal)
       double precision xp(0:3,nexternal)
       double precision xsb(nexternal-1,nexternal-1)
@@ -17,6 +17,7 @@ c
 c     initialise
       isec = %(isec)d
       jsec = %(jsec)d
+      iref = %(iref)d
       KS=0d0
       KHC=0d0
       KNLO=0d0

@@ -135,6 +135,7 @@ c     for sectors (ia,ib)+(ib,ia)
       include 'math.inc'
       include 'model.inc'
       include 'damping_factors.inc'
+      include 'nsqso_born.inc'
       integer ia,ib,ir,ierr,nit
       double precision M2_H_C,pref,M2tmp,wgt,wgtpl,xj,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
@@ -142,6 +143,9 @@ c     for sectors (ia,ib)+(ib,ia)
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1),ktkt
       double precision sab,sar,sbr,x,y,xinit,damp
       double precision wa,wb,wr
+c     TODO: include file for NSQAMPO
+      double precision ANS(0:NSQSO_BORN)
+      integer, parameter :: hel = - 1
 c     set logical doplot
       logical, save :: doplot=.false.
       common/cdoplot/doplot
@@ -189,8 +193,12 @@ c     safety check
 c
 c     call Born
 c     TODO: look at Born_LO()
-      call Born_LO(xsb,BLO,ierr)
-      if(ierr.eq.1)goto 999
+c     TODO: check conventions on xpb
+      call ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
+c     TODO: pick the right index of ANS for correct process
+      BLO = ANS(...)
+c      call Born_LO(xsb,BLO,ierr)
+c      if(ierr.eq.1)goto 999
 c
 c     TODO: this was get_eps()
 c     TODO: include wa,wb,wr in get_kt()

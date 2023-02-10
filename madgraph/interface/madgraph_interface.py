@@ -2876,7 +2876,7 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
         'loop_optimized_output': True,
         'loop_color_flows': False,
         'max_npoint_for_channel': 0, # 0 means automatically adapted
-        'subtraction_scheme': 'colorful_pp',
+        'subtraction_scheme': 'torino',
     }
 
     options_madevent = {

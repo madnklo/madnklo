@@ -7,6 +7,7 @@ c     it returns 0 if i is not a gluon
       include 'model.inc'
       include 'damping_factors.inc'
       include 'colored_partons.inc'
+      include 'leg_PDGs.inc'
       integer i,l,m,lb,mb,ierr,nit
       double precision M2_S,pref,M2tmp,wgt,wgtpl,Wsoft,xj,xjCS
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
@@ -45,10 +46,11 @@ c     eikonal double sum
 c
 c     determine indices in the n-1 body kinematics
 c     TODO: check new get_mapped_labels()
-            call get_mapped_labels(i,l,m,nexternal,mapped_labels)
+            call get_soft_mapped_labels(i,l,m,nexternal,leg_PDGs,
+     $           mapped_labels,mapped_flavours)
             lb=mapped_labels(l)
             mb=mapped_labels(m)
-            write(*,*) 'Our mapping labels',lb,mb
+            write(*,*) 'New mapping labels',lb,mb
             lb=imap(l,i,l,0,0,npartNLO)
             mb=imap(m,i,l,0,0,npartNLO)
             write(*,*) 'Old mapping labels',lb,mb
@@ -136,6 +138,7 @@ c     for sectors (ia,ib)+(ib,ia)
       include 'model.inc'
       include 'damping_factors.inc'
       include 'nsqso_born.inc'
+      include 'leg_PDGs.inc'
       integer ia,ib,ir,ierr,nit
       double precision M2_H_C,pref,M2tmp,wgt,wgtpl,xj,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
@@ -244,6 +247,8 @@ c     for sectors (ia,ib)+(ib,ia)
       include 'math.inc'
       include 'model.inc'
       include 'damping_factors.inc'
+      include 'nsqso_born.inc'
+      include 'leg_PDGs.inc'
       integer ia,ib,ir,ierr,nit
       double precision M2_H_C,pref,M2tmp,wgt,wgtpl,xj,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
@@ -330,6 +335,8 @@ c     for sectors (ia,ib)+(ib,ia)
       include 'math.inc'
       include 'model.inc'
       include 'damping_factors.inc'
+      include 'nsqso_born.inc'
+      include 'leg_PDGs.inc'
       integer ia,ib,ir,ierr,nit
       double precision M2_H_C,pref,M2tmp,wgt,wgtpl,xj,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)

@@ -127,6 +127,9 @@ if MPI_ACTIVE and MPI_RANK>0:
     for logger_name, logger in logging.Logger.manager.loggerDict.items():
         logging.getLogger(logger_name).setLevel(logging.CRITICAL)
 
+global user_dir_name
+user_dir_name = []
+
 #===============================================================================
 # CmdExtended
 #===============================================================================
@@ -2944,6 +2947,8 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
         self._generate_info = "" # store the first generated process
         self._model_v4_path = None
         self._export_dir = None
+        #gl
+        self._export_dir_output = None
         self._export_format = 'madevent'
         self._mgme_dir = MG4DIR
         self._cuttools_dir=str(os.path.join(self._mgme_dir,'vendor','CutTools'))
@@ -8484,6 +8489,10 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
         """Main commands: Initialize a new Template or reinitialize one"""
 
         args = self.split_arg(line)
+        #print('From do_output')
+        #print(args[0])
+        global user_dir_name
+        user_dir_name.append(args[0])
         # Check Argument validity
         self.check_output(args)
 

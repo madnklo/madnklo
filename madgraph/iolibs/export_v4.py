@@ -2072,6 +2072,13 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         except os.error as error:
             logger.warning(error.strerror + " " + dirpath)
 
+        #gl
+        #needed just for NLO_RxR directories and i need to know the underlying necessary process
+        #to find the path and the files
+        #dirpath_fortran = pjoin(self.dir_path, "SubProcesses/P%s" % matrix_element.get('processes')[0].shell_string(), 
+        #                        'subreal_%s' % matrix_element.get('processes')[0].shell_string())
+        #os.mkdir(dirpath_fortran)
+
         #try:
         #    os.chdir(dirpath)
         #except os.error:
@@ -2092,6 +2099,20 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             writers.FortranWriter(filename),
             matrix_element,
             fortran_model)
+
+        #gl
+        if self.opt['export_format']=='standalone_msP':
+            filename = pjoin(dirpath, 'matrix_prod.f')
+        else:
+            filename = pjoin(dirpath, 'matrix_%s.f' % matrix_element.get('processes')[0].shell_string(
+            schannel=False, forbid=False, main=False, pdg_order=False, print_id = False))
+        calls_2 = self.write_matrix_element_v4(
+            writers.FortranWriter(filename),
+            matrix_element,
+            fortran_model,
+            True,
+            proc_prefix = matrix_element.get('processes')[0].shell_string(
+            schannel=False, forbid=False, main=False, pdg_order=False, print_id = False) + '_')
 
         if self.opt['export_format'] == 'standalone_msP':
             filename =  pjoin(dirpath,'configs_production.inc')
@@ -2146,9 +2167,12 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         # Return to original PWD
         #os.chdir(cwd)
 
+        #gl
+        #print(matrix_element.get('base_amplitude'))
+
         if not calls:
             calls = 0
-        return calls
+        return calls, calls_2
 
     def add_check_sa_color_correlation_code(self, color_connections, proc_prefix, return_dict):
         """ Fills in the placeholders in return_dict for the monitoring of 
@@ -6117,7 +6141,127 @@ class UFO_model_to_mg4(object):
                 mp_fsock.writelines(self.mp_complex_format+' '+','.join([\
                                 self.mp_prefix+cm for cm in complex_mass])+'\n')
                 mp_fsock.writelines('common/MP_complex_mass/ '+\
-                    ','.join([self.mp_prefix+cm for cm in complex_mass])+'\n\n')                       
+                    ','.join([self.mp_prefix+cm for cm in complex_mass])+'\n\n') 
+
+    #gl
+    def create_coupl_inc_v2(self):
+        """ write coupling.inc """
+        
+        fsock = self.open('coupl_v2.inc', format='fortran')
+        if self.opt['mp']:
+            mp_fsock = self.open('mp_coupl.inc', format='fortran')
+            mp_fsock_same_name = self.open('mp_coupl_same_name.inc',\
+                                            format='fortran')
+
+        # Write header
+        header = """double precision G
+                common/strong/ G
+                 
+                double complex gal(2)
+                common/weak/ gal
+                
+                double precision MU_R
+                common/rscale/ MU_R
+
+                double precision Nf
+                parameter(Nf=%d)
+                """ % self.model.get_nflav()
+                
+        fsock.writelines(header)
+        
+        if self.opt['mp']:
+            header = """%(real_mp_format)s %(mp_prefix)sG
+                    common/MP_strong/ %(mp_prefix)sG
+                     
+                    %(complex_mp_format)s %(mp_prefix)sgal(2)
+                    common/MP_weak/ %(mp_prefix)sgal
+                    
+                    %(complex_mp_format)s %(mp_prefix)sMU_R
+                    common/MP_rscale/ %(mp_prefix)sMU_R
+
+                """
+
+
+            mp_fsock.writelines(header%{'real_mp_format':self.mp_real_format,
+                                  'complex_mp_format':self.mp_complex_format,
+                                  'mp_prefix':self.mp_prefix})
+            mp_fsock_same_name.writelines(header%{'real_mp_format':self.mp_real_format,
+                                  'complex_mp_format':self.mp_complex_format,
+                                  'mp_prefix':''})
+
+        # Write the Mass definition/ common block
+        masses = set()
+        widths = set()
+        if self.opt['complex_mass']:
+            complex_mass = set()
+            
+        for particle in self.model.get('particles'):
+            #find masses
+            one_mass = particle.get('mass')
+            if one_mass.lower() != 'zero':
+                masses.add(one_mass)
+                
+            # find width
+            one_width = particle.get('width')
+            if one_width.lower() != 'zero':
+                widths.add(one_width)
+                if self.opt['complex_mass'] and one_mass.lower() != 'zero':
+                    complex_mass.add('CMASS_%s' % one_mass)
+            
+        if masses:
+            fsock.writelines('double precision '+','.join(masses)+'\n')
+            fsock.writelines('common/masses/ '+','.join(masses)+'\n\n')
+            if self.opt['mp']:
+                mp_fsock_same_name.writelines(self.mp_real_format+' '+\
+                                                          ','.join(masses)+'\n')
+                mp_fsock_same_name.writelines('common/MP_masses/ '+\
+                                                        ','.join(masses)+'\n\n')                
+                mp_fsock.writelines(self.mp_real_format+' '+','.join([\
+                                        self.mp_prefix+m for m in masses])+'\n')
+                mp_fsock.writelines('common/MP_masses/ '+\
+                            ','.join([self.mp_prefix+m for m in masses])+'\n\n')                
+
+        if widths:
+            fsock.writelines('double precision '+','.join(widths)+'\n')
+            fsock.writelines('common/widths/ '+','.join(widths)+'\n\n')
+            if self.opt['mp']:
+                mp_fsock_same_name.writelines(self.mp_real_format+' '+\
+                                                          ','.join(widths)+'\n')
+                mp_fsock_same_name.writelines('common/MP_widths/ '+\
+                                                        ','.join(widths)+'\n\n')                
+                mp_fsock.writelines(self.mp_real_format+' '+','.join([\
+                                        self.mp_prefix+w for w in widths])+'\n')
+                mp_fsock.writelines('common/MP_widths/ '+\
+                            ','.join([self.mp_prefix+w for w in widths])+'\n\n')
+        
+        # Write the Couplings
+        coupling_list = [coupl.name for coupl in self.coups_dep + self.coups_indep]       
+        fsock.writelines('double complex '+', '.join(coupling_list)+'\n')
+        fsock.writelines('common/couplings/ '+', '.join(coupling_list)+'\n')
+        if self.opt['mp']:
+            mp_fsock_same_name.writelines(self.mp_complex_format+' '+\
+                                                   ','.join(coupling_list)+'\n')
+            mp_fsock_same_name.writelines('common/MP_couplings/ '+\
+                                                 ','.join(coupling_list)+'\n\n')                
+            mp_fsock.writelines(self.mp_complex_format+' '+','.join([\
+                                 self.mp_prefix+c for c in coupling_list])+'\n')
+            mp_fsock.writelines('common/MP_couplings/ '+\
+                     ','.join([self.mp_prefix+c for c in coupling_list])+'\n\n')            
+        
+        # Write complex mass for complex mass scheme (if activated)
+        if self.opt['complex_mass'] and complex_mass:
+            fsock.writelines('double complex '+', '.join(complex_mass)+'\n')
+            fsock.writelines('common/complex_mass/ '+', '.join(complex_mass)+'\n')
+            if self.opt['mp']:
+                mp_fsock_same_name.writelines(self.mp_complex_format+' '+\
+                                                    ','.join(complex_mass)+'\n')
+                mp_fsock_same_name.writelines('common/MP_complex_mass/ '+\
+                                                  ','.join(complex_mass)+'\n\n')                
+                mp_fsock.writelines(self.mp_complex_format+' '+','.join([\
+                                self.mp_prefix+cm for cm in complex_mass])+'\n')
+                mp_fsock.writelines('common/MP_complex_mass/ '+\
+                    ','.join([self.mp_prefix+cm for cm in complex_mass])+'\n\n') 
+
         
     def create_write_couplings(self):
         """ write the file coupl_write.inc """
@@ -6918,6 +7062,45 @@ class UFO_model_to_mg4(object):
                  "%(mp_prefix)s%(name)s,%(value)s)") \
                 % {'name': parameter.name,'mp_prefix': self.mp_prefix,
                    'value': self.mp_p_to_f.parse(str(parameter.value.real))}    
+            return template        
+    
+        fsock = self.open('param_read.inc', format='fortran')
+        res_strings = [format_line(param) \
+                          for param in self.params_ext]
+        
+        # Correct width sign for Majorana particles (where the width
+        # and mass need to have the same sign)        
+        for particle in self.model.get('particles'):
+            if particle.is_fermion() and particle.get('self_antipart') and \
+                   particle.get('width').lower() != 'zero':
+                
+                res_strings.append('%(width)s = sign(%(width)s,%(mass)s)' % \
+                 {'width': particle.get('width'), 'mass': particle.get('mass')})
+                if self.opt['mp']:
+                    res_strings.append(\
+                      ('%(mp_pref)s%(width)s = sign(%(mp_pref)s%(width)s,'+\
+                       '%(mp_pref)s%(mass)s)')%{'width': particle.get('width'),\
+                       'mass': particle.get('mass'),'mp_pref':self.mp_prefix})
+
+        fsock.writelines('\n'.join(res_strings))
+
+    #gl
+    def create_param_read_v2(self):    
+        """create param_read"""
+        
+        if self.opt['export_format'] in ['madevent', 'FKS5_default', 'FKS5_optimized'] \
+            or self.opt['loop_induced']:
+            fsock = self.open('param_read.inc', format='fortran')
+            fsock.writelines(' include \'../param_card.inc\'')
+            return
+    
+        def format_line(parameter):
+            """return the line for the ident_card corresponding to this 
+            parameter"""
+            template = \
+            """ call LHA_get_real(npara,param,value,'%(name)s',%(name)s,%(value)s)""" \
+                % {'name': parameter.name,
+                   'value': self.p_to_f.parse(str(parameter.value.real))}  
             return template        
     
         fsock = self.open('param_read.inc', format='fortran')

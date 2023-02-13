@@ -87,11 +87,15 @@ c     safety check
 c
 c     call colour-connected Born
 c     TODO: generalise cc_Born_LO()
-            call cc_Born_LO(xsb,ccBLO,ierr)
-            if(ierr.eq.1)goto 999
+            call %(proc_prefix_S)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
+c     TODO: pick the right index of ANS for correct process
+            BLO = ANS(1)
+c            call cc_Born_LO(xsb,ccBLO,ierr)
+c            if(ierr.eq.1)goto 999
 c
 c     eikonal
 c     TODO: check for dis
+c     TODO: define ccBLO
             M2tmp=ccBLO(lb,mb)*2d0*slm/(sil*sim)
             if(m.gt.2.and.l.gt.2)then
                y=sil/(sil+sim+slm)
@@ -189,14 +193,14 @@ c     TODO: check formula
 c
 c     safety check
       if(sab.le.0d0.or.sar+sbr.le.0d0.or.x.le.0d0.or.x.ge.1d0)then
-         write(77,*)'Inaccuracy 1 in M2_H_C',sab,sar+sbr,x
+         write(77,*)'Inaccuracy 1 in M2_H_C_FgFg',sab,sar+sbr,x
          goto 999
       endif
 c
 c     call Born
 c     TODO: look at Born_LO()
 c     TODO: check conventions on xpb
-      call ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
+      call %(proc_prefix_H_C_FgFg)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
 c     TODO: pick the right index of ANS for correct process
       BLO = ANS(1)
 c      call Born_LO(xsb,BLO,ierr)
@@ -288,13 +292,16 @@ c     invariant quantities
 c
 c     safety check
       if(sab.le.0d0.or.sar+sbr.le.0d0.or.x.le.0d0.or.x.ge.1d0)then
-         write(77,*)'Inaccuracy 1 in M2_H_C',sab,sar+sbr,x
+         write(77,*)'Inaccuracy 1 in M2_H_C_FgFq',sab,sar+sbr,x
          goto 999
       endif
 c
 c     call Born
-      call Born_LO(xsb,BLO,ierr)
-      if(ierr.eq.1)goto 999
+      call %(proc_prefix_H_C_FgFq)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
+c     TODO: pick the right index of ANS for correct process
+      BLO = ANS(1)
+c      call Born_LO(xsb,BLO,ierr)
+c      if(ierr.eq.1)goto 999
 c
       M2tmp=BLO*CF*((1d0-x)+
      &              2d0*x/(1d0-x)*(1d0-x**alpha))
@@ -384,13 +391,16 @@ c     TODO: check formula
 c
 c     safety check
       if(sab.le.0d0.or.sar+sbr.le.0d0.or.x.le.0d0.or.x.ge.1d0)then
-         write(77,*)'Inaccuracy 1 in M2_H_C',sab,sar+sbr,x
+         write(77,*)'Inaccuracy 1 in M2_H_C_FqFqx',sab,sar+sbr,x
          goto 999
       endif
 c
 c     call Born
-      call Born_LO(xsb,BLO,ierr)
-      if(ierr.eq.1)goto 999
+      call %(proc_prefix_H_C_FqFqx)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
+c     TODO: pick the right index of ANS for correct process
+      BLO = ANS(1)
+c      call Born_LO(xsb,BLO,ierr)
+c      if(ierr.eq.1)goto 999
 c
       call get_kt(ia,ib,ir,xp,xpb,nexternal,wa,wb,wr,pkt,ktkt)
       call Born_LO_kp(xsb,pkt,ktkt,BLOkp,ierr)

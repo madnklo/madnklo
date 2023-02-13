@@ -22,7 +22,12 @@ import factors_and_cuts
 import recoiler_function
 import colored_partons
 import os
+import glob
 pjoin = os.path.join
+
+import madgraph.iolibs.export_v4 as export_v4
+import madgraph.iolibs.export_ME7 as export_ME7
+import madgraph.interface.madgraph_interface as interface
 
 
 class MadEvent7Error(Exception):
@@ -395,6 +400,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         #gl
         all_local_counterterms_list = []
         necessary_ct_list = [0] * (5*len(all_sectors))
+        necessary_ct = [0] * (5*len(all_sectors))
         i = 0
         for s in all_sectors:
             #print('s in sectors : ' + str(s))
@@ -416,10 +422,12 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                         if all_legs[0].n == s['sector'].leg_numbers[0]: # should match to "i"
                             s['counterterms'].append(i_ct)
                             necessary_ct_list[i] = 1
+                            necessary_ct[i] = ct
 # # # gl                        
                         if s['sector'].id[0] == 21 and s['sector'].id[1] == 21 and all_legs[0].n == s['sector'].leg_numbers[1]: # should match to "j"
                             s['counterterms'].append(i_ct)
                             necessary_ct_list[i+1] = 1
+                            necessary_ct[i+1] = ct
 
                     if singular_structure.name()=='C':
                         if not singular_structure.substructures:
@@ -427,6 +435,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                             if sorted([l.n for l in all_legs]) == sorted(s['sector'].leg_numbers):
                                 s['counterterms'].append(i_ct)
                                 necessary_ct_list[i+2] = 1
+                                necessary_ct[i+2] = ct
                         else:
                             #soft-collinear CT: include only if, on top of the previous condition,
                             #  the soft leg matches the first sector leg
@@ -434,12 +443,14 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                                singular_structure.substructures[0].legs[0].n == s['sector'].leg_numbers[0]:
                                 s['counterterms'].append(i_ct)
                                 necessary_ct_list[i+3] = 1
+                                necessary_ct[i+3] = ct
 # # gl
                             if s['sector'].id[0] == 21 and s['sector'].id[1] == 21:
                                 if sorted([l.n for l in all_legs]) == sorted(s['sector'].leg_numbers) and \
                                     singular_structure.substructures[0].legs[0].n == s['sector'].leg_numbers[1]:
                                     s['counterterms'].append(i_ct)
                                     necessary_ct_list[i+4] = 1
+                                    necessary_ct[i+4] = ct
 
                 all_local_counterterms_list.append(s['counterterms'])
 
@@ -464,7 +475,10 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
         # TODO: point to the right process directory
         dirmadnklo=os.getcwd()
-        dirpath = pjoin(dirmadnklo,"eejj/NLO_R_x_R_epem_guux_1")
+        #file = glob.glob("eejj/NLO_R_x_R_*")
+        #file = glob.glob("%s/NLO_R_x_R_*" % interface.user_dir_name[0])
+        #print(file)
+        dirpath = pjoin(dirmadnklo,glob.glob("%s/NLO_R_x_R_*" % interface.user_dir_name[0])[0])
         #dirpath = pjoin(dirmadnklo,"eejj/NLO_R_x_R_epem_guux_1")
         dirpath = pjoin(dirpath, 'SubProcesses', \
                        "P%s" % defining_process.shell_string())
@@ -634,6 +648,91 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         filename = pjoin(dirpath, 'leg_PDGs.inc')
         writer(filename).writelines(file)
 
+########################################################################
 
+        #file_LO = glob.glob("%s/LO_*" % interface.user_dir_name[0])
+        dirpathLO = pjoin(dirmadnklo,glob.glob("%s/LO_*" % interface.user_dir_name[0])[0])
+        dirpathLO = pjoin(dirpathLO, 'SubProcesses', \
+                       "P%s" % counterterms[0].current.shell_string())
+
+        # Extract for each counterterm the respecitve underlying Born files (matrix_*.f, spin_correlations.inc) 
+        Born_processes = []
+        for i, ct in enumerate(counterterms):
+            new_proc = ct.current.shell_string(
+                schannel=False, forbid=False, main=False, pdg_order=True, print_id = False)
+            if new_proc not in Born_processes:
+                Born_processes.append(new_proc)
+        
+        print(Born_processes)
+
+ 
+        os.symlink( "%s/matrix_%s.f" % (dirpathLO, counterterms[0].current.shell_string(
+            schannel=False, forbid=False, main=False, pdg_order=False, print_id = False)), 
+            "%s/matrix_%s.f" % (dirpath, counterterms[0].current.shell_string(
+            schannel=False, forbid=False, main=False, pdg_order=False, print_id = False)) )
+        os.symlink(dirpathLO + '/spin_correlations.inc' , dirpath + '/spin_correlations.inc' )
+
+        # # #gl
+        # for i, ct in enumerate(counterterms):
+        #     # return ((S(3),),)
+        #     print(ct)
+        #     # return "1_epem_uux"
+        #     print(ct.current.shell_string())
+        #     # return "epem_uux"
+        #     print(ct.current.shell_string(
+        #     schannel=False, forbid=False, main=False, pdg_order=False, print_id = False))
+        #     # return ((-11, 11), (2, -2))
+        #     print(ct.get_reduced_flavors())
+        
+
+######### Write NLO_IR_limits_isec_jsec.f
+
+
+        replace_dict_limits = {}
+        for i in range(0,len(all_sector_list)):
+            isec = all_sector_list[i][0]
+            jsec = all_sector_list[i][1]
+
+            replace_dict_limits['isec'] = isec
+            replace_dict_limits['jsec'] = jsec
+
+            replace_dict_limits['proc_prefix_S'] = 'dummy'
+            replace_dict_limits['proc_prefix_H_C_FgFg'] = 'dummy'
+            replace_dict_limits['proc_prefix_H_C_FgFq'] = 'dummy'
+            replace_dict_limits['proc_prefix_H_C_FqFqx'] = 'dummy'
+
+            if necessary_ct_list[i*5] == 1 or necessary_ct_list[i*5+1] == 1:
+                replace_dict_limits['proc_prefix_S'] = necessary_ct[i*5].current.shell_string(
+                        schannel=False, forbid=False, main=False, pdg_order=True, print_id = False)
+            if necessary_ct_list[i*5+2] == 1:
+                # Loop over sectors with final state particles only
+                if isec > 2 and jsec > 2:
+                    # g > g + g  
+                    if id_isec == 21 and id_jsec == 21:
+                        replace_dict_limits['proc_prefix_H_C_FgFg'] = necessary_ct[i*5+2].current.shell_string(
+                        schannel=False, forbid=False, main=False, pdg_order=True, print_id = False)
+                    # q(qx) > g + q(qx)
+                    elif id_isec == 21 and id_jsec != 21: # if there is a gluon in sector, it is always in the first position
+                        replace_dict_limits['proc_prefix_H_C_FgFq'] = necessary_ct[i*5+2].current.shell_string(
+                        schannel=False, forbid=False, main=False, pdg_order=True, print_id = False)
+                    # g > q(qx) + qx(q)
+                    else:
+                        replace_dict_limits['proc_prefix_H_C_FqFqx'] = necessary_ct[i*5+2].current.shell_string(
+                        schannel=False, forbid=False, main=False, pdg_order=True, print_id = False)
+                # Loop over sectors with at least one initial state particle
+                if isec <= 2 or jsec <= 2:
+                    # here it is necessary to keep pdg_order to False
+                    continue
+
+
+            filename = pjoin(dirpath, 'NLO_IR_limits_%d_%d.f' % (isec, jsec))
+
+            file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NLO_IR_limits_tmp.f")).read()
+            file = file % replace_dict_limits
+            writer(filename).writelines(file)
+
+        #print(necessary_ct)
+        #print(necessary_ct[0].current.shell_string(
+         #                schannel=False, forbid=False, main=False, pdg_order=False, print_id = False))
 
         return all_sectors

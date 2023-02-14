@@ -652,25 +652,25 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
         #file_LO = glob.glob("%s/LO_*" % interface.user_dir_name[0])
         dirpathLO = pjoin(dirmadnklo,glob.glob("%s/LO_*" % interface.user_dir_name[0])[0])
-        dirpathLO = pjoin(dirpathLO, 'SubProcesses', \
-                       "P%s" % counterterms[0].current.shell_string())
+        # dirpathLO = pjoin(dirpathLO, 'SubProcesses', \
+        #                "P%s" % counterterms[0].current.shell_string())
 
-        # Extract for each counterterm the respecitve underlying Born files (matrix_*.f, spin_correlations.inc) 
-        Born_processes = []
-        for i, ct in enumerate(counterterms):
-            new_proc = ct.current.shell_string(
-                schannel=False, forbid=False, main=False, pdg_order=True, print_id = False)
-            if new_proc not in Born_processes:
-                Born_processes.append(new_proc)
+        # # Extract for each counterterm the respecitve underlying Born files (matrix_*.f, spin_correlations.inc) 
+        # Born_processes = []
+        # for i, ct in enumerate(counterterms):
+        #     new_proc = ct.current.shell_string(
+        #         schannel=False, forbid=False, main=False, pdg_order=False, print_id = False)
+        #     if new_proc not in Born_processes:
+        #         Born_processes.append(new_proc)
         
-        print(Born_processes)
+        # print(Born_processes)
 
  
-        os.symlink( "%s/matrix_%s.f" % (dirpathLO, counterterms[0].current.shell_string(
-            schannel=False, forbid=False, main=False, pdg_order=False, print_id = False)), 
-            "%s/matrix_%s.f" % (dirpath, counterterms[0].current.shell_string(
-            schannel=False, forbid=False, main=False, pdg_order=False, print_id = False)) )
-        os.symlink(dirpathLO + '/spin_correlations.inc' , dirpath + '/spin_correlations.inc' )
+        # os.symlink( "%s/matrix_%s.f" % (dirpathLO, counterterms[0].current.shell_string(
+        #     schannel=False, forbid=False, main=False, pdg_order=False, print_id = False)), 
+        #     "%s/matrix_%s.f" % (dirpath, counterterms[0].current.shell_string(
+        #     schannel=False, forbid=False, main=False, pdg_order=False, print_id = False)) )
+        # os.symlink(dirpathLO + '/spin_correlations.inc' , dirpath + '/spin_correlations.inc' )
 
         # # #gl
         # for i, ct in enumerate(counterterms):
@@ -689,6 +689,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
 
         replace_dict_limits = {}
+        Born_processes = []
+        Born_processes_str_1 = []
         for i in range(0,len(all_sector_list)):
             isec = all_sector_list[i][0]
             jsec = all_sector_list[i][1]
@@ -702,26 +704,37 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             replace_dict_limits['proc_prefix_H_C_FqFqx'] = 'dummy'
 
             if necessary_ct_list[i*5] == 1 or necessary_ct_list[i*5+1] == 1:
-                replace_dict_limits['proc_prefix_S'] = necessary_ct[i*5].current.shell_string(
-                        schannel=False, forbid=False, main=False, pdg_order=True, print_id = False)
+                uB_proc = necessary_ct[i*5].current.shell_string(
+                        schannel=False, forbid=False, main=False, pdg_order=False, print_id = False)
+                print(uB_proc)
+                replace_dict_limits['proc_prefix_S'] = uB_proc
+                if uB_proc not in Born_processes:
+                    Born_processes.append(uB_proc)
+                    Born_processes_str_1.append(necessary_ct[i*5].current.shell_string())
             if necessary_ct_list[i*5+2] == 1:
                 # Loop over sectors with final state particles only
                 if isec > 2 and jsec > 2:
                     # g > g + g  
                     if id_isec == 21 and id_jsec == 21:
-                        replace_dict_limits['proc_prefix_H_C_FgFg'] = necessary_ct[i*5+2].current.shell_string(
-                        schannel=False, forbid=False, main=False, pdg_order=True, print_id = False)
+                        tmp_proc = 'proc_prefix_H_C_FgFg'
                     # q(qx) > g + q(qx)
                     elif id_isec == 21 and id_jsec != 21: # if there is a gluon in sector, it is always in the first position
-                        replace_dict_limits['proc_prefix_H_C_FgFq'] = necessary_ct[i*5+2].current.shell_string(
-                        schannel=False, forbid=False, main=False, pdg_order=True, print_id = False)
+                        tmp_proc = 'proc_prefix_H_C_FgFq'
                     # g > q(qx) + qx(q)
                     else:
-                        replace_dict_limits['proc_prefix_H_C_FqFqx'] = necessary_ct[i*5+2].current.shell_string(
-                        schannel=False, forbid=False, main=False, pdg_order=True, print_id = False)
+                        tmp_proc = 'proc_prefix_H_C_FqFqx'
+
+                    uB_proc = necessary_ct[i*5+2].current.shell_string(
+                                schannel=False, forbid=False, main=False, pdg_order=False, print_id = False)
+                    print(uB_proc)
+                    replace_dict_limits[tmp_proc] = uB_proc
+                    if uB_proc not in Born_processes:
+                        Born_processes.append(uB_proc)
+                        Born_processes_str_1.append(necessary_ct[i*5+2].current.shell_string())
+                    
                 # Loop over sectors with at least one initial state particle
                 if isec <= 2 or jsec <= 2:
-                    # here it is necessary to keep pdg_order to False
+                    # TODO: look at Born string for initial state singularities
                     continue
 
 
@@ -731,8 +744,16 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             file = file % replace_dict_limits
             writer(filename).writelines(file)
 
-        #print(necessary_ct)
-        #print(necessary_ct[0].current.shell_string(
-         #                schannel=False, forbid=False, main=False, pdg_order=False, print_id = False))
+
+        print(Born_processes_str_1)
+        for i in range(0,len(Born_processes)):
+            dirpathLO = pjoin(dirpathLO, 'SubProcesses', \
+                            "P%s" % Born_processes_str_1[i])
+
+            os.symlink( "%s/matrix_%s.f" % (dirpathLO, Born_processes[i]), 
+                                "%s/matrix_%s.f" % (dirpath, Born_processes[i]) )
+
+        os.symlink(dirpathLO + '/spin_correlations.inc' , dirpath + '/spin_correlations.inc' )
+
 
         return all_sectors

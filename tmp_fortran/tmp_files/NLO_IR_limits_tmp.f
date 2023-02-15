@@ -4,7 +4,6 @@ c     it returns 0 if i is not a gluon
       implicit none
       include 'nexternal.inc'
       include 'math.inc'
-      include 'model.inc'
       include 'damping_factors.inc'
       include 'colored_partons.inc'
       include 'leg_PDGs.inc'
@@ -18,13 +17,6 @@ c     it returns 0 if i is not a gluon
 c     set logical doplot
       logical, save :: doplot=.false.
       common/cdoplot/doplot
-      logical, save :: ini=.false.
-c
-c
-c      if(ini)then
-c         doplot=.true.
-c         ini=.false.
-c      endif
 c
 c     initialise
       M2_S=0d0

@@ -3305,10 +3305,17 @@ class Process(PhysicsObject):
         
         for leg in legs:
             mypart = self['model'].get('particle_dict')[leg['id']]
+            #print(leg)
+            #print('mypart : ')
+            #print(mypart)
+            #print('Entering the for cycle')
+            #print(mystr)
             if prevleg and prevleg['state'] == False \
                    and leg['state'] == True:
                 # Separate initial and final legs by ">"
+                #print('Entering prevleg if statement')
                 mystr = mystr + '_'
+                #print(mystr)
                 # Add required s-channels
                 if self['required_s_channels'] and \
                        self['required_s_channels'][0] and schannel:
@@ -3322,6 +3329,9 @@ class Process(PhysicsObject):
             else:
                 mystr = mystr + mypart['antiname']
             prevleg = leg
+            #print('Prevleg : ')
+            #print(prevleg)
+            #print('Next leg')
 
         # Check for forbidden particles
         if self['forbidden_particles'] and forbid:
@@ -3338,6 +3348,122 @@ class Process(PhysicsObject):
         mystr = mystr.replace('-', 'm')
         # Just to be safe, remove all spaces
         mystr = mystr.replace(' ', '')
+
+        #print('After substitutions')
+        #print(mystr)
+        #print(' ')
+
+        for decay in self.get('decay_chains'):
+            mystr = mystr + "_" + decay.shell_string(schannel,forbid, main=False,
+                                                     pdg_order=pdg_order)
+
+        # Too long name are problematic so restrict them to a maximal of 70 char
+        if len(mystr) > 64 and main:
+            if schannel and forbid:
+                out = self.shell_string(True, False, True, pdg_order)
+            elif schannel:
+                out = self.shell_string(False, False, True, pdg_order)
+            else:
+                out = mystr[:64]
+            if not out.endswith('_%s' % self['uid']):    
+                out += '_%s' % self['uid']
+            return out
+
+        return mystr
+
+#gl
+
+    def shell_string_user(self, schannel=True, forbid=True, main=True, pdg_order=False,
+                                                                print_id = True):
+        """Returns process as string with '~' -> 'x', '>' -> '_',
+        '+' -> 'p' and '-' -> 'm', including process number,
+        intermediate s-channels and forbidden particles,
+        pdg_order allow to order to leg order by pid."""
+
+        # TODO: check that this is correct also for ISR
+
+        mystr = ""
+        if not self.get('is_decay_chain') and print_id:
+            mystr += "%d_" % self['id']
+        
+        prevleg = None
+        if pdg_order:
+            legs = [l for l in self['legs'][1:]]
+            def order_leg(l1,l2):
+                id1 = l1.get('id')
+                id2 = l2.get('id')
+                return id2-id1
+            legs.sort(cmp=order_leg)
+            legs.insert(0, self['legs'][0])
+        else:
+            legs = self['legs']
+        
+        id_final_part = []
+        final_mypart_name = []
+        for leg in legs:
+            mypart = self['model'].get('particle_dict')[leg['id']]
+            if prevleg and prevleg['state'] == False \
+                   and leg['state'] == True:
+                # Separate initial and final legs by ">"
+                mystr = mystr + '_'
+                
+                # Add required s-channels
+                #if self['required_s_channels'] and \
+                #       self['required_s_channels'][0] and schannel:
+                #    mystr += "_or_".join(["".join([self['model'].\
+                #                       get('particle_dict')[req_id].get_name() \
+                #                                for req_id in id_list]) \
+                #                    for id_list in self['required_s_channels']])
+                #    mystr = mystr + '_'
+            if leg['state'] == True:
+                if mypart['is_part']:
+                    id_final_part.append((leg['id'],mypart['name']))
+                    final_mypart_name.append(mypart['name'])
+                else:
+                    id_final_part.append((leg['id'],mypart['antiname']))
+                    final_mypart_name.append(mypart['antiname'])
+            if leg['state'] == False:
+                if mypart['is_part']:
+                    mystr = mystr + mypart['name']
+                else:
+                    mystr = mystr + mypart['antiname']
+            prevleg = leg
+
+        #print('Id legs :')
+        #print(id_final_part)
+        #print(final_mypart_name)
+
+        def takeFirst(elem):
+            return elem[0]
+
+        id_final_part.sort(key=takeFirst, reverse = True)
+        #print('Reverse Id legs: ')
+        #print(id_final_part)
+
+        
+        for i in range(0,len(id_final_part)):
+            mystr = mystr + id_final_part[i][1]
+    
+
+        # Check for forbidden particles
+        if self['forbidden_particles'] and forbid:
+            mystr = mystr + '_no_'
+            for forb_id in self['forbidden_particles']:
+                forbpart = self['model'].get('particle_dict')[forb_id]
+                mystr = mystr + forbpart.get_name()
+
+        # Replace '~' with 'x'
+        mystr = mystr.replace('~', 'x')
+        # Replace '+' with 'p'
+        mystr = mystr.replace('+', 'p')
+        # Replace '-' with 'm'
+        mystr = mystr.replace('-', 'm')
+        # Just to be safe, remove all spaces
+        mystr = mystr.replace(' ', '')
+
+        #print('After substitutions')
+        #print(mystr)
+        #print(' ')
 
         for decay in self.get('decay_chains'):
             mystr = mystr + "_" + decay.shell_string(schannel,forbid, main=False,

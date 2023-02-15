@@ -704,13 +704,14 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             replace_dict_limits['proc_prefix_H_C_FqFqx'] = 'dummy'
 
             if necessary_ct_list[i*5] == 1 or necessary_ct_list[i*5+1] == 1:
-                uB_proc = necessary_ct[i*5].current.shell_string(
+                uB_proc = necessary_ct[i*5].current.shell_string_user(
                         schannel=False, forbid=False, main=False, pdg_order=False, print_id = False)
-                print(uB_proc)
+                #print('Soft counterterm: ')
+                #print(uB_proc)
                 replace_dict_limits['proc_prefix_S'] = uB_proc
                 if uB_proc not in Born_processes:
                     Born_processes.append(uB_proc)
-                    Born_processes_str_1.append(necessary_ct[i*5].current.shell_string())
+                    Born_processes_str_1.append(necessary_ct[i*5].current.shell_string_user())
             if necessary_ct_list[i*5+2] == 1:
                 # Loop over sectors with final state particles only
                 if isec > 2 and jsec > 2:
@@ -724,13 +725,14 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     else:
                         tmp_proc = 'proc_prefix_H_C_FqFqx'
 
-                    uB_proc = necessary_ct[i*5+2].current.shell_string(
+                    uB_proc = necessary_ct[i*5+2].current.shell_string_user(
                                 schannel=False, forbid=False, main=False, pdg_order=False, print_id = False)
-                    print(uB_proc)
+                    #print('Collinear counterterm : ')
+                    #print(uB_proc)
                     replace_dict_limits[tmp_proc] = uB_proc
                     if uB_proc not in Born_processes:
                         Born_processes.append(uB_proc)
-                        Born_processes_str_1.append(necessary_ct[i*5+2].current.shell_string())
+                        Born_processes_str_1.append(necessary_ct[i*5+2].current.shell_string_user())
                     
                 # Loop over sectors with at least one initial state particle
                 if isec <= 2 or jsec <= 2:
@@ -745,15 +747,18 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             writer(filename).writelines(file)
 
 
-        print(Born_processes_str_1)
+        #print(Born_processes_str_1)
+        ini = True
         for i in range(0,len(Born_processes)):
+            dirpathLO = pjoin(dirmadnklo,glob.glob("%s/LO_*" % interface.user_dir_name[0])[0])
             dirpathLO = pjoin(dirpathLO, 'SubProcesses', \
                             "P%s" % Born_processes_str_1[i])
-
-            os.symlink( "%s/matrix_%s.f" % (dirpathLO, Born_processes[i]), 
-                                "%s/matrix_%s.f" % (dirpath, Born_processes[i]) )
-
-        os.symlink(dirpathLO + '/spin_correlations.inc' , dirpath + '/spin_correlations.inc' )
+            if os.path.exists(dirpathLO):
+                os.symlink( "%s/matrix_%s.f" % (dirpathLO, Born_processes[i]), 
+                            "%s/matrix_%s.f" % (dirpath, Born_processes[i]) )
+                if ini:
+                    os.symlink(dirpathLO + '/spin_correlations.inc' , dirpath + '/spin_correlations.inc' )
+                    ini = False
 
 
         return all_sectors

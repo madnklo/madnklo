@@ -213,7 +213,7 @@ C     Index 0 is the number of correlators to consider and the next indices are 
 ## }
 
 ## if (spin_correlation) {
-      include 'spin_correlations.inc'
+      include '%(proc_prefix)sspin_correlations.inc'
       INTEGER SPINCORR_HEL_INDICES(NEXTERNAL)
       LOGICAL SKIP_THIS_HELICITY
       INTEGER ISC
@@ -524,7 +524,7 @@ C GLOBAL VARIABLES
 C  
       include 'coupl.inc'
 ## if (spin_correlation) {
-      include 'spin_correlations.inc'
+      include '%(proc_prefix)sspin_correlations.inc'
 ## }
 C  
 C COLOR DATA
@@ -938,7 +938,7 @@ C
 
         INTEGER    NEXTERNAL
         PARAMETER (NEXTERNAL=%(nexternal)d)
-        include 'spin_correlations.inc'     
+        include '%(proc_prefix)sspin_correlations.inc'     
 
 C       
 C       ARGUMENTS
@@ -1053,7 +1053,7 @@ C
 
         INTEGER    NEXTERNAL
         PARAMETER (NEXTERNAL=%(nexternal)d)
-        include 'spin_correlations.inc'     
+        include '%(proc_prefix)sspin_correlations.inc'     
 
 C       
 C       LOCAL VARIABLES
@@ -1087,7 +1087,7 @@ C       ----------
         IMPLICIT NONE
         INTEGER    NEXTERNAL
         PARAMETER (NEXTERNAL=%(nexternal)d)
-        include 'spin_correlations.inc'
+        include '%(proc_prefix)sspin_correlations.inc'
         INTEGER MAX_N_SC_VECTORS
 CF2PY INTENT(OUT) :: MAX_N_SC_VECTORS
 		MAX_N_SC_VECTORS = MAX_N_SPIN_CORR_VECTORS
@@ -1097,7 +1097,7 @@ CF2PY INTENT(OUT) :: MAX_N_SC_VECTORS
         IMPLICIT NONE
         INTEGER    NEXTERNAL
         PARAMETER (NEXTERNAL=%(nexternal)d)
-        include 'spin_correlations.inc'
+        include '%(proc_prefix)sspin_correlations.inc'
         INTEGER MAX_N_SC_LEGS
 CF2PY INTENT(OUT) :: MAX_N_SC_LEGS
 		MAX_N_SC_LEGS = MAX_LEGS_WITH_SPIN_CORR

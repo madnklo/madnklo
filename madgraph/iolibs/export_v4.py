@@ -2037,6 +2037,9 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         # Create the directory PN_xx_xxxxx in the specified path
         dirpath = pjoin(self.dir_path, 'SubProcesses', \
                        "P%s" % matrix_element.get('processes')[0].shell_string())
+        #gl
+        for i in range(0,len(matrix_element.get('processes'))):
+            print(matrix_element.get('processes')[i].shell_string())
 
         if self.opt['sa_symmetry']:
             # avoid symmetric output
@@ -2072,12 +2075,6 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         except os.error as error:
             logger.warning(error.strerror + " " + dirpath)
 
-        #gl
-        #needed just for NLO_RxR directories and i need to know the underlying necessary process
-        #to find the path and the files
-        #dirpath_fortran = pjoin(self.dir_path, "SubProcesses/P%s" % matrix_element.get('processes')[0].shell_string(), 
-        #                        'subreal_%s' % matrix_element.get('processes')[0].shell_string())
-        #os.mkdir(dirpath_fortran)
 
         #try:
         #    os.chdir(dirpath)
@@ -2101,6 +2098,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             fortran_model)
 
         #gl
+        #Create a matrix_*.F process dependent
         if self.opt['export_format']=='standalone_msP':
             filename = pjoin(dirpath, 'matrix_prod.f')
         else:
@@ -2652,7 +2650,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         return True
 
     #===========================================================================
-    # write_matrix_element_v4
+    # write_matrix_element_v4  SA
     #===========================================================================
     def write_matrix_element_v4(self, writer, matrix_element, fortran_model,
                                 write=True, proc_prefix=''):
@@ -2786,8 +2784,8 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         if tree_context['spin_correlation_general_resources']:
             if write and writer:
                 # At NLO at most one vector can have spin correlations, at NNLO 2, at N^3LO 3 etc...
-                # We of course restrict ourselves to handling fermions and vectors.
-                writers.FortranWriter(pjoin(os.path.dirname(writer.name),'spin_correlations.inc')
+                # We of course restrict ourselves to handling fermions and vectors.   
+                writers.FortranWriter(pjoin(os.path.dirname(writer.name),'%sspin_correlations.inc' % proc_prefix)
                  ).writelines(
 """INTEGER MAX_N_SPIN_CORR_VECTORS, MAX_LEGS_WITH_SPIN_CORR
 PARAMETER (MAX_N_SPIN_CORR_VECTORS=20, MAX_LEGS_WITH_SPIN_CORR=%d)
@@ -6141,126 +6139,7 @@ class UFO_model_to_mg4(object):
                 mp_fsock.writelines(self.mp_complex_format+' '+','.join([\
                                 self.mp_prefix+cm for cm in complex_mass])+'\n')
                 mp_fsock.writelines('common/MP_complex_mass/ '+\
-                    ','.join([self.mp_prefix+cm for cm in complex_mass])+'\n\n') 
-
-    #gl
-    def create_coupl_inc_v2(self):
-        """ write coupling.inc """
-        
-        fsock = self.open('coupl_v2.inc', format='fortran')
-        if self.opt['mp']:
-            mp_fsock = self.open('mp_coupl.inc', format='fortran')
-            mp_fsock_same_name = self.open('mp_coupl_same_name.inc',\
-                                            format='fortran')
-
-        # Write header
-        header = """double precision G
-                common/strong/ G
-                 
-                double complex gal(2)
-                common/weak/ gal
-                
-                double precision MU_R
-                common/rscale/ MU_R
-
-                double precision Nf
-                parameter(Nf=%d)
-                """ % self.model.get_nflav()
-                
-        fsock.writelines(header)
-        
-        if self.opt['mp']:
-            header = """%(real_mp_format)s %(mp_prefix)sG
-                    common/MP_strong/ %(mp_prefix)sG
-                     
-                    %(complex_mp_format)s %(mp_prefix)sgal(2)
-                    common/MP_weak/ %(mp_prefix)sgal
-                    
-                    %(complex_mp_format)s %(mp_prefix)sMU_R
-                    common/MP_rscale/ %(mp_prefix)sMU_R
-
-                """
-
-
-            mp_fsock.writelines(header%{'real_mp_format':self.mp_real_format,
-                                  'complex_mp_format':self.mp_complex_format,
-                                  'mp_prefix':self.mp_prefix})
-            mp_fsock_same_name.writelines(header%{'real_mp_format':self.mp_real_format,
-                                  'complex_mp_format':self.mp_complex_format,
-                                  'mp_prefix':''})
-
-        # Write the Mass definition/ common block
-        masses = set()
-        widths = set()
-        if self.opt['complex_mass']:
-            complex_mass = set()
-            
-        for particle in self.model.get('particles'):
-            #find masses
-            one_mass = particle.get('mass')
-            if one_mass.lower() != 'zero':
-                masses.add(one_mass)
-                
-            # find width
-            one_width = particle.get('width')
-            if one_width.lower() != 'zero':
-                widths.add(one_width)
-                if self.opt['complex_mass'] and one_mass.lower() != 'zero':
-                    complex_mass.add('CMASS_%s' % one_mass)
-            
-        if masses:
-            fsock.writelines('double precision '+','.join(masses)+'\n')
-            fsock.writelines('common/masses/ '+','.join(masses)+'\n\n')
-            if self.opt['mp']:
-                mp_fsock_same_name.writelines(self.mp_real_format+' '+\
-                                                          ','.join(masses)+'\n')
-                mp_fsock_same_name.writelines('common/MP_masses/ '+\
-                                                        ','.join(masses)+'\n\n')                
-                mp_fsock.writelines(self.mp_real_format+' '+','.join([\
-                                        self.mp_prefix+m for m in masses])+'\n')
-                mp_fsock.writelines('common/MP_masses/ '+\
-                            ','.join([self.mp_prefix+m for m in masses])+'\n\n')                
-
-        if widths:
-            fsock.writelines('double precision '+','.join(widths)+'\n')
-            fsock.writelines('common/widths/ '+','.join(widths)+'\n\n')
-            if self.opt['mp']:
-                mp_fsock_same_name.writelines(self.mp_real_format+' '+\
-                                                          ','.join(widths)+'\n')
-                mp_fsock_same_name.writelines('common/MP_widths/ '+\
-                                                        ','.join(widths)+'\n\n')                
-                mp_fsock.writelines(self.mp_real_format+' '+','.join([\
-                                        self.mp_prefix+w for w in widths])+'\n')
-                mp_fsock.writelines('common/MP_widths/ '+\
-                            ','.join([self.mp_prefix+w for w in widths])+'\n\n')
-        
-        # Write the Couplings
-        coupling_list = [coupl.name for coupl in self.coups_dep + self.coups_indep]       
-        fsock.writelines('double complex '+', '.join(coupling_list)+'\n')
-        fsock.writelines('common/couplings/ '+', '.join(coupling_list)+'\n')
-        if self.opt['mp']:
-            mp_fsock_same_name.writelines(self.mp_complex_format+' '+\
-                                                   ','.join(coupling_list)+'\n')
-            mp_fsock_same_name.writelines('common/MP_couplings/ '+\
-                                                 ','.join(coupling_list)+'\n\n')                
-            mp_fsock.writelines(self.mp_complex_format+' '+','.join([\
-                                 self.mp_prefix+c for c in coupling_list])+'\n')
-            mp_fsock.writelines('common/MP_couplings/ '+\
-                     ','.join([self.mp_prefix+c for c in coupling_list])+'\n\n')            
-        
-        # Write complex mass for complex mass scheme (if activated)
-        if self.opt['complex_mass'] and complex_mass:
-            fsock.writelines('double complex '+', '.join(complex_mass)+'\n')
-            fsock.writelines('common/complex_mass/ '+', '.join(complex_mass)+'\n')
-            if self.opt['mp']:
-                mp_fsock_same_name.writelines(self.mp_complex_format+' '+\
-                                                    ','.join(complex_mass)+'\n')
-                mp_fsock_same_name.writelines('common/MP_complex_mass/ '+\
-                                                  ','.join(complex_mass)+'\n\n')                
-                mp_fsock.writelines(self.mp_complex_format+' '+','.join([\
-                                self.mp_prefix+cm for cm in complex_mass])+'\n')
-                mp_fsock.writelines('common/MP_complex_mass/ '+\
-                    ','.join([self.mp_prefix+cm for cm in complex_mass])+'\n\n') 
+                    ','.join([self.mp_prefix+cm for cm in complex_mass])+'\n\n')  
 
         
     def create_write_couplings(self):

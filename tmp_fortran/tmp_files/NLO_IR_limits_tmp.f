@@ -14,6 +14,7 @@ c     it returns 0 if i is not a gluon
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision sil,sim,slm,y,z,x,damp
       integer mapped_labels(nexternal)
+      integer isLOQCDparton(nexternal-1)
 c     set logical doplot
       logical, save :: doplot=.false.
       common/cdoplot/doplot
@@ -39,14 +40,13 @@ c
 c     determine indices in the n-1 body kinematics
 c     TODO: check new get_mapped_labels()
             call get_soft_mapped_labels(i,l,m,nexternal,leg_PDGs,
-     $           mapped_labels,mapped_flavours)
+     $           mapped_labels,mapped_flavours,isLOQCDparton)
             lb=mapped_labels(l)
             mb=mapped_labels(m)
             write(*,*) 'New mapping labels',lb,mb
             lb=imap(l,i,l,0,0,npartNLO)
             mb=imap(m,i,l,0,0,npartNLO)
             write(*,*) 'Old mapping labels',lb,mb
-c     TODO: add isLOQCDparton
 c     check on LO color labels 
             if(.not.(isLOQCDparton(lb).and.isLOQCDparton(mb)))then
                write(*,*)'Wrong LO indices in soft kernel',lb,mb
@@ -78,16 +78,14 @@ c     safety check
             endif
 c
 c     call colour-connected Born
-c     TODO: generalise cc_Born_LO()
             call %(proc_prefix_S)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
-c     TODO: pick the right index of ANS for correct process
-            BLO = ANS(1)
-c            call cc_Born_LO(xsb,ccBLO,ierr)
-c            if(ierr.eq.1)goto 999
+c     TODO: on-going work
+c     TODO: extract color correlated
+            ccBLO = COLOR_CORRELATED_EVALS
 c
 c     eikonal
 c     TODO: check for dis
-c     TODO: define ccBLO
+c     TODO: define ccBLO()
             M2tmp=ccBLO(lb,mb)*2d0*slm/(sil*sim)
             if(m.gt.2.and.l.gt.2)then
                y=sil/(sil+sim+slm)
@@ -424,3 +422,47 @@ c
  999  ierr=1
       return
       end
+
+
+      SUBROUTINE DUMMY_ME_ACCESSOR_HOOK(P,HEL,USER_ALPHAS,ANS)
+      IMPLICIT NONE
+C
+      INCLUDE 'coupl.inc'
+      INCLUDE 'nexternal.inc'
+      INCLUDE 'nsqso_born.inc'
+C     
+C     CONSTANT
+C     
+      REAL*8 PI
+      PARAMETER (PI= 3.141592653589793D0)
+C     
+C     ARGUMENTS 
+C     
+      REAL*8 P(0:3,NEXTERNAL),ANS(0:NSQAMPSO)
+      INTEGER HEL
+      DOUBLE PRECISION USER_ALPHAS
+CF2PY INTENT(IN)  :: P
+CF2PY INTENT(IN)  :: HEL
+CF2PY INTENT(IN)  :: USER_ALPHAS
+CF2PY INTENT(OUT) :: ANS
+
+      REAL*8 THIS_G
+
+      write(*,*) 'This subroutine should never be called!!!'
+      write(*,*) 'This counterterm does not contribute to this sector.'
+      write(*,*) 'Exit...'
+      STOP
+      END
+
+
+
+
+
+
+
+
+
+
+
+
+

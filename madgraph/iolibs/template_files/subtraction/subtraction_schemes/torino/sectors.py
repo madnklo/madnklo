@@ -14,10 +14,9 @@ import logging
 
 #gl
 import madgraph.interface.madgraph_interface as interface
-import madgraph.iolibs.export_v4 as export
 import madgraph.iolibs.file_writers as writers
+import madgraph.core.contributions as contributions
 import dipole_current
-import torino_config
 import factors_and_cuts
 import recoiler_function
 import colored_partons

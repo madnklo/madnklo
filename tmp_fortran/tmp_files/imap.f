@@ -1,15 +1,17 @@
       subroutine get_soft_mapped_labels(a,b,c,n,in_flavours,mapped_labels,
-     $           mapped_flavours)
+     $           mapped_flavours,isLOQCDparton)
       implicit none
       integer a,b,c,n
       integer in_flavours(n)
       integer mapped_labels(n),mapped_flavours(n)
       integer i,j
+      integer isLOQCDparton(n-1)
 c
 c     initialise
       j = 0
       mapped_labels = 0
       mapped_flavours = 0
+      isLOQCDparton = .false.
 c
 c     TODO: consistency check on (a,b,c) PDGs
 c
@@ -33,7 +35,15 @@ c     For NLO mapping type
             mapped_labels(i) = a + j
             j = j + 1
          endif
+c     write isLOQCDparton
+c     exclude the mapped_flavours=0 value of the removed gluon
+         if(mapped_flavours(i).ne.0) then
+            if(abs(mapped_flavours(i)).lt.6.or.mapped_flavours(i).eq.21) then
+               isLOQCDparton(i) = .true.
+            endif
+         endif 
       enddo
+
       end
 
 

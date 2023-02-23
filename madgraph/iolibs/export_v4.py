@@ -2038,8 +2038,13 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         dirpath = pjoin(self.dir_path, 'SubProcesses', \
                        "P%s" % matrix_element.get('processes')[0].shell_string())
         #gl
-        for i in range(0,len(matrix_element.get('processes'))):
-            print(matrix_element.get('processes')[i].shell_string())
+        all_process_str = []
+        all_process_str.append(matrix_element.get('processes')[0].shell_string(
+                                        schannel=False, forbid=False, main=False, pdg_order=False, print_id = False) + '_')
+        for i in range(1,len(matrix_element.get('processes'))):
+            all_process_str.append(matrix_element.get('processes')[i].shell_string_user(
+                                        schannel=False, forbid=False, main=False, pdg_order=False, print_id = False)[0] + '_')
+        print(all_process_str)
 
         if self.opt['sa_symmetry']:
             # avoid symmetric output
@@ -2098,7 +2103,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             fortran_model)
 
         #gl
-        #Create a matrix_*.F process dependent
+        #Create a process dependent matrix_*.f (* = proc_prefix)
         if self.opt['export_format']=='standalone_msP':
             filename = pjoin(dirpath, 'matrix_prod.f')
         else:
@@ -2110,7 +2115,9 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             fortran_model,
             True,
             proc_prefix = matrix_element.get('processes')[0].shell_string(
-            schannel=False, forbid=False, main=False, pdg_order=False, print_id = False) + '_')
+            schannel=False, forbid=False, main=False, pdg_order=False, print_id = False) + '_',
+            extra_proc=all_process_str
+            )
 
         if self.opt['export_format'] == 'standalone_msP':
             filename =  pjoin(dirpath,'configs_production.inc')
@@ -2165,8 +2172,6 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         # Return to original PWD
         #os.chdir(cwd)
 
-        #gl
-        #print(matrix_element.get('base_amplitude'))
 
         if not calls:
             calls = 0
@@ -2438,9 +2443,9 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         return_dict['color_connections_to_index'] = \
                 self.add_color_connections_to_index_subroutines(color_connections, general_replace_dict)
 
-#        misc.sprint(sorted(color_correlated_matrices.keys()), len(color_correlated_matrices.keys()))
-#        misc.sprint(color_correlated_matrices[(1,2)][0])
-#        misc.sprint(str(color_correlated_matrices[(1,2)][1]))
+        # misc.sprint(sorted(color_correlated_matrices.keys()), len(color_correlated_matrices.keys()))
+        # misc.sprint(color_correlated_matrices[(1,2)][0])
+        # misc.sprint(str(color_correlated_matrices[(1,2)][1]))
         return return_dict
 
     def add_color_connections_to_index_subroutines(self, color_connections, general_replace_dict):
@@ -2653,7 +2658,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
     # write_matrix_element_v4  SA
     #===========================================================================
     def write_matrix_element_v4(self, writer, matrix_element, fortran_model,
-                                write=True, proc_prefix=''):
+                                write=True, proc_prefix='', extra_proc=''):
         """Export a matrix element to a matrix.f file in MG4 standalone format
         if write is on False, just return the replace_dict and not write anything."""
 
@@ -2674,7 +2679,6 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             
         if not self.opt.has_key('sa_symmetry'):
             self.opt['sa_symmetry']=False
-
 
 
         # The proc_id is for MadEvent grouping which is never used in SA.
@@ -2773,6 +2777,37 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             # Now setup the array specifying what squared split order is chosen
             replace_dict['chosen_so_configs']=self.set_chosen_SO_index(
                               matrix_element.get('processes')[0],squared_orders)
+
+        ######
+        #gl
+        #print('Extra proc : ' + str(extra_proc))
+        extra_proc_list = []
+        if extra_proc:
+            for item in extra_proc:
+                if item != proc_prefix:
+                    print('Item : ' + str(item))
+                    extra_proc_list.append('SUBROUTINE %sME_ACCESSOR_HOOK(P,HEL,USER_ALPHAS,ANS)\n' % item)
+                    extra_proc_list.append('IMPLICIT NONE\n')
+                    extra_proc_list.append('#\n')
+                    extra_proc_list.append('INTEGER    NEXTERNAL\n')
+                    extra_proc_list.append('PARAMETER (NEXTERNAL=%d)\n' % nexternal)
+                    extra_proc_list.append('INTEGER NSQAMPSO\n')
+                    extra_proc_list.append('PARAMETER (NSQAMPSO=%d)\n' % replace_dict['nSqAmpSplitOrders'])
+                    extra_proc_list.append('#\n')
+                    extra_proc_list.append('REAL*8 P(0:3,NEXTERNAL),ANS(0:NSQAMPSO)\n')
+                    extra_proc_list.append('INTEGER HEL\n')
+                    extra_proc_list.append('DOUBLE PRECISION USER_ALPHAS\n')
+                    extra_proc_list.append('#\n')
+                    extra_proc_list.append('CALL %sME_ACCESSOR_HOOK(P,HEL,USER_ALPHAS,ANS)\n' % proc_prefix)
+                    extra_proc_list.append('#\n')
+                    extra_proc_list.append('END\n')
+                    extra_proc_list.append('\n')
+
+                    
+        #print(extra_proc_list)
+        extra_proc_str = " ".join(extra_proc_list)
+        replace_dict['extra_proc'] = extra_proc_str
+        #####
 
         if write and writer:
             writers.FortranWriter(pjoin(os.path.dirname(writer.name),'nsqso_born.inc')
@@ -6962,46 +6997,6 @@ class UFO_model_to_mg4(object):
                        'mass': particle.get('mass'),'mp_pref':self.mp_prefix})
 
         fsock.writelines('\n'.join(res_strings))
-
-    #gl
-    def create_param_read_v2(self):    
-        """create param_read"""
-        
-        if self.opt['export_format'] in ['madevent', 'FKS5_default', 'FKS5_optimized'] \
-            or self.opt['loop_induced']:
-            fsock = self.open('param_read.inc', format='fortran')
-            fsock.writelines(' include \'../param_card.inc\'')
-            return
-    
-        def format_line(parameter):
-            """return the line for the ident_card corresponding to this 
-            parameter"""
-            template = \
-            """ call LHA_get_real(npara,param,value,'%(name)s',%(name)s,%(value)s)""" \
-                % {'name': parameter.name,
-                   'value': self.p_to_f.parse(str(parameter.value.real))}  
-            return template        
-    
-        fsock = self.open('param_read.inc', format='fortran')
-        res_strings = [format_line(param) \
-                          for param in self.params_ext]
-        
-        # Correct width sign for Majorana particles (where the width
-        # and mass need to have the same sign)        
-        for particle in self.model.get('particles'):
-            if particle.is_fermion() and particle.get('self_antipart') and \
-                   particle.get('width').lower() != 'zero':
-                
-                res_strings.append('%(width)s = sign(%(width)s,%(mass)s)' % \
-                 {'width': particle.get('width'), 'mass': particle.get('mass')})
-                if self.opt['mp']:
-                    res_strings.append(\
-                      ('%(mp_pref)s%(width)s = sign(%(mp_pref)s%(width)s,'+\
-                       '%(mp_pref)s%(mass)s)')%{'width': particle.get('width'),\
-                       'mass': particle.get('mass'),'mp_pref':self.mp_prefix})
-
-        fsock.writelines('\n'.join(res_strings))
-
 
     @staticmethod
     def create_param_card_static(model, output_path, rule_card_path=False,

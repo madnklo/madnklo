@@ -27,6 +27,7 @@ import madgraph.core.color_algebra as color
 from madgraph import MadGraph5Error, MG5DIR, InvalidCmd, DTYPE
 import madgraph.various.misc as misc 
 import numpy as np
+from itertools import permutations
 
 from numbers import Number
 
@@ -3437,51 +3438,58 @@ class Process(PhysicsObject):
             return elem[0]
 
         id_final_part.sort(key=takeFirst, reverse = True)
+        perm_id = permutations(id_final_part)
         #print('Reverse Id legs: ')
-        #print(id_final_part)
 
-        
-        for i in range(0,len(id_final_part)):
-            mystr = mystr + id_final_part[i][1]
+        perm_str = []
+        tmp_mystr = mystr
+        for item in list(perm_id):
+            mystr = tmp_mystr
+            for j in range(0,len(item)):
+                mystr = mystr + item[j][1]
     
+            # Check for forbidden particles
+            if self['forbidden_particles'] and forbid:
+                mystr = mystr + '_no_'
+                for forb_id in self['forbidden_particles']:
+                    forbpart = self['model'].get('particle_dict')[forb_id]
+                    mystr = mystr + forbpart.get_name()
 
-        # Check for forbidden particles
-        if self['forbidden_particles'] and forbid:
-            mystr = mystr + '_no_'
-            for forb_id in self['forbidden_particles']:
-                forbpart = self['model'].get('particle_dict')[forb_id]
-                mystr = mystr + forbpart.get_name()
+            # Replace '~' with 'x'
+            mystr = mystr.replace('~', 'x')
+            # Replace '+' with 'p'
+            mystr = mystr.replace('+', 'p')
+            # Replace '-' with 'm'
+            mystr = mystr.replace('-', 'm')
+            # Just to be safe, remove all spaces
+            mystr = mystr.replace(' ', '')
 
-        # Replace '~' with 'x'
-        mystr = mystr.replace('~', 'x')
-        # Replace '+' with 'p'
-        mystr = mystr.replace('+', 'p')
-        # Replace '-' with 'm'
-        mystr = mystr.replace('-', 'm')
-        # Just to be safe, remove all spaces
-        mystr = mystr.replace(' ', '')
+            #print('After substitutions')
+            #print(mystr)
+            #print(' ')
 
-        #print('After substitutions')
-        #print(mystr)
-        #print(' ')
+            for decay in self.get('decay_chains'):
+                mystr = mystr + "_" + decay.shell_string(schannel,forbid, main=False,
+                                                         pdg_order=pdg_order)
 
-        for decay in self.get('decay_chains'):
-            mystr = mystr + "_" + decay.shell_string(schannel,forbid, main=False,
-                                                     pdg_order=pdg_order)
+            # Too long name are problematic so restrict them to a maximal of 70 char
+            if len(mystr) > 64 and main:
+                if schannel and forbid:
+                    out = self.shell_string(True, False, True, pdg_order)
+                elif schannel:
+                    out = self.shell_string(False, False, True, pdg_order)
+                else:
+                    out = mystr[:64]
+                if not out.endswith('_%s' % self['uid']):    
+                    out += '_%s' % self['uid']
+                return out
 
-        # Too long name are problematic so restrict them to a maximal of 70 char
-        if len(mystr) > 64 and main:
-            if schannel and forbid:
-                out = self.shell_string(True, False, True, pdg_order)
-            elif schannel:
-                out = self.shell_string(False, False, True, pdg_order)
-            else:
-                out = mystr[:64]
-            if not out.endswith('_%s' % self['uid']):    
-                out += '_%s' % self['uid']
-            return out
+            perm_str.append(mystr)
 
-        return mystr
+        #print(perm_str)
+        return perm_str
+
+        #return mystr
 
     def shell_string_v4(self):
         """Returns process as v4-compliant string with '~' -> 'x' and

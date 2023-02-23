@@ -686,10 +686,13 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
 ######### Write NLO_IR_limits_isec_jsec.f
 
-
         replace_dict_limits = {}
+        # List of necessary underlying Born strings
         Born_processes = []
-        Born_processes_str_1 = []
+        # List of dirpathLO of the necessary underlying Born
+        path_Born_processes = []
+        # Link LO files to each real process directory
+        dirpathLO_head = pjoin(dirmadnklo,glob.glob("%s/LO_*" % interface.user_dir_name[0])[0])
         for i in range(0,len(all_sector_list)):
             isec = all_sector_list[i][0]
             jsec = all_sector_list[i][1]
@@ -703,14 +706,23 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             replace_dict_limits['proc_prefix_H_C_FqFqx'] = 'dummy'
 
             if necessary_ct_list[i*5] == 1 or necessary_ct_list[i*5+1] == 1:
+                # list of proc str permutations 'epem_ddx' for template
                 uB_proc = necessary_ct[i*5].current.shell_string_user(
                         schannel=False, forbid=False, main=False, pdg_order=False, print_id = False)
-                #print('Soft counterterm: ')
-                #print(uB_proc)
-                replace_dict_limits['proc_prefix_S'] = uB_proc
-                if uB_proc not in Born_processes:
-                    Born_processes.append(uB_proc)
-                    Born_processes_str_1.append(necessary_ct[i*5].current.shell_string_user())
+                # list of proc str permutations '1_epem_ddx' for directory
+                uB_proc_str_1 = necessary_ct[i*5].current.shell_string_user()
+                for j in range(0,len(uB_proc)):
+                    dirpathLO = pjoin(dirpathLO_head, 'SubProcesses', "P%s" % uB_proc_str_1[j])
+                    if os.path.exists(dirpathLO):
+                        replace_dict_limits['proc_prefix_S'] = uB_proc[j]
+                        if uB_proc[j] not in Born_processes:
+                            Born_processes.append(uB_proc[j])
+                            path_Born_processes.append(dirpathLO)
+                        break
+                    if j == len(uB_proc) - 1:
+                        extra_uB_proc = uB_proc[0]
+                        replace_dict_limits['proc_prefix_S'] = extra_uB_proc
+
             if necessary_ct_list[i*5+2] == 1:
                 # Loop over sectors with final state particles only
                 if isec > 2 and jsec > 2:
@@ -726,18 +738,23 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
                     uB_proc = necessary_ct[i*5+2].current.shell_string_user(
                                 schannel=False, forbid=False, main=False, pdg_order=False, print_id = False)
-                    #print('Collinear counterterm : ')
-                    #print(uB_proc)
-                    replace_dict_limits[tmp_proc] = uB_proc
-                    if uB_proc not in Born_processes:
-                        Born_processes.append(uB_proc)
-                        Born_processes_str_1.append(necessary_ct[i*5+2].current.shell_string_user())
+                    uB_proc_str_1 = necessary_ct[i*5+2].current.shell_string_user()
+                    for j in range(0,len(uB_proc)):
+                        dirpathLO = pjoin(dirpathLO_head, 'SubProcesses', "P%s" % uB_proc_str_1[j])
+                        if os.path.exists(dirpathLO):
+                            replace_dict_limits[tmp_proc] = uB_proc[j]
+                            if uB_proc[j] not in Born_processes:
+                                Born_processes.append(uB_proc[j])
+                                path_Born_processes.append(dirpathLO)
+                            break
+                        if j == len(uB_proc) - 1:
+                            extra_uB_proc = uB_proc[0]
+                            replace_dict_limits[tmp_proc] = extra_uB_proc
                     
                 # Loop over sectors with at least one initial state particle
                 if isec <= 2 or jsec <= 2:
                     # TODO: look at Born string for initial state singularities
                     continue
-
 
             filename = pjoin(dirpath, 'NLO_IR_limits_%d_%d.f' % (isec, jsec))
 
@@ -746,18 +763,12 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             writer(filename).writelines(file)
 
 
-        #print(Born_processes_str_1)
-        ini = True
+        # Link LO files to each real process directory
         for i in range(0,len(Born_processes)):
-            dirpathLO = pjoin(dirmadnklo,glob.glob("%s/LO_*" % interface.user_dir_name[0])[0])
-            dirpathLO = pjoin(dirpathLO, 'SubProcesses', \
-                            "P%s" % Born_processes_str_1[i])
-            if os.path.exists(dirpathLO):
-                os.symlink( "%s/matrix_%s.f" % (dirpathLO, Born_processes[i]), 
-                            "%s/matrix_%s.f" % (dirpath, Born_processes[i]) )
-                if ini:
-                    os.symlink(dirpathLO + '/spin_correlations.inc' , dirpath + '/spin_correlations.inc' )
-                    ini = False
+            os.symlink( "%s/matrix_%s.f" % (path_Born_processes[i], Born_processes[i]), 
+                        "%s/matrix_%s.f" % (dirpath, Born_processes[i]) )
+            os.symlink( path_Born_processes[i] + '/%s_spin_correlations.inc' % Born_processes[i], 
+                        dirpath + '/%s_spin_correlations.inc'% Born_processes[i] )
 
 
         return all_sectors

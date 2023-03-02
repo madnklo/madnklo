@@ -2632,7 +2632,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         line_break = 15
         array_set_lines = []
         color_dipole_list = []
-        str_color_dip_list = []
+        #str_color_dip_list = []
         for icc, color_correlator_key in enumerate(sorted(color_correlated_matrices.keys())):
             color_matrix = color_correlated_matrices[color_correlator_key][1]
             array_set_lines.append('C Correlator: %s%s'%(' '.join('%s'%str(repr) for repr in 
@@ -2641,13 +2641,18 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             #gl
             color_dipoles = []
             for icc2, repr in enumerate(color_correlated_matrices[color_correlator_key][0]):
-                color_dipoles.append(repr[-2])
-                if icc2 == 1:
-                    str_color_dip = '(' + str(color_dipoles[0]) + ',' + str(color_dipoles[1]) + ')'
-                    str_color_dip_list.append(str_color_dip)
-                    #print(str_color_dip)
-                    color_dipole_list.append(color_dipoles)
-                    color_dipoles = []
+                if icc2 == 0:
+                    color_dipoles.append(int(repr[-2]))
+                elif icc2 == 1:
+                    color_dipoles.append(int(repr[-2]))
+            color_dipole_list.append(color_dipoles)
+                # color_dipoles.append(repr[-2])
+                # if icc2 == 1:
+                #     str_color_dip = '(' + str(color_dipoles[0]) + ',' + str(color_dipoles[1]) + ')'
+                #     str_color_dip_list.append(str_color_dip)
+                #     #print(str_color_dip)
+                #     color_dipole_list.append(color_dipoles)
+                #     color_dipoles = []
                 
             for index, denominator in enumerate(color_matrix.get_line_denominators()):
                 # First write the common denominator for this color matrix line
@@ -2661,7 +2666,8 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
 
         return_dict['color_correlators_data_lines'] = '\n'.join(array_set_lines)
         #gl
-        return_dict['color_dipoles'] = str(str_color_dip_list).replace('[','').replace(']','').replace(' ','').replace("'",'"')
+        return_dict['color_dipoles'] = str(color_dipole_list).replace('[','').replace(']','').replace(' ','')
+        #return_dict['color_dipoles'] = str(str_color_dip_list).replace('[','').replace(']','').replace(' ','').replace("'",'"')
         return return_dict
 
     #===========================================================================

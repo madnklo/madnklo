@@ -82,15 +82,12 @@ c     safety check
 c
 c     call colour-connected Born
             call %(proc_prefix_S)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
-c     TODO: on-going work
 c     TODO: extract color correlated
-            ccindex = get_color_dipole_index(lb,mb)
-            ccBLO = COLOR_CORRELATED_EVALS(ccindex,1)
+            ccBLO = GET_CCBLO(lb,mb)
 c
 c     eikonal
-c     TODO: check for dis
-c     TODO: define ccBLO()
-            M2tmp=ccBLO(lb,mb)*2d0*slm/(sil*sim)
+c     TODO: check for DIS
+            M2tmp=ccBLO*2d0*slm/(sil*sim)
             if(m.gt.2.and.l.gt.2)then
                y=sil/(sil+sim+slm)
                z=sim/(sim+slm)

@@ -923,9 +923,9 @@ C           Now make sure we have not considered it yet, since (i, j) maps to (j
 C gl  
       INTEGER FUNCTION GET_CCBLO(LEG_A,LEG_B)  
       IMPLICIT NONE
-C     given a color dipole pair, return the index of the
+C     given a color dipole pair, return the
 C     corresponding COLOR_CORRELATED_EVALS value
-      INTEGER I
+      INTEGER I,J
       INTEGER LEG_A, LEG_B
       INTEGER NCOLORCORRELATORS
       PARAMETER (NCOLORCORRELATORS=%(n_color_correlators)d)
@@ -936,7 +936,6 @@ C      DATA ((COLOR_CORRELATED_EVALS(I,J), I=1,NCOLORCORRELATORS),J=0,NSQAMPSO)
       COMMON/%(proc_prefix)sCOLOR_CORRELATIONS/COLOR_CORRELATED_EVALS
       INTEGER COLOR_DIPOLES(NCOLORCORRELATORS,2)
       DATA COLOR_DIPOLES(:,:) /%(color_dipoles)s/
-C     obtain target string index in color_dipole_str
       DO I=1,NCOLORCORRELATORS
          IF(LEG_A.eq.COLOR_DIPOLES(I,1).and.LEG_B.eq.COLOR_DIPOLES(I,2))THEN
             GET_CCBLO = COLOR_CORRELATED_EVALS(I,0)
@@ -944,35 +943,6 @@ C     obtain target string index in color_dipole_str
          ENDIF
       ENDDO
       END FUNCTION
-C gl  
-C      INTEGER FUNCTION GET_COLOR_DIPOLE_INDEX(LEG_A,LEG_B)  
-C      IMPLICIT NONE
-C     given a color dipole pair, return the index of the
-C     corresponding COLOR_CORRELATED_EVALS value
-C      INTEGER I
-C      INTEGER LEG_A, LEG_B
-C      CHARACTER(LEN=7) STR_LEG_A, STR_LEG_B
-C      CHARACTER(LEN=7) TMP_STR1, TMP_STR2, TMP_STR3
-C      CHARACTER(LEN=7) TARGET_STR
-C      CHARACTER(LEN=7), DIMENSION(%(n_color_correlators)d) :: COLOR_DIPOLE_STR 
-C     write all possible color dipoles as (c1,c2) string element
-C      COLOR_DIPOLE_STR = [CHARACTER(LEN=7) :: %(color_dipoles)s]
-C     build the target dipole string as (leg_a,leg_b)
-C      WRITE(STR_LEG_A,'(i0)') LEG_A
-C      WRITE(STR_LEG_B,'(i0)') LEG_B
-C      TMP_STR1 = '('//STR_LEG_A
-C      TMP_STR2 = ','//STR_LEG_B
-C      TMP_STR3 = TRIM(TMP_STR2)//')'
-C      TARGET_STR = TRIM(TMP_STR1)//TRIM(TMP_STR3)
-C     obtain target string index in color_dipole_str
-C      DO I=1,%(n_color_correlators)d
-C         IF(target_str.eq.color_dipole_str(i))THEN
-C            GET_COLOR_DIPOLE_INDEX = I
-C            EXIT 
-C         ENDIF
-C         CYCLE
-C      ENDDO
-C      END FUNCTION
 ## }
 
 ## if (spin_correlation_general_resources) {

@@ -547,41 +547,6 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             file = file % replace_dict_ct
             writer(filename).writelines(file)
 
-# ######## Write model.inc ########
-#         replace_dict={}
-#         scale = model.get('parameter_dict')['MU_R']
-#         mz = model.get('parameter_dict')['mdl_MZ']
-# #        mw = model.get('parameter_dict')['mdl_MW']
-#         mt = model.get('parameter_dict')['mdl_MT']
-#         mc = model.get('parameter_dict')['mdl_MC']
-#         mb = model.get('parameter_dict')['mdl_MB']
-#         me = model.get('parameter_dict')['mdl_Me']
-#         mmu = model.get('parameter_dict')['mdl_MM']
-#         mta = model.get('parameter_dict')['mdl_MTA']
-#         replace_dict['MU_R'] = scale
-#         replace_dict['mdl_MZ'] = mz
-#  #       replace_dict['mdl_MW'] = mw
-#         replace_dict['mdl_MT'] = mt
-#         replace_dict['mdl_MC'] = mc
-#         replace_dict['mdl_MB'] = mb
-#         replace_dict['mdl_Me'] = me
-#         replace_dict['mdl_MM'] = mmu
-#         replace_dict['mdl_MTA'] = mta
-        
-#         file = """ \
-#           double precision mur
-#           double precision me,mmu,mta
-#           double precision mc,mt,mb
-#           double precision mz,mw
-#           parameter (mz = %(mdl_MZ)lfd0)
-#           parameter (me = %(mdl_Me)lfd0, mmu = %(mdl_MM)lfd0, mta = %(mdl_MTA)lfd0)
-#           parameter (mc = %(mdl_MC)lfd0, mt = %(mdl_MT)lfd0, mb = %(mdl_MB)lfd0)
-#           parameter (mur = %(MU_R)lfd0)
-#           common/model/mmu,me,mta,mc,mt,mb,mz,mw""" % replace_dict
-
-#         filename = pjoin(dirpath, 'model.inc')
-#         writer(filename).writelines(file)
-
         
 ######### Write damping_factors.inc
 
@@ -650,7 +615,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 ########################################################################
 
         #file_LO = glob.glob("%s/LO_*" % interface.user_dir_name[0])
-        dirpathLO = pjoin(dirmadnklo,glob.glob("%s/LO_*" % interface.user_dir_name[0])[0])
+        #dirpathLO = pjoin(dirmadnklo,glob.glob("%s/LO_*" % interface.user_dir_name[0])[0])
         # dirpathLO = pjoin(dirpathLO, 'SubProcesses', \
         #                "P%s" % counterterms[0].current.shell_string())
 
@@ -684,7 +649,9 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         #     print(ct.get_reduced_flavors())
         
 
-######### Write NLO_IR_limits_isec_jsec.f
+######### Write NLO_IR_limits_isec_jsec.f and import underlying Born MEs and spin_correlations.inc
+
+        dirpathLO = pjoin(dirmadnklo,glob.glob("%s/LO_*" % interface.user_dir_name[0])[0])
 
         replace_dict_limits = {}
         # List of necessary underlying Born strings
@@ -708,7 +675,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             if necessary_ct_list[i*5] == 1 or necessary_ct_list[i*5+1] == 1:
                 # list of proc str permutations 'epem_ddx' for template
                 uB_proc = necessary_ct[i*5].current.shell_string_user(
-                        schannel=False, forbid=False, main=False, pdg_order=False, print_id = False)
+                            schannel=False, forbid=False, main=False, pdg_order=False, print_id = False)
                 # list of proc str permutations '1_epem_ddx' for directory
                 uB_proc_str_1 = necessary_ct[i*5].current.shell_string_user()
                 for j in range(0,len(uB_proc)):
@@ -768,7 +735,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             os.symlink( "%s/matrix_%s.f" % (path_Born_processes[i], Born_processes[i]), 
                         "%s/matrix_%s.f" % (dirpath, Born_processes[i]) )
             os.symlink( path_Born_processes[i] + '/%s_spin_correlations.inc' % Born_processes[i], 
-                        dirpath + '/%s_spin_correlations.inc'% Born_processes[i] )
+                        dirpath + '/%s_spin_correlations.inc' % Born_processes[i] )
 
 
         return all_sectors

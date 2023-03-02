@@ -18,6 +18,9 @@ c     it returns 0 if i is not a gluon
 c     set logical doplot
       logical, save :: doplot=.false.
       common/cdoplot/doplot
+c     external
+      integer get_color_dipole_index
+      external get_color_dipole_index
 c
 c     initialise
       M2_S=0d0
@@ -81,7 +84,8 @@ c     call colour-connected Born
             call %(proc_prefix_S)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
 c     TODO: on-going work
 c     TODO: extract color correlated
-            ccBLO = COLOR_CORRELATED_EVALS
+            ccindex = get_color_dipole_index(lb,mb)
+            ccBLO = COLOR_CORRELATED_EVALS(ccindex,1)
 c
 c     eikonal
 c     TODO: check for dis

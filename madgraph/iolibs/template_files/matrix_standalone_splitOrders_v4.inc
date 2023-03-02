@@ -919,6 +919,36 @@ C           Now make sure we have not considered it yet, since (i, j) maps to (j
         ENDDO
 
       END
+
+C gl  
+      INTEGER FUNCTION GET_COLOR_DIPOLE_INDEX(LEG_A,LEG_B)  
+      IMPLICIT NONE
+C     given a color dipole pair, return the index of the
+C     corresponding COLOR_CORRELATED_EVALS value
+      INTEGER I
+      INTEGER LEG_A, LEG_B
+      CHARACTER(LEN=7) STR_LEG_A, STR_LEG_B
+      CHARACTER(LEN=7) TMP_STR1, TMP_STR2, TMP_STR3
+      CHARACTER(LEN=7) TARGET_STR
+      CHARACTER(LEN=7), DIMENSION(%(n_color_correlators)d) :: COLOR_DIPOLE_STR 
+C     write all possible color dipoles as (c1,c2) string element
+      COLOR_DIPOLE_STR = [CHARACTER(LEN=7) :: %(color_dipoles)s]
+C     build the target dipole string as (leg_a,leg_b)
+      WRITE(STR_LEG_A,'(i0)') LEG_A
+      WRITE(STR_LEG_B,'(i0)') LEG_B
+      TMP_STR1 = '('//STR_LEG_A
+      TMP_STR2 = ','//STR_LEG_B
+      TMP_STR3 = TRIM(TMP_STR2)//')'
+      TARGET_STR = TRIM(TMP_STR1)//TRIM(TMP_STR3)
+C     obtain target string index in color_dipole_str
+      DO I=1,%(n_color_correlators)d
+         IF(target_str.eq.color_dipole_str(i))THEN
+            GET_COLOR_DIPOLE_INDEX = I
+            EXIT 
+         ENDIF
+         CYCLE
+      ENDDO
+      END FUNCTION
 ## }
 
 ## if (spin_correlation_general_resources) {

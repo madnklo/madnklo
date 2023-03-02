@@ -2044,7 +2044,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         for i in range(1,len(matrix_element.get('processes'))):
             all_process_str.append(matrix_element.get('processes')[i].shell_string_user(
                                         schannel=False, forbid=False, main=False, pdg_order=False, print_id = False)[0] + '_')
-        print(all_process_str)
+        #print(all_process_str)
 
         if self.opt['sa_symmetry']:
             # avoid symmetric output
@@ -2352,6 +2352,8 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         return_dict['check_sa_n_representatives_data'] = ''
         return_dict['include_in_colour_neutrality_test_data'] =''
         return_dict['max_cc_order'] = 0
+        #gl
+        return_dict['color_dipoles'] = ''
         return return_dict
     
     def add_color_correlated_code(self, matrix_element, general_replace_dict, **opts):
@@ -2380,6 +2382,14 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             logger.debug(msg)
         color_correlated_matrices, color_connections = color_matrix.build_color_correlated_matrices(
             process.get('legs'), process.get('model'), order=self.opt['color_correlators'])
+
+        #gl
+        #print(process.nice_string())
+        #print('color_correlated_matrices')
+        #print(color_correlated_matrices)
+        #print('color_connections')
+        #print(color_connections)
+        
         
         sorted_color_correlators = sorted(color_correlated_matrices.keys())
         all_color_connections = sum([color_connections['N'*order+'LO'] for order in 
@@ -2621,12 +2631,24 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         # line_break is the number of color_matrix entry before which one introduces a line_break
         line_break = 15
         array_set_lines = []
+        color_dipole_list = []
+        str_color_dip_list = []
         for icc, color_correlator_key in enumerate(sorted(color_correlated_matrices.keys())):
             color_matrix = color_correlated_matrices[color_correlator_key][1]
             array_set_lines.append('C Correlator: %s%s'%(' '.join('%s'%str(repr) for repr in 
                 color_correlated_matrices[color_correlator_key][0]),' (no interference)' if 
                 color_matrix.col_matrix_fixed_Nc is None else ''))
-
+            #gl
+            color_dipoles = []
+            for icc2, repr in enumerate(color_correlated_matrices[color_correlator_key][0]):
+                color_dipoles.append(repr[-2])
+                if icc2 == 1:
+                    str_color_dip = '(' + str(color_dipoles[0]) + ',' + str(color_dipoles[1]) + ')'
+                    str_color_dip_list.append(str_color_dip)
+                    #print(str_color_dip)
+                    color_dipole_list.append(color_dipoles)
+                    color_dipoles = []
+                
             for index, denominator in enumerate(color_matrix.get_line_denominators()):
                 # First write the common denominator for this color matrix line
                 array_set_lines.append("DATA CC_DENOM(%i,%i)/%i/" % (icc+1, index + 1, denominator))
@@ -2638,6 +2660,8 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
                                      ','.join(["%5r" % i for i in num_list[k:k + line_break]])))
 
         return_dict['color_correlators_data_lines'] = '\n'.join(array_set_lines)
+        #gl
+        return_dict['color_dipoles'] = str(str_color_dip_list).replace('[','').replace(']','').replace(' ','').replace("'",'"')
         return return_dict
 
     #===========================================================================
@@ -2785,7 +2809,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         if extra_proc:
             for item in extra_proc:
                 if item != proc_prefix:
-                    print('Item : ' + str(item))
+                    #print('Item : ' + str(item))
                     extra_proc_list.append('SUBROUTINE %sME_ACCESSOR_HOOK(P,HEL,USER_ALPHAS,ANS)\n' % item)
                     extra_proc_list.append('IMPLICIT NONE\n')
                     extra_proc_list.append('#\n')

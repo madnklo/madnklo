@@ -624,14 +624,16 @@ class ColorMatrix(dict):
                                             outgoing_base_index, outgoing_emitted_index)])
 
     def add_splitting_to_connection(self, connection, emitting_index, emitting_repr, 
-                                                              emitted_index, qqbar=0 ):
+                                                              emitted_index, qqbar=0,
+                                                              set_user_qqbar = False ): #gl
         """ Add a splitting to the connection passed in argument. The splitting is specified
         by its emitting index and its representation as well as the emitted index.
         The flag qqbar indicates if this is a g > g g (qqbar=0), g > q q~ splitting (qqbar=1) or
         g > q~ q (qqbar=-1)."""
 
         #gl
-        qqbar = 0
+        if set_user_qqbar:
+            qqbar = 0
 
         assert(qqbar in (-1,0,1))
         # First remove the emitted_index from the list of those that must still be emitted
@@ -732,7 +734,7 @@ class ColorMatrix(dict):
 
             
 
-    def generate_all_color_connections(self, process_legs, model, order='NLO'):
+    def generate_all_color_connections(self, process_legs, model, order='NLO', set_user_qqbar = False):
         """Returns a dictionary whose keys is the "identifier" of the color connection.
         This identifier is formatted as the following 2-tuple structure:
             ( first_connection_structure, second_connection_structure )
@@ -974,7 +976,8 @@ class ColorMatrix(dict):
                             # representation to the connection from which we emit
                             new_connection = create_connection_copy(connection)
                             self.add_splitting_to_connection(new_connection,
-                                 emitting_index, emitting_repr, emitted_index, qqbar=0)
+                                 emitting_index, emitting_repr, emitted_index, qqbar=0,
+                                 set_user_qqbar = set_user_qqbar) #gl
                             next_connections_list.append(new_connection)
                             
                             # If the emitting index is unresolved (i.e. negative), 
@@ -982,7 +985,8 @@ class ColorMatrix(dict):
                             if emitting_repr == 8 and emitting_index < 0:
                                 qqbar_connection = create_connection_copy(connection)
                                 self.add_splitting_to_connection(qqbar_connection,
-                                  emitting_index, emitting_repr, emitted_index, qqbar=1)
+                                  emitting_index, emitting_repr, emitted_index, qqbar=1,
+                                  set_user_qqbar = set_user_qqbar) #gl)
                                 next_connections_list.append(qqbar_connection)
                             # When one wants to also compute collinear limits of color
                             # correlated matrix elements, we must also include the possibility
@@ -995,12 +999,14 @@ class ColorMatrix(dict):
                                 # g > q q~, denoted e.g. (5,5,-1)
                                 qqbar_connection = create_connection_copy(connection)
                                 self.add_splitting_to_connection(
-                                    qqbar_connection, emitting_index, emitting_repr, emitted_index, qqbar=1)
+                                    qqbar_connection, emitting_index, emitting_repr, emitted_index, qqbar=1,
+                                    set_user_qqbar = set_user_qqbar) #gl)
                                 next_connections_list.append(qqbar_connection)
                                 # g > q~ q, denoted e.g. (5,0,-1)
                                 qbarq_connection = create_connection_copy(connection)
                                 self.add_splitting_to_connection(
-                                    qbarq_connection, emitting_index, emitting_repr, emitted_index, qqbar=-1)
+                                    qbarq_connection, emitting_index, emitting_repr, emitted_index, qqbar=-1,
+                                    set_user_qqbar = set_user_qqbar) #gl)
                                 next_connections_list.append(qbarq_connection)
 
                 # Now update the intermediate connections_intermediate list to be used for 
@@ -1187,7 +1193,8 @@ class ColorMatrix(dict):
 
 
     def build_color_correlated_matrices(self, process_legs, model, order='NLO', 
-                                                Nc=3, Nc_power_min=None, Nc_power_max=None):
+                                                Nc=3, Nc_power_min=None, Nc_power_max=None,
+                                                set_user_qqbar = False): #gl
         """ Computes the color matrices for all relevant color connections at a given order.
         This function needs to know the process legs and a model instance so as to retrieve
         their color charges.
@@ -1202,7 +1209,8 @@ class ColorMatrix(dict):
 
         # Now list and identify all relevant color connections, which is a dictionary
         # whose format is explained in the documentation of generate_all_color_connections
-        color_connections = self.generate_all_color_connections(process_legs, model, order=order)
+        color_connections = self.generate_all_color_connections(process_legs, model, order=order,
+                                                                set_user_qqbar = set_user_qqbar) #gl
 
         # All color-correlated color matrices
         all_color_correlated_matrices = {}

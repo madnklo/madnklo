@@ -705,7 +705,6 @@ param_card.inc: ../Cards/param_card.dat\n\t../bin/madevent treatcards param\n'''
         replace_dict['nexternal'] = nexternal
         replace_dict['ninitial'] = ninitial
 
-        #gl
         file = """ \
           integer    nexternal
           parameter (nexternal=%(nexternal)d)
@@ -2044,7 +2043,6 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         for i in range(1,len(matrix_element.get('processes'))):
             all_process_str.append(matrix_element.get('processes')[i].shell_string_user(
                                         schannel=False, forbid=False, main=False, pdg_order=False, print_id = False)[0] + '_')
-        #print(all_process_str)
 
         if self.opt['sa_symmetry']:
             # avoid symmetric output
@@ -2380,8 +2378,13 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             logger.info(msg)
         else:
             logger.debug(msg)
+        #gl
+        # 'False' default value
+        set_user_qqbar = True
         color_correlated_matrices, color_connections = color_matrix.build_color_correlated_matrices(
-            process.get('legs'), process.get('model'), order=self.opt['color_correlators'])
+            process.get('legs'), process.get('model'), order=self.opt['color_correlators'], set_user_qqbar = set_user_qqbar)            
+        # color_correlated_matrices, color_connections = color_matrix.build_color_correlated_matrices(
+        #     process.get('legs'), process.get('model'), order=self.opt['color_correlators'])
 
         #gl
         #print(process.nice_string())
@@ -2389,7 +2392,6 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         #print(color_correlated_matrices)
         #print('color_connections')
         #print(color_connections)
-        
         
         sorted_color_correlators = sorted(color_correlated_matrices.keys())
         all_color_connections = sum([color_connections['N'*order+'LO'] for order in 
@@ -2632,7 +2634,6 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         line_break = 15
         array_set_lines = []
         color_dipole_list = []
-        #str_color_dip_list = []
         for icc, color_correlator_key in enumerate(sorted(color_correlated_matrices.keys())):
             color_matrix = color_correlated_matrices[color_correlator_key][1]
             array_set_lines.append('C Correlator: %s%s'%(' '.join('%s'%str(repr) for repr in 
@@ -2640,19 +2641,13 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
                 color_matrix.col_matrix_fixed_Nc is None else ''))
             #gl
             color_dipoles = []
+            # TODO: fix leg number extraction
             for icc2, repr in enumerate(color_correlated_matrices[color_correlator_key][0]):
                 if icc2 == 0:
                     color_dipoles.append(int(repr[-2]))
                 elif icc2 == 1:
                     color_dipoles.append(int(repr[-2]))
             color_dipole_list.append(color_dipoles)
-                # color_dipoles.append(repr[-2])
-                # if icc2 == 1:
-                #     str_color_dip = '(' + str(color_dipoles[0]) + ',' + str(color_dipoles[1]) + ')'
-                #     str_color_dip_list.append(str_color_dip)
-                #     #print(str_color_dip)
-                #     color_dipole_list.append(color_dipoles)
-                #     color_dipoles = []
                 
             for index, denominator in enumerate(color_matrix.get_line_denominators()):
                 # First write the common denominator for this color matrix line
@@ -2667,7 +2662,6 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         return_dict['color_correlators_data_lines'] = '\n'.join(array_set_lines)
         #gl
         return_dict['color_dipoles'] = str(color_dipole_list).replace('[','').replace(']','').replace(' ','')
-        #return_dict['color_dipoles'] = str(str_color_dip_list).replace('[','').replace(']','').replace(' ','').replace("'",'"')
         return return_dict
 
     #===========================================================================
@@ -2810,7 +2804,6 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
 
         ######
         #gl
-        #print('Extra proc : ' + str(extra_proc))
         extra_proc_list = []
         if extra_proc:
             for item in extra_proc:
@@ -2833,8 +2826,6 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
                     extra_proc_list.append('END\n')
                     extra_proc_list.append('\n')
 
-                    
-        #print(extra_proc_list)
         extra_proc_str = " ".join(extra_proc_list)
         replace_dict['extra_proc'] = extra_proc_str
         #####

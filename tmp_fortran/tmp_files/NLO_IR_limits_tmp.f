@@ -130,18 +130,18 @@ c     for sectors (ia,ib)+(ib,ia)
       implicit none
       include 'nexternal.inc'
       include 'math.inc'
-      include 'model.inc'
       include 'damping_factors.inc'
       include 'nsqso_born.inc'
       include 'leg_PDGs.inc'
-      integer ia,ib,ir,ierr,nit
+      integer ia,ib,ir,ierr,nit,parent_leg
       double precision M2_H_C,pref,M2tmp,wgt,wgtpl,xj,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
-      double precision BLO,BLOkp,pkt(nexternal-1)
-      double precision xp(0:3,nexternal),xpb(0:3,nexternal-1),ktkt
+      double precision BLO,KKBLO
+      double precision xp(0:3,nexternal),xpb(0:3,nexternal-1),kt(0:3)
       double precision sab,sar,sbr,x,y,xinit,damp
       double precision wa,wb,wr
       double precision ANS(0:NSQSO_BORN)
+      integer mapped_labels(nexternal),mapped_flavours(nexternal)
       integer, parameter :: hel = - 1
 c     set logical doplot
       logical, save :: doplot=.false.
@@ -177,10 +177,10 @@ c     invariant quantities
 c
 c     coefficients of kt
 c     kt = wa pa + wb pb + wr pr
-c     TODO: check formula 
-      wa=x
-      wb=-(1d0-x)
-      wr=(1d0-2d0*x)*sab/(sar+sbr)
+      wa= 1d0 - x
+      wb= - x
+      wr= - (1d0-2d0*x)*sab/(sar+sbr)
+      kt(:) = wa*xp(:,ia) + wb*xp(:,ib) + wr*xp(:,ir) 
 c
 c     safety check
       if(sab.le.0d0.or.sar+sbr.le.0d0.or.x.le.0d0.or.x.ge.1d0)then
@@ -189,20 +189,22 @@ c     safety check
       endif
 c
 c     call Born
-c     TODO: look at Born_LO()
-c     TODO: check conventions on xpb
       call %(proc_prefix_H_C_FgFg)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
-c     TODO: pick the right index of ANS for correct process
-      BLO = ANS(1)
-c      call Born_LO(xsb,BLO,ierr)
-c      if(ierr.eq.1)goto 999
+c     TODO: check the right index of ANS for correct process
+      BLO = ANS(0)
 c
-c     TODO: this was get_eps()
-c     TODO: include wa,wb,wr in get_kt()
-      call get_kt(ia,ib,ir,xp,xpb,nexternal,wa,wb,wr,pkt,ktkt)
-      call Born_LO_kp(xsb,pkt,ktkt,BLOkp,ierr)
+      call get_collinear_mapped_labels(ia,ib,ir,nexternal,leg_PDGs,
+     $           mapped_labels,mapped_flavours)
+      parent_leg = mapped_labels(ib)
+      if(mapped_flavours(ib).ne.21)then
+         write(*,*) 'Wrong parent particle label!', ib, mapped_flavours(ib)
+         stop
+      endif
+c
+      KKBLO = GET_KKBLO(parent_leg,xpb,kt)
       if(ierr.eq.1)goto 999
-      M2tmp=CA*2d0*(2d0/sab*BLOkp+
+c     TODO: improve ktmuktnuBmunu / kt^2
+      M2tmp=CA*2d0*(2d0/sab*KKBLO+
      &             x/(1d0-x)*(1d0-x**alpha)*BLO+
      &             (1d0-x)/x*(1d0-(1d0-x)**alpha)*BLO)
 c     account for different damping factors according to
@@ -232,24 +234,22 @@ c
       end
   
                   
-      function M2_H_C_FgFq(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,nit,extra,ierr)
+      double precision function M2_H_C_FgFq(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,nit,extra,ierr)
 c     hard-collinear limit C_(ia,ib) - S_(ia)C_(ia,ib)
 c     this is meant to represent the full hard-collinear
 c     for sectors (ia,ib)+(ib,ia)
       implicit none
       include 'nexternal.inc'
       include 'math.inc'
-      include 'model.inc'
       include 'damping_factors.inc'
       include 'nsqso_born.inc'
       include 'leg_PDGs.inc'
       integer ia,ib,ir,ierr,nit
-      double precision M2_H_C,pref,M2tmp,wgt,wgtpl,xj,extra
+      double precision pref,M2tmp,wgt,wgtpl,xj,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision BLO
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision sab,sar,sbr,x,y,xinit,damp
-      double precision wa,wb,wr
 c     set logical doplot
       logical, save :: doplot=.false.
       common/cdoplot/doplot
@@ -262,7 +262,7 @@ c         ini=.false.
 c      endif
 c
 c     initialise
-      M2_H_C=0d0
+      M2_H_C_FgFq=0d0
       M2tmp=0d0
       ierr=0
       damp=0d0
@@ -289,10 +289,8 @@ c     safety check
 c
 c     call Born
       call %(proc_prefix_H_C_FgFq)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
-c     TODO: pick the right index of ANS for correct process
-      BLO = ANS(1)
-c      call Born_LO(xsb,BLO,ierr)
-c      if(ierr.eq.1)goto 999
+c     TODO: check the right index of ANS for correct process
+      BLO = ANS(0)
 c
       M2tmp=BLO*CF*((1d0-x)+
      &              2d0*x/(1d0-x)*(1d0-x**alpha))
@@ -304,16 +302,16 @@ c     recoiler position (ir)
          damp=xinit**beta_FI
       endif
       M2tmp=M2tmp*damp
-      M2_H_C=M2tmp*pref/sab*extra
+      M2_H_C_FgFq=M2tmp*pref/sab*extra
 c
 c     plot
-      wgtpl=-M2_H_C*xj*wgt/nit
+      wgtpl=-M2_H_C_FgFq*xj*wgt/nit
 c     TODO: set doplot and look at histo_fill()
       if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
 c     sanity check
-      if(abs(M2_H_C).ge.huge(1d0).or.isnan(M2_H_C))then
-         write(77,*)'Exception caught in M2_H_C',M2_H_C
+      if(abs(M2_H_C_FgFq).ge.huge(1d0).or.isnan(M2_H_C_FgFq))then
+         write(77,*)'Exception caught in M2_H_C_FgFq',M2_H_C_FgFq
          goto 999
       endif
 c
@@ -323,24 +321,26 @@ c
       end
 
 
-      function M2_H_C_FqFqx(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,nit,extra,ierr)
+      double precision function M2_H_C_FqFqx(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,nit,extra,ierr)
 c     hard-collinear limit C_(ia,ib)
 c     this is meant to represent the full hard-collinear
 c     for sectors (ia,ib)+(ib,ia)
       implicit none
       include 'nexternal.inc'
       include 'math.inc'
-      include 'model.inc'
       include 'damping_factors.inc'
       include 'nsqso_born.inc'
       include 'leg_PDGs.inc'
-      integer ia,ib,ir,ierr,nit
-      double precision M2_H_C,pref,M2tmp,wgt,wgtpl,xj,extra
+      integer ia,ib,ir,ierr,nit,parent_leg
+      double precision pref,M2tmp,wgt,wgtpl,xj,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
-      double precision BLO,BLOkp,pkt(nexternal-1)
-      double precision xp(0:3,nexternal),xpb(0:3,nexternal-1),ktkt
+      double precision BLO,KKBLO
+      double precision xp(0:3,nexternal),xpb(0:3,nexternal-1),kt(0:3)
       double precision sab,sar,sbr,x,y,xinit,damp
       double precision wa,wb,wr
+      double precision ANS(0:NSQSO_BORN)
+      integer mapped_labels(nexternal),mapped_flavours(nexternal)
+      integer, parameter :: hel = - 1
 c     set logical doplot
       logical, save :: doplot=.false.
       common/cdoplot/doplot
@@ -353,7 +353,7 @@ c         ini=.false.
 c      endif
 c
 c     initialise
-      M2_H_C=0d0
+      M2_H_C_FqFqx=0d0
       M2tmp=0d0
       ierr=0
       damp=0d0
@@ -374,11 +374,11 @@ c     invariant quantities
       xinit = 1d0 - sab/(sar+sbr)
 c
 c     coefficients of kt
-c     kt = wa pa + wb pb + wr pr 
-c     TODO: check formula
-      wa=x
-      wb=-(1d0-x)
-      wr=(1d0-2d0*x)*sab/(sar+sbr)
+c     kt = wa pa + wb pb + wr pr
+      wa= 1d0 - x
+      wb= - x
+      wr= - (1d0-2d0*x)*sab/(sar+sbr)
+      kt(:) = wa*xp(:,ia) + wb*xp(:,ib) + wr*xp(:,ir) 
 c
 c     safety check
       if(sab.le.0d0.or.sar+sbr.le.0d0.or.x.le.0d0.or.x.ge.1d0)then
@@ -388,16 +388,20 @@ c     safety check
 c
 c     call Born
       call %(proc_prefix_H_C_FqFqx)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
-c     TODO: pick the right index of ANS for correct process
-      BLO = ANS(1)
-c      call Born_LO(xsb,BLO,ierr)
-c      if(ierr.eq.1)goto 999
+c     TODO: check the right index of ANS for correct process
+      BLO = ANS(0)
 c
-      call get_kt(ia,ib,ir,xp,xpb,nexternal,wa,wb,wr,pkt,ktkt)
-      call Born_LO_kp(xsb,pkt,ktkt,BLOkp,ierr)
-      if(ierr.eq.1)goto 999
+      call get_collinear_mapped_labels(ia,ib,ir,nexternal,leg_PDGs,
+     $           mapped_labels,mapped_flavours)
+      parent_leg = mapped_labels(ib)
+      if(mapped_flavours(ib).ne.21)then
+         write(*,*) 'Wrong parent particle label!', ib, mapped_flavours(ib)
+         stop
+      endif
 c
-      M2tmp=TR*(BLO-4d0/sab*BLOkp)
+      KKBLO = GET_KKBLO(parent_leg,xpb,kt)
+c     TODO: improve ktmuktnuBmunu / kt^2
+      M2tmp=TR*(BLO-4d0/sab*KKBLO)
 c     account for different damping factors according to
 c     recoiler position (ir)
       if(ir.ge.2)then
@@ -406,16 +410,16 @@ c     recoiler position (ir)
          damp=xinit**beta_FI
       endif
       M2tmp=M2tmp*damp
-      M2_H_C=M2tmp*pref/sab*extra
+      M2_H_C_FqFqx=M2tmp*pref/sab*extra
 c
 c     plot
-      wgtpl=-M2_H_C*xj*wgt/nit
+      wgtpl=-M2_H_C_FqFqx*xj*wgt/nit
 c     TODO: set doplot and look at histo_fill()
       if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
 c     sanity check
-      if(abs(M2_H_C).ge.huge(1d0).or.isnan(M2_H_C))then
-         write(77,*)'Exception caught in M2_H_C',M2_H_C
+      if(abs(M2_H_C_FqFqx).ge.huge(1d0).or.isnan(M2_H_C_FqFqx))then
+         write(77,*)'Exception caught in M2_H_C_FqFqx',M2_H_C_FqFqx
          goto 999
       endif
 c

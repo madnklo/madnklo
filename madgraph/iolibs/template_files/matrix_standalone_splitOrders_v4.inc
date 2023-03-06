@@ -942,6 +942,7 @@ C      DATA ((COLOR_CORRELATED_EVALS(I,J), I=1,NCOLORCORRELATORS),J=0,NSQAMPSO)
             EXIT 
          ENDIF
       ENDDO
+      RETURN
       END FUNCTION
 ## }
 
@@ -950,6 +951,39 @@ C --------------------------------------------------------------
 C Beginning of a series of subroutine related to the evaluation
 C and steering of the computation of spin-correlated MEs.
 C --------------------------------------------------------------
+
+      DOUBLE PRECISION FUNCTION GET_KKBLO(PARENT_LEG,PB,KT)
+      implicit NONE
+      INTEGER I
+      INTEGER NEXTERNAL
+      PARAMETER (NEXTERNAL=%(nexternal)d)
+      INTEGER NSQAMPSO
+      PARAMETER (NSQAMPSO=%(nSqAmpSplitOrders)d)
+      integer PARENT_LEG 
+      double precision PB(0:3,NEXTERNAL)
+      double precision KT(0:3)
+      double precision MATELEMS(0:NSQAMPSO)
+      
+      INCLUDE '%(proc_prefix)sspin_correlations.inc'
+      INTEGER NENTRIES
+      PARAMETER(NENTRIES=MAX_N_SPIN_CORR_VECTORS*4)
+      REAL*8 SCVECTORS(MAX_N_SPIN_CORR_VECTORS,4)
+      DATA SCVECTORS/NENTRIES*.0D0/
+      INTEGER NVECTOR_TO_TRY_PER_LEG
+      PARAMETER(NVECTOR_TO_TRY_PER_LEG=MIN(3,MAX_N_SPIN_CORR_VECTORS))
+
+      CALL %(proc_prefix)sRESET_SPIN_CORRELATION_VECTORS()
+
+      DO I=1,4
+         SCVECTORS(1,I) = KT(I-1)
+      ENDDO
+
+      CALL %(proc_prefix)sSET_SPIN_CORRELATION_VECTORS(PARENT_LEG,NVECTOR_TO_TRY_PER_LEG,SCVECTORS)
+      CALL %(proc_prefix)sSMATRIX_SPLITORDERS(P,MATELEMS)
+      GET_KKBLO = MATELEMS(0)
+
+      return
+      end function 
       
       SUBROUTINE %(proc_prefix)sSET_SPIN_CORRELATION_VECTORS(LEG_INDEX, N_VECTORS, VECTORS)
         IMPLICIT NONE

@@ -1,11 +1,11 @@
-      subroutine get_soft_mapped_labels(a,b,c,n,in_flavours,mapped_labels,
+      subroutine get_soft_mapped_labels(a,b,c,n,leg_pdgs,mapped_labels,
      $           mapped_flavours,isLOQCDparton)
       implicit none
       integer a,b,c,n
-      integer in_flavours(n)
+      integer leg_pdgs(n)
       integer mapped_labels(n),mapped_flavours(n)
       integer i,j
-      integer isLOQCDparton(n-1)
+      logical isLOQCDparton(n-1)
 c
 c     initialise
       j = 0
@@ -24,7 +24,7 @@ c     check mapping structure
       endif
 c
 c     For NLO mapping type
-      mapped_flavours = in_flavours
+      mapped_flavours = leg_pdgs
       do i=1,n
          if(i.lt.a)then
             mapped_labels(i) = i
@@ -47,11 +47,11 @@ c     exclude the mapped_flavours=0 value of the removed gluon
       end
 
 
-      subroutine get_collinear_mapped_labels(a,b,c,n,in_flavours,
+      subroutine get_collinear_mapped_labels(a,b,c,n,leg_pdgs,
      $           mapped_labels,mapped_flavours)
       implicit none
       integer a,b,c,n
-      integer in_flavours(n)
+      integer leg_pdgs(n)
       integer min_ab, max_ab
       integer mapped_labels(n),mapped_flavours(n)
       integer i,j
@@ -76,7 +76,7 @@ c
 c     For NLO mapping type
       min_ab = MIN(a,b)
       max_ab = MAX(a,b)
-      mapped_flavours = in_flavours
+      mapped_flavours = leg_pdgs
 c
 c     FaFb mapping : min_ab > 2,  max_ab > 2
 c

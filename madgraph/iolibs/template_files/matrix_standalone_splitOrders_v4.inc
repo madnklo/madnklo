@@ -921,7 +921,7 @@ C           Now make sure we have not considered it yet, since (i, j) maps to (j
       END
 
 C gl  
-      INTEGER FUNCTION GET_CCBLO(LEG_A,LEG_B)  
+      DOUBLE PRECISION FUNCTION GET_CCBLO(LEG_A,LEG_B)  
       IMPLICIT NONE
 C     given a color dipole pair, return the
 C     corresponding COLOR_CORRELATED_EVALS value
@@ -979,7 +979,7 @@ C --------------------------------------------------------------
       ENDDO
 
       CALL %(proc_prefix)sSET_SPIN_CORRELATION_VECTORS(PARENT_LEG,NVECTOR_TO_TRY_PER_LEG,SCVECTORS)
-      CALL %(proc_prefix)sSMATRIX_SPLITORDERS(P,MATELEMS)
+      CALL %(proc_prefix)sSMATRIX_SPLITORDERS(PB,MATELEMS)
       GET_KKBLO = MATELEMS(0)
 
       return

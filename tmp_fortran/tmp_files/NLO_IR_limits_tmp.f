@@ -1,4 +1,4 @@
-      function M2_S(i,xs,xp,wgt,Wsoft,xj,nit,extra,ierr)
+      double precision function M2_S(i,xs,xp,wgt,Wsoft,xj,nit,extra,ierr)
 c     single-soft limit S_(i) * Wsoft
 c     it returns 0 if i is not a gluon
       implicit none
@@ -7,20 +7,26 @@ c     it returns 0 if i is not a gluon
       include 'damping_factors.inc'
       include 'colored_partons.inc'
       include 'leg_PDGs.inc'
+      include 'nsqso_born.inc'
       integer i,l,m,lb,mb,ierr,nit
-      double precision M2_S,pref,M2tmp,wgt,wgtpl,Wsoft,xj,xjCS
+      double precision pref,M2tmp,wgt,wgtpl,Wsoft,xj,xjCS
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
-      double precision BLO,ccBLO(nexternal-1,nexternal-1),extra
+      double precision BLO,ccBLO,extra
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision sil,sim,slm,y,z,x,damp
-      integer mapped_labels(nexternal)
-      integer isLOQCDparton(nexternal-1)
+      integer mapped_labels(nexternal), mapped_flavours(NEXTERNAL)
+      logical isLOQCDparton(nexternal-1)
 c     set logical doplot
-      logical, save :: doplot=.false.
-      common/cdoplot/doplot
+c     logical, save :: doplot=.false.
+c     common/cdoplot/doplot
 c     external
       integer get_color_dipole_index
       external get_color_dipole_index
+      double precision alphas,ans(0:NSQSO_BORN)
+      double precision alpha_qcd
+      logical docut
+      integer, parameter :: HEL = - 1
+      double precision  GET_CCBLO
 c
 c     initialise
       M2_S=0d0
@@ -42,14 +48,9 @@ c     eikonal double sum
 c
 c     determine indices in the n-1 body kinematics
 c     TODO: check new get_mapped_labels()
-            call get_soft_mapped_labels(i,l,m,nexternal,leg_PDGs,
-     $           mapped_labels,mapped_flavours,isLOQCDparton)
+            call get_soft_mapped_labels(i,l,m,nexternal,leg_PDGs,mapped_labels,mapped_flavours,isLOQCDparton)
             lb=mapped_labels(l)
             mb=mapped_labels(m)
-            write(*,*) 'New mapping labels',lb,mb
-            lb=imap(l,i,l,0,0,npartNLO)
-            mb=imap(m,i,l,0,0,npartNLO)
-            write(*,*) 'Old mapping labels',lb,mb
 c     check on LO color labels 
             if(.not.(isLOQCDparton(lb).and.isLOQCDparton(mb)))then
                write(*,*)'Wrong LO indices in soft kernel',lb,mb
@@ -60,11 +61,11 @@ c     phase-space mapping according to l and m, at fixed radiation
 c     phase-space point: the singular kernel is in the same point
 c     as the single-real, ensuring numerical stability, while the
 c     underlying Born configuration is remapped
-            call phase_space_CS_inv(i,l,m,xp,xpb,nexternal,xjCS)
-            if(xjCS.eq.0d0)goto 999
+c            call phase_space_CS_inv(i,l,m,xp,xpb,nexternal,xjCS)
+c            if(xjCS.eq.0d0)goto 999
 c     TODO: read input in invariants_from_p()
-            call invariants_from_p(xpb,nexternal-1,xsb,ierr)
-            if(ierr.eq.1)goto 999
+c            call invariants_from_p(xpb,nexternal-1,xsb,ierr)
+c            if(ierr.eq.1)goto 999
 c
 c     possible cuts
             if(docut(xpb,nexternal-1))cycle
@@ -82,7 +83,6 @@ c     safety check
 c
 c     call colour-connected Born
             call %(proc_prefix_S)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
-c     TODO: extract color correlated
             ccBLO = GET_CCBLO(lb,mb)
 c
 c     eikonal
@@ -100,13 +100,13 @@ c     TODO: check for DIS
                x=1d0 - (sil+sim)/slm
                damp=x**alpha
             endif
-            M2_tmp=M2_tmp*damp
+            M2tmp=M2tmp*damp
             M2_S=M2_S+pref*M2tmp*Wsoft*extra
 c
 c     plot
             wgtpl=-pref*M2tmp*Wsoft*extra*xj*wgt/nit
 c           TODO: look at histo_fill()
-            if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
+c            if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
          enddo
       enddo
@@ -123,7 +123,7 @@ c
       end
 
 
-      function M2_H_C_FgFg(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,nit,extra,ierr)
+      double precision function M2_H_C_FgFg(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,nit,extra,ierr)
 c     hard-collinear limit C_(ia,ib) - S_(ia)C_(ia,ib) - S_(ib)C_(ia,ib)
 c     this is meant to represent the full hard-collinear
 c     for sectors (ia,ib)+(ib,ia)
@@ -134,7 +134,7 @@ c     for sectors (ia,ib)+(ib,ia)
       include 'nsqso_born.inc'
       include 'leg_PDGs.inc'
       integer ia,ib,ir,ierr,nit,parent_leg
-      double precision M2_H_C,pref,M2tmp,wgt,wgtpl,xj,extra
+      double precision pref,M2tmp,wgt,wgtpl,xj,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision BLO,KKBLO
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1),kt(0:3)
@@ -143,10 +143,13 @@ c     for sectors (ia,ib)+(ib,ia)
       double precision ANS(0:NSQSO_BORN)
       integer mapped_labels(nexternal),mapped_flavours(nexternal)
       integer, parameter :: hel = - 1
+      double precision alphas,alpha_qcd
+      logical docut
+      double precision GET_KKBLO
 c     set logical doplot
-      logical, save :: doplot=.false.
-      common/cdoplot/doplot
-      logical, save :: ini=.false.
+c      logical, save :: doplot=.false.
+c      common/cdoplot/doplot
+c      logical, save :: ini=.false.
 c
 c
 c      if(ini)then
@@ -155,7 +158,7 @@ c         ini=.false.
 c      endif
 c
 c     initialise
-      M2_H_C=0d0
+      M2_H_C_FgFg=0d0
       M2tmp=0d0
       ierr=0
       damp=0d0
@@ -193,8 +196,7 @@ c     call Born
 c     TODO: check the right index of ANS for correct process
       BLO = ANS(0)
 c
-      call get_collinear_mapped_labels(ia,ib,ir,nexternal,leg_PDGs,
-     $           mapped_labels,mapped_flavours)
+      call get_collinear_mapped_labels(ia,ib,ir,nexternal,leg_PDGs,mapped_labels,mapped_flavours)
       parent_leg = mapped_labels(ib)
       if(mapped_flavours(ib).ne.21)then
          write(*,*) 'Wrong parent particle label!', ib, mapped_flavours(ib)
@@ -204,9 +206,7 @@ c
       KKBLO = GET_KKBLO(parent_leg,xpb,kt)
       if(ierr.eq.1)goto 999
 c     TODO: improve ktmuktnuBmunu / kt^2
-      M2tmp=CA*2d0*(2d0/sab*KKBLO+
-     &             x/(1d0-x)*(1d0-x**alpha)*BLO+
-     &             (1d0-x)/x*(1d0-(1d0-x)**alpha)*BLO)
+      M2tmp=CA*2d0*(2d0/sab*KKBLO+x/(1d0-x)*(1d0-x**alpha)*BLO+(1d0-x)/x*(1d0-(1d0-x)**alpha)*BLO)
 c     account for different damping factors according to
 c     recoiler position (ir) 
       if(ir.ge.2)then
@@ -215,16 +215,16 @@ c     recoiler position (ir)
          damp=xinit**beta_FI
       endif
       M2tmp=M2tmp*damp
-      M2_H_C=M2tmp*pref/sab*extra
+      M2_H_C_FgFg=M2tmp*pref/sab*extra
 c
 c     plot
-      wgtpl=-M2_H_C*xj*wgt/nit
+      wgtpl=-M2_H_C_FgFg*xj*wgt/nit
 c     TODO: set doplot and look at histo_fill()
-      if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
+c      if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
 c     sanity check
-      if(abs(M2_H_C).ge.huge(1d0).or.isnan(M2_H_C))then
-         write(77,*)'Exception caught in M2_H_C',M2_H_C
+      if(abs(M2_H_C_FgFg).ge.huge(1d0).or.isnan(M2_H_C_FgFg))then
+         write(77,*)'Exception caught in M2_H_C_FgFg',M2_H_C_FgFg
          goto 999
       endif
 c
@@ -250,10 +250,14 @@ c     for sectors (ia,ib)+(ib,ia)
       double precision BLO
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision sab,sar,sbr,x,y,xinit,damp
+      double precision ans(0:nsqso_born)
 c     set logical doplot
-      logical, save :: doplot=.false.
-      common/cdoplot/doplot
-      logical, save :: ini=.false.
+c      logical, save :: doplot=.false.
+c      common/cdoplot/doplot
+c      logical, save :: ini=.false.
+      double precision alphas,alpha_qcd
+      logical docut
+      integer,parameter :: HEL = - 1
 c
 c
 c      if(ini)then
@@ -292,8 +296,7 @@ c     call Born
 c     TODO: check the right index of ANS for correct process
       BLO = ANS(0)
 c
-      M2tmp=BLO*CF*((1d0-x)+
-     &              2d0*x/(1d0-x)*(1d0-x**alpha))
+      M2tmp=BLO*CF*((1d0-x)+2d0*x/(1d0-x)*(1d0-x**alpha))
 c     account for different damping factors according to
 c     recoiler position (ir)
       if(ir.ge.2)then
@@ -307,7 +310,7 @@ c
 c     plot
       wgtpl=-M2_H_C_FgFq*xj*wgt/nit
 c     TODO: set doplot and look at histo_fill()
-      if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
+c      if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
 c     sanity check
       if(abs(M2_H_C_FgFq).ge.huge(1d0).or.isnan(M2_H_C_FgFq))then
@@ -342,10 +345,13 @@ c     for sectors (ia,ib)+(ib,ia)
       integer mapped_labels(nexternal),mapped_flavours(nexternal)
       integer, parameter :: hel = - 1
 c     set logical doplot
-      logical, save :: doplot=.false.
-      common/cdoplot/doplot
-      logical, save :: ini=.false.
-c
+c     logical, save :: doplot=.false.
+c     common/cdoplot/doplot
+c     logical, save :: ini=.false.
+      double precision alphas,alpha_qcd
+      double precision get_kkblo
+      logical docut
+      
 c
 c      if(ini)then
 c         doplot=.true.
@@ -391,8 +397,7 @@ c     call Born
 c     TODO: check the right index of ANS for correct process
       BLO = ANS(0)
 c
-      call get_collinear_mapped_labels(ia,ib,ir,nexternal,leg_PDGs,
-     $           mapped_labels,mapped_flavours)
+      call get_collinear_mapped_labels(ia,ib,ir,nexternal,leg_PDGs,mapped_labels,mapped_flavours)
       parent_leg = mapped_labels(ib)
       if(mapped_flavours(ib).ne.21)then
          write(*,*) 'Wrong parent particle label!', ib, mapped_flavours(ib)
@@ -415,7 +420,7 @@ c
 c     plot
       wgtpl=-M2_H_C_FqFqx*xj*wgt/nit
 c     TODO: set doplot and look at histo_fill()
-      if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
+c      if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
 c     sanity check
       if(abs(M2_H_C_FqFqx).ge.huge(1d0).or.isnan(M2_H_C_FqFqx))then
@@ -443,7 +448,7 @@ C
 C     
 C     ARGUMENTS 
 C     
-      REAL*8 P(0:3,NEXTERNAL),ANS(0:NSQAMPSO)
+      REAL*8 P(0:3,NEXTERNAL),ANS(0:NSQSO_BORN)
       INTEGER HEL
       DOUBLE PRECISION USER_ALPHAS
 CF2PY INTENT(IN)  :: P

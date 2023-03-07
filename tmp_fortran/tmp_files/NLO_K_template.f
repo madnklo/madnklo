@@ -1,18 +1,19 @@
-      subroutine local_counter_NLO_%(isec)d_%(jsec)d(xs,xp,xsb,xpb,
-     &wgt,WsumSi,WsumSj,xj,KS,KHC,KNLO,ierr)
+      subroutine local_counter_NLO_%(isec)d_%(jsec)d(xs,xp,xsb,xpb,wgt,WsumSi,WsumSj,xj,KS,KHC,KNLO,ierr)
 c     local NLO counterterm for sector [isec,jsec]
       implicit none
 c
 c     TODO: pass nitR information
 c
       include 'nexternal.inc'
-      integer isec,jsec,iref,ierr
+      integer isec,jsec,nitr,iref,ierr
       double precision xs(nexternal,nexternal)
       double precision xp(0:3,nexternal)
       double precision xsb(nexternal-1,nexternal-1)
       double precision xpb(0:3,nexternal-1)
       double precision wgt,WsumSi,WsumSj,xj
-      double precision M2_S,M2_H_C,KS,KHC,KNLO
+      double precision M2_S,KS,KHC,KNLO
+      %(str_defHC)s
+      
 c
 c     initialise
       isec = %(isec)d

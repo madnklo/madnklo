@@ -487,6 +487,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
         # Set replace_dict for NLO_K_isec_jsec.f
         replace_dict_ct = {}
+        list_str_defHC = []
         for i in range(0,len(all_sector_list)):
             list_M2 = []
             isec = all_sector_list[i][0]
@@ -524,10 +525,13 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     # Write an identified M2_H_C_F*F* for each (**) flavour couple 
                     if id_isec == 21 and id_jsec == 21:
                         list_M2.append('KHC=KHC+M2_H_C_FgFg(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,ierr)')
+                        list_str_defHC.append('DOUBLE PRECISION M2_H_C_FgFg')
                     elif id_isec == 21 and id_jsec != 21: # if there is a gluon in sector, it is always in the first position
                         list_M2.append('KHC=KHC+M2_H_C_FgFq(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,ierr)')
+                        list_str_defHC.append('DOUBLE PRECISION M2_H_C_FgFq')
                     else:
                         list_M2.append('KHC=KHC+M2_H_C_FqFqx(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,ierr)')
+                        list_str_defHC.append('DOUBLE PRECISION M2_H_C_FqFqx')
                 # Loop over sectors with at least one initial state particle
                 if isec <= 2 or jsec <= 2:
                     continue
@@ -538,7 +542,9 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             #if str_cts[i*10+8] == 1:
             #    str_M2.append('')
 
+                str_defHC = " ".join(list_str_defHC)
                 str_M2 = " ".join(list_M2)
+                replace_dict_ct['str_defHC'] = str_defHC
                 replace_dict_ct['str_M2'] = str_M2
 
             filename = pjoin(dirpath, 'NLO_K_%d_%d.f' % (isec, jsec))

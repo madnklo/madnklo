@@ -487,9 +487,9 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
         # Set replace_dict for NLO_K_isec_jsec.f
         replace_dict_ct = {}
-        list_str_defHC = []
         for i in range(0,len(all_sector_list)):
             list_M2 = []
+            list_str_defHC = []
             isec = all_sector_list[i][0]
             jsec = all_sector_list[i][1]
             id_isec = all_sector_id_list[i][0]

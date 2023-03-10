@@ -61,11 +61,17 @@ c     phase-space mapping according to l and m, at fixed radiation
 c     phase-space point: the singular kernel is in the same point
 c     as the single-real, ensuring numerical stability, while the
 c     underlying Born configuration is remapped
-c            call phase_space_CS_inv(i,l,m,xp,xpb,nexternal,xjCS)
-c            if(xjCS.eq.0d0)goto 999
+c     check on leg_PDGs
+            if(size(leg_PDGs).ne.nexternal)then
+               write(*,*) 'Wrong dimension for leg_PDGs', 
+     &           size(leg_PDGs), nexternal
+               stop
+            endif
+            call phase_space_CS_inv(i,l,m,xp,xpb,nexternal,leg_PDGs,'S',xjCS)
+            if(xjCS.eq.0d0)goto 999
 c     TODO: read input in invariants_from_p()
-c            call invariants_from_p(xpb,nexternal-1,xsb,ierr)
-c            if(ierr.eq.1)goto 999
+            call invariants_from_p(xpb,nexternal-1,xsb,ierr)
+            if(ierr.eq.1)goto 999
 c
 c     possible cuts
             if(docut(xpb,nexternal-1))cycle

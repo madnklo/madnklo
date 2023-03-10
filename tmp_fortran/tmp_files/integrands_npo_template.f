@@ -1,29 +1,27 @@
       function int_real_%(isec)d_%(jsec)d(x,wgt)
 c     (n+1)-body NLO integrand for vegas
       implicit none
-      include 'dims.inc'
-      include 'setup.inc'
-      include 'mxdim.inc'
+      include 'math.inc'
       include 'nexternal.inc'
-      integer ndim,ierr
+      integer ierr
       integer i,j,l,m,ievt,nthres,ntest
       integer iunit
       common/ciunitNLO/iunit
-      integer ntested(-2:maxdim,-2:maxdim)
+      integer ntested
       parameter(ntest=30)
       save ievt,nthres,ntested
       double precision int_real,int_real_no_cnt
-      double precision sNLO(npartNLO,npartNLO),sminNLO
-      double precision sLO(npartLO,npartLO)
-      double precision W_NLO(maxdim,maxdim)
+      double precision sNLO(nexternal,nexternal),sminNLO
+      double precision sLO(nexternal-1,nexternal-1)
+      double precision W_NLO(nexternal,nexternal)
       double precision Wsum,WsumSi,WsumSj
-      double precision WS_NLO(maxdim,maxdim),WC_NLO(maxdim,maxdim)
+      double precision WS_NLO(nexternal,nexternal),WC_NLO(nexternal,nexternal)
       double precision alpha,beta
       parameter(alpha=1d0,beta=1d0)
       double precision RNLO,KNLO,KS,KHC,RNLO_MG
+c     TODO: understand x(mxdim) definition by Vegas
       double precision x(mxdim)
       double precision wgt,wgtpl
-      common/cdim/ndim
       logical dotechcut
       double precision tinycut
       logical doplot
@@ -31,14 +29,11 @@ c     (n+1)-body NLO integrand for vegas
       integer isec,jsec,iU,iS,iB,iA,iref
       common/cNLOsecindices/isec,jsec
       common/cNLOmaplabels/iU,iS,iB,iA,iref
-      double precision p(0:3,npartNLO)
-      double precision pMG(0:3,npartNLO)
-      double precision pb(0:3,npartLO)
+      double precision p(0:3,nexternal)
+      double precision pb(0:3,nexternal-1)
       double precision xjac,xjacB
       double precision xsave(3)
       common/cxsave/xsave
-      logical R_from_MG
-      parameter(R_from_MG=.false.)
       integer counter
       save counter
 c
@@ -57,56 +52,38 @@ c     initialise
          xsave(i)=x(i)
       enddo
 c     
-c     TODO: changed momenta convention!!!
 c     phase space and invariants
       call phase_space_npo(x,sCM,iU,iS,iB,iA,p,pb,xjac,xjacB)
       if(xjac.eq.0d0)goto 999
-      call invariants_from_p(p,npartNLO,sNLO,ierr)
+      call invariants_from_p(p,nexternal,sNLO,ierr)
       if(ierr.eq.1)goto 999
-      call invariants_from_p(pb,npartLO,sLO,ierr)
+      call invariants_from_p(pb,nexternal-1,sLO,ierr)
       if(ierr.eq.1)goto 999
 c
 c     check that phase-space labels and x variables are as expected
-      call check_phsp_consistency(x,npartNLO,sNLO,sLO,iU,iS,iB,iA,ierr)
-      if(ierr.eq.1)goto 999
+c      call check_phsp_consistency(x,npartNLO,sNLO,sLO,iU,iS,iB,iA,ierr)
+c      if(ierr.eq.1)goto 999
 c
 c     tiny technical phase-space cut to avoid fluctuations
-      if(.not.is_NLO_singular_sec(isec,jsec))then
-         tinycut=0d0
-      else
-         tinycut=tiny1
-      endif
-      if(dotechcut(x,npartNLO,tinycut))goto 999
+      tinycut=tiny1
+c     TODO: look at dotechcut
+      if(dotechcut(x,nexternal,tinycut))goto 999
 c
 c     possible cuts
-      if(docut(p,npartNLO))goto 555
+c      if(docut(p,nexternal))goto 555
 c
 c     test matrix elements
-      if(is_NLO_singular_sec(isec,jsec).and.ntested(isec,jsec).le.ntest)then
+      if(ntested.le.ntest)then
          call test_R(iunit,x,alpha,beta)
-         ntested(isec,jsec)=ntested(isec,jsec)+1
+         ntested=ntested+1
       endif
 c
 c     real
-      if(.not.R_from_MG)then
-         call real_NLO(sNLO,RNLO,ierr)
-         if(ierr.eq.1)goto 999
-      else
-c=========================================
-c     CALLS TO MG5 MATRIX ELEMENTS
-c=========================================
-
-         call smatrix(pMG,RNLO_MG)
-c$$$      write(*,*)
-c$$$      write(*,*)RNLO,' in-house'
-c$$$      write(*,*)RNLO_MG*Gevtopb/(2d0*sCM)*(alphas/0.118d0),' MG5'
-c$$$      write(*,*)
-c$$$      counter=counter+1
-c$$$      if(counter.eq.11)stop
-         RNLO=RNLO_MG*Gevtopb/(2d0*sCM)*(alphas/0.118d0)
-      endif
+c     TODO: look at real_NLO
+      call real_NLO(sNLO,RNLO,ierr)
+      if(ierr.eq.1)goto 999
 c
-c     add function from python
+c     TODO: look at get_W_NLO()
       call get_W_NLO(sNLO,alpha,beta,isec,jsec,W_NLO,WS_NLO,WC_NLO,ierr)
       if(ierr.eq.1)goto 999
 c
@@ -120,10 +97,11 @@ c     full real in the combination of sectors
 c
 c     plot real
       wgtpl=int_real_no_cnt*wgt/nitR
-      if(doplot)call histo_fill(p,sNLO,npartNLO,wgtpl)
- 555  continue
+c      if(doplot)call histo_fill(p,sNLO,npartNLO,wgtpl)
+c 555  continue
 c
 c     counterterm
+c     TODO: adapt to new convention
       call local_counter_NLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,iA,
      &wgt,WsumSi,WsumSj,xjac,KS,KHC,KNLO,ierr)
 c
@@ -131,6 +109,7 @@ c     subtraction
       int_real=int_real_no_cnt-KNLO*xjac
 c
 c     print out current run progress
+c     TODO: adapt progress bar
  999  ievt=ievt+1
       if(ievt.gt.nthres)then
          write(*,111)char(13),int(1d2*nthres/(nprodR*1d0)),'% done'

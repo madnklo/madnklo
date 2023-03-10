@@ -1,7 +1,8 @@
-      subroutine phase_space_CS(xx,iU,iS,iB,iA,p,pbar,npart,xjac)
+      subroutine phase_space_CS(xx,iU,iS,iB,iA,p,pbar,npart,leg_PDGs,maptype,xjac)
 c     Build n+1 momenta p from n momenta pbar 
 c     iU is the unresolved parton associated
 c     with the soft singularity
+c     npart = n+1
       implicit none
       include 'math.inc'
       double precision xx(3)
@@ -16,6 +17,11 @@ c     with the soft singularity
       double precision pAr(0:3),pUr(0:3)
       double precision dot
       double precision ran2
+      integer leg_PDGs(npart)
+      character*1 maptype
+      integer mapped_labels(npart),mapped_flavours(npart)
+c     TODO: change name to isunderlyingqcdparton()
+      logical isLOQCDparton(npart-1)
       integer idum
       common/rand/idum
 c
@@ -32,10 +38,11 @@ c     input check
 c
 c     iA (reference four-vector for definition of the azimuth)
 c     must be != iB, iU, iS;
-c     TODO: look at imap()
-      pbB(:)=pbar(:,imap(iB,iS,iU,0,0,npart))
-      pbS(:)=pbar(:,imap(iS,iS,iU,0,0,npart))
-      pA(:) =pbar(:,imap(iA,iS,iU,0,0,npart))
+      call get_mapped_labels(maptype,iU,iS,iB,npart,leg_pdgs,mapped_labels,
+     $           mapped_flavours,isLOQCDparton)
+      pbB(:)=pbar(:,mapped_labels(iB))
+      pbS(:)=pbar(:,mapped_labels(iS))
+      pA(:) =pbar(:,mapped_labels(iA))
       pbBsave=pbB
 c
 c     boost to CM of pbS+pbB
@@ -112,7 +119,7 @@ c     construct p from pbar
       p(:,iS)=yCS*pbBsave(:)+pbS(:)-p(:,iU)
       do j=1,npart
          if(j.eq.iU.or.j.eq.iB.or.j.eq.iS)cycle
-         p(:,j)=pbar(:,imap(j,iS,iU,0,0,npart))
+         p(:,j)=pbar(:,mapped_labels(j))
       enddo
 c
 c     consistency check
@@ -133,7 +140,8 @@ c
       end
 
 
-      subroutine phase_space_CS_inv(iU,iS,iB,p,pbar,npart,xjac)
+      subroutine phase_space_CS_inv(iU,iS,iB,p,pbar,npart,leg_PDGs,
+     & maptype,xjac)
 c     Build n momenta pbar from n+1 momenta p
 c     iU is the unresolved parton associated
 c     with the soft singularity
@@ -144,8 +152,12 @@ c
       include 'math.inc'
       integer i,j,iU,iS,iB,npart
       double precision p(0:3,npart),pbar(0:3,npart-1)
+      integer leg_PDGs(npart)
       double precision yCS,xjac,G,Qsq,dot
-      integer mapped_labels(npart)
+      character*1 maptype
+      integer mapped_labels(npart),mapped_flavours(npart)
+c     TODO: change name to isunderlyingqcdparton()
+      logical isLOQCDparton(npart-1)
 c
 c     initialise
       xjac=0d0
@@ -157,7 +169,8 @@ c     auxiliary quantities
       yCS=2d0*dot(p(0,iU),p(0,iS))/Qsq
 c
 c     construct pbar from p
-      call get_mapped_labels(iU,iS,iB,npart,mapped_labels)
+      call get_mapped_labels(maptype,iU,iS,iB,npart,leg_pdgs,mapped_labels,
+     $           mapped_flavours,isLOQCDparton)
 c
       pbar(:,mapped_labels(iB))=p(:,iB)/(1-yCS)
       pbar(:,mapped_labels(iS))=p(:,iU)+p(:,iS)-p(:,iB)*yCS/(1-yCS)
@@ -165,12 +178,6 @@ c
          if(j.eq.iU.or.j.eq.iB.or.j.eq.iS)cycle
          pbar(:,mapped_labels(j))=p(:,j)
       enddo
-c      pbar(:,imap(iB,iS,iU,0,0,npart))=p(:,iB)/(1-yCS)
-c      pbar(:,imap(iS,iS,iU,0,0,npart))=p(:,iU)+p(:,iS)-p(:,iB)*yCS/(1-yCS)
-c      do j=1,npart
-c         if(j.eq.iU.or.j.eq.iB.or.j.eq.iS)cycle
-c         pbar(:,imap(j,iS,iU,0,0,npart))=p(:,j)
-c      enddo
 c
 c     consistency check
       do i=1,npart-1
@@ -189,15 +196,12 @@ c
       end
 
 
-      subroutine phase_space_n(x,shat,p,xjac)
+      subroutine phase_space_n(x,shat,p,npart,xjac)
       implicit none
-c      include 'dims.inc'
-c      include 'setup.inc'
-c      include 'mxdim.inc'
       include 'math.inc'
-      include 'nexternal.inc'
+      integer npart
       double precision x(1),shat
-      double precision p(0:3,nexternal),xjac
+      double precision p(0:3,npart),xjac
 c
 c     local variables
       double precision app,pmod,costh,sinth,ph,ran2
@@ -208,8 +212,13 @@ c     initialise
       p=0d0
       xjac=1d0
 c
+      if(npart.ne.4)then
+         write(*,*) 'Four particles expected in Born phase space', npart
+         stop
+      endif
+c
 c     app is modulus squared of three-momentum
-      app=((shat-xmsq(1)-xmsq(2))**2-4d0*xmsq(1)*xmsq(2))/(4d0*shat)
+      app=shat/4d0
       if(app.le.0d0)then
         xjac=0d0
         return
@@ -220,22 +229,20 @@ c     app is modulus squared of three-momentum
       ph=RAN2(idum)*twopi
 c
 c     final-state momenta
-c     TODO: needed xmsq()
-      p(0,1)=sqrt(pmod*pmod+xmsq(1))
-      p(1,1)=pmod*sinth*cos(ph)
-      p(2,1)=pmod*sinth*sin(ph)
-      p(3,1)=pmod*costh
-      p(0,2)=sqrt(pmod*pmod+xmsq(2))
-      p(1,2)=-p(1,1)
-      p(2,2)=-p(2,1)
-      p(3,2)=-p(3,1)
+      p(0,3)=pmod
+      p(1,3)=pmod*sinth*cos(ph)
+      p(2,3)=pmod*sinth*sin(ph)
+      p(3,3)=pmod*costh
+      p(0,4)=pmod
+      p(1,4)=-p(1,3)
+      p(2,4)=-p(2,3)
+      p(3,4)=-p(3,3)
 c
 c     initial-state and center-of-mass momenta
-      p(0,0)=sqrt(shat)
-      p(0,-1)=p(0,0)/2d0
-      p(3,-1)=p(0,0)/2d0
-      p(0,-2)=p(0,0)/2d0
-      p(3,-2)=-p(0,0)/2d0
+      p(0,1)=sqrt(shat)/2d0
+      p(3,1)=sqrt(shat)/2d0
+      p(0,2)=sqrt(shat)/2d0
+      p(3,2)=-sqrt(shat)/2d0
 c
 c     phase-space weight
       xjac=xjac*pmod/sqrt(shat)/(fourpi)**2
@@ -248,11 +255,9 @@ c
       subroutine phase_space_npo(x,shat,iU,iS,iB,iA,p,pbar,xjac,xjacB)
 c     iU is the unresolved parton associated with the soft singularity
       implicit none
-c      include 'dims.inc'
-c      include 'setup.inc'
-c      include 'mxdim.inc'
       include 'math.inc'
       include 'nexternal.inc'
+      include 'leg_PDGs.inc'
       double precision x(4),shat
       double precision p(0:3,nexternal),pbar(0:3,nexternal-1)
       double precision xjac,xjacB,xjacCS
@@ -264,14 +269,20 @@ c     initialise
       xjac=1d0
       p(0,0)=sqrt(shat)
 c
+c     check on leg_PDGs
+      if(size(leg_PDGs).ne.nexternal)then
+         write(*,*) 'Wrong dimension for leg_PDGs',size(leg_PDGs), nexternal
+         stop
+      endif
+c
 c     call Born phase space
-      call phase_space_n(x(4),shat,pbar,xjacB)
+      call phase_space_n(x(4),shat,pbar,nexternal-1,xjacB)
 c
 c     labels are assigned so to have (iU1 iS1 iB1)
 c     as an n+1 -> n mapping
 c
 c     call radiation phase space
-      call phase_space_CS(x(1),iU,iS,iB,iA,p,pbar,nexternal,xjacCS)
+      call phase_space_CS(x(1),iU,iS,iB,iA,p,pbar,nexternal,leg_PDGs,'C',xjacCS)
 c
 c     total jacobian
       xjac=xjacB*xjacCS
@@ -280,158 +291,56 @@ c
       end
 
 
-      subroutine phase_space_npt(x,shat,iU1,iS1,iB1,iA1,iA2,p,pbar,ptilde,xjac,xjacB,iU2,iS2,iB2)
-c     iU1 and iU2 are the unresolved partons associated with the soft singularity
-c     iU2, iS2, and iB2 are outputs
-      implicit none
-c     TODO: modify to nexternal convention
-      include 'dims.inc'
-      include 'setup.inc'
-      include 'mxdim.inc'
-      double precision x(7),shat
-      double precision p(0:3,-2:4),pbar(0:3,-2:3),ptilde(0:3,-2:2)
-      double precision xjac,xjacB,xjacCS1,xjacCS2
-      integer i,j,iU1,iS1,iB1,iA1,iU2,iS2,iB2,iA2
-      double precision dot
+c
+c      subroutine check_phsp_consistency(x,npart,xs,xsb,iU1,iS1,iB1,iA1,ierr)
+c      implicit none
+c      include 'dims.inc'
+c      include 'setup.inc'
+c      include 'mxdim.inc'
+c      integer i,iU1,iS1,iB1,iA1,iU2,iS2,iB2,iA2,npart,ierr
+c      double precision x(mxdim)
+c      double precision xs(-2:maxdim,-2:maxdim),xsb(-2:maxdim,-2:maxdim)
+c      double precision sab,sac,sad,sbc,sbd,scd,sabc,sabcd
+c      double precision sb_bc,sb_bd,sb_cd,sb_bcd
+c      double precision y,z,yp,zp,y2,z2
 c
 c     initialise
-      p=0d0
-      pbar=0d0
-      ptilde=0d0
-      xjac=1d0
-      p(0,0)=sqrt(shat)
-      pbar(0,0)=sqrt(shat)
+c      ierr=0
 c
-c     call Born phase space
-      call phase_space_n(x(7),shat,ptilde,xjacB)
-c
-c     map according to (iU1 iS1 iB1 , iS1 iA1 iB1) = (iU1 iS1 iA1 iB1)
-      iU2=imap(iS1,iU1,iS1,0,0,npartNNLO)
-      iS2=imap(iA1,iU1,iS1,0,0,npartNNLO)
-      iB2=imap(iB1,iU1,iS1,0,0,npartNNLO)
-c
-c     call radiation phase space from Born to real
-      call phase_space_CS(x(4),iU2,iS2,iB2,iA2,pbar,ptilde,npartNLO,xjacCS2)
-c
-c     call radiation phase space from real to double real
-      call phase_space_CS(x(1),iU1,iS1,iB1,iA1,p,pbar,npartNNLO,xjacCS1)
-c
-c     total jacobian
-      xjac=xjacB*xjacCS1*xjacCS2
-c
-      return
-      end
-
-
-      subroutine check_phsp_consistency(x,npart,xs,xsb,iU1,iS1,iB1,iA1,ierr)
-      implicit none
-      include 'dims.inc'
-      include 'setup.inc'
-      include 'mxdim.inc'
-      integer i,iU1,iS1,iB1,iA1,iU2,iS2,iB2,iA2,npart,ierr
-      double precision x(mxdim)
-      double precision xs(-2:maxdim,-2:maxdim),xsb(-2:maxdim,-2:maxdim)
-      double precision sab,sac,sad,sbc,sbd,scd,sabc,sabcd
-      double precision sb_bc,sb_bd,sb_cd,sb_bcd
-      double precision y,z,yp,zp,y2,z2
-c
-c     initialise
-      ierr=0
-c
-      if(npart.eq.npartNLO)then     
+c      if(npart.eq.npartNLO)then     
 c     this routine assumes mapping labels (iU1 iS1 iB1)
 c     in passing from n+1 to n
-         sab=xs(iU1,iS1)
-         sac=xs(iU1,iB1)
-         sbc=xs(iS1,iB1)
-         sabc=sab+sac+sbc
-         y=sab/sabc
-         z=sac/(sabc-sab)
+c         sab=xs(iU1,iS1)
+c         sac=xs(iU1,iB1)
+c         sbc=xs(iS1,iB1)
+c         sabc=sab+sac+sbc
+c         y=sab/sabc
+c         z=sac/(sabc-sab)
 c
 c     check
-         if(sabc.le.0d0.or.sabc-sab.le.0d0)then
-            write(77,*)'Inaccuracy in check_phsp_consistency NLO',
-     &      sabc,sabc-sab
-         endif
+c         if(sabc.le.0d0.or.sabc-sab.le.0d0)then
+c            write(77,*)'Inaccuracy in check_phsp_consistency NLO',
+c     &      sabc,sabc-sab
+c         endif
 c
 c     actual test of Catani-Seymour mapping and parametrisation
-         if(abs(z-x(1)).gt.tiny0)then
-            write(77,*)'Inaccurate z in check_phsp_consistency NLO',abs(z-x(1))
-            goto 999
-         endif
-         if(abs(y-x(2)).gt.tiny0)then
-            write(77,*)'Inaccurate y in check_phsp_consistency NLO',abs(y-x(2))
-            goto 999
-         endif
+c         if(abs(z-x(1)).gt.tiny0)then
+c            write(77,*)'Inaccurate z in check_phsp_consistency NLO',abs(z-x(1))
+c            goto 999
+c         endif
+c         if(abs(y-x(2)).gt.tiny0)then
+c            write(77,*)'Inaccurate y in check_phsp_consistency NLO',abs(y-x(2))
+c            goto 999
+c         endif
+c      else
+c         write(*,*)'Unknown npart in check_phsp_consistency',
+c     &   npart,npartNLO
+c      endif
 c
-      elseif(npart.eq.npartNNLO)then     
-c     this routine assumes mapping labels (iU1 iS1 iB1, iS1 iA1 iB1)
-c     in passing from n+2 to n+1 to n
-         sab=xs(iU1,iS1)
-         sac=xs(iU1,iB1)
-         sad=xs(iU1,iA1)
-         sbc=xs(iS1,iB1)
-         sbd=xs(iS1,iA1)
-         scd=xs(iB1,iA1)
-         sabc=sab+sac+sbc
-         sabcd=sabc+sad+sbd+scd
-         iU2=imap(iS1,iU1,iS1,0,0,npartNNLO)
-         iS2=imap(iA1,iU1,iS1,0,0,npartNNLO)
-         iB2=imap(iB1,iU1,iS1,0,0,npartNNLO)
-         sb_bc=xsb(iU2,iB2)
-         sb_bd=xsb(iU2,iS2)
-         sb_cd=xsb(iS2,iB2)
-         sb_bcd=sb_bc+sb_bd+sb_cd
-c     y = sbar_bd(abc) / sbar_bdc(abc)
-c     z = sbar_bc(abc) / (sbar_bc(abc) + sbar_cd(abc))
-         y=(sad+sbd-sab*scd/(sac+sbc))/sabcd
-         z=(sac+sbc)/(sac+sbc+scd)
-         yp=sab/sabc
-         zp=sac/(sabc-sab)
-         y2=sb_bd/sb_bcd
-         z2=sb_bc/(sb_bc+sb_cd)
-c
-c     check
-         if(sabcd.le.0d0.or.sabcd-sabc.le.0d0.or.
-     &   sabc-sab.le.0d0.or.sabc.le.0d0)then
-            write(77,*)'Inaccuracy in check_phsp_consistency NNLO',
-     &      sabcd,sabcd-sabc,sabc-sab,sabc
-         endif
-c
-c     actual test of Catani-Seymour mapping and parametrisation
-         if(abs(zp-x(1)).gt.tiny0)then
-            write(77,*)'Inaccurate zp  in check_phsp_consistency NNLO',abs(zp-x(1))
-            goto 999
-         endif
-         if(abs(yp-x(2)).gt.tiny0)then
-            write(77,*)'Inaccurate yp  in check_phsp_consistency NNLO',abs(yp-x(2))
-            goto 999
-         endif
-         if(abs(z-x(4)).gt.tiny0)then
-            write(77,*)'Inaccurate z   in check_phsp_consistency NNLO',abs(z-x(4))
-            goto 999
-         endif
-         if(abs(y-x(5)).gt.tiny0)then
-            write(77,*)'Inaccurate y   in check_phsp_consistency NNLO',abs(y-x(5))
-            goto 999
-         endif
-         if(abs(y-y2).gt.tiny0)then
-            write(77,*)'Inaccurate y 2 in check_phsp_consistency NNLO',abs(y-y2)
-            goto 999
-         endif
-         if(abs(z-z2).gt.tiny0)then
-            write(77,*)'Inaccurate z 2 in check_phsp_consistency NNLO',abs(z-z2)
-            goto 999
-         endif
-      else
-         write(*,*)'Unknown npart in check_phsp_consistency',
-     &   npart,npartNLO,npartNNLO
-      endif
-c
-      return
- 999  ierr=1
-      return
-      end
+c      return
+c 999  ierr=1
+c      return
+c      end
 
 
 

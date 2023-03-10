@@ -1,3 +1,28 @@
+      subroutine get_mapped_labels(maptype,a,b,c,n,leg_pdgs,mapped_labels,
+     $           mapped_flavours,isLOQCDparton)
+      implicit none
+      integer a,b,c,n
+      integer leg_pdgs(n)
+      integer mapped_labels(n),mapped_flavours(n)
+      integer i,j
+      logical isLOQCDparton(n-1)
+      character*1 maptype
+      
+      if(maptype.eq.'S')then
+         call get_soft_mapped_labels(a,b,c,n,leg_pdgs,mapped_labels,
+     $           mapped_flavours,isLOQCDparton)
+      elseif(maptype.eq.'C')then
+         call get_collinear_mapped_labels(a,b,c,n,leg_pdgs,
+     $           mapped_labels,mapped_flavours)
+      else
+         write(*,*) 'Invalid maptype, must be S or C!', maptype
+         stop
+      endif
+
+      return
+      end
+
+
       subroutine get_soft_mapped_labels(a,b,c,n,leg_pdgs,mapped_labels,
      $           mapped_flavours,isLOQCDparton)
       implicit none

@@ -482,14 +482,29 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         dirpath = pjoin(dirpath, 'SubProcesses', \
                        "P%s" % defining_process.shell_string())
 
+
+######### Write all_sector_list.inc
+
+        replace_dict = {}
+        replace_dict['len_sec_list'] = len(all_sector_list)
+        replace_dict['all_sector_list'] = str(all_sector_list).replace('[','').replace(']','').replace(' ','').replace('(','').replace(')','')
+
+        file = """ \
+          integer all_sector_list(%(len_sec_list)d,2)
+          data all_sector_list/%(all_sector_list)s/""" % replace_dict
+
+        filename = pjoin(dirpath, 'all_sector_list.inc')
+        writer(filename).writelines(file)
         
 ######### Write NLO_K_isec_jsec.f
 
         # Set replace_dict for NLO_K_isec_jsec.f
         replace_dict_ct = {}
+        replace_dict_int_real = {}
         for i in range(0,len(all_sector_list)):
             list_M2 = []
             list_str_defHC = []
+            list_int_real = []
             isec = all_sector_list[i][0]
             jsec = all_sector_list[i][1]
             id_isec = all_sector_id_list[i][0]
@@ -500,17 +515,23 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
             replace_dict_ct['isec'] = isec
             replace_dict_ct['jsec'] = jsec
+            replace_dict_int_real['isec'] = isec
+            replace_dict_int_real['jsec'] = jsec
  
             if necessary_ct_list[i*5] == 1:
                 if id_isec != 21:
                     raise MadEvent7Error('%d is not a gluon!' % isec)
                 list_M2.append('KS=KS+M2_S(isec,xs,xp,wgt,WsumSi,xj,nitR,1d0,ierr)\n')
-                list_M2.append('#\n')
+                list_M2.append('if(ierr.eq.1)goto 999\n')
+                list_int_real.append('call get_Z_NLO(sNLO,alpha,isec,jsec,ZsumSi,ierr)\n')
+                list_int_real.append('if(ierr.eq.1)goto 999\n')
             if necessary_ct_list[i*5+1] == 1:
                 if id_jsec != 21:
                     raise MadEvent7Error('%d is not a gluon!' % jsec)
                 list_M2.append('KS=KS+M2_S(jsec,xs,xp,wgt,WsumSj,xj,nitR,1d0,ierr)\n')
-                list_M2.append('#\n')
+                list_M2.append('if(ierr.eq.1)goto 999\n')
+                list_int_real.append('call get_Z_NLO(sNLO,alpha,isec,jsec,ZsumSj,ierr)\n')
+                list_int_real.append('if(ierr.eq.1)goto 999\n')
             if necessary_ct_list[i*5+2] == 1:
                 # Loop over sectors with final state particles only
                 if isec > 2 and jsec > 2:
@@ -532,6 +553,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     else:
                         list_M2.append('KHC=KHC+M2_H_C_FqFqx(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,ierr)')
                         list_str_defHC.append('DOUBLE PRECISION M2_H_C_FqFqx')
+                    list_M2.append('if(ierr.eq.1)goto 999\n')
                 # Loop over sectors with at least one initial state particle
                 if isec <= 2 or jsec <= 2:
                     continue
@@ -544,14 +566,20 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
                 str_defHC = " ".join(list_str_defHC)
                 str_M2 = " ".join(list_M2)
+                str_int_real = " ".join(list_int_real)
                 replace_dict_ct['str_defHC'] = str_defHC
                 replace_dict_ct['str_M2'] = str_M2
+                replace_dict_int_real['str_int_real'] = str_int_real
 
             filename = pjoin(dirpath, 'NLO_K_%d_%d.f' % (isec, jsec))
 #            dirtmp=pjoin(dirmadnklo,"tmp_fortran/tmp_files/NLO_K_template.f")
             file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NLO_K_template.f")).read()
             file = file % replace_dict_ct
             writer(filename).writelines(file)
+            filename_int_real = pjoin(dirpath, 'NLO_Rsub_%d_%d.f' % (isec, jsec))
+            file_int_real = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NLO_Rsub_template.f")).read()
+            file_int_real = file_int_real % replace_dict_int_real
+            writer(filename_int_real).writelines(file_int_real)
 
         
 ######### Write damping_factors.inc

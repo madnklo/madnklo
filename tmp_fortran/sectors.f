@@ -1,4 +1,19 @@
 !!!!! Fortran version of the sectors.py !!!!!!
+      subroutine get_Z_NLO(snlo,alpha,isec,jsec,Z_NLO,sector_type,ierr)
+      implicit none
+      include 'nexternal.inc'
+      integer isec,jsec,ierr
+      double precision alpha
+      double precision snlo(nexternal,nexternal) 
+      double precision Z_NLO
+      character*1 sector_type
+  
+      if(sector_type.eq.'F')then
+         
+     
+ 
+      end
+
 
       subroutine getsectorwgt(q,p_sec,wgt)
       implicit none

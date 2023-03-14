@@ -490,7 +490,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         replace_dict['all_sector_list'] = str(all_sector_list).replace('[','').replace(']','').replace(' ','').replace('(','').replace(')','')
 
         file = """ \
-          integer all_sector_list(%(len_sec_list)d,2)
+          integer, parameter :: lensectors = %(len_sec_list)d
+          integer all_sector_list(lensectors,2)
           data all_sector_list/%(all_sector_list)s/""" % replace_dict
 
         filename = pjoin(dirpath, 'all_sector_list.inc')

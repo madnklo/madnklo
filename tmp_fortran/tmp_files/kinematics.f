@@ -1,4 +1,4 @@
-      subroutine invariants_from_p(p,nparticles,xs,ierr)
+      subroutine invariants_from_p(p,nparticles,xs,sCM,ierr)
       implicit none
       include 'math.inc'
       integer nparticles
@@ -7,10 +7,13 @@ c     nparticles is the number of (inital+final)-state particles
       double precision p(0:3,nparticles)
       double precision xs(nparticles,nparticles)
       double precision dot
+      double precision sCM
 c     
 c     initialise
       xs=0d0
       ierr=0
+
+      sCM = 2d0*dot(p(0,1),p(0,2))
 c
 c     build invariants from p
       do i=1,nparticles-1

@@ -31,6 +31,7 @@ c     TODO: understand x(mxdim) definition by Vegas
       double precision pb(0:3,nexternal-1)
       double precision xjac,xjacB
       double precision xsave(3)
+      double precision sCM
       common/cxsave/xsave
       integer counter
       save counter
@@ -55,9 +56,9 @@ c
 c     phase space and invariants
       call phase_space_npo(x,sCM,iU,iS,iB,iA,p,pb,xjac,xjacB)
       if(xjac.eq.0d0)goto 999
-      call invariants_from_p(p,nexternal,sNLO,ierr)
+      call invariants_from_p(p,nexternal,sNLO,sCM,ierr)
       if(ierr.eq.1)goto 999
-      call invariants_from_p(pb,nexternal-1,sLO,ierr)
+      call invariants_from_p(pb,nexternal-1,sLO,sCM,ierr)  
       if(ierr.eq.1)goto 999
 c
 c     check that phase-space labels and x variables are as expected

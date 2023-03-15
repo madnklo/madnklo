@@ -35,7 +35,8 @@ c     TODO: understand x(mxdim) definition by Vegas
       common/cxsave/xsave
       integer counter
       save counter
-c
+      character*1 sector_type
+c     
 c     initialise
       isec = %(isec)d
       jsec = %(jsec)d
@@ -86,7 +87,7 @@ c     TODO: look at real_NLO
       if(ierr.eq.1)goto 999
 c
 c     TODO: introduce symmetrised sectors 
-      call get_Z_NLO(sNLO,alpha,isec,jsec,Z_NLO,ierr)
+      call get_Z_NLO(sNLO,alpha,isec,jsec,Z_NLO,sector_type,ierr)
       if(ierr.eq.1)goto 999
 c
 c     full real in the combination of sectors

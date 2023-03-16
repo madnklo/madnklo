@@ -1,5 +1,5 @@
 !!!!! Fortran version of the sectors.py !!!!!!
-      subroutine get_Z_NLO(snlo,alpha,isec,jsec,Z_NLO,sector_type,ierr)
+      subroutine get_Z_NLO(snlo,sCM,alpha,isec,jsec,Z_NLO,sector_type,ierr)
       implicit none
       include 'nexternal.inc'
       include 'all_sector_list.inc'
@@ -14,31 +14,48 @@
 !     build the total sigma (we need to know the number of sectors)
 
       sigma = 0d0
-      
+
+      if(isec.le.2) then
+         write(*,*) 'The first particle sector must be in 
+     $           the final state!'
+         write(*,*) 'isec= ', isec
+         write(*,*) 'Exit...'
+         stop
+      endif
+
       if(sector_type.eq.'F') then
+!     build the total sigma 
          do i=1,lensectors
-            call getsectorwgt(xs,all_sector_list(i,1),all_sector_list(i,2),wgt)
+            call getsectorwgt(xs,sCM,all_sector_list(i,1),all_sector_list(i,2),wgt)
             sigma = sigma + wgt
             if(all_sector_list(i,2).gt.2) then
-               call getsectorwgt(xs,all_sector_list(i,2),all_sector_list(i,1),wgt)
+               call getsectorwgt(xs,sCM,all_sector_list(i,2),all_sector_list(i,1),wgt)
                sigma = sigma + wgt
             endif
          enddo
-         call getsectorwgt(xs,isec,jsec,wgt)
-         Z_NLO = wgt/sigma
+         call getsectorwgt(xs,sCM,isec,jsec,wgt)
          if(jsec.gt.2) then
-            call getsectorwgt(xs,jsec,isec,wgt)
-            Z_NLO = Z_NLO + wgt/sigma ! Symmetrization
+            call getsectorwgt(xs,sCM,jsec,isec,wgt)
+            Z_NLO = Z_NLO + wgt ! Symmetrization
          endif
       elseif(sector_type.eq.'S') then
-         
-         
+         do i=1,lensectors
+            if(isec.lt.jsec) then
+               call getsectorwgts(xs,sCM,all_sector_list(i,1),all_sector_list(i,2),wgt)
+               sigma=sigma+wgt
+            else
+               call getsectorwgts(xs,sCM,all_sector_list(i,2),all_sector_list(i,1),wgt)
+               sigma=sigma+wgt
+         enddo
+         call getsectorwgts(xs,sCM,isec,jsec,wgt)
       else
          write(*,*) 'Not allowed value for sector_type: ', sector_type
          write(*,*) 'Exit...'
          stop
       endif
- 
+
+      Z_NLO = wgt/sigma
+      
       end
 
 
@@ -74,36 +91,43 @@ c     integer npsec
       end
       
 
-      subroutine getsectorwgtS(q, p_sec,wgt)
+      subroutine getsectorwgts(xs,sCM,isec,jsec,wgt)
       implicit none
-      real * 8 q(0:3),p_sec(0:3,2)
-      real * 8 wgt
-      real * 8 s,sij,sqi,sqj,wij
-!      real * 8 getsecinv
+      include 'nexternal.inc'
+      integer isec,jsec
+      real * 8 xs(nexternal,nexternal)
+      real * 8 wij,wgt
+      real * 8 sCM,sqisec,sqjsec
 
-      call getsecinv(q, p_sec,s,sqi,sqj,sij)
+      sqisec=0d0
+      sqjsec=0d0
       
-      wij =  s*sij/sqi/sqj
+      do j=2,nexternal
+         sqisec = sqisec + xs(isec,j)
+         sqjsec = sqjsec + xs(jsec,j)
+      enddo
+
+      wij = sCM*xs(isec,jsec)/sqisec/sqjsec
 
       wgt = 1d0/wij
       
       end
 
-      subroutine getsecwgtC(q,p_sec,wgt)
-      implicit none
-      real * 8 q(0:3),p_sec(0:3,2)
-      real * 8 wgt
-      real * 8 s,sij,sqi,sqj,wij,ei
-!      real * 8 getsecinv
-
-      call getsecinv(q, p_sec,s,sqi,sqj,sij)
-      
-      ei = sqi/s
-      
-      wgt = 1d0/ei
-      
-      
-      end
+c$$$      subroutine getsecwgtC(q,p_sec,wgt)
+c$$$      implicit none
+c$$$      real * 8 q(0:3),p_sec(0:3,2)
+c$$$      real * 8 wgt
+c$$$      real * 8 s,sij,sqi,sqj,wij,ei
+c$$$!      real * 8 getsecinv
+c$$$
+c$$$      call getsecinv(q, p_sec,s,sqi,sqj,sij)
+c$$$      
+c$$$      ei = sqi/s
+c$$$      
+c$$$      wgt = 1d0/ei
+c$$$      
+c$$$      
+c$$$      end
 
 c$$$      subroutine getsecinv(q, p_sec,s,sqi,sqj,sij)
 c$$$      implicit none

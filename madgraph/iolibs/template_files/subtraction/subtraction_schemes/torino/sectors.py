@@ -168,14 +168,14 @@ class Sector(generic_sectors.GenericSector):
             # now normalise it
             norm = 0.
             for (ii, jj) in self.all_sector_list:
-                # print('BBB1 - ii : ' + str(ii) + '; ' + 'jj : ' + str(jj))
+                print('BBB1 - ii : ' + str(ii) + '; ' + 'jj : ' + str(jj))
                 # the sum runs only on the sectors with the first leg
                 # equal to the one at hand
                 if ii != self.leg_numbers[0] and jj != self.leg_numbers[0]:
                 # if ii != self.leg_numbers[0]:
                     # print('Continuing case')
                     continue
-                # print('BBB1 passed - ii : ' + str(ii) + '; ' + 'jj : ' + str(jj))
+                print('BBB1 passed - ii : ' + str(ii) + '; ' + 'jj : ' + str(jj))
                 # ii runs over final state particles only
                 if ii <=2:
                     raise MadEvent7Error('WARNING, sector index ii cannot be %s' % ii)
@@ -524,14 +524,14 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     raise MadEvent7Error('%d is not a gluon!' % isec)
                 list_M2.append('KS=KS+M2_S(isec,xs,xp,wgt,WsumSi,xj,nitR,1d0,ierr)\n')
                 list_M2.append('if(ierr.eq.1)goto 999\n')
-                list_int_real.append('call get_Z_NLO(sNLO,alpha,isec,jsec,ZsumSi,ierr)\n')
+                list_int_real.append('call get_Z_NLO(sNLO,sCM,alpha,isec,jsec,ZsumSi,"S",ierr)\n')
                 list_int_real.append('if(ierr.eq.1)goto 999\n')
             if necessary_ct_list[i*5+1] == 1:
                 if id_jsec != 21:
                     raise MadEvent7Error('%d is not a gluon!' % jsec)
                 list_M2.append('KS=KS+M2_S(jsec,xs,xp,wgt,WsumSj,xj,nitR,1d0,ierr)\n')
                 list_M2.append('if(ierr.eq.1)goto 999\n')
-                list_int_real.append('call get_Z_NLO(sNLO,alpha,isec,jsec,ZsumSj,ierr)\n')
+                list_int_real.append('call get_Z_NLO(sNLO,sCM,alpha,jsec,isec,ZsumSj,"S",ierr)\n')
                 list_int_real.append('if(ierr.eq.1)goto 999\n')
             if necessary_ct_list[i*5+2] == 1:
                 # Loop over sectors with final state particles only

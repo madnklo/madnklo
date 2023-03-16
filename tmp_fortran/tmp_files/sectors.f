@@ -41,13 +41,13 @@
       elseif(sector_type.eq.'S') then
          do i=1,lensectors
             if(isec.lt.jsec) then
-               call getsectorwgts(xs,sCM,all_sector_list(i,1),all_sector_list(i,2),wgt)
+               call getsectorwgt_S(xs,sCM,all_sector_list(i,1),all_sector_list(i,2),wgt)
                sigma=sigma+wgt
             else
-               call getsectorwgts(xs,sCM,all_sector_list(i,2),all_sector_list(i,1),wgt)
+               call getsectorwgt_S(xs,sCM,all_sector_list(i,2),all_sector_list(i,1),wgt)
                sigma=sigma+wgt
          enddo
-         call getsectorwgts(xs,sCM,isec,jsec,wgt)
+         call getsectorwgt_S(xs,sCM,isec,jsec,wgt)
       else
          write(*,*) 'Not allowed value for sector_type: ', sector_type
          write(*,*) 'Exit...'
@@ -91,7 +91,7 @@ c     integer npsec
       end
       
 
-      subroutine getsectorwgts(xs,sCM,isec,jsec,wgt)
+      subroutine getsectorwgt_S(xs,sCM,isec,jsec,wgt)
       implicit none
       include 'nexternal.inc'
       integer isec,jsec
@@ -113,7 +113,7 @@ c     integer npsec
       
       end
 
-c$$$      subroutine getsecwgtC(q,p_sec,wgt)
+c$$$      subroutine getsecwgt_C(q,p_sec,wgt)
 c$$$      implicit none
 c$$$      real * 8 q(0:3),p_sec(0:3,2)
 c$$$      real * 8 wgt

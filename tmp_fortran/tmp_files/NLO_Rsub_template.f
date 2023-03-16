@@ -54,11 +54,16 @@ c     initialise
       enddo
 c     
 c     phase space and invariants
+c     TODO: pass sCM information
+      if(sCM.le.0d0)then
+         write(*,*) 'Wrong sCM', sCM
+         stop
+      endif
       call phase_space_npo(x,sCM,iU,iS,iB,iA,p,pb,xjac,xjacB)
       if(xjac.eq.0d0)goto 999
-      call invariants_from_p(p,nexternal,sNLO,sCM,ierr)
+      call invariants_from_p(p,nexternal,sNLO,ierr)
       if(ierr.eq.1)goto 999
-      call invariants_from_p(pb,nexternal-1,sLO,sCM,ierr)  
+      call invariants_from_p(pb,nexternal-1,sLO,ierr)  
       if(ierr.eq.1)goto 999
 c
 c     check that phase-space labels and x variables are as expected

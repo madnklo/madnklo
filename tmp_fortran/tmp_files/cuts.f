@@ -69,9 +69,9 @@ c
 
       function dotechcut(x,npart,tiny)
       implicit none
-      include 'dims.inc'
       include 'setup.inc'
-      include 'mxdim.inc'
+      integer mxdim
+      parameter(mxdim=30)
       integer npart,i
       double precision x(mxdim),tiny
       logical dotechcut

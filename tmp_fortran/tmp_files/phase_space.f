@@ -294,9 +294,8 @@ c
 c
 c      subroutine check_phsp_consistency(x,npart,xs,xsb,iU1,iS1,iB1,iA1,ierr)
 c      implicit none
-c      include 'dims.inc'
 c      include 'setup.inc'
-c      include 'mxdim.inc'
+c      parameter(mxdim=30)
 c      integer i,iU1,iS1,iB1,iA1,iU2,iS2,iB2,iA2,npart,ierr
 c      double precision x(mxdim)
 c      double precision xs(-2:maxdim,-2:maxdim),xsb(-2:maxdim,-2:maxdim)

@@ -773,4 +773,18 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                         dirpath + '/%s_spin_correlations.inc' % Born_processes[i] )
 
 
+######### Write driver_isec_jsec.f 
+
+        replace_dict = {}
+        for i in range(0,len(all_sector_list)):
+            isec = all_sector_list[i][0]
+            jsec = all_sector_list[i][1]
+            replace_dict['isec'] = isec
+            replace_dict['jsec'] = jsec
+            filename = pjoin(dirpath, 'driver_%d_%d.f' % (isec, jsec))
+            file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/driver_npo_template.f")).read()
+            file = file % replace_dict
+            writer(filename).writelines(file)
+
+
         return all_sectors

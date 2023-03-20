@@ -63,8 +63,7 @@ c     as the single-real, ensuring numerical stability, while the
 c     underlying Born configuration is remapped
 c     check on leg_PDGs
             if(size(leg_PDGs).ne.nexternal)then
-               write(*,*) 'Wrong dimension for leg_PDGs', 
-     &           size(leg_PDGs), nexternal
+               write(*,*) 'Wrong dimension for leg_PDGs',size(leg_PDGs), nexternal
                stop
             endif
             call phase_space_CS_inv(i,l,m,xp,xpb,nexternal,leg_PDGs,'S',xjCS)
@@ -74,7 +73,7 @@ c     TODO: read input in invariants_from_p()
             if(ierr.eq.1)goto 999
 c
 c     possible cuts
-            if(docut(xpb,nexternal-1))cycle
+c            if(docut(xpb,nexternal-1))cycle
 c
 c     invariant quantities
             sil=xs(i,l)
@@ -170,7 +169,7 @@ c     initialise
       damp=0d0
 c
 c     possible cuts
-      if(docut(xpb,nexternal-1))return
+c      if(docut(xpb,nexternal-1))return
 c
 c     overall kernel prefix
       alphas=alpha_QCD(asMZ,nloop,muR)
@@ -277,7 +276,7 @@ c     initialise
       ierr=0
       damp=0d0
 c
-      if(docut(xpb,nexternal-1))return
+c      if(docut(xpb,nexternal-1))return
 c
 c     overall kernel prefix
       alphas=alpha_QCD(asMZ,nloop,muR)
@@ -371,7 +370,7 @@ c     initialise
       damp=0d0
 c
 c     possible cuts
-      if(docut(xpb,nexternal-1))return
+c      if(docut(xpb,nexternal-1))return
 c
 c     overall kernel prefix
       alphas=alpha_QCD(asMZ,nloop,muR)

@@ -1,4 +1,4 @@
-      function int_real_%(isec)d_%(jsec)d(x,wgt)
+      double precision function int_real_%(isec)d_%(jsec)d(x,wgt)
 c     (n+1)-body NLO integrand for vegas
       implicit none
       include 'math.inc'
@@ -18,6 +18,7 @@ c     (n+1)-body NLO integrand for vegas
       parameter(alpha=1d0)
       double precision RNLO,KNLO,KS,KHC
 c     TODO: understand x(mxdim) definition by Vegas
+      integer, parameter :: mxdim = 30
       double precision x(mxdim)
       double precision wgt,wgtpl
       logical dotechcut
@@ -35,6 +36,12 @@ c     TODO: understand x(mxdim) definition by Vegas
       common/cxsave/xsave
       integer counter
       save counter
+      double precision ans(0:1) !TODO SET CORRECTLY RANGE OF ANS 
+      double precision alphas, alpha_qcd
+      integer, parameter :: hel=-1	
+	
+      alphas=alpha_qcd(asmz,nloop,mur)
+
 c     
 c     initialise
       isec = %(isec)d
@@ -60,11 +67,11 @@ c     TODO: pass sCM information
          stop
       endif
       call phase_space_npo(x,sCM,iU,iS,iB,iA,p,pb,xjac,xjacB)
-      if(xjac.eq.0d0)goto 999
+c      if(xjac.eq.0d0)goto 999
       call invariants_from_p(p,nexternal,sNLO,ierr)
-      if(ierr.eq.1)goto 999
+c      if(ierr.eq.1)goto 999
       call invariants_from_p(pb,nexternal-1,sLO,ierr)  
-      if(ierr.eq.1)goto 999
+c      if(ierr.eq.1)goto 999
 c
 c     check that phase-space labels and x variables are as expected
 c      call check_phsp_consistency(x,npartNLO,sNLO,sLO,iU,iS,iB,iA,ierr)
@@ -87,22 +94,24 @@ c      endif
 c
 c     real
 c     TODO: look at real_NLO
-      call real_NLO(sNLO,RNLO,ierr)
-      if(ierr.eq.1)goto 999
+c      call real_NLO(sNLO,RNLO,ierr)
+      call %(NLO_proc_str)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
+      RNLO = ANS(0)
+c      if(ierr.eq.1)goto 999
 c
 c     TODO: introduce symmetrised sectors 
       call get_Z_NLO(sNLO,sCM,alpha,isec,jsec,Z_NLO,'F',ierr)
-      if(ierr.eq.1)goto 999
+c      if(ierr.eq.1)goto 999
 c
 c     full real in the combination of sectors
       int_real_no_cnt=RNLO*Z_NLO*xjac
 c
 c     plot real
-      wgtpl=int_real_no_cnt*wgt/nitR
+c      wgtpl=int_real_no_cnt*wgt/nitR
 c      if(doplot)call histo_fill(p,sNLO,npartNLO,wgtpl)
 c 555  continue
 c
-c     call sector functions
+
       %(str_int_real)s
 c
 c     counterterm

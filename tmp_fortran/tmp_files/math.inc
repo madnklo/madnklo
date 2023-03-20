@@ -6,6 +6,7 @@ c
       real * 8 CF,CA,TR,NF,gamma_g,gamma_q
       real * 8 tiny0,tiny1,tiny2
       real * 8 asMZ,nloop,alphaEM
+      real * 8 mur
 c     TODO: remove all unnecessary terms
 c     number of colors	
       integer Nc

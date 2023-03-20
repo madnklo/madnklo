@@ -524,6 +524,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     raise MadEvent7Error('%d is not a gluon!' % isec)
                 list_M2.append('KS=KS+M2_S(isec,xs,xp,wgt,WsumSi,xj,nitR,1d0,ierr)\n')
                 list_M2.append('if(ierr.eq.1)goto 999\n')
+                list_int_real.append('#\n call sector function ZsumSi\n')
                 list_int_real.append('call get_Z_NLO(sNLO,sCM,alpha,isec,jsec,ZsumSi,"S",ierr)\n')
                 list_int_real.append('if(ierr.eq.1)goto 999\n')
             if necessary_ct_list[i*5+1] == 1:
@@ -531,6 +532,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     raise MadEvent7Error('%d is not a gluon!' % jsec)
                 list_M2.append('KS=KS+M2_S(jsec,xs,xp,wgt,WsumSj,xj,nitR,1d0,ierr)\n')
                 list_M2.append('if(ierr.eq.1)goto 999\n')
+                list_int_real.append('#\n call sector function ZsumSi\n')
                 list_int_real.append('call get_Z_NLO(sNLO,sCM,alpha,jsec,isec,ZsumSj,"S",ierr)\n')
                 list_int_real.append('if(ierr.eq.1)goto 999\n')
             if necessary_ct_list[i*5+2] == 1:
@@ -546,15 +548,16 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                         raise MadEvent7Error('Wrong recoiler %d,%d,%d!' % (isec,jsec,iref))
                     # Write an identified M2_H_C_F*F* for each (**) flavour couple 
                     if id_isec == 21 and id_jsec == 21:
-                        list_M2.append('KHC=KHC+M2_H_C_FgFg(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,ierr)')
+                        list_M2.append('KHC=KHC+M2_H_C_FgFg(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,ierr)\n')
                         list_str_defHC.append('DOUBLE PRECISION M2_H_C_FgFg')
                     elif id_isec == 21 and id_jsec != 21: # if there is a gluon in sector, it is always in the first position
-                        list_M2.append('KHC=KHC+M2_H_C_FgFq(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,ierr)')
+                        list_M2.append('KHC=KHC+M2_H_C_FgFq(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,ierr)\n')
                         list_str_defHC.append('DOUBLE PRECISION M2_H_C_FgFq')
                     else:
-                        list_M2.append('KHC=KHC+M2_H_C_FqFqx(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,ierr)')
+                        list_M2.append('KHC=KHC+M2_H_C_FqFqx(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,ierr)\n')
                         list_str_defHC.append('DOUBLE PRECISION M2_H_C_FqFqx')
                     list_M2.append('if(ierr.eq.1)goto 999\n')
+                    list_int_real.append('# Symmetrised sector function for collinear kernel is equal to 1\n')
                 # Loop over sectors with at least one initial state particle
                 if isec <= 2 or jsec <= 2:
                     continue
@@ -570,7 +573,9 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                 str_int_real = " ".join(list_int_real)
                 replace_dict_ct['str_defHC'] = str_defHC
                 replace_dict_ct['str_M2'] = str_M2
-                replace_dict_int_real['str_int_real'] = str_int_real
+                replace_dict_int_real['str_int_real'] = str_int_real               
+                replace_dict_int_real['NLO_proc_str'] = str(defining_process.shell_string(schannel=False, 
+                                        forbid=False, main=False, pdg_order=False, print_id = False) + '_')
 
             filename = pjoin(dirpath, 'NLO_K_%d_%d.f' % (isec, jsec))
 #            dirtmp=pjoin(dirmadnklo,"tmp_fortran/tmp_files/NLO_K_template.f")

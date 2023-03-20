@@ -3,12 +3,14 @@
       implicit none
       include 'nexternal.inc'
       include 'all_sector_list.inc'
+      integer i
       integer isec,jsec,ierr
       double precision alpha
-      double precision snlo(nexternal,nexternal) 
+      double precision snlo(nexternal,nexternal)
+      double precision wgt
       double precision Z_NLO
       character*1 sector_type
-      real * 8 sigma
+      real * 8 sigma,sCM
 
       
 !     build the total sigma (we need to know the number of sectors)
@@ -26,28 +28,29 @@
       if(sector_type.eq.'F') then
 !     build the total sigma 
          do i=1,lensectors
-            call getsectorwgt(xs,sCM,all_sector_list(i,1),all_sector_list(i,2),wgt)
+            call getsectorwgt(snlo,sCM,all_sector_list(i,1),all_sector_list(i,2),wgt)
             sigma = sigma + wgt
             if(all_sector_list(i,2).gt.2) then
-               call getsectorwgt(xs,sCM,all_sector_list(i,2),all_sector_list(i,1),wgt)
+               call getsectorwgt(snlo,sCM,all_sector_list(i,2),all_sector_list(i,1),wgt)
                sigma = sigma + wgt
             endif
          enddo
-         call getsectorwgt(xs,sCM,isec,jsec,wgt)
+         call getsectorwgt(snlo,sCM,isec,jsec,wgt)
          if(jsec.gt.2) then
-            call getsectorwgt(xs,sCM,jsec,isec,wgt)
+            call getsectorwgt(snlo,sCM,jsec,isec,wgt)
             Z_NLO = Z_NLO + wgt ! Symmetrization
          endif
       elseif(sector_type.eq.'S') then
          do i=1,lensectors
             if(isec.lt.jsec) then
-               call getsectorwgt_S(xs,sCM,all_sector_list(i,1),all_sector_list(i,2),wgt)
+               call getsectorwgt_S(snlo,sCM,all_sector_list(i,1),all_sector_list(i,2),wgt)
                sigma=sigma+wgt
             else
-               call getsectorwgt_S(xs,sCM,all_sector_list(i,2),all_sector_list(i,1),wgt)
+               call getsectorwgt_S(snlo,sCM,all_sector_list(i,2),all_sector_list(i,1),wgt)
                sigma=sigma+wgt
+            endif
          enddo
-         call getsectorwgt_S(xs,sCM,isec,jsec,wgt)
+         call getsectorwgt_S(snlo,sCM,isec,jsec,wgt)
       else
          write(*,*) 'Not allowed value for sector_type: ', sector_type
          write(*,*) 'Exit...'
@@ -68,7 +71,7 @@ c$$$     - p_sector is a list of the momenta of the particles defining the secto
 c$$$    """
 c     integer npsec
       include 'nexternal.inc'
-      integer isec,jsec
+      integer isec,jsec,j
       real * 8 xs(nexternal,nexternal)
       real * 8 wij,wgt
       real * 8 sCM,sqisec,sqjsec,eisec
@@ -94,7 +97,7 @@ c     integer npsec
       subroutine getsectorwgt_S(xs,sCM,isec,jsec,wgt)
       implicit none
       include 'nexternal.inc'
-      integer isec,jsec
+      integer isec,jsec,j
       real * 8 xs(nexternal,nexternal)
       real * 8 wij,wgt
       real * 8 sCM,sqisec,sqjsec
@@ -129,16 +132,5 @@ c$$$
 c$$$      
 c$$$      end
 
-c$$$      subroutine getsecinv(q, p_sec,s,sqi,sqj,sij)
-c$$$      implicit none
-c$$$      real * 8 q(0:3),p_sec(0:3,2)
-c$$$      real * 8 s,sij,sqi,sqj
-c$$$      real * 8 dot,momsq
-c$$$
-c$$$      s = momsq(q)
-c$$$      sqi = 2d0 * dot(q(:),p_sec(:,1))
-c$$$      sqj = 2d0 * dot(q(:),p_sec(:,2))
-c$$$      sij = 2d0 * dot(p_sec(:,1),p_sec(:,2))
-c$$$      
-c$$$      end
+
 

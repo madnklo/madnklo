@@ -267,8 +267,6 @@ c     initialise
       p=0d0
       pbar=0d0
       xjac=1d0
-      p(0,0)=sqrt(shat)
-c
 c     check on leg_PDGs
       if(size(leg_PDGs).ne.nexternal)then
          write(*,*) 'Wrong dimension for leg_PDGs',size(leg_PDGs), nexternal

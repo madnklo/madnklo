@@ -26,12 +26,12 @@
       endif
 
       if(sector_type.eq.'F') then
-!     build the total sigma 
+!     build the total sigma
          do i=1,lensectors
-            call getsectorwgt(snlo,sCM,all_sector_list(i,1),all_sector_list(i,2),wgt)
+            call getsectorwgt(snlo,sCM,all_sector_list(1,i),all_sector_list(2,i),wgt)
             sigma = sigma + wgt
-            if(all_sector_list(i,2).gt.2) then
-               call getsectorwgt(snlo,sCM,all_sector_list(i,2),all_sector_list(i,1),wgt)
+            if(all_sector_list(2,i).gt.2) then
+               call getsectorwgt(snlo,sCM,all_sector_list(2,i),all_sector_list(1,i),wgt)
                sigma = sigma + wgt
             endif
          enddo
@@ -43,10 +43,10 @@
       elseif(sector_type.eq.'S') then
          do i=1,lensectors
             if(isec.lt.jsec) then
-               call getsectorwgt_S(snlo,sCM,all_sector_list(i,1),all_sector_list(i,2),wgt)
+               call getsectorwgt_S(snlo,sCM,all_sector_list(1,i),all_sector_list(2,i),wgt)
                sigma=sigma+wgt
             else
-               call getsectorwgt_S(snlo,sCM,all_sector_list(i,2),all_sector_list(i,1),wgt)
+               call getsectorwgt_S(snlo,sCM,all_sector_list(2,i),all_sector_list(1,i),wgt)
                sigma=sigma+wgt
             endif
          enddo
@@ -78,17 +78,18 @@ c     integer npsec
 
       sqisec=0d0
       sqjsec=0d0
-      
+        
 !build s,sqi,sqj 
 
-      do j=2,nexternal
+      do j=3,nexternal
          sqisec = sqisec + xs(isec,j)
          sqjsec = sqjsec + xs(jsec,j)
       enddo
 
       eisec = sqisec/sCM
       wij = sCM*xs(isec,jsec)/sqisec/sqjsec
-      
+c      write(*,*) isec, jsec, xs
+c      write(*,*) eisec, wij, sCM, sqisec, sqjsec    
       wgt = 1d0/eisec/wij
       
       end
@@ -105,7 +106,7 @@ c     integer npsec
       sqisec=0d0
       sqjsec=0d0
       
-      do j=2,nexternal
+      do j=3,nexternal
          sqisec = sqisec + xs(isec,j)
          sqjsec = sqjsec + xs(jsec,j)
       enddo

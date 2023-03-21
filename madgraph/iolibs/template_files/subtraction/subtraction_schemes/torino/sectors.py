@@ -524,17 +524,17 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     raise MadEvent7Error('%d is not a gluon!' % isec)
                 list_M2.append('KS=KS+M2_S(isec,xs,xp,wgt,WsumSi,xj,nitR,1d0,ierr)\n')
                 list_M2.append('if(ierr.eq.1)goto 999\n')
-                list_int_real.append('#\n call sector function ZsumSi\n')
+                list_int_real.append('# call sector function ZsumSi\n')
                 list_int_real.append('call get_Z_NLO(sNLO,sCM,alpha,isec,jsec,ZsumSi,"S",ierr)\n')
-                list_int_real.append('if(ierr.eq.1)goto 999\n')
+                list_int_real.append('# if(ierr.eq.1)goto 999\n')
             if necessary_ct_list[i*5+1] == 1:
                 if id_jsec != 21:
                     raise MadEvent7Error('%d is not a gluon!' % jsec)
                 list_M2.append('KS=KS+M2_S(jsec,xs,xp,wgt,WsumSj,xj,nitR,1d0,ierr)\n')
                 list_M2.append('if(ierr.eq.1)goto 999\n')
-                list_int_real.append('#\n call sector function ZsumSi\n')
+                list_int_real.append('# call sector function ZsumSi\n')
                 list_int_real.append('call get_Z_NLO(sNLO,sCM,alpha,jsec,isec,ZsumSj,"S",ierr)\n')
-                list_int_real.append('if(ierr.eq.1)goto 999\n')
+                list_int_real.append('# if(ierr.eq.1)goto 999\n')
             if necessary_ct_list[i*5+2] == 1:
                 # Loop over sectors with final state particles only
                 if isec > 2 and jsec > 2:
@@ -556,7 +556,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     else:
                         list_M2.append('KHC=KHC+M2_H_C_FqFqx(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,ierr)\n')
                         list_str_defHC.append('DOUBLE PRECISION M2_H_C_FqFqx')
-                    list_M2.append('if(ierr.eq.1)goto 999\n')
+                    list_M2.append('# if(ierr.eq.1)goto 999\n')
                     list_int_real.append('# Symmetrised sector function for collinear kernel is equal to 1\n')
                 # Loop over sectors with at least one initial state particle
                 if isec <= 2 or jsec <= 2:

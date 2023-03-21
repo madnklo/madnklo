@@ -3,6 +3,7 @@ SHELL = /bin/bash
 
 LIBDIR=../../lib/
 
+# TODO: compile libraries when generating process
 LINKLIBS= -L../../lib/ -ldhelas -lmodel
 
 LIBS=$(LIBDIR)libdhelas.$(libext) $(LIBDIR)libmodel.$(libext)
@@ -20,6 +21,7 @@ PATH_TO_COMMON_FILES=../../../../src_to_common
 #INCLUDE= nexternal.inc colored_partons.inc coupl.inc epem_gddx_spin_correlations.inc \
 	math.inc  damping_factors.inc nsqso_born.inc leg_PDGs.inc all_sector_list.inc
 
+# TODO: move all include files in process directory (math.inc)
 INCLUDE0=$(PWD)/include
 
 INCLUDE =$(wildcard ./include/*.inc)

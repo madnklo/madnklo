@@ -64,7 +64,7 @@ c     write isLOQCDparton
 c     exclude the mapped_flavours=0 value of the removed gluon
          if(mapped_flavours(i).ne.0) then
             if(abs(mapped_flavours(i)).lt.6.or.mapped_flavours(i).eq.21) then
-               isLOQCDparton(i) = .true.
+               isLOQCDparton(mapped_labels(i)) = .true.
             endif
          endif 
       enddo

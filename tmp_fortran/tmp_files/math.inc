@@ -5,11 +5,12 @@ c
       real * 8 dim,GeVtopb
       real * 8 CF,CA,TR,NF,gamma_g,gamma_q
       real * 8 tiny0,tiny1,tiny2
-      real * 8 asMZ,nloop,alphaEM
+      real * 8 asMZ,alphaEM
       real * 8 mur
 c     TODO: remove all unnecessary terms
 c     number of colors	
       integer Nc
+      integer nloop
       parameter (CF=4d0/3d0, CA=3d0, TR=1d0/2d0, Nc=3)
 c
 c     TODO: From parameters.f in local code

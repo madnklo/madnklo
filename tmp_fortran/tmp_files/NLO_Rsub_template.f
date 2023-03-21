@@ -46,6 +46,7 @@ c
 c     initialise
       isec = %(isec)d
       jsec = %(jsec)d
+      iref = %(iref)d
       ZsumSi=0d0
       ZsumSj=0d0
       xjac=0d0
@@ -59,6 +60,12 @@ c     initialise
       do i=1,3
          xsave(i)=x(i)
       enddo
+
+c     specify phase space indices
+      iU = isec
+      iS = jsec
+      iB = iref
+      iA = 1 ! default azimuth for NLO 
 c     
 c     phase space and invariants
 c     TODO: pass sCM information

@@ -801,11 +801,11 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         os.symlink( path_to_math, dirpath + '/math.inc' )
 
         os.mkdir(pjoin(dirpath, 'include'))
-        cp(pjoin(dirpath_subprocesses,'../../Source/MODEL/coupl.inc'), dirpath+'/include/coupl.inc')
+        
         inc_files = glob.glob(dirpath+'/*.inc')
-        print(inc_files)
+#        print(inc_files)
         for i in range(0,len(inc_files)):
-            print(inc_files[i])
+#            print(inc_files[i])
             mv(inc_files[i],dirpath+'/include/')
-
+        cp(pjoin(dirpath_subprocesses,'../../Source/MODEL/coupl.inc'), dirpath+'/include/coupl.inc')    
         return all_sectors

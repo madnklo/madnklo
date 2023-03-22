@@ -23,6 +23,7 @@ import colored_partons
 import os
 import glob
 pjoin = os.path.join
+from madgraph.iolibs.files import cp, ln, mv
 
 import madgraph.iolibs.export_v4 as export_v4
 import madgraph.iolibs.export_ME7 as export_ME7
@@ -479,6 +480,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         #print(file)
         dirpath = pjoin(dirmadnklo,glob.glob("%s/NLO_R_x_R_*" % interface.user_dir_name[0])[0])
         #dirpath = pjoin(dirmadnklo,"eejj/NLO_R_x_R_epem_guux_1")
+        dirpath_subprocesses = pjoin(dirpath, 'SubProcesses')
         dirpath = pjoin(dirpath, 'SubProcesses', \
                        "P%s" % defining_process.shell_string())
 
@@ -793,5 +795,17 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             file = file % replace_dict
             writer(filename).writelines(file)
 
+######### Symlink for math.inc  
+
+        path_to_math = pjoin(dirmadnklo,"Template/Fortran_tmp/src_to_common/math.inc")
+        os.symlink( path_to_math, dirpath + '/math.inc' )
+
+        os.mkdir(pjoin(dirpath, 'include'))
+        cp(pjoin(dirpath_subprocesses,'../../Source/MODEL/coupl.inc'), dirpath+'/include/coupl.inc')
+        inc_files = glob.glob(dirpath+'/*.inc')
+        print(inc_files)
+        for i in range(0,len(inc_files)):
+            print(inc_files[i])
+            mv(inc_files[i],dirpath+'/include/')
 
         return all_sectors

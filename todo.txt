@@ -1,0 +1,18 @@
+*********************
+TODO 21/03
+
+ - *done* create file.inc from exporter and sectors.py in an ‘include’ directory for each real subprocesses
+
+ - *done* merge common files.f 
+
+ - *done* define in nlo_Rsub the association iu,is,ib,ia = isec,jsec,iref,ia
+
+ - add in makefile the command compiling the libdhelas/libmodel 
+
+ - driver and nlo_Rsub need to know:  mur, scm, nit, ncall (read from card)
+
+ - move common files.f in Source directory through exporter  
+
+ - generalise makefile to all sectors
+
+ - create makefile from exporter

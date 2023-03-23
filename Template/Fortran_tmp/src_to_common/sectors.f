@@ -88,10 +88,14 @@ c     integer npsec
 
       eisec = sqisec/sCM
       wij = sCM*xs(isec,jsec)/sqisec/sqjsec
-c      write(*,*) isec, jsec, xs
-c      write(*,*) eisec, wij, sCM, sqisec, sqjsec    
+c      if(xs(isec,jsec).lt.1d-8)then
+c         write(*,*) 'isec - jsec', isec, jsec
+c         write(*,*) 'xs', xs(isec,jsec)
+c      endif
+c      write(*,*) wij, sCM, sqisec, sqjsec   
+      if(wij.lt.1d-10) return 
       wgt = 1d0/eisec/wij
-      
+c      if(eisec.eq.0d0.or.wij.eq.0d0) write(*,*) eisec,wij
       end
       
 
@@ -112,7 +116,7 @@ c      write(*,*) eisec, wij, sCM, sqisec, sqjsec
       enddo
 
       wij = sCM*xs(isec,jsec)/sqisec/sqjsec
-
+      if(wij.lt.1d-10) return
       wgt = 1d0/wij
       
       end

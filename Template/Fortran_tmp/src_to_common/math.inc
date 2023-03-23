@@ -15,6 +15,7 @@ c     number of colors
 c
 c     TODO: From parameters.f in local code
 c     couplings (read muR from input file in driver)
+      parameter (muR = 1d2)
       parameter (asMZ=0.118d0)
       parameter (nloop=2)
       parameter (alphaEM=1/137.036d0)

@@ -1,0 +1,105 @@
+#*********************************************************************
+#                       MadGraph5_aMC@NLO                            *
+#                                                                    *
+#                     run_card.dat MadEvent7                          *
+#                                                                    *
+#  This file is used to set the parameters of the run.               *
+#                                                                    *
+#  Some notation/conventions:                                        *
+#                                                                    *
+#   Lines starting with a '# ' are info or comments                  *
+#                                                                    *
+#   mind the format:   value    = variable     ! comment             *
+#*********************************************************************
+#
+#*******************                                                 
+# Running parameters
+#*******************                                                 
+#                                                                    
+#*********************************************************************
+# Tag name for the run (one word)                                    *
+#*********************************************************************
+  %(run_tag)s     = run_tag ! name of the run 
+#*********************************************************************
+# Number of events and rnd seed                                      *
+# Warning: Do not generate more than 1M events in a single run       *
+# If you want to run Pythia, avoid more than 50k events in a run.    *
+#*********************************************************************
+  %(nevents)s = nevents ! Number of unweighted events requested 
+  %(iseed)s   = iseed   ! rnd seed (0=assigned automatically=default))
+#*********************************************************************
+# Collider type and energy                                           *
+# lpp: 0=No PDF, 1=proton, -1=antiproton, 2=photon from proton,      *
+#                                         3=photon from electron     *
+#*********************************************************************
+     %(lpp1)s        = lpp1    ! beam 1 type 
+     %(lpp2)s        = lpp2    ! beam 2 type
+     %(ebeam1)s     = ebeam1  ! beam 1 total energy in GeV
+     %(ebeam2)s     = ebeam2  ! beam 2 total energy in GeV
+#*********************************************************************
+# PDF CHOICE: this automatically fixes also alpha_s and its evol.    *
+#*********************************************************************
+     %(pdlabel)s    = pdlabel     ! PDF set                                     
+     %(lhaid)s    = lhaid     ! if pdlabel=lhapdf, this is the lhapdf number
+#*********************************************************************
+# Renormalization and factorization scales                           *
+#*********************************************************************
+ %(fixed_ren_scale)s = fixed_ren_scale  ! if .true. use fixed ren scale
+ %(fixed_fac_scale)s        = fixed_fac_scale  ! if .true. use fixed fac scale
+ %(scale)s  = scale            ! fixed ren scale
+ %(dsqrt_q2fact1)s  = dsqrt_q2fact1    ! fixed fact scale for pdf1
+ %(dsqrt_q2fact2)s  = dsqrt_q2fact2    ! fixed fact scale for pdf2
+ %(dynamical_scale_choice)s = dynamical_scale_choice ! Choose one of the preselected dynamical choices
+
+#*********************************************************************
+# MadEvent7 integration control                                      *
+#*********************************************************************
+ %(integrator)s    = integrator ! integrator [VEGAS3, NAIVE]
+ %(fo_analysis)s   = fo_analysis! fixed-order analysis (no '.py', None for no analysis)
+
+#*********************************************************************
+# handling of the helicities:
+#  0: sum over all helicities
+#  1: importance sampling over helicities (not supported by ME7)
+#*********************************************************************
+   %(nhel)s  = nhel          ! using helicities importance sampling or not.
+#
+
+#*********************************************************************
+# Standard Cuts                                                      *
+#*********************************************************************
+ %(flavor_cuts)s = flavor_cuts ! function string, or keyword: 'hardcoded'
+#*********************************************************************
+# Minimum and maximum pt's (for max, -1 means no cut)                *
+#*********************************************************************
+ %(ptj)s  = ptj       ! minimum pt for the jets 
+ %(pta)s  = pta       ! minimum pt for the photons 
+ %(ptl)s  = ptl       ! minimum pt for the charged leptons 
+#*********************************************************************
+# Maximum and minimum absolute rapidity (for max, -1 means no cut)   *
+#*********************************************************************
+ %(etaj)s = etaj    ! max rap for the jets 
+ %(etaa)s = etaa    ! max rap for the photons 
+ %(etal)s = etal    ! max rap for the charged leptons 
+#*********************************************************************
+# Minimum and maximum DeltaR distance                                *
+#*********************************************************************
+ %(drjj)s = drjj    ! min distance between jets 
+ %(drll)s = drll    ! min distance between leptons 
+ %(draa)s = draa    ! min distance between gammas 
+ %(draj)s = draj    ! min distance between gamma and jet 
+ %(drjl)s = drjl    ! min distance between jet and lepton 
+ %(dral)s = dral    ! min distance between gamma and lepton 
+
+#*********************************************************************
+# maximal pdg code for quark to be considered as a light jet         *
+# (otherwise b cuts are applied)                                     *
+#*********************************************************************
+ %(maxjetflavor)s = maxjetflavor    ! Maximum jet pdg code
+#*********************************************************************
+
+#*********************************************************************
+# Store info for systematics studies                                 *
+# (Not supported by ME7 yet)                                         *
+#*********************************************************************
+   %(use_syst)s  = use_syst      ! Enable systematics studies

@@ -826,3 +826,168 @@ class ME7Exporter(object):
                                                                  %(self.export_dir, integrator.get_name())))
             logger.info('{:^100}'.format("\033[94m%.5e +/- %.2e [pb]\033[0m"%(xsec, error)))
             logger.info("="*100+"\n")
+
+
+class ME7ExporterTorino(ME7Exporter):
+
+    def copy_template(self, model):
+        """ Copy the template directories."""
+
+        # The root directory should have already been cleaned if necessary
+        if os.path.exists(self.export_dir):
+            raise InvalidCmd("The output path '%s' already exists. Clean it first."%self.export_dir)
+        
+        shutil.copytree(pjoin(template_path,'TorinoNLO'),self.export_dir)
+
+        # Generate a .gitignore file so that the process folder is ignored by the versionning system
+        gitignore = open(pjoin(self.export_dir,".gitignore"),"w+")
+        gitignore.write("*\n")
+        gitignore.close()
+
+        # Make sure to have make_opts synchronized
+        self.update_make_opts()
+
+        # Forward the request for copying the template to each contribution
+        self.contributions.apply_method_to_all_contribs('copy_template', method_args = [model])
+
+    def tmp_create_run_card(self):
+        """ Create the run card."""
+        
+        run_card = banner_mod.RunCardNLO()
+
+        history = ''
+        processes = [[v[0] for v in contrib.get_processes_map().values()] for contrib in self.contributions]
+        proc_characteristic = {
+            'ninitial':processes[0][0].get_ninitial(), 
+            'loop_induced': len(self.contributions.get_loop_induced_contributions()), 
+            'colored_pdgs': range(1,7)+[21]}
+
+        run_card.create_default_for_process(proc_characteristic, history, processes[0])
+
+        run_card.write(pjoin(self.export_dir, 'Cards', 'run_card.dat'), 
+            template=pjoin(self.export_dir, 'Cards', 'run_card.dat'), python_template=True )
+        run_card.write(pjoin(self.export_dir, 'Cards', 'run_card_default.dat'), 
+            template=pjoin(self.export_dir, 'Cards', 'run_card.dat'), python_template=True )
+
+    def tmp_finalize(self, flaglist, interface_history):
+        """Distribute and organize the finalization of all contributions. """
+        
+        # Make sure contributions are sorted at this stage
+        # It is important to act on LO contributions first, then NLO, then etc...
+        # because ME and currents must be added to the ME_accessor in order since there
+        # are look-up operations on it in-between
+        self.contributions.sort_contributions()
+
+        # Save all the global couplings to write out afterwards
+        global_wanted_couplings = []
+        # Forward the finalize request to each contribution
+        for contrib in self.contributions:
+            # Must clean the aloha Kernel before each aloha export for each contribution
+            aloha.aloha_lib.KERNEL.clean()
+            wanted_couplings_to_add_to_global = contrib.finalize(
+                flaglist=flaglist, interface_history=interface_history)
+            global_wanted_couplings.extend(wanted_couplings_to_add_to_global)
+
+        # Generate the global ME7 MODEL
+        if global_wanted_couplings:
+            output_dir=pjoin(self.export_dir, 'Source', 'MODEL')
+            # Writing out the model common to all the contributions that can share it
+            model_export_options = {
+                'complex_mass'  : self.options['complex_mass_scheme'],
+                'export_format' : 'madloop', # So as to have access to lha_read_mp.f
+                'mp'            : True,
+                'loop_induced'  : False }
+            model_builder = export_v4.UFO_model_to_mg4(self.model, output_dir, model_export_options)
+            model_builder.build(global_wanted_couplings)
+        
+        # Now possibly add content to the pool of global ME7 resources before removing superfluous files
+        # and linking to necessary global ME7 resources
+        for contrib in self.contributions:
+            contrib.add_content_to_global_ME7_resources(self.export_dir)
+            contrib.remove_superfluous_content()
+            contrib.link_global_ME7_resources(self.export_dir)
+
+        # Create the run_card
+        self.create_run_card()
+
+        # Add the cards generated in MODEL to the Cards directory
+        self.copy_model_resources()
+        # Now link the Sources files within each contribution
+        for contrib in self.contributions:
+            contrib.make_model_symbolic_link()
+        
+        # Copy the UFO model to the global ME7 resources Source directory
+        ME7_ufo_path = pjoin(self.export_dir,'Source','ME7_UFO_model_%s'%os.path.basename(self.model.get('modelpath')))
+        shutil.copytree(self.model.get('modelpath'), ME7_ufo_path)
+        # And clear compiled files in it
+        for path in misc.glob(pjoin(ME7_ufo_path,'*.pkl'))+misc.glob(pjoin(ME7_ufo_path,'*.pyc')):
+            os.remove(path)
+        
+        # Now generate all the ME accessors and integrand.
+        # Notice that some of the information provided here (RunCard, ModelReader, root_path, etc...)
+        # can and will be overwritten by the actualized values when the ME7Interface will be launched.
+        # We provide it here just so as to be complete.
+
+        # Obtain all the Accessors to the Matrix Element and currents made available in this process output
+        all_MEAccessors = accessors.MEAccessorDict()
+        for contrib in self.contributions:
+            contrib.add_ME_accessors(all_MEAccessors, self.export_dir)
+        
+        # Now make sure that the integrated counterterms without any contribution host
+        # indeed have a non-existent reduced process.
+        contributions.Contribution_V.remove_counterterms_with_no_reduced_process(
+                   all_MEAccessors, self.integrated_counterterms_refused_from_all_contribs)
+
+        # Check there is none left over after this filtering
+        if len(self.integrated_counterterms_refused_from_all_contribs)>0:
+            counterterm_list = (
+                ct['integrated_counterterm'].nice_string()
+                for ct in self.integrated_counterterms_refused_from_all_contribs )
+            # These integrated counterterms should in principle been added
+            msg = "The following list of integrated counterterm are in principle non-zero"
+            msg += " but could not be included in any contributions generated:\n"
+            msg += '\n'.join(counterterm_list)
+            msg += "\nResults generated from that point on are likely to be physically wrong."
+            if __debug__:
+                logger.critical(msg)
+            else:
+                raise MadGraph5Error(msg)
+
+        # Now generate all the integrands from the contributions exported
+        all_integrands = []
+        run_card = banner_mod.RunCardNLO(pjoin(self.export_dir,'Cards','run_card.dat'))
+
+        # We might want to recover whether prefix was used when importing the model and whether
+        # the MG5 name conventions was used. But this is a detail that can easily be fixed later.
+        modelReader_instance = import_ufo.import_model(
+            pjoin(self.export_dir,'Source','ME7_UFO_model_')+self.model.get('name'),
+            prefix=True,
+            complex_mass_scheme=self.options['complex_mass_scheme'] )
+        modelReader_instance.pass_particles_name_in_mg_default()
+        #modelReader_instance.set_parameters_and_couplings(
+        #        param_card = pjoin(self.export_dir,'Cards','param_card.dat'), 
+        #        scale=run_card['scale'], 
+        #        complex_mass_scheme=self.options['complex_mass_scheme'])
+
+        ME7_options = dict(self.options)
+        ME7_options['me_dir'] = self.export_dir
+        for contrib in self.contributions:
+            all_integrands.extend(
+                contrib.get_integrands(
+                    modelReader_instance, run_card, all_MEAccessors, ME7_options ) )
+   
+        # And finally dump ME7 output information so that all relevant objects
+        # can be reconstructed for a future launch with ME7Interface.
+        # Normally all the relevant information should simply be encoded in only:
+        #  'all_MEAccessors' and 'all_integrands'.
+        self.dump_ME7(all_MEAccessors, all_integrands)
+        
+        # Finally, for future convenience it may sometimes be desirable to already compile 
+        # all contributions and global ME7 resources (e.g. MODEL) as followed.
+        # By default however, we don't do that and this will instead be done at the launch time.
+        #logger.info('Compilation of the process output.')
+        #logger.info('It can be interrupted at any time,'+
+        #                 ' in which case it would be automatically resumed when launched.')
+        #self.compile()
+
+        return

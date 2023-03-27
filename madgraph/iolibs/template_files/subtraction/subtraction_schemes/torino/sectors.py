@@ -520,10 +520,10 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             replace_dict_ct['jsec'] = jsec
             replace_dict_int_real['isec'] = isec
             replace_dict_int_real['jsec'] = jsec
- 
+            # iref for phase_space_npo in NLO_Rsub
+            replace_dict_int_real['iref'] = all_sector_recoilers[i]
+            
             if necessary_ct_list[i*5] == 1:
-                # iref for phase_space_npo in NLO_Rsub
-                replace_dict_int_real['iref'] = all_sector_recoilers[i]
                 if id_isec != 21:
                     raise MadEvent7Error('%d is not a gluon!' % isec)
                 list_M2.append('KS=KS+M2_S(isec,xs,xp,wgt,WsumSi,xj,nitR,1d0,ierr)\n')

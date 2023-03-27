@@ -8641,8 +8641,11 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
                 self, noclean,
                 group_subprocesses=group_processes, additional_options=output_options )
         elif options['exporter'] == 'ME7':
-            self._curr_exporter = export_ME7.ME7Exporter(
+            logger.warning('Output with TorinoExporter')
+            self._curr_exporter = export_ME7.ME7ExporterTorino(
                 self, noclean, group_subprocesses=group_processes, export_options=output_options)
+            #self._curr_exporter = export_ME7.ME7Exporter(
+            #    self, noclean, group_subprocesses=group_processes, export_options=output_options)
         elif options['exporter'] == 'cpp':
             self._curr_exporter = export_cpp.ExportCPPFactory(
                 self, group_subprocesses=group_processes )

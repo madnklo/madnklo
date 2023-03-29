@@ -16,3 +16,43 @@ TODO 21/03
  - generalise makefile to all sectors
 
  - create makefile from exporter
+
+*********************
+28/03
+- generation of param_card.inc and run_card.inc (still to be checked)
+- modified math.inc: removed call to mur -> mu_r, asmz -> as, nloop (maybe) not set by param_card
+- in driver and other file added: coupl/input/run/cuts.inc (*)
+- added lines CALL SETPARA('param_card.dat'), CALL SETRUN('run_card.dat') in driver
+- added sCM in NLO_Rsub + various include files in (*)
+- reduced run_card.inc parameter to include just ebeam so far
+- still necessary to define vegas parameters nitr,nclr (handled in launch phase in python)
+- nloop set harcoded in math.inc
+- added setrun.f in subprocess directory 
+
+*********************
+TODO Meeting 29/03
+
+- import in Template/TorinoNLO the run_card.dat from NLO template, cuts.inc
+
+- copy in Template/TorinoNLO/ the setrun.f version of test_eejj/Source (with necessary commented lines)
+
+- remove current param/run_card.inc generation from export_ME7.py and create a 'treatcards' python file
+  in Template/TorinoNLO/bin to be called before the integration in the makefile, as 
+  		../bin/treatcards treatcards all  
+  so as to always have their updated version;
+
+- check that setrun.f and all include files from Source are removed from P_blabla/include directory; 
+
+- modify makefile in Source to create libgeneric; create symlink for libgeneric to test_eejj/lib at the exporter level;
+  (maybe also for libpdf.a);
+
+- modify tmp_fortran/tmp_files/makefile to test_eejj version
+
+- update templates for driver/NLO_Rsub/NLO_IR_limits to test_eejj version
+
+
+
+
+
+
+

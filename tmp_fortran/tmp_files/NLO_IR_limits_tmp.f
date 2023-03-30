@@ -8,6 +8,8 @@ c     it returns 0 if i is not a gluon
       include 'colored_partons.inc'
       include 'leg_PDGs.inc'
       include 'nsqso_born.inc'
+      INCLUDE 'coupl.inc'
+      INCLUDE 'input.inc'
       integer i,l,m,lb,mb,ierr,nit
       double precision pref,M2tmp,wgt,wgtpl,Wsoft,xj,xjCS
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
@@ -35,7 +37,7 @@ c     initialise
       damp=0d0
 c
 c     overall kernel prefix
-      alphas=alpha_QCD(asMZ,nloop,muR)
+      ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)
       pref=-8d0*pi*alphas
 c
 c     eikonal double sum
@@ -68,7 +70,6 @@ c     check on leg_PDGs
             endif
             call phase_space_CS_inv(i,l,m,xp,xpb,nexternal,leg_PDGs,'S',xjCS)
             if(xjCS.eq.0d0)goto 999
-c     TODO: read input in invariants_from_p()
             call invariants_from_p(xpb,nexternal-1,xsb,ierr)
             if(ierr.eq.1)goto 999
 c
@@ -138,6 +139,8 @@ c     for sectors (ia,ib)+(ib,ia)
       include 'damping_factors.inc'
       include 'nsqso_born.inc'
       include 'leg_PDGs.inc'
+      INCLUDE 'coupl.inc'
+      INCLUDE 'input.inc'
       integer ia,ib,ir,ierr,nit,parent_leg
       double precision pref,M2tmp,wgt,wgtpl,xj,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
@@ -172,7 +175,7 @@ c     possible cuts
 c      if(docut(xpb,nexternal-1))return
 c
 c     overall kernel prefix
-      alphas=alpha_QCD(asMZ,nloop,muR)
+      alphas=alpha_QCD(as,nloop,mu_R)
       pref=8d0*pi*alphas
 c
 c     invariant quantities
@@ -198,7 +201,6 @@ c     safety check
 c
 c     call Born
       call %(proc_prefix_H_C_FgFg)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
-c     TODO: check the right index of ANS for correct process
       BLO = ANS(0)
 c
       call get_collinear_mapped_labels(ia,ib,ir,nexternal,leg_PDGs,mapped_labels,mapped_flavours)
@@ -249,6 +251,8 @@ c     for sectors (ia,ib)+(ib,ia)
       include 'damping_factors.inc'
       include 'nsqso_born.inc'
       include 'leg_PDGs.inc'
+      INCLUDE 'coupl.inc'
+      INCLUDE 'input.inc'
       integer ia,ib,ir,ierr,nit
       double precision pref,M2tmp,wgt,wgtpl,xj,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
@@ -279,7 +283,7 @@ c
 c      if(docut(xpb,nexternal-1))return
 c
 c     overall kernel prefix
-      alphas=alpha_QCD(asMZ,nloop,muR)
+      alphas=alpha_QCD(as,nloop,mu_R)
       pref=8d0*pi*alphas
 c
 c     invariant quantities
@@ -298,7 +302,6 @@ c     safety check
 c
 c     call Born
       call %(proc_prefix_H_C_FgFq)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
-c     TODO: check the right index of ANS for correct process
       BLO = ANS(0)
 c
       M2tmp=BLO*CF*((1d0-x)+2d0*x/(1d0-x)*(1d0-x**alpha))
@@ -339,6 +342,8 @@ c     for sectors (ia,ib)+(ib,ia)
       include 'damping_factors.inc'
       include 'nsqso_born.inc'
       include 'leg_PDGs.inc'
+      INCLUDE 'coupl.inc'
+      INCLUDE 'input.inc'
       integer ia,ib,ir,ierr,nit,parent_leg
       double precision pref,M2tmp,wgt,wgtpl,xj,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
@@ -373,7 +378,7 @@ c     possible cuts
 c      if(docut(xpb,nexternal-1))return
 c
 c     overall kernel prefix
-      alphas=alpha_QCD(asMZ,nloop,muR)
+      alphas=alpha_QCD(as,nloop,mu_R)
       pref=8d0*pi*alphas
 c
 c     invariant quantities
@@ -399,7 +404,6 @@ c     safety check
 c
 c     call Born
       call %(proc_prefix_H_C_FqFqx)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
-c     TODO: check the right index of ANS for correct process
       BLO = ANS(0)
 c
       call get_collinear_mapped_labels(ia,ib,ir,nexternal,leg_PDGs,mapped_labels,mapped_flavours)
@@ -441,27 +445,14 @@ c
 
       SUBROUTINE DUMMY_ME_ACCESSOR_HOOK(P,HEL,USER_ALPHAS,ANS)
       IMPLICIT NONE
-C
-      INCLUDE 'coupl.inc'
       INCLUDE 'nexternal.inc'
       INCLUDE 'nsqso_born.inc'
-C     
-C     CONSTANT
-C     
-      REAL*8 PI
-      PARAMETER (PI= 3.141592653589793D0)
 C     
 C     ARGUMENTS 
 C     
       REAL*8 P(0:3,NEXTERNAL),ANS(0:NSQSO_BORN)
       INTEGER HEL
       DOUBLE PRECISION USER_ALPHAS
-CF2PY INTENT(IN)  :: P
-CF2PY INTENT(IN)  :: HEL
-CF2PY INTENT(IN)  :: USER_ALPHAS
-CF2PY INTENT(OUT) :: ANS
-
-      REAL*8 THIS_G
 
       write(*,*) 'This subroutine should never be called!!!'
       write(*,*) 'This counterterm does not contribute to this sector.'

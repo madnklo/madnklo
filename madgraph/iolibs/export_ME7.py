@@ -41,6 +41,10 @@ import madgraph.various.banner as banner_mod
 from madgraph import MadGraph5Error, InvalidCmd, MG5DIR
 from madgraph.iolibs.files import cp, ln, mv
 
+#gl
+import madgraph.various.banner as banner_mod
+from models.check_param_card import ParamCardRule
+
 import madgraph.various.misc as misc
 
 _file_path = os.path.split(os.path.dirname(os.path.realpath(__file__)))[0] + '/'
@@ -761,6 +765,12 @@ class ME7Exporter(object):
             all_integrands.extend(
                 contrib.get_integrands(
                     modelReader_instance, run_card, all_MEAccessors, ME7_options ) )
+
+        #gl
+        print('ME7Exporter ****')
+        #import pdb
+        #pdb.set_trace()
+        self.do_treatcards('', 'all', None, model_export_options)
    
         # And finally dump ME7 output information so that all relevant objects
         # can be reconstructed for a future launch with ME7Interface.
@@ -827,6 +837,272 @@ class ME7Exporter(object):
             logger.info('{:^100}'.format("\033[94m%.5e +/- %.2e [pb]\033[0m"%(xsec, error)))
             logger.info("="*100+"\n")
 
+    def do_treatcards(self, line, mode=None, opt=None, model_export_options=None):
+
+        print(self.export_dir)
+
+        opt = {'output_dir':pjoin(self.export_dir,'Source'),
+               'param_card':pjoin(self.export_dir,'Cards','param_card.dat'),
+               'run_card':pjoin(self.export_dir,'Cards','run_card.dat'),
+               'forbid_MadLoopInit': False}
+
+        ParamCardRule().check_param_card(pjoin(self.export_dir, 'Cards','param_card.dat'))
+
+        if mode in ['param', 'all']:
+            model = self.model.get('name')
+            tmp_model = os.path.basename(model)
+            if tmp_model == 'mssm' or tmp_model.startswith('mssm-'):
+                if not '--param_card=' in line:
+                    param_card = pjoin(self.export_dir, 'Cards','param_card.dat')
+                    mg5_param = pjoin(self.export_dir, 'Source', 'MODEL', 'MG5_param.dat')
+                    #check call to convert_to_.. and check_valid_..
+                    ParamCardRule().convert_to_mg5card(param_card, mg5_param)
+                    ParamCardRule().check_valid_param_card(mg5_param)
+                    opt['param_card'] = pjoin(self.export_dir, 'Source', 'MODEL', 'MG5_param.dat')
+            else:
+                from models import check_param_card
+                check_param_card.check_valid_param_card(opt['param_card'])
+
+            logger.debug('write compile file for card: %s' % opt['param_card'])
+            param_card = check_param_card.ParamCard(opt['param_card'])
+            outfile = pjoin(opt['output_dir'], 'param_card.inc')
+            ident_card = pjoin(self.export_dir,'Cards','ident_card.dat')
+            if os.path.isfile(pjoin(self.export_dir,'bin','internal','ufomodel','restrict_default.dat')):
+                default = pjoin(self.export_dir,'bin','internal','ufomodel','restrict_default.dat')
+            elif os.path.isfile(pjoin(self.export_dir,'bin','internal','ufomodel','param_card.dat')):
+                default = pjoin(self.export_dir,'bin','internal','ufomodel','param_card.dat')
+            elif not os.path.exists(pjoin(self.export_dir,'bin','internal','ufomodel')):
+                fsock = open(pjoin(self.export_dir,'Source','param_card.inc'),'w')
+                fsock.write(' ')
+                fsock.close()
+                #gl why is this necessary?
+                default = pjoin(self.export_dir,'Cards','param_card_default.dat')
+                #if mode == 'all':
+                #    self.do_treatcacdrds('', 'run', opt)
+                #return
+            else:
+                devnull = open(os.devnull,'w')
+                subprocess.call([sys.executable, 'write_param_card.py'],
+                             cwd=pjoin(self.me_dir,'bin','internal','ufomodel'),
+                             stdout=devnull)
+                devnull.close()
+                default = pjoin(self.me_dir,'bin','internal','ufomodel','param_card.dat')
+
+            need_mp = model_export_options['loop_induced']                
+            param_card.write_inc_file(outfile, ident_card, default, need_mp=need_mp)
+
+
+            if mode in ['run', 'all']:
+                if not hasattr(self, 'run_card'):
+                    run_card = banner_mod.RunCardME7(pjoin(self.export_dir,'Cards','run_card.dat'))
+                else:
+                    run_card = self.run_card
+                n_initial = self.contributions[0].get_processes_map().values()[0][0].get_ninitial()
+                if n_initial == 1:
+                    run_card['lpp1'] =  0
+                    run_card['lpp2'] =  0
+                    run_card['ebeam1'] = 0
+                    run_card['ebeam2'] = 0
+
+                # Ensure that the bias parameters has all the required input from the
+                # run_card
+                if run_card['bias_module'].lower() not in ['dummy','none']:
+                    # Using basename here means that the module will not be overwritten if already existing.
+                    bias_module_path = pjoin(self.me_dir,'Source','BIAS',
+                                            os.path.basename(run_card['bias_module']))
+                    if not os.path.isdir(bias_module_path):
+                        if not os.path.isdir(run_card['bias_module']):
+                            raise InvalidCmd("The bias module at '%s' cannot be found."%run_card['bias_module'])
+                        else:
+                            for mandatory_file in ['makefile','%s.f'%os.path.basename(run_card['bias_module'])]:
+                                if not os.path.isfile(pjoin(run_card['bias_module'],mandatory_file)):
+                                    raise InvalidCmd("Could not find the mandatory file '%s' in bias module '%s'."%(
+                                                                            mandatory_file,run_card['bias_module']))
+                            shutil.copytree(run_card['bias_module'], pjoin(self.me_dir,'Source','BIAS',
+                                                                        os.path.basename(run_card['bias_module'])))
+
+                    #check expected parameters for the module.
+                    default_bias_parameters = {}
+                    start, last = False,False
+                    for line in open(pjoin(bias_module_path,'%s.f'%os.path.basename(bias_module_path))):
+                        if start and last:
+                            break
+                        if not start and not re.search('c\s*parameters\s*=\s*{',line, re.I):
+                            continue
+                        start = True
+                        if not line.startswith('C'):
+                            continue
+                        line = line[1:]
+                        if '{' in line:
+                            line = line.split('{')[-1]
+                        # split for } ! #
+                        split_result = re.split('(\}|!|\#)', line,1, re.M)
+                        line = split_result[0]
+                        sep = split_result[1] if len(split_result)>1 else None
+                        if sep == '}':
+                            last = True
+                        if ',' in line:
+                            for pair in line.split(','):
+                                if not pair.strip():
+                                    continue
+                                x,y =pair.split(':') 
+                                x=x.strip()
+                                if x.startswith(('"',"'")) and x.endswith(x[0]):
+                                    x = x[1:-1] 
+                                default_bias_parameters[x] = y
+                        elif ':' in line:
+                            x,y = line.split(':')
+                            x = x.strip()
+                            if x.startswith(('"',"'")) and x.endswith(x[0]):
+                                x = x[1:-1] 
+                            default_bias_parameters[x] = y
+                    for key,value in run_card['bias_parameters'].items():
+                        if key not in default_bias_parameters:
+                            logger.warning('%s not supported by the bias module. We discard this entry.', key)
+                        else:
+                            default_bias_parameters[key] = value
+                    run_card['bias_parameters'] = default_bias_parameters  
+              
+              
+            # Finally write the include file          
+            run_card.write_include_file(opt['output_dir'], 'torino')
+
+        if model_export_options['loop_induced'] and mode in ['loop', 'all']:
+            self.MadLoopparam = banner_mod.MadLoopParam(pjoin(self.me_dir, 
+                                                  'Cards', 'MadLoopParams.dat'))
+            # The writing out of MadLoop filter is potentially dangerous
+            # when running in multi-core with a central disk. So it is turned
+            # off here. If these filters were not initialized then they will 
+            # have to be re-computed at the beginning of each run.
+            if 'WriteOutFilters' in self.MadLoopparam.user_set and \
+                                       self.MadLoopparam.get('WriteOutFilters'):
+                logger.info(
+"""You chose to have MadLoop writing out filters. 
+Beware that this can be dangerous for local multicore runs.""")
+            self.MadLoopparam.set('WriteOutFilters',False, changeifuserset=False)
+            
+            # The conservative settings below for 'CTModeInit' and 'ZeroThres'
+            # help adress issues for processes like g g > h z, and g g > h g
+            # where there are some helicity configuration heavily suppressed 
+            # (by several orders of magnitude) so that the helicity filter 
+            # needs high numerical accuracy to correctly handle this spread in
+            # magnitude. Also, because one cannot use the Born as a reference
+            # scale, it is better to force quadruple precision *for the 
+            # initialization points only*. This avoids numerical accuracy issues
+            # when setting up the helicity filters and does not significantly
+            # slow down the run.
+#            self.MadLoopparam.set('CTModeInit',4, changeifuserset=False)
+            # Consequently, we can allow for a finer threshold for vanishing
+            # helicity configuration
+#            self.MadLoopparam.set('ZeroThres',1.0e-11, changeifuserset=False)
+
+#           It is a bit superficial to use the level 2 which tries to numerically
+#           map matching helicities (because of CP symmetry typically) together.
+#           It is useless in the context of MC over helicities and it can 
+#           potentially make the helicity double checking fail.
+            self.MadLoopparam.set('HelicityFilterLevel',1, changeifuserset=False)
+
+#           To be on the safe side however, we ask for 4 consecutive matching
+#           helicity filters.
+            self.MadLoopparam.set('CheckCycle',4, changeifuserset=False)
+            
+            # For now it is tricky to have each channel performing the helicity
+            # double check. What we will end up doing is probably some kind
+            # of new initialization round at the beginning of each launch
+            # command, to reset the filters.    
+            self.MadLoopparam.set('DoubleCheckHelicityFilter',False,
+                                                             changeifuserset=False)
+          
+            # Thanks to TIR recycling, TIR is typically much faster for Loop-induced
+            # processes when not doing MC over helicities, so that we place OPP last.
+            if not hasattr(self, 'run_card'):
+                run_card = banner_mod.RunCardME7(opt['run_card'])
+            else:
+                run_card = self.run_card
+            if run_card['nhel'] == 0:
+                if 'MLReductionLib' in self.MadLoopparam.user_set and \
+                    (self.MadLoopparam.get('MLReductionLib').startswith('1') or
+                     self.MadLoopparam.get('MLReductionLib').startswith('6')):
+                    logger.warning(
+    """You chose to set the preferred reduction technique in MadLoop to be OPP (see parameter MLReductionLib).
+    Beware that this can bring significant slowdown; the optimal choice --when not MC over helicity-- being to first start with TIR reduction.""")
+                # We do not include GOLEM for now since it cannot recycle TIR coefs yet.
+                self.MadLoopparam.set('MLReductionLib','7|6|1', changeifuserset=False)
+            else:
+                if 'MLReductionLib' in self.MadLoopparam.user_set and \
+                    not (self.MadLoopparam.get('MLReductionLib').startswith('1') or
+                         self.MadLoopparam.get('MLReductionLib').startswith('6')):
+                    logger.warning(
+    """You chose to set the preferred reduction technique in MadLoop to be different than OPP (see parameter MLReductionLib).
+    Beware that this can bring significant slowdown; the optimal choice --when MC over helicity-- being to first start with OPP reduction.""")
+                self.MadLoopparam.set('MLReductionLib','6|7|1', changeifuserset=False)
+
+            # Also TIR cache will only work when NRotations_DP=0 (but only matters
+            # when not MC-ing over helicities) so it will be hard-reset by MadLoop
+            # to zero when not MC-ing over helicities, unless the parameter
+            # Force_ML_Helicity_Sum is set to True in the matrix<i>.f codes.
+            if run_card['nhel'] == 0:
+                if ('NRotations_DP' in self.MadLoopparam.user_set and \
+                                     self.MadLoopparam.get('NRotations_DP')!=0) or \
+                   ('NRotations_QP' in self.MadLoopparam.user_set and \
+                                         self.MadLoopparam.get('NRotations_QP')!=0):
+                    logger.warning(
+    """You chose to also use a lorentz rotation for stability tests (see parameter NRotations_[DP|QP]).
+    Beware that, for optimization purposes, MadEvent uses manual TIR cache clearing which is not compatible
+    with the lorentz rotation stability test. The number of these rotations to be used will be reset to 
+    zero by MadLoop. You can avoid this by changing the parameter 'FORCE_ML_HELICITY_SUM' int he matrix<i>.f
+    files to be .TRUE. so that the sum over helicity configurations is performed within MadLoop (in which case
+    the helicity of final state particles cannot be speicfied in the LHE file.""")
+                self.MadLoopparam.set('NRotations_DP',0,changeifuserset=False)
+                self.MadLoopparam.set('NRotations_QP',0,changeifuserset=False)
+            else:
+                # When MC-ing over helicities, the manual TIR cache clearing is
+                # not necessary, so that one can use the lorentz check
+                # Using NRotations_DP=1 slows down the code by close to 100%
+                # but it is typicaly safer.
+                # self.MadLoopparam.set('NRotations_DP',0,changeifuserset=False)
+                # Revert to the above to be slightly less robust but twice faster.
+                self.MadLoopparam.set('NRotations_DP',1,changeifuserset=False)
+                self.MadLoopparam.set('NRotations_QP',0,changeifuserset=False)                
+            
+            # Finally, the stability tests are slightly less reliable for process
+            # with less or equal than 4 final state particles because the 
+            # accessible kinematic is very limited (i.e. lorentz rotations don't
+            # shuffle invariants numerics much). In these cases, we therefore
+            # increase the required accuracy to 10^-7.
+            # This is important for getting g g > z z [QCD] working with a
+            # ptheavy cut as low as 1 GeV.  
+            if self.proc_characteristics['nexternal']<=4:
+                if ('MLStabThres' in self.MadLoopparam.user_set and \
+                                   self.MadLoopparam.get('MLStabThres')>1.0e-7):
+                    logger.warning(
+    """You chose to increase the default value of the MadLoop parameter 'MLStabThres' above 1.0e-7.
+    Stability tests can be less reliable on the limited kinematic of processes with less or equal
+    than four external legs, so this is not recommended (especially not for g g > z z).""")
+                self.MadLoopparam.set('MLStabThres',1.0e-7,changeifuserset=False)
+            else:
+                self.MadLoopparam.set('MLStabThres',1.0e-4,changeifuserset=False)            
+
+            #write the output file
+            self.MadLoopparam.write(pjoin(self.me_dir,"SubProcesses","MadLoop5_resources",
+                                          "MadLoopParams.dat"))
+            
+        if model_export_options['loop_induced'] and mode in ['loop', 'all']:
+            # Now Update MadLoop filters if necessary (if modifications were made to
+            # the model parameters).
+            if need_MadLoopFilterUpdate:
+                logger.debug('Changes to the %s parameters'%type_of_change+\
+                  ' have been detected. Madevent will then now reinitialize'+\
+                                                            ' MadLoop filters.')
+                self.exec_cmd('initMadLoop -r -f')
+            # The need_MadLoopInit condition is just there so as to avoid useless
+            # printout if there is not initialization to be performed. But even
+            # without it, and because we call 'initMadLoop' without the '-r' option
+            # no time would be wasted anyway, since the existing filters would not
+            # be overwritten.
+            elif not opt['forbid_MadLoopInit'] and \
+                                   MadLoopInitializer.need_MadLoopInit(self.me_dir):
+                self.exec_cmd('initMadLoop -f')
 
 class ME7ExporterTorino(ME7Exporter):
 

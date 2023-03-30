@@ -1915,7 +1915,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         shutil.copy(pjoin(temp_dir, 'Source', 'make_opts'), 
                     pjoin(self.dir_path, 'Source'))        
         # add the makefile 
-        filename = pjoin(self.dir_path,'Source','makefile')
+        filename = pjoin(self.dir_path,'Source','makefile') 
         self.write_source_makefile(writers.FileWriter(filename))          
         
     #===========================================================================
@@ -1959,6 +1959,27 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             logger.info("Running make for Model")
             misc.compile(arg=['../lib/libmodel.a'], cwd=source_dir, mode='fortran')
 
+    #gl
+    #===========================================================================
+    # write_maxconfigs_file
+    #===========================================================================
+    def write_maxconfigs_file(self, writer, matrix_elements):
+        """Write the maxconfigs.inc file for MadEvent"""
+
+        if isinstance(matrix_elements, helas_objects.HelasMultiProcess):
+            maxconfigs = max([me.get_num_configs() for me in \
+                              matrix_elements.get('matrix_elements')])
+        else:
+            maxconfigs = max([me.get_num_configs() for me in matrix_elements])
+
+        lines = "integer lmaxconfigs\n"
+        lines += "parameter(lmaxconfigs=%d)" % maxconfigs
+
+        # Write the file
+        writer.writelines(lines)
+
+        return True
+
     #===========================================================================
     # Create proc_card_mg5.dat for Standalone directory
     #===========================================================================
@@ -1978,9 +1999,12 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             self.make()
 
         # Write command history as proc_card_mg5
+        extra_files = os.mkdir(self.dir_path + '/extra_files')
         if history and os.path.isdir(pjoin(self.dir_path, 'Cards')):
             output_file = pjoin(self.dir_path, 'Cards', 'proc_card_mg5.dat')
             history.write(output_file)
+            #gl cp proc_card_mg5.dat in LO/NLO dir
+            cp(output_file, self.dir_path + '/extra_files')
         
         ProcessExporterFortran.finalize(self, matrix_elements, 
                                              history, mg5options, flaglist)
@@ -2008,6 +2032,17 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         ff = open(pjoin(self.dir_path, 'SubProcesses', 'makefile'),'a')
         ff.write(text)
         ff.close()
+
+        #gl
+        # Write maxparticles.inc based on max of ME's/subprocess groups
+        #import pdb 
+        #pdb.set_trace()
+        filename = pjoin(self.dir_path,'Source','maxparticles.inc')
+        ProcessExporterFortran.write_maxparticles_file(self,writers.FortranWriter(filename),
+                                     matrix_elements)
+        filename = pjoin(self.dir_path,'Source','maxconfigs.inc')
+        self.write_maxconfigs_file(writers.FortranWriter(filename),
+                                   matrix_elements)
         
         
         
@@ -2670,6 +2705,28 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         
         return True
 
+#     #gl
+#     #===========================================================================
+#     # write_source_makefile
+#     #===========================================================================
+#     def write_source_makefile(self, writer):
+#         """Write the nexternal.inc file for MG4"""
+
+#         #gl
+#         path = pjoin(_file_path,'iolibs','template_files','madevent_makefile_source')
+#         set_of_lib = ' '.join(['$(LIBRARIES)']+self.get_source_libraries_list())
+#         #if self.opt['model'] == 'mssm' or self.opt['model'].startswith('mssm-'):
+# #            model_line='''$(LIBDIR)libmodel.$(libext): MODEL param_card.inc\n\tcd MODEL; make
+# #MODEL/MG5_param.dat: ../Cards/param_card.dat\n\t../bin/madevent treatcards param
+# #param_card.inc: MODEL/MG5_param.dat\n\t../bin/madevent treatcards param\n'''
+# #        else:
+#         model_line='''$(LIBDIR)libmodel.$(libext): MODEL param_card.inc\n\tcd MODEL; make    
+# param_card.inc: ../Cards/param_card.dat\n\t../bin/madevent treatcards param\n'''
+#         text = open(path).read() % {'libraries': set_of_lib, 'model':model_line} 
+#         writer.write(text)
+        
+#         return True
+
     #===========================================================================
     # write_matrix_element_v4  SA
     #===========================================================================
@@ -2794,8 +2851,11 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             replace_dict['chosen_so_configs']=self.set_chosen_SO_index(
                               matrix_element.get('processes')[0],squared_orders)
 
-        ######
+        #######################
         #gl
+        # Append an extra subroutine to matrix_*.f file when generating in group_subproc = True;
+        # in this case a P* directory collects more that one subprocess and one needs a '%sME_ACCESSOR_HOOK' 
+        # for each of them
         extra_proc_list = []
         if extra_proc:
             for item in extra_proc:
@@ -2820,7 +2880,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
 
         extra_proc_str = " ".join(extra_proc_list)
         replace_dict['extra_proc'] = extra_proc_str
-        #####
+        #######################
 
         if write and writer:
             writers.FortranWriter(pjoin(os.path.dirname(writer.name),'nsqso_born.inc')
@@ -3319,7 +3379,7 @@ class ProcessExporterFortranMW(ProcessExporterFortran):
         run_card["fixed_ren_scale"] = "T"
         run_card["fixed_fac_scale"] = "T"
         run_card.remove_all_cut()
-                  
+        
         run_card.write(pjoin(self.dir_path, 'Cards', 'run_card_default.dat'),
                        template=pjoin(MG5DIR, 'Template', 'MadWeight', 'Cards', 'run_card.dat'),
                        python_template=True)
@@ -5974,6 +6034,8 @@ class UFO_model_to_mg4(object):
         #write the part related to the external parameter
         self.create_ident_card()
         self.create_param_read()
+        #gl
+        #writers.FortranWriter(pjoin(self.dir_path,'setrun.f')).writelines(open(pjoin(os.getcwd(),'Template','MadWeight','src','setrun.f')).read())
         
         #write the definition of the parameter
         self.create_input()
@@ -6930,7 +6992,8 @@ class UFO_model_to_mg4(object):
     
     def create_ident_card(self):
         """ create the ident_card.dat """
-    
+        #gl
+        print('BBBBBBBBBBBBB')
         def format(parameter):
             """return the line for the ident_card corresponding to this parameter"""
             colum = [parameter.lhablock.lower()] + \

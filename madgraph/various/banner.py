@@ -2321,7 +2321,7 @@ class RunCard(ConfigFile):
 
     default_include_file = 'run_card.inc'
 
-    def write_include_file(self, output_dir):
+    def write_include_file(self, output_dir, flag=''):
         """Write the various include file in output_dir.
         The entry True of self.includepath will be written in run_card.inc
         The entry False will not be written anywhere"""
@@ -2330,10 +2330,15 @@ class RunCard(ConfigFile):
         self.check_validity()
         
         for incname in self.includepath:
+            #print(self.includepath)
             if incname is True:
                 pathinc = self.default_include_file
+                #print('passed : ' + str(pathinc))
             else:
                 pathinc = incname
+                #gl
+                if flag:
+                    break
                 
             fsock = file_writers.FortranWriter(pjoin(output_dir,pathinc))  
             for key in self.includepath[incname]:                
@@ -2930,6 +2935,7 @@ class RunCardME7(RunCardLO):
                              ('sys_pdf',                'NNPDF23_lo_as_0130_qed')])
 
     _available_integrators = ['VEGAS3','NAIVE']
+
 
     def enforce_ME7_restrictions(self):
         """ Applies the resctrictions of run_card parameter values related to the fact
@@ -3847,8 +3853,214 @@ class MadLoopParam(ConfigFile):
         
     
             
+#gl
+class RunCardME7_user(RunCardME7):
+
+    def default_setup(self):
+        """default value for the run_card.dat"""
         
+        self.add_param("run_tag", "tag_1", include=False)
+        self.add_param("gridpack", False, legacy=True)
+        self.add_param("time_of_flight", -1.0, include=False, hidden=True, legacy=True)
+        self.add_param("nevents", 10000)        
+        self.add_param("iseed", 0)
+        self.add_param("lpp1", 1, fortran_name="lpp(1)")
+        self.add_param("lpp2", 1, fortran_name="lpp(2)")
+        self.add_param("ebeam1", 6500.0, fortran_name="ebeam(1)")
+        self.add_param("ebeam2", 6500.0, fortran_name="ebeam(2)")
+        self.add_param("polbeam1", 0.0, fortran_name="pb1", legacy=True)
+        self.add_param("polbeam2", 0.0, fortran_name="pb2", legacy=True)
+        self.add_param("pdlabel", "nn23lo1")
+        self.add_param("lhaid", 230000, hidden=True)
+        self.add_param("fixed_ren_scale", False)
+        self.add_param("fixed_fac_scale", False)
+        self.add_param("scale", 91.1880)
+        self.add_param("dsqrt_q2fact1", 91.1880, fortran_name="sf1")
+        self.add_param("dsqrt_q2fact2", 91.1880, fortran_name="sf2")
+        self.add_param("dynamical_scale_choice", -1, comment="\'-1\' is based on CKKW back clustering (following feynman diagram).\n \'1\' is the sum of transverse energy.\n '2' is HT (sum of the transverse mass)\n '3' is HT/2\n '4' is the center of mass energy")
         
+        # Bias module options
+        self.add_param("bias_module", 'None', include=False, legacy=True)
+        self.add_param('bias_parameters', {'__type__':1.0}, include='BIAS/bias.inc', legacy=True)
+                
+        #matching
+        self.add_param("scalefact", 1.0, legacy=True)
+        self.add_param("ickkw", 0,                                              comment="\'0\' for standard fixed order computation.\n\'1\' for MLM merging activates alphas and pdf re-weighting according to a kt clustering of the QCD radiation.", legacy=True)
+        self.add_param("highestmult", 1, fortran_name="nhmult", hidden=True, legacy=True)
+        self.add_param("ktscheme", 1, hidden=True, legacy=True)
+        self.add_param("alpsfact", 1.0, legacy=True)
+        self.add_param("chcluster", False, hidden=True, legacy=True)
+        self.add_param("pdfwgt", True, hidden=True, legacy=True)
+        self.add_param("asrwgtflavor", 5, legacy=True)
+        self.add_param("clusinfo", True, legacy=True)
+        self.add_param("lhe_version", 3.0, legacy=True)
+        self.add_param("event_norm", "average", include=False, sys_default='sum', legacy=True)
+        #cut
+        self.add_param("auto_ptj_mjj", False, legacy=True)
+        self.add_param("bwcutoff", 15.0, legacy=True)
+        self.add_param("cut_decays", False, legacy=True)
+        self.add_param("nhel", 0, include=False)
+        #pt cut
+        self.add_param("ptj", 20.0, cut=True)
+        self.add_param("ptb", 0.0, cut=True, legacy=True)
+        self.add_param("pta", 10.0, cut=True)
+        self.add_param("ptl", 10.0, cut=True)
+        self.add_param("misset", 0.0, cut=True, legacy=True)
+        self.add_param("ptheavy", 0.0, cut=True,                                comment='this cut apply on particle heavier than 10 GeV', legacy=True)
+        self.add_param("ptonium", 1.0, legacy=True)
+        self.add_param("ptjmax", -1.0, cut=True, legacy=True)
+        self.add_param("ptbmax", -1.0, cut=True, legacy=True)
+        self.add_param("ptamax", -1.0, cut=True, legacy=True)
+        self.add_param("ptlmax", -1.0, cut=True, legacy=True)
+        self.add_param("missetmax", -1.0, cut=True, legacy=True)
+        # E cut
+        self.add_param("ej", 0.0, cut=True, legacy=True)
+        self.add_param("eb", 0.0, cut=True, legacy=True)
+        self.add_param("ea", 0.0, cut=True, legacy=True)
+        self.add_param("el", 0.0, cut=True, legacy=True)
+        self.add_param("ejmax", -1.0, cut=True, legacy=True)
+        self.add_param("ebmax", -1.0, cut=True, legacy=True)
+        self.add_param("eamax", -1.0, cut=True, legacy=True)
+        self.add_param("elmax", -1.0, cut=True, legacy=True)
+        # Eta cut
+        self.add_param("etaj", 5.0, cut=True)
+        self.add_param("etab", -1.0, cut=True, legacy=True)
+        self.add_param("etaa", 2.5, cut=True)
+        self.add_param("etal", 2.5, cut=True)
+        self.add_param("etaonium", 0.6, legacy=True)
+        self.add_param("etajmin", 0.0, cut=True, legacy=True)
+        self.add_param("etabmin", 0.0, cut=True, legacy=True)
+        self.add_param("etaamin", 0.0, cut=True, legacy=True)
+        self.add_param("etalmin", 0.0, cut=True, legacy=True)
+        # DRJJ
+        self.add_param("drjj", 0.4, cut=True)
+        self.add_param("drbb", 0.0, cut=True, legacy=True)
+        self.add_param("drll", 0.4, cut=True)
+        self.add_param("draa", 0.4, cut=True)
+        self.add_param("drbj", 0.0, cut=True, legacy=True)
+        self.add_param("draj", 0.4, cut=True)
+        self.add_param("drjl", 0.4, cut=True)
+        self.add_param("drab", 0.0, cut=True, legacy=True)
+        self.add_param("drbl", 0.0, cut=True, legacy=True)
+        self.add_param("dral", 0.4, cut=True)
+        self.add_param("drjjmax", -1.0, cut=True, legacy=True)
+        self.add_param("drbbmax", -1.0, cut=True, legacy=True)
+        self.add_param("drllmax", -1.0, cut=True, legacy=True)
+        self.add_param("draamax", -1.0, cut=True, legacy=True)
+        self.add_param("drbjmax", -1.0, cut=True, legacy=True)
+        self.add_param("drajmax", -1.0, cut=True, legacy=True)
+        self.add_param("drjlmax", -1.0, cut=True, legacy=True)
+        self.add_param("drabmax", -1.0, cut=True, legacy=True)
+        self.add_param("drblmax", -1.0, cut=True, legacy=True)
+        self.add_param("dralmax", -1.0, cut=True, legacy=True)
+        # invariant mass
+        self.add_param("mmjj", 0.0, cut=True, legacy=True)
+        self.add_param("mmbb", 0.0, cut=True, legacy=True)
+        self.add_param("mmaa", 0.0, cut=True, legacy=True)
+        self.add_param("mmll", 0.0, cut=True, legacy=True)
+        self.add_param("mmjjmax", -1.0, cut=True, legacy=True)
+        self.add_param("mmbbmax", -1.0, cut=True, legacy=True)                
+        self.add_param("mmaamax", -1.0, cut=True, legacy=True)
+        self.add_param("mmllmax", -1.0, cut=True, legacy=True)
+        self.add_param("mmnl", 0.0, cut=True, legacy=True)
+        self.add_param("mmnlmax", -1.0, cut=True, legacy=True)
+        #minimum/max pt for sum of leptons
+        self.add_param("ptllmin", 0.0, cut=True, legacy=True)
+        self.add_param("ptllmax", -1.0, cut=True, legacy=True)
+        self.add_param("xptj", 0.0, cut=True, legacy=True)
+        self.add_param("xptb", 0.0, cut=True, legacy=True)
+        self.add_param("xpta", 0.0, cut=True, legacy=True) 
+        self.add_param("xptl", 0.0, cut=True, legacy=True)
+        # ordered pt jet 
+        self.add_param("ptj1min", 0.0, cut=True, legacy=True)
+        self.add_param("ptj1max", -1.0, cut=True, legacy=True)
+        self.add_param("ptj2min", 0.0, cut=True, legacy=True)
+        self.add_param("ptj2max", -1.0, cut=True, legacy=True)
+        self.add_param("ptj3min", 0.0, cut=True, legacy=True)
+        self.add_param("ptj3max", -1.0, cut=True, legacy=True)
+        self.add_param("ptj4min", 0.0, cut=True, legacy=True)
+        self.add_param("ptj4max", -1.0, cut=True, legacy=True)                
+        self.add_param("cutuse", 0, cut=True, legacy=True)
+        # ordered pt lepton
+        self.add_param("ptl1min", 0.0, cut=True, legacy=True)
+        self.add_param("ptl1max", -1.0, cut=True, legacy=True)
+        self.add_param("ptl2min", 0.0, cut=True, legacy=True)
+        self.add_param("ptl2max", -1.0, cut=True, legacy=True)
+        self.add_param("ptl3min", 0.0, cut=True, legacy=True)
+        self.add_param("ptl3max", -1.0, cut=True, legacy=True)        
+        self.add_param("ptl4min", 0.0, cut=True, legacy=True)
+        self.add_param("ptl4max", -1.0, cut=True, legacy=True)
+        # Ht sum of jets
+        self.add_param("htjmin", 0.0, cut=True, legacy=True)
+        self.add_param("htjmax", -1.0, cut=True, legacy=True)
+        self.add_param("ihtmin", 0.0, cut=True, legacy=True)
+        self.add_param("ihtmax", -1.0, cut=True, legacy=True)
+        self.add_param("ht2min", 0.0, cut=True, legacy=True) 
+        self.add_param("ht3min", 0.0, cut=True, legacy=True)
+        self.add_param("ht4min", 0.0, cut=True, legacy=True)
+        self.add_param("ht2max", -1.0, cut=True, legacy=True)
+        self.add_param("ht3max", -1.0, cut=True, legacy=True)
+        self.add_param("ht4max", -1.0, cut=True, legacy=True)
+        # photon isolation
+        self.add_param("ptgmin", 0.0, cut=True, legacy=True)
+        self.add_param("r0gamma", 0.4, legacy=True)
+        self.add_param("xn", 1.0, legacy=True)
+        self.add_param("epsgamma", 1.0, legacy=True) 
+        self.add_param("isoem", True, legacy=True)
+        self.add_param("xetamin", 0.0, cut=True, legacy=True)
+        self.add_param("deltaeta", 0.0, cut=True, legacy=True)
+        self.add_param("ktdurham", -1.0, fortran_name="kt_durham", cut=True, legacy=True)
+        self.add_param("dparameter", 0.4, fortran_name="d_parameter", cut=True, legacy=True)
+        self.add_param("ptlund", -1.0, fortran_name="pt_lund", cut=True, legacy=True)
+        self.add_param("pdgs_for_merging_cut", [21, 1, 2, 3, 4, 5, 6], legacy=True)
+        self.add_param("maxjetflavor", 4)
+        self.add_param("xqcut", 0.0, cut=True, legacy=True)
+        self.add_param("use_syst", True)
+        self.add_param('systematics_program', 'auto', include=False, hidden=True, comment='Choose which program to use for systematics computation: none, systematics, syscalc', legacy=True)
+        self.add_param('systematics_arguments', [''], include=False, hidden=True, comment='Choose the argment to pass to the systematics command. like --mur=0.25,1,4. Look at the help of the systematics function for more details.', legacy=True)
+        
+        self.add_param("sys_scalefact", "0.5 1 2", include=False, legacy=True)
+        self.add_param("sys_alpsfact", "None", include=False, legacy=True)
+        self.add_param("sys_matchscale", "auto", include=False, legacy=True)
+        self.add_param("sys_pdf", "NNPDF23_lo_as_0130_qed", include=False, legacy=True)
+        self.add_param("sys_scalecorrelation", -1, include=False, legacy=True)
+
+        #parameter not in the run_card by default
+        self.add_param('gridrun', False, hidden=True, legacy=True)
+        self.add_param('fixed_couplings', True, hidden=True, legacy=True)
+        self.add_param('mc_grouped_subproc', True, hidden=True, legacy=True)
+        self.add_param('xmtcentral', 0.0, hidden=True, fortran_name="xmtc", legacy=True)
+        self.add_param('d', 1.0, hidden=True, legacy=True)
+        self.add_param('gseed', 0, hidden=True, include=False, legacy=True)
+        self.add_param('issgridfile', '', hidden=True, legacy=True)
+        #job handling of the survey/ refine
+        self.add_param('job_strategy', 0, hidden=True, include=False, legacy=True)
+        self.add_param('survey_splitting', -1, hidden=True, include=False, legacy=True)
+        self.add_param('refine_evt_by_job', -1, hidden=True, include=False, legacy=True)
+        # Specify what particle IDs to use for the CKKWL merging cut ktdurham
+
+        # Change the default run tag name
+        self.set('run_tag','default',changeifuserset=True, user=False)
+
+        # Specify integrator: allowed values are [VEGAS3, NAIVE]
+        self.add_param("integrator", 'VEGAS3')
+        self.add_param('flavor_cuts', "'None'")
+        self.add_param("FO_analysis","None") # default should be none
+        
+    # def check_validity(self, *args, **opts):
+    #     """ Usual validity check of the card, plus check of whether all specified options
+    #     are supported by ME7."""
+                
+    #     super(RunCardME7_user, self).check_validity(*args, **opts)
+        
+    #     if self['integrator'] not in self._available_integrators:
+    #         raise InvalidRunCard("Integrator can only be in %s, not %s."%(
+    #                                  str(self._available_integrators), self['integrator']))
+
+    #     is_run_card_supported = self.is_supported()
+    #     if not (is_run_card_supported is None):
+    #         raise InvalidRunCard("The specified run_card is not supported by MadEvent7:\n %s"%
+    #                                                                  is_run_card_supported)        
         
         
     

@@ -940,6 +940,10 @@ class Contribution(object):
         if not self.requires_its_own_model:
             ln(pjoin(global_ME7_dir, 'Source','MODEL'), starting_dir=pjoin(self.export_dir, 'Source'))
             ln(pjoin(global_ME7_dir, 'lib','libmodel.a'), starting_dir=pjoin(self.export_dir, 'lib'))
+            ln(pjoin(global_ME7_dir, 'lib','libdhelas.a'), starting_dir=pjoin(self.export_dir, 'lib'))
+            ln(pjoin(global_ME7_dir, 'lib','libcernlib.a'), starting_dir=pjoin(self.export_dir, 'lib'))
+            ln(pjoin(global_ME7_dir, 'lib','libgeneric.a'), starting_dir=pjoin(self.export_dir, 'lib'))
+            ln(pjoin(global_ME7_dir, 'lib','libpdf.a'), starting_dir=pjoin(self.export_dir, 'lib'))
 
         # Link the card directory
         ln(pjoin(global_ME7_dir, 'Cards'), starting_dir=self.export_dir)

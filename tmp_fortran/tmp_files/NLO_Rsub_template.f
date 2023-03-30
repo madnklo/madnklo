@@ -3,6 +3,10 @@ c     (n+1)-body NLO integrand for vegas
       implicit none
       include 'math.inc'
       include 'nexternal.inc'
+      INCLUDE 'coupl.inc'
+      INCLUDE 'input.inc'
+      INCLUDE 'run.inc'
+      INCLUDE 'cuts.inc'
       integer ierr
       integer i,j,l,m,ievt,nthres,ntest
       integer iunit
@@ -38,9 +42,11 @@ c     TODO: understand x(mxdim) definition by Vegas
       save counter
       double precision ans(0:1) !TODO SET CORRECTLY RANGE OF ANS 
       double precision alphas, alpha_qcd
-      integer, parameter :: hel=-1	
-	
-      alphas=alpha_qcd(asmz,nloop,mur)
+      integer, parameter :: hel=-1
+c     TODO: convert to partonic sCM 
+      sCM = (2d0*EBEAM(1))**2
+
+      ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)
 
 c     
 c     initialise
@@ -68,7 +74,6 @@ c     specify phase space indices
       iA = 1 ! default azimuth for NLO 
 c     
 c     phase space and invariants
-c     TODO: pass sCM information
       if(sCM.le.0d0)then
          write(*,*) 'Wrong sCM', sCM
          stop
@@ -100,13 +105,10 @@ c         ntested=ntested+1
 c      endif
 c
 c     real
-c     TODO: look at real_NLO
-c      call real_NLO(sNLO,RNLO,ierr)
       call %(NLO_proc_str)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
       RNLO = ANS(0)
 c      if(ierr.eq.1)goto 999
 c
-c     TODO: introduce symmetrised sectors 
       call get_Z_NLO(sNLO,sCM,alpha,isec,jsec,Z_NLO,'F',ierr)
 c      if(ierr.eq.1)goto 999
 c

@@ -2,6 +2,10 @@
       implicit none
       include 'nexternal.inc'
       include 'colored_partons.inc'
+      INCLUDE 'coupl.inc'
+      INCLUDE 'input.inc'
+      INCLUDE 'run.inc'
+      INCLUDE 'cuts.inc'
       integer mxdim
       parameter(mxdim=30)
       integer ndim,i,j,idum
@@ -18,7 +22,6 @@
       double precision rescale_plot_R
       character*100 line
       integer nitRth,nclRth,nitR,nclR
-      double precision ebeam(2)
 c
 c     vegas declarations
       integer ndmx,nprn,ndo,init,it
@@ -28,19 +31,19 @@ c     vegas declarations
       parameter(acc=1d-10)
       common/rand/idum
 c
-      call setpara('param_card.dat')
-c     TODO: include run.inc, setrun.f in Source directory, write run_card.inc
-c      call setpara('run_card.dat')
+      call SETPARA('param_card.dat')
+      call SETRUN('run_card.dat')
 c
 c     read inputs
       region=0d0
       order=1
       s_had = (EBEAM(1)+EBEAM(2))**2
+C     TODO: read from run_card.inc
+      NITRTH = 10
+      NCLRTH = 10000
+      NITR = 10 
+      NCLR = 10000
 c     TODO: understand muR input fixed/dyn scale
-c      muR
-c     TODO: include nitR in run_card as in MG5
-c      nitRth,nclRth
-c      nitR,nclR
 
       isec=%(isec)d
       jsec=%(jsec)d

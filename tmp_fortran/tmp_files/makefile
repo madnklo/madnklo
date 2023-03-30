@@ -7,9 +7,12 @@ DEBUG=
 LIBDIR=../../lib/
 
 # TODO: compile libraries when generating process
-LINKLIBS= -L../../lib/ -ldhelas -lmodel
+LINKLIBS= -L../../lib/ -ldhelas -lmodel -lpdf -lgeneric
 
-LIBS=$(LIBDIR)libdhelas.$(libext) $(LIBDIR)libmodel.$(libext)
+LIBS=$(LIBDIR)libdhelas.$(libext) $(LIBDIR)libmodel.$(libext) $(LIBDIR)libgeneric.$(libext) \
+	$(LIBDIR)libpdf.$(libext)
+
+#$(shell echo LIBS)
 
 OPT=O3
 
@@ -36,7 +39,7 @@ FFLAGS+= -I$(INCLUDE0)
 	$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) $< -o $@
 
 
-COMMON_FILES= alphaS.o imap.o kinematics.o phase_space.o sectors.o vegas.o
+COMMON_FILES= alphaS.o imap.o kinematics.o phase_space.o sectors.o vegas.o 
 
 
 FILES= driver_3_5.o NLO_Rsub_3_5.o NLO_K_3_5.o NLO_IR_limits_3_5.o matrix_epem_gddx.o \

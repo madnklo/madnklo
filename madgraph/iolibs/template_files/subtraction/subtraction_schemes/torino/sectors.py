@@ -795,17 +795,79 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             file = file % replace_dict
             writer(filename).writelines(file)
 
-######### Symlink for math.inc  
+######### Symlink for *.inc  
 
         path_to_math = pjoin(dirmadnklo,"Template/Fortran_tmp/src_to_common/math.inc")
         os.symlink( path_to_math, dirpath + '/math.inc' )
 
         os.mkdir(pjoin(dirpath, 'include'))
         
-        inc_files = glob.glob(dirpath+'/*.inc')
-#        print(inc_files)
+        inc_files = ['all_sector_list.inc','colored_partons.inc','damping_factors.inc','leg_PDGs.inc',
+                        'nexternal.inc','ngraphs.inc','nsqso_born.inc','pmass.inc']
         for i in range(0,len(inc_files)):
-#            print(inc_files[i])
-            mv(inc_files[i],dirpath+'/include/')
-        cp(pjoin(dirpath_subprocesses,'../../Source/MODEL/coupl.inc'), dirpath+'/include/coupl.inc')    
+            os.symlink(dirpath + '/' + inc_files[i],dirpath+'/include/'+inc_files[i])
+
+        os.symlink(dirpath + '/../../../Source/MODEL/coupl.inc',dirpath+'/include/coupl.inc')
+        os.symlink(dirpath + '/../../../Source/MODEL/input.inc',dirpath+'/include/input.inc')
+        os.symlink(dirpath + '/../../../Source/run.inc',dirpath+'/include/run.inc')
+        os.symlink(dirpath + '/../../../Source/cuts.inc',dirpath+'/include/cuts.inc')
+
+######### Write makefile_template 
+
+        replace_dict = {}
+        proc_str = ''
+        sector_str = ''
+        all_str = 'all='
+
+        #replace_dict['LO_prefix'] = 'epem_ddx'
+        #replace_dict['NLO_prefix'] = defining_process.shell_string(
+        #    schannel=False, forbid=False, main=False, pdg_order=False, print_id = False)
+
+        proc_str += """PROC_FILES= matrix_%s""" % defining_process.shell_string(
+            schannel=False, forbid=False, main=False, pdg_order=False, print_id = False)
+
+        for i in range(0,len(Born_processes)):
+            print(Born_processes)
+            proc_str += ' matrix_' + Born_processes[i]
+
+        replace_dict['proc_str'] = proc_str
+        print(proc_str)
+ 
+        for i in range(0,len(all_sector_list)):
+            isec = all_sector_list[i][0]
+            jsec = all_sector_list[i][1]
+            replace_dict['isec'] = isec
+            replace_dict['jsec'] = jsec   
+            sector_str += 'FILES_%d_%d= ' % (isec, jsec)
+            sector_str += 'driver_%d_%d.o ' % (isec, jsec)
+            sector_str += 'NLO_Rsub_%d_%d.o ' % (isec, jsec)
+            sector_str += 'NLO_IR_limits_%d_%d.o ' % (isec, jsec)
+            sector_str += 'NLO_K_%d_%d.o $(PROC_FILES) $(COMMON_FILES) \n' % (isec, jsec)
+            sector_str += """
+sector_%d_%d: $(FILES_%d_%d)
+\t$(DEFAULT_F_COMPILER) -o $@ $^ $(LIBS)
+
+""" %(isec, jsec,isec, jsec)
+
+            all_str += ' sector_%d_%d' % (isec, jsec)
+
+        object_str = """
+%.o: %.f $(INCLUDE)
+\t$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) $< -o $@
+
+%.o: $(PATH_TO_COMMON_FILES)/%.f $(INCLUDE)
+\t$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) $< -o $@
+"""
+        replace_dict['object_str'] = object_str
+        replace_dict['sector_str'] = sector_str
+        replace_dict['all_str'] = all_str
+        filename = pjoin(dirpath, 'makefile' )
+        file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/makefile_template")).read()
+        file = file % replace_dict
+        writers.FileWriter(filename).write(file)
+
+
+    
+
+
         return all_sectors

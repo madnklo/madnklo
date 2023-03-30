@@ -6992,8 +6992,7 @@ class UFO_model_to_mg4(object):
     
     def create_ident_card(self):
         """ create the ident_card.dat """
-        #gl
-        print('BBBBBBBBBBBBB')
+
         def format(parameter):
             """return the line for the ident_card corresponding to this parameter"""
             colum = [parameter.lhablock.lower()] + \

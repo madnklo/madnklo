@@ -52,6 +52,28 @@ TODO Meeting 29/03
 
 
 
+*********************
+TODO 30/03
+
+- fix writing of makefile in sectors.py (it seems to import the same for every subprocess directory!)
+
+- take care of changes in Source/makefile and setrun.f for generating libgeneric in Source (working one in test_eejj)
+
+- import in Template/TorinoNLO the run_card.dat from NLO template and associated files (cuts.inc, run.inc)
+
+- remove current param/run_card.inc generation from export_ME7.py and create a 'treatcards' python file
+  in Template/TorinoNLO/bin to be called before the integration in the makefile, as
+                ../bin/treatcards treatcards all
+  so as to always have their updated version;
+
+- add libraries compilation in the makefile
+
+- add symlink for *_spin_correlation in the include directory
+
+- create the new TorinoNLO template
+
+
+
 
 
 

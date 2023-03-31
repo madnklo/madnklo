@@ -1126,7 +1126,7 @@ class ME7ExporterTorino(ME7Exporter):
         # Forward the request for copying the template to each contribution
         self.contributions.apply_method_to_all_contribs('copy_template', method_args = [model])
 
-    def tmp_create_run_card(self):
+    def create_run_card(self):
         """ Create the run card."""
         
         run_card = banner_mod.RunCardNLO()
@@ -1145,7 +1145,7 @@ class ME7ExporterTorino(ME7Exporter):
         run_card.write(pjoin(self.export_dir, 'Cards', 'run_card_default.dat'), 
             template=pjoin(self.export_dir, 'Cards', 'run_card.dat'), python_template=True )
 
-    def tmp_finalize(self, flaglist, interface_history):
+    def finalize(self, flaglist, interface_history):
         """Distribute and organize the finalization of all contributions. """
         
         # Make sure contributions are sorted at this stage

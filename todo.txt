@@ -55,7 +55,7 @@ TODO Meeting 29/03
 *********************
 TODO 30/03
 
-- fix writing of makefile in sectors.py (it seems to import the same for every subprocess directory!)
+- *fixed* fix writing of makefile in sectors.py (it seems to import the same for every subprocess directory!)
 
 - take care of changes in Source/makefile and setrun.f for generating libgeneric in Source (working one in test_eejj)
 
@@ -66,9 +66,9 @@ TODO 30/03
                 ../bin/treatcards treatcards all
   so as to always have their updated version;
 
-- add libraries compilation in the makefile
+- *fixed* add libraries compilation in the makefile
 
-- add symlink for *_spin_correlation in the include directory
+- *fixed* add symlink for *_spin_correlation in the include directory
 
 - create the new TorinoNLO template
 

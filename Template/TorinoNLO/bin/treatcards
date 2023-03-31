@@ -1,0 +1,156 @@
+#! /usr/bin/env python
+
+################################################################################
+#
+# Copyright (c) 2009 The MadGraph5_aMC@NLO Development team and Contributors
+#
+# This file is a part of the MadGraph5_aMC@NLO project, an application which 
+# automatically generates Feynman diagrams and matrix elements for arbitrary
+# high-energy processes in the Standard Model and beyond.
+#
+# It is subject to the MadGraph5_aMC@NLO license which should accompany this 
+# distribution.
+#
+# For more information, visit madgraph.phys.ucl.ac.be and amcatnlo.web.cern.ch
+#
+################################################################################
+
+"""This is the main executable, a simple frontend to set up the PYTHONPATH
+and call immediately the command line interface scripts"""
+
+import sys
+if not sys.version_info[0] == 2 or sys.version_info[1] < 6:
+    sys.exit('MadGraph/MadEvent 5 works only with python 2.6 or later (but not python 3.X).\n\
+               Please upgrate your version of python.')
+
+import os
+import optparse
+
+# Get the directory of the script real path (bin)
+# and add it to the current PYTHONPATH
+
+root_path = os.path.dirname(os.path.realpath( __file__ ))
+p = os.path.abspath('../..')
+sys.path.insert(0, p)
+
+pjoin = os.path.join
+
+
+
+class MyOptParser(optparse.OptionParser):
+    
+    class InvalidOption(Exception): pass
+
+    def error(self, msg=''):
+        raise MyOptParser.InvalidOption(msg)
+
+# Write out nice usage message if called with -h or --help
+usage = "usage: %prog [options] [FILE] "
+parser = MyOptParser(usage=usage)
+parser.add_option("-l", "--logging", default='INFO',
+                  help="logging level (DEBUG|INFO|WARNING|ERROR|CRITICAL) [%default]")
+parser.add_option("","--web", action="store_true", default=False, dest='web', \
+                 help='force to be in secure mode')
+parser.add_option("","--debug", action="store_true", default=False, dest='debug', \
+                 help='force to launch debug mode')
+parser_error = ''
+done = False
+for i in range(len(sys.argv)-1):
+    try:
+        (options, args) = parser.parse_args(sys.argv[1:len(sys.argv)-i])
+        done = True
+    except MyOptParser.InvalidOption, error:
+        pass
+    else:
+        args += sys.argv[len(sys.argv)-i:]
+if not done:
+    # raise correct error:
+    try:
+        (options, args) = parser.parse_args()
+    except MyOptParser.InvalidOption, error:
+        print error
+        sys.exit(2)
+
+if len(args) == 0:
+    args = ''
+
+import logging
+logger = logging.getLogger('madevent.stdout') # -> stdout
+logger_stderr = logging.getLogger('madevent.stderr') # ->stderr
+import madgraph.iolibs.export_ME7 as export_ME7
+from models.check_param_card import ParamCardRule
+import madgraph.interface.madevent_interface as madevent
+import madgraph.various.banner as banner_mod
+
+
+export_dir = os.path.abspath('..')
+opt = {'output_dir':pjoin(export_dir,'Source'),
+       'param_card':pjoin(export_dir,'Cards','param_card.dat'),
+       'run_card':pjoin(export_dir,'Cards','run_card.dat'),
+       'forbid_MadLoopInit': False}
+
+ParamCardRule().check_param_card(pjoin(export_dir, 'Cards','param_card.dat'))
+
+if args[0] in ['param', 'all']:
+    # TODO: import MadEventCmd functions
+    model = 'loop_sm'
+    #model = madevent.MadEventCmd().find_model_name()
+    tmp_model = os.path.basename(model)
+    if tmp_model == 'mssm' or tmp_model.startswith('mssm-'):
+	if not '--param_card=' in line:
+	    param_card = pjoin(export_dir, 'Cards','param_card.dat')
+	    mg5_param = pjoin(export_dir, 'Source', 'MODEL', 'MG5_param.dat')
+	    #TODO: check call to convert_to_.. and check_valid_..
+	    ParamCardRule().convert_to_mg5card(param_card, mg5_param)
+	    ParamCardRule().check_valid_param_card(mg5_param)
+	    opt['param_card'] = pjoin(export_dir, 'Source', 'MODEL', 'MG5_param.dat')
+    else:
+	from models import check_param_card
+	check_param_card.check_valid_param_card(opt['param_card'])
+
+    logger.debug('write compile file for card: %s' % opt['param_card']) 
+    param_card = check_param_card.ParamCard(opt['param_card'])
+    outfile = pjoin(opt['output_dir'], 'param_card.inc')
+    ident_card = pjoin(export_dir,'Cards','ident_card.dat')
+    if os.path.isfile(pjoin(export_dir,'bin','internal','ufomodel','restrict_default.dat')):
+	default = pjoin(export_dir,'bin','internal','ufomodel','restrict_default.dat')
+    elif os.path.isfile(pjoin(export_dir,'bin','internal','ufomodel','param_card.dat')):
+	default = pjoin(export_dir,'bin','internal','ufomodel','param_card.dat')
+    elif not os.path.exists(pjoin(export_dir,'bin','internal','ufomodel')):
+	fsock = open(pjoin(export_dir,'Source','param_card.inc'),'w')
+	fsock.write(' ')
+	fsock.close()
+        default = pjoin(export_dir,'Cards','param_card_default.dat')
+	#if mode == 'all':
+	#    self.do_treatcards('', 'run', opt)
+	#return
+    else:
+	devnull = open(os.devnull,'w')
+	#subprocess.call([sys.executable, 'write_param_card.py'],
+	#	     cwd=pjoin(export_dir,'bin','internal','ufomodel'),
+	#	     stdout=devnull)
+	devnull.close()
+	default = pjoin(export_dir,'bin','internal','ufomodel','param_card.dat')
+
+    #madevent.MadEventCmd().proc_characteristics.write(pjoin(export_dir,'SubProcesses','proc_characteristics')) 
+    #need_mp = madevent.MadEventCmd().proc_characteristics['loop_induced']
+    need_mp = False             
+    param_card.write_inc_file(outfile, ident_card, default, need_mp=need_mp)
+
+if args[0] in ['run', 'all']:
+    run_card = banner_mod.RunCardNLO(pjoin(export_dir,'Cards','run_card.dat'))
+    n_initial = run_card['lpp1']+run_card['lpp2']
+    if n_initial == 1:
+        run_card['lpp1'] =  0
+        run_card['lpp2'] =  0
+	run_card['ebeam1'] = 0
+	run_card['ebeam2'] = 0
+
+    run_card.write_include_file(opt['output_dir'])
+    #TODO: import MadEventCmd for MadLoopparam
+
+try:
+# Remove lock file
+    os.remove(os.path.join(root_path,os.pardir, 'RunWeb'))
+except:
+    pass

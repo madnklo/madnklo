@@ -831,13 +831,14 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             proc_str += ' matrix_' + Born_processes[i]
 
         replace_dict['proc_str'] = proc_str
-        print(proc_str)
+        #print(proc_str)
  
         for i in range(0,len(all_sector_list)):
             isec = all_sector_list[i][0]
             jsec = all_sector_list[i][1]
             replace_dict['isec'] = isec
-            replace_dict['jsec'] = jsec   
+            replace_dict['jsec'] = jsec
+            all_str += ' sector_%d_%d' % (isec, jsec)   
             sector_str += 'FILES_%d_%d= ' % (isec, jsec)
             sector_str += 'driver_%d_%d.o ' % (isec, jsec)
             sector_str += 'NLO_Rsub_%d_%d.o ' % (isec, jsec)
@@ -848,8 +849,6 @@ sector_%d_%d: $(FILES_%d_%d)
 \t$(DEFAULT_F_COMPILER) -o $@ $^ $(LIBS)
 
 """ %(isec, jsec,isec, jsec)
-
-            all_str += ' sector_%d_%d' % (isec, jsec)
 
         object_str = """
 %.o: %.f $(INCLUDE)

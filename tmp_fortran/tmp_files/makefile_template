@@ -12,8 +12,6 @@ LINKLIBS= -L../../lib/ -ldhelas -lmodel -lpdf -lgeneric
 LIBS=$(LIBDIR)libdhelas.$(libext) $(LIBDIR)libmodel.$(libext) $(LIBDIR)libgeneric.$(libext) \
 	$(LIBDIR)libpdf.$(libext)
 
-#$(shell echo LIBS)
-
 OPT=O3
 
 OBJ=obj-$(DEFAULT_F_COMPILER)
@@ -27,13 +25,15 @@ PATH_TO_COMMON_FILES=../../../../Template/Fortran_tmp/src_to_common
 
 INCLUDE0=$(PWD)/include
 
-INCLUDE =$(wildcard ./include/*.inc)
+INCLUDE =$(wildcard ./include/*.inc )
 
 FFLAGS+= -I$(INCLUDE0)
 
+%(object_str)s
+
 COMMON_FILES= alphaS.o imap.o kinematics.o phase_space.o sectors.o vegas.o 
 
-%(object_str)s
+%(proc_str)s
 
 %(sector_str)s
 

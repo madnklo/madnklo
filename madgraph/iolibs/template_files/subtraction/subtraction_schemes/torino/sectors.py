@@ -797,15 +797,15 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
 ######### Symlink for *.inc  
 
-        path_to_math = pjoin(dirmadnklo,"Template/Fortran_tmp/src_to_common/math.inc")
-        os.symlink( path_to_math, dirpath + '/math.inc' )
-
         os.mkdir(pjoin(dirpath, 'include'))
+
+        path_to_math = pjoin(dirmadnklo,"Template/Fortran_tmp/src_to_common/math.inc")
+        os.symlink( path_to_math, dirpath + '/include/math.inc' )
         
-        inc_files = ['all_sector_list.inc','colored_partons.inc','damping_factors.inc','leg_PDGs.inc',
-                        'nexternal.inc','ngraphs.inc','nsqso_born.inc','pmass.inc']
-        for i in range(0,len(inc_files)):
-            os.symlink(dirpath + '/' + inc_files[i],dirpath+'/include/'+inc_files[i])
+        #inc_files = ['all_sector_list.inc','colored_partons.inc','damping_factors.inc','leg_PDGs.inc',
+        #                'nexternal.inc','ngraphs.inc','nsqso_born.inc','pmass.inc']
+        #for i in range(0,len(inc_files)):
+        #    os.symlink(dirpath + '/' + inc_files[i],dirpath+'/include/'+inc_files[i])
 
         os.symlink(dirpath + '/../../../Source/MODEL/coupl.inc',dirpath+'/include/coupl.inc')
         os.symlink(dirpath + '/../../../Source/MODEL/input.inc',dirpath+'/include/input.inc')
@@ -817,18 +817,18 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         replace_dict = {}
         proc_str = ''
         sector_str = ''
-        all_str = 'all='
+        all_str = 'all: libs'
 
         #replace_dict['LO_prefix'] = 'epem_ddx'
         #replace_dict['NLO_prefix'] = defining_process.shell_string(
         #    schannel=False, forbid=False, main=False, pdg_order=False, print_id = False)
 
-        proc_str += """PROC_FILES= matrix_%s""" % defining_process.shell_string(
+        proc_str += """PROC_FILES= matrix_%s.o""" % defining_process.shell_string(
             schannel=False, forbid=False, main=False, pdg_order=False, print_id = False)
 
         for i in range(0,len(Born_processes)):
             print(Born_processes)
-            proc_str += ' matrix_' + Born_processes[i]
+            proc_str += ' matrix_' + Born_processes[i] + '.o'
 
         replace_dict['proc_str'] = proc_str
         #print(proc_str)
@@ -848,7 +848,9 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 sector_%d_%d: $(FILES_%d_%d)
 \t$(DEFAULT_F_COMPILER) -o $@ $^ $(LIBS)
 
-""" %(isec, jsec,isec, jsec)
+sector_%d_%d_libs: libs sector_%d_%d
+
+""" %(isec, jsec,isec, jsec,isec, jsec,isec, jsec)
 
         object_str = """
 %.o: %.f $(INCLUDE)

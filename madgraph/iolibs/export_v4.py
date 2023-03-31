@@ -2197,7 +2197,11 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
                      matrix_element.get('processes')[0].nice_string())
         plot.draw()
 
-        linkfiles = ['check_sa.f', 'coupl.inc', 'makefile']
+        #gl
+        # removed links to makefile and coupl.inc because we create a makefile for
+        # each subprocess
+        #linkfiles = ['check_sa.f', 'coupl.inc', 'makefile']
+        linkfiles = ['check_sa.f']
 
         for file in linkfiles:
             ln('../%s' % file, cwd=dirpath)

@@ -1,6 +1,8 @@
 include ../../Source/make_opts
 SHELL = /bin/bash
 
+PWD=$(shell pwd)
+
 DEBUG=
 #DEBUG= -ggdb -pg
 
@@ -14,7 +16,7 @@ LIBS=$(LIBDIR)libdhelas.$(libext) $(LIBDIR)libmodel.$(libext) $(LIBDIR)libgeneri
 
 OPT=O3
 
-OBJ=obj-$(DEFAULT_F_COMPILER)
+#OBJ=obj-$(DEFAULT_F_COMPILER)
 
 FFLAGS+= -g -fno-automatic $(DEBUG)  -$(OPT)
 
@@ -25,9 +27,11 @@ PATH_TO_COMMON_FILES=../../../../Template/Fortran_tmp/src_to_common
 
 INCLUDE0=$(PWD)/include
 
-INCLUDE =$(wildcard ./include/*.inc )
+INCLUDE1=$(PWD)
 
-FFLAGS+= -I$(INCLUDE0)
+INCLUDE =$(wildcard ./include/*.inc ./*.inc)
+
+FFLAGS+= -I$(INCLUDE0) -I$(INCLUDE1)
 
 %(object_str)s
 
@@ -40,7 +44,13 @@ COMMON_FILES= alphaS.o imap.o kinematics.o phase_space.o sectors.o vegas.o
 %(all_str)s
 
 
-.PHONY: clean
+.PHONY: clean libs
 clean:
-	rm -rf *.o
+	rm -rf *.o ../../lib/libdhelas.a
+
+libs:
+	cd ../../Source/DHELAS; make; cd -
+	cd ../../../Source/PDF; make ; cd -
+	cd ../../../Source/MODEL; make ; cd -
+	cd ../../../Source; make ; cd -
 

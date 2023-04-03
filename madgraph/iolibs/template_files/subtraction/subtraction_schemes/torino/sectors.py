@@ -816,41 +816,35 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
         replace_dict = {}
         proc_str = ''
+        files_str = ''
         sector_str = ''
         all_str = 'all: libs'
-
-        #replace_dict['LO_prefix'] = 'epem_ddx'
-        #replace_dict['NLO_prefix'] = defining_process.shell_string(
-        #    schannel=False, forbid=False, main=False, pdg_order=False, print_id = False)
 
         proc_str += """PROC_FILES= matrix_%s.o""" % defining_process.shell_string(
             schannel=False, forbid=False, main=False, pdg_order=False, print_id = False)
 
         for i in range(0,len(Born_processes)):
-            print(Born_processes)
             proc_str += ' matrix_' + Born_processes[i] + '.o'
 
         replace_dict['proc_str'] = proc_str
-        #print(proc_str)
  
         for i in range(0,len(all_sector_list)):
             isec = all_sector_list[i][0]
             jsec = all_sector_list[i][1]
             replace_dict['isec'] = isec
             replace_dict['jsec'] = jsec
-            all_str += ' sector_%d_%d' % (isec, jsec)   
-            sector_str += 'FILES_%d_%d= ' % (isec, jsec)
-            sector_str += 'driver_%d_%d.o ' % (isec, jsec)
-            sector_str += 'NLO_Rsub_%d_%d.o ' % (isec, jsec)
-            sector_str += 'NLO_IR_limits_%d_%d.o ' % (isec, jsec)
-            sector_str += 'NLO_K_%d_%d.o $(PROC_FILES) $(COMMON_FILES) \n' % (isec, jsec)
+            files_str += 'FILES_%d_%d= ' % (isec, jsec)
+            files_str += 'driver_%d_%d.o ' % (isec, jsec)
+            files_str += 'NLO_Rsub_%d_%d.o ' % (isec, jsec)
+            files_str += 'NLO_IR_limits_%d_%d.o ' % (isec, jsec)
+            files_str += 'NLO_K_%d_%d.o $(PROC_FILES) $(COMMON_FILES) \n' % (isec, jsec)
+            all_str += ' sector_%d_%d' % (isec, jsec) 
             sector_str += """
-sector_%d_%d: $(FILES_%d_%d)
-\t$(DEFAULT_F_COMPILER) -o $@ $^ $(LIBS)
-
 sector_%d_%d_libs: libs sector_%d_%d
 
-""" %(isec, jsec,isec, jsec,isec, jsec,isec, jsec)
+sector_%d_%d: $(FILES_%d_%d)
+\t$(DEFAULT_F_COMPILER) -o $@ $^ $(LIBS)
+""" %(isec, jsec,isec, jsec,isec, jsec,isec, jsec)  
 
         object_str = """
 %.o: %.f $(INCLUDE)
@@ -862,6 +856,7 @@ sector_%d_%d_libs: libs sector_%d_%d
         replace_dict['object_str'] = object_str
         replace_dict['sector_str'] = sector_str
         replace_dict['all_str'] = all_str
+        replace_dict['files_str'] = files_str
         filename = pjoin(dirpath, 'makefile' )
         file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/makefile_template")).read()
         file = file % replace_dict

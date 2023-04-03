@@ -35,22 +35,22 @@ FFLAGS+= -I$(INCLUDE0) -I$(INCLUDE1)
 
 %(object_str)s
 
-COMMON_FILES= alphaS.o imap.o kinematics.o phase_space.o sectors.o vegas.o 
+COMMON_FILES= alphaS.o imap.o kinematics.o phase_space.o sectors.o vegas.o
 
 %(proc_str)s
 
+%(files_str)s
+
+%(all_str)s 
+
 %(sector_str)s
-
-%(all_str)s
-
 
 .PHONY: clean libs
 clean:
 	rm -rf *.o ../../lib/libdhelas.a
+	cd ../../../Source; make clean; cd -
 
 libs:
 	cd ../../Source/DHELAS; make; cd -
-	cd ../../../Source/PDF; make ; cd -
-	cd ../../../Source/MODEL; make ; cd -
 	cd ../../../Source; make ; cd -
 

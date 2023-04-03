@@ -1994,17 +1994,22 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
                      'f2py': mg5options['f2py_compiler']}
 
         self.compiler_choice(compiler)
+
+        #gl
+        #import pdb
+        #pdb.set_trace()
+        #self.create_proc_charac(matrix_elements,history)
         
         if 'no_compilation' not in mg5options or not mg5options['no_compilation']:
             self.make()
 
         # Write command history as proc_card_mg5
-        extra_files = os.mkdir(self.dir_path + '/extra_files')
+        #extra_files = os.mkdir(self.dir_path + '/extra_files')
         if history and os.path.isdir(pjoin(self.dir_path, 'Cards')):
             output_file = pjoin(self.dir_path, 'Cards', 'proc_card_mg5.dat')
             history.write(output_file)
             #gl cp proc_card_mg5.dat in LO/NLO dir
-            cp(output_file, self.dir_path + '/extra_files')
+            cp(output_file, self.dir_path + '/../Cards')
         
         ProcessExporterFortran.finalize(self, matrix_elements, 
                                              history, mg5options, flaglist)
@@ -2200,6 +2205,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         #gl
         # removed links to makefile and coupl.inc because we create a makefile for
         # each subprocess
+        # Necessary for directories different from NLO_RxR
         #linkfiles = ['check_sa.f', 'coupl.inc', 'makefile']
         linkfiles = ['check_sa.f']
 

@@ -20,7 +20,7 @@ c
 c
 c     include
 c
-      include 'genps.inc'
+      ! include 'genps.inc'
       include 'PDF/pdf.inc'
       include 'run.inc'
       include 'alfas.inc'
@@ -68,10 +68,10 @@ c
 C      
       integer    maxflow
       parameter (maxflow=999)
-      integer idup(nexternal,maxproc)
-      integer mothup(2,nexternal,maxproc)
-      integer icolup(2,nexternal,maxflow)
-      include 'born_leshouche.inc'
+      ! integer idup(nexternal,maxproc)
+      ! integer mothup(2,nexternal,maxproc)
+      ! minteger icolup(2,nexternal,maxflow)
+      ! include 'born_leshouche.inc'
 c
 c----------
 c     start
@@ -79,7 +79,7 @@ c----------
       include 'run_card.inc'
       
 c MZ add the possibility to have shower_MC input lowercase
-      call to_upper(shower_MC)
+      ! call to_upper(shower_MC)
 C
 
 c Determine if there is a need to do scale and/or PDF reweighting
@@ -127,23 +127,23 @@ c For backward compatibility
       ellissextonfact=QES_over_ref
 
 c check that the event normalization input is reasoble
-      buff = event_norm 
-      call case_trap2(buff) ! requires a string of length 20 at least
-      event_norm=buff 
-      if (event_norm(1:7).ne.'average' .and. event_norm(1:3).ne.'sum'
-     $     .and. event_norm(1:5).ne.'unity')then
-         write (*,*) 'Do not understand the event_norm parameter'/
-     &        /' in the run_card.dat. Possible options are'/
-     &        /' "average", "sum" or "unity". Current input is: ',
-     &        event_norm
-         open(unit=26,file='../../error',status='unknown')
-         write (26,*) 'Do not understand the event_norm parameter'/
-     &        /' in the run_card.dat. Possible options are'/
-     &        /' "average", "sum" or "unity". Current input is: ',
-     &        event_norm
-         
-         stop 1
-      endif
+c      buff = event_norm 
+c      call case_trap2(buff) ! requires a string of length 20 at least
+c      event_norm=buff 
+c      if (event_norm(1:7).ne.'average' .and. event_norm(1:3).ne.'sum'
+c     $     .and. event_norm(1:5).ne.'unity')then
+c         write (*,*) 'Do not understand the event_norm parameter'/
+c     &        /' in the run_card.dat. Possible options are'/
+c     &        /' "average", "sum" or "unity". Current input is: ',
+c     &        event_norm
+c         open(unit=26,file='../../error',status='unknown')
+c         write (26,*) 'Do not understand the event_norm parameter'/
+c     &        /' in the run_card.dat. Possible options are'/
+c     &        /' "average", "sum" or "unity". Current input is: ',
+c     &        event_norm
+c         
+c         stop 1
+c      endif
 
 c info for reweight
 
@@ -182,35 +182,35 @@ c order of alfas running = 2
 c !!! end of modification !!!
 
 C       Fill common block for Les Houches init info
-      do i=1,2
-        if(lpp(i).eq.1.or.lpp(i).eq.2) then
-          idbmup(i)=2212
-        elseif(lpp(i).eq.-1.or.lpp(i).eq.-2) then
-          idbmup(i)=-2212
-        elseif(lpp(i).eq.3) then
-          idbmup(i)=11
-        elseif(lpp(i).eq.-3) then
-          idbmup(i)=-11
-        elseif(lpp(i).eq.0) then
-          idbmup(i)=idup(i,1)
-        else
-          idbmup(i)=lpp(i)
-        endif
-        ebmup(i)=ebeam(i)
-      enddo
-      call get_pdfup(pdlabel,pdfgup,pdfsup,lhaid)
+!      do i=1,2
+!        if(lpp(i).eq.1.or.lpp(i).eq.2) then
+!          idbmup(i)=2212
+!        elseif(lpp(i).eq.-1.or.lpp(i).eq.-2) then
+!          idbmup(i)=-2212
+!        elseif(lpp(i).eq.3) then
+!          idbmup(i)=11
+!        elseif(lpp(i).eq.-3) then
+!          idbmup(i)=-11
+!        elseif(lpp(i).eq.0) then
+!          idbmup(i)=idup(i,1)
+!        else
+!          idbmup(i)=lpp(i)
+!        endif
+!        ebmup(i)=ebeam(i)
+!      enddo
+!      call get_pdfup(pdlabel,pdfgup,pdfsup,lhaid)
 
-      if (lpdfvar(1) .and. (lpp(1).ne.0.or.lpp(2).ne.0) ) then
+!      if (lpdfvar(1) .and. (lpp(1).ne.0.or.lpp(2).ne.0) ) then
 c fill the nmemPDF(i) array with the number of PDF error set. This we
 c get from LHAPDF.
-         call numberPDFm(1,nmemPDF(1))
-         if (nmemPDF(1).eq.1) then
-            nmemPDF(1)=0
-            lpdfvar(1)=0
-         endif
-      else
-         nmemPDF(1)=0
-      endif
+!         call numberPDFm(1,nmemPDF(1))
+!         if (nmemPDF(1).eq.1) then
+!            nmemPDF(1)=0
+!            lpdfvar(1)=0
+!         endif
+!      else
+!         nmemPDF(1)=0
+!      endif
 
       return
  99   write(*,*) 'error in reading'

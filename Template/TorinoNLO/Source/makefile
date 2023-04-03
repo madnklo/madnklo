@@ -12,8 +12,7 @@ PROCESS= hfill.o matrix.o myamp.o
 
 HBOOK = hfill.o hcurve.o hbook1.o hbook2.o
 
-GENERIC = $(alfas_functions).o invarients.o hfill.o pawgraphs.o ran1.o rw_events.o rw_routines.o kin_functions.o \
-	  open_file.o basecode.o setrun.o run_printout.o dgauss.o ranmar.o getissud.o
+GENERIC = $(alfas_functions).o setrun.o rw_routines.o open_file.o 
 
 INCLUDEF= coupl.inc genps.inc hbook.inc psample.inc pmass.inc nexternal.inc cluster.inc
 
@@ -25,7 +24,7 @@ COMBINE = combine_events.o  rw_events.o ranmar.o  kin_functions.o open_file.o rw
 
 .f.o: ; $(FC) $(FFLAGS) -c $*.f
 
-all: $(LIBDIR)libdhelas.a $(LIBDIR)libgeneric.a $(LIBDIR)libpdf.a  $(LIBDIR)libmodel.a  $(LIBDIR)libcernlib.a \
+all: $(LIBDIR)libgeneric.a  $(LIBDIR)libpdf.a  $(LIBDIR)libmodel.a  $(LIBDIR)libcernlib.a \
     param_card.inc
 	rm -f PDF/*.o
 
@@ -66,10 +65,10 @@ genps.inc: nexternal.inc
 	touch genps.inc
 
 run_card.inc: ../Cards/run_card.dat
-	../bin/madevent treatcards run
+	../bin/treatcards run
 
 param_card.inc: ../Cards/param_card.dat
-	../bin/madevent treatcards param
+	../bin/treatcards param
 
 $(BINDIR)gen_ximprove: gen_ximprove.o ranmar.o rw_routines.o open_file.o
 	$(FC) $(FFLAGS) -o gen_ximprove gen_ximprove.o ranmar.o rw_routines.o open_file.o

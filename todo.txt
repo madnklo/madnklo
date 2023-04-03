@@ -57,11 +57,11 @@ TODO 30/03
 
 - *fixed* fix writing of makefile in sectors.py (it seems to import the same for every subprocess directory!)
 
-- take care of changes in Source/makefile and setrun.f for generating libgeneric in Source (working one in test_eejj)
+- *fixed* take care of changes in Source/makefile and setrun.f for generating libgeneric in Source (working one in test_eejj)
 
-- import in Template/TorinoNLO the run_card.dat from NLO template and associated files (cuts.inc, run.inc)
+- *fixed* import in Template/TorinoNLO the run_card.dat from NLO template and associated files (cuts.inc, run.inc)
 
-- remove current param/run_card.inc generation from export_ME7.py and create a 'treatcards' python file
+- *fixed* remove current param/run_card.inc generation from export_ME7.py and create a 'treatcards' python file
   in Template/TorinoNLO/bin to be called before the integration in the makefile, as
                 ../bin/treatcards treatcards all
   so as to always have their updated version;
@@ -70,10 +70,21 @@ TODO 30/03
 
 - *fixed* add symlink for *_spin_correlation in the include directory
 
-- create the new TorinoNLO template
+- *fixed* create the new TorinoNLO template
 
 
+*********************
+TODO 03/04
 
+- two run_cards are generated (ME7 for MadNkLO dependences, NLO for run_card.inc): choose one
+
+- proc_characteristic: now generated in bin/treatcards but just with default values! Adapt to process.
+
+- link to makefile, coupl.inc in export_v4.py: removing the symlinks we have makefile just in NLO_RxR directories; 
+  launch command doesn't work for LO for example
+
+- fix get_kkblo and geet_ccblo double definition in subprocesses featuring more than one Born matrix: add proc_prefix in 
+  NLO_IR_limits_template and matrix_standalone_splitOrders template.
 
 
 

@@ -102,9 +102,13 @@ c
       write(iu,*)' itns and calls for Rsub_%(isec)d_%(jsec)d warmup  = ',nitRth,nclRth
       write(iu,*)' itns and calls for Rsub_%(isec)d_%(jsec)d integration = ',nitR,nclR
       write(iu,*)
-      write(iu,*)' '//line//line
+c      write(iu,*)' '//line//line
+      write(iu,*)' '//line
+      write(iu,*)' '//line
       write(iu,*)' sigma Rsub_%(isec)d_%(jsec)d [pb]  = ',res_r,' +-',err_r
-      write(iu,*)' '//line//line
+      write(iu,*)' '//line
+      write(iu,*)' '//line
+c      write(iu,*)' '//line//line
       write(iu,*)
       close(iu)
       close(iu1)

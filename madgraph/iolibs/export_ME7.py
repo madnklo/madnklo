@@ -767,10 +767,7 @@ class ME7Exporter(object):
                     modelReader_instance, run_card, all_MEAccessors, ME7_options ) )
 
         #gl
-        print('ME7Exporter ****')
-        #import pdb
-        #pdb.set_trace()
-        self.do_treatcards('', 'all', None, model_export_options)
+        #self.do_treatcards('', 'all', None, model_export_options)
    
         # And finally dump ME7 output information so that all relevant objects
         # can be reconstructed for a future launch with ME7Interface.
@@ -1126,10 +1123,10 @@ class ME7ExporterTorino(ME7Exporter):
         # Forward the request for copying the template to each contribution
         self.contributions.apply_method_to_all_contribs('copy_template', method_args = [model])
 
-    def create_run_card(self):
+    def create_NLO_run_card(self):
         """ Create the run card."""
         
-        run_card = banner_mod.RunCardNLO()
+        NLO_run_card = banner_mod.RunCardNLO()
 
         history = ''
         processes = [[v[0] for v in contrib.get_processes_map().values()] for contrib in self.contributions]
@@ -1138,12 +1135,12 @@ class ME7ExporterTorino(ME7Exporter):
             'loop_induced': len(self.contributions.get_loop_induced_contributions()), 
             'colored_pdgs': range(1,7)+[21]}
 
-        run_card.create_default_for_process(proc_characteristic, history, processes[0])
-
-        run_card.write(pjoin(self.export_dir, 'Cards', 'run_card.dat'), 
-            template=pjoin(self.export_dir, 'Cards', 'run_card.dat'), python_template=True )
-        run_card.write(pjoin(self.export_dir, 'Cards', 'run_card_default.dat'), 
-            template=pjoin(self.export_dir, 'Cards', 'run_card.dat'), python_template=True )
+        NLO_run_card.create_default_for_process(proc_characteristic, history, processes[0])
+        
+        NLO_run_card.write(pjoin(self.export_dir, 'Cards', 'NLO_run_card.dat'), 
+            template=pjoin(self.export_dir, 'Cards', 'NLO_run_card.dat'), python_template=True )
+        NLO_run_card.write(pjoin(self.export_dir, 'Cards', 'NLO_run_card_default.dat'), 
+            template=pjoin(self.export_dir, 'Cards', 'NLO_run_card.dat'), python_template=True )
 
     def finalize(self, flaglist, interface_history):
         """Distribute and organize the finalization of all contributions. """
@@ -1184,6 +1181,8 @@ class ME7ExporterTorino(ME7Exporter):
             contrib.link_global_ME7_resources(self.export_dir)
 
         # Create the run_card
+        # TODO: choice which run_card to use
+        self.create_NLO_run_card()
         self.create_run_card()
 
         # Add the cards generated in MODEL to the Cards directory
@@ -1231,7 +1230,7 @@ class ME7ExporterTorino(ME7Exporter):
 
         # Now generate all the integrands from the contributions exported
         all_integrands = []
-        run_card = banner_mod.RunCardNLO(pjoin(self.export_dir,'Cards','run_card.dat'))
+        run_card = banner_mod.RunCardME7(pjoin(self.export_dir,'Cards','run_card.dat'))
 
         # We might want to recover whether prefix was used when importing the model and whether
         # the MG5 name conventions was used. But this is a detail that can easily be fixed later.

@@ -76,14 +76,14 @@ TODO 30/03
 *********************
 TODO 03/04
 
-- two run_cards are generated (ME7 for MadNkLO dependences, NLO for run_card.inc): choose one
+- two run_cards are generated (ME7 for MadNkLO dependences, NLO for run_card.inc): choose one (Maybe this is not a real issue)
 
 - proc_characteristic: now generated in bin/treatcards but just with default values! Adapt to process.
 
-- link to makefile, coupl.inc in export_v4.py: removing the symlinks we have makefile just in NLO_RxR directories; 
+- *fixed* link to makefile, coupl.inc in export_v4.py: removing the symlinks we have makefile just in NLO_RxR directories; 
   launch command doesn't work for LO for example
 
-- fix get_kkblo and geet_ccblo double definition in subprocesses featuring more than one Born matrix: add proc_prefix in 
+- *fixed* fix get_kkblo and geet_ccblo double definition in subprocesses featuring more than one Born matrix: add proc_prefix in 
   NLO_IR_limits_template and matrix_standalone_splitOrders template.
 
 

@@ -2074,8 +2074,10 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
 
         cwd = os.getcwd()
         # Create the directory PN_xx_xxxxx in the specified path
+        
         dirpath = pjoin(self.dir_path, 'SubProcesses', \
                        "P%s" % matrix_element.get('processes')[0].shell_string())
+
         #gl
         all_process_str = []
         all_process_str.append(matrix_element.get('processes')[0].shell_string(
@@ -2207,7 +2209,14 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         # each subprocess
         # Necessary for directories different from NLO_RxR
         #linkfiles = ['check_sa.f', 'coupl.inc', 'makefile']
-        linkfiles = ['check_sa.f']
+        strdirpath=(str(self.dir_path))
+        strdirpath=strdirpath.split('/')
+
+        if strdirpath[-1][0] == 'L': # These links need to exist only for LO_XXXX directories
+                                     # For the NLO_XXXX we have a makefile for each Subprocess           
+            linkfiles = ['check_sa.f', 'coupl.inc', 'makefile']
+        else:
+            linkfiles = ['check_sa.f']
 
         for file in linkfiles:
             ln('../%s' % file, cwd=dirpath)

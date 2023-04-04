@@ -28,7 +28,7 @@ c     external
       double precision alpha_qcd
       logical docut
       integer, parameter :: HEL = - 1
-      double precision  GET_CCBLO
+      double precision  %(proc_prefix_S)s_GET_CCBLO
 c
 c     initialise
       M2_S=0d0
@@ -89,7 +89,7 @@ c     safety check
 c
 c     call colour-connected Born
             call %(proc_prefix_S)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
-            ccBLO = GET_CCBLO(lb,mb)
+            ccBLO = %(proc_prefix_S)s_GET_CCBLO(lb,mb)
 c
 c     eikonal
 c     TODO: check for DIS
@@ -153,7 +153,7 @@ c     for sectors (ia,ib)+(ib,ia)
       integer, parameter :: hel = - 1
       double precision alphas,alpha_qcd
       logical docut
-      double precision GET_KKBLO
+      double precision %(proc_prefix_H_C_FgFg)s_GET_KKBLO
 c     set logical doplot
 c      logical, save :: doplot=.false.
 c      common/cdoplot/doplot
@@ -210,7 +210,7 @@ c
          stop
       endif
 c
-      KKBLO = GET_KKBLO(parent_leg,xpb,kt)
+      KKBLO = %(proc_prefix_H_C_FgFg)s_GET_KKBLO(parent_leg,xpb,kt)
       if(ierr.eq.1)goto 999
 c     TODO: improve ktmuktnuBmunu / kt^2
       M2tmp=CA*2d0*(2d0/sab*KKBLO+x/(1d0-x)*(1d0-x**alpha)*BLO+(1d0-x)/x*(1d0-(1d0-x)**alpha)*BLO)
@@ -359,7 +359,7 @@ c     logical, save :: doplot=.false.
 c     common/cdoplot/doplot
 c     logical, save :: ini=.false.
       double precision alphas,alpha_qcd
-      double precision get_kkblo
+      double precision %(proc_prefix_H_C_FqFqx)s_get_kkblo
       logical docut
       
 c
@@ -413,7 +413,7 @@ c
          stop
       endif
 c
-      KKBLO = GET_KKBLO(parent_leg,xpb,kt)
+      KKBLO = %(proc_prefix_H_C_FqFqx)s_GET_KKBLO(parent_leg,xpb,kt)
 c     TODO: improve ktmuktnuBmunu / kt^2
       M2tmp=TR*(BLO-4d0/sab*KKBLO)
 c     account for different damping factors according to

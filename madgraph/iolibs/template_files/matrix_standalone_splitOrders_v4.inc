@@ -921,7 +921,7 @@ C           Now make sure we have not considered it yet, since (i, j) maps to (j
       END
 
 C gl  
-      DOUBLE PRECISION FUNCTION GET_CCBLO(LEG_A,LEG_B)  
+      DOUBLE PRECISION FUNCTION %(proc_prefix)sGET_CCBLO(LEG_A,LEG_B)  
       IMPLICIT NONE
 C     given a color dipole pair, return the
 C     corresponding COLOR_CORRELATED_EVALS value
@@ -938,7 +938,7 @@ C      DATA ((COLOR_CORRELATED_EVALS(I,J), I=1,NCOLORCORRELATORS),J=0,NSQAMPSO)
       DATA COLOR_DIPOLES(:,:) /%(color_dipoles)s/
       DO I=1,NCOLORCORRELATORS
          IF(LEG_A.eq.COLOR_DIPOLES(I,1).and.LEG_B.eq.COLOR_DIPOLES(I,2))THEN
-            GET_CCBLO = COLOR_CORRELATED_EVALS(I,0)
+            %(proc_prefix)sGET_CCBLO = COLOR_CORRELATED_EVALS(I,0)
             EXIT 
          ENDIF
       ENDDO
@@ -952,7 +952,7 @@ C Beginning of a series of subroutine related to the evaluation
 C and steering of the computation of spin-correlated MEs.
 C --------------------------------------------------------------
 
-      DOUBLE PRECISION FUNCTION GET_KKBLO(PARENT_LEG,PB,KT)
+      DOUBLE PRECISION FUNCTION %(proc_prefix)sGET_KKBLO(PARENT_LEG,PB,KT)
       implicit NONE
       INTEGER I
       INTEGER NEXTERNAL
@@ -980,7 +980,7 @@ C --------------------------------------------------------------
 
       CALL %(proc_prefix)sSET_SPIN_CORRELATION_VECTORS(PARENT_LEG,NVECTOR_TO_TRY_PER_LEG,SCVECTORS)
       CALL %(proc_prefix)sSMATRIX_SPLITORDERS(PB,MATELEMS)
-      GET_KKBLO = MATELEMS(0)
+      %(proc_prefix)sGET_KKBLO = MATELEMS(0)
 
       return
       end function 

@@ -88,4 +88,10 @@ TODO 03/04
 
 
 
+*********************
+TODO 05/04
 
+- Check normalizations for the real and the counterterms: we need this info in order to check the correctness of
+our results with previous run on madnklo;
+
+- Check how to extract the infos of the proc_characteristic to write run_card and param_card

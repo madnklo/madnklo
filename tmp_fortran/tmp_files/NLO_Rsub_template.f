@@ -14,7 +14,7 @@ c     (n+1)-body NLO integrand for vegas
       integer ntested
       parameter(ntest=30)
       save ievt,nthres,ntested
-      double precision int_real,int_real_no_cnt
+      double precision int_real_no_cnt
       double precision sNLO(nexternal,nexternal),sminNLO
       double precision sLO(nexternal-1,nexternal-1)
       double precision Z_NLO,ZsumSi,ZsumSj
@@ -53,16 +53,8 @@ c     initialise
       isec = %(isec)d
       jsec = %(jsec)d
       iref = %(iref)d
-      ZsumSi=0d0
-      ZsumSj=0d0
-      xjac=0d0
-      int_real=0d0
+      int_real_%(isec)d_%(jsec)d=0d0
       int_real_no_cnt=0d0
-      sNLO=0d0
-      sLO=0d0
-      KNLO=0d0
-      KS=0d0
-      KHC=0d0
       do i=1,3
          xsave(i)=x(i)
       enddo
@@ -124,10 +116,10 @@ c
       %(str_int_real)s
 c
 c     counterterm
-      call local_counter_NLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,iA,wgt,ZsumSi,ZsumSj,xjac,KS,KHC,KNLO,ierr)
+      call local_counter_NLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,ZsumSi,ZsumSj,xjac,KS,KHC,KNLO,ierr)
 c
 c     subtraction
-      int_real=int_real_no_cnt-KNLO*xjac
+      int_real_%(isec)d_%(jsec)d=int_real_no_cnt-KNLO*xjac
 c
 c     print out current run progress
 c     TODO: adapt progress bar

@@ -12,7 +12,7 @@
       character*1 sector_type
       real * 8 sigma,sCM
 
-      
+      Z_NLO = 0d0
 !     build the total sigma (we need to know the number of sectors)
 
       sigma = 0d0
@@ -78,6 +78,9 @@ c     integer npsec
 
       sqisec=0d0
       sqjsec=0d0
+      wij=0d0
+      wgt=0d0
+      eisec=0d0
         
 !build s,sqi,sqj 
 
@@ -88,7 +91,7 @@ c     integer npsec
 
       eisec = sqisec/sCM
       wij = sCM*xs(isec,jsec)/sqisec/sqjsec
-c      if(xs(isec,jsec).lt.1d-8)then
+c      if(xs(isec,jsec).lt.1d-10)then
 c         write(*,*) 'isec - jsec', isec, jsec
 c         write(*,*) 'xs', xs(isec,jsec)
 c      endif
@@ -109,6 +112,8 @@ c      if(eisec.eq.0d0.or.wij.eq.0d0) write(*,*) eisec,wij
 
       sqisec=0d0
       sqjsec=0d0
+      wij=0d0
+      wgt=0d0
       
       do j=3,nexternal
          sqisec = sqisec + xs(isec,j)

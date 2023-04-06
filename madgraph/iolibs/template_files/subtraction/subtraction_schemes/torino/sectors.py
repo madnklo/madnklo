@@ -843,15 +843,15 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 sector_%d_%d_libs: libs sector_%d_%d
 
 sector_%d_%d: $(FILES_%d_%d)
-\t$(DEFAULT_F_COMPILER) -o $@ $^ $(LIBS)
-""" %(isec, jsec,isec, jsec,isec, jsec,isec, jsec)  
+\t$(DEFAULT_F_COMPILER) $(patsubst %%,$(OBJ)/%%,$(FILES_%d_%d)) $(LIBS) -o $@ 
+""" %(isec, jsec,isec, jsec,isec, jsec,isec, jsec,isec,jsec)    
 
         object_str = """
 %.o: %.f $(INCLUDE)
-\t$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) $< -o $@
+\t$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $< 
 
 %.o: $(PATH_TO_COMMON_FILES)/%.f $(INCLUDE)
-\t$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) $< -o $@
+\t$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $< 
 """
         replace_dict['object_str'] = object_str
         replace_dict['sector_str'] = sector_str

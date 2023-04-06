@@ -55,6 +55,9 @@ c     initialise
       iref = %(iref)d
       int_real_%(isec)d_%(jsec)d=0d0
       int_real_no_cnt=0d0
+      ZsumSi=0d0
+      ZsumSj=0d0
+      Z_NLO=0d0
       do i=1,3
          xsave(i)=x(i)
       enddo
@@ -83,6 +86,7 @@ c      if(ierr.eq.1)goto 999
 c
 c     tiny technical phase-space cut to avoid fluctuations
       tinycut=tiny1
+      if(dotechcut(snlo,nexternal,tinycut)) return
 c     TODO: look at dotechcut
 c      if(dotechcut(x,nexternal,tinycut))goto 999
 c

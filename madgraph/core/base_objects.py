@@ -3306,17 +3306,10 @@ class Process(PhysicsObject):
         
         for leg in legs:
             mypart = self['model'].get('particle_dict')[leg['id']]
-            #print(leg)
-            #print('mypart : ')
-            #print(mypart)
-            #print('Entering the for cycle')
-            #print(mystr)
             if prevleg and prevleg['state'] == False \
                    and leg['state'] == True:
                 # Separate initial and final legs by ">"
-                #print('Entering prevleg if statement')
                 mystr = mystr + '_'
-                #print(mystr)
                 # Add required s-channels
                 if self['required_s_channels'] and \
                        self['required_s_channels'][0] and schannel:
@@ -3330,9 +3323,6 @@ class Process(PhysicsObject):
             else:
                 mystr = mystr + mypart['antiname']
             prevleg = leg
-            #print('Prevleg : ')
-            #print(prevleg)
-            #print('Next leg')
 
         # Check for forbidden particles
         if self['forbidden_particles'] and forbid:
@@ -3349,10 +3339,6 @@ class Process(PhysicsObject):
         mystr = mystr.replace('-', 'm')
         # Just to be safe, remove all spaces
         mystr = mystr.replace(' ', '')
-
-        #print('After substitutions')
-        #print(mystr)
-        #print(' ')
 
         for decay in self.get('decay_chains'):
             mystr = mystr + "_" + decay.shell_string(schannel,forbid, main=False,
@@ -3409,13 +3395,13 @@ class Process(PhysicsObject):
                 mystr = mystr + '_'
                 
                 # Add required s-channels
-                #if self['required_s_channels'] and \
-                #       self['required_s_channels'][0] and schannel:
-                #    mystr += "_or_".join(["".join([self['model'].\
-                #                       get('particle_dict')[req_id].get_name() \
-                #                                for req_id in id_list]) \
-                #                    for id_list in self['required_s_channels']])
-                #    mystr = mystr + '_'
+                if self['required_s_channels'] and \
+                      self['required_s_channels'][0] and schannel:
+                    mystr += "_or_".join(["".join([self['model'].\
+                                      get('particle_dict')[req_id].get_name() \
+                                               for req_id in id_list]) \
+                                   for id_list in self['required_s_channels']])
+                    mystr = mystr + '_'
             if leg['state'] == True:
                 if mypart['is_part']:
                     id_final_part.append((leg['id'],mypart['name']))
@@ -3430,16 +3416,11 @@ class Process(PhysicsObject):
                     mystr = mystr + mypart['antiname']
             prevleg = leg
 
-        #print('Id legs :')
-        #print(id_final_part)
-        #print(final_mypart_name)
-
         def takeFirst(elem):
             return elem[0]
 
         id_final_part.sort(key=takeFirst, reverse = True)
         perm_id = permutations(id_final_part)
-        #print('Reverse Id legs: ')
 
         perm_str = []
         tmp_mystr = mystr
@@ -3464,9 +3445,6 @@ class Process(PhysicsObject):
             # Just to be safe, remove all spaces
             mystr = mystr.replace(' ', '')
 
-            #print('After substitutions')
-            #print(mystr)
-            #print(' ')
 
             for decay in self.get('decay_chains'):
                 mystr = mystr + "_" + decay.shell_string(schannel,forbid, main=False,
@@ -3486,7 +3464,6 @@ class Process(PhysicsObject):
 
             perm_str.append(mystr)
 
-        #print(perm_str)
         return perm_str
 
         #return mystr

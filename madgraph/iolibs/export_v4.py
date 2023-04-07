@@ -2081,10 +2081,13 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         #gl
         all_process_str = []
         all_process_str.append(matrix_element.get('processes')[0].shell_string(
-                                        schannel=False, forbid=False, main=False, pdg_order=False, print_id = False) + '_')
+                                        schannel=True, forbid=True, main=False, pdg_order=False, print_id = False) + '_')
+
         for i in range(1,len(matrix_element.get('processes'))):
             all_process_str.append(matrix_element.get('processes')[i].shell_string_user(
-                                        schannel=False, forbid=False, main=False, pdg_order=False, print_id = False)[0] + '_')
+                                        schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)[0] + '_')
+
+        
 
         if self.opt['sa_symmetry']:
             # avoid symmetric output
@@ -2148,14 +2151,14 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             filename = pjoin(dirpath, 'matrix_prod.f')
         else:
             filename = pjoin(dirpath, 'matrix_%s.f' % matrix_element.get('processes')[0].shell_string(
-            schannel=False, forbid=False, main=False, pdg_order=False, print_id = False))
+            schannel=True, forbid=True, main=False, pdg_order=False, print_id = False))
         calls_2 = self.write_matrix_element_v4(
             writers.FortranWriter(filename),
             matrix_element,
             fortran_model,
             True,
             proc_prefix = matrix_element.get('processes')[0].shell_string(
-            schannel=False, forbid=False, main=False, pdg_order=False, print_id = False) + '_',
+            schannel=True, forbid=True, main=False, pdg_order=False, print_id = False) + '_',
             extra_proc=all_process_str
             )
 

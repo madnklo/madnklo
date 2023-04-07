@@ -578,8 +578,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                 replace_dict_ct['str_defHC'] = str_defHC
                 replace_dict_ct['str_M2'] = str_M2
                 replace_dict_int_real['str_int_real'] = str_int_real               
-                replace_dict_int_real['NLO_proc_str'] = str(defining_process.shell_string(schannel=False, 
-                                        forbid=False, main=False, pdg_order=False, print_id = False) + '_')
+                replace_dict_int_real['NLO_proc_str'] = str(defining_process.shell_string(schannel=True, 
+                                        forbid=True, main=False, pdg_order=False, print_id = False) + '_')
 
             filename = pjoin(dirpath, 'NLO_K_%d_%d.f' % (isec, jsec))
 #            dirtmp=pjoin(dirmadnklo,"tmp_fortran/tmp_files/NLO_K_template.f")
@@ -719,7 +719,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             if necessary_ct_list[i*5] == 1 or necessary_ct_list[i*5+1] == 1:
                 # list of proc str permutations 'epem_ddx' for template
                 uB_proc = necessary_ct[i*5].current.shell_string_user(
-                            schannel=False, forbid=False, main=False, pdg_order=False, print_id = False)
+                            schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
                 # list of proc str permutations '1_epem_ddx' for directory
                 uB_proc_str_1 = necessary_ct[i*5].current.shell_string_user()
                 for j in range(0,len(uB_proc)):
@@ -748,7 +748,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                         tmp_proc = 'proc_prefix_H_C_FqFqx'
 
                     uB_proc = necessary_ct[i*5+2].current.shell_string_user(
-                                schannel=False, forbid=False, main=False, pdg_order=False, print_id = False)
+                                schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
                     uB_proc_str_1 = necessary_ct[i*5+2].current.shell_string_user()
                     for j in range(0,len(uB_proc)):
                         dirpathLO = pjoin(dirpathLO_head, 'SubProcesses', "P%s" % uB_proc_str_1[j])
@@ -775,6 +775,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
 
         # Link LO files to each real process directory
+        print(Born_processes)
         for i in range(0,len(Born_processes)):
             os.symlink( "%s/matrix_%s.f" % (path_Born_processes[i], Born_processes[i]), 
                         "%s/matrix_%s.f" % (dirpath, Born_processes[i]) )
@@ -821,7 +822,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         all_str = 'all: libs'
 
         proc_str += """PROC_FILES= matrix_%s.o""" % defining_process.shell_string(
-            schannel=False, forbid=False, main=False, pdg_order=False, print_id = False)
+            schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
 
         for i in range(0,len(Born_processes)):
             proc_str += ' matrix_' + Born_processes[i] + '.o'

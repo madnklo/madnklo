@@ -100,15 +100,24 @@ our results with previous run on madnklo;
 *********************
 TODO 06/04
 
-- Check the creation of the link to the Born matrix element (proc_prefix) for
+- *done* Check the creation of the link to the Born matrix element (proc_prefix) for
 the command line e+ e- > a > j j;
 
 - Check the GevtoPb and 1/2/sCM prefactors;
 
 - Check cancelation at NLO;
 
-- Implementation of the dotechcut function for avoiding NaN configurations;
+- *done* Implementation of the dotechcut function for avoiding NaN configurations;
 
-- Initialization of variables to 0 like ZNLO (Be sure that all the variables are set to 0 at the first time);
+- *done* Initialization of variables to 0 like ZNLO (Be sure that all the variables are set to 0 at the first time);
 
 - Implementation of a function to test the cancelation of the IR limits
+
+
+**********************
+TODO 07/04
+
+- Check the call to the HC functions (look at the X);
+- Keep trace of the ierr and restore all of them;
+- Check sectors.f for the implementation of the sectors functions;
+- Check signs and normalization of Soft sector functions (look at the CCBLO);

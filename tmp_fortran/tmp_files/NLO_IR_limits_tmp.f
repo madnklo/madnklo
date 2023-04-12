@@ -290,7 +290,11 @@ c     invariant quantities
       sab=xs(ia,ib)
       sar=xs(ia,ir)
       sbr=xs(ib,ir)
-      x=sar/(sar+sbr)
+      if(leg_pdgs(ia).eq.21) then
+         x=sbr/(sar+sbr)
+      else
+         x=sar/(sar+sbr)
+      endif
       y=sab/(sab+sar+sbr)
       xinit = 1d0 - sab/(sar+sbr)
 c
@@ -303,7 +307,7 @@ c
 c     call Born
       call %(proc_prefix_H_C_FgFq)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
       BLO = ANS(0)
-c
+c     In the following equation the x variable is related to the quark energy
       M2tmp=BLO*CF*((1d0-x)+2d0*x/(1d0-x)*(1d0-x**alpha))
 c     account for different damping factors according to
 c     recoiler position (ir)

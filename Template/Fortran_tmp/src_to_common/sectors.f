@@ -1,12 +1,12 @@
 !!!!! Fortran version of the sectors.py !!!!!!
-      subroutine get_Z_NLO(snlo,sCM,alpha,isec,jsec,Z_NLO,sector_type,ierr)
+      subroutine get_Z_NLO(xs,sCM,alpha,isec,jsec,Z_NLO,sector_type,ierr)
       implicit none
       include 'nexternal.inc'
       include 'all_sector_list.inc'
       integer i
       integer isec,jsec,ierr
       double precision alpha
-      double precision snlo(nexternal,nexternal)
+      double precision xs(nexternal,nexternal)
       double precision wgt
       double precision Z_NLO
       character*1 sector_type
@@ -28,36 +28,38 @@
       if(sector_type.eq.'F') then
 !     build the total sigma
          do i=1,lensectors
-            call getsectorwgt(snlo,sCM,all_sector_list(1,i),all_sector_list(2,i),wgt)
+            call getsectorwgt(xs,sCM,all_sector_list(1,i),all_sector_list(2,i),wgt)
             sigma = sigma + wgt
             if(all_sector_list(2,i).gt.2) then
-               call getsectorwgt(snlo,sCM,all_sector_list(2,i),all_sector_list(1,i),wgt)
+               call getsectorwgt(xs,sCM,all_sector_list(2,i),all_sector_list(1,i),wgt)
                sigma = sigma + wgt
             endif
          enddo
-         call getsectorwgt(snlo,sCM,isec,jsec,wgt)
+         call getsectorwgt(xs,sCM,isec,jsec,wgt)
+         Z_NLO = wgt
          if(jsec.gt.2) then
-            call getsectorwgt(snlo,sCM,jsec,isec,wgt)
+            call getsectorwgt(xs,sCM,jsec,isec,wgt)
             Z_NLO = Z_NLO + wgt ! Symmetrization
          endif
       elseif(sector_type.eq.'S') then
          do i=1,lensectors
             if(isec.lt.jsec) then
-               call getsectorwgt_S(snlo,sCM,all_sector_list(1,i),all_sector_list(2,i),wgt)
+               call getsectorwgt_S(xs,sCM,all_sector_list(1,i),all_sector_list(2,i),wgt)
                sigma=sigma+wgt
             else
-               call getsectorwgt_S(snlo,sCM,all_sector_list(2,i),all_sector_list(1,i),wgt)
+               call getsectorwgt_S(xs,sCM,all_sector_list(2,i),all_sector_list(1,i),wgt)
                sigma=sigma+wgt
             endif
          enddo
-         call getsectorwgt_S(snlo,sCM,isec,jsec,wgt)
+         call getsectorwgt_S(xs,sCM,isec,jsec,wgt)
+         Z_NLO = wgt
       else
          write(*,*) 'Not allowed value for sector_type: ', sector_type
          write(*,*) 'Exit...'
          stop
       endif
 
-      Z_NLO = wgt/sigma
+      Z_NLO = Z_NLO/sigma
       
       end
 
@@ -84,10 +86,19 @@ c     integer npsec
         
 !build s,sqi,sqj 
 
-      do j=3,nexternal
-         sqisec = sqisec + xs(isec,j)
-         sqjsec = sqjsec + xs(jsec,j)
-      enddo
+!      do j=3,nexternal
+!         sqisec = sqisec + xs(isec,j)
+!         sqjsec = sqjsec + xs(jsec,j)
+!      enddo
+
+
+      sqisec = xs(isec,1)+xs(isec,2)
+      sqjsec = xs(jsec,1)+xs(jsec,2)
+c$$$      write(*,*) sqisec
+c$$$      write(*,*) sqjsec
+c$$$      write(*,*) sCM
+c$$$      write(*,*) xs(isec,jsec)
+c$$$      write(*,*)
 
       eisec = sqisec/sCM
       wij = sCM*xs(isec,jsec)/sqisec/sqjsec
@@ -96,7 +107,10 @@ c         write(*,*) 'isec - jsec', isec, jsec
 c         write(*,*) 'xs', xs(isec,jsec)
 c      endif
 c      write(*,*) wij, sCM, sqisec, sqjsec   
-      if(wij.lt.1d-10) return 
+      if(wij.lt.1d-15) then
+c         write(*,*) 'wij too small in getsectorwgt', isec,jsec, wij, sqisec,sqjsec,sCM,xs(isec,jsec)
+         wij=1d-15
+      endif
       wgt = 1d0/eisec/wij
 c      if(eisec.eq.0d0.or.wij.eq.0d0) write(*,*) eisec,wij
       end
@@ -121,7 +135,10 @@ c      if(eisec.eq.0d0.or.wij.eq.0d0) write(*,*) eisec,wij
       enddo
 
       wij = sCM*xs(isec,jsec)/sqisec/sqjsec
-      if(wij.lt.1d-10) return
+      if(wij.lt.1d-15) then
+c     write(*,*) 'wij too small in getsectorwgt', isec,jsec, wij, sqisec,sqjsec,sCM,xs(isec,jsec)
+         wij=1d-15
+      endif
       wgt = 1d0/wij
       
       end

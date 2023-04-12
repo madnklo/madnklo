@@ -73,6 +73,7 @@ c     phase space and invariants
          write(*,*) 'Wrong sCM', sCM
          stop
       endif
+      call test_R(iunit,x,isec,jsec)
       call phase_space_npo(x,sCM,iU,iS,iB,iA,p,pb,xjac,xjacB)
 c      if(xjac.eq.0d0)goto 999
       call invariants_from_p(p,nexternal,sNLO,ierr)

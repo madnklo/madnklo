@@ -1,4 +1,3 @@
-!!!!! Fortran version of the sectors.py !!!!!!
       subroutine get_Z_NLO(xs,sCM,alpha,isec,jsec,Z_NLO,sector_type,ierr)
       implicit none
       include 'nexternal.inc'
@@ -14,8 +13,8 @@
 
       Z_NLO = 0d0
 !     build the total sigma (we need to know the number of sectors)
-
       sigma = 0d0
+      ierr=0d0
 
       if(isec.le.2) then
          write(*,*) 'The first particle sector must be in 

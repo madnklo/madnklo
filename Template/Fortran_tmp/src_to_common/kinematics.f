@@ -17,6 +17,12 @@ c     build invariants from p
          do j=i+1,nparticles
             xs(i,j)=2d0*dot(p(0,i),p(0,j))
             xs(j,i)=xs(i,j)
+c     safety measure
+            if(xs(i,j).lt.0d0)then
+               write(77,*)'negative invariants in invariants_from_p'
+               write(77,*)i,j,xs(i,j)
+               goto 999
+            endif
          enddo
       enddo
 c

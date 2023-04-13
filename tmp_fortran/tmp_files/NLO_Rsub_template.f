@@ -12,7 +12,7 @@ c     (n+1)-body NLO integrand for vegas
       integer iunit
       common/ciunitNLO/iunit
       integer ntested
-      parameter(ntest=30)
+      parameter(ntest=20)
       save ievt,nthres,ntested
       double precision int_real_no_cnt
       double precision sNLO(nexternal,nexternal),sminNLO
@@ -45,9 +45,12 @@ c     TODO: understand x(mxdim) definition by Vegas
       integer, parameter :: hel=-1
 c     TODO: convert to partonic sCM 
       sCM = (2d0*EBEAM(1))**2
-
+      if(isec.le.2.or.jsec.le.2)then
+         write(*,*)'update sCM in int_real'
+         stop
+      endif
+c     TODO: muR from card
       ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)
-
 c     
 c     initialise
       isec = %(isec)d
@@ -61,7 +64,7 @@ c     initialise
       do i=1,3
          xsave(i)=x(i)
       enddo
-
+c
 c     specify phase space indices
       iU = isec
       iS = jsec
@@ -74,11 +77,11 @@ c     phase space and invariants
          stop
       endif
       call phase_space_npo(x,sCM,iU,iS,iB,iA,p,pb,xjac,xjacB)
-c      if(xjac.eq.0d0)goto 999
+      if(xjac.eq.0d0.or.xjacB.eq.0d0)goto 999
       call invariants_from_p(p,nexternal,sNLO,ierr)
-c      if(ierr.eq.1)goto 999
+      if(ierr.eq.1)goto 999
       call invariants_from_p(pb,nexternal-1,sLO,ierr)  
-c      if(ierr.eq.1)goto 999
+      if(ierr.eq.1)goto 999
 c
 c     check that phase-space labels and x variables are as expected
 c      call check_phsp_consistency(x,npartNLO,sNLO,sLO,iU,iS,iB,iA,ierr)
@@ -86,7 +89,7 @@ c      if(ierr.eq.1)goto 999
 c
 c     tiny technical phase-space cut to avoid fluctuations
       tinycut=tiny1
-      if(dotechcut(snlo,nexternal,tinycut)) return
+      if(dotechcut(snlo,nexternal,tinycut)) goto 999
 c     TODO: look at dotechcut
 c      if(dotechcut(x,nexternal,tinycut))goto 999
 c
@@ -95,17 +98,19 @@ c      if(docut(p,nexternal))goto 555
 c
 c     test matrix elements
       if(ntested.le.ntest)then
-         call test_R_%(isec)d_%(jsec)d(iunit,x)
          ntested=ntested+1
+         call test_R_%(isec)d_%(jsec)d(iunit,x)
       endif
+c     TODO: implement flag 'test_only' to stop here
 c
 c     real
       call %(NLO_proc_str)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
       RNLO = ANS(0)
-c      if(ierr.eq.1)goto 999
+      if(RNLO.lt.0d0.or.abs(RNLO).ge.huge(1d0).or.isnan(RNLO))goto 999
 c
+c     real sector function
       call get_Z_NLO(sNLO,sCM,alpha,isec,jsec,Z_NLO,'F',ierr)
-c      if(ierr.eq.1)goto 999
+      if(ierr.eq.1)goto 999
 c
 c     full real in the combination of sectors
       int_real_no_cnt=RNLO*Z_NLO*xjac
@@ -115,11 +120,11 @@ c      wgtpl=int_real_no_cnt*wgt/nitR
 c      if(doplot)call histo_fill(p,sNLO,npartNLO,wgtpl)
 c 555  continue
 c
-
       %(str_int_real)s
 c
 c     counterterm
       call local_counter_NLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,ZsumSi,ZsumSj,xjac,KS,KHC,KNLO,ierr)
+      if(ierr.eq.1)goto 999
 c
 c     subtraction
       int_real_%(isec)d_%(jsec)d=int_real_no_cnt-KNLO*xjac
@@ -133,5 +138,5 @@ c         nthres=nthres+int(nprodR/rfactR)
 c      endif
 c 111  format(a1,i3,a6,$)
 c
-      return
+ 999  return
       end

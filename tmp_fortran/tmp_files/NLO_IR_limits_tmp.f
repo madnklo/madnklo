@@ -211,7 +211,6 @@ c
       endif
 c
       KKBLO = %(proc_prefix_H_C_FgFg)s_GET_KKBLO(parent_leg,xpb,kt)
-      if(ierr.eq.1)goto 999
 c     TODO: improve ktmuktnuBmunu / kt^2
       M2tmp=CA*2d0*(2d0/sab*KKBLO+x/(1d0-x)*(1d0-x**alpha)*BLO+(1d0-x)/x*(1d0-(1d0-x)**alpha)*BLO)
 c     account for different damping factors according to

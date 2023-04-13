@@ -35,7 +35,7 @@ FFLAGS+= -I$(INCLUDE0) -I$(INCLUDE1)
 
 %(object_str)s
 
-COMMON_FILES= alphaS.o imap.o kinematics.o phase_space.o sectors.o testR.o vegas.o
+COMMON_FILES= alphaS.o imap.o kinematics.o phase_space.o sectors.o vegas.o
 
 %(proc_str)s
 
@@ -51,6 +51,7 @@ clean:
 	cd ../../../Source; make clean; cd -
 
 libs:
+	mkdir -p $(OBJ)
 	cd ../../Source/DHELAS; make; cd -
 	cd ../../../Source; make ; cd -
 

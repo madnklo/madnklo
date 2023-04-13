@@ -73,7 +73,6 @@ c     phase space and invariants
          write(*,*) 'Wrong sCM', sCM
          stop
       endif
-      call test_R(iunit,x,isec,jsec)
       call phase_space_npo(x,sCM,iU,iS,iB,iA,p,pb,xjac,xjacB)
 c      if(xjac.eq.0d0)goto 999
       call invariants_from_p(p,nexternal,sNLO,ierr)
@@ -94,12 +93,11 @@ c
 c     possible cuts
 c      if(docut(p,nexternal))goto 555
 c
-c     TODO: reinstate test routine
 c     test matrix elements
-c      if(ntested.le.ntest)then
-c         call test_R(iunit,x,alpha,beta)
-c         ntested=ntested+1
-c      endif
+      if(ntested.le.ntest)then
+         call test_R_%(isec)d_%(jsec)d(iunit,x)
+         ntested=ntested+1
+      endif
 c
 c     real
       call %(NLO_proc_str)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)

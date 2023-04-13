@@ -838,6 +838,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             files_str += 'driver_%d_%d.o ' % (isec, jsec)
             files_str += 'NLO_Rsub_%d_%d.o ' % (isec, jsec)
             files_str += 'NLO_IR_limits_%d_%d.o ' % (isec, jsec)
+            files_str += 'testR_%d_%d.o ' % (isec, jsec)
             files_str += 'NLO_K_%d_%d.o $(PROC_FILES) $(COMMON_FILES) \n' % (isec, jsec)
             all_str += ' sector_%d_%d' % (isec, jsec) 
             sector_str += """
@@ -864,7 +865,70 @@ sector_%d_%d: $(FILES_%d_%d)
         writers.FileWriter(filename).write(file)
 
 
-    
+
+######### Write testR_template 
+
+        replace_dict = {}
+        for i in range(0,len(all_sector_list)):
+            isec = all_sector_list[i][0]
+            jsec = all_sector_list[i][1]
+            iref = all_sector_recoilers[i]
+            replace_dict['isec'] = isec
+            replace_dict['jsec'] = jsec
+            replace_dict['iref'] = iref
+            limit_str = ''
+            is_soft = False
+            is_coll = False
+            list_Zsum = []
+            if necessary_ct_list[i*5] == 1:
+                limit_str += """
+c
+c     soft limit
+      e1=1d0
+      e2=1d0
+      call do_limit_R_%d_%d(iunit,'S       ',x0,%d,%d,e1,e2)
+"""%(isec,jsec,isec,jsec)
+                list_Zsum.append('c     call sector function ZsumSi\n')
+                list_Zsum.append('        call get_Z_NLO(sNLO,sCM,alpha,%d,%d,ZsumSi,"S",ierr)\n'%(isec,jsec))
+                is_soft = True
+            if necessary_ct_list[i*5+1] == 1:
+                limit_str += """
+c
+c     soft limit
+      e1=1d0
+      e2=1d0
+      call do_limit_R_%d_%d(iunit,'S       ',x0,%d,%d,e1,e2)
+"""%(isec,jsec,jsec,isec)
+                list_Zsum.append('c     call sector function ZsumSj\n')
+                list_Zsum.append('        call get_Z_NLO(sNLO,sCM,alpha,%d,%d,ZsumSj,"S",ierr)\n'%(jsec,isec))
+                is_soft = True
+            if necessary_ct_list[i*5+2] == 1:
+                limit_str += """
+c
+c     collinear limit
+      e1=0d0
+      e2=1d0
+      call do_limit_R_%d_%d(iunit,'C       ',x0,%d,%d,e1,e2)
+"""%(isec,jsec,isec,jsec)
+                is_coll = True
+            if is_soft and is_coll:
+                limit_str += """
+c
+c     soft-collinear limit
+      e1=1d0
+      e2=2d0
+      call do_limit_R_%d_%d(iunit,'SC      ',x0,%d,%d,e1,e2)
+"""%(isec,jsec,isec,jsec)
+            replace_dict['limit_str'] = limit_str
+            replace_dict['NLO_proc_str'] = str(defining_process.shell_string(schannel=True, 
+                                        forbid=True, main=False, pdg_order=False, print_id = False) + '_')
+            str_Zsum = " ".join(list_Zsum)
+            replace_dict['str_Zsum'] = str_Zsum               
+            filename = pjoin(dirpath, 'testR_%d_%d.f' %(isec,jsec) )
+            file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/testR_template.f")).read()
+            file = file % replace_dict
+            writers.FileWriter(filename).write(file)
 
 
+        
         return all_sectors

@@ -45,10 +45,6 @@ c     TODO: understand x(mxdim) definition by Vegas
       integer, parameter :: hel=-1
 c     TODO: convert to partonic sCM 
       sCM = (2d0*EBEAM(1))**2
-      if(isec.le.2.or.jsec.le.2)then
-         write(*,*)'update sCM in int_real'
-         stop
-      endif
 c     TODO: muR from card
       ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)
 c     
@@ -70,6 +66,10 @@ c     specify phase space indices
       iS = jsec
       iB = iref
       iA = 1 ! default azimuth for NLO 
+      if(isec.le.2.or.jsec.le.2)then
+         write(*,*)'update sCM in int_real'
+         stop
+      endif
 c     
 c     phase space and invariants
       if(sCM.le.0d0)then

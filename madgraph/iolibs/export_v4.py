@@ -2216,7 +2216,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         strdirpath=strdirpath.split('/')
 
         linkfiles = ['check_sa.f']
-        user_ linkfiles = []
+        user_linkfiles = [] 
         if strdirpath[-1][0] == 'L': # These links need to exist only for LO_XXXX directories
                                      # For the NLO_XXXX we have a makefile for each Subprocess
             user_linkfiles = ['makefile_n', 'LO_B.f']
@@ -2225,7 +2225,10 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             ln('../%s' % file, cwd=dirpath)
 
         for file in user_linkfiles:
-            ln('../../../../Template/Fortran_tmp/src_to_common/%s' % file, cwd=dirpath)
+            cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/%s' % file), dirpath)
+            if file=='makefile_n':
+                mv(pjoin(dirpath,'makefile_n'), pjoin(dirpath,'makefile'))    
+
 
         # Return to original PWD
         #os.chdir(cwd)

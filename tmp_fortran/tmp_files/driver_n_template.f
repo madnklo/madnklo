@@ -1,7 +1,6 @@
-      program driver_%(isec)d_%(jsec)d
+      program driver_n_body
       implicit none
       include 'nexternal.inc'
-      include 'colored_partons.inc'
       INCLUDE 'coupl.inc'
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
@@ -9,19 +8,17 @@
       integer mxdim
       parameter(mxdim=30)
       integer ndim,i,j,idum
-      integer isec,jsec
       double precision s_had
-      double precision err_r,res_r
-      integer iu,iu1,iu7,iu8
-      common/ciunitNLO/iu8
-      double precision int_real_%(isec)d_%(jsec)d
-      external int_real_%(isec)d_%(jsec)d
+      integer iu,iu1,iu7
+      common/cdim/ndim
+      double precision int_Born
+      external int_Born
       integer order
       logical doplot
       common/cdoplot/doplot
-      double precision rescale_plot_R
+      double precision rescale_plot_B
       character*100 line
-      integer nitRth,nclRth,nitR,nclR
+      integer nitBth,nclBth,nitB,nclB
 c
 c     vegas declarations
       integer ndmx,nprn,ndo,init,it
@@ -36,71 +33,65 @@ c
 c
 c     read inputs
       region=0d0
-      order=1
+      order=0
       s_had = (EBEAM(1)+EBEAM(2))**2
 C     TODO: read from run_card.inc
-      NITRTH = 10
-      NCLRTH = 10000
-      NITR = 10 
-      NCLR = 10000
+      NITBTH = 10
+      NCLBTH = 10000
+      NITB = 10 
+      NCLB = 10000
 c     TODO: understand muR input fixed/dyn scale
-
-      isec=%(isec)d
-      jsec=%(jsec)d
 c
-c     initialise physics parameters and set sector parametrisation
+c     initialise physics parameters
       iu1=44
       iu=55
       iu7=77
-      iu8=88
 c
 c     phase-space dimension, same for all contributions to this folder
       ndim=3*(nexternal-2)-4
       do i=1,2
-         if(ISNLOQCDPARTON(i)) ndim = ndim + 1
+         if(ISLOQCDPARTON(i)) ndim = ndim + 1
       enddo
       do i=1,ndim
          region(i)=0d0
          region(i+ndim)=1d0
       enddo
-c
-      open(unit=iu1,file='integration_R_%(isec)d_%(jsec)d.log')
-      open(unit=iu7,file='failures_R_%(isec)d_%(jsec)d.log')
-      open(unit=iu8,file='testR_%(isec)d_%(jsec)d.log')
-c
-      write(*,'(a)')'Warm up Rsub_%(isec)d_%(jsec)d'
+
+      open(unit=iu1,file='integration_B.log')
+      open(unit=iu7,file='failures_B.log')
+
+      write(*,'(a)')'Warm up B'
       write(iu1,'(a)')'============================='
-      write(iu1,'(a)')' REAL_%(isec)d_%(jsec)d WARMUP '
+      write(iu1,'(a)')' BORN WARMUP                 '
       write(iu1,'(a)')'============================='
       init=0
       doplot=.false.
-      call vegas(region,ndim,int_real_%(isec)d_%(jsec)d,init,nclRth,nitRth,nprn,res_r,err_r,chi2a,acc,xi,it,ndo,si,swgt,schi)
+      call vegas(region,ndim,int_Born,init,nclBth,nitBth,nprn,res_b,err_b,chi2a,acc,xi,it,ndo,si,swgt,schi)
 c
-      write(*,'(a)')'Integrating Rsub_%(isec)d_%(jsec)d'
       write(iu1,'(a)')
       write(iu1,'(a)')'============================='
-      write(iu1,'(a)')' REAL_%(isec)d_%(jsec)d '
+      write(iu1,'(a)')' BORN                        '
       write(iu1,'(a)')'============================='
       init=1
 c      doplot=.true.
 c      call histo_init
-      call vegas(region,ndim,int_real_%(isec)d_%(jsec)d,init,nclR,nitR,nprn,res_r,err_r,chi2a,acc,xi,it,ndo,si,swgt,schi)
-c      rescale_plot_R=dble(nitR)/min(dble(nitR),dble(it))
+      call vegas(region,ndim,int_Born,init,nclB,nitB,nprn,res_b,err_b,chi2a,acc,xi,it,ndo,si,swgt,schi)
+c      rescale_plot_B=dble(nitB)/min(dble(nitB),dble(it))
       write(*,110)char(13),'...done     '
       write(*,*)
-c      call histo_final('plot_R_%(isec)d_%(jsec)d'.dat',rescale_plot_R)
+c      call histo_final('plot_B.dat',rescale_plot_B)
 c
-      open(unit=iu,file='results_R_%(isec)d_%(jsec)d.log')
+      open(unit=iu,file='results_B.log')
       line='=================================================='
-      write(iu,*)' Rsub_%(isec)d_%(jsec)d '
+      write(iu,*)' B '
       write(iu,*)
-      write(iu,*)' itns and calls for Rsub_%(isec)d_%(jsec)d warmup  = ',nitRth,nclRth
-      write(iu,*)' itns and calls for Rsub_%(isec)d_%(jsec)d integration = ',nitR,nclR
+      write(iu,*)' itns and calls for B warmup  = ',nitBth,nclBth
+      write(iu,*)' itns and calls for B integration = ',nitB,nclB
       write(iu,*)
 c      write(iu,*)' '//line//line
       write(iu,*)' '//line
       write(iu,*)' '//line
-      write(iu,*)' sigma Rsub_%(isec)d_%(jsec)d [pb]  = ',res_r,' +-',err_r
+      write(iu,*)' sigma B [pb]  = ',res_b,' +-',err_b
       write(iu,*)' '//line
       write(iu,*)' '//line
 c      write(iu,*)' '//line//line
@@ -108,12 +99,9 @@ c      write(iu,*)' '//line//line
       close(iu)
       close(iu1)
       close(iu7)
-      close(iu8)
 c
 c
  110  format(a1,a12,$)
 c
       stop
       end
-
-

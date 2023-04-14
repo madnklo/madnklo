@@ -24,7 +24,6 @@ FDEBUG=-fcheck=all -fbacktrace -Wall -ffpe-trap=zero,overflow,underflow
 
 PATH_TO_COMMON_FILES=../../../../Template/Fortran_tmp/src_to_common
 
-
 INCLUDE0=$(PWD)/include
 
 INCLUDE1=$(PWD)
@@ -33,17 +32,22 @@ INCLUDE =$(wildcard ./include/*.inc ./*.inc)
 
 FFLAGS+= -I$(INCLUDE0) -I$(INCLUDE1)
 
-%(object_str)s
+%.o: %.f $(INCLUDE)
+     $(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $< 
 
-COMMON_FILES= alphaS.o imap.o kinematics.o phase_space.o sectors.o vegas.o
+%.o: $(PATH_TO_COMMON_FILES)/%.f $(INCLUDE)
+     $(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $< 
 
-%(proc_str)s
+COMMON_FILES= alphaS.o kinematics.o phase_space.o vegas.o LO_B.o
 
-%(files_str)s
+PROC_FILES = matrix.o
 
-%(all_str)s 
+FILES = driver_n.o $(PROC_FILES) $(COMMON_FILES)
 
-%(sector_str)s
+all: libs Born
+
+Born: $(FILES)
+      $(DEFAULT_F_COMPILER) $(patsubst %,$(OBJ)/%,$(FILES)) $(LIBS) -o $@ 
 
 .PHONY: clean libs
 clean:

@@ -8,7 +8,7 @@ c     (n+1)-body NLO integrand for vegas
       INCLUDE 'run.inc'
       INCLUDE 'cuts.inc'
       integer ierr
-      integer i,j,l,m,ievt,nthres,ntest
+      integer ievt,nthres,ntest
       integer iunit
       common/ciunitNLO/iunit
       integer ntested
@@ -49,6 +49,8 @@ c     TODO: muR from card
       ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)
 c     
 c     initialise
+      xjac = 0d0
+      xjacB = 0d0
       isec = %(isec)d
       jsec = %(jsec)d
       iref = %(iref)d
@@ -70,7 +72,7 @@ c     specify phase space indices
          write(*,*)'update sCM in int_real'
          stop
       endif
-c     
+c
 c     phase space and invariants
       if(sCM.le.0d0)then
          write(*,*) 'Wrong sCM', sCM

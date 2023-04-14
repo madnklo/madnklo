@@ -466,9 +466,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     # we list explicitly each index.
                     s['integrated_counterterms'][i_ct] = range(len(ct['input_mappings']))
 
-        
-
-######################################### Write fortran template files #############################################  
+######################################### Write fortran template files for n+1 body #############################################  
 
         # Set writer
         writer = writers.FortranWriter
@@ -691,7 +689,6 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         #     schannel=False, forbid=False, main=False, pdg_order=False, print_id = False))
         #     # return ((-11, 11), (2, -2))
         #     print(ct.get_reduced_flavors())
-        
 
 ######### Write NLO_IR_limits_isec_jsec.f and import underlying Born MEs and spin_correlations.inc
 
@@ -812,7 +809,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         os.symlink(dirpath + '/../../../Source/run.inc',dirpath+'/include/run.inc')
         os.symlink(dirpath + '/../../../Source/cuts.inc',dirpath+'/include/cuts.inc')
 
-######### Write makefile_template 
+######### Write makefile_npo_template 
 
         replace_dict = {}
         proc_str = ''
@@ -859,7 +856,7 @@ sector_%d_%d: $(FILES_%d_%d)
         replace_dict['all_str'] = all_str
         replace_dict['files_str'] = files_str
         filename = pjoin(dirpath, 'makefile' )
-        file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/makefile_template")).read()
+        file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/makefile_npo_template")).read()
         file = file % replace_dict
         writers.FileWriter(filename).write(file)
 

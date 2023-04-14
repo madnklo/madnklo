@@ -140,7 +140,7 @@ c     real
 c         CALL EPEM_GDDX_ME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
          call %(NLO_proc_str)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
          RNLO = ANS(0)
-c         if(ierr.eq.1)cycle
+         if(RNLO.lt.0d0.or.abs(RNLO).ge.huge(1d0).or.isnan(RNLO))cycle
          CALL GET_Z_NLO(SNLO,SCM,1D0,IU,IS,Z_NLO,'F',IERR)
          if(ierr.eq.1)cycle
 c

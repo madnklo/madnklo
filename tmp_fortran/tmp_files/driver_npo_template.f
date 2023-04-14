@@ -68,7 +68,7 @@ c     phase-space dimension, same for all contributions to this folder
 c
       open(unit=iu1,file='integration_R_%(isec)d_%(jsec)d.log')
       open(unit=iu7,file='failures_R_%(isec)d_%(jsec)d.log')
-      open(unit=iu8,file='test_R_%(isec)d_%(jsec)d.log')
+      open(unit=iu8,file='testR_%(isec)d_%(jsec)d.log')
 c
       write(*,'(a)')'Warm up Rsub_%(isec)d_%(jsec)d'
       write(iu1,'(a)')'============================='

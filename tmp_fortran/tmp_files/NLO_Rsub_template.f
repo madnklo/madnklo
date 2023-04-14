@@ -7,6 +7,7 @@ c     (n+1)-body NLO integrand for vegas
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
       INCLUDE 'cuts.inc'
+      integer i
       integer ierr
       integer ievt,nthres,ntest
       integer iunit

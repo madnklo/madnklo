@@ -121,3 +121,19 @@ TODO 07/04
 - Keep trace of the ierr and restore all of them;
 - Check sectors.f for the implementation of the sectors functions;
 - Check signs and normalization of Soft sector functions (look at the CCBLO);
+
+
+**********************
+TODO 12/04
+
+
+- *done* obj-gfortran directory needs to be created at the makefile level
+
+
+**********************
+TODO 14/04
+
+- Check the makefile issue (we do not want a full compilation even if one changes just one file);
+- To write a driver for the LO process;
+- Check the cancellation issue for a process with electroweak contributions;
+- Compare the result from the Born integration with the ones from Paolo's code

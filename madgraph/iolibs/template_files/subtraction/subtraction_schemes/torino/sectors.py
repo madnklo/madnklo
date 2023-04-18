@@ -634,7 +634,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         writer(filename).writelines(file)
 
 
-######### Write leg_PDGs.inc
+# ######### Write leg_PDGs.inc
 
         # Set replace_dict 
         replace_dict = {}
@@ -695,13 +695,15 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         dirpathLO = pjoin(dirmadnklo,glob.glob("%s/LO_*" % interface.user_dir_name[0])[0])
 
         replace_dict_limits = {}
-        # List of necessary underlying Born strings
+        # List of necessary underlying Born strings and particle PDGs
         Born_processes = []
+        Born_PDGs = []
         # List of dirpathLO of the necessary underlying Born
         path_Born_processes = []
         # Link LO files to each real process directory
         dirpathLO_head = pjoin(dirmadnklo,glob.glob("%s/LO_*" % interface.user_dir_name[0])[0])
         for i in range(0,len(all_sector_list)):
+            tmp_Born_PDGs = []
             isec = all_sector_list[i][0]
             jsec = all_sector_list[i][1]
 
@@ -723,10 +725,12 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     dirpathLO = pjoin(dirpathLO_head, 'SubProcesses', "P%s" % uB_proc_str_1[j])
                     if os.path.exists(dirpathLO):
                         replace_dict_limits['proc_prefix_S'] = uB_proc[j]
+                        tmp_Born_PDGs.append((necessary_ct[i*5].current.get_cached_initial_final_pdgs(),isec,jsec))
                         if uB_proc[j] not in Born_processes:
                             Born_processes.append(uB_proc[j])
                             path_Born_processes.append(dirpathLO)
                         break
+                    # grouped subprocesses have no a specific LO directory
                     if j == len(uB_proc) - 1:
                         extra_uB_proc = uB_proc[0]
                         replace_dict_limits['proc_prefix_S'] = extra_uB_proc
@@ -749,6 +753,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     uB_proc_str_1 = necessary_ct[i*5+2].current.shell_string_user()
                     for j in range(0,len(uB_proc)):
                         dirpathLO = pjoin(dirpathLO_head, 'SubProcesses', "P%s" % uB_proc_str_1[j])
+                        tmp_Born_PDGs.append((necessary_ct[i*5+2].current.get_cached_initial_final_pdgs(),isec,jsec))
                         if os.path.exists(dirpathLO):
                             replace_dict_limits[tmp_proc] = uB_proc[j]
                             if uB_proc[j] not in Born_processes:
@@ -763,6 +768,9 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                 if isec <= 2 or jsec <= 2:
                     # TODO: look at Born string for initial state singularities
                     continue
+            # selection of underlying Born according to 
+            # 'def compute_matrix_element_event_weight' function in ME7_integrands
+            Born_PDGs.append(tmp_Born_PDGs[0])
 
             filename = pjoin(dirpath, 'NLO_IR_limits_%d_%d.f' % (isec, jsec))
 
@@ -777,6 +785,92 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                         "%s/matrix_%s.f" % (dirpath, Born_processes[i]) )
             os.symlink( path_Born_processes[i] + '/%s_spin_correlations.inc' % Born_processes[i], 
                         dirpath + '/%s_spin_correlations.inc' % Born_processes[i] )
+
+######### Write leg_PDGs.inc for Born and Real processes
+
+        # if len(Born_PDGs) != len(all_sector_list):
+        #     raise MadEvent7Error('WARNING, the list of Born_PDGs is not compatible with the total number of sectors!')
+
+        # file = ''
+        # replace_dict = {}
+        # leg_PDGs = []
+        # leg_PDGs.append(all_PDGs[0][0])
+        # leg_PDGs.append(all_PDGs[0][1])
+        # for i in range(0,len(final_state_PDGs)):
+        #     leg_PDGs.append(all_PDGs[1][i])
+
+        # replace_dict['len_legPDGs'] = len(leg_PDGs)
+        # #replace_dict_tmp['len_BornPDGs'] = len(tmp_PDGs)-1
+        # replace_dict['leg_PDGs'] = str(leg_PDGs).replace('[','').replace(']','').replace(' ','').replace("'","")
+
+        # file += """ \
+        #   integer leg_PDGs(%(len_legPDGs)d)
+        #   data leg_PDGs/%(leg_PDGs)s/
+        #   \n""" % replace_dict
+
+        # for i in range(0,len(Born_PDGs)):
+        #     replace_dict_tmp = {}
+        #     tmp_PDGs = []
+        #     tmp_PDGs.append(Born_PDGs[i][0][0][0])
+        #     tmp_PDGs.append(Born_PDGs[i][0][0][1])
+        #     for j in range(0,len(Born_PDGs[i][0][-1])):
+        #         tmp_PDGs.append(Born_PDGs[i][0][1][j])
+        #     replace_dict_tmp['isec'] = Born_PDGs[i][1]
+        #     replace_dict_tmp['jsec'] = Born_PDGs[i][2]
+        #     replace_dict_tmp['len_tmpPDGs'] = len(tmp_PDGs)
+        #     replace_dict_tmp['tmp_PDGs'] = str(tmp_PDGs).replace('[','').replace(']','').replace(' ','').replace("'","")
+
+        #     file += """ \
+        #        integer Born_leg_PDGs_%(isec)d_%(jsec)d(%(len_tmpPDGs)d)
+        #        data Born_leg_PDGs_%(isec)d_%(jsec)d/%(tmp_PDGs)s/
+        #        \n""" % replace_dict_tmp
+
+        # filename = pjoin(dirpath, 'leg_PDGs.inc')
+        # writer(filename).writelines(file)
+
+######### Write get_Born_PDGs.f
+
+        if len(Born_PDGs) != len(all_sector_list):
+            raise MadEvent7Error('WARNING, the list of Born_PDGs is not compatible with the total number of sectors!')
+
+        file = ''
+        file += """ \
+          subroutine get_Born_PDGs(isec,jsec,nexternal_Born,Born_leg_PDGs)
+          implicit none
+          integer isec, jsec
+          integer nexternal_Born
+          integer Born_leg_PDGs(nexternal_Born)
+          \n"""
+
+        for i in range(0,len(Born_PDGs)):
+            replace_dict_tmp = {}
+            tmp_PDGs = []
+            tmp_PDGs.append(Born_PDGs[i][0][0][0])
+            tmp_PDGs.append(Born_PDGs[i][0][0][1])
+            for j in range(0,len(Born_PDGs[i][0][-1])):
+                tmp_PDGs.append(Born_PDGs[i][0][1][j])
+            replace_dict_tmp['isec'] = Born_PDGs[i][1]
+            replace_dict_tmp['jsec'] = Born_PDGs[i][2]
+            #replace_dict_tmp['len_tmpPDGs'] = len(tmp_PDGs)
+            replace_dict_tmp['tmp_PDGs'] = str(tmp_PDGs).replace('[','').replace(']','').replace(' ','').replace("'","")
+
+            if i == 0:
+                replace_dict_tmp['if_elseif'] = 'if'
+            else:
+                replace_dict_tmp['if_elseif'] = 'elseif'
+
+            file += """ \
+               %(if_elseif)s(isec.eq.%(isec)d.and.jsec.eq.%(jsec)d) then
+                  Born_leg_PDGs(:) = [%(tmp_PDGs)s] \n""" % replace_dict_tmp
+        
+        file += """ \
+          endif
+          return
+          end
+          """
+
+        filename = pjoin(dirpath, 'get_Born_PDGs.f')
+        writer(filename).writelines(file)
 
 
 ######### Write driver_isec_jsec.f 

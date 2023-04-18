@@ -77,9 +77,10 @@ c     exclude the mapped_flavours=0 value of the removed gluon
       implicit none
       integer a,b,c,n
       integer leg_pdgs(n)
-      integer min_ab, max_ab
+      integer min_ab, max_ab, end_label
       integer mapped_labels(n),mapped_flavours(n)
       integer i,j
+      integer Born_leg_PDGs(n-1)
 c
 c     initialise
       min_ab = 0
@@ -133,6 +134,20 @@ c        g > g + g
          elseif(leg_PDGs(a).eq.21.and.leg_PDGs(b).eq.21)then
             mapped_flavours(max_ab) = 21
          endif
+
+c        test
+         call get_Born_PDGs(a,b,n-1,Born_leg_PDGs)
+c        rescaling of mapped_labels
+         j = 0
+         do i=3,n
+            if(i.gt.min_ab) then
+               mapped_labels(i) = min_ab + j
+               j = j + 1
+            endif
+         enddo
+         
+c        TODO: check flavour configuration with Born_PDGs
+               
 c
 c     FaIb mapping : min_ab <= 2, max_ab> 2
 c

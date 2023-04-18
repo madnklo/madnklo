@@ -10,7 +10,6 @@ c     n-body LO integrand for vegas
       integer ierr
       integer ievt,nthres
       save ievt,nthres
-      double precision int_Born
       double precision sLO(nexternal,nexternal),sminLO
       double precision BLO
 c     TODO: understand x(mxdim) definition by Vegas

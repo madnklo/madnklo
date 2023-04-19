@@ -5,6 +5,7 @@
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
       INCLUDE 'cuts.inc'
+      INCLUDE 'colored_partons.inc'
       integer mxdim
       parameter(mxdim=30)
       integer ndim,i,j,idum
@@ -12,6 +13,7 @@
       integer iu,iu1,iu7
       common/cdim/ndim
       double precision int_Born
+      double precision res_B,err_B
       external int_Born
       integer order
       logical doplot

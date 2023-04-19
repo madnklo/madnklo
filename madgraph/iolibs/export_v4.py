@@ -2219,7 +2219,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         user_linkfiles = [] 
         if strdirpath[-1][0] == 'L': # These links need to exist only for LO_XXXX directories
                                      # For the NLO_XXXX we have a makefile for each Subprocess
-            user_linkfiles = ['makefile_n', 'LO_B.f']
+            user_linkfiles = ['driver_n.f','makefile_n', 'LO_B.f']
 
         for file in linkfiles:
             ln('../%s' % file, cwd=dirpath)

@@ -38,7 +38,7 @@ c     phase space and invariants
          write(*,*) 'Wrong sCM', sCM
          stop
       endif
-      call phase_space_n(x,sCM,p,xjac)
+      call phase_space_n(x,sCM,p,nexternal,xjac)
       if(xjac.eq.0d0)goto 999
       call invariants_from_p(p,nexternal,sLO,ierr)
       if(ierr.eq.1)goto 999

@@ -54,6 +54,9 @@ import models.import_ufo as import_ufo
 import models.write_param_card as param_writer
 import models.check_param_card as check_param_card
 
+#gl
+import madgraph.iolibs.template_files.subtraction.subtraction_schemes.torino.colored_partons as colored_partons
+
 
 from madgraph import MadGraph5Error, MG5DIR, ReadWrite
 from madgraph.iolibs.files import cp, ln, mv
@@ -2195,6 +2198,10 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         self.write_ngraphs_file(writers.FortranWriter(filename),
                            len(matrix_element.get_all_amplitudes()))
 
+        #gl
+        filename = pjoin(dirpath, 'colored_partons.inc')
+        self.write_PDGs_file(writers.FortranWriter(filename), matrix_element.get('processes')[0])
+
         # Generate diagrams
         filename = pjoin(dirpath, "matrix.ps")
         plot = draw.MultiEpsDiagramDrawer(matrix_element.get('base_amplitude').\
@@ -2219,11 +2226,13 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         user_linkfiles = [] 
         if strdirpath[-1][0] == 'L': # These links need to exist only for LO_XXXX directories
                                      # For the NLO_XXXX we have a makefile for each Subprocess
-            user_linkfiles = ['driver_n.f','makefile_n', 'LO_B.f','math.inc','phase_space_n.f']
-            cp(pjoin(dirpath,'../../../Source/MODEL/coupl.inc'), dirpath)
-            cp(pjoin(dirpath,'../../../Source/MODEL/input.inc'), dirpath)
-            cp(pjoin(dirpath,'../../../Source/run.inc'), dirpath)
-            cp(pjoin(dirpath,'../../../Source/cuts.inc'), dirpath)
+            user_linkfiles = ['driver_n.f','makefile_n', 'LO_B.f','phase_space_n.f']
+            os.mkdir(pjoin(dirpath, 'include'))
+            os.symlink(dirpath + '/../../../../Template/Fortran_tmp/src_to_common/math.inc',dirpath+'/include/math.inc')
+            os.symlink(dirpath + '/../../../Source/MODEL/coupl.inc',dirpath+'/include/coupl.inc')
+            os.symlink(dirpath + '/../../../Source/MODEL/input.inc',dirpath+'/include/input.inc')
+            os.symlink(dirpath + '/../../../Source/run.inc',dirpath+'/include/run.inc')
+            os.symlink(dirpath + '/../../../Source/cuts.inc',dirpath+'/include/cuts.inc')
 
         for file in linkfiles:
             ln('../%s' % file, cwd=dirpath)
@@ -2397,6 +2406,54 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
     #===========================================================================
     # write color-correlated matrix elements
     #===========================================================================
+    def write_PDGs_file(self, writer, process):
+
+        # Set replace_dict 
+        replace_dict = {}
+        colored_legs = list(colored_partons.get_colored_legs(process).values())
+        list_colored_legs = []
+        strdirpath=(str(self.dir_path))
+        strdirpath=strdirpath.split('/')
+        leglist = process.get('legs')
+
+        if strdirpath[-1][0] == 'L':
+            isLOQCDparton = ['.false.'] * (len(leglist))
+            for i in range(0,len(colored_legs)):
+                list_colored_legs.append(colored_legs[i][0])
+                isLOQCDparton[colored_legs[i][0]-1] = '.true.'
+            replace_dict['len_leglist'] = len(leglist)
+            replace_dict['isLOQCDparton'] = str(isLOQCDparton).replace('[','').replace(']','').replace(' ','').replace("'","")
+            file = """ \
+              logical isLOQCDparton(%(len_leglist)d)
+              data isLOQCDparton/%(isLOQCDparton)s/""" % replace_dict    
+        elif strdirpath[-1][0] == 'N' and strdirpath[-1][1] == 'L':
+            isNLOQCDparton = ['.false.'] * (len(leglist))
+            for i in range(0,len(colored_legs)):
+                list_colored_legs.append(colored_legs[i][0])
+                isNLOQCDparton[colored_legs[i][0]-1] = '.true.'
+            replace_dict['len_leglist'] = len(leglist)
+            replace_dict['isNLOQCDparton'] = str(isNLOQCDparton).replace('[','').replace(']','').replace(' ','').replace("'","")
+            file = """ \
+              logical isNLOQCDparton(%(len_leglist)d)
+              data isNLOQCDparton/%(isNLOQCDparton)s/""" % replace_dict
+        elif strdirpath[-1][0] == 'N' and strdirpath[-1][1] == 'N' and strdirpath[-1][2] == 'L':
+            isNNLOQCDparton = ['.false.'] * (len(leglist))
+            for i in range(0,len(colored_legs)):
+                list_colored_legs.append(colored_legs[i][0])
+                isNNLOQCDparton[colored_legs[i][0]-1] = '.true.'
+            replace_dict['len_leglist'] = len(leglist)
+            replace_dict['isNNLOQCDparton'] = str(isNNLOQCDparton).replace('[','').replace(']','').replace(' ','').replace("'","")
+            file = """ \
+              logical isNNLOQCDparton(%(len_leglist)d)
+              data isNNLOQCDparton/%(isNNLOQCDparton)s/""" % replace_dict
+
+        # Write the file
+        if writer:
+            writer.writelines(file)
+            return True
+        else:
+            return replace_dict
+
     
     def get_empty_color_correlation_placeholders(self):
         """ Return a dictionary with all color-correlation related placeholders entries 

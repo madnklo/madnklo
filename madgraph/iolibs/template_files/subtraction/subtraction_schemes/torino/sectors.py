@@ -615,23 +615,23 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
 ######### Write colored_partons.inc
 
-        # Set replace_dict 
-        replace_dict = {}
-        colored_legs = list(colored_partons.get_colored_legs(defining_process).values())
-        list_colored_legs = []
-        isNLOQCDparton = ['.false.'] * (len(leglist))
-        for i in range(0,len(colored_legs)):
-            list_colored_legs.append(colored_legs[i][0])
-            isNLOQCDparton[colored_legs[i][0]-1] = '.true.'
-        replace_dict['len_leglist'] = len(leglist)
-        replace_dict['isNLOQCDparton'] = str(isNLOQCDparton).replace('[','').replace(']','').replace(' ','').replace("'","")
+        # # Set replace_dict 
+        # replace_dict = {}
+        # colored_legs = list(colored_partons.get_colored_legs(defining_process).values())
+        # list_colored_legs = []
+        # isNLOQCDparton = ['.false.'] * (len(leglist))
+        # for i in range(0,len(colored_legs)):
+        #     list_colored_legs.append(colored_legs[i][0])
+        #     isNLOQCDparton[colored_legs[i][0]-1] = '.true.'
+        # replace_dict['len_leglist'] = len(leglist)
+        # replace_dict['isNLOQCDparton'] = str(isNLOQCDparton).replace('[','').replace(']','').replace(' ','').replace("'","")
 
-        file = """ \
-          logical isNLOQCDparton(%(len_leglist)d)
-          data isNLOQCDparton/%(isNLOQCDparton)s/""" % replace_dict
+        # file = """ \
+        #   logical isNLOQCDparton(%(len_leglist)d)
+        #   data isNLOQCDparton/%(isNLOQCDparton)s/""" % replace_dict
 
-        filename = pjoin(dirpath, 'colored_partons.inc')
-        writer(filename).writelines(file)
+        # filename = pjoin(dirpath, 'colored_partons.inc')
+        # writer(filename).writelines(file)
 
 
 # ######### Write leg_PDGs.inc

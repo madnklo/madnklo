@@ -62,7 +62,7 @@ c     phase-space dimension, same for all contributions to this folder
       open(unit=iu1,file='integration_B.log')
       open(unit=iu7,file='failures_B.log')
 
-      write(*,'(a)')'Warm up B'
+      write(*,'(a)')'Warm up Born'
       write(iu1,'(a)')'============================='
       write(iu1,'(a)')' BORN WARMUP                 '
       write(iu1,'(a)')'============================='
@@ -70,6 +70,7 @@ c     phase-space dimension, same for all contributions to this folder
       doplot=.false.
       call vegas(region,ndim,int_Born,init,nclBth,nitBth,nprn,res_b,err_b,chi2a,acc,xi,it,ndo,si,swgt,schi)
 c
+      write(*,'(a)')'Integrating Born'
       write(iu1,'(a)')
       write(iu1,'(a)')'============================='
       write(iu1,'(a)')' BORN                        '

@@ -117,6 +117,9 @@ c     real sector function
 c
 c     full real in the combination of sectors
       int_real_no_cnt=RNLO*Z_NLO*xjac
+
+c     add flux factor
+
 c
 c     plot real
 c      wgtpl=int_real_no_cnt*wgt/nitR
@@ -131,6 +134,8 @@ c     counterterm
 c
 c     subtraction
       int_real_%(isec)d_%(jsec)d=int_real_no_cnt-KNLO*xjac
+c     add flux factor
+      int_real_%(isec)d_%(jsec)d = int_real_%(isec)d_%(jsec)d/2d0/sCM
 c
 c     print out current run progress
 c     TODO: adapt progress bar

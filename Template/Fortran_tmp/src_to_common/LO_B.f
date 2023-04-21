@@ -51,6 +51,8 @@ c     Born
       BLO = ANS(0)
       if(BLO.lt.0d0.or.abs(BLO).ge.huge(1d0).or.isnan(BLO))goto 999
       int_Born=BLO*xjac
+c     add flux factor
+      int_Born = int_Born/2d0/sCM
 c
 c     plot
 c      wgtpl=int_Born*wgt/nitB

@@ -12,7 +12,7 @@ c     local variables
 c
 c     initialise
       p=0d0
-      xjac=1d0
+      xjac=GeVtopb
 c
       if(npart.ne.4)then
          write(*,*) 'Four particles expected in Born phase space', npart

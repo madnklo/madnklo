@@ -39,7 +39,7 @@ c
 c     iA (reference four-vector for definition of the azimuth)
 c     must be != iB, iU, iS;
       call get_mapped_labels(maptype,iU,iS,iB,npart,leg_pdgs,mapped_labels,
-     $           mapped_flavours,isLOQCDparton)
+     $     mapped_flavours,isLOQCDparton)
       pbB(:)=pbar(:,mapped_labels(iB))
       pbS(:)=pbar(:,mapped_labels(iS))
       pA(:) =pbar(:,mapped_labels(iA))
@@ -211,7 +211,7 @@ c
 c     initialise
       p=0d0
       pbar=0d0
-      xjac=1d0
+      xjac=0d0
 c     check on leg_PDGs
       if(size(leg_PDGs).ne.nexternal)then
          write(*,*) 'Wrong dimension for leg_PDGs',size(leg_PDGs), nexternal

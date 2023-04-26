@@ -141,6 +141,7 @@ c        q(barq) > g + q(barq)
             mapped_flavours(parent_leg) = leg_PDGs(parent_leg)
 c        g > q(barq) barq(q)
          elseif(leg_PDGs(rm_leg).eq.(-leg_PDGs(parent_leg)))then
+c           maybe not necessary            
             if(parent_leg.ne.n) then
                do i=parent_leg,n-1
                   mapped_flavours(i) = mapped_flavours(i+1)
@@ -155,16 +156,15 @@ c        g > g + g
 
          call get_Born_PDGs(isec,jsec,n-1,Born_leg_PDGs)
          
-c        rescaling of mapped_labels
-         j = 1
+c     rescaling of mapped_labels
+c     TODO: check for more involved cases
          do i=1,n-1
-            if(mapped_flavours(j).eq.0) then
-               j = j + 1
-            endif
-            if(Born_leg_PDGs(i).eq.mapped_flavours(j)) then
-               mapped_labels(j) = i 
-               j = j + 1
-            endif
+            do j=1,n
+               if(Born_leg_PDGs(i).eq.mapped_flavours(j)) then
+                  if(mapped_labels(j).eq.0) mapped_labels(j) = i
+                  exit
+               endif
+            enddo
          enddo
          
 c        TODO: check flavour configuration with Born_PDGs

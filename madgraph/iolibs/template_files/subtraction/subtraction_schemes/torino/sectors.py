@@ -976,7 +976,7 @@ sector_%d_%d: $(FILES_%d_%d)
             iref = all_sector_recoilers[i]
             replace_dict['isec'] = isec
             replace_dict['jsec'] = jsec
-            replace_dict['iref'] = iref
+            # replace_dict['iref'] = iref
             limit_str = ''
             is_soft = False
             is_coll = False
@@ -987,8 +987,8 @@ c
 c     soft limit
       e1=1d0
       e2=1d0
-      call do_limit_R_%d_%d(iunit,'S       ',x0,%d,%d,e1,e2)
-"""%(isec,jsec,isec,jsec)
+      call do_limit_R_%d_%d(iunit,'S       ',x0,e1,e2)
+"""%(isec,jsec)
                 list_Zsum.append('c     call sector function ZsumSi\n')
                 list_Zsum.append('        call get_Z_NLO(sNLO,sCM,alpha,%d,%d,ZsumSi,"S",ierr)\n'%(isec,jsec))
                 is_soft = True
@@ -998,8 +998,8 @@ c
 c     soft limit
       e1=1d0
       e2=1d0
-      call do_limit_R_%d_%d(iunit,'S       ',x0,%d,%d,e1,e2)
-"""%(isec,jsec,jsec,isec)
+      call do_limit_R_%d_%d(iunit,'S       ',x0,e1,e2)
+"""%(isec,jsec)
                 list_Zsum.append('c     call sector function ZsumSj\n')
                 list_Zsum.append('        call get_Z_NLO(sNLO,sCM,alpha,%d,%d,ZsumSj,"S",ierr)\n'%(jsec,isec))
                 is_soft = True
@@ -1011,8 +1011,8 @@ c
 c     collinear limit
       e1=0d0
       e2=1d0
-      call do_limit_R_%d_%d(iunit,'C       ',x0,%d,%d,e1,e2)
-"""%(isec,jsec,isec,jsec)
+      call do_limit_R_%d_%d(iunit,'C       ',x0,e1,e2)
+"""%(isec,jsec)
                     is_coll = True
                 if is_soft and is_coll:
                     limit_str += """
@@ -1020,8 +1020,8 @@ c
 c     soft-collinear limit
       e1=1d0
       e2=2d0
-      call do_limit_R_%d_%d(iunit,'SC      ',x0,%d,%d,e1,e2)
-"""%(isec,jsec,isec,jsec)
+      call do_limit_R_%d_%d(iunit,'SC      ',x0,e1,e2)
+"""%(isec,jsec)
             elif isec > 2 and jsec <= 2:
                 limit_str += """Collinear limits still to be specified in sectors.py """
 

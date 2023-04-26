@@ -40,7 +40,7 @@ c
       end
 
 
-      subroutine do_limit_R_%(isec)d_%(jsec)d(iunit,limstr,x0,iU,iS,e1,e2)
+      subroutine do_limit_R_%(isec)d_%(jsec)d(iunit,limstr,x0,e1,e2)
       implicit none
       INCLUDE 'math.inc'
       INCLUDE 'nexternal.inc'
@@ -52,6 +52,7 @@ c
       integer isec,jsec
       common/cnlosecindices/isec,jsec
       integer iU,iS,iB,iA,iref
+      common/cnlomaplabels/iU,iS,iB,iA,iref
       integer, parameter :: mxdim=30
       parameter(maxitn=12)
       double precision x0(mxdim),x(mxdim)
@@ -95,8 +96,6 @@ c     initialise
       Z_NLO=0d0
 c
 c     TODO: MAP SOFT LIMIT AS (ilm), I.E. ONE MAPPING PER DIPOLE
-      IB = %(iref)d
-      IA = 1
 c
 c     start testing
       write(iunit,*)
@@ -138,7 +137,6 @@ c     recompute momenta after rescaling
          if(ierr.eq.1)cycle
 c
 c     real
-c         CALL EPEM_GDDX_ME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
          call %(NLO_proc_str)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
          RNLO = ANS(0)
          if(RNLO.lt.0d0.or.abs(RNLO).ge.huge(1d0).or.isnan(RNLO))cycle
@@ -150,36 +148,9 @@ c     counterterm
 
          call local_counter_NLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,ZsumSi,ZsumSj,xjac,KS,KHC,KNLO,ierr)
          if(ierr.eq.1)cycle
-c
-c         write(iunit,*) 'KS= ', KS
-c         write(iunit,*) 'KHC= ', KHC
-c         
+         
          lim=KNLO
          single_real=RNLO*Z_NLO
-c         e3=(sNLO(1,3)+sNLO(2,3))/sNLO(1,2)
-c         e4=(sNLO(1,4)+sNLO(2,4))/sNLO(1,2)
-c         e5=(sNLO(1,5)+sNLO(2,5))/sNLO(1,2)
-c
-c         W34 = sNLO(3,4)/e3/e4/sNLO(1,2)
-c         W35 = sNLO(3,5)/e3/e5/sNLO(1,2)
-c         W45 = sNLO(4,5)/e4/e5/sNLO(1,2)
-c
-c         Z_NLOusr=(1d0/e3/W34+1d0/e4/W34)/
-c     $        (1d0/e3/W34+1d0/e3/W35+  
-c     $        1d0/e4/W34+1d0/e4/W45+
-c     $        1d0/e5/W35+1d0/e5/W45)
-c
-c         ZSUMSIusr=(1d0/e3/W34)/
-c     $        (1d0/e3/W34+1d0/e3/W35) 
-         
-c         lim=ZSUMSI
-c         single_real=Z_NLO
-
-c         lim=ZSUMSIusr
-c         single_real=Z_NLOusr
-
-
-c         write(iunit, *)  'RATIOS=', ZSUMSI/ZSUMSIusr, Z_NLO/Z_NLOusr
          
          if(abs(lim).gt.0d0)then
             write(iunit,*)lam,single_real,lim,abs(single_real-lim)/abs(lim)

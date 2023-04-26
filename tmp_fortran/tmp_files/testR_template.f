@@ -50,6 +50,7 @@ c
       INCLUDE 'cuts.inc'
       integer iitn,i,j,maxitn,iunit,ierr
       integer isec,jsec
+      common/cnlosecindices/isec,jsec
       integer iU,iS,iB,iA,iref
       integer, parameter :: mxdim=30
       parameter(maxitn=12)

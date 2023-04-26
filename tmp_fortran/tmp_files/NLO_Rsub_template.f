@@ -64,11 +64,10 @@ c     initialise
          xsave(i)=x(i)
       enddo
 c
-c     specify phase space indices
-      iU = isec
-      iS = jsec
-      iB = iref
-      iA = 1 ! default azimuth for NLO 
+c     specify phase-space mapping
+      %(mapping_str)s
+
+c     specify phase space indices 
       if(isec.le.2.or.jsec.le.2)then
          write(*,*)'update sCM in int_real'
          stop

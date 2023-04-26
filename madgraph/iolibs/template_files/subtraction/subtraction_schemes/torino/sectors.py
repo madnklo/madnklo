@@ -506,6 +506,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             list_M2 = []
             list_str_defHC = []
             list_int_real = []
+            mapping = []
+            mapping_str = ''
             isec = all_sector_list[i][0]
             jsec = all_sector_list[i][1]
             id_isec = all_sector_id_list[i][0]
@@ -559,7 +561,11 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                         list_M2.append('KHC=KHC+M2_H_C_FqFqx(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,ierr)\n')
                         list_str_defHC.append('DOUBLE PRECISION M2_H_C_FqFqx')
                     list_M2.append('if(ierr.eq.1)goto 999\n')
-                    list_int_real.append('# Symmetrised sector function for collinear kernel is equal to 1\n')
+                    #list_int_real.append('# Symmetrised sector function for collinear kernel is equal to 1\n')
+
+                    # default mapping for final-state collinear kernels
+                    # (abc) == (ijr)
+                    mapping = ['ISEC', 'JSEC', 'IREF'] 
                 # Loop over sectors with at least one initial state particle
                 if isec <= 2 or jsec <= 2:
                     continue
@@ -570,20 +576,30 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             #if str_cts[i*10+8] == 1:
             #    str_M2.append('')
 
+                #specify (abc) mapping choice
+                mapping_str = """ \
+                    iU = %s
+                    iS = %s
+                    iB = %s
+                    iA = 1 ! default azimuth for NLO""" % (mapping[0],mapping[1],mapping[2])
+
                 str_defHC = " ".join(list_str_defHC)
                 str_M2 = " ".join(list_M2)
                 str_int_real = " ".join(list_int_real)
+                replace_dict_int_real['mapping_str'] = mapping_str
                 replace_dict_ct['str_defHC'] = str_defHC
                 replace_dict_ct['str_M2'] = str_M2
-                replace_dict_int_real['str_int_real'] = str_int_real               
+                replace_dict_int_real['str_int_real'] = str_int_real        
+                replace_dict_int_real['mapping_str'] = mapping_str       
                 replace_dict_int_real['NLO_proc_str'] = str(defining_process.shell_string(schannel=True, 
                                         forbid=True, main=False, pdg_order=False, print_id = False) + '_')
 
+            # write NLO_K
             filename = pjoin(dirpath, 'NLO_K_%d_%d.f' % (isec, jsec))
-#            dirtmp=pjoin(dirmadnklo,"tmp_fortran/tmp_files/NLO_K_template.f")
             file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NLO_K_template.f")).read()
             file = file % replace_dict_ct
             writer(filename).writelines(file)
+            # write NLO_Rsub
             filename_int_real = pjoin(dirpath, 'NLO_Rsub_%d_%d.f' % (isec, jsec))
             file_int_real = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NLO_Rsub_template.f")).read()
             file_int_real = file_int_real % replace_dict_int_real
@@ -768,16 +784,15 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                 if isec <= 2 or jsec <= 2:
                     # TODO: look at Born string for initial state singularities
                     continue
+
             # selection of underlying Born according to 
             # 'def compute_matrix_element_event_weight' function in ME7_integrands
             Born_PDGs.append(tmp_Born_PDGs[0])
-
+            # write NLO_IR_limits
             filename = pjoin(dirpath, 'NLO_IR_limits_%d_%d.f' % (isec, jsec))
-
             file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NLO_IR_limits_tmp.f")).read()
             file = file % replace_dict_limits
             writer(filename).writelines(file)
-
 
         # Link LO files to each real process directory
         for i in range(0,len(Born_processes)):
@@ -851,7 +866,6 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                 tmp_PDGs.append(Born_PDGs[i][0][1][j])
             replace_dict_tmp['isec'] = Born_PDGs[i][1]
             replace_dict_tmp['jsec'] = Born_PDGs[i][2]
-            #replace_dict_tmp['len_tmpPDGs'] = len(tmp_PDGs)
             replace_dict_tmp['tmp_PDGs'] = str(tmp_PDGs).replace('[','').replace(']','').replace(' ','').replace("'","")
 
             if i == 0:
@@ -881,6 +895,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             jsec = all_sector_list[i][1]
             replace_dict['isec'] = isec
             replace_dict['jsec'] = jsec
+            # write driver
             filename = pjoin(dirpath, 'driver_%d_%d.f' % (isec, jsec))
             file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/driver_npo_template.f")).read()
             file = file % replace_dict
@@ -892,11 +907,6 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
         path_to_math = pjoin(dirmadnklo,"Template/Fortran_tmp/src_to_common/math.inc")
         os.symlink( path_to_math, dirpath + '/include/math.inc' )
-        
-        #inc_files = ['all_sector_list.inc','colored_partons.inc','damping_factors.inc','leg_PDGs.inc',
-        #                'nexternal.inc','ngraphs.inc','nsqso_born.inc','pmass.inc']
-        #for i in range(0,len(inc_files)):
-        #    os.symlink(dirpath + '/' + inc_files[i],dirpath+'/include/'+inc_files[i])
 
         os.symlink(dirpath + '/../../../Source/MODEL/coupl.inc',dirpath+'/include/coupl.inc')
         os.symlink(dirpath + '/../../../Source/MODEL/input.inc',dirpath+'/include/input.inc')
@@ -949,6 +959,7 @@ sector_%d_%d: $(FILES_%d_%d)
         replace_dict['sector_str'] = sector_str
         replace_dict['all_str'] = all_str
         replace_dict['files_str'] = files_str
+        # write makefile
         filename = pjoin(dirpath, 'makefile' )
         file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/makefile_npo_template")).read()
         file = file % replace_dict
@@ -992,33 +1003,39 @@ c     soft limit
                 list_Zsum.append('c     call sector function ZsumSj\n')
                 list_Zsum.append('        call get_Z_NLO(sNLO,sCM,alpha,%d,%d,ZsumSj,"S",ierr)\n'%(jsec,isec))
                 is_soft = True
-            if necessary_ct_list[i*5+2] == 1:
-                limit_str += """
+            # Loop over sectors with final state particles only
+            if isec > 2 and jsec > 2:
+                if necessary_ct_list[i*5+2] == 1:
+                    limit_str += """
 c
 c     collinear limit
       e1=0d0
       e2=1d0
       call do_limit_R_%d_%d(iunit,'C       ',x0,%d,%d,e1,e2)
 """%(isec,jsec,isec,jsec)
-                is_coll = True
-            if is_soft and is_coll:
-                limit_str += """
+                    is_coll = True
+                if is_soft and is_coll:
+                    limit_str += """
 c
 c     soft-collinear limit
       e1=1d0
       e2=2d0
       call do_limit_R_%d_%d(iunit,'SC      ',x0,%d,%d,e1,e2)
 """%(isec,jsec,isec,jsec)
+            elif isec > 2 and jsec <= 2:
+                limit_str += """Collinear limits still to be specified in sectors.py """
+
             replace_dict['limit_str'] = limit_str
             replace_dict['NLO_proc_str'] = str(defining_process.shell_string(schannel=True, 
                                         forbid=True, main=False, pdg_order=False, print_id = False) + '_')
             str_Zsum = " ".join(list_Zsum)
-            replace_dict['str_Zsum'] = str_Zsum               
+            replace_dict['str_Zsum'] = str_Zsum  
+            replace_dict['mapping_str'] = mapping_str
+            # write testR             
             filename = pjoin(dirpath, 'testR_%d_%d.f' %(isec,jsec) )
             file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/testR_template.f")).read()
             file = file % replace_dict
             writer(filename).writelines(file)
-            #writers.FileWriter(filename).write(file)
 
 
         

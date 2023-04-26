@@ -1,7 +1,7 @@
-      subroutine get_mapped_labels(maptype,a,b,c,n,leg_pdgs,mapped_labels,
-     $           mapped_flavours,isLOQCDparton)
+      subroutine get_mapped_labels(maptype,a,b,c,n,leg_pdgs,
+     $           mapped_labels,mapped_flavours,isLOQCDparton)
       implicit none
-      integer a,b,c,n
+      integer a,b,c,n,isec,jsec
       integer leg_pdgs(n)
       integer mapped_labels(n),mapped_flavours(n)
       integer i,j
@@ -75,22 +75,22 @@ c     exclude the mapped_flavours=0 value of the removed gluon
       subroutine get_collinear_mapped_labels(a,b,c,n,leg_pdgs,
      $           mapped_labels,mapped_flavours)
       implicit none
-      integer a,b,c,n
-      integer leg_pdgs(n)
-      integer min_ab, max_ab, end_label
-      integer mapped_labels(n),mapped_flavours(n)
       integer i,j
+      integer a,b,c,n
+      integer isec,jsec
+      common/cnlosecindices/isec,jsec
+      integer rm_leg,parent_leg
+      integer leg_pdgs(n)
+      integer mapped_labels(n),mapped_flavours(n)
       integer Born_leg_PDGs(n-1)
 c
 c     initialise
-      min_ab = 0
-      max_ab = 0
       j = 0
+      rm_leg = 0
+      parent_leg = 0
       mapped_labels = 0
       mapped_flavours = 0
-c
-c     TODO: consistency check on (a,b,c) PDGs
-c
+
 c     check mapping structure
       if(a.le.2)then
          write(*,*) 'The first particle must be in the final state!'
@@ -98,50 +98,71 @@ c     check mapping structure
          write(*,*) 'Exit...'
          call exit(-1)
       endif
+
+c     Associate a,b,c to the collinear particles in the sector
+      if(a.eq.isec) then
+         rm_leg = a
+         if(b.eq.jsec) then
+            parent_leg = b
+         elseif(c.eq.jsec) then
+            parent_leg = c
+         endif
+      elseif(a.eq.jsec) then
+         rm_leg = a
+         if(b.eq.isec) then
+            parent_leg = b
+         elseif(c.eq.isec) then
+            parent_leg = c
+         endif
+      elseif((rm_leg.eq.0).or.(parent_leg.eq.0).or.(rm_leg.eq.parent_leg)) then
+         write(*,*) 'Mapping tuple (abc) does not include'
+         write(*,*) 'particles defining the singular sector (ij) !'
+         write(*,*) 'a, b, c = ', a, b, c
+         write(*,*) 'i, j = ', isec, jsec
+         stop
+      endif
 c
-c     For NLO mapping type
-      min_ab = MIN(a,b)
-      max_ab = MAX(a,b)
+c     TODO: consistency check on (a,b,c) PDGs
+c
       mapped_flavours = leg_pdgs
 c
-c     FaFb mapping : min_ab > 2,  max_ab > 2
-c
-      if(min_ab.gt.2)then
-         do i=1,n
-            if(i.lt.min_ab)then
-               mapped_labels(i) = i
-            elseif(i.eq.min_ab)then
-               mapped_labels(i) = 0
-            elseif(i.eq.max_ab)then
-               mapped_labels(i) = n-1
-            elseif((i.gt.min_ab).and.(i.ne.max_ab))then
-               mapped_labels(i) = min_ab + j
+c     FaFb mapping : isec is always > 2,  jsec > 2
+c     Notation: given (abc), [ab] > a + b
+      
+      if(jsec.gt.2)then
+c        q(barq) > q(barq) + g
+         if(leg_PDGs(rm_leg).ne.21.and.leg_PDGs(parent_leg).eq.21)then
+            mapped_flavours(parent_leg) = leg_PDGs(rm_leg)
+c            write(*,*) 'Warning: this case should never occur!'
+c            write(*,*) icoll, jcoll
+c            stop
+c        q(barq) > g + q(barq)
+         elseif(leg_PDGs(rm_leg).eq.21.and.leg_PDGs(parent_leg).ne.21)then
+            mapped_flavours(parent_leg) = leg_PDGs(parent_leg)
+c        g > q(barq) barq(q)
+         elseif(leg_PDGs(rm_leg).eq.(-leg_PDGs(parent_leg)))then
+            if(parent_leg.ne.n) then
+               do i=parent_leg,n-1
+                  mapped_flavours(i) = mapped_flavours(i+1)
+               enddo
+            endif
+            mapped_flavours(n) = 21
+c        g > g + g
+         elseif(leg_PDGs(rm_leg).eq.21.and.leg_PDGs(parent_leg).eq.21)then
+            mapped_flavours(parent_leg) = 21
+         endif
+         mapped_flavours(rm_leg) = 0
+
+         call get_Born_PDGs(isec,jsec,n-1,Born_leg_PDGs)
+         
+c        rescaling of mapped_labels
+         j = 1
+         do i=1,n-1
+            if(mapped_flavours(j).eq.0) then
                j = j + 1
             endif
-         enddo
-         mapped_flavours(min_ab) = 0
-c        Notation: given (abc), [max_ab] > a + b
-c        q(bq) > q(bq) + g
-         if(leg_PDGs(a).ne.21.and.leg_PDGs(b).eq.21)then
-            mapped_flavours(max_ab) = leg_PDGs(a)
-c        q(bq) > g + q(bq)
-         elseif(leg_PDGs(a).eq.21.and.leg_PDGs(b).ne.21)then
-            mapped_flavours(max_ab) = leg_PDGs(b)
-c        g > q(bq) bq(q)
-         elseif(leg_PDGs(a).eq.(-leg_PDGs(b)))then
-            mapped_flavours(max_ab) = 21
-c        g > g + g
-         elseif(leg_PDGs(a).eq.21.and.leg_PDGs(b).eq.21)then
-            mapped_flavours(max_ab) = 21
-         endif
-
-c        test
-         call get_Born_PDGs(a,b,n-1,Born_leg_PDGs)
-c        rescaling of mapped_labels
-         j = 0
-         do i=3,n
-            if(i.gt.min_ab) then
-               mapped_labels(i) = min_ab + j
+            if(Born_leg_PDGs(i).eq.mapped_flavours(j)) then
+               mapped_labels(j) = i 
                j = j + 1
             endif
          enddo
@@ -149,30 +170,35 @@ c        rescaling of mapped_labels
 c        TODO: check flavour configuration with Born_PDGs
                
 c
-c     FaIb mapping : min_ab <= 2, max_ab> 2
+c     FaIb mapping : isec is always > 2, jsec < 2
 c
-      elseif(min_ab.le.2)then
-         do i=1,n
-            if(i.lt.max_ab)then
-               mapped_labels(i) = i
-            elseif(i.eq.max_ab)then
-               mapped_labels(i) = 0
-            elseif(i.gt.max_ab)then
-               mapped_labels(i) = max_ab + j
+      elseif(jsec.le.2)then
+c        Notation: given (a,b,c), b > [ab] + a
+c        q(barq) > g + q(barq), g > g + g 
+         if(leg_PDGs(rm_leg).eq.leg_PDGs(parent_leg))then
+            mapped_flavours(parent_leg) = 21
+c        g > q(barq) barq(q)
+         elseif(leg_PDGs(rm_leg).ne.leg_PDGs(parent_leg).and.leg_PDGs(parent_leg).eq.21)then
+c           check the correct order
+            mapped_flavours(parent_leg) = - leg_PDGs(rm_leg)
+c        q(barq) > q(barq) + g
+         elseif(leg_PDGs(rm_leg).ne.leg_PDGs(parent_leg).and.leg_PDGs(rm_leg).eq.21)then
+            mapped_flavours(parent_leg) = leg_PDGs(parent_leg)
+         endif
+         mapped_flavours(rm_leg) = 0
+         
+         call get_Born_PDGs(isec,jsec,n-1,Born_leg_PDGs)
+         
+c        rescaling of mapped_labels
+         j = 1
+         do i=1,n-1
+            if(mapped_flavours(j).eq.0) then
+               j = j + 1
+            endif
+            if(Born_leg_PDGs(i).eq.mapped_flavours(j)) then
+               mapped_labels(j) = i 
                j = j + 1
             endif
          enddo
-         mapped_flavours(max_ab) = 0
-c        Notation: given (a,b,c), b > [min_ab] + a
-c        q(bq) > g + q(bq), g > g + g 
-         if(leg_PDGs(a).eq.leg_PDGs(b))then
-            mapped_flavours(min_ab) = 21
-c        g > q(bq) bq(q)
-         elseif(leg_PDGs(a).ne.leg_PDGs(b).and.leg_PDGs(b).eq.21)then
-            mapped_flavours(min_ab) = - leg_PDGs(a)
-c        q(bq) > q(bq) + g
-         elseif(leg_PDGs(a).ne.leg_PDGs(b).and.leg_PDGs(a).eq.21)then
-            mapped_flavours(min_ab) = leg_PDGs(b)
-         endif
       endif
       end

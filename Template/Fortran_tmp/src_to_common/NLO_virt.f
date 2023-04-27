@@ -7,6 +7,9 @@ c     n-body NLO integrand for vegas
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
       INCLUDE 'cuts.inc'
+      INCLUDE 'ngraphs.inc'
+      INCLUDE 'nsqso_born.inc'
+      INCLUDE 'nsquaredSO.inc'
       integer ndim,ierr,ievt,nthres,i
       save ievt,nthres
       double precision int_virtual,VNLO,INLO,VNLO_MG
@@ -23,6 +26,36 @@ c     TODO: understand x(mxdim) definition by Vegas
       double precision ans(0:1) !TODO SET CORRECTLY RANGE OF ANS 
       double precision alphas, alpha_qcd
       integer, parameter :: hel=-1
+      LOGICAL INIT
+      DATA INIT/.TRUE./
+      COMMON/INITCHECKSA/INIT
+      INTEGER MATELEM_ARRAY_DIM
+      REAL*8 , ALLOCATABLE :: MATELEM(:,:)
+      REAL*8 SQRTS,AO2PI,TOTMASS
+C     sqrt(s)= center of mass energy 
+      REAL*8 PIN(0:3), POUT(0:3)
+      CHARACTER*120 BUFF(NEXTERNAL)
+      INTEGER RETURNCODE, UNITS, TENS, HUNDREDS
+      INTEGER NSQUAREDSO_LOOP
+      REAL*8 , ALLOCATABLE :: PREC_FOUND(:)
+C     
+C     GLOBAL VARIABLES
+C     
+C     This is from ML code for the list of split orders selected by
+C     the process definition
+C     
+      INTEGER NLOOPCHOSEN
+      CHARACTER*20 CHOSEN_LOOP_SO_INDICES(NSQUAREDSO)
+      LOGICAL CHOSEN_LOOP_SO_CONFIGS(NSQUAREDSO)
+      COMMON/ML5_1_2_CHOSEN_LOOP_SQSO/CHOSEN_LOOP_SO_CONFIGS
+      INTEGER NBORNCHOSEN
+      CHARACTER*20 CHOSEN_BORN_SO_INDICES(NSQSO_BORN)
+      LOGICAL CHOSEN_BORN_SO_CONFIGS(NSQSO_BORN)
+      COMMON/ML5_1_2_CHOSEN_BORN_SQSO/CHOSEN_BORN_SO_CONFIGS
+
+C     
+C     EXTERNAL
+C     
 c     TODO: convert to partonic sCM 
       sCM = (2d0*EBEAM(1))**2
 c     TODO: muR from card
@@ -34,6 +67,23 @@ c     initialise
       int_virtual=0d0
       sLO=0d0
 c
+
+C     
+C     BEGIN CODE
+C     
+C     
+
+
+      IF (INIT) THEN
+        INIT=.FALSE.
+        CALL ML5_1_2_GET_ANSWER_DIMENSION(MATELEM_ARRAY_DIM)
+        ALLOCATE(MATELEM(0:3,0:MATELEM_ARRAY_DIM))
+        CALL ML5_1_2_GET_NSQSO_LOOP(NSQUAREDSO_LOOP)
+        ALLOCATE(PREC_FOUND(0:NSQUAREDSO_LOOP))
+!        INCLUDE 'pmass.inc'
+      ENDIF
+
+      
 c     phase space and invariants
       if(sCM.le.0d0)then
          write(*,*) 'Wrong sCM', sCM
@@ -48,15 +98,22 @@ c     possible cuts
 c      if(docut(p,npartLO))goto 999
 c
 c     virtual
-         call virtual_NLO(sLO,VNLO,0,ierr)
-         if(ierr.eq.1)goto 999
+C      call virtual_NLO(sLO,VNLO,0,ierr)
+      CALL ML5_1_2_SLOOPMATRIX_THRES(p,MATELEM,-1.0D0,PREC_FOUND
+     $   ,RETURNCODE)
+
+      VNLO = MATELEM(1,0)
+      INLO=0d0
+      
+      if(ierr.eq.1)goto 999
 c
 c     counterterm
-      call int_counter_NLO(sLO,INLO,ierr)
+C      call int_counter_NLO(sLO,INLO,ierr)
       if(ierr.eq.1)goto 999
 c
 c     subtraction
       int_virtual=(VNLO+INLO)*xjac
+      int_virtual = int_virtual/2d0/sCM
 c
 c     plot
 c$$$      wgtpl=int_virtual*wgt/nitV

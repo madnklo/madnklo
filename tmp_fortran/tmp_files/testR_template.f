@@ -118,7 +118,8 @@ c     initialise
          KNLO=0d0
 c
 c     rescale relevant x random numbers
-c     x(1) is zCS, while x(2) is yCS 
+c     x(1) is zCS, while x(2) is yCS
+c     TODO: this rescaling is specific for (ijr) mapping; generalise 
          x(1)=x0(1)*lam**e1
          x(2)=x0(2)*lam**e2
 c

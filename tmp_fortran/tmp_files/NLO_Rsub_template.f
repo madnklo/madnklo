@@ -67,7 +67,6 @@ c
 c     specify phase-space mapping
       %(mapping_str)s
 
-c     specify phase space indices 
       if(isec.le.2.or.jsec.le.2)then
          write(*,*)'update sCM in int_real'
          stop
@@ -117,9 +116,6 @@ c
 c     full real in the combination of sectors
       int_real_no_cnt=RNLO*Z_NLO*xjac
 
-c     add flux factor
-
-c
 c     plot real
 c      wgtpl=int_real_no_cnt*wgt/nitR
 c      if(doplot)call histo_fill(p,sNLO,npartNLO,wgtpl)
@@ -134,6 +130,7 @@ c
 c     subtraction
       int_real_%(isec)d_%(jsec)d=int_real_no_cnt-KNLO*xjac
 c     add flux factor
+c     TODO: add the general case
       int_real_%(isec)d_%(jsec)d = int_real_%(isec)d_%(jsec)d/2d0/sCM
 c
 c     print out current run progress

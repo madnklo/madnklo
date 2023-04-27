@@ -133,30 +133,22 @@ c     Notation: given (abc), [ab] > a + b
 c        q(barq) > q(barq) + g
          if(leg_PDGs(rm_leg).ne.21.and.leg_PDGs(parent_leg).eq.21)then
             mapped_flavours(parent_leg) = leg_PDGs(rm_leg)
-c            write(*,*) 'Warning: this case should never occur!'
-c            write(*,*) icoll, jcoll
-c            stop
 c        q(barq) > g + q(barq)
          elseif(leg_PDGs(rm_leg).eq.21.and.leg_PDGs(parent_leg).ne.21)then
             mapped_flavours(parent_leg) = leg_PDGs(parent_leg)
 c        g > q(barq) barq(q)
          elseif(leg_PDGs(rm_leg).eq.(-leg_PDGs(parent_leg)))then
-c           maybe not necessary            
-            if(parent_leg.ne.n) then
-               do i=parent_leg,n-1
-                  mapped_flavours(i) = mapped_flavours(i+1)
-               enddo
-            endif
-            mapped_flavours(n) = 21
+            mapped_flavours(parent_leg) = 21
 c        g > g + g
          elseif(leg_PDGs(rm_leg).eq.21.and.leg_PDGs(parent_leg).eq.21)then
             mapped_flavours(parent_leg) = 21
          endif
+c        remove the first particle in the mapping
          mapped_flavours(rm_leg) = 0
 
          call get_Born_PDGs(isec,jsec,n-1,Born_leg_PDGs)
          
-c     rescaling of mapped_labels
+c     Identify mapped_labels
 c     TODO: check for more involved cases
          do i=1,n-1
             do j=1,n
@@ -166,8 +158,6 @@ c     TODO: check for more involved cases
                endif
             enddo
          enddo
-         
-c        TODO: check flavour configuration with Born_PDGs
                
 c
 c     FaIb mapping : isec is always > 2, jsec < 2

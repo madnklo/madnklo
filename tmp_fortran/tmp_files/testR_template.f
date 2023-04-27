@@ -141,7 +141,7 @@ c     real
          call %(NLO_proc_str)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
          RNLO = ANS(0)
          if(RNLO.lt.0d0.or.abs(RNLO).ge.huge(1d0).or.isnan(RNLO))cycle
-         CALL GET_Z_NLO(SNLO,SCM,1D0,IU,IS,Z_NLO,'F',IERR)
+         CALL GET_Z_NLO(SNLO,SCM,1D0,ISEC,JSEC,Z_NLO,'F',IERR)
          if(ierr.eq.1)cycle
 c
 c     counterterm

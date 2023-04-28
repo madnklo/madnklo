@@ -1009,8 +1009,18 @@ c     soft limit
                     limit_str += """
 c
 c     collinear limit
-      e1=0d0
-      e2=1d0
+      if((iU.eq.isec.and.iS.eq.jsec.and.iB.eq.iref).or.(iU.eq.jsec.and.iS.eq.isec.and.iB.eq.iref)) then
+        e1=0d0
+        e2=1d0
+      elseif((iU.eq.isec.and.iS.eq.iref.and.iB.eq.jsec).or.(iU.eq.jsec.and.iS.eq.iref.and.iB.eq.isec)) then
+        e1=1d0
+        e2=0d0
+      else
+        write(*,*) 'Wrong mapping for collinear limit'
+        write(*,*) 'iU, iS, iB = ', iU, iS, iB
+        write(*,*) 'isec, jsec = ', isec, jsec
+        stop
+      endif
       call do_limit_R_%d_%d(iunit,'C       ',x0,e1,e2)
 """%(isec,jsec)
                     is_coll = True
@@ -1018,8 +1028,8 @@ c     collinear limit
                     limit_str += """
 c
 c     soft-collinear limit
-      e1=1d0
-      e2=2d0
+      e1=e1+1d0
+      e2=e2+1d0
       call do_limit_R_%d_%d(iunit,'SC      ',x0,e1,e2)
 """%(isec,jsec)
             elif isec > 2 and jsec <= 2:

@@ -502,6 +502,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         # Set replace_dict for NLO_K_isec_jsec.f
         replace_dict_ct = {}
         replace_dict_int_real = {}
+        list_virtual = []
         for i in range(0,len(all_sector_list)):
             list_M2 = []
             list_str_defHC = []
@@ -515,13 +516,15 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             # Check isec != jsec
             if isec == jsec:
                 raise MadEvent7Error('Wrong sector indices %d,%d!' % (isec,jsec))
-
             replace_dict_ct['isec'] = isec
             replace_dict_ct['jsec'] = jsec
             replace_dict_int_real['isec'] = isec
             replace_dict_int_real['jsec'] = jsec
             # iref for phase_space_npo in NLO_Rsub
             replace_dict_int_real['iref'] = all_sector_recoilers[i]
+            list_virtual.append(isec)
+            list_virtual.append(jsec)
+            list_virtual.append(all_sector_recoilers[i])
             
             if necessary_ct_list[i*5] == 1:
                 if id_isec != 21:
@@ -604,8 +607,21 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             file_int_real = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NLO_Rsub_template.f")).read()
             file_int_real = file_int_real % replace_dict_int_real
             writer(filename_int_real).writelines(file_int_real)
+        # write virtual_recoilers.inc
+        str_virtual = " ".join(str(list_virtual))
+        print(str_virtual)
+        replace_dict['len_sec_list'] = len(all_sector_list)
+        replace_dict['ijr_set'] = str_virtual.replace('[','').replace(']','').replace(' ','').replace('(','').replace(')','')
+        file = """ \
+          integer, parameter :: lensectors = %(len_sec_list)d
+          integer sector_particles_ijr(3,lensectors)
+          data sector_particles_ijr/%(ijr_set)s/""" % replace_dict
+        filename = pjoin(dirpath, 'virtual_recoilers.inc')
+        writers.FortranWriter(filename).writelines(file)
 
-        
+
+
+
 ######### Write damping_factors.inc
 
         # Set replace_dict 
@@ -626,7 +642,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
           parameter (beta_II = %(beta_II)fd0)""" % replace_dict
 
         filename = pjoin(dirpath, 'damping_factors.inc')
-        writer(filename).writelines(file)
+        writers.FortranWriter(filename).writelines(file)
 
 
 ######### Write colored_partons.inc
@@ -800,6 +816,17 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                         "%s/matrix_%s.f" % (dirpath, Born_processes[i]) )
             os.symlink( path_Born_processes[i] + '/%s_spin_correlations.inc' % Born_processes[i], 
                         dirpath + '/%s_spin_correlations.inc' % Born_processes[i] )
+
+# link to virtual dir
+        print('Born_processes')
+        print(str(Born_processes[0]))
+        for i in range(0,len(Born_processes)):
+            dirpath_virtual = pjoin(dirmadnklo,glob.glob("%s/NLO_V*" % interface.user_dir_name[0])[0])
+            print('dirpath v = ')
+            print(dirpath_virtual)
+            dirpath_virtual = glob.glob("%s/SubProcesses/*%s" % (dirpath_virtual,str(Born_processes[i])))[0]
+            print(dirpath_virtual)
+            os.symlink(dirpath + '/virtual_recoilers.inc',dirpath_virtual+'/virtual_recoilers.inc')
 
 ######### Write leg_PDGs.inc for Born and Real processes
 
@@ -1047,6 +1074,7 @@ c     soft-collinear limit
             file = file % replace_dict
             writer(filename).writelines(file)
 
+######### Write virtual_recoilers.inc
+# link to virtual dir in export_v4, leg_PDGs.inc, get_Born_PDGs.f, abc, pdg reale, settore isec,jsec,iref, pdg Born, mapped_labels iref
 
-        
         return all_sectors

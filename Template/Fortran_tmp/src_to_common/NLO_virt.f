@@ -66,6 +66,8 @@ c     initialise
       xjac=0d0
       int_virtual=0d0
       sLO=0d0
+      VNLO = 0d0
+      INLO = 0d0
 c
 
 C     
@@ -103,12 +105,11 @@ C      call virtual_NLO(sLO,VNLO,0,ierr)
      $   ,RETURNCODE)
 
       VNLO = MATELEM(1,0)
-      INLO=0d0
       
       if(ierr.eq.1)goto 999
 c
 c     counterterm
-C      call int_counter_NLO(sLO,INLO,ierr)
+      call int_counter_NLO(p,sLO,INLO,ierr)
       if(ierr.eq.1)goto 999
 c
 c     subtraction

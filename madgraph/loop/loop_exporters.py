@@ -749,6 +749,7 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         # having a born or not, which must be true anyway since these are two
         # definite different classes of processes which can never be treated on
         # the same footing.
+        #gl suspended in fortran code
         if matrix_element.get('processes')[0].get('has_born'):
             filename = 'born_matrix.f'
             calls = self.write_bornmatrix(
@@ -763,6 +764,14 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         filename = 'ngraphs.inc'
         self.write_ngraphs_file(writers.FortranWriter(filename),
                            len(matrix_element.get_all_amplitudes()))
+
+        # #gl
+        # filename = 'leg_PDGs.inc'
+        # self.write_leg_PDGs_file(os.getcwd(), filename, 'tmp_leg_PDGs.inc', matrix_element.get('processes')[0])
+
+        # #gl
+        # filename = 'colored_partons.inc'
+        # self.write_colored_partons_file(writers.FortranWriter(filename), matrix_element.get('processes')[0])
 
         # Do not draw the loop diagrams if they are too many.
         # The user can always decide to do it manually, if really needed
@@ -795,6 +804,10 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
 
         self.link_files_from_Subprocesses(self.get_SubProc_folder_name(
                        matrix_element.get('processes')[0],group_number,proc_id))
+
+        #gl
+        self.link_files_from_Born_directory(matrix_element.get('processes')[0])
+        self.link_files_common_directory()
         
         # Return to original PWD
         os.chdir(cwd)
@@ -823,6 +836,42 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
             
         # Also like the whole MadLoop5_files directory
         ln('../MadLoop5_resources')
+
+    #gl
+    def link_files_from_Born_directory(self,process):
+
+        dirpathBorn = glob.glob("%s/../LO_*" % self.dir_path)[0]
+        dirpathBorn = glob.glob("%s/SubProcesses/P%s" % (dirpathBorn,process.shell_string()))[0]
+        #cp(pjoin(dirpathBorn, 'matrix.f'), pjoin(os.getcwd(),'born_matrix.f'))
+        #cp(pjoin(dirpathBorn, 'spin_correlations.inc'), os.getcwd())
+
+        linkfiles = ['leg_PDGs.inc', 'colored_partons.inc', 'include']
+
+        for file in linkfiles:
+            os.symlink(dirpathBorn + '/%s' % file, os.getcwd() + '/%s' % file)
+
+
+        # dirpathBorn = glob.glob("%s/../LO_*" % self.dir_path)[0]
+        # dirpathBorn = glob.glob("%s/SubProcesses/P%s" % (dirpathBorn,process.shell_string()))[0]
+        # owd = os.getcwd()
+        # os.chdir(dirpathBorn)
+        # matrix = glob.glob("matrix")[0]
+        # spin_corr = glob.glob("*_spin_correlations.inc")[0]
+        # os.chdir(owd)
+
+        # ln(dirpathBorn + '/%s' % matrix)
+        # ln(dirpathBorn + '/%s' % spin_corr)
+
+    #gl
+    def link_files_common_directory(self):
+
+        cwd = os.getcwd()
+        user_linkfiles = ['driver_v.f','makefile_v'] #, 'NLO_V.f']
+        for file in user_linkfiles:
+            cp(pjoin(self.dir_path,'../../Template/Fortran_tmp/src_to_common/%s' % file), cwd)
+            if file=='makefile_v':
+                mv(pjoin(cwd,'makefile_v'), pjoin(cwd,'makefile'))  
+
 
     def generate_general_replace_dict(self,matrix_element,
                                            group_number = None, proc_id = None):

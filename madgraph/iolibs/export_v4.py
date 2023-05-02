@@ -2200,7 +2200,15 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
 
         #gl
         filename = pjoin(dirpath, 'colored_partons.inc')
-        self.write_PDGs_file(writers.FortranWriter(filename), matrix_element.get('processes')[0])
+        self.write_colored_partons_file(writers.FortranWriter(filename), matrix_element.get('processes')[0])
+
+        #gl
+        filename = pjoin(dirpath, 'leg_PDGs.inc')
+        filename_user = pjoin(dirpath, 'tmp_leg_PDGs.inc')
+        self.write_leg_PDGs_file(dirpath, filename, filename_user, matrix_element.get('processes')[0])
+        #filename = ''
+        #self.write_leg_PDGs_file(writers.FortranWriter(filename), matrix_element.get('processes')[0])
+
 
         # Generate diagrams
         filename = pjoin(dirpath, "matrix.ps")
@@ -2401,12 +2409,52 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             check_sa_print_cc.append('ENDIF')
 
         check_sa_print_cc.append('ENDIF')
-        return_dict['check_sa_print_cc_body'] = '\n'.join(check_sa_print_cc)          
+        return_dict['check_sa_print_cc_body'] = '\n'.join(check_sa_print_cc)    
+
 
     #===========================================================================
-    # write color-correlated matrix elements
+    # write the list of particle PDGs involved in the process
     #===========================================================================
-    def write_PDGs_file(self, writer, process):
+    def write_leg_PDGs_file(self, dirpath, filename, filename_user, process): 
+
+        initial_state_PDGs, final_state_PDGs = process.get_cached_initial_final_pdgs()
+        all_PDGs = initial_state_PDGs, final_state_PDGs
+
+        # Set replace_dict 
+        replace_dict = {}
+        leg_PDGs = []
+        leg_PDGs.append(all_PDGs[0][0])
+        leg_PDGs.append(all_PDGs[0][1])
+        for i in range(0,len(final_state_PDGs)):
+            leg_PDGs.append(all_PDGs[1][i])
+
+        replace_dict['len_legPDGs'] = len(leg_PDGs)
+        replace_dict['leg_PDGs'] = str(leg_PDGs).replace('[','').replace(']','').replace(' ','').replace("'","")
+        replace_dict['proc_prefix'] = process.shell_string(
+                                        schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
+
+        file = """ \
+          integer leg_PDGs(%(len_legPDGs)d)
+          data leg_PDGs/%(leg_PDGs)s/""" % replace_dict
+
+        filename_user = pjoin(dirpath, 'leg_PDGs_%(proc_prefix)s.inc' % replace_dict)
+
+        file_user = """ \
+          integer leg_PDGs_%(proc_prefix)s(%(len_legPDGs)d)
+          data leg_PDGs_%(proc_prefix)s/%(leg_PDGs)s/""" % replace_dict
+
+        # Write the file
+        #if writer:
+        writers.FortranWriter(filename).writelines(file)
+        writers.FortranWriter(filename_user).writelines(file_user)
+        return True
+        #else:
+        #    return replace_dict     
+
+    #===========================================================================
+    # write the list of colored partons in the process
+    #===========================================================================
+    def write_colored_partons_file(self, writer, process):
 
         # Set replace_dict 
         replace_dict = {}
@@ -2416,7 +2464,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         strdirpath=strdirpath.split('/')
         leglist = process.get('legs')
 
-        if strdirpath[-1][0] == 'L':
+        if strdirpath[-1][0] == 'L' or strdirpath[-1][4] == 'V':
             isLOQCDparton = ['.false.'] * (len(leglist))
             for i in range(0,len(colored_legs)):
                 list_colored_legs.append(colored_legs[i][0])
@@ -2426,7 +2474,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             file = """ \
               logical isLOQCDparton(%(len_leglist)d)
               data isLOQCDparton/%(isLOQCDparton)s/""" % replace_dict    
-        elif strdirpath[-1][0] == 'N' and strdirpath[-1][1] == 'L':
+        elif strdirpath[-1][0] == 'N' and strdirpath[-1][1] == 'L' and strdirpath[-1][4] == 'R':
             isNLOQCDparton = ['.false.'] * (len(leglist))
             for i in range(0,len(colored_legs)):
                 list_colored_legs.append(colored_legs[i][0])

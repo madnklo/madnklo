@@ -92,8 +92,7 @@ PROCESS= MadLoopParamReader.o MadLoopCommons.o \
 %.o: $(PATH_TO_COMMON_FILES)/%.f $(INCLUDE)
 	$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $< 
 
-COMMON_FILES= alphaS.o kinematics.o phase_space_n.o vegas.o NLO_virt.o
-#NLO_I.o
+COMMON_FILES= alphaS.o kinematics.o imap.o phase_space_n.o vegas.o NLO_V.o NLO_I.o
 
 FILES = driver_v.o $(PROCESS) $(COMMON_FILES)
 

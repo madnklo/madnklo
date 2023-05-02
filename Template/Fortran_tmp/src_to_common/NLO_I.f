@@ -8,8 +8,10 @@ c     TODO: write  INCLUDE 'Born_PDGs.inc'
       INCLUDE 'nsqso_born.inc'
       INCLUDE 'coupl.inc'
       INCLUDE 'input.inc'
+      INCLUDE 'virtual_recoilers.inc'
 c     TODO: write this as link to Real directory
       INCLUDE 'leg_PDGs.inc'
+      INCLUDE 'colored_partons.inc'
       integer i,j,r
       integer ierr
       double precision p(0:3,nexternal)
@@ -22,11 +24,16 @@ c     TODO: write this as link to Real directory
       INTEGER, PARAMETER :: HEL = - 1
       DOUBLE PRECISION  EPEM_DDX_GET_CCBLO
       integer mapped_labels(nexternal+1), mapped_flavours(nexternal+1)
+      integer isec,jsec,iref
+      common/cnlosecindices/isec,jsec
 c
 c     initialise
       ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)
       pref=alphas/(2d0*pi)
       INLO=0d0
+      isec = 0
+      jsec = 0
+      iref = 0
 c      
 c     call Born matrix elements
 c      call Born_LO(xsLO,BLO,ierr)
@@ -37,44 +44,54 @@ c      if(ierr.eq.1)goto 999
 c      TODO: modify ierr      
 c      if(ierr.eq.1)goto 999
 
-      call  get_collinear_mapped_labels(3,4,5,nexternal+1,leg_PDGs,
-     $     mapped_labels,mapped_flavours)
-      write(*,*) 'ref, ml_ref= ', 5, mapped_labels(5)
-      pause
+      do i=1,lensectors
+         isec = sector_particles_ijr(1,i)
+         jsec = sector_particles_ijr(2,i)
+         iref = sector_particles_ijr(3,i) 
+         call get_mapped_labels('C',isec,jsec,iref,
+     $        nexternal+1,leg_PDGs,mapped_labels,
+     $        mapped_flavours,isLOQCDparton)
+c         write(56,*) 'i,j,r= ', isec, jsec, iref
+c         write(56,*) 'mp_i, mp_j, mp_r= ', mapped_labels(isec),
+c     $        mapped_labels(jsec), mapped_labels(iref)
+      enddo
+
+
+      
 c
 c     Born contribution
-      do i=1,nexternal
-         if(isgLO(i))INLO=INLO+
-     &     (CA/6d0+2*TR*Nf/3d0)*(log(sLO(i,iref1(i))/muR**2)-8d0/3d0)+
-     &     CA*(6d0-7d0/2d0*zeta2)
-         if(isqLO(i).or.isqbLO(i))INLO=INLO+
-     &     (CF/2d0)*(10d0-7d0*zeta2+log(sLO(i,iref1(i))/muR**2))
-      enddo
-c
-c     Include damping factors
-      A20a=A20(alpha_FF_NLO)
-      A21a=A21(alpha_FF_NLO)
-      A20b=A20(beta_FF_NLO)
-      do i=1,npartLO
-         if(isgLO(i))INLO=INLO+
-     &   CA*(A20a*(A20a-2d0*A20b)-A21a)+(gamma_g-2d0*CA)*A20b
-         if(isqLO(i).or.isqbLO(i))INLO=INLO+
-     &   CF*(A20a*(A20a-2d0*A20b)-A21a)+(gamma_q-2d0*CF)*A20b
-      enddo
-      INLO=INLO*BLO
-c
-c     Colour-linked-Born contribution
-      do i=1,npartLO
-         do j=1,npartLO
-            CCBLO = EPEM_DDX_GET_CCBLO(i,j)
-            if(j.eq.i)cycle
-            INLO=INLO+ccBLO*log(xsLO(i,j)/muR**2)*
-     &      (2d0-log(xsLO(i,j)/muR**2)/2d0)
-c            INLO=INLO+ccBLO(i,j)*log(xsLO(i,j)/muR**2)*
-c     &      (2d0-log(xsLO(i,j)/muR**2)/2d0)
-         enddo
-      enddo
-      INLO=INLO*pref
+c$$$      do i=1,nexternal
+c$$$         if(isgLO(i))INLO=INLO+
+c$$$     &     (CA/6d0+2*TR*Nf/3d0)*(log(sLO(i,iref1(i))/muR**2)-8d0/3d0)+
+c$$$     &     CA*(6d0-7d0/2d0*zeta2)
+c$$$         if(isqLO(i).or.isqbLO(i))INLO=INLO+
+c$$$     &     (CF/2d0)*(10d0-7d0*zeta2+log(sLO(i,iref1(i))/muR**2))
+c$$$      enddo
+c$$$c
+c$$$c     Include damping factors
+c$$$      A20a=A20(alpha_FF_NLO)
+c$$$      A21a=A21(alpha_FF_NLO)
+c$$$      A20b=A20(beta_FF_NLO)
+c$$$      do i=1,npartLO
+c$$$         if(isgLO(i))INLO=INLO+
+c$$$     &   CA*(A20a*(A20a-2d0*A20b)-A21a)+(gamma_g-2d0*CA)*A20b
+c$$$         if(isqLO(i).or.isqbLO(i))INLO=INLO+
+c$$$     &   CF*(A20a*(A20a-2d0*A20b)-A21a)+(gamma_q-2d0*CF)*A20b
+c$$$      enddo
+c$$$      INLO=INLO*BLO
+c$$$c
+c$$$c     Colour-linked-Born contribution
+c$$$      do i=1,npartLO
+c$$$         do j=1,npartLO
+c$$$            CCBLO = EPEM_DDX_GET_CCBLO(i,j)
+c$$$            if(j.eq.i)cycle
+c$$$            INLO=INLO+ccBLO*log(xsLO(i,j)/muR**2)*
+c$$$     &      (2d0-log(xsLO(i,j)/muR**2)/2d0)
+c$$$c            INLO=INLO+ccBLO(i,j)*log(xsLO(i,j)/muR**2)*
+c$$$c     &      (2d0-log(xsLO(i,j)/muR**2)/2d0)
+c$$$         enddo
+c$$$      enddo
+c$$$      INLO=INLO*pref
 c
       if(abs(INLO).ge.huge(1d0).or.isnan(INLO))then
          write(77,*)'Exception caught in int_counter_NLO',INLO

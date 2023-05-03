@@ -38,6 +38,8 @@ C     sqrt(s)= center of mass energy
       INTEGER RETURNCODE, UNITS, TENS, HUNDREDS
       INTEGER NSQUAREDSO_LOOP
       REAL*8 , ALLOCATABLE :: PREC_FOUND(:)
+      REAL * 8 single_pole, double_pole, diffeps1, diffeps2
+      REAL * 8 Q2
 C     
 C     GLOBAL VARIABLES
 C     
@@ -85,7 +87,7 @@ C
 !        INCLUDE 'pmass.inc'
       ENDIF
 
-      
+
 c     phase space and invariants
       if(sCM.le.0d0)then
          write(*,*) 'Wrong sCM', sCM
@@ -104,7 +106,23 @@ C      call virtual_NLO(sLO,VNLO,0,ierr)
       CALL ML5_1_2_SLOOPMATRIX_THRES(p,MATELEM,-1.0D0,PREC_FOUND
      $   ,RETURNCODE)
 
+      
       VNLO = MATELEM(1,0)
+      single_pole = MATELEM(2,0)
+      double_pole = MATELEM(3,0)
+
+      Q2 = sCM 
+
+      
+      diffeps1 = -eulergamma+dlog((4d0*MU_R**2*Pi)/Q2)-dlog(MU_R**2/sCM)
+      
+      diffeps2 =  (eulergamma**2+dlog(4d0*Pi)**2 - 
+     -    2d0*eulergamma*dlog((4d0*MU_R**2*Pi)/Q2) + 
+     -    dlog(MU_R**2/Q2)*
+     -     dlog((16d0*MU_R**2*Pi**2)/Q2) - 
+     -    dlog(MU_R**2/sCM)**2)/2d0
+
+      VNLO = VNLO - (single_pole * diffeps1 + double_pole * diffeps2)
       
       if(ierr.eq.1)goto 999
 c
